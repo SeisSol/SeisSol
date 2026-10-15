@@ -32,6 +32,8 @@ struct AsyncWriterExec {
    * The places are handed out on the main thread, in the same order on every rank.
    */
   std::uint64_t ticket{0};
+  //! Instead of a write: closes the files the output kept open from one write to the next.
+  bool close{false};
 };
 
 class AsyncWriter {
@@ -49,6 +51,14 @@ class AsyncWriter {
   void exec(const async::ExecInfo& info, const AsyncWriterExec& params);
   void execWait(const async::ExecInfo& info);
   void finalize();
+
+  /**
+   * @brief Closes the files the writes kept open, if any are.
+   *
+   * For an output whose last write did not close them; called on the main thread, while no write
+   * runs.
+   */
+  void closeFiles();
 
   private:
   static constexpr int PlanId = 0;

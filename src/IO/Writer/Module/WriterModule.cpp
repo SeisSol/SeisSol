@@ -25,6 +25,21 @@
 
 namespace seissol::io::writer::module {
 
+namespace {
+/**
+ * @brief The place of the next call among the writes of all outputs (see AsyncWriterExec::ticket).
+ *
+ * With one thread per output, the writes of all outputs have to run in the order they are issued
+ * in on the main thread, which is the same on every rank. Synchronously, they run in that order
+ * anyway, and with dedicated processes, waiting for another output's turn could hold up the
+ * process that is to serve it.
+ */
+std::uint64_t nextTicket() {
+  static std::uint64_t issued = 0;
+  return async::Config::mode() == async::Mode::Thread ? ++issued : 0;
+}
+} // namespace
+
 WriterModule::WriterModule(const std::string& prefix,
                            const ScheduledWriter& settings,
                            const parallel::Pinning& pinning,
@@ -113,13 +128,7 @@ void WriterModule::syncPoint(double time) {
   logInfo() << "Output Writer" << settings_.name << ": triggering write at" << time;
   lastWrite_ = time;
   ++writeCount_;
-  // With one thread per output, the writes of all outputs have to run in the order they are issued
-  // in here, which is the same on every rank (see AsyncWriterExec::ticket). Synchronously, they
-  // run in that order anyway, and with dedicated processes, waiting for another output's turn
-  // could hold up the process that is to serve it.
-  static std::uint64_t issued = 0;
-  const std::uint64_t ticket = async::Config::mode() == async::Mode::Thread ? ++issued : 0;
-  call(AsyncWriterExec{resumed_, ticket});
+  call(AsyncWriterExec{resumed_, nextTicket()});
 }
 
 int WriterModule::addBuffer(const void* pointer, std::size_t size) {
@@ -135,11 +144,17 @@ void* WriterModule::managedBuffer(int id) { return AsyncWriterModule::managedBuf
 void WriterModule::simulationEnd() {
   logInfo() << "Output Writer" << settings_.name << ": finishing output";
   wait();
+  // the files the writes kept open for the next one; closing is collective, and takes its turn
+  // like a write
+  call(AsyncWriterExec{resumed_, nextTicket(), true});
+  wait();
 }
 
 void WriterModule::shutdown() {
   logInfo() << "Output Writer" << settings_.name << ": shutdown";
   finalize();
+  // in case the simulation did not end the output
+  executor_.closeFiles();
 }
 
 } // namespace seissol::io::writer::module

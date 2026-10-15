@@ -157,6 +157,64 @@ TEST_CASE("IO/AsyncWriter: one executor runs several plans" * doctest::test_suit
 }
 
 /**
+ * A file every write goes to -- a time series -- stays open from one write to the next, rather than
+ * being opened collectively for every step anew. It has to hold every step all the same once the
+ * output closes it, as it does when the simulation ends.
+ */
+TEST_CASE("IO/AsyncWriter: a file every write appends to holds every step once closed" *
+          doctest::test_suite("io")) {
+  const unit_test::io::TempDir dir;
+  const auto file = dir.path + "/series.h5";
+
+  module::AsyncWriter executor;
+  executor.setComm(MPI_COMM_SELF);
+
+  constexpr std::int64_t Steps = 4;
+  constexpr std::int64_t Values = 8;
+  std::vector<std::int64_t> expected;
+  for (std::int64_t step = 0; step < Steps; ++step) {
+    std::vector<std::int64_t> values(Values);
+    for (std::int64_t i = 0; i < Values; ++i) {
+      values[i] = 100 * step + i;
+    }
+    expected.insert(expected.end(), values.begin(), values.end());
+
+    Writer writer;
+    writer.addInstruction(std::make_shared<instructions::Hdf5DataWrite>(
+        instructions::Hdf5Location(file, {"group"}),
+        "values",
+        WriteInline::createShaped<std::int64_t>({Dimension::appended(Values)}, values),
+        datatype::inferDatatype<std::int64_t>()));
+
+    io::LocalExecInfo info;
+    const auto planId = info.addBuffer(0);
+    const auto plan = writer.serialize();
+    info.resizeBuffer(planId, plan.size());
+    std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+
+    executor.execInit(info, module::AsyncWriterInit{});
+    executor.exec(info, module::AsyncWriterExec{});
+    executor.execWait(info);
+  }
+
+  // what WriterModule asks for when the simulation ends
+  io::LocalExecInfo info;
+  executor.exec(info, module::AsyncWriterExec{false, 0, true});
+  executor.finalize();
+
+  reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
+  hdf5.openFile(file);
+  hdf5.openGroup("group");
+  const auto values = hdf5.readData<std::int64_t>("values");
+  REQUIRE(values.size() == expected.size());
+  for (std::size_t i = 0; i < expected.size(); ++i) {
+    CHECK(values[i] == expected[i]);
+  }
+  hdf5.closeGroup();
+  hdf5.closeFile();
+}
+
+/**
  * The plan is written into a buffer of exactly its own length, so a serialization that is not
  * stable under a round trip would truncate or corrupt it on the next step.
  */

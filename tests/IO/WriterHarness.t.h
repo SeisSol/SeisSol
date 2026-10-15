@@ -103,22 +103,22 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
   std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
 
   if (runFiles != nullptr) {
-    auto instance = Writer(plan).beginWrite(info, comm, runFiles);
+    WriteInstance instance(comm, runFiles);
+    Writer(plan).write(info, instance);
     instance.close();
-    writer.endWrite();
     return plan;
   }
 
-  // hand it to the real executor rather than calling beginWrite directly, so that the plan
-  // travels the way it does in production
+  // hand it to the real executor rather than writing the plan directly, so that the plan travels
+  // the way it does in production
   module::AsyncWriter executor;
   executor.setComm(comm);
   executor.execInit(info, module::AsyncWriterInit{});
   executor.exec(info, module::AsyncWriterExec{});
   executor.execWait(info);
+  executor.closeFiles();
   executor.finalize();
 
-  writer.endWrite();
   return plan;
 }
 

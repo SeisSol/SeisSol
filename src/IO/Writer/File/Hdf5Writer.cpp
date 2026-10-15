@@ -497,6 +497,7 @@ void Hdf5File::closeGroup() {
   _eh(H5Gclose(handles_.top()));
   handles_.pop();
 }
+void Hdf5File::flushFile() { _eh(H5Fflush(file_, H5F_SCOPE_LOCAL)); }
 void Hdf5File::closeFile() {
   _eh(H5Fclose(file_));
   handles_.pop();
@@ -505,6 +506,7 @@ void Hdf5File::closeFile() {
 Hdf5Writer::Hdf5Writer(MPI_Comm comm, RunFiles* runFiles) : comm_(comm), runFiles_(runFiles) {}
 
 Hdf5File Hdf5Writer::file(const std::string& name) {
+  written_.insert(name);
   if (openFiles_.find(name) == openFiles_.end()) {
     // a file this run has not written yet belongs to an earlier run, and is replaced; a run
     // resuming from a checkpoint keeps it as a backup, since it holds the output before that
@@ -569,10 +571,28 @@ void Hdf5Writer::writeLinkExternal(const async::ExecInfo& /*info*/,
   }
 }
 
+void Hdf5Writer::endWrite() {
+  for (auto entry = openFiles_.begin(); entry != openFiles_.end();) {
+    const auto& name = entry->first;
+    if (written_.count(name) > 0 && writtenBefore_.count(name) > 0) {
+      entry->second.flushFile();
+      ++entry;
+    } else {
+      entry->second.closeFile();
+      entry = openFiles_.erase(entry);
+    }
+  }
+  writtenBefore_ = std::move(written_);
+  written_.clear();
+}
+
 void Hdf5Writer::finalize() {
   for (auto [_, file] : openFiles_) {
     file.closeFile();
   }
+  openFiles_.clear();
+  written_.clear();
+  writtenBefore_.clear();
 }
 
 } // namespace seissol::io::writer::file

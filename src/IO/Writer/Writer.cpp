@@ -27,6 +27,16 @@ namespace seissol::io::writer {
 WriteInstance::WriteInstance(MPI_Comm comm, file::RunFiles* runFiles)
     : hdf5_(comm, runFiles), binary_(comm, runFiles) {}
 
+void WriteInstance::write(
+    const async::ExecInfo& info,
+    const std::vector<std::shared_ptr<instructions::WriteInstruction>>& plan) {
+  for (const auto& instruction : plan) {
+    write(info, instruction);
+  }
+  hdf5_.endWrite();
+  binary_.endWrite();
+}
+
 void WriteInstance::write(const async::ExecInfo& info,
                           const std::shared_ptr<instructions::WriteInstruction>& instruction) {
   if (dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get()) != nullptr) {
@@ -75,16 +85,9 @@ std::string Writer::serialize() {
   return sstr.str();
 }
 
-WriteInstance
-    Writer::beginWrite(const async::ExecInfo& info, MPI_Comm comm, file::RunFiles* runFiles) {
-  WriteInstance instance(comm, runFiles);
-  for (const auto& instruction : instructions_) {
-    instance.write(info, instruction);
-  }
-  return instance;
+void Writer::write(const async::ExecInfo& info, WriteInstance& instance) const {
+  instance.write(info, instructions_);
 }
-
-void Writer::endWrite() {}
 
 const std::vector<std::shared_ptr<instructions::WriteInstruction>>&
     Writer::getInstructions() const {

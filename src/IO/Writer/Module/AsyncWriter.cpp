@@ -38,16 +38,6 @@ void AsyncWriter::execInit(const async::ExecInfo& info, const AsyncWriterInit& p
   // (do nothing here)
 }
 void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& params) {
-  const void* data = info.buffer(PlanId);
-  const size_t size = info.bufferSize(PlanId);
-  const char* strData = reinterpret_cast<const char*>(data);
-
-  int rank = 0;
-  MPI_Comm_rank(comm_, &rank);
-  if (printPlan_ && rank == 0) {
-    logInfo() << "Printing current plan:" << std::string(strData, strData + size);
-  }
-
   {
     // for the Hdf5 implementations, we'll need to serialize writes
     // (TODO: make one AsyncWriter only in total)
@@ -55,12 +45,31 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
     if (params.ticket != 0) {
       turn.wait(lock, [&]() { return nextTicket == params.ticket; });
     }
-    writer_ = Writer(std::string(strData, strData + size));
-    runFiles.resumed = params.resumed;
-    instance_ = std::optional(writer_.beginWrite(info, comm_, &runFiles));
-    // for now write synchronously
-    instance_.value().close();
-    instance_.reset();
+    if (params.close) {
+      if (instance_.has_value()) {
+        instance_.value().close();
+        instance_.reset();
+      }
+    } else {
+      const void* data = info.buffer(PlanId);
+      const size_t size = info.bufferSize(PlanId);
+      const char* strData = reinterpret_cast<const char*>(data);
+
+      int rank = 0;
+      MPI_Comm_rank(comm_, &rank);
+      if (printPlan_ && rank == 0) {
+        logInfo() << "Printing current plan:" << std::string(strData, strData + size);
+      }
+
+      writer_ = Writer(std::string(strData, strData + size));
+      runFiles.resumed = params.resumed;
+      // one instance for all writes of the output, which keeps the files open that every write
+      // goes to
+      if (!instance_.has_value()) {
+        instance_.emplace(comm_, &runFiles);
+      }
+      writer_.write(info, instance_.value());
+    }
     if (params.ticket != 0) {
       ++nextTicket;
     }
@@ -69,6 +78,13 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
 }
 void AsyncWriter::execWait(const async::ExecInfo& info) {
   // TODO: async finalize
+}
+void AsyncWriter::closeFiles() {
+  const std::unique_lock lock(globalLock);
+  if (instance_.has_value()) {
+    instance_.value().close();
+    instance_.reset();
+  }
 }
 void AsyncWriter::finalize() {
   if (comm_ != MPI_COMM_WORLD) {

@@ -15,10 +15,12 @@
 #include <async/ExecInfo.h>
 #include <cstddef>
 #include <hdf5.h>
+#include <map>
 #include <memory>
 #include <mpi.h>
+#include <set>
 #include <string>
-#include <unordered_map>
+#include <utility>
 #include <utils/logger.h>
 
 namespace seissol::io::writer::file {
@@ -85,6 +87,7 @@ void BinaryFile::closeFile() { MPI_File_close(&file_); }
 BinaryWriter::BinaryWriter(MPI_Comm comm, RunFiles* runFiles) : comm_(comm), runFiles_(runFiles) {}
 
 void BinaryWriter::write(const async::ExecInfo& info, const instructions::BinaryWrite& write) {
+  written_.insert(write.filename);
   if (openFiles_.find(write.filename) == openFiles_.end()) {
     openFiles_[write.filename] = std::make_unique<BinaryFile>(BinaryFile(comm_));
     // as for HDF5: the first write of a resuming run keeps what an earlier run left as a backup
@@ -115,10 +118,27 @@ void BinaryWriter::write(const async::ExecInfo& info, const instructions::Binary
   }
 }
 
+void BinaryWriter::endWrite() {
+  for (auto entry = openFiles_.begin(); entry != openFiles_.end();) {
+    const auto& name = entry->first;
+    if (written_.count(name) > 0 && writtenBefore_.count(name) > 0) {
+      ++entry;
+    } else {
+      entry->second->closeFile();
+      entry = openFiles_.erase(entry);
+    }
+  }
+  writtenBefore_ = std::move(written_);
+  written_.clear();
+}
+
 void BinaryWriter::finalize() {
   for (auto& [_, file] : openFiles_) {
     file->closeFile();
   }
+  openFiles_.clear();
+  written_.clear();
+  writtenBefore_.clear();
 }
 
 } // namespace seissol::io::writer::file

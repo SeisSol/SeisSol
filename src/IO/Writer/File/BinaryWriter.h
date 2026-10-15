@@ -12,11 +12,12 @@
 #include "IO/Writer/Instructions/Data.h"
 
 #include <hdf5.h>
+#include <map>
 #include <memory>
 #include <mpi.h>
+#include <set>
 #include <stack>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace seissol::io::writer::file {
@@ -44,16 +45,24 @@ class BinaryFile {
 class BinaryWriter {
   public:
   /**
-   * @brief A writer for one write plan; @p runFiles as for Hdf5Writer.
+   * @brief A writer for the write plans of one output; @p runFiles as for Hdf5Writer.
    */
   explicit BinaryWriter(MPI_Comm comm, RunFiles* runFiles = nullptr);
 
   void write(const async::ExecInfo& info, const instructions::BinaryWrite& write);
 
+  //! Ends the writes of one plan, keeping the files open that every plan writes (cf. Hdf5Writer).
+  void endWrite();
+
+  //! Closes every file that is still open.
   void finalize();
 
   private:
-  std::unordered_map<std::string, std::unique_ptr<BinaryFile>> openFiles_;
+  //! By name, so that every rank closes them in the same order: closing is collective.
+  std::map<std::string, std::unique_ptr<BinaryFile>> openFiles_;
+  //! The files the current plan wrote, and those the plan before wrote.
+  std::set<std::string> written_;
+  std::set<std::string> writtenBefore_;
   MPI_Comm comm_{MPI_COMM_NULL};
   RunFiles* runFiles_{nullptr};
 };
