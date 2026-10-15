@@ -34,7 +34,7 @@
 namespace seissol::unit_test {
 using namespace seissol::solver;
 
-namespace {
+namespace streamorderedexchange {
 
 constexpr auto NoActor = std::numeric_limits<std::size_t>::max();
 
@@ -638,18 +638,19 @@ struct StreamOutcome {
  * release their events as TimeManager::advanceInTime() did. In the end, everybody lets go of the
  * events as in TimeManager::freeDynamicResources().
  */
-void runStreamOrdered(int processes,
-                      std::size_t clusterCount,
-                      const std::vector<Neighborhood>& neighborhoods,
-                      const std::vector<long>& syncTimes,
-                      std::mt19937& random,
-                      StreamOutcome& outcome,
-                      bool recordings = false,
-                      EventHandling handling = EventHandling::Pool) {
+inline void runStreamOrdered(int processes,
+                             std::size_t clusterCount,
+                             const std::vector<Neighborhood>& neighborhoods,
+                             const std::vector<long>& syncTimes,
+                             std::mt19937& random,
+                             StreamOutcome& outcome,
+                             bool recordings = false,
+                             EventHandling handling = EventHandling::Pool) {
   StreamDevices devices;
   const auto rate = [](std::size_t cluster) { return 1L << cluster; };
 
   std::vector<std::unique_ptr<StreamScheduler>> schedulers;
+  schedulers.reserve(static_cast<std::size_t>(processes));
   for (int process = 0; process < processes; ++process) {
     schedulers.push_back(
         std::make_unique<StreamScheduler>(devices, process, clusterCount, handling));
@@ -738,6 +739,7 @@ void runStreamOrdered(int processes,
   }
 
   std::vector<AbstractTimeCluster*> actors;
+  actors.reserve(copies.size() + ghosts.size());
   for (auto& [index, copy] : copies) {
     actors.push_back(copy.get());
   }
@@ -774,12 +776,12 @@ void runStreamOrdered(int processes,
     // the copy layers first: the ghost clusters announce their exchanges from them
     for (auto& [index, copy] : copies) {
       copy->setSyncTime(static_cast<double>(syncTime));
-      copy->reset();
+      (*copy).reset();
       devices.actors[index].stepsUntilSync = copy->getStepsUntilSync();
     }
     for (auto& [index, ghost] : ghosts) {
       ghost->setSyncTime(static_cast<double>(syncTime));
-      ghost->reset();
+      (*ghost).reset();
       devices.actors[index].stepsUntilSync = ghost->getStepsUntilSync();
     }
 
@@ -840,7 +842,7 @@ void runStreamOrdered(int processes,
   outcome.prematureRecords += devices.prematureRecords;
 }
 
-std::vector<Neighborhood>
+inline std::vector<Neighborhood>
     randomNeighborhoods(int processes, std::size_t clusters, std::mt19937& random) {
   std::bernoulli_distribution neighboring(0.4);
   std::vector<Neighborhood> neighborhoods;
@@ -860,11 +862,14 @@ std::vector<Neighborhood>
   return neighborhoods;
 }
 
-} // namespace
+} // namespace streamorderedexchange
+
+using namespace streamorderedexchange;
 
 TEST_CASE("Exchanges ordered on the device neither get stuck nor break the dependencies" *
           doctest::test_suite("solver")) {
   const std::vector<long> syncTimes{6, 13, 16, 29};
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 random(8642);
   StreamOutcome outcome;
   for (int trial = 0; trial < 150; ++trial) {
@@ -888,6 +893,7 @@ TEST_CASE("Recordings of exchanges ordered on the device only wait for their own
           doctest::test_suite("solver")) {
   // e.g. a ghost cluster may acknowledge a group launched before a recording only inside of it
   const std::vector<long> syncTimes{6, 13, 16, 29};
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 random(9753);
   StreamOutcome outcome;
   for (int trial = 0; trial < 150; ++trial) {
@@ -917,6 +923,7 @@ TEST_CASE("Exchange events that get destroyed at synchronization points are wait
   const std::vector<long> syncTimes{6, 13, 16, 29};
   for (const bool recordings : {false, true}) {
     CAPTURE(recordings);
+    // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
     std::mt19937 random(2468);
     StreamOutcome outcome;
     for (int trial = 0; trial < 30; ++trial) {

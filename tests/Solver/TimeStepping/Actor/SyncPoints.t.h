@@ -22,7 +22,7 @@
 namespace seissol::unit_test {
 using namespace seissol::solver;
 
-namespace {
+namespace syncpoints {
 
 /**
  * A cluster that checks the sizes of its steps.
@@ -227,12 +227,12 @@ struct Outcome {
  * Runs the clusters through the synchronization points of an output interval up to the end time;
  * the synchronization times accumulate as the modules accumulate them.
  */
-Outcome runIntervals(double baseTimeStepSize,
-                     long ratio,
-                     std::size_t levels,
-                     double interval,
-                     double endTime,
-                     bool plan) {
+inline Outcome runIntervals(double baseTimeStepSize,
+                            long ratio,
+                            std::size_t levels,
+                            double interval,
+                            double endTime,
+                            bool plan) {
   Ladder ladder(baseTimeStepSize, ratio, levels);
   Outcome outcome;
   const double tolerance = ClusterTimes::TickTolerance * baseTimeStepSize;
@@ -271,7 +271,7 @@ Outcome runIntervals(double baseTimeStepSize,
   return outcome;
 }
 
-void checkIntervals(
+inline void checkIntervals(
     double baseTimeStepSize, long ratio, std::size_t levels, double interval, double endTime) {
   for (const bool plan : {false, true}) {
     CAPTURE(plan);
@@ -294,7 +294,7 @@ constexpr double BaseDebug = 1.4412823797093841e-03;
  * output interval. Checks that exactly one super-timestep per interval reaches the synchronization
  * point, and that all others only take steps of the maximum size (which a replay would repeat).
  */
-void checkSuperSteps(
+inline void checkSuperSteps(
     double baseTimeStepSize, long ratio, std::size_t levels, double interval, double endTime) {
   Ladder ladder(baseTimeStepSize, ratio, levels);
   const double tolerance = ClusterTimes::TickTolerance * baseTimeStepSize;
@@ -322,7 +322,9 @@ void checkSuperSteps(
   CHECK(irregularBeforeSync == 0);
 }
 
-} // namespace
+} // namespace syncpoints
+
+using namespace syncpoints;
 
 TEST_CASE("Only the super-timestep that reaches a synchronization point has irregular steps" *
           doctest::test_suite("solver")) {

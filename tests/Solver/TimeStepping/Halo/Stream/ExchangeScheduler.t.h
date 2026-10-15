@@ -32,7 +32,7 @@
 namespace seissol::unit_test {
 using namespace seissol::solver;
 
-namespace {
+namespace exchangescheduler {
 
 /**
  * The point-to-point semantics of NCCL and its relatives, for a number of processes, without any
@@ -135,11 +135,11 @@ class RendezvousNetwork {
   std::size_t nextTicket_{1};
 };
 
-std::vector<RendezvousNetwork::Operation> operations(bool sends,
-                                                     bool receives,
-                                                     const std::vector<int>& peers,
-                                                     std::size_t sendCommunicator,
-                                                     std::size_t receiveCommunicator) {
+inline std::vector<RendezvousNetwork::Operation> operations(bool sends,
+                                                            bool receives,
+                                                            const std::vector<int>& peers,
+                                                            std::size_t sendCommunicator,
+                                                            std::size_t receiveCommunicator) {
   std::vector<RendezvousNetwork::Operation> result;
   for (const auto peer : peers) {
     if (sends) {
@@ -303,15 +303,16 @@ struct Adjacency {
  */
 enum class Transport { Scheduled, Immediate };
 
-bool simulate(Transport transport,
-              Launching launching,
-              int processes,
-              std::size_t clusterCount,
-              const std::vector<Adjacency>& adjacencies,
-              const std::vector<long>& syncTimes,
-              std::mt19937& random) {
+inline bool simulate(Transport transport,
+                     Launching launching,
+                     int processes,
+                     std::size_t clusterCount,
+                     const std::vector<Adjacency>& adjacencies,
+                     const std::vector<long>& syncTimes,
+                     std::mt19937& random) {
   RendezvousNetwork network;
   std::vector<std::unique_ptr<SimulatedScheduler>> schedulers;
+  schedulers.reserve(static_cast<std::size_t>(processes));
   for (int process = 0; process < processes; ++process) {
     schedulers.push_back(
         std::make_unique<SimulatedScheduler>(network, process, clusterCount, launching));
@@ -377,6 +378,7 @@ bool simulate(Transport transport,
   }
 
   std::vector<AbstractTimeCluster*> actors;
+  actors.reserve(copies.size() + ghosts.size());
   for (auto& [key, copy] : copies) {
     actors.push_back(copy.get());
   }
@@ -388,11 +390,11 @@ bool simulate(Transport transport,
     // the copy layers first: the ghost clusters announce their exchanges from them
     for (auto& [key, copy] : copies) {
       copy->setSyncTime(static_cast<double>(syncTime));
-      copy->reset();
+      (*copy).reset();
     }
     for (auto& ghost : ghosts) {
       ghost->setSyncTime(static_cast<double>(syncTime));
-      ghost->reset();
+      (*ghost).reset();
     }
     std::size_t idleRounds = 0;
     bool first = true;
@@ -418,7 +420,7 @@ bool simulate(Transport transport,
   return true;
 }
 
-std::vector<Adjacency>
+inline std::vector<Adjacency>
     randomAdjacencies(int processes, std::size_t clusterCount, std::mt19937& random) {
   std::bernoulli_distribution adjacent(0.4);
   std::vector<Adjacency> adjacencies;
@@ -438,12 +440,15 @@ std::vector<Adjacency>
   return adjacencies;
 }
 
-} // namespace
+} // namespace exchangescheduler
+
+using namespace exchangescheduler;
 
 TEST_CASE("Blocking point-to-point transports do not get stuck" * doctest::test_suite("solver")) {
   // synchronization points on and between the steps of the larger clusters
   const std::vector<long> syncTimes{6, 13, 16, 29};
   for (const auto launching : {Launching::PerDirection, Launching::Global}) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
     std::mt19937 random(1234);
     for (int trial = 0; trial < 200; ++trial) {
       std::uniform_int_distribution<int> processCount(2, 5);
@@ -461,6 +466,7 @@ TEST_CASE("Blocking point-to-point transports do not get stuck" * doctest::test_
 
 TEST_CASE("One stream without the global order gets stuck" * doctest::test_suite("solver")) {
   const std::vector<long> syncTimes{6, 13, 16, 29};
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 random(1234);
   int stuck = 0;
   for (int trial = 0; trial < 200; ++trial) {
@@ -485,6 +491,7 @@ TEST_CASE("One stream without the global order gets stuck" * doctest::test_suite
 
 TEST_CASE("Launching receives right away gets stuck" * doctest::test_suite("solver")) {
   // two processes exchanging within one time cluster: both queue their receive first
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 random(1);
   CHECK_FALSE(
       simulate(Transport::Immediate, Launching::PerDirection, 2, 1, {{0, 1, 0, 0}}, {8}, random));

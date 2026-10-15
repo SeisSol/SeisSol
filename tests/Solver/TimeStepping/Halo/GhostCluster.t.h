@@ -24,7 +24,7 @@
 namespace seissol::unit_test {
 using namespace seissol::solver;
 
-namespace {
+namespace ghostcluster {
 
 /**
  * A transport that completes each send and receive after a given number of tests.
@@ -116,28 +116,30 @@ class CopyCluster : public AbstractTimeCluster {
   long sendsBefore_{0};
 };
 
-solver::RemoteClusterPair oneRegionEach() {
+inline solver::RemoteClusterPair oneRegionEach() {
   solver::RemoteClusterPair regions;
   regions.copy.emplace_back(nullptr, 1, RealType::F64, 1, 0);
   regions.ghost.emplace_back(nullptr, 1, RealType::F64, 1, 0);
   return regions;
 }
 
-long roundUp(long value, long multiple) { return (value + multiple - 1) / multiple * multiple; }
+inline long roundUp(long value, long multiple) {
+  return (value + multiple - 1) / multiple * multiple;
+}
 
-long divideUp(long value, long divisor) { return (value + divisor - 1) / divisor; }
+inline long divideUp(long value, long divisor) { return (value + divisor - 1) / divisor; }
 
 /**
  * Runs a copy layer next to a ghost cluster through the given synchronization points, and checks
  * after each interval that exactly as many sends and receives have happened as the remote side
  * expects. Returns the number of copy corrections that happened while a send was in flight.
  */
-long exchange(long copyRate,
-              long ghostRate,
-              int sendLatency,
-              int receiveLatency,
-              bool ghostFirst,
-              const std::vector<long>& syncTimes) {
+inline long exchange(long copyRate,
+                     long ghostRate,
+                     int sendLatency,
+                     int receiveLatency,
+                     bool ghostFirst,
+                     const std::vector<long>& syncTimes) {
   const auto exchangePeriod = std::max(copyRate, ghostRate);
   auto transportOwner = std::make_unique<FakeTransport>(sendLatency, receiveLatency);
   auto& transport = *transportOwner;
@@ -190,17 +192,24 @@ long exchange(long copyRate,
   return copy.correctionsDuringSends;
 }
 
-} // namespace
+} // namespace ghostcluster
+
+using namespace ghostcluster;
 
 TEST_CASE("Ghost clusters exchange the halo data" * doctest::test_suite("solver")) {
   // synchronization points on and between the steps of the larger cluster
   const std::vector<long> syncTimes{4, 7, 12, 13, 20};
 
   for (const auto ghostFirst : {false, true}) {
-    for (const auto [copyRate, ghostRate] :
+    for (const auto& rates :
          std::vector<std::pair<long, long>>{{1, 1}, {2, 2}, {1, 2}, {2, 1}, {1, 3}, {3, 1}}) {
-      for (const auto [sendLatency, receiveLatency] :
+      for (const auto& latencies :
            std::vector<std::pair<int, int>>{{0, 0}, {3, 0}, {0, 3}, {2, 5}}) {
+        // not as structured bindings: CAPTURE refers to its values from a lambda
+        const auto copyRate = rates.first;
+        const auto ghostRate = rates.second;
+        const auto sendLatency = latencies.first;
+        const auto receiveLatency = latencies.second;
         CAPTURE(ghostFirst);
         CAPTURE(copyRate);
         CAPTURE(ghostRate);

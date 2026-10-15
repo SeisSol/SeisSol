@@ -19,9 +19,9 @@
 namespace seissol::unit_test {
 using namespace seissol::solver;
 
-namespace {
+namespace stepparams {
 
-ClusterTimes clusterTimes(double maxTimeStepSize, long timeStepRate) {
+inline ClusterTimes clusterTimes(double maxTimeStepSize, long timeStepRate) {
   ClusterTimes times;
   times.maxTimeStepSize = maxTimeStepSize;
   times.timeStepRate = timeStepRate;
@@ -75,7 +75,7 @@ class RecordingCluster : public AbstractTimeCluster {
   std::vector<Record> records_;
 };
 
-void advanceTo(const std::vector<RecordingCluster*>& clusters, double syncTime) {
+inline void advanceTo(const std::vector<RecordingCluster*>& clusters, double syncTime) {
   for (auto* cluster : clusters) {
     cluster->setSyncTime(syncTime);
     // dereference first due to a clang-tidy recommendation
@@ -94,7 +94,9 @@ void advanceTo(const std::vector<RecordingCluster*>& clusters, double syncTime) 
   }
 }
 
-} // namespace
+} // namespace stepparams
+
+using namespace stepparams;
 
 TEST_CASE("computeStepContext" * doctest::test_suite("solver")) {
   const auto times = clusterTimes(2.0, 2);

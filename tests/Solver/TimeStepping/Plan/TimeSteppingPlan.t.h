@@ -22,7 +22,7 @@
 namespace seissol::unit_test {
 using namespace seissol::solver;
 
-namespace {
+namespace timesteppingplan {
 
 class PlanTestCluster : public AbstractTimeCluster {
   public:
@@ -93,13 +93,13 @@ struct Layout {
  * Takes the clusters through the synchronization points strictly along the plan. Returns the
  * number of planned actions the clusters were not ready for.
  */
-std::size_t followPlan(Layout& layout, const std::vector<long>& syncTimes) {
+inline std::size_t followPlan(Layout& layout, const std::vector<long>& syncTimes) {
   std::size_t notReady = 0;
   for (const auto syncTime : syncTimes) {
     std::vector<PlannedCluster> planned;
     for (auto& cluster : layout.clusters) {
       cluster->setSyncTime(static_cast<double>(syncTime));
-      cluster->reset();
+      (*cluster).reset();
     }
     for (auto& cluster : layout.clusters) {
       REQUIRE(cluster->getNextLegalAction() == ActorAction::RestartAfterSync);
@@ -129,9 +129,12 @@ std::size_t followPlan(Layout& layout, const std::vector<long>& syncTimes) {
   return notReady;
 }
 
-} // namespace
+} // namespace timesteppingplan
+
+using namespace timesteppingplan;
 
 TEST_CASE("The time stepping plan is a legal order of all steps" * doctest::test_suite("solver")) {
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 random(4321);
   std::size_t notReady = 0;
   for (int trial = 0; trial < 300; ++trial) {

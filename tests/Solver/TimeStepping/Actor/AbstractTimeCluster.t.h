@@ -249,7 +249,7 @@ TEST_CASE("LTS Timesteping works" * doctest::test_suite("solver")) {
   CHECK(cluster2.getState() == ActorState::Synced);
 }
 
-namespace {
+namespace abstracttimecluster {
 
 struct ActionRecord {
   std::string cluster;
@@ -270,8 +270,9 @@ class LoggingCluster : public solver::AbstractTimeCluster {
       : AbstractTimeCluster(maxTimeStepSize, timeStepRate, Executor::Host), name_(std::move(name)),
         log_(log), readiness_(readiness) {}
 
-  protected:
   [[nodiscard]] DataReadiness dataReadiness() const override { return readiness_; }
+
+  protected:
   void start() override {}
   void predict() override {
     log_.push_back({name_, 'P', ct_.predictionsSinceLastSync / ct_.timeStepRate});
@@ -289,7 +290,7 @@ class LoggingCluster : public solver::AbstractTimeCluster {
   DataReadiness readiness_;
 };
 
-void runUntilSync(const std::vector<LoggingCluster*>& clusters, double syncTime) {
+inline void runUntilSync(const std::vector<LoggingCluster*>& clusters, double syncTime) {
   for (auto* cluster : clusters) {
     cluster->setSyncTime(syncTime);
     // dereference first due to a clang-tidy recommendation
@@ -308,10 +309,10 @@ void runUntilSync(const std::vector<LoggingCluster*>& clusters, double syncTime)
   }
 }
 
-std::size_t position(const std::vector<ActionRecord>& log,
-                     const std::string& cluster,
-                     char action,
-                     long step) {
+inline std::size_t position(const std::vector<ActionRecord>& log,
+                            const std::string& cluster,
+                            char action,
+                            long step) {
   for (std::size_t i = 0; i < log.size(); ++i) {
     if (log[i].cluster == cluster && log[i].action == action && log[i].step == step) {
       return i;
@@ -321,7 +322,9 @@ std::size_t position(const std::vector<ActionRecord>& log,
   return log.size();
 }
 
-} // namespace
+} // namespace abstracttimecluster
+
+using namespace abstracttimecluster;
 
 TEST_CASE("A face cluster runs between the predictions and corrections of its cells" *
           doctest::test_suite("solver")) {
@@ -339,6 +342,7 @@ TEST_CASE("A face cluster runs between the predictions and corrections of its ce
 
     const std::vector<LoggingCluster*> all{&interior, &copy, &face};
     std::vector<LoggingCluster*> clusters;
+    clusters.reserve(order.size());
     for (const auto index : order) {
       clusters.push_back(all[index]);
     }

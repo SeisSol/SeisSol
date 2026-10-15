@@ -26,7 +26,7 @@
 namespace seissol::unit_test {
 using namespace seissol::solver;
 
-namespace {
+namespace concurrentclusters {
 
 /**
  * A device with one stream per cluster. The clusters only enqueue their actions; the device runs
@@ -155,6 +155,8 @@ class EnqueueingCluster : public AbstractTimeCluster {
     const auto event = nextEvent_++;
     device_.enqueue(index_, action_, waits_, event);
     waits_.clear();
+    // the simulated device names its events by numbers
+    // NOLINTNEXTLINE(performance-no-int-to-ptr)
     return ActorEvent(reinterpret_cast<void*>(event));
   }
 
@@ -230,16 +232,16 @@ struct ConcurrentLayout {
  * is ready (in random order), while the simulated device runs behind at random. Returns the number
  * of actions the device ran before their data was ready or while it was still being read.
  */
-std::size_t runConcurrently(ConcurrentLayout& layout,
-                            const std::vector<long>& syncTimes,
-                            bool alongPlan,
-                            std::mt19937& random) {
+inline std::size_t runConcurrently(ConcurrentLayout& layout,
+                                   const std::vector<long>& syncTimes,
+                                   bool alongPlan,
+                                   std::mt19937& random) {
   std::bernoulli_distribution deviceRuns(0.5);
   auto& device = layout.device;
   for (const auto syncTime : syncTimes) {
     for (auto& cluster : layout.clusters) {
       cluster->setSyncTime(static_cast<double>(syncTime));
-      cluster->reset();
+      (*cluster).reset();
     }
     device.resetInterval();
     std::vector<PlannedCluster> planned;
@@ -315,7 +317,9 @@ class CountingCluster : public AbstractTimeCluster {
   void printTimeoutMessage(std::chrono::seconds /*timeSinceLastUpdate*/) override {}
 };
 
-} // namespace
+} // namespace concurrentclusters
+
+using namespace concurrentclusters;
 
 TEST_CASE("Without device work, the clusters only keep the books" * doctest::test_suite("solver")) {
   CountingCluster small(1);
@@ -361,6 +365,7 @@ TEST_CASE("Without device work, the clusters only keep the books" * doctest::tes
 
 TEST_CASE("Concurrent clusters wait for their neighbors on the device" *
           doctest::test_suite("solver")) {
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 random(2468);
   for (const auto alongPlan : {true, false}) {
     std::size_t violations = 0;
