@@ -65,6 +65,12 @@ Output
   many small metadata writes of a file together on a parallel file system, but
   every file then holds at least one such block in full, used or not -- most of
   a file of a few receivers.
+* ``SEISSOL_IO_FLUSH``: whether an output file written at every step (a time
+  series, the data of an Xdmf output) is flushed after each step. On by default,
+  so that the output up to the last step is complete on disk should a run end
+  early. A flush syncs the file on every rank, which a parallel file system may
+  take its time over with thousands of ranks; turned off, the file is complete
+  once the simulation ends.
 
 Two further variables are, for historic reasons, named ``XDMFWRITER``; they are
 also accepted with a ``SEISSOL_IO_`` prefix, which is the name to use:
@@ -73,7 +79,9 @@ also accepted with a ``SEISSOL_IO_`` prefix, which is the name to use:
   file. A bulk write straddling a stripe boundary makes more than one storage
   target take part in a single write, which serializes them; what the right
   value is depends on the file system, so there is no default.
-* ``XDMFWRITER_BLOCK_SIZE``: block size for the output (both posix and Hdf5)
+* ``XDMFWRITER_BLOCK_SIZE``: no longer read. The previous writer gathered the data
+  of an output into blocks of this size before writing them; the MPI-IO hints for
+  collective buffering below (``cb_nodes``, ``cb_buffer_size``) take its place.
 
 The MPI-IO hints the output passes through are read the same way, under the
 names ROMIO understands and with an ``MPIO_`` in front, so
