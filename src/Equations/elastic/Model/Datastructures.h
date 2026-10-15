@@ -15,12 +15,13 @@
 #include "GeneratedCode/general/kernel.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
+#include "Model/ScriptParameters.h"
 
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <string>
-#include <unordered_map>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -69,7 +70,9 @@ struct ElasticMaterial : Material {
   double lambda{};
   double mu{};
 
-  static const std::unordered_map<std::string, double ElasticMaterial::*> ParameterMap;
+  /// The parameters a material file gives, in the order scripts read them
+  /// (model::scriptParameterNames).
+  static const std::array<std::pair<std::string, double ElasticMaterial::*>, 3> ParameterList;
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
@@ -123,12 +126,18 @@ struct ElasticMaterial : Material {
     this->mu = mu;
     this->lambda = lambda;
   }
+
+  void scriptParameters(double* values) const override;
 };
 
-inline const std::unordered_map<std::string, double ElasticMaterial::*>
-    ElasticMaterial::ParameterMap{{"rho", &ElasticMaterial::rho},
-                                  {"lambda", &ElasticMaterial::lambda},
-                                  {"mu", &ElasticMaterial::mu}};
+inline const std::array<std::pair<std::string, double ElasticMaterial::*>, 3>
+    ElasticMaterial::ParameterList{{{"rho", &ElasticMaterial::rho},
+                                    {"mu", &ElasticMaterial::mu},
+                                    {"lambda", &ElasticMaterial::lambda}}};
+
+inline void ElasticMaterial::scriptParameters(double* values) const {
+  fillScriptParameters(*this, values);
+}
 
 } // namespace seissol::model
 

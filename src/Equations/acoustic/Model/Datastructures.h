@@ -15,11 +15,14 @@
 #include "GeneratedCode/general/kernel.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
+#include "Model/ScriptParameters.h"
 
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -69,7 +72,9 @@ struct AcousticMaterial : public Material {
 
   double lambda{};
 
-  static const std::unordered_map<std::string, double AcousticMaterial::*> ParameterMap;
+  /// The parameters a material file gives, in the order scripts read them
+  /// (model::scriptParameterNames).
+  static const std::array<std::pair<std::string, double AcousticMaterial::*>, 2> ParameterList;
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
@@ -109,13 +114,26 @@ struct AcousticMaterial : public Material {
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 
   void setLameParameters(double /*mu*/, double lambda) override { this->lambda = lambda; }
+
+  void scriptParameters(double* values) const override;
 };
 
-inline const std::unordered_map<std::string, double AcousticMaterial::*>
-    AcousticMaterial::ParameterMap{
+inline const std::array<std::pair<std::string, double AcousticMaterial::*>, 2>
+    AcousticMaterial::ParameterList{{
         {"rho", &AcousticMaterial::rho},
         {"lambda", &AcousticMaterial::lambda},
-    };
+    }};
+
+/// A fluid has no shear modulus: mu is zero.
+template <>
+struct DerivedScriptParameters<AcousticMaterial> {
+  static constexpr std::array<std::string_view, 1> Names{"mu"};
+  static void values(const AcousticMaterial& /*material*/, double* values) { values[0] = 0.0; }
+};
+
+inline void AcousticMaterial::scriptParameters(double* values) const {
+  fillScriptParameters(*this, values);
+}
 
 } // namespace seissol::model
 

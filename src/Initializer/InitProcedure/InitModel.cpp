@@ -37,6 +37,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Plasticity.h"
+#include "Model/ScriptParameters.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/Stopwatch.h"

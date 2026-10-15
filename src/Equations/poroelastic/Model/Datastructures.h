@@ -11,11 +11,13 @@
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
+#include "Model/ScriptParameters.h"
 
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace seissol::model {
@@ -84,7 +86,9 @@ struct PoroElasticMaterial : public ElasticMaterial {
   double rhoFluid{};
   double viscosity{};
 
-  static const std::unordered_map<std::string, double PoroElasticMaterial::*> ParameterMap;
+  /// The parameters a material file gives, in the order scripts read them
+  /// (model::scriptParameterNames).
+  static const std::array<std::pair<std::string, double PoroElasticMaterial::*>, 10> ParameterList;
 
   PoroElasticMaterial() = default;
 
@@ -116,13 +120,15 @@ struct PoroElasticMaterial : public ElasticMaterial {
   [[nodiscard]] double getSWaveSpeed() const override { return std::sqrt(mu / rho); }
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+
+  void scriptParameters(double* values) const override;
 };
 
-inline const std::unordered_map<std::string, double PoroElasticMaterial::*>
-    PoroElasticMaterial::ParameterMap{
+inline const std::array<std::pair<std::string, double PoroElasticMaterial::*>, 10>
+    PoroElasticMaterial::ParameterList{{
         {"rho", &PoroElasticMaterial::rho},
-        {"lambda", &PoroElasticMaterial::lambda},
         {"mu", &PoroElasticMaterial::mu},
+        {"lambda", &PoroElasticMaterial::lambda},
         {"bulk_solid", &PoroElasticMaterial::bulkSolid},
         {"porosity", &PoroElasticMaterial::porosity},
         {"permeability", &PoroElasticMaterial::permeability},
@@ -130,7 +136,11 @@ inline const std::unordered_map<std::string, double PoroElasticMaterial::*>
         {"bulk_fluid", &PoroElasticMaterial::bulkFluid},
         {"rho_fluid", &PoroElasticMaterial::rhoFluid},
         {"viscosity", &PoroElasticMaterial::viscosity},
-    };
+    }};
+
+inline void PoroElasticMaterial::scriptParameters(double* values) const {
+  fillScriptParameters(*this, values);
+}
 
 } // namespace seissol::model
 

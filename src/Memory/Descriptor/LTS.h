@@ -23,6 +23,7 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
+#include "Model/ScriptParameters.h"
 #include "Parallel/Helper.h"
 #include "Solver/Settings.h"
 
@@ -118,6 +119,8 @@ struct LTS {
   using FaceBoundaryMappings = std::array<CellBoundaryMapping<Cfg>, Cell::NumFaces>;
   template <typename Cfg>
   using EnergyDataOf = typename model::MaterialOf<Cfg>::template EnergyData<Cfg>;
+  template <typename Cfg>
+  using MaterialParametersArray = Real<Cfg>[model::ScriptParameterCount<model::MaterialOf<Cfg>>];
 
   struct Dofs : public initializer::VariantVariable<DofsArray> {};
   struct DofsHalo : public initializer::VariantVariable<DofsArray> {};
@@ -134,6 +137,9 @@ struct LTS {
   struct NeighboringIntegration : public initializer::VariantVariable<NeighboringIntegrationData> {
   };
   struct MaterialData : public initializer::VariantVariable<model::MaterialOf> {};
+  /// The parameters of the material of a cell as scripts read them, in the order of
+  /// model::scriptParameterNames and in the reals of its configuration.
+  struct MaterialParameters : public initializer::VariantVariable<MaterialParametersArray> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::VariantVariable<seissol::model::PlasticityData> {};
   struct DRMapping : public initializer::VariantVariable<FaceDRMappings> {};
@@ -185,6 +191,7 @@ struct LTS {
                                                         NeighboringIntegration,
                                                         Material,
                                                         MaterialData,
+                                                        MaterialParameters,
                                                         Plasticity,
                                                         DRMapping,
                                                         BoundaryMapping,
@@ -268,6 +275,8 @@ struct LTS {
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<MaterialParameters>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Constant), true);
     storage.add<Plasticity>(
         plasticityMask, Alignment, allocationModeWP(AllocationPreset::Plasticity), true);
     storage.add<DRMapping>(

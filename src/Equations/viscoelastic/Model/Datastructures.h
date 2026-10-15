@@ -18,12 +18,14 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
+#include "Model/ScriptParameters.h"
 
 #include <array>
 #include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <variant>
 
@@ -95,8 +97,14 @@ struct ViscoElasticMaterial : public ElasticMaterial {
   double theta[zeroGuard(Mechanisms)][3]{};
   double qp{};
   double qs{};
+  /// mu and lambda as the material file gave them; the fit replaces the members by the unrelaxed
+  /// moduli.
+  double givenMu{};
+  double givenLambda{};
 
-  static const std::unordered_map<std::string, double ViscoElasticMaterial::*> ParameterMap;
+  /// The parameters a material file gives, in the order scripts read them
+  /// (model::scriptParameterNames).
+  static const std::array<std::pair<std::string, double ViscoElasticMaterial::*>, 5> ParameterList;
 
   ViscoElasticMaterial() = default;
   explicit ViscoElasticMaterial(const std::vector<double>& materialValues)
@@ -112,6 +120,9 @@ struct ViscoElasticMaterial : public ElasticMaterial {
     // material in Fortran, so we set these to NaN.
     qp = std::numeric_limits<double>::signaling_NaN();
     qs = std::numeric_limits<double>::signaling_NaN();
+    // nor are the moduli before the fit
+    givenMu = std::numeric_limits<double>::signaling_NaN();
+    givenLambda = std::numeric_limits<double>::signaling_NaN();
   }
 
   explicit ViscoElasticMaterial(const ElasticMaterial& elastic) : ElasticMaterial(elastic) {}
@@ -187,6 +198,8 @@ struct ViscoElasticMaterial : public ElasticMaterial {
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 
   void initialize(const initializer::parameters::ModelParameters& parameters) override {
+    givenMu = mu;
+    givenLambda = lambda;
     physics::fitAttenuation<Mechanisms>(*this, parameters.freqCentral, parameters.freqRatio);
 
     if constexpr (Mechanisms > 0) {
@@ -204,15 +217,27 @@ struct ViscoElasticMaterial : public ElasticMaterial {
       }
     }
   }
+
+  void scriptParameters(double* values) const override;
 };
 
 template <std::size_t N>
-inline const std::unordered_map<std::string, double ViscoElasticMaterial<N>::*>
-    ViscoElasticMaterial<N>::ParameterMap{{"rho", &ViscoElasticMaterial<N>::rho},
-                                          {"lambda", &ViscoElasticMaterial<N>::lambda},
-                                          {"mu", &ViscoElasticMaterial<N>::mu},
-                                          {"Qp", &ViscoElasticMaterial<N>::qp},
-                                          {"Qs", &ViscoElasticMaterial<N>::qs}};
+inline const std::array<std::pair<std::string, double ViscoElasticMaterial<N>::*>, 5>
+    ViscoElasticMaterial<N>::ParameterList{{{"rho", &ViscoElasticMaterial<N>::rho},
+                                            {"mu", &ViscoElasticMaterial<N>::mu},
+                                            {"lambda", &ViscoElasticMaterial<N>::lambda},
+                                            {"Qp", &ViscoElasticMaterial<N>::qp},
+                                            {"Qs", &ViscoElasticMaterial<N>::qs}}};
+
+template <std::size_t N>
+void ViscoElasticMaterial<N>::scriptParameters(double* values) const {
+  fillScriptParameters(*this, values);
+  // the moduli the material file gave, not the unrelaxed ones of the fit
+  static const auto MuIndex = scriptParameterIndex<ViscoElasticMaterial<N>>("mu").value();
+  static const auto LambdaIndex = scriptParameterIndex<ViscoElasticMaterial<N>>("lambda").value();
+  values[MuIndex] = givenMu;
+  values[LambdaIndex] = givenLambda;
+}
 
 } // namespace seissol::model
 

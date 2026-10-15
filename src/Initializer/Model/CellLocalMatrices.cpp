@@ -32,6 +32,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/ScriptParameters.h"
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -89,6 +90,7 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
   auto* boundaryMapping = layer.var<LTS::BoundaryMapping>(Cfg());
+  auto* scriptParameters = layer.var<LTS::MaterialParameters>(Cfg());
 
 #pragma omp parallel
   {
@@ -123,6 +125,14 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
 
       // NOLINTNEXTLINE
       auto& materialLocal = materialData[cell];
+
+      // the parameters of the material as scripts read them, in the reals of the configuration:
+      // here, so that they follow the material when it changes (the time mirror)
+      std::array<double, model::ScriptParameterCount<model::MaterialOf<Cfg>>> parameters{};
+      materialLocal.scriptParameters(parameters.data());
+      for (std::size_t i = 0; i < parameters.size(); ++i) {
+        scriptParameters[cell][i] = static_cast<real>(parameters[i]);
+      }
 
       std::array<double, Cell::Dim> gradXi{};
       std::array<double, Cell::Dim> gradEta{};

@@ -15,10 +15,13 @@
 #include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
+#include "Model/ScriptParameters.h"
 
 #include <array>
 #include <cstddef>
 #include <string>
+#include <string_view>
+#include <utility>
 
 namespace seissol::model {
 template <typename Cfg>
@@ -86,7 +89,9 @@ struct AnisotropicMaterial : public Material {
   double c56{};
   double c66{};
 
-  static const std::unordered_map<std::string, double AnisotropicMaterial::*> ParameterMap;
+  /// The parameters a material file gives, in the order scripts read them
+  /// (model::scriptParameterNames).
+  static const std::array<std::pair<std::string, double AnisotropicMaterial::*>, 22> ParameterList;
 
   [[nodiscard]] double getLambdaBar() const override;
 
@@ -114,10 +119,12 @@ struct AnisotropicMaterial : public Material {
   [[nodiscard]] MaterialType getMaterialType() const override;
 
   void setLameParameters(double mu, double lambda) override;
+
+  void scriptParameters(double* values) const override;
 };
 
-inline const std::unordered_map<std::string, double AnisotropicMaterial::*>
-    AnisotropicMaterial::ParameterMap{
+inline const std::array<std::pair<std::string, double AnisotropicMaterial::*>, 22>
+    AnisotropicMaterial::ParameterList{{
         {"rho", &AnisotropicMaterial::rho}, {"c11", &AnisotropicMaterial::c11},
         {"c12", &AnisotropicMaterial::c12}, {"c13", &AnisotropicMaterial::c13},
         {"c14", &AnisotropicMaterial::c14}, {"c15", &AnisotropicMaterial::c15},
@@ -129,7 +136,21 @@ inline const std::unordered_map<std::string, double AnisotropicMaterial::*>
         {"c44", &AnisotropicMaterial::c44}, {"c45", &AnisotropicMaterial::c45},
         {"c46", &AnisotropicMaterial::c46}, {"c55", &AnisotropicMaterial::c55},
         {"c56", &AnisotropicMaterial::c56}, {"c66", &AnisotropicMaterial::c66},
-    };
+    }};
+
+/// mu and lambda of the isotropic material closest to it, as SeisSol averages it.
+template <>
+struct DerivedScriptParameters<AnisotropicMaterial> {
+  static constexpr std::array<std::string_view, 2> Names{"mu", "lambda"};
+  static void values(const AnisotropicMaterial& material, double* values) {
+    values[0] = material.getMuBar();
+    values[1] = material.getLambdaBar();
+  }
+};
+
+inline void AnisotropicMaterial::scriptParameters(double* values) const {
+  fillScriptParameters(*this, values);
+}
 
 } // namespace seissol::model
 

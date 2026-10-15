@@ -68,8 +68,8 @@ namespace {
 template <typename SurrogateMaterialT>
 bool canEvaluateFor(const std::set<std::string>& parameters) {
   return std::all_of(
-      SurrogateMaterialT::ParameterMap.begin(),
-      SurrogateMaterialT::ParameterMap.end(),
+      SurrogateMaterialT::ParameterList.begin(),
+      SurrogateMaterialT::ParameterList.end(),
       [&](const auto& ptr) { return parameters.find(ptr.first) != parameters.end(); });
 }
 
@@ -629,7 +629,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     table.bindConstant("sim", std::int32_t{0});
 
     std::vector<T> materialsFromQuery(numPoints);
-    for (const auto& [name, pointer] : T::ParameterMap) {
+    for (const auto& [name, pointer] : T::ParameterList) {
       table.bindMemberView(
           name, reader::scripting::Direction::Out, materialsFromQuery.data(), pointer);
     }

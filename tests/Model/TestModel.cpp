@@ -14,3 +14,4 @@
 #include "ImpedanceLayout.t.h"      // IWYU pragma: keep
 #include "PoroelasticImpedance.t.h" // IWYU pragma: keep
 #include "Quantities.t.h"
+#include "ScriptParameters.t.h"

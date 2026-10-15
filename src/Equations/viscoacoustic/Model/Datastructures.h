@@ -18,12 +18,15 @@
 #include "Initializer/PreProcessorMacros.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
+#include "Model/ScriptParameters.h"
 
 #include <array>
 #include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <utils/logger.h>
 #include <variant>
 
@@ -92,8 +95,12 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
    **/
   double theta[zeroGuard(Mechanisms)][1]{};
   double qp{};
+  /// lambda as the material file gave it; the fit replaces the member by the unrelaxed modulus.
+  double givenLambda{};
 
-  static const std::unordered_map<std::string, double ViscoAcousticMaterial::*> ParameterMap;
+  /// The parameters a material file gives, in the order scripts read them
+  /// (model::scriptParameterNames).
+  static const std::array<std::pair<std::string, double ViscoAcousticMaterial::*>, 3> ParameterList;
 
   ViscoAcousticMaterial() = default;
   explicit ViscoAcousticMaterial(const std::vector<double>& materialValues)
@@ -106,6 +113,8 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
     // from the values in Fortran. Qp and Qs are not part of the
     // material in Fortran, so we set these to NaN.
     qp = std::numeric_limits<double>::signaling_NaN();
+    // nor is the modulus before the fit
+    givenLambda = std::numeric_limits<double>::signaling_NaN();
   }
 
   explicit ViscoAcousticMaterial(const AcousticMaterial& acoustic) : AcousticMaterial(acoustic) {}
@@ -162,6 +171,7 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 
   void initialize(const initializer::parameters::ModelParameters& parameters) override {
+    givenLambda = lambda;
     physics::fitAttenuation<Mechanisms>(*this, parameters.freqCentral, parameters.freqRatio);
 
     if constexpr (Mechanisms > 0) {
@@ -179,13 +189,32 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
       }
     }
   }
+
+  void scriptParameters(double* values) const override;
 };
 
 template <std::size_t N>
-inline const std::unordered_map<std::string, double ViscoAcousticMaterial<N>::*>
-    ViscoAcousticMaterial<N>::ParameterMap{{"rho", &ViscoAcousticMaterial<N>::rho},
-                                           {"lambda", &ViscoAcousticMaterial<N>::lambda},
-                                           {"Qp", &ViscoAcousticMaterial<N>::qp}};
+inline const std::array<std::pair<std::string, double ViscoAcousticMaterial<N>::*>, 3>
+    ViscoAcousticMaterial<N>::ParameterList{{{"rho", &ViscoAcousticMaterial<N>::rho},
+                                             {"lambda", &ViscoAcousticMaterial<N>::lambda},
+                                             {"Qp", &ViscoAcousticMaterial<N>::qp}}};
+
+/// A fluid has no shear modulus: mu is zero.
+template <std::size_t N>
+struct DerivedScriptParameters<ViscoAcousticMaterial<N>> {
+  static constexpr std::array<std::string_view, 1> Names{"mu"};
+  static void values(const ViscoAcousticMaterial<N>& /*material*/, double* values) {
+    values[0] = 0.0;
+  }
+};
+
+template <std::size_t N>
+void ViscoAcousticMaterial<N>::scriptParameters(double* values) const {
+  fillScriptParameters(*this, values);
+  // the modulus the material file gave, not the unrelaxed one of the fit
+  static const auto LambdaIndex = scriptParameterIndex<ViscoAcousticMaterial<N>>("lambda").value();
+  values[LambdaIndex] = givenLambda;
+}
 
 } // namespace seissol::model
 
