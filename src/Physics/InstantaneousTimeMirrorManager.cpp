@@ -8,7 +8,10 @@
 #include "InstantaneousTimeMirrorManager.h"
 
 #include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
+#include "Equations/Datastructures.h"
+#include "Expr/SderivFrontend.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Model/CellLocalMatrices.h"
@@ -16,15 +19,17 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
-#include "Model/CommonDatastructures.h"
+#include "Model/MaterialType.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
-#include "Reader/Scripting/DataTable.h"
+#include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
 
 #include <array>
 #include <cstddef>
+#include <memory>
+#include <optional>
 #include <string>
 #include <utils/logger.h>
 #include <vector>
@@ -53,19 +58,43 @@ double
   return 1.0;
 }
 
-namespace {
-void checkSupported(const model::Material& material,
-                    initializer::parameters::ReflectionType reflectionType) {
-  if (material.getMaterialType() != model::MaterialType::Elastic &&
-      material.getMaterialType() != model::MaterialType::Anisotropic) {
-    logError() << "ITM material update is not implemented for this material type.";
+std::optional<std::string>
+    mirrorScript(model::MaterialType materialType,
+                 seissol::initializer::parameters::ReflectionType reflectionType) {
+  using seissol::initializer::parameters::ReflectionType;
+  const std::string header = "# the time mirror of the reflection type " +
+                             std::to_string(static_cast<int>(reflectionType)) +
+                             ", written by SeisSol\n";
+  if (materialType == model::MaterialType::Elastic) {
+    switch (reflectionType) {
+    case ReflectionType::BothWaves:
+      return header + "out def mu = mu0 * n * n\nout def lambda = lambda0 * n * n\n";
+    case ReflectionType::BothWavesVelocity:
+      return header +
+             "out def rho = rho0 * n\nout def mu = mu0 * n\nout def lambda = lambda0 * n\n";
+    case ReflectionType::Pwave:
+      return header + "out def lambda = lambda0 * n * n\n";
+    case ReflectionType::Swave:
+      return header + "out def rho = n * rho0\nout def mu = n * mu0\n"
+                      "out def lambda = (lambda0 + 2.0 * mu0) / n - 2.0 * n * mu0\n";
+    }
   }
-  if (material.getMaterialType() == model::MaterialType::Anisotropic &&
-      !isAnisotropicReflectionTypeSupported(reflectionType)) {
-    logError() << "Anisotropic materials cannot have Pwave, Swave, and BothWavesVelocity.";
+  if (materialType == model::MaterialType::Anisotropic &&
+      isAnisotropicReflectionTypeSupported(reflectionType)) {
+    // for anisotropic materials, you could scale down density or scale up all the
+    // direction-dependent coefficients; the density is simpler
+    return header + "out def rho = rho0 / (n * n)\n";
   }
+  return std::nullopt;
 }
-} // namespace
+
+std::vector<std::string> mirrorInputs(const std::vector<std::string>& parameters) {
+  std::vector<std::string> inputs{"x", "y", "z", "n"};
+  for (const auto& parameter : parameters) {
+    inputs.push_back(parameter + "0");
+  }
+  return inputs;
+}
 
 InstantaneousTimeMirrorManager::InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
     : seissolInstance_(seissolInstance) {}
@@ -80,19 +109,34 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
 
   const auto itmParameters = seissolInstance_.parameters().model.itmParameters;
   const auto reflectionType = itmParameters.itmReflectionType;
+  const auto& path = itmParameters.itmMaterialScript;
 
-  // check over all cells (cheap; though it can be reduced to at most one per layer)
-  const bool scripted = !itmParameters.itmMaterialScript.empty();
-  for (auto& layer : ltsStorage.leaves()) {
-    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
-      const auto* materials = layer.var<LTS::MaterialData>(cfg);
-      for (std::size_t i = 0; i < layer.size(); ++i) {
-        checkSupported(materials[i], reflectionType);
-        if (scripted && materials[i].getMaterialType() != model::MaterialType::Elastic) {
-          logError() << "An ITM material script gives an elastic material (rho, mu, lambda); "
-                        "the mesh has cells of another material.";
+  // the script of each configuration of the run, checked now: the material script, else the one
+  // SeisSol writes for the reflection type
+  scripts_.clear();
+  scripts_.resize(builtConfigCount());
+  scriptNames_.assign(builtConfigCount(), path);
+  for (const auto config : ltsStorage.configs()) {
+    dispatchConfig(config, [&](auto cfg) {
+      using MaterialT = model::MaterialOf<decltype(cfg)>;
+      if (path.empty()) {
+        const auto source = mirrorScript(MaterialT::Type, reflectionType);
+        if (!source.has_value()) {
+          if (MaterialT::Type == model::MaterialType::Anisotropic) {
+            logError() << "Anisotropic materials cannot have Pwave, Swave, and BothWavesVelocity.";
+          } else {
+            logError() << "ITM material update is not implemented for this material type; an "
+                          "ITM material script gives the material after the mirror.";
+          }
+          return;
         }
+        scriptNames_[config] = "of the reflection type";
+        scripts_[config] = std::make_unique<reader::scripting::CompiledReader>(
+            expr::compileSderivModule(*source), nullptr);
+      } else {
+        scripts_[config] = reader::scripting::buildReader(path, {"x", "y", "z"});
       }
+      checkMirrorScript<MaterialT>(*scripts_[config], scriptNames_[config]);
     });
   }
 
@@ -142,15 +186,16 @@ void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
   isEnabled_ = false;
 }
 
-void InstantaneousTimeMirrorManager::updateMaterialsByScript(const std::string& path) {
+void InstantaneousTimeMirrorManager::updateVelocities() {
   const auto& elements = meshReader_->getElements();
   const auto& vertices = meshReader_->getVertices();
   for (const auto config : ltsStorage_->configs()) {
     dispatchConfig(config, [&](auto cfg) {
+      using MaterialT = model::MaterialOf<decltype(cfg)>;
       // the cells of the configuration, gathered from its layers, so that the script is bound once;
       // also those of the ghost layers, whose material the fluxes across the boundaries of the
       // rank see
-      std::vector<model::Material*> materials;
+      std::vector<MaterialT*> materials;
       std::vector<std::array<double, Cell::Dim>> centers;
       for (auto& layer : ltsStorage_->leaves()) {
         if (layer.getIdentifier().config != config) {
@@ -182,116 +227,12 @@ void InstantaneousTimeMirrorManager::updateMaterialsByScript(const std::string& 
           centers.push_back(center);
         }
       }
-      if (materials.empty()) {
-        return;
-      }
-
-      const std::size_t count = materials.size();
-      std::vector<double> rho(count);
-      std::vector<double> mu(count);
-      std::vector<double> lambda(count);
-      for (std::size_t i = 0; i < count; ++i) {
-        rho[i] = materials[i]->getDensity();
-        mu[i] = materials[i]->getMuBar();
-        lambda[i] = materials[i]->getLambdaBar();
-      }
-      // what the script does not give stays as it is
-      auto newRho = rho;
-      auto newMu = mu;
-      auto newLambda = lambda;
-
-      using reader::scripting::Direction;
-      reader::scripting::DataTable table(count);
-      table.bindViewConst<double>("x", Direction::In, centers.data()->data(), Cell::Dim, 0);
-      table.bindViewConst<double>("y", Direction::In, centers.data()->data(), Cell::Dim, 1);
-      table.bindViewConst<double>("z", Direction::In, centers.data()->data(), Cell::Dim, 2);
-      // the material before the mirror; the script gives the one after it
-      table.bindViewConst<double>("rho0", Direction::In, rho.data());
-      table.bindViewConst<double>("mu0", Direction::In, mu.data());
-      table.bindViewConst<double>("lambda0", Direction::In, lambda.data());
-      table.bindConstant<double>("n", velocityScalingFactor_);
-
-      const auto reader = reader::scripting::buildReader(path, {"x", "y", "z"});
-      for (const auto& name : reader->outputVars()) {
-        if (name == "rho") {
-          table.bindView<double>(name, Direction::Out, newRho.data());
-        } else if (name == "mu") {
-          table.bindView<double>(name, Direction::Out, newMu.data());
-        } else if (name == "lambda") {
-          table.bindView<double>(name, Direction::Out, newLambda.data());
-        } else {
-          logError() << "The ITM material script" << path << "gives" << name
-                     << "; it gives rho, mu and lambda.";
-        }
-      }
-      reader->call(table);
-
-      for (std::size_t i = 0; i < count; ++i) {
-        if (newLambda[i] < 0.0 || newMu[i] < 0.0 || newRho[i] <= 0.0) {
-          logError() << "The ITM material script" << path
-                     << "gives a material that is not admissible at" << centers[i][0]
-                     << centers[i][1] << centers[i][2] << ".";
-        }
-        materials[i]->setDensity(newRho[i]);
-        materials[i]->setLameParameters(newMu[i], newLambda[i]);
-      }
-    });
-  }
-}
-
-void InstantaneousTimeMirrorManager::updateVelocities() {
-  const auto itmParameters = seissolInstance_.parameters().model.itmParameters;
-  const auto reflectionType = itmParameters.itmReflectionType;
-
-  if (!itmParameters.itmMaterialScript.empty()) {
-    updateMaterialsByScript(itmParameters.itmMaterialScript);
-    return;
-  }
-
-  const auto updateMaterial = [&](model::Material& material) {
-    if (material.getMaterialType() == model::MaterialType::Elastic) {
-      const auto rho = material.getDensity();
-      const auto lambda = material.getLambdaBar();
-      const auto mu = material.getMuBar();
-
-      if (reflectionType == seissol::initializer::parameters::ReflectionType::BothWaves) {
-        material.setLameParameters(mu * velocityScalingFactor_ * velocityScalingFactor_,
-                                   lambda * velocityScalingFactor_ * velocityScalingFactor_);
-      } else if (reflectionType ==
-                 seissol::initializer::parameters::ReflectionType::BothWavesVelocity) {
-        material.setDensity(rho * velocityScalingFactor_);
-        material.setLameParameters(mu * velocityScalingFactor_, lambda * velocityScalingFactor_);
-      } else if (reflectionType == seissol::initializer::parameters::ReflectionType::Pwave) {
-        material.setLameParameters(mu, lambda * velocityScalingFactor_ * velocityScalingFactor_);
-      } else if (reflectionType == seissol::initializer::parameters::ReflectionType::Swave) {
-        const auto newLambda = getSwaveScaledLambda(lambda, mu, velocityScalingFactor_);
-        if (newLambda < 0.0) {
-          logError() << "New lambda is negative. This is not allowed. Please adjust your scaling "
-                        "factor.";
-        }
-        material.setDensity(velocityScalingFactor_ * rho);
-        material.setLameParameters(velocityScalingFactor_ * mu, newLambda);
-      } else {
-        logError() << "Unknown reflection type; material cannot be updated.";
-      }
-    } else if (material.getMaterialType() == model::MaterialType::Anisotropic) {
-      // for anisotropic materials, you could scale down density
-      // or scale up all the direction-dependent coefficients.
-      // we scale density for code simplicity
-      material.setDensity(material.getDensity() /
-                          (velocityScalingFactor_ * velocityScalingFactor_));
-    }
-  };
-
-  // also the materials of the ghost cells, which the fluxes across the boundaries of the rank see
-  for (auto& layer : ltsStorage_->leaves()) {
-    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
-      auto* materials = layer.var<LTS::MaterialData>(cfg);
-
-#pragma omp parallel for schedule(static)
-      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-        updateMaterial(materials[cell]);
-      }
+      mirrorMaterials<MaterialT>(*scripts_[config],
+                                 scriptNames_[config],
+                                 velocityScalingFactor_,
+                                 materials,
+                                 centers,
+                                 seissolInstance_.parameters().model);
     });
   }
 }
