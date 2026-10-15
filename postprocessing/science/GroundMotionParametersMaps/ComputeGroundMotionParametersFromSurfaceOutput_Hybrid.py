@@ -38,11 +38,11 @@
 # @section DESCRIPTION
 #
 
-#Author: Thomas Ulrich
-#Date: 29.09.17
+#Author: Thomas Ulrich, Fabian Kutschera
+#Date: 29.09.17, 14.10.26
 #aim: 
 #1 Read time history from free surface output in either hdf5 or posix format
-#2 compute ground motion parameters (PGA, PGV, PGD, SA(T), CAV) using GMRotD50, RotD50, GMRotI50, or RotI50
+#2 compute ground motion parameters (PGA, PGV, PGD, SA(T), CAV) using GMRotDxx, RotDxx, GMRotIxx, or RotIxx
 #3 store output in a hdf5 file readable by paraview
 
 import sys
@@ -133,7 +133,7 @@ def compute_cav_rotd(acceleration_x, time_step_x, acceleration_y, time_step_y, a
 def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, periods,
                     percentile=50, damping=0.05, units="cm/s/s", method="Nigam-Jennings", ipp=False):
     """
-    Computes GMRotD50 or GMRotI50 ground motion parameters (Boore et al., 2006).
+    Computes GMRotD or GMRotI ground motion parameters (Boore et al., 2006).
     """
     from smtk.intensity_measures import get_response_spectrum, equalise_series, rotate_horizontal
     if (percentile > 100. + 1E-9) or (percentile < 0.):
@@ -170,20 +170,20 @@ def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, pe
         if args.CAV:
             res['CAV'] = compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile)
     else:
-        # GMRotI50 implementation (Boore et al., 2006)
-        d50 = np.percentile(max_a_theta, percentile, axis=0)
+        # GMRotI implementation (Boore et al., 2006)
+        d_perc = np.percentile(max_a_theta, percentile, axis=0)
         sa_theta = max_a_theta[:, 3:]
-        sa_d50 = d50[3:]
-        penalty = np.mean(((sa_theta - sa_d50) / sa_d50) ** 2, axis=1)
-        idx_i50 = np.argmin(penalty)
-        gmroti = max_a_theta[idx_i50, :]
+        sa_dperc = d_perc[3:]
+        penalty = np.mean(((sa_theta - sa_dperc) / sa_dperc) ** 2, axis=1)
+        idx_i_perc = np.argmin(penalty)
+        gmroti = max_a_theta[idx_i_perc, :]
 
         res = {"PGA": gmroti[0],
                "PGV": gmroti[1],
                "PGD": gmroti[2],
                "Acceleration": gmroti[3:]}
         if args.CAV:
-            res['CAV'] = compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, idx_angle=idx_i50)
+            res['CAV'] = compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, idx_angle=idx_i_perc)
 
     return res
 
@@ -191,7 +191,7 @@ def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, pe
 def rotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, periods,
                   percentile=50, damping=0.05, units="cm/s/s", method="Nigam-Jennings", ipp=False):
     """
-    Computes RotD50 or RotI50 ground motion parameters (Boore, 2010).
+    Computes RotD or RotI ground motion parameters (Boore, 2010).
     Rotates single 1D component over angles 0 to 180 degrees.
     """
     from smtk.intensity_measures import get_response_spectrum, equalise_series
@@ -226,20 +226,20 @@ def rotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, peri
         if args.CAV:
             res['CAV'] = compute_cav_rotd(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile)
     else:
-        # RotI50 implementation (Boore, 2010)
-        d50 = np.percentile(max_a_theta, percentile, axis=0)
+        # RotI implementation (Boore, 2010)
+        d_perc = np.percentile(max_a_theta, percentile, axis=0)
         sa_theta = max_a_theta[:, 3:]
-        sa_d50 = d50[3:]
-        penalty = np.mean(((sa_theta - sa_d50) / sa_d50) ** 2, axis=1)
-        idx_i50 = np.argmin(penalty)
-        roti = max_a_theta[idx_i50, :]
+        sa_dperc = d_perc[3:]
+        penalty = np.mean(((sa_theta - sa_dperc) / sa_dperc) ** 2, axis=1)
+        idx_i_perc = np.argmin(penalty)
+        roti = max_a_theta[idx_i_perc, :]
 
         res = {"PGA": roti[0],
                "PGV": roti[1],
                "PGD": roti[2],
                "Acceleration": roti[3:]}
         if args.CAV:
-            res['CAV'] = compute_cav_rotd(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, idx_angle=idx_i50)
+            res['CAV'] = compute_cav_rotd(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, idx_angle=idx_i_perc)
 
     return res
 
@@ -265,7 +265,7 @@ def ComputeGroundMotionParameters(args2):
 
     # Compute SA(T), PGA, PGV, PGD, CAV...
     res = myfunc(acceleration_x, dt, acceleration_y, dt, periods,
-                 percentile=50, damping=0.05, units="cm/s/s", method="Nigam-Jennings", ipp=args.ipp)
+                 percentile=args.percentile, damping=0.05, units="cm/s/s", method="Nigam-Jennings", ipp=args.ipp)
 
     myres = [res['PGA'], res['PGV'], res['PGD']]
     if args.CAV:
@@ -286,10 +286,12 @@ parser.add_argument('--MP', nargs=1, metavar=('nthreads'), default=([1]), help='
 parser.add_argument('--noMPI', dest='noMPI', action='store_true', default=False, help='Run on one node (skip mpi4py)')
 parser.add_argument('--periods', nargs='+', help='List of periods for computing SA(T)', type=float)
 parser.add_argument('--ipp', dest='ipp', action='store_true', default=False,
-                    help='Use period-independent estimate (GMRotI50 or RotI50) based on Boore et al. (2006) / Boore (2010)')
+                    help='Use period-independent estimate (GMRotI or RotI) based on Boore et al. (2006) / Boore (2010)')
 parser.add_argument('--CAV', dest='CAV', action='store_true', default=False, help='Compute cumulated absolute velocity')
 parser.add_argument('--metric', choices=['GMRotD50', 'RotD50'], default='GMRotD50',
                     help='Horizontal rotation metric type (GMRotD50 or RotD50). Default: GMRotD50')
+parser.add_argument('--percentile', type=float, default=50.0,
+                    help='Percentile across rotation angles (0 to 100). Default: 50.0')
 
 # Filter arguments (mutually exclusive)
 filter_group = parser.add_mutually_exclusive_group()
@@ -299,6 +301,9 @@ filter_group.add_argument('--bandpass', nargs=2, metavar=('fmin', 'fmax'), type=
                           help='Band-pass filter velocity waveforms prior to computing ground motion estimates. fmin and fmax in Hz.')
 
 args = parser.parse_args()
+
+if args.percentile < 0.0 or args.percentile > 100.0:
+    parser.error("--percentile must be between 0 and 100.")
 
 if args.noMPI:
     nranks = 1
@@ -386,7 +391,10 @@ for per in periods:
 mypath, fn = os.path.split(args.filename)
 prefix = fn.split('-')[-2] if not isVolumeData else fn.split('.')[-2]
 
-effective_metric = f"{args.metric[:-3]}I50" if args.ipp else args.metric
+perc_str = f"{int(args.percentile)}" if args.percentile.is_integer() else f"{args.percentile}"
+base_metric = args.metric[:-3]
+type_letter = "I" if args.ipp else "D"
+effective_metric = f"{base_metric}{type_letter}{perc_str}"
 
 sFilter = ''
 if args.lowpass:
