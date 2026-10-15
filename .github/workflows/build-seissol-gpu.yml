@@ -81,8 +81,11 @@ jobs:
             git clone https://github.com/seissol/tensorforge.git ${RUNNER_TEMP}/tensorforge
             echo "PYTHONPATH=${RUNNER_TEMP}/tensorforge/src${PYTHONPATH:+:${PYTHONPATH}}" >> ${GITHUB_ENV}
             echo "CMAKE_PREFIX_PATH=${RUNNER_TEMP}/tensorforge/src/tensorforge/share/cmake${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}" >> ${GITHUB_ENV}
+            echo "TensorForge: $(git -C ${RUNNER_TEMP}/tensorforge log -1 --format='%H %cd %s')"
           else
             pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git h5py
+            # the commit the install took, which the default branch had when the job ran
+            python3 -c "import importlib.metadata as m; print('TensorForge:', m.distribution('tensorforge').read_text('direct_url.json'))"
           fi
 
       - name: checkout
