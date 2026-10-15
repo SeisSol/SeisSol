@@ -44,6 +44,11 @@ SKIP_RETURN_CODE = 77
 SECTION = re.compile(r"^\s*&(\w+)")
 ASSIGNMENT = re.compile(r"^(\s*)([A-Za-z_]\w*)(\s*=\s*)(.*)$")
 COMPARISON = re.compile(r"^([\w.-]+)\s*(>=|<=|!=|=)\s*(.*)$")
+# the line a sanitizer (cmake/sanitizers.cmake) ends each of its reports with; a run that wrote
+# one fails, also a refusal that was expected, and also where the sanitizer went on after it
+SANITIZER_REPORT = re.compile(
+    r"SUMMARY: (?:Address|Leak|Thread|Memory|UndefinedBehavior)Sanitizer\b.*"
+)
 
 
 # --------------------------------------------------------------------------
@@ -723,6 +728,11 @@ def _command_run(args):
     result["command"] = command
     result["returncode"] = completed.returncode
     problems = []
+    reports = SANITIZER_REPORT.findall(log)
+    if reports:
+        problems.append(
+            f"{len(reports)} sanitizer report(s), the first: {reports[0].strip()}"
+        )
     if args.expect_failure is not None:
         # a configuration that SeisSol refuses on purpose has to be refused
         # cleanly, with the reason in the log, rather than crash or run
