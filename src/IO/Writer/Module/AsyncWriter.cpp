@@ -11,6 +11,7 @@
 #include "IO/Writer/Writer.h"
 
 #include <async/ExecInfo.h>
+#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
@@ -34,6 +35,8 @@ void AsyncWriter::setComm(MPI_Comm comm) {
   MPI_Comm_dup(comm, &this->comm_);
 }
 
+void AsyncWriter::setName(const std::string& name) { name_ = name; }
+
 void AsyncWriter::execInit(const async::ExecInfo& info, const AsyncWriterInit& params) {
   // (do nothing here)
 }
@@ -51,6 +54,7 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
         instance_.reset();
       }
     } else {
+      const auto start = std::chrono::steady_clock::now();
       const void* data = info.buffer(PlanId);
       const size_t size = info.bufferSize(PlanId);
       const char* strData = reinterpret_cast<const char*>(data);
@@ -69,6 +73,10 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
         instance_.emplace(comm_, &runFiles);
       }
       writer_.write(info, instance_.value());
+      // what the write itself took, on the thread or process that carries it out
+      logInfo() << "Output Writer" << name_ << ": write done in"
+                << std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count()
+                << "s";
     }
     if (params.ticket != 0) {
       ++nextTicket;

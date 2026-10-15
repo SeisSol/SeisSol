@@ -16,6 +16,7 @@
 #include <condition_variable>
 #include <cstdint>
 #include <mutex>
+#include <string>
 
 namespace seissol::io::writer::module {
 struct AsyncWriterInit {};
@@ -47,6 +48,8 @@ class AsyncWriter {
   auto operator=(AsyncWriter&&) = delete;
 
   void setComm(MPI_Comm comm);
+  //! The name of the output, for the log.
+  void setName(const std::string& name);
   void execInit(const async::ExecInfo& info, const AsyncWriterInit& params);
   void exec(const async::ExecInfo& info, const AsyncWriterExec& params);
   void execWait(const async::ExecInfo& info);
@@ -63,6 +66,7 @@ class AsyncWriter {
   private:
   static constexpr int PlanId = 0;
   bool printPlan_{false};
+  std::string name_;
   seissol::io::writer::Writer writer_;
   std::optional<seissol::io::writer::WriteInstance> instance_;
   MPI_Comm comm_{MPI_COMM_WORLD};
