@@ -69,7 +69,6 @@ class StreamExchangeScheduler : public ExchangeScheduler {
    */
   void synchronize();
 
-  private:
   Ticket launch(std::size_t from,
                 std::size_t to,
                 std::size_t exchange,
@@ -78,12 +77,15 @@ class StreamExchangeScheduler : public ExchangeScheduler {
                 const std::vector<void*>& after) final;
   bool completed(Ticket ticket) final;
 
+  private:
   std::size_t clusterCount_;
   std::vector<void*> streams_;
   parallel::runtime::EventPool events_;
   // not ordered on the device: the events of the groups the host has not seen complete yet
   std::map<Ticket, parallel::runtime::EventRef> pendingEvents_;
+#ifdef ACL_DEVICE
   Ticket nextTicket_{0};
+#endif
 };
 
 } // namespace seissol::solver

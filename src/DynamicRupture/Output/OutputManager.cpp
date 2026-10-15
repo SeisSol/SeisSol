@@ -583,7 +583,7 @@ parallel::runtime::StreamRuntime&
     OutputManager::gatherPickpointData(std::size_t layerId,
                                        [[maybe_unused]] const double* deviceClock,
                                        double* stepStart,
-                                       double hostTime,
+                                       [[maybe_unused]] double hostTime,
                                        parallel::runtime::StreamRuntime& runtime) {
   const auto& outputData = ppOutputData_.at(layerId);
 #ifdef ACL_DEVICE

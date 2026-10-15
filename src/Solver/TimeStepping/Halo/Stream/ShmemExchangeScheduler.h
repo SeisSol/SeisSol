@@ -81,6 +81,8 @@ class ShmemExchangeScheduler : public StreamExchangeScheduler {
   // regions go in the staging windows of the receivers
   std::map<const ScheduledTransport*, std::vector<std::uint64_t>> ghostOffsets_;
   std::map<const ScheduledTransport*, std::vector<std::uint64_t>> remoteOffsets_;
+
+#if defined(ACL_DEVICE) && defined(USE_SHMEM)
   std::size_t windowSize_{0};
 
   int rank_{0};
@@ -92,6 +94,7 @@ class ShmemExchangeScheduler : public StreamExchangeScheduler {
   std::uint64_t* scratch_{nullptr};
   // for each direction: the count of its current exchange, in device memory
   std::uint64_t* counts_{nullptr};
+#endif
 };
 
 } // namespace seissol::solver

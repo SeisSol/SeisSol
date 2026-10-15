@@ -8,6 +8,7 @@
 #include "CclExchangeScheduler.h"
 
 #include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
+#include "Solver/TimeStepping/Halo/Stream/StreamExchangeScheduler.h"
 
 #include <cstddef>
 #include <utils/logger.h>

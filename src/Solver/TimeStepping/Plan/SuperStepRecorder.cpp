@@ -138,8 +138,6 @@ void SuperStepRecorder::replay(const Key& key,
 
 SuperStepRecorder::SuperStepRecorder() = default;
 
-SuperStepRecorder::~SuperStepRecorder() = default;
-
 void SuperStepRecorder::dispose() {}
 
 bool SuperStepRecorder::available() { return false; }

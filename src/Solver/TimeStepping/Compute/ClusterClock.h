@@ -60,10 +60,12 @@ class ClusterClock {
   double* host_{nullptr};
   double* device_{nullptr};
 
+#ifdef ACL_DEVICE
   // the time step size to add, and the pointer tables the batched addition needs
   double* deviceStep_{nullptr};
   const double** stepTable_{nullptr};
   double** clockTable_{nullptr};
+#endif
 };
 
 } // namespace seissol::solver

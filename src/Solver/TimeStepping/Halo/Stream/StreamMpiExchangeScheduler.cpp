@@ -11,9 +11,7 @@
 #include "Solver/TimeStepping/Halo/Stream/StreamExchangeScheduler.h"
 
 #include <cstddef>
-#include <memory>
 #include <utils/logger.h>
-#include <vector>
 
 #if defined(ACL_DEVICE) && defined(USE_STREAM_MPI)
 
@@ -22,7 +20,9 @@
 #include "Parallel/MPI.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 
+#include <memory>
 #include <mpi.h>
+#include <vector>
 
 #if !defined(STREAM_MPI_MPICH) && !defined(STREAM_MPI_CRAY)
 #error "Stream-aware MPI needs STREAM_MPI_MPICH or STREAM_MPI_CRAY."

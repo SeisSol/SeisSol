@@ -7,7 +7,6 @@
 
 #include "DynamicRuptureCluster.h"
 
-#include "Common/Constants.h"
 #include "Common/Executor.h"
 #include "Common/Marker.h"
 #include "Config.h"
@@ -35,14 +34,16 @@
 #include <cassert>
 #include <cstddef>
 #include <string>
-#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/DeviceGraph.h"
 
 #include <Device/AbstractAPI.h>
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 namespace seissol::solver {

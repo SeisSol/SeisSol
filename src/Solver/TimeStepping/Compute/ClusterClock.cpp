@@ -21,27 +21,28 @@ namespace {
 device::DeviceInstance& deviceInstance() { return device::DeviceInstance::instance(); }
 } // namespace
 
-ClusterClock::ClusterClock() {
-  host_ = static_cast<double*>(deviceInstance().api().allocPinnedMem(sizeof(double)));
-  device_ = static_cast<double*>(deviceInstance().api().allocGlobMem(sizeof(double)));
-  deviceStep_ = static_cast<double*>(deviceInstance().api().allocGlobMem(sizeof(double)));
-  stepTable_ = static_cast<const double**>(deviceInstance().api().allocGlobMem(sizeof(double*)));
-  clockTable_ = static_cast<double**>(deviceInstance().api().allocGlobMem(sizeof(double*)));
-
+ClusterClock::ClusterClock()
+    : host_(static_cast<double*>(deviceInstance().api().allocPinnedMem(sizeof(double)))),
+      device_(static_cast<double*>(deviceInstance().api().allocGlobMem(sizeof(double)))),
+      deviceStep_(static_cast<double*>(deviceInstance().api().allocGlobMem(sizeof(double)))),
+      stepTable_(static_cast<const double**>(deviceInstance().api().allocGlobMem(sizeof(double*)))),
+      clockTable_(static_cast<double**>(deviceInstance().api().allocGlobMem(sizeof(double*)))) {
   *host_ = 0;
   const double zero = 0;
   deviceInstance().api().copyTo(device_, &zero, sizeof(double));
   deviceInstance().api().copyTo(deviceStep_, &zero, sizeof(double));
-  deviceInstance().api().copyTo(stepTable_, &deviceStep_, sizeof(double*));
-  deviceInstance().api().copyTo(clockTable_, &device_, sizeof(double*));
+  deviceInstance().api().copyTo(
+      static_cast<void*>(stepTable_), static_cast<const void*>(&deviceStep_), sizeof(double*));
+  deviceInstance().api().copyTo(
+      static_cast<void*>(clockTable_), static_cast<const void*>(&device_), sizeof(double*));
 }
 
 ClusterClock::~ClusterClock() { dispose(); }
 
 void ClusterClock::dispose() {
   if (host_ != nullptr) {
-    deviceInstance().api().freeGlobMem(clockTable_);
-    deviceInstance().api().freeGlobMem(stepTable_);
+    deviceInstance().api().freeGlobMem(static_cast<void*>(clockTable_));
+    deviceInstance().api().freeGlobMem(static_cast<void*>(stepTable_));
     deviceInstance().api().freeGlobMem(deviceStep_);
     deviceInstance().api().freeGlobMem(device_);
     deviceInstance().api().freePinnedMem(host_);

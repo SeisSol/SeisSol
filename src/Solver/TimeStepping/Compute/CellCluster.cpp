@@ -52,7 +52,6 @@
 #include <cstring>
 #include <utility>
 #include <utils/logger.h>
-#include <vector>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"

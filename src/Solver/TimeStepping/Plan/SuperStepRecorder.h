@@ -41,7 +41,11 @@ class SuperStepRecorder {
   using Key = std::vector<double>;
 
   SuperStepRecorder();
+#ifdef ACL_DEVICE
   ~SuperStepRecorder();
+#else
+  ~SuperStepRecorder() = default;
+#endif
 
   SuperStepRecorder(const SuperStepRecorder&) = delete;
   SuperStepRecorder(SuperStepRecorder&&) = delete;
