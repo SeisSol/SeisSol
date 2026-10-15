@@ -562,8 +562,75 @@ TEST_SUITE("ExprRtcGpu") {
     GpuArguments packed(binding, args, nullptr);
     invoke(packed.data());
     CHECK(unit_test::bitwiseEqual(interpreted.data(), emitted.data(), NumPoints));
-    // a column per cell carries its divisor and index along
-    CHECK(packed.fieldCount() == 3 * 3 + 2 + 4);
+    // a column per cell carries its divisor, index and point stride along
+    CHECK(packed.fieldCount() == 3 * 3 + 3 + 4);
+  }
+
+  TEST_CASE("a column per point of a cell reaches the device kernel, to read and to write") {
+    // the layout of a tensor per face: three points per cell, the cells eight values apart, the
+    // points two apart; read through a cell index, written in the order of the cells
+    const Program program = compileSderivModule("out def u = x * j + 1.0\n");
+    constexpr std::size_t PointsPerCell = 3;
+    constexpr std::size_t Cells = 3;
+    constexpr std::size_t NumPoints = Cells * PointsPerCell;
+    constexpr std::size_t CellStride = 8;
+    constexpr std::size_t PointStride = 2;
+    std::vector<float> x(4 * CellStride);
+    for (std::size_t i = 0; i < x.size(); ++i) {
+      x[i] = 0.25F * static_cast<float>(i);
+    }
+    const std::vector<double> j = {1.0, -2.0, 3.0, -4.0};
+    const std::vector<std::uint32_t> cellIndex = {3, 0, 2};
+    std::vector<double> interpreted(Cells * CellStride, -1.0);
+    std::vector<double> emitted(Cells * CellStride, -1.0);
+
+    DataTable table(NumPoints);
+    table.bindCellPointViewConst<float>(
+        "x", x.data(), PointsPerCell, CellStride, PointStride, 1, cellIndex.data());
+    table.bindCellView<double>("j", j.data(), PointsPerCell, 1, 0, cellIndex.data());
+    table.bindCellPointView<double>(
+        "u", Direction::Out, interpreted.data(), PointsPerCell, CellStride, PointStride, 3);
+    Binding binding = Binding::bind(program, table);
+    REQUIRE(gpuRejection(program, lower(program), binding, nullptr) == GpuRejection::None);
+    df::GridStore store;
+    const auto kernel = makeKernel(program, binding, store, {});
+    kernel->precompute(table);
+    kernel->run(table);
+    for (std::size_t p = 0; p < NumPoints; ++p) {
+      const std::size_t cell = p / PointsPerCell;
+      const std::size_t within = (p % PointsPerCell) * PointStride;
+      const double xp = x[cellIndex[cell] * CellStride + within + 1];
+      CHECK(interpreted[cell * CellStride + within + 3] == xp * j[cellIndex[cell]] + 1.0);
+    }
+
+    const GpuLayout layout = gpuLayoutOf(binding);
+    REQUIRE(layout.inputPerCell.size() == 2);
+    CHECK(layout.inputPerCell[0]);
+    CHECK(layout.inputPerCell[1]);
+    REQUIRE(layout.outputPerCell.size() == 1);
+    CHECK(layout.outputPerCell[0]);
+    const std::string generated = std::string(HostShim) +
+                                  emitGpuSource(program, lower(program), layout, GpuTarget::Cuda) +
+                                  emitGpuHostTrampoline(layout, "double");
+    void* handle = compileForHost(generated);
+    if (handle == nullptr) {
+      WARN_MESSAGE(false, "no usable C++ compiler; the device code generator was not executed");
+      return;
+    }
+    auto* invoke = reinterpret_cast<void (*)(void**)>(dlsym(handle, "seissol_expr_invoke"));
+    REQUIRE(invoke != nullptr);
+    KernelArgs args{};
+    void* base = emitted.data();
+    args.outputs = &base;
+    args.outputCount = 1;
+    args.first = 0;
+    args.count = NumPoints;
+    GpuArguments packed(binding, args, nullptr);
+    invoke(packed.data());
+    // the same elements written, the same values; the others untouched
+    CHECK(unit_test::bitwiseEqual(interpreted.data(), emitted.data(), interpreted.size()));
+    // every column carries a divisor, an index and a point stride along
+    CHECK(packed.fieldCount() == 3 * 3 + 3 * 3 + 4);
   }
 
   TEST_CASE("a uniform input reaches the device kernel by value, per call") {
@@ -644,11 +711,12 @@ TEST_SUITE("ExprRtcGpu") {
   }
 
   TEST_CASE("NVRTC compiles the emitted CUDA source") {
-    // Columns per point and per cell, a uniform input, a state, a contraction, in both compute
-    // types: every form the argument block and the accessors take.
+    // Columns per point, per cell and per point of a cell, a uniform input, a state, a
+    // contraction, in both compute types: every form the argument block and the accessors take.
     for (const auto computeType : {ComputeType::F64, ComputeType::F32}) {
-      Program program = compileSderivModule(
-          "state s = 0.0\nout def s = s + v * t\nout def u = 2.0 * v - j * x\n");
+      Program program =
+          compileSderivModule("state s = 0.0\nout def s = s + v * t\nout def u = 2.0 * v - "
+                              "j * x\nout def w = y * t\n");
       program.setComputeType(computeType);
       const auto matrix = program.internMatrix("proj", MatrixShape{2, 3, 4});
       const auto v = program.internBlock("v", 3);
@@ -663,9 +731,14 @@ TEST_SUITE("ExprRtcGpu") {
       std::vector<float> stateF32(NumPoints, 0.0F);
       std::vector<double> s(NumPoints);
       std::vector<double> u(NumPoints);
+      std::vector<double> y(2 * NumPoints, 1.0);
+      std::vector<double> w(2 * NumPoints);
+      const std::vector<std::uint32_t> cellIndex = {1, 0};
       DataTable table(NumPoints);
       table.bindViewConst<double>("x", Direction::In, x.data());
       table.bindCellView<float>("j", j.data(), 2);
+      table.bindCellPointViewConst<double>("y", y.data(), 2, 4, 2, 1, cellIndex.data());
+      table.bindCellPointView<double>("w", Direction::Out, w.data(), 2, 4, 2);
       table.bindConstant<double>("t", 0.5);
       table.bindBlock<double>("v", dofs.data(), 3, 3);
       table.bindMatrix<double>("proj", m.data(), 2, 3, 4);

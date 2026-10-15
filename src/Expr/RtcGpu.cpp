@@ -102,9 +102,8 @@ std::string gpuLoadPersistent(std::int32_t slot) {
   return "a->persistent[" + std::to_string(slot) + " * a->numPoints + p]";
 }
 std::string gpuStoreOutput(std::int32_t index, const std::string& value) {
-  const std::string i = std::to_string(index);
-  return "store_out" + i + "(a->out" + i + ", a->stride_out" + i + ", a->offset_out" + i + ", p, " +
-         value + ")";
+  // as the load: which fields the store takes is decided when the accessors are emitted
+  return "STORE_OUT" + std::to_string(index) + "(a, p, " + value + ")";
 }
 std::string gpuStoreState(std::int32_t state, const std::string& value) {
   return "*STATE_AT" + std::to_string(state) + "(a, p) = " + value;
@@ -179,6 +178,23 @@ bool isUniform(const GpuLayout& layout, std::size_t i) {
   return i < layout.inputUniform.size() && layout.inputUniform[i];
 }
 
+/// Whether column `i` is laid out per cell (see GpuLayout::inputPerCell and outputPerCell).
+bool isPerCell(const std::vector<bool>& perCell, std::size_t i) {
+  return i < perCell.size() && perCell[i];
+}
+
+/// The bytes `d` from base + offset to point `p` of a column, as StridedView::displacement: the
+/// element of the cell of the point, and the point within it.
+void emitDisplacement(std::ostringstream& out, bool perCell) {
+  if (perCell) {
+    out << "  const SeissolU64 c = p / divisor;\n"
+        << "  const SeissolU64 e = index != 0 ? (SeissolU64)index[c] : c;\n"
+        << "  const SeissolU64 d = e * stride + (p - c * divisor) * pointStride;\n";
+  } else {
+    out << "  const SeissolU64 d = p * stride;\n";
+  }
+}
+
 /// One typed accessor per column, so the element type is resolved at
 /// generation time and no per-point switch survives into the kernel.
 ///
@@ -199,43 +215,52 @@ void emitAccessors(std::ostringstream& out,
       continue;
     }
     const char* element = elementType(layout.inputs[i]);
-    const bool perCell = i < layout.inputPerCell.size() && layout.inputPerCell[i];
+    const bool perCell = isPerCell(layout.inputPerCell, i);
     out << fn << " " << computeType << " load_in" << i << "(" << global
         << "const void* base, SeissolU64 stride, SeissolU64 offset, ";
     if (perCell) {
-      out << "SeissolU64 divisor, " << global << "const unsigned int* index, ";
+      out << "SeissolU64 divisor, " << global
+          << "const unsigned int* index, SeissolU64 pointStride, ";
     }
     out << "SeissolU64 p) {\n";
-    if (perCell) {
-      // A column per cell: the point reads the element of its cell.
-      out << "  const SeissolU64 e = index != 0 ? (SeissolU64)index[p / divisor] : p / divisor;\n";
-    } else {
-      out << "  const SeissolU64 e = p;\n";
-    }
+    emitDisplacement(out, perCell);
     // A typed load, not a byte copy. gpuRejection() has already established
     // that stride and offset are element multiples, so the address is
     // aligned -- and __builtin_memcpy is not something every device
     // frontend is guaranteed to lower well.
-    out << "  " << global << "const char* bytes = (" << global
-        << "const char*)base + offset + e * stride;\n"
+    out << "  " << global << "const char* bytes = (" << global << "const char*)base + offset + d;\n"
         << "  return (" << computeType << ")(*(" << global << "const " << element << "*)bytes);\n"
         << "}\n";
     const std::string n = std::to_string(i);
     out << "#define LOAD_IN" << n << "(a, p) load_in" << n << "((a)->in" << n << ", (a)->stride_in"
         << n << ", (a)->offset_in" << n;
     if (perCell) {
-      out << ", (a)->divisor_in" << n << ", (a)->index_in" << n;
+      out << ", (a)->divisor_in" << n << ", (a)->index_in" << n << ", (a)->pointStride_in" << n;
     }
     out << ", p)\n";
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
     const char* element = elementType(layout.outputs[i]);
+    const bool perCell = isPerCell(layout.outputPerCell, i);
     out << fn << " void store_out" << i << "(" << global
-        << "void* base, SeissolU64 stride, SeissolU64 offset, SeissolU64 p,\n"
-        << "    " << computeType << " v) {\n"
-        << "  " << global << "char* bytes = (" << global << "char*)base + offset + p * stride;\n"
+        << "void* base, SeissolU64 stride, SeissolU64 offset, ";
+    if (perCell) {
+      out << "SeissolU64 divisor, " << global
+          << "const unsigned int* index, SeissolU64 pointStride, ";
+    }
+    out << "SeissolU64 p,\n"
+        << "    " << computeType << " v) {\n";
+    emitDisplacement(out, perCell);
+    out << "  " << global << "char* bytes = (" << global << "char*)base + offset + d;\n"
         << "  *(" << global << element << "*)bytes = (" << element << ")v;\n"
         << "}\n";
+    const std::string n = std::to_string(i);
+    out << "#define STORE_OUT" << n << "(a, p, v) store_out" << n << "((a)->out" << n
+        << ", (a)->stride_out" << n << ", (a)->offset_out" << n;
+    if (perCell) {
+      out << ", (a)->divisor_out" << n << ", (a)->index_out" << n << ", (a)->pointStride_out" << n;
+    }
+    out << ", p, v)\n";
   }
   if (layout.states > 0) {
     // A state lies per cell, like a block, and is read and written in place.
@@ -292,15 +317,21 @@ void emitArgumentStruct(std::ostringstream& out,
     out << "  " << global << "const void* in" << i << ";\n"
         << "  SeissolU64 stride_in" << i << ";\n"
         << "  SeissolU64 offset_in" << i << ";\n";
-    if (i < layout.inputPerCell.size() && layout.inputPerCell[i]) {
+    if (isPerCell(layout.inputPerCell, i)) {
       out << "  SeissolU64 divisor_in" << i << ";\n"
-          << "  " << global << "const unsigned int* index_in" << i << ";\n";
+          << "  " << global << "const unsigned int* index_in" << i << ";\n"
+          << "  SeissolU64 pointStride_in" << i << ";\n";
     }
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
     out << "  " << global << "void* out" << i << ";\n"
         << "  SeissolU64 stride_out" << i << ";\n"
         << "  SeissolU64 offset_out" << i << ";\n";
+    if (isPerCell(layout.outputPerCell, i)) {
+      out << "  SeissolU64 divisor_out" << i << ";\n"
+          << "  " << global << "const unsigned int* index_out" << i << ";\n"
+          << "  SeissolU64 pointStride_out" << i << ";\n";
+    }
   }
   // The matrices are pointers only: their form is baked in. A block is its base, its two strides
   // and its cell index.
@@ -338,14 +369,18 @@ void emitFlatParameters(std::ostringstream& out,
     }
     out << "    __global const void* in" << i << ", SeissolU64 stride_in" << i
         << ", SeissolU64 offset_in" << i << ",\n";
-    if (i < layout.inputPerCell.size() && layout.inputPerCell[i]) {
+    if (isPerCell(layout.inputPerCell, i)) {
       out << "    SeissolU64 divisor_in" << i << ", __global const unsigned int* index_in" << i
-          << ",\n";
+          << ", SeissolU64 pointStride_in" << i << ",\n";
     }
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
     out << "    __global void* out" << i << ", SeissolU64 stride_out" << i
         << ", SeissolU64 offset_out" << i << ",\n";
+    if (isPerCell(layout.outputPerCell, i)) {
+      out << "    SeissolU64 divisor_out" << i << ", __global const unsigned int* index_out" << i
+          << ", SeissolU64 pointStride_out" << i << ",\n";
+    }
   }
   for (std::size_t i = 0; i < layout.matrices.size(); ++i) {
     out << "    __global const void* matrix" << i << ",\n";
@@ -375,14 +410,19 @@ void emitFlatGather(std::ostringstream& out, const GpuLayout& layout) {
     }
     out << "  a.in" << i << " = in" << i << "; a.stride_in" << i << " = stride_in" << i
         << "; a.offset_in" << i << " = offset_in" << i << ";\n";
-    if (i < layout.inputPerCell.size() && layout.inputPerCell[i]) {
+    if (isPerCell(layout.inputPerCell, i)) {
       out << "  a.divisor_in" << i << " = divisor_in" << i << "; a.index_in" << i << " = index_in"
-          << i << ";\n";
+          << i << "; a.pointStride_in" << i << " = pointStride_in" << i << ";\n";
     }
   }
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
     out << "  a.out" << i << " = out" << i << "; a.stride_out" << i << " = stride_out" << i
         << "; a.offset_out" << i << " = offset_out" << i << ";\n";
+    if (isPerCell(layout.outputPerCell, i)) {
+      out << "  a.divisor_out" << i << " = divisor_out" << i << "; a.index_out" << i
+          << " = index_out" << i << "; a.pointStride_out" << i << " = pointStride_out" << i
+          << ";\n";
+    }
   }
   for (std::size_t i = 0; i < layout.matrices.size(); ++i) {
     out << "  a.matrix" << i << " = matrix" << i << ";\n";
@@ -508,7 +548,8 @@ GpuRejection gpuRejection(const Program& program,
   for (const auto* set : {&binding.inputs(), &binding.outputs()}) {
     for (const auto& column : *set) {
       const std::size_t element = elementSize(column.tableType);
-      if (column.view->byteStride % element != 0 || column.view->byteOffset % element != 0) {
+      if (column.view->byteStride % element != 0 || column.view->byteOffset % element != 0 ||
+          column.view->pointStride % element != 0) {
         return GpuRejection::Misaligned;
       }
     }
@@ -571,6 +612,9 @@ std::uint64_t GpuLayout::fingerprint() const {
   for (const auto type : outputs) {
     hash = mix(hash, static_cast<std::uint64_t>(type));
   }
+  for (const bool perCell : outputPerCell) {
+    hash = mix(hash, perCell ? 3 : 0);
+  }
   hash = mix(hash, matrices.size());
   for (const auto type : matrices) {
     hash = mix(hash, static_cast<std::uint64_t>(type));
@@ -594,6 +638,7 @@ GpuLayout gpuLayoutOf(const Binding& binding) {
   layout.outputs.reserve(binding.outputs().size());
   for (const auto& column : binding.outputs()) {
     layout.outputs.push_back(column.tableType);
+    layout.outputPerCell.push_back(column.view.has_value() && !column.view->pointwise());
   }
   for (const auto& matrix : binding.matrices()) {
     layout.matrices.push_back(matrix.type);
@@ -633,10 +678,12 @@ std::string emitGpuHostTrampolineFlat(const GpuLayout& layout, const std::string
     out << ", ";
     arg("const SeissolU64");
     out << ",\n";
-    if (i < layout.inputPerCell.size() && layout.inputPerCell[i]) {
+    if (isPerCell(layout.inputPerCell, i)) {
       arg("const SeissolU64");
       out << ", ";
       arg("const unsigned int* const");
+      out << ", ";
+      arg("const SeissolU64");
       out << ",\n";
     }
   }
@@ -647,6 +694,14 @@ std::string emitGpuHostTrampolineFlat(const GpuLayout& layout, const std::string
     out << ", ";
     arg("const SeissolU64");
     out << ",\n";
+    if (isPerCell(layout.outputPerCell, i)) {
+      arg("const SeissolU64");
+      out << ", ";
+      arg("const unsigned int* const");
+      out << ", ";
+      arg("const SeissolU64");
+      out << ",\n";
+    }
   }
   for (std::size_t i = 0; i < layout.matrices.size(); ++i) {
     arg("const void* const");
@@ -693,15 +748,18 @@ GpuArguments::GpuArguments(const Binding& binding,
   // append works and no padding has to be reasoned about: pointers are 64-bit
   // on every target this runs on, and the scalars are `unsigned long long` for
   // exactly that reason.
-  std::size_t perCellInputs = 0;
+  std::size_t perCellColumns = 0;
   std::size_t uniformInputs = 0;
   for (const auto& column : binding.inputs()) {
-    perCellInputs += column.view->pointwise() ? 0 : 1;
+    perCellColumns += column.view->pointwise() ? 0 : 1;
     uniformInputs += column.view->uniform ? 1 : 0;
+  }
+  for (const auto& column : binding.outputs()) {
+    perCellColumns += column.view->pointwise() ? 0 : 1;
   }
   const std::size_t fields =
       3 * (binding.inputs().size() - uniformInputs + binding.outputs().size()) + uniformInputs +
-      2 * perCellInputs + binding.matrices().size() + 4 * binding.blocks().size() +
+      3 * perCellColumns + binding.matrices().size() + 4 * binding.blocks().size() +
       5 * binding.states().size() + 4;
   image_.reserve(fields * sizeof(std::uint64_t));
 
@@ -732,6 +790,7 @@ GpuArguments::GpuArguments(const Binding& binding,
     if (!column.view->pointwise()) {
       appendScalar(column.view->divisor);
       appendPointer(column.view->index);
+      appendScalar(column.view->pointStride);
     }
   }
   for (std::size_t i = 0; i < binding.outputs().size(); ++i) {
@@ -740,6 +799,11 @@ GpuArguments::GpuArguments(const Binding& binding,
                                                                        : column.view->base);
     appendScalar(column.view->byteStride);
     appendScalar(column.view->byteOffset);
+    if (!column.view->pointwise()) {
+      appendScalar(column.view->divisor);
+      appendPointer(column.view->index);
+      appendScalar(column.view->pointStride);
+    }
   }
   for (std::size_t i = 0; i < binding.matrices().size(); ++i) {
     const bool moved =

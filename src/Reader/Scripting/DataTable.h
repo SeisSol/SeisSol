@@ -70,6 +70,10 @@ struct StridedView {
   std::size_t divisor{1};
   /// Optional: element of the point set -> element in memory, for a gathered subset.
   const std::uint32_t* index{nullptr};
+  /// Bytes from one point of an element to the next, for a column with a value per point that is
+  /// laid out per cell (bindCellPointView): point p lies (p % divisor) * pointStride past the
+  /// element of its cell. Zero for a column per cell, whose points all read the element.
+  std::size_t pointStride{0};
   /// One value for all points (bindConstant). A device kernel takes it by value, read on the host
   /// when a call is packed -- from the base of the call if the call moves it -- so its base may be
   /// host memory, and a value that changes from call to call costs no copy to the device.
@@ -80,8 +84,15 @@ struct StridedView {
     const std::size_t local = point / divisor;
     return index == nullptr ? local : static_cast<std::size_t>(index[local]);
   }
+  /// Where point `point` lies past base + byteOffset, in bytes.
+  [[nodiscard]] std::size_t displacement(std::size_t point) const {
+    return element(point) * byteStride + (point % divisor) * pointStride;
+  }
   /// Whether the view maps points onto elements one to one, in order.
   [[nodiscard]] bool pointwise() const { return divisor == 1 && index == nullptr; }
+  /// Whether no two points share a value (given an index that maps no two cells onto one
+  /// element), as a column that a program writes needs.
+  [[nodiscard]] bool distinct() const { return divisor == 1 || pointStride != 0; }
 };
 
 /// A vector of coefficients per cell, for one named quantity -- what a contraction
@@ -324,6 +335,59 @@ class DataTable {
         std::move(name), Direction::In, DataTypeTraits<T>::Type, accessor, nullptr, view, nullptr});
   }
 
+  /// A column with a value per point, laid out per cell of `pointsPerCell` points -- the nodes of
+  /// the faces of cells, for one: point p of cell c = p / pointsPerCell is
+  /// base[i * cellStride + (p % pointsPerCell) * pointStride + offset], with i = c, or
+  /// i = cellIndex[c] for a gathered subset of cells. Strides and offset in elements of T. A
+  /// program may write it unless `dir` is Direction::In.
+  template <typename T>
+  void bindCellPointView(std::string name,
+                         Direction dir,
+                         T* base,
+                         std::size_t pointsPerCell,
+                         std::size_t cellStride,
+                         std::size_t pointStride,
+                         std::size_t offset = 0,
+                         const std::uint32_t* cellIndex = nullptr) {
+    auto view = makeCellPointView(base, pointsPerCell, cellStride, pointStride, offset, cellIndex);
+    view.writable = dir != Direction::In;
+    const auto accessor = [=](std::size_t idx, void* out) {
+      std::memcpy(out,
+                  reinterpret_cast<const char*>(base) + view.byteOffset + view.displacement(idx),
+                  sizeof(T));
+    };
+    std::function<void(std::size_t, const void*)> setter;
+    if (view.writable) {
+      setter = [=](std::size_t idx, const void* in) {
+        std::memcpy(reinterpret_cast<char*>(base) + view.byteOffset + view.displacement(idx),
+                    in,
+                    sizeof(T));
+      };
+    }
+    dataEntries_.emplace_back(
+        DataEntry{std::move(name), dir, DataTypeTraits<T>::Type, accessor, setter, view, nullptr});
+  }
+
+  /// The same, read only.
+  template <typename T>
+  void bindCellPointViewConst(std::string name,
+                              const T* base,
+                              std::size_t pointsPerCell,
+                              std::size_t cellStride,
+                              std::size_t pointStride,
+                              std::size_t offset = 0,
+                              const std::uint32_t* cellIndex = nullptr) {
+    const auto view =
+        makeCellPointView(base, pointsPerCell, cellStride, pointStride, offset, cellIndex);
+    const auto accessor = [=](std::size_t idx, void* out) {
+      std::memcpy(out,
+                  reinterpret_cast<const char*>(base) + view.byteOffset + view.displacement(idx),
+                  sizeof(T));
+    };
+    dataEntries_.emplace_back(DataEntry{
+        std::move(name), Direction::In, DataTypeTraits<T>::Type, accessor, nullptr, view, nullptr});
+  }
+
   /// A value that is the same at every point, copied when bound: a stride-0 view
   /// onto a copy the table holds, so that a table that merely names a constant
   /// (such as `sim`) can still reach a device kernel, which bindComputed, with
@@ -368,7 +432,7 @@ class DataTable {
 
   // View-on-existing-struct
   template <typename S, typename T>
-  void bindMemberView(std::string name, Direction dir, S* base, T S::* member) {
+  void bindMemberView(std::string name, Direction dir, S* base, T S::*member) {
     const auto accessor = [=](std::size_t idx, void* out) {
       auto* outC = reinterpret_cast<T*>(out);
       *outC = base[idx].*member;
@@ -389,7 +453,7 @@ class DataTable {
 
   // View-on-existing-struct
   template <typename S, typename T>
-  void bindMemberViewConst(std::string name, Direction dir, const S* base, T S::* member) {
+  void bindMemberViewConst(std::string name, Direction dir, const S* base, T S::*member) {
     const auto accessor = [=](std::size_t idx, void* out) {
       auto* outC = reinterpret_cast<T*>(out);
       *outC = base[idx].*member;
@@ -534,12 +598,26 @@ class DataTable {
     return view;
   }
 
+  template <typename T>
+  static StridedView makeCellPointView(T* base,
+                                       std::size_t pointsPerCell,
+                                       std::size_t cellStride,
+                                       std::size_t pointStride,
+                                       std::size_t offset,
+                                       const std::uint32_t* cellIndex) {
+    auto view = makeView(base, cellStride, offset, false);
+    view.divisor = pointsPerCell;
+    view.index = cellIndex;
+    view.pointStride = pointStride * sizeof(T);
+    return view;
+  }
+
   /// A member view is a strided view with the struct as the stride: base[i].m
   /// is base + i * sizeof(S) + offsetof(S, m). Computed from a null object
   /// rather than offsetof because the member is a pointer-to-member, and this
   /// is well defined for the standard-layout structs the ABI is used with.
   template <typename S, typename T>
-  static StridedView makeMemberView(S* base, T S::* member, bool writable) {
+  static StridedView makeMemberView(S* base, T S::*member, bool writable) {
     const auto* null = static_cast<const S*>(nullptr);
     StridedView view;
     view.base = const_cast<void*>(static_cast<const void*>(base));

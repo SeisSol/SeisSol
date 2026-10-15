@@ -371,6 +371,69 @@ TEST_SUITE("ExprBinding") {
     CHECK_THROWS_AS(Binding::bind(program, table), std::invalid_argument);
   }
 
+  TEST_CASE("a column per point of a cell is read and written in the layout of the cells") {
+    // three points per cell, the cells eight values apart, the points of a cell two apart -- a
+    // column of a tensor of a face per cell, for one
+    const Program program = compileSderiv("2.0 * x + j", "out");
+    constexpr std::size_t PointsPerCell = 3;
+    constexpr std::size_t Cells = 3;
+    constexpr std::size_t NumPoints = Cells * PointsPerCell;
+    constexpr std::size_t CellStride = 8;
+    constexpr std::size_t PointStride = 2;
+    constexpr std::size_t Offset = 1;
+    std::vector<double> x(4 * CellStride);
+    for (std::size_t i = 0; i < x.size(); ++i) {
+      x[i] = static_cast<double>(i);
+    }
+    const std::vector<double> j = {100.0, 200.0, 300.0, 400.0};
+    const std::vector<std::uint32_t> cellIndex = {2, 0, 3};
+
+    for (const bool viaViews : {false, true}) {
+      CAPTURE(viaViews);
+      std::vector<double> out(Cells * CellStride, -1.0);
+      DataTable table(NumPoints);
+      table.bindCellPointViewConst<double>(
+          "x", x.data(), PointsPerCell, CellStride, PointStride, Offset, cellIndex.data());
+      table.bindCellView<double>("j", j.data(), PointsPerCell, 1, 0, cellIndex.data());
+      table.bindCellPointView<double>(
+          "out", Direction::Out, out.data(), PointsPerCell, CellStride, PointStride, Offset);
+      const Binding binding = Binding::bind(program, table);
+      CHECK(binding.addressable());
+
+      std::vector<double> tile(program.inputs().size() * NumPoints, 0.0);
+      if (viaViews) {
+        binding.gatherFrom(nullptr, 0, 0, NumPoints, tile.data());
+      } else {
+        binding.gather(table, 0, NumPoints, tile.data());
+      }
+      const std::size_t xi = inputIndex(program, "x");
+      for (std::size_t p = 0; p < NumPoints; ++p) {
+        const std::size_t cell = cellIndex[p / PointsPerCell];
+        CHECK(tile[xi * NumPoints + p] ==
+              x[cell * CellStride + (p % PointsPerCell) * PointStride + Offset]);
+      }
+
+      std::vector<double> values(NumPoints);
+      for (std::size_t p = 0; p < NumPoints; ++p) {
+        values[p] = 0.5 + static_cast<double>(p);
+      }
+      if (viaViews) {
+        binding.scatterTo(nullptr, 0, 0, NumPoints, values.data());
+      } else {
+        binding.scatter(table, 0, NumPoints, values.data());
+      }
+      // the points of cell c are at its elements c * 8 + 1, + 3, + 5; all else is untouched
+      for (std::size_t i = 0; i < out.size(); ++i) {
+        const std::size_t cell = i / CellStride;
+        const std::size_t within = i % CellStride;
+        const bool written = within >= Offset && (within - Offset) % PointStride == 0 &&
+                             (within - Offset) / PointStride < PointsPerCell;
+        const std::size_t point = cell * PointsPerCell + (within - Offset) / PointStride;
+        CHECK(out[i] == (written ? values[point] : -1.0));
+      }
+    }
+  }
+
 } // TEST_SUITE
 
 } // namespace seissol::expr::test
