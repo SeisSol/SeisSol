@@ -396,9 +396,17 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   }
 
   if (create) {
-    hid_t h5filter = H5P_DEFAULT;
-    if (!layout.chunkSizes.empty()) {
-      h5filter = _eh(H5Pcreate(H5P_DATASET_CREATE));
+    const hid_t h5filter = _eh(H5Pcreate(H5P_DATASET_CREATE));
+    // Every write covers all of the extent it gives the dataset, so there is nothing for a fill
+    // value to stand in for. HDF5 writes one regardless where it can: in parallel, the storage of
+    // a dataset is allocated as soon as it is created or extended, and for a chunked one the
+    // default fill value counts as set -- every byte went to the file twice, first as a zero.
+    _eh(H5Pset_fill_time(h5filter, H5D_FILL_TIME_NEVER));
+    // Only a dataset that grows or is compressed needs chunks. A collective write to a chunked
+    // dataset looks up and maps every chunk it touches, on every rank; to a contiguous one, it is
+    // one write per rank.
+    const bool chunked = layout.appendedDim.has_value() || compress > 0;
+    if (!layout.chunkSizes.empty() && chunked) {
       _eh(H5Pset_chunk(h5filter, layout.chunkSizes.size(), layout.chunkSizes.data()));
       if (compress > 0) {
         const int deflateStrength = compress;
@@ -424,9 +432,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     h5data = _eh(H5Dcreate(
         handles_.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, h5filter, H5P_DEFAULT));
 
-    if (h5filter != H5P_DEFAULT) {
-      _eh(H5Pclose(h5filter));
-    }
+    _eh(H5Pclose(h5filter));
     _eh(H5Tclose(h5type));
   }
 
