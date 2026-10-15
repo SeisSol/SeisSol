@@ -76,6 +76,25 @@ Conventions
 SeisSol reorients each tetrahedron while reading the mesh, so the orientation of the tetrahedra in the file does not affect the simulation.
 For compatibility with earlier versions of SeisSol and with other tools, all tetrahedra should nevertheless have the same, positive orientation.
 
+Cells of a higher order
+-----------------------
+
+PUMGen writes a mesh of gmsh whose cells are of a higher order as any other mesh, the cells by their
+vertices in ``/connect``, and adds the other nodes of every cell:
+
+-   ``/geometry_ho``: the nodes of every cell beyond its vertices, three coordinates each, in the
+    order gmsh numbers them (its attribute ``node-ordering`` says ``gmsh``). Dimension: (nValues,)
+
+-   ``/geometry_ho_offsets``: where the nodes of every cell start in ``/geometry_ho``. Dimension:
+    (nCells + 1,)
+
+-   ``/order``: the order of every cell. Dimension: (nCells,)
+
+SeisSol does not compute on curved cells yet. It takes such a mesh where all of its cells are
+straight-sided -- every node within 1e-8 of the longest edge of its cell of where the straight-sided
+cell through the vertices has it -- and reads it as a mesh of the first order; a mesh with a curved
+cell it refuses.
+
 Boundary Conditions
 -------------------
 

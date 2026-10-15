@@ -11,6 +11,8 @@
 #include "Common/CompactOptional.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/GmshNodes.h"
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Clustering/Clustering.h"
@@ -29,6 +31,7 @@
 #include <PUML/Partition.h>
 #include <PUML/PartitionGraph.h>
 #include <PUML/PartitionTarget.h>
+#include <PUML/RaggedBuffer.h>
 #include <PUML/Topology.h>
 #include <PUML/TypeInference.h>
 #include <PUML/Types.h>
@@ -248,6 +251,128 @@ void applyVertexOrder(std::array<T, Cell::NumVertices>& values, const VertexOrde
     values[k] = original[order[k]];
   }
 }
+
+/**
+ * A string attribute of a dataset, read on the first rank and handed to the others; empty where
+ * the dataset has no such attribute.
+ */
+std::string stringAttribute(const std::string& file, const char* dataset, const char* name) {
+  std::string value;
+  if (Mpi::mpi.rank() == 0) {
+    const hid_t h5file = H5Fopen(file.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+    if (h5file >= 0) {
+      if (H5Aexists_by_name(h5file, dataset, name, H5P_DEFAULT) > 0) {
+        const hid_t attribute = H5Aopen_by_name(h5file, dataset, name, H5P_DEFAULT, H5P_DEFAULT);
+        const hid_t fileType = H5Aget_type(attribute);
+        if (H5Tget_class(fileType) == H5T_STRING) {
+          const hid_t memType = H5Tcopy(H5T_C_S1);
+          if (H5Tis_variable_str(fileType) > 0) {
+            H5Tset_size(memType, H5T_VARIABLE);
+            char* text = nullptr;
+            if (H5Aread(attribute, memType, static_cast<void*>(&text)) >= 0 && text != nullptr) {
+              value = text;
+              H5free_memory(text);
+            }
+          } else {
+            std::vector<char> text(H5Tget_size(fileType) + 1, '\0');
+            H5Tset_size(memType, text.size());
+            if (H5Aread(attribute, memType, text.data()) >= 0) {
+              value = text.data();
+            }
+          }
+          H5Tclose(memType);
+        }
+        H5Tclose(fileType);
+        H5Aclose(attribute);
+      }
+      H5Fclose(h5file);
+    }
+  }
+  auto length = static_cast<unsigned long>(value.size());
+  MPI_Bcast(&length, 1, MPI_UNSIGNED_LONG, 0, Mpi::mpi.comm());
+  value.resize(length);
+  MPI_Bcast(value.data(), static_cast<int>(length), MPI_CHAR, 0, Mpi::mpi.comm());
+  return value;
+}
+
+/// the vertices of a local cell, in the vertex order of the file
+std::array<CellTransform::VectorEigenT, Cell::NumVertices>
+    fileVertices(const PumlMesh& meshGeometry, std::size_t cell) {
+  std::array<PUML::LocalId, Cell::NumVertices> vertexIds{};
+  PUML::Downward::vertices(meshGeometry, meshGeometry.cells()[cell], vertexIds.data());
+  std::array<CellTransform::VectorEigenT, Cell::NumVertices> vertices;
+  for (std::size_t k = 0; k < Cell::NumVertices; ++k) {
+    const auto* coordinate = meshGeometry.vertices()[vertexIds[k]].coordinate();
+    vertices[k] = CellTransform::VectorEigenT(coordinate[0], coordinate[1], coordinate[2]);
+  }
+  return vertices;
+}
+
+/// the order of every local cell and its nodes but the vertices, where the file gives them
+class HighOrderGeometry {
+  public:
+  explicit HighOrderGeometry(const PumlMesh& meshGeometry)
+      : present_(meshGeometry.has(pumldata::Order, PUML::DataType::Cell)) {
+    if (present_) {
+      orders_ =
+          meshGeometry.data(meshGeometry.find<std::uint8_t>(pumldata::Order, PUML::DataType::Cell));
+      nodes_ = meshGeometry.raggedData(meshGeometry.findRagged<double>(pumldata::HighOrderNodes));
+    }
+  }
+
+  [[nodiscard]] bool present() const { return present_; }
+
+  [[nodiscard]] std::size_t order(std::size_t cell) const { return present_ ? orders_[cell] : 1; }
+
+  /// the nodes of a cell but its vertices, in the order of gmsh, three coordinates each
+  [[nodiscard]] const double* nodes(std::size_t cell) const {
+    return present_ ? nodes_.begin(cell) : nullptr;
+  }
+
+  /// how many values the file gives for a cell
+  [[nodiscard]] std::size_t values(std::size_t cell) const {
+    return present_ ? nodes_.count(cell) : 0;
+  }
+
+  private:
+  bool present_;
+  PUML::DataView<const std::uint8_t> orders_;
+  PUML::RaggedView<const double> nodes_;
+};
+
+/**
+ * How far the nodes of a local cell are off the straight-sided cell through its vertices, relative
+ * to its longest edge: the straight-sided cell has the node gmsh numbers i where the affine map of
+ * the cell puts the point of the reference cell that node stands for.
+ */
+double
+    curvatureOf(const PumlMesh& meshGeometry, const HighOrderGeometry& geometry, std::size_t cell) {
+  const auto order = geometry.order(cell);
+  if (order <= 1) {
+    return 0;
+  }
+  const auto vertices = fileVertices(meshGeometry, cell);
+  const AffineTransform straight(vertices);
+  double size = 0;
+  for (std::size_t a = 0; a < Cell::NumVertices; ++a) {
+    for (std::size_t b = a + 1; b < Cell::NumVertices; ++b) {
+      size = std::max(size, (vertices[a] - vertices[b]).norm());
+    }
+  }
+  const auto lattice = gmshTetrahedronLattice(order);
+  const auto* nodes = geometry.nodes(cell);
+  double offset = 0;
+  for (std::size_t i = Cell::NumVertices; i < lattice.size(); ++i) {
+    const CellTransform::VectorEigenT reference(static_cast<double>(lattice[i][0]),
+                                                static_cast<double>(lattice[i][1]),
+                                                static_cast<double>(lattice[i][2]));
+    const auto* node = nodes + Cell::Dim * (i - Cell::NumVertices);
+    const CellTransform::VectorEigenT given(node[0], node[1], node[2]);
+    offset = std::max(offset,
+                      (given - straight.refToSpace(reference / static_cast<double>(order))).norm());
+  }
+  return offset / size;
+}
 } // namespace
 
 auto groupsOf(const PumlMesh& mesh) -> const int* {
@@ -264,6 +389,28 @@ auto boundaryTagsOf(const PumlMesh& mesh, seissol::initializer::parameters::Boun
     return mesh.data(mesh.find<std::uint64_t>(pumldata::Boundary, PUML::DataType::Cell)).data();
   }
   return mesh.data(mesh.find<int>(pumldata::Boundary, PUML::DataType::Cell)).data();
+}
+
+auto summarizeHighOrderGeometry(const PumlMesh& meshGeometry) -> HighOrderGeometrySummary {
+  const HighOrderGeometry geometry(meshGeometry);
+  HighOrderGeometrySummary summary;
+  if (geometry.present()) {
+    for (std::size_t cell = 0; cell < meshGeometry.cells().size(); ++cell) {
+      if (geometry.order(cell) > 1) {
+        ++summary.highOrderCells;
+        summary.order = std::max<unsigned long>(summary.order, geometry.order(cell));
+        const auto curvature = curvatureOf(meshGeometry, geometry, cell);
+        summary.curvature = std::max(summary.curvature, curvature);
+        summary.curvedCells += curvature > PUMLReader::StraightTolerance ? 1 : 0;
+      }
+    }
+  }
+  MPI_Allreduce(
+      MPI_IN_PLACE, &summary.highOrderCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, Mpi::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE, &summary.curvedCells, 1, MPI_UNSIGNED_LONG, MPI_SUM, Mpi::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE, &summary.order, 1, MPI_UNSIGNED_LONG, MPI_MAX, Mpi::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE, &summary.curvature, 1, MPI_DOUBLE, MPI_MAX, Mpi::mpi.comm());
+  return summary;
 }
 
 std::vector<VertexOrder> canonicalVertexOrders(const PumlMesh& meshTopology,
@@ -311,11 +458,13 @@ PUMLReader::PUMLReader(const std::string& meshFile,
 
   logInfo() << "Read (geometric) connectivity data.";
   read(meshGeometry, meshFile, false, boundaryFormat);
+  readHighOrderGeometry(meshGeometry, meshFile);
 
   // Note: we need to call generatePUML in order to create the dual graph of the mesh
   // Note 2: we also need it for vertex identification
   logInfo() << "Generate (geometric) mesh.";
   meshGeometry.generateMesh();
+  acceptHighOrderGeometry(meshGeometry);
 
   if (topologyFormat != initializer::parameters::TopologyFormat::Geometric) {
     // we have a topology mesh; separate from the physical mesh
@@ -415,6 +564,72 @@ void PUMLReader::read(PumlMesh& meshTopology,
   std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), localStart);
   meshTopology.addDataArray(
       pumldata::CellIdsAsInFile, cellIdsAsInFile.data(), PUML::DataType::Cell, {});
+}
+
+void PUMLReader::readHighOrderGeometry(PumlMesh& meshGeometry, const std::string& file) {
+  {
+    PUML::Hdf5Reader<PumlTopology> reader(meshGeometry);
+    if (!reader.exists(file + ":/geometry_ho")) {
+      return;
+    }
+    logInfo() << "Read the nodes of the cells of a higher order.";
+    reader.addData<std::uint8_t>(pumldata::Order, file + ":/order", PUML::DataType::Cell, {});
+    reader.readRaggedData<double>(
+        pumldata::HighOrderNodes, file + ":/geometry_ho", file + ":/geometry_ho_offsets");
+  }
+
+  const auto ordering = stringAttribute(file, "/geometry_ho", "node-ordering");
+  if (ordering != "gmsh") {
+    logError() << "The nodes of the cells of a higher order are given in the order"
+               << (ordering.empty() ? std::string("(none given)") : ordering)
+               << "-- the reader knows the one of gmsh only";
+  }
+
+  // the cells a rank reads are a run of the cells of the file
+  const std::size_t localCells = meshGeometry.numOriginalCells();
+  std::size_t firstCell = 0;
+  MPI_Exscan(&localCells,
+             &firstCell,
+             1,
+             PUML::MPITypeInfer<std::size_t>::type(),
+             MPI_SUM,
+             meshGeometry.comm());
+  if (Mpi::mpi.rank() == 0) {
+    firstCell = 0;
+  }
+
+  const HighOrderGeometry geometry(meshGeometry);
+  for (std::size_t cell = 0; cell < localCells; ++cell) {
+    const auto order = geometry.order(cell);
+    if (order < 1) {
+      logError() << "The cell" << firstCell + cell << "has the order" << order;
+    }
+    const auto expected = Cell::Dim * (lagrangeNodeCount(order) - Cell::NumVertices);
+    if (geometry.values(cell) != expected) {
+      logError() << "The cell" << firstCell + cell << "of order" << order << "has"
+                 << geometry.values(cell)
+                 << "coordinates of its nodes beyond the vertices, where it needs" << expected;
+    }
+  }
+}
+
+void PUMLReader::acceptHighOrderGeometry(PumlMesh& meshGeometry) {
+  if (!meshGeometry.has(pumldata::Order, PUML::DataType::Cell)) {
+    return;
+  }
+  const auto summary = summarizeHighOrderGeometry(meshGeometry);
+  logInfo() << "The mesh gives nodes of an order up to" << summary.order << "for"
+            << summary.highOrderCells << "cells, of which" << summary.curvedCells
+            << "are curved, their nodes off the straight-sided cell by up to" << summary.curvature
+            << "of its longest edge.";
+  if (summary.curvedCells > 0) {
+    logError() << "The mesh has" << summary.curvedCells
+               << "curved cells, which SeisSol cannot compute on yet. Mesh it with cells of the "
+                  "first order, or with straight-sided cells.";
+  }
+  // the cells are straight-sided, and their nodes need not travel with them
+  meshGeometry.allocateRaggedData<double>(
+      pumldata::HighOrderNodes, std::vector<PUML::Size>(meshGeometry.numOriginalCells(), 0));
 }
 
 void PUMLReader::partition(PumlMesh& meshTopology,

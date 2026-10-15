@@ -40,6 +40,9 @@ constexpr const char* CellIdsAsInFile = "cellIdsAsInFile";
 constexpr const char* ClusterIds = "clusterIds";
 constexpr const char* Timesteps = "timesteps";
 constexpr const char* VertexOrders = "vertexOrders";
+/// the order of every cell and its nodes but the vertices, where the file gives them
+constexpr const char* Order = "order";
+constexpr const char* HighOrderNodes = "highOrderNodes";
 } // namespace pumldata
 
 /// the group of every cell of a mesh read by PUMLReader
@@ -82,8 +85,33 @@ using VertexOrder = std::array<std::uint8_t, Cell::NumVertices>;
 std::vector<VertexOrder> canonicalVertexOrders(const PumlMesh& meshTopology,
                                                const PumlMesh& meshGeometry);
 
+/// What the nodes of a higher order a mesh file gives for its cells say about them, over all ranks.
+struct HighOrderGeometrySummary {
+  /// the cells of an order above one
+  unsigned long highOrderCells{0};
+  /// those of them whose nodes are not where the straight-sided cell through its vertices has them
+  unsigned long curvedCells{0};
+  /// the highest order of a cell
+  unsigned long order{1};
+  /// how far the nodes of a cell are off the straight-sided one at most, relative to its longest
+  /// edge
+  double curvature{0};
+};
+
+/**
+ * Sums up the nodes of a higher order of the cells of a mesh read with
+ * PUMLReader::readHighOrderGeometry, on all ranks; all zero where the file gives none. A cell
+ * counts as curved where a node is off by more than PUMLReader::StraightTolerance of its longest
+ * edge. Collective, and the mesh has to be generated.
+ */
+auto summarizeHighOrderGeometry(const PumlMesh& meshGeometry) -> HighOrderGeometrySummary;
+
 class PUMLReader : public seissol::geometry::MeshReader {
   public:
+  /// a cell whose nodes are this close to the straight-sided one, relative to its longest edge, is
+  /// the straight-sided one for the scheme
+  static constexpr double StraightTolerance = 1e-8;
+
   PUMLReader(const std::string& meshFile,
              const std::string& partitioningLib,
              const seissol::FaceMap& faceMap,
@@ -97,6 +125,22 @@ class PUMLReader : public seissol::geometry::MeshReader {
 
   bool inlineTimestepCompute() const override;
   bool inlineClusterCompute() const override;
+
+  /**
+   * Reads the order of every cell and its nodes beyond the vertices, where the file gives them, as
+   * a mesh file of PUMGen does for a mesh of gmsh whose cells are of a higher order: the nodes in
+   * /geometry_ho, in the order of gmsh, where those of every cell start in /geometry_ho_offsets,
+   * and the order of every cell in /order. The cells have to be read already.
+   */
+  static void readHighOrderGeometry(PumlMesh& meshGeometry, const std::string& file);
+
+  /**
+   * Takes a mesh whose file gives nodes of a higher order only where its cells are straight-sided,
+   * and then forgets the nodes, so that they do not travel with their cells through the
+   * partitioning; a mesh with a curved cell it refuses, since SeisSol cannot compute on curved
+   * cells yet. Collective, and the mesh has to be generated.
+   */
+  static void acceptHighOrderGeometry(PumlMesh& meshGeometry);
 
   private:
   /**

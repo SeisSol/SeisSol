@@ -29,6 +29,13 @@ configure_file(
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh-offgrid-permuted.h5
     COPYONLY
 )
+foreach(highOrderMesh cube2-o2-permuted.h5 cube2-o3.h5 cube2-o2-straight.h5)
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/Geometry/${highOrderMesh}
+        ${CMAKE_CURRENT_BINARY_DIR}/Testing/${highOrderMesh}
+        COPYONLY
+    )
+endforeach()
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/material.yaml
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
