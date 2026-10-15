@@ -73,6 +73,17 @@ inline bool& recordingOuterGraph() {
   return recording;
 }
 
+/**
+ * Whether host functions go onto the streams on HIP as well. Otherwise, HIP waits for the stream
+ * and runs a host function right away. With concurrent clusters, the host must not wait for the
+ * device during an action, though: the stream may wait for work of other clusters, or of other
+ * processes (with an exchange ordered on the device), that the host enqueues only later.
+ */
+inline bool& hostFunctionsOnStreams() {
+  static bool onStreams = false;
+  return onStreams;
+}
+
 class StreamRuntime {
 #ifdef ACL_DEVICE
   private:
@@ -139,8 +150,8 @@ class StreamRuntime {
   void enqueueHost(F&& handler) {
     // A graph that is being recorded cannot be waited for, but it takes the host function over.
     // That includes a graph spanning several stream runtimes that the calling thread records.
-    if (Backend != DeviceBackend::Hip || buildGraph_.isInitialized() || capturing_ ||
-        recordingOuterGraph()) {
+    if (Backend != DeviceBackend::Hip || hostFunctionsOnStreams() || buildGraph_.isInitialized() ||
+        capturing_ || recordingOuterGraph()) {
       device().api().streamHostFunction(stream(), std::forward<F>(handler));
     } else {
       // if the stream host function call isn't implemented or slow, we'll need to synchronize

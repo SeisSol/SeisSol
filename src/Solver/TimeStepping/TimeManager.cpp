@@ -22,6 +22,7 @@
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
+#include "Parallel/Runtime/Stream.h"
 #include "ResultWriter/ClusteringWriter.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "SeisSol.h"
@@ -391,6 +392,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   concurrent_ = isDeviceOn() && useConcurrentClusters(seissolInstance_.env());
   if (concurrent_) {
     logInfo() << "The clusters run concurrently on the device.";
+    parallel::runtime::hostFunctionsOnStreams() = true;
     for (auto* cluster : clusters_) {
       cluster->setConcurrent(true);
     }
