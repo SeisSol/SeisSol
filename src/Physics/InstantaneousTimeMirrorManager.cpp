@@ -9,6 +9,8 @@
 
 #include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
+#include "Geometry/MeshReader.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/Model/CellLocalMatrices.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
@@ -145,21 +147,36 @@ void InstantaneousTimeMirrorManager::updateMaterialsByScript(const std::string& 
   const auto& vertices = meshReader_->getVertices();
   for (const auto config : ltsStorage_->configs()) {
     dispatchConfig(config, [&](auto cfg) {
-      // the cells of the configuration, gathered from its layers, so that the script is bound once
+      // the cells of the configuration, gathered from its layers, so that the script is bound once;
+      // also those of the ghost layers, whose material the fluxes across the boundaries of the
+      // rank see
       std::vector<model::Material*> materials;
       std::vector<std::array<double, Cell::Dim>> centers;
-      for (auto& layer : ltsStorage_->leaves(Ghost)) {
+      for (auto& layer : ltsStorage_->leaves()) {
         if (layer.getIdentifier().config != config) {
           continue;
         }
+        const bool ghost = layer.getIdentifier().halo == HaloType::Ghost;
         auto* layerMaterials = layer.var<LTS::MaterialData>(cfg);
         const auto* secondary = layer.var<LTS::SecondaryInformation>();
         for (std::size_t cell = 0; cell < layer.size(); ++cell) {
           materials.push_back(&layerMaterials[cell]);
           std::array<double, Cell::Dim> center{};
-          for (const auto vertex : elements[secondary[cell].meshId].vertices) {
-            for (std::size_t d = 0; d < Cell::Dim; ++d) {
-              center[d] += vertices[vertex].coords[d] / Cell::NumVertices;
+          if (ghost) {
+            // the position of a ghost cell is in the ghost layer, by the rank that owns it
+            const auto& linear = meshReader_->linearGhostlayer()[secondary[cell].meshId];
+            const auto& metadata =
+                meshReader_->getGhostlayerMetadata().at(linear.rank)[linear.inRankIndices[0]];
+            for (const auto& vertex : metadata.vertices) {
+              for (std::size_t d = 0; d < Cell::Dim; ++d) {
+                center[d] += vertex[d] / Cell::NumVertices;
+              }
+            }
+          } else {
+            for (const auto vertex : elements[secondary[cell].meshId].vertices) {
+              for (std::size_t d = 0; d < Cell::Dim; ++d) {
+                center[d] += vertices[vertex].coords[d] / Cell::NumVertices;
+              }
             }
           }
           centers.push_back(center);
@@ -266,7 +283,8 @@ void InstantaneousTimeMirrorManager::updateVelocities() {
     }
   };
 
-  for (auto& layer : ltsStorage_->leaves(Ghost)) {
+  // also the materials of the ghost cells, which the fluxes across the boundaries of the rank see
+  for (auto& layer : ltsStorage_->leaves()) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       auto* materials = layer.var<LTS::MaterialData>(cfg);
 
