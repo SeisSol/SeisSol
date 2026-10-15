@@ -12,4 +12,5 @@
 #include "GmshNodes.t.h"
 #include "HighOrderPuml.t.h" // IWYU pragma: keep
 #include "MeshReader.t.h"
+#include "PumlBoundary.t.h"          // IWYU pragma: keep
 #include "VertexOrderInvariance.t.h" // IWYU pragma: keep

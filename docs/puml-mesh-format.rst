@@ -107,6 +107,8 @@ In the default format (``i32``), the 4 boundary condition ids for each tetrahedr
 
 Other boundary formats (``i64``) have a 16-bit offset and use 0xffff as a mask instead. The format ``i32x4`` stores each boundary value in an array value of its own, instead of compressing all four values into one integer.
 
+The values may be stored as signed or unsigned integers of up to 64 bits; SeisSol takes their bits as they are. Hence, a packed value may well be negative, as it is with PUMGen (which writes signed integers) wherever the fourth face of a cell has a tag of 128 or more in ``i32``, or of 32768 or more in ``i64``.
+
 SeisSol indexes the boundary conditions as follows. What each of them does is described in :doc:`boundary-conditions`.
 
 - 0: regular. A regular face between two cells.

@@ -48,9 +48,9 @@ inline auto summaryOf(const std::string& file) -> seissol::geometry::HighOrderGe
     PUML::Hdf5Reader<seissol::geometry::PumlTopology> reader(mesh);
     reader.open(tpath(file) + ":/connect", tpath(file) + ":/geometry");
   }
-  seissol::geometry::PUMLReader::readHighOrderGeometry(mesh, tpath(file));
+  const auto arrays = seissol::geometry::PUMLReader::readHighOrderGeometry(mesh, tpath(file));
   mesh.generateMesh();
-  return seissol::geometry::summarizeHighOrderGeometry(mesh);
+  return seissol::geometry::summarizeHighOrderGeometry(mesh, arrays);
 }
 
 } // namespace highorderpumltest

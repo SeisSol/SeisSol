@@ -44,12 +44,13 @@ Clustering::Clustering(const ClusteringConfig& config, seissol::SeisSol& seissol
       vertexWeightElement_(config.vertexWeightElement),
       vertexWeightDynamicRupture_(config.vertexWeightDynamicRupture),
       vertexWeightFreeSurfaceWithGravity_(config.vertexWeightFreeSurfaceWithGravity),
-      boundaryFormat_(config.boundaryFormat), faceMap_(config.faceMap),
-      configCostFactors_(config.configCostFactors) {}
+      faceMap_(config.faceMap), configCostFactors_(config.configCostFactors) {}
 
 const ClusteringResult&
     Clustering::compute(const seissol::geometry::PumlMesh& meshTopology,
+                        const seissol::geometry::PumlCellArrays& topologyArrays,
                         const seissol::geometry::PumlMesh& meshGeometry,
+                        const seissol::geometry::PumlCellArrays& geometryArrays,
                         const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
   bool continueComputation = true;
   // the materials of all configurations of the run
@@ -69,9 +70,10 @@ const ClusteringResult&
 
   logInfo() << "Computing LTS weights.";
 
-  auto details = computeTimesteps(CellToVertexArray::fromPUML(meshGeometry, vertexOrders),
-                                  seissolInstance_.parameters());
-  auto cellCosts = computeCostsPerTimestep(meshTopology);
+  auto details =
+      computeTimesteps(CellToVertexArray::fromPUML(meshGeometry, geometryArrays, vertexOrders),
+                       seissolInstance_.parameters());
+  auto cellCosts = computeCostsPerTimestep(meshTopology, topologyArrays);
 
   const auto& ltsParameters = seissolInstance_.parameters().timeStepping.lts;
   // getMaxNumberOfClusters() is validated to be positive, so the decrement cannot wrap
@@ -85,7 +87,7 @@ const ClusteringResult&
   // Scoped: the evaluator borrows `details` and `cellCosts`, which are moved into the result
   // once it is gone.
   ClusteringEvaluator evaluator(meshTopology,
-                                boundaryFormat_,
+                                topologyArrays,
                                 *faceMap_,
                                 details,
                                 cellCosts,
@@ -169,7 +171,8 @@ const ClusteringResult&
 }
 
 std::vector<std::uint64_t>
-    Clustering::computeCostsPerTimestep(const seissol::geometry::PumlMesh& mesh) const {
+    Clustering::computeCostsPerTimestep(const seissol::geometry::PumlMesh& mesh,
+                                        const seissol::geometry::PumlCellArrays& arrays) const {
   const auto& cells = mesh.cells();
 
   // the weight of a cell of each configuration
@@ -182,8 +185,8 @@ std::vector<std::uint64_t>
 
   const auto& modelParameters = seissolInstance_.parameters().model;
   std::vector<std::uint64_t> cellCosts(cells.size());
-  const auto* group = seissol::geometry::groupsOf(mesh);
-  const void* boundaryCond = seissol::geometry::boundaryTagsOf(mesh, boundaryFormat_);
+  const auto groups = mesh.data(arrays.group);
+  const auto boundaryTags = seissol::geometry::boundaryTagsOf(mesh, arrays);
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     std::uint64_t dynamicRupture = 0;
     std::uint64_t freeSurfaceWithGravity = 0;
@@ -192,14 +195,14 @@ std::vector<std::uint64_t>
     PUML::Downward::faces(mesh, cells[cell], faceids);
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      const auto faceType = decodeFaceType(boundaryCond, cell, face, boundaryFormat_, *faceMap_);
+      const auto faceType = decodeFaceType(boundaryTags, cell, face, *faceMap_);
       dynamicRupture += (faceType == FaceType::DynamicRupture) ? 1 : 0;
       freeSurfaceWithGravity += (faceType == FaceType::FreeSurfaceGravity) ? 1 : 0;
     }
 
     const auto costDynamicRupture = vertexWeightDynamicRupture_ * dynamicRupture;
     const auto costDisplacement = vertexWeightFreeSurfaceWithGravity_ * freeSurfaceWithGravity;
-    const auto costElement = elementWeights[modelParameters.configOfGroup(group[cell])];
+    const auto costElement = elementWeights[modelParameters.configOfGroup(groups[cell])];
     cellCosts[cell] = costElement + costDynamicRupture + costDisplacement;
   }
   return cellCosts;

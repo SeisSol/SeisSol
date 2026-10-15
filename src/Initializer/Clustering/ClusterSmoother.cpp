@@ -13,7 +13,6 @@
 #include "Geometry/PUMLReader.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/FaceMap.h"
-#include "Initializer/Parameters/MeshParameters.h"
 #include "Parallel/MPI.h"
 
 #include <PUML/Downward.h>
@@ -21,7 +20,6 @@
 #include <PUML/Upward.h>
 #include <algorithm>
 #include <cstddef>
-#include <cstdint>
 #include <mpi.h>
 #include <unordered_map>
 #include <utility>
@@ -30,12 +28,11 @@
 
 namespace seissol::initializer {
 
-FaceType decodeFaceType(const void* boundaryCond,
+FaceType decodeFaceType(const geometry::BoundaryTagsView& boundaryTags,
                         std::size_t cell,
-                        std::uint8_t face,
-                        parameters::BoundaryFormat boundaryFormat,
+                        std::size_t face,
                         const FaceMap& faceMap) {
-  const auto tag = seissol::geometry::decodeBoundary(boundaryCond, cell, face, boundaryFormat);
+  const auto tag = boundaryTags.tag(cell, face);
   const auto faceType = faceMap.at(tag);
   if (!faceType.has_value()) {
     logError() << "Read invalid face tag during cluster determining:" << tag;
@@ -47,12 +44,12 @@ FaceType decodeFaceType(const void* boundaryCond,
 // Those types appear verbatim wherever this file talks to either library; everything in between
 // uses `std::size_t`.
 ClusterSmoother::ClusterSmoother(const geometry::PumlMesh& mesh,
-                                 parameters::BoundaryFormat boundaryFormat,
+                                 const geometry::PumlCellArrays& arrays,
                                  const FaceMap& faceMap)
-    : mesh_(&mesh), boundaryFormat_(boundaryFormat), faceMap_(&faceMap) {
+    : mesh_(&mesh), arrays_(arrays), faceMap_(&faceMap) {
   const auto& cells = mesh_->cells();
   const auto& faces = mesh_->faces();
-  const void* boundaryCond = geometry::boundaryTagsOf(*mesh_, boundaryFormat_);
+  const auto boundaryTags = geometry::boundaryTagsOf(*mesh_, arrays_);
 
   std::unordered_map<int, std::vector<std::size_t>> rankToSharedFacesPre;
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
@@ -60,7 +57,7 @@ ClusterSmoother::ClusterSmoother(const geometry::PumlMesh& mesh,
     bool atBoundary = false;
     PUML::Downward::faces(*mesh_, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_, *faceMap_);
+      const auto boundary = decodeFaceType(boundaryTags, cell, f, *faceMap_);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
         // We treat MPI neighbors later
@@ -111,7 +108,7 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
 
   const auto& cells = mesh_->cells();
   const auto& faces = mesh_->faces();
-  const void* boundaryCond = geometry::boundaryTagsOf(*mesh_, boundaryFormat_);
+  const auto boundaryTags = geometry::boundaryTagsOf(*mesh_, arrays_);
 
 #pragma omp parallel for reduction(+ : numberOfReductions)
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
@@ -120,7 +117,7 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
     PUML::LocalId faceids[Cell::NumFaces]{};
     PUML::Downward::faces(*mesh_, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_, *faceMap_);
+      const auto boundary = decodeFaceType(boundaryTags, cell, f, *faceMap_);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
         // We treat MPI neighbors later
@@ -180,7 +177,7 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
     PUML::LocalId faceids[Cell::NumFaces]{};
     PUML::Downward::faces(*mesh_, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_, *faceMap_);
+      const auto boundary = decodeFaceType(boundaryTags, cell, f, *faceMap_);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
         // We treat MPI neighbors later

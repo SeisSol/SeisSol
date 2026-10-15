@@ -295,6 +295,32 @@ std::string stringAttribute(const std::string& file, const char* dataset, const 
   return value;
 }
 
+/**
+ * Whether a dataset holds signed integers (1), unsigned ones (0), or anything else, integers wider
+ * than 64 bits included (-1), as the first rank finds; all ranks learn it.
+ */
+int integerSignOf(const std::string& file, const char* dataset) {
+  int sign = -1;
+  if (Mpi::mpi.rank() == 0) {
+    const hid_t h5file = H5Fopen(file.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+    if (h5file >= 0) {
+      const hid_t h5dataset = H5Dopen2(h5file, dataset, H5P_DEFAULT);
+      if (h5dataset >= 0) {
+        const hid_t fileType = H5Dget_type(h5dataset);
+        if (H5Tget_class(fileType) == H5T_INTEGER &&
+            H5Tget_size(fileType) <= sizeof(std::uint64_t)) {
+          sign = H5Tget_sign(fileType) == H5T_SGN_2 ? 1 : 0;
+        }
+        H5Tclose(fileType);
+        H5Dclose(h5dataset);
+      }
+      H5Fclose(h5file);
+    }
+  }
+  MPI_Bcast(&sign, 1, MPI_INT, 0, Mpi::mpi.comm());
+  return sign;
+}
+
 /// the vertices of a local cell, in the vertex order of the file
 std::array<CellTransform::VectorEigenT, Cell::NumVertices>
     fileVertices(const PumlMesh& meshGeometry, std::size_t cell) {
@@ -311,12 +337,11 @@ std::array<CellTransform::VectorEigenT, Cell::NumVertices>
 /// the order of every local cell and its nodes but the vertices, where the file gives them
 class HighOrderGeometry {
   public:
-  explicit HighOrderGeometry(const PumlMesh& meshGeometry)
-      : present_(meshGeometry.has(pumldata::Order, PUML::DataType::Cell)) {
+  HighOrderGeometry(const PumlMesh& meshGeometry, const HighOrderArrays& arrays)
+      : present_(arrays.order.valid()) {
     if (present_) {
-      orders_ =
-          meshGeometry.data(meshGeometry.find<std::uint8_t>(pumldata::Order, PUML::DataType::Cell));
-      nodes_ = meshGeometry.raggedData(meshGeometry.findRagged<double>(pumldata::HighOrderNodes));
+      orders_ = meshGeometry.data(arrays.order);
+      nodes_ = meshGeometry.raggedData(arrays.nodes);
     }
   }
 
@@ -375,24 +400,17 @@ double
 }
 } // namespace
 
-auto groupsOf(const PumlMesh& mesh) -> const int* {
-  return mesh.data(mesh.find<int>(pumldata::Group, PUML::DataType::Cell)).data();
+auto PumlCellArrays::rebasedTo(const PumlMesh& clone) const -> PumlCellArrays {
+  auto rebased = *this;
+  rebased.group = clone.rebase(group);
+  rebased.boundary = clone.rebase(boundary);
+  rebased.cellIdsAsInFile = clone.rebase(cellIdsAsInFile);
+  return rebased;
 }
 
-auto boundaryTagsOf(const PumlMesh& mesh, seissol::initializer::parameters::BoundaryFormat format)
-    -> const void* {
-  using seissol::initializer::parameters::BoundaryFormat;
-  if (format == BoundaryFormat::I32) {
-    return mesh.data(mesh.find<std::uint32_t>(pumldata::Boundary, PUML::DataType::Cell)).data();
-  }
-  if (format == BoundaryFormat::I64) {
-    return mesh.data(mesh.find<std::uint64_t>(pumldata::Boundary, PUML::DataType::Cell)).data();
-  }
-  return mesh.data(mesh.find<int>(pumldata::Boundary, PUML::DataType::Cell)).data();
-}
-
-auto summarizeHighOrderGeometry(const PumlMesh& meshGeometry) -> HighOrderGeometrySummary {
-  const HighOrderGeometry geometry(meshGeometry);
+auto summarizeHighOrderGeometry(const PumlMesh& meshGeometry, const HighOrderArrays& arrays)
+    -> HighOrderGeometrySummary {
+  const HighOrderGeometry geometry(meshGeometry, arrays);
   HighOrderGeometrySummary summary;
   if (geometry.present()) {
     for (std::size_t cell = 0; cell < meshGeometry.cells().size(); ++cell) {
@@ -457,21 +475,24 @@ PUMLReader::PUMLReader(const std::string& meshFile,
   meshGeometry.setComm(seissol::Mpi::mpi.comm());
 
   logInfo() << "Read (geometric) connectivity data.";
-  read(meshGeometry, meshFile, boundaryFormat);
-  readHighOrderGeometry(meshGeometry, meshFile);
+  const auto cellArrays = read(meshGeometry, meshFile, boundaryFormat);
+  const auto highOrderArrays = readHighOrderGeometry(meshGeometry, meshFile);
 
   // Note: we need to call generatePUML in order to create the dual graph of the mesh
   // Note 2: we also need it for vertex identification
   logInfo() << "Generate (geometric) mesh.";
   meshGeometry.generateMesh();
-  acceptHighOrderGeometry(meshGeometry);
+  acceptHighOrderGeometry(meshGeometry, highOrderArrays);
 
+  // the arrays of the cells in the topology mesh
+  auto topologyArrays = cellArrays;
   if (topologyFormat != initializer::parameters::TopologyFormat::Geometric) {
     // We have a topology mesh, separate from the physical one. It holds the same cells, with the
     // same data, and the same vertices, so it is a clone of the physical mesh rather than read from
     // the file once more; only what makes it a topology of its own comes from there.
     logInfo() << "Clone the (geometric) mesh for the topology.";
     meshTopologyExtra = meshGeometry.clone();
+    topologyArrays = cellArrays.rebasedTo(meshTopologyExtra);
 
     PUML::DataHandle<PUML::GlobalId> identify;
     {
@@ -519,42 +540,64 @@ PUMLReader::PUMLReader(const std::string& meshFile,
   const initializer::ClusteringResult* clusteringResult = nullptr;
   if (clustering != nullptr) {
     logInfo() << "Compute clustering.";
-    clusteringResult = &clustering->compute(meshTopology, meshGeometry, vertexOrders);
+    clusteringResult =
+        &clustering->compute(meshTopology, topologyArrays, meshGeometry, cellArrays, vertexOrders);
   }
 
   logInfo() << "Partition the mesh.";
-  partition(meshTopology,
-            meshGeometry,
-            clusteringResult,
-            vertexOrders,
-            weightModel,
-            tpwgt,
-            partitioningLib);
+  const auto partitionArrays = partition(meshTopology,
+                                         meshGeometry,
+                                         clusteringResult,
+                                         vertexOrders,
+                                         weightModel,
+                                         tpwgt,
+                                         partitioningLib);
 
   logInfo() << "Generate the correctly-distributed meshes.";
   generatePUML(meshTopology, meshGeometry);
 
   logInfo() << "Set up mesh data structures.";
-  getMesh(meshTopology, meshGeometry, faceMap, boundaryFormat);
+  getMesh(meshTopology, meshGeometry, cellArrays, partitionArrays, faceMap);
 }
 
-void PUMLReader::read(PumlMesh& mesh,
+auto PUMLReader::read(PumlMesh& mesh,
                       const std::string& file,
-                      seissol::initializer::parameters::BoundaryFormat boundaryFormat) {
+                      seissol::initializer::parameters::BoundaryFormat boundaryFormat)
+    -> PumlCellArrays {
   SCOREP_USER_REGION("PUMLReader_read", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+  using seissol::initializer::parameters::BoundaryFormat;
+  if (boundaryFormat != BoundaryFormat::I32 && boundaryFormat != BoundaryFormat::I64 &&
+      boundaryFormat != BoundaryFormat::I32x4) {
+    logError() << "Unknown boundary format:" << static_cast<int>(boundaryFormat);
+  }
+
+  // The boundary condition tags are read as 64-bit integers, which hold every format. HDF5
+  // converts each value to the type it is read as, clipped to the range of that type, and PUMGen
+  // files the tags as signed integers: in I32 and I64, a tag of 128 resp. 32768 or more on the last
+  // face of a cell makes the value of the cell negative, which an unsigned type would read as 0 --
+  // all four tags of the cell lost. As a 64-bit integer of the signedness of the file, a value
+  // comes out sign- or zero-extended, with the bits it has in the file.
+  const auto boundarySign = integerSignOf(file, "/boundary");
+  if (boundarySign < 0) {
+    logError() << "The boundary condition tags in" << file
+               << "(/boundary) are no integers of 64 bits or less.";
+  }
+
+  PumlCellArrays arrays;
+  arrays.boundaryFormat = boundaryFormat;
 
   PUML::Hdf5Reader<PumlTopology> reader(mesh);
   reader.open(file + ":/connect", file + ":/geometry");
-  reader.addData<int>(pumldata::Group, file + ":/group", PUML::DataType::Cell, {});
-
-  if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32) {
-    reader.addData<uint32_t>(pumldata::Boundary, file + ":/boundary", PUML::DataType::Cell, {});
-  } else if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I64) {
-    reader.addData<uint64_t>(pumldata::Boundary, file + ":/boundary", PUML::DataType::Cell, {});
-  } else if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32x4) {
-    reader.addData<int>(
-        pumldata::Boundary, file + ":/boundary", PUML::DataType::Cell, {Cell::NumFaces});
-  }
+  arrays.group = reader.addData<int>(pumldata::Group, file + ":/group", PUML::DataType::Cell, {});
+  arrays.boundary = reader.addData<std::uint64_t>(
+      pumldata::Boundary,
+      file + ":/boundary",
+      PUML::DataType::Cell,
+      boundaryFormat == BoundaryFormat::I32x4 ? std::vector<std::size_t>{Cell::NumFaces}
+                                              : std::vector<std::size_t>{},
+      PUML::MPITypeInfer<std::uint64_t>::type(),
+      boundarySign > 0 ? H5T_NATIVE_INT64 : H5T_NATIVE_UINT64);
 
   const size_t localCells = mesh.numOriginalCells();
   size_t localStart = 0;
@@ -563,18 +606,23 @@ void PUMLReader::read(PumlMesh& mesh,
 
   std::vector<size_t> cellIdsAsInFile(localCells);
   std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), localStart);
-  mesh.addDataArray(pumldata::CellIdsAsInFile, cellIdsAsInFile.data(), PUML::DataType::Cell, {});
+  arrays.cellIdsAsInFile = mesh.addDataArray(
+      pumldata::CellIdsAsInFile, cellIdsAsInFile.data(), PUML::DataType::Cell, {});
+  return arrays;
 }
 
-void PUMLReader::readHighOrderGeometry(PumlMesh& meshGeometry, const std::string& file) {
+auto PUMLReader::readHighOrderGeometry(PumlMesh& meshGeometry, const std::string& file)
+    -> HighOrderArrays {
+  HighOrderArrays arrays;
   {
     PUML::Hdf5Reader<PumlTopology> reader(meshGeometry);
     if (!reader.exists(file + ":/geometry_ho")) {
-      return;
+      return arrays;
     }
     logInfo() << "Read the nodes of the cells of a higher order.";
-    reader.addData<std::uint8_t>(pumldata::Order, file + ":/order", PUML::DataType::Cell, {});
-    reader.readRaggedData<double>(
+    arrays.order =
+        reader.addData<std::uint8_t>(pumldata::Order, file + ":/order", PUML::DataType::Cell, {});
+    arrays.nodes = reader.readRaggedData<double>(
         pumldata::HighOrderNodes, file + ":/geometry_ho", file + ":/geometry_ho_offsets");
   }
 
@@ -598,7 +646,7 @@ void PUMLReader::readHighOrderGeometry(PumlMesh& meshGeometry, const std::string
     firstCell = 0;
   }
 
-  const HighOrderGeometry geometry(meshGeometry);
+  const HighOrderGeometry geometry(meshGeometry, arrays);
   for (std::size_t cell = 0; cell < localCells; ++cell) {
     const auto order = geometry.order(cell);
     if (order < 1) {
@@ -611,13 +659,14 @@ void PUMLReader::readHighOrderGeometry(PumlMesh& meshGeometry, const std::string
                  << "coordinates of its nodes beyond the vertices, where it needs" << expected;
     }
   }
+  return arrays;
 }
 
-void PUMLReader::acceptHighOrderGeometry(PumlMesh& meshGeometry) {
-  if (!meshGeometry.has(pumldata::Order, PUML::DataType::Cell)) {
+void PUMLReader::acceptHighOrderGeometry(PumlMesh& meshGeometry, const HighOrderArrays& arrays) {
+  if (!arrays.order.valid()) {
     return;
   }
-  const auto summary = summarizeHighOrderGeometry(meshGeometry);
+  const auto summary = summarizeHighOrderGeometry(meshGeometry, arrays);
   logInfo() << "The mesh gives nodes of an order up to" << summary.order << "for"
             << summary.highOrderCells << "cells, of which" << summary.curvedCells
             << "are curved, their nodes off the straight-sided cell by up to" << summary.curvature
@@ -632,13 +681,13 @@ void PUMLReader::acceptHighOrderGeometry(PumlMesh& meshGeometry) {
       pumldata::HighOrderNodes, std::vector<PUML::Size>(meshGeometry.numOriginalCells(), 0));
 }
 
-void PUMLReader::partition(PumlMesh& meshTopology,
+auto PUMLReader::partition(PumlMesh& meshTopology,
                            PumlMesh& meshGeometry,
                            const initializer::ClusteringResult* clustering,
                            const std::vector<VertexOrder>& vertexOrders,
                            initializer::VertexWeightModel* weightModel,
                            double tpwgt,
-                           const std::string& partitioningLib) {
+                           const std::string& partitioningLib) -> PartitionArrays {
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   auto partType = toPartitionerType(std::string_view(partitioningLib));
@@ -672,26 +721,28 @@ void PUMLReader::partition(PumlMesh& meshTopology,
 
   auto newPartition = partitioner->partition(graph, target);
 
-  // Written as std::size_t and read back as std::size_t below -- the two have to stay in step,
-  // since the read is a reinterpret_cast that would silently misparse a mismatched width.
-  meshGeometry.addDataArray(
+  // carried along with the cells, for getMesh
+  PartitionArrays arrays;
+  arrays.clusterIds = meshGeometry.addDataArray(
       pumldata::ClusterIds, clustering->clusterIds.data(), PUML::DataType::Cell, {});
-  meshGeometry.addDataArray(pumldata::Timesteps,
-                            clustering->timesteps.cellTimeStepWidths.data(),
-                            PUML::DataType::Cell,
-                            {});
+  arrays.timesteps = meshGeometry.addDataArray(pumldata::Timesteps,
+                                               clustering->timesteps.cellTimeStepWidths.data(),
+                                               PUML::DataType::Cell,
+                                               {});
 
-  // read back in getMesh: the vertex order the clustering has used
+  // the vertex order the clustering has used
   static_assert(sizeof(VertexOrder) == Cell::NumVertices * sizeof(std::uint8_t));
-  meshGeometry.addDataArray(pumldata::VertexOrders,
-                            reinterpret_cast<const std::uint8_t*>(vertexOrders.data()),
-                            PUML::DataType::Cell,
-                            {Cell::NumVertices});
+  arrays.vertexOrders =
+      meshGeometry.addDataArray(pumldata::VertexOrders,
+                                reinterpret_cast<const std::uint8_t*>(vertexOrders.data()),
+                                PUML::DataType::Cell,
+                                {Cell::NumVertices});
 
   meshGeometry.partition(newPartition.data());
   if (&meshTopology != &meshGeometry) {
     meshTopology.partition(newPartition.data());
   }
+  return arrays;
 }
 
 void PUMLReader::generatePUML(PumlMesh& meshTopology, PumlMesh& meshGeometry) {
@@ -707,8 +758,9 @@ void PUMLReader::generatePUML(PumlMesh& meshTopology, PumlMesh& meshGeometry) {
 
 void PUMLReader::getMesh(const PumlMesh& meshTopology,
                          const PumlMesh& meshGeometry,
-                         const FaceMap& faceMap,
-                         seissol::initializer::parameters::BoundaryFormat boundaryFormat) {
+                         const PumlCellArrays& cellArrays,
+                         const PartitionArrays& partitionArrays,
+                         const FaceMap& faceMap) {
   SCOREP_USER_REGION("PUMLReader_getmesh", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const int rank = Mpi::mpi.rank();
@@ -720,17 +772,12 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
   const std::vector<PumlMesh::cell_t>& cellsGeometry = meshGeometry.cells();
   const std::vector<PumlMesh::vertex_t>& verticesGeometry = meshGeometry.vertices();
 
-  const auto cellData = [&](const char* name, auto type) {
-    using T = decltype(type);
-    return meshGeometry.data(meshGeometry.find<T>(name, PUML::DataType::Cell)).data();
-  };
-  const int* group = groupsOf(meshGeometry);
-  const void* boundaryCond = boundaryTagsOf(meshGeometry, boundaryFormat);
-  const auto* cellIdsAsInFile = cellData(pumldata::CellIdsAsInFile, std::size_t{});
-  const auto* clusterIds = cellData(pumldata::ClusterIds, std::size_t{});
-  const auto* timestep = cellData(pumldata::Timesteps, double{});
-  const auto* vertexOrders =
-      reinterpret_cast<const VertexOrder*>(cellData(pumldata::VertexOrders, std::uint8_t{}));
+  const auto group = meshGeometry.data(cellArrays.group);
+  const auto boundaryTags = boundaryTagsOf(meshGeometry, cellArrays);
+  const auto cellIdsAsInFile = meshGeometry.data(cellArrays.cellIdsAsInFile);
+  const auto clusterIds = meshGeometry.data(partitionArrays.clusterIds);
+  const auto timestep = meshGeometry.data(partitionArrays.timesteps);
+  const auto vertexOrders = meshGeometry.data(partitionArrays.vertexOrders);
 
   // List of shared local face ids
   std::unordered_map<int, std::vector<PUML::LocalId>> neighborInfo;
@@ -745,8 +792,10 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
 #endif
   std::vector<std::array<std::uint8_t, Cell::NumFaces>> pumlFaceMaps(cells.size());
   for (std::size_t i = 0; i < cells.size(); i++) {
-    assert(vertexOrders[i] == recomputedOrders[i]);
-    pumlFaceMaps[i] = canonicalFaceMap(vertexOrders[i]);
+    VertexOrder vertexOrder{};
+    std::copy_n(vertexOrders.entity(i), Cell::NumVertices, vertexOrder.begin());
+    assert(vertexOrder == recomputedOrders[i]);
+    pumlFaceMaps[i] = canonicalFaceMap(vertexOrder);
   }
 
   // Compute everything local
@@ -777,7 +826,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
     PUML::Neighbor::face(meshTopology, i, neighbors.data());
 
     for (std::size_t j = 0; j < Cell::NumFaces; j++) {
-      const auto faceTag = decodeBoundary(boundaryCond, i, j, boundaryFormat);
+      const auto faceTag = boundaryTags.tag(i, j);
       const bool isLocallyCorrect = checkMeshCorrectnessLocally<PumlTopology>(
           faces[faceids[j]], neighbors, j, faceTag, cellIdsAsInFile[i], faceMap);
       isMeshCorrect &= isLocallyCorrect;

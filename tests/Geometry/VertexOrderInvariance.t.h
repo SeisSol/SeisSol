@@ -29,13 +29,10 @@
 #include "SeisSol.h"
 #include "TestHelper.h"
 
-#include <PUML/DataHandle.h>
-#include <PUML/Hdf5Reader.h>
 #include <PUML/PUML.h>
 #include <PUML/PartitionGraph.h>
 #include <algorithm>
 #include <cstddef>
-#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -49,14 +46,8 @@ namespace vertexorderinvariancetest {
 // as PUMLReader reads a mesh without periodic identification
 inline void readPumlMesh(seissol::geometry::PumlMesh& mesh, const std::string& file) {
   mesh.setComm(seissol::Mpi::mpi.comm());
-  {
-    PUML::Hdf5Reader<seissol::geometry::PumlTopology> reader(mesh);
-    reader.open(file + ":/connect", file + ":/geometry");
-    reader.addData<int>(
-        seissol::geometry::pumldata::Group, file + ":/group", PUML::DataType::Cell, {});
-    reader.addData<std::uint32_t>(
-        seissol::geometry::pumldata::Boundary, file + ":/boundary", PUML::DataType::Cell, {});
-  }
+  static_cast<void>(seissol::geometry::PUMLReader::read(
+      mesh, file, seissol::initializer::parameters::BoundaryFormat::I32));
   mesh.generateMesh();
 }
 
@@ -65,8 +56,7 @@ inline std::unique_ptr<seissol::geometry::PUMLReader> readMesh(const std::string
                                                                seissol::SeisSol& seissolInstance) {
   using namespace seissol::initializer;
   static const auto FaceMap = defaultFaceMap();
-  const ClusteringConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1, &FaceMap, {}};
+  const ClusteringConfig config{{2}, 1, 1, 1, &FaceMap, {}};
   Clustering clustering(config, seissolInstance);
   ExponentialWeights weightModel;
   return std::make_unique<seissol::geometry::PUMLReader>(

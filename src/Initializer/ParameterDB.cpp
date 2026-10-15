@@ -165,8 +165,9 @@ CellToVertexArray
 #ifdef USE_HDF
 CellToVertexArray
     CellToVertexArray::fromPUML(const seissol::geometry::PumlMesh& mesh,
+                                const seissol::geometry::PumlCellArrays& arrays,
                                 const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
-  const int* groups = seissol::geometry::groupsOf(mesh);
+  const auto groups = mesh.data(arrays.group);
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
   assert(vertexOrders.size() == elements.size());
