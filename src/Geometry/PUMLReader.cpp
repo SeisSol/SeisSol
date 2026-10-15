@@ -457,7 +457,7 @@ PUMLReader::PUMLReader(const std::string& meshFile,
   meshGeometry.setComm(seissol::Mpi::mpi.comm());
 
   logInfo() << "Read (geometric) connectivity data.";
-  read(meshGeometry, meshFile, false, boundaryFormat);
+  read(meshGeometry, meshFile, boundaryFormat);
   readHighOrderGeometry(meshGeometry, meshFile);
 
   // Note: we need to call generatePUML in order to create the dual graph of the mesh
@@ -467,19 +467,28 @@ PUMLReader::PUMLReader(const std::string& meshFile,
   acceptHighOrderGeometry(meshGeometry);
 
   if (topologyFormat != initializer::parameters::TopologyFormat::Geometric) {
-    // we have a topology mesh; separate from the physical mesh
+    // We have a topology mesh, separate from the physical one. It holds the same cells, with the
+    // same data, and the same vertices, so it is a clone of the physical mesh rather than read from
+    // the file once more; only what makes it a topology of its own comes from there.
+    logInfo() << "Clone the (geometric) mesh for the topology.";
+    meshTopologyExtra = meshGeometry.clone();
 
-    const bool readTopology =
-        topologyFormat == initializer::parameters::TopologyFormat::IdentifyFace;
-
-    logInfo() << "Read (topologic) connectivity data.";
-    read(meshTopologyExtra, meshFile, readTopology, boundaryFormat);
-
-    if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
-      logInfo() << "Read topologic identification data.";
+    PUML::DataHandle<PUML::GlobalId> identify;
+    {
       PUML::Hdf5Reader<PumlTopology> reader(meshTopologyExtra);
-      reader.addData<PUML::GlobalId>(
-          "identify", meshFile + ":/identify", PUML::DataType::Vertex, {});
+      if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyFace) {
+        // the cells by the vertices of the topology, in place of those of the geometry
+        logInfo() << "Read (topologic) connectivity data.";
+        meshTopologyExtra.setConnectivity(reader.addData<PUML::GlobalId>(pumldata::Topology,
+                                                                         meshFile + ":/topology",
+                                                                         PUML::DataType::Cell,
+                                                                         {Cell::NumVertices}));
+      }
+      if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
+        logInfo() << "Read topologic identification data.";
+        identify = reader.addData<PUML::GlobalId>(
+            "identify", meshFile + ":/identify", PUML::DataType::Vertex, {});
+      }
     }
 
     // generate the topology mesh for the dual graph
@@ -489,9 +498,7 @@ PUMLReader::PUMLReader(const std::string& meshFile,
     if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
       // re-identify vertices; then re-distribute
       logInfo() << "Identify topologic vertex data.";
-      meshTopologyExtra.identify(
-          meshTopologyExtra.connectivity(),
-          meshTopologyExtra.find<PUML::GlobalId>("identify", PUML::DataType::Vertex));
+      meshTopologyExtra.identify(meshTopologyExtra.connectivity(), identify);
 
       logInfo() << "Generate (topologic) mesh again.";
       meshTopologyExtra.generateMesh();
@@ -531,14 +538,13 @@ PUMLReader::PUMLReader(const std::string& meshFile,
   getMesh(meshTopology, meshGeometry, faceMap, boundaryFormat);
 }
 
-void PUMLReader::read(PumlMesh& meshTopology,
+void PUMLReader::read(PumlMesh& mesh,
                       const std::string& file,
-                      bool topology,
                       seissol::initializer::parameters::BoundaryFormat boundaryFormat) {
   SCOREP_USER_REGION("PUMLReader_read", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  PUML::Hdf5Reader<PumlTopology> reader(meshTopology);
-  reader.open(file + (topology ? ":/topology" : ":/connect"), file + ":/geometry");
+  PUML::Hdf5Reader<PumlTopology> reader(mesh);
+  reader.open(file + ":/connect", file + ":/geometry");
   reader.addData<int>(pumldata::Group, file + ":/group", PUML::DataType::Cell, {});
 
   if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32) {
@@ -550,20 +556,14 @@ void PUMLReader::read(PumlMesh& meshTopology,
         pumldata::Boundary, file + ":/boundary", PUML::DataType::Cell, {Cell::NumFaces});
   }
 
-  const size_t localCells = meshTopology.numOriginalCells();
+  const size_t localCells = mesh.numOriginalCells();
   size_t localStart = 0;
 
-  MPI_Exscan(&localCells,
-             &localStart,
-             1,
-             PUML::MPITypeInfer<size_t>::type(),
-             MPI_SUM,
-             meshTopology.comm());
+  MPI_Exscan(&localCells, &localStart, 1, PUML::MPITypeInfer<size_t>::type(), MPI_SUM, mesh.comm());
 
   std::vector<size_t> cellIdsAsInFile(localCells);
   std::iota(cellIdsAsInFile.begin(), cellIdsAsInFile.end(), localStart);
-  meshTopology.addDataArray(
-      pumldata::CellIdsAsInFile, cellIdsAsInFile.data(), PUML::DataType::Cell, {});
+  mesh.addDataArray(pumldata::CellIdsAsInFile, cellIdsAsInFile.data(), PUML::DataType::Cell, {});
 }
 
 void PUMLReader::readHighOrderGeometry(PumlMesh& meshGeometry, const std::string& file) {

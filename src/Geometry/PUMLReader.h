@@ -40,6 +40,8 @@ constexpr const char* CellIdsAsInFile = "cellIdsAsInFile";
 constexpr const char* ClusterIds = "clusterIds";
 constexpr const char* Timesteps = "timesteps";
 constexpr const char* VertexOrders = "vertexOrders";
+/// the cells by the vertices of the topology, where the file gives a topology of its own
+constexpr const char* Topology = "topology";
 /// the order of every cell and its nodes but the vertices, where the file gives them
 constexpr const char* Order = "order";
 constexpr const char* HighOrderNodes = "highOrderNodes";
@@ -146,9 +148,8 @@ class PUMLReader : public seissol::geometry::MeshReader {
   /**
    * Read the mesh
    */
-  static void read(PumlMesh& meshTopology,
+  static void read(PumlMesh& mesh,
                    const std::string& file,
-                   bool topology,
                    seissol::initializer::parameters::BoundaryFormat boundaryFormat);
 
   /**
