@@ -21,6 +21,7 @@
 
 #include <Device/device.h>
 #include <algorithm>
+#include <cstdlib>
 #include <mpi.h>
 #include <utility>
 #include <vector>
@@ -83,6 +84,15 @@ CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder
     : StreamExchangeScheduler(clusterCount, order),
       communicators_(order == LaunchOrder::Global ? 1 : clusterCount * clusterCount, nullptr),
       senders_(communicators_.size(), nullptr), receivers_(communicators_.size(), nullptr) {
+#if defined(CCL_NCCL) || defined(CCL_RCCL)
+  // After a replay of a recorded super-timestep, the next exchanges are enqueued right away, while
+  // those of the replay are still outstanding on the same communicator. That needs the support for
+  // mixing graph and direct launches, which NCCL has on by default, but RCCL (7.2) off: its proxy
+  // then sends the later messages first, and the processes take them for the wrong operations.
+  // A setting of the user is kept.
+  setenv("NCCL_GRAPH_MIXING_SUPPORT", "1", 0);
+#endif
+
   const auto slots = usedSlots();
 
   std::vector<CCL(UniqueId)> ids(slots.size());
