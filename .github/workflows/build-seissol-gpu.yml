@@ -173,6 +173,15 @@ jobs:
           #  threads: 1
           #  commthread: false
     steps:
+      - name: clean-workspace
+        run: |
+          # A self-hosted runner keeps the workspace of the repository from one job to the next, of
+          # every workflow and branch: what an earlier job downloaded to install/ would stay next to
+          # the executables of this build, and verify.py takes an executable
+          # seissol-<configuration> before the shared seissol. Nor may the report of an earlier job
+          # pass for this one's, should verify.py stop before writing its own.
+          rm -rf install report.txt
+
       - name: install-packages
         run: |
           # circumvent problems with the Intel image still using Ubuntu 22.04
@@ -216,6 +225,8 @@ jobs:
           export PATH=$(pwd)/install/bin:$PATH
           export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:${LD_LIBRARY_PATH:-}
           chmod +x $(pwd)/install/bin/*
+          # the executables verify.py chooses from
+          ls -l $(pwd)/install/bin
 
           export OMP_NUM_THREADS=${{ matrix.parallel.threads }}
           export SEISSOL_COMMTHREAD=${{ matrix.parallel.commthread }}
