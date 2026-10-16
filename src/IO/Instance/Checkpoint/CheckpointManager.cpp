@@ -9,6 +9,7 @@
 
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
+#include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
 #include "IO/Reader/Distribution.h"
@@ -30,6 +31,32 @@
 #include <vector>
 
 namespace seissol::io::instance::checkpoint {
+
+namespace {
+/// the extents of a value of the given type, outermost first; empty unless it is an array
+std::vector<std::size_t> valueShape(const std::shared_ptr<datatype::Datatype>& type) {
+  if (const auto array = std::dynamic_pointer_cast<datatype::ArrayDatatype>(type)) {
+    return array->dimensions();
+  }
+  return {};
+}
+} // namespace
+
+std::shared_ptr<datatype::Datatype>
+    CheckpointManager::perCellDatatype(const std::shared_ptr<datatype::Datatype>& type,
+                                       std::size_t count) {
+  if (count == 1) {
+    return type;
+  }
+  // stated as one array rather than an array of arrays, so that the values of a cell have the
+  // type they would have as one array variable
+  if (const auto array = std::dynamic_pointer_cast<datatype::ArrayDatatype>(type)) {
+    auto dimensions = array->dimensions();
+    dimensions.insert(dimensions.begin(), count);
+    return std::make_shared<datatype::ArrayDatatype>(array->base(), dimensions);
+  }
+  return std::make_shared<datatype::ArrayDatatype>(type, std::vector<std::size_t>{count});
+}
 
 std::function<writer::Writer(const std::string&, std::size_t, double)>
     CheckpointManager::makeWriter() {
@@ -114,6 +141,17 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
     distributions.reserve(ckpTree.variables.size());
     for (auto& variable : ckpTree.variables) {
       logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
+      // the shape of a value includes how many values a cell holds (see perCellDatatype), e.g.
+      // the number of grid points of the thermal pressurization: a checkpoint of another one
+      // describes another state, and is not to be read into this one
+      const auto storedShape = reader.dataValueShape(variable.name);
+      const auto expectedShape = valueShape(variable.datatype);
+      if (storedShape != expectedShape) {
+        logError() << "The checkpoint holds" << ckpTree.name << "/" << variable.name
+                   << "with values of the shape" << storedShape << ", but this run needs"
+                   << expectedShape
+                   << "; it was written with other parameters (e.g. another tp_gridpoints).";
+      }
       const std::size_t count = reader.dataCount(variable.name);
       const std::size_t currsize = count * variable.datatype->size();
       if (currsize > storesize) {
