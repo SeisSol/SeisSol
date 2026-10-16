@@ -13,11 +13,13 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
 
 namespace seissol::dr::friction_law::gpu {
-template <class TPMethod>
+template <typename Cfg, class TPMethod>
 class SevereVelocityWeakeningLaw
-    : public RateAndStateBase<SevereVelocityWeakeningLaw<TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, SevereVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using real = Real<Cfg>;
+
+  using RateAndStateBase<Cfg, SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   /*
     ! friction develops as                    mu = mu_s + a V/(V+Vc) - b SV/(SV + Dc)
@@ -32,15 +34,16 @@ class SevereVelocityWeakeningLaw
     !
   */
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {}
 
   // Note that we need double precision here, since single precision led to NaNs.
   /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
   /// the state variable by the very slip rate it is solving for
   template <typename S>
-  SEISSOL_DEVICE static S
-      stateVariableAt(FrictionLawContext& __restrict ctx, S localSlipRate, double timeIncrement) {
+  SEISSOL_DEVICE static S stateVariableAt(FrictionLawContext<Cfg>& __restrict ctx,
+                                          S localSlipRate,
+                                          double timeIncrement) {
     const double localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
 
     const S steadyStateStateVariable = localSlipRate * S(localSl0 / ctx.data->drParameters.rsSr0);
@@ -53,7 +56,7 @@ class SevereVelocityWeakeningLaw
     return S(stateVarReference) + (steadyStateStateVariable - S(stateVarReference)) * S(exp1m);
   }
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
                                                  double timeIncrement) {
     ctx.stateVariableBuffer = static_cast<real>(
         stateVariableAt<double>(ctx, ctx.initialVariables.localSlipRate, timeIncrement));
@@ -88,7 +91,7 @@ class SevereVelocityWeakeningLaw
   /// d(mu)/dV of the composition.
   template <typename S>
   SEISSOL_DEVICE static S
-      updateMuFolded(FrictionLawContext& __restrict ctx, S slipRate, real timeIncrement) {
+      updateMuFolded(FrictionLawContext<Cfg>& __restrict ctx, S slipRate, real timeIncrement) {
     const auto stateVariable =
         stateVariableAt(ctx, dualCast<StateScalar>(slipRate), static_cast<double>(timeIncrement));
     const S localStateVariable = dualCast<real>(stateVariable);
@@ -106,7 +109,7 @@ class SevereVelocityWeakeningLaw
     real c{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& __restrict ctx,
                                                real localStateVariable) {
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
@@ -117,7 +120,7 @@ class SevereVelocityWeakeningLaw
 
   /// generic over the scalar: a dual slip rate carries the derivative out with the value
   template <typename S>
-  SEISSOL_DEVICE static S updateMu(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static S updateMu(FrictionLawContext<Cfg>& __restrict ctx,
                                    S localSlipRateMagnitude,
                                    const MuDetails& details) {
     return S(ctx.data->f0[ctx.ltsFace][ctx.pointIndex]) +
@@ -127,7 +130,7 @@ class SevereVelocityWeakeningLaw
   }
 
   // no resampling
-  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext<Cfg>& __restrict ctx) {
     ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
   }
 };

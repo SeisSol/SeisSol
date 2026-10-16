@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_NUMERICAL_PROJECTION_H_
 #define SEISSOL_SRC_NUMERICAL_PROJECTION_H_
 
-#include "Kernels/Precision.h"
 #include "Memory/MemoryAllocator.h"
+#include "Numerical/SymmetricTetrahedronRule.h"
 
 #include <array>
 #include <cassert>
@@ -145,17 +145,22 @@ enum class Target {
 /**
  * @brief Which nodal point set a Source::Nodal representation lives on.
  *
- * Both are in use in the volume: the generated plasticity matrices (@c vNodes , @c v , @c vInv )
+ * All are in use in the volume: the generated plasticity matrices (@c vNodes , @c v , @c vInv )
  * are built for exactly one of them, selected at configure time by @c PLASTICITY_METHOD . The 2D
  * face nodes (@c nodes2D ) are always WarpBlend.
  */
 enum class NodalSet {
   //! Hesthaven/Warburton warp&blend points: unisolvent, one point per basis function
-  //! (@c PLASTICITY_METHOD=nb , the default).
+  //! (@c PLASTICITY_METHOD=nb ).
   WarpBlend,
   //! Conical-product (Stroud) quadrature points: over-determined, the nodal-to-modal transform is
   //! the corresponding L2 projection (@c PLASTICITY_METHOD=ip ). 3D only.
-  Stroud
+  Stroud,
+  //! The points of the fully symmetric quadrature rule that is exact for the product of two basis
+  //! functions, quadrature::symmetricTetrahedronRule(2 * (order - 1)): the nodal-to-modal
+  //! transform is the corresponding L2 projection (@c PLASTICITY_METHOD=sq , the default). 3D
+  //! only.
+  Symmetric
 };
 
 //! @brief Number of Dubiner basis functions of convergence order @p order .
@@ -173,6 +178,10 @@ constexpr std::size_t nodalSize(std::size_t dim, std::size_t order, NodalSet set
   if (set == NodalSet::Stroud) {
     // cf. quadrature::TetrahedronQuadrature(order + 1); defined for dim == 3 only
     return (order + 1) * (order + 1) * (order + 1);
+  }
+  if (set == NodalSet::Symmetric) {
+    // defined for dim == 3 only
+    return quadrature::symmetricTetrahedronRuleSize(2 * (order - 1));
   }
   return modalSize(dim, order);
 }
@@ -200,21 +209,34 @@ std::vector<std::array<double, 2>> nodalPoints2D(std::size_t order);
  * @brief The nodal points of the 3D volume basis (the generated @c vNodes ).
  *
  * NodalSet::Stroud gives the conical-product points, identical to
- * quadrature::TetrahedronQuadrature(order + 1); NodalSet::WarpBlend gives the
- * Hesthaven/Warburton warp&blend points, enumerated over the equidistant lattice with zeta
- * slowest and xi fastest.
+ * quadrature::TetrahedronQuadrature(order + 1); NodalSet::Symmetric the points of
+ * quadrature::symmetricTetrahedronRule(2 * (order - 1)) in the order given there;
+ * NodalSet::WarpBlend gives the Hesthaven/Warburton warp&blend points, enumerated over the
+ * equidistant lattice with zeta slowest and xi fastest.
  */
 std::vector<std::array<double, 3>> nodalPoints3D(std::size_t order, NodalSet set);
 
-//! @brief The quadrature weights belonging to nodalPoints3D(order, NodalSet::Stroud).
-std::vector<double> stroudWeights3D(std::size_t order);
+//! @brief The quadrature weights belonging to nodalPoints3D(order, set) for the sets of
+//! quadrature points, NodalSet::Stroud and NodalSet::Symmetric.
+std::vector<double> nodalWeights3D(std::size_t order, NodalSet set);
+
+/**
+ * @brief The 3D nodal set whose points agree with @p points up to @p tolerance , if any.
+ *
+ * Tells which set the generated plasticity matrices were built for, from their @c vNodes . Where
+ * two sets coincide (order 1: both WarpBlend and Symmetric are the centroid), the first in the
+ * order of NodalSet is returned.
+ */
+std::optional<NodalSet> identifyNodalSet3D(std::size_t order,
+                                           const std::vector<std::array<double, 3>>& points,
+                                           double tolerance);
 
 /**
  * @brief The nodal-to-modal transform of a nodal set, i.e. the generated @c MV2nTo2m (Dim == 2)
  * resp. @c vInv (Dim == 3). Shape: [modalSize][nodalSize].
  *
- * For a unisolvent set this is the inverse Vandermonde matrix; for the over-determined Stroud set
- * it is the L2 projection using the quadrature the points stem from.
+ * For the WarpBlend set this is the inverse Vandermonde matrix; for the sets of quadrature points
+ * (Stroud, Symmetric) it is the L2 projection using the quadrature the points stem from.
  */
 template <std::size_t Dim>
 DenseMatrix nodalToModal(std::size_t order, NodalSet set);
@@ -253,12 +275,12 @@ DenseMatrix build(const std::vector<std::array<double, From>>& referenceTargetPo
 
 /**
  * @brief A set of projection matrices for all convergence orders and all subcells, stored in the
- * memory layout expected by the generated (Yateto) kernels.
+ * memory layout expected by the generated (Yateto) kernels, in reals of type `RealT`.
  *
  * The generated tensors are declared as [points][coefficients] with an aligned stride on the point
  * dimension; i.e. the address of entry (p, c) is p + c * leadingDimension .
  */
-template <std::size_t From, std::size_t To>
+template <std::size_t From, std::size_t To, typename RealT>
 class Table {
   public:
   Table() = default;
@@ -278,7 +300,7 @@ class Table {
         std::size_t maxOrder);
 
   //! @brief The matrix for the given subcell and convergence order.
-  [[nodiscard]] const real* operator()(std::size_t subcell, std::size_t order) const {
+  [[nodiscard]] const RealT* operator()(std::size_t subcell, std::size_t order) const {
     return storage_.data() + offset(subcell, order);
   }
 
@@ -301,7 +323,7 @@ class Table {
   //! Offset of a given order inside one subcell block.
   std::vector<std::size_t> orderOffsets_;
   std::size_t subcellStride_{};
-  memory::MemkindArray<real> storage_{memory::Memkind::Standard};
+  memory::MemkindArray<RealT> storage_{memory::Memkind::Standard};
 };
 
 } // namespace projection

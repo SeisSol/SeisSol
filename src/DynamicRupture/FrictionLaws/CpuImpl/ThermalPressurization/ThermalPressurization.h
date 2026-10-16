@@ -8,10 +8,10 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
 #include <array>
@@ -45,9 +45,12 @@ namespace seissol::dr::friction_law::cpu {
  * We then compute the pressure and temperature update with an inverse Fourier transform from
  * \f$\Pi, \Theta\f$.
  */
+template <typename Cfg>
 class ThermalPressurization {
   public:
-  explicit ThermalPressurization(const FrictionLawParameters& drParameters)
+  using real = Real<Cfg>;
+
+  explicit ThermalPressurization(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : gridPoints_(drParameters.tpGridPoints),
         inverseFourierCoefficients_(drParameters.tpGridPoints),
         heatSource_(drParameters.tpGridPoints), drParameters_(drParameters) {}
@@ -70,15 +73,15 @@ class ThermalPressurization {
   void prepareFluidPressure(real deltaT, std::size_t ltsFace);
 
   /// Evaluate the affine law of the preceding pass at the shear heating of the given state.
-  void applyShearHeating(const std::array<real, misc::NumPaddedPoints>& normalStress,
-                         const real (*mu)[misc::NumPaddedPoints],
-                         const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+  void applyShearHeating(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                         const real (*mu)[misc::NumPaddedPoints<Cfg>],
+                         const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
                          std::size_t ltsFace);
 
   /// Advance the spectral state by the shear heating the solve settled on, and store it.
-  void finalizeFluidPressure(const std::array<real, misc::NumPaddedPoints>& normalStress,
-                             const real (*mu)[misc::NumPaddedPoints],
-                             const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+  void finalizeFluidPressure(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                             const real (*mu)[misc::NumPaddedPoints<Cfg>],
+                             const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
                              real deltaT,
                              std::size_t ltsFace);
 
@@ -95,26 +98,26 @@ class ThermalPressurization {
   }
 
   protected:
-  real (*__restrict temperature_)[misc::NumPaddedPoints]{};
-  real (*__restrict pressure_)[misc::NumPaddedPoints]{};
+  real (*__restrict temperature_)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict pressure_)[misc::NumPaddedPoints<Cfg>]{};
   /// the grid points of a face follow each other; see LTSThermalPressurization::Theta
-  real (*__restrict theta_)[misc::NumPaddedPoints]{};
-  real (*__restrict sigma_)[misc::NumPaddedPoints]{};
-  real (*__restrict halfWidthShearZone_)[misc::NumPaddedPoints]{};
-  real (*__restrict hydraulicDiffusivity_)[misc::NumPaddedPoints]{};
+  real (*__restrict theta_)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict sigma_)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict halfWidthShearZone_)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict hydraulicDiffusivity_)[misc::NumPaddedPoints<Cfg>]{};
 
   private:
   /// the affine law of this step; see prepareFluidPressure
-  std::array<real, misc::NumPaddedPoints> temperatureOffset_{};
-  std::array<real, misc::NumPaddedPoints> temperatureSlope_{};
-  std::array<real, misc::NumPaddedPoints> pressureOffset_{};
-  std::array<real, misc::NumPaddedPoints> pressureSlope_{};
+  std::array<real, misc::NumPaddedPoints<Cfg>> temperatureOffset_{};
+  std::array<real, misc::NumPaddedPoints<Cfg>> temperatureSlope_{};
+  std::array<real, misc::NumPaddedPoints<Cfg>> pressureOffset_{};
+  std::array<real, misc::NumPaddedPoints<Cfg>> pressureSlope_{};
 
   /// the wavenumber grid and the coefficients on it, built for the configured point count
   tp::GridPoints<real> gridPoints_;
   tp::InverseFourierCoefficients<real> inverseFourierCoefficients_;
   tp::GaussianHeatSource<real> heatSource_;
-  FrictionLawParameters drParameters_;
+  FrictionLawParameters<Real<Cfg>> drParameters_;
 };
 } // namespace seissol::dr::friction_law::cpu
 

@@ -64,11 +64,12 @@ struct MaterialSetup<ViscoElasticMaterial<N>>
     write(5, 5, theta[2]);
   }
 
+  template <typename Tloc, typename Tneigh>
   static void getTransposedGodunovState(const MaterialT& local,
                                         const MaterialT& neighbor,
                                         FaceType faceType,
-                                        init::QgodLocal::view::type& qGodLocal,
-                                        init::QgodNeighbor::view::type& qGodNeighbor) {
+                                        Tloc& qGodLocal,
+                                        Tneigh& qGodNeighbor) {
     seissol::model::getTransposedGodunovState(dynamic_cast<const ElasticMaterial&>(local),
                                               dynamic_cast<const ElasticMaterial&>(neighbor),
                                               faceType,

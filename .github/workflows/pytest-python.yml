@@ -49,7 +49,7 @@ jobs:
         run: |
           python -m pytest -v --tb=short \
                  --cov=../../codegen \
-                 --cov=../../postprocessing/validation \
+                 --cov=../../scripts/validate \
                  --cov=../../.ci \
                  --cov-report=xml \
                  --cov-report=term-missing \

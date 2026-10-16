@@ -8,7 +8,6 @@
 #define SEISSOL_SRC_INITIALIZER_BOUNDARYHELPER_H_
 
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 
 #include <cstddef>
 #include <limits>
@@ -17,12 +16,13 @@ namespace seissol {
 
 // TODO: make all constexpr with C++20.
 
+// (the material parameters are doubles, whatever the reals of the configurations of the cells)
 inline bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
-  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  constexpr auto Eps = std::numeric_limits<double>::epsilon();
   return material.neighbor[face]->getMuBar() > Eps && material.local->getMuBar() < Eps;
 }
 inline bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
-  constexpr auto Eps = std::numeric_limits<real>::epsilon();
+  constexpr auto Eps = std::numeric_limits<double>::epsilon();
   return material.local->getMuBar() > Eps && material.neighbor[face]->getMuBar() < Eps;
 }
 

@@ -8,7 +8,7 @@
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
   set_source_files_properties(
-      ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
+      ${SEISSOL_CODEGEN_ROUTINES} PROPERTIES COMPILE_FLAGS -mno-red-zone
   )
 endif()
 
@@ -27,41 +27,42 @@ target_link_libraries(seissol-lib PUBLIC seissol-config)
 
 # include necessary kernel files (we can't include all of them right now, because of some undefined kernels + tensors)
 
-if ("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "acoustic" OR "${EQUATIONS}" STREQUAL "anisotropic")
+# the kernels of the solvers the configurations advance their cells with (cmake/configs.cmake);
+# stp takes the local and neighbor kernels of linearck
+if ("linearck" IN_LIST SEISSOL_SOLVERS_USED OR "stp" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
     Kernels/LinearCK/Local.cpp
     Kernels/LinearCK/Neighbor.cpp
+    )
+endif()
+if ("linearck" IN_LIST SEISSOL_SOLVERS_USED)
+  target_sources(seissol-lib PRIVATE
     Kernels/LinearCK/Time.cpp
     )
-  target_include_directories(seissol-common-properties INTERFACE Equations/elastic)
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
-
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic" OR "${EQUATIONS}" STREQUAL "viscoacoustic")
-  if (SOLVER STREQUAL "linearckanelastic")
-    target_sources(seissol-lib PRIVATE
-      Kernels/LinearCKAnelastic/Neighbor.cpp
-      Kernels/LinearCKAnelastic/Local.cpp
-      Kernels/LinearCKAnelastic/Time.cpp
-    )
-    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCKANELASTIC)
-  else()
-    target_sources(seissol-lib PRIVATE
-      Kernels/LinearCK/Local.cpp
-      Kernels/LinearCK/Neighbor.cpp
-      Kernels/LinearCK/Time.cpp
-    )
-    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
-  endif()
-  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
-
-elseif ("${EQUATIONS}" STREQUAL "poroelastic")
+endif()
+if ("linearckanelastic" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Local.cpp
+    Kernels/LinearCKAnelastic/Neighbor.cpp
+    Kernels/LinearCKAnelastic/Local.cpp
+    Kernels/LinearCKAnelastic/Time.cpp
+    )
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCKANELASTIC)
+endif()
+if ("stp" IN_LIST SEISSOL_SOLVERS_USED)
+  target_sources(seissol-lib PRIVATE
     Kernels/STP/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE Equations/poroelastic)
+    )
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_STP)
+endif()
+
+# the material headers of the equation of the first configuration
+if ("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "acoustic" OR "${EQUATIONS}" STREQUAL "anisotropic")
+  target_include_directories(seissol-common-properties INTERFACE Equations/elastic)
+elseif ("${EQUATIONS}" STREQUAL "viscoelastic" OR "${EQUATIONS}" STREQUAL "viscoacoustic")
+  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
+elseif ("${EQUATIONS}" STREQUAL "poroelastic")
+  target_include_directories(seissol-common-properties INTERFACE Equations/poroelastic)
 endif()
 
 
@@ -70,14 +71,14 @@ if (WITH_GPU)
   # include cmake files will define seissol-device-lib target
   if ("${DEVICE_BACKEND}" STREQUAL "cuda" OR "${DEVICE_BACKEND}" STREQUAL "hip")
     set(DEVICE_SRC ${DEVICE_SRC}
-      ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
+      ${SEISSOL_CODEGEN_DEVICE}
       Kernels/DeviceAux/cudahip/PlasticityAux.cpp
       Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
       DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
       Kernels/PointSourceClusterCudaHip.cpp)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "acpp" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
     set(DEVICE_SRC ${DEVICE_SRC}
-          ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
+          ${SEISSOL_CODEGEN_DEVICE}
           Kernels/DeviceAux/sycl/PlasticityAux.cpp
           Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
           DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp

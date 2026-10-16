@@ -9,6 +9,7 @@
 #include "GlobalData.h"
 
 #include "Alignment.h"
+#include "Config.h"
 #include "GeneratedCode/pool.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/MemoryAllocator.h"
@@ -16,36 +17,41 @@
 #include <cstddef>
 
 namespace seissol::initializer {
+
 namespace matrixmanip {
-
-GlobalData OnHost::pool(memory::ManagedAllocator& /*allocator*/, memory::Memkind /*memkind*/) {
-  return seissol::Pool::host();
+template <typename Cfg>
+GlobalData<Cfg> OnHost::pool(memory::ManagedAllocator& /*allocator*/, memory::Memkind /*memkind*/) {
+  return seissol::Pool<Cfg>::host();
 }
 
-GlobalData OnDevice::pool(memory::ManagedAllocator& allocator, memory::Memkind memkind) {
-  const std::size_t bytes = seissol::poolBytes();
+template <typename Cfg>
+GlobalData<Cfg> OnDevice::pool(memory::ManagedAllocator& allocator, memory::Memkind memkind) {
+  const std::size_t bytes = seissol::poolBytes<Cfg>();
   void* image = allocator.allocateMemory(bytes, PagesizeHeap, memkind);
-  seissol::memory::memcopy(image, seissol::poolData(), bytes, memkind, memory::Memkind::Standard);
-  return seissol::Pool::create(image);
+  seissol::memory::memcopy(
+      image, seissol::poolData<Cfg>(), bytes, memkind, memory::Memkind::Standard);
+  return seissol::Pool<Cfg>::create(image);
 }
-
 } // namespace matrixmanip
 
 template <typename MatrixManipPolicyT>
-void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData& globalData,
+template <typename Cfg>
+void GlobalDataInitializer<MatrixManipPolicyT>::init(GlobalData<Cfg>& globalData,
                                                      memory::ManagedAllocator& memoryAllocator,
                                                      enum seissol::memory::Memkind memkind) {
-  globalData = MatrixManipPolicyT::pool(memoryAllocator, memkind);
+  globalData = MatrixManipPolicyT::template pool<Cfg>(memoryAllocator, memkind);
 }
 
-template void
-    GlobalDataInitializer<matrixmanip::OnHost>::init(GlobalData& globalData,
-                                                     memory::ManagedAllocator& memoryAllocator,
-                                                     enum memory::Memkind memkind);
-
-template void
-    GlobalDataInitializer<matrixmanip::OnDevice>::init(GlobalData& globalData,
-                                                       memory::ManagedAllocator& memoryAllocator,
-                                                       enum memory::Memkind memkind);
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template void GlobalDataInitializer<matrixmanip::OnHost>::init<Cfg>(                             \
+      GlobalData<Cfg> & globalData,                                                                \
+      memory::ManagedAllocator & memoryAllocator,                                                  \
+      enum memory::Memkind memkind);                                                               \
+  template void GlobalDataInitializer<matrixmanip::OnDevice>::init<Cfg>(                           \
+      GlobalData<Cfg> & globalData,                                                                \
+      memory::ManagedAllocator & memoryAllocator,                                                  \
+      enum memory::Memkind memkind);
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::initializer

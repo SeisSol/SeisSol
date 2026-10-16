@@ -11,20 +11,23 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/SlowVelocityWeakeningLaw.h"
 
 namespace seissol::dr::friction_law::gpu {
-template <typename TPMethod>
-class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
+template <typename Cfg, typename TPMethod>
+class SlipLaw : public SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod>::copyStorageToLocal;
+  using real = Real<Cfg>;
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  using SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
+  using SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPMethod>::copyStorageToLocal;
+
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {}
 
   /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
   /// the state variable by the very slip rate it is solving for
   template <typename S>
-  SEISSOL_DEVICE static S
-      stateVariableAt(FrictionLawContext& __restrict ctx, S localSlipRate, real timeIncrement) {
+  SEISSOL_DEVICE static S stateVariableAt(FrictionLawContext<Cfg>& __restrict ctx,
+                                          S localSlipRate,
+                                          real timeIncrement) {
     using std::exp;
     using std::expm1;
     using std::log;
@@ -45,7 +48,7 @@ class SlipLaw : public SlowVelocityWeakeningLaw<SlipLaw<TPMethod>, TPMethod> {
     return exp(exp1m * logQuotient + exp1v * S(std::log(stateVarReference)));
   }
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
                                                  real timeIncrement) {
     ctx.stateVariableBuffer =
         stateVariableAt<real>(ctx, ctx.initialVariables.localSlipRate, timeIncrement);

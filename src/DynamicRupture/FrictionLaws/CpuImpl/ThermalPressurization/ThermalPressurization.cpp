@@ -7,9 +7,8 @@
 
 #include "ThermalPressurization.h"
 
-#include "DynamicRupture/FrictionLaws/TPCommon.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
 #include <array>
@@ -19,25 +18,28 @@
 
 namespace seissol::dr::friction_law::cpu {
 
-void ThermalPressurization::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  temperature_ = layerData.var<LTSThermalPressurization::Temperature>();
-  pressure_ = layerData.var<LTSThermalPressurization::Pressure>();
-  theta_ = layerData.var<LTSThermalPressurization::Theta>();
-  sigma_ = layerData.var<LTSThermalPressurization::Sigma>();
-  halfWidthShearZone_ = layerData.var<LTSThermalPressurization::HalfWidthShearZone>();
-  hydraulicDiffusivity_ = layerData.var<LTSThermalPressurization::HydraulicDiffusivity>();
+template <typename Cfg>
+void ThermalPressurization<Cfg>::copyStorageToLocal(DynamicRupture::Layer& layerData) {
+  temperature_ = layerData.var<LTSThermalPressurization::Temperature>(Cfg());
+  pressure_ = layerData.var<LTSThermalPressurization::Pressure>(Cfg());
+  theta_ = layerData.var<LTSThermalPressurization::Theta>(Cfg());
+  sigma_ = layerData.var<LTSThermalPressurization::Sigma>(Cfg());
+  halfWidthShearZone_ = layerData.var<LTSThermalPressurization::HalfWidthShearZone>(Cfg());
+  hydraulicDiffusivity_ = layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(Cfg());
 }
 
 namespace {
 /// tau * V, the shear heating a point produces at the given state
-inline real shearHeating(real mu, real normalStress, real slipRate) {
+template <typename RealT>
+RealT shearHeating(RealT mu, RealT normalStress, RealT slipRate) {
   return -mu * normalStress * slipRate;
 }
 } // namespace
 
-void ThermalPressurization::prepareFluidPressure(real deltaT, std::size_t ltsFace) {
+template <typename Cfg>
+void ThermalPressurization<Cfg>::prepareFluidPressure(real deltaT, std::size_t ltsFace) {
 #pragma omp simd
-  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
     real temperatureDiffusion = 0.0;
     real temperatureSlope = 0.0;
     real pressureDiffusion = 0.0;
@@ -93,13 +95,14 @@ void ThermalPressurization::prepareFluidPressure(real deltaT, std::size_t ltsFac
   }
 }
 
-void ThermalPressurization::applyShearHeating(
-    const std::array<real, misc::NumPaddedPoints>& normalStress,
-    const real (*mu)[misc::NumPaddedPoints],
-    const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+template <typename Cfg>
+void ThermalPressurization<Cfg>::applyShearHeating(
+    const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+    const real (*mu)[misc::NumPaddedPoints<Cfg>],
+    const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
     std::size_t ltsFace) {
 #pragma omp simd
-  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
     const real tauV = shearHeating(
         mu[ltsFace][pointIndex], normalStress[pointIndex], slipRateMagnitude[pointIndex]);
     temperature_[ltsFace][pointIndex] =
@@ -109,14 +112,15 @@ void ThermalPressurization::applyShearHeating(
   }
 }
 
-void ThermalPressurization::finalizeFluidPressure(
-    const std::array<real, misc::NumPaddedPoints>& normalStress,
-    const real (*mu)[misc::NumPaddedPoints],
-    const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+template <typename Cfg>
+void ThermalPressurization<Cfg>::finalizeFluidPressure(
+    const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+    const real (*mu)[misc::NumPaddedPoints<Cfg>],
+    const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
     real deltaT,
     std::size_t ltsFace) {
 #pragma omp simd
-  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+  for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
     const real tauV = shearHeating(
         mu[ltsFace][pointIndex], normalStress[pointIndex], slipRateMagnitude[pointIndex]);
     const real lambdaPrime =
@@ -132,15 +136,21 @@ void ThermalPressurization::finalizeFluidPressure(
       const real preExpTheta = -thetaTpGrid * deltaT;
       const real preExpSigma = -sigmaTpGrid * deltaT;
 
+      // Noda & Lapusta (2010) equation (10), F(t) exp(-A dt) + B/A (1 - exp(-A dt)), written as
+      // F(t) + (B/A - F(t)) (1 - exp(-A dt)) with expm1 alone: a mode at its steady state B/A stays
+      // there in any precision, rather than drifting by the mismatch of exp and expm1 in every
+      // step.
       const real omega = tauV * heatSource_[tpGridPointIndex];
+      const real thetaSteady = omega / (drParameters_.heatCapacity * thetaTpGrid);
+      const real sigmaSteady = omega * (drParameters_.undrainedTPResponse + lambdaPrime) /
+                               (drParameters_.heatCapacity * sigmaTpGrid);
       const std::size_t gridIndex = ltsFace * drParameters_.tpGridPoints + tpGridPointIndex;
+      const real thetaOld = theta_[gridIndex][pointIndex];
+      const real sigmaOld = sigma_[gridIndex][pointIndex];
       theta_[gridIndex][pointIndex] =
-          theta_[gridIndex][pointIndex] * std::exp(preExpTheta) +
-          omega / (drParameters_.heatCapacity * thetaTpGrid) * -std::expm1(preExpTheta);
-      sigma_[gridIndex][pointIndex] = sigma_[gridIndex][pointIndex] * std::exp(preExpSigma) +
-                                      omega * (drParameters_.undrainedTPResponse + lambdaPrime) /
-                                          (drParameters_.heatCapacity * sigmaTpGrid) *
-                                          -std::expm1(preExpSigma);
+          thetaOld + (thetaSteady - thetaOld) * -std::expm1(preExpTheta);
+      sigma_[gridIndex][pointIndex] =
+          sigmaOld + (sigmaSteady - sigmaOld) * -std::expm1(preExpSigma);
     }
 
     // the coefficients of the preceding pass describe this very state, so the output follows from
@@ -151,5 +161,9 @@ void ThermalPressurization::finalizeFluidPressure(
         pressureOffset_[pointIndex] + pressureSlope_[pointIndex] * tauV;
   }
 }
+
+#define SEISSOL_INSTANTIATE(Cfg) template class ThermalPressurization<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::dr::friction_law::cpu

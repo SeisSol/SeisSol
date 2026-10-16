@@ -29,6 +29,10 @@ struct RealTypeWrapper<RealType::F64> {
 template <RealType P>
 using RealT = typename RealTypeWrapper<P>::Type;
 
+/// The type of the reals a configuration computes in.
+template <typename Cfg>
+using Real = RealT<Cfg::Precision>;
+
 constexpr std::size_t sizeOfRealType(RealType type) {
   switch (type) {
   case seissol::RealType::F32:

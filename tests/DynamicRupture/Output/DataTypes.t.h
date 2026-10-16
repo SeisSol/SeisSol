@@ -98,8 +98,8 @@ TEST_CASE("VarT bracket operator" * doctest::test_suite("dynamicrupture")) {
   v.isActive = true;
   v.allocateData(5);
 
-  real* ptr0 = v[0];
-  real* ptr1 = v[1];
+  double* ptr0 = v[0];
+  double* ptr1 = v[1];
   CHECK(ptr0 != nullptr);
   CHECK(ptr1 != nullptr);
   CHECK(ptr0 != ptr1);

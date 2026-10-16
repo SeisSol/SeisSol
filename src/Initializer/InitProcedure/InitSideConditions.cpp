@@ -7,9 +7,12 @@
 
 #include "InitSideConditions.h"
 
-#include "Equations/Datastructures.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
 #include "Initializer/InitialFieldProjection.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
@@ -18,9 +21,10 @@
 #include "SeisSol.h"
 #include "SourceTerm/Manager.h"
 
+#include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
-#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -28,26 +32,25 @@ namespace seissol::initializer::initprocedure {
 
 namespace {
 
-std::vector<std::unique_ptr<physics::InitialField>>
-    buildInitialConditionList(seissol::SeisSol& seissolInstance) {
+/// The initial conditions of the cells of the configuration `config`, set up with the material
+/// `materialData` of one of them.
+std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList(
+    seissol::SeisSol& seissolInstance, ConfigId config, const CellMaterialData& materialData) {
   const auto& parameters = seissolInstance.parameters();
-  auto& memoryManager = seissolInstance.memoryManager();
   const auto type = parameters.initialization.type;
 
-  const auto availability = physics::scenario::availability(type);
+  const auto availability = physics::scenario::availability(type, config);
   if (!availability.available) {
     logError() << "The initial condition" << physics::scenario::name(type).data()
-               << "cannot be used with material" << model::MaterialT::Text.c_str() << "--"
+               << "cannot be used with material"
+               << materialTypeName(configValue(config).materialType).data() << "--"
                << availability.reason.data() << ".";
   }
 
-  const auto pos = memoryManager.backmap().get(0);
-  const auto materialData = memoryManager.ltsStorage().lookup<LTS::Material>(pos);
-
-  logInfo() << "Using initial condition" << physics::scenario::name(type).data() << ".";
-
   return physics::scenario::build(
-      type, physics::scenario::Input{parameters, materialData, seissolInstance.gravitationSetup()});
+      type,
+      physics::scenario::Input{
+          parameters, materialData, seissolInstance.gravitationSetup(), config});
 }
 
 void initInitialCondition(seissol::SeisSol& seissolInstance) {
@@ -57,20 +60,52 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
   if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Easi) {
     logInfo() << "Loading the initial condition from the easi file" << initConditionParams.filename;
     seissol::initializer::projectEasiInitialField({initConditionParams.filename},
-                                                  *memoryManager.globalData().onHost,
                                                   seissolInstance.meshReader(),
                                                   memoryManager.ltsStorage(),
                                                   initConditionParams.hasTime);
   } else {
-    auto initConditions = buildInitialConditionList(seissolInstance);
+    logInfo() << "Using initial condition"
+              << physics::scenario::name(initConditionParams.type).data() << ".";
+
+    // The configurations of one material set up the scenario alike, with the material of the
+    // first cell of the first of them in the run that has cells on this rank: setting up a
+    // scenario may pick among degenerate eigenvectors of the material, which then roundoff
+    // decides, and configurations can average the material of a cell differently (e.g. with the
+    // quadrature of another order).
+    auto& storage = memoryManager.ltsStorage();
+    auto& backmap = memoryManager.backmap();
+    const auto cellCount = seissolInstance.meshReader().getElements().size();
+    std::vector<std::optional<std::size_t>> firstCell(builtConfigCount());
+    for (std::size_t cell = 0; cell < cellCount; ++cell) {
+      const auto config = storage.lookup<LTS::SecondaryInformation>(backmap.get(cell)).configId;
+      if (!firstCell[config].has_value()) {
+        firstCell[config] = cell;
+      }
+    }
+    const auto sameMaterial = [](ConfigId first, ConfigId second) {
+      return configValue(first).materialType == configValue(second).materialType &&
+             configValue(first).relaxationMechanisms == configValue(second).relaxationMechanisms;
+    };
+    const auto configs = seissolInstance.parameters().model.configs();
+    for (const auto config : configs) {
+      for (const auto reference : configs) {
+        if (sameMaterial(reference, config) && firstCell[reference].has_value()) {
+          memoryManager.setInitialConditions(
+              config,
+              buildInitialConditionList(
+                  seissolInstance,
+                  config,
+                  storage.lookup<LTS::Material>(backmap.get(firstCell[reference].value()))));
+          break;
+        }
+      }
+    }
+
     if (initConditionParams.type != seissol::initializer::parameters::InitializationType::Zero &&
         !initConditionParams.avoidIC) {
-      seissol::initializer::projectInitialField(initConditions,
-                                                *memoryManager.globalData().onHost,
-                                                seissolInstance.meshReader(),
-                                                memoryManager.ltsStorage());
+      seissol::initializer::projectInitialField(
+          memoryManager.initialConditions(), seissolInstance.meshReader(), storage);
     }
-    memoryManager.setInitialConditions(std::move(initConditions));
   }
 }
 

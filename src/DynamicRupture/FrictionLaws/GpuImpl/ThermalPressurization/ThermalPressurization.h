@@ -8,10 +8,10 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
 #include <array>
@@ -46,23 +46,27 @@ namespace seissol::dr::friction_law::gpu {
  * We then compute the pressure and temperature update with an inverse Fourier transform from
  * \f$\Pi, \Theta\f$.
  */
+template <typename Cfg>
 class ThermalPressurization {
   public:
+  using real = Real<Cfg>;
+
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->temperature = layerData.var<LTSThermalPressurization::Temperature>(place);
-    data->pressure = layerData.var<LTSThermalPressurization::Pressure>(place);
-    data->theta = layerData.var<LTSThermalPressurization::Theta>(place);
-    data->sigma = layerData.var<LTSThermalPressurization::Sigma>(place);
-    data->halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>(place);
+    data->temperature = layerData.var<LTSThermalPressurization::Temperature>(Cfg(), place);
+    data->pressure = layerData.var<LTSThermalPressurization::Pressure>(Cfg(), place);
+    data->theta = layerData.var<LTSThermalPressurization::Theta>(Cfg(), place);
+    data->sigma = layerData.var<LTSThermalPressurization::Sigma>(Cfg(), place);
+    data->halfWidthShearZone =
+        layerData.var<LTSThermalPressurization::HalfWidthShearZone>(Cfg(), place);
     data->hydraulicDiffusivity =
-        layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(place);
+        layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(Cfg(), place);
   }
 
-  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext<Cfg>& __restrict ctx) {
     return ctx.data->pressure[ctx.ltsFace][ctx.pointIndex];
   }
 
@@ -76,7 +80,7 @@ class ThermalPressurization {
    * and the same for the temperature. Whatever slip rate the solve settles on, the pressure
    * follows from these coefficients without walking the grid again.
    */
-  SEISSOL_DEVICE static void prepareFluidPressure(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void prepareFluidPressure(FrictionLawContext<Cfg>& __restrict ctx,
                                                   uint32_t timeIndex) {
     real temperatureDiffusion = 0.0;
     real temperatureSlope = 0.0;
@@ -135,22 +139,22 @@ class ThermalPressurization {
   }
 
   /// the affine law of this step: p(tau V) = offset + slope * tau V; see prepareFluidPressure
-  SEISSOL_DEVICE static real fluidPressureOffset(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static real fluidPressureOffset(FrictionLawContext<Cfg>& __restrict ctx) {
     return ctx.fluidPressure.pressureOffset;
   }
-  SEISSOL_DEVICE static real fluidPressureSlope(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static real fluidPressureSlope(FrictionLawContext<Cfg>& __restrict ctx) {
     return ctx.fluidPressure.pressureSlope;
   }
 
   /// tau * V, the shear heating this point produces at its current state
-  SEISSOL_DEVICE static real shearHeating(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static real shearHeating(FrictionLawContext<Cfg>& __restrict ctx) {
     const real faultStrength =
         -ctx.data->mu[ctx.ltsFace][ctx.pointIndex] * ctx.initialVariables.normalStress;
     return faultStrength * ctx.initialVariables.localSlipRate;
   }
 
   /// Evaluate the affine law of the preceding pass at the shear heating of the current state.
-  SEISSOL_DEVICE static void applyShearHeating(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static void applyShearHeating(FrictionLawContext<Cfg>& __restrict ctx) {
     const real tauV = shearHeating(ctx);
     ctx.data->temperature[ctx.ltsFace][ctx.pointIndex] =
         ctx.fluidPressure.temperatureOffset + ctx.fluidPressure.temperatureSlope * tauV;
@@ -159,7 +163,7 @@ class ThermalPressurization {
   }
 
   /// Advance the spectral state by the shear heating the solve settled on, and store it.
-  SEISSOL_DEVICE static void finalizeFluidPressure(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void finalizeFluidPressure(FrictionLawContext<Cfg>& __restrict ctx,
                                                    uint32_t timeIndex) {
     const real tauV = shearHeating(ctx);
     const real lambdaPrime = ctx.data->drParameters.undrainedTPResponse *
@@ -178,16 +182,22 @@ class ThermalPressurization {
       const real preExpTheta = -thetaTpGrid * ctx.args->deltaT[timeIndex];
       const real preExpSigma = -sigmaTpGrid * ctx.args->deltaT[timeIndex];
 
+      // Noda & Lapusta (2010) equation (10), F(t) exp(-A dt) + B/A (1 - exp(-A dt)), written as
+      // F(t) + (B/A - F(t)) (1 - exp(-A dt)) with expm1 alone: a mode at its steady state B/A stays
+      // there in any precision, rather than drifting by the mismatch of exp and expm1 in every
+      // step.
       const real omega = tauV * ctx.args->heatSource[tpGridPointIndex];
+      const real thetaSteady = omega / (ctx.data->drParameters.heatCapacity * thetaTpGrid);
+      const real sigmaSteady = omega * (ctx.data->drParameters.undrainedTPResponse + lambdaPrime) /
+                               (ctx.data->drParameters.heatCapacity * sigmaTpGrid);
       const std::size_t gridIndex =
           ctx.ltsFace * ctx.data->drParameters.tpGridPoints + tpGridPointIndex;
+      const real thetaOld = ctx.data->theta[gridIndex][ctx.pointIndex];
+      const real sigmaOld = ctx.data->sigma[gridIndex][ctx.pointIndex];
       ctx.data->theta[gridIndex][ctx.pointIndex] =
-          ctx.data->theta[gridIndex][ctx.pointIndex] * std::exp(preExpTheta) +
-          omega / (ctx.data->drParameters.heatCapacity * thetaTpGrid) * -std::expm1(preExpTheta);
+          thetaOld + (thetaSteady - thetaOld) * -std::expm1(preExpTheta);
       ctx.data->sigma[gridIndex][ctx.pointIndex] =
-          ctx.data->sigma[gridIndex][ctx.pointIndex] * std::exp(preExpSigma) +
-          omega * (ctx.data->drParameters.undrainedTPResponse + lambdaPrime) /
-              (ctx.data->drParameters.heatCapacity * sigmaTpGrid) * -std::expm1(preExpSigma);
+          sigmaOld + (sigmaSteady - sigmaOld) * -std::expm1(preExpSigma);
     }
 
     // the coefficients of the preceding pass describe this very state, so the output follows from

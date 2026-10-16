@@ -12,7 +12,7 @@
 #include "Geometry/MeshReader.h"
 
 #include <Eigen/Dense>
-#include <Eigen/LU>
+#include <Eigen/LU> // IWYU pragma: keep
 #include <array>
 #include <cstddef>
 #include <utils/logger.h>

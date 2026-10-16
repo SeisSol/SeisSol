@@ -8,26 +8,30 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
 
 namespace seissol::dr::friction_law::cpu {
+template <typename Cfg>
 class NoTP {
   public:
-  explicit NoTP(const FrictionLawParameters& drParameters) {};
+  using real = Real<Cfg>;
+
+  explicit NoTP(const FrictionLawParameters<Real<Cfg>>& drParameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
   void prepareFluidPressure(real deltaT, std::size_t ltsFace) {}
 
-  void applyShearHeating(const std::array<real, misc::NumPaddedPoints>& normalStress,
-                         const real (*mu)[misc::NumPaddedPoints],
-                         const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+  void applyShearHeating(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                         const real (*mu)[misc::NumPaddedPoints<Cfg>],
+                         const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
                          std::size_t ltsFace) {}
 
-  void finalizeFluidPressure(const std::array<real, misc::NumPaddedPoints>& normalStress,
-                             const real (*mu)[misc::NumPaddedPoints],
-                             const std::array<real, misc::NumPaddedPoints>& slipRateMagnitude,
+  void finalizeFluidPressure(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                             const real (*mu)[misc::NumPaddedPoints<Cfg>],
+                             const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
                              real deltaT,
                              std::size_t ltsFace) {}
 

@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Boundary.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Initializer/BoundarySetup.h"
@@ -54,29 +55,36 @@ void initBoundaryStorage(Boundary::Storage& boundaryStorage, LTS::Storage& stora
   // The boundary storage is now allocated, now we only need to map from cell lts
   // to face lts.
   // We do this by, once again, iterating over both storages at the same time.
-  for (auto [layer, boundaryLayer] :
+  // The faces of a layer have the configuration of the layer.
+  for (auto [ltsLayer, boundaryLtsLayer] :
        seissol::common::zip(storage.leaves(ghostMask), boundaryStorage.leaves(ghostMask))) {
-    const auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* boundaryMapping = layer.var<LTS::BoundaryMapping>();
-    auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>();
-    auto* faceInformation = boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Host);
-    auto* faceInformationDevice =
-        boundaryLayer.var<Boundary::FaceInformation>(AllocationPlace::Device);
+    auto& layer = ltsLayer;
+    auto& boundaryLayer = boundaryLtsLayer;
+    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      const auto* cellInformation = layer.var<LTS::CellInformation>();
+      auto* boundaryMapping = layer.var<LTS::BoundaryMapping>(Cfg());
+      auto* boundaryMappingDevice = layer.var<LTS::BoundaryMappingDevice>(Cfg());
+      auto* faceInformation =
+          boundaryLayer.var<Boundary::FaceInformation>(Cfg(), AllocationPlace::Host);
+      auto* faceInformationDevice =
+          boundaryLayer.var<Boundary::FaceInformation>(Cfg(), AllocationPlace::Device);
 
-    std::size_t boundaryFace = 0;
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (boundaryProperties(cellInformation[cell].faceTypes[face]).requiresFaceData) {
-          boundaryMapping[cell][face] = CellBoundaryMapping(faceInformation[boundaryFace]);
-          boundaryMappingDevice[cell][face] =
-              CellBoundaryMapping(faceInformationDevice[boundaryFace]);
-          ++boundaryFace;
-        } else {
-          boundaryMapping[cell][face] = CellBoundaryMapping();
-          boundaryMappingDevice[cell][face] = CellBoundaryMapping();
+      std::size_t boundaryFace = 0;
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+          if (boundaryProperties(cellInformation[cell].faceTypes[face]).requiresFaceData) {
+            boundaryMapping[cell][face] = CellBoundaryMapping<Cfg>(faceInformation[boundaryFace]);
+            boundaryMappingDevice[cell][face] =
+                CellBoundaryMapping<Cfg>(faceInformationDevice[boundaryFace]);
+            ++boundaryFace;
+          } else {
+            boundaryMapping[cell][face] = CellBoundaryMapping<Cfg>();
+            boundaryMappingDevice[cell][face] = CellBoundaryMapping<Cfg>();
+          }
         }
       }
-    }
+    });
   }
 }
 

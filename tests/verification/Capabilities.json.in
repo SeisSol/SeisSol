@@ -1,0 +1,13 @@
+{
+  "configuration": "@SEISSOL_VERIFICATION_CONFIG@",
+  "equations": "@SEISSOL_CAP_MATERIALS@",
+  "solver": "@SEISSOL_CAP_SOLVERS@",
+  "order": @SEISSOL_CAP_ORDERS@,
+  "precision": "@SEISSOL_CAP_PRECISIONS@",
+  "mechanisms": @SEISSOL_CAP_MECHANISMS@,
+  "fused": @SEISSOL_CAP_SIMULATIONS@,
+  "dr-quad-rule": "@SEISSOL_CAP_DRQUADRULES@",
+  "mpi": @SEISSOL_CAP_MPI@,
+  "openmp": @SEISSOL_CAP_OPENMP@,
+  "device-backend": "@SEISSOL_CAP_DEVICE@"
+}

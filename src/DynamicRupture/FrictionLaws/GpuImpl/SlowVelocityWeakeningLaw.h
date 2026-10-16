@@ -13,21 +13,19 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
 
 namespace seissol::dr::friction_law::gpu {
-template <class Derived, class TPMethod>
+template <typename Cfg, class Derived, class TPMethod>
 class SlowVelocityWeakeningLaw
-    : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived, TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, SlowVelocityWeakeningLaw<Cfg, Derived, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using real = Real<Cfg>;
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  using RateAndStateBase<Cfg, SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {}
 
-  std::unique_ptr<FrictionSolver> clone() override {
-    return std::make_unique<Derived>(*static_cast<Derived*>(this));
-  }
-
   // Note that we need double precision here, since single precision led to NaNs.
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
                                                  real timeIncrement) {
     Derived::updateStateVariable(ctx, timeIncrement);
   }
@@ -41,7 +39,7 @@ class SlowVelocityWeakeningLaw
   /// d(mu)/dV of the composition.
   template <typename S>
   SEISSOL_DEVICE static S
-      updateMuFolded(FrictionLawContext& __restrict ctx, S slipRate, real timeIncrement) {
+      updateMuFolded(FrictionLawContext<Cfg>& __restrict ctx, S slipRate, real timeIncrement) {
     using std::log;
     const auto stateVariable =
         Derived::stateVariableAt(ctx, dualCast<StateScalar>(slipRate), timeIncrement);
@@ -67,7 +65,7 @@ class SlowVelocityWeakeningLaw
     real cExp{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& __restrict ctx,
                                                real localStateVariable) {
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
@@ -83,8 +81,9 @@ class SlowVelocityWeakeningLaw
 
   /// generic over the scalar: a dual slip rate carries the derivative out with the value
   template <typename S>
-  SEISSOL_DEVICE static S
-      updateMu(FrictionLawContext& /*ctx*/, S localSlipRateMagnitude, const MuDetails& details) {
+  SEISSOL_DEVICE static S updateMu(FrictionLawContext<Cfg>& /*ctx*/,
+                                   S localSlipRateMagnitude,
+                                   const MuDetails& details) {
     const S lx = S(details.cLin) * localSlipRateMagnitude;
     return S(details.a) * rs::arsinhexp(lx, S(details.cExpLog), S(details.cExp));
   }
@@ -93,7 +92,7 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws,
    * we just copy the buffer into the member variable.
    */
-  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext<Cfg>& __restrict ctx) {
     ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
   }
 };

@@ -11,6 +11,7 @@ add_library(seissol-numerical OBJECT
     ODEVector.cpp
     Projection.cpp
     Statistics.cpp
+    SymmetricTetrahedronRule.cpp
     Transformation.cpp
 )
 

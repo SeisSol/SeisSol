@@ -13,8 +13,10 @@
 #include "Memory/MemoryAllocator.h"
 
 #include <array>
+#include <cassert>
 #include <memory>
 #include <string>
+#include <typeinfo>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -44,24 +46,39 @@ class GenericTableEntry {
   memory::MemkindArray<Type> deviceArray_;
 };
 
+/// The variables `KeyType::Id` of a batch. A layer records its batches in its configuration, so a
+/// variable holds what that configuration holds, e.g. pointers to its reals: `set` takes the type
+/// of the entries from the vector, and `get` names it again.
 template <typename KeyType>
 struct GenericTable {
   using VariableIdType = typename KeyType::Id;
-  using DataType = typename KeyType::DataType;
 
   public:
   GenericTable() = default;
 
+  template <typename DataType>
   void set(VariableIdType id, std::vector<DataType>& data) {
     content_[*id] = std::make_shared<GenericTableEntry<DataType>>(data);
+    types_[*id] = &typeid(DataType);
   }
 
-  auto get(VariableIdType id) { return content_.at(*id).get(); }
+  template <typename DataType>
+  GenericTableEntry<DataType>* get(VariableIdType id) {
+    assert((types_.at(*id) == nullptr || *types_.at(*id) == typeid(DataType)) &&
+           "a batch variable is read as another type than it was recorded as");
+    return static_cast<GenericTableEntry<DataType>*>(content_.at(*id).get());
+  }
 
-  [[nodiscard]] auto get(VariableIdType id) const { return content_.at(*id).get(); }
+  template <typename DataType>
+  [[nodiscard]] const GenericTableEntry<DataType>* get(VariableIdType id) const {
+    assert((types_.at(*id) == nullptr || *types_.at(*id) == typeid(DataType)) &&
+           "a batch variable is read as another type than it was recorded as");
+    return static_cast<const GenericTableEntry<DataType>*>(content_.at(*id).get());
+  }
 
   private:
-  std::array<std::shared_ptr<GenericTableEntry<DataType>>, *VariableIdType::Count> content_{};
+  std::array<std::shared_ptr<void>, *VariableIdType::Count> content_{};
+  std::array<const std::type_info*, *VariableIdType::Count> types_{};
 };
 
 using PointersToRealsTable = GenericTable<inner_keys::Wp>;

@@ -7,4 +7,5 @@
 
 #include <doctest.h>
 
+#include "MPI/BinaryFileParallel.t.h"
 #include "MPI/VtkHdfParallel.t.h"

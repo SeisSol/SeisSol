@@ -12,7 +12,6 @@
 
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
-#include "Kernels/Precision.h"
 #include "TestHelper.h"
 
 #include <cmath>
@@ -280,15 +279,18 @@ TEST_CASE("DR TPCommon inverse transform reproduces the Gaussian peak" *
   }
 }
 
-TEST_CASE("DR TPCommon in working precision" * doctest::test_suite("dynamicrupture")) {
+TEST_CASE_TEMPLATE("DR TPCommon in working precision" * doctest::test_suite("dynamicrupture"),
+                   T,
+                   float,
+                   double) {
   using namespace tptest;
-  // The tables are built in double and stored as `real`. The pressurization divides the
-  // coefficients by the half width of the shear zone and multiplies the heat source by tau V, so
-  // neither table may arrive as a subnormal.
+  // The tables are built in double and stored in the precision of the configuration they serve.
+  // The pressurization divides the coefficients by the half width of the shear zone and multiplies
+  // the heat source by tau V, so neither table may arrive as a subnormal.
   const auto count = static_cast<std::size_t>(misc::DefaultTpGridPoints);
-  const tp::GridPoints<> gridPoints(count);
-  const tp::InverseFourierCoefficients<> coefficients(count);
-  const tp::GaussianHeatSource<> heatSource(count);
+  const tp::GridPoints<T> gridPoints(count);
+  const tp::InverseFourierCoefficients<T> coefficients(count);
+  const tp::GaussianHeatSource<T> heatSource(count);
 
   SUBCASE("No underflow or overflow in the stored tables") {
     for (std::size_t i = 0; i < count; ++i) {
@@ -304,7 +306,7 @@ TEST_CASE("DR TPCommon in working precision" * doctest::test_suite("dynamicruptu
     for (std::size_t i = 0; i < count; ++i) {
       sum += static_cast<double>(coefficients[i]) * static_cast<double>(heatSource[i]);
     }
-    // measured: 4.1e-9 relative for a double build, 3.9e-9 for a single-precision one
+    // measured: 4.1e-9 relative in double precision, 3.9e-9 in single precision
     CHECK(sum == doctest::Approx(GaussianPeak).epsilon(1e-5));
   }
 }

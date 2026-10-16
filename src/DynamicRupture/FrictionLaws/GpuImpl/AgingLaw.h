@@ -12,17 +12,20 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-template <class TPMethod>
-class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
+template <typename Cfg, class TPMethod>
+class AgingLaw : public SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
-  using SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod>::copyStorageToLocal;
+  using real = Real<Cfg>;
+
+  using SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
+  using SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod>::copyStorageToLocal;
 
   /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
   /// the state variable by the very slip rate it is solving for
   template <typename S>
-  SEISSOL_DEVICE static S
-      stateVariableAt(FrictionLawContext& __restrict ctx, S localSlipRate, real timeIncrement) {
+  SEISSOL_DEVICE static S stateVariableAt(FrictionLawContext<Cfg>& __restrict ctx,
+                                          S localSlipRate,
+                                          real timeIncrement) {
     using std::exp;
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
@@ -42,7 +45,7 @@ class AgingLaw : public SlowVelocityWeakeningLaw<AgingLaw<TPMethod>, TPMethod> {
     return S(stateVarReference) * exp(preexp1) + S(timeIncrement) * weight;
   }
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
                                                  real timeIncrement) {
     ctx.stateVariableBuffer =
         stateVariableAt<real>(ctx, ctx.initialVariables.localSlipRate, timeIncrement);

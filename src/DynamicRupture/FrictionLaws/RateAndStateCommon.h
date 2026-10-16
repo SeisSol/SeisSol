@@ -10,7 +10,6 @@
 
 #include "Common/Marker.h"
 #include "DynamicRupture/FrictionLaws/Dual.h"
-#include "Kernels/Precision.h"
 
 #include <algorithm>
 #include <cmath>
@@ -37,13 +36,14 @@ namespace seissol::dr::friction_law::rs {
 
   Nine decades of margin in single precision, and the clamp is what holds them.
  */
-constexpr real almostZero() {
-  if constexpr (std::is_same<real, double>()) {
+template <typename RealT>
+constexpr RealT almostZero() {
+  if constexpr (std::is_same<RealT, double>()) {
     return 1e-45;
-  } else if constexpr (std::is_same<real, float>()) {
+  } else if constexpr (std::is_same<RealT, float>()) {
     return 1e-35;
   } else {
-    return std::numeric_limits<real>::min();
+    return std::numeric_limits<RealT>::min();
   }
 }
 
@@ -196,10 +196,10 @@ SEISSOL_HOSTDEVICE T relaxationWeight(T z) {
  */
 #pragma omp declare simd
 template <typename T>
-SEISSOL_HOSTDEVICE T effectiveNormalStress(T stick, real pressureSlope, T slipRate, T mu) {
+SEISSOL_HOSTDEVICE
+    T effectiveNormalStress(T stick, decltype(valueOf(T{})) pressureSlope, T slipRate, T mu) {
   using Scalar = decltype(valueOf(T{}));
-  const T divisor =
-      T(static_cast<Scalar>(1.0)) - mu * slipRate * T(static_cast<Scalar>(pressureSlope));
+  const T divisor = T(static_cast<Scalar>(1.0)) - mu * slipRate * T(pressureSlope);
   const T sigma = stick / divisor;
   const bool closed = valueOf(sigma) < 0 && valueOf(divisor) > 0;
   return closed ? sigma : T(static_cast<Scalar>(0.0));

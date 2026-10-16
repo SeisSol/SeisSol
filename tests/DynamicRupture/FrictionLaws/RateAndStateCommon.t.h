@@ -12,7 +12,6 @@
 
 #include "DynamicRupture/FrictionLaws/Dual.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
-#include "Kernels/Precision.h"
 #include "TestHelper.h"
 
 #include <algorithm>
@@ -78,8 +77,8 @@ bool keepsSubnormals() {
   return smallest * static_cast<T>(2) != static_cast<T>(0);
 }
 
-/// The floor almostZero() puts under the slip rate in a build of precision T. Checked against the
-/// function itself for whichever precision this build uses.
+/// The floor almostZero<T>() puts under the slip rate in precision T. Checked against the function
+/// itself for both precisions.
 template <typename T>
 constexpr double slipRateFloor() {
   return std::is_same_v<T, float> ? 1e-35 : 1e-45;
@@ -125,25 +124,28 @@ std::vector<double> sampleCExpLog() {
 // almostZero
 // ---------------------------------------------------------------------------
 
-TEST_CASE("DR RateAndState almostZero" * doctest::test_suite("dynamicrupture")) {
-  const auto value = rstest::rs::almostZero();
+TEST_CASE_TEMPLATE("DR RateAndState almostZero" * doctest::test_suite("dynamicrupture"),
+                   T,
+                   float,
+                   double) {
+  const auto value = rstest::rs::almostZero<T>();
 
-  CHECK(value > static_cast<real>(0.0));
+  CHECK(value > static_cast<T>(0.0));
   CHECK(std::isfinite(value));
 
   // the floor the inversion clamps its bracket to. A subnormal -- or a value flushed to zero by
   // -ffast-math -- would put the floor back at zero and the logarithm of the slip rate at minus
   // infinity.
   CHECK(std::isnormal(value));
-  CHECK(value < static_cast<real>(1e-30));
+  CHECK(value < static_cast<T>(1e-30));
 
-  if constexpr (std::is_same_v<real, double>) {
-    CHECK(value == static_cast<real>(1e-45));
-  } else if constexpr (std::is_same_v<real, float>) {
-    CHECK(value == static_cast<real>(1e-35));
+  if constexpr (std::is_same_v<T, double>) {
+    CHECK(value == static_cast<T>(1e-45));
+  } else if constexpr (std::is_same_v<T, float>) {
+    CHECK(value == static_cast<T>(1e-35));
   }
   // the domain the accuracy checks below sweep starts here
-  CHECK(value == static_cast<real>(rstest::slipRateFloor<real>()));
+  CHECK(value == static_cast<T>(rstest::slipRateFloor<T>()));
 }
 
 TEST_CASE_TEMPLATE("DR RateAndState the slip-rate floor keeps the law representable",

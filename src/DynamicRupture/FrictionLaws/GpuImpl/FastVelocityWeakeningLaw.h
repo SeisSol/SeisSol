@@ -8,36 +8,38 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
-#include "Kernels/Precision.h"
 
 #include <cstdint>
 
 namespace seissol::dr::friction_law::gpu {
 
-template <typename TPMethod>
+template <typename Cfg, typename TPMethod>
 class FastVelocityWeakeningLaw
-    : public RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, FastVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using real = Real<Cfg>;
 
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
+  using RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
+
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
     data->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(
-        seissol::initializer::AllocationPlace::Device);
+        Cfg(), seissol::initializer::AllocationPlace::Device);
   }
 
   /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
   /// the state variable by the very slip rate it is solving for
   template <typename S>
-  SEISSOL_DEVICE static S
-      stateVariableAt(FrictionLawContext& __restrict ctx, S localSlipRate, real timeIncrement) {
-    using std::exp;
+  SEISSOL_DEVICE static S stateVariableAt(FrictionLawContext<Cfg>& __restrict ctx,
+                                          S localSlipRate,
+                                          real timeIncrement) {
     using std::expm1;
     using std::fmax;
     using std::log;
@@ -68,13 +70,19 @@ class FastVelocityWeakeningLaw
         rs::logsinhOver(localSlipRate * S(static_cast<real>(0.5) / ctx.data->drParameters.rsSr0),
                         steadyStateFrictionCoefficient / S(localA));
 
+    // Exact integration over the step with the slip rate held fixed. Written as psi0 + (psi_ss -
+    // psi0) * (1 - exp(p)), it keeps psi_ss as its exact fixed point in any precision. The form
+    // psi_ss * (1 - exp(p)) + psi0 * exp(p) rounds exp and expm1 independently, and their mismatch
+    // moves the fixed point by L / (V dt) times as much, a few thousand here; in single precision
+    // on a device, whose expf errs to one side, that biased the state variable of every sliding
+    // point.
     const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
-    const S exp1v = exp(preexp1);
     const S exp1m = -expm1(preexp1);
-    return steadyStateStateVariable * exp1m + exp1v * S(ctx.initialVariables.stateVarReference);
+    const S stateVarReference = S(ctx.initialVariables.stateVarReference);
+    return stateVarReference + (steadyStateStateVariable - stateVarReference) * exp1m;
   }
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
                                                  real timeIncrement) {
     ctx.stateVariableBuffer =
         stateVariableAt<real>(ctx, ctx.initialVariables.localSlipRate, timeIncrement);
@@ -88,7 +96,7 @@ class FastVelocityWeakeningLaw
   /// d(mu)/dV of the composition.
   template <typename S>
   SEISSOL_DEVICE static S
-      updateMuFolded(FrictionLawContext& __restrict ctx, S slipRate, real timeIncrement) {
+      updateMuFolded(FrictionLawContext<Cfg>& __restrict ctx, S slipRate, real timeIncrement) {
     const auto stateVariable = stateVariableAt(ctx, dualCast<StateScalar>(slipRate), timeIncrement);
     const S localStateVariable = dualCast<real>(stateVariable);
     const S localA = S(ctx.data->a[ctx.ltsFace][ctx.pointIndex]);
@@ -108,7 +116,7 @@ class FastVelocityWeakeningLaw
     real cExp{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& __restrict ctx,
                                                real localStateVariable) {
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const real cLin = static_cast<real>(0.5) / ctx.data->drParameters.rsSr0;
@@ -119,13 +127,14 @@ class FastVelocityWeakeningLaw
 
   /// generic over the scalar: a dual slip rate carries the derivative out with the value
   template <typename S>
-  SEISSOL_DEVICE static S
-      updateMu(FrictionLawContext& /*ctx*/, S localSlipRateMagnitude, const MuDetails& details) {
+  SEISSOL_DEVICE static S updateMu(FrictionLawContext<Cfg>& /*ctx*/,
+                                   S localSlipRateMagnitude,
+                                   const MuDetails& details) {
     const S lx = S(details.cLin) * localSlipRateMagnitude;
     return S(details.a) * rs::arsinhexp(lx, S(details.cExpLog), S(details.cExp));
   }
 
-  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext<Cfg>& __restrict ctx) {
     const auto localStateVariable = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
     const auto toResample = ctx.stateVariableBuffer - localStateVariable;
 

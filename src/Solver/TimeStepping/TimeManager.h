@@ -43,11 +43,12 @@ class TimeManager {
   std::optional<initializer::ClusterLayout> clusterLayout_;
 
   //! all local (copy & interior) LTS clusters, which are under control of this time manager
-  std::vector<std::unique_ptr<TimeCluster>> clusters_;
-  std::vector<TimeCluster*> highPrioClusters_;
-  std::vector<TimeCluster*> lowPrioClusters_;
+  std::vector<std::unique_ptr<TimeClusterInterface>> clusters_;
+  std::vector<TimeClusterInterface*> highPrioClusters_;
+  std::vector<TimeClusterInterface*> lowPrioClusters_;
 
-  //! one dynamic rupture scheduler per pair of interior/copy cluster
+  //! one dynamic rupture scheduler per pair of interior/copy cluster (of one configuration), at the
+  //! color of the interior layer
   std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers_;
 
   //! all MPI (ghost) LTS clusters, which are under control of this time manager

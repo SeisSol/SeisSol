@@ -20,6 +20,7 @@ from kernels.quantities import (
     QuantityGroup,
     QuantityKind,
     layout,
+    moment_tensor_selector,
     role_offset,
     rotation_spp,
     total_extent,
@@ -168,6 +169,37 @@ class TestSelectors:
             assert wide.shape == (3, 27)
             assert np.array_equal(wide[:, :9], narrow)
             assert not wide[:, 9:].any()
+
+
+class TestMomentTensorSelector:
+    @pytest.mark.parametrize(
+        "blocks",
+        [
+            layout(ELASTIC),
+            layout(POROELASTIC),
+            layout(ELASTIC, ELASTIC_MECHANISM, 3),
+        ],
+    )
+    def test_stress_tensor_in_voigt_order(self, blocks):
+        expected = np.zeros((total_extent(blocks), 3, 3))
+        expected[0, 0, 0] = expected[1, 1, 1] = expected[2, 2, 2] = 1
+        expected[3, 0, 1] = expected[4, 1, 2] = expected[5, 0, 2] = 1
+        assert np.array_equal(moment_tensor_selector(blocks), expected)
+
+    @pytest.mark.parametrize("mechanisms", [0, 1, 2, 5, 9])
+    def test_scalar_stress_takes_xx_only(self, mechanisms):
+        # From two mechanisms on, the fused layout has at least as many
+        # quantities as a stress tensor has components; the memory variables
+        # still receive nothing.
+        blocks = layout(ACOUSTIC, ACOUSTIC_MECHANISM, mechanisms)
+        expected = np.zeros((4 + mechanisms, 3, 3))
+        expected[0, 0, 0] = 1
+        assert np.array_equal(moment_tensor_selector(blocks), expected)
+
+    def test_missing_traction_raises(self):
+        blocks = layout([QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY)])
+        with pytest.raises(ValueError):
+            moment_tensor_selector(blocks)
 
 
 class TestRoleOffset:

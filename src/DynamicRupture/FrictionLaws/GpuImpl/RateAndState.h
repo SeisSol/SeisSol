@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_RATEANDSTATE_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_RATEANDSTATE_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
@@ -21,37 +22,39 @@ namespace seissol::dr::friction_law::gpu {
  * General implementation of a rate and state solver
  * Methods are inherited via CRTP and must be implemented in the child class.
  */
-template <class Derived, class TPMethod>
-class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>> {
+template <typename Cfg, class Derived, class TPMethod>
+class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>> {
   public:
-  explicit RateAndStateBase(const FrictionLawParameters& drParameters)
-      : BaseFrictionSolver<RateAndStateBase<Derived, TPMethod>>::BaseFrictionSolver(drParameters) {}
+  using real = Real<Cfg>;
 
-  std::unique_ptr<FrictionSolver> clone() override {
-    return std::make_unique<Derived>(*static_cast<Derived*>(this));
-  }
+  // the slip rate of a sub-step is the one the friction solve finds at its time point
+  static constexpr bool SlipRateAtIntervalEnds = false;
+
+  explicit RateAndStateBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>>::BaseFrictionSolver(
+            drParameters) {}
 
   ~RateAndStateBase() override = default;
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
 
     constexpr auto Place = seissol::initializer::AllocationPlace::Device;
 
-    data->a = layerData.var<LTSRateAndState::RsA>(Place);
-    data->sl0 = layerData.var<LTSRateAndState::RsSl0>(Place);
-    data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(Place);
-    data->f0 = layerData.var<LTSRateAndState::RsF0>(Place);
-    data->muW = layerData.var<LTSRateAndState::RsMuW>(Place);
-    data->b = layerData.var<LTSRateAndState::RsB>(Place);
-    data->convergenceInner = layerData.var<LTSRateAndState::ConvergenceInner>(Place);
-    data->convergenceOuter = layerData.var<LTSRateAndState::ConvergenceOuter>(Place);
+    data->a = layerData.var<LTSRateAndState::RsA>(Cfg(), Place);
+    data->sl0 = layerData.var<LTSRateAndState::RsSl0>(Cfg(), Place);
+    data->stateVariable = layerData.var<LTSRateAndState::StateVariable>(Cfg(), Place);
+    data->f0 = layerData.var<LTSRateAndState::RsF0>(Cfg(), Place);
+    data->muW = layerData.var<LTSRateAndState::RsMuW>(Cfg(), Place);
+    data->b = layerData.var<LTSRateAndState::RsB>(Cfg(), Place);
+    data->convergenceInner = layerData.var<LTSRateAndState::ConvergenceInner>(Cfg(), Place);
+    data->convergenceOuter = layerData.var<LTSRateAndState::ConvergenceOuter>(Cfg(), Place);
 
     Derived::copySpecificStorageDataToLocal(data, layerData);
     TPMethod::copyStorageToLocal(data, layerData);
   }
 
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& __restrict ctx,
                                                    uint32_t timeIndex) {
     // compute initial slip rate and reference values
     Derived::calcInitialVariables(ctx);
@@ -64,12 +67,12 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     calcSlipRateAndTraction(ctx, timeIndex);
   }
 
-  SEISSOL_DEVICE static void preHook(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static void preHook(FrictionLawContext<Cfg>& __restrict ctx) {
     // copy state variable from last time step
     ctx.stateVariableBuffer = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
   }
 
-  SEISSOL_DEVICE static void postHook(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static void postHook(FrictionLawContext<Cfg>& __restrict ctx) {
     Derived::resampleStateVar(ctx);
   }
 
@@ -77,7 +80,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    * Compute shear stress magnitude, localSlipRate, effective normal stress, reference state
    * variable. Also sets slipRateMagnitude member to reference value.
    */
-  SEISSOL_DEVICE static void calcInitialVariables(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static void calcInitialVariables(FrictionLawContext<Cfg>& __restrict ctx) {
     ctx.initialVariables.stateVarReference = ctx.stateVariableBuffer;
 
     const real totalTraction1 = ctx.initialStress.traction1 + ctx.faultStresses.traction1;
@@ -87,11 +90,11 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.initialVariables.absoluteShearTraction = misc::magnitude(totalTraction1, totalTraction2);
 
     ctx.initialVariables.etaNormal =
-        common::projectEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
-                                 ctx.data->impedanceMatrices[ctx.ltsFace],
-                                 totalTraction1,
-                                 totalTraction2,
-                                 ctx.initialVariables.absoluteShearTraction);
+        common::projectEtaNormal<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                      ctx.data->impedanceMatrices[ctx.ltsFace],
+                                      totalTraction1,
+                                      totalTraction2,
+                                      ctx.initialVariables.absoluteShearTraction);
 
     // initial slip direction: the trial traction. For isotropy this stays exact.
     const real invAbsolute =
@@ -104,7 +107,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     auto localSlipRateMagnitude = misc::magnitude(ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
                                                   ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
 
-    localSlipRateMagnitude = std::max(rs::almostZero(), localSlipRateMagnitude);
+    localSlipRateMagnitude = std::max(rs::almostZero<real>(), localSlipRateMagnitude);
     ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] = localSlipRateMagnitude;
     ctx.initialVariables.localSlipRate = localSlipRateMagnitude;
 
@@ -123,59 +126,61 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    *
    * @returns 1 / eta_proj for the (possibly updated) direction
    */
-  SEISSOL_DEVICE static real updateDirectionAndProjections(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static real
+      updateDirectionAndProjections(FrictionLawContext<Cfg>& __restrict ctx) {
     const real totalTraction1 = ctx.initialStress.traction1 + ctx.faultStresses.traction1;
 
     const real totalTraction2 = ctx.initialStress.traction2 + ctx.faultStresses.traction2;
 
-    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-      const auto [etaProj, unusedInv] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
-                                                           ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                           ctx.initialVariables.slipDirection1,
-                                                           ctx.initialVariables.slipDirection2,
-                                                           static_cast<real>(1.0));
+    if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
+      const auto [etaProj, unusedInv] =
+          common::projectEta<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                  ctx.data->impedanceMatrices[ctx.ltsFace],
+                                  ctx.initialVariables.slipDirection1,
+                                  ctx.initialVariables.slipDirection2,
+                                  static_cast<real>(1.0));
 
       const real slipRate = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
       const real strength = ctx.initialVariables.absoluteShearTraction - slipRate * etaProj;
 
       const auto [n1, n2] =
-          common::updateSlipDirection(ctx.data->impAndEta[ctx.ltsFace],
-                                      ctx.data->impedanceMatrices[ctx.ltsFace],
-                                      strength,
-                                      slipRate,
-                                      totalTraction1,
-                                      totalTraction2,
-                                      misc::magnitude(totalTraction1, totalTraction2));
+          common::updateSlipDirection<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                           ctx.data->impedanceMatrices[ctx.ltsFace],
+                                           strength,
+                                           slipRate,
+                                           totalTraction1,
+                                           totalTraction2,
+                                           misc::magnitude(totalTraction1, totalTraction2));
 
       ctx.initialVariables.slipDirection1 = n1;
       ctx.initialVariables.slipDirection2 = n2;
       ctx.initialVariables.absoluteShearTraction = n1 * totalTraction1 + n2 * totalTraction2;
       ctx.initialVariables.etaNormal =
-          common::projectEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
-                                   ctx.data->impedanceMatrices[ctx.ltsFace],
-                                   n1,
-                                   n2,
-                                   static_cast<real>(1.0));
+          common::projectEtaNormal<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                        ctx.data->impedanceMatrices[ctx.ltsFace],
+                                        n1,
+                                        n2,
+                                        static_cast<real>(1.0));
 
       const auto [unusedNewEta, newInvEta] =
-          common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
-                             ctx.data->impedanceMatrices[ctx.ltsFace],
-                             n1,
-                             n2,
-                             static_cast<real>(1.0));
+          common::projectEta<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                  ctx.data->impedanceMatrices[ctx.ltsFace],
+                                  n1,
+                                  n2,
+                                  static_cast<real>(1.0));
       return newInvEta;
     } else {
       const auto [unusedEta, invEta] =
-          common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
-                             ctx.data->impedanceMatrices[ctx.ltsFace],
-                             totalTraction1,
-                             totalTraction2,
-                             ctx.initialVariables.absoluteShearTraction);
+          common::projectEta<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                  ctx.data->impedanceMatrices[ctx.ltsFace],
+                                  totalTraction1,
+                                  totalTraction2,
+                                  ctx.initialVariables.absoluteShearTraction);
       return invEta;
     }
   }
 
-  SEISSOL_DEVICE static void updateStateVariableIterative(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void updateStateVariableIterative(FrictionLawContext<Cfg>& __restrict ctx,
                                                           uint32_t timeIndex) {
     bool hasConvergedOuter = false;
     bool hasConvergedInner = true;
@@ -245,7 +250,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.data->convergenceInner[ctx.ltsFace][ctx.pointIndex] &= hasConvergedInner;
   }
 
-  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void calcSlipRateAndTraction(FrictionLawContext<Cfg>& __restrict ctx,
                                                      uint32_t timeIndex) {
     const auto deltaTime{ctx.args->deltaT[timeIndex]};
 
@@ -282,21 +287,21 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     const real dirTraction2 =
         ctx.initialVariables.slipDirection2 * ctx.initialVariables.absoluteShearTraction;
 
-    const auto [etaS, _] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
-                                              ctx.data->impedanceMatrices[ctx.ltsFace],
-                                              ctx.initialVariables.slipDirection1,
-                                              ctx.initialVariables.slipDirection2,
-                                              static_cast<real>(1.0));
+    const auto [etaS, _] = common::projectEta<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                                   ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                   ctx.initialVariables.slipDirection1,
+                                                   ctx.initialVariables.slipDirection2,
+                                                   static_cast<real>(1.0));
 
     // Update slip rate
     const auto divisor = strength + etaS * slipRateMagnitude;
     const auto slipRate1 = slipRateMagnitude * dirTraction1 / divisor;
     const auto slipRate2 = slipRateMagnitude * dirTraction2 / divisor;
 
-    const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
-                                              ctx.data->impedanceMatrices[ctx.ltsFace],
-                                              slipRate1,
-                                              slipRate2);
+    const auto [tU1, tU2] = common::matmulEta<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                                   ctx.data->impedanceMatrices[ctx.ltsFace],
+                                                   slipRate1,
+                                                   slipRate2);
 
     // calculate traction
     const auto traction1 = savedTraction1 - tU1;
@@ -325,17 +330,30 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] = slipRate2;
   }
 
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext& __restrict ctx,
-                                                     real time) {
+  //! the friction coefficient, whose falling to the weakened one is the dynamic stress time
+  SEISSOL_DEVICE static real dynamicStressQuantity(FrictionLawContext<Cfg>& __restrict ctx) {
+    return ctx.data->mu[ctx.ltsFace][ctx.pointIndex];
+  }
+
+  /*
+   * output time when the friction coefficient has fallen to the weakened one after the rupture
+   * arrived, interpolated between the time points of the previous and the current evaluation (see
+   * common::crossingTime), and not before the rupture time
+   */
+  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& __restrict ctx,
+                                                     real previousMu,
+                                                     const common::SubStepTimes<Cfg>& times) {
     auto muW{ctx.data->muW[ctx.ltsFace][ctx.pointIndex]};
     auto rsF0{ctx.data->f0[ctx.ltsFace][ctx.pointIndex]};
+    const real threshold = muW + static_cast<real>(0.05) * (rsF0 - muW);
+    const real mu = ctx.data->mu[ctx.ltsFace][ctx.pointIndex];
 
     const auto localRuptureTime = ctx.data->ruptureTime[ctx.ltsFace][ctx.pointIndex];
-    if (localRuptureTime > static_cast<real>(0.0) && localRuptureTime <= time &&
-        ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] &&
-        ctx.data->mu[ctx.ltsFace][ctx.pointIndex] <=
-            (muW + static_cast<real>(0.05) * (rsF0 - muW))) {
-      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = time;
+    if (localRuptureTime > static_cast<real>(0.0) && localRuptureTime <= times.point &&
+        ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] && mu <= threshold) {
+      ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = std::max(
+          localRuptureTime,
+          common::crossingTime<Cfg>(previousMu, mu, threshold, times.previousPoint, times.point));
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }
@@ -351,14 +369,14 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   template <typename S>
   SEISSOL_DEVICE static S stickAt(
       real normalStress, real normalStressStick, real etaNormal, real pressureOffset, S slipRate) {
-    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
       return S(normalStressStick - pressureOffset) - slipRate * S(etaNormal);
     } else {
       return S(normalStress);
     }
   }
 
-  SEISSOL_DEVICE static bool invertSlipRateIterative(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static bool invertSlipRateIterative(FrictionLawContext<Cfg>& __restrict ctx,
                                                      real& slipRateTest,
                                                      real localStateVariable,
                                                      real normalStress,
@@ -396,7 +414,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
     }
     const real tau = absoluteShearStress;
 
-    real xLow = friction_law::rs::almostZero();
+    real xLow = friction_law::rs::almostZero<real>();
     real xHigh = std::max(xLow, tau * invEtaS); // tau~0 => collapses to ~0, root ~0
     real x = std::min(std::max(slipRateMagnitude, xLow), xHigh); // warm start, clamped
     real dx = xHigh - xLow;                                      // becomes dxOld on first iteration
@@ -554,7 +572,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
    * previous time step). normalStressStick keeps the part that does not depend on it, so that the
    * Newton solve can follow sigma(V) itself.
    */
-  SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext<Cfg>& __restrict ctx) {
     // the stick keeps what does not follow this step's shear heating; the pressurization enters
     // where sigma is formed, so that the solve can resolve it instead of lagging it
     ctx.initialVariables.normalStressStick =

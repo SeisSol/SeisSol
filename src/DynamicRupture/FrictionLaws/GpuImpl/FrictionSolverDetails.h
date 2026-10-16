@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERDETAILS_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERDETAILS_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/TPCommon.h"
 #include "DynamicRupture/Misc.h"
@@ -17,24 +18,27 @@
 
 namespace seissol::dr::friction_law::gpu {
 
-class FrictionSolverDetails : public FrictionSolverInterface {
+template <typename Cfg>
+class FrictionSolverDetails : public FrictionSolverInterface<Cfg> {
   public:
-  explicit FrictionSolverDetails(const FrictionLawParameters& drParameters)
-      : FrictionSolverInterface(drParameters) {}
+  using real = Real<Cfg>;
+
+  explicit FrictionSolverDetails(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : FrictionSolverInterface<Cfg>(drParameters) {}
 
   ~FrictionSolverDetails() override = default;
 
-  void allocateAuxiliaryMemory(GlobalData* globalData) override {
+  void allocateAuxiliaryMemory(GlobalData<Cfg>* globalData) override {
     // call the device module directly here
     {
 #ifdef ACL_DEVICE
-      data_ = reinterpret_cast<FrictionLawData*>(
-          device::DeviceInstance::getInstance().api->allocGlobMem(sizeof(FrictionLawData)));
+      data_ = reinterpret_cast<FrictionLawData<Cfg>*>(
+          device::DeviceInstance::instance().api().allocGlobMem(sizeof(FrictionLawData<Cfg>)));
 #endif
     }
 
-    resampleMatrix_ = globalData->*init::resample::PoolMember;
-    devSpaceWeights_ = globalData->*init::quadweights::PoolMember;
+    resampleMatrix_ = globalData->*init::resample<Cfg>::PoolMember;
+    devSpaceWeights_ = globalData->*init::quadweights<Cfg>::PoolMember;
 
 #ifdef ACL_DEVICE
     // The thermal-pressurization tables are functions of the grid alone, and
@@ -45,19 +49,20 @@ class FrictionSolverDetails : public FrictionSolverInterface {
     // the device allocation they sit next to, and are rebuilt whenever it is.
     // The grid has the tp_gridpoints the kernels loop over.
     const auto upload = [](const auto& source) {
-      auto& device = device::DeviceInstance::getInstance();
+      auto& device = device::DeviceInstance::instance();
       const std::size_t bytes = source.data().size() * sizeof(real);
-      auto* target = reinterpret_cast<real*>(device.api->allocGlobMem(bytes));
-      device.api->copyTo(target, source.data().data(), bytes);
+      auto* target = reinterpret_cast<real*>(device.api().allocGlobMem(bytes));
+      device.api().copyTo(target, source.data().data(), bytes);
       return target;
     };
-    const std::size_t tpGridPoints = drParameters_.tpGridPoints;
+    const std::size_t tpGridPoints = this->drParameters_.tpGridPoints;
     devTpGridPoints_ = upload(tp::GridPoints<real>(tpGridPoints));
     devTpInverseFourierCoefficients_ = upload(tp::InverseFourierCoefficients<real>(tpGridPoints));
     devHeatSource_ = upload(tp::GaussianHeatSource<real>(tpGridPoints));
 #endif
   }
 
+  protected:
   size_t currLayerSize_{};
 
   const real* resampleMatrix_{nullptr};
@@ -66,7 +71,7 @@ class FrictionSolverDetails : public FrictionSolverInterface {
   real* devTpGridPoints_{nullptr};
   real* devHeatSource_{nullptr};
 
-  FrictionLawData* data_{nullptr};
+  FrictionLawData<Cfg>* data_{nullptr};
 };
 } // namespace seissol::dr::friction_law::gpu
 

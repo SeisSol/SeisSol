@@ -6,7 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 import numpy as np
-from kernels.common import generate_kernel_name_prefix
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import layout, total_extent
 from yateto import Scalar, Tensor, simpleParameterSpace
@@ -69,6 +69,7 @@ def addKernels(
             <= aderdg.Tinv["am"].subslice("a", 0, nq).subslice("m", 0, nq)
             * dirichlet_offset_global["m"],
         ],
+        attrs=cold_kernel_attrs(),
     )
 
     rho = Tensor("rho", ())
@@ -129,7 +130,7 @@ def addKernels(
         * dirichlet_map["ab"].subslice("a", 0, nr).subslice("b", 0, nr)
         * aderdg.AminusT["ap"].subslice("a", 0, nr)
     )
-    generator.add("foldDirichlet", fold_dirichlet)
+    generator.add("foldDirichlet", fold_dirichlet, attrs=cold_kernel_attrs())
 
     fold_free_surface_gravity = (
         aderdg.AplusT["mp"]
@@ -138,7 +139,11 @@ def addKernels(
         * fsg_map["oq"]
         * aderdg.AminusT["qp"]
     )
-    generator.add("foldFreeSurfaceGravity", fold_free_surface_gravity)
+    generator.add(
+        "foldFreeSurfaceGravity",
+        fold_free_surface_gravity,
+        attrs=cold_kernel_attrs(),
+    )
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)

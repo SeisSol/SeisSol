@@ -13,6 +13,72 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The rupture and dynamic stress times
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the verification cases on mini meshes)
+
+The rupture time ``RT`` and the dynamic stress time ``DS`` of the fault output are
+the times at which the slip rate exceeds 1 mm/s, and at which the slip reaches
+``d_c`` or the friction coefficient falls to its weakened value, interpolated
+linearly between the time points of the friction solve. They used to be the start
+of the sub-step in which the solver saw the crossing, and so lay on the grid of
+those time points; they are now later by half a sub-step on average. A crossing
+at the first time point of a time step is interpolated from the last one of the
+previous step, so that ``RT`` can now lie before the start of the time step, at
+which a receiver or the fault output may still have shown the point as not
+ruptured. The rupture velocity ``Vr``, which differentiates the rupture time
+across a fault face, no longer jumps when a rounding error moves a crossing past
+a time point. A point that slips from the start of a simulation on still has a
+rupture time of 0.
+
+Checkpoints now also hold the slip rate magnitude, from which the rupture time of
+the first time step after a restart is interpolated; checkpoints written before
+cannot be restored.
+
+The receivers of fused simulations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the verification cases on mini meshes)
+
+A receiver of a fused run takes a row per sample and simulation, in the text
+files as in the HDF5 tables, and a column ``SimulationIndex`` says which
+simulation a row holds, counted from zero. The text files used to have a column
+per quantity and simulation instead, with the simulation in the name (``v10``,
+``v11``, ... off the fault, ``SRs-1``, ``SRs-2``, ... on it), and the HDF5 table
+of the off-fault receivers had a row per receiver holding all simulations.
+``postprocessing/science/widen_fused_receivers.py`` converts text files to the
+previous layout. The header of an on-fault receiver gives ``P_0``, ``T_s`` and
+``T_d`` in a line each, with a value per simulation.
+
+Without fused simulations, the text files keep their layout, and the on-fault
+receivers have the header of version 1.3 again: the title names the receiver,
+and the initial stress is given as ``P_0``, ``T_s`` and ``T_d`` rather than
+``P_01``, ``T_s1`` and ``T_d1``. The option ``aggregateperrank`` in the
+``Pickpoint`` section, which wrote all on-fault receivers of a rank into one text
+file, is gone; ``format = 'hdf5'`` writes all of them into a single file.
+
+The wave vector of the planar wave
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the verification cases on mini meshes)
+
+``cICType = 'Planarwave'`` takes its wave vector from ``kVec`` in the
+``IniCondition`` section, which only the travelling wave used to read. A
+parameter file that sets ``kVec`` for a planar wave therefore imposes a
+different wave than before. Without ``kVec``, the wave vector is
+:math:`(\pi, \pi, \pi)`, as it always was.
+
+The default plasticity points
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(after 1.3.2, October 2026)
+
+The plastic correction is now computed by default at the points of a fully symmetric quadrature
+rule that lie inside the cell, and projected back onto the basis with that rule
+(``PLASTICITY_METHOD=sq``, see :ref:`build_parameters`), instead of at the nodes of a nodal basis,
+some of which lie on the boundary of the cell (``nb``). Simulations with plasticity therefore give
+different results than before; plasticity parameters given per point (``plasticityPointwise``) are
+read at the new points; and since checkpoints hold the plastic strain at these points, a
+checkpoint written with ``nb`` does not fit a build with ``sq``. Building with
+``-DPLASTICITY_METHOD=nb`` restores the previous behavior.
+
 The fault tag of the elementwise fault output
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the unification of the output modules)
@@ -50,6 +116,10 @@ each quantity as well. Numbers are written in the shortest form that reads back
 as the same value, e.g. ``0.25`` rather than ``2.50000000000000000e-01``. What
 the columns are and what they hold is unchanged. A reader using a CSV parser
 needs no change; one comparing the lines literally does.
+
+``-analysis.csv`` has a column ``simulation_index``, as ``-energy.csv`` has. With
+fused simulations, it holds the errors of every simulation; it held those of the
+last one only.
 
 Output of a restarted run
 ~~~~~~~~~~~~~~~~~~~~~~~~~

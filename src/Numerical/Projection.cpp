@@ -7,15 +7,16 @@
 
 #include "Projection.h"
 
-#include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
+#include "Numerical/SymmetricTetrahedronRule.h"
 
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <optional>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -304,6 +305,12 @@ std::vector<std::array<double, 3>> nodalPoints3D(std::size_t order, NodalSet set
     assert(quadrature.first.size() == nodalSize(3, order, set));
     return std::move(quadrature.first);
   }
+  if (set == NodalSet::Symmetric) {
+    assert(order >= 1);
+    auto quadrature = seissol::quadrature::symmetricTetrahedronRule(2 * (order - 1));
+    assert(quadrature.first.size() == nodalSize(3, order, set));
+    return std::move(quadrature.first);
+  }
 
   assert(order >= 1);
   if (order == 1) {
@@ -472,19 +479,45 @@ std::vector<std::array<double, 3>> nodalPoints3D(std::size_t order, NodalSet set
   return points;
 }
 
-std::vector<double> stroudWeights3D(std::size_t order) {
+std::vector<double> nodalWeights3D(std::size_t order, NodalSet set) {
+  if (set == NodalSet::Symmetric) {
+    assert(order >= 1);
+    return std::move(seissol::quadrature::symmetricTetrahedronRule(2 * (order - 1)).second);
+  }
+  assert(set == NodalSet::Stroud);
   return std::move(seissol::quadrature::simplexRule<3>(order + 1).second);
+}
+
+std::optional<NodalSet> identifyNodalSet3D(std::size_t order,
+                                           const std::vector<std::array<double, 3>>& points,
+                                           double tolerance) {
+  for (const auto set : {NodalSet::WarpBlend, NodalSet::Stroud, NodalSet::Symmetric}) {
+    if (nodalSize(3, order, set) != points.size()) {
+      continue;
+    }
+    const auto candidate = nodalPoints3D(order, set);
+    bool agrees = true;
+    for (std::size_t p = 0; p < points.size() && agrees; ++p) {
+      for (std::size_t d = 0; d < 3; ++d) {
+        agrees = agrees && std::abs(candidate[p][d] - points[p][d]) <= tolerance;
+      }
+    }
+    if (agrees) {
+      return set;
+    }
+  }
+  return {};
 }
 
 template <std::size_t Dim>
 DenseMatrix nodalToModal(std::size_t order, NodalSet set) {
   const auto indices = modalIndices<Dim>(order);
   if constexpr (Dim == 3) {
-    if (set == NodalSet::Stroud) {
-      // over-determined nodal set: the transform is the (exact) L2 projection using the
-      // conical-product quadrature the nodes stem from
+    if (set == NodalSet::Stroud || set == NodalSet::Symmetric) {
+      // quadrature points: the transform is the (exact) L2 projection using the quadrature the
+      // nodes stem from
       const auto points = nodalPoints3D(order, set);
-      const auto weights = stroudWeights3D(order);
+      const auto weights = nodalWeights3D(order, set);
       DenseMatrix vandermonde(points.size(), indices.size());
       for (std::size_t n = 0; n < points.size(); ++n) {
         for (std::size_t b = 0; b < indices.size(); ++b) {
@@ -632,14 +665,14 @@ template DenseMatrix build<3, 3>(const std::vector<std::array<double, 3>>&,
                                  const AffineMap<3, 3>&,
                                  const Spec&);
 
-template <std::size_t From, std::size_t To>
-Table<From, To>::Table(const std::vector<AffineMap<From, To>>& subcells,
-                       const std::vector<std::array<double, From>>& referenceTargetPoints,
-                       std::size_t targetDegree,
-                       std::size_t leadingDimension,
-                       const Spec& spec,
-                       std::size_t minOrder,
-                       std::size_t maxOrder)
+template <std::size_t From, std::size_t To, typename RealT>
+Table<From, To, RealT>::Table(const std::vector<AffineMap<From, To>>& subcells,
+                              const std::vector<std::array<double, From>>& referenceTargetPoints,
+                              std::size_t targetDegree,
+                              std::size_t leadingDimension,
+                              const Spec& spec,
+                              std::size_t minOrder,
+                              std::size_t maxOrder)
     : subcellCount_(subcells.size()), minOrder_(minOrder), maxOrder_(maxOrder),
       leadingDimension_(leadingDimension) {
   assert(minOrder >= 1 && minOrder <= maxOrder);
@@ -660,7 +693,7 @@ Table<From, To>::Table(const std::vector<AffineMap<From, To>>& subcells,
   }
 
   storage_.resize(subcellCount_ * subcellStride_);
-  std::fill(storage_.begin(), storage_.end(), static_cast<real>(0));
+  std::fill(storage_.begin(), storage_.end(), static_cast<RealT>(0));
 
   for (std::size_t subcell = 0; subcell < subcellCount_; ++subcell) {
     for (std::size_t order = minOrder; order <= maxOrder; ++order) {
@@ -671,16 +704,19 @@ Table<From, To>::Table(const std::vector<AffineMap<From, To>>& subcells,
       auto* target = storage_.data() + this->offset(subcell, order);
       for (std::size_t p = 0; p < matrix.rows(); ++p) {
         for (std::size_t b = 0; b < matrix.cols(); ++b) {
-          target[p + b * leadingDimension] = static_cast<real>(matrix(p, b));
+          target[p + b * leadingDimension] = static_cast<RealT>(matrix(p, b));
         }
       }
     }
   }
 }
 
-template class Table<2, 2>;
-template class Table<2, 3>;
-template class Table<3, 3>;
+template class Table<2, 2, float>;
+template class Table<2, 3, float>;
+template class Table<3, 3, float>;
+template class Table<2, 2, double>;
+template class Table<2, 3, double>;
+template class Table<3, 3, double>;
 
 } // namespace projection
 

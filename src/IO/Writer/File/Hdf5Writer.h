@@ -12,11 +12,12 @@
 #include "IO/Writer/Instructions/Hdf5.h"
 
 #include <hdf5.h>
+#include <map>
 #include <memory>
 #include <mpi.h>
+#include <set>
 #include <stack>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace seissol::io::writer::file {
@@ -46,6 +47,8 @@ class Hdf5File {
                          const std::string& targetPath);
   void closeDataset();
   void closeGroup();
+  //! Writes out what HDF5 holds of the file, so that it is complete on disk while it stays open.
+  void flushFile() const;
   void closeFile();
 
   private:
@@ -57,9 +60,9 @@ class Hdf5File {
 class Hdf5Writer {
   public:
   /**
-   * @brief A writer for one write plan.
+   * @brief A writer for the write plans of one output, one after the other.
    *
-   * @p runFiles is what the run has written so far, and is updated by the writes of this plan.
+   * @p runFiles is what the run has written so far, and is updated by the writes of the plans.
    * Without it, every file that exists is opened and appended to.
    */
   explicit Hdf5Writer(MPI_Comm comm, RunFiles* runFiles = nullptr);
@@ -71,13 +74,29 @@ class Hdf5Writer {
   void writeLinkExternal(const async::ExecInfo& info,
                          const instructions::Hdf5LinkExternalWrite& write);
 
+  /**
+   * @brief Ends the writes of one plan.
+   *
+   * A file this plan and the one before both wrote is one every plan writes (a time series, the
+   * metadata of the steps): it stays open for the next plan, flushed. Opening it again for every
+   * step is collective, and leaves each rank to read the metadata of the file once more. Any
+   * other file is closed, as one a plan writes once (a snapshot, a checkpoint) has to be complete
+   * once the plan is done.
+   */
+  void endWrite();
+
+  //! Closes every file that is still open.
   void finalize();
 
   private:
-  //! The file @p name , opened on first use in this plan.
+  //! The file @p name , opened on first use.
   Hdf5File file(const std::string& name);
 
-  std::unordered_map<std::string, Hdf5File> openFiles_;
+  //! By name, so that every rank closes them in the same order: closing is collective.
+  std::map<std::string, Hdf5File> openFiles_;
+  //! The files the current plan wrote, and those the plan before wrote.
+  std::set<std::string> written_;
+  std::set<std::string> writtenBefore_;
   MPI_Comm comm_{MPI_COMM_NULL};
   RunFiles* runFiles_{nullptr};
 };

@@ -10,8 +10,9 @@
 
 #include <doctest.h>
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/Dual.h"
-#include "Kernels/Precision.h"
+#include "TestConfigs.h"
 #include "TestHelper.h"
 
 #include <cmath>
@@ -562,9 +563,12 @@ TEST_CASE_TEMPLATE("DR Dual derivatives keep the range of their value",
   }
 }
 
-TEST_CASE("DR Dual in working precision" * doctest::test_suite("dynamicrupture")) {
+TEST_CASE_TEMPLATE_DEFINE("DR Dual in working precision" * doctest::test_suite("dynamicrupture"),
+                          Cfg,
+                          DualInWorkingPrecision) {
   using namespace dualtest;
-  // the friction laws instantiate the type at `real`, whichever that is in this build
+  // the friction laws instantiate the type at the precision of each configuration they serve
+  using real = Real<Cfg>;
   unary<real>(
       {0.25, 1.0, 3.0},
       [](auto d) { return exp(d); },
@@ -577,6 +581,7 @@ TEST_CASE("DR Dual in working precision" * doctest::test_suite("dynamicrupture")
       [](double x) { return 1.0 / std::hypot(1.0, x); });
   CHECK(valueOf(Dual<real>(static_cast<real>(2), static_cast<real>(1))) == static_cast<real>(2));
 }
+TEST_CASE_TEMPLATE_APPLY(DualInWorkingPrecision, DynamicRuptureConfigs);
 
 } // namespace seissol::unit_test
 

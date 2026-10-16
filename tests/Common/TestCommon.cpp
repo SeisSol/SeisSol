@@ -7,6 +7,9 @@
 
 #include <doctest.h>
 
+#include "ConfigDispatch.t.h"
+#include "ConfigRegistry.t.h"
+#include "ConfigValue.t.h"
 #include "IntegerMaskParser.t.h"
 #include "Iterator.t.h"
 #include "SegmentMap.t.h"
