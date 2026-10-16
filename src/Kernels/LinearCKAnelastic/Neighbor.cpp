@@ -168,7 +168,7 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
   dynamicRupture::kernel::gpu_nodalFlux<Cfg> drKrnl = deviceDrKrnlPrototype_;
 
   {
-    const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+    const ConditionalKey key(*KernelNames::Volume);
     if (table.find(key) != table.end()) {
       auto& entry = table[key];
       device::DeviceInstance::instance().algorithms().setToValue(
@@ -241,7 +241,7 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
         });
   }
 
-  const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  const ConditionalKey key(*KernelNames::Volume);
   if (table.find(key) != table.end()) {
     auto& entry = table[key];
     kernel::gpu_neighbor<Cfg> nKrnl = deviceNKrnlPrototype_;

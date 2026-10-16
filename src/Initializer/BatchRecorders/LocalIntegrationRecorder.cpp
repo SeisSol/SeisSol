@@ -16,6 +16,8 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Initializer/CellLocalInformation.h"
+#include "Kernels/Solver.h"
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -30,6 +32,19 @@
 
 using namespace seissol::initializer;
 using namespace seissol::recording;
+
+namespace {
+/// The entries of `values`, one per cell of a layer, of the cells `cells`.
+template <typename T>
+std::vector<T> selectCells(const std::vector<T>& values, const std::vector<std::size_t>& cells) {
+  std::vector<T> selected;
+  selected.reserve(cells.size());
+  for (const auto cell : cells) {
+    selected.push_back(values[cell]);
+  }
+  return selected;
+}
+} // namespace
 
 // NOLINTBEGIN (-misc-const-correctness)
 
@@ -60,16 +75,17 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
     std::vector<real*> dofsAnePtrs(size, nullptr);
     std::vector<real*> dofsExtPtrs(size, nullptr);
     std::vector<real*> localPtrs(size, nullptr);
-    std::vector<real*> idofsPtrs;
+    std::vector<real*> idofsPtrs(size, nullptr);
     std::vector<real*> idofsAnePtrs(size, nullptr);
-    std::vector<real*> derivativesAnePtrs(size, nullptr);
-    std::vector<real*> derivativesExtPtrs(size, nullptr);
     std::vector<real*> ltsBuffers;
     std::vector<real*> idofsForLtsBuffers;
     std::vector<real*> zinvExtraPtrs(size, nullptr);
 
-    idofsPtrs.reserve(size);
-    dQPtrs_.resize(size);
+    // the cells whose predictor writes out their derivatives, and the others
+    std::vector<std::size_t> cellsWithDerivatives;
+    std::vector<std::size_t> cellsWithoutDerivatives;
+
+    dQPtrs_.assign(size, nullptr);
 
     real** derivatives = currentLayer_->var<LTS::DerivativesDevice>(Cfg());
     real** stepIntegrals = currentLayer_->var<LTS::StepIntegralsDevice>(Cfg());
@@ -78,6 +94,7 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLayer_->cellRef<Cfg>(cell, AllocationPlace::Device);
       auto dataHost = currentLayer_->cellRef<Cfg>(cell, AllocationPlace::Host);
+      const auto& cellInformation = dataHost.template get<LTS::CellInformation>();
 
       // dofs
       dofsPtrs[cell] = static_cast<real*>(data.template get<LTS::Dofs>());
@@ -85,12 +102,9 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
 
       // idofs
       real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter_];
-      const bool hasStepIntegrals =
-          dataHost.template get<LTS::CellInformation>().ltsSetup.hasBuffer(
-              BufferType::StepIntegrals);
+      const bool hasStepIntegrals = cellInformation.ltsSetup.hasBuffer(BufferType::StepIntegrals);
       const bool hasAccumulatedIntegrals =
-          dataHost.template get<LTS::CellInformation>().ltsSetup.hasBuffer(
-              BufferType::AccumulatedIntegrals);
+          cellInformation.ltsSetup.hasBuffer(BufferType::AccumulatedIntegrals);
 
       // we always need space for the step integral right now
 
@@ -102,7 +116,7 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
         integratedDofsAddressCounter_ += kernels::SolverOf<Cfg>::IntegralsSize;
       }
 
-      idofsPtrs.push_back(stepPtr);
+      idofsPtrs[cell] = stepPtr;
       idofsAddressRegistry_[cell] = stepPtr;
 
       if (hasAccumulatedIntegrals) {
@@ -110,16 +124,16 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
         idofsForLtsBuffers.push_back(stepPtr);
       }
 
-      // derivatives
-      const bool isDerivativesProvided =
-          dataHost.template get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::Derivatives);
-      if (isDerivativesProvided) {
+      // derivatives; a cell without a buffer for them writes them into the scratch if it needs
+      // them, or if the device kernel cannot keep them (cf. deriveRequiredScratchpadMemoryForWp)
+      if (cellInformation.ltsSetup.hasBuffer(BufferType::Derivatives)) {
         dQPtrs_[cell] = derivatives[cell];
-
-      } else {
+      } else if (needsDerivatives(cellInformation) ||
+                 !kernels::Spacetime<Cfg>::KeepsDerivativesOnDevice) {
         dQPtrs_[cell] = &derivativesScratch[derivativesAddressCounter_];
         derivativesAddressCounter_ += seissol::kernels::SolverOf<Cfg>::DerivativesSize;
       }
+      (dQPtrs_[cell] != nullptr ? cellsWithDerivatives : cellsWithoutDerivatives).push_back(cell);
 
       // stars
       localPtrs[cell] = reinterpret_cast<real*>(&data.template get<LTS::LocalIntegration>());
@@ -139,32 +153,58 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
         zinvExtraPtrs[cell] = zinvExtraPtr + kernels::familySize<tensor::Zinv<Cfg>>() * cell;
       }
     }
-    // just to be sure that we took all branches while filling in idofsPtrs vector
-    assert(dofsPtrs.size() == idofsPtrs.size());
 
-    const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-    checkKey(key);
+    // the volume integral, over all cells
+    const ConditionalKey volumeKey(*KernelNames::Volume);
+    checkKey(volumeKey);
+    auto& volumeEntry = (*currentTable_)[volumeKey];
 
-    (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::Integrals, integralsPtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, dQPtrs_);
+    volumeEntry.set(inner_keys::Wp::Id::Dofs, dofsPtrs);
+    volumeEntry.set(inner_keys::Wp::Id::Integrals, integralsPtrs);
+    volumeEntry.set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
+    volumeEntry.set(inner_keys::Wp::Id::Idofs, idofsPtrs);
+
+    if constexpr (Cfg::Solver == SolverType::LinearCKAnelastic) {
+      volumeEntry.set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
+      volumeEntry.set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
+      volumeEntry.set(inner_keys::Wp::Id::IdofsAne, idofsAnePtrs);
+    }
+
+    // the predictor, in a batch of the cells that write out their derivatives, and in one of the
+    // cells that keep them in the kernel
+    const auto recordPredictor = [&](ComputationKind kind, const std::vector<std::size_t>& cells) {
+      if (cells.empty()) {
+        return;
+      }
+
+      const ConditionalKey key(*KernelNames::Time, *kind);
+      checkKey(key);
+      auto& entry = (*currentTable_)[key];
+
+      entry.set(inner_keys::Wp::Id::Dofs, selectCells(dofsPtrs, cells));
+      entry.set(inner_keys::Wp::Id::LocalIntegrationData, selectCells(localPtrs, cells));
+      entry.set(inner_keys::Wp::Id::Idofs, selectCells(idofsPtrs, cells));
+      if (kind == ComputationKind::WithDerivatives) {
+        entry.set(inner_keys::Wp::Id::Derivatives, selectCells(dQPtrs_, cells));
+      }
+
+      if constexpr (Cfg::Solver == SolverType::LinearCKAnelastic) {
+        entry.set(inner_keys::Wp::Id::DofsAne, selectCells(dofsAnePtrs, cells));
+        entry.set(inner_keys::Wp::Id::IdofsAne, selectCells(idofsAnePtrs, cells));
+      }
+      if constexpr (Cfg::Solver == SolverType::STP) {
+        entry.set(inner_keys::Wp::Id::ZinvExtra, selectCells(zinvExtraPtrs, cells));
+      }
+    };
+
+    recordPredictor(ComputationKind::WithDerivatives, cellsWithDerivatives);
+    recordPredictor(ComputationKind::WithoutDerivatives, cellsWithoutDerivatives);
 
     if (!idofsForLtsBuffers.empty()) {
       const ConditionalKey key(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
 
       (*currentTable_)[key].set(inner_keys::Wp::Id::Buffers, ltsBuffers);
       (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsForLtsBuffers);
-    }
-
-    if constexpr (Cfg::Solver == SolverType::LinearCKAnelastic) {
-      (*currentTable_)[key].set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::IdofsAne, idofsAnePtrs);
-    }
-    if constexpr (Cfg::Solver == SolverType::STP) {
-      (*currentTable_)[key].set(inner_keys::Wp::Id::ZinvExtra, zinvExtraPtrs);
     }
   }
 }
@@ -291,6 +331,8 @@ void LocalIntegrationRecorder<Cfg>::recordFreeSurfaceGravityBc() {
           assert(dataHost.template get<LTS::FaceDisplacementsDevice>()[face] != nullptr);
           cellIndices[face].push_back(cell);
 
+          // the predictor of the cell writes out its derivatives (cf. needsDerivatives)
+          assert(dQPtrs_[cell] != nullptr);
           derivatives[face].push_back(dQPtrs_[cell]);
           dofsPtrs[face].push_back(static_cast<real*>(data.template get<LTS::Dofs>()));
           neighPtrs[face].push_back(

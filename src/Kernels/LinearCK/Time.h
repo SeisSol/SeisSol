@@ -20,6 +20,8 @@
 #include "Kernels/Time.h"
 #include "Monitoring/Metric.h"
 
+#include <iterator>
+
 #ifdef ACL_DEVICE
 #include <Device/device.h>
 #endif // ACL_DEVICE
@@ -46,6 +48,17 @@ class Spacetime : public SpacetimeKernel<Cfg> {
                           recording::ConditionalPointersToRealsTable& dataTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  /// Whether the device kernel keeps the derivatives in the kernel, for the cells that need none
+  /// (cf. needsDerivatives), with the second member of its family; otherwise, all cells write
+  /// their derivatives out. The code generator gives the kernel one only where it keeps the
+  /// temporaries of a kernel on the chip, i.e. not with the old GPU interface.
+#ifdef ACL_DEVICE
+  static constexpr bool KeepsDerivativesOnDevice =
+      std::size(kernel::gpu_derivative<Cfg>::ExecutePtrs) > 1;
+#else
+  static constexpr bool KeepsDerivativesOnDevice = false;
+#endif
 
   [[nodiscard]] PerformanceEstimate metrics() const override;
 

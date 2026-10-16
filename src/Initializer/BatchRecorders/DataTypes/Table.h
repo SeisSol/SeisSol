@@ -57,7 +57,7 @@ struct GenericTable {
   GenericTable() = default;
 
   template <typename DataType>
-  void set(VariableIdType id, std::vector<DataType>& data) {
+  void set(VariableIdType id, const std::vector<DataType>& data) {
     content_[*id] = std::make_shared<GenericTableEntry<DataType>>(data);
     types_[*id] = &typeid(DataType);
   }

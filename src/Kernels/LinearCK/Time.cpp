@@ -42,6 +42,7 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 
 #include <cstddef>
+#include <vector>
 #endif
 
 #ifndef ACL_DEVICE
@@ -90,8 +91,13 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
     return anyOfResult;
   }();
 
+  // the derivatives leave the kernel only if they are read: by the neighbors of the cell or by
+  // dynamic rupture, from timeDerivatives; or by the gravitational free surface boundary condition
   alignas(PagesizeStack) real temporaryBuffer[Solver<Cfg>::DerivativesSize];
-  auto* derivativesBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
+  real* derivativesBuffer = timeDerivatives;
+  if (derivativesBuffer == nullptr && updateDisplacement) {
+    derivativesBuffer = temporaryBuffer;
+  }
 
   kernel::derivative<Cfg> krnl = krnlPrototype_;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
@@ -102,8 +108,10 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
   set_ET(krnl, get_ptr_sourceMatrix(data.template get<LTS::LocalIntegration>().specific));
 
   krnl.dQ(0) = const_cast<real*>(data.template get<LTS::Dofs>());
-  for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-    krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
+  if (derivativesBuffer != nullptr) {
+    for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
+      krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
+    }
   }
 
   krnl.I = timeIntegrated;
@@ -121,7 +129,8 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
     streamstore(tensor::dQ<Cfg>::size(0), data.template get<LTS::Dofs>(), derivativesBuffer);
   }
 
-  krnl.execute();
+  // the second member of the family keeps the derivatives in the kernel
+  krnl.execute(derivativesBuffer != nullptr ? 0 : 1);
 
   // Do not compute it like this if at interface
   // Compute integrated displacement over time step if needed.
@@ -156,11 +165,21 @@ void Spacetime<Cfg>::computeBatchedAder(
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
-  kernel::gpu_derivative<Cfg> derivativesKrnl = deviceKrnlPrototype_;
 
-  const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
-  if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
-    auto& entry = dataTable[timeVolumeKernelKey];
+  // a batch of the cells that write out their derivatives, and one of those that keep them in the
+  // kernel, with the second member of its family; they are independent of each other
+  std::vector<ComputationKind> kinds;
+  for (const auto kind : {ComputationKind::WithDerivatives, ComputationKind::WithoutDerivatives}) {
+    if (dataTable.find(ConditionalKey(*KernelNames::Time, *kind)) != dataTable.end()) {
+      kinds.push_back(kind);
+    }
+  }
+
+  runtime.envMany(kinds.size(), [&](void* stream, std::size_t batch) {
+    auto& entry = dataTable[ConditionalKey(*KernelNames::Time, *kinds[batch])];
+    const bool writeDerivatives = kinds[batch] == ComputationKind::WithDerivatives;
+
+    kernel::gpu_derivative<Cfg> derivativesKrnl = deviceKrnlPrototype_;
 
     const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
     derivativesKrnl.numElements = numElements;
@@ -185,25 +204,28 @@ void Spacetime<Cfg>::computeBatchedAder(
     set_ET(derivativesKrnl, localIntegrationPtrs);
     set_extraOffset_ET(derivativesKrnl, SourceMatrixOffset / sizeof(real));
 
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-      derivativesKrnl.dQ(i) =
-          (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
-      derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
+    if (writeDerivatives) {
+      for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
+        derivativesKrnl.dQ(i) =
+            (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+        derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
+      }
     }
 
     derivativesKrnl.Q =
         const_cast<const real**>((entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
 
-    const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
-    auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
-
     for (std::size_t der = 0; der < Cfg::ConvergenceOrder; ++der) {
       derivativesKrnl.power(der) = coeffs[der];
     }
-    derivativesKrnl.linearAllocator.initialize(tmpMem.get());
-    derivativesKrnl.streamPtr = runtime.stream();
-    derivativesKrnl.execute();
-  }
+
+    auto* tmpMem = device_.api().allocMemAsync(
+        yateto::getMaxTmpMemRequired(derivativesKrnl) * numElements, stream);
+    derivativesKrnl.linearAllocator.initialize(static_cast<real*>(tmpMem));
+    derivativesKrnl.streamPtr = stream;
+    derivativesKrnl.execute(writeDerivatives ? 0 : 1);
+    device_.api().freeMemAsync(tmpMem, stream);
+  });
 
   if (updateDisplacement) {
     auto& bc = tmp.gravitationalFreeSurfaceBc;
@@ -219,7 +241,7 @@ void Spacetime<Cfg>::computeBatchedAder(
 
 template <typename Cfg>
 PerformanceEstimate Spacetime<Cfg>::metrics() const {
-  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative<Cfg>>();
+  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative<Cfg>>(0);
 
   // legacy memory estimate
   std::uint64_t reals = 0;

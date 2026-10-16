@@ -199,7 +199,8 @@ class SpaceTimePredictorTestFixture {
     krnl.I = timeIntegrated;
     krnl.timestep = Dt;
     krnl.spaceTimePredictor = stp;
-    krnl.execute();
+    // the member that writes out the predictor
+    krnl.execute(0);
   }
 
   void computeLhs(const Real<Cfg>* stp, Real<Cfg>* lhs) {
@@ -234,7 +235,8 @@ class SpaceTimePredictorTestFixture {
     alignas(PagesizeStack) Real<Cfg> rhs[seissol::tensor::testLhs<Cfg>::size()];
     alignas(PagesizeStack) Real<Cfg> lhs[seissol::tensor::testRhs<Cfg>::size()];
     alignas(PagesizeStack) Real<Cfg> qData[seissol::tensor::Q<Cfg>::size()];
-    std::fill(std::begin(stp), std::end(stp), 0);
+    // the kernel writes all of the predictor, without it being zeroed beforehand
+    std::fill(std::begin(stp), std::end(stp), std::numeric_limits<Real<Cfg>>::quiet_NaN());
     std::fill(std::begin(rhs), std::end(rhs), 0);
     std::fill(std::begin(lhs), std::end(lhs), 0);
     std::fill(std::begin(qData), std::end(qData), 0);

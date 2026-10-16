@@ -226,7 +226,7 @@ void Local<Cfg>::computeBatchedIntegral(
 
   using namespace seissol::recording;
   // Volume integral
-  const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
+  const ConditionalKey key(*KernelNames::Volume);
   kernel::gpu_volumeExt<Cfg> volKrnl = deviceVolumeKernelPrototype_;
 
   if (dataTable.find(key) != dataTable.end()) {
@@ -294,10 +294,10 @@ void Local<Cfg>::computeBatchedIntegral(
 
   // Local Flux Integral
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
+    const ConditionalKey localFluxKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
 
-    if (dataTable.find(key) != dataTable.end()) {
-      auto& entry = dataTable[key];
+    if (dataTable.find(localFluxKey) != dataTable.end()) {
+      auto& entry = dataTable[localFluxKey];
       localFluxKrnl.numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
       localFluxKrnl.Qext = (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
       localFluxKrnl.I = const_cast<const real**>(
@@ -313,7 +313,6 @@ void Local<Cfg>::computeBatchedIntegral(
     }
   }
 
-  key = ConditionalKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
 

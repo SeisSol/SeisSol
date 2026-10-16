@@ -208,13 +208,16 @@ class LinearCK(ADERDGBase):
 
     def addTime(self, generator, targets):
         powers = [Scalar(f"power({i})") for i in range(self.order)]
-        for target in targets:
-            name_prefix = generate_kernel_name_prefix(target)
+        qShape = (
+            self.num3DBasisFunctions(),
+            self.numQuantities(),
+        )
 
-            qShape = (
-                self.num3DBasisFunctions(),
-                self.numQuantities(),
-            )
+        def derivative(target, writeDerivatives):
+            """The predictor: the derivatives dQ and, interleaved with them, the
+            time integral I of their Taylor expansion. Without
+            writeDerivatives, the derivatives other than the DOFs in dQ(0) are
+            temporaries, i.e. only I leaves the kernel."""
             dQ0 = OptionalDimTensor(
                 "dQ(0)",
                 self.Q.optName(),
@@ -223,23 +226,20 @@ class LinearCK(ADERDGBase):
                 qShape,
                 alignStride=True,
             )
-            power = powers[0]
 
+            # on GPUs, the kernel reads the DOFs as they are, and copies them
+            # into dQ(0) only if it writes the derivatives
             dQ0True = self.Q if target == "gpu" else dQ0
 
             derivatives = [dQ0True]
+            dQs = [dQ0]
 
-            # for now, interleave Taylor expansion and derivative computation
-            derivativeExpr = [self.I["kp"] <= power * dQ0True["kp"]]
-            derivativeTaylorExpansion = power * dQ0["kp"]
+            derivativeExpr = [self.I["kp"] <= powers[0] * dQ0True["kp"]]
 
-            if target == "gpu":
+            if target == "gpu" and writeDerivatives:
                 derivativeExpr += [dQ0["kp"] <= self.Q["kp"]]
 
-            self.dQs = [dQ0]
-
             for i in range(1, self.order):
-                power = powers[i]
                 derivativeSum = Accumulate(ops.Add())
                 if self.sourceMatrix():
                     derivativeSum += derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
@@ -260,22 +260,42 @@ class LinearCK(ADERDGBase):
                     qShape,
                     spp=derivativeSum.eqspp(),
                     alignStride=True,
+                    temporary=not writeDerivatives,
                 )
-                self.dQs.append(dQ)
+                dQs.append(dQ)
 
                 # for now, we interleave derivative
                 # and derivativeTaylorExpansion kernels.
                 derivativeExpr += [
                     dQ["kp"] <= derivativeSum,
-                    self.I["kp"] <= self.I["kp"] + power * dQ["kp"],
+                    self.I["kp"] <= self.I["kp"] + powers[i] * dQ["kp"],
                 ]
-                derivativeTaylorExpansion += power * dQ["kp"]
 
                 derivatives.append(dQ)
 
+            return derivativeExpr, dQs
+
+        # the derivatives as written out, for the kernels that read them
+        _, self.dQs = derivative("cpu", True)
+
+        for target in targets:
+            name_prefix = generate_kernel_name_prefix(target)
+
+            # member 0 writes the derivatives, member 1 only the time integral;
+            # where the kernel would keep them in memory, it has member 0 alone
+            # (whether a device uses member 1 is up to Spacetime)
+            generator.addFamily(
+                f"{name_prefix}derivative",
+                simpleParameterSpace(2 if self.keepsTemporaries(target) else 1),
+                lambda i: derivative(target, i == 0)[0],
+                target=target,
+            )
+
+            derivativeTaylorExpansion = powers[0] * self.dQs[0]["kp"]
+            for i in range(1, self.order):
+                derivativeTaylorExpansion += powers[i] * self.dQs[i]["kp"]
+
             derivativeTaylorExpansionExpr = self.I["kp"] <= derivativeTaylorExpansion
-            # derivativeExpr += [derivativeTaylorExpansionExpr]
-            generator.add(f"{name_prefix}derivative", derivativeExpr, target=target)
             generator.add(
                 f"{name_prefix}derivativeTaylorExpansion",
                 derivativeTaylorExpansionExpr,

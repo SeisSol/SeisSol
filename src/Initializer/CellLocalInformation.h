@@ -12,6 +12,7 @@
 #include "Initializer/LtsSetup.h"
 #include "Memory/Tree/Backmap.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -35,6 +36,16 @@ struct CellLocalInformation {
   // plasticity enabled
   bool plasticityEnabled{false};
 };
+
+/// Whether the predictor of the cell has to write out its derivatives: for its neighbors or for
+/// dynamic rupture, which read them from the buffer of the cell; or for the gravitational free
+/// surface boundary condition, which reads them in the same step.
+[[nodiscard]] inline bool needsDerivatives(const CellLocalInformation& cellInformation) {
+  return cellInformation.ltsSetup.hasBuffer(BufferType::Derivatives) ||
+         std::any_of(cellInformation.faceTypes.begin(),
+                     cellInformation.faceTypes.end(),
+                     [](FaceType faceType) { return faceType == FaceType::FreeSurfaceGravity; });
+}
 
 // cell local information which is not needed during the main iterations, but only during setup and
 // (maybe) output

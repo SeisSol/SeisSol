@@ -12,9 +12,11 @@
 #include "Common/Typedefs.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/ConfigBoundary.h"
+#include "Kernels/Solver.h"
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -51,8 +53,13 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
   std::size_t configBoundaryBytes = 0;
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+    // the predictor of a cell without a buffer for its derivatives writes them into the scratch
+    // if it needs them, or if the device kernel cannot keep them (cf.
+    // LocalIntegrationRecorder::recordTimeAndVolumeIntegrals)
     const bool needsScratchMemForDerivatives =
-        !cellInformation[cell].ltsSetup.hasBuffer(BufferType::Derivatives);
+        !cellInformation[cell].ltsSetup.hasBuffer(BufferType::Derivatives) &&
+        (needsDerivatives(cellInformation[cell]) ||
+         !kernels::Spacetime<Cfg>::KeepsDerivativesOnDevice);
     const bool needsScratchMemForStepIntegral =
         !cellInformation[cell].ltsSetup.hasBuffer(BufferType::StepIntegrals);
     if (needsScratchMemForDerivatives) {

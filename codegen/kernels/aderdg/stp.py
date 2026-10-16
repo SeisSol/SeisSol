@@ -8,7 +8,7 @@
 import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, Tensor
+from yateto import Scalar, Tensor, simpleParameterSpace
 
 from .linearck import LinearCK
 
@@ -80,6 +80,18 @@ class STP(LinearCK):
             stpShape,
             alignStride=True,
         )
+
+        def spaceTimePredictorTemporary():
+            return OptionalDimTensor(
+                "spaceTimePredictorTmp",
+                self.Q.optName(),
+                self.Q.optSize(),
+                self.Q.optPos(),
+                stpShape,
+                alignStride=True,
+                temporary=True,
+            )
+
         testRhs = OptionalDimTensor(
             "testRhs",
             self.Q.optName(),
@@ -148,64 +160,88 @@ class STP(LinearCK):
                 # needed due to a current Yateto bug not allowing e.g. (Gkt * timestep)
                 OptTimestep = lambda x: x * timestep
 
-            kernels = list()
+            def predictor(writePredictor):
+                """The predictor, and its time integral I. Without
+                writePredictor, the predictor is a temporary, i.e. only I
+                leaves the kernel."""
+                stp = (
+                    spaceTimePredictor
+                    if writePredictor
+                    else spaceTimePredictorTemporary()
+                )
 
-            kernels.append(
-                spaceTimePredictorRhs["kpt"] <= self.Q["kp"] * self.db.wHat["t"]
-            )
-            for n in range(self.order - 1, -1, -1):
-                for o in range(self.numQuantities() - 1, -1, -1):
-                    kernels.append(
-                        spaceTimePredictor["kpt"]
-                        .subslice("k", *modeRange(n))
-                        .subslice("p", o, o + 1)
-                        <= spaceTimePredictor["kpt"]
-                        .subslice("k", *modeRange(n))
-                        .subslice("p", o, o + 1)
-                        + spaceTimePredictorRhs["kpu"]
-                        .subslice("k", *modeRange(n))
-                        .subslice("p", o, o + 1)
-                        * Zinv(o)["ut"]
+                # The windows of the modes of degree n and the quantity o tile
+                # the predictor. Each is stored once, so that the predictor needs
+                # no zeroing beforehand; but where a GPU writes it out, the kernel
+                # accumulates into the predictor, zeroed beforehand, instead: with
+                # stores, TensorForge loads the predictor, which the kernel reads
+                # back, before it has stored all of its windows.
+                accumulate = target == "gpu" and writePredictor
+
+                def window(n, o):
+                    return (
+                        stp["kpt"].subslice("k", *modeRange(n)).subslice("p", o, o + 1)
                     )
-                    # G has one relevant non-zero entry per stiff row, so it is a
-                    # scalar: G[o] = E[target, o] * timestep. Rows that are not
-                    # stiff contribute nothing.
-                    if o in stiffRows:
-                        o2 = stiffRows[o][0]
-                        kernels.append(
-                            spaceTimePredictorRhs["kpt"]
+
+                kernels = list()
+
+                kernels.append(
+                    spaceTimePredictorRhs["kpt"] <= self.Q["kp"] * self.db.wHat["t"]
+                )
+                for n in range(self.order - 1, -1, -1):
+                    for o in range(self.numQuantities() - 1, -1, -1):
+                        product = (
+                            spaceTimePredictorRhs["kpu"]
                             .subslice("k", *modeRange(n))
-                            .subslice("p", o2, o2 + 1)
-                            <= spaceTimePredictorRhs["kpt"]
-                            .subslice("k", *modeRange(n))
-                            .subslice("p", o2, o2 + 1)
-                            + OptTimestep(
-                                G[o]
-                                * spaceTimePredictor["kpt"]
+                            .subslice("p", o, o + 1)
+                            * Zinv(o)["ut"]
+                        )
+                        if accumulate:
+                            kernels.append(window(n, o) <= window(n, o) + product)
+                        else:
+                            kernels.append(window(n, o) <= product)
+                        # G has one relevant non-zero entry per stiff row, so it is a
+                        # scalar: G[o] = E[target, o] * timestep. Rows that are not
+                        # stiff contribute nothing.
+                        if o in stiffRows:
+                            o2 = stiffRows[o][0]
+                            kernels.append(
+                                spaceTimePredictorRhs["kpt"]
                                 .subslice("k", *modeRange(n))
-                                .subslice("p", o, o + 1)
+                                .subslice("p", o2, o2 + 1)
+                                <= spaceTimePredictorRhs["kpt"]
+                                .subslice("k", *modeRange(n))
+                                .subslice("p", o2, o2 + 1)
+                                + OptTimestep(G[o] * window(n, o))
                             )
+                    if n > 0:
+                        derivativeSum = spaceTimePredictorRhs["kpt"]
+                        star = (
+                            (lambda d: self.starMatrix(d)["qp"] * timestep)
+                            if target == "gpu"
+                            else lambda d: self.starMatrix(d)["qp"]
                         )
-                if n > 0:
-                    derivativeSum = spaceTimePredictorRhs["kpt"]
-                    star = (
-                        (lambda d: self.starMatrix(d)["qp"] * timestep)
-                        if target == "gpu"
-                        else lambda d: self.starMatrix(d)["qp"]
-                    )
-                    for d in range(3):
-                        derivativeSum += (
-                            self.db.kDivMT[d]["kl"].subslice("l", *modeRange(n))
-                            * spaceTimePredictor["lqt"].subslice("l", *modeRange(n))
-                            * star(d)
-                        )
-                    kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
-            kernels.append(
-                self.I["kp"]
-                <= timestep * spaceTimePredictor["kpt"] * self.db.timeInt["t"]
-            )
+                        for d in range(3):
+                            derivativeSum += (
+                                self.db.kDivMT[d]["kl"].subslice("l", *modeRange(n))
+                                * stp["lqt"].subslice("l", *modeRange(n))
+                                * star(d)
+                            )
+                        kernels.append(spaceTimePredictorRhs["kpt"] <= derivativeSum)
+                kernels.append(
+                    self.I["kp"] <= timestep * stp["kpt"] * self.db.timeInt["t"]
+                )
+                return kernels
 
-            generator.add(f"{name_prefix}spaceTimePredictor", kernels, target=target)
+            # member 0 writes the predictor, member 1 only its time integral;
+            # where the kernel would keep it in memory, it has member 0 alone
+            # (whether a device uses member 1 is up to Spacetime)
+            generator.addFamily(
+                f"{name_prefix}spaceTimePredictor",
+                simpleParameterSpace(2 if self.keepsTemporaries(target) else 1),
+                lambda i: predictor(i == 0),
+                target=target,
+            )
 
             evaluateDOFSAtTimeSTP = (
                 QAtTimeSTP["kp"]

@@ -7,7 +7,7 @@
 
 #include "Time.h"
 
-#include "Alignment.h"
+#include "Alignment.h" // IWYU pragma: keep
 #include "Common/Marker.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
@@ -35,6 +35,8 @@
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+
+#include <vector>
 #endif
 
 #ifndef ACL_DEVICE
@@ -62,8 +64,7 @@ void Spacetime<Cfg>::executeSTP(double timeStepWidth,
                                 real* stp)
 
 {
-  assert((reinterpret_cast<uintptr_t>(stp)) % Vectorsize == 0);
-  std::fill(stp, stp + tensor::spaceTimePredictor<Cfg>::size(), 0);
+  assert(stp == nullptr || (reinterpret_cast<uintptr_t>(stp)) % Vectorsize == 0);
   kernel::spaceTimePredictor<Cfg> krnl = krnlPrototype_;
 
   // libxsmm can not generate GEMMs with alpha!=1. As a workaround we multiply the
@@ -88,6 +89,9 @@ void Spacetime<Cfg>::executeSTP(double timeStepWidth,
   krnl.I = timeIntegrated;
   krnl.timestep = timeStepWidth;
   krnl.spaceTimePredictor = stp;
+
+  // the second member of the family keeps the predictor in the kernel
+  const auto member = stp != nullptr ? 0 : 1;
 
   // The matrix Zinv depends on the timestep
   // If the timestep is not as expected e.g. when approaching a sync point
@@ -118,13 +122,13 @@ void Spacetime<Cfg>::executeSTP(double timeStepWidth,
       krnl.Zinv(i) = zinvData + zinvOffset(i);
     }
     // krnl.execute has to be run here: zinvData is only allocated locally
-    krnl.execute();
+    krnl.execute(member);
   } else {
     const real* zinvData = data.template get<LTS::LocalIntegration>().specific.Zinv;
     for (std::size_t i = 0; i < seissol::model::MaterialOf<Cfg>::NumQuantities; i++) {
       krnl.Zinv(i) = zinvData + zinvOffset(i);
     }
-    krnl.execute();
+    krnl.execute(member);
   }
 }
 
@@ -144,14 +148,14 @@ void Spacetime<Cfg>::computeAder(const real* /*coeffs*/,
   assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Vectorsize == 0 ||
          timeDerivatives == nullptr);
 
-  alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor<Cfg>::size()];
-  real* stpBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
-  executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
+  // the predictor leaves the kernel only if it is read: by the neighbors of the cell or by dynamic
+  // rupture
+  executeSTP(timeStepWidth, data, timeIntegrated, timeDerivatives);
 }
 
 template <typename Cfg>
 PerformanceEstimate Spacetime<Cfg>::metrics() const {
-  auto estimate = PerformanceEstimate::fromKernel<kernel::spaceTimePredictor<Cfg>>();
+  auto estimate = PerformanceEstimate::fromKernel<kernel::spaceTimePredictor<Cfg>>(0);
 
   estimate.nonzeroFlop += 3 * init::star<Cfg>::size(0);
   estimate.hardwareFlop += 3 * init::star<Cfg>::size(0);
@@ -187,11 +191,46 @@ void Spacetime<Cfg>::computeBatchedAder(
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
-  kernel::gpu_spaceTimePredictor<Cfg> krnl = deviceKrnlPrototype_;
 
-  const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
-  if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
-    auto& entry = dataTable[timeVolumeKernelKey];
+  // checking the first cell should suffice; if we always work on the same cluster.
+  // (which we currently always do)
+  const auto defaultTimestep =
+      layer.size() == 0 ||
+      std::abs((layer.var<LTS::LocalIntegration>(Cfg())[0].specific.typicalTimeStepWidth -
+                timeStepWidth) /
+               timeStepWidth) < 1e-7;
+
+  if (!defaultTimestep) {
+    // for both batches below, i.e. for every cell of the layer
+    auto* layerZinvData = layer.var<LTS::ZinvExtra>(Cfg());
+    const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>(Cfg());
+    runtime.enqueueLoop(layer.size(), [=](std::size_t i) {
+      auto* zinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv<Cfg>>() * i;
+      const auto& localIntegration = layerLocalIntegration[i];
+
+      const auto sourceMatrix = init::ET<Cfg>::view::create(localIntegration.specific.sourceMatrix);
+      model::ZInvInitializer<Cfg,
+                             seissol::model::MaterialOf<Cfg>,
+                             0,
+                             seissol::model::MaterialOf<Cfg>::NumQuantities,
+                             decltype(sourceMatrix)>(zinvData, sourceMatrix, timeStepWidth);
+    });
+  }
+
+  // a batch of the cells that write out their predictor, and one of those that keep it in the
+  // kernel, with the second member of its family; they are independent of each other
+  std::vector<ComputationKind> kinds;
+  for (const auto kind : {ComputationKind::WithDerivatives, ComputationKind::WithoutDerivatives}) {
+    if (dataTable.find(ConditionalKey(*KernelNames::Time, *kind)) != dataTable.end()) {
+      kinds.push_back(kind);
+    }
+  }
+
+  runtime.envMany(kinds.size(), [&](void* stream, std::size_t batch) {
+    auto& entry = dataTable[ConditionalKey(*KernelNames::Time, *kinds[batch])];
+    const bool writePredictor = kinds[batch] == ComputationKind::WithDerivatives;
+
+    kernel::gpu_spaceTimePredictor<Cfg> krnl = deviceKrnlPrototype_;
 
     const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
     krnl.numElements = numElements;
@@ -201,8 +240,10 @@ void Spacetime<Cfg>::computeBatchedAder(
         const_cast<const real**>((entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
     krnl.timestep = timeStepWidth;
 
-    krnl.spaceTimePredictor =
-        (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+    if (writePredictor) {
+      krnl.spaceTimePredictor =
+          (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+    }
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Cfg>, starMatrices);
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
@@ -218,13 +259,6 @@ void Spacetime<Cfg>::computeBatchedAder(
       krnl.extraOffset_Gt(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, specific.G, i);
     }
 
-    // checking the first cell should suffice; if we always work on the same cluster.
-    // (which we currently always do)
-    const auto defaultTimestep =
-        std::abs((layer.var<LTS::LocalIntegration>(Cfg())[0].specific.typicalTimeStepWidth -
-                  timeStepWidth) /
-                 timeStepWidth) < 1e-7;
-
     if (defaultTimestep) {
       // Zinv is one flat family, so its members are not spaced by the size of a single entry
       SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Cfg>, specific.Zinv);
@@ -235,20 +269,6 @@ void Spacetime<Cfg>::computeBatchedAder(
                                    yateto::computeFamilySize<tensor::Zinv<Cfg>>(1, i);
       }
     } else {
-      auto* layerZinvData = layer.var<LTS::ZinvExtra>(Cfg());
-      const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>(Cfg());
-      runtime.enqueueLoop(numElements, [=](std::size_t i) {
-        auto* zinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv<Cfg>>() * i;
-        const auto& localIntegration = layerLocalIntegration[i];
-
-        const auto sourceMatrix =
-            init::ET<Cfg>::view::create(localIntegration.specific.sourceMatrix);
-        model::ZInvInitializer<Cfg,
-                               seissol::model::MaterialOf<Cfg>,
-                               0,
-                               seissol::model::MaterialOf<Cfg>::NumQuantities,
-                               decltype(sourceMatrix)>(zinvData, sourceMatrix, timeStepWidth);
-      });
       for (std::size_t i = 0; i < seissol::model::MaterialOf<Cfg>::NumQuantities; ++i) {
         krnl.Zinv(i) = const_cast<const real**>(
             (entry.get<real*>(inner_keys::Wp::Id::ZinvExtra))->getDeviceDataPtr());
@@ -256,18 +276,20 @@ void Spacetime<Cfg>::computeBatchedAder(
       }
     }
 
-    krnl.streamPtr = runtime.stream();
+    krnl.streamPtr = stream;
 
-    // TODO: integrate into the following kernel
-    device::DeviceInstance::instance().algorithms().setToValue(
-        krnl.spaceTimePredictor,
-        static_cast<real>(0.0),
-        tensor::spaceTimePredictor<Cfg>::size(),
-        krnl.numElements,
-        krnl.streamPtr);
+    if (writePredictor) {
+      // on GPUs, the kernel accumulates into the predictor (cf. codegen/kernels/aderdg/stp.py)
+      device::DeviceInstance::instance().algorithms().setToValue(
+          krnl.spaceTimePredictor,
+          static_cast<real>(0.0),
+          tensor::spaceTimePredictor<Cfg>::size(),
+          krnl.numElements,
+          krnl.streamPtr);
+    }
 
-    krnl.execute();
-  }
+    krnl.execute(writePredictor ? 0 : 1);
+  });
 #else
   logError() << "No GPU implementation provided";
 #endif

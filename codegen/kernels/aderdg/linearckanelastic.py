@@ -412,17 +412,24 @@ class LinearCKAnelastic(ADERDGBase):
 
     def addTime(self, generator, targets):
         qShape = (self.num3DBasisFunctions(), self.numQuantities())
-        dQ = [
-            OptionalDimTensor(
-                "dQ({})".format(d),
-                self.Q.optName(),
-                self.Q.optSize(),
-                self.Q.optPos(),
-                qShape,
-                alignStride=True,
-            )
-            for d in range(self.order)
-        ]
+
+        def derivativeTensors(writeDerivatives):
+            # without writeDerivatives, all but the DOFs in dQ(0) are temporaries
+            return [
+                OptionalDimTensor(
+                    "dQ({})".format(d),
+                    self.Q.optName(),
+                    self.Q.optSize(),
+                    self.Q.optPos(),
+                    qShape,
+                    alignStride=True,
+                    temporary=d > 0 and not writeDerivatives,
+                )
+                for d in range(self.order)
+            ]
+
+        # the derivatives as written out, for the kernels that read them
+        dQ = derivativeTensors(True)
         self.dQs = dQ
         dQext = [
             OptionalDimTensor(
@@ -464,12 +471,12 @@ class LinearCKAnelastic(ADERDGBase):
             )
             # derivativeTaylorExpansionAneExpr = self.Iane['kpm'] <= derivativeTaylorExpansionAne
 
-            def derivative(kthDer):
+            def derivative(previous):
                 derivativeSum = Accumulate(ops.Add())
                 for j in range(3):
                     derivativeSum += (
                         self.db.kDivMT[j][self.t("kl")]
-                        * dQ[kthDer - 1]["lq"]
+                        * previous["lq"]
                         * self.db.star[j]["qp"]
                     )
                 return derivativeSum
@@ -477,50 +484,65 @@ class LinearCKAnelastic(ADERDGBase):
             # WARNING: the following kernel may produce incorrect results,
             # if not executed in the order as specified here
             # the reason for that is that dQext, dQane (except dQane(0))
-            # and potentially dQ (except dQ(0)) are allocated in temporary arrays
+            # and, without written derivatives, dQ (except dQ(0))
+            # are allocated in temporary arrays
             # which are smaller than the whole tensor families
             # (even indices share the same buffer,
             # and odd indices share the same buffer)
 
-            if target == "gpu":
-                derivativeExpr = [
-                    dQ[0]["kp"] <= self.Q["kp"],
-                    self.I["kp"] <= powers[0] * self.Q["kp"],  # == dQ[0]
-                ]
-            else:
-                derivativeExpr = [
-                    self.I["kp"] <= powers[0] * dQ[0]["kp"],
-                ]
+            def derivativeKernel(writeDerivatives):
+                dQ = derivativeTensors(writeDerivatives)
 
-            derivativeExpr += [
-                self.Iane["kpm"] <= powers[0] * dQane[0]["kpm"],
-            ]
+                # on GPUs, the kernel reads the DOFs as they are; it copies them
+                # into dQ(0) only if it writes the derivatives, and then
+                # continues from there
+                dofs = self.Q if target == "gpu" else dQ[0]
+                dQ0 = dQ[0] if target == "cpu" or writeDerivatives else self.Q
 
-            for d in range(1, self.order):
+                derivativeExpr = []
+                if target == "gpu" and writeDerivatives:
+                    derivativeExpr += [dQ[0]["kp"] <= self.Q["kp"]]
+
                 derivativeExpr += [
-                    dQext[d]["kp"] <= derivative(d),
-                    dQ[d]["kp"]
-                    <= dQext[d]["kp"].subslice("p", 0, self.numQuantities())
-                    + dQane[d - 1]["kqm"] * self.E["qmp"],
-                    dQane[d]["kpm"]
-                    <= self.w["m"]
-                    * dQext[d]["kp"].subslice(
-                        "p",
-                        self.numQuantities(),
-                        self.numExtendedQuantities(),
-                    )
-                    + dQane[d - 1]["kpl"] * self.W["lm"],
-                    self.I["kp"] <= self.I["kp"] + powers[d] * dQ[d]["kp"],
-                    self.Iane["kpm"] <= self.Iane["kpm"] + powers[d] * dQane[d]["kpm"],
+                    self.I["kp"] <= powers[0] * dofs["kp"],
+                    self.Iane["kpm"] <= powers[0] * dQane[0]["kpm"],
                 ]
-            # TODO(David): for now, we'll interleave the Taylor
-            # expansion with the derivative computation
-            # derivativeExpr += [
-            #   derivativeTaylorExpansionElaExpr,
-            #   derivativeTaylorExpansionAneExpr
-            # ]
 
-            generator.add(f"{name_prefix}derivative", derivativeExpr, target=target)
+                for d in range(1, self.order):
+                    derivativeExpr += [
+                        dQext[d]["kp"] <= derivative(dQ0 if d == 1 else dQ[d - 1]),
+                        dQ[d]["kp"]
+                        <= dQext[d]["kp"].subslice("p", 0, self.numQuantities())
+                        + dQane[d - 1]["kqm"] * self.E["qmp"],
+                        dQane[d]["kpm"]
+                        <= self.w["m"]
+                        * dQext[d]["kp"].subslice(
+                            "p",
+                            self.numQuantities(),
+                            self.numExtendedQuantities(),
+                        )
+                        + dQane[d - 1]["kpl"] * self.W["lm"],
+                        self.I["kp"] <= self.I["kp"] + powers[d] * dQ[d]["kp"],
+                        self.Iane["kpm"]
+                        <= self.Iane["kpm"] + powers[d] * dQane[d]["kpm"],
+                    ]
+                # TODO(David): for now, we'll interleave the Taylor
+                # expansion with the derivative computation
+                # derivativeExpr += [
+                #   derivativeTaylorExpansionElaExpr,
+                #   derivativeTaylorExpansionAneExpr
+                # ]
+                return derivativeExpr
+
+            # member 0 writes the derivatives, member 1 only the time integrals;
+            # where the kernel would keep them in memory, it has member 0 alone
+            # (whether a device uses member 1 is up to Spacetime)
+            generator.addFamily(
+                f"{name_prefix}derivative",
+                simpleParameterSpace(2 if self.keepsTemporaries(target) else 1),
+                lambda i: derivativeKernel(i == 0),
+                target=target,
+            )
             generator.add(
                 f"{name_prefix}derivativeTaylorExpansionEla",
                 derivativeTaylorExpansionElaExpr,

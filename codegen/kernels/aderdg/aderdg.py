@@ -271,6 +271,14 @@ class ADERDGBase(ABC):
     def starMatrix(self, dim):
         return self.db.star[dim]
 
+    def keepsTemporaries(self, target):
+        """Whether the kernels for `target` keep their temporaries where they
+        cost no memory traffic: on the stack of the host, or on the chip of a
+        GPU with TensorForge. The old GPU interface (gemmforge and chainforge)
+        puts them into memory. A kernel that keeps an output as a temporary
+        instead of writing it out only pays off where this holds."""
+        return target == "cpu" or not self.kwargs.get("isOldGpuInterface", True)
+
     def stiffSourceRows(self):
         """Source rows a space-time predictor has to factorise separately, as
         (quantity, target, scalar name). Empty unless the source term is

@@ -387,6 +387,7 @@ def main():
 
         cmdArgsDict = dict(vars(args))
         cmdArgsDict["memLayout"] = mem_layout
+        cmdArgsDict["isOldGpuInterface"] = isOldGpuInterface
 
         equationsModuleName = f"kernels.equations.{args.equations}"
 

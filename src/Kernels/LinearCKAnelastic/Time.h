@@ -18,6 +18,8 @@
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
 
+#include <iterator>
+
 namespace seissol::kernels::solver::linearckanelastic {
 template <typename Cfg>
 class Spacetime : public SpacetimeKernel<Cfg> {
@@ -39,6 +41,21 @@ class Spacetime : public SpacetimeKernel<Cfg> {
                           recording::ConditionalPointersToRealsTable& dataTable,
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  /// Whether the device kernel keeps the derivatives in the kernel, for the cells that need none
+  /// (cf. needsDerivatives), with the second member of its family; otherwise, all cells write
+  /// their derivatives out. The code generator gives the kernel one only where it keeps the
+  /// temporaries of a kernel on the chip, i.e. not with the old GPU interface. So far, it is not
+  /// used (PreferKeeping): with TensorForge, the second member spills more registers than writing
+  /// the derivatives costs (viscoelastic, 3 mechanisms, order 6, single precision, sm_120: 11.7
+  /// instead of 8.1 KB of spill stores per thread, and 93 instead of 56 ms per step of 1e5 cells).
+  static constexpr bool PreferKeeping = false;
+#ifdef ACL_DEVICE
+  static constexpr bool KeepsDerivativesOnDevice =
+      PreferKeeping && std::size(kernel::gpu_derivative<Cfg>::ExecutePtrs) > 1;
+#else
+  static constexpr bool KeepsDerivativesOnDevice = false;
+#endif
 
   [[nodiscard]] PerformanceEstimate metrics() const override;
 

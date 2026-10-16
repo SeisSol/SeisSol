@@ -37,6 +37,8 @@
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+
+#include <vector>
 #endif
 
 #ifndef ACL_DEVICE
@@ -77,10 +79,6 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
   /*
    * compute ADER scheme.
    */
-  // temporary result
-  // TODO(David): move these temporary buffers into the Yateto kernel, maybe
-  alignas(PagesizeStack) real temporaryBuffer[2][tensor::dQ<Cfg>::size(0)];
-
   kernel::derivative<Cfg> krnl = krnlPrototype_;
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
@@ -111,10 +109,6 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
     for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
       krnl.dQ(i) = derivativesBuffer + yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
     }
-  } else {
-    for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-      krnl.dQ(i) = temporaryBuffer[i % 2];
-    }
   }
 
   krnl.dQane(0) = const_cast<real*>(data.template get<LTS::DofsAne>());
@@ -134,7 +128,8 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
     krnl.power(der) = coeffs[der];
   }
 
-  krnl.execute();
+  // the second member of the family keeps the derivatives in the kernel
+  krnl.execute(derivativesBuffer != nullptr ? 0 : 1);
 
   // Compute integrated displacement over time step if needed.
   if (updateDisplacement) {
@@ -159,7 +154,7 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
 
 template <typename Cfg>
 PerformanceEstimate Spacetime<Cfg>::metrics() const {
-  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative<Cfg>>();
+  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative<Cfg>>(0);
 
   // legacy memory estimate
   std::uint64_t reals = 0;
@@ -254,25 +249,37 @@ void Spacetime<Cfg>::computeBatchedAder(
   /*
    * compute ADER scheme.
    */
-  const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
-  if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
+  // a batch of the cells that write out their derivatives, and one of those that keep them in the
+  // kernel, with the second member of its family; they are independent of each other
+  std::vector<ComputationKind> kinds;
+  for (const auto kind : {ComputationKind::WithDerivatives, ComputationKind::WithoutDerivatives}) {
+    if (dataTable.find(ConditionalKey(*KernelNames::Time, *kind)) != dataTable.end()) {
+      kinds.push_back(kind);
+    }
+  }
+
+  runtime.envMany(kinds.size(), [&](void* stream, std::size_t batch) {
+    auto& entry = dataTable[ConditionalKey(*KernelNames::Time, *kinds[batch])];
+    const bool writeDerivatives = kinds[batch] == ComputationKind::WithDerivatives;
+
     kernel::gpu_derivative<Cfg> krnl = deviceKrnlPrototype_;
-    auto& entry = dataTable[timeVolumeKernelKey];
 
     const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
     krnl.numElements = numElements;
     krnl.I = (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
     krnl.Iane = (entry.get<real*>(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr();
 
-    std::size_t derivativesOffset = tensor::dQ<Cfg>::size(0);
-    krnl.dQ(0) = (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
     krnl.dQane(0) = const_cast<const real**>(
         (entry.get<real*>(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr());
-    for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-      krnl.dQ(i) = (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
-      krnl.extraOffset_dQ(i) = derivativesOffset;
-      // TODO: compress
-      derivativesOffset += tensor::dQ<Cfg>::size(i);
+    if (writeDerivatives) {
+      std::size_t derivativesOffset = tensor::dQ<Cfg>::size(0);
+      krnl.dQ(0) = (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+      for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
+        krnl.dQ(i) = (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+        krnl.extraOffset_dQ(i) = derivativesOffset;
+        // TODO: compress
+        derivativesOffset += tensor::dQ<Cfg>::size(i);
+      }
     }
     krnl.Q =
         const_cast<const real**>((entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
@@ -303,9 +310,9 @@ void Spacetime<Cfg>::computeBatchedAder(
       krnl.power(der) = coeffs[der];
     }
 
-    krnl.streamPtr = runtime.stream();
-    krnl.execute();
-  }
+    krnl.streamPtr = stream;
+    krnl.execute(writeDerivatives ? 0 : 1);
+  });
 #else
   logError() << "No GPU implementation provided";
 #endif
