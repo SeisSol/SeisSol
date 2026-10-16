@@ -10,6 +10,8 @@
 
 #include "Common/Executor.h"
 
+#include <atomic>
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -35,6 +37,9 @@ class MessageQueue {
   private:
   std::queue<Message> queue_;
   std::mutex mutex_;
+  // the number of messages in the queue, which the receiver polls without taking the lock, while
+  // the sender may push to the queue
+  std::atomic<std::size_t> size_{0};
 
   public:
   MessageQueue() = default;
