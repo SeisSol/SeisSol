@@ -139,7 +139,7 @@ function(determine_host_arch arch)
             #ifdef __riscv_vector
             #include <riscv_vector.h>
             int main() {
-                return (__riscv_vsetvlmax_e8m1() == 16) ? 0 : 1;
+                return (__riscv_vsetvlmax_e8m1() == 32) ? 0 : 1;
             }
             #else
             int main() {
@@ -154,7 +154,7 @@ function(determine_host_arch arch)
             #ifdef __riscv_vector
             #include <riscv_vector.h>
             int main() {
-                return (__riscv_vsetvlmax_e8m1() == 16) ? 0 : 1;
+                return (__riscv_vsetvlmax_e8m1() == 64) ? 0 : 1;
             }
             #else
             int main() {
