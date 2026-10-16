@@ -13,6 +13,7 @@
 
 #include <fstream>
 #include <map>
+#include <string>
 #include <vector>
 
 // Floating point operations performed in the matrix kernels.
@@ -26,7 +27,7 @@ extern long long pspamm_num_total_flops;
 namespace seissol::monitoring {
 struct FlopCounter {
   public:
-  void init(const std::string& outputFileNamePrefix);
+  void init(const std::string& outputFileNamePrefix, const std::string& runId);
   void printPerformanceUpdate(double wallTime);
   void printPerformanceSummary(double wallTime) const;
 
@@ -36,6 +37,7 @@ struct FlopCounter {
 
   private:
   std::ofstream out_;
+  std::string runId_;
 
   struct Metric {
     PerformanceEstimate estimate;

@@ -8,6 +8,7 @@
 #include "ResultWriter/ThreadsPinningWriter.h"
 
 #include "Common/Filesystem.h"
+#include "Common/RunId.h"
 #include "IO/Instance/Point/Csv.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
@@ -123,6 +124,7 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
     table.addTextColumn("commthread_mask", widest(commThreads));
     table.addTextColumn("commthread_numa", widest(commNumas));
     table.addColumn<int>("nproc");
+    table.addTextColumn("runId", seissol::RunIdLength);
 
     for (int rank = 0; rank < seissol::Mpi::mpi.size(); ++rank) {
       table.addText(hostNames[rank]);
@@ -134,6 +136,7 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
       table.addText(commThreads[rank]);
       table.addText(commNumas[rank]);
       table.addCell<int>(numNProcs[rank]);
+      table.addText(runId_);
     }
 
     seissol::filesystem::path path(outputDirectory_);

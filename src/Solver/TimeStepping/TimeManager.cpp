@@ -75,7 +75,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   this->clusterLayout_ = clusterLayout;
 
   // written in initIO, once the output directory exists
-  auto& clusteringWriter = clusteringWriter_.emplace(seissolInstance_.parameters().output.prefix);
+  auto& clusteringWriter = clusteringWriter_.emplace(seissolInstance_.parameters().output.prefix,
+                                                     seissolInstance_.runId());
 
   const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
     auto cloned = id;

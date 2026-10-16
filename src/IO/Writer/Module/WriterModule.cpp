@@ -7,6 +7,8 @@
 
 #include "WriterModule.h"
 
+#include "IO/Writer/Instructions/Data.h"
+#include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Module/AsyncWriter.h"
 #include "IO/Writer/Writer.h"
 #include "Modules/Modules.h"
@@ -20,6 +22,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utils/logger.h>
@@ -113,6 +116,16 @@ void WriterModule::syncPoint(double time) {
 
   // request the write plan
   auto writer = settings_.planWrite(prefix_, writeCount_, time);
+
+  // every HDF5 file of the output says which run wrote to it last
+  if (!seissolInstance_.runId().empty()) {
+    for (const auto& file : writer.hdf5Files()) {
+      writer.addInstruction(std::make_shared<instructions::Hdf5AttributeWrite>(
+          instructions::Hdf5Location(file, {}),
+          "runId",
+          WriteInline::createString(seissolInstance_.runId())));
+    }
+  }
   const auto planned = std::chrono::steady_clock::now();
 
   // decide which buffer each data source of the plan uses; a generated one fills its buffer here

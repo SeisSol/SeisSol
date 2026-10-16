@@ -24,9 +24,9 @@ class MiniSeisSolWriter {
   //! Keeps this rank's measurement until it can be written.
   void record(double elapsedTime, double weight);
 
-  //! Writes the recorded measurements of all ranks next to @p outputPrefix, if there are any.
-  //! Collective: every rank has to call it.
-  void write(const std::string& outputPrefix) const;
+  //! Writes the recorded measurements of all ranks next to @p outputPrefix, if there are any,
+  //! marked as those of the run @p runId. Collective: every rank has to call it.
+  void write(const std::string& outputPrefix, const std::string& runId) const;
 
   private:
   struct Measurement {

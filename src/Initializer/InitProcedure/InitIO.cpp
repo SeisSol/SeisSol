@@ -998,7 +998,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                       seissolParams.output.energyParameters);
   }
 
-  seissolInstance.flopCounter().init(seissolParams.output.prefix);
+  seissolInstance.flopCounter().init(seissolParams.output.prefix, seissolInstance.runId());
 
   seissolInstance.analysisWriter().init(&seissolInstance.meshReader(), seissolParams.output.prefix);
 }
@@ -1045,7 +1045,7 @@ void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstan
 
   // recorded while reading the mesh and laying out the clusters, before there was a directory to
   // write them to
-  seissolInstance.miniSeisSolWriter().write(seissolParams.output.prefix);
+  seissolInstance.miniSeisSolWriter().write(seissolParams.output.prefix, seissolInstance.runId());
   seissolInstance.timeManager().writeClustering();
 
   enableFreeSurfaceOutput(seissolInstance);

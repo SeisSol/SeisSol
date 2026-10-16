@@ -13,6 +13,17 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The run ID in the output
+~~~~~~~~~~~~~~~~~~~~~~~~
+(since the machine-readable run summary)
+
+Every table beside the output (``-clustering.csv``, ``-threadPinning.csv``,
+``-miniSeissol.csv``, ``-flops.csv``, ``-energy.csv`` and ``-analysis.csv``)
+ends in a column ``runId``, and the header of the text files of the receivers
+and fault receivers ends in a line ``# run-id``; see :ref:`env_vars`. A reader
+that takes the columns by name and skips the comment lines of a receiver file
+needs no change.
+
 The rupture and dynamic stress times
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the verification cases on mini meshes)

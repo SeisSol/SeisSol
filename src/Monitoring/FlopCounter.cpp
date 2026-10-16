@@ -32,7 +32,8 @@ long long pspamm_num_total_flops = 0;
 
 namespace seissol::monitoring {
 
-void FlopCounter::init(const std::string& outputFileNamePrefix) {
+void FlopCounter::init(const std::string& outputFileNamePrefix, const std::string& runId) {
+  runId_ = runId;
   const std::string outputFileName = outputFileNamePrefix + "-flops.csv";
   const int rank = seissol::Mpi::mpi.rank();
   const auto worldSize = static_cast<size_t>(seissol::Mpi::mpi.size());
@@ -50,7 +51,7 @@ void FlopCounter::init(const std::string& outputFileNamePrefix) {
     datasetHeaders("nz_epoch");
     datasetHeaders("kb_accumulated");
     datasetHeaders("kb_epoch");
-    out_ << std::endl;
+    out_ << "runId" << std::endl;
   }
 }
 
@@ -107,7 +108,9 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   handleFlopsDataset(accumulatedKBPerSecond, UnitBytePerS, "Kernel B/s since start:");
   handleFlopsDataset(previousKBPerSecond, UnitBytePerS, "Kernel B/s last epoch: ");
 
-  out_ << std::endl;
+  if (rank == 0) {
+    out_ << runId_ << std::endl;
+  }
 }
 
 /**

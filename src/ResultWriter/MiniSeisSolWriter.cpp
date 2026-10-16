@@ -8,6 +8,7 @@
 #include "MiniSeisSolWriter.h"
 
 #include "Common/Filesystem.h"
+#include "Common/RunId.h"
 #include "IO/Instance/Point/Csv.h"
 #include "Parallel/MPI.h"
 
@@ -31,7 +32,8 @@ void seissol::writer::MiniSeisSolWriter::record(double elapsedTime, double weigh
   measurement_ = Measurement{elapsedTime, weight};
 }
 
-void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix) const {
+void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix,
+                                               const std::string& runId) const {
   if (!measurement_.has_value()) {
     return;
   }
@@ -60,6 +62,7 @@ void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix) 
     table.addColumn<int>("localRank");
     table.addColumn<double>("elapsedTime");
     table.addColumn<double>("weight");
+    table.addTextColumn("runId", seissol::RunIdLength);
 
     for (auto rank : ranks) {
       table.addText(hostNames[rank]);
@@ -67,6 +70,7 @@ void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix) 
       table.addCell<int>(localRanks[rank]);
       table.addCell<double>(elapsedTimeVector[rank]);
       table.addCell<double>(weightVector[rank]);
+      table.addText(runId);
     }
 
     seissol::filesystem::path path(outputPrefix);

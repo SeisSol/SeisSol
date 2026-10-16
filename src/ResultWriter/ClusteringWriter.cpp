@@ -8,6 +8,7 @@
 #include "ClusteringWriter.h"
 
 #include "Common/Filesystem.h"
+#include "Common/RunId.h"
 #include "IO/Instance/Point/Csv.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Numerical/Statistics.h"
@@ -20,7 +21,8 @@
 #include <vector>
 namespace seissol::writer {
 
-ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPrefix_(outputPrefix) {}
+ClusteringWriter::ClusteringWriter(const std::string& outputPrefix, const std::string& runId)
+    : outputPrefix_(outputPrefix), runId_(runId) {}
 
 void ClusteringWriter::addCluster(unsigned profilingId,
                                   unsigned localClusterId,
@@ -82,6 +84,7 @@ void ClusteringWriter::write() const {
     table.addColumn<std::size_t>("dynamicRuptureSize");
     table.addColumn<int>("rank");
     table.addColumn<int>("localRank");
+    table.addTextColumn("runId", RunIdLength);
 
     for (int rank = 0; rank < mpi.size(); ++rank) {
       const auto localRank = localRanks[rank];
@@ -103,6 +106,7 @@ void ClusteringWriter::write() const {
         table.addCell<std::size_t>(curDynamicRuptureSizes[i]);
         table.addCell<int>(rank);
         table.addCell<int>(localRank);
+        table.addText(runId_);
       }
     }
 

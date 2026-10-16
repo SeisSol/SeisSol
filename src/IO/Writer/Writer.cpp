@@ -106,4 +106,26 @@ const std::vector<std::shared_ptr<instructions::WriteInstruction>>&
   return instructions_;
 }
 
+std::vector<std::string> Writer::hdf5Files() const {
+  std::vector<std::string> files;
+  std::set<std::string> seen;
+  const auto add = [&](const std::string& file) {
+    if (seen.insert(file).second) {
+      files.push_back(file);
+    }
+  };
+  for (const auto& instruction : instructions_) {
+    if (const auto* data = dynamic_cast<const instructions::Hdf5DataWrite*>(instruction.get())) {
+      add(data->location.file());
+    } else if (const auto* attribute =
+                   dynamic_cast<const instructions::Hdf5AttributeWrite*>(instruction.get())) {
+      add(attribute->location.file());
+    } else if (const auto* link =
+                   dynamic_cast<const instructions::Hdf5LinkExternalWrite*>(instruction.get())) {
+      add(link->location.file());
+    }
+  }
+  return files;
+}
+
 } // namespace seissol::io::writer

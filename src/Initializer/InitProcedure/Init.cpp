@@ -86,7 +86,7 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   reportDeviceMemoryStatus();
 
   const auto& seissolParams = seissolInstance.parameters();
-  writer::ThreadsPinningWriter pinningWriter(seissolParams.output.prefix);
+  writer::ThreadsPinningWriter pinningWriter(seissolParams.output.prefix, seissolInstance.runId());
   pinningWriter.write(seissolInstance.pinning(), seissolInstance.env());
 }
 

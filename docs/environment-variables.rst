@@ -18,6 +18,17 @@ Configuration
 
 An executable can hold several configurations (see ``EXTRA_CONFIGS`` in the build parameters). ``SEISSOL_CONFIGURATION`` chooses the one a run computes in, by its name, e.g. ``SEISSOL_CONFIGURATION=elastic-linearck-o4-f32-stroud``, for a parameter file that does not name one with ``Configuration`` in its ``equations`` section; a configuration named there takes precedence. Without either, a run takes the first configuration built. So a parameter file written for an executable of a single configuration runs unchanged in an executable of several. The proxy takes the configuration of ``SEISSOL_CONFIGURATION`` as well, unless ``--config`` gives one.
 
+Run ID
+------
+
+Every run has an ID, a UUID, which the log prints at the start (``Run ID: ...``) and which every
+file the run writes carries: the CSV tables in a ``runId`` column, the HDF5 files as an attribute
+``runId`` of their root group, and the text files of the receivers and fault receivers in a line
+``# run-id`` of their header. By default, a run takes a new random one. ``SEISSOL_RUN_ID`` gives
+one instead, so that whoever starts a run, e.g. a script running a series of them, knows its ID
+beforehand; the value has to be a UUID in its canonical form, e.g.
+``SEISSOL_RUN_ID=123e4567-e89b-42d3-a456-426614174000``.
+
 Communication thread
 --------------------
 

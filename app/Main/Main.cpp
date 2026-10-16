@@ -8,6 +8,7 @@
 
 #include "BuildInfo.h"
 #include "Common/ConfigRegistry.h"
+#include "Common/RunId.h"
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -42,6 +43,29 @@
 
 namespace {
 using namespace seissol;
+
+/**
+ * The ID of this run: the one SEISSOL_RUN_ID gives, so that whoever started the run can find its
+ * files again, or a new one. Collective; rank 0 decides it for everyone.
+ */
+std::string determineRunId(utils::Env& env) {
+  std::string runId;
+  if (seissol::Mpi::mpi.rank() == 0) {
+    const auto given = env.getOptional<std::string>("RUN_ID");
+    if (given.has_value()) {
+      const auto parsed = seissol::parseRunId(given.value());
+      if (!parsed.has_value()) {
+        logError() << "SEISSOL_RUN_ID is set to" << given.value()
+                   << ", which is not a UUID (e.g. 123e4567-e89b-42d3-a456-426614174000).";
+      }
+      runId = parsed.value_or(std::string{});
+    } else {
+      runId = seissol::newRunId();
+    }
+  }
+  seissol::Mpi::mpi.broadcastContainer(runId, 0);
+  return runId;
+}
 
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
   // Read parameter file input from file
@@ -79,6 +103,8 @@ int main(int argc, char* argv[]) {
 
     utils::Logger::setRank(rank);
 
+    const auto runId = determineRunId(env);
+
     LIKWID_MARKER_INIT;
 #pragma omp parallel
     {
@@ -112,6 +138,7 @@ int main(int argc, char* argv[]) {
     logInfo() << "Compiled with DEVICE_BACKEND =" << BuildInfo::SeisSolDeviceBackend.c_str();
     logInfo() << "Compiled with DEVICE_ARCH =" << BuildInfo::SeisSolDeviceArch.c_str();
 #endif
+    logInfo() << "Run ID:" << runId.c_str();
 
     if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
       // Check if on a GNU system (Linux) or other platform
@@ -164,6 +191,7 @@ int main(int argc, char* argv[]) {
     {
       // Initialize SeisSol
       seissol::SeisSol seissolInstance(parameters, env);
+      seissolInstance.setRunId(runId);
 
       if (args.isSet("checkpoint")) {
         const auto* checkpointFile = args.getArgument<const char*>("checkpoint");

@@ -199,6 +199,16 @@ class SeisSol {
 
   utils::Env& env() { return env_; }
 
+  /**
+   * Sets the ID of this run (see Common/RunId.h); the same on every rank.
+   */
+  void setRunId(const std::string& runId) { runId_ = runId; }
+
+  /**
+   * The ID of this run, which every file of its output carries.
+   */
+  const std::string& runId() const { return runId_; }
+
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
   // Otherwise it will NOT work.
@@ -266,6 +276,8 @@ class SeisSol {
   std::optional<std::size_t> executionPlaceCutoff_;
 
   utils::Env env_;
+
+  std::string runId_;
 
   double timestepScale_{1.0};
   std::vector<std::uint64_t> effectiveClusterRates_;

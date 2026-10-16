@@ -11,6 +11,7 @@ add_library(seissol-common OBJECT
     Filesystem.cpp
     IntegerMaskParser.cpp
     Json.cpp
+    RunId.cpp
 )
 
 target_link_libraries(seissol-common PUBLIC seissol-common-properties)
