@@ -25,11 +25,12 @@ following:
    size. The elements are separated by spaces (``1 2 3 4``)
 -  **String**
 -  **Path** A path references a file or a directory and is given as a
-   string in the parameter file with additional restrictions. A path might be absolute or relative to the starting directory of the execution. If the path is used for an output file, the user has to make sure that the directory exists. (E.g. If the path is set to
-   "output/wavefield", then the directory "output" must exist.)
+   string in the parameter file with additional restrictions. A path might be absolute or relative to the starting directory of the execution.
 -  **Path prefix** Path prefixes are similar to paths. However, SeisSol
    will automatically append a filename extension or other suffixes
-   (e.g. "-fault").
+   (e.g. "-fault"). SeisSol creates the directory of the output prefix
+   (``OutputFile``), with its parents, if it does not exist yet; e.g. for
+   "runs/a/output/data", it creates "runs/a/output".
 
 
 .. _parameter-overrides:

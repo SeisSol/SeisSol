@@ -16,8 +16,8 @@ namespace seissol::writer {
 /**
  * The timings mini SeisSol measures to weight the ranks in the partitioning.
  *
- * They are measured while the mesh is read, which is before the output directory is created;
- * hence they are recorded first and written once the directory exists.
+ * They are measured while the mesh is read; they are recorded then and written with the rest of the
+ * output once it is set up.
  */
 class MiniSeisSolWriter {
   public:

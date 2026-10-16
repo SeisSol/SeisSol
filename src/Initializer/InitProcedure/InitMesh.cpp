@@ -128,7 +128,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
                 << " min =" << summary.min << " median =" << summary.median
                 << " max =" << summary.max;
 
-      // written in initIO, once the output directory exists
+      // written in initIO, with the rest of the output
       seissolInstance.miniSeisSolWriter().record(elapsedTime, nodeWeight);
     } else {
       logInfo() << "Skipping mini SeisSol (SeisSol is used with a single rank only).";

@@ -119,7 +119,7 @@ class SeisSol {
   monitoring::FlopCounter& flopCounter() { return flopCounter_; }
 
   /**
-   * Get the mini SeisSol writer; it holds the measurement until the output directory exists
+   * Get the mini SeisSol writer; it holds the measurement until the output is set up
    */
   writer::MiniSeisSolWriter& miniSeisSolWriter() { return miniSeisSolWriter_; }
 

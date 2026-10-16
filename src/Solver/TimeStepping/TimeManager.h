@@ -61,7 +61,7 @@ class TimeManager {
   //! dynamic rupture output
   dr::output::OutputManager* faultOutputManager_{};
 
-  //! the clusters as laid out, kept until the output directory exists
+  //! the clusters as laid out, kept until the output is set up
   std::optional<writer::ClusteringWriter> clusteringWriter_;
 
   public:

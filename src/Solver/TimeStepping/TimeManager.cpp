@@ -74,7 +74,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
 
-  // written in initIO, once the output directory exists
+  // written in initIO, with the rest of the output
   auto& clusteringWriter = clusteringWriter_.emplace(seissolInstance_.parameters().output.prefix,
                                                      seissolInstance_.runId());
 
