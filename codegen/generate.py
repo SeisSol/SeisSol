@@ -410,6 +410,7 @@ def main():
         adg.addLocal(generator, targets)
         adg.addNeighbor(generator, targets)
         adg.addTime(generator, targets)
+        adg.addOutputIntegration(generator, targets)
         adg.add_include_tensors(include_tensors)
 
         kernels.vtkproject.addKernels(

@@ -64,6 +64,7 @@
 #include "Initializer/DeviceGraph.h"
 
 #include <Device/AbstractAPI.h>
+#include <yateto.h>
 #endif
 
 namespace seissol::time_stepping {
@@ -653,16 +654,24 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
   }
 
   if (settings_.integrate) {
-    const ConditionalKey key = ConditionalKey(*KernelNames::Time);
+    // to first order, as on the host
+    const ConditionalKey key(*KernelNames::Volume);
     if (table.find(key) != table.end()) {
-      auto entry = table.at(key);
-      device_.algorithms().accumulateBatchedData(
-          const_cast<const real**>(
-              (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
-          (entry.get<real*>(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
-          tensor::Q<Cfg>::Size,
-          (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize(),
-          streamRuntime_.stream());
+      auto& entry = table.at(key);
+      kernel::gpu_integrateDofs<Cfg> integrateKrnl;
+      const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
+      integrateKrnl.numElements = numElements;
+      integrateKrnl.Q = const_cast<const real**>(
+          (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+      integrateKrnl.integrals =
+          (entry.get<real*>(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr();
+      integrateKrnl.timestep = timeStepWidth;
+
+      auto tmpMem = streamRuntime_.memoryHandle<real>(
+          (yateto::getMaxTmpMemRequired(integrateKrnl) * numElements) / sizeof(real));
+      integrateKrnl.linearAllocator.initialize(tmpMem.get());
+      integrateKrnl.streamPtr = streamRuntime_.stream();
+      integrateKrnl.execute();
     }
   }
 

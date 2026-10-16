@@ -9,7 +9,7 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
-from kernels.common import cold_kernel_attrs
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
     FaceRole,
@@ -461,6 +461,26 @@ class ADERDGBase(ABC):
     @abstractmethod
     def addTime(self, generator, targets):
         pass
+
+    def addOutputIntegration(self, generator, targets):
+        """The time integral of the DOFs that the output asks for, to first
+        order, as the host adds it up: integrals += timestep * Q after a step."""
+        if "gpu" not in targets:
+            return
+        integrals = OptionalDimTensor(
+            "integrals",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.num3DBasisFunctions(), self.numQuantities()),
+            alignStride=True,
+        )
+        timestep = Scalar("timestep")
+        generator.add(
+            f"{generate_kernel_name_prefix('gpu')}integrateDofs",
+            integrals["kp"] <= integrals["kp"] + timestep * self.Q["kp"],
+            target="gpu",
+        )
 
     def add_include_tensors(self, include_tensors):
         include_tensors.add(self.db.samplingDirections)
