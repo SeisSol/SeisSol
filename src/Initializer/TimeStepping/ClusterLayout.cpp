@@ -72,9 +72,13 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
   if (infoprint) {
     std::vector<std::uint64_t> clusters(maxLtsId + 1);
     std::vector<std::uint64_t> clustersDR(maxLtsId + 1);
-    const double timefactorGTS = minimumTimestep * mesh.getElements().size();
-    numerical::StableAccumulator<double> timefactorELTS;
-    numerical::StableAccumulator<double> timefactorCLTS;
+    // What a scheme costs over a stretch of simulated time is the number of cell updates it takes:
+    // the sum over the cells of one over their timestep. The speedups compare that to global time
+    // stepping, where every cell takes the smallest cell timestep; the wiggle factor is for the
+    // clustering alone, and it is in the cluster timesteps already.
+    const double updatesGTS = static_cast<double>(mesh.getElements().size()) / minimumCellTimestep;
+    numerical::StableAccumulator<double> updatesELTS;
+    numerical::StableAccumulator<double> updatesCLTS;
     for (const auto& element : mesh.getElements()) {
       ++clusters[element.clusterId];
       for (int i = 0; i < 4; ++i) {
@@ -83,11 +87,8 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
         }
       }
 
-      const auto elts = element.timestep;
-      const auto clts = layout.timestepRate(element.clusterId);
-
-      timefactorELTS += elts * wiggle;
-      timefactorCLTS += clts * wiggle;
+      updatesELTS += 1.0 / element.timestep;
+      updatesCLTS += 1.0 / layout.timestepRate(element.clusterId);
     }
     MPI_Allreduce(MPI_IN_PLACE,
                   clusters.data(),
@@ -101,13 +102,12 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
                   Mpi::castToMpiType<std::uint64_t>(),
                   MPI_SUM,
                   Mpi::mpi.comm());
-    std::array<double, 3> timefactors{
-        timefactorGTS, timefactorELTS.result(), timefactorCLTS.result()};
+    std::array<double, 3> updates{updatesGTS, updatesELTS.result(), updatesCLTS.result()};
     MPI_Allreduce(
-        MPI_IN_PLACE, timefactors.data(), timefactors.size(), MPI_DOUBLE, MPI_SUM, Mpi::mpi.comm());
+        MPI_IN_PLACE, updates.data(), updates.size(), MPI_DOUBLE, MPI_SUM, Mpi::mpi.comm());
 
-    const auto eltsSpeedup = timefactors[1] / timefactors[0];
-    const auto cltsSpeedup = timefactors[2] / timefactors[0];
+    const auto eltsSpeedup = updates[0] / updates[1];
+    const auto cltsSpeedup = updates[0] / updates[2];
     logInfo() << "Theoretical speedup to GTS:" << eltsSpeedup << "elementwise LTS;" << cltsSpeedup
               << "clustered LTS (current setup)";
 
@@ -122,6 +122,8 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
     ClusterLayout::Report report;
     report.minimumCellTimestep = minimumCellTimestep;
     report.wiggleFactor = wiggle;
+    report.elementwiseSpeedup = eltsSpeedup;
+    report.clusteredSpeedup = cltsSpeedup;
     report.cells = clusters;
     for (const auto faces : clustersDR) {
       report.dynamicRuptureFaces.push_back(faces / 2);

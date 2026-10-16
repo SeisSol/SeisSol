@@ -15,6 +15,7 @@
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/MPI.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
@@ -22,6 +23,8 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
+#include <mpi.h>
 #include <optional>
 #include <utils/logger.h>
 
@@ -177,7 +180,8 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   const double wallTime = simulationStopwatch.pause();
   auto& times = summary["time"]["simulation"];
-  times["total"] = monitoring::toJson(simulationStopwatch.printTime("Simulation time (total):"));
+  const auto totalTime = simulationStopwatch.printTime("Simulation time (total):");
+  times["total"] = monitoring::toJson(totalTime);
   times["compute"] = monitoring::toJson(computeStopwatch.printTime("Simulation time (compute):"));
   times["io"] = monitoring::toJson(ioStopwatch.printTime("Simulation time (blocking IO):"));
   summary["simulation"]["currentTime"] = currentTime_;
@@ -188,6 +192,39 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   seissolInstance.analysisWriter().printAnalysis(currentTime_);
 
   summary["performance"] = seissolInstance.flopCounter().printPerformanceSummary(wallTime);
+
+  // the work the simulation did, over all ranks: cell updates, which compare across orders,
+  // equations and machines where FLOP do not
+  auto updates = seissolInstance.timeManager().updates();
+  for (auto* counts : {&updates.cells, &updates.duplicateCells, &updates.dynamicRuptureFaces}) {
+    MPI_Allreduce(MPI_IN_PLACE,
+                  counts->data(),
+                  static_cast<int>(counts->size()),
+                  MPI_DOUBLE,
+                  MPI_SUM,
+                  Mpi::mpi.comm());
+  }
+  double cellUpdates = 0;
+  double duplicateUpdates = 0;
+  double faceUpdates = 0;
+  auto& clusters = summary["lts"]["clusters"];
+  for (std::size_t cluster = 0; cluster < updates.cells.size(); ++cluster) {
+    cellUpdates += updates.cells[cluster];
+    duplicateUpdates += updates.duplicateCells[cluster];
+    faceUpdates += updates.dynamicRuptureFaces[cluster];
+    if (cluster < clusters.size()) {
+      clusters.at(cluster)["cellUpdates"] = updates.cells[cluster];
+      clusters.at(cluster)["duplicateCellUpdates"] = updates.duplicateCells[cluster];
+      clusters.at(cluster)["dynamicRuptureFaceUpdates"] = updates.dynamicRuptureFaces[cluster];
+    }
+  }
+  summary["simulation"]["cellUpdates"] = cellUpdates;
+  summary["simulation"]["duplicateCellUpdates"] = duplicateUpdates;
+  summary["simulation"]["dynamicRuptureFaceUpdates"] = faceUpdates;
+  // the slowest rank decides how long the simulation takes
+  summary["performance"]["cellUpdatesPerSecond"] = cellUpdates / totalTime.max;
+  logInfo() << "Cell updates:" << cellUpdates << "(" << cellUpdates / totalTime.max
+            << "per second); duplicate updates of copy cells:" << duplicateUpdates;
 }
 
 } // namespace seissol

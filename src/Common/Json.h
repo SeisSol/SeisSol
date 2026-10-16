@@ -104,6 +104,9 @@ class Value {
    */
   Value& push(Value value);
 
+  //! @brief The element @p index of an array; fails for anything else, or past its end.
+  Value& at(std::size_t index);
+
   //! @brief The number of elements of an array or of members of an object; zero otherwise.
   [[nodiscard]] std::size_t size() const;
 

@@ -94,6 +94,8 @@ TEST_CASE("JSON objects and arrays" * doctest::test_suite("common")) {
     value.push("two");
     value.push(Value::object());
     CHECK(value.dump(-1) == "[1,\"two\",{}]");
+    value.at(2)["three"] = 3;
+    CHECK(value.at(2).find("three")->asDouble() == 3);
     CHECK(Value::arrayOf(std::vector<double>{1.0, 2.5}).dump(-1) == "[1,2.5]");
   }
 

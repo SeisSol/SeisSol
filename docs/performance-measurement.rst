@@ -66,27 +66,55 @@ members of the summary are:
    * - ``configurations``
      - the configurations the run computes in
    * - ``mesh``
-     - cells, copy cells, ghost cells and fault faces per rank
+     - cells, copy cells, ghost cells and fault faces per rank; a fault face between two ranks counts on both, which
+       both compute it
    * - ``lts``
-     - the clusters: timestep, update factor, cells and dynamic rupture faces each, and the smallest cell timestep
-       before and after the wiggle factor
+     - the clusters: timestep, update factor, cells and dynamic rupture faces each, and, at the end, the updates of
+       their cells (``cellUpdates``), of the further copies of their copy cells (``duplicateCellUpdates``) and of
+       their dynamic rupture faces (``dynamicRuptureFaceUpdates``); the smallest
+       cell timestep before and after the wiggle factor; and how many times fewer cell updates elementwise and
+       clustered LTS take in theory than global time stepping does (``theoreticalSpeedup``)
    * - ``time``
      - ``init``: reading the mesh (``meshRead``), setting it up (``mesh``, which includes reading it), laying out the
        cells (``layout``), setting up the model (``model``), the side conditions (``sideConditions``) and the output
        (``io``), and the whole initialization (``total``); ``simulation``: the initial output (``initialIo``), the time
        up to the last epoch (``elapsed``), and ``total``, ``compute`` and ``io`` as in the log
    * - ``simulation``
-     - start and end time, the time reached, the share of the simulation done, the number of epochs, and whether it
-       was aborted (e.g. by an energy criterion)
+     - start and end time, the time reached, the share of the simulation done, the number of epochs, whether it
+       was aborted (e.g. by an energy criterion), and the cell updates, duplicate cell updates and dynamic rupture
+       face updates of the whole run
    * - ``kernels``
      - the time in the compute kernels per rank (``total``), the load imbalance (one minus mean over maximum), and per
        region its time per rank, iterations, samples and the regression of its time over the iterations
    * - ``performance``
-     - hardware and non-zero FLOP and kernel bytes, in total, per second and per category
+     - hardware and non-zero FLOP and kernel bytes, in total, per second and per category, and the cell updates per
+       second (``cellUpdatesPerSecond``)
    * - ``memory``
      - per rank, in bytes: the peak of the host memory (``hostPeak``) and, in GPU builds, the device memory occupied,
        the unified memory occupied and the device capacity (``device``); once after the initialization
        (``afterInit``) and once at the end (``atEnd``)
+
+.. _cell-updates:
+
+Cell updates
+------------
+
+A cell update is one timestep of one cell: what the solver does for every cell, whatever the order, the equations or
+the machine. At the end of the simulation, SeisSol prints how many it did, over all ranks, and how many per second of
+the total simulation time (on the slowest rank); the run summary has them per cluster as well. Unlike FLOP/s, cell
+updates per second compare across orders and equations, and across machines whose kernels differ: a run that takes
+fewer, or cheaper, operations per cell update is faster, though not more FLOP/s. They are the same for any number of
+ranks. A copy cell, which borders other ranks, is stored and computed once per neighbor it sends to, and its further
+copies are counted apart, as duplicate cell updates: work that the partition adds, which grows with the ranks. A
+dynamic rupture face update is the same for a face of the fault; a face between two ranks is computed by both, and it
+counts on both.
+
+The theoretical speedup that SeisSol prints after the clustering ("Theoretical speedup to GTS:") compares the cell
+updates that elementwise and clustered local time stepping take with those of global time stepping, where every cell
+takes the smallest timestep: over a stretch of simulated time, a cell takes one update per its timestep, so the
+speedup is the number of cells over the smallest timestep, divided by the sum over all cells of one over their
+timestep. Clustered LTS takes more updates than elementwise LTS, for a cluster rounds the timesteps of its cells down
+to its own; and what a run achieves stays below the clustered speedup, for the clusters wait for each other.
 
 FLOP/s counter
 --------------

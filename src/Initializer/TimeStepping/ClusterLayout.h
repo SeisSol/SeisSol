@@ -38,6 +38,10 @@ struct ClusterLayout {
     /// the smallest cell timestep, before the wiggle factor is applied
     double minimumCellTimestep{0};
     double wiggleFactor{1};
+    /// how many times fewer cell updates elementwise and clustered LTS take than global time
+    /// stepping does
+    double elementwiseSpeedup{1};
+    double clusteredSpeedup{1};
     /// cells and dynamic rupture faces per cluster
     std::vector<std::uint64_t> cells;
     std::vector<std::uint64_t> dynamicRuptureFaces;

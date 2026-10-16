@@ -88,6 +88,9 @@ class AbstractTimeCluster {
 
   [[nodiscard]] long getTimeStepRate() const;
 
+  //! @brief The time steps the cluster has taken (corrected) so far.
+  [[nodiscard]] long numberOfTimeSteps() const { return numberOfTimeSteps_; }
+
   [[nodiscard]] std::string identifier() const {
     return description() + "-" + std::to_string(ct_.timeStepRate);
   }

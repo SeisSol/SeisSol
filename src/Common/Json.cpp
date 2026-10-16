@@ -140,6 +140,13 @@ Value& Value::push(Value value) {
   return std::get<Array>(data_).emplace_back(std::move(value));
 }
 
+Value& Value::at(std::size_t index) {
+  if (!isArray() || index >= std::get<Array>(data_).size()) {
+    logError() << "The JSON value has no element" << index;
+  }
+  return std::get<Array>(data_)[index];
+}
+
 std::size_t Value::size() const {
   if (isArray()) {
     return std::get<Array>(data_).size();

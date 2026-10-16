@@ -113,6 +113,8 @@ json::Value ltsSection(const ClusterLayout& layout) {
   if (layout.report.has_value()) {
     section["minimumCellTimestep"] = layout.report->minimumCellTimestep;
     section["wiggleFactor"] = layout.report->wiggleFactor;
+    section["theoreticalSpeedup"]["elementwise"] = layout.report->elementwiseSpeedup;
+    section["theoreticalSpeedup"]["clustered"] = layout.report->clusteredSpeedup;
   }
   auto& clusters = section["clusters"] = json::Value::array();
   for (std::size_t id = 0; id < layout.globalClusterCount; ++id) {

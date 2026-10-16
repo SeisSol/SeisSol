@@ -18,6 +18,7 @@
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
@@ -170,9 +171,24 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
     const auto clusterSize = layer.size();
     const auto dynRupSize = memoryManager.drStorage().layer(layer.id()).size();
+    // a copy cell is stored once per neighbor it sends to, and every copy is computed
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    std::size_t duplicateCells = 0;
+    for (std::size_t cell = 0; cell < clusterSize; ++cell) {
+      if (secondaryInformation[cell].duplicate != 0) {
+        ++duplicateCells;
+      }
+    }
+    clusterSizes_.push_back(
+        ClusterSize{clusterId, clusterSize - duplicateCells, duplicateCells, dynRupSize});
     // Add writer to output
-    clusteringWriter.addCluster(
-        profilingId, clusterId, layer.getIdentifier().halo, clusterSize, dynRupSize);
+    clusteringWriter.addCluster(profilingId,
+                                clusterId,
+                                layer.getIdentifier().halo,
+                                clusterSize,
+                                dynRupSize,
+                                timeStepSize,
+                                static_cast<long>(timeStepRate));
 
     if (layer.getIdentifier().halo == HaloType::Copy) {
       cluster->setPriority(ActorPriority::High);
@@ -285,6 +301,24 @@ void TimeManager::writeClustering() const {
   if (clusteringWriter_.has_value()) {
     clusteringWriter_->write();
   }
+}
+
+TimeManager::Updates TimeManager::updates() const {
+  Updates updates;
+  const auto clusterCount = clusterLayout_.value().globalClusterCount;
+  updates.cells.resize(clusterCount);
+  updates.duplicateCells.resize(clusterCount);
+  updates.dynamicRuptureFaces.resize(clusterCount);
+  for (std::size_t i = 0; i < clusters_.size(); ++i) {
+    const auto& size = clusterSizes_[i];
+    const auto steps = static_cast<double>(clusters_[i]->numberOfTimeSteps());
+    updates.cells[size.globalClusterId] += static_cast<double>(size.cells) * steps;
+    updates.duplicateCells[size.globalClusterId] +=
+        static_cast<double>(size.duplicateCells) * steps;
+    updates.dynamicRuptureFaces[size.globalClusterId] +=
+        static_cast<double>(size.dynamicRuptureFaces) * steps;
+  }
+  return updates;
 }
 
 void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
