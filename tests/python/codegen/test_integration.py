@@ -364,6 +364,82 @@ class TestNarrowedDerivatives:
         assert not adg.narrowsDerivatives()
 
 
+class TestLeftFactor:
+    """On a straight-sided cell the operator of a direction is a constant
+    operator followed by the material, U_j L(c): U_j sends each row to its
+    group, L(c) says what a group gives in each column. That has to be the
+    operator the decomposition states, for any coefficients."""
+
+    def _make(self, equation, solver, numMechanisms=0, curvilinear=False):
+        import importlib
+
+        kwargs = dict(
+            equations=equation,
+            order=4,
+            multipleSimulations=1,
+            matricesDir=str(MATRICES_DIR),
+            memLayout=_default_memLayout(),
+            numMechanisms=numMechanisms,
+            solver=solver,
+            factored_star=True,
+            material_nodal=True,
+            material_points="sq",
+            material_operator="assembled",
+            material_narrow_derivatives=True,
+            curvilinear=curvilinear,
+            targets=["cpu"],
+            old_gpu_interface=False,
+        )
+        module = importlib.import_module(f"kernels.equations.{equation}")
+        return module.kernel_class(**kwargs)(**kwargs)
+
+    @pytest.mark.parametrize(
+        "equation, solver, mechanisms",
+        [
+            ("elastic", "linearck", 0),
+            ("acoustic", "linearck", 0),
+            ("anisotropic", "linearck", 0),
+            ("viscoelastic", "linearck", 3),
+            ("viscoelastic", "linearckanelastic", 3),
+            ("poroelastic", "stp", 0),
+        ],
+    )
+    def test_groups_give_the_operator(self, equation, solver, mechanisms):
+        adg = self._make(equation, solver, numMechanisms=mechanisms)
+        assert adg.leftFactor
+        groups = adg.leftGroups
+        _, rows, _ = adg.leftUnit.shape()
+        columns = adg.leftStructure[0].shape()[1]
+
+        unit = np.zeros((3, rows, groups))
+        for index, value in adg.leftUnit.values().items():
+            unit[index] = float(value)
+        # every row belongs to one group at most
+        assert np.all(unit.sum(axis=2) <= 1)
+
+        rng = np.random.default_rng(20261015)
+        for _ in range(3):
+            coefficients = rng.standard_normal(len(adg.leftStructure))
+            expected = np.zeros((3, rows, columns))
+            for entry in adg.solverCoefficientEntries():
+                expected[entry.dim, entry.row, entry.column] += (
+                    coefficients[entry.coefficient] * entry.factor
+                )
+            material = np.zeros((groups, columns))
+            for a, structure in enumerate(adg.leftStructure):
+                for index, value in structure.values().items():
+                    material[index] += coefficients[a] * float(value)
+            for dim in range(3):
+                np.testing.assert_allclose(
+                    unit[dim] @ material, expected[dim], rtol=0, atol=1e-13
+                )
+
+    def test_curved_cell_forms_the_operator_at_the_points(self):
+        adg = self._make("elastic", "linearck", curvilinear=True)
+        assert not adg.leftFactor
+        assert len(adg.starAtPoint) == 3
+
+
 # =============================================================================
 # Matrix-file inventory — catches missing files for supported orders
 # =============================================================================

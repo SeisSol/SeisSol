@@ -234,7 +234,12 @@ Where it has to be per point
     - The metric multiplies the derivative at the point. One could integrate it
       into per-cell matrices instead (``davschneller/config`` does), which are
       dense and 40.6 kB per cell at order 4; with the nodal operator already
-      formed at points, the metric rides along in the assembly.
+      formed at points, the metric rides along in the assembly. A
+      straight-sided cell has one metric, which goes into a constant part of
+      the operator that combines the derivatives of the three directions before
+      the field is read at the points, the material coming after; a curved cell
+      reads the derivative of every direction at the points, since its metric
+      differs from point to point.
   * - Mass matrix
     - no
     - The reference mass matrix stays, see above. The Galerkin mass matrix

@@ -25,6 +25,8 @@ from kernels.quantities import (
     well_formed,
 )
 from yateto import Scalar, Tensor, simpleParameterSpace
+from yateto.ast.indices import Indices
+from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 from yateto.input import (
     memoryLayoutFromFile,
     parseJSONMatrixFile,
@@ -472,55 +474,6 @@ class ADERDGBase(ABC):
         if self.curvilinear:
             self._configureCurvilinear(kwargs, npoints)
 
-        # one structure per coefficient, written into the kernel as before
-        perCoefficient = [
-            [e for e in entries if e.coefficient == a] for a in range(count)
-        ]
-        shape = (3,) + tuple(starSpp.shape)
-        self.coefficientStructure = []
-        for a in range(count):
-            values = {}
-            for entry in perCoefficient[a]:
-                idx = (entry.dim, entry.row, entry.column)
-                values[idx] = repr(float(values.get(idx, 0.0)) + entry.factor)
-            self.coefficientStructure.append(
-                Tensor(
-                    f"coefficientStructure({a})",
-                    shape,
-                    spp=values,
-                    addressing=AddressingMode.IMMEDIATE,
-                )
-            )
-
-        # A fold keeps the entries its structures reach: those of its own
-        # coefficient, in any direction, for the fold of one coefficient, and
-        # those of every coefficient for the operator at a point. Declared
-        # without them, a fold is a dense block, and every product with it runs
-        # over all of its entries, most of them zero.
-        foldPatterns = []
-        for a in range(count):
-            pattern = np.zeros(tuple(starSpp.shape), dtype=bool)
-            for entry in perCoefficient[a]:
-                pattern[entry.row, entry.column] = True
-            foldPatterns.append(pattern)
-        operatorPattern = np.zeros(tuple(starSpp.shape), dtype=bool)
-        for pattern in foldPatterns:
-            operatorPattern |= pattern
-
-        # the Jacobian rows are a per-cell constant, so the fold happens once
-        # and is reused by every step of the chain
-        self.structureFolded = [
-            [
-                Tensor(
-                    f"structureFolded({dim},{a})",
-                    tuple(starSpp.shape),
-                    spp=foldPatterns[a],
-                    temporary=True,
-                )
-                for a in range(count)
-            ]
-            for dim in range(3)
-        ]
         self.nodalCoefficients = [
             Tensor(f"nodalCoefficients({a})", (samples,)) for a in range(count)
         ]
@@ -529,6 +482,55 @@ class ADERDGBase(ABC):
             kwargs.get("material_operator", coefficients.OPERATOR_FORMS[0])
             == "assembled"
         )
+
+        # kept as well, since a solver whose field carries more than modes and
+        # quantities needs the same two shapes one index wider
+        self.nodalValuesShape = (npoints, quantities)
+        self.nodalProductShape = (npoints, starSpp.shape[1])
+        self.nodalValues = self.nodalTemporary("nodalValues", self.nodalValuesShape)
+        self.nodalProduct = self.nodalTemporary("nodalProduct", self.nodalProductShape)
+
+        # Where the metric is one per cell, the operator splits into a constant
+        # part and the material (_configureLeftFactor). In a curved cell the
+        # metric varies from point to point as the material does, and the two
+        # form the operator at every point together (_configurePointOperator).
+        self.leftFactor = not self.curvilinear
+        if self.leftFactor:
+            self._configureLeftFactor(entries, count, starSpp, npoints)
+        else:
+            self._configurePointOperator(entries, count, starSpp, npoints)
+
+        if self.nodalFaceFlux:
+            self._configureNodalFlux()
+        self._configureNodalSource(kwargs)
+
+    def _configurePointOperator(self, entries, count, starSpp, npoints):
+        """Sets up the operator formed at every sample point of a curved cell:
+        one structure per coefficient, immediates in the kernel, which the
+        metric and the coefficients at a point fold into the operator of each
+        direction there."""
+        shape = (3,) + tuple(starSpp.shape)
+        operatorPattern = np.zeros(tuple(starSpp.shape), dtype=bool)
+        self.coefficientStructure = []
+        for a in range(count):
+            values = {}
+            for entry in entries:
+                if entry.coefficient != a:
+                    continue
+                idx = (entry.dim, entry.row, entry.column)
+                values[idx] = repr(float(values.get(idx, 0.0)) + entry.factor)
+                operatorPattern[entry.row, entry.column] = True
+            self.coefficientStructure.append(
+                Tensor(
+                    f"coefficientStructure({a})",
+                    shape,
+                    spp=values,
+                    addressing=AddressingMode.IMMEDIATE,
+                )
+            )
+        # The operator at a point has the entries some coefficient reaches in
+        # some direction. Declared without them, it is a dense block, and every
+        # product with it runs over all of its entries, most of them zero.
         pointPattern = np.broadcast_to(
             operatorPattern, (npoints,) + tuple(starSpp.shape)
         ).copy()
@@ -542,16 +544,94 @@ class ADERDGBase(ABC):
             for dim in range(3)
         ]
 
-        # kept as well, since a solver whose field carries more than modes and
-        # quantities needs the same two shapes one index wider
-        self.nodalValuesShape = (npoints, quantities)
-        self.nodalProductShape = (npoints, starSpp.shape[1])
-        self.nodalValues = self.nodalTemporary("nodalValues", self.nodalValuesShape)
-        self.nodalProduct = self.nodalTemporary("nodalProduct", self.nodalProductShape)
+    def _configureLeftFactor(self, entries, count, starSpp, npoints):
+        """Sets up the operator of a straight-sided cell as a constant operator
+        followed by the material.
 
-        if self.nodalFaceFlux:
-            self._configureNodalFlux()
-        self._configureNodalSource(kwargs)
+        The kernels apply the operator of direction j as the field times its
+        transpose, and a decomposition gives that transpose entry by entry: the
+        entry of input quantity q and output column p is a sum of coefficients
+        times factors. Two input rows (j, q) that enter every column with the
+        same coefficients and factors are the same function of the material,
+        so the operator is U_j L(c): U_j sends each row to its group, ones and
+        zeros that do not depend on the material, and L(c) holds what each
+        group gives in each column, linear in the coefficients.
+
+        Where the metric is one per cell it goes into U alone. The derivatives
+        of the three directions then combine into the groups in modal space,
+        the field is read at the sample points once instead of once per
+        direction, and the material is applied to as many columns as there are
+        groups.
+        """
+        usage = {}
+        for entry in entries:
+            row = usage.setdefault((entry.dim, entry.row), {})
+            key = (entry.coefficient, entry.column)
+            row[key] = row.get(key, 0.0) + entry.factor
+        groups = {}
+        for row, use in usage.items():
+            signature = tuple(
+                sorted((key, factor) for key, factor in use.items() if factor)
+            )
+            if signature:
+                groups.setdefault(signature, []).append(row)
+        signatures = list(groups)
+        self.leftGroups = len(signatures)
+
+        quantities, columns = starSpp.shape
+        unit = {}
+        for group, signature in enumerate(signatures):
+            for dim, row in groups[signature]:
+                unit[(dim, row, group)] = "1.0"
+        self.leftUnit = Tensor(
+            "leftUnit",
+            (3, quantities, self.leftGroups),
+            spp=unit,
+            addressing=AddressingMode.IMMEDIATE,
+        )
+        unitPattern = np.zeros((quantities, self.leftGroups), dtype=bool)
+        for _, row, group in unit:
+            unitPattern[row, group] = True
+        # the unit of each direction with the metric of the cell folded in,
+        # once per kernel
+        self.leftUnitFolded = [
+            Tensor(
+                f"leftUnitFolded({dim})",
+                unitPattern.shape,
+                spp=unitPattern,
+                temporary=True,
+            )
+            for dim in range(3)
+        ]
+
+        groupPattern = np.zeros((self.leftGroups, columns), dtype=bool)
+        self.leftStructure = []
+        for a in range(count):
+            values = {}
+            for group, signature in enumerate(signatures):
+                for (coefficient, column), factor in signature:
+                    if coefficient == a:
+                        values[(group, column)] = repr(factor)
+                        groupPattern[group, column] = True
+            self.leftStructure.append(
+                Tensor(
+                    f"leftStructure({a})",
+                    (self.leftGroups, columns),
+                    spp=values,
+                    addressing=AddressingMode.IMMEDIATE,
+                )
+            )
+        # what the groups give at every point, where the build asks for the
+        # assembled form
+        self.leftAtPoint = Tensor(
+            "leftAtPoint",
+            (npoints,) + groupPattern.shape,
+            spp=np.broadcast_to(groupPattern, (npoints,) + groupPattern.shape).copy(),
+            temporary=True,
+        )
+        # the temporaries of the groups, one per shape and pattern
+        self._leftModalTemporaries = {}
+        self._leftValuesTemporaries = {}
 
     def _configureCurvilinear(self, kwargs, npoints):
         """Sets up what a curved cell carries beyond a straight-sided one.
@@ -908,8 +988,9 @@ class ADERDGBase(ABC):
             self._singleDefinitions = previous
 
     def definedOnce(self, prototype):
-        """`prototype`, or a temporary of its shape that nothing else writes,
-        where the kernel being built defines each temporary once."""
+        """`prototype`, or a temporary of its shape and sparsity pattern that
+        nothing else writes, where the kernel being built defines each
+        temporary once."""
         if not getattr(self, "_singleDefinitions", False):
             return prototype
         self._definitionCount = getattr(self, "_definitionCount", 0) + 1
@@ -922,60 +1003,56 @@ class ADERDGBase(ABC):
         )
         if not isinstance(prototype, OptionalDimTensor):
             # per cell, so shared by the simulations a build bundles
-            return Tensor(name, prototype.shape(), temporary=True)
-        shape = tuple(
-            extent
-            for position, extent in enumerate(prototype.shape())
-            if not (prototype.hasOptDim() and position == prototype.optPos())
-        )
+            return Tensor(name, prototype.shape(), spp=prototype.spp(), temporary=True)
         return OptionalDimTensor(
             name,
             prototype.optName(),
             prototype.optSize(),
             prototype.optPos(),
-            shape,
+            self._fieldShape(prototype),
+            spp=prototype.spp(),
             temporary=True,
         )
 
     def nodalAssembly(self):
-        """Folds the Jacobian rows into the structure, once per kernel.
+        """Folds the Jacobian rows into the operator, once per kernel.
 
-        Where the build asks for the assembled form, the coefficients go in as
-        well and what comes out is one operator per sample point. That trades
-        the products a kernel does at every application for a temporary over
-        the points, so which one is cheaper depends on how often the kernel
-        applies the operator and on the machine.
+        On a straight-sided cell they go into the constant part
+        (_configureLeftFactor). Where the build asks for the assembled form, the
+        coefficients go in as well and what comes out is what the groups give at
+        every sample point. That trades the products a kernel does at every
+        application for a temporary over the points, so which one is cheaper
+        depends on how often the kernel applies the operator and on the
+        machine. In a curved cell the metric varies from point to point as the
+        material does, and the two go into the operator at every point
+        together, which is the assembled form.
         """
         if not self.nodalMaterial:
             return []
-        statements = []
-        if self.curvilinear:
-            # the metric varies from point to point as the material does, so
-            # the two go in together, and only into the assembled form
-            for dim in range(3):
+        if self.leftFactor:
+            statements = [
+                self.leftUnitFolded[dim]["qu"]
+                <= self.referenceGradients[dim]["j"] * self.leftUnit["jqu"]
+                for dim in range(3)
+            ]
+            if self.nodalOperatorAssembled:
                 folded = None
                 for a, coefficient in enumerate(self.nodalCoefficients):
-                    term = (
-                        coefficient["n"]
-                        * self.referenceGradients[dim]["nj"]
-                        * self.coefficientStructure[a]["jqp"]
-                    )
+                    term = coefficient["n"] * self.leftStructure[a]["up"]
                     folded = term if folded is None else folded + term
-                statements.append(self.starAtPoint[dim]["nqp"] <= folded)
+                statements.append(self.leftAtPoint["nup"] <= folded)
             return statements
-        statements += [
-            self.structureFolded[dim][a]["qp"]
-            <= self.referenceGradients[dim]["j"] * self.coefficientStructure[a]["jqp"]
-            for dim in range(3)
-            for a in range(len(self.coefficientStructure))
-        ]
-        if self.nodalOperatorAssembled:
-            for dim in range(3):
-                folded = None
-                for a, coefficient in enumerate(self.nodalCoefficients):
-                    term = coefficient["n"] * self.structureFolded[dim][a]["qp"]
-                    folded = term if folded is None else folded + term
-                statements.append(self.starAtPoint[dim]["nqp"] <= folded)
+        statements = []
+        for dim in range(3):
+            folded = None
+            for a, coefficient in enumerate(self.nodalCoefficients):
+                term = (
+                    coefficient["n"]
+                    * self.referenceGradients[dim]["nj"]
+                    * self.coefficientStructure[a]["jqp"]
+                )
+                folded = term if folded is None else folded + term
+            statements.append(self.starAtPoint[dim]["nqp"] <= folded)
         return statements
 
     def nodalApply(
@@ -998,14 +1075,16 @@ class ADERDGBase(ABC):
         a derivative step, whatever the caller needs otherwise. `spectator`
         names indices the operator leaves alone, for a field that carries more
         than modes and quantities; the caller then hands over the two
-        temporaries those indices widen. `scalar` scales the result, and
-        `accumulate` adds it to what the target holds instead of replacing it.
-        `project` is the projection the result comes back with, for a target
-        that keeps fewer modes than the field; the operator's own where not
-        given. `pointSum`, a temporary over the points with a weight and
-        whether it starts the sum, collects the product at the points as well,
-        for a caller that projects a weighted sum of several applications at
-        once.
+        temporaries those indices widen. On a straight-sided cell the field is
+        read at the points after the constant part of the operator, through
+        temporaries over the groups (_configureLeftFactor), and of the two only
+        the product is used. `scalar` scales the result, and `accumulate` adds
+        it to what the target holds instead of replacing it. `project` is the
+        projection the result comes back with, for a target that keeps fewer
+        modes than the field; the operator's own where not given. `pointSum`,
+        a temporary over the points with a weight and whether it starts the
+        sum, collects the product at the points as well, for a caller that
+        projects a weighted sum of several applications at once.
         """
         valuesPrototype, product = (
             temporaries
@@ -1013,31 +1092,23 @@ class ADERDGBase(ABC):
             else (self.nodalValues, self.nodalProduct)
         )
         product = self.definedOnce(product)
-        statements = []
-        first = True
-        for dim in range(3):
-            values = self.definedOnce(valuesPrototype)
-            statements.append(
-                values["nq" + spectator]
-                <= self.operatorEval["nk"]
-                * operators[dim][self.t("kl")]
-                * source["lq" + spectator]
-            )
-            if self.nodalOperatorAssembled:
-                terms = [values["nq" + spectator] * self.starAtPoint[dim]["nqp"]]
-            else:
-                terms = [
-                    coefficient["n"]
-                    * values["nq" + spectator]
-                    * self.structureFolded[dim][a]["qp"]
-                    for a, coefficient in enumerate(self.nodalCoefficients)
-                ]
-            for term in terms:
+        if self.leftFactor:
+            statements = self._leftProduct(source, operators, spectator, product)
+        else:
+            statements = []
+            for dim in range(3):
+                values = self.definedOnce(valuesPrototype)
+                statements.append(
+                    values["nq" + spectator]
+                    <= self.operatorEval["nk"]
+                    * operators[dim][self.t("kl")]
+                    * source["lq" + spectator]
+                )
+                term = values["nq" + spectator] * self.starAtPoint[dim]["nqp"]
                 statements.append(
                     product["np" + spectator]
-                    <= (term if first else product["np" + spectator] + term)
+                    <= (term if dim == 0 else product["np" + spectator] + term)
                 )
-                first = False
         if pointSum is not None:
             total, weight, starts = pointSum
             weighted = weight * product["np" + spectator]
@@ -1054,6 +1125,97 @@ class ADERDGBase(ABC):
             <= (target["kp" + spectator] + projected if accumulate else projected)
         )
         return statements
+
+    def _leftProduct(self, source, operators, spectator, product):
+        """The operator times the derivative at the sample points of a
+        straight-sided cell (_configureLeftFactor): the derivatives of the
+        three directions combined into the groups in modal space, the groups
+        read at the points, and the material there."""
+        extents = self._fieldShape(product)[2:]
+        modalSum = None
+        for dim in range(3):
+            term = (
+                operators[dim][self.t("kl")]
+                * source["lq" + spectator]
+                * self.leftUnitFolded[dim]["qu"]
+            )
+            modalSum = term if modalSum is None else modalSum + term
+        modal, modalSum = self._leftModal(modalSum, spectator, extents)
+        modal = self.definedOnce(modal)
+        values = self.definedOnce(self._leftValues(spectator, extents))
+        statements = [
+            modal["ku" + spectator] <= modalSum,
+            values["nu" + spectator]
+            <= self.operatorEval["nk"] * modal["ku" + spectator],
+        ]
+        if self.nodalOperatorAssembled:
+            terms = [values["nu" + spectator] * self.leftAtPoint["nup"]]
+        else:
+            terms = [
+                coefficient["n"]
+                * values["nu" + spectator]
+                * self.leftStructure[a]["up"]
+                for a, coefficient in enumerate(self.nodalCoefficients)
+            ]
+        for position, term in enumerate(terms):
+            statements.append(
+                product["np" + spectator]
+                <= (term if position == 0 else product["np" + spectator] + term)
+            )
+        return statements
+
+    def _leftModal(self, modalSum, spectator, extents):
+        """The temporary the constant part of the operator writes, together with
+        the sum it is written from. It has the modes the derivative matrices
+        reach from the modes the field has, which is fewer for a derivative of
+        the chain that keeps fewer (narrowsDerivatives) and never the highest
+        degree; the field is read at the points from those alone."""
+        shape = (self.num3DBasisFunctions(), self.leftGroups) + tuple(extents)
+        indices = Indices(
+            self.Q.insertOptDim("ku" + spectator, self.Q.optName()),
+            self.Q.insertOptDim(shape, (self.Q.optSize(),)),
+        )
+        modalSum = DeduceIndices(indices).visit(modalSum)
+        modalSum = EquivalentSparsityPattern().visit(modalSum)
+        pattern = modalSum.eqspp().as_ndarray()
+        temporaries = self._leftModalTemporaries
+        key = (spectator, tuple(extents), pattern.tobytes())
+        if key not in temporaries:
+            suffix = f"_{spectator}" if spectator else ""
+            index = sum(1 for other in temporaries if other[0] == spectator)
+            temporaries[key] = OptionalDimTensor(
+                f"leftModal{suffix}({index})",
+                self.Q.optName(),
+                self.Q.optSize(),
+                self.Q.optPos(),
+                shape,
+                spp=pattern,
+                temporary=True,
+            )
+        return temporaries[key], modalSum
+
+    def _leftValues(self, spectator, extents):
+        """The temporary the groups are read at the sample points into."""
+        temporaries = self._leftValuesTemporaries
+        key = (spectator, tuple(extents))
+        if key not in temporaries:
+            suffix = f"_{spectator}" if spectator else ""
+            temporaries[key] = self.nodalTemporary(
+                f"leftValues{suffix}",
+                (self.materialEval.shape()[0], self.leftGroups) + tuple(extents),
+            )
+        return temporaries[key]
+
+    def _fieldShape(self, tensor):
+        """The shape of a tensor without the index of the simulations a build
+        bundles."""
+        if isinstance(tensor, OptionalDimTensor) and tensor.hasOptDim():
+            return tuple(
+                extent
+                for position, extent in enumerate(tensor.shape())
+                if position != tensor.optPos()
+            )
+        return tuple(tensor.shape())
 
     def narrowsDerivatives(self):
         """Whether the k-th time derivative of the predictor keeps only the
