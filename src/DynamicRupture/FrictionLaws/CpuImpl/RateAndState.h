@@ -21,7 +21,10 @@
 #define SEISSOL_INTEL_SIMD_EXCEPTION
 // icpx 2026.0 still crashes in its vectorizer (vplan-vec) in single precision, on the strength
 // and slip rate loop of calcSlipRateAndTraction and on the loops of invertSlipRateIterative; they
-// stay scalar for it in either precision. Re-check with newer releases.
+// stay scalar for it in either precision. So do the loops over the state variable: in single
+// precision, the SSE variant of the fast velocity weakening law's updateStateVariable that they
+// call takes half of the lanes of `this` from a register the call never set, and segfaults.
+// Re-check with newer releases.
 #if __INTEL_LLVM_COMPILER < 20260100
 #define SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #endif
@@ -337,7 +340,9 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
 
     for (uint32_t j = 0; j < this->drParameters_.rsNumberStateVariableUpdates; j++) {
       if constexpr (!Derived::FoldsStateVariable) {
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
         for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
           // fault strength using friction coefficient and fluid pressure from previous
           // timestep/iteration update state variable using sliprate from the previous time step
@@ -432,7 +437,9 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
                               uint32_t timeIndex,
                               std::size_t ltsFace) {
 
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       // SV from mean slip rate in tmp
       localStateVariable[pointIndex] = static_cast<Derived*>(this)->updateStateVariable(
