@@ -14,6 +14,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Monitoring/FlopCounter.h"
+#include "Monitoring/RunSummary.h"
 #include "Parallel/Pin.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
@@ -117,6 +118,11 @@ class SeisSol {
    * Get the flop counter
    */
   monitoring::FlopCounter& flopCounter() { return flopCounter_; }
+
+  /**
+   * Get the summary of the run, which it writes for programs to read
+   */
+  monitoring::RunSummary& runSummary() { return runSummary_; }
 
   /**
    * Get the mini SeisSol writer; it holds the measurement until the output is set up
@@ -261,6 +267,9 @@ class SeisSol {
 
   //! Flop Counter
   monitoring::FlopCounter flopCounter_;
+
+  //! Run summary
+  monitoring::RunSummary runSummary_;
 
   //! Mini SeisSol measurement, written with the rest of the output
   writer::MiniSeisSolWriter miniSeisSolWriter_;

@@ -11,6 +11,7 @@
 
 #include "Common/ConfigDispatch.h"
 #include "Common/Iterator.h"
+#include "Common/Json.h"
 #include "CommunicationManager.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/BasicTypedefs.h"
@@ -376,11 +377,12 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   }
 }
 
-void TimeManager::printComputationTime(const std::string& outputPrefix,
-                                       bool isLoopStatisticsNetcdfOutputOn) {
+json::Value TimeManager::printComputationTime(const std::string& outputPrefix,
+                                              bool isLoopStatisticsNetcdfOutputOn) {
   actorStateStatisticsManager_.finish();
-  loopStatistics_.printSummary(Mpi::mpi.comm());
+  auto summary = loopStatistics_.printSummary(Mpi::mpi.comm());
   loopStatistics_.writeSamples(outputPrefix, isLoopStatisticsNetcdfOutputOn);
+  return summary;
 }
 
 double TimeManager::getTimeTolerance() const {

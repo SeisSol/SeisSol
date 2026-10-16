@@ -8,6 +8,8 @@
 
 #include "LoopStatistics.h"
 
+#include "Common/Json.h"
+#include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
 #include "Numerical/Statistics.h"
 #include "Unit.h"
@@ -122,7 +124,7 @@ void LoopStatistics::reset() {
   }
 }
 
-void LoopStatistics::printSummary(MPI_Comm comm) {
+json::Value LoopStatistics::printSummary(MPI_Comm comm) {
   const auto nRegions = regions_.size();
   constexpr int NumSumComponents = 6;
   auto sums = std::vector<double>(NumSumComponents * nRegions);
@@ -171,6 +173,13 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 
   const auto loadImbalance = 1.0 - summary.mean / summary.max;
   logInfo() << "Load imbalance:" << 100.0 * loadImbalance << "%";
+
+  // the time of every region per rank, which the sums below fold together
+  std::vector<seissol::statistics::Summary> regionTimes;
+  regionTimes.reserve(nRegions);
+  for (unsigned region = 0; region < nRegions; ++region) {
+    regionTimes.push_back(seissol::statistics::parallelSummary(regions_[region].variables.y));
+  }
 
   MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, comm);
 
@@ -236,6 +245,30 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
     logInfo() << "Total time spent in compute kernels:" << totalTime
               << "s ( =" << UnitTime.formatTime(totalTime).c_str() << ")";
   }
+
+  json::Value result;
+  result["total"] = monitoring::toJson(summary);
+  result["loadImbalance"] = loadImbalance;
+  auto& regions = result["regions"] = json::Value::object();
+  for (unsigned region = 0; region < nRegions; ++region) {
+    const double x = getNumIters(region);
+    const double x2 = getNumItersSquared(region);
+    const double n = getNumberOfSamples(region);
+    const double xm = x / n;
+    const double xv = x2 - 2 * x * xm + xm * xm;
+    auto& entry = regions[regions_[region].name];
+    entry["includedInTotal"] = regions_[region].includeInSummary;
+    entry["time"] = monitoring::toJson(regionTimes[region]);
+    entry["iterations"] = x;
+    entry["samples"] = n;
+    // the regions outside of the total time count no elements, but states
+    if (regions_[region].includeInSummary) {
+      entry["regression"]["constant"] = regressionCoeffs[2 * region + 0];
+      entry["regression"]["perElement"] = regressionCoeffs[2 * region + 1];
+      entry["regression"]["standardError"] = std::sqrt((stderror[region] / (n - 2)) / xv);
+    }
+  }
+  return result;
 }
 
 void LoopStatistics::writeSamples([[maybe_unused]] const std::string& outputPrefix,

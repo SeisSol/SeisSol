@@ -9,6 +9,7 @@
 
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
+#include "Common/Json.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -127,7 +128,8 @@ class TimeManager {
    **/
   void setInitialTimes(double time = 0);
 
-  void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
+  json::Value printComputationTime(const std::string& outputPrefix,
+                                   bool isLoopStatisticsNetcdfOutputOn);
 
   void freeDynamicResources();
 

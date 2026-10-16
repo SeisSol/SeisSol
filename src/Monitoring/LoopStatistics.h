@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_MONITORING_LOOPSTATISTICS_H_
 #define SEISSOL_SRC_MONITORING_LOOPSTATISTICS_H_
 
+#include "Common/Json.h"
 #include "Parallel/MPI.h"
 
 #include <algorithm>
@@ -37,7 +38,12 @@ class LoopStatistics {
 
   void reset();
 
-  void printSummary(MPI_Comm comm);
+  /**
+   * @brief Prints the time spent in the regions, and a regression of it over the iterations.
+   *
+   * Collective. Returns what it printed, for the run summary (complete on rank 0 only).
+   */
+  json::Value printSummary(MPI_Comm comm);
 
   void writeSamples(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
 

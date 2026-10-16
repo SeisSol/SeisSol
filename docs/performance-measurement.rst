@@ -12,12 +12,76 @@ Performance measurement
 Simulation time
 ---------------
 
-SeisSol currently prints the total simulation time twice via stdout (i.e. to the terminal log), with mostly similar values.
-The first value is in the line starting with "Elapsed time (via clock_gettime)",
-the second value is printed in the line starting with "Time spent in simulation:", just one line before we see "Simulation done."
+At the end of the simulation, SeisSol prints its time in the lines starting with "Simulation time (total):",
+"Simulation time (compute):" and "Simulation time (blocking IO):", each as the mean over the ranks with their range;
+the line "Time spent in simulation:", just before "Simulation done.", gives nearly the same total once more.
+The compute time is the time spent advancing the clusters, waiting for other ranks included; the blocking IO time is
+the time the output took on the main thread.
 
 The "total time spent in compute kernels" denotes the time in which all CPUs execute some function to advance the computation of the solution.
 In particular, it excludes the time spent with MPI communication.
+
+.. _run-summary:
+
+Run summary
+-----------
+
+What the log says about a run, its performance included, SeisSol also writes for programs to read, next to the
+output (``OutputFile`` is the prefix):
+
+* ``<prefix>-summary.json``, the run summary.
+* ``<prefix>-epochs.csv``, a row per simulation epoch, i.e. per stretch of simulated time between two synchronization
+  points (the times outputs are written at): its simulated time span, its wall time (minimum, mean and maximum over the
+  ranks), its compute and blocking IO time (mean and maximum), and the FLOP/s and kernel bytes/s of the epoch,
+  summed over the ranks.
+
+Rank 0 writes the summary when the run starts, at every stage of the initialization, every ten seconds or so during
+the simulation, and at its end, each time replacing the file at once, so that a reader always finds a complete file.
+``status`` is ``completed`` once the run has ended as planned; a run that ended early, by an error or by the time limit
+of its job, leaves ``running``, and ``stage`` says how far it got (``init``, ``init.mesh``, ``init.layout``,
+``init.model``, ``init.sideConditions``, ``init.io``, ``simulation``; ``finished`` at the end).
+
+Times are in seconds, timesteps and simulated times in simulated seconds. Where a value differs between the ranks, the
+summary gives its statistics over them, an object with ``min``, ``max``, ``mean``, ``median``, ``std`` and ``sum``. The
+members of the summary are:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Member
+     - Content
+   * - ``schema``
+     - the format, ``seissol-run-summary/1``
+   * - ``runId``, ``status``, ``stage``, ``started``, ``updated``
+     - the ID of the run (see :ref:`env_vars`), how far it got, and when (UTC)
+   * - ``build``
+     - version, commit, host and device architecture, compiler, build type and the configurations built
+   * - ``parallel``
+     - ranks, nodes, ranks per node, threads per rank, the MPI library, whether a communication thread runs, the
+       ASYNC mode
+   * - ``environment``
+     - the environment variables of SeisSol, OpenMP, MPI, ASYNC, the device runtimes and the job scheduler
+   * - ``invocation``
+     - executable, parameter file, working directory, the ``--set`` overrides and the checkpoint the run started from
+   * - ``configurations``
+     - the configurations the run computes in
+   * - ``mesh``
+     - cells, copy cells, ghost cells and fault faces per rank
+   * - ``lts``
+     - the clusters: timestep, update factor, cells and dynamic rupture faces each, and the smallest cell timestep
+       before and after the wiggle factor
+   * - ``time``
+     - ``init``: reading the mesh (``meshRead``), setting it up (``mesh``, which includes reading it) and setting up
+       the model (``model``); ``simulation``: the initial output (``initialIo``), the time up to the last epoch
+       (``elapsed``), and ``total``, ``compute`` and ``io`` as in the log
+   * - ``simulation``
+     - start and end time, the time reached, the share of the simulation done, the number of epochs, and whether it
+       was aborted (e.g. by an energy criterion)
+   * - ``kernels``
+     - the time in the compute kernels per rank (``total``), the load imbalance (one minus mean over maximum), and per
+       region its time per rank, iterations, samples and the regression of its time over the iterations
+   * - ``performance``
+     - hardware and non-zero FLOP and kernel bytes, in total, per second and per category
 
 FLOP/s counter
 --------------

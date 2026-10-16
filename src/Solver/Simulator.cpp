@@ -13,6 +13,7 @@
 #include "Modules/Modules.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
@@ -48,6 +49,10 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   auto* faultOutputManager = seissolInstance.timeManager().faultOutputManager();
   faultOutputManager->writePickpointOutput(0.0, 0.0);
+
+  auto& summary = seissolInstance.runSummary();
+  summary["simulation"]["startTime"] = currentTime_;
+  summary["simulation"]["endTime"] = finalTime_;
 
   Stopwatch simulationStopwatch;
   if (checkpoint_) {
@@ -88,7 +93,8 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   double lastIo = ioStopwatch.pause();
   double lastCompute = 0;
 
-  Stopwatch::print("Time spent for initial IO:", lastIo);
+  summary["time"]["simulation"]["initialIo"] =
+      monitoring::toJson(Stopwatch::print("Time spent for initial IO:", lastIo));
 
   double lastSplit = simulationStopwatch.split();
 
@@ -107,6 +113,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
     // update the DOFs
     logInfo() << "Start simulation epoch. (from" << currentTime_ << "s to" << upcomingTime << "s)";
+    const double epochStart = currentTime_;
 
     computeStopwatch.start();
     seissolInstance.timeManager().advanceInTime(upcomingTime);
@@ -131,17 +138,25 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     const double io = ioStopwatch.pause();
 
     const double currentSplit = simulationStopwatch.split();
-    Stopwatch::print("Time spent this epoch (total):", currentSplit - lastSplit);
-    Stopwatch::print("Time spent this epoch (compute):", compute - lastCompute);
-    Stopwatch::print("Time spent this epoch (blocking IO):", io - lastIo);
+    monitoring::EpochRecord epoch;
+    epoch.timeFrom = epochStart;
+    epoch.timeTo = currentTime_;
+    epoch.wall = Stopwatch::print("Time spent this epoch (total):", currentSplit - lastSplit);
+    epoch.compute = Stopwatch::print("Time spent this epoch (compute):", compute - lastCompute);
+    epoch.io = Stopwatch::print("Time spent this epoch (blocking IO):", io - lastIo);
     lastCompute = compute;
     lastIo = io;
 
-    seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
+    const auto rates = seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
+    epoch.hardwareFlopPerSecond = rates.hardwareFlopPerSecond;
+    epoch.nonzeroFlopPerSecond = rates.nonzeroFlopPerSecond;
+    epoch.kernelBytesPerSecond = rates.kernelBytesPerSecond;
     lastSplit = currentSplit;
 
-    Stopwatch::print("Total time spent:", currentSplit);
+    summary["time"]["simulation"]["elapsed"] =
+        monitoring::toJson(Stopwatch::print("Total time spent:", currentSplit));
     Stopwatch::print("Expected time until finish:", currentSplit / rateDone * (1.0 - rateDone));
+    summary.addEpoch(epoch, finalTime_);
 
     // use an empty log message as visual separator
     logInfo() << "";
@@ -161,19 +176,23 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   ioStopwatch.pause();
 
   const double wallTime = simulationStopwatch.pause();
-  simulationStopwatch.printTime("Simulation time (total):");
-  computeStopwatch.printTime("Simulation time (compute):");
-  ioStopwatch.printTime("Simulation time (blocking IO):");
+  auto& times = summary["time"]["simulation"];
+  times["total"] = monitoring::toJson(simulationStopwatch.printTime("Simulation time (total):"));
+  times["compute"] = monitoring::toJson(computeStopwatch.printTime("Simulation time (compute):"));
+  times["io"] = monitoring::toJson(ioStopwatch.printTime("Simulation time (blocking IO):"));
+  summary["simulation"]["currentTime"] = currentTime_;
+  summary["simulation"]["aborted"] = aborted_;
 
   const auto& outputParams = seissolInstance.parameters().output;
 
   const bool isLoopStatisticsNetcdfOutputOn = outputParams.loopStatisticsNetcdfOutput;
   const auto& outputPrefix = outputParams.prefix;
-  seissolInstance.timeManager().printComputationTime(outputPrefix, isLoopStatisticsNetcdfOutputOn);
+  summary["kernels"] = seissolInstance.timeManager().printComputationTime(
+      outputPrefix, isLoopStatisticsNetcdfOutputOn);
 
   seissolInstance.analysisWriter().printAnalysis(currentTime_);
 
-  seissolInstance.flopCounter().printPerformanceSummary(wallTime);
+  summary["performance"] = seissolInstance.flopCounter().printPerformanceSummary(wallTime);
 }
 
 } // namespace seissol

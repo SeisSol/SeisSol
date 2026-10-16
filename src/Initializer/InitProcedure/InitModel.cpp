@@ -39,6 +39,7 @@
 #include "Model/Plasticity.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Helper.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
@@ -466,7 +467,8 @@ void initModel(seissol::SeisSol& seissolInstance) {
   initializeCellMatrices(seissolInstance);
 
   watch.pause();
-  watch.printTime("Model initialized in:");
+  seissolInstance.runSummary()["time"]["init"]["model"] =
+      monitoring::toJson(watch.printTime("Model initialized in:"));
 
   // Call the post mesh initialization hook
   seissol::Modules::callHook<ModuleHook::PostModel>();

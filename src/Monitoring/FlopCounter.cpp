@@ -10,6 +10,7 @@
 
 #include "FlopCounter.h"
 
+#include "Common/Json.h"
 #include "Monitoring/Metric.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
@@ -55,7 +56,7 @@ void FlopCounter::init(const std::string& outputFileNamePrefix, const std::strin
   }
 }
 
-void FlopCounter::printPerformanceUpdate(double wallTime) {
+EpochRates FlopCounter::printPerformanceUpdate(double wallTime) {
   const int rank = seissol::Mpi::mpi.rank();
   const auto worldSize = static_cast<size_t>(seissol::Mpi::mpi.size());
 
@@ -84,11 +85,12 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
     out_ << wallTime << ",";
   }
 
+  // returns the sum over the ranks, in units (not giga-units); on rank 0 only
   const auto handleFlopsDataset = [&](auto local, const SIUnit& unit, const std::string& message) {
     const auto localOnRanks = seissol::Mpi::mpi.collect(local);
-    const auto localSummary = seissol::statistics::Summary(localOnRanks);
 
     if (rank == 0) {
+      const auto localSummary = seissol::statistics::Summary(localOnRanks);
       // for now, we calculate everything in GFLOP/s, and switch back to FLOP/s for output only
       logInfo() << message.c_str() << unit.formatPrefix(localSummary.sum * 1e9).c_str()
                 << "(per rank:"
@@ -97,26 +99,33 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
       for (size_t i = 0; i < worldSize; i++) {
         out_ << localOnRanks[i] << ",";
       }
+      return localSummary.sum * 1e9;
     }
+    return 0.0;
   };
 
   // make sure to keep it the same width. Otherwise, if may become confusing
+  EpochRates epoch;
   handleFlopsDataset(accumulatedHWGflopsPerSecond, UnitFlopPerS, "HW-FLOP/s since start:");
-  handleFlopsDataset(previousHWGflopsPerSecond, UnitFlopPerS, "HW-FLOP/s last epoch: ");
+  epoch.hardwareFlopPerSecond =
+      handleFlopsDataset(previousHWGflopsPerSecond, UnitFlopPerS, "HW-FLOP/s last epoch: ");
   handleFlopsDataset(accumulatedNZGflopsPerSecond, UnitFlopPerS, "NZ-FLOP/s since start:");
-  handleFlopsDataset(previousNZGflopsPerSecond, UnitFlopPerS, "NZ-FLOP/s last epoch: ");
+  epoch.nonzeroFlopPerSecond =
+      handleFlopsDataset(previousNZGflopsPerSecond, UnitFlopPerS, "NZ-FLOP/s last epoch: ");
   handleFlopsDataset(accumulatedKBPerSecond, UnitBytePerS, "Kernel B/s since start:");
-  handleFlopsDataset(previousKBPerSecond, UnitBytePerS, "Kernel B/s last epoch: ");
+  epoch.kernelBytesPerSecond =
+      handleFlopsDataset(previousKBPerSecond, UnitBytePerS, "Kernel B/s last epoch: ");
 
   if (rank == 0) {
     out_ << runId_ << std::endl;
   }
+  return epoch;
 }
 
 /**
  * Prints the measured FLOP/s.
  */
-void FlopCounter::printPerformanceSummary(double wallTime) const {
+json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
   // LIBXSMM + PSpaMM
   constexpr std::size_t CodegenFlops = 2;
   constexpr std::size_t BroadcastEntries = 3;
@@ -171,6 +180,15 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
   logInfo() << "Total calculated Kernel B/s: "
             << UnitBytePerS.formatPrefix(totalKernelBytes / wallTime).c_str();
 
+  json::Value summary;
+  summary["hardwareFlop"] = totalHardwareFlops;
+  summary["nonzeroFlop"] = totalNonZeroFlops;
+  summary["kernelBytes"] = totalKernelBytes;
+  summary["hardwareFlopPerSecond"] = totalHardwareFlops / wallTime;
+  summary["nonzeroFlopPerSecond"] = totalNonZeroFlops / wallTime;
+  summary["kernelBytesPerSecond"] = totalKernelBytes / wallTime;
+  auto& categories = summary["categories"] = json::Value::object();
+
   std::size_t i = 0;
   for (const auto& [catname, _] : metricCategories_) {
     logInfo()
@@ -182,8 +200,13 @@ void FlopCounter::printPerformanceSummary(double wallTime) const {
     logInfo()
         << catname.c_str() << "calculated Kernel B: "
         << UnitByte.formatPrefix(flops[CodegenFlops + (i + 1) * BroadcastEntries + 2]).c_str();
+    auto& category = categories[catname];
+    category["hardwareFlop"] = flops[CodegenFlops + (i + 1) * BroadcastEntries + 1];
+    category["nonzeroFlop"] = flops[CodegenFlops + (i + 1) * BroadcastEntries + 0];
+    category["kernelBytes"] = flops[CodegenFlops + (i + 1) * BroadcastEntries + 2];
     ++i;
   }
+  return summary;
 }
 
 void FlopCounter::incrementMetric(std::size_t handle, const PerformanceEstimate& data) {

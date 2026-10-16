@@ -10,6 +10,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Common/Json.h"
 #include "Equations/Datastructures.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/BasicTypedefs.h"
@@ -104,6 +105,29 @@ void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMa
   }
 }
 
+//! @brief The clusters of the run, for its summary.
+json::Value ltsSection(const ClusterLayout& layout) {
+  json::Value section;
+  section["minimumTimestep"] = layout.minimumTimestep;
+  section["rates"] = json::Value::arrayOf(layout.rates);
+  if (layout.report.has_value()) {
+    section["minimumCellTimestep"] = layout.report->minimumCellTimestep;
+    section["wiggleFactor"] = layout.report->wiggleFactor;
+  }
+  auto& clusters = section["clusters"] = json::Value::array();
+  for (std::size_t id = 0; id < layout.globalClusterCount; ++id) {
+    auto& cluster = clusters.push(json::Value::object());
+    cluster["id"] = id;
+    cluster["timestep"] = layout.timestepRate(id);
+    cluster["updateFactor"] = layout.clusterRate(id);
+    if (layout.report.has_value()) {
+      cluster["cells"] = layout.report->cells.at(id);
+      cluster["dynamicRuptureFaces"] = layout.report->dynamicRuptureFaces.at(id);
+    }
+  }
+  return section;
+}
+
 void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.parameters();
   const auto& meshReader = seissolInstance.meshReader();
@@ -122,6 +146,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       effectiveRates, seissolInstance.meshReader(), seissolInstance.timestepScale(), true);
 
   seissolInstance.memoryManager().setClusterLayout(clusterLayout);
+  seissolInstance.runSummary()["lts"] = ltsSection(clusterLayout);
 
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);

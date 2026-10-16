@@ -8,6 +8,8 @@
 
 #include "BuildInfo.h"
 #include "Common/ConfigRegistry.h"
+#include "Common/Filesystem.h"
+#include "Common/Json.h"
 #include "Common/RunId.h"
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/ParameterOverrides.h"
@@ -22,8 +24,10 @@
 #include <exception>
 #include <fty/fty.hpp>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utils/args.h>
 #include <utils/env.h>
 #include <utils/logger.h>
@@ -98,6 +102,30 @@ std::vector<std::string> extractOverrides(int& argc, char** argv) {
   argc = kept;
   argv[argc] = nullptr;
   return overrides;
+}
+
+/**
+ * How the run was started, for its summary.
+ */
+json::Value invocation(const char* executable,
+                       const std::string& parameterFile,
+                       const std::vector<initializer::parameters::ParameterOverride>& overrides,
+                       const std::optional<std::string>& checkpoint) {
+  json::Value value;
+  std::error_code error;
+  // the executable as it is on disk, which argv[0] need not name
+  const auto self = filesystem::read_symlink("/proc/self/exe", error);
+  value["executable"] = error ? std::string(executable) : self.string();
+  const auto absolute = filesystem::absolute(parameterFile, error);
+  value["parameterFile"] = error ? parameterFile : absolute.string();
+  const auto workingDirectory = filesystem::current_path(error);
+  value["workingDirectory"] = error ? std::string() : workingDirectory.string();
+  auto& given = value["overrides"] = json::Value::object();
+  for (const auto& entry : overrides) {
+    given[entry.name()] = entry.value;
+  }
+  value["checkpoint"] = checkpoint.has_value() ? json::Value(checkpoint.value()) : json::Value();
+  return value;
 }
 
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
@@ -251,6 +279,13 @@ int main(int argc, char* argv[]) {
       // Initialize SeisSol
       seissol::SeisSol seissolInstance(parameters, env);
       seissolInstance.setRunId(runId);
+      seissolInstance.runSummary()["invocation"] = invocation(
+          argv[0],
+          parameterFile,
+          overrides,
+          args.isSet("checkpoint")
+              ? std::make_optional<std::string>(args.getArgument<const char*>("checkpoint"))
+              : std::nullopt);
 
       if (args.isSet("checkpoint")) {
         const auto* checkpointFile = args.getArgument<const char*>("checkpoint");

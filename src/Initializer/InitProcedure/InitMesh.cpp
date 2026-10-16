@@ -12,6 +12,7 @@
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/RunSummary.h"
 #include "Solver/Estimator.h"
 
 #include <Eigen/Core>
@@ -324,7 +325,8 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   seissolInstance.setEffectiveClusterRates(clustering.result().ratios);
 
   watch.pause();
-  watch.printTime("PUML mesh read in:");
+  seissolInstance.runSummary()["time"]["init"]["meshRead"] =
+      monitoring::toJson(watch.printTime("PUML mesh read in:"));
 
 #else  // defined(USE_HDF)
   logError() << "Tried to load a PUML mesh. However, PUML needs SeisSol to be linked against HDF5.";
@@ -391,7 +393,8 @@ void initMesh(seissol::SeisSol& seissolInstance) {
       meshReader, seissolParams.mesh.displacement, seissolParams.mesh.scaling, seissolInstance);
 
   watch.pause();
-  watch.printTime("Mesh initialized in:");
+  seissolInstance.runSummary()["time"]["init"]["mesh"] =
+      monitoring::toJson(watch.printTime("Mesh initialized in:"));
 
   // Call the post mesh initialization hook
   seissol::Modules::callHook<ModuleHook::PostMesh>();

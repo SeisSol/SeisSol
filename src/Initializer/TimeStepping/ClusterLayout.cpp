@@ -49,6 +49,7 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
   MPI_Allreduce(
       MPI_IN_PLACE, &maxLtsId, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, Mpi::mpi.comm());
   MPI_Allreduce(MPI_IN_PLACE, &minimumTimestep, 1, MPI_DOUBLE, MPI_MIN, Mpi::mpi.comm());
+  const double minimumCellTimestep = minimumTimestep;
   if (wiggle == 1) {
     if (infoprint) {
       logInfo() << "Minimum timestep:" << seissol::UnitTime.formatPrefix(minimumTimestep).c_str();
@@ -117,6 +118,15 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
       // clustering histogram for that instead)
       logInfo() << i << ":" << clusters[i] << "," << (clustersDR[i] / 2);
     }
+
+    ClusterLayout::Report report;
+    report.minimumCellTimestep = minimumCellTimestep;
+    report.wiggleFactor = wiggle;
+    report.cells = clusters;
+    for (const auto faces : clustersDR) {
+      report.dynamicRuptureFaces.push_back(faces / 2);
+    }
+    layout.report = report;
   }
 
   return layout;
