@@ -18,8 +18,11 @@
 #include "Initializer/InitProcedure/InitLayout.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Memory.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
+#include "Monitoring/Unit.h"
+#include "Numerical/Statistics.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
@@ -31,9 +34,6 @@
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include "Monitoring/Unit.h"
-#include "Numerical/Statistics.h"
-
 #include <Device/device.h>
 #include <ostream>
 #include <sstream>
@@ -151,6 +151,32 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   }();
 }
 
+/**
+ * @brief The memory the run holds, per rank: the peak of the host memory, and what is allocated on
+ * the device. Collective; prints the host peak as well.
+ */
+json::Value memorySection() {
+  json::Value section;
+  const auto peak = monitoring::peakHostMemory();
+  if (peak.has_value()) {
+    const auto summary = seissol::statistics::parallelSummary(static_cast<double>(peak.value()));
+    logInfo() << "Peak host memory:" << UnitByte.formatPrefix(summary.mean).c_str()
+              << "(per rank; range: [" << UnitByte.formatPrefix(summary.min).c_str() << ","
+              << UnitByte.formatPrefix(summary.max).c_str() << "])";
+    section["hostPeak"] = monitoring::toJson(summary);
+  }
+#ifdef ACL_DEVICE
+  auto& api = device::DeviceInstance::instance().api();
+  section["device"]["occupied"] =
+      monitoring::statisticsOverRanks(static_cast<double>(api.getCurrentlyOccupiedMem()));
+  section["device"]["unified"] =
+      monitoring::statisticsOverRanks(static_cast<double>(api.getCurrentlyOccupiedUnifiedMem()));
+  section["device"]["capacity"] =
+      monitoring::statisticsOverRanks(static_cast<double>(api.getMaxAvailableMem()));
+#endif
+  return section;
+}
+
 //! @brief The configurations the cells of the run compute in, by their names.
 json::Value configurationNames(const seissol::SeisSol& seissolInstance) {
   auto names = json::Value::array();
@@ -187,6 +213,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   initWatch.pause();
   summary["time"]["init"]["total"] =
       monitoring::toJson(initWatch.printTime("Initialization done in:"));
+  summary["memory"]["afterInit"] = memorySection();
 
   seissol::Stopwatch watch;
   logInfo() << "Starting simulation.";
@@ -199,6 +226,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   // make sure everyone is really done
   logInfo() << "Simulation done.";
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  summary["memory"]["atEnd"] = memorySection();
   summary.finish();
 
   closeSeisSol(seissolInstance);

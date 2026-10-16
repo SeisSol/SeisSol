@@ -83,6 +83,10 @@ members of the summary are:
        region its time per rank, iterations, samples and the regression of its time over the iterations
    * - ``performance``
      - hardware and non-zero FLOP and kernel bytes, in total, per second and per category
+   * - ``memory``
+     - per rank, in bytes: the peak of the host memory (``hostPeak``) and, in GPU builds, the device memory occupied,
+       the unified memory occupied and the device capacity (``device``); once after the initialization
+       (``afterInit``) and once at the end (``atEnd``)
 
 FLOP/s counter
 --------------
