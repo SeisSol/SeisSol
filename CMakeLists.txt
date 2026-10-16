@@ -169,6 +169,16 @@ if (MPI)
   target_link_libraries(seissol-common-properties INTERFACE MPI::MPI_C)
 
   target_compile_definitions(seissol-common-properties INTERFACE USE_MPI PARALLEL)
+
+  # PUML counts its exchanges in MPI_Count where the MPI library has the calls of MPI 4 for it. It
+  # tells them from MPI_VERSION, which some libraries that have them do not raise to 4 (Intel MPI
+  # 2021); the CMakeLists.txt of PUML looks for those, but SeisSol takes the headers of PUML without
+  # it, so it looks here
+  include(${CMAKE_CURRENT_SOURCE_DIR}/submodules/PUML/cmake/PumlMpiLargeCount.cmake)
+  puml_mpi_has_large_count(SEISSOL_MPI_HAS_LARGE_COUNT MPI::MPI_C)
+  if (SEISSOL_MPI_HAS_LARGE_COUNT)
+    target_compile_definitions(seissol-common-properties INTERFACE PUML_MPI_LARGE_COUNT)
+  endif()
 endif()
 
 if (NUMA_AWARE_PINNING)

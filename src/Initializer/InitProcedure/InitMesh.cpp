@@ -301,7 +301,6 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   }();
 
   const seissol::initializer::ClusteringConfig config{
-      boundaryFormat,
       seissolParams.timeStepping.lts.getRate(),
       seissolParams.timeStepping.vertexWeight.weightElement,
       seissolParams.timeStepping.vertexWeight.weightDynamicRupture,

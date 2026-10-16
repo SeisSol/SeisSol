@@ -59,14 +59,16 @@ struct CellToVertexArray {
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF
-  /// The cells of a PUML mesh before PUMLReader::getMesh(), with their vertices in the given
-  /// (canonical) order rather than in the order of the mesh file. The array refers to
-  /// vertexOrders, which therefore has to outlive it.
+  /// The cells of a PUML mesh before PUMLReader::getMesh(), which PUMLReader::read read with
+  /// `arrays`, with their vertices in the given (canonical) order rather than in the order of the
+  /// mesh file. The array refers to vertexOrders, which therefore has to outlive it.
   static CellToVertexArray
       fromPUML(const seissol::geometry::PumlMesh& mesh,
+               const seissol::geometry::PumlCellArrays& arrays,
                const std::vector<seissol::geometry::VertexOrder>& vertexOrders);
   static CellToVertexArray
       fromPUML(const seissol::geometry::PumlMesh& mesh,
+               const seissol::geometry::PumlCellArrays& arrays,
                std::vector<seissol::geometry::VertexOrder>&& vertexOrders) = delete;
 #endif
   static CellToVertexArray
