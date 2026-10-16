@@ -492,12 +492,30 @@ class ADERDGBase(ABC):
                 )
             )
 
+        # A fold keeps the entries its structures reach: those of its own
+        # coefficient, in any direction, for the fold of one coefficient, and
+        # those of every coefficient for the operator at a point. Declared
+        # without them, a fold is a dense block, and every product with it runs
+        # over all of its entries, most of them zero.
+        foldPatterns = []
+        for a in range(count):
+            pattern = np.zeros(tuple(starSpp.shape), dtype=bool)
+            for entry in perCoefficient[a]:
+                pattern[entry.row, entry.column] = True
+            foldPatterns.append(pattern)
+        operatorPattern = np.zeros(tuple(starSpp.shape), dtype=bool)
+        for pattern in foldPatterns:
+            operatorPattern |= pattern
+
         # the Jacobian rows are a per-cell constant, so the fold happens once
         # and is reused by every step of the chain
         self.structureFolded = [
             [
                 Tensor(
-                    f"structureFolded({dim},{a})", tuple(starSpp.shape), temporary=True
+                    f"structureFolded({dim},{a})",
+                    tuple(starSpp.shape),
+                    spp=foldPatterns[a],
+                    temporary=True,
                 )
                 for a in range(count)
             ]
@@ -511,10 +529,14 @@ class ADERDGBase(ABC):
             kwargs.get("material_operator", coefficients.OPERATOR_FORMS[0])
             == "assembled"
         )
+        pointPattern = np.broadcast_to(
+            operatorPattern, (npoints,) + tuple(starSpp.shape)
+        ).copy()
         self.starAtPoint = [
             Tensor(
                 f"starAtPoint({dim})",
                 (npoints,) + tuple(starSpp.shape),
+                spp=pointPattern,
                 temporary=True,
             )
             for dim in range(3)
