@@ -97,18 +97,29 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
   // set g
   seissolInstance.gravitationSetup().acceleration = seissolParams.model.gravitationalAcceleration;
 
+  // the stages that do not time themselves are timed here; the summary gets all of them
+  const auto timed = [&](const char* name, const char* message, auto&& stage) {
+    seissol::Stopwatch watch;
+    watch.start();
+    stage(seissolInstance);
+    watch.pause();
+    summary["time"]["init"][name] = monitoring::toJson(watch.printTime(message));
+  };
+
   // initialization procedure
   summary.setStage("init.mesh");
   seissol::initializer::initprocedure::initMesh(seissolInstance);
   summary.setStage("init.layout");
-  seissol::initializer::initprocedure::initLayout(seissolInstance);
+  timed("layout", "Layout initialized in:", seissol::initializer::initprocedure::initLayout);
   summary["mesh"] = meshSection(seissolInstance);
   summary.setStage("init.model");
   seissol::initializer::initprocedure::initModel(seissolInstance);
   summary.setStage("init.sideConditions");
-  seissol::initializer::initprocedure::initSideConditions(seissolInstance);
+  timed("sideConditions",
+        "Side conditions initialized in:",
+        seissol::initializer::initprocedure::initSideConditions);
   summary.setStage("init.io");
-  seissol::initializer::initprocedure::initIO(seissolInstance);
+  timed("io", "Output initialized in:", seissol::initializer::initprocedure::initIO);
 
   // synchronize data to device
   seissolInstance.memoryManager().synchronizeTo(seissol::initializer::AllocationPlace::Device);
@@ -165,12 +176,17 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   summary["configurations"] = configurationNames(seissolInstance);
   summary.start(seissolInstance.parameters().output.prefix, seissolInstance.runId());
 
+  seissol::Stopwatch initWatch;
+  initWatch.start();
   initSeisSol(seissolInstance);
   reportHardwareRelatedStatus(seissolInstance);
 
   // just put a barrier here to make sure everyone is synched
   logInfo() << "Finishing initialization...";
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  initWatch.pause();
+  summary["time"]["init"]["total"] =
+      monitoring::toJson(initWatch.printTime("Initialization done in:"));
 
   seissol::Stopwatch watch;
   logInfo() << "Starting simulation.";

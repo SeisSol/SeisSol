@@ -71,9 +71,10 @@ members of the summary are:
      - the clusters: timestep, update factor, cells and dynamic rupture faces each, and the smallest cell timestep
        before and after the wiggle factor
    * - ``time``
-     - ``init``: reading the mesh (``meshRead``), setting it up (``mesh``, which includes reading it) and setting up
-       the model (``model``); ``simulation``: the initial output (``initialIo``), the time up to the last epoch
-       (``elapsed``), and ``total``, ``compute`` and ``io`` as in the log
+     - ``init``: reading the mesh (``meshRead``), setting it up (``mesh``, which includes reading it), laying out the
+       cells (``layout``), setting up the model (``model``), the side conditions (``sideConditions``) and the output
+       (``io``), and the whole initialization (``total``); ``simulation``: the initial output (``initialIo``), the time
+       up to the last epoch (``elapsed``), and ``total``, ``compute`` and ``io`` as in the log
    * - ``simulation``
      - start and end time, the time reached, the share of the simulation done, the number of epochs, and whether it
        was aborted (e.g. by an energy criterion)
