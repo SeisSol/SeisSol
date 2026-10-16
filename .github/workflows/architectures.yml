@@ -1,0 +1,132 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: architectures
+on:
+  - push
+  - workflow_dispatch
+
+# a push to a branch replaces the run of the push before it; on master, every push runs to its end
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name == 'master' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build SeisSol on Linux on 64-bit ARM, with GCC and the kernels of PSpaMM, in the configurations
+  # of the set ci-cpu, and run all its tests:
+  #
+  # - sve128, for SVE with vectors of 128 bits, as the Neoverse N2 of the runner has them, and as
+  #   Neoverse V2 has them (Grace, Graviton4);
+  # - neon, for ARM without SVE, here for a Neoverse N1 (Graviton2, Altra), which the N2 runs code
+  #   for. The macOS job builds neon as well, with Clang and the assembler of LLVM; here, the kernels
+  #   go through the assembler of GNU.
+  # ---------------------------------------------------------------------------
+  aarch64:
+    name: aarch64<${{ matrix.setup.host-arch }}>
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        setup:
+          - host-arch: sve128
+            cpu: neoverse-n2
+          - host-arch: neon
+            cpu: neoverse-n1
+    steps:
+      - name: check-sve
+        if: ${{ matrix.setup.host-arch == 'sve128' }}
+        run: |
+          # the kernels of sve128 take vectors of 128 bits (16 bytes); a runner with others would
+          # fail their tests for that
+          length=$(cat /proc/sys/abi/sve_default_vector_length 2>/dev/null || echo none)
+          if [ "${length}" != 16 ]; then
+            echo "::error::The runner has SVE vectors of ${length} bytes, sve128 needs 16."
+            exit 1
+          fi
+
+      - name: apt-get
+        run: |
+          sudo apt-get update
+          # Fortran and LAPACK for the poroelastic configurations
+          sudo apt-get install ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libnuma-dev libopenmpi-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip gfortran libblas-dev liblapack-dev
+
+          # h5py for the verification tests, which write their meshes with it
+          sudo pip3 install setuptools numpy h5py --break-system-packages
+          sudo pip3 install git+https://github.com/SeisSol/PSpaMM.git --break-system-packages
+          sudo mkdir -p /opt/dependencies
+
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+
+      - name: build-easi
+        run: |
+          mkdir build && cd build
+          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
+          sudo ninja install
+
+      - id: checkout
+        name: checkout-seissol
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - id: build
+        name: build-seissol
+        run: |
+          mkdir build && cd build
+
+          export CMAKE_PREFIX_PATH=/opt/dependencies
+
+          # The architecture the kernels are generated for (HOST_ARCH) sets no flags of the compiler
+          # on ARM; -mcpu does, for the code GCC generates and for the instructions its assembler
+          # takes. The snapshot references of the verification tests come from another
+          # environment, which this one deviates from by rounding, as the CPU CI
+          # (scripts/compile/compile-variants.yaml).
+          cmake .. -GNinja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_FLAGS="-mcpu=${{ matrix.setup.cpu }}" \
+            -DCMAKE_CXX_FLAGS="-mcpu=${{ matrix.setup.cpu }}" \
+            -DHOST_ARCH=${{ matrix.setup.host-arch }} \
+            -DGEMM_TOOLS_LIST=PSpaMM \
+            -DCONFIGS=ci-cpu \
+            -DNETCDF=OFF \
+            -DGRAPH_PARTITIONING_LIBS=none \
+            -DTESTING=ON \
+            -DTESTING_GENERATED=ON \
+            -DSEISSOL_SNAPSHOT_TOLERANCE_DOUBLE=1e-9
+
+          ninja -j "$(nproc)"
+
+      - id: test
+        name: test-seissol
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          # allow oversubscribe for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+
+          cd build
+          ctest -j "$(nproc)" --output-on-failure --output-junit junit.xml
+
+      - name: upload-test-logs
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        with:
+          name: aarch64-${{ matrix.setup.host-arch }}-logs
+          path: |
+            build/junit*.xml
+            build/Testing/Temporary/LastTest*.log
+            build/tests/verification/*/work/*/seissol.log
+          if-no-files-found: ignore
