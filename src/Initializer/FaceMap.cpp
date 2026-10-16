@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -93,6 +94,16 @@ FaceMap parseFaceMap(const YAML::Node& node) {
   }
 
   return map;
+}
+
+FaceMap readFaceMap(const std::string& path) {
+  YAML::Node node;
+  try {
+    node = YAML::LoadFile(path);
+  } catch (const std::exception& error) {
+    logError() << "Could not read the face map file" << path << ":" << std::string(error.what());
+  }
+  return parseFaceMap(node);
 }
 
 FaceMap defaultFaceMap() {

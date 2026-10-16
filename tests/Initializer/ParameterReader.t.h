@@ -7,8 +7,10 @@
 
 #include <doctest.h>
 
+#include "Common/Filesystem.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
+#include <fstream>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -215,6 +217,44 @@ TEST_CASE("ParameterReader hasField" * doctest::test_suite("initializer")) {
   CHECK(reader.hasField("alpha"));
   CHECK(reader.hasField("beta"));
   CHECK_FALSE(reader.hasField("gamma"));
+}
+
+// ---------------------------------------------------------------------------
+// ParameterReader: readPath
+// ---------------------------------------------------------------------------
+
+TEST_CASE("ParameterReader readPath" * doctest::test_suite("initializer")) {
+  const std::string directory = "readpath-test";
+  seissol::filesystem::create_directories(directory);
+  {
+    std::ofstream file(directory + "/material.yaml");
+    file << "!ConstantMap\n";
+  }
+  const YAML::Node node = YAML::Load(R"(
+    material: material.yaml
+    missing: absent.yaml
+    empty: ''
+  )");
+  // a parameter file in a directory of its own, as a job script names it
+  ParameterReader reader(node, directory + "/parameters.par", false);
+
+  SUBCASE("A file next to the parameter file") {
+    const auto path = reader.readPath("material");
+    REQUIRE(path.has_value());
+    CHECK(path.value() == seissol::filesystem::canonical(directory + "/material.yaml").string());
+  }
+
+  SUBCASE("A file that does not exist comes back as given") {
+    CHECK(reader.readPath("missing") == std::optional<std::string>("absent.yaml"));
+  }
+
+  SUBCASE("An empty name stays empty") {
+    CHECK(reader.readPath("empty") == std::optional<std::string>(""));
+  }
+
+  SUBCASE("A name that is not given") { CHECK_FALSE(reader.readPath("other").has_value()); }
+
+  seissol::filesystem::remove_all(directory);
 }
 
 } // namespace seissol::unit_test

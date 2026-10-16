@@ -294,8 +294,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   const auto faceMap = [&]() {
     const auto faceMapFile = seissolParams.mesh.faceMapFile;
     if (faceMapFile.has_value()) {
-      const auto yamlNode = YAML::Load(faceMapFile.value());
-      return parseFaceMap(yamlNode);
+      return readFaceMap(faceMapFile.value());
     } else {
       return defaultFaceMap();
     }
