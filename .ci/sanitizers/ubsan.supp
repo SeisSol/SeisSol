@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# Nothing is suppressed: undefined behavior that UBSan reports is to be fixed, or to be explained
+# here, next to its entry.
