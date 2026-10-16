@@ -18,11 +18,13 @@
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
+#include <limits>
 #include <mpi.h>
 #include <set>
 #include <string>
@@ -183,6 +185,7 @@ json::Value relevantEnvironment() {
 void RunSummary::start(const std::string& prefix, const std::string& runId) {
   path_ = prefix + "-summary.json";
   epochPath_ = prefix + "-epochs.csv";
+  rankPath_ = prefix + "-ranks.csv";
   runId_ = runId;
 
   // the header first, so that a reader sees what the file is before anything else
@@ -224,6 +227,82 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
 void RunSummary::setStage(std::string_view stage) {
   root_["stage"] = std::string(stage);
   flush();
+}
+
+void RunSummary::setRankValue(std::string_view column, double localValue) {
+  for (auto& [name, value] : rankValues_) {
+    if (name == column) {
+      value = localValue;
+      return;
+    }
+  }
+  rankValues_.emplace_back(std::string(column), localValue);
+}
+
+json::Value RunSummary::overRanks(std::string_view column, double localValue) {
+  setRankValue(column, localValue);
+  return statisticsOverRanks(localValue);
+}
+
+void RunSummary::writeRanks() {
+  auto& mpi = seissol::Mpi::mpi;
+
+  // the columns of rank 0, which every rank fills in, in its order
+  std::vector<char> names;
+  for (const auto& [name, _] : rankValues_) {
+    names.insert(names.end(), name.begin(), name.end());
+    names.push_back('\n');
+  }
+  mpi.broadcastContainer(names, 0);
+  std::vector<std::string> columns;
+  std::string current;
+  for (const auto character : names) {
+    if (character == '\n') {
+      columns.push_back(current);
+      current.clear();
+    } else {
+      current.push_back(character);
+    }
+  }
+
+  std::vector<double> values(columns.size(), std::numeric_limits<double>::quiet_NaN());
+  for (std::size_t i = 0; i < columns.size(); ++i) {
+    for (const auto& [name, value] : rankValues_) {
+      if (name == columns[i]) {
+        values[i] = value;
+      }
+    }
+  }
+  const auto rankValues = mpi.collectContainer(values);
+  const auto localRanks = mpi.collect(mpi.sharedMemMpiRank());
+
+  if (!started_ || mpi.rank() != 0) {
+    return;
+  }
+  const auto& hostNames = mpi.getHostNames();
+  std::size_t hostWidth = 1;
+  for (const auto& hostName : hostNames) {
+    hostWidth = std::max(hostWidth, hostName.size());
+  }
+
+  io::instance::point::Csv table("ranks");
+  table.addColumn<int>("rank");
+  table.addTextColumn("host", hostWidth);
+  table.addColumn<int>("localRank");
+  for (const auto& column : columns) {
+    table.addColumn<double>(column);
+  }
+  table.addTextColumn("runId", RunIdLength);
+  for (int rank = 0; rank < mpi.size(); ++rank) {
+    table.addCell<int>(rank);
+    table.addText(static_cast<std::size_t>(rank) < hostNames.size() ? hostNames[rank] : "");
+    table.addCell<int>(localRanks[rank]);
+    for (const auto value : rankValues[rank]) {
+      table.addCell<double>(value);
+    }
+    table.addText(runId_);
+  }
+  table.writeFile(rankPath_);
 }
 
 void RunSummary::addEpoch(const EpochRecord& epoch, double endTime) {

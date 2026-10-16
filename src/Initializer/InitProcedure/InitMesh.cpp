@@ -324,9 +324,9 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   seissolInstance.setTimestepScale(clustering.result().wiggleFactor);
   seissolInstance.setEffectiveClusterRates(clustering.result().ratios);
 
-  watch.pause();
-  seissolInstance.runSummary()["time"]["init"]["meshRead"] =
-      monitoring::toJson(watch.printTime("PUML mesh read in:"));
+  auto& summary = seissolInstance.runSummary();
+  summary.setRankValue("initMeshRead", watch.pause());
+  summary["time"]["init"]["meshRead"] = monitoring::toJson(watch.printTime("PUML mesh read in:"));
 
 #else  // defined(USE_HDF)
   logError() << "Tried to load a PUML mesh. However, PUML needs SeisSol to be linked against HDF5.";
@@ -392,9 +392,9 @@ void initMesh(seissol::SeisSol& seissolInstance) {
   postMeshread(
       meshReader, seissolParams.mesh.displacement, seissolParams.mesh.scaling, seissolInstance);
 
-  watch.pause();
-  seissolInstance.runSummary()["time"]["init"]["mesh"] =
-      monitoring::toJson(watch.printTime("Mesh initialized in:"));
+  auto& summary = seissolInstance.runSummary();
+  summary.setRankValue("initMesh", watch.pause());
+  summary["time"]["init"]["mesh"] = monitoring::toJson(watch.printTime("Mesh initialized in:"));
 
   // Call the post mesh initialization hook
   seissol::Modules::callHook<ModuleHook::PostMesh>();

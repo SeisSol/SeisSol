@@ -155,6 +155,9 @@ class TimeManager {
 
   json::Value printComputationTime();
 
+  //! The time this rank spent in the compute kernels so far.
+  [[nodiscard]] double kernelTime() const { return loopStatistics_.kernelTime(); }
+
   void freeDynamicResources();
 
   void synchronizeTo(seissol::initializer::AllocationPlace place);

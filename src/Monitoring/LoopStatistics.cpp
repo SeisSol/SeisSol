@@ -74,11 +74,22 @@ void LoopStatistics::reset() {
   }
 }
 
+double LoopStatistics::kernelTime() const {
+  double time = 0.0;
+  for (const auto& region : regions_) {
+    // the regions that are not, such as the actor states, overlap with the kernels
+    if (region.includeInSummary) {
+      time += region.variables.y;
+    }
+  }
+  return time;
+}
+
 json::Value LoopStatistics::printSummary(MPI_Comm comm) {
   const auto nRegions = regions_.size();
   constexpr int NumSumComponents = 6;
   auto sums = std::vector<double>(NumSumComponents * nRegions);
-  double totalTimePerRank = 0.0;
+  const double totalTimePerRank = kernelTime();
 
   // Helper functions to access sums
   auto getNumIters = [&sums](std::size_t region) -> double& {
@@ -107,11 +118,6 @@ json::Value LoopStatistics::printSummary(MPI_Comm comm) {
     getTime(region) = regions_[region].variables.y;
     getTimeSquared(region) = regions_[region].variables.y2;
     getNumberOfSamples(region) = regions_[region].variables.n;
-
-    // Make sure that events that lead to duplicate accounting are ignored
-    if (regions_[region].includeInSummary) {
-      totalTimePerRank += regions_[region].variables.y;
-    }
   }
 
   int rank = 0;

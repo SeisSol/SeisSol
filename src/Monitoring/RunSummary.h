@@ -16,6 +16,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace seissol::monitoring {
 
@@ -43,7 +45,8 @@ struct EpochRecord {
  * that ends early, by an error or by the time limit of its job, leaves the summary of the last
  * stage it reached: its status stays "running", and its stage says how far it got.
  *
- * Next to it, <prefix>-epochs.csv holds a row per simulation epoch, which the summary only counts.
+ * Next to it, <prefix>-epochs.csv holds a row per simulation epoch, which the summary only counts,
+ * and <prefix>-ranks.csv a row per rank, with the values of which the summary gives the statistics.
  *
  * Every rank may fill in content; only rank 0's is written. What the statistics over the ranks
  * give is complete on rank 0 only, which is all that is needed.
@@ -74,6 +77,28 @@ class RunSummary {
   void setStage(std::string_view stage);
 
   /**
+   * @brief Records @p localValue , the value of this rank, in the column @p column of the table of
+   * the ranks.
+   *
+   * Every rank records the same columns; recording one again replaces the value.
+   */
+  void setRankValue(std::string_view column, double localValue);
+
+  /**
+   * @brief The statistics of @p localValue over the ranks, as statisticsOverRanks() gives them,
+   * with @p localValue recorded in the column @p column of the table of the ranks. Collective.
+   */
+  json::Value overRanks(std::string_view column, double localValue);
+
+  /**
+   * @brief Writes the table of the ranks, from rank 0. Collective.
+   *
+   * A row per rank, with its host and its rank on the node, and a column per value recorded, in
+   * the order rank 0 recorded them first; a value a rank did not record is written as nan.
+   */
+  void writeRanks();
+
+  /**
    * @brief Records a simulation epoch: a row of the epoch table, and the progress in the summary.
    *
    * Both are written out every so often rather than after every epoch, which can be frequent; a
@@ -95,12 +120,14 @@ class RunSummary {
 
   std::string path_;
   std::string epochPath_;
+  std::string rankPath_;
   std::string runId_;
   json::Value root_;
   bool started_{false};
   std::size_t epochCount_{0};
   std::optional<io::instance::point::Csv> epochs_;
   std::chrono::steady_clock::time_point lastFlush_;
+  std::vector<std::pair<std::string, double>> rankValues_;
 };
 
 /**

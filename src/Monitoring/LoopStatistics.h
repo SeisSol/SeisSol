@@ -43,6 +43,9 @@ class LoopStatistics {
    */
   json::Value printSummary(MPI_Comm comm);
 
+  //! @brief The time this rank spent in the regions that count towards the total, the kernels.
+  [[nodiscard]] double kernelTime() const;
+
   private:
   struct StatisticVariables {
     double x = 0;

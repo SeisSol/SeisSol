@@ -96,6 +96,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   double lastIo = ioStopwatch.pause();
   double lastCompute = 0;
 
+  summary.setRankValue("simulationInitialIo", lastIo);
   summary["time"]["simulation"]["initialIo"] =
       monitoring::toJson(Stopwatch::print("Time spent for initial IO:", lastIo));
 
@@ -176,10 +177,13 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // and the writes still under way finish
   Modules::callHook<ModuleHook::SimulationEnd>();
 
-  ioStopwatch.pause();
+  const double ioTime = ioStopwatch.pause();
 
   const double wallTime = simulationStopwatch.pause();
   auto& times = summary["time"]["simulation"];
+  summary.setRankValue("simulationTotal", wallTime);
+  summary.setRankValue("simulationCompute", lastCompute);
+  summary.setRankValue("simulationIo", ioTime);
   const auto totalTime = simulationStopwatch.printTime("Simulation time (total):");
   times["total"] = monitoring::toJson(totalTime);
   times["compute"] = monitoring::toJson(computeStopwatch.printTime("Simulation time (compute):"));
@@ -188,6 +192,11 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   summary["simulation"]["aborted"] = aborted_;
 
   summary["kernels"] = seissolInstance.timeManager().printComputationTime();
+  const double kernelTime = seissolInstance.timeManager().kernelTime();
+  summary.setRankValue("kernels", kernelTime);
+  // what the compute time holds besides the kernels: waiting for the other clusters and ranks, the
+  // communication on the main thread, and the scheduling of the clusters
+  times["outsideKernels"] = summary.overRanks("outsideKernels", lastCompute - kernelTime);
 
   seissolInstance.analysisWriter().printAnalysis(currentTime_);
 
@@ -196,6 +205,17 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // the work the simulation did, over all ranks: cell updates, which compare across orders,
   // equations and machines where FLOP do not
   auto updates = seissolInstance.timeManager().updates();
+  double localCellUpdates = 0;
+  double localDuplicateUpdates = 0;
+  double localFaceUpdates = 0;
+  for (std::size_t cluster = 0; cluster < updates.cells.size(); ++cluster) {
+    localCellUpdates += updates.cells[cluster];
+    localDuplicateUpdates += updates.duplicateCells[cluster];
+    localFaceUpdates += updates.dynamicRuptureFaces[cluster];
+  }
+  summary.setRankValue("cellUpdates", localCellUpdates);
+  summary.setRankValue("duplicateCellUpdates", localDuplicateUpdates);
+  summary.setRankValue("dynamicRuptureFaceUpdates", localFaceUpdates);
   for (auto* counts : {&updates.cells, &updates.duplicateCells, &updates.dynamicRuptureFaces}) {
     MPI_Allreduce(MPI_IN_PLACE,
                   counts->data(),

@@ -72,6 +72,7 @@ void reportDeviceMemoryStatus() {
 //! @brief How the cells are spread over the ranks. Collective.
 json::Value meshSection(seissol::SeisSol& seissolInstance) {
   const auto& mesh = seissolInstance.meshReader();
+  auto& summary = seissolInstance.runSummary();
   const auto rank = seissol::Mpi::mpi.rank();
   std::size_t copyCells = 0;
   for (const auto& element : mesh.getElements()) {
@@ -80,13 +81,14 @@ json::Value meshSection(seissol::SeisSol& seissolInstance) {
     }
   }
   json::Value section;
-  section["cells"] =
-      monitoring::statisticsOverRanks(static_cast<double>(mesh.getElements().size()));
-  section["copyCells"] = monitoring::statisticsOverRanks(static_cast<double>(copyCells));
+  section["cells"] = summary.overRanks("cells", static_cast<double>(mesh.getElements().size()));
+  section["copyCells"] = summary.overRanks("copyCells", static_cast<double>(copyCells));
   section["ghostCells"] =
-      monitoring::statisticsOverRanks(static_cast<double>(mesh.linearGhostlayer().size()));
+      summary.overRanks("ghostCells", static_cast<double>(mesh.linearGhostlayer().size()));
   section["faultFaces"] =
-      monitoring::statisticsOverRanks(static_cast<double>(mesh.getFault().size()));
+      summary.overRanks("faultFaces", static_cast<double>(mesh.getFault().size()));
+  section["neighborRanks"] =
+      summary.overRanks("neighborRanks", static_cast<double>(mesh.getMPINeighbors().size()));
   return section;
 }
 
@@ -98,28 +100,32 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
   seissolInstance.gravitationSetup().acceleration = seissolParams.model.gravitationalAcceleration;
 
   // the stages that do not time themselves are timed here; the summary gets all of them
-  const auto timed = [&](const char* name, const char* message, auto&& stage) {
+  const auto timed = [&](const char* name, const char* column, const char* message, auto&& stage) {
     seissol::Stopwatch watch;
     watch.start();
     stage(seissolInstance);
-    watch.pause();
+    summary.setRankValue(column, watch.pause());
     summary["time"]["init"][name] = monitoring::toJson(watch.printTime(message));
   };
 
   // initialization procedure
   summary.setStage("init.mesh");
   seissol::initializer::initprocedure::initMesh(seissolInstance);
-  summary.setStage("init.layout");
-  timed("layout", "Layout initialized in:", seissol::initializer::initprocedure::initLayout);
   summary["mesh"] = meshSection(seissolInstance);
+  summary.setStage("init.layout");
+  timed("layout",
+        "initLayout",
+        "Layout initialized in:",
+        seissol::initializer::initprocedure::initLayout);
   summary.setStage("init.model");
   seissol::initializer::initprocedure::initModel(seissolInstance);
   summary.setStage("init.sideConditions");
   timed("sideConditions",
+        "initSideConditions",
         "Side conditions initialized in:",
         seissol::initializer::initprocedure::initSideConditions);
   summary.setStage("init.io");
-  timed("io", "Output initialized in:", seissol::initializer::initprocedure::initIO);
+  timed("io", "initIo", "Output initialized in:", seissol::initializer::initprocedure::initIO);
 
   // synchronize data to device
   seissolInstance.memoryManager().synchronizeTo(seissol::initializer::AllocationPlace::Device);
@@ -154,12 +160,17 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
 /**
  * @brief The memory the run holds, per rank: the peak of the host memory, and what is allocated on
  * the device. Collective; prints the host peak as well.
+ *
+ * The table of the ranks gets the host peak and the occupied device memory, in the columns named
+ * after @p moment.
  */
-json::Value memorySection() {
+json::Value memorySection(monitoring::RunSummary& runSummary, const std::string& moment) {
   json::Value section;
   const auto peak = monitoring::peakHostMemory();
   if (peak.has_value()) {
-    const auto summary = seissol::statistics::parallelSummary(static_cast<double>(peak.value()));
+    const auto localPeak = static_cast<double>(peak.value());
+    runSummary.setRankValue("hostMemory" + moment, localPeak);
+    const auto summary = seissol::statistics::parallelSummary(localPeak);
     logInfo() << "Peak host memory:" << UnitByte.formatPrefix(summary.mean).c_str()
               << "(per rank; range: [" << UnitByte.formatPrefix(summary.min).c_str() << ","
               << UnitByte.formatPrefix(summary.max).c_str() << "])";
@@ -167,8 +178,8 @@ json::Value memorySection() {
   }
 #ifdef ACL_DEVICE
   auto& api = device::DeviceInstance::instance().api();
-  section["device"]["occupied"] =
-      monitoring::statisticsOverRanks(static_cast<double>(api.getCurrentlyOccupiedMem()));
+  section["device"]["occupied"] = runSummary.overRanks(
+      "deviceMemory" + moment, static_cast<double>(api.getCurrentlyOccupiedMem()));
   section["device"]["unified"] =
       monitoring::statisticsOverRanks(static_cast<double>(api.getCurrentlyOccupiedUnifiedMem()));
   section["device"]["capacity"] =
@@ -210,10 +221,10 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   // just put a barrier here to make sure everyone is synched
   logInfo() << "Finishing initialization...";
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
-  initWatch.pause();
+  summary.setRankValue("initTotal", initWatch.pause());
   summary["time"]["init"]["total"] =
       monitoring::toJson(initWatch.printTime("Initialization done in:"));
-  summary["memory"]["afterInit"] = memorySection();
+  summary["memory"]["afterInit"] = memorySection(summary, "AfterInit");
 
   seissol::Stopwatch watch;
   logInfo() << "Starting simulation.";
@@ -226,7 +237,8 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   // make sure everyone is really done
   logInfo() << "Simulation done.";
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
-  summary["memory"]["atEnd"] = memorySection();
+  summary["memory"]["atEnd"] = memorySection(summary, "AtEnd");
+  summary.writeRanks();
   summary.finish();
 
   closeSeisSol(seissolInstance);

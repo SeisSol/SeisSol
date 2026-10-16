@@ -34,6 +34,8 @@ output (``OutputFile`` is the prefix):
   points (the times outputs are written at): its simulated time span, its wall time (minimum, mean and maximum over the
   ranks), its compute and blocking IO time (mean and maximum), and the FLOP/s and kernel bytes/s of the epoch,
   summed over the ranks.
+* ``<prefix>-ranks.csv``, a row per rank, written at the end of the run: the values of the rank that the summary gives
+  the statistics of over the ranks (see below).
 
 Rank 0 writes the summary when the run starts, at every stage of the initialization, every ten seconds or so during
 the simulation, and at its end, each time replacing the file at once, so that a reader always finds a complete file.
@@ -66,8 +68,8 @@ members of the summary are:
    * - ``configurations``
      - the configurations the run computes in
    * - ``mesh``
-     - cells, copy cells, ghost cells and fault faces per rank; a fault face between two ranks counts on both, which
-       both compute it
+     - cells, copy cells, ghost cells, fault faces and neighbor ranks (the ranks it exchanges cells with) per rank; a
+       fault face between two ranks counts on both, which both compute it
    * - ``lts``
      - the clusters: timestep, update factor, cells and dynamic rupture faces each, and, at the end, the updates of
        their cells (``cellUpdates``), of the further copies of their copy cells (``duplicateCellUpdates``) and of
@@ -78,7 +80,9 @@ members of the summary are:
      - ``init``: reading the mesh (``meshRead``), setting it up (``mesh``, which includes reading it), laying out the
        cells (``layout``), setting up the model (``model``), the side conditions (``sideConditions``) and the output
        (``io``), and the whole initialization (``total``); ``simulation``: the initial output (``initialIo``), the time
-       up to the last epoch (``elapsed``), and ``total``, ``compute`` and ``io`` as in the log
+       up to the last epoch (``elapsed``), ``total``, ``compute`` and ``io`` as in the log, and the compute time outside
+       of the compute kernels (``outsideKernels``): the waiting for other clusters and ranks, and the communication
+       and scheduling on the main thread
    * - ``simulation``
      - start and end time, the time reached, the share of the simulation done, the number of epochs, whether it
        was aborted (e.g. by an energy criterion), and the cell updates, duplicate cell updates and dynamic rupture
@@ -93,6 +97,14 @@ members of the summary are:
      - per rank, in bytes: the peak of the host memory (``hostPeak``) and, in GPU builds, the device memory occupied,
        the unified memory occupied and the device capacity (``device``); once after the initialization
        (``afterInit``) and once at the end (``atEnd``)
+
+The table of the ranks has a column ``rank``, its ``host`` and its rank on the node (``localRank``), and then, in the
+order the run gets them: ``initMeshRead``, ``initMesh``, ``cells``, ``copyCells``, ``ghostCells``, ``faultFaces``,
+``neighborRanks``, ``initLayout``, ``initModel``, ``initSideConditions``, ``initIo``, ``initTotal``,
+``hostMemoryAfterInit``, ``simulationInitialIo``, ``simulationTotal``, ``simulationCompute``, ``simulationIo``,
+``kernels`` (the time in the compute kernels), ``outsideKernels``, ``cellUpdates``, ``duplicateCellUpdates``,
+``dynamicRuptureFaceUpdates`` and ``hostMemoryAtEnd``; in GPU builds, ``deviceMemoryAfterInit`` and ``deviceMemoryAtEnd`` (the device memory occupied)
+as well. ``initMeshRead`` is there for PUML meshes only. The last column is ``runId``.
 
 .. _cell-updates:
 

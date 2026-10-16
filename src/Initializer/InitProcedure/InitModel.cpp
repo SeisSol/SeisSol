@@ -466,9 +466,9 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Initialize cell-local matrices.";
   initializeCellMatrices(seissolInstance);
 
-  watch.pause();
-  seissolInstance.runSummary()["time"]["init"]["model"] =
-      monitoring::toJson(watch.printTime("Model initialized in:"));
+  auto& summary = seissolInstance.runSummary();
+  summary.setRankValue("initModel", watch.pause());
+  summary["time"]["init"]["model"] = monitoring::toJson(watch.printTime("Model initialized in:"));
 
   // Call the post mesh initialization hook
   seissol::Modules::callHook<ModuleHook::PostModel>();

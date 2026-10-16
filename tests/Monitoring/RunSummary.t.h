@@ -11,6 +11,7 @@
 #include "IO/Instance/Point/Csv.h"
 #include "Monitoring/RunSummary.h"
 #include "Numerical/Statistics.h"
+#include "Parallel/MPI.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -115,6 +116,40 @@ TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
 
   seissol::filesystem::remove(summaryPath);
   seissol::filesystem::remove(epochPath);
+}
+
+TEST_CASE("Run summary rank table" * doctest::test_suite("monitoring")) {
+  const std::string prefix = "runsummary-ranks-test";
+  const std::string runId = "123e4567-e89b-42d3-a456-426614174000";
+  const auto rankPath = prefix + "-ranks.csv";
+  seissol::filesystem::remove(prefix + "-summary.json");
+  seissol::filesystem::remove(rankPath);
+
+  monitoring::RunSummary summary;
+  summary.start(prefix, runId);
+  summary.setRankValue("cells", 1.0);
+  const auto statistics = summary.overRanks("cellUpdates", 2.0);
+  CHECK(statistics.find("min")->asDouble() == 2.0);
+  // recording a column again replaces its value, in its place
+  summary.setRankValue("cells", 3.0);
+  summary.writeRanks();
+
+  const auto table = io::instance::point::readCsv(rankPath);
+  REQUIRE(table.header.size() == 6);
+  CHECK(table.header[0] == "rank");
+  CHECK(table.header[1] == "host");
+  CHECK(table.header[2] == "localRank");
+  CHECK(table.header[3] == "cells");
+  CHECK(table.header[4] == "cellUpdates");
+  CHECK(table.header[5] == "runId");
+  REQUIRE(table.rows.size() == static_cast<std::size_t>(seissol::Mpi::mpi.size()));
+  CHECK(table.rows[0][table.column("rank")] == "0");
+  CHECK(std::stod(table.rows[0][table.column("cells")]) == 3.0);
+  CHECK(std::stod(table.rows[0][table.column("cellUpdates")]) == 2.0);
+  CHECK(table.rows[0][table.column("runId")] == runId);
+
+  seissol::filesystem::remove(prefix + "-summary.json");
+  seissol::filesystem::remove(rankPath);
 }
 
 } // namespace seissol::unit_test
