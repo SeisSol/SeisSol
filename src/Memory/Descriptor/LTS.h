@@ -152,6 +152,11 @@ struct LTS {
 
   struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
 
+  /// What the faces of a weight-adjusted cell lift without material within one step, until the
+  /// cell applies the inverse weight of its medium to it (see WeightAdjustable). Every cell of a
+  /// rank has one where any of them is weight-adjusted; one that is not leaves it alone.
+  struct FluxBuffer : public initializer::Variable<real[tensor::Q::size()]> {};
+
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
                                                         DofsAne,
@@ -190,6 +195,7 @@ struct LTS {
                                                         FlagScratch,
                                                         QStressNodalScratch,
                                                         Integrals,
+                                                        FluxBuffer,
                                                         EnergyData,
                                                         ZinvExtra> {};
 
@@ -220,6 +226,12 @@ struct LTS {
       integralMask = LayerMask(Ghost);
     } else {
       integralMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
+    }
+    LayerMask fluxBufferMask;
+    if (settings.weightAdjusted) {
+      fluxBufferMask = LayerMask(Ghost);
+    } else {
+      fluxBufferMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
     }
 
     storage.add<Dofs>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
@@ -280,6 +292,7 @@ struct LTS {
 
     storage.add<EnergyData>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<Integrals>(integralMask, Alignment, allocationModeWP(AllocationPreset::Dofs));
+    storage.add<FluxBuffer>(fluxBufferMask, PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
 
     if constexpr (isDeviceOn()) {
       const auto mode = AllocationMode::DeviceOnly;

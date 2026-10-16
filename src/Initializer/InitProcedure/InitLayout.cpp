@@ -150,8 +150,16 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
                   seissolParams.output.waveFieldParameters.integrationMask.end(),
                   [](const auto& value) { return value; }) ||
       seissolParams.output.waveFieldParameters.computeStrain;
-  const auto settings = SimulationSettings(
-      seissolParams.model.plasticity, needsIntegration, seissolParams.model.materialNodal);
+  // the cells of this rank keep a flux buffer where any of them is weight-adjusted, so that the
+  // ones that are and the ones that are not share their clusters (see WeightAdjustable)
+  const auto weightAdjusted =
+      std::any_of(meshReader.getElements().begin(),
+                  meshReader.getElements().end(),
+                  [](const auto& element) { return element.weightAdjusted; });
+  const auto settings = SimulationSettings(seissolParams.model.plasticity,
+                                           needsIntegration,
+                                           seissolParams.model.materialNodal,
+                                           weightAdjusted);
 
   logInfo() << "Creating mesh layout...";
 
@@ -240,6 +248,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         secondaryCellInformation[index].rank = rank;
         secondaryCellInformation[index].globalId = element.globalId;
         secondaryCellInformation[index].group = element.group;
+        cellInformation[index].weightAdjusted = element.weightAdjusted;
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           secondaryCellInformation[index].neighborRanks[face] = element.neighborRanks[face];
           cellInformation[index].faceTypes[face] = element.boundaries[face];

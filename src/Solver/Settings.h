@@ -14,9 +14,13 @@ struct SimulationSettings {
   /// Whether the material is sampled at the nodal points of each cell, so that
   /// a cell has to keep those samples rather than one value for itself.
   bool materialNodal{false};
+  /// Whether any cell of this rank is weight-adjusted, so that every cell has a flux buffer: the
+  /// cells that are and the ones that are not then share their clusters.
+  bool weightAdjusted{false};
 
-  SimulationSettings(bool plasticity, bool integrate, bool materialNodal)
-      : plasticity(plasticity), integrate(integrate), materialNodal(materialNodal) {}
+  SimulationSettings(bool plasticity, bool integrate, bool materialNodal, bool weightAdjusted)
+      : plasticity(plasticity), integrate(integrate), materialNodal(materialNodal),
+        weightAdjusted(weightAdjusted) {}
 };
 } // namespace seissol
 #endif // SEISSOL_SRC_SOLVER_SETTINGS_H_

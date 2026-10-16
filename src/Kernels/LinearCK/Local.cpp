@@ -29,6 +29,7 @@
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -96,12 +97,21 @@ void Local::computeIntegral(
   const auto& materialData = data.get<LTS::Material>();
   const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
 
+  // A weight-adjusted cell lifts its face terms without material into its flux buffer, which
+  // starts empty here and which the neighbour integral finishes (WeightAdjustable); the volume
+  // term goes to the field either way.
+  real* fluxTarget = data.get<LTS::Dofs>();
+  if (WeightAdjustable && data.get<LTS::CellInformation>().weightAdjusted) {
+    fluxTarget = data.get<LTS::FluxBuffer>();
+    std::fill_n(fluxTarget, tensor::Q::size(), static_cast<real>(0));
+  }
+
   kernel::volume volKrnl = volumeKernelPrototype_;
   volKrnl.Q = data.get<LTS::Dofs>();
   bindVolumeOperands(volKrnl, timeIntegratedDoFs, data, tmp);
 
   kernel::localFlux lfKrnl = localFluxKernelPrototype_;
-  lfKrnl.Q = data.get<LTS::Dofs>();
+  lfKrnl.Q = fluxTarget;
   lfKrnl.I = timeIntegratedDoFs;
   lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
   lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
@@ -118,7 +128,7 @@ void Local::computeIntegral(
 
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
     auto nodalLfKrnl = nodalLfKrnlPrototype_;
-    nodalLfKrnl.Q = data.get<LTS::Dofs>();
+    nodalLfKrnl.Q = fluxTarget;
     nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
     nodalLfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
     nodalLfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
@@ -134,7 +144,7 @@ void Local::computeIntegral(
       kernel.rho = &localRho;
       kernel.averageNormalDisplacement = tmp.nodalAvgDisplacements[face].data();
 
-      kernel.Q = data.get<LTS::Dofs>();
+      kernel.Q = fluxTarget;
       kernel.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
 
       kernel.execute(face);
@@ -148,7 +158,7 @@ void Local::computeIntegral(
       kernel.dirichletOffset = dirichletOffset;
       kernel.dt = timeStepWidth;
 
-      kernel.Q = data.get<LTS::Dofs>();
+      kernel.Q = fluxTarget;
       kernel.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
 
       kernel.execute(face);

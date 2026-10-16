@@ -37,6 +37,8 @@ struct Element {
   std::array<int, Cell::NumFaces> faultTags{};
   std::size_t clusterId{};
   double timestep{};
+  /** Whether the cell is weight-adjusted, decided where its time step is (see WeightAdjustable) */
+  bool weightAdjusted{false};
 };
 
 struct Vertex {

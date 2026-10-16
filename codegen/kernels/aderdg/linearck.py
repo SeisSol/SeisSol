@@ -337,6 +337,15 @@ class LinearCK(ADERDGBase):
             target="cpu",
         )
 
+        if self.weightAdjustable():
+            # the end of the neighbour phase, where a cell that lifts its fluxes
+            # without material has them all (see _configureWeightAdjust)
+            generator.add(
+                "weightAdjust",
+                self.weightAdjust(self.fluxBuffer, self.Q),
+                target="cpu",
+            )
+
         if "gpu" in targets and self.nodalFaceFlux:
             # the same statements as on the host; only the premultiplied
             # matrices below are a device matter, and the nodal form has none

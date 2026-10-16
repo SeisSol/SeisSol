@@ -63,6 +63,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 
   nfKrnlPrototype_.bindGlobals(*global.onHost);
   drKrnlPrototype_.bindGlobals(*global.onHost);
+  weightAdjustment_.setGlobalData(global);
 
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
@@ -79,6 +80,11 @@ void Neighbor::computeNeighborsIntegral(
   assert(reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>()) % Vectorsize == 0);
   const auto& cellDrMapping = data.get<LTS::DRMapping>();
 
+  // a weight-adjusted cell collects what its faces lift in its flux buffer, which the local
+  // integral started, and applies the inverse weight once they are all in (WeightAdjustable)
+  const bool weightAdjusted = WeightAdjustable && data.get<LTS::CellInformation>().weightAdjusted;
+  real* fluxTarget = weightAdjusted ? data.get<LTS::FluxBuffer>() : data.get<LTS::Dofs>();
+
   for (std::size_t face = 0; face < Cell::NumFaces; face++) {
     switch (data.get<LTS::CellInformation>().faceTypes[face]) {
     case FaceType::Regular: {
@@ -88,7 +94,7 @@ void Neighbor::computeNeighborsIntegral(
       assert(data.get<LTS::CellInformation>().faceRelations[face][0] < Cell::NumFaces &&
              data.get<LTS::CellInformation>().faceRelations[face][1] == 0);
       kernel::neighboringFlux nfKrnl = nfKrnlPrototype_;
-      nfKrnl.Q = data.get<LTS::Dofs>();
+      nfKrnl.Q = fluxTarget;
       nfKrnl.I = timeIntegrated[face];
       kernels::bindNeighborFluxOperands(
           nfKrnl, data.get<LTS::LocalIntegration>(), data.get<LTS::NeighboringIntegration>(), face);
@@ -103,7 +109,7 @@ void Neighbor::computeNeighborsIntegral(
       dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
       kernels::bindFaultFluxOperands(drKrnl, cellDrMapping[face].fluxSolver);
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
-      drKrnl.Q = data.get<LTS::Dofs>();
+      drKrnl.Q = fluxTarget;
       drKrnl._prefetch.I = faceNeighborsPrefetch[face];
       drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;
@@ -113,6 +119,10 @@ void Neighbor::computeNeighborsIntegral(
       // Note: some other bcs are handled in the local kernel.
       break;
     }
+  }
+
+  if (weightAdjusted) {
+    weightAdjustment_.apply(data);
   }
 }
 

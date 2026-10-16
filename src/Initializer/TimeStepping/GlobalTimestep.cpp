@@ -10,6 +10,7 @@
 #include "Common/Constants.h"
 #include "Equations/Datastructures.h"
 #include "Geometry/CellGeometry.h"
+#include "Initializer/Model/WeightAdjusted.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters//SeisSolParameters.h"
 #include "Initializer/Parameters/ModelParameters.h"
@@ -66,6 +67,9 @@ GlobalTimestep
   // points of the plastic strain where those are others -- so that the timestep bounds every
   // wave speed a cell sees.
   std::vector<std::shared_ptr<seissol::initializer::QueryGenerator>> queryGens;
+  // the sets the operator reads the material at, the first ones; whether a cell is weight-adjusted
+  // follows from those
+  std::size_t operatorSets = 0;
   if (seissolParams.model.materialNodal) {
     queryGens.push_back(std::make_shared<seissol::initializer::NodalPointGenerator>(
         cellToVertex, seissol::initializer::NodalPointGenerator::materialPoints()));
@@ -73,6 +77,7 @@ GlobalTimestep
       queryGens.push_back(std::make_shared<seissol::initializer::FacePointGenerator>(
           cellToVertex, seissol::initializer::FacePointGenerator::fluxPoints()));
     }
+    operatorSets = queryGens.size();
     if (seissolParams.model.plasticity &&
         !seissol::initializer::NodalPointGenerator::samePoints(
             seissol::initializer::NodalPointGenerator::plasticityPoints(),
@@ -96,6 +101,10 @@ GlobalTimestep
 
   GlobalTimestep timestep;
   timestep.cellTimeStepWidths.resize(cellToVertex.size);
+  timestep.weightAdjusted.assign(cellToVertex.size, 0);
+  const double weightAdjustedRatio = seissolParams.model.weightAdjustedRatio;
+  std::size_t localWeightAdjusted = 0;
+  double localMinWeightAdjustedFactor = 1.0;
 
   // for the diagnostic below: the same timestep, but bounded by the mean wave
   // speed of a cell instead of its maximum
@@ -107,6 +116,7 @@ GlobalTimestep
     double pWaveVel = 0.0;
     double pWaveVelSum = 0.0;
     double materialMaxTimestep = std::numeric_limits<double>::max();
+    ImpedanceSpread spread;
     for (std::size_t set = 0; set < queryGens.size(); ++set) {
       const auto perCell = queryGens[set]->outputPerCell();
       for (std::size_t point = 0; point < perCell; ++point) {
@@ -115,7 +125,20 @@ GlobalTimestep
         pWaveVel = std::max(pWaveVel, pointWaveVel);
         pWaveVelSum += pointWaveVel;
         materialMaxTimestep = std::min(materialMaxTimestep, material.maximumTimestep());
+        if (set < operatorSets) {
+          spread.add(material);
+        }
       }
+    }
+    // a weight-adjusted cell sees its wave speeds raised by what the lift without material
+    // asks for (ImpedanceSpread::timestepFactor)
+    double waveSpeedFactor = 1.0;
+    if (isWeightAdjusted(spread.ratio(), weightAdjustedRatio)) {
+      timestep.weightAdjusted[cell] = 1;
+      ++localWeightAdjusted;
+      localMinWeightAdjustedFactor =
+          std::min(localMinWeightAdjustedFactor, spread.timestepFactor());
+      waveSpeedFactor = 1.0 / spread.timestepFactor();
     }
     const double pWaveVelMean = pWaveVelSum / static_cast<double>(pointsPerCell);
 
@@ -133,7 +156,7 @@ GlobalTimestep
                                                       std::numeric_limits<double>::max()),
                       cellMaxTimestep);
     };
-    timestep.cellTimeStepWidths[cell] = cellTimestep(pWaveVel);
+    timestep.cellTimeStepWidths[cell] = cellTimestep(pWaveVel * waveSpeedFactor);
 
     localMaxContrast = std::max(localMaxContrast, pWaveVel / pWaveVelMean);
     localMinMeanTimestep = std::min(localMinMeanTimestep, cellTimestep(pWaveVelMean));
@@ -157,6 +180,35 @@ GlobalTimestep
                 MPI_DOUBLE,
                 MPI_MAX,
                 seissol::Mpi::mpi.comm());
+
+  if (weightAdjustedRatio > 0.0) {
+    std::size_t globalWeightAdjusted = 0;
+    std::size_t globalCells = 0;
+    std::size_t localCells = cellToVertex.size;
+    double globalMinWeightAdjustedFactor = 1.0;
+    MPI_Allreduce(&localWeightAdjusted,
+                  &globalWeightAdjusted,
+                  1,
+                  Mpi::castToMpiType<std::size_t>(),
+                  MPI_SUM,
+                  seissol::Mpi::mpi.comm());
+    MPI_Allreduce(&localCells,
+                  &globalCells,
+                  1,
+                  Mpi::castToMpiType<std::size_t>(),
+                  MPI_SUM,
+                  seissol::Mpi::mpi.comm());
+    MPI_Allreduce(&localMinWeightAdjustedFactor,
+                  &globalMinWeightAdjustedFactor,
+                  1,
+                  MPI_DOUBLE,
+                  MPI_MIN,
+                  seissol::Mpi::mpi.comm());
+    logInfo() << globalWeightAdjusted << "of" << globalCells
+              << "cells are weight-adjusted: their impedances spread by more than"
+              << weightAdjustedRatio << "- their time step is down to"
+              << globalMinWeightAdjustedFactor << "times the one their wave speeds permit.";
+  }
 
   if (pointsPerCell > 1) {
     double globalMaxContrast = 0;

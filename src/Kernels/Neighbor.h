@@ -53,6 +53,10 @@ class NeighborKernel : public Kernel {
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
               const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
               const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const = 0;
+
+  /// What a weight-adjusted cell adds to the neighbour integral (see WeightAdjustable): nothing,
+  /// where the solver adjusts no cell.
+  [[nodiscard]] virtual PerformanceEstimate weightAdjustMetrics() const { return {}; }
 };
 
 } // namespace seissol::kernels

@@ -183,6 +183,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         const auto clusterId = secondaryInformation[cell].clusterId;
         const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
         const auto meshId = secondaryInformation[cell].meshId;
+        // such a cell lifts its fluxes without material (WeightAdjustable)
+        const bool weightAdjusted = WeightAdjustable && cellInformation[cell].weightAdjusted;
 
         // NOLINTNEXTLINE
         auto& materialLocal = materialData[cell];
@@ -282,9 +284,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               cellInformation[cell].faceTypes[side],
               qGodLocal,
               qGodNeighbor);
-          seissol::model::getTransposedCoefficientMatrix(
+          liftedCoefficientMatrix(
               seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
-              0,
+              weightAdjusted,
               matATtilde);
 
           // Calculate transposed T and Tinv instead
@@ -350,7 +352,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
           const auto enforceGodunovEa = isAtElasticAcousticInterface(material[cell], side);
 
-          const auto enforceGodunov = enforceGodunovBc || enforceGodunovEa;
+          // a weight-adjusted cell weighs no penalty with the material at its faces, see
+          // fluxScalarsOfNode
+          const auto enforceGodunov = enforceGodunovBc || enforceGodunovEa || weightAdjusted;
 
           const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 
@@ -398,7 +402,8 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                 flux,
                                 nodeScale[node],
                                 plus,
-                                minus);
+                                minus,
+                                weightAdjusted);
               for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {
                 localIntegration[cell].fluxCoefficients[side][c][node] = plus[c];
                 neighboringIntegration[cell].fluxCoefficients[side][c][node] = minus[c];

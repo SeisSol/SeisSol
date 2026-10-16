@@ -114,14 +114,16 @@ auto varying(const MaterialT& base, const VectorT& x) -> MaterialT {
 }
 
 /// The cell data the volume and the local flux read, for a material given as a function of the
-/// position; `faceTypes` decides what the local flux of a face is.
+/// position; `faceTypes` decides what the local flux of a face is, and `weightAdjusted` whether
+/// the faces lift without material (see WeightAdjustable).
 template <typename MaterialT, typename FieldT>
 void setupCell(const seissol::geometry::AffineTransform& cell,
                const FieldT& field,
                const std::array<FaceType, Cell::NumFaces>& faceTypes,
                LocalIntegrationData& local,
                NeighboringIntegrationData& neighboring,
-               std::array<std::array<real, tensor::AplusT::size()>, Cell::NumFaces>& weakAplus) {
+               std::array<std::array<real, tensor::AplusT::size()>, Cell::NumFaces>& weakAplus,
+               bool weightAdjusted = false) {
   const auto gradients = cell.refToSpaceJacobianInverse(VectorT(Cell::ReferenceBarycenter.data()));
   initializer::CurvedCell::setConstantGradients(gradients, local.referenceGradients);
   for (std::size_t point = 0; point < MaterialSampleCount; ++point) {
@@ -163,7 +165,8 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
                                               initializer::parameters::NumericalFlux::Godunov,
                                               fluxScale,
                                               plus,
-                                              minus);
+                                              minus,
+                                              weightAdjusted);
       for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {
         local.fluxCoefficients[side][c][node] = static_cast<real>(plus[c]);
         neighboring.fluxCoefficients[side][c][node] = static_cast<real>(minus[c]);

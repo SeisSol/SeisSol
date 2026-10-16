@@ -729,6 +729,15 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       const double fluxScalePlus = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       const double fluxScaleMinus = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
 
+      // a side whose cell is weight-adjusted lifts without material, as its other faces do; a side
+      // on another rank is set up there
+      const auto weightAdjustedSide = [&](const auto& ltsId) {
+        return ltsId.has_value() &&
+               ltsStorage.lookup<LTS::CellInformation>(ltsId.value()).weightAdjusted;
+      };
+      const bool plusWeightAdjusted = weightAdjustedSide(plusLtsId);
+      const bool minusWeightAdjusted = weightAdjustedSide(minusLtsId);
+
       // Either form of the lift takes the material in the coordinates of the face, rotated with
       // the bond matrix as for the impedance matrices of initializeFaultImpedance above; the
       // scalar impedances above take it unrotated, which an isotropic material does not notice.
@@ -751,14 +760,33 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
           scalesMinus = atPoints.scaleMinus;
           rotation = atPoints.rotationOutOfFault.data();
         }
-        setPointwiseFaultFlux(
-            fluxSolverPlus[ltsFace], rotation, scalesPlus, plusAtPoints, *plusMaterial, bond);
-        setPointwiseFaultFlux(
-            fluxSolverMinus[ltsFace], rotation, scalesMinus, minusAtPoints, *minusMaterial, bond);
+        setPointwiseFaultFlux(fluxSolverPlus[ltsFace],
+                              rotation,
+                              scalesPlus,
+                              plusAtPoints,
+                              *plusMaterial,
+                              bond,
+                              plusWeightAdjusted);
+        setPointwiseFaultFlux(fluxSolverMinus[ltsFace],
+                              rotation,
+                              scalesMinus,
+                              minusAtPoints,
+                              *minusMaterial,
+                              bond,
+                              minusWeightAdjusted);
       } else {
-        setMatrixFaultFlux(fluxSolverPlus[ltsFace], matTData, fluxScalePlus, *plusMaterial, bond);
-        setMatrixFaultFlux(
-            fluxSolverMinus[ltsFace], matTData, fluxScaleMinus, *minusMaterial, bond);
+        setMatrixFaultFlux(fluxSolverPlus[ltsFace],
+                           matTData,
+                           fluxScalePlus,
+                           *plusMaterial,
+                           bond,
+                           plusWeightAdjusted);
+        setMatrixFaultFlux(fluxSolverMinus[ltsFace],
+                           matTData,
+                           fluxScaleMinus,
+                           *minusMaterial,
+                           bond,
+                           minusWeightAdjusted);
       }
     }
   }

@@ -651,6 +651,9 @@ void TimeCluster::computeNeighborIntegrationFlops() {
 
     estimateRegular += cellRegular;
     estimateDR += cellDR;
+    if (cellInformation[cell].weightAdjusted) {
+      estimateRegular += neighborKernel_.weightAdjustMetrics();
+    }
   }
 }
 

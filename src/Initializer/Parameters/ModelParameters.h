@@ -47,6 +47,9 @@ struct ModelParameters {
   ITMParameters itmParameters;
   NumericalFlux flux{NumericalFlux::Godunov};
   NumericalFlux fluxNearFault{NumericalFlux::Godunov};
+  // a cell whose impedances spread by more than this ratio over the points its material is
+  // sampled at is weight-adjusted (see WeightAdjustable); zero where no cell is
+  double weightAdjustedRatio{0.0};
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);

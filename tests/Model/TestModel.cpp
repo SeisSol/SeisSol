@@ -24,3 +24,4 @@
 #include "NodalVolume.t.h"
 #include "PoroelasticImpedance.t.h" // IWYU pragma: keep
 #include "Quantities.t.h"
+#include "WeightAdjusted.t.h"

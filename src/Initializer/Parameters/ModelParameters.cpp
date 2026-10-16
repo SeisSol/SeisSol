@@ -9,6 +9,7 @@
 
 #include "Equations/Datastructures.h"
 #include "Initializer/Parameters/ParameterReader.h"
+#include "Kernels/Common.h"
 #include "Model/OperatorLayout.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -138,6 +139,37 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                                                            {"rusanov", NumericalFlux::Rusanov},
                                                        });
 
+  // Where the material jumps inside a cell, lifting the fluxes with the material at the face is
+  // unstable; such a cell lifts them without material and applies it afterwards (WeightAdjustable).
+  // A build that can do that does it by default where the impedances of a cell spread by more than
+  // a factor of two.
+  constexpr bool CanWeightAdjust = WeightAdjustable && !isDeviceOn();
+  double weightAdjustedRatio =
+      reader->readWithDefault("weightadjustedratio", CanWeightAdjust ? 2.0 : 0.0);
+  if (weightAdjustedRatio < 0.0) {
+    logError() << "weightadjustedratio has to be zero, which weight-adjusts no cell, or positive; "
+                  "but it is"
+               << weightAdjustedRatio << ".";
+  }
+  if (weightAdjustedRatio > 0.0 && !CanWeightAdjust) {
+    if constexpr (WeightAdjustable) {
+      logWarning() << "weightadjustedratio is ignored: weight-adjusted cells run on the CPU only "
+                      "so far.";
+    } else {
+      logWarning() << "weightadjustedratio is ignored: a cell is weight-adjusted where the "
+                      "material varies inside it (MATERIAL_NODAL=ON) and the medium is elastic "
+                      "or acoustic.";
+    }
+    weightAdjustedRatio = 0.0;
+  }
+  if (weightAdjustedRatio > 0.0 &&
+      (flux == NumericalFlux::Rusanov || fluxNearFault == NumericalFlux::Rusanov)) {
+    // the Rusanov penalty acts on the state, which a cell without material at its faces would
+    // have to weigh with the material there first
+    logWarning() << "A weight-adjusted cell takes the Godunov flux on all of its faces; the "
+                    "Rusanov flux applies to the other cells only.";
+  }
+
   return ModelParameters{hasBoundaryFile,
                          plasticity,
                          plasticityPointwise,
@@ -153,7 +185,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          plasticityFileNames,
                          itmParameters,
                          flux,
-                         fluxNearFault};
+                         fluxNearFault,
+                         weightAdjustedRatio};
 }
 
 std::string fluxToString(NumericalFlux flux) {

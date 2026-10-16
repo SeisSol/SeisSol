@@ -469,6 +469,7 @@ def main():
             flux_diagonal=adgForTables.rusanovDiagonal(),
             flux_decomposes=adgForTables.fluxDecomposes(),
             fault_flux_indices=adgForTables.faultFluxCoefficients(),
+            weight_adjustable=adgForTables.weightAdjustable(),
         )
 
         forward_files("init.h")

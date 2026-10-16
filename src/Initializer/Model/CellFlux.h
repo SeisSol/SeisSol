@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstddef>
 
 namespace seissol::initializer {
@@ -51,6 +52,22 @@ void toCorrectorForm(ViewT& godunovLocal) {
 }
 
 /**
+ * The transposed coefficient matrix of the face normal a side lifts its flux with: the one of its
+ * material, or the one without material where the cell applies the inverse weight of its medium
+ * after the lift (see WeightAdjustable).
+ */
+template <typename MaterialT, typename MatrixT>
+void liftedCoefficientMatrix(const MaterialT& material, bool weightAdjusted, MatrixT& matrix) {
+  if constexpr (WeightAdjustable) {
+    if (weightAdjusted) {
+      seissol::model::getTransposedUnweightedCoefficientMatrix(material, 0, matrix);
+      return;
+    }
+  }
+  seissol::model::getTransposedCoefficientMatrix(material, 0, matrix);
+}
+
+/**
  * The scalars the flux operator of one node is built from, in the coordinates of the face: ten for
  * the Godunov flux of an elastic medium, and one more for the Rusanov penalty on the part of the
  * diagonal the Godunov state never reads, which is zero for the Godunov flux.
@@ -66,6 +83,12 @@ void toCorrectorForm(ViewT& godunovLocal) {
  * A fault face has no Riemann problem of its own here -- the fault supplies its flux -- so its
  * state is zero. What the local side then still carries is the subtraction of the strong form,
  * see toCorrectorForm, and nothing at all for the weak one.
+ *
+ * A weight-adjusted cell contracts the state with the coefficient matrix without material instead
+ * (liftedCoefficientMatrix): the Riemann problem is the same, and the material of the cell comes
+ * in at its sample points after the lift. The Godunov state alone has that form; the Rusanov
+ * penalty acts on the state and would have to be weighed with the material at the face, so such a
+ * cell takes the Godunov flux.
  */
 template <typename MaterialT>
 void fluxScalarsOfNode(const MaterialT& local,
@@ -74,7 +97,9 @@ void fluxScalarsOfNode(const MaterialT& local,
                        parameters::NumericalFlux flux,
                        double fluxScale,
                        std::array<double, FluxCoefficientCount>& plus,
-                       std::array<double, FluxCoefficientCount>& minus) {
+                       std::array<double, FluxCoefficientCount>& minus,
+                       bool weightAdjusted = false) {
+  assert(!weightAdjusted || flux == parameters::NumericalFlux::Godunov);
   // the Riemann problem is stated over the quantities the Godunov state spans,
   // which is not the count the material declares where a solver carries the
   // relaxation in the same matrix
@@ -89,7 +114,7 @@ void fluxScalarsOfNode(const MaterialT& local,
 
   alignas(Alignment) std::array<real, tensor::star::size(0)> starData{};
   auto star = init::star::view<0>::create(starData.data());
-  seissol::model::getTransposedCoefficientMatrix(local, 0, star);
+  liftedCoefficientMatrix(local, weightAdjusted, star);
 
   // the Riemann problem, or the central flux the Rusanov form uses instead
   double correction = 0.0;

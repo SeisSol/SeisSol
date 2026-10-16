@@ -34,6 +34,11 @@ struct CellLocalInformation {
 
   // plasticity enabled
   bool plasticityEnabled{false};
+
+  // whether the cell lifts its fluxes without material into its flux buffer and applies the inverse
+  // weight of its medium once they are all in (see WeightAdjustable). Set for the cells of this
+  // rank; a ghost cell computes nothing here.
+  bool weightAdjusted{false};
 };
 
 // cell local information which is not needed during the main iterations, but only during setup and

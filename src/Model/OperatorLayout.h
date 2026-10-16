@@ -87,6 +87,17 @@ static_assert(!Config::Curvilinear || NodalFlux,
 static_assert(!Config::Curvilinear || NodalFaultFlux,
               "A curved fault face applies its lift at its points, which this build does not.");
 
+/// Whether a cell can lift its fluxes without material and apply the inverse weight of its medium
+/// at the sample points afterwards: weight-adjusted DG (Chan, Hewett and Warburton 2017). The
+/// operator of a medium is the inverse of its weight times one without material, A = W^-1 B; the
+/// faces of such a cell lift their fluxes with B into a buffer of its own (LTS::FluxBuffer), and
+/// once all of them are in, the cell adds the buffer read at the sample points, times W^-1 there,
+/// projected back (kernel::weightAdjust). Where the material jumps inside a cell, that keeps the
+/// scheme stable where lifting with the material at the face does not. It needs the flux at the
+/// points of a face and a medium that states its weight; which cells take it, the run decides
+/// (see seissol::initializer::ImpedanceSpread).
+constexpr bool WeightAdjustable = NodalFlux && generated::WeightAdjustable;
+
 /// Whether the corrector applies its volume term in the strong form. It does wherever the operator
 /// varies inside a cell: the weak form lifts the cell's own trace with the operator inside the
 /// cell, while the flux states it at the face, and the two only cancel where they are the same

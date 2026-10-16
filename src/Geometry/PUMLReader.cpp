@@ -723,6 +723,10 @@ void PUMLReader::partition(PumlMesh& meshTopology,
                             clustering->timesteps.cellTimeStepWidths.data(),
                             PUML::DataType::Cell,
                             {});
+  meshGeometry.addDataArray(pumldata::WeightAdjusted,
+                            clustering->timesteps.weightAdjusted.data(),
+                            PUML::DataType::Cell,
+                            {});
 
   // read back in getMesh: the vertex order the clustering has used
   static_assert(sizeof(VertexOrder) == Cell::NumVertices * sizeof(std::uint8_t));
@@ -772,6 +776,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
   const auto* cellIdsAsInFile = cellData(pumldata::CellIdsAsInFile, std::size_t{});
   const auto* clusterIds = cellData(pumldata::ClusterIds, std::size_t{});
   const auto* timestep = cellData(pumldata::Timesteps, double{});
+  const auto* weightAdjusted = cellData(pumldata::WeightAdjusted, std::uint8_t{});
   const auto* vertexOrders =
       reinterpret_cast<const VertexOrder*>(cellData(pumldata::VertexOrders, std::uint8_t{}));
 
@@ -799,6 +804,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
     elements_[i].localId = i;
     elements_[i].clusterId = clusterIds[i];
     elements_[i].timestep = timestep[i];
+    elements_[i].weightAdjusted = weightAdjusted[i] != 0;
 
     const auto& pumlToSeisSol = pumlFaceMaps[i];
     const auto vertexOrder = vertexOrderFromFaceMap(pumlToSeisSol);

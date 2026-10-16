@@ -674,6 +674,7 @@ def generate(
     flux_diagonal=None,
     flux_decomposes: bool = True,
     fault_flux_indices=(),
+    weight_adjustable: bool = False,
 ) -> None:
     """Write the declarations of every material into a C++ header.
 
@@ -839,6 +840,11 @@ def generate(
         "// varies inside a cell, the ones a constant operator gives it\n",
         "inline constexpr bool NarrowedDerivatives = "
         f"{'true' if narrowed_derivatives else 'false'};\n",
+        "// whether a cell can lift its fluxes without material and apply the\n",
+        "// inverse weight of its medium at the sample points afterwards\n",
+        "// (weight-adjusted DG, the kernel weightAdjust)\n",
+        "inline constexpr bool WeightAdjustable = "
+        f"{'true' if weight_adjustable else 'false'};\n",
         "\n",
     ]
 

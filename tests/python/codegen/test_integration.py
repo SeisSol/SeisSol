@@ -440,6 +440,42 @@ class TestLeftFactor:
         assert len(adg.starAtPoint) == 3
 
 
+class TestWeightAdjustable:
+    """A cell can lift its fluxes without material and apply the inverse weight
+    of its medium afterwards where the flux of a face is the scalars per point
+    and the medium states its weight: the elastic and the acoustic one, on
+    straight and on curved cells. The kernel that applies the weight writes
+    every quantity the weight reaches."""
+
+    _make = TestLeftFactor._make
+
+    @pytest.mark.parametrize("equation, quantities", [("elastic", 9), ("acoustic", 4)])
+    def test_media_that_state_their_weight(self, equation, quantities):
+        for curvilinear in (False, True):
+            adg = self._make(equation, "linearck", curvilinear=curvilinear)
+            assert adg.weightAdjustable()
+            assert adg.fluxBuffer.shape() == (20, quantities)
+            reached = np.zeros((quantities, quantities), dtype=bool)
+            for structure in adg._weightStructure.values():
+                for index in structure.values():
+                    reached[index] = True
+            # the weight is block diagonal and leaves no quantity out
+            assert reached.diagonal().all()
+
+    @pytest.mark.parametrize(
+        "equation, solver, mechanisms",
+        [
+            ("anisotropic", "linearck", 0),
+            ("viscoelastic", "linearck", 3),
+            ("viscoelastic", "linearckanelastic", 3),
+            ("poroelastic", "stp", 0),
+        ],
+    )
+    def test_other_media_do_not(self, equation, solver, mechanisms):
+        adg = self._make(equation, solver, numMechanisms=mechanisms)
+        assert not adg.weightAdjustable()
+
+
 # =============================================================================
 # Matrix-file inventory — catches missing files for supported orders
 # =============================================================================

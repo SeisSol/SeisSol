@@ -16,6 +16,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "Initializer/Model/CellFlux.h"
 #include "Kernels/Precision.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
@@ -44,11 +45,12 @@ void setMatrixFaultFlux(real* target,
                         const real* rotation,
                         double fluxScale,
                         const MaterialT& material,
-                        const std::array<double, 36>& bond) {
+                        const std::array<double, 36>& bond,
+                        bool weightAdjusted = false) {
   alignas(Alignment) std::array<real, tensor::star::size(0)> star{};
   auto viewStar = init::star::view<0>::create(star.data());
-  seissol::model::getTransposedCoefficientMatrix(
-      seissol::model::getRotatedMaterialCoefficients(bond, material), 0, viewStar);
+  liftedCoefficientMatrix(
+      seissol::model::getRotatedMaterialCoefficients(bond, material), weightAdjusted, viewStar);
 
   dynamicRupture::kernel::rotateFluxMatrix krnl;
   krnl.T = rotation;
@@ -75,6 +77,9 @@ void setMatrixFaultFlux(real* target,
  *
  * `atPoints` holds the material at the points of the face in the order the impedances read it,
  * with the fused simulations innermost.
+ *
+ * The side of a weight-adjusted cell lifts with the matrix without material instead, as its other
+ * faces do (see liftedCoefficientMatrix).
  */
 template <typename MaterialT, std::size_t Points>
 void setPointwiseFaultFlux(real* target,
@@ -82,7 +87,8 @@ void setPointwiseFaultFlux(real* target,
                            const std::array<double, dr::misc::NumBoundaryGaussPoints>& fluxScale,
                            const std::array<MaterialT, Points>& atPoints,
                            const MaterialT& cellMaterial,
-                           const std::array<double, 36>& bond) {
+                           const std::array<double, 36>& bond,
+                           bool weightAdjusted = false) {
   using Setup = seissol::model::SolverSetup<typename MaterialT::Solver, MaterialT>;
   // a build that keeps one matrix per side never calls this, but still compiles it
   static_assert(!NodalFaultFlux ||
@@ -93,12 +99,19 @@ void setPointwiseFaultFlux(real* target,
   std::copy_n(
       rotation, dr::FaultFluxLayout::RotationSize, target + dr::FaultFluxLayout::RotationOffset);
 
-  const auto ofCell = seissol::model::getStarCoefficients(cellMaterial);
+  const auto coefficientsOf = [&](const MaterialT& material) {
+    if constexpr (WeightAdjustable) {
+      if (weightAdjusted) {
+        return seissol::model::getUnweightedCoefficients(material);
+      }
+    }
+    return seissol::model::getStarCoefficients(material);
+  };
+  const auto ofCell = coefficientsOf(cellMaterial);
   for (std::size_t point = 0; point < dr::misc::NumBoundaryGaussPoints; ++point) {
     // the material is one field, so every fused simulation sees the same at a point
-    const auto ofPoint =
-        seissol::model::getStarCoefficients(seissol::model::getRotatedMaterialCoefficients(
-            bond, atPoints[point * multisim::NumSimulations]));
+    const auto ofPoint = coefficientsOf(seissol::model::getRotatedMaterialCoefficients(
+        bond, atPoints[point * multisim::NumSimulations]));
     for (std::size_t coefficient = 0; coefficient < FaultFluxCoefficientCount; ++coefficient) {
       const auto index = generated::FaultFluxCoefficientIndices[coefficient];
       const double value =

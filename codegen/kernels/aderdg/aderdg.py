@@ -502,6 +502,7 @@ class ADERDGBase(ABC):
 
         if self.nodalFaceFlux:
             self._configureNodalFlux()
+        self._configureWeightAdjust()
         self._configureNodalSource(kwargs)
 
     def _configurePointOperator(self, entries, count, starSpp, npoints):
@@ -852,6 +853,68 @@ class ADERDGBase(ABC):
         self.faceRotated = self.nodalTemporary("faceRotated", shape)
         self.faceProduct = self.nodalTemporary("faceProduct", shape)
         self.faceBack = self.nodalTemporary("faceBack", shape)
+
+    def _configureWeightAdjust(self):
+        """What a cell needs to lift its fluxes without material and apply the
+        inverse weight of its medium afterwards (weight-adjusted DG).
+
+        The operator of a medium is the inverse of its weight times an operator
+        without material, A_d = W^-1 B_d (coefficients.WeightEntry). A cell
+        that takes the two apart lifts the flux of every face with B into a
+        buffer of its own and applies W^-1 once for all of them: it reads the
+        buffer at the sample points, multiplies by the inverse weight there and
+        projects back, the three steps the operator takes inside the cell. Only
+        a medium that states its weight has this, and only where the flux of a
+        face is the scalars per point, which the operator without material
+        gives as well. A medium with memory variables does not state its weight
+        yet.
+        """
+        self._weightStructure = {}
+        decomposition = coefficients.BY_EQUATION.get(self.name())
+        if decomposition is None or not decomposition.weight or not self.nodalFaceFlux:
+            return
+        quantities = self.numQuantities()
+        for a in sorted({entry.coefficient for entry in decomposition.weight}):
+            self._weightStructure[a] = Tensor(
+                f"weightStructure({a})",
+                (quantities, quantities),
+                spp={
+                    (entry.row, entry.column): repr(float(entry.factor))
+                    for entry in decomposition.weight
+                    if entry.coefficient == a
+                },
+                addressing=AddressingMode.IMMEDIATE,
+            )
+        # what the faces of a cell lift without material, before the weight
+        self.fluxBuffer = OptionalDimTensor(
+            "fluxBuffer",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.num3DBasisFunctions(), quantities),
+            alignStride=True,
+        )
+
+    def weightAdjustable(self):
+        """Whether a cell of this build can apply the inverse weight of its
+        medium after the lift of its fluxes, see _configureWeightAdjust."""
+        return bool(getattr(self, "_weightStructure", None))
+
+    def weightAdjust(self, source, target):
+        """Adds the inverse weight applied to `source` to `target`: `source` read
+        at the sample points, multiplied by W^-1 there and projected back."""
+        values = self.definedOnce(self.nodalValues)
+        product = self.definedOnce(self.nodalProduct)
+        statements = [values["nq"] <= self.operatorEval["nk"] * source["kq"]]
+        for position, (a, structure) in enumerate(self._weightStructure.items()):
+            term = self.nodalCoefficients[a]["n"] * values["nq"] * structure["qp"]
+            statements.append(
+                product["np"] <= (term if position == 0 else product["np"] + term)
+            )
+        statements.append(
+            target["kp"] <= target["kp"] + self.operatorProject["kn"] * product["np"]
+        )
+        return statements
 
     def nodalFlux(
         self, source, target, toFace, lift, coefficientsOfFace, rotation=None

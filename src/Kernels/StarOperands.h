@@ -20,6 +20,13 @@
 #include <cstddef>
 #include <yateto.h>
 
+namespace seissol::kernel {
+/// The kernel that applies the inverse weight of the medium to the flux buffer of a cell, which
+/// the generator writes where a cell can be weight-adjusted (WeightAdjustable); named here so that
+/// code for every build can name it.
+struct weightAdjust;
+} // namespace seissol::kernel
+
 namespace seissol::kernels {
 
 static_assert(!FactoredStar ||
@@ -73,6 +80,16 @@ void bindStarOperands(KernelT& krnl, const LocalIntegrationT& localIntegration) 
     for (std::size_t dim = 0; dim < yateto::numFamilyMembers<tensor::star>(); ++dim) {
       krnl.star(dim) = localIntegration.starMatrices[dim];
     }
+  }
+}
+
+/// Hands the kernel that applies the inverse weight of the medium (kernel::weightAdjust) what the
+/// material of the cell says at its sample points: the coefficients of its operator, of which the
+/// weight reads the material's own.
+template <typename KernelT, typename LocalIntegrationT>
+void bindWeightOperands(KernelT& krnl, const LocalIntegrationT& localIntegration) {
+  for (std::size_t a = 0; a < StarCoefficientCount; ++a) {
+    krnl.nodalCoefficients(a) = localIntegration.materialCoefficients[a];
   }
 }
 
