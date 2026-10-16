@@ -65,6 +65,13 @@ endforeach()
 if(NOT DEFINED ENV{PMIX_MCA_gds})
   set(ENV{PMIX_MCA_gds} "hash")
 endif()
+# Open MPI 5 patches the memory functions of the process (mmap, munmap, brk, ...) to see memory go
+# back to the system; with the sanitizers, which intercept these functions themselves, MPI_Init
+# crashes. Listing the tests needs none of it (nor do their runs, in the options of
+# .ci/sanitizers/environment.sh).
+if(NOT DEFINED ENV{OMPI_MCA_memory})
+  set(ENV{OMPI_MCA_memory} "^patcher")
+endif()
 
 execute_process(
   COMMAND ${TEST_EXECUTOR} "${TEST_EXECUTABLE}" ${spec} --list-test-cases -nc

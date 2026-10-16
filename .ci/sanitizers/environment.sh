@@ -29,6 +29,10 @@ suppressions=${seissol_sanitizer_dir}/tsan.supp:print_suppressions=0:${TSAN_OPTI
 # With the thread sanitizer, PMIx (of Open MPI) cannot attach its shared memory at the address it
 # wants, which the sanitizer keeps for itself, and MPI_Init crashes; its hash store needs none.
 export PMIX_MCA_gds="${PMIX_MCA_gds:-hash}"
+# Open MPI 5 patches the memory functions of the process (mmap, munmap, brk, ...) to see memory
+# go back to the system (its component memory/patcher); with the sanitizers, which intercept
+# these functions themselves, MPI_Init crashes.
+export OMPI_MCA_memory="${OMPI_MCA_memory:-^patcher}"
 
 if [ -z "${OMP_TOOL_LIBRARIES:-}" ]; then
   seissol_sanitizer_cxx="$(command -v "${CXX:-clang++}" 2>/dev/null || true)"
