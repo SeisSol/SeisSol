@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::initializer::parameters {
@@ -142,6 +143,15 @@ class ParameterReader {
   void markUnused(const std::vector<std::string>& fields);
   ParameterReader* readSubNode(const std::string& subnodeName);
   bool hasField(const std::string& field);
+
+  /**
+   * @brief Whether reading the parameters looked at the field @p path, given as the names of its
+   * sections followed by its own, e.g. {"output", "outputfile"}.
+   *
+   * A field that was read, marked unused or found deprecated was looked at; one SeisSol does not
+   * know of was not.
+   */
+  [[nodiscard]] bool visited(const std::vector<std::string>& path) const;
 
   private:
   template <typename T>

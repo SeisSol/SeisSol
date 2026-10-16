@@ -10,6 +10,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/RunId.h"
 #include "Initializer/InitProcedure/Init.h"
+#include "Initializer/Parameters/ParameterOverrides.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Modules/Modules.h"
@@ -22,10 +23,12 @@
 #include <fty/fty.hpp>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utils/args.h>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/timeutils.h>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 #ifdef USE_ASAGI
@@ -65,6 +68,36 @@ std::string determineRunId(utils::Env& env) {
   }
   seissol::Mpi::mpi.broadcastContainer(runId, 0);
   return runId;
+}
+
+/**
+ * Takes the --set options out of the command line, in the order they were given.
+ *
+ * utils::Args keeps only the last value of an option given several times, and an override is
+ * meant to be repeated; what remains is left for utils::Args.
+ */
+std::vector<std::string> extractOverrides(int& argc, char** argv) {
+  constexpr std::string_view Option = "--set";
+  std::vector<std::string> overrides;
+  int kept = 1;
+  for (int i = 1; i < argc; ++i) {
+    const std::string_view argument(argv[i]);
+    if (argument == Option) {
+      if (i + 1 == argc) {
+        logError() << "--set needs a value: --set section.field=value";
+      }
+      overrides.emplace_back(argv[i + 1]);
+      ++i;
+    } else if (argument.substr(0, Option.size() + 1) == std::string(Option) + "=") {
+      overrides.emplace_back(argument.substr(Option.size() + 1));
+    } else {
+      argv[kept] = argv[i];
+      ++kept;
+    }
+  }
+  argc = kept;
+  argv[argc] = nullptr;
+  return overrides;
 }
 
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
@@ -151,6 +184,16 @@ int main(int argc, char* argv[]) {
 #endif
     }
 
+    const auto overrideTexts = extractOverrides(argc, argv);
+    std::vector<seissol::initializer::parameters::ParameterOverride> overrides;
+    for (const auto& text : overrideTexts) {
+      const auto parsed = seissol::initializer::parameters::parseOverride(text);
+      if (!parsed.has_value()) {
+        logError() << "The override" << text << "is not of the form section.field=value.";
+      }
+      overrides.push_back(parsed.value_or(seissol::initializer::parameters::ParameterOverride{}));
+    }
+
     utils::Args args(
         "SeisSol is a scientific software for the numerical simulation of seismic wave "
         "phenomena and earthquake dynamics. This version of SeisSol was built for the "
@@ -159,6 +202,13 @@ int main(int argc, char* argv[]) {
     args.addAdditionalOption("parameterfile", "The parameter file", false);
     args.addOption(
         "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Required, false);
+    // taken out of the command line before parsing it (see extractOverrides); here for the help
+    args.addOption("set",
+                   0,
+                   "Overrides a parameter of the parameter file, as section.field=value; may be "
+                   "given several times",
+                   utils::Args::Required,
+                   false);
     switch (args.parse(argc, argv)) {
     case utils::Args::Help: {
       [[fallthrough]];
@@ -175,6 +225,10 @@ int main(int argc, char* argv[]) {
     logInfo() << "Using the parameter file" << parameterFile;
     // read parameter file input
     const auto yamlParams = readYamlParams(parameterFile);
+    for (const auto& entry : overrides) {
+      logInfo() << "Overriding" << entry.name().c_str() << "with" << entry.value;
+    }
+    seissol::initializer::parameters::applyOverrides(*yamlParams, overrides);
     seissol::initializer::parameters::ParameterReader parameterReader(
         *yamlParams, parameterFile, false);
     auto parameters = [&]() {
@@ -187,6 +241,11 @@ int main(int argc, char* argv[]) {
       return initializer::parameters::SeisSolParameters();
     }();
     parameterReader.warnUnknown();
+    for (const auto& entry :
+         seissol::initializer::parameters::unknownOverrides(parameterReader, overrides)) {
+      logError() << "The override" << entry.name()
+                 << "names a parameter that SeisSol does not read; check its spelling.";
+    }
 
     {
       // Initialize SeisSol

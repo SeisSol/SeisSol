@@ -32,6 +32,29 @@ following:
    (e.g. "-fault").
 
 
+.. _parameter-overrides:
+
+Overriding parameters on the command line
+-----------------------------------------
+
+``--set section.field=value`` gives a parameter on the command line in place of the
+value in the parameter file; it can be given several times, and a later one wins
+over an earlier one. Section and field are written as in the parameter file, in any
+case, and the value is read as if it stood there, quotes and Fortran exponents
+included:
+
+.. code-block:: bash
+
+    ./SeisSol_YOUR_CONFIGURATION parameters.par \
+        --set output.outputfile=runs/strong-16/data \
+        --set abortcriteria.endtime=2.5d0 \
+        --set output.wavefieldoutput=0
+
+That way, a series of runs can share one parameter file. A section the file does not
+have is added. An override of a field SeisSol does not read is an error, unlike a
+field in the file that SeisSol does not know, which only gives a warning: a
+misspelt override would otherwise silently leave the run unchanged.
+
 Commented parameter file
 ------------------------
 

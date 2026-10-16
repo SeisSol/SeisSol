@@ -19,4 +19,5 @@
 #include "Parameters/InitializationParameters.t.h"
 #include "Parameters/ModelParameters.t.h"
 #include "Parameters/OutputParameters.t.h"
+#include "Parameters/ParameterOverrides.t.h"
 #include "PointMapper.t.h"

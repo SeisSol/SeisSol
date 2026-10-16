@@ -115,4 +115,18 @@ ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
 
 bool ParameterReader::hasField(const std::string& field) { return !empty_ && node_[field]; }
 
+bool ParameterReader::visited(const std::vector<std::string>& path) const {
+  if (path.empty()) {
+    return false;
+  }
+  if (path.size() == 1) {
+    return visited_.find(path.front()) != visited_.end();
+  }
+  const auto subreader = subreaders_.find(path.front());
+  if (subreader == subreaders_.end()) {
+    return false;
+  }
+  return subreader->second->visited(std::vector<std::string>(path.begin() + 1, path.end()));
+}
+
 } // namespace seissol::initializer::parameters
