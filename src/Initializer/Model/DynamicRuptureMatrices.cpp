@@ -385,8 +385,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
                                       const LTS::Backmap& backmap,
                                       DynamicRupture::Storage& drStorage,
                                       const FaceSamples& faceSamples) {
-  real matTData[tensor::T::size()]{};
-  real matTinvData[tensor::Tinv::size()]{};
+  alignas(Alignment) real matTData[tensor::T::size()]{};
+  alignas(Alignment) real matTinvData[tensor::Tinv::size()]{};
 
   const auto& fault = meshReader.getFault();
 

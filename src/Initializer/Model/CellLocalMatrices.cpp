@@ -143,18 +143,18 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
 #pragma omp parallel
     {
-      real matATData[tensor::star::size(0)]{};
-      real matATtildeData[tensor::star::size(0)]{};
-      real matBTData[tensor::star::size(0)]{};
-      real matCTData[tensor::star::size(0)]{};
+      alignas(Alignment) real matATData[tensor::star::size(0)]{};
+      alignas(Alignment) real matATtildeData[tensor::star::size(0)]{};
+      alignas(Alignment) real matBTData[tensor::star::size(0)]{};
+      alignas(Alignment) real matCTData[tensor::star::size(0)]{};
       auto matAT = init::star::view<0>::create(matATData);
       // matAT with elastic parameters in local coordinate system, used for flux kernel
       auto matATtilde = init::star::view<0>::create(matATtildeData);
       auto matBT = init::star::view<0>::create(matBTData);
       auto matCT = init::star::view<0>::create(matCTData);
 
-      real matTData[seissol::tensor::T::size()]{};
-      real matTinvData[seissol::tensor::Tinv::size()]{};
+      alignas(Alignment) real matTData[seissol::tensor::T::size()]{};
+      alignas(Alignment) real matTinvData[seissol::tensor::Tinv::size()]{};
       auto matT = init::T::view::create(matTData);
       auto matTinv = init::Tinv::view::create(matTinvData);
 
@@ -162,7 +162,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
       // Tinv. The flux solver reads it through Tinv's layout, which keeps only
       // the pattern of the rotation, so it is written in that layout rather
       // than handed over as the dense identityT.
-      real identityTinvData[seissol::tensor::Tinv::size()]{};
+      alignas(Alignment) real identityTinvData[seissol::tensor::Tinv::size()]{};
       {
         const auto identity = init::identityT::view::create(init::identityT::Values);
         init::Tinv::view::create(identityTinvData).forall([&](const auto* entry, real& value) {
@@ -170,13 +170,13 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         });
       }
 
-      real qGodLocalData[tensor::QgodLocal::size()]{};
-      real qGodNeighborData[tensor::QgodNeighbor::size()]{};
+      alignas(Alignment) real qGodLocalData[tensor::QgodLocal::size()]{};
+      alignas(Alignment) real qGodNeighborData[tensor::QgodNeighbor::size()]{};
       auto qGodLocal = init::QgodLocal::view::create(qGodLocalData);
       auto qGodNeighbor = init::QgodNeighbor::view::create(qGodNeighborData);
 
-      real rusanovPlusNull[tensor::QcorrLocal::size()]{};
-      real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
+      alignas(Alignment) real rusanovPlusNull[tensor::QcorrLocal::size()]{};
+      alignas(Alignment) real rusanovMinusNull[tensor::QcorrNeighbor::size()]{};
 
 #pragma omp for schedule(static)
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -321,9 +321,9 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           const auto wavespeedNeighbor = material[cell].neighbor[side]->getMaxWaveSpeed();
           const auto wavespeed = std::max(wavespeedLocal, wavespeedNeighbor);
 
-          real centralFluxData[tensor::QgodLocal::size()]{};
-          real rusanovPlusData[tensor::QcorrLocal::size()]{};
-          real rusanovMinusData[tensor::QcorrNeighbor::size()]{};
+          alignas(Alignment) real centralFluxData[tensor::QgodLocal::size()]{};
+          alignas(Alignment) real rusanovPlusData[tensor::QcorrLocal::size()]{};
+          alignas(Alignment) real rusanovMinusData[tensor::QcorrNeighbor::size()]{};
           auto centralFluxView = init::QgodLocal::view::create(centralFluxData);
           auto rusanovPlusView = init::QcorrLocal::view::create(rusanovPlusData);
           auto rusanovMinusView = init::QcorrNeighbor::view::create(rusanovMinusData);
@@ -416,7 +416,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           // fault face has no Riemann problem of its own here, since the fault supplies its flux.
           const bool dynamicRupture =
               cellInformation[cell].faceTypes[side] == FaceType::DynamicRupture;
-          real localStateData[tensor::QgodLocal::size()]{};
+          alignas(Alignment) real localStateData[tensor::QgodLocal::size()]{};
           if (!dynamicRupture) {
             std::copy_n(flux == parameters::NumericalFlux::Rusanov ? centralFluxData
                                                                    : qGodLocalData,
