@@ -183,12 +183,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   summary["simulation"]["currentTime"] = currentTime_;
   summary["simulation"]["aborted"] = aborted_;
 
-  const auto& outputParams = seissolInstance.parameters().output;
-
-  const bool isLoopStatisticsNetcdfOutputOn = outputParams.loopStatisticsNetcdfOutput;
-  const auto& outputPrefix = outputParams.prefix;
-  summary["kernels"] = seissolInstance.timeManager().printComputationTime(
-      outputPrefix, isLoopStatisticsNetcdfOutputOn);
+  summary["kernels"] = seissolInstance.timeManager().printComputationTime();
 
   seissolInstance.analysisWriter().printAnalysis(currentTime_);
 

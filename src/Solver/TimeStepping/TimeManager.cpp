@@ -58,9 +58,6 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
   loopStatistics_.addRegion("computeNeighboringIntegration");
   loopStatistics_.addRegion("computeDynamicRupture");
   loopStatistics_.addRegion("computePointSources");
-
-  loopStatistics_.enableSampleOutput(
-      seissolInstance.parameters().output.loopStatisticsNetcdfOutput);
 }
 
 TimeManager::~TimeManager() = default;
@@ -377,12 +374,9 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   }
 }
 
-json::Value TimeManager::printComputationTime(const std::string& outputPrefix,
-                                              bool isLoopStatisticsNetcdfOutputOn) {
+json::Value TimeManager::printComputationTime() {
   actorStateStatisticsManager_.finish();
-  auto summary = loopStatistics_.printSummary(Mpi::mpi.comm());
-  loopStatistics_.writeSamples(outputPrefix, isLoopStatisticsNetcdfOutputOn);
-  return summary;
+  return loopStatistics_.printSummary(Mpi::mpi.comm());
 }
 
 double TimeManager::getTimeTolerance() const {

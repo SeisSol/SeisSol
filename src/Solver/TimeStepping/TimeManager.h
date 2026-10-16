@@ -128,8 +128,7 @@ class TimeManager {
    **/
   void setInitialTimes(double time = 0);
 
-  json::Value printComputationTime(const std::string& outputPrefix,
-                                   bool isLoopStatisticsNetcdfOutputOn);
+  json::Value printComputationTime();
 
   void freeDynamicResources();
 

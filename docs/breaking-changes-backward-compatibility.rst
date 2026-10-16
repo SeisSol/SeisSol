@@ -13,6 +13,16 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The loop statistics in NetCDF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the machine-readable run summary)
+
+``LoopStatisticsNetcdfOutput`` in the ``output`` section has no effect any more,
+and a parameter file that sets it gets a warning. The NetCDF file it wrote, with
+every timing sample of every region and rank, is gone; the run summary has the
+time of every region per rank, with its statistics, instead (see
+:ref:`run-summary`).
+
 The run ID in the output
 ~~~~~~~~~~~~~~~~~~~~~~~~
 (since the machine-readable run summary)

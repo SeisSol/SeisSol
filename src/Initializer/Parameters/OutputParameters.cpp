@@ -372,8 +372,6 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
   // the enum and back also settles the spelling of what the user wrote.
   const auto defaultTimeSeries =
       timeSeriesName(readTimeSeriesMode(reader, "outputtimeseries", "snapshot"));
-  const auto loopStatisticsNetcdfOutput =
-      reader->readWithDefault("loopstatisticsnetcdfoutput", false);
   const auto format = reader->readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
   const auto xdmfWriterBackend =
@@ -404,10 +402,10 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
                           "printintervalcriterion",
                           "pickdttype",
                           "ioutputmaskmaterial",
-                          "faultoutputflag"});
+                          "faultoutputflag",
+                          "loopstatisticsnetcdfoutput"});
 
-  return OutputParameters(loopStatisticsNetcdfOutput,
-                          format,
+  return OutputParameters(format,
                           xdmfWriterBackend,
                           hdfcompress,
                           prefix,

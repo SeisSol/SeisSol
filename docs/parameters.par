@@ -230,8 +230,6 @@ ComputeVolumeEnergiesEveryOutput = 4 ! Compute volume energies only once every C
 FaultEnergiesFromAcrossFaultVelocities = 0 ! 1: (less accurate but kept for backward compatibilty ) compute potency and seismic moment
                                            ! based on slip rate interpolated from velocities differences across the fault
                                            ! 0: (default) computed from slipRate1 and slipRate2 from the friction law
-
-LoopStatisticsNetcdfOutput = 0 ! Writes detailed loop statistics. Warning: Produces terabytes of data!
 /
 
 &AbortCriteria
