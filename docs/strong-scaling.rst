@@ -13,12 +13,12 @@ Strong scaling series
 
 ``scripts/benchmark/scaling.py`` runs a strong scaling series of SeisSol on a cluster from a single campaign file: a
 case, the builds and run-time variants to compare, the node counts, and the machine. It plans the runs, builds
-SeisSol, checks every run before submitting it, submits one job per node count, follows the jobs, and attempts again
-what did not complete.
+SeisSol, checks every run before submitting it, submits one job per node count, follows the jobs, attempts again what
+did not complete, and gathers what the runs wrote into tables, plots and a report.
 
-It needs Python 3.10 or later, and PyYAML for campaign files and machine profiles in YAML (JSON works without it).
-Slurm is supported, and the local machine without a batch system, which runs a job when it is submitted, for trying
-a campaign out.
+It needs Python 3.10 or later, PyYAML for campaign files and machine profiles in YAML (JSON works without it), and
+matplotlib for the plots. Slurm is supported, and the local machine without a batch system, which runs a job when it
+is submitted, for trying a campaign out.
 
 A first campaign
 ----------------
@@ -57,6 +57,7 @@ A first campaign
     scaling.py check  tpv5-strong.yaml   # layouts, tools, SeisSol --check
     scaling.py submit tpv5-strong.yaml   # build, check, and submit
     scaling.py status tpv5-strong.yaml   # the state of every run
+    scaling.py report tpv5-strong.yaml   # tables and plots of what ran
 
 ``scripts/benchmark/examples/campaign.yaml`` is a commented example. Every command can be repeated: ``submit``
 submits only the runs that did not complete, and attempts a failed run again up to ``job.max_attempts`` times, as a
@@ -98,8 +99,10 @@ an error.
     too many to fit; they need the cells of the mesh, which the check finds. ``order``: ``interleaved`` (the
     default) or ``blocked``.
 ``job``
-    ``time_limit`` of a job, ``run_time_limit`` of a run, ``max_attempts`` of a run, and ``check_in_job``
-    (whether the job checks every run before running it; on by default).
+    ``time_limit`` of a job, ``run_time_limit`` of a run, ``max_attempts`` of a run, ``report_job`` (a job that
+    writes the report once all runs have ended), ``check_in_job`` (whether the job checks every run before running
+    it; on by default) and ``warmup_epochs``, the epochs of a run that the ``steady`` time leaves out (one by
+    default).
 
 Machine profiles
 ----------------
@@ -145,3 +148,27 @@ fit a node, whether the scheduler and the partitions take the jobs, and, with ``
 variant, whether the parameters, the files they name, the mesh and the output directories are fine. That check also
 finds the size of the mesh, which the guards of ``scaling`` need. An executable built for the compute nodes may not
 run on a login node; then this check is left to the jobs.
+
+The results
+-----------
+
+``collect``, and ``report`` before it reports, gathers what the runs wrote into ``results/``:
+
+``runs.csv``
+    A row per run, of its latest attempt that completed: its setting, its state (``completed``, ``failed``,
+    ``check-failed``, ``incomplete``, ``killed``, ``not-run``, ``queued``, ...), and from its run summary its times
+    (initialization, simulation, compute, IO, kernels and outside of them), load imbalance, cell updates and duplicate
+    cell updates, FLOP/s and peak memory; the ``steady`` time of the epochs after the warm-up; and the problems of its
+    pinning, as its thread pinning table shows them: ranks of a node that share CPUs, communication threads that
+    share CPUs with workers, ranks with fewer CPUs than workers, or workers spread over NUMA domains.
+``ranks.csv`` and ``epochs.csv``
+    The tables of the ranks and of the epochs of every run that completed (:ref:`run-summary`).
+
+``report`` writes, per build and variant and per node count, the median time over the repetitions and its range, the
+speedup and the parallel efficiency against the smallest node count of the series, the cell updates per second and
+node, the share of the duplicate cell updates, the load imbalance, and the shares of the compute time outside of the
+kernels and of the blocking IO (``scaling.csv``, ``scaling.json``, ``report.md``), and plots them (``plots/``). Its
+checks name the runs that did not complete or had problems, series whose cell updates differ between the node
+counts, and repetitions that spread by more than a tenth. ``--metric`` chooses the time to scale: ``total``, the
+simulation time of the slowest rank (the default); ``compute``, its compute part; or ``steady``, the epochs after
+the warm-up, scaled to the whole simulation.

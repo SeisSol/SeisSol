@@ -9,6 +9,6 @@
 
 A campaign names a case (a parameter file), the builds and run-time variants to
 compare, the node counts, and the machine; the modules plan its runs, build and
-check SeisSol, submit one job per node count, and follow the jobs. See
-docs/strong-scaling.rst.
+check SeisSol, submit one job per node count, collect what the runs wrote, and
+report the scaling. See docs/strong-scaling.rst.
 """

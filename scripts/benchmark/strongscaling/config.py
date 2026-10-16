@@ -187,6 +187,7 @@ MACHINE_KEYS = {
     "wrapper",
     "setup",
     "env",
+    "python",
 }
 NODE_KEYS = {"cores", "threads_per_core", "gpus", "memory", "numa_domains"}
 LAYOUT_KEYS = {"ranks_per_node", "threads_per_rank", "cpus_per_rank", "gpus_per_rank"}
@@ -255,6 +256,8 @@ class Machine:
     setup: list[str]
     env: dict[str, str]
     slurm: dict[str, Any]
+    #: how the jobs run this tool, for the report job
+    python: str
     description: str = ""
     source: str = ""
 
@@ -276,6 +279,7 @@ class Machine:
             "wrapper": self.wrapper,
             "setup": self.setup,
             "env": self.env,
+            "python": self.python,
             "source": self.source,
         }
 
@@ -424,6 +428,7 @@ def parse_machine(data: dict[str, Any], source: Path) -> Machine:
         setup=list(setup),
         env=_text_mapping(data.get("env"), f"{where}, env"),
         slurm=slurm,
+        python=str(data.get("python", "python3")),
         source=str(source),
     )
 
@@ -481,7 +486,9 @@ JOB_KEYS = {
     "time_limit",
     "run_time_limit",
     "max_attempts",
+    "report_job",
     "check_in_job",
+    "warmup_epochs",
 }
 
 
@@ -555,7 +562,9 @@ class JobSettings:
     time_limit: int
     run_time_limit: int | None
     max_attempts: int
+    report_job: bool
     check_in_job: bool
+    warmup_epochs: int
 
 
 @dataclass
@@ -757,7 +766,9 @@ def _parse_job(data: Any) -> JobSettings:
             else parse_duration(run_limit, "job.run_time_limit")
         ),
         max_attempts=_positive_int(data.get("max_attempts", 3), "job.max_attempts"),
+        report_job=bool(data.get("report_job", False)),
         check_in_job=bool(data.get("check_in_job", True)),
+        warmup_epochs=int(data.get("warmup_epochs", 1)),
     )
 
 

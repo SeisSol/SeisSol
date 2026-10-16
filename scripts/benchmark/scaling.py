@@ -12,6 +12,7 @@
     scaling.py check   campaign.yaml   # layouts, tools, SeisSol --check
     scaling.py submit  campaign.yaml   # build, check, submit what is open
     scaling.py status  campaign.yaml   # the state of every run
+    scaling.py report  campaign.yaml   # tables and plots of what ran
 
 Every command can be repeated: submit attempts again only the runs that did
 not complete. See docs/strong-scaling.rst.

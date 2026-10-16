@@ -30,7 +30,7 @@ from .campaign import (
 )
 from .check import CheckResult, check_campaign
 from .config import Campaign, ConfigError, load_campaign
-from .jobscript import measurement_script
+from .jobscript import measurement_script, report_script
 from .scheduler import Scheduler, SchedulerError, scheduler_for
 
 
@@ -347,8 +347,30 @@ def cmd_submit(args: argparse.Namespace) -> int:
         log(f"submitted {job.name} as job {job_id} ({len(entries)} runs)")
         state.save()
 
-    if not args.dry_run:
-        state.save()
+    if args.dry_run:
+        return 0
+    if submitted and (campaign.job.report_job or args.report_job):
+        if scheduler.name == "local":
+            # the runs are done already, and a job of its own would wait for the lock this
+            # command holds
+            state.save()
+            write_report(campaign, directory, state, "total")
+            return 0
+        script = directory.jobs / f"report-{stamp}.sh"
+        write_text_atomically(script, report_script(campaign, directory, scheduler))
+        script.chmod(0o755)
+        job_id = scheduler.submit(script, after=submitted, kind="afterany")
+        state.record_job(
+            job_id,
+            {
+                "name": "report",
+                "kind": "report",
+                "script": str(script),
+                "state": "pending",
+            },
+        )
+        log(f"submitted the report as job {job_id}, after the runs")
+    state.save()
     return 0
 
 
@@ -385,6 +407,40 @@ def cmd_cancel(args: argparse.Namespace) -> int:
     scheduler.cancel(active)
     state.save()
     log(f"cancelled {len(active)} job(s)" if active else "no job to cancel")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# collect, report
+# ---------------------------------------------------------------------------
+
+
+def cmd_collect(args: argparse.Namespace) -> int:
+    from .collect import collect
+
+    campaign, directory, state = open_campaign(args)
+    plan = write_plan(campaign, directory, state)
+    tables = collect(campaign, plan, directory, state)
+    for name, path in tables.items():
+        log(f"wrote {path}")
+    return 0
+
+
+def write_report(
+    campaign: Campaign, directory: Layout, state: State, metric: str
+) -> None:
+    from .collect import collect
+    from .report import report
+
+    plan = write_plan(campaign, directory, state)
+    collect(campaign, plan, directory, state)
+    for path in report(campaign, plan, directory, metric=metric):
+        log(f"wrote {path}")
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    campaign, directory, state = open_campaign(args)
+    write_report(campaign, directory, state, args.metric)
     return 0
 
 
@@ -427,11 +483,27 @@ def parser() -> argparse.ArgumentParser:
         "--no-build", action="store_true", help="use the executables built before"
     )
     sub.add_argument("--no-check", action="store_true", help="skip the checks")
+    sub.add_argument(
+        "--report-job",
+        action="store_true",
+        help="submit a job that writes the report once the runs have ended",
+    )
     command("status", "show the state of every run", cmd_status)
     command(
         "cancel",
         "cancel the jobs of the campaign that are queued or running",
         cmd_cancel,
+    )
+    command("collect", "gather what the runs wrote into tables", cmd_collect)
+    sub = command(
+        "report", "collect, and write the scaling tables and plots", cmd_report
+    )
+    sub.add_argument(
+        "--metric",
+        choices=("total", "compute", "steady"),
+        default="total",
+        help="the time to scale: the simulation (total), its compute part, or its "
+        "epochs after the warm-up (steady)",
     )
     return main
 

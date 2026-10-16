@@ -16,6 +16,7 @@
       jobs/              the job scripts and their logs
       runs/<run>/attempt-<k>/
                          an attempt at a run: its log, its check, its output
+      results/           the tables and plots of the campaign
 
 Every command can be repeated: what is recorded is not done again, and a run
 is attempted again only if its last attempt did not complete.

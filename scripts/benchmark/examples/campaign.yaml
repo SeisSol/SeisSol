@@ -11,6 +11,7 @@
 #   scripts/benchmark/scaling.py plan   campaign.yaml
 #   scripts/benchmark/scaling.py submit campaign.yaml
 #   scripts/benchmark/scaling.py status campaign.yaml
+#   scripts/benchmark/scaling.py report campaign.yaml
 version: 1
 name: tpv5-strong
 # where the campaign keeps its builds, runs and results; by default <name>/
@@ -62,3 +63,5 @@ job:
   time_limit: "02:00:00"
   # of a run; a run that takes longer is stopped
   run_time_limit: "00:20:00"
+  # write the report once all runs have ended
+  report_job: true

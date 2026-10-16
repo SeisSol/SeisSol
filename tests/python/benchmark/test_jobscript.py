@@ -164,3 +164,14 @@ def test_a_local_job_runs(campaign_file, fakes):
         assert (folder / "check.json").exists()
         assert (folder / "output" / "data-summary.json").exists()
         assert "on 2 ranks" in (folder / "seissol.log").read_text()
+
+
+def test_the_report_job(campaign_file):
+    campaign = config.load_campaign(campaign_file())
+    directory = Layout(campaign.directory)
+    text = jobscript.report_script(
+        campaign, directory, SlurmScheduler(campaign.machine)
+    )
+    assert "#SBATCH --nodes=1" in text
+    assert "#SBATCH --exclusive" not in text
+    assert f"report {directory.root}" in text

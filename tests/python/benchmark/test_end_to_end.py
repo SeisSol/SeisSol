@@ -34,6 +34,26 @@ def test_a_local_campaign(campaign_file, capsys):
     assert cli.main(["submit", str(path), "--no-check"]) == 0
     assert "no run to submit" in capsys.readouterr().out
 
+    assert cli.main(["report", str(path)]) == 0
+    results = path.parent / "fake" / "results"
+    runs = rows(results / "runs.csv")
+    assert len(runs) == 12
+    assert {run["status"] for run in runs} == {"completed"}
+    assert {run["cellsPerRank"] for run in runs if run["nodes"] == "4"} == {"250.0"}
+    scaling = rows(results / "scaling.csv")
+    four = [
+        entry for entry in scaling if entry["nodes"] == "4" and entry["variant"] == "a"
+    ][0]
+    # the fake takes 100 / ranks + 2 seconds
+    assert float(four["time"]) == 27.0
+    assert abs(float(four["speedup"]) - 102.0 / 27.0) < 1e-9
+    assert len(rows(results / "ranks.csv")) == 2 * 2 * (1 + 2 + 4)
+    assert len(rows(results / "epochs.csv")) == 12 * 4
+    report = (results / "report.md").read_text()
+    assert "## fake/a" in report
+    summary = json.loads((results / "scaling.json").read_text())
+    assert summary["checks"] == []
+
 
 def test_failed_runs_are_attempted_again(campaign_file, tmp_path, monkeypatch, capsys):
     path = campaign_file(
@@ -68,11 +88,16 @@ def test_a_slurm_campaign(campaign_file, fake_slurm, capsys):
             "layout": {"ranks_per_node": 1, "cpus_per_rank": 4},
             "slurm": {"account": "project"},
         },
-        job={"time_limit": 30},
+        job={"time_limit": 30, "report_job": True},
     )
     assert cli.main(["submit", str(path)]) == 0
     out = capsys.readouterr().out
     assert "submitted n0004 as job 1003" in out
+    assert "submitted the report as job 1004" in out
+    submissions = (fake_slurm / "submissions").read_text().splitlines()
+    assert submissions[-1].startswith(
+        "--parsable --dependency=afterany:1001:1002:1003 "
+    )
 
     # queued: nothing is submitted again
     (fake_slurm / "queue").write_text("1001|PENDING\n1002|PENDING\n1003|RUNNING\n")
@@ -90,11 +115,11 @@ def test_a_slurm_campaign(campaign_file, fake_slurm, capsys):
     assert cli.main(["status", str(path)]) == 0
     assert "12 not-run" in capsys.readouterr().out
     assert cli.main(["submit", str(path), "--no-check"]) == 0
-    assert "submitted n0001 as job 1004" in capsys.readouterr().out
-    (fake_slurm / "queue").write_text("1004|PENDING\n1005|PENDING\n")
+    assert "submitted n0001 as job 1005" in capsys.readouterr().out
+    (fake_slurm / "queue").write_text("1005|PENDING\n1006|PENDING\n")
     assert cli.main(["cancel", str(path)]) == 0
     assert "cancelled 2 job(s)" in capsys.readouterr().out
-    assert (fake_slurm / "cancelled").read_text().split() == ["1004", "1005"]
+    assert (fake_slurm / "cancelled").read_text().split() == ["1005", "1006"]
 
 
 def test_a_dry_run(campaign_file, capsys):
@@ -158,3 +183,13 @@ def test_an_executable_for_other_nodes(campaign_file, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "does not run on this node (SIGILL)" in out
     assert "the check passed" in out
+
+
+def test_a_local_report_job(campaign_file):
+    path = campaign_file(
+        scaling={"nodes": [1, 2], "repetitions": 1},
+        variants=[{"name": "a"}],
+        job={"time_limit": 10, "report_job": True},
+    )
+    assert cli.main(["submit", str(path)]) == 0
+    assert (path.parent / "fake" / "results" / "report.md").exists()

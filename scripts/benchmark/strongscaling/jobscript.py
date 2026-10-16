@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 import shlex
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -213,4 +214,33 @@ def measurement_script(
             campaign, directory, run, attempt, binaries[run.build], index, len(entries)
         )
     lines += ["", 'echo "job done, $(date -u +%Y-%m-%dT%H:%M:%SZ)"', ""]
+    return "\n".join(lines)
+
+
+def report_script(
+    campaign: Campaign, directory: Directory, scheduler: Scheduler
+) -> str:
+    """The job script that writes the report once the runs have ended."""
+    spec = JobSpec(
+        name=f"{campaign.name}-report",
+        nodes=1,
+        time_limit=30 * 60,
+        ranks_per_node=1,
+        cpus_per_rank=1,
+        gpus_per_node=0,
+        log=directory.jobs / "report-%j.out",
+        workdir=directory.root,
+        exclusive=False,
+    )
+    python = campaign.machine.python or sys.executable
+    lines = ["#!/bin/bash"]
+    lines += scheduler.header(spec)
+    lines += ["", "set -u"]
+    if campaign.machine.setup:
+        lines += campaign.machine.setup
+    lines += [
+        f"cd {shlex.quote(str(directory.root))}",
+        f"{python} {shlex.quote(str(TOOL))} report {shlex.quote(str(directory.root))}",
+        "",
+    ]
     return "\n".join(lines)
