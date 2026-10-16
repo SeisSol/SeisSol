@@ -42,6 +42,7 @@
 #include "Model/OperatorLayout.h"
 #include "Numerical/Quadrature.h"
 #include "Solver/MultipleSimulations.h"
+#include "VolumeTerm.h"
 
 #include <Eigen/Dense>
 #include <array>
@@ -256,12 +257,7 @@ void linearField() {
     project(cell, field, dofs.data());
     alignas(Alignment) std::array<real, tensor::Q::size()> update{};
 
-    typename Kernels<Enabled>::Volume volume{};
-    volume.bindGlobals(seissol::Pool::host());
-    volume.I = dofs.data();
-    volume.Q = update.data();
-    kernels::bindStarOperands(volume, local);
-    volume.execute();
+    addVolumeTerm<typename Kernels<Enabled>::Volume>(dofs.data(), update.data(), local);
 
     // what the strong form gives for it: the derivative applied with the star of every
     // direction, which is a constant, with the sign of the term
@@ -384,12 +380,7 @@ void constantState() {
       flux.execute(side);
     }
 
-    typename Kernels<Enabled>::Volume volume{};
-    volume.bindGlobals(seissol::Pool::host());
-    volume.I = dofs.data();
-    volume.Q = update.data();
-    kernels::bindStarOperands(volume, local);
-    volume.execute();
+    addVolumeTerm<typename Kernels<Enabled>::Volume>(dofs.data(), update.data(), local);
     // the neighbour's trace is the cell's own where the state is continuous, so its contribution
     // is the local kernel applied with the neighbour's scalars
     flux.Q = update.data();

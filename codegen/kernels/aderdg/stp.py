@@ -54,6 +54,12 @@ class STP(LinearCK):
     def sourceMatrix(self):
         return None
 
+    def fusesVolume(self, target):
+        """The predictor solves for the space-time field of a cell as a whole
+        and does not run the derivative chain the volume term could be formed
+        in, so the corrector forms the volume term itself."""
+        return False
+
     def name(self):
         return "stp"
 

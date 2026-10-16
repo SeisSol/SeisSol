@@ -15,11 +15,14 @@
 
 namespace seissol::tensor {
 struct Iane;
+struct volumeFused;
 } // namespace seissol::tensor
 
 namespace seissol::kernels {
 struct LocalTmp {
   alignas(Alignment) real timeIntegratedAne[zeroGuard(kernels::size<tensor::Iane>())]{};
+  // the volume term of the corrector, where the predictor of the same cell forms it
+  alignas(Alignment) real volumeFused[zeroGuard(kernels::size<tensor::volumeFused>())]{};
   GravitationalFreeSurfaceBc gravitationalFreeSurfaceBc;
   alignas(Alignment)
       std::array<real,

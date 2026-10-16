@@ -142,6 +142,21 @@ twenty-fifth of the error, and the run takes 18 percent fewer operations (the
 derivative kernel 39 percent). On straight-sided cells the errors agree to all
 digits printed.
 
+**The predictor forms the volume term.** The volume term of the corrector is
+the operator applied to the time integral of the predictor,
+:math:`\sum_k w_k A\,\partial Q^{(k)}` with the weights :math:`w_k` of the time
+integral, projected onto every mode. The chain forms :math:`A\,\partial
+Q^{(k)}` at the points for every derivative but the last, and where it
+narrows, the last one is constant. So the derivative kernel sums what it forms
+at the points with those weights and projects the sum once (``volumeFused``),
+and the corrector of the cell adds it to the field instead of reading the time
+integral at the points again. That takes 11 to 16 percent off the operations
+of a straight-sided cell and step at orders 4 to 8, and 12 percent off those
+of a curved one at order 4 (19 percent of the hardware operations). It runs on
+the CPU: the device runs the predictor and the corrector of a batch as two
+kernels without a buffer per cell between them, and its corrector forms the
+volume term itself.
+
 **The mass matrix stays the one of the reference cell.** The scheme tests with
 the basis functions divided by :math:`\det J`. A point source then is
 :math:`\varphi(\xi_s) / \det J(\xi_s)`, the initial state is the projection of

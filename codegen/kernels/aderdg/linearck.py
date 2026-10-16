@@ -47,6 +47,43 @@ class LinearCK(ADERDGBase):
             and self.sourceMatrix() is None
         )
 
+    def fusesVolume(self, target):
+        """Whether the derivative kernel of a target forms the volume term of
+        the corrector as well.
+
+        The volume term is the operator applied to the time integral of the
+        predictor, the sum of power(k) A dQ(k), projected onto every mode. The
+        chain forms A dQ(k) at the sample points for every k but the last, and
+        projects it onto the modes the next derivative keeps. Where the chain
+        narrows, the last derivative is constant and A dQ(last) vanishes, so the
+        products the chain forms are all the volume term needs: summed at the
+        points with the weights of the time integral and projected once onto
+        every mode, they are the volume term, and the time integral is not read
+        at the points again. The host hands the result from the predictor to
+        the corrector of the same cell (LocalTmp::volumeFused).
+
+        The device runs the predictor and the corrector of a batch as two
+        kernels without a buffer per cell between them, so its corrector forms
+        the volume term itself."""
+        return target == "cpu" and self.narrowsDerivatives()
+
+    def volumeFused(self):
+        """The volume term the derivative kernel hands to the corrector, and the
+        sum at the points it is projected from; see fusesVolume."""
+        if not hasattr(self, "_volumeFused"):
+            self._volumeFused = OptionalDimTensor(
+                "volumeFused",
+                self.Q.optName(),
+                self.Q.optSize(),
+                self.Q.optPos(),
+                (self.num3DBasisFunctions(), self.numQuantities()),
+                alignStride=True,
+            )
+            self._volumeAtPoints = self.nodalTemporary(
+                "volumeAtPoints", self.nodalProductShape
+            )
+        return self._volumeFused, self._volumeAtPoints
+
     def derivativeModes(self, k):
         """How many modes the k-th time derivative of the predictor keeps where
         the operator varies inside the cell, see narrowsDerivatives."""
@@ -134,7 +171,11 @@ class LinearCK(ADERDGBase):
             name_prefix = generate_kernel_name_prefix(target)
             # a device kernel writes each temporary once, see singleDefinitions
             with self.singleDefinitions(target == "gpu"):
-                if self.nodalMaterial:
+                if self.fusesVolume(target):
+                    # the derivative kernel formed the volume term already
+                    volumeFused, _ = self.volumeFused()
+                    volumeExpr = [self.Q["kp"] <= self.Q["kp"] + volumeFused["kp"]]
+                elif self.nodalMaterial:
                     volumeUpdate = OptionalDimTensor(
                         "volumeUpdate",
                         self.Q.optName(),
@@ -160,11 +201,9 @@ class LinearCK(ADERDGBase):
                     if self.sourceMatrix():
                         volumeSum += self.I["kq"] * self.sourceMatrix()["qp"]
                     volumeExpr = [self.Q["kp"] <= volumeSum]
-                generator.add(
-                    f"{name_prefix}volume",
-                    self.starAssembly() + volumeExpr,
-                    target=target,
-                )
+                if not self.fusesVolume(target):
+                    volumeExpr = self.starAssembly() + volumeExpr
+                generator.add(f"{name_prefix}volume", volumeExpr, target=target)
 
             localFluxNodal = (
                 lambda i: self.extendedQTensor()["kp"]
@@ -372,6 +411,10 @@ class LinearCK(ADERDGBase):
 
                 self.dQs = [dQ0]
 
+                fused = self.fusesVolume(target)
+                if fused:
+                    volumeFused, volumeAtPoints = self.volumeFused()
+
                 for i in range(1, self.order):
                     power = powers[i]
                     if self.nodalMaterial:
@@ -388,11 +431,18 @@ class LinearCK(ADERDGBase):
                             alignStride=True,
                         )
                         self.dQs.append(dQ)
+                        # the product at the points enters the volume term
+                        # with the weight of the derivative it is formed from
                         derivativeExpr += self.nodalApply(
                             derivatives[-1],
                             dQ,
                             self.db.kDivMT,
                             project=self.derivativeProjection(i),
+                            pointSum=(
+                                (volumeAtPoints, powers[i - 1], i == 1)
+                                if fused
+                                else None
+                            ),
                         )
                         derivativeExpr += self.sourceTerm(derivatives[-1], dQ)
                         derivativeExpr += [
@@ -438,6 +488,12 @@ class LinearCK(ADERDGBase):
                     derivativeTaylorExpansion += power * dQ["kp"]
 
                     derivatives.append(dQ)
+
+                if fused:
+                    derivativeExpr += [
+                        volumeFused["kp"]
+                        <= self.operatorProject["kn"] * volumeAtPoints["np"]
+                    ]
 
                 derivativeTaylorExpansionExpr = (
                     self.I["kp"] <= derivativeTaylorExpansion

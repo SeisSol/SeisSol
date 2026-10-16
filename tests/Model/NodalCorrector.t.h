@@ -42,6 +42,7 @@
 #include "Model/Common.h"
 #include "Model/OperatorLayout.h"
 #include "Solver/MultipleSimulations.h"
+#include "VolumeTerm.h"
 
 #include <Eigen/Dense>
 #include <array>
@@ -251,13 +252,7 @@ void weakEquivalence() {
       }
       alignas(Alignment) std::array<real, tensor::Q::size()> update{};
 
-      typename Kernels<Enabled>::Volume volume{};
-      volume.bindGlobals(seissol::Pool::host());
-      volume.I = dofs.data();
-      volume.Q = update.data();
-      kernels::bindStarOperands(volume, local);
-      kernels::bindSourceOperands(volume, local);
-      volume.execute();
+      addVolumeTerm<typename Kernels<Enabled>::Volume>(dofs.data(), update.data(), local);
 
       typename Kernels<Enabled>::LocalFlux flux{};
       flux.bindGlobals(seissol::Pool::host());
@@ -402,13 +397,7 @@ void constantState() {
         flux.execute(side);
       }
 
-      typename Kernels<Enabled>::Volume volume{};
-      volume.bindGlobals(seissol::Pool::host());
-      volume.I = dofs.data();
-      volume.Q = update.data();
-      kernels::bindStarOperands(volume, local);
-      kernels::bindSourceOperands(volume, local);
-      volume.execute();
+      addVolumeTerm<typename Kernels<Enabled>::Volume>(dofs.data(), update.data(), local);
 
       flux.Q = update.data();
       typename Kernels<Enabled>::NeighborFlux neighbor{};

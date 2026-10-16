@@ -988,6 +988,7 @@ class ADERDGBase(ABC):
         accumulate=False,
         scalar=None,
         project=None,
+        pointSum=None,
     ):
         """One application of the operator where the material varies inside the
         cell: read the derivative at the sample points, multiply by the
@@ -1001,7 +1002,10 @@ class ADERDGBase(ABC):
         `accumulate` adds it to what the target holds instead of replacing it.
         `project` is the projection the result comes back with, for a target
         that keeps fewer modes than the field; the operator's own where not
-        given.
+        given. `pointSum`, a temporary over the points with a weight and
+        whether it starts the sum, collects the product at the points as well,
+        for a caller that projects a weighted sum of several applications at
+        once.
         """
         valuesPrototype, product = (
             temporaries
@@ -1034,6 +1038,13 @@ class ADERDGBase(ABC):
                     <= (term if first else product["np" + spectator] + term)
                 )
                 first = False
+        if pointSum is not None:
+            total, weight, starts = pointSum
+            weighted = weight * product["np" + spectator]
+            statements.append(
+                total["np" + spectator]
+                <= (weighted if starts else total["np" + spectator] + weighted)
+            )
         projector = self.operatorProject if project is None else project
         projected = projector["kn"] * product["np" + spectator]
         if scalar is not None:

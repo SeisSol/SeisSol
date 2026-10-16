@@ -38,6 +38,7 @@
 #include "Model/Common.h"
 #include "Model/OperatorLayout.h"
 #include "Solver/MultipleSimulations.h"
+#include "VolumeTerm.h"
 
 #include <Eigen/Dense>
 #include <algorithm>
@@ -151,6 +152,9 @@ void compareChain(const std::vector<MaterialT>& materials,
   for (std::size_t k = 0; k < Derivatives; ++k) {
     krnl.power(k) = powers[k];
   }
+  // where the build forms the volume term of the corrector in the chain, the chain writes it too
+  kernels::LocalTmp tmp(0.0);
+  bindVolumeFused(krnl, tmp);
   krnl.execute();
 
   auto viewQ = init::Q::view::create(dofs.data());

@@ -33,6 +33,7 @@
 #include "Model/Common.h"
 #include "Model/OperatorLayout.h"
 #include "Solver/MultipleSimulations.h"
+#include "VolumeTerm.h"
 
 #include <Eigen/Dense>
 #include <array>
@@ -126,13 +127,8 @@ void compareAgainstModal() {
       }
       alignas(Alignment) std::array<real, tensor::Q::size()> update{};
 
-      typename Kernels<Enabled>::Volume krnl{};
-      krnl.bindGlobals(seissol::Pool::host());
-      krnl.I = dofs.data();
-      krnl.Q = update.data();
-      kernels::bindStarOperands(krnl, localIntegration);
-      kernels::bindSourceOperands(krnl, localIntegration);
-      krnl.execute();
+      addVolumeTerm<typename Kernels<Enabled>::Volume>(
+          dofs.data(), update.data(), localIntegration);
 
       // 2. the same thing out of the matrices it is made of
       std::array<Eigen::MatrixXd, 3> directional;

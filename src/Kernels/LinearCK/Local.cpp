@@ -48,8 +48,28 @@
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(extraOffset_ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
+GENERATE_HAS_MEMBER(volumeFused)
 
 namespace seissol::kernels::solver::linearck {
+
+namespace {
+/// Hands the volume kernel what it reads: the volume term the predictor of the cell formed
+/// already, where the build forms it there (LocalTmp::volumeFused), or else the time integral
+/// and the operator of the cell.
+template <typename KernelT>
+void bindVolumeOperands(KernelT& krnl, real* timeIntegratedDoFs, LTS::Ref& data, LocalTmp& tmp) {
+  if constexpr (has_volumeFused<KernelT>::value) {
+    krnl.volumeFused = tmp.volumeFused;
+  } else {
+    krnl.I = timeIntegratedDoFs;
+    kernels::bindStarOperands(krnl, data.get<LTS::LocalIntegration>());
+
+    // Optional source term
+    set_ET(krnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
+    kernels::bindSourceOperands(krnl, data.get<LTS::LocalIntegration>());
+  }
+}
+} // namespace
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
   volumeKernelPrototype_.bindGlobals(*global.onHost);
@@ -78,12 +98,7 @@ void Local::computeIntegral(
 
   kernel::volume volKrnl = volumeKernelPrototype_;
   volKrnl.Q = data.get<LTS::Dofs>();
-  volKrnl.I = timeIntegratedDoFs;
-  kernels::bindStarOperands(volKrnl, data.get<LTS::LocalIntegration>());
-
-  // Optional source term
-  set_ET(volKrnl, get_ptr_sourceMatrix(data.get<LTS::LocalIntegration>().specific));
-  kernels::bindSourceOperands(volKrnl, data.get<LTS::LocalIntegration>());
+  bindVolumeOperands(volKrnl, timeIntegratedDoFs, data, tmp);
 
   kernel::localFlux lfKrnl = localFluxKernelPrototype_;
   lfKrnl.Q = data.get<LTS::Dofs>();

@@ -49,6 +49,7 @@
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(extraOffset_ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
+GENERATE_HAS_MEMBER(volumeFused)
 
 namespace seissol::kernels::solver::linearck {
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
@@ -105,6 +106,9 @@ void Spacetime::computeAder(const real* coeffs,
   for (std::size_t der = 0; der < ConvergenceOrder; ++der) {
     krnl.power(der) = coeffs[der];
   }
+  // Where the material varies inside the cell, the chain forms the volume term of the corrector
+  // as well, for the time integral it forms; the corrector of the cell reads it from there.
+  set_volumeFused(krnl, tmp.volumeFused);
 
   if (updateDisplacement) {
     // First derivative if needed later in kernel
