@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::unit_test {
@@ -255,6 +256,34 @@ TEST_CASE("ParameterReader readPath" * doctest::test_suite("initializer")) {
   SUBCASE("A name that is not given") { CHECK_FALSE(reader.readPath("other").has_value()); }
 
   seissol::filesystem::remove_all(directory);
+}
+
+TEST_CASE("ParameterReader paths and unknown fields" * doctest::test_suite("initializer")) {
+  const YAML::Node node = YAML::Load(R"(
+    equations:
+      materialfilename: rock.yaml
+      typo: 1
+    output:
+      rfilename: receivers.dat
+    unread:
+      field: 1
+  )");
+  ParameterReader reader(node, "", false);
+  reader.readSubNode("output")->readPath("rfilename");
+  reader.readSubNode("equations")->readPath("materialfilename");
+
+  const auto paths = reader.paths();
+  REQUIRE(paths.size() == 2);
+  // by section, in alphabetical order
+  CHECK(paths[0].field == std::vector<std::string>{"equations", "materialfilename"});
+  CHECK(paths[0].path == "rock.yaml");
+  CHECK(paths[1].field == std::vector<std::string>{"output", "rfilename"});
+  CHECK(paths[1].path == "receivers.dat");
+
+  const auto unknown = reader.unknownFields();
+  REQUIRE(unknown.size() == 2);
+  CHECK(unknown[0] == "unread");
+  CHECK(unknown[1] == "equations.typo");
 }
 
 } // namespace seissol::unit_test

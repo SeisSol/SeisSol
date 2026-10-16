@@ -21,3 +21,4 @@
 #include "Parameters/OutputParameters.t.h"
 #include "Parameters/ParameterOverrides.t.h"
 #include "PointMapper.t.h"
+#include "Preflight.t.h"

@@ -145,6 +145,12 @@ json::Value toJson(const statistics::Summary& summary);
 json::Value statisticsOverRanks(double localValue);
 
 /**
+ * @brief What the executable is: its version and commit, the architectures and compiler it was
+ * built for and with, and the configurations it holds.
+ */
+json::Value buildInformation();
+
+/**
  * @brief The current time, in UTC, as ISO 8601 (2026-10-16T12:34:56Z).
  */
 std::string utcTimestamp();

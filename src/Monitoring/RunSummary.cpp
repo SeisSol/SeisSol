@@ -70,7 +70,9 @@ std::string mpiLibrary() {
   return version;
 }
 
-json::Value buildSection() {
+} // namespace
+
+json::Value buildInformation() {
   json::Value build;
   build["version"] = BuildInfo::VersionString;
   build["commit"] = BuildInfo::CommitHash;
@@ -88,6 +90,7 @@ json::Value buildSection() {
   return build;
 }
 
+namespace {
 //! @brief The layout of the run over nodes and threads. Collective.
 json::Value parallelSection() {
   json::Value parallel;
@@ -196,7 +199,7 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   root["stage"] = "init";
   root["started"] = utcTimestamp();
   root["updated"] = utcTimestamp();
-  root["build"] = buildSection();
+  root["build"] = buildInformation();
   root["parallel"] = parallelSection();
   root["environment"] = relevantEnvironment();
   for (const auto& [key, value] : root_.isObject() ? root_.asObject() : json::Value::Object{}) {

@@ -15,6 +15,7 @@
 #include "Initializer/Parameters/ParameterOverrides.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Preflight.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/MPI.h"
@@ -128,6 +129,52 @@ json::Value invocation(const char* executable,
   return value;
 }
 
+//! @brief The command line of SeisSol, for parsing it and for its help.
+utils::Args commandLine() {
+  utils::Args args("SeisSol is a scientific software for the numerical simulation of seismic wave "
+                   "phenomena and earthquake dynamics. This version of SeisSol was built for the "
+                   "following configurations:\n" +
+                   describeBuiltConfigs());
+  args.addAdditionalOption("parameterfile", "The parameter file", false);
+  args.addOption(
+      "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Required, false);
+  // taken out of the command line before parsing it (see extractOverrides); here for the help
+  args.addOption("set",
+                 0,
+                 "Overrides a parameter of the parameter file, as section.field=value; may be "
+                 "given several times",
+                 utils::Args::Required,
+                 false);
+  // likewise taken out before (see extractCheckOption)
+  args.addOption("check",
+                 0,
+                 "Checks the run instead of running it: the parameters, the files they name, the "
+                 "mesh and the output directory, on one process; --check=<file> writes a report",
+                 utils::Args::Optional,
+                 false);
+  return args;
+}
+
+/**
+ * Checks the run that the command line describes, without starting it: on one process, without
+ * MPI and devices.
+ */
+int checkMain(int argc, char* argv[], const std::string& reportPath) {
+  logInfo() << "Checking a run of SeisSol" << BuildInfo::VersionString.c_str()
+            << "without running it.";
+  const auto overrides = extractOverrides(argc, argv);
+  auto args = commandLine();
+  if (args.parse(argc, argv) != utils::Args::Success) {
+    return 1;
+  }
+  const auto* parameterFile = args.getAdditionalArgument("parameterfile", "parameters.par");
+  const auto checkpoint =
+      args.isSet("checkpoint")
+          ? std::make_optional<std::string>(args.getArgument<const char*>("checkpoint"))
+          : std::nullopt;
+  return seissol::initializer::preflight(parameterFile, overrides, checkpoint, reportPath);
+}
+
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
   // Read parameter file input from file
   fty::Loader<fty::AsLowercase> loader{};
@@ -143,6 +190,12 @@ std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
 
 int main(int argc, char* argv[]) {
   try {
+    // a check runs on its own, before anything of a run starts
+    const auto checkReport = seissol::initializer::extractCheckOption(argc, argv);
+    if (checkReport.has_value()) {
+      return checkMain(argc, argv, checkReport.value());
+    }
+
 #ifdef ACL_DEVICE
     seissol::Mpi::mpi.bindAcceleratorDevice();
     const device::DeviceInstance& device = device::DeviceInstance::instance();
@@ -222,21 +275,7 @@ int main(int argc, char* argv[]) {
       overrides.push_back(parsed.value_or(seissol::initializer::parameters::ParameterOverride{}));
     }
 
-    utils::Args args(
-        "SeisSol is a scientific software for the numerical simulation of seismic wave "
-        "phenomena and earthquake dynamics. This version of SeisSol was built for the "
-        "following configurations:\n" +
-        describeBuiltConfigs());
-    args.addAdditionalOption("parameterfile", "The parameter file", false);
-    args.addOption(
-        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Required, false);
-    // taken out of the command line before parsing it (see extractOverrides); here for the help
-    args.addOption("set",
-                   0,
-                   "Overrides a parameter of the parameter file, as section.field=value; may be "
-                   "given several times",
-                   utils::Args::Required,
-                   false);
+    auto args = commandLine();
     switch (args.parse(argc, argv)) {
     case utils::Args::Help: {
       [[fallthrough]];

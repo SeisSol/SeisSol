@@ -56,6 +56,43 @@ have is added. An override of a field SeisSol does not read is an error, unlike 
 field in the file that SeisSol does not know, which only gives a warning: a
 misspelt override would otherwise silently leave the run unchanged.
 
+.. _parameter-check:
+
+Checking a run before starting it
+---------------------------------
+
+``--check`` reads the parameter file and the overrides as a run does, but instead of
+running, it checks what a run finds out only later, when it may have waited in a queue
+for hours:
+
+* that the files the parameters name exist, those that the run opens (the receiver
+  file, e.g., only if the receiver output is on);
+* that the YAML files among them, i.e. the easi models, parse, though not what they
+  hold, nor the files they refer to in turn;
+* that the mesh opens, and how many cells and vertices it has;
+* that the output directory can be written, or created;
+* that the checkpoint given with ``-c`` exists.
+
+It runs on one process, without MPI and without devices, e.g. on a login node with the
+executable built for the compute nodes, provided that the login node can run it:
+
+.. code-block:: bash
+
+    ./SeisSol_YOUR_CONFIGURATION --check=check.json parameters.par \
+        --set output.outputfile=runs/strong-16/data
+
+An error in the parameters stops the check as it would stop the run; what the check
+itself finds, it collects. The exit code is 0 if the run can start, 1 otherwise.
+``--check=<file>`` writes a report as JSON, also when an error stops the check: its
+``status`` is ``passed`` or ``failed``; ``problems`` lists what the check found;
+``stoppedAt`` names the step an error stopped (``parameters``, ``files``, ``yaml``,
+``mesh``, ``checkpoint`` or ``output``), whose message is in the log; ``mesh`` has the
+``cells`` and ``vertices`` of a PUML mesh; ``files`` lists the files the parameters name,
+whether they exist and whether the run opens them; ``output`` gives the output
+directory, whether it is ``writable``, and which outputs are ``enabled``; the report has
+the ``build``, the ``invocation``, the ``configurations``, the ``endTime`` and the
+``unknownFields`` of the parameter file as well.
+
 Commented parameter file
 ------------------------
 

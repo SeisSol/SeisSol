@@ -11,6 +11,7 @@ add_library(seissol-initializer OBJECT
     MemoryManager.cpp
     ParameterDB.cpp
     PointMapper.cpp
+    Preflight.cpp
 
     BatchRecorders/DynamicRuptureRecorder.cpp
     BatchRecorders/LocalIntegrationRecorder.cpp
