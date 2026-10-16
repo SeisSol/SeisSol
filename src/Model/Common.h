@@ -217,6 +217,24 @@ auto getStarCoefficients(const Tmaterial& material) {
   return SolverSetup<typename Tmaterial::Solver, Tmaterial>::getCoefficients(material);
 }
 
+/// The same for the operator without material, A_d = W^-1 B_d (see WeightEntry).
+template <typename Tmaterial>
+auto getUnweightedCoefficients(const Tmaterial& material) {
+  return SolverSetup<typename Tmaterial::Solver, Tmaterial>::getUnweightedCoefficients(material);
+}
+
+/// The transposed coefficient matrix of one direction without material, B_d^T, in the layout of
+/// getTransposedCoefficientMatrix.
+template <typename Tmaterial, typename Tmatrix>
+void getTransposedUnweightedCoefficientMatrix(const Tmaterial& material,
+                                              unsigned dim,
+                                              Tmatrix& matM) {
+  const auto coefficients = getUnweightedCoefficients(material);
+  std::array<double, 3> gradient{};
+  gradient[dim] = 1.0;
+  assembleStarMatrix<Tmaterial>(coefficients.data(), gradient.data(), matM);
+}
+
 /// The same for the source term this cell's solver applies.
 template <typename Tmaterial>
 auto getSourceCoefficients(const Tmaterial& material) {
@@ -396,6 +414,11 @@ struct MaterialSetupDefaults {
   /// material has no relaxation.
   static constexpr std::array<AnelasticCoefficientEntry, 0> AnelasticEntries{};
 
+  /// The inverse weight of the medium (see WeightEntry). Empty where the
+  /// material does not state it; it then has no getUnweightedCoefficients
+  /// either.
+  static constexpr std::array<WeightEntry, 0> WeightEntries{};
+
   /// Number of scalar coefficients one relaxation mechanism's source entries
   /// are linear in. Zero where the material has no source term, or does not
   /// declare its decomposition.
@@ -456,6 +479,12 @@ struct SolverSetupDefaults {
 
   static std::array<double, NumCoefficients> getCoefficients(const MaterialT& material) {
     return MaterialSetup<MaterialT>::getCoefficients(material);
+  }
+
+  /// The same for the operator without material (see WeightEntry), which only a material that
+  /// states its weight has.
+  static std::array<double, NumCoefficients> getUnweightedCoefficients(const MaterialT& material) {
+    return MaterialSetup<MaterialT>::getUnweightedCoefficients(material);
   }
 
   /// Walks the entries of the operator this solver applies. A callback rather

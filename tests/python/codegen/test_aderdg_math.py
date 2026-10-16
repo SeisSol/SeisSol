@@ -432,3 +432,82 @@ class TestPoroelasticChoose:
         for n in range(3, 10):
             for k in range(0, n):
                 assert choose(n + 1, k + 1) == choose(n, k) + choose(n, k + 1)
+
+
+# =============================================================================
+# The inverse weight of a medium
+# =============================================================================
+
+
+class TestWeightDecomposition:
+    """A medium that states its inverse weight has A_d = W^-1 B_d for every
+    direction, B_d its operator without material: in the transposed form the
+    kernels apply, star_d = B_d^T W^-1. A weight-adjusted cell lifts its fluxes
+    with B and applies W^-1 at the sample points afterwards, so an entry out of
+    place shows up as a wrong flux, not as an error."""
+
+    @staticmethod
+    def _star(decomposition, coefficients, dim, size):
+        star = np.zeros((size, size))
+        for entry in decomposition.entries:
+            if entry.dim == dim:
+                star[entry.row, entry.column] += (
+                    entry.factor * coefficients[entry.coefficient]
+                )
+        return star
+
+    @staticmethod
+    def _weight(decomposition, coefficients, size):
+        weight = np.zeros((size, size))
+        for entry in decomposition.weight:
+            weight[entry.row, entry.column] += (
+                entry.factor * coefficients[entry.coefficient]
+            )
+        return weight
+
+    @staticmethod
+    def _media():
+        from kernels import coefficients
+
+        def elastic(rng):
+            lam, mu, rho = rng.uniform(0.5, 5.0, 3)
+            return [lam + 2 * mu, lam, mu, 1 / rho, 1 / rho]
+
+        def acoustic(rng):
+            lam, rho = rng.uniform(0.5, 5.0, 2)
+            return [lam, 1 / rho]
+
+        return [
+            (coefficients.ELASTIC, 9, elastic),
+            (coefficients.ACOUSTIC, 4, acoustic),
+        ]
+
+    def test_operator_is_inverse_weight_times_unweighted(self):
+        rng = np.random.default_rng(20261016)
+        for decomposition, size, draw in self._media():
+            for _ in range(16):
+                values = draw(rng)
+                weight = self._weight(decomposition, values, size)
+                for dim in range(3):
+                    expected = self._star(decomposition, values, dim, size)
+                    unweighted = self._star(
+                        decomposition, decomposition.unweighted, dim, size
+                    )
+                    np.testing.assert_allclose(
+                        unweighted @ weight, expected, atol=1e-14
+                    )
+
+    def test_weight_is_symmetric(self):
+        rng = np.random.default_rng(20261017)
+        for decomposition, size, draw in self._media():
+            weight = self._weight(decomposition, draw(rng), size)
+            np.testing.assert_array_equal(weight, weight.T)
+
+    def test_a_medium_without_weight_states_nothing_else(self):
+        from kernels import coefficients
+
+        for decomposition in coefficients.ALL:
+            if decomposition.weight:
+                assert len(decomposition.unweighted) == len(decomposition.coefficients)
+            else:
+                assert not decomposition.unweighted

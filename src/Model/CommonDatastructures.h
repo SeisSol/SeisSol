@@ -70,6 +70,22 @@ struct CoefficientEntry {
   double factor;
 };
 
+/// One entry of the inverse weight of a medium, in the same coefficients. The coefficient matrix
+/// of every direction is the inverse weight times one without material, A_d = W^-1 B_d -- for an
+/// elastic medium W^-1 = diag(C, 1/rho) -- so a material that declares these gives
+///
+///     W^-1(row, column) = sum_a coefficients[a] * factor
+///
+/// and the matrices of B_d from the same entries as A_d, with the coefficients it states for that
+/// (getUnweightedCoefficients). The weight is symmetric; row and column are given as the
+/// transposed coefficient matrices have them.
+struct WeightEntry {
+  std::size_t coefficient;
+  std::size_t row;
+  std::size_t column;
+  double factor;
+};
+
 /// The same for a source term, which has no direction. One relaxation
 /// mechanism contributes the whole table, so the mechanism is not an index
 /// here either: a caller walks the table once per mechanism with that

@@ -70,6 +70,24 @@ class SourceEntry:
 
 
 @dataclass(frozen=True)
+class WeightEntry:
+    """One entry of the inverse weight of a medium, as one of its coefficients
+    times a factor.
+
+    The operator of every direction is the inverse weight times an operator
+    without material, A_d = W^-1 B_d -- for an elastic medium W^-1 = diag(C,
+    1/rho) -- and in the transposed form the kernels apply, star_d = B_d^T
+    W^-1. The weight is symmetric, so row and column are interchangeable;
+    they are given as the star's, input quantity first.
+    """
+
+    coefficient: int
+    row: int
+    column: int
+    factor: float = 1.0
+
+
+@dataclass(frozen=True)
 class Decomposition:
     name: str
     coefficients: List[str]
@@ -77,6 +95,13 @@ class Decomposition:
     anelastic: List[AnelasticEntry] = field(default_factory=list)
     source_coefficients: List[str] = field(default_factory=list)
     source: List[SourceEntry] = field(default_factory=list)
+    #: The inverse weight, in the medium's own coefficients; empty where the
+    #: medium does not state it.
+    weight: List[WeightEntry] = field(default_factory=list)
+    #: The coefficients of the operator without material: the values the
+    #: medium's coefficients take where the weight is the identity. A medium
+    #: may set one to zero where it does not couple at all (see the elastic one).
+    unweighted: List[float] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------- elastic
@@ -104,6 +129,25 @@ ELASTIC = Decomposition(
         Entry(_RHO, 2, 2, 8), Entry(_RHO_SHEAR, 2, 5, 6), Entry(_RHO_SHEAR, 2, 4, 7),
     ],
     # fmt: on
+    # W^-1 = diag(C, 1/rho), C on the strain with its tensor components in
+    # the order of the stress, so 2 mu on the shear diagonal. The strain then
+    # turns with a face as the stress does, which is how a face turns the flux
+    # it lifts back into the cell; with the engineering shear strains the two
+    # would differ by a factor of two on the shear components.
+    weight=[
+        WeightEntry(coefficient, row, column)
+        for row in range(3)
+        for column in range(3)
+        for coefficient in [_L2M if row == column else _LAM]
+    ]
+    + [WeightEntry(_MU, q, q, 2.0) for q in (3, 4, 5)]
+    + [WeightEntry(_RHO, q, q) for q in (6, 7, 8)],
+    # B: the rate of the strain is the symmetric part of the velocity
+    # gradient, a half on the shear components, and the rate of the momentum
+    # the divergence of the stress. The second 1/rho is one in a solid; a
+    # fluid, whose own coefficient is zero there, keeps it zero (see the
+    # material's getUnweightedCoefficients).
+    unweighted=[1.0, 0.0, 0.5, 1.0, 1.0],
 )
 
 # ---------------------------------------------------------------- acoustic
@@ -118,6 +162,9 @@ ACOUSTIC = Decomposition(
         Entry(0, 2, 3, 0), Entry(1, 2, 0, 3),
     ],
     # fmt: on
+    # W^-1 = diag(lambda, 1/rho, 1/rho, 1/rho)
+    weight=[WeightEntry(0, 0, 0)] + [WeightEntry(1, q, q) for q in (1, 2, 3)],
+    unweighted=[1.0, 1.0],
 )
 
 # ------------------------------------------------------------- anisotropic
@@ -677,6 +724,25 @@ def generate(
                 for e in decomposition.anelastic
             ],
         )
+        if decomposition.weight:
+            lines.append(
+                f"// {name}: the inverse weight W^-1 of A_d = W^-1 B_d, in the\n"
+                "// material's coefficients, and the coefficients of B_d, the\n"
+                "// operator without material\n"
+            )
+            lines += _table(
+                "model::WeightEntry",
+                f"{name}WeightEntries",
+                [
+                    f"{{{e.coefficient}, {e.row}, {e.column}, {_format(e.factor)}}}"
+                    for e in decomposition.weight
+                ],
+            )
+            lines += _table(
+                "double",
+                f"{name}UnweightedCoefficients",
+                [_format(value) for value in decomposition.unweighted],
+            )
         if decomposition.source_coefficients:
             lines.append(
                 f"// {name} source: "

@@ -18,6 +18,7 @@
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 
@@ -42,6 +43,26 @@ struct MaterialSetup<ElasticMaterial> : public MaterialSetupDefaults<ElasticMate
   }
 
   static constexpr auto CoefficientEntries = generated::ElasticCoefficientEntries;
+
+  /// W^-1 = diag(C, 1/rho), C on the strain with its tensor components, so 2 mu on the shear
+  /// diagonal: the strain then turns with a face as the stress does.
+  static constexpr auto WeightEntries = generated::ElasticWeightEntries;
+
+  /// The coefficients of the operator without material, A_d = W^-1 B_d: the rate of the strain is
+  /// the symmetric part of the velocity gradient and the rate of the momentum the divergence of the
+  /// stress. The shear stresses do not reach the velocity where the medium carries no shear, as in
+  /// getCoefficients, so that A = W^-1 B holds for a fluid as well.
+  static std::array<double, NumCoefficients>
+      getUnweightedCoefficients(const ElasticMaterial& material) {
+    std::array<double, NumCoefficients> coefficients{};
+    std::copy(generated::ElasticUnweightedCoefficients.begin(),
+              generated::ElasticUnweightedCoefficients.end(),
+              coefficients.begin());
+    if (testIfAcoustic(material.mu)) {
+      coefficients[4] = 0.0;
+    }
+    return coefficients;
+  }
 
   static constexpr FaceTypeSupport supportsFaceType(FaceType faceType) {
     if (faceType == FaceType::FreeSurfaceGravity) {

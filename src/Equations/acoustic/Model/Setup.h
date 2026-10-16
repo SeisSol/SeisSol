@@ -19,6 +19,7 @@
 #include "Numerical/Eigenvalues.h"
 #include "Numerical/Transformation.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 
@@ -35,6 +36,21 @@ struct MaterialSetup<AcousticMaterial> : public MaterialSetupDefaults<AcousticMa
   }
 
   static constexpr auto CoefficientEntries = generated::AcousticCoefficientEntries;
+
+  /// W^-1 = diag(lambda, 1/rho, 1/rho, 1/rho).
+  static constexpr auto WeightEntries = generated::AcousticWeightEntries;
+
+  /// The coefficients of the operator without material, A_d = W^-1 B_d: the rate of the
+  /// compression is the divergence of the velocity, the momentum rate the gradient of the
+  /// pressure.
+  static std::array<double, NumCoefficients>
+      getUnweightedCoefficients(const AcousticMaterial& /*material*/) {
+    std::array<double, NumCoefficients> coefficients{};
+    std::copy(generated::AcousticUnweightedCoefficients.begin(),
+              generated::AcousticUnweightedCoefficients.end(),
+              coefficients.begin());
+    return coefficients;
+  }
 
   static constexpr FaceTypeSupport supportsFaceType(FaceType /*faceType*/) {
     // The free surface with gravity is formulated for exactly this material: one pressure,

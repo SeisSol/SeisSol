@@ -60,6 +60,22 @@ struct SolverSetup<kernels::solver::linearck::Solver, MaterialT>
     return coefficients;
   }
 
+  /// The same for the operator without material (see WeightEntry). The relaxation frequencies stay:
+  /// the coupling block of a mechanism carries no material.
+  static std::array<double, NumCoefficients> getUnweightedCoefficients(const MaterialT& material) {
+    std::array<double, NumCoefficients> coefficients{};
+    const auto base = MaterialSetup<MaterialT>::getUnweightedCoefficients(material);
+    for (std::size_t i = 0; i < base.size(); ++i) {
+      coefficients[i] = base[i];
+    }
+    if constexpr (MaterialT::Mechanisms > 0) {
+      for (std::size_t mech = 0; mech < MaterialT::Mechanisms; ++mech) {
+        coefficients[base.size() + mech] = material.omega[mech];
+      }
+    }
+    return coefficients;
+  }
+
   template <typename F>
   static void forEachCoefficientEntry(const F& write) {
     for (const auto& entry : MaterialSetup<MaterialT>::CoefficientEntries) {

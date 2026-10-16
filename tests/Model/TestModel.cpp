@@ -15,6 +15,7 @@
 #include "FaultFlux.t.h"
 #include "GodunovState.t.h"
 #include "ImpedanceLayout.t.h" // IWYU pragma: keep
+#include "InverseWeight.t.h"
 #include "MaterialSampling.t.h"
 #include "NodalCorrector.t.h"
 #include "NodalDerivatives.t.h"
