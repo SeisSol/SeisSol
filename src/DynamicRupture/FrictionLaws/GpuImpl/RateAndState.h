@@ -376,6 +376,18 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
     }
   }
 
+  /// the coefficients of mu precomputed from a frozen state variable; empty for a law that folds
+  /// its state variable into the residual, as there is no frozen one to precompute them from
+  /// (deduced, as the law is incomplete where its base is)
+  SEISSOL_DEVICE static auto frozenMuDetails(FrictionLawContext<Cfg>& __restrict ctx,
+                                             real localStateVariable) {
+    if constexpr (!Derived::FoldsStateVariable) {
+      return Derived::getMuDetails(ctx, localStateVariable);
+    } else {
+      return typename Derived::MuDetails{};
+    }
+  }
+
   SEISSOL_DEVICE static bool invertSlipRateIterative(FrictionLawContext<Cfg>& __restrict ctx,
                                                      real& slipRateTest,
                                                      real localStateVariable,
@@ -408,10 +420,7 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
     // Where the law can state its state variable as a function of the slip rate, the residual
     // evaluates it at the trial slip rate rather than at one the outer fixed point supplies, and
     // the coefficients that would be precomputed from a frozen state have no meaning here.
-    typename Derived::MuDetails details{};
-    if constexpr (!Derived::FoldsStateVariable) {
-      details = Derived::getMuDetails(ctx, localStateVariable);
-    }
+    const auto details = frozenMuDetails(ctx, localStateVariable);
     const real tau = absoluteShearStress;
 
     real xLow = friction_law::rs::almostZero<real>();
