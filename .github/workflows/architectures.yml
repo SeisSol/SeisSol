@@ -130,3 +130,201 @@ jobs:
             build/Testing/Temporary/LastTest*.log
             build/tests/verification/*/work/*/seissol.log
           if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Build SeisSol with the cross compilers of Ubuntu for the architectures that GitHub has no
+  # runners of, and run its tests on QEMU, which emulates the CPU of qemu-cpu: the vector
+  # instructions of the kernels that PSpaMM generates for HOST_ARCH run as on that CPU.
+  #
+  # - rvv128, rvv256: RISC-V with the vector extension, its vectors of 128 and 256 bits;
+  # - sve256: SVE with vectors of 256 bits, as Neoverse V1 has them (Graviton3, Rhea1);
+  # - a64fx: SVE with vectors of 512 bits (Fugaku);
+  # - lasx: LoongArch with its vectors of 256 bits (LASX);
+  # - power10: POWER, for which no code generator of SeisSol has kernels; Eigen computes them.
+  #
+  # On QEMU, all tests of one configuration take a quarter of an hour on two cores (rvv128), nearly
+  # all of it in the verification cases: the job runs these in the first configuration only, and
+  # not the convergence cases, but the kernel tests in all. QEMU also orders the memory accesses
+  # as x86 does, more strictly than these targets: a data race that only the weaker ordering lets
+  # show stays hidden here, unlike in the aarch64 job on hardware.
+  #
+  # The libraries of the target come from .ci/emulated/dependencies.sh, which the cache keeps from
+  # one run to the next.
+  # ---------------------------------------------------------------------------
+  emulated:
+    name: emulated<${{ matrix.target.host-arch }}>
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - host-arch: rvv128
+            triplet: riscv64-linux-gnu
+            compilers: g++-riscv64-linux-gnu gfortran-riscv64-linux-gnu
+            # zicbop for the prefetches of the kernels
+            flags: -march=rv64gcv_zvl128b_zicbop
+            qemu-cpu: rv64,v=true,vlen=128,vext_spec=v1.0
+            gemm-tools: PSpaMM
+            configs: ci-cpu
+          - host-arch: rvv256
+            triplet: riscv64-linux-gnu
+            compilers: g++-riscv64-linux-gnu gfortran-riscv64-linux-gnu
+            flags: -march=rv64gcv_zvl256b_zicbop
+            qemu-cpu: rv64,v=true,vlen=256,vext_spec=v1.0
+            gemm-tools: PSpaMM
+            configs: ci-cpu
+          - host-arch: sve256
+            triplet: aarch64-linux-gnu
+            compilers: g++-aarch64-linux-gnu gfortran-aarch64-linux-gnu
+            flags: -mcpu=neoverse-v1
+            qemu-cpu: neoverse-v1
+            gemm-tools: PSpaMM
+            configs: ci-cpu
+          - host-arch: a64fx
+            triplet: aarch64-linux-gnu
+            compilers: g++-aarch64-linux-gnu gfortran-aarch64-linux-gnu
+            # HOST_ARCH=a64fx sets -mcpu=a64fx itself
+            flags: ''
+            qemu-cpu: a64fx
+            gemm-tools: PSpaMM
+            # those of ci-cpu in double precision: the 8 fused simulations of ci-cpu fill no vector
+            # of 512 bits in single precision
+            configs: ci-sanitize
+          - host-arch: lasx
+            triplet: loongarch64-linux-gnu
+            compilers: g++-14-loongarch64-linux-gnu gfortran-14-loongarch64-linux-gnu
+            cc: loongarch64-linux-gnu-gcc-14
+            cxx: loongarch64-linux-gnu-g++-14
+            fc: loongarch64-linux-gnu-gfortran-14
+            flags: -march=la464
+            qemu-cpu: la464
+            gemm-tools: PSpaMM
+            configs: ci-cpu
+          - host-arch: power10
+            triplet: powerpc64le-linux-gnu
+            compilers: g++-powerpc64le-linux-gnu gfortran-powerpc64le-linux-gnu
+            flags: -mcpu=power10
+            qemu-cpu: power10
+            gemm-tools: Eigen
+            configs: ci-cpu
+    env:
+      # the compilers, where they are not <triplet>-gcc, <triplet>-g++ and <triplet>-gfortran
+      CC: ${{ matrix.target.cc }}
+      CXX: ${{ matrix.target.cxx }}
+      FC: ${{ matrix.target.fc }}
+      CROSS_PREFIX: /opt/cross/${{ matrix.target.triplet }}
+    steps:
+      - name: apt-get
+        run: |
+          sudo apt-get update
+          # the qemu-user-static of Ubuntu registers QEMU for the targets with binfmt_misc
+          sudo apt-get install ninja-build libeigen3-dev python3 python3-pip qemu-user-static ${{ matrix.target.compilers }}
+
+          # h5py for the verification tests, which write their meshes with it; the code
+          # generators run on the build machine
+          sudo pip3 install setuptools numpy h5py --break-system-packages
+          sudo pip3 install git+https://github.com/SeisSol/PSpaMM.git --break-system-packages
+
+          sudo mkdir -p /opt/cross
+          sudo chown "$(id -u):$(id -g)" /opt/cross
+
+      - id: checkout
+        name: checkout-seissol
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - id: dependencies
+        name: restore-dependencies
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ env.CROSS_PREFIX }}
+          key: emulated-${{ matrix.target.triplet }}-${{ hashFiles('.ci/emulated/dependencies.sh', '.ci/emulated/toolchain.cmake') }}
+
+      - name: build-dependencies
+        if: ${{ steps.dependencies.outputs.cache-hit != 'true' }}
+        run: |
+          source .ci/emulated/environment.sh ${{ matrix.target.triplet }} "${CROSS_PREFIX}" ${{ matrix.target.qemu-cpu }}
+          .ci/emulated/dependencies.sh ${{ matrix.target.triplet }} "${CROSS_PREFIX}"
+
+      - name: save-dependencies
+        if: ${{ steps.dependencies.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ env.CROSS_PREFIX }}
+          key: ${{ steps.dependencies.outputs.cache-primary-key }}
+
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+          path: easi
+
+      - name: build-easi
+        run: |
+          source .ci/emulated/environment.sh ${{ matrix.target.triplet }} "${CROSS_PREFIX}" ${{ matrix.target.qemu-cpu }}
+          # next to the other libraries of the target, after the cache has kept those
+          cmake -S easi -B easi/build -GNinja \
+            -DCMAKE_TOOLCHAIN_FILE="$(pwd)/.ci/emulated/toolchain.cmake" \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${CROSS_PREFIX}" \
+            -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
+          cmake --build easi/build
+          cmake --install easi/build
+
+      - id: build
+        name: build-seissol
+        run: |
+          source .ci/emulated/environment.sh ${{ matrix.target.triplet }} "${CROSS_PREFIX}" ${{ matrix.target.qemu-cpu }}
+
+          # HOST_ARCH sets no flags of the compiler for most of these targets: the flags name the
+          # vector instructions, for the code of the compiler and for its assembler, which takes
+          # those of the kernels. Eigen is the one of the build machine, whose headers are the same
+          # for every target. The verification cases take longer than natively, and the snapshot
+          # references come from another environment, which this one deviates from by rounding,
+          # as the CPU CI (scripts/compile/compile-variants.yaml).
+          cmake -S . -B build -GNinja \
+            -DCMAKE_TOOLCHAIN_FILE="$(pwd)/.ci/emulated/toolchain.cmake" \
+            -DEigen3_DIR=/usr/share/eigen3/cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_FLAGS="${{ matrix.target.flags }}" \
+            -DCMAKE_CXX_FLAGS="${{ matrix.target.flags }}" \
+            -DHOST_ARCH=${{ matrix.target.host-arch }} \
+            -DGEMM_TOOLS_LIST=${{ matrix.target.gemm-tools }} \
+            -DCONFIGS=${{ matrix.target.configs }} \
+            -DNETCDF=OFF \
+            -DGRAPH_PARTITIONING_LIBS=none \
+            -DNUMA_AWARE_PINNING=OFF \
+            -DTESTING=ON \
+            -DTESTING_GENERATED=ON \
+            -DSEISSOL_VERIFICATION_CONFIGS=first \
+            -DSEISSOL_MINITEST_TIMEOUT=1800 \
+            -DSEISSOL_SNAPSHOT_TOLERANCE_DOUBLE=1e-9
+
+          # one compile job per core, as for the native builds of the set
+          cmake --build build --parallel "$(nproc)"
+
+      - id: test
+        name: test-seissol
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: |
+          source .ci/emulated/environment.sh ${{ matrix.target.triplet }} "${CROSS_PREFIX}" ${{ matrix.target.qemu-cpu }}
+
+          # allow oversubscribe for OpenMPI
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+
+          cd build
+          ctest -j "$(nproc)" -LE convergence --output-on-failure --output-junit junit.xml
+
+      - name: upload-test-logs
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        with:
+          name: emulated-${{ matrix.target.host-arch }}-logs
+          path: |
+            build/junit*.xml
+            build/Testing/Temporary/LastTest*.log
+            build/tests/verification/*/work/*/seissol.log
+          if-no-files-found: ignore
