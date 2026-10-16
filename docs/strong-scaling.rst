@@ -131,6 +131,11 @@ well:
 ``setup`` and ``env``
     Shell lines that set up a job, e.g. module loads, and the environment of every run.
 
+``scaling.py profile job.sh -o machine.yaml`` drafts a profile from a job script: the ``#SBATCH`` options give the
+layout and the scheduler settings, the exports the environment, the module loads and other lines the setup, and the
+line that starts SeisSol the launcher, with its counts of nodes and ranks replaced by the placeholders. What a job
+script does not say, such as the cores and the memory of a node, the draft guesses; read and correct it.
+
 The runs
 --------
 

@@ -444,6 +444,23 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_profile(args: argparse.Namespace) -> int:
+    from .profile import draft_profile, render
+
+    script = Path(args.jobscript)
+    if not script.exists():
+        raise CommandError(f"{script} does not exist")
+    text = render(draft_profile(script, args.name), script)
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+        log(
+            f"wrote {args.output}; read it, and correct what the job script does not say"
+        )
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
 def parser() -> argparse.ArgumentParser:
     main = argparse.ArgumentParser(
         prog="scaling.py",
@@ -505,6 +522,15 @@ def parser() -> argparse.ArgumentParser:
         help="the time to scale: the simulation (total), its compute part, or its "
         "epochs after the warm-up (steady)",
     )
+    sub = commands.add_parser(
+        "profile",
+        help="draft a machine profile from a job script known to run SeisSol well",
+        description="draft a machine profile from a job script known to run SeisSol well",
+    )
+    sub.add_argument("jobscript", help="the job script")
+    sub.add_argument("--name", default=None, help="the name of the machine")
+    sub.add_argument("-o", "--output", default=None, help="where to write the profile")
+    sub.set_defaults(function=cmd_profile)
     return main
 
 
