@@ -55,6 +55,7 @@
 // PUML.h needs to be included before Downward.h
 
 #include <PUML/Downward.h>
+#include <PUML/Types.h>
 #endif
 
 #ifdef USE_ASAGI
@@ -164,8 +165,9 @@ CellToVertexArray
 #ifdef USE_HDF
 CellToVertexArray
     CellToVertexArray::fromPUML(const seissol::geometry::PumlMesh& mesh,
+                                const seissol::geometry::PumlCellArrays& arrays,
                                 const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
-  const int* groups = reinterpret_cast<const int*>(mesh.cellData(0));
+  const auto groups = mesh.data(arrays.group);
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
   assert(vertexOrders.size() == elements.size());
@@ -173,7 +175,7 @@ CellToVertexArray
       elements.size(),
       [&](size_t cell) {
         std::array<Eigen::Vector3d, 4> x;
-        unsigned vertLids[Cell::NumVertices]{};
+        PUML::LocalId vertLids[Cell::NumVertices]{};
         PUML::Downward::vertices(mesh, elements[cell], vertLids);
         const auto& order = vertexOrders[cell];
         for (std::size_t vtx = 0; vtx < Cell::NumVertices; ++vtx) {

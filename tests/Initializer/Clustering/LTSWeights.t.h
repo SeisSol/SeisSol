@@ -44,8 +44,7 @@ TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
 
   const auto faceMap = defaultFaceMap();
 
-  const ClusteringConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1, &faceMap, {}};
+  const ClusteringConfig config{{2}, 1, 1, 1, &faceMap, {}};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
       {2},
@@ -97,13 +96,7 @@ TEST_CASE("The cost of a cell follows its configuration" * doctest::test_suite("
   const auto cellCosts = [&](std::vector<double> configCostFactors,
                              std::unordered_map<int, ConfigId> groupConfigs) {
     std::cout.setstate(std::ios_base::failbit);
-    const ClusteringConfig config{seissol::initializer::parameters::BoundaryFormat::I32,
-                                  {2},
-                                  10,
-                                  1,
-                                  1,
-                                  &faceMap,
-                                  std::move(configCostFactors)};
+    const ClusteringConfig config{{2}, 10, 1, 1, &faceMap, std::move(configCostFactors)};
 
     seissol::initializer::parameters::SeisSolParameters seissolParameters{};
     seissolParameters.timeStepping.lts = seissol::initializer::parameters::LtsParameters(
@@ -174,8 +167,7 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
   using namespace seissol::initializer;
 
   const auto faceMap = defaultFaceMap();
-  const ClusteringConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1, &faceMap, {}};
+  const ClusteringConfig config{{2}, 1, 1, 1, &faceMap, {}};
 
   for (const bool homogenized : {false, true}) {
     CAPTURE(homogenized);
@@ -428,8 +420,7 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
 
   const auto faceMap = defaultFaceMap();
 
-  const ClusteringConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, rate, 1, 1, 1, &faceMap, {}};
+  const ClusteringConfig config{rate, 1, 1, 1, &faceMap, {}};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
       rate,
