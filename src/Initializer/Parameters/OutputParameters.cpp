@@ -385,6 +385,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
                                                      });
   const auto prefix =
       reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
+  const auto epochInterval = reader->readWithDefault("epochinterval", 0.0);
 
   const auto checkpointParameters = readCheckpointParameters(baseReader);
   const auto elementwiseParameters = readElementwiseParameters(baseReader, defaultTimeSeries);
@@ -405,16 +406,18 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
                           "faultoutputflag",
                           "loopstatisticsnetcdfoutput"});
 
-  return OutputParameters(format,
-                          xdmfWriterBackend,
-                          hdfcompress,
-                          prefix,
-                          checkpointParameters,
-                          elementwiseParameters,
-                          energyParameters,
-                          freeSurfaceParameters,
-                          pickpointParameters,
-                          receiverParameters,
-                          waveFieldParameters);
+  auto parameters = OutputParameters(format,
+                                     xdmfWriterBackend,
+                                     hdfcompress,
+                                     prefix,
+                                     checkpointParameters,
+                                     elementwiseParameters,
+                                     energyParameters,
+                                     freeSurfaceParameters,
+                                     pickpointParameters,
+                                     receiverParameters,
+                                     waveFieldParameters);
+  parameters.epochInterval = epochInterval;
+  return parameters;
 }
 } // namespace seissol::initializer::parameters

@@ -37,6 +37,13 @@ output (``OutputFile`` is the prefix):
 * ``<prefix>-ranks.csv``, a row per rank, written at the end of the run: the values of the rank that the summary gives
   the statistics of over the ranks (see below).
 
+An epoch ends at every synchronization point, i.e. wherever an output is due. A run without outputs, such as a
+benchmark, has a single epoch, and reports how fast it goes at its end only. ``EpochInterval`` in the ``output``
+section adds synchronization points that write nothing, at its multiples: then an epoch is that long at most, and the
+log, the summary and the epoch table follow the run as it goes; the first epochs, which include the warm-up, can be
+told from the rest. Each synchronization point waits for all clusters to reach it, and copies the solution to the
+host in GPU builds, so that it should not come more often than needed.
+
 Rank 0 writes the summary when the run starts, at every stage of the initialization, every ten seconds or so during
 the simulation, and at its end, each time replacing the file at once, so that a reader always finds a complete file.
 ``status`` is ``completed`` once the run has ended as planned; a run that ended early, by an error or by the time limit

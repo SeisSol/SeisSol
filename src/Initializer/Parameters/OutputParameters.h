@@ -181,6 +181,8 @@ struct OutputParameters {
   PickpointParameters pickpointParameters;
   ReceiverOutputParameters receiverParameters;
   WaveFieldOutputParameters waveFieldParameters;
+  //! the simulated time after which a simulation epoch ends at the latest; zero for no limit
+  double epochInterval{0};
 
   OutputParameters() = default;
   OutputParameters(OutputFormat format,

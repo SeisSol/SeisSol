@@ -13,6 +13,7 @@
 #include "IO/Manager.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
+#include "Monitoring/EpochSynchronization.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/RunSummary.h"
 #include "Parallel/Pin.h"
@@ -123,6 +124,11 @@ class SeisSol {
    * Get the summary of the run, which it writes for programs to read
    */
   monitoring::RunSummary& runSummary() { return runSummary_; }
+
+  /**
+   * Get the synchronization points that end the simulation epochs of their own
+   */
+  monitoring::EpochSynchronization& epochSynchronization() { return epochSynchronization_; }
 
   /**
    * Get the mini SeisSol writer; it holds the measurement until the output is set up
@@ -270,6 +276,9 @@ class SeisSol {
 
   //! Run summary
   monitoring::RunSummary runSummary_;
+
+  //! Synchronization points that end the simulation epochs of their own
+  monitoring::EpochSynchronization epochSynchronization_;
 
   //! Mini SeisSol measurement, written with the rest of the output
   writer::MiniSeisSolWriter miniSeisSolWriter_;
