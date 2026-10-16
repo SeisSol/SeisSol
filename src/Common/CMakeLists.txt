@@ -10,6 +10,7 @@ add_library(seissol-common OBJECT
     ConfigValue.cpp
     Filesystem.cpp
     IntegerMaskParser.cpp
+    Json.cpp
 )
 
 target_link_libraries(seissol-common PUBLIC seissol-common-properties)
