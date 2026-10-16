@@ -129,7 +129,9 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
           PUML::Upward::cells(*mesh_, face, cellIds);
 
           const auto neighborCell = (cellIds[0] == cell) ? cellIds[1] : cellIds[0];
-          const auto otherTimeCluster = clusterIds[static_cast<std::size_t>(neighborCell)];
+          std::size_t otherTimeCluster{};
+#pragma omp atomic read
+          otherTimeCluster = clusterIds[static_cast<std::size_t>(neighborCell)];
 
           // the rule yields a non-negative index difference, so the sum cannot wrap
           const auto admissible = otherTimeCluster + rule.differenceFor(boundary);
