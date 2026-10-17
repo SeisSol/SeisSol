@@ -32,6 +32,35 @@ TEST_CASE("readOutputParameters: time series defaults to snapshots" *
   CHECK(params.elementwiseParameters.timeSeries == TimeSeriesMode::Snapshot);
 }
 
+TEST_CASE("readOutputParameters: epochs end at the outputs only by default" *
+          doctest::test_suite("initializer")) {
+  const YAML::Node node = YAML::Load(R"(
+    output:
+      outputfile: 'out'
+      receiveroutput: 0
+      ioutputmask: '1'
+  )");
+  ParameterReader reader(node, "", false);
+  const auto params = readOutputParameters(&reader, defaultConfig());
+
+  CHECK(params.epochInterval == 0.0);
+}
+
+TEST_CASE("readOutputParameters: an epoch interval of its own" *
+          doctest::test_suite("initializer")) {
+  const YAML::Node node = YAML::Load(R"(
+    output:
+      outputfile: 'out'
+      receiveroutput: 0
+      ioutputmask: '1'
+      epochinterval: 0.25
+  )");
+  ParameterReader reader(node, "", false);
+  const auto params = readOutputParameters(&reader, defaultConfig());
+
+  CHECK(params.epochInterval == 0.25);
+}
+
 TEST_CASE("readOutputParameters: one setting reaches every mesh output" *
           doctest::test_suite("initializer")) {
   const YAML::Node node = YAML::Load(R"(

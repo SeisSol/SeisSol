@@ -13,6 +13,38 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The theoretical speedup of local time stepping
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the machine-readable run summary)
+
+The line "Theoretical speedup to GTS:" of the log gives how many times fewer
+cell updates local time stepping takes than global time stepping (see
+:ref:`cell-updates`). It used to give the ratio of the sums of the cell
+timesteps, which is larger, and for clustered LTS took the wiggle factor into
+account twice. ``-clustering.csv`` has the columns ``timestep`` and
+``updateFactor`` after ``localRank``.
+
+The loop statistics in NetCDF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the machine-readable run summary)
+
+``LoopStatisticsNetcdfOutput`` in the ``output`` section has no effect any more,
+and a parameter file that sets it gets a warning. The NetCDF file it wrote, with
+every timing sample of every region and rank, is gone; the run summary has the
+time of every region per rank, with its statistics, instead (see
+:ref:`run-summary`).
+
+The run ID in the output
+~~~~~~~~~~~~~~~~~~~~~~~~
+(since the machine-readable run summary)
+
+Every table beside the output (``-clustering.csv``, ``-threadPinning.csv``,
+``-miniSeissol.csv``, ``-flops.csv``, ``-energy.csv`` and ``-analysis.csv``)
+ends in a column ``runId``, and the header of the text files of the receivers
+and fault receivers ends in a line ``# run-id``; see :ref:`env_vars`. A reader
+that takes the columns by name and skips the comment lines of a receiver file
+needs no change.
+
 The rupture and dynamic stress times
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the verification cases on mini meshes)
