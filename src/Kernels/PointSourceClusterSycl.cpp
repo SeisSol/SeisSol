@@ -28,7 +28,8 @@ template <typename Cfg>
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                        sourceterm::PointSources<Cfg>& sources,
                        double from,
-                       double to,
+                       double timeStepSize,
+                       const double* clock,
                        seissol::parallel::runtime::StreamRuntime& runtime) {
   auto& mapping = clusterMapping.cellToSources;
   auto* __restrict mappingPtr = mapping.data();
@@ -53,10 +54,12 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
         const auto thread = item.get_local_id(0);
 
         if (block < elements) {
+          const double start = clock == nullptr ? from : *clock;
+          const double end = start + timeStepSize;
           pointSourceKernelDevice<Cfg, SubBlock>(thread,
                                                  block,
-                                                 from,
-                                                 to,
+                                                 start,
+                                                 end,
                                                  mappingPtr,
                                                  mInvJInvPhisAtSources,
                                                  simulationIndex,
@@ -76,7 +79,8 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
   template void pointSourceKernel<Cfg>(sourceterm::ClusterMapping & clusterMapping,                \
                                        sourceterm::PointSources<Cfg> & sources,                    \
                                        double from,                                                \
-                                       double to,                                                  \
+                                       double timeStepSize,                                        \
+                                       const double* clock,                                        \
                                        seissol::parallel::runtime::StreamRuntime& runtime);
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE

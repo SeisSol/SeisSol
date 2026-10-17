@@ -19,6 +19,9 @@
 #include "Memory/Tree/Backmap.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <cstddef>
+#include <functional>
+#include <memory>
 #include <vector>
 
 namespace seissol::dr::output {
@@ -57,6 +60,25 @@ class ReceiverOutput {
                       double dt = 1.0,
                       double indt = 0.0) = 0;
 
+  /**
+   * Copies the data of the output points from the device to the host, in the order of the stream.
+   */
+  static void gatherFaultOutput(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Evaluates the output points right away, on the host, from data gathered before; for work that
+   * already runs in the order of the stream.
+   */
+  virtual void
+      evaluateFaultOutput(seissol::initializer::parameters::OutputType outputType,
+                          seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                          const std::shared_ptr<ReceiverOutputData>& outputData,
+                          double stateTime,
+                          double time,
+                          double dt,
+                          double indt) = 0;
+
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
   protected:
@@ -86,6 +108,14 @@ class ReceiverOutputImpl : public ReceiverOutput {
                        double time = 0.0,
                        double dt = 1.0,
                        double indt = 0.0) override;
+
+  void evaluateFaultOutput(seissol::initializer::parameters::OutputType outputType,
+                           seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                           const std::shared_ptr<ReceiverOutputData>& outputData,
+                           double stateTime,
+                           double time,
+                           double dt,
+                           double indt) override;
 
   template <typename Cfg>
   struct LocalInfo {
@@ -229,15 +259,19 @@ class ReceiverOutputImpl : public ReceiverOutput {
                                       const std::array<double, 3>& dip);
 
   private:
+  /**
+   * The output of one point, for the faces in the configuration `Cfg`; the faces of other
+   * configurations are left to the handlers of theirs.
+   */
   template <typename Cfg>
-  void calcFaultOutputOfConfig(
-      seissol::initializer::parameters::OutputType outputType,
-      seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-      const std::shared_ptr<ReceiverOutputData>& outputData,
-      parallel::runtime::StreamRuntime& runtime,
-      double stateTime,
-      double dt,
-      double indt);
+  std::function<void(std::size_t)>
+      faultOutputHandler(seissol::initializer::parameters::OutputType outputType,
+                         seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                         const std::shared_ptr<ReceiverOutputData>& outputData,
+                         std::size_t level,
+                         double stateTime,
+                         double dt,
+                         double indt);
 
   Derived& derived() { return static_cast<Derived&>(*this); }
 };

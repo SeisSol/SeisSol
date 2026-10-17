@@ -351,8 +351,13 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
         assert(indexPtrs[arrayIndex] != nullptr);
       }
 
+      // The derivatives are in the host-accessible memory of the MPI buffers with
+      // SEISSOL_USM_MPI=1. But the samples get taken on a stream of their own, while the clusters
+      // go on and overwrite the derivatives: then only a copy gathered in the order of the stream
+      // of the cluster holds the data of the step.
+      const bool hostAccessible = useMPIUSM() && !outputData_->extraRuntime.has_value();
       outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollectorUntyped>(
-          indexPtrs, derivativesBytes, useMPIUSM());
+          indexPtrs, derivativesBytes, hostAccessible);
 
       for (const auto& variable : variables_) {
         std::size_t elementSize = 0;

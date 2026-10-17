@@ -33,7 +33,8 @@ PointSourceClusterOnHost<Cfg>::PointSourceClusterOnHost(
 
 template <typename Cfg>
 void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSources(
-    double from, double to, seissol::parallel::runtime::StreamRuntime& /*runtime*/) {
+    double from, double timeStepSize, seissol::parallel::runtime::StreamRuntime& /*runtime*/) {
+  const double to = from + timeStepSize;
   auto& mapping = clusterMapping_->cellToSources;
   if (mapping.size() > 0) {
 

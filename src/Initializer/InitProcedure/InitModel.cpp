@@ -43,7 +43,6 @@
 #include "Parallel/Helper.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "SeisSol.h"
-#include "Solver/Estimator.h"
 
 #include <array>
 #include <cassert>
@@ -53,9 +52,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <utils/env.h>
 #include <utils/logger.h>
-#include <utils/stringutils.h>
 #include <vector>
 
 namespace seissol::initializer::initprocedure {
@@ -356,36 +353,6 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   }
 }
 
-void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
-  if constexpr (isDeviceOn()) {
-    logInfo() << "Determine Host-Device switchpoint";
-
-    const auto hdswitch = seissolInstance.env().get<std::string>("DEVICE_HOST_SWITCH", "none");
-    bool hdenabled = false;
-    if (hdswitch == "none") {
-      hdenabled = false;
-      logInfo() << "No host-device switching. Everything runs on the GPU.";
-    } else if (hdswitch == "auto") {
-      hdenabled = true;
-      logInfo() << "Automatic host-device switchpoint detection.";
-      const auto hdswitchInt = solver::hostDeviceSwitch();
-      seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
-    } else {
-      hdenabled = true;
-      const auto hdswitchInt = utils::StringUtils::parse<int>(hdswitch);
-      logInfo() << "Manual host-device cutoff set to" << hdswitchInt << ".";
-      seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
-    }
-
-    const bool usmDefault = useUSM();
-
-    if (!usmDefault && hdenabled) {
-      logWarning() << "Using the host-device execution on non-USM systems is not fully supported "
-                      "yet. Expect incorrect results.";
-    }
-  }
-}
-
 void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
   // set up scratchpads for WP (i.e. mostly for boundary conditions).
@@ -397,7 +364,10 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForWp(
         seissolInstance.parameters().model.plasticity, ltsStorage);
-    ltsStorage.allocateScratchPads();
+    ltsStorage.allocateScratchPads(useScratchpadPerLayer(seissolInstance.env()) ||
+                                           useConcurrentClusters(seissolInstance.env())
+                                       ? initializer::ScratchpadSharing::PerLayer
+                                       : initializer::ScratchpadSharing::Shared);
   }
 
   auto& mm = seissolInstance.memoryManager();
@@ -454,8 +424,6 @@ void initModel(seissol::SeisSol& seissolInstance) {
   // FORTRAN)
   logInfo() << "Initialize cell material parameters.";
   initializeCellMaterial(seissolInstance);
-
-  hostDeviceCoexecution(seissolInstance);
 
   // init memory layout (needs cell material values to initialize e.g. displacements correctly)
   logInfo() << "Initialize Memory layout.";

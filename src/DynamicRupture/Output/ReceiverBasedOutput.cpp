@@ -49,6 +49,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -100,6 +101,16 @@ void ReceiverOutputImpl<Derived>::getNeighborDofs(const Real<Cfg>*(&derivatives)
   assert(derivatives != nullptr);
 }
 
+void ReceiverOutput::gatherFaultOutput(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                       parallel::runtime::StreamRuntime& runtime) {
+  if constexpr (isDeviceOn()) {
+    outputData->deviceDataCollector->gatherToHost(runtime.stream());
+    for (auto& [_, dataCollector] : outputData->deviceVariables) {
+      dataCollector->gatherToHost(runtime.stream());
+    }
+  }
+}
+
 template <typename Derived>
 void ReceiverOutputImpl<Derived>::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
@@ -110,14 +121,19 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
     double time,
     double dt,
     double indt) {
+
+  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
+                           ? outputData->currentCacheLevel
+                           : 0;
+
+  auto& callRuntime =
+      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+
   if constexpr (isDeviceOn()) {
     if (outputData->extraRuntime.has_value()) {
       runtime.eventSync(outputData->extraRuntime->eventRecord());
     }
-    outputData->deviceDataCollector->gatherToHost(runtime.stream());
-    for (auto& [_, dataCollector] : outputData->deviceVariables) {
-      dataCollector->gatherToHost(runtime.stream());
-    }
+    gatherFaultOutput(outputData, runtime);
     if (outputData->extraRuntime.has_value()) {
       outputData->extraRuntime->eventSync(runtime.eventRecord());
     }
@@ -128,8 +144,42 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
     // the setup rejects a fault in a material without dynamic rupture, whose quantities hold
     // none of the stresses the output reads
     if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
-      this->template calcFaultOutputOfConfig<Cfg>(
-          outputType, slipRateOutputType, outputData, runtime, stateTime, dt, indt);
+      callRuntime.enqueueLoop(
+          outputData->topology.faceCount(),
+          this->template faultOutputHandler<Cfg>(
+              outputType, slipRateOutputType, outputData, level, stateTime, dt, indt));
+    }
+  });
+
+  if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
+    outputData->cachedTime[outputData->currentCacheLevel] = time;
+    outputData->currentCacheLevel += 1;
+  }
+}
+
+template <typename Derived>
+void ReceiverOutputImpl<Derived>::evaluateFaultOutput(
+    seissol::initializer::parameters::OutputType outputType,
+    seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+    const std::shared_ptr<ReceiverOutputData>& outputData,
+    double stateTime,
+    double time,
+    double dt,
+    double indt) {
+  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
+                           ? outputData->currentCacheLevel
+                           : 0;
+  const auto faces = outputData->topology.faceCount();
+
+  forEachConfig([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
+      const auto handler = this->template faultOutputHandler<Cfg>(
+          outputType, slipRateOutputType, outputData, level, stateTime, dt, indt);
+#pragma omp parallel for schedule(static)
+      for (std::size_t faceId = 0; faceId < faces; ++faceId) {
+        handler(faceId);
+      }
     }
   });
 
@@ -141,19 +191,16 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
 
 template <typename Derived>
 template <typename Cfg>
-void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
+std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
-    parallel::runtime::StreamRuntime& runtime,
+    std::size_t level,
     double stateTime,
     double dt,
     double indt) {
   using real = Real<Cfg>;
 
-  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
-                           ? outputData->currentCacheLevel
-                           : 0;
   const auto& faultInfos = meshReader_->getFault();
 
   // the friction solve advances in the sub intervals of the time quadrature; the stored friction
@@ -163,18 +210,15 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
 
   const auto timeCoeffs = kernels::timeBasis<Cfg>().point(indt, dt);
 
-  auto& callRuntime =
-      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
-
-  const auto handler = [this,
-                        outputData,
-                        &faultInfos,
-                        outputType,
-                        slipRateOutputType,
-                        level,
-                        timeCoeffs,
-                        stateTime,
-                        frictionTime](std::size_t faceId) {
+  return [this,
+          outputData,
+          &faultInfos,
+          outputType,
+          slipRateOutputType,
+          level,
+          timeCoeffs,
+          stateTime,
+          frictionTime](std::size_t faceId) {
     constexpr auto Variant = configIdOf<Cfg>();
 
     const auto& topology = outputData->topology;
@@ -476,8 +520,6 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
       }
     }
   };
-
-  callRuntime.enqueueLoop(outputData->topology.faceCount(), handler);
 }
 
 template <typename Derived>
