@@ -7,9 +7,18 @@
 
 name: build-seissol-cpu
 on:
-  - push
+  push:
   # a run started by hand verifies its branch as well, not only master
-  - workflow_dispatch
+  workflow_dispatch:
+    inputs:
+      perf-repetitions:
+        description: How often the performance job measures each kernel (many, to see the noise)
+        default: '5'
+
+# a push to a branch replaces the run of the push before it; on master, every push runs to its end
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name == 'master' && github.run_id || github.ref }}
+  cancel-in-progress: true
 
 env:
   precomputed-hash: bed56573928e224984f5e75a17feb8b0b2f5ea27
@@ -255,4 +264,102 @@ jobs:
         with:
           name: report-${{ matrix.setup.name }}-r${{ matrix.parallel.ranks }}t${{ matrix.parallel.threads }}
           path: report.txt
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Measure the kernels with the proxy of the GCC build on the self-hosted runner
+  # (scripts/perf/benchmark.py), in all configurations of the set ci-cpu, and
+  # compare them with the last measurement of master on the same runner, which
+  # the cache keeps. The comparison goes into the step summary and does not fail
+  # the job: whether the runner measures steadily enough for that is what a run
+  # started by hand with many repetitions tells (the spread it reports).
+  # ---------------------------------------------------------------------------
+  seissol-perf:
+    name: seissol-perf<gcc-13, hsw, Release>
+    runs-on: self-hosted
+    container:
+      image: seissol/gha-cpu:davschneller-gpu-image
+    needs: seissol-build-test
+    # on master and in runs started by hand only, as the verification: the runner takes one job at a
+    # time, which keeps the measurement apart from the other jobs as well
+    if: ${{ !cancelled() && github.repository == 'SeisSol/SeisSol' && (github.ref_name == 'master' || github.event_name == 'workflow_dispatch') }}
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      # as many threads as a verification run of one rank, each on a core of its own
+      OMP_NUM_THREADS: 12
+      OMP_PLACES: cores
+      OMP_PROC_BIND: close
+    steps:
+      - name: clean-workspace
+        run: |
+          # the workspace of a self-hosted runner outlives the job (see seissol-run-test)
+          rm -rf install perf
+
+      - name: get-benchmark-script
+        uses: actions/checkout@v6
+        with:
+          path: seissol-scripts
+          sparse-checkout: scripts/perf
+          sparse-checkout-cone-mode: false
+
+      - name: get-seissol
+        uses: actions/download-artifact@v8
+        with:
+          name: seissol-Release-hsw-gcc-13
+          path: install
+
+      - name: get-baseline
+        uses: actions/cache/restore@v5
+        with:
+          path: perf/baseline.json
+          # never there: the newest one of the runner is taken
+          key: seissol-perf-${{ runner.name }}-${{ github.run_id }}
+          restore-keys: seissol-perf-${{ runner.name }}-
+
+      - name: measure
+        run: |
+          chmod +x install/bin/*
+          export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:${LD_LIBRARY_PATH:-}
+          mkdir -p perf
+          python3 seissol-scripts/scripts/perf/benchmark.py run \
+            --proxy install/bin/proxyseissol \
+            --cells 20000 \
+            --timesteps 10 \
+            --repetitions ${{ inputs.perf-repetitions || 5 }} \
+            --warmup 1 \
+            --output perf/current.json \
+            --github-benchmark perf/github-benchmark.json
+          python3 seissol-scripts/scripts/perf/benchmark.py noise perf/current.json
+
+      - name: compare
+        run: |
+          if [ -f perf/baseline.json ]; then
+            python3 seissol-scripts/scripts/perf/benchmark.py compare \
+              --baseline perf/baseline.json \
+              --current perf/current.json \
+              --summary "${GITHUB_STEP_SUMMARY}"
+          else
+            echo "No measurement of master on ${{ runner.name }} to compare with." >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+      - name: keep-baseline
+        if: ${{ github.ref_name == 'master' }}
+        run: cp perf/current.json perf/baseline.json
+
+      - name: save-baseline
+        if: ${{ github.ref_name == 'master' }}
+        uses: actions/cache/save@v5
+        with:
+          path: perf/baseline.json
+          key: seissol-perf-${{ runner.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: upload-measurement
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: perf-gcc-13
+          path: perf/
           if-no-files-found: ignore

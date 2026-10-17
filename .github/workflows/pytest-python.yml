@@ -50,6 +50,7 @@ jobs:
           python -m pytest -v --tb=short \
                  --cov=../../codegen \
                  --cov=../../scripts/validate \
+                 --cov=../../scripts/perf \
                  --cov=../../.ci \
                  --cov-report=xml \
                  --cov-report=term-missing \

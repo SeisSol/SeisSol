@@ -268,6 +268,10 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
       layer.var<DynamicRupture::FluxSolverPlus>(Cfg(), AllocationPlace::Device);
   auto* fluxSolverMinusDevice =
       layer.var<DynamicRupture::FluxSolverMinus>(Cfg(), AllocationPlace::Device);
+  // the data of a face on the device, which a build for the host alone holds no copy of
+  const auto onDevice = [](auto* data, std::size_t face) -> decltype(&data[face][0]) {
+    return data == nullptr ? nullptr : &data[face][0];
+  };
   auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
   auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
   auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
@@ -383,8 +387,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
               Cfg(), plusLtsId.value())[faceInformation[ltsFace].plusSide];
           mappingDevice.side = faceInformation[ltsFace].plusSide;
           mappingDevice.faceRelation = 0;
-          mappingDevice.godunov = &imposedStatePlusDevice[ltsFace][0];
-          mappingDevice.fluxSolver = &fluxSolverPlusDevice[ltsFace][0];
+          mappingDevice.godunov = onDevice(imposedStatePlusDevice, ltsFace);
+          mappingDevice.fluxSolver = onDevice(fluxSolverPlusDevice, ltsFace);
         }
       }
       if (minusLtsId.has_value()) {
@@ -401,8 +405,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
               Cfg(), minusLtsId.value())[faceInformation[ltsFace].minusSide];
           mappingDevice.side = faceInformation[ltsFace].minusSide;
           mappingDevice.faceRelation = faceInformation[ltsFace].faceRelation;
-          mappingDevice.godunov = &imposedStateMinusDevice[ltsFace][0];
-          mappingDevice.fluxSolver = &fluxSolverMinusDevice[ltsFace][0];
+          mappingDevice.godunov = onDevice(imposedStateMinusDevice, ltsFace);
+          mappingDevice.fluxSolver = onDevice(fluxSolverMinusDevice, ltsFace);
         }
       }
     }

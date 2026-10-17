@@ -130,7 +130,7 @@ void Pinning::checkEnvVariables() {
 
         isMaskGood = false;
       } else {
-        const auto maxCpuId = get_nprocs();
+        const auto maxCpuId = get_nprocs() - 1;
         for (auto localProcessId = 0; localProcessId < static_cast<int>(parsedFreeCPUsMask_.size());
              ++localProcessId) {
           for (auto cpu : parsedFreeCPUsMask_[localProcessId]) {
@@ -228,7 +228,7 @@ CpuMask Pinning::getFreeCPUsMask() const {
   // Note that pinning of the communication thread is then not Numa-aware if there's more than one
   // rank per node!
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
-    const bool isOnline = CPU_ISSET(cpu, &onlineMask.set);
+    const bool isOnline = CPU_ISSET(cpu, &onlineMask_.set);
     const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask.set);
     if (isOnline && isFree) {
       CPU_SET(cpu, &freeMask);

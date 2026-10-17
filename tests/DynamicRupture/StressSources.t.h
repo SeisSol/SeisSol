@@ -231,17 +231,20 @@ TEST_CASE_TEMPLATE("Stress of a point does not depend on the order it is asked i
     }
   }
 
+  // Both orders call the same code: inlined into each of the loops, the function could be
+  // compiled differently for each, the multiplications and additions fused into one in one loop
+  // and not in the other, which changes the last bit (as GCC does on LoongArch).
+  auto* const volatile evaluate = &stressAtTime<Cfg>;
+
   constexpr std::size_t Steps = 64;
   std::array<std::array<real, 6>, Steps> forward{};
   for (std::size_t step = 0; step < Steps; ++step) {
     const auto time = static_cast<real>(6.0 * static_cast<double>(step) / Steps);
-    forward[step] =
-        stressAtTime<Cfg>(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
+    forward[step] = evaluate(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
   }
   for (std::size_t step = Steps; step-- > 0;) {
     const auto time = static_cast<real>(6.0 * static_cast<double>(step) / Steps);
-    const auto backward =
-        stressAtTime<Cfg>(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
+    const auto backward = evaluate(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
     for (std::size_t component = 0; component < 6; ++component) {
       CHECK(backward[component] == AbsApprox(forward[step][component]));
     }

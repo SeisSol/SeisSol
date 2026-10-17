@@ -73,8 +73,12 @@ inline PointMap deduplicatePoints(const std::vector<double>& coordinates,
   };
   struct KeyHash {
     std::size_t operator()(const Key& key) const {
-      // three odd primes, so that neighboring cells do not collide systematically
-      return static_cast<std::size_t>(key.x * 73856093L ^ key.y * 19349663L ^ key.z * 83492791L);
+      // three odd primes, so that neighboring cells do not collide systematically; multiplied in
+      // unsigned arithmetic, which wraps around where the cell indices of a large extent overflow
+      const auto x = static_cast<std::uint64_t>(key.x);
+      const auto y = static_cast<std::uint64_t>(key.y);
+      const auto z = static_cast<std::uint64_t>(key.z);
+      return static_cast<std::size_t>(x * 73856093U ^ y * 19349663U ^ z * 83492791U);
     }
   };
 

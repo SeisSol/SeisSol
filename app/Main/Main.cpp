@@ -116,8 +116,13 @@ int main(int argc, char* argv[]) {
     if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
       // Check if on a GNU system (Linux) or other platform
 #if defined(__GNUC__) && defined(__linux__)
-      feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
-      logInfo() << "Enabling floating point exception handlers.";
+      // a CPU that cannot trap on floating-point exceptions refuses to (RISC-V, many ARM CPUs)
+      if (feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT) == -1) {
+        logWarning() << "Floating-point exception handling was requested, but the CPU does not "
+                        "trap on floating-point exceptions.";
+      } else {
+        logInfo() << "Enabling floating point exception handlers.";
+      }
 #else
       logInfo() << "Floating-point exception handling was requested, but is not supported on this "
                    "platform.";
