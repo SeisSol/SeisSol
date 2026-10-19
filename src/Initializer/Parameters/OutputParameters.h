@@ -170,7 +170,6 @@ struct WaveFieldOutputParameters {
 };
 
 struct OutputParameters {
-  bool loopStatisticsNetcdfOutput{false};
   OutputFormat format{OutputFormat::None};
   XdmfBackend xdmfWriterBackend{};
   uint32_t hdfcompress{0};
@@ -182,10 +181,11 @@ struct OutputParameters {
   PickpointParameters pickpointParameters;
   ReceiverOutputParameters receiverParameters;
   WaveFieldOutputParameters waveFieldParameters;
+  //! the simulated time after which a simulation epoch ends at the latest; zero for no limit
+  double epochInterval{0};
 
   OutputParameters() = default;
-  OutputParameters(bool loopStatisticsNetcdfOutput,
-                   OutputFormat format,
+  OutputParameters(OutputFormat format,
                    XdmfBackend xdmfWriterBackend,
                    uint32_t hdfcompress,
                    const std::string& prefix,
@@ -196,12 +196,11 @@ struct OutputParameters {
                    const PickpointParameters& pickpointParameters,
                    const ReceiverOutputParameters& receiverParameters,
                    const WaveFieldOutputParameters& waveFieldParameters)
-      : loopStatisticsNetcdfOutput(loopStatisticsNetcdfOutput), format(format),
-        xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress), prefix(prefix),
-        checkpointParameters(checkpointParameters), elementwiseParameters(elementwiseParameters),
-        energyParameters(energyParameters), freeSurfaceParameters(freeSurfaceParameters),
-        pickpointParameters(pickpointParameters), receiverParameters(receiverParameters),
-        waveFieldParameters(waveFieldParameters) {}
+      : format(format), xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress),
+        prefix(prefix), checkpointParameters(checkpointParameters),
+        elementwiseParameters(elementwiseParameters), energyParameters(energyParameters),
+        freeSurfaceParameters(freeSurfaceParameters), pickpointParameters(pickpointParameters),
+        receiverParameters(receiverParameters), waveFieldParameters(waveFieldParameters) {}
 };
 
 void warnIntervalAndDisable(bool& enabled,

@@ -11,12 +11,14 @@
 
 #include "Common/ConfigDispatch.h"
 #include "Common/Iterator.h"
+#include "Common/Json.h"
 #include "CommunicationManager.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
@@ -57,9 +59,6 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
   loopStatistics_.addRegion("computeNeighboringIntegration");
   loopStatistics_.addRegion("computeDynamicRupture");
   loopStatistics_.addRegion("computePointSources");
-
-  loopStatistics_.enableSampleOutput(
-      seissolInstance.parameters().output.loopStatisticsNetcdfOutput);
 }
 
 TimeManager::~TimeManager() = default;
@@ -74,8 +73,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
 
-  // written in initIO, once the output directory exists
-  auto& clusteringWriter = clusteringWriter_.emplace(seissolInstance_.parameters().output.prefix);
+  // written in initIO, with the rest of the output
+  auto& clusteringWriter = clusteringWriter_.emplace(seissolInstance_.parameters().output.prefix,
+                                                     seissolInstance_.runId());
 
   const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
     auto cloned = id;
@@ -171,9 +171,24 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
     const auto clusterSize = layer.size();
     const auto dynRupSize = memoryManager.drStorage().layer(layer.id()).size();
+    // a copy cell is stored once per neighbor it sends to, and every copy is computed
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    std::size_t duplicateCells = 0;
+    for (std::size_t cell = 0; cell < clusterSize; ++cell) {
+      if (secondaryInformation[cell].duplicate != 0) {
+        ++duplicateCells;
+      }
+    }
+    clusterSizes_.push_back(
+        ClusterSize{clusterId, clusterSize - duplicateCells, duplicateCells, dynRupSize});
     // Add writer to output
-    clusteringWriter.addCluster(
-        profilingId, clusterId, layer.getIdentifier().halo, clusterSize, dynRupSize);
+    clusteringWriter.addCluster(profilingId,
+                                clusterId,
+                                layer.getIdentifier().halo,
+                                clusterSize,
+                                dynRupSize,
+                                timeStepSize,
+                                static_cast<long>(timeStepRate));
 
     if (layer.getIdentifier().halo == HaloType::Copy) {
       cluster->setPriority(ActorPriority::High);
@@ -288,6 +303,24 @@ void TimeManager::writeClustering() const {
   }
 }
 
+TimeManager::Updates TimeManager::updates() const {
+  Updates updates;
+  const auto clusterCount = clusterLayout_.value().globalClusterCount;
+  updates.cells.resize(clusterCount);
+  updates.duplicateCells.resize(clusterCount);
+  updates.dynamicRuptureFaces.resize(clusterCount);
+  for (std::size_t i = 0; i < clusters_.size(); ++i) {
+    const auto& size = clusterSizes_[i];
+    const auto steps = static_cast<double>(clusters_[i]->numberOfTimeSteps());
+    updates.cells[size.globalClusterId] += static_cast<double>(size.cells) * steps;
+    updates.duplicateCells[size.globalClusterId] +=
+        static_cast<double>(size.duplicateCells) * steps;
+    updates.dynamicRuptureFaces[size.globalClusterId] +=
+        static_cast<double>(size.dynamicRuptureFaces) * steps;
+  }
+  return updates;
+}
+
 void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
   this->faultOutputManager_ = faultOutputManager;
   for (auto& cluster : clusters_) {
@@ -375,11 +408,9 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   }
 }
 
-void TimeManager::printComputationTime(const std::string& outputPrefix,
-                                       bool isLoopStatisticsNetcdfOutputOn) {
+json::Value TimeManager::printComputationTime() {
   actorStateStatisticsManager_.finish();
-  loopStatistics_.printSummary(Mpi::mpi.comm());
-  loopStatistics_.writeSamples(outputPrefix, isLoopStatisticsNetcdfOutputOn);
+  return loopStatistics_.printSummary(Mpi::mpi.comm());
 }
 
 double TimeManager::getTimeTolerance() const {

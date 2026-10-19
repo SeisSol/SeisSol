@@ -711,6 +711,40 @@ def _command_run(args):
     # a build without optimization, as the one measuring the coverage, it takes minutes
     environment["SEISSOL_MINISEISSOL"] = "0"
 
+    # the check of the run, which has to pass wherever the run is meant to; on one process, as it
+    # runs without MPI
+    check_problems = []
+    if args.expect_failure is None:
+        check_command = args.launcher + [
+            args.binary,
+            "--check=check.json",
+            "parameters.par",
+        ]
+        checked = subprocess.run(
+            check_command,
+            cwd=work,
+            env=environment,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        (work / "check.log").write_bytes(checked.stdout)
+        report_path = work / "check.json"
+        report = (
+            json.loads(report_path.read_text(encoding="utf-8"))
+            if report_path.exists()
+            else {}
+        )
+        if checked.returncode != 0 or report.get("status") != "passed":
+            check_problems.append(
+                f"the check of the run failed with exit code {checked.returncode} "
+                f"(see check.log): {report.get('problems', [])}"
+            )
+        elif not report.get("mesh", {}).get("cells"):
+            check_problems.append(
+                "the check of the run did not find the cells of the mesh"
+            )
+
     print("running:", " ".join(command))
     completed = subprocess.run(
         command,
@@ -748,6 +782,7 @@ def _command_run(args):
         for problem in problems:
             print(f"error: {problem}", file=sys.stderr)
         return 1 if problems else 0
+    problems += check_problems
     if completed.returncode != 0:
         problems.append(f"exit code {completed.returncode}")
     else:

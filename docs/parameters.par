@@ -231,7 +231,9 @@ FaultEnergiesFromAcrossFaultVelocities = 0 ! 1: (less accurate but kept for back
                                            ! based on slip rate interpolated from velocities differences across the fault
                                            ! 0: (default) computed from slipRate1 and slipRate2 from the friction law
 
-LoopStatisticsNetcdfOutput = 0 ! Writes detailed loop statistics. Warning: Produces terabytes of data!
+EpochInterval = 0 ! (optional) Ends a simulation epoch at least every this much simulated time, with
+! a synchronization point that writes nothing; the log and the run summary report the progress and
+! the performance of every epoch. 0 (the default) leaves that to the outputs.
 /
 
 &AbortCriteria

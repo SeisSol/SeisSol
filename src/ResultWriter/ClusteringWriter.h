@@ -18,12 +18,14 @@ namespace seissol::writer {
 
 class ClusteringWriter {
   public:
-  explicit ClusteringWriter(const std::string& outputPrefix);
+  ClusteringWriter(const std::string& outputPrefix, const std::string& runId);
   void addCluster(unsigned profilingId,
                   unsigned localClusterId,
                   HaloType layerType,
                   std::size_t size,
-                  std::size_t dynRupSize);
+                  std::size_t dynRupSize,
+                  double timestep,
+                  long updateFactor);
   void write() const;
 
   // SoA that contains info about clusters
@@ -35,10 +37,13 @@ class ClusteringWriter {
     std::vector<std::underlying_type_t<HaloType>> layerTypes;
     std::vector<std::size_t> sizes;
     std::vector<std::size_t> dynamicRuptureSizes;
+    std::vector<double> timesteps;
+    std::vector<long> updateFactors;
   };
 
   private:
   std::string outputPrefix_;
+  std::string runId_;
   ClusteringInformation clusteringInformation_;
 };
 

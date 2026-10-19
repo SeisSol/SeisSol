@@ -372,8 +372,6 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
   // the enum and back also settles the spelling of what the user wrote.
   const auto defaultTimeSeries =
       timeSeriesName(readTimeSeriesMode(reader, "outputtimeseries", "snapshot"));
-  const auto loopStatisticsNetcdfOutput =
-      reader->readWithDefault("loopstatisticsnetcdfoutput", false);
   const auto format = reader->readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
   const auto xdmfWriterBackend =
@@ -387,6 +385,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
                                                      });
   const auto prefix =
       reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
+  const auto epochInterval = reader->readWithDefault("epochinterval", 0.0);
 
   const auto checkpointParameters = readCheckpointParameters(baseReader);
   const auto elementwiseParameters = readElementwiseParameters(baseReader, defaultTimeSeries);
@@ -404,19 +403,21 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
                           "printintervalcriterion",
                           "pickdttype",
                           "ioutputmaskmaterial",
-                          "faultoutputflag"});
+                          "faultoutputflag",
+                          "loopstatisticsnetcdfoutput"});
 
-  return OutputParameters(loopStatisticsNetcdfOutput,
-                          format,
-                          xdmfWriterBackend,
-                          hdfcompress,
-                          prefix,
-                          checkpointParameters,
-                          elementwiseParameters,
-                          energyParameters,
-                          freeSurfaceParameters,
-                          pickpointParameters,
-                          receiverParameters,
-                          waveFieldParameters);
+  auto parameters = OutputParameters(format,
+                                     xdmfWriterBackend,
+                                     hdfcompress,
+                                     prefix,
+                                     checkpointParameters,
+                                     elementwiseParameters,
+                                     energyParameters,
+                                     freeSurfaceParameters,
+                                     pickpointParameters,
+                                     receiverParameters,
+                                     waveFieldParameters);
+  parameters.epochInterval = epochInterval;
+  return parameters;
 }
 } // namespace seissol::initializer::parameters

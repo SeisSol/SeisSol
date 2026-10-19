@@ -13,7 +13,9 @@
 #include "IO/Manager.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
+#include "Monitoring/EpochSynchronization.h"
 #include "Monitoring/FlopCounter.h"
+#include "Monitoring/RunSummary.h"
 #include "Parallel/Pin.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
@@ -119,7 +121,17 @@ class SeisSol {
   monitoring::FlopCounter& flopCounter() { return flopCounter_; }
 
   /**
-   * Get the mini SeisSol writer; it holds the measurement until the output directory exists
+   * Get the summary of the run, which it writes for programs to read
+   */
+  monitoring::RunSummary& runSummary() { return runSummary_; }
+
+  /**
+   * Get the synchronization points that end the simulation epochs of their own
+   */
+  monitoring::EpochSynchronization& epochSynchronization() { return epochSynchronization_; }
+
+  /**
+   * Get the mini SeisSol writer; it holds the measurement until the output is set up
    */
   writer::MiniSeisSolWriter& miniSeisSolWriter() { return miniSeisSolWriter_; }
 
@@ -199,6 +211,16 @@ class SeisSol {
 
   utils::Env& env() { return env_; }
 
+  /**
+   * Sets the ID of this run (see Common/RunId.h); the same on every rank.
+   */
+  void setRunId(const std::string& runId) { runId_ = runId; }
+
+  /**
+   * The ID of this run, which every file of its output carries.
+   */
+  const std::string& runId() const { return runId_; }
+
   private:
   // Note: This HAS to be the first member so that it is initialized before all others!
   // Otherwise it will NOT work.
@@ -252,6 +274,12 @@ class SeisSol {
   //! Flop Counter
   monitoring::FlopCounter flopCounter_;
 
+  //! Run summary
+  monitoring::RunSummary runSummary_;
+
+  //! Synchronization points that end the simulation epochs of their own
+  monitoring::EpochSynchronization epochSynchronization_;
+
   //! Mini SeisSol measurement, written with the rest of the output
   writer::MiniSeisSolWriter miniSeisSolWriter_;
 
@@ -266,6 +294,8 @@ class SeisSol {
   std::optional<std::size_t> executionPlaceCutoff_;
 
   utils::Env env_;
+
+  std::string runId_;
 
   double timestepScale_{1.0};
   std::vector<std::uint64_t> effectiveClusterRates_;
