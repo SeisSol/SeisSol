@@ -63,7 +63,6 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   behind-firewall
   supermuc
   shaheen
-  frontera
   frontier
   heisenbug
   leonardo

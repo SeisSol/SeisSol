@@ -72,7 +72,7 @@ All relevant :ref:`build parameters <build_parameters>` are mapped to Spack vari
 
 In case you work on a cluster with an older Spack version which does not have SeisSol as a package yet,
 we also provide an out-of-tree dependency setup environment under https://github.com/SeisSol/seissol-spack-aid/tree/main/spack as ``seissol-env``.
-See for reference our documentation on how to compile seissol-env on :ref:`SuperMUC-NG <compile_run_supermuc>`, :ref:`Shaheen <compile_run_shaheen>` (Cray system) and :ref:`Frontera <compile_run_frontera>`.
+See for reference our documentation on how to compile seissol-env on :ref:`SuperMUC-NG <compile_run_supermuc>`, :ref:`Shaheen <compile_run_shaheen>` (Cray system).
 However, ``seissol-env`` is deprecated; we strongly advise switching to the upstream Spack package instead.
 
 Manual installation

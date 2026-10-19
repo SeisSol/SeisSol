@@ -71,7 +71,7 @@ for all available configuration options.
 
 The full documentation [seissol.readthedocs.io](https://seissol.readthedocs.io)
 also contains setup guides for specific HPC clusters
-(e.g. SuperMUC-NG, Leonardo, Frontera, and others).
+(e.g. SuperMUC-NG, Leonardo, LUMI-G, and others).
 
 ## Documentation
 
