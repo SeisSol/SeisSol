@@ -101,6 +101,11 @@ jobs:
           export CXX=${{ matrix.setup.cxx }}
           export CMAKE_PREFIX_PATH=/opt/dependencies
 
+          # allow oversubscribe for OpenMPI (needed for test discovery)
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+
           # The verification cases run in each configuration of the build, with a limit raised for
           # the time they take with sanitizers. The snapshot references come from another
           # environment, which this one deviates from by rounding, as the CPU CI

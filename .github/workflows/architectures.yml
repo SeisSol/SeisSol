@@ -88,6 +88,11 @@ jobs:
 
           export CMAKE_PREFIX_PATH=/opt/dependencies
 
+          # allow oversubscribe for OpenMPI (needed for test discovery)
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
+
           # The architecture the kernels are generated for (HOST_ARCH) sets no flags of the compiler
           # on ARM; -mcpu does, for the code GCC generates and for the instructions its assembler
           # takes. The snapshot references of the verification tests come from another
@@ -276,6 +281,11 @@ jobs:
         name: build-seissol
         run: |
           source .ci/emulated/environment.sh ${{ matrix.target.triplet }} "${CROSS_PREFIX}" ${{ matrix.target.qemu-cpu }}
+
+          # allow oversubscribe for OpenMPI (needed for test discovery)
+          export OMPI_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_base_oversubscribe=1
+          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
 
           # HOST_ARCH sets no flags of the compiler for most of these targets: the flags name the
           # vector instructions, for the code of the compiler and for its assembler, which takes
