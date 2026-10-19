@@ -10,6 +10,7 @@
 #include "Alignment.h"
 #include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
+#include "Common/RunId.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h" // IWYU pragma: keep
@@ -729,6 +730,7 @@ void EnergyOutput::simulationStart(std::optional<double> checkpointTime) {
     table_->addTextColumn("variable", nameWidth);
     table_->addColumn<std::uint64_t>("simulation_index");
     table_->addColumn<double>("measurement");
+    table_->addTextColumn("runId", RunIdLength);
   }
   syncPoint(checkpointTime.value_or(0));
 }
@@ -952,6 +954,7 @@ void EnergyOutput::writeEnergies(double time) {
       table_->addText(std::string(descriptors[handle].name));
       table_->addCell<std::uint64_t>(sim);
       table_->addCell<double>(energiesStorage_.energy(handle, sim));
+      table_->addText(seissolInstance_.runId());
     }
   }
   table_->appendFile(outputFileName_);

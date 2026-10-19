@@ -11,6 +11,7 @@
 #ifndef SEISSOL_SRC_MONITORING_STOPWATCH_H_
 #define SEISSOL_SRC_MONITORING_STOPWATCH_H_
 
+#include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
 
 #include <time.h>
@@ -84,10 +85,17 @@ class Stopwatch {
 
   /**
    * Collective operation, printing avg, min and max time
+   *
+   * @return the statistics of the time over the ranks (complete on rank 0 only)
    */
-  void printTime(const std::string& text) const;
+  [[nodiscard]] statistics::Summary printTime(const std::string& text) const;
 
-  static void print(const std::string& text, double time);
+  /**
+   * Collective operation, printing avg, min and max of @p time
+   *
+   * @return the statistics of @p time over the ranks (complete on rank 0 only)
+   */
+  static statistics::Summary print(const std::string& text, double time);
 };
 
 } // namespace seissol

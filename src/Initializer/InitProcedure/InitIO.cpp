@@ -52,6 +52,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <tuple>
 #include <utility>
 #include <utils/logger.h>
@@ -998,7 +999,9 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                       seissolParams.output.energyParameters);
   }
 
-  seissolInstance.flopCounter().init(seissolParams.output.prefix);
+  seissolInstance.flopCounter().init(seissolParams.output.prefix, seissolInstance.runId());
+
+  seissolInstance.epochSynchronization().init(seissolParams.output.epochInterval);
 
   seissolInstance.analysisWriter().init(&seissolInstance.meshReader(), seissolParams.output.prefix);
 }
@@ -1028,24 +1031,27 @@ void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {}
 
 } // namespace
 
-void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
-  const auto rank = Mpi::mpi.rank();
-  logInfo() << "Begin init output.";
-
-  const auto& seissolParams = seissolInstance.parameters();
-  const filesystem::path outputPath(seissolParams.output.prefix);
-  const auto outputDir = filesystem::directory_entry(outputPath.parent_path());
-  if (!filesystem::exists(outputDir)) {
-    logWarning() << "Output directory does not exist yet. We therefore create it now.";
-    if (rank == 0) {
-      filesystem::create_directory(outputDir);
+void seissol::initializer::initprocedure::createOutputDirectory(seissol::SeisSol& seissolInstance) {
+  const auto directory = filesystem::path(seissolInstance.parameters().output.prefix).parent_path();
+  if (Mpi::mpi.rank() == 0 && !directory.empty() && !filesystem::exists(directory)) {
+    logInfo() << "Creating the output directory" << directory.string();
+    std::error_code error;
+    filesystem::create_directories(directory, error);
+    if (error) {
+      logError() << "Could not create the output directory" << directory.string() << ":"
+                 << error.message();
     }
   }
   seissol::Mpi::barrier(Mpi::mpi.comm());
+}
 
-  // recorded while reading the mesh and laying out the clusters, before there was a directory to
-  // write them to
-  seissolInstance.miniSeisSolWriter().write(seissolParams.output.prefix);
+void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
+  logInfo() << "Begin init output.";
+
+  const auto& seissolParams = seissolInstance.parameters();
+
+  // recorded while reading the mesh and laying out the clusters, before the writers were set up
+  seissolInstance.miniSeisSolWriter().write(seissolParams.output.prefix, seissolInstance.runId());
   seissolInstance.timeManager().writeClustering();
 
   enableFreeSurfaceOutput(seissolInstance);

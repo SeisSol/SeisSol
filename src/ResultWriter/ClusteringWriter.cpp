@@ -8,31 +8,38 @@
 #include "ClusteringWriter.h"
 
 #include "Common/Filesystem.h"
+#include "Common/RunId.h"
 #include "IO/Instance/Point/Csv.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <type_traits>
 #include <utils/logger.h>
 #include <vector>
 namespace seissol::writer {
 
-ClusteringWriter::ClusteringWriter(const std::string& outputPrefix) : outputPrefix_(outputPrefix) {}
+ClusteringWriter::ClusteringWriter(const std::string& outputPrefix, const std::string& runId)
+    : outputPrefix_(outputPrefix), runId_(runId) {}
 
 void ClusteringWriter::addCluster(unsigned profilingId,
                                   unsigned localClusterId,
                                   HaloType layerType,
                                   std::size_t size,
-                                  std::size_t dynRupSize) {
+                                  std::size_t dynRupSize,
+                                  double timestep,
+                                  long updateFactor) {
   clusteringInformation_.profilingIds.push_back(profilingId);
   clusteringInformation_.localClusterIds.push_back(localClusterId);
   clusteringInformation_.layerTypes.push_back(
       static_cast<std::underlying_type_t<HaloType>>(layerType));
   clusteringInformation_.sizes.push_back(size);
   clusteringInformation_.dynamicRuptureSizes.push_back(dynRupSize);
+  clusteringInformation_.timesteps.push_back(timestep);
+  clusteringInformation_.updateFactors.push_back(updateFactor);
 }
 
 void ClusteringWriter::write() const {
@@ -45,6 +52,8 @@ void ClusteringWriter::write() const {
   const auto layerTypes = mpi.collectContainer(clusteringInformation_.layerTypes);
   const auto sizes = mpi.collectContainer(clusteringInformation_.sizes);
   const auto dynamicRuptureSizes = mpi.collectContainer(clusteringInformation_.dynamicRuptureSizes);
+  const auto timesteps = mpi.collectContainer(clusteringInformation_.timesteps);
+  const auto updateFactors = mpi.collectContainer(clusteringInformation_.updateFactors);
 
   if (mpi.rank() == 0) {
     logInfo() << "Cluster statistics:";
@@ -82,6 +91,9 @@ void ClusteringWriter::write() const {
     table.addColumn<std::size_t>("dynamicRuptureSize");
     table.addColumn<int>("rank");
     table.addColumn<int>("localRank");
+    table.addColumn<double>("timestep");
+    table.addColumn<std::int64_t>("updateFactor");
+    table.addTextColumn("runId", RunIdLength);
 
     for (int rank = 0; rank < mpi.size(); ++rank) {
       const auto localRank = localRanks[rank];
@@ -90,6 +102,8 @@ void ClusteringWriter::write() const {
       const auto& curLayerTypes = layerTypes[rank];
       const auto& curSizes = sizes[rank];
       const auto& curDynamicRuptureSizes = dynamicRuptureSizes[rank];
+      const auto& curTimesteps = timesteps[rank];
+      const auto& curUpdateFactors = updateFactors[rank];
 
       for (std::size_t i = 0; i < curProfilingIds.size(); ++i) {
         const auto layerType = static_cast<HaloType>(curLayerTypes[i]);
@@ -103,6 +117,9 @@ void ClusteringWriter::write() const {
         table.addCell<std::size_t>(curDynamicRuptureSizes[i]);
         table.addCell<int>(rank);
         table.addCell<int>(localRank);
+        table.addCell<double>(curTimesteps[i]);
+        table.addCell<std::int64_t>(curUpdateFactors[i]);
+        table.addText(runId_);
       }
     }
 

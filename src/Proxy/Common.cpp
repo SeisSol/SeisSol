@@ -7,16 +7,14 @@
 
 #include "Common.h"
 
+#include "Common/Json.h"
+
 #include <cmath>
 #include <cstddef>
-#include <iomanip>
 #include <iostream>
-#include <limits>
 #include <ostream>
 #include <stdexcept>
 #include <string>
-#include <string_view>
-#include <type_traits>
 #include <unordered_map>
 #include <utils/stringutils.h>
 #include <vector>
@@ -121,49 +119,31 @@ void Aux::writeOutput(std::ostream& stream,
     stream << "=================================================\n";
     stream << '\n';
   } else {
-    // Written for machine consumption: full round-trip precision, and no
-    // non-finite value may reach the stream, since operator<< renders those as
-    // `inf`/`nan`, neither of which is valid JSON. Runner.cpp keeps every
+    // Written for machine consumption, on one line. No non-finite value may reach it: JSON has no
+    // spelling for those, and the readers expect a number for every field. Runner.cpp keeps every
     // field finite; this is the second line of defence.
     const auto finite = [](double value) { return std::isfinite(value) ? value : 0.0; };
-    stream << '{';
-    bool hasData = false;
-    const auto writeField = [&stream, &hasData, &finite](const std::string& name,
-                                                         const auto& data) {
-      if (hasData) {
-        stream << ',';
-      }
-      using DataType = std::decay_t<decltype(data)>;
-      stream << '\"' << name << "\":";
-      if constexpr (std::is_same_v<DataType, std::string> ||
-                    std::is_same_v<DataType, std::string_view> || std::is_same_v<DataType, char*>) {
-        stream << '\"' << data << '\"';
-      } else {
-        stream << std::setprecision(std::numeric_limits<double>::max_digits10)
-               << finite(static_cast<double>(data));
-      }
-      hasData = true;
-    };
-    writeField("name", kernelStr);
-    writeField("cycle-source", output.cycleSource);
-    writeField("time", output.time);
-    writeField("cycles", output.cycles);
-    writeField("gflop-libxsmm", output.libxsmmNumTotalGFlop);
-    writeField("gflop-pspamm", output.pspammNumTotalGFlop);
-    writeField("gflop-libxsmm-pspamm", output.libxsmmAndpspammNumTotalGFlop);
-    writeField("gflop-nz", output.actualNonZeroGFlop);
-    writeField("gflop-hw", output.actualHardwareGFlop);
-    writeField("gib", output.gib);
-    writeField("gib-kernel", output.kernelGib);
-    writeField("gflopcycle-nz", output.nonZeroFlopPerCycle);
-    writeField("gflopcycle-hw", output.hardwareFlopPerCycle);
-    writeField("gibcycle", output.bytesPerCycle);
-    writeField("gibcycle-kernel", output.kernelBytesPerCycle);
-    writeField("gflops-nz", output.nonZeroGFlops);
-    writeField("gflops-hw", output.hardwareGFlops);
-    writeField("gibs", output.gibPerSecond);
-    writeField("gibs-kernel", output.kernelGibPerSecond);
-    stream << '}' << '\n';
+    json::Value document;
+    document["name"] = kernelStr;
+    document["cycle-source"] = output.cycleSource;
+    document["time"] = finite(output.time);
+    document["cycles"] = finite(static_cast<double>(output.cycles));
+    document["gflop-libxsmm"] = finite(output.libxsmmNumTotalGFlop);
+    document["gflop-pspamm"] = finite(output.pspammNumTotalGFlop);
+    document["gflop-libxsmm-pspamm"] = finite(output.libxsmmAndpspammNumTotalGFlop);
+    document["gflop-nz"] = finite(output.actualNonZeroGFlop);
+    document["gflop-hw"] = finite(output.actualHardwareGFlop);
+    document["gib"] = finite(output.gib);
+    document["gib-kernel"] = finite(output.kernelGib);
+    document["gflopcycle-nz"] = finite(output.nonZeroFlopPerCycle);
+    document["gflopcycle-hw"] = finite(output.hardwareFlopPerCycle);
+    document["gibcycle"] = finite(output.bytesPerCycle);
+    document["gibcycle-kernel"] = finite(output.kernelBytesPerCycle);
+    document["gflops-nz"] = finite(output.nonZeroGFlops);
+    document["gflops-hw"] = finite(output.hardwareGFlops);
+    document["gibs"] = finite(output.gibPerSecond);
+    document["gibs-kernel"] = finite(output.kernelGibPerSecond);
+    stream << document.dump(-1) << '\n';
   }
 }
 
