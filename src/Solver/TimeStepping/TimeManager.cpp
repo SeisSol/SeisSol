@@ -21,6 +21,7 @@
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/HostData.h"
+#include "Memory/HostSnapshot.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/Watchdog.h"
@@ -900,6 +901,8 @@ void TimeManager::setInitialTimes(double time) {
 void TimeManager::freeDynamicResources() {
   // the watchdog looks at the clusters
   watchdog_.reset();
+  // the snapshot has memory on the device
+  hostSnapshot_.reset();
 
   // Nothing may refer to an event of a pool that goes away. The halo exchange holds events of the
   // clusters and of the recorder; the ghost clusters hold events of the halo exchange, of the copy
@@ -998,18 +1001,36 @@ bool TimeManager::clustersOnDevice() const {
   });
 }
 
-void TimeManager::synchronizeToHost(const initializer::HostData& data) {
+void TimeManager::synchronizeToHost(const initializer::HostData& data,
+                                    [[maybe_unused]] bool fromSnapshot) {
 #ifdef ACL_DEVICE
   bool sameExecutor = true;
   for (auto& cluster : clusters_) {
     sameExecutor &= clusters_.front()->getExecutor() == cluster->getExecutor();
   }
-  if (sameExecutor) {
-    seissolInstance_.memoryManager().synchronizeToHost(data);
-  } else {
+  if (!sameExecutor) {
     synchronizeTo(initializer::AllocationPlace::Host);
+    return;
   }
+  if (fromSnapshot && !data.isEverything() && !data.empty()) {
+    if (hostSnapshot_ == nullptr) {
+      hostSnapshot_ = std::make_unique<initializer::HostSnapshot>();
+    }
+    auto* stream = device::DeviceInstance::instance().api().getDefaultStream();
+    if (hostSnapshot_->take(data.copies(), stream)) {
+      logInfo() << "Synchronizing data... (device->host, from a snapshot;" << data.size()
+                << "variables)";
+      return;
+    }
+  }
+  seissolInstance_.memoryManager().synchronizeToHost(data);
 #endif
+}
+
+void TimeManager::copySnapshotToHost() {
+  if (hostSnapshot_ != nullptr) {
+    hostSnapshot_->copyToHost();
+  }
 }
 
 void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {

@@ -16,6 +16,7 @@
 #include <async/as/Pin.h>
 #include <cassert>
 #include <cstddef>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -75,30 +76,45 @@ Modules::Modules() = default;
 
 Modules::~Modules() = default;
 
-double Modules::_callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
+std::vector<Module*>
+    Modules::_dueAt(double currentTime, double timeTolerance, bool forceSyncPoint) const {
+  std::vector<Module*> due;
+  for (const auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
+    if (module->dueAt(currentTime, timeTolerance, forceSyncPoint)) {
+      due.push_back(module);
+    }
+  }
+  return due;
+}
+
+bool Modules::_asynchronous(const std::vector<Module*>& due) const {
+  return worker_ != nullptr && !due.empty() &&
+         std::all_of(due.begin(), due.end(), [](const Module* module) {
+           return module->processesAsynchronously();
+         });
+}
+
+double Modules::_callSyncHook(double currentTime,
+                              double timeTolerance,
+                              bool forceSyncPoint,
+                              const std::function<void()>& awaitHostData) {
   auto& modules = hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)];
 
   // With a thread for the outputs, the modules due here process the synchronization point there,
   // if all of them can, one after the other, as they would on the main thread; so they keep their
   // order (e.g. of their collectives) on all ranks.
-  std::vector<Module*> due;
-  for (auto& [_, module] : modules) {
-    if (module->dueAt(currentTime, timeTolerance, forceSyncPoint)) {
-      due.push_back(module);
-    }
-  }
-  const bool asynchronous = worker_ != nullptr && !due.empty() &&
-                            std::all_of(due.begin(), due.end(), [](const Module* module) {
-                              return module->processesAsynchronously();
-                            });
+  const auto due = _dueAt(currentTime, timeTolerance, forceSyncPoint);
 
   double nextSyncTime = std::numeric_limits<double>::max();
-  if (asynchronous) {
+  if (_asynchronous(due)) {
     for (auto* module : due) {
       module->captureSyncPoint(currentTime);
       module->markSyncPoint(currentTime);
     }
-    worker_->enqueue([due, currentTime] {
+    worker_->enqueue([due, currentTime, awaitHostData] {
+      if (awaitHostData) {
+        awaitHostData();
+      }
       for (auto* module : due) {
         module->processSyncPoint(currentTime);
       }
@@ -109,6 +125,9 @@ double Modules::_callSyncHook(double currentTime, double timeTolerance, bool for
   } else {
     if (worker_ != nullptr) {
       worker_->wait();
+    }
+    if (awaitHostData) {
+      awaitHostData();
     }
     for (auto& [_, module] : modules) {
       nextSyncTime = std::min(
@@ -155,8 +174,18 @@ void Modules::registerHook(Module& module, ModuleHook hook, ModulePriority prior
   instance()._registerHook(module, hook, priority);
 }
 
-double Modules::callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
-  return instance()._callSyncHook(currentTime, timeTolerance, forceSyncPoint);
+double Modules::callSyncHook(double currentTime,
+                             double timeTolerance,
+                             bool forceSyncPoint,
+                             const std::function<void()>& awaitHostData) {
+  return instance()._callSyncHook(currentTime, timeTolerance, forceSyncPoint, awaitHostData);
+}
+
+bool Modules::processesAsynchronouslyAt(double currentTime,
+                                        double timeTolerance,
+                                        bool forceSyncPoint) {
+  auto& modules = instance();
+  return modules._asynchronous(modules._dueAt(currentTime, timeTolerance, forceSyncPoint));
 }
 
 initializer::HostData

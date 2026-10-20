@@ -112,6 +112,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   const double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
 
   startOutputThread(seissolInstance);
+  const bool snapshots = Modules::outputWorkerRunning() && useOutputSnapshot(seissolInstance.env());
 
   // Write initial wave field snapshot
   if (checkpoint_) {
@@ -179,12 +180,19 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     seissolInstance.timeManager().setWatchdogPhase(monitoring::Watchdog::Phase::Other,
                                                    "a synchronization point");
 
-    // the data the modules due now read on the host
+    // the data the modules due now read on the host; where their thread processes the
+    // synchronization point, it copies the data there from a snapshot on the device, while the
+    // device goes on with the next epoch
+    const bool fromSnapshot =
+        snapshots && Modules::processesAsynchronouslyAt(currentTime_, timeTolerance);
     seissolInstance.timeManager().synchronizeToHost(
-        Modules::hostDataAt(currentTime_, timeTolerance));
+        Modules::hostDataAt(currentTime_, timeTolerance), fromSnapshot);
 
     // Check all synchronization point hooks and set the new upcoming time
-    upcomingTime = std::min(finalTime_, Modules::callSyncHook(currentTime_, timeTolerance));
+    upcomingTime = std::min(
+        finalTime_, Modules::callSyncHook(currentTime_, timeTolerance, false, [&seissolInstance] {
+          seissolInstance.timeManager().copySnapshotToHost();
+        }));
     if (!Modules::outputWorkerRunning()) {
       aborted_ = aborted_ || abortRequested_;
     }

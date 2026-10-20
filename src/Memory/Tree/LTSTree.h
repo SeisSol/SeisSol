@@ -15,6 +15,7 @@
 #include "Common/Iterator.h"
 #include "Common/Literals.h"
 #include "Layer.h"
+#include "Memory/HostData.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Colormap.h"
@@ -99,6 +100,13 @@ class Storage {
   std::string name_;
 
   VarmapT varmap_;
+
+  static void addHostCopy(const DualMemoryContainer& container, std::vector<HostCopy>& copies) {
+    if (container.copiesToHost() && container.allocationSize > 0) {
+      copies.push_back(HostCopy{
+          container.host, container.device, container.allocationSize, container.pinnedHost()});
+    }
+  }
 
   template <typename TraitT>
   void addInternal(std::size_t index,
@@ -250,18 +258,21 @@ class Storage {
     memoryContainer_[index].synchronizeTo(place, stream);
   }
 
-  /// Copies a variable to the host, on the stream (cf. HostData).
+  /// Adds the copy to the host that varSynchronizeTo<StorageT>(AllocationPlace::Host) makes, if
+  /// any (cf. HostData).
   template <typename StorageT>
-  void varSynchronizeToHost(void* stream) {
-    varSynchronizeTo<StorageT>(AllocationPlace::Host, stream);
+  void varHostCopies(std::vector<HostCopy>& copies) const {
+    const auto index = varmap_.template index<StorageT>();
+    assert(memoryContainer_.size() > index);
+    addHostCopy(memoryContainer_[index], copies);
   }
 
-  /// Copies all variables to the host (not the buckets and scratchpads), on the stream (cf.
+  /// Adds the copies to the host of all variables (not of the buckets and scratchpads) (cf.
   /// HostData).
-  void variablesSynchronizeToHost(void* stream) {
+  void variablesHostCopies(std::vector<HostCopy>& copies) const {
     for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
       if (memoryInfo_[var].type == MemoryType::Variable) {
-        memoryContainer_[var].synchronizeTo(AllocationPlace::Host, stream);
+        addHostCopy(memoryContainer_[var], copies);
       }
     }
   }

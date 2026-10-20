@@ -14,11 +14,13 @@
 
 #include <array>
 #include <async/as/Pin.h>
+#include <functional>
 #include <limits>
 #include <map>
 #include <memory>
 #include <optional>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol {
 
@@ -108,7 +110,18 @@ class Modules {
     nextHook_ = static_cast<ModuleHook>(static_cast<int>(Hook) + 1);
   }
 
-  double _callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint);
+  double _callSyncHook(double currentTime,
+                       double timeTolerance,
+                       bool forceSyncPoint,
+                       const std::function<void()>& awaitHostData);
+
+  [[nodiscard]] std::vector<Module*>
+      _dueAt(double currentTime, double timeTolerance, bool forceSyncPoint) const;
+
+  /**
+   * Whether the modules `due` at a synchronization point process it on the thread of the outputs.
+   */
+  [[nodiscard]] bool _asynchronous(const std::vector<Module*>& due) const;
 
   [[nodiscard]] initializer::HostData
       _hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint) const;
@@ -147,11 +160,24 @@ class Modules {
   /**
    * @param currentTime The current simulation time.
    * @param timeTolerance The time tolerance for time comparison
+   * @param awaitHostData What completes the copies of the data to the host (see hostDataAt()), if
+   * anything; called before the synchronization point gets processed, on the thread that does that.
    * @return The next synchronization point
    *
    * @todo The time tolerance is global constant, maybe not necessary to pass it here
    */
-  static double callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint = false);
+  static double callSyncHook(double currentTime,
+                             double timeTolerance,
+                             bool forceSyncPoint = false,
+                             const std::function<void()>& awaitHostData = {});
+
+  /**
+   * Whether the modules due at a synchronization point process it on the thread of the outputs
+   * (see startOutputWorker()); for the same arguments as callSyncHook(), before it.
+   */
+  [[nodiscard]] static bool processesAsynchronouslyAt(double currentTime,
+                                                      double timeTolerance,
+                                                      bool forceSyncPoint = false);
 
   /**
    * The variables of the storages that the modules due at a synchronization point read on the

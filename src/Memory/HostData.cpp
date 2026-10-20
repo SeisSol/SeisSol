@@ -9,6 +9,11 @@
 
 #include <cassert>
 #include <utility>
+#include <vector>
+
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
 
 namespace seissol::initializer {
 
@@ -20,22 +25,33 @@ HostData HostData::everything() {
 
 HostData& HostData::merge(const HostData& other) {
   everything_ = everything_ || other.everything_;
-  for (const auto& [variable, copy] : other.copies_) {
-    copies_.try_emplace(variable, copy);
+  for (const auto& [variable, copies] : other.variables_) {
+    variables_.try_emplace(variable, copies);
   }
   return *this;
 }
 
-void HostData::copyToHost(void* stream) const {
+std::vector<HostCopy> HostData::copies() const {
   assert(!everything_);
-  for (const auto& [key, copy] : copies_) {
+  std::vector<HostCopy> copies;
+  for (const auto& [key, addCopies] : variables_) {
     const auto& [storage, variable] = key;
     // a single variable of a storage whose variables all get copied anyway
-    if (variable != AllVariables && copies_.count(std::make_pair(storage, AllVariables)) > 0) {
+    if (variable != AllVariables && variables_.count(std::make_pair(storage, AllVariables)) > 0) {
       continue;
     }
-    copy(stream);
+    addCopies(copies);
   }
+  return copies;
+}
+
+void HostData::copyToHost([[maybe_unused]] void* stream) const {
+#ifdef ACL_DEVICE
+  auto& api = device::DeviceInstance::instance().api();
+  for (const auto& copy : copies()) {
+    api.copyFromAsync(copy.host, copy.device, copy.size, stream);
+  }
+#endif
 }
 
 } // namespace seissol::initializer

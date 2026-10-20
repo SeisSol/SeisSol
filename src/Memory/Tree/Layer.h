@@ -121,12 +121,27 @@ struct DualMemoryContainer {
     allocationSize = size;
   }
 
+  /// Whether host and device keep separate memory, which synchronizeTo() copies between.
+  [[nodiscard]] bool separateParts() const {
+    return allocationMode == AllocationMode::HostDeviceSplit ||
+           allocationMode == AllocationMode::HostDeviceSplitPinned ||
+           allocationMode == AllocationMode::HostDeviceCompress ||
+           allocationMode == AllocationMode::HostDeviceCompressPinned;
+  }
+
+  /// Whether synchronizeTo(AllocationPlace::Host) copies the device part to the host part.
+  [[nodiscard]] bool copiesToHost() const { return separateParts() && !constant; }
+
+  /// Whether the host part is pinned memory.
+  [[nodiscard]] bool pinnedHost() const {
+    return allocationMode == AllocationMode::HostDeviceSplitPinned ||
+           allocationMode == AllocationMode::HostDeviceCompressPinned ||
+           allocationMode == AllocationMode::HostDevicePinned;
+  }
+
   void synchronizeTo(AllocationPlace place, void* stream) const {
 #ifdef ACL_DEVICE
-    if (allocationMode == AllocationMode::HostDeviceSplit ||
-        allocationMode == AllocationMode::HostDeviceSplitPinned ||
-        allocationMode == AllocationMode::HostDeviceCompress ||
-        allocationMode == AllocationMode::HostDeviceCompressPinned) {
+    if (separateParts()) {
       if (place == AllocationPlace::Host) {
         // do not copy back constant data (we ignore the other direction for now)
         if (!constant) {

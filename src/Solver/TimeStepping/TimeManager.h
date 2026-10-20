@@ -15,6 +15,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/HostData.h"
+#include "Memory/HostSnapshot.h"
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/Watchdog.h"
 #include "Parallel/Helper.h"
@@ -128,6 +129,9 @@ class TimeManager {
 
   //! looks at the progress from a thread of its own (see SEISSOL_WATCHDOG)
   std::unique_ptr<monitoring::Watchdog> watchdog_;
+
+  //! the data for the outputs, while they copy it to the host (see synchronizeToHost())
+  std::unique_ptr<initializer::HostSnapshot> hostSnapshot_;
 
   void setUpWatchdog(const std::vector<AbstractTimeCluster*>& clusters);
 
@@ -246,8 +250,15 @@ class TimeManager {
   /**
    * Copies the given variables to the host; all of them if clusters compute on the host and on
    * the device (see SEISSOL_DEVICE_HOST_SWITCH).
+   *
+   * With `fromSnapshot`, it takes a snapshot of them on the device if that fits there, from which
+   * copySnapshotToHost() then copies them to the host, also while the device goes on with the next
+   * epoch.
    */
-  void synchronizeToHost(const initializer::HostData& data);
+  void synchronizeToHost(const initializer::HostData& data, bool fromSnapshot = false);
+
+  /// Completes the copies of the last call of synchronizeToHost() from a snapshot; on any thread.
+  void copySnapshotToHost();
 
   /// What the simulation does now, for the watchdog (see monitoring::Watchdog::setPhase()).
   void setWatchdogPhase(monitoring::Watchdog::Phase phase, const char* label);

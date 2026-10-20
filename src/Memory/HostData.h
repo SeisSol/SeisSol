@@ -12,8 +12,18 @@
 #include <functional>
 #include <map>
 #include <utility>
+#include <vector>
 
 namespace seissol::initializer {
+
+/// A copy of device memory to its counterpart on the host.
+struct HostCopy {
+  void* host{nullptr};
+  const void* device{nullptr};
+  std::size_t size{0};
+  //! whether the host memory is pinned: a copy into other memory blocks until it is done
+  bool pinned{false};
+};
 
 /**
  * The variables of the storages that the host reads, e.g. the outputs due at a synchronization
@@ -31,17 +41,19 @@ class HostData {
   template <typename StorageT, typename StorageType>
   HostData& add(StorageType& storage) {
     const auto variable = storage.template info<StorageT>().index;
-    copies_.try_emplace(
-        std::make_pair(static_cast<const void*>(&storage), variable),
-        [&storage](void* stream) { storage.template varSynchronizeToHost<StorageT>(stream); });
+    variables_.try_emplace(std::make_pair(static_cast<const void*>(&storage), variable),
+                           [&storage](std::vector<HostCopy>& copies) {
+                             storage.template varHostCopies<StorageT>(copies);
+                           });
     return *this;
   }
 
   /// all variables of `storage` (not its buckets and scratchpads)
   template <typename StorageType>
   HostData& addVariables(StorageType& storage) {
-    copies_.try_emplace(std::make_pair(static_cast<const void*>(&storage), AllVariables),
-                        [&storage](void* stream) { storage.variablesSynchronizeToHost(stream); });
+    variables_.try_emplace(
+        std::make_pair(static_cast<const void*>(&storage), AllVariables),
+        [&storage](std::vector<HostCopy>& copies) { storage.variablesHostCopies(copies); });
     return *this;
   }
 
@@ -50,12 +62,16 @@ class HostData {
 
   [[nodiscard]] bool isEverything() const { return everything_; }
 
-  [[nodiscard]] bool empty() const { return !everything_ && copies_.empty(); }
+  [[nodiscard]] bool empty() const { return !everything_ && variables_.empty(); }
 
   /// the number of variables; zero for everything
-  [[nodiscard]] std::size_t size() const { return copies_.size(); }
+  [[nodiscard]] std::size_t size() const { return variables_.size(); }
 
-  /// enqueues the copies of the variables to the host on the stream; not for everything
+  /// the copies to the host the variables need (none for those the host and the device share);
+  /// not for everything
+  [[nodiscard]] std::vector<HostCopy> copies() const;
+
+  /// enqueues the copies to the host on the stream; not for everything
   void copyToHost(void* stream) const;
 
   private:
@@ -63,8 +79,9 @@ class HostData {
   static constexpr std::size_t AllVariables = static_cast<std::size_t>(-1);
 
   bool everything_{false};
-  // by the storage and the index of the variable in it
-  std::map<std::pair<const void*, std::size_t>, std::function<void(void*)>> copies_;
+  // by the storage and the index of the variable in it: what adds the copies of the variable
+  std::map<std::pair<const void*, std::size_t>, std::function<void(std::vector<HostCopy>&)>>
+      variables_;
 };
 
 } // namespace seissol::initializer

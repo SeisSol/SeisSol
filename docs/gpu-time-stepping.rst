@@ -63,6 +63,9 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
    * - ``SEISSOL_OUTPUT_THREAD=1``
      - Experimental. Process the outputs of a synchronization point on a thread of their own, while the GPU
        goes on with the next epoch (see below).
+   * - ``SEISSOL_OUTPUT_SNAPSHOT=0``
+     - With ``SEISSOL_OUTPUT_THREAD=1``: copy the data for the outputs to the host before the next epoch,
+       instead of from a snapshot on the GPU while it goes on (see below).
    * - ``SEISSOL_SUPERSTEP_GRAPH_MODE``
      - Experimental, with ``SEISSOL_SUPERSTEP_GRAPHS=1``. ``replay`` (default): as described below.
        ``always``: besides, record each other super-timestep and launch it once.
@@ -186,8 +189,21 @@ The thread needs separate buffers on the host (``SEISSOL_USM=0``, the default) a
 otherwise, the outputs get processed on the main thread, as without the switch.
 A synchronization point where an output cannot be processed on the thread (e.g. of the instantaneous time mirror) gets
 processed on the main thread as a whole.
-On a workstation (RTX 5070, October 2026), TPV5 with an energy output every 0.05 s took 12 % less time with it
-(one process), and 5 % less with two processes; the outputs came out bitwise the same.
+
+The copy to the host does not hold up the next epoch either: the GPU copies the data within its memory
+first, into a snapshot, and the thread copies the snapshot to the host while the GPU goes on.
+The snapshot takes as much memory on the GPU as the data of the synchronization point that needs the most
+(in TPV5 on one GPU, 45 MiB for the energies, 82 MiB with the fault output).
+SeisSol takes it only where its own allocations leave a tenth of the memory of the GPU free besides, and at least
+2 GiB; otherwise, and with ``SEISSOL_OUTPUT_SNAPSHOT=0``, the data gets copied to the host before the next epoch.
+The host memory of the data the outputs read is pinned, so that its copies do not block.
+While the copy to the host runs, the kernels that write to the host themselves (e.g. those of the receivers, and the
+clocks of the clusters) wait behind it on the link.
+
+On a laptop (RTX 5070 Laptop GPU, PCIe link at 7 GB/s, October 2026), TPV5 with an energy output every 0.05 s and the
+time-stepping plan with concurrent clusters took 3.19 s without the thread, 2.80 s with it, and 2.69 s with it and the
+snapshot (16 % less); with two processes on the GPU, 4.33 s, 4.15 s and 3.83 s (12 % less).
+The outputs came out bitwise the same.
 
 Diagnostics
 ~~~~~~~~~~~

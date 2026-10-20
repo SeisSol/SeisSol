@@ -8,6 +8,7 @@
 add_library(seissol-memory OBJECT
     GlobalData.cpp
     HostData.cpp
+    HostSnapshot.cpp
     MemoryAllocator.cpp
 )
 

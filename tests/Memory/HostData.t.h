@@ -61,7 +61,8 @@ TEST_CASE("HostData" * doctest::test_suite("memory")) {
   CHECK(some.size() == 3);
   CHECK_FALSE(some.isEverything());
 
-  // the copies of host-only variables do nothing
+  // host-only variables need no copies
+  CHECK(some.copies().empty());
   some.copyToHost(nullptr);
 
   some.merge(initializer::HostData::everything());

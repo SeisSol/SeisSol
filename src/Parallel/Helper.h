@@ -96,6 +96,12 @@ inline SuperStepGraphMode superStepGraphMode(utils::Env& env) {
 inline bool useOutputThread(utils::Env& env) { return env.get<bool>("OUTPUT_THREAD", false); }
 
 /**
+ * Whether the thread of the outputs copies their data to the host from a snapshot on the device,
+ * while the device goes on with the next epoch (see useOutputThread()).
+ */
+inline bool useOutputSnapshot(utils::Env& env) { return env.get<bool>("OUTPUT_SNAPSHOT", true); }
+
+/**
  * Whether the clusters take their steps strictly along the time stepping plan, instead of whenever
  * they are ready.
  */
