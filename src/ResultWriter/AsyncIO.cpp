@@ -9,10 +9,15 @@
 
 #include "Parallel/MPI.h"
 
+#include <async/Config.h>
 #include <async/Dispatcher.h>
 #include <mpi.h>
+#include <utils/env.h>
 
 namespace seissol::io {
+
+AsyncIO::AsyncIO(utils::Env& env)
+    : async::Dispatcher(async::Config(utils::Env{env.prefix() + "ASYNC_", "ASYNC_"})) {}
 
 bool AsyncIO::initDispatcher() {
   async::Dispatcher::init();

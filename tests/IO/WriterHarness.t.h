@@ -40,6 +40,9 @@ namespace seissol::unit_test::io {
  */
 class LocalExecInfo : public async::ExecInfo {
   public:
+  //! @param comm The ranks that execute, as ASYNC hands them to the executor
+  explicit LocalExecInfo(MPI_Comm comm = MPI_COMM_SELF) { setCommInternal(comm); }
+
   [[nodiscard]] const void* buffer(unsigned int id) const override { return buffers_[id].data(); }
 
   int addBuffer(std::size_t size) {
@@ -72,7 +75,7 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
                            seissol::io::writer::file::RunFiles* runFiles = nullptr) {
   using namespace seissol::io::writer;
 
-  LocalExecInfo info;
+  LocalExecInfo info(comm);
   // buffer 0 is where WriterModule puts the serialized plan; the executor reads it from there
   const auto planId = info.addBuffer(0);
 
@@ -112,12 +115,10 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
   // hand it to the real executor rather than writing the plan directly, so that the plan travels
   // the way it does in production
   module::AsyncWriter executor;
-  executor.setComm(comm);
   executor.execInit(info, module::AsyncWriterInit{});
   executor.exec(info, module::AsyncWriterExec{});
   executor.execWait(info);
   executor.closeFiles();
-  executor.finalize();
 
   return plan;
 }

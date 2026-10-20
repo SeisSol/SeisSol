@@ -145,12 +145,12 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
 
   auto& parallel = seissolInstance.runSummary()["parallel"];
   parallel["commThread"] = useCommThread(seissol::Mpi::mpi, seissolInstance.env());
-  parallel["asyncMode"] = [] {
-    switch (async::Config::mode()) {
+  parallel["asyncMode"] = [&seissolInstance] {
+    switch (seissolInstance.asyncIO().config().mode()) {
     case async::Mode::Thread:
       return "thread";
     case async::Mode::MPI:
-      return "mpi";
+      return "node";
     default:
       return "sync";
     }

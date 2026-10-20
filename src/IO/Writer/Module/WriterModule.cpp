@@ -38,9 +38,9 @@ namespace {
  * anyway, and with dedicated processes, waiting for another output's turn could hold up the
  * process that is to serve it.
  */
-std::uint64_t nextTicket() {
+std::uint64_t nextTicket(async::Mode mode) {
   static std::uint64_t issued = 0;
-  return async::Config::mode() == async::Mode::Thread ? ++issued : 0;
+  return mode == async::Mode::Thread ? ++issued : 0;
 }
 } // namespace
 
@@ -48,12 +48,11 @@ WriterModule::WriterModule(const std::string& prefix,
                            const ScheduledWriter& settings,
                            const parallel::Pinning& pinning,
                            SeisSol& seissolInstance)
-    : rank_(seissol::Mpi::mpi.rank()), prefix_(prefix), settings_(settings), pinning_(pinning),
-      seissolInstance_(seissolInstance) {}
+    : AsyncWriterModule(seissolInstance.asyncIO().config()), rank_(seissol::Mpi::mpi.rank()),
+      prefix_(prefix), settings_(settings), pinning_(pinning), seissolInstance_(seissolInstance) {}
 
 void WriterModule::setUp() {
   logInfo() << "Output Writer" << settings_.name << ": setup.";
-  executor_.setComm(seissol::Mpi::mpi.comm());
   executor_.setName(settings_.name);
   setExecutor(executor_);
   // The thread goes to the CPUs no OpenMP worker uses, with a communication thread or without one:
@@ -75,6 +74,8 @@ void WriterModule::setUp() {
 void WriterModule::startup() {
   logInfo() << "Output Writer" << settings_.name << ": startup, running at interval"
             << settings_.interval;
+  // the dispatcher runs already; the module joins it, together with all ranks
+  seissolInstance_.asyncIO().attach(*this);
   init();
 
   // we want ASYNC to like us, hence we need to enter a non-zero size here
@@ -156,7 +157,7 @@ void WriterModule::syncPoint(double time) {
             << "s)";
   lastWrite_ = time;
   ++writeCount_;
-  call(AsyncWriterExec{resumed_, nextTicket()});
+  call(AsyncWriterExec{resumed_, nextTicket(seissolInstance_.asyncIO().config().mode())});
 }
 
 int WriterModule::addBuffer(const void* pointer, std::size_t size) {
@@ -174,7 +175,7 @@ void WriterModule::simulationEnd() {
   wait();
   // the files the writes kept open for the next one; closing is collective, and takes its turn
   // like a write
-  call(AsyncWriterExec{resumed_, nextTicket(), true});
+  call(AsyncWriterExec{resumed_, nextTicket(seissolInstance_.asyncIO().config().mode()), true});
   wait();
 }
 

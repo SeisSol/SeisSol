@@ -230,6 +230,9 @@ class SeisSol {
   // => Initialize it first, to avoid this.
   parallel::Pinning pinning_;
 
+  //! The environment, which the members after it may read their settings from
+  utils::Env env_;
+
   seissol::io::OutputManager outputManager_;
 
   //! Collection of Parameters
@@ -293,8 +296,6 @@ class SeisSol {
 
   std::optional<std::size_t> executionPlaceCutoff_;
 
-  utils::Env env_;
-
   std::string runId_;
 
   double timestepScale_{1.0};
@@ -302,9 +303,9 @@ class SeisSol {
 
   public:
   SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
-      : outputManager_(*this), seissolParameters_(parameters),
+      : env_(env), outputManager_(*this), seissolParameters_(parameters), asyncIO_(env_),
         memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
-        analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this), env_(env) {}
+        analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;
