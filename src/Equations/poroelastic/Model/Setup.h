@@ -52,6 +52,26 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
 
   static constexpr auto CoefficientEntries = generated::PoroElasticCoefficientEntries;
 
+  /// W^-1 (see WeightEntry): on the strain, with its tensor components as for an elastic medium,
+  /// and the increment of fluid content the undrained stiffness cBar, coupled to the pressure by
+  /// -M alpha, and M; on the velocities of solid and fluid the inverse of the density matrix
+  /// [[rhoBar, rhoFluid], [rhoFluid, m]] per direction, whose entries are 1/rho1, 1/rho2 (which
+  /// equals -beta1/rho1) and -beta2/rho2.
+  static constexpr auto WeightEntries = generated::PoroElasticWeightEntries;
+
+  /// The coefficients of the operator without material, A_d = W^-1 B_d: the rate of the strain is
+  /// the symmetric part of the gradient of the velocity of the solid and the one of the fluid
+  /// content the divergence of the velocity of the fluid; the momenta are the divergence of the
+  /// stress and the gradient of the pressure. The drag stays in the source term.
+  static std::array<double, NumCoefficients>
+      getUnweightedCoefficients(const PoroElasticMaterial& /*material*/) {
+    std::array<double, NumCoefficients> coefficients{};
+    std::copy(generated::PoroElasticUnweightedCoefficients.begin(),
+              generated::PoroElasticUnweightedCoefficients.end(),
+              coefficients.begin());
+    return coefficients;
+  }
+
   /// The two drag scalars of the Biot source, one per density.
   static constexpr std::size_t NumSourceCoefficients = generated::PoroElasticNumSourceCoefficients;
 

@@ -427,6 +427,29 @@ POROELASTIC = Decomposition(
         "beta2/rho2",
     ],
     entries=_poroelastic_entries(),
+    # W^-1 on the strain, with its tensor components as for an elastic medium,
+    # and the increment of fluid content: the undrained stiffness cBar, coupled
+    # to the pressure by -M alpha, and M. On the momenta of solid and fluid the
+    # inverse of the density matrix [[rhoBar, rhoFluid], [rhoFluid, m]], whose
+    # entries the medium states as 1/rho1, 1/rho2 (which equals -beta1/rho1)
+    # and -beta2/rho2. B: the strain rate from the velocity of the solid, the
+    # rate of the fluid content from the one of the fluid, the momentum of the
+    # solid from the divergence of the stress and the one of the fluid from the
+    # gradient of the pressure.
+    weight=[
+        WeightEntry(_CBAR_DIAG if row == column else _CBAR_OFF, row, column)
+        for row in range(3)
+        for column in range(3)
+    ]
+    + [WeightEntry(_CBAR_SHEAR, q, q, 2.0) for q in (3, 4, 5)]
+    + [WeightEntry(_M_ALPHA, q, 9, -1.0) for q in range(3)]
+    + [WeightEntry(_M_ALPHA, 9, q, -1.0) for q in range(3)]
+    + [WeightEntry(_M, 9, 9)]
+    + [WeightEntry(_RHO1, 6 + d, 6 + d) for d in range(3)]
+    + [WeightEntry(_RHO2, 6 + d, 10 + d) for d in range(3)]
+    + [WeightEntry(_RHO2, 10 + d, 6 + d) for d in range(3)]
+    + [WeightEntry(_B2, 10 + d, 10 + d, -1.0) for d in range(3)],
+    unweighted=[1.0, 0.0, 0.5, 0.0, 1.0, 1.0, 0.0, 0.0, -1.0],
     # the Biot drag: the relative motion of fluid and solid relaxes against the
     # two densities, one scalar each
     source_coefficients=[
@@ -501,6 +524,16 @@ BY_EQUATION = {
 
 #: Which material a viscous one takes its flux, and so its decomposition, from.
 BASE_OF = {"viscoelastic": ELASTIC, "viscoacoustic": ACOUSTIC}
+
+
+def weighted(equation: str):
+    """The decomposition that states the inverse weight of an equation's
+    medium: its own, or for a medium with relaxation the base material's, whose
+    flux it shares. None where neither states one."""
+    decomposition = BASE_OF.get(equation, BY_EQUATION.get(equation))
+    if decomposition is None or not decomposition.weight:
+        return None
+    return decomposition
 
 
 #: A coefficient read off the material. It varies from cell to cell, and

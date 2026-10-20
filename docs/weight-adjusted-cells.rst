@@ -99,10 +99,29 @@ the momentum as the divergence of the stress. :math:`C` takes the strain with it
 tensor components, :math:`2\mu` on the shear diagonal: so the strain turns with a
 face as the stress does, which is how a face turns what it lifts back into the
 cell. With the engineering shear strains the two would differ by a factor of two
-on the shear components. A medium states :math:`W^{-1}` in its own coefficients
-(``WeightEntry``) and the coefficients of :math:`B_d`
-(``getUnweightedCoefficients``); the code generator writes both into
-``coefficients.h``.
+on the shear components. An acoustic medium has
+:math:`W^{-1} = \operatorname{diag}(\lambda, 1/\rho, 1/\rho, 1/\rho)`.
+
+A poroelastic medium takes the strain and the increment of fluid content as the
+rates :math:`B_d` gives, and its weight couples them: :math:`W^{-1}` is the
+undrained stiffness :math:`\bar C` on the strain, :math:`-M\alpha` between the
+strain and the pressure and :math:`M` on the pressure, and on the velocities of
+solid and fluid the inverse of the density matrix
+:math:`\begin{pmatrix}\bar\rho & \rho_f \\ \rho_f & m\end{pmatrix}` in every
+direction. :math:`B_d` takes the rate of the strain from the velocity of the
+solid and the one of the fluid content from the velocity of the fluid, the
+momenta from the divergence of the stress and the gradient of the pressure; the
+drag between fluid and solid stays in the source term. The weight is symmetric
+and positive definite, the energy of the medium.
+
+A medium with memory variables takes the flux and the weight of its base
+material. Its memory variables take the strain rate times their relaxation
+frequency, which carries no material, so the weight leaves the rows a face lifts
+for them alone.
+
+A medium states :math:`W^{-1}` in its own coefficients (``WeightEntry``) and the
+coefficients of :math:`B_d` (``getUnweightedCoefficients``); the code generator
+writes both into ``coefficients.h``.
 
 A weight-adjusted cell
 
@@ -350,12 +369,11 @@ What is not done
 - The device. Its batched kernels would take the buffer of a weight-adjusted
   cell in place of its field and apply the weight to a batch of such cells; a
   device build ignores ``weightadjustedratio`` for now.
-- The media with memory variables. The anelastic block of the flux is the
-  relaxation frequency times the strain rate, without material, so the memory
-  variables need no weight; what is missing is a weight that leaves their rows
-  alone, and, for the solver that keeps them apart, the kernels.
-- The anisotropic and the poroelastic medium, whose flux a face does not carry as
-  scalars per point.
+- The media with memory variables. They take the weight of their base material,
+  which leaves the rows of the memory variables alone; what is missing are the
+  kernels that apply it.
+- The anisotropic medium, which states no weight, and the poroelastic medium,
+  whose flux a face does not carry as scalars per point.
 - A finer choice of the cells. A cell whose material varies smoothly but by more
   than the ratio pays the time step of a jump.
 - The time step at orders 2, 7 and 8, which take the smallest :math:`c` of the
@@ -365,17 +383,19 @@ Checks
 ------
 
 Unit checks: the operator of a medium is its inverse weight times the one without
-material, in every direction, for solids, a fluid in an elastic build and
-acoustic media, exactly, in Python on the declarations and in C++ against the
-matrices the materials write themselves; the flux without material decomposes
-into the scalars of a face as the one with the material does, between solids,
-fluids and both, and at a free surface; the kernel that applies the weight does
-what its matrices say where the material differs from sample to sample, a fluid
-among the samples; with one material for the cell, what a weight-adjusted cell
-adds -- the volume term, the local and the neighbour fluxes of a regular, a
-free-surface and a fault face, the lift of a fault face -- is what a cell adds
-that lifts with the material, for a solid and for a fluid; and the spread of the
-impedances and the time step it gives at every order.
+material, in every direction, for solids, a fluid in an elastic build, acoustic
+and poroelastic media, exactly, in Python on the declarations and in C++ against
+the matrices the materials write themselves, and for the media with memory
+variables against the operator of their solver, the memory variables included;
+the weight of a poroelastic medium is positive definite; the flux without
+material decomposes into the scalars of a face as the one with the material
+does, between solids, fluids and both, and at a free surface; the kernel that
+applies the weight does what its matrices say where the material differs from
+sample to sample, a fluid among the samples; with one material for the cell,
+what a weight-adjusted cell adds -- the volume term, the local and the neighbour
+fluxes of a regular, a free-surface and a fault face, the lift of a fault face --
+is what a cell adds that lifts with the material, for a solid and for a fluid;
+and the spread of the impedances and the time step it gives at every order.
 
 End to end: the runs above -- a weight-adjusted run on a constant material
 against the plain one, on straight and on curved cells, elastic and acoustic; the

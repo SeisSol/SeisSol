@@ -44,6 +44,16 @@ struct MaterialSetup<ViscoElasticMaterial<N>>
         dynamic_cast<const ElasticMaterial&>(material));
   }
 
+  /// The inverse weight is the base material's as well (see WeightEntry). It reaches the elastic
+  /// quantities alone: the memory variables take the strain rate times the relaxation frequency,
+  /// which carries no material.
+  static constexpr auto WeightEntries = MaterialSetup<ElasticMaterial>::WeightEntries;
+
+  static std::array<double, NumCoefficients> getUnweightedCoefficients(const MaterialT& material) {
+    return MaterialSetup<ElasticMaterial>::getUnweightedCoefficients(
+        dynamic_cast<const ElasticMaterial&>(material));
+  }
+
   /// The coupling block one mechanism contributes, with its columns relative
   /// to that mechanism's block. The weight is the solver's to supply.
   static constexpr auto AnelasticEntries = generated::ViscoElasticAnelasticEntries;

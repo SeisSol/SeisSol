@@ -477,9 +477,41 @@ class TestWeightDecomposition:
             lam, rho = rng.uniform(0.5, 5.0, 2)
             return [lam, 1 / rho]
 
+        def poroelastic(rng):
+            # the nine scalars from a physical medium, as Helper.h derives them:
+            # the identities between them only hold for such
+            rho, lam, mu = rng.uniform(0.5, 5.0, 3)
+            bulk_solid = (lam + 2 * mu / 3) * rng.uniform(1.5, 4.0)
+            porosity, tortuosity = rng.uniform(0.1, 0.4), rng.uniform(1.0, 3.0)
+            bulk_fluid, rho_fluid = rng.uniform(0.2, 2.0), rho * rng.uniform(0.2, 0.8)
+            alpha = 1 - (lam + 2 * mu / 3) / bulk_solid
+            modulus = bulk_solid / (
+                1
+                - porosity
+                - (lam + 2 * mu / 3) / bulk_solid
+                + porosity * bulk_solid / bulk_fluid
+            )
+            m = rho_fluid * tortuosity / porosity
+            rho_bar = (1 - porosity) * rho + porosity * rho_fluid
+            rho1 = rho_bar - rho_fluid**2 / m
+            rho2 = rho_fluid - m * rho_bar / rho_fluid
+            beta1, beta2 = rho_fluid / m, rho_bar / rho_fluid
+            return [
+                lam + 2 * mu + modulus * alpha**2,
+                lam + modulus * alpha**2,
+                mu,
+                modulus * alpha,
+                modulus,
+                1 / rho1,
+                1 / rho2,
+                beta1 / rho1,
+                beta2 / rho2,
+            ]
+
         return [
             (coefficients.ELASTIC, 9, elastic),
             (coefficients.ACOUSTIC, 4, acoustic),
+            (coefficients.POROELASTIC, 13, poroelastic),
         ]
 
     def test_operator_is_inverse_weight_times_unweighted(self):
@@ -502,6 +534,22 @@ class TestWeightDecomposition:
         for decomposition, size, draw in self._media():
             weight = self._weight(decomposition, draw(rng), size)
             np.testing.assert_array_equal(weight, weight.T)
+
+    def test_weight_is_positive_definite(self):
+        # the energy of the medium, for a physical one
+        rng = np.random.default_rng(20261018)
+        for decomposition, size, draw in self._media():
+            for _ in range(16):
+                weight = self._weight(decomposition, draw(rng), size)
+                assert np.linalg.eigvalsh(weight).min() > 0
+
+    def test_relaxation_takes_the_weight_of_its_base(self):
+        from kernels import coefficients
+
+        assert coefficients.weighted("viscoelastic") is coefficients.ELASTIC
+        assert coefficients.weighted("viscoacoustic") is coefficients.ACOUSTIC
+        assert coefficients.weighted("poroelastic") is coefficients.POROELASTIC
+        assert coefficients.weighted("anisotropic") is None
 
     def test_a_medium_without_weight_states_nothing_else(self):
         from kernels import coefficients

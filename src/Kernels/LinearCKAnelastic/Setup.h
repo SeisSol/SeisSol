@@ -61,6 +61,20 @@ struct SolverSetup<kernels::solver::linearckanelastic::Solver, MaterialT>
     return coefficients;
   }
 
+  /// The same for the operator without material (see WeightEntry). The coupling block keeps its
+  /// unit weight: it carries no material.
+  static std::array<double, NumCoefficients> getUnweightedCoefficients(const MaterialT& material) {
+    std::array<double, NumCoefficients> coefficients{};
+    const auto base = MaterialSetup<MaterialT>::getUnweightedCoefficients(material);
+    for (std::size_t i = 0; i < base.size(); ++i) {
+      coefficients[i] = base[i];
+    }
+    if constexpr (MaterialT::Mechanisms > 0) {
+      coefficients[base.size()] = 1.0;
+    }
+    return coefficients;
+  }
+
   template <typename F>
   static void forEachCoefficientEntry(const F& write) {
     for (const auto& entry : MaterialSetup<MaterialT>::CoefficientEntries) {
