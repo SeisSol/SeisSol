@@ -30,15 +30,23 @@ class AsyncIO : public async::Dispatcher {
   explicit AsyncIO(utils::Env& env);
 
   /**
+   * Settles the mode AUTO: SYNC unless every rank leaves CPUs free for the threads of the output;
+   * otherwise, ASYNC chooses between THREAD and NODE from how the ranks sit on the nodes.
+   *
    * @return False if this rank is an MPI executor that does not contribute to the
    *  computation.
    */
   bool initDispatcher(const parallel::Pinning& pinning);
   void finalizeDispatcher();
 
+  //! Whether the mode was AUTO, which initDispatcher has settled
+  [[nodiscard]] bool automatic() const { return automatic_; }
+
   private:
   //! The prefix of the settings, for the messages
   std::string prefix_;
+
+  bool automatic_{false};
 };
 
 } // namespace seissol::io

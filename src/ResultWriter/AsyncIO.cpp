@@ -13,6 +13,7 @@
 #include <async/Config.h>
 #include <async/Dispatcher.h>
 #include <mpi.h>
+#include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
 
@@ -31,18 +32,37 @@ bool AsyncIO::initDispatcher(const parallel::Pinning& pinning) {
     setAffinity(freeCpus);
   }
 
+  // AUTO writes asynchronously where every rank leaves CPUs free for the threads of the output, as
+  // it does for a communication thread
+  automatic_ = config().mode() == async::Mode::Auto;
+  if (automatic_) {
+    int room = roomLeft ? 1 : 0;
+    MPI_Allreduce(MPI_IN_PLACE, &room, 1, MPI_INT, MPI_MIN, seissol::Mpi::mpi.comm());
+    if (room == 0) {
+      setMode(async::Mode::Sync);
+    }
+  }
+
   async::Dispatcher::init();
 
   const auto layout = async::Dispatcher::layout();
+  // the mode as the log names it, with AUTO where that chose it
+  const std::string named = automatic_ ? "ASYNC mode AUTO: " : "ASYNC mode ";
   switch (layout.mode) {
   case async::Mode::Sync:
-    logInfo() << "Asynchronous output: off (ASYNC mode SYNC).";
+    logInfo() << ("Asynchronous output: off (" + named + "SYNC).").c_str();
+    if (automatic_) {
+      logInfo() << "Not every rank leaves CPUs free for the threads of the asynchronous output.";
+    }
     break;
   case async::Mode::Thread:
-    logInfo() << "Asynchronous output (ASYNC mode THREAD): a thread on every rank.";
+    logInfo() << ("Asynchronous output (" + named + "THREAD): a thread on every rank.").c_str();
+    break;
+  case async::Mode::Auto:
+    // init() has settled it
     break;
   case async::Mode::MPI: {
-    logInfo() << "Asynchronous output (ASYNC mode NODE):" << layout.executors
+    logInfo() << ("Asynchronous output (" + named + "NODE):").c_str() << layout.executors
               << "executor rank(s) on" << layout.nodes << "node(s)," << layout.executorsPerNode
               << "per group of" << layout.groupNodes << "node(s), each collecting the output of"
               << layout.minGroupRanks << "to" << layout.maxGroupRanks << "ranks;"

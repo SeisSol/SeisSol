@@ -124,6 +124,10 @@ well, but deprecated. The log says at the start which mode a run uses.
     copy, and the files see one writer per node rather than one per rank. The
     ranks of a node have to be numbered one after another, which a block-wise
     placement of the ranks does. ``MPI`` is accepted as a deprecated name for it.
+  * ``AUTO``: ``SYNC`` unless every rank leaves CPUs free for the threads of the
+    output, as it does for a communication thread; otherwise ``NODE`` where
+    several ranks share a node and are numbered one after another, and
+    ``THREAD`` where not.
 
 * ``SEISSOL_ASYNC_EXECUTORS_PER_NODE``: in ``NODE`` mode, how many ranks of a
   node collect its output, each for a part of its ranks (default 1).

@@ -156,6 +156,7 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
       return "sync";
     }
   }();
+  parallel["asyncAuto"] = seissolInstance.asyncIO().automatic();
   if (layout.mode == async::Mode::MPI) {
     auto& executors = parallel["asyncExecutors"];
     executors["executors"] = layout.executors;
