@@ -9,6 +9,7 @@
 
 #include "FlopCounter.t.h"
 #include "LoopStatistics.t.h"
+#include "RunSummary.t.h"
 #include "Statistics.t.h"
 #include "Stopwatch.t.h"
 #include "Unit.t.h"

@@ -7,4 +7,6 @@
 
 #include <doctest.h>
 
-#include "VertexOrderInvariance.t.h"
+#include "HighOrderPuml.t.h"         // IWYU pragma: keep
+#include "PumlBoundary.t.h"          // IWYU pragma: keep
+#include "VertexOrderInvariance.t.h" // IWYU pragma: keep

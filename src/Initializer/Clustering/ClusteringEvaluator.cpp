@@ -14,7 +14,6 @@
 #include "Initializer/Clustering/ClusteringCost.h"
 #include "Initializer/Clustering/TimestepHistogram.h"
 #include "Initializer/FaceMap.h"
-#include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Parallel/MPI.h"
 
@@ -29,13 +28,13 @@
 namespace seissol::initializer {
 
 ClusteringEvaluator::ClusteringEvaluator(const geometry::PumlMesh& mesh,
-                                         parameters::BoundaryFormat boundaryFormat,
+                                         const geometry::PumlCellArrays& arrays,
                                          const FaceMap& faceMap,
                                          const GlobalTimestep& timesteps,
                                          const std::vector<std::uint64_t>& cellCosts,
                                          std::vector<std::uint64_t> rate,
                                          bool smoothDuringSearch)
-    : smoother_(mesh, boundaryFormat, faceMap), timesteps_(&timesteps), cellCosts_(&cellCosts),
+    : smoother_(mesh, arrays, faceMap), timesteps_(&timesteps), cellCosts_(&cellCosts),
       rate_(std::move(rate)), smoothDuringSearch_(smoothDuringSearch),
       cellCount_(mesh.cells().size()), clusterIds_(mesh.cells().size(), 0) {}
 

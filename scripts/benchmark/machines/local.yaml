@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# This machine, without a batch system, for trying a campaign out: a job runs
+# when it is submitted, and a "node" is one rank of mpirun.
+name: local
+description: this machine, without a batch system
+scheduler: local
+node:
+  cores: 1
+layout:
+  ranks_per_node: 1
+  cpus_per_rank: 1
+  threads_per_rank: 1
+launcher: mpirun -np {ranks} --oversubscribe
+env:
+  # with every CPU taken by a worker, the ranks poll for their communication
+  SEISSOL_COMMTHREAD: "0"
+  SEISSOL_MINISEISSOL: "0"

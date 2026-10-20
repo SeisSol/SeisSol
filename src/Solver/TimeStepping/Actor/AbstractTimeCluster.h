@@ -203,6 +203,9 @@ class AbstractTimeCluster {
 
   [[nodiscard]] long getTimeStepRate() const;
 
+  //! @brief The time steps the cluster has taken (corrected) so far.
+  [[nodiscard]] long numberOfTimeSteps() const { return numberOfTimeSteps_; }
+
   /**
    * What the host part of the latest action has decided.
    */

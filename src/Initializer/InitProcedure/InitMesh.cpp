@@ -12,6 +12,7 @@
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/RunSummary.h"
 #include "Solver/Estimator.h"
 
 #include <Eigen/Core>
@@ -128,7 +129,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
                 << " min =" << summary.min << " median =" << summary.median
                 << " max =" << summary.max;
 
-      // written in initIO, once the output directory exists
+      // written in initIO, with the rest of the output
       seissolInstance.miniSeisSolWriter().record(elapsedTime, nodeWeight);
     } else {
       logInfo() << "Skipping mini SeisSol (SeisSol is used with a single rank only).";
@@ -293,15 +294,13 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   const auto faceMap = [&]() {
     const auto faceMapFile = seissolParams.mesh.faceMapFile;
     if (faceMapFile.has_value()) {
-      const auto yamlNode = YAML::Load(faceMapFile.value());
-      return parseFaceMap(yamlNode);
+      return readFaceMap(faceMapFile.value());
     } else {
       return defaultFaceMap();
     }
   }();
 
   const seissol::initializer::ClusteringConfig config{
-      boundaryFormat,
       seissolParams.timeStepping.lts.getRate(),
       seissolParams.timeStepping.vertexWeight.weightElement,
       seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
@@ -324,8 +323,9 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   seissolInstance.setTimestepScale(clustering.result().wiggleFactor);
   seissolInstance.setEffectiveClusterRates(clustering.result().ratios);
 
-  watch.pause();
-  watch.printTime("PUML mesh read in:");
+  auto& summary = seissolInstance.runSummary();
+  summary.setRankValue("initMeshRead", watch.pause());
+  summary["time"]["init"]["meshRead"] = monitoring::toJson(watch.printTime("PUML mesh read in:"));
 
 #else  // defined(USE_HDF)
   logError() << "Tried to load a PUML mesh. However, PUML needs SeisSol to be linked against HDF5.";
@@ -391,8 +391,9 @@ void initMesh(seissol::SeisSol& seissolInstance) {
   postMeshread(
       meshReader, seissolParams.mesh.displacement, seissolParams.mesh.scaling, seissolInstance);
 
-  watch.pause();
-  watch.printTime("Mesh initialized in:");
+  auto& summary = seissolInstance.runSummary();
+  summary.setRankValue("initMesh", watch.pause());
+  summary["time"]["init"]["mesh"] = monitoring::toJson(watch.printTime("Mesh initialized in:"));
 
   // Call the post mesh initialization hook
   seissol::Modules::callHook<ModuleHook::PostMesh>();

@@ -27,4 +27,12 @@ if (TESTING)
         EXPECT_FAILURE
         EXPECT_OUTPUT "Error while reading the parameter file"
     )
+    # A check stops there as well, but without MPI, which it does not start
+    seissol_add_smoke_test(
+        NAME "Smoke: check without a parameter file"
+        TARGET seissol-bin
+        ARGS --check
+        EXPECT_FAILURE
+        EXPECT_OUTPUT "Error while reading the parameter file"
+    )
 endif()

@@ -140,6 +140,7 @@ void ReceiverWriter::writeHeader(std::size_t pointId,
            << '\n';
     }
     file << "# cell-global-id " << globalId << '\n';
+    file << "# run-id " << seissolInstance_.runId() << '\n';
     file.close();
   }
 }

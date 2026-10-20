@@ -9,6 +9,7 @@
 
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
+#include "Common/Json.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
@@ -49,6 +50,18 @@ class TimeManager {
 
   //! the clusters of the local (copy & interior) cells
   std::vector<std::unique_ptr<CellClusterInterface>> cellClusters_;
+
+  //! what each cell and face cluster updates in a time step, for the counts of updates()
+  struct ClusterSize {
+    const AbstractTimeCluster* cluster;
+    std::size_t globalClusterId;
+    //! the cells of the cluster: each copy cell once, though it is stored once per neighbor
+    std::size_t cells;
+    //! the further copies of copy cells, which are computed as well
+    std::size_t duplicateCells;
+    std::size_t dynamicRuptureFaces;
+  };
+  std::vector<ClusterSize> clusterSizes_;
 
   //! the clusters of the local (copy & interior) dynamic rupture faces
   std::vector<std::unique_ptr<DynamicRuptureClusterInterface>> faceClusters_;
@@ -127,7 +140,7 @@ class TimeManager {
   //! dynamic rupture output
   dr::output::OutputManager* faultOutputManager_{};
 
-  //! the clusters as laid out, kept until the output directory exists
+  //! the clusters as laid out, kept until the output is set up
   std::optional<writer::ClusteringWriter> clusteringWriter_;
 
   public:
@@ -158,6 +171,20 @@ class TimeManager {
    * Writes the clustering table recorded by addClusters. Collective: every rank has to call it.
    **/
   void writeClustering() const;
+
+  //! The updates of cells and of dynamic rupture faces done on this rank, per global cluster.
+  struct Updates {
+    std::vector<double> cells;
+    //! the updates of the further copies of copy cells
+    std::vector<double> duplicateCells;
+    std::vector<double> dynamicRuptureFaces;
+  };
+
+  /**
+   * The updates done so far on this rank: each time step of a cluster updates all of its cells and
+   * dynamic rupture faces once, and the copy cells next to several neighbors once per neighbor.
+   **/
+  [[nodiscard]] Updates updates() const;
 
   void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
   seissol::dr::output::OutputManager* faultOutputManager();
@@ -193,7 +220,10 @@ class TimeManager {
    **/
   void setInitialTimes(double time = 0);
 
-  void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
+  json::Value printComputationTime();
+
+  //! The time this rank spent in the compute kernels so far.
+  [[nodiscard]] double kernelTime() const { return loopStatistics_.kernelTime(); }
 
   void freeDynamicResources();
 

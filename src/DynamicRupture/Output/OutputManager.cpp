@@ -485,6 +485,7 @@ void OutputManager::initPickpointOutput() {
         }
         file << '\n';
       }
+      file << "# run-id\t" << seissolInstance_.runId() << '\n';
     }
   }
 }
