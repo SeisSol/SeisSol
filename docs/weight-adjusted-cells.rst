@@ -182,51 +182,59 @@ the exact weighted mass matrix, which has no penalty:
 
 A transition over a tenth of a cell costs at most 1.4 at a contrast of 100.
 :math:`(1 + r)/2` bounds all of these, but in three dimensions a cell needs more.
-On the periodic cube of the next section, a slab whose jumps cut the cells
-stays stable up to a time step between :math:`1.5/r` and :math:`2/r` times the
-one its wave speeds permit; an acoustic one grows with :math:`2/(1 + r)` from
-:math:`r = 10` on (order 4, CFL 0.5, the largest factor that ran through to
-:math:`t = 0.3` and the smallest that grew):
+On the periodic cube of the next section (CFL 0.5), a slab whose jumps cut the
+cells stays stable up to a time step of :math:`c/r` times the one its wave
+speeds permit, :math:`c` the same for every :math:`r` but not for every order.
+The largest :math:`c` that ran through to :math:`t = 1`, and the smallest that
+grew (a forced time step factor :math:`c/r`):
 
 .. list-table::
   :header-rows: 1
-  :widths: 40 12 16 16 16
+  :widths: 34 8 14 14 14 14
 
   * - jump
     - :math:`r`
-    - stable
-    - grows
-    - :math:`1/r`
+    - order 3
+    - order 4
+    - order 5
+    - order 6
   * - acoustic, bulk modulus by 9
     - 3
-    - 0.5
-    - 0.6
-    - 0.33
+    - 3.0 at factor 1
+    - 1.5 / 1.8
+    - 1.8 / 2.0
+    - 1.5 / 1.65
   * - acoustic, bulk modulus by 25
     - 5
-    - 0.33
-    - 0.4
-    - 0.2
+    - --
+    - 1.65 / 2.0
+    - --
+    - --
   * - acoustic, bulk modulus by 100
     - 10
-    - 0.17
-    - 0.18
-    - 0.1
+    - 3.0 / 3.5
+    - 1.7 / 1.8
+    - 2.0 / 2.1
+    - 1.63 / 1.76
   * - acoustic, bulk modulus by 400
     - 20
-    - 0.08
-    - 0.095
-    - 0.05
+    - 3.0 / 3.4
+    - 1.6 / 1.9
+    - 2.0 / 2.2
+    - --
   * - elastic, :math:`\lambda` and :math:`\mu` by 100
     - 10
-    - 0.2
-    - 0.22
-    - 0.1
+    - --
+    - 2.0 / 2.2
+    - --
+    - --
 
-The time step of a weight-adjusted cell is shortened by :math:`1/r`, a margin of
-1.5 to 2 on these; the shear waves of an elastic medium count the same way,
-weighed with their speed against the fastest P wave. Where the material only
-varies smoothly, or at the higher orders, that is more than needed.
+The time step of a weight-adjusted cell is shortened by :math:`c/r`, with a
+margin of 1.5 on the smallest :math:`c` that ran through at its order: 2 at
+order 3, 1 at orders 4 and 6, 1.2 at order 5. Orders 2, 7 and 8 are not measured
+and take the smallest, 1 (``weightAdjustedTimestepScale``). The shear waves of an
+elastic medium count the same way, weighed with their speed against the fastest
+P wave. Where the material only varies smoothly, that is more than needed.
 
 End to end
 ----------
@@ -350,10 +358,8 @@ What is not done
   scalars per point.
 - A finer choice of the cells. A cell whose material varies smoothly but by more
   than the ratio pays the time step of a jump.
-- A time step closer to what a cell needs. :math:`1/r` keeps a margin of 1.5 to 2
-  at order 4, measured there only; in the prototype a jump by an impedance ratio
-  of 10 raised the spectral radius by 2.1 at order 6 against 4.8 at order 4, and
-  the plain lift was stable at order 6.
+- The time step at orders 2, 7 and 8, which take the smallest :math:`c` of the
+  orders measured.
 
 Checks
 ------
@@ -369,9 +375,9 @@ among the samples; with one material for the cell, what a weight-adjusted cell
 adds -- the volume term, the local and the neighbour fluxes of a regular, a
 free-surface and a fault face, the lift of a fault face -- is what a cell adds
 that lifts with the material, for a solid and for a fluid; and the spread of the
-impedances and the time step it gives.
+impedances and the time step it gives at every order.
 
 End to end: the runs above -- a weight-adjusted run on a constant material
 against the plain one, on straight and on curved cells, elastic and acoustic; the
-slabs against the plain lift and against longer time steps; a smooth material
-against cells half as large; one rank against two.
+slabs against the plain lift and against longer time steps, at orders 3 to 6; a
+smooth material against cells half as large; one rank against two.

@@ -25,6 +25,7 @@
 
 // the material builders live with the decomposition they were written for
 #include "CoefficientStructure.t.h" // IWYU pragma: keep
+#include "Common/Constants.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
@@ -139,6 +140,7 @@ TEST_CASE("The flux without material decomposes into the scalars of a face") {
 TEST_CASE("Which cells are weight-adjusted, and their time step") {
   using seissol::initializer::ImpedanceSpread;
   using seissol::initializer::isWeightAdjusted;
+  using seissol::initializer::weightAdjustedTimestepScale;
   const auto spreadOf = [](const auto& materials) {
     ImpedanceSpread spread;
     for (const auto& material : materials) {
@@ -155,23 +157,43 @@ TEST_CASE("Which cells are weight-adjusted, and their time step") {
     REQUIRE_FALSE(isWeightAdjusted(spread.ratio(), 2.0));
   }
   SUBCASE("a jump in the bulk modulus by 25") {
-    // the acoustic case of the prototype: an impedance ratio of 5, the factor 1 / 5
+    // the acoustic case of the prototype: an impedance ratio of 5, the factor c / 5
     const auto spread =
         spreadOf(std::vector{coefficients::acoustic(1.0, 1.0), coefficients::acoustic(1.0, 25.0)});
     REQUIRE(spread.ratio() == doctest::Approx(5.0));
-    REQUIRE(spread.timestepFactor() == doctest::Approx(1.0 / 5.0));
+    for (std::size_t order = 2; order <= 8; ++order) {
+      REQUIRE(spread.timestepFactor(order) ==
+              doctest::Approx(weightAdjustedTimestepScale(order) / 5.0));
+    }
+    REQUIRE(spread.timestepFactor() == spread.timestepFactor(ConvergenceOrder));
     REQUIRE(isWeightAdjusted(spread.ratio(), 2.0));
     REQUIRE_FALSE(isWeightAdjusted(spread.ratio(), 5.0));
     REQUIRE_FALSE(isWeightAdjusted(spread.ratio(), 0.0));
   }
+  SUBCASE("what the orders permit") {
+    // orders 4 and 6 permit the least of those measured, and an order not measured no more
+    for (std::size_t order = 2; order <= 8; ++order) {
+      REQUIRE(weightAdjustedTimestepScale(order) >= weightAdjustedTimestepScale(4));
+    }
+    REQUIRE(weightAdjustedTimestepScale(4) == 1.0);
+    REQUIRE(weightAdjustedTimestepScale(6) == weightAdjustedTimestepScale(4));
+    for (const std::size_t order : {2, 7, 8}) {
+      REQUIRE(weightAdjustedTimestepScale(order) == weightAdjustedTimestepScale(4));
+    }
+    // never longer than the one the wave speeds permit: a spread of 1.5 at order 3
+    const auto spread =
+        spreadOf(std::vector{coefficients::acoustic(1.0, 1.0), coefficients::acoustic(1.0, 2.25)});
+    REQUIRE(spread.ratio() == doctest::Approx(1.5));
+    REQUIRE(spread.timestepFactor(3) == 1.0);
+  }
   SUBCASE("the shear waves count with their speed") {
     // the P impedances agree and the S impedances differ by 5, the faster S wave half as fast as
-    // the P waves: 1 / 5 for the S waves, weighed with that half
+    // the P waves: c / 5 for the S waves, weighed with that half
     const auto soft = coefficients::elastic(1.0, 1.0, 98.0);
     const auto hard = coefficients::elastic(1.0, 25.0, 50.0);
     const auto spread = spreadOf(std::vector{soft, hard});
     REQUIRE(spread.ratio() == doctest::Approx(5.0));
-    REQUIRE(spread.timestepFactor() == doctest::Approx(1.0 / (0.5 * 5.0)));
+    REQUIRE(spread.timestepFactor(4) == doctest::Approx(1.0 / (0.5 * 5.0)));
   }
   SUBCASE("a point without shear has no shear impedance") {
     const auto solid = coefficients::elastic(2500.0, 3e10, 2e10);
