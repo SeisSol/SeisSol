@@ -153,9 +153,15 @@ inline void printPersistentMpiInfo(utils::Env& env) {
   }
 }
 
+/**
+ * Whether the host and the device share the buffers of the data (unified memory), instead of each
+ * having its own. Off by default, also on devices that share their memory with the host (e.g. Grace
+ * Hopper, MI300A, APUs): separate buffers keep what the host reads (e.g. for the outputs) apart
+ * from what the device works on, and leave the device its own memory.
+ */
 inline bool useUSM(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
-  return env.get<bool>("USM", device::DeviceInstance::instance().api().isUnifiedMemoryDefault());
+  return env.get<bool>("USM", false);
 #else
   return true;
 #endif
@@ -171,13 +177,22 @@ inline void printUSMInfo(utils::Env& env) {
     logInfo() << "Using unified buffers for CPU-GPU data.";
   } else {
     logInfo() << "Using separate buffers for CPU-GPU data.";
+#ifdef ACL_DEVICE
+    if (device::DeviceInstance::instance().api().isUnifiedMemoryDefault()) {
+      logInfo() << "The device shares its memory with the host; SEISSOL_USM=1 would save the copies"
+                << "the host keeps of the data.";
+    }
+#endif
   }
 }
 
+/**
+ * Whether the buffers that are also used for MPI transfers are unified memory; off by default, as
+ * useUSM().
+ */
 inline bool useMPIUSM(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
-  return env.get<bool>("USM_MPI",
-                       device::DeviceInstance::instance().api().isUnifiedMemoryDefault());
+  return env.get<bool>("USM_MPI", false);
 #else
   return true;
 #endif

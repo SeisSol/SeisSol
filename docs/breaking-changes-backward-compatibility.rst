@@ -13,6 +13,16 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+Unified memory on GPUs
+~~~~~~~~~~~~~~~~~~~~~~
+(since the outputs copy only what they read from the GPU)
+
+``SEISSOL_USM`` and ``SEISSOL_USM_MPI`` are off by default on all systems. They used to be on by
+default where the GPU shares its memory with the CPU (e.g. Grace Hopper, Grace Blackwell, MI300A,
+APUs). The host then keeps a copy of the data; on an APU, it takes memory from the same pool as the
+GPU. ``SEISSOL_USM=1`` brings back the former behavior, and running clusters on the host
+(``SEISSOL_DEVICE_HOST_SWITCH``) needs it.
+
 The theoretical speedup of local time stepping
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the machine-readable run summary)

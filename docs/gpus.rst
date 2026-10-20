@@ -116,10 +116,13 @@ The following device-specific environment variable is supported right now:
 - ``SEISSOL_TRANSFER_MODE``
 
 ``SEISSOL_USM`` specifies if the data buffers are allocated using unified/managed (i.e. CPU-accessible) memory,
-or GPU memory. It is on by default on systems like the Grace Hopper Superchip or APUs like the MI300A,
-and disabled on all other systems (see TODO for more information).
+or GPU memory. It is off by default, also on systems whose GPU shares its memory with the CPU,
+like the Grace Hopper and Grace Blackwell Superchips, or APUs like the MI300A:
+the host then keeps a copy of the data, into which the outputs copy what they read, while the GPU works on its own.
+On an APU, these copies take memory from the same pool as the GPU; ``SEISSOL_USM=1`` saves that memory.
+Running clusters on the host (``SEISSOL_DEVICE_HOST_SWITCH``) needs ``SEISSOL_USM=1``.
 
-``SEISSOL_USM_MPI`` specifies the allocation mode for the buffers that are also used for MPI transfer.
+``SEISSOL_USM_MPI`` specifies the allocation mode for the buffers that are also used for MPI transfer; off by default as well.
 E.g. some MPI implementations, even if GPU-aware, will treat unified/managed memory buffers are CPU buffers
 otherwise.
 

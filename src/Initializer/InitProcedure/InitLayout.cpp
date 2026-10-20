@@ -455,8 +455,9 @@ void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
     const bool usmDefault = useUSM();
 
     if (!usmDefault && hdenabled) {
-      logWarning() << "Using the host-device execution on non-USM systems is not fully supported "
-                      "yet. Expect incorrect results.";
+      logWarning() << "Using the host-device execution without unified memory is not fully "
+                      "supported yet; expect incorrect results. SEISSOL_USM=1 enables unified "
+                      "memory.";
     }
   }
 }
