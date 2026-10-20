@@ -424,7 +424,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
 
     for (std::size_t quantity = 0; quantity < MaterialT::Quantities.size(); ++quantity) {
 
-      if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
+      if (seissolParams.output.waveFieldParameters.outputMask[Variant][quantity]) {
         outputs.emplace_back(
             namewrap(MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
@@ -435,7 +435,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
             });
       }
 
-      if (seissolParams.output.waveFieldParameters.integrationMask[quantity]) {
+      if (seissolParams.output.waveFieldParameters.integrationMask[Variant][quantity]) {
         outputs.emplace_back(
             namewrap("int-" + MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
@@ -787,7 +787,7 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
   NamedOutputs outputs;
   for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
     for (std::size_t quantity = 0; quantity < MaterialT::Quantities.size(); ++quantity) {
-      if (seissolParams.output.freeSurfaceParameters.outputMask[quantity]) {
+      if (seissolParams.output.freeSurfaceParameters.outputMask[Variant][quantity]) {
         outputs.emplace_back(
             namewrap(MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {

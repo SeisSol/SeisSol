@@ -182,10 +182,13 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     colorsGhost[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
   }
 
+  const auto& integrationMask = seissolParams.output.waveFieldParameters.integrationMask;
   const auto needsIntegration =
-      std::any_of(seissolParams.output.waveFieldParameters.integrationMask.begin(),
-                  seissolParams.output.waveFieldParameters.integrationMask.end(),
-                  [](const auto& value) { return value; }) ||
+      std::any_of(integrationMask.begin(),
+                  integrationMask.end(),
+                  [](const auto& mask) {
+                    return std::find(mask.begin(), mask.end(), true) != mask.end();
+                  }) ||
       seissolParams.output.waveFieldParameters.computeStrain;
   const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
 
