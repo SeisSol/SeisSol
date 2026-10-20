@@ -123,10 +123,12 @@ bool SeisSol::init() {
 }
 
 void SeisSol::finalize() {
+  // the writers are finalized while the dispatcher still runs, which takes them out together with
+  // its executors
+  Modules::callHook<ModuleHook::Shutdown>();
+
   // Cleanup ASYNC I/O library
   asyncIO_.finalizeDispatcher();
-
-  Modules::callHook<ModuleHook::Shutdown>();
 
   timeManager_.freeDynamicResources();
 
