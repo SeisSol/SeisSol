@@ -162,7 +162,8 @@ void WriterModule::syncPoint(double time) {
 }
 
 int WriterModule::addBuffer(const void* pointer, std::size_t size) {
-  return AsyncWriterModule::addBuffer(pointer, size, pointer == nullptr);
+  // (every rank contributes its own data, also to a buffer ASYNC manages)
+  return AsyncWriterModule::addBuffer(pointer, size);
 }
 
 void WriterModule::resizeBuffer(int id, const void* pointer, std::size_t size) {
