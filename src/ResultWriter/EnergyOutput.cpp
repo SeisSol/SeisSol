@@ -184,8 +184,10 @@ void addFaultEnergies(const DynamicRupture::Layer& layer,
   double seismicMoment[SimCount]{};
   double potency[SimCount]{};
 
-  real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDerivativePlus>(Cfg());
-  real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDerivativeMinus>(Cfg());
+  // the unknowns of the cells at the output time, when the slip is taken as well (those of cells on
+  // other ranks come from dofSync)
+  real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>(Cfg());
+  real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDofsMinus>(Cfg());
 
   const auto* godunovData = layer.var<DynamicRupture::GodunovData>(Cfg());
   const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
@@ -644,10 +646,6 @@ void EnergyOutput::init(
       .add<LTS::PStrain>(memoryManager.ltsStorage())
       .add<DynamicRupture::DREnergyOutputVar>(memoryManager.drStorage())
       .add<SurfaceLTS::DisplacementDofs>(memoryManager.surfaceStorage());
-  // at the faults, the static work takes the time derivatives of the cells
-  if (memoryManager.drStorage().size() > 0) {
-    hostData_.add<LTS::Buffers>(memoryManager.ltsStorage());
-  }
 
   isPlasticityEnabled_ = newIsPlasticityEnabled;
 

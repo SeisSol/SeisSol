@@ -13,6 +13,15 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The static frictional work
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the outputs copy only what they read from the GPU)
+
+The static frictional work of the energy output (``static_frictional_work``) takes the traction of
+the cells at the faults at the time of the output, as it takes the slip, and as the elementwise fault
+output does. It used to take the traction at the start of the last time step of each cell. For TPV5
+on a very coarse mesh (19 thousand cells), the values differ by up to 0.2 %.
+
 Unified memory on GPUs
 ~~~~~~~~~~~~~~~~~~~~~~
 (since the outputs copy only what they read from the GPU)
