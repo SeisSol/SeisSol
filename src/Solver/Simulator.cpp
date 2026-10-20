@@ -9,13 +9,18 @@
 
 #include "Simulator.h"
 
+#include "Kernels/Common.h"
 #include "Memory/Tree/Layer.h"
 #include "Modules/Modules.h"
+#include "Modules/OutputWorker.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
+#include "Parallel/OpenMP.h"
+#include "Parallel/Pin.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
@@ -45,7 +50,36 @@ void Simulator::setCurrentTime(double currentTime) {
   checkpoint_ = true;
 }
 
-void Simulator::abort() { aborted_ = true; }
+void Simulator::abort() { abortRequested_ = true; }
+
+namespace {
+/**
+ * Lets the outputs process their synchronization points on a thread of their own, if asked for
+ * and possible: the host has to keep copies of the data (see SEISSOL_USM), which the device does
+ * not touch in the next epoch.
+ */
+void startOutputThread(SeisSol& seissolInstance) {
+  if (!useOutputThread(seissolInstance.env())) {
+    return;
+  }
+  if (!isDeviceOn() || useUSM() || !seissolInstance.timeManager().clustersOnDevice()) {
+    logWarning() << "SEISSOL_OUTPUT_THREAD needs a device, all clusters on it, and separate buffers"
+                 << "for the host (SEISSOL_USM=0); the outputs are processed on the main thread.";
+    return;
+  }
+  // the CPUs the OpenMP threads of the main thread do not use, or else theirs, which are idle while
+  // the device computes
+  auto cpus = seissolInstance.pinning().getFreeCPUsMask();
+  if (parallel::Pinning::freeCPUsMaskEmpty(cpus)) {
+    cpus = parallel::Pinning::getWorkerUnionMask();
+  }
+  const auto threads =
+      std::min(OutputWorker::cpuCount(cpus), static_cast<int>(OpenMP::threadCount()));
+  Modules::startOutputWorker(cpus, threads);
+  logInfo() << "The outputs are processed on a thread of their own, with" << threads
+            << "OpenMP threads, on the CPUs" << parallel::Pinning::maskToString(cpus).c_str();
+}
+} // namespace
 
 void Simulator::simulate(SeisSol& seissolInstance) {
   SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
@@ -75,6 +109,8 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   seissolInstance.timeManager().setInitialTimes(currentTime_);
 
   const double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
+
+  startOutputThread(seissolInstance);
 
   // Write initial wave field snapshot
   if (checkpoint_) {
@@ -133,12 +169,20 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     // update current time
     currentTime_ = upcomingTime;
 
+    // the outputs of the last synchronization point may still read the host copies of the data;
+    // once they are done, what they decided (see abort()) is the same on all ranks
+    Modules::waitForOutputs();
+    aborted_ = aborted_ || abortRequested_;
+
     // the data the modules due now read on the host
     seissolInstance.timeManager().synchronizeToHost(
         Modules::hostDataAt(currentTime_, timeTolerance));
 
     // Check all synchronization point hooks and set the new upcoming time
     upcomingTime = std::min(finalTime_, Modules::callSyncHook(currentTime_, timeTolerance));
+    if (!Modules::outputWorkerRunning()) {
+      aborted_ = aborted_ || abortRequested_;
+    }
 
     const double io = ioStopwatch.pause();
 
@@ -171,9 +215,12 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   ioStopwatch.start();
 
   // all data, for the outputs at the end and the analysis
+  Modules::waitForOutputs();
   seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
   Modules::callSyncHook(currentTime_, timeTolerance, true);
+  // the outputs end on the main thread
+  Modules::stopOutputWorker();
 
   // and the writes still under way finish
   Modules::callHook<ModuleHook::SimulationEnd>();

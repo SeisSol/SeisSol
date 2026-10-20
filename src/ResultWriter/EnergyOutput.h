@@ -80,9 +80,13 @@ class EnergyOutput : public Module {
             const std::string& outputFileNamePrefix,
             const seissol::initializer::parameters::EnergyOutputParameters& parameters);
 
-  void syncPoint(double time) override;
+  void processSyncPoint(double time) override;
 
   [[nodiscard]] initializer::HostData hostData() const override { return hostData_; }
+
+  /// The energies come from the host copies of the data; an abort they ask for takes effect once
+  /// all ranks have processed the same synchronization points (see Simulator::abort()).
+  [[nodiscard]] bool processesAsynchronously() const override { return true; }
 
   void simulationStart(std::optional<double> checkpointTime) override;
 

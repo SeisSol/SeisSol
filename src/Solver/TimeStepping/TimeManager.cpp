@@ -10,6 +10,7 @@
 #include "TimeManager.h"
 
 #include "Common/ConfigDispatch.h"
+#include "Common/Executor.h"
 #include "Common/Iterator.h"
 #include "Common/Json.h"
 #include "DynamicRupture/Output/OutputManager.h"
@@ -943,6 +944,12 @@ void TimeManager::freeDynamicResources() {
   }
   communicationManager_.reset(nullptr);
   haloTransports_.reset(nullptr);
+}
+
+bool TimeManager::clustersOnDevice() const {
+  return std::all_of(clusters_.begin(), clusters_.end(), [](const auto* cluster) {
+    return cluster->getExecutor() == Executor::Device;
+  });
 }
 
 void TimeManager::synchronizeToHost(const initializer::HostData& data) {

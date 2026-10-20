@@ -686,7 +686,7 @@ void EnergyOutput::init(
   }
 }
 
-void EnergyOutput::syncPoint(double time) {
+void EnergyOutput::processSyncPoint(double time) {
   assert(isEnabled_);
   const auto rank = Mpi::mpi.rank();
   logInfo() << "Writing energy output at time" << time;

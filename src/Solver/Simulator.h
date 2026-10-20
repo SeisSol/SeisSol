@@ -10,6 +10,8 @@
 #ifndef SEISSOL_SRC_SOLVER_SIMULATOR_H_
 #define SEISSOL_SRC_SOLVER_SIMULATOR_H_
 
+#include <atomic>
+
 namespace seissol {
 class SeisSol;
 
@@ -29,6 +31,10 @@ class Simulator {
 
   //! If true, the while loop of the simulation will be aborted (see terminator)
   bool aborted_{false};
+
+  //! an abort asked for by abort(), e.g. by an output on its own thread; it takes effect once all
+  //! ranks have processed the same synchronization points
+  std::atomic<bool> abortRequested_{false};
 
   bool checkpoint_{false};
 
@@ -63,7 +69,8 @@ class Simulator {
   void setCurrentTime(double currentTime);
 
   /**
-   * update abort_ to abort the main loop of the simulation (see terminator)
+   * Asks to abort the main loop of the simulation (see terminator); from any thread. It ends after
+   * the current epoch, or, with a thread for the outputs, after the next one.
    */
   void abort();
 

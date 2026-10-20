@@ -32,6 +32,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -329,13 +330,15 @@ void OutputManager::initElementwiseOutput() {
   auto& self = *this;
   writer.addHook([&](std::size_t, double time) {
     self.seissolInstance_.dofSync().syncDofs(time);
-    self.updateElementwiseOutput(time);
+    self.evaluateElementwiseOutput(time);
   });
 
   io::writer::ScheduledWriter schedWriter;
   schedWriter.interval = writeInterval;
   schedWriter.name = "fault";
   schedWriter.planWrite = writer.makeWriter();
+  // the data of the faces comes from the device at the synchronization point itself
+  schedWriter.capture = [&self](double /*time*/) { self.gatherElementwiseOutput(); };
   // the faces gather their data from the device themselves; the halo exchange of the unknowns
   // before (dofSync) reads those of the cells
   schedWriter.hostData = {};
@@ -402,7 +405,8 @@ void OutputManager::initPickpointOutput() {
 
   seissolInstance_.pickpointWriter().enable(
       seissolParameters.output.pickpointParameters.writeInterval);
-  seissolInstance_.pickpointWriter().setupWriter([&]() { flushPickpointDataToFile(); });
+  seissolInstance_.pickpointWriter().setupWriter([&]() { takePickpointText(); },
+                                                 [&]() { writePickpointText(); });
 
   if (seissolParameters.output.pickpointParameters.format ==
       seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
@@ -751,11 +755,10 @@ void OutputManager::initPickpointTable() {
   scheduled.interval = seissolParameters.output.pickpointParameters.writeInterval;
   // the fault receivers take their samples into buffers of their own
   scheduled.hostData = {};
-  scheduled.planWrite = [this, plan = ppTable_->makeWriter()](
-                            const std::string& prefix, std::size_t counter, double time) {
-    collectPickpointSamples();
-    return plan(prefix, counter, time);
-  };
+  // the samples get taken into the table at the synchronization point, before the next epoch
+  // adds to the cache
+  scheduled.capture = [this](double /*time*/) { collectPickpointSamples(); };
+  scheduled.planWrite = ppTable_->makeWriter();
   seissolInstance_.outputManager().addOutput(scheduled);
 }
 
@@ -822,7 +825,7 @@ void OutputManager::collectPickpointSamples() {
   }
 }
 
-void OutputManager::flushPickpointDataToFile() {
+void OutputManager::takePickpointText() {
   if (ppTable_ != nullptr) {
     // the tables are filled and handed over by the writer they are registered with
     return;
@@ -854,29 +857,46 @@ void OutputManager::flushPickpointDataToFile() {
         }
       }
 
-      std::ofstream file(ppfile.fileName, std::ios_base::app);
-      if (file.is_open()) {
-        file << data.str();
-      } else {
-        logError() << "cannot open" << ppfile.fileName;
-      }
-      file.close();
+      takenPickpointText_.emplace_back(ppfile.fileName, data.str());
     }
     outputData->currentCacheLevel = 0;
   }
 }
 
-void OutputManager::updateElementwiseOutput(double time) {
+void OutputManager::writePickpointText() {
+  for (const auto& [fileName, data] : takenPickpointText_) {
+    std::ofstream file(fileName, std::ios_base::app);
+    if (file.is_open()) {
+      file << data;
+    } else {
+      logError() << "cannot open" << fileName;
+    }
+    file.close();
+  }
+  takenPickpointText_.clear();
+}
+
+void OutputManager::gatherElementwiseOutput() {
+  if constexpr (isDeviceOn()) {
+    if (this->ewOutputBuilder_) {
+      ReceiverOutput::gatherFaultOutput(ewOutputData_, runtime_);
+      runtime_.wait();
+    }
+  }
+}
+
+void OutputManager::evaluateElementwiseOutput(double time) {
   if (this->ewOutputBuilder_) {
     const auto& seissolParameters = seissolInstance_.parameters();
     // at a synchronization point every cluster has just completed a time step ending here, so this
     // is also the time the stored friction state belongs to
-    impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
-                           seissolParameters.drParameters.slipRateOutputType,
-                           ewOutputData_,
-                           runtime_,
-                           time);
-    runtime_.wait();
+    impl_->evaluateFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
+                               seissolParameters.drParameters.slipRateOutputType,
+                               ewOutputData_,
+                               time,
+                               0.0,
+                               1.0,
+                               0.0);
   }
 }
 } // namespace seissol::dr::output

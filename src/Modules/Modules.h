@@ -13,12 +13,16 @@
 #include "Module.h"
 
 #include <array>
+#include <async/as/Pin.h>
 #include <limits>
 #include <map>
+#include <memory>
 #include <optional>
 #include <utils/logger.h>
 
 namespace seissol {
+
+class OutputWorker;
 
 enum class ModulePriority : int {
   Max = std::numeric_limits<int>::min(),
@@ -81,7 +85,11 @@ class Modules {
   /** The hook that should be called next */
   ModuleHook nextHook_{ModuleHook::FirstHook};
 
+  /** The thread the outputs may process their synchronization points on */
+  std::unique_ptr<OutputWorker> worker_;
+
   Modules();
+  ~Modules();
 
   /**
    * Do the real work for registering for a hook
@@ -151,6 +159,22 @@ class Modules {
    */
   [[nodiscard]] static initializer::HostData
       hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint = false);
+
+  /**
+   * Starts a thread on `cpus`, on which the modules due at a synchronization point process it
+   * (see Module::processSyncPoint()) while the time stepping goes on, if all of them can; with up
+   * to `ompThreads` threads in its OpenMP regions.
+   */
+  static void startOutputWorker(const async::as::CpuMask& cpus, int ompThreads);
+
+  /** Waits until the synchronization points so far are processed. */
+  static void waitForOutputs();
+
+  /** Whether the outputs have a thread of their own. */
+  [[nodiscard]] static bool outputWorkerRunning();
+
+  /** Waits for the outputs, and ends the thread they are processed on. */
+  static void stopOutputWorker();
 
   /**
    * Set the simulation start time

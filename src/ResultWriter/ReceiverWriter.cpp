@@ -294,14 +294,14 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     scheduled.interval = syncInterval();
     // the receivers take their samples into buffers of their own
     scheduled.hostData = {};
-    scheduled.planWrite = [this, plan = table_->makeWriter()](
-                              const std::string& prefix, std::size_t counter, double time) {
+    // the samples get taken into the table at the synchronization point, before the next epoch
+    // adds to them
+    scheduled.capture = [this](double /*time*/) {
       stopwatch_.start();
       collectSamples();
-      auto writer = plan(prefix, counter, time);
       logInfo() << "Collected receivers in" << stopwatch_.stop() << "seconds.";
-      return writer;
     };
+    scheduled.planWrite = table_->makeWriter();
     seissolInstance_.outputManager().addOutput(scheduled);
   }
 }
@@ -392,46 +392,63 @@ void ReceiverWriter::collectSamples() {
 }
 
 // --------------------------------------------------------------------------
-void ReceiverWriter::syncPoint(double /*currentTime*/) {
+void ReceiverWriter::captureSyncPoint(double /*currentTime*/) {
   // the HDF5 table is filled by the scheduled writer registered in addPoints
   if (format_ != seissol::initializer::parameters::ReceiverOutputFormat::Csv ||
       receiverClusters_.empty()) {
     return;
   }
 
-  stopwatch_.start();
-
+  // the samples move out of the receivers, which collect the next ones while the files get
+  // written
+  taken_.clear();
   for (auto& cluster : receiverClusters_) {
     cluster->waitForSamples();
-    const auto ncols = cluster->ncols();
-    const auto simulations = cluster->simulationCount();
-    // a sample holds the time, then the quantities of one simulation after the other
-    const auto quantities = (ncols - 1) / simulations;
     for (auto& receiver : *cluster) {
-      assert(receiver.output.size() % ncols == 0);
-      const std::size_t nSamples = receiver.output.size() / ncols;
-
-      std::ofstream file;
-      file.open(fileName(receiver.pointId), std::ios::app);
-      file << std::scientific << std::setprecision(15);
-      for (std::size_t i = 0; i < nSamples; ++i) {
-        const auto* sample = receiver.output.data() + i * ncols;
-        // with fused simulations, a row per simulation, which the second column names
-        for (std::size_t simulation = 0; simulation < simulations; ++simulation) {
-          file << "  " << sample[0];
-          if (simulations > 1) {
-            file << "  " << simulation;
-          }
-          for (std::size_t q = 0; q < quantities; ++q) {
-            file << "  " << sample[1 + simulation * quantities + q];
-          }
-          file << '\n';
-        }
-      }
-      file.close();
-      receiver.output.clear();
+      assert(receiver.output.size() % cluster->ncols() == 0);
+      auto& taken = taken_.emplace_back();
+      taken.pointId = receiver.pointId;
+      taken.columns = cluster->ncols();
+      taken.simulations = cluster->simulationCount();
+      taken.samples.swap(receiver.output);
     }
   }
+}
+
+void ReceiverWriter::processSyncPoint(double /*currentTime*/) {
+  if (taken_.empty()) {
+    return;
+  }
+
+  stopwatch_.start();
+
+  for (const auto& taken : taken_) {
+    const auto ncols = taken.columns;
+    const auto simulations = taken.simulations;
+    // a sample holds the time, then the quantities of one simulation after the other
+    const auto quantities = (ncols - 1) / simulations;
+    const std::size_t nSamples = taken.samples.size() / ncols;
+
+    std::ofstream file;
+    file.open(fileName(taken.pointId), std::ios::app);
+    file << std::scientific << std::setprecision(15);
+    for (std::size_t i = 0; i < nSamples; ++i) {
+      const auto* sample = taken.samples.data() + i * ncols;
+      // with fused simulations, a row per simulation, which the second column names
+      for (std::size_t simulation = 0; simulation < simulations; ++simulation) {
+        file << "  " << sample[0];
+        if (simulations > 1) {
+          file << "  " << simulation;
+        }
+        for (std::size_t q = 0; q < quantities; ++q) {
+          file << "  " << sample[1 + simulation * quantities + q];
+        }
+        file << '\n';
+      }
+    }
+    file.close();
+  }
+  taken_.clear();
 
   const auto time = stopwatch_.stop();
   logInfo() << "Wrote receivers in" << time << "seconds.";

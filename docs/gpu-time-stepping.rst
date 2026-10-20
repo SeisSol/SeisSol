@@ -60,6 +60,9 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
    * - ``SEISSOL_SUPERSTEP_GRAPHS=1``
      - Record the GPU work of a super-timestep into a graph, and replay it for all further super-timesteps of the same kind
        (see below). Needs ``SEISSOL_TIMESTEPPING_PLAN=1`` and ``SEISSOL_CONCURRENT_CLUSTERS=1``.
+   * - ``SEISSOL_OUTPUT_THREAD=1``
+     - Experimental. Process the outputs of a synchronization point on a thread of their own, while the GPU
+       goes on with the next epoch (see below).
    * - ``SEISSOL_SUPERSTEP_GRAPH_MODE``
      - Experimental, with ``SEISSOL_SUPERSTEP_GRAPHS=1``. ``replay`` (default): as described below.
        ``always``: besides, record each other super-timestep and launch it once.
@@ -163,6 +166,28 @@ on average, enqueuing its work directly 1 to 2 ms, and a graph that runs once do
 With an epoch every 0.05 s, TPV5 and TTPV1 (order 6, single precision) took 0.4 % longer and 0.6 % less time with ``always``
 than without recording, and 0.4 % less and 1.0 % more than with the default ``replay``.
 Recording every super-timestep anew (``rebuild``) took 20 to 40 % longer.
+
+Outputs while the GPU computes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+At a synchronization point, the data that the outputs due there read gets copied to the host,
+and only that (e.g. the unknowns for the wave field and the energies; the receivers, the fault
+receivers and the ends of epochs without output need none).
+With ``SEISSOL_OUTPUT_THREAD=1``, the outputs then take what changes in the next epoch
+(e.g. the samples of the receivers, and the data of the elementwise fault output on the GPU), and
+process the rest on a thread of their own, while the GPU goes on: the projections, the energies
+with their halo exchange and reductions, and the handover to ASYNC.
+The thread runs on the CPUs that the OpenMP threads leave free, or else on theirs, which are idle while
+the GPU computes, with OpenMP teams of its own, and communicates over a duplicate of the communicator of the run.
+The next synchronization point waits for it before it copies to the host again.
+An abort the energy output asks for (see the terminator) takes effect once all ranks have processed the same
+synchronization points, i.e. an epoch later.
+The thread needs separate buffers on the host (``SEISSOL_USM=0``, the default) and all clusters on the GPU;
+otherwise, the outputs get processed on the main thread, as without the switch.
+A synchronization point where an output cannot be processed on the thread (e.g. of the instantaneous time mirror) gets
+processed on the main thread as a whole.
+On a workstation (RTX 5070, October 2026), TPV5 with an energy output every 0.05 s took 12 % less time with it
+(one process), and 5 % less with two processes; the outputs came out bitwise the same.
 
 Diagnostics
 ~~~~~~~~~~~

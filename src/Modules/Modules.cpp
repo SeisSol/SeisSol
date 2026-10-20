@@ -10,14 +10,18 @@
 
 #include "Memory/HostData.h"
 #include "Modules/Module.h"
+#include "Modules/OutputWorker.h"
 
 #include <algorithm>
+#include <async/as/Pin.h>
 #include <cassert>
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol {
 
@@ -69,12 +73,47 @@ const char* Modules::strHook(ModuleHook hook) {
 
 Modules::Modules() = default;
 
-double Modules::_callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
-  double nextSyncTime = std::numeric_limits<double>::max();
+Modules::~Modules() = default;
 
-  for (auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
-    nextSyncTime = std::min(nextSyncTime,
-                            module->potentialSyncPoint(currentTime, timeTolerance, forceSyncPoint));
+double Modules::_callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
+  auto& modules = hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)];
+
+  // With a thread for the outputs, the modules due here process the synchronization point there,
+  // if all of them can, one after the other, as they would on the main thread; so they keep their
+  // order (e.g. of their collectives) on all ranks.
+  std::vector<Module*> due;
+  for (auto& [_, module] : modules) {
+    if (module->dueAt(currentTime, timeTolerance, forceSyncPoint)) {
+      due.push_back(module);
+    }
+  }
+  const bool asynchronous = worker_ != nullptr && !due.empty() &&
+                            std::all_of(due.begin(), due.end(), [](const Module* module) {
+                              return module->processesAsynchronously();
+                            });
+
+  double nextSyncTime = std::numeric_limits<double>::max();
+  if (asynchronous) {
+    for (auto* module : due) {
+      module->captureSyncPoint(currentTime);
+      module->markSyncPoint(currentTime);
+    }
+    worker_->enqueue([due, currentTime] {
+      for (auto* module : due) {
+        module->processSyncPoint(currentTime);
+      }
+    });
+    for (auto& [_, module] : modules) {
+      nextSyncTime = std::min(nextSyncTime, module->nextSyncPoint());
+    }
+  } else {
+    if (worker_ != nullptr) {
+      worker_->wait();
+    }
+    for (auto& [_, module] : modules) {
+      nextSyncTime = std::min(
+          nextSyncTime, module->potentialSyncPoint(currentTime, timeTolerance, forceSyncPoint));
+    }
   }
 
   return nextSyncTime;
@@ -123,6 +162,24 @@ double Modules::callSyncHook(double currentTime, double timeTolerance, bool forc
 initializer::HostData
     Modules::hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint) {
   return instance()._hostDataAt(currentTime, timeTolerance, forceSyncPoint);
+}
+
+void Modules::startOutputWorker(const async::as::CpuMask& cpus, int ompThreads) {
+  assert(instance().worker_ == nullptr);
+  instance().worker_ = std::make_unique<OutputWorker>(cpus, ompThreads);
+}
+
+void Modules::waitForOutputs() {
+  if (instance().worker_ != nullptr) {
+    instance().worker_->wait();
+  }
+}
+
+bool Modules::outputWorkerRunning() { return instance().worker_ != nullptr; }
+
+void Modules::stopOutputWorker() {
+  // the thread processes what is left before it ends
+  instance().worker_.reset();
 }
 
 void Modules::callSimulationStartHook(std::optional<double> checkpointTime) {

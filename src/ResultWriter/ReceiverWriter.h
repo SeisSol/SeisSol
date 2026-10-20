@@ -75,10 +75,14 @@ class ReceiverWriter : public seissol::Module {
   //
   // Hooks
   //
-  /// Called at each synchronization point to flush data.
-  void syncPoint(double currentTime) override;
+  /// Takes the samples collected since the last synchronization point (text output).
+  void captureSyncPoint(double currentTime) override;
+  /// Writes the samples taken (text output).
+  void processSyncPoint(double currentTime) override;
   /// The receivers take their samples into buffers of their own.
   [[nodiscard]] initializer::HostData hostData() const override { return {}; }
+  /// The text files get written from the samples taken.
+  [[nodiscard]] bool processesAsynchronously() const override { return true; }
   /// Called at simulation start.
   void simulationStart(std::optional<double> checkpointTime) override;
 
@@ -127,6 +131,17 @@ class ReceiverWriter : public seissol::Module {
 
   /// Stopwatch for timing receiver I/O only
   Stopwatch stopwatch_;
+
+  //! @brief The samples of a receiver taken at a synchronization point, for its text file.
+  struct TakenSamples {
+    std::size_t pointId{0};
+    std::size_t columns{0};
+    std::size_t simulations{1};
+    std::vector<double> samples;
+  };
+
+  /// The samples taken at the last synchronization point (text output)
+  std::vector<TakenSamples> taken_;
 };
 
 } // namespace seissol::writer

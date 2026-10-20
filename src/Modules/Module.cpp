@@ -23,11 +23,15 @@ double Module::potentialSyncPoint(double currentTime, double timeTolerance, bool
                << "; the last sync point was at " << lastSyncPoint_;
   } else if (dueAt(currentTime, timeTolerance, forceSyncPoint)) {
     syncPoint(currentTime);
-    lastSyncPoint_ = currentTime;
-    nextSyncPoint_ += isyncInterval_;
+    markSyncPoint(currentTime);
   }
 
   return nextSyncPoint_;
+}
+
+void Module::markSyncPoint(double currentTime) {
+  lastSyncPoint_ = currentTime;
+  nextSyncPoint_ += isyncInterval_;
 }
 
 bool Module::dueAt(double currentTime, double timeTolerance, bool forceSyncPoint) const {

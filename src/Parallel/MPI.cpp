@@ -51,6 +51,10 @@ void seissol::Mpi::init(int& argc, char**& argv) {
 
 void seissol::Mpi::setComm(MPI_Comm comm) {
   comm_ = comm;
+  if (outputComm_ != MPI_COMM_NULL) {
+    MPI_Comm_free(&outputComm_);
+  }
+  MPI_Comm_dup(comm, &outputComm_);
 
   MPI_Comm_rank(comm, &rank_);
   MPI_Comm_size(comm, &size_);

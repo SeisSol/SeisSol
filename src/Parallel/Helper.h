@@ -90,6 +90,12 @@ inline SuperStepGraphMode superStepGraphMode(utils::Env& env) {
 }
 
 /**
+ * Whether the outputs process their synchronization points on a thread of their own, while the
+ * device goes on with the next epoch (experimental).
+ */
+inline bool useOutputThread(utils::Env& env) { return env.get<bool>("OUTPUT_THREAD", false); }
+
+/**
  * Whether the clusters take their steps strictly along the time stepping plan, instead of whenever
  * they are ready.
  */

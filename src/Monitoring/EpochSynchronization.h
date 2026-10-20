@@ -31,6 +31,8 @@ class EpochSynchronization : public Module {
   void init(double interval);
 
   [[nodiscard]] initializer::HostData hostData() const override { return {}; }
+
+  [[nodiscard]] bool processesAsynchronously() const override { return true; }
 };
 
 } // namespace seissol::monitoring

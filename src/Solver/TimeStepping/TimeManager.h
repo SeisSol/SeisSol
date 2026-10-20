@@ -243,6 +243,9 @@ class TimeManager {
    */
   void synchronizeToHost(const initializer::HostData& data);
 
+  /// Whether all clusters compute on the device (see SEISSOL_DEVICE_HOST_SWITCH).
+  [[nodiscard]] bool clustersOnDevice() const;
+
   const initializer::ClusterLayout& getClusterLayout() { return clusterLayout_.value(); }
 };
 

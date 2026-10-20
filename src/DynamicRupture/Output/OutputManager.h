@@ -112,8 +112,17 @@ class OutputManager {
                              double meshDt,
                              double meshInDt,
                              parallel::runtime::StreamRuntime& runtime);
-  void flushPickpointDataToFile();
-  void updateElementwiseOutput(double time);
+  /**
+   * Formats the samples the fault receivers cached since the last write (text output), which frees
+   * their cache for the next ones.
+   */
+  void takePickpointText();
+  /** Appends what takePickpointText() formatted to the files. */
+  void writePickpointText();
+  /** Copies the data of the elementwise output from the device to the host, and waits for it. */
+  void gatherElementwiseOutput();
+  /** Evaluates the elementwise output from the data gathered, on the host. */
+  void evaluateElementwiseOutput(double time);
 
   private:
   seissol::SeisSol& seissolInstance_;
@@ -156,6 +165,8 @@ class OutputManager {
 
   //! One table per quantity set, holding the on-fault receivers this rank samples.
   std::unique_ptr<io::instance::point::Hdf5Table> ppTable_;
+  //! what takePickpointText() formatted, by file
+  std::vector<std::pair<std::string, std::string>> takenPickpointText_;
   //! The layer and the receiver a row of the tables belongs to, in the order of the rows.
   std::vector<std::pair<std::size_t, std::size_t>> ppTableRows_;
 
