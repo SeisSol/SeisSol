@@ -10,7 +10,12 @@
 #define SEISSOL_SRC_RESULTWRITER_ASYNCIO_H_
 
 #include <async/Dispatcher.h>
+#include <string>
 #include <utils/env.h>
+
+namespace seissol::parallel {
+class Pinning;
+} // namespace seissol::parallel
 
 namespace seissol::io {
 
@@ -28,8 +33,12 @@ class AsyncIO : public async::Dispatcher {
    * @return False if this rank is an MPI executor that does not contribute to the
    *  computation.
    */
-  bool initDispatcher();
+  bool initDispatcher(const parallel::Pinning& pinning);
   void finalizeDispatcher();
+
+  private:
+  //! The prefix of the settings, for the messages
+  std::string prefix_;
 };
 
 } // namespace seissol::io

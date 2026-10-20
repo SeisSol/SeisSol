@@ -113,7 +113,7 @@ bool SeisSol::init() {
   seissol::Modules::callHook<ModuleHook::PostMPIInit>();
 
   // Initialize the ASYNC I/O library
-  if (!asyncIO_.initDispatcher()) {
+  if (!asyncIO_.initDispatcher(pinning_)) {
     return false;
   }
 
