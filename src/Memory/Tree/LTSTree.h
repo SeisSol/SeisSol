@@ -518,9 +518,12 @@ class Storage {
         }
       }
     }
+    // nothing to write (and no device to ask for the zeros) without device memory
     std::size_t largest = 0;
     for (const auto* container : containers) {
-      largest = std::max(largest, container->allocationSize);
+      if (container->ownDevicePart()) {
+        largest = std::max(largest, container->allocationSize);
+      }
     }
     if (largest == 0) {
       return;

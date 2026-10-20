@@ -165,6 +165,17 @@ struct DualMemoryContainer {
 #endif
   }
 
+  /// Whether the device part is device memory of its own, which touchDevice() writes.
+  [[nodiscard]] bool ownDevicePart() const {
+    const bool deviceMemory = allocationMode == AllocationMode::HostDeviceSplit ||
+                              allocationMode == AllocationMode::HostDeviceSplitPinned ||
+                              allocationMode == AllocationMode::HostDeviceCompress ||
+                              allocationMode == AllocationMode::HostDeviceCompressPinned ||
+                              allocationMode == AllocationMode::DeviceOnly ||
+                              allocationMode == AllocationMode::DeviceOnlyCompress;
+    return deviceMemory && device != nullptr;
+  }
+
   /**
    * Writes zeros into the device part by copies, as touchVariables() writes the host part, so that
    * the copy engines write it first (as compressible memory needs it on some devices, e.g. sm_80
@@ -172,13 +183,7 @@ struct DualMemoryContainer {
    */
   void touchDevice(const void* zeros, std::size_t zerosSize, void* stream) const {
 #ifdef ACL_DEVICE
-    const bool ownDevicePart = allocationMode == AllocationMode::HostDeviceSplit ||
-                               allocationMode == AllocationMode::HostDeviceSplitPinned ||
-                               allocationMode == AllocationMode::HostDeviceCompress ||
-                               allocationMode == AllocationMode::HostDeviceCompressPinned ||
-                               allocationMode == AllocationMode::DeviceOnly ||
-                               allocationMode == AllocationMode::DeviceOnlyCompress;
-    if (!ownDevicePart || device == nullptr) {
+    if (!ownDevicePart()) {
       return;
     }
     for (std::size_t offset = 0; offset < allocationSize; offset += zerosSize) {
