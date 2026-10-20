@@ -175,6 +175,12 @@ class ExchangeScheduler {
   };
   [[nodiscard]] virtual EventUsage eventUsage() const { return {}; }
 
+  /**
+   * Aborts with a message if the library behind the exchange reports an error that happened while
+   * operations ran asynchronously (e.g. of the network); from any thread.
+   */
+  virtual void checkAsyncErrors() const {}
+
   [[nodiscard]] bool sendCompleted(const ScheduledTransport& transport, std::size_t exchange);
   [[nodiscard]] bool receiveCompleted(const ScheduledTransport& transport, std::size_t exchange);
 

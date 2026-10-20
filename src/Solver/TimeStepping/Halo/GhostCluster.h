@@ -59,6 +59,8 @@ class GhostCluster : public AbstractTimeCluster {
   /// The progress the latest send completes; in steps of the smallest cluster.
   [[nodiscard]] long sendTarget() const { return sendTarget_; }
 
+  void reportState() override;
+
   protected:
   void start() override;
   void predict() override {}
@@ -67,7 +69,6 @@ class GhostCluster : public AbstractTimeCluster {
   void handleNeighborCorrection(const NeighborCluster& neighbor) override;
 
   [[nodiscard]] bool timeoutFail() const override;
-  void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) override;
 
   private:
   void sendCopyLayer(long target, const ActorEvent& after = {});

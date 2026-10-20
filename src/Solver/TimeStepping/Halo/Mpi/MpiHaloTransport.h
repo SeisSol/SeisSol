@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <list>
 #include <mpi.h>
+#include <string>
 #include <vector>
 
 namespace seissol::solver {
@@ -23,6 +24,13 @@ namespace seissol::solver {
  * true once the list is empty.
  */
 bool testRequests(MPI_Request* requests, std::list<std::size_t>& regions);
+
+/**
+ * The messages of the regions in flight, with the rank, the tag and the size of each.
+ */
+std::string describePending(const RemoteClusterPair& regions,
+                            const std::list<std::size_t>& sends,
+                            const std::list<std::size_t>& receives);
 
 /**
  * Sends and receives the halo regions directly with MPI, from and into the memory they reside in.
@@ -42,6 +50,7 @@ class MpiHaloTransport : public HaloTransport {
   void startReceive() override;
   bool testReceive() override;
   void finalize() override;
+  [[nodiscard]] std::string describe() const override;
 
   private:
   RemoteClusterPair regions_;

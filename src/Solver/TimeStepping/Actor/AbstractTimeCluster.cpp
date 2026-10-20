@@ -135,6 +135,9 @@ ActResult AbstractTimeCluster::act() {
 }
 
 void AbstractTimeCluster::trackProgress(bool progressed) {
+  if (reportWanted_.exchange(false)) {
+    reportState();
+  }
   const auto currentTime = std::chrono::steady_clock::now();
   if (!progressed) {
     const auto timeSinceLastUpdate = currentTime - timeOfLastStageChange_;
@@ -331,7 +334,15 @@ void AbstractTimeCluster::finishPhase() {}
 
 void AbstractTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
   logWarning(true) << "No update since " << timeSinceLastUpdate.count() << "[s] for cluster "
-                   << description() << " at state " << actorStateToString(state_)
+                   << description() << ".";
+  reportState();
+  if (timeoutFail()) {
+    logError() << "Cluster" << description() << "timed out. Aborting simulation.";
+  }
+}
+
+void AbstractTimeCluster::reportState() {
+  logWarning(true) << "Cluster " << description() << " at state " << actorStateToString(state_)
                    << " mayPredict = " << mayPredict()
                    << " mayPredict (steps) = " << AbstractTimeCluster::mayPredict()
                    << " mayCorrect = " << mayCorrect()
@@ -347,9 +358,6 @@ void AbstractTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLast
                      << "predictionsSinceSync = " << neighbor.ct.predictionsSinceLastSync
                      << "correctionsSinceSync = " << neighbor.ct.stepsSinceLastSync
                      << "stepsUntilSync = " << neighbor.ct.stepsUntilSync;
-  }
-  if (timeoutFail()) {
-    logError() << "Cluster" << description() << "timed out. Aborting simulation.";
   }
 }
 

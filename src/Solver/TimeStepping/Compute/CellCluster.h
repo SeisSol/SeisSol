@@ -288,6 +288,11 @@ class CellCluster : public CellClusterInterface {
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
+  /// the copy of the clock the device writes back after each correction (see ClusterClock)
+  [[nodiscard]] const double* deviceTime() const override {
+    return isDeviceOn() ? clock_.host() : nullptr;
+  }
+
   void finishPhase() override;
 
   [[nodiscard]] std::string description() const override;

@@ -37,6 +37,21 @@ For that, it is required to leave at least one thread vacant in your OpenMP thre
 
 If you do not want to use a communication thread, you may set ``SEISSOL_COMMTHREAD=0`` to make SeisSol poll the progress from time to time.
 
+Watchdog
+--------
+
+A thread of its own watches the progress of a run, also where the main thread cannot report any
+more, e.g. when it waits for the GPU while the halo exchange on the GPU (``ccl``, ``shmem``)
+waits for a process that has stopped. If none of the clusters makes progress for
+``SEISSOL_WATCHDOG_TIMEOUT`` seconds while the run takes its steps (900 by default), or if anything
+else, e.g. the outputs at a synchronization point, takes that long, it reports the phase of the
+run, the times of the clusters (also those the GPU has reached), and the clusters report their
+state from the threads they act on, the halo clusters with the messages in flight (with MPI, the
+rank, the tag and the size of each). Then the run aborts, unless ``SEISSOL_WATCHDOG_ABORT=0``. The
+clusters themselves report after the same time without progress. With NCCL and RCCL, the watchdog
+also checks for the errors that the library reports asynchronously, e.g. of the network.
+``SEISSOL_WATCHDOG=0`` turns it off.
+
 Load balancing
 --------------
 

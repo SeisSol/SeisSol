@@ -74,6 +74,11 @@ class HaloTransport {
   [[nodiscard]] virtual bool streamOrdered() const { return false; }
 
   /**
+   * What is in flight, e.g. for a stall report; empty if there is nothing to tell.
+   */
+  [[nodiscard]] virtual std::string describe() const { return {}; }
+
+  /**
    * For stream-ordered transports: an event that completes with all operations launched so far;
    * empty if there is none. It stays reserved while the copy is held.
    */

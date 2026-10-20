@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <list>
 #include <mpi.h>
+#include <string>
 
 namespace seissol::solver {
 
@@ -157,6 +158,10 @@ bool StagedMpiHaloTransport::testReceive() {
     }
   }
   return receiveQueue_.empty();
+}
+
+std::string StagedMpiHaloTransport::describe() const {
+  return describePending(regions_, sendQueue_, receiveQueue_);
 }
 
 void StagedMpiHaloTransport::finalize() {

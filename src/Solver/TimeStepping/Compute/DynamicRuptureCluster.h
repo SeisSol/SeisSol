@@ -80,6 +80,11 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
+  /// the copy of the clock the device writes back after each correction (see ClusterClock)
+  [[nodiscard]] const double* deviceTime() const override {
+    return isDeviceOn() ? clock_.host() : nullptr;
+  }
+
   void setFaultOutputManager(dr::output::OutputManager* outputManager) override {
     faultOutputManager_ = outputManager;
   }

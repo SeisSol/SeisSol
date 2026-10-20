@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <list>
 #include <mpi.h>
+#include <string>
 #include <vector>
 
 namespace seissol::solver {
@@ -39,6 +40,7 @@ class StagedMpiHaloTransport : public HaloTransport {
   void startReceive() override;
   bool testReceive() override;
   void finalize() override;
+  [[nodiscard]] std::string describe() const override;
 
   private:
   enum class ReceiveState { RequiresMpiTesting, RequiresCopyTesting, Ready };

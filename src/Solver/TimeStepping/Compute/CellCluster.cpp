@@ -13,6 +13,7 @@
 
 #include "Alignment.h"
 #include "Common/ConfigDispatch.h"
+#include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
 #include "Common/Marker.h"
@@ -50,6 +51,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <string>
 #include <utility>
 #include <utils/logger.h>
 
@@ -904,7 +906,9 @@ template <typename Cfg>
 std::string CellCluster<Cfg>::description() const {
   const auto identifier = clusterData_->getIdentifier();
   const std::string haloStr = identifier.halo == HaloType::Interior ? "interior" : "copy";
-  return "compute-" + haloStr;
+  // the time cluster, and the configuration where there can be several
+  return "compute-" + haloStr + "-" + std::to_string(identifier.lts) +
+         (builtConfigCount() > 1 ? "-config" + std::to_string(identifier.config) : std::string());
 }
 
 #define SEISSOL_INSTANTIATE(Cfg) template class CellCluster<Cfg>;

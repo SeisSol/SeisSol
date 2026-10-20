@@ -16,6 +16,7 @@
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/HostData.h"
 #include "Monitoring/Stopwatch.h"
+#include "Monitoring/Watchdog.h"
 #include "Parallel/Helper.h"
 #include "ResultWriter/ClusteringWriter.h"
 #include "ResultWriter/ReceiverWriter.h"
@@ -124,6 +125,11 @@ class TimeManager {
 
   //! the clusters only enqueue their device work
   bool concurrent_{false};
+
+  //! looks at the progress from a thread of its own (see SEISSOL_WATCHDOG)
+  std::unique_ptr<monitoring::Watchdog> watchdog_;
+
+  void setUpWatchdog(const std::vector<AbstractTimeCluster*>& clusters);
 
   //! the passes through the loops that wait for the clusters, for watchProgress()
   std::size_t waitingPasses_{0};
@@ -242,6 +248,9 @@ class TimeManager {
    * the device (see SEISSOL_DEVICE_HOST_SWITCH).
    */
   void synchronizeToHost(const initializer::HostData& data);
+
+  /// What the simulation does now, for the watchdog (see monitoring::Watchdog::setPhase()).
+  void setWatchdogPhase(monitoring::Watchdog::Phase phase, const char* label);
 
   /// Whether all clusters compute on the device (see SEISSOL_DEVICE_HOST_SWITCH).
   [[nodiscard]] bool clustersOnDevice() const;

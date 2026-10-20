@@ -17,6 +17,7 @@
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
+#include "Monitoring/Watchdog.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
@@ -171,8 +172,12 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
     // the outputs of the last synchronization point may still read the host copies of the data;
     // once they are done, what they decided (see abort()) is the same on all ranks
+    seissolInstance.timeManager().setWatchdogPhase(monitoring::Watchdog::Phase::Other,
+                                                   "the outputs of the last epoch");
     Modules::waitForOutputs();
     aborted_ = aborted_ || abortRequested_;
+    seissolInstance.timeManager().setWatchdogPhase(monitoring::Watchdog::Phase::Other,
+                                                   "a synchronization point");
 
     // the data the modules due now read on the host
     seissolInstance.timeManager().synchronizeToHost(
@@ -215,6 +220,8 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   ioStopwatch.start();
 
   // all data, for the outputs at the end and the analysis
+  seissolInstance.timeManager().setWatchdogPhase(monitoring::Watchdog::Phase::Other,
+                                                 "the outputs at the end");
   Modules::waitForOutputs();
   seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
@@ -224,6 +231,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   // and the writes still under way finish
   Modules::callHook<ModuleHook::SimulationEnd>();
+  seissolInstance.timeManager().setWatchdogPhase(monitoring::Watchdog::Phase::Idle, "the end");
 
   const double ioTime = ioStopwatch.pause();
 

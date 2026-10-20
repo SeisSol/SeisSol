@@ -7,6 +7,7 @@
 
 #include "DynamicRuptureCluster.h"
 
+#include "Common/ConfigRegistry.h"
 #include "Common/Executor.h"
 #include "Common/Marker.h"
 #include "Config.h"
@@ -482,8 +483,11 @@ HaloType DynamicRuptureCluster<Cfg>::getLayerType() const {
 
 template <typename Cfg>
 std::string DynamicRuptureCluster<Cfg>::description() const {
-  const std::string haloStr = getLayerType() == HaloType::Interior ? "interior" : "copy";
-  return "dr-" + haloStr;
+  const auto identifier = layerData_->getIdentifier();
+  const std::string haloStr = identifier.halo == HaloType::Interior ? "interior" : "copy";
+  // the time cluster, and the configuration where there can be several
+  return "dr-" + haloStr + "-" + std::to_string(identifier.lts) +
+         (builtConfigCount() > 1 ? "-config" + std::to_string(identifier.config) : std::string());
 }
 
 #define SEISSOL_INSTANTIATE(Cfg) template class DynamicRuptureCluster<Cfg>;

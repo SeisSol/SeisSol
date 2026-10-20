@@ -23,6 +23,7 @@
 #include "Memory/HostData.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/Watchdog.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/Runtime/Stream.h"
@@ -480,6 +481,45 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   for (auto& timeMirrorManager : seissolInstance_.getTimeMirrorManagers()) {
     timeMirrorManager.setClusterVector(allClusters);
   }
+
+  setUpWatchdog(allClusters);
+}
+
+void TimeManager::setUpWatchdog(const std::vector<AbstractTimeCluster*>& clusters) {
+  const auto settings = monitoring::Watchdog::settingsFromEnv(seissolInstance_.env());
+  // the clusters report and fail after as long without progress as the watchdog
+  for (auto* cluster : clusters) {
+    cluster->setProgressTimeout(settings.timeout, settings.abort);
+  }
+  if (!settings.enabled) {
+    return;
+  }
+
+  watchdog_ = std::make_unique<monitoring::Watchdog>(settings);
+  for (auto* cluster : clusters) {
+    watchdog_->addProbe("the progress of " + cluster->description(),
+                        [cluster] { return cluster->progressValue(); });
+    if (const auto* time = cluster->deviceTime(); time != nullptr) {
+      // written back by the device
+      watchdog_->addProbe("the device time of " + cluster->description(),
+                          [time] { return *static_cast<const volatile double*>(time); });
+    }
+    // each cluster reports on the thread it acts on, if that still runs
+    watchdog_->addReport([cluster] { cluster->requestReport(); });
+  }
+  if (auto* scheduler = haloTransports_->scheduler(); scheduler != nullptr) {
+    watchdog_->addCheck([scheduler] { scheduler->checkAsyncErrors(); });
+  }
+  watchdog_->start();
+  logInfo() << "A watchdog looks at the progress, and reports"
+            << (settings.abort ? "and aborts" : "") << "after" << settings.timeout.count()
+            << "s without any (see SEISSOL_WATCHDOG).";
+}
+
+void TimeManager::setWatchdogPhase(monitoring::Watchdog::Phase phase, const char* label) {
+  if (watchdog_ != nullptr) {
+    watchdog_->setPhase(phase, label);
+  }
 }
 
 void TimeManager::writeClustering() const {
@@ -519,6 +559,8 @@ seissol::dr::output::OutputManager* TimeManager::faultOutputManager() {
 
 void TimeManager::advanceInTime(const double& synchronizationTime) {
   SCOREP_USER_REGION("advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION)
+
+  setWatchdogPhase(monitoring::Watchdog::Phase::Stepping, "the time stepping");
 
   if (runTimeOutputs_ && faultOutputManager_ != nullptr) {
     // the fault receivers of different layers count their output steps on different threads
@@ -616,6 +658,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   for (auto& cluster : clusters_) {
     cluster->finishPhase();
   }
+  setWatchdogPhase(monitoring::Watchdog::Phase::Other, "the end of an epoch");
 }
 
 void TimeManager::watchProgress() {
@@ -855,6 +898,9 @@ void TimeManager::setInitialTimes(double time) {
 }
 
 void TimeManager::freeDynamicResources() {
+  // the watchdog looks at the clusters
+  watchdog_.reset();
+
   // Nothing may refer to an event of a pool that goes away. The halo exchange holds events of the
   // clusters and of the recorder; the ghost clusters hold events of the halo exchange, of the copy
   // layers and of the recorder; all clusters hold events of the recorder. So they let go of them in

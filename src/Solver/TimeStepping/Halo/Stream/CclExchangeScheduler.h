@@ -41,6 +41,8 @@ class CclExchangeScheduler : public StreamExchangeScheduler {
    */
   void prepare() override;
 
+  void checkAsyncErrors() const override;
+
   protected:
   void added(const ScheduledTransport& transport) override;
   void enqueueGroup(std::size_t slot,

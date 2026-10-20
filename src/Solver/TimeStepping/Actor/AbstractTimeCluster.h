@@ -131,8 +131,51 @@ class AbstractTimeCluster {
 
   [[nodiscard]] virtual bool timeoutFail() const;
 
+  //! whether a timeout aborts the simulation, for the clusters that can fail (see timeoutFail())
+  bool abortOnTimeout_{true};
+
+  //! whether someone wants a report (see requestReport())
+  std::atomic<bool> reportWanted_{false};
+
   virtual void printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate);
 
+  public:
+  /**
+   * Reports the state of the cluster and of the neighbors it knows of, e.g. for a stall; on the
+   * thread the cluster acts on.
+   */
+  virtual void reportState();
+
+  /**
+   * Makes the cluster report its state when it next looks at its progress, on the thread it acts
+   * on; from any thread.
+   */
+  void requestReport() { reportWanted_ = true; }
+
+  /**
+   * A value that changes with every action of the cluster (the sum of the times it has published
+   * to its neighbors), for watching it from another thread.
+   */
+  [[nodiscard]] double progressValue() const {
+    return progress_.predictionTime + progress_.correctionTime;
+  }
+
+  /**
+   * The time of the cluster as the device writes it back (see ClusterClock), for watching it from
+   * another thread; null if the cluster has none.
+   */
+  [[nodiscard]] virtual const double* deviceTime() const { return nullptr; }
+
+  /**
+   * How long the cluster may go without changing its state before it reports, and whether a
+   * timeout aborts the clusters that can fail (see the watchdog).
+   */
+  void setProgressTimeout(std::chrono::steady_clock::duration timeout, bool abort) {
+    progressTimeout_ = timeout;
+    abortOnTimeout_ = abort;
+  }
+
+  protected:
   [[nodiscard]] bool hasDifferentExecutorNeighbor() const;
 
   long timeStepRate_;

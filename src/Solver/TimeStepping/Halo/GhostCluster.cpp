@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <atomic>
 #include <cassert>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -244,9 +243,9 @@ std::string GhostCluster::description() const {
   return "comm-" + displayName_ + "-" + otherDisplayName_;
 }
 
-bool GhostCluster::timeoutFail() const { return true; }
+bool GhostCluster::timeoutFail() const { return abortOnTimeout_; }
 
-void GhostCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate) {
+void GhostCluster::reportState() {
   logWarning(true) << "Cluster" << description() << "received up to" << ct_.predictionsSinceLastSync
                    << (receiving_ ? "(receiving up to " + std::to_string(receiveTarget_) + ")"
                                   : std::string("(not receiving)"))
@@ -254,7 +253,11 @@ void GhostCluster::printTimeoutMessage(std::chrono::seconds timeSinceLastUpdate)
                    << (sending_ ? "(sending up to " + std::to_string(sendTarget_) + ")"
                                 : std::string("(not sending)"))
                    << "of" << finalSteps() << "steps.";
-  AbstractTimeCluster::printTimeoutMessage(timeSinceLastUpdate);
+  const auto transport = transport_->describe();
+  if (!transport.empty()) {
+    logWarning(true) << "Cluster" << description() << ":" << transport;
+  }
+  AbstractTimeCluster::reportState();
 }
 
 void GhostCluster::finalize() {

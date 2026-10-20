@@ -13,6 +13,9 @@
 #include <cstddef>
 #include <list>
 #include <mpi.h>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace seissol::solver {
 
@@ -28,6 +31,30 @@ bool testRequests(MPI_Request* requests, std::list<std::size_t>& regions) {
     }
   }
   return regions.empty();
+}
+
+std::string describePending(const RemoteClusterPair& regions,
+                            const std::list<std::size_t>& sends,
+                            const std::list<std::size_t>& receives) {
+  std::ostringstream text;
+  const auto list = [&](const char* what,
+                        const std::vector<RemoteCluster>& clusters,
+                        const std::list<std::size_t>& pending) {
+    text << pending.size() << " " << what << " in flight";
+    for (const auto region : pending) {
+      const auto& cluster = clusters[region];
+      text << " (rank " << cluster.rank << ", tag " << cluster.tag << ", " << cluster.size
+           << " values)";
+    }
+  };
+  list("sends", regions.copy, sends);
+  text << "; ";
+  list("receives", regions.ghost, receives);
+  return text.str();
+}
+
+std::string MpiHaloTransport::describe() const {
+  return describePending(regions_, sendQueue_, receiveQueue_);
 }
 
 MpiHaloTransport::MpiHaloTransport(const RemoteClusterPair& regions, bool persistent)

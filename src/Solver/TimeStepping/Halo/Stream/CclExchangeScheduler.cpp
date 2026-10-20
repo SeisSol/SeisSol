@@ -154,6 +154,24 @@ void CclExchangeScheduler::added(const ScheduledTransport& transport) {
 #endif
 }
 
+void CclExchangeScheduler::checkAsyncErrors() const {
+#if defined(CCL_NCCL) || defined(CCL_RCCL)
+  // e.g. a failed connection, which leaves the operations of the device waiting otherwise
+  for (auto* communicator : communicators_) {
+    if (communicator == nullptr) {
+      continue;
+    }
+    auto asyncError = CCL(Success);
+    const auto result = CCL(CommGetAsyncError)(static_cast<CCL(Comm_t)>(communicator), &asyncError);
+    if (result == CCL(Success) && asyncError != CCL(Success) && asyncError != CCL(InProgress)) {
+      logError() << "The halo exchange with CCL failed asynchronously:"
+                 << CCL(GetErrorString)(asyncError) << "("
+                 << CCL(GetLastError)(static_cast<CCL(Comm_t)>(communicator)) << ")";
+    }
+  }
+#endif
+}
+
 void CclExchangeScheduler::prepare() {
   if (launchOrder() != LaunchOrder::PerDirection) {
     return;
@@ -219,6 +237,8 @@ CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder
 }
 
 CclExchangeScheduler::~CclExchangeScheduler() = default;
+
+void CclExchangeScheduler::checkAsyncErrors() const {}
 
 void CclExchangeScheduler::prepare() {}
 

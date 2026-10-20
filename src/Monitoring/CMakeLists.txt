@@ -14,6 +14,7 @@ add_library(seissol-monitoring OBJECT
     RunSummary.cpp
     Stopwatch.cpp
     Unit.cpp
+    Watchdog.cpp
 )
 
 target_link_libraries(seissol-monitoring PUBLIC seissol-common-properties)
