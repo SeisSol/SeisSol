@@ -10,6 +10,9 @@
 #include "Parallel/Runtime/Stream.h"
 
 #ifdef ACL_DEVICE
+#include "Kernels/DeviceAux/ClockAux.h"
+
+#include <Device/AbstractAPI.h>
 #include <Device/device.h>
 #endif
 
@@ -22,45 +25,33 @@ device::DeviceInstance& deviceInstance() { return device::DeviceInstance::instan
 } // namespace
 
 ClusterClock::ClusterClock()
-    : host_(static_cast<double*>(deviceInstance().api().allocPinnedMem(sizeof(double)))),
+    : host_(static_cast<double*>(deviceInstance().api().allocPinnedMem(
+          sizeof(double), false, device::Destination::CurrentDevice))),
       device_(static_cast<double*>(deviceInstance().api().allocGlobMem(sizeof(double)))),
-      deviceStep_(static_cast<double*>(deviceInstance().api().allocGlobMem(sizeof(double)))),
-      stepTable_(static_cast<const double**>(deviceInstance().api().allocGlobMem(sizeof(double*)))),
-      clockTable_(static_cast<double**>(deviceInstance().api().allocGlobMem(sizeof(double*)))) {
+      hostOnDevice_(static_cast<double*>(deviceInstance().api().devicePointer(host_))) {
   *host_ = 0;
   const double zero = 0;
   deviceInstance().api().copyTo(device_, &zero, sizeof(double));
-  deviceInstance().api().copyTo(deviceStep_, &zero, sizeof(double));
-  deviceInstance().api().copyTo(
-      static_cast<void*>(stepTable_), static_cast<const void*>(&deviceStep_), sizeof(double*));
-  deviceInstance().api().copyTo(
-      static_cast<void*>(clockTable_), static_cast<const void*>(&device_), sizeof(double*));
 }
 
 ClusterClock::~ClusterClock() { dispose(); }
 
 void ClusterClock::dispose() {
   if (host_ != nullptr) {
-    deviceInstance().api().freeGlobMem(static_cast<void*>(clockTable_));
-    deviceInstance().api().freeGlobMem(static_cast<void*>(stepTable_));
-    deviceInstance().api().freeGlobMem(deviceStep_);
     deviceInstance().api().freeGlobMem(device_);
     deviceInstance().api().freePinnedMem(host_);
     host_ = nullptr;
     device_ = nullptr;
+    hostOnDevice_ = nullptr;
   }
 }
 
 void ClusterClock::set(double time, parallel::runtime::StreamRuntime& runtime) {
-  deviceInstance().algorithms().fillArray(device_, time, 1, runtime.stream());
-  deviceInstance().api().copyFromAsync(host_, device_, sizeof(double), runtime.stream());
+  kernels::device::aux::clock::set(device_, hostOnDevice_, time, runtime.stream());
 }
 
 void ClusterClock::advance(double timeStepSize, parallel::runtime::StreamRuntime& runtime) {
-  deviceInstance().algorithms().fillArray(deviceStep_, timeStepSize, 1, runtime.stream());
-  deviceInstance().algorithms().accumulateBatchedData(
-      stepTable_, clockTable_, 1, 1, runtime.stream());
-  deviceInstance().api().copyFromAsync(host_, device_, sizeof(double), runtime.stream());
+  kernels::device::aux::clock::advance(device_, hostOnDevice_, timeStepSize, runtime.stream());
 }
 
 #else

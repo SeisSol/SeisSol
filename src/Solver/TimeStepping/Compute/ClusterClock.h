@@ -19,6 +19,9 @@ namespace seissol::solver {
  * on the host; both thus agree bitwise. Work that is replayed later (e.g. from a graph) reads the
  * time of the step it runs in, not the time it was enqueued with.
  *
+ * On a device, one kernel sets or advances both copies; it writes the host copy itself, so that the
+ * clock does not wait for the copy engines (e.g. behind a large copy of another stream).
+ *
  * Without a device, the clock is a plain value, set and advanced right away.
  */
 class ClusterClock {
@@ -61,10 +64,8 @@ class ClusterClock {
   double* device_{nullptr};
 
 #ifdef ACL_DEVICE
-  // the time step size to add, and the pointer tables the batched addition needs
-  double* deviceStep_{nullptr};
-  const double** stepTable_{nullptr};
-  double** clockTable_{nullptr};
+  // the address of the host copy on the device
+  double* hostOnDevice_{nullptr};
 #endif
 };
 
