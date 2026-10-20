@@ -102,10 +102,10 @@ For the IO, the following environment variables are recommended to be set, when 
     export XDMFWRITER_ALIGNMENT=8388608
     export XDMFWRITER_BLOCK_SIZE=8388608
 
-    export ASYNC_MODE=THREAD
-    export ASYNC_BUFFER_ALIGNMENT=8388608
+    export SEISSOL_ASYNC_MODE=THREAD
+    export SEISSOL_ASYNC_BUFFER_ALIGNMENT=8388608
 
-If there are problems during running SeisSol in IO segments, try setting ``ASYNC_MODE=SYNC`` instead.
+If there are problems during running SeisSol in IO segments, try setting ``SEISSOL_ASYNC_MODE=SYNC`` instead.
 
 Environment Variables
 ---------------------
