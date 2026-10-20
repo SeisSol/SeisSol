@@ -250,6 +250,22 @@ class Storage {
     memoryContainer_[index].synchronizeTo(place, stream);
   }
 
+  /// Copies a variable to the host, on the stream (cf. HostData).
+  template <typename StorageT>
+  void varSynchronizeToHost(void* stream) {
+    varSynchronizeTo<StorageT>(AllocationPlace::Host, stream);
+  }
+
+  /// Copies all variables to the host (not the buckets and scratchpads), on the stream (cf.
+  /// HostData).
+  void variablesSynchronizeToHost(void* stream) {
+    for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
+      if (memoryInfo_[var].type == MemoryType::Variable) {
+        memoryContainer_[var].synchronizeTo(AllocationPlace::Host, stream);
+      }
+    }
+  }
+
   template <typename StorageT>
   [[nodiscard]] const MemoryInfo& info() const {
     const auto index = varmap_.template index<StorageT>();

@@ -642,6 +642,11 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   io::writer::ScheduledWriter schedWriter;
   schedWriter.name = "wavefield";
   schedWriter.interval = parameters.interval;
+  // the unknowns of the cells, their time integrals and their plastic strain
+  schedWriter.hostData = {};
+  schedWriter.hostData.add<LTS::Dofs>(memoryManager.ltsStorage())
+      .add<LTS::Integrals>(memoryManager.ltsStorage())
+      .add<LTS::PStrain>(memoryManager.ltsStorage());
   auto writer = io::instance::geometry::GeometryWriter(
       "wavefield",
       cells->size(),
@@ -857,6 +862,10 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
   io::writer::ScheduledWriter schedWriter;
   schedWriter.name = "surface";
   schedWriter.interval = parameters.interval;
+  // the unknowns of the cells at the surface, and its displacements
+  schedWriter.hostData = {};
+  schedWriter.hostData.add<LTS::Dofs>(memoryManager.ltsStorage())
+      .add<SurfaceLTS::DisplacementDofs>(memoryManager.surfaceStorage());
   auto* surfaceMeshIds = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
   auto* surfaceMeshSides = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
   auto* surfaceLocationFlag =

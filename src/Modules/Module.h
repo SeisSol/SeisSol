@@ -9,6 +9,8 @@
 #ifndef SEISSOL_SRC_MODULES_MODULE_H_
 #define SEISSOL_SRC_MODULES_MODULE_H_
 
+#include "Memory/HostData.h"
+
 #include <optional>
 namespace seissol {
 
@@ -40,6 +42,20 @@ class Module {
    * @return The next synchronization point for this module
    */
   double potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint);
+
+  /**
+   * Whether potentialSyncPoint() would call {@link syncPoint} at `currentTime`; without side
+   * effects.
+   */
+  [[nodiscard]] bool dueAt(double currentTime, double timeTolerance, bool forceSyncPoint) const;
+
+  /**
+   * The variables of the storages this module reads on the host at its synchronization points,
+   * which get copied there from the device before; all of them, unless the module says otherwise.
+   */
+  [[nodiscard]] virtual initializer::HostData hostData() const {
+    return initializer::HostData::everything();
+  }
 
   /**
    * Called by {@link Modules} before the simulation starts to set the synchronization point.

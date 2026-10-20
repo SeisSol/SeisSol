@@ -133,8 +133,9 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     // update current time
     currentTime_ = upcomingTime;
 
-    // Synchronize data (TODO(David): synchronize lazily)
-    seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
+    // the data the modules due now read on the host
+    seissolInstance.timeManager().synchronizeToHost(
+        Modules::hostDataAt(currentTime_, timeTolerance));
 
     // Check all synchronization point hooks and set the new upcoming time
     upcomingTime = std::min(finalTime_, Modules::callSyncHook(currentTime_, timeTolerance));
@@ -169,7 +170,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // the outputs whose interval does not end at the final time write here
   ioStopwatch.start();
 
-  // synchronize data (TODO(David): synchronize lazily)
+  // all data, for the outputs at the end and the analysis
   seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
   Modules::callSyncHook(currentTime_, timeTolerance, true);

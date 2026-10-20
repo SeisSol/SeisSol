@@ -19,6 +19,7 @@
 #include "Kernels/Common.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/HostData.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
@@ -942,6 +943,20 @@ void TimeManager::freeDynamicResources() {
   }
   communicationManager_.reset(nullptr);
   haloTransports_.reset(nullptr);
+}
+
+void TimeManager::synchronizeToHost(const initializer::HostData& data) {
+#ifdef ACL_DEVICE
+  bool sameExecutor = true;
+  for (auto& cluster : clusters_) {
+    sameExecutor &= clusters_.front()->getExecutor() == cluster->getExecutor();
+  }
+  if (sameExecutor) {
+    seissolInstance_.memoryManager().synchronizeToHost(data);
+  } else {
+    synchronizeTo(initializer::AllocationPlace::Host);
+  }
+#endif
 }
 
 void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {

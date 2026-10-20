@@ -215,4 +215,46 @@ TEST_CASE("Module runthrough" * doctest::test_suite("modules")) {
   CHECK(mod2.state == ModuleHook::Shutdown);
 }
 
+// a module that does not register for any hook, so that the hooks of the other test cases are left
+// alone
+class UnregisteredSyncModule : public seissol::Module {
+  public:
+  int calls{0};
+  explicit UnregisteredSyncModule(double interval) { setSyncInterval(interval); }
+  void syncPoint(double /*time*/) override { ++calls; }
+};
+
+TEST_CASE("Module: dueAt decides as potentialSyncPoint, without side effects" *
+          doctest::test_suite("modules")) {
+  constexpr double Tolerance = 1e-12;
+  UnregisteredSyncModule module(2);
+  module.setSimulationStartTime(0);
+
+  // between two synchronization points
+  CHECK_FALSE(module.dueAt(1, Tolerance, false));
+  module.potentialSyncPoint(1, Tolerance, false);
+  CHECK(module.calls == 0);
+
+  // at one, as often as asked
+  CHECK(module.dueAt(2, Tolerance, false));
+  CHECK(module.dueAt(2, Tolerance, false));
+  CHECK(module.calls == 0);
+  module.potentialSyncPoint(2, Tolerance, false);
+  CHECK(module.calls == 1);
+
+  // a second time at the same point is none
+  CHECK_FALSE(module.dueAt(2, Tolerance, false));
+  CHECK_FALSE(module.dueAt(2, Tolerance, true));
+  module.potentialSyncPoint(2, Tolerance, false);
+  CHECK(module.calls == 1);
+
+  // forced in between, and the next one
+  CHECK_FALSE(module.dueAt(3, Tolerance, false));
+  CHECK(module.dueAt(3, Tolerance, true));
+  CHECK(module.dueAt(4, Tolerance, false));
+
+  // a module that does not say what it reads reads everything
+  CHECK(module.hostData().isEverything());
+}
+
 } // namespace seissol::unit_test

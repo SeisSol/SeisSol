@@ -336,6 +336,10 @@ void OutputManager::initElementwiseOutput() {
   schedWriter.interval = writeInterval;
   schedWriter.name = "fault";
   schedWriter.planWrite = writer.makeWriter();
+  // the faces gather their data from the device themselves; the halo exchange of the unknowns
+  // before (dofSync) reads those of the cells
+  schedWriter.hostData = {};
+  schedWriter.hostData.add<LTS::Dofs>(*wpStorage_).addVariables(*drStorage_);
 
   seissolInstance_.outputManager().addOutput(schedWriter);
 }
@@ -745,6 +749,8 @@ void OutputManager::initPickpointTable() {
   io::writer::ScheduledWriter scheduled;
   scheduled.name = "faultreceivers";
   scheduled.interval = seissolParameters.output.pickpointParameters.writeInterval;
+  // the fault receivers take their samples into buffers of their own
+  scheduled.hostData = {};
   scheduled.planWrite = [this, plan = ppTable_->makeWriter()](
                             const std::string& prefix, std::size_t counter, double time) {
     collectPickpointSamples();

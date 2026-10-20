@@ -25,11 +25,13 @@
 #include "IO/Writer/File/RunFiles.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Modules/Modules.h"
@@ -633,6 +635,19 @@ void EnergyOutput::init(
   drStorage_ = &newDynRuptTree;
   meshReader_ = &newMeshReader;
   ltsStorage_ = &newStorage;
+
+  // the unknowns of the cells, the friction energies, and the displacements of the free surfaces
+  // with gravity
+  auto& memoryManager = seissolInstance_.memoryManager();
+  hostData_.add<LTS::Dofs>(memoryManager.ltsStorage())
+      .add<LTS::DofsAne>(memoryManager.ltsStorage())
+      .add<LTS::PStrain>(memoryManager.ltsStorage())
+      .add<DynamicRupture::DREnergyOutputVar>(memoryManager.drStorage())
+      .add<SurfaceLTS::DisplacementDofs>(memoryManager.surfaceStorage());
+  // at the faults, the static work takes the time derivatives of the cells
+  if (memoryManager.drStorage().size() > 0) {
+    hostData_.add<LTS::Buffers>(memoryManager.ltsStorage());
+  }
 
   isPlasticityEnabled_ = newIsPlasticityEnabled;
 

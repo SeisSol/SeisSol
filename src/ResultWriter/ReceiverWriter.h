@@ -15,6 +15,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Kernels/Receiver.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/HostData.h"
 #include "Memory/Tree/Backmap.h"
 #include "Modules/Module.h"
 #include "Monitoring/Stopwatch.h"
@@ -76,6 +77,8 @@ class ReceiverWriter : public seissol::Module {
   //
   /// Called at each synchronization point to flush data.
   void syncPoint(double currentTime) override;
+  /// The receivers take their samples into buffers of their own.
+  [[nodiscard]] initializer::HostData hostData() const override { return {}; }
   /// Called at simulation start.
   void simulationStart(std::optional<double> checkpointTime) override;
 

@@ -21,13 +21,19 @@ double Module::potentialSyncPoint(double currentTime, double timeTolerance, bool
   if (std::abs(currentTime - lastSyncPoint_) < timeTolerance) {
     logDebug() << "Ignoring duplicate synchronization point at time" << currentTime
                << "; the last sync point was at " << lastSyncPoint_;
-  } else if (forceSyncPoint || std::abs(currentTime - nextSyncPoint_) < timeTolerance) {
+  } else if (dueAt(currentTime, timeTolerance, forceSyncPoint)) {
     syncPoint(currentTime);
     lastSyncPoint_ = currentTime;
     nextSyncPoint_ += isyncInterval_;
   }
 
   return nextSyncPoint_;
+}
+
+bool Module::dueAt(double currentTime, double timeTolerance, bool forceSyncPoint) const {
+  // a duplicate of the last synchronization point is none
+  return std::abs(currentTime - lastSyncPoint_) >= timeTolerance &&
+         (forceSyncPoint || std::abs(currentTime - nextSyncPoint_) < timeTolerance);
 }
 
 void Module::setSimulationStartTime(double time) {

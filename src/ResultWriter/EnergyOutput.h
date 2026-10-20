@@ -15,6 +15,7 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/HostData.h"
 #include "Memory/MemoryAllocator.h"
 #include "Modules/Module.h"
 #include "Modules/Modules.h"
@@ -81,6 +82,8 @@ class EnergyOutput : public Module {
 
   void syncPoint(double time) override;
 
+  [[nodiscard]] initializer::HostData hostData() const override { return hostData_; }
+
   void simulationStart(std::optional<double> checkpointTime) override;
 
   explicit EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance_(seissolInstance) {}
@@ -130,6 +133,8 @@ class EnergyOutput : public Module {
   const DynamicRupture::Storage* drStorage_ = nullptr;
   const seissol::geometry::MeshReader* meshReader_ = nullptr;
   const LTS::Storage* ltsStorage_ = nullptr;
+  //! what the energies get computed from
+  initializer::HostData hostData_;
 
   //! The fused simulations of the run: the most that one of its configurations has.
   std::size_t simulationCount_{1};

@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_MODULES_MODULES_H_
 #define SEISSOL_SRC_MODULES_MODULES_H_
 
+#include "Memory/HostData.h"
 #include "Module.h"
 
 #include <array>
@@ -101,6 +102,9 @@ class Modules {
 
   double _callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint);
 
+  [[nodiscard]] initializer::HostData
+      _hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint) const;
+
   /**
    * Set the simulation start time.
    *
@@ -140,6 +144,13 @@ class Modules {
    * @todo The time tolerance is global constant, maybe not necessary to pass it here
    */
   static double callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint = false);
+
+  /**
+   * The variables of the storages that the modules due at a synchronization point read on the
+   * host there; for the same arguments as callSyncHook(), before it.
+   */
+  [[nodiscard]] static initializer::HostData
+      hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint = false);
 
   /**
    * Set the simulation start time

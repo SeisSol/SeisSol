@@ -10,6 +10,7 @@
 
 #include "AsyncWriter.h"
 #include "BufferRegistry.h"
+#include "Memory/HostData.h"
 #include "Modules/Module.h"
 #include "Parallel/Pin.h"
 
@@ -57,6 +58,7 @@ class WriterModule : public seissol::Module, private AsyncWriterModule, private 
   void syncPoint(double time) override;
   void simulationEnd() override;
   void shutdown() override;
+  [[nodiscard]] initializer::HostData hostData() const override { return settings_.hostData; }
 
   private:
   void setUp() override;

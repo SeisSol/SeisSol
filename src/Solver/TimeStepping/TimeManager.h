@@ -14,6 +14,7 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Memory/HostData.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Helper.h"
 #include "ResultWriter/ClusteringWriter.h"
@@ -235,6 +236,12 @@ class TimeManager {
   void freeDynamicResources();
 
   void synchronizeTo(seissol::initializer::AllocationPlace place);
+
+  /**
+   * Copies the given variables to the host; all of them if clusters compute on the host and on
+   * the device (see SEISSOL_DEVICE_HOST_SWITCH).
+   */
+  void synchronizeToHost(const initializer::HostData& data);
 
   const initializer::ClusterLayout& getClusterLayout() { return clusterLayout_.value(); }
 };

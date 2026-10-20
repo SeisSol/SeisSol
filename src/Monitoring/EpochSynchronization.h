@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_MONITORING_EPOCHSYNCHRONIZATION_H_
 #define SEISSOL_SRC_MONITORING_EPOCHSYNCHRONIZATION_H_
 
+#include "Memory/HostData.h"
 #include "Modules/Module.h"
 
 namespace seissol::monitoring {
@@ -28,6 +29,8 @@ class EpochSynchronization : public Module {
    * To be called before the simulation starts.
    */
   void init(double interval);
+
+  [[nodiscard]] initializer::HostData hostData() const override { return {}; }
 };
 
 } // namespace seissol::monitoring

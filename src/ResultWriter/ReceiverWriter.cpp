@@ -292,6 +292,8 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     io::writer::ScheduledWriter scheduled;
     scheduled.name = "receivers";
     scheduled.interval = syncInterval();
+    // the receivers take their samples into buffers of their own
+    scheduled.hostData = {};
     scheduled.planWrite = [this, plan = table_->makeWriter()](
                               const std::string& prefix, std::size_t counter, double time) {
       stopwatch_.start();

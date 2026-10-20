@@ -8,6 +8,7 @@
 
 #include "Modules.h"
 
+#include "Memory/HostData.h"
 #include "Modules/Module.h"
 
 #include <algorithm>
@@ -79,6 +80,17 @@ double Modules::_callSyncHook(double currentTime, double timeTolerance, bool for
   return nextSyncTime;
 }
 
+initializer::HostData
+    Modules::_hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint) const {
+  initializer::HostData data;
+  for (const auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
+    if (module->dueAt(currentTime, timeTolerance, forceSyncPoint)) {
+      data.merge(module->hostData());
+    }
+  }
+  return data;
+}
+
 void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
   assert(static_cast<int>(nextHook_) <= static_cast<int>(ModuleHook::SynchronizationPoint));
 
@@ -106,6 +118,11 @@ void Modules::registerHook(Module& module, ModuleHook hook, ModulePriority prior
 
 double Modules::callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
   return instance()._callSyncHook(currentTime, timeTolerance, forceSyncPoint);
+}
+
+initializer::HostData
+    Modules::hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint) {
+  return instance()._hostDataAt(currentTime, timeTolerance, forceSyncPoint);
 }
 
 void Modules::callSimulationStartHook(std::optional<double> checkpointTime) {

@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_PICKPOINTWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_PICKPOINTWRITER_H_
 
+#include "Memory/HostData.h"
 #include "Modules/Module.h"
 
 #include <functional>
@@ -17,6 +18,8 @@ namespace seissol::writer {
 class PickpointWriter : public seissol::Module {
   public:
   void syncPoint(double /*currentTime*/) override;
+  /// The fault receivers take their samples into buffers of their own.
+  [[nodiscard]] initializer::HostData hostData() const override { return {}; }
   void simulationStart(std::optional<double> checkpointTime) override;
   void simulationEnd() override;
 

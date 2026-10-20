@@ -13,6 +13,7 @@
 #include "IO/Writer/Instructions/Binary.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "Instructions/Instruction.h"
+#include "Memory/HostData.h"
 
 #include <memory>
 #include <mpi.h>
@@ -82,6 +83,8 @@ struct ScheduledWriter {
   std::string name;
   double interval{};
   std::function<Writer(const std::string&, std::size_t, double)> planWrite;
+  // the variables of the storages the output reads on the host; all of them unless set
+  initializer::HostData hostData{initializer::HostData::everything()};
 };
 
 } // namespace seissol::io::writer
