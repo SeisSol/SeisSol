@@ -64,8 +64,8 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - Experimental. Process the outputs of a synchronization point on a thread of their own, while the GPU
        goes on with the next epoch (see below).
    * - ``SEISSOL_OUTPUT_SNAPSHOT=0``
-     - With ``SEISSOL_OUTPUT_THREAD=1``: copy the data for the outputs to the host before the next epoch,
-       instead of from a snapshot on the GPU while it goes on (see below).
+     - With ``SEISSOL_OUTPUT_THREAD=1``: keep no snapshots of the data, and copy the data for the outputs to the host
+       before the next epoch, instead of from the snapshots while the GPU goes on (see below).
    * - ``SEISSOL_SUPERSTEP_GRAPH_MODE``
      - Experimental, with ``SEISSOL_SUPERSTEP_GRAPHS=1``. ``replay`` (default): as described below.
        ``always``: besides, record each other super-timestep and launch it once.
@@ -185,20 +185,23 @@ the GPU computes, with OpenMP teams of its own, and communicates over a duplicat
 The next synchronization point waits for it before it copies to the host again.
 An abort the energy output asks for (see the terminator) takes effect once all ranks have processed the same
 synchronization points, i.e. an epoch later.
-The thread needs separate buffers on the host (``SEISSOL_USM=0``, the default) and all clusters on the GPU;
+The thread needs all clusters on the GPU, and with unified memory (``SEISSOL_USM=1``) the snapshots (see below);
 otherwise, the outputs get processed on the main thread, as without the switch.
 A synchronization point where an output cannot be processed on the thread (e.g. of the instantaneous time mirror) gets
 processed on the main thread as a whole.
 
 The copy to the host does not hold up the next epoch either: the GPU copies the data within its memory
-first, into a snapshot, and the thread copies the snapshot to the host while the GPU goes on.
-The snapshot takes as much memory on the GPU as the data of the synchronization point that needs the most
-(in TPV5 on one GPU, 45 MiB for the energies, 82 MiB with the fault output).
-SeisSol takes it only where its own allocations leave a tenth of the memory of the GPU free besides, and at least
-2 GiB; otherwise, and with ``SEISSOL_OUTPUT_SNAPSHOT=0``, the data gets copied to the host before the next epoch.
-The host memory of the data the outputs read is pinned, so that its copies do not block.
+first, into snapshots, and the thread copies them to the host while the GPU goes on.
+For that, the storages keep a snapshot of all the data that changes during the run (e.g. the unknowns and the
+data of the faults), allocated along with it; the log lists their memory per storage (in TPV5 on one GPU, 82 MiB).
+The host memory of that data is pinned, so that its copies do not block.
+With ``SEISSOL_OUTPUT_SNAPSHOT=0``, there are no snapshots, and the data gets copied to the host before the next epoch.
 While the copy to the host runs, the kernels that write to the host themselves (e.g. those of the receivers, and the
 clocks of the clusters) wait behind it on the link.
+
+With unified memory (``SEISSOL_USM=1``), the snapshots are the host memory of the data that changes:
+the GPU computes on memory of its own for that data, and copies it there into the snapshots, which the thread
+reads without a further copy; the rest of the data keeps one memory for the host and the GPU.
 
 On a laptop (RTX 5070 Laptop GPU, PCIe link at 7 GB/s, October 2026), TPV5 with an energy output every 0.05 s and the
 time-stepping plan with concurrent clusters took 3.19 s without the thread, 2.80 s with it, and 2.69 s with it and the

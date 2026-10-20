@@ -901,7 +901,7 @@ void TimeManager::setInitialTimes(double time) {
 void TimeManager::freeDynamicResources() {
   // the watchdog looks at the clusters
   watchdog_.reset();
-  // the snapshot has memory on the device
+  // the snapshots copy on a stream of their own
   hostSnapshot_.reset();
 
   // Nothing may refer to an event of a pool that goes away. The halo exchange holds events of the
@@ -1016,12 +1016,11 @@ void TimeManager::synchronizeToHost(const initializer::HostData& data,
     if (hostSnapshot_ == nullptr) {
       hostSnapshot_ = std::make_unique<initializer::HostSnapshot>();
     }
-    auto* stream = device::DeviceInstance::instance().api().getDefaultStream();
-    if (hostSnapshot_->take(data.copies(), stream)) {
-      logInfo() << "Synchronizing data... (device->host, from a snapshot;" << data.size()
-                << "variables)";
-      return;
-    }
+    logInfo() << "Synchronizing data... (device->host, through snapshots;" << data.size()
+              << "variables)";
+    hostSnapshot_->take(data.containers(),
+                        device::DeviceInstance::instance().api().getDefaultStream());
+    return;
   }
   seissolInstance_.memoryManager().synchronizeToHost(data);
 #endif

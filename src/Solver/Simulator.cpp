@@ -63,9 +63,13 @@ void startOutputThread(SeisSol& seissolInstance) {
   if (!useOutputThread(seissolInstance.env())) {
     return;
   }
-  if (!isDeviceOn() || useUSM() || !seissolInstance.timeManager().clustersOnDevice()) {
-    logWarning() << "SEISSOL_OUTPUT_THREAD needs a device, all clusters on it, and separate buffers"
-                 << "for the host (SEISSOL_USM=0); the outputs are processed on the main thread.";
+  // with unified memory, only the snapshots keep what the host reads apart from the device
+  if (!isDeviceOn() || !seissolInstance.timeManager().clustersOnDevice() ||
+      (useUSM() && !keepOutputSnapshots(seissolInstance.env()))) {
+    logWarning()
+        << "SEISSOL_OUTPUT_THREAD needs a device and all clusters on it, with SEISSOL_USM=1"
+        << "also the snapshots (SEISSOL_OUTPUT_SNAPSHOT=1); the outputs are processed on"
+        << "the main thread.";
     return;
   }
   // the CPUs the OpenMP threads of the main thread do not use, or else theirs, which are idle while
@@ -112,7 +116,8 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   const double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
 
   startOutputThread(seissolInstance);
-  const bool snapshots = Modules::outputWorkerRunning() && useOutputSnapshot(seissolInstance.env());
+  const bool snapshots =
+      Modules::outputWorkerRunning() && keepOutputSnapshots(seissolInstance.env());
 
   // Write initial wave field snapshot
   if (checkpoint_) {
@@ -181,8 +186,8 @@ void Simulator::simulate(SeisSol& seissolInstance) {
                                                    "a synchronization point");
 
     // the data the modules due now read on the host; where their thread processes the
-    // synchronization point, it copies the data there from a snapshot on the device, while the
-    // device goes on with the next epoch
+    // synchronization point, it copies the data there from the snapshots, while the device goes on
+    // with the next epoch
     const bool fromSnapshot =
         snapshots && Modules::processesAsynchronouslyAt(currentTime_, timeTolerance);
     seissolInstance.timeManager().synchronizeToHost(

@@ -201,6 +201,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   LTS::addTo(ltsStorage, settings);
   ltsStorage.setName("cluster");
   ltsStorage.setLayerCount(colorMap);
+  // for the outputs on a thread of their own, which read the data while the device goes on
+  ltsStorage.setSnapshots(keepOutputSnapshots(seissolInstance.env()));
   ltsStorage.fixate();
   for (auto& layer : ltsStorage.leaves()) {
     layer.setNumberOfCells(meshLayout[layer.id()].cellMap.size());
@@ -387,6 +389,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   seissolInstance.memoryManager().drDescriptor().addTo(drStorage);
 
   drStorage.setLayerCount(ltsStorage.getColorMap());
+  drStorage.setSnapshots(ltsStorage.snapshots());
   drStorage.fixate();
 
   for (auto& layer : drStorage.leaves()) {

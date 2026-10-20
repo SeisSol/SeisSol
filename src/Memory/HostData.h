@@ -16,14 +16,7 @@
 
 namespace seissol::initializer {
 
-/// A copy of device memory to its counterpart on the host.
-struct HostCopy {
-  void* host{nullptr};
-  const void* device{nullptr};
-  std::size_t size{0};
-  //! whether the host memory is pinned: a copy into other memory blocks until it is done
-  bool pinned{false};
-};
+struct DualMemoryContainer;
 
 /**
  * The variables of the storages that the host reads, e.g. the outputs due at a synchronization
@@ -42,8 +35,8 @@ class HostData {
   HostData& add(StorageType& storage) {
     const auto variable = storage.template info<StorageT>().index;
     variables_.try_emplace(std::make_pair(static_cast<const void*>(&storage), variable),
-                           [&storage](std::vector<HostCopy>& copies) {
-                             storage.template varHostCopies<StorageT>(copies);
+                           [&storage](std::vector<const DualMemoryContainer*>& containers) {
+                             storage.template varContainers<StorageT>(containers);
                            });
     return *this;
   }
@@ -51,9 +44,10 @@ class HostData {
   /// all variables of `storage` (not its buckets and scratchpads)
   template <typename StorageType>
   HostData& addVariables(StorageType& storage) {
-    variables_.try_emplace(
-        std::make_pair(static_cast<const void*>(&storage), AllVariables),
-        [&storage](std::vector<HostCopy>& copies) { storage.variablesHostCopies(copies); });
+    variables_.try_emplace(std::make_pair(static_cast<const void*>(&storage), AllVariables),
+                           [&storage](std::vector<const DualMemoryContainer*>& containers) {
+                             storage.variableContainers(containers);
+                           });
     return *this;
   }
 
@@ -67,11 +61,10 @@ class HostData {
   /// the number of variables; zero for everything
   [[nodiscard]] std::size_t size() const { return variables_.size(); }
 
-  /// the copies to the host the variables need (none for those the host and the device share);
-  /// not for everything
-  [[nodiscard]] std::vector<HostCopy> copies() const;
+  /// the memory of the variables, each once; not for everything
+  [[nodiscard]] std::vector<const DualMemoryContainer*> containers() const;
 
-  /// enqueues the copies to the host on the stream; not for everything
+  /// enqueues the copies of the variables to the host on the stream; not for everything
   void copyToHost(void* stream) const;
 
   private:
@@ -79,8 +72,9 @@ class HostData {
   static constexpr std::size_t AllVariables = static_cast<std::size_t>(-1);
 
   bool everything_{false};
-  // by the storage and the index of the variable in it: what adds the copies of the variable
-  std::map<std::pair<const void*, std::size_t>, std::function<void(std::vector<HostCopy>&)>>
+  // by the storage and the index of the variable in it: what adds the memory of the variable
+  std::map<std::pair<const void*, std::size_t>,
+           std::function<void(std::vector<const DualMemoryContainer*>&)>>
       variables_;
 };
 

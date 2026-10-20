@@ -8,22 +8,18 @@
 #ifndef SEISSOL_SRC_MEMORY_HOSTSNAPSHOT_H_
 #define SEISSOL_SRC_MEMORY_HOSTSNAPSHOT_H_
 
-#include "Memory/HostData.h"
-
-#include <cstddef>
 #include <vector>
 
 namespace seissol::initializer {
 
+struct DualMemoryContainer;
+
 /**
- * Copies data from the device to the host while the device goes on and changes it: the data gets
- * copied within the device first, into a buffer of the snapshot, which is fast; and from there to
- * the host later, e.g. on the thread of the outputs.
- *
- * The buffer grows to the largest snapshot, as far as the memory of the device allows (see take()).
- * The host memory has to be pinned: a copy into other memory blocks the thread until the device
- * gets to it, and the driver holds up the other threads meanwhile (e.g. the main thread when it
- * enqueues host functions).
+ * The copies to the host of a synchronization point, through the snapshots of the data (see
+ * DualMemoryContainer::snapshot), while the device goes on and changes the data: take() takes the
+ * snapshots, which is fast, and copyToHost() copies those that are apart from the host parts
+ * there, later and e.g. on the thread of the outputs. On unified memory, the snapshots are the
+ * host parts, and copyToHost() has nothing to do.
  */
 class HostSnapshot {
   public:
@@ -40,27 +36,20 @@ class HostSnapshot {
   HostSnapshot& operator=(HostSnapshot&&) = delete;
 
   /**
-   * Copies the device parts of `copies` into the buffer, on `stream`, and waits for that; the last
-   * snapshot has to be copied to the host before (see copyToHost()).
-   *
-   * False, with nothing done, if the buffer would not fit into the memory of the device (it leaves
-   * a tenth of that, and at least 2 GiB, to what SeisSol does not allocate itself, e.g. the context
-   * and the communication libraries), or if host memory of a copy is not pinned.
+   * Takes the snapshots of the memory of `containers` on `stream`, copies the memory without one to
+   * the host right away, and waits for that; the last snapshots have to be copied to the host
+   * before (see copyToHost()).
    */
-  bool take(const std::vector<HostCopy>& copies, void* stream);
+  void take(const std::vector<const DualMemoryContainer*>& containers, void* stream);
 
-  /// Copies the last snapshot to the host parts of its copies, and waits for that; on any thread.
+  /// Copies the snapshots of the last take() to the host parts, and waits for that; on any thread.
   void copyToHost();
 
 #ifdef ACL_DEVICE
   private:
-  // the copies of the last snapshot, from the buffer
-  std::vector<HostCopy> pending_;
-  void* buffer_{nullptr};
-  std::size_t capacity_{0};
+  // the memory whose snapshot still has to be copied to the host
+  std::vector<const DualMemoryContainer*> pending_;
   void* stream_{nullptr};
-  bool warnedSize_{false};
-  bool warnedPinned_{false};
 #endif
 };
 

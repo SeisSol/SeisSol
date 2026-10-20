@@ -15,7 +15,6 @@
 #include "Common/Iterator.h"
 #include "Common/Literals.h"
 #include "Layer.h"
-#include "Memory/HostData.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Colormap.h"
@@ -101,12 +100,8 @@ class Storage {
 
   VarmapT varmap_;
 
-  static void addHostCopy(const DualMemoryContainer& container, std::vector<HostCopy>& copies) {
-    if (container.copiesToHost() && container.allocationSize > 0) {
-      copies.push_back(HostCopy{
-          container.host, container.device, container.allocationSize, container.pinnedHost()});
-    }
-  }
+  // whether the variables that change keep snapshots (see setSnapshots())
+  bool snapshots_{false};
 
   template <typename TraitT>
   void addInternal(std::size_t index,
@@ -258,24 +253,30 @@ class Storage {
     memoryContainer_[index].synchronizeTo(place, stream);
   }
 
-  /// Adds the copy to the host that varSynchronizeTo<StorageT>(AllocationPlace::Host) makes, if
-  /// any (cf. HostData).
+  /// Adds the memory of the variable (or bucket) `StorageT` (cf. HostData).
   template <typename StorageT>
-  void varHostCopies(std::vector<HostCopy>& copies) const {
+  void varContainers(std::vector<const DualMemoryContainer*>& containers) const {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    addHostCopy(memoryContainer_[index], copies);
+    containers.push_back(&memoryContainer_[index]);
   }
 
-  /// Adds the copies to the host of all variables (not of the buckets and scratchpads) (cf.
-  /// HostData).
-  void variablesHostCopies(std::vector<HostCopy>& copies) const {
+  /// Adds the memory of all variables (not of the buckets and scratchpads) (cf. HostData).
+  void variableContainers(std::vector<const DualMemoryContainer*>& containers) const {
     for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
       if (memoryInfo_[var].type == MemoryType::Variable) {
-        addHostCopy(memoryContainer_[var], copies);
+        containers.push_back(&memoryContainer_[var]);
       }
     }
   }
+
+  /**
+   * Whether the variables that change keep snapshots for the host, which reads them while the
+   * device goes on (see DualMemoryContainer::snapshot); before allocateVariables().
+   */
+  void setSnapshots(bool snapshots) { snapshots_ = snapshots; }
+
+  [[nodiscard]] bool snapshots() const { return snapshots_; }
 
   template <typename StorageT>
   [[nodiscard]] const MemoryInfo& info() const {
@@ -355,6 +356,7 @@ class Storage {
       logInfo() << "Storage" << name_ << "; variables:" << UnitByte.formatPrefix(totalSize).c_str();
     }
 
+    std::size_t snapshotSize = 0;
     for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
       if (memoryInfo_[var].type == MemoryType::Variable) {
         memoryContainer_[var].allocate(allocator_,
@@ -362,7 +364,17 @@ class Storage {
                                        memoryInfo_[var].alignment,
                                        memoryInfo_[var].allocMode);
         memoryContainer_[var].constant = memoryInfo_[var].constant;
+        if (snapshots_) {
+          memoryContainer_[var].allocateSnapshot(allocator_, memoryInfo_[var].alignment);
+          if (memoryContainer_[var].snapshot != nullptr) {
+            snapshotSize += memoryInfo_[var].size;
+          }
+        }
       }
+    }
+    if (!name_.empty() && snapshotSize > 0) {
+      logInfo() << "Storage" << name_
+                << "; snapshots of the variables:" << UnitByte.formatPrefix(snapshotSize).c_str();
     }
 
     std::fill(sizes.begin(), sizes.end(), 0);

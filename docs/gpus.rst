@@ -120,6 +120,8 @@ or GPU memory. It is off by default, also on systems whose GPU shares its memory
 like the Grace Hopper and Grace Blackwell Superchips, or APUs like the MI300A:
 the host then keeps a copy of the data, into which the outputs copy what they read, while the GPU works on its own.
 On an APU, these copies take memory from the same pool as the GPU; ``SEISSOL_USM=1`` saves that memory.
+With the outputs on a thread of their own, the data that changes keeps a copy for the host with ``SEISSOL_USM=1``
+as well (see :ref:`gpu-time-stepping`).
 Running clusters on the host (``SEISSOL_DEVICE_HOST_SWITCH``) needs ``SEISSOL_USM=1``.
 
 ``SEISSOL_USM_MPI`` specifies the allocation mode for the buffers that are also used for MPI transfer; off by default as well.

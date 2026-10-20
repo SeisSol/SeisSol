@@ -130,7 +130,7 @@ class TimeManager {
   //! looks at the progress from a thread of its own (see SEISSOL_WATCHDOG)
   std::unique_ptr<monitoring::Watchdog> watchdog_;
 
-  //! the data for the outputs, while they copy it to the host (see synchronizeToHost())
+  //! the copies of the data for the outputs from its snapshots (see synchronizeToHost())
   std::unique_ptr<initializer::HostSnapshot> hostSnapshot_;
 
   void setUpWatchdog(const std::vector<AbstractTimeCluster*>& clusters);
@@ -251,9 +251,9 @@ class TimeManager {
    * Copies the given variables to the host; all of them if clusters compute on the host and on
    * the device (see SEISSOL_DEVICE_HOST_SWITCH).
    *
-   * With `fromSnapshot`, it takes a snapshot of them on the device if that fits there, from which
-   * copySnapshotToHost() then copies them to the host, also while the device goes on with the next
-   * epoch.
+   * With `fromSnapshot`, it takes the snapshots of them that the storages keep (see
+   * keepOutputSnapshots()), from which copySnapshotToHost() then copies them to the host, also
+   * while the device goes on with the next epoch.
    */
   void synchronizeToHost(const initializer::HostData& data, bool fromSnapshot = false);
 

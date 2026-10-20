@@ -96,10 +96,24 @@ inline SuperStepGraphMode superStepGraphMode(utils::Env& env) {
 inline bool useOutputThread(utils::Env& env) { return env.get<bool>("OUTPUT_THREAD", false); }
 
 /**
- * Whether the thread of the outputs copies their data to the host from a snapshot on the device,
+ * Whether the thread of the outputs copies their data to the host from snapshots on the device,
  * while the device goes on with the next epoch (see useOutputThread()).
  */
 inline bool useOutputSnapshot(utils::Env& env) { return env.get<bool>("OUTPUT_SNAPSHOT", true); }
+
+/**
+ * Whether the storages keep snapshots of the data that changes (see
+ * initializer::DualMemoryContainer::snapshot): for the thread of the outputs, unless
+ * SEISSOL_OUTPUT_SNAPSHOT=0, with all clusters on the device.
+ */
+inline bool keepOutputSnapshots([[maybe_unused]] utils::Env& env) {
+#ifdef ACL_DEVICE
+  return useOutputThread(env) && useOutputSnapshot(env) &&
+         env.get<std::string>("DEVICE_HOST_SWITCH", "none") == "none";
+#else
+  return false;
+#endif
+}
 
 /**
  * Whether the clusters take their steps strictly along the time stepping plan, instead of whenever
