@@ -471,6 +471,17 @@ class LinearCKAnelastic(ADERDGBase):
                     target=target,
                 )
 
+        if self.weightAdjustable():
+            # the end of the neighbour phase, where a cell that lifts its fluxes
+            # without material has them all (see _configureWeightAdjust); they
+            # come back into the extended field, which the neighbour kernel then
+            # hands to the field and the memory variables as it does a flux
+            generator.add(
+                "weightAdjust",
+                self.weightAdjust(self.fluxBuffer, self.Qext),
+                target="cpu",
+            )
+
     def addTime(self, generator, targets):
         qShape = (self.num3DBasisFunctions(), self.numQuantities())
         dQ = [

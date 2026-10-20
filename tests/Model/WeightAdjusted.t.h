@@ -18,7 +18,8 @@
 //   differs from sample to sample;
 // - with one material for the cell, what a weight-adjusted cell adds -- the volume term, the local
 //   and the neighbour fluxes, the lift of a fault face -- is what a cell that lifts with the
-//   material adds;
+//   material adds, to the field or to the extended field of the solver that keeps the memory
+//   variables apart;
 // - which cells are weight-adjusted, and how much shorter their time step is.
 
 #include <doctest.h>
@@ -134,7 +135,7 @@ void unweightedFluxDecomposes() {
 } // namespace weightadjusted
 
 TEST_CASE("The flux without material decomposes into the scalars of a face") {
-  weightadjusted::unweightedFluxDecomposes<WeightAdjustable>();
+  weightadjusted::unweightedFluxDecomposes<WeightAdjustable && NodalFlux>();
 }
 
 TEST_CASE("Which cells are weight-adjusted, and their time step") {
@@ -205,21 +206,55 @@ TEST_CASE("Which cells are weight-adjusted, and their time step") {
   }
 }
 
-#ifndef SEISSOL_KERNELS_LINEARCKANELASTIC
-
-// The anelastic solver writes its corrector into the extended quantities and adds the relaxation
-// in a kernel of its own; it has no single kernel sequence to compare, as for NodalCorrector.t.h.
 namespace weightadjusted {
 
-/// what a field holds for one fused simulation, as a matrix of modes by quantities
+/// What the volume term and the faces of a cell go to, and what the weight of a weight-adjusted
+/// cell comes back to: the field, or the extended field of the solver that keeps the memory
+/// variables apart, which hands both on to the field and the memory variables alike.
+struct Lifted {
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+  using Tensor = tensor::Qext;
+  using Init = init::Qext;
+  using LocalFlux = kernel::localFluxExt;
+  using NeighborFlux = kernel::neighborFluxExt;
+  template <typename KernelT>
+  static void bind(KernelT& krnl, real* target) {
+    krnl.Qext = target;
+  }
+  template <typename LocalT>
+  static void addVolume(real* timeIntegrated, real* target, const LocalT& local) {
+    kernel::volumeExt volume{};
+    volume.bindGlobals(seissol::Pool::host());
+    volume.I = timeIntegrated;
+    volume.Qext = target;
+    kernels::bindStarOperands(volume, local);
+    volume.execute();
+  }
+#else
+  using Tensor = tensor::Q;
+  using Init = init::Q;
+  using LocalFlux = kernel::localFlux;
+  using NeighborFlux = kernel::neighboringFlux;
+  template <typename KernelT>
+  static void bind(KernelT& krnl, real* target) {
+    krnl.Q = target;
+  }
+  template <typename LocalT>
+  static void addVolume(real* timeIntegrated, real* target, const LocalT& local) {
+    addVolumeTerm<kernel::volume>(timeIntegrated, target, local);
+  }
+#endif
+  static constexpr std::size_t Basis = Tensor::Shape[multisim::BasisFunctionDimension];
+  static constexpr std::size_t Quantities = Tensor::Shape[multisim::BasisFunctionDimension + 1];
+};
+
+/// what a lifted field holds for one fused simulation, as a matrix of modes by quantities
 template <typename ViewT>
 Eigen::MatrixXd fieldOf(ViewT view, std::size_t simulation) {
-  constexpr std::size_t Basis = tensor::Q::Shape[multisim::BasisFunctionDimension];
-  constexpr std::size_t Quantities = tensor::Q::Shape[multisim::BasisFunctionDimension + 1];
   auto sliced = multisim::simtensor(view, simulation);
-  Eigen::MatrixXd field = Eigen::MatrixXd::Zero(Basis, Quantities);
-  for (std::size_t row = 0; row < Basis; ++row) {
-    for (std::size_t column = 0; column < Quantities; ++column) {
+  Eigen::MatrixXd field = Eigen::MatrixXd::Zero(Lifted::Basis, Lifted::Quantities);
+  for (std::size_t row = 0; row < Lifted::Basis; ++row) {
+    for (std::size_t column = 0; column < Lifted::Quantities; ++column) {
       field(row, column) = sliced(row, column);
     }
   }
@@ -233,7 +268,7 @@ Eigen::MatrixXd fieldOf(ViewT view, std::size_t simulation) {
 /// component of roundoff, which the weight, without shear modulus, makes zero.
 inline void requireSameUpdate(real* candidate, real* reference) {
   using Material = seissol::model::MaterialT;
-  constexpr std::size_t Quantities = tensor::Q::Shape[multisim::BasisFunctionDimension + 1];
+  constexpr std::size_t Quantities = Lifted::Quantities;
   std::array<std::size_t, Quantities> groupOf{};
   std::size_t groups = 0;
   std::size_t covered = 0;
@@ -245,8 +280,8 @@ inline void requireSameUpdate(real* candidate, real* reference) {
   }
   REQUIRE(covered == Quantities);
 
-  auto viewCandidate = init::Q::view::create(candidate);
-  auto viewReference = init::Q::view::create(reference);
+  auto viewCandidate = Lifted::Init::view::create(candidate);
+  auto viewReference = Lifted::Init::view::create(reference);
   constexpr double Tolerance = std::is_same_v<real, double> ? 1e-10 : 1e-4;
   for (std::size_t simulation = 0; simulation < multisim::NumSimulations; ++simulation) {
     const auto got = fieldOf(viewCandidate, simulation);
@@ -272,7 +307,7 @@ template <typename KernelT>
 void applyWeight(real* buffer, real* target, const LocalIntegrationData& local) {
   KernelT krnl{};
   krnl.bindGlobals(seissol::Pool::host());
-  krnl.Q = target;
+  Lifted::bind(krnl, target);
   krnl.fluxBuffer = buffer;
   kernels::bindWeightOperands(krnl, local);
   krnl.execute();
@@ -287,7 +322,9 @@ void fillRandom(T& values, std::mt19937& rng) {
 }
 
 /// The kernel against the matrices it is made of: the buffer read at the sample points, times the
-/// inverse weight of the material of every point, projected back and added.
+/// inverse weight of the material of every point, projected back and added. The rows beyond the
+/// quantities of the medium -- what a face lifts for the memory variables -- carry no material and
+/// are added as they are.
 template <bool Enabled>
 void kernelAgainstMatrices() {
   if constexpr (Enabled) {
@@ -295,8 +332,12 @@ void kernelAgainstMatrices() {
     using KernelT = std::conditional_t<Enabled, kernel::weightAdjust, void>;
     constexpr std::size_t Points = tensor::materialEval::Shape[0];
     constexpr std::size_t Basis = tensor::materialEval::Shape[1];
-    constexpr std::size_t Quantities = Material::NumQuantities;
+    constexpr std::size_t Quantities = Lifted::Quantities;
+    constexpr std::size_t Weighted = seissol::model::totalExtent(Material::PrimaryGroups);
+    constexpr std::size_t Size = Lifted::Tensor::size();
     static_assert(Points == MaterialSampleCount);
+    static_assert(!Enabled || Weighted <= Quantities);
+    static_assert(!Enabled || kernels::size<tensor::fluxBuffer>() == Size);
 
     // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
     std::mt19937 rng(20261016);
@@ -319,27 +360,29 @@ void kernelAgainstMatrices() {
         for (std::size_t a = 0; a < values.size(); ++a) {
           local.materialCoefficients[a][point] = values[a];
         }
-        weights.emplace_back(inverseweight::inverseWeight<Material, Quantities>(material));
+        weights.emplace_back(inverseweight::inverseWeight<Material, Weighted>(material));
       }
 
-      alignas(Alignment) std::array<real, tensor::Q::size()> buffer{};
-      alignas(Alignment) std::array<real, tensor::Q::size()> start{};
+      alignas(Alignment) std::array<real, Size> buffer{};
+      alignas(Alignment) std::array<real, Size> start{};
       fillRandom(buffer, rng);
       fillRandom(start, rng);
-      alignas(Alignment) std::array<real, tensor::Q::size()> update = start;
+      alignas(Alignment) std::array<real, Size> update = start;
       applyWeight<KernelT>(buffer.data(), update.data(), local);
 
-      alignas(Alignment) std::array<real, tensor::Q::size()> expectedData{};
-      auto expectedView = init::Q::view::create(expectedData.data());
+      alignas(Alignment) std::array<real, Size> expectedData{};
+      auto expectedView = Lifted::Init::view::create(expectedData.data());
       for (std::size_t simulation = 0; simulation < multisim::NumSimulations; ++simulation) {
-        const Eigen::MatrixXd values =
-            evaluate * fieldOf(init::Q::view::create(buffer.data()), simulation);
-        Eigen::MatrixXd product = Eigen::MatrixXd::Zero(Points, Quantities);
+        const Eigen::MatrixXd lifted =
+            fieldOf(Lifted::Init::view::create(buffer.data()), simulation);
+        const Eigen::MatrixXd values = evaluate * lifted.leftCols(Weighted);
+        Eigen::MatrixXd product = Eigen::MatrixXd::Zero(Points, Weighted);
         for (std::size_t point = 0; point < Points; ++point) {
           product.row(point) = values.row(point) * weights[point];
         }
-        const Eigen::MatrixXd expected =
-            fieldOf(init::Q::view::create(start.data()), simulation) + project * product;
+        Eigen::MatrixXd expected = fieldOf(Lifted::Init::view::create(start.data()), simulation);
+        expected.leftCols(Weighted) += project * product;
+        expected.rightCols(Quantities - Weighted) += lifted.rightCols(Quantities - Weighted);
         auto sliced = multisim::simtensor(expectedView, simulation);
         for (std::size_t row = 0; row < Basis; ++row) {
           for (std::size_t column = 0; column < Quantities; ++column) {
@@ -352,9 +395,9 @@ void kernelAgainstMatrices() {
   }
 }
 
-/// With one material for the cell, the corrector of a weight-adjusted cell -- the volume term into
-/// the field, the local and the neighbour fluxes without material into the buffer, the weight
-/// applied to it -- is the one of a cell that lifts with the material. Every face takes a path of
+/// With one material for the cell, what a weight-adjusted cell adds -- its volume term, and the
+/// local and the neighbour fluxes its faces lift without material into its buffer, with the weight
+/// applied to them -- is what a cell adds that lifts with the material. Every face takes a path of
 /// its own: a regular face both fluxes, a free surface its mirrored state, a fault face the
 /// subtraction of its own trace.
 template <bool Enabled>
@@ -362,7 +405,7 @@ void sameWhereConstant() {
   if constexpr (Enabled) {
     using Material = seissol::model::MaterialT;
     using KernelT = std::conditional_t<Enabled, kernel::weightAdjust, void>;
-    using Volume = std::conditional_t<Enabled, kernel::volume, void>;
+    constexpr std::size_t Size = Lifted::Tensor::size();
 
     // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
     std::mt19937 rng(20261017);
@@ -392,17 +435,17 @@ void sameWhereConstant() {
         fillRandom(neighbor, rng);
       }
 
-      // the faces, lifted with the scalars the setup gave them into `target`
+      // the faces, lifted with the operators the setup gave them into `target`
       const auto addFaces = [&](const LocalIntegrationData& local,
                                 const NeighboringIntegrationData& neighboring,
                                 real* target) {
-        kernel::localFlux flux{};
+        Lifted::LocalFlux flux{};
         flux.bindGlobals(seissol::Pool::host());
         flux.I = dofs.data();
-        flux.Q = target;
-        kernel::neighboringFlux neighbor{};
+        Lifted::bind(flux, target);
+        Lifted::NeighborFlux neighbor{};
         neighbor.bindGlobals(seissol::Pool::host());
-        neighbor.Q = target;
+        Lifted::bind(neighbor, target);
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           if (appliesLocalFlux(faceTypes[side])) {
             kernels::bindLocalFluxOperands(flux, local, side);
@@ -416,13 +459,13 @@ void sameWhereConstant() {
         }
       };
 
-      alignas(Alignment) std::array<real, tensor::Q::size()> plain{};
-      addVolumeTerm<Volume>(dofs.data(), plain.data(), plainLocal);
+      alignas(Alignment) std::array<real, Size> plain{};
+      Lifted::addVolume(dofs.data(), plain.data(), plainLocal);
       addFaces(plainLocal, plainNeighboring, plain.data());
 
-      alignas(Alignment) std::array<real, tensor::Q::size()> adjusted{};
-      alignas(Alignment) std::array<real, tensor::Q::size()> buffer{};
-      addVolumeTerm<Volume>(dofs.data(), adjusted.data(), adjustedLocal);
+      alignas(Alignment) std::array<real, Size> adjusted{};
+      alignas(Alignment) std::array<real, Size> buffer{};
+      Lifted::addVolume(dofs.data(), adjusted.data(), adjustedLocal);
       addFaces(adjustedLocal, adjustedNeighboring, buffer.data());
       applyWeight<KernelT>(buffer.data(), adjusted.data(), adjustedLocal);
 
@@ -439,6 +482,7 @@ void faultSameWhereConstant() {
     using Material = seissol::model::MaterialT;
     using KernelT = std::conditional_t<Enabled, kernel::weightAdjust, void>;
     constexpr std::size_t Points = dr::misc::NumBoundaryGaussPoints;
+    constexpr std::size_t Size = Lifted::Tensor::size();
 
     // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
     std::mt19937 rng(20261018);
@@ -493,15 +537,15 @@ void faultSameWhereConstant() {
         krnl.bindGlobals(seissol::Pool::host());
         kernels::bindFaultFluxOperands(krnl, scalars);
         krnl.QInterpolated = imposed.data();
-        krnl.Q = target;
+        Lifted::bind(krnl, target);
         krnl.execute(side, relation);
       };
       for (unsigned side = 0; side < Cell::NumFaces; ++side) {
         for (unsigned relation = 0; relation < 2; ++relation) {
-          alignas(Alignment) std::array<real, tensor::Q::size()> plain{};
+          alignas(Alignment) std::array<real, Size> plain{};
           lift(plainLift.data(), plain.data(), side, relation);
-          alignas(Alignment) std::array<real, tensor::Q::size()> buffer{};
-          alignas(Alignment) std::array<real, tensor::Q::size()> adjusted{};
+          alignas(Alignment) std::array<real, Size> buffer{};
+          alignas(Alignment) std::array<real, Size> adjusted{};
           lift(adjustedLift.data(), buffer.data(), side, relation);
           applyWeight<KernelT>(buffer.data(), adjusted.data(), local);
           requireSameUpdate(adjusted.data(), plain.data());
@@ -525,8 +569,6 @@ TEST_CASE("A weight-adjusted fault side lifts what a plain one does where the ma
           "vary") {
   weightadjusted::faultSameWhereConstant<WeightAdjustable && NodalFaultFlux>();
 }
-
-#endif // SEISSOL_KERNELS_LINEARCKANELASTIC
 
 } // namespace seissol::unit_test
 

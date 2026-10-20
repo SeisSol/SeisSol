@@ -93,10 +93,13 @@ static_assert(!Config::Curvilinear || NodalFaultFlux,
 /// faces of such a cell lift their fluxes with B into a buffer of its own (LTS::FluxBuffer), and
 /// once all of them are in, the cell adds the buffer read at the sample points, times W^-1 there,
 /// projected back (kernel::weightAdjust). Where the material jumps inside a cell, that keeps the
-/// scheme stable where lifting with the material at the face does not. It needs the flux at the
-/// points of a face and a medium that states its weight; which cells take it, the run decides
-/// (see seissol::initializer::ImpedanceSpread).
-constexpr bool WeightAdjustable = NodalFlux && generated::WeightAdjustable;
+/// scheme stable where lifting with the material at the face does not. It needs the material at
+/// the sample points and a medium that states its weight. A medium with memory variables takes the
+/// weight of its base material; the rows its faces lift for the memory variables carry no material
+/// and pass through. A face whose flux is one matrix per side forms it without material just as a
+/// face with its scalars per point does. Which cells take it, the run decides (see
+/// seissol::initializer::ImpedanceSpread).
+constexpr bool WeightAdjustable = NodalMaterial && generated::WeightAdjustable;
 
 /// Whether the corrector applies its volume term in the strong form. It does wherever the operator
 /// varies inside a cell: the weak form lifts the cell's own trace with the operator inside the

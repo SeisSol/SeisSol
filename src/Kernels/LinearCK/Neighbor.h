@@ -15,6 +15,7 @@
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Neighbor.h"
 #include "Kernels/StarOperands.h"
+#include "Kernels/WeightAdjustment.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Model/OperatorLayout.h"
 #include "Monitoring/Metric.h"
@@ -23,38 +24,6 @@
 #endif
 
 namespace seissol::kernels::solver::linearck {
-
-/// Adds the inverse weight of the medium applied to the flux buffer of a weight-adjusted cell to
-/// its field (see WeightAdjustable). A class of its own, so that a build without the kernel never
-/// instantiates what names its operands.
-template <bool Enabled, typename KernelT>
-class WeightAdjustment {
-  public:
-  void setGlobalData(const CompoundGlobalData& global) { prototype_.bindGlobals(*global.onHost); }
-
-  void apply(LTS::Ref& data) const {
-    KernelT krnl = prototype_;
-    krnl.Q = data.get<LTS::Dofs>();
-    krnl.fluxBuffer = data.get<LTS::FluxBuffer>();
-    kernels::bindWeightOperands(krnl, data.get<LTS::LocalIntegration>());
-    krnl.execute();
-  }
-
-  [[nodiscard]] static PerformanceEstimate metrics() {
-    return PerformanceEstimate::fromKernel<KernelT>();
-  }
-
-  private:
-  KernelT prototype_;
-};
-
-template <typename KernelT>
-class WeightAdjustment<false, KernelT> {
-  public:
-  void setGlobalData(const CompoundGlobalData& /*global*/) {}
-  void apply(LTS::Ref& /*data*/) const {}
-  [[nodiscard]] static PerformanceEstimate metrics() { return {}; }
-};
 
 class Neighbor : public NeighborKernel {
   public:
@@ -80,7 +49,7 @@ class Neighbor : public NeighborKernel {
   protected:
   kernel::neighboringFlux nfKrnlPrototype_;
   dynamicRupture::kernel::nodalFlux drKrnlPrototype_;
-  WeightAdjustment<WeightAdjustable, kernel::weightAdjust> weightAdjustment_;
+  WeightAdjustmentT weightAdjustment_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_neighboringFlux deviceNfKrnlPrototype_;

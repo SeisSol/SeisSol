@@ -14,9 +14,11 @@
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
 #include "Kernels/StarOperands.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Model/OperatorLayout.h"
 #include "Monitoring/Metric.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstring>
@@ -31,6 +33,10 @@ GENERATE_HAS_MEMBER(E)
 GENERATE_HAS_MEMBER(extraOffset_E)
 
 namespace seissol::kernels::solver::linearckanelastic {
+
+static_assert(!WeightAdjustable || kernels::size<tensor::fluxBuffer>() == tensor::Qext::size(),
+              "the faces of a weight-adjusted cell lift into its flux buffer as into the extended "
+              "field");
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
   volumeKernelPrototype_.bindGlobals(*global.onHost);
@@ -61,13 +67,23 @@ void Local::computeIntegral(
 
   alignas(Alignment) real Qext[tensor::Qext::size()];
 
+  // A weight-adjusted cell lifts its face terms without material into its flux buffer, which
+  // starts empty here and which the neighbour integral finishes and hands to the field and the
+  // memory variables (WeightAdjustable); the volume term goes there through the extended field
+  // either way.
+  real* fluxTarget = Qext;
+  if (WeightAdjustable && data.get<LTS::CellInformation>().weightAdjusted) {
+    fluxTarget = data.get<LTS::FluxBuffer>();
+    std::fill_n(fluxTarget, kernels::size<tensor::fluxBuffer>(), static_cast<real>(0));
+  }
+
   kernel::volumeExt volKrnl = volumeKernelPrototype_;
   volKrnl.Qext = Qext;
   volKrnl.I = timeIntegratedDoFs;
   kernels::bindStarOperands(volKrnl, data.get<LTS::LocalIntegration>());
 
   kernel::localFluxExt lfKrnl = localFluxKernelPrototype_;
-  lfKrnl.Qext = Qext;
+  lfKrnl.Qext = fluxTarget;
   lfKrnl.I = timeIntegratedDoFs;
   lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
   lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
@@ -94,7 +110,7 @@ void Local::computeIntegral(
       kernel.rho = &localRho;
       kernel.averageNormalDisplacement = tmp.nodalAvgDisplacements[face].data();
 
-      kernel.Qext = Qext;
+      kernel.Qext = fluxTarget;
       kernel.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
 
       kernel.execute(face);
@@ -105,7 +121,7 @@ void Local::computeIntegral(
       kernel.dirichletOffset = cellBoundaryMapping[face].dirichletOffset;
       kernel.dt = timeStepWidth;
 
-      kernel.Qext = Qext;
+      kernel.Qext = fluxTarget;
       kernel.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
 
       kernel.execute(face);
@@ -123,7 +139,7 @@ void Local::computeIntegral(
                                    timeStepWidth);
 
       auto nodalLfKrnl = nodalLfKrnlPrototype_;
-      nodalLfKrnl.Qext = Qext;
+      nodalLfKrnl.Qext = fluxTarget;
       nodalLfKrnl.INodal = dofsFaceBoundaryNodal;
       nodalLfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
       nodalLfKrnl.execute(face);

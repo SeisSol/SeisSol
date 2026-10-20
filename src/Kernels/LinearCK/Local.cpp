@@ -53,6 +53,9 @@ GENERATE_HAS_MEMBER(volumeFused)
 
 namespace seissol::kernels::solver::linearck {
 
+static_assert(!WeightAdjustable || kernels::size<tensor::fluxBuffer>() == tensor::Q::size(),
+              "the faces of a weight-adjusted cell lift into its flux buffer as into its field");
+
 namespace {
 /// Hands the volume kernel what it reads: the volume term the predictor of the cell formed
 /// already, where the build forms it there (LocalTmp::volumeFused), or else the time integral
@@ -103,7 +106,7 @@ void Local::computeIntegral(
   real* fluxTarget = data.get<LTS::Dofs>();
   if (WeightAdjustable && data.get<LTS::CellInformation>().weightAdjusted) {
     fluxTarget = data.get<LTS::FluxBuffer>();
-    std::fill_n(fluxTarget, tensor::Q::size(), static_cast<real>(0));
+    std::fill_n(fluxTarget, kernels::size<tensor::fluxBuffer>(), static_cast<real>(0));
   }
 
   kernel::volume volKrnl = volumeKernelPrototype_;

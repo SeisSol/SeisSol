@@ -864,20 +864,27 @@ class ADERDGBase(ABC):
         buffer of its own and applies W^-1 once for all of them: it reads the
         buffer at the sample points, multiplies by the inverse weight there and
         projects back, the three steps the operator takes inside the cell. Only
-        a medium that states its weight has this, and only where the flux of a
-        face is the scalars per point, which the operator without material
-        gives as well. A medium with memory variables does not state its weight
-        yet.
+        a medium that states its weight has this, a medium with relaxation the
+        one of its base material.
+
+        The buffer has the shape of what the faces lift into, the field a
+        solver adds its flux to before anything else: Q, or the extended field
+        of a solver that keeps the memory variables apart. The weight reaches
+        the quantities of the medium itself. The rows the faces lift beyond
+        those -- the memory variables, or the strain rate a solver hands to
+        them -- carry no material, so they pass through as they are.
         """
         self._weightStructure = {}
-        decomposition = coefficients.BY_EQUATION.get(self.name())
-        if decomposition is None or not decomposition.weight or not self.nodalFaceFlux:
+        decomposition = coefficients.weighted(self.name())
+        if decomposition is None or not self.nodalMaterial:
             return
-        quantities = self.numQuantities()
+        weighted = total_extent(layout(self.primaryGroups()))
+        lifted = self.numExtendedQuantities()
+        self._weightedQuantities = weighted
         for a in sorted({entry.coefficient for entry in decomposition.weight}):
             self._weightStructure[a] = Tensor(
                 f"weightStructure({a})",
-                (quantities, quantities),
+                (weighted, weighted),
                 spp={
                     (entry.row, entry.column): repr(float(entry.factor))
                     for entry in decomposition.weight
@@ -891,9 +898,27 @@ class ADERDGBase(ABC):
             self.Q.optName(),
             self.Q.optSize(),
             self.Q.optPos(),
-            (self.num3DBasisFunctions(), quantities),
+            (self.num3DBasisFunctions(), lifted),
             alignStride=True,
         )
+        npoints = self.operatorEval.shape()[0]
+        self.weightValues = self.nodalTemporary("weightValues", (npoints, weighted))
+        self.weightProduct = self.nodalTemporary("weightProduct", (npoints, weighted))
+        self._weightInject = None
+        self._weightPassThrough = None
+        if lifted > weighted:
+            self._weightInject = Tensor(
+                "weightInject",
+                (weighted, lifted),
+                spp={(q, q): "1.0" for q in range(weighted)},
+                addressing=AddressingMode.IMMEDIATE,
+            )
+            self._weightPassThrough = Tensor(
+                "weightPassThrough",
+                (lifted, lifted),
+                spp={(q, q): "1.0" for q in range(weighted, lifted)},
+                addressing=AddressingMode.IMMEDIATE,
+            )
 
     def weightAdjustable(self):
         """Whether a cell of this build can apply the inverse weight of its
@@ -902,18 +927,32 @@ class ADERDGBase(ABC):
 
     def weightAdjust(self, source, target):
         """Adds the inverse weight applied to `source` to `target`: `source` read
-        at the sample points, multiplied by W^-1 there and projected back."""
-        values = self.definedOnce(self.nodalValues)
-        product = self.definedOnce(self.nodalProduct)
-        statements = [values["nq"] <= self.operatorEval["nk"] * source["kq"]]
+        at the sample points, multiplied by W^-1 there and projected back, and
+        the rows beyond the medium's own as they are."""
+        values = self.definedOnce(self.weightValues)
+        product = self.definedOnce(self.weightProduct)
+        weighted = self._weightedQuantities
+        read = source["kq"]
+        if self._weightInject is not None:
+            read = read.subslice("q", 0, weighted)
+        statements = [values["nq"] <= self.operatorEval["nk"] * read]
         for position, (a, structure) in enumerate(self._weightStructure.items()):
             term = self.nodalCoefficients[a]["n"] * values["nq"] * structure["qp"]
             statements.append(
                 product["np"] <= (term if position == 0 else product["np"] + term)
             )
-        statements.append(
-            target["kp"] <= target["kp"] + self.operatorProject["kn"] * product["np"]
-        )
+        if self._weightInject is None:
+            statements.append(
+                target["kp"]
+                <= target["kp"] + self.operatorProject["kn"] * product["np"]
+            )
+        else:
+            statements.append(
+                target["kp"]
+                <= target["kp"]
+                + self.operatorProject["kn"] * product["nq"] * self._weightInject["qp"]
+                + source["kq"] * self._weightPassThrough["qp"]
+            )
         return statements
 
     def nodalFlux(

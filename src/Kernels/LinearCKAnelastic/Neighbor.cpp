@@ -12,6 +12,7 @@
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/StarOperands.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Model/OperatorLayout.h"
 #include "Monitoring/Metric.h"
 
@@ -36,6 +37,7 @@ static_assert(std::size(seissol::kernel::neighborFluxExt::ExecutePtrs) ==
 void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   nfKrnlPrototype_.bindGlobals(*global.onHost);
   drKrnlPrototype_.bindGlobals(*global.onHost);
+  weightAdjustment_.setGlobalData(global);
 
 #ifdef ACL_DEVICE
   deviceNfKrnlPrototype_.bindGlobals(*global.onDevice);
@@ -63,8 +65,14 @@ void Neighbor::computeNeighborsIntegral(
 
   alignas(PagesizeStack) real Qext[tensor::Qext::size()] = {};
 
+  // a weight-adjusted cell collects what its faces lift in its flux buffer, which the local
+  // integral started, and adds the inverse weight applied to it to the extended field once they
+  // are all in (WeightAdjustable)
+  const bool weightAdjusted = WeightAdjustable && data.get<LTS::CellInformation>().weightAdjusted;
+  real* fluxTarget = weightAdjusted ? data.get<LTS::FluxBuffer>() : Qext;
+
   kernel::neighborFluxExt nfKrnl = nfKrnlPrototype_;
-  nfKrnl.Qext = Qext;
+  nfKrnl.Qext = fluxTarget;
 
   // iterate over faces
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -84,10 +92,14 @@ void Neighbor::computeNeighborsIntegral(
       dynamicRupture::kernel::nodalFlux drKrnl = drKrnlPrototype_;
       kernels::bindFaultFluxOperands(drKrnl, cellDrMapping[face].fluxSolver);
       drKrnl.QInterpolated = cellDrMapping[face].godunov;
-      drKrnl.Qext = Qext;
+      drKrnl.Qext = fluxTarget;
       drKrnl._prefetch.I = faceNeighborsPrefetch[face];
       drKrnl.execute(cellDrMapping[face].side, cellDrMapping[face].faceRelation);
     }
+  }
+
+  if (weightAdjusted) {
+    weightAdjustment_.apply(data, [&](auto& krnl) { krnl.Qext = Qext; });
   }
 
   kernel::neighbor nKrnl = nKrnlPrototype_;

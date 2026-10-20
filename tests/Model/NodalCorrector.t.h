@@ -51,25 +51,9 @@
 #include <random>
 #include <type_traits>
 
-// The anelastic solver writes its corrector into the extended quantities and
-// adds the relaxation in a kernel of its own; the comparison has no single
-// kernel sequence to run there.
-#ifndef SEISSOL_KERNELS_LINEARCKANELASTIC
-
 namespace seissol::unit_test {
 
 namespace nodalcorrector {
-
-/// Makes the kernel names dependent on a template parameter, so that a build
-/// without a flux at the nodes never instantiates a body that names operands
-/// it does not have.
-template <bool Enabled>
-struct Kernels {
-  using Volume = std::conditional_t<Enabled, kernel::volume, kernel::volume>;
-  using LocalFlux = std::conditional_t<Enabled, kernel::localFlux, kernel::localFlux>;
-  using NeighborFlux = std::conditional_t<Enabled, kernel::neighboringFlux, void>;
-  using FluxSolver = std::conditional_t<Enabled, kernel::computeFluxSolverLocal, void>;
-};
 
 using VectorT = seissol::geometry::CellTransform::VectorEigenT;
 
@@ -173,6 +157,47 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
       }
     }
 
+    if constexpr (!NodalFlux) {
+      // where the operator of a face is one matrix per side, the setup forms it from the material
+      // of the cell, in the form the corrector takes, and without material where the cell is
+      // weight-adjusted; a fault face has no Riemann problem of its own
+      const auto material = field(face.center());
+      alignas(Alignment) std::array<real, tensor::QgodLocal::size()> godLocal{};
+      alignas(Alignment) std::array<real, tensor::QgodNeighbor::size()> godNeighbor{};
+      auto viewGodLocal = init::QgodLocal::view::create(godLocal.data());
+      auto viewGodNeighbor = init::QgodNeighbor::view::create(godNeighbor.data());
+      if (faceTypes[side] != FaceType::DynamicRupture) {
+        seissol::model::getTransposedGodunovState(
+            material, material, faceTypes[side], viewGodLocal, viewGodNeighbor);
+      }
+      initializer::toCorrectorForm(viewGodLocal);
+      alignas(Alignment) std::array<real, tensor::star::size(0)> star{};
+      auto viewStar = init::star::view<0>::create(star.data());
+      initializer::liftedCoefficientMatrix(material, weightAdjusted, viewStar);
+      alignas(Alignment) std::array<real, tensor::QcorrLocal::size()> qcorrLocal{};
+      alignas(Alignment) std::array<real, tensor::QcorrNeighbor::size()> qcorrNeighbor{};
+
+      kernel::computeFluxSolverLocal localSolver{};
+      localSolver.fluxScale = fluxScale;
+      localSolver.AplusT = local.nApNm1[side];
+      localSolver.QgodLocal = godLocal.data();
+      localSolver.QcorrLocal = qcorrLocal.data();
+      localSolver.T = matT.data();
+      localSolver.Tinv = matTinv.data();
+      localSolver.star(0) = star.data();
+      localSolver.execute();
+
+      kernel::computeFluxSolverNeighbor neighborSolver{};
+      neighborSolver.fluxScale = fluxScale;
+      neighborSolver.AminusT = neighboring.nAmNm1[side];
+      neighborSolver.QgodNeighbor = godNeighbor.data();
+      neighborSolver.QcorrNeighbor = qcorrNeighbor.data();
+      neighborSolver.T = matT.data();
+      neighborSolver.Tinv = matTinv.data();
+      neighborSolver.star(0) = star.data();
+      neighborSolver.execute();
+    }
+
     // the weak form's local operator of the face, from the material at its barycentre: what the
     // matrix form of a build without a varying material applies. A fault face has none.
     weakAplus[side].fill(0);
@@ -222,6 +247,22 @@ auto mathMatrix(const ViewT& view, std::size_t rows, std::size_t columns) -> Eig
   const Eigen::MatrixXd stored = denseOf(view, rows, columns);
   return multisim::NumSimulations > 1 ? Eigen::MatrixXd(stored.transpose()) : stored;
 }
+
+// The anelastic solver writes its corrector into the extended quantities and
+// adds the relaxation in a kernel of its own; the comparison has no single
+// kernel sequence to run there.
+#ifndef SEISSOL_KERNELS_LINEARCKANELASTIC
+
+/// Makes the kernel names dependent on a template parameter, so that a build
+/// without a flux at the nodes never instantiates a body that names operands
+/// it does not have.
+template <bool Enabled>
+struct Kernels {
+  using Volume = std::conditional_t<Enabled, kernel::volume, kernel::volume>;
+  using LocalFlux = std::conditional_t<Enabled, kernel::localFlux, kernel::localFlux>;
+  using NeighborFlux = std::conditional_t<Enabled, kernel::neighboringFlux, void>;
+  using FluxSolver = std::conditional_t<Enabled, kernel::computeFluxSolverLocal, void>;
+};
 
 template <bool Enabled>
 void weakEquivalence() {
@@ -440,7 +481,11 @@ void constantState() {
   }
 }
 
+#endif // SEISSOL_KERNELS_LINEARCKANELASTIC
+
 } // namespace nodalcorrector
+
+#ifndef SEISSOL_KERNELS_LINEARCKANELASTIC
 
 TEST_CASE("Nodal corrector is the weak form where the material does not vary") {
   nodalcorrector::weakEquivalence<NodalFlux>();
@@ -450,8 +495,8 @@ TEST_CASE("Nodal corrector keeps a constant state constant") {
   nodalcorrector::constantState<NodalFlux>();
 }
 
-} // namespace seissol::unit_test
-
 #endif // SEISSOL_KERNELS_LINEARCKANELASTIC
+
+} // namespace seissol::unit_test
 
 #endif // SEISSOL_TESTS_MODEL_NODALCORRECTOR_T_H_

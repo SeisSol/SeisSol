@@ -122,7 +122,7 @@ void Neighbor::computeNeighborsIntegral(
   }
 
   if (weightAdjusted) {
-    weightAdjustment_.apply(data);
+    weightAdjustment_.apply(data, [&](auto& krnl) { krnl.Q = data.get<LTS::Dofs>(); });
   }
 }
 

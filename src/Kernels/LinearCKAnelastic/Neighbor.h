@@ -12,6 +12,9 @@
 
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Neighbor.h"
+#include "Kernels/WeightAdjustment.h"
+#include "Model/OperatorLayout.h"
+#include "Monitoring/Metric.h"
 
 namespace seissol::kernels::solver::linearckanelastic {
 class Neighbor : public NeighborKernel {
@@ -31,10 +34,15 @@ class Neighbor : public NeighborKernel {
               const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
               const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const override;
 
+  [[nodiscard]] PerformanceEstimate weightAdjustMetrics() const override {
+    return decltype(weightAdjustment_)::metrics();
+  }
+
   protected:
   kernel::neighborFluxExt nfKrnlPrototype_;
   kernel::neighbor nKrnlPrototype_;
   dynamicRupture::kernel::nodalFlux drKrnlPrototype_;
+  WeightAdjustmentT weightAdjustment_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_neighborFluxExt deviceNfKrnlPrototype_;

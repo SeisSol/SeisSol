@@ -130,13 +130,22 @@ A weight-adjusted cell
   it is contracted with that changes (``fluxScalarsOfNode``). The scalars a face
   carries keep their positions. Two of them become zero: without material the
   flux of a face reaches no transverse normal strain, which only the weight turns
-  into stress, inside the cell. The same goes for the lift of a fault face and for
-  the boundary conditions that apply a matrix per face;
+  into stress, inside the cell. The same goes for a face whose flux is one matrix
+  per side, as the one of a poroelastic medium is (``liftedCoefficientMatrix``),
+  for the lift of a fault face and for the boundary conditions that apply a
+  matrix per face;
 * collects those lifts in a buffer of its own (``LTS::FluxBuffer``), which the
-  local integral clears and the neighbour integral finishes;
+  local integral clears and the neighbour integral finishes. The buffer has the
+  shape of what the faces lift into: the field, or for the solver that keeps the
+  memory variables apart (``SOLVER=linearckanelastic``) its extended field of the
+  base quantities and a strain rate, which the local and the neighbour integral
+  hand on to the field and the memory variables alike. So a weight-adjusted cell
+  of that solver hands on its volume term in the local integral, and all of its
+  fluxes, weighted, in the neighbour integral;
 * adds at the end of the neighbour integral, before the plasticity, the buffer
   read at the sample points, times :math:`W^{-1}` there, projected back
-  (``kernel::weightAdjust``);
+  (``kernel::weightAdjust``); the rows beyond the quantities of the medium come
+  in as they are;
 * keeps its volume term as it is. On a straight-sided cell the volume term
   without material is a polynomial of the cell's degree, so applying the weight
   to it at the points is what the cell does already. On a curved cell it is not;
@@ -319,6 +328,31 @@ the assembled operator -- the first slab grows from 1.05 to 4.4e59 by
 weight-adjusted; with every cell weight-adjusted on a constant material, the
 errors against the planar wave are the plain run's to 4e-15.
 
+A viscoelastic medium with three mechanisms, :math:`Q_P = 40` and :math:`Q_S = 20`
+everywhere at a central frequency of 1 and a ratio of 100, with the solver that
+keeps the memory variables apart (``SOLVER=linearckanelastic``): the first slab
+grows from 0.089 to 6.5e30 by :math:`t = 0.5` with the plain lift; with its 414
+cells weight-adjusted it stays at or below 0.089 to :math:`t = 1`, decaying to
+0.028. With every cell weight-adjusted on a constant material, the energies --
+those of the memory variables among them -- are the plain run's to 4e-16, and so
+are the errors against the planar wave in the digits the log gives.
+
+A viscoacoustic medium with three mechanisms and :math:`Q_P = 40` everywhere, the
+bulk modulus 100 times as large inside the slab, with the same solver: it grows
+from 0.048 to 4.5e11 by :math:`t = 0.5` with the plain lift, and stays at or below
+0.048 to :math:`t = 0.5` with its 414 cells weight-adjusted. With every cell
+weight-adjusted on a constant material, the energies are the plain run's to
+5e-16.
+
+A poroelastic medium, the slab with :math:`\lambda`, :math:`\mu` and the bulk
+modulus of the solid 100 times as large, the fluid, the porosity and the
+densities the same everywhere: it grows from 1.26 to 2.3e40 by :math:`t = 0.25`
+with the plain lift; with its 410 cells weight-adjusted, at 0.13 times the time
+step their wave speeds permit, it stays between 0.58 and 1.26 to :math:`t = 1`.
+With every cell weight-adjusted on a constant material, the energies are the
+plain run's to 5e-16, and so are the errors against the planar wave in the
+digits the log gives.
+
 Cost
 ----
 
@@ -347,33 +381,42 @@ precision, ``hsw``, thousands of nonzero / hardware operations):
     - 726.1 / 786.3
     - 20 %
 
-An acoustic cell at order 4: 6.8 / 7.8 on 46.3 / 51.8. Timed on one core (a Xeon at
-2.1 GHz, the kernels for ``hsw``) over 4096 cells with operands of their own, the
-weight takes 0.9 µs against 11.5 µs for the rest of the cell's step at order 4
-(8 %), and 9.4 µs against 79 µs at order 6 (12 %): it is a product with dense
-matrices, which runs faster than the predictor.
+An acoustic cell at order 4: 6.8 / 7.8 on 46.3 / 51.8. A viscoelastic one with
+three mechanisms: 16.1 / 18.2 on 323.9 / 393.3 with the memory variables kept
+apart (5 %), 16.6 / 18.5 on 593.7 / 680.7 with them in the field (3 %). A
+poroelastic one: 23.3 / 26.5 on 690.1 / 1011.5 (3 %), most of which is its
+space-time predictor.
+
+Timed on one core (a Xeon at 2.1 GHz, the kernels for ``hsw``) over 4096 cells
+with operands of their own, the weight takes 0.9 µs against 11.5 µs for the rest
+of an elastic cell's step at order 4 (8 %), and 9.4 µs against 79 µs at order 6
+(12 %): it is a product with dense matrices, which runs faster than the
+predictor.
 
 What a run pays is mostly the time step. In the first slab above, where a third of
 the cells is weight-adjusted and steps at a tenth of what its wave speeds permit,
 the clusters update 6.9 times as many cells per time as in the plain run, and the
 run took 6.4 times as long; with the S impedances alone by 10, 3.9 times as many,
-and for the smooth bump with every cell weight-adjusted 1.6 times as many.
+and for the smooth bump with every cell weight-adjusted 1.6 times as many. The
+viscoelastic and the viscoacoustic slab update 6.9 times as many cells per time,
+the poroelastic one 5.2 times as many.
 
 Every cell of a rank carries the buffer where any of them is weight-adjusted, as
-much memory again as its degrees of freedom: 1.4 kB for an elastic cell at order
-4, 4.0 kB at order 6, in double precision. A rank without such a cell has none.
+large as the field its faces lift into: 1.4 kB for an elastic cell at order 4,
+4.0 kB at order 6, 2.4 kB for a viscoelastic one at order 4 with the memory
+variables kept apart, in double precision. A rank without such a cell has none.
 
 What is not done
 ----------------
 
+- The anisotropic medium, which states no weight.
+- The memory variables with ``SOLVER=linearck``. Its kernels take the weight as
+  the others do and compile, but a viscoelastic build with that solver does not,
+  weight or not (the energy output has no viscoelastic part for it), so none of
+  it ran.
 - The device. Its batched kernels would take the buffer of a weight-adjusted
   cell in place of its field and apply the weight to a batch of such cells; a
   device build ignores ``weightadjustedratio`` for now.
-- The media with memory variables. They take the weight of their base material,
-  which leaves the rows of the memory variables alone; what is missing are the
-  kernels that apply it.
-- The anisotropic medium, which states no weight, and the poroelastic medium,
-  whose flux a face does not carry as scalars per point.
 - A finer choice of the cells. A cell whose material varies smoothly but by more
   than the ratio pays the time step of a jump.
 - The time step at orders 2, 7 and 8, which take the smallest :math:`c` of the
@@ -391,13 +434,17 @@ the weight of a poroelastic medium is positive definite; the flux without
 material decomposes into the scalars of a face as the one with the material
 does, between solids, fluids and both, and at a free surface; the kernel that
 applies the weight does what its matrices say where the material differs from
-sample to sample, a fluid among the samples; with one material for the cell,
-what a weight-adjusted cell adds -- the volume term, the local and the neighbour
-fluxes of a regular, a free-surface and a fault face, the lift of a fault face --
-is what a cell adds that lifts with the material, for a solid and for a fluid;
-and the spread of the impedances and the time step it gives at every order.
+sample to sample, a fluid among the samples, and leaves the rows beyond the
+quantities of the medium as they are; with one material for the cell, what a
+weight-adjusted cell adds -- the volume term, the local and the neighbour fluxes
+of a regular, a free-surface and a fault face, the lift of a fault face, a face
+that carries a matrix per side -- is what a cell adds that lifts with the
+material, for a solid and for a fluid, into the field and into the extended field
+of the solver that keeps the memory variables apart; and the spread of the
+impedances and the time step it gives at every order.
 
 End to end: the runs above -- a weight-adjusted run on a constant material
-against the plain one, on straight and on curved cells, elastic and acoustic; the
-slabs against the plain lift and against longer time steps, at orders 3 to 6; a
-smooth material against cells half as large; one rank against two.
+against the plain one, on straight and on curved cells, elastic, acoustic,
+viscoelastic, viscoacoustic and poroelastic; the slabs against the plain lift and
+against longer time steps, at orders 3 to 6; a smooth material against cells
+half as large; one rank against two.

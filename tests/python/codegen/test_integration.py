@@ -442,37 +442,58 @@ class TestLeftFactor:
 
 class TestWeightAdjustable:
     """A cell can lift its fluxes without material and apply the inverse weight
-    of its medium afterwards where the flux of a face is the scalars per point
-    and the medium states its weight: the elastic and the acoustic one, on
-    straight and on curved cells. The kernel that applies the weight writes
-    every quantity the weight reaches."""
+    of its medium afterwards where the material varies inside it and the medium
+    states its weight; a medium with memory variables takes the one of its base
+    material. The kernel that applies the weight writes every quantity of the
+    medium, and adds the rows a face lifts beyond them -- for the memory
+    variables, or into the extended field of the solver that keeps them apart --
+    as they are."""
 
     _make = TestLeftFactor._make
+
+    @staticmethod
+    def _check(adg, weighted, lifted):
+        assert adg.weightAdjustable()
+        assert adg.fluxBuffer.shape() == (20, lifted)
+        reached = np.zeros((weighted, weighted), dtype=bool)
+        for structure in adg._weightStructure.values():
+            assert structure.shape() == (weighted, weighted)
+            for index in structure.values():
+                reached[index] = True
+        # the weight leaves no quantity of the medium out
+        assert reached.diagonal().all()
+        if lifted == weighted:
+            assert adg._weightPassThrough is None
+            return
+        passed = {index for index in adg._weightPassThrough.values()}
+        assert passed == {(q, q) for q in range(weighted, lifted)}
+        injected = {index for index in adg._weightInject.values()}
+        assert injected == {(q, q) for q in range(weighted)}
 
     @pytest.mark.parametrize("equation, quantities", [("elastic", 9), ("acoustic", 4)])
     def test_media_that_state_their_weight(self, equation, quantities):
         for curvilinear in (False, True):
             adg = self._make(equation, "linearck", curvilinear=curvilinear)
-            assert adg.weightAdjustable()
-            assert adg.fluxBuffer.shape() == (20, quantities)
-            reached = np.zeros((quantities, quantities), dtype=bool)
-            for structure in adg._weightStructure.values():
-                for index in structure.values():
-                    reached[index] = True
-            # the weight is block diagonal and leaves no quantity out
-            assert reached.diagonal().all()
+            self._check(adg, quantities, quantities)
 
     @pytest.mark.parametrize(
-        "equation, solver, mechanisms",
+        "equation, solver, mechanisms, weighted, lifted",
         [
-            ("anisotropic", "linearck", 0),
-            ("viscoelastic", "linearck", 3),
-            ("viscoelastic", "linearckanelastic", 3),
-            ("poroelastic", "stp", 0),
+            ("viscoelastic", "linearck", 3, 9, 27),
+            ("viscoelastic", "linearckanelastic", 3, 9, 15),
+            ("viscoacoustic", "linearck", 3, 4, 7),
+            ("viscoacoustic", "linearckanelastic", 3, 4, 5),
+            ("poroelastic", "stp", 0, 13, 13),
         ],
     )
-    def test_other_media_do_not(self, equation, solver, mechanisms):
+    def test_media_that_take_a_weight(
+        self, equation, solver, mechanisms, weighted, lifted
+    ):
         adg = self._make(equation, solver, numMechanisms=mechanisms)
+        self._check(adg, weighted, lifted)
+
+    def test_other_media_do_not(self):
+        adg = self._make("anisotropic", "linearck")
         assert not adg.weightAdjustable()
 
 

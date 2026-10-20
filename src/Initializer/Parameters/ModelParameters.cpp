@@ -157,8 +157,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                       "so far.";
     } else {
       logWarning() << "weightadjustedratio is ignored: a cell is weight-adjusted where the "
-                      "material varies inside it (MATERIAL_NODAL=ON) and the medium is elastic "
-                      "or acoustic.";
+                      "material varies inside it (MATERIAL_NODAL=ON) and the medium is isotropic.";
     }
     weightAdjustedRatio = 0.0;
   }

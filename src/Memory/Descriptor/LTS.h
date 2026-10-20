@@ -25,6 +25,7 @@
 
 namespace seissol::tensor {
 struct Qane;
+struct fluxBuffer;
 } // namespace seissol::tensor
 
 namespace seissol {
@@ -153,9 +154,12 @@ struct LTS {
   struct Integrals : public initializer::Variable<real[tensor::Q::size()]> {};
 
   /// What the faces of a weight-adjusted cell lift without material within one step, until the
-  /// cell applies the inverse weight of its medium to it (see WeightAdjustable). Every cell of a
-  /// rank has one where any of them is weight-adjusted; one that is not leaves it alone.
-  struct FluxBuffer : public initializer::Variable<real[tensor::Q::size()]> {};
+  /// cell applies the inverse weight of its medium to it (see WeightAdjustable). It has the shape
+  /// of what the faces lift into: the field, or the extended field of a solver that keeps the
+  /// memory variables apart. Every cell of a rank has one where any of them is weight-adjusted; one
+  /// that is not leaves it alone.
+  struct FluxBuffer
+      : public initializer::Variable<real[zeroGuard(kernels::size<tensor::fluxBuffer>())]> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
