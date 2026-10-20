@@ -122,9 +122,11 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
 
   //! the fault receivers decide about their output steps when the work of a step runs
   bool runTimeOutputs_{false};
-  //! the start of the step the fault receivers record in, for decisions at run time
+  //! the start of the step the fault receivers record in, for decisions at run time, and its
+  //! address on the device, which writes it
   double pickpointStepStartHost_{0};
   double* pickpointStepStart_{&pickpointStepStartHost_};
+  double* pickpointStepStartOnDevice_{nullptr};
 
   //! the output times of the current step at which the fault receivers record
   std::vector<double> pickpointTimes_;

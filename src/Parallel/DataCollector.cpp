@@ -18,6 +18,13 @@
 
 namespace seissol::parallel {
 
+namespace {
+// where the gathered data goes: memory the host reads directly
+memory::Memkind gatherMemkind(bool hostAccessible) {
+  return hostAccessible ? memory::Memkind::DeviceUnifiedMemory : memory::Memkind::PinnedMemory;
+}
+} // namespace
+
 DataCollectorUntyped::DataCollectorUntyped(const std::vector<void*>& indexDataHost,
                                            size_t elemSize,
                                            bool hostAccessible)
@@ -25,15 +32,14 @@ DataCollectorUntyped::DataCollectorUntyped(const std::vector<void*>& indexDataHo
       indexCount_(indexDataHost.size()), elemSize_(elemSize) {
   // in case we want to use this class in a host-only scenario
   if constexpr (!isDeviceOn()) {
-    this->hostAccessible_ = true;
+    direct_ = true;
   }
-  if (!this->hostAccessible_ && indexCount_ > 0) {
+  if (!direct_ && indexCount_ > 0) {
     indexDataDevice_ =
         memory::allocTyped<void*>(indexCount_, 1, memory::Memkind::DeviceGlobalMemory);
-    copiedData_ = memory::allocate(elemSize * indexCount_, 1, memory::Memkind::PinnedMemory);
+    copiedData_ = memory::allocate(elemSize * indexCount_, 1, gatherMemkind(hostAccessible_));
 
-    copiedDataDevice_ =
-        memory::hostToDevicePointerTyped(copiedData_, memory::Memkind::PinnedMemory);
+    copiedDataDevice_ = memory::hostToDevicePointer(copiedData_, gatherMemkind(hostAccessible_));
     memory::memcopyTyped(indexDataDevice_,
                          indexDataHost.data(),
                          indexCount_,
@@ -43,15 +49,15 @@ DataCollectorUntyped::DataCollectorUntyped(const std::vector<void*>& indexDataHo
 }
 
 DataCollectorUntyped::~DataCollectorUntyped() {
-  if (!hostAccessible_ && indexCount_ > 0) {
+  if (!direct_ && indexCount_ > 0) {
     memory::freeTyped(indexDataDevice_, memory::Memkind::DeviceGlobalMemory);
-    memory::free(copiedData_, memory::Memkind::PinnedMemory);
+    memory::free(copiedData_, gatherMemkind(hostAccessible_));
   }
 }
 
 // NOLINTNEXTLINE (silence errors due to ifdef ACL_DEVICE)
 void DataCollectorUntyped::gatherToHost(void* stream) {
-  if (!hostAccessible_ && indexCount_ > 0) {
+  if (!direct_ && indexCount_ > 0) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::instance().algorithms().copyScatterToUniformI(
         const_cast<const void**>(indexDataDevice_),
@@ -66,7 +72,7 @@ void DataCollectorUntyped::gatherToHost(void* stream) {
 
 // NOLINTNEXTLINE (silence errors due to ifdef ACL_DEVICE)
 void DataCollectorUntyped::scatterFromHost(void* stream) {
-  if (!hostAccessible_ && indexCount_ > 0) {
+  if (!direct_ && indexCount_ > 0) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::instance().algorithms().copyUniformToScatterI(
         const_cast<const void*>(copiedDataDevice_),

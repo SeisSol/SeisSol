@@ -273,6 +273,8 @@ void DynamicRuptureCluster<Cfg>::setRunTimeOutputs(bool runTimeOutputs) {
 #ifdef ACL_DEVICE
   if (runTimeOutputs_ && pickpointStepStart_ == &pickpointStepStartHost_) {
     pickpointStepStart_ = static_cast<double*>(device_.api().allocPinnedMem(sizeof(double)));
+    pickpointStepStartOnDevice_ =
+        static_cast<double*>(device_.api().devicePointer(pickpointStepStart_));
   }
 #endif
 }
@@ -303,8 +305,12 @@ void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params) 
   if (runTimeOutputs_) {
     const auto layerId = layerData_->id();
     if (faultOutputManager_->hasPickpoints(layerId)) {
-      auto& callRuntime = faultOutputManager_->gatherPickpointData(
-          layerId, clock_.device(), pickpointStepStart_, params.time, streamRuntime_);
+      auto& callRuntime = faultOutputManager_->gatherPickpointData(layerId,
+                                                                   clock_.device(),
+                                                                   pickpointStepStart_,
+                                                                   pickpointStepStartOnDevice_,
+                                                                   params.time,
+                                                                   streamRuntime_);
       // a recording that gets replayed ends before the synchronization point, so the last step
       // before it is never replayed
       const bool lastStep = ct_.isLastStep(ct_.stepsSinceLastSync);
@@ -448,6 +454,7 @@ void DynamicRuptureCluster<Cfg>::finalize() {
   if (pickpointStepStart_ != &pickpointStepStartHost_) {
     device_.api().freePinnedMem(pickpointStepStart_);
     pickpointStepStart_ = &pickpointStepStartHost_;
+    pickpointStepStartOnDevice_ = nullptr;
   }
 #endif
   AbstractTimeCluster::finalize();

@@ -273,9 +273,15 @@ class ReceiverClusterImpl : public ReceiverCluster {
   /// counts the operations of sampling all receiver cells in `samplingSteps` sample times
   void countSamples(std::size_t samplingSteps);
 
-  // for sampleAtRunTime(): the start of the step the samples are taken in
+  /// copies the DOFs of the receiver cells to the host on the stream of the cluster, for the stream
+  /// of the samples
+  void gatherDofs(parallel::runtime::StreamRuntime& runtime);
+
+  // for sampleAtRunTime(): the start of the step the samples are taken in, and its address on the
+  // device, which writes it
   double stepStartHost_{0};
   double* stepStart_{&stepStartHost_};
+  double* stepStartOnDevice_{nullptr};
   double syncPointInterval_;
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities_;
   seissol::SeisSol& seissolInstance_;

@@ -73,6 +73,7 @@ if (WITH_GPU)
     set(DEVICE_SRC ${DEVICE_SRC}
       ${SEISSOL_CODEGEN_DEVICE}
       Kernels/DeviceAux/cudahip/ClockAux.cpp
+      Kernels/DeviceAux/cudahip/HostCopyAux.cpp
       Kernels/DeviceAux/cudahip/PlasticityAux.cpp
       Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
       DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
@@ -81,6 +82,7 @@ if (WITH_GPU)
     set(DEVICE_SRC ${DEVICE_SRC}
           ${SEISSOL_CODEGEN_DEVICE}
           Kernels/DeviceAux/sycl/ClockAux.cpp
+          Kernels/DeviceAux/sycl/HostCopyAux.cpp
           Kernels/DeviceAux/sycl/PlasticityAux.cpp
           Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
           DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp

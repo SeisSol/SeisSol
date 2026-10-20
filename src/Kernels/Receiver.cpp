@@ -51,6 +51,8 @@
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
+#include "Kernels/DeviceAux/HostCopyAux.h"
+
 #include <Device/device.h>
 #endif
 
@@ -280,13 +282,7 @@ void ReceiverClusterImpl<Cfg>::sample(const Sampling& sampling,
     if (extraRuntime_.has_value()) {
       runtime.eventSync(extraRuntime_->eventRecord());
     }
-    deviceCollector_->gatherToHost(runtime.stream());
-    if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
-      deviceCollectorAne_->gatherToHost(runtime.stream());
-    }
-    if (extraRuntime_.has_value()) {
-      extraRuntime_->eventSync(runtime.eventRecord());
-    }
+    gatherDofs(runtime);
   }
 
   const std::size_t cellCount = receiverCells_.size();
@@ -348,15 +344,10 @@ void ReceiverClusterImpl<Cfg>::sampleAtRunTime([[maybe_unused]] const double* de
   if (extraRuntime_.has_value()) {
     runtime.eventSync(extraRuntime_->eventRecord());
   }
-  device::DeviceInstance::instance().api().copyFromAsync(
-      stepStart_, deviceClock, sizeof(double), runtime.stream());
-  deviceCollector_->gatherToHost(runtime.stream());
-  if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
-    deviceCollectorAne_->gatherToHost(runtime.stream());
-  }
-  if (extraRuntime_.has_value()) {
-    extraRuntime_->eventSync(runtime.eventRecord());
-  }
+  // by a kernel, as the copy engines may be busy with a large copy of another stream
+  kernels::device::aux::hostcopy::copyToHost(
+      stepStartOnDevice_, deviceClock, sizeof(double), runtime.stream());
+  gatherDofs(runtime);
 #endif
 
   auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
@@ -371,11 +362,26 @@ void* ReceiverCluster::sampleStream() {
 }
 
 template <typename Cfg>
+void ReceiverClusterImpl<Cfg>::gatherDofs(parallel::runtime::StreamRuntime& runtime) {
+  // in the order of the stream of the cluster, which goes on with the DOFs; the samples get taken
+  // from the copies, on a stream of their own
+  deviceCollector_->gatherToHost(runtime.stream());
+  if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
+    deviceCollectorAne_->gatherToHost(runtime.stream());
+  }
+  if (extraRuntime_.has_value()) {
+    extraRuntime_->eventSync(runtime.eventRecord());
+  }
+}
+
+template <typename Cfg>
 void ReceiverClusterImpl<Cfg>::allocateData() {
 #ifdef ACL_DEVICE
   if (stepStart_ == &stepStartHost_) {
     stepStart_ = static_cast<double*>(
-        device::DeviceInstance::instance().api().allocPinnedMem(sizeof(double)));
+        ::device::DeviceInstance::instance().api().allocPinnedMem(sizeof(double)));
+    stepStartOnDevice_ =
+        static_cast<double*>(::device::DeviceInstance::instance().api().devicePointer(stepStart_));
   }
 #endif
 
@@ -429,8 +435,9 @@ void ReceiverClusterImpl<Cfg>::freeData() {
   extraRuntime_.reset();
 #ifdef ACL_DEVICE
   if (stepStart_ != &stepStartHost_) {
-    device::DeviceInstance::instance().api().freePinnedMem(stepStart_);
+    ::device::DeviceInstance::instance().api().freePinnedMem(stepStart_);
     stepStart_ = &stepStartHost_;
+    stepStartOnDevice_ = nullptr;
   }
 #endif
 }

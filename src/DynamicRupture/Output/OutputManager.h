@@ -75,12 +75,14 @@ class OutputManager {
   /**
    * For fault receivers whose output steps get decided when the work of a step runs: waits until
    * the fault receivers of the last step have been recorded, takes the start of the step (from the
-   * clock on the device, as `hostTime` on the host), and copies the data of the output points to
-   * the host. Returns the runtime to enqueue the decision on.
+   * clock on the device, into pinned memory at `stepStartOnDevice` there; as `hostTime` into
+   * `stepStart` on the host), and copies the data of the output points to the host. Returns the
+   * runtime to enqueue the decision on.
    */
   parallel::runtime::StreamRuntime& gatherPickpointData(std::size_t layerId,
                                                         const double* deviceClock,
                                                         double* stepStart,
+                                                        double* stepStartOnDevice,
                                                         double hostTime,
                                                         parallel::runtime::StreamRuntime& runtime);
 

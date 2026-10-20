@@ -12,11 +12,19 @@
 #include "Memory/MemoryAllocator.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace seissol::parallel {
 
-// wrapper class for sparse device-to-host transfers (e.g. needed for receivers)
+/**
+ * Sparse transfers from the device to the host (e.g. needed for receivers): the data at the given
+ * device addresses gets gathered, in the order of the stream of whoever changes it, into pinned
+ * memory on the host, by a kernel. If the host can read the memory of the device
+ * (`hostAccessible`, e.g. unified memory), it gets gathered into a buffer of that memory instead,
+ * which the host reads, so that it never reads what the device works on. Without a device, the
+ * host reads the data where it is.
+ */
 class DataCollectorUntyped {
   public:
   DataCollectorUntyped(const std::vector<void*>& indexDataHost,
@@ -38,29 +46,30 @@ class DataCollectorUntyped {
   void scatterFromHost(void* stream);
 
   void* get(size_t index) {
-    if (hostAccessible_) {
+    if (direct_) {
       return indexDataHost_[index];
-    } else {
-      return reinterpret_cast<void*>(reinterpret_cast<uint8_t*>(copiedData_) + index * elemSize_);
     }
+    return static_cast<uint8_t*>(copiedData_) + index * elemSize_;
   }
 
   [[nodiscard]] const void* get(size_t index) const {
-    if (hostAccessible_) {
+    if (direct_) {
       return indexDataHost_[index];
-    } else {
-      return reinterpret_cast<void*>(reinterpret_cast<uint8_t*>(copiedData_) + index * elemSize_);
     }
+    return static_cast<const uint8_t*>(copiedData_) + index * elemSize_;
   }
 
   private:
+  // without a device: the host reads the data where it is
+  bool direct_{false};
   bool hostAccessible_;
-  void** indexDataDevice_;
+  void** indexDataDevice_{nullptr};
   std::vector<void*> indexDataHost_;
   size_t indexCount_;
   size_t elemSize_;
-  void* copiedData_;
-  void* copiedDataDevice_;
+  // the gathered data: pinned memory on the host, or a buffer of memory that both can read
+  void* copiedData_{nullptr};
+  void* copiedDataDevice_{nullptr};
 };
 
 // wrapper class; typed version

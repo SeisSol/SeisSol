@@ -66,7 +66,7 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include <Device/device.h>
+#include "Kernels/DeviceAux/HostCopyAux.h"
 #endif
 
 namespace {
@@ -591,7 +591,8 @@ void OutputManager::prepareRunTimeOutput() {
 parallel::runtime::StreamRuntime&
     OutputManager::gatherPickpointData(std::size_t layerId,
                                        [[maybe_unused]] const double* deviceClock,
-                                       double* stepStart,
+                                       [[maybe_unused]] double* stepStart,
+                                       [[maybe_unused]] double* stepStartOnDevice,
                                        [[maybe_unused]] double hostTime,
                                        parallel::runtime::StreamRuntime& runtime) {
   const auto& outputData = ppOutputData_.at(layerId);
@@ -599,8 +600,9 @@ parallel::runtime::StreamRuntime&
   if (outputData->extraRuntime.has_value()) {
     runtime.eventSync(outputData->extraRuntime->eventRecord());
   }
-  device::DeviceInstance::instance().api().copyFromAsync(
-      stepStart, deviceClock, sizeof(double), runtime.stream());
+  // by a kernel, as the copy engines may be busy with a large copy of another stream
+  kernels::device::aux::hostcopy::copyToHost(
+      stepStartOnDevice, deviceClock, sizeof(double), runtime.stream());
   ReceiverOutput::gatherFaultOutput(outputData, runtime);
   if (outputData->extraRuntime.has_value()) {
     outputData->extraRuntime->eventSync(runtime.eventRecord());
