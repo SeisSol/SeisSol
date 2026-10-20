@@ -13,10 +13,20 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 
+#include <cstddef>
 #include <utils/logger.h>
 #include <vector>
 
 namespace seissol::recording {
+
+/// The field the faces of `cell` of `layer` lift into on the device: its degrees of freedom, or
+/// the extended field of a solver that keeps the memory variables apart, which the layer keeps as a
+/// scratchpad.
+real* liftedFieldOf(LTS::Layer& layer, std::size_t cell);
+
+/// What they lift into instead where the cell is weight-adjusted: its flux buffer, to which it
+/// applies the inverse weight of its medium once they are all in (see WeightAdjustable).
+real* fluxTargetOf(LTS::Layer& layer, std::size_t cell);
 
 template <typename VarmapT>
 class AbstractRecorder {
@@ -94,6 +104,8 @@ class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
 
   std::unordered_map<size_t, real*> idofsAddressRegistry_;
   std::vector<real*> dQPtrs_;
+  // what the faces of every cell lift into, see fluxTargetOf
+  std::vector<real*> fluxTargets_;
 
   size_t integratedDofsAddressCounter_{0};
   size_t derivativesAddressCounter_{0};

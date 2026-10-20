@@ -27,10 +27,6 @@
 
 // NOLINTBEGIN (-misc-const-correctness)
 
-namespace seissol::tensor {
-struct Qext;
-}
-
 using namespace seissol::initializer;
 using namespace seissol::recording;
 
@@ -121,6 +117,9 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   auto* faceNeighborsDevice = currentLayer_->var<LTS::FaceNeighborsDevice>();
 
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicDofs {};
+  // what the faces lift into, see fluxTargetOf
+  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularFluxTargets {};
+  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxTargets {};
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicIDofs {};
   std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularPeriodicAminusT {};
   // where the flux is applied at the nodes of a face, it reads the rotation of
@@ -131,12 +130,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
 
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
-
   const auto* drMappingDevice = currentLayer_->var<LTS::DRMappingDevice>();
-
-  auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
 
   const auto size = currentLayer_->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
@@ -159,6 +153,7 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
 
           regularPeriodicDofs[face][faceRelation].push_back(
               static_cast<real*>(data.get<LTS::Dofs>()));
+          regularFluxTargets[face][faceRelation].push_back(fluxTargetOf(*currentLayer_, cell));
           regularPeriodicIDofs[face][faceRelation].push_back(
               idofsAddressRegistry_[neighborBufferPtr]);
           regularPeriodicAminusT[face][faceRelation].push_back(
@@ -166,10 +161,6 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
           if constexpr (NodalFlux) {
             regularPeriodicLocal[face][faceRelation].push_back(
                 reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
-          }
-          if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
-            regularDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                         kernels::size<tensor::Qext>() * cell);
           }
         }
         break;
@@ -180,12 +171,9 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         assert((*DrFaceRelations::Count) > faceRelation &&
                "incorrect face relation count in dyn. rupture has been detected");
         drDofs[face][faceRelation].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
+        drFluxTargets[face][faceRelation].push_back(fluxTargetOf(*currentLayer_, cell));
         drGodunov[face][faceRelation].push_back(drMappingDevice[cell][face].godunov);
         drFluxSolver[face][faceRelation].push_back(drMappingDevice[cell][face].fluxSolver);
-        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
-          drDofsExt[face][faceRelation].push_back(static_cast<real*>(dofsExt) +
-                                                  kernels::size<tensor::Qext>() * cell);
-        }
         break;
       }
       case FaceType::FreeSurface:
@@ -221,15 +209,13 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
                                   regularPeriodicIDofs[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs,
                                   regularPeriodicDofs[face][faceRelation]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget,
+                                  regularFluxTargets[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
                                   regularPeriodicAminusT[face][faceRelation]);
         if constexpr (NodalFlux) {
           (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData,
                                     regularPeriodicLocal[face][faceRelation]);
-        }
-        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
-          (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt,
-                                    regularDofsExt[face][faceRelation]);
         }
       }
     }
@@ -242,11 +228,10 @@ void NeighIntegrationRecorder::recordNeighborFluxIntegrals() {
         checkKey(key);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, drDofs[face][faceRelation]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget,
+                                  drFluxTargets[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::Godunov, drGodunov[face][faceRelation]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::FluxSolver, drFluxSolver[face][faceRelation]);
-        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
-          (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, drDofsExt[face][faceRelation]);
-        }
       }
     }
   }

@@ -184,7 +184,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
               const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
               neighFluxKrnl.numElements = numElements;
 
-              neighFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+              neighFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
               neighFluxKrnl.I = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               // the cell's own data is recorded only where the flux reads the
@@ -223,7 +223,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
                       (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr()));
               drKrnl.QInterpolated = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
-              drKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+              drKrnl.Qext = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
 
               // the lift keeps a temporary where the face carries it per point
               real* tmpMem = nullptr;
@@ -245,6 +245,12 @@ void Neighbor::computeBatchedNeighborsIntegral(
           }
         });
   }
+
+  // the weight-adjusted cells have all of their fluxes in their buffers now, and add the weight
+  // applied to them to their extended fields, which are cleared above (WeightAdjustable)
+  weightAdjustment_.applyBatched(table, runtime, [](auto& krnl, auto& entry) {
+    krnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+  });
 
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   if (table.find(key) != table.end()) {

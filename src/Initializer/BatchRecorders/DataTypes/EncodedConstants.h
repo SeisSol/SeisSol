@@ -50,6 +50,11 @@ struct Wp {
     Analytical,
     QEtaNodal,
     Integrals,
+    // what the faces of a cell lift into: its field, or the extended field of a solver that keeps
+    // the memory variables apart; its flux buffer, where the cell is weight-adjusted
+    FluxTarget,
+    // the flux buffer of a weight-adjusted cell (see WeightAdjustable)
+    FluxBuffer,
     Count
   };
 };
@@ -91,6 +96,7 @@ enum struct KernelNames : size_t {
   Plasticity = 1 << 5,
   DrSpaceMap = 1 << 6,
   BoundaryConditions = 1 << 7,
+  WeightAdjust = 1 << 8,
   Count = 9,
   Any = encodeAny(Count)
 };

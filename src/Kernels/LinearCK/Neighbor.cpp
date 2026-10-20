@@ -150,7 +150,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
               const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
               neighFluxKrnl.numElements = numElements;
 
-              neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+              neighFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
               neighFluxKrnl.I = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
               // the cell's own data is recorded only where the flux reads the
@@ -194,7 +194,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
                       (entry.get(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr()));
               drKrnl.QInterpolated = const_cast<const real**>(
                   (entry.get(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
-              drKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+              drKrnl.Q = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
 
               real* tmpMem = reinterpret_cast<real*>(device_.api->allocMemAsync(
                   seissol::dynamicRupture::kernel::gpu_nodalFlux::TmpMaxMemRequiredInBytes *
@@ -209,6 +209,11 @@ void Neighbor::computeBatchedNeighborsIntegral(
           }
         });
   }
+
+  // the weight-adjusted cells have all of their fluxes in their buffers now (WeightAdjustable)
+  weightAdjustment_.applyBatched(table, runtime, [](auto& krnl, auto& entry) {
+    krnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+  });
 #else
   logError() << "No GPU implementation provided";
 #endif

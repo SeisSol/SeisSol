@@ -43,6 +43,27 @@ struct Zinv;
 
 // NOLINTBEGIN (-misc-const-correctness)
 
+namespace seissol::recording {
+
+real* liftedFieldOf(LTS::Layer& layer, std::size_t cell) {
+  if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
+    auto* dofsExt = layer.var<LTS::DofsExtScratch>(AllocationPlace::Device);
+    return static_cast<real*>(dofsExt) + kernels::size<tensor::Qext>() * cell;
+  } else {
+    return static_cast<real*>(layer.cellRef(cell, AllocationPlace::Device).get<LTS::Dofs>());
+  }
+}
+
+real* fluxTargetOf(LTS::Layer& layer, std::size_t cell) {
+  if (WeightAdjustable &&
+      layer.cellRef(cell, AllocationPlace::Host).get<LTS::CellInformation>().weightAdjusted) {
+    return static_cast<real*>(layer.cellRef(cell, AllocationPlace::Device).get<LTS::FluxBuffer>());
+  }
+  return liftedFieldOf(layer, cell);
+}
+
+} // namespace seissol::recording
+
 void LocalIntegrationRecorder::record(LTS::Layer& layer) {
   setUpContext(layer);
   idofsAddressRegistry_.clear();
@@ -75,9 +96,15 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     std::vector<real*> ltsBuffers;
     std::vector<real*> idofsForLtsBuffers;
     std::vector<real*> zinvExtraPtrs(size, nullptr);
+    // the weight-adjusted cells: their flux buffers, the field the weight comes back to, and the
+    // material at their samples
+    std::vector<real*> fluxBufferPtrs;
+    std::vector<real*> weightTargetPtrs;
+    std::vector<real*> weightLocalPtrs;
 
     idofsPtrs.reserve(size);
     dQPtrs_.resize(size);
+    fluxTargets_.resize(size);
 
     real** derivatives = currentLayer_->var<LTS::DerivativesDevice>();
     real** stepIntegrals = currentLayer_->var<LTS::StepIntegralsDevice>();
@@ -155,6 +182,13 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
         auto* zinvExtraPtr = currentLayer_->var<LTS::ZinvExtra>(AllocationPlace::Device);
         zinvExtraPtrs[cell] = zinvExtraPtr + kernels::familySize<tensor::Zinv>() * cell;
       }
+
+      fluxTargets_[cell] = fluxTargetOf(*currentLayer_, cell);
+      if (WeightAdjustable && dataHost.get<LTS::CellInformation>().weightAdjusted) {
+        fluxBufferPtrs.push_back(fluxTargets_[cell]);
+        weightTargetPtrs.push_back(liftedFieldOf(*currentLayer_, cell));
+        weightLocalPtrs.push_back(localPtrs[cell]);
+      }
     }
     // just to be sure that we took all branches while filling in idofsPtrs vector
     assert(dofsPtrs.size() == idofsPtrs.size());
@@ -167,6 +201,19 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, dQPtrs_);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget, fluxTargets_);
+
+    if (!fluxBufferPtrs.empty()) {
+      // the local integral clears the buffers, the neighbour integral applies the weight to them
+      const ConditionalKey weightKey(*KernelNames::WeightAdjust);
+      checkKey(weightKey);
+      (*currentTable_)[weightKey].set(inner_keys::Wp::Id::FluxBuffer, fluxBufferPtrs);
+      (*currentTable_)[weightKey].set(Config::Solver == SolverType::LinearCKAnelastic
+                                          ? inner_keys::Wp::Id::DofsExt
+                                          : inner_keys::Wp::Id::Dofs,
+                                      weightTargetPtrs);
+      (*currentTable_)[weightKey].set(inner_keys::Wp::Id::LocalIntegrationData, weightLocalPtrs);
+    }
 
     if (!idofsForLtsBuffers.empty()) {
       const ConditionalKey key(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
@@ -194,12 +241,12 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
     std::vector<real*> idofsPtrs;
     std::vector<real*> dofsPtrs;
     std::vector<real*> localPtrs;
-
-    std::vector<real*> dofsExtPtrs;
+    std::vector<real*> fluxTargetPtrs;
 
     idofsPtrs.reserve(size);
     dofsPtrs.reserve(size);
     localPtrs.reserve(size);
+    fluxTargetPtrs.reserve(size);
 
     for (std::size_t cell = 0; cell < size; ++cell) {
       auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
@@ -211,10 +258,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
         idofsPtrs.push_back(idofsAddressRegistry_[cell]);
         dofsPtrs.push_back(static_cast<real*>(data.get<LTS::Dofs>()));
         localPtrs.push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
-        if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
-          auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(AllocationPlace::Device);
-          dofsExtPtrs.push_back(static_cast<real*>(dofsExt) + kernels::size<tensor::Qext>() * cell);
-        }
+        fluxTargetPtrs.push_back(fluxTargets_[cell]);
       }
     }
 
@@ -225,9 +269,7 @@ void LocalIntegrationRecorder::recordLocalFluxIntegral() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
-      if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
-        (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
-      }
+      (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget, fluxTargetPtrs);
     }
   }
 }
@@ -285,6 +327,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
     std::array<std::vector<real*>, 4> derivatives{};
     std::array<std::vector<real*>, 4> dofsPtrs{};
+    std::array<std::vector<real*>, 4> fluxTargetPtrs{};
     std::array<std::vector<real*>, 4> neighPtrs{};
     std::array<std::vector<real*>, 4> t{};
     std::array<std::vector<real*>, 4> tInv{};
@@ -307,6 +350,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
           derivatives[face].push_back(dQPtrs_[cell]);
           dofsPtrs[face].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
+          fluxTargetPtrs[face].push_back(fluxTargets_[cell]);
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
           displacementsPtrs[face].push_back(dataHost.get<LTS::FaceDisplacementsDevice>()[face]);
@@ -342,6 +386,7 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, derivatives[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget, fluxTargetPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData, neighPtrs[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::T, t[face]);
@@ -362,6 +407,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
   const auto size = currentLayer_->size();
   if (size > 0) {
     std::array<std::vector<real*>, Cell::NumFaces> dofsPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> fluxTargetPtrs{};
     std::array<std::vector<real*>, Cell::NumFaces> neighPtrs{};
 
     std::array<std::vector<real*>, Cell::NumFaces> dirichletOffsetPtrs{};
@@ -376,6 +422,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
         if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Dirichlet) {
 
           dofsPtrs[face].push_back(static_cast<real*>(data.get<LTS::Dofs>()));
+          fluxTargetPtrs[face].push_back(fluxTargets_[cell]);
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
 
@@ -393,6 +440,7 @@ void LocalIntegrationRecorder::recordDirichletBc() {
             *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
         checkKey(key);
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget, fluxTargetPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData, neighPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::DirichletOffset, dirichletOffsetPtrs[face]);
       }
@@ -404,6 +452,7 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
   const auto size = currentLayer_->size();
   if (size > 0) {
     std::array<std::vector<real*>, Cell::NumFaces> dofsPtrs{};
+    std::array<std::vector<real*>, Cell::NumFaces> fluxTargetPtrs{};
     std::array<std::vector<real*>, Cell::NumFaces> neighPtrs{};
     std::array<std::vector<unsigned>, Cell::NumFaces> cellIndices{};
     std::array<std::vector<real*>, Cell::NumFaces> analytical{};
@@ -419,6 +468,7 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
         if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Analytical) {
           cellIndices[face].push_back(cell);
           dofsPtrs[face].push_back(data.get<LTS::Dofs>());
+          fluxTargetPtrs[face].push_back(fluxTargets_[cell]);
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
           analytical[face].push_back(analyticScratch + cell * tensor::INodal::size());
@@ -434,6 +484,7 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
         (*currentIndicesTable_)[key].set(inner_keys::Indices::Id::Cells, cellIndices[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget, fluxTargetPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData, neighPtrs[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::Analytical, analytical[face]);

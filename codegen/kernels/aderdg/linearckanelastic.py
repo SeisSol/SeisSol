@@ -481,6 +481,15 @@ class LinearCKAnelastic(ADERDGBase):
                 self.weightAdjust(self.fluxBuffer, self.Qext),
                 target="cpu",
             )
+            if "gpu" in targets:
+                # a device kernel writes each temporary once, see
+                # singleDefinitions
+                with self.singleDefinitions():
+                    generator.add(
+                        "gpu_weightAdjust",
+                        self.weightAdjust(self.fluxBuffer, self.Qext),
+                        target="gpu",
+                    )
 
     def addTime(self, generator, targets):
         qShape = (self.num3DBasisFunctions(), self.numQuantities())

@@ -23,6 +23,7 @@
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
 #include "Kernels/StarOperands.h"
+#include "Kernels/WeightAdjustment.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/OperatorLayout.h"
@@ -208,6 +209,12 @@ void Local::computeBatchedIntegral(
                                   ? (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getSize()
                                   : 0;
   auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * maxNumElements) / sizeof(real));
+
+  // a weight-adjusted cell lifts its face terms into its flux buffer, which starts empty here and
+  // which the neighbour integral finishes (WeightAdjustable); the flux kernels below write where
+  // the batch says the faces of a cell lift into (inner_keys::Wp::Id::FluxTarget)
+  WeightAdjustmentT::clearBatched(dataTable, runtime);
+
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
 
@@ -239,7 +246,7 @@ void Local::computeBatchedIntegral(
 #ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
     kernel::gpu_localFluxAll localFluxKrnl = deviceLocalFluxAllKernelPrototype_;
     localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-    localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
     localFluxKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
 
@@ -259,7 +266,7 @@ void Local::computeBatchedIntegral(
     if (dataTable.find(key) != dataTable.end()) {
       auto& entry = dataTable[key];
       localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
       localFluxKrnl.I =
           const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
       kernels::bindLocalFluxOperandsBatched(
@@ -285,7 +292,7 @@ void Local::computeBatchedIntegral(
       bcKernel.rho = const_cast<const real**>(rhos);
       bcKernel.extraOffset_rho = 2;
       bcKernel.averageNormalDisplacement = const_cast<const real**>(nodalAvgDisplacements);
-      bcKernel.Q = (dataTable[fsgKey].get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      bcKernel.Q = (dataTable[fsgKey].get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
       bcKernel.AminusT = const_cast<const real**>(
           dataTable[fsgKey].get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
       bcKernel.extraOffset_AminusT = SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
@@ -307,7 +314,8 @@ void Local::computeBatchedIntegral(
       auto bcKernel = deviceDirichletFlux_;
       bcKernel.dirichletOffset = const_cast<const real**>(dirichletOffsetPtrs);
       bcKernel.dt = timeStepWidth;
-      bcKernel.Q = (dataTable[dirichletKey].get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      bcKernel.Q =
+          (dataTable[dirichletKey].get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
       bcKernel.AminusT =
           const_cast<const real**>(dataTable[dirichletKey]
                                        .get(inner_keys::Wp::Id::NeighborIntegrationData)
@@ -377,7 +385,8 @@ void Local::evaluateBatchedTimeDependentBc(
                                        ->getDeviceDataPtr());
       nodalLfKrnl.extraOffset_AminusT =
           SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
-      nodalLfKrnl.Q = dataTable[analyticalKey].get(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+      nodalLfKrnl.Q =
+          dataTable[analyticalKey].get(inner_keys::Wp::Id::FluxTarget)->getDeviceDataPtr();
       nodalLfKrnl.streamPtr = runtime.stream();
       nodalLfKrnl.numElements = numElements;
       nodalLfKrnl.execute(face);

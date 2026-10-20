@@ -22,9 +22,10 @@
 
 namespace seissol::kernel {
 /// The kernel that applies the inverse weight of the medium to the flux buffer of a cell, which
-/// the generator writes where a cell can be weight-adjusted (WeightAdjustable); named here so that
-/// code for every build can name it.
+/// the generator writes where a cell can be weight-adjusted (WeightAdjustable), and its batched
+/// form on the device; named here so that code for every build can name them.
 struct weightAdjust;
+struct gpu_weightAdjust;
 } // namespace seissol::kernel
 
 namespace seissol::kernels {
@@ -197,6 +198,18 @@ void bindStarOperandsBatched(KernelT& krnl, const real** localIntegrationPtrs) {
       krnl.star(dim) = localIntegrationPtrs;
       krnl.extraOffset_star(dim) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, dim);
     }
+  }
+}
+
+/// The same as bindWeightOperands for a batch, where the operands are offsets into the cells
+/// rather than pointers.
+template <typename KernelT>
+void bindWeightOperandsBatched(KernelT& krnl, const real** localIntegrationPtrs) {
+  SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, materialCoefficients);
+  for (std::size_t a = 0; a < StarCoefficientCount; ++a) {
+    krnl.nodalCoefficients(a) = localIntegrationPtrs;
+    krnl.extraOffset_nodalCoefficients(a) =
+        SEISSOL_ARRAY_OFFSET(LocalIntegrationData, materialCoefficients, a);
   }
 }
 

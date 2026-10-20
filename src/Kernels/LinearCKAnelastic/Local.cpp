@@ -14,6 +14,7 @@
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
 #include "Kernels/StarOperands.h"
+#include "Kernels/WeightAdjustment.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Model/OperatorLayout.h"
 #include "Monitoring/Metric.h"
@@ -226,6 +227,23 @@ void Local::computeBatchedIntegral(
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
+
+#ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
+  constexpr bool CombineLocalFlux = true;
+#else
+  constexpr bool CombineLocalFlux = false;
+#endif
+  // The combined kernel lifts the faces of every cell of the batch into its extended field and
+  // hands that on to the field and the memory variables at once. A weight-adjusted cell lifts its
+  // face terms into its flux buffer instead, which starts empty here and which the neighbour
+  // integral finishes (WeightAdjustable); a batch with such a cell takes the faces one by one,
+  // each into where the batch says the faces of a cell lift into (inner_keys::Wp::Id::FluxTarget),
+  // and hands on the volume term alone.
+  const bool combine =
+      CombineLocalFlux &&
+      dataTable.find(ConditionalKey(*KernelNames::WeightAdjust)) == dataTable.end();
+  WeightAdjustmentT::clearBatched(dataTable, runtime);
+
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype_;
@@ -245,8 +263,10 @@ void Local::computeBatchedIntegral(
             (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr()));
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
+  }
 
-#ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
+  if (combine && dataTable.find(key) != dataTable.end()) {
+    auto& entry = dataTable[key];
     auto krnl = deviceFluxLocalAllKernelPrototype_;
 
     krnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
@@ -286,68 +306,75 @@ void Local::computeBatchedIntegral(
             entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
 
     krnl.execute();
-#endif
   }
 
-// deprecated code; kept for comparison reasons
-#ifndef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
-  kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype_;
-  kernel::gpu_local localKrnl = deviceLocalKernelPrototype_;
+  if (!combine) {
+    kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype_;
+    kernel::gpu_local localKrnl = deviceLocalKernelPrototype_;
 
-  // Local Flux Integral
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
+    // the volume batch has every cell, so no other is larger
+    const auto maxNumElements = dataTable.find(key) != dataTable.end()
+                                    ? (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getSize()
+                                    : 0;
+    auto tmpMem = runtime.memoryHandle<real>(
+        (yateto::getMaxTmpMemRequired(localFluxKrnl, localKrnl) * maxNumElements) / sizeof(real));
 
+    // Local Flux Integral
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
+
+      if (dataTable.find(key) != dataTable.end()) {
+        auto& entry = dataTable[key];
+        localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+        localFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
+        localFluxKrnl.I =
+            const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+        kernels::bindLocalFluxOperandsBatched(
+            localFluxKrnl,
+            const_cast<const real**>(
+                entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()),
+            face);
+        localFluxKrnl.linearAllocator.initialize(tmpMem.get());
+        localFluxKrnl.streamPtr = runtime.stream();
+        localFluxKrnl.execute(face);
+      }
+    }
+
+    key = ConditionalKey(KernelNames::Time || KernelNames::Volume);
     if (dataTable.find(key) != dataTable.end()) {
       auto& entry = dataTable[key];
-      localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-      localFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
-      localFluxKrnl.I =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      kernels::bindLocalFluxOperandsBatched(
-          localFluxKrnl,
-          const_cast<const real**>(
-              entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()),
-          face);
-      localFluxKrnl.streamPtr = runtime.stream();
-      localFluxKrnl.execute(face);
-    }
-  }
 
-  key = ConditionalKey(KernelNames::Time || KernelNames::Volume);
-  if (dataTable.find(key) != dataTable.end()) {
-    auto& entry = dataTable[key];
-
-    localKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-    localKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    localKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-    localKrnl.Qext =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
-    localKrnl.Iane =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
-    localKrnl.W = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
-    localKrnl.w = const_cast<const real**>(
-        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
-    set_E(localKrnl,
+      localKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+      localKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+      localKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+      localKrnl.Qext =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
+      localKrnl.Iane =
+          const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
+      localKrnl.W = const_cast<const real**>(
+          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+      localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+      localKrnl.w = const_cast<const real**>(
+          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+      localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+      set_E(localKrnl,
+            const_cast<const real**>(
+                entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
+      set_extraOffset_E(localKrnl, SEISSOL_OFFSET(LocalIntegrationData, specific.E));
+      kernels::bindSourceOperandsBatched(
+          localKrnl,
           const_cast<const real**>(
               entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
-    set_extraOffset_E(localKrnl, SEISSOL_OFFSET(LocalIntegrationData, specific.E));
-    kernels::bindSourceOperandsBatched(
-        localKrnl,
-        const_cast<const real**>(
-            entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
-    localKrnl.streamPtr = runtime.stream();
+      localKrnl.linearAllocator.initialize(tmpMem.get());
+      localKrnl.streamPtr = runtime.stream();
 
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
+      SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
+      SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
+      SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
 
-    localKrnl.execute();
+      localKrnl.execute();
+    }
   }
-#endif
 
 #else
   logError() << "No GPU implementation provided";

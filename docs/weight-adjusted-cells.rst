@@ -157,6 +157,15 @@ leaves the buffer alone; both kinds share their clusters. The Rusanov penalty
 acts on the state and would have to be weighed with the material at the face, so
 a weight-adjusted cell takes the Godunov flux on all of its faces.
 
+On the device, the weight-adjusted cells of a layer form a batch of their own
+(``KernelNames::WeightAdjust``): the local integral clears their buffers, every
+kernel that lifts a face writes where the batch says the faces of a cell lift
+into (``inner_keys::Wp::Id::FluxTarget``), and the neighbour integral applies the
+weight to the batch (``gpu_weightAdjust``). The combined local flux of the solver
+that keeps the memory variables apart hands the extended field on together with
+the faces, so a layer with a weight-adjusted cell takes its faces one by one
+there.
+
 Which cells, and their time step
 --------------------------------
 
@@ -414,9 +423,11 @@ What is not done
   the others do and compile, but a viscoelastic build with that solver does not,
   weight or not (the energy output has no viscoelastic part for it), so none of
   it ran.
-- The device. Its batched kernels would take the buffer of a weight-adjusted
-  cell in place of its field and apply the weight to a batch of such cells; a
-  device build ignores ``weightadjustedratio`` for now.
+- The device beyond the compiler. The host side of its code compiles against the
+  kernels generated for CUDA (``sm_80``), and the weight kernels the generator
+  writes compile to machine code for ``sm_80`` (clang to PTX, ``ptxas``); nothing
+  ran on a GPU. The generator for AMD GPUs stops in TensorForge for the nodal
+  elastic build, also without the weight kernel.
 - A finer choice of the cells. A cell whose material varies smoothly but by more
   than the ratio pays the time step of a jump.
 - The time step at orders 2, 7 and 8, which take the smallest :math:`c` of the
@@ -442,6 +453,10 @@ that carries a matrix per side -- is what a cell adds that lifts with the
 material, for a solid and for a fluid, into the field and into the extended field
 of the solver that keeps the memory variables apart; and the spread of the
 impedances and the time step it gives at every order.
+
+The device code: its host side compiles against the kernels the generator writes
+for CUDA, for the elastic, the acoustic and the viscoelastic media with both
+solvers, and the weight kernels compile to machine code for ``sm_80``.
 
 End to end: the runs above -- a weight-adjusted run on a constant material
 against the plain one, on straight and on curved cells, elastic, acoustic,

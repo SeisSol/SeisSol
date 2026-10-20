@@ -345,6 +345,15 @@ class LinearCK(ADERDGBase):
                 self.weightAdjust(self.fluxBuffer, self.Q),
                 target="cpu",
             )
+            if "gpu" in targets:
+                # a device kernel writes each temporary once, see
+                # singleDefinitions
+                with self.singleDefinitions():
+                    generator.add(
+                        "gpu_weightAdjust",
+                        self.weightAdjust(self.fluxBuffer, self.Q),
+                        target="gpu",
+                    )
 
         if "gpu" in targets and self.nodalFaceFlux:
             # the same statements as on the host; only the premultiplied
