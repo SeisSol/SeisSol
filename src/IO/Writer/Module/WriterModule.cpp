@@ -23,9 +23,11 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <mpi.h>
 #include <optional>
 #include <string>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::io::writer::module {
 
@@ -33,14 +35,13 @@ namespace {
 /**
  * @brief The place of the next call among the writes of all outputs (see AsyncWriterExec::ticket).
  *
- * With one thread per output, the writes of all outputs have to run in the order they are issued
- * in on the main thread, which is the same on every rank. Synchronously, they run in that order
- * anyway, and with dedicated processes, waiting for another output's turn could hold up the
- * process that is to serve it.
+ * With one executor thread per output, on every rank or on the executor ranks of a node, the
+ * writes of all outputs have to run in the order they are issued in on the main thread, which is
+ * the same on every rank. Synchronously, they run in that order anyway.
  */
 std::uint64_t nextTicket(async::Mode mode) {
   static std::uint64_t issued = 0;
-  return mode == async::Mode::Thread ? ++issued : 0;
+  return mode == async::Mode::Sync ? 0 : ++issued;
 }
 } // namespace
 
@@ -171,6 +172,20 @@ void WriterModule::resizeBuffer(int id, const void* pointer, std::size_t size) {
 }
 
 void* WriterModule::managedBuffer(int id) { return AsyncWriterModule::managedBuffer<void*>(id); }
+
+bool WriterModule::collective() const {
+  // the executors of a node join the parts of its ranks under the same id
+  return seissolInstance_.asyncIO().config().mode() == async::Mode::MPI;
+}
+
+void WriterModule::agreeOnAny(std::vector<int>& flags) {
+  MPI_Allreduce(MPI_IN_PLACE,
+                flags.data(),
+                static_cast<int>(flags.size()),
+                MPI_INT,
+                MPI_LOR,
+                seissol::Mpi::mpi.comm());
+}
 
 void WriterModule::simulationEnd() {
   logInfo() << "Output Writer" << settings_.name << ": finishing output";
