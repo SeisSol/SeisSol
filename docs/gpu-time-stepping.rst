@@ -60,6 +60,10 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
    * - ``SEISSOL_SUPERSTEP_GRAPHS=1``
      - Record the GPU work of a super-timestep into a graph, and replay it for all further super-timesteps of the same kind
        (see below). Needs ``SEISSOL_TIMESTEPPING_PLAN=1`` and ``SEISSOL_CONCURRENT_CLUSTERS=1``.
+   * - ``SEISSOL_SUPERSTEP_GRAPH_MODE``
+     - Experimental, with ``SEISSOL_SUPERSTEP_GRAPHS=1``. ``replay`` (default): as described below.
+       ``always``: besides, record each other super-timestep and launch it once.
+       ``rebuild``: record every super-timestep anew and launch it once, replaying none; this measures what the recordings cost.
    * - ``SEISSOL_TRANSFER_MODE``
      - How the halo data gets exchanged: ``direct`` (default), ``host``, ``ccl``, ``stream-mpi``, ``shmem``.
        The name ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`` is accepted as well.
@@ -153,6 +157,13 @@ If a requirement is missing, a warning says which one, and the super-timesteps (
 Clusters that compute on the host (``SEISSOL_DEVICE_HOST_SWITCH``) keep all super-timesteps from getting recorded;
 a warning says so. (Clusters without cells stay on the GPU with any switch point.)
 
+Recording the other super-timesteps as well, each launched once (``SEISSOL_SUPERSTEP_GRAPH_MODE=always``), did not pay off
+on a workstation (CUDA, RTX 5070, October 2026): instantiating the graph of a super-timestep took the host 10 to 50 ms
+on average, enqueuing its work directly 1 to 2 ms, and a graph that runs once does not make up for that.
+With an epoch every 0.05 s, TPV5 and TTPV1 (order 6, single precision) took 0.4 % longer and 0.6 % less time with ``always``
+than without recording, and 0.4 % less and 1.0 % more than with the default ``replay``.
+Recording every super-timestep anew (``rebuild``) took 20 to 40 % longer.
+
 Diagnostics
 ~~~~~~~~~~~
 
@@ -162,7 +173,9 @@ With a transfer mode on GPU streams, it also reports how many events of the halo
 and how many events their pool has; an event is reused once nobody waits for it any more, so both stay small.
 With ``SEISSOL_TIMESTEPPING_PLAN=1``, it also reports the super-timesteps:
 how many there were, how many reached a synchronization point (one per synchronization interval and process),
-how many of the others (the full ones) were free of output samples and of host work, and how many were recorded and replayed.
+how many of the others (the full ones) were free of output samples and of host work, and how many were recorded and replayed;
+with recorded super-timesteps, also the host time they took, by whether they ran directly, were replayed or were recorded,
+and how much of the latter went into ending the recordings, which instantiates the graphs.
 If a cluster has not taken any action for 15 minutes, the log reports its state and step counts,
 and the steps until the synchronization point that it assumes for itself and each of its neighbors.
 

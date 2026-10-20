@@ -16,6 +16,7 @@
 #include "Parallel/Runtime/Stream.h"
 
 #include <Device/device.h>
+#include <algorithm>
 #include <utility>
 #include <utils/logger.h>
 #endif
@@ -37,6 +38,7 @@ void SuperStepRecorder::dispose() {
     deviceInstance().api().syncStreamWithHost(stream_);
     // the graphs own their executable instances; they have to go before the device does
     graphs_.clear();
+    launchedOnce_.clear();
     recording_.reset();
     waitFor_.clear();
     lastEvent_ = ActorEvent();
@@ -84,6 +86,29 @@ ActorEvent SuperStepRecorder::beginRecording(const std::vector<AbstractTimeClust
 void SuperStepRecorder::endRecording(const Key& key,
                                      const std::vector<AbstractTimeCluster*>& clusters,
                                      const std::vector<void*>& streams) {
+  endCapture(clusters, streams);
+  graphs_[key] = recording_;
+}
+
+void SuperStepRecorder::endRecordingAndLaunch(const std::vector<AbstractTimeCluster*>& clusters,
+                                              const std::vector<void*>& streams) {
+  endCapture(clusters, streams);
+  // the graphs launched once before that have run by now go (no event may be queried while
+  // recording)
+  launchedOnce_.erase(std::remove_if(launchedOnce_.begin(),
+                                     launchedOnce_.end(),
+                                     [](const auto& launched) {
+                                       return deviceInstance().api().isEventCompleted(
+                                           launched.second.get());
+                                     }),
+                      launchedOnce_.end());
+  launch(recording_, clusters, streams);
+  launchedOnce_.emplace_back(std::move(recording_), lastEvent_);
+  recording_.reset();
+}
+
+void SuperStepRecorder::endCapture(const std::vector<AbstractTimeCluster*>& clusters,
+                                   const std::vector<void*>& streams) {
   parallel::runtime::recordingOuterGraph() = false;
 
   // join all streams back
@@ -98,7 +123,6 @@ void SuperStepRecorder::endRecording(const Key& key,
     deviceInstance().api().syncStreamWithEvent(stream_, join.get());
   }
   deviceInstance().api().streamEndCapture(recording_);
-  graphs_[key] = recording_;
 }
 
 void SuperStepRecorder::beginReplay(const std::vector<AbstractTimeCluster*>& clusters,
@@ -115,13 +139,19 @@ void SuperStepRecorder::beginReplay(const std::vector<AbstractTimeCluster*>& clu
 void SuperStepRecorder::replay(const Key& key,
                                const std::vector<AbstractTimeCluster*>& clusters,
                                const std::vector<void*>& streams) {
+  launch(graphs_.at(key), clusters, streams);
+}
+
+void SuperStepRecorder::launch(const device::DeviceGraphHandle& graph,
+                               const std::vector<AbstractTimeCluster*>& clusters,
+                               const std::vector<void*>& streams) {
   for (const auto& event : waitFor_) {
     if (event) {
       deviceInstance().api().syncStreamWithEvent(stream_, event.get());
     }
   }
   waitFor_.clear();
-  deviceInstance().api().launchGraph(graphs_.at(key), stream_);
+  deviceInstance().api().launchGraph(graph, stream_);
 
   // everything enqueued from now on comes after the replayed work
   lastEvent_ = recordEvent(stream_);
@@ -154,6 +184,9 @@ ActorEvent SuperStepRecorder::beginRecording(const std::vector<AbstractTimeClust
 void SuperStepRecorder::endRecording(const Key& /*key*/,
                                      const std::vector<AbstractTimeCluster*>& /*clusters*/,
                                      const std::vector<void*>& /*streams*/) {}
+
+void SuperStepRecorder::endRecordingAndLaunch(const std::vector<AbstractTimeCluster*>& /*clusters*/,
+                                              const std::vector<void*>& /*streams*/) {}
 
 void SuperStepRecorder::beginReplay(const std::vector<AbstractTimeCluster*>& /*clusters*/,
                                     const std::vector<void*>& /*streams*/) {}

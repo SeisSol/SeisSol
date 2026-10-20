@@ -14,6 +14,7 @@
 
 #include <cstddef>
 #include <map>
+#include <utility>
 #include <vector>
 
 #ifdef ACL_DEVICE
@@ -72,6 +73,13 @@ class SuperStepRecorder {
                     const std::vector<void*>& streams);
 
   /**
+   * Ends the recording and launches it once, as replay() would; it is not kept for the key of the
+   * super-timestep, but released once it has run.
+   */
+  void endRecordingAndLaunch(const std::vector<AbstractTimeCluster*>& clusters,
+                             const std::vector<void*>& streams);
+
+  /**
    * Notes the latest work of the clusters, before they run the host parts of a super-timestep.
    */
   void beginReplay(const std::vector<AbstractTimeCluster*>& clusters,
@@ -100,6 +108,15 @@ class SuperStepRecorder {
   /// records an event on the stream, from a pool that does not hand it out again while it is held
   ActorEvent recordEvent(void* stream);
 
+  /// joins all streams back into the stream of the recorder, and ends the recording
+  void endCapture(const std::vector<AbstractTimeCluster*>& clusters,
+                  const std::vector<void*>& streams);
+
+  /// launches the graph after the work noted last, and makes all clusters and streams wait for it
+  void launch(const device::DeviceGraphHandle& graph,
+              const std::vector<AbstractTimeCluster*>& clusters,
+              const std::vector<void*>& streams);
+
   // the stream the recordings get replayed on, and the pool of the events around them
   parallel::runtime::StreamRuntime runtime_;
   void* stream_{nullptr};
@@ -111,6 +128,8 @@ class SuperStepRecorder {
   std::vector<ActorEvent> waitFor_;
   device::DeviceGraphHandle recording_;
   std::map<Key, device::DeviceGraphHandle> graphs_;
+  // the recordings launched once, until the event after each has completed
+  std::vector<std::pair<device::DeviceGraphHandle, ActorEvent>> launchedOnce_;
 #endif
 };
 

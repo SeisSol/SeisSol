@@ -43,6 +43,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -441,7 +442,17 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     } else {
       replay_ = true;
       recorder_ = std::make_unique<SuperStepRecorder>();
-      logInfo() << "Regular super-timesteps get recorded and replayed.";
+      graphMode_ = superStepGraphMode(seissolInstance_.env());
+      if (graphMode_ == SuperStepGraphMode::Rebuild) {
+        logInfo() << "Every super-timestep gets recorded anew and launched once, none replayed"
+                  << "(SEISSOL_SUPERSTEP_GRAPH_MODE=rebuild).";
+      } else {
+        logInfo() << "Regular super-timesteps get recorded and replayed.";
+      }
+      if (graphMode_ == SuperStepGraphMode::Always) {
+        logInfo() << "All other super-timesteps get recorded and launched once"
+                  << "(SEISSOL_SUPERSTEP_GRAPH_MODE=always).";
+      }
 
       // the outputs must not stand in the way of a recording
       runTimeOutputs_ = true;
@@ -714,15 +725,26 @@ void TimeManager::followPlan() {
     }
     const bool full = superTimestep.beforeSync;
     const bool replayable = replay_ && full && regularSteps && !outputsAhead && !hostWork;
+    const bool reuse = graphMode_ != SuperStepGraphMode::Rebuild;
+    const bool replayNow = reuse && replayable && recorder_->has(key);
+    // recorded to be replayed later, or else (with the experimental modes) launched once
+    const bool keep = reuse && replayable && !replayNow &&
+                      (seenSuperSteps_.count(key) > 0 || graphMode_ == SuperStepGraphMode::Always);
+    const bool once =
+        !replayNow && !keep && replay_ && graphMode_ != SuperStepGraphMode::Replay && !hostWork;
 
     StepWork work;
+    const auto hostStart = std::chrono::steady_clock::now();
+    const auto seconds = [](auto from) {
+      return std::chrono::duration<double>(std::chrono::steady_clock::now() - from).count();
+    };
     const auto superStepEnd = (superStep + 1) * largestRate;
     if (replay_ && scheduler != nullptr) {
       // each super-timestep launches exactly the exchanges whose data it completes, so that
       // recordings and replays comprise the same ones
       scheduler->setHorizon(superStepEnd);
     }
-    if (replayable && recorder_->has(key)) {
+    if (replayNow) {
       recorder_->beginReplay(participants, streams);
       for (auto* cluster : clusters_) {
         cluster->setDeviceWork(false);
@@ -743,7 +765,8 @@ void TimeManager::followPlan() {
         scheduler->setLatestEvent(recorder_->lastEvent());
       }
       ++replayedSuperSteps_;
-    } else if (replayable && seenSuperSteps_.count(key) > 0) {
+      superStepHostTimes_[1] += seconds(hostStart);
+    } else if (keep || once) {
       auto fork = recorder_->beginRecording(participants, streams);
       if (scheduler != nullptr) {
         // the recording must not wait for events from before it: neither for those of the pending
@@ -753,14 +776,22 @@ void TimeManager::followPlan() {
       }
       work = takeSteps(plan, begin, end);
       completeExchanges(superStepEnd);
-      recorder_->endRecording(key, participants, streams);
-      recorder_->replay(key, participants, streams);
+      const auto ending = std::chrono::steady_clock::now();
+      if (keep) {
+        recorder_->endRecording(key, participants, streams);
+        recorder_->replay(key, participants, streams);
+        ++recordedSuperSteps_;
+      } else {
+        recorder_->endRecordingAndLaunch(participants, streams);
+        ++launchedOnceSuperSteps_;
+      }
+      superStepHostTimes_[3] += seconds(ending);
       if (scheduler != nullptr) {
         // nothing after the recording may wait for an event recorded inside of it; the streams of
         // the scheduler wait for the replay instead
         scheduler->restartAfter(recorder_->lastEvent());
       }
-      ++recordedSuperSteps_;
+      superStepHostTimes_[2] += seconds(hostStart);
     } else {
       work = takeSteps(plan, begin, end);
       if (replay_) {
@@ -769,6 +800,7 @@ void TimeManager::followPlan() {
       if (replayable) {
         seenSuperSteps_.insert(key);
       }
+      superStepHostTimes_[0] += seconds(hostStart);
     }
 
     // the decision in advance has to match what the host parts have decided
@@ -867,13 +899,14 @@ void TimeManager::freeDynamicResources() {
   }
 
   if (followPlan_) {
-    std::array<std::size_t, 7> superSteps{superSteps_,
+    std::array<std::size_t, 8> superSteps{superSteps_,
                                           shortenedSuperSteps_,
                                           outputFreeSuperSteps_,
                                           regularSuperSteps_,
                                           recordedSuperSteps_,
                                           replayedSuperSteps_,
-                                          mispredictedSuperSteps_};
+                                          mispredictedSuperSteps_,
+                                          launchedOnceSuperSteps_};
     MPI_Allreduce(MPI_IN_PLACE,
                   superSteps.data(),
                   superSteps.size(),
@@ -885,7 +918,14 @@ void TimeManager::freeDynamicResources() {
               << "; full ones without output samples:" << superSteps[2]
               << "; full ones without output samples or host work:" << superSteps[3]
               << "; recorded:" << superSteps[4] << "; replayed:" << superSteps[5]
-              << "(summed over all ranks)";
+              << "; recorded and launched once:" << superSteps[7] << "(summed over all ranks)";
+    if (replay_) {
+      auto times = superStepHostTimes_;
+      MPI_Allreduce(MPI_IN_PLACE, times.data(), times.size(), MPI_DOUBLE, MPI_MAX, Mpi::mpi.comm());
+      logInfo() << "Host time of the super-timesteps: run directly" << times[0] << "s, replayed"
+                << times[1] << "s, recorded" << times[2] << "s, of that ending the recordings"
+                << times[3] << "s (maximum over all ranks)";
+    }
     if (superSteps[6] > 0) {
       logError() << "For" << superSteps[6]
                  << "super-timesteps, the output samples were not decided correctly in advance.";

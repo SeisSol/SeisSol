@@ -15,6 +15,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/Helper.h"
 #include "ResultWriter/ClusteringWriter.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
@@ -26,6 +27,7 @@
 #include "Solver/TimeStepping/Plan/TimeSteppingPlan.h"
 #include "SourceTerm/Typedefs.h"
 
+#include <array>
 #include <cassert>
 #include <list>
 #include <memory>
@@ -90,13 +92,18 @@ class TimeManager {
   std::size_t regularSuperSteps_{0};
   std::size_t recordedSuperSteps_{0};
   std::size_t replayedSuperSteps_{0};
+  std::size_t launchedOnceSuperSteps_{0};
   std::size_t mispredictedSuperSteps_{0};
+  //! the host time of the super-timesteps, by how they ran, and of ending their recordings (which
+  //! instantiates the graphs), in seconds
+  std::array<double, 4> superStepHostTimes_{};
 
   //! the outputs decide about their samples when the work of a step runs
   bool runTimeOutputs_{false};
 
   //! record regular super-timesteps into graphs and replay them
   bool replay_{false};
+  SuperStepGraphMode graphMode_{SuperStepGraphMode::Replay};
   std::unique_ptr<SuperStepRecorder> recorder_;
   //! the regular super-timesteps that have run once without a recording
   std::set<SuperStepRecorder::Key> seenSuperSteps_;

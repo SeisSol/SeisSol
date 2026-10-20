@@ -10,6 +10,7 @@
 
 #include "Common/Marker.h"
 
+#include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
 
@@ -60,6 +61,33 @@ inline bool useConcurrentClusters(utils::Env& env) {
  * Requires the time stepping plan and concurrent clusters.
  */
 inline bool useSuperStepGraphs(utils::Env& env) { return env.get<bool>("SUPERSTEP_GRAPHS", false); }
+
+/**
+ * Which super-timesteps get recorded into graphs with SEISSOL_SUPERSTEP_GRAPHS=1 (experimental).
+ */
+enum class SuperStepGraphMode {
+  //! the regular ones, the second time they come up, to replay them from then on
+  Replay,
+  //! besides, all others that can be, each launched once right after its recording
+  Always,
+  //! every one that can be, anew, and launched once; none is replayed (to measure the recordings)
+  Rebuild
+};
+
+inline SuperStepGraphMode superStepGraphMode(utils::Env& env) {
+  const auto mode = env.get<std::string>("SUPERSTEP_GRAPH_MODE", "replay");
+  if (mode == "always") {
+    return SuperStepGraphMode::Always;
+  }
+  if (mode == "rebuild") {
+    return SuperStepGraphMode::Rebuild;
+  }
+  if (mode != "replay") {
+    logWarning() << "Unknown SEISSOL_SUPERSTEP_GRAPH_MODE" << mode
+                 << "; known are replay, always and rebuild. Taking replay.";
+  }
+  return SuperStepGraphMode::Replay;
+}
 
 /**
  * Whether the clusters take their steps strictly along the time stepping plan, instead of whenever
