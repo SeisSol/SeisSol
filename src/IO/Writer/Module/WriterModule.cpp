@@ -57,9 +57,10 @@ void WriterModule::setUp() {
   setExecutor(executor_);
   // The thread goes to the CPUs no OpenMP worker uses, with a communication thread or without one:
   // left to ASYNC, it takes the last CPU of the mask it inherits from the main thread, which is the
-  // main thread's own core, or its own CPU, while that core computes.
+  // main thread's own core, or its own CPU, while that core computes. The ranks of a node find
+  // those CPUs together, so every rank looks them up, also where no thread of the output runs.
+  const auto freeCpus = pinning_.getFreeCPUsMask();
   if (isAffinityNecessary()) {
-    const auto freeCpus = pinning_.getFreeCPUsMask();
     if (!parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logInfo() << "Output Writer" << settings_.name
                 << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus) << "("
