@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstring>
 #include <type_traits>
 #include <utility>
 #include <utils/logger.h>
@@ -375,6 +376,7 @@ class Storage {
       leaf.setMemoryRegionsForBuckets(memoryContainer_, sizes);
       leaf.addBucketSizes(sizes);
     }
+    touchDevice(MemoryType::Bucket);
   }
 
   // Allocates the scratchpads and distributes them to the leaves.
@@ -459,6 +461,7 @@ class Storage {
       leaf.setMemoryRegionsForScratchpads(slotContainers(slotOfLeaf[leafIndex]));
       ++leafIndex;
     }
+    touchDevice(MemoryType::Scratchpad);
   }
 
   void touchVariables() {
@@ -469,6 +472,43 @@ class Storage {
         leaf.touchVariables();
       }
     }
+    touchDevice(MemoryType::Variable);
+  }
+
+  /**
+   * Writes zeros into the device parts of the variables, buckets or scratchpads by copies (see
+   * DualMemoryContainer::touchDevice()); the variables with touchVariables(), the buckets and
+   * scratchpads once they are allocated.
+   */
+  void touchDevice(MemoryType type) {
+#ifdef ACL_DEVICE
+    std::vector<const DualMemoryContainer*> containers;
+    for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
+      if (memoryInfo_[var].type == type) {
+        containers.push_back(&memoryContainer_[var]);
+        for (const auto& slot : scratchpadSlots_) {
+          containers.push_back(&slot[var]);
+        }
+      }
+    }
+    std::size_t largest = 0;
+    for (const auto* container : containers) {
+      largest = std::max(largest, container->allocationSize);
+    }
+    if (largest == 0) {
+      return;
+    }
+    constexpr std::size_t MaxZeros = 64UL * 1024 * 1024;
+    const auto zerosSize = std::min(largest, MaxZeros);
+    auto& api = device::DeviceInstance::instance().api();
+    void* zeros = api.allocPinnedMem(zerosSize);
+    std::memset(zeros, 0, zerosSize);
+    for (const auto* container : containers) {
+      container->touchDevice(zeros, zerosSize, api.getDefaultStream());
+    }
+    api.syncDefaultStreamWithHost();
+    api.freePinnedMem(zeros);
+#endif
   }
 
   [[nodiscard]] size_t getMaxClusterSize(LayerMask mask = LayerMask()) const {

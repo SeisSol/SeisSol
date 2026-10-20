@@ -14,7 +14,9 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Colormap.h"
 
+#include <algorithm>
 #include <bitset>
+#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <type_traits>
@@ -144,6 +146,32 @@ struct DualMemoryContainer {
         // device::DeviceInstance::instance().api().prefetchUnifiedMemTo(device::Destination::CurrentDevice,
         // device, allocationSize, stream);
       }
+    }
+#endif
+  }
+
+  /**
+   * Writes zeros into the device part by copies, as touchVariables() writes the host part, so that
+   * the copy engines write it first (as compressible memory needs it on some devices, e.g. sm_80
+   * and sm_86). `zeros` is a host buffer of `zerosSize` zero bytes that the device can read.
+   */
+  void touchDevice(const void* zeros, std::size_t zerosSize, void* stream) const {
+#ifdef ACL_DEVICE
+    const bool ownDevicePart = allocationMode == AllocationMode::HostDeviceSplit ||
+                               allocationMode == AllocationMode::HostDeviceSplitPinned ||
+                               allocationMode == AllocationMode::HostDeviceCompress ||
+                               allocationMode == AllocationMode::HostDeviceCompressPinned ||
+                               allocationMode == AllocationMode::DeviceOnly ||
+                               allocationMode == AllocationMode::DeviceOnlyCompress;
+    if (!ownDevicePart || device == nullptr) {
+      return;
+    }
+    for (std::size_t offset = 0; offset < allocationSize; offset += zerosSize) {
+      device::DeviceInstance::instance().api().copyToAsync(
+          static_cast<char*>(device) + offset,
+          zeros,
+          std::min(zerosSize, allocationSize - offset),
+          stream);
     }
 #endif
   }
