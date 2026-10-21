@@ -184,13 +184,21 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
                   seissolParams.output.waveFieldParameters.integrationMask.end(),
                   [](const auto& value) { return value; }) ||
       seissolParams.output.waveFieldParameters.computeStrain;
-  const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
+  const auto settings = SimulationSettings(seissolParams.model.plasticity,
+                                           needsIntegration,
+                                           model.simulationCount,
+                                           configValue(model.config).numSimulations);
+
+  // if we need more simulations than the cells fuse, use copies of the cells for the others
+  const auto copyCount = settings.copyCount();
+  logInfo() << "Simulations:" << settings.simulationCount << "in" << copyCount
+            << "copies of the cells, which fuse" << settings.fusedCount << "simulations each.";
+  if (copyCount * settings.fusedCount > settings.simulationCount) {
+    logInfo() << "The last" << copyCount * settings.fusedCount - settings.simulationCount
+              << "fused simulations only fill up the last copy; they are not written.";
+  }
 
   logInfo() << "Creating mesh layout...";
-
-  // if we need more simulations than the fused version can hold, use cell copies instead.
-  const std::size_t fusedCount = configValue(model.config).numSimulations;
-  const std::size_t copyCount = (seissolParams.timeStepping.simCount + fusedCount - 1) / fusedCount;
 
   const auto meshLayout = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
   auto meshLayoutCopy = meshLayout;

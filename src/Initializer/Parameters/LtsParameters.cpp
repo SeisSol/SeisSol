@@ -214,10 +214,9 @@ TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeig
                                                double cfl,
                                                double maxTimestepWidth,
                                                double endTime,
-                                               LtsParameters lts,
-                                               std::size_t simCount)
+                                               LtsParameters lts)
     : vertexWeight(vertexWeight), cfl(cfl), maxTimestepWidth(maxTimestepWidth), endTime(endTime),
-      lts(std::move(lts)), simCount(simCount) {}
+      lts(std::move(lts)) {}
 
 TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
                                                   const std::vector<ConfigId>& configs) {
@@ -260,8 +259,6 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
 
   const LtsParameters ltsParameters = readLtsParameters(baseReader);
 
-  const auto simcount = baseReader->readWithDefault<std::size_t>("simcount", 1);
-
   reader->warnDeprecated({"ckmethod",
                           "dgfineout1d",
                           "fluxmethod",
@@ -277,8 +274,7 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
                                 cfl,
                                 maxTimestepWidth,
                                 endTime,
-                                ltsParameters,
-                                simcount);
+                                ltsParameters);
 }
 
 } // namespace seissol::initializer::parameters

@@ -150,15 +150,27 @@ std::unordered_map<int, ConfigId> readGroupConfigs(ParameterReader* baseReader, 
   return groupConfigs;
 }
 
+std::size_t readSimulationCount(ParameterReader* baseReader, ConfigId config) {
+  auto* reader = baseReader->readSubNode("equations");
+  const auto simulationCount =
+      reader->readWithDefault<std::size_t>("simcount", configValue(config).numSimulations);
+  if (simulationCount == 0) {
+    logError() << "The number of simulations (simcount) has to be positive.";
+  }
+  return simulationCount;
+}
+
 ModelParameters readModelParameters(ParameterReader* baseReader,
                                     ConfigId config,
                                     std::unordered_map<int, ConfigId> groupConfigs) {
   auto* reader = baseReader->readSubNode("equations");
 
+  const auto simulationCount = readSimulationCount(baseReader, config);
+
   const auto boundaryFileName = reader->readPath("boundaryfilename");
   const std::string materialFileName =
       reader->readPathOrFail("materialfilename", "No material file given.");
-  std::vector<std::string> plasticityFileNames(configValue(config).numSimulations);
+  std::vector<std::string> plasticityFileNames(simulationCount);
 
   for (std::size_t i = 0; i < plasticityFileNames.size(); ++i) {
     const auto fieldname = "plasticityfilename" + (i == 0 ? std::string{} : std::to_string(i));
@@ -237,7 +249,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                          flux,
                          fluxNearFault,
                          config,
-                         std::move(groupConfigs)};
+                         std::move(groupConfigs),
+                         simulationCount};
 }
 
 std::string fluxToString(NumericalFlux flux) {
