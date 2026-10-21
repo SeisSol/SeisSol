@@ -1,0 +1,8 @@
+{
+  "family": "dubiner-normalized",
+  "hierarchical": true,
+  "orthogonal": true,
+  "orthonormal": true,
+  "mass": "identity",
+  "ordering": "by degree; within a degree as BasisFunctionGenerator2D/3D.unroll_index"
+}

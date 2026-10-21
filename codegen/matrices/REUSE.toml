@@ -11,3 +11,8 @@ version = 1
 path = ["**/*.xml", "**/*.json"]
 SPDX-FileCopyrightText = "2012-2024 SeisSol Group"
 SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = ["bernstein/**", "dubiner-normalized/**"]
+SPDX-FileCopyrightText = "2026 SeisSol Group"
+SPDX-License-Identifier = "BSD-3-Clause"

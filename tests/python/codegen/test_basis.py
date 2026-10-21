@@ -10,9 +10,13 @@
 
 import json
 import os
+from pathlib import Path
 
+import kernels.basis
 import pytest
 from kernels.basis import NAMES, Basis, count, directory, shared
+
+MATRICES = str(Path(kernels.basis.__file__).resolve().parent.parent / "matrices")
 
 
 class TestDirectory:
@@ -59,6 +63,14 @@ class TestBasis:
         assert basis.name == "bernstein"
         assert not basis.hierarchical and not basis.orthogonal
         assert basis.mass == "dense"
+
+    @pytest.mark.parametrize("name", NAMES)
+    def test_the_matrices_of_a_basis_state_it(self, name):
+        # the directory of every basis there is states the basis it holds
+        basis = Basis(directory(MATRICES, name))
+        assert basis.name == name
+        assert basis.hierarchical == (name != "bernstein")
+        assert basis.orthonormal == (name == "dubiner-normalized")
 
 
 def test_count():

@@ -1,0 +1,8 @@
+{
+  "family": "bernstein",
+  "hierarchical": false,
+  "orthogonal": false,
+  "orthonormal": false,
+  "mass": "dense",
+  "ordering": "multi-indices (a_1, ..., a_dim) of the degree by a_1 + ... + a_dim, within the same sum a_dim slowest and a_1 fastest, a_0 = degree - a_1 - ... - a_dim at the vertex at the origin"
+}
