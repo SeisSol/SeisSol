@@ -21,6 +21,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/ActorStateStatistics.h"
+#include "Monitoring/DeviceTimeline.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/LoopStatistics.h"
@@ -65,6 +66,7 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
     dr::output::OutputManager* faultOutputManager,
     seissol::SeisSol& seissolInstance,
     LoopStatistics* loopStatistics,
+    DeviceTimeline* deviceTimeline,
     ActorStateStatistics* actorStateStatistics)
     : DynamicRuptureClusterInterface(maxTimeStepSize, timeStepRate, executor),
       seissolInstance_(seissolInstance), streamRuntime_(4), globalData_(globalData),
@@ -72,7 +74,8 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
       frictionSolver_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
       frictionSolverDevice_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),
       faultOutputManager_(faultOutputManager), outputTimestep_(outputTimestep),
-      loopStatistics_(loopStatistics), deviceLoops_(loopStatistics),
+      loopStatistics_(loopStatistics),
+      deviceLoops_(loopStatistics, deviceTimeline, DeviceTimeline::Kind::Loops),
       actorStateStatistics_(actorStateStatistics), profilingId_(profilingId) {
   assert(layerData_ != nullptr);
   assert(globalData_.onHost != nullptr);

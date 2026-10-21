@@ -16,6 +16,8 @@
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/HostData.h"
 #include "Memory/HostSnapshot.h"
+#include "Monitoring/DeviceTimeline.h"
+#include "Monitoring/DeviceTimer.h"
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/Watchdog.h"
 #include "Parallel/Helper.h"
@@ -32,6 +34,7 @@
 
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <list>
 #include <memory>
 #include <optional>
@@ -44,6 +47,19 @@ namespace seissol::solver {
 class AbstractCommunicationManager;
 
 /**
+ * What the device and the threads did in an epoch (or in all epochs so far).
+ */
+struct EpochActivity {
+  //! the device time, by kind (empty without timing on the device)
+  DeviceTimeline::Activity device;
+  //! the wall time of the epochs
+  double wall{0};
+  //! the time all threads spent in loops, and the number of threads
+  double threadLoops{0};
+  double threads{1};
+};
+
+/**
  * Time manager, which takes care of the time stepping.
  **/
 class TimeManager {
@@ -52,6 +68,9 @@ class TimeManager {
 
   //! time stepping
   std::optional<initializer::ClusterLayout> clusterLayout_;
+
+  //! what the device did in the current epoch; before the clusters, whose timers add to it
+  DeviceTimeline deviceTimeline_;
 
   //! the clusters of the local (copy & interior) cells
   std::vector<std::unique_ptr<CellClusterInterface>> cellClusters_;
@@ -100,6 +119,14 @@ class TimeManager {
   //! the host time of the super-timesteps, by how they ran, and of ending their recordings (which
   //! instantiates the graphs), in seconds
   std::array<double, 4> superStepHostTimes_{};
+  //! the device time of the super-timesteps replayed, recorded (and replayed once), and recorded
+  //! and launched once, in seconds
+  std::array<double, 3> superStepDeviceTimes_{};
+  //! times the replays of the super-timesteps on the device
+  std::unique_ptr<DeviceTimer> superStepTimer_;
+  //! times the groups of the halo exchange on the device streams, and their total time in seconds
+  std::unique_ptr<DeviceTimer> exchangeTimer_;
+  double exchangeDeviceTime_{0};
 
   //! the outputs decide about their samples when the work of a step runs
   bool runTimeOutputs_{false};
@@ -134,6 +161,16 @@ class TimeManager {
   std::unique_ptr<initializer::HostSnapshot> hostSnapshot_;
 
   void setUpWatchdog(const std::vector<AbstractTimeCluster*>& clusters);
+
+  //! the activity of the epoch that ended last, and of all so far
+  EpochActivity lastActivity_;
+  EpochActivity totalActivity_;
+
+  /// prints how busy the device and the threads were over the run; collective
+  [[nodiscard]] json::Value printActivity() const;
+
+  /// ends the timeline of the epoch that began at `epochBegin`, and counts its activity
+  void finishActivity(std::chrono::steady_clock::time_point epochBegin);
 
   /// decides how the clusters run their work on the host (SEISSOL_HOST_TASK_GRAPH)
   void setUpHostScheduling();
@@ -247,7 +284,14 @@ class TimeManager {
    **/
   void setInitialTimes(double time = 0);
 
+  /**
+   * Prints the time the compute kernels took, and how busy the device and the threads were over the
+   * run. Collective; returns what it printed, for the run summary.
+   */
   json::Value printComputationTime();
+
+  //! What the device and the threads did in the epoch that ended last.
+  [[nodiscard]] const EpochActivity& lastEpochActivity() const { return lastActivity_; }
 
   //! The time this rank spent in the compute kernels so far.
   [[nodiscard]] double kernelTime() const { return loopStatistics_.kernelTime(); }

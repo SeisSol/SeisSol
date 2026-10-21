@@ -22,7 +22,7 @@
 #include "Kernels/TimeCommon.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Monitoring/ActorStateStatistics.h"
-#include "Monitoring/DeviceLoopTimer.h"
+#include "Monitoring/DeviceTimer.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
 #include "Solver/FreeSurfaceIntegrator.h"
@@ -132,7 +132,7 @@ class CellCluster : public CellClusterInterface {
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics_;
   //! times the loops enqueued on the device
-  DeviceLoopTimer deviceLoops_;
+  DeviceTimer deviceLoops_;
   ActorStateStatistics* actorStateStatistics_;
   unsigned regionComputeLocalIntegration_;
   unsigned regionComputeNeighboringIntegration_;
@@ -249,6 +249,7 @@ class CellCluster : public CellClusterInterface {
               LTS::Layer* clusterData,
               seissol::SeisSol& seissolInstance,
               LoopStatistics* loopStatistics,
+              DeviceTimeline* deviceTimeline,
               ActorStateStatistics* actorStateStatistics);
 
   ~CellCluster() override = default;

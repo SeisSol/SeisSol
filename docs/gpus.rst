@@ -135,11 +135,12 @@ Currently, that is only CUDA; we recommend to check the respective guides for av
 (generally, Hopper or newer should always support it; and Ampere slightly restricted).
 Disabled by default, and currently requires ``SEISSOL_USM=0`` and ``SEISSOL_USM_MPI=0``.
 
-``SEISSOL_DEVICE_LOOP_STATISTICS`` decides whether the loops that the clusters enqueue on the GPU get timed for
-the loop statistics of the run summary (see :ref:`run-summary`), with a pair of events around each loop on its stream
-(with CUDA and HIP; the SYCL backends keep the time it takes to enqueue the loops). On by default; each timed loop
-costs two records of events, about 1 to 2 % of the run time of a small mesh. ``SEISSOL_DEVICE_LOOP_STATISTICS=0``
-leaves the loops on the GPU out of the statistics.
+``SEISSOL_DEVICE_LOOP_STATISTICS`` decides whether the work enqueued on the GPU gets timed: the loops of the clusters
+for the loop statistics of the run summary (see :ref:`run-summary`), the replays of super-timesteps and the halo
+exchange on device streams, all for the activity of the device (see :ref:`activity`). A pair of events goes around
+each piece of work on its stream (with CUDA and HIP; the SYCL backends keep the time it takes to enqueue the loops).
+On by default; each timed loop costs two records of events, about 1 to 2 % of the run time of a small mesh.
+``SEISSOL_DEVICE_LOOP_STATISTICS=0`` leaves the work on the GPU out of the statistics.
 
 ``SEISSOL_TRANSFER_MODE`` (or its alias ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``)
 specifies how to exchange GPU buffers between processes.

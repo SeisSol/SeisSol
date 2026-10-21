@@ -13,11 +13,13 @@
 #include "Memory/Tree/Layer.h"
 #include "Modules/Modules.h"
 #include "Modules/OutputWorker.h"
+#include "Monitoring/DeviceTimeline.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/Watchdog.h"
+#include "Numerical/Statistics.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
@@ -83,6 +85,36 @@ void startOutputThread(SeisSol& seissolInstance) {
   Modules::startOutputWorker(cpus, threads);
   logInfo() << "The outputs are processed on a thread of their own, with" << threads
             << "OpenMP threads, on the CPUs" << parallel::Pinning::maskToString(cpus).c_str();
+}
+
+/**
+ * Prints how busy the threads and the device were in an epoch, and records it in the epoch.
+ * Collective.
+ */
+void printActivity(const solver::EpochActivity& activity, monitoring::EpochRecord& epoch) {
+  const double capacity = activity.threads * activity.wall;
+  epoch.threadLoops =
+      statistics::parallelSummary(capacity > 0 ? activity.threadLoops / capacity : 0.0);
+  // with a device, the threads may run no loops at all
+  if (!DeviceTimeline::active() || epoch.threadLoops.max > 0) {
+    logInfo() << "Time the threads spent in loops this epoch:" << 100 * epoch.threadLoops.mean
+              << "% (mean over all ranks; minimum" << 100 * epoch.threadLoops.min << "%)";
+  }
+  if (!DeviceTimeline::active()) {
+    return;
+  }
+  const double span = activity.device.span;
+  const auto share = [&](double time) {
+    return statistics::parallelSummary(span > 0 ? time / span : 0.0);
+  };
+  epoch.deviceTimed = true;
+  epoch.deviceComputing = share(activity.device.computing);
+  epoch.deviceExchanges = share(activity.device.busyWith(DeviceTimeline::Kind::Exchanges));
+  epoch.deviceIdle = share(span - activity.device.busy);
+  logInfo() << "Time the device computed this epoch:" << 100 * epoch.deviceComputing.mean
+            << "% (mean over all ranks; minimum" << 100 * epoch.deviceComputing.min
+            << "%), exchanged the halo" << 100 * epoch.deviceExchanges.mean << "%, and was idle"
+            << 100 * epoch.deviceIdle.mean << "%";
 }
 } // namespace
 
@@ -219,6 +251,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     epoch.nonzeroFlopPerSecond = rates.nonzeroFlopPerSecond;
     epoch.kernelBytesPerSecond = rates.kernelBytesPerSecond;
     lastSplit = currentSplit;
+    printActivity(seissolInstance.timeManager().lastEpochActivity(), epoch);
 
     summary["time"]["simulation"]["elapsed"] =
         monitoring::toJson(Stopwatch::print("Total time spent:", currentSplit));

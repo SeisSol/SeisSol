@@ -7,7 +7,8 @@
 
 add_library(seissol-monitoring OBJECT
     ActorStateStatistics.cpp
-    DeviceLoopTimer.cpp
+    DeviceTimeline.cpp
+    DeviceTimer.cpp
     EpochSynchronization.cpp
     FlopCounter.cpp
     LoopStatistics.cpp

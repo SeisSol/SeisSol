@@ -35,8 +35,11 @@ output (``OutputFile`` is the prefix):
 * ``<prefix>-summary.json``, the run summary.
 * ``<prefix>-epochs.csv``, a row per simulation epoch, i.e. per stretch of simulated time between two synchronization
   points (the times outputs are written at): its simulated time span, its wall time (minimum, mean and maximum over the
-  ranks), its compute and blocking IO time (mean and maximum), and the FLOP/s and kernel bytes/s of the epoch,
-  summed over the ranks.
+  ranks), its compute and blocking IO time (mean and maximum), the FLOP/s and kernel bytes/s of the epoch,
+  summed over the ranks, and how busy the threads and the device were (see :ref:`activity`): the share of the time
+  the threads spent in loops (``threadLoopsMean``, ``threadLoopsMin``), and on GPUs the shares of the time of the
+  device in which it computed (``deviceComputingMean``, ``deviceComputingMin``), exchanged the halo
+  (``deviceExchangesMean``) and was idle (``deviceIdleMean``, ``deviceIdleMax``); ``nan`` without times of the device.
 * ``<prefix>-ranks.csv``, a row per rank, written at the end of the run: the values of the rank that the summary gives
   the statistics of over the ranks (see below).
 
@@ -98,8 +101,9 @@ members of the summary are:
        was aborted (e.g. by an energy criterion), and the cell updates, duplicate cell updates and dynamic rupture
        face updates of the whole run
    * - ``kernels``
-     - the time in the compute kernels per rank (``total``), the load imbalance (one minus mean over maximum), and per
-       region its time per rank, iterations, samples and the regression of its time over the iterations
+     - the time in the compute kernels per rank (``total``), the load imbalance (one minus mean over maximum), per
+       region its time per rank, iterations, samples and the regression of its time over the iterations, and how busy
+       the threads and the device were over the run (``activity``, see :ref:`activity`)
    * - ``performance``
      - hardware and non-zero FLOP and kernel bytes, in total, per second and per category, and the cell updates per
        second (``cellUpdatesPerSecond``)
@@ -115,6 +119,26 @@ order the run gets them: ``initMeshRead``, ``initMesh``, ``cells``, ``copyCells`
 ``kernels`` (the time in the compute kernels), ``outsideKernels``, ``cellUpdates``, ``duplicateCellUpdates``,
 ``dynamicRuptureFaceUpdates`` and ``hostMemoryAtEnd``; in GPU builds, ``deviceMemoryAfterInit`` and ``deviceMemoryAtEnd`` (the device memory occupied)
 as well. ``initMeshRead`` is there for PUML meshes only. The last column is ``runId``.
+
+.. _activity:
+
+Activity of the threads and the device
+--------------------------------------
+
+At the end of each epoch and of the run, SeisSol prints how busy the threads and the device were. The threads count the
+time they spend in the loops over the cells or faces (on GPUs, the log gives it only where they ran any loops); the rest
+of their time, they do other work, e.g. the main thread drives the clusters, or they wait, e.g. at the end of a loop for
+the slowest thread, or for the halo exchange. A task graph on the host (``SEISSOL_HOST_TASK_GRAPH``, see
+:ref:`env_vars`) fills that time with the work of other clusters.
+
+On GPUs, the loops of the clusters, the replays of recorded super-timesteps and the halo exchange on device streams
+(``ccl``, ``stream-mpi``, ``shmem``) get timed by events, from where each can start to where it has run. So the device
+time of the epoch splits into the time the device computed (in loops or replays), exchanged the halo, and was idle, e.g.
+waiting for the host to enqueue its work, or for other processes. An exchange on the device may wait for the other
+process there (e.g. NCCL), which keeps the device busy without computing; it overlaps with computing where the clusters
+run concurrently. See ``SEISSOL_DEVICE_LOOP_STATISTICS`` in :ref:`gpu-env` for the timing on the device.
+
+The log at the end of the run also gives the device time of the replays and of the exchanges.
 
 .. _cell-updates:
 

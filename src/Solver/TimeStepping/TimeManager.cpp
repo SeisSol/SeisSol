@@ -23,11 +23,15 @@
 #include "Memory/HostData.h"
 #include "Memory/HostSnapshot.h"
 #include "Memory/Tree/Layer.h"
-#include "Monitoring/DeviceLoopTimer.h"
+#include "Monitoring/DeviceTimeline.h"
+#include "Monitoring/DeviceTimer.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/RunSummary.h"
 #include "Monitoring/Watchdog.h"
+#include "Numerical/Statistics.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
+#include "Parallel/OpenMP.h"
 #include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 #include "ResultWriter/ClusteringWriter.h"
@@ -151,7 +155,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   std::vector<std::unique_ptr<GhostCluster>> ghostClusters;
 
   setUpHostScheduling();
-  DeviceLoopTimer::enabled() = useDeviceLoopStatistics(seissolInstance_.env());
+  DeviceTimer::enabled() = useDeviceLoopStatistics(seissolInstance_.env());
 
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
@@ -224,6 +228,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
               &layer,
               seissolInstance_,
               &loopStatistics_,
+              &deviceTimeline_,
               &actorStateStatisticsManager_.addCluster(profilingId));
         }));
 
@@ -308,6 +313,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                              memoryManager.faultOutputManager(),
                              seissolInstance_,
                              &loopStatistics_,
+                             &deviceTimeline_,
                              &actorStateStatisticsManager_.addCluster(profilingId));
                        }));
 
@@ -404,6 +410,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // the library of the halo exchange knows all transports now; collective over all processes
   if (haloTransports_->scheduler() != nullptr) {
     haloTransports_->scheduler()->prepare();
+    if (DeviceTimeline::active()) {
+      exchangeTimer_ =
+          std::make_unique<DeviceTimer>(nullptr, &deviceTimeline_, DeviceTimeline::Kind::Exchanges);
+      haloTransports_->scheduler()->setTimer(exchangeTimer_.get(), &exchangeDeviceTime_);
+    }
   }
 
   commThread_ = seissol::useCommThread(Mpi::mpi, seissolInstance_.env());
@@ -466,6 +477,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     } else {
       replay_ = true;
       recorder_ = std::make_unique<SuperStepRecorder>();
+      if (DeviceTimeline::active()) {
+        superStepTimer_ = std::make_unique<DeviceTimer>(
+            nullptr, &deviceTimeline_, DeviceTimeline::Kind::SuperSteps);
+        recorder_->setTimer(superStepTimer_.get());
+      }
       graphMode_ = superStepGraphMode(seissolInstance_.env());
       if (graphMode_ == SuperStepGraphMode::Rebuild) {
         logInfo() << "Every super-timestep gets recorded anew and launched once, none replayed"
@@ -628,6 +644,10 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   const device::DeviceInstance& device = device::DeviceInstance::instance();
   device.api().putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
+  // what the device and the threads do in this epoch
+  deviceTimeline_.beginEpoch();
+  parallel::runtime::HostRuntime::resetLoopTime();
+  const auto epochBegin = std::chrono::steady_clock::now();
 
   // with a task graph on the host, the actions create the tasks of the epoch; this returns once
   // they are all done
@@ -646,7 +666,27 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   for (auto& cluster : clusters_) {
     cluster->finishPhase();
   }
+  finishActivity(epochBegin);
   setWatchdogPhase(monitoring::Watchdog::Phase::Other, "the end of an epoch");
+}
+
+void TimeManager::finishActivity(std::chrono::steady_clock::time_point epochBegin) {
+  // the device is done with the epoch; the clusters have added the times of their loops
+  for (auto* timer : {superStepTimer_.get(), exchangeTimer_.get()}) {
+    if (timer != nullptr) {
+      timer->collectAll();
+    }
+  }
+  lastActivity_.device = deviceTimeline_.endEpoch();
+  lastActivity_.wall =
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - epochBegin).count();
+  lastActivity_.threadLoops = parallel::runtime::HostRuntime::loopTime();
+  lastActivity_.threads = static_cast<double>(OpenMP::threadCount());
+
+  totalActivity_.device += lastActivity_.device;
+  totalActivity_.wall += lastActivity_.wall;
+  totalActivity_.threadLoops += lastActivity_.threadLoops;
+  totalActivity_.threads = lastActivity_.threads;
 }
 
 void TimeManager::actUntilSynchronized() {
@@ -746,6 +786,10 @@ void TimeManager::watchProgress() {
   // taking the time costs more than a pass through the loop, and the timeout is in minutes
   constexpr std::size_t PassesPerCheck = 1024;
   if (++waitingPasses_ % PassesPerCheck == 0) {
+    // the exchanges the device is past, without waiting
+    if (exchangeTimer_ != nullptr) {
+      exchangeTimer_->collect();
+    }
     for (auto* cluster : clusters_) {
       if (!cluster->synced()) {
         cluster->checkProgress();
@@ -887,7 +931,7 @@ void TimeManager::followPlan() {
       for (auto* cluster : clusters_) {
         cluster->setDeviceWork(true);
       }
-      recorder_->replay(key, participants, streams);
+      recorder_->replay(key, participants, streams, superStepDeviceTimes_.data());
       if (scheduler != nullptr) {
         scheduler->setLatestEvent(recorder_->lastEvent());
       }
@@ -906,10 +950,10 @@ void TimeManager::followPlan() {
       const auto ending = std::chrono::steady_clock::now();
       if (keep) {
         recorder_->endRecording(key, participants, streams);
-        recorder_->replay(key, participants, streams);
+        recorder_->replay(key, participants, streams, &superStepDeviceTimes_[1]);
         ++recordedSuperSteps_;
       } else {
-        recorder_->endRecordingAndLaunch(participants, streams);
+        recorder_->endRecordingAndLaunch(participants, streams, &superStepDeviceTimes_[2]);
         ++launchedOnceSuperSteps_;
       }
       superStepHostTimes_[3] += seconds(ending);
@@ -936,6 +980,10 @@ void TimeManager::followPlan() {
     }
 
     ++superSteps_;
+    // the replays the device is past, without waiting
+    if (superStepTimer_ != nullptr) {
+      superStepTimer_->collect();
+    }
     if (!full) {
       ++shortenedSuperSteps_;
     } else {
@@ -947,7 +995,47 @@ void TimeManager::followPlan() {
 
 json::Value TimeManager::printComputationTime() {
   actorStateStatisticsManager_.finish();
-  return loopStatistics_.printSummary(Mpi::mpi.comm());
+  auto result = loopStatistics_.printSummary(Mpi::mpi.comm());
+  result["activity"] = printActivity();
+  return result;
+}
+
+json::Value TimeManager::printActivity() const {
+  const auto& total = totalActivity_;
+  json::Value activity;
+
+  // the time the threads spent in the loops, of all the time they had
+  const double capacity = total.threads * total.wall;
+  const auto threadLoops =
+      statistics::parallelSummary(capacity > 0 ? total.threadLoops / capacity : 0.0);
+  // with a device, the threads may run no loops at all
+  if (!DeviceTimeline::active() || threadLoops.max > 0) {
+    logInfo() << "Time the threads spent in loops:" << 100 * threadLoops.mean
+              << "% (mean over all ranks; minimum" << 100 * threadLoops.min << "%)";
+  }
+  activity["threadLoops"] = monitoring::toJson(threadLoops);
+
+  if (DeviceTimeline::active()) {
+    const auto share = [&](double time) {
+      return statistics::parallelSummary(total.device.span > 0 ? time / total.device.span : 0.0);
+    };
+    const auto computing = share(total.device.computing);
+    const auto loops = share(total.device.busyWith(DeviceTimeline::Kind::Loops));
+    const auto superSteps = share(total.device.busyWith(DeviceTimeline::Kind::SuperSteps));
+    const auto exchanges = share(total.device.busyWith(DeviceTimeline::Kind::Exchanges));
+    const auto idle = share(total.device.span - total.device.busy);
+    logInfo() << "Time the device computed:" << 100 * computing.mean
+              << "% (mean over all ranks; minimum" << 100 * computing.min << "%), in loops"
+              << 100 * loops.mean << "% and in replays of super-timesteps" << 100 * superSteps.mean
+              << "%; it exchanged the halo" << 100 * exchanges.mean << "% of the time, and was idle"
+              << 100 * idle.mean << "% (maximum" << 100 * idle.max << "%)";
+    activity["deviceComputing"] = monitoring::toJson(computing);
+    activity["deviceLoops"] = monitoring::toJson(loops);
+    activity["deviceSuperSteps"] = monitoring::toJson(superSteps);
+    activity["deviceExchanges"] = monitoring::toJson(exchanges);
+    activity["deviceIdle"] = monitoring::toJson(idle);
+  }
+  return activity;
 }
 
 double TimeManager::getTimeTolerance() const {
@@ -990,6 +1078,16 @@ void TimeManager::freeDynamicResources() {
   // layers and of the recorder; all clusters hold events of the recorder. So they let go of them in
   // this order, before the clusters, the recorder and the halo exchange dispose of their pools.
   auto* scheduler = haloTransports_->scheduler();
+  // the timers wait for their events before they give them back
+  if (scheduler != nullptr) {
+    scheduler->setTimer(nullptr, nullptr);
+  }
+  if (recorder_ != nullptr) {
+    recorder_->setTimer(nullptr);
+  }
+  exchangeTimer_.reset();
+  superStepTimer_.reset();
+  deviceTimeline_.release();
   if (scheduler != nullptr) {
     scheduler->forgetEvents();
   }
@@ -1013,6 +1111,14 @@ void TimeManager::freeDynamicResources() {
                 Mpi::mpi.comm());
   logInfo() << "Halo exchange:" << messages[0] << "messages sent," << messages[1]
             << "received (summed over all ranks)";
+  if (scheduler != nullptr && DeviceTimeline::active()) {
+    // on the streams of the exchange, from where each group could start, the waits for the
+    // other processes included; not within recordings of super-timesteps
+    double exchangeTime = exchangeDeviceTime_;
+    MPI_Allreduce(MPI_IN_PLACE, &exchangeTime, 1, MPI_DOUBLE, MPI_MAX, Mpi::mpi.comm());
+    logInfo() << "Device time of the halo exchange:" << exchangeTime
+              << "s (maximum over all ranks)";
+  }
 
   if (scheduler != nullptr) {
     // the events of the halo exchange get reused once nobody waits for them any more
@@ -1057,6 +1163,20 @@ void TimeManager::freeDynamicResources() {
       logInfo() << "Host time of the super-timesteps: run directly" << times[0] << "s, replayed"
                 << times[1] << "s, recorded" << times[2] << "s, of that ending the recordings"
                 << times[3] << "s (maximum over all ranks)";
+      if (DeviceTimeline::active()) {
+        // from where each could start on the device to where it had run; the steps run directly
+        // count in the loop statistics
+        auto deviceTimes = superStepDeviceTimes_;
+        MPI_Allreduce(MPI_IN_PLACE,
+                      deviceTimes.data(),
+                      deviceTimes.size(),
+                      MPI_DOUBLE,
+                      MPI_MAX,
+                      Mpi::mpi.comm());
+        logInfo() << "Device time of the super-timesteps: replayed" << deviceTimes[0]
+                  << "s, recorded" << deviceTimes[1] << "s, recorded and launched once"
+                  << deviceTimes[2] << "s (maximum over all ranks)";
+      }
     }
     if (superSteps[6] > 0) {
       logError() << "For" << superSteps[6]

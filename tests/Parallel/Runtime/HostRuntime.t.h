@@ -65,6 +65,18 @@ TEST_CASE("The loops of the host runtime visit each element once" *
   }
 }
 
+TEST_CASE("The host runtime counts the time of the threads in loops" *
+          doctest::test_suite("parallel")) {
+  HostRuntime::resetLoopTime();
+  HostRuntime::forRange(4, [](std::size_t /*begin*/, std::size_t /*end*/) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  });
+  // at least one range ran, for at least its sleep
+  CHECK(HostRuntime::loopTime() >= 0.01);
+  HostRuntime::resetLoopTime();
+  CHECK(HostRuntime::loopTime() == doctest::Approx(0.0));
+}
+
 TEST_CASE("The work of an action runs right away" * doctest::test_suite("parallel")) {
   HostRuntime runtime;
   int ran = 0;

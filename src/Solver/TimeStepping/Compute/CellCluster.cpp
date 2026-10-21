@@ -37,6 +37,7 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/ActorStateStatistics.h"
+#include "Monitoring/DeviceTimeline.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/LoopStatistics.h"
@@ -80,6 +81,7 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
                               LTS::Layer* clusterData,
                               seissol::SeisSol& seissolInstance,
                               LoopStatistics* loopStatistics,
+                              DeviceTimeline* deviceTimeline,
                               ActorStateStatistics* actorStateStatistics)
     : CellClusterInterface(
           maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
@@ -89,7 +91,8 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
       globalData_(globalData), clusterData_(clusterData),
       sourceCluster_(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
-      loopStatistics_(loopStatistics), deviceLoops_(loopStatistics),
+      loopStatistics_(loopStatistics),
+      deviceLoops_(loopStatistics, deviceTimeline, DeviceTimeline::Kind::Loops),
       actorStateStatistics_(actorStateStatistics),
       conditionalCounterHost_(1, seissol::memory::Memkind::Standard),
       conditionalCounterDevice_(1,

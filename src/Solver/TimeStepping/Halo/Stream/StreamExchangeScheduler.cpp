@@ -91,7 +91,13 @@ ExchangeScheduler::Ticket StreamExchangeScheduler::launch(std::size_t from,
     deviceInstance().api().syncStreamWithEvent(stream, event);
   }
 
+  // the time from where the group can start, the waits for the remote side included
+  const bool timed = timer_ != nullptr;
+  const auto interval = timed ? timer_->begin(stream) : DeviceTimer::Interval{};
   enqueueGroup(current, from, to, exchange, sender, receiver);
+  if (timed) {
+    timer_->end(interval, stream, deviceTime_);
+  }
 
   auto event = events_.next();
   deviceInstance().api().recordEventOnStream(event.get(), stream);

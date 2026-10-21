@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_EXCHANGESCHEDULER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_EXCHANGESCHEDULER_H_
 
+#include "Monitoring/DeviceTimer.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
@@ -149,6 +150,15 @@ class ExchangeScheduler {
   void setLatestEvent(ActorEvent event) { latestEvent_ = std::move(event); }
 
   /**
+   * Times the groups launched on device streams with `timer`; their device time adds up in
+   * `deviceTime`.
+   */
+  void setTimer(DeviceTimer* timer, double* deviceTime) {
+    timer_ = timer;
+    deviceTime_ = deviceTime;
+  }
+
+  /**
    * Sets up what needs all transports; collective over all processes, after all transports have
    * been added.
    */
@@ -187,6 +197,9 @@ class ExchangeScheduler {
   [[nodiscard]] LaunchOrder launchOrder() const { return order_; }
 
   protected:
+  DeviceTimer* timer_{nullptr};
+  double* deviceTime_{nullptr};
+
   /**
    * Called once a transport has been added.
    */

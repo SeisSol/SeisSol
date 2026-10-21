@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_PLAN_SUPERSTEPRECORDER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_PLAN_SUPERSTEPRECORDER_H_
 
+#include "Monitoring/DeviceTimer.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
@@ -74,10 +75,12 @@ class SuperStepRecorder {
 
   /**
    * Ends the recording and launches it once, as replay() would; it is not kept for the key of the
-   * super-timestep, but released once it has run.
+   * super-timestep, but released once it has run. Its device time gets added to `deviceTime` (see
+   * setTimer()).
    */
   void endRecordingAndLaunch(const std::vector<AbstractTimeCluster*>& clusters,
-                             const std::vector<void*>& streams);
+                             const std::vector<void*>& streams,
+                             double* deviceTime = nullptr);
 
   /**
    * Notes the latest work of the clusters, before they run the host parts of a super-timestep.
@@ -86,11 +89,18 @@ class SuperStepRecorder {
                    const std::vector<void*>& streams);
 
   /**
-   * Replays the recording for the key after the work noted last.
+   * Replays the recording for the key after the work noted last. Its device time gets added to
+   * `deviceTime` (see setTimer()).
    */
   void replay(const Key& key,
               const std::vector<AbstractTimeCluster*>& clusters,
-              const std::vector<void*>& streams);
+              const std::vector<void*>& streams,
+              double* deviceTime = nullptr);
+
+  /**
+   * Times the replays with `timer`, from where they can start to where they have run.
+   */
+  void setTimer(DeviceTimer* timer) { timer_ = timer; }
 
   /**
    * The event that completes with the latest replay. It stays reserved while the copy is held.
@@ -104,6 +114,8 @@ class SuperStepRecorder {
   void dispose();
 
   private:
+  DeviceTimer* timer_{nullptr};
+
 #ifdef ACL_DEVICE
   /// records an event on the stream, from a pool that does not hand it out again while it is held
   ActorEvent recordEvent(void* stream);
@@ -115,7 +127,8 @@ class SuperStepRecorder {
   /// launches the graph after the work noted last, and makes all clusters and streams wait for it
   void launch(const device::DeviceGraphHandle& graph,
               const std::vector<AbstractTimeCluster*>& clusters,
-              const std::vector<void*>& streams);
+              const std::vector<void*>& streams,
+              double* deviceTime);
 
   // the stream the recordings get replayed on, and the pool of the events around them
   parallel::runtime::StreamRuntime runtime_;

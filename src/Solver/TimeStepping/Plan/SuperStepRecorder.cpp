@@ -91,7 +91,8 @@ void SuperStepRecorder::endRecording(const Key& key,
 }
 
 void SuperStepRecorder::endRecordingAndLaunch(const std::vector<AbstractTimeCluster*>& clusters,
-                                              const std::vector<void*>& streams) {
+                                              const std::vector<void*>& streams,
+                                              double* deviceTime) {
   endCapture(clusters, streams);
   // the graphs launched once before that have run by now go (no event may be queried while
   // recording)
@@ -102,7 +103,7 @@ void SuperStepRecorder::endRecordingAndLaunch(const std::vector<AbstractTimeClus
                                            launched.second.get());
                                      }),
                       launchedOnce_.end());
-  launch(recording_, clusters, streams);
+  launch(recording_, clusters, streams, deviceTime);
   launchedOnce_.emplace_back(std::move(recording_), lastEvent_);
   recording_.reset();
 }
@@ -138,20 +139,28 @@ void SuperStepRecorder::beginReplay(const std::vector<AbstractTimeCluster*>& clu
 
 void SuperStepRecorder::replay(const Key& key,
                                const std::vector<AbstractTimeCluster*>& clusters,
-                               const std::vector<void*>& streams) {
-  launch(graphs_.at(key), clusters, streams);
+                               const std::vector<void*>& streams,
+                               double* deviceTime) {
+  launch(graphs_.at(key), clusters, streams, deviceTime);
 }
 
 void SuperStepRecorder::launch(const device::DeviceGraphHandle& graph,
                                const std::vector<AbstractTimeCluster*>& clusters,
-                               const std::vector<void*>& streams) {
+                               const std::vector<void*>& streams,
+                               double* deviceTime) {
   for (const auto& event : waitFor_) {
     if (event) {
       deviceInstance().api().syncStreamWithEvent(stream_, event.get());
     }
   }
   waitFor_.clear();
+  // the time from where the replay can start
+  const bool timed = timer_ != nullptr && deviceTime != nullptr;
+  const auto interval = timed ? timer_->begin(stream_) : DeviceTimer::Interval{};
   deviceInstance().api().launchGraph(graph, stream_);
+  if (timed) {
+    timer_->end(interval, stream_, deviceTime);
+  }
 
   // everything enqueued from now on comes after the replayed work
   lastEvent_ = recordEvent(stream_);
@@ -186,14 +195,16 @@ void SuperStepRecorder::endRecording(const Key& /*key*/,
                                      const std::vector<void*>& /*streams*/) {}
 
 void SuperStepRecorder::endRecordingAndLaunch(const std::vector<AbstractTimeCluster*>& /*clusters*/,
-                                              const std::vector<void*>& /*streams*/) {}
+                                              const std::vector<void*>& /*streams*/,
+                                              double* /*deviceTime*/) {}
 
 void SuperStepRecorder::beginReplay(const std::vector<AbstractTimeCluster*>& /*clusters*/,
                                     const std::vector<void*>& /*streams*/) {}
 
 void SuperStepRecorder::replay(const Key& /*key*/,
                                const std::vector<AbstractTimeCluster*>& /*clusters*/,
-                               const std::vector<void*>& /*streams*/) {}
+                               const std::vector<void*>& /*streams*/,
+                               double* /*deviceTime*/) {}
 
 #endif
 

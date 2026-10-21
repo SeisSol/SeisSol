@@ -16,7 +16,7 @@
 #include "Kernels/DynamicRupture.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Monitoring/ActorStateStatistics.h"
-#include "Monitoring/DeviceLoopTimer.h"
+#include "Monitoring/DeviceTimer.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
@@ -71,6 +71,7 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
                         dr::output::OutputManager* faultOutputManager,
                         seissol::SeisSol& seissolInstance,
                         LoopStatistics* loopStatistics,
+                        DeviceTimeline* deviceTimeline,
                         ActorStateStatistics* actorStateStatistics);
 
   ~DynamicRuptureCluster() override = default;
@@ -163,7 +164,7 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
 
   LoopStatistics* loopStatistics_;
   //! times the loops enqueued on the device
-  DeviceLoopTimer deviceLoops_;
+  DeviceTimer deviceLoops_;
   ActorStateStatistics* actorStateStatistics_;
   unsigned regionComputeDynamicRupture_{};
 

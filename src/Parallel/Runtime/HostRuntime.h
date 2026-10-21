@@ -10,7 +10,9 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <deque>
 #include <functional>
 #include <type_traits>
@@ -252,7 +254,7 @@ class HostRuntime {
 #pragma omp taskloop default(none) shared(body) firstprivate(count, size, tasks) grainsize(1)
       for (std::size_t task = 0; task < tasks; ++task) {
         const auto begin = task * size;
-        std::invoke(body, begin, std::min(count, begin + size));
+        timed(body, begin, std::min(count, begin + size));
       }
       return;
     }
@@ -264,13 +266,23 @@ class HostRuntime {
                                             static_cast<std::size_t>(omp_get_thread_num()),
                                             static_cast<std::size_t>(omp_get_num_threads()));
       if (begin < end) {
-        std::invoke(body, begin, end);
+        timed(body, begin, end);
       }
     }
 #else
-    std::invoke(body, std::size_t{0}, count);
+    timed(body, std::size_t{0}, count);
 #endif
   }
+
+  /**
+   * The time all threads have spent in the ranges of the loops since resetLoopTime(), in seconds;
+   * e.g. to tell how busy the threads were in an epoch.
+   */
+  [[nodiscard]] static double loopTime() {
+    return static_cast<double>(loopNanoseconds().load(std::memory_order_relaxed)) * 1e-9;
+  }
+
+  static void resetLoopTime() { loopNanoseconds().store(0, std::memory_order_relaxed); }
 
   /**
    * Runs `body(i)` for every i in [0, count), split like forRange().
@@ -330,6 +342,23 @@ class HostRuntime {
 #else
     return false;
 #endif
+  }
+
+  /// runs a range of a loop, and counts its time
+  template <typename F>
+  static void timed(const F& body, std::size_t begin, std::size_t end) {
+    const auto start = std::chrono::steady_clock::now();
+    std::invoke(body, begin, end);
+    const auto time = std::chrono::steady_clock::now() - start;
+    loopNanoseconds().fetch_add(
+        static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(time).count()),
+        std::memory_order_relaxed);
+  }
+
+  static std::atomic<std::uint64_t>& loopNanoseconds() {
+    static std::atomic<std::uint64_t> nanoseconds{0};
+    return nanoseconds;
   }
 
   /// the work of an action that ran as a task is done
