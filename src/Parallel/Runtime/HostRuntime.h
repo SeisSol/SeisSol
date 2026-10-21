@@ -9,7 +9,9 @@
 #define SEISSOL_SRC_PARALLEL_RUNTIME_HOSTRUNTIME_H_
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
+#include <deque>
 #include <functional>
 #include <type_traits>
 #include <utility>
@@ -113,6 +115,42 @@ class HostRuntime {
   [[nodiscard]] static std::size_t taskSize() { return settings().taskSize; }
 
   /**
+   * Sets how many actions of all runtimes may wait for their work in a task graph at most, before
+   * throttle() holds back whoever decides the next ones; 0 for no limit.
+   */
+  static void setActionLimit(std::size_t limit) { settings().actionLimit = limit; }
+
+  [[nodiscard]] static std::size_t actionLimit() { return settings().actionLimit; }
+
+  /**
+   * In a task graph, waits until fewer actions than the limit wait for their work; meanwhile runs
+   * `progress()` (e.g. what keeps the halo exchange going) and takes tasks. So that the thread that
+   * decides the actions stays not too far ahead of their work.
+   */
+  template <typename F>
+  static void throttle(const F& progress) {
+    const auto limit = actionLimit();
+    while (limit > 0 && inTaskGraph() && outstandingActions() >= limit) {
+      std::invoke(progress);
+#ifdef SEISSOL_HOST_TASK_GRAPH
+      if constexpr (detachedTasksNeverBlock()) {
+        // the thread may need to keep the halo exchange going, and takes a task meanwhile
+        yield();
+      } else {
+        // a task yield may do nothing at all (as with libgomp); waiting for the oldest work takes
+        // tasks until that is done, and a thread of its own keeps the halo exchange going
+        auto& oldest = settings().oldest;
+        if (!oldest.empty()) {
+          const char* token = oldest.front();
+          oldest.pop_front();
+#pragma omp taskwait depend(in : token[0])
+        }
+      }
+#endif
+    }
+  }
+
+  /**
    * The work of this cluster reads what `other` shares (if it says so in its access).
    */
   void observe(const HostRuntime& other) { neighbors_.push_back(&other.shared_); }
@@ -134,26 +172,66 @@ class HostRuntime {
    */
   template <typename F>
   void action(const HostAccess& access, F&& work) {
+    created_.fetch_add(1, std::memory_order_relaxed);
 #ifdef SEISSOL_HOST_TASK_GRAPH
     if (inTaskGraph()) {
       auto task = std::decay_t<F>(std::forward<F>(work));
       const char* const* neighbors = neighbors_.data();
       const std::size_t count = access.readsNeighbors ? neighbors_.size() : 0;
+      outstanding().fetch_add(1, std::memory_order_relaxed);
+      if constexpr (!detachedTasksNeverBlock()) {
+        // for throttle(); the work of the cluster so far is done once the own token is free
+        settings().oldest.push_back(&own_);
+      }
       if (access.writesShared) {
 #pragma omp task default(none) firstprivate(task)                                                  \
     depend(iterator(std::size_t i = 0 : count), in : neighbors[i][0])                              \
     depend(inout : this->own_, this->shared_)
-        std::invoke(task);
+        {
+          std::invoke(task);
+          done();
+        }
       } else {
 #pragma omp task default(none) firstprivate(task)                                                  \
     depend(iterator(std::size_t i = 0 : count), in : neighbors[i][0]) depend(in : this->shared_)   \
     depend(inout : this->own_)
-        std::invoke(task);
+        {
+          std::invoke(task);
+          done();
+        }
       }
       return;
     }
 #endif
     std::invoke(std::forward<F>(work));
+    completed_.fetch_add(1, std::memory_order_release);
+  }
+
+  /// the actions whose work has been handed over so far; from any thread
+  [[nodiscard]] std::size_t createdActions() const {
+    return created_.load(std::memory_order_relaxed);
+  }
+
+  /// the actions whose work is done so far; from any thread
+  [[nodiscard]] std::size_t completedActions() const {
+    return completed_.load(std::memory_order_acquire);
+  }
+
+  /// the actions of all runtimes whose work runs as a task, and has not been done yet
+  [[nodiscard]] static std::size_t outstandingActions() {
+    return outstanding().load(std::memory_order_acquire);
+  }
+
+  /**
+   * Lets the calling thread take a task meanwhile, if there is one to take (e.g. while the main
+   * thread waits for the work to catch up with it).
+   */
+  static void yield() {
+#ifdef SEISSOL_HOST_TASK_GRAPH
+    if (inTaskGraph()) {
+#pragma omp taskyield
+    }
+#endif
   }
 
   /**
@@ -223,6 +301,7 @@ class HostRuntime {
 #pragma omp taskwait
         }
       }
+      settings().oldest.clear();
       return;
     }
 #endif
@@ -253,9 +332,23 @@ class HostRuntime {
 #endif
   }
 
+  /// the work of an action that ran as a task is done
+  void done() {
+    completed_.fetch_add(1, std::memory_order_release);
+    outstanding().fetch_sub(1, std::memory_order_release);
+  }
+
+  static std::atomic<std::size_t>& outstanding() {
+    static std::atomic<std::size_t> outstanding{0};
+    return outstanding;
+  }
+
   struct Settings {
     HostScheduling scheduling{HostScheduling::Static};
     std::size_t taskSize{32};
+    std::size_t actionLimit{0};
+    // where a task yield may do nothing: the own tokens of the actions run as tasks, oldest first
+    std::deque<const char*> oldest;
   };
 
   /// the settings of all host runtimes
@@ -269,6 +362,9 @@ class HostRuntime {
   char own_{0};
   char shared_{0};
   std::vector<const char*> neighbors_;
+
+  std::atomic<std::size_t> created_{0};
+  std::atomic<std::size_t> completed_{0};
 };
 
 } // namespace seissol::parallel::runtime

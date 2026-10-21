@@ -130,6 +130,14 @@ inline std::size_t hostTaskSize(utils::Env& env) {
 }
 
 /**
+ * How many actions may wait for their work in a task graph on the host at most, before the main
+ * thread waits for them to catch up (0 for no limit).
+ */
+inline std::size_t hostActionLimit(utils::Env& env) {
+  return env.get<std::size_t>("HOST_ACTION_LIMIT", 256);
+}
+
+/**
  * Whether the clusters take their steps strictly along the time stepping plan, instead of whenever
  * they are ready.
  */

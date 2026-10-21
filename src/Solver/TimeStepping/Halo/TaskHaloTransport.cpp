@@ -64,9 +64,8 @@ std::string TaskHaloEngine::describe() const {
     handedOver = handedOver_.size();
   }
   std::ostringstream text;
-  text << outstanding() << " tasks of exchanges in the task graph, " << handedOver
-       << " of them ready to start, " << inFlightCount_.load(std::memory_order_relaxed)
-       << " in flight";
+  text << outstanding() << " exchanges outstanding (" << handedOver << " ready to start, "
+       << inFlightCount_.load(std::memory_order_relaxed) << " in flight)";
   return text.str();
 }
 

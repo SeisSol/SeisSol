@@ -170,6 +170,12 @@ class AbstractTimeCluster {
   [[nodiscard]] virtual const double* deviceTime() const { return nullptr; }
 
   /**
+   * The actions whose work on the host is done (which, in a task graph, comes after the action),
+   * for watching it from another thread.
+   */
+  [[nodiscard]] std::size_t hostWorkDone() const { return hostRuntime_.completedActions(); }
+
+  /**
    * How long the cluster may go without changing its state before it reports, and whether a
    * timeout aborts the clusters that can fail (see the watchdog).
    */

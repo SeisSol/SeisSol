@@ -141,6 +141,9 @@ class TimeManager {
   /// lets the clusters act until all of them have reached the synchronization point
   void actUntilSynchronized();
 
+  /// with a task graph on the host, waits while too many actions wait for their work
+  void throttleHostWork();
+
   //! the passes through the loops that wait for the clusters, for watchProgress()
   std::size_t waitingPasses_{0};
 

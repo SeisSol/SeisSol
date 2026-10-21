@@ -151,4 +151,32 @@ TEST_CASE("In a task graph, the work of the actions follows what it reads and wr
   CHECK(order[2] < order[4]);
 }
 
+TEST_CASE("In a task graph, the main thread stays within the limit of waiting actions" *
+          doctest::test_suite("parallel")) {
+  if (!HostRuntime::taskGraphAvailable()) {
+    return;
+  }
+  const hostruntime::TaskGraphScope scope(32);
+  HostRuntime::setActionLimit(2);
+  HostRuntime runtime;
+  std::size_t mostWaiting = 0;
+  std::atomic<int> done{0};
+  HostRuntime::epoch([&]() {
+    for (int i = 0; i < 20; ++i) {
+      HostRuntime::throttle([]() {});
+      mostWaiting = std::max(mostWaiting, HostRuntime::outstandingActions());
+      runtime.action({}, [&done]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        ++done;
+      });
+    }
+  });
+  HostRuntime::setActionLimit(0);
+  CHECK(mostWaiting < 2);
+  CHECK(done == 20);
+  CHECK(runtime.createdActions() == 20);
+  CHECK(runtime.completedActions() == 20);
+  CHECK(HostRuntime::outstandingActions() == 0);
+}
+
 } // namespace seissol::unit_test

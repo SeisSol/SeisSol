@@ -47,6 +47,10 @@ of the clusters up to the next synchronization point instead, in one parallel re
 work of each step into a task, which runs as soon as the work it depends on is done: so the steps of
 different clusters run at the same time, and the threads that are done with one loop go on with the
 next one. The loops become tasks of ``SEISSOL_HOST_TASK_SIZE`` cells or faces each (32 by default).
+The main thread stays at most ``SEISSOL_HOST_ACTION_LIMIT`` steps of the clusters ahead of their work
+(256 by default; 0 for no limit): meanwhile, it takes tasks itself. Without a limit, it would decide
+all steps up to the next synchronization point first, which costs memory and time with long
+intervals between synchronization points.
 The halo exchange becomes part of the task graph as well: a send starts once the copy layer is
 complete, and the work that reads the ghost layer waits for the data, without the main thread waiting
 for either. That pays off the more, the more threads a rank has and the more unevenly they are fast
@@ -58,7 +62,9 @@ in the task graph; with ``SEISSOL_COMMTHREAD=0``, the main thread does so betwee
 which may be faster where the communication thread shares its core or cache with the workers. That
 works with the OpenMP runtimes of LLVM and Intel only: others (e.g. that of GCC) may wait for a task
 of an exchange where the main thread creates it, so a thread of its own polls the exchanges there in
-any case. The times of the loops in the summary of the run overlap each other in a task graph.
+any case. The times of the loops in the summary of the run overlap each other in a task graph. The
+watchdog (see below) also watches the work done of each cluster then, and at a stall reports the
+exchanges of the task graph in flight.
 
 Watchdog
 --------

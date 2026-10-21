@@ -41,6 +41,7 @@
 #include "Solver/TimeStepping/Halo/GhostCluster.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
+#include "Solver/TimeStepping/Halo/TaskHaloTransport.h"
 #include "Solver/TimeStepping/HaloTransportFactory.h"
 #include "Solver/TimeStepping/Plan/SuperStepRecorder.h"
 #include "Solver/TimeStepping/Plan/TimeSteppingPlan.h"
@@ -522,12 +523,27 @@ void TimeManager::setUpWatchdog(const std::vector<AbstractTimeCluster*>& cluster
       watchdog_->addProbe("the device time of " + cluster->description(),
                           [time] { return *static_cast<const volatile double*>(time); });
     }
+    const bool computes = std::find(clusters_.begin(), clusters_.end(), cluster) != clusters_.end();
+    if (computes && parallel::runtime::HostRuntime::scheduling() ==
+                        parallel::runtime::HostScheduling::TaskGraph) {
+      // in a task graph, the work comes after the actions
+      watchdog_->addProbe("the work done of " + cluster->description(),
+                          [cluster] { return static_cast<double>(cluster->hostWorkDone()); });
+    }
     // each cluster reports on the thread it acts on, if that still runs
     watchdog_->addReport([cluster] { cluster->requestReport(); });
   }
   if (auto* scheduler = haloTransports_->scheduler(); scheduler != nullptr) {
     watchdog_->addCheck([scheduler] { scheduler->checkAsyncErrors(); });
   }
+#ifdef SEISSOL_HOST_TASK_GRAPH
+  if (auto* engine = haloTransports_->taskEngine(); engine != nullptr) {
+    // the main thread may wait for the tasks, and not get to report
+    watchdog_->addReport([engine] {
+      logWarning(true) << "Watchdog: the halo exchange in the task graph:" << engine->describe();
+    });
+  }
+#endif
   watchdog_->start();
   logInfo() << "A watchdog looks at the progress, and reports"
             << (settings.abort ? "and aborts" : "") << "after" << settings.timeout.count()
@@ -647,6 +663,7 @@ void TimeManager::actUntilSynchronized() {
   // Also completes the synchronization after following the plan.
   bool finished = false; // Is true, once all clusters reached next sync point
   while (!finished) {
+    throttleHostWork();
     communicationManager_->progression();
 
     // Update all high priority clusters
@@ -689,6 +706,11 @@ void TimeManager::actUntilSynchronized() {
   }
 }
 
+void TimeManager::throttleHostWork() {
+  // with a task graph, the actions do not run too far ahead of their work
+  parallel::runtime::HostRuntime::throttle([this]() { communicationManager_->progression(); });
+}
+
 void TimeManager::setUpHostScheduling() {
   using parallel::runtime::HostRuntime;
   using parallel::runtime::HostScheduling;
@@ -711,8 +733,11 @@ void TimeManager::setUpHostScheduling() {
     return;
   }
   HostRuntime::setScheduling(HostScheduling::TaskGraph, taskSize);
+  HostRuntime::setActionLimit(hostActionLimit(env));
   logInfo() << "The clusters run their work on the host in a task graph, with tasks of" << taskSize
-            << "cells or faces in their loops (SEISSOL_HOST_TASK_SIZE).";
+            << "cells or faces in their loops (SEISSOL_HOST_TASK_SIZE), and at most"
+            << HostRuntime::actionLimit() << "actions waiting for their work"
+            << "(SEISSOL_HOST_ACTION_LIMIT; 0 for no limit).";
 }
 
 void TimeManager::watchProgress() {
@@ -750,6 +775,7 @@ StepWork TimeManager::takeSteps(const std::vector<PlannedAction>& plan,
   for (auto index = begin; index < end; ++index) {
     const auto& step = plan[index];
     auto* cluster = clusters_[step.cluster];
+    throttleHostWork();
     // along the plan, a cluster can only have to wait for the halo exchange
     auto action = cluster->getNextLegalAction();
     while (action == ActorAction::Nothing) {
