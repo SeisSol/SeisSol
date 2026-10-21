@@ -20,6 +20,9 @@ the time the output took on the main thread.
 
 The "total time spent in compute kernels" denotes the time in which all CPUs execute some function to advance the computation of the solution.
 In particular, it excludes the time spent with MPI communication.
+On GPUs, it is the time in which the GPU executes the loops of the clusters, timed by events on their streams
+(see ``SEISSOL_DEVICE_LOOP_STATISTICS`` in :ref:`gpu-env`). The loops of clusters that run concurrently overlap in it,
+as do those of a task graph on the CPU; the steps replayed from a recording of super-timesteps do not count.
 
 .. _run-summary:
 

@@ -39,6 +39,9 @@ class LoopStatistics {
   void addSample(
       unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end);
 
+  /// adds a loop that took `time` seconds (e.g. on a device, see DeviceLoopTimer)
+  void addTime(unsigned region, unsigned numIterations, unsigned subRegion, double time);
+
   void reset();
 
   /**

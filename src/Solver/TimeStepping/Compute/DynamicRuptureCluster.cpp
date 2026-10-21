@@ -72,8 +72,8 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
       frictionSolver_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
       frictionSolverDevice_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),
       faultOutputManager_(faultOutputManager), outputTimestep_(outputTimestep),
-      loopStatistics_(loopStatistics), actorStateStatistics_(actorStateStatistics),
-      profilingId_(profilingId) {
+      loopStatistics_(loopStatistics), deviceLoops_(loopStatistics),
+      actorStateStatistics_(actorStateStatistics), profilingId_(profilingId) {
   assert(layerData_ != nullptr);
   assert(globalData_.onHost != nullptr);
   if constexpr (seissol::isDeviceOn()) {
@@ -188,7 +188,7 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRuptureDevice(
 
   SCOREP_USER_REGION("computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  const auto loopBegin = LoopStatistics::begin();
+  const auto loop = deviceLoops_.begin(streamRuntime_.stream());
 
   if (layerData.size() > 0) {
     // compute space time interpolation part
@@ -241,7 +241,8 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRuptureDevice(
 
     device_.api().popLastProfilingMark();
   }
-  loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_, loopBegin);
+  deviceLoops_.end(
+      loop, streamRuntime_.stream(), regionComputeDynamicRupture_, layerData.size(), profilingId_);
 #else
   logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif
@@ -404,6 +405,7 @@ StepWork DynamicRuptureCluster<Cfg>::prepare(ActorAction action) {
 
 template <typename Cfg>
 void DynamicRuptureCluster<Cfg>::interact(const StepParams& params) {
+  deviceLoops_.collect();
   if (layerData_->size() == 0) {
     clock_.advance(params.timeStepSize, streamRuntime_);
     return;
@@ -471,7 +473,14 @@ ActResult DynamicRuptureCluster<Cfg>::act() {
 }
 
 template <typename Cfg>
+void DynamicRuptureCluster<Cfg>::finishPhase() {
+  // the device is past all loops of the epoch
+  deviceLoops_.collectAll();
+}
+
+template <typename Cfg>
 void DynamicRuptureCluster<Cfg>::finalize() {
+  deviceLoops_.release();
 #ifdef ACL_DEVICE
   if (pickpointStepStart_ != &pickpointStepStartHost_) {
     device_.api().freePinnedMem(pickpointStepStart_);

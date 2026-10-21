@@ -60,11 +60,17 @@ void LoopStatistics::end(unsigned region,
 }
 
 void LoopStatistics::addSample(
-    unsigned region, unsigned numIterations, unsigned /*subRegion*/, timespec begin, timespec end) {
+    unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end) {
+  addTime(region, numIterations, subRegion, seconds(difftime(begin, end)));
+}
+
+void LoopStatistics::addTime(unsigned region,
+                             unsigned numIterations,
+                             unsigned /*subRegion*/,
+                             double time) {
   if (numIterations > 0) {
     const std::scoped_lock lock(samplesMutex_);
     auto& vars = regions_[region].variables;
-    const auto time = seconds(difftime(begin, end));
     vars.x += numIterations;
     vars.x2 += static_cast<double>(numIterations) * static_cast<double>(numIterations);
     vars.xy += static_cast<double>(numIterations) * time;

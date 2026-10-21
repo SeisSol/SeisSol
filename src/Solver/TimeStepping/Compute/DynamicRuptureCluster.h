@@ -16,6 +16,7 @@
 #include "Kernels/DynamicRupture.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Monitoring/ActorStateStatistics.h"
+#include "Monitoring/DeviceLoopTimer.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
@@ -77,6 +78,7 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   ActResult act() override;
 
   void finalize() override;
+  void finishPhase() override;
 
   void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
 
@@ -160,6 +162,8 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   std::size_t perfHandle_{};
 
   LoopStatistics* loopStatistics_;
+  //! times the loops enqueued on the device
+  DeviceLoopTimer deviceLoops_;
   ActorStateStatistics* actorStateStatistics_;
   unsigned regionComputeDynamicRupture_{};
 

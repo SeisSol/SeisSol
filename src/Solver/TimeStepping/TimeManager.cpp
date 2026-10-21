@@ -23,6 +23,7 @@
 #include "Memory/HostData.h"
 #include "Memory/HostSnapshot.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/DeviceLoopTimer.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/Watchdog.h"
 #include "Parallel/Helper.h"
@@ -150,6 +151,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   std::vector<std::unique_ptr<GhostCluster>> ghostClusters;
 
   setUpHostScheduling();
+  DeviceLoopTimer::enabled() = useDeviceLoopStatistics(seissolInstance_.env());
 
   // store the time stepping
   this->clusterLayout_ = clusterLayout;

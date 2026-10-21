@@ -138,6 +138,13 @@ inline std::size_t hostActionLimit(utils::Env& env) {
 }
 
 /**
+ * Whether the loops that the clusters enqueue on the device get timed for the loop statistics.
+ */
+inline bool useDeviceLoopStatistics(utils::Env& env) {
+  return env.get<bool>("DEVICE_LOOP_STATISTICS", true);
+}
+
+/**
  * Whether the clusters take their steps strictly along the time stepping plan, instead of whenever
  * they are ready.
  */

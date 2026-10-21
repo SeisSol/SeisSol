@@ -22,6 +22,7 @@
 #include "Kernels/TimeCommon.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Monitoring/ActorStateStatistics.h"
+#include "Monitoring/DeviceLoopTimer.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
 #include "Solver/FreeSurfaceIntegrator.h"
@@ -130,6 +131,8 @@ class CellCluster : public CellClusterInterface {
 
   //! Stopwatch of TimeManager
   LoopStatistics* loopStatistics_;
+  //! times the loops enqueued on the device
+  DeviceLoopTimer deviceLoops_;
   ActorStateStatistics* actorStateStatistics_;
   unsigned regionComputeLocalIntegration_;
   unsigned regionComputeNeighboringIntegration_;

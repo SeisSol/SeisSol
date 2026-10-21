@@ -115,6 +115,8 @@ The following device-specific environment variable is supported right now:
 
 - ``SEISSOL_TRANSFER_MODE``
 
+- ``SEISSOL_DEVICE_LOOP_STATISTICS``
+
 ``SEISSOL_USM`` specifies if the data buffers are allocated using unified/managed (i.e. CPU-accessible) memory,
 or GPU memory. It is off by default, also on systems whose GPU shares its memory with the CPU,
 like the Grace Hopper and Grace Blackwell Superchips, or APUs like the MI300A:
@@ -132,6 +134,12 @@ otherwise.
 Currently, that is only CUDA; we recommend to check the respective guides for availability
 (generally, Hopper or newer should always support it; and Ampere slightly restricted).
 Disabled by default, and currently requires ``SEISSOL_USM=0`` and ``SEISSOL_USM_MPI=0``.
+
+``SEISSOL_DEVICE_LOOP_STATISTICS`` decides whether the loops that the clusters enqueue on the GPU get timed for
+the loop statistics of the run summary (see :ref:`run-summary`), with a pair of events around each loop on its stream
+(with CUDA and HIP; the SYCL backends keep the time it takes to enqueue the loops). On by default; each timed loop
+costs two records of events, about 1 to 2 % of the run time of a small mesh. ``SEISSOL_DEVICE_LOOP_STATISTICS=0``
+leaves the loops on the GPU out of the statistics.
 
 ``SEISSOL_TRANSFER_MODE`` (or its alias ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``)
 specifies how to exchange GPU buffers between processes.

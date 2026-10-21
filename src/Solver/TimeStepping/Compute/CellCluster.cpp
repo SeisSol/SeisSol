@@ -89,7 +89,8 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
       globalData_(globalData), clusterData_(clusterData),
       sourceCluster_(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells
-      loopStatistics_(loopStatistics), actorStateStatistics_(actorStateStatistics),
+      loopStatistics_(loopStatistics), deviceLoops_(loopStatistics),
+      actorStateStatistics_(actorStateStatistics),
       conditionalCounterHost_(1, seissol::memory::Memkind::Standard),
       conditionalCounterDevice_(1,
                                 isDeviceOn() ? seissol::memory::Memkind::DeviceGlobalMemory
@@ -194,11 +195,22 @@ void CellCluster<Cfg>::computeSources(const StepParams& params) {
   }();
 
   if (pointSourceCluster != nullptr) {
-    const auto loopBegin = LoopStatistics::begin();
-    pointSourceCluster->addTimeIntegratedPointSources(
-        params.time, params.timeStepSize, streamRuntime_);
-    loopStatistics_->end(
-        regionComputePointSources_, pointSourceCluster->size(), profilingId_, loopBegin);
+    if (executor_ == Executor::Device) {
+      const auto loop = deviceLoops_.begin(streamRuntime_.stream());
+      pointSourceCluster->addTimeIntegratedPointSources(
+          params.time, params.timeStepSize, streamRuntime_);
+      deviceLoops_.end(loop,
+                       streamRuntime_.stream(),
+                       regionComputePointSources_,
+                       pointSourceCluster->size(),
+                       profilingId_);
+    } else {
+      const auto loopBegin = LoopStatistics::begin();
+      pointSourceCluster->addTimeIntegratedPointSources(
+          params.time, params.timeStepSize, streamRuntime_);
+      loopStatistics_->end(
+          regionComputePointSources_, pointSourceCluster->size(), profilingId_, loopBegin);
+    }
   }
 #ifdef ACL_DEVICE
   device_.api().popLastProfilingMark();
@@ -304,7 +316,7 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
   SCOREP_USER_REGION("computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   device_.api().putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
-  const auto loopBegin = LoopStatistics::begin();
+  const auto loop = deviceLoops_.begin(streamRuntime_.stream());
 
   auto& dataTable = clusterData_->getConditionalTable<inner_keys::Wp>();
   auto& indicesTable = clusterData_->getConditionalTable<inner_keys::Indices>();
@@ -387,8 +399,11 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
   localKernel_.evaluateBatchedTimeDependentBc(
       dataTable, indicesTable, *clusterData_, clock_.host(), timeStepWidth, streamRuntime_);
 
-  loopStatistics_->end(
-      regionComputeLocalIntegration_, clusterData_->size(), profilingId_, loopBegin);
+  deviceLoops_.end(loop,
+                   streamRuntime_.stream(),
+                   regionComputeLocalIntegration_,
+                   clusterData_->size(),
+                   profilingId_);
   device_.api().popLastProfilingMark();
 #else
   logError() << "The GPU kernels are disabled in this version of SeisSol.";
@@ -421,7 +436,7 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
 
   device_.api().putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
-  const auto loopBegin = LoopStatistics::begin();
+  const auto loop = deviceLoops_.begin(streamRuntime_.stream());
 
   const double timeStepWidth = params.timeStepSize;
   auto& table = clusterData_->getConditionalTable<inner_keys::Wp>();
@@ -489,8 +504,11 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
   }
 
   device_.api().popLastProfilingMark();
-  loopStatistics_->end(
-      regionComputeNeighboringIntegration_, clusterData_->size(), profilingId_, loopBegin);
+  deviceLoops_.end(loop,
+                   streamRuntime_.stream(),
+                   regionComputeNeighboringIntegration_,
+                   clusterData_->size(),
+                   profilingId_);
 #else
   logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif // ACL_DEVICE
@@ -633,6 +651,7 @@ template <typename Cfg>
 void CellCluster<Cfg>::predict() {
   assert(state_ == ActorState::Corrected);
   const auto params = stepParams();
+  deviceLoops_.collect();
 
   if (clusterData_->size() == 0) {
     return;
@@ -668,6 +687,7 @@ template <typename Cfg>
 void CellCluster<Cfg>::correct() {
   assert(state_ == ActorState::Predicted);
   const auto params = stepParams();
+  deviceLoops_.collect();
 
   if (executor_ == Executor::Device) {
     computeNeighboringIntegrationDevice(params);
@@ -756,6 +776,7 @@ void CellCluster<Cfg>::finalize() {
   sourceCluster_.host.reset(nullptr);
   sourceCluster_.device.reset(nullptr);
   AbstractTimeCluster::finalize();
+  deviceLoops_.release();
   clock_.dispose();
   streamRuntime_.dispose();
 
@@ -904,6 +925,9 @@ void CellCluster<Cfg>::synchronizeTo(seissol::initializer::AllocationPlace place
 
 template <typename Cfg>
 void CellCluster<Cfg>::finishPhase() {
+  // the device is past all loops of the epoch
+  deviceLoops_.collectAll();
+
   const auto cells = conditionalCounterHost_[0];
   seissolInstance_.flopCounter().incrementMetric(
       perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityYield)],
