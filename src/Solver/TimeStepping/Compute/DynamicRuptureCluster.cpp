@@ -215,20 +215,28 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRuptureDevice(
     const auto frictionTime =
         seissol::dr::friction_law::FrictionSolver::computeDeltaT<Cfg>(timePoints);
 
+    auto& solver = frictionSolverDevice_;
+    // a friction law on the device takes the time of its step from the clock of the cluster, and
+    // otherwise only what the step size determines; so it goes into the graph of the interpolation
+    const bool frictionOnDevice = solver->allocationPlace() != initializer::AllocationPlace::Host;
+    // (a lambda cannot capture the structured binding before C++20)
+    const double* frictionWeights = timeWeights.data();
+
     streamRuntime_.runGraph(
         computeGraphKey,
         layerData,
         [&](seissol::parallel::runtime::StreamRuntime& /*streamRuntime*/) {
           dynamicRuptureKernel_.batchedSpaceTimeInterpolation(
               table, pointsCollocate.data(), streamRuntime_);
+          if (frictionOnDevice) {
+            solver->evaluate(params.time, frictionTime, frictionWeights, streamRuntime_);
+          }
         },
         isRecurringTimestep(timestep));
     device_.api().popLastProfilingMark();
 
-    auto& solver = frictionSolverDevice_;
-
-    device_.api().putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
-    if (solver->allocationPlace() == initializer::AllocationPlace::Host) {
+    if (!frictionOnDevice) {
+      device_.api().putProfilingMark("evaluateFriction", device::ProfilingColors::Lime);
       layerData.varSynchronizeTo<DynamicRupture::QInterpolatedPlus>(
           initializer::AllocationPlace::Host, streamRuntime_.stream());
       layerData.varSynchronizeTo<DynamicRupture::QInterpolatedMinus>(
@@ -243,11 +251,8 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRuptureDevice(
           initializer::AllocationPlace::Device, streamRuntime_.stream());
       layerData.varSynchronizeTo<DynamicRupture::ImposedStatePlus>(
           initializer::AllocationPlace::Device, streamRuntime_.stream());
-    } else {
-      solver->evaluate(params.time, frictionTime, timeWeights.data(), streamRuntime_);
+      device_.api().popLastProfilingMark();
     }
-
-    device_.api().popLastProfilingMark();
   }
   deviceLoops_.end(
       loop, streamRuntime_.stream(), regionComputeDynamicRupture_, layerData.size(), profilingId_);
