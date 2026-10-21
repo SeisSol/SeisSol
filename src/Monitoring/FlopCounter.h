@@ -55,6 +55,11 @@ struct FlopCounter {
 
   [[nodiscard]] std::size_t addMetric(const std::string& name, const std::string& category);
 
+  /**
+   * @brief What the metrics with one of the @p names have counted on this rank so far.
+   */
+  [[nodiscard]] PerformanceEstimate estimate(const std::vector<std::string>& names) const;
+
   private:
   std::ofstream out_;
   std::string runId_;

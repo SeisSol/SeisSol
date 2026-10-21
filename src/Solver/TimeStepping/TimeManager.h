@@ -285,8 +285,8 @@ class TimeManager {
   void setInitialTimes(double time = 0);
 
   /**
-   * Prints the time the compute kernels took, and how busy the device and the threads were over the
-   * run. Collective; returns what it printed, for the run summary.
+   * Prints the time the compute kernels took, their throughput, and how busy the device and the
+   * threads were over the run. Collective; returns what it printed, for the run summary.
    */
   json::Value printComputationTime();
 

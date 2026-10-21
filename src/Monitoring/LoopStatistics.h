@@ -14,9 +14,11 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <fstream>
 #include <iomanip>
 #include <mutex>
+#include <string>
 #include <time.h>
 #include <unordered_map>
 #include <vector>
@@ -53,6 +55,13 @@ class LoopStatistics {
 
   //! @brief The time this rank spent in the regions that count towards the total, the kernels.
   [[nodiscard]] double kernelTime() const;
+
+  //! @brief The regions, by their names; and the time this rank spent in each so far.
+  [[nodiscard]] std::size_t regionCount() const { return regions_.size(); }
+  [[nodiscard]] const std::string& regionName(unsigned region) const {
+    return regions_[region].name;
+  }
+  [[nodiscard]] double regionTime(unsigned region) const { return regions_[region].variables.y; }
 
   private:
   struct StatisticVariables {

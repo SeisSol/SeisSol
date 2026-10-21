@@ -102,8 +102,9 @@ members of the summary are:
        face updates of the whole run
    * - ``kernels``
      - the time in the compute kernels per rank (``total``), the load imbalance (one minus mean over maximum), per
-       region its time per rank, iterations, samples and the regression of its time over the iterations, and how busy
-       the threads and the device were over the run (``activity``, see :ref:`activity`)
+       region its time per rank, iterations, samples, the regression of its time over the iterations and its
+       throughput while it runs (``throughput``: hardware FLOP/s and kernel bytes/s per rank), and how busy the
+       threads and the device were over the run (``activity``, see :ref:`activity`)
    * - ``performance``
      - hardware and non-zero FLOP and kernel bytes, in total, per second and per category, and the cell updates per
        second (``cellUpdatesPerSecond``)
@@ -138,7 +139,9 @@ waiting for the host to enqueue its work, or for other processes. An exchange on
 process there (e.g. NCCL), which keeps the device busy without computing; it overlaps with computing where the clusters
 run concurrently. See ``SEISSOL_DEVICE_LOOP_STATISTICS`` in :ref:`gpu-env` for the timing on the device.
 
-The log at the end of the run also gives the device time of the replays and of the exchanges.
+The log at the end of the run also gives the device time of the replays and of the exchanges, and the throughput of each
+loop while it runs: its hardware FLOP/s and kernel bytes/s, from the counted FLOP over its time. The throughput is not
+known where some steps ran in replays of super-timesteps.
 
 .. _cell-updates:
 

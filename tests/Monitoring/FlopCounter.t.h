@@ -13,6 +13,24 @@
 namespace seissol::unit_test {
 using seissol::monitoring::FlopCounter;
 
+TEST_CASE("FlopCounter sums up the metrics of the names asked for" *
+          doctest::test_suite("monitoring")) {
+  FlopCounter counter;
+  const auto local = counter.addMetric("local", "WP");
+  const auto otherLocal = counter.addMetric("local", "WP");
+  const auto neighbor = counter.addMetric("neighbor", "WP");
+  counter.incrementMetric(local, PerformanceEstimate{1, 2, 3, 4});
+  counter.incrementMetric(otherLocal, PerformanceEstimate{10, 20, 30, 40});
+  counter.incrementMetric(neighbor, PerformanceEstimate{100, 200, 300, 400});
+
+  const auto locals = counter.estimate({"local"});
+  CHECK(locals.hardwareFlop == 11);
+  CHECK(locals.kernelBytes == 44);
+  const auto both = counter.estimate({"local", "neighbor"});
+  CHECK(both.hardwareFlop == 111);
+  CHECK(counter.estimate({"none"}).hardwareFlop == 0);
+}
+
 TEST_CASE("FlopCounter increment operations" * doctest::test_suite("monitoring")) {
   // Note: We cannot test init() or print*() here as they require MPI.
   // We test that the increment functions don't crash and that the object

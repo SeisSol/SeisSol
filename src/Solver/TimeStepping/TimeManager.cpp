@@ -27,6 +27,7 @@
 #include "Monitoring/DeviceTimer.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
+#include "Monitoring/Unit.h"
 #include "Monitoring/Watchdog.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/Helper.h"
@@ -996,6 +997,51 @@ void TimeManager::followPlan() {
 json::Value TimeManager::printComputationTime() {
   actorStateStatisticsManager_.finish();
   auto result = loopStatistics_.printSummary(Mpi::mpi.comm());
+
+  // the loops replayed from recordings of super-timesteps count in the FLOP of the loops, but their
+  // time counts as that of the replays
+  std::size_t replayed = replayedSuperSteps_ + recordedSuperSteps_ + launchedOnceSuperSteps_;
+  MPI_Allreduce(
+      MPI_IN_PLACE, &replayed, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
+  if (replayed > 0) {
+    logInfo() << "The throughput of the loops is not known, as some of their work ran in replays"
+              << "of super-timesteps.";
+    result["activity"] = printActivity();
+    return result;
+  }
+
+  // the work of each loop, by the metrics of the flop counter, over the time it took
+  const std::vector<std::pair<std::string, std::vector<std::string>>> work{
+      {"computeLocalIntegration", {"local"}},
+      {"computeNeighboringIntegration",
+       {"neighbor", "neighbor-dr", "plasticity-check", "plasticity-yield"}},
+      {"computeDynamicRupture", {"dr-frictionlaw-copy", "dr-frictionlaw-interior"}}};
+  for (unsigned region = 0; region < loopStatistics_.regionCount(); ++region) {
+    const auto& name = loopStatistics_.regionName(region);
+    const auto metrics = std::find_if(
+        work.begin(), work.end(), [&](const auto& entry) { return entry.first == name; });
+    if (metrics == work.end()) {
+      continue;
+    }
+    const auto estimate = seissolInstance_.flopCounter().estimate(metrics->second);
+    std::array<double, 3> sums{static_cast<double>(estimate.hardwareFlop),
+                               static_cast<double>(estimate.kernelBytes),
+                               loopStatistics_.regionTime(region)};
+    MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, Mpi::mpi.comm());
+    if (sums[2] <= 0) {
+      continue;
+    }
+    const double flopPerSecond = sums[0] / sums[2];
+    const double bytesPerSecond = sums[1] / sums[2];
+    logInfo() << name
+              << "(throughput while it runs):" << UnitFlopPerS.formatPrefix(flopPerSecond).c_str()
+              << "hardware," << UnitBytePerS.formatPrefix(bytesPerSecond).c_str()
+              << "kernel bytes (per rank)";
+    auto& throughput = result["regions"][name]["throughput"];
+    throughput["hardwareFlopPerSecond"] = flopPerSecond;
+    throughput["kernelBytesPerSecond"] = bytesPerSecond;
+  }
+
   result["activity"] = printActivity();
   return result;
 }
