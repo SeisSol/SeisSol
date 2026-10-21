@@ -492,9 +492,17 @@ class TestWeightAdjustable:
         adg = self._make(equation, solver, numMechanisms=mechanisms)
         self._check(adg, weighted, lifted)
 
-    def test_other_media_do_not(self):
+    def test_anisotropic_medium(self):
+        # its weight reaches every pair of stress components, a normal strain
+        # gives a shear stress; its flux is one matrix per side, so it has no
+        # curved cells to check
         adg = self._make("anisotropic", "linearck")
-        assert not adg.weightAdjustable()
+        self._check(adg, 9, 9)
+        reached = np.zeros((9, 9), dtype=bool)
+        for structure in adg._weightStructure.values():
+            for index in structure.values():
+                reached[index] = True
+        assert reached[:6, :6].all()
 
 
 # =============================================================================

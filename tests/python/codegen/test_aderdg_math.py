@@ -442,7 +442,7 @@ class TestPoroelasticChoose:
 class TestWeightDecomposition:
     """A medium that states its inverse weight has A_d = W^-1 B_d for every
     direction, B_d its operator without material: in the transposed form the
-    kernels apply, star_d = B_d^T W^-1. A weight-adjusted cell lifts its fluxes
+    kernels apply, star_d = B_d^T W^-T. A weight-adjusted cell lifts its fluxes
     with B and applies W^-1 at the sample points afterwards, so an entry out of
     place shows up as a wrong flux, not as an error."""
 
@@ -464,6 +464,14 @@ class TestWeightDecomposition:
                 entry.factor * coefficients[entry.coefficient]
             )
         return weight
+
+    @staticmethod
+    def _energy(size, shear):
+        """The inner product of the energy of a medium on its quantities: the
+        strain energy, sigma : epsilon, counts each shear component twice."""
+        product = np.ones(size)
+        product[list(shear)] = 2.0
+        return np.diag(product)
 
     @staticmethod
     def _media():
@@ -508,15 +516,28 @@ class TestWeightDecomposition:
                 beta2 / rho2,
             ]
 
+        def anisotropic(rng):
+            # the 21 constants of a positive definite Voigt matrix, the energy
+            # of a physical medium, and 1/rho
+            factor = rng.uniform(-1.0, 1.0, (6, 6))
+            voigt = factor @ factor.T + np.diag(rng.uniform(0.5, 2.0, 6))
+            constants = [
+                voigt[int(name[1]) - 1, int(name[2]) - 1]
+                for name in coefficients.ANISOTROPIC.coefficients[:-1]
+            ]
+            return constants + [1 / rng.uniform(0.5, 5.0)]
+
+        # each with the positions of the shear components of its stress
         return [
-            (coefficients.ELASTIC, 9, elastic),
-            (coefficients.ACOUSTIC, 4, acoustic),
-            (coefficients.POROELASTIC, 13, poroelastic),
+            (coefficients.ELASTIC, 9, elastic, (3, 4, 5)),
+            (coefficients.ACOUSTIC, 4, acoustic, ()),
+            (coefficients.ANISOTROPIC, 9, anisotropic, (3, 4, 5)),
+            (coefficients.POROELASTIC, 13, poroelastic, (3, 4, 5)),
         ]
 
     def test_operator_is_inverse_weight_times_unweighted(self):
         rng = np.random.default_rng(20261016)
-        for decomposition, size, draw in self._media():
+        for decomposition, size, draw, _ in self._media():
             for _ in range(16):
                 values = draw(rng)
                 weight = self._weight(decomposition, values, size)
@@ -529,19 +550,35 @@ class TestWeightDecomposition:
                         unweighted @ weight, expected, atol=1e-14
                     )
 
-    def test_weight_is_symmetric(self):
+    def test_weight_is_self_adjoint(self):
+        # against the inner product of the energy: the entries are those of
+        # W^-T, and W^-T times the product is the transpose of the product
+        # times W^-1
         rng = np.random.default_rng(20261017)
-        for decomposition, size, draw in self._media():
+        for decomposition, size, draw, shear in self._media():
             weight = self._weight(decomposition, draw(rng), size)
-            np.testing.assert_array_equal(weight, weight.T)
+            weighted = weight @ self._energy(size, shear)
+            np.testing.assert_array_equal(weighted, weighted.T)
+
+    def test_isotropic_weight_is_symmetric(self):
+        # an isotropic medium couples no normal strain to a shear stress, so
+        # the inner product makes no difference there
+        from kernels import coefficients
+
+        rng = np.random.default_rng(20261019)
+        for decomposition, size, draw, _ in self._media():
+            if decomposition is not coefficients.ANISOTROPIC:
+                weight = self._weight(decomposition, draw(rng), size)
+                np.testing.assert_array_equal(weight, weight.T)
 
     def test_weight_is_positive_definite(self):
         # the energy of the medium, for a physical one
         rng = np.random.default_rng(20261018)
-        for decomposition, size, draw in self._media():
+        for decomposition, size, draw, shear in self._media():
             for _ in range(16):
                 weight = self._weight(decomposition, draw(rng), size)
-                assert np.linalg.eigvalsh(weight).min() > 0
+                weighted = weight @ self._energy(size, shear)
+                assert np.linalg.eigvalsh(weighted).min() > 0
 
     def test_relaxation_takes_the_weight_of_its_base(self):
         from kernels import coefficients
@@ -549,7 +586,7 @@ class TestWeightDecomposition:
         assert coefficients.weighted("viscoelastic") is coefficients.ELASTIC
         assert coefficients.weighted("viscoacoustic") is coefficients.ACOUSTIC
         assert coefficients.weighted("poroelastic") is coefficients.POROELASTIC
-        assert coefficients.weighted("anisotropic") is None
+        assert coefficients.weighted("anisotropic") is coefficients.ANISOTROPIC
 
     def test_a_medium_without_weight_states_nothing_else(self):
         from kernels import coefficients

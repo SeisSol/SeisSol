@@ -114,6 +114,19 @@ momenta from the divergence of the stress and the gradient of the pressure; the
 drag between fluid and solid stays in the source term. The weight is symmetric
 and positive definite, the energy of the medium.
 
+An anisotropic medium has :math:`W^{-1} = \operatorname{diag}(C, 1/\rho)` and the
+:math:`B_d` of the elastic one as well, :math:`C` its stiffness on the strain
+with its tensor components. Its Voigt constants take a shear strain with the
+engineering component, twice the tensor one, so the column of a shear strain
+carries its constant twice: :math:`W^{-1}` is the symmetric Voigt matrix times
+:math:`\operatorname{diag}(1, 1, 1, 2, 2, 2)` on the strain. That is not
+symmetric where a normal strain reaches a shear stress, but self-adjoint
+against the inner product of the strain energy, :math:`\sigma : \varepsilon`,
+which counts every shear component twice as well, and positive definite there.
+An isotropic medium couples no normal strain to a shear stress, and its weight
+is symmetric either way. The kernels take the entries of :math:`W^{-T}`, as they
+take the transposed coefficient matrices.
+
 A medium with memory variables takes the flux and the weight of its base
 material. Its memory variables take the strain rate times their relaxation
 frequency, which carries no material, so the weight leaves the rows a face lifts
@@ -169,7 +182,9 @@ Which cells, and their time step
 ``weightadjustedratio`` in ``&equations`` decides: a cell is weight-adjusted where
 its impedances spread by more than that ratio over the points its material is
 asked at -- the largest ratio between two of its P impedances, or between two of
-its S impedances at points that carry shear (``ImpedanceSpread``). It is 2 by
+its S impedances at points that carry shear (``ImpedanceSpread``). An
+anisotropic medium gives the impedances of its isotropic average there, from the
+means of its normal and of its shear constants. It is 2 by
 default in a build that can do it; 0 adjusts no cell, and a ratio below one every
 cell. The decision is taken where the time step of a cell is, and carried with
 it through the partitioning.
@@ -359,6 +374,15 @@ With every cell weight-adjusted on a constant material, the energies are the
 plain run's to 5e-16, and so are the errors against the planar wave in the
 digits the log gives.
 
+An anisotropic medium -- a stiffness that couples a normal strain to a shear
+stress (:math:`c_{16}`) and two shear strains (:math:`c_{45}`), every constant
+100 times as large inside the slab, the density one everywhere: it grows from
+6.0 to 7e180 in kinetic energy by :math:`t = 1` with the plain lift, and stays
+between 2.9 and 6.0 to :math:`t = 1` with the 410 cells weight-adjusted that the
+impedances of its isotropic average pick, at 0.1 times the time step. With every
+cell weight-adjusted on the medium outside the slab everywhere, the energies are
+the plain run's to 3e-16, with a free surface as well, on one rank and on two.
+
 Cost
 ----
 
@@ -415,7 +439,10 @@ variables kept apart, in double precision. A rank without such a cell has none.
 What is not done
 ----------------
 
-- The anisotropic medium, which states no weight.
+- A jump in the anisotropy itself. An anisotropic cell is chosen by the
+  impedances of its isotropic average, which a turn of the axes of the medium
+  changes little or not at all, and its time step is shortened by the scale
+  measured for isotropic media, with the spread of that average.
 - The memory variables with ``SOLVER=linearck``. Its kernels take the weight as
   the others do and compile, but a viscoelastic build with that solver does not,
   weight or not (the energy output has no viscoelastic part for it), so none of
@@ -434,11 +461,13 @@ Checks
 ------
 
 Unit checks: the operator of a medium is its inverse weight times the one without
-material, in every direction, for solids, a fluid in an elastic build, acoustic
-and poroelastic media, exactly, in Python on the declarations and in C++ against
-the matrices the materials write themselves, and for the media with memory
-variables against the operator of their solver, the memory variables included;
-the weight of a poroelastic medium is positive definite; the flux without
+material, in every direction, for solids, a fluid in an elastic build, acoustic,
+anisotropic and poroelastic media, exactly, in Python on the declarations and in
+C++ against the matrices the materials write themselves, and for the media with
+memory variables against the operator of their solver, the memory variables
+included; every weight is self-adjoint against the inner product of the strain
+energy, and the isotropic ones symmetric; the weight of a poroelastic and of an
+anisotropic medium is positive definite there; the flux without
 material decomposes into the scalars of a face as the one with the material
 does, between solids, fluids and both, and at a free surface; the kernel that
 applies the weight does what its matrices say where the material differs from

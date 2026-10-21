@@ -10,8 +10,8 @@
 
 // The coefficient matrix of every direction is the inverse weight of the medium times one without
 // material, A_d = W^-1 B_d (see WeightEntry): checked against the matrices the materials write
-// themselves, for solids, a fluid in an elastic build, acoustic and poroelastic media, and for the
-// media with memory variables against the operator of the solver that relaxes them.
+// themselves, for solids, a fluid in an elastic build, acoustic, anisotropic and poroelastic media,
+// and for the media with memory variables against the operator of the solver that relaxes them.
 
 #include <doctest.h>
 
@@ -20,6 +20,7 @@
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
 #include "Model/Common.h"
+#include "Model/Quantities.h"
 
 #include <Eigen/Dense>
 #include <algorithm>
@@ -43,7 +44,8 @@ Eigen::Matrix<double, N, N> fromEntries(const ValuesT& values, unsigned dim) {
   return matrix;
 }
 
-/// The inverse weight of a material, from the entries it declares.
+/// The inverse weight of a material, from the entries it declares: W^-T, as the transposed
+/// coefficient matrices take it.
 template <typename MaterialT, std::size_t N>
 Eigen::Matrix<double, N, N> inverseWeight(const MaterialT& material) {
   using Setup = seissol::model::MaterialSetup<MaterialT>;
@@ -55,12 +57,35 @@ Eigen::Matrix<double, N, N> inverseWeight(const MaterialT& material) {
   return weight;
 }
 
-/// A_d^T = B_d^T W^-1 for every direction, against the matrices the material writes itself.
+/// The inner product of the energy of a medium on its quantities, as a diagonal: the strain energy,
+/// sigma : epsilon, counts the three shear components of a symmetric tensor twice.
 template <typename MaterialT, std::size_t N>
-void checkWeight(const MaterialT& material) {
+Eigen::Matrix<double, N, N> energyProduct() {
+  Eigen::Matrix<double, N, N> product = Eigen::Matrix<double, N, N>::Identity();
+  std::size_t offset = 0;
+  for (const auto& group : MaterialT::PrimaryGroups) {
+    if (group.kind == seissol::model::QuantityKind::SymTensor2) {
+      for (std::size_t shear = 3; shear < 6; ++shear) {
+        product(offset + shear, offset + shear) = 2.0;
+      }
+    }
+    offset += group.extent();
+  }
+  return product;
+}
+
+/// A_d^T = B_d^T W^-T for every direction, against the matrices the material writes itself. The
+/// weight is self-adjoint against the inner product of the energy, W^-T times it symmetric; an
+/// isotropic weight, which couples no normal strain to a shear stress, is symmetric by itself.
+template <typename MaterialT, std::size_t N>
+void checkWeight(const MaterialT& material, bool isotropic = true) {
   using Setup = seissol::model::MaterialSetup<MaterialT>;
   const auto weight = inverseWeight<MaterialT, N>(material);
-  REQUIRE(weight == weight.transpose());
+  const Eigen::Matrix<double, N, N> weighted = weight * energyProduct<MaterialT, N>();
+  REQUIRE(weighted == weighted.transpose());
+  if (isotropic) {
+    REQUIRE(weight == weight.transpose());
+  }
   for (unsigned dim = 0; dim < 3; ++dim) {
     Eigen::Matrix<double, N, N> reference = Eigen::Matrix<double, N, N>::Zero();
     Setup::getTransposedCoefficientMatrix(material, dim, reference);
@@ -132,6 +157,23 @@ TEST_CASE("The operator of a medium is its inverse weight times the one without 
     for (std::size_t sample = 0; sample < 16; ++sample) {
       inverseweight::checkWeight<seissol::model::AcousticMaterial, 4>(
           coefficients::acoustic(positive(rng) * 1000.0, positive(rng) * 1e10));
+    }
+  }
+  SUBCASE("anisotropic") {
+    using Material = seissol::model::AnisotropicMaterial;
+    for (std::size_t sample = 0; sample < 16; ++sample) {
+      // any 21 constants for the operator, which is linear in them
+      inverseweight::checkWeight<Material, 9>(coefficients::anisotropic(rng), false);
+    }
+    for (std::size_t sample = 0; sample < 16; ++sample) {
+      // and a physical medium for the energy: positive definite against its inner product
+      const auto material = coefficients::configuredMaterial<Material>(rng);
+      const auto weight = inverseweight::inverseWeight<Material, 9>(material);
+      const Eigen::Matrix<double, 9, 9> weighted =
+          weight * inverseweight::energyProduct<Material, 9>();
+      REQUIRE(Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 9, 9>>(weighted)
+                  .eigenvalues()
+                  .minCoeff() > 0.0);
     }
   }
   SUBCASE("viscoelastic, the base material's") {

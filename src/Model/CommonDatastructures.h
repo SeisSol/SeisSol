@@ -74,11 +74,12 @@ struct CoefficientEntry {
 /// of every direction is the inverse weight times one without material, A_d = W^-1 B_d -- for an
 /// elastic medium W^-1 = diag(C, 1/rho) -- so a material that declares these gives
 ///
-///     W^-1(row, column) = sum_a coefficients[a] * factor
+///     W^-1(column, row) = sum_a coefficients[a] * factor
 ///
 /// and the matrices of B_d from the same entries as A_d, with the coefficients it states for that
-/// (getUnweightedCoefficients). The weight is symmetric; row and column are given as the
-/// transposed coefficient matrices have them.
+/// (getUnweightedCoefficients). Row and column are given as the transposed coefficient matrices
+/// have them, the quantity read first: the transposed operator is B_d^T W^-T. The weight of an
+/// isotropic medium is symmetric, the one of an anisotropic medium is not.
 struct WeightEntry {
   std::size_t coefficient;
   std::size_t row;

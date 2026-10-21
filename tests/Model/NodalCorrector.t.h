@@ -46,6 +46,7 @@
 #include "VolumeTerm.h"
 
 #include <Eigen/Dense>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -135,7 +136,25 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
     auto viewTinv = init::Tinv::view::create(matTinv.data());
     seissol::model::getFaceRotationMatrix(
         basis[0].normalized(), basis[1].normalized(), basis[2].normalized(), viewT, viewTinv);
-    initializer::CurvedCell::setConstantRotation(matT.data(), local.faceRotation[side]);
+    // a cell keeps the rotation of a face only where it carries the scalars of that face
+    if constexpr (NodalFlux) {
+      initializer::CurvedCell::setConstantRotation(matT.data(), local.faceRotation[side]);
+    }
+
+    // The matrices of a face take an anisotropic medium in the coordinates of that face, as the
+    // setup turns it (getRotatedMaterialCoefficients); an isotropic one is the same in every frame.
+    std::array<double, 36> bond{};
+    {
+      const auto coordinate = [](const VectorT& direction) {
+        const VectorT unit = direction.normalized();
+        return CoordinateT{unit(0), unit(1), unit(2)};
+      };
+      seissol::model::getBondMatrix(
+          coordinate(basis[0]), coordinate(basis[1]), coordinate(basis[2]), bond);
+    }
+    const auto inFace = [&](const MaterialT& material) {
+      return seissol::model::getRotatedMaterialCoefficients(bond, material);
+    };
 
     // |S| / |J| with the sign of a subtracted flux, as the setup takes it
     const double fluxScale = -2.0 * face.area() / std::abs(cell.determinant());
@@ -163,7 +182,7 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
       // where the operator of a face is one matrix per side, the setup forms it from the material
       // of the cell, in the form the corrector takes, and without material where the cell is
       // weight-adjusted; a fault face has no Riemann problem of its own
-      const auto material = field(face.center());
+      const auto material = inFace(field(face.center()));
       alignas(Alignment) std::array<real, tensor::QgodLocal::size()> godLocal{};
       alignas(Alignment) std::array<real, tensor::QgodNeighbor::size()> godNeighbor{};
       auto viewGodLocal = init::QgodLocal::view::create(godLocal.data());
@@ -197,14 +216,20 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
       neighborSolver.T = matT.data();
       neighborSolver.Tinv = matTinv.data();
       neighborSolver.star(0) = star.data();
-      neighborSolver.execute();
+      // a free surface has no state outside the cell, and that side stays zero, as the setup
+      // keeps it (initializer::hasExteriorOperator)
+      if (initializer::hasExteriorOperator(faceTypes[side])) {
+        neighborSolver.execute();
+      } else {
+        std::fill_n(neighboring.nAmNm1[side], tensor::AminusT::size(), 0);
+      }
     }
 
     // the weak form's local operator of the face, from the material at its barycentre: what the
     // matrix form of a build without a varying material applies. A fault face has none.
     weakAplus[side].fill(0);
     if (faceTypes[side] != FaceType::DynamicRupture) {
-      const auto material = field(face.center());
+      const auto material = inFace(field(face.center()));
       alignas(Alignment) std::array<real, tensor::QgodLocal::size()> godLocal{};
       alignas(Alignment) std::array<real, tensor::QgodNeighbor::size()> godNeighbor{};
       auto viewGodLocal = init::QgodLocal::view::create(godLocal.data());

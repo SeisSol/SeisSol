@@ -151,7 +151,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   }
   if (weightAdjustedRatio > 0.0 && !WeightAdjustable) {
     logWarning() << "weightadjustedratio is ignored: a cell is weight-adjusted where the material "
-                    "varies inside it (MATERIAL_NODAL=ON) and the medium is isotropic.";
+                    "varies inside it (MATERIAL_NODAL=ON).";
     weightAdjustedRatio = 0.0;
   }
   if (weightAdjustedRatio > 0.0 &&

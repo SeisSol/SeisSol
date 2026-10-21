@@ -34,7 +34,7 @@ numflux = 'godunov' ! The numerical flux. Values: 'godunov', 'rusanov'
 numfluxnearfault = 'godunov' ! The numerical flux for faces of cells adjacent to the fault (on cells which have at least one DR face), excluding the DR faces themselves. Values: 'godunov', 'rusanov'
 !Where the material varies inside a cell (MATERIAL_NODAL=ON): a cell whose impedances spread by more
 !than this ratio lifts its fluxes without the material and applies it afterwards, with a shorter time
-!step (see "Material jumps inside a cell"); 0 adjusts no cell. Elastic and acoustic media on the CPU.
+!step (see "Material jumps inside a cell"); 0 adjusts no cell.
 weightadjustedratio = 2
 /
 

@@ -77,8 +77,10 @@ class WeightEntry:
     The operator of every direction is the inverse weight times an operator
     without material, A_d = W^-1 B_d -- for an elastic medium W^-1 = diag(C,
     1/rho) -- and in the transposed form the kernels apply, star_d = B_d^T
-    W^-1. The weight is symmetric, so row and column are interchangeable;
-    they are given as the star's, input quantity first.
+    W^-T. Row and column are given as the star's, input quantity first, so
+    the entries are those of W^-T. The weight of an isotropic medium is
+    symmetric, the one of an anisotropic medium is not (see
+    _anisotropic_weight).
     """
 
     coefficient: int
@@ -348,10 +350,52 @@ def _anisotropic_entries() -> List[Entry]:
     return entries
 
 
+#: The Voigt index of each stress component, in the order the field carries
+#: them: xx, yy, zz, xy, yz, xz.
+_VOIGT_OF_STRESS = (1, 2, 3, 6, 4, 5)
+
+
+def _anisotropic_weight() -> List[WeightEntry]:
+    # W^-1 = diag(C, 1/rho), C on the strain with its tensor components in the
+    # order of the stress, as for the elastic medium. The Voigt constants take
+    # a shear strain with its engineering component, twice the tensor one, so
+    # the column of a shear strain carries its constant twice: W^-1 is the
+    # symmetric Voigt matrix times diag(1, 1, 1, 2, 2, 2) on the strain. It is
+    # not symmetric itself, but self-adjoint against the inner product of the
+    # strain energy, sigma : epsilon, which counts every shear component twice
+    # as well; for an isotropic medium the two are the same.
+    weight = []
+    for strain, strainVoigt in enumerate(_VOIGT_OF_STRESS):
+        for stress, stressVoigt in enumerate(_VOIGT_OF_STRESS):
+            first, second = sorted((strainVoigt, stressVoigt))
+            weight.append(
+                WeightEntry(
+                    _c(f"c{first}{second}"),
+                    strain,
+                    stress,
+                    2.0 if strainVoigt > 3 else 1.0,
+                )
+            )
+    return weight + [WeightEntry(_ANISO_RHO, q, q) for q in (6, 7, 8)]
+
+
 ANISOTROPIC = Decomposition(
     name="Anisotropic",
     coefficients=_VOIGT + ["1/rho"],
     entries=_anisotropic_entries(),
+    weight=_anisotropic_weight(),
+    # B, as for the elastic medium: the rate of the strain is the symmetric
+    # part of the velocity gradient, which the constants that put a strain into
+    # the stress of the same component give, one on the normal and a half on
+    # the shear components; every other constant is zero. The rate of the
+    # momentum is the divergence of the stress.
+    unweighted=[
+        {"c11": 1.0, "c22": 1.0, "c33": 1.0, "c44": 0.5, "c55": 0.5, "c66": 0.5}.get(
+            name, 0.0
+        )
+        for name in _VOIGT
+    ]
+    + [1.0],
 )
 
 # ------------------------------------------------------------- poroelastic
@@ -760,7 +804,8 @@ def generate(
         )
         if decomposition.weight:
             lines.append(
-                f"// {name}: the inverse weight W^-1 of A_d = W^-1 B_d, in the\n"
+                f"// {name}: the inverse weight W^-1 of A_d = W^-1 B_d, entry by\n"
+                "// entry of W^-T, the quantity read first (model::WeightEntry), in the\n"
                 "// material's coefficients, and the coefficients of B_d, the\n"
                 "// operator without material\n"
             )

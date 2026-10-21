@@ -19,6 +19,7 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+#include <algorithm>
 #include <array>
 #include <cstddef>
 
@@ -40,6 +41,23 @@ struct MaterialSetup<AnisotropicMaterial> : public MaterialSetupDefaults<Anisotr
   }
 
   static constexpr auto CoefficientEntries = generated::AnisotropicCoefficientEntries;
+
+  /// W^-1 = diag(C, 1/rho), C on the strain with its tensor components in the order of the
+  /// stress: the Voigt constants take a shear strain twice. Not symmetric, but self-adjoint
+  /// against the inner product of the strain energy, which counts every shear component twice.
+  static constexpr auto WeightEntries = generated::AnisotropicWeightEntries;
+
+  /// The coefficients of the operator without material, A_d = W^-1 B_d, as for an isotropic solid:
+  /// the rate of the strain is the symmetric part of the velocity gradient and the rate of the
+  /// momentum the divergence of the stress.
+  static std::array<double, NumCoefficients>
+      getUnweightedCoefficients(const AnisotropicMaterial& /*material*/) {
+    std::array<double, NumCoefficients> coefficients{};
+    std::copy(generated::AnisotropicUnweightedCoefficients.begin(),
+              generated::AnisotropicUnweightedCoefficients.end(),
+              coefficients.begin());
+    return coefficients;
+  }
 
   template <typename T>
   static void
