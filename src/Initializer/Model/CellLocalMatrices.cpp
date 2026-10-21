@@ -461,6 +461,13 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
             std::fill_n(neighboringIntegration[cell].nAmNm1[side], tensor::AminusT::size(), 0);
           }
 
+          // where the corrector reads the scalars of the face for the cell's own side, the local
+          // flux solver of a face whose condition folds into it keeps what the fold adds alone,
+          // which the local integral applies apart (appliesFoldApart)
+          if (appliesFoldApart(cellInformation[cell].faceTypes[side])) {
+            std::fill_n(localIntegration[cell].nApNm1[side], tensor::AplusT::size(), 0);
+          }
+
           if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
             // the Dirichlet map is constant over the face, so it becomes part of
             // the local flux solver; what is left of the boundary condition is

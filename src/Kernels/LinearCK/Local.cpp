@@ -17,6 +17,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/BoundarySetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
@@ -82,6 +83,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
   fsgFlux_.bindGlobals(*global.onHost);
   dirichletFlux_.bindGlobals(*global.onHost);
+  foldedBoundaryFlux_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
@@ -89,6 +91,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   deviceNodalLfKrnlPrototype_.bindGlobals(*global.onDevice);
   deviceFsgFlux_.bindGlobals(*global.onDevice);
   deviceDirichletFlux_.bindGlobals(*global.onDevice);
+  deviceFoldedBoundaryFlux_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -127,6 +130,16 @@ void Local::computeIntegral(
     nodalLfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
     nodalLfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
     nodalLfKrnl.AminusT = data.get<LTS::NeighboringIntegration>().nAmNm1[face];
+
+    // what the condition of the face folds into the local flux solver, where the corrector does
+    // not apply it
+    if (appliesFoldApart(data.get<LTS::CellInformation>().faceTypes[face])) {
+      auto kernel = foldedBoundaryFlux_;
+      kernel.Q = fluxTarget;
+      kernel.I = timeIntegratedDoFs;
+      kernel.AplusT = data.get<LTS::LocalIntegration>().nApNm1[face];
+      kernel.execute(face);
+    }
 
     // Include some boundary conditions here.
     switch (data.get<LTS::CellInformation>().faceTypes[face]) {
@@ -190,8 +203,8 @@ void Local::computeBatchedIntegral(
   kernel::gpu_volume volKrnl = deviceVolumeKernelPrototype_;
 
   // the boundary kernels below run on the same temporary memory
-  const auto maxTmpMem =
-      yateto::getMaxTmpMemRequired(volKrnl, deviceFsgFlux_, deviceDirichletFlux_);
+  const auto maxTmpMem = yateto::getMaxTmpMemRequired(
+      volKrnl, deviceFsgFlux_, deviceDirichletFlux_, deviceFoldedBoundaryFlux_);
 
   // volume kernel always contains more elements than any local one
   const auto maxNumElements = dataTable.find(key) != dataTable.end()
@@ -237,6 +250,22 @@ void Local::computeBatchedIntegral(
   // with the one its neighbor writes there
   kernels::writeFaceTracesBatched(deviceFaceTraceKernelPrototype_, dataTable, runtime);
 
+  // what the condition of the faces of a batch folds into the local flux solver, where the
+  // corrector does not apply it (appliesFoldApart)
+  const auto applyFoldApart = [&](auto& entry, std::size_t face) {
+    auto foldKernel = deviceFoldedBoundaryFlux_;
+    foldKernel.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
+    foldKernel.Q = entry.get(inner_keys::Wp::Id::FluxTarget)->getDeviceDataPtr();
+    foldKernel.I =
+        const_cast<const real**>(entry.get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr());
+    foldKernel.AplusT = const_cast<const real**>(
+        entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+    foldKernel.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+    foldKernel.linearAllocator.initialize(tmpMem.get());
+    foldKernel.streamPtr = runtime.stream();
+    foldKernel.execute(face);
+  };
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     ConditionalKey fsgKey(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
@@ -261,6 +290,10 @@ void Local::computeBatchedIntegral(
       bcKernel.streamPtr = runtime.stream();
 
       bcKernel.execute(face);
+
+      if constexpr (appliesFoldApart(FaceType::FreeSurfaceGravity)) {
+        applyFoldApart(dataTable[fsgKey], face);
+      }
     }
 
     ConditionalKey dirichletKey(
@@ -286,6 +319,10 @@ void Local::computeBatchedIntegral(
       bcKernel.streamPtr = runtime.stream();
 
       bcKernel.execute(face);
+
+      if constexpr (appliesFoldApart(FaceType::Dirichlet)) {
+        applyFoldApart(dataTable[dirichletKey], face);
+      }
     }
   }
 #else
@@ -362,6 +399,10 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // the trace on every face; both sides of a face cost the same
     estimate += PerformanceEstimate::fromKernel<seissol::kernel::faceTrace>(face, 0);
+
+    if (appliesFoldApart(faceTypes[face])) {
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::foldedBoundaryFlux>(face);
+    }
 
     // Take boundary condition flops into account.
     // Note that this only includes the flops of the kernels but not of the

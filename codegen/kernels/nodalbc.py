@@ -176,6 +176,27 @@ def addKernels(
             target=target,
         )
 
+        # Where the flux of a face is scalars at its points, the corrector reads
+        # those for the cell's own side, and what the folds above add to its
+        # operator is applied apart (appliesFoldApart): the setup keeps only
+        # that part in AplusT there, and this lifts it from the time integral
+        # of the cell. Every build has it, so that the host code compiles the
+        # same in all of them.
+        folded_boundary_flux = (
+            lambda i: aderdg.extendedQTensor()["kp"]
+            <= aderdg.extendedQTensor()["kp"]
+            + aderdg.db.rDivM[i][aderdg.t("km")]
+            * aderdg.db.fMrT[i][aderdg.t("ml")]
+            * aderdg.I["lq"]
+            * aderdg.AplusT["qp"]
+        )
+        generator.addFamily(
+            f"{name_prefix}foldedBoundaryFlux",
+            simpleParameterSpace(4),
+            folded_boundary_flux,
+            target=target,
+        )
+
     # To be used as Tinv in flux solver - this way we can save two rotations
     # for the Dirichlet boundary, as ghost cell dofs are already rotated.
     # It stands in for Tinv, so it has to be shaped like Tinv: the two need not

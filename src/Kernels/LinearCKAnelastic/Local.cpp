@@ -10,6 +10,7 @@
 #include "Local.h"
 
 #include "Common/Marker.h"
+#include "Initializer/BoundarySetup.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
@@ -29,6 +30,8 @@
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
 GENERATE_HAS_MEMBER(E)
@@ -48,12 +51,16 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
   fsgFlux_.bindGlobals(*global.onHost);
   dirichletFlux_.bindGlobals(*global.onHost);
+  foldedBoundaryFlux_.bindGlobals(*global.onHost);
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
   deviceFaceTraceKernelPrototype_.bindGlobals(*global.onDevice);
   deviceLocalKernelPrototype_.bindGlobals(*global.onDevice);
+
+  deviceDirichletFlux_.bindGlobals(*global.onDevice);
+  deviceFoldedBoundaryFlux_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -93,6 +100,16 @@ void Local::computeIntegral(
   const auto& materialData = data.get<LTS::Material>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    // what the condition of the face folds into the local flux solver, where the corrector does
+    // not apply it
+    if (appliesFoldApart(data.get<LTS::CellInformation>().faceTypes[face])) {
+      auto kernel = foldedBoundaryFlux_;
+      kernel.Qext = fluxTarget;
+      kernel.I = timeIntegratedDoFs;
+      kernel.AplusT = data.get<LTS::LocalIntegration>().nApNm1[face];
+      kernel.execute(face);
+    }
+
     switch (data.get<LTS::CellInformation>().faceTypes[face]) {
     case FaceType::FreeSurfaceGravity: {
       auto kernel = fsgFlux_;
@@ -165,6 +182,9 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // the trace on every face; both sides of a face cost the same
     estimate += PerformanceEstimate::fromKernel<seissol::kernel::faceTrace>(face, 0);
+    if (appliesFoldApart(faceTypes[face])) {
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::foldedBoundaryFlux>(face);
+    }
     switch (faceTypes[face]) {
     case FaceType::FreeSurfaceGravity:
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::fsgFlux>(face);
@@ -220,7 +240,10 @@ void Local::computeBatchedIntegral(
     kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype_;
     kernel::gpu_local localKrnl = deviceLocalKernelPrototype_;
     auto tmpMem = runtime.memoryHandle<real>(
-        (yateto::getMaxTmpMemRequired(volKrnl, localKrnl) * numElements) / sizeof(real));
+        (yateto::getMaxTmpMemRequired(
+             volKrnl, localKrnl, deviceDirichletFlux_, deviceFoldedBoundaryFlux_) *
+         numElements) /
+        sizeof(real));
 
     volKrnl.numElements = numElements;
     volKrnl.I =
@@ -238,6 +261,50 @@ void Local::computeBatchedIntegral(
     // the trace of the time integral on every face, which the corrector of the cell reads together
     // with the one its neighbor writes there
     kernels::writeFaceTracesBatched(deviceFaceTraceKernelPrototype_, dataTable, runtime);
+
+    // The Dirichlet condition of the boundary faces goes where the faces of a cell lift into -- the
+    // extended field, which the local kernel below hands on to the field and the memory variables,
+    // or the flux buffer of a weight-adjusted cell; the free surface with gravity is not defined
+    // for the materials of this solver.
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      const ConditionalKey dirichletKey(
+          *KernelNames::BoundaryConditions, *ComputationKind::Dirichlet, face);
+      if (dataTable.find(dirichletKey) == dataTable.end()) {
+        continue;
+      }
+      auto& bcEntry = dataTable[dirichletKey];
+      const auto bcElements = bcEntry.get(inner_keys::Wp::Id::Dofs)->getSize();
+      auto** fluxTargets = bcEntry.get(inner_keys::Wp::Id::FluxTarget)->getDeviceDataPtr();
+
+      auto bcKernel = deviceDirichletFlux_;
+      bcKernel.numElements = bcElements;
+      bcKernel.dirichletOffset = const_cast<const real**>(
+          bcEntry.get(inner_keys::Wp::Id::DirichletOffset)->getDeviceDataPtr());
+      bcKernel.dt = timeStepWidth;
+      bcKernel.Qext = fluxTargets;
+      bcKernel.AminusT = const_cast<const real**>(
+          bcEntry.get(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+      bcKernel.extraOffset_AminusT = SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
+      bcKernel.linearAllocator.initialize(tmpMem.get());
+      bcKernel.streamPtr = runtime.stream();
+      bcKernel.execute(face);
+
+      // what the condition folds into the local flux solver, where the corrector does not apply
+      // it
+      if constexpr (appliesFoldApart(FaceType::Dirichlet)) {
+        auto foldKernel = deviceFoldedBoundaryFlux_;
+        foldKernel.numElements = bcElements;
+        foldKernel.Qext = fluxTargets;
+        foldKernel.I =
+            const_cast<const real**>(bcEntry.get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr());
+        foldKernel.AplusT = const_cast<const real**>(
+            bcEntry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
+        foldKernel.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
+        foldKernel.linearAllocator.initialize(tmpMem.get());
+        foldKernel.streamPtr = runtime.stream();
+        foldKernel.execute(face);
+      }
+    }
 
     localKrnl.numElements = numElements;
     localKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();

@@ -38,15 +38,9 @@ struct Solver {
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
 
-  static constexpr FaceTypeSupport implementsFaceType(FaceType faceType) {
-    if (NodalFlux &&
-        (faceType == FaceType::Dirichlet || faceType == FaceType::FreeSurfaceGravity)) {
-      // The map of these conditions is folded into the flux matrix of the face
-      // (foldDirichlet, foldFreeSurfaceGravity), and a flux that reads the
-      // material at the points of the face does not apply that matrix.
-      return faceTypeUnsupported("the boundary map is folded into a flux matrix that a flux "
-                                 "varying along the face does not read");
-    }
+  /// Every face type. Where the flux reads the material at the points of a face, the map a
+  /// condition folds into the flux matrix of the face is applied apart (appliesFoldApart).
+  static constexpr FaceTypeSupport implementsFaceType(FaceType /*faceType*/) {
     return faceTypeSupported();
   }
 

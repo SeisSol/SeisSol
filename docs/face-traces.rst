@@ -51,7 +51,22 @@ of scalars does for both traces: in the strong form the corrector takes, the
 part of the Godunov state of the cell's own trace is the part of the
 neighbour's negated (``correctorScalars``). A face without a neighbour -- a
 boundary or a fault -- reads a trace of zeros as the neighbour's
-(``LTS::ZeroFaceTrace``) and takes its own part negated.
+(``LTS::ZeroFaceTrace``) and takes its own part negated. A boundary whose ghost
+state is a map of the cell's own state -- Dirichlet, and the free surface with
+gravity -- folds that map into the matrix of the cell's own side, which no scalar
+of the face carries: there the setup keeps the folded part alone in that matrix,
+and the local integral lifts it from the time integral of the cell
+(``appliesFoldApart``, ``foldedBoundaryFlux``).
+
+That part takes the material of the cell, as the offset of the condition does,
+while the cell's own part takes the material at the points of the face. Where
+the material varies along such a face, the two do not cancel exactly for the
+identity map, and a map that mirrors the tractions is not quite the free
+surface: for an acoustic medium whose bulk modulus varies by a factor of 4 along
+the surface and by up to 2 across a cell, the energies of the two differ by
+1.7e-4, where those of the builds with and without ``MATERIAL_NODAL`` differ by
+1.4e-2. Where the material is constant along the face, they are the same to
+round-off.
 
 Where the flux is one matrix per side -- in every build without
 ``MATERIAL_NODAL``, and for the poroelastic and the anisotropic medium in every
@@ -161,6 +176,11 @@ it, to 1.8e-14 and 4.3e-14 by :math:`t = 0.1`.
 What is not done
 ----------------
 
+- The map of a Dirichlet face and of the free surface with gravity at the points
+  of the face. It takes the material of the cell (see above); a trace the map
+  makes of the cell's own trace on such a face, which the scalars of the face
+  would then take point by point as the trace of a neighbour, would take the
+  material there, for a buffer per such face.
 - The device beyond the compiler: the host side of its code compiles against
   the kernels the generator writes for CUDA (``sm_80``) for the elastic and the
   viscoelastic medium; nothing ran on a GPU. For the poroelastic medium the

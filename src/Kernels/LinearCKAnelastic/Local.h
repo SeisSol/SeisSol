@@ -51,6 +51,9 @@ class Local : public LocalKernel {
 
   kernel::fsgFlux fsgFlux_;
   kernel::dirichletFlux dirichletFlux_;
+  // what a boundary folds into the local flux solver, where the corrector does not apply it
+  // (appliesFoldApart)
+  kernel::foldedBoundaryFlux foldedBoundaryFlux_;
   kernel::localFluxNodal nodalLfKrnlPrototype_;
 
   kernels::AnalyticalBoundary analyticalBoundary_;
@@ -59,6 +62,9 @@ class Local : public LocalKernel {
   kernel::gpu_volumeExt deviceVolumeKernelPrototype_;
   kernel::gpu_faceTrace deviceFaceTraceKernelPrototype_;
   kernel::gpu_local deviceLocalKernelPrototype_;
+
+  kernel::gpu_dirichletFlux deviceDirichletFlux_;
+  kernel::gpu_foldedBoundaryFlux deviceFoldedBoundaryFlux_;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

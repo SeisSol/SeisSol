@@ -60,6 +60,9 @@ class Local : public LocalKernel {
 
   kernel::fsgFlux fsgFlux_;
   kernel::dirichletFlux dirichletFlux_;
+  // what a boundary folds into the local flux solver, where the corrector does not apply it
+  // (appliesFoldApart)
+  kernel::foldedBoundaryFlux foldedBoundaryFlux_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_volume deviceVolumeKernelPrototype_;
@@ -69,6 +72,7 @@ class Local : public LocalKernel {
 
   kernel::gpu_fsgFlux deviceFsgFlux_;
   kernel::gpu_dirichletFlux deviceDirichletFlux_;
+  kernel::gpu_foldedBoundaryFlux deviceFoldedBoundaryFlux_;
 #endif
 };
 

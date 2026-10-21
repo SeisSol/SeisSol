@@ -15,6 +15,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Initializer/BoundarySetup.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
@@ -305,6 +306,10 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
     std::array<std::vector<real*>, 4> t{};
     std::array<std::vector<real*>, 4> tInv{};
     std::array<std::vector<real*>, 4> fsgdata{};
+    // what the local flux solver of the face keeps of the fold, where it is applied apart
+    // (appliesFoldApart), and the time integral it is applied to
+    std::array<std::vector<real*>, 4> idofs{};
+    std::array<std::vector<real*>, 4> localPtrs{};
 
     std::array<std::vector<double>, 4> invImpedances{};
 
@@ -335,6 +340,10 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
           nodalAvgDisplacementsCounter += NodalAvgDisplacementsSize;
 
           fsgdata[face].push_back(dataHost.get<LTS::BoundaryMappingDevice>()[face].fsgData);
+          if constexpr (appliesFoldApart(FaceType::FreeSurfaceGravity)) {
+            idofs[face].push_back(idofsPtrs_[cell]);
+            localPtrs[face].push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
+          }
 
           const auto rho = dataHost.get<LTS::Material>().local->getDensity();
           const auto lambda = dataHost.get<LTS::Material>().local->getLambdaBar();
@@ -371,6 +380,10 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
                                   nodalAvgDisplacementsPtrs[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::FSGData, fsgdata[face]);
+        if constexpr (appliesFoldApart(FaceType::FreeSurfaceGravity)) {
+          (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofs[face]);
+          (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs[face]);
+        }
       }
     }
   }
@@ -384,6 +397,10 @@ void LocalIntegrationRecorder::recordDirichletBc() {
     std::array<std::vector<real*>, Cell::NumFaces> neighPtrs{};
 
     std::array<std::vector<real*>, Cell::NumFaces> dirichletOffsetPtrs{};
+    // what the local flux solver of the face keeps of the fold, where it is applied apart
+    // (appliesFoldApart), and the time integral it is applied to
+    std::array<std::vector<real*>, Cell::NumFaces> idofs{};
+    std::array<std::vector<real*>, Cell::NumFaces> localPtrs{};
 
     std::array<std::size_t, 4> counter{};
 
@@ -401,6 +418,10 @@ void LocalIntegrationRecorder::recordDirichletBc() {
 
           dirichletOffsetPtrs[face].push_back(
               dataHost.get<LTS::BoundaryMappingDevice>()[face].dirichletOffset);
+          if constexpr (appliesFoldApart(FaceType::Dirichlet)) {
+            idofs[face].push_back(idofsPtrs_[cell]);
+            localPtrs[face].push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
+          }
 
           ++counter[face];
         }
@@ -416,6 +437,10 @@ void LocalIntegrationRecorder::recordDirichletBc() {
         (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget, fluxTargetPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData, neighPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::DirichletOffset, dirichletOffsetPtrs[face]);
+        if constexpr (appliesFoldApart(FaceType::Dirichlet)) {
+          (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofs[face]);
+          (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs[face]);
+        }
       }
     }
   }

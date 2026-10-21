@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_INITIALIZER_BOUNDARYSETUP_H_
 
 #include "Initializer/BasicTypedefs.h"
+#include "Model/OperatorLayout.h"
 
 #include <string_view>
 
@@ -157,6 +158,15 @@ constexpr BoundaryProperties boundaryProperties(FaceType faceType) {
     return boundary_setup_detail::properties<FaceType::Analytical>();
   }
   return BoundaryProperties{};
+}
+
+/// Whether the map a condition folds into the local flux solver (foldsConditionIntoFluxSolver) is
+/// applied apart from the corrector of the face: where that corrector reads the scalars of the face
+/// at its points for the cell's own side (NodalFlux), which the map is none of. The setup then
+/// keeps what the fold adds alone in that solver, and the local integral lifts it from the time
+/// integral of the cell (foldedBoundaryFlux).
+constexpr bool appliesFoldApart(FaceType faceType) {
+  return NodalFlux && boundaryProperties(faceType).foldsConditionIntoFluxSolver;
 }
 
 } // namespace seissol

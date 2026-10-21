@@ -77,10 +77,14 @@ struct alignas(Alignment) LocalIntegrationData {
                       [zeroGuard(NodalSourceDeviation ? MaterialSampleCount : 0)]{};
 
   // the operator the corrector of a face applies to the cell's own trace of it, with the rotation
-  // folded in. It is filled where the flux reads the material at the points of a face as well,
-  // although no kernel of such a build reads it: its corrector reads the scalars below instead, on
-  // the host and on the device alike.
-  real nApNm1[4][seissol::tensor::AplusT::size()]{};
+  // folded in. Where the flux reads the material at the points of a face, the corrector reads the
+  // scalars below instead, on the host and on the device alike; there, a face whose boundary
+  // condition folds its map into this operator keeps that part alone, which the local integral
+  // applies (appliesFoldApart), and no kernel reads it on the other faces. Where a column is a
+  // whole number of vectors (the four quantities of an acoustic medium), the kernels that fold a
+  // boundary map into it store it aligned; every face of it starts aligned then, as the whole
+  // does.
+  alignas(Alignment) real nApNm1[4][seissol::tensor::AplusT::size()]{};
 
   // Where the material varies along a face, the flux operator does too, and a
   // face carries the scalars it is built from at the points of that face its
