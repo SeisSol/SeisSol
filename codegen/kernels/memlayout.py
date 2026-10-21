@@ -9,6 +9,8 @@
 import os
 import re
 
+from kernels.basis import NAMES as BASES
+
 
 class Candidate(object):
     """Measures if a memory layout is suitable for a build configuration.
@@ -18,6 +20,11 @@ class Candidate(object):
     gets a higher score.
     The scoring system is chosen such that the best
     Candidate is unique (i.e. 2**Importance).
+
+    A layout names matrices by the sparsity they have in one basis, so one
+    that names a basis is taken over every one that does not, and never for
+    another basis; one that names none is made for the Dubiner basis, but is
+    taken for another one where nothing else fits.
     """
 
     IMPORTANCE = {
@@ -27,6 +34,7 @@ class Candidate(object):
         "pe": 4,
         "gemmgen": 5,
         "multipleSimulations": 6,
+        "basis": 7,
     }
 
     def __init__(self, atts):
@@ -82,6 +90,8 @@ def findCandidates(search_path):
                 atts["pe"] = att.lower()
             elif att.lower() in gemmgen:
                 atts["gemmgen"] = att.lower()
+            elif att.lower() in BASES:
+                atts["basis"] = att.lower()
             else:
                 atts["equations"] = att
         candidates[c] = Candidate(atts)
@@ -102,6 +112,7 @@ def guessMemoryLayout(env):
         "pe": env["arch"].lower(),
         "multipleSimulations": int(env["multipleSimulations"]),
         "gemmgen": set(gg.lower() for gg in env["gemmgen"]),
+        "basis": env.get("basis", BASES[0]).lower(),
     }
 
     candidates = findCandidates(search_path=path)

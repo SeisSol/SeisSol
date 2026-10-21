@@ -107,6 +107,11 @@ set(PRECISION_OPTIONS single double)
 set_property(CACHE PRECISION PROPERTY STRINGS ${PRECISION_OPTIONS})
 
 
+set(BASIS "dubiner" CACHE STRING "Basis of the polynomials of a cell and of a face: dubiner (orthogonal and hierarchical), dubiner-normalized (the Dubiner functions with unit norm) or bernstein (the Bernstein polynomials of the degree of the scheme). A checkpoint is read by a build of the basis it was written in.")
+set(BASIS_OPTIONS dubiner dubiner-normalized bernstein)
+set_property(CACHE BASIS PROPERTY STRINGS ${BASIS_OPTIONS})
+
+
 set(PLASTICITY_METHOD "nb" CACHE STRING "Plasticity method: nb (nodal basis) is faster, ip (interpolation points) possibly more accurate. Recommended: nb")
 set(PLASTICITY_OPTIONS nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
@@ -221,6 +226,7 @@ endif()
 
 message(STATUS "Solver: ${SOLVER}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
+check_parameter("BASIS" "${BASIS}" "${BASIS_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 check_parameter("MATERIAL_POINTS" "${MATERIAL_POINTS}" "${MATERIAL_POINTS_OPTIONS}")
 check_parameter("MATERIAL_OPERATOR" "${MATERIAL_OPERATOR}" "${MATERIAL_OPERATOR_OPTIONS}")

@@ -57,6 +57,7 @@ class TestGenerateArgparse:
         for flag in [
             "--equations",
             "--matricesDir",
+            "--basis",
             "--outputDir",
             "--host_arch",
             "--device_backend",

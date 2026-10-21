@@ -5,6 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+from kernels.basis import shared
 from kernels.common import generate_kernel_name_prefix
 from yateto import Tensor, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
@@ -109,7 +110,7 @@ def addKernels(generator, aderdg, PlasticityMethod, matricesDir, targets=["cpu"]
 
 
 def includeTensors(matricesDir, includeTensors):
-    vtkbase = parseJSONMatrixFile(f"{matricesDir}/vtkbase.json")
+    vtkbase = parseJSONMatrixFile(shared(matricesDir, "vtkbase.json"))
     for x in vtkbase.__dict__:
         if isinstance(vtkbase.__dict__[x], dict):
             for y in vtkbase.__dict__[x]:

@@ -59,6 +59,7 @@ endif()
 set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/matrices
+     "--basis" ${BASIS}
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode
      "--host_arch" ${HOST_ARCH}
      "--device_codegen" ${DEVICE_CODEGEN}

@@ -11,6 +11,7 @@ from contextlib import contextmanager
 
 import numpy as np
 from kernels import coefficients, material
+from kernels.basis import Basis, shared
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
@@ -75,6 +76,7 @@ class ADERDGBase(ABC):
         # every equation reads further matrices from here, whether or not it
         # goes through configure() to do so
         self._matricesDir = matricesDir
+        self.basis = Basis(matricesDir)
 
         self.db = parseXMLMatrixFile(
             f"{matricesDir}/aderdg-{order}.xml",
@@ -98,12 +100,17 @@ class ADERDGBase(ABC):
                 alignStride=self.alignStride,
             )
         )
-        self.db.update(parseJSONMatrixFile(f"{matricesDir}/sampling_directions.json"))
+        self.db.update(
+            parseJSONMatrixFile(shared(matricesDir, "sampling_directions.json"))
+        )
         self.db.update(parseJSONMatrixFile(f"{matricesDir}/mass-{order}.json"))
 
-        # mass matrices are diagonal; treat them as sparse for now
-        self.db.M2.setMemoryLayout(CSCMemoryLayout)
-        self.db.M3.setMemoryLayout(CSCMemoryLayout)
+        # A diagonal mass matrix is sparse, a dense one is not; a memory layout
+        # file that names them decides over this.
+        for mass in (self.db.M2, self.db.M3):
+            pattern = mass.spp().as_ndarray()
+            if not pattern[~np.eye(pattern.shape[0], dtype=bool)].any():
+                mass.setMemoryLayout(CSCMemoryLayout)
 
         qShape = (self.num3DBasisFunctions(), self.numQuantities())
         self.Q = OptionalDimTensor(
@@ -308,7 +315,9 @@ class ADERDGBase(ABC):
 
     def readMatrices(self, matricesDir, clones):
         """Reads this equation's matrix file."""
-        return parseJSONMatrixFile(f"{matricesDir}/equation-{self.name()}.json", clones)
+        return parseJSONMatrixFile(
+            shared(matricesDir, f"equation-{self.name()}.json"), clones
+        )
 
     def finishConfigure(self, memLayout, clones, kwargs):
         """Resolves the memory layout and stores the generator arguments. Split

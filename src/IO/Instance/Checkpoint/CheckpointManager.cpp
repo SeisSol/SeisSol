@@ -7,7 +7,9 @@
 
 #include "CheckpointManager.h"
 
+#include "Common/ConfigHelper.h"
 #include "Common/Constants.h"
+#include "Common/Typedefs.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
 #include "IO/Reader/Distribution.h"
@@ -89,6 +91,11 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
         writer::instructions::Hdf5Location(filename, {"checkpoint"}),
         "__order",
         writer::WriteInline::create(ConvergenceOrder)));
+    // the coefficients of the polynomials are those of the basis of the build
+    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(filename, {"checkpoint"}),
+        "__basis",
+        writer::WriteInline::create(static_cast<int>(Config::Basis))));
     return writer;
   };
 }
@@ -106,6 +113,14 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
   if (convergenceOrderRead != ConvergenceOrder) {
     logError() << "Convergence order does not match. Read:" << convergenceOrderRead;
+  }
+  // a checkpoint that does not state its basis was written in the Dubiner basis
+  const auto basisRead = reader.hasAttribute("__basis")
+                             ? static_cast<BasisType>(reader.readAttributeScalar<int>("__basis"))
+                             : BasisType::Dubiner;
+  if (basisRead != Config::Basis) {
+    logError() << "The basis does not match. Read:" << basisName(basisRead).c_str()
+               << "this build:" << basisName(Config::Basis).c_str();
   }
   for (auto& [_, ckpTree] : dataRegistry_) {
     reader.openGroup(ckpTree.name);

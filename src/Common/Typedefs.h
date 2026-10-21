@@ -11,6 +11,10 @@ namespace seissol {
 
 enum class DRQuadRuleType { Stroud, Dunavant, WitherdenVincent };
 
+/// The basis of the polynomials of a cell and of a face (BASIS), with the matrices SeisSol/matrices
+/// writes for it. A checkpoint stores the value, so a basis keeps its number.
+enum class BasisType { Dubiner = 0, DubinerNormalized = 1, Bernstein = 2 };
+
 /// The scheme that advances a cell in time. Which one a material may use is
 /// decided at configure time, not here.
 enum class SolverType { LinearCK, LinearCKAnelastic, STP };

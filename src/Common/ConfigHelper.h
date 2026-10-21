@@ -7,8 +7,13 @@
 #ifndef SEISSOL_SRC_COMMON_CONFIGHELPER_H_
 #define SEISSOL_SRC_COMMON_CONFIGHELPER_H_
 
+#include "Common/Typedefs.h"
+
 #include <string>
 namespace seissol {
+
+/// the name a basis has as a value of BASIS
+std::string basisName(BasisType basis);
 
 extern const std::string ConfigString;
 extern const std::string ConfigDescriptor;

@@ -6,6 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 import numpy as np
+from kernels.basis import shared
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor
@@ -41,7 +42,10 @@ class STP(LinearCK):
 
         super().__init__(order, multipleSimulations, matricesDir)
         self.configure(
-            matricesDir, memLayout, kwargs, extra=[f"{matricesDir}/stp_{order}.json"]
+            matricesDir,
+            memLayout,
+            kwargs,
+            extra=[shared(matricesDir, f"stp_{order}.json")],
         )
 
     def numExtendedQuantities(self):

@@ -17,6 +17,19 @@
 
 namespace seissol {
 
+std::string basisName(BasisType basis) {
+  switch (basis) {
+  case BasisType::Dubiner:
+    return "dubiner";
+  case BasisType::DubinerNormalized:
+    return "dubiner-normalized";
+  case BasisType::Bernstein:
+    return "bernstein";
+  default:
+    return "unknown";
+  }
+}
+
 namespace {
 template <typename Cfg>
 std::string configToString() {
@@ -25,6 +38,9 @@ std::string configToString() {
       << stringRealType(Cfg::Precision);
   if (Cfg::NumSimulations > 1) {
     str << "-s" << Cfg::NumSimulations;
+  }
+  if (Cfg::Basis != BasisType::Dubiner) {
+    str << "-" << basisName(Cfg::Basis);
   }
   return str.str();
 }
@@ -37,6 +53,7 @@ std::string configToDescriptor() {
   str << "Convergence order: " << Cfg::ConvergenceOrder << "\n";
   str << "Precision: " << stringRealType(Cfg::Precision) << "\n";
   str << "Simulation count: " << Cfg::NumSimulations << "\n";
+  str << "Basis: \"" << basisName(Cfg::Basis) << "\"\n";
   str << "Dynamic rupture quadrature rule: \"";
   switch (Cfg::DRQuadRule) {
   case DRQuadRuleType::Dunavant:

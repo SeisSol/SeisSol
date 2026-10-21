@@ -74,6 +74,9 @@ void Hdf5Reader::openGroup(const std::string& name) {
   const hid_t handle = _eh(H5Gopen(handles_.top(), name.c_str(), H5P_DEFAULT));
   handles_.push(handle);
 }
+bool Hdf5Reader::hasAttribute(const std::string& name) {
+  return _eh(H5Aexists(handles_.top(), name.c_str())) > 0;
+}
 std::size_t Hdf5Reader::attributeCount(const std::string& name) {
   checkExistence(name, "attribute");
   const hid_t attr = _eh(H5Aopen(handles_.top(), name.c_str(), H5P_DEFAULT));

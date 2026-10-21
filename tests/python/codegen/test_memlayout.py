@@ -97,6 +97,33 @@ class TestCandidateScore:
         # Documenting the invariant:
         assert c.score({"gemmgen": "libxsmm"}) == 2**5
 
+    def test_basis_outweighs_everything_else(self):
+        # a layout states the sparsity of matrices in one basis, so one for the basis of the build
+        # wins over every one that does not name a basis (2**7 > 2 + 4 + ... + 64)
+        c_basis = Candidate({"basis": "bernstein"})
+        c_rest = Candidate(
+            {
+                "precision": "d",
+                "equations": "elastic",
+                "order": 5,
+                "pe": "hsw",
+                "gemmgen": "libxsmm",
+                "multipleSimulations": 1,
+            }
+        )
+        reqs = {
+            "precision": "d",
+            "equations": "elastic",
+            "order": 5,
+            "pe": "hsw",
+            "gemmgen": {"libxsmm"},
+            "multipleSimulations": 1,
+            "basis": "bernstein",
+        }
+        assert c_basis.score(reqs) > c_rest.score(reqs)
+        # and one for another basis is never taken
+        assert Candidate({"basis": "bernstein"}).score({"basis": "dubiner"}) == 0
+
     def test_integer_keys_compare_strictly(self):
         c = Candidate({"order": 5})
         assert c.score({"order": 5}) == 2**3
@@ -163,6 +190,20 @@ class TestFindCandidates:
     def test_parses_architecture(self, layout_dir):
         c = findCandidates(str(layout_dir))["poroelastic_O4_f32_a64fx.xml"]
         assert c.atts["pe"] == "a64fx"
+
+    def test_parses_basis(self, tmp_path):
+        for fname in ["skx_bernstein.xml", "skx_O4_dubiner-normalized.xml"]:
+            (tmp_path / fname).touch()
+        candidates = findCandidates(str(tmp_path))
+        assert candidates["skx_bernstein.xml"].atts == {
+            "pe": "skx",
+            "basis": "bernstein",
+        }
+        assert candidates["skx_O4_dubiner-normalized.xml"].atts == {
+            "pe": "skx",
+            "order": 4,
+            "basis": "dubiner-normalized",
+        }
 
     def test_dense_has_no_attributes(self, layout_dir):
         # "dense" is an equation name by fallthrough, but only one token
@@ -275,6 +316,19 @@ class TestGuessMemoryLayoutReal:
             "No suitable memory layout" in captured.out
             or "Using memory layout" in captured.out
         )
+
+    def test_a_basis_without_layouts_takes_the_ones_without_a_basis(self, capsys):
+        env = {
+            "targets": ["cpu"],
+            "precision": "d",
+            "equations": "elastic",
+            "order": 6,
+            "arch": "skx",
+            "multipleSimulations": 1,
+            "gemmgen": {"pspamm"},
+        }
+        dubiner = guessMemoryLayout({**env, "basis": "dubiner"})
+        assert guessMemoryLayout({**env, "basis": "dubiner-normalized"}) == dubiner
 
     def test_gpu_target_uses_gpu_config_dir(self, capsys):
         env = {

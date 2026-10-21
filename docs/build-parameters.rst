@@ -51,6 +51,13 @@ You may explicitly compile and install multiple of these configurations at the s
     * ``double``: use double precision. Recommended, if your simulation fails with Inf/NaN errors in single precision builds. See also https://github.com/SeisSol/SeisSol/issues/200 .
 
 - ``NUMBER_OF_FUSED_SIMULATIONS``: the number of simulations run simultaneously.
+- ``BASIS``: the basis of the polynomials of a cell and of a face. The name of the executable carries it where it is not the default.
+
+    * ``dubiner``: (default) the Dubiner basis, orthogonal and ordered by degree, with diagonal mass matrices.
+    * ``dubiner-normalized``: the Dubiner functions scaled to unit norm, so that the mass matrices are identities.
+    * ``bernstein``: the Bernstein polynomials of the degree of the scheme, ordered by grade. The mass matrices are dense; a derivative has two entries per row, which the time derivatives of the predictor take through the basis of one degree less.
+
+  The matrices of the Dubiner basis lie in ``codegen/matrices``, the ones of every other basis in a directory of its name there, as written by SeisSol/matrices (``generate.py seissol --basis <name> --reference-dir codegen/matrices``, compressed with ``xz``). A checkpoint can only be read by a build of the basis it was written in.
 - ``NEW_BINARY_NAMING``: (default on) use an updated binary naming scheme which uses lower-case letters and a shorter notation
 
 Besides these, the host or, if enabled, the device architecture and backend are also encoded in the name of the executable.
@@ -89,7 +96,9 @@ CPU-specific parameters
 - ``MEMORY_LAYOUT``: the sparsity patterns to apply. If set to ``auto``, code generation chooses
   a layout from the target-specific config folder (``codegen/config/cpu`` or
   ``codegen/config/gpu``). Passing a filename such as ``dense.xml`` or ``ms32.xml`` resolves it
-  from that same target-specific folder automatically.
+  from that same target-specific folder automatically. A file whose name has a basis among its
+  tokens (e.g. ``pspamm_bernstein.xml``) is taken for that basis alone, and over every file that names
+  none, since the sparsity of a matrix depends on the basis.
 - ``GEMM_TOOLS_LIST``: the list for CPU GEMM generators that are used. Note that SeisSol benefits from code generation specifically for small matrices. Currently supports combinations of the following:
 
     * ``auto``: automatically selects the installed and usable GEMM generators out of ``LIBXSMM_JIT``, ``LIBXSMM`` and ``PSpaMM`` (in this order).

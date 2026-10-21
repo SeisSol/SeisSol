@@ -5,6 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+from kernels.basis import shared
 from yateto import Tensor
 from yateto.input import parseJSONMatrixFile
 
@@ -21,5 +22,5 @@ def addStiffnessTensor(generator):
 
 
 def includeMatrices(matricesDir):
-    matrices = parseJSONMatrixFile("{}/sampling_directions.json".format(matricesDir))
+    matrices = parseJSONMatrixFile(shared(matricesDir, "sampling_directions.json"))
     return set([matrices.samplingDirections])

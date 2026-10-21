@@ -17,6 +17,7 @@ import re
 import sys
 
 import kernels.arch
+import kernels.basis
 import kernels.coefficients
 import kernels.dynamic_rupture
 import kernels.general
@@ -48,6 +49,9 @@ def main():
     cmdLineParser = argparse.ArgumentParser()
     cmdLineParser.add_argument("--equations")
     cmdLineParser.add_argument("--matricesDir")
+    cmdLineParser.add_argument(
+        "--basis", choices=kernels.basis.NAMES, default=kernels.basis.NAMES[0]
+    )
     cmdLineParser.add_argument("--outputDir")
     cmdLineParser.add_argument("--host_arch")
     cmdLineParser.add_argument("--device_backend", default=None)
@@ -97,6 +101,18 @@ def main():
     cmdLineParser.add_argument("--codegen_target", type=str, default="__all__")
 
     cmdLineArgs = cmdLineParser.parse_args()
+
+    # everything reads the matrices of the basis from here on; what does not
+    # depend on the basis is found through kernels.basis.shared
+    cmdLineArgs.matricesDir = kernels.basis.directory(
+        cmdLineArgs.matricesDir, cmdLineArgs.basis
+    )
+    stated = kernels.basis.Basis(cmdLineArgs.matricesDir).name
+    if stated != cmdLineArgs.basis:
+        raise ValueError(
+            f"the matrices in {cmdLineArgs.matricesDir} are those of the {stated} "
+            f"basis, not of the {cmdLineArgs.basis} basis"
+        )
 
     # derive the compute platform
     gpu_platforms = ["cuda", "hip", "hipsycl", "acpp", "oneapi"]
@@ -257,6 +273,7 @@ def main():
                 "multipleSimulations": cmdLineArgs.multipleSimulations,
                 "targets": targets,
                 "gemmgen": gemm_tool_list,
+                "basis": cmdLineArgs.basis,
             }
             mem_layout = kernels.memlayout.guessMemoryLayout(env)
         else:

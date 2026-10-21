@@ -51,6 +51,16 @@ endif()
 
 capitalize(${DR_QUAD_RULE} PARAMETER_DRQUADRULE)
 
+if (BASIS STREQUAL "dubiner")
+  set(PARAMETER_BASIS "Dubiner")
+elseif (BASIS STREQUAL "dubiner-normalized")
+  set(PARAMETER_BASIS "DubinerNormalized")
+elseif (BASIS STREQUAL "bernstein")
+  set(PARAMETER_BASIS "Bernstein")
+else()
+  message(FATAL_ERROR "Invalid BASIS: ${BASIS}")
+endif()
+
 if (FACTORED_STAR)
   set(PARAMETER_FACTORED_STAR "true")
 else()
