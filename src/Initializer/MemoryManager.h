@@ -27,9 +27,11 @@
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
 #include "Physics/InitialField.h"
+#include "Solver/Settings.h"
 
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -78,6 +80,8 @@ class MemoryManager {
 
   std::optional<ClusterLayout> layout_;
 
+  std::optional<SimulationSettings> simulationSettings_;
+
   public:
   /**
    * Default constructor
@@ -106,6 +110,15 @@ class MemoryManager {
   void setClusterLayout(const ClusterLayout& extLayout) { layout_.emplace(extLayout); }
 
   ClusterLayout& clusterLayout() { return layout_.value(); }
+
+  void setSimulationSettings(const SimulationSettings& settings) {
+    simulationSettings_.emplace(settings);
+  }
+
+  /// The settings of the simulations, as the cells are laid out for them.
+  [[nodiscard]] const SimulationSettings& simulationSettings() const {
+    return simulationSettings_.value();
+  }
 
   LTS::Storage& ltsStorage() { return ltsStorage_; }
 

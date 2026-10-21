@@ -154,9 +154,11 @@ void projectInitialFieldOnLayer(
           quadraturePoints.data(), quadraturePointsXyz.data(), quadraturePoints.size());
 
       const CellMaterialData& materialData = material[cell];
+      // the copy of the cell holds the simulations from copyId * NumSimulations on
+      const auto firstSimulation = secondaryInformation[cell].copyId * Cfg::NumSimulations;
       for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
         auto sub = multisim::simtensor<Cfg>(iniCond, s);
-        iniFields[s % iniFields.size()]->evaluate(
+        iniFields[(firstSimulation + s) % iniFields.size()]->evaluate(
             0.0, quadraturePointsXyz.data(), quadraturePointsXyz.size(), materialData, sub);
       }
 

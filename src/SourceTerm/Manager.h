@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_SOURCETERM_MANAGER_H_
 
 #include "Geometry/MeshReader.h"
+#include "Solver/Settings.h"
 #include "Solver/TimeStepping/TimeManager.h"
 
 #include <cstdarg>
@@ -26,6 +27,7 @@ class Manager {
                           const seissol::geometry::MeshReader& mesh,
                           LTS::Storage& ltsStorage,
                           LTS::Backmap& backmap,
+                          const SimulationSettings& settings,
                           time_stepping::TimeManager& timeManager);
 };
 

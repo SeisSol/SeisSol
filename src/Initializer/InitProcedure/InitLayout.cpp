@@ -189,6 +189,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
                                            model.simulationCount,
                                            configValue(model.config).numSimulations);
 
+  seissolInstance.memoryManager().setSimulationSettings(settings);
+
   // if we need more simulations than the cells fuse, use copies of the cells for the others
   const auto copyCount = settings.copyCount();
   logInfo() << "Simulations:" << settings.simulationCount << "in" << copyCount

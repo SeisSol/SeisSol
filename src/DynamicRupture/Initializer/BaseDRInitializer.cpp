@@ -16,6 +16,7 @@
 #include "GeneratedCode/general/kernel.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
@@ -281,16 +282,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
       // get additional parameters (for derived friction laws)
       addAdditionalParameters(parameterToStorageMap, layer);
 
-      for (std::size_t i = 0; i < Cfg::NumSimulations; ++i) {
-        seissol::initializer::FaultParameterDB<real> faultParameterDB(i, Cfg::NumSimulations);
-        // read parameters from yaml file
-        for (const auto& parameterStoragePair : parameterToStorageMap) {
-          faultParameterDB.addParameter(parameterStoragePair.first,
-                                        static_cast<real*>(parameterStoragePair.second));
-        }
-        const auto faceIDs = getFaceIDsInIterator(layer);
-        queryModel<Cfg>(faultParameterDB, faceIDs, i);
-      }
+      queryParameters<Cfg>(layer, parameterToStorageMap);
 
       // rotate initial stress to fault coordinate system
       if (initialStressParameterizedByTraction) {
@@ -400,15 +392,39 @@ void BaseDRInitializer::logQuadratureRules(DynamicRupture::Storage& drStorage) {
   });
 }
 
-std::vector<std::size_t> BaseDRInitializer::getFaceIDsInIterator(DynamicRupture::Layer& layer) {
-  const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
-  std::vector<std::size_t> faceIDs;
-  faceIDs.reserve(layer.size());
-  // collect all face IDs within this lts leaf
-  for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-    faceIDs.push_back(drFaceInformation[ltsFace].meshFace);
+template <typename Cfg>
+void BaseDRInitializer::queryParameters(
+    DynamicRupture::Layer& layer,
+    const std::unordered_map<std::string, void*>& parameterToStorageMap) {
+  using real = Real<Cfg>;
+  const auto* drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
+  const auto copyCount = seissolInstance_.memoryManager().drBackmap().copyCount();
+
+  for (std::size_t copy = 0; copy < copyCount; ++copy) {
+    // the faces of the copy, by their mesh ids and by their positions in the layer
+    std::vector<std::size_t> faceIDs;
+    std::vector<std::size_t> faces;
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      if (drFaceInformation[ltsFace].copy == copy) {
+        faceIDs.push_back(drFaceInformation[ltsFace].meshFace);
+        faces.push_back(ltsFace);
+      }
+    }
+
+    for (std::size_t i = 0; i < Cfg::NumSimulations; ++i) {
+      seissol::initializer::FaultParameterDB<real> faultParameterDB(i, Cfg::NumSimulations);
+      // read parameters from yaml file
+      for (const auto& parameterStoragePair : parameterToStorageMap) {
+        faultParameterDB.addParameter(parameterStoragePair.first,
+                                      static_cast<real*>(parameterStoragePair.second));
+      }
+      if (copyCount > 1) {
+        // the faces of the other copies lie in between
+        faultParameterDB.setFaces(faces, misc::NumPaddedPointsSingleSim<Cfg>);
+      }
+      queryModel<Cfg>(faultParameterDB, faceIDs, copy * Cfg::NumSimulations + i);
+    }
   }
-  return faceIDs;
 }
 
 template <typename Cfg>
@@ -416,6 +432,9 @@ void BaseDRInitializer::queryModel(
     seissol::initializer::FaultParameterDB<Real<Cfg>>& faultParameterDB,
     const std::vector<std::size_t>& faceIDs,
     std::size_t simid) {
+  // the fused simulations which only fill up the last copy of the faces repeat the first
+  // simulations
+  simid %= drParameters_->faultFileNames.size();
   // create a query and evaluate the model
   if (!drParameters_->faultFileNames[simid].has_value()) {
     simid = 0;
@@ -583,6 +602,9 @@ std::string BaseDRInitializer::faultNameAlternatives(const std::vector<std::stri
 // the argument is a type, which the check takes for an expression in template arguments
 // NOLINTBEGIN(bugprone-macro-parentheses)
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template void BaseDRInitializer::queryParameters<Cfg>(                                           \
+      DynamicRupture::Layer & layer,                                                               \
+      const std::unordered_map<std::string, void*>& parameterToStorageMap);                        \
   template void BaseDRInitializer::queryModel<Cfg>(                                                \
       seissol::initializer::FaultParameterDB<Real<Cfg>> & faultParameterDB,                        \
       const std::vector<std::size_t>& faceIDs,                                                     \

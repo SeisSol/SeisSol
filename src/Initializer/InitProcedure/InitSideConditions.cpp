@@ -117,6 +117,7 @@ void initSource(seissol::SeisSol& seissolInstance) {
                                             seissolInstance.meshReader(),
                                             memoryManager.ltsStorage(),
                                             memoryManager.backmap(),
+                                            memoryManager.simulationSettings(),
                                             seissolInstance.timeManager());
 }
 

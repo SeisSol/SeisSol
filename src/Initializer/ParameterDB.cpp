@@ -46,6 +46,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <utils/logger.h>
@@ -118,6 +119,73 @@ void easiEvalSafe(easi::Component* model,
                << std::string(error.what());
   }
 }
+
+/**
+ * Writes the values of a query into arrays of `T`, with `pointsPerFace` points per face: the query
+ * point q lies on the face faces[q / pointsPerFace] of the arrays. I.e. the arrays may hold the
+ * points of faces which the query does not contain, in between the ones it does.
+ */
+template <typename T>
+class FaceArraysAdapter : public easi::ResultAdapter {
+  public:
+  FaceArraysAdapter(const std::vector<std::size_t>& faces, std::size_t pointsPerFace)
+      : faces_(faces), pointsPerFace_(pointsPerFace) {}
+
+  void addBindingPoint(const std::string& parameter, T* array, std::size_t stride) {
+    bindings_[parameter] = Binding{array, stride};
+  }
+
+  void set(const std::string& parameter,
+           const easi::Vector<unsigned>& index,
+           const easi::Slice<double>& value) override {
+    assert(value.size() == index.size());
+    const auto binding = bindings_.find(parameter);
+    if (binding != bindings_.end()) {
+      for (unsigned i = 0; i < index.size(); ++i) {
+        const auto face = faces_[index(i) / pointsPerFace_];
+        const auto point = face * pointsPerFace_ + index(i) % pointsPerFace_;
+        binding->second.array[point * binding->second.stride] = static_cast<T>(value(i));
+      }
+    }
+  }
+
+  [[nodiscard]] bool isSubset(const std::set<std::string>& parameters) const override {
+    return std::all_of(bindings_.begin(), bindings_.end(), [&](const auto& binding) {
+      return parameters.find(binding.first) != parameters.end();
+    });
+  }
+
+  easi::ResultAdapter* subsetAdapter(const std::set<std::string>& subset) override {
+    auto* result = new FaceArraysAdapter(faces_, pointsPerFace_);
+    for (const auto& parameter : subset) {
+      const auto binding = bindings_.find(parameter);
+      if (binding != bindings_.end()) {
+        result->bindings_[parameter] = binding->second;
+      }
+    }
+    return result;
+  }
+
+  [[nodiscard]] unsigned numberOfParameters() const override { return bindings_.size(); }
+
+  [[nodiscard]] std::set<std::string> parameters() const override {
+    std::set<std::string> result;
+    for (const auto& binding : bindings_) {
+      result.insert(binding.first);
+    }
+    return result;
+  }
+
+  private:
+  struct Binding {
+    T* array{nullptr};
+    std::size_t stride{1};
+  };
+
+  const std::vector<std::size_t>& faces_;
+  std::size_t pointsPerFace_;
+  std::unordered_map<std::string, Binding> bindings_;
+};
 
 easi::Component* loadEasiModel(const std::string& fileName) {
   logInfo() << "Loading easi file" << fileName;
@@ -688,12 +756,21 @@ void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
   easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
 
-  easi::ArraysAdapter<T> adapter;
-  for (auto& kv : parameters_) {
-    adapter.addBindingPoint(kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
+  if (faces_.has_value()) {
+    FaceArraysAdapter<T> adapter(faces_.value(), pointsPerFace_);
+    for (auto& kv : parameters_) {
+      adapter.addBindingPoint(
+          kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
+    }
+    easiEvalSafe(model, query, adapter, "fault material");
+  } else {
+    easi::ArraysAdapter<T> adapter;
+    for (auto& kv : parameters_) {
+      adapter.addBindingPoint(
+          kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
+    }
+    easiEvalSafe(model, query, adapter, "fault material");
   }
-
-  easiEvalSafe(model, query, adapter, "fault material");
 
   delete model;
 }
