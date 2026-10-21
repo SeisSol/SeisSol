@@ -92,8 +92,8 @@ void ProxyKernelDeviceNeighbor::run(ProxyData& data,
   const auto timeBasis = seissol::kernels::timeBasis();
   const auto timeCoeffs = timeBasis.integrate(0, Timestep, Timestep);
 
-  seissol::kernels::TimeCommon::computeBatchedIntegrals(
-      data.timeKernel, timeCoeffs.data(), timeCoeffs.data(), dataTable, runtime);
+  seissol::kernels::TimeCommon::computeBatchedNeighborTraces(
+      data.timeKernel, timeCoeffs.data(), dataTable, runtime);
 
   const ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
   auto computeGraphKey = initializer::GraphKey(graphType);

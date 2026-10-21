@@ -25,6 +25,7 @@
 #include "CoefficientStructure.t.h" // IWYU pragma: keep
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
+#include "FaceTraces.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/pool.h"
@@ -64,7 +65,6 @@ namespace curvedcell {
 template <bool Enabled>
 struct Kernels {
   using Volume = std::conditional_t<Enabled, kernel::volume, kernel::volume>;
-  using LocalFlux = std::conditional_t<Enabled, kernel::localFlux, kernel::localFlux>;
 };
 
 using initializer::CurvedCell;
@@ -353,9 +353,10 @@ void constantState() {
                                        scale[node],
                                        plus,
                                        minus);
+        std::array<double, FluxCoefficientCount> scalars{};
+        initializer::correctorScalars(FaceType::Regular, plus, minus, scalars);
         for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {
-          local.fluxCoefficients[side][c][node] = static_cast<real>(plus[c]);
-          neighboring.fluxCoefficients[side][c][node] = static_cast<real>(minus[c]);
+          local.fluxCoefficients[side][c][node] = static_cast<real>(scalars[c]);
         }
       }
     }
@@ -369,28 +370,21 @@ void constantState() {
       }
     }
 
+    // the size of what cancels: the correctors of the faces with the cell's own trace alone
     alignas(Alignment) std::array<real, tensor::Q::size()> localOnly{};
     alignas(Alignment) std::array<real, tensor::Q::size()> update{};
-    typename Kernels<Enabled>::LocalFlux flux{};
-    flux.bindGlobals(seissol::Pool::host());
-    flux.I = dofs.data();
-    flux.Q = localOnly.data();
-    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-      kernels::bindLocalFluxOperands(flux, local, side);
-      flux.execute(side);
-    }
-
+    alignas(Alignment) const FaceTraceT zero{};
     addVolumeTerm<typename Kernels<Enabled>::Volume>(dofs.data(), update.data(), local);
-    // the neighbour's trace is the cell's own where the state is continuous, so its contribution
-    // is the local kernel applied with the neighbour's scalars
-    flux.Q = update.data();
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-      kernels::bindLocalFluxOperands(flux, local, side);
-      flux.execute(side);
-      for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {
-        flux.fluxCoefficientsLocal(c) = neighboring.fluxCoefficients[side][c];
-      }
-      flux.execute(side);
+      // each face in another parametrisation than the one before
+      const std::size_t traceSide = side % 2;
+      alignas(Alignment) FaceTraceT own{};
+      writeFaceTrace(dofs.data(), side, traceSide, own.data());
+      applyFaceCorrector(
+          own.data(), zero.data(), local, neighboring, side, traceSide, localOnly.data());
+      // the neighbour's trace is the cell's own where the state is continuous
+      applyFaceCorrector(
+          own.data(), own.data(), local, neighboring, side, traceSide, update.data());
     }
 
     auto viewLocal = init::Q::view::create(localOnly.data());

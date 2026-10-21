@@ -475,20 +475,6 @@ if (WITH_GPU)
             "material coefficients, which only tensorforge generates on a GPU.")
         set(FACTORED_STAR OFF)
     endif()
-
-    # the premultiplication was only so far demonstrated to be efficient on AMD+NVIDIA HW; enable on others by demand
-    option(PREMULTIPLY_FLUX "Merge device flux matrices (recommended for AMD and Nvidia GPUs)" ${IS_NVIDIA_OR_AMD})
-
-    # experimental kernels should stay experimental; they've only be sort of tested on NV+AMD hardware for now
-    option(DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS "Enable experimental explicitly-written kernels" ${IS_NVIDIA_OR_AMD})
-
-    if (DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS AND NOT("tensorforge" IN_LIST AUTO_DEVICE_CODEGEN))
-        set(USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS ON)
-    else()
-        set(USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS OFF)
-    endif()
-
-    option(DEVICE_COMBINE_LOCAL_FLUX "Combine the local flux kernels into a single one (usually increases performance; unless you have a mesh with over 50% DR faces)." ON)
 endif()
 
 

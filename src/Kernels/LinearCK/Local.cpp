@@ -20,6 +20,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
+#include "Kernels/FaceTraces.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
 #include "Kernels/StarOperands.h"
@@ -44,7 +45,6 @@
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Kernels/LinearCK/DeviceAux/KernelsAux.h"
 #endif
 
 GENERATE_HAS_MEMBER(ET)
@@ -78,15 +78,14 @@ void bindVolumeOperands(KernelT& krnl, real* timeIntegratedDoFs, LTS::Ref& data,
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
   volumeKernelPrototype_.bindGlobals(*global.onHost);
-  localFluxKernelPrototype_.bindGlobals(*global.onHost);
+  faceTraceKernelPrototype_.bindGlobals(*global.onHost);
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
   fsgFlux_.bindGlobals(*global.onHost);
   dirichletFlux_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
-  deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
-  deviceLocalFluxAllKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceFaceTraceKernelPrototype_.bindGlobals(*global.onDevice);
   deviceNodalLfKrnlPrototype_.bindGlobals(*global.onDevice);
   deviceFsgFlux_.bindGlobals(*global.onDevice);
   deviceDirichletFlux_.bindGlobals(*global.onDevice);
@@ -114,22 +113,13 @@ void Local::computeIntegral(
   volKrnl.Q = data.get<LTS::Dofs>();
   bindVolumeOperands(volKrnl, timeIntegratedDoFs, data, tmp);
 
-  kernel::localFlux lfKrnl = localFluxKernelPrototype_;
-  lfKrnl.Q = fluxTarget;
-  lfKrnl.I = timeIntegratedDoFs;
-  lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
-  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
-
   volKrnl.execute();
 
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    // no element local contribution in the case of dynamic rupture boundary conditions, unless
-    // the corrector is the strong form (appliesLocalFlux)
-    if (appliesLocalFlux(data.get<LTS::CellInformation>().faceTypes[face])) {
-      kernels::bindLocalFluxOperands(lfKrnl, data.get<LTS::LocalIntegration>(), face);
-      lfKrnl.execute(face);
-    }
+  // the trace of the time integral on every face, which the corrector of the cell reads together
+  // with the one its neighbor writes there
+  kernels::writeFaceTraces(faceTraceKernelPrototype_, timeIntegratedDoFs, data);
 
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
     auto nodalLfKrnl = nodalLfKrnlPrototype_;
     nodalLfKrnl.Q = fluxTarget;
@@ -198,11 +188,10 @@ void Local::computeBatchedIntegral(
   // Volume integral
   ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volume volKrnl = deviceVolumeKernelPrototype_;
-  kernel::gpu_localFlux localFluxKrnl = deviceLocalFluxKernelPrototype_;
 
   // the boundary kernels below run on the same temporary memory
   const auto maxTmpMem =
-      yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl, deviceFsgFlux_, deviceDirichletFlux_);
+      yateto::getMaxTmpMemRequired(volKrnl, deviceFsgFlux_, deviceDirichletFlux_);
 
   // volume kernel always contains more elements than any local one
   const auto maxNumElements = dataTable.find(key) != dataTable.end()
@@ -242,44 +231,13 @@ void Local::computeBatchedIntegral(
     volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
-
-#ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
-    kernel::gpu_localFluxAll localFluxKrnl = deviceLocalFluxAllKernelPrototype_;
-    localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-    localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
-    localFluxKrnl.I =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-
-    kernels::bindLocalFluxAllOperandsBatched(localFluxKrnl, localIntegrationPtrs);
-    localFluxKrnl.linearAllocator.initialize(tmpMem.get());
-    localFluxKrnl.streamPtr = runtime.stream();
-    localFluxKrnl.execute();
-#endif
   }
 
-  // Local Flux Integral
+  // the trace of the time integral on every face, which the corrector of the cell reads together
+  // with the one its neighbor writes there
+  kernels::writeFaceTracesBatched(deviceFaceTraceKernelPrototype_, dataTable, runtime);
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
-
-// deprecated code; kept for comparison reasons
-#ifndef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
-    if (dataTable.find(key) != dataTable.end()) {
-      auto& entry = dataTable[key];
-      localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-      localFluxKrnl.Q = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
-      localFluxKrnl.I =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-      kernels::bindLocalFluxOperandsBatched(
-          localFluxKrnl,
-          const_cast<const real**>(
-              entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()),
-          face);
-      localFluxKrnl.linearAllocator.initialize(tmpMem.get());
-      localFluxKrnl.streamPtr = runtime.stream();
-      localFluxKrnl.execute(face);
-    }
-#endif
-
     ConditionalKey fsgKey(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
     if (dataTable.find(fsgKey) != dataTable.end()) {
@@ -401,23 +359,9 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
   PerformanceEstimate estimate;
   estimate += PerformanceEstimate::fromKernel<seissol::kernel::volume>();
 
-#if defined(ACL_DEVICE) && defined(SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
-  constexpr bool CombineLocalFlux = true;
-#else
-  constexpr bool CombineLocalFlux = false;
-#endif
-
-  if constexpr (CombineLocalFlux) {
-    estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxAll>();
-  }
-
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    // Local flux is executed for all faces that are not dynamic rupture, and for those as well
-    // where the corrector is the strong form (appliesLocalFlux). The flux of the fault itself is
-    // taken into account during the neighbor kernel.
-    if (appliesLocalFlux(faceTypes[face]) && !CombineLocalFlux) {
-      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFlux>(face);
-    }
+    // the trace on every face; both sides of a face cost the same
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::faceTrace>(face, 0);
 
     // Take boundary condition flops into account.
     // Note that this only includes the flops of the kernels but not of the
@@ -445,11 +389,9 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
 
   // star matrices load
   reals += yateto::computeFamilySize<tensor::star>();
-  // flux solvers
-  reals += static_cast<std::uint64_t>(4 * tensor::AplusT::size());
 
-  // DOFs write
-  reals += tensor::Q::size();
+  // DOFs write, traces write
+  reals += tensor::Q::size() + Cell::NumFaces * tensor::faceTrace::size();
 
   estimate.bytes = reals * sizeof(real);
 

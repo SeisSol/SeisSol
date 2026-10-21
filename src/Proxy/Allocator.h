@@ -41,8 +41,12 @@ struct ProxyData {
   GlobalData globalDataOnHost;
   GlobalData globalDataOnDevice;
 
+  // the traces of the time derivatives a fault face reads of either side
   real* fakeDerivatives = nullptr;
   real* fakeDerivativesHost = nullptr;
+
+  // the time integral of every cell, which the predictor writes and the local kernel reads
+  real* integrals = nullptr;
 
   kernels::Solver::TimeBasis<real> timeBasis{Config::ConvergenceOrder};
 

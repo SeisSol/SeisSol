@@ -9,6 +9,7 @@ import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor
+from yateto.type import AddressingMode
 
 from .linearck import LinearCK
 
@@ -62,6 +63,54 @@ class STP(LinearCK):
 
     def name(self):
         return "stp"
+
+    def faceDerivativeTraces(self):
+        """The trace of the space-time predictor on a face: in time, it keeps
+        the basis the predictor has, which has no derivative to narrow. It is
+        the one member of the family the other solvers keep a trace per
+        derivative in, so that what reads it binds it the same way."""
+        if not hasattr(self, "_faceDerivatives"):
+            self._faceDerivatives = [
+                OptionalDimTensor(
+                    "faceDerivatives(0)",
+                    self.Q.optName(),
+                    self.Q.optSize(),
+                    self.Q.optPos(),
+                    (self.num2DBasisFunctions(), self.numQuantities(), self.order),
+                )
+            ]
+        return self._faceDerivatives
+
+    def faceDerivativeStatements(self, face, side):
+        (trace,) = self.faceDerivativeTraces()
+        return [
+            trace["mqt"]
+            <= self.traceMatrix[face, side][self.t("ml")]
+            * self.spaceTimePredictor["lqt"]
+        ]
+
+    def faceTraceAtTime(self, coefficients):
+        """The trace over an interval or at an instant, one scalar of
+        `coefficients` per function of the time basis, the coefficients the
+        predictor is evaluated with in the volume (evaluateDOFSAtTimeSTP). A
+        function is picked out of the trace by a unit vector, which keeps the
+        coefficients scalars on every target."""
+        (trace,) = self.faceDerivativeTraces()
+        if not hasattr(self, "_timeBasisUnits"):
+            self._timeBasisUnits = [
+                Tensor(
+                    f"timeBasisUnit({t})",
+                    (self.order,),
+                    spp={(t,): "1.0"},
+                    addressing=AddressingMode.IMMEDIATE,
+                )
+                for t in range(self.order)
+            ]
+        expansion = None
+        for unit, coefficient in zip(self._timeBasisUnits, coefficients):
+            term = coefficient * trace["mqt"] * unit["t"]
+            expansion = term if expansion is None else expansion + term
+        return expansion
 
     def addTime(self, generator, targets):
         super().addTime(generator, targets)
@@ -158,6 +207,9 @@ class STP(LinearCK):
             alignStride=True,
         )
         timeBasisFunctionsAtPoint = Tensor("timeBasisFunctionsAtPoint", (self.order,))
+        # what the face traces of the predictor are formed from
+        # (faceDerivativeStatements)
+        self.spaceTimePredictor = spaceTimePredictor
 
         for target in targets:
             # a device kernel writes each temporary once, see

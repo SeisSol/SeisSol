@@ -26,7 +26,6 @@ struct Wp {
     Idofs,
     LocalIntegrationData,
     NeighborIntegrationData,
-    Buffers,
     Derivatives,
     Godunov,
     FluxSolver,
@@ -55,6 +54,13 @@ struct Wp {
     FluxTarget,
     // the flux buffer of a weight-adjusted cell (see WeightAdjustable)
     FluxBuffer,
+    // the trace a cell writes on one of its faces (LTS::FaceTraces)
+    FaceTrace,
+    // what the corrector of a face reads as the trace of the neighbor across it
+    FaceTraceNeighbor,
+    // what a cell writes on a face for the neighbor across it (LTS::FaceBuffers), or reads there
+    // from the neighbor
+    FaceBuffer,
     Count
   };
 };
@@ -66,12 +72,11 @@ struct Wp {
 struct Dr {
   using DataType = real*;
   enum struct Id : size_t {
-    DerivativesPlus = 0,
-    DerivativesMinus,
-    IdofsPlus,
-    IdofsMinus,
-    QInterpolatedPlus,
-    QInterpolatedMinus,
+    // the traces of the time derivatives a side writes on the fault face
+    FaceDerivatives = 0,
+    // where the trace of a side at one point in time is formed, for a kernel that needs it apart
+    Trace,
+    QInterpolated,
     TinvT,
     Count
   };
@@ -90,14 +95,18 @@ constexpr size_t encodeAny(unsigned count) { return ~(AllBits << count); }
 enum struct KernelNames : size_t {
   Time = 1 << 0,
   Volume = 1 << 1,
-  LocalFlux = 1 << 2,
+  // what a cell writes on its faces: the traces of its time integral, of its time derivatives, and
+  // their sum over the steps of a neighbor that takes fewer
+  FaceTrace = 1 << 2,
   NeighborFlux = 1 << 3,
   FaceDisplacements = 1 << 4,
   Plasticity = 1 << 5,
   DrSpaceMap = 1 << 6,
   BoundaryConditions = 1 << 7,
   WeightAdjust = 1 << 8,
-  Count = 9,
+  // the corrector of a face, from the two traces of the face
+  FaceCorrector = 1 << 9,
+  Count = 10,
   Any = encodeAny(Count)
 };
 
@@ -125,7 +134,6 @@ enum struct FaceKinds : size_t {
 };
 
 enum struct FaceId : size_t { Count = 4, Any = AllBits };
-enum struct FaceRelations : size_t { Count = 16, Any = AllBits };
 enum struct DrFaceRelations : size_t { Count = 8, Any = AllBits };
 
 enum struct ExchangeInfo : size_t {

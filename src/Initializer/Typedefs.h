@@ -76,18 +76,19 @@ struct alignas(Alignment) LocalIntegrationData {
   real sourceDeviation[zeroGuard(NodalSourceDeviation ? SourceDeviationCount : 0)]
                       [zeroGuard(NodalSourceDeviation ? MaterialSampleCount : 0)]{};
 
-  // flux solver for element local contribution. It is filled where the flux
-  // reads the material at the points of a face as well, although the flux
-  // kernels of such a build read the scalars below instead, on the host and on
-  // the device alike.
+  // the operator the corrector of a face applies to the cell's own trace of it, with the rotation
+  // folded in. It is filled where the flux reads the material at the points of a face as well,
+  // although no kernel of such a build reads it: its corrector reads the scalars below instead, on
+  // the host and on the device alike.
   real nApNm1[4][seissol::tensor::AplusT::size()]{};
 
   // Where the material varies along a face, the flux operator does too, and a
   // face carries the scalars it is built from at the points of that face its
-  // flux is integrated at, rather than the matrix they fold into. The rotation
-  // into the face coordinates those scalars are stated in is the same for both
-  // sides, so a face keeps one of them; the inverse follows from it inside the
-  // kernel. A face that may be curved keeps one per point.
+  // flux is integrated at, rather than the matrix they fold into: one set,
+  // which the corrector applies to the jump of the two traces of the face (see
+  // initializer::correctorScalars). The rotation into the face coordinates
+  // those scalars are stated in is kept apart; the inverse follows from it
+  // inside the kernel. A face that may be curved keeps one per point.
   real fluxCoefficients[zeroGuard(NodalFlux ? Cell::NumFaces : 0)][zeroGuard(
       NodalFlux ? FluxCoefficientCount : 0)][zeroGuard(NodalFlux ? FluxFaceNodes : 0)]{};
   real faceRotation[zeroGuard(NodalFlux ? Cell::NumFaces : 0)][zeroGuard(
@@ -100,15 +101,12 @@ struct alignas(Alignment) LocalIntegrationData {
 
 // data for the neighboring boundary integration
 struct alignas(Alignment) NeighboringIntegrationData {
-  // flux solver for the contribution of the neighboring elements
+  // the operator the corrector of a face applies to the trace the neighbor writes there, with the
+  // rotation folded in; zero on a free surface, which has no state outside the cell
+  // (initializer::hasExteriorOperator). A boundary face takes its neighbor state from a nodal
+  // boundary condition, already at the nodes of the face and already rotated, and applies this
+  // matrix to it, also where the corrector reads the scalars of LocalIntegrationData instead.
   real nAmNm1[4][seissol::tensor::AminusT::size()]{};
-
-  // the counterpart of LocalIntegrationData::fluxCoefficients for the operator
-  // the neighbour contributes. The matrix above stays: a boundary face takes
-  // its neighbour state from a nodal boundary condition, already at the nodes
-  // of the face and already rotated, and applies the matrix to it.
-  real fluxCoefficients[zeroGuard(NodalFlux ? Cell::NumFaces : 0)][zeroGuard(
-      NodalFlux ? FluxCoefficientCount : 0)][zeroGuard(NodalFlux ? FluxFaceNodes : 0)]{};
 
   // solver-specific data
   seissol::model::MaterialT::Solver::NeighborData specific;

@@ -20,9 +20,8 @@ constant. Neither set has a point on a face.
 
 import numpy as np
 from kernels.multsim import OptionalDimTensor
-from yateto import Tensor, simpleParameterSpace
+from yateto import Tensor
 from yateto.input import parseJSONMatrixFile
-from yateto.util import tensor_collection_from_constant_expression
 
 #: The sets a build can choose between, as the matrix files name them; the
 #: first one is the default.
@@ -205,33 +204,3 @@ def faceOrientationPermutations(matricesDir, aderdg):
             order.append(nearest)
         permutations.append(tuple(order))
     return tuple(permutations)
-
-
-def addNeighborFaceMatrices(aderdg, matricesDir):
-    """Reading a neighbour's field at the points of the shared face.
-
-    Its own face evaluation, then the renumbering into this cell's ordering --
-    folded into one matrix per reparametrisation and neighbour side, so that the
-    kernel does one product instead of two.
-    """
-    permutations = faceOrientationPermutations(matricesDir, aderdg)
-    nodes = len(permutations[0])
-
-    renumber = [
-        Tensor(
-            f"faceRenumber({h})",
-            (nodes, nodes),
-            spp={(row, permutation[row]): "1.0" for row in range(nodes)},
-        )
-        for h, permutation in enumerate(permutations)
-    ]
-
-    folded = tensor_collection_from_constant_expression(
-        base_name="neighborToFace",
-        expressions=lambda h, j: renumber[h]["nm"]
-        * aderdg.db.V3mToFaceQuad[j][aderdg.t("ml")],
-        group_indices=simpleParameterSpace(3, 4),
-        target_indices="nl",
-    )
-    aderdg.db.update(folded)
-    return nodes

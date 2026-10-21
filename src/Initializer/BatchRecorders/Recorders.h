@@ -8,12 +8,15 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_RECORDERS_H_
 
+#include "Common/Constants.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Kernels/Interface.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 
+#include <array>
 #include <cstddef>
+#include <memory>
 #include <utils/logger.h>
 #include <vector>
 
@@ -88,44 +91,32 @@ class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   protected:
   double g_{9.81};
 
-  void setUpContext(LTS::Layer& layer) override {
-    integratedDofsAddressCounter_ = 0;
-    derivativesAddressCounter_ = 0;
-    AbstractRecorder::setUpContext(layer);
-  }
-
   private:
   void recordTimeAndVolumeIntegrals();
   void recordFreeSurfaceGravityBc();
   void recordDirichletBc();
   void recordAnalyticalBc(LTS::Layer& layer);
-  void recordLocalFluxIntegral();
+  void recordFaceTraces();
   void recordDisplacements();
 
-  std::unordered_map<size_t, real*> idofsAddressRegistry_;
+  // the time integral and the time derivatives of every cell
+  std::vector<real*> idofsPtrs_;
   std::vector<real*> dQPtrs_;
   // what the faces of every cell lift into, see fluxTargetOf
   std::vector<real*> fluxTargets_;
-
-  size_t integratedDofsAddressCounter_{0};
-  size_t derivativesAddressCounter_{0};
 };
 
 class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   public:
   void record(LTS::Layer& layer) override;
 
-  protected:
-  void setUpContext(LTS::Layer& layer) override {
-    integratedDofsAddressCounter_ = 0;
-    AbstractRecorder::setUpContext(layer);
-  }
-
   private:
-  void recordDofsTimeEvaluation();
-  void recordNeighborFluxIntegrals();
-  std::unordered_map<real*, real*> idofsAddressRegistry_;
-  size_t integratedDofsAddressCounter_{0};
+  void recordNeighborTraces();
+  void recordFaceCorrectors();
+  void recordDynamicRuptureFluxes();
+
+  // what the corrector of each face of every cell reads as the neighbor's trace
+  std::vector<std::array<real*, Cell::NumFaces>> neighborTraces_;
 };
 
 class PlasticityRecorder : public AbstractRecorder<LTS::LTSVarmap> {
@@ -140,14 +131,8 @@ class DynamicRuptureRecorder : public AbstractRecorder<DynamicRupture::DynrupVar
   public:
   void record(DynamicRupture::Layer& layer) override;
 
-  protected:
-  void setUpContext(DynamicRupture::Layer& layer) override {
-    AbstractRecorder::setUpContext(layer);
-  }
-
   private:
   void recordSpaceInterpolation();
-  std::unordered_map<real*, real*> idofsAddressRegistry_;
 };
 
 } // namespace seissol::recording

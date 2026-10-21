@@ -9,8 +9,7 @@
 import numpy as np
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, Tensor, ops, simpleParameterSpace
-from yateto.ast.node import Accumulate
+from yateto import Scalar, Tensor, simpleParameterSpace
 from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout, PatternMemoryLayout
 from yateto.type import AddressingMode
@@ -151,22 +150,27 @@ def addKernels(
         <= aderdg.Tinv["qp"] * aderdg.Q["lp"] * basisFunctionsAtPoint["l"],
     )
 
-    def interpolateQGenerator(i, h):
-        return (
-            QInterpolated["kp"]
-            <= db.V3mTo2n[i, h][aderdg.t("kl")] * aderdg.Q["lq"] * rotationIntoFault
-        )
+    # the same from the trace of a side on the face, at a point of the face
+    faceBasisAtPoint = Tensor("faceBasisAtPoint", (aderdg.num2DBasisFunctions(),))
+    generator.add(
+        "evaluateFaceAlignedTraceAtPoint",
+        QAtPoint["q"]
+        <= aderdg.Tinv["qp"] * aderdg.faceTraceNeighbor["lp"] * faceBasisAtPoint["l"],
+    )
 
-    interpolateQPrefetch = lambda i, h: QInterpolated
-    for target in targets:
-        name_prefix = generate_kernel_name_prefix(target)
-        generator.addFamily(
-            f"{name_prefix}evaluateAndRotateQAtInterpolationPoints",
-            simpleParameterSpace(4, NumFaceRelations),
-            interpolateQGenerator,
-            interpolateQPrefetch if target == "cpu" else None,
-            target=target,
-        )
+    # Either side at the points of the fault, from the traces it writes on the
+    # fault face, both in the parametrisation of the plus side (the minus side
+    # writes its traces reflected, see _configureTraces): one matrix for both
+    # sides and every face of a cell, the face basis at the points of the fault.
+    traceToDR = faultTraceEvaluation(aderdg, db)
+    generator.add(
+        "evaluateAndRotateTraceAtInterpolationPoints",
+        QInterpolated["kp"]
+        <= traceToDR[aderdg.t("km")]
+        * aderdg.faceTraceNeighbor["mq"]
+        * rotationIntoFault,
+        target="cpu",
+    )
 
     steps = aderdg.order
     scalars = [
@@ -185,36 +189,28 @@ def addKernels(
         for i in range(steps)
     ]
 
-    def multiInterpolateQ(i, h):
-        # TODO: tensorize?
-
+    def projectTraces():
+        # all time points of a side at once, from the traces of its time
+        # derivatives (faceTraceAtTime)
         calc = []
         for c in range(steps):
-            interm = Accumulate(ops.Add())
-
-            # the same for all equations right now (incl. visco2 and poro)
-            # if not, you'll need to generalize within the equation class(es)
-            for p in range(aderdg.order):
-                interm = interm + scalars[c][p] * aderdg.dQs[p]["lq"]
+            interm = aderdg.faceTraceAtTime(scalars[c])
 
             if isOldGpuInterface:
                 # the "old" GPU implementation (gemmforge/chainforge) needs an explicit intermediate
-                calc += [aderdg.I["lq"] <= interm]
-                interm = aderdg.I["lq"]
+                calc += [aderdg.faceTraceNeighbor["mq"] <= interm]
+                interm = aderdg.faceTraceNeighbor["mq"]
 
             calc += [
-                QDR[c]["kp"]
-                <= db.V3mTo2n[i, h][aderdg.t("kl")] * interm * rotationIntoFault
+                QDR[c]["kp"] <= traceToDR[aderdg.t("km")] * interm * rotationIntoFault
             ]
         return calc
 
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
-        generator.addFamily(
-            f"{name_prefix}projectToDR",
-            simpleParameterSpace(4, NumFaceRelations),
-            multiInterpolateQ,
-            None,
+        generator.add(
+            f"{name_prefix}projectTracesToDR",
+            projectTraces(),
             target=target,
         )
 
@@ -238,8 +234,6 @@ def addKernels(
             db.V3mTo2nTWDivM[i, h][aderdg.t("kl")],
             rotationOutOfFault,
         )
-    nodalFluxPrefetch = lambda i, h: aderdg.I
-
     for target in targets:
         name_prefix = generate_kernel_name_prefix(target)
         # a device kernel writes each temporary once, see singleDefinitions
@@ -248,7 +242,6 @@ def addKernels(
                 f"{name_prefix}nodalFlux",
                 simpleParameterSpace(4, NumFaceRelations),
                 nodalFluxGenerator,
-                nodalFluxPrefetch if target == "cpu" else None,
                 target=target,
             )
 
@@ -423,6 +416,54 @@ def addKernels(
         TinvTPoints,
         TPoints,
     }
+
+
+def faultTraceEvaluation(aderdg, db):
+    """The face basis at the points of the fault, in the parametrisation of the
+    plus side: what a trace written in it (see _configureTraces) gives there.
+
+    It is what reads the field of a side at those points with the trace taken
+    out, V3mTo2n(i, 0) = W rT(i) for every face i of the plus side, and for the
+    minus side, which writes its traces reflected, V3mTo2n(i, 1) = W R rT(i).
+    Checked here for every face, against the matrices the field is read with.
+    """
+
+    def matrix(tensor):
+        values = np.zeros(tensor.shape())
+        for index, value in tensor.values().items():
+            values[index] = float(value)
+        return values.T if aderdg.transpose(tensor.name()) else values
+
+    def plain(tensor):
+        values = np.zeros(tensor.shape())
+        for index, value in tensor.values().items():
+            values[index] = float(value)
+        return values
+
+    reflection = plain(aderdg.db.M2inv) @ matrix(aderdg.db.fP[0])
+    evaluation = matrix(db.V3mTo2n[0, 0]) @ np.linalg.pinv(matrix(aderdg.db.rT[0]))
+    for face in range(4):
+        trace = matrix(aderdg.db.rT[face])
+        for relation, sideTrace in ((0, trace), (1, reflection @ trace)):
+            expected = matrix(db.V3mTo2n[face, relation])
+            deviation = np.abs(evaluation @ sideTrace - expected).max()
+            if deviation > 1e-10 * max(1.0, np.abs(expected).max()):
+                raise RuntimeError(
+                    "the points of the fault do not read a side through its face "
+                    f"trace (face {face}, relation {relation}: {deviation})"
+                )
+    evaluation[np.abs(evaluation) < 1e-14] = 0.0
+    stored = evaluation.T if aderdg.transpose("traceToDR") else evaluation
+    return Tensor(
+        "traceToDR",
+        stored.shape,
+        spp={
+            index: repr(float(value))
+            for index, value in np.ndenumerate(stored)
+            if value != 0.0
+        },
+        alignStride=aderdg.alignStride("traceToDR"),
+    )
 
 
 def faultFluxTensors(aderdg, numPoints):

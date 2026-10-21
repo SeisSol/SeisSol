@@ -18,47 +18,40 @@
 namespace seissol::kernels {
 struct TimeCommon {
   /**
-   * Either copies pointers to the DOFs in the time buffer or integrates the DOFs via time
-   derivatives.
-   *   Evaluation depends on bit 0-3  of the LTS setup.
-   *   0 -> copy buffer; 1 -> integrate via time derivatives
-   *     Example:
-
-   *     [     4 unused     | copy or int bits  ]
-   *     [ -    -    -    - |  0    1    1    0 ]
-   *     [ 7    6    5    4 |  3    2    1    0 ]
+   * The trace of each neighbor on its face over the time step of the cell, which the corrector of
+   * the face reads: what the neighbor wrote there where that is a trace over the time step already
+   * (LtsSetup::neighborBuffer is StepIntegrals or AccumulatedIntegrals), or the traces of its time
+   * derivatives evaluated over the interval of the cell (Derivatives), which a neighbor writes that
+   * takes a larger time step; the zero trace of the layer on a face without neighbor, whose
+   * corrector applies the cell's own trace alone.
    *
-   *   0 - 0: time integrated DOFs of cell 0 are copied from the buffer.
-   *   1 - 1: DOFs of cell 1 are integrated in time via time derivatives.
-   *   2 - 1: DOFs of cell 2 are integrated in time via time derivaitves.
-   *   3 - 0: time itnegrated DOFs of cell 3 are copied from the buffer.
-   *
-   * @param ltsSetup bitmask for the LTS setup.
-   * @param faceTypes face types of the neighboring cells.
-   * @param timeCoeffs GTS time integration basis coefficients
-   * @param subtimeCoeffs LTS time integration basis coefficients (for neighbor.cluster >
-   local.cluster)
-   * @param timeDofs pointers to time integrated buffers or time derivatives of the four neighboring
-   *cells.
-   * @param integrationBuffer memory where the time integration goes if derived from derivatives.
-   *Ensure thread safety!
-   * @param timeIntegrated pointers to the time integrated DOFs of the four neighboring cells
-   *(either local integration buffer or integration buffer of input).
+   * @param ltsSetup the LTS setup of the cell.
+   * @param faceTypes face types of the cell.
+   * @param subtimeCoeffs the time integration coefficients of the interval of the cell within the
+   * time step of a neighbor that takes a larger one
+   * @param faceNeighbors what the four neighbors wrote on the faces (LTS::FaceNeighbors).
+   * @param zeroTrace a trace of zeros (LTS::ZeroFaceTrace).
+   * @param traceBuffers memory where an evaluated trace goes. Ensure thread safety!
+   * @param neighborTraces the four traces over the time step of the cell (either in faceNeighbors,
+   * in traceBuffers, or zeroTrace).
    **/
-  static void computeIntegrals(Time& time,
-                               const LtsSetup& ltsSetup,
-                               const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                               const real* timeCoeffs,
-                               const real* subtimeCoeffs,
-                               const std::array<real*, Cell::NumFaces>& timeDofs,
-                               const std::array<real*, Cell::NumFaces>& integrationBuffer,
-                               std::array<real*, Cell::NumFaces>& timeIntegrated);
+  static void computeNeighborTraces(Time& time,
+                                    const LtsSetup& ltsSetup,
+                                    const std::array<FaceType, Cell::NumFaces>& faceTypes,
+                                    const real* subtimeCoeffs,
+                                    const std::array<real*, Cell::NumFaces>& faceNeighbors,
+                                    const real* zeroTrace,
+                                    const std::array<real*, Cell::NumFaces>& traceBuffers,
+                                    std::array<const real*, Cell::NumFaces>& neighborTraces);
 
-  static void computeBatchedIntegrals(Time& time,
-                                      const real* timeCoeffs,
-                                      const real* subtimeCoeffs,
-                                      recording::ConditionalPointersToRealsTable& table,
-                                      seissol::parallel::runtime::StreamRuntime& runtime);
+  /**
+   * The traces computeNeighborTraces evaluates, for the batches the recorder noted (see
+   * recording::NeighIntegrationRecorder); the others the corrector reads where they are.
+   **/
+  static void computeBatchedNeighborTraces(Time& time,
+                                           const real* subtimeCoeffs,
+                                           recording::ConditionalPointersToRealsTable& table,
+                                           seissol::parallel::runtime::StreamRuntime& runtime);
 
   TimeCommon() = delete;
 };

@@ -404,9 +404,10 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
                                 plus,
                                 minus,
                                 weightAdjusted);
+              std::array<double, FluxCoefficientCount> scalars{};
+              correctorScalars(cellInformation[cell].faceTypes[side], plus, minus, scalars);
               for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {
-                localIntegration[cell].fluxCoefficients[side][c][node] = plus[c];
-                neighboringIntegration[cell].fluxCoefficients[side][c][node] = minus[c];
+                localIntegration[cell].fluxCoefficients[side][c][node] = scalars[c];
               }
             }
           }
@@ -454,7 +455,11 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
           if (boundaryProperties(cellInformation[cell].faceTypes[side]).usesFaceAlignedGhostState) {
             neighKrnl.Tinv = identityTinvData;
           }
-          neighKrnl.execute();
+          if (hasExteriorOperator(cellInformation[cell].faceTypes[side])) {
+            neighKrnl.execute();
+          } else {
+            std::fill_n(neighboringIntegration[cell].nAmNm1[side], tensor::AminusT::size(), 0);
+          }
 
           if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
             // the Dirichlet map is constant over the face, so it becomes part of

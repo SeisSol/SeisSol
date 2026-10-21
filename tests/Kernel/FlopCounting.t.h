@@ -69,33 +69,19 @@ TEST_CASE("Local metrics all Regular faces" * doctest::test_suite("kernel")) {
 TEST_CASE("Local metrics with DynamicRupture faces" * doctest::test_suite("kernel")) {
   const kernels::Local local;
 
-  // All faces are DR → local flux is skipped for each (on CPU)
   std::array<FaceType, Cell::NumFaces> faceTypesDR{};
   faceTypesDR.fill(FaceType::DynamicRupture);
 
   const auto metricDR = local.metrics(faceTypesDR);
 
-  // All regular faces
   std::array<FaceType, Cell::NumFaces> faceTypesReg{};
   faceTypesReg.fill(FaceType::Regular);
 
   const auto metricReg = local.metrics(faceTypesReg);
 
-  SUBCASE("DR faces have fewer local flops than regular (on CPU)") {
-    if constexpr (isDeviceOn()) {
-      // On the GPU, the kernel runs regardless, so flops may be equal
-      CHECK(metricDR.nonzeroFlop > 0);
-    } else if constexpr (StrongCorrector && !FaultSubtractsOwnTrace) {
-      // the strong form applies the local flux on a fault face as well, where it takes off the
-      // normal flux of the cell's own trace (appliesLocalFlux)
-      CHECK(metricDR.nonzeroFlop == metricReg.nonzeroFlop);
-      CHECK(metricDR.hardwareFlop == metricReg.hardwareFlop);
-    } else {
-      // On the CPU, DR faces skip the local flux contribution -- in the weak form, and where the
-      // fault takes the subtraction of the strong form on itself (FaultSubtractsOwnTrace)
-      CHECK(metricDR.nonzeroFlop < metricReg.nonzeroFlop);
-      CHECK(metricDR.hardwareFlop < metricReg.hardwareFlop);
-    }
+  SUBCASE("A cell writes its trace on a fault face as on any other") {
+    CHECK(metricDR.nonzeroFlop == metricReg.nonzeroFlop);
+    CHECK(metricDR.hardwareFlop == metricReg.hardwareFlop);
   }
 }
 
@@ -127,14 +113,9 @@ TEST_CASE("Neighbor metrics all Regular" * doctest::test_suite("kernel")) {
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
 
-  std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
-  for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-    neighboringIndices[f] = {0, 0};
-  }
-
   const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
 
-  const auto [metric, metricDR] = neighbor.metrics(faceTypes, neighboringIndices, drMapping);
+  const auto [metric, metricDR] = neighbor.metrics(faceTypes, drMapping);
 
   SUBCASE("Metrics are positive") {
     CHECK(metric.nonzeroFlop > 0);
@@ -159,10 +140,9 @@ TEST_CASE("Neighbor metrics with DR faces" * doctest::test_suite("kernel")) {
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::DynamicRupture);
 
-  const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
   const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
 
-  const auto [metric, metricDR] = neighbor.metrics(faceTypes, neighboringIndices, drMapping);
+  const auto [metric, metricDR] = neighbor.metrics(faceTypes, drMapping);
 
   SUBCASE("DR metrics are positive") {
     CHECK(metricDR.nonzeroFlop > 0);
@@ -172,6 +152,23 @@ TEST_CASE("Neighbor metrics with DR faces" * doctest::test_suite("kernel")) {
   }
 
   SUBCASE("DR hardware >= nonzero") { CHECK(metricDR.hardwareFlop >= metricDR.nonzeroFlop); }
+
+  SUBCASE("A fault face takes the corrector only in the strong form") {
+    std::array<FaceType, Cell::NumFaces> faceTypesReg{};
+    faceTypesReg.fill(FaceType::Regular);
+    const auto [metricReg, metricRegDR] = neighbor.metrics(faceTypesReg, drMapping);
+    if constexpr (StrongCorrector && !FaultSubtractsOwnTrace) {
+      // the corrector of a fault face takes off the normal flux of the cell's own trace
+      // (appliesFaceCorrector)
+      CHECK(metric.nonzeroFlop == metricReg.nonzeroFlop);
+      CHECK(metric.hardwareFlop == metricReg.hardwareFlop);
+    } else {
+      // in the weak form, and where the fault takes the subtraction of the strong form on itself
+      // (FaultSubtractsOwnTrace), a fault face has no corrector
+      CHECK(metric.nonzeroFlop < metricReg.nonzeroFlop);
+      CHECK(metric.hardwareFlop < metricReg.hardwareFlop);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -193,10 +190,8 @@ TEST_CASE("Kernel flop ordering: Ader < Local < Neighbor" * doctest::test_suite(
   const auto localMetrics = local.metrics(faceTypes);
 
   const kernels::Neighbor neighbor;
-  const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
   const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
-  const auto [neighborMetrics, drMetrics] =
-      neighbor.metrics(faceTypes, neighboringIndices, drMapping);
+  const auto [neighborMetrics, drMetrics] = neighbor.metrics(faceTypes, drMapping);
 
   // All three kernels should have non-trivial cost
   CHECK(aderMetrics.nonzeroFlop > 100);

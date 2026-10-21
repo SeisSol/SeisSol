@@ -72,8 +72,6 @@ class TestGenerateArgparse:
             "--gemm_tools",
             "--device_codegen",
             "--drQuadRule",
-            "--enable_premultiply_flux",
-            "--disable_premultiply_flux",
             "--executable_libxsmm",
             "--executable_pspamm",
         ]:
@@ -102,15 +100,6 @@ class TestGenerateArgparse:
     def test_non_integer_vectorsize_rejected(self):
         result = run_generate("--vectorsize", "quarter")
         assert result.returncode == 2
-
-    def test_mutually_inverse_flux_flags(self):
-        # --enable_premultiply_flux and --disable_premultiply_flux are paired
-        # via store_true/store_false on the same dest. The LAST one wins.
-        # We test just that neither crashes the parser.
-        r1 = run_generate("--enable_premultiply_flux", "--help")
-        r2 = run_generate("--disable_premultiply_flux", "--help")
-        assert r1.returncode == 0
-        assert r2.returncode == 0
 
 
 # =============================================================================

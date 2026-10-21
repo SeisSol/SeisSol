@@ -12,6 +12,7 @@
 #include "Common/Marker.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
+#include "Kernels/FaceTraces.h"
 #include "Kernels/MemoryOps.h"
 #include "Kernels/StarOperands.h"
 #include "Monitoring/Metric.h"
@@ -40,10 +41,12 @@ void Time::setGlobalData(const CompoundGlobalData& global) {}
 
 void Spacetime::setGlobalData(const CompoundGlobalData& global) {
   krnlPrototype_.bindGlobals(*global.onHost);
+  faceDerivativesKrnlPrototype_.bindGlobals(*global.onHost);
   fsgKernelPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
   deviceKrnlPrototype_.bindGlobals(*global.onDevice);
+  deviceFaceDerivativesKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -151,6 +154,49 @@ void Spacetime::computeAder(const real* coeffs,
   }
 }
 
+void Spacetime::computeFaceDerivatives(const real* timeDerivativesOrSTP,
+                                       std::size_t face,
+                                       std::size_t side,
+                                       real* faceDerivatives) {
+  kernel::faceDerivatives krnl = faceDerivativesKrnlPrototype_;
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+    krnl.dQ(i) = timeDerivativesOrSTP + yateto::computeFamilySize<tensor::dQ>(1, i);
+  }
+  kernels::bindFaceDerivatives(krnl, faceDerivatives);
+  krnl.execute(face, side);
+}
+
+void Spacetime::computeBatchedFaceDerivatives(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  using namespace seissol::recording;
+  kernels::internal::runFaceSideBatches(
+      deviceFaceDerivativesKrnlPrototype_,
+      *KernelNames::FaceTrace,
+      *ComputationKind::WithDerivatives,
+      inner_keys::Wp::Id::FaceBuffer,
+      dataTable,
+      runtime,
+      [](auto& krnl, auto& entry, std::size_t /*face*/) {
+        auto** derivatives = const_cast<const real**>(
+            entry.get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr());
+        for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
+          krnl.dQ(i) = derivatives;
+          krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+        }
+        kernels::bindFaceDerivativesBatched(
+            krnl, entry.get(inner_keys::Wp::Id::FaceBuffer)->getDeviceDataPtr());
+      });
+#else
+  logError() << "No GPU implementation provided";
+#endif
+}
+
+PerformanceEstimate Spacetime::faceDerivativesMetrics() const {
+  return PerformanceEstimate::fromKernel<kernel::faceDerivatives>(0, 0);
+}
+
 PerformanceEstimate Spacetime::metrics() const {
   auto estimate = PerformanceEstimate::fromKernel<kernel::derivative>();
 
@@ -193,32 +239,36 @@ void Time::evaluate(const real* coeffs,
   krnl.execute();
 }
 
+void Time::evaluateTrace(const real* coeffs, const real* faceDerivatives, real* faceTrace) {
+  kernel::faceDerivativesAtTime krnl;
+  krnl.faceTraceNeighbor = faceTrace;
+  kernels::bindFaceDerivatives(krnl, faceDerivatives);
+  for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
+    krnl.power(i) = coeffs[i];
+  }
+  krnl.execute();
+}
+
 PerformanceEstimate Time::metrics() const {
   return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansionEla>();
 }
 
-void Time::evaluateBatched(SEISSOL_GPU_PARAM const real* coeffs,
-                           SEISSOL_GPU_PARAM const real** timeDerivativesOrSTP,
-                           SEISSOL_GPU_PARAM real** timeIntegratedDofs,
-                           SEISSOL_GPU_PARAM std::size_t numElements,
-                           SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+void Time::evaluateTraceBatched(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM const real** faceDerivatives,
+    SEISSOL_GPU_PARAM real** faceTraces,
+    SEISSOL_GPU_PARAM std::size_t numElements,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
-  assert(timeDerivativesOrSTP != nullptr);
-  assert(timeIntegratedDofs != nullptr);
-  static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
-  static_assert(kernel::gpu_derivativeTaylorExpansionEla::TmpMaxMemRequiredInBytes == 0);
+  static_assert(kernel::gpu_faceDerivativesAtTime::TmpMaxMemRequiredInBytes == 0);
 
-  kernel::gpu_derivativeTaylorExpansionEla krnl;
+  kernel::gpu_faceDerivativesAtTime krnl;
   krnl.numElements = numElements;
-  krnl.I = timeIntegratedDofs;
-  std::size_t derivativeOffset = 0;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = const_cast<const real**>(timeDerivativesOrSTP);
-    krnl.extraOffset_dQ(i) = derivativeOffset;
-    derivativeOffset += tensor::dQ::size(i);
+  krnl.faceTraceNeighbor = faceTraces;
+  kernels::bindFaceDerivativesBatched(krnl, faceDerivatives);
+  for (std::size_t i = 0; i < ConvergenceOrder; ++i) {
     krnl.power(i) = coeffs[i];
   }
-
   krnl.streamPtr = runtime.stream();
   krnl.execute();
 #else

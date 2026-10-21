@@ -5,21 +5,17 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/Constants.h"
-#include "DynamicRupture/Misc.h"
-#include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Precision.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include "Recorders.h"
 
-#include <array>
 #include <cstddef>
 #include <vector>
-#include <yateto.h>
 
 using namespace seissol::initializer;
 using namespace seissol::recording;
@@ -34,15 +30,11 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
       currentLayer_->var<DynamicRupture::QInterpolatedPlus>(AllocationPlace::Device);
   auto* qInterpolatedMinus =
       currentLayer_->var<DynamicRupture::QInterpolatedMinus>(AllocationPlace::Device);
-
-  real* idofsPlus = static_cast<real*>(
-      currentLayer_->var<DynamicRupture::IdofsPlusOnDevice>(AllocationPlace::Device));
-  real* idofsMinus = static_cast<real*>(
-      currentLayer_->var<DynamicRupture::IdofsMinusOnDevice>(AllocationPlace::Device));
+  real* tracesScratch = static_cast<real*>(
+      currentLayer_->var<DynamicRupture::TracesOnDevice>(AllocationPlace::Device));
 
   DRGodunovData* godunovData =
       currentLayer_->var<DynamicRupture::GodunovData>(AllocationPlace::Device);
-  const DRFaceInformation* faceInfo = currentLayer_->var<DynamicRupture::FaceInformation>();
 
   real* const* timeDerivativePlus = currentLayer_->var<DynamicRupture::TimeDerivativePlusDevice>();
   real* const* timeDerivativeMinus =
@@ -50,43 +42,33 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
 
   const auto size = currentLayer_->size();
   if (size > 0) {
-    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count>
-        qInterpolatedMinusPtr {};
-    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count> idofsMinusPtr {};
-    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count> tInvTMinusPtr {};
-    std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count>
-        timeDerivativeMinusPtrs {};
+    // Both sides of every face at once: they write their traces in the same parametrisation of
+    // the face, which one kernel reads for either.
+    std::vector<real*> faceDerivativesPtrs;
+    std::vector<real*> tracePtrs;
+    std::vector<real*> qInterpolatedPtrs;
+    std::vector<real*> tInvTPtrs;
+    faceDerivativesPtrs.reserve(2 * size);
+    tracePtrs.reserve(2 * size);
+    qInterpolatedPtrs.reserve(2 * size);
+    tInvTPtrs.reserve(2 * size);
 
-    const size_t idofsSize = tensor::Q::size();
     for (std::size_t faceId = 0; faceId < size; ++faceId) {
-      const auto plusSide = faceInfo[faceId].plusSide;
-      qInterpolatedMinusPtr[plusSide][0].push_back(&qInterpolatedPlus[faceId][0][0]);
-      idofsMinusPtr[plusSide][0].push_back(&idofsPlus[faceId * idofsSize]);
-      tInvTMinusPtr[plusSide][0].push_back((&godunovData[faceId])->dataTinvT);
-      timeDerivativeMinusPtrs[plusSide][0].push_back(timeDerivativePlus[faceId]);
+      faceDerivativesPtrs.push_back(timeDerivativePlus[faceId]);
+      tracePtrs.push_back(tracesScratch + 2 * faceId * kernels::Solver::FaceTraceSize);
+      qInterpolatedPtrs.push_back(&qInterpolatedPlus[faceId][0][0]);
+      tInvTPtrs.push_back(godunovData[faceId].dataTinvT);
 
-      const auto minusSide = faceInfo[faceId].minusSide;
-      const auto faceRelation = faceInfo[faceId].faceRelation;
-      qInterpolatedMinusPtr[minusSide][faceRelation].push_back(&qInterpolatedMinus[faceId][0][0]);
-      idofsMinusPtr[minusSide][faceRelation].push_back(&idofsMinus[faceId * idofsSize]);
-      tInvTMinusPtr[minusSide][faceRelation].push_back((&godunovData[faceId])->dataTinvT);
-      timeDerivativeMinusPtrs[minusSide][faceRelation].push_back(timeDerivativeMinus[faceId]);
+      faceDerivativesPtrs.push_back(timeDerivativeMinus[faceId]);
+      tracePtrs.push_back(tracesScratch + (2 * faceId + 1) * kernels::Solver::FaceTraceSize);
+      qInterpolatedPtrs.push_back(&qInterpolatedMinus[faceId][0][0]);
+      tInvTPtrs.push_back(godunovData[faceId].dataTinvT);
     }
 
-    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-      for (std::size_t faceRelation = 0; faceRelation < dr::misc::NumFaceRelations;
-           ++faceRelation) {
-        if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
-          const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
-          (*currentDrTable_)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
-                                      qInterpolatedMinusPtr[side][faceRelation]);
-          (*currentDrTable_)[key].set(inner_keys::Dr::Id::IdofsMinus,
-                                      idofsMinusPtr[side][faceRelation]);
-          (*currentDrTable_)[key].set(inner_keys::Dr::Id::TinvT, tInvTMinusPtr[side][faceRelation]);
-          (*currentDrTable_)[key].set(inner_keys::Dr::Id::DerivativesMinus,
-                                      timeDerivativeMinusPtrs[side][faceRelation]);
-        }
-      }
-    }
+    const ConditionalKey key(*KernelNames::DrSpaceMap);
+    (*currentDrTable_)[key].set(inner_keys::Dr::Id::FaceDerivatives, faceDerivativesPtrs);
+    (*currentDrTable_)[key].set(inner_keys::Dr::Id::Trace, tracePtrs);
+    (*currentDrTable_)[key].set(inner_keys::Dr::Id::QInterpolated, qInterpolatedPtrs);
+    (*currentDrTable_)[key].set(inner_keys::Dr::Id::TinvT, tInvTPtrs);
   }
 }

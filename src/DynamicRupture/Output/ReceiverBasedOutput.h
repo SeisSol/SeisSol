@@ -142,8 +142,12 @@ class ReceiverOutput {
     }
   }
 
-  void getDofs(const real*(&derivatives), std::size_t meshId);
-  void getNeighborDofs(const real*(&derivatives), std::size_t meshId, std::size_t side);
+  /// the traces of the time derivatives a cell writes on its fault face `side`
+  void getFaceDerivatives(const real*(&faceDerivatives), std::size_t meshId, std::size_t side);
+  /// the traces of the time derivatives the neighbor of a cell writes on its fault face `side`
+  void getNeighborFaceDerivatives(const real*(&faceDerivatives),
+                                  std::size_t meshId,
+                                  std::size_t side);
   void computeLocalStresses(LocalInfo& local);
   virtual real computeLocalStrength(LocalInfo& local) = 0;
   /**

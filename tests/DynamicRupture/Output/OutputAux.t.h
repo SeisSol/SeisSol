@@ -10,15 +10,24 @@
 #include "Common/Constants.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/pool.h"
+#include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/IsoparametricTransform.h"
+#include "Kernels/Precision.h"
+#include "Numerical/BasisFunction.h"
+#include "Solver/MultipleSimulations.h"
 #include "TestHelper.h"
 
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <random>
+#include <type_traits>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -290,6 +299,82 @@ TEST_CASE("closestPointOnFace" * doctest::test_suite("dynamicrupture")) {
       // and a point on the face is found where it is
       const auto onFace = closestPointOnFace(face, face.refToSpace(point), FaceVectorT(0.3, 0.3));
       CHECK((onFace - point).norm() == AbsApprox(0.0).epsilon(1e-12));
+    }
+  }
+}
+
+TEST_CASE("A face trace read at a point of a fault is the field there" *
+          doctest::test_suite("dynamicrupture")) {
+  // The fault output reads either side at a point from the traces the two write on the face, with
+  // the face basis at the point in the reference face of the plus side (getFaceBasisFunctions).
+  // The plus side writes its traces in its own parametrisation of the face, the minus side
+  // reflected into it, so the trace of either side read there is its field at the point of its
+  // own cell the face point maps to: through the face itself for the plus side, and through the
+  // face as the neighbour sees it for the minus side.
+  constexpr std::size_t Basis = tensor::I::Shape[multisim::BasisFunctionDimension];
+  constexpr std::size_t Quantities = tensor::I::Shape[multisim::BasisFunctionDimension + 1];
+  constexpr std::size_t Modes = tensor::faceTrace::Shape[multisim::BasisFunctionDimension];
+  constexpr double Tolerance = std::is_same_v<real, double> ? 1e-12 : 1e-5;
+
+  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  std::mt19937 rng(20261020);
+  std::normal_distribution<double> gauss(0.0, 1.0);
+  std::uniform_real_distribution<double> unit(0.0, 1.0);
+
+  std::array<real, tensor::I::size()> field{};
+  for (auto& value : field) {
+    value = static_cast<real>(gauss(rng));
+  }
+  const auto fieldView = init::I::view::create(field.data());
+
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    for (std::size_t side = 0; side < 2; ++side) {
+      CAPTURE(face);
+      CAPTURE(side);
+      std::array<real, tensor::faceTrace::size()> trace{};
+      kernel::faceTrace krnl{};
+      krnl.bindGlobals(seissol::Pool::host());
+      krnl.I = field.data();
+      krnl.faceTrace = trace.data();
+      krnl.execute(face, side);
+      const auto traceView = init::faceTrace::view::create(trace.data());
+
+      const geometry::ReferenceFaceMap map(
+          face, side == 0 ? geometry::FaceOrientation::Local : geometry::FaceOrientation::Rotate0);
+      for (std::size_t sample = 0; sample < 5; ++sample) {
+        // a point of the reference triangle
+        double chi = unit(rng);
+        double tau = unit(rng);
+        if (chi + tau > 1.0) {
+          chi = 1.0 - chi;
+          tau = 1.0 - tau;
+        }
+        const geometry::ReferenceFaceMap::FaceVectorT onFace(chi, tau);
+        const auto faceBasis = getFaceBasisFunctions(onFace);
+        REQUIRE(faceBasis.size() == Modes);
+        const auto inCell = map.faceToCell(onFace);
+        const basisFunction::SampledBasisFunctions<double> cellBasis(
+            ConvergenceOrder, inCell(0), inCell(1), inCell(2));
+        REQUIRE(cellBasis.size() == Basis);
+
+        for (std::size_t simulation = 0; simulation < multisim::NumSimulations; ++simulation) {
+          const auto fieldOfSim = multisim::simtensor(fieldView, simulation);
+          const auto traceOfSim = multisim::simtensor(traceView, simulation);
+          for (std::size_t quantity = 0; quantity < Quantities; ++quantity) {
+            double expected = 0.0;
+            double scale = 0.0;
+            for (std::size_t mode = 0; mode < Basis; ++mode) {
+              expected += cellBasis.data()[mode] * fieldOfSim(mode, quantity);
+              scale += std::abs(cellBasis.data()[mode] * fieldOfSim(mode, quantity));
+            }
+            double read = 0.0;
+            for (std::size_t mode = 0; mode < Modes; ++mode) {
+              read += faceBasis[mode] * traceOfSim(mode, quantity);
+            }
+            REQUIRE(read == doctest::Approx(expected).epsilon(Tolerance).scale(scale));
+          }
+        }
+      }
     }
   }
 }

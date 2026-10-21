@@ -24,26 +24,25 @@ class NeighborKernel : public Kernel {
   ~NeighborKernel() override = default;
 
   /**
-   * @brief Compute the flux contribution of neighboring cells onto the cell, given time-integrated
-   * neighbor cell DoFs.
+   * @brief Apply the corrector of every face of the cell to its two traces, and the flux the
+   * fault supplies on its faces.
    *
-   * This step equals the second part of the ADER-DG "corrector"; meaning that we add the flux
-   * contributions from the neighboring cells as well as the dynamic rupture faces. We assume that
-   * we have the neighboring values already present in a time-integrated manner. We either take them
-   * from the neighboring cells directly (they are usually precomputed), or need to have them
-   * pre-computed via the TimeKernel (mostly in the case of LTS, if our neighbor is a cell from a
-   * larger time cluster).
+   * This step equals the second part of the ADER-DG "corrector": the corrector of a face reads the
+   * trace the cell wrote on it after its predictor and the one the neighbor wrote there, applies
+   * the flux to the two and lifts the result into the cell; a dynamic rupture face adds the flux of
+   * the fault. The neighbor's trace has to be over the time step of the cell: the neighbor wrote it
+   * so (same time step, or accumulated over its smaller steps), or it was evaluated from the traces
+   * of the neighbor's time derivatives via the TimeKernel (in the case of LTS, if our neighbor is a
+   * cell from a larger time cluster).
    *
    * @param data Cell data reference object (contains references to all stored data arrays for that
    * cell)
-   * @param timeIntegrated The time-integrated DoFs of neighboring cells (usually ONLY for regular
-   * faces; DR is handled via the data object normally)
-   * @param faceNeighborsPrefetch The current time step width
+   * @param neighborTraces The trace of the neighbor on each face, over the time step of the cell;
+   * a trace of zeros on a face without neighbor (LTS::ZeroFaceTrace)
    */
   virtual void
       computeNeighborsIntegral(LTS::Ref& data,
-                               const std::array<real*, Cell::NumFaces>& timeIntegrated,
-                               const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) = 0;
+                               const std::array<const real*, Cell::NumFaces>& neighborTraces) = 0;
 
   virtual void
       computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
@@ -51,7 +50,6 @@ class NeighborKernel : public Kernel {
 
   [[nodiscard]] virtual std::pair<PerformanceEstimate, PerformanceEstimate>
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-              const std::array<std::array<uint8_t, 2>, Cell::NumFaces>& neighboringIndices,
               const std::array<CellDRMapping, Cell::NumFaces>& cellDrMapping) const = 0;
 
   /// What a weight-adjusted cell adds to the neighbour integral (see WeightAdjustable): nothing,

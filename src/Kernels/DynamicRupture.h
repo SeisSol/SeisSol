@@ -18,14 +18,16 @@
 
 namespace seissol::kernels {
 
+/// The state of both sides of a fault face at its points and the points in time the friction law
+/// is evaluated at, from the traces of their time derivatives on the face (LTS::FaceBuffers). Both
+/// sides write those in the parametrisation of the plus side, so one kernel reads either side and
+/// any face of a cell.
 class DynamicRupture : public Kernel {
   private:
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnlPrototype_;
+  dynamicRupture::kernel::evaluateAndRotateTraceAtInterpolationPoints krnlPrototype_;
   kernels::Time timeKernel_;
 #ifdef ACL_DEVICE
-  dynamicRupture::kernel::gpu_evaluateAndRotateQAtInterpolationPoints gpuKrnlPrototype_;
-  dynamicRupture::kernel::gpu_projectToDR gpuCombinedKrnlPrototype_;
-  device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
+  dynamicRupture::kernel::gpu_projectTracesToDR gpuCombinedKrnlPrototype_;
 #endif
 
   public:
@@ -33,15 +35,14 @@ class DynamicRupture : public Kernel {
 
   void setGlobalData(const CompoundGlobalData& global) override;
 
+  /// @param timeDerivativePlus the traces of the time derivatives of the plus side on the face
+  /// @param timeDerivativeMinus the same for the minus side
   void spaceTimeInterpolation(
-      const DRFaceInformation& faceInfo,
       const DRGodunovData* godunovData,
       const real* timeDerivativePlus,
       const real* timeDerivativeMinus,
       real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
       real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
-      const real* timeDerivativePlusPrefetch,
-      const real* timeDerivativeMinusPrefetch,
       const real* coeffs);
 
   // NOLINTNEXTLINE
@@ -49,7 +50,8 @@ class DynamicRupture : public Kernel {
                                      const real* coeffs,
                                      seissol::parallel::runtime::StreamRuntime& runtime);
 
-  [[nodiscard]] PerformanceEstimate metrics(const DRFaceInformation& faceInfo) const;
+  /// what one fault face takes
+  [[nodiscard]] PerformanceEstimate metrics() const;
 };
 
 } // namespace seissol::kernels

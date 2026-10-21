@@ -120,4 +120,3 @@ GPU-specific parameters
 - ``SYCL_USE_NVHPC``: if AdaptiveCpp is compiled with NVHPC support, and we use NVHPC
 - ``USE_GRAPH_CAPTURING``: if a compute graph feature is available, then use it. This is currently the case for CUDA (since 11.0), HIP (requires ROCm 6.1 or higher), or oneAPI.
 - ``ENABLE_PROFILING_MARKERS``: Currently available for CUDA and HIP
-- ``DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS``: enable some faster, handwritten accumulation kernels (default for NVIDIA and AMD)

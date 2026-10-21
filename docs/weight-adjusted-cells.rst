@@ -161,10 +161,7 @@ On the device, the weight-adjusted cells of a layer form a batch of their own
 (``KernelNames::WeightAdjust``): the local integral clears their buffers, every
 kernel that lifts a face writes where the batch says the faces of a cell lift
 into (``inner_keys::Wp::Id::FluxTarget``), and the neighbour integral applies the
-weight to the batch (``gpu_weightAdjust``). The combined local flux of the solver
-that keeps the memory variables apart hands the extended field on together with
-the faces, so a layer with a weight-adjusted cell takes its faces one by one
-there.
+weight to the batch (``gpu_weightAdjust``).
 
 Which cells, and their time step
 --------------------------------
@@ -447,8 +444,8 @@ does, between solids, fluids and both, and at a free surface; the kernel that
 applies the weight does what its matrices say where the material differs from
 sample to sample, a fluid among the samples, and leaves the rows beyond the
 quantities of the medium as they are; with one material for the cell, what a
-weight-adjusted cell adds -- the volume term, the local and the neighbour fluxes
-of a regular, a free-surface and a fault face, the lift of a fault face, a face
+weight-adjusted cell adds -- the volume term, the correctors of a regular, a
+free-surface and a fault face, the lift of a fault face, a face
 that carries a matrix per side -- is what a cell adds that lifts with the
 material, for a solid and for a fluid, into the field and into the extended field
 of the solver that keeps the memory variables apart; and the spread of the

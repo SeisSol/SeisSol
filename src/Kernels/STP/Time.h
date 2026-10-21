@@ -41,15 +41,25 @@ class Spacetime : public SpacetimeKernel {
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
+  void computeFaceDerivatives(const real* timeDerivativesOrSTP,
+                              std::size_t face,
+                              std::size_t side,
+                              real* faceDerivatives) override;
+  void computeBatchedFaceDerivatives(recording::ConditionalPointersToRealsTable& dataTable,
+                                     seissol::parallel::runtime::StreamRuntime& runtime) override;
+
   [[nodiscard]] PerformanceEstimate metrics() const override;
+  [[nodiscard]] PerformanceEstimate faceDerivativesMetrics() const override;
 
   private:
   void executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp);
 
   kernel::spaceTimePredictor krnlPrototype_;
+  kernel::faceDerivatives faceDerivativesKrnlPrototype_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_spaceTimePredictor deviceKrnlPrototype_;
+  kernel::gpu_faceDerivatives deviceFaceDerivativesKrnlPrototype_;
 #endif
 };
 
@@ -57,11 +67,12 @@ class Time : public TimeKernel {
   public:
   void setGlobalData(const CompoundGlobalData& global) override;
   void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) override;
-  void evaluateBatched(const real* coeffs,
-                       const real** timeDerivatives,
-                       real** timeIntegratedDofs,
-                       std::size_t numElements,
-                       seissol::parallel::runtime::StreamRuntime& runtime) override;
+  void evaluateTrace(const real* coeffs, const real* faceDerivatives, real* faceTrace) override;
+  void evaluateTraceBatched(const real* coeffs,
+                            const real** faceDerivatives,
+                            real** faceTraces,
+                            std::size_t numElements,
+                            seissol::parallel::runtime::StreamRuntime& runtime) override;
   [[nodiscard]] PerformanceEstimate metrics() const override;
 };
 

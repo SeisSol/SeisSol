@@ -13,6 +13,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
+#include "Kernels/FaceTraces.h"
 #include "Kernels/StarOperands.h"
 #include "Kernels/WeightAdjustment.h"
 #include "Memory/Descriptor/LTS.h"
@@ -41,7 +42,7 @@ static_assert(!WeightAdjustable || kernels::size<tensor::fluxBuffer>() == tensor
 
 void Local::setGlobalData(const CompoundGlobalData& global) {
   volumeKernelPrototype_.bindGlobals(*global.onHost);
-  localFluxKernelPrototype_.bindGlobals(*global.onHost);
+  faceTraceKernelPrototype_.bindGlobals(*global.onHost);
   // the relaxation reads constants too where it is formed at the samples
   localKernelPrototype_.bindGlobals(*global.onHost);
 
@@ -51,8 +52,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
 
 #ifdef ACL_DEVICE
   deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
-  deviceLocalFluxKernelPrototype_.bindGlobals(*global.onDevice);
-  deviceFluxLocalAllKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceFaceTraceKernelPrototype_.bindGlobals(*global.onDevice);
   deviceLocalKernelPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
@@ -83,25 +83,16 @@ void Local::computeIntegral(
   volKrnl.I = timeIntegratedDoFs;
   kernels::bindStarOperands(volKrnl, data.get<LTS::LocalIntegration>());
 
-  kernel::localFluxExt lfKrnl = localFluxKernelPrototype_;
-  lfKrnl.Qext = fluxTarget;
-  lfKrnl.I = timeIntegratedDoFs;
-  lfKrnl._prefetch.I = timeIntegratedDoFs + tensor::I::size();
-  lfKrnl._prefetch.Q = data.get<LTS::Dofs>() + tensor::Q::size();
-
   volKrnl.execute();
+
+  // the trace of the time integral on every face, which the corrector of the cell reads together
+  // with the one its neighbor writes there
+  kernels::writeFaceTraces(faceTraceKernelPrototype_, timeIntegratedDoFs, data);
 
   const auto& cellBoundaryMapping = data.get<LTS::BoundaryMapping>();
   const auto& materialData = data.get<LTS::Material>();
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    // no element local contribution in the case of dynamic rupture boundary conditions, unless
-    // the corrector is the strong form (appliesLocalFlux)
-    if (appliesLocalFlux(data.get<LTS::CellInformation>().faceTypes[face])) {
-      kernels::bindLocalFluxOperands(lfKrnl, data.get<LTS::LocalIntegration>(), face);
-      lfKrnl.execute(face);
-    }
-
     switch (data.get<LTS::CellInformation>().faceTypes[face]) {
     case FaceType::FreeSurfaceGravity: {
       auto kernel = fsgFlux_;
@@ -171,36 +162,25 @@ void Local::computeIntegral(
 PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const {
   auto estimate = PerformanceEstimate::fromKernel<seissol::kernel::volumeExt>();
 
-#if defined(ACL_DEVICE) && defined(SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
-  constexpr bool CombineLocalFlux = true;
-#else
-  constexpr bool CombineLocalFlux = false;
-#endif
-
-  if constexpr (CombineLocalFlux) {
-    estimate += PerformanceEstimate::fromKernel<seissol::kernel::fluxLocalAll>();
-  } else {
-    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      if (appliesLocalFlux(faceTypes[face])) {
-        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxExt>(face);
-      }
-      switch (faceTypes[face]) {
-      case FaceType::FreeSurfaceGravity:
-        estimate += PerformanceEstimate::fromKernel<seissol::kernel::fsgFlux>(face);
-        break;
-      case FaceType::Dirichlet:
-        estimate += PerformanceEstimate::fromKernel<seissol::kernel::dirichletFlux>(face);
-        break;
-      case FaceType::Analytical:
-        estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);
-        break;
-      default:
-        break;
-      }
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    // the trace on every face; both sides of a face cost the same
+    estimate += PerformanceEstimate::fromKernel<seissol::kernel::faceTrace>(face, 0);
+    switch (faceTypes[face]) {
+    case FaceType::FreeSurfaceGravity:
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::fsgFlux>(face);
+      break;
+    case FaceType::Dirichlet:
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::dirichletFlux>(face);
+      break;
+    case FaceType::Analytical:
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal>(face);
+      break;
+    default:
+      break;
     }
-
-    estimate += PerformanceEstimate::fromKernel<seissol::kernel::local>();
   }
+
+  estimate += PerformanceEstimate::fromKernel<seissol::kernel::local>();
 
   // legacy memory estimate
   std::uint64_t reals = 0;
@@ -208,11 +188,9 @@ PerformanceEstimate Local::metrics(const std::array<FaceType, Cell::NumFaces>& f
   // star matrices load
   reals += yateto::computeFamilySize<tensor::star>() + tensor::w::size() + tensor::W::size() +
            tensor::E::size();
-  // flux solvers
-  reals += 4 * tensor::AplusT::size();
 
-  // DOFs write
-  reals += tensor::Q::size() + tensor::Qane::size();
+  // DOFs write, traces write
+  reals += tensor::Q::size() + tensor::Qane::size() + Cell::NumFaces * tensor::faceTrace::size();
 
   estimate.bytes = reals * sizeof(real);
 
@@ -228,31 +206,23 @@ void Local::computeBatchedIntegral(
 
   using namespace seissol::recording;
 
-#ifdef SEISSOL_DEVICE_COMBINE_LOCAL_FLUX
-  constexpr bool CombineLocalFlux = true;
-#else
-  constexpr bool CombineLocalFlux = false;
-#endif
-  // The combined kernel lifts the faces of every cell of the batch into its extended field and
-  // hands that on to the field and the memory variables at once. A weight-adjusted cell lifts its
-  // face terms into its flux buffer instead, which starts empty here and which the neighbour
-  // integral finishes (WeightAdjustable); a batch with such a cell takes the faces one by one,
-  // each into where the batch says the faces of a cell lift into (inner_keys::Wp::Id::FluxTarget),
-  // and hands on the volume term alone.
-  const bool combine =
-      CombineLocalFlux &&
-      dataTable.find(ConditionalKey(*KernelNames::WeightAdjust)) == dataTable.end();
+  // A weight-adjusted cell lifts its face terms into its flux buffer, which starts empty here and
+  // which the neighbour integral finishes (WeightAdjustable); the volume term goes to the field
+  // and the memory variables through the extended field either way.
   WeightAdjustmentT::clearBatched(dataTable, runtime);
 
   // Volume integral
-  ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype_;
-
+  const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
+    const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
 
-    volKrnl.numElements = (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getSize();
+    kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype_;
+    kernel::gpu_local localKrnl = deviceLocalKernelPrototype_;
+    auto tmpMem = runtime.memoryHandle<real>(
+        (yateto::getMaxTmpMemRequired(volKrnl, localKrnl) * numElements) / sizeof(real));
 
+    volKrnl.numElements = numElements;
     volKrnl.I =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
     volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
@@ -261,119 +231,46 @@ void Local::computeBatchedIntegral(
         volKrnl,
         const_cast<const real**>(
             (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr()));
+    volKrnl.linearAllocator.initialize(tmpMem.get());
     volKrnl.streamPtr = runtime.stream();
     volKrnl.execute();
-  }
 
-  if (combine && dataTable.find(key) != dataTable.end()) {
-    auto& entry = dataTable[key];
-    auto krnl = deviceFluxLocalAllKernelPrototype_;
+    // the trace of the time integral on every face, which the corrector of the cell reads together
+    // with the one its neighbor writes there
+    kernels::writeFaceTracesBatched(deviceFaceTraceKernelPrototype_, dataTable, runtime);
 
-    krnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-    krnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    krnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-    krnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
-    krnl.Iane =
+    localKrnl.numElements = numElements;
+    localKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    localKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    localKrnl.Qext =
+        const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
+    localKrnl.Iane =
         const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
-    krnl.W = const_cast<const real**>(
+    localKrnl.W = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
-    krnl.w = const_cast<const real**>(
+    localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
+    localKrnl.w = const_cast<const real**>(
         entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-    krnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
+    localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
     // where the material varies inside the cell, the relaxation is formed
     // from what it says at the sample points and the kernel takes no
     // matrix at all
-    set_E(krnl,
+    set_E(localKrnl,
           const_cast<const real**>(
               entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
-    set_extraOffset_E(krnl, SEISSOL_OFFSET(LocalIntegrationData, specific.E));
+    set_extraOffset_E(localKrnl, SEISSOL_OFFSET(LocalIntegrationData, specific.E));
     kernels::bindSourceOperandsBatched(
-        krnl,
+        localKrnl,
         const_cast<const real**>(
             entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
-    krnl.streamPtr = runtime.stream();
+    localKrnl.linearAllocator.initialize(tmpMem.get());
+    localKrnl.streamPtr = runtime.stream();
 
     SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
     SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
     SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
 
-    krnl.I = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-
-    kernels::bindLocalFluxAllOperandsBatched(
-        krnl,
-        const_cast<const real**>(
-            entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
-
-    krnl.execute();
-  }
-
-  if (!combine) {
-    kernel::gpu_localFluxExt localFluxKrnl = deviceLocalFluxKernelPrototype_;
-    kernel::gpu_local localKrnl = deviceLocalKernelPrototype_;
-
-    // the volume batch has every cell, so no other is larger
-    const auto maxNumElements = dataTable.find(key) != dataTable.end()
-                                    ? (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getSize()
-                                    : 0;
-    auto tmpMem = runtime.memoryHandle<real>(
-        (yateto::getMaxTmpMemRequired(localFluxKrnl, localKrnl) * maxNumElements) / sizeof(real));
-
-    // Local Flux Integral
-    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      key = ConditionalKey(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
-
-      if (dataTable.find(key) != dataTable.end()) {
-        auto& entry = dataTable[key];
-        localFluxKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-        localFluxKrnl.Qext = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
-        localFluxKrnl.I =
-            const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-        kernels::bindLocalFluxOperandsBatched(
-            localFluxKrnl,
-            const_cast<const real**>(
-                entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()),
-            face);
-        localFluxKrnl.linearAllocator.initialize(tmpMem.get());
-        localFluxKrnl.streamPtr = runtime.stream();
-        localFluxKrnl.execute(face);
-      }
-    }
-
-    key = ConditionalKey(KernelNames::Time || KernelNames::Volume);
-    if (dataTable.find(key) != dataTable.end()) {
-      auto& entry = dataTable[key];
-
-      localKrnl.numElements = entry.get(inner_keys::Wp::Id::Dofs)->getSize();
-      localKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-      localKrnl.Qane = (entry.get(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-      localKrnl.Qext =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
-      localKrnl.Iane =
-          const_cast<const real**>((entry.get(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
-      localKrnl.W = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      localKrnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData, specific.W);
-      localKrnl.w = const_cast<const real**>(
-          entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
-      localKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData, specific.w);
-      set_E(localKrnl,
-            const_cast<const real**>(
-                entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
-      set_extraOffset_E(localKrnl, SEISSOL_OFFSET(LocalIntegrationData, specific.E));
-      kernels::bindSourceOperandsBatched(
-          localKrnl,
-          const_cast<const real**>(
-              entry.get(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr()));
-      localKrnl.linearAllocator.initialize(tmpMem.get());
-      localKrnl.streamPtr = runtime.stream();
-
-      SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.W);
-      SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.w);
-      SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.E);
-
-      localKrnl.execute();
-    }
+    localKrnl.execute();
   }
 
 #else

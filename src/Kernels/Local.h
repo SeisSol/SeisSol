@@ -38,13 +38,15 @@ class LocalKernel : public Kernel {
   }
 
   /**
-   * @brief Compute the volume integral over the ADER space-time evolution, as well as local
-   * boundary conditions as fluxes.
+   * @brief Compute the volume integral over the ADER space-time evolution, write the trace of the
+   * time integral on every face, and compute the boundary conditions that only need the cell
+   * itself.
    *
    * This step equals the first part of the ADER-DG "corrector"; that is, we compute the local
-   * space-time volume integral, and add the flux contributions that depend on the local element.
-   * Also, we compute some boundary conditions that can be computed by only using the local cell
-   * data. The dynamic rupture faces are usually ignored in this step.
+   * space-time volume integral, and write what the corrector of every face reads of the cell: the
+   * trace of the time integral on the face (LTS::FaceTraces). The corrector itself runs in the
+   * neighbor step, where the trace of the neighbor is there as well. Also, we compute some boundary
+   * conditions that can be computed by only using the local cell data.
    *
    * @param timeIntegratedDoFs The time integral over the space-time predictor, as computed by the
    * SpacetimeKernel or the TimeKernel.

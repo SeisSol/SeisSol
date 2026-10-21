@@ -42,22 +42,32 @@ class TimeKernel : public Kernel {
   virtual void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) = 0;
 
   /**
-    @brief Evaluates a given space-time representation in time.
-
-    Cf. the comments to `evaluate`.
+    @brief Evaluates the traces of a space-time representation on a face in time, as `evaluate`
+    does in the volume, with the same coefficients.
 
     @param coeffs The time basis coefficients.
-    @param timeDerivatives A batch pointer to the input space-time data.
-    @param timeEvaluated A batch pointer to the returned time-evaluated data.
-    @param numElements The number of elements to process (indicates the number of elements in
-    timeDerivatives and timeEvaluated)
+    @param faceDerivatives A pointer to the traces (SpacetimeKernel::computeFaceDerivatives).
+    @param faceTrace A pointer to the returned time-evaluated trace.
+  */
+  virtual void evaluateTrace(const real* coeffs, const real* faceDerivatives, real* faceTrace) = 0;
+
+  /**
+    @brief Evaluates the traces of space-time representations on faces in time.
+
+    Cf. the comments to `evaluateTrace`.
+
+    @param coeffs The time basis coefficients.
+    @param faceDerivatives A batch pointer to the traces.
+    @param faceTraces A batch pointer to the returned time-evaluated traces.
+    @param numElements The number of traces to evaluate.
     @param runtime The stream to place the operations on.
   */
-  virtual void evaluateBatched(const real* coeffs,
-                               const real** timeDerivatives,
-                               real** timeIntegratedDofs,
-                               std::size_t numElements,
-                               seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+  virtual void evaluateTraceBatched(const real* coeffs,
+                                    const real** faceDerivatives,
+                                    real** faceTraces,
+                                    std::size_t numElements,
+                                    seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+
   [[nodiscard]] virtual PerformanceEstimate metrics() const = 0;
 };
 

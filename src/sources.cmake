@@ -72,14 +72,12 @@ if (WITH_GPU)
     set(DEVICE_SRC ${DEVICE_SRC}
       ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
       Kernels/DeviceAux/cudahip/PlasticityAux.cpp
-      Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
       DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
       Kernels/PointSourceClusterCudaHip.cpp)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "acpp" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
     set(DEVICE_SRC ${DEVICE_SRC}
           ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
           Kernels/DeviceAux/sycl/PlasticityAux.cpp
-          Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
           DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp
           Kernels/PointSourceClusterSycl.cpp)
   endif()
@@ -90,8 +88,4 @@ if (WITH_GPU)
 
   target_compile_options(seissol-device-lib PRIVATE -fPIC)
   target_include_directories(seissol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})
-
-  if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
-    target_compile_definitions(seissol-device-lib PRIVATE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
-  endif()
 endif()

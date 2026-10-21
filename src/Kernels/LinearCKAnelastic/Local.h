@@ -46,7 +46,7 @@ class Local : public LocalKernel {
 
   protected:
   kernel::volumeExt volumeKernelPrototype_;
-  kernel::localFluxExt localFluxKernelPrototype_;
+  kernel::faceTrace faceTraceKernelPrototype_;
   kernel::local localKernelPrototype_;
 
   kernel::fsgFlux fsgFlux_;
@@ -57,9 +57,8 @@ class Local : public LocalKernel {
 
 #ifdef ACL_DEVICE
   kernel::gpu_volumeExt deviceVolumeKernelPrototype_;
-  kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype_;
+  kernel::gpu_faceTrace deviceFaceTraceKernelPrototype_;
   kernel::gpu_local deviceLocalKernelPrototype_;
-  kernel::gpu_fluxLocalAll deviceFluxLocalAllKernelPrototype_;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

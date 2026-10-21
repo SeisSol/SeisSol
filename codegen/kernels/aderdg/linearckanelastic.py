@@ -14,7 +14,6 @@ from yateto import Scalar, Tensor, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.input import parseJSONMatrixFile
 from yateto.memory import CSCMemoryLayout
-from yateto.util import tensor_collection_from_constant_expression
 
 from .aderdg import ADERDGBase
 
@@ -307,45 +306,6 @@ class LinearCKAnelastic(ADERDGBase):
                     target=target,
                 )
 
-                plusFluxMatrixAccessor = (
-                    lambda i: self.db.rDivM[i][self.t("km")]
-                    * self.db.fMrT[i][self.t("ml")]
-                )
-                if self.kwargs["enable_premultiply_flux"] and target == "gpu":
-                    contractionResult = tensor_collection_from_constant_expression(
-                        "plusFluxMatrices",
-                        plusFluxMatrixAccessor,
-                        simpleParameterSpace(4),
-                        target_indices="kl",
-                    )
-                    self.db.update(contractionResult)
-                    plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
-
-                if self.nodalFaceFlux:
-                    localFluxExt = lambda i: self.nodalFlux(
-                        self.I,
-                        self.Qext,
-                        self.faceEval(i),
-                        self.faceLift(i),
-                        self.fluxCoefficientsLocal,
-                    )
-                else:
-                    localFluxExt = (
-                        lambda i: self.Qext["kp"]
-                        <= self.Qext["kp"]
-                        + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT["qp"]
-                    )
-                localFluxExtPrefetch = lambda i: (
-                    self.I if i == 0 else (self.Q if i == 1 else None)
-                )
-                generator.addFamily(
-                    f"{name_prefix}localFluxExt",
-                    simpleParameterSpace(4),
-                    localFluxExt,
-                    localFluxExtPrefetch,
-                    target=target,
-                )
-
                 local_ops = [
                     self.Qane["kpm"]
                     <= self.Qane["kpm"]
@@ -363,27 +323,6 @@ class LinearCKAnelastic(ADERDGBase):
                 generator.add(
                     f"{name_prefix}local",
                     local_ops,
-                    target=target,
-                )
-
-                if self.nodalFaceFlux:
-                    flux_ops = self.nodalLocalFluxAll(self.I, self.Qext)
-                else:
-                    flux_ops = [
-                        self.Qext["kp"]
-                        <= sum(
-                            [
-                                plusFluxMatrixAccessor(i)
-                                * self.I["lq"]
-                                * self.AplusTAll[i]["qp"]
-                                for i in range(4)
-                            ],
-                            start=self.Qext["kp"],
-                        )
-                    ]
-                generator.add(
-                    f"{name_prefix}fluxLocalAll",
-                    flux_ops + local_ops,
                     target=target,
                 )
 
@@ -409,49 +348,6 @@ class LinearCKAnelastic(ADERDGBase):
             # singleDefinitions
             with self.singleDefinitions(target == "gpu"):
                 name_prefix = generate_kernel_name_prefix(target)
-
-                minusFluxMatrixAccessor = (
-                    lambda j, i: self.db.rDivM[i][self.t("km")]
-                    * self.db.fPrT[j][self.t("ml")]
-                )
-                if self.kwargs["enable_premultiply_flux"] and target == "gpu":
-                    contractionResult = tensor_collection_from_constant_expression(
-                        "minusFluxMatrices",
-                        minusFluxMatrixAccessor,
-                        simpleParameterSpace(4, 4),
-                        target_indices="kl",
-                    )
-                    self.db.update(contractionResult)
-                    minusFluxMatrixAccessor = lambda j, i: self.db.minusFluxMatrices[
-                        j, i
-                    ]["kl"]
-
-                if self.nodalFaceFlux:
-                    # every regular face has the face orientation index zero, see
-                    # LinearCK.addNeighbor
-                    neighborFluxExt = lambda j, i: self.nodalFlux(
-                        self.I,
-                        self.Qext,
-                        self.db.neighborToFace[0, j]["nl"],
-                        self.faceLift(i),
-                        self.fluxCoefficientsNeighbor,
-                    )
-                else:
-                    neighborFluxExt = (
-                        lambda j, i: self.Qext["kp"]
-                        <= self.Qext["kp"]
-                        + minusFluxMatrixAccessor(j, i)
-                        * self.I["lq"]
-                        * self.AminusT["qp"]
-                    )
-                neighborFluxExtPrefetch = lambda j, i: self.I
-                generator.addFamily(
-                    f"{name_prefix}neighborFluxExt",
-                    simpleParameterSpace(4, 4),
-                    neighborFluxExt,
-                    neighborFluxExtPrefetch,
-                    target=target,
-                )
 
                 generator.add(
                     f"{name_prefix}neighbor",

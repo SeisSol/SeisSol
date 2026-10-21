@@ -47,6 +47,8 @@ struct DynamicRupture {
   virtual ~DynamicRupture() = default;
   struct TimeDofsPlus : public initializer::Variable<real*> {};
   struct TimeDofsMinus : public initializer::Variable<real*> {};
+  /// the traces of the time derivatives of a side on the face, in the parametrisation of the plus
+  /// side (LTS::FaceBuffers)
   struct TimeDerivativePlus : public initializer::Variable<real*> {};
   struct TimeDerivativeMinus : public initializer::Variable<real*> {};
   struct TimeDerivativePlusDevice : public initializer::Variable<real*> {};
@@ -99,8 +101,9 @@ struct DynamicRupture {
   struct QInterpolatedMinus
       : public initializer::Variable<real[ConvergenceOrder][tensor::QInterpolated::size()]> {};
 
-  struct IdofsPlusOnDevice : public initializer::Scratchpad<real> {};
-  struct IdofsMinusOnDevice : public initializer::Scratchpad<real> {};
+  /// where the trace of each side at one point in time is formed on the device, by a kernel that
+  /// needs it apart: two per face
+  struct TracesOnDevice : public initializer::Scratchpad<real> {};
 
   struct DynrupVarmap : public initializer::GenericVarmap {};
 
@@ -156,8 +159,7 @@ struct DynamicRupture {
     storage.add<QInterpolatedMinus>(mask, Alignment, allocationModeDR());
 
     if constexpr (isDeviceOn()) {
-      storage.add<IdofsPlusOnDevice>(LayerMask(), Alignment, AllocationMode::DeviceOnly);
-      storage.add<IdofsMinusOnDevice>(LayerMask(), Alignment, AllocationMode::DeviceOnly);
+      storage.add<TracesOnDevice>(LayerMask(), Alignment, AllocationMode::DeviceOnly);
     }
   }
 

@@ -27,6 +27,7 @@
 #include "Parallel/OpenMP.h"
 #include "Solver/Settings.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <random>
 #include <stdlib.h>
@@ -48,8 +49,8 @@ namespace {
 
 void fakeData(LTS::Layer& layer, FaceType faceTp) {
   real(*dofs)[tensor::Q::size()] = layer.var<LTS::Dofs>();
-  real** buffers = layer.var<LTS::StepIntegrals>();
-  real** derivatives = layer.var<LTS::Derivatives>();
+  auto* faceTraces = layer.var<LTS::FaceTraces>();
+  auto* faceBuffers = layer.var<LTS::FaceBuffers>();
   auto* faceNeighbors = layer.var<LTS::FaceNeighbors>();
   auto* localIntegration = layer.var<LTS::LocalIntegration>();
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>();
@@ -57,47 +58,56 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
   real* bucket = static_cast<real*>(layer.var<LTS::Buffers>(initializer::AllocationPlace::Host));
 
-  real** buffersDevice = layer.var<LTS::StepIntegralsDevice>();
-  real** derivativesDevice = layer.var<LTS::DerivativesDevice>();
+  auto* faceTracesDevice = layer.var<LTS::FaceTracesDevice>();
+  auto* faceBuffersDevice = layer.var<LTS::FaceBuffersDevice>();
   auto* faceNeighborsDevice = layer.var<LTS::FaceNeighborsDevice>();
   real* bucketDevice =
       static_cast<real*>(layer.var<LTS::Buffers>(initializer::AllocationPlace::Device));
 
   std::mt19937 rng(layer.size());
   std::uniform_int_distribution<unsigned> sideDist(0, 3);
+  std::uniform_int_distribution<unsigned> traceSideDist(0, 1);
   std::uniform_int_distribution<std::size_t> cellDist(0, layer.size() - 1);
 
+  // every cell runs at the same time step and writes the trace of its step on every face, which
+  // its neighbor reads from there
+  constexpr auto TraceSize = kernels::Solver::FaceTraceSize;
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    buffers[cell] = bucket + cell * kernels::Solver::IntegralsSize;
-    derivatives[cell] = nullptr;
-    buffersDevice[cell] = bucketDevice + cell * kernels::Solver::IntegralsSize;
-    derivativesDevice[cell] = nullptr;
-
+    cellInformation[cell].ltsSetup = LtsSetup();
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
+      faceTraces[cell][f] = bucket + (cell * Cell::NumFaces + f) * TraceSize;
+      faceBuffers[cell][f] = faceTraces[cell][f];
+      faceTracesDevice[cell][f] = bucketDevice + (cell * Cell::NumFaces + f) * TraceSize;
+      faceBuffersDevice[cell][f] = faceTracesDevice[cell][f];
+
       cellInformation[cell].faceTypes[f] = faceTp;
       cellInformation[cell].faceRelations[f][0] = sideDist(rng);
       cellInformation[cell].faceRelations[f][1] = 0;
+      cellInformation[cell].traceSides[f] = traceSideDist(rng);
+      cellInformation[cell].ltsSetup.setNeighborBuffer(f, BufferType::StepIntegrals);
+      cellInformation[cell].ltsSetup.setNeighborGTSRelation(f, true);
+      cellInformation[cell].ltsSetup.setFaceBuffer(f, BufferType::StepIntegrals);
 
       const auto neighbor = cellDist(rng);
       secondaryInformation[cell].faceNeighbors[f].global = neighbor;
       secondaryInformation[cell].faceNeighbors[f].color = 0;
       secondaryInformation[cell].faceNeighbors[f].cell = neighbor;
     }
-    cellInformation[cell].ltsSetup = LtsSetup();
   }
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
+      const auto neighbor = secondaryInformation[cell].faceNeighbors[f].cell;
+      const auto neighborFace = cellInformation[cell].faceRelations[f][0];
       switch (faceTp) {
       case FaceType::FreeSurface:
-        faceNeighbors[cell][f] = buffers[cell];
-        faceNeighborsDevice[cell][f] = buffersDevice[cell];
+        faceNeighbors[cell][f] = faceBuffers[cell][f];
+        faceNeighborsDevice[cell][f] = faceBuffersDevice[cell][f];
         break;
       case FaceType::Regular:
-        faceNeighbors[cell][f] = buffers[secondaryInformation[cell].faceNeighbors[f].cell];
-        faceNeighborsDevice[cell][f] =
-            buffersDevice[secondaryInformation[cell].faceNeighbors[f].cell];
+        faceNeighbors[cell][f] = faceBuffers[neighbor][neighborFace];
+        faceNeighborsDevice[cell][f] = faceBuffersDevice[neighbor][neighborFace];
         break;
       default:
         faceNeighbors[cell][f] = nullptr;
@@ -107,7 +117,8 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   }
 
   kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
-  kernels::fillWithStuff(bucket, kernels::Solver::IntegralsSize * layer.size(), false);
+  kernels::fillWithStuff(bucket, Cell::NumFaces * TraceSize * layer.size(), false);
+  std::fill_n(layer.var<LTS::ZeroFaceTrace>(), TraceSize, real{0});
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
                          sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
                          false);
@@ -175,11 +186,19 @@ void ProxyData::initDataStructures(bool enableDR) {
   ltsStorage.layer(layerId).setNumberOfCells(cellCount);
 
   LTS::Layer& layer = ltsStorage.layer(layerId);
-  layer.setEntrySize<LTS::Buffers>(sizeof(real) * kernels::Solver::IntegralsSize * layer.size());
+  layer.setEntrySize<LTS::Buffers>(sizeof(real) * Cell::NumFaces * kernels::Solver::FaceTraceSize *
+                                   layer.size());
+  layer.setEntrySize<LTS::ZeroFaceTrace>(sizeof(real) * kernels::Solver::FaceTraceSize);
 
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();
   ltsStorage.allocateBuckets();
+
+  integrals = reinterpret_cast<real*>(
+      allocator.allocateMemory(cellCount * seissol::kernels::Solver::IntegralsSize * sizeof(real),
+                               PagesizeHeap,
+                               seissol::memory::Memkind::Standard));
+  kernels::fillWithStuff(integrals, seissol::kernels::Solver::IntegralsSize * cellCount, false);
 
   if (enableDR) {
     DynamicRupture dynRup;
@@ -193,7 +212,7 @@ void ProxyData::initDataStructures(bool enableDR) {
     drStorage.touchVariables();
 
     fakeDerivativesHost = reinterpret_cast<real*>(allocator.allocateMemory(
-        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
+        cellCount * seissol::kernels::Solver::FaceDerivativesSize * sizeof(real),
         PagesizeHeap,
         seissol::memory::Memkind::Standard));
 
@@ -203,21 +222,21 @@ void ProxyData::initDataStructures(bool enableDR) {
       std::mt19937 rng(cellCount + offset);
       std::uniform_real_distribution<real> urd;
       for (std::size_t cell = 0; cell < cellCount; ++cell) {
-        for (std::size_t i = 0; i < seissol::kernels::Solver::DerivativesSize; i++) {
-          fakeDerivativesHost[cell * seissol::kernels::Solver::DerivativesSize + i] = urd(rng);
+        for (std::size_t i = 0; i < seissol::kernels::Solver::FaceDerivativesSize; i++) {
+          fakeDerivativesHost[cell * seissol::kernels::Solver::FaceDerivativesSize + i] = urd(rng);
         }
       }
     }
 
 #ifdef ACL_DEVICE
     fakeDerivatives = reinterpret_cast<real*>(allocator.allocateMemory(
-        cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real),
+        cellCount * seissol::kernels::Solver::FaceDerivativesSize * sizeof(real),
         PagesizeHeap,
         seissol::memory::Memkind::DeviceGlobalMemory));
     const auto& device = ::device::DeviceInstance::getInstance();
     device.api->copyTo(fakeDerivatives,
                        fakeDerivativesHost,
-                       cellCount * seissol::kernels::Solver::DerivativesSize * sizeof(real));
+                       cellCount * seissol::kernels::Solver::FaceDerivativesSize * sizeof(real));
 #else
     fakeDerivatives = fakeDerivativesHost;
 #endif
@@ -274,13 +293,13 @@ void ProxyData::initDataStructures(bool enableDR) {
       const auto plusCell = cellDist(rng);
       const auto minusCell = cellDist(rng);
       timeDerivativeHostPlus[face] =
-          &fakeDerivativesHost[plusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivativesHost[plusCell * seissol::kernels::Solver::FaceDerivativesSize];
       timeDerivativeHostMinus[face] =
-          &fakeDerivativesHost[minusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivativesHost[minusCell * seissol::kernels::Solver::FaceDerivativesSize];
       timeDerivativePlus[face] =
-          &fakeDerivatives[plusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivatives[plusCell * seissol::kernels::Solver::FaceDerivativesSize];
       timeDerivativeMinus[face] =
-          &fakeDerivatives[minusCell * seissol::kernels::Solver::DerivativesSize];
+          &fakeDerivatives[minusCell * seissol::kernels::Solver::FaceDerivativesSize];
 
       faceInformation[face].plusSide = sideDist(rng);
       faceInformation[face].minusSide = sideDist(rng);

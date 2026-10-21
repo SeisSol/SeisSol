@@ -469,10 +469,13 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
         if (positionOpt.has_value()) {
           const auto position = positionOpt.value();
           const auto& cellInformation = ltsStorage.lookup<LTS::CellInformation>(position);
+          // the traces of the time derivatives the cell writes on the fault face, and those the
+          // cell across it writes there
           if (timeDerivative1 == nullptr &&
-              cellInformation.ltsSetup.hasBuffer(BufferType::Derivatives)) {
-            timeDerivative1 = ltsStorage.lookup<LTS::Derivatives>(position);
-            timeDerivative1Device = ltsStorage.lookup<LTS::DerivativesDevice>(position);
+              cellInformation.ltsSetup.faceBuffer(derivativesSide) == BufferType::Derivatives) {
+            timeDerivative1 = ltsStorage.lookup<LTS::FaceBuffers>(position)[derivativesSide];
+            timeDerivative1Device =
+                ltsStorage.lookup<LTS::FaceBuffersDevice>(position)[derivativesSide];
 
             timeDofs1 = getDofs(position);
           }

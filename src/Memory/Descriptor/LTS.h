@@ -99,11 +99,16 @@ struct LTS {
   struct DofsHalo : public initializer::Variable<real[tensor::Q::size()]> {};
   // size is zero if Qane is not defined
   struct DofsAne : public initializer::Variable<real[zeroGuard(kernels::size<tensor::Qane>())]> {};
-  struct StepIntegrals : public initializer::Variable<real*> {};
-  struct AccumulatedIntegrals : public initializer::Variable<real*> {};
-  struct Derivatives : public initializer::Variable<real*> {};
+  /// Where the cell writes the trace of its time integral over its step on each of its faces: for
+  /// its own corrector, and for the neighbor across the face where that runs at the same time step,
+  /// which reads it from there (FaceBuffers points to the same place then). In the Buffers bucket.
+  struct FaceTraces : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
+  /// What the cell writes on each face for the neighbor across it (LtsSetup::faceBuffer), null
+  /// where it writes nothing there. In the Buffers bucket.
+  struct FaceBuffers : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct CellInformation : public initializer::Variable<CellLocalInformation> {};
   struct SecondaryInformation : public initializer::Variable<SecondaryCellLocalInformation> {};
+  /// What the neighbor across each face writes there for this cell: its FaceBuffers of that face.
   struct FaceNeighbors : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct LocalIntegration : public initializer::Variable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::Variable<NeighboringIntegrationData> {};
@@ -123,10 +128,12 @@ struct LTS {
                        real[tensor::QStressNodal::size() + tensor::QEtaNodal::size()]> {};
   struct FaceDisplacements : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct Buffers : public initializer::Bucket<real> {};
+  /// A trace of zeros, which the corrector of a face without a neighbor reads as the neighbor's
+  /// (see kernels::applyFaceCorrectors). One per layer.
+  struct ZeroFaceTrace : public initializer::Bucket<real> {};
 
-  struct StepIntegralsDevice : public initializer::Variable<real*> {};
-  struct AccumulatedIntegralsDevice : public initializer::Variable<real*> {};
-  struct DerivativesDevice : public initializer::Variable<real*> {};
+  struct FaceTracesDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
+  struct FaceBuffersDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct FaceNeighborsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct FaceDisplacementsDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {
   };
@@ -164,9 +171,8 @@ struct LTS {
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
                                                         DofsAne,
-                                                        StepIntegrals,
-                                                        AccumulatedIntegrals,
-                                                        Derivatives,
+                                                        FaceTraces,
+                                                        FaceBuffers,
                                                         CellInformation,
                                                         SecondaryInformation,
                                                         FaceNeighbors,
@@ -181,9 +187,9 @@ struct LTS {
                                                         PStrain,
                                                         FaceDisplacements,
                                                         Buffers,
-                                                        StepIntegralsDevice,
-                                                        AccumulatedIntegralsDevice,
-                                                        DerivativesDevice,
+                                                        ZeroFaceTrace,
+                                                        FaceTracesDevice,
+                                                        FaceBuffersDevice,
                                                         FaceNeighborsDevice,
                                                         FaceDisplacementsDevice,
                                                         DRMappingDevice,
@@ -252,11 +258,9 @@ struct LTS {
                            allocationModeWP(AllocationPreset::Dofs));
     }
 
-    storage.add<StepIntegrals>(
+    storage.add<FaceTraces>(
         LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
-    storage.add<AccumulatedIntegrals>(
-        LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
-    storage.add<Derivatives>(
+    storage.add<FaceBuffers>(
         LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
     storage.add<CellInformation>(
         LayerMask(), Alignment, allocationModeWP(AllocationPreset::Constant), true);
@@ -284,10 +288,11 @@ struct LTS {
     // handled differently)
     storage.add<Buffers>(
         LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
+    storage.add<ZeroFaceTrace>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Timebucket), true);
 
-    storage.add<StepIntegralsDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
-    storage.add<AccumulatedIntegralsDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
-    storage.add<DerivativesDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<FaceTracesDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
+    storage.add<FaceBuffersDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<FaceDisplacementsDevice>(
         LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<FaceNeighborsDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);

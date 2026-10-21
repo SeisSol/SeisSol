@@ -45,7 +45,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # 'process_users_input' returns the following:
 #
 #       switches: HDF5, NETCDF, GRAPH_PARTITIONING_LIBS, MPI, OPENMP, ASAGI, MEMKIND,
-#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION, PREMULTIPLY_FLUX, SHARED
+#                 PROXY_PYBINDING, ENABLE_PIC_COMPILATION, SHARED
 #
 #       user input:   HOST_ARCH, DEVICE_ARCH, DEVICE_SUB_ARCH,
 #                     ORDER, NUMBER_OF_MECHANISMS, EQUATIONS,
@@ -244,14 +244,6 @@ if (MEMKIND)
   target_include_directories(seissol-common-properties INTERFACE ${MEMKIND_INCLUDE_DIR})
   target_link_libraries(seissol-common-properties INTERFACE ${MEMKIND_LIBRARIES})
   target_compile_definitions(seissol-common-properties INTERFACE USE_MEMKIND)
-endif()
-
-if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
-  target_compile_definitions(seissol-common-properties INTERFACE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
-endif()
-
-if (DEVICE_COMBINE_LOCAL_FLUX)
-  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
 endif()
 
 if (ADDRESS_SANITIZER_DEBUG)

@@ -16,8 +16,8 @@
 // - the flux without material decomposes into the scalars of a face;
 // - the kernel that applies the weight, against the matrices it is made of, where the material
 //   differs from sample to sample;
-// - with one material for the cell, what a weight-adjusted cell adds -- the volume term, the local
-//   and the neighbour fluxes, the lift of a fault face -- is what a cell that lifts with the
+// - with one material for the cell, what a weight-adjusted cell adds -- the volume term, the
+//   correctors of its faces, the lift of a fault face -- is what a cell that lifts with the
 //   material adds, to the field or to the extended field of the solver that keeps the memory
 //   variables apart;
 // - which cells are weight-adjusted, and how much shorter their time step is.
@@ -30,6 +30,7 @@
 #include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
+#include "FaceTraces.h"
 #include "FaultFlux.t.h" // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
@@ -215,8 +216,6 @@ struct Lifted {
 #ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
   using Tensor = tensor::Qext;
   using Init = init::Qext;
-  using LocalFlux = kernel::localFluxExt;
-  using NeighborFlux = kernel::neighborFluxExt;
   template <typename KernelT>
   static void bind(KernelT& krnl, real* target) {
     krnl.Qext = target;
@@ -233,8 +232,6 @@ struct Lifted {
 #else
   using Tensor = tensor::Q;
   using Init = init::Q;
-  using LocalFlux = kernel::localFlux;
-  using NeighborFlux = kernel::neighboringFlux;
   template <typename KernelT>
   static void bind(KernelT& krnl, real* target) {
     krnl.Q = target;
@@ -396,10 +393,10 @@ void kernelAgainstMatrices() {
 }
 
 /// With one material for the cell, what a weight-adjusted cell adds -- its volume term, and the
-/// local and the neighbour fluxes its faces lift without material into its buffer, with the weight
-/// applied to them -- is what a cell adds that lifts with the material. Every face takes a path of
-/// its own: a regular face both fluxes, a free surface its mirrored state, a fault face the
-/// subtraction of its own trace.
+/// correctors its faces lift without material into its buffer, with the weight applied to them --
+/// is what a cell adds that lifts with the material. Every face takes a path of its own: a regular
+/// face both traces, a free surface its mirrored state, a fault face the subtraction of its own
+/// trace.
 template <bool Enabled>
 void sameWhereConstant() {
   if constexpr (Enabled) {
@@ -430,31 +427,30 @@ void sameWhereConstant() {
 
       alignas(Alignment) std::array<real, tensor::I::size()> dofs{};
       fillRandom(dofs, rng);
-      std::array<std::array<real, tensor::I::size()>, Cell::NumFaces> neighbors{};
-      for (auto& neighbor : neighbors) {
-        fillRandom(neighbor, rng);
+
+      // The traces of the cell on its faces, each face in another parametrisation than the one
+      // before, and what the neighbours write there: the trace of a field of their own on another
+      // face of theirs, in the same parametrisation. A face without neighbour reads zero there.
+      alignas(Alignment) std::array<FaceTraceT, Cell::NumFaces> own{};
+      alignas(Alignment) std::array<FaceTraceT, Cell::NumFaces> across{};
+      for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+        writeFaceTrace(dofs.data(), side, side % 2, own[side].data());
+        if (faceTypes[side] == FaceType::Regular) {
+          alignas(Alignment) std::array<real, tensor::I::size()> neighbor{};
+          fillRandom(neighbor, rng);
+          writeFaceTrace(
+              neighbor.data(), (side + 1) % Cell::NumFaces, 1 - side % 2, across[side].data());
+        }
       }
 
       // the faces, lifted with the operators the setup gave them into `target`
       const auto addFaces = [&](const LocalIntegrationData& local,
                                 const NeighboringIntegrationData& neighboring,
                                 real* target) {
-        Lifted::LocalFlux flux{};
-        flux.bindGlobals(seissol::Pool::host());
-        flux.I = dofs.data();
-        Lifted::bind(flux, target);
-        Lifted::NeighborFlux neighbor{};
-        neighbor.bindGlobals(seissol::Pool::host());
-        Lifted::bind(neighbor, target);
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-          if (appliesLocalFlux(faceTypes[side])) {
-            kernels::bindLocalFluxOperands(flux, local, side);
-            flux.execute(side);
-          }
-          if (faceTypes[side] == FaceType::Regular) {
-            neighbor.I = neighbors[side].data();
-            kernels::bindNeighborFluxOperands(neighbor, local, neighboring, side);
-            neighbor.execute(0, side);
+          if (appliesFaceCorrector(faceTypes[side])) {
+            applyFaceCorrector(
+                own[side].data(), across[side].data(), local, neighboring, side, side % 2, target);
           }
         }
       };

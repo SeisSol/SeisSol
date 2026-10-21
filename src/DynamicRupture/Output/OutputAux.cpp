@@ -12,6 +12,7 @@
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Geometry.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
@@ -249,6 +250,13 @@ PlusMinusBasisFunctions
   basisFunctions.minusSide = getBasisFunctions(minusReference);
 
   return basisFunctions;
+}
+
+std::vector<real> getFaceBasisFunctions(const geometry::ReferenceFaceMap::FaceVectorT& onFace) {
+  std::vector<double> values(seissol::tensor::faceTrace::Shape[multisim::BasisFunctionDimension]);
+  basisFunction::tri_dubiner::evaluatePolynomials(
+      values.data(), onFace(0), onFace(1), ConvergenceOrder - 1);
+  return std::vector<real>(values.begin(), values.end());
 }
 
 geometry::FaceTransform::FaceVectorT

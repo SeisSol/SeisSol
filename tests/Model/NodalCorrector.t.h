@@ -9,13 +9,13 @@
 #define SEISSOL_TESTS_MODEL_NODALCORRECTOR_T_H_
 
 // Where the material varies inside a cell, the corrector is the strong form: the volume term
-// differentiates the field, and the local flux of every face takes off the normal flux of the
+// differentiates the field, and the corrector of every face takes off the normal flux of the
 // cell's own trace, a fault face included (StrongCorrector). Both checks below run the kernels a
 // cell runs, with the flux scalars the setup computes:
 //
-// - with one material for the cell, volume term and local fluxes together are the weak form, as
-//   the matrices give it contracted by hand. A sign, a scale or a face left out of the
-//   subtraction shows up there;
+// - with one material for the cell, the volume term and the correctors of the faces with the
+//   neighbour's trace zero are the weak form without the neighbours, as the matrices give it
+//   contracted by hand. A sign, a scale or a face left out of the subtraction shows up there;
 // - a constant state stays constant where the material varies inside the cell and along its
 //   faces. The weak form does not do that: it lifts the cell's own trace with the material inside
 //   the cell, and the flux takes it off with the material at the face.
@@ -26,6 +26,7 @@
 #include "CoefficientStructure.t.h" // IWYU pragma: keep
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
+#include "FaceTraces.h"
 #include "GeneratedCode/coefficients.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
@@ -97,9 +98,9 @@ auto varying(const MaterialT& base, const VectorT& x) -> MaterialT {
   return material;
 }
 
-/// The cell data the volume and the local flux read, for a material given as a function of the
-/// position; `faceTypes` decides what the local flux of a face is, and `weightAdjusted` whether
-/// the faces lift without material (see WeightAdjustable).
+/// The cell data the volume term and the correctors of the faces read, for a material given as a
+/// function of the position; `faceTypes` decides what the corrector of a face is, and
+/// `weightAdjusted` whether the faces lift without material (see WeightAdjustable).
 template <typename MaterialT, typename FieldT>
 void setupCell(const seissol::geometry::AffineTransform& cell,
                const FieldT& field,
@@ -151,9 +152,10 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
                                               plus,
                                               minus,
                                               weightAdjusted);
+      std::array<double, FluxCoefficientCount> scalars{};
+      seissol::initializer::correctorScalars(faceTypes[side], plus, minus, scalars);
       for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {
-        local.fluxCoefficients[side][c][node] = static_cast<real>(plus[c]);
-        neighboring.fluxCoefficients[side][c][node] = static_cast<real>(minus[c]);
+        local.fluxCoefficients[side][c][node] = static_cast<real>(scalars[c]);
       }
     }
 
@@ -259,10 +261,25 @@ auto mathMatrix(const ViewT& view, std::size_t rows, std::size_t columns) -> Eig
 template <bool Enabled>
 struct Kernels {
   using Volume = std::conditional_t<Enabled, kernel::volume, kernel::volume>;
-  using LocalFlux = std::conditional_t<Enabled, kernel::localFlux, kernel::localFlux>;
-  using NeighborFlux = std::conditional_t<Enabled, kernel::neighboringFlux, void>;
-  using FluxSolver = std::conditional_t<Enabled, kernel::computeFluxSolverLocal, void>;
 };
+
+/// Adds the corrector of every face of the cell to `update`, from the traces of `dofs` and, as
+/// what the neighbour wrote on a face, `neighborTrace(side)`; each face writes its traces in
+/// another parametrisation than the one before.
+template <typename NeighborTraceT>
+void addCorrectors(const real* dofs,
+                   const NeighborTraceT& neighborTrace,
+                   const LocalIntegrationData& local,
+                   const NeighboringIntegrationData& neighboring,
+                   real* update) {
+  for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+    const std::size_t traceSide = side % 2;
+    alignas(Alignment) FaceTraceT own{};
+    writeFaceTrace(dofs, side, traceSide, own.data());
+    applyFaceCorrector(
+        own.data(), neighborTrace(own, side), local, neighboring, side, traceSide, update);
+  }
+}
 
 template <bool Enabled>
 void weakEquivalence() {
@@ -298,19 +315,21 @@ void weakEquivalence() {
 
       addVolumeTerm<typename Kernels<Enabled>::Volume>(dofs.data(), update.data(), local);
 
-      typename Kernels<Enabled>::LocalFlux flux{};
-      flux.bindGlobals(seissol::Pool::host());
-      flux.I = dofs.data();
-      flux.Q = update.data();
       for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
         // A fault that takes the subtraction of the strong form on itself (FaultSubtractsOwnTrace)
-        // leaves its face out of the local flux, and subtracts the same at its own points; the
-        // identity is the one of the strong form, so the local flux stands in for it here.
-        REQUIRE((appliesLocalFlux(faceTypes[side]) ||
+        // leaves its face out of the corrector, and subtracts the same at its own points; the
+        // identity is the one of the strong form, so the corrector stands in for it here.
+        REQUIRE((appliesFaceCorrector(faceTypes[side]) ||
                  (FaultSubtractsOwnTrace && faceTypes[side] == FaceType::DynamicRupture)));
-        kernels::bindLocalFluxOperands(flux, local, side);
-        flux.execute(side);
       }
+      // without the neighbours: their traces zero, which leaves every face its own part
+      alignas(Alignment) const FaceTraceT zero{};
+      addCorrectors(
+          dofs.data(),
+          [&](const FaceTraceT& /*own*/, std::size_t /*side*/) { return zero.data(); },
+          local,
+          neighboring,
+          update.data());
 
       // the weak form, by hand out of the matrices it is made of
       std::array<Eigen::MatrixXd, Cell::Dim> directional;
@@ -427,34 +446,29 @@ void constantState() {
         }
       }
 
-      // the size of what cancels: the local flux of the faces on its own
+      // the size of what cancels: the correctors of the faces with the cell's own trace alone
       alignas(Alignment) std::array<real, tensor::Q::size()> localOnly{};
       // and everything the corrector adds for a regular face
       alignas(Alignment) std::array<real, tensor::Q::size()> update{};
 
-      typename Kernels<Enabled>::LocalFlux flux{};
-      flux.bindGlobals(seissol::Pool::host());
-      flux.I = dofs.data();
-      flux.Q = localOnly.data();
-      for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-        kernels::bindLocalFluxOperands(flux, local, side);
-        flux.execute(side);
-      }
+      alignas(Alignment) const FaceTraceT zero{};
+      addCorrectors(
+          dofs.data(),
+          [&](const FaceTraceT& /*own*/, std::size_t /*side*/) { return zero.data(); },
+          local,
+          neighboring,
+          localOnly.data());
 
       addVolumeTerm<typename Kernels<Enabled>::Volume>(dofs.data(), update.data(), local);
 
-      flux.Q = update.data();
-      typename Kernels<Enabled>::NeighborFlux neighbor{};
-      neighbor.bindGlobals(seissol::Pool::host());
-      neighbor.I = dofs.data();
-      neighbor.Q = update.data();
-      for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-        kernels::bindLocalFluxOperands(flux, local, side);
-        flux.execute(side);
-        // the neighbour's trace of a constant state is that state whichever side it is read from
-        kernels::bindNeighborFluxOperands(neighbor, local, neighboring, side);
-        neighbor.execute(0, side);
-      }
+      // the neighbour's trace of a constant state is the cell's own, in either parametrisation of
+      // the face
+      addCorrectors(
+          dofs.data(),
+          [&](const FaceTraceT& own, std::size_t /*side*/) { return own.data(); },
+          local,
+          neighboring,
+          update.data());
 
       auto viewLocal = init::Q::view::create(localOnly.data());
       auto viewQ = init::Q::view::create(update.data());

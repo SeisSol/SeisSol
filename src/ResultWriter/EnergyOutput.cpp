@@ -74,37 +74,31 @@ namespace seissol::writer {
 namespace {
 
 std::array<real, multisim::NumSimulations>
-    computeStaticWork(const real* degreesOfFreedomPlus,
-                      const real* degreesOfFreedomMinus,
-                      const DRFaceInformation& faceInfo,
+    computeStaticWork(const real* faceDerivativesPlus,
+                      const real* faceDerivativesMinus,
                       const DRGodunovData& godunovData,
                       const dr::ImpedanceMatrices& impedanceMatrices,
                       const real slip[seissol::tensor::slipInterpolated::size()],
                       const GlobalData* global) {
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
+  dynamicRupture::kernel::evaluateAndRotateTraceAtInterpolationPoints krnl;
   krnl.bindGlobals(*global);
 
   alignas(PagesizeStack) real qInterpolatedPlus[tensor::QInterpolatedPlus::size()];
   alignas(PagesizeStack) real qInterpolatedMinus[tensor::QInterpolatedMinus::size()];
   alignas(Alignment) real tractionInterpolated[tensor::tractionInterpolated::size()];
-  alignas(Alignment) real qPlus[tensor::Q::size()];
-  alignas(Alignment) real qMinus[tensor::Q::size()];
 
-  // needed to counter potential mis-alignment
-  std::memcpy(qPlus, degreesOfFreedomPlus, sizeof(qPlus));
-  std::memcpy(qMinus, degreesOfFreedomMinus, sizeof(qMinus));
-
+  // The field of each side on the face, from the first of the traces it writes there: the trace
+  // of the field at the start of its last step, or, where the predictor is the space-time one, the
+  // coefficient of the first function of its Legendre basis in time, the mean over that step. Both
+  // sides write in the parametrisation of the plus side, which the kernel reads.
   krnl.QInterpolated = qInterpolatedPlus;
-  krnl.Q = qPlus;
+  krnl.faceTraceNeighbor = faceDerivativesPlus;
   kernels::bindFaultRotation(krnl, godunovData.dataTinvT);
-  krnl._prefetch.QInterpolated = qInterpolatedPlus;
-  krnl.execute(faceInfo.plusSide, 0);
+  krnl.execute();
 
   krnl.QInterpolated = qInterpolatedMinus;
-  krnl.Q = qMinus;
-  kernels::bindFaultRotation(krnl, godunovData.dataTinvT);
-  krnl._prefetch.QInterpolated = qInterpolatedMinus;
-  krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
+  krnl.faceTraceNeighbor = faceDerivativesMinus;
+  krnl.execute();
 
   if constexpr (dr::PointwiseImpedances) {
     // the averaging weights are those of each point, so the contraction the kernel below does
@@ -412,8 +406,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 
   for (const auto& layer : drStorage_->leaves()) {
 
-    real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDerivativePlus>();
-    real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
+    real* const* faceDerivativesPlus = layer.var<DynamicRupture::TimeDerivativePlus>();
+    real* const* faceDerivativesMinus = layer.var<DynamicRupture::TimeDerivativeMinus>();
 
     const auto* godunovData = layer.var<DynamicRupture::GodunovData>();
     const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
@@ -431,9 +425,8 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #endif
     for (std::size_t i = 0; i < layerSize; ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
-        const auto staticFrictionalWorkIncrease = computeStaticWork(timeDofsPlus[i],
-                                                                    timeDofsMinus[i],
-                                                                    faceInformation[i],
+        const auto staticFrictionalWorkIncrease = computeStaticWork(faceDerivativesPlus[i],
+                                                                    faceDerivativesMinus[i],
                                                                     godunovData[i],
                                                                     impedanceMatrices[i],
                                                                     drEnergyOutput[i].slip,

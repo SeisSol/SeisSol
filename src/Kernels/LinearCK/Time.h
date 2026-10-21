@@ -42,15 +42,25 @@ class Spacetime : public SpacetimeKernel {
                           bool updateDisplacement,
                           seissol::parallel::runtime::StreamRuntime& runtime) override;
 
+  void computeFaceDerivatives(const real* timeDerivativesOrSTP,
+                              std::size_t face,
+                              std::size_t side,
+                              real* faceDerivatives) override;
+  void computeBatchedFaceDerivatives(recording::ConditionalPointersToRealsTable& dataTable,
+                                     seissol::parallel::runtime::StreamRuntime& runtime) override;
+
   [[nodiscard]] PerformanceEstimate metrics() const override;
+  [[nodiscard]] PerformanceEstimate faceDerivativesMetrics() const override;
 
   protected:
   kernel::derivative krnlPrototype_;
+  kernel::faceDerivatives faceDerivativesKrnlPrototype_;
 
   kernel::fsgKernel fsgKernelPrototype_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_derivative deviceKrnlPrototype_;
+  kernel::gpu_faceDerivatives deviceFaceDerivativesKrnlPrototype_;
   kernel::gpu_fsgKernel deviceFsgKernelPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 #endif
@@ -62,11 +72,12 @@ class Time : public TimeKernel {
   void evaluate(const real* coeffs,
                 const real* timeDerivatives,
                 real timeEvaluated[tensor::I::size()]) override;
-  void evaluateBatched(const real* coeffs,
-                       const real** timeDerivatives,
-                       real** timeIntegratedDofs,
-                       std::size_t numElements,
-                       seissol::parallel::runtime::StreamRuntime& runtime) override;
+  void evaluateTrace(const real* coeffs, const real* faceDerivatives, real* faceTrace) override;
+  void evaluateTraceBatched(const real* coeffs,
+                            const real** faceDerivatives,
+                            real** faceTraces,
+                            std::size_t numElements,
+                            seissol::parallel::runtime::StreamRuntime& runtime) override;
   [[nodiscard]] PerformanceEstimate metrics() const override;
 };
 

@@ -22,7 +22,6 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <unordered_set>
 
 namespace seissol::tensor {
 struct Iane;
@@ -42,49 +41,18 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
 
     const auto* cellInformation = layer.var<LTS::CellInformation>();
 
-    // look at const pointers (instead of non-const) to make clang-tidy happy
-    std::unordered_set<const real*> registry{};
-    auto* faceNeighbors = layer.var<LTS::FaceNeighborsDevice>();
-
-    std::size_t derivativesCounter{0};
-    std::size_t integratedDofsCounterLocal{0};
-    std::size_t integratedDofsCounterNeighbor{0};
+    // the traces of the neighbors that write the traces of their time derivatives, evaluated over
+    // the time step of the cell (see NeighIntegrationRecorder)
+    std::size_t neighborTraceCounter{0};
     std::size_t nodalDisplacementsCounter{0};
     std::size_t analyticCounter = 0;
     std::size_t numPlasticCells = 0;
 
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      const bool needsScratchMemForDerivatives =
-          !cellInformation[cell].ltsSetup.hasBuffer(BufferType::Derivatives);
-      const bool needsScratchMemForStepIntegral =
-          !cellInformation[cell].ltsSetup.hasBuffer(BufferType::StepIntegrals);
-      if (needsScratchMemForDerivatives) {
-        ++derivativesCounter;
-      }
-      if (needsScratchMemForStepIntegral) {
-        ++integratedDofsCounterLocal;
-      }
-
-      // include data provided by ghost layers
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-
-        const real* neighborBuffer = faceNeighbors[cell][face];
-
-        // check whether a neighbor element idofs has not been counted twice
-        if ((registry.find(neighborBuffer) == registry.end())) {
-
-          // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
-          if (neighborBuffer != nullptr) {
-            if (cellInformation[cell].faceTypes[face] == FaceType::Regular) {
-
-              const bool isNeighbProvidesDerivatives =
-                  cellInformation[cell].ltsSetup.neighborBuffer(face) == BufferType::Derivatives;
-              if (isNeighbProvidesDerivatives) {
-                ++integratedDofsCounterNeighbor;
-              }
-              registry.insert(neighborBuffer);
-            }
-          }
+        if (cellInformation[cell].faceTypes[face] == FaceType::Regular &&
+            cellInformation[cell].ltsSetup.neighborBuffer(face) == BufferType::Derivatives) {
+          ++neighborTraceCounter;
         }
 
         if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
@@ -101,13 +69,13 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
       }
     }
 
-    const auto integratedDofsCounter =
-        std::max(integratedDofsCounterLocal, integratedDofsCounterNeighbor);
-
-    layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsCounter *
-                                                   kernels::Solver::IntegralsSize * sizeof(real));
-    layer.setEntrySize<LTS::DerivativesScratch>(derivativesCounter * TotalDerivativesSize *
-                                                sizeof(real));
+    // The time integral of every cell in the local integral, which writes the traces from it, and
+    // the traces of the neighbors in the neighbor integral; the two do not overlap in time. The
+    // time derivatives of every cell, which it writes the traces of where a face takes them.
+    const auto integratedDofsSize = std::max(layer.size() * kernels::Solver::IntegralsSize,
+                                             neighborTraceCounter * kernels::Solver::FaceTraceSize);
+    layer.setEntrySize<LTS::IntegratedDofsScratch>(integratedDofsSize * sizeof(real));
+    layer.setEntrySize<LTS::DerivativesScratch>(layer.size() * TotalDerivativesSize * sizeof(real));
     layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
                                                    NodalDisplacementsSize * sizeof(real));
 
@@ -141,11 +109,10 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Storage& ltsStora
 }
 
 void deriveRequiredScratchpadMemoryForDr(DynamicRupture::Storage& drStorage) {
-  constexpr size_t IdofsSize = tensor::Q::size() * sizeof(real);
+  constexpr size_t TraceSize = kernels::Solver::FaceTraceSize * sizeof(real);
   for (auto& layer : drStorage.leaves()) {
-    const auto layerSize = layer.size();
-    layer.setEntrySize<DynamicRupture::IdofsPlusOnDevice>(IdofsSize * layerSize);
-    layer.setEntrySize<DynamicRupture::IdofsMinusOnDevice>(IdofsSize * layerSize);
+    // both sides of every face
+    layer.setEntrySize<DynamicRupture::TracesOnDevice>(2 * TraceSize * layer.size());
   }
 }
 

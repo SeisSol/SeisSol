@@ -11,6 +11,7 @@ from contextlib import contextmanager
 
 import numpy as np
 from kernels import coefficients, material
+from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
     FaceRole,
@@ -115,10 +116,6 @@ class ADERDGBase(ABC):
 
         Aplusminus_spp = self.flux_solver_spp()
         self.AplusT = Tensor("AplusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
-        self.AplusTAll = [
-            Tensor(f"AplusTAll({i})", Aplusminus_spp.shape, spp=Aplusminus_spp)
-            for i in range(4)
-        ]
         self.AminusT = Tensor("AminusT", Aplusminus_spp.shape, spp=Aplusminus_spp)
         trans_spp = self.transformation_spp()
         self.T = Tensor("T", trans_spp.shape, spp=trans_spp)
@@ -273,11 +270,6 @@ class ADERDGBase(ABC):
         at."""
         return self.db.faceQuadPoints.shape()[0]
 
-    def faceEval(self, face):
-        """Reads a field at the points of a face, point index first, mode index
-        second."""
-        return self.db.V3mToFaceQuad[face][self.t("nl")]
-
     def faceLift(self, face):
         """Lifts what a flux gives at the points of a face into the cell: the
         integral against the face basis, by the rule the points are of, and the
@@ -325,6 +317,9 @@ class ADERDGBase(ABC):
         self.kwargs = kwargs
         self._configureRotationLayout(kwargs)
         self._configureStarAssembly(kwargs)
+        # after the memory layout: the trace matrices are dense whatever a
+        # layout file says about the matrices they are formed from
+        self._configureTraces()
 
     def _configureRotationLayout(self, kwargs):
         """Stores the face rotation by its pattern rather than as a full square.
@@ -782,7 +777,7 @@ class ADERDGBase(ABC):
         folded into the structure the coefficients scale, the other is a
         constant diagonal the field passes through on its way to the face.
         """
-        faceNodes = material.addNeighborFaceMatrices(self, self._matricesDir)
+        faceNodes = self.numFaceFluxPoints()
         quantities = self.numQuantities()
         extended = self.numExtendedQuantities()
         weights = voigt_weights(self.quantityBlocks())
@@ -816,38 +811,6 @@ class ADERDGBase(ABC):
             spp={(q, q): repr(1.0 / weights[q]) for q in range(quantities)},
             addressing=AddressingMode.IMMEDIATE,
         )
-        self.fluxCoefficientsLocal = [
-            Tensor(f"fluxCoefficientsLocal({a})", (faceNodes,)) for a in range(count)
-        ]
-        self.fluxCoefficientsNeighbor = [
-            Tensor(f"fluxCoefficientsNeighbor({a})", (faceNodes,)) for a in range(count)
-        ]
-        # A kernel that applies the flux of all four faces at once needs the
-        # operands of each face apart: the scalars and the rotation both belong
-        # to one face. The rotations alias what a face stores, so they take the
-        # layout of the one rotation the per-face kernels read.
-        self.fluxCoefficientsLocalAll = [
-            [
-                Tensor(f"fluxCoefficientsLocalAll({face},{a})", (faceNodes,))
-                for a in range(count)
-            ]
-            for face in range(4)
-        ]
-        prototype = self.faceRotation()
-        rotationLayout = prototype.memoryLayout()
-        self.TAll = []
-        for face in range(4):
-            rotation = Tensor(
-                f"{prototype.baseName()}All({face})",
-                prototype.shape(),
-                spp=prototype.spp(),
-            )
-            rotation.setMemoryLayout(
-                rotationLayout.__class__,
-                alignStride=rotationLayout.alignedStride(),
-                alignmentArch=rotationLayout.alignmentArch(),
-            )
-            self.TAll.append(rotation)
         shape = (faceNodes, extended)
         self.faceValues = self.nodalTemporary("faceValues", shape)
         self.faceRotated = self.nodalTemporary("faceRotated", shape)
@@ -920,6 +883,235 @@ class ADERDGBase(ABC):
                 addressing=AddressingMode.IMMEDIATE,
             )
 
+    def _configureTraces(self):
+        """The face traces the corrector of a cell works from.
+
+        After the predictor, a cell writes the trace of its time integral on
+        each of its faces, in the face basis: rT(i), the restriction of the
+        field to face i, which is exact since the face basis is orthogonal and
+        ordered by degree. The corrector of a face reads that trace and the one
+        the neighbour wrote on the same face, applies the flux to the two and
+        lifts the result into the cell; it reads no field of the volume. Where
+        a neighbour takes another time step than the cell, it writes the trace
+        of its time derivatives instead, and the cell evaluates that over its
+        own interval (addTraces).
+
+        The two cells sharing a face parametrise it differently: each sees the
+        other's parametrisation reflected, by R = M2^-1 fP(0), which is its own
+        inverse (the face orientation index is zero on every interior face).
+        Each face therefore has one parametrisation both of its traces are
+        written in, the one of the cell the setup calls side 0 of the face; the
+        other side writes its trace reflected, R rT(i). The corrector forms the
+        jump of the two traces as they are and reads it at its own points, which
+        for side 1 means through the reflection: V2m R, a renumbering of the
+        rows of V2m. Where the flux is one matrix per side, side 1 lifts through
+        it, rDivM(i) fP(0) instead of rDivM(i) M2.
+
+        The traces carry no padding: a face has as many modes as its basis,
+        which is what the cells exchange.
+        """
+        modes = self.num2DBasisFunctions()
+        self.traceMatrix = tensor_collection_from_constant_expression(
+            "faceTraceMatrix",
+            lambda i, side: (
+                self.db.rT[i][self.t("ml")]
+                if side == 0
+                else self.db.M2inv["mn"] * self.db.fPrT[i][self.t("nl")]
+            ),
+            simpleParameterSpace(4, 2),
+            target_indices=self.t("ml"),
+            tensor_args={"alignStride": self.alignStride("faceTraceMatrix")},
+            zero_tolerance=1e-14,
+        )["faceTraceMatrix"]
+        shape = (modes, self.numQuantities())
+        self.faceTrace = OptionalDimTensor(
+            "faceTrace", self.Q.optName(), self.Q.optSize(), self.Q.optPos(), shape
+        )
+        self.faceTraceNeighbor = OptionalDimTensor(
+            "faceTraceNeighbor",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            shape,
+        )
+        if self.nodalFaceFlux:
+            # the jump read at the points of the face, from either side
+            self.traceToFace = tensor_collection_from_constant_expression(
+                "traceToFace",
+                lambda side: (
+                    self.db.V2mToFaceQuad[self.t("nm")]
+                    if side == 0
+                    else self.db.V2mToFaceQuad[self.t("nk")]
+                    * self.db.M2inv["kj"]
+                    * self.db.fP[0][self.t("jm")]
+                ),
+                simpleParameterSpace(2),
+                target_indices=self.t("nm"),
+                tensor_args={"alignStride": self.alignStride("traceToFace")},
+                zero_tolerance=1e-14,
+            )["traceToFace"]
+            self.traceJump = self.nodalTemporary("traceJump", shape)
+            # one set of scalars per face: the corrector applies them to the jump
+            faceNodes = self.numFaceFluxPoints()
+            self.fluxCoefficients = [
+                Tensor(f"fluxCoefficients({a})", (faceNodes,))
+                for a in range(len(self.fluxStructure))
+            ]
+        else:
+            self.traceLift = tensor_collection_from_constant_expression(
+                "traceLift",
+                lambda i, side: self.db.rDivM[i][self.t("km")]
+                * (self.db.M2["mn"] if side == 0 else self.db.fP[0][self.t("mn")]),
+                simpleParameterSpace(4, 2),
+                target_indices=self.t("kn"),
+                tensor_args={"alignStride": self.alignStride("traceLift")},
+                zero_tolerance=1e-14,
+            )["traceLift"]
+            self.traceProduct = self.nodalTemporary(
+                "traceProduct", (modes, self.numExtendedQuantities())
+            )
+
+    def traceCorrector(self, face, side, ownTrace=None, neighborTrace=None):
+        """What the corrector of one face adds to the field the faces lift into:
+        the flux of the two traces of the face, lifted into the cell.
+
+        Where the flux is the scalars per point, it is the jump of the two
+        traces that goes to the points, and the one set of scalars the face
+        carries is applied to it: for a regular face the neighbour's part of
+        the Godunov state, which in the strong form of the corrector is the
+        local part negated. A face without neighbour reads a zero trace there
+        and carries the local scalars negated, so that the same statements
+        apply its own flux. Where the flux is one matrix per side, each trace
+        gets its own matrix, which holds for the weak form as well.
+        """
+        own = self.faceTrace if ownTrace is None else ownTrace
+        neighbor = self.faceTraceNeighbor if neighborTrace is None else neighborTrace
+        target = self.extendedQTensor()
+        if self.nodalFaceFlux:
+            jump = self.definedOnce(self.traceJump)
+            return [jump["mq"] <= neighbor["mq"] - own["mq"]] + self.nodalFlux(
+                jump,
+                target,
+                self.traceToFace[side][self.t("nl")],
+                self.faceLift(face),
+                self.fluxCoefficients,
+            )
+        product = self.definedOnce(self.traceProduct)
+        return [
+            product["mp"]
+            <= own["mq"] * self.AplusT["qp"] + neighbor["mq"] * self.AminusT["qp"],
+            target["kp"]
+            <= target["kp"] + self.traceLift[face, side][self.t("km")] * product["mp"],
+        ]
+
+    def faceDerivativeTraces(self):
+        """What a cell writes on a face whose neighbour evaluates it over an
+        interval of its own: the traces of the time derivatives of the
+        predictor, one per derivative and each with the modes its derivative
+        reaches on the face. A derivative the chain narrows keeps fewer modes
+        with every order, and so does its trace; together they hold as many
+        modes as the cell has."""
+        if not hasattr(self, "_faceDerivatives"):
+            modes = self.num2DBasisFunctions()
+            shape = (modes, self.numQuantities())
+            fullShape = self.faceTrace.shape()
+            self._faceDerivatives = []
+            for k, derivative in enumerate(self.dQs):
+                reached = self._traceModesOf(derivative)
+                rows = self.faceTrace.insertOptDim(
+                    (slice(0, reached), slice(None)), (slice(None),)
+                )
+                pattern = np.zeros(fullShape, dtype=bool)
+                pattern[rows] = True
+                self._faceDerivatives.append(
+                    OptionalDimTensor(
+                        f"faceDerivatives({k})",
+                        self.Q.optName(),
+                        self.Q.optSize(),
+                        self.Q.optPos(),
+                        shape,
+                        spp=None if reached == modes else pattern,
+                    )
+                )
+        return self._faceDerivatives
+
+    def _traceModesOf(self, field):
+        """How many face modes the trace of a field with the pattern of `field`
+        reaches: the face basis is ordered by degree, and the trace of the
+        modes of a degree reaches the face modes up to that degree."""
+        pattern = field.spp().as_ndarray()
+        if isinstance(field, OptionalDimTensor) and field.hasOptDim():
+            pattern = pattern.any(axis=field.optPos())
+        volumeModes = int(np.nonzero(pattern.any(axis=1))[0].max()) + 1
+        reached = 0
+        for matrix in self.traceMatrix.values():
+            values = matrix.spp().as_ndarray()
+            values = values if not self.transpose(matrix.name()) else values.T
+            rows = np.nonzero(values[:, :volumeModes].any(axis=1))[0]
+            if rows.size > 0:
+                reached = max(reached, int(rows.max()) + 1)
+        return reached
+
+    def faceDerivativeStatements(self, face, side):
+        """The traces of the time derivatives on one face, see
+        faceDerivativeTraces."""
+        return [
+            trace["mq"] <= self.traceMatrix[face, side][self.t("ml")] * derivative["lq"]
+            for trace, derivative in zip(self.faceDerivativeTraces(), self.dQs)
+        ]
+
+    def faceTraceAtTime(self, coefficients):
+        """The trace of the field over an interval, or at an instant, from the
+        traces of its time derivatives: the Taylor expansion the predictor
+        evaluates in the volume, one scalar of `coefficients` per derivative,
+        the same the volume is evaluated with."""
+        expansion = None
+        for coefficient, trace in zip(coefficients, self.faceDerivativeTraces()):
+            term = coefficient * trace["mq"]
+            expansion = term if expansion is None else expansion + term
+        return expansion
+
+    def faceDerivativesAtTimeStatements(self):
+        """The trace over an interval, or at an instant, into the trace a
+        corrector reads as the neighbour's (faceTraceAtTime), with the scalars
+        power(k)."""
+        powers = [Scalar(f"power({k})") for k in range(self.order)]
+        return [self.faceTraceNeighbor["mq"] <= self.faceTraceAtTime(powers)]
+
+    def addTraces(self, generator, targets):
+        """The kernels of the face traces (see _configureTraces): the trace of
+        the time integral of a cell on one of its faces, the traces of its time
+        derivatives on one face, their evaluation over an interval, and the
+        corrector of one face. A family is indexed by the face and by the side
+        of the face the cell is on."""
+        for target in targets:
+            prefix = generate_kernel_name_prefix(target)
+            with self.singleDefinitions(target == "gpu"):
+                generator.addFamily(
+                    f"{prefix}faceTrace",
+                    simpleParameterSpace(4, 2),
+                    lambda i, side: self.faceTrace["mq"]
+                    <= self.traceMatrix[i, side][self.t("ml")] * self.I["lq"],
+                    target=target,
+                )
+                generator.addFamily(
+                    f"{prefix}faceDerivatives",
+                    simpleParameterSpace(4, 2),
+                    self.faceDerivativeStatements,
+                    target=target,
+                )
+                generator.add(
+                    f"{prefix}faceDerivativesAtTime",
+                    self.faceDerivativesAtTimeStatements(),
+                    target=target,
+                )
+                generator.addFamily(
+                    f"{prefix}faceCorrector",
+                    simpleParameterSpace(4, 2),
+                    self.traceCorrector,
+                    target=target,
+                )
+
     def weightAdjustable(self):
         """Whether a cell of this build can apply the inverse weight of its
         medium after the lift of its fluxes, see _configureWeightAdjust."""
@@ -955,9 +1147,7 @@ class ADERDGBase(ABC):
             )
         return statements
 
-    def nodalFlux(
-        self, source, target, toFace, lift, coefficientsOfFace, rotation=None
-    ):
+    def nodalFlux(self, source, target, toFace, lift, coefficientsOfFace):
         """One face contribution where the operator varies along the face.
 
         The field is read at the points of the face and turned into the face
@@ -971,10 +1161,8 @@ class ADERDGBase(ABC):
         `toFace` reads the field at the points of the face, with the point index
         first and the mode index second; `lift` goes the other way. Both come
         indexed, because how a matrix is laid out is the caller's to state.
-        `rotation` is the face rotation the kernel reads, T unless a kernel
-        applies more than one face and needs one per face.
         """
-        rotation = self.faceRotation() if rotation is None else rotation
+        rotation = self.faceRotation()
         into, back = self.faceRotationIndices()
         faceValues = self.definedOnce(self.faceValues)
         faceRotated = self.definedOnce(self.faceRotated)
@@ -993,26 +1181,6 @@ class ADERDGBase(ABC):
             first = False
         statements.append(faceBack["np"] <= faceProduct["nl"] * rotation[back])
         statements.append(target["kp"] <= target["kp"] + lift * faceBack["np"])
-        return statements
-
-    def nodalLocalFluxAll(self, source, target):
-        """The local flux of all four faces in one kernel, where the operator
-        varies along a face.
-
-        A face whose flux the cell does not take -- a fault face -- carries
-        zero scalars, the same way the matrix form carries a zero matrix, so
-        the four faces need no case distinction here.
-        """
-        statements = []
-        for face in range(4):
-            statements += self.nodalFlux(
-                source,
-                target,
-                self.faceEval(face),
-                self.faceLift(face),
-                self.fluxCoefficientsLocalAll[face],
-                rotation=self.TAll[face],
-            )
         return statements
 
     def solverCoefficientCount(self):
@@ -1644,10 +1812,11 @@ class ADERDGBase(ABC):
         include_tensors.add(self.db.samplingDirections)
         include_tensors.add(self.db.M2inv)
         include_tensors.add(self.db.ET)
-        # the reparametrisation of a shared face. The neighbour flux reads it
-        # folded into fPrT and the nodal flux as a renumbering of the points of
-        # the face, so no kernel names it; it is what the renumbering is checked
-        # against, in every build, so it has to reach the generated code.
+        # the reparametrisation of a shared face. The corrector reads it folded
+        # into the trace and the lift of the side that writes its traces
+        # reflected, and the setup of a face as a renumbering of the points of
+        # the face, so no kernel names it; it is what both are checked against,
+        # in every build, so it has to reach the generated code.
         for orientation in self.db.fP.values():
             include_tensors.add(orientation)
         # what a face stores where its rotation is per point, where those points
@@ -1667,12 +1836,10 @@ class ADERDGBase(ABC):
             # applies any more; the strong form is checked against them
             for member in self.db.kDivM.values():
                 include_tensors.add(member)
-        if self.nodalFaceFlux:
-            include_tensors.add(self.db.M2)
-            # the nodal flux is checked against the matrix form, which is
-            # built from these. No flux kernel of such a build names them, and
-            # a device build premultiplies them even where the matrix form
-            # remains, so they reach the generated code only from here.
-            for family in (self.db.rDivM, self.db.fMrT):
-                for member in family.values():
-                    include_tensors.add(member)
+        # the flux of a face in the volume, which the corrector is checked
+        # against in every build. No kernel names them: the corrector reads the
+        # traces of the face and lifts what it forms with traceLift, or with
+        # faceLift where the flux is scalars at the points of the face.
+        for family in (self.db.rDivM, self.db.fMrT):
+            for member in family.values():
+                include_tensors.add(member)

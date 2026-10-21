@@ -58,24 +58,26 @@ void ReceiverOutput::setLtsData(LTS::Storage& userWpStorage,
   drStorage_ = &userDrStorage;
 }
 
-void ReceiverOutput::getDofs(const real*(&derivatives), std::size_t meshId) {
+void ReceiverOutput::getFaceDerivatives(const real*(&faceDerivatives),
+                                        std::size_t meshId,
+                                        std::size_t side) {
   const auto position = wpBackmap_->get(meshId);
   auto& layer = wpStorage_->layer(position.color);
-  // get DOFs from 0th derivatives
-  assert(
-      layer.var<LTS::CellInformation>()[position.cell].ltsSetup.hasBuffer(BufferType::Derivatives));
+  // the traces of the time derivatives the cell writes on the fault face
+  assert(layer.var<LTS::CellInformation>()[position.cell].ltsSetup.faceBuffer(side) ==
+         BufferType::Derivatives);
 
-  derivatives = layer.var<LTS::Derivatives>()[position.cell];
+  faceDerivatives = layer.var<LTS::FaceBuffers>()[position.cell][side];
 }
 
-void ReceiverOutput::getNeighborDofs(const real*(&derivatives),
-                                     std::size_t meshId,
-                                     std::size_t side) {
+void ReceiverOutput::getNeighborFaceDerivatives(const real*(&faceDerivatives),
+                                                std::size_t meshId,
+                                                std::size_t side) {
   const auto position = wpBackmap_->get(meshId);
   auto& layer = wpStorage_->layer(position.color);
 
-  derivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
-  assert(derivatives != nullptr);
+  faceDerivatives = layer.var<LTS::FaceNeighbors>()[position.cell][side];
+  assert(faceDerivatives != nullptr);
 }
 
 void ReceiverOutput::calcFaultOutput(
@@ -132,6 +134,9 @@ void ReceiverOutput::calcFaultOutput(
                         frictionTime](std::size_t faceId) {
     alignas(Alignment) real dofsPlus[tensor::Q::size()]{};
     alignas(Alignment) real dofsMinus[tensor::Q::size()]{};
+    // the traces of both sides on the face at the time of the output
+    alignas(Alignment) real tracePlus[tensor::faceTraceNeighbor::size()]{};
+    alignas(Alignment) real traceMinus[tensor::faceTraceNeighbor::size()]{};
 
     alignas(Alignment) real faceAlignedValuesPlus[tensor::QAtPoint::size()]{};
     alignas(Alignment) real faceAlignedValuesMinus[tensor::QAtPoint::size()]{};
@@ -154,7 +159,8 @@ void ReceiverOutput::calcFaultOutput(
     local.waveSpeedsMinus = &((local.layer->var<DynamicRupture::WaveSpeedsMinus>())[local.ltsId]);
     const auto& faultInfo = faultInfos[faceIndex];
 
-    if (outputType == initializer::parameters::OutputType::Elementwise) {
+    const bool elementwise = outputType == initializer::parameters::OutputType::Elementwise;
+    if (elementwise) {
       std::memcpy(dofsPlus,
                   local.layer->var<DynamicRupture::TimeDofsPlus>()[local.ltsId],
                   sizeof(dofsPlus));
@@ -162,7 +168,8 @@ void ReceiverOutput::calcFaultOutput(
                   local.layer->var<DynamicRupture::TimeDofsMinus>()[local.ltsId],
                   sizeof(dofsMinus));
     } else {
-      // only interpolate for the on-fault receivers
+      // only interpolate for the on-fault receivers, from the traces of the time derivatives both
+      // sides write on the face
       const real* stePlus = nullptr;
       const real* steMinus = nullptr;
 
@@ -170,16 +177,16 @@ void ReceiverOutput::calcFaultOutput(
         stePlus = outputData->deviceDataCollector->get(outFace.deviceDataPlus);
         steMinus = outputData->deviceDataCollector->get(outFace.deviceDataMinus);
       } else {
-        getDofs(stePlus, faultInfo.element.value());
+        getFaceDerivatives(stePlus, faultInfo.element.value(), faultInfo.side);
         if (faultInfo.neighborElement.hasValue()) {
-          getDofs(steMinus, faultInfo.neighborElement.value());
+          getFaceDerivatives(steMinus, faultInfo.neighborElement.value(), faultInfo.neighborSide);
         } else {
-          getNeighborDofs(steMinus, faultInfo.element.value(), faultInfo.side);
+          getNeighborFaceDerivatives(steMinus, faultInfo.element.value(), faultInfo.side);
         }
       }
 
-      timeKernel_.evaluate(timeCoeffs.data(), stePlus, dofsPlus);
-      timeKernel_.evaluate(timeCoeffs.data(), steMinus, dofsMinus);
+      timeKernel_.evaluateTrace(timeCoeffs.data(), stePlus, tracePlus);
+      timeKernel_.evaluateTrace(timeCoeffs.data(), steMinus, traceMinus);
     }
 
     const auto sourceCount = stressSourceCount(*drParameters_);
@@ -188,6 +195,7 @@ void ReceiverOutput::calcFaultOutput(
     const auto* stressSourceRiseTime = local.layer->var<DynamicRupture::StressSourceRiseTime>();
 
     seissol::dynamicRupture::kernel::evaluateFaceAlignedDOFSAtPoint kernel;
+    seissol::dynamicRupture::kernel::evaluateFaceAlignedTraceAtPoint traceKernel;
     seissol::dynamicRupture::kernel::rotateInitStress alignAlongDipAndStrikeKernel;
 
     for (const auto pointId : topology.pointsOf(faceId)) {
@@ -203,19 +211,34 @@ void ReceiverOutput::calcFaultOutput(
       const auto& dip = frame.faultDirections.dip;
       const auto& jacobiT2d = frame.jacobianT2d;
 
-      kernel.Tinv = frame.glbToFaceAlignedData.data();
       alignAlongDipAndStrikeKernel.stressRotationMatrix = frame.stressGlbToDipStrikeAligned.data();
       alignAlongDipAndStrikeKernel.reducedFaceAlignedMatrix = frame.stressFaceAlignedToGlb.data();
 
-      kernel.Q = dofsPlus;
-      kernel.basisFunctionsAtPoint = outPoint.basisFunctions.plusSide.data();
-      kernel.QAtPoint = faceAlignedValuesPlus;
-      kernel.execute();
+      if (elementwise) {
+        kernel.Tinv = frame.glbToFaceAlignedData.data();
 
-      kernel.Q = dofsMinus;
-      kernel.basisFunctionsAtPoint = outPoint.basisFunctions.minusSide.data();
-      kernel.QAtPoint = faceAlignedValuesMinus;
-      kernel.execute();
+        kernel.Q = dofsPlus;
+        kernel.basisFunctionsAtPoint = outPoint.basisFunctions.plusSide.data();
+        kernel.QAtPoint = faceAlignedValuesPlus;
+        kernel.execute();
+
+        kernel.Q = dofsMinus;
+        kernel.basisFunctionsAtPoint = outPoint.basisFunctions.minusSide.data();
+        kernel.QAtPoint = faceAlignedValuesMinus;
+        kernel.execute();
+      } else {
+        // both traces are in the parametrisation of the plus side, so one face basis reads both
+        traceKernel.Tinv = frame.glbToFaceAlignedData.data();
+        traceKernel.faceBasisAtPoint = outPoint.faceBasisFunctions.data();
+
+        traceKernel.faceTraceNeighbor = tracePlus;
+        traceKernel.QAtPoint = faceAlignedValuesPlus;
+        traceKernel.execute();
+
+        traceKernel.faceTraceNeighbor = traceMinus;
+        traceKernel.QAtPoint = faceAlignedValuesMinus;
+        traceKernel.execute();
+      }
 
       local.nearestGpIndex = static_cast<int>(outPoint.nearestGpIndex);
       local.nearestInternalGpIndex = static_cast<int>(outPoint.nearestInternalGpIndex);

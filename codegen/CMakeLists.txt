@@ -19,12 +19,6 @@ set(GENERATED_FILES_FOR_SEISSOL "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/subro
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/)
 
-if(PREMULTIPLY_FLUX)
-  set(PREMULTIPLY_FLUX_VALUE "--enable_premultiply_flux")
-else()
-  set(PREMULTIPLY_FLUX_VALUE "--disable_premultiply_flux")
-endif()
-
 if (OVERRIDE_VECTORSIZE GREATER 0)
   set(OVERRIDE_VECTORSIZE_PARAM "--vectorsize=${OVERRIDE_VECTORSIZE}")
 else()
@@ -88,7 +82,6 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
      "--solver" ${SOLVER}
-     ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      ${OVERRIDE_VECTORSIZE_PARAM}
      ${OVERRIDE_ALIGNMENT_PARAM})
 

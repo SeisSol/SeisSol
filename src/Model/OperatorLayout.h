@@ -104,23 +104,24 @@ constexpr bool WeightAdjustable = NodalMaterial && generated::WeightAdjustable;
 /// Whether the corrector applies its volume term in the strong form. It does wherever the operator
 /// varies inside a cell: the weak form lifts the cell's own trace with the operator inside the
 /// cell, while the flux states it at the face, and the two only cancel where they are the same
-/// operator. In the strong form the local flux of every face subtracts the normal flux of the
+/// operator. In the strong form the corrector of every face subtracts the normal flux of the
 /// cell's own trace instead (see initializer::toCorrectorForm, and nodalVolumeDerivatives in the
 /// generator).
 constexpr bool StrongCorrector = NodalMaterial;
 
 /// Whether the fault takes the subtraction of the strong form on itself: its lift then applies the
 /// flux of the fault normal to the imposed state less the side's own trace, at the points of the
-/// fault, where it otherwise is the local flux of the face, at the points of the face. Where a cell
+/// fault, where it otherwise is the corrector of the face, at the points of the face. Where a cell
 /// may be curved, the scale of a point carries the inverse of the Jacobian determinant there, which
 /// no quadrature integrates exactly; the lift and the subtraction cancel for a state that is
 /// continuous across a locked fault only where they are taken at the same points.
 constexpr bool FaultSubtractsOwnTrace = StrongCorrector && Curvilinear;
 
-/// Whether the local flux of a face of this type is applied. A fault face supplies its flux
-/// through the fault, so in the weak form it has no local flux at all; in the strong form its
-/// local flux is the subtraction of the normal flux alone, unless the fault takes that on itself.
-constexpr bool appliesLocalFlux(FaceType faceType) {
+/// Whether the corrector of a cell applies the flux of a face of this type to the traces of the
+/// face. A fault face supplies its flux through the fault, so in the weak form it has none; in the
+/// strong form what the corrector applies there is the subtraction of the normal flux of the cell's
+/// own trace alone, unless the fault takes that on itself.
+constexpr bool appliesFaceCorrector(FaceType faceType) {
   return (StrongCorrector && !FaultSubtractsOwnTrace) || faceType != FaceType::DynamicRupture;
 }
 

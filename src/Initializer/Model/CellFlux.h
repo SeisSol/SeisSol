@@ -52,6 +52,16 @@ void toCorrectorForm(ViewT& godunovLocal) {
 }
 
 /**
+ * Whether the flux of a face of this type has an operator for the side of the face outside the cell
+ * (NeighboringIntegrationData::nAmNm1): the one the corrector applies to the neighbor's trace, or
+ * the one a boundary condition applies to the state it builds outside the cell. A free surface
+ * builds none, and its Godunov state for that side is a signalling NaN that nothing may read
+ * (getTransposedFreeSurfaceGodunovState). Its corrector reads a trace of zeros as the neighbor's
+ * all the same, so the operator it applies to it there is zero.
+ */
+constexpr bool hasExteriorOperator(FaceType faceType) { return faceType != FaceType::FreeSurface; }
+
+/**
  * The transposed coefficient matrix of the face normal a side lifts its flux with: the one of its
  * material, or the one without material where the cell applies the inverse weight of its medium
  * after the lift (see WeightAdjustable).
@@ -158,6 +168,24 @@ void fluxScalarsOfNode(const MaterialT& local,
       };
   read(godLocal, 1.0, plus);
   read(godNeighbor, -1.0, minus);
+}
+
+/**
+ * The one set of scalars the corrector of a face applies, to the jump of the two traces of the face
+ * -- the neighbor's less the cell's own -- out of the two parts of the flux fluxScalarsOfNode gives
+ * (see the corrector in the generator). A regular face takes the neighbor's part. A face without a
+ * neighbor reads a zero trace as the neighbor's, and takes the cell's own part negated, which then
+ * applies the cell's own part to its trace. For a regular face the two agree: the corrector is the
+ * strong form wherever a face carries these scalars, and there the cell's own part is the Godunov
+ * state less the identity, which is the neighbor's part negated.
+ */
+template <typename ArrayT>
+void correctorScalars(FaceType faceType, const ArrayT& plus, const ArrayT& minus, ArrayT& scalars) {
+  static_assert(!NodalFlux || StrongCorrector,
+                "the corrector applies one set of scalars to the jump only in the strong form");
+  for (std::size_t c = 0; c < scalars.size(); ++c) {
+    scalars[c] = faceType == FaceType::Regular ? minus[c] : -plus[c];
+  }
 }
 
 } // namespace seissol::initializer

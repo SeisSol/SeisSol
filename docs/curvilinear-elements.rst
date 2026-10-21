@@ -117,9 +117,9 @@ So the strong form is not a choice for curved cells, and it is the fix for the
 nodal material as well: through the whole code, a constant state in a smoothly
 varying medium drifted by 2 to 18 percent within 0.1 s with the weak form, and
 by about as much on a mesh twice as fine; with the strong form it stays
-constant to :math:`10^{-14}`. The local flux of every face now takes off the
+constant to :math:`10^{-14}`. The corrector of every face takes off the
 normal flux of the cell's own trace (``toCorrectorForm``), a fault face
-included, whose local flux is that subtraction alone.
+included, where it is that subtraction alone.
 
 **The predictor keeps the degrees a constant operator gives.** A constant
 operator drops a degree with every time derivative, so for a scheme of order
@@ -163,8 +163,8 @@ the basis functions divided by :math:`\det J`. A point source then is
 its values at the quadrature points, and the face terms take on
 :math:`|n| / \det J` at every face point, :math:`|n|` the surface Jacobian -- for
 a straight-sided cell that is the flux scale :math:`2|S| / |J|` it always had.
-Nothing that has the inverse mass matrix folded in -- ``kDivMT``, ``rDivM``,
-``fMrT``, ``projectFaceQuadTo3m``, ``project2nFaceTo3m``, ``M3inv``,
+Nothing that has the inverse mass matrix folded in -- ``kDivMT``,
+``projectFaceQuadTo3m``, ``project2nFaceTo3m``, ``M3inv``,
 ``V3mTo2nTWDivM`` -- changes, and no
 cell carries a dense mass matrix. The price is exact conservation, which the
 scheme for a material that varies inside a cell does not have either, and
@@ -203,13 +203,13 @@ not touched: it maps between the points of the reference face and does not know
 the geometry.
 
 **A curved fault subtracts the trace of a side itself.** In the strong form the
-local flux of a fault face is the subtraction of the normal flux of the cell's
+corrector of a fault face is the subtraction of the normal flux of the cell's
 own trace, which it takes at the points of the face rule, while the fault lifts its
 imposed state at its points. On a curved face the scale :math:`|n|/\det J` is
 not a polynomial, the two quadratures differ, and a constant state across a
 locked fault drifted by :math:`2.4 \cdot 10^{-5}` within 0.2 s. So in a
 ``CURVILINEAR`` build the fault lifts the imposed state less the side's own
-trace, both integrated in time with the same weights, and the local flux leaves
+trace, both integrated in time with the same weights, and the corrector leaves
 fault faces alone (``FaultSubtractsOwnTrace``); the constant state then stays
 constant to :math:`10^{-14}`, as across a plane fault.
 

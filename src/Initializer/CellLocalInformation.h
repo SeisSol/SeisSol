@@ -32,6 +32,11 @@ struct CellLocalInformation {
   // LTS setup
   LtsSetup ltsSetup;
 
+  // for every face, which of the two parametrisations of the face its traces are written in: 0
+  // where this cell's own, 1 where the neighbor's, whose traces this cell then writes reflected
+  // (see initializer::internal::deriveTraceSides). Set for the cells of this rank.
+  std::array<std::uint8_t, Cell::NumFaces> traceSides{};
+
   // plasticity enabled
   bool plasticityEnabled{false};
 

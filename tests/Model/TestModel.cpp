@@ -12,6 +12,7 @@
 #include "AttenuationFit.t.h"
 #include "CoefficientStructure.t.h"
 #include "CurvedCell.t.h"
+#include "FaceCorrector.t.h"
 #include "FaultFlux.t.h"
 #include "GodunovState.t.h"
 #include "ImpedanceLayout.t.h" // IWYU pragma: keep
@@ -20,7 +21,6 @@
 #include "NodalCorrector.t.h"
 #include "NodalDerivatives.t.h"
 #include "NodalEnergy.t.h"
-#include "NodalFlux.t.h"
 #include "NodalVolume.t.h"
 #include "PoroelasticImpedance.t.h" // IWYU pragma: keep
 #include "Quantities.t.h"

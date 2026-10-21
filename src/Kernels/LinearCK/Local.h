@@ -53,7 +53,7 @@ class Local : public LocalKernel {
 
   protected:
   kernel::volume volumeKernelPrototype_;
-  kernel::localFlux localFluxKernelPrototype_;
+  kernel::faceTrace faceTraceKernelPrototype_;
   kernel::localFluxNodal nodalLfKrnlPrototype_;
 
   kernels::AnalyticalBoundary analyticalBoundary_;
@@ -63,8 +63,7 @@ class Local : public LocalKernel {
 
 #ifdef ACL_DEVICE
   kernel::gpu_volume deviceVolumeKernelPrototype_;
-  kernel::gpu_localFlux deviceLocalFluxKernelPrototype_;
-  kernel::gpu_localFluxAll deviceLocalFluxAllKernelPrototype_;
+  kernel::gpu_faceTrace deviceFaceTraceKernelPrototype_;
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();
 

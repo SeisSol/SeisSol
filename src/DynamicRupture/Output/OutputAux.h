@@ -16,6 +16,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <vector>
 
 namespace seissol {
 template <int N, typename T>
@@ -73,6 +74,10 @@ PlusMinusBasisFunctions getPlusMinusBasisFunctions(const CoordinateT& pointCoord
 PlusMinusBasisFunctions
     getPlusMinusBasisFunctions(const geometry::CellTransform::VectorEigenT& plusReference,
                                const geometry::CellTransform::VectorEigenT& minusReference);
+
+/// the face basis functions at a point of a fault face, given in the reference face of the plus
+/// side: what reads the traces both sides write on the face there (LTS::FaceBuffers)
+std::vector<real> getFaceBasisFunctions(const geometry::ReferenceFaceMap::FaceVectorT& onFace);
 
 /**
  * The point of a face closest to a point in space, as a face coordinate: Gauss-Newton on the

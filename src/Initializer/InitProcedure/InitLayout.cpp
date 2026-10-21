@@ -321,6 +321,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   // pass 3: LTS setup
   logInfo() << "Setting up LTS configuration...";
   internal::deriveLtsSetups(meshLayout, ltsStorage);
+  internal::deriveTraceSides(meshReader, ltsStorage);
 
   if (seissolParams.model.plasticity) {
     // remove disabled plasticity groups from the list

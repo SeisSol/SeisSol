@@ -52,6 +52,11 @@ struct Solver {
 
   static constexpr std::size_t IntegralsSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  /// What a cell writes on a face: the trace of its time integral, and the traces of its time
+  /// derivatives.
+  static constexpr std::size_t FaceTraceSize = tensor::faceTrace::size();
+  static constexpr std::size_t FaceDerivativesSize =
+      yateto::computeFamilySize<tensor::faceDerivatives>();
 
   using LocalData = AnelasticLocalData;
   using NeighborData = AnelasticNeighborData;

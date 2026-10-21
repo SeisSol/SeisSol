@@ -313,19 +313,22 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
     const auto& element = elementsInfo[elementIndex];
     const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
 
+    const geometry::ReferenceFaceMap plusFace(faultInfo[face.faultFaceIndex].side);
+
     if (curvedFaces()) {
       // A curved cell has no affine map to invert. The point is on the face, though: its
       // coordinates in the minus cell follow from the ones in the plus cell through the reference
       // face, at the orientation the kernels of the fault evaluate the minus side at (face
       // relation 1, which the canonical vertex numbering makes the zero orientation).
-      const geometry::ReferenceFaceMap plusFace(faultInfo[face.faultFaceIndex].side);
       const geometry::ReferenceFaceMap minusFace(faultInfo[face.faultFaceIndex].neighborSide,
                                                  geometry::FaceOrientation::Rotate0);
       for (const auto pointId : topology.pointsOf(faceId)) {
         const auto& receiver = outputData_->receivers[topology.representative(pointId)];
         const geometry::CellTransform::VectorEigenT plusReference(receiver.reference.data());
-        topology.points[pointId].basisFunctions = getPlusMinusBasisFunctions(
-            plusReference, minusFace.faceToCell(plusFace.cellToFace(plusReference)));
+        const auto onFace = plusFace.cellToFace(plusReference);
+        topology.points[pointId].basisFunctions =
+            getPlusMinusBasisFunctions(plusReference, minusFace.faceToCell(onFace));
+        topology.points[pointId].faceBasisFunctions = getFaceBasisFunctions(onFace);
       }
       continue;
     }
@@ -357,6 +360,9 @@ void ReceiverBasedOutputBuilder::initBasisFunctions() {
       const auto& receiver = outputData_->receivers[topology.representative(pointId)];
       topology.points[pointId].basisFunctions =
           getPlusMinusBasisFunctions(receiver.global, transform, neighborTransform);
+      const Eigen::Vector3d point(receiver.global[0], receiver.global[1], receiver.global[2]);
+      topology.points[pointId].faceBasisFunctions =
+          getFaceBasisFunctions(plusFace.cellToFace(transform.spaceToRef(point)));
     }
   }
 }
@@ -367,26 +373,32 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
 
   auto& topology = outputData_->topology;
 
-  std::unordered_map<std::size_t, std::size_t> elementIndices;
+  // an element and the side of it the fault face is on
+  std::unordered_map<std::pair<std::size_t, int>, std::size_t, HashPair<std::size_t, int>>
+      elementIndices;
   std::unordered_map<std::pair<int, std::size_t>, GhostElement, HashPair<int, std::size_t>>
       elementIndicesGhost;
 
-  // The gather arrays are built per face: a face needs the derivatives of its own element and of
-  // its neighbour, no matter how many output points sit on it.
+  // The gather arrays are built per face: a face needs the traces of the time derivatives its own
+  // element and its neighbour write on it, no matter how many output points sit on it.
   for (auto& face : topology.faces) {
     assert(faultInfo[face.faultFaceIndex].element.hasValue());
     const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
     const auto& element = elementsInfo[elementIndex];
+    const auto plus =
+        std::pair<std::size_t, int>(elementIndex, faultInfo[face.faultFaceIndex].side);
 
-    if (elementIndices.find(elementIndex) == elementIndices.end()) {
-      elementIndices[elementIndex] = elementIndices.size();
+    if (elementIndices.find(plus) == elementIndices.end()) {
+      elementIndices[plus] = elementIndices.size();
     }
-    face.deviceDataPlus = elementIndices.at(elementIndex);
+    face.deviceDataPlus = elementIndices.at(plus);
 
     const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
     if (neighborElementIndex.hasValue()) {
-      if (elementIndices.find(neighborElementIndex.value()) == elementIndices.end()) {
-        elementIndices[neighborElementIndex.value()] = elementIndices.size();
+      const auto minus = std::pair<std::size_t, int>(neighborElementIndex.value(),
+                                                     faultInfo[face.faultFaceIndex].neighborSide);
+      if (elementIndices.find(minus) == elementIndices.end()) {
+        elementIndices[minus] = elementIndices.size();
       }
     } else {
       const auto faultSide = faultInfo[face.faultFaceIndex].side;
@@ -405,7 +417,8 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
   for (auto& face : topology.faces) {
     const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
     if (neighborElementIndex.hasValue()) {
-      face.deviceDataMinus = elementIndices.at(neighborElementIndex.value());
+      face.deviceDataMinus = elementIndices.at(std::pair<std::size_t, int>(
+          neighborElementIndex.value(), faultInfo[face.faultFaceIndex].neighborSide));
     } else {
       const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
       const auto& element = elementsInfo[elementIndex];
@@ -423,15 +436,15 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
       // rely on the data that is copied anyways
       // (deviceDataCollector needs to be set to avoid a nullptr call)
       outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
-          std::vector<real*>{}, seissol::kernels::Solver::DerivativesSize, true);
+          std::vector<real*>{}, seissol::kernels::Solver::FaceDerivativesSize, true);
     } else {
       // setup (sparse) index arrays (for receivers)
 
       std::vector<real*> indexPtrs(outputData_->cellCount);
 
       for (const auto& [index, arrayIndex] : elementIndices) {
-        const auto position = wpBackmap_->get(index);
-        indexPtrs[arrayIndex] = wpStorage_->lookup<LTS::DerivativesDevice>(position);
+        const auto position = wpBackmap_->get(index.first);
+        indexPtrs[arrayIndex] = wpStorage_->lookup<LTS::FaceBuffersDevice>(position)[index.second];
         assert(indexPtrs[arrayIndex] != nullptr);
       }
       for (const auto& [_, ghost] : elementIndicesGhost) {
@@ -445,7 +458,7 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
       }
 
       outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollector<real>>(
-          indexPtrs, seissol::kernels::Solver::DerivativesSize, useMPIUSM());
+          indexPtrs, seissol::kernels::Solver::FaceDerivativesSize, useMPIUSM());
 
       for (const auto& variable : variables_) {
         auto* var = drStorage_->varUntyped(variable, initializer::AllocationPlace::Device);

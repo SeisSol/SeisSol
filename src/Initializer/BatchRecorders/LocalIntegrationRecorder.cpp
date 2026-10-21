@@ -15,6 +15,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Initializer/LtsSetup.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
@@ -66,13 +67,12 @@ real* fluxTargetOf(LTS::Layer& layer, std::size_t cell) {
 
 void LocalIntegrationRecorder::record(LTS::Layer& layer) {
   setUpContext(layer);
-  idofsAddressRegistry_.clear();
 
   recordTimeAndVolumeIntegrals();
   recordFreeSurfaceGravityBc();
   recordDirichletBc();
   recordAnalyticalBc(layer);
-  recordLocalFluxIntegral();
+  recordFaceTraces();
   recordDisplacements();
 }
 
@@ -89,12 +89,9 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     std::vector<real*> dofsAnePtrs(size, nullptr);
     std::vector<real*> dofsExtPtrs(size, nullptr);
     std::vector<real*> localPtrs(size, nullptr);
-    std::vector<real*> idofsPtrs;
     std::vector<real*> idofsAnePtrs(size, nullptr);
     std::vector<real*> derivativesAnePtrs(size, nullptr);
     std::vector<real*> derivativesExtPtrs(size, nullptr);
-    std::vector<real*> ltsBuffers;
-    std::vector<real*> idofsForLtsBuffers;
     std::vector<real*> zinvExtraPtrs(size, nullptr);
     // the weight-adjusted cells: their flux buffers, the field the weight comes back to, and the
     // material at their samples
@@ -102,15 +99,11 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     std::vector<real*> weightTargetPtrs;
     std::vector<real*> weightLocalPtrs;
 
-    idofsPtrs.reserve(size);
+    idofsPtrs_.resize(size);
     dQPtrs_.resize(size);
     fluxTargets_.resize(size);
 
-    real** derivatives = currentLayer_->var<LTS::DerivativesDevice>();
-    real** stepIntegrals = currentLayer_->var<LTS::StepIntegralsDevice>();
-    real** accumulatedIntegrals = currentLayer_->var<LTS::AccumulatedIntegralsDevice>();
-
-    for (unsigned cell = 0; cell < size; ++cell) {
+    for (std::size_t cell = 0; cell < size; ++cell) {
       auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
       auto dataHost = currentLayer_->cellRef(cell, AllocationPlace::Host);
 
@@ -118,41 +111,10 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       dofsPtrs[cell] = static_cast<real*>(data.get<LTS::Dofs>());
       integralsPtrs[cell] = static_cast<real*>(data.get<LTS::Integrals>());
 
-      // idofs
-      real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter_];
-      const bool hasStepIntegrals =
-          dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::StepIntegrals);
-      const bool hasAccumulatedIntegrals =
-          dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::AccumulatedIntegrals);
-
-      // we always need space for the step integral right now
-
-      real* stepPtr = nullptr;
-      if (hasStepIntegrals) {
-        stepPtr = stepIntegrals[cell];
-      } else {
-        stepPtr = nextIdofPtr;
-        integratedDofsAddressCounter_ += kernels::Solver::IntegralsSize;
-      }
-
-      idofsPtrs.push_back(stepPtr);
-      idofsAddressRegistry_[cell] = stepPtr;
-
-      if (hasAccumulatedIntegrals) {
-        ltsBuffers.push_back(accumulatedIntegrals[cell]);
-        idofsForLtsBuffers.push_back(stepPtr);
-      }
-
-      // derivatives
-      const bool isDerivativesProvided =
-          dataHost.get<LTS::CellInformation>().ltsSetup.hasBuffer(BufferType::Derivatives);
-      if (isDerivativesProvided) {
-        dQPtrs_[cell] = derivatives[cell];
-
-      } else {
-        dQPtrs_[cell] = &derivativesScratch[derivativesAddressCounter_];
-        derivativesAddressCounter_ += seissol::kernels::Solver::DerivativesSize;
-      }
+      // the time integral and the time derivatives of a cell stay in the scratch memory of the
+      // layer: what the cell leaves on its faces, it writes from there (recordFaceTraces)
+      idofsPtrs_[cell] = integratedDofsScratch + cell * kernels::Solver::IntegralsSize;
+      dQPtrs_[cell] = derivativesScratch + cell * kernels::Solver::DerivativesSize;
 
       // stars
       localPtrs[cell] = reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>());
@@ -190,8 +152,6 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
         weightLocalPtrs.push_back(localPtrs[cell]);
       }
     }
-    // just to be sure that we took all branches while filling in idofsPtrs vector
-    assert(dofsPtrs.size() == idofsPtrs.size());
 
     const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
     checkKey(key);
@@ -199,7 +159,7 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
     (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::Integrals, integralsPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
-    (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs_);
     (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, dQPtrs_);
     (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget, fluxTargets_);
 
@@ -215,13 +175,6 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
       (*currentTable_)[weightKey].set(inner_keys::Wp::Id::LocalIntegrationData, weightLocalPtrs);
     }
 
-    if (!idofsForLtsBuffers.empty()) {
-      const ConditionalKey key(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
-
-      (*currentTable_)[key].set(inner_keys::Wp::Id::Buffers, ltsBuffers);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsForLtsBuffers);
-    }
-
     if constexpr (Config::Solver == SolverType::LinearCKAnelastic) {
       (*currentTable_)[key].set(inner_keys::Wp::Id::DofsAne, dofsAnePtrs);
       (*currentTable_)[key].set(inner_keys::Wp::Id::DofsExt, dofsExtPtrs);
@@ -235,42 +188,62 @@ void LocalIntegrationRecorder::recordTimeAndVolumeIntegrals() {
   }
 }
 
-void LocalIntegrationRecorder::recordLocalFluxIntegral() {
+void LocalIntegrationRecorder::recordFaceTraces() {
+  auto* faceTraces = currentLayer_->var<LTS::FaceTracesDevice>();
+  auto* faceBuffers = currentLayer_->var<LTS::FaceBuffersDevice>();
+  const auto* cellInformation = currentLayer_->var<LTS::CellInformation>();
+
+  // by the face and by the side of the face the cell is on (CellLocalInformation::traceSides)
+  using PerFaceSide = std::array<std::array<std::vector<real*>, 2>, Cell::NumFaces>;
+  PerFaceSide integralPtrs{};
+  PerFaceSide tracePtrs{};
+  PerFaceSide derivativesPtrs{};
+  PerFaceSide faceDerivativesPtrs{};
+  // a trace accumulated over the steps of a neighbor that takes fewer
+  std::vector<real*> accumulatedTracePtrs;
+  std::vector<real*> accumulatedBufferPtrs;
+
   const auto size = currentLayer_->size();
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    std::vector<real*> idofsPtrs;
-    std::vector<real*> dofsPtrs;
-    std::vector<real*> localPtrs;
-    std::vector<real*> fluxTargetPtrs;
+  for (std::size_t cell = 0; cell < size; ++cell) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      const auto side = cellInformation[cell].traceSides[face];
+      integralPtrs[face][side].push_back(idofsPtrs_[cell]);
+      tracePtrs[face][side].push_back(faceTraces[cell][face]);
 
-    idofsPtrs.reserve(size);
-    dofsPtrs.reserve(size);
-    localPtrs.reserve(size);
-    fluxTargetPtrs.reserve(size);
-
-    for (std::size_t cell = 0; cell < size; ++cell) {
-      auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
-      auto dataHost = currentLayer_->cellRef(cell, AllocationPlace::Host);
-
-      // no element local contribution in the case of dynamic rupture boundary conditions, unless
-      // the corrector is the strong form (appliesLocalFlux); the key keeps its name either way
-      if (appliesLocalFlux(dataHost.get<LTS::CellInformation>().faceTypes[face])) {
-        idofsPtrs.push_back(idofsAddressRegistry_[cell]);
-        dofsPtrs.push_back(static_cast<real*>(data.get<LTS::Dofs>()));
-        localPtrs.push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
-        fluxTargetPtrs.push_back(fluxTargets_[cell]);
+      const auto type = cellInformation[cell].ltsSetup.faceBuffer(face);
+      if (type == BufferType::Derivatives) {
+        derivativesPtrs[face][side].push_back(dQPtrs_[cell]);
+        faceDerivativesPtrs[face][side].push_back(faceBuffers[cell][face]);
+      } else if (type == BufferType::AccumulatedIntegrals) {
+        accumulatedTracePtrs.push_back(faceTraces[cell][face]);
+        accumulatedBufferPtrs.push_back(faceBuffers[cell][face]);
       }
     }
+  }
 
-    // NOTE: we can check any container, but we must check that a set is not empty!
-    if (!dofsPtrs.empty()) {
-      const ConditionalKey key(*KernelNames::LocalFlux, !FaceKinds::DynamicRupture, face);
-      checkKey(key);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget, fluxTargetPtrs);
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    for (std::size_t side = 0; side < 2; ++side) {
+      if (!tracePtrs[face][side].empty()) {
+        const ConditionalKey key(*KernelNames::FaceTrace, *ComputationKind::None, face, side);
+        checkKey(key);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, integralPtrs[face][side]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::FaceTrace, tracePtrs[face][side]);
+      }
+      if (!faceDerivativesPtrs[face][side].empty()) {
+        const ConditionalKey key(
+            *KernelNames::FaceTrace, *ComputationKind::WithDerivatives, face, side);
+        checkKey(key);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, derivativesPtrs[face][side]);
+        (*currentTable_)[key].set(inner_keys::Wp::Id::FaceBuffer, faceDerivativesPtrs[face][side]);
+      }
     }
+  }
+
+  if (!accumulatedBufferPtrs.empty()) {
+    const ConditionalKey key(*KernelNames::FaceTrace, *ComputationKind::WithLtsBuffers);
+    checkKey(key);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::FaceTrace, accumulatedTracePtrs);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::FaceBuffer, accumulatedBufferPtrs);
   }
 }
 
@@ -289,7 +262,7 @@ void LocalIntegrationRecorder::recordDisplacements() {
           dataHost.get<LTS::CellInformation>().faceTypes[face] != FaceType::FreeSurfaceGravity;
 
       if (isRequired && notFreeSurfaceGravity) {
-        auto iview = init::I::view::create(idofsAddressRegistry_[cell]);
+        auto iview = init::I::view::create(idofsPtrs_[cell]);
         // gpu_addVelocity reads the three integrated velocities as consecutive columns of I,
         // starting at this pointer. Where they start depends on the equation (column 6 for the
         // elastic ones, column 1 for the acoustic ones); a wrong column reads other quantities or,

@@ -12,9 +12,6 @@ from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, Tensor, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
-from yateto.util import (
-    tensor_collection_from_constant_expression,
-)
 
 from .aderdg import ADERDGBase
 
@@ -223,120 +220,7 @@ class LinearCK(ADERDGBase):
                 target=target,
             )
 
-        if self.nodalFaceFlux:
-            localFlux = lambda i: self.nodalFlux(
-                self.I,
-                self.Q,
-                self.faceEval(i),
-                self.faceLift(i),
-                self.fluxCoefficientsLocal,
-            )
-        else:
-            localFlux = (
-                lambda i: self.Q["kp"]
-                <= self.Q["kp"]
-                + self.db.rDivM[i][self.t("km")]
-                * self.db.fMrT[i][self.t("ml")]
-                * self.I["lq"]
-                * self.AplusT["qp"]
-            )
-        localFluxPrefetch = lambda i: (
-            self.I if i == 0 else (self.Q if i == 1 else None)
-        )
-        generator.addFamily(
-            "localFlux",
-            simpleParameterSpace(4),
-            localFlux,
-            localFluxPrefetch,
-            target="cpu",
-        )
-
-        for target in targets:
-            name_prefix = generate_kernel_name_prefix(target)
-            plusFluxMatrixAccessor = (
-                lambda i: self.db.rDivM[i][self.t("km")] * self.db.fMrT[i][self.t("ml")]
-            )
-            if self.kwargs["enable_premultiply_flux"]:
-                contractionResult = tensor_collection_from_constant_expression(
-                    "plusFluxMatrices",
-                    plusFluxMatrixAccessor,
-                    simpleParameterSpace(4),
-                    target_indices="kl",
-                )
-                self.db.update(contractionResult)
-                plusFluxMatrixAccessor = lambda i: self.db.plusFluxMatrices[i]["kl"]
-
-            if self.nodalFaceFlux:
-                localFlux = lambda i: self.nodalFlux(
-                    self.I,
-                    self.Q,
-                    self.faceEval(i),
-                    self.faceLift(i),
-                    self.fluxCoefficientsLocal,
-                )
-            else:
-                localFlux = (
-                    lambda i: self.Q["kp"]
-                    <= self.Q["kp"]
-                    + plusFluxMatrixAccessor(i) * self.I["lq"] * self.AplusT["qp"]
-                )
-            with self.singleDefinitions(target == "gpu"):
-                if target == "gpu":
-                    generator.addFamily(
-                        f"{name_prefix}localFlux",
-                        simpleParameterSpace(4),
-                        localFlux,
-                        target=target,
-                    )
-
-                if self.nodalFaceFlux:
-                    localFluxAll = self.nodalLocalFluxAll(self.I, self.Q)
-                else:
-                    localFluxAll = self.Q["kp"] <= sum(
-                        [
-                            plusFluxMatrixAccessor(i)
-                            * self.I["lq"]
-                            * self.AplusTAll[i]["qp"]
-                            for i in range(4)
-                        ],
-                        start=self.Q["kp"],
-                    )
-                generator.add(
-                    f"{name_prefix}localFluxAll",
-                    localFluxAll,
-                    target=target,
-                )
-
     def addNeighbor(self, generator, targets):
-        if self.nodalFaceFlux:
-            # The canonical vertex order pins the face orientation of every
-            # regular face to zero, so the neighbour's face values reach this
-            # cell's ordering through the first renumbering only.
-            neighborFlux = lambda j, i: self.nodalFlux(
-                self.I,
-                self.Q,
-                self.db.neighborToFace[0, j]["nl"],
-                self.faceLift(i),
-                self.fluxCoefficientsNeighbor,
-            )
-        else:
-            neighborFlux = (
-                lambda j, i: self.Q["kp"]
-                <= self.Q["kp"]
-                + self.db.rDivM[i][self.t("km")]
-                * self.db.fPrT[j][self.t("ml")]
-                * self.I["lq"]
-                * self.AminusT["qp"]
-            )
-        neighborFluxPrefetch = lambda j, i: self.I
-        generator.addFamily(
-            "neighboringFlux",
-            simpleParameterSpace(4, 4),
-            neighborFlux,
-            neighborFluxPrefetch,
-            target="cpu",
-        )
-
         if self.weightAdjustable():
             # the end of the neighbour phase, where a cell that lifts its fluxes
             # without material has them all (see _configureWeightAdjust)
@@ -354,45 +238,6 @@ class LinearCK(ADERDGBase):
                         self.weightAdjust(self.fluxBuffer, self.Q),
                         target="gpu",
                     )
-
-        if "gpu" in targets and self.nodalFaceFlux:
-            # the same statements as on the host; only the premultiplied
-            # matrices below are a device matter, and the nodal form has none
-            with self.singleDefinitions():
-                generator.addFamily(
-                    "gpu_neighboringFlux",
-                    simpleParameterSpace(4, 4),
-                    neighborFlux,
-                    target="gpu",
-                )
-        elif "gpu" in targets:
-            minusFluxMatrixAccessor = (
-                lambda j, i: self.db.rDivM[i][self.t("km")]
-                * self.db.fPrT[j][self.t("ml")]
-            )
-            if self.kwargs["enable_premultiply_flux"]:
-                contractionResult = tensor_collection_from_constant_expression(
-                    "minusFluxMatrices",
-                    minusFluxMatrixAccessor,
-                    simpleParameterSpace(4, 4),
-                    target_indices="kl",
-                )
-                self.db.update(contractionResult)
-                minusFluxMatrixAccessor = lambda j, i: self.db.minusFluxMatrices[j, i][
-                    "kl"
-                ]
-
-            neighborFlux = (
-                lambda j, i: self.Q["kp"]
-                <= self.Q["kp"]
-                + minusFluxMatrixAccessor(j, i) * self.I["lq"] * self.AminusT["qp"]
-            )
-            generator.addFamily(
-                "gpu_neighboringFlux",
-                simpleParameterSpace(4, 4),
-                neighborFlux,
-                target="gpu",
-            )
 
     def addTime(self, generator, targets):
         powers = [Scalar(f"power({i})") for i in range(self.order)]

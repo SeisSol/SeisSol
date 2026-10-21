@@ -358,3 +358,19 @@ Tetrahedra with the wrong orientation are now reoriented, instead of stopping Se
 
 Custom memory layout files (see ``MEMORY_LAYOUT`` in :ref:`build_parameters`) describe the neighbor flux
 matrices as ``fPrT(0)`` to ``fPrT(3)``. Entries for ``rT`` and ``fP`` are still accepted, but no longer have an effect.
+
+Face Traces
+~~~~~~~~~~~
+
+(since after 1.3.2, October 2026)
+
+After its predictor, every cell writes the trace of its time integral on each of its faces, and the corrector
+of a face works from the two traces of that face alone, instead of reading the time integrals of the cell and of
+its neighbors. The build options ``PREMULTIPLY_FLUX``, ``DEVICE_COMBINE_LOCAL_FLUX`` and
+``DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS`` are gone, as are the options ``--enable_premultiply_flux`` and
+``--disable_premultiply_flux`` of the code generator.
+
+Custom memory layout files (see ``MEMORY_LAYOUT`` in :ref:`build_parameters`) may still contain entries for
+``rDivM``, ``fMrT``, ``fPrT``, ``rT`` and ``fP``, but no kernel reads these matrices any more.
+
+Results differ from those of earlier versions by round-off.

@@ -84,12 +84,6 @@ def main():
     cmdLineParser.add_argument("--drQuadRule")
     cmdLineParser.add_argument("--factored_star", action="store_true", default=False)
     cmdLineParser.add_argument("--curvilinear", action="store_true", default=False)
-    cmdLineParser.add_argument("--enable_premultiply_flux", action="store_true")
-    cmdLineParser.add_argument(
-        "--disable_premultiply_flux",
-        dest="enable_premultiply_flux",
-        action="store_false",
-    )
     cmdLineParser.add_argument("--executable_libxsmm", default="")
     cmdLineParser.add_argument("--executable_pspamm", default="")
     cmdLineParser.add_argument(
@@ -102,7 +96,6 @@ def main():
     )
     cmdLineParser.add_argument("--codegen_target", type=str, default="__all__")
 
-    cmdLineParser.set_defaults(enable_premultiply_flux=False)
     cmdLineArgs = cmdLineParser.parse_args()
 
     # derive the compute platform
@@ -317,6 +310,7 @@ def main():
         adg.addLocal(generator, targets)
         adg.addNeighbor(generator, targets)
         adg.addTime(generator, targets)
+        adg.addTraces(generator, targets)
         adg.add_include_tensors(include_tensors)
 
         kernels.vtkproject.addKernels(

@@ -23,6 +23,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Solver/TimeStepping/HaloCommunication.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -74,144 +75,145 @@ void initBucketItem(T*& data, void* bucket, std::size_t count, bool init) {
   }
 }
 
-auto useBuffersDerivatives(const LTS::Storage& storage,
-                           const LTS::Layer& layer,
-                           std::size_t index,
-                           const RemoteCellRegion& region) {
-  std::array<bool, BufferCount> bufferPresence{};
-
-  const auto& myPrimary = layer.var<LTS::CellInformation>()[index];
-  const auto& mySecondary = layer.var<LTS::SecondaryInformation>()[index];
-
-  // what we do here: we check whether one of our neighbor cells demands derivatives from us which
-  // is in the same region. i.e. we jump onto the neighboring cell (if existent), look for the same
-  // face we jumped over from the other side, and check the `neighborHasDerivatives` for the
-  // original cell.
-  for (std::size_t j = 0; j < Cell::NumFaces; ++j) {
-    if (mySecondary.faceNeighbors[j] != StoragePosition::NullPosition) {
-      const auto& primary = storage.lookup<LTS::CellInformation>(mySecondary.faceNeighbors[j]);
-      const auto& secondary =
-          storage.lookup<LTS::SecondaryInformation>(mySecondary.faceNeighbors[j]);
-
-      const auto isCopyGhost = secondary.halo != mySecondary.halo &&
-                               mySecondary.halo != HaloType::Interior &&
-                               secondary.halo != HaloType::Interior;
-
-      const auto colorCorrect = secondary.color == region.remoteId;
-
-      if (colorCorrect && isCopyGhost &&
-          (secondary.rank == region.rank || mySecondary.rank == region.rank)) {
-        for (std::size_t k = 0; k < Cell::NumFaces; ++k) {
-          if (secondary.faceNeighbors[k] != StoragePosition::NullPosition) {
-            const auto& reverseSecondary =
-                storage.lookup<LTS::SecondaryInformation>(secondary.faceNeighbors[k]);
-            if (reverseSecondary.globalId == mySecondary.globalId) {
-              const auto bufferType = primary.ltsSetup.neighborBuffer(k);
-              if (!myPrimary.ltsSetup.hasBuffer(bufferType)) {
-                logError()
-                    << "Setup error: the given buffer type was requested, but are not present.";
-              }
-              bufferPresence[static_cast<std::size_t>(bufferType)] = true;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // if there are suspected correctness issues, enable
-  // bufferPresence.fill(true);
-  return bufferPresence;
+/// How many reals a buffer of the given type takes on a face.
+constexpr std::size_t bufferSize(BufferType type) {
+  return type == BufferType::Derivatives ? kernels::Solver::FaceDerivativesSize
+                                         : kernels::Solver::FaceTraceSize;
 }
 
-template <typename TypeP, typename TypeDeviceP, std::size_t SizeP>
-struct LTSBuffer {
-  using Type = TypeP;
-  using TypeDevice = TypeDeviceP;
-  static constexpr auto Size = SizeP;
-};
+/// Whether the neighbor across `face` of the cell `index` of `layer` is one of the cells `region`
+/// pairs this layer with on another rank, so that what the cell writes on that face crosses to that
+/// rank (a copy cell) or what the neighbor writes there comes from it (a ghost cell).
+bool crossesTo(const LTS::Storage& storage,
+               const LTS::Layer& layer,
+               std::size_t index,
+               std::size_t face,
+               const RemoteCellRegion& region) {
+  const auto& mySecondary = layer.var<LTS::SecondaryInformation>()[index];
+  const auto& neighbor = mySecondary.faceNeighbors[face];
+  if (neighbor == StoragePosition::NullPosition) {
+    return false;
+  }
+  const auto& secondary = storage.lookup<LTS::SecondaryInformation>(neighbor);
+  const auto isCopyGhost = secondary.halo != mySecondary.halo &&
+                           mySecondary.halo != HaloType::Interior &&
+                           secondary.halo != HaloType::Interior;
+  const auto colorCorrect = secondary.color == region.remoteId;
+  return colorCorrect && isCopyGhost &&
+         (secondary.rank == region.rank || mySecondary.rank == region.rank);
+}
 
-template <typename F>
-constexpr auto callForBuffer(BufferType type, F caller) {
-  switch (type) {
-  case BufferType::Derivatives:
-    caller(LTSBuffer<LTS::Derivatives, LTS::DerivativesDevice, kernels::Solver::DerivativesSize>());
-    break;
-  case BufferType::StepIntegrals:
-    caller(
-        LTSBuffer<LTS::StepIntegrals, LTS::StepIntegralsDevice, kernels::Solver::IntegralsSize>());
-    break;
-  case BufferType::AccumulatedIntegrals:
-    caller(LTSBuffer<LTS::AccumulatedIntegrals,
-                     LTS::AccumulatedIntegralsDevice,
-                     kernels::Solver::IntegralsSize>());
-    break;
-  default:
-    logError() << "Unknown LTS buffer type.";
-    break;
+/// Checks that what a cell writes on a face crossing to another rank is what the neighbor there
+/// reads, both as this rank knows them.
+void checkCrossing(const LTS::Storage& storage,
+                   const LTS::Layer& layer,
+                   std::size_t index,
+                   std::size_t face) {
+  const auto& primary = layer.var<LTS::CellInformation>()[index];
+  const auto& secondary = layer.var<LTS::SecondaryInformation>()[index];
+  const auto& neighbor = storage.lookup<LTS::CellInformation>(secondary.faceNeighbors[face]);
+  const auto neighborFace = primary.faceRelations[face][0];
+  if (primary.ltsSetup.faceBuffer(face) != neighbor.ltsSetup.neighborBuffer(neighborFace)) {
+    logError() << "Setup error: a cell writes another buffer on a face than its neighbor reads.";
   }
 }
 
 std::vector<solver::RemoteCluster> allocateTransferInfo(
     const LTS::Storage& storage, LTS::Layer& layer, const std::vector<RemoteCellRegion>& regions) {
   const auto* cellInformation = layer.var<LTS::CellInformation>();
+  auto* faceTraces = layer.var<LTS::FaceTraces>();
+  auto* faceBuffers = layer.var<LTS::FaceBuffers>();
+  auto* faceTracesDevice = layer.var<LTS::FaceTracesDevice>();
+  auto* faceBuffersDevice = layer.var<LTS::FaceBuffersDevice>();
+  // a ghost cell computes nothing here: it has what its neighbors read of it, and no trace of its
+  // own
+  const bool ghost = layer.getIdentifier().halo == HaloType::Ghost;
   BucketManager manager;
 
   const auto datatype = Config::Precision;
   const auto typeSize = sizeOfRealType(datatype);
 
-  const auto allocate = [&](std::size_t index, BufferType type) {
-    const bool hasBuffer = cellInformation[index].ltsSetup.hasBuffer(type);
-    if (hasBuffer) {
-      callForBuffer(type, [&](auto typeHelper) {
-        using Buf = decltype(typeHelper);
-        auto* offset = manager.markAllocate(Buf::Size * typeSize);
-        layer.var<typename Buf::Type>()[index] = offset;
-        layer.var<typename Buf::TypeDevice>()[index] = offset;
-      });
+  for (std::size_t index = 0; index < layer.size(); ++index) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      faceTraces[index][face] = nullptr;
+      faceBuffers[index][face] = nullptr;
+      faceTracesDevice[index][face] = nullptr;
+      faceBuffersDevice[index][face] = nullptr;
+    }
+  }
+
+  // what a cell writes on a face for the neighbor across it; the trace of its time integral is
+  // that buffer where the neighbor runs at the same time step
+  const auto allocateBuffer = [&](std::size_t index, std::size_t face) {
+    const auto type = cellInformation[index].ltsSetup.faceBuffer(face).value();
+    auto* offset = manager.markAllocate(bufferSize(type) * typeSize);
+    faceBuffers[index][face] = offset;
+    faceBuffersDevice[index][face] = offset;
+    if (type == BufferType::StepIntegrals && !ghost) {
+      faceTraces[index][face] = offset;
+      faceTracesDevice[index][face] = offset;
     }
   };
+  const auto allocateTrace = [&](std::size_t index, std::size_t face) {
+    auto* offset = manager.markAllocate(kernels::Solver::FaceTraceSize * typeSize);
+    faceTraces[index][face] = offset;
+    faceTracesDevice[index][face] = offset;
+  };
 
-  const auto allocationPass =
-      [&](std::size_t counter, const RemoteCellRegion& region, bool needed, BufferType type) {
-        for (std::size_t i = 0; i < region.count; ++i) {
-          const auto index = i + counter;
-          const auto buffers = useBuffersDerivatives(storage, layer, index, region);
-          if ((needed || layer.getIdentifier().halo != HaloType::Ghost) &&
-              buffers[static_cast<std::size_t>(type)] == needed) {
-            allocate(index, type);
+  // Everything of the cells [begin, end) that stays on this rank: the traces of a cell, and what it
+  // writes on a face whose neighbor is not one of the cells `crossing` says cross to another rank.
+  const auto localPass = [&](std::size_t begin, std::size_t end, const auto& crossing) {
+    if (ghost) {
+      return;
+    }
+    for (std::size_t index = begin; index < end; ++index) {
+      const auto& ltsSetup = cellInformation[index].ltsSetup;
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+        const auto type = ltsSetup.faceBuffer(face);
+        const bool crosses = crossing(index, face);
+        if (type.has_value() && !crosses) {
+          allocateBuffer(index, face);
+        }
+        if (type != BufferType::StepIntegrals) {
+          allocateTrace(index, face);
+        }
+      }
+    }
+  };
+  // what crosses: what a copy cell writes for a neighbor on the other rank, or what a neighbor
+  // there writes for a cell here, which this rank keeps as the ghost cell's
+  const auto transferPass = [&](std::size_t begin, std::size_t end, const auto& crossing) {
+    for (std::size_t index = begin; index < end; ++index) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+        if (crossing(index, face)) {
+          checkCrossing(storage, layer, index, face);
+          if (cellInformation[index].ltsSetup.faceBuffer(face).has_value()) {
+            allocateBuffer(index, face);
           }
         }
-      };
+      }
+    }
+  };
 
   std::vector<solver::RemoteCluster> remoteClusters;
   remoteClusters.reserve(regions.size());
 
   if (regions.empty()) {
-    for (std::size_t index = 0; index < layer.size(); ++index) {
-      allocate(index, BufferType::AccumulatedIntegrals);
-    }
-    for (std::size_t index = 0; index < layer.size(); ++index) {
-      allocate(index, BufferType::StepIntegrals);
-    }
-    for (std::size_t index = 0; index < layer.size(); ++index) {
-      allocate(index, BufferType::Derivatives);
-    }
+    localPass(0, layer.size(), [](std::size_t, std::size_t) { return false; });
   } else {
     std::size_t counter = 0;
 
-    // allocate all to-transfer buffers/derivatives contiguously (note: region.rank)
-    // (thus do non-relevant buffers before and non-relevant derivatives afterwards)
+    // allocate all to-transfer buffers contiguously per region (note: region.rank)
     for (const auto& region : regions) {
-      allocationPass(counter, region, false, BufferType::AccumulatedIntegrals);
-      allocationPass(counter, region, false, BufferType::StepIntegrals);
+      const auto crossing = [&](std::size_t index, std::size_t face) {
+        return crossesTo(storage, layer, index, face, region);
+      };
+      localPass(counter, counter + region.count, crossing);
 
       // transfer allocation
       manager.align();
       auto startPosition = manager.position();
-      allocationPass(counter, region, true, BufferType::StepIntegrals);
-      allocationPass(counter, region, true, BufferType::AccumulatedIntegrals);
-      allocationPass(counter, region, true, BufferType::Derivatives);
+      transferPass(counter, counter + region.count, crossing);
       manager.align();
       auto endPosition = manager.position();
       auto size = endPosition - startPosition;
@@ -222,8 +224,6 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
 
       remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.rank, region.tag);
 
-      allocationPass(counter, region, false, BufferType::Derivatives);
-
       counter += region.count;
     }
 
@@ -231,38 +231,43 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   }
 
   layer.setEntrySize<LTS::Buffers>(manager.size());
+  if (!ghost) {
+    layer.setEntrySize<LTS::ZeroFaceTrace>(kernels::Solver::FaceTraceSize * sizeof(real));
+  }
 
   return remoteClusters;
 }
 
 void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
+  if (layer.getIdentifier().halo != HaloType::Ghost) {
+    std::fill_n(layer.var<LTS::ZeroFaceTrace>(), kernels::Solver::FaceTraceSize, real{0});
+  }
+
   auto* buffers = layer.var<LTS::Buffers>();
   auto* buffersDevice = layer.var<LTS::Buffers>(AllocationPlace::Device);
+  auto* faceTraces = layer.var<LTS::FaceTraces>();
+  auto* faceBuffers = layer.var<LTS::FaceBuffers>();
+  auto* faceTracesDevice = layer.var<LTS::FaceTracesDevice>();
+  auto* faceBuffersDevice = layer.var<LTS::FaceBuffersDevice>();
+  const auto* cellInformation = layer.var<LTS::CellInformation>();
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    for (std::size_t type = 0; type < BufferCount; ++type) {
-      callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
-        using Buf = decltype(typeHelper);
-        auto*& pointer = layer.var<typename Buf::Type>()[cell];
-        initBucketItem(pointer, buffers, Buf::Size, true);
-        assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
-                   static_cast<BufferType>(type)) ||
-               pointer != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
-      });
-    }
-
-    if constexpr (isDeviceOn()) {
-      for (std::size_t type = 0; type < BufferCount; ++type) {
-        callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
-          using Buf = decltype(typeHelper);
-          auto*& pointer = layer.var<typename Buf::TypeDevice>()[cell];
-          initBucketItem(pointer, buffersDevice, Buf::Size, false);
-          assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
-                     static_cast<BufferType>(type)) ||
-                 pointer != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
-        });
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      const auto type = cellInformation[cell].ltsSetup.faceBuffer(face);
+      initBucketItem(faceTraces[cell][face], buffers, kernels::Solver::FaceTraceSize, true);
+      if (type.has_value()) {
+        initBucketItem(faceBuffers[cell][face], buffers, bufferSize(type.value()), true);
       }
+      if constexpr (isDeviceOn()) {
+        initBucketItem(
+            faceTracesDevice[cell][face], buffersDevice, kernels::Solver::FaceTraceSize, false);
+        if (type.has_value()) {
+          initBucketItem(
+              faceBuffersDevice[cell][face], buffersDevice, bufferSize(type.value()), false);
+        }
+      }
+      assert(faceTraces[cell][face] != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
     }
   }
 
@@ -270,16 +275,16 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   // every pointer we handed out has to have been resolved against the bucket base by now
   const auto bucketBase = reinterpret_cast<std::uintptr_t>(buffers);
   const auto bucketSize = layer.getEntrySize<LTS::Buffers>();
+  const auto inside = [&](const real* pointer, std::size_t size) {
+    const auto address = reinterpret_cast<std::uintptr_t>(pointer);
+    return address == 0 ||
+           (address >= bucketBase && address + size * sizeof(real) <= bucketBase + bucketSize);
+  };
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    for (std::size_t type = 0; type < BufferCount; ++type) {
-      callForBuffer(static_cast<BufferType>(type), [&](auto typeHelper) {
-        using Buf = decltype(typeHelper);
-        const auto address =
-            reinterpret_cast<std::uintptr_t>(layer.var<typename Buf::Type>()[cell]);
-        const bool insideBucket =
-            address >= bucketBase && address + Buf::Size * sizeof(real) <= bucketBase + bucketSize;
-        assert(address == 0 || insideBucket);
-      });
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      const auto type = cellInformation[cell].ltsSetup.faceBuffer(face);
+      assert(inside(faceTraces[cell][face], kernels::Solver::FaceTraceSize));
+      assert(!type.has_value() || inside(faceBuffers[cell][face], bufferSize(type.value())));
     }
   }
 #endif
@@ -307,22 +312,20 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const auto& faceNeighbor = secondaryCellInformation[cell].faceNeighbors[face];
+      faceNeighbors[cell][face] = nullptr;
+      faceNeighborsDevice[cell][face] = nullptr;
       if (getBCType(cellInformation[cell].faceTypes[face]) != BCType::External) {
-        const auto type = cellInformation[cell].ltsSetup.neighborBuffer(face);
-
-        callForBuffer(type, [&](auto typeHandler) {
-          using Buf = decltype(typeHandler);
-
-          if (faceNeighbor == StoragePosition::NullPosition) {
-            logError() << "A face that needs the Neighbor kernel has no face neighbor.";
-          } else {
-            faceNeighbors[cell][face] = storage.lookup<typename Buf::Type>(faceNeighbor);
-            if constexpr (isDeviceOn()) {
-              faceNeighborsDevice[cell][face] =
-                  storage.lookup<typename Buf::TypeDevice>(faceNeighbor);
-            }
+        if (faceNeighbor == StoragePosition::NullPosition) {
+          logError() << "A face that needs the Neighbor kernel has no face neighbor.";
+        } else {
+          // what the neighbor writes on the same face, which it knows by its own number
+          const auto neighborFace = cellInformation[cell].faceRelations[face][0];
+          faceNeighbors[cell][face] = storage.lookup<LTS::FaceBuffers>(faceNeighbor)[neighborFace];
+          if constexpr (isDeviceOn()) {
+            faceNeighborsDevice[cell][face] =
+                storage.lookup<LTS::FaceBuffersDevice>(faceNeighbor)[neighborFace];
           }
-        });
+        }
 
         assert(faceNeighbors[cell][face] != nullptr);
         if constexpr (isDeviceOn()) {

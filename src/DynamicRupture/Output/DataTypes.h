@@ -218,6 +218,9 @@ struct QuadraturePointFrame {
 struct OutputPoint {
   std::size_t faceId{};
   PlusMinusBasisFunctions basisFunctions;
+  /// the face basis at the point, in the reference face of the plus side, which reads the traces of
+  /// either side at it (see getFaceBasisFunctions)
+  std::vector<real> faceBasisFunctions;
   std::size_t nearestGpIndex{};
   std::size_t nearestInternalGpIndex{};
   /// On a curved face the frame of the fault turns along the face. A point then gives what it

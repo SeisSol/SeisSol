@@ -25,6 +25,8 @@ class Neighbor;
 
 namespace seissol::tensor {
 struct spaceTimePredictor;
+struct faceTrace;
+struct faceDerivatives;
 } // namespace seissol::tensor
 
 namespace seissol::kernels::solver::stp {
@@ -54,6 +56,10 @@ struct Solver {
 
   static constexpr std::size_t IntegralsSize = tensor::I::size();
   static constexpr std::size_t DerivativesSize = kernels::size<tensor::spaceTimePredictor>();
+  /// What a cell writes on a face: the trace of its time integral, and the traces of its time
+  /// derivatives.
+  static constexpr std::size_t FaceTraceSize = kernels::size<tensor::faceTrace>();
+  static constexpr std::size_t FaceDerivativesSize = kernels::familySize<tensor::faceDerivatives>();
 
   using LocalData = STPLocalData;
   using NeighborData = std::monostate;

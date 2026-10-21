@@ -17,6 +17,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
+#include "Kernels/FaceTraces.h"
 #include "Kernels/Precision.h"
 #include "Kernels/StarOperands.h"
 #include "Monitoring/Metric.h"
@@ -33,27 +34,21 @@
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-
-#include <Device/device.h>
 #endif
 
 #ifndef NDEBUG
 #include <cstdint>
 #endif
 
-GENERATE_HAS_MEMBER(I)
+GENERATE_HAS_MEMBER(faceTraceNeighbor)
 
 namespace seissol::kernels {
 
-// The dynamic rupture families are indexed by the side and the face relation. Relation 0
+// The lift of the fault into a cell is indexed by the side and the face relation. Relation 0
 // addresses the plus side, relation 1 the minus side at a zero face orientation index, which the
 // canonical vertex numbering guarantees on every interior face.
 static_assert(std::size(dynamicRupture::kernel::nodalFlux::ExecutePtrs) ==
               Cell::NumFaces * dr::misc::NumFaceRelations);
-static_assert(
-    std::size(dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints::ExecutePtrs) ==
-    Cell::NumFaces * dr::misc::NumFaceRelations);
-static_assert(std::size(tensor::V3mTo2n::Size) == Cell::NumFaces * dr::misc::NumFaceRelations);
 static_assert(std::size(tensor::V3mTo2nTWDivM::Size) ==
               Cell::NumFaces * dr::misc::NumFaceRelations);
 
@@ -66,7 +61,6 @@ void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
   krnlPrototype_.bindGlobals(*global.onHost);
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
-  gpuKrnlPrototype_.bindGlobals(*global.onDevice);
   gpuCombinedKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 
@@ -74,54 +68,37 @@ void DynamicRupture::setGlobalData(const CompoundGlobalData& global) {
 }
 
 void DynamicRupture::spaceTimeInterpolation(
-    const DRFaceInformation& faceInfo,
     const DRGodunovData* godunovData,
     const real* timeDerivativePlus,
     const real* timeDerivativeMinus,
     real qInterpolatedPlus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
     real qInterpolatedMinus[dr::misc::TimeSteps][seissol::tensor::QInterpolated::size()],
-    const real* timeDerivativePlusPrefetch,
-    const real* timeDerivativeMinusPrefetch,
     const real* coeffs) {
 
-  // assert alignments
   assert(timeDerivativePlus != nullptr);
   assert(timeDerivativeMinus != nullptr);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativePlus)) % Vectorsize == 0);
-  assert((reinterpret_cast<uintptr_t>(timeDerivativeMinus)) % Vectorsize == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedPlus[0])) % Vectorsize == 0);
   assert((reinterpret_cast<uintptr_t>(&qInterpolatedMinus[0])) % Vectorsize == 0);
-  static_assert(tensor::Q::size() == tensor::I::size(),
-                "The tensors Q and I need to match in size");
 
-  alignas(PagesizeStack) real degreesOfFreedomPlus[tensor::Q::size()];
-  alignas(PagesizeStack) real degreesOfFreedomMinus[tensor::Q::size()];
+  // the trace of a side at one point in time
+  alignas(PagesizeStack) real tracePlus[tensor::faceTraceNeighbor::size()];
+  alignas(PagesizeStack) real traceMinus[tensor::faceTraceNeighbor::size()];
 
-  dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl = krnlPrototype_;
+  dynamicRupture::kernel::evaluateAndRotateTraceAtInterpolationPoints krnl = krnlPrototype_;
+  kernels::bindFaultRotation(krnl, godunovData->dataTinvT);
   for (std::size_t timeInterval = 0; timeInterval < dr::misc::TimeSteps; ++timeInterval) {
-    timeKernel_.evaluate(
-        &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, degreesOfFreedomPlus);
-    timeKernel_.evaluate(
-        &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, degreesOfFreedomMinus);
-
-    const real* plusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
-                                   ? &qInterpolatedPlus[timeInterval + 1][0]
-                                   : timeDerivativePlusPrefetch;
-    const real* minusPrefetch = (timeInterval + 1 < dr::misc::TimeSteps)
-                                    ? &qInterpolatedMinus[timeInterval + 1][0]
-                                    : timeDerivativeMinusPrefetch;
+    timeKernel_.evaluateTrace(
+        &coeffs[timeInterval * ConvergenceOrder], timeDerivativePlus, tracePlus);
+    timeKernel_.evaluateTrace(
+        &coeffs[timeInterval * ConvergenceOrder], timeDerivativeMinus, traceMinus);
 
     krnl.QInterpolated = &qInterpolatedPlus[timeInterval][0];
-    krnl.Q = degreesOfFreedomPlus;
-    kernels::bindFaultRotation(krnl, godunovData->dataTinvT);
-    krnl._prefetch.QInterpolated = plusPrefetch;
-    krnl.execute(faceInfo.plusSide, 0);
+    krnl.faceTraceNeighbor = tracePlus;
+    krnl.execute();
 
     krnl.QInterpolated = &qInterpolatedMinus[timeInterval][0];
-    krnl.Q = degreesOfFreedomMinus;
-    kernels::bindFaultRotation(krnl, godunovData->dataTinvT);
-    krnl._prefetch.QInterpolated = minusPrefetch;
-    krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
+    krnl.faceTraceNeighbor = traceMinus;
+    krnl.execute();
   }
 }
 
@@ -132,84 +109,65 @@ void DynamicRupture::batchedSpaceTimeInterpolation(
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
 
-  // interpolate all timesteps in a single kernel
+  // all points in time of both sides of every face in one kernel: the two sides write their traces
+  // in the same parametrisation of the face
+  const ConditionalKey key(*KernelNames::DrSpaceMap);
+  if (table.find(key) != table.end()) {
+    auto& entry = table[key];
+    const auto numElements = (entry.get(inner_keys::Dr::Id::QInterpolated))->getSize();
 
-  runtime.envMany(Cell::NumFaces * dr::misc::NumFaceRelations, [&](void* stream, size_t i) {
-    const auto side = i / dr::misc::NumFaceRelations;
-    const auto faceRelation = i % dr::misc::NumFaceRelations;
+    auto krnl = gpuCombinedKrnlPrototype_;
+    auto tmpMem =
+        runtime.memoryHandle<real>((krnl.TmpMaxMemRequiredInBytes * numElements) / sizeof(real));
+    krnl.linearAllocator.initialize(tmpMem.get());
+    krnl.streamPtr = runtime.stream();
+    krnl.numElements = numElements;
 
-    ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
-    if (table.find(minusSideKey) != table.end()) {
-      auto& entry = table[minusSideKey];
-      const size_t numElements = (entry.get(inner_keys::Dr::Id::IdofsMinus))->getSize();
-
-      auto krnl = gpuCombinedKrnlPrototype_;
-      real* tmpMem = reinterpret_cast<real*>(
-          device_.api->allocMemAsync(krnl.TmpMaxMemRequiredInBytes * numElements, stream));
-      krnl.linearAllocator.initialize(tmpMem);
-      krnl.streamPtr = stream;
-      krnl.numElements = numElements;
-
-      std::size_t offsetQDR = 0;
-      for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
-        krnl.QDR(s) = (entry.get(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
-        krnl.extraOffset_QDR(s) = offsetQDR;
-        offsetQDR += tensor::QDR::size(s);
-      }
-
-      std::size_t offsetDQ = 0;
-      for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
-        krnl.dQ(p) = const_cast<const real**>(
-            (entry.get(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
-        krnl.extraOffset_dQ(p) = offsetDQ;
-        offsetDQ += tensor::dQ::size(p);
-      }
-
-      for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
-        for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
-          krnl.coeffDR(s * ConvergenceOrder + p) = coeffs[s * ConvergenceOrder + p];
-        }
-      }
-
-      set_I(krnl, entry.get(inner_keys::Dr::Id::IdofsMinus)->getDeviceDataPtr());
-
-      krnl.TinvT =
-          const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
-      krnl.execute(side, faceRelation);
-
-      device_.api->freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
+    std::size_t offsetQDR = 0;
+    for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
+      krnl.QDR(s) = (entry.get(inner_keys::Dr::Id::QInterpolated))->getDeviceDataPtr();
+      krnl.extraOffset_QDR(s) = offsetQDR;
+      offsetQDR += tensor::QDR::size(s);
     }
-  });
+
+    kernels::bindFaceDerivativesBatched(
+        krnl,
+        const_cast<const real**>(
+            (entry.get(inner_keys::Dr::Id::FaceDerivatives))->getDeviceDataPtr()));
+
+    for (std::size_t s = 0; s < dr::misc::TimeSteps; ++s) {
+      for (std::size_t p = 0; p < ConvergenceOrder; ++p) {
+        krnl.coeffDR(s * ConvergenceOrder + p) = coeffs[s * ConvergenceOrder + p];
+      }
+    }
+
+    // where the kernel forms the trace at a point in time apart
+    set_faceTraceNeighbor(krnl, entry.get(inner_keys::Dr::Id::Trace)->getDeviceDataPtr());
+
+    krnl.TinvT =
+        const_cast<const real**>((entry.get(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
+    krnl.execute();
+  }
 #else
   logError() << "No GPU implementation provided";
 #endif
 }
 
-PerformanceEstimate DynamicRupture::metrics(const DRFaceInformation& faceInfo) const {
+PerformanceEstimate DynamicRupture::metrics() const {
   if (isDeviceOn()) {
-    return PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(faceInfo.plusSide,
-                                                                                0) +
-           PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR>(
-               faceInfo.minusSide, faceInfo.faceRelation);
+    return PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectTracesToDR>() * 2;
   } else {
-    auto estimate = timeKernel_.metrics();
-
-    // 2x evaluateTaylorExpansion
-    estimate *= 2;
-
+    auto estimate = PerformanceEstimate::fromKernel<kernel::faceDerivativesAtTime>();
     estimate += PerformanceEstimate::fromKernel<
-        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.plusSide, 0);
+        dynamicRupture::kernel::evaluateAndRotateTraceAtInterpolationPoints>();
 
-    estimate += PerformanceEstimate::fromKernel<
-        dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints>(faceInfo.minusSide,
-                                                                         faceInfo.faceRelation);
-
-    estimate *= dr::misc::TimeSteps;
+    // both sides, every point in time
+    estimate *= 2 * dr::misc::TimeSteps;
 
     // legacy CPU memory estimate
     estimate.bytes = (sizeof(DRGodunovData::dataTinvT) / sizeof(real) +
                       tensor::QInterpolated::size() * 2 * dr::misc::TimeSteps +
-                      yateto::computeFamilySize<tensor::dQ>() * 2) *
+                      kernels::Solver::FaceDerivativesSize * 2) *
                      sizeof(real);
 
     return estimate;

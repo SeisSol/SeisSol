@@ -65,7 +65,33 @@ class SpacetimeKernel : public Kernel {
                                   bool updateDisplacement,
                                   seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
+  /**
+   * @brief Write the traces of the space-time evolution on one face: what a neighbor that evaluates
+   * it over intervals of its own reads of the cell there, or the fault.
+   *
+   * @param timeDerivativesOrSTP The space-time evolution computeAder wrote.
+   * @param face The face.
+   * @param side In which parametrisation of the face the traces are written
+   * (CellLocalInformation::traceSides).
+   * @param faceDerivatives Output: the traces, as the TimeKernel evaluates them (evaluateTrace).
+   */
+  virtual void computeFaceDerivatives(const real* timeDerivativesOrSTP,
+                                      std::size_t face,
+                                      std::size_t side,
+                                      real* faceDerivatives) = 0;
+
+  /**
+   * @brief computeFaceDerivatives for the batches the recorder noted by face and by side, from the
+   * space-time evolution computeBatchedAder wrote (see recording::LocalIntegrationRecorder).
+   */
+  virtual void
+      computeBatchedFaceDerivatives(recording::ConditionalPointersToRealsTable& dataTable,
+                                    seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+
   [[nodiscard]] virtual PerformanceEstimate metrics() const = 0;
+
+  /// The cost of computeFaceDerivatives on one face.
+  [[nodiscard]] virtual PerformanceEstimate faceDerivativesMetrics() const = 0;
 };
 
 } // namespace seissol::kernels
