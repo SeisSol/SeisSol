@@ -11,6 +11,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
 #include "Parallel/Runtime/EventPool.h"
+#include "Parallel/Runtime/HostRuntime.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -162,12 +163,7 @@ class StreamRuntime {
 
   template <typename F>
   void enqueueLoop(std::size_t elemCount, const F& handler) {
-    enqueueHost([=]() {
-#pragma omp parallel for schedule(static)
-      for (std::size_t i = 0; i < elemCount; ++i) {
-        std::invoke(handler, i);
-      }
-    });
+    enqueueHost([=]() { HostRuntime::forEach(elemCount, handler); });
   }
 
   EventRef nextEvent() { return events_.next(); }
@@ -403,10 +399,7 @@ class StreamRuntime {
 
   template <typename F>
   void enqueueLoop(std::size_t elemCount, const F& handler) {
-#pragma omp parallel for schedule(static)
-    for (std::size_t i = 0; i < elemCount; ++i) {
-      std::invoke(handler, i);
-    }
+    HostRuntime::forEach(elemCount, handler);
   }
 
   template <typename F>

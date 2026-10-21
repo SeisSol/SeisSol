@@ -26,6 +26,7 @@
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
 #include "Numerical/Quadrature.h"
+#include "Parallel/Runtime/HostRuntime.h"
 #include "SeisSol.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
@@ -35,6 +36,7 @@
 #include <cassert>
 #include <cstddef>
 #include <string>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
@@ -128,39 +130,50 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRupture(const StepParams& params)
   const auto frictionTime =
       seissol::dr::friction_law::FrictionSolver::computeDeltaT<Cfg>(timePoints);
 
+  // the markers of LIKWID count per thread; without LIKWID, the regions would cost a fork and a
+  // join each, for nothing
+#ifdef LIKWID_PERFMON
 #pragma omp parallel
   {
     LIKWID_MARKER_START("computeDynamicRuptureSpaceTimeInterpolation");
   }
+#endif
 
-#pragma omp parallel for schedule(static)
-  for (std::size_t face = 0; face < layerData.size(); ++face) {
-    const std::size_t prefetchFace = (face + 1 < layerData.size()) ? face + 1 : face;
-    dynamicRuptureKernel_.spaceTimeInterpolation(faceInformation[face],
-                                                 &godunovData[face],
-                                                 timeDerivativePlus[face],
-                                                 timeDerivativeMinus[face],
-                                                 qInterpolatedPlus[face],
-                                                 qInterpolatedMinus[face],
-                                                 timeDerivativePlus[prefetchFace],
-                                                 timeDerivativeMinus[prefetchFace],
-                                                 pointsCollocate.data());
-  }
+  parallel::runtime::HostRuntime::forRange(
+      layerData.size(), [&](std::size_t begin, std::size_t end) {
+        for (std::size_t face = begin; face < end; ++face) {
+          // the next face of the range comes next on this thread
+          const std::size_t prefetchFace = (face + 1 < end) ? face + 1 : face;
+          dynamicRuptureKernel_.spaceTimeInterpolation(faceInformation[face],
+                                                       &godunovData[face],
+                                                       timeDerivativePlus[face],
+                                                       timeDerivativeMinus[face],
+                                                       qInterpolatedPlus[face],
+                                                       qInterpolatedMinus[face],
+                                                       timeDerivativePlus[prefetchFace],
+                                                       timeDerivativeMinus[prefetchFace],
+                                                       pointsCollocate.data());
+        }
+      });
   SCOREP_USER_REGION_END(myRegionHandle)
+#ifdef LIKWID_PERFMON
 #pragma omp parallel
   {
     LIKWID_MARKER_STOP("computeDynamicRuptureSpaceTimeInterpolation");
     LIKWID_MARKER_START("computeDynamicRuptureFrictionLaw");
   }
+#endif
 
   SCOREP_USER_REGION_BEGIN(
       myRegionHandle, "computeDynamicRuptureFrictionLaw", SCOREP_USER_REGION_TYPE_COMMON)
   frictionSolver_->evaluate(params.time, frictionTime, timeWeights.data(), streamRuntime_);
   SCOREP_USER_REGION_END(myRegionHandle)
+#ifdef LIKWID_PERFMON
 #pragma omp parallel
   {
     LIKWID_MARKER_STOP("computeDynamicRuptureFrictionLaw");
   }
+#endif
 
   loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_);
 }
@@ -301,7 +314,9 @@ void DynamicRuptureCluster<Cfg>::recordPickpointsNow(double stepTime, bool lastS
 }
 
 template <typename Cfg>
-void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params) {
+void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params,
+                                                      const std::vector<double>& times,
+                                                      bool lastStep) {
   if (runTimeOutputs_) {
     const auto layerId = layerData_->id();
     if (faultOutputManager_->hasPickpoints(layerId)) {
@@ -311,9 +326,6 @@ void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params) 
                                                                    pickpointStepStartOnDevice_,
                                                                    params.time,
                                                                    streamRuntime_);
-      // a recording that gets replayed ends before the synchronization point, so the last step
-      // before it is never replayed
-      const bool lastStep = ct_.isLastStep(ct_.stepsSinceLastSync);
       callRuntime.enqueueHost(
           [this, lastStep]() { recordPickpointsNow(*pickpointStepStart_, lastStep); });
     }
@@ -323,7 +335,7 @@ void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params) 
   const double meshDt = ct_.getTimeStepSize();
   // the friction law has just evaluated this step up to its end, and that is the state written out
   const double stateTime = params.time + params.timeStepSize;
-  for (const auto time : pickpointTimes_) {
+  for (const auto time : times) {
     faultOutputManager_->recordPickpointOutput(
         layerData_->id(), stateTime, time, meshDt, 0, streamRuntime_);
   }
@@ -397,13 +409,23 @@ void DynamicRuptureCluster<Cfg>::interact(const StepParams& params) {
     return;
   }
 
+  // a recording that gets replayed ends before the synchronization point, so the last step
+  // before it is never replayed
+  const bool lastStep = ct_.isLastStep(ct_.stepsSinceLastSync);
+
   if (executor_ == Executor::Device) {
     computeDynamicRuptureDevice(params);
+    writePickpointOutput(params, pickpointTimes_, lastStep);
   } else {
-    computeDynamicRupture(params);
+    // the faces read what the adjacent cells share, and change what these read for their
+    // correction; the work takes the output steps of its step along, as the decisions about the
+    // next steps may come before it runs
+    hostRuntime_.action({/*readsNeighbors=*/true, /*writesShared=*/true},
+                        [this, params, times = pickpointTimes_, lastStep]() {
+                          computeDynamicRupture(params);
+                          writePickpointOutput(params, times, lastStep);
+                        });
   }
-
-  writePickpointOutput(params);
 
   // TODO(David): restrict to copy/interior of same cluster type
   if (hasDifferentExecutorNeighbor()) {

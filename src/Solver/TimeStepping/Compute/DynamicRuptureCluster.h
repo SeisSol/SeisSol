@@ -114,7 +114,11 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   void computeDynamicRuptureDevice(const StepParams& params);
   /// decides in which output steps of the current step the fault receivers record
   void planPickpointOutput(const StepParams& params);
-  void writePickpointOutput(const StepParams& params);
+  /// records the fault receivers in the output steps `times` of the step; `lastStep` tells
+  /// whether it is the last step before the synchronization point
+  void writePickpointOutput(const StepParams& params,
+                            const std::vector<double>& times,
+                            bool lastStep);
 
   /// decides about the output steps of the step that starts at `stepTime`, and records them;
   /// `lastStep` tells whether it is the last step before the synchronization point

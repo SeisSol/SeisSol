@@ -143,9 +143,10 @@ class CellCluster : public CellClusterInterface {
   std::size_t numPlasticCells_{0};
 
   /**
-   * Writes the receiver output if applicable (receivers present, receivers have to be written).
+   * Writes the receiver output if applicable (receivers present, receivers have to be written),
+   * with the sampling planned for the step.
    **/
-  void writeReceivers(const StepParams& params);
+  void writeReceivers(const StepParams& params, const kernels::ReceiverCluster::Sampling& sampling);
 
   /**
    * Computes the source terms if applicable.

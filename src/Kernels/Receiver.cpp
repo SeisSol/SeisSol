@@ -32,6 +32,7 @@
 #include "Numerical/BasisFunction.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
+#include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
@@ -295,10 +296,7 @@ void ReceiverClusterImpl<Cfg>::sample(const Sampling& sampling,
     // A cluster that runs on the host goes on to integrate right after this and overwrites the
     // DOFs the sampling reads, so it samples right here. (On CUDA and SYCL, enqueueLoop would
     // leave the sampling to a host function on a stream.)
-#pragma omp parallel for schedule(static)
-    for (std::size_t cell = 0; cell < cellCount; ++cell) {
-      receiverHandler(cell);
-    }
+    parallel::runtime::HostRuntime::forEach(cellCount, receiverHandler);
   } else {
     auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
     callRuntime.enqueueLoop(cellCount, receiverHandler);
@@ -322,11 +320,9 @@ void ReceiverClusterImpl<Cfg>::sampleAtRunTime([[maybe_unused]] const double* de
     const auto sampling = planSampling(nextSampleTime_, expansionPoint, timeStepWidth);
     nextSampleTime_ = sampling.nextTime;
     if (sampling.due) {
-      const std::size_t cellCount = receiverCells_.size();
-#pragma omp parallel for schedule(static)
-      for (std::size_t cell = 0; cell < cellCount; ++cell) {
+      parallel::runtime::HostRuntime::forEach(receiverCells_.size(), [&](std::size_t cell) {
         sampleReceiver(cell, sampling.time, expansionPoint, timeStepWidth, executor);
-      }
+      });
       countSamples(sampling.steps);
     }
   };

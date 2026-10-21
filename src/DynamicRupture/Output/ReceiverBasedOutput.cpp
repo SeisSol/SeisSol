@@ -37,6 +37,7 @@
 #include "Model/CommonDatastructures.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Quadrature.h"
+#include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -176,10 +177,7 @@ void ReceiverOutputImpl<Derived>::evaluateFaultOutput(
     if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
       const auto handler = this->template faultOutputHandler<Cfg>(
           outputType, slipRateOutputType, outputData, level, stateTime, dt, indt);
-#pragma omp parallel for schedule(static)
-      for (std::size_t faceId = 0; faceId < faces; ++faceId) {
-        handler(faceId);
-      }
+      parallel::runtime::HostRuntime::forEach(faces, handler);
     }
   });
 

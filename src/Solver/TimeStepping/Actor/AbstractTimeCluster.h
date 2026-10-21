@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTOR_ABSTRACTTIMECLUSTER_H_
 
 #include "Memory/Tree/Layer.h"
+#include "Parallel/Runtime/HostRuntime.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"
 
@@ -86,6 +87,8 @@ class AbstractTimeCluster {
   ActorState state_ = ActorState::Synced;
   ClusterTimes ct_;
   std::vector<NeighborCluster> neighbors_;
+  //! runs the work of the actions on the host
+  parallel::runtime::HostRuntime hostRuntime_;
   double syncTime_ = 0.0;
   //! the synchronization point before syncTime_, or the time the cluster started with
   double lastSyncTime_ = 0.0;
