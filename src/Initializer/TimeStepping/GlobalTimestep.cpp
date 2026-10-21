@@ -21,6 +21,7 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -70,10 +71,16 @@ GlobalTimestep
   // the sets the operator reads the material at, the first ones; whether a cell is weight-adjusted
   // follows from those
   std::size_t operatorSets = 0;
+  // the samples of the operator and the points of the faces, where those are asked for
+  constexpr std::size_t NoSet = std::numeric_limits<std::size_t>::max();
+  std::size_t sampleSet = NoSet;
+  std::size_t faceSet = NoSet;
   if (seissolParams.model.materialNodal) {
+    sampleSet = queryGens.size();
     queryGens.push_back(std::make_shared<seissol::initializer::NodalPointGenerator>(
         cellToVertex, seissol::initializer::NodalPointGenerator::materialPoints()));
     if constexpr (NodalFlux) {
+      faceSet = queryGens.size();
       queryGens.push_back(std::make_shared<seissol::initializer::FacePointGenerator>(
           cellToVertex, seissol::initializer::FacePointGenerator::fluxPoints()));
     }
@@ -103,8 +110,23 @@ GlobalTimestep
   timestep.cellTimeStepWidths.resize(cellToVertex.size);
   timestep.weightAdjusted.assign(cellToVertex.size, 0);
   const double weightAdjustedRatio = seissolParams.model.weightAdjustedRatio;
+  const double weightAdjustedJumpRatio = seissolParams.model.weightAdjustedJumpRatio;
   std::size_t localWeightAdjusted = 0;
+  // the cells whose impedances spread by more than the ratio, but smoothly
+  std::size_t localSmooth = 0;
   double localMinWeightAdjustedFactor = 1.0;
+
+  // the modes the projection of ImpedanceJump keeps, at the points of the faces of the cell the
+  // material is read at, which are the same in the reference cell for every cell
+  const auto facePoints = seissol::initializer::FacePointGenerator::fluxPoints();
+  assert(ImpedanceJump::FacePoints == 0 ||
+         ImpedanceJump::FacePoints == Cell::NumFaces * facePoints.count);
+  const auto faceBasis = ImpedanceJump::faceBasis([&](std::size_t point) {
+    return seissol::initializer::FacePointGenerator::referencePoint(
+        facePoints, point / facePoints.count, point % facePoints.count);
+  });
+  // whether a cell asks for that projection at all
+  const bool fitsJumps = weightAdjustedRatio > 0.0 && sampleSet != NoSet;
 
   // for the diagnostic below: the same timestep, but bounded by the mean wave
   // speed of a cell instead of its maximum
@@ -117,6 +139,7 @@ GlobalTimestep
     double pWaveVelSum = 0.0;
     double materialMaxTimestep = std::numeric_limits<double>::max();
     ImpedanceSpread spread;
+    ImpedanceJump jump(faceBasis);
     for (std::size_t set = 0; set < queryGens.size(); ++set) {
       const auto perCell = queryGens[set]->outputPerCell();
       for (std::size_t point = 0; point < perCell; ++point) {
@@ -128,17 +151,29 @@ GlobalTimestep
         if (set < operatorSets) {
           spread.add(material);
         }
+        if (fitsJumps && set == sampleSet) {
+          jump.add(point, material);
+        }
+        if (fitsJumps && set == faceSet) {
+          jump.addFace(point, material);
+        }
       }
     }
     // a weight-adjusted cell sees its wave speeds raised by what the lift without material
     // asks for (ImpedanceSpread::timestepFactor)
     double waveSpeedFactor = 1.0;
-    if (isWeightAdjusted(spread.ratio(), weightAdjustedRatio)) {
+    // the projection the jump takes is only formed where the spread asks for it
+    const bool spreads = isWeightAdjusted(spread.ratio(), 1.0, weightAdjustedRatio, 1.0);
+    if (spreads &&
+        isWeightAdjusted(
+            spread.ratio(), jump.ratio(), weightAdjustedRatio, weightAdjustedJumpRatio)) {
       timestep.weightAdjusted[cell] = 1;
       ++localWeightAdjusted;
       localMinWeightAdjustedFactor =
           std::min(localMinWeightAdjustedFactor, spread.timestepFactor());
       waveSpeedFactor = 1.0 / spread.timestepFactor();
+    } else if (spreads) {
+      ++localSmooth;
     }
     const double pWaveVelMean = pWaveVelSum / static_cast<double>(pointsPerCell);
 
@@ -183,11 +218,18 @@ GlobalTimestep
 
   if (weightAdjustedRatio > 0.0) {
     std::size_t globalWeightAdjusted = 0;
+    std::size_t globalSmooth = 0;
     std::size_t globalCells = 0;
     std::size_t localCells = cellToVertex.size;
     double globalMinWeightAdjustedFactor = 1.0;
     MPI_Allreduce(&localWeightAdjusted,
                   &globalWeightAdjusted,
+                  1,
+                  Mpi::castToMpiType<std::size_t>(),
+                  MPI_SUM,
+                  seissol::Mpi::mpi.comm());
+    MPI_Allreduce(&localSmooth,
+                  &globalSmooth,
                   1,
                   Mpi::castToMpiType<std::size_t>(),
                   MPI_SUM,
@@ -204,10 +246,19 @@ GlobalTimestep
                   MPI_DOUBLE,
                   MPI_MIN,
                   seissol::Mpi::mpi.comm());
-    logInfo() << globalWeightAdjusted << "of" << globalCells
-              << "cells are weight-adjusted: their impedances spread by more than"
-              << weightAdjustedRatio << "- their time step is down to"
-              << globalMinWeightAdjustedFactor << "times the one their wave speeds permit.";
+    if (weightAdjustedJumpRatio > 1.0) {
+      logInfo() << globalWeightAdjusted << "of" << globalCells
+                << "cells are weight-adjusted: their impedances spread by more than"
+                << weightAdjustedRatio << ", and less their projection still by more than"
+                << weightAdjustedJumpRatio << "- their time step is down to"
+                << globalMinWeightAdjustedFactor << "times the one their wave speeds permit."
+                << globalSmooth << "more spread as far, but smoothly.";
+    } else {
+      logInfo() << globalWeightAdjusted << "of" << globalCells
+                << "cells are weight-adjusted: their impedances spread by more than"
+                << weightAdjustedRatio << "- their time step is down to"
+                << globalMinWeightAdjustedFactor << "times the one their wave speeds permit.";
+    }
   }
 
   if (pointsPerCell > 1) {

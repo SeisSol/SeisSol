@@ -38,6 +38,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Model/FaultFlux.h"
 #include "Initializer/Model/WeightAdjusted.h"
+#include "Initializer/ParameterDB.h"
 #include "Initializer/Typedefs.h"
 #include "InverseWeight.t.h"
 #include "Kernels/Precision.h"
@@ -156,7 +157,7 @@ TEST_CASE("Which cells are weight-adjusted, and their time step") {
     const auto spread = spreadOf(std::vector{material, material, material});
     REQUIRE(spread.ratio() == doctest::Approx(1.0));
     REQUIRE(spread.timestepFactor() == doctest::Approx(1.0));
-    REQUIRE_FALSE(isWeightAdjusted(spread.ratio(), 2.0));
+    REQUIRE_FALSE(isWeightAdjusted(spread.ratio(), 1.0, 2.0, 1.5));
   }
   SUBCASE("a jump in the bulk modulus by 25") {
     // the acoustic case of the prototype: an impedance ratio of 5, the factor c / 5
@@ -168,9 +169,14 @@ TEST_CASE("Which cells are weight-adjusted, and their time step") {
               doctest::Approx(weightAdjustedTimestepScale(order) / 5.0));
     }
     REQUIRE(spread.timestepFactor() == spread.timestepFactor(ConvergenceOrder));
-    REQUIRE(isWeightAdjusted(spread.ratio(), 2.0));
-    REQUIRE_FALSE(isWeightAdjusted(spread.ratio(), 5.0));
-    REQUIRE_FALSE(isWeightAdjusted(spread.ratio(), 0.0));
+    // a jump that accounts for a ratio of 3 of it, and a smooth spread that leaves 1.2 to the jump
+    REQUIRE(isWeightAdjusted(spread.ratio(), 3.0, 2.0, 1.5));
+    REQUIRE_FALSE(isWeightAdjusted(spread.ratio(), 3.0, 5.0, 1.5));
+    REQUIRE_FALSE(isWeightAdjusted(spread.ratio(), 3.0, 0.0, 1.5));
+    REQUIRE_FALSE(isWeightAdjusted(spread.ratio(), 1.2, 2.0, 1.5));
+    // without the jump test, every cell that spreads by more than the ratio
+    REQUIRE(isWeightAdjusted(spread.ratio(), 1.2, 2.0, 1.0));
+    REQUIRE(isWeightAdjusted(spread.ratio(), 1.0, 2.0, 0.0));
   }
   SUBCASE("what the orders permit") {
     // orders 4 and 6 permit the least of those measured, and an order not measured no more
@@ -204,6 +210,112 @@ TEST_CASE("Which cells are weight-adjusted, and their time step") {
     const double pRatio =
         std::sqrt((solid.lambda + 2 * solid.mu) * solid.rho / (fluid.lambda * fluid.rho));
     REQUIRE(spread.ratio() == doctest::Approx(pRatio));
+  }
+}
+
+TEST_CASE("A jump inside a cell, against a material that varies smoothly") {
+  using seissol::initializer::FacePointGenerator;
+  using seissol::initializer::ImpedanceJump;
+  const auto nodes = init::materialNodes::view::create(init::materialNodes::Values);
+  // the points of the faces the material is read at where the flux varies along a face, in
+  // reference coordinates
+  const auto facePoints = FacePointGenerator::fluxPoints();
+  const auto facePointAt = [&](std::size_t point) {
+    return FacePointGenerator::referencePoint(
+        facePoints, point / facePoints.count, point % facePoints.count);
+  };
+  const auto faceBasis = ImpedanceJump::faceBasis(facePointAt);
+  // the material `materialAt` gives at every sample of the cell and at those points, in reference
+  // coordinates
+  const auto jumpOf = [&](const auto& materialAt) {
+    ImpedanceJump jump(faceBasis);
+    for (std::size_t sample = 0; sample < ImpedanceJump::Samples; ++sample) {
+      jump.add(sample, materialAt(nodes(sample, 0), nodes(sample, 1), nodes(sample, 2)));
+    }
+    for (std::size_t point = 0; point < ImpedanceJump::FacePoints; ++point) {
+      const auto xi = facePointAt(point);
+      jump.addFace(point, materialAt(xi[0], xi[1], xi[2]));
+    }
+    return jump.ratio();
+  };
+  // the impedances scaled by `factor`: the moduli by its square, the density kept
+  const auto scaled = [](double factor) {
+    return coefficients::elastic(2500.0, 3e10 * factor * factor, 2e10 * factor * factor);
+  };
+
+  SUBCASE("the modes at the points of the faces") {
+    // the basis the samples are fitted in, evaluated at the samples, is the one the projection
+    // reads them with (init::materialEval)
+    const auto evaluate = init::materialEval::view::create(init::materialEval::Values);
+    for (std::size_t sample = 0; sample < ImpedanceJump::Samples; ++sample) {
+      const auto basis = ImpedanceJump::faceBasis([&](std::size_t /*point*/) {
+        return std::array<double, Cell::Dim>{nodes(sample, 0), nodes(sample, 1), nodes(sample, 2)};
+      });
+      for (std::size_t point = 0; point < ImpedanceJump::FacePoints; ++point) {
+        for (std::size_t mode = 0; mode < ImpedanceJump::FitModes; ++mode) {
+          const double expected = evaluate.isInRange(sample, mode) ? evaluate(sample, mode) : 0.0;
+          REQUIRE(basis[point][mode] == doctest::Approx(expected));
+        }
+      }
+    }
+  }
+  SUBCASE("a smooth material") {
+    // impedances that grow exponentially along a direction, by a factor of 49 over the cell, and
+    // with the square of a coordinate, by 55: their logarithms are a polynomial of degree one,
+    // which the projection follows exactly from order 3 on, and of degree two, from order 4 on --
+    // at the samples and at the points of the faces alike
+    if constexpr (ConvergenceOrder >= 3) {
+      REQUIRE(jumpOf([&](double x, double y, double z) {
+                return scaled(std::exp(2.3 * x - 1.6 * y + 0.9 * z));
+              }) == doctest::Approx(1.0));
+    }
+    if constexpr (ConvergenceOrder >= 4) {
+      REQUIRE(jumpOf([&](double x, double y, double z) {
+                return scaled(std::exp(4.0 * (x + y + z) * (x + y + z)));
+              }) == doctest::Approx(1.0));
+    }
+  }
+  SUBCASE("a jump") {
+    // by 10 across a plane through the cell, of which every order and both sets of samples keep
+    // more than a factor of five, with the points of the faces or without
+    REQUIRE(jumpOf([&](double x, double y, double z) {
+              return scaled(x + y + z < 0.5 ? 1.0 : 10.0);
+            }) > 5.0);
+    // the same in the shear modulus alone, the P impedance kept
+    REQUIRE(jumpOf([&](double x, double y, double z) {
+              const double mu = x + y + z < 0.5 ? 4e8 : 4e10;
+              return coefficients::elastic(2500.0, mu, 1.2e11 - 2.0 * mu);
+            }) > 5.0);
+  }
+  SUBCASE("a jump next to a face") {
+    // between the face zeta = 0 and the samples nearest to it, which only the points of that face
+    // see, pulled into the cell by far less: what the samples give misses it, the points of the
+    // face do not, where the flux reads the material there
+    double nearest = 1.0;
+    for (std::size_t sample = 0; sample < ImpedanceJump::Samples; ++sample) {
+      nearest = std::min(nearest, static_cast<double>(nodes(sample, 2)));
+    }
+    const double ratio = jumpOf([&](double /*x*/, double /*y*/, double z) {
+      return scaled(z < 0.5 * nearest ? 10.0 : 1.0);
+    });
+    if constexpr (ImpedanceJump::FacePoints > 0) {
+      REQUIRE(ratio > 5.0);
+    } else {
+      REQUIRE(ratio == doctest::Approx(1.0));
+    }
+  }
+  SUBCASE("a fluid among the samples") {
+    // where the shear modulus vanishes at some samples only, it jumps, by any ratio
+    REQUIRE(std::isinf(jumpOf([&](double x, double y, double z) {
+      return x + y + z < 0.5 ? coefficients::elastic(1000.0, 0.0, 2.25e9)
+                             : coefficients::elastic(2500.0, 3e10, 2e10);
+    })));
+    // and a fluid throughout has no shear impedance to fit
+    if constexpr (ConvergenceOrder >= 3) {
+      REQUIRE(jumpOf([&](double x, double y, double /*z*/) {
+                return coefficients::elastic(1000.0, 0.0, 2.25e9 * std::exp(x - y));
+              }) == doctest::Approx(1.0));
+    }
   }
 }
 

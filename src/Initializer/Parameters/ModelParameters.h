@@ -50,6 +50,10 @@ struct ModelParameters {
   // a cell whose impedances spread by more than this ratio over the points its material is
   // sampled at is weight-adjusted (see WeightAdjustable); zero where no cell is
   double weightAdjustedRatio{0.0};
+  // and where its impedances, less their projection onto the polynomials of one degree below the
+  // cell's, still spread by more than this ratio (see ImpedanceJump); one or less where every cell
+  // whose impedances spread as much is
+  double weightAdjustedJumpRatio{2.0};
 };
 
 ModelParameters readModelParameters(ParameterReader* baseReader);

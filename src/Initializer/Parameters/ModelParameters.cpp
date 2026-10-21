@@ -154,6 +154,11 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                     "varies inside it (MATERIAL_NODAL=ON).";
     weightAdjustedRatio = 0.0;
   }
+  // A material that varies smoothly inside a cell keeps the plain lift stable where a jump of the
+  // same spread does not; a cell whose impedances spread by more than the ratio is weight-adjusted
+  // where they, less their projection onto the polynomials of one degree below the cell's, still
+  // spread by more than this (ImpedanceJump).
+  const double weightAdjustedJumpRatio = reader->readWithDefault("weightadjustedjumpratio", 2.0);
   if (weightAdjustedRatio > 0.0 &&
       (flux == NumericalFlux::Rusanov || fluxNearFault == NumericalFlux::Rusanov)) {
     // the Rusanov penalty acts on the state, which a cell without material at its faces would
@@ -178,7 +183,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
                          itmParameters,
                          flux,
                          fluxNearFault,
-                         weightAdjustedRatio};
+                         weightAdjustedRatio,
+                         weightAdjustedJumpRatio};
 }
 
 std::string fluxToString(NumericalFlux flux) {

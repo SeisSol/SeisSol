@@ -9,10 +9,18 @@
 #define SEISSOL_SRC_INITIALIZER_MODEL_WEIGHTADJUSTED_H_
 
 #include "Common/Constants.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
+#include "Kernels/Precision.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/OperatorLayout.h"
+#include "Numerical/BasisFunction.h"
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstddef>
+#include <functional>
 #include <limits>
 
 namespace seissol::initializer {
@@ -45,12 +53,14 @@ constexpr double weightAdjustedTimestepScale(std::size_t order) {
  * Which cells are weight-adjusted (see WeightAdjustable), and how much shorter their time step is.
  *
  * A cell is where its impedances spread by more than the ratio the run asks for
- * (ModelParameters::weightAdjustedRatio) over the points its material is asked at: the samples the
- * operator is formed at and the points of its faces the flux is integrated at. Lifting the fluxes
- * with the material at the face grows where the material jumps inside a cell, the more the higher
- * the contrast. In an acoustic prototype it did so at order 4 from an impedance ratio of 4 on, at
- * order 5 at 10, at orders 3 and 6 not up to 10, and nowhere for a transition over a tenth of a
- * cell; where it starts depends on where the jump lies against the points.
+ * (ModelParameters::weightAdjustedRatio) over the points its material is asked at -- the samples
+ * the operator is formed at and the points of its faces the flux is integrated at -- and they are
+ * not close to a material that varies smoothly (ImpedanceJump). Lifting the fluxes with the
+ * material at the face grows where the material jumps inside a cell, the more the higher the
+ * contrast. In an acoustic prototype it did so, for a jump at one place against the points, at
+ * order 4 from an impedance ratio of 4 on, at order 5 at 10, at orders 3 and 6 not up to 10; at
+ * order 3 from 5 on where the jump lies elsewhere, and nowhere for a transition over a tenth of a
+ * cell.
  *
  * A weight-adjusted cell pays with its time step. Its faces lift the dissipation of the Riemann
  * problem without material, and the inverse weight at the samples scales it with the stiffest
@@ -106,10 +116,155 @@ class ImpedanceSpread {
   double sWaveSpeed_{0.0};
 };
 
-/// Whether a cell whose impedances spread by `ratio` is weight-adjusted, for the ratio the run asks
-/// for; none is where that is zero.
-inline bool isWeightAdjusted(double ratio, double threshold) {
-  return threshold > 0.0 && ratio > threshold;
+/**
+ * What of the spread of the impedances of a cell a smooth material does not have: the logarithms
+ * of its P and of its S impedances at the samples the operator is formed at, their projection onto
+ * the polynomials of one degree below the cell's with the weights of the rule the samples are of,
+ * and the spread of what the projection leaves, at the samples and, where the flux reads the
+ * material at the points of the faces (NodalFlux), at those points as well, as a ratio: one where
+ * it leaves nothing.
+ *
+ * A material that varies smoothly inside the cell is close to such a polynomial, a jump is not,
+ * and the plain lift grows where a jump cuts a cell (see ImpedanceSpread). A jump between a face
+ * and the samples nearest to it is not among the samples at all, only at the points of the face,
+ * where the polynomial the samples give misses it. In the acoustic prototype of the scheme at
+ * orders 3 to 5, weight-adjusting the cells where what the projection leaves at the samples and at
+ * the points of the faces spreads by more than 2 kept every layer with a jump stable, also one next
+ * to a face, which the samples alone missed; it took no cell of a smooth layer that spread by up to
+ * 5 inside a cell (docs/weight-adjusted-cells.rst). The projection of the cell's own degree would
+ * not tell them apart: it follows the samples of a jump so closely that the cells it leaves out
+ * make the plain lift grow.
+ */
+class ImpedanceJump {
+  public:
+  /// how many samples the material has in a cell (init::materialNodes)
+  static constexpr std::size_t Samples = tensor::materialEval::Shape[0];
+
+  /// how many points of the faces of a cell the material is read at where the flux varies along a
+  /// face: those it is integrated at, face by face (FacePointGenerator::fluxPoints)
+  static constexpr std::size_t FacePoints = NodalFlux ? Cell::NumFaces * FluxFaceNodes : 0;
+
+  /// The modes up to one degree below the cell's. The basis is hierarchical and orthogonal, and the
+  /// rule of the samples integrates the product of two modes of the cell exactly, so the projection
+  /// onto these modes is the first rows of the projection onto all of them (init::materialProject).
+  static constexpr std::size_t FitModes = std::max<std::size_t>(
+      1, (ConvergenceOrder - 1) * ConvergenceOrder * (ConvergenceOrder + 1) / 6);
+
+  /// those modes at the points of the faces
+  using FaceBasis = std::array<std::array<double, FitModes>, FacePoints>;
+
+  /// The modes at the points of the faces, from where point `point` lies in the reference cell,
+  /// `referencePoint(point)`.
+  static FaceBasis
+      faceBasis(const std::function<std::array<double, Cell::Dim>(std::size_t)>& referencePoint) {
+    FaceBasis basis{};
+    for (std::size_t point = 0; point < FacePoints; ++point) {
+      const auto xi = referencePoint(point);
+      const basisFunction::SampledBasisFunctions<double> sampled(
+          ConvergenceOrder, xi[0], xi[1], xi[2]);
+      for (std::size_t mode = 0; mode < FitModes; ++mode) {
+        basis[point][mode] = sampled.data()[mode];
+      }
+    }
+    return basis;
+  }
+
+  explicit ImpedanceJump(const FaceBasis& faceBasis) : faceBasis_(faceBasis) {}
+
+  /// The material at sample `sample` of the cell.
+  void add(std::size_t sample, const seissol::model::Material& material) {
+    addAt(logP_[sample], logS_[sample], material);
+  }
+
+  /// The material at point `point` of the faces of the cell.
+  void addFace(std::size_t point, const seissol::model::Material& material) {
+    addAt(faceLogP_[point], faceLogS_[point], material);
+  }
+
+  /// The ratio the jump accounts for, the larger one of the P and of the S impedances. Where some
+  /// points carry shear and others do not, the shear modulus itself jumps, and so does the ratio:
+  /// it is unbounded, as it is where an impedance is not a positive number.
+  [[nodiscard]] double ratio() const {
+    if (withShear_ > 0 && withShear_ < Samples + FacePoints) {
+      return std::numeric_limits<double>::infinity();
+    }
+    const double pRatio = residualRatio(logP_, faceLogP_);
+    return withShear_ == Samples + FacePoints ? std::max(pRatio, residualRatio(logS_, faceLogS_))
+                                              : pRatio;
+  }
+
+  private:
+  void addAt(double& logP, double& logS, const seissol::model::Material& material) {
+    const double density = material.getDensity();
+    logP = std::log(density * material.getPWaveSpeed());
+    const double sWave = material.getSWaveSpeed();
+    // a point without shear has no shear impedance to fit
+    if (sWave > 0.0) {
+      logS = std::log(density * sWave);
+      ++withShear_;
+    }
+  }
+
+  [[nodiscard]] double residualRatio(const std::array<double, Samples>& values,
+                                     const std::array<double, FacePoints>& faceValues) const {
+    const auto project = init::materialProject::view::create(init::materialProject::Values);
+    const auto evaluate = init::materialEval::view::create(init::materialEval::Values);
+    std::array<double, FitModes> modes{};
+    for (std::size_t mode = 0; mode < FitModes; ++mode) {
+      for (std::size_t sample = 0; sample < Samples; ++sample) {
+        if (project.isInRange(mode, sample)) {
+          modes[mode] += project(mode, sample) * values[sample];
+        }
+      }
+    }
+    double lowest = std::numeric_limits<double>::max();
+    double highest = std::numeric_limits<double>::lowest();
+    const auto include = [&](double residual) {
+      lowest = std::min(lowest, residual);
+      highest = std::max(highest, residual);
+    };
+    for (std::size_t sample = 0; sample < Samples; ++sample) {
+      double residual = values[sample];
+      for (std::size_t mode = 0; mode < FitModes; ++mode) {
+        if (evaluate.isInRange(sample, mode)) {
+          residual -= evaluate(sample, mode) * modes[mode];
+        }
+      }
+      include(residual);
+    }
+    for (std::size_t point = 0; point < FacePoints; ++point) {
+      double residual = faceValues[point];
+      for (std::size_t mode = 0; mode < FitModes; ++mode) {
+        residual -= faceBasis_[point][mode] * modes[mode];
+      }
+      include(residual);
+    }
+    // an impedance that is no positive number makes a logarithm that is no finite one, which the
+    // comparisons above pass over
+    const double spread = highest - lowest;
+    const bool finite =
+        std::all_of(values.begin(), values.end(), [](double v) { return std::isfinite(v); }) &&
+        std::all_of(
+            faceValues.begin(), faceValues.end(), [](double v) { return std::isfinite(v); });
+    return finite ? std::exp(spread) : std::numeric_limits<double>::infinity();
+  }
+
+  const FaceBasis& faceBasis_;
+  std::array<double, Samples> logP_{};
+  std::array<double, Samples> logS_{};
+  std::array<double, FacePoints> faceLogP_{};
+  std::array<double, FacePoints> faceLogS_{};
+  std::size_t withShear_{0};
+};
+
+/// Whether a cell is weight-adjusted, for the ratios the run asks for (ModelParameters): where its
+/// impedances spread by more than `ratioThreshold`, and less their projection still by more than
+/// `jumpThreshold` (ImpedanceJump). None is where `ratioThreshold` is zero; with a `jumpThreshold`
+/// of one at most, every cell whose impedances spread by more than the ratio is.
+inline bool
+    isWeightAdjusted(double ratio, double jump, double ratioThreshold, double jumpThreshold) {
+  return ratioThreshold > 0.0 && ratio > ratioThreshold &&
+         (jumpThreshold <= 1.0 || jump > jumpThreshold);
 }
 
 } // namespace seissol::initializer

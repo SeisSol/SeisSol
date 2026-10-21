@@ -180,6 +180,10 @@ class FacePointGenerator : public QueryGenerator {
 
   //! The points the flux of a face is integrated at (@c faceQuadPoints ).
   static PointSet fluxPoints();
+  //! Where point @p i of @p points on face @p side of the reference cell lies in that cell, pulled
+  //! into it by InwardPull: the point the material is asked at, before the cell is mapped to space.
+  static std::array<double, Cell::Dim>
+      referencePoint(const PointSet& points, std::size_t side, std::size_t i);
 
   FacePointGenerator(const CellToVertexArray& cellToVertex, const PointSet& points)
       : cellToVertex_(cellToVertex), points_(points) {}

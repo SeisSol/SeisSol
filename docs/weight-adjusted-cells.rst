@@ -85,8 +85,10 @@ stable one:
 
 A transition over a tenth of a cell instead of a jump stays stable at order 4
 even at a contrast of 100. Where the plain lift grows depends on the order and on
-where the jump lies against the points, so the measurements set a bound to stay
-under rather than a law.
+where the jump lies against the points: with the layer moved against the cells,
+it grows at order 3 as well, from an impedance ratio of 5 on (see `Which cells,
+and their time step`_). So the measurements set a bound to stay under rather than
+a law.
 
 The scheme
 ----------
@@ -179,15 +181,97 @@ weight to the batch (``gpu_weightAdjust``).
 Which cells, and their time step
 --------------------------------
 
-``weightadjustedratio`` in ``&equations`` decides: a cell is weight-adjusted where
-its impedances spread by more than that ratio over the points its material is
-asked at -- the largest ratio between two of its P impedances, or between two of
-its S impedances at points that carry shear (``ImpedanceSpread``). An
-anisotropic medium gives the impedances of its isotropic average there, from the
-means of its normal and of its shear constants. It is 2 by
-default in a build that can do it; 0 adjusts no cell, and a ratio below one every
-cell. The decision is taken where the time step of a cell is, and carried with
-it through the partitioning.
+``weightadjustedratio`` in ``&equations`` decides first: a cell may be
+weight-adjusted where its impedances spread by more than that ratio over the
+points its material is asked at -- the largest ratio between two of its P
+impedances, or between two of its S impedances at points that carry shear
+(``ImpedanceSpread``). An anisotropic medium gives the impedances of its
+isotropic average there, from the means of its normal and of its shear
+constants. It is 2 by default in a build that can do it, and 0 adjusts no cell.
+The decision is taken where the time step of a cell is, and carried with it
+through the partitioning.
+
+A material that varies smoothly inside a cell keeps the plain lift stable where a
+jump of the same spread does not. So such a cell is weight-adjusted only where
+its impedances are not close to a smooth material (``ImpedanceJump``): the
+logarithms of its P and of its S impedances at the samples are projected onto
+the polynomials of one degree below the cell's, with the weights of the rule the
+samples are of, and the cell is weight-adjusted where what the projection leaves
+-- at the samples, and where the flux reads the material at the points of the
+faces, at those points as well -- still spreads by more than
+``weightadjustedjumpratio``, 2 by default. A jump between a face and the samples
+nearest to it is at the points of that face alone. The projection overshoots at a
+jump, so that spread can be larger than the one of the impedances themselves.
+Where some points carry shear and others do not, the shear modulus itself jumps,
+and the spread is unbounded. At order 2 the projection is onto the constants, and
+what it leaves spreads as the impedances do. A ``weightadjustedjumpratio`` of 1
+or less weight-adjusts every cell whose impedances spread by more than
+``weightadjustedratio``, and with a ``weightadjustedratio`` below one then every
+cell.
+
+Measured in the prototype, on its mesh of eighteen cells: the layer with edges of
+width 0.005, 0.015, 0.03 and 0.1 of the mesh -- a jump up to a third of a cell --
+at three positions against the cells, its contrast 9 or 100 in the bulk modulus
+or 25 in the density; and a smooth layer whose bulk modulus or density is
+:math:`e^{A \sin 2\pi x}`, for :math:`A` up to 2 a spread of up to 5 inside a
+cell. At orders 3 and 5 a part of these: the contrasts 25 and 100 in the bulk
+modulus, the edges up to 0.03 wide, the smooth layer in the bulk modulus with
+:math:`A` of 1 and 2. The operator with the cells a rule picks weight-adjusted,
+the plain lift in the others: how many of the layers stay stable, how many cells
+the rule picks, and how many of those in the smooth layers:
+
+.. list-table::
+  :header-rows: 1
+  :widths: 40 20 20 20
+
+  * - weight-adjusted where the impedances
+    - order 3
+    - order 4
+    - order 5
+  * - spread by more than 2
+    - 20 of 20, 190, 18
+    - 44 of 44, 414, 76
+    - 20 of 20, 218, 24
+  * - and the projection of one degree below leaves more than 2, at the samples
+      and at the points of the faces
+    - 20 of 20, 166, 0
+    - 44 of 44, 222, 0
+    - 20 of 20, 162, 0
+  * - and the same projection leaves more than 1.5 at the samples alone
+    - 20 of 20, 166, 2
+    - 44 of 44, 228, 0
+    - 20 of 20, 170, 0
+  * - and the projection of the cell's own degree leaves more than 1.5 at the
+      samples
+    -
+    - 41 of 44, 50, 0
+    -
+
+The plain lift grows in two of the layers at order 3 (edges 0.03 wide, contrast
+25 and 100), five at order 4 (contrast 100, edges at most 0.015 wide) and one at
+order 5. At the samples and at the points of the faces, the projection leaves at
+most 1.16 of a smooth layer that spreads by 5 at order 4, 1.03 at order 5, and
+1.81 at order 3, where it is the one of degree one, of the layer that spreads by
+4.3 there; with 3 instead of 2, the plain lift grows in two of the layers at
+order 3. At the samples alone, the projection leaves 1.53 of that layer at order
+3, and two of its cells stay weight-adjusted with 1.5. The projection of the
+cell's own degree follows the 24 samples of a jump at order 4 too closely: in
+three of the five layers the plain lift grows in, the cells it leaves out make it
+grow, with 1.25 instead of 1.5 as well.
+
+A jump next to a face misses the samples: the same layer, an edge of it 0.003,
+0.006 or 0.012 of the mesh inside the cells on either side of a face of them,
+0.002 or 0.005 wide, contrast 9 or 100 in the bulk modulus or 25 in the density,
+36 layers at orders 3 and 4; at order 5, where the samples come closer to the
+faces, 0.001, 0.002 and 0.004 inside, 0.002 wide, contrast 100 in the bulk
+modulus or 25 in the density, 12 layers. The plain lift grows in one of them at
+order 3, eleven at order 4 and none at order 5. The projection at the samples
+alone, with 1.5, keeps all but one stable: at order 4, an edge 0.006 inside a
+cell, 0.002 wide, contrast 100, between a face and the samples nearest to it,
+where it leaves out two cells the spread takes. At the samples and at the points
+of the faces, with 2, every one of them stays stable, with 216, 300 and 120
+cells weight-adjusted (218, 300 and 120 by the spread alone); with 3 instead of
+2 the plain lift grows in one of them at order 4.
 
 A weight-adjusted cell lifts the dissipation of the Riemann problem of the face
 and multiplies it with the stiffest material inside the cell, and pays with its
@@ -292,7 +376,9 @@ Measured in SeisSol: the periodic cube :math:`[0, 2]^3` of six by six by six
 cubes, six cells each, the vertices inside moved (1296 straight-sided cells);
 elastic and acoustic, order 4, local time stepping at rate 2, CFL 0.5; a planar
 wave through a slab :math:`0.6 < x < 1.4` whose faces cut cells, the density one
-everywhere.
+everywhere. The runs of this section choose the cells by the spread of their
+impedances alone, ``weightadjustedjumpratio = 1``, and weight-adjust every cell
+with ``weightadjustedratio = 0.5`` on top of it.
 The strain energy the energy output reports is no measure here: it interpolates
 the material between the samples, which overshoots at a jump inside a cell, and
 is negative from the start. With one density the kinetic energy is exact:
@@ -329,19 +415,29 @@ the weight-adjusted cells are as accurate as the plain ones: with all of them
 weight-adjusted, eight receivers differ from a run on cells half as large by 2.25e-2
 in the stresses (relative, over the whole run), and by 2.21e-2 with none.
 
+With the default, ``weightadjustedjumpratio = 2``, the first slab weight-adjusts
+the same 414 cells, and its energies are those of the run with 1 bit for bit. A
+material that varies smoothly by as much -- :math:`\lambda` and :math:`\mu` by
+:math:`\exp(3 \sin 2 \pi x)` over :math:`0 < x < 1`, the impedances by up to 15
+across a cell and by 20 over the layer -- has 648 cells whose impedances spread
+by more than 2. With 1 all of them are weight-adjusted, at 0.079 times the time
+step their wave speeds permit; with the default none is, and the run takes 19 s
+of compute instead of 74 s. Its kinetic energy stays between 0.76 and 1.74 to
+:math:`t = 1`, that of the weight-adjusted run between 0.75 and 1.74, and the two
+differ by 1.2 % of it at most.
+
 The shorter time step is needed: at the one the wave speeds permit, the
 weight-adjusted cells of the first and the third slab reach a kinetic energy of
 1e183 and 1e96 by :math:`t = 0.05`; the limits between are in the previous
 section.
 
-With every cell weight-adjusted (``weightadjustedratio = 0.5``) on a constant
-material, four by four by four cubes, the errors against the planar wave are the
-plain run's to 4e-15, on one rank and on two, and to 1e-15 for an acoustic
-medium; with the default ratio no cell is,
-no buffer is allocated, and the run is the plain one bit for bit. The first slab,
-started from a pulse given by easi instead -- the planar wave takes its material
-from the first cell of each rank -- gives the same kinetic energy on one rank and
-on two to 9e-16.
+With every cell weight-adjusted on a constant material, four by four by four
+cubes, the errors against the planar wave are the plain run's to 4e-15, on one
+rank and on two, and to 1e-15 for an acoustic medium; with the default ratio no
+cell is, no buffer is allocated, and the run is the plain one bit for bit. The
+first slab, started from a pulse given by easi instead -- the planar wave takes
+its material from the first cell of each rank -- gives the same kinetic energy on
+one rank and on two to 9e-16.
 
 On curved cells -- the same cube, its cells of order two, ``CURVILINEAR`` with
 the assembled operator -- the first slab grows from 1.05 to 4.4e59 by
@@ -452,10 +548,10 @@ What is not done
   writes compile to machine code for ``sm_80`` (clang to PTX, ``ptxas``); nothing
   ran on a GPU. The generator for AMD GPUs stops in TensorForge for the nodal
   elastic build, also without the weight kernel.
-- A finer choice of the cells. A cell whose material varies smoothly but by more
-  than the ratio pays the time step of a jump.
 - The time step at orders 2, 7 and 8, which take the smallest :math:`c` of the
   orders measured.
+- ``weightadjustedjumpratio`` at orders 2 and 6 to 8: its default of 2 is
+  measured at orders 3 to 5.
 
 Checks
 ------
@@ -477,8 +573,12 @@ weight-adjusted cell adds -- the volume term, the correctors of a regular, a
 free-surface and a fault face, the lift of a fault face, a face
 that carries a matrix per side -- is what a cell adds that lifts with the
 material, for a solid and for a fluid, into the field and into the extended field
-of the solver that keeps the memory variables apart; and the spread of the
-impedances and the time step it gives at every order.
+of the solver that keeps the memory variables apart; the spread of the
+impedances and the time step it gives at every order; and what the projection of
+a cell leaves of its impedances: nothing where their logarithms are a polynomial
+of degree one, from order 3 on, or two, from order 4 on, more than a factor of
+five of a jump by 10 across a plane through the cell, and an unbounded ratio
+where the shear modulus vanishes at some samples only.
 
 The device code: its host side compiles against the kernels the generator writes
 for CUDA, for the elastic, the acoustic and the viscoelastic media with both

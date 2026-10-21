@@ -420,31 +420,42 @@ FacePointGenerator::PointSet FacePointGenerator::fluxPoints() {
 
 std::size_t FacePointGenerator::outputPerCell() const { return Cell::NumFaces * points_.count; }
 
+std::array<double, Cell::Dim>
+    FacePointGenerator::referencePoint(const PointSet& points, std::size_t side, std::size_t i) {
+  const seissol::geometry::CellTransform::VectorEigenT barycenter(Cell::ReferenceBarycenter.data());
+  const auto point = points.point(i);
+  const auto onFace = seissol::geometry::ReferenceFaceMap(side).faceToCell(
+      seissol::geometry::FaceTransform::FaceVectorT(point[0], point[1]));
+  const seissol::geometry::CellTransform::VectorEigenT inside =
+      (1 - InwardPull) * onFace + InwardPull * barycenter;
+  return {inside[0], inside[1], inside[2]};
+}
+
 easi::Query FacePointGenerator::generate() const {
   const auto pointsPerCell = outputPerCell();
   easi::Query query(cellToVertex_.size * pointsPerCell, Cell::Dim);
 
-  const seissol::geometry::CellTransform::VectorEigenT barycenter(Cell::ReferenceBarycenter.data());
+  // the points in the reference cell, the same for every cell
+  std::vector<seissol::geometry::CellTransform::VectorEigenT> reference(pointsPerCell);
+  for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+    for (std::size_t i = 0; i < points_.count; ++i) {
+      const auto inside = referencePoint(points_, side, i);
+      reference[side * points_.count + i] =
+          seissol::geometry::CellTransform::VectorEigenT(inside[0], inside[1], inside[2]);
+    }
+  }
 
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
     const auto transform = cellToVertex_.elementTransform(elem);
-    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-      const seissol::geometry::ReferenceFaceMap face(side);
-      for (std::size_t i = 0; i < points_.count; ++i) {
-        const auto point = points_.point(i);
-        const auto onFace =
-            face.faceToCell(seissol::geometry::FaceTransform::FaceVectorT(point[0], point[1]));
-        const seissol::geometry::CellTransform::VectorEigenT inside =
-            (1 - InwardPull) * onFace + InwardPull * barycenter;
-        const auto transformed = transform->refToSpace(inside);
+    for (std::size_t point = 0; point < pointsPerCell; ++point) {
+      const auto transformed = transform->refToSpace(reference[point]);
 
-        const auto pointIdx = elem * pointsPerCell + side * points_.count + i;
-        for (std::size_t d = 0; d < Cell::Dim; ++d) {
-          query.x(pointIdx, d) = transformed[d];
-        }
-        query.group(pointIdx) = cellToVertex_.elementGroups(elem);
+      const auto pointIdx = elem * pointsPerCell + point;
+      for (std::size_t d = 0; d < Cell::Dim; ++d) {
+        query.x(pointIdx, d) = transformed[d];
       }
+      query.group(pointIdx) = cellToVertex_.elementGroups(elem);
     }
   }
 

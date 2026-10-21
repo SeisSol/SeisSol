@@ -36,6 +36,10 @@ numfluxnearfault = 'godunov' ! The numerical flux for faces of cells adjacent to
 !than this ratio lifts its fluxes without the material and applies it afterwards, with a shorter time
 !step (see "Material jumps inside a cell"); 0 adjusts no cell.
 weightadjustedratio = 2
+!... and where its impedances, less their projection onto the polynomials of one degree below the
+!cell's, still spread by more than this ratio, which a material that varies smoothly does not and a
+!jump does; 1 adjusts every cell whose impedances spread by more than weightadjustedratio.
+weightadjustedjumpratio = 2
 /
 
 &IniCondition
