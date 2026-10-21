@@ -20,12 +20,14 @@
 #include <cstddef>
 #include <cstdio>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <mpi.h>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace seissol::unit_test::io {
@@ -58,8 +60,20 @@ class LocalExecInfo : public async::ExecInfo {
 
   std::vector<char>& bufferData(int id) { return buffers_[id]; }
 
+  /**
+   * Let a buffer stand for the contributions of several ranks, as the executor of ASYNC mode NODE
+   * holds them: one after another, in @p parts bytes each
+   */
+  void setParts(int id, std::vector<std::size_t> parts) { parts_[id] = std::move(parts); }
+
+  [[nodiscard]] std::vector<std::size_t> bufferParts(unsigned int id) const override {
+    const auto it = parts_.find(static_cast<int>(id));
+    return it == parts_.end() ? async::ExecInfo::bufferParts(id) : it->second;
+  }
+
   private:
   std::vector<std::vector<char>> buffers_;
+  std::map<int, std::vector<std::size_t>> parts_;
 };
 
 /**
