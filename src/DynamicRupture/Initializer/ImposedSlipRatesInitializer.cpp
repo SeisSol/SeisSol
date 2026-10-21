@@ -130,7 +130,7 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+      using real = Real<Cfg>;
       // parameters to be read from fault parameters yaml file
       std::unordered_map<std::string, void*> parameterToStorageMap;
 
@@ -205,7 +205,7 @@ void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
     std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
     using Cfg = decltype(cfg);
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     real(*tauS)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSImposedSlipRatesYoffe::TauS>(Cfg());
     real(*tauR)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSImposedSlipRatesYoffe::TauR>(Cfg());
     parameterToStorageMap.insert({"tau_S", reinterpret_cast<real*>(tauS)});
@@ -216,7 +216,7 @@ void ImposedSlipRatesYoffeInitializer::addAdditionalParameters(
 void ImposedSlipRatesYoffeInitializer::fixInterpolatedSTFParameters(DynamicRupture::Layer& layer) {
   dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
     using Cfg = decltype(cfg);
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     real(*tauS)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSImposedSlipRatesYoffe::TauS>(Cfg());
     real(*tauR)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSImposedSlipRatesYoffe::TauR>(Cfg());
     // ensure that tauR is larger than tauS and that tauS and tauR are greater than 0 (the contrary
@@ -234,7 +234,7 @@ void ImposedSlipRatesGaussianInitializer::addAdditionalParameters(
     std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
     using Cfg = decltype(cfg);
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     real(*riseTime)[misc::NumPaddedPoints<Cfg>] =
         layer.var<LTSImposedSlipRatesGaussian::RiseTime>(Cfg());
     parameterToStorageMap.insert({"rupture_rise_time", reinterpret_cast<real*>(riseTime)});

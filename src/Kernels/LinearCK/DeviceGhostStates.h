@@ -51,7 +51,7 @@ namespace seissol::kernels::solver::linearck {
 template <typename Cfg>
 class DeviceGhostStates {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   static constexpr std::size_t NodeCount = tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>];
 
@@ -69,7 +69,7 @@ class DeviceGhostStates {
                   void* stream) {
     using namespace seissol::recording;
     const ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
-    auto* cells = indicesTable[key].get(inner_keys::Indices::Id::Cells);
+    auto* cells = indicesTable[key].get<unsigned>(inner_keys::Indices::Id::Cells);
     const std::size_t faces = cells->getSize();
     auto* ghost = reinterpret_cast<real*>(
         layer.var<LTS::AnalyticScratch>(Cfg(), initializer::AllocationPlace::Device));
@@ -126,7 +126,7 @@ class DeviceGhostStates {
       const ConditionalKey key(
           *KernelNames::BoundaryConditions, *ComputationKind::NonlinearDirichlet, face);
       auto& entry = dataTable[key];
-      auto* cells = indicesTable[key].get(inner_keys::Indices::Id::Cells);
+      auto* cells = indicesTable[key].get<unsigned>(inner_keys::Indices::Id::Cells);
       const std::size_t faces = cells->getSize();
       const auto* integral = condition.deviceIntegral();
       if (integral == nullptr) {
@@ -170,12 +170,13 @@ class DeviceGhostStates {
         quiet_ = true;
       }
 
-      auto** integrated = entry.get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
-      auto** blocks = entry.get(inner_keys::Wp::Id::NonlinearDirichletScratch)->getDeviceDataPtr();
-      auto** ghosts = entry.get(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr();
-      auto** derivatives = entry.get(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
-      auto** rotations = entry.get(inner_keys::Wp::Id::T)->getDeviceDataPtr();
-      auto** inverseRotations = entry.get(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+      auto** integrated = entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
+      auto** blocks =
+          entry.get<real*>(inner_keys::Wp::Id::NonlinearDirichletScratch)->getDeviceDataPtr();
+      auto** ghosts = entry.get<real*>(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr();
+      auto** derivatives = entry.get<real*>(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
+      auto** rotations = entry.get<real*>(inner_keys::Wp::Id::T)->getDeviceDataPtr();
+      auto** inverseRotations = entry.get<real*>(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
 
       // the integral of the state inside: the ghost state of what the script does not give
       if (aligned) {

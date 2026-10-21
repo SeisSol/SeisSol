@@ -9,14 +9,11 @@
 #define SEISSOL_SRC_COMMON_CONSTANTS_H_
 
 #include "Alignment.h"
-#include "Config.h"
 
 #include <array>
 #include <cstddef>
 
 namespace seissol {
-// TODO: remove these, once properly templated
-constexpr std::size_t ConvergenceOrder = Config::ConvergenceOrder;
 
 struct Cell {
   static constexpr std::size_t NumFaces = 4;

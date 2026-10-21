@@ -214,7 +214,10 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
           {"hdf5", ReceiverOutputFormat::Hdf5},
       });
   const auto samplechunk = reader->readWithDefault("samplechunk", static_cast<std::size_t>(0));
-  const auto aggregate = reader->readWithDefault("aggregateperrank", false);
+  if (reader->readWithDefault("aggregateperrank", false)) {
+    logWarning() << "aggregateperrank is no longer supported: the text output writes a file per "
+                    "on-fault receiver, and format = 'hdf5' writes all of them into a single file.";
+  }
 
   reader->warnDeprecated({"noutpoints", "maxpickstore"});
 
@@ -222,7 +225,6 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
                              interval,
                              outputMask,
                              pickpointFileName,
-                             aggregate,
                              collectiveio,
                              format,
                              samplechunk};

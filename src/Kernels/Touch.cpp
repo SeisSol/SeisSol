@@ -24,7 +24,7 @@ namespace seissol::kernels {
 
 template <typename Cfg>
 void touchBuffersDerivatives(Real<Cfg>** buffers, Real<Cfg>** derivatives, unsigned numberOfCells) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < numberOfCells; ++cell) {

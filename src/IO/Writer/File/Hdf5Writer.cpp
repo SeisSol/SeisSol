@@ -66,9 +66,12 @@ void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
   _eh(H5Pset_libver_bounds(h5falist, H5F_LIBVER_LATEST, H5F_LIBVER_LATEST));
 #endif
 
-  // Keep the metadata of one file together instead of scattering it between the datasets: on a
-  // parallel file system the small metadata writes are what hurts, not the bulk data.
-  _eh(H5Pset_meta_block_size(h5falist, MetaBlockSize));
+  // Keep the metadata of one file together instead of scattering it between the datasets, if asked
+  // to: on a parallel file system the small metadata writes are what hurts, not the bulk data.
+  const auto metaBlockSize = outputMetaBlockSize();
+  if (metaBlockSize > 0) {
+    _eh(H5Pset_meta_block_size(h5falist, static_cast<hsize_t>(metaBlockSize)));
+  }
 
   // Align datasets to the stripe size of the file system, if it was given. Unaligned bulk writes
   // make more than one storage target take part in a single write, which serializes them.
@@ -83,7 +86,12 @@ void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
 
   _eh(H5Pset_fapl_mpio(h5falist, comm_, outputMpioHints()));
 
-  _eh(H5Pset_all_coll_metadata_ops(h5falist, false));
+  // Every rank carries out the same plan, so every operation on the metadata happens on all of them
+  // in the same order anyway. Read independently, each rank fetches every superblock, object header
+  // and chunk index node from the file system itself -- thousands of reads of the same few blocks;
+  // collectively, one rank reads them for all. Likewise, the metadata is written collectively.
+  _eh(H5Pset_all_coll_metadata_ops(h5falist, true));
+  _eh(H5Pset_coll_metadata_write(h5falist, true));
 
   // Opening and creating are collective, so every rank has to make the same choice; rank 0 looks at
   // the file system for all of them, since the ranks may see it differently (e.g. stale caches).
@@ -279,8 +287,14 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
     }
   }
 
-  layout.empty = std::any_of(
-      layout.blockSizes.begin(), layout.blockSizes.end(), [](hsize_t size) { return size == 0; });
+  // Data that is not distributed is the same on every rank and goes into the file once, from rank
+  // 0; the other ranks take part in the collective write with nothing. Otherwise every rank would
+  // send its own copy of the same entries along -- for the few numbers a step of a time series adds
+  // to its metadata, thousands of copies.
+  layout.empty = std::any_of(layout.blockSizes.begin(),
+                             layout.blockSizes.end(),
+                             [](hsize_t size) { return size == 0; }) ||
+                 (!distributedDim.has_value() && rank != 0);
 
   // Rounds split the leading dimension: a block is contiguous along it in memory, so a round is
   // one run of bytes rather than a gather.
@@ -382,9 +396,17 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   }
 
   if (create) {
-    hid_t h5filter = H5P_DEFAULT;
-    if (!layout.chunkSizes.empty()) {
-      h5filter = _eh(H5Pcreate(H5P_DATASET_CREATE));
+    const hid_t h5filter = _eh(H5Pcreate(H5P_DATASET_CREATE));
+    // Every write covers all of the extent it gives the dataset, so there is nothing for a fill
+    // value to stand in for. HDF5 writes one regardless where it can: in parallel, the storage of
+    // a dataset is allocated as soon as it is created or extended, and for a chunked one the
+    // default fill value counts as set -- every byte went to the file twice, first as a zero.
+    _eh(H5Pset_fill_time(h5filter, H5D_FILL_TIME_NEVER));
+    // Only a dataset that grows or is compressed needs chunks. A collective write to a chunked
+    // dataset looks up and maps every chunk it touches, on every rank; to a contiguous one, it is
+    // one write per rank.
+    const bool chunked = layout.appendedDim.has_value() || compress > 0;
+    if (!layout.chunkSizes.empty() && chunked) {
       _eh(H5Pset_chunk(h5filter, layout.chunkSizes.size(), layout.chunkSizes.data()));
       if (compress > 0) {
         const int deflateStrength = compress;
@@ -410,9 +432,7 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     h5data = _eh(H5Dcreate(
         handles_.top(), name.c_str(), h5type, h5space, H5P_DEFAULT, h5filter, H5P_DEFAULT));
 
-    if (h5filter != H5P_DEFAULT) {
-      _eh(H5Pclose(h5filter));
-    }
+    _eh(H5Pclose(h5filter));
     _eh(H5Tclose(h5type));
   }
 
@@ -494,6 +514,7 @@ void Hdf5File::closeGroup() {
   _eh(H5Gclose(handles_.top()));
   handles_.pop();
 }
+void Hdf5File::flushFile() const { _eh(H5Fflush(file_, H5F_SCOPE_LOCAL)); }
 void Hdf5File::closeFile() {
   _eh(H5Fclose(file_));
   handles_.pop();
@@ -502,6 +523,7 @@ void Hdf5File::closeFile() {
 Hdf5Writer::Hdf5Writer(MPI_Comm comm, RunFiles* runFiles) : comm_(comm), runFiles_(runFiles) {}
 
 Hdf5File Hdf5Writer::file(const std::string& name) {
+  written_.insert(name);
   if (openFiles_.find(name) == openFiles_.end()) {
     // a file this run has not written yet belongs to an earlier run, and is replaced; a run
     // resuming from a checkpoint keeps it as a backup, since it holds the output before that
@@ -566,10 +588,30 @@ void Hdf5Writer::writeLinkExternal(const async::ExecInfo& /*info*/,
   }
 }
 
+void Hdf5Writer::endWrite() {
+  for (auto entry = openFiles_.begin(); entry != openFiles_.end();) {
+    const auto& name = entry->first;
+    if (written_.count(name) > 0 && writtenBefore_.count(name) > 0) {
+      if (outputFlush()) {
+        entry->second.flushFile();
+      }
+      ++entry;
+    } else {
+      entry->second.closeFile();
+      entry = openFiles_.erase(entry);
+    }
+  }
+  writtenBefore_ = std::move(written_);
+  written_.clear();
+}
+
 void Hdf5Writer::finalize() {
   for (auto [_, file] : openFiles_) {
     file.closeFile();
   }
+  openFiles_.clear();
+  written_.clear();
+  writtenBefore_.clear();
 }
 
 } // namespace seissol::io::writer::file

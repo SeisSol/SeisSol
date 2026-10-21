@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
   try {
 #ifdef ACL_DEVICE
     seissol::Mpi::mpi.bindAcceleratorDevice();
-    device::DeviceInstance& device = device::DeviceInstance::instance();
+    const device::DeviceInstance& device = device::DeviceInstance::instance();
     device.api().initialize();
 #endif // ACL_DEVICE
 

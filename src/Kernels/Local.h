@@ -31,7 +31,7 @@ namespace seissol::kernels {
 template <typename Cfg>
 class LocalKernel : public Kernel<Cfg> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   protected:
   double gravitationalAcceleration_{9.81};

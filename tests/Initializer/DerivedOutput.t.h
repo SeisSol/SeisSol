@@ -53,7 +53,7 @@ namespace projection = seissol::numerical::projection;
 using reader::scripting::DataTable;
 using reader::scripting::Direction;
 
-using Cfg = Config;
+using Cfg = Config0;
 using RealT = Real<Cfg>;
 using MaterialT = model::MaterialOf<Cfg>;
 

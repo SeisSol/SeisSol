@@ -16,7 +16,7 @@ template <typename Cfg, class Derived, class TPMethod>
 class SlowVelocityWeakeningLaw
     : public RateAndStateBase<Cfg, SlowVelocityWeakeningLaw<Cfg, Derived, TPMethod>, TPMethod> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   SlowVelocityWeakeningLaw() = default;
   using RateAndStateBase<Cfg, SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;

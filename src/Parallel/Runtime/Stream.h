@@ -189,6 +189,11 @@ class StreamRuntime {
 
   ~StreamRuntime() { dispose(); }
 
+  StreamRuntime(const StreamRuntime&) = delete;
+  StreamRuntime& operator=(const StreamRuntime&) = delete;
+  StreamRuntime(StreamRuntime&&) = delete;
+  StreamRuntime& operator=(StreamRuntime&&) = delete;
+
   /**
    * Contributes the work of one callback to the current scope.
    *
@@ -228,7 +233,7 @@ class StreamRuntime {
   }
 
   template <typename F>
-  void enqueueLoop(std::size_t elemCount, F&& handler) {
+  void enqueueLoop(std::size_t elemCount, const F& handler) {
     enqueueHost([=]() {
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < elemCount; ++i) {
@@ -253,7 +258,7 @@ class StreamRuntime {
   }
 
   template <typename F>
-  void envMany(size_t count, F&& handler) {
+  void envMany(size_t count, const F& handler) {
     if (buildGraph_.isInitialized()) {
       closeImplicitNode();
 

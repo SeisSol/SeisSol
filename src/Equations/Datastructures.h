@@ -65,8 +65,6 @@ template <typename Cfg>
 using MaterialOf =
     typename MaterialTypeSelector<Cfg::MaterialType, Cfg::RelaxationMechanisms>::Type;
 
-using MaterialT = MaterialOf<Config>;
-
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_DATASTRUCTURES_H_

@@ -33,16 +33,17 @@ class GhostTimeClusterWithCopy : public AbstractGhostTimeCluster {
   GhostTimeClusterWithCopy& operator=(const GhostTimeClusterWithCopy<CommType>&) = delete;
   GhostTimeClusterWithCopy& operator=(const GhostTimeClusterWithCopy<CommType>&&) = delete;
 
-  void sendCopyLayer() override;
-  void receiveGhostLayer() override;
-
-  bool testForGhostLayerReceives() override;
   bool testReceiveQueue();
 
   void finalize() override;
 
   std::list<std::size_t> prefetchCopyLayer();
   void prefetchGhostRegion(std::size_t region);
+
+  protected:
+  void sendCopyLayer() override;
+  void receiveGhostLayer() override;
+  bool testForGhostLayerReceives() override;
 
   private:
   std::vector<void*> duplicatedCopyRegions_;

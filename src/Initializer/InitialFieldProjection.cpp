@@ -59,7 +59,7 @@ void projectInitialFieldOnLayer(
     const std::vector<std::unique_ptr<physics::InitialField>>& iniFields,
     const seissol::geometry::MeshReader& meshReader,
     LTS::Layer& layer) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
   // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
   const auto* anelasticLayout = runtime::tensorTable(Variant).find("Qane", {});
@@ -117,7 +117,7 @@ void projectInitialFieldOnLayer(
 /// the cells of `layer`, which compute in the configuration `Cfg`.
 template <typename Cfg>
 void projectScriptFieldsOnLayer(const std::vector<double>& data, LTS::Layer& layer) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
   // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
   const auto* anelasticLayout = runtime::tensorTable(Variant).find("Qane", {});

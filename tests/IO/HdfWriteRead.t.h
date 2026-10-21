@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <hdf5.h>
 #include <mpi.h>
 #include <numeric>
 #include <sstream>
@@ -410,14 +411,27 @@ TEST_CASE("IO/VtkHdf: an incremental snapshot links to the constant data" *
   // output of this run rather than after counter zero
   const auto constFile = dir.prefix() + "-volume-const-" + std::to_string(FirstCounter) + ".vtkhdf";
   REQUIRE(std::filesystem::exists(constFile));
-  const auto constSize = std::filesystem::file_size(constFile);
 
   for (std::size_t step = 0; step < times.size(); ++step) {
     const auto path = dir.prefix() + "-volume-" + std::to_string(FirstCounter + step) + ".vtkhdf";
     REQUIRE_MESSAGE(std::filesystem::exists(path), "missing ", path);
 
-    // a snapshot only holds what changes, so it stays smaller than the constant part
-    CHECK(std::filesystem::file_size(path) < constSize);
+    // a snapshot only holds what changes: what stays the same is a link into the constant file
+    // (its size says nothing here, with two cells the links take more room than the data)
+    {
+      const hid_t file = H5Fopen(path.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+      REQUIRE(file >= 0);
+      const auto linkType = [file](const char* name) {
+        H5L_info_t info{};
+        REQUIRE(H5Lget_info(file, name, &info, H5P_DEFAULT) >= 0);
+        return info.type;
+      };
+      CHECK(linkType("VTKHDF/Points") == H5L_TYPE_EXTERNAL);
+      CHECK(linkType("VTKHDF/Connectivity") == H5L_TYPE_EXTERNAL);
+      CHECK(linkType("VTKHDF/CellData/clustering") == H5L_TYPE_EXTERNAL);
+      CHECK(linkType("VTKHDF/CellData/v1") == H5L_TYPE_HARD);
+      H5Fclose(file);
+    }
 
     // ... and the links make it look complete to a reader
     reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);

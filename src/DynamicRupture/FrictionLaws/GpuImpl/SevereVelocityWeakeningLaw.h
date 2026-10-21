@@ -17,7 +17,7 @@ template <typename Cfg, class TPMethod>
 class SevereVelocityWeakeningLaw
     : public RateAndStateBase<Cfg, SevereVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   using RateAndStateBase<Cfg, SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
@@ -46,10 +46,12 @@ class SevereVelocityWeakeningLaw
     const real steadyStateStateVariable = localSlipRate * localSl0 / ctx.data->drParameters.rsSr0;
 
     const double preexp1 = -ctx.data->drParameters.rsSr0 * (timeIncrement / localSl0);
-    const double exp1v = std::exp(preexp1);
     const double exp1m = -std::expm1(preexp1);
-    const real localStateVariable =
-        steadyStateStateVariable * exp1m + exp1v * ctx.initialVariables.stateVarReference;
+    // the relaxation towards the steady state with expm1 alone, which keeps it as its exact fixed
+    // point (see FastVelocityWeakeningLaw::updateStateVariable)
+    const double stateVarReference = ctx.initialVariables.stateVarReference;
+    const real localStateVariable = static_cast<real>(
+        stateVarReference + (steadyStateStateVariable - stateVarReference) * exp1m);
 
     ctx.stateVariableBuffer = localStateVariable;
   }

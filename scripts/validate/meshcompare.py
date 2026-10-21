@@ -16,7 +16,14 @@ about whether the data agree.
 
 If the two files do not consist of the same cells at all (a genuinely different
 subdivision of the same elements), the cells are aggregated per ``global-id`` and
-the volume-weighted means are compared instead.
+the volume-weighted means are compared instead; the elements are paired by where
+they are, since their ``global-id`` need not agree between the two files (see
+``FACES_PER_ELEMENT``).
+
+The error of a quantity is the volume-weighted squared L2 norm of its difference at the
+last output, relative to that of the reference; the components of a vector or a tensor
+are relative to the largest of them (see ``components.py``). Where that norm is below
+1e-10, the error is absolute.
 """
 
 import argparse
@@ -24,6 +31,8 @@ import sys
 
 import numpy as np
 import seissolxdmf as sx
+from components import component_group, group_scales
+from validation_report import write_report_json
 
 # Cell data that describes the run rather than the solution.
 METAFIELDS = [
@@ -33,6 +42,12 @@ METAFIELDS = [
     "clustering",
     "locationFlag",
 ]
+
+# The surface and fault outputs number a face as FACES_PER_ELEMENT * element + local side.
+# The local side follows the order in which SeisSol has read the vertices of the element,
+# which may differ between two runs (a relabelled mesh, a different SeisSol version), so for
+# those outputs only the element part of the global-id has to agree.
+FACES_PER_ELEMENT = 4
 
 # Quantities that were renamed when the output modules were unified.
 RENAMED = {"v1": "u", "v2": "v", "v3": "w", "pprime": "-p"}
@@ -57,16 +72,38 @@ def cell_volumes(geom, connect):
     raise NotImplementedError(f"cells with {cells.shape[1]} vertices")
 
 
-def cell_keys(geom, connect, quantum):
-    """A hashable fingerprint per cell: its vertices, snapped to a grid and sorted.
+def extent(*geometries):
+    """The largest extent of the given point sets taken together, along any axis."""
+    points = np.concatenate(geometries)
+    return np.max(np.max(points, axis=0) - np.min(points, axis=0))
+
+
+def point_labels(points, tolerance):
+    """An integer per point, the same for points that agree to within ``tolerance``.
+
+    Per axis, the sorted coordinates are split wherever two neighbours are more than
+    ``tolerance`` apart. Unlike snapping to a grid there is no rounding boundary two copies
+    of the same coordinate could end up on either side of, however close they are.
+    """
+    labels = np.empty(points.shape, dtype=np.int64)
+    for axis in range(points.shape[1]):
+        order = np.argsort(points[:, axis], kind="stable")
+        gaps = np.diff(points[order, axis]) > tolerance
+        labels[order, axis] = np.concatenate(([0], np.cumsum(gaps)))
+    order = np.lexsort(labels.T[::-1])
+    distinct = np.any(np.diff(labels[order], axis=0) != 0, axis=1)
+    label = np.empty(len(points), dtype=np.int64)
+    label[order] = np.concatenate(([0], np.cumsum(distinct)))
+    return label
+
+
+def cell_keys(labels, connect):
+    """A hashable fingerprint per cell: the labels of its vertices, sorted.
 
     Sorting makes the key independent of the vertex order within the cell, which
     differs between outputs whose subcells are oriented differently.
     """
-    snapped = np.rint(geom[connect, :] / quantum).astype(np.int64)
-    order = np.lexsort((snapped[:, :, 2], snapped[:, :, 1], snapped[:, :, 0]), axis=1)
-    snapped = np.take_along_axis(snapped, order[:, :, None], axis=1)
-    return [tuple(cell.ravel()) for cell in snapped]
+    return [tuple(cell) for cell in np.sort(labels[connect], axis=1).tolist()]
 
 
 def match_cells(
@@ -78,13 +115,17 @@ def match_cells(
     tags_ref=None,
     owners=None,
     owners_ref=None,
+    scale=None,
+    what="cells",
 ):
     """Permutations ``ids``, ``ids_ref`` bringing the two cell lists into the same order.
 
-    Returns ``None`` if the two files do not consist of the same cells. Vertices are
-    snapped to a grid before hashing, so coordinates differing only by round-off still
-    match; any ambiguity introduced by the snapping is ruled out afterwards by checking
-    the matched cells against each other with a real tolerance.
+    Returns ``None`` if the two files do not consist of the same cells. Vertices of both
+    files that agree to within ``scale * 1e-9`` are given a common label (see
+    ``point_labels``), so coordinates differing only by round-off match however close to
+    each other they are; the matched cells are then checked against each other with a real
+    tolerance. ``scale`` defaults to the extent of both files, ``what`` names the cells in
+    the messages.
 
     Some outputs hold the same geometry more than once: the free-surface output writes a
     face of an elastic-acoustic interface once for either side. ``tags`` (the
@@ -93,19 +134,20 @@ def match_cells(
     """
     if len(connect) != len(connect_ref):
         print(
-            f"The two files have {len(connect)} and {len(connect_ref)} cells; "
-            "they cannot consist of the same cells."
+            f"The two files have {len(connect)} and {len(connect_ref)} {what}; "
+            f"they cannot consist of the same {what}."
         )
         return None
 
-    scale = np.max(np.max(geom, axis=0) - np.min(geom, axis=0))
+    if scale is None:
+        scale = extent(geom, geom_ref)
     if scale <= 0:
         return None
     # coarse enough to absorb round-off, fine enough to separate distinct vertices
-    quantum = scale * 1e-9
+    labels = point_labels(np.concatenate((geom, geom_ref)), scale * 1e-9)
 
-    keys = cell_keys(geom, connect, quantum)
-    keys_ref = cell_keys(geom_ref, connect_ref, quantum)
+    keys = cell_keys(labels[: len(geom)], connect)
+    keys_ref = cell_keys(labels[len(geom) :], connect_ref)
     if tags is not None and tags_ref is not None:
         keys = [key + (int(tag),) for key, tag in zip(keys, tags)]
         keys_ref = [key + (int(tag),) for key, tag in zip(keys_ref, tags_ref)]
@@ -122,7 +164,7 @@ def match_cells(
         if not candidates:
             unmatched += 1
             if unmatched <= 3:
-                print(f"  cell {index} has no counterpart in the reference")
+                print(f"  {what[:-1]} {index} has no counterpart in the reference")
             continue
         choice = len(candidates) - 1
         if owners is not None and owners_ref is not None and len(candidates) > 1:
@@ -136,7 +178,7 @@ def match_cells(
         ids_ref[index] = candidates.pop(choice)
 
     if unmatched > 0:
-        print(f"{unmatched} of {len(keys)} cells could not be matched geometrically.")
+        print(f"{unmatched} of {len(keys)} {what} could not be matched geometrically.")
         return None
 
     residual = np.max(
@@ -147,13 +189,13 @@ def match_cells(
     )
     if residual > scale * 1e-8:
         print(
-            f"Matched cells differ by up to {residual:.3e}; the match is not trustworthy."
+            f"Matched {what} differ by up to {residual:.3e}; the match is not trustworthy."
         )
         return None
 
     reordered = int(np.count_nonzero(ids_ref != ids))
     print(
-        f"Matched all {len(keys)} cells geometrically "
+        f"Matched all {len(keys)} {what} geometrically "
         f"(residual {residual:.3e}, {reordered} of them reordered)."
     )
     return ids, ids_ref
@@ -261,7 +303,36 @@ def aggregate_by_parent(groups, volumes, quantity):
     return unique, weighted / np.where(weight > 0, weight, 1.0), weight
 
 
-def compare(file, file_ref, epsilon):
+def global_ids_agree(ids, ids_ref, faces):
+    """Whether the global-ids of matched cells, or of paired elements, say the same.
+
+    For a volume output they have to be identical. For a face output (``faces``) only the
+    element part has to be (see FACES_PER_ELEMENT), and the cells have to fall into the
+    same faces in both files.
+    """
+    if np.array_equal(ids, ids_ref):
+        return True
+    if not faces:
+        return False
+    pairs = np.unique(np.column_stack((ids, ids_ref)), axis=0)
+    same_faces = len(pairs) == len(np.unique(ids)) == len(np.unique(ids_ref))
+    same_elements = np.array_equal(
+        ids // FACES_PER_ELEMENT, ids_ref // FACES_PER_ELEMENT
+    )
+    return bool(same_faces and same_elements)
+
+
+def list_quantities(file):
+    """Physical data-field names in a mesh output (bookkeeping fields removed).
+
+    Matches exactly the keys ``compare()`` reports, so a generated data file's
+    per-quantity entries line up with what a real comparison produces.
+    """
+    mesh = sx.seissolxdmf(file)
+    return [q for q in sorted(mesh.ReadAvailableDataFields()) if q not in METAFIELDS]
+
+
+def compare(file, file_ref, epsilon, report_json=None, category="mesh"):
     mesh = sx.seissolxdmf(file)
     mesh_ref = sx.seissolxdmf(file_ref)
 
@@ -269,6 +340,10 @@ def compare(file, file_ref, epsilon):
     connect = mesh.ReadConnect()
     geom_ref = mesh_ref.ReadGeometry()
     connect_ref = mesh_ref.ReadConnect()
+    for name, points in (("", geom), ("reference ", geom_ref)):
+        if not np.all(np.isfinite(points)):
+            print(f"The {name}file has vertex coordinates that are not finite.")
+            sys.exit(1)
 
     fields = mesh.ReadAvailableDataFields()
     fields_ref = mesh_ref.ReadAvailableDataFields()
@@ -296,7 +371,10 @@ def compare(file, file_ref, epsilon):
     )
     # a flag per cell, or the file could not be read as it says; matching on a shorter list would
     # silently leave most of the cells out of the comparison
-    for name, flags, cells in (("", tags, connect), ("reference ", tags_ref, connect_ref)):
+    for name, flags, cells in (
+        ("", tags, connect),
+        ("reference ", tags_ref, connect_ref),
+    ):
         if flags is not None and len(flags) != len(cells):
             print(
                 f"The {name}file holds {len(flags)} values of locationFlag for {len(cells)} "
@@ -304,6 +382,7 @@ def compare(file, file_ref, epsilon):
             )
             sys.exit(1)
 
+    scale = extent(geom, geom_ref)
     matched = match_cells(
         geom,
         connect,
@@ -313,6 +392,7 @@ def compare(file, file_ref, epsilon):
         tags_ref=tags_ref,
         owners=ids_global,
         owners_ref=ids_global_ref,
+        scale=scale,
     )
     aggregated = matched is None
 
@@ -335,15 +415,22 @@ def compare(file, file_ref, epsilon):
     volumes = cell_volumes(geom, connect)[ids]
     volumes_ref = cell_volumes(geom_ref, connect_ref)[ids_ref]
 
+    faces = connect.shape[1] == 3
     global_id_correct = None
     if not aggregated and ids_global is not None and ids_global_ref is not None:
-        global_id_correct = bool(np.all(ids_global[ids] == ids_global_ref[ids_ref]))
+        global_id_correct = global_ids_agree(
+            ids_global[ids], ids_global_ref[ids_ref], faces
+        )
         print(f"Global IDs present; conformant: {global_id_correct}")
-        if not global_id_correct:
+        if not np.array_equal(ids_global[ids], ids_global_ref[ids_ref]):
+            if global_id_correct:
+                print("The global IDs differ in the local side of the faces only.")
             report_permutation(ids_ref, ids_global_ref)
 
     if aggregated:
-        scale = np.max(np.max(geom, axis=0) - np.min(geom, axis=0))
+        # global-id groups the cells of one file into elements, but its values need not agree
+        # between the two files (see FACES_PER_ELEMENT); the elements are paired by their
+        # centroid instead
         barycenters = np.mean(geom[connect], axis=1)
         barycenters_ref = np.mean(geom_ref[connect_ref], axis=1)
 
@@ -353,23 +440,50 @@ def compare(file, file_ref, epsilon):
         parents_ref, _, weights_ref = aggregate_by_parent(
             ids_global_ref, volumes_ref, np.zeros(len(volumes_ref))
         )
-        if not np.array_equal(parents, parents_ref):
-            print("The two files do not even cover the same elements.")
+        centroids = np.column_stack(
+            [
+                aggregate_by_parent(ids_global, volumes, barycenters[:, axis])[1]
+                for axis in range(barycenters.shape[1])
+            ]
+        )
+        centroids_ref = np.column_stack(
+            [
+                aggregate_by_parent(
+                    ids_global_ref, volumes_ref, barycenters_ref[:, axis]
+                )[1]
+                for axis in range(barycenters_ref.shape[1])
+            ]
+        )
+        parent_tags = parent_tags_ref = None
+        if tags is not None:
+            parent_tags = tags[np.unique(ids_global, return_index=True)[1]]
+            parent_tags_ref = tags_ref[np.unique(ids_global_ref, return_index=True)[1]]
+        paired = match_cells(
+            centroids,
+            np.arange(len(parents))[:, None],
+            centroids_ref,
+            np.arange(len(parents_ref))[:, None],
+            tags=parent_tags,
+            tags_ref=parent_tags_ref,
+            owners=parents,
+            owners_ref=parents_ref,
+            scale=scale,
+            what="elements",
+        )
+        if paired is None:
+            print("The elements of the two files are not in the same place.")
             sys.exit(1)
-        if np.max(np.abs(weights - weights_ref)) > 1e-8 * np.max(weights):
+        order, order_ref = paired
+        if np.max(np.abs(weights[order] - weights_ref[order_ref])) > 1e-8 * np.max(
+            weights
+        ):
             print("The subdivisions of an element do not cover the same volume.")
             sys.exit(1)
-        for axis in range(barycenters.shape[1]):
-            _, centroid, _ = aggregate_by_parent(
-                ids_global, volumes, barycenters[:, axis]
-            )
-            _, centroid_ref, _ = aggregate_by_parent(
-                ids_global_ref, volumes_ref, barycenters_ref[:, axis]
-            )
-            if np.max(np.abs(centroid - centroid_ref)) > 1e-8 * scale:
-                print("The elements of the two files are not in the same place.")
-                sys.exit(1)
         print(f"Aggregated {len(volumes)} cells into {len(parents)} elements.")
+        global_id_correct = global_ids_agree(
+            parents[order], parents_ref[order_ref], faces
+        )
+        print(f"Global IDs of the paired elements; conformant: {global_id_correct}")
 
     def l2_error(quantity, quantity_ref):
         if aggregated:
@@ -377,6 +491,7 @@ def compare(file, file_ref, epsilon):
             _, mean_ref, _ = aggregate_by_parent(
                 ids_global_ref, volumes_ref, quantity_ref
             )
+            mean, weight, mean_ref = mean[order], weight[order], mean_ref[order_ref]
             return (
                 np.dot(weight, np.power(mean - mean_ref, 2)),
                 np.dot(weight, np.power(mean_ref, 2)),
@@ -391,30 +506,32 @@ def compare(file, file_ref, epsilon):
 
     last_index = mesh.ndt
     assert last_index == mesh_ref.ndt
-    for i, q in enumerate(quantity_names):
+
+    def read(q):
         quantity = mesh.ReadData(q, last_index - 1)[ids]
         q_ref = q if q in fields_ref else RENAMED[q]
         quantity_ref = mesh_ref.ReadData(q_ref, last_index - 1)[ids_ref]
+        return quantity, quantity_ref
 
-        # we can leave this one in. A field with the name "DS" only appears on the mesh
-        if q == "DS":
-            print(
-                "There is a bug on the master branch, which sets DS output to zero in wrong "
-                "places. In order to make a fair comparison, we only compare the parts of DS, "
-                "where it is non-zero."
-            )
-            quantity = np.where(quantity_ref < 1e-10, 0.0, quantity)
+    differences = {}
+    references = {}
+    for q in quantity_names:
+        differences[q], references[q] = l2_error(*read(q))
 
-        difference, reference = l2_error(quantity, quantity_ref)
+    # the components of a vector or a tensor are relative to the largest reference norm among
+    # them (see components.py)
+    scales = group_scales(references)
+    for i, q in enumerate(quantity_names):
+        reference = scales[component_group(q)]
         if reference < 1e-10:
-            print(f"{q:3}: {difference} [abs.]")
-            errors[i] = difference
+            print(f"{q:3}: {differences[q]} [abs.]")
+            errors[i] = differences[q]
         else:
-            print(f"{q:3}: {difference / reference} [rel.]")
-            errors[i] = difference / reference
+            print(f"{q:3}: {differences[q] / reference} [rel.]")
+            errors[i] = differences[q] / reference
 
         if errors[i] > epsilon and not aggregated and ids_global is not None:
-            diagnose_subcell_permutation(ids_global[ids], quantity, quantity_ref)
+            diagnose_subcell_permutation(ids_global[ids], *read(q))
 
     failure = False
     if global_id_correct is False:
@@ -425,6 +542,13 @@ def compare(file, file_ref, epsilon):
         print(f"Relative/absolute error {epsilon} exceeded for quantities")
         print([quantity_names[i] for i in np.where(errors > epsilon)[0]])
         failure = True
+
+    if report_json is not None:
+        quantities = {q: float(errors[i]) for i, q in enumerate(quantity_names)}
+        checks = None if global_id_correct is None else {"global-id": global_id_correct}
+        write_report_json(
+            report_json, category, epsilon, not failure, quantities, checks=checks
+        )
 
     if failure:
         sys.exit(1)

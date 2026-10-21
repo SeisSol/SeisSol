@@ -67,7 +67,7 @@ class FrictionSolver {
 template <typename Cfg>
 class FrictionSolverImpl : public FrictionSolver {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit FrictionSolverImpl(const FrictionLawParameters<Real<Cfg>>& userDRParameters)
       : drParameters_(userDRParameters) {}

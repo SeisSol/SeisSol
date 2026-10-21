@@ -27,7 +27,7 @@ void LinearSlipWeakeningInitializer::initializeFault(DynamicRupture::Storage& dr
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+      using real = Real<Cfg>;
       bool (*dynStressTimePending)[misc::NumPaddedPoints<Cfg>] =
           layer.var<LTSLinearSlipWeakening::DynStressTimePending>(Cfg());
       real(*slipRate1)[misc::NumPaddedPoints<Cfg>] =
@@ -60,7 +60,7 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
     std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
     using Cfg = decltype(cfg);
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     real(*dC)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::DC>(Cfg());
     real(*muS)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::MuS>(Cfg());
     real(*muD)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::MuD>(Cfg());
@@ -84,7 +84,7 @@ void LinearSlipWeakeningBimaterialInitializer::initializeFault(DynamicRupture::S
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+      using real = Real<Cfg>;
       real(*regularizedStrength)[misc::NumPaddedPoints<Cfg>] =
           layer.var<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(Cfg());
       const real(*mu)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSLinearSlipWeakening::Mu>(Cfg());

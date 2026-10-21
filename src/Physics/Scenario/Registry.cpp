@@ -10,6 +10,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/MaterialType.h"
@@ -17,6 +18,7 @@
 #include "Physics/Scenario/PlaneWave.h"
 #include "Physics/Scenario/Scenarios.h"
 
+#include <Eigen/Dense>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -35,24 +37,21 @@ using initializer::parameters::InitializationType;
 using FieldList = std::vector<std::unique_ptr<InitialField>>;
 
 // The material models a scenario is formulated for.
-enum class MaterialRequirement {
-  None,
-  NotAnelastic,
-  // the stresses and velocities of an elastic material, without anelastic mechanisms
-  ElasticQuantities,
-  Poroelastic
-};
+enum class MaterialRequirement { None, NotAnelastic, Poroelastic, Fluid, SolidAndFluid };
 
 bool fulfills(const ConfigValue& config, MaterialRequirement requirement) {
   switch (requirement) {
   case MaterialRequirement::NotAnelastic:
     return config.relaxationMechanisms == 0;
-  case MaterialRequirement::ElasticQuantities:
-    return config.relaxationMechanisms == 0 &&
-           config.materialType != model::MaterialType::Acoustic &&
-           config.materialType != model::MaterialType::Viscoacoustic;
   case MaterialRequirement::Poroelastic:
     return config.materialType == model::MaterialType::Poroelastic;
+  case MaterialRequirement::Fluid:
+    // the cells with mu = 0 of the elastic material, or the acoustic one; the closed-form
+    // solutions are lossless, so the attenuating materials are left out
+    return config.materialType == model::MaterialType::Elastic ||
+           config.materialType == model::MaterialType::Acoustic;
+  case MaterialRequirement::SolidAndFluid:
+    return config.materialType == model::MaterialType::Elastic;
   case MaterialRequirement::None:
     break;
   }
@@ -72,18 +71,6 @@ TravellingWaveParameters travellingWaveParameters(const Input& input) {
       parameters.ampField.emplace_back(initialization.ampField[i]);
     }
   }
-  return parameters;
-}
-
-AcousticTravellingWaveParametersITM acousticTravellingWaveParameters(const Input& input) {
-  const auto& initialization = input.parameters.initialization;
-  const auto& itm = input.parameters.model.itmParameters;
-
-  AcousticTravellingWaveParametersITM parameters{};
-  parameters.k = initialization.k;
-  parameters.itmStartingTime = itm.itmStartingTime;
-  parameters.itmDuration = itm.itmDuration;
-  parameters.itmVelocityScalingFactor = itm.itmVelocityScalingFactor;
   return parameters;
 }
 
@@ -112,9 +99,11 @@ constexpr std::array<Entry, 12> Registry = {{
      MaterialRequirement::None,
      "",
      true,
-     // fused simulations are offset against each other in phase, so that they do not all carry
-     // the same wave
-     [](const Input& input) { return planarwave(input.materialData, input.config); }},
+     // along kVec where the parameter file sets it, else along (pi, pi, pi); fused simulations
+     // are offset against each other in phase, so that they do not all carry the same wave
+     [](const Input& input) {
+       return planarwave(input.materialData, input.config, input.parameters.initialization.kVec);
+     }},
     {InitializationType::SuperimposedPlanarwave,
      "super-imposed planar wave",
      MaterialRequirement::None,
@@ -131,44 +120,44 @@ constexpr std::array<Entry, 12> Registry = {{
      }},
     {InitializationType::AcousticTravellingWithITM,
      "acoustic travelling wave with ITM",
-     MaterialRequirement::ElasticQuantities,
-     "it is formulated for the stresses and velocities of an elastic material without anelastic "
-     "mechanisms",
+     MaterialRequirement::Fluid,
+     "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
      true,
      [](const Input& input) {
        return acousticTravellingWaveITM(
-           input.materialData, acousticTravellingWaveParameters(input), input.config);
+           input.materialData,
+           acousticTravellingWaveParameters(input.parameters.initialization,
+                                            input.parameters.model.itmParameters),
+           input.config);
      }},
     {InitializationType::Scholte,
      "Scholte wave (elastic-acoustic)",
-     MaterialRequirement::ElasticQuantities,
-     "it is formulated for the stresses and velocities of an elastic material without anelastic "
-     "mechanisms",
+     MaterialRequirement::SolidAndFluid,
+     "it couples a solid to a fluid, which only the elastic material holds both of",
      true,
      [](const Input& input) { return scholteWave(input.config); }},
     {InitializationType::Snell,
      "Snell's law (elastic-acoustic)",
-     MaterialRequirement::ElasticQuantities,
-     "it is formulated for the stresses and velocities of an elastic material without anelastic "
-     "mechanisms",
+     MaterialRequirement::SolidAndFluid,
+     "it couples a solid to a fluid, which only the elastic material holds both of",
      true,
      [](const Input& input) { return snellsLaw(input.config); }},
     {InitializationType::Ocean0,
      "ocean, an uncoupled ocean test case for acoustic equations (mode 0)",
-     MaterialRequirement::NotAnelastic,
-     "it is formulated for a material without anelastic mechanisms",
+     MaterialRequirement::Fluid,
+     "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
      true,
      [](const Input& input) { return ocean(0, input.gravitation.acceleration, input.config); }},
     {InitializationType::Ocean1,
      "ocean, an uncoupled ocean test case for acoustic equations (mode 1)",
-     MaterialRequirement::NotAnelastic,
-     "it is formulated for a material without anelastic mechanisms",
+     MaterialRequirement::Fluid,
+     "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
      true,
      [](const Input& input) { return ocean(1, input.gravitation.acceleration, input.config); }},
     {InitializationType::Ocean2,
      "ocean, an uncoupled ocean test case for acoustic equations (mode 2)",
-     MaterialRequirement::NotAnelastic,
-     "it is formulated for a material without anelastic mechanisms",
+     MaterialRequirement::Fluid,
+     "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
      true,
      [](const Input& input) { return ocean(2, input.gravitation.acceleration, input.config); }},
     {InitializationType::PressureInjection,
@@ -218,6 +207,19 @@ Availability analyticalBoundaryAvailability(InitializationType type, ConfigId co
     return {false, "it supplies a state at t = 0 only"};
   }
   return {};
+}
+
+AcousticTravellingWaveParametersITM acousticTravellingWaveParameters(
+    const initializer::parameters::InitializationParameters& initialization,
+    const initializer::parameters::ITMParameters& itm) {
+  AcousticTravellingWaveParametersITM parameters{};
+  parameters.k = initialization.k;
+  parameters.itmStartingTime = itm.itmStartingTime;
+  parameters.itmDuration = itm.itmDuration;
+  // Without an enabled mirror, the ITM values are ignored. A factor of one makes the wave pass the
+  // mirror times unchanged, whatever they are.
+  parameters.itmVelocityScalingFactor = itm.itmEnabled ? itm.itmVelocityScalingFactor : 1.0;
+  return parameters;
 }
 
 FieldList build(InitializationType type, const Input& input) {

@@ -5,7 +5,6 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Kernels/Precision.h"
 #include "Numerical/Eigenvalues.h"
 #include "TestHelper.h"
 

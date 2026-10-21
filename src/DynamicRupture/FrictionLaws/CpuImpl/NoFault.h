@@ -18,7 +18,10 @@ namespace seissol::dr::friction_law::cpu {
 template <typename Cfg>
 class NoFault : public BaseFrictionLaw<Cfg, NoFault<Cfg>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
+
+  // the slip rate of a sub-step is the one the friction solve finds at its time point
+  static constexpr bool SlipRateAtIntervalEnds = false;
 
   using BaseFrictionLaw<Cfg, NoFault<Cfg>>::BaseFrictionLaw;
 
@@ -40,7 +43,11 @@ class NoFault : public BaseFrictionLaw<Cfg, NoFault<Cfg>> {
                std::size_t ltsFace) {}
   void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
                 std::size_t ltsFace) {}
-  void saveDynamicStressOutput(std::size_t ltsFace, real time) {}
+  //! no dynamic stress time
+  [[nodiscard]] const real* dynamicStressQuantity(std::size_t /*ltsFace*/) const { return nullptr; }
+  void saveDynamicStressOutput(std::size_t /*ltsFace*/,
+                               const real* /*previousQuantity*/,
+                               const common::SubStepTimes<Cfg>& /*times*/) {}
 };
 } // namespace seissol::dr::friction_law::cpu
 

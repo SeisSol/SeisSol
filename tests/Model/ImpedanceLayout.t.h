@@ -10,12 +10,12 @@
 
 #include <doctest.h>
 
-#include "Config.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Impedance.h" // IWYU pragma: keep
 #include "Equations/ImpedanceBase.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "TestConfigs.h"
 
 #include <cstddef>
 
@@ -29,51 +29,54 @@ namespace seissol::unit_test {
  * and the Riemann solver would not agree on which quantities are tractions; in a release build
  * nothing else would notice.
  */
-template <typename MaterialT>
+template <typename Cfg>
 void checkInterfaceQuantities() {
-  if constexpr (MaterialT::SupportsDR) {
-    using ImpedanceCompute = seissol::model::ImpedanceCompute<MaterialT>;
+  using MaterialT = model::MaterialOf<Cfg>;
+  using ImpedanceCompute = seissol::model::ImpedanceCompute<MaterialT>;
 
-    const auto check = [](const auto* values,
-                          const auto& shape,
-                          const auto& start,
-                          const auto& stop,
-                          const auto& indices) {
-      REQUIRE(shape[0] == ImpedanceCompute::Dim);
-      // (the anelastic solver extracts from the elastic quantities only, so this may be less than
-      // MaterialT::NumQuantities)
-      const std::size_t quantities = shape[1];
-      // the generated matrix only stores its bounding box, column major
-      const std::size_t rows = stop[0] - start[0];
-      for (std::size_t row = 0; row < ImpedanceCompute::Dim; ++row) {
-        REQUIRE(indices[row] < quantities);
-        for (std::size_t quantity = 0; quantity < quantities; ++quantity) {
-          const bool inBox =
-              row >= start[0] && row < stop[0] && quantity >= start[1] && quantity < stop[1];
-          const double value =
-              inBox ? values[(row - start[0]) + rows * (quantity - start[1])] : 0.0;
-          CHECK(value == (quantity == indices[row] ? 1.0 : 0.0));
-        }
+  const auto check = [](const auto* values,
+                        const auto& shape,
+                        const auto& start,
+                        const auto& stop,
+                        const auto& indices) {
+    REQUIRE(shape[0] == ImpedanceCompute::Dim);
+    // (the anelastic solver extracts from the elastic quantities only, so this may be less than
+    // MaterialT::NumQuantities)
+    const std::size_t quantities = shape[1];
+    // the generated matrix only stores its bounding box, column major
+    const std::size_t rows = stop[0] - start[0];
+    for (std::size_t row = 0; row < ImpedanceCompute::Dim; ++row) {
+      REQUIRE(indices[row] < quantities);
+      for (std::size_t quantity = 0; quantity < quantities; ++quantity) {
+        const bool inBox =
+            row >= start[0] && row < stop[0] && quantity >= start[1] && quantity < stop[1];
+        const double value = inBox ? values[(row - start[0]) + rows * (quantity - start[1])] : 0.0;
+        CHECK(value == (quantity == indices[row] ? 1.0 : 0.0));
       }
-    };
+    }
+  };
 
-    check(init::extractTractions<Config>::Values,
-          tensor::extractTractions<Config>::Shape,
-          init::extractTractions<Config>::Start,
-          init::extractTractions<Config>::Stop,
-          ImpedanceCompute::TractionIndices);
-    check(init::extractVelocities<Config>::Values,
-          tensor::extractVelocities<Config>::Shape,
-          init::extractVelocities<Config>::Start,
-          init::extractVelocities<Config>::Stop,
-          ImpedanceCompute::VelocityIndices);
-  }
+  check(init::extractTractions<Cfg>::Values,
+        tensor::extractTractions<Cfg>::Shape,
+        init::extractTractions<Cfg>::Start,
+        init::extractTractions<Cfg>::Stop,
+        ImpedanceCompute::TractionIndices);
+  check(init::extractVelocities<Cfg>::Values,
+        tensor::extractVelocities<Cfg>::Shape,
+        init::extractVelocities<Cfg>::Start,
+        init::extractVelocities<Cfg>::Stop,
+        ImpedanceCompute::VelocityIndices);
 }
 
-TEST_CASE("Interface quantities of the impedance match the generated extraction matrices" *
-          doctest::test_suite("dynamicrupture")) {
-  checkInterfaceQuantities<model::MaterialT>();
+TEST_CASE_TEMPLATE_DEFINE(
+    "Interface quantities of the impedance match the generated extraction matrices" *
+        doctest::test_suite("dynamicrupture"),
+    Cfg,
+    InterfaceQuantities) {
+  checkInterfaceQuantities<Cfg>();
 }
+
+TEST_CASE_TEMPLATE_APPLY(InterfaceQuantities, DynamicRuptureConfigs);
 
 } // namespace seissol::unit_test
 

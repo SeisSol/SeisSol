@@ -24,16 +24,25 @@ class ExecInfo;
 
 namespace seissol::io::writer {
 
+/**
+ * @brief Carries out the write plans of one output, one after the other.
+ *
+ * The files every plan writes stay open from one plan to the next (see file::Hdf5Writer::endWrite);
+ * close() closes them.
+ */
 class WriteInstance {
   public:
   explicit WriteInstance(MPI_Comm comm, file::RunFiles* runFiles = nullptr);
 
   void write(const async::ExecInfo& info,
-             const std::shared_ptr<instructions::WriteInstruction>& instruction);
+             const std::vector<std::shared_ptr<instructions::WriteInstruction>>& plan);
 
   void close();
 
   private:
+  void write(const async::ExecInfo& info,
+             const std::shared_ptr<instructions::WriteInstruction>& instruction);
+
   file::Hdf5Writer hdf5_;
   file::BinaryWriter binary_;
 };
@@ -54,16 +63,8 @@ class Writer {
 
   std::string serialize();
 
-  /**
-   * @brief Carries out the plan.
-   *
-   * @p runFiles is what the run has written so far (see file::RunFiles); without it, existing files
-   * are opened and appended to.
-   */
-  WriteInstance
-      beginWrite(const async::ExecInfo& info, MPI_Comm comm, file::RunFiles* runFiles = nullptr);
-
-  void endWrite();
+  //! Carries out the plan with @p instance , which carried out the plans before it.
+  void write(const async::ExecInfo& info, WriteInstance& instance) const;
 
   [[nodiscard]] const std::vector<std::shared_ptr<instructions::WriteInstruction>>&
       getInstructions() const;

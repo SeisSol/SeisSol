@@ -26,7 +26,6 @@
 namespace seissol::unit_test {
 
 TEST_CASE("Anisotropic Instantaneous Time Mirror supports only BothWaves reflection type" *
-          doctest::skip(!std::is_same_v<model::MaterialT, model::AnisotropicMaterial>) *
           doctest::test_suite("physics")) {
   using seissol::initializer::parameters::ReflectionType;
 

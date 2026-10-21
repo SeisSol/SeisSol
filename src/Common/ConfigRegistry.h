@@ -54,7 +54,16 @@ std::optional<ConfigId> findConfig(const ConfigValue& value);
 /// The id of the configuration with the given canonical name, if it is built into the executable.
 std::optional<ConfigId> findConfig(std::string_view name);
 
-/// The configuration of the cells for which the setup does not name one: the first one built.
+/// The names of the configurations built into the executable, in the order of their ids,
+/// separated by commas.
+std::string builtConfigNames();
+
+/// The configuration that the environment variable SEISSOL_CONFIGURATION names, by its canonical
+/// name, if it is set. Naming one that is not built into the executable is an error.
+std::optional<ConfigId> environmentConfig();
+
+/// The configuration of the cells for which the setup does not name one: the one that the
+/// environment variable SEISSOL_CONFIGURATION names, or else the first one built.
 ConfigId defaultConfig();
 
 /// A description of all built configurations for humans: each name, followed by its fields.

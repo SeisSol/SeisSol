@@ -8,7 +8,6 @@
 #include <doctest.h>
 
 #include "GeneratedCode/init.h"
-#include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
 #include "TestHelper.h"
 

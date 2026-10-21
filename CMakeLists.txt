@@ -58,6 +58,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #
 #       derived input: WITH_GPU, DEVICE_VENDOR
 #
+include(cmake/confignames.cmake)
 include(cmake/process_users_input.cmake)
 include(cmake/configs.cmake)
 
@@ -390,18 +391,24 @@ if (NOT NEW_BINARY_NAMING)
     set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_${CUSTOM_BINARY_SUFFIX}")
   endif()
 else()
-  set(NAME_SUFFIX "${EQUATIONS}")
-  if (NUMBER_OF_MECHANISMS GREATER 0)
-    set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
-  endif()
-  set(NAME_SUFFIX "${NAME_SUFFIX}-o${ORDER}")
-  if (PRECISION STREQUAL "single")
-    set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
+  # the suffix of the names of the executables and libraries, with its leading dash
+  if (NOT "${CONFIGS}" STREQUAL "")
+    # one executable for all configurations of the list; a run chooses its own
+    set(NAME_SUFFIX "")
   else()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
-  endif()
-  if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
-    set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
+    set(NAME_SUFFIX "-${EQUATIONS}")
+    if (NUMBER_OF_MECHANISMS GREATER 0)
+      set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
+    endif()
+    set(NAME_SUFFIX "${NAME_SUFFIX}-o${ORDER}")
+    if (PRECISION STREQUAL "single")
+      set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
+    else()
+      set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
+    endif()
+    if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
+      set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
+    endif()
   endif()
   if(NOT ${CUSTOM_BINARY_SUFFIX} STREQUAL "")
     set(NAME_SUFFIX "${NAME_SUFFIX}-${CUSTOM_BINARY_SUFFIX}")
@@ -412,7 +419,7 @@ if (SHARED)
   if (NOT NEW_BINARY_NAMING)
     set_target_properties(seissol-lib PROPERTIES OUTPUT_NAME "SeisSol_lib_${EXE_NAME_PREFIX}")
   else()
-    set_target_properties(seissol-lib PROPERTIES OUTPUT_NAME "seissollib-${NAME_SUFFIX}")
+    set_target_properties(seissol-lib PROPERTIES OUTPUT_NAME "seissollib${NAME_SUFFIX}")
   endif()
   install(TARGETS seissol-lib LIBRARY)
 endif()
@@ -448,7 +455,7 @@ if (WITH_GPU)
     set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
     set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_BACKEND}")
   else()
-    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode-${NAME_SUFFIX}")
+    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode${NAME_SUFFIX}")
   endif()
 
   # set up GPU install targets
@@ -511,17 +518,27 @@ add_subdirectory(external)
 if (TESTING)
   enable_testing()
   include(cmake/doctest.cmake)
+  include(cmake/SmokeTest.cmake)
 
   add_subdirectory(tests)
 endif()
 
 add_subdirectory(app)
 
+# the verification cases drive the executable, so they are registered after it
+# exists. They need enable_testing(), hence the TESTING guard.
+option(VERIFICATION_TESTS "Register the mini-mesh verification cases" ON)
+if (TESTING AND VERIFICATION_TESTS)
+  add_subdirectory(tests/verification)
+endif()
+
 # Coverage (should run last; after all folders have been added)
 if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+  # The verification cases of the label convergence run what the smoke cases run, for 256 steps
+  # rather than 20; that adds no coverage, but minutes per case in this unoptimized build.
   setup_target_for_coverage_lcov(
           NAME seissol-coverage
-          EXECUTABLE ctest -j
+          EXECUTABLE ctest -j -LE convergence
           EXCLUDE "/usr/*"
                   "submodules/*"
                   "tests/*"

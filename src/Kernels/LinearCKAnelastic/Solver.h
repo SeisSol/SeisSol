@@ -47,10 +47,14 @@ struct Solver {
 
   static constexpr FaceTypeSupport implementsFaceType([[maybe_unused]] FaceType faceType) {
 #ifdef ACL_DEVICE
-    if (faceType == FaceType::NonlinearDirichlet || faceType == FaceType::Analytical) {
-      // the device kernels of this solver have no flux of a ghost state given at the nodes
-      return faceTypeUnsupported("the device kernels of the anelastic solver do not apply a "
-                                 "ghost state given at the nodes of a face yet");
+    // the device kernels of the local integral (Local::computeBatchedIntegral and
+    // Local::evaluateBatchedTimeDependentBc) apply no boundary condition with a nodal flux; such
+    // faces would act as absorbing ones. The map of a Dirichlet face is part of the local flux, so
+    // that only its offset is missing, which the setup of the boundary mappings refuses.
+    if (faceType == FaceType::FreeSurfaceGravity || faceType == FaceType::Analytical ||
+        faceType == FaceType::NonlinearDirichlet) {
+      return faceTypeUnsupported(
+          "its device kernels apply no boundary condition with a nodal flux");
     }
 #endif
     return faceTypeSupported();

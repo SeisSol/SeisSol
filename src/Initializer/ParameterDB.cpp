@@ -903,7 +903,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
                                         const double* parameters,
                                         Real<Cfg>* mapTermsData,
                                         Real<Cfg>* constantTermsData) const {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   if (model_ == nullptr) {
     logError() << "The model of the Dirichlet boundary condition is not initialized.";
   }

@@ -643,7 +643,8 @@ private:
     }
   }
 
-  void updateDeviceComputeGraphHandle(GraphKey graphKey, device::DeviceGraphHandle graphHandle) {
+  void updateDeviceComputeGraphHandle(GraphKey graphKey,
+                                      const device::DeviceGraphHandle& graphHandle) {
     assert(computeGraphHandles_.find(graphKey) == computeGraphHandles_.end() &&
            "an entry of hash table must be empty on write");
     if (graphHandle.isInitialized()) {

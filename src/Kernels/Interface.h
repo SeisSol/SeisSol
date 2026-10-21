@@ -19,7 +19,7 @@ namespace seissol::kernels {
 /// The thread-local scratch data of the integration of a cell of the configuration `Cfg`.
 template <typename Cfg>
 struct LocalTmp {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   alignas(Alignment) real timeIntegratedAne[zeroGuard(kernels::size<tensor::Iane<Cfg>>())]{};
   GravitationalFreeSurfaceBc<Cfg> gravitationalFreeSurfaceBc;

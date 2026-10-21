@@ -58,7 +58,8 @@ std::vector<std::unique_ptr<InitialField>>
                       ConfigId config);
 
 /// An acoustic wave travelling along x, through the time mirror of `parameters`, in the material
-/// `materialData` (rho and the speed sqrt(lambda / rho) of the wave before the mirror).
+/// `materialData` (rho and the speed sqrt(lambda / rho) of the wave before the mirror), written in
+/// the quantities of the configuration `config`: the elastic or the acoustic ones.
 std::vector<std::unique_ptr<InitialField>>
     acousticTravellingWaveITM(const CellMaterialData& materialData,
                               const AcousticTravellingWaveParametersITM& parameters,

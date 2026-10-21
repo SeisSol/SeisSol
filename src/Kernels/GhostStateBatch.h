@@ -44,7 +44,7 @@ namespace seissol::kernels {
 template <typename Cfg, bool Aligned>
 class GhostStateBatch {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   using TargetTensor = std::conditional_t<Aligned, tensor::INodalAligned<Cfg>, tensor::INodal<Cfg>>;
   using TargetInit = std::conditional_t<Aligned, init::INodalAligned<Cfg>, init::INodal<Cfg>>;
 

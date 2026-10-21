@@ -19,7 +19,7 @@ namespace seissol::dr::friction_law::cpu {
 template <typename Cfg>
 class YoffeSTF {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   /// a time function scaling the slip of the point (cf. ScriptedSTF)
   static constexpr bool Prescribed = false;
 
@@ -40,7 +40,7 @@ class YoffeSTF {
 template <typename Cfg>
 class GaussianSTF {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   /// a time function scaling the slip of the point (cf. ScriptedSTF)
   static constexpr bool Prescribed = false;
 
@@ -57,7 +57,7 @@ class GaussianSTF {
 template <typename Cfg>
 class DeltaSTF {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   /// a time function scaling the slip of the point (cf. ScriptedSTF)
   static constexpr bool Prescribed = false;
 
@@ -77,7 +77,7 @@ class DeltaSTF {
 template <typename Cfg>
 class ScriptedSTF {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   /// gives the slip rate along both directions itself
   static constexpr bool Prescribed = true;
 

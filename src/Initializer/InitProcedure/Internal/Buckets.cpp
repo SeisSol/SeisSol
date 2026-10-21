@@ -240,6 +240,39 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   return remoteClusters;
 }
 
+// The buckets of one cell. A function of its own rather than the body of the loop over the cells:
+// with the lambdas in an OpenMP loop, NVHPC 24.9 runs it wrongly (at -O2 and above already with
+// one thread).
+template <typename Cfg, typename BufferT>
+void setupBucketsOfCell(LTS::Layer& layer,
+                        std::size_t cell,
+                        BufferT* buffers,
+                        BufferT* buffersDevice) {
+  for (std::size_t type = 0; type < BufferCount; ++type) {
+    callForBuffer<Cfg>(static_cast<BufferType>(type), [&](auto typeHelper) {
+      using Buf = decltype(typeHelper);
+      auto*& pointer = layer.var<typename Buf::Type>(Cfg())[cell];
+      initBucketItem(pointer, buffers, Buf::Size, true);
+      assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
+                 static_cast<BufferType>(type)) ||
+             pointer != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+    });
+  }
+
+  if constexpr (isDeviceOn()) {
+    for (std::size_t type = 0; type < BufferCount; ++type) {
+      callForBuffer<Cfg>(static_cast<BufferType>(type), [&](auto typeHelper) {
+        using Buf = decltype(typeHelper);
+        auto*& pointer = layer.var<typename Buf::TypeDevice>(Cfg())[cell];
+        initBucketItem(pointer, buffersDevice, Buf::Size, false);
+        assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
+                   static_cast<BufferType>(type)) ||
+               pointer != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
+      });
+    }
+  }
+}
+
 template <typename Cfg>
 void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   auto* buffers = layer.var<LTS::Buffers>(Cfg());
@@ -247,29 +280,7 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    for (std::size_t type = 0; type < BufferCount; ++type) {
-      callForBuffer<Cfg>(static_cast<BufferType>(type), [&](auto typeHelper) {
-        using Buf = decltype(typeHelper);
-        auto*& pointer = layer.var<typename Buf::Type>(Cfg())[cell];
-        initBucketItem(pointer, buffers, Buf::Size, true);
-        assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
-                   static_cast<BufferType>(type)) ||
-               pointer != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
-      });
-    }
-
-    if constexpr (isDeviceOn()) {
-      for (std::size_t type = 0; type < BufferCount; ++type) {
-        callForBuffer<Cfg>(static_cast<BufferType>(type), [&](auto typeHelper) {
-          using Buf = decltype(typeHelper);
-          auto*& pointer = layer.var<typename Buf::TypeDevice>(Cfg())[cell];
-          initBucketItem(pointer, buffersDevice, Buf::Size, false);
-          assert(!layer.var<LTS::CellInformation>()[cell].ltsSetup.hasBuffer(
-                     static_cast<BufferType>(type)) ||
-                 pointer != nullptr || layer.getIdentifier().halo == HaloType::Ghost);
-        });
-      }
-    }
+    setupBucketsOfCell<Cfg>(layer, cell, buffers, buffersDevice);
   }
 
 #ifndef NDEBUG
@@ -303,6 +314,44 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   }
 }
 
+// The face neighbors of one cell. A function of its own rather than the body of the loop over the
+// cells: with the lambdas in an OpenMP loop, NVHPC 24.9 runs it wrongly with several threads.
+void setupFaceNeighborsOfCell(LTS::Storage& storage,
+                              const CellLocalInformation& cellInformation,
+                              const SecondaryCellLocalInformation& secondaryInformation,
+                              std::array<void*, Cell::NumFaces>& faceNeighbors,
+                              std::array<void*, Cell::NumFaces>* faceNeighborsDevice) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    const auto& faceNeighbor = secondaryInformation.faceNeighbors[face];
+    if (getBCType(cellInformation.faceTypes[face]) != BCType::External) {
+      const auto type = cellInformation.ltsSetup.neighborBuffer(face);
+
+      if (faceNeighbor == StoragePosition::NullPosition) {
+        logError() << "A face that needs the Neighbor kernel has no face neighbor.";
+      } else {
+        // the neighbor holds its buffers in the reals of its own configuration
+        const auto neighborConfig = storage.layer(faceNeighbor.color).getIdentifier().config;
+        dispatchConfig(neighborConfig, [&](auto config) {
+          using NeighborCfg = decltype(config);
+          callForBuffer<NeighborCfg>(type, [&](auto typeHandler) {
+            using Buf = decltype(typeHandler);
+            faceNeighbors[face] = storage.lookup<typename Buf::Type>(config, faceNeighbor);
+            if constexpr (isDeviceOn()) {
+              (*faceNeighborsDevice)[face] =
+                  storage.lookup<typename Buf::TypeDevice>(config, faceNeighbor);
+            }
+          });
+        });
+      }
+
+      assert(faceNeighbors[face] != nullptr);
+      if constexpr (isDeviceOn()) {
+        assert((*faceNeighborsDevice)[face] != nullptr);
+      }
+    }
+  }
+}
+
 void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
   const auto* cellInformation = layer.var<LTS::CellInformation>();
   const auto* secondaryCellInformation = layer.var<LTS::SecondaryInformation>();
@@ -312,35 +361,11 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      const auto& faceNeighbor = secondaryCellInformation[cell].faceNeighbors[face];
-      if (getBCType(cellInformation[cell].faceTypes[face]) != BCType::External) {
-        const auto type = cellInformation[cell].ltsSetup.neighborBuffer(face);
-
-        if (faceNeighbor == StoragePosition::NullPosition) {
-          logError() << "A face that needs the Neighbor kernel has no face neighbor.";
-        } else {
-          // the neighbor holds its buffers in the reals of its own configuration
-          const auto neighborConfig = storage.layer(faceNeighbor.color).getIdentifier().config;
-          dispatchConfig(neighborConfig, [&](auto config) {
-            using NeighborCfg = decltype(config);
-            callForBuffer<NeighborCfg>(type, [&](auto typeHandler) {
-              using Buf = decltype(typeHandler);
-              faceNeighbors[cell][face] = storage.lookup<typename Buf::Type>(config, faceNeighbor);
-              if constexpr (isDeviceOn()) {
-                faceNeighborsDevice[cell][face] =
-                    storage.lookup<typename Buf::TypeDevice>(config, faceNeighbor);
-              }
-            });
-          });
-        }
-
-        assert(faceNeighbors[cell][face] != nullptr);
-        if constexpr (isDeviceOn()) {
-          assert(faceNeighborsDevice[cell][face] != nullptr);
-        }
-      }
-    }
+    setupFaceNeighborsOfCell(storage,
+                             cellInformation[cell],
+                             secondaryCellInformation[cell],
+                             faceNeighbors[cell],
+                             faceNeighborsDevice == nullptr ? nullptr : &faceNeighborsDevice[cell]);
   }
 }
 } // namespace

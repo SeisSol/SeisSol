@@ -24,6 +24,7 @@ namespace seissol::model {
 /// True if the predictor has to factorise this row separately.
 template <typename MaterialT>
 constexpr bool isStiffRow(std::size_t quantity) {
+  // NOLINTNEXTLINE(readability-use-anyofallof): std::any_of is constexpr from C++20 on
   for (const auto& row : MaterialT::StiffSourceRows) {
     if (row.quantity == quantity) {
       return true;

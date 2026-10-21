@@ -8,11 +8,16 @@
 #include <doctest.h>
 
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "Config.h"
+#include "Equations/Datastructures.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Kernels/Solver.h"
+#include "TestConfigs.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 namespace seissol::unit_test {
@@ -21,8 +26,10 @@ namespace seissol::unit_test {
 // Spacetime (ADER) flops and bytes
 // ---------------------------------------------------------------------------
 
-TEST_CASE("Spacetime flopsAder" * doctest::test_suite("kernel")) {
-  const kernels::Spacetime<Config> spacetime;
+TEST_CASE_TEMPLATE("Spacetime flopsAder" * doctest::test_suite("kernel"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  const kernels::Spacetime<Cfg> spacetime;
 
   const auto metric = spacetime.metrics();
 
@@ -48,8 +55,10 @@ TEST_CASE("Spacetime flopsAder" * doctest::test_suite("kernel")) {
 // Local kernel flops and bytes
 // ---------------------------------------------------------------------------
 
-TEST_CASE("Local metrics all Regular faces" * doctest::test_suite("kernel")) {
-  const kernels::Local<Config> local;
+TEST_CASE_TEMPLATE("Local metrics all Regular faces" * doctest::test_suite("kernel"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  const kernels::Local<Cfg> local;
 
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
@@ -66,8 +75,10 @@ TEST_CASE("Local metrics all Regular faces" * doctest::test_suite("kernel")) {
   SUBCASE("Hardware >= nonzero") { CHECK(metric.hardwareFlop >= metric.nonzeroFlop); }
 }
 
-TEST_CASE("Local metrics with DynamicRupture faces" * doctest::test_suite("kernel")) {
-  const kernels::Local<Config> local;
+TEST_CASE_TEMPLATE("Local metrics with DynamicRupture faces" * doctest::test_suite("kernel"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  const kernels::Local<Cfg> local;
 
   // All faces are DR → local flux is skipped for each (on CPU)
   std::array<FaceType, Cell::NumFaces> faceTypesDR{};
@@ -93,8 +104,10 @@ TEST_CASE("Local metrics with DynamicRupture faces" * doctest::test_suite("kerne
   }
 }
 
-TEST_CASE("Local metrics mixed faces" * doctest::test_suite("kernel")) {
-  const kernels::Local<Config> local;
+TEST_CASE_TEMPLATE("Local metrics mixed faces" * doctest::test_suite("kernel"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  const kernels::Local<Cfg> local;
 
   const std::array<FaceType, Cell::NumFaces> faceTypes = {
       FaceType::Regular,
@@ -108,15 +121,17 @@ TEST_CASE("Local metrics mixed faces" * doctest::test_suite("kernel")) {
   CHECK(metric.hardwareFlop >= metric.nonzeroFlop);
 
   CHECK(metric.bytes > 0);
-  CHECK(metric.bytes % sizeof(real) == 0);
+  CHECK(metric.bytes % sizeof(Real<Cfg>) == 0);
 }
 
 // ---------------------------------------------------------------------------
 // Neighbor kernel flops and bytes
 // ---------------------------------------------------------------------------
 
-TEST_CASE("Neighbor metrics all Regular" * doctest::test_suite("kernel")) {
-  const kernels::Neighbor<Config> neighbor;
+TEST_CASE_TEMPLATE("Neighbor metrics all Regular" * doctest::test_suite("kernel"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  const kernels::Neighbor<Cfg> neighbor;
 
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
@@ -126,7 +141,7 @@ TEST_CASE("Neighbor metrics all Regular" * doctest::test_suite("kernel")) {
     neighboringIndices[f] = {0, 0};
   }
 
-  const std::array<CellDRMapping<Config>, Cell::NumFaces> drMapping{};
+  const std::array<CellDRMapping<Cfg>, Cell::NumFaces> drMapping{};
 
   const auto [metric, metricDR] = neighbor.metrics(faceTypes, neighboringIndices, drMapping);
 
@@ -147,14 +162,16 @@ TEST_CASE("Neighbor metrics all Regular" * doctest::test_suite("kernel")) {
   SUBCASE("Hardware >= nonzero") { CHECK(metric.hardwareFlop >= metric.nonzeroFlop); }
 }
 
-TEST_CASE("Neighbor metrics with DR faces" * doctest::test_suite("kernel")) {
-  const kernels::Neighbor<Config> neighbor;
+TEST_CASE_TEMPLATE("Neighbor metrics with DR faces" * doctest::test_suite("kernel"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  const kernels::Neighbor<Cfg> neighbor;
 
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::DynamicRupture);
 
   const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
-  const std::array<CellDRMapping<Config>, Cell::NumFaces> drMapping{};
+  const std::array<CellDRMapping<Cfg>, Cell::NumFaces> drMapping{};
 
   const auto [metric, metricDR] = neighbor.metrics(faceTypes, neighboringIndices, drMapping);
 
@@ -172,30 +189,36 @@ TEST_CASE("Neighbor metrics with DR faces" * doctest::test_suite("kernel")) {
 // Cross-kernel consistency
 // ---------------------------------------------------------------------------
 
-TEST_CASE("Kernel flop ordering: Ader < Local < Neighbor" * doctest::test_suite("kernel")) {
+TEST_CASE_TEMPLATE("Kernel flop ordering: Ader < Local < Neighbor" * doctest::test_suite("kernel"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
   // This is a heuristic sanity check, not a hard invariant.
   // For typical configurations, ADER (time integration) should be less expensive
   // than the spatial integration (Local), and neighbor integration should also
   // contribute significantly.
 
-  const kernels::Spacetime<Config> spacetime;
+  const kernels::Spacetime<Cfg> spacetime;
   const auto aderMetrics = spacetime.metrics();
 
-  const kernels::Local<Config> local;
+  const kernels::Local<Cfg> local;
   std::array<FaceType, Cell::NumFaces> faceTypes{};
   faceTypes.fill(FaceType::Regular);
   const auto localMetrics = local.metrics(faceTypes);
 
-  const kernels::Neighbor<Config> neighbor;
+  const kernels::Neighbor<Cfg> neighbor;
   const std::array<std::array<uint8_t, 2>, Cell::NumFaces> neighboringIndices{};
-  const std::array<CellDRMapping<Config>, Cell::NumFaces> drMapping{};
+  const std::array<CellDRMapping<Cfg>, Cell::NumFaces> drMapping{};
   const auto [neighborMetrics, drMetrics] =
       neighbor.metrics(faceTypes, neighboringIndices, drMapping);
 
-  // All three kernels should have non-trivial cost
-  CHECK(aderMetrics.nonzeroFlop > 100);
-  CHECK(localMetrics.nonzeroFlop > 100);
-  CHECK(neighborMetrics.nonzeroFlop > 100);
+  // All three kernels should have non-trivial cost: each computes every degree of freedom of the
+  // cell at least once. Beyond that, the cost depends on the configuration; in order 2, the ADER
+  // kernel of a fluid stays below a hundred flops.
+  constexpr std::size_t NumDofs = model::MaterialOf<Cfg>::NumQuantities *
+                                  kernels::getNumberOfBasisFunctions(Cfg::ConvergenceOrder);
+  CHECK(aderMetrics.nonzeroFlop >= NumDofs);
+  CHECK(localMetrics.nonzeroFlop >= NumDofs);
+  CHECK(neighborMetrics.nonzeroFlop >= NumDofs);
 }
 
 } // namespace seissol::unit_test

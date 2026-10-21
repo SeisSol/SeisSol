@@ -41,7 +41,7 @@ namespace {
 
 template <typename Cfg>
 void runAder(ProxyDataImpl<Cfg>& data) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   LTS::Layer& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
@@ -79,7 +79,7 @@ PerformanceEstimate estimateAder(ProxyDataImpl<Cfg>& data) {
 
 template <typename Cfg>
 void runLocalWOAder(ProxyDataImpl<Cfg>& data) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   LTS::Layer& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
@@ -116,7 +116,7 @@ PerformanceEstimate estimateLocalWOAder(ProxyDataImpl<Cfg>& data) {
 
 template <typename Cfg>
 void runLocal(ProxyDataImpl<Cfg>& data) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   LTS::Layer& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
@@ -143,7 +143,7 @@ void runLocal(ProxyDataImpl<Cfg>& data) {
 
 template <typename Cfg>
 void runNeighbor(ProxyDataImpl<Cfg>& data) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   LTS::Layer& layer = data.ltsStorage.layer(data.layerId);
   const auto nrOfCells = layer.size();
@@ -231,7 +231,7 @@ PerformanceEstimate estimateNeighbor(ProxyDataImpl<Cfg>& data) {
 
 template <typename Cfg>
 void runGodunovDR(ProxyDataImpl<Cfg>& data) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   DynamicRupture::Layer& layerData = data.drStorage.layer(data.layerId);
   const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();

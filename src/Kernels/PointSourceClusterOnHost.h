@@ -19,7 +19,7 @@ namespace seissol::kernels {
 template <typename Cfg>
 class PointSourceClusterOnHost : public PointSourceCluster {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   PointSourceClusterOnHost(std::shared_ptr<sourceterm::ClusterMapping> mapping,
                            std::shared_ptr<sourceterm::PointSources<Cfg>> sources);

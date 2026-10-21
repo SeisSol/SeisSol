@@ -11,6 +11,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Config.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <tuple>
@@ -103,6 +104,15 @@ void forEachConfig(const F& function) {
   for (ConfigId id = 0; id < std::variant_size_v<ConfigVariant>; ++id) {
     dispatchConfig(id, function);
   }
+}
+
+/// The largest convergence order among the configurations built into the executable.
+constexpr std::size_t maxBuiltConvergenceOrder() {
+  std::size_t order = 0;
+#define SEISSOL_CONFIG_ORDER(Cfg) order = std::max(order, Cfg::ConvergenceOrder);
+  SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_ORDER)
+#undef SEISSOL_CONFIG_ORDER
+  return order;
 }
 
 /**

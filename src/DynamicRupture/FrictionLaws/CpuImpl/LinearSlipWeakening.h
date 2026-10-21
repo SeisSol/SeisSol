@@ -25,8 +25,10 @@ template <typename Cfg, class SpecializationT>
 class LinearSlipWeakeningLaw
     : public BaseFrictionLaw<Cfg, LinearSlipWeakeningLaw<Cfg, SpecializationT>> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
+  // the slip rate of a sub-step is the one the friction solve finds at its time point
+  static constexpr bool SlipRateAtIntervalEnds = false;
   explicit LinearSlipWeakeningLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : BaseFrictionLaw<Cfg, LinearSlipWeakeningLaw<Cfg, SpecializationT>>(drParameters),
         specialization_(drParameters) {}
@@ -193,16 +195,29 @@ class LinearSlipWeakeningLaw
     }
   }
 
+  //! the slip, whose reaching d_c is the dynamic stress time
+  [[nodiscard]] const real* dynamicStressQuantity(std::size_t ltsFace) const {
+    return this->accumulatedSlipMagnitude_[ltsFace];
+  }
+
   /**
-   * output time when shear stress is equal to the dynamic stress after rupture arrived
+   * output time when shear stress is equal to the dynamic stress after rupture arrived: when the
+   * slip reaches d_c, interpolated over the interval the sub-step integrates the slip over (see
+   * common::crossingTime)
    */
-  void saveDynamicStressOutput(std::size_t ltsFace, real time) {
+  void saveDynamicStressOutput(std::size_t ltsFace,
+                               const real previousSlip[misc::NumPaddedPoints<Cfg>],
+                               const common::SubStepTimes<Cfg>& times) {
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
-      if (this->dynStressTimePending_[ltsFace][pointIndex] &&
-          std::fabs(this->accumulatedSlipMagnitude_[ltsFace][pointIndex]) >=
-              dC_[ltsFace][pointIndex]) {
-        this->dynStressTime_[ltsFace][pointIndex] = time;
+      const real slip = std::fabs(this->accumulatedSlipMagnitude_[ltsFace][pointIndex]);
+      if (this->dynStressTimePending_[ltsFace][pointIndex] && slip >= dC_[ltsFace][pointIndex]) {
+        this->dynStressTime_[ltsFace][pointIndex] =
+            common::crossingTime<Cfg>(std::fabs(previousSlip[pointIndex]),
+                                      slip,
+                                      dC_[ltsFace][pointIndex],
+                                      times.start,
+                                      times.end);
         this->dynStressTimePending_[ltsFace][pointIndex] = false;
       }
     }
@@ -302,7 +317,7 @@ class LinearSlipWeakeningLaw
 template <typename Cfg>
 class NoSpecialization {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit NoSpecialization(const FrictionLawParameters<Real<Cfg>>& /*parameters*/) {};
 
@@ -366,7 +381,7 @@ class NoSpecialization {
 template <typename Cfg>
 class BiMaterialFault {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit BiMaterialFault(const FrictionLawParameters<Real<Cfg>>& parameters)
       : vStar_(parameters.vStar), prakashLength_(parameters.prakashLength) {};
@@ -404,10 +419,12 @@ class BiMaterialFault {
     // see e.g.: Pelties - Verification of an ADER-DG method for complex dynamic rupture problems
     const auto expval = -(std::max(static_cast<real>(0.0), localSlipRate) + this->vStar_) * deltaT /
                         this->prakashLength_;
-    const real expterm = std::exp(expval);
     const real exp1mterm = -std::expm1(expval);
+    // the relaxation towards faultStrength with expm1 alone, which keeps faultStrength as its exact
+    // fixed point in any precision (see FastVelocityWeakeningLaw::updateStateVariable)
+    const real regularizedStrength = this->regularizedStrength_[ltsFace][pointIndex];
     const real newStrength =
-        this->regularizedStrength_[ltsFace][pointIndex] * expterm + faultStrength * exp1mterm;
+        regularizedStrength + (faultStrength - regularizedStrength) * exp1mterm;
     this->regularizedStrength_[ltsFace][pointIndex] = newStrength;
     return newStrength;
   }
@@ -441,7 +458,7 @@ class BiMaterialFault {
 template <typename Cfg>
 class TPApprox {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit TPApprox(const FrictionLawParameters<Real<Cfg>>& parameters)
       : tpProxyExponent_(parameters.tpProxyExponent) {};

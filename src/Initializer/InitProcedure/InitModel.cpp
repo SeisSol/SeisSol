@@ -34,6 +34,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
@@ -66,6 +67,17 @@ namespace seissol::initializer::initprocedure {
 namespace {
 
 using Plasticity = seissol::model::Plasticity;
+
+// The material of the cell at `position`, which holds it in its own configuration. A function of
+// its own rather than part of the body of the loop over the cells: with the lambda in an OpenMP
+// loop, NVHPC 24.9 runs it wrongly with several threads.
+model::Material* materialAt(LTS::Storage& storage, const StoragePosition& position) {
+  model::Material* material = nullptr;
+  const auto config = storage.layer(position.color).getIdentifier().config;
+  dispatchConfig(config,
+                 [&](auto cfg) { material = &storage.lookup<LTS::MaterialData>(cfg, position); });
+  return material;
+}
 
 /// The nodes of the plasticity of the configuration `Cfg`, in reference coordinates.
 template <typename Cfg>
@@ -125,13 +137,14 @@ void initializeCellMaterialOfConfig(
       seissolParams.model.useCellHomogenizedMaterial, ctvOfConfig, Cfg::ConvergenceOrder);
   auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
 
-  // plasticity (if needed)
-
+  // plasticity (if needed); a material without the stresses of a solid has none, so its file need
+  // not define the plasticity parameters
+  const bool withPlasticity = seissolParams.model.plasticity && MaterialT::SupportsPlasticity;
   const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
 
   std::array<std::vector<Plasticity>, Cfg::NumSimulations> plasticityDB;
 
-  if (seissolParams.model.plasticity) {
+  if (withPlasticity) {
 
     // plasticity information is only needed on all interior+copy cells.
     const auto plasticityGen = std::make_shared<PlasticityPointGenerator>(
@@ -179,8 +192,7 @@ void initializeCellMaterialOfConfig(
       }
     } else {
       auto* materialArray = layer.var<LTS::Material>();
-      auto* plasticityArray =
-          seissolParams.model.plasticity ? layer.var<LTS::Plasticity>(Cfg()) : nullptr;
+      auto* plasticityArray = withPlasticity ? layer.var<LTS::Plasticity>(Cfg()) : nullptr;
       auto* energyDataArray = layer.var<LTS::EnergyData>(Cfg());
 
 #pragma omp parallel for schedule(static)
@@ -204,16 +216,8 @@ void initializeCellMaterialOfConfig(
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           if (isInternalFaceType(localCellInformation.faceTypes[side])) {
             // use the neighbor face material info in case that we are not at a boundary
-            const auto& globalNeighborIndex = localSecondaryInformation.faceNeighbors[side];
-
-            // the neighbor holds the material of its own configuration
-            auto& storage = memoryManager.ltsStorage();
-            const auto neighborConfig =
-                storage.layer(globalNeighborIndex.color).getIdentifier().config;
-            dispatchConfig(neighborConfig, [&](auto config) {
-              material.neighbor[side] =
-                  &storage.lookup<LTS::MaterialData>(config, globalNeighborIndex);
-            });
+            material.neighbor[side] = materialAt(memoryManager.ltsStorage(),
+                                                 localSecondaryInformation.faceNeighbors[side]);
           } else {
             // otherwise, use the material from the own cell
             material.neighbor[side] = material.local;
@@ -221,7 +225,7 @@ void initializeCellMaterialOfConfig(
         }
 
         // if enabled, set up the plasticity as well
-        if (seissolParams.model.plasticity) {
+        if (withPlasticity) {
           auto& plasticity = plasticityArray[cell];
           assert(plasticityDB.size() == Cfg::NumSimulations &&
                  "Plasticity database size mismatch with number of simulations");

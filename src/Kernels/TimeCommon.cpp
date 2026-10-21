@@ -24,11 +24,14 @@
 #include <cassert>
 #include <cstddef>
 #include <stdint.h>
-#include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 #ifndef NDEBUG
@@ -108,9 +111,10 @@ void TimeCommon<Cfg>::computeBatchedIntegrals(
     auto& entry = table[key];
     time.evaluateBatched(
         timeCoeffs,
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
-        (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
-        (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
+        const_cast<const real**>(
+            (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
+        (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+        (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getSize(),
         runtime);
   }
 
@@ -121,9 +125,10 @@ void TimeCommon<Cfg>::computeBatchedIntegrals(
     auto& entry = table[key];
     time.evaluateBatched(
         subtimeCoeffs,
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
-        (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
-        (entry.get(inner_keys::Wp::Id::Idofs))->getSize(),
+        const_cast<const real**>(
+            (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
+        (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
+        (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getSize(),
         runtime);
   }
 #else

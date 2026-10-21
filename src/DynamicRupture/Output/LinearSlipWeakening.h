@@ -16,7 +16,7 @@ class LinearSlipWeakening : public ReceiverOutputImpl<LinearSlipWeakening> {
   public:
   template <typename Cfg>
   Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     const auto* const cohesions =
         local.layer->template var<LTSLinearSlipWeakening::Cohesion>(Cfg());
     const auto cohesion = cohesions[local.ltsId][local.gpIndex];
@@ -30,7 +30,7 @@ class LinearSlipWeakening : public ReceiverOutputImpl<LinearSlipWeakening> {
 
   template <typename Cfg>
   Real<Cfg> computeLocalStrengthSlope(LocalInfo<Cfg>& local) {
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
     return effectiveNormalStress < 0 ? local.frictionCoefficient : static_cast<real>(0.0);

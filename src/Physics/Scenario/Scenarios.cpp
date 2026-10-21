@@ -242,6 +242,17 @@ std::vector<std::unique_ptr<InitialField>>
   logInfo() << "c0 = " << c0;
   logInfo() << "k = " << parameters.k;
 
+  // the stress of the fluid is -pressure: on the normal stresses of a material with a stress
+  // tensor, else on its single isotropic stress; the transverse velocities and the shear stresses
+  // are zero
+  const auto names = scenario::stateNamesOf(config);
+  const auto materialType = configValue(config).materialType;
+  const bool stressTensor = materialType != model::MaterialType::Acoustic &&
+                            materialType != model::MaterialType::Viscoacoustic;
+  const std::string stresses = stressTensor ? normalStresses("-pressure")
+                                            : concat({"out def ", names.front(), " = -pressure\n"});
+  const auto& velocity = names.at(configLayout(config).velocityOffset);
+
   // before, during and after the mirror, which starts at tm and lasts tau
   const std::string source = concat({
       "# an acoustic wave travelling through a time mirror, written by SeisSol\n",
@@ -276,8 +287,10 @@ std::vector<std::unique_ptr<InitialField>>
       "def v2 = (-0.25 / n) * ((n * n - 1.0) * a2 + (-n * n + 1.0) * b2 + ",
       "(n * n - 2.0 * n + 1.0) * c2 + (-n * n - 2.0 * n - 1.0) * d2)\n",
       "def pressure = select(le(t, tm), p0, select(le(t, tp), p1, p2))\n",
-      normalStresses("-pressure"),
-      "out def v1 = select(le(t, tm), v0, select(le(t, tp), v1m, v2))\n",
+      stresses,
+      "out def ",
+      velocity,
+      " = select(le(t, tm), v0, select(le(t, tp), v1m, v2))\n",
   });
   return scenario::scriptedFields(source, config, "the acoustic travelling wave with ITM", false);
 }

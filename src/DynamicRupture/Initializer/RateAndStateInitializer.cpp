@@ -44,7 +44,7 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+      using real = Real<Cfg>;
       auto* dynStressTimePending = layer.var<LTSRateAndState::DynStressTimePending>(Cfg());
       real(*slipRate1)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::SlipRate1>(Cfg());
       real(*slipRate2)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::SlipRate2>(Cfg());
@@ -150,7 +150,7 @@ void RateAndStateInitializer::addAdditionalParameters(
     std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
     using Cfg = decltype(cfg);
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     real(*rsSl0)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::RsSl0>(Cfg());
     real(*rsA)[misc::NumPaddedPoints<Cfg>] = layer.var<LTSRateAndState::RsA>(Cfg());
 
@@ -202,7 +202,7 @@ void RateAndStateFastVelocityInitializer::addAdditionalParameters(
     std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
     using Cfg = decltype(cfg);
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     RateAndStateInitializer::addAdditionalParameters(parameterToStorageMap, layer);
     real(*rsSrW)[misc::NumPaddedPoints<Cfg>] =
         layer.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(Cfg());
@@ -219,7 +219,7 @@ void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage& 
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+      using real = Real<Cfg>;
       real(*temperature)[misc::NumPaddedPoints<Cfg>] =
           layer.var<LTSThermalPressurization::Temperature>(Cfg());
       real(*pressure)[misc::NumPaddedPoints<Cfg>] =
@@ -246,7 +246,7 @@ void ThermalPressurizationInitializer::addAdditionalParameters(
     std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
     using Cfg = decltype(cfg);
-    using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+    using real = Real<Cfg>;
     real(*halfWidthShearZone)[misc::NumPaddedPoints<Cfg>] =
         layer.var<LTSThermalPressurization::HalfWidthShearZone>(Cfg());
     real(*hydraulicDiffusivity)[misc::NumPaddedPoints<Cfg>] =

@@ -14,10 +14,12 @@
 #include "Alignment.h"
 #include "BasicTypedefs.h"
 #include "CellLocalInformation.h"
+#include "Common/Constants.h"
 #include "Common/Real.h"
 #include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
+#include "GeneratedCode/configboundary.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Datatype/Datatype.h"
@@ -79,6 +81,24 @@ struct alignas(Alignment) NeighboringIntegrationData {
   typename seissol::kernels::SolverOf<Cfg>::NeighborData specific;
 };
 
+/**
+ * @brief For a cell of a fluid in the configuration `Cfg`: per face, the weights of the stress
+ * components of a solid in the normal stress on the face, in the quantities of the canonical form
+ * of the solid and in the reals of the configuration. That is n_i n_j for the components ij of the
+ * stress, with the off-diagonal ones counted twice, and zero for the velocities. Empty for the
+ * configurations that read no such weights.
+ */
+template <typename Cfg, bool = generated::ConfigBoundaryKernels<Cfg>::NormalStress>
+struct alignas(16) NormalStressWeights {
+  // (we currently need to enforce alignment for the empty struct)
+};
+
+template <typename Cfg>
+struct alignas(16) NormalStressWeights<Cfg, true> {
+  Real<Cfg> weights[Cell::NumFaces]
+                   [generated::ConfigBoundaryKernels<Cfg>::CoupledCanonicalQuantities]{};
+};
+
 // material constants per cell
 struct CellMaterialData {
   seissol::model::Material* local{};
@@ -113,8 +133,12 @@ struct DRGodunovData {
 template <typename Cfg>
 struct DREnergyOutput {
   Real<Cfg> slip[seissol::tensor::slipInterpolated<Cfg>::size()]{};
-  Real<Cfg> accumulatedSlip[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
-  Real<Cfg> frictionalEnergy[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
+  // Sums over the whole simulation of increments that do not change sign, of the slip rate
+  // magnitude and of the frictional power; in single precision, the small ones after the slip has
+  // stopped would fall below the rounding of the sums and be lost, which biases the seismic moment
+  // and the potency low
+  double accumulatedSlip[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
+  double frictionalEnergy[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
   Real<Cfg> timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
 
   static std::vector<seissol::io::datatype::StructDatatype::MemberInfo> datatypeLayout() {

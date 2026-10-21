@@ -19,6 +19,8 @@
 #include "Physics/Scenario/ScriptedScenario.h"
 
 #include <Eigen/Core>
+#include <Eigen/Dense>
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <complex>
@@ -73,6 +75,64 @@ std::string phasePerSimulation(ConfigId config) {
 
 } // namespace
 
+void canonicalizeEigenvectors(const std::vector<std::complex<double>>& values,
+                              std::vector<std::complex<double>>& vectors) {
+  const auto count = values.size();
+  const auto at = [&](Eigen::Index row, std::size_t column) -> std::complex<double>& {
+    return vectors[static_cast<std::size_t>(row) + count * column];
+  };
+
+  // eigenvalues closer than this, relative to the largest, share an eigenspace; and an eigenspace
+  // holds coordinate axes equally if it does so up to it
+  constexpr double Tolerance = 1e-8;
+  double scale = 0;
+  for (const auto& value : values) {
+    scale = std::max(scale, std::abs(value));
+  }
+
+  std::vector<bool> assigned(count, false);
+  for (std::size_t first = 0; first < count; ++first) {
+    if (assigned[first]) {
+      continue;
+    }
+    std::vector<std::size_t> space;
+    for (std::size_t j = first; j < count; ++j) {
+      if (!assigned[j] && std::abs(values[j] - values[first]) <= Tolerance * scale) {
+        space.push_back(j);
+        assigned[j] = true;
+      }
+    }
+
+    const auto rows = static_cast<Eigen::Index>(count);
+    const auto columns = static_cast<Eigen::Index>(space.size());
+    Eigen::MatrixXcd basis(rows, columns);
+    for (Eigen::Index k = 0; k < columns; ++k) {
+      for (Eigen::Index i = 0; i < rows; ++i) {
+        basis(i, k) = at(i, space[static_cast<std::size_t>(k)]);
+      }
+    }
+    // the orthogonal projector onto the eigenspace, which does not depend on the basis it is
+    // computed from
+    const Eigen::MatrixXcd orthonormal =
+        Eigen::HouseholderQR<Eigen::MatrixXcd>(basis).householderQ() *
+        Eigen::MatrixXcd::Identity(rows, columns);
+    Eigen::MatrixXcd projector = orthonormal * orthonormal.adjoint();
+
+    for (const auto column : space) {
+      const double largest = projector.diagonal().real().maxCoeff();
+      Eigen::Index axis = 0;
+      while (projector(axis, axis).real() < (1 - Tolerance) * largest) {
+        ++axis;
+      }
+      const Eigen::VectorXcd vector = projector.col(axis) / std::sqrt(projector(axis, axis).real());
+      for (Eigen::Index i = 0; i < rows; ++i) {
+        at(i, column) = vector(i);
+      }
+      projector -= vector * vector.adjoint();
+    }
+  }
+}
+
 std::vector<PlaneWaveMode> planeWaveModes(const CellMaterialData& materialData,
                                           ConfigId config,
                                           const Eigen::Vector3d& k,
@@ -96,6 +156,7 @@ std::vector<PlaneWaveMode> planeWaveModes(const CellMaterialData& materialData,
     values.assign(eigendecomposition.values.begin(), eigendecomposition.values.end());
     vectors.assign(eigendecomposition.vectors.begin(), eigendecomposition.vectors.end());
   });
+  canonicalizeEigenvectors(values, vectors);
 
   std::vector<PlaneWaveMode> result;
   for (std::size_t v = 0; v < modes.size(); ++v) {
@@ -209,12 +270,12 @@ std::string planeWaveModule(const PlaneWaveSum& sum, const std::vector<std::stri
   return source;
 }
 
-std::vector<std::unique_ptr<InitialField>> planarwave(const CellMaterialData& materialData,
-                                                      ConfigId config) {
+std::vector<std::unique_ptr<InitialField>>
+    planarwave(const CellMaterialData& materialData, ConfigId config, const Eigen::Vector3d& kVec) {
   const auto [modes, amplitudes] = defaultPlaneWaveModes(materialData, config);
+  const Eigen::Vector3d k = kVec.isZero(0.0) ? Eigen::Vector3d(M_PI, M_PI, M_PI) : kVec;
   PlaneWaveSum sum;
-  sum.waves.push_back(
-      planeWaveModes(materialData, config, Eigen::Vector3d(M_PI, M_PI, M_PI), modes, amplitudes));
+  sum.waves.push_back(planeWaveModes(materialData, config, k, modes, amplitudes));
   sum.phase = phasePerSimulation(config);
   return fieldsOf(sum, config, "the planar wave", true);
 }

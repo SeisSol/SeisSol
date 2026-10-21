@@ -69,6 +69,7 @@ struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t Parameters = ElasticMaterial::Parameters + 7;
 
   static constexpr bool SupportsDR = true;
+  static constexpr bool SupportsPlasticity = true;
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 

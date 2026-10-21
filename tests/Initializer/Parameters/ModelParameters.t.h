@@ -11,6 +11,7 @@
 #include "Common/ConfigValue.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
+#include "TestHelper.h"
 
 #include <cstddef>
 #include <string>
@@ -93,6 +94,25 @@ TEST_CASE("readConfig finds every configuration built by its name" *
   }
 }
 
+TEST_CASE("readConfig takes the configuration of SEISSOL_CONFIGURATION if the file names none" *
+          doctest::test_suite("initializer")) {
+  const auto last = static_cast<ConfigId>(builtConfigCount() - 1);
+  const ScopedEnvironment environment("SEISSOL_CONFIGURATION", configName(configValue(last)));
+
+  SUBCASE("the parameter file names no configuration") {
+    const YAML::Node node = YAML::Load("equations:\n  materialfilename: mat.yaml\n");
+    ParameterReader reader(node, "", false);
+    CHECK(readConfig(&reader) == last);
+  }
+
+  SUBCASE("the configuration of the parameter file applies") {
+    const YAML::Node node =
+        YAML::Load("equations:\n  configuration: " + configName(configValue(0)) + "\n");
+    ParameterReader reader(node, "", false);
+    CHECK(readConfig(&reader) == 0);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // readGroupConfigs
 // ---------------------------------------------------------------------------
@@ -109,7 +129,15 @@ TEST_CASE("readGroupConfigs gives no group a configuration of its own by default
 
 TEST_CASE("readGroupConfigs reads the groups of each configuration" *
           doctest::test_suite("initializer")) {
-  const auto last = static_cast<ConfigId>(builtConfigCount() - 1);
+  // the last configuration that may share a run with the default one: all configurations of a run
+  // fuse the same number of simulations
+  auto last = defaultConfig();
+  for (std::size_t id = 0; id < builtConfigCount(); ++id) {
+    if (configValue(static_cast<ConfigId>(id)).numSimulations ==
+        configValue(defaultConfig()).numSimulations) {
+      last = static_cast<ConfigId>(id);
+    }
+  }
   const auto name = configName(configValue(last));
   const auto defaultName = configName(configValue(defaultConfig()));
   const YAML::Node node =

@@ -21,7 +21,7 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Cfg>
 class FrictionSolverDetails : public FrictionSolverInterface<Cfg> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit FrictionSolverDetails(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : FrictionSolverInterface<Cfg>(drParameters) {}
@@ -61,6 +61,7 @@ class FrictionSolverDetails : public FrictionSolverInterface<Cfg> {
 #endif
   }
 
+  protected:
   size_t currLayerSize_{};
 
   const real* resampleMatrix_{nullptr};

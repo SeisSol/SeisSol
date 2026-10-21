@@ -14,7 +14,6 @@
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/InputAux.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"

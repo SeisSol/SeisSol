@@ -37,7 +37,7 @@ namespace seissol::sourceterm {
  **/
 template <typename Cfg>
 struct PointSources {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   /** mInvJInvPhisAtSources[][k] := M_{kl}^-1 * |J|^-1 * phi_l(xi_s, eta_s, zeta_s), where phi_l is
    * the l-th basis function and xi_s, eta_s, and zeta_s are the space position

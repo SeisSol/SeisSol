@@ -47,7 +47,7 @@ class ModelFile {
 
 TEST_CASE("DirichletCondition: a script reads the group and the material of the cell" *
           doctest::test_suite("initializer")) {
-  using Cfg = Config;
+  using Cfg = Config0;
   using MaterialT = model::MaterialOf<Cfg>;
   const auto names = model::scriptParameterNames<MaterialT>();
   const std::string& first = names.front();

@@ -12,6 +12,7 @@
 #include "Common/Executor.h"
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace seissol::proxy {
@@ -33,6 +34,8 @@ struct ProxyConfig {
 struct ProxyOutput {
   double time{};
   double cycles{};
+  /// Which hardware counter `cycles` came from; see Proxy/Cycles.h.
+  std::string_view cycleSource{"none"};
   double libxsmmNumTotalGFlop{};
   double pspammNumTotalGFlop{};
   double libxsmmAndpspammNumTotalGFlop{};

@@ -362,11 +362,13 @@ size_t ReceiverClusterImpl<Cfg>::ncols() const {
 }
 
 template <typename Cfg>
-std::vector<std::string> ReceiverClusterImpl<Cfg>::variableNames() const {
+std::size_t ReceiverClusterImpl<Cfg>::simulationCount() const {
   using Multisim = seissol::multisim::MultisimHelperWrapper<Cfg>;
-  std::vector<std::string> fullNames;
-  fullNames.emplace_back("Time");
+  return Multisim::MultisimEnd - Multisim::MultisimStart;
+}
 
+template <typename Cfg>
+std::vector<std::string> ReceiverClusterImpl<Cfg>::quantityNames() const {
   std::vector<std::string> names;
   names.reserve(quantities_.size());
   for (const auto quantity : quantities_) {
@@ -376,17 +378,7 @@ std::vector<std::string> ReceiverClusterImpl<Cfg>::variableNames() const {
     auto derivedNames = derived->quantities();
     names.insert(names.end(), derivedNames.begin(), derivedNames.end());
   }
-
-  for (auto sim = Multisim::MultisimStart; sim < Multisim::MultisimEnd; ++sim) {
-    for (const auto& name : names) {
-      if constexpr (Multisim::MultisimEnabled) {
-        fullNames.push_back(name + std::to_string(sim));
-      } else {
-        fullNames.push_back(name);
-      }
-    }
-  }
-  return fullNames;
+  return names;
 }
 
 // The derived quantities differentiate the particle velocity. Where it sits among the quantities

@@ -46,6 +46,7 @@ def _invoke_generate(
     mechanisms=0,
     mode="codegen",
     solver=None,
+    target=None,
 ):
     """Run generate.py with the given config. Returns CompletedProcess.
 
@@ -87,6 +88,7 @@ def _invoke_generate(
             "--mode",
             mode,
             *(["--solver", solver] if solver is not None else []),
+            *(["--codegen_target", target] if target is not None else []),
         ],
         env={**os.environ, "PYTHONHASHSEED": "0"},
         cwd=str(CODEGEN_DIR),
@@ -252,16 +254,16 @@ class TestRuntime:
         assert (outdir / self.EQUATION / "runtime.cpp").is_file()
 
     def test_variant_h_keys_the_configuration(self, generated_elastic_o3):
-        """The id of a configuration is its variant, runtime::variantOf<Config>()."""
+        """The id of a configuration is its variant, runtime::variantOf<Config0>()."""
         outdir, _ = generated_elastic_o3
         content = (outdir / "variant.h").read_text()
         assert '#include "Config.h"' in content
-        assert "VariantOf<seissol::Config>" in content
+        assert "VariantOf<seissol::Config0>" in content
 
     def test_code_is_named_by_the_key_of_its_configuration(self, generated_elastic_o3):
         """The code of the equation is in a namespace of its own, and the headers
         at the top level name it by the key of its configuration:
-        seissol::kernel::X<seissol::Config>, seissol::Pool<seissol::Config>."""
+        seissol::kernel::X<seissol::Config0>, seissol::Pool<seissol::Config0>."""
         outdir, _ = generated_elastic_o3
         space = "yatetometagen_" + self.EQUATION.replace("-", "_")
         content = (outdir / self.EQUATION / "kernel.h").read_text()
@@ -276,7 +278,7 @@ class TestRuntime:
             assert f"using Type = ::seissol::{space}::{prefix}" in typed
         pool = (outdir / "pool.h").read_text()
         assert (
-            f"struct Internal_Pool<seissol::Config> {{ using Type = ::seissol::{space}::Pool; }};"
+            f"struct Internal_Pool<seissol::Config0> {{ using Type = ::seissol::{space}::Pool; }};"
             in pool
         )
 
@@ -288,7 +290,7 @@ class TestRuntime:
         outdir, _ = generated_elastic_o3
         tensor = (outdir / "tensor.h").read_text()
         assert "template<typename Arg0> using Qane = " in tensor
-        assert "Internal_Qane<seissol::Config>" not in tensor
+        assert "Internal_Qane<seissol::Config0>" not in tensor
 
     def test_collect_lists_what_codegen_writes(self, generated_elastic_o3, tmp_path):
         outdir, _ = generated_elastic_o3
@@ -310,13 +312,52 @@ class TestRuntime:
         listed = [
             path
             for target in targets.values()
-            for kind in ("kernels", "tests", "headers")
-            for path in target[kind]
+            for kind in ("kernels", "device", "tests", "headers")
+            for path in target.get(kind, [])
         ]
         missing = [path for path in listed if not (outdir / path).is_file()]
         assert (
             not missing
         ), f"collect lists files that codegen does not write: {missing}"
+
+    def test_steps_list_what_they_write(self, generated_elastic_o3, tmp_path):
+        """A build runs every step of the code generation as a command of its
+        own, and has to know what each one writes: every file that codegen
+        writes is an output of exactly one step (see STEP_ALL in
+        generate.py). alignment.h is written when CMake runs as well."""
+        outdir, _ = generated_elastic_o3
+        result = _invoke_generate(tmp_path, mode="collect")
+        assert result.returncode == 0, result.stderr[-1000:]
+        steps = json.loads((tmp_path / "steps.json").read_text())
+
+        listed = [path for step in steps for path in step["outputs"]]
+        twice = {path for path in listed if listed.count(path) > 1}
+        assert not twice, f"files listed by more than one step: {twice}"
+        written = {
+            str(path.relative_to(outdir))
+            for path in outdir.rglob("*")
+            if path.is_file()
+        } - {"alignment.h"}
+        assert set(listed) == written, (
+            f"written, but listed by no step: {written - set(listed)}; "
+            f"listed, but not written: {set(listed) - written}"
+        )
+
+    def test_steps_write_what_one_run_writes(self, generated_elastic_o3, tmp_path):
+        """Run one after the other, as a build may, the steps write the same
+        code as one run that takes all of them."""
+        outdir, _ = generated_elastic_o3
+        result = _invoke_generate(tmp_path, mode="collect")
+        assert result.returncode == 0, result.stderr[-1000:]
+        steps = json.loads((tmp_path / "steps.json").read_text())
+        for step in steps:
+            result = _invoke_generate(tmp_path, target=step["target"])
+            assert result.returncode == 0, result.stderr[-1000:]
+        for step in steps:
+            for path in step["outputs"]:
+                assert (tmp_path / path).read_bytes() == (
+                    outdir / path
+                ).read_bytes(), f"{path} differs"
 
     @staticmethod
     def _runtime_kernels(outdir):

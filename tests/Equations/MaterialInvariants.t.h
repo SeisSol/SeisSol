@@ -11,6 +11,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Kernels/SolverSelector.h"
 #include "Model/Quantities.h"
+#include "TestConfigs.h"
 
 #include <cstddef>
 
@@ -21,10 +22,11 @@ namespace materialinvariants {
 /// The mechanism-dependent assertions live in a template so that `if
 /// constexpr` actually discards the branch that does not apply; in a plain
 /// function both branches are still evaluated and every static_assert fires.
-template <typename MaterialT>
+template <typename Cfg>
 void checkRelaxation() {
-  static_assert(MaterialT::Mechanisms == Config::RelaxationMechanisms,
-                "the material and the build disagree on the mechanism count");
+  using MaterialT = model::MaterialOf<Cfg>;
+  static_assert(MaterialT::Mechanisms == Cfg::RelaxationMechanisms,
+                "the material and the configuration disagree on the mechanism count");
   if constexpr (MaterialT::Mechanisms > 0) {
     static_assert(MaterialT::NumberPerMechanism > 0,
                   "a mechanism that occupies nothing cannot carry a memory variable");
@@ -50,22 +52,24 @@ void checkRelaxationIsInert(const MaterialT& material) {
 
 } // namespace materialinvariants
 
-/// Whatever this build was configured with, these have to hold. Checking them
-/// against the configured material rather than a fixed one means every
-/// configuration the CI builds gets them.
-TEST_CASE("Configured material is self consistent" * doctest::test_suite("equations")) {
+/// Whatever a configuration is, these have to hold for its material. Checking
+/// them for the material of every configuration built into the executable
+/// rather than a fixed one means every configuration the CI builds gets them.
+TEST_CASE_TEMPLATE("Configured material is self consistent" * doctest::test_suite("equations"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
   using namespace materialinvariants;
 
-  using MaterialT = model::MaterialT;
-  using SolverT = kernels::SolverOf<Config>;
+  using MaterialT = model::MaterialOf<Cfg>;
+  using SolverT = kernels::SolverOf<Cfg>;
 
   SUBCASE("the quantity groups account for the whole layout") {
     static_assert(model::totalExtent(MaterialT::PrimaryGroups) <= MaterialT::NumQuantities,
                   "the primary groups cannot cover more than the material has");
-    static_assert(model::quantitiesWellFormed(MaterialT::RotationGroups<SolverT>,
-                                              tensor::T<Config>::Shape[0]));
-    static_assert(model::quantitiesWellFormed(MaterialT::InverseRotationGroups<SolverT>,
-                                              tensor::Tinv<Config>::Shape[0]));
+    static_assert(model::quantitiesWellFormed(MaterialT::template RotationGroups<SolverT>,
+                                              tensor::T<Cfg>::Shape[0]));
+    static_assert(model::quantitiesWellFormed(MaterialT::template InverseRotationGroups<SolverT>,
+                                              tensor::Tinv<Cfg>::Shape[0]));
   }
 
   SUBCASE("the face roles are where the rest of the code expects them") {
@@ -87,11 +91,11 @@ TEST_CASE("Configured material is self consistent" * doctest::test_suite("equati
     static_assert(MaterialT::TractionComponents == MaterialT::VelocityOffset);
   }
 
-  SUBCASE("relaxation is configured consistently") { checkRelaxation<MaterialT>(); }
+  SUBCASE("relaxation is configured consistently") { checkRelaxation<Cfg>(); }
 
   SUBCASE("the stiff source rows are inside the material") {
     static_assert(MaterialT::StiffSourceRows.size() ==
-                      generated::Quantities<Config>::StiffSourceRowCount,
+                      generated::Quantities<Cfg>::StiffSourceRowCount,
                   "the material and the generated kernels disagree on the stiff rows");
     for (const auto& row : MaterialT::StiffSourceRows) {
       CHECK(row.quantity < MaterialT::NumQuantities);

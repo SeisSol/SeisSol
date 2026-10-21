@@ -57,8 +57,9 @@ int main(int argc, char* argv[]) {
   args.addEnumOption("format", formatValues, 'f', "The output format", false);
   args.addOption("config",
                  'c',
-                 "The configuration to run the kernels in, by its name (default: the first one "
-                 "listed above)",
+                 "The configuration to run the kernels in, by its name (default: the one the "
+                 "environment variable SEISSOL_CONFIGURATION names, or else the first one listed "
+                 "above)",
                  utils::Args::Required,
                  false);
 

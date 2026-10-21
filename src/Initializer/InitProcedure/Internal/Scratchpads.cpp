@@ -14,12 +14,12 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Common.h"
+#include "Kernels/ConfigBoundary.h"
 #include "Kernels/NonlinearDirichletScratch.h"
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
-#include "Model/CommonDatastructures.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -32,7 +32,7 @@ namespace {
 /// Sets the sizes of the scratchpads of a layer of cells of the configuration `Cfg`.
 template <typename Cfg>
 void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
   constexpr size_t TotalDerivativesSize = kernels::SolverOf<Cfg>::DerivativesSize;
   constexpr size_t NodalDisplacementsSize = tensor::averageNormalDisplacement<Cfg>::size();
 
@@ -49,6 +49,8 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
   std::size_t analyticCounter = 0;
   std::size_t nonlinearDirichletCounter = 0;
   std::size_t numPlasticCells = 0;
+  // at most, as each face counts here, but a neighbor (and side) only once in the recorder
+  std::size_t configBoundaryBytes = 0;
 
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     const bool needsScratchMemForDerivatives =
@@ -61,14 +63,23 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
     if (needsScratchMemForStepIntegral) {
       ++integratedDofsCounterLocal;
     }
+    if (cellInformation[cell].plasticityEnabled) {
+      ++numPlasticCells;
+    }
 
     // include data provided by ghost layers
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
 
       const auto* neighborBuffer = static_cast<const real*>(faceNeighbors[cell][face]);
+      const auto neighborConfig = cellInformation[cell].neighborConfigIds[face];
+      const bool configBoundary = cellInformation[cell].faceTypes[face] == FaceType::Regular &&
+                                  neighborBuffer != nullptr && neighborConfig != configIdOf<Cfg>();
 
-      // check whether a neighbor element idofs has not been counted twice
-      if ((registry.find(neighborBuffer) == registry.end())) {
+      if (configBoundary) {
+        // its time integral goes into the scratch of the faces between configurations
+        configBoundaryBytes += kernels::ConfigBoundary<Cfg>::scratchBytes(neighborConfig);
+      } else if (registry.find(neighborBuffer) == registry.end()) {
+        // the time integral of each neighbor counts once
 
         // maybe, because of BCs, a pointer can be a nullptr, i.e. skip it
         if (neighborBuffer != nullptr) {
@@ -95,10 +106,6 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
       if (cellInformation[cell].faceTypes[face] == FaceType::NonlinearDirichlet) {
         ++nonlinearDirichletCounter;
       }
-
-      if (cellInformation[cell].plasticityEnabled) {
-        ++numPlasticCells;
-      }
     }
   }
 
@@ -115,14 +122,6 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
   if constexpr (Cfg::Solver == SolverType::LinearCKAnelastic) {
     layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * kernels::size<tensor::Iane<Cfg>>() *
                                              sizeof(real));
-    layer.setEntrySize<LTS::DerivativesExtScratch>(
-        layer.size() *
-        (kernels::size<tensor::dQext<Cfg>>(1) + kernels::size<tensor::dQext<Cfg>>(2)) *
-        sizeof(real));
-    layer.setEntrySize<LTS::DerivativesAneScratch>(
-        layer.size() *
-        (kernels::size<tensor::dQane<Cfg>>(1) + kernels::size<tensor::dQane<Cfg>>(2)) *
-        sizeof(real));
     layer.setEntrySize<LTS::DofsExtScratch>(layer.size() * kernels::size<tensor::Qext<Cfg>>() *
                                             sizeof(real));
   }
@@ -133,6 +132,7 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
                                            tensor::INodal<Cfg>::size() * sizeof(real));
   layer.setEntrySize<LTS::NonlinearDirichletScratch>(
       nonlinearDirichletCounter * kernels::NonlinearDirichletScratch<Cfg>::PerFace * sizeof(real));
+  layer.setEntrySize<LTS::ConfigBoundaryScratch>(configBoundaryBytes);
 
   if (plasticity) {
     layer.setEntrySize<LTS::FlagScratch>(numPlasticCells * sizeof(unsigned));
@@ -140,7 +140,7 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
                                                  sizeof(real));
   }
 
-  if constexpr (Cfg::MaterialType == model::MaterialType::Poroelastic) {
+  if constexpr (Cfg::Solver == SolverType::STP) {
     layer.setEntrySize<LTS::ZinvExtra>(layer.size() * kernels::familySize<tensor::Zinv<Cfg>>() *
                                        sizeof(real));
   }

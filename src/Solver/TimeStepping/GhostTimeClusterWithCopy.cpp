@@ -17,8 +17,10 @@
 #include <Device/device.h>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <list>
 #include <mpi.h>
+#include <string>
 
 namespace seissol::time_stepping {
 template <Mpi::DataTransferMode CommType>

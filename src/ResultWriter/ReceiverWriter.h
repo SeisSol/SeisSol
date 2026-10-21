@@ -116,7 +116,7 @@ class ReceiverWriter : public seissol::Module {
 
   std::vector<std::shared_ptr<kernels::ReceiverCluster>> receiverClusters_;
 
-  /// One HDF5 table per quantity set, for the receivers this rank holds
+  /// One HDF5 table per quantity set, with a row per receiver this rank holds and simulation
   std::unique_ptr<io::instance::point::Hdf5Table> table_;
 
   /// How far a storage chunk of the table reaches along the sample axis

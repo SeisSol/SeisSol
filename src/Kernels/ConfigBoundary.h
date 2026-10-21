@@ -8,10 +8,18 @@
 #ifndef SEISSOL_SRC_KERNELS_CONFIGBOUNDARY_H_
 #define SEISSOL_SRC_KERNELS_CONFIGBOUNDARY_H_
 
+#include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/configboundary.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/CellLocalInformation.h"
+#include "Initializer/Typedefs.h"
+#include "Model/Common.h"
+#include "Parallel/Runtime/Stream.h"
 
 #include <array>
 #include <cstddef>
@@ -21,43 +29,90 @@
 namespace seissol::kernels {
 
 /**
- * @brief Converts the time integral of a face neighbor that computes in the configuration
- * `neighbor` into the configuration `cell` of the cell.
+ * @brief Whether the time integral of a face neighbor of the configuration `NeighborCfg` converts
+ * into the configuration `Cfg` of the cell.
  *
- * The neighbor kernel of the cell reads the time integral of a neighbor only through its trace on
- * the shared face, tested with the basis functions of the cell. The conversion keeps these face
- * integrals exact. The modal bases are hierarchical, and orthogonal on the volume and on the
- * faces. So a neighbor of at most the order of the cell is copied, padded with zeros. For a
- * neighbor of a higher order, its trace on the face is projected to the face basis of the cell and
- * lifted back into the volume basis of the cell; the result agrees with the neighbor on that face
- * only.
+ * The neighbor flux of the cell reads the time integral of a neighbor only through its trace on
+ * the shared face, tested with the face basis of the cell. The conversion keeps these face
+ * integrals exact. It goes through the canonical form of the family of both configurations (the
+ * configurations whose materials pose the Riemann problem in the same material, and that fuse the
+ * same number of simulations): toCanonical of the neighbor pads its time integral to the largest
+ * order of the family in the build, selects the quantities of the Riemann problem and widens it to
+ * double precision; fromCanonical of the cell, for the side of the neighbor on the shared face,
+ * projects the trace on that face to the face basis of the cell and lifts it into the volume basis
+ * of the cell, and narrows it to the precision of the cell. Quantities of the cell outside the
+ * canonical form, such as memory variables, are zero. The code generator generates both kernels
+ * for the configurations of a family that has more than one configuration in the build.
  *
- * The quantities are matched by name. Quantities of the cell that the neighbor does not have, such
- * as the memory variables of an anelastic cell next to an elastic one, are zero; the neighbor flux
- * reads the elastic quantities only. The fused simulations are matched one by one.
+ * A solid and a fluid pose the Riemann problem in different materials, but their families are
+ * coupled: fromCoupledCanonical of the cell converts from the canonical form of the family of the
+ * neighbor instead. A solid takes the pressure of a fluid as an isotropic stress; a fluid takes the
+ * normal stress of a solid on the shared face as its pressure, with the weights of the face
+ * (NormalStressWeights). The velocities carry over.
  */
-class NeighborConversion {
-  public:
-  NeighborConversion(ConfigId cell, ConfigId neighbor);
+template <typename Cfg, typename NeighborCfg>
+constexpr bool FamilyConvertible =
+    generated::ConfigBoundaryKernels<Cfg>::Host &&
+    generated::ConfigBoundaryKernels<NeighborCfg>::Host &&
+    model::SameRiemannMaterial<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
+    Cfg::NumSimulations == NeighborCfg::NumSimulations;
 
-  /**
-   * Writes `integral`, a time integral of a neighbor of the configuration `NeighborCfg`, into
-   * `converted`, a time integral of the configuration `Cfg` of the cell. The neighbor touches the
-   * cell with its side `neighborSide`.
-   */
-  template <typename Cfg, typename NeighborCfg>
-  void apply(const Real<NeighborCfg>* integral,
-             Real<Cfg>* converted,
-             std::size_t neighborSide) const;
+/// The conversion of Convertible between a solid and a fluid.
+template <typename Cfg, typename NeighborCfg>
+constexpr bool CoupledConvertible =
+    generated::ConfigBoundaryKernels<Cfg>::CoupledHost &&
+    generated::ConfigBoundaryKernels<NeighborCfg>::ToCanonicalHost &&
+    model::SolidAndFluid<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
+    Cfg::NumSimulations == NeighborCfg::NumSimulations;
 
-  private:
-  // for every quantity of a time integral of the cell, the quantity of the neighbor with its name
-  std::vector<std::optional<std::size_t>> quantities_;
+template <typename Cfg, typename NeighborCfg>
+constexpr bool Convertible =
+    FamilyConvertible<Cfg, NeighborCfg> || CoupledConvertible<Cfg, NeighborCfg>;
 
-  // for a neighbor of a higher order: per side of the neighbor, the map from its volume basis to
-  // the volume basis of the cell (row-major); empty otherwise
-  std::array<std::vector<double>, Cell::NumFaces> lift_;
-};
+/// Whether the conversion of Convertible exists on the device as well.
+template <typename Cfg, typename NeighborCfg>
+constexpr bool DeviceConvertible =
+    (FamilyConvertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::Device &&
+     generated::ConfigBoundaryKernels<NeighborCfg>::Device) ||
+    (CoupledConvertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::CoupledDevice &&
+     generated::ConfigBoundaryKernels<NeighborCfg>::ToCanonicalDevice);
+
+/// The weights of NormalStressWeights for the face with the unit normal `normal`.
+template <typename Cfg>
+void setNormalStressWeights(NormalStressWeights<Cfg>& weights,
+                            std::size_t face,
+                            const std::array<double, Cell::Dim>& normal);
+
+/// Whether the conversion from the configuration `neighbor` into `cell` exists on the device.
+bool deviceConvertible(ConfigId cell, ConfigId neighbor);
+
+namespace configboundary {
+
+/// The batch of the time integrals of the neighbors of the configuration `neighbor` that provide
+/// derivatives, with the GTS relation (`gts`) or the LTS one.
+recording::ConditionalKey timeKey(ConfigId neighbor, bool gts);
+
+/// The batch of the conversion of the time integrals of the neighbors of the configuration
+/// `neighbor` into the canonical form.
+recording::ConditionalKey toCanonicalKey(ConfigId neighbor);
+
+/// The batch of the conversion from the canonical form, for the neighbors that touch the cell with
+/// their side `side`.
+recording::ConditionalKey fromCanonicalKey(std::size_t side);
+
+/// The batch of the conversion from the canonical form of the coupled family, for the neighbors
+/// that touch the cell with their side `side`.
+recording::ConditionalKey fromCoupledCanonicalKey(std::size_t side);
+
+/// The alignment of each part of the device scratch of a face.
+constexpr std::size_t ScratchAlignment = 256;
+
+/// `bytes`, rounded up to the alignment of the scratch.
+constexpr std::size_t alignScratch(std::size_t bytes) {
+  return (bytes + ScratchAlignment - 1) / ScratchAlignment * ScratchAlignment;
+}
+
+} // namespace configboundary
 
 /**
  * @brief The faces of the cells of the configuration `Cfg` whose neighbor computes in another
@@ -70,7 +125,7 @@ class NeighborConversion {
 template <typename Cfg>
 class ConfigBoundary {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   ConfigBoundary() = default;
 
@@ -93,22 +148,62 @@ class ConfigBoundary {
    * `integrationBuffer`, and points `timeIntegrated` to it. The other faces are left as they are.
    */
   void computeIntegrals(const CellLocalInformation& cellInformation,
+                        const NormalStressWeights<Cfg>& normalStress,
                         const std::array<void*, Cell::NumFaces>& timeDofs,
                         const std::array<real*, Cell::NumFaces>& integrationBuffer,
                         std::array<real*, Cell::NumFaces>& timeIntegrated) const;
 
+  /**
+   * The bytes of device scratch that a face of a cell towards a neighbor of the configuration
+   * `neighbor` takes at most: for the time integral of the neighbor in its configuration, in the
+   * canonical form, and converted into the configuration of the cell.
+   */
+  static std::size_t scratchBytes(ConfigId neighbor);
+
+  /// Sets the constants the device kernels of the configuration `NeighborCfg` read.
+  template <typename NeighborCfg>
+  void setDeviceGlobalData(const GlobalData<NeighborCfg>* globalData) {
+    devicePools_.at(configIdOf<NeighborCfg>()) = globalData;
+  }
+
+  /**
+   * The batched counterpart of computeIntegrals for the cells of a layer, with the batches that
+   * `table` holds (see NeighIntegrationRecorder): computes the time integrals of the neighbors of
+   * other configurations in their configuration, converts them into the canonical form of their
+   * family, and from there into the configuration of the cells.
+   */
+  void computeBatchedIntegrals(recording::ConditionalPointersToRealsTable& table,
+                               seissol::parallel::runtime::StreamRuntime& runtime) const;
+
   private:
   struct Neighbor {
-    NeighborConversion conversion;
-
     // the coefficients of the time basis of the neighbor for its step relation to the cell (GTS)
     // and for the sub-interval of a larger time step of the neighbor (LTS)
     std::vector<double> timeCoeffs;
     std::vector<double> subtimeCoeffs;
   };
 
+  /// Computes the time integral of the neighbor of the configuration `NeighborCfg` on the face
+  /// `face` from `timeDofs`, and converts it into `integrationBuffer`, with the weights of the
+  /// normal stress on the face `normalStress` if the conversion reads them.
+  template <typename NeighborCfg>
+  static void computeIntegral(const CellLocalInformation& cellInformation,
+                              std::size_t face,
+                              const Neighbor& neighbor,
+                              const real* normalStress,
+                              const void* timeDofs,
+                              real* integrationBuffer);
+
+  /// The batched counterpart of computeIntegral, up to the canonical form.
+  template <typename NeighborCfg>
+  void computeBatchedCanonical(recording::ConditionalPointersToRealsTable& table,
+                               const Neighbor& neighbor,
+                               seissol::parallel::runtime::StreamRuntime& runtime) const;
+
   // indexed by the configuration of the neighbor
   std::vector<std::optional<Neighbor>> neighbors_;
+  // the constants of the device kernels, as the GlobalData of each configuration
+  std::vector<const void*> devicePools_;
   bool empty_{true};
 };
 

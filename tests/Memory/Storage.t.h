@@ -15,6 +15,7 @@
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
+#include "TestConfigs.h"
 
 #include <cstddef>
 #include <type_traits>
@@ -36,7 +37,7 @@ struct TestDescriptor {
   struct Scratchpad : public initializer::Scratchpad<float> {};
 };
 
-TEST_CASE("Storage" * doctest::test_suite("memory")) {
+TEST_CASE_TEMPLATE("Storage" * doctest::test_suite("memory"), Cfg, SEISSOL_CONFIG_TYPES) {
   initializer::Storage<initializer::GenericVarmap> storage;
 
   // NOTE: the LTSColorMap is hard-coded to the storage right now.
@@ -44,7 +45,7 @@ TEST_CASE("Storage" * doctest::test_suite("memory")) {
       initializer::EnumLayer(
           std::vector<HaloType>{HaloType::Interior, HaloType::Copy, HaloType::Ghost}),
       initializer::EnumLayer(std::vector<std::size_t>{1, 2, 3}),
-      initializer::EnumLayer(std::vector<ConfigId>{configIdOf<Config>()}));
+      initializer::EnumLayer(std::vector<ConfigId>{configIdOf<Cfg>()}));
 
   constexpr auto Alignment1 = sizeof(void*);
   constexpr auto Alignment2 = sizeof(void*) * 4;
@@ -74,7 +75,7 @@ TEST_CASE("Storage" * doctest::test_suite("memory")) {
   // a variable that depends on the configuration is sized by the configuration of its layer
   for (const auto& layer : storage.leaves()) {
     CHECK(storage.info<TestDescriptor::Var4>().bytesLayer(layer.getIdentifier()) ==
-          sizeof(PerConfigArray<Config>));
+          sizeof(PerConfigArray<Cfg>));
   }
 
   for (auto [i, layer] : common::enumerate(storage.leaves())) {
@@ -89,11 +90,11 @@ TEST_CASE("Storage" * doctest::test_suite("memory")) {
   }
 
   for (auto& layer : storage.leaves()) {
-    auto* perConfig = layer.var<TestDescriptor::Var4>(Config());
+    auto* perConfig = layer.var<TestDescriptor::Var4>(Cfg());
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      for (std::size_t j = 0; j <= Config::ConvergenceOrder; ++j) {
+      for (std::size_t j = 0; j <= Cfg::ConvergenceOrder; ++j) {
         CHECK(perConfig[cell][j] == 0);
-        perConfig[cell][j] = static_cast<RealT<Config::Precision>>(cell + j);
+        perConfig[cell][j] = static_cast<RealT<Cfg::Precision>>(cell + j);
       }
     }
   }
@@ -102,19 +103,21 @@ TEST_CASE("Storage" * doctest::test_suite("memory")) {
   // it is reached
   for (auto [color, layer] : common::enumerate(storage.leaves())) {
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      auto ref = layer.cellRef<Config>(cell);
+      auto ref = layer.cellRef<Cfg>(cell);
       static_assert(
-          std::is_same_v<decltype(ref.get<TestDescriptor::Var4>()), PerConfigArray<Config>&>);
-      static_assert(std::is_same_v<decltype(ref.get<TestDescriptor::Var3>()), double (&)[123]>);
-      CHECK(&ref.get<TestDescriptor::Var4>() == &layer.var<TestDescriptor::Var4>(Config())[cell]);
+          std::is_same_v<decltype(ref.template get<TestDescriptor::Var4>()), PerConfigArray<Cfg>&>);
+      static_assert(
+          std::is_same_v<decltype(ref.template get<TestDescriptor::Var3>()), double (&)[123]>);
+      CHECK(&ref.template get<TestDescriptor::Var4>() ==
+            &layer.var<TestDescriptor::Var4>(Cfg())[cell]);
 
       initializer::StoragePosition position;
       position.color = color;
       position.cell = cell;
-      CHECK(&storage.lookup<TestDescriptor::Var4>(Config(), position) ==
-            &ref.get<TestDescriptor::Var4>());
-      CHECK(&storage.lookupRef<Config>(position).get<TestDescriptor::Var4>() ==
-            &ref.get<TestDescriptor::Var4>());
+      CHECK(&storage.lookup<TestDescriptor::Var4>(Cfg(), position) ==
+            &ref.template get<TestDescriptor::Var4>());
+      CHECK(&storage.lookupRef<Cfg>(position).template get<TestDescriptor::Var4>() ==
+            &ref.template get<TestDescriptor::Var4>());
     }
   }
 

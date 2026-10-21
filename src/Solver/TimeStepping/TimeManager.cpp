@@ -314,7 +314,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::instance();
+  const device::DeviceInstance& device = device::DeviceInstance::instance();
   device.api().putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
 

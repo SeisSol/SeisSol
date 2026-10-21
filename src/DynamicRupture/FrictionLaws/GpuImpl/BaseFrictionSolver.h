@@ -30,7 +30,7 @@
 namespace seissol::dr::friction_law::gpu {
 template <typename Cfg>
 struct InitialVariables {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   real absoluteShearTraction{};
   real localSlipRate{};
@@ -47,7 +47,7 @@ struct InitialVariables {
 
 template <typename Cfg>
 struct FrictionLawArgs {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   const FrictionLawData<Cfg>* __restrict data{nullptr};
   const real* __restrict spaceWeights{nullptr};
@@ -63,7 +63,7 @@ struct FrictionLawArgs {
 
 template <typename Cfg>
 struct FrictionLawContext {
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   std::size_t ltsFace{0};
   std::uint32_t pointIndex{0};
@@ -167,7 +167,7 @@ SEISSOL_DEVICE inline Real<Cfg> resampleVariable(FrictionLawContext<Cfg>& __rest
 template <typename Cfg, typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
   public:
-  using real = Real<Cfg>; // NOLINT(readability-identifier-naming)
+  using real = Real<Cfg>;
 
   explicit BaseFrictionSolver(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : FrictionSolverDetails<Cfg>(drParameters) {}
@@ -189,14 +189,19 @@ class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
 
       Derived::preHook(ctx);
 
-      real startTime = 0;
       real updateTime = ctx.args->fullUpdateTime;
 
       for (uint32_t timeIndex = 0; timeIndex < misc::TimeSteps<Cfg>; ++timeIndex) {
         const real dt = ctx.args->deltaT[timeIndex];
 
-        startTime = updateTime;
         updateTime += dt;
+        const auto times =
+            common::subStepTimes<Cfg>(ctx.args->fullUpdateTime, ctx.args->deltaT, timeIndex);
+        const auto rateTimes = common::slipRateTimes<Cfg>(times, Derived::SlipRateAtIntervalEnds);
+        // the values before the update, for the times of the events that it crosses the threshold
+        // of (see common::crossingTime)
+        const real previousSlipRate = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
+        const real previousDynamicStressQuantity = Derived::dynamicStressQuantity(ctx);
 
         common::precomputeStressFromQInterpolated<Cfg, GpuRangeType>(
             ctx.faultStresses,
@@ -227,11 +232,13 @@ class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
         // time-dependent outputs
         common::saveRuptureFrontOutput<Cfg, GpuRangeType>(ctx.data->ruptureTimePending[ctx.ltsFace],
                                                           ctx.data->ruptureTime[ctx.ltsFace],
+                                                          &previousSlipRate,
                                                           ctx.data->slipRateMagnitude[ctx.ltsFace],
-                                                          startTime,
+                                                          rateTimes.previousPoint,
+                                                          rateTimes.point,
                                                           ctx.pointIndex);
 
-        Derived::saveDynamicStressOutput(ctx, startTime);
+        Derived::saveDynamicStressOutput(ctx, previousDynamicStressQuantity, times);
 
         common::savePeakSlipRateOutput<Cfg, GpuRangeType>(ctx.data->slipRateMagnitude[ctx.ltsFace],
                                                           ctx.data->peakSlipRate[ctx.ltsFace],

@@ -11,10 +11,11 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
-#include "Config.h"
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Expr/Program.h"
 #include "Expr/Rewrite.h"
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
@@ -75,22 +76,29 @@ io::instance::geometry::WriterGroup
 namespace projection = seissol::numerical::projection;
 
 // Which nodal points the plastic strain lives on is a build option (PLASTICITY_METHOD): "nb"
-// uses a unisolvent warp&blend set, "ip" the conical-product quadrature points. Read that back
-// off the generated matrices instead of duplicating the CMake variable.
+// uses a unisolvent warp&blend set, "ip" the conical-product quadrature points, "sq" the points of
+// a fully symmetric quadrature rule. Read that back off the generated matrices instead of
+// duplicating the CMake variable: it is the set whose points are the generated vNodes. (Their
+// number alone does not tell, e.g. "nb" and "sq" both have four points for order 2.)
 template <typename Cfg>
-constexpr auto PlasticityNodalSet = static_cast<std::size_t>(tensor::vNodes<Cfg>::Shape[0]) ==
-                                            projection::modalSize(Cell::Dim, Cfg::ConvergenceOrder)
-                                        ? projection::NodalSet::WarpBlend
-                                        : projection::NodalSet::Stroud;
-
-#define SEISSOL_CHECK_NODAL_SET(Cfg)                                                               \
-  static_assert(                                                                                   \
-      projection::nodalSize(Cell::Dim, Cfg::ConvergenceOrder, PlasticityNodalSet<Cfg>) ==          \
-          static_cast<std::size_t>(tensor::vNodes<Cfg>::Shape[0]),                                 \
-      "The projection module and the generated plasticity matrices disagree about the "            \
-      "nodal point set of the volume.");
-SEISSOL_FOR_EACH_CONFIG(SEISSOL_CHECK_NODAL_SET)
-#undef SEISSOL_CHECK_NODAL_SET
+projection::NodalSet plasticityNodalSet() {
+  const auto nodes = init::vNodes<Cfg>::view::create(init::vNodes<Cfg>::Values);
+  std::vector<std::array<double, Cell::Dim>> points(
+      static_cast<std::size_t>(tensor::vNodes<Cfg>::Shape[0]));
+  for (std::size_t p = 0; p < points.size(); ++p) {
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      points[p][d] = nodes.isInRange(p, d) ? nodes(p, d) : 0.0;
+    }
+  }
+  // the generated values are stored in the precision of the configuration
+  constexpr double Tolerance = std::max(1e-10, 10.0 * std::numeric_limits<Real<Cfg>>::epsilon());
+  const auto set = projection::identifyNodalSet3D(Cfg::ConvergenceOrder, points, Tolerance);
+  if (!set.has_value()) {
+    logError() << "The generated plasticity points (vNodes) are none of the nodal point sets of "
+                  "the projection module.";
+  }
+  return set.value_or(projection::NodalSet::WarpBlend);
+}
 
 void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto& checkpoint = seissolInstance.outputManager().getCheckpointManager();
@@ -348,7 +356,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
   geometry.dataOrder = setup.dataOrder;
   geometry.order = Cfg::ConvergenceOrder;
   geometry.target = setup.projectionTarget;
-  geometry.nodalSet = PlasticityNodalSet<Cfg>;
+  geometry.nodalSet = plasticityNodalSet<Cfg>();
 
   initializer::WaveFieldSelection selection;
   selection.quantities.assign(MaterialT::Quantities.begin(), MaterialT::Quantities.end());
@@ -599,7 +607,7 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance,
   geometry.dataOrder = setup.dataOrder;
   geometry.order = Cfg::ConvergenceOrder;
   geometry.target = setup.projectionTarget;
-  geometry.nodalSet = PlasticityNodalSet<Cfg>;
+  geometry.nodalSet = plasticityNodalSet<Cfg>();
 
   const auto programs =
       programsOf(initializer::surfaceProgram(std::vector<std::string>(MaterialT::Quantities.begin(),

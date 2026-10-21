@@ -141,19 +141,17 @@ Planar wave (``Planarwave``)
 
 A planar wave for convergence tests.
 The inital values are computed such that a planar wave in a unit cube is imposed.
+Its wave vector :math:`k` is :math:`(\pi, \pi, \pi)`, unless ``kVec`` in the ``IniCondition`` section sets another one, as described for the travelling wave below.
+Along every axis with :math:`k_i \neq 0`, the mesh has to span a whole number of wavelengths :math:`2\pi / |k_i|`.
 For elastic, anisotropic and viscoelastic materials, we impose a P and an S wave travelling in opposite directions.
 For poroelastic materials, we impose a slow P and an S wave travelling in one direction and a fast P wave travelling in opposite direction.
+For acoustic and viscoacoustic materials, we impose a P wave.
 This scenario needs periodic boundary conditions to make sense.
-This is the only case where the old netcdf mesh format is prefered.
 With fused simulations, the phase of simulation :math:`s` out of :math:`N` is shifted by :math:`2\pi s/N`.
-
 After the simulation is finished the errors between the analytic solution and the numerical one are plotted in the :math:`L^1`-,  :math:`L^2`- and :math:`L^\infty`-norm.
 
-You can use the ``cubegenerator`` mesh type to make SeisSol generate meshes for
-convergence tests.
-
-Alternatively, use ``cube_c`` to do so:
-https://github.com/SeisSol/SeisSol/tree/master/preprocessing/meshing/cube_c
+SeisSol does not generate such meshes itself (the ``cubegenerator`` mesh format is currently disabled).
+Generate a periodic mesh in the PUML format instead; :doc:`puml-mesh-format` describes how to give the periodic connectivity.
 
 Superimposed planar wave (``SuperimposedPlanarwave``)
 -----------------------------------------------------
@@ -185,37 +183,46 @@ The Travelling wave can be configured in the parameter file (in the ``IniConditi
   The entries of :math:`k` are ``-P -S -S N N N +S +S +P``.
   In this example, we impose a P wave travelling in the opposite direction as :math:`k` with relative amplitude :math:`2` and an S wave travelling towards the same direction as :math:`k` with relative amplitude :math:`1`.
 
+The travelling wave is not available for viscoelastic and viscoacoustic materials.
+
+Acoustic travelling wave with ITM (``AcousticTravellingwithITM``)
+-----------------------------------------------------------------
+
+An acoustic plane wave travelling in x-direction, with the wave number ``k`` given in the ``IniCondition`` section.
+With ``ITMEnable = 1``, it switches at the times of the instantaneous time mirror (ITM) configured by the ``ITM*`` parameters in the ``equations`` section,
+keeping the pressure continuous and scaling the velocity by ``ITMVelocityScalingFactor``, independent of ``ITMReflectionType``;
+this has not been validated against the ITM that SeisSol computes, which changes the material instead.
+With ``ITMEnable = 0``, the ITM parameters are ignored and the wave is a plain travelling wave.
+It needs a fluid: the elastic equations with :math:`\mu = 0`, or the acoustic equations; its density and speed are those of the material of the first cell of the run.
+The acoustic equations do not support the mirror itself (SeisSol rejects ``ITMEnable = 1`` there), so use ``ITMEnable = 0`` with them.
+
 Scholte (``Scholte``)
 ---------------------
 
 A Scholte wave to test elastic-acoustic coupling: along the interface :math:`z = 0` between an
 elastic material below and an acoustic one (``mu = 0``) above. A cell is acoustic if its ``mu`` is
-zero.
+zero. It needs a solid next to a fluid, i.e. the elastic equations with an acoustic
+(:math:`\mu = 0`) region; other equations reject it.
 
 Snell (``Snell``)
 -----------------
 
-Snells law to test elastic-acoustic coupling, at the same interface.
+Snells law to test elastic-acoustic coupling, at the same interface. It needs a solid next to a
+fluid, i.e. the elastic equations with an acoustic (:math:`\mu = 0`) region; other equations reject
+it.
 
 Ocean (``Ocean_0``, ``Ocean_1``, ``Ocean_2``)
 ---------------------------------------------
 
 An uncoupled ocean test case for acoustic equations, in the mode 0 (gravity), 1 or 2. It reads the
-density of each cell, needs an acoustic material (``mu = 0``) everywhere and the gravitational
-acceleration ``9.81e-3``.
+density of each cell, needs a fluid everywhere -- the elastic equations with :math:`\mu = 0`, or the
+acoustic equations -- and the gravitational acceleration ``9.81e-3``.
 
 Pressure injection (``PressureInjection``)
 ------------------------------------------
 
-A gaussian perturbation of the pressure of a poroelastic material, with ``origin``, ``magnitude``
-and ``width`` from the ``IniCondition`` section.
-
-Acoustic travelling wave with ITM (``AcousticTravellingwithITM``)
------------------------------------------------------------------
-
-An acoustic wave along :math:`x` with the wave number ``k`` (``IniCondition`` section) that passes
-an instantaneous time mirror (the ``ITM`` parameters of the ``equations`` section), in the material
-of the first cell of the run.
+A Gaussian perturbation of the fluid pressure, :math:`p = m \exp(-w \|x - x_0\|^2)`, for poroelastic materials only.
+It is configured by ``origin`` (:math:`x_0`), ``magnitude`` (:math:`m`) and ``width`` (:math:`w`) in the ``IniCondition`` section.
 
 How to implement a new hard-coded initial condition?
 ----------------------------------------------------
@@ -223,6 +230,8 @@ How to implement a new hard-coded initial condition?
 Most initial conditions are best written as a script (see above). To add one to SeisSol itself,
 write a function that returns its sderiv module as a string and hands it to
 ``seissol::physics::scenario::scriptedFields`` (``src/Physics/Scenario/ScriptedScenario.h``), as
-the scenarios in ``src/Physics/Scenario/Scenarios.cpp`` do, and add it to the registry in
-``src/Physics/Scenario/Registry.cpp`` and to the parameter file parser in
-``src/Initializer/Parameters/InitializationParameters.cpp``.
+the scenarios in ``src/Physics/Scenario/Scenarios.cpp`` do. The module gives the quantities of the
+configuration the cells compute in by their names. Add it to the parameter file parser in
+``src/Initializer/Parameters/InitializationParameters.cpp``, and register it in
+``src/Physics/Scenario/Registry.cpp``, with the materials it is meaningful for; SeisSol rejects it
+for all others.

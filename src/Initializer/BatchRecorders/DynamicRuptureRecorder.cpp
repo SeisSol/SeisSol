@@ -12,7 +12,6 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include "Recorders.h"
@@ -25,30 +24,32 @@
 using namespace seissol::initializer;
 using namespace seissol::recording;
 
-void DynamicRuptureRecorder::record(DynamicRupture::Layer& layer) {
+template <typename Cfg>
+void DynamicRuptureRecorder<Cfg>::record(DynamicRupture::Layer& layer) {
   setUpContext(layer);
   recordSpaceInterpolation();
 }
 
-void DynamicRuptureRecorder::recordSpaceInterpolation() {
+template <typename Cfg>
+void DynamicRuptureRecorder<Cfg>::recordSpaceInterpolation() {
   auto* qInterpolatedPlus =
-      currentLayer_->var<DynamicRupture::QInterpolatedPlus>(Config(), AllocationPlace::Device);
+      currentLayer_->var<DynamicRupture::QInterpolatedPlus>(Cfg(), AllocationPlace::Device);
   auto* qInterpolatedMinus =
-      currentLayer_->var<DynamicRupture::QInterpolatedMinus>(Config(), AllocationPlace::Device);
+      currentLayer_->var<DynamicRupture::QInterpolatedMinus>(Cfg(), AllocationPlace::Device);
 
   real* idofsPlus = static_cast<real*>(
-      currentLayer_->var<DynamicRupture::IdofsPlusOnDevice>(Config(), AllocationPlace::Device));
+      currentLayer_->var<DynamicRupture::IdofsPlusOnDevice>(Cfg(), AllocationPlace::Device));
   real* idofsMinus = static_cast<real*>(
-      currentLayer_->var<DynamicRupture::IdofsMinusOnDevice>(Config(), AllocationPlace::Device));
+      currentLayer_->var<DynamicRupture::IdofsMinusOnDevice>(Cfg(), AllocationPlace::Device));
 
-  DRGodunovData<Config>* godunovData =
-      currentLayer_->var<DynamicRupture::GodunovData>(Config(), AllocationPlace::Device);
+  DRGodunovData<Cfg>* godunovData =
+      currentLayer_->var<DynamicRupture::GodunovData>(Cfg(), AllocationPlace::Device);
   const DRFaceInformation* faceInfo = currentLayer_->var<DynamicRupture::FaceInformation>();
 
   real* const* timeDerivativePlus =
-      currentLayer_->var<DynamicRupture::TimeDerivativePlusDevice>(Config());
+      currentLayer_->var<DynamicRupture::TimeDerivativePlusDevice>(Cfg());
   real* const* timeDerivativeMinus =
-      currentLayer_->var<DynamicRupture::TimeDerivativeMinusDevice>(Config());
+      currentLayer_->var<DynamicRupture::TimeDerivativeMinusDevice>(Cfg());
 
   const auto size = currentLayer_->size();
   if (size > 0) {
@@ -59,7 +60,7 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     std::array<std::vector<real*>[dr::misc::NumFaceRelations], *FaceId::Count>
         timeDerivativeMinusPtrs {};
 
-    const size_t idofsSize = tensor::Q<Config>::size();
+    const size_t idofsSize = tensor::Q<Cfg>::size();
     for (std::size_t faceId = 0; faceId < size; ++faceId) {
       const auto plusSide = faceInfo[faceId].plusSide;
       qInterpolatedMinusPtr[plusSide][0].push_back(&qInterpolatedPlus[faceId][0][0]);
@@ -92,3 +93,7 @@ void DynamicRuptureRecorder::recordSpaceInterpolation() {
     }
   }
 }
+
+#define SEISSOL_INSTANTIATE(Cfg) template class seissol::recording::DynamicRuptureRecorder<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE

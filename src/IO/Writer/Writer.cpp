@@ -17,6 +17,7 @@
 #include <async/ExecInfo.h>
 #include <memory>
 #include <mpi.h>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -26,6 +27,27 @@ namespace seissol::io::writer {
 
 WriteInstance::WriteInstance(MPI_Comm comm, file::RunFiles* runFiles)
     : hdf5_(comm, runFiles), binary_(comm, runFiles) {}
+
+void WriteInstance::write(
+    const async::ExecInfo& info,
+    const std::vector<std::shared_ptr<instructions::WriteInstruction>>& plan) {
+  // A binary file that takes no distributed data in the plan only takes what every rank holds
+  // alike, which rank 0 writes alone -- the XML of an Xdmf or PVD output. The others need not open
+  // it at all; opening is collective otherwise, and costs every rank a file system operation.
+  std::set<std::string> distributedFiles;
+  for (const auto& instruction : plan) {
+    if (const auto* binary = dynamic_cast<instructions::BinaryWrite*>(instruction.get());
+        binary != nullptr && binary->dataSource->distributed()) {
+      distributedFiles.insert(binary->filename);
+    }
+  }
+  binary_.beginWrite(distributedFiles);
+  for (const auto& instruction : plan) {
+    write(info, instruction);
+  }
+  hdf5_.endWrite();
+  binary_.endWrite();
+}
 
 void WriteInstance::write(const async::ExecInfo& info,
                           const std::shared_ptr<instructions::WriteInstruction>& instruction) {
@@ -75,16 +97,9 @@ std::string Writer::serialize() {
   return sstr.str();
 }
 
-WriteInstance
-    Writer::beginWrite(const async::ExecInfo& info, MPI_Comm comm, file::RunFiles* runFiles) {
-  WriteInstance instance(comm, runFiles);
-  for (const auto& instruction : instructions_) {
-    instance.write(info, instruction);
-  }
-  return instance;
+void Writer::write(const async::ExecInfo& info, WriteInstance& instance) const {
+  instance.write(info, instructions_);
 }
-
-void Writer::endWrite() {}
 
 const std::vector<std::shared_ptr<instructions::WriteInstruction>>&
     Writer::getInstructions() const {
