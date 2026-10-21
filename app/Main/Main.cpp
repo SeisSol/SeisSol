@@ -166,6 +166,9 @@ int main(int argc, char* argv[]) {
     {
       // Initialize SeisSol
       seissol::SeisSol seissolInstance(parameters, env);
+#ifdef USE_ASAGI
+      seissol::asagi::AsagiModule::getInstance().setPinning(seissolInstance.getPinning());
+#endif
 
       if (args.isSet("checkpoint")) {
         const auto* checkpointFile = args.getArgument<const char*>("checkpoint");

@@ -250,6 +250,18 @@ bool Pinning::freeCPUsMaskEmpty(const CpuMask& mask) {
 #endif // __APPLE__
 }
 
+std::optional<int> Pinning::firstCpu(const CpuMask& mask) {
+#ifndef __APPLE__
+  // the ids in a mask range up to CPU_SETSIZE; CPU_COUNT is how many of them are set
+  for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
+    if (CPU_ISSET(cpu, &mask.set) != 0) {
+      return cpu;
+    }
+  }
+#endif // __APPLE__
+  return {};
+}
+
 CpuMask Pinning::getOnlineMask() const { return onlineMask_; }
 
 bool Pinning::areAllCpusOnline() {
