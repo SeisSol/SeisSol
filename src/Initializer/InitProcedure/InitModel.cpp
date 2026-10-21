@@ -418,7 +418,7 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Begin init model.";
 
   // Call the pre mesh initialization hook
-  seissol::Modules::callHook<ModuleHook::PreModel>();
+  seissolInstance.modules().callHook<ModuleHook::PreModel>();
 
   seissol::Stopwatch watch;
   watch.start();
@@ -473,7 +473,7 @@ void initModel(seissol::SeisSol& seissolInstance) {
   summary["time"]["init"]["model"] = monitoring::toJson(watch.printTime("Model initialized in:"));
 
   // Call the post mesh initialization hook
-  seissol::Modules::callHook<ModuleHook::PostModel>();
+  seissolInstance.modules().callHook<ModuleHook::PostModel>();
 
   logInfo() << "End init model.";
 }

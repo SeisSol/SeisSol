@@ -16,7 +16,6 @@
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Preflight.h"
-#include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
@@ -206,11 +205,10 @@ int main(int argc, char* argv[]) {
 
 #ifdef USE_ASAGI
     // Construct an instance of AsagiModule, to initialize it.
-    // It needs to be done here, as it registers PRE_MPI hooks
+    // Its MPI mode is derived from the environment at construction time, i.e. before MPI
+    // is set up.
     seissol::asagi::AsagiModule::initInstance(env);
 #endif
-    // Call pre MPI hooks
-    seissol::Modules::callHook<ModuleHook::PreMPI>();
 
     seissol::Mpi::mpi.init(argc, argv);
     const int rank = seissol::Mpi::mpi.rank();
@@ -317,6 +315,11 @@ int main(int argc, char* argv[]) {
     {
       // Initialize SeisSol
       seissol::SeisSol seissolInstance(parameters, env);
+#ifdef USE_ASAGI
+      auto& asagiModule = seissol::asagi::AsagiModule::getInstance();
+      asagiModule.setPinning(seissolInstance.pinning());
+      asagiModule.registerHooks(seissolInstance.modules());
+#endif
       seissolInstance.setRunId(runId);
       seissolInstance.runSummary()["invocation"] = invocation(
           argv[0],

@@ -402,7 +402,7 @@ void OutputManager::initPickpointOutput() {
   const auto numSimulations = seissolInstance_.memoryManager().simulationSettings().simulationCount;
 
   seissolInstance_.pickpointWriter().enable(
-      seissolParameters.output.pickpointParameters.writeInterval);
+      seissolInstance_.modules(), seissolParameters.output.pickpointParameters.writeInterval);
   seissolInstance_.pickpointWriter().setupWriter([&]() { flushPickpointDataToFile(); });
 
   if (seissolParameters.output.pickpointParameters.format ==

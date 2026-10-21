@@ -13,6 +13,7 @@
 
 #include <async/as/Pin.h>
 #include <deque>
+#include <optional>
 #include <sched.h>
 #include <string>
 
@@ -32,6 +33,10 @@ class Pinning {
   [[nodiscard]] static async::as::CpuMask getWorkerUnionMask();
   [[nodiscard]] async::as::CpuMask getFreeCPUsMask() const;
   static bool freeCPUsMaskEmpty(const async::as::CpuMask& mask);
+  /**
+   * @return The lowest CPU in @p mask, or none if the mask is empty.
+   */
+  [[nodiscard]] static std::optional<int> firstCpu(const async::as::CpuMask& mask);
   [[nodiscard]] async::as::CpuMask getOnlineMask() const;
   [[nodiscard]] static bool areAllCpusOnline();
   void pinToFreeCPUs() const;

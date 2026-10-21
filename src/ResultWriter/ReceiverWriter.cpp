@@ -164,9 +164,9 @@ void ReceiverWriter::init(
   }
 
   setSyncInterval(std::min(endTime, parameters.writeInterval));
-  Modules::registerHook(*this, ModuleHook::SimulationStart);
-  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
-  Modules::registerHook(*this, ModuleHook::Shutdown);
+  seissolInstance_.modules().registerHook(*this, ModuleHook::SimulationStart);
+  seissolInstance_.modules().registerHook(*this, ModuleHook::SynchronizationPoint);
+  seissolInstance_.modules().registerHook(*this, ModuleHook::Shutdown);
 }
 
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,

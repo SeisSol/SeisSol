@@ -660,8 +660,8 @@ void EnergyOutput::init(
 
   isPlasticityEnabled_ = newIsPlasticityEnabled;
 
-  Modules::registerHook(*this, ModuleHook::SimulationStart);
-  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
+  seissolInstance_.modules().registerHook(*this, ModuleHook::SimulationStart);
+  seissolInstance_.modules().registerHook(*this, ModuleHook::SynchronizationPoint);
   setSyncInterval(parameters.interval);
 
   // Every rank registers the same energies, in the same order: the ones of the materials of the

@@ -61,6 +61,8 @@ bool DataSource::distributed() const {
   });
 }
 
+std::vector<std::size_t> DataSource::parts(const async::ExecInfo& info) { return {count(info)}; }
+
 WriteInline::WriteInline(const void* dataPtr,
                          std::size_t size,
                          std::shared_ptr<datatype::Datatype> datatype,
@@ -131,6 +133,14 @@ const void* WriteBufferRemote::getPointer(const async::ExecInfo& info) { return 
 
 std::size_t WriteBufferRemote::count(const async::ExecInfo& info) {
   return info.bufferSize(id_) / datatype()->size();
+}
+
+std::vector<std::size_t> WriteBufferRemote::parts(const async::ExecInfo& info) {
+  auto parts = info.bufferParts(id_);
+  for (auto& part : parts) {
+    part /= datatype()->size();
+  }
+  return parts;
 }
 
 void WriteBufferRemote::assignId(int /*id*/) {}
