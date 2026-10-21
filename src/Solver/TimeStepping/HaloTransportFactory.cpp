@@ -8,6 +8,7 @@
 #include "HaloTransportFactory.h"
 
 #include "Parallel/MPI.h"
+#include "Parallel/Runtime/HostRuntime.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
 #include "Solver/TimeStepping/Halo/Mpi/MpiHaloTransport.h"
@@ -15,6 +16,7 @@
 #include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
 #include "Solver/TimeStepping/Halo/Stream/ShmemExchangeScheduler.h"
 #include "Solver/TimeStepping/Halo/Stream/StreamMpiExchangeScheduler.h"
+#include "Solver/TimeStepping/Halo/TaskHaloTransport.h"
 
 #include <cstddef>
 #include <memory>
@@ -42,6 +44,12 @@ HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
     }
     scheduler_ = std::make_unique<ShmemExchangeScheduler>(clusterCount);
   }
+#ifdef SEISSOL_HOST_TASK_GRAPH
+  if (parallel::runtime::HostRuntime::scheduling() ==
+      parallel::runtime::HostScheduling::TaskGraph) {
+    taskEngine_ = std::make_unique<TaskHaloEngine>();
+  }
+#endif
 }
 
 HaloTransportFactory::~HaloTransportFactory() = default;
@@ -51,6 +59,13 @@ std::unique_ptr<HaloTransport> HaloTransportFactory::create(const RemoteClusterP
                                                             std::size_t otherCluster) {
   switch (mode_) {
   case Mpi::DataTransferMode::Direct:
+#ifdef SEISSOL_HOST_TASK_GRAPH
+    if (taskEngine_ != nullptr) {
+      // the exchanges become tasks of the task graph on the host
+      return std::make_unique<TaskHaloTransport>(
+          std::make_unique<MpiHaloTransport>(regions, persistent_), *taskEngine_);
+    }
+#endif
     return std::make_unique<MpiHaloTransport>(regions, persistent_);
 #ifdef ACL_DEVICE
   case Mpi::DataTransferMode::CopyInCopyOutHost:

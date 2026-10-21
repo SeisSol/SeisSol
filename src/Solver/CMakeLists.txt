@@ -18,6 +18,7 @@ add_library(seissol-solver OBJECT
     TimeStepping/Compute/FaceCluster.cpp
     TimeStepping/Halo/CommunicationManager.cpp
     TimeStepping/Halo/GhostCluster.cpp
+    TimeStepping/Halo/TaskHaloTransport.cpp
     TimeStepping/Halo/Mpi/MpiHaloTransport.cpp
     TimeStepping/Halo/Mpi/StagedMpiHaloTransport.cpp
     TimeStepping/Halo/Stream/CclExchangeScheduler.cpp

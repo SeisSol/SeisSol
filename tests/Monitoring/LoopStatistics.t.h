@@ -100,14 +100,14 @@ TEST_CASE("LoopStatistics begin/end cycle" * doctest::test_suite("monitoring")) 
   ls.addRegion("kernel");
   const unsigned region = ls.getRegion("kernel");
 
-  // begin() records the start time, end() records end time and adds a sample
-  ls.begin(region);
+  // begin() gives the start time, end() takes the end time and adds a sample
+  const auto begin = seissol::LoopStatistics::begin();
 
   // Sleep a tiny bit to ensure nonzero time
   using namespace std::chrono_literals;
   std::this_thread::sleep_for(50ms);
 
-  ls.end(region, 50, 0);
+  ls.end(region, 50, 0, begin);
 
   // No crash = pass
   CHECK(true);

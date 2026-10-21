@@ -27,6 +27,7 @@
 #include "Monitoring/Watchdog.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
+#include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 #include "ResultWriter/ClusteringWriter.h"
 #include "ResultWriter/ReceiverWriter.h"
@@ -146,6 +147,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                               const SimulationSettings& settings) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<GhostCluster>> ghostClusters;
+
+  setUpHostScheduling();
 
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
@@ -401,7 +404,21 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   commThread_ = seissol::useCommThread(Mpi::mpi, seissolInstance_.env());
-  if (commThread_) {
+  if (haloTransports_->taskEngine() != nullptr) {
+    // the main thread creates the tasks of the exchanges; where the OpenMP runtime may wait for one
+    // of them right there, it cannot complete them as well
+    const bool pollingThread =
+        commThread_ || !parallel::runtime::HostRuntime::detachedTasksNeverBlock();
+    if (!commThread_ && pollingThread && !ghostClusters.empty()) {
+      logInfo() << "A thread of its own polls the halo exchange in the task graph, as this OpenMP"
+                << "runtime may wait for the tasks of the exchanges where they get created.";
+    }
+    communicationManager_ =
+        std::make_unique<TaskCommunicationManager>(std::move(ghostClusters),
+                                                   *haloTransports_->taskEngine(),
+                                                   &seissolInstance_.pinning(),
+                                                   pollingThread);
+  } else if (commThread_) {
     communicationManager_ = std::make_unique<ThreadedCommunicationManager>(
         std::move(ghostClusters), &seissolInstance_.pinning());
   } else {
@@ -594,6 +611,27 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   device.api().putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
 
+  // with a task graph on the host, the actions create the tasks of the epoch; this returns once
+  // they are all done
+  parallel::runtime::HostRuntime::epoch([this]() {
+    actUntilSynchronized();
+    // the exchanges of the epoch may still need this thread to get done
+    communicationManager_->awaitExchanges();
+  });
+#ifdef ACL_DEVICE
+  if (concurrent_) {
+    // the clusters have only enqueued their work
+    device.api().syncDevice();
+  }
+  device.api().popLastProfilingMark();
+#endif
+  for (auto& cluster : clusters_) {
+    cluster->finishPhase();
+  }
+  setWatchdogPhase(monitoring::Watchdog::Phase::Other, "the end of an epoch");
+}
+
+void TimeManager::actUntilSynchronized() {
   // Move all clusters from RestartAfterSync to Corrected
   // Does not involve any computations
   for (auto& cluster : clusters_) {
@@ -649,17 +687,32 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     finished &= communicationManager_->checkIfFinished();
     watchProgress();
   }
-#ifdef ACL_DEVICE
-  if (concurrent_) {
-    // the clusters have only enqueued their work
-    device.api().syncDevice();
+}
+
+void TimeManager::setUpHostScheduling() {
+  using parallel::runtime::HostRuntime;
+  using parallel::runtime::HostScheduling;
+  auto& env = seissolInstance_.env();
+  const auto taskSize = hostTaskSize(env);
+  if (!useHostTaskGraph(env)) {
+    HostRuntime::setScheduling(HostScheduling::Static, taskSize);
+    return;
   }
-  device.api().popLastProfilingMark();
-#endif
-  for (auto& cluster : clusters_) {
-    cluster->finishPhase();
+  if (isDeviceOn()) {
+    logWarning() << "A task graph on the host (SEISSOL_HOST_TASK_GRAPH=1) is only available in"
+                 << "builds without a device; the loops keep a static schedule.";
+    HostRuntime::setScheduling(HostScheduling::Static, taskSize);
+    return;
   }
-  setWatchdogPhase(monitoring::Watchdog::Phase::Other, "the end of an epoch");
+  if (!HostRuntime::taskGraphAvailable()) {
+    logWarning() << "A task graph on the host (SEISSOL_HOST_TASK_GRAPH=1) needs OpenMP 5.0; the"
+                 << "loops keep a static schedule.";
+    HostRuntime::setScheduling(HostScheduling::Static, taskSize);
+    return;
+  }
+  HostRuntime::setScheduling(HostScheduling::TaskGraph, taskSize);
+  logInfo() << "The clusters run their work on the host in a task graph, with tasks of" << taskSize
+            << "cells or faces in their loops (SEISSOL_HOST_TASK_SIZE).";
 }
 
 void TimeManager::watchProgress() {

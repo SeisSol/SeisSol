@@ -112,7 +112,7 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRupture(const StepParams& params)
   SCOREP_USER_REGION_BEGIN(
       myRegionHandle, "computeDynamicRuptureSpaceTimeInterpolation", SCOREP_USER_REGION_TYPE_COMMON)
 
-  loopStatistics_->begin(regionComputeDynamicRupture_);
+  const auto loopBegin = LoopStatistics::begin();
 
   const DRFaceInformation* faceInformation = layerData.var<DynamicRupture::FaceInformation>();
   const DRGodunovData<Cfg>* godunovData = layerData.var<DynamicRupture::GodunovData>(Cfg());
@@ -175,7 +175,7 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRupture(const StepParams& params)
   }
 #endif
 
-  loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_);
+  loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_, loopBegin);
 }
 
 template <typename Cfg>
@@ -188,7 +188,7 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRuptureDevice(
 
   SCOREP_USER_REGION("computeDynamicRupture", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  loopStatistics_->begin(regionComputeDynamicRupture_);
+  const auto loopBegin = LoopStatistics::begin();
 
   if (layerData.size() > 0) {
     // compute space time interpolation part
@@ -241,7 +241,7 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRuptureDevice(
 
     device_.api().popLastProfilingMark();
   }
-  loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_);
+  loopStatistics_->end(regionComputeDynamicRupture_, layerData.size(), profilingId_, loopBegin);
 #else
   logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif

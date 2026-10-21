@@ -194,10 +194,11 @@ void CellCluster<Cfg>::computeSources(const StepParams& params) {
   }();
 
   if (pointSourceCluster != nullptr) {
-    loopStatistics_->begin(regionComputePointSources_);
+    const auto loopBegin = LoopStatistics::begin();
     pointSourceCluster->addTimeIntegratedPointSources(
         params.time, params.timeStepSize, streamRuntime_);
-    loopStatistics_->end(regionComputePointSources_, pointSourceCluster->size(), profilingId_);
+    loopStatistics_->end(
+        regionComputePointSources_, pointSourceCluster->size(), profilingId_, loopBegin);
   }
 #ifdef ACL_DEVICE
   device_.api().popLastProfilingMark();
@@ -208,7 +209,7 @@ template <typename Cfg>
 void CellCluster<Cfg>::computeLocalIntegration(const StepParams& params) {
   SCOREP_USER_REGION("computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  loopStatistics_->begin(regionComputeLocalIntegration_);
+  const auto loopBegin = LoopStatistics::begin();
 
   real* const* stepIntegrals = clusterData_->var<LTS::StepIntegrals>(Cfg());
   real* const* accumulatedIntegrals = clusterData_->var<LTS::AccumulatedIntegrals>(Cfg());
@@ -290,7 +291,8 @@ void CellCluster<Cfg>::computeLocalIntegration(const StepParams& params) {
         }
       });
 
-  loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
+  loopStatistics_->end(
+      regionComputeLocalIntegration_, clusterData_->size(), profilingId_, loopBegin);
 }
 
 template <typename Cfg>
@@ -302,7 +304,7 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
   SCOREP_USER_REGION("computeLocalIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
   device_.api().putProfilingMark("computeLocalIntegration", device::ProfilingColors::Yellow);
 
-  loopStatistics_->begin(regionComputeLocalIntegration_);
+  const auto loopBegin = LoopStatistics::begin();
 
   auto& dataTable = clusterData_->getConditionalTable<inner_keys::Wp>();
   auto& indicesTable = clusterData_->getConditionalTable<inner_keys::Indices>();
@@ -385,7 +387,8 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
   localKernel_.evaluateBatchedTimeDependentBc(
       dataTable, indicesTable, *clusterData_, clock_.host(), timeStepWidth, streamRuntime_);
 
-  loopStatistics_->end(regionComputeLocalIntegration_, clusterData_->size(), profilingId_);
+  loopStatistics_->end(
+      regionComputeLocalIntegration_, clusterData_->size(), profilingId_, loopBegin);
   device_.api().popLastProfilingMark();
 #else
   logError() << "The GPU kernels are disabled in this version of SeisSol.";
@@ -418,7 +421,7 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
 
   device_.api().putProfilingMark("computeNeighboring", device::ProfilingColors::Red);
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
-  loopStatistics_->begin(regionComputeNeighboringIntegration_);
+  const auto loopBegin = LoopStatistics::begin();
 
   const double timeStepWidth = params.timeStepSize;
   auto& table = clusterData_->getConditionalTable<inner_keys::Wp>();
@@ -486,7 +489,8 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
   }
 
   device_.api().popLastProfilingMark();
-  loopStatistics_->end(regionComputeNeighboringIntegration_, clusterData_->size(), profilingId_);
+  loopStatistics_->end(
+      regionComputeNeighboringIntegration_, clusterData_->size(), profilingId_, loopBegin);
 #else
   logError() << "The GPU kernels are disabled in this version of SeisSol.";
 #endif // ACL_DEVICE
@@ -767,7 +771,7 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
   }
   SCOREP_USER_REGION("computeNeighboringIntegration", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  loopStatistics_->begin(regionComputeNeighboringIntegration_);
+  const auto loopBegin = LoopStatistics::begin();
 
   const auto* faceNeighbors = clusterData_->var<LTS::FaceNeighbors>();
   const auto* drMapping = clusterData_->var<LTS::DRMapping>(Cfg());
@@ -885,7 +889,7 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
     conditionalCounterHost_[0] += numberOfTetsWithPlasticYielding.load(std::memory_order_relaxed);
   }
 
-  loopStatistics_->end(regionComputeNeighboringIntegration_, clusterSize, profilingId_);
+  loopStatistics_->end(regionComputeNeighboringIntegration_, clusterSize, profilingId_, loopBegin);
 }
 
 template <typename Cfg>

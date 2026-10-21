@@ -19,4 +19,5 @@
 #include "TimeStepping/Halo/Stream/ExchangeScheduler.t.h"
 #include "TimeStepping/Halo/Stream/NvshmemKernels.t.h"
 #include "TimeStepping/Halo/Stream/StreamOrderedExchange.t.h"
+#include "TimeStepping/Halo/TaskHaloTransport.t.h"
 #include "TimeStepping/Plan/TimeSteppingPlan.t.h"

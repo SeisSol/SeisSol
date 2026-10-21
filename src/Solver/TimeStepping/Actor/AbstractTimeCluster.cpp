@@ -242,6 +242,7 @@ void AbstractTimeCluster::observe(AbstractTimeCluster& other) {
       neighbors_.emplace_back(other.ct_.maxTimeStepSize, other.ct_.timeStepRate, other.executor_);
   neighbor.progress = &other.progress_;
   neighbor.dataReadiness = other.dataReadiness();
+  hostRuntime_.observe(other.hostRuntime_);
 }
 
 DataReadiness AbstractTimeCluster::dataReadiness() const { return DataReadiness::AfterPrediction; }

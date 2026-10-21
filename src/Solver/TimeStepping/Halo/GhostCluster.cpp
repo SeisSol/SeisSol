@@ -230,6 +230,9 @@ void GhostCluster::reset() {
   assert(!receiving_ && !sending_ && !receiveDeferred_ && !sendDeferred_);
   AbstractTimeCluster::reset();
 
+  // in a task graph, the exchanges wait for the work on the copy layer and on the ghost layer
+  transport_->setHostTokens(hostRuntime_.neighborToken(0), hostRuntime_.sharedToken());
+
   // the copy layer has been reset before and published its steps until the synchronization point
   const auto& copy = neighbors_.front();
   transport_->startInterval({copy.ct.timeStepRate,

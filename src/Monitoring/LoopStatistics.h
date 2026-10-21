@@ -16,6 +16,7 @@
 #include <cassert>
 #include <fstream>
 #include <iomanip>
+#include <mutex>
 #include <time.h>
 #include <unordered_map>
 #include <vector>
@@ -27,9 +28,13 @@ class LoopStatistics {
 
   [[nodiscard]] unsigned getRegion(const std::string& name) const;
 
-  void begin(unsigned region);
+  /**
+   * The time a loop of a region starts at, for end(). Loops of several clusters can run at the same
+   * time (e.g. in a task graph), so each one keeps its own.
+   */
+  [[nodiscard]] static timespec begin();
 
-  void end(unsigned region, unsigned numIterations, unsigned subRegion);
+  void end(unsigned region, unsigned numIterations, unsigned subRegion, const timespec& begin);
 
   void addSample(
       unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end);
@@ -59,13 +64,14 @@ class LoopStatistics {
   struct Region {
     std::string name;
     bool includeInSummary;
-    timespec begin{};
     StatisticVariables variables;
 
     Region(const std::string& name, bool includeInSummary);
   };
 
   std::vector<Region> regions_;
+  // the samples of loops that run at the same time
+  std::mutex samplesMutex_;
 };
 } // namespace seissol
 

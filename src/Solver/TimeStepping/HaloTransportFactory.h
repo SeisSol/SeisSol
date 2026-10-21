@@ -18,6 +18,7 @@
 namespace seissol::solver {
 
 class ExchangeScheduler;
+class TaskHaloEngine;
 
 /**
  * Creates the transports of one process, and holds what they share.
@@ -53,10 +54,17 @@ class HaloTransportFactory {
    */
   [[nodiscard]] ExchangeScheduler* scheduler() { return scheduler_.get(); }
 
+  /**
+   * What starts and tests the exchanges, with a task graph on the host (see TaskHaloTransport);
+   * null otherwise.
+   */
+  [[nodiscard]] TaskHaloEngine* taskEngine() { return taskEngine_.get(); }
+
   private:
   Mpi::DataTransferMode mode_;
   bool persistent_;
   std::unique_ptr<ExchangeScheduler> scheduler_;
+  std::unique_ptr<TaskHaloEngine> taskEngine_;
 };
 
 } // namespace seissol::solver

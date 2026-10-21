@@ -135,6 +135,12 @@ class TimeManager {
 
   void setUpWatchdog(const std::vector<AbstractTimeCluster*>& clusters);
 
+  /// decides how the clusters run their work on the host (SEISSOL_HOST_TASK_GRAPH)
+  void setUpHostScheduling();
+
+  /// lets the clusters act until all of them have reached the synchronization point
+  void actUntilSynchronized();
+
   //! the passes through the loops that wait for the clusters, for watchProgress()
   std::size_t waitingPasses_{0};
 

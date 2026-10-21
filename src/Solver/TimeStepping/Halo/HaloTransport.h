@@ -105,6 +105,13 @@ class HaloTransport {
    * Releases everything that needs MPI; called before MPI is finalized.
    */
   virtual void finalize() {}
+
+  /**
+   * The addresses that stand for the copy layer and for the ghost layer in the dependencies of the
+   * tasks of the host (see parallel::runtime::HostRuntime), for transports that run in a task
+   * graph.
+   */
+  virtual void setHostTokens(const char* /*copy*/, char* /*ghost*/) {}
 };
 
 } // namespace seissol::solver

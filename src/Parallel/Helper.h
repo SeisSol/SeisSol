@@ -10,6 +10,7 @@
 
 #include "Common/Marker.h"
 
+#include <cstddef>
 #include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
@@ -113,6 +114,19 @@ inline bool keepOutputSnapshots([[maybe_unused]] utils::Env& env) {
 #else
   return false;
 #endif
+}
+
+/**
+ * Whether the clusters run their work on the host in a task graph (see
+ * parallel::runtime::HostScheduling), instead of each loop in a parallel region of its own.
+ */
+inline bool useHostTaskGraph(utils::Env& env) { return env.get<bool>("HOST_TASK_GRAPH", false); }
+
+/**
+ * The cells or faces that each task of a loop takes in a task graph on the host.
+ */
+inline std::size_t hostTaskSize(utils::Env& env) {
+  return env.get<std::size_t>("HOST_TASK_SIZE", 32);
 }
 
 /**

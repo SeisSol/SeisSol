@@ -11,10 +11,17 @@
 #include <algorithm>
 #include <cstddef>
 #include <functional>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
 #ifdef _OPENMP
 #include <omp.h>
+#endif
+
+// tasks with dependencies on a list of runtime length (iterators), and detached tasks: OpenMP 5.0
+#if defined(_OPENMP) && _OPENMP >= 201811
+#define SEISSOL_HOST_TASK_GRAPH
 #endif
 
 namespace seissol::parallel::runtime {
@@ -33,32 +40,145 @@ struct HostAccess {
 };
 
 /**
+ * How the clusters do their work on the host.
+ */
+enum class HostScheduling {
+  /// The work of an action runs when the action is decided. A loop is a parallel region of its
+  /// own, which splits the range among all threads evenly, as a static schedule does.
+  Static,
+
+  /// The main thread decides the actions of an epoch in one parallel region, and the work of each
+  /// action becomes a task, which runs once the work it depends on is done; meanwhile, the main
+  /// thread goes on deciding. A loop becomes tasks of a fixed number of elements each.
+  TaskGraph
+};
+
+/**
  * The work of a cluster on the host: the counterpart of its StreamRuntime for the work of its
  * actions, and for the loops over its cells or faces therein.
  *
- * The work of an action runs right when the action is decided. A loop is a parallel region of its
- * own, which splits the range among all threads evenly, as a static schedule does.
+ * With a task graph, the work of an action may run long after the action has been decided, while
+ * the main thread decides the next ones: so it has to take along by value what these change (e.g.
+ * the planned output samples). The order of the work follows from what the work of each action
+ * does with the data of its cluster and its neighbors (see HostAccess): the work that writes data
+ * comes after all work that reads or writes it before, and the work that reads data after the work
+ * that writes it before. Each runtime has two addresses that stand for its data in the
+ * dependencies of the tasks: one for what only its cluster works on, one for what it shares.
  */
 class HostRuntime {
   public:
+  HostRuntime() = default;
+  ~HostRuntime() = default;
+
+  // the neighbors and the tasks refer to the runtime by the addresses of its members
+  HostRuntime(const HostRuntime&) = delete;
+  HostRuntime(HostRuntime&&) = delete;
+  HostRuntime& operator=(const HostRuntime&) = delete;
+  HostRuntime& operator=(HostRuntime&&) = delete;
+
+  /// whether this build can run a task graph
+  static constexpr bool taskGraphAvailable() {
+#ifdef SEISSOL_HOST_TASK_GRAPH
+    return true;
+#else
+    return false;
+#endif
+  }
+
   /**
-   * Runs the work of an action. What it does with the data is stated by `access`.
+   * Whether the OpenMP runtime goes on when it runs a detached task right away (e.g. with a single
+   * thread, or with many tasks waiting), as LLVM's and Intel's runtimes do. Others wait for the
+   * event of the task there; then, the thread that creates the tasks must not be the one that
+   * fulfills their events.
+   */
+  static constexpr bool detachedTasksNeverBlock() {
+#ifdef KMP_VERSION_MAJOR
+    return true;
+#else
+    return false;
+#endif
+  }
+
+  /**
+   * Sets how all host runtimes schedule, and for a task graph the elements of a loop that each of
+   * its tasks takes. Before any work is run.
+   */
+  static void setScheduling(HostScheduling scheduling, std::size_t taskSize) {
+    settings().scheduling = taskGraphAvailable() ? scheduling : HostScheduling::Static;
+    settings().taskSize = std::max(taskSize, std::size_t{1});
+  }
+
+  [[nodiscard]] static HostScheduling scheduling() { return settings().scheduling; }
+
+  [[nodiscard]] static std::size_t taskSize() { return settings().taskSize; }
+
+  /**
+   * The work of this cluster reads what `other` shares (if it says so in its access).
+   */
+  void observe(const HostRuntime& other) { neighbors_.push_back(&other.shared_); }
+
+  /**
+   * The address that stands for what the cluster shares, in the dependencies of the tasks; for
+   * those that work on it besides the actions (e.g. the halo exchange).
+   */
+  [[nodiscard]] char* sharedToken() { return &shared_; }
+
+  /**
+   * The address that stands for what the neighbor `index` (in the order of observe()) shares.
+   */
+  [[nodiscard]] const char* neighborToken(std::size_t index) const { return neighbors_.at(index); }
+
+  /**
+   * Runs the work of an action: right away, or with a task graph as a task after the work before it
+   * that it depends on by `access`. The work is taken by value.
    */
   template <typename F>
-  void action(const HostAccess& /*access*/, F&& work) {
+  void action(const HostAccess& access, F&& work) {
+#ifdef SEISSOL_HOST_TASK_GRAPH
+    if (inTaskGraph()) {
+      auto task = std::decay_t<F>(std::forward<F>(work));
+      const char* const* neighbors = neighbors_.data();
+      const std::size_t count = access.readsNeighbors ? neighbors_.size() : 0;
+      if (access.writesShared) {
+#pragma omp task default(none) firstprivate(task)                                                  \
+    depend(iterator(std::size_t i = 0 : count), in : neighbors[i][0])                              \
+    depend(inout : this->own_, this->shared_)
+        std::invoke(task);
+      } else {
+#pragma omp task default(none) firstprivate(task)                                                  \
+    depend(iterator(std::size_t i = 0 : count), in : neighbors[i][0]) depend(in : this->shared_)   \
+    depend(inout : this->own_)
+        std::invoke(task);
+      }
+      return;
+    }
+#endif
     std::invoke(std::forward<F>(work));
   }
 
   /**
    * Runs `body(begin, end)` on ranges that together cover [0, count) once each: one range per
-   * thread, as a static schedule splits it. Whatever a range needs (e.g. scratch memory) can be set
-   * up in the body, once per range.
+   * thread, as a static schedule splits it; or, within the work of a task graph, one per task, of
+   * taskSize() elements each. Whatever a range needs (e.g. scratch memory) can be set up in the
+   * body, once per range. Returns once all ranges are done.
    */
   template <typename F>
   static void forRange(std::size_t count, const F& body) {
     if (count == 0) {
       return;
     }
+#ifdef SEISSOL_HOST_TASK_GRAPH
+    if (inTaskGraph()) {
+      const std::size_t size = taskSize();
+      const std::size_t tasks = (count + size - 1) / size;
+#pragma omp taskloop default(none) shared(body) firstprivate(count, size, tasks) grainsize(1)
+      for (std::size_t task = 0; task < tasks; ++task) {
+        const auto begin = task * size;
+        std::invoke(body, begin, std::min(count, begin + size));
+      }
+      return;
+    }
+#endif
 #ifdef _OPENMP
 #pragma omp parallel default(none) shared(count, body)
     {
@@ -87,6 +207,29 @@ class HostRuntime {
   }
 
   /**
+   * Runs `body`, in which the main thread decides the actions of an epoch. With a task graph, it
+   * runs in a parallel region whose other threads take the tasks meanwhile; it returns once all of
+   * them are done.
+   */
+  template <typename F>
+  static void epoch(F&& body) {
+#ifdef SEISSOL_HOST_TASK_GRAPH
+    if (scheduling() == HostScheduling::TaskGraph) {
+#pragma omp parallel default(none) shared(body)
+      {
+#pragma omp masked
+        {
+          std::invoke(body);
+#pragma omp taskwait
+        }
+      }
+      return;
+    }
+#endif
+    std::invoke(std::forward<F>(body));
+  }
+
+  /**
    * The range of thread `thread` of `threads` when [0, count) is split among them evenly: the
    * first `count % threads` threads take one element more than the others (as the static schedule
    * of LLVM's OpenMP runtime does).
@@ -98,6 +241,34 @@ class HostRuntime {
     const auto begin = thread * base + std::min(thread, extra);
     return {begin, begin + base + (thread < extra ? 1 : 0)};
   }
+
+  private:
+  /// whether the work runs as tasks: in the parallel region of an epoch with a task graph, also
+  /// with a single thread (whose region does not count as active)
+  [[nodiscard]] static bool inTaskGraph() {
+#ifdef SEISSOL_HOST_TASK_GRAPH
+    return scheduling() == HostScheduling::TaskGraph && omp_get_level() > 0;
+#else
+    return false;
+#endif
+  }
+
+  struct Settings {
+    HostScheduling scheduling{HostScheduling::Static};
+    std::size_t taskSize{32};
+  };
+
+  /// the settings of all host runtimes
+  static Settings& settings() {
+    static Settings settings;
+    return settings;
+  }
+
+  // the addresses that stand for the data of the cluster in the dependencies of the tasks: what
+  // only it works on, and what it shares; and those of what its neighbors share
+  char own_{0};
+  char shared_{0};
+  std::vector<const char*> neighbors_;
 };
 
 } // namespace seissol::parallel::runtime
