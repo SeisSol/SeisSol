@@ -93,11 +93,9 @@ TEST_CASE("IO/AsyncWriter: the plan and its buffers travel through ExecInfo" *
   CHECK(plan.find("id: " + std::to_string(dataId)) != std::string::npos);
 
   module::AsyncWriter executor;
-  executor.setComm(MPI_COMM_SELF);
   executor.execInit(info, module::AsyncWriterInit{});
   executor.exec(info, module::AsyncWriterExec{});
   executor.execWait(info);
-  executor.finalize();
 
   REQUIRE(std::filesystem::exists(file));
   reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
@@ -120,7 +118,6 @@ TEST_CASE("IO/AsyncWriter: one executor runs several plans" * doctest::test_suit
   const unit_test::io::TempDir dir;
 
   module::AsyncWriter executor;
-  executor.setComm(MPI_COMM_SELF);
 
   for (std::int64_t step = 0; step < 3; ++step) {
     const auto file = dir.path + "/async-" + std::to_string(step) + ".h5";
@@ -152,8 +149,6 @@ TEST_CASE("IO/AsyncWriter: one executor runs several plans" * doctest::test_suit
     hdf5.closeGroup();
     hdf5.closeFile();
   }
-
-  executor.finalize();
 }
 
 /**
@@ -167,7 +162,6 @@ TEST_CASE("IO/AsyncWriter: a file every write appends to holds every step once c
   const auto file = dir.path + "/series.h5";
 
   module::AsyncWriter executor;
-  executor.setComm(MPI_COMM_SELF);
 
   constexpr std::int64_t Steps = 4;
   constexpr std::int64_t Values = 8;
@@ -200,7 +194,6 @@ TEST_CASE("IO/AsyncWriter: a file every write appends to holds every step once c
   // what WriterModule asks for when the simulation ends
   const io::LocalExecInfo info;
   executor.exec(info, module::AsyncWriterExec{false, 0, true});
-  executor.finalize();
 
   reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
   hdf5.openFile(file);

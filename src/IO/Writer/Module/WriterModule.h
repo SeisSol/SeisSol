@@ -20,6 +20,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace seissol {
 class SeisSol;
@@ -65,6 +66,8 @@ class WriterModule : public seissol::Module, private AsyncWriterModule, private 
   int addBuffer(const void* pointer, std::size_t size) override;
   void resizeBuffer(int id, const void* pointer, std::size_t size) override;
   void* managedBuffer(int id) override;
+  [[nodiscard]] bool collective() const override;
+  void agreeOnAny(std::vector<int>& flags) override;
 
   int rank_;
   std::string prefix_;

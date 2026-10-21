@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_RESULTWRITER_PICKPOINTWRITER_H_
 
 #include "Modules/Module.h"
+#include "Modules/Modules.h"
 
 #include <functional>
 
@@ -20,7 +21,7 @@ class PickpointWriter : public seissol::Module {
   void simulationStart(std::optional<double> checkpointTime) override;
   void simulationEnd() override;
 
-  void enable(double interval);
+  void enable(Modules& modules, double interval);
   void setupWriter(const std::function<void()>& writer);
 
   private:

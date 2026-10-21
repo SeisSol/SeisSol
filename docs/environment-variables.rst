@@ -107,9 +107,40 @@ help is again a property of the file system.
 Asynchronous output
 ~~~~~~~~~~~~~~~~~~~
 
-In addition to the variables in SeisSol, the
-`ASYNC <https://github.com/TUM-I5/ASYNC>`__ library provides some tuning
-variables listed in the `wiki <https://github.com/TUM-I5/ASYNC/wiki>`__.
+The output is written by the `ASYNC <https://github.com/TUM-I5/ASYNC>`__
+library, which takes it off the path of the computation. Its settings are read
+with a ``SEISSOL_ASYNC_`` prefix; the plain ``ASYNC_`` names are still read as
+well, but deprecated. The log says at the start which mode a run uses.
+
+* ``SEISSOL_ASYNC_MODE``: how the output is written.
+
+  * ``SYNC`` (the default): right away, on the rank that computes.
+  * ``THREAD``: by a thread of every rank, on the CPUs its OpenMP workers leave
+    free.
+  * ``NODE``: by one rank of every node, which collects the output of all ranks
+    of its node and writes it for them. That rank computes as well; its threads
+    for the output go to the CPUs its OpenMP workers leave free. The ranks of a
+    node hand their output over in shared memory, so it costs them a single
+    copy, and the files see one writer per node rather than one per rank. The
+    ranks of a node have to be numbered one after another, which a block-wise
+    placement of the ranks does. ``MPI`` is accepted as a deprecated name for it.
+  * ``AUTO``: ``SYNC`` unless every rank leaves CPUs free for the threads of the
+    output, as it does for a communication thread; otherwise ``NODE`` where
+    several ranks share a node and are numbered one after another, and
+    ``THREAD`` where not.
+
+* ``SEISSOL_ASYNC_EXECUTORS_PER_NODE``: in ``NODE`` mode, how many ranks of a
+  node collect its output, each for a part of its ranks (default 1).
+* ``SEISSOL_ASYNC_GROUP_NODES``: in ``NODE`` mode, how many whole nodes share
+  the ranks that collect their output (default 1); the other nodes send it to
+  them, one rank each.
+* ``SEISSOL_ASYNC_MAX_GROUP_RANKS``: in ``NODE`` mode, the most ranks one rank
+  collects the output of (default: no limit).
+* ``SEISSOL_ASYNC_BUFFER_ALIGNMENT``: the alignment of the buffers the output is
+  collected in, in bytes, e.g. the stripe size of the file system.
+
+The `README <https://github.com/TUM-I5/ASYNC>`__ of ASYNC describes the rest of
+its settings.
 
 .. _optimal_environment_variables_on_supermuc_ng:
 
@@ -133,8 +164,8 @@ Here are some proposed environment variables to be added before invoking SeisSol
    export SEISSOL_CHECKPOINT_ALIGNMENT=8388608
    export SEISSOL_CHECKPOINT_DIRECT=1
 
-   export ASYNC_MODE=THREAD
-   export ASYNC_BUFFER_ALIGNMENT=8388608
+   export SEISSOL_ASYNC_MODE=THREAD
+   export SEISSOL_ASYNC_BUFFER_ALIGNMENT=8388608
 
 A complete batch script for SuperMUC-NG can be found in the chapter about :ref:`SuperMUC-NG <running_seissol_on_supermuc>`.
 
