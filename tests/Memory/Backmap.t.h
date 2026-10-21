@@ -59,4 +59,45 @@ TEST_CASE("Backmap" * doctest::test_suite("memory")) {
   }
 }
 
+TEST_CASE("Backmap with copies" * doctest::test_suite("memory")) {
+  constexpr std::size_t DupCount = 2;
+  constexpr std::size_t CellCount = 5;
+  constexpr std::size_t CopyCount = 3;
+
+  auto backmap = initializer::StorageBackmap<DupCount>();
+  backmap.setSize(CellCount, CopyCount);
+  CHECK(backmap.copyCount() == CopyCount);
+
+  // a first layer with the copies of every cell next to each other, as the layout has them; and a
+  // second one with a duplicate of one copy of a cell
+  std::vector<std::size_t> data(CellCount * CopyCount + 1);
+  const auto* zero = data.data();
+  for (std::size_t cell = 0; cell < CellCount; ++cell) {
+    for (std::size_t copy = 0; copy < CopyCount; ++copy) {
+      CHECK(backmap.addElement(0, zero, zero, cell, copy, cell * CopyCount + copy) == 0);
+    }
+  }
+  const auto* secondLayer = zero + CellCount * CopyCount;
+  CHECK(backmap.addElement(1, zero, secondLayer, 2, 1, 0) == 1);
+
+  for (std::size_t cell = 0; cell < CellCount; ++cell) {
+    for (std::size_t copy = 0; copy < CopyCount; ++copy) {
+      const auto index = cell * CopyCount + copy;
+      const auto position = backmap.get(cell, copy);
+      CHECK(position == initializer::StoragePosition(0, index, index));
+      CHECK(position.global == index);
+
+      const auto duplicate = backmap.getDup(cell, copy, 1);
+      if (cell == 2 && copy == 1) {
+        REQUIRE(duplicate.has_value());
+        CHECK(duplicate.value() == initializer::StoragePosition(1, 0, CellCount * CopyCount));
+        CHECK(duplicate.value().global == CellCount * CopyCount);
+      } else {
+        // a duplicate belongs to its copy only
+        CHECK(!duplicate.has_value());
+      }
+    }
+  }
+}
+
 } // namespace seissol::unit_test

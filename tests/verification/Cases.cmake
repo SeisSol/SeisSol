@@ -175,6 +175,55 @@ seissol_add_comparison(
     TOLERANCE 1e-6
     LABELS "identity;dr")
 
+# ---------------------------------------------------------------------------
+# Stage 1: simulation copies. Twice as many simulations as the configuration
+# fuses are held by two copies of every cell. Each simulation has to carry a
+# wave of its own, a zero state has to stay zero in every copy, and the copies
+# exchange their halos as the cells do.
+# ---------------------------------------------------------------------------
+
+math(EXPR SEISSOL_COPIES_SIMULATIONS "2 * ${SEISSOL_CAP_SIMULATIONS}")
+
+seissol_add_minitest(
+    NAME smoke-box48-copies
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    SET "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;copies")
+
+seissol_add_minitest(
+    NAME smoke-box48-copies-mpi4
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    RANKS 4
+    SET "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    LABELS "smoke;mpi;copies")
+
+seissol_add_minitest(
+    NAME null-skew48-copies-mpi4
+    MESH skew48
+    PARAMETERS wave.par
+    STEPS 20
+    RANKS 4
+    SET ${SEISSOL_ZERO_STATE} "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    EXPECT_ZERO
+    LABELS "null;mpi;copies")
+
+seissol_add_comparison(
+    NAME bitwise-box48-copies-mpi4
+    REFERENCE smoke-box48-copies
+    CANDIDATE smoke-box48-copies-mpi4
+    TOLERANCE 0
+    LABELS "bitwise;mpi;copies")
+
 
 # ---------------------------------------------------------------------------
 # Friction laws (seissol_add_rupture).

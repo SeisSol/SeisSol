@@ -132,6 +132,12 @@ class ParameterFile:
         return "\n".join(parts) + "\n"
 
 
+def simulation_count(parameters, capabilities):
+    """The simulations a run computes: SimCount if the parameters set it, else the fused ones."""
+    value = parameters.get("equations", "SimCount")
+    return int(value) if value is not None else capabilities["fused"]
+
+
 def apply_overrides(parameters, overrides):
     for override in overrides:
         target, _, value = override.partition("=")
@@ -783,7 +789,7 @@ def _command_run(args):
             args.require_finite,
             args.activity,
             args.expect_zero,
-            capabilities["fused"],
+            simulation_count(parameters, capabilities),
         )
 
     if not problems and args.thresholds:
