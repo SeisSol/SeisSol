@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# fault-lsw.yaml, with the onset and the rise time of the nucleation given per
+# point: four and sixteen steps, as the parameter file of the case it is held
+# against gives them.
+!ConstantMap
+map:
+  s_xx:   -120.0e6
+  s_yy:   0.0
+  s_zz:   0.0
+  s_xy:   70.0e6
+  s_yz:   0.0
+  s_xz:   0.0
+  nuc_xx: 0.0
+  nuc_yy: 0.0
+  nuc_zz: 0.0
+  nuc_xy: 20.0e6
+  nuc_yz: 0.0
+  nuc_xz: 0.0
+  nuc_onset:     2.44140625e-04
+  nuc_rise_time: 9.765625e-04
+  mu_s:     0.677
+  mu_d:     0.525
+  d_c:      0.001
+  cohesion: 0.0

@@ -257,25 +257,32 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
             addStressesToStorageMap(nucleationStresses[i], i + 1);
       }
 
-      // a nucleation may carry its onset per point; where it does not, the parameter file's is the
-      // onset of all of its points
+      // a nucleation may carry its onset and its rise time per point; where it does not, the
+      // parameter file's is the one of all of its points. A face holds them for all of its stress
+      // sources together, but the fault file is read face by face; hence, what it gives goes
+      // through arrays of its own first, as the stresses do.
       const auto sourceCount = stressSourceCount(*drParameters_);
       const auto initialSource = drParameters_->nucleationCount;
       auto* stressSourceOnset = layer.var<DynamicRupture::StressSourceOnset>(Cfg());
       auto* stressSourceRiseTime = layer.var<DynamicRupture::StressSourceRiseTime>(Cfg());
+      using PointArrays = typename StressTensor<Cfg>::VectorOfArraysT;
+      std::vector<PointArrays> onsetsFromFault(drParameters_->nucleationCount);
+      std::vector<PointArrays> riseTimesFromFault(drParameters_->nucleationCount);
       std::vector<bool> onsetFromFault(drParameters_->nucleationCount);
       std::vector<bool> riseTimeFromFault(drParameters_->nucleationCount);
       for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
         const auto onset = onsetIdentifier(i + 1);
         onsetFromFault[i] = this->faultProvides(onset);
         if (onsetFromFault[i]) {
-          parameterToStorageMap.insert({onset, reinterpret_cast<real*>(&stressSourceOnset[i])});
+          onsetsFromFault[i].resize(layer.size());
+          parameterToStorageMap.insert({onset, reinterpret_cast<real*>(onsetsFromFault[i].data())});
         }
         const auto riseTime = riseTimeIdentifier(i + 1);
         riseTimeFromFault[i] = this->faultProvides(riseTime);
         if (riseTimeFromFault[i]) {
+          riseTimesFromFault[i].resize(layer.size());
           parameterToStorageMap.insert(
-              {riseTime, reinterpret_cast<real*>(&stressSourceRiseTime[i])});
+              {riseTime, reinterpret_cast<real*>(riseTimesFromFault[i].data())});
         }
       }
 
@@ -316,14 +323,12 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
         for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
           for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>;
                ++pointIndex) {
-            if (!onsetFromFault[i]) {
-              stressSourceOnset[ltsFace * sourceCount + i][pointIndex] =
-                  static_cast<real>(drParameters_->s0[i]);
-            }
-            if (!riseTimeFromFault[i]) {
-              stressSourceRiseTime[ltsFace * sourceCount + i][pointIndex] =
-                  static_cast<real>(drParameters_->t0[i]);
-            }
+            stressSourceOnset[ltsFace * sourceCount + i][pointIndex] =
+                onsetFromFault[i] ? onsetsFromFault[i][ltsFace][pointIndex]
+                                  : static_cast<real>(drParameters_->s0[i]);
+            stressSourceRiseTime[ltsFace * sourceCount + i][pointIndex] =
+                riseTimeFromFault[i] ? riseTimesFromFault[i][ltsFace][pointIndex]
+                                     : static_cast<real>(drParameters_->t0[i]);
             riseTimeNegative[i] = riseTimeNegative[i] ||
                                   stressSourceRiseTime[ltsFace * sourceCount + i][pointIndex] < 0;
           }
