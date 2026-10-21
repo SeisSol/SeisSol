@@ -9,10 +9,13 @@
 #include "Kernels/Common.h"
 #include "Memory/MemoryAllocator.h"
 
+#include <cassert>
 #include <cstddef>
 #include <vector>
 
 #ifdef ACL_DEVICE
+#include "Kernels/DeviceAux/GatherAux.h"
+
 #include <Device/device.h>
 #endif
 
@@ -28,8 +31,22 @@ memory::Memkind gatherMemkind(bool hostAccessible) {
 DataCollectorUntyped::DataCollectorUntyped(const std::vector<void*>& indexDataHost,
                                            size_t elemSize,
                                            bool hostAccessible)
-    : hostAccessible_(hostAccessible), indexDataHost_(indexDataHost),
-      indexCount_(indexDataHost.size()), elemSize_(elemSize) {
+    : DataCollectorUntyped(std::vector<std::vector<void*>>{indexDataHost},
+                           std::vector<size_t>{elemSize},
+                           hostAccessible) {}
+
+DataCollectorUntyped::DataCollectorUntyped(const std::vector<std::vector<void*>>& sets,
+                                           const std::vector<size_t>& sizes,
+                                           bool hostAccessible)
+    : hostAccessible_(hostAccessible) {
+  assert(sets.size() == sizes.size());
+  for (size_t set = 0; set < sets.size(); ++set) {
+    sets_.push_back({indexDataHost_.size(), sets[set].size(), sizes[set], gatheredBytes_});
+    indexDataHost_.insert(indexDataHost_.end(), sets[set].begin(), sets[set].end());
+    gatheredBytes_ += sets[set].size() * sizes[set];
+  }
+  indexCount_ = indexDataHost_.size();
+
   // in case we want to use this class in a host-only scenario
   if constexpr (!isDeviceOn()) {
     direct_ = true;
@@ -37,11 +54,11 @@ DataCollectorUntyped::DataCollectorUntyped(const std::vector<void*>& indexDataHo
   if (!direct_ && indexCount_ > 0) {
     indexDataDevice_ =
         memory::allocTyped<void*>(indexCount_, 1, memory::Memkind::DeviceGlobalMemory);
-    copiedData_ = memory::allocate(elemSize * indexCount_, 1, gatherMemkind(hostAccessible_));
+    copiedData_ = memory::allocate(gatheredBytes_, 1, gatherMemkind(hostAccessible_));
 
     copiedDataDevice_ = memory::hostToDevicePointer(copiedData_, gatherMemkind(hostAccessible_));
     memory::memcopyTyped(indexDataDevice_,
-                         indexDataHost.data(),
+                         indexDataHost_.data(),
                          indexCount_,
                          memory::Memkind::DeviceGlobalMemory,
                          memory::Memkind::Standard);
@@ -59,13 +76,19 @@ DataCollectorUntyped::~DataCollectorUntyped() {
 void DataCollectorUntyped::gatherToHost(void* stream) {
   if (!direct_ && indexCount_ > 0) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::instance().algorithms().copyScatterToUniformI(
-        const_cast<const void**>(indexDataDevice_),
-        copiedDataDevice_,
-        elemSize_,
-        elemSize_,
-        indexCount_,
-        stream);
+    if (sets_.size() == 1) {
+      // a block of threads per block, which suits large blocks (e.g. the DOFs of cells)
+      device::DeviceInstance::instance().algorithms().copyScatterToUniformI(
+          const_cast<const void**>(indexDataDevice_),
+          copiedDataDevice_,
+          sets_[0].size,
+          sets_[0].size,
+          indexCount_,
+          stream);
+    } else {
+      kernels::device::aux::gather::copyBlocks(
+          sets_.data(), sets_.size(), indexDataDevice_, copiedDataDevice_, false, stream);
+    }
 #endif
   }
 }
@@ -74,13 +97,18 @@ void DataCollectorUntyped::gatherToHost(void* stream) {
 void DataCollectorUntyped::scatterFromHost(void* stream) {
   if (!direct_ && indexCount_ > 0) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::instance().algorithms().copyUniformToScatterI(
-        const_cast<const void*>(copiedDataDevice_),
-        indexDataDevice_,
-        elemSize_,
-        elemSize_,
-        indexCount_,
-        stream);
+    if (sets_.size() == 1) {
+      device::DeviceInstance::instance().algorithms().copyUniformToScatterI(
+          const_cast<const void*>(copiedDataDevice_),
+          indexDataDevice_,
+          sets_[0].size,
+          sets_[0].size,
+          indexCount_,
+          stream);
+    } else {
+      kernels::device::aux::gather::copyBlocks(
+          sets_.data(), sets_.size(), indexDataDevice_, copiedDataDevice_, true, stream);
+    }
 #endif
   }
 }

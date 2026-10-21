@@ -10,6 +10,7 @@
 
 #include "Kernels/Common.h"
 #include "Memory/MemoryAllocator.h"
+#include "Parallel/BlockSet.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -31,6 +32,15 @@ class DataCollectorUntyped {
                        size_t elemSize,
                        bool hostAccessible = false);
 
+  /**
+   * Gathers several sets of blocks with one kernel (e.g. all variables of the fault output): the
+   * blocks of set `s` are at `sets[s]`, with `sizes[s]` bytes each; get(s, index) gives block
+   * `index` of set `s`.
+   */
+  DataCollectorUntyped(const std::vector<std::vector<void*>>& sets,
+                       const std::vector<size_t>& sizes,
+                       bool hostAccessible = false);
+
   ~DataCollectorUntyped();
 
   auto operator=(const DataCollectorUntyped&) = delete;
@@ -45,18 +55,24 @@ class DataCollectorUntyped {
   // sends and scatters data from the host to the device
   void scatterFromHost(void* stream);
 
-  void* get(size_t index) {
+  void* get(size_t index) { return get(0, index); }
+
+  [[nodiscard]] const void* get(size_t index) const { return get(0, index); }
+
+  void* get(size_t set, size_t index) {
+    const auto& blocks = sets_[set];
     if (direct_) {
-      return indexDataHost_[index];
+      return indexDataHost_[blocks.begin + index];
     }
-    return static_cast<uint8_t*>(copiedData_) + index * elemSize_;
+    return static_cast<uint8_t*>(copiedData_) + blocks.offset + index * blocks.size;
   }
 
-  [[nodiscard]] const void* get(size_t index) const {
+  [[nodiscard]] const void* get(size_t set, size_t index) const {
+    const auto& blocks = sets_[set];
     if (direct_) {
-      return indexDataHost_[index];
+      return indexDataHost_[blocks.begin + index];
     }
-    return static_cast<const uint8_t*>(copiedData_) + index * elemSize_;
+    return static_cast<const uint8_t*>(copiedData_) + blocks.offset + index * blocks.size;
   }
 
   private:
@@ -64,9 +80,12 @@ class DataCollectorUntyped {
   bool direct_{false};
   bool hostAccessible_;
   void** indexDataDevice_{nullptr};
+  // the blocks of all sets, one after the other
   std::vector<void*> indexDataHost_;
-  size_t indexCount_;
-  size_t elemSize_;
+  size_t indexCount_{0};
+  // the sets, and where their blocks lie in the gathered data
+  std::vector<BlockSet> sets_;
+  size_t gatheredBytes_{0};
   // the gathered data: pinned memory on the host, or a buffer of memory that both can read
   void* copiedData_{nullptr};
   void* copiedDataDevice_{nullptr};

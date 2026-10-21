@@ -107,8 +107,8 @@ void ReceiverOutput::gatherFaultOutput(const std::shared_ptr<ReceiverOutputData>
                                        parallel::runtime::StreamRuntime& runtime) {
   if constexpr (isDeviceOn()) {
     outputData->deviceDataCollector->gatherToHost(runtime.stream());
-    for (auto& [_, dataCollector] : outputData->deviceVariables) {
-      dataCollector->gatherToHost(runtime.stream());
+    if (outputData->deviceVariables != nullptr) {
+      outputData->deviceVariables->gatherToHost(runtime.stream());
     }
   }
 }

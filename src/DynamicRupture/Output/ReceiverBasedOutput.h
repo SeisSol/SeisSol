@@ -184,9 +184,10 @@ class ReceiverOutputImpl : public ReceiverOutput {
   [[nodiscard]] const std::remove_extent_t<seissol::initializer::StorageType<StorageT, Cfg>>*
       getCellData(const LocalInfo<Cfg>& local) const {
     using ValueT = std::remove_extent_t<seissol::initializer::StorageType<StorageT, Cfg>>;
-    const auto devVar = local.state->deviceVariables.find(drStorage_->info<StorageT>().index);
-    if (devVar != local.state->deviceVariables.end()) {
-      return reinterpret_cast<const ValueT*>(devVar->second->get(local.faceId));
+    const auto devVar = local.state->deviceVariableSets.find(drStorage_->info<StorageT>().index);
+    if (devVar != local.state->deviceVariableSets.end()) {
+      return reinterpret_cast<const ValueT*>(
+          local.state->deviceVariables->get(devVar->second, local.faceId));
     } else {
       return local.layer->template var<StorageT>(Cfg())[local.ltsId];
     }

@@ -268,7 +268,10 @@ struct ReceiverOutputData {
   std::unique_ptr<parallel::DataCollectorUntyped> deviceDataCollector;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollectorUntyped>> deviceVariables;
+  /// the variables of the faces, all gathered by one kernel; null without any
+  std::unique_ptr<parallel::DataCollectorUntyped> deviceVariables;
+  /// the set of each variable (by its index in the storage) in deviceVariables
+  std::unordered_map<std::size_t, std::size_t> deviceVariableSets;
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 };
 } // namespace seissol::dr
