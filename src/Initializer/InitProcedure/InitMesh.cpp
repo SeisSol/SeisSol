@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstring>
 #include <math.h>
+#include <memory>
 #include <mpi.h>
 #include <optional>
 #include <utility>
@@ -311,15 +312,16 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   seissol::initializer::Clustering clustering(config, seissolInstance);
   auto weightModel = seissol::initializer::getVertexWeightModel(
       seissolParams.timeStepping.lts.getLtsWeightsType());
-  auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName,
-                                                       seissolParams.mesh.partitioningLib,
-                                                       faceMap,
-                                                       boundaryFormat,
-                                                       topologyFormat,
-                                                       &clustering,
-                                                       weightModel.get(),
-                                                       nodeWeight);
-  seissolInstance.setMeshReader(meshReader);
+  auto meshReader =
+      std::make_unique<seissol::geometry::PUMLReader>(seissolParams.mesh.meshFileName,
+                                                      seissolParams.mesh.partitioningLib,
+                                                      faceMap,
+                                                      boundaryFormat,
+                                                      topologyFormat,
+                                                      &clustering,
+                                                      weightModel.get(),
+                                                      nodeWeight);
+  seissolInstance.setMeshReader(std::move(meshReader));
   seissolInstance.setTimestepScale(clustering.result().wiggleFactor);
   seissolInstance.setEffectiveClusterRates(clustering.result().ratios);
 

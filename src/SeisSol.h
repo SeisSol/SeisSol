@@ -79,7 +79,7 @@ class SeisSol : private SeisSolCore {
   /**
    * Cleanup data structures
    */
-  virtual ~SeisSol() { delete meshReader_; }
+  virtual ~SeisSol();
 
   const parallel::Pinning& pinning() { return pinning_; }
 
@@ -175,13 +175,7 @@ class SeisSol : private SeisSolCore {
   /**
    * Set the mesh reader
    */
-  void setMeshReader(seissol::geometry::MeshReader* meshReader) {
-    if (meshReader_ != nullptr) {
-      logError() << "Mesh reader already initialized";
-    }
-
-    meshReader_ = meshReader;
-  }
+  void setMeshReader(std::unique_ptr<seissol::geometry::MeshReader> meshReader);
 
   /**
    * Get the mesh reader
@@ -254,7 +248,7 @@ class SeisSol : private SeisSolCore {
   seissol::io::OutputManager outputManager_;
 
   //! Collection of Parameters
-  const seissol::initializer::parameters::SeisSolParameters& seissolParameters_;
+  seissol::initializer::parameters::SeisSolParameters seissolParameters_;
 
   //! Gravitation setup for tsunami boundary condition
   GravitationSetup gravitationSetup_;
@@ -263,7 +257,7 @@ class SeisSol : private SeisSolCore {
   io::AsyncIO asyncIO_;
 
   //! Mesh Reader
-  seissol::geometry::MeshReader* meshReader_{nullptr};
+  std::unique_ptr<seissol::geometry::MeshReader> meshReader_;
 
   //! Memory Manager
   std::unique_ptr<initializer::MemoryManager> memoryManager_{nullptr};

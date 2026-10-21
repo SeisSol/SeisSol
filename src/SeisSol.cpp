@@ -8,6 +8,7 @@
 
 #include "SeisSol.h"
 
+#include "Geometry/MeshReader.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.h"
 #include "Parallel/Helper.h"
@@ -19,9 +20,12 @@
 #include <memory>
 #include <optional>
 #include <sys/resource.h>
+#include <utility>
 #include <utils/logger.h>
 
 namespace seissol {
+
+SeisSol::~SeisSol() = default;
 
 bool SeisSol::init() {
   const auto rank = seissol::Mpi::mpi.rank();
@@ -147,5 +151,13 @@ void SeisSol::loadCheckpoint(const std::string& file) {
 }
 
 void SeisSol::setExecutionPlaceCutoff(std::size_t size) { executionPlaceCutoff_ = size; }
+
+void SeisSol::setMeshReader(std::unique_ptr<seissol::geometry::MeshReader> meshReader) {
+  if (meshReader_ != nullptr) {
+    logError() << "Mesh reader already initialized";
+  }
+
+  meshReader_ = std::move(meshReader);
+}
 
 } // namespace seissol
