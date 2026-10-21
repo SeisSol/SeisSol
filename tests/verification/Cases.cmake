@@ -279,6 +279,23 @@ seissol_add_comparison(
     TOLERANCE 0
     LABELS "identity;dr")
 
+# A nucleation takes its onset and its rise time per point from the fault file
+# where it provides them, and from the parameter file otherwise. The same values
+# have to give the same run either way. A face holds the onsets and rise times
+# of all its stress sources together, which the fault file does not know of.
+# The parameter file of the case reading them from the fault file has values
+# that would show if they were taken.
+seissol_add_rupture(NAME rupture-lsw-onset FL 16 FAULT fault-lsw.yaml
+                    SET "DynamicRupture.s_0=2.44140625e-04" NO_SNAPSHOT)
+seissol_add_rupture(NAME rupture-lsw-onset-easi FL 16 FAULT fault-lsw-onset.yaml
+                    SET "DynamicRupture.s_0=1.0" "DynamicRupture.t_0=1.0" NO_SNAPSHOT)
+seissol_add_comparison(
+    NAME identity-lsw-onset-easi
+    REFERENCE rupture-lsw-onset
+    CANDIDATE rupture-lsw-onset-easi
+    TOLERANCE 0
+    LABELS "identity;dr")
+
 # ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic
 # mesh, so this is the mesh the measurement runs on. 256 steps of 2^-14 s let
