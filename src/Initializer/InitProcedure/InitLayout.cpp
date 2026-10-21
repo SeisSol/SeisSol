@@ -193,6 +193,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   // if we need more simulations than the cells fuse, use copies of the cells for the others
   const auto copyCount = settings.copyCount();
+  auto& simulations = seissolInstance.runSummary()["simulations"];
+  simulations["count"] = settings.simulationCount;
+  simulations["fused"] = settings.fusedCount;
+  simulations["copies"] = copyCount;
   logInfo() << "Simulations:" << settings.simulationCount << "in" << copyCount
             << "copies of the cells, which fuse" << settings.fusedCount << "simulations each.";
   if (copyCount * settings.fusedCount > settings.simulationCount) {

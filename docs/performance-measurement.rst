@@ -74,6 +74,10 @@ members of the summary are:
      - executable, parameter file, working directory, the ``--set`` overrides and the checkpoint the run started from
    * - ``configurations``
      - the configurations the run computes in
+   * - ``simulations``
+     - the simulations of the run (``count``), the simulations a cell fuses (``fused``), and the copies of the cells
+       that hold them (``copies``); every copy of a cell counts as a cell of its own in the layers, the clusters and
+       the cell updates
    * - ``mesh``
      - cells, copy cells, ghost cells, fault faces and neighbor ranks (the ranks it exchanges cells with) per rank; a
        fault face between two ranks counts on both, which both compute it
