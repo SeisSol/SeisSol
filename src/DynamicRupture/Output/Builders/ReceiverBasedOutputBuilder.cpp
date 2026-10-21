@@ -108,7 +108,8 @@ void ReceiverBasedOutputBuilder::initTopology() {
 
   // Bucket the receivers by face and, within a face, by position. Buckets are created on first
   // touch, so the order the generators produced is preserved: face-major for the elementwise
-  // output, file order for the pickpoint output.
+  // output, file order for the pickpoint output. Only the copies of a face are faces of their own,
+  // which pulls the simulations of a point apart; outputOrder keeps the order of the generators.
   struct PointBucket {
     std::vector<std::size_t> receiverIds;
     std::size_t nearestGpIndex{};
@@ -177,6 +178,7 @@ void ReceiverBasedOutputBuilder::initTopology() {
   // only.
   std::vector<Receiver> receivers;
   receivers.reserve(outputData_->receivers.size());
+  outputData_->outputOrder.resize(outputData_->receivers.size());
 
   for (const auto& faceBucket : faceBuckets) {
     OutputFace face{};
@@ -195,6 +197,7 @@ void ReceiverBasedOutputBuilder::initTopology() {
       topology.addPoint(point, pointBucket.receiverIds.size());
 
       for (const auto receiverId : pointBucket.receiverIds) {
+        outputData_->outputOrder[receiverId] = receivers.size();
         receivers.push_back(outputData_->receivers[receiverId]);
       }
     }
@@ -529,10 +532,17 @@ void ReceiverBasedOutputBuilder::assignFusedIndices() {
   for (auto& geoPoint : geoPoints) {
     dispatchConfig(configOfFace(geoPoint.faultFaceIndex.value()), [&](auto cfg) {
       using Cfg = decltype(cfg);
-      geoPoint.gpIndex = Cfg::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
-      geoPoint.internalGpIndexFused =
-          Cfg::NumSimulations * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
+      // the simulation among the fused ones of the copy of the face
+      const int fused = geoPoint.simIndex % static_cast<int>(Cfg::NumSimulations);
+      geoPoint.gpIndex = Cfg::NumSimulations * geoPoint.nearestGpIndex + fused;
+      geoPoint.internalGpIndexFused = Cfg::NumSimulations * geoPoint.nearestInternalGpIndex + fused;
     });
+  }
+}
+
+void ReceiverBasedOutputBuilder::assignCopies() {
+  for (auto& geoPoint : outputData_->receivers) {
+    geoPoint.copy = static_cast<std::size_t>(geoPoint.simIndex) / fusedSimulations_;
   }
 }
 

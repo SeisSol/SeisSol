@@ -258,6 +258,9 @@ struct ReceiverOutputData {
   output::DrVarsT vars;
   std::vector<Receiver> receivers;
   OutputTopology topology;
+  /// the receivers in the order the builder generated them, by their index in `receivers`; the
+  /// elementwise output writes them in this order (cell-major, then point and simulation)
+  std::vector<std::size_t> outputOrder;
 
   std::vector<double> cachedTime;
   size_t currentCacheLevel{0};

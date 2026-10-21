@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <numeric>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -198,47 +199,68 @@ TEST_CASE("fault output cell properties" * doctest::test_suite("dynamicrupture")
   const std::vector<std::size_t> elements{7, 7};
   const std::vector<int> sides{2, 3};
 
+  // the receivers in the order the refiner emitted them
+  const auto inOrder = [](const auto& points) {
+    std::vector<std::size_t> order(points.size());
+    std::iota(order.begin(), order.end(), 0);
+    return order;
+  };
+
   SUBCASE("Order zero, one simulation") {
     const auto points = makeFaultOutput(2, 1, 1, tags, elements, sides);
+    const auto order = inOrder(points);
 
-    CHECK(faultTagOfCell(points, 0, 1, 1) == 101);
-    CHECK(faultTagOfCell(points, 1, 1, 1) == 101);
+    CHECK(faultTagOfCell(points, order, 0, 1, 1) == 101);
+    CHECK(faultTagOfCell(points, order, 1, 1, 1) == 101);
 
-    CHECK(globalFaceIdOfCell(points, 0, 1, 1) == 7 * Cell::NumFaces + 2);
-    CHECK(globalFaceIdOfCell(points, 1, 1, 1) == 7 * Cell::NumFaces + 3);
+    CHECK(globalFaceIdOfCell(points, order, 0, 1, 1) == 7 * Cell::NumFaces + 2);
+    CHECK(globalFaceIdOfCell(points, order, 1, 1, 1) == 7 * Cell::NumFaces + 3);
   }
 
   SUBCASE("Higher order") {
     const std::size_t pointsPerCell = 3;
     const auto points = makeFaultOutput(2, pointsPerCell, 1, tags, elements, sides);
+    const auto order = inOrder(points);
 
     CHECK(firstReceiverOfCell(1, pointsPerCell, 1) == pointsPerCell);
-    CHECK(faultTagOfCell(points, 1, pointsPerCell, 1) == 101);
-    CHECK(globalFaceIdOfCell(points, 1, pointsPerCell, 1) == 7 * Cell::NumFaces + 3);
+    CHECK(faultTagOfCell(points, order, 1, pointsPerCell, 1) == 101);
+    CHECK(globalFaceIdOfCell(points, order, 1, pointsPerCell, 1) == 7 * Cell::NumFaces + 3);
   }
 
   SUBCASE("Fused simulations") {
     const std::size_t pointsPerCell = 3;
     const std::size_t simulationCount = 4;
     const auto points = makeFaultOutput(2, pointsPerCell, simulationCount, tags, elements, sides);
+    const auto order = inOrder(points);
 
     CHECK(firstReceiverOfCell(1, pointsPerCell, simulationCount) ==
           pointsPerCell * simulationCount);
-    CHECK(faultTagOfCell(points, 1, pointsPerCell, simulationCount) == 101);
-    CHECK(globalFaceIdOfCell(points, 1, pointsPerCell, simulationCount) == 7 * Cell::NumFaces + 3);
+    CHECK(faultTagOfCell(points, order, 1, pointsPerCell, simulationCount) == 101);
+    CHECK(globalFaceIdOfCell(points, order, 1, pointsPerCell, simulationCount) ==
+          7 * Cell::NumFaces + 3);
+  }
+
+  SUBCASE("The receivers in another order") {
+    // e.g. after the topology moved the copies of a face apart
+    const auto points = makeFaultOutput(2, 1, 1, tags, elements, sides);
+    const std::vector<std::size_t> order{1, 0};
+
+    CHECK(globalFaceIdOfCell(points, order, 0, 1, 1) == 7 * Cell::NumFaces + 3);
+    CHECK(globalFaceIdOfCell(points, order, 1, 1, 1) == 7 * Cell::NumFaces + 2);
   }
 
   SUBCASE("The tag is not the face identifier") {
     const auto points = makeFaultOutput(2, 1, 1, tags, elements, sides);
+    const auto order = inOrder(points);
 
     // Two cells that share a tag but not a face: a field that told them apart would not be the
     // tag, and one that did not would not be the identifier.
-    CHECK(faultTagOfCell(points, 0, 1, 1) == faultTagOfCell(points, 1, 1, 1));
-    CHECK(globalFaceIdOfCell(points, 0, 1, 1) != globalFaceIdOfCell(points, 1, 1, 1));
+    CHECK(faultTagOfCell(points, order, 0, 1, 1) == faultTagOfCell(points, order, 1, 1, 1));
+    CHECK(globalFaceIdOfCell(points, order, 0, 1, 1) != globalFaceIdOfCell(points, order, 1, 1, 1));
 
     for (std::size_t cell = 0; cell < 2; ++cell) {
-      CHECK(static_cast<std::size_t>(faultTagOfCell(points, cell, 1, 1)) !=
-            globalFaceIdOfCell(points, cell, 1, 1));
+      CHECK(static_cast<std::size_t>(faultTagOfCell(points, order, cell, 1, 1)) !=
+            globalFaceIdOfCell(points, order, cell, 1, 1));
     }
   }
 }

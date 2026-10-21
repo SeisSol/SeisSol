@@ -26,6 +26,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
   void build(std::shared_ptr<ReceiverOutputData> elementwiseOutputData) {
     outputData_ = std::move(elementwiseOutputData);
     initReceiverLocations();
+    assignCopies();
     assignNearestGaussianPoints();
     assignNearestInternalGaussianPoints();
     assignFusedIndices();

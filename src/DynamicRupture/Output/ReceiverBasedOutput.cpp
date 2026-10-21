@@ -292,7 +292,8 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
 
       for (const auto i : topology.receiversOf(pointId)) {
         local.index = i;
-        local.fusedIndex = outputData->receivers[i].simIndex;
+        // the simulation among the fused ones of the copy of the face
+        local.fusedIndex = outputData->receivers[i].simIndex % Cfg::NumSimulations;
 
         assert(outputData->receivers[i].isInside == true &&
                "a receiver is not within any tetrahedron adjacent to a fault");
