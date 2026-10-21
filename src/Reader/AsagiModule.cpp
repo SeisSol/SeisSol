@@ -17,8 +17,9 @@
 #include "Parallel/Pin.h"
 
 #include <asagi.h>
+#include <limits>
 #include <memory>
-#include <sched.h>
+#include <optional>
 #include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
@@ -72,6 +73,8 @@ int AsagiModule::getTotalThreads(utils::Env& env) {
 
 utils::Env& AsagiModule::getEnv() { return env_; }
 
+void AsagiModule::setPinning(const parallel::Pinning& pinning) { pinning_ = &pinning; }
+
 void AsagiModule::preMPI() {
   // Communication threads required
   if (mpiMode_ == AsagiMPIMode::CommThread) {
@@ -94,13 +97,20 @@ void AsagiModule::postMPIInit() {
 
 void AsagiModule::preMesh() {
   if (mpiMode_ == AsagiMPIMode::CommThread) {
-    int cpu = -1;
+    // ASAGI leaves the thread unpinned if the CPU id is not valid; a negative id counts from the
+    // last CPU, so -1 is a valid one
+    int cpu = std::numeric_limits<int>::max();
 #ifndef __APPLE__
-    const auto cpuSet = pinning_->getFreeCPUsMask().set;
-    for (int i = 0; i < CPU_COUNT(&cpuSet); ++i) {
-      if (CPU_ISSET(i, &cpuSet)) {
-        cpu = i;
-        break;
+    if (pinning_ == nullptr) {
+      logError() << "The ASAGI communication thread needs the pinning of the SeisSol instance.";
+    } else {
+      // (collective on the ranks of the node)
+      const auto freeCpu = parallel::Pinning::firstCpu(pinning_->getFreeCPUsMask());
+      if (freeCpu.has_value()) {
+        cpu = freeCpu.value();
+        logInfo() << "ASAGI communication thread affinity: CPU" << cpu;
+      } else {
+        logWarning() << "No free CPU left for the ASAGI communication thread; it is not pinned.";
       }
     }
 #endif
