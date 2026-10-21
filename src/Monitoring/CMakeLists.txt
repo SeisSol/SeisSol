@@ -15,6 +15,7 @@ add_library(seissol-monitoring OBJECT
     Memory.cpp
     RunSummary.cpp
     Stopwatch.cpp
+    Trace.cpp
     Unit.cpp
     Watchdog.cpp
 )

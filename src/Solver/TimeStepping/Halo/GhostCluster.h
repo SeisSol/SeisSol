@@ -85,6 +85,9 @@ class GhostCluster : public AbstractTimeCluster {
    */
   void startDeferred();
 
+  /// Records the send or the receive that has just completed in a trace (see monitoring::Trace).
+  void traceTransfer(bool send);
+
   /// Moves the receive progress (and the prediction time) forward to `target`.
   void advanceReceived(long target);
 
@@ -110,6 +113,9 @@ class GhostCluster : public AbstractTimeCluster {
   bool sending_{false};
   long receiveTarget_{0};
   long sendTarget_{0};
+  // in a trace: where the send and the receive in flight began
+  double sendTraceBegin_{-1};
+  double receiveTraceBegin_{-1};
 
   // with concurrent clusters, a send or receive waits for the device work of the copy layer action
   // that started it: the send for the data to be written, the receive for the ghost data to be read

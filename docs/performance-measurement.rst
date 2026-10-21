@@ -42,6 +42,7 @@ output (``OutputFile`` is the prefix):
   (``deviceExchangesMean``) and was idle (``deviceIdleMean``, ``deviceIdleMax``); ``nan`` without times of the device.
 * ``<prefix>-ranks.csv``, a row per rank, written at the end of the run: the values of the rank that the summary gives
   the statistics of over the ranks (see below).
+* ``<prefix>-trace.json``, with ``SEISSOL_TRACE=1``: a timeline of the time stepping (see :ref:`trace`).
 
 An epoch ends at every synchronization point, i.e. wherever an output is due. A run without outputs, such as a
 benchmark, has a single epoch, and reports how fast it goes at its end only. ``EpochInterval`` in the ``output``
@@ -142,6 +143,33 @@ run concurrently. See ``SEISSOL_DEVICE_LOOP_STATISTICS`` in :ref:`gpu-env` for t
 The log at the end of the run also gives the device time of the replays and of the exchanges, and the throughput of each
 loop while it runs: its hardware FLOP/s and kernel bytes/s, from the counted FLOP over its time. The throughput is not
 known where some steps ran in replays of super-timesteps.
+
+.. _trace:
+
+Timeline of the run
+-------------------
+
+With ``SEISSOL_TRACE=1``, SeisSol records what each rank does during the time stepping, and writes it at the end into
+``<prefix>-trace.json``, in the trace event format of Chrome, which e.g. Perfetto (https://ui.perfetto.dev) and
+``chrome://tracing`` show. Each rank is a process there, with tracks of its own:
+
+* the host threads: the predictions and corrections of the clusters (e.g. ``compute-copy-2: predict``) on the thread
+  that decides them, and the ranges of the loops over the cells or faces (e.g. ``computeLocalIntegration``) on the
+  threads that run them; with a task graph on the host, also the work of each step as a task (``...: work``);
+* on GPUs, a track per device stream with the loops of its clusters, and the replays of super-timesteps and the groups
+  of the halo exchange on device streams, from where each could start to where it has run (with
+  ``SEISSOL_DEVICE_LOOP_STATISTICS``, see :ref:`gpu-env`; CUDA and HIP);
+* the sends and receives of the halo exchange, from their start to their completion, a track for each direction of each
+  pair of clusters; where the exchange is ordered on device streams (with concurrent clusters), the groups on the
+  device streams instead;
+* ``time stepping``, with the epochs.
+
+The ranks share the origin of the time up to the skew of a barrier; the times of the device are those of its events,
+placed by an event at the start of each epoch. A trace grows quickly: ``SEISSOL_TRACE_START`` and
+``SEISSOL_TRACE_DURATION`` choose a window, in seconds since the start of the time stepping (by default, all of it), and
+a rank records at most ``SEISSOL_TRACE_SPANS`` spans (a million by default, about 100 MB of the file), and warns at the
+end if it reached that. Recording costs two readings of the clock per span; without ``SEISSOL_TRACE``, nothing but a
+check.
 
 .. _cell-updates:
 

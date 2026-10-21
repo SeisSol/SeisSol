@@ -11,6 +11,8 @@
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 
+#include <string>
+
 namespace seissol::solver {
 
 /**
@@ -119,6 +121,12 @@ class HaloTransport {
    * time stepping (see checkHaloExchange()).
    */
   virtual HaloTransport& dataTransport() { return *this; }
+
+  /**
+   * Names the transport in a trace (see monitoring::Trace), for transports that record their
+   * exchanges there themselves.
+   */
+  virtual void setTraceName(const std::string& /*name*/) {}
 };
 
 } // namespace seissol::solver

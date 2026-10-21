@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -162,8 +163,10 @@ class StreamRuntime {
   }
 
   template <typename F>
-  void enqueueLoop(std::size_t elemCount, const F& handler) {
-    enqueueHost([=]() { HostRuntime::forEach(elemCount, handler); });
+  void enqueueLoop(std::size_t elemCount,
+                   const F& handler,
+                   std::uint32_t traceName = HostRuntime::loopTraceName()) {
+    enqueueHost([=]() { HostRuntime::forEach(elemCount, handler, traceName); });
   }
 
   EventRef nextEvent() { return events_.next(); }
@@ -398,8 +401,10 @@ class StreamRuntime {
   explicit StreamRuntime(std::size_t ringbufferSize) {}
 
   template <typename F>
-  void enqueueLoop(std::size_t elemCount, const F& handler) {
-    HostRuntime::forEach(elemCount, handler);
+  void enqueueLoop(std::size_t elemCount,
+                   const F& handler,
+                   std::uint32_t traceName = HostRuntime::loopTraceName()) {
+    HostRuntime::forEach(elemCount, handler, traceName);
   }
 
   template <typename F>

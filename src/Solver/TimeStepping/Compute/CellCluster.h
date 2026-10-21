@@ -32,6 +32,7 @@
 #include "Solver/TimeStepping/Compute/ClusterClock.h"
 #include "SourceTerm/Typedefs.h"
 
+#include <cstdint>
 #include <list>
 #include <memory>
 #include <mpi.h>
@@ -135,6 +136,9 @@ class CellCluster : public CellClusterInterface {
   DeviceTimer deviceLoops_;
   ActorStateStatistics* actorStateStatistics_;
   unsigned regionComputeLocalIntegration_;
+  //! the names of the loops in a trace (see monitoring::Trace)
+  std::uint32_t traceLocalIntegration_{};
+  std::uint32_t traceNeighboringIntegration_{};
   unsigned regionComputeNeighboringIntegration_;
   unsigned regionComputePointSources_;
 

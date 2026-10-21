@@ -26,6 +26,7 @@
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
+#include "Monitoring/Trace.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/Runtime/HostRuntime.h"
 #include "SeisSol.h"
@@ -100,6 +101,9 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
   estimate_ = computeFlops();
 
   regionComputeDynamicRupture_ = loopStatistics_->getRegion("computeDynamicRupture");
+  traceDynamicRupture_ = monitoring::Trace::name("computeDynamicRupture");
+  // (named once the trace records, after the cluster is complete)
+  deviceLoops_.setTrace([this] { return description(); });
 
   perfHandle_ = seissolInstance.flopCounter().addMetric(
       getLayerType() == HaloType::Copy ? "dr-frictionlaw-copy" : "dr-frictionlaw-interior", "DR");
@@ -142,6 +146,7 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRupture(const StepParams& params)
   }
 #endif
 
+  const parallel::runtime::HostRuntime::LoopName loopName(traceDynamicRupture_);
   parallel::runtime::HostRuntime::forRange(
       layerData.size(), [&](std::size_t begin, std::size_t end) {
         for (std::size_t face = begin; face < end; ++face) {

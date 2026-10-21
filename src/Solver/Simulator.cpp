@@ -18,6 +18,7 @@
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
+#include "Monitoring/Trace.h"
 #include "Monitoring/Watchdog.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/Helper.h"
@@ -179,6 +180,10 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   // use an empty log message as visual separator
   logInfo() << "";
+
+  // the time stepping is where a trace starts (SEISSOL_TRACE)
+  monitoring::Trace::start(monitoring::Trace::settingsFromEnv(seissolInstance.env()),
+                           seissol::Mpi::mpi.comm());
 
   while (finalTime_ > currentTime_ + timeTolerance) {
     if (upcomingTime < currentTime_ + timeTolerance) {

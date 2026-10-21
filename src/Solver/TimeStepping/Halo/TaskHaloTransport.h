@@ -29,6 +29,8 @@ namespace seissol::solver {
  * completes their tasks once the exchanges have completed. The tasks hand their exchanges over from
  * any thread; one thread at a time polls.
  */
+class TaskHaloTransport;
+
 class TaskHaloEngine {
   public:
   /**
@@ -37,10 +39,13 @@ class TaskHaloEngine {
   void created() { outstanding_.fetch_add(1, std::memory_order_relaxed); }
 
   /**
-   * From the task of an exchange, once the work before it is done: the exchange may start; the
-   * task completes with `event`.
+   * From the task of an exchange of `owner`, once the work before it is done: the exchange may
+   * start; the task completes with `event`.
    */
-  void enqueue(HaloTransport* transport, bool send, omp_event_handle_t event);
+  void enqueue(const TaskHaloTransport* owner,
+               HaloTransport* transport,
+               bool send,
+               omp_event_handle_t event);
 
   /**
    * Starts the exchanges handed over, in that order, tests those in flight, and completes the tasks
@@ -57,10 +62,13 @@ class TaskHaloEngine {
 
   private:
   struct Exchange {
+    const TaskHaloTransport* owner{nullptr};
     HaloTransport* transport{nullptr};
     bool send{false};
     // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
     omp_event_handle_t event{};
+    // where it started, in a trace
+    double traceBegin{-1};
   };
 
   mutable std::mutex mutex_;
@@ -104,12 +112,17 @@ class TaskHaloTransport : public HaloTransport {
     ghost_ = ghost;
   }
   HaloTransport& dataTransport() override { return transport_->dataTransport(); }
+  void setTraceName(const std::string& name) override { traceName_ = name; }
+
+  /// records an exchange that began at `begin` (negative if the trace did not record then)
+  void traceExchange(bool send, double begin) const;
 
   private:
   std::unique_ptr<HaloTransport> transport_;
   TaskHaloEngine& engine_;
   const char* copy_{nullptr};
   char* ghost_{nullptr};
+  std::string traceName_{"halo exchange"};
 };
 
 } // namespace seissol::solver

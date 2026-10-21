@@ -13,6 +13,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Monitoring/Trace.h"
 #include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
@@ -39,6 +40,8 @@ void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSources(
   auto& mapping = clusterMapping_->cellToSources;
   if (mapping.size() > 0) {
 
+    static const auto TraceName = monitoring::Trace::name("point sources");
+    const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
     parallel::runtime::HostRuntime::forEach(mapping.size(), [&](std::size_t m) {
       const auto startSource = mapping[m].pointSourcesOffset;
       const auto endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;

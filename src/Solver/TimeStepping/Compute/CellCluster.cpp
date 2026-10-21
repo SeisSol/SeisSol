@@ -42,6 +42,7 @@
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Metric.h"
+#include "Monitoring/Trace.h"
 #include "Parallel/Runtime/HostRuntime.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
@@ -133,6 +134,10 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
   regionComputeNeighboringIntegration_ =
       loopStatistics_->getRegion("computeNeighboringIntegration");
   regionComputePointSources_ = loopStatistics_->getRegion("computePointSources");
+  traceLocalIntegration_ = monitoring::Trace::name("computeLocalIntegration");
+  traceNeighboringIntegration_ = monitoring::Trace::name("computeNeighboringIntegration");
+  // (named once the trace records, after the cluster is complete)
+  deviceLoops_.setTrace([this] { return description(); });
 
   conditionalCounterHost_[0] = 0;
   conditionalCounterDevice_.copyFrom(conditionalCounterHost_);
@@ -238,6 +243,7 @@ void CellCluster<Cfg>::computeLocalIntegration(const StepParams& params) {
   const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
 
+  const parallel::runtime::HostRuntime::LoopName loopName(traceLocalIntegration_);
   parallel::runtime::HostRuntime::forRange(
       clusterData_->size(), [&](std::size_t begin, std::size_t end) {
         // local integration buffer
@@ -824,6 +830,7 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
     configBoundary_.setIntervals(timestep, params.subTimeStart, params.neighborTimeStepSize);
   }
 
+  const parallel::runtime::HostRuntime::LoopName loopName(traceNeighboringIntegration_);
   parallel::runtime::HostRuntime::forRange(clusterSize, [&](std::size_t begin, std::size_t end) {
     std::array<real*, Cell::NumFaces> timeIntegrated{};
     std::array<real*, Cell::NumFaces> faceNeighborsPrefetch{};

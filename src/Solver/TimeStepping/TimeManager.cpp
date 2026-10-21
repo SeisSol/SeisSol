@@ -27,6 +27,7 @@
 #include "Monitoring/DeviceTimer.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
+#include "Monitoring/Trace.h"
 #include "Monitoring/Unit.h"
 #include "Monitoring/Watchdog.h"
 #include "Numerical/Statistics.h"
@@ -64,6 +65,7 @@
 #include <memory>
 #include <mpi.h>
 #include <set>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <utils/logger.h>
@@ -431,6 +433,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   if (haloTransports_->scheduler() != nullptr && DeviceTimeline::active()) {
     exchangeTimer_ =
         std::make_unique<DeviceTimer>(nullptr, &deviceTimeline_, DeviceTimeline::Kind::Exchanges);
+    exchangeTimer_->setTrace([] { return std::string("halo exchange"); }, "exchange");
     haloTransports_->scheduler()->setTimer(exchangeTimer_.get(), &exchangeDeviceTime_);
   }
 
@@ -497,6 +500,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       if (DeviceTimeline::active()) {
         superStepTimer_ = std::make_unique<DeviceTimer>(
             nullptr, &deviceTimeline_, DeviceTimeline::Kind::SuperSteps);
+        superStepTimer_->setTrace([] { return std::string("super-timesteps"); }, "super-timestep");
         recorder_->setTimer(superStepTimer_.get());
       }
       graphMode_ = superStepGraphMode(seissolInstance_.env());
@@ -684,6 +688,14 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     cluster->finishPhase();
   }
   finishActivity(epochBegin);
+  if (monitoring::Trace::recording()) {
+    std::ostringstream name;
+    name << "epoch to " << synchronizationTime << " s";
+    monitoring::Trace::span(monitoring::Trace::name(name.str()),
+                            monitoring::Trace::track(this, "time stepping"),
+                            monitoring::Trace::time(epochBegin),
+                            monitoring::Trace::now());
+  }
   setWatchdogPhase(monitoring::Watchdog::Phase::Other, "the end of an epoch");
 }
 

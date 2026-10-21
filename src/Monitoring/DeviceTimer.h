@@ -11,7 +11,10 @@
 #include "Monitoring/DeviceTimeline.h"
 #include "Monitoring/LoopStatistics.h"
 
+#include <cstdint>
 #include <deque>
+#include <functional>
+#include <string>
 #include <time.h>
 #include <utility>
 #include <vector>
@@ -105,9 +108,20 @@ class DeviceTimer {
    */
   void release();
 
+  /**
+   * Names the work in a trace (see monitoring::Trace): `track` names the tracks of the streams,
+   * once the trace records; the loops are spans named after their regions, the other work after
+   * `name`.
+   */
+  void setTrace(std::function<std::string()> track, std::string name = "work") {
+    traceTrack_ = std::move(track);
+    traceWork_ = std::move(name);
+  }
+
   private:
   struct Pending {
     std::pair<void*, void*> events;
+    void* stream{nullptr};
     unsigned region{0};
     unsigned numIterations{0};
     unsigned subRegion{0};
@@ -121,12 +135,25 @@ class DeviceTimer {
   /// adds the time of the oldest work
   void add(const Pending& pending);
 
+  /// the name of the work in a trace, and the track of its stream
+  [[nodiscard]] std::uint32_t traceName(const Pending& pending);
+  [[nodiscard]] std::uint32_t traceTrack(const Pending& pending);
+
   LoopStatistics* statistics_;
   // (only with a device)
   [[maybe_unused]] DeviceTimeline* timeline_;
   [[maybe_unused]] DeviceTimeline::Kind kind_;
   std::deque<Pending> pending_;
   std::vector<std::pair<void*, void*>> free_;
+
+  // (only with a device)
+  [[maybe_unused]] std::function<std::string()> traceTrack_;
+  [[maybe_unused]] std::string traceWork_{"work"};
+  // the names of the regions and of the other work in a trace, and the tracks of the streams, once
+  // known
+  [[maybe_unused]] std::vector<std::uint32_t> traceRegions_;
+  [[maybe_unused]] std::vector<std::uint32_t> traceOther_;
+  [[maybe_unused]] std::vector<std::pair<void*, std::uint32_t>> traceStreams_;
 };
 
 constexpr bool DeviceTimer::available() {

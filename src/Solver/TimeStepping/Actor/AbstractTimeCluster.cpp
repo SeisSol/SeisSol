@@ -8,6 +8,7 @@
 #include "AbstractTimeCluster.h"
 
 #include "Common/Executor.h"
+#include "Monitoring/Trace.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"
 
@@ -69,17 +70,19 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
   switch (action) {
   case ActorAction::Nothing:
     break;
-  case ActorAction::Correct:
+  case ActorAction::Correct: {
     assert(state_ == ActorState::Predicted);
     // every step advances the time; a step count too large for the synchronization point would
     // leave a step of size 0
     assert(timeStepSize() > 0);
+    const auto traceStart = traceBegin();
     stepWork_ = prepare(ActorAction::Correct);
     if (deviceWork_) {
       waitForNeighbors();
       correct();
       publishEvent();
     }
+    traceEnd(ActorAction::Correct, traceStart);
     ct_.correctionTime += timeStepSize();
     ++numberOfTimeSteps_;
     ct_.stepsSinceLastSync += ct_.timeStepRate;
@@ -87,21 +90,25 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     publishProgress();
     state_ = ActorState::Corrected;
     break;
-  case ActorAction::Predict:
+  }
+  case ActorAction::Predict: {
     assert(state_ == ActorState::Corrected);
     assert(timeStepSize() > 0);
+    const auto traceStart = traceBegin();
     stepWork_ = prepare(ActorAction::Predict);
     if (deviceWork_) {
       waitForNeighbors();
       predict();
       publishEvent();
     }
+    traceEnd(ActorAction::Predict, traceStart);
     ct_.predictionsSinceLastSync += ct_.timeStepRate;
     ct_.predictionsSinceStart += ct_.timeStepRate;
     ct_.predictionTime += timeStepSize();
     publishProgress();
     state_ = ActorState::Predicted;
     break;
+  }
   case ActorAction::Sync:
     assert(state_ == ActorState::Corrected);
     // the last step has ended at the synchronization point
@@ -120,6 +127,30 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
   default:
     logError() << "Invalid actor action in getNextLegalAction()" << static_cast<int>(state_);
     break;
+  }
+}
+
+double AbstractTimeCluster::traceBegin() {
+  if (!monitoring::Trace::recording()) {
+    return -1;
+  }
+  if (!traceNamed_) {
+    const auto name = description();
+    traceNames_ = {monitoring::Trace::name(name + ": predict"),
+                   monitoring::Trace::name(name + ": correct")};
+    // before the work of the first action gets handed over
+    hostRuntime_.setTraceName(monitoring::Trace::name(name + ": work"));
+    traceNamed_ = true;
+  }
+  return monitoring::Trace::now();
+}
+
+void AbstractTimeCluster::traceEnd(ActorAction action, double begin) {
+  if (begin >= 0 && monitoring::Trace::recording()) {
+    monitoring::Trace::span(traceNames_[action == ActorAction::Correct ? 1 : 0],
+                            monitoring::Trace::threadTrack(),
+                            begin,
+                            monitoring::Trace::now());
   }
 }
 

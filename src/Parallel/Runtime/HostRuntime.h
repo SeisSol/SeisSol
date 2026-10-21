@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_PARALLEL_RUNTIME_HOSTRUNTIME_H_
 #define SEISSOL_SRC_PARALLEL_RUNTIME_HOSTRUNTIME_H_
 
+#include "Monitoring/Trace.h"
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -190,7 +192,7 @@ class HostRuntime {
     depend(iterator(std::size_t i = 0 : count), in : neighbors[i][0])                              \
     depend(inout : this->own_, this->shared_)
         {
-          std::invoke(task);
+          runTask(task);
           done();
         }
       } else {
@@ -198,7 +200,7 @@ class HostRuntime {
     depend(iterator(std::size_t i = 0 : count), in : neighbors[i][0]) depend(in : this->shared_)   \
     depend(inout : this->own_)
         {
-          std::invoke(task);
+          runTask(task);
           done();
         }
       }
@@ -208,6 +210,12 @@ class HostRuntime {
     std::invoke(std::forward<F>(work));
     completed_.fetch_add(1, std::memory_order_release);
   }
+
+  /**
+   * The name of the spans of the work of the actions that run as tasks, in a trace (see
+   * monitoring::Trace).
+   */
+  void setTraceName(std::uint32_t name) { traceName_ = name; }
 
   /// the actions whose work has been handed over so far; from any thread
   [[nodiscard]] std::size_t createdActions() const {
@@ -240,10 +248,12 @@ class HostRuntime {
    * Runs `body(begin, end)` on ranges that together cover [0, count) once each: one range per
    * thread, as a static schedule splits it; or, within the work of a task graph, one per task, of
    * taskSize() elements each. Whatever a range needs (e.g. scratch memory) can be set up in the
-   * body, once per range. Returns once all ranges are done.
+   * body, once per range. Returns once all ranges are done. In a trace, the ranges are spans named
+   * `traceName` (see monitoring::Trace), by default as LoopName names them.
    */
   template <typename F>
-  static void forRange(std::size_t count, const F& body) {
+  static void
+      forRange(std::size_t count, const F& body, std::uint32_t traceName = loopTraceName()) {
     if (count == 0) {
       return;
     }
@@ -251,26 +261,27 @@ class HostRuntime {
     if (inTaskGraph()) {
       const std::size_t size = taskSize();
       const std::size_t tasks = (count + size - 1) / size;
-#pragma omp taskloop default(none) shared(body) firstprivate(count, size, tasks) grainsize(1)
+#pragma omp taskloop default(none) shared(body) firstprivate(count, size, tasks, traceName)        \
+    grainsize(1)
       for (std::size_t task = 0; task < tasks; ++task) {
         const auto begin = task * size;
-        timed(body, begin, std::min(count, begin + size));
+        timed(body, begin, std::min(count, begin + size), traceName);
       }
       return;
     }
 #endif
 #ifdef _OPENMP
-#pragma omp parallel default(none) shared(count, body)
+#pragma omp parallel default(none) shared(count, body, traceName)
     {
       const auto [begin, end] = staticRange(count,
                                             static_cast<std::size_t>(omp_get_thread_num()),
                                             static_cast<std::size_t>(omp_get_num_threads()));
       if (begin < end) {
-        timed(body, begin, end);
+        timed(body, begin, end, traceName);
       }
     }
 #else
-    timed(body, std::size_t{0}, count);
+    timed(body, std::size_t{0}, count, traceName);
 #endif
   }
 
@@ -288,13 +299,39 @@ class HostRuntime {
    * Runs `body(i)` for every i in [0, count), split like forRange().
    */
   template <typename F>
-  static void forEach(std::size_t count, const F& body) {
-    forRange(count, [&body](std::size_t begin, std::size_t end) {
-      for (std::size_t i = begin; i < end; ++i) {
-        std::invoke(body, i);
-      }
-    });
+  static void forEach(std::size_t count, const F& body, std::uint32_t traceName = loopTraceName()) {
+    forRange(
+        count,
+        [&body](std::size_t begin, std::size_t end) {
+          for (std::size_t i = begin; i < end; ++i) {
+            std::invoke(body, i);
+          }
+        },
+        traceName);
   }
+
+  /**
+   * Names the loops that the calling thread starts while it lives (with forRange(), forEach(), or
+   * on its streams) in a trace (see monitoring::Trace).
+   */
+  class LoopName {
+public:
+    explicit LoopName(std::uint32_t name) : previous_(currentLoopName()) {
+      currentLoopName() = name;
+    }
+    ~LoopName() { currentLoopName() = previous_; }
+
+    LoopName(const LoopName&) = delete;
+    LoopName(LoopName&&) = delete;
+    LoopName& operator=(const LoopName&) = delete;
+    LoopName& operator=(LoopName&&) = delete;
+
+private:
+    std::uint32_t previous_;
+  };
+
+  /// the name of the loops that the calling thread starts now, in a trace (see LoopName)
+  [[nodiscard]] static std::uint32_t loopTraceName() { return currentLoopName(); }
 
   /**
    * Runs `body`, in which the main thread decides the actions of an epoch. With a task graph, it
@@ -344,16 +381,45 @@ class HostRuntime {
 #endif
   }
 
-  /// runs a range of a loop, and counts its time
+  /// runs a range of a loop, and counts its time; also in a trace
   template <typename F>
-  static void timed(const F& body, std::size_t begin, std::size_t end) {
+  static void timed(const F& body, std::size_t begin, std::size_t end, std::uint32_t traceName) {
     const auto start = std::chrono::steady_clock::now();
     std::invoke(body, begin, end);
-    const auto time = std::chrono::steady_clock::now() - start;
+    const auto stop = std::chrono::steady_clock::now();
     loopNanoseconds().fetch_add(
         static_cast<std::uint64_t>(
-            std::chrono::duration_cast<std::chrono::nanoseconds>(time).count()),
+            std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count()),
         std::memory_order_relaxed);
+    if (monitoring::Trace::recording()) {
+      monitoring::Trace::span(traceName,
+                              monitoring::Trace::threadTrack(),
+                              monitoring::Trace::time(start),
+                              monitoring::Trace::time(stop));
+    }
+  }
+
+  static std::uint32_t& currentLoopName() {
+    thread_local std::uint32_t name = monitoring::Trace::name("loop");
+    return name;
+  }
+
+  [[nodiscard]] static std::uint32_t workTraceName() {
+    static const auto Name = monitoring::Trace::name("work");
+    return Name;
+  }
+
+  /// runs the work of an action as a task; also in a trace
+  template <typename F>
+  void runTask(F& task) {
+    if (!monitoring::Trace::recording()) {
+      std::invoke(task);
+      return;
+    }
+    const auto begin = monitoring::Trace::now();
+    std::invoke(task);
+    monitoring::Trace::span(
+        traceName_, monitoring::Trace::threadTrack(), begin, monitoring::Trace::now());
   }
 
   static std::atomic<std::uint64_t>& loopNanoseconds() {
@@ -394,6 +460,7 @@ class HostRuntime {
 
   std::atomic<std::size_t> created_{0};
   std::atomic<std::size_t> completed_{0};
+  std::uint32_t traceName_{workTraceName()};
 };
 
 } // namespace seissol::parallel::runtime

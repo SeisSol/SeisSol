@@ -8,6 +8,12 @@
 #include "DeviceTimer.h"
 
 #include "Monitoring/LoopStatistics.h"
+#include "Monitoring/Trace.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <string>
 
 #ifdef ACL_DEVICE
 #include "Monitoring/DeviceTimeline.h"
@@ -77,7 +83,7 @@ void DeviceTimer::end(const Interval& interval,
     statistics_->end(region, numIterations, subRegion, interval.hostBegin);
     return;
   }
-  push(interval, stream, {interval.events, region, numIterations, subRegion, nullptr});
+  push(interval, stream, {interval.events, stream, region, numIterations, subRegion, nullptr});
 }
 
 void DeviceTimer::end(const Interval& interval, void* stream, double* total) {
@@ -88,7 +94,7 @@ void DeviceTimer::end(const Interval& interval, void* stream, double* total) {
   if (!interval.timed) {
     return;
   }
-  push(interval, stream, {interval.events, 0, 0, 0, total});
+  push(interval, stream, {interval.events, stream, 0, 0, 0, total});
 }
 
 void DeviceTimer::push([[maybe_unused]] const Interval& interval,
@@ -133,10 +139,41 @@ void DeviceTimer::add([[maybe_unused]] const Pending& pending) {
     statistics_->addTime(pending.region, pending.numIterations, pending.subRegion, time);
   }
   if (timeline_ != nullptr) {
-    timeline_->add(kind_, start, end);
+    const bool traced = monitoring::Trace::recording();
+    timeline_->add(
+        kind_, start, end, traced ? traceName(pending) : 0, traced ? traceTrack(pending) : 0);
   }
   free_.push_back(pending.events);
 #endif
+}
+
+std::uint32_t DeviceTimer::traceName(const Pending& pending) {
+  constexpr auto Unnamed = std::numeric_limits<std::uint32_t>::max();
+  const bool loop = pending.total == nullptr && statistics_ != nullptr;
+  // the regions of the loops, and then the other work
+  const std::size_t index = loop ? pending.region : 0;
+  auto& names = loop ? traceRegions_ : traceOther_;
+  if (names.size() <= index) {
+    names.resize(index + 1, Unnamed);
+  }
+  if (names[index] == Unnamed) {
+    names[index] =
+        monitoring::Trace::name(loop ? statistics_->regionName(pending.region) : traceWork_);
+  }
+  return names[index];
+}
+
+std::uint32_t DeviceTimer::traceTrack(const Pending& pending) {
+  for (const auto& [stream, track] : traceStreams_) {
+    if (stream == pending.stream) {
+      return track;
+    }
+  }
+  // each stream runs its work in order, so its spans follow each other
+  const auto track = monitoring::Trace::track(
+      pending.stream, "device: " + (traceTrack_ ? traceTrack_() : std::string("stream")));
+  traceStreams_.emplace_back(pending.stream, track);
+  return track;
 }
 
 } // namespace seissol

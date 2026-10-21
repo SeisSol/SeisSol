@@ -26,6 +26,7 @@
 #include "Solver/TimeStepping/Compute/FaceCluster.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -167,6 +168,8 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   DeviceTimer deviceLoops_;
   ActorStateStatistics* actorStateStatistics_;
   unsigned regionComputeDynamicRupture_{};
+  //! the name of the loop in a trace (see monitoring::Trace)
+  std::uint32_t traceDynamicRupture_{};
 
   //! id used to identify this cluster when profiling
   unsigned int profilingId_;

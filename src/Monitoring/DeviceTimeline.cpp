@@ -8,9 +8,11 @@
 #include "DeviceTimeline.h"
 
 #include "Monitoring/DeviceTimer.h"
+#include "Monitoring/Trace.h"
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -47,6 +49,11 @@ void DeviceTimeline::beginEpoch() {
     end_ = api().createEvent(true);
   }
   api().recordEventOnStream(reference_, stream_);
+  if (monitoring::Trace::recording()) {
+    // the event completes right away, so the host sees it at about the time the device has taken
+    api().syncEventWithHost(reference_);
+    traceBegin_ = monitoring::Trace::now();
+  }
   inEpoch_ = true;
 #endif
 }
@@ -59,11 +66,18 @@ double DeviceTimeline::sinceBegin([[maybe_unused]] void* event) const {
 #endif
 }
 
-void DeviceTimeline::add(Kind kind, void* start, void* end) {
+void DeviceTimeline::add(
+    Kind kind, void* start, void* end, std::uint32_t traceName, std::uint32_t traceTrack) {
   if (!inEpoch_) {
     return;
   }
-  intervals_[static_cast<std::size_t>(kind)].emplace_back(sinceBegin(start), sinceBegin(end));
+  const auto from = sinceBegin(start);
+  const auto to = sinceBegin(end);
+  intervals_[static_cast<std::size_t>(kind)].emplace_back(from, to);
+  if (monitoring::Trace::recording()) {
+    monitoring::Trace::span(
+        traceName, traceTrack, traceBegin_ + from * 1e6, traceBegin_ + to * 1e6);
+  }
 }
 
 DeviceTimeline::Activity DeviceTimeline::endEpoch() {

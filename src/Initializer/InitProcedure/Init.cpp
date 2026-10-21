@@ -21,6 +21,7 @@
 #include "Monitoring/Memory.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
+#include "Monitoring/Trace.h"
 #include "Monitoring/Unit.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/Helper.h"
@@ -237,6 +238,8 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   // make sure everyone is really done
   logInfo() << "Simulation done.";
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  monitoring::Trace::write(seissolInstance.parameters().output.prefix + "-trace.json",
+                           seissol::Mpi::mpi.comm());
   summary["memory"]["atEnd"] = memorySection(summary, "AtEnd");
   summary.writeRanks();
   summary.finish();

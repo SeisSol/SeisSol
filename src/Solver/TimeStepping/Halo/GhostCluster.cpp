@@ -10,6 +10,7 @@
 #include "Common/Executor.h"
 #include "Kernels/Common.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/Trace.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
@@ -35,6 +36,10 @@ void GhostCluster::sendCopyLayer(long target, const ActorEvent& after) {
   assert(!sending_);
   sending_ = true;
   sendTarget_ = target;
+  // (ordered on a stream, or in a task graph, the transport records the exchange itself)
+  sendTraceBegin_ = monitoring::Trace::recording() && !transport_->streamOrdered()
+                        ? monitoring::Trace::now()
+                        : -1;
   transport_->startSendAfter(after);
   sentMessages_ += copyRegionCount_;
 }
@@ -44,6 +49,9 @@ void GhostCluster::receiveGhostLayer(long target, const ActorEvent& after) {
   assert(!receiving_);
   receiving_ = true;
   receiveTarget_ = target;
+  receiveTraceBegin_ = monitoring::Trace::recording() && !transport_->streamOrdered()
+                           ? monitoring::Trace::now()
+                           : -1;
   transport_->startReceiveAfter(after);
   receivedMessages_ += ghostRegionCount_;
 }
@@ -115,10 +123,12 @@ ActResult GhostCluster::act() {
 
     if (receiving_ && testForGhostLayerReceives()) {
       receiving_ = false;
+      traceTransfer(false);
       advanceReceived(receiveTarget_);
     }
     if (sending_ && testForCopyLayerSends()) {
       sending_ = false;
+      traceTransfer(true);
       advanceSent(sendTarget_);
     }
 
@@ -232,6 +242,7 @@ void GhostCluster::reset() {
 
   // in a task graph, the exchanges wait for the work on the copy layer and on the ghost layer
   transport_->setHostTokens(hostRuntime_.neighborToken(0), hostRuntime_.sharedToken());
+  transport_->setTraceName(description());
 
   // the copy layer has been reset before and published its steps until the synchronization point
   const auto& copy = neighbors_.front();
@@ -240,6 +251,19 @@ void GhostCluster::reset() {
                              ct_.timeStepRate,
                              ct_.stepsUntilSync,
                              exchangePeriod()});
+}
+
+void GhostCluster::traceTransfer(bool send) {
+  const auto begin = send ? sendTraceBegin_ : receiveTraceBegin_;
+  if (begin < 0 || !monitoring::Trace::recording()) {
+    return;
+  }
+  static const auto SendName = monitoring::Trace::name("send");
+  static const auto ReceiveName = monitoring::Trace::name("receive");
+  // at most one of each is in flight, so the spans of a track follow each other
+  const auto track = send ? monitoring::Trace::track(&sendTarget_, description() + " send")
+                          : monitoring::Trace::track(&receiveTarget_, description() + " receive");
+  monitoring::Trace::span(send ? SendName : ReceiveName, track, begin, monitoring::Trace::now());
 }
 
 std::string GhostCluster::description() const {

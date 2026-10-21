@@ -84,9 +84,10 @@ class DeviceTimeline {
   void beginEpoch();
 
   /**
-   * Adds the interval between two events of the current epoch, which have completed.
+   * Adds the interval between two events of the current epoch, which have completed; while a trace
+   * records (see monitoring::Trace), also as a span with the given name on the given track.
    */
-  void add(Kind kind, void* start, void* end);
+  void add(Kind kind, void* start, void* end, std::uint32_t traceName, std::uint32_t traceTrack);
 
   /**
    * Ends the epoch, once the device is done with all of its work, and all intervals have been
@@ -109,6 +110,8 @@ class DeviceTimeline {
   [[maybe_unused]] void* reference_{nullptr};
   [[maybe_unused]] void* end_{nullptr};
   bool inEpoch_{false};
+  // in a trace: the time of the start of the epoch on the host, in microseconds since its origin
+  [[maybe_unused]] double traceBegin_{0};
   std::array<std::vector<std::pair<double, double>>, KindCount> intervals_;
 };
 

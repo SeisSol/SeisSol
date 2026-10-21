@@ -29,6 +29,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Metric.h"
+#include "Monitoring/Trace.h"
 #include "Numerical/BasisFunction.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
@@ -296,9 +297,13 @@ void ReceiverClusterImpl<Cfg>::sample(const Sampling& sampling,
     // A cluster that runs on the host goes on to integrate right after this and overwrites the
     // DOFs the sampling reads, so it samples right here. (On CUDA and SYCL, enqueueLoop would
     // leave the sampling to a host function on a stream.)
+    static const auto TraceName = monitoring::Trace::name("receivers");
+    const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
     parallel::runtime::HostRuntime::forEach(cellCount, receiverHandler);
   } else {
     auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
+    static const auto TraceName = monitoring::Trace::name("receivers");
+    const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
     callRuntime.enqueueLoop(cellCount, receiverHandler);
   }
 
@@ -320,6 +325,8 @@ void ReceiverClusterImpl<Cfg>::sampleAtRunTime([[maybe_unused]] const double* de
     const auto sampling = planSampling(nextSampleTime_, expansionPoint, timeStepWidth);
     nextSampleTime_ = sampling.nextTime;
     if (sampling.due) {
+      static const auto TraceName = monitoring::Trace::name("receivers");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
       parallel::runtime::HostRuntime::forEach(receiverCells_.size(), [&](std::size_t cell) {
         sampleReceiver(cell, sampling.time, expansionPoint, timeStepWidth, executor);
       });

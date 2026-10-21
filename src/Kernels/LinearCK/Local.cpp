@@ -37,6 +37,8 @@
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Monitoring/Trace.h"
+#include "Parallel/Runtime/HostRuntime.h"
 
 #include <utility>
 #endif
@@ -361,6 +363,8 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
       auto* analytical = reinterpret_cast<real(*)[tensor::INodal<Cfg>::size()]>(
           layer.var<LTS::AnalyticScratch>(Cfg()));
 
+      static const auto TraceName = monitoring::Trace::name("boundary conditions");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
       runtime.enqueueLoop(
           numElements,
           [this, face, time, timeStepWidth, analytical, &cellIds, &layer](std::size_t index) {

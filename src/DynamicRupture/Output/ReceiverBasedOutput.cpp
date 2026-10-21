@@ -35,6 +35,7 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
+#include "Monitoring/Trace.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/Runtime/HostRuntime.h"
@@ -145,6 +146,8 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
     // the setup rejects a fault in a material without dynamic rupture, whose quantities hold
     // none of the stresses the output reads
     if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
+      static const auto TraceName = monitoring::Trace::name("fault receivers");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
       callRuntime.enqueueLoop(
           outputData->topology.faceCount(),
           this->template faultOutputHandler<Cfg>(
@@ -177,6 +180,8 @@ void ReceiverOutputImpl<Derived>::evaluateFaultOutput(
     if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
       const auto handler = this->template faultOutputHandler<Cfg>(
           outputType, slipRateOutputType, outputData, level, stateTime, dt, indt);
+      static const auto TraceName = monitoring::Trace::name("fault receivers");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
       parallel::runtime::HostRuntime::forEach(faces, handler);
     }
   });

@@ -13,7 +13,9 @@
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"
 
+#include <array>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -89,6 +91,9 @@ class AbstractTimeCluster {
   std::vector<NeighborCluster> neighbors_;
   //! runs the work of the actions on the host
   parallel::runtime::HostRuntime hostRuntime_;
+  //! the names of the predictions and the corrections in a trace, once named
+  std::array<std::uint32_t, 2> traceNames_{};
+  bool traceNamed_{false};
   double syncTime_ = 0.0;
   //! the synchronization point before syncTime_, or the time the cluster started with
   double lastSyncTime_ = 0.0;
@@ -113,6 +118,15 @@ class AbstractTimeCluster {
 
   void unsafePerformAction(ActorAction action);
   AbstractTimeCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
+
+  /**
+   * Where an action of the host begins, in a trace (see monitoring::Trace); negative if the trace
+   * does not record. The first one names the spans of the cluster in the trace.
+   */
+  double traceBegin();
+
+  /// records the action of the host that began at `begin` in a trace
+  void traceEnd(ActorAction action, double begin);
 
   virtual bool mayPredict();
   virtual bool mayCorrect();
