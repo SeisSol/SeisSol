@@ -53,11 +53,6 @@ class Module {
   //
 
   /**
-   * Called before initializing MPI
-   */
-  virtual void preMPI() {}
-
-  /**
    * Called after MPI initialization
    */
   virtual void postMPIInit() {}

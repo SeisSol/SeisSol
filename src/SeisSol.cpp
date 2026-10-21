@@ -110,7 +110,7 @@ bool SeisSol::init() {
   }
 
   // Call post MPI initialization hooks
-  seissol::Modules::callHook<ModuleHook::PostMPIInit>();
+  modules_.callHook<ModuleHook::PostMPIInit>();
 
   // Initialize the ASYNC I/O library
   if (!asyncIO_.initDispatcher(pinning_)) {
@@ -125,7 +125,7 @@ bool SeisSol::init() {
 void SeisSol::finalize() {
   // the writers are finalized while the dispatcher still runs, which takes them out together with
   // its executors
-  Modules::callHook<ModuleHook::Shutdown>();
+  modules_.callHook<ModuleHook::Shutdown>();
 
   // Cleanup ASYNC I/O library
   asyncIO_.finalizeDispatcher();

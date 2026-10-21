@@ -78,9 +78,9 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   // Write initial wave field snapshot
   if (checkpoint_) {
-    Modules::callSimulationStartHook(currentTime_);
+    seissolInstance.modules().callSimulationStartHook(currentTime_);
   } else {
-    Modules::callSimulationStartHook(std::optional<double>{});
+    seissolInstance.modules().callSimulationStartHook(std::optional<double>{});
   }
 
   // derive next synchronization time
@@ -88,7 +88,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // NOTE: This will not call the module specific implementation of the synchronization hook
   // since the current time is the simulation start time. We only use this function here to
   // get correct upcoming time. To be on the safe side, we use zero time tolerance.
-  upcomingTime = std::min(upcomingTime, Modules::callSyncHook(currentTime_, 0.0));
+  upcomingTime = std::min(upcomingTime, seissolInstance.modules().callSyncHook(currentTime_, 0.0));
 
   // The times of an epoch are the differences of what the stopwatches accumulated (pause returns
   // that); split measures from the last start, through any pause since, so after the IO of an
@@ -137,7 +137,8 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
     // Check all synchronization point hooks and set the new upcoming time
-    upcomingTime = std::min(finalTime_, Modules::callSyncHook(currentTime_, timeTolerance));
+    upcomingTime =
+        std::min(finalTime_, seissolInstance.modules().callSyncHook(currentTime_, timeTolerance));
 
     const double io = ioStopwatch.pause();
 
@@ -172,10 +173,10 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // synchronize data (TODO(David): synchronize lazily)
   seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
-  Modules::callSyncHook(currentTime_, timeTolerance, true);
+  seissolInstance.modules().callSyncHook(currentTime_, timeTolerance, true);
 
   // and the writes still under way finish
-  Modules::callHook<ModuleHook::SimulationEnd>();
+  seissolInstance.modules().callHook<ModuleHook::SimulationEnd>();
 
   const double ioTime = ioStopwatch.pause();
 

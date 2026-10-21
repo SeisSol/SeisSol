@@ -87,10 +87,10 @@ void WriterModule::startup() {
   callInit(AsyncWriterInit{});
   // TODO: pinning
 
-  Modules::registerHook(*this, ModuleHook::SimulationStart);
-  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
-  Modules::registerHook(*this, ModuleHook::SimulationEnd);
-  Modules::registerHook(*this, ModuleHook::Shutdown);
+  seissolInstance_.modules().registerHook(*this, ModuleHook::SimulationStart);
+  seissolInstance_.modules().registerHook(*this, ModuleHook::SynchronizationPoint);
+  seissolInstance_.modules().registerHook(*this, ModuleHook::SimulationEnd);
+  seissolInstance_.modules().registerHook(*this, ModuleHook::Shutdown);
   setSyncInterval(settings_.interval);
 }
 

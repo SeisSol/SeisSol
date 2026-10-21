@@ -12,6 +12,7 @@
 #ifdef USE_ASAGI
 
 #include "Modules/Module.h"
+#include "Modules/Modules.h"
 #include "Parallel/Pin.h"
 
 #include <memory>
@@ -34,6 +35,9 @@ class AsagiModule : public Module {
 
   /** The total number of threads (including the communication thread */
   int totalThreads_;
+
+  /** Whether the MPI mode had to be downgraded, so that postMPIInit can say so */
+  bool warnDowngrade_{false};
 
   /** The pinning of the SeisSol instance, for the CPU of the communication thread */
   const parallel::Pinning* pinning_{nullptr};
@@ -58,7 +62,12 @@ class AsagiModule : public Module {
    */
   void setPinning(const parallel::Pinning& pinning);
 
-  void preMPI() override;
+  /**
+   * Register for the hooks this module needs, given the MPI mode determined at construction.
+   *
+   * Has to be called before the initialization phase reaches the earliest of those hooks.
+   */
+  void registerHooks(Modules& modules);
 
   /**
    * At the moment this function will only be registered when this warning/error

@@ -28,17 +28,24 @@ namespace seissol::asagi {
 
 AsagiModule::AsagiModule(utils::Env& env)
     : env_(env), mpiMode_(getMPIMode(env)), totalThreads_(getTotalThreads(env)) {
-  // Register for the pre MPI hook
-  Modules::registerHook(*this, ModuleHook::PreMPI);
-
-  // Emit a warning/error later
+  // A single thread cannot run a communication thread, so fall back to MPI windows.
+  // The diagnostic for it is emitted from postMPIInit.
   // TODO use a general logger that can buffer log messages and emit them later
-  if (mpiMode_ == AsagiMPIMode::Unknown) {
-    Modules::registerHook(*this, ModuleHook::PostMPIInit);
-  } else if (mpiMode_ == AsagiMPIMode::CommThread && totalThreads_ == 1) {
+  if (mpiMode_ == AsagiMPIMode::CommThread && totalThreads_ == 1) {
     mpiMode_ = AsagiMPIMode::Windows;
+    warnDowngrade_ = true;
+  }
+}
 
-    Modules::registerHook(*this, ModuleHook::PostMPIInit);
+void AsagiModule::registerHooks(Modules& modules) {
+  if (mpiMode_ == AsagiMPIMode::Unknown || warnDowngrade_) {
+    modules.registerHook(*this, ModuleHook::PostMPIInit);
+  }
+
+  if (mpiMode_ == AsagiMPIMode::CommThread) {
+    // the communication thread runs from before the mesh is read until the model is set up
+    modules.registerHook(*this, ModuleHook::PreMesh, ModulePriority::Highest);
+    modules.registerHook(*this, ModuleHook::PostModel, ModulePriority::Lowest);
   }
 }
 
@@ -74,16 +81,6 @@ int AsagiModule::getTotalThreads(utils::Env& env) {
 utils::Env& AsagiModule::getEnv() { return env_; }
 
 void AsagiModule::setPinning(const parallel::Pinning& pinning) { pinning_ = &pinning; }
-
-void AsagiModule::preMPI() {
-  // Communication threads required
-  if (mpiMode_ == AsagiMPIMode::CommThread) {
-    // Comm threads has to be started before model initialization
-    Modules::registerHook(*this, ModuleHook::PreMesh, ModulePriority::Highest);
-    // Comm threads has to be stoped after model initialization
-    Modules::registerHook(*this, ModuleHook::PostModel, ModulePriority::Lowest);
-  }
-}
 
 void AsagiModule::postMPIInit() {
   if (mpiMode_ == AsagiMPIMode::Unknown) {
