@@ -7,9 +7,10 @@
 # SPDX-FileContributor: Carsten Uphoff
 
 import numpy as np
+from kernels import material
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
-from yateto import Scalar, Tensor, ops, simpleParameterSpace
+from yateto import Scalar, ops, simpleParameterSpace
 from yateto.ast.node import Accumulate
 from yateto.ast.transformer import DeduceIndices, EquivalentSparsityPattern
 
@@ -83,32 +84,31 @@ class LinearCK(ADERDGBase):
 
     def derivativeModes(self, k):
         """How many modes the k-th time derivative of the predictor keeps where
-        the operator varies inside the cell, see narrowsDerivatives."""
-        if not self.narrowsDerivatives():
+        the operator varies inside the cell, see narrowsDerivatives: in a
+        hierarchical basis the ones up to its degree, in another one all of
+        them, since the polynomials of a lower degree have entries in every
+        function of the cell there."""
+        if not self.narrowsDerivatives() or not self.basis.hierarchical:
             return self.num3DBasisFunctions()
         degrees = self.order - k
         return degrees * (degrees + 1) * (degrees + 2) // 6
 
     def derivativeProjection(self, k):
         """The projection the k-th time derivative of the predictor comes back
-        with: onto the modes it keeps. The basis is orthogonal and ordered by
-        degree, so that is the operator's projection cut to its leading rows."""
-        modes = self.derivativeModes(k)
-        if modes == self.num3DBasisFunctions():
+        with: onto the polynomials of the degree it keeps, in the basis of the
+        cell (material.projectionOntoDegree)."""
+        if not self.narrowsDerivatives():
             return self.operatorProject
         # one tensor per member, however many targets ask for it
         if not hasattr(self, "_derivativeProjections"):
             self._derivativeProjections = {}
         if k not in self._derivativeProjections:
-            self._derivativeProjections[k] = Tensor(
+            self._derivativeProjections[k] = material.projectionOntoDegree(
+                self._matricesDir,
+                self,
+                self.materialPoints,
+                self.order - 1 - k,
                 f"derivativeProject({k})",
-                self.operatorProject.shape(),
-                spp={
-                    index: value
-                    for index, value in self.operatorProject.values().items()
-                    if index[0] < modes
-                },
-                alignStride=self.alignStride("derivativeProject"),
             )
         return self._derivativeProjections[k]
 
@@ -315,17 +315,14 @@ class LinearCK(ADERDGBase):
                         derivatives.append(dQ)
                         continue
 
+                    lowerStatements, terms = self.modalDerivative(derivatives[-1])
                     derivativeSum = Accumulate(ops.Add())
                     if self.sourceMatrix():
                         derivativeSum += (
                             derivatives[-1]["kq"] * self.sourceMatrix()["qp"]
                         )
-                    for j in range(3):
-                        derivativeSum += (
-                            self.db.kDivMT[j][self.t("kl")]
-                            * derivatives[-1]["lq"]
-                            * self.starMatrix(j)["qp"]
-                        )
+                    for term in terms:
+                        derivativeSum += term
 
                     derivativeSum = DeduceIndices(self.Q["kp"].indices).visit(
                         derivativeSum
@@ -344,7 +341,7 @@ class LinearCK(ADERDGBase):
 
                     # for now, we interleave derivative
                     # and derivativeTaylorExpansion kernels.
-                    derivativeExpr += [
+                    derivativeExpr += lowerStatements + [
                         dQ["kp"] <= derivativeSum,
                         self.I["kp"] <= self.I["kp"] + power * dQ["kp"],
                     ]

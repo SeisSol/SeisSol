@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 import numpy as np
 from kernels import coefficients, material
-from kernels.basis import Basis, shared
+from kernels.basis import Basis, count, shared
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
@@ -83,6 +83,17 @@ class ADERDGBase(ABC):
             transpose=self.transpose,
             alignStride=self.alignStride,
         )
+        if not (self.basis.hierarchical and self.basis.orthogonal):
+            # the derivatives through the basis of one degree less, and the bases
+            # of the lower degrees (modalDerivative,
+            # material.projectionOntoDegree), read like the derivatives
+            self.db.update(
+                parseJSONMatrixFile(
+                    f"{matricesDir}/lower-{order}.json",
+                    transpose=self.transpose,
+                    alignStride=self.alignStride,
+                )
+            )
         # The derivative kernels contract against -kDivMT throughout. Folding
         # the sign into the matrix here rather than scaling the operand keeps
         # the global matrices read-only, which is what lets them be shared and
@@ -90,6 +101,8 @@ class ADERDGBase(ABC):
         # memory layout configuration is applied, since that mutates whatever
         # tensors are in the database at the time.
         negateFamily(self.db, "kDivMT", self.alignStride)
+        if "kDivMTLower" in self.db:
+            negateFamily(self.db, "kDivMTLower", self.alignStride)
 
         clonesQP = {"v": ["evalAtQP"], "vInv": ["projectQP"]}
         self.db.update(
@@ -457,7 +470,8 @@ class ADERDGBase(ABC):
         # from the material of the two cells sharing it.
         self.nodalFaceFlux = self.fluxDecomposes()
 
-        points = material.tensors(self._matricesDir, self, kwargs["material_points"])
+        self.materialPoints = kwargs["material_points"]
+        points = material.tensors(self._matricesDir, self, self.materialPoints)
         self.materialEval = points["materialEval"]
         self.materialProject = points["materialProject"]
         # The samples are the points of a quadrature rule, so the operator is
@@ -897,13 +911,13 @@ class ADERDGBase(ABC):
 
         After the predictor, a cell writes the trace of its time integral on
         each of its faces, in the face basis: rT(i), the restriction of the
-        field to face i, which is exact since the face basis is orthogonal and
-        ordered by degree. The corrector of a face reads that trace and the one
-        the neighbour wrote on the same face, applies the flux to the two and
-        lifts the result into the cell; it reads no field of the volume. Where
-        a neighbour takes another time step than the cell, it writes the trace
-        of its time derivatives instead, and the cell evaluates that over its
-        own interval (addTraces).
+        field to face i, which is exact since the face basis spans the
+        polynomials of the degree of the cell. The corrector of a face reads
+        that trace and the one the neighbour wrote on the same face, applies the
+        flux to the two and lifts the result into the cell; it reads no field of
+        the volume. Where a neighbour takes another time step than the cell, it
+        writes the trace of its time derivatives instead, and the cell evaluates
+        that over its own interval (addTraces).
 
         The two cells sharing a face parametrise it differently: each sees the
         other's parametrisation reflected, by R = M2^-1 fP(0), which is its own
@@ -1502,6 +1516,54 @@ class ADERDGBase(ABC):
         the cell. Not here; a solver whose chain can says so."""
         return False
 
+    def modalDerivative(self, source):
+        """One step of a derivative chain where the operator is one per cell:
+        the derivative of `source` in each direction times the star matrix of
+        that direction, as statements to run first and the terms of the sum
+        that is the step.
+
+        In a hierarchical basis the step is the derivative matrices kDivMT
+        against the field, and the pattern of a derivative shows which modes
+        it has. In another basis the derivative of the degree of the cell is
+        of one degree less, and kDivMT is that lower degree raised back into
+        the basis of the cell, which has every function of the cell in it. The
+        step then goes through the basis of the lower degree, where the
+        derivative matrices (kDivMTLower) have a few entries per row and the
+        star matrices see as many functions as that basis has, and is raised
+        back once, after the star matrices of all three directions are summed
+        (embedDegree). Every derivative keeps the full basis of the cell, so
+        the Taylor sums need nothing beyond the derivatives themselves.
+        """
+        if self.basis.hierarchical:
+            return [], [
+                self.db.kDivMT[j][self.t("kl")]
+                * source["lq"]
+                * self.starMatrix(j)["qp"]
+                for j in range(3)
+            ]
+        if not hasattr(self, "_derivativeLower"):
+            # what the star matrices give in the basis of the lower degree
+            self._derivativeLower = OptionalDimTensor(
+                "derivativeLower",
+                self.Q.optName(),
+                self.Q.optSize(),
+                self.Q.optPos(),
+                (count(self.order - 2), self.starMatrix(0).shape()[1]),
+                alignStride=True,
+                temporary=True,
+            )
+        lower = self.definedOnce(self._derivativeLower)
+        lowerSum = None
+        for j in range(3):
+            term = (
+                self.db.kDivMTLower[j][self.t("kl")]
+                * source["lq"]
+                * self.starMatrix(j)["qp"]
+            )
+            lowerSum = term if lowerSum is None else lowerSum + term
+        raised = self.db.embedDegree[self.order - 2][self.t("kl")] * lower["lp"]
+        return [lower["kp"] <= lowerSum], [raised]
+
     def nodalVolumeDerivatives(self):
         """The derivative matrices the volume term of the corrector applies
         where the operator varies inside the cell: the strong ones, the same
@@ -1774,9 +1836,11 @@ class ADERDGBase(ABC):
         viscoelastic2 generator derives directly from ADERDGBase and would
         otherwise not get the kernels at all.
         """
-        # Only the cell integral is needed, so M3 is narrowed to its first row.
-        # subselect keeps the rank and sets the extent to 1, which turns the
-        # kernel from an nb x nq product into an nq one.
+        # Only the cell integral is needed: the integrals of the basis functions,
+        # a row of their own where the basis states them. A basis whose first
+        # function is the constant one has them as the first row of M3, which
+        # subselect narrows it to; it keeps the rank and sets the extent to 1,
+        # which turns the kernel from an nb x nq product into an nq one.
         momentQ = OptionalDimTensor(
             "momentQ",
             self.Q.optName(),
@@ -1785,10 +1849,11 @@ class ADERDGBase(ABC):
             (1, self.numQuantities()),
             alignStride=True,
         )
-        generator.add(
-            "momentQCompute",
-            momentQ["IJ"] <= self.db.M3["Ij"].subselect("I", 0) * self.Q["jJ"],
-        )
+        if "basisIntegrals" in self.db:
+            integrals = self.db.basisIntegrals["Ij"]
+        else:
+            integrals = self.db.M3["Ij"].subselect("I", 0)
+        generator.add("momentQCompute", momentQ["IJ"] <= integrals * self.Q["jJ"])
 
         # The fused-simulation index 's' occurs in the result and in both Q
         # factors, i.e. it is a batch index. yateto handles that as of
@@ -1845,6 +1910,11 @@ class ADERDGBase(ABC):
             # applies any more; the strong form is checked against them
             for member in self.db.kDivM.values():
                 include_tensors.add(member)
+        # the strong ones, which the chain of a basis that is not hierarchical
+        # takes through the lower degree instead (modalDerivative); every chain
+        # is checked against them
+        for member in self.db.kDivMT.values():
+            include_tensors.add(member)
         # the flux of a face in the volume, which the corrector is checked
         # against in every build. No kernel names them: the corrector reads the
         # traces of the face and lifts what it forms with traceLift, or with

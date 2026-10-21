@@ -1,0 +1,30 @@
+<memory_layouts>
+
+<!--
+  The Bernstein basis. The derivatives of the predictor in the basis of one degree less have
+  two entries per row, the elevations that raise their sum back into the basis of the cell four
+  per column, and the derivatives in the basis of the cell, their product, a few per row. What
+  the inverse of the mass matrix enters (the weak derivatives kDivM, the lifts rDivM and fMrT)
+  is dense in this basis and keeps the default layout.
+-->
+
+<matrix name="kDivMTLower(0)" sparse="aligned"/>
+<matrix name="kDivMTLower(1)" sparse="aligned"/>
+<matrix name="kDivMTLower(2)" sparse="aligned"/>
+
+<matrix name="embedDegree(0)" sparse="aligned"/>
+<matrix name="embedDegree(1)" sparse="aligned"/>
+<matrix name="embedDegree(2)" sparse="aligned"/>
+<matrix name="embedDegree(3)" sparse="aligned"/>
+<matrix name="embedDegree(4)" sparse="aligned"/>
+<matrix name="embedDegree(5)" sparse="aligned"/>
+<matrix name="embedDegree(6)" sparse="aligned"/>
+
+<matrix name="kDivMT(0)" sparse="aligned"/>
+<matrix name="kDivMT(1)" sparse="aligned"/>
+<matrix name="kDivMT(2)" sparse="aligned"/>
+
+<matrix name="star" sparse="True"/>
+<matrix name="ET" sparse="True"/>
+
+</memory_layouts>

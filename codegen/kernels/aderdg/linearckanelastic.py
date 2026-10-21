@@ -443,14 +443,11 @@ class LinearCKAnelastic(ADERDGBase):
                 # derivativeTaylorExpansionAneExpr = self.Iane['kpm'] <= derivativeTaylorExpansionAne
 
                 def derivative(kthDer):
+                    statements, terms = self.modalDerivative(dQ[kthDer - 1])
                     derivativeSum = Accumulate(ops.Add())
-                    for j in range(3):
-                        derivativeSum += (
-                            self.db.kDivMT[j][self.t("kl")]
-                            * dQ[kthDer - 1]["lq"]
-                            * self.starMatrix(j)["qp"]
-                        )
-                    return derivativeSum
+                    for term in terms:
+                        derivativeSum += term
+                    return statements, derivativeSum
 
                 def derivativeStep(kthDer):
                     """One step of the chain, in whichever shape the operator has.
@@ -464,7 +461,8 @@ class LinearCKAnelastic(ADERDGBase):
                         return self.nodalApply(
                             dQ[kthDer - 1], dQext[kthDer], self.db.kDivMT
                         )
-                    return [dQext[kthDer]["kp"] <= derivative(kthDer)]
+                    statements, derivativeSum = derivative(kthDer)
+                    return statements + [dQext[kthDer]["kp"] <= derivativeSum]
 
                 # WARNING: the following kernel may produce incorrect results,
                 # if not executed in the order as specified here

@@ -184,9 +184,10 @@ class STP(LinearCK):
 
         # Compute the index range for basis functions of a certain degree
         #
-        # The basis functions are ordered with increasing degree, i.e. the first
-        # basis function has degree 0, the next three basis functions have degree
-        # 1, the next six basis functions have degree 2 and so forth.
+        # In a hierarchical basis the basis functions are ordered with increasing
+        # degree, i.e. the first basis function has degree 0, the next three
+        # basis functions have degree 1, the next six basis functions have
+        # degree 2 and so forth.
         # This method computes the indices Bn_lower, Bn_upper, such that
         # forall Bn_lower =< i < Bn_upper: degree(phi_i) == n
         #
@@ -337,6 +338,26 @@ class STP(LinearCK):
                                     coefficients=self.sourceDeviation,
                                     scalar=timestep,
                                 )
+                        kernels += quantitySolve(None, accumulate=False)
+                elif not self.basis.hierarchical:
+                    # The blocks of one degree are the functions of that degree
+                    # in a hierarchical basis alone. In another basis the
+                    # derivative of a function reaches functions of every
+                    # position, so the system is solved by the same fixed point
+                    # as for a material that varies, with the operator of the
+                    # cell: each step makes one more degree exact, and after as
+                    # many steps as there are degrees it is the solution.
+                    for iteration in range(self.order):
+                        rhs = self.Q["kp"] * self.db.wHat["t"]
+                        if iteration > 0:
+                            for d in range(3):
+                                rhs += (
+                                    self.db.kDivMT[d]["kl"]
+                                    * spaceTimePredictor["lqt"]
+                                    * self.starMatrix(d)["qp"]
+                                    * timestep
+                                )
+                        kernels.append(spaceTimePredictorRhs["kpt"] <= rhs)
                         kernels += quantitySolve(None, accumulate=False)
                 else:
                     kernels.append(

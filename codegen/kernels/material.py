@@ -19,6 +19,7 @@ constant. Neither set has a point on a face.
 """
 
 import numpy as np
+from kernels.basis import count, dense
 from kernels.multsim import OptionalDimTensor
 from yateto import Tensor
 from yateto.input import parseJSONMatrixFile
@@ -65,18 +66,64 @@ def tensors(matricesDir, aderdg, pointSet):
     }
 
 
+def projectionOntoDegree(matricesDir, aderdg, pointSet, degree, name):
+    """The projection of what is given at the samples onto the polynomials up to
+    `degree`, with the weights of the rule the samples are of, in the basis of
+    the cell.
+
+    In a basis that is hierarchical and orthogonal, that is the leading rows of
+    the projection onto every function of the cell. In another basis it is the
+    projection onto the basis of that degree (vInvDegree), raised into the
+    basis of the cell (embedDegree), which has entries in every row where the
+    basis is not hierarchical.
+    """
+    db = _db(matricesDir, pointSet, aderdg.order, aderdg.alignStride)
+    if (
+        aderdg.basis.hierarchical and aderdg.basis.orthogonal
+    ) or degree >= aderdg.order - 1:
+        modes = count(degree)
+        return Tensor(
+            name,
+            db.vInv.shape(),
+            spp={
+                index: value
+                for index, value in db.vInv.values().items()
+                if index[0] < modes
+            },
+            alignStride=aderdg.alignStride(name),
+        )
+    embedding = aderdg.db.embedDegree[degree]
+    projection = dense(embedding, aderdg.transpose(embedding.name())) @ dense(
+        db.vInvDegree[degree]
+    )
+    projection[np.abs(projection) < 1e-14] = 0.0
+    return Tensor(
+        name,
+        projection.shape,
+        spp={
+            index: repr(float(value))
+            for index, value in np.ndenumerate(projection)
+            if value != 0.0
+        },
+        alignStride=aderdg.alignStride(name),
+    )
+
+
+def fit(matricesDir, aderdg, pointSet):
+    """The projection of what is given at the samples onto the polynomials of
+    one degree below the cell's, in the basis of the cell: what the material of
+    a cell is checked for a jump with (ImpedanceJump on the host)."""
+    return projectionOntoDegree(
+        matricesDir, aderdg, pointSet, max(aderdg.order - 2, 0), "materialFit"
+    )
+
+
 def _interpolation(name, aderdg, samples, points, same):
     """The values the samples give at the points of another set.
 
     The samples give a modal field, and the field has a value at every point;
     at the samples themselves that is the samples again.
     """
-
-    def dense(source):
-        matrix = np.zeros(source.shape())
-        for index, value in source.values().items():
-            matrix[index] = float(value)
-        return matrix
 
     if same:
         interpolation = np.eye(samples.vNodes.shape()[0])
@@ -119,11 +166,13 @@ def pointCount(matricesDir, aderdg, pointSet):
 def includeTensors(matricesDir, aderdg, pointSet, include):
     """The sample points are read by the host, which builds the query that
     fills them, and so is their interpolation to the volume quadrature, which
-    the energies are integrated with; they have to reach the generated code even
-    where no kernel names them."""
+    the energies are integrated with, and the projection a cell's material is
+    checked for a jump with; they have to reach the generated code even where
+    no kernel names them."""
     for tensor in tensors(matricesDir, aderdg, pointSet).values():
         include.add(tensor)
     include.add(quadratureInterpolation(matricesDir, aderdg, pointSet))
+    include.add(fit(matricesDir, aderdg, pointSet))
 
 
 def addKernels(generator, aderdg, matricesDir, pointSet):

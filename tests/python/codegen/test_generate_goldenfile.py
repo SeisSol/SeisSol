@@ -36,7 +36,13 @@ GENERATE = CODEGEN_DIR / "generate.py"
 
 
 def _invoke_generate(
-    outdir, equation="elastic", order=3, precision="d", multi_sims=1, mechanisms=0
+    outdir,
+    equation="elastic",
+    order=3,
+    precision="d",
+    multi_sims=1,
+    mechanisms=0,
+    basis="dubiner",
 ):
     """Run generate.py with the given config. Returns CompletedProcess.
 
@@ -53,6 +59,8 @@ def _invoke_generate(
             equation,
             "--matricesDir",
             str(CODEGEN_DIR / "matrices"),
+            "--basis",
+            basis,
             "--outputDir",
             str(outdir),
             "--host_arch",
@@ -253,6 +261,38 @@ class TestPoroelasticSmoke:
             f"stderr:\n{result.stderr[-1000:]}"
         )
         assert (tmp_path / "equation-poroelastic-3-double").is_dir()
+
+
+# =============================================================================
+# Other bases — their matrices lie in a directory of their own
+# =============================================================================
+
+
+class TestBasisSmoke:
+    """A basis other than the Dubiner one reads its matrices from its directory
+    and the rest from the one of the Dubiner basis; the Bernstein basis, which is
+    not hierarchical, takes the derivatives of the predictor through the basis of
+    one degree less and solves the space-time predictor by a fixed point."""
+
+    @pytest.mark.parametrize("basis", ["dubiner-normalized", "bernstein"])
+    @pytest.mark.parametrize("equation", ["elastic", "poroelastic"])
+    def test_basis_generates(self, tmp_path, basis, equation):
+        result = _invoke_generate(tmp_path, equation=equation, order=3, basis=basis)
+        assert result.returncode == 0, (
+            f"generate.py {equation} with the {basis} basis failed:\n"
+            f"stdout:\n{result.stdout[-1000:]}\n"
+            f"stderr:\n{result.stderr[-1000:]}"
+        )
+        init = (tmp_path / f"equation-{equation}-3-double" / "init.h").read_text()
+        # the chain goes through the basis of one degree less where the basis is
+        # not hierarchical; the space-time predictor keeps the chain as well
+        lower = "kDivMTLower" in init and "embedDegree" in init
+        assert lower == (basis == "bernstein")
+
+    def test_unknown_basis_is_rejected(self, tmp_path):
+        result = _invoke_generate(tmp_path, basis="legendre")
+        assert result.returncode == 2
+        assert "invalid choice" in result.stderr
 
 
 # =============================================================================
