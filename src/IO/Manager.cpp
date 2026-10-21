@@ -25,9 +25,9 @@ OutputManager::OutputManager(SeisSol& seissolInstance) : seissolInstance_(seisso
 
 void OutputManager::addOutput(const writer::ScheduledWriter& writer) {
   modules_.emplace_back(std::make_unique<seissol::io::writer::module::WriterModule>(
-      seissolInstance_.getSeisSolParameters().output.prefix,
+      seissolInstance_.parameters().output.prefix,
       writer,
-      seissolInstance_.getPinning(),
+      seissolInstance_.pinning(),
       seissolInstance_));
   modules_.back()->startup();
 }

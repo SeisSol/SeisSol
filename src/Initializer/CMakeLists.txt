@@ -6,12 +6,12 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-initializer OBJECT
-    CellLocalMatrices.cpp
     FaceMap.cpp
     InitialFieldProjection.cpp
     MemoryManager.cpp
     ParameterDB.cpp
     PointMapper.cpp
+    Preflight.cpp
 
     BatchRecorders/DynamicRuptureRecorder.cpp
     BatchRecorders/LocalIntegrationRecorder.cpp
@@ -24,9 +24,19 @@ add_library(seissol-initializer OBJECT
     InitProcedure/InitMesh.cpp
     InitProcedure/InitModel.cpp
     InitProcedure/InitSideConditions.cpp
+    InitProcedure/Internal/Boundary.cpp
     InitProcedure/Internal/Buckets.cpp
+    InitProcedure/Internal/ConfigBoundaryCheck.cpp
+    InitProcedure/Internal/FaceTypeCheck.cpp
     InitProcedure/Internal/LtsSetup.cpp
     InitProcedure/Internal/MeshLayout.cpp
+    InitProcedure/Internal/Recording.cpp
+    InitProcedure/Internal/Scratchpads.cpp
+
+
+    Model/BoundaryMappings.cpp
+    Model/CellLocalMatrices.cpp
+    Model/DynamicRuptureMatrices.cpp
 
     Parameters/CubeGeneratorParameters.cpp
     Parameters/DRParameters.cpp
@@ -35,15 +45,27 @@ add_library(seissol-initializer OBJECT
     Parameters/MeshParameters.cpp
     Parameters/ModelParameters.cpp
     Parameters/OutputParameters.cpp
+    Parameters/ParameterOverrides.cpp
     Parameters/ParameterReader.cpp
     Parameters/SeisSolParameters.cpp
     Parameters/SourceParameters.cpp
 
+    Clustering/ClusterHistogram.cpp
+    Clustering/ClusterLadder.cpp
+    Clustering/ClusterSmoother.cpp
+    Clustering/Clustering.cpp
+    Clustering/ClusteringCost.cpp
+    Clustering/ClusteringEvaluator.cpp
+    Clustering/GridLadderSearch.cpp
+    Clustering/LadderOptimizer.cpp
+    Clustering/LatticeDpSearch.cpp
+    Clustering/TimestepHistogram.cpp
+    Clustering/VertexWeights/VertexWeightModel.cpp
+    Clustering/VertexWeights/WeightsModels.cpp
+
     TimeStepping/ClusterLayout.cpp
     TimeStepping/GlobalTimestep.cpp
     TimeStepping/Halo.cpp
-    TimeStepping/LtsWeights/LtsWeights.cpp
-    TimeStepping/LtsWeights/WeightsModels.cpp
 )
 
 target_link_libraries(seissol-initializer PUBLIC seissol-common-properties)

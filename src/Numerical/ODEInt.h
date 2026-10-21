@@ -8,7 +8,6 @@
 #ifndef SEISSOL_SRC_NUMERICAL_ODEINT_H_
 #define SEISSOL_SRC_NUMERICAL_ODEINT_H_
 
-#include "Kernels/Precision.h"
 #include "ODEVector.h"
 
 #include <Eigen/Dense>
@@ -39,6 +38,11 @@ struct ODESolverConfig {
   explicit ODESolverConfig(double initialDt) : initialDt(initialDt) {};
 };
 
+/**
+ * An explicit Runge-Kutta solver for ODEs on an ODEVector.
+ * @tparam RealT the type of the entries of the vectors it integrates
+ */
+template <typename RealT>
 class RungeKuttaODESolver {
   private:
   ODESolverConfig config_;
@@ -50,9 +54,9 @@ class RungeKuttaODESolver {
   std::vector<double> c_;
 
   // Temporary storage
-  std::vector<ODEVector> stages_;
-  std::vector<std::vector<real>> storages_;
-  ODEVector buffer_;
+  std::vector<ODEVector<RealT>> stages_;
+  std::vector<std::vector<RealT>> storages_;
+  ODEVector<RealT> buffer_;
 
   public:
   RungeKuttaODESolver(const std::vector<std::size_t>& storageSizes, ODESolverConfig config);
@@ -62,14 +66,14 @@ class RungeKuttaODESolver {
   /*!
    * @tparam Func is a callable type (e.g. functor/lambda)
    * @param f is a function with arguments
-        f(ODEVector& du, ODEVector& u, double evaluationTime).
+        f(ODEVector<RealT>& du, ODEVector<RealT>& u, double evaluationTime).
         which sets the right hand side of the ODE in du
         and takes u, du and evaluationTime as input.
    * @param curValue is the current solution of the ODE
    * @param timeSpan is the time span in which the ODE should be solved.
    */
   template <typename Func>
-  void solve(Func f, ODEVector& curValue, TimeSpan timeSpan) {
+  void solve(Func f, ODEVector<RealT>& curValue, TimeSpan timeSpan) {
     assert(timeSpan.begin <= timeSpan.end);
     double curTime = timeSpan.begin;
     const double dt = config_.initialDt;

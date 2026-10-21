@@ -40,15 +40,16 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
               << "±" << summary.std << "; range: [" << summary.min << ";" << summary.max << "])";
   }
 
-  std::uint64_t maxLtsId = 0;
+  std::size_t maxLtsId = 0;
   double minimumTimestep = std::numeric_limits<double>::max();
   for (const auto& element : mesh.getElements()) {
-    maxLtsId = std::max(maxLtsId, static_cast<std::uint64_t>(element.clusterId));
+    maxLtsId = std::max(maxLtsId, element.clusterId);
     minimumTimestep = std::min(minimumTimestep, element.timestep);
   }
   MPI_Allreduce(
-      MPI_IN_PLACE, &maxLtsId, 1, Mpi::castToMpiType<std::uint64_t>(), MPI_MAX, Mpi::mpi.comm());
+      MPI_IN_PLACE, &maxLtsId, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, Mpi::mpi.comm());
   MPI_Allreduce(MPI_IN_PLACE, &minimumTimestep, 1, MPI_DOUBLE, MPI_MIN, Mpi::mpi.comm());
+  const double minimumCellTimestep = minimumTimestep;
   if (wiggle == 1) {
     if (infoprint) {
       logInfo() << "Minimum timestep:" << seissol::UnitTime.formatPrefix(minimumTimestep).c_str();
@@ -71,22 +72,23 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
   if (infoprint) {
     std::vector<std::uint64_t> clusters(maxLtsId + 1);
     std::vector<std::uint64_t> clustersDR(maxLtsId + 1);
-    const double timefactorGTS = minimumTimestep * mesh.getElements().size();
-    numerical::StableAccumulator<double> timefactorELTS;
-    numerical::StableAccumulator<double> timefactorCLTS;
+    // What a scheme costs over a stretch of simulated time is the number of cell updates it takes:
+    // the sum over the cells of one over their timestep. The speedups compare that to global time
+    // stepping, where every cell takes the smallest cell timestep; the wiggle factor is for the
+    // clustering alone, and it is in the cluster timesteps already.
+    const double updatesGTS = static_cast<double>(mesh.getElements().size()) / minimumCellTimestep;
+    numerical::StableAccumulator<double> updatesELTS;
+    numerical::StableAccumulator<double> updatesCLTS;
     for (const auto& element : mesh.getElements()) {
-      ++clusters[static_cast<std::size_t>(element.clusterId)];
+      ++clusters[element.clusterId];
       for (int i = 0; i < 4; ++i) {
         if (element.boundaries[i] == FaceType::DynamicRupture) {
-          ++clustersDR[static_cast<std::size_t>(element.clusterId)];
+          ++clustersDR[element.clusterId];
         }
       }
 
-      const auto elts = element.timestep;
-      const auto clts = layout.timestepRate(static_cast<std::size_t>(element.clusterId));
-
-      timefactorELTS += elts * wiggle;
-      timefactorCLTS += clts * wiggle;
+      updatesELTS += 1.0 / element.timestep;
+      updatesCLTS += 1.0 / layout.timestepRate(element.clusterId);
     }
     MPI_Allreduce(MPI_IN_PLACE,
                   clusters.data(),
@@ -100,13 +102,12 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
                   Mpi::castToMpiType<std::uint64_t>(),
                   MPI_SUM,
                   Mpi::mpi.comm());
-    std::array<double, 3> timefactors{
-        timefactorGTS, timefactorELTS.result(), timefactorCLTS.result()};
+    std::array<double, 3> updates{updatesGTS, updatesELTS.result(), updatesCLTS.result()};
     MPI_Allreduce(
-        MPI_IN_PLACE, timefactors.data(), timefactors.size(), MPI_DOUBLE, MPI_SUM, Mpi::mpi.comm());
+        MPI_IN_PLACE, updates.data(), updates.size(), MPI_DOUBLE, MPI_SUM, Mpi::mpi.comm());
 
-    const auto eltsSpeedup = timefactors[1] / timefactors[0];
-    const auto cltsSpeedup = timefactors[2] / timefactors[0];
+    const auto eltsSpeedup = updates[0] / updates[1];
+    const auto cltsSpeedup = updates[0] / updates[2];
     logInfo() << "Theoretical speedup to GTS:" << eltsSpeedup << "elementwise LTS;" << cltsSpeedup
               << "clustered LTS (current setup)";
 
@@ -117,6 +118,17 @@ ClusterLayout ClusterLayout::fromMesh(const std::vector<std::uint64_t>& rates,
       // clustering histogram for that instead)
       logInfo() << i << ":" << clusters[i] << "," << (clustersDR[i] / 2);
     }
+
+    ClusterLayout::Report report;
+    report.minimumCellTimestep = minimumCellTimestep;
+    report.wiggleFactor = wiggle;
+    report.elementwiseSpeedup = eltsSpeedup;
+    report.clusteredSpeedup = cltsSpeedup;
+    report.cells = clusters;
+    for (const auto faces : clustersDR) {
+      report.dynamicRuptureFaces.push_back(faces / 2);
+    }
+    layout.report = report;
   }
 
   return layout;

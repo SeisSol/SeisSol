@@ -22,7 +22,7 @@ namespace seissol::io::instance::point {
 class Pytables : public TableWriter {
   public:
   ~Pytables() override = default;
-  Pytables();
+  explicit Pytables(std::string name);
 
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() override;
 

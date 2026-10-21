@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_COMMON_REAL_H_
 
 #include <cstddef>
+#include <string>
 namespace seissol {
 
 enum class RealType { F32, F64 };
@@ -28,12 +29,29 @@ struct RealTypeWrapper<RealType::F64> {
 template <RealType P>
 using RealT = typename RealTypeWrapper<P>::Type;
 
+/// The type of the reals a configuration computes in.
+template <typename Cfg>
+using Real = RealT<Cfg::Precision>;
+
 constexpr std::size_t sizeOfRealType(RealType type) {
   switch (type) {
   case seissol::RealType::F32:
     return 4;
   case seissol::RealType::F64:
     return 8;
+  default:
+    throw;
+  }
+}
+
+// TODO: make constexpr with C++20
+
+inline std::string stringRealType(RealType type) {
+  switch (type) {
+  case seissol::RealType::F32:
+    return "f32";
+  case seissol::RealType::F64:
+    return "f64";
   default:
     throw;
   }

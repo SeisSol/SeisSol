@@ -7,12 +7,14 @@
 
 #include "Common.h"
 
+#include "Common/Json.h"
+
+#include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <ostream>
 #include <stdexcept>
 #include <string>
-#include <type_traits>
 #include <unordered_map>
 #include <utils/stringutils.h>
 #include <vector>
@@ -103,47 +105,45 @@ void Aux::writeOutput(std::ostream& stream,
     stream << "GFLOP (non-zero) for seissol proxy  : " << output.actualNonZeroGFlop << '\n';
     stream << "GFLOP (hardware) for seissol proxy  : " << output.actualHardwareGFlop << '\n';
     stream << "GiB (estimate) for seissol proxy    : " << output.gib << '\n';
+    stream << "GiB (kernels) for seissol proxy     : " << output.kernelGib << '\n';
     stream << '\n';
     stream << "FLOPS/cycle (non-zero)              : " << output.nonZeroFlopPerCycle << '\n';
     stream << "FLOPS/cycle (hardware)              : " << output.hardwareFlopPerCycle << '\n';
     stream << "Bytes/cycle (estimate)              : " << output.bytesPerCycle << '\n';
+    stream << "Bytes/cycle (kernel)                : " << output.kernelBytesPerCycle << '\n';
     stream << '\n';
     stream << "GFLOPS (non-zero) for seissol proxy : " << output.nonZeroGFlops << '\n';
     stream << "GFLOPS (hardware) for seissol proxy : " << output.hardwareGFlops << '\n';
     stream << "GiB/s (estimate) for seissol proxy  : " << output.gibPerSecond << '\n';
+    stream << "GiB/s (kernel) for seissol proxy    : " << output.kernelGibPerSecond << '\n';
     stream << "=================================================\n";
     stream << '\n';
   } else {
-    stream << '{';
-    bool hasData = false;
-    const auto writeField = [&stream, &hasData](const std::string& name, const auto& data) {
-      if (hasData) {
-        stream << ',';
-      }
-      using DataType = std::decay_t<decltype(data)>;
-      stream << '\"' << name << "\":";
-      if constexpr (std::is_same_v<DataType, std::string> || std::is_same_v<DataType, char*>) {
-        stream << '\"' << data << '\"';
-      } else {
-        stream << data;
-      }
-      hasData = true;
-    };
-    writeField("name", kernelStr);
-    writeField("time", output.time);
-    writeField("cycles", output.cycles);
-    writeField("gflop-libxsmm", output.libxsmmNumTotalGFlop);
-    writeField("gflop-pspamm", output.pspammNumTotalGFlop);
-    writeField("gflop-nz", output.actualNonZeroGFlop);
-    writeField("gflop-hw", output.actualHardwareGFlop);
-    writeField("gib", output.gib);
-    writeField("gflopcycle-nz", output.nonZeroFlopPerCycle);
-    writeField("gflopcycle-hw", output.nonZeroFlopPerCycle);
-    writeField("gibcycle", output.bytesPerCycle);
-    writeField("gflops-nz", output.nonZeroGFlops);
-    writeField("gflops-hw", output.hardwareGFlops);
-    writeField("gibs", output.gibPerSecond);
-    stream << '}' << '\n';
+    // Written for machine consumption, on one line. No non-finite value may reach it: JSON has no
+    // spelling for those, and the readers expect a number for every field. Runner.cpp keeps every
+    // field finite; this is the second line of defence.
+    const auto finite = [](double value) { return std::isfinite(value) ? value : 0.0; };
+    json::Value document;
+    document["name"] = kernelStr;
+    document["cycle-source"] = output.cycleSource;
+    document["time"] = finite(output.time);
+    document["cycles"] = finite(static_cast<double>(output.cycles));
+    document["gflop-libxsmm"] = finite(output.libxsmmNumTotalGFlop);
+    document["gflop-pspamm"] = finite(output.pspammNumTotalGFlop);
+    document["gflop-libxsmm-pspamm"] = finite(output.libxsmmAndpspammNumTotalGFlop);
+    document["gflop-nz"] = finite(output.actualNonZeroGFlop);
+    document["gflop-hw"] = finite(output.actualHardwareGFlop);
+    document["gib"] = finite(output.gib);
+    document["gib-kernel"] = finite(output.kernelGib);
+    document["gflopcycle-nz"] = finite(output.nonZeroFlopPerCycle);
+    document["gflopcycle-hw"] = finite(output.hardwareFlopPerCycle);
+    document["gibcycle"] = finite(output.bytesPerCycle);
+    document["gibcycle-kernel"] = finite(output.kernelBytesPerCycle);
+    document["gflops-nz"] = finite(output.nonZeroGFlops);
+    document["gflops-hw"] = finite(output.hardwareGFlops);
+    document["gibs"] = finite(output.gibPerSecond);
+    document["gibs-kernel"] = finite(output.kernelGibPerSecond);
+    stream << document.dump(-1) << '\n';
   }
 }
 

@@ -1,0 +1,8 @@
+{
+  "compiler": "@CMAKE_CXX_COMPILER_ID@ @CMAKE_CXX_COMPILER_VERSION@",
+  "processor": "@CMAKE_SYSTEM_PROCESSOR@",
+  "host-arch": "@HOST_ARCH@",
+  "device-backend": "@SEISSOL_CAP_DEVICE@",
+  "device-arch": "@DEVICE_ARCH@",
+  "build-type": "@CMAKE_BUILD_TYPE@"
+}

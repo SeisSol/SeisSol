@@ -8,10 +8,13 @@
 
 #include "Initializer/BasicTypedefs.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <optional>
+#include <sstream>
 #include <string>
-#include <unordered_map>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <yaml-cpp/yaml.h>
@@ -21,23 +24,21 @@ namespace seissol {
 FaceMap parseFaceMap(const YAML::Node& node) {
   FaceMap map;
 
-  const static std::unordered_map<std::string, FaceType> StringToNameMap = {
-      {"regular", FaceType::Regular},
-      {"freeSurface", FaceType::FreeSurface},
-      {"freeSurfaceGravity", FaceType::FreeSurfaceGravity},
-      {"dynamicRupture", FaceType::DynamicRupture},
-      {"dirichlet", FaceType::Dirichlet},
-      {"outflow", FaceType::Outflow},
-      {"analytical", FaceType::Analytical},
-  };
-
   for (const auto& entry : node) {
     const auto stringType = entry.first.as<std::string>();
-    const auto typeFind = StringToNameMap.find(stringType);
-    if (typeFind == StringToNameMap.end()) {
-      logError() << "";
+    const auto* const typeFind =
+        std::find_if(FaceTypes.begin(), FaceTypes.end(), [&](FaceType candidate) {
+          return faceTypeName(candidate) == stringType;
+        });
+    if (typeFind == FaceTypes.end()) {
+      std::stringstream known;
+      for (std::size_t i = 0; i < FaceTypes.size(); ++i) {
+        known << (i == 0 ? "" : ", ") << faceTypeName(FaceTypes[i]);
+      }
+      logError() << "Unknown face type" << stringType
+                 << "in the face map. Known types are:" << known.str();
     }
-    const auto type = typeFind->second;
+    const auto type = *typeFind;
 
     const auto processEntry = [&](const auto& listEntry) {
       auto strParts = utils::StringUtils::split(listEntry, ',');
@@ -93,6 +94,16 @@ FaceMap parseFaceMap(const YAML::Node& node) {
   }
 
   return map;
+}
+
+FaceMap readFaceMap(const std::string& path) {
+  YAML::Node node;
+  try {
+    node = YAML::LoadFile(path);
+  } catch (const std::exception& error) {
+    logError() << "Could not read the face map file" << path << ":" << std::string(error.what());
+  }
+  return parseFaceMap(node);
 }
 
 FaceMap defaultFaceMap() {

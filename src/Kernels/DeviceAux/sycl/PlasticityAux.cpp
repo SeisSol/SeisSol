@@ -7,66 +7,72 @@
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
 
+#include "Common/Real.h"
+#include "Config.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
+#include "Model/Plasticity.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cmath>
+#include <cstddef>
 #include <sycl/sycl.hpp>
 
 namespace seissol::kernels::device::aux::plasticity {
 
-template <typename Tensor>
-constexpr size_t leadDim() {
-  if constexpr (multisim::MultisimEnabled) {
-    return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
-  } else {
-    return Tensor::Stop[0] - Tensor::Start[0];
-  }
-}
-
+namespace {
+template <typename Cfg>
 auto getrange(std::size_t size, std::size_t numElements) {
-  if constexpr (multisim::MultisimEnabled) {
-    return sycl::nd_range<1>({numElements * multisim::NumSimulations * size},
-                             {multisim::NumSimulations * size});
+  if constexpr (Cfg::NumSimulations > 1) {
+    return sycl::nd_range<1>({numElements * Cfg::NumSimulations * size},
+                             {Cfg::NumSimulations * size});
   } else {
     return sycl::nd_range<1>({numElements * size}, {size});
   }
 }
 
-void plasticityNonlinear(real** __restrict nodalStressTensors,
-                         real** __restrict pstrainPtr,
-                         unsigned* __restrict isAdjustableVector,
-                         std::size_t* __restrict yieldCounter,
-                         const seissol::model::PlasticityData* __restrict plasticity,
-                         double oneMinusIntegratingFactor,
-                         double tV,
-                         double timeStepWidth,
-                         const size_t numElements,
-                         void* streamPtr) {
-  constexpr unsigned NumNodes = init::QStressNodal::Stop[multisim::BasisFunctionDimension] -
-                                init::QStressNodal::Start[multisim::BasisFunctionDimension];
+template <typename Cfg>
+void plasticityNonlinearOfSolid(Real<Cfg>** __restrict nodalStressTensors,
+                                Real<Cfg>** __restrict pstrainPtr,
+                                unsigned* __restrict isAdjustableVector,
+                                std::size_t* __restrict yieldCounter,
+                                const seissol::model::PlasticityData<Cfg>* __restrict plasticity,
+                                const unsigned* __restrict cellIndices,
+                                Real<Cfg> oneMinusIntegratingFactor,
+                                Real<Cfg> tV,
+                                Real<Cfg> timeStepWidth,
+                                const size_t numElements,
+                                void* streamPtr) {
 
-  auto queue = reinterpret_cast<sycl::queue*>(streamPtr);
-  auto rng = getrange(NumNodes, numElements);
+  using real = Real<Cfg>;
+
+  constexpr unsigned NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisDim<Cfg>] -
+                                init::QStressNodal<Cfg>::Start[multisim::BasisDim<Cfg>];
+
+  auto* queue = reinterpret_cast<sycl::queue*>(streamPtr);
+  auto rng = getrange<Cfg>(NumNodes, numElements);
 
   queue->submit([&](sycl::handler& cgh) {
-    sycl::local_accessor<int> isAdjusted(1, cgh);
+    const sycl::local_accessor<int> isAdjusted(1, cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
       auto wid = item.get_group().get_group_id(0);
       auto tid = item.get_local_id(0);
 
       real* qStressNodal = nodalStressTensors[wid];
-      real localStresses[NumStressComponents];
+      const seissol::model::PlasticityData<Cfg>& cellPlasticity = plasticity[cellIndices[wid]];
+      real localStresses[NumStressComponents<Cfg>];
 
-      constexpr auto ElementTensorsColumn = leadDim<init::QStressNodal>();
+      constexpr auto ElementTensorsColumn = multisim::linearDim<Cfg, init::QStressNodal<Cfg>>();
 #pragma unroll
-      for (int i = 0; i < NumStressComponents; ++i) {
+      for (int i = 0; i < NumStressComponents<Cfg>; ++i) {
         localStresses[i] = qStressNodal[tid + ElementTensorsColumn * i];
       }
 
       // 1. Compute the mean stress for each node
-      real meanStress = (localStresses[0] + localStresses[1] + localStresses[2]) / 3.0f;
+      const real meanStress =
+          (localStresses[0] + localStresses[1] + localStresses[2]) / static_cast<real>(3);
 
 // 2. Compute deviatoric stress tensor
 #pragma unroll
@@ -75,16 +81,17 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       }
 
       // 3. Compute the second invariant for each node
-      real tau = 0.5 * (localStresses[0] * localStresses[0] + localStresses[1] * localStresses[1] +
-                        localStresses[2] * localStresses[2]);
+      real tau = static_cast<real>(0.5) *
+                 (localStresses[0] * localStresses[0] + localStresses[1] * localStresses[1] +
+                  localStresses[2] * localStresses[2]);
       tau += (localStresses[3] * localStresses[3] + localStresses[4] * localStresses[4] +
               localStresses[5] * localStresses[5]);
       tau = std::sqrt(tau);
 
       // 4. Compute the plasticity criteria
       const real cohesionTimesCosAngularFriction =
-          plasticity[wid].cohesionTimesCosAngularFriction[tid];
-      const real sinAngularFriction = plasticity[wid].sinAngularFriction[tid];
+          cellPlasticity.cohesionTimesCosAngularFriction[tid];
+      const real sinAngularFriction = cellPlasticity.sinAngularFriction[tid];
       real taulim = cohesionTimesCosAngularFriction - meanStress * sinAngularFriction;
       taulim = std::max(static_cast<real>(0.0), taulim);
 
@@ -94,24 +101,24 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
       item.barrier();
 
       // 5. Compute the yield factor
-      real yieldfactor = 0.0;
+      real yieldfactor{};
       if (tau > taulim) {
         isAdjusted[0] = static_cast<unsigned>(true);
-        yieldfactor = ((taulim / tau) - 1.0) * oneMinusIntegratingFactor;
+        yieldfactor = ((taulim / tau) - static_cast<real>(1)) * oneMinusIntegratingFactor;
       }
 
       // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
       item.barrier();
       if (isAdjusted[0]) {
-        const real factor = plasticity[wid].mufactor / (tV * oneMinusIntegratingFactor);
+        const real factor = cellPlasticity.mufactor / (tV * oneMinusIntegratingFactor);
 
-        real* __restrict eta = pstrainPtr[wid] + tensor::QStressNodal::size();
+        real* __restrict eta = pstrainPtr[wid] + tensor::QStressNodal<Cfg>::size();
         real* __restrict localPstrain = pstrainPtr[wid];
 
         real dudtUpdate = 0;
 
 #pragma unroll
-        for (int i = 0; i < NumStressComponents; ++i) {
+        for (int i = 0; i < NumStressComponents<Cfg>; ++i) {
           const int q = tid + ElementTensorsColumn * i;
 
           const auto updatedStressNodal = localStresses[i] * yieldfactor;
@@ -133,7 +140,7 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
                              sycl::access::address_space::global_space>(*yieldCounter);
 
         // update the FLOPs that we've been here
-        yieldCounterAR.fetch_add(1, sycl::memory_order::relaxed);
+        yieldCounterAR.fetch_add(std::size_t{1}, sycl::memory_order::relaxed);
       }
       if (tid == 0) {
         isAdjustableVector[wid] = isAdjusted[0];
@@ -141,5 +148,51 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
     });
   });
 }
+} // namespace
+
+template <typename Cfg>
+void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
+                         Real<Cfg>** __restrict pstrainPtr,
+                         unsigned* __restrict isAdjustableVector,
+                         std::size_t* __restrict yieldCounter,
+                         const seissol::model::PlasticityData<Cfg>* __restrict plasticity,
+                         const unsigned* __restrict cellIndices,
+                         Real<Cfg> oneMinusIntegratingFactor,
+                         Real<Cfg> tV,
+                         Real<Cfg> timeStepWidth,
+                         const size_t numElements,
+                         void* streamPtr) {
+  // a material without the stresses of a solid has nothing that yields; the kernel, which reads the
+  // six stresses, is not even compiled for it
+  if constexpr (model::MaterialOf<Cfg>::SupportsPlasticity) {
+    plasticityNonlinearOfSolid<Cfg>(nodalStressTensors,
+                                    pstrainPtr,
+                                    isAdjustableVector,
+                                    yieldCounter,
+                                    plasticity,
+                                    cellIndices,
+                                    oneMinusIntegratingFactor,
+                                    tV,
+                                    timeStepWidth,
+                                    numElements,
+                                    streamPtr);
+  }
+}
+
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template void plasticityNonlinear<Cfg>(                                                          \
+      Real<Cfg> * * __restrict nodalStressTensors,                                                 \
+      Real<Cfg> * * __restrict pstrainPtr,                                                         \
+      unsigned* __restrict isAdjustableVector,                                                     \
+      std::size_t* __restrict yieldCounter,                                                        \
+      const seissol::model::PlasticityData<Cfg>* __restrict plasticity,                            \
+      const unsigned* __restrict cellIndices,                                                      \
+      Real<Cfg> oneMinusIntegratingFactor,                                                         \
+      Real<Cfg> tV,                                                                                \
+      Real<Cfg> timeStepWidth,                                                                     \
+      size_t numElements,                                                                          \
+      void* streamPtr);
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::kernels::device::aux::plasticity

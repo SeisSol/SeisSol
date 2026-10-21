@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_MONITORING_LOOPSTATISTICS_H_
 #define SEISSOL_SRC_MONITORING_LOOPSTATISTICS_H_
 
+#include "Common/Json.h"
 #include "Parallel/MPI.h"
 
 #include <algorithm>
@@ -22,8 +23,6 @@
 namespace seissol {
 class LoopStatistics {
   public:
-  void enableSampleOutput(bool enabled);
-
   void addRegion(const std::string& name, bool includeInSummary = true);
 
   [[nodiscard]] unsigned getRegion(const std::string& name) const;
@@ -37,18 +36,17 @@ class LoopStatistics {
 
   void reset();
 
-  void printSummary(MPI_Comm comm);
+  /**
+   * @brief Prints the time spent in the regions, and a regression of it over the iterations.
+   *
+   * Collective. Returns what it printed, for the run summary (complete on rank 0 only).
+   */
+  json::Value printSummary(MPI_Comm comm);
 
-  void writeSamples(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
+  //! @brief The time this rank spent in the regions that count towards the total, the kernels.
+  [[nodiscard]] double kernelTime() const;
 
   private:
-  struct Sample {
-    timespec begin;
-    timespec end;
-    unsigned numIters;
-    unsigned subRegion;
-  };
-
   struct StatisticVariables {
     double x = 0;
     double x2 = 0;
@@ -60,7 +58,6 @@ class LoopStatistics {
 
   struct Region {
     std::string name;
-    std::vector<Sample> times;
     bool includeInSummary;
     timespec begin{};
     StatisticVariables variables;
@@ -69,7 +66,6 @@ class LoopStatistics {
   };
 
   std::vector<Region> regions_;
-  bool outputSamples_ = false;
 };
 } // namespace seissol
 

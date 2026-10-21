@@ -8,6 +8,10 @@
 ! A sample SeisSol parameter file, with all options explained.
 
 &equations
+!configuration the cells compute in, by name, as the build lists them (e.g. elastic-linearck-o4-f64-stroud); the first one built if not given
+!Configuration = 'elastic-linearck-o4-f64-stroud'
+!mesh groups whose cells compute in another configuration: "groups:configuration" entries, separated by ";", the groups separated by ","
+!ConfigMap = '2,3:viscoelastic-linearckanelastic-m3-o4-f64-stroud; 4:elastic-linearck-o5-f64-stroud'
 !yaml file defining spatial dependance of material properties
 MaterialFileName = '33_layered_constant.yaml'
 !1: Compute average materials for each cell, 0: sample material values at element barycenters
@@ -40,16 +44,18 @@ cICType = 'Zero'                  ! Initial Condition
 !Possible values are
 !Zero        All zero - the standard case to work with point source or dynamic rupture
 !Planarwave  A planar wave for convergence tests, needs periodic boundary conditions
+!SuperimposedPlanarwave Three superimposed planar waves for convergence tests, needs periodic boundary conditions
 !Travelling  A planar wave travelling wave (one period of a plane wave), needs more parameters to be specified
 !AcousticTravellingwithITM A travelling acoustic wave with ITM
 !Scholte     A Scholte wave to test elastic-acoustic coupling
 !Snell       Snells law to test elastic-acoustic coupling
-!Ocean       An uncoupled ocean test case for acoustic equations
+!Ocean_0, Ocean_1, Ocean_2 An uncoupled ocean test case for acoustic equations (three modes)
+!PressureInjection A Gaussian perturbation of the fluid pressure (poroelastic materials only)
 !easi        Use an easi file for the input condition
 
-!The following parameters are only needed for the travelling wave IC:
+!The following parameters are only needed for the travelling wave IC (kVec optionally also for the planar wave IC):
 origin = 0 0 0.5             ! Origin of the wave
-kVec = 6.283 0 0             ! Gives direction of wave propagation, the wavelength of the travelling wave is 2*pi / norm(kVec)
+kVec = 6.283 0 0             ! Gives direction of wave propagation, the wavelength is 2*pi / norm(kVec)
 k = 6.283 ! Wave number to be used for the travelling acoustic wave with ITM test case. Not to be used in other scenarios
 ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
 
@@ -82,8 +88,13 @@ TpProxyExponent = 0.3333333333333333 ! exponent alpha in the TP proxy slip weake
 
 rsmaxsliprateupdates = 60 ! maximum amount of Newton-Raphson steps for finding the slip-rate fixed-point (RSF only)
 rsstateupdates = 10 ! maximum amount of (outer) iterations the slip-rate and state fixed-point (RSF only). Each iteration includes a Newton-Raphson search for the slip rate.
-rsslipratetolerance = 1e-8 ! tolerance for the slip rate Newton-Raphson step.
-rsstatetolerance = 1e-8 ! tolerance for the state in the outer iterations
+rsslipratetolerance = 1e-8 ! relative tolerance on the slip rate Newton-Raphson step,
+                           ! i.e. the solve stops at |dV| < rsslipratetolerance * V.
+                           ! Values below the machine epsilon of the build precision are
+                           ! raised to a few ulp, since no nonzero step is smaller.
+rsstatetolerance = 1e-8 ! relative tolerance on the slip rate of the outer iteration,
+                        ! i.e. the loop stops at |dV| < rsstatetolerance * V. Values below
+                        ! the machine epsilon of the build precision are raised to a few ulp.
 /
 
 !see: https://seissol.readthedocs.io/en/latest/fault-output.html
@@ -102,6 +113,8 @@ printtimeinterval = 1       ! Timestep output frequency. Each ((timestep % print
 OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1  ! turn on and off fault outputs
 PPFileName = 'tpv33_faultreceivers.dat'
 outputinterval = 1.0 ! Write-out interval for the on-fault receivers.
+format = 'csv' ! 'csv' (default) writes one text file per receiver, 'hdf5' one table for all of them
+samplechunk = 0 ! (hdf5 only) as receiversamplechunk in the output section
 /
 
 &SourceType
@@ -114,7 +127,7 @@ outputinterval = 1.0 ! Write-out interval for the on-fault receivers.
 MeshFile = 'tpv33_gmsh'         ! Name of mesh file
 pumlboundaryformat = 'auto'      ! the boundary data type for PUML files ('auto', 'i32', 'i64', 'i32x4')
 pumltopologyformat = 'auto'      ! the topology type for PUML files ('auto', 'geometric', 'identify-face', 'identify-vertex')
-meshgenerator = 'PUML'          ! Name of meshgenerator (Netcdf or PUML)
+meshgenerator = 'PUML'          ! Name of meshgenerator (only PUML is supported)
 PartitioningLib = 'Default' ! name of the partitioning library (see src/Geometry/PartitioningLib.cpp for a list of possible options, you may need to enable additional libraries during the build process)
 facemapfile = '' ! filename name of the face tag file
 /
@@ -157,6 +170,14 @@ OutputRegionBounds = -20e3 20e3 -10e3 10e3 -20e3 0e3 !(optional) array that desc
 
 wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for the wavefield
 
+wavefieldcomputerotation = 0 ! compute rotation for the volume output
+wavefieldcomputestrain = 0 ! compute strain for the volume output
+
+wavefieldprojection = 'pointwise' ! how the solution is transferred onto the output points:
+! 'pointwise' evaluates it there, 'l2' projects onto the output space (conservative per subcell)
+
+wavefieldtimeseries = 'snapshot' ! overrides outputtimeseries for the wavefield output
+
 ! off-fault receivers
 ReceiverOutput = 1                   ! Enable/disable off-fault receiver output
 ReceiverFormat = 'csv'               ! Format of receiver output: 'csv' (default) or 'hdf5'
@@ -166,14 +187,25 @@ pickdt = 0.005                       ! Pickpoint Sampling
 !            If omitted, receivers are written at the end of the simulation.
 ReceiverOutputInterval = 10.0
 ReceiverComputeRotation = 0          ! Compute Rotation of the velocity field at the receivers
-ReceiverComputeStrain = 0          ! Compute strain at the receivers
+ReceiverComputeStrainRate = 0            ! Compute strain rate at the receivers
+receiversamplechunk = 0              ! (hdf5 only) how far a storage chunk reaches along the
+! sample axis; 0 lets the writer decide. The chunking is fixed when the file is created, while
+! the number of samples a write carries varies as soon as pickdt does not divide
+! ReceiverOutputInterval, so which value pays off depends on how the file is read afterwards.
+
 
 ! Free surface output
 SurfaceOutput = 1
 SurfaceOutputRefinement = 1
 SurfaceOutputInterval = 2.0
+! (cf. wavefield)   |stress     |vel
+SurfaceOutputMask = 0 0 0 0 0 0 1 1 1
 
 surfacevtkorder = -1 ! positive values enable the VTKHDF high-order output for the surface output
+
+surfaceprojection = 'l2' ! as wavefieldprojection, for the free-surface output
+
+surfacetimeseries = 'snapshot' ! overrides outputtimeseries for the free-surface output
 
 !Checkpointing
 Checkpoint = 1                       ! enable/disable checkpointing
@@ -182,6 +214,13 @@ checkPointInterval = 6
 xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
 ! and free-surface output. The HDF5 backend is only supported when SeisSol is compiled with
 ! HDF5 support.
+
+outputtimeseries = 'snapshot' ! how the steps of a mesh output are distributed over files:
+! 'snapshot' writes one self-contained file per step, 'incremental' keeps the geometry in a file
+! of its own that the snapshots link to, and 'monolith' writes a single VTKHDF time series for the
+! whole run. Only VTKHDF can do more than 'snapshot', so this needs a vtkorder on the output in
+! question. Can be set per output with wavefieldtimeseries, surfacetimeseries, and timeseries in
+! the elementwise section.
 
 EnergyOutput = 1 ! Computation of energy, written in csv file
 EnergyTerminalOutput = 1 ! Write energy to standard output
@@ -192,7 +231,9 @@ FaultEnergiesFromAcrossFaultVelocities = 0 ! 1: (less accurate but kept for back
                                            ! based on slip rate interpolated from velocities differences across the fault
                                            ! 0: (default) computed from slipRate1 and slipRate2 from the friction law
 
-LoopStatisticsNetcdfOutput = 0 ! Writes detailed loop statistics. Warning: Produces terabytes of data!
+EpochInterval = 0 ! (optional) Ends a simulation epoch at least every this much simulated time, with
+! a synchronization point that writes nothing; the log and the run summary report the progress and
+! the performance of every epoch. 0 (the default) leaves that to the outputs.
 /
 
 &AbortCriteria

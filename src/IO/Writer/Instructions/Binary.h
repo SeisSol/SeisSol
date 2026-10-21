@@ -11,7 +11,9 @@
 #include "Data.h"
 #include "Instruction.h"
 
+#include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <yaml-cpp/yaml.h>
 
@@ -21,10 +23,19 @@ struct BinaryWrite : public WriteInstruction {
   ~BinaryWrite() override = default;
   std::string filename;
   std::shared_ptr<writer::DataSource> dataSource;
+  std::size_t alignment;
+  bool append;
+  //! Where in the file data that is not distributed goes; the file stays as it is around it.
+  //! Without it, the data goes behind what the file holds.
+  std::optional<std::size_t> offset;
 
   YAML::Node serialize() override;
 
-  BinaryWrite(const std::string& filename, std::shared_ptr<writer::DataSource> dataSource);
+  BinaryWrite(const std::string& filename,
+              std::shared_ptr<writer::DataSource> dataSource,
+              std::size_t alignment,
+              bool append,
+              std::optional<std::size_t> offset = std::nullopt);
 
   explicit BinaryWrite(YAML::Node node);
 

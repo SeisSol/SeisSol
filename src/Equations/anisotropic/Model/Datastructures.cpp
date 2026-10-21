@@ -9,9 +9,8 @@
 #include "Datastructures.h"
 
 #include "Equations/elastic/Model/Datastructures.h"
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
-#include "GeneratedCode/tensor.h"
+#include "GeneratedCode/general/init.h"
+#include "GeneratedCode/general/kernel.h"
 #include "Model/CommonDatastructures.h"
 
 #include <Eigen/Core>
@@ -33,10 +32,9 @@ double AnisotropicMaterial::getMuBar() const { return (c44 + c55 + c66) / 3.0; }
 AnisotropicMaterial::AnisotropicMaterial() = default;
 
 AnisotropicMaterial::AnisotropicMaterial(const ElasticMaterial& m)
-    : c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda), c22(m.lambda + 2 * m.mu),
-      c23(m.lambda), c33(m.lambda + 2 * m.mu), c44(m.mu), c55(m.mu), c66(m.mu) {
-  rho = m.rho;
-}
+    : Material(m.rho), c11(m.lambda + 2 * m.mu), c12(m.lambda), c13(m.lambda),
+      c22(m.lambda + 2 * m.mu), c23(m.lambda), c33(m.lambda + 2 * m.mu), c44(m.mu), c55(m.mu),
+      c66(m.mu) {}
 
 AnisotropicMaterial::AnisotropicMaterial(const std::vector<double>& materialValues)
     : Material(materialValues), c11(materialValues.at(1)), c12(materialValues.at(2)),
@@ -157,6 +155,12 @@ double AnisotropicMaterial::getMaxWaveSpeed() const {
 
   for (unsigned j = 0; j < 200; ++j) {
     double n[3] = {samplingDirections(j, 0), samplingDirections(j, 1), samplingDirections(j, 2)};
+    // the directions are stored with six digits and are unit vectors to about 1e-6 only; the
+    // Christoffel matrix scales with the square of their length, the wave speed with the length
+    const double length = std::sqrt(n[0] * n[0] + n[1] * n[1] + n[2] * n[2]);
+    for (auto& component : n) {
+      component /= length;
+    }
     double m[9];
     computeChristoffel.direction = n;
     computeChristoffel.christoffel = m;

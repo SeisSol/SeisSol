@@ -9,14 +9,18 @@
 
 #include "TimeManager.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/Iterator.h"
+#include "Common/Json.h"
 #include "CommunicationManager.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ClusteringWriter.h"
@@ -55,9 +59,6 @@ TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
   loopStatistics_.addRegion("computeNeighboringIntegration");
   loopStatistics_.addRegion("computeDynamicRupture");
   loopStatistics_.addRegion("computePointSources");
-
-  loopStatistics_.enableSampleOutput(
-      seissolInstance.getSeisSolParameters().output.loopStatisticsNetcdfOutput);
 }
 
 TimeManager::~TimeManager() = default;
@@ -72,14 +73,28 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
 
-  auto clusteringWriter =
-      writer::ClusteringWriter(seissolInstance_.getSeisSolParameters().output.prefix);
+  // written in initIO, with the rest of the output
+  auto& clusteringWriter = clusteringWriter_.emplace(seissolInstance_.parameters().output.prefix,
+                                                     seissolInstance_.runId());
+
+  const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
+    auto cloned = id;
+    cloned.halo = halo;
+    cloned.lts += offset;
+    return memoryManager.ltsStorage().getColorMap().colorId(cloned);
+  };
 
   std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
 
+  // A pair of an interior and a copy layer computes the dynamic rupture faces of its interior once.
+  // The pair is one cluster in one configuration, and its scheduler is found under the color of
+  // its interior layer.
+  std::vector<std::size_t> drCellsPerPair(memoryManager.ltsStorage().getColorMap().size());
+
   // setup DR schedulers
-  for (const auto& layer : memoryManager.getDRStorage().leaves()) {
+  for (const auto& layer : memoryManager.drStorage().leaves()) {
     drCellsPerCluster[layer.getIdentifier().lts] += layer.size();
+    drCellsPerPair[deltaId(layer.getIdentifier(), HaloType::Interior, 0)] += layer.size();
   }
 
   std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
@@ -100,25 +115,16 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                     ? std::numeric_limits<double>::infinity()
                                     : clusterLayout.timestepRate(drClusterOutput);
 
-  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
+  for (const auto drCells : drCellsPerPair) {
     dynamicRuptureSchedulers_.emplace_back(
-        std::make_unique<DynamicRuptureScheduler>(drCellsPerCluster[clusterId], drOutputTimestep));
+        std::make_unique<DynamicRuptureScheduler>(drCells, drOutputTimestep));
   }
 
   std::vector<AbstractTimeCluster*> cellClusterBackmap(
-      memoryManager.getLtsStorage().getColorMap().size());
-
-  const auto deltaId = [&](const auto& id, HaloType halo, int32_t offset) {
-    auto cloned = id;
-    cloned.halo = halo;
-    cloned.lts += offset;
-    return memoryManager.getLtsStorage().getColorMap().colorId(cloned);
-  };
+      memoryManager.ltsStorage().getColorMap().size());
 
   // iterate over local time clusters
-  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
-    auto globalData = memoryManager.getGlobalData();
-
+  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
     const auto clusterId = layer.getIdentifier().lts;
 
     // chop off at synchronization time
@@ -132,36 +138,57 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     const auto profilingId = layer.id();
 
     auto* dynRupInteriorData =
-        &memoryManager.getDRStorage().layer(deltaId(layer.getIdentifier(), HaloType::Interior, 0));
+        &memoryManager.drStorage().layer(deltaId(layer.getIdentifier(), HaloType::Interior, 0));
     auto* dynRupCopyData =
-        &memoryManager.getDRStorage().layer(deltaId(layer.getIdentifier(), HaloType::Copy, 0));
+        &memoryManager.drStorage().layer(deltaId(layer.getIdentifier(), HaloType::Copy, 0));
 
-    auto& cluster = clusters_.emplace_back(
-        std::make_unique<TimeCluster>(clusterId,
-                                      clusterId,
-                                      profilingId,
-                                      settings,
-                                      layer.getIdentifier().halo,
-                                      timeStepSize,
-                                      timeStepRate,
-                                      printProgress,
-                                      dynamicRuptureSchedulers_[clusterId].get(),
-                                      globalData,
-                                      &layer,
-                                      dynRupInteriorData,
-                                      dynRupCopyData,
-                                      memoryManager.getFrictionLaw(),
-                                      memoryManager.getFrictionLawDevice(),
-                                      memoryManager.getFaultOutputManager(),
-                                      seissolInstance_,
-                                      &loopStatistics_,
-                                      &actorStateStatisticsManager_.addCluster(profilingId)));
+    // the cluster computes in the configuration of its layer
+    auto& cluster = clusters_.emplace_back(dispatchConfig(
+        layer.getIdentifier().config, [&](auto cfg) -> std::unique_ptr<TimeClusterInterface> {
+          using Cfg = decltype(cfg);
+          return std::make_unique<TimeCluster<Cfg>>(
+              clusterId,
+              clusterId,
+              profilingId,
+              settings,
+              layer.getIdentifier().halo,
+              timeStepSize,
+              timeStepRate,
+              printProgress,
+              dynamicRuptureSchedulers_[deltaId(layer.getIdentifier(), HaloType::Interior, 0)]
+                  .get(),
+              memoryManager.globalData<Cfg>(),
+              &layer,
+              dynRupInteriorData,
+              dynRupCopyData,
+              memoryManager.frictionLaw(),
+              memoryManager.frictionLawDevice(),
+              memoryManager.faultOutputManager(),
+              seissolInstance_,
+              &loopStatistics_,
+              &actorStateStatisticsManager_.addCluster(profilingId));
+        }));
 
     const auto clusterSize = layer.size();
-    const auto dynRupSize = memoryManager.getDRStorage().layer(layer.id()).size();
+    const auto dynRupSize = memoryManager.drStorage().layer(layer.id()).size();
+    // a copy cell is stored once per neighbor it sends to, and every copy is computed
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    std::size_t duplicateCells = 0;
+    for (std::size_t cell = 0; cell < clusterSize; ++cell) {
+      if (secondaryInformation[cell].duplicate != 0) {
+        ++duplicateCells;
+      }
+    }
+    clusterSizes_.push_back(
+        ClusterSize{clusterId, clusterSize - duplicateCells, duplicateCells, dynRupSize});
     // Add writer to output
-    clusteringWriter.addCluster(
-        profilingId, clusterId, layer.getIdentifier().halo, clusterSize, dynRupSize);
+    clusteringWriter.addCluster(profilingId,
+                                clusterId,
+                                layer.getIdentifier().halo,
+                                clusterSize,
+                                dynRupSize,
+                                timeStepSize,
+                                static_cast<long>(timeStepRate));
 
     if (layer.getIdentifier().halo == HaloType::Copy) {
       cluster->setPriority(ActorPriority::High);
@@ -178,8 +205,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   };
 
-  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost)) {
-    for (auto& otherLayer : memoryManager.getLtsStorage().leaves(Ghost)) {
+  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+    for (auto& otherLayer : memoryManager.ltsStorage().leaves(Ghost)) {
       // only traverse half of all combinations
       if (layer.id() < otherLayer.id()) {
         const int64_t lts1 = layer.getIdentifier().lts;
@@ -194,14 +221,14 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // Create ghost time clusters for MPI
   const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
   const auto persistent = usePersistentMpi(seissolInstance_.env());
-  for (auto& layer : memoryManager.getLtsStorage().leaves(Ghost | Interior)) {
+  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
 
     const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);
 
     for (const auto [i, halo] : common::enumerate(haloStructure.at(layer.id()))) {
 
       const bool hasNeighborRegions = !halo.copy.empty() || !halo.ghost.empty();
-      const auto other = memoryManager.getLtsStorage().getColorMap().argument(i);
+      const auto other = memoryManager.ltsStorage().getColorMap().argument(i);
 
       if (hasNeighborRegions) {
 
@@ -232,8 +259,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   }
 
-  clusteringWriter.write();
-
   // Sort clusters by time step size in increasing order
   auto rateSorter = [](const auto& a, const auto& b) {
     return a->getTimeStepRate() < b->getTimeStepRate();
@@ -252,13 +277,10 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   if (seissol::useCommThread(Mpi::mpi, seissolInstance_.env())) {
     communicationManager_ = std::make_unique<ThreadedCommunicationManager>(
-        std::move(ghostClusters), &seissolInstance_.getPinning());
+        std::move(ghostClusters), &seissolInstance_.pinning());
   } else {
     communicationManager_ = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
-
-  auto& timeMirrorManagers = seissolInstance_.getTimeMirrorManagers();
-  auto& [increaseManager, decreaseManager] = timeMirrorManagers;
 
   auto* ghostClusterPointer = communicationManager_->getGhostClusters();
 
@@ -270,8 +292,33 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     allClusters[i + clusters_.size()] = ghostClusterPointer->at(i).get();
   }
 
-  increaseManager.setClusterVector(allClusters);
-  decreaseManager.setClusterVector(allClusters);
+  for (auto& timeMirrorManager : seissolInstance_.getTimeMirrorManagers()) {
+    timeMirrorManager.setClusterVector(allClusters);
+  }
+}
+
+void TimeManager::writeClustering() const {
+  if (clusteringWriter_.has_value()) {
+    clusteringWriter_->write();
+  }
+}
+
+TimeManager::Updates TimeManager::updates() const {
+  Updates updates;
+  const auto clusterCount = clusterLayout_.value().globalClusterCount;
+  updates.cells.resize(clusterCount);
+  updates.duplicateCells.resize(clusterCount);
+  updates.dynamicRuptureFaces.resize(clusterCount);
+  for (std::size_t i = 0; i < clusters_.size(); ++i) {
+    const auto& size = clusterSizes_[i];
+    const auto steps = static_cast<double>(clusters_[i]->numberOfTimeSteps());
+    updates.cells[size.globalClusterId] += static_cast<double>(size.cells) * steps;
+    updates.duplicateCells[size.globalClusterId] +=
+        static_cast<double>(size.duplicateCells) * steps;
+    updates.dynamicRuptureFaces[size.globalClusterId] +=
+        static_cast<double>(size.dynamicRuptureFaces) * steps;
+  }
+  return updates;
 }
 
 void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
@@ -281,7 +328,7 @@ void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faul
   }
 }
 
-seissol::dr::output::OutputManager* TimeManager::getFaultOutputManager() {
+seissol::dr::output::OutputManager* TimeManager::faultOutputManager() {
   assert(faultOutputManager_ != nullptr);
   return faultOutputManager_;
 }
@@ -300,8 +347,8 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  device.api->putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
+  const device::DeviceInstance& device = device::DeviceInstance::instance();
+  device.api().putProfilingMark("advanceInTime", device::ProfilingColors::Blue);
 #endif
 
   // Move all clusters from RestartAfterSync to Corrected
@@ -354,18 +401,16 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     finished &= communicationManager_->checkIfFinished();
   }
 #ifdef ACL_DEVICE
-  device.api->popLastProfilingMark();
+  device.api().popLastProfilingMark();
 #endif
   for (auto& cluster : clusters_) {
     cluster->finishPhase();
   }
 }
 
-void TimeManager::printComputationTime(const std::string& outputPrefix,
-                                       bool isLoopStatisticsNetcdfOutputOn) {
+json::Value TimeManager::printComputationTime() {
   actorStateStatisticsManager_.finish();
-  loopStatistics_.printSummary(Mpi::mpi.comm());
-  loopStatistics_.writeSamples(outputPrefix, isLoopStatisticsNetcdfOutputOn);
+  return loopStatistics_.printSummary(Mpi::mpi.comm());
 }
 
 double TimeManager::getTimeTolerance() const {
@@ -411,13 +456,13 @@ void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
     sameExecutor &= exec == cluster->getExecutor();
   }
   if (sameExecutor) {
-    seissolInstance_.getMemoryManager().synchronizeTo(place);
+    seissolInstance_.memoryManager().synchronizeTo(place);
   } else {
-    auto* stream = device::DeviceInstance::getInstance().api->getDefaultStream();
+    auto* stream = device::DeviceInstance::instance().api().getDefaultStream();
     for (auto& cluster : clusters_) {
       cluster->synchronizeTo(place, stream);
     }
-    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    device::DeviceInstance::instance().api().syncDefaultStreamWithHost();
   }
 #endif
 }

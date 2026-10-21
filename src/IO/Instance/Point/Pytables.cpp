@@ -7,6 +7,7 @@
 
 #include "Pytables.h"
 
+#include "IO/Instance/Point/TableWriter.h"
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "IO/Writer/Writer.h"
@@ -15,15 +16,18 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 namespace seissol::io::instance::point {
 
 // reference: https://www.pytables.org/usersguide/file_format.html
 
-Pytables::Pytables() = default;
+Pytables::Pytables(std::string name) : TableWriter(std::move(name)) {}
 
 std::function<writer::Writer(const std::string&, std::size_t, double)> Pytables::makeWriter() {
-  return [this](const std::string& prefix, std::size_t counter, double /*time*/) -> writer::Writer {
-    const auto filename = prefix + "-" + name_ + ".h5";
+  return [this](const std::string& prefix,
+                std::size_t /*counter*/,
+                double /*time*/) -> writer::Writer {
+    const auto filename = prefix + "-" + name() + ".h5";
     auto writer = writer::Writer();
 
     this->rowstorageCopy_ = this->rowstorage_;
@@ -37,8 +41,8 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Pytables:
         writer::WriteBuffer::create(rowstorageCopy_.data(), rowCount, {}, rowDatatype),
         rowDatatype));
 
-    // first write
-    if (counter == 0) {
+    // first write of this run
+    if (startsFile()) {
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
           writer::instructions::Hdf5Location(filename, {}),
           "CLASS",
@@ -54,7 +58,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Pytables:
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
           writer::instructions::Hdf5Location(filename, {}),
           "TITLE",
-          writer::WriteInline::createString(name_)));
+          writer::WriteInline::createString(name())));
 
       writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
           writer::instructions::Hdf5Location(filename, {}, "receiverdata"),

@@ -7,7 +7,10 @@
 
 #include <doctest.h>
 
+#include "CellTransform.t.h"
+#include "FaceTransform.t.h"
+#include "GmshNodes.t.h"
+#include "HighOrderPuml.t.h" // IWYU pragma: keep
 #include "MeshReader.t.h"
-#include "MeshRefiner.t.h"
-#include "TriangleRefiner.t.h"
-#include "VariableSubsampler.t.h"
+#include "PumlBoundary.t.h"          // IWYU pragma: keep
+#include "VertexOrderInvariance.t.h" // IWYU pragma: keep

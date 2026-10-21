@@ -40,9 +40,12 @@ const inline SIUnit UnitTime = SIUnit("s", false);
 const inline SIUnit UnitFlop = SIUnit("FLOP", false);
 const inline SIUnit UnitFlopPerS = SIUnit("FLOP/s", false);
 const inline SIUnit UnitEnergy = SIUnit("J", false);
+const inline SIUnit UnitPower = SIUnit("W", false);
 const inline SIUnit UnitMoment = SIUnit("Nm", false);
 const inline SIUnit UnitMomentum = SIUnit("Ns", false);
+const inline SIUnit UnitScalar = SIUnit("", false);
 const inline SIUnit UnitByte = SIUnit("B", true);
+const inline SIUnit UnitBytePerS = SIUnit("B/s", true);
 } // namespace seissol
 
 #endif // SEISSOL_SRC_MONITORING_UNIT_H_

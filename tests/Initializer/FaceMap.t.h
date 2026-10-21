@@ -8,6 +8,9 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/FaceMap.h"
 
+#include <cstdio>
+#include <fstream>
+#include <string>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::unit_test {
@@ -116,6 +119,22 @@ TEST_CASE("Custom face map input" * doctest::test_suite("initializer")) {
   CHECK(map.at(50) == FaceType::FreeSurfaceGravity);
   CHECK(map.at(51) == FaceType::FreeSurfaceGravity);
   CHECK(map.at(54) == FaceType::FreeSurfaceGravity);
+}
+
+TEST_CASE("Face map from a file" * doctest::test_suite("initializer")) {
+  const std::string path = "facemap-test.yaml";
+  {
+    std::ofstream file(path);
+    file << "regular: 0\nfreeSurface: 9\ndynamicRupture: 3, 65-\n";
+  }
+  const auto map = readFaceMap(path);
+  CHECK(std::remove(path.c_str()) == 0);
+
+  CHECK(map.at(0) == FaceType::Regular);
+  CHECK(map.at(9) == FaceType::FreeSurface);
+  CHECK(map.at(3) == FaceType::DynamicRupture);
+  CHECK(map.at(70) == FaceType::DynamicRupture);
+  CHECK_FALSE(map.at(1).has_value());
 }
 
 } // namespace seissol::unit_test
