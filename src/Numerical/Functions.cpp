@@ -231,6 +231,118 @@ std::array<double, 3U> gradDubinerP<3U>(const std::array<unsigned, 3U>& i,
 }
 
 template <>
+double DubinerNormSquared<1U>(const std::array<unsigned, 1U>& i) {
+  return 1.0 / (2.0 * i[0] + 1.0);
+}
+template <>
+double DubinerNormSquared<2U>(const std::array<unsigned, 2U>& i) {
+  return 1.0 / (2.0 * (2.0 * i[0] + 1.0) * (i[0] + i[1] + 1.0));
+}
+template <>
+double DubinerNormSquared<3U>(const std::array<unsigned, 3U>& i) {
+  return 1.0 /
+         (2.0 * (2.0 * i[0] + 1.0) * (i[0] + i[1] + 1.0) * (2.0 * (i[0] + i[1] + i[2]) + 3.0));
+}
+
+namespace {
+template <std::size_t D>
+double
+    bernstein(unsigned degree, const std::array<unsigned, D>& i, const std::array<double, D>& xi) {
+  // the exponent and the barycentric coordinate of the vertex at the origin; a multi-index past
+  // the degree stands for a polynomial that is zero
+  unsigned rest = degree;
+  double origin = 1.0;
+  for (std::size_t k = 0; k < D; ++k) {
+    if (i[k] > rest) {
+      return 0.0;
+    }
+    rest -= i[k];
+    origin -= xi[k];
+  }
+  // the multinomial coefficient, a product of binomials that stays an integer at every step
+  uint64_t coefficient = 1;
+  unsigned taken = rest;
+  for (std::size_t k = 0; k < D; ++k) {
+    for (unsigned j = 1; j <= i[k]; ++j) {
+      coefficient = coefficient * (taken + j) / j;
+    }
+    taken += i[k];
+  }
+  double value = static_cast<double>(coefficient);
+  for (unsigned j = 0; j < rest; ++j) {
+    value *= origin;
+  }
+  for (std::size_t k = 0; k < D; ++k) {
+    for (unsigned j = 0; j < i[k]; ++j) {
+      value *= xi[k];
+    }
+  }
+  return value;
+}
+
+template <std::size_t D>
+std::array<double, D> gradBernstein(unsigned degree,
+                                    const std::array<unsigned, D>& i,
+                                    const std::array<double, D>& xi) {
+  std::array<double, D> gradient{};
+  if (degree == 0) {
+    return gradient;
+  }
+  // the term of the vertex at the origin, which every direction has, since its barycentric
+  // coordinate is l_0 = 1 - xi_1 - ... - xi_D
+  const double origin = bernstein<D>(degree - 1, i, xi);
+  for (std::size_t k = 0; k < D; ++k) {
+    double own = 0.0;
+    if (i[k] > 0) {
+      auto lower = i;
+      --lower[k];
+      own = bernstein<D>(degree - 1, lower, xi);
+    }
+    gradient[k] = degree * (own - origin);
+  }
+  return gradient;
+}
+} // namespace
+
+template <>
+double BernsteinP<1U>(unsigned degree,
+                      const std::array<unsigned, 1U>& i,
+                      const std::array<double, 1U>& xi) {
+  return bernstein<1U>(degree, i, xi);
+}
+template <>
+double BernsteinP<2U>(unsigned degree,
+                      const std::array<unsigned, 2U>& i,
+                      const std::array<double, 2U>& xi) {
+  return bernstein<2U>(degree, i, xi);
+}
+template <>
+double BernsteinP<3U>(unsigned degree,
+                      const std::array<unsigned, 3U>& i,
+                      const std::array<double, 3U>& xi) {
+  return bernstein<3U>(degree, i, xi);
+}
+
+template <>
+std::array<double, 1U> gradBernsteinP<1U>(unsigned degree,
+                                          const std::array<unsigned, 1U>& i,
+                                          const std::array<double, 1U>& xi) {
+  return gradBernstein<1U>(degree, i, xi);
+}
+template <>
+std::array<double, 2U> gradBernsteinP<2U>(unsigned degree,
+                                          const std::array<unsigned, 2U>& i,
+                                          const std::array<double, 2U>& xi) {
+  return gradBernstein<2U>(degree, i, xi);
+}
+template <>
+std::array<double, 3U> gradBernsteinP<3U>(unsigned degree,
+                                          const std::array<unsigned, 3U>& i,
+                                          const std::array<double, 3U>& xi) {
+  return gradBernstein<3U>(degree, i, xi);
+}
+
+template <>
 std::array<double, 1U> antigradDubinerP<1U>(const std::array<unsigned, 1U>& i,
                                             const std::array<double, 1U>& xi) {
   return {shiftedLegendre(i[0], xi[0], -1)};

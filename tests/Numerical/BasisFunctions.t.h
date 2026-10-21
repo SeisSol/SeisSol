@@ -7,16 +7,85 @@
 
 #include <doctest.h>
 
+#include "Common/Constants.h"
+#include "Common/Typedefs.h"
 #include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
 #include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
+#include "Numerical/Functions.h"
+#include "Numerical/Projection.h"
 #include "TestHelper.h"
 
+#include <cmath>
+
 namespace seissol::unit_test {
+
+namespace {
+/// what the Dubiner basis scales its function `function` of an order by in the basis of the
+/// build: one, or the inverse of its norm in the normalized basis. Not for the Bernstein basis.
+double dubinerScale(std::size_t order, std::size_t function) {
+  if constexpr (Config::Basis == BasisType::DubinerNormalized) {
+    const auto index = numerical::projection::modalIndices<3>(order)[function];
+    return 1.0 / std::sqrt(functions::DubinerNormSquared<3>(index));
+  }
+  return 1.0;
+}
+} // namespace
+
+TEST_CASE("Sampled Basis Functions are the basis of the matrices" *
+          doctest::test_suite("numerical")) {
+  // the functions of the basis of the build at the samples of the material, where the generated
+  // matrices hold them (init::materialEval)
+  const auto nodes = init::materialNodes::view::create(init::materialNodes::Values);
+  const auto evaluate = init::materialEval::view::create(init::materialEval::Values);
+  constexpr double Epsilon = 100 * std::numeric_limits<real>::epsilon();
+  for (std::size_t sample = 0; sample < tensor::materialEval::Shape[0]; ++sample) {
+    const basisFunction::SampledBasisFunctions<double> sampled(
+        ConvergenceOrder, nodes(sample, 0), nodes(sample, 1), nodes(sample, 2));
+    REQUIRE(sampled.size() == tensor::materialEval::Shape[1]);
+    for (std::size_t function = 0; function < sampled.size(); ++function) {
+      const double expected =
+          evaluate.isInRange(sample, function) ? evaluate(sample, function) : 0.0;
+      REQUIRE(sampled.data()[function] ==
+              AbsApprox(expected).epsilon(Epsilon * std::max(1.0, std::abs(expected))));
+    }
+  }
+}
+
+TEST_CASE("Sampled Derivatives are the ones of the Sampled Basis Functions" *
+          doctest::test_suite("numerical")) {
+  constexpr double Step = 1e-6;
+  const std::array<double, 3> point{0.2, 0.15, 0.3};
+  const basisFunction::SampledBasisFunctionDerivatives<double> derivatives(
+      ConvergenceOrder, point[0], point[1], point[2]);
+  const auto functions = derivatives.size() / 3;
+  for (std::size_t direction = 0; direction < 3; ++direction) {
+    auto forward = point;
+    auto backward = point;
+    forward[direction] += Step;
+    backward[direction] -= Step;
+    const basisFunction::SampledBasisFunctions<double> ahead(
+        ConvergenceOrder, forward[0], forward[1], forward[2]);
+    const basisFunction::SampledBasisFunctions<double> behind(
+        ConvergenceOrder, backward[0], backward[1], backward[2]);
+    for (std::size_t function = 0; function < functions; ++function) {
+      const double difference = (ahead.data()[function] - behind.data()[function]) / (2.0 * Step);
+      REQUIRE(derivatives.data()[function + functions * direction] ==
+              AbsApprox(difference).epsilon(1e-6 * std::max(1.0, std::abs(difference))));
+    }
+  }
+}
+
 TEST_CASE_TEMPLATE("Sampled Basis Functions" * doctest::test_suite("numerical"),
                    RealT,
                    float,
                    double) {
+  // the values of the Dubiner basis, scaled in the normalized one; the Bernstein basis is checked
+  // against the matrices alone
+  if constexpr (Config::Basis == BasisType::Bernstein) {
+    return;
+  }
   constexpr double Epsilon = 10 * std::numeric_limits<RealT>::epsilon();
   std::vector<RealT> precomputedValues = {1.0,
                                           0.19999999999999998,
@@ -80,8 +149,9 @@ TEST_CASE_TEMPLATE("Sampled Basis Functions" * doctest::test_suite("numerical"),
     const auto funs = sampledBasisFunctions.size();
     REQUIRE(funs <= precomputedValues.size());
     for (size_t i = 0; i < funs; ++i) {
+      const double scale = dubinerScale(order, i);
       REQUIRE(sampledBasisFunctions.data().at(i) ==
-              AbsApprox(precomputedValues.at(i)).epsilon(Epsilon));
+              AbsApprox(precomputedValues.at(i) * scale).epsilon(Epsilon * scale));
     }
   }
 }
@@ -90,6 +160,10 @@ TEST_CASE_TEMPLATE("Sampled Derivatives Functions" * doctest::test_suite("numeri
                    RealT,
                    float,
                    double) {
+  // as for the values
+  if constexpr (Config::Basis == BasisType::Bernstein) {
+    return;
+  }
   constexpr double Epsilon = 100 * std::numeric_limits<RealT>::epsilon();
 
   std::array<std::vector<RealT>, 3> precomputedValues = {{{0.0,
@@ -270,9 +344,10 @@ TEST_CASE_TEMPLATE("Sampled Derivatives Functions" * doctest::test_suite("numeri
     };
     REQUIRE(funs <= precomputedValues[0].size());
     for (size_t i = 0; i < funs; ++i) {
+      const double scale = dubinerScale(order, i);
       for (size_t direction = 0; direction < 3; ++direction) {
         REQUIRE(dataView(i, direction) ==
-                AbsApprox(precomputedValues[direction].at(i)).epsilon(Epsilon));
+                AbsApprox(precomputedValues[direction].at(i) * scale).epsilon(Epsilon * scale));
       }
     }
   }

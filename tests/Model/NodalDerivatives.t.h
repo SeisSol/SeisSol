@@ -11,13 +11,14 @@
 // The time derivatives of the predictor where the material varies inside a cell, as the kernel a
 // cell runs computes them:
 //
-// - with one material for the cell they are what the matrices give, contracted by hand. Where the
-//   build lets the k-th derivative keep only the modes up to the degree ConvergenceOrder - 1 - k
-//   (generated::NarrowedDerivatives), this is where a mode dropped that a constant operator
-//   gives would show up;
+// - with one material for the cell they are what the matrices give, contracted by hand, also where
+//   the material is one per cell and the chain goes through the basis of a lower degree. Where the
+//   build lets the k-th derivative keep only the polynomials up to the degree
+//   ConvergenceOrder - 1 - k (generated::NarrowedDerivatives), this is where one dropped that a
+//   constant operator gives would show up;
 // - with a material that differs from point to point they are the chain formed by hand at the
-//   points: the derivative read at the points, multiplied by the operator there, projected back,
-//   and cut to the modes the derivative keeps.
+//   points: the derivative read at the points, multiplied by the operator there, and projected
+//   back onto the polynomials the derivative keeps.
 
 #include <doctest.h>
 
@@ -32,11 +33,14 @@
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Model/CurvedCell.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Kernels/StarOperands.h"
 #include "Model/Common.h"
 #include "Model/OperatorLayout.h"
+#include "Numerical/BasisFunction.h"
+#include "Numerical/Functions.h"
+#include "Numerical/Projection.h"
+#include "Numerical/Quadrature.h"
 #include "Solver/MultipleSimulations.h"
 #include "VolumeTerm.h"
 
@@ -66,6 +70,15 @@ struct Kernels {
   using Derivative = std::conditional_t<Enabled, kernel::derivative, kernel::derivative>;
 };
 
+/// Whether a kernel reads the source term as one matrix of the cell (ET), where the build carries
+/// it that way.
+template <typename KernelT, typename = void>
+struct TakesSourceMatrix : std::false_type {};
+
+template <typename KernelT>
+struct TakesSourceMatrix<KernelT, std::void_t<decltype(std::declval<KernelT>().ET)>>
+    : std::true_type {};
+
 template <typename ViewT>
 auto denseOf(const ViewT& view, std::size_t rows, std::size_t columns) -> Eigen::MatrixXd {
   Eigen::MatrixXd dense = Eigen::MatrixXd::Zero(rows, columns);
@@ -93,10 +106,38 @@ void forEachMember(F&& function, std::index_sequence<Ks...> /*members*/) {
   (function(std::integral_constant<std::size_t, Ks>{}), ...);
 }
 
-/// how many modes the k-th derivative keeps
-constexpr auto keptModes(std::size_t k) -> std::size_t {
-  return generated::NarrowedDerivatives ? kernels::getNumberOfBasisFunctions(ConvergenceOrder - k)
-                                        : kernels::getNumberOfBasisFunctions(ConvergenceOrder);
+/// The projection of what is given at the samples onto the polynomials up to `degree`, in the
+/// basis of the build: the L2 projection with the weights of the rule of the samples, of which
+/// `project` is the one onto every function of the cell. It is formed from the Dubiner functions up
+/// to that degree, which span those polynomials whatever the basis, and the mass matrix of the
+/// cell.
+inline auto projectionOntoDegree(std::size_t degree, const Eigen::MatrixXd& project)
+    -> Eigen::MatrixXd {
+  constexpr std::size_t Points = tensor::materialEval::Shape[0];
+  constexpr std::size_t Basis = tensor::materialEval::Shape[1];
+  const auto nodes =
+      init::materialNodes::view::create(const_cast<real*>(init::materialNodes::Values));
+  const auto indices = numerical::projection::modalIndices<Cell::Dim>(degree + 1);
+  Eigen::MatrixXd lower(Points, indices.size());
+  for (std::size_t point = 0; point < Points; ++point) {
+    const std::array<double, Cell::Dim> xi{nodes(point, 0), nodes(point, 1), nodes(point, 2)};
+    for (std::size_t function = 0; function < indices.size(); ++function) {
+      lower(point, function) = functions::DubinerP<Cell::Dim>(indices[function], xi);
+    }
+  }
+  // those functions in the basis of the cell, which the projection onto all of it keeps
+  const Eigen::MatrixXd inCell = project * lower;
+  // a rule of ConvergenceOrder points per direction integrates the product of two functions
+  const auto rule = seissol::quadrature::simplexRule<Cell::Dim>(ConvergenceOrder);
+  Eigen::MatrixXd mass = Eigen::MatrixXd::Zero(Basis, Basis);
+  for (std::size_t q = 0; q < rule.first.size(); ++q) {
+    const basisFunction::SampledBasisFunctions<double> sampled(
+        ConvergenceOrder, rule.first[q][0], rule.first[q][1], rule.first[q][2]);
+    const Eigen::Map<const Eigen::VectorXd> values(sampled.data().data(), Basis);
+    mass += rule.second[q] * values * values.transpose();
+  }
+  return inCell * (inCell.transpose() * mass * inCell).inverse() * inCell.transpose() * mass *
+         project;
 }
 
 /// What the kernel gives for one material per sample point, against `reference`, which forms
@@ -144,6 +185,14 @@ void compareChain(const std::vector<MaterialT>& materials,
   krnl.bindGlobals(seissol::Pool::host());
   kernels::bindStarOperands(krnl, localIntegration);
   kernels::bindSourceOperands(krnl, localIntegration);
+  // a kernel that reads the source term as one matrix reads the one of the material of the cell,
+  // which is one material for the cell there
+  alignas(Alignment) std::array<real, tensor::ET::size()> sourceMatrix{};
+  if constexpr (TakesSourceMatrix<typename Kernels<Enabled>::Derivative>::value) {
+    auto sourceView = init::ET::view::create(sourceMatrix.data());
+    seissol::model::getTransposedSourceCoefficientTensor(materials[0], sourceView);
+    krnl.ET = sourceMatrix.data();
+  }
   krnl.dQ(0) = dofs.data();
   for (std::size_t k = 1; k < Derivatives; ++k) {
     krnl.dQ(k) = derivatives.data() + yateto::computeFamilySize<tensor::dQ>(1, k);
@@ -312,6 +361,13 @@ void varyingMaterial() {
         init::materialProject::view::create(const_cast<real*>(init::materialProject::Values)),
         Basis,
         Points);
+    // what the k-th derivative is projected onto
+    std::vector<Eigen::MatrixXd> projections{project};
+    for (std::size_t k = 1; k < ConvergenceOrder; ++k) {
+      projections.push_back(generated::NarrowedDerivatives
+                                ? projectionOntoDegree(ConvergenceOrder - 1 - k, project)
+                                : project);
+    }
 
     for (std::size_t sample = 0; sample < 3; ++sample) {
       std::vector<Material> materials;
@@ -339,9 +395,7 @@ void varyingMaterial() {
               product.row(point) += derivativeAtPoints[dim].row(point) * operators[point][dim];
             }
           }
-          Eigen::MatrixXd next = project * product;
-          next.bottomRows(next.rows() - keptModes(k)).setZero();
-          chain.push_back(next);
+          chain.push_back(projections[k] * product);
         }
         return chain;
       };
@@ -352,8 +406,9 @@ void varyingMaterial() {
 
 } // namespace nodalderivatives
 
-TEST_CASE("Nodal time derivatives against the matrix form") {
-  nodalderivatives::constantMaterial<NodalMaterial>();
+TEST_CASE("Time derivatives against the matrix form") {
+  // every build that carries the coefficients of its operator binds the chain the same way
+  nodalderivatives::constantMaterial<FactoredStar>();
 }
 
 TEST_CASE("Nodal time derivatives where the material varies inside the cell") {

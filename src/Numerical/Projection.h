@@ -128,7 +128,7 @@ namespace projection {
 
 //! @brief How the source data is represented.
 enum class Source {
-  //! Dubiner (modal) coefficients.
+  //! Coefficients in the basis of the build (modal).
   Modal,
   //! Point values at the canonical nodal points of the respective dimension.
   Nodal
@@ -158,7 +158,7 @@ enum class NodalSet {
   Stroud
 };
 
-//! @brief Number of Dubiner basis functions of convergence order @p order .
+//! @brief Number of basis functions of convergence order @p order .
 constexpr std::size_t modalSize(std::size_t dim, std::size_t order) {
   std::size_t count = order;
   for (std::size_t i = 1; i < dim; ++i) {
@@ -178,12 +178,14 @@ constexpr std::size_t nodalSize(std::size_t dim, std::size_t order, NodalSet set
 }
 
 /**
- * @brief Enumerates the Dubiner multi-indices of convergence order @p order .
+ * @brief Enumerates the multi-indices of the basis functions of convergence order @p order .
  *
  * The enumeration is by total degree; within one degree the last coordinate varies slowest and
- * the first coordinate takes up the remainder. This matches
- * basisFunction::SampledBasisFunctions (Dim == 3) and basisFunction::tri_dubiner (Dim == 2), and
- * therefore also the modal index order of the generated V2mTo2n / MV2nTo2m / v / vInv matrices.
+ * the first coordinate takes up the remainder: the Dubiner indices by their degree, and the
+ * Bernstein indices (a_1, ..., a_Dim) by a_1 + ... + a_Dim, with a_0 the rest of the degree of
+ * the order. This matches basisFunction::SampledBasisFunctions (Dim == 3) and
+ * basisFunction::face (Dim == 2), and therefore also the modal index order of the generated
+ * V2mTo2n / MV2nTo2m / v / vInv matrices.
  */
 template <std::size_t Dim>
 std::vector<std::array<unsigned, Dim>> modalIndices(std::size_t order);

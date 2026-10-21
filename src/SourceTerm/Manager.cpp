@@ -71,7 +71,8 @@ namespace seissol::sourceterm {
 namespace {
 
 /**
- * Computes mInvJInvPhisAtSources[i] = |J|^-1 * M_ii^-1 * phi_i(xi, eta, zeta),
+ * Computes mInvJInvPhisAtSources = |J|^-1 * M^-1 * phi(xi, eta, zeta), with M the mass matrix of
+ * the reference cell and phi the basis functions,
  * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
  */
 void computeMInvJInvPhisAtSources(

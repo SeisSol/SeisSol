@@ -27,13 +27,14 @@ namespace seissol::basisFunction {
 //------------------------------------------------------------------------------
 
 /**
- * Functor to sample Basis functions for a given point in the reference
- * tetrahedron.
+ * Functor to sample the basis functions of the build (Config::Basis) of a degree for a given point
+ * in the reference tetrahedron.
  * @param T the type to calculate internally.
  */
 template <class T>
 class BasisFunctionGenerator {
   private:
+  std::uint32_t degree_;
   T xi_, eta_, zeta_;
 
   /**
@@ -47,49 +48,53 @@ class BasisFunctionGenerator {
 
   public:
   /**
-   * Constructs a BasisFunctionGenerator which fixes it to a specific point
-   * in the reference tetrahedron.
+   * Constructs a BasisFunctionGenerator which fixes it to a degree and to a specific point in the
+   * reference tetrahedron.
+   * @param degree The degree of the basis; the Dubiner functions do not depend on it.
    * @param eta The eta coordinate in the reference terahedron.
    * @param zeta The zeta coordinate in the reference terahedron.
    * @param xi The xi coordinate in the reference terahedron.
    */
-  BasisFunctionGenerator(T xi, T eta, T zeta) : xi_(xi), eta_(eta), zeta_(zeta) {}
+  BasisFunctionGenerator(std::uint32_t degree, T xi, T eta, T zeta)
+      : degree_(degree), xi_(xi), eta_(eta), zeta_(zeta) {}
 
   /**
-   * Allows functor style call. Generates the sampled Basis function given
-   * polynomial information for the generation of the Basis function.
-   * This algorithm uses the calculation method from the paper :
-   * "Seismic Wave Simulation for Complex Rheologies on Unstructured Meshes"
-   * by Josep de la Puente
+   * Allows functor style call. Samples the basis function with the multi-index (i, j, k), see
+   * functions::BasisP. The Dubiner functions follow the calculation method from the paper
+   * "Seismic Wave Simulation for Complex Rheologies on Unstructured Meshes" by Josep de la Puente.
    * @param i Polynomial index information
    * @param j Polynomial index information
    * @param k Polynomial index information
    */
   T operator()(std::uint32_t i, std::uint32_t j, std::uint32_t k) const {
-    return static_cast<T>(functions::TetraDubinerP({i, j, k}, {xi_, eta_, zeta_}));
+    return static_cast<T>(
+        functions::BasisP<Config::Basis, 3>(degree_, {i, j, k}, {xi_, eta_, zeta_}));
   }
 };
 //------------------------------------------------------------------------------
 
 /**
- * Functor to sample Basis function derivatives for a given point in the reference
- * tetrahedron.
+ * Functor to sample the derivatives of the basis functions of the build (Config::Basis) of a
+ * degree for a given point in the reference tetrahedron.
  * @param T the type to calculate internally.
  */
 template <class T>
 class BasisFunctionDerivativeGenerator {
   private:
+  std::uint32_t degree_;
   T xi_, eta_, zeta_;
 
   public:
   /**
-   * Constructs a BasisFunctionDerivativeGenerator which fixes it to a specific point
-   * in the reference tetrahedron.
+   * Constructs a BasisFunctionDerivativeGenerator which fixes it to a degree and to a specific
+   * point in the reference tetrahedron.
+   * @param degree The degree of the basis; the Dubiner functions do not depend on it.
    * @param eta The eta coordinate in the reference terahedron.
    * @param zeta The zeta coordinate in the reference terahedron.
    * @param xi The xi coordinate in the reference terahedron.
    */
-  BasisFunctionDerivativeGenerator(T xi, T eta, T zeta) : xi_(xi), eta_(eta), zeta_(zeta) {}
+  BasisFunctionDerivativeGenerator(std::uint32_t degree, T xi, T eta, T zeta)
+      : degree_(degree), xi_(xi), eta_(eta), zeta_(zeta) {}
 
   /**
    * Allows functor style call.
@@ -99,7 +104,7 @@ class BasisFunctionDerivativeGenerator {
    */
   std::array<T, 3> operator()(std::uint32_t i, std::uint32_t j, std::uint32_t k) const {
     std::array<double, 3> gradEvaluated =
-        functions::gradTetraDubinerP({i, j, k}, {xi_, eta_, zeta_});
+        functions::gradBasisP<Config::Basis, 3>(degree_, {i, j, k}, {xi_, eta_, zeta_});
     return {static_cast<T>(gradEvaluated[0]),
             static_cast<T>(gradEvaluated[1]),
             static_cast<T>(gradEvaluated[2])};
@@ -108,6 +113,22 @@ class BasisFunctionDerivativeGenerator {
 
 inline std::uint32_t basisFunctionsForOrder(std::uint32_t order) {
   return (order * (order + 1) * (order + 2)) / 6;
+}
+
+/// the degree of the polynomials of an order, the one a basis of that order has
+inline std::uint32_t degreeOfOrder(std::uint32_t order) { return order > 0 ? order - 1 : 0; }
+
+/// The coefficient of the function `function` of the basis of the build (Config::Basis) in the
+/// function one, of any order: the first function is the constant one in the Dubiner basis and a
+/// multiple of it in the normalized one, and the Bernstein polynomials of a degree sum to one.
+inline double constantCoefficient(std::uint32_t function) {
+  if constexpr (Config::Basis == BasisType::Bernstein) {
+    return 1.0;
+  } else if constexpr (Config::Basis == BasisType::DubinerNormalized) {
+    return function == 0 ? std::sqrt(functions::DubinerNormSquared<3>({0, 0, 0})) : 0.0;
+  } else {
+    return function == 0 ? 1.0 : 0.0;
+  }
 }
 
 /**
@@ -135,7 +156,7 @@ class SampledBasisFunctions {
    */
   SampledBasisFunctions(std::uint32_t order, T xi, T eta, T zeta)
       : data_(basisFunctionsForOrder(order)) {
-    const BasisFunctionGenerator<T> gen(xi, eta, zeta);
+    const BasisFunctionGenerator<T> gen(degreeOfOrder(order), xi, eta, zeta);
 
     std::uint32_t i = 0;
     for (std::uint32_t ord = 0; ord < order; ord++) {
@@ -199,7 +220,7 @@ class SampledBasisFunctionDerivatives {
    */
   SampledBasisFunctionDerivatives(std::uint32_t order, T xi, T eta, T zeta)
       : data_(3 * basisFunctionsForOrder(order)) {
-    const BasisFunctionDerivativeGenerator<T> gen(xi, eta, zeta);
+    const BasisFunctionDerivativeGenerator<T> gen(degreeOfOrder(order), xi, eta, zeta);
     const auto funs = basisFunctionsForOrder(order);
 
     std::uint32_t i = 0;
@@ -300,30 +321,35 @@ class SampledTimeBasisFunctions {
   [[nodiscard]] const std::vector<T>& data() const { return data_; }
 };
 
-namespace tri_dubiner {
+/// The basis of the build (Config::Basis) on the reference triangle, the one of a face, of degree
+/// `numPoly`, in the order of its matrices.
+namespace face {
 inline void evaluatePolynomials(double* phis, double xi, double eta, std::int32_t numPoly) {
   assert(numPoly > 0);
+  const auto degree = static_cast<std::uint32_t>(numPoly);
   std::uint32_t idx = 0;
-  for (std::uint32_t d = 0; d <= static_cast<std::uint32_t>(numPoly); ++d) {
+  for (std::uint32_t d = 0; d <= degree; ++d) {
     for (std::uint32_t j = 0; j <= d; ++j) {
-      phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
+      phis[idx++] = seissol::functions::BasisP<Config::Basis, 2>(degree, {d - j, j}, {xi, eta});
     }
   }
 }
 
 inline void evaluateGradPolynomials(double* phis, double xi, double eta, std::int32_t numPoly) {
   assert(numPoly > 0);
+  const auto degree = static_cast<std::uint32_t>(numPoly);
   std::uint32_t idx = 0;
-  for (std::uint32_t d = 0; d <= static_cast<std::uint32_t>(numPoly); ++d) {
+  for (std::uint32_t d = 0; d <= degree; ++d) {
     for (std::uint32_t j = 0; j <= d; ++j) {
-      const auto grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
+      const auto grad =
+          seissol::functions::gradBasisP<Config::Basis, 2>(degree, {d - j, j}, {xi, eta});
       for (const auto& g : grad) {
         phis[idx++] = g;
       }
     }
   }
 }
-} // namespace tri_dubiner
+} // namespace face
 
 } // namespace seissol::basisFunction
 

@@ -42,6 +42,7 @@
 #include "Kernels/StarOperands.h"
 #include "Model/Common.h"
 #include "Model/OperatorLayout.h"
+#include "Numerical/BasisFunction.h"
 #include "Solver/MultipleSimulations.h"
 #include "VolumeTerm.h"
 
@@ -461,13 +462,20 @@ void constantState() {
       std::array<std::array<real, tensor::AplusT::size()>, Cell::NumFaces> weakAplus{};
       setupCell<Material>(cell, field, faceTypes, local, neighboring, weakAplus);
 
-      // a constant state: the first mode, which the basis keeps constant, and nothing else
+      // a constant state: the coefficients of the function one, times a value per quantity
       alignas(Alignment) std::array<real, tensor::I::size()> dofs{};
       auto viewI = init::I::view::create(dofs.data());
       for (std::size_t simulation = 0; simulation < multisim::NumSimulations; ++simulation) {
         auto slicedI = multisim::simtensor(viewI, simulation);
         for (std::size_t quantity = 0; quantity < tensor::star::Shape[0][0]; ++quantity) {
-          slicedI(0, quantity) = static_cast<real>(gauss(rng));
+          const double value = gauss(rng);
+          for (std::size_t mode = 0; mode < tensor::Q::Shape[multisim::BasisFunctionDimension];
+               ++mode) {
+            const double coefficient = basisFunction::constantCoefficient(mode);
+            if (coefficient != 0.0) {
+              slicedI(mode, quantity) = static_cast<real>(value * coefficient);
+            }
+          }
         }
       }
 

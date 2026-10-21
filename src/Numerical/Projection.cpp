@@ -7,6 +7,8 @@
 
 #include "Projection.h"
 
+#include "Common/Typedefs.h"
+#include "Config.h"
 #include "Kernels/Precision.h"
 #include "Numerical/Functions.h"
 #include "Numerical/Quadrature.h"
@@ -26,6 +28,23 @@ using namespace seissol;
 using namespace seissol::numerical;
 
 constexpr double Pi = 3.14159265358979323846;
+
+//! The function with multi-index @p index of the basis of the build, of convergence order @p order
+//! .
+template <std::size_t Dim>
+double basisValue(std::size_t order,
+                  const std::array<unsigned, Dim>& index,
+                  const std::array<double, Dim>& point) {
+  return functions::BasisP<Config::Basis, Dim>(static_cast<unsigned>(order - 1), index, point);
+}
+
+//! Its gradient.
+template <std::size_t Dim>
+std::array<double, Dim> basisGradient(std::size_t order,
+                                      const std::array<unsigned, Dim>& index,
+                                      const std::array<double, Dim>& point) {
+  return functions::gradBasisP<Config::Basis, Dim>(static_cast<unsigned>(order - 1), index, point);
+}
 
 // Hesthaven/Warburton warp&blend blending parameters, indexed by polynomial degree - 1.
 constexpr std::array<double, 15> WarpBlendAlpha2D = {0.0000,
@@ -488,22 +507,40 @@ DenseMatrix nodalToModal(std::size_t order, NodalSet set) {
       DenseMatrix vandermonde(points.size(), indices.size());
       for (std::size_t n = 0; n < points.size(); ++n) {
         for (std::size_t b = 0; b < indices.size(); ++b) {
-          vandermonde(n, b) = functions::DubinerP<3>(indices[b], points[n]);
+          vandermonde(n, b) = basisValue<3>(order, indices[b], points[n]);
         }
       }
-      std::vector<double> mass(indices.size(), 0.0);
-      for (std::size_t b = 0; b < indices.size(); ++b) {
-        for (std::size_t n = 0; n < points.size(); ++n) {
-          mass[b] += weights[n] * vandermonde(n, b) * vandermonde(n, b);
+      if constexpr (Config::Basis == BasisType::Bernstein) {
+        // the mass matrix of a basis that is not orthogonal is not diagonal: the projection is
+        // its inverse times the integrals against the basis
+        DenseMatrix mass(indices.size(), indices.size());
+        DenseMatrix integrals(indices.size(), points.size());
+        for (std::size_t b = 0; b < indices.size(); ++b) {
+          for (std::size_t n = 0; n < points.size(); ++n) {
+            integrals(b, n) = weights[n] * vandermonde(n, b);
+          }
+          for (std::size_t c = 0; c < indices.size(); ++c) {
+            for (std::size_t n = 0; n < points.size(); ++n) {
+              mass(b, c) += integrals(b, n) * vandermonde(n, c);
+            }
+          }
         }
-      }
-      DenseMatrix result(indices.size(), points.size());
-      for (std::size_t b = 0; b < indices.size(); ++b) {
-        for (std::size_t n = 0; n < points.size(); ++n) {
-          result(b, n) = weights[n] * vandermonde(n, b) / mass[b];
+        return mass.inverse().multiply(integrals);
+      } else {
+        std::vector<double> mass(indices.size(), 0.0);
+        for (std::size_t b = 0; b < indices.size(); ++b) {
+          for (std::size_t n = 0; n < points.size(); ++n) {
+            mass[b] += weights[n] * vandermonde(n, b) * vandermonde(n, b);
+          }
         }
+        DenseMatrix result(indices.size(), points.size());
+        for (std::size_t b = 0; b < indices.size(); ++b) {
+          for (std::size_t n = 0; n < points.size(); ++n) {
+            result(b, n) = weights[n] * vandermonde(n, b) / mass[b];
+          }
+        }
+        return result;
       }
-      return result;
     }
   } else {
     static_assert(Dim == 2, "Only 2D and 3D nodal bases are supported.");
@@ -522,7 +559,7 @@ DenseMatrix nodalToModal(std::size_t order, NodalSet set) {
   DenseMatrix vandermonde(points.size(), indices.size());
   for (std::size_t n = 0; n < points.size(); ++n) {
     for (std::size_t b = 0; b < indices.size(); ++b) {
-      vandermonde(n, b) = functions::DubinerP<Dim>(indices[b], points[n]);
+      vandermonde(n, b) = basisValue<Dim>(order, indices[b], points[n]);
     }
   }
   return vandermonde.inverse();
@@ -543,9 +580,9 @@ DenseMatrix build(const std::vector<std::array<double, From>>& referenceTargetPo
   const auto evaluate = [&](const std::array<double, To>& position, std::size_t basis) {
     if (spec.derivative.has_value()) {
       assert(spec.derivative.value() < To);
-      return functions::gradDubinerP<To>(sourceIndices[basis], position)[spec.derivative.value()];
+      return basisGradient<To>(spec.order, sourceIndices[basis], position)[spec.derivative.value()];
     }
-    return functions::DubinerP<To>(sourceIndices[basis], position);
+    return basisValue<To>(spec.order, sourceIndices[basis], position);
   };
 
   DenseMatrix matrix(pointCount, sourceCount);
@@ -559,7 +596,8 @@ DenseMatrix build(const std::vector<std::array<double, From>>& referenceTargetPo
     }
   } else {
     // L2 projection onto the Lagrange space of the target points. With psi_i the modal basis of
-    // the target space and V(p,i) = psi_i(x_p), the Lagrange mass matrix is
+    // the target space -- the Dubiner basis, whichever basis the source is in, since it is
+    // orthogonal -- and V(p,i) = psi_i(x_p), the Lagrange mass matrix is
     //   M = |det A| V^-T diag(m_i) V^-1  ,  m_i = int psi_i^2 ,
     // and the right hand side is |det A| V^-T C with C(i,b) = int psi_i * phi_b(A .) ; hence
     //   P = M^-1 B = V diag(1/m_i) C ,

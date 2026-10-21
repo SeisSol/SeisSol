@@ -144,11 +144,10 @@ class ImpedanceJump {
   /// face: those it is integrated at, face by face (FacePointGenerator::fluxPoints)
   static constexpr std::size_t FacePoints = NodalFlux ? Cell::NumFaces * FluxFaceNodes : 0;
 
-  /// The modes up to one degree below the cell's. The basis is hierarchical and orthogonal, and the
-  /// rule of the samples integrates the product of two modes of the cell exactly, so the projection
-  /// onto these modes is the first rows of the projection onto all of them (init::materialProject).
-  static constexpr std::size_t FitModes = std::max<std::size_t>(
-      1, (ConvergenceOrder - 1) * ConvergenceOrder * (ConvergenceOrder + 1) / 6);
+  /// The modes of the cell the polynomials up to one degree below the cell's are given in: the
+  /// projection onto them with the weights of the rule of the samples (init::materialFit) has a row
+  /// per mode, which in a hierarchical and orthogonal basis is zero past the modes of that degree.
+  static constexpr std::size_t FitModes = tensor::materialFit::Shape[0];
 
   /// those modes at the points of the faces
   using FaceBasis = std::array<std::array<double, FitModes>, FacePoints>;
@@ -207,7 +206,7 @@ class ImpedanceJump {
 
   [[nodiscard]] double residualRatio(const std::array<double, Samples>& values,
                                      const std::array<double, FacePoints>& faceValues) const {
-    const auto project = init::materialProject::view::create(init::materialProject::Values);
+    const auto project = init::materialFit::view::create(init::materialFit::Values);
     const auto evaluate = init::materialEval::view::create(init::materialEval::Values);
     std::array<double, FitModes> modes{};
     for (std::size_t mode = 0; mode < FitModes; ++mode) {

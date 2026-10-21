@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_NUMERICAL_FUNCTIONS_H_
 
 #include "Common/Marker.h"
+#include "Common/Typedefs.h"
 
 #include <array>
 #include <cmath>
@@ -154,6 +155,71 @@ double DubinerP(const std::array<unsigned, D>& i, const std::array<double, D>& x
 template <std::size_t D>
 std::array<double, D> gradDubinerP(const std::array<unsigned, D>& i,
                                    const std::array<double, D>& xi);
+
+/**
+ * @brief The squared L2 norm of a Dubiner function on its reference element, for D=1,2,3.
+ */
+template <std::size_t D>
+double DubinerNormSquared(const std::array<unsigned, D>& i);
+
+/**
+ * @brief Evaluates a Bernstein polynomial on the reference element of DubinerP, for D=1,2,3.
+ *
+ * The polynomial of degree @p degree with the multi-index (a_0, i_1, ..., i_D), where
+ * a_0 = degree - i_1 - ... - i_D: degree! / (a_0! i_1! ... i_D!) l_0^a_0 l_1^i_1 ... l_D^i_D with
+ * the barycentric coordinates l_0 = 1 - xi_1 - ... - xi_D and l_k = xi_k of the point.
+ */
+template <std::size_t D>
+double
+    BernsteinP(unsigned degree, const std::array<unsigned, D>& i, const std::array<double, D>& xi);
+
+/**
+ * @brief Gradient of a Bernstein polynomial, see BernsteinP: in direction k,
+ * degree (B_(i - e_k) - B_i) with the polynomials of one degree less, where a negative entry of
+ * the multi-index stands for zero.
+ */
+template <std::size_t D>
+std::array<double, D> gradBernsteinP(unsigned degree,
+                                     const std::array<unsigned, D>& i,
+                                     const std::array<double, D>& xi);
+
+/**
+ * @brief The function with the multi-index @p i of a basis, of degree @p degree , for D=1,2,3.
+ *
+ * The functions are those of SeisSol/matrices (basis_functions.generator): the Dubiner functions
+ * (DubinerP), the same divided by their norm (DubinerNormSquared), or the Bernstein polynomials
+ * of the degree (BernsteinP). The Dubiner functions do not depend on the degree.
+ */
+template <BasisType B, std::size_t D>
+double BasisP(unsigned degree, const std::array<unsigned, D>& i, const std::array<double, D>& xi) {
+  if constexpr (B == BasisType::Bernstein) {
+    return BernsteinP<D>(degree, i, xi);
+  } else if constexpr (B == BasisType::DubinerNormalized) {
+    return DubinerP<D>(i, xi) / std::sqrt(DubinerNormSquared<D>(i));
+  } else {
+    return DubinerP<D>(i, xi);
+  }
+}
+
+/**
+ * @brief Gradient of BasisP.
+ */
+template <BasisType B, std::size_t D>
+std::array<double, D>
+    gradBasisP(unsigned degree, const std::array<unsigned, D>& i, const std::array<double, D>& xi) {
+  if constexpr (B == BasisType::Bernstein) {
+    return gradBernsteinP<D>(degree, i, xi);
+  } else if constexpr (B == BasisType::DubinerNormalized) {
+    auto gradient = gradDubinerP<D>(i, xi);
+    const double norm = std::sqrt(DubinerNormSquared<D>(i));
+    for (auto& entry : gradient) {
+      entry /= norm;
+    }
+    return gradient;
+  } else {
+    return gradDubinerP<D>(i, xi);
+  }
+}
 
 /**
  * @brief An antigradient Dubiner basis for D=1. Mainly meant integration.

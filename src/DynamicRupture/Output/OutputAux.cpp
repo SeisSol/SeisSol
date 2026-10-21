@@ -254,7 +254,7 @@ PlusMinusBasisFunctions
 
 std::vector<real> getFaceBasisFunctions(const geometry::ReferenceFaceMap::FaceVectorT& onFace) {
   std::vector<double> values(seissol::tensor::faceTrace::Shape[multisim::BasisFunctionDimension]);
-  basisFunction::tri_dubiner::evaluatePolynomials(
+  basisFunction::face::evaluatePolynomials(
       values.data(), onFace(0), onFace(1), ConvergenceOrder - 1);
   return std::vector<real>(values.begin(), values.end());
 }

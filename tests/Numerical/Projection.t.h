@@ -211,8 +211,8 @@ TEST_CASE("Numerical/Projection: nodal-to-modal transforms match the generated o
 
 TEST_CASE("Numerical/Projection: both volume nodal sets round-trip") {
   // Only one of the two is shipped by the code generator in a given build, so exercise both
-  // against the definition instead: sampling a modal function at the nodes and transforming back
-  // has to reproduce the coefficients.
+  // against the definition instead: sampling a function of the basis of the build at the nodes and
+  // transforming back has to reproduce the coefficients.
   const auto indices = projection::modalIndices<3>(ConvergenceOrder);
 
   for (const auto set : {projection::NodalSet::WarpBlend, projection::NodalSet::Stroud}) {
@@ -234,7 +234,8 @@ TEST_CASE("Numerical/Projection: both volume nodal sets round-trip") {
     for (std::size_t coefficient = 0; coefficient < indices.size(); ++coefficient) {
       std::vector<double> nodalValues(points.size());
       for (std::size_t n = 0; n < points.size(); ++n) {
-        nodalValues[n] = functions::DubinerP<3>(indices[coefficient], points[n]);
+        nodalValues[n] = functions::BasisP<Config::Basis, 3>(
+            ConvergenceOrder - 1, indices[coefficient], points[n]);
       }
       for (std::size_t b = 0; b < indices.size(); ++b) {
         double value = 0;

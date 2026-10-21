@@ -740,23 +740,31 @@ real ReceiverOutput::computeRuptureVelocity(const Eigen::Matrix<real, 2, 2>& jac
       const real chi = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 0);
       const real tau = seissol::multisim::multisimTranspose(chiTau2dPoints, jBndGP, 1);
 
-      basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
+      basisFunction::face::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
       for (size_t d = 0; d < NumDegFr2d; ++d) {
         projectedRT[d] += weights(jBndGP) *
                           rt[jBndGP * multisim::NumSimulations + local.fusedIndex] * phiAtPoint[d];
       }
     }
+    // the integrals against the face basis, times the inverse of its mass matrix
     const auto m2inv = seissol::init::M2inv::view::create(seissol::init::M2inv::Values);
+    const auto integrals = projectedRT;
     for (size_t d = 0; d < NumDegFr2d; ++d) {
-      projectedRT[d] *= m2inv(d, d);
+      double projected = 0.0;
+      for (size_t e = 0; e < NumDegFr2d; ++e) {
+        if (m2inv.isInRange(d, e)) {
+          projected += m2inv(d, e) * integrals[e];
+        }
+      }
+      projectedRT[d] = projected;
     }
 
     const real chi =
         seissol::multisim::multisimTranspose(chiTau2dPoints, local.nearestInternalGpIndex, 0);
     const real tau =
         seissol::multisim::multisimTranspose(chiTau2dPoints, local.nearestInternalGpIndex, 1);
-    basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
+    basisFunction::face::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
     real dTdChi{0.0};
     real dTdTau{0.0};
