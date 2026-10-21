@@ -45,6 +45,7 @@
 #include "Solver/TimeStepping/Compute/DynamicRuptureCluster.h"
 #include "Solver/TimeStepping/Halo/CommunicationManager.h"
 #include "Solver/TimeStepping/Halo/GhostCluster.h"
+#include "Solver/TimeStepping/Halo/HaloCheck.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
 #include "Solver/TimeStepping/Halo/TaskHaloTransport.h"
@@ -340,6 +341,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                              usePersistentMpi(seissolInstance_.env()),
                                              useExchangePerDirection(seissolInstance_.env()),
                                              clusterLayout.globalClusterCount);
+  // what the test of the halo exchange before the time stepping goes through
+  std::vector<CheckedTransport> checkedTransports;
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
 
     const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);
@@ -362,13 +365,17 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         const auto otherDisplayName = "ghost-" + std::to_string(other.lts);
 
         const auto& regions = haloStructure.at(layer.id()).at(i);
-        ghostClusters.push_back(std::make_unique<GhostCluster>(
-            otherTimeStepSize,
-            otherTimeStepRate,
-            displayName,
-            otherDisplayName,
-            regions,
-            haloTransports_->create(regions, layer.getIdentifier().lts, other.lts)));
+        auto transport = haloTransports_->create(regions, layer.getIdentifier().lts, other.lts);
+        auto description = displayName;
+        description.append(" and ").append(otherDisplayName);
+        checkedTransports.push_back(
+            {&transport->dataTransport(), &regions, std::move(description)});
+        ghostClusters.push_back(std::make_unique<GhostCluster>(otherTimeStepSize,
+                                                               otherTimeStepRate,
+                                                               displayName,
+                                                               otherDisplayName,
+                                                               regions,
+                                                               std::move(transport)));
 
         // Connect with previous copy layer.
         ghostClusters.back()->connect(*cellClusterBackmap[layer.id()]);
@@ -411,11 +418,20 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // the library of the halo exchange knows all transports now; collective over all processes
   if (haloTransports_->scheduler() != nullptr) {
     haloTransports_->scheduler()->prepare();
-    if (DeviceTimeline::active()) {
-      exchangeTimer_ =
-          std::make_unique<DeviceTimer>(nullptr, &deviceTimeline_, DeviceTimeline::Kind::Exchanges);
-      haloTransports_->scheduler()->setTimer(exchangeTimer_.get(), &exchangeDeviceTime_);
-    }
+  }
+  if (useHaloCheck(seissolInstance_.env())) {
+    // before the exchanges get timed, which would count the test
+    const auto watchdog = monitoring::Watchdog::settingsFromEnv(seissolInstance_.env());
+    testHaloExchange(checkedTransports,
+                     isDeviceOn() ? HaloMemory::Device : HaloMemory::Host,
+                     Mpi::dataTransferModeName(Mpi::mpi.getPreferredDataTransferMode()),
+                     watchdog.enabled ? watchdog.timeout : std::chrono::seconds(0),
+                     watchdog.abort);
+  }
+  if (haloTransports_->scheduler() != nullptr && DeviceTimeline::active()) {
+    exchangeTimer_ =
+        std::make_unique<DeviceTimer>(nullptr, &deviceTimeline_, DeviceTimeline::Kind::Exchanges);
+    haloTransports_->scheduler()->setTimer(exchangeTimer_.get(), &exchangeDeviceTime_);
   }
 
   commThread_ = seissol::useCommThread(Mpi::mpi, seissolInstance_.env());

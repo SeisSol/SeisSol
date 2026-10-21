@@ -138,6 +138,11 @@ inline std::size_t hostActionLimit(utils::Env& env) {
 }
 
 /**
+ * Whether the halo exchange gets tested before the time stepping (see solver::testHaloExchange()).
+ */
+inline bool useHaloCheck(utils::Env& env) { return env.get<bool>("HALO_CHECK", true); }
+
+/**
  * Whether the loops that the clusters enqueue on the device get timed for the loop statistics.
  */
 inline bool useDeviceLoopStatistics(utils::Env& env) {

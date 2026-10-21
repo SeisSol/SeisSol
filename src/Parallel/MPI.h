@@ -274,6 +274,9 @@ class Mpi : public MpiBasic {
   };
   DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode_; }
 
+  /// the name of the transfer mode, as SEISSOL_TRANSFER_MODE takes it
+  static std::string dataTransferModeName(DataTransferMode mode);
+
   /** The only instance of the class */
   static Mpi mpi;
 

@@ -103,6 +103,7 @@ class TaskHaloTransport : public HaloTransport {
     copy_ = copy;
     ghost_ = ghost;
   }
+  HaloTransport& dataTransport() override { return transport_->dataTransport(); }
 
   private:
   std::unique_ptr<HaloTransport> transport_;

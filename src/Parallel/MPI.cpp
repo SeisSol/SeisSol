@@ -143,4 +143,20 @@ void seissol::Mpi::setDataTransferModeFromEnv() {
   }
 }
 
+std::string seissol::Mpi::dataTransferModeName(DataTransferMode mode) {
+  switch (mode) {
+  case DataTransferMode::Direct:
+    return "direct";
+  case DataTransferMode::CopyInCopyOutHost:
+    return "host";
+  case DataTransferMode::DirectCcl:
+    return "ccl";
+  case DataTransferMode::DirectStreamMpi:
+    return "stream-mpi";
+  case DataTransferMode::DirectShmem:
+    return "shmem";
+  }
+  return "unknown";
+}
+
 seissol::Mpi seissol::Mpi::mpi;

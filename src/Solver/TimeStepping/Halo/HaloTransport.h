@@ -112,6 +112,13 @@ class HaloTransport {
    * graph.
    */
   virtual void setHostTokens(const char* /*copy*/, char* /*ghost*/) {}
+
+  /**
+   * The transport that moves the data, without what schedules its operations (e.g. the tasks of a
+   * task graph on the host, see TaskHaloTransport); e.g. for the test of the exchange before the
+   * time stepping (see checkHaloExchange()).
+   */
+  virtual HaloTransport& dataTransport() { return *this; }
 };
 
 } // namespace seissol::solver

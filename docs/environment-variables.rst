@@ -81,6 +81,22 @@ clusters themselves report after the same time without progress. With NCCL and R
 also checks for the errors that the library reports asynchronously, e.g. of the network.
 ``SEISSOL_WATCHDOG=0`` turns it off.
 
+Test of the halo exchange
+-------------------------
+
+Before the time stepping, SeisSol tests the halo exchange, through the transfer mode of the run
+(see ``SEISSOL_TRANSFER_MODE`` in :ref:`gpu-env`): each copy region gets values that tell the
+sending rank, the tag of the region and the position in it, one exchange in each direction moves
+them, and each ghost region then has to hold the values of its sender. If a ghost region received
+wrong data, each rank concerned names its first such region and position, and the run aborts. A
+crash in the library of the exchange, e.g. of an MPI that cannot read device memory, comes right
+after the line that announces the test, instead of somewhere in the time stepping. If the exchange
+does not complete within ``SEISSOL_WATCHDOG_TIMEOUT`` seconds (and the watchdog is on), the ranks
+report the messages still in flight, and the run aborts, unless ``SEISSOL_WATCHDOG_ABORT=0``.
+Afterwards, the halo regions are zero again, as before the test. The test costs about one exchange of
+the halo, on GPUs plus a few copies of it between the host and the device; ``SEISSOL_HALO_CHECK=0``
+turns it off.
+
 Load balancing
 --------------
 
