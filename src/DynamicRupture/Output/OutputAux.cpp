@@ -265,17 +265,20 @@ std::size_t
 }
 
 int faultTagOfCell(const Receivers& receivers,
+                   const std::vector<std::size_t>& order,
                    std::size_t cell,
                    std::size_t pointsPerCell,
                    std::size_t simulationCount) {
-  return receivers[firstReceiverOfCell(cell, pointsPerCell, simulationCount)].faultTag;
+  return receivers[order[firstReceiverOfCell(cell, pointsPerCell, simulationCount)]].faultTag;
 }
 
 std::size_t globalFaceIdOfCell(const Receivers& receivers,
+                               const std::vector<std::size_t>& order,
                                std::size_t cell,
                                std::size_t pointsPerCell,
                                std::size_t simulationCount) {
-  return receivers[firstReceiverOfCell(cell, pointsPerCell, simulationCount)].globalFaultFaceId();
+  return receivers[order[firstReceiverOfCell(cell, pointsPerCell, simulationCount)]]
+      .globalFaultFaceId();
 }
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \
   template TriangleQuadratureData<Cfg> generateTriangleQuadrature<Cfg>();                          \

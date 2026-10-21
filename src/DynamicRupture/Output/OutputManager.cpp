@@ -8,8 +8,6 @@
 #include "DynamicRupture/Output/OutputManager.h"
 
 #include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
 #include "Common/Constants.h"
 #include "Common/Filesystem.h"
 #include "Common/Real.h"
@@ -28,6 +26,7 @@
 #include "IO/Instance/Point/Hdf5Table.h"
 #include "IO/Instance/Point/TableWriter.h"
 #include "IO/Writer/Writer.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -133,6 +132,7 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
 
   const auto& seissolParameters = seissolInstance_.parameters();
   impl_->setDrParameters(&seissolParameters.drParameters);
+  const auto& simulationSettings = seissolInstance_.memoryManager().simulationSettings();
 
   const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
                            seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
@@ -147,8 +147,8 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
     ppOutputBuilder_ = std::make_unique<PickPointBuilder>();
     ppOutputBuilder_->setMeshReader(&userMesher);
     ppOutputBuilder_->setParams(seissolParameters.output.pickpointParameters);
-    ppOutputBuilder_->setSimulationCount(
-        configValue(seissolParameters.model.config).numSimulations);
+    ppOutputBuilder_->setSimulationCount(simulationSettings.simulationCount,
+                                         simulationSettings.fusedCount);
     ppOutputBuilder_->setTimestep(seissolInstance_.memoryManager().clusterLayout().minimumTimestep,
                                   seissolParameters.timeStepping.endTime);
   }
@@ -157,8 +157,8 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
     ewOutputBuilder_ = std::make_unique<ElementWiseBuilder>();
     ewOutputBuilder_->setMeshReader(&userMesher);
     ewOutputBuilder_->setParams(seissolParameters.output.elementwiseParameters);
-    ewOutputBuilder_->setSimulationCount(
-        configValue(seissolParameters.model.config).numSimulations);
+    ewOutputBuilder_->setSimulationCount(simulationSettings.simulationCount,
+                                         simulationSettings.fusedCount);
   }
   if (!elementwiseEnabled && !pointEnabled) {
     logInfo() << "No dynamic rupture output enabled";
@@ -225,10 +225,13 @@ void OutputManager::initElementwiseOutput() {
   logInfo() << "Setting up the fault output.";
   ewOutputBuilder_->build(ewOutputData_);
   const auto& seissolParameters = seissolInstance_.parameters();
-  // the receivers of the fused simulations of the configuration of the run follow each other
-  const auto numSimulations = configValue(seissolParameters.model.config).numSimulations;
+  // the receivers of the simulations of the run follow each other
+  const auto numSimulations = seissolInstance_.memoryManager().simulationSettings().simulationCount;
 
   const auto& receivers = ewOutputData_->receivers;
+  // the receivers in the order of the output: cell by cell, then point by point, and simulation by
+  // simulation
+  const auto& outputOrder = ewOutputData_->outputOrder;
 
   const double writeInterval = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
 
@@ -264,16 +267,16 @@ void OutputManager::initElementwiseOutput() {
       config,
       1,
 
-      [=](double* target, std::size_t index, std::size_t) {
+      [=, &receivers, &outputOrder](double* target, std::size_t index, std::size_t) {
         if (order > 0) {
           for (std::size_t i = 0; i < pointCount; ++i) {
             for (std::size_t j = 0; j < Cell::Dim; ++j) {
               target[i * Cell::Dim + j] =
-                  receivers[(pointCount * index + i) * numSimulations].global[j];
+                  receivers[outputOrder[(pointCount * index + i) * numSimulations]].global[j];
             }
           }
         } else {
-          const auto& triangle = receivers[index * numSimulations].globalTriangle;
+          const auto& triangle = receivers[outputOrder[index * numSimulations]].globalTriangle;
           for (std::size_t i = 0; i < pointCount; ++i) {
             for (std::size_t j = 0; j < Cell::Dim; ++j) {
               target[i * Cell::Dim + j] = triangle.point(i)[j];
@@ -287,13 +290,19 @@ void OutputManager::initElementwiseOutput() {
       "partition", {}, true, [=](int* target, std::size_t, std::size_t) { target[0] = rank; });
 
   writer.addCellData<int>(
-      "fault-tag", {}, true, [=, &receivers](int* target, std::size_t index, std::size_t) {
-        *target = faultTagOfCell(receivers, index, dataCount, numSimulations);
+      "fault-tag",
+      {},
+      true,
+      [=, &receivers, &outputOrder](int* target, std::size_t index, std::size_t) {
+        *target = faultTagOfCell(receivers, outputOrder, index, dataCount, numSimulations);
       });
 
   writer.addCellData<std::size_t>(
-      "global-id", {}, true, [=, &receivers](std::size_t* target, std::size_t index, std::size_t) {
-        *target = globalFaceIdOfCell(receivers, index, dataCount, numSimulations);
+      "global-id",
+      {},
+      true,
+      [=, &receivers, &outputOrder](std::size_t* target, std::size_t index, std::size_t) {
+        *target = globalFaceIdOfCell(receivers, outputOrder, index, dataCount, numSimulations);
       });
 
   misc::forEach(ewOutputData_->vars, [&](const auto& var, int i) {
@@ -312,9 +321,9 @@ void OutputManager::initElementwiseOutput() {
               variableName(d, s),
               std::vector<std::size_t>(),
               false,
-              [=](double* target, std::size_t index, std::size_t) {
+              [=, &outputOrder](double* target, std::size_t index, std::size_t) {
                 for (std::size_t i = 0; i < dataCount; ++i) {
-                  target[i] = data[(dataCount * index + i) * numSimulations + s];
+                  target[i] = data[outputOrder[(dataCount * index + i) * numSimulations + s]];
                 }
               });
         }
@@ -347,7 +356,7 @@ std::array<double, 6> OutputManager::initialStress(const ReceiverOutputData& out
       std::upper_bound(receiverOffset.begin(), receiverOffset.end(), index) -
       receiverOffset.begin() - 1);
   const auto& face = outputData.topology.faces[outputData.topology.points[point].faceId];
-  const auto position = faceToLtsMap_.get(receiver.faultFaceIndex.value());
+  const auto position = faceToLtsMap_.get(receiver.faultFaceIndex.value(), receiver.copy);
   const auto sourceCount = dr::stressSourceCount(seissolInstance_.parameters().drParameters);
   auto& drLayer = drStorage_->layer(position.color);
 
@@ -390,7 +399,7 @@ void OutputManager::initPickpointOutput() {
   logInfo() << "Setting up on-fault receivers.";
   ppOutputBuilder_->build(ppOutputData_);
   const auto& seissolParameters = seissolInstance_.parameters();
-  const auto numSimulations = configValue(seissolParameters.model.config).numSimulations;
+  const auto numSimulations = seissolInstance_.memoryManager().simulationSettings().simulationCount;
 
   seissolInstance_.pickpointWriter().enable(
       seissolInstance_.modules(), seissolParameters.output.pickpointParameters.writeInterval);
@@ -497,7 +506,7 @@ void OutputManager::init() {
 
 void OutputManager::initFaceToLtsMap() {
   if (drStorage_ != nullptr) {
-    faceToLtsMap_.setSize(meshReader_->getFault().size());
+    faceToLtsMap_.setSize(meshReader_->getFault().size(), wpBackmap_->copyCount());
 
     const auto* globalFaceInformation = drStorage_->var<DynamicRupture::FaceInformation>();
     for (auto& layer : drStorage_->leaves()) {
@@ -508,6 +517,7 @@ void OutputManager::initFaceToLtsMap() {
                                  globalFaceInformation,
                                  faceInformation,
                                  faceInformation[ltsFace].meshFace,
+                                 faceInformation[ltsFace].copy,
                                  ltsFace);
       }
     }
@@ -748,8 +758,7 @@ void OutputManager::flushPickpointDataToFile() {
   }
 
   waitForPickpointSamples(ppOutputData_);
-  const auto numSimulations =
-      configValue(seissolInstance_.parameters().model.config).numSimulations;
+  const auto numSimulations = seissolInstance_.memoryManager().simulationSettings().simulationCount;
   for (auto& [layerId, outputData] : ppOutputData_) {
     for (const auto& ppfile : ppFiles_.at(layerId)) {
       std::stringstream data;

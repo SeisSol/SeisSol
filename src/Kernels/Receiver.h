@@ -58,16 +58,19 @@ struct ReceiverBasis {
 };
 
 /**
-  A cell carrying at least one receiver. The time evaluation runs once per cell, and only the
-  point evaluation is repeated for each receiver in it.
+  A cell carrying at least one receiver. The time evaluation runs once per cell and copy, and only
+  the point evaluation is repeated for each receiver in it.
  */
 template <typename Cfg>
 struct ReceiverCell {
-  ReceiverCell(std::size_t meshId, LTS::Ref<Cfg> dataHost, LTS::Ref<Cfg> dataDevice);
+  ReceiverCell(std::size_t meshId,
+               std::vector<LTS::Ref<Cfg>> dataHost,
+               std::vector<LTS::Ref<Cfg>> dataDevice);
   std::size_t meshId{};
   std::size_t ltsPosition{};
-  LTS::Ref<Cfg> dataHost;
-  LTS::Ref<Cfg> dataDevice;
+  // the data of the copies of the cell, which hold the simulations of the run
+  std::vector<LTS::Ref<Cfg>> dataHost;
+  std::vector<LTS::Ref<Cfg>> dataDevice;
   std::vector<std::size_t> receiverIds;
 };
 
@@ -129,7 +132,7 @@ class ReceiverCluster {
 
   [[nodiscard]] virtual size_t ncols() const = 0;
 
-  //! @brief The number of fused simulations a sample holds.
+  //! @brief The number of simulations a sample holds: all simulations of the run.
   [[nodiscard]] virtual std::size_t simulationCount() const = 0;
 
   //! @brief What one simulation records, without the time. A sample takes the time, then this for
@@ -201,6 +204,9 @@ class ReceiverClusterImpl : public ReceiverCluster {
   std::size_t perfHandle_{};
   double samplingInterval_;
   double syncPointInterval_;
+  // the simulations of the run, and the copies of the cells which hold them
+  std::size_t simulationCount_{Cfg::NumSimulations};
+  std::size_t copyCount_{1};
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities_;
   seissol::SeisSol& seissolInstance_;
 };

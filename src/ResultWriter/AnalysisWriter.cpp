@@ -140,9 +140,15 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
     table.addText(runId);
   };
 
-  for (unsigned sim = 0; sim < Cfg::NumSimulations; ++sim) {
+  const auto simulationCount =
+      seissolInstance_.memoryManager().simulationSettings().simulationCount;
+  for (std::size_t sim = 0; sim < simulationCount; ++sim) {
     logInfo() << "Analysis for simulation" << sim << configLabel.c_str() << ": absolute, relative";
     logInfo() << "--------------------------";
+
+    // the copy of the cells which holds the simulation, and the fused simulation there
+    const auto copy = sim / Cfg::NumSimulations;
+    const auto fused = sim % Cfg::NumSimulations;
 
     using ErrorArrayT = std::array<double, NumQuantities>;
     using MeshIdArrayT = std::array<unsigned int, NumQuantities>;
@@ -185,6 +191,8 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
                                     errsLInfLocal,                                                 \
                                     simulationTime,                                                \
                                     sim,                                                           \
+                                    copy,                                                          \
+                                    fused,                                                         \
                                     quadratureWeights,                                             \
                                     elemsLInfLocal,                                                \
                                     errsL2Local,                                                   \
@@ -194,8 +202,8 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
                                     analyticalsLInfLocal) firstprivate(quadraturePointsXyz)
 #endif
       for (std::size_t cell = 0; cell < layer->size(); ++cell) {
-        if (secondaryInformation[cell].duplicate > 0) {
-          // skip duplicate cells
+        if (secondaryInformation[cell].duplicate > 0 || secondaryInformation[cell].copyId != copy) {
+          // skip duplicate cells, and the copies which hold other simulations
           continue;
         }
         const auto meshId = secondaryInformation[cell].meshId;
@@ -242,7 +250,7 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
         krnl.Q = runtime::init::Q::view(Variant, dofsData[cell]);
         krnl.execute(Variant);
 
-        const auto numSub = seissol::multisim::simtensor<Cfg>(numericalSolution, sim);
+        const auto numSub = seissol::multisim::simtensor<Cfg>(numericalSolution, fused);
 
         for (size_t i = 0; i < NumQuadPoints; ++i) {
           const auto curWeight = jacobiDet * quadratureWeights[i];

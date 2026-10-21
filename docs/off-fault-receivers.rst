@@ -48,8 +48,9 @@ the form:
 The receivers files contain the time-histories of the stress tensor (6 variables) and the particle velocities (3).
 Currently, there is no way to write only a subset of these variables.
 
-With fused simulations, a sample of a text file takes a row per simulation, and
-the second column, ``SimulationIndex``, says which one, counted from zero:
+With several simulations (fused ones, or more with ``SimCount``), a sample of a
+text file takes a row per simulation, and the second column,
+``SimulationIndex``, says which one, counted from zero:
 
 ::
 
@@ -73,7 +74,7 @@ into groups that share a quantity set, and each group becomes a dataset
 same quantities -- the usual case -- has exactly one of them.
 
 A dataset is indexed by sample and by row, and a row is **one receiver of one
-simulation**, so a run of fused simulations has a row per receiver and
+simulation**, so a run of several simulations has a row per receiver and
 simulation:
 
 ::
@@ -96,7 +97,7 @@ Two attributes describe a dataset:
   the quantity set it holds, in the form the grouping reads back
 
 ``NumberOfPoints``
-  how many rows it holds over all ranks, i.e. receivers times fused simulations
+  how many rows it holds over all ranks, i.e. receivers times simulations
 
 Beside the datasets, and written once, are the columns describing the rows, in
 the order the ranks contributed them:
@@ -105,7 +106,7 @@ the order the ranks contributed them:
 
   /receivers/Index           (rows, 2)    group and row within that group
   /receivers/PointId         (rows,)      the receiver's line in the receiver file
-  /receivers/SimulationIndex (rows,)      which fused simulation the row holds
+  /receivers/SimulationIndex (rows,)      which simulation the row holds
   /receivers/Coordinates     (rows, 3)    where it sits
 
 The rows are renumbered so that every rank owns one run of each group;
@@ -113,8 +114,8 @@ The rows are renumbered so that every rank owns one run of each group;
 dataset that holds it.
 
 With numpy and h5py, reading the trace of the receiver on line ``n`` of the
-receiver file, counted from zero, in simulation ``s`` (zero without fused
-simulations) is therefore:
+receiver file, counted from zero, in simulation ``s`` (zero with a single
+simulation) is therefore:
 
 .. code-block:: python
 

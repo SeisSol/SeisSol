@@ -47,7 +47,6 @@
 #include "Solver/Estimator.h"
 
 #include <array>
-#include <cassert>
 #include <cstddef>
 #include <map>
 #include <memory>
@@ -139,14 +138,16 @@ void initializeCellMaterialOfConfig(
   const bool withPlasticity = seissolParams.model.plasticity && MaterialT::SupportsPlasticity;
   const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
 
-  std::array<std::vector<Plasticity>, Cfg::NumSimulations> plasticityDB;
+  // the plasticity parameters of every simulation of the run; the fused simulations which only fill
+  // up the last copy of the cells repeat the first simulations
+  std::vector<std::vector<Plasticity>> plasticityDB(seissolParams.model.simulationCount);
 
   if (withPlasticity) {
 
     // plasticity information is only needed on all interior+copy cells.
     const auto plasticityGen = std::make_shared<PlasticityPointGenerator>(
         ctvOfConfig, plasticityNodes<Cfg>(), plasticityPointwise);
-    for (size_t i = 0; i < Cfg::NumSimulations; i++) {
+    for (size_t i = 0; i < plasticityDB.size(); i++) {
       plasticityDB[i] =
           queryDB<Plasticity>(plasticityGen, seissolParams.model.plasticityFileNames[i]);
     }
@@ -224,13 +225,14 @@ void initializeCellMaterialOfConfig(
         // if enabled, set up the plasticity as well
         if (withPlasticity) {
           auto& plasticity = plasticityArray[cell];
-          assert(plasticityDB.size() == Cfg::NumSimulations &&
-                 "Plasticity database size mismatch with number of simulations");
+          // the copy of the cell holds the simulations from copyId * NumSimulations on
+          const auto firstSimulation = localSecondaryInformation.copyId * Cfg::NumSimulations;
           std::array<const Plasticity*, Cfg::NumSimulations> localPlasticity{};
           for (size_t i = 0; i < Cfg::NumSimulations; ++i) {
             const auto pointsPerCell =
                 plasticityPointwise ? model::PlasticityData<Cfg>::PointCount : 1;
-            localPlasticity[i] = &plasticityDB[i][position(meshId) * pointsPerCell];
+            const auto simulation = (firstSimulation + i) % plasticityDB.size();
+            localPlasticity[i] = &plasticityDB[simulation][position(meshId) * pointsPerCell];
           }
           initAssign(plasticity,
                      seissol::model::PlasticityData<Cfg>(

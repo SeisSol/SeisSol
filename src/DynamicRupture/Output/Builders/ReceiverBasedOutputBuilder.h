@@ -36,8 +36,12 @@ class ReceiverBasedOutputBuilder {
 
   void setVariableList(const std::vector<std::size_t>& variables);
   void setFaceToLtsMap(::seissol::initializer::StorageBackmap<1>* faceToLtsMap);
-  /// The fused simulations of the configuration of the run; there is a receiver for each.
-  void setSimulationCount(std::size_t numSimulations) { numSimulations_ = numSimulations; }
+  /// The simulations of the run, of which the faces fuse `fusedSimulations` each; there is a
+  /// receiver for each simulation.
+  void setSimulationCount(std::size_t numSimulations, std::size_t fusedSimulations) {
+    numSimulations_ = numSimulations;
+    fusedSimulations_ = fusedSimulations;
+  }
 
   protected:
   virtual void initTimeCaching() = 0;
@@ -57,6 +61,9 @@ class ReceiverBasedOutputBuilder {
   /// The configuration a fault face computes in.
   [[nodiscard]] ConfigId configOfFace(std::size_t faultFaceIndex) const;
 
+  /// The copy of the fault faces which holds the simulation of a receiver.
+  void assignCopies();
+
   const seissol::geometry::MeshReader* meshReader_{nullptr};
   LTS::Storage* wpStorage_{nullptr};
   LTS::Backmap* wpBackmap_{nullptr};
@@ -65,6 +72,7 @@ class ReceiverBasedOutputBuilder {
   std::vector<std::size_t> variables_;
   ::seissol::initializer::StorageBackmap<1>* faceToLtsMap_{nullptr};
   std::size_t numSimulations_{1};
+  std::size_t fusedSimulations_{1};
   int localRank_{-1};
 };
 } // namespace seissol::dr::output

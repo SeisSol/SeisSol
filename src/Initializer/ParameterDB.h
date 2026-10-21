@@ -23,6 +23,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -195,12 +196,23 @@ class FaultParameterDB : public ParameterDB {
   void addParameter(const std::string& parameter, T* memory, unsigned stride = 1) {
     parameters_[parameter] = std::make_pair(memory, stride);
   }
+  /**
+   * Writes the queried faces to the positions `faces` of the arrays, with `pointsPerFace` points
+   * per face and fused simulation; by default, the queried faces are all faces of the arrays, in
+   * order.
+   */
+  void setFaces(std::vector<std::size_t> faces, std::size_t pointsPerFace) {
+    faces_ = std::move(faces);
+    pointsPerFace_ = pointsPerFace;
+  }
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
 
   private:
   std::size_t simid_;
   std::size_t numSimulations_;
   std::unordered_map<std::string, std::pair<T*, unsigned>> parameters_;
+  std::optional<std::vector<std::size_t>> faces_;
+  std::size_t pointsPerFace_{1};
 };
 
 /// The parameters a fault parameter file provides.

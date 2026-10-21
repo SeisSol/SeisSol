@@ -11,6 +11,7 @@
 #include "Common/ConfigRegistry.h"
 #include "ParameterReader.h"
 
+#include <cstddef>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -43,6 +44,7 @@ struct ModelParameters {
   double tv{};
   std::string boundaryFileName;
   std::string materialFileName;
+  // one per simulation
   std::vector<std::string> plasticityFileNames;
   ITMParameters itmParameters;
   NumericalFlux flux{NumericalFlux::Godunov};
@@ -51,6 +53,9 @@ struct ModelParameters {
   ConfigId config{};
   // the mesh groups whose cells compute in a configuration of their own
   std::unordered_map<int, ConfigId> groupConfigs;
+  // the number of simulations of the run; the fused simulations of the cells hold them, and as
+  // many copies of the cells as needed
+  std::size_t simulationCount{1};
 
   /// The configuration the cells of a mesh group compute in.
   [[nodiscard]] ConfigId configOfGroup(int group) const;
@@ -67,6 +72,9 @@ ConfigId readConfig(ParameterReader* baseReader);
 /// the section `equations`: e.g. "1,2:name;3:other" puts the groups 1 and 2 into the configuration
 /// `name`, and the group 3 into `other`.
 std::unordered_map<int, ConfigId> readGroupConfigs(ParameterReader* baseReader, ConfigId config);
+/// The number of simulations of the run, by `simcount` in the section `equations`; the number of
+/// fused simulations of `config` if not given.
+std::size_t readSimulationCount(ParameterReader* baseReader, ConfigId config);
 ModelParameters readModelParameters(ParameterReader* baseReader,
                                     ConfigId config,
                                     std::unordered_map<int, ConfigId> groupConfigs);

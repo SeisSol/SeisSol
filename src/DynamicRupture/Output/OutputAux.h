@@ -18,6 +18,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <vector>
 
 namespace seissol {
 template <int N, typename T>
@@ -82,7 +83,7 @@ PlusMinusBasisFunctions<Cfg>
 double computeTriangleArea(ExtTriangle& triangle);
 
 /**
- * @brief The index of the first receiver an output cell owns.
+ * @brief The index of the first receiver an output cell owns, in the order of the output.
  *
  * The refiner emits the receivers of a cell point-major and simulation-minor, so a cell owns
  * @p pointsPerCell * @p simulationCount consecutive entries. Properties that every receiver of
@@ -95,9 +96,11 @@ std::size_t
  * @brief The fault tag of an output cell, as the mesh assigned it to the face.
  *
  * This is the group the face was tagged with in the mesh file, not an identifier: several faces
- * carry the same tag, and a mesh that tags nothing leaves it at its default.
+ * carry the same tag, and a mesh that tags nothing leaves it at its default. The receivers are
+ * found through @p order, which gives them in the order of the output.
  */
 int faultTagOfCell(const Receivers& receivers,
+                   const std::vector<std::size_t>& order,
                    std::size_t cell,
                    std::size_t pointsPerCell,
                    std::size_t simulationCount);
@@ -105,9 +108,11 @@ int faultTagOfCell(const Receivers& receivers,
 /**
  * @brief The global identifier of the face an output cell sits on.
  *
- * Unique across the mesh, since it is built from the global element index and the side.
+ * Unique across the mesh, since it is built from the global element index and the side. The
+ * receivers are found through @p order, which gives them in the order of the output.
  */
 std::size_t globalFaceIdOfCell(const Receivers& receivers,
+                               const std::vector<std::size_t>& order,
                                std::size_t cell,
                                std::size_t pointsPerCell,
                                std::size_t simulationCount);

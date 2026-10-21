@@ -200,9 +200,12 @@ class ReceiverOutputImpl : public ReceiverOutput {
 
   protected:
   template <typename Cfg>
-  void getDofs(const Real<Cfg>*(&derivatives), std::size_t meshId);
+  void getDofs(const Real<Cfg>*(&derivatives), std::size_t meshId, std::size_t copy);
   template <typename Cfg>
-  void getNeighborDofs(const Real<Cfg>*(&derivatives), std::size_t meshId, std::size_t side);
+  void getNeighborDofs(const Real<Cfg>*(&derivatives),
+                       std::size_t meshId,
+                       std::size_t copy,
+                       std::size_t side);
   template <typename Cfg>
   void computeLocalStresses(LocalInfo<Cfg>& local);
   template <typename Cfg>

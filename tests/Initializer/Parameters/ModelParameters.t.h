@@ -225,4 +225,42 @@ TEST_CASE("readModelParameters defaults" * doctest::test_suite("initializer")) {
   CHECK(params.fluxNearFault == NumericalFlux::Godunov);
 }
 
+TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initializer")) {
+  SUBCASE("the fused simulations of the configuration by default") {
+    const YAML::Node node = YAML::Load(R"(
+      equations:
+        materialfilename: mat.yaml
+        freqcentral: 1
+        freqratio: 1
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readModelParameters(&reader, defaultConfig(), {});
+
+    const std::size_t fused = configValue(defaultConfig()).numSimulations;
+    CHECK(params.simulationCount == fused);
+    CHECK(params.plasticityFileNames.size() == fused);
+  }
+
+  SUBCASE("a plasticity file per simulation") {
+    const YAML::Node node = YAML::Load(R"(
+      equations:
+        materialfilename: mat.yaml
+        plasticityfilename: plasticity.yaml
+        plasticityfilename2: plasticity-2.yaml
+        simcount: 3
+        freqcentral: 1
+        freqratio: 1
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readModelParameters(&reader, defaultConfig(), {});
+
+    CHECK(params.simulationCount == 3);
+    REQUIRE(params.plasticityFileNames.size() == 3);
+    CHECK(params.plasticityFileNames[0] == "plasticity.yaml");
+    // the material file stands in for a missing plasticity file
+    CHECK(params.plasticityFileNames[1] == "mat.yaml");
+    CHECK(params.plasticityFileNames[2] == "plasticity-2.yaml");
+  }
+}
+
 } // namespace seissol::unit_test

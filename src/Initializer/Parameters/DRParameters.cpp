@@ -8,8 +8,8 @@
 #include "DRParameters.h"
 
 #include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
 #include "DynamicRupture/Misc.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
 #include <Eigen/Core>
@@ -132,7 +132,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
 
   const auto faultFileName = reader->readPath("modelfilename");
 
-  std::vector<std::optional<std::string>> faultFileNames(configValue(config).numSimulations);
+  std::vector<std::optional<std::string>> faultFileNames(readSimulationCount(baseReader, config));
 
   bool isDynamicRuptureEnabled = false;
 

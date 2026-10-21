@@ -161,8 +161,9 @@ into the strike and dip directions:
 followed by a row per sample. ``T_s``, ``T_d`` and ``P_n`` are the change of the
 tractions; adding ``T_s``, ``T_d`` and ``P_0`` of the header gives the total.
 
-With fused simulations, a sample takes a row per simulation, and the second
-column, ``SimulationIndex``, says which one, counted from zero. The lines
+With several simulations (fused ones, or more with ``SimCount``), a sample takes
+a row per simulation, and the second column, ``SimulationIndex``, says which
+one, counted from zero. The lines
 ``P_0``, ``T_s`` and ``T_d`` of the header then hold a value per simulation, in
 the same order. SeisSol used to write a column per quantity and simulation
 instead (``SRs-1``, ``SRs-2``, ...); ``postprocessing/science/widen_fused_receivers.py``
@@ -182,7 +183,7 @@ Setting ``format = 'hdf5'`` in the ``Pickpoint`` section writes all receivers
 into a single file, ``-faultreceivers.h5``, instead of one text file each.
 
 A row of that table is **one receiver of one simulation**, as a sample of a
-fused run is a row per simulation in the text files, and what their header
+run of several simulations is a row per simulation in the text files, and what their header
 states about a receiver becomes a column beside the table. The layout is the one
 of the off-fault receivers, described under :ref:`off_fault_receivers`, with
 these columns:
@@ -191,7 +192,7 @@ these columns:
 
   /faultreceivers/Index            (receivers, 2)   group and row within that group
   /faultreceivers/ReceiverId       (receivers,)     the receiver's number
-  /faultreceivers/SimulationIndex  (receivers,)     which fused simulation the row holds
+  /faultreceivers/SimulationIndex  (receivers,)     which simulation the row holds
   /faultreceivers/FaceId           (receivers,)     the fault face, globally
   /faultreceivers/PlusCellId       (receivers,)     the cell on the plus side
   /faultreceivers/PlusFaceSide     (receivers,)     and its local face number

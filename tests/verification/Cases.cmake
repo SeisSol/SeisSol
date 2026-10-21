@@ -175,6 +175,55 @@ seissol_add_comparison(
     TOLERANCE 1e-6
     LABELS "identity;dr")
 
+# ---------------------------------------------------------------------------
+# Stage 1: simulation copies. Twice as many simulations as the configuration
+# fuses are held by two copies of every cell. Each simulation has to carry a
+# wave of its own, a zero state has to stay zero in every copy, and the copies
+# exchange their halos as the cells do.
+# ---------------------------------------------------------------------------
+
+math(EXPR SEISSOL_COPIES_SIMULATIONS "2 * ${SEISSOL_CAP_SIMULATIONS}")
+
+seissol_add_minitest(
+    NAME smoke-box48-copies
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    SET "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;copies")
+
+seissol_add_minitest(
+    NAME smoke-box48-copies-mpi4
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    RANKS 4
+    SET "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    LABELS "smoke;mpi;copies")
+
+seissol_add_minitest(
+    NAME null-skew48-copies-mpi4
+    MESH skew48
+    PARAMETERS wave.par
+    STEPS 20
+    RANKS 4
+    SET ${SEISSOL_ZERO_STATE} "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    EXPECT_ZERO
+    LABELS "null;mpi;copies")
+
+seissol_add_comparison(
+    NAME bitwise-box48-copies-mpi4
+    REFERENCE smoke-box48-copies
+    CANDIDATE smoke-box48-copies-mpi4
+    TOLERANCE 0
+    LABELS "bitwise;mpi;copies")
+
 
 # ---------------------------------------------------------------------------
 # Friction laws (seissol_add_rupture).
@@ -276,6 +325,23 @@ seissol_add_comparison(
     NAME identity-lsw-legacy
     REFERENCE rupture-lsw
     CANDIDATE rupture-lsw-legacy
+    TOLERANCE 0
+    LABELS "identity;dr")
+
+# A nucleation takes its onset and its rise time per point from the fault file
+# where it provides them, and from the parameter file otherwise. The same values
+# have to give the same run either way. A face holds the onsets and rise times
+# of all its stress sources together, which the fault file does not know of.
+# The parameter file of the case reading them from the fault file has values
+# that would show if they were taken.
+seissol_add_rupture(NAME rupture-lsw-onset FL 16 FAULT fault-lsw.yaml
+                    SET "DynamicRupture.s_0=2.44140625e-04" NO_SNAPSHOT)
+seissol_add_rupture(NAME rupture-lsw-onset-easi FL 16 FAULT fault-lsw-onset.yaml
+                    SET "DynamicRupture.s_0=1.0" "DynamicRupture.t_0=1.0" NO_SNAPSHOT)
+seissol_add_comparison(
+    NAME identity-lsw-onset-easi
+    REFERENCE rupture-lsw-onset
+    CANDIDATE rupture-lsw-onset-easi
     TOLERANCE 0
     LABELS "identity;dr")
 

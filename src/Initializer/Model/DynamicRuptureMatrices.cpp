@@ -240,9 +240,9 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
 
   const auto& fault = meshReader.getFault();
 
-  const auto getDupOpt = [&](const auto& elem, std::size_t duplicate) {
+  const auto getDupOpt = [&](const auto& elem, std::size_t copy, std::size_t duplicate) {
     if (elem.hasValue()) {
-      return backmap.getDup(elem.value(), duplicate);
+      return backmap.getDup(elem.value(), copy, duplicate);
     }
     return std::optional<StoragePosition>();
   };
@@ -279,6 +279,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     const std::size_t meshFace = faceInformation[ltsFace].meshFace;
     assert(fault[meshFace].element.hasValue() || fault[meshFace].neighborElement.hasValue());
+
+    const auto copy = faceInformation[ltsFace].copy;
 
     /// Face information
     // already set: faceInformation[ltsFace].meshFace = meshFace;
@@ -318,7 +320,7 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     };
 
     for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
-      const auto positionOpt = backmap.getDup(derivativesMeshId, duplicate);
+      const auto positionOpt = backmap.getDup(derivativesMeshId, copy, duplicate);
       if (positionOpt.has_value()) {
         const auto position = positionOpt.value();
         const auto& cellInformation = ltsStorage.lookup<LTS::CellInformation>(position);
@@ -364,8 +366,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
 
     /// DR mapping for elements
     for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
-      const auto plusLtsId = getDupOpt(fault[meshFace].element, duplicate);
-      const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, duplicate);
+      const auto plusLtsId = getDupOpt(fault[meshFace].element, copy, duplicate);
+      const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, copy, duplicate);
 
       assert(duplicate != 0 || plusLtsId.has_value() || minusLtsId.has_value());
 
@@ -416,8 +418,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     /// Materials
     const seissol::model::MaterialOf<Cfg>* plusMaterial = nullptr;
     const seissol::model::MaterialOf<Cfg>* minusMaterial = nullptr;
-    const auto plusLtsId = getDupOpt(fault[meshFace].element, 0);
-    const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, 0);
+    const auto plusLtsId = getDupOpt(fault[meshFace].element, copy, 0);
+    const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, copy, 0);
 
     assert(plusLtsId.has_value() || minusLtsId.has_value());
 

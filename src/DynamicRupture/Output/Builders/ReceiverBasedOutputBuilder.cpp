@@ -77,13 +77,15 @@ void ReceiverBasedOutputBuilder::setFaceToLtsMap(
 }
 
 ConfigId ReceiverBasedOutputBuilder::configOfFace(std::size_t faultFaceIndex) const {
-  const auto position = faceToLtsMap_->get(faultFaceIndex);
+  // all copies of a face compute in the same configuration
+  const auto position = faceToLtsMap_->get(faultFaceIndex, 0);
   return drStorage_->layer(position.color).getIdentifier().config;
 }
 
 namespace {
 struct GhostElement {
   std::pair<std::size_t, int> data;
+  std::size_t copy{};
   std::size_t index{};
 };
 
@@ -106,7 +108,8 @@ void ReceiverBasedOutputBuilder::initTopology() {
 
   // Bucket the receivers by face and, within a face, by position. Buckets are created on first
   // touch, so the order the generators produced is preserved: face-major for the elementwise
-  // output, file order for the pickpoint output.
+  // output, file order for the pickpoint output. Only the copies of a face are faces of their own,
+  // which pulls the simulations of a point apart; outputOrder keeps the order of the generators.
   struct PointBucket {
     std::vector<std::size_t> receiverIds;
     std::size_t nearestGpIndex{};
@@ -114,6 +117,7 @@ void ReceiverBasedOutputBuilder::initTopology() {
   };
   struct FaceBucket {
     std::size_t faultFaceIndex{};
+    std::size_t copy{};
     std::size_t elementIndex{};
     std::size_t localFaceSideId{};
     std::vector<PointBucket> points;
@@ -128,11 +132,12 @@ void ReceiverBasedOutputBuilder::initTopology() {
       continue;
     }
 
-    const auto faceKey = faceToLtsMap_->get(receiver.faultFaceIndex.value()).global;
+    const auto faceKey = faceToLtsMap_->get(receiver.faultFaceIndex.value(), receiver.copy).global;
     if (faceIds.find(faceKey) == faceIds.end()) {
       faceIds[faceKey] = faceBuckets.size();
       auto& bucket = faceBuckets.emplace_back();
       bucket.faultFaceIndex = receiver.faultFaceIndex.value();
+      bucket.copy = receiver.copy;
       bucket.elementIndex = receiver.elementIndex.value();
       bucket.localFaceSideId =
           static_cast<std::size_t>(static_cast<std::uint8_t>(receiver.localFaceSideId.value()));
@@ -173,11 +178,13 @@ void ReceiverBasedOutputBuilder::initTopology() {
   // only.
   std::vector<Receiver> receivers;
   receivers.reserve(outputData_->receivers.size());
+  outputData_->outputOrder.resize(outputData_->receivers.size());
 
   for (const auto& faceBucket : faceBuckets) {
     OutputFace face{};
     face.faultFaceIndex = faceBucket.faultFaceIndex;
-    face.position = faceToLtsMap_->get(faceBucket.faultFaceIndex);
+    face.copy = faceBucket.copy;
+    face.position = faceToLtsMap_->get(faceBucket.faultFaceIndex, faceBucket.copy);
     face.elementIndex = faceBucket.elementIndex;
     face.localFaceSideId = faceBucket.localFaceSideId;
     topology.addFace(face);
@@ -190,6 +197,7 @@ void ReceiverBasedOutputBuilder::initTopology() {
       topology.addPoint(point, pointBucket.receiverIds.size());
 
       for (const auto receiverId : pointBucket.receiverIds) {
+        outputData_->outputOrder[receiverId] = receivers.size();
         receivers.push_back(outputData_->receivers[receiverId]);
       }
     }
@@ -254,6 +262,9 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
 
   auto& topology = outputData_->topology;
 
+  // the copies of an element are gathered separately; hence, the keys carry the copy, too
+  const auto copyCount = wpBackmap_->copyCount();
+
   std::unordered_map<std::size_t, std::size_t> elementIndices;
   std::unordered_map<std::pair<int, std::size_t>, GhostElement, HashPair<int, std::size_t>>
       elementIndicesGhost;
@@ -265,24 +276,26 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
     const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
     const auto& element = elementsInfo[elementIndex];
 
-    if (elementIndices.find(elementIndex) == elementIndices.end()) {
-      elementIndices[elementIndex] = elementIndices.size();
+    const auto elementKey = elementIndex * copyCount + face.copy;
+    if (elementIndices.find(elementKey) == elementIndices.end()) {
+      elementIndices[elementKey] = elementIndices.size();
     }
-    face.deviceDataPlus = elementIndices.at(elementIndex);
+    face.deviceDataPlus = elementIndices.at(elementKey);
 
     const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
     if (neighborElementIndex.hasValue()) {
-      if (elementIndices.find(neighborElementIndex.value()) == elementIndices.end()) {
-        elementIndices[neighborElementIndex.value()] = elementIndices.size();
+      const auto neighborKey = neighborElementIndex.value() * copyCount + face.copy;
+      if (elementIndices.find(neighborKey) == elementIndices.end()) {
+        elementIndices[neighborKey] = elementIndices.size();
       }
     } else {
       const auto faultSide = faultInfo[face.faultFaceIndex].side;
-      const auto ghostIndex = std::pair<int, std::size_t>(element.neighborRanks[faultSide],
-                                                          element.mpiIndices[faultSide]);
+      const auto ghostIndex = std::pair<int, std::size_t>(
+          element.neighborRanks[faultSide], element.mpiIndices[faultSide] * copyCount + face.copy);
       if (elementIndicesGhost.find(ghostIndex) == elementIndicesGhost.end()) {
         const auto index = elementIndicesGhost.size();
         elementIndicesGhost[ghostIndex] =
-            GhostElement{std::pair<std::size_t, int>(elementIndex, faultSide), index};
+            GhostElement{std::pair<std::size_t, int>(elementIndex, faultSide), face.copy, index};
       }
     }
   }
@@ -292,13 +305,14 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
   for (auto& face : topology.faces) {
     const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
     if (neighborElementIndex.hasValue()) {
-      face.deviceDataMinus = elementIndices.at(neighborElementIndex.value());
+      face.deviceDataMinus =
+          elementIndices.at(neighborElementIndex.value() * copyCount + face.copy);
     } else {
       const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
       const auto& element = elementsInfo[elementIndex];
       const auto faultSide = faultInfo[face.faultFaceIndex].side;
-      const auto ghostIndex = std::pair<int, std::size_t>(element.neighborRanks[faultSide],
-                                                          element.mpiIndices[faultSide]);
+      const auto ghostIndex = std::pair<int, std::size_t>(
+          element.neighborRanks[faultSide], element.mpiIndices[faultSide] * copyCount + face.copy);
       face.deviceDataMinus = elementIndices.size() + elementIndicesGhost.at(ghostIndex).index;
     }
   }
@@ -333,8 +347,8 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
 
       std::vector<void*> indexPtrs(outputData_->cellCount);
 
-      for (const auto& [index, arrayIndex] : elementIndices) {
-        const auto position = wpBackmap_->get(index);
+      for (const auto& [elementKey, arrayIndex] : elementIndices) {
+        const auto position = wpBackmap_->get(elementKey / copyCount, elementKey % copyCount);
         const auto config = wpStorage_->layer(position.color).getIdentifier().config;
         indexPtrs[arrayIndex] = dispatchConfig(config, [&](auto cfg) -> void* {
           return wpStorage_->lookup<LTS::DerivativesDevice>(cfg, position);
@@ -345,7 +359,7 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
         const auto neighbor = ghost.data;
         const auto arrayIndex = ghost.index + elementIndices.size();
 
-        const auto position = wpBackmap_->get(neighbor.first);
+        const auto position = wpBackmap_->get(neighbor.first, ghost.copy);
         indexPtrs[arrayIndex] =
             wpStorage_->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
         assert(indexPtrs[arrayIndex] != nullptr);
@@ -518,10 +532,17 @@ void ReceiverBasedOutputBuilder::assignFusedIndices() {
   for (auto& geoPoint : geoPoints) {
     dispatchConfig(configOfFace(geoPoint.faultFaceIndex.value()), [&](auto cfg) {
       using Cfg = decltype(cfg);
-      geoPoint.gpIndex = Cfg::NumSimulations * geoPoint.nearestGpIndex + geoPoint.simIndex;
-      geoPoint.internalGpIndexFused =
-          Cfg::NumSimulations * geoPoint.nearestInternalGpIndex + geoPoint.simIndex;
+      // the simulation among the fused ones of the copy of the face
+      const int fused = geoPoint.simIndex % static_cast<int>(Cfg::NumSimulations);
+      geoPoint.gpIndex = Cfg::NumSimulations * geoPoint.nearestGpIndex + fused;
+      geoPoint.internalGpIndexFused = Cfg::NumSimulations * geoPoint.nearestInternalGpIndex + fused;
     });
+  }
+}
+
+void ReceiverBasedOutputBuilder::assignCopies() {
+  for (auto& geoPoint : outputData_->receivers) {
+    geoPoint.copy = static_cast<std::size_t>(geoPoint.simIndex) / fusedSimulations_;
   }
 }
 

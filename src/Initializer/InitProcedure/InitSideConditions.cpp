@@ -77,7 +77,7 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
     const auto cellCount = seissolInstance.meshReader().getElements().size();
     std::vector<std::optional<std::size_t>> firstCell(builtConfigCount());
     for (std::size_t cell = 0; cell < cellCount; ++cell) {
-      const auto config = storage.lookup<LTS::SecondaryInformation>(backmap.get(cell)).configId;
+      const auto config = storage.lookup<LTS::SecondaryInformation>(backmap.get(cell, 0)).configId;
       if (!firstCell[config].has_value()) {
         firstCell[config] = cell;
       }
@@ -95,7 +95,7 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
               buildInitialConditionList(
                   seissolInstance,
                   config,
-                  storage.lookup<LTS::Material>(backmap.get(firstCell[reference].value()))));
+                  storage.lookup<LTS::Material>(backmap.get(firstCell[reference].value(), 0))));
           break;
         }
       }
@@ -117,6 +117,7 @@ void initSource(seissol::SeisSol& seissolInstance) {
                                             seissolInstance.meshReader(),
                                             memoryManager.ltsStorage(),
                                             memoryManager.backmap(),
+                                            memoryManager.simulationSettings(),
                                             seissolInstance.timeManager());
 }
 

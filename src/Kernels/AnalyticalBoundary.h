@@ -55,9 +55,12 @@ struct ApplyAnalyticalSolution {
     // NOTE: not yet tested for multisim setups
     // (only implemented to get the build to work)
 
+    // the copy of the cell holds the simulations from copyId * NumSimulations on
+    const auto firstSimulation =
+        localData_.template get<LTS::SecondaryInformation>().copyId * Cfg::NumSimulations;
     for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
       auto slicedBoundaryDofs = multisim::simtensor<Cfg>(boundaryDofs, s);
-      initConditions_->at(s % initConditions_->size())
+      initConditions_->at((firstSimulation + s) % initConditions_->size())
           ->evaluate(time,
                      nodesVec,
                      NodeCount,

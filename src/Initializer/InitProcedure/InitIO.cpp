@@ -148,6 +148,9 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   }
   checkpoint.setConfig(config);
 
+  // every copy of a cell or face is a data point of its own
+  const auto copyCount = seissolInstance.memoryManager().simulationSettings().copyCount();
+
   {
     auto& storage = seissolInstance.memoryManager().ltsStorage();
     std::vector<std::size_t> globalIds(storage.size(seissol::initializer::LayerMask(Ghost)));
@@ -156,8 +159,10 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < layer.size(); ++i) {
-        const auto meshId = layer.var<LTS::SecondaryInformation>()[i].meshId;
-        globalIds[offset + i] = seissolInstance.meshReader().getElements()[meshId].globalId;
+        const auto& secondaryInformation = layer.var<LTS::SecondaryInformation>()[i];
+        const auto globalId =
+            seissolInstance.meshReader().getElements()[secondaryInformation.meshId].globalId;
+        globalIds[offset + i] = globalId * copyCount + secondaryInformation.copyId;
       }
       offset += layer.size();
     }
@@ -178,7 +183,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       // take the positive cell and side as fault face identifier
       // (should result in roughly twice as large numbers as when indexing all faces; cf.
       // handshake theorem)
-      faceIdentifiers[i] = fault.globalId * 4 + fault.side;
+      faceIdentifiers[i] =
+          (fault.globalId * 4 + fault.side) * copyCount + drFaceInformation[i].copy;
     }
     checkpoint.registerTree("dynrup", storage, faceIdentifiers);
     dynrup.registerCheckpointVariables(checkpoint, storage);
@@ -188,6 +194,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     auto& storage = seissolInstance.memoryManager().surfaceStorage();
     std::vector<std::size_t> faceIdentifiers(storage.size(seissol::initializer::LayerMask(Ghost)));
     const auto* meshIds = storage.var<SurfaceLTS::MeshId>();
+    const auto* copyIds = storage.var<SurfaceLTS::CopyId>();
     const auto* sides = storage.var<SurfaceLTS::Side>();
 
     const auto& elements = seissolInstance.meshReader().getElements();
@@ -197,7 +204,9 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       // since the mesh id is local to a rank: the same one names different cells on different
       // ranks, and a restart may distribute the cells differently.
       faceIdentifiers[i] =
-          elements[meshIds[i]].globalId * Cell::NumFaces + static_cast<std::size_t>(sides[i]);
+          (elements[meshIds[i]].globalId * Cell::NumFaces + static_cast<std::size_t>(sides[i])) *
+              copyCount +
+          copyIds[i];
     }
     checkpoint.registerTree("surface", storage, faceIdentifiers);
     SurfaceLTS::registerCheckpointVariables(checkpoint, storage);
@@ -328,8 +337,9 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
   constexpr auto QDofPointsPadded = tensor::QStressNodal<Cfg>::Size /
                                     tensor::QStressNodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
 
-  const auto namewrap = [](const std::string& name, std::size_t sim) {
-    if constexpr (multisim::MultisimHelperWrapper<Cfg>::MultisimEnabled) {
+  const auto simulationCount = memoryManager.simulationSettings().simulationCount;
+  const auto namewrap = [simulationCount](const std::string& name, std::size_t sim) {
+    if (simulationCount > 1) {
       return name + "-" + std::to_string(sim + 1);
     } else {
       return name;
@@ -380,13 +390,17 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
 
   NamedOutputs outputs;
 
-  for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
+  for (std::size_t sim = 0; sim < simulationCount; ++sim) {
+    // the copy of the cells which holds the simulation, and the fused simulation there
+    const auto copy = sim / Cfg::NumSimulations;
+    const auto fused = sim % Cfg::NumSimulations;
+
     const auto projectVolume =
         [=](double* target, const real* dofsSingleQuantity, const real* collvv) {
           runtime::kernel::projectBasisToVtkVolume vtkproj{};
           memory::AlignedArray<real, Cfg::NumSimulations> simselect{};
           alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
-          simselect[sim] = 1;
+          simselect[fused] = 1;
           vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
           vtkproj.qb = runtime::init::qb::view(Variant, dofsSingleQuantity);
           vtkproj.xv(order) = runtime::init::xv::view(Variant, order, alignedTarget.data());
@@ -428,7 +442,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
         outputs.emplace_back(
             namewrap(MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
-              const auto position = backmap->get(cells->at(index));
+              const auto position = backmap->get(cells->at(index), copy);
               const auto* dofsAllQuantities = ltsStorage->lookup<LTS::Dofs>(Cfg(), position);
               const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
               projectVolume(target, dofsSingleQuantity, (*proj)(subcell, Cfg::ConvergenceOrder));
@@ -439,7 +453,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
         outputs.emplace_back(
             namewrap("int-" + MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
-              const auto position = backmap->get(cells->at(index));
+              const auto position = backmap->get(cells->at(index), copy);
               const auto* dofsAllQuantities = ltsStorage->lookup<LTS::Integrals>(Cfg(), position);
               const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
               projectVolume(target, dofsSingleQuantity, (*proj)(subcell, Cfg::ConvergenceOrder));
@@ -467,7 +481,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
         outputs.emplace_back(
             namewrap("eps" + name, sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
-              const auto position = backmap->get(cells->at(index));
+              const auto position = backmap->get(cells->at(index), copy);
               const auto* dofsAllQuantities = ltsStorage->lookup<LTS::Integrals>(Cfg(), position);
               const auto* dofsSingleQuantity1 =
                   dofsAllQuantities + QDofSizePadded * (idx1 + MaterialT::VelocityOffset);
@@ -500,7 +514,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
         outputs.emplace_back(
             namewrap("rot" + name, sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
-              const auto position = backmap->get(cells->at(index));
+              const auto position = backmap->get(cells->at(index), copy);
               const auto* dofsAllQuantities = ltsStorage->lookup<LTS::Dofs>(Cfg(), position);
               const auto* dofsSingleQuantity1 =
                   dofsAllQuantities + QDofSizePadded * (idx1 + MaterialT::VelocityOffset);
@@ -526,13 +540,13 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
           outputs.emplace_back(
               namewrap(seissol::model::PlasticityData<Cfg>::Quantities[quantity], sim),
               [=](double* target, std::size_t index, std::size_t subcell) {
-                const auto position = backmap->get(cells->at(index));
+                const auto position = backmap->get(cells->at(index), copy);
                 const auto* dofsAllQuantities = ltsStorage->lookup<LTS::PStrain>(Cfg(), position);
                 const auto* pointsSingleQuantity = dofsAllQuantities + QDofPointsPadded * quantity;
                 runtime::kernel::projectNodalToVtkVolume vtkproj{};
                 memory::AlignedArray<real, Cfg::NumSimulations> simselect{};
                 alignas(Alignment) std::array<real, MaxVtk3dPoints> alignedTarget{};
-                simselect[sim] = 1;
+                simselect[fused] = 1;
                 vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
                 vtkproj.qn = runtime::init::qn::view(Variant, pointsSingleQuantity);
                 vtkproj.xv(order) = runtime::init::xv::view(Variant, order, alignedTarget.data());
@@ -682,7 +696,7 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   std::vector<ConfigId> configOfCell(cells->size());
   for (std::size_t index = 0; index < cells->size(); ++index) {
     configOfCell[index] =
-        ltsStorage.lookup<LTS::SecondaryInformation>(backmap.get(cells->at(index))).configId;
+        ltsStorage.lookup<LTS::SecondaryInformation>(backmap.get(cells->at(index), 0)).configId;
   }
   const auto configOf = std::make_shared<const std::vector<ConfigId>>(std::move(configOfCell));
   addConfigData(writer, configs, configOf);
@@ -731,8 +745,9 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
       tensor::faceDisplacement<Cfg>::Size /
       tensor::faceDisplacement<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
 
-  const auto namewrap = [](const std::string& name, std::size_t sim) {
-    if constexpr (multisim::MultisimHelperWrapper<Cfg>::MultisimEnabled) {
+  const auto simulationCount = memoryManager.simulationSettings().simulationCount;
+  const auto namewrap = [simulationCount](const std::string& name, std::size_t sim) {
+    if (simulationCount > 1) {
       return name + "-" + std::to_string(sim + 1);
     } else {
       return name;
@@ -785,7 +800,11 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
   const std::vector<std::string> quantityLabelsDisplacement = {"u1", "u2", "u3"};
 
   NamedOutputs outputs;
-  for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
+  for (std::size_t sim = 0; sim < simulationCount; ++sim) {
+    // the copy of the cells which holds the simulation, and the fused simulation there
+    const auto copy = sim / Cfg::NumSimulations;
+    const auto fused = sim % Cfg::NumSimulations;
+
     for (std::size_t quantity = 0; quantity < MaterialT::Quantities.size(); ++quantity) {
       if (seissolParams.output.freeSurfaceParameters.outputMask[quantity]) {
         outputs.emplace_back(
@@ -793,13 +812,13 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
             [=](double* target, std::size_t index, std::size_t subcell) {
               auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
               auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
-              const auto position = backmap->get(meshId);
+              const auto position = backmap->get(meshId, copy);
               const auto* dofsAllQuantities = ltsStorage->lookup<LTS::Dofs>(Cfg(), position);
               const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
               runtime::kernel::projectBasisToVtkFaceFromVolume vtkproj{};
               memory::AlignedArray<real, Cfg::NumSimulations> simselect{};
               alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
-              simselect[sim] = 1;
+              simselect[fused] = 1;
               vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
               vtkproj.qb = runtime::init::qb::view(Variant, dofsSingleQuantity);
               vtkproj.xf(order) = runtime::init::xf::view(Variant, order, alignedTarget.data());
@@ -819,7 +838,7 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
           [=](double* target, std::size_t index, std::size_t subcell) {
             auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
             auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
-            const auto position = backmap->get(meshId);
+            const auto position = backmap->get(meshId, copy);
             const auto& faceDisplacements =
                 ltsStorage->lookup<LTS::FaceDisplacements>(Cfg(), position);
             const auto* faceDisplacementVariable =
@@ -827,7 +846,7 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
             runtime::kernel::projectNodalToVtkFace vtkproj{};
             memory::AlignedArray<real, Cfg::NumSimulations> simselect{};
             alignas(Alignment) std::array<real, MaxVtk2dPoints> alignedTarget{};
-            simselect[sim] = 1;
+            simselect[fused] = 1;
             vtkproj.simselect = runtime::init::simselect::view(Variant, simselect.data());
             vtkproj.pn = runtime::init::pn::view(Variant, faceDisplacementVariable);
             vtkproj.xf(order) = runtime::init::xf::view(Variant, order, alignedTarget.data());
@@ -949,7 +968,7 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
   for (std::size_t index = 0; index < configOfFace.size(); ++index) {
     const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
     configOfFace[index] =
-        ltsStorage.lookup<LTS::SecondaryInformation>(backmap.get(meshId)).configId;
+        ltsStorage.lookup<LTS::SecondaryInformation>(backmap.get(meshId, 0)).configId;
   }
   const auto configOf = std::make_shared<const std::vector<ConfigId>>(std::move(configOfFace));
   addConfigData(writer, configs, configOf);

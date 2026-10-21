@@ -16,6 +16,7 @@
 #include "GeneratedCode/general/kernel.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
@@ -256,41 +257,39 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
             addStressesToStorageMap(nucleationStresses[i], i + 1);
       }
 
-      // a nucleation may carry its onset per point; where it does not, the parameter file's is the
-      // onset of all of its points
+      // a nucleation may carry its onset and its rise time per point; where it does not, the
+      // parameter file's is the one of all of its points. A face holds them for all of its stress
+      // sources together, but the fault file is read face by face; hence, what it gives goes
+      // through arrays of its own first, as the stresses do.
       const auto sourceCount = stressSourceCount(*drParameters_);
       const auto initialSource = drParameters_->nucleationCount;
       auto* stressSourceOnset = layer.var<DynamicRupture::StressSourceOnset>(Cfg());
       auto* stressSourceRiseTime = layer.var<DynamicRupture::StressSourceRiseTime>(Cfg());
+      using PointArrays = typename StressTensor<Cfg>::VectorOfArraysT;
+      std::vector<PointArrays> onsetsFromFault(drParameters_->nucleationCount);
+      std::vector<PointArrays> riseTimesFromFault(drParameters_->nucleationCount);
       std::vector<bool> onsetFromFault(drParameters_->nucleationCount);
       std::vector<bool> riseTimeFromFault(drParameters_->nucleationCount);
       for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
         const auto onset = onsetIdentifier(i + 1);
         onsetFromFault[i] = this->faultProvides(onset);
         if (onsetFromFault[i]) {
-          parameterToStorageMap.insert({onset, reinterpret_cast<real*>(&stressSourceOnset[i])});
+          onsetsFromFault[i].resize(layer.size());
+          parameterToStorageMap.insert({onset, reinterpret_cast<real*>(onsetsFromFault[i].data())});
         }
         const auto riseTime = riseTimeIdentifier(i + 1);
         riseTimeFromFault[i] = this->faultProvides(riseTime);
         if (riseTimeFromFault[i]) {
+          riseTimesFromFault[i].resize(layer.size());
           parameterToStorageMap.insert(
-              {riseTime, reinterpret_cast<real*>(&stressSourceRiseTime[i])});
+              {riseTime, reinterpret_cast<real*>(riseTimesFromFault[i].data())});
         }
       }
 
       // get additional parameters (for derived friction laws)
       addAdditionalParameters(parameterToStorageMap, layer);
 
-      for (std::size_t i = 0; i < Cfg::NumSimulations; ++i) {
-        seissol::initializer::FaultParameterDB<real> faultParameterDB(i, Cfg::NumSimulations);
-        // read parameters from yaml file
-        for (const auto& parameterStoragePair : parameterToStorageMap) {
-          faultParameterDB.addParameter(parameterStoragePair.first,
-                                        static_cast<real*>(parameterStoragePair.second));
-        }
-        const auto faceIDs = getFaceIDsInIterator(layer);
-        queryModel<Cfg>(faultParameterDB, faceIDs, i);
-      }
+      queryParameters<Cfg>(layer, parameterToStorageMap);
 
       // rotate initial stress to fault coordinate system
       if (initialStressParameterizedByTraction) {
@@ -324,14 +323,12 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
         for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
           for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>;
                ++pointIndex) {
-            if (!onsetFromFault[i]) {
-              stressSourceOnset[ltsFace * sourceCount + i][pointIndex] =
-                  static_cast<real>(drParameters_->s0[i]);
-            }
-            if (!riseTimeFromFault[i]) {
-              stressSourceRiseTime[ltsFace * sourceCount + i][pointIndex] =
-                  static_cast<real>(drParameters_->t0[i]);
-            }
+            stressSourceOnset[ltsFace * sourceCount + i][pointIndex] =
+                onsetFromFault[i] ? onsetsFromFault[i][ltsFace][pointIndex]
+                                  : static_cast<real>(drParameters_->s0[i]);
+            stressSourceRiseTime[ltsFace * sourceCount + i][pointIndex] =
+                riseTimeFromFault[i] ? riseTimesFromFault[i][ltsFace][pointIndex]
+                                     : static_cast<real>(drParameters_->t0[i]);
             riseTimeNegative[i] = riseTimeNegative[i] ||
                                   stressSourceRiseTime[ltsFace * sourceCount + i][pointIndex] < 0;
           }
@@ -400,15 +397,39 @@ void BaseDRInitializer::logQuadratureRules(DynamicRupture::Storage& drStorage) {
   });
 }
 
-std::vector<std::size_t> BaseDRInitializer::getFaceIDsInIterator(DynamicRupture::Layer& layer) {
-  const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
-  std::vector<std::size_t> faceIDs;
-  faceIDs.reserve(layer.size());
-  // collect all face IDs within this lts leaf
-  for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-    faceIDs.push_back(drFaceInformation[ltsFace].meshFace);
+template <typename Cfg>
+void BaseDRInitializer::queryParameters(
+    DynamicRupture::Layer& layer,
+    const std::unordered_map<std::string, void*>& parameterToStorageMap) {
+  using real = Real<Cfg>;
+  const auto* drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
+  const auto copyCount = seissolInstance_.memoryManager().drBackmap().copyCount();
+
+  for (std::size_t copy = 0; copy < copyCount; ++copy) {
+    // the faces of the copy, by their mesh ids and by their positions in the layer
+    std::vector<std::size_t> faceIDs;
+    std::vector<std::size_t> faces;
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      if (drFaceInformation[ltsFace].copy == copy) {
+        faceIDs.push_back(drFaceInformation[ltsFace].meshFace);
+        faces.push_back(ltsFace);
+      }
+    }
+
+    for (std::size_t i = 0; i < Cfg::NumSimulations; ++i) {
+      seissol::initializer::FaultParameterDB<real> faultParameterDB(i, Cfg::NumSimulations);
+      // read parameters from yaml file
+      for (const auto& parameterStoragePair : parameterToStorageMap) {
+        faultParameterDB.addParameter(parameterStoragePair.first,
+                                      static_cast<real*>(parameterStoragePair.second));
+      }
+      if (copyCount > 1) {
+        // the faces of the other copies lie in between
+        faultParameterDB.setFaces(faces, misc::NumPaddedPointsSingleSim<Cfg>);
+      }
+      queryModel<Cfg>(faultParameterDB, faceIDs, copy * Cfg::NumSimulations + i);
+    }
   }
-  return faceIDs;
 }
 
 template <typename Cfg>
@@ -416,6 +437,9 @@ void BaseDRInitializer::queryModel(
     seissol::initializer::FaultParameterDB<Real<Cfg>>& faultParameterDB,
     const std::vector<std::size_t>& faceIDs,
     std::size_t simid) {
+  // the fused simulations which only fill up the last copy of the faces repeat the first
+  // simulations
+  simid %= drParameters_->faultFileNames.size();
   // create a query and evaluate the model
   if (!drParameters_->faultFileNames[simid].has_value()) {
     simid = 0;
@@ -583,6 +607,9 @@ std::string BaseDRInitializer::faultNameAlternatives(const std::vector<std::stri
 // the argument is a type, which the check takes for an expression in template arguments
 // NOLINTBEGIN(bugprone-macro-parentheses)
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template void BaseDRInitializer::queryParameters<Cfg>(                                           \
+      DynamicRupture::Layer & layer,                                                               \
+      const std::unordered_map<std::string, void*>& parameterToStorageMap);                        \
   template void BaseDRInitializer::queryModel<Cfg>(                                                \
       seissol::initializer::FaultParameterDB<Real<Cfg>> & faultParameterDB,                        \
       const std::vector<std::size_t>& faceIDs,                                                     \

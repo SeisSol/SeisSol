@@ -73,8 +73,8 @@ TravellingWaveParameters travellingWaveParameters(const Input& input) {
   return parameters;
 }
 
-// Fused simulations are offset against each other in phase, so that they do not all carry the
-// same wave.
+// The simulations of a run are offset against each other in phase, so that they do not all carry
+// the same wave.
 double simulationPhase(std::size_t sim, std::size_t numSimulations) {
   return (2.0 * M_PI * sim) / numSimulations;
 }
@@ -82,7 +82,7 @@ double simulationPhase(std::size_t sim, std::size_t numSimulations) {
 template <typename FieldT, typename... Args>
 FieldList perSimulation(const Input& input, const Args&... args) {
   FieldList fields;
-  const auto numSimulations = configValue(input.config).numSimulations;
+  const auto numSimulations = input.parameters.model.simulationCount;
   for (std::size_t sim = 0; sim < numSimulations; ++sim) {
     fields.emplace_back(std::make_unique<FieldT>(args..., simulationPhase(sim, numSimulations)));
   }
@@ -97,7 +97,7 @@ FieldList planarWaves(const Input& input) {
     return perSimulation<Planarwave>(input, input.materialData, input.config);
   }
   FieldList fields;
-  const auto numSimulations = configValue(input.config).numSimulations;
+  const auto numSimulations = input.parameters.model.simulationCount;
   for (std::size_t sim = 0; sim < numSimulations; ++sim) {
     fields.emplace_back(std::make_unique<Planarwave>(
         input.materialData, input.config, simulationPhase(sim, numSimulations), kVec));
