@@ -159,6 +159,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   std::vector<std::unique_ptr<GhostCluster>> ghostClusters;
 
   setUpHostScheduling();
+  DeviceTimer::available() = DeviceTimer::canTimeEvents();
   DeviceTimer::enabled() = useDeviceLoopStatistics(seissolInstance_.env());
 
   // store the time stepping

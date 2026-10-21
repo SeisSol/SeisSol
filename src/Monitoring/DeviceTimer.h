@@ -34,9 +34,9 @@ namespace seissol {
  * work that is done.
  *
  * The time of the host, which only enqueues the work, would be the time of the launches. The SYCL
- * backend times its events only when the device library is built for profiling, so the loops keep
- * the time of the host there. Nothing gets timed within a recording of super-timesteps; the work
- * replayed from it counts as the replay.
+ * backend times its events only when the device library is built for profiling, or on devices with
+ * profiling tags; elsewhere, the loops keep the time of the host. Nothing gets timed within a
+ * recording of super-timesteps; the work replayed from it counts as the replay.
  */
 class DeviceTimer {
   public:
@@ -49,8 +49,21 @@ class DeviceTimer {
   DeviceTimer& operator=(const DeviceTimer&) = delete;
   DeviceTimer& operator=(DeviceTimer&&) = delete;
 
-  /// whether this build times the work on the device
-  static constexpr bool available();
+  /**
+   * Whether the device times the work. The time manager asks the device library once the device
+   * is set up (see canTimeEvents()); until then, this is what the backend can do in general.
+   */
+  static bool& available() {
+#ifdef ACL_DEVICE
+    static bool available = Backend == DeviceBackend::Cuda || Backend == DeviceBackend::Hip;
+#else
+    static bool available = false;
+#endif
+    return available;
+  }
+
+  /// whether the device library can time events; needs the device to be set up
+  static bool canTimeEvents();
 
   /**
    * Whether the work on the device gets timed (SEISSOL_DEVICE_LOOP_STATISTICS); otherwise, it does
@@ -155,14 +168,6 @@ class DeviceTimer {
   [[maybe_unused]] std::vector<std::uint32_t> traceOther_;
   [[maybe_unused]] std::vector<std::pair<void*, std::uint32_t>> traceStreams_;
 };
-
-constexpr bool DeviceTimer::available() {
-#ifdef ACL_DEVICE
-  return Backend == DeviceBackend::Cuda || Backend == DeviceBackend::Hip;
-#else
-  return false;
-#endif
-}
 
 } // namespace seissol
 

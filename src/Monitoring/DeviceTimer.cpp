@@ -33,6 +33,14 @@ device::AbstractAPI& api() { return device::DeviceInstance::instance().api(); }
 
 DeviceTimer::~DeviceTimer() { release(); }
 
+bool DeviceTimer::canTimeEvents() {
+#ifdef ACL_DEVICE
+  return api().isCapableOfEventTiming();
+#else
+  return false;
+#endif
+}
+
 void DeviceTimer::release() {
 #ifdef ACL_DEVICE
   collectAll();
@@ -46,7 +54,7 @@ void DeviceTimer::release() {
 
 DeviceTimer::Interval DeviceTimer::begin([[maybe_unused]] void* stream) {
   Interval interval;
-  if constexpr (!available()) {
+  if (!available()) {
     interval.hostBegin = LoopStatistics::begin();
     return interval;
   }
@@ -79,7 +87,7 @@ void DeviceTimer::end(const Interval& interval,
   if (!interval.timed) {
     return;
   }
-  if constexpr (!available()) {
+  if (!available()) {
     statistics_->end(region, numIterations, subRegion, interval.hostBegin);
     return;
   }
@@ -87,7 +95,7 @@ void DeviceTimer::end(const Interval& interval,
 }
 
 void DeviceTimer::end(const Interval& interval, void* stream, double* total) {
-  if constexpr (!available()) {
+  if (!available()) {
     // the time of the host would be that of the launches
     return;
   }
