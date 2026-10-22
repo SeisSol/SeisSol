@@ -230,53 +230,24 @@ Status
 
 The ordering and the decisions of the options above are checked by unit tests,
 including simulations of devices and networks that run the enqueued work in any admissible order.
-On GPUs, the verification cases pass with all of them, and runs of scenarios with local time stepping
-(TPV5, TPV13 with plasticity, TPV105 with rate-and-state friction and thermal pressurization,
-TPVGaussian with imposed slip, LOH.1 with a point source) were compared to the default on a workstation (October 2026).
-All outputs came out bitwise the same, except for the energy output, whose sums vary from run to run anyway:
-
-- with CUDA (sm_120) and with HIP (gfx1150, ROCm 7.2), one process, all options, including recorded super-timesteps;
-- with two to four processes on one GPU, ``direct``, ``host`` and ``ccl`` with NCCL 2.32;
-  with two processes, ``ccl`` with RCCL 7.2 (with the GPU taken as gfx1100) and ``shmem`` with NVSHMEM 3.8;
-  ``ccl`` and ``shmem`` with and without recorded super-timesteps;
-- with two processes on the HIP GPU (as gfx1100), ``ccl`` with RCCL 2.21 (ROCm 6.3.4) and with the RCCL of a TheRock
-  nightly (HIP 7.17), and ``shmem`` with ROCSHMEM 3.3 (its development branch, built for the IPC backend and ROCm 7.2,
-  run with HIP 7.17, as HIP 7.2 hangs with several processes there) and with the ROCSHMEM 3.8 of TheRock
-  (built with TheRock for gfx1150); with and without recorded super-timesteps;
-- with SYCL (AdaptiveCpp, generic target, on the NVIDIA GPU), one and two processes, concurrent clusters
-  (AdaptiveCpp cannot record graphs).
+On GPUs, the verification cases pass with all of them.
+Beyond that, the options have only been tried on a laptop with an NVIDIA and an AMD GPU (October 2026):
+scenarios with local time stepping came out bitwise the same as with the default (apart from the energy output,
+whose sums vary from run to run anyway), with one process and all options, recorded super-timesteps included,
+and with several processes on one GPU for ``direct``, ``host``, ``ccl`` (NCCL, RCCL) and ``shmem`` (NVSHMEM, ROCSHMEM);
+with SYCL (AdaptiveCpp), with one and two processes and concurrent clusters.
+None of the transfer modes has run across nodes yet.
+The paths for oneCCL and Intel SHMEM have been compiled, but not run;
+``stream-mpi`` and the path for HPE Cray MPICH have not been compiled yet.
+Compare the results of a run bitwise to the default before relying on these options on another system.
 
 On HIP, graphs need Device d2fe2de or newer, which works around two bugs of HIP 7.2:
 graph roots that do not wait for the work before the launch, and captures that do not end
 when streams waited for each other.
 SeisSol sets ``NCCL_GRAPH_MIXING_SUPPORT=1`` for ``ccl`` (unless set already), which RCCL needs for recorded super-timesteps.
-Compare the results of a run bitwise to the default before relying on these options on another system.
 
-The paths for oneCCL (its C API, oneAPI 2026.0) and Intel SHMEM (1.5.2) have been compiled, but not run;
-``stream-mpi`` and the path for HPE Cray MPICH have not been compiled yet.
-
-ROCSHMEM needs version 3.0 or newer (initialization with an MPI communicator or a unique ID).
-Its loads and stores that bypass the caches are inline assembly for each GPU architecture (``src/assembly.hpp``),
-and for any other architecture they do nothing, without an error: ROCSHMEM 3.2.0 (ROCm 7.2) covers no RDNA GPU,
-its development branch (3.3, October 2026) gfx1100 and gfx1201, and the ROCSHMEM of TheRock (3.8, from rocm-systems
-since September 2026) all of GFX11 and GFX12. So with two processes on the GPU above, the puts of 3.2.0 did not arrive
-(only the signals did), and those of 3.3 only with gfx1100 code; 3.3 with ``__GFX11__`` in place of ``__gfx1100__``,
-as in 3.8, worked with gfx1150 code as well.
-
-The ROCSHMEM of TheRock is built without an MPI at hand (``HAVE_EXTERNAL_MPI`` is undefined) and looks up the
-predefined objects of Open MPI (``MPI_INFO_NULL``, the datatypes and operations) with ``dlsym`` in the MPI library.
-That misses the copies an executable gets by copy relocations where it uses these objects itself, as SeisSol does,
-which are the ones MPI sets up: with an MPI communicator, its initialization crashed in ``MPI_Comm_split_type``.
-With such a ROCSHMEM, SeisSol initializes it with a unique ID instead, which the processes share over MPI,
-so that it bootstraps over TCP. Its reverse-offload backend works through MPI and presumably meets these objects
-as well (not tested); that needs a fix in ROCSHMEM (looking them up in the global scope).
-
-HIP 6.3.4 cannot create IPC handles on that GPU, so the IPC backend of ROCSHMEM cannot run there.
-
-Several processes on one GPU, as in such tests, share its memory and queues:
-NVSHMEM then needs a smaller symmetric heap (e.g. ``NVSHMEM_SYMMETRIC_SIZE=256M``),
-ROCSHMEM the IPC backend (``ROCSHMEM_BACKEND=ipc``; otherwise it tries InfiniBand first) and a smaller heap
-(e.g. ``ROCSHMEM_HEAP_SIZE=268435456``),
-NCCL and RCCL a host ID per process (``NCCL_HOSTID``) to accept several processes on one GPU,
-and with RCCL on an AMD GPU, the waiting kernels of the processes can occupy all hardware queues
-(``GPU_MAX_HW_QUEUES=2`` avoided that).
+ROCSHMEM needs version 3.0 or newer (on RDNA GPUs, one whose loads and stores cover their architecture, which those
+of 3.2.0 do not). Where ROCSHMEM is built without an MPI at hand (``HAVE_EXTERNAL_MPI`` undefined), it looks up
+the predefined objects of Open MPI in the MPI library itself; the version 3.8 of the TheRock nightlies (October 2026)
+missed the copies an executable gets by copy relocations there, which are the ones MPI sets up. SeisSol initializes
+such a ROCSHMEM from a unique ID shared over MPI instead, so that it bootstraps over TCP.
