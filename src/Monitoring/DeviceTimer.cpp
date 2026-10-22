@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <mutex>
 #include <string>
 
 #ifdef ACL_DEVICE
@@ -44,6 +45,7 @@ bool DeviceTimer::canTimeEvents() {
 void DeviceTimer::release() {
 #ifdef ACL_DEVICE
   collectAll();
+  const std::scoped_lock lock(mutex_);
   for (const auto& [start, end] : free_) {
     api().destroyEvent(start);
     api().destroyEvent(end);
@@ -68,11 +70,15 @@ DeviceTimer::Interval DeviceTimer::begin([[maybe_unused]] void* stream) {
     interval.timed = false;
     return interval;
   }
-  if (free_.empty()) {
+  {
+    const std::scoped_lock lock(mutex_);
+    if (!free_.empty()) {
+      interval.events = free_.back();
+      free_.pop_back();
+    }
+  }
+  if (interval.events.first == nullptr) {
     interval.events = {api().createEvent(true), api().createEvent(true)};
-  } else {
-    interval.events = free_.back();
-    free_.pop_back();
   }
   api().recordEventOnStream(interval.events.first, stream);
 #endif
@@ -110,6 +116,7 @@ void DeviceTimer::push([[maybe_unused]] const Interval& interval,
                        [[maybe_unused]] Pending pending) {
 #ifdef ACL_DEVICE
   api().recordEventOnStream(interval.events.second, stream);
+  const std::scoped_lock lock(mutex_);
   pending_.push_back(pending);
 #endif
 }
@@ -120,6 +127,7 @@ void DeviceTimer::collect() {
     // querying an event is not allowed while the streams get captured
     return;
   }
+  const std::scoped_lock lock(mutex_);
   while (!pending_.empty() && api().isEventCompleted(pending_.front().events.second)) {
     add(pending_.front());
     pending_.pop_front();
@@ -129,6 +137,7 @@ void DeviceTimer::collect() {
 
 void DeviceTimer::collectAll() {
 #ifdef ACL_DEVICE
+  const std::scoped_lock lock(mutex_);
   while (!pending_.empty()) {
     api().syncEventWithHost(pending_.front().events.second);
     add(pending_.front());
@@ -137,6 +146,7 @@ void DeviceTimer::collectAll() {
 #endif
 }
 
+// (with the mutex held)
 void DeviceTimer::add([[maybe_unused]] const Pending& pending) {
 #ifdef ACL_DEVICE
   const auto& [start, end] = pending.events;

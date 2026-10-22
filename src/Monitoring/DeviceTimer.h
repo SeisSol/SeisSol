@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <mutex>
 #include <string>
 #include <time.h>
 #include <utility>
@@ -37,6 +38,9 @@ namespace seissol {
  * backend times its events only when the device library is built for profiling, or on devices with
  * profiling tags; elsewhere, the loops keep the time of the host. Nothing gets timed within a
  * recording of super-timesteps; the work replayed from it counts as the replay.
+ *
+ * The work may be timed on one thread while another collects the times (e.g. the halo exchange,
+ * launched by the communication thread, collected by the main thread).
  */
 class DeviceTimer {
   public:
@@ -153,6 +157,8 @@ class DeviceTimer {
   [[nodiscard]] std::uint32_t traceTrack(const Pending& pending);
 
   LoopStatistics* statistics_;
+  // the work pending and the events free, for whoever times or collects
+  std::mutex mutex_;
   // (only with a device)
   [[maybe_unused]] DeviceTimeline* timeline_;
   [[maybe_unused]] DeviceTimeline::Kind kind_;
