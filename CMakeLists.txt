@@ -163,7 +163,19 @@ endif()
 if (MPI)
   find_package(MPI REQUIRED)
 
-  target_include_directories(seissol-common-properties SYSTEM INTERFACE ${MPI_CXX_INCLUDE_PATH})
+  # The headers of MPI, also for the compilers that do not go through the host compiler (hipcc for
+  # the device code, nvcc). With an MPI wrapper as the host compiler (e.g. CC of the Cray PE), MPI
+  # works implicitly and FindMPI reports no include directories, as the wrapper adds them itself;
+  # they are then among the include directories of the host compiler.
+  set(SEISSOL_MPI_INCLUDE_DIRS ${MPI_CXX_INCLUDE_DIRS})
+  if (NOT SEISSOL_MPI_INCLUDE_DIRS)
+    find_path(SEISSOL_MPI_INCLUDE_DIR mpi.h PATHS ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES}
+        NO_DEFAULT_PATH)
+    if (SEISSOL_MPI_INCLUDE_DIR)
+      set(SEISSOL_MPI_INCLUDE_DIRS ${SEISSOL_MPI_INCLUDE_DIR})
+    endif()
+  endif()
+  target_include_directories(seissol-common-properties SYSTEM INTERFACE ${SEISSOL_MPI_INCLUDE_DIRS})
   target_link_libraries(seissol-common-properties INTERFACE MPI::MPI_C)
 
   target_compile_definitions(seissol-common-properties INTERFACE USE_MPI PARALLEL)
@@ -513,6 +525,7 @@ if (WITH_GPU)
       target_link_libraries(seissol-nvshmem-kernels
           PUBLIC nvshmem::nvshmem_host ${NVSHMEM_DEVICE_LIBRARY}
           PRIVATE MPI::MPI_C)
+      target_include_directories(seissol-nvshmem-kernels SYSTEM PRIVATE ${SEISSOL_MPI_INCLUDE_DIRS})
       target_link_libraries(seissol-common-properties INTERFACE seissol-nvshmem-kernels)
       target_compile_definitions(seissol-common-properties INTERFACE USE_SHMEM SHMEM_NVSHMEM)
     elseif (DEVICE_BACKEND STREQUAL "hip")
@@ -544,6 +557,7 @@ if (WITH_GPU)
           HIP_ARCHITECTURES "${DEVICE_ARCH}"
           LINKER_LANGUAGE HIP)
       target_link_libraries(seissol-rocshmem-kernels PRIVATE roc::rocshmem MPI::MPI_C)
+      target_include_directories(seissol-rocshmem-kernels SYSTEM PRIVATE ${SEISSOL_MPI_INCLUDE_DIRS})
       target_link_options(seissol-rocshmem-kernels PRIVATE --hip-link)
       target_link_libraries(seissol-common-properties INTERFACE seissol-rocshmem-kernels)
       target_compile_definitions(seissol-common-properties INTERFACE USE_SHMEM SHMEM_ROCSHMEM)
