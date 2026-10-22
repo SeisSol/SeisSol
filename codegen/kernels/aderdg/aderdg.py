@@ -11,7 +11,7 @@ from contextlib import contextmanager
 
 import numpy as np
 from kernels import coefficients, material
-from kernels.basis import Basis, count, shared
+from kernels.basis import Basis, count, dense, shared
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
@@ -1054,14 +1054,22 @@ class ADERDGBase(ABC):
         predictor, one per derivative and each with the modes its derivative
         reaches on the face. A derivative the chain narrows keeps fewer modes
         with every order, and so does its trace; together they hold as many
-        modes as the cell has."""
+        modes as the cell has. A derivative kept in the basis of its degree
+        (derivativesByDegree) is raised into the face basis of the cell by its
+        trace (faceTraceOfDegree), and its trace has every face mode."""
         if not hasattr(self, "_faceDerivatives"):
             modes = self.num2DBasisFunctions()
             shape = (modes, self.numQuantities())
             fullShape = self.faceTrace.shape()
             self._faceDerivatives = []
             for k, derivative in enumerate(self.dQs):
-                reached = self._traceModesOf(derivative)
+                # the trace of a derivative in the basis of its degree is raised
+                # into the face basis of the cell, which it fills
+                reached = (
+                    modes
+                    if self.derivativesByDegree() and k > 0
+                    else self._traceModesOf(derivative)
+                )
                 rows = self.faceTrace.insertOptDim(
                     (slice(0, reached), slice(None)), (slice(None),)
                 )
@@ -1099,10 +1107,17 @@ class ADERDGBase(ABC):
     def faceDerivativeStatements(self, face, side):
         """The traces of the time derivatives on one face, see
         faceDerivativeTraces."""
-        return [
-            trace["mq"] <= self.traceMatrix[face, side][self.t("ml")] * derivative["lq"]
-            for trace, derivative in zip(self.faceDerivativeTraces(), self.dQs)
-        ]
+        statements = []
+        for k, (trace, derivative) in enumerate(
+            zip(self.faceDerivativeTraces(), self.dQs)
+        ):
+            matrix = (
+                self.faceTraceOfDegree(face, side, self.order - 1 - k)
+                if self.derivativesByDegree() and k > 0
+                else self.traceMatrix[face, side]
+            )
+            statements.append(trace["mq"] <= matrix[self.t("ml")] * derivative["lq"])
+        return statements
 
     def faceTraceAtTime(self, coefficients):
         """The trace of the field over an interval, or at an instant, from the
@@ -1545,16 +1560,16 @@ class ADERDGBase(ABC):
 
         In a hierarchical basis the step is the derivative matrices kDivMT
         against the field, and the pattern of a derivative shows which modes
-        it has. In another basis the derivative of the degree of the cell is
-        of one degree less, and kDivMT is that lower degree raised back into
-        the basis of the cell, which has every function of the cell in it. The
-        step then goes through the basis of the lower degree, in the leading
-        rows of a tensor of the cell, where the derivative matrices
-        (kDivMTDegree) have a few entries per row and the star matrices see as
-        many functions as that basis has, and is raised back once, after the
-        star matrices of all three directions are summed (elevateDegree). Every
-        derivative keeps the full basis of the cell, so the Taylor sums need
-        nothing beyond the derivatives themselves.
+        it has. In another basis, of a chain that keeps the degree (a source
+        term keeps it), the derivative of the degree of the cell is of one
+        degree less, and kDivMT is that lower degree raised back into the
+        basis of the cell, which has every function of the cell in it. The
+        step then goes through the basis of the lower degree, where the
+        derivative matrices (kDivMTDegree) have a few entries per row and the
+        star matrices see as many functions as that basis has, and is raised
+        back once, after the star matrices of all three directions are summed
+        (elevateDegree). A chain that drops the degree keeps its derivatives
+        in the bases of their degrees instead (derivativesByDegree).
         """
         if self.basis.hierarchical:
             return [], [
@@ -1590,6 +1605,95 @@ class ADERDGBase(ABC):
         raised = self.elevationOfDegree(degree - 1)[self.t("kl")] * lower["lp"]
         return [lower["kp"] <= lowerSum], [raised]
 
+    def derivativesByDegree(self):
+        """Whether the time derivatives of a chain that drops a degree with every
+        derivative are kept in the bases of their degrees: derivative k in the
+        basis of degree order - 1 - k, in the leading rows of its tensor. A
+        hierarchical basis has those bases as its leading functions and keeps
+        them there by the patterns of its derivatives; another basis states the
+        derivatives and elevations between its degrees (kDivMTDegree,
+        elevateDegree), and whatever reads a derivative goes through them."""
+        return not self.basis.hierarchical and self.chainDropsDegree()
+
+    def chainDropsDegree(self):
+        """Whether every time derivative of the predictor has one degree less
+        than the one before. Not here; a solver whose chain does says so."""
+        return False
+
+    def embeddingOfDegree(self, degree):
+        """The basis of a degree in the basis of the cell, as a dense matrix
+        (embedDegree); the identity for the degree of the cell."""
+        size = self.num3DBasisFunctions()
+        if degree == self.order - 1:
+            return np.eye(size)
+        tensor = self.db.embedDegree[degree]
+        return dense(tensor, self.transpose(tensor.name()))
+
+    def embeddingOperator(self, degree):
+        """The embedding of a degree (embedDegree) as a matrix of the size of
+        the cell basis, its columns in the leading ones, so that it raises a
+        field kept in the leading rows of a tensor of the cell."""
+        name = f"embeddingOfDegree({degree})"
+        if not hasattr(self, "_embeddingOperators"):
+            self._embeddingOperators = {}
+        if name not in self._embeddingOperators:
+            size = self.num3DBasisFunctions()
+            logical = self.embeddingOfDegree(degree)
+            full = np.zeros((size, size))
+            full[:, : logical.shape[1]] = logical
+            stored = full.T if self.transpose(name) else full
+            self._embeddingOperators[name] = Tensor(
+                name,
+                stored.shape,
+                spp={
+                    index: repr(float(value))
+                    for index, value in np.ndenumerate(stored)
+                    if value != 0.0
+                },
+                alignStride=self.alignStride(name),
+            )
+        return self._embeddingOperators[name]
+
+    def derivativeInCellBasis(self, k, indices, inner):
+        """Time derivative k in the basis of the cell, as a term indexed by
+        `indices` (the index of the basis first): the derivative itself where it
+        is kept there, else the embedding of its degree times the derivative
+        (derivativesByDegree), contracted over `inner`, an index the caller
+        leaves free. As a term the embedding is a factor of the product it
+        enters, which can apply it after the factors that leave fewer columns."""
+        derivative = self.dQs[k]
+        if not self.derivativesByDegree() or k == 0:
+            return derivative[indices]
+        embedding = self.embeddingOperator(self.order - 1 - k)
+        return embedding[self.t(indices[0] + inner)] * derivative[inner + indices[1:]]
+
+    def faceTraceOfDegree(self, face, side, degree):
+        """The face trace (traceMatrix) of a field given in the basis of a degree,
+        in the leading rows of a tensor of the cell: the trace times the
+        embedding of that degree, into the face basis of the cell."""
+        name = f"faceTraceOfDegree({face},{side},{degree})"
+        if not hasattr(self, "_faceTracesOfDegree"):
+            self._faceTracesOfDegree = {}
+        if name not in self._faceTracesOfDegree:
+            tensor = self.traceMatrix[face, side]
+            trace = dense(tensor, self.transpose(tensor.name()))
+            folded = trace @ self.embeddingOfDegree(degree)
+            folded[np.abs(folded) < 1e-14] = 0.0
+            full = np.zeros(trace.shape)
+            full[:, : folded.shape[1]] = folded
+            stored = full.T if self.transpose(name) else full
+            self._faceTracesOfDegree[name] = Tensor(
+                name,
+                stored.shape,
+                spp={
+                    index: repr(float(value))
+                    for index, value in np.ndenumerate(stored)
+                    if value != 0.0
+                },
+                alignStride=self.alignStride(name),
+            )
+        return self._faceTracesOfDegree[name]
+
     def derivativeOfDegree(self, degree, direction):
         """The derivative in a direction from the basis of a degree into the one
         of one degree less (kDivMTDegree), negated as kDivMT is (negateFamily)
@@ -1612,6 +1716,39 @@ class ADERDGBase(ABC):
         pattern = np.zeros(shape, dtype=bool)
         pattern[index] = True
         return pattern
+
+    def hornerTaylor(self, target, first, derivatives, scalars, name):
+        """target = first + sum over k >= 1 of scalars[k] derivatives[k], with
+        derivative k in the basis of degree order - 1 - k (derivativesByDegree):
+        from the last derivative up, each partial sum raised by one degree before
+        the next derivative is added (Horner's scheme), and the last one into the
+        basis of the cell."""
+        statements = []
+        partial = None
+        for k in range(len(derivatives) - 1, 0, -1):
+            degree = self.order - 1 - k
+            term = scalars[k] * derivatives[k]["kp"]
+            if partial is not None:
+                term = (
+                    term
+                    + self.elevationOfDegree(degree - 1)[self.t("kl")] * partial["lp"]
+                )
+            current = OptionalDimTensor(
+                f"{name}({k})",
+                self.Q.optName(),
+                self.Q.optSize(),
+                self.Q.optPos(),
+                (self.num3DBasisFunctions(), self.numQuantities()),
+                spp=self.leadingRows(count(degree)),
+                alignStride=True,
+                temporary=True,
+            )
+            current = self.definedOnce(current)
+            statements.append(current["kp"] <= term)
+            partial = current
+        raised = self.elevationOfDegree(self.order - 2)[self.t("kl")] * partial["lp"]
+        statements.append(target["kp"] <= first + raised)
+        return statements
 
     def nodalVolumeDerivatives(self):
         """The derivative matrices the volume term of the corrector applies
@@ -1960,8 +2097,8 @@ class ADERDGBase(ABC):
             for member in self.db.kDivM.values():
                 include_tensors.add(member)
         # the strong ones, which the chain of a basis that is not hierarchical
-        # takes through the lower degree instead (modalDerivative); every chain
-        # is checked against them
+        # takes through the lower degrees instead (modalDerivative,
+        # derivativesByDegree); every chain is checked against them
         for member in self.db.kDivMT.values():
             include_tensors.add(member)
         # the flux of a face in the volume, which the corrector is checked

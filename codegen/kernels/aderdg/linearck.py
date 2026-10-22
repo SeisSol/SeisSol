@@ -8,6 +8,7 @@
 
 import numpy as np
 from kernels import material
+from kernels.basis import count
 from kernels.common import generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from yateto import Scalar, ops, simpleParameterSpace
@@ -23,6 +24,11 @@ class LinearCK(ADERDGBase):
 
     def sourceMatrix(self):
         return None
+
+    def chainDropsDegree(self):
+        """A constant operator without a source term drops a degree with every
+        derivative."""
+        return not self.nodalMaterial and self.sourceMatrix() is None
 
     def narrowsDerivatives(self):
         """A constant operator drops a degree with every derivative, so its
@@ -263,10 +269,14 @@ class LinearCK(ADERDGBase):
 
                 derivatives = [dQ0True]
 
-                # for now, interleave Taylor expansion and derivative computation
-                derivativeExpr = self.starAssembly() + [
-                    self.I["kp"] <= power * dQ0True["kp"]
-                ]
+                # derivatives in the bases of their degrees, summed by Horner's
+                # scheme once the chain is done (derivativesByDegree); else
+                # the Taylor expansion is interleaved with the chain
+                byDegree = self.derivativesByDegree()
+
+                derivativeExpr = self.starAssembly()
+                if not byDegree:
+                    derivativeExpr += [self.I["kp"] <= power * dQ0True["kp"]]
                 derivativeTaylorExpansion = power * dQ0["kp"]
 
                 if target == "gpu":
@@ -315,6 +325,34 @@ class LinearCK(ADERDGBase):
                         derivatives.append(dQ)
                         continue
 
+                    if byDegree:
+                        # derivative i in the basis of its degree, from the one
+                        # before, of one degree more (derivativesByDegree)
+                        degree = self.order - i
+                        dQ = OptionalDimTensor(
+                            "dQ({})".format(i),
+                            self.Q.optName(),
+                            self.Q.optSize(),
+                            self.Q.optPos(),
+                            qShape,
+                            spp=self.leadingRows(count(degree - 1)),
+                            alignStride=True,
+                        )
+                        self.dQs.append(dQ)
+                        derivativeSum = None
+                        for j in range(3):
+                            term = (
+                                self.derivativeOfDegree(degree, j)[self.t("kl")]
+                                * derivatives[-1]["lq"]
+                                * self.starMatrix(j)["qp"]
+                            )
+                            derivativeSum = (
+                                term if derivativeSum is None else derivativeSum + term
+                            )
+                        derivativeExpr += [dQ["kp"] <= derivativeSum]
+                        derivatives.append(dQ)
+                        continue
+
                     lowerStatements, terms = self.modalDerivative(derivatives[-1])
                     derivativeSum = Accumulate(ops.Add())
                     if self.sourceMatrix():
@@ -355,9 +393,25 @@ class LinearCK(ADERDGBase):
                         <= self.operatorProject["kn"] * volumeAtPoints["np"]
                     ]
 
-                derivativeTaylorExpansionExpr = (
-                    self.I["kp"] <= derivativeTaylorExpansion
-                )
+                if byDegree:
+                    derivativeExpr += self.hornerTaylor(
+                        self.I,
+                        powers[0] * dQ0True["kp"],
+                        derivatives,
+                        powers,
+                        "taylorSum",
+                    )
+                    derivativeTaylorExpansionExpr = self.hornerTaylor(
+                        self.I,
+                        powers[0] * dQ0["kp"],
+                        self.dQs,
+                        powers,
+                        "taylorExpansion",
+                    )
+                else:
+                    derivativeTaylorExpansionExpr = (
+                        self.I["kp"] <= derivativeTaylorExpansion
+                    )
                 # derivativeExpr += [derivativeTaylorExpansionExpr]
                 generator.add(f"{name_prefix}derivative", derivativeExpr, target=target)
                 generator.add(

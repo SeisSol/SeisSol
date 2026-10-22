@@ -473,6 +473,7 @@ def main():
             operator_points=operatorPointCount,
             curvilinear=adgForTables.curvilinear,
             narrowed_derivatives=adgForTables.narrowsDerivatives(),
+            derivatives_by_degree=adgForTables.derivativesByDegree(),
             face_permutations=kernels.material.faceOrientationPermutations(
                 cmdLineArgs.matricesDir, adgForTables
             ),

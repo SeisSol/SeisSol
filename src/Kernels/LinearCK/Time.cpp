@@ -283,7 +283,7 @@ void Time::evaluate(const real* coeffs,
 
   static_assert(tensor::I::size() == tensor::Q::size(), "Sizes of tensors I and Q must match");
 
-  kernel::derivativeTaylorExpansion krnl;
+  kernel::derivativeTaylorExpansion krnl = evaluateKrnlPrototype_;
   krnl.I = timeEvaluated;
   for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
     krnl.dQ(i) = timeDerivatives + yateto::computeFamilySize<tensor::dQ>(1, i);
@@ -329,6 +329,8 @@ PerformanceEstimate Time::metrics() const {
   return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansion>();
 }
 
-void Time::setGlobalData(const CompoundGlobalData& global) {}
+void Time::setGlobalData(const CompoundGlobalData& global) {
+  evaluateKrnlPrototype_.bindGlobals(*global.onHost);
+}
 
 } // namespace seissol::kernels::solver::linearck

@@ -23,6 +23,7 @@ Design notes:
 
 import importlib.util  # noqa: F401
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -271,8 +272,9 @@ class TestPoroelasticSmoke:
 class TestBasisSmoke:
     """A basis other than the Dubiner one reads its matrices from its directory
     and the rest from the one of the Dubiner basis; the Bernstein basis, which is
-    not hierarchical, takes the derivatives of the predictor through the basis of
-    one degree less and solves the space-time predictor by a fixed point."""
+    not hierarchical, takes the derivatives of the predictor through the bases of
+    the lower degrees, keeps them there where the chain drops a degree with every
+    derivative, and solves the space-time predictor by a fixed point."""
 
     @pytest.mark.parametrize("basis", ["dubiner-normalized", "bernstein"])
     @pytest.mark.parametrize("equation", ["elastic", "poroelastic"])
@@ -283,11 +285,24 @@ class TestBasisSmoke:
             f"stdout:\n{result.stdout[-1000:]}\n"
             f"stderr:\n{result.stderr[-1000:]}"
         )
-        init = (tmp_path / f"equation-{equation}-3-double" / "init.h").read_text()
-        # the chain goes through the basis of one degree less where the basis is
-        # not hierarchical; the space-time predictor keeps the chain as well
+        folder = tmp_path / f"equation-{equation}-3-double"
+        init = (folder / "init.h").read_text()
+        # the chain goes through the bases of the lower degrees where the basis
+        # is not hierarchical; the space-time predictor keeps the chain as well
         lower = "kDivMTDegree" in init and "elevateDegree" in init
         assert lower == (basis == "bernstein")
+        # an elastic chain drops a degree with every derivative, and every
+        # derivative is kept in the basis of its degree: in fewer rows each
+        sizes = re.search(
+            r"struct dQ \{.*?Size\[\] = \{([0-9, ]+)\}",
+            (folder / "tensor.h").read_text(),
+            re.S,
+        )
+        sizes = [int(size) for size in sizes.group(1).split(",")]
+        if equation == "elastic":
+            assert sizes == sorted(sizes, reverse=True) and sizes[-1] < sizes[0]
+        else:
+            assert len(set(sizes)) == 1
 
     def test_unknown_basis_is_rejected(self, tmp_path):
         result = _invoke_generate(tmp_path, basis="legendre")

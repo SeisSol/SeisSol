@@ -79,6 +79,11 @@ class Time : public TimeKernel {
                             std::size_t numElements,
                             seissol::parallel::runtime::StreamRuntime& runtime) override;
   [[nodiscard]] PerformanceEstimate metrics() const override;
+
+  private:
+  // the Taylor sum of the derivatives, with the global matrices it reads bound (the elevations
+  // of the degrees where the derivatives are kept in the bases of their degrees)
+  kernel::derivativeTaylorExpansion evaluateKrnlPrototype_;
 };
 
 } // namespace seissol::kernels::solver::linearck

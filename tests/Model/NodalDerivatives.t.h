@@ -140,6 +140,27 @@ inline auto projectionOntoDegree(std::size_t degree, const Eigen::MatrixXd& proj
          project;
 }
 
+/// The basis of a degree in the basis of the cell, column by column: its functions sampled at the
+/// samples of the material and projected with `project`, which keeps a polynomial of the degree of
+/// the cell. What raises a derivative the build keeps in the basis of its degree
+/// (generated::DerivativesByDegree).
+inline auto embeddingOfDegree(std::size_t degree, const Eigen::MatrixXd& project)
+    -> Eigen::MatrixXd {
+  constexpr std::size_t Points = tensor::materialEval::Shape[0];
+  const auto nodes =
+      init::materialNodes::view::create(const_cast<real*>(init::materialNodes::Values));
+  const auto indices = numerical::projection::modalIndices<Cell::Dim>(degree + 1);
+  Eigen::MatrixXd sampled(Points, indices.size());
+  for (std::size_t point = 0; point < Points; ++point) {
+    const std::array<double, Cell::Dim> xi{nodes(point, 0), nodes(point, 1), nodes(point, 2)};
+    for (std::size_t function = 0; function < indices.size(); ++function) {
+      sampled(point, function) =
+          functions::BasisP<Config::Basis, Cell::Dim>(degree, indices[function], xi);
+    }
+  }
+  return project * sampled;
+}
+
 /// What the kernel gives for one material per sample point, against `reference`, which forms
 /// the derivatives of the field `dofs` from the operators per point (the star matrices of the
 /// three directions, and the source) and is handed the field of one simulation.
@@ -208,6 +229,12 @@ void compareChain(const std::vector<MaterialT>& materials,
 
   auto viewQ = init::Q::view::create(dofs.data());
   auto viewI = init::I::view::create(integrated.data());
+  // the projection from the samples of the material, which raises a derivative kept in the basis of
+  // its degree into the basis of the cell
+  const Eigen::MatrixXd project =
+      denseOf(init::materialProject::view::create(const_cast<real*>(init::materialProject::Values)),
+              Basis,
+              tensor::materialEval::Shape[0]);
   for (std::size_t simulation = 0; simulation < multisim::NumSimulations; ++simulation) {
     auto slicedQ = multisim::simtensor(viewQ, simulation);
     Eigen::MatrixXd field = Eigen::MatrixXd::Zero(Basis, NQ);
@@ -243,7 +270,13 @@ void compareChain(const std::vector<MaterialT>& materials,
         auto view = init::dQ::view<K>::create(derivatives.data() +
                                               yateto::computeFamilySize<tensor::dQ>(1, K));
         auto sliced = multisim::simtensor(view, simulation);
-        const Eigen::MatrixXd computed = denseOf(sliced, Basis, Columns);
+        Eigen::MatrixXd computed = denseOf(sliced, Basis, Columns);
+        if constexpr (generated::DerivativesByDegree) {
+          // the derivative in the basis of its degree, in the leading rows
+          const auto embedding = embeddingOfDegree(ConvergenceOrder - 1 - K, project);
+          const Eigen::MatrixXd raised = embedding * computed.topRows(embedding.cols());
+          computed = raised;
+        }
         const std::size_t derivative = K;
         CAPTURE(derivative);
         check(computed, expected[K]);

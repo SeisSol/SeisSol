@@ -315,11 +315,15 @@ def addKernels(generator, aderdg, include_tensors, targets):
                 <= powers[0] * faceDisplacementTmp["mp"].subslice("p", 0, 1),
             ]
 
+            def rotated(k, rows):
+                # rows of the rotated derivative k, in the basis of the cell,
+                # where the recursion adds the derivatives up
+                derivative = aderdg.derivativeInCellBasis(k, "lm", "o")
+                return derivative * TinvRows["pm"].subslice("p", *rows)
+
             for i in range(1, aderdg.order + 1):
-                velocitiesU = aderdg.dQs[i - 1]["lm"] * TinvRows["pm"].subslice(
-                    "p", 1, 2
-                )
-                pressure = aderdg.dQs[i - 1]["lm"] * TinvRows["pm"].subslice("p", 0, 1)
+                velocitiesU = rotated(i - 1, (1, 2))
+                pressure = rotated(i - 1, (0, 1))
 
                 if i == 1:
                     kernel += [MPrev["lp"] <= velocitiesU - invImp[""] * pressure]
@@ -355,9 +359,7 @@ def addKernels(generator, aderdg, include_tensors, targets):
                 ]
 
                 if aderdg.velocityOffset() > 1:
-                    velocitiesVW = aderdg.dQs[i - 1]["lm"] * TinvRows["pm"].subslice(
-                        "p", 2, 4
-                    )
+                    velocitiesVW = rotated(i - 1, (2, 4))
                     if i == 1:
                         kernel += [
                             MDisp["lp"].subslice("p", 1, 3) <= coeffs[i] * velocitiesVW

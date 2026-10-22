@@ -746,6 +746,7 @@ def generate(
     operator_points: int = 1,
     curvilinear: bool = False,
     narrowed_derivatives: bool = False,
+    derivatives_by_degree: bool = False,
     face_permutations=(),
     flux_blocks=(),
     flux_diagonal=None,
@@ -918,6 +919,12 @@ def generate(
         "// varies inside a cell, the ones a constant operator gives it\n",
         "inline constexpr bool NarrowedDerivatives = "
         f"{'true' if narrowed_derivatives else 'false'};\n",
+        "// whether the k-th time derivative of the predictor is kept in the\n",
+        "// basis of its degree ConvergenceOrder - 1 - k, in its leading rows,\n",
+        "// where the basis of the cell does not have that basis as its leading\n",
+        "// functions\n",
+        "inline constexpr bool DerivativesByDegree = "
+        f"{'true' if derivatives_by_degree else 'false'};\n",
         "// whether a cell can lift its fluxes without material and apply the\n",
         "// inverse weight of its medium at the sample points afterwards\n",
         "// (weight-adjusted DG, the kernel weightAdjust)\n",
