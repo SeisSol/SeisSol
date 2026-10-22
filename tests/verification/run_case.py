@@ -193,6 +193,21 @@ def unmet_requirements(capabilities, requirements):
 # output checks
 # --------------------------------------------------------------------------
 
+# the ID that every run writes into its outputs: a header line of the
+# receivers, a column of the analysis
+RUN_ID = re.compile(
+    rb'^# run-id\b[^\n]*\n|,"(?:runId|[0-9a-f-]{36})"(?=\r?$)', re.MULTILINE
+)
+
+
+def output_bytes(path):
+    """Read an output file without the ID of the run that wrote it.
+
+    Two runs that compute the same write the same bytes then, and so do a run
+    and a reference stored before SeisSol wrote run IDs.
+    """
+    return RUN_ID.sub(b"", path.read_bytes())
+
 
 def read_receiver(path):
     """Read a receiver file into column names and rows of floats.
@@ -453,7 +468,7 @@ def compare_receivers(reference, candidate, prefix, tolerance, floor):
 
     identical = True
     for name in sorted(set(left) & set(right)):
-        if left[name].read_bytes() == right[name].read_bytes():
+        if output_bytes(left[name]) == output_bytes(right[name]):
             continue
         identical = False
         names, rows_left = read_receiver(left[name])
@@ -871,7 +886,7 @@ def _fingerprint_receiver(path):
     names, rows = read_receiver(path)
     count = len(rows)
     entry = {
-        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "sha256": hashlib.sha256(output_bytes(path)).hexdigest(),
         "samples": count,
         "end-time": rows[-1][0] if rows else None,
         "columns": {},
@@ -893,7 +908,7 @@ def _fingerprint_receiver(path):
 def _fingerprint_analysis(path):
     norms = read_analysis(path)
     return {
-        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "sha256": hashlib.sha256(output_bytes(path)).hexdigest(),
         "norms": {
             f"{norm}/{variable}": value
             for norm, values in norms.items()
