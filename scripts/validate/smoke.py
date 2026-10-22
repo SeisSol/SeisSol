@@ -79,6 +79,14 @@ PROXY_RELATIONS: list[tuple[str, str, str, str]] = [
 # two have drifted apart.
 CYCLE_SOURCES = frozenset({"tsc", "cntvct", "none"})
 
+# The line a sanitizer (cmake/sanitizers.cmake) ends each of its reports with.
+# A run that wrote one fails, also where it was expected to fail: a refusal has
+# to happen cleanly, and a sanitizer told to go on after a report may leave the
+# exit code as it was.
+SANITIZER_REPORT = re.compile(
+    r"SUMMARY: (?:Address|Leak|Thread|Memory|UndefinedBehavior)Sanitizer\b.*"
+)
+
 
 class CheckFailed(Exception):
     """A smoke-test assertion did not hold."""
@@ -138,9 +146,18 @@ def check_output_matches(text: str, pattern: str | None) -> None:
         raise CheckFailed(f"output does not match: {pattern}")
 
 
+def check_no_sanitizer_report(text: str) -> None:
+    reports = SANITIZER_REPORT.findall(text)
+    if reports:
+        raise CheckFailed(
+            f"{len(reports)} sanitizer report(s), the first: {reports[0].strip()}"
+        )
+
+
 def mode_run(args: argparse.Namespace) -> int:
     proc = run_command(args.command, args.timeout)
     echo_output(proc)
+    check_no_sanitizer_report(proc.stdout + proc.stderr)
     check_termination(proc.returncode, args.expect_failure)
     check_output_matches(proc.stdout + proc.stderr, args.expect_output)
     return 0
@@ -273,6 +290,7 @@ def mode_proxy(args: argparse.Namespace) -> int:
         )
 
     try:
+        check_no_sanitizer_report(proc.stdout + proc.stderr)
         document = parse_proxy_json(extract_json_object(proc.stdout))
         check_proxy_fields(document, args.kernel)
     except CheckFailed:

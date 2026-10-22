@@ -28,7 +28,11 @@ option(ASAGI "Use asagi for material input" OFF)
 option(MEMKIND "Use memkind library for hbw memory support" OFF)
 option(LIKWID "Link with the likwid marker interface for proxy" OFF)
 
-option(ADDRESS_SANITIZER_DEBUG "Use address sanitzer in debug mode" OFF)
+# The sanitizers to instrument the C and C++ code of the build with (see cmake/sanitizers.cmake)
+set(SANITIZERS "" CACHE STRING
+  "Sanitizers to build with, as a list of address, undefined, leak, thread and memory; empty for none")
+set(SANITIZERS_OPTIONS address undefined leak thread memory)
+set_property(CACHE SANITIZERS PROPERTY STRINGS "" ${SANITIZERS_OPTIONS})
 
 # General switch for unit testing. By default, it enables the C++ unit tests.
 option(TESTING "Compile unit tests and collect them for execution" OFF)

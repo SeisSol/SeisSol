@@ -71,13 +71,20 @@ void initBoundaryStorage(Boundary::Storage& boundaryStorage, LTS::Storage& stora
       auto* faceInformationDevice =
           boundaryLayer.var<Boundary::FaceInformation>(Cfg(), AllocationPlace::Device);
 
+      // the data of a boundary face on the device, which a build for the host alone holds no copy
+      // of
+      const auto mappingOnDevice = [faceInformationDevice](std::size_t face) {
+        return faceInformationDevice == nullptr
+                   ? CellBoundaryMapping<Cfg>()
+                   : CellBoundaryMapping<Cfg>(faceInformationDevice[face]);
+      };
+
       std::size_t boundaryFace = 0;
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           if (boundaryProperties(cellInformation[cell].faceTypes[face]).requiresFaceData) {
             boundaryMapping[cell][face] = CellBoundaryMapping<Cfg>(faceInformation[boundaryFace]);
-            boundaryMappingDevice[cell][face] =
-                CellBoundaryMapping<Cfg>(faceInformationDevice[boundaryFace]);
+            boundaryMappingDevice[cell][face] = mappingOnDevice(boundaryFace);
             ++boundaryFace;
           } else {
             boundaryMapping[cell][face] = CellBoundaryMapping<Cfg>();
