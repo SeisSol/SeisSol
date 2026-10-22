@@ -21,6 +21,7 @@
 #include <ctime>
 #include <iterator>
 #include <mpi.h>
+#include <mutex>
 #include <string>
 #include <time.h>
 #include <utils/logger.h>
@@ -43,21 +44,33 @@ unsigned LoopStatistics::getRegion(const std::string& name) const {
   return std::distance(first, it);
 }
 
-void LoopStatistics::begin(unsigned region) {
-  (void)clock_gettime(CLOCK_MONOTONIC, &regions_[region].begin);
+timespec LoopStatistics::begin() {
+  timespec beginTime{};
+  (void)clock_gettime(CLOCK_MONOTONIC, &beginTime);
+  return beginTime;
 }
 
-void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRegion) {
+void LoopStatistics::end(unsigned region,
+                         unsigned numIterations,
+                         unsigned subRegion,
+                         const timespec& begin) {
   timespec endTime{};
   (void)clock_gettime(CLOCK_MONOTONIC, &endTime);
-  addSample(region, numIterations, subRegion, regions_[region].begin, endTime);
+  addSample(region, numIterations, subRegion, begin, endTime);
 }
 
 void LoopStatistics::addSample(
-    unsigned region, unsigned numIterations, unsigned /*subRegion*/, timespec begin, timespec end) {
+    unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end) {
+  addTime(region, numIterations, subRegion, seconds(difftime(begin, end)));
+}
+
+void LoopStatistics::addTime(unsigned region,
+                             unsigned numIterations,
+                             unsigned /*subRegion*/,
+                             double time) {
   if (numIterations > 0) {
+    const std::scoped_lock lock(samplesMutex_);
     auto& vars = regions_[region].variables;
-    const auto time = seconds(difftime(begin, end));
     vars.x += numIterations;
     vars.x2 += static_cast<double>(numIterations) * static_cast<double>(numIterations);
     vars.xy += static_cast<double>(numIterations) * time;
@@ -70,7 +83,6 @@ void LoopStatistics::addSample(
 void LoopStatistics::reset() {
   for (auto& region : regions_) {
     region.variables = StatisticVariables();
-    // (region.begin is not reset)
   }
 }
 

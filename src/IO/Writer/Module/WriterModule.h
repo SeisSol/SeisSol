@@ -10,6 +10,7 @@
 
 #include "AsyncWriter.h"
 #include "BufferRegistry.h"
+#include "Memory/HostData.h"
 #include "Modules/Module.h"
 #include "Parallel/Pin.h"
 
@@ -55,9 +56,14 @@ class WriterModule : public seissol::Module, private AsyncWriterModule, private 
                SeisSol& seissolInstance);
   void startup();
   void simulationStart(std::optional<double> checkpointTime) override;
-  void syncPoint(double time) override;
+  void captureSyncPoint(double time) override;
+  void processSyncPoint(double time) override;
   void simulationEnd() override;
   void shutdown() override;
+  [[nodiscard]] initializer::HostData hostData() const override { return settings_.hostData; }
+  /// The plans and data of the writes come from the host copies of the data and what the capture
+  /// of the output takes; ASYNC is called from one thread at a time.
+  [[nodiscard]] bool processesAsynchronously() const override { return true; }
 
   private:
   void setUp() override;

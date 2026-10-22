@@ -113,13 +113,20 @@ The following device-specific environment variable is supported right now:
 
 - ``SEISSOL_L2_COMPRESS``
 
-- ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``
+- ``SEISSOL_TRANSFER_MODE``
+
+- ``SEISSOL_DEVICE_LOOP_STATISTICS``
 
 ``SEISSOL_USM`` specifies if the data buffers are allocated using unified/managed (i.e. CPU-accessible) memory,
-or GPU memory. It is on by default on systems like the Grace Hopper Superchip or APUs like the MI300A,
-and disabled on all other systems (see TODO for more information).
+or GPU memory. It is off by default, also on systems whose GPU shares its memory with the CPU,
+like the Grace Hopper and Grace Blackwell Superchips, or APUs like the MI300A:
+the host then keeps a copy of the data, into which the outputs copy what they read, while the GPU works on its own.
+On an APU, these copies take memory from the same pool as the GPU; ``SEISSOL_USM=1`` saves that memory.
+With the outputs on a thread of their own, the data that changes keeps a copy for the host with ``SEISSOL_USM=1``
+as well (see :ref:`gpu-time-stepping`).
+Running clusters on the host (``SEISSOL_DEVICE_HOST_SWITCH``) needs ``SEISSOL_USM=1``.
 
-``SEISSOL_USM_MPI`` specifies the allocation mode for the buffers that are also used for MPI transfer.
+``SEISSOL_USM_MPI`` specifies the allocation mode for the buffers that are also used for MPI transfer; off by default as well.
 E.g. some MPI implementations, even if GPU-aware, will treat unified/managed memory buffers are CPU buffers
 otherwise.
 
@@ -128,13 +135,28 @@ Currently, that is only CUDA; we recommend to check the respective guides for av
 (generally, Hopper or newer should always support it; and Ampere slightly restricted).
 Disabled by default, and currently requires ``SEISSOL_USM=0`` and ``SEISSOL_USM_MPI=0``.
 
-``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`` specifies how to copy GPU buffers via MPI.
+``SEISSOL_DEVICE_LOOP_STATISTICS`` decides whether the work enqueued on the GPU gets timed: the loops of the clusters
+for the loop statistics of the run summary (see :ref:`run-summary`), the replays of super-timesteps and the halo
+exchange on device streams, all for the activity of the device (see :ref:`activity`). A pair of events goes around
+each piece of work on its stream (with CUDA and HIP; with SYCL, where the Device library is built with
+``ENABLE_PROFILING_MARKERS=ON`` or the device has profiling tags, as Intel GPUs with oneAPI; otherwise, the loops keep
+the time it takes to enqueue them).
+On by default; each timed loop costs two records of events, about 1 to 2 % of the run time of a small mesh.
+``SEISSOL_DEVICE_LOOP_STATISTICS=0`` leaves the work on the GPU out of the statistics.
+
+``SEISSOL_TRANSFER_MODE`` (or its alias ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``)
+specifies how to exchange GPU buffers between processes.
 The default value is ``direct`` which copies the data out of the GPU buffers directly.
 In contrast, the ``host`` value means that the data will be copied to/from the host memory
 before/after each send/receive operation.
 That is especially useful, since some MPI implementations are not GPU-aware and do not support direct point-to-point
 communication on device buffers.
 As a (subpar) alternative, you can also try using ``SEISSOL_USM_MPI=1`` and ``direct`` to utilize unified/managed memory.
+
+Three further values run the exchange on GPU streams: ``ccl`` (NCCL, RCCL or oneCCL),
+``stream-mpi`` (MPI operations enqueued on a stream) and ``shmem`` (NVSHMEM, ROCSHMEM or Intel SHMEM).
+They need to be enabled at build time and are considered experimental;
+see :ref:`gpu-time-stepping` for their requirements, and for the other ways of running the time stepping on GPUs.
 
 .. figure:: figures/gpu-comm-layer-data-flow.png
    :alt: Data Flow Diagram

@@ -23,6 +23,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -268,8 +269,22 @@ struct ReceiverOutputData {
   std::unique_ptr<parallel::DataCollectorUntyped> deviceDataCollector;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollectorUntyped>> deviceVariables;
+  /// the variables of the faces, all gathered by one kernel; null without any
+  std::unique_ptr<parallel::DataCollectorUntyped> deviceVariables;
+  /// the set of each variable (by its index in the storage) in deviceVariables
+  std::unordered_map<std::size_t, std::size_t> deviceVariableSets;
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
+
+  /// a variable of the friction state of all faces, one face after the other
+  struct FaceData {
+    std::vector<std::uint8_t> data;
+    std::size_t faceBytes{0};
+  };
+
+  /// The friction state of the faces at the start of the current time step, by variable (its index
+  /// in the storage); the samples within the step interpolate between it and the state at the end.
+  /// Empty before the first time step.
+  std::unordered_map<std::size_t, FaceData> stepStart;
 };
 } // namespace seissol::dr
 

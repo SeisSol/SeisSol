@@ -14,8 +14,11 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <fstream>
 #include <iomanip>
+#include <mutex>
+#include <string>
 #include <time.h>
 #include <unordered_map>
 #include <vector>
@@ -27,12 +30,19 @@ class LoopStatistics {
 
   [[nodiscard]] unsigned getRegion(const std::string& name) const;
 
-  void begin(unsigned region);
+  /**
+   * The time a loop of a region starts at, for end(). Loops of several clusters can run at the same
+   * time (e.g. in a task graph), so each one keeps its own.
+   */
+  [[nodiscard]] static timespec begin();
 
-  void end(unsigned region, unsigned numIterations, unsigned subRegion);
+  void end(unsigned region, unsigned numIterations, unsigned subRegion, const timespec& begin);
 
   void addSample(
       unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end);
+
+  /// adds a loop that took `time` seconds (e.g. on a device, see DeviceLoopTimer)
+  void addTime(unsigned region, unsigned numIterations, unsigned subRegion, double time);
 
   void reset();
 
@@ -45,6 +55,13 @@ class LoopStatistics {
 
   //! @brief The time this rank spent in the regions that count towards the total, the kernels.
   [[nodiscard]] double kernelTime() const;
+
+  //! @brief The regions, by their names; and the time this rank spent in each so far.
+  [[nodiscard]] std::size_t regionCount() const { return regions_.size(); }
+  [[nodiscard]] const std::string& regionName(unsigned region) const {
+    return regions_[region].name;
+  }
+  [[nodiscard]] double regionTime(unsigned region) const { return regions_[region].variables.y; }
 
   private:
   struct StatisticVariables {
@@ -59,13 +76,14 @@ class LoopStatistics {
   struct Region {
     std::string name;
     bool includeInSummary;
-    timespec begin{};
     StatisticVariables variables;
 
     Region(const std::string& name, bool includeInSummary);
   };
 
   std::vector<Region> regions_;
+  // the samples of loops that run at the same time
+  std::mutex samplesMutex_;
 };
 } // namespace seissol
 

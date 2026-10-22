@@ -160,12 +160,75 @@ if (OPENMP)
   find_package(OpenMP REQUIRED)
   target_link_libraries(seissol-common-properties INTERFACE OpenMP::OpenMP_CXX)
   target_compile_definitions(seissol-common-properties INTERFACE OMP OMPI_SKIP_MPICXX)
+
+  # What the task graph on the host takes (see Parallel/Runtime/HostRuntime.h): tasks with
+  # dependencies on a list of runtime length (iterators), detached tasks, taskloop and masked. The
+  # version that _OPENMP reports cannot tell: GCC reports 4.5 up to version 15, though it has them
+  # from 12 on, and NVHPC reports 5.1 without them.
+  include(CheckCXXSourceCompiles)
+  set(CMAKE_REQUIRED_LIBRARIES OpenMP::OpenMP_CXX)
+  check_cxx_source_compiles([=[
+#include <cstddef>
+#include <omp.h>
+struct Runtime {
+  char own{0};
+  char shared{0};
+  void action(const char* const* neighbors, std::size_t count) {
+#pragma omp task default(none) depend(iterator(std::size_t i = 0 : count), in : neighbors[i][0]) depend(inout : this->own, this->shared)
+    {
+    }
+  }
+};
+int main() {
+  Runtime runtime;
+  const char* neighbors[1] = {&runtime.shared};
+  int sum = 0;
+#pragma omp parallel default(none) shared(runtime, neighbors, sum)
+  {
+#pragma omp masked
+    {
+      runtime.action(neighbors, 1);
+      omp_event_handle_t event{};
+#pragma omp task detach(event) depend(in : runtime.shared)
+      {
+      }
+      omp_fulfill_event(event);
+#pragma omp taskloop default(none) shared(sum) grainsize(1)
+      for (int i = 0; i < 4; ++i) {
+#pragma omp atomic
+        sum += i;
+      }
+      const char* token = &runtime.own;
+#pragma omp taskwait depend(in : token[0])
+#pragma omp taskyield
+#pragma omp taskwait
+    }
+  }
+  return sum == 6 ? 0 : 1;
+}
+]=] SEISSOL_OPENMP_TASK_GRAPH)
+  unset(CMAKE_REQUIRED_LIBRARIES)
+  if (SEISSOL_OPENMP_TASK_GRAPH)
+    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_OPENMP_TASK_GRAPH)
+  endif()
 endif()
 
 if (MPI)
   find_package(MPI REQUIRED)
 
-  target_include_directories(seissol-common-properties SYSTEM INTERFACE ${MPI_CXX_INCLUDE_PATH})
+  # The headers of MPI, also for the compilers that do not go through the host compiler (hipcc for
+  # the device code, nvcc). With an MPI wrapper as the host compiler (e.g. CC of the Cray PE), MPI
+  # works implicitly and FindMPI reports no include directories, as the wrapper adds them itself;
+  # they are then among the include directories of the host compiler.
+  set(SEISSOL_MPI_INCLUDE_DIRS ${MPI_CXX_INCLUDE_DIRS})
+  if (NOT SEISSOL_MPI_INCLUDE_DIRS)
+    find_path(SEISSOL_MPI_INCLUDE_DIR mpi.h PATHS ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES}
+        NO_DEFAULT_PATH)
+    if (SEISSOL_MPI_INCLUDE_DIR)
+      set(SEISSOL_MPI_INCLUDE_DIRS ${SEISSOL_MPI_INCLUDE_DIR})
+    endif()
+  endif()
+  target_include_directories(seissol-common-properties SYSTEM INTERFACE ${SEISSOL_MPI_INCLUDE_DIRS})
   target_link_libraries(seissol-common-properties INTERFACE MPI::MPI_C)
 
   target_compile_definitions(seissol-common-properties INTERFACE USE_MPI PARALLEL)
@@ -440,6 +503,116 @@ if (WITH_GPU)
   # set up GPU install targets
   install(TARGETS seissol-device-lib LIBRARY)
   install(TARGETS device LIBRARY)
+
+  option(CCL "Exchange the halo data with NCCL, RCCL or oneCCL (selected at runtime)" OFF)
+  if (CCL)
+    if (DEVICE_BACKEND STREQUAL "cuda")
+      find_package(NCCL REQUIRED)
+      target_include_directories(seissol-common-properties INTERFACE ${NCCL_INCLUDE_DIRS})
+      target_link_libraries(seissol-common-properties INTERFACE ${NCCL_LIBRARIES})
+      target_compile_definitions(seissol-common-properties INTERFACE USE_CCL CCL_NCCL)
+    elseif (DEVICE_BACKEND STREQUAL "hip")
+      find_package(RCCL REQUIRED)
+      # the package of ROCm exports roc::rccl, and sets RCCL_LIBRARIES to the bare library name
+      if (TARGET roc::rccl)
+        target_link_libraries(seissol-common-properties INTERFACE roc::rccl)
+      elseif (TARGET rccl)
+        target_link_libraries(seissol-common-properties INTERFACE rccl)
+      else()
+        target_include_directories(seissol-common-properties INTERFACE ${RCCL_INCLUDE_DIRS})
+        target_link_libraries(seissol-common-properties INTERFACE ${RCCL_LIBRARIES})
+      endif()
+      target_compile_definitions(seissol-common-properties INTERFACE USE_CCL CCL_RCCL)
+    elseif (DEVICE_BACKEND STREQUAL "oneapi")
+      find_package(oneCCL REQUIRED)
+      target_link_libraries(seissol-common-properties INTERFACE oneCCL)
+      target_compile_definitions(seissol-common-properties INTERFACE USE_CCL CCL_ONECCL)
+    else()
+      message(FATAL_ERROR "CCL is only available with the cuda, hip and oneapi device backends.")
+    endif()
+  endif()
+
+  set(STREAM_MPI "OFF" CACHE STRING
+      "Exchange the halo data with stream-aware MPI (selected at runtime): OFF, MPICH (4.1 or newer) or CRAY")
+  set_property(CACHE STREAM_MPI PROPERTY STRINGS OFF MPICH CRAY)
+  if (STREAM_MPI STREQUAL "MPICH")
+    target_compile_definitions(seissol-common-properties INTERFACE USE_STREAM_MPI STREAM_MPI_MPICH)
+  elseif (STREAM_MPI STREQUAL "CRAY")
+    target_compile_definitions(seissol-common-properties INTERFACE USE_STREAM_MPI STREAM_MPI_CRAY)
+    message(WARNING "The halo exchange with the stream-triggered operations of HPE Cray MPICH has not been tested yet.")
+  elseif (NOT STREAM_MPI STREQUAL "OFF")
+    message(FATAL_ERROR "STREAM_MPI has to be OFF, MPICH or CRAY.")
+  endif()
+
+  option(SHMEM "Exchange the halo data with NVSHMEM, ROCSHMEM or Intel SHMEM (selected at runtime)" OFF)
+  if (SHMEM)
+    if (DEVICE_BACKEND STREQUAL "cuda")
+      find_package(NVSHMEM REQUIRED)
+      # The exchange signals and waits from small kernels that use the device API of NVSHMEM, so
+      # that recorded super-timesteps can replay it. They need relocatable device code, linked with
+      # the static device library of NVSHMEM right here, and the shared CUDA runtime like the rest
+      # (the imported device library target would bring the static one).
+      find_library(NVSHMEM_DEVICE_LIBRARY nvshmem_device HINTS ${NVSHMEM_LIB_DIR} REQUIRED)
+      add_library(seissol-nvshmem-kernels STATIC
+          src/Solver/TimeStepping/Halo/Stream/NvshmemKernels.cu)
+      string(REPLACE "sm_" "" NVSHMEM_KERNELS_ARCH "${DEVICE_ARCH}")
+      set_target_properties(seissol-nvshmem-kernels PROPERTIES
+          POSITION_INDEPENDENT_CODE ON
+          CUDA_SEPARABLE_COMPILATION ON
+          CUDA_RESOLVE_DEVICE_SYMBOLS ON
+          CUDA_RUNTIME_LIBRARY Shared
+          CUDA_ARCHITECTURES "${NVSHMEM_KERNELS_ARCH}")
+      target_compile_features(seissol-nvshmem-kernels PRIVATE cuda_std_17)
+      target_link_libraries(seissol-nvshmem-kernels
+          PUBLIC nvshmem::nvshmem_host ${NVSHMEM_DEVICE_LIBRARY}
+          PRIVATE MPI::MPI_C)
+      target_include_directories(seissol-nvshmem-kernels SYSTEM PRIVATE ${SEISSOL_MPI_INCLUDE_DIRS})
+      target_link_libraries(seissol-common-properties INTERFACE seissol-nvshmem-kernels)
+      target_compile_definitions(seissol-common-properties INTERFACE USE_SHMEM SHMEM_NVSHMEM)
+    elseif (DEVICE_BACKEND STREQUAL "hip")
+      # As with NVSHMEM, small kernels use the device API of ROCSHMEM. They need relocatable device
+      # code, linked with the device code of ROCSHMEM in a shared library of their own, through
+      # which all other calls of ROCSHMEM go as well (the rest of SeisSol has no relocatable device
+      # code, and its host compiler cannot read the headers of ROCSHMEM). The package of ROCSHMEM
+      # does not look for the targets it links.
+      enable_language(HIP)
+      find_package(Threads REQUIRED)
+      find_package(hip REQUIRED)
+      find_package(hsa-runtime64 REQUIRED)
+      find_package(rocshmem REQUIRED)
+      # newer packages (3.8, TheRock) link numa::numa as well
+      if (NOT TARGET numa::numa)
+        find_package(NUMA REQUIRED)
+        add_library(numa::numa INTERFACE IMPORTED)
+        target_link_libraries(numa::numa INTERFACE NUMA::NUMA)
+      endif()
+      # (cmake/hip.cmake replaces the rule for shared HIP libraries with one for the helper of
+      # hipcc; this library gets linked by the HIP compiler, as CMake does it)
+      set(CMAKE_HIP_CREATE_SHARED_LIBRARY
+          "<CMAKE_HIP_COMPILER> <CMAKE_SHARED_LIBRARY_HIP_FLAGS> <LANGUAGE_COMPILE_FLAGS> <LINK_FLAGS> <SONAME_FLAG><TARGET_SONAME> -o <TARGET> <OBJECTS> <LINK_LIBRARIES>")
+      set_source_files_properties(src/Solver/TimeStepping/Halo/Stream/RocshmemKernels.cpp
+          PROPERTIES LANGUAGE HIP)
+      add_library(seissol-rocshmem-kernels SHARED
+          src/Solver/TimeStepping/Halo/Stream/RocshmemKernels.cpp)
+      set_target_properties(seissol-rocshmem-kernels PROPERTIES
+          HIP_ARCHITECTURES "${DEVICE_ARCH}"
+          LINKER_LANGUAGE HIP)
+      target_link_libraries(seissol-rocshmem-kernels PRIVATE roc::rocshmem MPI::MPI_C)
+      target_include_directories(seissol-rocshmem-kernels SYSTEM PRIVATE ${SEISSOL_MPI_INCLUDE_DIRS})
+      target_link_options(seissol-rocshmem-kernels PRIVATE --hip-link)
+      target_link_libraries(seissol-common-properties INTERFACE seissol-rocshmem-kernels)
+      target_compile_definitions(seissol-common-properties INTERFACE USE_SHMEM SHMEM_ROCSHMEM)
+    elseif (DEVICE_BACKEND STREQUAL "oneapi")
+      find_path(ISHMEM_INCLUDE_DIR ishmem.h HINTS ENV ISHMEM_ROOT PATH_SUFFIXES include REQUIRED)
+      find_library(ISHMEM_LIBRARY ishmem HINTS ENV ISHMEM_ROOT PATH_SUFFIXES lib lib64 REQUIRED)
+      target_include_directories(seissol-common-properties INTERFACE ${ISHMEM_INCLUDE_DIR})
+      target_link_libraries(seissol-common-properties INTERFACE ${ISHMEM_LIBRARY})
+      target_compile_definitions(seissol-common-properties INTERFACE USE_SHMEM SHMEM_ISHMEM)
+      message(WARNING "The halo exchange with Intel SHMEM has not been tested yet.")
+    else()
+      message(FATAL_ERROR "SHMEM is only available with the cuda, hip and oneapi device backends.")
+    endif()
+  endif()
 endif()
 
 # C++ compiler settings

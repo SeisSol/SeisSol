@@ -46,30 +46,4 @@ ManagedStream::~ManagedStream() {
 #endif
 }
 
-#ifdef ACL_DEVICE
-ManagedEvent::ManagedEvent() : eventPtr_(dev().api().createEvent()) {}
-#else
-ManagedEvent::ManagedEvent() = default;
-#endif
-
-auto ManagedEvent::operator=(ManagedEvent&& old) noexcept -> ManagedEvent& {
-  if (this != &old) {
-#ifdef ACL_DEVICE
-    if (eventPtr_ != nullptr) {
-      dev().api().destroyEvent(eventPtr_);
-    }
-#endif
-    eventPtr_ = std::exchange(old.eventPtr_, nullptr);
-  }
-  return *this;
-}
-
-ManagedEvent::~ManagedEvent() {
-#ifdef ACL_DEVICE
-  if (eventPtr_ != nullptr) {
-    dev().api().destroyEvent(eventPtr_);
-  }
-#endif
-}
-
 } // namespace seissol::parallel::runtime

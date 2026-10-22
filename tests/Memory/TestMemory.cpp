@@ -10,3 +10,6 @@
 #include "Backmap.t.h"
 #include "Colormap.t.h"
 #include "Storage.t.h"
+// after the storage test, whose descriptors it takes
+#include "HostData.t.h"
+#include "HostSnapshot.t.h"

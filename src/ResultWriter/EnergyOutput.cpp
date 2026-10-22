@@ -25,11 +25,13 @@
 #include "IO/Writer/File/RunFiles.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Modules/Modules.h"
@@ -182,8 +184,10 @@ void addFaultEnergies(const DynamicRupture::Layer& layer,
   double seismicMoment[SimCount]{};
   double potency[SimCount]{};
 
-  real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDerivativePlus>(Cfg());
-  real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDerivativeMinus>(Cfg());
+  // the unknowns of the cells at the output time, when the slip is taken as well (those of cells on
+  // other ranks come from dofSync)
+  real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>(Cfg());
+  real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDofsMinus>(Cfg());
 
   const auto* godunovData = layer.var<DynamicRupture::GodunovData>(Cfg());
   const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
@@ -634,6 +638,15 @@ void EnergyOutput::init(
   meshReader_ = &newMeshReader;
   ltsStorage_ = &newStorage;
 
+  // the unknowns of the cells, the friction energies, and the displacements of the free surfaces
+  // with gravity
+  auto& memoryManager = seissolInstance_.memoryManager();
+  hostData_.add<LTS::Dofs>(memoryManager.ltsStorage())
+      .add<LTS::DofsAne>(memoryManager.ltsStorage())
+      .add<LTS::PStrain>(memoryManager.ltsStorage())
+      .add<DynamicRupture::DREnergyOutputVar>(memoryManager.drStorage())
+      .add<SurfaceLTS::DisplacementDofs>(memoryManager.surfaceStorage());
+
   isPlasticityEnabled_ = newIsPlasticityEnabled;
 
   seissolInstance_.modules().registerHook(*this, ModuleHook::SimulationStart);
@@ -673,7 +686,7 @@ void EnergyOutput::init(
   }
 }
 
-void EnergyOutput::syncPoint(double time) {
+void EnergyOutput::processSyncPoint(double time) {
   assert(isEnabled_);
   const auto rank = Mpi::mpi.rank();
   logInfo() << "Writing energy output at time" << time;

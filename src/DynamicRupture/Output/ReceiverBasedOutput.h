@@ -11,6 +11,7 @@
 #include "Common/Real.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/ParametersInitializer.h"
+#include "DynamicRupture/Output/PickpointSampling.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -19,6 +20,9 @@
 #include "Memory/Tree/Backmap.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <cstddef>
+#include <functional>
+#include <memory>
 #include <vector>
 
 namespace seissol::dr::output {
@@ -41,21 +45,57 @@ class ReceiverOutput {
     drParameters_ = userDrParameters;
   }
   /**
-   * @param stateTime the time the stored friction state belongs to, which is the end of the dynamic
-   *                  rupture time step that computed it; the stress sources are evaluated there,
-   *                  where the friction law evaluated them last, so that the tractions rebuilt
-   *                  here are consistent with the state they are rebuilt from
-   * @param time the time the output is recorded under
+   * Evaluates the output points at `time`. The wave field comes from the cells at the fault: for
+   * the elementwise output from their degrees of freedom, which belong to `time`; for the on-fault
+   * receivers from the time derivatives of the time step that contains `time`. The friction state
+   * is interpolated linearly between the start of that step (see keepStepStart()) and its end, as
+   * the friction law left it; events of the friction state (e.g. the rupture) count only when they
+   * happened by `time`. The stress sources are evaluated at `time`.
+   *
+   * @param time the time the output belongs to, and is recorded under
+   * @param dt the size of the time step the time derivatives belong to
+   * @param indt the time from the start of that step to `time`
    */
   virtual void
       calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                       seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                       const std::shared_ptr<ReceiverOutputData>& outputData,
                       parallel::runtime::StreamRuntime& runtime,
-                      double stateTime,
-                      double time = 0.0,
-                      double dt = 1.0,
-                      double indt = 0.0) = 0;
+                      double time,
+                      double dt,
+                      double indt) = 0;
+
+  /**
+   * Copies the data of the output points from the device to the host, in the order of the stream.
+   */
+  static void gatherFaultOutput(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Copies only the friction state of the faces from the device to the host, in the order of the
+   * stream.
+   */
+  static void gatherFaultState(const std::shared_ptr<ReceiverOutputData>& outputData,
+                               parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Keeps the friction state the faces have now as the one at the start of the next time step, for
+   * the samples within that step; from the data the output reads (gathered from the device before,
+   * or in the storage on the host).
+   */
+  void keepStepStart(const std::shared_ptr<ReceiverOutputData>& outputData) const;
+
+  /**
+   * Evaluates the output points right away, on the host, from data gathered before; for work that
+   * already runs in the order of the stream. The times are those of calcFaultOutput().
+   */
+  virtual void
+      evaluateFaultOutput(seissol::initializer::parameters::OutputType outputType,
+                          seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                          const std::shared_ptr<ReceiverOutputData>& outputData,
+                          double time,
+                          double dt,
+                          double indt) = 0;
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
@@ -82,10 +122,16 @@ class ReceiverOutputImpl : public ReceiverOutput {
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        const std::shared_ptr<ReceiverOutputData>& outputData,
                        parallel::runtime::StreamRuntime& runtime,
-                       double stateTime,
-                       double time = 0.0,
-                       double dt = 1.0,
-                       double indt = 0.0) override;
+                       double time,
+                       double dt,
+                       double indt) override;
+
+  void evaluateFaultOutput(seissol::initializer::parameters::OutputType outputType,
+                           seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                           const std::shared_ptr<ReceiverOutputData>& outputData,
+                           double time,
+                           double dt,
+                           double indt) override;
 
   template <typename Cfg>
   struct LocalInfo {
@@ -99,6 +145,9 @@ class ReceiverOutputImpl : public ReceiverOutput {
     int internalGpIndexFused{};
 
     double time{};
+    /// where the time of the output lies within its time step, from 0 at the start to 1 at the
+    /// end; the friction state gets interpolated with it
+    double positionInStep{1};
     /// width of the last sub time step of the friction solve, which is the one the stored friction
     /// state belongs to
     double deltaT{};
@@ -154,12 +203,54 @@ class ReceiverOutputImpl : public ReceiverOutput {
   [[nodiscard]] const std::remove_extent_t<seissol::initializer::StorageType<StorageT, Cfg>>*
       getCellData(const LocalInfo<Cfg>& local) const {
     using ValueT = std::remove_extent_t<seissol::initializer::StorageType<StorageT, Cfg>>;
-    const auto devVar = local.state->deviceVariables.find(drStorage_->info<StorageT>().index);
-    if (devVar != local.state->deviceVariables.end()) {
-      return reinterpret_cast<const ValueT*>(devVar->second->get(local.faceId));
+    const auto devVar = local.state->deviceVariableSets.find(drStorage_->info<StorageT>().index);
+    if (devVar != local.state->deviceVariableSets.end()) {
+      return reinterpret_cast<const ValueT*>(
+          local.state->deviceVariables->get(devVar->second, local.faceId));
     } else {
       return local.layer->template var<StorageT>(Cfg())[local.ltsId];
     }
+  }
+
+  /**
+   * The cell data of the type StorageT as it was at the start of the time step of the output, laid
+   * out as getCellData() gives it at the end; null if none was kept (before the first time step,
+   * and for the elementwise output).
+   */
+  template <typename StorageT, typename Cfg>
+  [[nodiscard]] const std::remove_extent_t<seissol::initializer::StorageType<StorageT, Cfg>>*
+      getStepStartData(const LocalInfo<Cfg>& local) const {
+    using ValueT = std::remove_extent_t<seissol::initializer::StorageType<StorageT, Cfg>>;
+    const auto kept = local.state->stepStart.find(drStorage_->info<StorageT>().index);
+    if (kept == local.state->stepStart.end() || kept->second.faceBytes == 0) {
+      return nullptr;
+    }
+    return reinterpret_cast<const ValueT*>(kept->second.data.data() +
+                                           kept->second.faceBytes * local.faceId);
+  }
+
+  /**
+   * A part of the friction state that changes continuously (e.g. the slip), at the point `index`
+   * and the time of the output: linear between the start and the end of the time step, and exactly
+   * the stored state at the end of the step.
+   */
+  template <typename StorageT, typename Cfg>
+  [[nodiscard]] Real<Cfg> stateAt(const LocalInfo<Cfg>& local, std::size_t index) const {
+    const Real<Cfg> end = getCellData<StorageT>(local)[index];
+    const auto* start = getStepStartData<StorageT>(local);
+    if (start == nullptr) {
+      return end;
+    }
+    return stateInStep<Real<Cfg>>(start[index], end, local.positionInStep);
+  }
+
+  /**
+   * The time of an event of the friction state (e.g. the rupture time) at the point `index`, if it
+   * happened by the time of the output; zero, as before any event, otherwise.
+   */
+  template <typename StorageT, typename Cfg>
+  [[nodiscard]] Real<Cfg> eventAt(const LocalInfo<Cfg>& local, std::size_t index) const {
+    return eventBy<Real<Cfg>>(getCellData<StorageT>(local)[index], local.time);
   }
 
   /**
@@ -229,15 +320,19 @@ class ReceiverOutputImpl : public ReceiverOutput {
                                       const std::array<double, 3>& dip);
 
   private:
+  /**
+   * The output of one point, for the faces in the configuration `Cfg`; the faces of other
+   * configurations are left to the handlers of theirs.
+   */
   template <typename Cfg>
-  void calcFaultOutputOfConfig(
-      seissol::initializer::parameters::OutputType outputType,
-      seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-      const std::shared_ptr<ReceiverOutputData>& outputData,
-      parallel::runtime::StreamRuntime& runtime,
-      double stateTime,
-      double dt,
-      double indt);
+  std::function<void(std::size_t)>
+      faultOutputHandler(seissol::initializer::parameters::OutputType outputType,
+                         seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                         const std::shared_ptr<ReceiverOutputData>& outputData,
+                         std::size_t level,
+                         double time,
+                         double dt,
+                         double indt);
 
   Derived& derived() { return static_cast<Derived&>(*this); }
 };

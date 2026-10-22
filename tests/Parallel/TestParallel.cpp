@@ -7,4 +7,7 @@
 
 #include <doctest.h>
 
+#include "DataCollector.t.h"
 #include "PinTest.t.h"
+#include "Runtime/EventPool.t.h"
+#include "Runtime/HostRuntime.t.h"

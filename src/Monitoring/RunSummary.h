@@ -34,6 +34,14 @@ struct EpochRecord {
   double hardwareFlopPerSecond{0};
   double nonzeroFlopPerSecond{0};
   double kernelBytesPerSecond{0};
+  //! the share of the time of the threads they spent in loops, over the ranks
+  statistics::Summary threadLoops;
+  //! the shares of the time of the device in which it computed, exchanged the halo, and was idle,
+  //! over the ranks; only where the device times its work
+  bool deviceTimed{false};
+  statistics::Summary deviceComputing;
+  statistics::Summary deviceExchanges;
+  statistics::Summary deviceIdle;
 };
 
 /**

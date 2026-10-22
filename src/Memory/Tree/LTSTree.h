@@ -22,12 +22,23 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstring>
 #include <type_traits>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
 
 namespace seissol::initializer {
+
+/**
+ * How the layers of a storage share their scratchpads.
+ */
+enum class ScratchpadSharing {
+  /// All layers use the same scratchpads; no two layers may be updated concurrently.
+  Shared,
+  /// Each layer has scratchpads of its own.
+  PerLayer
+};
 
 /*
 Assigns the given value to the target object, initializing the memory in the process.
@@ -81,10 +92,16 @@ class Storage {
   std::vector<DualMemoryContainer> memoryContainer_;
   std::vector<MemoryInfo> memoryInfo_;
 
+  /// Scratchpads of the slots beyond the first one, indexed as [slot - 1][variable].
+  std::vector<std::vector<DualMemoryContainer>> scratchpadSlots_;
+
   seissol::memory::ManagedAllocator allocator_;
   std::string name_;
 
   VarmapT varmap_;
+
+  // whether the variables that change keep snapshots (see setSnapshots())
+  bool snapshots_{false};
 
   template <typename TraitT>
   void addInternal(std::size_t index,
@@ -174,6 +191,11 @@ class Storage {
     for (auto& container : memoryContainer_) {
       container.synchronizeTo(place, stream);
     }
+    for (auto& slot : scratchpadSlots_) {
+      for (auto& container : slot) {
+        container.synchronizeTo(place, stream);
+      }
+    }
   }
 
   void setLayerCount(const LTSColorMap& map) {
@@ -230,6 +252,31 @@ class Storage {
     assert(memoryContainer_.size() > index);
     memoryContainer_[index].synchronizeTo(place, stream);
   }
+
+  /// Adds the memory of the variable (or bucket) `StorageT` (cf. HostData).
+  template <typename StorageT>
+  void varContainers(std::vector<const DualMemoryContainer*>& containers) const {
+    const auto index = varmap_.template index<StorageT>();
+    assert(memoryContainer_.size() > index);
+    containers.push_back(&memoryContainer_[index]);
+  }
+
+  /// Adds the memory of all variables (not of the buckets and scratchpads) (cf. HostData).
+  void variableContainers(std::vector<const DualMemoryContainer*>& containers) const {
+    for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
+      if (memoryInfo_[var].type == MemoryType::Variable) {
+        containers.push_back(&memoryContainer_[var]);
+      }
+    }
+  }
+
+  /**
+   * Whether the variables that change keep snapshots for the host, which reads them while the
+   * device goes on (see DualMemoryContainer::snapshot); before allocateVariables().
+   */
+  void setSnapshots(bool snapshots) { snapshots_ = snapshots; }
+
+  [[nodiscard]] bool snapshots() const { return snapshots_; }
 
   template <typename StorageT>
   [[nodiscard]] const MemoryInfo& info() const {
@@ -309,6 +356,7 @@ class Storage {
       logInfo() << "Storage" << name_ << "; variables:" << UnitByte.formatPrefix(totalSize).c_str();
     }
 
+    std::size_t snapshotSize = 0;
     for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
       if (memoryInfo_[var].type == MemoryType::Variable) {
         memoryContainer_[var].allocate(allocator_,
@@ -316,7 +364,17 @@ class Storage {
                                        memoryInfo_[var].alignment,
                                        memoryInfo_[var].allocMode);
         memoryContainer_[var].constant = memoryInfo_[var].constant;
+        if (snapshots_) {
+          memoryContainer_[var].allocateSnapshot(allocator_, memoryInfo_[var].alignment);
+          if (memoryContainer_[var].snapshot != nullptr) {
+            snapshotSize += memoryInfo_[var].size;
+          }
+        }
       }
+    }
+    if (!name_.empty() && snapshotSize > 0) {
+      logInfo() << "Storage" << name_
+                << "; snapshots of the variables:" << UnitByte.formatPrefix(snapshotSize).c_str();
     }
 
     std::fill(sizes.begin(), sizes.end(), 0);
@@ -357,42 +415,92 @@ class Storage {
       leaf.setMemoryRegionsForBuckets(memoryContainer_, sizes);
       leaf.addBucketSizes(sizes);
     }
+    touchDevice(MemoryType::Bucket);
   }
 
-  // Walks through all leaves, computes the maximum amount of memory for each scratchpad entity,
-  // allocates all scratchpads based on evaluated max. scratchpad sizes, and, finally,
-  // redistributes scratchpads to all leaves.
+  // Allocates the scratchpads and distributes them to the leaves.
   //
-  // Note, all scratchpad entities are shared between leaves.
-  // Do not update leaves in parallel inside of the same MPI rank while using GPUs.
-  void allocateScratchPads() {
-    std::vector<std::size_t> sizes(memoryInfo_.size());
-    for (auto& leaf : this->leaves()) {
-      leaf.findMaxScratchpadSizes(sizes);
+  // The leaves are grouped into slots: the leaves of a slot share their scratchpads, which are
+  // therefore as large as the largest demand in the slot. Leaves of the same slot must not be
+  // updated concurrently; leaves of different slots may.
+  void allocateScratchPads(ScratchpadSharing sharing = ScratchpadSharing::Shared) {
+    const auto varCount = memoryInfo_.size();
+
+    std::vector<std::size_t> slotOfLeaf;
+    std::vector<std::vector<std::size_t>> leafSizes;
+    std::size_t sizeShared = 0;
+    std::size_t sizePerLayer = 0;
+    {
+      std::vector<std::size_t> sizesShared(varCount);
+      for (auto& leaf : this->leaves()) {
+        auto& sizes = leafSizes.emplace_back(varCount);
+        leaf.findMaxScratchpadSizes(sizes);
+        leaf.findMaxScratchpadSizes(sizesShared);
+        slotOfLeaf.push_back(sharing == ScratchpadSharing::Shared ? 0 : slotOfLeaf.size());
+        for (std::size_t var = 0; var < varCount; ++var) {
+          if (memoryInfo_[var].type == MemoryType::Scratchpad) {
+            sizePerLayer += sizes[var];
+          }
+        }
+      }
+      for (std::size_t var = 0; var < varCount; ++var) {
+        if (memoryInfo_[var].type == MemoryType::Scratchpad) {
+          sizeShared += sizesShared[var];
+        }
+      }
+    }
+
+    const auto slotCount = slotOfLeaf.empty()
+                               ? std::size_t{1}
+                               : *std::max_element(slotOfLeaf.begin(), slotOfLeaf.end()) + 1;
+
+    std::vector<std::vector<std::size_t>> slotSizes(slotCount, std::vector<std::size_t>(varCount));
+    for (std::size_t leaf = 0; leaf < leafSizes.size(); ++leaf) {
+      auto& sizes = slotSizes[slotOfLeaf[leaf]];
+      for (std::size_t var = 0; var < varCount; ++var) {
+        sizes[var] = std::max(sizes[var], leafSizes[leaf][var]);
+      }
     }
 
     std::size_t totalSize = 0;
-    for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
+    for (std::size_t var = 0; var < varCount; ++var) {
       if (memoryInfo_[var].type == MemoryType::Scratchpad) {
-        memoryInfo_[var].size = sizes[var];
-        totalSize += sizes[var];
+        memoryInfo_[var].size = slotSizes[0][var];
+        for (const auto& sizes : slotSizes) {
+          totalSize += sizes[var];
+        }
       }
     }
     if (!name_.empty()) {
       logInfo() << "Storage" << name_
-                << "; scratchpads:" << UnitByte.formatPrefix(totalSize).c_str();
+                << "; scratchpads:" << UnitByte.formatPrefix(totalSize).c_str()
+                << "(shared by all layers:" << UnitByte.formatPrefix(sizeShared).c_str()
+                << "; one per layer:" << UnitByte.formatPrefix(sizePerLayer).c_str() << ")";
     }
 
-    for (size_t id = 0; id < memoryInfo_.size(); ++id) {
-      if (memoryInfo_[id].type == MemoryType::Scratchpad) {
-        memoryContainer_[id].allocate(
-            allocator_, memoryInfo_[id].size, memoryInfo_[id].alignment, memoryInfo_[id].allocMode);
+    scratchpadSlots_.assign(slotCount - 1, std::vector<DualMemoryContainer>(varCount));
+    const auto slotContainers = [&](std::size_t slot) -> std::vector<DualMemoryContainer>& {
+      return slot == 0 ? memoryContainer_ : scratchpadSlots_[slot - 1];
+    };
+
+    for (std::size_t slot = 0; slot < slotCount; ++slot) {
+      auto& containers = slotContainers(slot);
+      for (std::size_t var = 0; var < varCount; ++var) {
+        if (memoryInfo_[var].type == MemoryType::Scratchpad) {
+          containers[var].allocate(allocator_,
+                                   slotSizes[slot][var],
+                                   memoryInfo_[var].alignment,
+                                   memoryInfo_[var].allocMode);
+        }
       }
     }
 
+    std::size_t leafIndex = 0;
     for (auto& leaf : this->leaves()) {
-      leaf.setMemoryRegionsForScratchpads(memoryContainer_);
+      leaf.setMemoryRegionsForScratchpads(slotContainers(slotOfLeaf[leafIndex]));
+      ++leafIndex;
     }
+    touchDevice(MemoryType::Scratchpad);
   }
 
   void touchVariables() {
@@ -403,6 +511,46 @@ class Storage {
         leaf.touchVariables();
       }
     }
+    touchDevice(MemoryType::Variable);
+  }
+
+  /**
+   * Writes zeros into the device parts of the variables, buckets or scratchpads by copies (see
+   * DualMemoryContainer::touchDevice()); the variables with touchVariables(), the buckets and
+   * scratchpads once they are allocated.
+   */
+  void touchDevice(MemoryType type) {
+#ifdef ACL_DEVICE
+    std::vector<const DualMemoryContainer*> containers;
+    for (std::size_t var = 0; var < memoryInfo_.size(); ++var) {
+      if (memoryInfo_[var].type == type) {
+        containers.push_back(&memoryContainer_[var]);
+        for (const auto& slot : scratchpadSlots_) {
+          containers.push_back(&slot[var]);
+        }
+      }
+    }
+    // nothing to write (and no device to ask for the zeros) without device memory
+    std::size_t largest = 0;
+    for (const auto* container : containers) {
+      if (container->ownDevicePart()) {
+        largest = std::max(largest, container->allocationSize);
+      }
+    }
+    if (largest == 0) {
+      return;
+    }
+    constexpr std::size_t MaxZeros = 64UL * 1024 * 1024;
+    const auto zerosSize = std::min(largest, MaxZeros);
+    auto& api = device::DeviceInstance::instance().api();
+    void* zeros = api.allocPinnedMem(zerosSize);
+    std::memset(zeros, 0, zerosSize);
+    for (const auto* container : containers) {
+      container->touchDevice(zeros, zerosSize, api.getDefaultStream());
+    }
+    api.syncDefaultStreamWithHost();
+    api.freePinnedMem(zeros);
+#endif
   }
 
   [[nodiscard]] size_t getMaxClusterSize(LayerMask mask = LayerMask()) const {

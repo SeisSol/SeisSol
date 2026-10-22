@@ -9,5 +9,7 @@
 
 #include "MPI/Collectives.t.h"
 #include "MPI/Distribution.t.h"
-#include "MPI/GhostTimeClusterWithCopy.t.h"
+#include "MPI/HaloCheck.t.h"
 #include "MPI/ParallelStatistics.t.h"
+#include "MPI/StagedMpiHaloTransport.t.h"
+#include "MPI/Trace.t.h"

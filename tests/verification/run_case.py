@@ -198,6 +198,21 @@ def unmet_requirements(capabilities, requirements):
 # output checks
 # --------------------------------------------------------------------------
 
+# the ID that every run writes into its outputs: a header line of the
+# receivers, a column of the analysis
+RUN_ID = re.compile(
+    rb'^# run-id\b[^\n]*\n|,"(?:runId|[0-9a-f-]{36})"(?=\r?$)', re.MULTILINE
+)
+
+
+def output_bytes(path):
+    """Read an output file without the ID of the run that wrote it.
+
+    Two runs that compute the same write the same bytes then, and so do a run
+    and a reference stored before SeisSol wrote run IDs.
+    """
+    return RUN_ID.sub(b"", path.read_bytes())
+
 
 def read_receiver(path):
     """Read a receiver file into column names and rows of floats.
@@ -458,7 +473,7 @@ def compare_receivers(reference, candidate, prefix, tolerance, floor):
 
     identical = True
     for name in sorted(set(left) & set(right)):
-        if left[name].read_bytes() == right[name].read_bytes():
+        if output_bytes(left[name]) == output_bytes(right[name]):
             continue
         identical = False
         names, rows_left = read_receiver(left[name])
@@ -710,6 +725,10 @@ def _command_run(args):
     # the mini meshes do without (PartitioningLib 'none' keeps the cells where they were read); in
     # a build without optimization, as the one measuring the coverage, it takes minutes
     environment["SEISSOL_MINISEISSOL"] = "0"
+    # what the case sets in the environment of its run, e.g. a scheduling of its own
+    for entry in args.env:
+        name, _, value = entry.partition("=")
+        environment[name] = value
 
     # the check of the run, which has to pass wherever the run is meant to; on one process, as it
     # runs without MPI
@@ -881,7 +900,7 @@ def _fingerprint_receiver(path):
     names, rows = read_receiver(path)
     count = len(rows)
     entry = {
-        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "sha256": hashlib.sha256(output_bytes(path)).hexdigest(),
         "samples": count,
         "end-time": rows[-1][0] if rows else None,
         "columns": {},
@@ -903,7 +922,7 @@ def _fingerprint_receiver(path):
 def _fingerprint_analysis(path):
     norms = read_analysis(path)
     return {
-        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "sha256": hashlib.sha256(output_bytes(path)).hexdigest(),
         "norms": {
             f"{norm}/{variable}": value
             for norm, values in norms.items()
@@ -1298,6 +1317,7 @@ def main(argv=None):
     # what a run on a single rank is started under, a word each, e.g. mpirun -np 1
     run.add_argument("--launcher", action="append", default=[])
     run.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
+    run.add_argument("--env", action="append", default=[], metavar="NAME=VALUE")
     run.add_argument("--file", action="append", default=[], metavar="NAME")
     run.add_argument("--require", action="append", default=[], metavar="KEY=VALUE")
     run.add_argument(

@@ -109,7 +109,7 @@ class Mpi : public MpiBasic {
     auto collect = std::vector<T>(size_);
     auto type = castToMpiType<T>();
     if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
+      comm = std::optional<MPI_Comm>(this->comm());
     }
     MPI_Gather(&value, 1, type, collect.data(), 1, type, 0, comm.value());
     return collect;
@@ -127,7 +127,7 @@ class Mpi : public MpiBasic {
     using InternalType = typename ContainerType::value_type;
 
     if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
+      comm = std::optional<MPI_Comm>(this->comm());
     }
     int commSize{};
     MPI_Comm_size(comm.value(), &commSize);
@@ -170,7 +170,7 @@ class Mpi : public MpiBasic {
   template <typename F>
   void serialOrderExecute(F&& operation, std::optional<MPI_Comm> comm = {}) {
     if (!comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
+      comm = std::optional<MPI_Comm>(this->comm());
     }
 
     int rank = 0;
@@ -198,7 +198,7 @@ class Mpi : public MpiBasic {
   template <typename T>
   void broadcast(T* value, int root, std::optional<MPI_Comm> comm = {}) const {
     if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
+      comm = std::optional<MPI_Comm>(this->comm());
     }
     auto mpiType = castToMpiType<T>();
     MPI_Bcast(value, 1, mpiType, root, comm.value());
@@ -213,7 +213,7 @@ class Mpi : public MpiBasic {
                           std::optional<MPI_Comm> comm = {}) const {
     using InternalType = typename ContainerType::value_type;
     if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
+      comm = std::optional<MPI_Comm>(this->comm());
     }
     auto size = static_cast<unsigned>(container.size());
     broadcast(&size, root);
@@ -225,9 +225,24 @@ class Mpi : public MpiBasic {
   }
 
   /**
-   * @return The main communicator for the application
+   * @return The main communicator for the application; on a thread that has one of its own (see
+   * setThreadComm), that one.
    */
-  [[nodiscard]] MPI_Comm comm() const { return comm_; }
+  [[nodiscard]] MPI_Comm comm() const {
+    return threadCommRef() != MPI_COMM_NULL ? threadCommRef() : comm_;
+  }
+
+  /**
+   * @return The communicator of the outputs, a duplicate of the main one: the thread of the outputs
+   * (see OutputWorker) talks over it, so that its collectives cannot mix with those of the main
+   * thread.
+   */
+  [[nodiscard]] MPI_Comm outputComm() const { return outputComm_; }
+
+  /**
+   * Makes comm() return `comm` on the calling thread; MPI_COMM_NULL restores the main communicator.
+   */
+  static void setThreadComm(MPI_Comm comm) { threadCommRef() = comm; }
 
   /**
    * @return The node communicator (shared memory) for the application
@@ -250,14 +265,29 @@ class Mpi : public MpiBasic {
 
   void setDataTransferModeFromEnv();
 
-  enum class DataTransferMode { Direct, CopyInCopyOutHost };
+  enum class DataTransferMode {
+    Direct,
+    CopyInCopyOutHost,
+    DirectCcl,
+    DirectStreamMpi,
+    DirectShmem
+  };
   DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode_; }
+
+  /// the name of the transfer mode, as SEISSOL_TRANSFER_MODE takes it
+  static std::string dataTransferModeName(DataTransferMode mode);
 
   /** The only instance of the class */
   static Mpi mpi;
 
   private:
+  static MPI_Comm& threadCommRef() {
+    thread_local MPI_Comm threadComm = MPI_COMM_NULL;
+    return threadComm;
+  }
+
   MPI_Comm comm_{MPI_COMM_NULL};
+  MPI_Comm outputComm_{MPI_COMM_NULL};
   MPI_Comm sharedMemComm_{};
   Mpi() = default;
   DataTransferMode preferredDataTransferMode_{DataTransferMode::Direct};

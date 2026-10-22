@@ -16,6 +16,7 @@
 #include "Parallel/MPI.h"
 #include "Unit.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -211,6 +212,16 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
 
 void FlopCounter::incrementMetric(std::size_t handle, const PerformanceEstimate& data) {
   metrics_[handle].estimate = metrics_[handle].estimate + data;
+}
+
+PerformanceEstimate FlopCounter::estimate(const std::vector<std::string>& names) const {
+  auto estimate = PerformanceEstimate{};
+  for (const auto& metric : metrics_) {
+    if (std::find(names.begin(), names.end(), metric.name) != names.end()) {
+      estimate = estimate + metric.estimate;
+    }
+  }
+  return estimate;
 }
 
 std::size_t FlopCounter::addMetric(const std::string& name, const std::string& category) {

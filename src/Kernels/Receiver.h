@@ -116,12 +116,53 @@ class ReceiverCluster {
                            const seissol::geometry::MeshReader& mesh,
                            const LTS::Backmap& backmap) = 0;
 
-  //! Returns new receiver time
-  virtual double calcReceivers(double time,
-                               double expansionPoint,
+  /**
+   * The receiver samples of one time step.
+   */
+  struct Sampling {
+    /// whether samples fall into the step
+    bool due{false};
+    /// the first sample time
+    double time{0};
+    /// the next sample time after the step
+    double nextTime{0};
+    /// the number of sample times up to the end of the step
+    std::size_t steps{0};
+  };
+
+  /**
+   * Determines which samples fall into the step that starts at `expansionPoint`, given the next
+   * sample time `time`; only on the host, without touching any data.
+   */
+  [[nodiscard]] virtual Sampling
+      planSampling(double time, double expansionPoint, double timeStepWidth) const = 0;
+
+  /**
+   * Takes the samples of a step as planned.
+   */
+  virtual void sample(const Sampling& sampling,
+                      double expansionPoint,
+                      double timeStepWidth,
+                      Executor executor,
+                      parallel::runtime::StreamRuntime& runtime) = 0;
+
+  /**
+   * Takes the samples of the step that starts at the time on the clock, and decides about them
+   * only when the enqueued work runs; the next sample time is then kept here. Replaying the
+   * enqueued work (e.g. from a graph) thus takes the samples of the step it runs in. On the device,
+   * the receiver data gets copied to the host in every step; on the host, the step starts at
+   * `hostTime`.
+   */
+  virtual void sampleAtRunTime(const double* deviceClock,
+                               double hostTime,
                                double timeStepWidth,
                                Executor executor,
                                parallel::runtime::StreamRuntime& runtime) = 0;
+
+  /**
+   * Sets the next sample time for sampleAtRunTime().
+   */
+  void setNextSampleTime(double time) { nextSampleTime_ = time; }
 
   std::vector<Receiver>::iterator begin() { return receivers_.begin(); }
 
@@ -142,9 +183,18 @@ class ReceiverCluster {
   //! @brief Waits for the samples taken so far to be in the output of the receivers.
   void waitForSamples();
 
+  /**
+   * The stream the samples of device clusters are taken on, if it is not the one of the cluster;
+   * null otherwise.
+   */
+  [[nodiscard]] void* sampleStream();
+
   protected:
   std::optional<parallel::runtime::StreamRuntime> extraRuntime_;
   std::vector<Receiver> receivers_;
+
+  // for sampleAtRunTime(): the next sample time
+  double nextSampleTime_{0};
 };
 
 /// The receivers of a time cluster whose cells compute in the configuration `Cfg`.
@@ -169,8 +219,17 @@ class ReceiverClusterImpl : public ReceiverCluster {
                    const seissol::geometry::MeshReader& mesh,
                    const LTS::Backmap& backmap) override;
 
-  double calcReceivers(double time,
-                       double expansionPoint,
+  [[nodiscard]] Sampling
+      planSampling(double time, double expansionPoint, double timeStepWidth) const override;
+
+  void sample(const Sampling& sampling,
+              double expansionPoint,
+              double timeStepWidth,
+              Executor executor,
+              parallel::runtime::StreamRuntime& runtime) override;
+
+  void sampleAtRunTime(const double* deviceClock,
+                       double hostTime,
                        double timeStepWidth,
                        Executor executor,
                        parallel::runtime::StreamRuntime& runtime) override;
@@ -200,6 +259,29 @@ class ReceiverClusterImpl : public ReceiverCluster {
   PerformanceEstimate estimatePerPoint_{};
   std::size_t perfHandle_{};
   double samplingInterval_;
+
+  /**
+   * Samples the receivers of one receiver cell in the step that starts at `expansionPoint`, from
+   * the sample time `time` on.
+   */
+  void sampleReceiver(std::size_t cell,
+                      double time,
+                      double expansionPoint,
+                      double timeStepWidth,
+                      Executor executor);
+
+  /// counts the operations of sampling all receiver cells in `samplingSteps` sample times
+  void countSamples(std::size_t samplingSteps);
+
+  /// copies the DOFs of the receiver cells to the host on the stream of the cluster, for the stream
+  /// of the samples
+  void gatherDofs(parallel::runtime::StreamRuntime& runtime);
+
+  // for sampleAtRunTime(): the start of the step the samples are taken in, and its address on the
+  // device, which writes it
+  double stepStartHost_{0};
+  double* stepStart_{&stepStartHost_};
+  double* stepStartOnDevice_{nullptr};
   double syncPointInterval_;
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities_;
   seissol::SeisSol& seissolInstance_;

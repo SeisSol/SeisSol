@@ -20,9 +20,7 @@ class LinearSlipWeakeningBimaterial : public ReceiverOutputImpl<LinearSlipWeaken
   public:
   template <typename Cfg>
   Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {
-    const auto* const regularizedStrengths =
-        getCellData<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(local);
-    return regularizedStrengths[local.gpIndex];
+    return stateAt<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>(local, local.gpIndex);
   }
 
   template <typename Cfg>
@@ -32,14 +30,14 @@ class LinearSlipWeakeningBimaterial : public ReceiverOutputImpl<LinearSlipWeaken
     // -expm1(-(V + vStar) dt / prakashLength) of a normal stress change arrives instantaneously --
     // evaluated with the slip rate and the sub time step of the friction solve that produced the
     // stored regularized strength. It scales the slope of the unregularized law.
-    const auto* const slipRateMagnitude = getCellData<DynamicRupture::SlipRateMagnitude>(local);
+    const auto slipRateMagnitude = stateAt<DynamicRupture::SlipRateMagnitude>(local, local.gpIndex);
     const auto effectiveNormalStress =
         local.transientNormalTraction + local.iniNormalTraction - local.fluidPressure;
     if (effectiveNormalStress >= 0) {
       return 0.0;
     }
 
-    const auto expval = -(std::max(static_cast<real>(0.0), slipRateMagnitude[local.gpIndex]) +
+    const auto expval = -(std::max(static_cast<real>(0.0), slipRateMagnitude) +
                           static_cast<real>(drParameters_->vStar)) *
                         static_cast<real>(local.deltaT) /
                         static_cast<real>(drParameters_->prakashLength);
@@ -50,6 +48,8 @@ class LinearSlipWeakeningBimaterial : public ReceiverOutputImpl<LinearSlipWeaken
     auto baseVector = ReceiverOutputImpl::getOutputVariables();
     baseVector.push_back(
         drStorage_->info<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>().index);
+    // for the slope of the strength (on GPUs, the output reads only these from the device)
+    baseVector.push_back(drStorage_->info<DynamicRupture::SlipRateMagnitude>().index);
     return baseVector;
   }
 };

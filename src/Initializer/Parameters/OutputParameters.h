@@ -86,8 +86,9 @@ struct FreeSurfaceOutputParameters {
   unsigned refinement{0};
   double interval{0};
   int vtkorder{-1};
-  // per quantity of the material of the configuration of the run
-  std::vector<bool> outputMask;
+  // per configuration, by its id (empty for those the run does not compute in), per quantity of
+  // its material
+  std::vector<std::vector<bool>> outputMask;
   ProjectionMethod projection{ProjectionMethod::L2};
   TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
 };
@@ -103,6 +104,11 @@ struct PickpointParameters {
   ReceiverOutputFormat format{ReceiverOutputFormat::Csv};
   //! @brief As ReceiverOutputParameters::samplechunk, for the on-fault receivers.
   std::size_t samplechunk{0};
+  /**
+   * @brief The time between two samples of the on-fault receivers (`pickdt`); zero samples every
+   * `printTimeInterval` time steps of the finest time cluster with fault faces instead.
+   */
+  double samplingInterval{0};
 };
 
 struct ReceiverOutputParameters {
@@ -157,11 +163,12 @@ struct WaveFieldOutputParameters {
   double interval{0};
   VolumeRefinement refinement{VolumeRefinement::NoRefine};
   OutputBounds bounds;
-  // per quantity of the material of the configuration of the run
-  std::vector<bool> outputMask;
+  // per configuration, by its id (empty for those the run does not compute in), per quantity of
+  // its material
+  std::vector<std::vector<bool>> outputMask;
   std::array<bool, seissol::model::PlasticityQuantityCount> plasticityMask{};
-  // per quantity of the material of the configuration of the run
-  std::vector<bool> integrationMask;
+  // as outputMask
+  std::vector<std::vector<bool>> integrationMask;
   std::unordered_set<int> groups;
   bool computeRotation{false};
   bool computeStrain{false};
@@ -213,13 +220,15 @@ ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader);
 FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader,
                                                       const std::string& defaultTimeSeries,
-                                                      ConfigId config);
+                                                      const std::vector<ConfigId>& configs);
 PickpointParameters readPickpointParameters(ParameterReader* baseReader);
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader);
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
                                                   const std::string& defaultTimeSeries,
-                                                  ConfigId config);
-OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId config);
+                                                  const std::vector<ConfigId>& configs);
+/// The output parameters of a run whose cells compute in the configurations `configs`.
+OutputParameters readOutputParameters(ParameterReader* baseReader,
+                                      const std::vector<ConfigId>& configs);
 } // namespace seissol::initializer::parameters
 
 #endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_

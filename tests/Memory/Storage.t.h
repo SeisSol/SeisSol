@@ -125,4 +125,85 @@ TEST_CASE_TEMPLATE("Storage" * doctest::test_suite("memory"), Cfg, SEISSOL_CONFI
   storage.allocateScratchPads();
 }
 
+TEST_CASE("Storage scratchpad sharing" * doctest::test_suite("memory")) {
+  const initializer::LTSColorMap colorMap(
+      initializer::EnumLayer(
+          std::vector<HaloType>{HaloType::Interior, HaloType::Copy, HaloType::Ghost}),
+      initializer::EnumLayer(std::vector<std::size_t>{1, 2}),
+      // the sharing does not depend on the configuration; any one built in does
+      initializer::EnumLayer(std::vector<ConfigId>{configIdOf<Config0>()}));
+
+  const auto setup = [&](initializer::Storage<initializer::GenericVarmap>& storage) {
+    storage.add<TestDescriptor::Scratchpad>(
+        initializer::LayerMask(), sizeof(void*), initializer::AllocationMode::HostOnly);
+    storage.setLayerCount(colorMap);
+    storage.fixate();
+    for (auto [i, layer] : common::enumerate(storage.leaves())) {
+      layer.setNumberOfCells(1);
+      // one layer without any demand
+      layer.setEntrySize<TestDescriptor::Scratchpad>(i == 2 ? 0 : (i + 1) * sizeof(float) * 16);
+    }
+    storage.allocateVariables();
+    storage.allocateBuckets();
+  };
+
+  SUBCASE("Shared by all layers") {
+    initializer::Storage<initializer::GenericVarmap> storage;
+    setup(storage);
+    storage.allocateScratchPads(initializer::ScratchpadSharing::Shared);
+
+    const float* first = nullptr;
+    for (auto& layer : storage.leaves()) {
+      const auto* scratchpad = layer.var<TestDescriptor::Scratchpad>();
+      REQUIRE(scratchpad != nullptr);
+      if (first == nullptr) {
+        first = scratchpad;
+      }
+      CHECK(scratchpad == first);
+    }
+  }
+
+  SUBCASE("One per layer") {
+    initializer::Storage<initializer::GenericVarmap> storage;
+    setup(storage);
+    storage.allocateScratchPads(initializer::ScratchpadSharing::PerLayer);
+
+    std::vector<const float*> scratchpads;
+    for (auto [i, layer] : common::enumerate(storage.leaves())) {
+      const auto* scratchpad = layer.var<TestDescriptor::Scratchpad>();
+      if (i == 2) {
+        CHECK(scratchpad == nullptr);
+      } else {
+        REQUIRE(scratchpad != nullptr);
+        scratchpads.push_back(scratchpad);
+      }
+    }
+    for (std::size_t i = 0; i < scratchpads.size(); ++i) {
+      for (std::size_t j = i + 1; j < scratchpads.size(); ++j) {
+        CHECK(scratchpads[i] != scratchpads[j]);
+      }
+    }
+
+    // the demands must not overlap either
+    for (auto [i, layer] : common::enumerate(storage.leaves())) {
+      auto* scratchpad = layer.var<TestDescriptor::Scratchpad>();
+      if (scratchpad != nullptr) {
+        const auto count = layer.getEntrySize<TestDescriptor::Scratchpad>() / sizeof(float);
+        for (std::size_t k = 0; k < count; ++k) {
+          scratchpad[k] = static_cast<float>(i);
+        }
+      }
+    }
+    for (auto [i, layer] : common::enumerate(storage.leaves())) {
+      const auto* scratchpad = layer.var<TestDescriptor::Scratchpad>();
+      if (scratchpad != nullptr) {
+        const auto count = layer.getEntrySize<TestDescriptor::Scratchpad>() / sizeof(float);
+        for (std::size_t k = 0; k < count; ++k) {
+          CHECK(scratchpad[k] == static_cast<float>(i));
+        }
+      }
+    }
+  }
+}
+
 } // namespace seissol::unit_test

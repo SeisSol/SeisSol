@@ -163,8 +163,9 @@ class CaseSpec:
     # referenced case's output_dir):
     reference_dir: Optional[Path] = None
     # Case-level conditional rules (each: {"when": {...}, "reason": ...}); apply
-    # to the whole case / all its categories. Category-level rules live in the
-    # per-category <prefix>-data.json instead.
+    # to the whole case / all its categories, and an xfail to the run itself (see
+    # failed_run). Category-level rules live in the per-category
+    # <prefix>-data.json instead.
     xfail: list = dataclasses.field(default_factory=list)
     skip: list = dataclasses.field(default_factory=list)
 
@@ -241,7 +242,11 @@ class CaseResult:
         if self.skipped:
             return True
         if self.ran and self.run_returncode != 0:
-            return False
+            # only as the expected failure of a case-level xfail
+            return any(
+                c.category == "run" and c.xfail_outcome == "xfail"
+                for c in self.compares
+            )
         if self.recorded:
             return True
         if not self.compares:
@@ -793,6 +798,15 @@ def _apply_xfail(
         cr.xfail_outcome = "xfail" if not cr.passed else "xpass"
 
 
+def failed_run(case: CaseSpec, returncode: int, labels: set) -> list[CompareResult]:
+    """The comparisons of a case whose run failed: none, or, where a case-level
+    xfail rule matches, the run itself as an expected failure (as of a case that
+    the libraries of an environment are too old for)."""
+    run = CompareResult("run", False, 0.0, f"SeisSol exited with {returncode}")
+    _apply_xfail(run, case, {}, "run", labels)
+    return [run] if run.xfail_outcome == "xfail" else []
+
+
 def _category_skip_reason(case: CaseSpec, tpv_data: dict, category: str, labels: set):
     """Reason if this category is conditionally skipped (category-level rules only)."""
     return _first_matching_reason(
@@ -1080,7 +1094,7 @@ def _state_of(r: "CaseResult") -> str:
         return "SKIP"
     if r.recorded:
         return "REC"
-    if r.ran and r.run_returncode != 0:
+    if r.ran and r.run_returncode != 0 and not r.passed:
         return f"RC={r.run_returncode}"
     if not r.compares:
         return "FAIL"
@@ -2054,12 +2068,19 @@ def main(argv: Optional[list[str]] = None) -> int:
             )
             ran = True
             if rc != 0:
-                print(
-                    f"{_bad('[fail]')} {case.key}: SeisSol exited with {rc}",
-                    file=sys.stderr,
-                )
-                results.append(CaseResult(case, True, rc, duration, []))
-                if args.fail_fast:
+                compares = failed_run(case, rc, labels)
+                if compares:
+                    print(
+                        f"{_dim('[xfail]')} {case.key}: SeisSol exited with {rc}: "
+                        f"{compares[0].xfail_reason}"
+                    )
+                else:
+                    print(
+                        f"{_bad('[fail]')} {case.key}: SeisSol exited with {rc}",
+                        file=sys.stderr,
+                    )
+                results.append(CaseResult(case, True, rc, duration, compares))
+                if args.fail_fast and not compares:
                     break
                 continue
 
