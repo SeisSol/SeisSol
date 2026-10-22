@@ -24,10 +24,10 @@ namespace supersteprecorder {
 /// The device work of a super-timestep: copies `source` to `target` on the stream.
 class CopyOnDevice {
   public:
-  CopyOnDevice() : api_(::device::DeviceInstance::instance().api()) {
-    stream_ = api_.createStream();
-    source_ = static_cast<int*>(api_.allocGlobMem(sizeof(int)));
-    target_ = static_cast<int*>(api_.allocGlobMem(sizeof(int)));
+  CopyOnDevice()
+      : api_(::device::DeviceInstance::instance().api()), stream_(api_.createStream()),
+        source_(static_cast<int*>(api_.allocGlobMem(sizeof(int)))),
+        target_(static_cast<int*>(api_.allocGlobMem(sizeof(int)))) {
     setSource(0);
     const int zero = 0;
     api_.copyTo(target_, &zero, sizeof(int));
