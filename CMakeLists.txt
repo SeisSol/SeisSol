@@ -516,10 +516,37 @@ if (WITH_GPU)
       target_link_libraries(seissol-common-properties INTERFACE seissol-nvshmem-kernels)
       target_compile_definitions(seissol-common-properties INTERFACE USE_SHMEM SHMEM_NVSHMEM)
     elseif (DEVICE_BACKEND STREQUAL "hip")
+      # As with NVSHMEM, small kernels use the device API of ROCSHMEM. They need relocatable device
+      # code, linked with the device code of ROCSHMEM in a shared library of their own, through
+      # which all other calls of ROCSHMEM go as well (the rest of SeisSol has no relocatable device
+      # code, and its host compiler cannot read the headers of ROCSHMEM). The package of ROCSHMEM
+      # does not look for the targets it links.
+      enable_language(HIP)
+      find_package(Threads REQUIRED)
+      find_package(hip REQUIRED)
+      find_package(hsa-runtime64 REQUIRED)
       find_package(rocshmem REQUIRED)
-      target_link_libraries(seissol-common-properties INTERFACE roc::rocshmem)
+      # newer packages (3.8, TheRock) link numa::numa as well
+      if (NOT TARGET numa::numa)
+        find_package(NUMA REQUIRED)
+        add_library(numa::numa INTERFACE IMPORTED)
+        target_link_libraries(numa::numa INTERFACE NUMA::NUMA)
+      endif()
+      # (cmake/hip.cmake replaces the rule for shared HIP libraries with one for the helper of
+      # hipcc; this library gets linked by the HIP compiler, as CMake does it)
+      set(CMAKE_HIP_CREATE_SHARED_LIBRARY
+          "<CMAKE_HIP_COMPILER> <CMAKE_SHARED_LIBRARY_HIP_FLAGS> <LANGUAGE_COMPILE_FLAGS> <LINK_FLAGS> <SONAME_FLAG><TARGET_SONAME> -o <TARGET> <OBJECTS> <LINK_LIBRARIES>")
+      set_source_files_properties(src/Solver/TimeStepping/Halo/Stream/RocshmemKernels.cpp
+          PROPERTIES LANGUAGE HIP)
+      add_library(seissol-rocshmem-kernels SHARED
+          src/Solver/TimeStepping/Halo/Stream/RocshmemKernels.cpp)
+      set_target_properties(seissol-rocshmem-kernels PROPERTIES
+          HIP_ARCHITECTURES "${DEVICE_ARCH}"
+          LINKER_LANGUAGE HIP)
+      target_link_libraries(seissol-rocshmem-kernels PRIVATE roc::rocshmem MPI::MPI_C)
+      target_link_options(seissol-rocshmem-kernels PRIVATE --hip-link)
+      target_link_libraries(seissol-common-properties INTERFACE seissol-rocshmem-kernels)
       target_compile_definitions(seissol-common-properties INTERFACE USE_SHMEM SHMEM_ROCSHMEM)
-      message(WARNING "The halo exchange with ROCSHMEM has not been tested yet.")
     elseif (DEVICE_BACKEND STREQUAL "oneapi")
       find_path(ISHMEM_INCLUDE_DIR ishmem.h HINTS ENV ISHMEM_ROOT PATH_SUFFIXES include REQUIRED)
       find_library(ISHMEM_LIBRARY ishmem HINTS ENV ISHMEM_ROOT PATH_SUFFIXES lib lib64 REQUIRED)

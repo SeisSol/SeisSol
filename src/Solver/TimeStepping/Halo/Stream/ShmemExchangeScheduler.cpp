@@ -31,7 +31,7 @@
 #include <nvshmem_host.h>
 #endif
 #ifdef SHMEM_ROCSHMEM
-#include <rocshmem/rocshmem.hpp>
+#include "Solver/TimeStepping/Halo/Stream/RocshmemKernels.h"
 #endif
 #ifdef SHMEM_ISHMEM
 #include <ishmem.h>
@@ -94,38 +94,25 @@ void checkOnStream() {
 #endif
 
 #ifdef SHMEM_ROCSHMEM
-// the host passes the exchange counts
-constexpr bool CountsOnDevice = false;
+// as with NVSHMEM, kernels that read the exchange counts from device memory when they run
+constexpr bool CountsOnDevice = true;
 void shmemInit(MPI_Comm comm) {
-  rocshmem::rocshmem_init_attr_t attr{};
-  // (read during the initialization)
-  attr.mpi_comm = &comm;
-  if (rocshmem::rocshmem_init_attr(rocshmem::ROCSHMEM_INIT_WITH_MPI_COMM, &attr) !=
-      rocshmem::ROCSHMEM_SUCCESS) {
+  if (rocshmem::initialize(comm) != 0) {
     logError() << "Could not initialize ROCSHMEM.";
   }
 }
-void shmemFinalize() { rocshmem::rocshmem_finalize(); }
-int shmemPe() { return rocshmem::rocshmem_my_pe(); }
-void* shmemMalloc(std::size_t bytes) { return rocshmem::rocshmem_malloc(bytes); }
-void shmemFree(void* pointer) { rocshmem::rocshmem_free(pointer); }
-void shmemBarrierAll() { rocshmem::rocshmem_barrier_all(); }
-void advanceOnStream(const Count& /*count*/, void* /*stream*/) {}
-// there is no signal operation on streams; a put of one word with a signal sets it
+void shmemFinalize() { rocshmem::finalize(); }
+int shmemPe() { return rocshmem::pe(); }
+void* shmemMalloc(std::size_t bytes) { return rocshmem::allocate(bytes); }
+void shmemFree(void* pointer) { rocshmem::deallocate(pointer); }
+void shmemBarrierAll() { rocshmem::barrierAll(); }
+void advanceOnStream(const Count& count, void* stream) { rocshmem::advance(count.device, stream); }
 void signalOnStream(
-    std::uint64_t* signal, const Count& count, std::uint64_t* scratch, int pe, void* stream) {
-  rocshmem::rocshmem_putmem_signal_on_stream(scratch,
-                                             scratch,
-                                             sizeof(std::uint64_t),
-                                             signal,
-                                             count.host,
-                                             rocshmem::ROCSHMEM_SIGNAL_SET,
-                                             pe,
-                                             static_cast<hipStream_t>(stream));
+    std::uint64_t* signal, const Count& count, std::uint64_t* /*scratch*/, int pe, void* stream) {
+  rocshmem::signalCount(signal, count.device, pe, stream);
 }
 void waitOnStream(std::uint64_t* signal, const Count& count, std::uint64_t factor, void* stream) {
-  rocshmem::rocshmem_signal_wait_until_on_stream(
-      signal, rocshmem::ROCSHMEM_CMP_GE, count.host * factor, static_cast<hipStream_t>(stream));
+  rocshmem::waitCount(signal, count.device, factor, stream);
 }
 void putSignalOnStream(void* destination,
                        const void* source,
@@ -133,19 +120,14 @@ void putSignalOnStream(void* destination,
                        std::uint64_t* signal,
                        int pe,
                        void* stream) {
-  // there is no non-blocking put with a signal on streams
-  rocshmem::rocshmem_putmem_signal_on_stream(destination,
-                                             source,
-                                             bytes,
-                                             signal,
-                                             1,
-                                             rocshmem::ROCSHMEM_SIGNAL_ADD,
-                                             pe,
-                                             static_cast<hipStream_t>(stream));
+  rocshmem::putSignal(destination, source, bytes, signal, pe, stream);
 }
-// the puts on the stream have completed before the stream goes on
-void quietOnStream(void* /*stream*/) {}
-void checkOnStream() {}
+void quietOnStream(void* stream) { rocshmem::quiet(stream); }
+void checkOnStream() {
+  if (const auto* error = rocshmem::lastError()) {
+    logError() << "Could not enqueue the halo exchange with ROCSHMEM:" << error;
+  }
+}
 #endif
 
 #ifdef SHMEM_ISHMEM

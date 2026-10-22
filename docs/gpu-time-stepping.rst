@@ -128,10 +128,12 @@ at the start, one after the other in the same order on all processes, with one e
 signals its arrival, and waits until the receiver has cleared the window for the next exchange;
 the receiver copies the data from there into its ghost layers.
 It always uses the global order.
-The signals count the exchanges of each direction. With NVSHMEM, the count of the current exchange is kept on the GPU:
-each exchange advances it, and small kernels signal and wait with the device API of NVSHMEM, reading it when they run.
-This needs relocatable device code linked with the static device library of NVSHMEM, which ``-DSHMEM=ON`` sets up.
-ROCSHMEM and Intel SHMEM get the counts from the host when the operations are enqueued.
+The signals count the exchanges of each direction. With NVSHMEM and ROCSHMEM, the count of the current exchange is kept
+on the GPU: each exchange advances it, and small kernels signal and wait with the device API of the library, reading it
+when they run. This needs relocatable device code linked with the device code of the library: with NVSHMEM its static
+device library, with ROCSHMEM in a shared library of SeisSol's own (``libseissol-rocshmem-kernels.so``), through which
+all calls of ROCSHMEM go; ``-DSHMEM=ON`` sets this up.
+Intel SHMEM gets the counts from the host when the operations are enqueued.
 
 With ``SEISSOL_CONCURRENT_CLUSTERS=1``, the exchange is ordered on the GPU as well:
 the groups wait for the GPU work that produces or last reads their data,
@@ -149,16 +151,16 @@ Two such super-timesteps do the same GPU work if all clusters have the same step
 The first super-timestep of a kind runs as usual, the second one gets recorded into a graph,
 and all further ones replay it, while the clusters only keep their books on the host.
 All values that change from step to step are read on the GPU: the current time from a clock of each cluster,
-the exchange counts of ``shmem`` with NVSHMEM,
+the exchange counts of ``shmem`` with NVSHMEM or ROCSHMEM,
 and the outputs decide about their samples when their work runs.
 Hence, the receivers and fault receivers copy their data to the host in every step in this mode.
 
 Recording needs a GPU that can record graphs, and either no halo exchange (a single process),
-or ``ccl`` or ``shmem`` with NVSHMEM in the global order and ``SEISSOL_CONCURRENT_CLUSTERS=1``,
+or ``ccl`` or ``shmem`` with NVSHMEM or ROCSHMEM in the global order and ``SEISSOL_CONCURRENT_CLUSTERS=1``,
 without a communication thread.
 ``stream-mpi`` cannot be recorded: MPICH creates the requests of an enqueued operation on the host
 and releases its state in host functions on the stream, which a replay would run again.
-Neither can ``shmem`` with ROCSHMEM or Intel SHMEM: a replay would signal and wait for the counts of the recorded exchanges.
+Neither can ``shmem`` with Intel SHMEM: a replay would signal and wait for the counts of the recorded exchanges.
 If a requirement is missing, a warning says which one, and the super-timesteps (and outputs) run as usual.
 Clusters that compute on the host (``SEISSOL_DEVICE_HOST_SWITCH``) keep all super-timesteps from getting recorded;
 a warning says so. (Clusters without cells stay on the GPU with any switch point.)
@@ -237,6 +239,9 @@ All outputs came out bitwise the same, except for the energy output, whose sums 
 - with two to four processes on one GPU, ``direct``, ``host`` and ``ccl`` with NCCL 2.32;
   with two processes, ``ccl`` with RCCL 7.2 (with the GPU taken as gfx1100) and ``shmem`` with NVSHMEM 3.8;
   ``ccl`` and ``shmem`` with and without recorded super-timesteps;
+- with two processes on the HIP GPU (as gfx1100), ``ccl`` with RCCL 2.21 (ROCm 6.3.4) and with the RCCL of a TheRock
+  nightly (HIP 7.17), and ``shmem`` with ROCSHMEM 3.3 (its development branch, built for the IPC backend and ROCm 7.2,
+  run with HIP 7.17, as HIP 7.2 hangs with several processes there); with and without recorded super-timesteps;
 - with SYCL (AdaptiveCpp, generic target, on the NVIDIA GPU), one and two processes, concurrent clusters
   (AdaptiveCpp cannot record graphs).
 
@@ -247,11 +252,21 @@ SeisSol sets ``NCCL_GRAPH_MIXING_SUPPORT=1`` for ``ccl`` (unless set already), w
 Compare the results of a run bitwise to the default before relying on these options on another system.
 
 The paths for oneCCL (its C API, oneAPI 2026.0) and Intel SHMEM (1.5.2) have been compiled, but not run;
-the path for ROCSHMEM has only been compiled against its headers (development branch of September 2026);
 ``stream-mpi`` and the path for HPE Cray MPICH have not been compiled yet.
+
+ROCSHMEM needs version 3.0 or newer (initialization with an MPI communicator).
+With two processes on the GPU above, the puts of ROCSHMEM 3.2.0 (ROCm 7.2) did not arrive (only the signals did),
+both with the package of ROCm and built from the release; the development branch (3.3, October 2026) worked with
+gfx1100 code (gfx1150 code lost the puts as well).
+The ROCSHMEM of a TheRock nightly (3.8, without an MPI of its own at build time) passed the same test program with both,
+but SeisSol built with it crashed in its initialization (``MPI_Comm_split_type`` in the check of the IPC backend,
+with Open MPI 5.0); that is not resolved yet.
+HIP 6.3.4 cannot create IPC handles on that GPU, so the IPC backend of ROCSHMEM cannot run there.
 
 Several processes on one GPU, as in such tests, share its memory and queues:
 NVSHMEM then needs a smaller symmetric heap (e.g. ``NVSHMEM_SYMMETRIC_SIZE=256M``),
+ROCSHMEM the IPC backend (``ROCSHMEM_BACKEND=ipc``; otherwise it tries InfiniBand first) and a smaller heap
+(e.g. ``ROCSHMEM_HEAP_SIZE=268435456``),
 NCCL and RCCL a host ID per process (``NCCL_HOSTID``) to accept several processes on one GPU,
 and with RCCL on an AMD GPU, the waiting kernels of the processes can occupy all hardware queues
 (``GPU_MAX_HW_QUEUES=2`` avoided that).
