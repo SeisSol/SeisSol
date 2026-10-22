@@ -22,12 +22,15 @@
 # viscoelastic and viscoacoustic with their default solver and 3 mechanisms, and elastic with 32
 # fused simulations in order 3.
 #
+# ci-sanitize: what the sanitizer CI builds: the configurations of ci-cpu in double precision; in
+# single precision, the same code runs with another type.
+#
 # o2 to o8: one set per order, the six materials in that order and both precisions, each with its
 # default solver, viscoelastic and viscoacoustic with 3 mechanisms.
 #
 # all: the sets o2 to o8 together, o6 first: a run that names no configuration takes
 # elastic-linearck-o6-f64-stroud, the configuration of a build with the default parameters.
-set(SEISSOL_CONFIG_SETS ci-cpu ci-gpu)
+set(SEISSOL_CONFIG_SETS ci-cpu ci-gpu ci-sanitize)
 
 set(SEISSOL_CONFIG_SET_ci-cpu)
 foreach(_precision f64 f32)
@@ -51,6 +54,13 @@ foreach(_precision f64 f32)
     viscoelastic-linearckanelastic-m3-o6-${_precision}-stroud
     viscoacoustic-linearckanelastic-m3-o6-${_precision}-stroud
     elastic-linearck-o3-${_precision}-stroud-s32)
+endforeach()
+
+set(SEISSOL_CONFIG_SET_ci-sanitize)
+foreach(_config IN LISTS SEISSOL_CONFIG_SET_ci-cpu)
+  if (_config MATCHES "-f64-")
+    list(APPEND SEISSOL_CONFIG_SET_ci-sanitize ${_config})
+  endif()
 endforeach()
 
 foreach(_order 2 3 4 5 6 7 8)

@@ -110,6 +110,8 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
   const auto& faces = mesh_->faces();
   const auto boundaryTags = geometry::boundaryTagsOf(*mesh_, arrays_);
 
+  // A cell reads the clusters of its neighbors while the threads of their cells may update them;
+  // whether it sees the old or the new value only decides how many sweeps the relaxation takes.
 #pragma omp parallel for reduction(+ : numberOfReductions)
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     std::size_t timeCluster = clusterIds[cell];
@@ -127,7 +129,9 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
           PUML::Upward::cells(*mesh_, face, cellIds);
 
           const auto neighborCell = (cellIds[0] == cell) ? cellIds[1] : cellIds[0];
-          const auto otherTimeCluster = clusterIds[static_cast<std::size_t>(neighborCell)];
+          std::size_t otherTimeCluster{};
+#pragma omp atomic read
+          otherTimeCluster = clusterIds[static_cast<std::size_t>(neighborCell)];
 
           // the rule yields a non-negative index difference, so the sum cannot wrap
           const auto admissible = otherTimeCluster + rule.differenceFor(boundary);
@@ -139,6 +143,7 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
         }
       }
     }
+#pragma omp atomic write
     clusterIds[cell] = timeCluster;
   }
 

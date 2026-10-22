@@ -12,6 +12,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <iomanip>
 #include <limits>
 #include <memory>
@@ -106,9 +107,20 @@ void base64Revert(const std::string& idata, std::size_t ipos, uint8_t* odata, st
   }
 }
 
+/**
+ * @brief The value of type T at @p data , which need not be aligned to T: the members of a record
+ * of a compound type lie packed.
+ */
+template <typename T>
+T loadUnaligned(const void* data) {
+  T value{};
+  std::memcpy(&value, data, sizeof(T));
+  return value;
+}
+
 template <typename T>
 std::string toStringRawPrimitive(const void* data, int precision) {
-  const auto value = *reinterpret_cast<const T*>(data);
+  const auto value = loadUnaligned<T>(data);
   std::ostringstream sstr;
   sstr << std::setprecision(precision) << value;
   return sstr.str();
@@ -121,7 +133,7 @@ std::string toStringRawPrimitive(const void* data, int precision) {
  */
 template <typename T>
 std::string toStringRawExact(const void* data) {
-  const auto value = *reinterpret_cast<const T*>(data);
+  const auto value = loadUnaligned<T>(data);
   std::ostringstream shortForm;
   shortForm << std::setprecision(std::numeric_limits<T>::digits10) << value;
   std::istringstream readBack(shortForm.str());
