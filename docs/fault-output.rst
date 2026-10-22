@@ -134,9 +134,10 @@ receivers`_ below.
 
 The receivers take a sample at the start of the simulation, every **pickdt** seconds after it
 (at the multiples of **pickdt**), and at its end. The time step of a fault face evaluates the
-samples that fall into it from the space-time prediction of its cells and the friction state at
-the end of the step; so all receivers sample at the same times, whichever time cluster their face
-belongs to.
+samples that fall into it from the space-time prediction of its cells, with the friction state
+interpolated linearly between the start and the end of the step; events such as the rupture count
+from the time they happened. So all receivers sample at the same times, whichever time cluster
+their face belongs to.
 
 Without **pickdt**, the receivers sample every **printtimeinterval** time steps of the finest time
 cluster that holds fault faces, counted from time zero (default: every such time step).

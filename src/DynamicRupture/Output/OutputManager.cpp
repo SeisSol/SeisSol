@@ -626,7 +626,33 @@ void OutputManager::recordInitialPickpointOutput(double time) {
     // at the start of the expansion the cells hold before the first step; the step size only scales
     // the time basis, and has to be positive for that
     recordPickpointOutput(id, time, 1.0, 0.0, runtime_);
+    finishPickpointStep(id, true, runtime_);
   }
+}
+
+void OutputManager::finishPickpointStep(std::size_t layerId,
+                                        bool sampled,
+                                        parallel::runtime::StreamRuntime& runtime) {
+  const auto& outputData = ppOutputData_.at(layerId);
+  if constexpr (isDeviceOn()) {
+    if (!sampled) {
+      // in the order of the streams that calcFaultOutput() keeps
+      if (outputData->extraRuntime.has_value()) {
+        runtime.eventSync(outputData->extraRuntime->eventRecord());
+      }
+      ReceiverOutput::gatherFaultState(outputData, runtime);
+      if (outputData->extraRuntime.has_value()) {
+        outputData->extraRuntime->eventSync(runtime.eventRecord());
+      }
+    }
+  }
+  auto& callRuntime =
+      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+  callRuntime.enqueueHost([this, outputData]() { impl_->keepStepStart(outputData); });
+}
+
+void OutputManager::finishPickpointStepNow(std::size_t layerId) {
+  impl_->keepStepStart(ppOutputData_.at(layerId));
 }
 
 void OutputManager::initPickpointTable() {
@@ -856,13 +882,13 @@ void OutputManager::evaluateElementwiseOutput(double time) {
   if (this->ewOutputBuilder_) {
     const auto& seissolParameters = seissolInstance_.parameters();
     // at a synchronization point every cluster has just completed a time step ending here, so this
-    // is also the time the stored friction state belongs to
+    // is also the time the stored friction state belongs to: the end of the step
     impl_->evaluateFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                                seissolParameters.drParameters.slipRateOutputType,
                                ewOutputData_,
                                time,
                                1.0,
-                               0.0);
+                               1.0);
   }
 }
 } // namespace seissol::dr::output

@@ -322,6 +322,7 @@ void DynamicRuptureCluster<Cfg>::recordPickpointsNow(double stepTime, bool lastS
     faultOutputManager_->evaluatePickpointOutput(
         layerId, time, stepSize, timeInStep(time, stepTime, stepSize));
   }
+  faultOutputManager_->finishPickpointStepNow(layerId);
 }
 
 template <typename Cfg>
@@ -343,6 +344,9 @@ void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params,
     return;
   }
 
+  if (!faultOutputManager_->hasPickpoints(layerData_->id())) {
+    return;
+  }
   for (const auto time : times) {
     faultOutputManager_->recordPickpointOutput(layerData_->id(),
                                                time,
@@ -350,6 +354,7 @@ void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params,
                                                timeInStep(time, params.time, params.timeStepSize),
                                                streamRuntime_);
   }
+  faultOutputManager_->finishPickpointStep(layerData_->id(), !times.empty(), streamRuntime_);
 }
 
 template <typename Cfg>

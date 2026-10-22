@@ -94,6 +94,31 @@ class PickpointSampling {
   double endTime_{std::numeric_limits<double>::infinity()};
 };
 
+/**
+ * A part of the friction state that changes continuously, at `position` within a time step (0 at
+ * its start, 1 at its end): linear between its values at the start and the end of the step,
+ * exactly these at both ends, and bitwise the same where it does not change within the step (the
+ * linear formula alone can round it off by a unit in the last place, once the compiler fuses it
+ * into a multiply-add).
+ */
+template <typename T>
+T stateInStep(T start, T end, double position) {
+  if (start == end || position >= 1) {
+    return end;
+  }
+  const auto weight = static_cast<T>(position);
+  return (1 - weight) * start + weight * end;
+}
+
+/**
+ * The time of an event of the friction state (e.g. the rupture) as seen at `time`: zero, as before
+ * any event, if it happens only later.
+ */
+template <typename T>
+T eventBy(T eventTime, double time) {
+  return eventTime > time ? static_cast<T>(0) : eventTime;
+}
+
 } // namespace seissol::dr::output
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_PICKPOINTSAMPLING_H_

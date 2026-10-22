@@ -42,7 +42,7 @@ class RateAndStateImpl : public ReceiverOutputImpl<Derived> {
 
   template <typename Cfg>
   Real<Cfg> computeStateVariable(LocalInfo<Cfg>& local) {
-    return this->template getCellData<LTSRateAndState::StateVariable>(local)[local.gpIndex];
+    return this->template stateAt<LTSRateAndState::StateVariable>(local, local.gpIndex);
   }
 
   template <typename Cfg>

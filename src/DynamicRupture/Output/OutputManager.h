@@ -94,6 +94,21 @@ class OutputManager {
                              double stepSize,
                              double inStep,
                              parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Keeps the friction state at the end of a time step of the layer, after its samples, as the
+   * start of the next one; `sampled` tells whether the step recorded any sample, which copied the
+   * state from the device already.
+   */
+  void finishPickpointStep(std::size_t layerId,
+                           bool sampled,
+                           parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * As finishPickpointStep(), right away, from data gathered before; for work that already runs in
+   * the order of the stream.
+   */
+  void finishPickpointStepNow(std::size_t layerId);
   /**
    * Formats the samples the fault receivers cached since the last write (text output), which frees
    * their cache for the next ones.

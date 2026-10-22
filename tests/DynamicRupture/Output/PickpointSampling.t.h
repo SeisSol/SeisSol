@@ -9,6 +9,7 @@
 
 #include "DynamicRupture/Output/PickpointSampling.h"
 
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <vector>
@@ -116,6 +117,46 @@ TEST_CASE("PickpointSampling at the end of the simulation" *
       REQUIRE(samples.size() == 1);
       CHECK(samples[0] == 0.5);
     }
+  }
+}
+
+TEST_CASE("The friction state within a time step" * doctest::test_suite("dynamicrupture")) {
+  SUBCASE("exactly the stored state at the ends of the step") {
+    for (const double start : {0.0, 0.1, 0.677, -3.5}) {
+      for (const double end : {0.3, 0.525, 1e-16}) {
+        CHECK(stateInStep(start, end, 0.0) == start);
+        CHECK(stateInStep(start, end, 1.0) == end);
+      }
+    }
+    CHECK(stateInStep(0.1F, 0.3F, 1.0) == 0.3F);
+  }
+
+  SUBCASE("linear in between") {
+    CHECK(stateInStep(0.677, 0.525, 0.25) == doctest::Approx(0.639));
+    CHECK(stateInStep(2.0, 4.0, 0.5) == 3.0);
+  }
+
+  SUBCASE("bitwise the same where the state does not change") {
+    // positions a few units in the last place off the middle, as samples in the middle of a step
+    // get them
+    double below = 0.5;
+    double above = 0.5;
+    for (int i = 0; i < 64; ++i) {
+      below = std::nextafter(below, 0.0);
+      above = std::nextafter(above, 1.0);
+      for (const double position : {below, above, 0.1 * i / 64}) {
+        CHECK(stateInStep(0.677, 0.677, position) == 0.677);
+        CHECK(stateInStep(0.525F, 0.525F, position) == 0.525F);
+      }
+    }
+  }
+
+  SUBCASE("an event counts from the time it happens") {
+    CHECK(eventBy(0.6485, 0.6) == 0.0);
+    CHECK(eventBy(0.6485, 0.6485) == 0.6485);
+    CHECK(eventBy(0.6485, 0.7) == 0.6485);
+    // no event yet
+    CHECK(eventBy(0.0, 0.7) == 0.0);
   }
 }
 
