@@ -400,7 +400,7 @@ function(seissol_add_comparison)
 endfunction()
 
 # ---------------------------------------------------------------------------
-# seissol_add_rupture(NAME <name> FL <law> FAULT <file> [SET ...] [MESH mesh]
+# seissol_add_rupture(NAME <name> FL <law> FAULT <file> [SET ...] [ENV ...] [MESH mesh]
 #                     [RANKS n] [EXPECT_FAILURE regex] [EXPECT_ZERO])
 #
 # A case of a friction law on fault48 (see the friction laws in Cases.cmake).
@@ -410,7 +410,7 @@ function(seissol_add_rupture)
   cmake_parse_arguments(RUP
       "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
       "NAME;FL;FAULT;MESH;RANKS;EXPECT_FAILURE"
-      "SET;LABELS"
+      "SET;ENV;LABELS"
       ${ARGN})
   if (NOT RUP_MESH)
     set(RUP_MESH fault48)
@@ -429,6 +429,9 @@ function(seissol_add_rupture)
   endif()
   if (RUP_NO_SNAPSHOT)
     list(APPEND options NO_SNAPSHOT)
+  endif()
+  if (RUP_ENV)
+    list(APPEND options ENV ${RUP_ENV})
   endif()
   seissol_add_minitest(
       NAME ${RUP_NAME}

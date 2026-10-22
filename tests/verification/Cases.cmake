@@ -185,6 +185,27 @@ seissol_add_comparison(
     TOLERANCE 0
     LABELS "bitwise;mpi;taskgraph")
 
+# Along the time stepping plan (SEISSOL_TIMESTEPPING_PLAN, see TimeManager::followPlan), with the
+# ghost clusters of two ranks, through two epochs: the same run, bit for bit.
+seissol_add_minitest(
+    NAME smoke-box48-plan-mpi2
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    RANKS 2
+    SET "Output.ReceiverOutputInterval=0.0006103515625"
+    ENV "SEISSOL_TIMESTEPPING_PLAN=1"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    LABELS "smoke;mpi;plan")
+
+seissol_add_comparison(
+    NAME bitwise-box48-plan-mpi2
+    REFERENCE smoke-box48
+    CANDIDATE smoke-box48-plan-mpi2
+    TOLERANCE 0
+    LABELS "bitwise;mpi;plan")
+
 # A welded fault is the absence of a fault: fault48 and box48 are the same
 # mesh apart from the tag on the plane x = 0, and the rupture quadrature is
 # exact for the polynomial degrees involved, so the two runs differ by
@@ -293,6 +314,20 @@ seissol_add_comparison(
     CANDIDATE rupture-lsw-mpi4
     TOLERANCE 0
     LABELS "bitwise;mpi;dr")
+
+# The clusters take their steps along the time stepping plan (SEISSOL_TIMESTEPPING_PLAN, see
+# TimeManager::followPlan) instead of deciding them as actors: the same run, bit for bit, with the
+# faces of a fault and through two epochs (the receivers write after 32 of the 64 steps).
+seissol_add_rupture(NAME rupture-lsw-plan FL 16 FAULT fault-lsw.yaml NO_SNAPSHOT
+                    SET "Output.ReceiverOutputInterval=0.001953125"
+                    ENV "SEISSOL_TIMESTEPPING_PLAN=1"
+                    LABELS plan)
+seissol_add_comparison(
+    NAME bitwise-rupture-lsw-plan
+    REFERENCE rupture-lsw
+    CANDIDATE rupture-lsw-plan
+    TOLERANCE 0
+    LABELS "bitwise;dr;plan")
 
 # a deprecated spelling of the same law has to give the same run
 seissol_add_comparison(
