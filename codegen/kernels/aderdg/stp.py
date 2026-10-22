@@ -60,10 +60,38 @@ class STP(LinearCK):
         return None
 
     def fusesVolume(self, target):
-        """The predictor solves for the space-time field of a cell as a whole
-        and does not run the derivative chain the volume term could be formed
-        in, so the corrector forms the volume term itself."""
-        return False
+        """Whether the predictor of a target hands the corrector its volume
+        term, the operator and the source term applied to the time integral.
+
+        The first row of the time system the predictor solves tests with the
+        function of time that is one: the field at the end of the step less
+        the field at its start is the time integral of the operator and the
+        source term applied to the space-time field -- the volume term, with
+        the source term in it. Every function of the time basis is one at the
+        end of the step, so the field there is the sum of the coefficients in
+        time. That holds where the system is solved exactly: by the sweep over
+        the degrees of a hierarchical basis, and by the fixed point of another
+        basis at the operator of the cell, which is the solution after as many
+        steps as there are degrees. The fixed point at the sample points of a
+        material that varies inside the cell stops short of it, so such a cell
+        forms the volume term in its corrector.
+
+        The device runs the predictor and the corrector of a batch as two
+        kernels without a buffer per cell between them, so its corrector forms
+        the volume term itself."""
+        return target == "cpu" and not self.nodalMaterial
+
+    def timeBasisAtEnd(self):
+        """The functions of the time basis of the predictor at the end of the
+        step, the shifted Legendre polynomials at one: all of them one."""
+        if not hasattr(self, "_timeBasisAtEnd"):
+            self._timeBasisAtEnd = Tensor(
+                "timeBasisAtEnd",
+                (self.order,),
+                spp={(t,): "1.0" for t in range(self.order)},
+                addressing=AddressingMode.IMMEDIATE,
+            )
+        return self._timeBasisAtEnd
 
     def name(self):
         return "stp"
@@ -383,6 +411,14 @@ class STP(LinearCK):
                     self.I["kp"]
                     <= timestep * spaceTimePredictor["kpt"] * self.db.timeInt["t"]
                 )
+                if self.fusesVolume(target):
+                    # the field at the end of the step less the one at its start
+                    volumeFused, _ = self.volumeFused()
+                    kernels.append(
+                        volumeFused["kp"]
+                        <= spaceTimePredictor["kpt"] * self.timeBasisAtEnd()["t"]
+                        - self.Q["kp"]
+                    )
 
                 generator.add(
                     f"{name_prefix}spaceTimePredictor",

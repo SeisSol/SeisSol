@@ -227,6 +227,20 @@ void compareChain(const std::vector<MaterialT>& materials,
   bindVolumeFused(krnl, tmp);
   krnl.execute();
 
+  // Where the operator is one per cell, that volume term is the strong form, the time integral of
+  // the time derivative: the derivatives from the first on, each with the Taylor weight of the one
+  // before. The volume kernel adds it to a field of zeros here.
+  constexpr bool HandsOnTaylorVolume =
+      volumeterm::TakesVolumeFused<typename Kernels<Enabled>::Derivative>::value && !NodalMaterial;
+  alignas(Alignment) std::array<real, tensor::Q::size()> volumeTerm{};
+  if constexpr (HandsOnTaylorVolume) {
+    kernel::volume volume{};
+    volume.bindGlobals(seissol::Pool::host());
+    volume.Q = volumeTerm.data();
+    bindVolumeFused(volume, tmp);
+    volume.execute();
+  }
+
   auto viewQ = init::Q::view::create(dofs.data());
   auto viewI = init::I::view::create(integrated.data());
   // the projection from the samples of the material, which raises a derivative kept in the basis of
@@ -287,6 +301,16 @@ void compareChain(const std::vector<MaterialT>& materials,
 
     auto slicedI = multisim::simtensor(viewI, simulation);
     check(denseOf(slicedI, Basis, Columns), expectedIntegral);
+
+    if constexpr (HandsOnTaylorVolume) {
+      Eigen::MatrixXd expectedVolume = Eigen::MatrixXd::Zero(Basis, Columns);
+      for (std::size_t k = 1; k < Derivatives; ++k) {
+        expectedVolume += powers[k - 1] * expected[k];
+      }
+      auto viewVolume = init::Q::view::create(volumeTerm.data());
+      auto slicedVolume = multisim::simtensor(viewVolume, simulation);
+      check(denseOf(slicedVolume, Basis, Columns), expectedVolume);
+    }
   }
 }
 

@@ -364,6 +364,64 @@ class TestNarrowedDerivatives:
         assert not adg.narrowsDerivatives()
 
 
+class TestFusedVolume:
+    """Where the operator is one per cell, the predictor of the host hands the
+    corrector its volume term, the field at the end of the step less the one at
+    its start, where it forms that exactly: the Taylor expansion of a chain
+    without a source term, and the space-time predictor. The device, a material
+    that varies inside a cell and a chain with a source term keep the volume
+    term in the corrector."""
+
+    def _make(self, equation, solver, numMechanisms=0, nodal=False):
+        import importlib
+
+        kwargs = dict(
+            equations=equation,
+            order=4,
+            multipleSimulations=1,
+            matricesDir=str(MATRICES_DIR),
+            memLayout=_default_memLayout(),
+            numMechanisms=numMechanisms,
+            solver=solver,
+            factored_star=True,
+            material_nodal=nodal,
+            material_points="sq",
+            material_operator="assembled",
+            material_narrow_derivatives=False,
+            targets=["cpu"],
+            old_gpu_interface=False,
+        )
+        module = importlib.import_module(f"kernels.equations.{equation}")
+        return module.kernel_class(**kwargs)(**kwargs)
+
+    @pytest.mark.parametrize("equation", ["elastic", "acoustic", "anisotropic"])
+    def test_one_operator_without_source(self, equation):
+        adg = self._make(equation, "linearck")
+        assert adg.chainDropsDegree()
+        assert adg.fusesVolume("cpu")
+        assert not adg.fusesVolume("gpu")
+
+    def test_varying_material(self):
+        adg = self._make("elastic", "linearck", nodal=True)
+        assert not adg.fusesVolume("cpu")
+
+    def test_source_term_in_the_chain(self):
+        adg = self._make("viscoelastic", "linearck", numMechanisms=3)
+        assert not adg.chainDropsDegree()
+        assert not adg.fusesVolume("cpu")
+
+    def test_space_time_predictor(self):
+        """The predictor that solves its time system hands on the field at the
+        end of the step less the one at its start, source term and all, where
+        it solves the system exactly."""
+        adg = self._make("poroelastic", "stp")
+        assert adg.fusesVolume("cpu")
+        assert not adg.fusesVolume("gpu")
+        # its derivative chain has a source term, and forms none
+        assert not adg.chainFormsVolume("cpu")
+        assert not self._make("poroelastic", "stp", nodal=True).fusesVolume("cpu")
+
+
 class TestLeftFactor:
     """On a straight-sided cell the operator of a direction is a constant
     operator followed by the material, U_j L(c): U_j sends each row to its

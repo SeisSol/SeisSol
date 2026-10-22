@@ -20,6 +20,7 @@
 #include "Kernels/StarOperands.h"
 #include "Model/Common.h"
 #include "Model/OperatorLayout.h"
+#include "Model/VolumeTerm.h"
 
 #include <algorithm>
 #include <array>
@@ -178,7 +179,7 @@ class SpaceTimePredictorTestFixture {
     }
   }
 
-  void solveWithKernel(real stp[], const real* qData) {
+  void solveWithKernel(real stp[], const real* qData, kernels::LocalTmp& tmp) {
     real timeIntegrated[seissol::tensor::I::size()];
 
     seissol::kernel::spaceTimePredictor krnl;
@@ -204,6 +205,8 @@ class SpaceTimePredictorTestFixture {
     krnl.I = timeIntegrated;
     krnl.timestep = Dt;
     krnl.spaceTimePredictor = stp;
+    // where the predictor hands the corrector its volume term, it writes it here
+    bindVolumeFused(krnl, tmp);
     krnl.execute();
   }
 
@@ -247,7 +250,8 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture,
 
   prepareQ(qData);
 
-  solveWithKernel(stp, qData);
+  kernels::LocalTmp tmp(0.0);
+  solveWithKernel(stp, qData, tmp);
 
   computeLhs(stp, lhs);
   computeRhs(stp, qData, rhs);
@@ -270,6 +274,37 @@ TEST_CASE_FIXTURE(SpaceTimePredictorTestFixture,
   }
 
   CHECK(diffNorm / refNorm < Epsilon);
+
+  // Where the predictor hands the corrector its volume term, it is the field at the end of the
+  // step less the one at its start: the coefficients in time summed, every function of the time
+  // basis being one at the end of the step. The volume kernel adds it to a field of zeros here.
+  if constexpr (volumeterm::TakesVolumeFused<kernel::spaceTimePredictor>::value) {
+    alignas(PagesizeStack) real volumeTerm[seissol::tensor::Q::size()];
+    std::fill(std::begin(volumeTerm), std::end(volumeTerm), 0);
+    kernel::volume volume{};
+    volume.bindGlobals(seissol::Pool::host());
+    volume.Q = volumeTerm;
+    bindVolumeFused(volume, tmp);
+    volume.execute();
+
+    auto stpView = init::spaceTimePredictor::view::create(stp);
+    auto qView = init::Q::view::create(qData);
+    auto volumeView = init::Q::view::create(volumeTerm);
+    double volumeDiff = 0;
+    double volumeRef = 0;
+    for (size_t b = 0; b < tensor::spaceTimePredictor::Shape[0]; b++) {
+      for (size_t q = 0; q < tensor::spaceTimePredictor::Shape[1]; q++) {
+        double atEnd = 0;
+        for (size_t o = 0; o < tensor::spaceTimePredictor::Shape[2]; o++) {
+          atEnd += stpView(b, q, o);
+        }
+        const double expected = atEnd - qView(b, q);
+        volumeDiff += (volumeView(b, q) - expected) * (volumeView(b, q) - expected);
+        volumeRef += expected * expected;
+      }
+    }
+    CHECK(volumeDiff / volumeRef < Epsilon);
+  }
 }
 
 } // namespace seissol::unit_test

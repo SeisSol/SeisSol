@@ -52,6 +52,12 @@ class LinearCK(ADERDGBase):
         )
 
     def fusesVolume(self, target):
+        """Whether the predictor of a target hands the corrector its volume term
+        (LocalTmp::volumeFused), so that the volume kernel only adds it: where
+        the derivative chain forms it (chainFormsVolume)."""
+        return self.chainFormsVolume(target)
+
+    def chainFormsVolume(self, target):
         """Whether the derivative kernel of a target forms the volume term of
         the corrector as well.
 
@@ -66,14 +72,22 @@ class LinearCK(ADERDGBase):
         at the points again. The host hands the result from the predictor to
         the corrector of the same cell (LocalTmp::volumeFused).
 
+        Where the operator is one per cell and there is no source term
+        (chainDropsDegree), every derivative the chain forms is exact: A dQ(k)
+        is dQ(k + 1), and the volume term is the sum of power(k) dQ(k + 1), the
+        time integral of the time derivative -- the Taylor expansion at the end
+        of the step less the field at its start.
+
         The device runs the predictor and the corrector of a batch as two
         kernels without a buffer per cell between them, so its corrector forms
         the volume term itself."""
-        return target == "cpu" and self.narrowsDerivatives()
+        return target == "cpu" and (
+            self.narrowsDerivatives() or self.chainDropsDegree()
+        )
 
     def volumeFused(self):
-        """The volume term the derivative kernel hands to the corrector, and the
-        sum at the points it is projected from; see fusesVolume."""
+        """The volume term the predictor hands to the corrector, and the sum at
+        the points the chain projects it from; see fusesVolume."""
         if not hasattr(self, "_volumeFused"):
             self._volumeFused = OptionalDimTensor(
                 "volumeFused",
@@ -83,8 +97,11 @@ class LinearCK(ADERDGBase):
                 (self.num3DBasisFunctions(), self.numQuantities()),
                 alignStride=True,
             )
-            self._volumeAtPoints = self.nodalTemporary(
-                "volumeAtPoints", self.nodalProductShape
+            # the chain of a varying operator sums its products at the points
+            self._volumeAtPoints = (
+                self.nodalTemporary("volumeAtPoints", self.nodalProductShape)
+                if self.nodalMaterial
+                else None
             )
         return self._volumeFused, self._volumeAtPoints
 
@@ -284,7 +301,7 @@ class LinearCK(ADERDGBase):
 
                 self.dQs = [dQ0]
 
-                fused = self.fusesVolume(target)
+                fused = self.chainFormsVolume(target)
                 if fused:
                     volumeFused, volumeAtPoints = self.volumeFused()
 
@@ -387,11 +404,25 @@ class LinearCK(ADERDGBase):
 
                     derivatives.append(dQ)
 
-                if fused:
+                if fused and self.nodalMaterial:
                     derivativeExpr += [
                         volumeFused["kp"]
                         <= self.operatorProject["kn"] * volumeAtPoints["np"]
                     ]
+                elif fused:
+                    # the volume term, the time integral of the time
+                    # derivative: power(k - 1) dQ(k) summed (chainFormsVolume)
+                    shifted = [None] + powers[:-1]
+                    if byDegree:
+                        derivativeExpr += self.hornerTaylor(
+                            volumeFused, None, derivatives, shifted, "volumeSum"
+                        )
+                    else:
+                        volumeSum = None
+                        for k in range(1, len(derivatives)):
+                            term = shifted[k] * derivatives[k]["kp"]
+                            volumeSum = term if volumeSum is None else volumeSum + term
+                        derivativeExpr += [volumeFused["kp"] <= volumeSum]
 
                 if byDegree:
                     derivativeExpr += self.hornerTaylor(

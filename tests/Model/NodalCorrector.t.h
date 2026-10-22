@@ -516,13 +516,16 @@ void constantState() {
 
 #ifndef SEISSOL_KERNELS_LINEARCKANELASTIC
 
-// the cell data these checks build carries the material, not the star matrices it folds into
+// the cell data these checks build carries the material, not the star matrices it folds into, and
+// they form the volume term of a time integral of their own
+constexpr bool StrongFormChecks = FactoredStar && volumeterm::FormsVolumeTermOf<kernel::volume>;
+
 TEST_CASE("Strong-form corrector is the weak form where the material does not vary") {
-  nodalcorrector::weakEquivalence<FactoredStar>();
+  nodalcorrector::weakEquivalence<StrongFormChecks>();
 }
 
 TEST_CASE("Strong-form corrector keeps a constant state constant") {
-  nodalcorrector::constantState<FactoredStar>();
+  nodalcorrector::constantState<StrongFormChecks>();
 }
 
 #endif // SEISSOL_KERNELS_LINEARCKANELASTIC

@@ -52,7 +52,10 @@ class Spacetime : public SpacetimeKernel {
   [[nodiscard]] PerformanceEstimate faceDerivativesMetrics() const override;
 
   private:
-  void executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp);
+  // the predictor of a cell, its time integral, and the volume term of the corrector where the
+  // build forms it here (LocalTmp::volumeFused)
+  void executeSTP(
+      double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp, real* volumeFused);
 
   kernel::spaceTimePredictor krnlPrototype_;
   kernel::faceDerivatives faceDerivativesKrnlPrototype_;

@@ -1727,11 +1727,11 @@ class ADERDGBase(ABC):
         return pattern
 
     def hornerTaylor(self, target, first, derivatives, scalars, name):
-        """target = first + sum over k >= 1 of scalars[k] derivatives[k], with
-        derivative k in the basis of degree order - 1 - k (derivativesByDegree):
-        from the last derivative up, each partial sum raised by one degree before
-        the next derivative is added (Horner's scheme), and the last one into the
-        basis of the cell."""
+        """target = first (where there is one) + sum over k >= 1 of scalars[k]
+        derivatives[k], with derivative k in the basis of degree order - 1 - k
+        (derivativesByDegree): from the last derivative up, each partial sum
+        raised by one degree before the next derivative is added (Horner's
+        scheme), and the last one into the basis of the cell."""
         statements = []
         partial = None
         for k in range(len(derivatives) - 1, 0, -1):
@@ -1756,7 +1756,7 @@ class ADERDGBase(ABC):
             statements.append(current["kp"] <= term)
             partial = current
         raised = self.elevationOfDegree(self.order - 2)[self.t("kl")] * partial["lp"]
-        statements.append(target["kp"] <= first + raised)
+        statements.append(target["kp"] <= (raised if first is None else first + raised))
         return statements
 
     def volumeDerivatives(self):
@@ -1781,7 +1781,8 @@ class ADERDGBase(ABC):
         included, whose flux is that subtraction alone. The host does that
         subtraction (initializer::toCorrectorForm). With one operator per cell
         the volume term in this form is what the chain forms anyway, a step of
-        it applied to the time integral."""
+        it applied to the time integral, or the time integral of the time
+        derivative (see fusesVolume)."""
         return self.db.kDivMT
 
     def sourceTerm(self, source, target):

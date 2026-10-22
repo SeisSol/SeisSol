@@ -43,6 +43,14 @@ struct ReadsCellSource : std::false_type {};
 template <typename KernelT>
 struct ReadsCellSource<KernelT, std::void_t<decltype(std::declval<KernelT>().ET)>>
     : std::true_type {};
+
+/// Whether the volume term of any time integral can be formed the way a cell forms it: by the
+/// volume kernel, or by the derivative chain run on that time integral as the field (see
+/// addVolumeTerm). A predictor that solves for its space-time field hands on the volume term of
+/// that field alone.
+template <typename VolumeT>
+constexpr bool FormsVolumeTermOf =
+    !TakesVolumeFused<VolumeT>::value || TakesVolumeFused<kernel::derivative>::value;
 } // namespace volumeterm
 
 /// Hands a predictor or a corrector the buffer the volume term goes through, where the build
@@ -72,6 +80,8 @@ void bindSourceTerm(KernelT& krnl, const LocalIntegrationT& local) {
 /// from, so the volume term it hands on is the one of `timeIntegrated`.
 template <typename VolumeT, typename LocalIntegrationT>
 void addVolumeTerm(real* timeIntegrated, real* update, const LocalIntegrationT& local) {
+  static_assert(volumeterm::FormsVolumeTermOf<VolumeT>,
+                "the predictor of this build forms the volume term of its own field alone");
   constexpr bool FromPredictor = volumeterm::TakesVolumeFused<VolumeT>::value;
 
   VolumeT volume{};

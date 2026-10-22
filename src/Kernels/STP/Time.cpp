@@ -32,6 +32,7 @@ extern long long libxsmm_num_total_flops;
 
 GENERATE_HAS_MEMBER(ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
+GENERATE_HAS_MEMBER(volumeFused)
 
 namespace seissol::kernels::solver::stp {
 
@@ -45,9 +46,8 @@ void Spacetime::setGlobalData(const CompoundGlobalData& global) {
 #endif
 }
 
-void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp)
-
-{
+void Spacetime::executeSTP(
+    double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp, real* volumeFused) {
   assert((reinterpret_cast<uintptr_t>(stp)) % Vectorsize == 0);
   std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
   kernel::spaceTimePredictor krnl = krnlPrototype_;
@@ -65,6 +65,9 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
   krnl.I = timeIntegrated;
   krnl.timestep = timeStepWidth;
   krnl.spaceTimePredictor = stp;
+  // where the predictor solves its time system exactly, it hands the corrector of the cell its
+  // volume term, the field at the end of the step less the one at its start
+  set_volumeFused(krnl, volumeFused);
 
   // The matrix Zinv depends on the timestep
   // If the timestep is not as expected e.g. when approaching a sync point
@@ -120,7 +123,7 @@ void Spacetime::computeAder(const real* coeffs,
 
   alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor::size()];
   real* stpBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
-  executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
+  executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer, tmp.volumeFused);
 }
 
 void Spacetime::computeFaceDerivatives(const real* timeDerivativesOrSTP,
