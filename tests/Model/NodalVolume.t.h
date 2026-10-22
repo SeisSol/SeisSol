@@ -12,8 +12,8 @@
 // the source term are both formed where the material is sampled. A material
 // that does not vary has to give back exactly what the matrices give, and the
 // reference here is those matrices, contracted by hand -- the strong form, which
-// is what such a build applies (StrongCorrector); that it is the weak one once
-// the faces are added is NodalCorrector.t.h. A sample point read in
+// is what every build applies; that it is the weak one once the faces are added
+// is NodalCorrector.t.h. A sample point read in
 // the wrong order, a source placed at the wrong rows, or a projection left out
 // shows up in that comparison.
 
@@ -165,8 +165,8 @@ void compareAgainstModal() {
           for (std::size_t component = 0; component < 3; ++component) {
             star += gradients[Dim][component] * directional[component];
           }
-          // the volume term is the strong form there (StrongCorrector): the derivative of the
-          // field, which the generator stores with the sign of the term it stands for
+          // the volume term is the strong form: the derivative of the field, which the generator
+          // stores with the sign of the term it stands for
           const auto stiffness = mathMatrix(
               init::kDivMT::view<Dim>::create(const_cast<real*>(init::kDivMT::Values[Dim])),
               tensor::kDivMT::Shape[Dim][0],

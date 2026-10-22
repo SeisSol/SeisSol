@@ -224,13 +224,12 @@ void bindFaceRotationBatched(KernelT& krnl, const real** localIntegrationPtrs, s
   }
 }
 
-/// What the corrector of one face applies to its two traces, for a batch (see
-/// bindCorrectorOperands): the rotation of the face and the scalars from the cell's own data, or
-/// the matrix of each side, the one of the neighbor from its neighboring data.
+/// What the corrector of one face applies to the jump of its two traces, for a batch (see
+/// bindCorrectorOperands): the rotation of the face and the scalars, or the matrix of the cell's
+/// own side, from the cell's own data.
 template <typename KernelT>
 void bindCorrectorOperandsBatched(KernelT& krnl,
                                   const real** localIntegrationPtrs,
-                                  const real** neighboringIntegrationPtrs,
                                   std::size_t face) {
   if constexpr (NodalFlux) {
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, faceRotation);
@@ -243,11 +242,8 @@ void bindCorrectorOperandsBatched(KernelT& krnl,
     }
   } else {
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
-    SEISSOL_ARRAY_OFFSET_ASSERT(NeighboringIntegrationData, nAmNm1);
     krnl.AplusT = localIntegrationPtrs;
     krnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
-    krnl.AminusT = neighboringIntegrationPtrs;
-    krnl.extraOffset_AminusT = SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData, nAmNm1, face);
   }
 }
 

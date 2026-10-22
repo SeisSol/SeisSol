@@ -92,7 +92,6 @@ void NeighIntegrationRecorder::recordFaceCorrectors() {
   // what the faces lift into, see fluxTargetOf
   PerFaceSide fluxTargetPtrs{};
   PerFaceSide localPtrs{};
-  PerFaceSide neighboringPtrs{};
 
   const auto size = currentLayer_->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
@@ -108,8 +107,6 @@ void NeighIntegrationRecorder::recordFaceCorrectors() {
       neighborTracePtrs[face][side].push_back(neighborTraces_[cell][face]);
       fluxTargetPtrs[face][side].push_back(fluxTarget);
       localPtrs[face][side].push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
-      neighboringPtrs[face][side].push_back(
-          reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
     }
   }
 
@@ -123,8 +120,6 @@ void NeighIntegrationRecorder::recordFaceCorrectors() {
                                   neighborTracePtrs[face][side]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget, fluxTargetPtrs[face][side]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs[face][side]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData,
-                                  neighboringPtrs[face][side]);
       }
     }
   }

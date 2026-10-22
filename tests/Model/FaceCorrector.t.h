@@ -21,6 +21,13 @@
 // the jump of the two traces, the neighbour's less the cell's own; the part of either side is then
 // checked with the other trace zero, with the scalars of that part.
 //
+// The operator of the cell's own side is the one the corrector of the build applies
+// (initializer::toCorrectorForm): in the strong form it is the flux less the normal flux. There the
+// corrector applies it alone, to the jump of the two traces, the cell's own less the neighbour's,
+// which on a face with a neighbour is the flux of both sides only as long as the operators of the
+// two sides add up to the normal flux -- the comparison with the neighbour's operator checks that
+// as well.
+//
 // A face without a neighbour reads a trace of zeros as the neighbour's, against the operator the
 // setup stores for the side outside the cell, which is zero where there is none
 // (initializer::hasExteriorOperator); it is checked that way, and has to come back with the cell's
@@ -211,6 +218,7 @@ inline void compareAgainstVolumeForm(FaceType faceType) {
     auto viewGodNeighbor = init::QgodNeighbor::view::create(godNeighbor.data());
     seissol::model::getTransposedGodunovState(
         local, neighbor, faceType, viewGodLocal, viewGodNeighbor);
+    initializer::toCorrectorForm(viewGodLocal);
     alignas(Alignment) std::array<real, tensor::star::size(0)> star{};
     auto viewStar = init::star::view<0>::create(star.data());
     seissol::model::getTransposedCoefficientMatrix(local, 0, viewStar);
@@ -255,12 +263,10 @@ inline void compareAgainstVolumeForm(FaceType faceType) {
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       LocalIntegrationData localData{};
-      NeighboringIntegrationData neighboringData{};
       if constexpr (NodalFlux) {
         initializer::CurvedCell::setConstantRotation(matT.data(), localData.faceRotation[face]);
       } else {
         std::copy(aplus.begin(), aplus.end(), localData.nApNm1[face]);
-        std::copy(aminus.begin(), aminus.end(), neighboringData.nAmNm1[face]);
       }
 
       // only a regular face has a neighbour; the others keep the trace of zeros as its trace
@@ -282,21 +288,13 @@ inline void compareAgainstVolumeForm(FaceType faceType) {
             // the jump of the traces is the neighbour's less the cell's own, so the cell's own part
             // takes its scalars negated
             setScalars(viewGodLocal, viewStar, -fluxScale, face, localData);
-            applyFaceCorrector(
-                own.data(), zero.data(), localData, neighboringData, face, side, update.data());
+            applyFaceCorrector(own.data(), zero.data(), localData, face, side, update.data());
             if (hasNeighbor) {
               setScalars(viewGodNeighbor, viewStar, fluxScale, face, localData);
-              applyFaceCorrector(zero.data(),
-                                 across.data(),
-                                 localData,
-                                 neighboringData,
-                                 face,
-                                 side,
-                                 update.data());
+              applyFaceCorrector(zero.data(), across.data(), localData, face, side, update.data());
             }
           } else {
-            applyFaceCorrector(
-                own.data(), across.data(), localData, neighboringData, face, side, update.data());
+            applyFaceCorrector(own.data(), across.data(), localData, face, side, update.data());
           }
 
           auto viewI = init::I::view::create(dofs.data());
@@ -389,6 +387,7 @@ inline void compareFoldedBoundary() {
   auto viewGodNeighbor = init::QgodNeighbor::view::create(godNeighbor.data());
   seissol::model::getTransposedGodunovState(
       material, material, FaceType::Dirichlet, viewGodLocal, viewGodNeighbor);
+  initializer::toCorrectorForm(viewGodLocal);
   alignas(Alignment) std::array<real, tensor::star::size(0)> star{};
   auto viewStar = init::star::view<0>::create(star.data());
   seissol::model::getTransposedCoefficientMatrix(material, 0, viewStar);
@@ -440,8 +439,6 @@ inline void compareFoldedBoundary() {
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     LocalIntegrationData localData{};
-    NeighboringIntegrationData neighboringData{};
-    std::copy(aminus.begin(), aminus.end(), neighboringData.nAmNm1[face]);
     if constexpr (appliesFoldApart(FaceType::Dirichlet)) {
       // the setup keeps the folded part alone
       std::copy(folded.begin(), folded.end(), localData.nApNm1[face]);
@@ -460,8 +457,7 @@ inline void compareFoldedBoundary() {
       writeFaceTrace(dofs.data(), face, side, own.data());
 
       alignas(Alignment) std::array<real, tensor::Q::size()> update{};
-      applyFaceCorrector(
-          own.data(), zero.data(), localData, neighboringData, face, side, update.data());
+      applyFaceCorrector(own.data(), zero.data(), localData, face, side, update.data());
       if constexpr (appliesFoldApart(FaceType::Dirichlet)) {
         kernel::foldedBoundaryFlux foldedFlux{};
         foldedFlux.bindGlobals(seissol::Pool::host());

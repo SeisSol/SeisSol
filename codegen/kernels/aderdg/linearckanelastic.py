@@ -289,17 +289,16 @@ class LinearCKAnelastic(ADERDGBase):
 
                 if self.nodalMaterial:
                     volumeExpr = self.nodalApply(
-                        self.I, self.Qext, self.nodalVolumeDerivatives()
+                        self.I, self.Qext, self.volumeDerivatives()
                     )
                 else:
+                    # a step of the chain, applied to the time integral
+                    # (volumeDerivatives)
+                    volumeExpr, terms = self.modalDerivative(self.I)
                     volumeSum = Accumulate(ops.Add())
-                    for i in range(3):
-                        volumeSum += (
-                            self.db.kDivM[i][self.t("kl")]
-                            * self.I["lq"]
-                            * self.starMatrix(i)["qp"]
-                        )
-                    volumeExpr = [self.Qext["kp"] <= volumeSum]
+                    for term in terms:
+                        volumeSum += term
+                    volumeExpr += [self.Qext["kp"] <= volumeSum]
                 generator.add(
                     f"{name_prefix}volumeExt",
                     self.starAssembly() + volumeExpr,

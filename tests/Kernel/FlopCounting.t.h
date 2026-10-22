@@ -153,18 +153,18 @@ TEST_CASE("Neighbor metrics with DR faces" * doctest::test_suite("kernel")) {
 
   SUBCASE("DR hardware >= nonzero") { CHECK(metricDR.hardwareFlop >= metricDR.nonzeroFlop); }
 
-  SUBCASE("A fault face takes the corrector only in the strong form") {
+  SUBCASE("A fault face takes the corrector unless the fault subtracts the own trace") {
     std::array<FaceType, Cell::NumFaces> faceTypesReg{};
     faceTypesReg.fill(FaceType::Regular);
     const auto [metricReg, metricRegDR] = neighbor.metrics(faceTypesReg, drMapping);
-    if constexpr (StrongCorrector && !FaultSubtractsOwnTrace) {
+    if constexpr (!FaultSubtractsOwnTrace) {
       // the corrector of a fault face takes off the normal flux of the cell's own trace
       // (appliesFaceCorrector)
       CHECK(metric.nonzeroFlop == metricReg.nonzeroFlop);
       CHECK(metric.hardwareFlop == metricReg.hardwareFlop);
     } else {
-      // in the weak form, and where the fault takes the subtraction of the strong form on itself
-      // (FaultSubtractsOwnTrace), a fault face has no corrector
+      // where the fault takes that subtraction on itself (FaultSubtractsOwnTrace), a fault face
+      // has no corrector
       CHECK(metric.nonzeroFlop < metricReg.nonzeroFlop);
       CHECK(metric.hardwareFlop < metricReg.hardwareFlop);
     }

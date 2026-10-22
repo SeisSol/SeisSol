@@ -34,6 +34,15 @@ struct TakesVolumeFused : std::false_type {};
 template <typename KernelT>
 struct TakesVolumeFused<KernelT, std::void_t<decltype(std::declval<KernelT>().volumeFused)>>
     : std::true_type {};
+
+/// Whether a kernel reads the source term as the one matrix a cell carries in the data of its
+/// solver (model::initializeSpecificLocalData), rather than at the sample points of its material.
+template <typename KernelT, typename = void>
+struct ReadsCellSource : std::false_type {};
+
+template <typename KernelT>
+struct ReadsCellSource<KernelT, std::void_t<decltype(std::declval<KernelT>().ET)>>
+    : std::true_type {};
 } // namespace volumeterm
 
 /// Hands a predictor or a corrector the buffer the volume term goes through, where the build
@@ -43,6 +52,16 @@ void bindVolumeFused(KernelT& krnl, kernels::LocalTmp& tmp) {
   if constexpr (volumeterm::TakesVolumeFused<KernelT>::value) {
     krnl.volumeFused = tmp.volumeFused;
   }
+}
+
+/// Hands a kernel the source term of the cell in whichever shape the cell carries it, as the host
+/// does: the one matrix of the cell, or the scalars at the sample points of its material.
+template <typename KernelT, typename LocalIntegrationT>
+void bindSourceTerm(KernelT& krnl, const LocalIntegrationT& local) {
+  if constexpr (volumeterm::ReadsCellSource<KernelT>::value) {
+    krnl.ET = local.specific.sourceMatrix;
+  }
+  kernels::bindSourceOperands(krnl, local);
 }
 
 /// Adds the volume term of the corrector for the time integral `timeIntegrated` to `update`, with
@@ -69,7 +88,7 @@ void addVolumeTerm(real* timeIntegrated, real* update, const LocalIntegrationT& 
     DerivativeT derivative{};
     derivative.bindGlobals(seissol::Pool::host());
     kernels::bindStarOperands(derivative, local);
-    kernels::bindSourceOperands(derivative, local);
+    bindSourceTerm(derivative, local);
     derivative.dQ(0) = timeIntegrated;
     for (std::size_t i = 1; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
       derivative.dQ(i) = derivatives.data() + yateto::computeFamilySize<tensor::dQ>(1, i);
@@ -83,7 +102,7 @@ void addVolumeTerm(real* timeIntegrated, real* update, const LocalIntegrationT& 
   } else {
     volume.I = timeIntegrated;
     kernels::bindStarOperands(volume, local);
-    kernels::bindSourceOperands(volume, local);
+    bindSourceTerm(volume, local);
   }
   bindVolumeFused(volume, tmp);
   volume.execute();

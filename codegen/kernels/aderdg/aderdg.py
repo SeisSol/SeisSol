@@ -1014,25 +1014,34 @@ class ADERDGBase(ABC):
             self.traceProduct = self.nodalTemporary(
                 "traceProduct", (modes, self.numExtendedQuantities())
             )
+            # the jump of the two traces, which the corrector applies the flux to
+            self.traceJump = self.nodalTemporary("traceJump", shape)
 
     def traceCorrector(self, face, side, ownTrace=None, neighborTrace=None):
         """What the corrector of one face adds to the field the faces lift into:
-        the flux of the two traces of the face, lifted into the cell.
+        the flux of the two traces of the face, lifted into the cell, less the
+        normal flux of the cell's own trace, since the volume term is in the
+        strong form (see volumeDerivatives).
 
         Where the flux is the scalars per point, it is the jump of the two
         traces that goes to the points, and the one set of scalars the face
         carries is applied to it: for a regular face the neighbour's part of
-        the Godunov state, which in the strong form of the corrector is the
-        local part negated. A face without neighbour reads a zero trace there
-        and carries the local scalars negated, so that the same statements
-        apply its own flux. Where the flux is one matrix per side, each trace
-        gets its own matrix, which holds for the weak form as well.
+        the Godunov state, which is the local part less the identity, negated.
+        A face without neighbour reads a zero trace there and carries the local
+        scalars negated, so that the same statements apply its own flux.
+
+        Where the flux is one matrix per side, the matrix of the cell's own side
+        is its flux less the normal flux (toCorrectorForm); on a regular face
+        that is the neighbour's matrix negated, since the two add up to the
+        normal flux, and any other face reads a zero trace for the neighbour. So
+        the one matrix, applied to the jump of the traces (the cell's own less
+        the neighbour's), is the flux of both on every face.
         """
         own = self.faceTrace if ownTrace is None else ownTrace
         neighbor = self.faceTraceNeighbor if neighborTrace is None else neighborTrace
         target = self.extendedQTensor()
+        jump = self.definedOnce(self.traceJump)
         if self.nodalFaceFlux:
-            jump = self.definedOnce(self.traceJump)
             return [jump["mq"] <= neighbor["mq"] - own["mq"]] + self.nodalFlux(
                 jump,
                 target,
@@ -1042,8 +1051,8 @@ class ADERDGBase(ABC):
             )
         product = self.definedOnce(self.traceProduct)
         return [
-            product["mp"]
-            <= own["mq"] * self.AplusT["qp"] + neighbor["mq"] * self.AminusT["qp"],
+            jump["mq"] <= own["mq"] - neighbor["mq"],
+            product["mp"] <= jump["mq"] * self.AplusT["qp"],
             target["kp"]
             <= target["kp"] + self.traceLift[face, side][self.t("km")] * product["mp"],
         ]
@@ -1750,27 +1759,29 @@ class ADERDGBase(ABC):
         statements.append(target["kp"] <= first + raised)
         return statements
 
-    def nodalVolumeDerivatives(self):
-        """The derivative matrices the volume term of the corrector applies
-        where the operator varies inside the cell: the strong ones, the same
-        the derivative chain applies.
+    def volumeDerivatives(self):
+        """The derivative matrices the volume term of the corrector applies:
+        the strong ones, the same the derivative chain applies, so that the
+        volume term differentiates the field rather than the test function.
 
-        The weak ones differentiate the test function, so what they return is
-        the derivative of the field less the lift of its trace on the four
-        faces. With one operator per cell that lift cancels against the part of
-        the local flux the cell's own trace contributes, and the two forms are
-        the same scheme. With an operator that varies inside the cell it does
-        not cancel: the lift is multiplied by the operator at the points inside
-        the cell, while the flux states the operator at the face. A constant
-        state then no longer stays constant, by an amount that does not shrink
-        with the mesh -- for a material that varies smoothly inside the cell
-        as much as for a cell whose metric varies.
+        The weak ones, which differentiate the test function, would return the
+        derivative of the field less the lift of its trace on the four faces.
+        With one operator per cell that lift cancels against the flux of the
+        cell's own trace, and the two forms are the same scheme. With an
+        operator that varies inside the cell it does not: the lift is multiplied
+        by the operator at the points inside the cell, while the flux states the
+        operator at the face, and a constant state would not stay constant, by
+        an amount that does not shrink with the mesh -- for a material that
+        varies smoothly inside the cell as much as for a cell whose metric
+        varies.
 
-        The strong form takes the trace out of the volume term and puts it
-        where the operator is stated at the face: the local flux of every face
-        subtracts the normal flux of the cell's own trace, a fault face
-        included, whose local flux is that subtraction alone. The host does
-        that subtraction; this side only takes the other derivative."""
+        In the strong form the trace is not in the volume term, and the flux of
+        every face subtracts the normal flux of the cell's own trace instead,
+        where the operator is stated at the face (traceCorrector), a fault face
+        included, whose flux is that subtraction alone. The host does that
+        subtraction (initializer::toCorrectorForm). With one operator per cell
+        the volume term in this form is what the chain forms anyway, a step of
+        it applied to the time integral."""
         return self.db.kDivMT
 
     def sourceTerm(self, source, target):
@@ -2091,11 +2102,10 @@ class ADERDGBase(ABC):
         # never reads but the host's setup of a cell still names
         for gradients in self.referenceGradients:
             include_tensors.add(gradients)
-        if self.nodalMaterial:
-            # the weak derivative matrices, which no kernel of such a build
-            # applies any more; the strong form is checked against them
-            for member in self.db.kDivM.values():
-                include_tensors.add(member)
+        # the weak derivative matrices, which no kernel applies; the strong form
+        # of the volume term is checked against them (volumeDerivatives)
+        for member in self.db.kDivM.values():
+            include_tensors.add(member)
         # the strong ones, which the chain of a basis that is not hierarchical
         # takes through the lower degrees instead (modalDerivative,
         # derivativesByDegree); every chain is checked against them

@@ -59,11 +59,10 @@ inline void
 /// Adds the corrector of `face` to `target`, as a cell applies it (kernels::applyFaceCorrectors):
 /// from `ownTrace`, the trace the cell wrote there, and `neighborTrace`, the one the neighbor wrote
 /// there, both in the parametrisation of side `side` of the face.
-template <typename LocalIntegrationT, typename NeighboringIntegrationT>
+template <typename LocalIntegrationT>
 void applyFaceCorrector(const real* ownTrace,
                         const real* neighborTrace,
                         const LocalIntegrationT& local,
-                        const NeighboringIntegrationT& neighboring,
                         std::size_t face,
                         std::size_t side,
                         real* target) {
@@ -72,7 +71,7 @@ void applyFaceCorrector(const real* ownTrace,
   bindLiftTarget(krnl, target);
   krnl.faceTrace = ownTrace;
   krnl.faceTraceNeighbor = neighborTrace;
-  kernels::bindCorrectorOperands(krnl, local, neighboring, face);
+  kernels::bindCorrectorOperands(krnl, local, face);
   krnl.execute(face, side);
 }
 

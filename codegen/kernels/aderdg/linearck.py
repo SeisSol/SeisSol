@@ -189,21 +189,21 @@ class LinearCK(ADERDGBase):
                         temporary=True,
                     )
                     volumeExpr = self.nodalApply(
-                        self.I, volumeUpdate, self.nodalVolumeDerivatives()
+                        self.I, volumeUpdate, self.volumeDerivatives()
                     )
                     volumeExpr += [self.Q["kp"] <= self.Q["kp"] + volumeUpdate["kp"]]
                     volumeExpr += self.sourceTerm(self.I, self.Q)
                 else:
+                    # a step of the chain, applied to the time integral
+                    # (volumeDerivatives), and the source term, which the cell
+                    # carries as one matrix where its material does not vary
+                    volumeExpr, terms = self.modalDerivative(self.I)
                     volumeSum = self.Q["kp"]
-                    for i in range(3):
-                        volumeSum += (
-                            self.db.kDivM[i][self.t("kl")]
-                            * self.I["lq"]
-                            * self.starMatrix(i)["qp"]
-                        )
-                    if self.sourceMatrix():
+                    for term in terms:
+                        volumeSum += term
+                    if self.sourceMatrix() is not None:
                         volumeSum += self.I["kq"] * self.sourceMatrix()["qp"]
-                    volumeExpr = [self.Q["kp"] <= volumeSum]
+                    volumeExpr += [self.Q["kp"] <= volumeSum]
                 if not self.fusesVolume(target):
                     volumeExpr = self.starAssembly() + volumeExpr
                 generator.add(f"{name_prefix}volume", volumeExpr, target=target)

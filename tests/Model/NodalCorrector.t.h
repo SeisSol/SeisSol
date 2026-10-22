@@ -8,10 +8,11 @@
 #ifndef SEISSOL_TESTS_MODEL_NODALCORRECTOR_T_H_
 #define SEISSOL_TESTS_MODEL_NODALCORRECTOR_T_H_
 
-// Where the material varies inside a cell, the corrector is the strong form: the volume term
-// differentiates the field, and the corrector of every face takes off the normal flux of the
-// cell's own trace, a fault face included (StrongCorrector). Both checks below run the kernels a
-// cell runs, with the flux scalars the setup computes:
+// The volume term of the corrector is the strong form: it differentiates the field, and the
+// corrector of every face takes off the normal flux of the cell's own trace, a fault face included
+// (initializer::toCorrectorForm). Both checks below run the kernels a cell runs, with the operator
+// of the cell's own side of each face the setup computes, as scalars at the points of the face or
+// as one matrix:
 //
 // - with one material for the cell, the volume term and the correctors of the faces with the
 //   neighbour's trace zero are the weak form without the neighbours, as the matrices give it
@@ -108,7 +109,6 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
                const FieldT& field,
                const std::array<FaceType, Cell::NumFaces>& faceTypes,
                LocalIntegrationData& local,
-               NeighboringIntegrationData& neighboring,
                std::array<std::array<real, tensor::AplusT::size()>, Cell::NumFaces>& weakAplus,
                bool weightAdjusted = false) {
   const auto gradients = cell.refToSpaceJacobianInverse(VectorT(Cell::ReferenceBarycenter.data()));
@@ -126,6 +126,10 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
       }
     }
   }
+  // the data of the solver, which holds the source term as one matrix where a cell carries it so:
+  // from the material at the barycentre, and with a step width that nothing here reads
+  seissol::model::initializeSpecificLocalData(
+      field(cell.refToSpace(VectorT(Cell::ReferenceBarycenter.data()))), 1.0e-3, &local.specific);
 
   for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
     const seissol::geometry::AffineFaceTransform face(cell,
@@ -160,29 +164,30 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
     // |S| / |J| with the sign of a subtracted flux, as the setup takes it
     const double fluxScale = -2.0 * face.area() / std::abs(cell.determinant());
 
-    for (std::size_t node = 0; node < FluxFaceNodes; ++node) {
-      const auto material = field(cell.refToSpace(faceNode(side, node)));
-      std::array<double, FluxCoefficientCount> plus{};
-      std::array<double, FluxCoefficientCount> minus{};
-      seissol::initializer::fluxScalarsOfNode(material,
-                                              material,
-                                              faceTypes[side],
-                                              initializer::parameters::NumericalFlux::Godunov,
-                                              fluxScale,
-                                              plus,
-                                              minus,
-                                              weightAdjusted);
-      std::array<double, FluxCoefficientCount> scalars{};
-      seissol::initializer::correctorScalars(faceTypes[side], plus, minus, scalars);
-      for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {
-        local.fluxCoefficients[side][c][node] = static_cast<real>(scalars[c]);
+    // a cell keeps the scalars of a face at its points only where the flux reads the material there
+    if constexpr (NodalFlux) {
+      for (std::size_t node = 0; node < FluxFaceNodes; ++node) {
+        const auto material = field(cell.refToSpace(faceNode(side, node)));
+        std::array<double, FluxCoefficientCount> plus{};
+        std::array<double, FluxCoefficientCount> minus{};
+        seissol::initializer::fluxScalarsOfNode(material,
+                                                material,
+                                                faceTypes[side],
+                                                initializer::parameters::NumericalFlux::Godunov,
+                                                fluxScale,
+                                                plus,
+                                                minus,
+                                                weightAdjusted);
+        std::array<double, FluxCoefficientCount> scalars{};
+        seissol::initializer::correctorScalars(faceTypes[side], plus, minus, scalars);
+        for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {
+          local.fluxCoefficients[side][c][node] = static_cast<real>(scalars[c]);
+        }
       }
-    }
-
-    if constexpr (!NodalFlux) {
-      // where the operator of a face is one matrix per side, the setup forms it from the material
-      // of the cell, in the form the corrector takes, and without material where the cell is
-      // weight-adjusted; a fault face has no Riemann problem of its own
+    } else {
+      // where the operator of a face is one matrix, the setup forms the one of the cell's own side
+      // from the material of the cell, in the form the corrector takes, and without material where
+      // the cell is weight-adjusted; a fault face has no Riemann problem of its own
       const auto material = inFace(field(face.center()));
       alignas(Alignment) std::array<real, tensor::QgodLocal::size()> godLocal{};
       alignas(Alignment) std::array<real, tensor::QgodNeighbor::size()> godNeighbor{};
@@ -197,7 +202,6 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
       auto viewStar = init::star::view<0>::create(star.data());
       initializer::liftedCoefficientMatrix(material, weightAdjusted, viewStar);
       alignas(Alignment) std::array<real, tensor::QcorrLocal::size()> qcorrLocal{};
-      alignas(Alignment) std::array<real, tensor::QcorrNeighbor::size()> qcorrNeighbor{};
 
       kernel::computeFluxSolverLocal localSolver{};
       localSolver.fluxScale = fluxScale;
@@ -208,26 +212,10 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
       localSolver.Tinv = matTinv.data();
       localSolver.star(0) = star.data();
       localSolver.execute();
-
-      kernel::computeFluxSolverNeighbor neighborSolver{};
-      neighborSolver.fluxScale = fluxScale;
-      neighborSolver.AminusT = neighboring.nAmNm1[side];
-      neighborSolver.QgodNeighbor = godNeighbor.data();
-      neighborSolver.QcorrNeighbor = qcorrNeighbor.data();
-      neighborSolver.T = matT.data();
-      neighborSolver.Tinv = matTinv.data();
-      neighborSolver.star(0) = star.data();
-      // a free surface has no state outside the cell, and that side stays zero, as the setup
-      // keeps it (initializer::hasExteriorOperator)
-      if (initializer::hasExteriorOperator(faceTypes[side])) {
-        neighborSolver.execute();
-      } else {
-        std::fill_n(neighboring.nAmNm1[side], tensor::AminusT::size(), 0);
-      }
     }
 
-    // the weak form's local operator of the face, from the material at its barycentre: what the
-    // matrix form of a build without a varying material applies. A fault face has none.
+    // the weak form's local operator of the face, from the material at its barycentre, which the
+    // checks contract the weak form with by hand. A fault face has none.
     weakAplus[side].fill(0);
     if (faceTypes[side] != FaceType::DynamicRupture) {
       const auto material = inFace(field(face.center()));
@@ -296,20 +284,18 @@ template <typename NeighborTraceT>
 void addCorrectors(const real* dofs,
                    const NeighborTraceT& neighborTrace,
                    const LocalIntegrationData& local,
-                   const NeighboringIntegrationData& neighboring,
                    real* update) {
   for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
     const std::size_t traceSide = side % 2;
     alignas(Alignment) FaceTraceT own{};
     writeFaceTrace(dofs, side, traceSide, own.data());
-    applyFaceCorrector(
-        own.data(), neighborTrace(own, side), local, neighboring, side, traceSide, update);
+    applyFaceCorrector(own.data(), neighborTrace(own, side), local, side, traceSide, update);
   }
 }
 
 template <bool Enabled>
 void weakEquivalence() {
-  if constexpr (Enabled && StrongCorrector) {
+  if constexpr (Enabled) {
     using Material = seissol::model::MaterialT;
     constexpr std::size_t NQ = tensor::star::Shape[0][0];
     constexpr std::size_t Columns = tensor::star::Shape[0][1];
@@ -329,9 +315,8 @@ void weakEquivalence() {
       const auto field = [&](const VectorT& /*x*/) { return material; };
 
       LocalIntegrationData local{};
-      NeighboringIntegrationData neighboring{};
       std::array<std::array<real, tensor::AplusT::size()>, Cell::NumFaces> weakAplus{};
-      setupCell<Material>(cell, field, faceTypes, local, neighboring, weakAplus);
+      setupCell<Material>(cell, field, faceTypes, local, weakAplus);
 
       alignas(Alignment) std::array<real, tensor::I::size()> dofs{};
       for (auto& value : dofs) {
@@ -354,7 +339,6 @@ void weakEquivalence() {
           dofs.data(),
           [&](const FaceTraceT& /*own*/, std::size_t /*side*/) { return zero.data(); },
           local,
-          neighboring,
           update.data());
 
       // the weak form, by hand out of the matrices it is made of
@@ -439,7 +423,7 @@ void weakEquivalence() {
 
 template <bool Enabled>
 void constantState() {
-  if constexpr (Enabled && StrongCorrector) {
+  if constexpr (Enabled) {
     using Material = seissol::model::MaterialT;
     constexpr std::size_t Columns = tensor::star::Shape[0][1];
     constexpr std::size_t Basis = tensor::Q::Shape[multisim::BasisFunctionDimension];
@@ -458,9 +442,8 @@ void constantState() {
       const auto field = [&](const VectorT& x) { return varying(base, x); };
 
       LocalIntegrationData local{};
-      NeighboringIntegrationData neighboring{};
       std::array<std::array<real, tensor::AplusT::size()>, Cell::NumFaces> weakAplus{};
-      setupCell<Material>(cell, field, faceTypes, local, neighboring, weakAplus);
+      setupCell<Material>(cell, field, faceTypes, local, weakAplus);
 
       // a constant state: the coefficients of the function one, times a value per quantity
       alignas(Alignment) std::array<real, tensor::I::size()> dofs{};
@@ -489,7 +472,6 @@ void constantState() {
           dofs.data(),
           [&](const FaceTraceT& /*own*/, std::size_t /*side*/) { return zero.data(); },
           local,
-          neighboring,
           localOnly.data());
 
       addVolumeTerm<typename Kernels<Enabled>::Volume>(dofs.data(), update.data(), local);
@@ -500,7 +482,6 @@ void constantState() {
           dofs.data(),
           [&](const FaceTraceT& own, std::size_t /*side*/) { return own.data(); },
           local,
-          neighboring,
           update.data());
 
       auto viewLocal = init::Q::view::create(localOnly.data());
@@ -509,8 +490,9 @@ void constantState() {
         auto slicedLocal = multisim::simtensor(viewLocal, simulation);
         auto slicedQ = multisim::simtensor(viewQ, simulation);
         // a source term acts on a constant state as on any other, so there is nothing that has to
-        // vanish where the solver has one
-        if constexpr (!NodalSource) {
+        // vanish where the solver has one, at the sample points or as the one matrix of the cell
+        if constexpr (!NodalSource &&
+                      !volumeterm::ReadsCellSource<typename Kernels<Enabled>::Volume>::value) {
           constexpr double Tolerance = std::is_same_v<real, double> ? 1e-10 : 1e-4;
           for (std::size_t column = 0; column < Columns; ++column) {
             double scale = 0.0;
@@ -534,12 +516,13 @@ void constantState() {
 
 #ifndef SEISSOL_KERNELS_LINEARCKANELASTIC
 
-TEST_CASE("Nodal corrector is the weak form where the material does not vary") {
-  nodalcorrector::weakEquivalence<NodalFlux>();
+// the cell data these checks build carries the material, not the star matrices it folds into
+TEST_CASE("Strong-form corrector is the weak form where the material does not vary") {
+  nodalcorrector::weakEquivalence<FactoredStar>();
 }
 
-TEST_CASE("Nodal corrector keeps a constant state constant") {
-  nodalcorrector::constantState<NodalFlux>();
+TEST_CASE("Strong-form corrector keeps a constant state constant") {
+  nodalcorrector::constantState<FactoredStar>();
 }
 
 #endif // SEISSOL_KERNELS_LINEARCKANELASTIC

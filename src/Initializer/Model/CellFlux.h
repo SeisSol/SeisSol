@@ -27,37 +27,37 @@
 namespace seissol::initializer {
 
 /**
- * Turns the Godunov state of the local side of a face into the one the corrector of this build
- * applies.
+ * Turns the Godunov state of the local side of a face into the one the corrector applies.
  *
- * Where the operator is one per cell, the corrector is the weak form and the local flux applies
- * the Godunov state as the Riemann problem gives it. Where it varies inside the cell, the volume
- * term is the strong form (see StrongCorrector), and the local flux then subtracts the normal flux
- * of the cell's own trace: the identity comes off the Godunov state. Only the diagonal the state
- * stores is touched -- a solver that folds the relaxation into its quantities keeps the elastic
- * rows alone, and what the relaxation contributes to the normal flux is read through the
- * coefficient matrix the state is contracted with.
+ * The volume term of the corrector is in the strong form: it differentiates the field, not the
+ * test function, so the trace of the cell's own field on its faces is not in it (see
+ * volumeDerivatives in the generator). The local flux then subtracts the normal flux of the cell's
+ * own trace: the identity comes off the Godunov state. Only the diagonal the state stores is
+ * touched -- a solver that folds the relaxation into its quantities keeps the elastic rows alone,
+ * and what the relaxation contributes to the normal flux is read through the coefficient matrix
+ * the state is contracted with.
+ *
+ * On a regular face the Godunov states of the two sides add up to the identity, so there the
+ * local flux is the neighbor's negated, and the corrector applies it to the jump of the two traces
+ * alone (see the corrector in the generator); any other face reads a trace of zeros as the
+ * neighbor's.
  */
 template <typename ViewT>
 void toCorrectorForm(ViewT& godunovLocal) {
-  if constexpr (StrongCorrector) {
-    constexpr std::size_t Diagonal =
-        std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
-    for (std::size_t i = 0; i < Diagonal; ++i) {
-      if (godunovLocal.isInRange(i, i)) {
-        godunovLocal(i, i) -= 1;
-      }
+  constexpr std::size_t Diagonal =
+      std::min(tensor::QgodLocal::Shape[0], tensor::QgodLocal::Shape[1]);
+  for (std::size_t i = 0; i < Diagonal; ++i) {
+    if (godunovLocal.isInRange(i, i)) {
+      godunovLocal(i, i) -= 1;
     }
   }
 }
 
 /**
  * Whether the flux of a face of this type has an operator for the side of the face outside the cell
- * (NeighboringIntegrationData::nAmNm1): the one the corrector applies to the neighbor's trace, or
- * the one a boundary condition applies to the state it builds outside the cell. A free surface
- * builds none, and its Godunov state for that side is a signalling NaN that nothing may read
- * (getTransposedFreeSurfaceGodunovState). Its corrector reads a trace of zeros as the neighbor's
- * all the same, so the operator it applies to it there is zero.
+ * (NeighboringIntegrationData::nAmNm1), the one a boundary condition applies to the state it builds
+ * outside the cell. A free surface builds none, and its Godunov state for that side is a signalling
+ * NaN that nothing may read (getTransposedFreeSurfaceGodunovState).
  */
 constexpr bool hasExteriorOperator(FaceType faceType) { return faceType != FaceType::FreeSurface; }
 
@@ -91,8 +91,8 @@ void liftedCoefficientMatrix(const MaterialT& material, bool weightAdjusted, Mat
  * the matrix form carries in AplusT riding on the scalars instead.
  *
  * A fault face has no Riemann problem of its own here -- the fault supplies its flux -- so its
- * state is zero. What the local side then still carries is the subtraction of the strong form,
- * see toCorrectorForm, and nothing at all for the weak one.
+ * state is zero. What the local side then still carries is the subtraction of the normal flux of
+ * the cell's own trace, see toCorrectorForm.
  *
  * A weight-adjusted cell contracts the state with the coefficient matrix without material instead
  * (liftedCoefficientMatrix): the Riemann problem is the same, and the material of the cell comes
@@ -175,14 +175,11 @@ void fluxScalarsOfNode(const MaterialT& local,
  * -- the neighbor's less the cell's own -- out of the two parts of the flux fluxScalarsOfNode gives
  * (see the corrector in the generator). A regular face takes the neighbor's part. A face without a
  * neighbor reads a zero trace as the neighbor's, and takes the cell's own part negated, which then
- * applies the cell's own part to its trace. For a regular face the two agree: the corrector is the
- * strong form wherever a face carries these scalars, and there the cell's own part is the Godunov
- * state less the identity, which is the neighbor's part negated.
+ * applies the cell's own part to its trace. For a regular face the two agree: the cell's own part
+ * is the Godunov state less the identity (toCorrectorForm), which is the neighbor's part negated.
  */
 template <typename ArrayT>
 void correctorScalars(FaceType faceType, const ArrayT& plus, const ArrayT& minus, ArrayT& scalars) {
-  static_assert(!NodalFlux || StrongCorrector,
-                "the corrector applies one set of scalars to the jump only in the strong form");
   for (std::size_t c = 0; c < scalars.size(); ++c) {
     scalars[c] = faceType == FaceType::Regular ? minus[c] : -plus[c];
   }

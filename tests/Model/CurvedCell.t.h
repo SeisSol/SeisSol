@@ -323,7 +323,6 @@ void constantState() {
     };
 
     LocalIntegrationData local{};
-    NeighboringIntegrationData neighboring{};
     CurvedCell::setGradients(cell, local.referenceGradients);
     const auto samples =
         init::materialNodes::view::create(const_cast<real*>(init::materialNodes::Values));
@@ -388,11 +387,9 @@ void constantState() {
       const std::size_t traceSide = side % 2;
       alignas(Alignment) FaceTraceT own{};
       writeFaceTrace(dofs.data(), side, traceSide, own.data());
-      applyFaceCorrector(
-          own.data(), zero.data(), local, neighboring, side, traceSide, localOnly.data());
+      applyFaceCorrector(own.data(), zero.data(), local, side, traceSide, localOnly.data());
       // the neighbour's trace is the cell's own where the state is continuous
-      applyFaceCorrector(
-          own.data(), own.data(), local, neighboring, side, traceSide, update.data());
+      applyFaceCorrector(own.data(), own.data(), local, side, traceSide, update.data());
     }
 
     auto viewLocal = init::Q::view::create(localOnly.data());

@@ -64,13 +64,13 @@ void bindFaceDerivativesBatched(KernelT& krnl, PtrT** faceDerivatives) {
   }
 }
 
-/// Hands the corrector of a face what it applies to the two traces of the face, in whichever of the
-/// two shapes the cell carries it: the rotation of the face together with the one set of scalars
-/// at its points, or the matrix of each side, with the rotation folded in.
-template <typename KernelT, typename LocalIntegrationT, typename NeighboringIntegrationT>
+/// Hands the corrector of a face what it applies to the jump of the two traces of the face, in
+/// whichever of the two shapes the cell carries it: the rotation of the face together with the one
+/// set of scalars at its points, or the matrix of the cell's own side, with the rotation folded in
+/// (see initializer::toCorrectorForm).
+template <typename KernelT, typename LocalIntegrationT>
 void bindCorrectorOperands(KernelT& krnl,
                            const LocalIntegrationT& localIntegration,
-                           const NeighboringIntegrationT& neighboringIntegration,
                            std::size_t face) {
   if constexpr (NodalFlux) {
     bindFaceRotation(krnl, localIntegration.faceRotation[face]);
@@ -79,7 +79,6 @@ void bindCorrectorOperands(KernelT& krnl,
     }
   } else {
     krnl.AplusT = localIntegration.nApNm1[face];
-    krnl.AminusT = neighboringIntegration.nAmNm1[face];
   }
 }
 
@@ -101,8 +100,7 @@ void applyFaceCorrectors(const KernelT& prototype,
     }
     krnl.faceTrace = data.get<LTS::FaceTraces>()[face];
     krnl.faceTraceNeighbor = neighborTraces[face];
-    bindCorrectorOperands(
-        krnl, data.get<LTS::LocalIntegration>(), data.get<LTS::NeighboringIntegration>(), face);
+    bindCorrectorOperands(krnl, data.get<LTS::LocalIntegration>(), face);
     krnl.execute(face, cellInformation.traceSides[face]);
   }
 }
@@ -183,10 +181,8 @@ void applyFaceCorrectorsBatched(const KernelT& prototype,
         };
         krnl.faceTrace = pointers(inner_keys::Wp::Id::FaceTrace);
         krnl.faceTraceNeighbor = pointers(inner_keys::Wp::Id::FaceTraceNeighbor);
-        bindCorrectorOperandsBatched(krnl,
-                                     pointers(inner_keys::Wp::Id::LocalIntegrationData),
-                                     pointers(inner_keys::Wp::Id::NeighborIntegrationData),
-                                     face);
+        bindCorrectorOperandsBatched(
+            krnl, pointers(inner_keys::Wp::Id::LocalIntegrationData), face);
         bindTarget(krnl, entry);
       });
 }

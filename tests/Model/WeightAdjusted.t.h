@@ -528,14 +528,10 @@ void sameWhereConstant() {
       const auto field = [&](const nodalcorrector::VectorT& /*x*/) { return material; };
 
       LocalIntegrationData plainLocal{};
-      NeighboringIntegrationData plainNeighboring{};
       LocalIntegrationData adjustedLocal{};
-      NeighboringIntegrationData adjustedNeighboring{};
       std::array<std::array<real, tensor::AplusT::size()>, Cell::NumFaces> weakAplus{};
-      nodalcorrector::setupCell<Material>(
-          cell, field, faceTypes, plainLocal, plainNeighboring, weakAplus, false);
-      nodalcorrector::setupCell<Material>(
-          cell, field, faceTypes, adjustedLocal, adjustedNeighboring, weakAplus, true);
+      nodalcorrector::setupCell<Material>(cell, field, faceTypes, plainLocal, weakAplus, false);
+      nodalcorrector::setupCell<Material>(cell, field, faceTypes, adjustedLocal, weakAplus, true);
 
       alignas(Alignment) std::array<real, tensor::I::size()> dofs{};
       fillRandom(dofs, rng);
@@ -556,25 +552,23 @@ void sameWhereConstant() {
       }
 
       // the faces, lifted with the operators the setup gave them into `target`
-      const auto addFaces = [&](const LocalIntegrationData& local,
-                                const NeighboringIntegrationData& neighboring,
-                                real* target) {
+      const auto addFaces = [&](const LocalIntegrationData& local, real* target) {
         for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
           if (appliesFaceCorrector(faceTypes[side])) {
             applyFaceCorrector(
-                own[side].data(), across[side].data(), local, neighboring, side, side % 2, target);
+                own[side].data(), across[side].data(), local, side, side % 2, target);
           }
         }
       };
 
       alignas(Alignment) std::array<real, Size> plain{};
       Lifted::addVolume(dofs.data(), plain.data(), plainLocal);
-      addFaces(plainLocal, plainNeighboring, plain.data());
+      addFaces(plainLocal, plain.data());
 
       alignas(Alignment) std::array<real, Size> adjusted{};
       alignas(Alignment) std::array<real, Size> buffer{};
       Lifted::addVolume(dofs.data(), adjusted.data(), adjustedLocal);
-      addFaces(adjustedLocal, adjustedNeighboring, buffer.data());
+      addFaces(adjustedLocal, buffer.data());
       applyWeight<KernelT>(buffer.data(), adjusted.data(), adjustedLocal);
 
       requireSameUpdate(adjusted.data(), plain.data());
