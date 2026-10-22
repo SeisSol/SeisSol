@@ -18,6 +18,8 @@
 
 #ifdef ACL_DEVICE
 #include "Parallel/Runtime/Stream.h"
+
+#include <Device/device.h>
 #endif
 
 namespace seissol::unit_test {
@@ -175,7 +177,10 @@ TEST_CASE("A published event stays reserved while it is held" * doctest::test_su
   CHECK(pool.referenced() == 0);
 
 #ifdef ACL_DEVICE
-  // the same with the events a stream runtime records
+  // the same with the events a stream runtime records, on the device of a run
+  auto& device = ::device::DeviceInstance::instance();
+  device.api().setDevice(0);
+  device.api().initialize();
   parallel::runtime::StreamRuntime runtime;
   progress.publishEvent(ActorEvent(runtime.eventRecord()));
   const auto kept = progress.event();

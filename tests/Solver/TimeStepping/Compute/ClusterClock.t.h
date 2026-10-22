@@ -11,10 +11,21 @@
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/Compute/ClusterClock.h"
 
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
+
 namespace seissol::unit_test {
 
 TEST_CASE("The cluster clock adds up the steps like the cluster time" *
           doctest::test_suite("solver")) {
+#ifdef ACL_DEVICE
+  // the clock lives on the device of a run
+  auto& device = ::device::DeviceInstance::instance();
+  device.api().setDevice(0);
+  device.api().initialize();
+#endif
+
   // with a device, the clock changes in the order of the stream; its host copy is up to date once
   // the stream has caught up
   parallel::runtime::StreamRuntime runtime;
