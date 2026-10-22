@@ -23,6 +23,7 @@
 #include <async/ExecInfo.h>
 #include <cassert>
 #include <cstddef>
+#include <cstring>
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>
@@ -187,6 +188,8 @@ struct DatasetLayout {
   std::vector<hsize_t> globalSizesMax;
   std::vector<hsize_t> chunkSizes;
 
+  //! The dimension the ranks share, if any.
+  std::optional<std::size_t> distributedDim;
   //! The dimension a write extends, if any.
   std::optional<std::size_t> appendedDim;
   //! Entries the dataset gains along that dimension with this write; the same on every rank.
@@ -243,6 +246,7 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
   }
 
   DatasetLayout layout;
+  layout.distributedDim = distributedDim;
   layout.starts.resize(dimensions.size(), 0);
   layout.blockSizes.resize(dimensions.size(), 0);
   layout.globalSizes.resize(dimensions.size(), 0);
@@ -313,6 +317,62 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
   }
 
   return layout;
+}
+
+/**
+ * The block of @p layout, from the contributions the data of @p source is made of.
+ *
+ * The executor of ASYNC mode NODE holds the data of the ranks of its group one after another, the
+ * contribution of each a block of its own. Along the leading dimension, these blocks follow each
+ * other as the rows of one, and the data is the block already. Along any other dimension, the
+ * contributions are put together here, into @p block; the return value says whether they were.
+ */
+bool assembleBlock(const async::ExecInfo& info,
+                   const std::shared_ptr<DataSource>& source,
+                   const DatasetLayout& layout,
+                   const char* data,
+                   std::vector<char>& block) {
+  if (!layout.distributedDim.has_value() || layout.distributedDim.value() == 0 || layout.empty) {
+    return false;
+  }
+  const auto dim = layout.distributedDim.value();
+
+  // the entries of the dimensions in front of the distributed one, and the bytes of one entry
+  // along it
+  std::size_t leading = 1;
+  for (std::size_t i = 0; i < dim; ++i) {
+    leading *= layout.blockSizes[i];
+  }
+  std::size_t rowBytes = source->datatype()->size();
+  for (std::size_t i = dim + 1; i < layout.blockSizes.size(); ++i) {
+    rowBytes *= layout.blockSizes[i];
+  }
+
+  const auto parts = source->parts(info);
+  const auto contributing =
+      std::count_if(parts.begin(), parts.end(), [](std::size_t part) { return part > 0; });
+  if (leading <= 1 || contributing <= 1) {
+    return false;
+  }
+
+  const std::size_t rows = layout.blockSizes[dim];
+  block.resize(leading * rows * rowBytes);
+  std::size_t start = 0;
+  std::size_t row = 0;
+  for (const auto part : parts) {
+    const std::size_t bytes = part * source->datatype()->size();
+    const std::size_t partRows = bytes / (leading * rowBytes);
+    assert(partRows * leading * rowBytes == bytes);
+    for (std::size_t entry = 0; entry < leading; ++entry) {
+      std::memcpy(block.data() + (entry * rows + row) * rowBytes,
+                  data + start + entry * partRows * rowBytes,
+                  partRows * rowBytes);
+    }
+    start += bytes;
+    row += partRows;
+  }
+  assert(row == rows);
+  return true;
 }
 
 } // namespace
@@ -445,6 +505,10 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   const std::vector<hsize_t> nullstart(dimensionCount);
 
   const char* dataloc = reinterpret_cast<const char*>(source->getPointer(info));
+  std::vector<char> block;
+  if (assembleBlock(info, source, layout, dataloc, block)) {
+    dataloc = block.data();
+  }
 
   //! Bytes one entry of the leading dimension takes in the source buffer.
   std::size_t leadingStride = source->datatype()->size();

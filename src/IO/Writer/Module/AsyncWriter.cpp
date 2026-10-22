@@ -30,11 +30,6 @@ AsyncWriter::AsyncWriter() = default;
 
 AsyncWriter::~AsyncWriter() = default;
 
-void AsyncWriter::setComm(MPI_Comm comm) {
-  // TODO: currently non-functional for ASYNC_MODE=mpi
-  MPI_Comm_dup(comm, &this->comm_);
-}
-
 void AsyncWriter::setName(const std::string& name) { name_ = name; }
 
 void AsyncWriter::execInit(const async::ExecInfo& info, const AsyncWriterInit& params) {
@@ -59,8 +54,11 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
       const size_t size = info.bufferSize(PlanId);
       const char* strData = reinterpret_cast<const char*>(data);
 
+      // the ranks that write: all of them, or the executors of the nodes
+      MPI_Comm comm = info.comm();
+
       int rank = 0;
-      MPI_Comm_rank(comm_, &rank);
+      MPI_Comm_rank(comm, &rank);
       if (printPlan_ && rank == 0) {
         logInfo() << "Printing current plan:" << std::string(strData, strData + size);
       }
@@ -70,7 +68,7 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
       // one instance for all writes of the output, which keeps the files open that every write
       // goes to
       if (!instance_.has_value()) {
-        instance_.emplace(comm_, &runFiles);
+        instance_.emplace(comm, &runFiles);
       }
       writer_.write(info, instance_.value());
       // what the write itself took, on the thread or process that carries it out
@@ -92,13 +90,6 @@ void AsyncWriter::closeFiles() {
   if (instance_.has_value()) {
     instance_.value().close();
     instance_.reset();
-  }
-}
-void AsyncWriter::finalize() {
-  if (comm_ != MPI_COMM_WORLD) {
-    // comm has been duplicated
-    MPI_Comm_free(&comm_);
-    comm_ = MPI_COMM_WORLD;
   }
 }
 } // namespace seissol::io::writer::module

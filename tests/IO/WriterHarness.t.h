@@ -20,12 +20,14 @@
 #include <cstddef>
 #include <cstdio>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <mpi.h>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace seissol::unit_test::io {
@@ -40,6 +42,9 @@ namespace seissol::unit_test::io {
  */
 class LocalExecInfo : public async::ExecInfo {
   public:
+  //! @param comm The ranks that execute, as ASYNC hands them to the executor
+  explicit LocalExecInfo(MPI_Comm comm = MPI_COMM_SELF) { setCommInternal(comm); }
+
   [[nodiscard]] const void* buffer(unsigned int id) const override { return buffers_[id].data(); }
 
   int addBuffer(std::size_t size) {
@@ -55,8 +60,20 @@ class LocalExecInfo : public async::ExecInfo {
 
   std::vector<char>& bufferData(int id) { return buffers_[id]; }
 
+  /**
+   * Let a buffer stand for the contributions of several ranks, as the executor of ASYNC mode NODE
+   * holds them: one after another, in @p parts bytes each
+   */
+  void setParts(int id, std::vector<std::size_t> parts) { parts_[id] = std::move(parts); }
+
+  [[nodiscard]] std::vector<std::size_t> bufferParts(unsigned int id) const override {
+    const auto it = parts_.find(static_cast<int>(id));
+    return it == parts_.end() ? async::ExecInfo::bufferParts(id) : it->second;
+  }
+
   private:
   std::vector<std::vector<char>> buffers_;
+  std::map<int, std::vector<std::size_t>> parts_;
 };
 
 /**
@@ -72,7 +89,7 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
                            seissol::io::writer::file::RunFiles* runFiles = nullptr) {
   using namespace seissol::io::writer;
 
-  LocalExecInfo info;
+  LocalExecInfo info(comm);
   // buffer 0 is where WriterModule puts the serialized plan; the executor reads it from there
   const auto planId = info.addBuffer(0);
 
@@ -112,12 +129,10 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
   // hand it to the real executor rather than writing the plan directly, so that the plan travels
   // the way it does in production
   module::AsyncWriter executor;
-  executor.setComm(comm);
   executor.execInit(info, module::AsyncWriterInit{});
   executor.exec(info, module::AsyncWriterExec{});
   executor.execWait(info);
   executor.closeFiles();
-  executor.finalize();
 
   return plan;
 }
