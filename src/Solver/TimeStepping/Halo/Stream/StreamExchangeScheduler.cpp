@@ -30,7 +30,11 @@ std::size_t StreamExchangeScheduler::slot(std::size_t from, std::size_t to) cons
 std::vector<std::size_t> StreamExchangeScheduler::usedSlots() const {
   std::vector<std::size_t> slots;
   for (std::size_t from = 0; from < clusterCount_; ++from) {
-    for (std::size_t to = from == 0 ? 0 : from - 1; to < std::min(from + 2, clusterCount_); ++to) {
+    for (std::size_t to = 0; to < clusterCount_; ++to) {
+      // the halo exchanges go between neighboring time clusters only
+      if (timeCluster(to) + 1 < timeCluster(from) || timeCluster(from) + 1 < timeCluster(to)) {
+        continue;
+      }
       const auto current = slot(from, to);
       if (std::find(slots.begin(), slots.end(), current) == slots.end()) {
         slots.push_back(current);
@@ -46,8 +50,10 @@ namespace {
 device::DeviceInstance& deviceInstance() { return device::DeviceInstance::instance(); }
 } // namespace
 
-StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
-    : ExchangeScheduler(clusterCount, order), clusterCount_(clusterCount),
+StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount,
+                                                 LaunchOrder order,
+                                                 std::size_t configCount)
+    : ExchangeScheduler(clusterCount, order, configCount), clusterCount_(clusterCount),
       streams_(order == LaunchOrder::Global ? 1 : clusterCount * clusterCount, nullptr) {
   for (const auto current : usedSlots()) {
     streams_[current] = deviceInstance().api().createStream();
@@ -140,8 +146,10 @@ ExchangeScheduler::EventUsage StreamExchangeScheduler::eventUsage() const {
 
 #else
 
-StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
-    : ExchangeScheduler(clusterCount, order), clusterCount_(clusterCount) {
+StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount,
+                                                 LaunchOrder order,
+                                                 std::size_t configCount)
+    : ExchangeScheduler(clusterCount, order, configCount), clusterCount_(clusterCount) {
   logError() << "Exchanging the halo data on device streams needs a device build.";
 }
 

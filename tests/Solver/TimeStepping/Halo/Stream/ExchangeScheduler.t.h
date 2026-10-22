@@ -174,10 +174,12 @@ class SimulatedScheduler : public ExchangeScheduler {
   SimulatedScheduler(RendezvousNetwork& network,
                      int process,
                      std::size_t clusterCount,
-                     Launching launching)
+                     Launching launching,
+                     std::size_t configCount = 1)
       : ExchangeScheduler(clusterCount,
                           launching == Launching::Global ? LaunchOrder::Global
-                                                         : LaunchOrder::PerDirection),
+                                                         : LaunchOrder::PerDirection,
+                          configCount),
         network_(network), process_(process), clusterCount_(clusterCount),
         single_(launching != Launching::PerDirection) {}
 
@@ -299,7 +301,8 @@ struct Adjacency {
 
 /**
  * Runs the copy and ghost clusters of all processes through the synchronization points. Returns
- * false if they get stuck.
+ * false if they get stuck. The clusters are the time clusters of `configCount` configurations each
+ * (the cluster c is the time cluster c / configCount, see ExchangeScheduler).
  */
 enum class Transport { Scheduled, Immediate };
 
@@ -309,13 +312,14 @@ inline bool simulate(Transport transport,
                      std::size_t clusterCount,
                      const std::vector<Adjacency>& adjacencies,
                      const std::vector<long>& syncTimes,
-                     std::mt19937& random) {
+                     std::mt19937& random,
+                     std::size_t configCount = 1) {
   RendezvousNetwork network;
   std::vector<std::unique_ptr<SimulatedScheduler>> schedulers;
   schedulers.reserve(static_cast<std::size_t>(processes));
   for (int process = 0; process < processes; ++process) {
-    schedulers.push_back(
-        std::make_unique<SimulatedScheduler>(network, process, clusterCount, launching));
+    schedulers.push_back(std::make_unique<SimulatedScheduler>(
+        network, process, clusterCount, launching, configCount));
   }
   const auto makeTransport = [&](int process,
                                  std::size_t cluster,
@@ -329,7 +333,7 @@ inline bool simulate(Transport transport,
     return std::make_unique<ImmediateTransport>(
         network, process, cluster, otherCluster, clusterCount, peers);
   };
-  const auto rate = [](std::size_t cluster) { return 1L << cluster; };
+  const auto rate = [configCount](std::size_t cluster) { return 1L << (cluster / configCount); };
 
   std::map<std::pair<int, std::size_t>, std::unique_ptr<SimulatedCopyCluster>> copies;
   std::map<std::tuple<int, std::size_t, std::size_t>, std::vector<int>> ghostPeers;
@@ -352,7 +356,7 @@ inline bool simulate(Transport transport,
   for (auto& [key, copy] : copies) {
     for (auto& [otherKey, otherCopy] : copies) {
       if (key.first == otherKey.first && key.second < otherKey.second &&
-          otherKey.second - key.second <= 1) {
+          otherKey.second / configCount - key.second / configCount <= 1) {
         copy->connect(*otherCopy);
       }
     }
@@ -420,16 +424,22 @@ inline bool simulate(Transport transport,
   return true;
 }
 
-inline std::vector<Adjacency>
-    randomAdjacencies(int processes, std::size_t clusterCount, std::mt19937& random) {
+inline std::vector<Adjacency> randomAdjacencies(int processes,
+                                                std::size_t clusterCount,
+                                                std::mt19937& random,
+                                                std::size_t configCount = 1) {
   std::bernoulli_distribution adjacent(0.4);
   std::vector<Adjacency> adjacencies;
   for (int process = 0; process < processes; ++process) {
     for (int otherProcess = process + 1; otherProcess < processes; ++otherProcess) {
       for (std::size_t cluster = 0; cluster < clusterCount; ++cluster) {
-        for (std::size_t otherCluster = cluster == 0 ? 0 : cluster - 1;
-             otherCluster < std::min(cluster + 2, clusterCount);
-             ++otherCluster) {
+        for (std::size_t otherCluster = 0; otherCluster < clusterCount; ++otherCluster) {
+          // cells lie next to each other in neighboring time clusters only, of any configuration
+          const auto timeCluster = cluster / configCount;
+          const auto otherTimeCluster = otherCluster / configCount;
+          if (timeCluster + 1 < otherTimeCluster || otherTimeCluster + 1 < timeCluster) {
+            continue;
+          }
           if (adjacent(random)) {
             adjacencies.push_back({process, otherProcess, cluster, otherCluster});
           }
@@ -460,6 +470,36 @@ TEST_CASE("Blocking point-to-point transports do not get stuck" * doctest::test_
       CAPTURE(trial);
       CHECK(simulate(
           Transport::Scheduled, launching, processes, clusters, adjacencies, syncTimes, random));
+    }
+  }
+}
+
+TEST_CASE("The time clusters of several configurations exchange in directions of their own" *
+          doctest::test_suite("solver")) {
+  // e.g. the copy layers of an elastic and an acoustic configuration in the same time cluster, next
+  // to the ghost layers of both on other processes
+  const std::vector<long> syncTimes{6, 13, 16, 29};
+  for (const auto launching : {Launching::PerDirection, Launching::Global}) {
+    // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+    std::mt19937 random(4321);
+    for (int trial = 0; trial < 100; ++trial) {
+      std::uniform_int_distribution<int> processCount(2, 4);
+      std::uniform_int_distribution<std::size_t> timeClusterCount(1, 3);
+      std::uniform_int_distribution<std::size_t> configCount(2, 3);
+      const auto processes = processCount(random);
+      const auto configs = configCount(random);
+      const auto clusters = timeClusterCount(random) * configs;
+      const auto adjacencies = randomAdjacencies(processes, clusters, random, configs);
+      CAPTURE(launching == Launching::Global);
+      CAPTURE(trial);
+      CHECK(simulate(Transport::Scheduled,
+                     launching,
+                     processes,
+                     clusters,
+                     adjacencies,
+                     syncTimes,
+                     random,
+                     configs));
     }
   }
 }

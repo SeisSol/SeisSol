@@ -30,7 +30,7 @@ class StreamMpiExchangeScheduler : public StreamExchangeScheduler {
   /**
    * Sets up the stream communicators or queues; collective over all processes.
    */
-  StreamMpiExchangeScheduler(std::size_t clusterCount, LaunchOrder order);
+  StreamMpiExchangeScheduler(std::size_t clusterCount, LaunchOrder order, std::size_t configCount);
   ~StreamMpiExchangeScheduler() override;
 
   StreamMpiExchangeScheduler(const StreamMpiExchangeScheduler&) = delete;

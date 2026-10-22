@@ -64,8 +64,10 @@ struct StreamMpiExchangeScheduler::Slot {
 #endif
 };
 
-StreamMpiExchangeScheduler::StreamMpiExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
-    : StreamExchangeScheduler(clusterCount, order) {
+StreamMpiExchangeScheduler::StreamMpiExchangeScheduler(std::size_t clusterCount,
+                                                       LaunchOrder order,
+                                                       std::size_t configCount)
+    : StreamExchangeScheduler(clusterCount, order, configCount) {
   slots_.resize(order == LaunchOrder::Global ? 1 : clusterCount * clusterCount);
   for (const auto current : usedSlots()) {
     auto slotData = std::make_unique<Slot>();
@@ -186,8 +188,10 @@ namespace seissol::solver {
 
 struct StreamMpiExchangeScheduler::Slot {};
 
-StreamMpiExchangeScheduler::StreamMpiExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
-    : StreamExchangeScheduler(clusterCount, order) {
+StreamMpiExchangeScheduler::StreamMpiExchangeScheduler(std::size_t clusterCount,
+                                                       LaunchOrder order,
+                                                       std::size_t configCount)
+    : StreamExchangeScheduler(clusterCount, order, configCount) {
   logError() << "This build of SeisSol does not support exchanging the halo data with"
              << "stream-aware MPI.";
 }

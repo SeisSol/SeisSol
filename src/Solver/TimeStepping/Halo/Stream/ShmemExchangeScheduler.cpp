@@ -197,9 +197,9 @@ constexpr std::size_t Alignment = 256;
 
 } // namespace
 
-ShmemExchangeScheduler::ShmemExchangeScheduler(std::size_t clusterCount)
-    : StreamExchangeScheduler(clusterCount, LaunchOrder::Global), rank_(Mpi::mpi.rank()),
-      size_(Mpi::mpi.size()) {
+ShmemExchangeScheduler::ShmemExchangeScheduler(std::size_t clusterCount, std::size_t configCount)
+    : StreamExchangeScheduler(clusterCount, LaunchOrder::Global, configCount),
+      rank_(Mpi::mpi.rank()), size_(Mpi::mpi.size()) {
   shmemInit(Mpi::mpi.comm());
   if (shmemPe() != rank_) {
     logError() << "The SHMEM processing elements are not numbered as the MPI ranks.";
@@ -352,8 +352,8 @@ void ShmemExchangeScheduler::enqueueGroup(std::size_t slot,
 
 namespace seissol::solver {
 
-ShmemExchangeScheduler::ShmemExchangeScheduler(std::size_t clusterCount)
-    : StreamExchangeScheduler(clusterCount, LaunchOrder::Global) {
+ShmemExchangeScheduler::ShmemExchangeScheduler(std::size_t clusterCount, std::size_t configCount)
+    : StreamExchangeScheduler(clusterCount, LaunchOrder::Global, configCount) {
   logError() << "This build of SeisSol does not support exchanging the halo data with SHMEM.";
 }
 

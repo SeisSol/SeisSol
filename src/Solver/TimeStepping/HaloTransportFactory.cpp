@@ -31,18 +31,19 @@ namespace seissol::solver {
 HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
                                            bool persistent,
                                            bool perDirection,
-                                           std::size_t clusterCount)
+                                           std::size_t clusterCount,
+                                           std::size_t configCount)
     : mode_(mode), persistent_(persistent) {
   const auto order = perDirection ? LaunchOrder::PerDirection : LaunchOrder::Global;
   if (mode_ == Mpi::DataTransferMode::DirectCcl) {
-    scheduler_ = std::make_unique<CclExchangeScheduler>(clusterCount, order);
+    scheduler_ = std::make_unique<CclExchangeScheduler>(clusterCount, order, configCount);
   } else if (mode_ == Mpi::DataTransferMode::DirectStreamMpi) {
-    scheduler_ = std::make_unique<StreamMpiExchangeScheduler>(clusterCount, order);
+    scheduler_ = std::make_unique<StreamMpiExchangeScheduler>(clusterCount, order, configCount);
   } else if (mode_ == Mpi::DataTransferMode::DirectShmem) {
     if (perDirection) {
       logWarning() << "The shmem transfer mode exchanges in the global order only.";
     }
-    scheduler_ = std::make_unique<ShmemExchangeScheduler>(clusterCount);
+    scheduler_ = std::make_unique<ShmemExchangeScheduler>(clusterCount, configCount);
   }
 #ifdef SEISSOL_HOST_TASK_GRAPH
   if (parallel::runtime::HostRuntime::scheduling() ==

@@ -39,12 +39,15 @@ enum class LaunchOrder {
  * the stream they run on until the peers have posted their counterparts, as NCCL, RCCL and oneCCL
  * do.
  *
- * A direction of exchange goes from the copy layers of one time cluster to the ghost layers of
- * another one. A process can take part in a direction both as sender (with its copy layer of the
- * first cluster) and as receiver (into its ghost layer next to its copy layer of the second
- * cluster). For each exchange, the scheduler waits until the process is ready for all of its
- * operations in that direction, and launches them as one group. Consequently, all processes
- * launch the groups of a direction in the same order.
+ * A direction of exchange goes from the copy layers of one cluster to the ghost layers of another
+ * one. In a run with several configurations, a cluster is a time cluster of one configuration:
+ * the cluster c stands for the time cluster c / configCount of the configuration c % configCount
+ * (by its position in the configurations of the run), the same on all processes. A process can take
+ * part in a direction both as sender (with its copy layer of the first cluster) and as receiver
+ * (into its ghost layer next to its copy layer of the second cluster). For each exchange, the
+ * scheduler waits until the process is ready for all of its operations in that direction, and
+ * launches them as one group. Consequently, all processes launch the groups of a direction in the
+ * same order.
  *
  * With `LaunchOrder::PerDirection`, each direction needs a stream of its own. With
  * `LaunchOrder::Global`, the groups of all directions go out on one stream, ordered by the point
@@ -58,7 +61,7 @@ class ExchangeScheduler {
   public:
   using Ticket = std::size_t;
 
-  ExchangeScheduler(std::size_t clusterCount, LaunchOrder order);
+  ExchangeScheduler(std::size_t clusterCount, LaunchOrder order, std::size_t configCount = 1);
   virtual ~ExchangeScheduler() = default;
 
   ExchangeScheduler(const ExchangeScheduler&) = delete;
@@ -196,6 +199,14 @@ class ExchangeScheduler {
 
   [[nodiscard]] LaunchOrder launchOrder() const { return order_; }
 
+  /// the time cluster of a cluster, and its configuration (by its position in those of the run)
+  [[nodiscard]] std::size_t timeCluster(std::size_t cluster) const {
+    return cluster / configCount_;
+  }
+  [[nodiscard]] std::size_t configuration(std::size_t cluster) const {
+    return cluster % configCount_;
+  }
+
   protected:
   DeviceTimer* timer_{nullptr};
   double* deviceTime_{nullptr};
@@ -251,6 +262,7 @@ class ExchangeScheduler {
 
   std::size_t clusterCount_;
   LaunchOrder order_;
+  std::size_t configCount_;
   std::vector<Direction> directions_;
   std::size_t transports_{0};
 

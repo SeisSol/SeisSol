@@ -36,8 +36,13 @@ void sortRegions(std::vector<RemoteCluster>& regions) {
 
 } // namespace
 
-ExchangeScheduler::ExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
-    : clusterCount_(clusterCount), order_(order), directions_(clusterCount * clusterCount) {}
+ExchangeScheduler::ExchangeScheduler(std::size_t clusterCount,
+                                     LaunchOrder order,
+                                     std::size_t configCount)
+    : clusterCount_(clusterCount), order_(order), configCount_(configCount),
+      directions_(clusterCount * clusterCount) {
+  assert(configCount > 0 && clusterCount % configCount == 0);
+}
 
 ExchangeScheduler::Direction& ExchangeScheduler::direction(std::size_t from, std::size_t to) {
   assert(from < clusterCount_ && to < clusterCount_);
@@ -48,8 +53,10 @@ void ExchangeScheduler::add(ScheduledTransport& transport) {
   auto& outgoing = direction(transport.cluster(), transport.otherCluster());
   auto& incoming = direction(transport.otherCluster(), transport.cluster());
   if (outgoing.sender != nullptr || incoming.receiver != nullptr) {
-    logError() << "Two halo transports of one process exchange between the clusters"
-               << transport.cluster() << "and" << transport.otherCluster();
+    logError() << "Two halo transports of one process exchange between the time clusters"
+               << timeCluster(transport.cluster()) << "and" << timeCluster(transport.otherCluster())
+               << "of the configurations" << configuration(transport.cluster()) << "and"
+               << configuration(transport.otherCluster()) << "(by their position in the run).";
   }
   outgoing.sender = &transport;
   incoming.receiver = &transport;

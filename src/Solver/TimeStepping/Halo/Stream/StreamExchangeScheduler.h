@@ -32,7 +32,7 @@ namespace seissol::solver {
  */
 class StreamExchangeScheduler : public ExchangeScheduler {
   public:
-  StreamExchangeScheduler(std::size_t clusterCount, LaunchOrder order);
+  StreamExchangeScheduler(std::size_t clusterCount, LaunchOrder order, std::size_t configCount);
   ~StreamExchangeScheduler() override;
 
   StreamExchangeScheduler(const StreamExchangeScheduler&) = delete;
@@ -47,7 +47,8 @@ class StreamExchangeScheduler : public ExchangeScheduler {
   /// the slot of a direction
   [[nodiscard]] std::size_t slot(std::size_t from, std::size_t to) const;
 
-  /// the slots of all directions between neighboring time clusters, each once
+  /// the slots of all directions between neighboring time clusters (of any configurations), each
+  /// once; the same on all processes
   [[nodiscard]] std::vector<std::size_t> usedSlots() const;
 
   [[nodiscard]] void* stream(std::size_t slot) const { return streams_[slot]; }

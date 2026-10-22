@@ -45,7 +45,7 @@ class ShmemExchangeScheduler : public StreamExchangeScheduler {
   /**
    * Initializes the SHMEM library; collective over all processes.
    */
-  explicit ShmemExchangeScheduler(std::size_t clusterCount);
+  ShmemExchangeScheduler(std::size_t clusterCount, std::size_t configCount);
   ~ShmemExchangeScheduler() override;
 
   ShmemExchangeScheduler(const ShmemExchangeScheduler&) = delete;

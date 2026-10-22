@@ -29,12 +29,14 @@ class HaloTransportFactory {
    * Persistent MPI transports set up their requests once and restart them for each transfer. The
    * transports on device streams (CCL, stream-aware MPI, SHMEM) set up their library here,
    * collectively over all processes: for all exchanges in an order that is the same on all
-   * processes, or with `perDirection`, for each direction between two time clusters.
+   * processes, or with `perDirection`, for each direction between two clusters. The clusters are
+   * the time clusters of each of `configCount` configurations (see ExchangeScheduler).
    */
   HaloTransportFactory(Mpi::DataTransferMode mode,
                        bool persistent,
                        bool perDirection,
-                       std::size_t clusterCount);
+                       std::size_t clusterCount,
+                       std::size_t configCount);
   ~HaloTransportFactory();
 
   HaloTransportFactory(const HaloTransportFactory&) = delete;

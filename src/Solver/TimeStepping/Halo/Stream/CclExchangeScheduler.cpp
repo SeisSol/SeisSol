@@ -80,8 +80,10 @@ CCL(DataType_t) datatype(RealType type) {
 
 } // namespace
 
-CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
-    : StreamExchangeScheduler(clusterCount, order),
+CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount,
+                                           LaunchOrder order,
+                                           std::size_t configCount)
+    : StreamExchangeScheduler(clusterCount, order, configCount),
       communicators_(order == LaunchOrder::Global ? 1 : clusterCount * clusterCount, nullptr),
       senders_(communicators_.size(), nullptr), receivers_(communicators_.size(), nullptr) {
 #if defined(CCL_NCCL) || defined(CCL_RCCL)
@@ -231,8 +233,10 @@ void CclExchangeScheduler::enqueueGroup(std::size_t slot,
 
 namespace seissol::solver {
 
-CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount, LaunchOrder order)
-    : StreamExchangeScheduler(clusterCount, order) {
+CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount,
+                                           LaunchOrder order,
+                                           std::size_t configCount)
+    : StreamExchangeScheduler(clusterCount, order, configCount) {
   logError() << "This build of SeisSol does not support exchanging the halo data with CCL.";
 }
 

@@ -349,11 +349,21 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     logInfo() << "The clusters take their steps along the time stepping plan.";
   }
 
+  // the transports go between the time clusters of each configuration of the run; the schedulers
+  // of the device streams tell their directions apart by both, the same way on all processes
+  const auto runConfigs = seissolInstance_.parameters().model.configs();
+  const auto haloCluster = [&](const initializer::LayerIdentifier& identifier) {
+    const auto position = static_cast<std::size_t>(
+        std::find(runConfigs.begin(), runConfigs.end(), identifier.config) - runConfigs.begin());
+    assert(position < runConfigs.size());
+    return identifier.lts * runConfigs.size() + position;
+  };
   haloTransports_ =
       std::make_unique<HaloTransportFactory>(Mpi::mpi.getPreferredDataTransferMode(),
                                              usePersistentMpi(seissolInstance_.env()),
                                              useExchangePerDirection(seissolInstance_.env()),
-                                             clusterLayout.globalClusterCount);
+                                             clusterLayout.globalClusterCount * runConfigs.size(),
+                                             runConfigs.size());
   // what the test of the halo exchange before the time stepping goes through
   std::vector<CheckedTransport> checkedTransports;
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
@@ -378,7 +388,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         const auto otherDisplayName = "ghost-" + std::to_string(other.lts);
 
         const auto& regions = haloStructure.at(layer.id()).at(i);
-        auto transport = haloTransports_->create(regions, layer.getIdentifier().lts, other.lts);
+        auto transport = haloTransports_->create(
+            regions, haloCluster(layer.getIdentifier()), haloCluster(other));
         auto description = displayName;
         description.append(" and ").append(otherDisplayName);
         checkedTransports.push_back(
