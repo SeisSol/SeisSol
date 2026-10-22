@@ -17,6 +17,7 @@
 
 #include <Device/device.h>
 #include <algorithm>
+#include <iterator>
 #include <utility>
 #include <utils/logger.h>
 #endif
@@ -38,6 +39,7 @@ void SuperStepRecorder::dispose() {
     deviceInstance().api().syncStreamWithHost(stream_);
     // the graphs own their executable instances; they have to go before the device does
     graphs_.clear();
+    used_.clear();
     launchedOnce_.clear();
     recording_.reset();
     waitFor_.clear();
@@ -88,6 +90,7 @@ void SuperStepRecorder::endRecording(const Key& key,
                                      const std::vector<void*>& streams) {
   endCapture(clusters, streams);
   graphs_[key] = recording_;
+  used_.insert(key);
 }
 
 void SuperStepRecorder::endRecordingAndLaunch(const std::vector<AbstractTimeCluster*>& clusters,
@@ -142,6 +145,21 @@ void SuperStepRecorder::replay(const Key& key,
                                const std::vector<void*>& streams,
                                double* deviceTime) {
   launch(graphs_.at(key), clusters, streams, deviceTime);
+  used_.insert(key);
+}
+
+void SuperStepRecorder::forgetUnused() {
+  const bool unused = std::any_of(graphs_.begin(), graphs_.end(), [this](const auto& graph) {
+    return used_.count(graph.first) == 0;
+  });
+  if (unused) {
+    // all recordings run on the stream of the recorder
+    deviceInstance().api().syncStreamWithHost(stream_);
+    for (auto graph = graphs_.begin(); graph != graphs_.end();) {
+      graph = used_.count(graph->first) == 0 ? graphs_.erase(graph) : std::next(graph);
+    }
+  }
+  used_.clear();
 }
 
 void SuperStepRecorder::launch(const device::DeviceGraphHandle& graph,
@@ -205,6 +223,8 @@ void SuperStepRecorder::replay(const Key& /*key*/,
                                const std::vector<AbstractTimeCluster*>& /*clusters*/,
                                const std::vector<void*>& /*streams*/,
                                double* /*deviceTime*/) {}
+
+void SuperStepRecorder::forgetUnused() {}
 
 #endif
 

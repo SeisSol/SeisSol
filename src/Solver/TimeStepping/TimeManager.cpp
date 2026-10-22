@@ -692,6 +692,12 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   for (auto& cluster : clusters_) {
     cluster->finishPhase();
   }
+  if (recorder_ != nullptr) {
+    // the super-timesteps that an epoch has not replayed are not likely to come again (e.g. after
+    // the step sizes have changed); their recordings would hold memory of the device to the end
+    recorder_->forgetUnused();
+    seenSuperStepsBefore_ = std::exchange(seenSuperSteps_, {});
+  }
   finishActivity(epochBegin);
   if (monitoring::Trace::recording()) {
     std::ostringstream name;
@@ -934,8 +940,9 @@ void TimeManager::followPlan() {
     const bool reuse = graphMode_ != SuperStepGraphMode::Rebuild;
     const bool replayNow = reuse && replayable && recorder_->has(key);
     // recorded to be replayed later, or else (with the experimental modes) launched once
-    const bool keep = reuse && replayable && !replayNow &&
-                      (seenSuperSteps_.count(key) > 0 || graphMode_ == SuperStepGraphMode::Always);
+    const bool seen = seenSuperSteps_.count(key) > 0 || seenSuperStepsBefore_.count(key) > 0;
+    const bool keep =
+        reuse && replayable && !replayNow && (seen || graphMode_ == SuperStepGraphMode::Always);
     const bool once =
         !replayNow && !keep && replay_ && graphMode_ != SuperStepGraphMode::Replay && !hostWork;
 

@@ -15,6 +15,7 @@
 
 #include <cstddef>
 #include <map>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -108,6 +109,14 @@ class SuperStepRecorder {
   [[nodiscard]] ActorEvent lastEvent() const;
 
   /**
+   * Releases the recordings that have been neither recorded nor replayed since the last call (e.g.
+   * at the end of each epoch), after the device is past them: super-timesteps whose step sizes
+   * have changed would otherwise keep their recordings, and the memory of the device for them, up
+   * to the end of the run.
+   */
+  void forgetUnused();
+
+  /**
    * Releases the device resources; needs to happen before the device is finalized, and after
    * everybody has let go of the events of the recorder.
    */
@@ -141,6 +150,8 @@ class SuperStepRecorder {
   std::vector<ActorEvent> waitFor_;
   device::DeviceGraphHandle recording_;
   std::map<Key, device::DeviceGraphHandle> graphs_;
+  // the keys recorded or replayed since the last forgetUnused()
+  std::set<Key> used_;
   // the recordings launched once, until the event after each has completed
   std::vector<std::pair<device::DeviceGraphHandle, ActorEvent>> launchedOnce_;
 #endif

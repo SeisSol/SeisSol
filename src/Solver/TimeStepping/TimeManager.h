@@ -132,8 +132,10 @@ class TimeManager {
   bool replay_{false};
   SuperStepGraphMode graphMode_{SuperStepGraphMode::Replay};
   std::unique_ptr<SuperStepRecorder> recorder_;
-  //! the regular super-timesteps that have run once without a recording
+  //! the regular super-timesteps that have run once without a recording, in this epoch and in the
+  //! one before; older ones get forgotten, as the recordings that an epoch has not replayed
   std::set<SuperStepRecorder::Key> seenSuperSteps_;
+  std::set<SuperStepRecorder::Key> seenSuperStepsBefore_;
 
   //! the ghost clusters act on a thread of their own
   bool commThread_{false};
