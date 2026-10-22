@@ -10,6 +10,7 @@
 
 #include "Memory/HostData.h"
 #include "Modules/Module.h"
+#include "Modules/Modules.h"
 
 namespace seissol::monitoring {
 
@@ -26,9 +27,9 @@ class EpochSynchronization : public Module {
   /**
    * @brief Synchronizes at the multiples of @p interval ; not at all if it is not positive.
    *
-   * To be called before the simulation starts.
+   * To be called before the simulation starts; registers with @p modules for it.
    */
-  void init(double interval);
+  void init(Modules& modules, double interval);
 
   [[nodiscard]] initializer::HostData hostData() const override { return {}; }
 

@@ -26,7 +26,7 @@
 
 namespace seissol {
 
-void Modules::_registerHook(Module& module, ModuleHook hook, ModulePriority priority) {
+void Modules::registerHook(Module& module, ModuleHook hook, ModulePriority priority) {
   assert(static_cast<int>(hook) < static_cast<int>(ModuleHook::MaxHooks));
 
   if (nextHook_ >= ModuleHook::MaxInitHooks) {
@@ -43,8 +43,6 @@ void Modules::_registerHook(Module& module, ModuleHook hook, ModulePriority prio
 
 const char* Modules::strHook(ModuleHook hook) {
   switch (hook) {
-  case ModuleHook::PreMPI:
-    return "PRE_MPI";
   case ModuleHook::PostMPIInit:
     return "POST_MPI_INIT";
   case ModuleHook::PreMesh:
@@ -77,7 +75,7 @@ Modules::Modules() = default;
 Modules::~Modules() = default;
 
 std::vector<Module*>
-    Modules::_dueAt(double currentTime, double timeTolerance, bool forceSyncPoint) const {
+    Modules::dueAt(double currentTime, double timeTolerance, bool forceSyncPoint) const {
   std::vector<Module*> due;
   for (const auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
     if (module->dueAt(currentTime, timeTolerance, forceSyncPoint)) {
@@ -87,26 +85,26 @@ std::vector<Module*>
   return due;
 }
 
-bool Modules::_asynchronous(const std::vector<Module*>& due) const {
+bool Modules::asynchronous(const std::vector<Module*>& due) const {
   return worker_ != nullptr && !due.empty() &&
          std::all_of(due.begin(), due.end(), [](const Module* module) {
            return module->processesAsynchronously();
          });
 }
 
-double Modules::_callSyncHook(double currentTime,
-                              double timeTolerance,
-                              bool forceSyncPoint,
-                              const std::function<void()>& awaitHostData) {
+double Modules::callSyncHook(double currentTime,
+                             double timeTolerance,
+                             bool forceSyncPoint,
+                             const std::function<void()>& awaitHostData) {
   auto& modules = hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)];
 
   // With a thread for the outputs, the modules due here process the synchronization point there,
   // if all of them can, one after the other, as they would on the main thread; so they keep their
   // order (e.g. of their collectives) on all ranks.
-  const auto due = _dueAt(currentTime, timeTolerance, forceSyncPoint);
+  const auto due = dueAt(currentTime, timeTolerance, forceSyncPoint);
 
   double nextSyncTime = std::numeric_limits<double>::max();
-  if (_asynchronous(due)) {
+  if (asynchronous(due)) {
     for (auto* module : due) {
       module->captureSyncPoint(currentTime);
       module->markSyncPoint(currentTime);
@@ -138,8 +136,14 @@ double Modules::_callSyncHook(double currentTime,
   return nextSyncTime;
 }
 
+bool Modules::processesAsynchronouslyAt(double currentTime,
+                                        double timeTolerance,
+                                        bool forceSyncPoint) const {
+  return asynchronous(dueAt(currentTime, timeTolerance, forceSyncPoint));
+}
+
 initializer::HostData
-    Modules::_hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint) const {
+    Modules::hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint) const {
   initializer::HostData data;
   for (const auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
     if (module->dueAt(currentTime, timeTolerance, forceSyncPoint)) {
@@ -149,7 +153,25 @@ initializer::HostData
   return data;
 }
 
-void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
+void Modules::startOutputWorker(const async::as::CpuMask& cpus, int ompThreads) {
+  assert(worker_ == nullptr);
+  worker_ = std::make_unique<OutputWorker>(cpus, ompThreads);
+}
+
+void Modules::waitForOutputs() {
+  if (worker_ != nullptr) {
+    worker_->wait();
+  }
+}
+
+bool Modules::outputWorkerRunning() const { return worker_ != nullptr; }
+
+void Modules::stopOutputWorker() {
+  // the thread processes what is left before it ends
+  worker_.reset();
+}
+
+void Modules::callSimulationStartHook(std::optional<double> checkpointTime) {
   assert(static_cast<int>(nextHook_) <= static_cast<int>(ModuleHook::SynchronizationPoint));
 
   const auto startTime = checkpointTime.value_or(0);
@@ -165,56 +187,6 @@ void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
   }
 }
 
-Modules& Modules::instance() {
-  static Modules instance;
-  return instance;
-}
-
-void Modules::registerHook(Module& module, ModuleHook hook, ModulePriority priority) {
-  instance()._registerHook(module, hook, priority);
-}
-
-double Modules::callSyncHook(double currentTime,
-                             double timeTolerance,
-                             bool forceSyncPoint,
-                             const std::function<void()>& awaitHostData) {
-  return instance()._callSyncHook(currentTime, timeTolerance, forceSyncPoint, awaitHostData);
-}
-
-bool Modules::processesAsynchronouslyAt(double currentTime,
-                                        double timeTolerance,
-                                        bool forceSyncPoint) {
-  auto& modules = instance();
-  return modules._asynchronous(modules._dueAt(currentTime, timeTolerance, forceSyncPoint));
-}
-
-initializer::HostData
-    Modules::hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint) {
-  return instance()._hostDataAt(currentTime, timeTolerance, forceSyncPoint);
-}
-
-void Modules::startOutputWorker(const async::as::CpuMask& cpus, int ompThreads) {
-  assert(instance().worker_ == nullptr);
-  instance().worker_ = std::make_unique<OutputWorker>(cpus, ompThreads);
-}
-
-void Modules::waitForOutputs() {
-  if (instance().worker_ != nullptr) {
-    instance().worker_->wait();
-  }
-}
-
-bool Modules::outputWorkerRunning() { return instance().worker_ != nullptr; }
-
-void Modules::stopOutputWorker() {
-  // the thread processes what is left before it ends
-  instance().worker_.reset();
-}
-
-void Modules::callSimulationStartHook(std::optional<double> checkpointTime) {
-  instance()._callSimulationStartHook(checkpointTime);
-}
-
 // Create all template instances for call
 #define MODULES_CALL_INSTANCE(enum, func)                                                          \
   template <>                                                                                      \
@@ -222,7 +194,6 @@ void Modules::callSimulationStartHook(std::optional<double> checkpointTime) {
     module->func();                                                                                \
   }
 
-MODULES_CALL_INSTANCE(ModuleHook::PreMPI, preMPI)
 MODULES_CALL_INSTANCE(ModuleHook::PostMPIInit, postMPIInit)
 MODULES_CALL_INSTANCE(ModuleHook::PreMesh, preMesh)
 MODULES_CALL_INSTANCE(ModuleHook::PostMesh, postMesh)

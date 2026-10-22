@@ -10,6 +10,7 @@
 
 #include "Memory/HostData.h"
 #include "Modules/Module.h"
+#include "Modules/Modules.h"
 
 #include <functional>
 
@@ -26,7 +27,7 @@ class PickpointWriter : public seissol::Module {
   void simulationStart(std::optional<double> checkpointTime) override;
   void simulationEnd() override;
 
-  void enable(double interval);
+  void enable(Modules& modules, double interval);
   /// `capture` takes the samples cached so far, `write` writes what it took.
   void setupWriter(const std::function<void()>& capture, const std::function<void()>& write);
 

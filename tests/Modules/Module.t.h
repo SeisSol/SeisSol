@@ -17,8 +17,6 @@ class TestModule : public seissol::Module {
   ModuleHook state{ModuleHook::NullHook};
   double time{0};
 
-  void preMPI() override { state = ModuleHook::PreMPI; }
-
   void postMPIInit() override { state = ModuleHook::PostMPIInit; }
 
   void preMesh() override { state = ModuleHook::PreMesh; }
@@ -47,28 +45,27 @@ class TestModule : public seissol::Module {
 
   void shutdown() override { state = ModuleHook::Shutdown; }
 
-  TestModule(bool regAll, double interval) {
+  TestModule(Modules& modules, bool regAll, double interval) {
     setSyncInterval(interval);
 
     if (regAll) {
-      seissol::Modules::registerHook(*this, ModuleHook::PreMPI);
-      seissol::Modules::registerHook(*this, ModuleHook::PostMPIInit);
-      seissol::Modules::registerHook(*this, ModuleHook::PreMesh);
+      modules.registerHook(*this, ModuleHook::PostMPIInit);
+      modules.registerHook(*this, ModuleHook::PreMesh);
     }
 
-    seissol::Modules::registerHook(*this, ModuleHook::PostMesh);
+    modules.registerHook(*this, ModuleHook::PostMesh);
 
     if (regAll) {
-      seissol::Modules::registerHook(*this, ModuleHook::PreLtsInit);
-      seissol::Modules::registerHook(*this, ModuleHook::PostLtsInit);
-      seissol::Modules::registerHook(*this, ModuleHook::PreModel);
-      seissol::Modules::registerHook(*this, ModuleHook::PostModel);
+      modules.registerHook(*this, ModuleHook::PreLtsInit);
+      modules.registerHook(*this, ModuleHook::PostLtsInit);
+      modules.registerHook(*this, ModuleHook::PreModel);
+      modules.registerHook(*this, ModuleHook::PostModel);
     }
 
-    seissol::Modules::registerHook(*this, ModuleHook::SimulationStart);
-    seissol::Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
-    seissol::Modules::registerHook(*this, ModuleHook::SimulationEnd);
-    seissol::Modules::registerHook(*this, ModuleHook::Shutdown);
+    modules.registerHook(*this, ModuleHook::SimulationStart);
+    modules.registerHook(*this, ModuleHook::SynchronizationPoint);
+    modules.registerHook(*this, ModuleHook::SimulationEnd);
+    modules.registerHook(*this, ModuleHook::Shutdown);
   }
 };
 
@@ -76,9 +73,9 @@ class SyncOnlyModule : public seissol::Module {
   public:
   ModuleHook state{ModuleHook::NullHook};
   double time{0};
-  explicit SyncOnlyModule(double interval) {
+  SyncOnlyModule(Modules& modules, double interval) {
     setSyncInterval(interval);
-    seissol::Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
+    modules.registerHook(*this, ModuleHook::SynchronizationPoint);
   }
   void syncPoint(double time) override {
     state = ModuleHook::SynchronizationPoint;
@@ -87,46 +84,45 @@ class SyncOnlyModule : public seissol::Module {
 };
 
 TEST_CASE("Module runthrough" * doctest::test_suite("modules")) {
-  TestModule mod1(true, 2);
-  TestModule mod2(false, 3);
-  SyncOnlyModule syncOnly(1000);
-  SyncOnlyModule syncOnlyShort(2);
+  // declared first, so that it outlives every module registered with it
+  Modules modules;
 
-  Modules::callHook<ModuleHook::PreMPI>();
-  CHECK(mod1.state == ModuleHook::PreMPI);
-  CHECK(mod2.state == ModuleHook::NullHook);
+  TestModule mod1(modules, true, 2);
+  TestModule mod2(modules, false, 3);
+  SyncOnlyModule syncOnly(modules, 1000);
+  SyncOnlyModule syncOnlyShort(modules, 2);
 
-  Modules::callHook<ModuleHook::PostMPIInit>();
+  modules.callHook<ModuleHook::PostMPIInit>();
   CHECK(mod1.state == ModuleHook::PostMPIInit);
   CHECK(mod2.state == ModuleHook::NullHook);
 
-  Modules::callHook<ModuleHook::PreMesh>();
+  modules.callHook<ModuleHook::PreMesh>();
   CHECK(mod1.state == ModuleHook::PreMesh);
   CHECK(mod2.state == ModuleHook::NullHook);
 
-  Modules::callHook<ModuleHook::PostMesh>();
+  modules.callHook<ModuleHook::PostMesh>();
   CHECK(mod1.state == ModuleHook::PostMesh);
   CHECK(mod2.state == ModuleHook::PostMesh);
 
-  Modules::callHook<ModuleHook::PreLtsInit>();
+  modules.callHook<ModuleHook::PreLtsInit>();
   CHECK(mod1.state == ModuleHook::PreLtsInit);
   CHECK(mod2.state == ModuleHook::PostMesh);
 
-  Modules::callHook<ModuleHook::PostLtsInit>();
+  modules.callHook<ModuleHook::PostLtsInit>();
   CHECK(mod1.state == ModuleHook::PostLtsInit);
   CHECK(mod2.state == ModuleHook::PostMesh);
 
-  Modules::callHook<ModuleHook::PreModel>();
+  modules.callHook<ModuleHook::PreModel>();
   CHECK(mod1.state == ModuleHook::PreModel);
   CHECK(mod2.state == ModuleHook::PostMesh);
 
-  Modules::callHook<ModuleHook::PostModel>();
+  modules.callHook<ModuleHook::PostModel>();
   CHECK(mod1.state == ModuleHook::PostModel);
   CHECK(mod2.state == ModuleHook::PostMesh);
 
   const auto startTime = 1.4;
 
-  Modules::callSimulationStartHook(startTime);
+  modules.callSimulationStartHook(startTime);
   CHECK(mod1.state == ModuleHook::SimulationStart);
   CHECK(mod2.state == ModuleHook::SimulationStart);
 
@@ -162,7 +158,7 @@ TEST_CASE("Module runthrough" * doctest::test_suite("modules")) {
   double syncOnlyShortTime = 0;
 
   // first check; noone will be called
-  time = Modules::callSyncHook(time, 1e-14, false);
+  time = modules.callSyncHook(time, 1e-14, false);
   REQUIRE(syncOnly.state == ModuleHook::NullHook);
   REQUIRE(syncOnlyShort.state == ModuleHook::NullHook);
   REQUIRE(syncOnly.time == 0);
@@ -181,7 +177,7 @@ TEST_CASE("Module runthrough" * doctest::test_suite("modules")) {
       syncOnlyShortTime = expectedTimes[i];
     }
 
-    time = Modules::callSyncHook(time, 1e-14, false);
+    time = modules.callSyncHook(time, 1e-14, false);
 
     // exact comparison is ok here (or rather, _should_ be)
 
@@ -206,11 +202,11 @@ TEST_CASE("Module runthrough" * doctest::test_suite("modules")) {
     }
   }
 
-  Modules::callHook<ModuleHook::SimulationEnd>();
+  modules.callHook<ModuleHook::SimulationEnd>();
   CHECK(mod1.state == ModuleHook::SimulationEnd);
   CHECK(mod2.state == ModuleHook::SimulationEnd);
 
-  Modules::callHook<ModuleHook::Shutdown>();
+  modules.callHook<ModuleHook::Shutdown>();
   CHECK(mod1.state == ModuleHook::Shutdown);
   CHECK(mod2.state == ModuleHook::Shutdown);
 }

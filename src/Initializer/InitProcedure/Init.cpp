@@ -146,16 +146,28 @@ void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
 
   auto& parallel = seissolInstance.runSummary()["parallel"];
   parallel["commThread"] = useCommThread(seissol::Mpi::mpi, seissolInstance.env());
-  parallel["asyncMode"] = [] {
-    switch (async::Config::mode()) {
+  const auto layout = seissolInstance.asyncIO().layout();
+  parallel["asyncMode"] = [&layout] {
+    switch (layout.mode) {
     case async::Mode::Thread:
       return "thread";
     case async::Mode::MPI:
-      return "mpi";
+      return "node";
     default:
       return "sync";
     }
   }();
+  parallel["asyncAuto"] = seissolInstance.asyncIO().automatic();
+  if (layout.mode == async::Mode::MPI) {
+    auto& executors = parallel["asyncExecutors"];
+    executors["executors"] = layout.executors;
+    executors["nodes"] = layout.nodes;
+    executors["executorsPerNode"] = layout.executorsPerNode;
+    executors["groupNodes"] = layout.groupNodes;
+    executors["exclusive"] = layout.exclusive;
+    executors["minGroupRanks"] = layout.minGroupRanks;
+    executors["maxGroupRanks"] = layout.maxGroupRanks;
+  }
 }
 
 /**

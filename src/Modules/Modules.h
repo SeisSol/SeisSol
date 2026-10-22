@@ -49,112 +49,59 @@ enum class ModulePriority : int {
  */
 enum class ModuleHook : int {
   NullHook = -1,
-  PreMPI = 0,
-  PostMPIInit = 1,
-  PreMesh = 2,
-  PostMesh = 3,
-  PreLtsInit = 4,
-  PostLtsInit = 5,
-  PreModel = 6,
-  PostModel = 7,
+  PostMPIInit = 0,
+  PreMesh = 1,
+  PostMesh = 2,
+  PreLtsInit = 3,
+  PostLtsInit = 4,
+  PreModel = 5,
+  PostModel = 6,
   /**
    * Called when the simulation starts.
    *
    * @warning Only called when the simulation is not loaded from a checkpoint.
    */
-  SimulationStart = 8,
+  SimulationStart = 7,
   /**
    * Global synchronization point during simulation
    *
    * Registering for this hook requires setting the update interval.
    */
-  SynchronizationPoint = 9,
-  SimulationEnd = 10,
-  Shutdown = 11,
-  FirstHook = PreMPI,
+  SynchronizationPoint = 8,
+  SimulationEnd = 9,
+  Shutdown = 10,
+  FirstHook = PostMPIInit,
   MaxInitHooks = SimulationStart + 1,
   MaxHooks = Shutdown + 1
 };
 
 /**
- * Manages SeisSol modules
+ * Manages the modules of a single SeisSol instance.
+ *
+ * The registry holds non-owning pointers to the modules that register with it, so it has to
+ * outlive all of them.
  */
 class Modules {
-  private:
-  std::array<std::multimap<ModulePriority, Module*>, static_cast<size_t>(ModuleHook::MaxHooks)>
-      hooks_;
-
-  /** The hook that should be called next */
-  ModuleHook nextHook_{ModuleHook::FirstHook};
-
-  /** The thread the outputs may process their synchronization points on */
-  std::unique_ptr<OutputWorker> worker_;
-
+  public:
   Modules();
   ~Modules();
 
   /**
-   * Do the real work for registering for a hook
+   * Register a module for a hook.
+   *
+   * Only permitted before the initialization phase has passed the hook in question.
    */
-  void _registerHook(Module& module, ModuleHook hook, ModulePriority priority);
+  void registerHook(Module& module,
+                    ModuleHook hook,
+                    ModulePriority priority = ModulePriority::Default);
 
-  /**
-   * Do the real work for handling a hook
-   */
   template <ModuleHook Hook>
-  void _callHook() {
+  void callHook() {
     for (auto& [_, module] : hooks_[static_cast<size_t>(Hook)]) {
       call<Hook>(module);
     }
 
     nextHook_ = static_cast<ModuleHook>(static_cast<int>(Hook) + 1);
-  }
-
-  double _callSyncHook(double currentTime,
-                       double timeTolerance,
-                       bool forceSyncPoint,
-                       const std::function<void()>& awaitHostData);
-
-  [[nodiscard]] std::vector<Module*>
-      _dueAt(double currentTime, double timeTolerance, bool forceSyncPoint) const;
-
-  /**
-   * Whether the modules `due` at a synchronization point process it on the thread of the outputs.
-   */
-  [[nodiscard]] bool _asynchronous(const std::vector<Module*>& due) const;
-
-  [[nodiscard]] initializer::HostData
-      _hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint) const;
-
-  /**
-   * Set the simulation start time.
-   *
-   * This is required to handle synchronization points correctly when the simulation starts
-   * from a checkpoint.
-   */
-  void _callSimulationStartHook(std::optional<double> checkpointTime);
-
-  template <ModuleHook Hook>
-  static void call(Module* module);
-
-  static const char* strHook(ModuleHook hook);
-
-  /**
-   * The only instance of this class
-   *
-   * We need to use a static function to prevent the "static initialization order fiasco".
-   */
-  static Modules& instance();
-
-  // Public interface
-  public:
-  static void registerHook(Module& module,
-                           ModuleHook hook,
-                           ModulePriority priority = ModulePriority::Default);
-
-  template <ModuleHook Hook>
-  static void callHook() {
-    instance()._callHook<Hook>();
   }
 
   /**
@@ -166,55 +113,81 @@ class Modules {
    *
    * @todo The time tolerance is global constant, maybe not necessary to pass it here
    */
-  static double callSyncHook(double currentTime,
-                             double timeTolerance,
-                             bool forceSyncPoint = false,
-                             const std::function<void()>& awaitHostData = {});
+  double callSyncHook(double currentTime,
+                      double timeTolerance,
+                      bool forceSyncPoint = false,
+                      const std::function<void()>& awaitHostData = {});
 
   /**
    * Whether the modules due at a synchronization point process it on the thread of the outputs
    * (see startOutputWorker()); for the same arguments as callSyncHook(), before it.
    */
-  [[nodiscard]] static bool processesAsynchronouslyAt(double currentTime,
-                                                      double timeTolerance,
-                                                      bool forceSyncPoint = false);
+  [[nodiscard]] bool processesAsynchronouslyAt(double currentTime,
+                                               double timeTolerance,
+                                               bool forceSyncPoint = false) const;
 
   /**
    * The variables of the storages that the modules due at a synchronization point read on the
    * host there; for the same arguments as callSyncHook(), before it.
    */
-  [[nodiscard]] static initializer::HostData
-      hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint = false);
+  [[nodiscard]] initializer::HostData
+      hostDataAt(double currentTime, double timeTolerance, bool forceSyncPoint = false) const;
 
   /**
    * Starts a thread on `cpus`, on which the modules due at a synchronization point process it
    * (see Module::processSyncPoint()) while the time stepping goes on, if all of them can; with up
    * to `ompThreads` threads in its OpenMP regions.
    */
-  static void startOutputWorker(const async::as::CpuMask& cpus, int ompThreads);
+  void startOutputWorker(const async::as::CpuMask& cpus, int ompThreads);
 
   /** Waits until the synchronization points so far are processed. */
-  static void waitForOutputs();
+  void waitForOutputs();
 
   /** Whether the outputs have a thread of their own. */
-  [[nodiscard]] static bool outputWorkerRunning();
+  [[nodiscard]] bool outputWorkerRunning() const;
 
   /** Waits for the outputs, and ends the thread they are processed on. */
-  static void stopOutputWorker();
+  void stopOutputWorker();
 
   /**
-   * Set the simulation start time
+   * Set the simulation start time.
+   *
+   * This is required to handle synchronization points correctly when the simulation starts
+   * from a checkpoint.
    */
-  static void callSimulationStartHook(std::optional<double> checkpointTime);
+  void callSimulationStartHook(std::optional<double> checkpointTime);
+
+  private:
+  std::array<std::multimap<ModulePriority, Module*>, static_cast<size_t>(ModuleHook::MaxHooks)>
+      hooks_;
+
+  /** The hook that should be called next */
+  ModuleHook nextHook_{ModuleHook::FirstHook};
+
+  /** The thread the outputs may process their synchronization points on */
+  std::unique_ptr<OutputWorker> worker_;
+
+  [[nodiscard]] std::vector<Module*>
+      dueAt(double currentTime, double timeTolerance, bool forceSyncPoint) const;
+
+  /**
+   * Whether the modules `due` at a synchronization point process it on the thread of the outputs.
+   */
+  [[nodiscard]] bool asynchronous(const std::vector<Module*>& due) const;
+
+  template <ModuleHook Hook>
+  static void call(Module* module);
+
+  static const char* strHook(ModuleHook hook);
 };
 
 template <>
-inline void seissol::Modules::_callHook<ModuleHook::SimulationStart>() {
+inline void seissol::Modules::callHook<ModuleHook::SimulationStart>() {
   logError() << "Simulation start hooks have to be called with \"callSimulationStartHook\"";
 }
 
 template <>
-inline void seissol::Modules::_callHook<ModuleHook::SynchronizationPoint>() {
+inline void seissol::Modules::callHook<ModuleHook::SynchronizationPoint>() {
   logError() << "Synchronization point hooks have to be called with \"callSyncHook\"";
 }
 

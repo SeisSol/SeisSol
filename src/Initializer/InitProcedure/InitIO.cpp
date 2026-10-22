@@ -1010,7 +1010,8 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
 
   seissolInstance.flopCounter().init(seissolParams.output.prefix, seissolInstance.runId());
 
-  seissolInstance.epochSynchronization().init(seissolParams.output.epochInterval);
+  seissolInstance.epochSynchronization().init(seissolInstance.modules(),
+                                              seissolParams.output.epochInterval);
 
   seissolInstance.analysisWriter().init(&seissolInstance.meshReader(), seissolParams.output.prefix);
 }

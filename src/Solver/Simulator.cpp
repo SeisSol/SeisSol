@@ -83,7 +83,7 @@ void startOutputThread(SeisSol& seissolInstance) {
   }
   const auto threads =
       std::min(OutputWorker::cpuCount(cpus), static_cast<int>(OpenMP::threadCount()));
-  Modules::startOutputWorker(cpus, threads);
+  seissolInstance.modules().startOutputWorker(cpus, threads);
   logInfo() << "The outputs are processed on a thread of their own, with" << threads
             << "OpenMP threads, on the CPUs" << parallel::Pinning::maskToString(cpus).c_str();
 }
@@ -148,15 +148,16 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   const double timeTolerance = seissolInstance.timeManager().getTimeTolerance();
 
+  auto& modules = seissolInstance.modules();
   startOutputThread(seissolInstance);
   const bool snapshots =
-      Modules::outputWorkerRunning() && keepOutputSnapshots(seissolInstance.env());
+      modules.outputWorkerRunning() && keepOutputSnapshots(seissolInstance.env());
 
   // Write initial wave field snapshot
   if (checkpoint_) {
-    Modules::callSimulationStartHook(currentTime_);
+    modules.callSimulationStartHook(currentTime_);
   } else {
-    Modules::callSimulationStartHook(std::optional<double>{});
+    modules.callSimulationStartHook(std::optional<double>{});
   }
 
   // derive next synchronization time
@@ -164,7 +165,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // NOTE: This will not call the module specific implementation of the synchronization hook
   // since the current time is the simulation start time. We only use this function here to
   // get correct upcoming time. To be on the safe side, we use zero time tolerance.
-  upcomingTime = std::min(upcomingTime, Modules::callSyncHook(currentTime_, 0.0));
+  upcomingTime = std::min(upcomingTime, modules.callSyncHook(currentTime_, 0.0));
 
   // The times of an epoch are the differences of what the stopwatches accumulated (pause returns
   // that); split measures from the last start, through any pause since, so after the IO of an
@@ -217,7 +218,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     // once they are done, what they decided (see abort()) is the same on all ranks
     seissolInstance.timeManager().setWatchdogPhase(monitoring::Watchdog::Phase::Other,
                                                    "the outputs of the last epoch");
-    Modules::waitForOutputs();
+    modules.waitForOutputs();
     aborted_ = aborted_ || abortRequested_;
     seissolInstance.timeManager().setWatchdogPhase(monitoring::Watchdog::Phase::Other,
                                                    "a synchronization point");
@@ -226,16 +227,16 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     // synchronization point, it copies the data there from the snapshots, while the device goes on
     // with the next epoch
     const bool fromSnapshot =
-        snapshots && Modules::processesAsynchronouslyAt(currentTime_, timeTolerance);
-    seissolInstance.timeManager().synchronizeToHost(
-        Modules::hostDataAt(currentTime_, timeTolerance), fromSnapshot);
+        snapshots && modules.processesAsynchronouslyAt(currentTime_, timeTolerance);
+    seissolInstance.timeManager().synchronizeToHost(modules.hostDataAt(currentTime_, timeTolerance),
+                                                    fromSnapshot);
 
     // Check all synchronization point hooks and set the new upcoming time
     upcomingTime = std::min(
-        finalTime_, Modules::callSyncHook(currentTime_, timeTolerance, false, [&seissolInstance] {
+        finalTime_, modules.callSyncHook(currentTime_, timeTolerance, false, [&seissolInstance] {
           seissolInstance.timeManager().copySnapshotToHost();
         }));
-    if (!Modules::outputWorkerRunning()) {
+    if (!modules.outputWorkerRunning()) {
       aborted_ = aborted_ || abortRequested_;
     }
 
@@ -273,15 +274,15 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // all data, for the outputs at the end and the analysis
   seissolInstance.timeManager().setWatchdogPhase(monitoring::Watchdog::Phase::Other,
                                                  "the outputs at the end");
-  Modules::waitForOutputs();
+  modules.waitForOutputs();
   seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
-  Modules::callSyncHook(currentTime_, timeTolerance, true);
+  modules.callSyncHook(currentTime_, timeTolerance, true);
   // the outputs end on the main thread
-  Modules::stopOutputWorker();
+  modules.stopOutputWorker();
 
   // and the writes still under way finish
-  Modules::callHook<ModuleHook::SimulationEnd>();
+  modules.callHook<ModuleHook::SimulationEnd>();
   seissolInstance.timeManager().setWatchdogPhase(monitoring::Watchdog::Phase::Idle, "the end");
 
   const double ioTime = ioStopwatch.pause();

@@ -119,8 +119,8 @@ to the number of nodes you want to run on. A rule of thumb for optimal performan
 
   export SEISSOL_CHECKPOINT_ALIGNMENT=8388608
   export SEISSOL_CHECKPOINT_DIRECT=1
-  export ASYNC_MODE=THREAD
-  export ASYNC_BUFFER_ALIGNMENT=8388608
+  export SEISSOL_ASYNC_MODE=THREAD
+  export SEISSOL_ASYNC_BUFFER_ALIGNMENT=8388608
 
   echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS
   ulimit -Ss 2097152

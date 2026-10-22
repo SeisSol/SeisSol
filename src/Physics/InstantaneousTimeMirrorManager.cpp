@@ -92,7 +92,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   this->ltsStorage_ = &ltsStorage;
   this->clusterLayout_ = clusterLayout;
   setSyncInterval(triggerTime);
-  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
+  seissolInstance_.modules().registerHook(*this, ModuleHook::SynchronizationPoint);
 }
 
 void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
