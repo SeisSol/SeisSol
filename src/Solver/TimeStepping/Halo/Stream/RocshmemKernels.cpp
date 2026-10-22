@@ -49,12 +49,30 @@ __global__ void quietKernel() { ::rocshmem::rocshmem_quiet(); }
 
 int initialize(MPI_Comm comm) {
   ::rocshmem::rocshmem_init_attr_t attributes{};
+#ifdef HAVE_EXTERNAL_MPI
   // (read during the initialization)
   attributes.mpi_comm = &comm;
-  return ::rocshmem::rocshmem_init_attr(::rocshmem::ROCSHMEM_INIT_WITH_MPI_COMM, &attributes) ==
-                 ::rocshmem::ROCSHMEM_SUCCESS
-             ? 0
-             : 1;
+  const auto flags = ::rocshmem::ROCSHMEM_INIT_WITH_MPI_COMM;
+#else
+  // Built without an MPI at hand (as in TheRock), ROCSHMEM looks up the predefined objects of Open
+  // MPI with dlsym in the MPI library. That misses the copies an executable gets by copy
+  // relocations where it uses these objects itself, as SeisSol does, which are the ones MPI sets
+  // up: the check of the IPC backend crashed in MPI_Comm_split_type with MPI_INFO_NULL. With a
+  // unique ID that the processes share here, ROCSHMEM bootstraps over TCP instead and leaves these
+  // objects alone.
+  int rank = 0;
+  int size = 0;
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &size);
+  ::rocshmem::rocshmem_uniqueid_t uid{};
+  if (rank == 0 && ::rocshmem::rocshmem_get_uniqueid(&uid) != ::rocshmem::ROCSHMEM_SUCCESS) {
+    return 1;
+  }
+  MPI_Bcast(uid.data(), static_cast<int>(uid.size()), MPI_BYTE, 0, comm);
+  ::rocshmem::rocshmem_set_attr_uniqueid_args(rank, size, &uid, &attributes);
+  const auto flags = ::rocshmem::ROCSHMEM_INIT_WITH_UNIQUEID;
+#endif
+  return ::rocshmem::rocshmem_init_attr(flags, &attributes) == ::rocshmem::ROCSHMEM_SUCCESS ? 0 : 1;
 }
 
 void finalize() { ::rocshmem::rocshmem_finalize(); }

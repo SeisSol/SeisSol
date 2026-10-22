@@ -241,7 +241,8 @@ All outputs came out bitwise the same, except for the energy output, whose sums 
   ``ccl`` and ``shmem`` with and without recorded super-timesteps;
 - with two processes on the HIP GPU (as gfx1100), ``ccl`` with RCCL 2.21 (ROCm 6.3.4) and with the RCCL of a TheRock
   nightly (HIP 7.17), and ``shmem`` with ROCSHMEM 3.3 (its development branch, built for the IPC backend and ROCm 7.2,
-  run with HIP 7.17, as HIP 7.2 hangs with several processes there); with and without recorded super-timesteps;
+  run with HIP 7.17, as HIP 7.2 hangs with several processes there) and with the ROCSHMEM 3.8 of TheRock
+  (built with TheRock for gfx1150); with and without recorded super-timesteps;
 - with SYCL (AdaptiveCpp, generic target, on the NVIDIA GPU), one and two processes, concurrent clusters
   (AdaptiveCpp cannot record graphs).
 
@@ -254,13 +255,22 @@ Compare the results of a run bitwise to the default before relying on these opti
 The paths for oneCCL (its C API, oneAPI 2026.0) and Intel SHMEM (1.5.2) have been compiled, but not run;
 ``stream-mpi`` and the path for HPE Cray MPICH have not been compiled yet.
 
-ROCSHMEM needs version 3.0 or newer (initialization with an MPI communicator).
-With two processes on the GPU above, the puts of ROCSHMEM 3.2.0 (ROCm 7.2) did not arrive (only the signals did),
-both with the package of ROCm and built from the release; the development branch (3.3, October 2026) worked with
-gfx1100 code (gfx1150 code lost the puts as well).
-The ROCSHMEM of a TheRock nightly (3.8, without an MPI of its own at build time) passed the same test program with both,
-but SeisSol built with it crashed in its initialization (``MPI_Comm_split_type`` in the check of the IPC backend,
-with Open MPI 5.0); that is not resolved yet.
+ROCSHMEM needs version 3.0 or newer (initialization with an MPI communicator or a unique ID).
+Its loads and stores that bypass the caches are inline assembly for each GPU architecture (``src/assembly.hpp``),
+and for any other architecture they do nothing, without an error: ROCSHMEM 3.2.0 (ROCm 7.2) covers no RDNA GPU,
+its development branch (3.3, October 2026) gfx1100 and gfx1201, and the ROCSHMEM of TheRock (3.8, from rocm-systems
+since September 2026) all of GFX11 and GFX12. So with two processes on the GPU above, the puts of 3.2.0 did not arrive
+(only the signals did), and those of 3.3 only with gfx1100 code; 3.3 with ``__GFX11__`` in place of ``__gfx1100__``,
+as in 3.8, worked with gfx1150 code as well.
+
+The ROCSHMEM of TheRock is built without an MPI at hand (``HAVE_EXTERNAL_MPI`` is undefined) and looks up the
+predefined objects of Open MPI (``MPI_INFO_NULL``, the datatypes and operations) with ``dlsym`` in the MPI library.
+That misses the copies an executable gets by copy relocations where it uses these objects itself, as SeisSol does,
+which are the ones MPI sets up: with an MPI communicator, its initialization crashed in ``MPI_Comm_split_type``.
+With such a ROCSHMEM, SeisSol initializes it with a unique ID instead, which the processes share over MPI,
+so that it bootstraps over TCP. Its reverse-offload backend works through MPI and presumably meets these objects
+as well (not tested); that needs a fix in ROCSHMEM (looking them up in the global scope).
+
 HIP 6.3.4 cannot create IPC handles on that GPU, so the IPC backend of ROCSHMEM cannot run there.
 
 Several processes on one GPU, as in such tests, share its memory and queues:
