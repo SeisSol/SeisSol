@@ -48,6 +48,8 @@ class LinearSlipWeakeningBimaterial : public ReceiverOutputImpl<LinearSlipWeaken
     auto baseVector = ReceiverOutputImpl::getOutputVariables();
     baseVector.push_back(
         drStorage_->info<LTSLinearSlipWeakeningBimaterial::RegularizedStrength>().index);
+    // for the slope of the strength (on GPUs, the output reads only these from the device)
+    baseVector.push_back(drStorage_->info<DynamicRupture::SlipRateMagnitude>().index);
     return baseVector;
   }
 };
