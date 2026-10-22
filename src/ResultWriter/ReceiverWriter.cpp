@@ -411,6 +411,8 @@ void ReceiverWriter::captureSyncPoint(double /*currentTime*/) {
       taken.columns = cluster->ncols();
       taken.simulations = cluster->simulationCount();
       taken.samples.swap(receiver.output);
+      // the receiver keeps the room it had (see its construction), instead of growing anew
+      receiver.output.reserve(taken.samples.capacity());
     }
   }
 }
