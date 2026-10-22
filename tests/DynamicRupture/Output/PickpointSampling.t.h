@@ -17,10 +17,10 @@
 namespace seissol::unit_test {
 using namespace seissol::dr::output;
 
-namespace {
+namespace pickpointsamplingtest {
 /// The samples of consecutive steps of size `stepSize` from `start` up to `end`; the last step ends
 /// at `end` exactly, as at a synchronization point.
-std::vector<double>
+inline std::vector<double>
     sampleSteps(const PickpointSampling& sampling, double start, double end, double stepSize) {
   std::vector<double> samples;
   double time = start;
@@ -33,7 +33,9 @@ std::vector<double>
   }
   return samples;
 }
-} // namespace
+} // namespace pickpointsamplingtest
+
+using namespace pickpointsamplingtest;
 
 TEST_CASE("PickpointSampling takes each sample in exactly one step" *
           doctest::test_suite("dynamicrupture")) {

@@ -51,15 +51,15 @@ int initialize(MPI_Comm comm) {
   ::rocshmem::rocshmem_init_attr_t attributes{};
 #ifdef HAVE_EXTERNAL_MPI
   // (read during the initialization)
-  attributes.mpi_comm = &comm;
+  attributes.mpi_comm = static_cast<void*>(&comm);
   const auto flags = ::rocshmem::ROCSHMEM_INIT_WITH_MPI_COMM;
 #else
-  // Built without an MPI at hand (as in TheRock), ROCSHMEM looks up the predefined objects of Open
-  // MPI with dlsym in the MPI library. That misses the copies an executable gets by copy
-  // relocations where it uses these objects itself, as SeisSol does, which are the ones MPI sets
-  // up: the check of the IPC backend crashed in MPI_Comm_split_type with MPI_INFO_NULL. With a
-  // unique ID that the processes share here, ROCSHMEM bootstraps over TCP instead and leaves these
-  // objects alone.
+  // Built without an MPI at hand (as in the nightlies of TheRock in October 2026, version 3.8),
+  // ROCSHMEM looks up the predefined objects of Open MPI with dlsym in the MPI library. That misses
+  // the copies an executable gets by copy relocations where it uses these objects itself, as
+  // SeisSol does, which are the ones MPI sets up: the check of the IPC backend crashed in
+  // MPI_Comm_split_type with MPI_INFO_NULL. With a unique ID that the processes share here,
+  // ROCSHMEM bootstraps over TCP instead and leaves these objects alone.
   int rank = 0;
   int size = 0;
   MPI_Comm_rank(comm, &rank);

@@ -13,6 +13,7 @@
 #include "Config.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
+#include "DynamicRupture/Output/PickpointSampling.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
