@@ -89,12 +89,15 @@ void Watchdog::run() {
   std::unique_lock lock(mutex_);
   while (!wakeup_.wait_for(lock, settings_.period, [this] { return stop_; })) {
     lock.unlock();
-    watch(Clock::now());
+    if (watch(Clock::now()) == Finding::Abort && settings_.abort) {
+      logError() << "Watchdog: aborting the stalled simulation (SEISSOL_WATCHDOG_ABORT=0 keeps it"
+                 << "waiting).";
+    }
     lock.lock();
   }
 }
 
-void Watchdog::watch(Clock::time_point now) {
+Watchdog::Finding Watchdog::watch(Clock::time_point now) {
   for (const auto& check : checks_) {
     check();
   }
@@ -119,7 +122,7 @@ void Watchdog::watch(Clock::time_point now) {
   const bool stalled = phase != Phase::Idle && now - since > settings_.timeout;
   if (!stalled) {
     reported_ = false;
-    return;
+    return Finding::Progress;
   }
 
   const auto seconds = [](auto duration) {
@@ -128,9 +131,14 @@ void Watchdog::watch(Clock::time_point now) {
   if (!reported_ || reportedPhase_ != phaseCount) {
     reported_ = true;
     reportedPhase_ = phaseCount;
-    logWarning(true) << "Watchdog:" << (phase == Phase::Stepping ? "no progress for" : "stuck for")
-                     << seconds(now - since) << "s in" << label_.load() << "(timeout"
-                     << seconds(settings_.timeout) << "s).";
+    if (phase == Phase::Stepping) {
+      logWarning(true) << "Watchdog: no progress for" << seconds(now - since) << "s in"
+                       << label_.load() << "(timeout" << seconds(settings_.timeout) << "s).";
+    } else {
+      logWarning(true) << "Watchdog:" << label_.load() << "has taken" << seconds(now - since)
+                       << "s so far, longer than the timeout of" << seconds(settings_.timeout)
+                       << "s; outside of the time stepping, the watchdog only reports that.";
+    }
     for (const auto& probe : probes_) {
       logWarning(true) << "Watchdog:" << probe.name << "at" << probe.last << ", last changed"
                        << seconds(now - probe.lastChange) << "s ago";
@@ -139,14 +147,12 @@ void Watchdog::watch(Clock::time_point now) {
     for (const auto& report : reports_) {
       report();
     }
-    return;
+    return Finding::Stall;
   }
 
-  // a period after the report, for the main thread to add to it
-  if (settings_.abort) {
-    logError() << "Watchdog: aborting the stalled simulation (SEISSOL_WATCHDOG_ABORT=0 keeps it"
-               << "waiting).";
-  }
+  // a period after the report, for the main thread to add to it; outside of the time stepping, a
+  // phase that takes long (e.g. a large checkpoint) is no reason to stop the run
+  return phase == Phase::Stepping ? Finding::Abort : Finding::Stall;
 }
 
 } // namespace seissol::monitoring

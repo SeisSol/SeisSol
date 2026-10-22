@@ -14,3 +14,4 @@
 #include "Statistics.t.h"
 #include "Stopwatch.t.h"
 #include "Unit.t.h"
+#include "Watchdog.t.h"
