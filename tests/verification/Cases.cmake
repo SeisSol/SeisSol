@@ -45,6 +45,22 @@ seissol_add_minitest(
     ACTIVITY "v1:1e-12"
     LABELS "smoke;threads")
 
+# The task graph on the host with a single thread per rank, through two epochs (the receivers
+# write after 10 of the 20 steps): each epoch is a parallel region of one thread, whose halo
+# exchange runs in detached tasks. LLVM's OpenMP runtime fails at the second one before version 19;
+# SeisSol keeps the static schedule there.
+seissol_add_minitest(
+    NAME smoke-box48-taskgraph-mpi2
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    RANKS 2
+    SET "Output.ReceiverOutputInterval=0.0006103515625"
+    ENV "SEISSOL_HOST_TASK_GRAPH=1"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    LABELS "smoke;mpi;taskgraph")
+
 # plasticity is a runtime switch, so it needs no separate build; its
 # parameters come from the material file
 seissol_add_minitest(
@@ -161,6 +177,13 @@ seissol_add_comparison(
     CANDIDATE smoke-box48-threads4
     TOLERANCE 0
     LABELS "bitwise;threads")
+
+seissol_add_comparison(
+    NAME bitwise-box48-taskgraph-mpi2
+    REFERENCE smoke-box48
+    CANDIDATE smoke-box48-taskgraph-mpi2
+    TOLERANCE 0
+    LABELS "bitwise;mpi;taskgraph")
 
 # A welded fault is the absence of a fault: fault48 and box48 are the same
 # mesh apart from the tag on the plane x = 0, and the rupture quadrature is

@@ -720,6 +720,10 @@ def _command_run(args):
     # the mini meshes do without (PartitioningLib 'none' keeps the cells where they were read); in
     # a build without optimization, as the one measuring the coverage, it takes minutes
     environment["SEISSOL_MINISEISSOL"] = "0"
+    # what the case sets in the environment of its run, e.g. a scheduling of its own
+    for entry in args.env:
+        name, _, value = entry.partition("=")
+        environment[name] = value
 
     # the check of the run, which has to pass wherever the run is meant to; on one process, as it
     # runs without MPI
@@ -1303,6 +1307,7 @@ def main(argv=None):
     # what a run on a single rank is started under, a word each, e.g. mpirun -np 1
     run.add_argument("--launcher", action="append", default=[])
     run.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
+    run.add_argument("--env", action="append", default=[], metavar="NAME=VALUE")
     run.add_argument("--file", action="append", default=[], metavar="NAME")
     run.add_argument("--require", action="append", default=[], metavar="KEY=VALUE")
     run.add_argument(

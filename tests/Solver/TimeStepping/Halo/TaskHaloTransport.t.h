@@ -18,6 +18,10 @@
 #include <optional>
 #include <thread>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #ifdef SEISSOL_HOST_TASK_GRAPH
 
 namespace seissol::unit_test {
@@ -117,6 +121,20 @@ class PollingThread {
   std::thread thread_;
 };
 
+/// The parallel regions in its scope have a single thread.
+class SingleThreadScope {
+  public:
+  SingleThreadScope() : threads_(omp_get_max_threads()) { omp_set_num_threads(1); }
+  ~SingleThreadScope() { omp_set_num_threads(threads_); }
+  SingleThreadScope(const SingleThreadScope&) = delete;
+  SingleThreadScope(SingleThreadScope&&) = delete;
+  SingleThreadScope& operator=(const SingleThreadScope&) = delete;
+  SingleThreadScope& operator=(SingleThreadScope&&) = delete;
+
+  private:
+  int threads_;
+};
+
 } // namespace taskhalotransport
 
 TEST_CASE("In a task graph, the halo exchange orders itself with the work on the layers" *
@@ -177,6 +195,61 @@ TEST_CASE("In a task graph, the halo exchange orders itself with the work on the
   CHECK(receivedWhenCorrected == 1);
   CHECK(sentWhenOverwritten == 1);
   CHECK(engine.outstanding() == 0);
+}
+
+TEST_CASE("In a task graph of a single thread, the halo exchange goes on from epoch to epoch" *
+          doctest::test_suite("solver")) {
+  using namespace taskhalotransport;
+  if (!HostRuntime::detachedTasksInSingleThread()) {
+    // a run falls back to the static schedule then (see TimeManager::setUpHostScheduling)
+    MESSAGE("this OpenMP runtime fails with detached tasks in a single thread; not tested");
+    return;
+  }
+  const TaskGraphScope scope;
+  // as a run with one thread per process: the epochs are parallel regions of a single thread
+  const SingleThreadScope singleThread;
+
+  HostRuntime copy;
+  HostRuntime ghost;
+  copy.observe(ghost);
+  ghost.observe(copy);
+
+  std::atomic<int> copyData{0};
+  TaskHaloEngine engine;
+  auto slow = std::make_unique<SlowTransport>(copyData);
+  auto* transport = slow.get();
+  TaskHaloTransport tasks(std::move(slow), engine);
+  tasks.setHostTokens(ghost.neighborToken(0), ghost.sharedToken());
+
+  // the second epoch starts a parallel region after one whose exchanges had detached tasks
+  for (int epoch = 1; epoch <= 2; ++epoch) {
+    CAPTURE(epoch);
+    std::atomic<int> receivedWhenCorrected{-1};
+    std::atomic<bool> created{false};
+    std::optional<PollingThread> polling;
+    if (!HostRuntime::detachedTasksNeverBlock()) {
+      polling.emplace(engine, created);
+    }
+    HostRuntime::epoch([&]() {
+      copy.action({/*readsNeighbors=*/false, /*writesShared=*/true}, [&]() { copyData = epoch; });
+      tasks.startSend();
+      CHECK(tasks.testSend());
+      tasks.startReceive();
+      CHECK(tasks.testReceive());
+      copy.action({/*readsNeighbors=*/true, /*writesShared=*/false},
+                  [&]() { receivedWhenCorrected = transport->completedReceives.load(); });
+      created = true;
+      if (!polling.has_value()) {
+        awaitExchanges(engine);
+      }
+    });
+    polling.reset();
+
+    CHECK(transport->dataAtSend == epoch);
+    CHECK(receivedWhenCorrected == epoch);
+    CHECK(transport->completedSends == epoch);
+    CHECK(engine.outstanding() == 0);
+  }
 }
 
 } // namespace seissol::unit_test

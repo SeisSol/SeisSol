@@ -25,9 +25,15 @@
 #include <omp.h>
 #endif
 
-// tasks with dependencies on a list of runtime length (iterators), and detached tasks: OpenMP 5.0.
-// NVHPC reports OpenMP 5.1, but offers neither these, nor taskloop or masked (up to 26.9 at least).
-#if defined(_OPENMP) && _OPENMP >= 201811 && !defined(__NVCOMPILER)
+#ifdef KMP_VERSION_MAJOR
+#include <dlfcn.h>
+#endif
+
+// tasks with dependencies on a list of runtime length (iterators), detached tasks, taskloop and
+// masked: OpenMP 5.1. The build tests whether the compiler has them (SEISSOL_OPENMP_TASK_GRAPH), as
+// _OPENMP cannot tell: GCC up to 15 reports 4.5 (201511), though it has them from 12 on, and NVHPC
+// reports 5.1, but has none of the first ones (up to 26.9 at least).
+#if defined(_OPENMP) && defined(SEISSOL_OPENMP_TASK_GRAPH)
 #define SEISSOL_HOST_TASK_GRAPH
 #endif
 
@@ -103,6 +109,23 @@ class HostRuntime {
     return true;
 #else
     return false;
+#endif
+  }
+
+  /**
+   * Whether the OpenMP runtime runs detached tasks in a team of a single thread. That of LLVM does
+   * not before version 19: after a parallel region of a single thread with such tasks (e.g. an
+   * epoch with a halo exchange), the next parallel region fails an assertion
+   * ("serial_team->t.t_task_team[this_thr->th.th_task_state] == NULL" in kmp_runtime.cpp). Version
+   * 19 is the first that has __kmpc_dispatch_deinit, which tells them apart at run time, also where
+   * an executable runs with another version than it was built with.
+   */
+  static bool detachedTasksInSingleThread() {
+#ifdef KMP_VERSION_MAJOR
+    static const bool Capable = dlsym(RTLD_DEFAULT, "__kmpc_dispatch_deinit") != nullptr;
+    return Capable;
+#else
+    return true;
 #endif
   }
 

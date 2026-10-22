@@ -56,15 +56,19 @@ complete, and the work that reads the ghost layer waits for the data, without th
 for either. That pays off the more, the more threads a rank has and the more unevenly they are fast
 (e.g. on processors with cores of different kinds); with few threads per rank, it changes little.
 
-The task graph needs OpenMP 5.0 (e.g. GCC 11 or Clang 12 and newer), and it is not available in
-builds for a device. With it, a communication thread (see above) starts and tests the exchanges
-in the task graph; with ``SEISSOL_COMMTHREAD=0``, the main thread does so between the tasks it takes,
-which may be faster where the communication thread shares its core or cache with the workers. That
-works with the OpenMP runtimes of LLVM and Intel only: others (e.g. that of GCC) may wait for a task
-of an exchange where the main thread creates it, so a thread of its own polls the exchanges there in
-any case. The times of the loops in the summary of the run overlap each other in a task graph. The
-watchdog (see below) also watches the work done of each cluster then, and at a stall reports the
-exchanges of the task graph in flight.
+The task graph needs tasks with dependencies on lists of a length known at run time, detached tasks,
+``taskloop`` and ``masked`` (OpenMP 5.1), which the build tests the compiler for: e.g. GCC 13, Clang
+19 and ICX have them, NVHPC does not. It is not available in builds for a device. With it, a
+communication thread (see above) starts and tests the exchanges in the task graph; with
+``SEISSOL_COMMTHREAD=0``, the main thread does so between the tasks it takes, which may be faster
+where the communication thread shares its core or cache with the workers. That works with the OpenMP
+runtimes of LLVM and Intel only: others (e.g. that of GCC) may wait for a task of an exchange where
+the main thread creates it, so a thread of its own polls the exchanges there in any case. With a
+single thread per rank, the halo exchange in the task graph does not work with the OpenMP runtime of
+LLVM before version 19 (e.g. with Clang 18 of Ubuntu 24.04), which SeisSol recognizes and keeps the
+static schedule then. The times of the loops in the summary of the run overlap each other in a task
+graph. The watchdog (see below) also watches the work done of each cluster then, and at a stall
+reports the exchanges of the task graph in flight.
 
 Watchdog
 --------
