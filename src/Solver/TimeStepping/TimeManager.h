@@ -128,9 +128,6 @@ class TimeManager {
   std::unique_ptr<DeviceTimer> exchangeTimer_;
   double exchangeDeviceTime_{0};
 
-  //! the outputs decide about their samples when the work of a step runs
-  bool runTimeOutputs_{false};
-
   //! record regular super-timesteps into graphs and replay them
   bool replay_{false};
   SuperStepGraphMode graphMode_{SuperStepGraphMode::Replay};

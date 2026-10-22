@@ -104,6 +104,11 @@ struct PickpointParameters {
   ReceiverOutputFormat format{ReceiverOutputFormat::Csv};
   //! @brief As ReceiverOutputParameters::samplechunk, for the on-fault receivers.
   std::size_t samplechunk{0};
+  /**
+   * @brief The time between two samples of the on-fault receivers (`pickdt`); zero samples every
+   * `printTimeInterval` time steps of the finest time cluster with fault faces instead.
+   */
+  double samplingInterval{0};
 };
 
 struct ReceiverOutputParameters {

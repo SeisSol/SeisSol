@@ -154,8 +154,11 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
     ppOutputBuilder_->setParams(seissolParameters.output.pickpointParameters);
     ppOutputBuilder_->setSimulationCount(
         configValue(seissolParameters.model.config).numSimulations);
-    ppOutputBuilder_->setTimestep(seissolInstance_.memoryManager().clusterLayout().minimumTimestep,
-                                  seissolParameters.timeStepping.endTime);
+    // the shortest time between two samples, which sizes the cache of the samples between writes
+    const double pickdt = seissolParameters.output.pickpointParameters.samplingInterval;
+    ppOutputBuilder_->setTimestep(
+        pickdt > 0 ? pickdt : seissolInstance_.memoryManager().clusterLayout().minimumTimestep,
+        seissolParameters.timeStepping.endTime);
   }
   if (elementwiseEnabled) {
     logInfo() << "Enabling 2D fault output";
@@ -527,40 +530,6 @@ void OutputManager::initFaceToLtsMap() {
   impl_->setFaceToLtsMap(&faceToLtsMap_);
 }
 
-std::size_t OutputManager::pickpointIteration(std::size_t layerId) const {
-  const auto found = iterationSteps_.find(layerId);
-  return found == iterationSteps_.end() ? 0 : found->second;
-}
-
-bool OutputManager::pickpointDue(std::size_t layerId,
-                                 std::size_t iteration,
-                                 double time,
-                                 double dt) const {
-  return this->ppOutputBuilder_ && ppOutputData_.find(layerId) != ppOutputData_.end() &&
-         isOutputIteration(iteration, time, dt);
-}
-
-bool OutputManager::isOutputIteration(std::size_t iterationStep, double time, double dt) const {
-  const auto& seissolParameters = seissolInstance_.parameters();
-  const bool isFirstStep = iterationStep == 0;
-  const double abortTime = seissolParameters.timeStepping.endTime;
-  const bool isCloseToTimeOut = (abortTime - time) < (dt * TimeMargin);
-
-  const int printTimeInterval = seissolParameters.output.pickpointParameters.printTimeInterval;
-  const bool isIntervalStep = iterationStep % printTimeInterval == 0;
-
-  return (isFirstStep || isIntervalStep || isCloseToTimeOut);
-}
-
-bool OutputManager::beginPickpointStep(std::size_t layerId, double time, double dt) {
-  if (!this->ppOutputBuilder_) {
-    return false;
-  }
-  const bool due = pickpointDue(layerId, pickpointIteration(layerId), time, dt);
-  ++iterationSteps_[layerId];
-  return due;
-}
-
 void OutputManager::ensureCacheLevel(ReceiverOutputData& outputData) {
   if (outputData.currentCacheLevel >= outputData.maxCacheLevel) {
     // our calculation was off (maybe due to many intermediate sync points), so resize
@@ -580,12 +549,6 @@ bool OutputManager::hasPickpoints(std::size_t layerId) const {
 void* OutputManager::pickpointStream(std::size_t layerId) {
   auto& outputData = ppOutputData_.at(layerId);
   return outputData->extraRuntime.has_value() ? outputData->extraRuntime->stream() : nullptr;
-}
-
-void OutputManager::prepareRunTimeOutput() {
-  for (const auto& [layerId, _] : ppOutputData_) {
-    iterationSteps_.try_emplace(layerId, 0);
-  }
 }
 
 parallel::runtime::StreamRuntime&
@@ -613,25 +576,25 @@ parallel::runtime::StreamRuntime&
   return outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
 }
 
-void OutputManager::evaluatePickpointOutput(
-    std::size_t layerId, double stateTime, double time, double meshDt, double meshInDt) {
+void OutputManager::evaluatePickpointOutput(std::size_t layerId,
+                                            double time,
+                                            double stepSize,
+                                            double inStep) {
   const auto& seissolParameters = seissolInstance_.parameters();
   const auto& outputData = ppOutputData_.at(layerId);
   ensureCacheLevel(*outputData);
   impl_->evaluateFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                              seissolParameters.drParameters.slipRateOutputType,
                              outputData,
-                             stateTime,
                              time,
-                             meshDt,
-                             meshInDt);
+                             stepSize,
+                             inStep);
 }
 
 void OutputManager::recordPickpointOutput(std::size_t layerId,
-                                          double stateTime,
                                           double time,
-                                          double meshDt,
-                                          double meshInDt,
+                                          double stepSize,
+                                          double inStep,
                                           parallel::runtime::StreamRuntime& runtime) {
   const auto& seissolParameters = seissolInstance_.parameters();
   const auto& outputData = ppOutputData_.at(layerId);
@@ -650,17 +613,19 @@ void OutputManager::recordPickpointOutput(std::size_t layerId,
                          seissolParameters.drParameters.slipRateOutputType,
                          outputData,
                          runtime,
-                         stateTime,
                          time,
-                         meshDt,
-                         meshInDt);
+                         stepSize,
+                         inStep);
 }
 
-void OutputManager::writePickpointOutput(double time, double dt) {
+void OutputManager::recordInitialPickpointOutput(double time) {
+  if (!this->ppOutputBuilder_) {
+    return;
+  }
   for (const auto& [id, _] : ppOutputData_) {
-    if (beginPickpointStep(id, time, dt)) {
-      recordPickpointOutput(id, time, time, 0, 1, runtime_);
-    }
+    // at the start of the expansion the cells hold before the first step; the step size only scales
+    // the time basis, and has to be positive for that
+    recordPickpointOutput(id, time, 1.0, 0.0, runtime_);
   }
 }
 
@@ -896,7 +861,6 @@ void OutputManager::evaluateElementwiseOutput(double time) {
                                seissolParameters.drParameters.slipRateOutputType,
                                ewOutputData_,
                                time,
-                               0.0,
                                1.0,
                                0.0);
   }

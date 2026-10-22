@@ -44,21 +44,24 @@ class ReceiverOutput {
     drParameters_ = userDrParameters;
   }
   /**
-   * @param stateTime the time the stored friction state belongs to, which is the end of the dynamic
-   *                  rupture time step that computed it; the stress sources are evaluated there,
-   *                  where the friction law evaluated them last, so that the tractions rebuilt
-   *                  here are consistent with the state they are rebuilt from
-   * @param time the time the output is recorded under
+   * Evaluates the output points at `time`. The wave field comes from the cells at the fault: for
+   * the elementwise output from their degrees of freedom, which belong to `time`; for the on-fault
+   * receivers from the time derivatives of the time step that contains `time`. The friction state
+   * is the one the friction law left at the end of that step. The stress sources are evaluated at
+   * `time`.
+   *
+   * @param time the time the output belongs to, and is recorded under
+   * @param dt the size of the time step the time derivatives belong to
+   * @param indt the time from the start of that step to `time`
    */
   virtual void
       calcFaultOutput(seissol::initializer::parameters::OutputType outputType,
                       seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                       const std::shared_ptr<ReceiverOutputData>& outputData,
                       parallel::runtime::StreamRuntime& runtime,
-                      double stateTime,
-                      double time = 0.0,
-                      double dt = 1.0,
-                      double indt = 0.0) = 0;
+                      double time,
+                      double dt,
+                      double indt) = 0;
 
   /**
    * Copies the data of the output points from the device to the host, in the order of the stream.
@@ -68,13 +71,12 @@ class ReceiverOutput {
 
   /**
    * Evaluates the output points right away, on the host, from data gathered before; for work that
-   * already runs in the order of the stream.
+   * already runs in the order of the stream. The times are those of calcFaultOutput().
    */
   virtual void
       evaluateFaultOutput(seissol::initializer::parameters::OutputType outputType,
                           seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                           const std::shared_ptr<ReceiverOutputData>& outputData,
-                          double stateTime,
                           double time,
                           double dt,
                           double indt) = 0;
@@ -104,15 +106,13 @@ class ReceiverOutputImpl : public ReceiverOutput {
                        seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                        const std::shared_ptr<ReceiverOutputData>& outputData,
                        parallel::runtime::StreamRuntime& runtime,
-                       double stateTime,
-                       double time = 0.0,
-                       double dt = 1.0,
-                       double indt = 0.0) override;
+                       double time,
+                       double dt,
+                       double indt) override;
 
   void evaluateFaultOutput(seissol::initializer::parameters::OutputType outputType,
                            seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                            const std::shared_ptr<ReceiverOutputData>& outputData,
-                           double stateTime,
                            double time,
                            double dt,
                            double indt) override;
@@ -270,7 +270,7 @@ class ReceiverOutputImpl : public ReceiverOutput {
                          seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
                          const std::shared_ptr<ReceiverOutputData>& outputData,
                          std::size_t level,
-                         double stateTime,
+                         double time,
                          double dt,
                          double indt);
 

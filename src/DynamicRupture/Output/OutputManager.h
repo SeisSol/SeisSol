@@ -47,13 +47,12 @@ class OutputManager {
 
   void init();
   void initFaceToLtsMap();
-  void writePickpointOutput(double time, double dt);
 
   /**
-   * Counts an output step of the layer; returns whether it records its fault receivers in it. Only
-   * on the host, without touching any data.
+   * Records the fault receivers of all layers at the start of the simulation, `time`, before the
+   * first time step; the time steps take the samples after it (see PickpointSampling).
    */
-  bool beginPickpointStep(std::size_t layerId, double time, double dt);
+  void recordInitialPickpointOutput(double time);
 
   /**
    * Whether the layer has fault receivers.
@@ -67,13 +66,7 @@ class OutputManager {
   [[nodiscard]] void* pickpointStream(std::size_t layerId);
 
   /**
-   * Prepares the output step counters, so that the steps of different layers can be counted from
-   * different threads.
-   */
-  void prepareRunTimeOutput();
-
-  /**
-   * For fault receivers whose output steps get decided when the work of a step runs: waits until
+   * For fault receivers whose samples get decided when the work of a step runs: waits until
    * the fault receivers of the last step have been recorded, takes the start of the step (from the
    * clock on the device, into pinned memory at `stepStartOnDevice` there; as `hostTime` into
    * `stepStart` on the host), and copies the data of the output points to the host. Returns the
@@ -87,32 +80,19 @@ class OutputManager {
                                                         parallel::runtime::StreamRuntime& runtime);
 
   /**
-   * Records the fault receivers of the layer right away, from data gathered before.
+   * Records the fault receivers of the layer at `time` right away, from data gathered before; the
+   * times are those of recordPickpointOutput().
    */
-  void evaluatePickpointOutput(
-      std::size_t layerId, double stateTime, double time, double meshDt, double meshInDt);
+  void evaluatePickpointOutput(std::size_t layerId, double time, double stepSize, double inStep);
 
   /**
-   * The number of output steps the layer has counted so far.
-   */
-  [[nodiscard]] std::size_t pickpointIteration(std::size_t layerId) const;
-
-  /**
-   * Whether the layer would record its fault receivers in the given output step; without counting
-   * it.
-   */
-  [[nodiscard]] bool
-      pickpointDue(std::size_t layerId, std::size_t iteration, double time, double dt) const;
-
-  /**
-   * Records the fault receivers of the layer, for an output step that
-   * `beginPickpointStep()` has found due.
+   * Records the fault receivers of the layer at `time`, in the time step of size `stepSize` that
+   * contains it, `inStep` after the start of that step.
    */
   void recordPickpointOutput(std::size_t layerId,
-                             double stateTime,
                              double time,
-                             double meshDt,
-                             double meshInDt,
+                             double stepSize,
+                             double inStep,
                              parallel::runtime::StreamRuntime& runtime);
   /**
    * Formats the samples the fault receivers cached since the last write (text output), which frees
@@ -130,14 +110,7 @@ class OutputManager {
   seissol::SeisSol& seissolInstance_;
 
   protected:
-  /**
-   * Whether a layer records its fault receivers in its output step with the given number: in its
-   * first step, in every `printTimeInterval`-th step after it, and close to the end of the
-   * simulation.
-   */
-  [[nodiscard]] bool isOutputIteration(std::size_t iterationStep, double time, double dt) const;
-
-  /// makes room in the cache for one more output step
+  /// makes room in the cache for one more sample
   static void ensureCacheLevel(ReceiverOutputData& outputData);
   void initElementwiseOutput();
   void initPickpointOutput();
@@ -179,9 +152,6 @@ class OutputManager {
   ::seissol::initializer::StorageBackmap<1> faceToLtsMap_;
   seissol::geometry::MeshReader* meshReader_{nullptr};
 
-  //! the number of steps each layer has taken so far
-  std::unordered_map<std::size_t, std::size_t> iterationSteps_;
-  static constexpr double TimeMargin{1.005};
   std::string backupTimeStamp_;
 
   std::unique_ptr<ReceiverOutput> impl_{nullptr};

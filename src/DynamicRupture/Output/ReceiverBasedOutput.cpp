@@ -119,7 +119,6 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
     parallel::runtime::StreamRuntime& runtime,
-    double stateTime,
     double time,
     double dt,
     double indt) {
@@ -151,7 +150,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
       callRuntime.enqueueLoop(
           outputData->topology.faceCount(),
           this->template faultOutputHandler<Cfg>(
-              outputType, slipRateOutputType, outputData, level, stateTime, dt, indt));
+              outputType, slipRateOutputType, outputData, level, time, dt, indt));
     }
   });
 
@@ -166,7 +165,6 @@ void ReceiverOutputImpl<Derived>::evaluateFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
-    double stateTime,
     double time,
     double dt,
     double indt) {
@@ -179,7 +177,7 @@ void ReceiverOutputImpl<Derived>::evaluateFaultOutput(
     using Cfg = decltype(cfg);
     if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
       const auto handler = this->template faultOutputHandler<Cfg>(
-          outputType, slipRateOutputType, outputData, level, stateTime, dt, indt);
+          outputType, slipRateOutputType, outputData, level, time, dt, indt);
       static const auto TraceName = monitoring::Trace::name("fault receivers");
       const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
       parallel::runtime::HostRuntime::forEach(faces, handler);
@@ -199,7 +197,7 @@ std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
     std::size_t level,
-    double stateTime,
+    double time,
     double dt,
     double indt) {
   using real = Real<Cfg>;
@@ -220,7 +218,7 @@ std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler
           slipRateOutputType,
           level,
           timeCoeffs,
-          stateTime,
+          time,
           frictionTime](std::size_t faceId) {
     constexpr auto Variant = configIdOf<Cfg>();
 
@@ -247,7 +245,7 @@ std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler
     local.ltsId = outFace.position.cell;
     local.faceId = faceId;
     local.state = outputData.get();
-    local.time = stateTime;
+    local.time = time;
     local.deltaT = frictionTime.deltaT.back();
     local.printWarning = &this->printRSFWarning_;
 

@@ -36,6 +36,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -53,13 +54,29 @@
 
 namespace seissol::solver {
 
+namespace {
+/**
+ * The time from the start of a step to a sample in it. A sample at the end of the step, within the
+ * tolerance of the sampling, is taken exactly there, where the time derivatives and the friction
+ * state of the step end; the sampling counts a sample within its tolerance after the end of a step
+ * to that step.
+ */
+double timeInStep(double time, double stepStart, double stepSize) {
+  if (std::abs(stepStart + stepSize - time) <=
+      dr::output::PickpointSampling::Tolerance * stepSize) {
+    return stepSize;
+  }
+  return std::clamp(time - stepStart, 0.0, stepSize);
+}
+} // namespace
+
 template <typename Cfg>
 DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
     double maxTimeStepSize,
     long timeStepRate,
     Executor executor,
     unsigned int profilingId,
-    double outputTimestep,
+    const dr::output::PickpointSampling& pickpointSampling,
     CompoundGlobalData<Cfg> globalData,
     DynamicRupture::Layer* layerData,
     const dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
@@ -74,7 +91,7 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
       layerData_(layerData),
       frictionSolver_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
       frictionSolverDevice_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),
-      faultOutputManager_(faultOutputManager), outputTimestep_(outputTimestep),
+      faultOutputManager_(faultOutputManager), pickpointSampling_(pickpointSampling),
       loopStatistics_(loopStatistics),
       deviceLoops_(loopStatistics, deviceTimeline, DeviceTimeline::Kind::Loops),
       actorStateStatistics_(actorStateStatistics), profilingId_(profilingId) {
@@ -277,21 +294,10 @@ PerformanceEstimate DynamicRuptureCluster<Cfg>::computeFlops() {
 
 template <typename Cfg>
 void DynamicRuptureCluster<Cfg>::planPickpointOutput(const StepParams& params) {
-  // repeat the current solution for some times---to match the existing output scheme.
-  // maybe replace with just writePickpointOutput(layerId(), time + dt, dt); some day?
   pickpointTimes_.clear();
-  double time = params.time;
-  do {
-    const auto oldTime = time;
-    time += outputTimestep_;
-    const auto trueTime = std::min(time, syncTime_);
-    const auto trueDt = trueTime - oldTime;
-    if (faultOutputManager_->beginPickpointStep(layerData_->id(), trueTime, trueDt)) {
-      pickpointTimes_.push_back(trueTime);
-    }
-
-    // write until we've completed the current copy interval, or if we've hit a sync point
-  } while (time * (1 + 1e-8) < params.time + ct_.maxTimeStepSize && time < syncTime_);
+  if (faultOutputManager_->hasPickpoints(layerData_->id())) {
+    pickpointTimes_ = pickpointSampling_.times(params.time, params.timeStepSize);
+  }
 }
 
 template <typename Cfg>
@@ -308,23 +314,14 @@ void DynamicRuptureCluster<Cfg>::setRunTimeOutputs(bool runTimeOutputs) {
 
 template <typename Cfg>
 void DynamicRuptureCluster<Cfg>::recordPickpointsNow(double stepTime, bool lastStep) {
-  // the same output steps as planPickpointOutput() and writePickpointOutput(), for the step that
-  // starts at stepTime
+  // the size of the step that starts at stepTime, as ClusterTimes::timeStepSize() decides it
+  const double stepSize =
+      lastStep ? syncTime_ - stepTime : std::min(syncTime_ - stepTime, ct_.maxTimeStepSize);
   const auto layerId = layerData_->id();
-  const double meshDt = ct_.getTimeStepSize();
-  const double stateTime =
-      stepTime +
-      (lastStep ? syncTime_ - stepTime : std::min(syncTime_ - stepTime, ct_.maxTimeStepSize));
-  double time = stepTime;
-  do {
-    const auto oldTime = time;
-    time += outputTimestep_;
-    const auto trueTime = std::min(time, syncTime_);
-    const auto trueDt = trueTime - oldTime;
-    if (faultOutputManager_->beginPickpointStep(layerId, trueTime, trueDt)) {
-      faultOutputManager_->evaluatePickpointOutput(layerId, stateTime, trueTime, meshDt, 0);
-    }
-  } while (time * (1 + 1e-8) < stepTime + ct_.maxTimeStepSize && time < syncTime_);
+  for (const auto time : pickpointSampling_.times(stepTime, stepSize)) {
+    faultOutputManager_->evaluatePickpointOutput(
+        layerId, time, stepSize, timeInStep(time, stepTime, stepSize));
+  }
 }
 
 template <typename Cfg>
@@ -346,12 +343,12 @@ void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params,
     return;
   }
 
-  const double meshDt = ct_.getTimeStepSize();
-  // the friction law has just evaluated this step up to its end, and that is the state written out
-  const double stateTime = params.time + params.timeStepSize;
   for (const auto time : times) {
-    faultOutputManager_->recordPickpointOutput(
-        layerData_->id(), stateTime, time, meshDt, 0, streamRuntime_);
+    faultOutputManager_->recordPickpointOutput(layerData_->id(),
+                                               time,
+                                               params.timeStepSize,
+                                               timeInStep(time, params.time, params.timeStepSize),
+                                               streamRuntime_);
   }
 }
 
@@ -371,26 +368,19 @@ bool DynamicRuptureCluster<Cfg>::hostWork() const {
 
 template <typename Cfg>
 bool DynamicRuptureCluster<Cfg>::outputsAhead(long steps) const {
-  if (layerData_->size() == 0 || runTimeOutputs_) {
+  if (layerData_->size() == 0 || runTimeOutputs_ ||
+      !faultOutputManager_->hasPickpoints(layerData_->id())) {
     return false;
   }
-  // the same output steps the host parts of the next steps count
-  auto iteration = faultOutputManager_->pickpointIteration(layerData_->id());
+  // the same sample times as the host parts of the next steps plan
   double stepTime = ct_.correctionTime;
   for (long step = 0; step < steps; ++step) {
-    double time = stepTime;
-    do {
-      const auto oldTime = time;
-      time += outputTimestep_;
-      const auto trueTime = std::min(time, syncTime_);
-      const auto trueDt = trueTime - oldTime;
-      if (faultOutputManager_->pickpointDue(layerData_->id(), iteration, trueTime, trueDt)) {
-        return true;
-      }
-      ++iteration;
-    } while (time * (1 + 1e-8) < stepTime + ct_.maxTimeStepSize && time < syncTime_);
-    stepTime +=
+    const double stepSize =
         ct_.timeStepSize(stepTime, ct_.stepsSinceLastSync + step * ct_.timeStepRate, syncTime_);
+    if (pickpointSampling_.any(stepTime, stepSize)) {
+      return true;
+    }
+    stepTime += stepSize;
   }
   return false;
 }
@@ -433,7 +423,7 @@ void DynamicRuptureCluster<Cfg>::interact(const StepParams& params) {
     writePickpointOutput(params, pickpointTimes_, lastStep);
   } else {
     // the faces read what the adjacent cells share, and change what these read for their
-    // correction; the work takes the output steps of its step along, as the decisions about the
+    // correction; the work takes the sample times of its step along, as the decisions about the
     // next steps may come before it runs
     hostRuntime_.action({/*readsNeighbors=*/true, /*writesShared=*/true},
                         [this, params, times = pickpointTimes_, lastStep]() {

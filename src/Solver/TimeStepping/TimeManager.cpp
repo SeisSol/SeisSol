@@ -14,6 +14,7 @@
 #include "Common/Iterator.h"
 #include "Common/Json.h"
 #include "DynamicRupture/Output/OutputManager.h"
+#include "DynamicRupture/Output/PickpointSampling.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
@@ -193,6 +194,15 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                     ? std::numeric_limits<double>::infinity()
                                     : clusterLayout.timestepRate(drClusterOutput);
 
+  // the on-fault receivers sample every pickdt, or else every printtimeinterval time steps of the
+  // finest cluster with fault faces, counted from time zero
+  const auto& pickpointParameters = seissolInstance_.parameters().output.pickpointParameters;
+  const double pickpointInterval = pickpointParameters.samplingInterval > 0
+                                       ? pickpointParameters.samplingInterval
+                                       : pickpointParameters.printTimeInterval * drOutputTimestep;
+  const dr::output::PickpointSampling pickpointSampling(
+      pickpointInterval, seissolInstance_.parameters().timeStepping.endTime);
+
   std::vector<AbstractTimeCluster*> cellClusterBackmap(
       memoryManager.ltsStorage().getColorMap().size());
 
@@ -310,7 +320,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                              clusterLayout.clusterRate(clusterId),
                              cellCluster->getExecutor(),
                              profilingId,
-                             drOutputTimestep,
+                             pickpointSampling,
                              memoryManager.globalData<Cfg>(),
                              &layer,
                              memoryManager.frictionLaw(),
@@ -517,7 +527,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       }
 
       // the outputs must not stand in the way of a recording
-      runTimeOutputs_ = true;
       for (auto* cluster : clusters_) {
         cluster->setRunTimeOutputs(true);
       }
@@ -635,11 +644,6 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   SCOREP_USER_REGION("advanceInTime", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   setWatchdogPhase(monitoring::Watchdog::Phase::Stepping, "the time stepping");
-
-  if (runTimeOutputs_ && faultOutputManager_ != nullptr) {
-    // the fault receivers of different layers count their output steps on different threads
-    faultOutputManager_->prepareRunTimeOutput();
-  }
 
   for (auto& cluster : clusters_) {
     cluster->setSyncTime(synchronizationTime);

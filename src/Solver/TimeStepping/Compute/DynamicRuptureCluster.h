@@ -12,6 +12,7 @@
 #include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
+#include "DynamicRupture/Output/PickpointSampling.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/DynamicRupture.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -64,7 +65,7 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
                         long timeStepRate,
                         Executor executor,
                         unsigned int profilingId,
-                        double outputTimestep,
+                        const dr::output::PickpointSampling& pickpointSampling,
                         CompoundGlobalData<Cfg> globalData,
                         DynamicRupture::Layer* layerData,
                         const dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
@@ -116,19 +117,19 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   private:
   void computeDynamicRupture(const StepParams& params);
   void computeDynamicRuptureDevice(const StepParams& params);
-  /// decides in which output steps of the current step the fault receivers record
+  /// decides at which times of the current step the fault receivers record
   void planPickpointOutput(const StepParams& params);
-  /// records the fault receivers in the output steps `times` of the step; `lastStep` tells
-  /// whether it is the last step before the synchronization point
+  /// records the fault receivers at the times `times` of the step; `lastStep` tells whether it is
+  /// the last step before the synchronization point
   void writePickpointOutput(const StepParams& params,
                             const std::vector<double>& times,
                             bool lastStep);
 
-  /// decides about the output steps of the step that starts at `stepTime`, and records them;
-  /// `lastStep` tells whether it is the last step before the synchronization point
+  /// decides at which times of the step that starts at `stepTime` the fault receivers record, and
+  /// records them; `lastStep` tells whether it is the last step before the synchronization point
   void recordPickpointsNow(double stepTime, bool lastStep);
 
-  //! the fault receivers decide about their output steps when the work of a step runs
+  //! the fault receivers decide about their samples when the work of a step runs
   bool runTimeOutputs_{false};
   //! the start of the step the fault receivers record in, for decisions at run time, and its
   //! address on the device, which writes it
@@ -136,7 +137,7 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   double* pickpointStepStart_{&pickpointStepStartHost_};
   double* pickpointStepStartOnDevice_{nullptr};
 
-  //! the output times of the current step at which the fault receivers record
+  //! the times of the current step at which the fault receivers record
   std::vector<double> pickpointTimes_;
   PerformanceEstimate computeFlops();
 
@@ -157,8 +158,8 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolverDevice_;
   dr::output::OutputManager* faultOutputManager_;
 
-  //! time interval of the on-fault receiver output
-  double outputTimestep_;
+  //! when the on-fault receivers take their samples
+  dr::output::PickpointSampling pickpointSampling_;
 
   PerformanceEstimate estimate_{};
   std::size_t perfHandle_{};

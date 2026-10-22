@@ -123,7 +123,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
 
   auto* faultOutputManager = seissolInstance.timeManager().faultOutputManager();
-  faultOutputManager->writePickpointOutput(0.0, 0.0);
+  faultOutputManager->recordInitialPickpointOutput(currentTime_);
 
   auto& summary = seissolInstance.runSummary();
   summary["simulation"]["startTime"] = currentTime_;

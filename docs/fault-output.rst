@@ -121,7 +121,7 @@ To generate ASCII receiver files, configure the **Pickpoint** namelist as in thi
 .. code-block:: Fortran
 
   &Pickpoint
-  printtimeinterval = 1
+  pickdt = 0.005
   OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   nOutpoints = 24
   PPFileName = 'fault_receivers.dat'
@@ -132,7 +132,14 @@ To generate ASCII receiver files, configure the **Pickpoint** namelist as in thi
 and a single table holding all of them (``'hdf5'``), see `HDF5 fault
 receivers`_ below.
 
-**printtimeinterval** determines how frequently the output is generated — every **printtimeinterval** (local) time step. Please note that using this output with local time-stepping may result in differently sampled receiver files.
+The receivers take a sample at the start of the simulation, every **pickdt** seconds after it
+(at the multiples of **pickdt**), and at its end. The time step of a fault face evaluates the
+samples that fall into it from the space-time prediction of its cells and the friction state at
+the end of the step; so all receivers sample at the same times, whichever time cluster their face
+belongs to.
+
+Without **pickdt**, the receivers sample every **printtimeinterval** time steps of the finest time
+cluster that holds fault faces, counted from time zero (default: every such time step).
 
 The text files
 ~~~~~~~~~~~~~~

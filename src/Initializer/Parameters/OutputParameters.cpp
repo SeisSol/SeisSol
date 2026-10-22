@@ -211,6 +211,17 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("pickpoint");
 
   const auto printTimeInterval = reader->readWithDefault("printtimeinterval", 1);
+  if (printTimeInterval < 1) {
+    logError() << "printtimeinterval of the on-fault receivers has to be at least 1, but is"
+               << printTimeInterval;
+  }
+
+  // zero: every printtimeinterval time steps of the finest time cluster with fault faces
+  const auto samplingInterval = reader->readWithDefault("pickdt", 0.0);
+  if (samplingInterval < 0) {
+    logError() << "pickdt of the on-fault receivers must not be negative, but is"
+               << samplingInterval;
+  }
 
   const auto interval = reader->readWithDefault("outputinterval", VeryLongTime);
 
@@ -242,7 +253,8 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
                              pickpointFileName,
                              collectiveio,
                              format,
-                             samplechunk};
+                             samplechunk,
+                             samplingInterval};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
