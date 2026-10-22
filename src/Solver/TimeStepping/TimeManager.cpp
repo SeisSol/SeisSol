@@ -799,8 +799,9 @@ void TimeManager::setUpHostScheduling() {
     return;
   }
   if (!HostRuntime::taskGraphAvailable()) {
-    logWarning() << "A task graph on the host (SEISSOL_HOST_TASK_GRAPH=1) needs OpenMP 5.0; the"
-                 << "loops keep a static schedule.";
+    logWarning() << "A task graph on the host (SEISSOL_HOST_TASK_GRAPH=1) needs OpenMP 5.0 with "
+                    "taskloop and detached tasks, which this build does not have (e.g. with NVHPC, "
+                    "or without OpenMP); the loops keep a static schedule.";
     HostRuntime::setScheduling(HostScheduling::Static, taskSize);
     return;
   }

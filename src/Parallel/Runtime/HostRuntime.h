@@ -25,8 +25,9 @@
 #include <omp.h>
 #endif
 
-// tasks with dependencies on a list of runtime length (iterators), and detached tasks: OpenMP 5.0
-#if defined(_OPENMP) && _OPENMP >= 201811
+// tasks with dependencies on a list of runtime length (iterators), and detached tasks: OpenMP 5.0.
+// NVHPC reports OpenMP 5.1, but offers neither these, nor taskloop or masked (up to 26.9 at least).
+#if defined(_OPENMP) && _OPENMP >= 201811 && !defined(__NVCOMPILER)
 #define SEISSOL_HOST_TASK_GRAPH
 #endif
 
