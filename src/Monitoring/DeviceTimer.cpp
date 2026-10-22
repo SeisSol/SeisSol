@@ -13,7 +13,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <mutex>
 #include <string>
 
 #ifdef ACL_DEVICE
@@ -22,6 +21,7 @@
 
 #include <Device/AbstractAPI.h>
 #include <Device/device.h>
+#include <mutex>
 #endif
 
 namespace seissol {

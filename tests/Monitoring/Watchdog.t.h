@@ -13,16 +13,18 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace watchdogtest {
 
-monitoring::Watchdog::Settings watchdogSettings() {
+inline monitoring::Watchdog::Settings watchdogSettings() {
   monitoring::Watchdog::Settings settings;
   settings.timeout = std::chrono::seconds(10);
   settings.period = std::chrono::seconds(1);
   return settings;
 }
 
-} // namespace
+} // namespace watchdogtest
+
+using namespace watchdogtest;
 
 // the thread of the watchdog does not run here: the tests take its looks themselves, at times of
 // their choice, and the watchdog never aborts by itself
