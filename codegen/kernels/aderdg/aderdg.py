@@ -61,6 +61,23 @@ def negateFamily(db, baseName, alignStride):
     }
 
 
+def embedFamily(db, baseName, size, alignStride):
+    """Replaces a tensor family in `db` with its members placed in the leading
+    block of a size x size matrix: a matrix between the bases of two degrees
+    then applies to the leading rows of a tensor of the cell, which hold a
+    field of that degree. The entries keep their indices, so this holds for a
+    matrix stored transposed as well."""
+    db[baseName] = {
+        group: Tensor(
+            tensor.name(),
+            (size, size),
+            dict(tensor.values().items()),
+            alignStride=alignStride(tensor.name()),
+        )
+        for group, tensor in db[baseName].items()
+    }
+
+
 class ADERDGBase(ABC):
     def __init__(self, order, multipleSimulations, matricesDir):
         self.order = order
@@ -101,8 +118,12 @@ class ADERDGBase(ABC):
         # memory layout configuration is applied, since that mutates whatever
         # tensors are in the database at the time.
         negateFamily(self.db, "kDivMT", self.alignStride)
-        if "kDivMTLower" in self.db:
-            negateFamily(self.db, "kDivMTLower", self.alignStride)
+        if "kDivMTDegree" in self.db:
+            negateFamily(self.db, "kDivMTDegree", self.alignStride)
+            for family in ("kDivMTDegree", "elevateDegree"):
+                embedFamily(
+                    self.db, family, self.num3DBasisFunctions(), self.alignStride
+                )
 
         clonesQP = {"v": ["evalAtQP"], "vInv": ["projectQP"]}
         self.db.update(
@@ -1527,12 +1548,13 @@ class ADERDGBase(ABC):
         it has. In another basis the derivative of the degree of the cell is
         of one degree less, and kDivMT is that lower degree raised back into
         the basis of the cell, which has every function of the cell in it. The
-        step then goes through the basis of the lower degree, where the
-        derivative matrices (kDivMTLower) have a few entries per row and the
-        star matrices see as many functions as that basis has, and is raised
-        back once, after the star matrices of all three directions are summed
-        (embedDegree). Every derivative keeps the full basis of the cell, so
-        the Taylor sums need nothing beyond the derivatives themselves.
+        step then goes through the basis of the lower degree, in the leading
+        rows of a tensor of the cell, where the derivative matrices
+        (kDivMTDegree) have a few entries per row and the star matrices see as
+        many functions as that basis has, and is raised back once, after the
+        star matrices of all three directions are summed (elevateDegree). Every
+        derivative keeps the full basis of the cell, so the Taylor sums need
+        nothing beyond the derivatives themselves.
         """
         if self.basis.hierarchical:
             return [], [
@@ -1541,14 +1563,18 @@ class ADERDGBase(ABC):
                 * self.starMatrix(j)["qp"]
                 for j in range(3)
             ]
+        degree = self.order - 1
         if not hasattr(self, "_derivativeLower"):
-            # what the star matrices give in the basis of the lower degree
+            # what the star matrices give in the basis of the lower degree, in
+            # the leading rows
+            columns = self.starMatrix(0).shape()[1]
             self._derivativeLower = OptionalDimTensor(
                 "derivativeLower",
                 self.Q.optName(),
                 self.Q.optSize(),
                 self.Q.optPos(),
-                (count(self.order - 2), self.starMatrix(0).shape()[1]),
+                (self.num3DBasisFunctions(), columns),
+                spp=self.leadingRows(count(degree - 1), columns),
                 alignStride=True,
                 temporary=True,
             )
@@ -1556,13 +1582,36 @@ class ADERDGBase(ABC):
         lowerSum = None
         for j in range(3):
             term = (
-                self.db.kDivMTLower[j][self.t("kl")]
+                self.derivativeOfDegree(degree, j)[self.t("kl")]
                 * source["lq"]
                 * self.starMatrix(j)["qp"]
             )
             lowerSum = term if lowerSum is None else lowerSum + term
-        raised = self.db.embedDegree[self.order - 2][self.t("kl")] * lower["lp"]
+        raised = self.elevationOfDegree(degree - 1)[self.t("kl")] * lower["lp"]
         return [lower["kp"] <= lowerSum], [raised]
+
+    def derivativeOfDegree(self, degree, direction):
+        """The derivative in a direction from the basis of a degree into the one
+        of one degree less (kDivMTDegree), negated as kDivMT is (negateFamily)
+        and in the leading block of a matrix of the cell (embedFamily)."""
+        return self.db.kDivMTDegree[degree, direction]
+
+    def elevationOfDegree(self, degree):
+        """The basis of a degree in the one of one degree more (elevateDegree),
+        in the leading block of a matrix of the cell (embedFamily)."""
+        return self.db.elevateDegree[degree]
+
+    def leadingRows(self, rows, columns=None):
+        """The pattern of a tensor of the cell, of `columns` quantities (those of
+        Q by default), with entries in its leading rows."""
+        columns = self.numQuantities() if columns is None else columns
+        shape = self.Q.insertOptDim(
+            (self.num3DBasisFunctions(), columns), (self.Q.optSize(),)
+        )
+        index = self.Q.insertOptDim((slice(0, rows), slice(None)), (slice(None),))
+        pattern = np.zeros(shape, dtype=bool)
+        pattern[index] = True
+        return pattern
 
     def nodalVolumeDerivatives(self):
         """The derivative matrices the volume term of the corrector applies

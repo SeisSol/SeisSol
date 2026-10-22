@@ -286,7 +286,7 @@ class TestBasisSmoke:
         init = (tmp_path / f"equation-{equation}-3-double" / "init.h").read_text()
         # the chain goes through the basis of one degree less where the basis is
         # not hierarchical; the space-time predictor keeps the chain as well
-        lower = "kDivMTLower" in init and "embedDegree" in init
+        lower = "kDivMTDegree" in init and "elevateDegree" in init
         assert lower == (basis == "bernstein")
 
     def test_unknown_basis_is_rejected(self, tmp_path):
