@@ -59,6 +59,9 @@ class Hdf5Reader {
   std::size_t dataCount(const std::string& name);
   //! @brief Number of values per row, i.e. the product of all but the first dimension.
   std::size_t dataRowSize(const std::string& name);
+  //! @brief The extents of one value of a dataset, outermost first, if its values are arrays;
+  //! empty otherwise.
+  std::vector<std::size_t> dataValueShape(const std::string& name);
   void readDataRaw(void* data,
                    const std::string& name,
                    std::size_t count,

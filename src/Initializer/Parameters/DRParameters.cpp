@@ -192,6 +192,15 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
   const auto rsSlipRateTolerance = reader->readWithDefault<double>("rsslipratetolerance", 1e-8);
   const auto rsStateTolerance = reader->readWithDefault<double>("rsstatetolerance", 1e-8);
 
+  // The grid spans a fixed wavenumber per point, so the count decides how far into the diffusive
+  // tail the integration reaches: the smallest resolved wavenumber is
+  // TpMaxWaveNumber * exp(-TpLogDz * (tpGridPoints - 1)).
+  const auto tpGridPoints = reader->readWithDefault<std::uint32_t>(
+      "tp_gridpoints", seissol::dr::misc::DefaultTpGridPoints);
+  if (tpGridPoints == 0) {
+    logError() << "tp_gridpoints must be at least one.";
+  }
+
   reader->warnDeprecated({"rf_output_on",
                           "backgroundtype",
                           "gpwise",
@@ -235,6 +244,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
                       rsMaxNumberSlipRateUpdates,
                       rsNumberStateVariableUpdates,
                       rsSlipRateTolerance,
-                      rsStateTolerance};
+                      rsStateTolerance,
+                      tpGridPoints};
 }
 } // namespace seissol::initializer::parameters
