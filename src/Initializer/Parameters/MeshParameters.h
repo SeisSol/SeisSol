@@ -12,6 +12,7 @@
 #include "ParameterReader.h"
 
 #include <Eigen/Dense>
+#include <optional>
 #include <string>
 
 namespace seissol::initializer::parameters {
@@ -29,6 +30,7 @@ struct MeshParameters {
   MeshFormat meshFormat{MeshFormat::PUML};
   std::string meshFileName;
   std::string partitioningLib;
+  std::optional<std::string> faceMapFile;
   Eigen::Vector3d displacement;
   Eigen::Matrix3d scaling;
 };

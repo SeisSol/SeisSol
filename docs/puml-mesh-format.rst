@@ -40,7 +40,7 @@ The content of the Hdf5 file can be view using ``h5dump``; most notably ``h5dump
 The format itself is mostly compatible to Xdmf, given a corresponding Xdmf XML file. With such, it can be visualized in e.g. ParaView.
 Other than that, the Xdmf XML description is currently ignored by SeisSol.
 
-The boundary conditions can be extracted from a PUML mesh and visualised in ParaView using this
+The boundary conditions can be extracted from a PUML mesh and visualized in ParaView using this
 `script <https://github.com/SeisSol/Meshing/blob/master/vizualizeBoundaryConditions/vizualizeBoundaryConditions.py>`_.
 
 An example Hdf5 file looks as follows:
@@ -73,7 +73,27 @@ It shows that the hdf5 file consists of the 4 arrays: geometry, connect, group a
 Conventions
 -----------
 
-All tetrahedra need to have the same, positive orientation.
+SeisSol reorients each tetrahedron while reading the mesh, so the orientation of the tetrahedra in the file does not affect the simulation.
+For compatibility with earlier versions of SeisSol and with other tools, all tetrahedra should nevertheless have the same, positive orientation.
+
+Cells of a higher order
+-----------------------
+
+PUMGen writes a mesh of gmsh whose cells are of a higher order as any other mesh, the cells by their
+vertices in ``/connect``, and adds the other nodes of every cell:
+
+-   ``/geometry_ho``: the nodes of every cell beyond its vertices, three coordinates each, in the
+    order gmsh numbers them (its attribute ``node-ordering`` says ``gmsh``). Dimension: (nValues,)
+
+-   ``/geometry_ho_offsets``: where the nodes of every cell start in ``/geometry_ho``. Dimension:
+    (nCells + 1,)
+
+-   ``/order``: the order of every cell. Dimension: (nCells,)
+
+SeisSol does not compute on curved cells yet. It takes such a mesh where all of its cells are
+straight-sided -- every node within 1e-8 of the longest edge of its cell of where the straight-sided
+cell through the vertices has it -- and reads it as a mesh of the first order; a mesh with a curved
+cell it refuses.
 
 Boundary Conditions
 -------------------
@@ -87,23 +107,25 @@ In the default format (``i32``), the 4 boundary condition ids for each tetrahedr
 
 Other boundary formats (``i64``) have a 16-bit offset and use 0xffff as a mask instead. The format ``i32x4`` stores each boundary value in an array value of its own, instead of compressing all four values into one integer.
 
-SeisSol indexes the boundary conditions as follows:
+The values may be stored as signed or unsigned integers of up to 64 bits; SeisSol takes their bits as they are. Hence, a packed value may well be negative, as it is with PUMGen (which writes signed integers) wherever the fourth face of a cell has a tag of 128 or more in ``i32``, or of 32768 or more in ``i64``.
+
+SeisSol indexes the boundary conditions as follows. What each of them does is described in :doc:`boundary-conditions`.
 
 - 0: regular. A regular face between two cells.
 
 - 1: free surface. Boundary condition; no neighbor.
 
-- 2: gravity-based free surface. Boundary condition; no neighbor.
+- 2: gravity-based free surface. Boundary condition; no neighbor. Not supported by the ``stp`` solver, nor by the ``linearckanelastic`` solver on GPUs (see :doc:`build-parameters`).
 
 - 3: dynamic rupture. A dynamic rupture face between two cells.
 
-- 4: dirichlet. Boundary condition; no neighbor.
+- 4: dirichlet. Boundary condition; no neighbor. Not supported by the ``linearckanelastic`` solver on GPUs.
 
 - 5: absorbing. Boundary condition; no neighbor.
 
-- 6: identified. Similar to a regular face (0) between two cells. Formerly known as "periodic".
+- 6: regular. Like face type 0, a regular face between two cells. Formerly known as "periodic" or "identified".
 
-- 7: analytical. Boundary condition given by
+- 7: analytical. Boundary condition; no neighbor. The state behind the face is the analytical solution of the configured scenario (see :doc:`boundary-conditions`). Not supported with the easi initial condition, nor by the ``linearckanelastic`` solver on GPUs.
 
 - n>64: dynamic rupture. A dynamic rupture face between two cells, but with a different tag. (see :doc:`fault-tagging`)
 
@@ -112,6 +134,35 @@ The following convention for defining a face ID is used:
 .. code-block:: python
 
    s_vert[0,:] = [0,2,1];   s_vert[1,:] = [0,1,3];    s_vert[2,:] = [1,2,3]; s_vert[3,:] = [0,3,2];
+
+You may supply a separate face type configuration as a YAML file. The file consists of a sole YAML dictionary
+with the tags ``regular``, ``freeSurface``, ``freeSurfaceGravity``, ``dynamicRupture``, ``dirichlet``,
+``outflow``, or ``analytical``.
+
+Each entry has a list with the boundary condition IDs / face tags that are associated to it.
+You may also add a range of the format e.g. ``10-23`` or ``10-`` if you want all larger tags
+to be matched to this boundary condition. Ranges are inclusive on both sides.
+
+As an example, the following would replicate the default SeisSol behavior.
+
+.. code-block:: yaml
+
+   regular:
+      - 0
+      - 6
+   freeSurface:
+      - 1
+   freeSurfaceGravity:
+      - 2
+   dynamicRupture:
+      - 3
+      - 65- # note the open range
+   dirichlet:
+      - 4
+   outflow:
+      - 5
+   analytical:
+      - 7
 
 Topological Connectivity (e.g. for periodic or stitched domains)
 ----------------------------------------------------------------
@@ -128,8 +179,3 @@ requires additional data to be specified. There are two ways to encode purely-to
 - vertex-wise: assign a topological vertex to each geometric vertex, called ``identify`` in the mesh file. From that, we subsequently generate the topological connectivity array. (topology format ``identify-vertex``)
 
 Currently, the topological vertex IDs may not exceed the number of geometric vertices.
-
-Cube Generator
-~~~~~~~~~~~~~~
-
-A cube mesh generator is integrated in SeisSol as well; it also supports periodic boundary conditions, but only single-rank setups.

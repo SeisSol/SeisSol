@@ -348,6 +348,16 @@ The following architectures are supported:
      - AMD RDNA 4
      - AMD Radeon 9000 series
      - split [#xnack2]_
+   * - ``gfx1250``
+     - ``hip``
+     - AMD CDNA 5
+     - AMD MI455X
+     - split [#xnack1]_
+   * - ``gfx1251``
+     - ``hip``
+     - AMD CDNA 5
+     - AMD MI430X
+     - split [#xnack1]_
    * - ``12_60_7`` (``pvc``)
      - ``oneapi``
      - Intel Ponte Vecchio

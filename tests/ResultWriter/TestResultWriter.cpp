@@ -7,4 +7,5 @@
 
 #include <doctest.h>
 
+#include "EnergyOutput.t.h"
 #include "ReceiverWriter.t.h"

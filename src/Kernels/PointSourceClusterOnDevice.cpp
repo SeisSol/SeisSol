@@ -8,6 +8,7 @@
 
 #include "PointSourceClusterOnDevice.h"
 
+#include "Config.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
@@ -18,16 +19,25 @@
 
 namespace seissol::kernels {
 
-PointSourceClusterOnDevice::PointSourceClusterOnDevice(
+template <typename Cfg>
+PointSourceClusterOnDevice<Cfg>::PointSourceClusterOnDevice(
     std::shared_ptr<sourceterm::ClusterMapping> mapping,
-    std::shared_ptr<sourceterm::PointSources> sources)
+    std::shared_ptr<sourceterm::PointSources<Cfg>> sources)
     : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
 
-std::size_t PointSourceClusterOnDevice::size() const { return sources_->numberOfSources; }
-
-void PointSourceClusterOnDevice::addTimeIntegratedPointSources(
-    double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {
-  pointSourceKernel(*clusterMapping_, *sources_, from, to, runtime);
+template <typename Cfg>
+std::size_t PointSourceClusterOnDevice<Cfg>::size() const {
+  return sources_->numberOfSources;
 }
+
+template <typename Cfg>
+void PointSourceClusterOnDevice<Cfg>::addTimeIntegratedPointSources(
+    double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {
+  pointSourceKernel<Cfg>(*clusterMapping_, *sources_, from, to, runtime);
+}
+
+#define SEISSOL_INSTANTIATE(Cfg) template class PointSourceClusterOnDevice<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::kernels

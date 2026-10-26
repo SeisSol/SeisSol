@@ -362,7 +362,9 @@ Distributor::DistributionInstance Distributor::distributeRaw(
                            targetChar,
                            sourceReordered,
                            targetReordered,
-                           typesize,
+                           // a copy named typesize makes NVHPC (24.9, 26.9) hand the OpenMP region
+                           // above that copy, uninitialized there, in place of typesize
+                           elementSize = typesize,
                            typesizeTarget,
                            copyFn]() {
     // temporary hack to make requests non-const (as it will not matter)
@@ -371,7 +373,7 @@ Distributor::DistributionInstance Distributor::distributeRaw(
 
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < recvReorder_.size(); ++i) {
-      copyFn(targetChar + i * typesizeTarget, targetReordered + recvReorder_[i] * typesize);
+      copyFn(targetChar + i * typesizeTarget, targetReordered + recvReorder_[i] * elementSize);
     }
 
     std::free(sourceReordered);

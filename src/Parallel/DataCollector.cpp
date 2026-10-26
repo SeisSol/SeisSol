@@ -44,7 +44,7 @@ DataCollectorUntyped::DataCollectorUntyped(const std::vector<void*>& indexDataHo
 
 DataCollectorUntyped::~DataCollectorUntyped() {
   if (!hostAccessible_ && indexCount_ > 0) {
-    memory::free(static_cast<void*>(indexDataDevice_), memory::Memkind::DeviceGlobalMemory);
+    memory::freeTyped(indexDataDevice_, memory::Memkind::DeviceGlobalMemory);
     memory::free(copiedData_, memory::Memkind::PinnedMemory);
   }
 }
@@ -53,7 +53,7 @@ DataCollectorUntyped::~DataCollectorUntyped() {
 void DataCollectorUntyped::gatherToHost(void* stream) {
   if (!hostAccessible_ && indexCount_ > 0) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().algorithms.copyScatterToUniformI(
+    device::DeviceInstance::instance().algorithms().copyScatterToUniformI(
         const_cast<const void**>(indexDataDevice_),
         copiedDataDevice_,
         elemSize_,
@@ -68,7 +68,7 @@ void DataCollectorUntyped::gatherToHost(void* stream) {
 void DataCollectorUntyped::scatterFromHost(void* stream) {
   if (!hostAccessible_ && indexCount_ > 0) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().algorithms.copyUniformToScatterI(
+    device::DeviceInstance::instance().algorithms().copyUniformToScatterI(
         const_cast<const void*>(copiedDataDevice_),
         indexDataDevice_,
         elemSize_,

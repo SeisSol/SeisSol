@@ -8,24 +8,23 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_
 
+#include "Common/Real.h"
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law::cpu {
-template <class Derived, class TPMethod>
+template <typename Cfg, class Derived, class TPMethod>
 class SlowVelocityWeakeningLaw
-    : public RateAndStateBase<SlowVelocityWeakeningLaw<Derived, TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, SlowVelocityWeakeningLaw<Cfg, Derived, TPMethod>, TPMethod> {
   public:
+  using real = Real<Cfg>;
+
   SlowVelocityWeakeningLaw() = default;
-  using RateAndStateBase<SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using RateAndStateBase<Cfg, SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
-
-  std::unique_ptr<FrictionSolver> clone() override {
-    return std::make_unique<Derived>(*static_cast<Derived*>(this));
-  }
 
 // Note that we need double precision here, since single precision led to NaNs.
 #pragma omp declare simd
@@ -39,26 +38,26 @@ class SlowVelocityWeakeningLaw
   }
 
   struct MuDetails {
-    std::array<real, misc::NumPaddedPoints> a{};
-    std::array<real, misc::NumPaddedPoints> cLin{};
-    std::array<real, misc::NumPaddedPoints> cExpLog{};
-    std::array<real, misc::NumPaddedPoints> cExp{};
-    std::array<real, misc::NumPaddedPoints> acLin{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> a{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> cLin{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> cExpLog{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> cExp{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> acLin{};
   };
 
   MuDetails getMuDetails(std::size_t ltsFace,
-                         const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
+                         const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable) {
     MuDetails details{};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       const real localA = this->a_[ltsFace][pointIndex];
       const real localSl0 = this->sl0_[ltsFace][pointIndex];
       const real log1 =
-          std::log(this->drParameters_->rsSr0 * localStateVariable[pointIndex] / localSl0);
+          std::log(this->drParameters_.rsSr0 * localStateVariable[pointIndex] / localSl0);
       const real localF0 = this->f0_[ltsFace][pointIndex];
       const real localB = this->b_[ltsFace][pointIndex];
 
-      const real cLin = static_cast<real>(0.5) / this->drParameters_->rsSr0;
+      const real cLin = static_cast<real>(0.5) / this->drParameters_.rsSr0;
       const real cExpLog = (localF0 + localB * log1) / localA;
       const real cExp = rs::computeCExp(cExpLog);
       const real acLin = localA * cLin;
@@ -110,24 +109,12 @@ class SlowVelocityWeakeningLaw
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
    * member variable.
    */
-  void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
                         std::size_t ltsFace) const {
 #pragma omp simd
-    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       this->stateVariable_[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
-  }
-
-  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                             std::size_t ltsFace) {
-    [[maybe_unused]] const real tmp =
-        0.5 / this->drParameters_->rsSr0 *
-        std::exp((this->drParameters_->rsF0 +
-                  this->drParameters_->rsB *
-                      std::log(this->drParameters_->rsSr0 * localStateVariable[0] /
-                               this->drParameters_->rsSr0)) /
-                 this->a_[ltsFace][0]);
-    assert(!std::isnan(tmp) && "nonConvergence RS Newton");
   }
 };
 } // namespace seissol::dr::friction_law::cpu

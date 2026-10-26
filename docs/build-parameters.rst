@@ -31,11 +31,19 @@ You may explicitly compile and install multiple of these configurations at the s
 - ``EQUATIONS``: the equation system to compile for
 
     * ``elastic``: isotropic elastic
-    * ``viscoelastic``: obsolete, use ``viscoelastic2`` instead
-    * ``viscoelastic2``: isotropic viscoelastic. Requires a positive number of relaxation mechanisms (``NUMBER_OF_MECHANISMS``).
+    * ``acoustic``: acoustic
+    * ``viscoelastic``: isotropic viscoelastic. Requires a positive number of relaxation mechanisms (``NUMBER_OF_MECHANISMS``). ``viscoelastic2`` is accepted as an alias.
+    * ``viscoacoustic``: viscoacoustic. Requires a positive number of relaxation mechanisms (``NUMBER_OF_MECHANISMS``).
     * ``anisotropic``: anisotropic elastic; essentially uses the same kernels as the ``elastic`` mode, but with more general matrices
     * ``poroelastic``: isotropic poroelastic
-- ``NUMBER_OF_MECHANISMS``: the number of mechanisms for viscoelastic simulations. For all other equations, this parameter is required to be 0.
+
+- ``SOLVER``: the scheme which advances a cell in time. The default, ``auto``, picks the first one the equation system supports.
+
+    * ``linearck``: the Cauchy-Kovalevskaya procedure for linear equations. The only choice for ``elastic``, ``acoustic`` and ``anisotropic``. For ``viscoelastic`` and ``viscoacoustic``, it carries the memory variables as additional quantities; this replaces ``VISCO_MODE=extend``.
+    * ``linearckanelastic``: the Cauchy-Kovalevskaya procedure with the memory variables kept separately, which is faster. The default for ``viscoelastic`` and ``viscoacoustic``; this replaces ``VISCO_MODE=split``. On GPUs, it does not support free surfaces with gravity, Dirichlet or analytical boundaries; SeisSol stops during the initialization if the mesh has any.
+    * ``stp``: the space-time predictor, which treats stiff source terms implicitly. The only choice for ``poroelastic``. It does not support free surfaces with gravity; SeisSol stops during the initialization if the mesh has any.
+
+- ``NUMBER_OF_MECHANISMS``: the number of mechanisms for viscoelastic and viscoacoustic simulations. For all other equations, this parameter is required to be 0.
 - ``ORDER``: the expected convergence order. It corresponds to the polynomial degree plus 1. The order is used for both space and time integration. For example, if you specify order 4, you will be using polynomials of degree 3 in space and time. Note that a higher order can impact the performance greatly.
 - ``PRECISION``:
 
@@ -43,9 +51,36 @@ You may explicitly compile and install multiple of these configurations at the s
     * ``double``: use double precision. Recommended, if your simulation fails with Inf/NaN errors in single precision builds. See also https://github.com/SeisSol/SeisSol/issues/200 .
 
 - ``NUMBER_OF_FUSED_SIMULATIONS``: the number of simulations run simultaneously.
-- ``NEW_BINARY_NAMING``: use an updated binary naming scheme which uses lower-case letters and a shorter notation
+- ``EXTRA_CONFIGS``: further configurations to build into the same executable, next to the one the parameters above describe, as a list of their names or of named sets of them (see ``CONFIGS``), e.g. ``elastic-linearck-o4-f32-stroud``. A name reads ``<material>-<solver>[-m<mechanisms>]-o<order>-<f32|f64>-<dr quadrature rule>[-s<fused simulations>]``. A run chooses its configuration with ``Configuration`` in the ``equations`` section of the parameter file, or else with the environment variable ``SEISSOL_CONFIGURATION`` (see :ref:`env_vars`), and takes the first one otherwise; with ``ConfigMap``, mesh groups compute in configurations of their own (see :ref:`several_configurations`). All configurations share the alignment and the vector size of the host architecture.
+- ``CONFIGS``: the configurations to build into the executable, as a list of their names, of named sets of them, or both, e.g. ``elastic-linearck-o4-f64-stroud;elastic-linearck-o4-f32-stroud`` or ``o4``. The named sets are in ``cmake/confignames.cmake``: ``o2`` to ``o8`` hold one order each, with the six materials in single and double precision, each with its default solver, viscoelastic and viscoacoustic with 3 mechanisms; ``all`` holds these sets together (84 configurations), order 6 first; ``ci-cpu`` and ``ci-gpu`` hold the configurations the CPU and the GPU CI build, ``ci-sanitize`` those the sanitizer CI builds (the double precision half of ``ci-cpu``). The first configuration is the one a run takes if neither its parameter file nor ``SEISSOL_CONFIGURATION`` names one. If given, it replaces ``EQUATIONS``, ``SOLVER``, ``NUMBER_OF_MECHANISMS``, ``ORDER``, ``PRECISION``, ``DR_QUAD_RULE``, ``NUMBER_OF_FUSED_SIMULATIONS`` and ``EXTRA_CONFIGS``. A build with ``CONFIGS`` names its executables without a configuration (with ``NEW_BINARY_NAMING``): ``seissol``, ``proxyseissol`` and ``testseissol-<module>``, followed by ``-<CUSTOM_BINARY_SUFFIX>`` if that is set.
+- ``NEW_BINARY_NAMING``: (default on) use an updated binary naming scheme which uses lower-case letters and a shorter notation
 
 Besides these, the host or, if enabled, the device architecture and backend are also encoded in the name of the executable.
+
+.. _several_configurations:
+
+Several configurations in one run
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(NOTE: this feature is still considered highly experimental; its interface may change without notice)
+
+The cells of a mesh group can compute in another configuration built into the executable than the rest of the mesh. ``ConfigMap`` in the ``equations`` section assigns them, e.g.
+
+.. code-block:: Fortran
+
+  &equations
+  Configuration = 'elastic-linearck-o4-f64-stroud'
+  ConfigMap = '2,3:viscoelastic-linearckanelastic-m3-o4-f64-stroud; 4:elastic-linearck-o5-f64-stroud'
+  /
+
+computes the groups 2 and 3 viscoelastically, the group 4 with order 5, and all other groups in the configuration of the run.
+
+- The material file is queried for the cells of each configuration separately, with the material of that configuration. A group only has to define the parameters of the material it computes with.
+- At a face between cells of different configurations, each cell reads the time integral of its neighbor converted into its own configuration: quantities with the same name are taken over, all others are zero (between a solid and a fluid, the solid takes the pressure of the fluid as an isotropic stress, and the fluid the normal stress of the solid on the face as its pressure); the precision is converted; a neighbor of a lower order is padded with zeros, and the trace of a neighbor of a higher order is projected to the face basis of the cell. So both cells see the exact traces of each other. The neighbor enters the Riemann problem with the parameters it is posed with.
+- Such faces are possible between configurations whose materials pose the Riemann problem in the same material (elastic and viscoelastic; acoustic and viscoacoustic; each other material only with itself), between a solid (elastic, viscoelastic) and a fluid (acoustic, viscoacoustic), and that fuse the same number of simulations. At a face between a solid and a fluid, the solid sees the fluid as a solid without shear modulus, and the fluid sees the solid as a fluid with its P-wave modulus; that gives the same fluid-solid face as a fluid with zero shear modulus within the elastic equations. All configurations of a run have to fuse the same number of simulations. On GPUs, such faces need TensorForge as the device code generator (``DEVICE_CODEGEN``). Dynamic rupture faces between configurations and checkpoints of such runs are not supported yet.
+- A cell weighs in the partitioning and the LTS clustering with the cost of its configuration relative to the configuration of the run, as Mini SeisSol measures it (see :ref:`env_vars`).
+- The initial condition is set up for each configuration. Configurations with the same material set it up alike, from the material of the same cell. A planar wave is therefore an exact solution across configurations of the same material only.
+- The wave field and the free surface are written into one output for all configurations. A quantity is written once for the cells of all configurations that have it, and as NaN for the others; the cell data ``config`` gives the position of the configuration of a cell in the list of the run: 0 for ``Configuration``, then the ones of ``ConfigMap`` in the order of the build. The log lists the configurations of the run. The analysis output writes one file per configuration.
 
 Generic parameters
 ------------------
@@ -53,14 +88,18 @@ Generic parameters
 - ``LOG_LEVEL_MASTER``: determines the minimum relevance level of log messages that are printed. Possible values are ``error``, ``warning``, ``info``, and ``debug``.
 - ``ASAGI``: enable or disable ASAGI as input for fault and material information. Note that easi will need to be built with ASAGI support if you select this option.
 - ``COVERAGE``: determine the code coverage (currently only relevant for the CI).
-- ``DR_QUAD_RULE``: the quadrature rule used for the Dynamic Rupture. Currently permits either ``dunavant`` or ``stroud``, referring to the respective quadrature scheme names.
-- ``PLASTICITY_METHOD``: changes the plasticity matrices to be used. Options are
+- ``DR_QUAD_RULE``: the quadrature rule used for the Dynamic Rupture. Currently permits either ``dunavant`` or ``stroud``, referring to the respective quadrature scheme names. ``stroud`` is the conical product rule with (order + 1)² points, exact up to degree 2 · order + 1; ``dunavant`` uses Dunavant's symmetric rules exact up to degree 2 · order, with 6, 12, 16, 25, 33, 42 and 61 points for the orders 2 to 8 (degree 17 for order 8, since the rule of degree 16 has points outside the triangle).
+- ``PLASTICITY_METHOD``: the points at which the plastic correction is computed, and with them the plasticity matrices to be used. Options are
 
-    * ``nb``: nodal basis
-    * ``ib``: interpolating basis
+    * ``sq``: symmetric quadrature (the default), the points of a quadrature rule that integrates the product of two basis functions exactly, is invariant under all permutations of the vertices and has all points inside the cell (4, 14, 24, 46, 79, 128 and 188 points for the orders 2 to 8). Converting back to the basis is the L2 projection with that rule.
+    * ``nb``: nodal basis, the warp & blend nodes of the basis: one point per basis function, some of them on the boundary of the cell. Converting back to the basis interpolates.
+    * ``ip``: interpolation points, the conical-product (Stroud) quadrature rule with (order + 1)^3 points. Converting back to the basis is the L2 projection with that rule.
 - ``PROXY_PYBINDING``: compile Python bindings for the SeisSol proxy
 - ``TESTING``: compile unit tests for SeisSol
-- ``TESTING_GENERATED``: compile unit tests
+- ``TESTING_GENERATED``: compile unit tests for code-generated kernels. Useful for either developing a code generator, or when figuring out why a simulation runs into Inf/NaN or invalid results. Without it, the code generator writes no unit tests either.
+- ``TESTING_PYTHON``: run additional code generator Python unit tests (those can also be run separately using ``pytest`` directly)
+- ``SEISSOL_VERIFICATION_CONFIGS``: the configurations of the executable that the verification cases of the tests (``tests/verification``, end-to-end runs on generated mini meshes) run in: ``all`` of them (default), ``first``, or a list of their names. A case of a configuration is named after it, e.g. ``verification.smoke-box48<elastic-linearck-o6-f64-stroud>``.
+- ``SANITIZERS``: instrument the C and C++ code of the build (SeisSol, its submodules, the generated kernels and the tests; not the device code) with the given sanitizers, as a list of ``address``, ``undefined``, ``leak``, ``thread`` and ``memory``, e.g. ``address;undefined``. ``thread`` needs Clang with the OpenMP runtime of LLVM, ``memory`` Clang and dependencies built with it as well. The tests fail on any report of a sanitizer; ``.ci/sanitizers/environment.sh`` sets the runtime options the CI runs them with. Combine it with ``CMAKE_BUILD_TYPE=Debug`` and ``-O1 -g1`` as ``CMAKE_C_FLAGS_DEBUG`` and ``CMAKE_CXX_FLAGS_DEBUG``, which keeps the assertions and the line numbers of the reports (with full debug information, GCC compiles the generated kernels many times as long), and with ``GEMM_TOOLS_LIST=none``, since no sanitizer sees into the kernels of PSpaMM or LIBXSMM.
 - ``LTO``: enable link-time optimization
 - ``GRAPH_PARTITIONING_LIBS``: compile for the given graph partitioning libraries. Allowed options are:
 
@@ -77,7 +116,10 @@ CPU-specific parameters
 - ``HOST_ARCH``: the parameter to tune the architecture for. See build-archs for an overview. Applies both compiler options and GEMM generation. If you get an illegal instruction error, check this variable first. Since there are many options, we have an own page for them. In short, use ``hsw`` when using a Linux/Windows PC or an older Mac. Use ``apple-m1`` or ``apple-m2`` on the latest Mac computers.
 - ``MEMKIND``: enables HBM support.
 - ``NUMA_AWARE_PINNING``: pin the free CPUs (those used for the communication and IO threads) according to the given NUMA domains.
-- ``MEMORY_LAYOUT``: the sparsity patterns to apply. If not given, it will be chosen by the CPU architecture.
+- ``MEMORY_LAYOUT``: the sparsity patterns to apply. If set to ``auto``, code generation chooses
+  a layout from the target-specific config folder (``codegen/config/cpu`` or
+  ``codegen/config/gpu``). Passing a filename such as ``dense.xml`` or ``ms32.xml`` resolves it
+  from that same target-specific folder automatically.
 - ``GEMM_TOOLS_LIST``: the list for CPU GEMM generators that are used. Note that SeisSol benefits from code generation specifically for small matrices. Currently supports combinations of the following:
 
     * ``auto``: automatically selects the installed and usable GEMM generators out of ``LIBXSMM_JIT``, ``LIBXSMM`` and ``PSpaMM`` (in this order).
@@ -103,16 +145,10 @@ GPU-specific parameters
     * ``gemmforge-chainforge``: Gemmforge and chainforge (auto-enabled if the latter is found)
     * ``tensorforge``: TensorForge
     * ``tinytc``: Tiny Tensor Compiler (for Intel)
+- ``DEVICE_CODEGEN_SHARDS``: the number of files the generated GPU routines are spread over, so that they compile at the same time; ``0`` (the default) takes four per configuration. The routines are spread by size, so the files take about the same time.
 - ``DEVICE_KERNEL_INFOPRINT``: print register/resource usage info for each compiled kernel while compiling SeisSol.
 - ``DEVICE_KERNEL_SAVETEMPS``: store the temporary output (e.g. PTX, AMDGCN ISA) of the GPU compilers. Useful e.g. for kernel debugging.
 - ``SYCL_USE_NVHPC``: if AdaptiveCpp is compiled with NVHPC support, and we use NVHPC
 - ``USE_GRAPH_CAPTURING``: if a compute graph feature is available, then use it. This is currently the case for CUDA (since 11.0), HIP (requires ROCm 6.1 or higher), or oneAPI.
 - ``ENABLE_PROFILING_MARKERS``: Currently available for CUDA and HIP
 - ``DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS``: enable some faster, handwritten accumulation kernels (default for NVIDIA and AMD)
-
-Options currently known to be broken
-------------------------------------
-
-The following options are available, but need to be left in the state that they are in. Not doing so will most likely break the build process or the software.
-
-- ``INTEGRATE_QUANTITIES``: assumed to be always disabled. Currently broken; it will probably be replaced in some version soon—when we refactor the IO component of SeisSol.

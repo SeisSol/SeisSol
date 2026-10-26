@@ -6,6 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 function(determine_host_arch arch)
+    include(CheckCXXCompilerFlag)
     include(CheckSourceRuns)
     include(CMakePushCheckState)
 
@@ -13,7 +14,18 @@ function(determine_host_arch arch)
 
     cmake_push_check_state(RESET)
 
-    set(CMAKE_REQUIRED_FLAGS "-march=native -mcpu=native -mtune=native")
+    # The checks compile for the CPU of the host with those of the flags for it that the compiler
+    # takes: GCC takes none of them on RISC-V, no -mcpu on LoongArch, and none as a cross compiler.
+    # The flags of the build (e.g. -march=rv64gcv) apply as well.
+    set(native_flags)
+    foreach(flag -march=native -mcpu=native -mtune=native)
+        string(MAKE_C_IDENTIFIER "SEISSOL_COMPILER_TAKES${flag}" takes_flag)
+        check_cxx_compiler_flag(${flag} ${takes_flag})
+        if (${takes_flag})
+            list(APPEND native_flags ${flag})
+        endif()
+    endforeach()
+    list(JOIN native_flags " " CMAKE_REQUIRED_FLAGS)
 
     if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
         check_source_runs(CXX
@@ -139,7 +151,7 @@ function(determine_host_arch arch)
             #ifdef __riscv_vector
             #include <riscv_vector.h>
             int main() {
-                return (__riscv_vsetvlmax_e8m1() == 16) ? 0 : 1;
+                return (__riscv_vsetvlmax_e8m1() == 32) ? 0 : 1;
             }
             #else
             int main() {
@@ -154,7 +166,7 @@ function(determine_host_arch arch)
             #ifdef __riscv_vector
             #include <riscv_vector.h>
             int main() {
-                return (__riscv_vsetvlmax_e8m1() == 16) ? 0 : 1;
+                return (__riscv_vsetvlmax_e8m1() == 64) ? 0 : 1;
             }
             #else
             int main() {

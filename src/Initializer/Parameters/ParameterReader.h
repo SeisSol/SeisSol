@@ -13,6 +13,7 @@
 #include <unordered_set>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::initializer::parameters {
@@ -143,6 +144,32 @@ class ParameterReader {
   ParameterReader* readSubNode(const std::string& subnodeName);
   bool hasField(const std::string& field);
 
+  /**
+   * @brief Whether reading the parameters looked at the field @p path, given as the names of its
+   * sections followed by its own, e.g. {"output", "outputfile"}.
+   *
+   * A field that was read, marked unused or found deprecated was looked at; one SeisSol does not
+   * know of was not.
+   */
+  [[nodiscard]] bool visited(const std::vector<std::string>& path) const;
+
+  //! @brief A file that a parameter names, as readPath() resolved it.
+  struct NamedPath {
+    //! the names of the sections of the parameter and its own, e.g. {"equations",
+    //! "materialfilename"}
+    std::vector<std::string> field;
+    std::string path;
+  };
+
+  //! @brief The files that the parameters read so far name, here and in the sections below.
+  [[nodiscard]] std::vector<NamedPath> paths() const;
+
+  /**
+   * @brief The fields of the parameter file that reading the parameters did not look at, as
+   * section.field; the ones that warnUnknown() warns of.
+   */
+  [[nodiscard]] std::vector<std::string> unknownFields() const;
+
   private:
   template <typename T>
   T readUnsafe(const std::string& field) {
@@ -168,6 +195,8 @@ class ParameterReader {
   bool empty_;
   std::unordered_set<std::string> visited_;
   std::unordered_map<std::string, std::shared_ptr<ParameterReader>> subreaders_;
+  //! the fields readPath() read here, with what it resolved them to
+  std::vector<std::pair<std::string, std::string>> paths_;
 };
 } // namespace seissol::initializer::parameters
 

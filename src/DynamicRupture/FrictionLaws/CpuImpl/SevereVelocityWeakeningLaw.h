@@ -8,15 +8,18 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/Misc.h"
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law::cpu {
-template <class TPMethod>
+template <typename Cfg, class TPMethod>
 class SevereVelocityWeakeningLaw
-    : public RateAndStateBase<SevereVelocityWeakeningLaw<TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, SevereVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using real = Real<Cfg>;
+
+  using RateAndStateBase<Cfg, SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
@@ -32,27 +35,29 @@ class SevereVelocityWeakeningLaw
                              double localSlipRate) {
     const real localSl0 = this->sl0_[faceIndex][pointIndex];
 
-    const real steadyStateStateVariable = localSlipRate * localSl0 / this->drParameters_->rsSr0;
+    const real steadyStateStateVariable = localSlipRate * localSl0 / this->drParameters_.rsSr0;
 
-    const double preexp1 = -this->drParameters_->rsSr0 * (timeIncrement / localSl0);
-    const double exp1v = std::exp(preexp1);
+    const double preexp1 = -this->drParameters_.rsSr0 * (timeIncrement / localSl0);
     const double exp1m = -std::expm1(preexp1);
-    const double localStateVariable = steadyStateStateVariable * exp1m + exp1v * stateVarReference;
+    // the relaxation towards the steady state with expm1 alone, which keeps it as its exact fixed
+    // point (see FastVelocityWeakeningLaw::updateStateVariable)
+    const double localStateVariable =
+        stateVarReference + (steadyStateStateVariable - stateVarReference) * exp1m;
 
     return localStateVariable;
   }
 
   struct MuDetails {
-    std::array<real, misc::NumPaddedPoints> a{};
-    std::array<real, misc::NumPaddedPoints> c{};
-    std::array<real, misc::NumPaddedPoints> f0{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> a{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> c{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> f0{};
   };
 
   MuDetails getMuDetails(std::size_t ltsFace,
-                         const std::array<real, misc::NumPaddedPoints>& localStateVariable) {
+                         const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable) {
     MuDetails details{};
 #pragma omp simd
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       const real localA = this->a_[ltsFace][pointIndex];
       const real localSl0 = this->sl0_[ltsFace][pointIndex];
       const real c = this->b_[ltsFace][pointIndex] * localStateVariable[pointIndex] /
@@ -69,7 +74,7 @@ class SevereVelocityWeakeningLaw
   real updateMu(std::uint32_t pointIndex, real localSlipRateMagnitude, const MuDetails& details) {
     return details.f0[pointIndex] +
            details.a[pointIndex] * localSlipRateMagnitude /
-               (localSlipRateMagnitude + this->drParameters_->rsSr0) -
+               (localSlipRateMagnitude + this->drParameters_.rsSr0) -
            details.c[pointIndex];
   }
 
@@ -78,24 +83,21 @@ class SevereVelocityWeakeningLaw
                           real localSlipRateMagnitude,
                           const MuDetails& details) {
     // note that: d/dx (x/(x+c)) = ((x+c)-x)/(x+c)**2 = c/(x+c)**2
-    const real divisor = (localSlipRateMagnitude + this->drParameters_->rsSr0);
-    return details.a[pointIndex] * this->drParameters_->rsSr0 / (divisor * divisor);
+    const real divisor = (localSlipRateMagnitude + this->drParameters_.rsSr0);
+    return details.a[pointIndex] * this->drParameters_.rsSr0 / (divisor * divisor);
   }
 
   /**
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the
    * member variable.
    */
-  void resampleStateVar(const std::array<real, misc::NumPaddedPoints>& stateVariableBuffer,
+  void resampleStateVar(const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
                         std::size_t ltsFace) const {
 #pragma omp simd
-    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
+    for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       this->stateVariable_[ltsFace][pointIndex] = stateVariableBuffer[pointIndex];
     }
   }
-
-  void executeIfNotConverged(const std::array<real, misc::NumPaddedPoints>& localStateVariable,
-                             std::size_t ltsFace) {}
 };
 } // namespace seissol::dr::friction_law::cpu
 

@@ -55,9 +55,12 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #                     LOG_LEVEL, LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
-#       derived input: REAL_SIZE_IN_BYTES, ALIGNMENT, VECTORSIZE ARCH_STRING, WITH_GPU, DEVICE_VENDOR
 #
+#       derived input: WITH_GPU, DEVICE_VENDOR
+#
+include(cmake/confignames.cmake)
 include(cmake/process_users_input.cmake)
+include(cmake/configs.cmake)
 
 if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   message(STATUS "Enable coverage computation.")
@@ -75,6 +78,8 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
+# before any target is defined, so that every C and C++ translation unit of the build is instrumented
+include(cmake/sanitizers.cmake)
 
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -164,6 +169,16 @@ if (MPI)
   target_link_libraries(seissol-common-properties INTERFACE MPI::MPI_C)
 
   target_compile_definitions(seissol-common-properties INTERFACE USE_MPI PARALLEL)
+
+  # PUML counts its exchanges in MPI_Count where the MPI library has the calls of MPI 4 for it. It
+  # tells them from MPI_VERSION, which some libraries that have them do not raise to 4 (Intel MPI
+  # 2021); the CMakeLists.txt of PUML looks for those, but SeisSol takes the headers of PUML without
+  # it, so it looks here
+  include(${CMAKE_CURRENT_SOURCE_DIR}/submodules/PUML/cmake/PumlMpiLargeCount.cmake)
+  puml_mpi_has_large_count(SEISSOL_MPI_HAS_LARGE_COUNT MPI::MPI_C)
+  if (SEISSOL_MPI_HAS_LARGE_COUNT)
+    target_compile_definitions(seissol-common-properties INTERFACE PUML_MPI_LARGE_COUNT)
+  endif()
 endif()
 
 if (NUMA_AWARE_PINNING)
@@ -245,22 +260,12 @@ if (MEMKIND)
   target_compile_definitions(seissol-common-properties INTERFACE USE_MEMKIND)
 endif()
 
-if (INTEGRATE_QUANTITIES)
-  target_compile_definitions(seissol-common-properties INTERFACE INTEGRATE_QUANTITIES)
-endif()
-
 if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
   target_compile_definitions(seissol-common-properties INTERFACE DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)
 endif()
 
 if (DEVICE_COMBINE_LOCAL_FLUX)
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
-endif()
-
-if (ADDRESS_SANITIZER_DEBUG)
-  target_link_libraries(seissol-common-properties INTERFACE debug
-          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address -static-libasan
-  )
 endif()
 
 find_package(Eigen3 REQUIRED)
@@ -279,7 +284,7 @@ if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
 endif()
 
 # needed because Eigen (also 5.0) still incorrectly computes some values and fails some unit tests
-if((${EQUATIONS} STREQUAL "poroelastic"))
+if("poroelastic" IN_LIST SEISSOL_CONFIG_MATERIALS)
   include(CheckLanguage)
   check_language(Fortran)
   if(CMAKE_Fortran_COMPILER)
@@ -343,16 +348,12 @@ target_include_directories(seissol-common-properties INTERFACE
 
 # for the same reason, do the same for all other submodules (for now)
 
-# not explicitly listed: PUML, utils, fty, xdmfwriter
+# not explicitly listed: PUML, utils, fty
 target_include_directories(seissol-common-properties SYSTEM INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/yateto/include
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/async
 )
-
-if (PREMULTIPLY_FLUX)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_PREMULTIPLY_FLUX)
-endif()
 
 if (NOT NEW_BINARY_NAMING)
   # adjust prefix name of executables
@@ -365,28 +366,31 @@ if (NOT NEW_BINARY_NAMING)
   if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
     set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_f${NUMBER_OF_FUSED_SIMULATIONS}")
   endif()
+  if(NOT ${CUSTOM_BINARY_SUFFIX} STREQUAL "")
+    set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_${CUSTOM_BINARY_SUFFIX}")
+  endif()
 else()
-  if (WITH_GPU)
-    set(NAME_SUFFIX "gpu")
+  # the suffix of the names of the executables and libraries, with its leading dash
+  if (NOT "${CONFIGS}" STREQUAL "")
+    # one executable for all configurations of the list; a run chooses its own
+    set(NAME_SUFFIX "")
   else()
-    set(NAME_SUFFIX "cpu")
+    set(NAME_SUFFIX "-${EQUATIONS}")
+    if (NUMBER_OF_MECHANISMS GREATER 0)
+      set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
+    endif()
+    set(NAME_SUFFIX "${NAME_SUFFIX}-o${ORDER}")
+    if (PRECISION STREQUAL "single")
+      set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
+    else()
+      set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
+    endif()
+    if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
+      set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
+    endif()
   endif()
-  if (EQUATIONS STREQUAL "viscoelastic2")
-    set(NAME_SUFFIX "${NAME_SUFFIX}-viscoelastic")
-  else()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-${EQUATIONS}")
-  endif()
-  if (NUMBER_OF_MECHANISMS GREATER 0)
-    set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
-  endif()
-  set(NAME_SUFFIX "${NAME_SUFFIX}-p${ORDER}")
-  if (PRECISION STREQUAL "single")
-    set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
-  else()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
-  endif()
-  if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
-    set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
+  if(NOT ${CUSTOM_BINARY_SUFFIX} STREQUAL "")
+    set(NAME_SUFFIX "${NAME_SUFFIX}-${CUSTOM_BINARY_SUFFIX}")
   endif()
 endif()
 
@@ -394,7 +398,7 @@ if (SHARED)
   if (NOT NEW_BINARY_NAMING)
     set_target_properties(seissol-lib PROPERTIES OUTPUT_NAME "SeisSol_lib_${EXE_NAME_PREFIX}")
   else()
-    set_target_properties(seissol-lib PROPERTIES OUTPUT_NAME "seissollib-${NAME_SUFFIX}")
+    set_target_properties(seissol-lib PROPERTIES OUTPUT_NAME "seissollib${NAME_SUFFIX}")
   endif()
   install(TARGETS seissol-lib LIBRARY)
 endif()
@@ -430,7 +434,7 @@ if (WITH_GPU)
     set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "SeisSol_gpucodegen_${EXE_NAME_PREFIX}")
     set_target_properties(device PROPERTIES OUTPUT_NAME "device_${CMAKE_BUILD_TYPE}_${DEVICE_BACKEND}")
   else()
-    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode-${NAME_SUFFIX}")
+    set_target_properties(seissol-device-lib PROPERTIES OUTPUT_NAME "seissol-gpucode${NAME_SUFFIX}")
   endif()
 
   # set up GPU install targets
@@ -490,17 +494,27 @@ add_subdirectory(external)
 if (TESTING)
   enable_testing()
   include(cmake/doctest.cmake)
+  include(cmake/SmokeTest.cmake)
 
   add_subdirectory(tests)
 endif()
 
 add_subdirectory(app)
 
+# the verification cases drive the executable, so they are registered after it
+# exists. They need enable_testing(), hence the TESTING guard.
+option(VERIFICATION_TESTS "Register the mini-mesh verification cases" ON)
+if (TESTING AND VERIFICATION_TESTS)
+  add_subdirectory(tests/verification)
+endif()
+
 # Coverage (should run last; after all folders have been added)
 if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
+  # The verification cases of the label convergence run what the smoke cases run, for 256 steps
+  # rather than 20; that adds no coverage, but minutes per case in this unoptimized build.
   setup_target_for_coverage_lcov(
           NAME seissol-coverage
-          EXECUTABLE ctest -j
+          EXECUTABLE ctest -j -LE convergence
           EXCLUDE "/usr/*"
                   "submodules/*"
                   "tests/*"
@@ -510,6 +524,7 @@ if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
           LCOV_ARGS --ignore-errors inconsistent
                     --ignore-errors unused
                     --ignore-errors mismatch
+          GENHTML_ARGS --ignore-errors inconsistent
   )
 endif()
 

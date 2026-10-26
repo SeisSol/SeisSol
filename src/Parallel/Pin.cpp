@@ -130,7 +130,7 @@ void Pinning::checkEnvVariables() {
 
         isMaskGood = false;
       } else {
-        const auto maxCpuId = get_nprocs();
+        const auto maxCpuId = get_nprocs() - 1;
         for (auto localProcessId = 0; localProcessId < static_cast<int>(parsedFreeCPUsMask_.size());
              ++localProcessId) {
           for (auto cpu : parsedFreeCPUsMask_[localProcessId]) {
@@ -228,7 +228,7 @@ CpuMask Pinning::getFreeCPUsMask() const {
   // Note that pinning of the communication thread is then not Numa-aware if there's more than one
   // rank per node!
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
-    const bool isOnline = CPU_ISSET(cpu, &onlineMask.set);
+    const bool isOnline = CPU_ISSET(cpu, &onlineMask_.set);
     const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask.set);
     if (isOnline && isFree) {
       CPU_SET(cpu, &freeMask);
@@ -250,6 +250,18 @@ bool Pinning::freeCPUsMaskEmpty(const CpuMask& mask) {
 #endif // __APPLE__
 }
 
+std::optional<int> Pinning::firstCpu(const CpuMask& mask) {
+#ifndef __APPLE__
+  // the ids in a mask range up to CPU_SETSIZE; CPU_COUNT is how many of them are set
+  for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
+    if (CPU_ISSET(cpu, &mask.set) != 0) {
+      return cpu;
+    }
+  }
+#endif // __APPLE__
+  return {};
+}
+
 CpuMask Pinning::getOnlineMask() const { return onlineMask_; }
 
 bool Pinning::areAllCpusOnline() {
@@ -261,8 +273,8 @@ bool Pinning::areAllCpusOnline() {
 }
 
 void Pinning::pinToFreeCPUs() const {
-  auto freeMask = getFreeCPUsMask();
 #ifndef __APPLE__
+  auto freeMask = getFreeCPUsMask();
   sched_setaffinity(0, sizeof(cpu_set_t), &(freeMask.set));
 #endif // __APPLE__
 }

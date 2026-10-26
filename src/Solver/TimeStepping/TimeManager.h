@@ -9,11 +9,13 @@
 
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_TIMEMANAGER_H_
+#include "Common/Json.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Monitoring/Stopwatch.h"
+#include "ResultWriter/ClusteringWriter.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/TimeStepping/GhostTimeClusterFactory.h"
@@ -23,6 +25,7 @@
 #include <cassert>
 #include <list>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <utils/logger.h>
 #include <vector>
@@ -41,11 +44,23 @@ class TimeManager {
   std::optional<initializer::ClusterLayout> clusterLayout_;
 
   //! all local (copy & interior) LTS clusters, which are under control of this time manager
-  std::vector<std::unique_ptr<TimeCluster>> clusters_;
-  std::vector<TimeCluster*> highPrioClusters_;
-  std::vector<TimeCluster*> lowPrioClusters_;
+  std::vector<std::unique_ptr<TimeClusterInterface>> clusters_;
 
-  //! one dynamic rupture scheduler per pair of interior/copy cluster
+  //! the global cluster, the cells and the dynamic rupture faces of each of clusters_
+  struct ClusterSize {
+    std::size_t globalClusterId;
+    //! the cells of the cluster: each copy cell once, though it is stored once per neighbor
+    std::size_t cells;
+    //! the further copies of copy cells, which are computed as well
+    std::size_t duplicateCells;
+    std::size_t dynamicRuptureFaces;
+  };
+  std::vector<ClusterSize> clusterSizes_;
+  std::vector<TimeClusterInterface*> highPrioClusters_;
+  std::vector<TimeClusterInterface*> lowPrioClusters_;
+
+  //! one dynamic rupture scheduler per pair of interior/copy cluster (of one configuration), at the
+  //! color of the interior layer
   std::vector<std::unique_ptr<DynamicRuptureScheduler>> dynamicRuptureSchedulers_;
 
   //! all MPI (ghost) LTS clusters, which are under control of this time manager
@@ -57,6 +72,9 @@ class TimeManager {
 
   //! dynamic rupture output
   dr::output::OutputManager* faultOutputManager_{};
+
+  //! the clusters as laid out, kept until the output is set up
+  std::optional<writer::ClusteringWriter> clusteringWriter_;
 
   public:
   /**
@@ -80,10 +98,29 @@ class TimeManager {
   void addClusters(const initializer::ClusterLayout& clusterLayout,
                    const solver::HaloCommunication& haloStructure,
                    initializer::MemoryManager& memoryManager,
-                   bool usePlasticity);
+                   const SimulationSettings& settings);
+
+  /**
+   * Writes the clustering table recorded by addClusters. Collective: every rank has to call it.
+   **/
+  void writeClustering() const;
+
+  //! The updates of cells and of dynamic rupture faces done on this rank, per global cluster.
+  struct Updates {
+    std::vector<double> cells;
+    //! the updates of the further copies of copy cells
+    std::vector<double> duplicateCells;
+    std::vector<double> dynamicRuptureFaces;
+  };
+
+  /**
+   * The updates done so far on this rank: each time step of a cluster updates all of its cells and
+   * dynamic rupture faces once, and the copy cells next to several neighbors once per neighbor.
+   **/
+  [[nodiscard]] Updates updates() const;
 
   void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
-  seissol::dr::output::OutputManager* getFaultOutputManager();
+  seissol::dr::output::OutputManager* faultOutputManager();
 
   /**
    * Advance in time until all clusters reach the next synchronization time.
@@ -116,7 +153,10 @@ class TimeManager {
    **/
   void setInitialTimes(double time = 0);
 
-  void printComputationTime(const std::string& outputPrefix, bool isLoopStatisticsNetcdfOutputOn);
+  json::Value printComputationTime();
+
+  //! The time this rank spent in the compute kernels so far.
+  [[nodiscard]] double kernelTime() const { return loopStatistics_.kernelTime(); }
 
   void freeDynamicResources();
 

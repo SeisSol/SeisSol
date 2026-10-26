@@ -8,31 +8,33 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FASTVELOCITYWEAKENINGLAW_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
-#include "Kernels/Precision.h"
 
 #include <cstdint>
 
 namespace seissol::dr::friction_law::gpu {
 
-template <typename TPMethod>
+template <typename Cfg, typename TPMethod>
 class FastVelocityWeakeningLaw
-    : public RateAndStateBase<FastVelocityWeakeningLaw<TPMethod>, TPMethod> {
+    : public RateAndStateBase<Cfg, FastVelocityWeakeningLaw<Cfg, TPMethod>, TPMethod> {
   public:
-  using RateAndStateBase<FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  using real = Real<Cfg>;
 
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {}
+  using RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
-  static void copySpecificStorageDataToLocal(FrictionLawData* data,
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
+
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
     data->srW = layerData.var<LTSRateAndStateFastVelocityWeakening::RsSrW>(
-        seissol::initializer::AllocationPlace::Device);
+        Cfg(), seissol::initializer::AllocationPlace::Device);
   }
 
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext& __restrict ctx,
+  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
                                                  real timeIncrement) {
     const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
@@ -57,11 +59,17 @@ class FastVelocityWeakeningLaw
         localA * rs::logsinh(ctx.data->drParameters.rsSr0 / localSlipRate * 2,
                              steadyStateFrictionCoefficient / localA);
 
-    const double preexp1 = -localSlipRate * (timeIncrement / localSl0);
-    const double exp1v = std::exp(preexp1);
-    const double exp1m = -std::expm1(preexp1);
+    // Exact integration over the step with the slip rate held fixed. Written as psi0 + (psi_ss -
+    // psi0) * (1 - exp(p)), it keeps psi_ss as its exact fixed point in any precision. The form
+    // psi_ss * (1 - exp(p)) + psi0 * exp(p) rounds exp and expm1 independently, and their mismatch
+    // moves the fixed point by L / (V dt) times as much, a few thousand here; in single precision
+    // on a device, whose expf errs to one side, that biased the state variable of every sliding
+    // point.
+    const real preexp1 = -localSlipRate * (timeIncrement / localSl0);
+    const real exp1m = -std::expm1(preexp1);
+    const real stateVarReference = ctx.initialVariables.stateVarReference;
     const real localStateVariable =
-        steadyStateStateVariable * exp1m + exp1v * ctx.initialVariables.stateVarReference;
+        stateVarReference + (steadyStateStateVariable - stateVarReference) * exp1m;
 
     ctx.stateVariableBuffer = localStateVariable;
   }
@@ -74,8 +82,8 @@ class FastVelocityWeakeningLaw
     real acLin{};
   };
 
-  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext& __restrict ctx,
-                                               double localStateVariable) {
+  SEISSOL_DEVICE static MuDetails getMuDetails(FrictionLawContext<Cfg>& __restrict ctx,
+                                               real localStateVariable) {
     const real localA = ctx.data->a[ctx.ltsFace][ctx.pointIndex];
     const real cLin = static_cast<real>(0.5) / ctx.data->drParameters.rsSr0;
     const real cExpLog = localStateVariable / localA;
@@ -84,40 +92,25 @@ class FastVelocityWeakeningLaw
     return MuDetails{localA, cLin, cExpLog, cExp, acLin};
   }
 
-  SEISSOL_DEVICE static real
-      updateMu(FrictionLawContext& /*ctx*/, real localSlipRateMagnitude, const MuDetails& details) {
+  SEISSOL_DEVICE static real updateMu(FrictionLawContext<Cfg>& /*ctx*/,
+                                      real localSlipRateMagnitude,
+                                      const MuDetails& details) {
     const real lx = details.cLin * localSlipRateMagnitude;
     return details.a * rs::arsinhexp(lx, details.cExpLog, details.cExp);
   }
 
-  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext& /*ctx*/,
+  SEISSOL_DEVICE static real updateMuDerivative(FrictionLawContext<Cfg>& /*ctx*/,
                                                 real localSlipRateMagnitude,
                                                 const MuDetails& details) {
     const real lx = details.cLin * localSlipRateMagnitude;
     return details.acLin * rs::arsinhexpDerivative(lx, details.cExpLog, details.cExp);
   }
 
-  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext& __restrict ctx) {
-    constexpr auto Dim0 = misc::dimSize<init::resample, 0>();
-    constexpr auto Dim1 = misc::dimSize<init::resample, 1>();
-    static_assert(Dim0 == misc::NumPaddedPointsSingleSim);
-    static_assert(Dim0 >= Dim1);
-
+  SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext<Cfg>& __restrict ctx) {
     const auto localStateVariable = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
-    ctx.sharedMemory[ctx.pointIndex] = ctx.stateVariableBuffer - localStateVariable;
-    deviceBarrier(ctx);
+    const auto toResample = ctx.stateVariableBuffer - localStateVariable;
 
-    const auto simPointIndex = ctx.pointIndex / multisim::NumSimulations;
-    const auto simId = ctx.pointIndex % multisim::NumSimulations;
-    constexpr uint32_t SimPointStride = multisim::MultisimEnabled ? Dim1 : 1U;
-    constexpr uint32_t DataPointStride = multisim::MultisimEnabled ? 1U : Dim0;
-
-    real resampledDeltaStateVar{0.0};
-    for (uint32_t i = 0; i < Dim1; ++i) {
-      resampledDeltaStateVar +=
-          ctx.args->resampleMatrix[simPointIndex * SimPointStride + i * DataPointStride] *
-          ctx.sharedMemory[i * multisim::NumSimulations + simId];
-    }
+    const auto resampledDeltaStateVar = resampleVariable(ctx, toResample);
 
     ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] =
         localStateVariable + resampledDeltaStateVar;

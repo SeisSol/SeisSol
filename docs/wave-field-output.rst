@@ -27,7 +27,33 @@ Refinement
 | 2: Refinement strategy is Equal Face Area: 8 subcells per cell
 | 3: Refinement strategy is Equal Face Area and Face Extraction: 32
   subcells per cell
-| The unknowns are always evaluated at the center of the subcell.
+| By default, the unknowns are evaluated at the center of the subcell; see
+  ``wavefieldprojection`` below for the alternative.
+
+.. note::
+
+   Up to and including SeisSol v1.3, the subcells of a refined wavefield output were sampled in a
+   different vertex labeling than the one the output mesh was built with. As a result, the value
+   written for a subcell was the solution at the center of one of its siblings -- for
+   ``refinement = 1``, three of the four subcells of every element were affected, and for
+   ``refinement = 2`` and ``3`` the inner subcells were sampled at a point that is not the center
+   of any subcell at all. Only ``refinement = 0`` was unaffected, since the center of the whole
+   element is invariant under that relabeling. Output written with ``refinement > 0`` by an older
+   version therefore differs from what SeisSol produces now, and the difference is not a
+   regression.
+
+wavefieldprojection
+-------------------
+
+Controls how the solution is transferred onto the output points:
+
+| ``pointwise`` (default): the solution is evaluated at the output points. For
+  ``wavefieldvtkorder = -1`` these are the subcell centers, so this reproduces the classic
+  wavefield output.
+| ``l2``: the solution is projected onto the output space in the L2 sense. For
+  ``wavefieldvtkorder = -1`` this is the average over each subcell, which is conservative but
+  differs from the point value by O(h^2).
+
 
 .. _wavefield-iouputmask:
 
@@ -48,19 +74,15 @@ The 6 first digits controls the components of the off-fault plastic
 strain tensor (ep_xx, ep_yy, ep_zz, ep_xy, ep_yz, and ep_xz),
 and the last one the accumulated plastic strain (eta).
 
-.. only:: comment
+IntegrationMask
+---------------
 
-    IntegrationMask
-    ---------------
-
-    **Warning**: broken -> currently not compiling.
-    To use this output, enable option INTEGRATE_QUANTITIES in cmake.
-    IntegrationMask allows switching on and off the writing of time integrated SeisSol unknowns.
-    The 6 first digits control the components of the time integrated stress tensor
-    (int_sigma_xx, int_sigma_yy, int_sigma_zz, int_sigma_xy, int_sigma_yz, and int_sigma_xz),
-    and the 3 last digits the displacement components (displacement_x, displacement_y, displacement_z).
-    Note that this output is associated with the prefix-low.xdmf file, and can only output
-    the cell average quantities.
+IntegrationMask allows switching on and off the writing of time integrated SeisSol unknowns.
+The 6 first digits control the components of the time integrated stress tensor
+(int_sigma_xx, int_sigma_yy, int_sigma_zz, int_sigma_xy, int_sigma_yz, and int_sigma_xz),
+and the 3 last digits the displacement components (displacement_x, displacement_y, displacement_z).
+Note that this output is associated with the prefix-low.xdmf file, and can only output
+the cell average quantities.
 
 
 OutputRegionBounds
@@ -105,7 +127,24 @@ Example
    printIntervalCriterion = 2          ! Criterion for index of printed info: 1=timesteps,2=time,3=timesteps+time
    refinement = 1
    wavefieldvtkorder = -1
+   wavefieldprojection = 'pointwise'
+   wavefieldtimeseries = 'snapshot'
    /
+
+File groupings
+--------------
+
+``wavefieldtimeseries`` overrides ``outputtimeseries`` for the wavefield output,
+so that it can be written as one file for the whole run while the other outputs
+stay one file per step, or the other way round. It takes effect only with
+``wavefieldvtkorder`` set; see :ref:`io_infrastructure` for what the groupings
+are.
+
+At ``wavefieldvtkorder = -1`` and ``0`` the corners a cell shares with its
+neighbors are written once, which makes the point array as large as the mesh
+rather than as large as the mesh times the number of cells a vertex touches. The
+merging happens within a rank, and can be switched off with
+``SEISSOL_IO_VERTEXFILTER=0``.
 
 High-Order VTKHDF Output
 ------------------------

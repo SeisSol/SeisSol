@@ -11,7 +11,7 @@ namespace seissol::unit_test {
 
 using namespace seissol;
 
-TEST_CASE("Backmap") {
+TEST_CASE("Backmap" * doctest::test_suite("memory")) {
   constexpr std::size_t DupCount = 4;
 
   std::vector<std::size_t> dataToMesh{0, 1, 2, 3, 4, 3, 6, 4, 9, 8, 6, 2, 3, 5, 0, 2};
@@ -47,14 +47,14 @@ TEST_CASE("Backmap") {
       const auto pos = backmap.getDup(i, j);
       if (j < compare[i].size()) {
         REQUIRE(pos.has_value());
-        REQUIRE(pos.value() == compare[i][j]);
+        CHECK(pos.value() == compare[i][j]);
       } else {
         REQUIRE(!pos.has_value());
       }
     }
 
     if (!compare[i].empty()) {
-      REQUIRE(backmap.get(i) == compare[i][0]);
+      CHECK(backmap.get(i) == compare[i][0]);
     }
   }
 }

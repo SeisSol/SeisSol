@@ -10,12 +10,22 @@
 
 #include "Xml.h"
 
+#include <memory>
+#include <string>
+#include <vector>
+
 namespace seissol::io::instance::metadata {
 
 struct PvuEntry {
   std::string file;
   double timestep;
 };
+
+//! The data set of a step of the collection.
+std::shared_ptr<XmlEntry> makePvuDataset(const PvuEntry& entry);
+
+//! The collection holding @p datasets.
+XmlFile makePvuCollection(const std::vector<std::shared_ptr<XmlEntry>>& datasets);
 
 XmlFile makePvu(const std::vector<PvuEntry>& entries);
 

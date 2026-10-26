@@ -6,32 +6,24 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 # SPDX-FileContributor: Carsten Uphoff
 
-from kernels.aderdg import LinearADERDG
-from yateto.input import memoryLayoutFromFile, parseXMLMatrixFile
+from kernels.aderdg.linearck import LinearCK
+from kernels.quantities import FaceRole, QuantityGroup, QuantityKind
 
 
-class ElasticADERDG(LinearADERDG):
+class ElasticADERDG(LinearCK):
     def __init__(self, order, multipleSimulations, matricesDir, memLayout, **kwargs):
         super().__init__(order, multipleSimulations, matricesDir)
-        clones = {
-            "star": ["star(0)", "star(1)", "star(2)"],
-        }
-        self.db.update(parseXMLMatrixFile("{}/star.xml".format(matricesDir), clones))
+        self.configure(matricesDir, memLayout, kwargs)
 
-        memoryLayoutFromFile(memLayout, self.db, clones)
-        self.kwargs = kwargs
-
-    def numberOfQuantities(self):
-        return 9
+    def primaryGroups(self):
+        return [
+            QuantityGroup("s", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
+            QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
+        ]
 
     def name(self):
         return "elastic"
 
-    def starMatrix(self, dim):
-        return self.db.star[dim]
 
-    def addLocal(self, generator, targets):
-        super().addLocal(generator, targets)
-
-
-EQUATION_CLASS = ElasticADERDG
+def kernel_class(**kwargs):
+    return ElasticADERDG

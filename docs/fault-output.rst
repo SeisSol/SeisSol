@@ -54,6 +54,7 @@ You can adjust the ParaView output using the Elementwise namelist. Here is an ex
   refinement_strategy = 1 ! or 2
   refinement = 1
   vtkorder = -1
+  timeseries = 'snapshot'
   /
 
 printTimeInterval_Sec
@@ -88,8 +89,8 @@ Here's what each bit in the OutputMask array represents:
 7. **Vr**: Rupture velocity, computed from the spatial derivatives of the rupture time
 8. **ASl**: Accumulated slip
 9. **PSR**: Peak slip rate
-10. **RT**: Rupture time
-11. **DS**: Dynamic stress time. With LSW, the time at which ASl>D_c. With RS, the time at which mu <= (f0 + mu_w). DS can be used to evaluate the process zone size.
+10. **RT**: Rupture time, the time at which the slip rate exceeds 1 mm/s, interpolated linearly between the time points of the friction solve. A point that slips from the start of the simulation on has a rupture time of 0.
+11. **DS**: Dynamic stress time. With LSW, the time at which ASl>D_c, interpolated linearly over the interval over which a sub-step integrates the slip. With RS, the time at which mu <= mu_w + 0.05 (f0 - mu_w), interpolated like the rupture time, but not before it. DS can be used to evaluate the process zone size.
 12. **P_f** and **Tmp**: Only with thermal pressurization, pore pressure and temperature
 
 Initial fault tractions
@@ -124,9 +125,48 @@ To generate ASCII receiver files, configure the **Pickpoint** namelist as in thi
   OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   nOutpoints = 24
   PPFileName = 'fault_receivers.dat'
+  format = 'csv'
   /
 
+``format`` chooses between one text file per receiver (``'csv'``, the default)
+and a single table holding all of them (``'hdf5'``), see `HDF5 fault
+receivers`_ below.
+
 **printtimeinterval** determines how frequently the output is generated — every **printtimeinterval** (local) time step. Please note that using this output with local time-stepping may result in differently sampled receiver files.
+
+The text files
+~~~~~~~~~~~~~~
+
+Every receiver has a file of its own, ``-faultreceiver-00001.dat`` and so on,
+numbered by its line in ``PPFileName``. Its header names the columns and states
+where the receiver sits and the stress the fault starts out under there, rotated
+into the strike and dip directions:
+
+::
+
+  TITLE = "Temporal Signal for fault receiver number 1"
+  VARIABLES = "Time" ,"SRs" ,"SRd" ,"T_s" ,"T_d" ,"P_n" ,...
+  # x1                    ...
+  # x2                    ...
+  # x3                    ...
+  # face-global-id        ...
+  # plus-cell-global-id   ...
+  # plus-face-side        ...
+  # minus-cell-global-id  ...
+  # minus-face-side       ...
+  # P_0                   ...
+  # T_s                   ...
+  # T_d                   ...
+
+followed by a row per sample. ``T_s``, ``T_d`` and ``P_n`` are the change of the
+tractions; adding ``T_s``, ``T_d`` and ``P_0`` of the header gives the total.
+
+With fused simulations, a sample takes a row per simulation, and the second
+column, ``SimulationIndex``, says which one, counted from zero. The lines
+``P_0``, ``T_s`` and ``T_d`` of the header then hold a value per simulation, in
+the same order. SeisSol used to write a column per quantity and simulation
+instead (``SRs-1``, ``SRs-2``, ...); ``postprocessing/science/widen_fused_receivers.py``
+converts the files to that layout for tools that expect it.
 
 .. _outputmask-1:
 
@@ -135,7 +175,68 @@ OutputMask
 
 This is the same as for the ParaView output.
 
+HDF5 fault receivers
+~~~~~~~~~~~~~~~~~~~~
+
+Setting ``format = 'hdf5'`` in the ``Pickpoint`` section writes all receivers
+into a single file, ``-faultreceivers.h5``, instead of one text file each.
+
+A row of that table is **one receiver of one simulation**, as a sample of a
+fused run is a row per simulation in the text files, and what their header
+states about a receiver becomes a column beside the table. The layout is the one
+of the off-fault receivers, described under :ref:`off_fault_receivers`, with
+these columns:
+
+::
+
+  /faultreceivers/Index            (receivers, 2)   group and row within that group
+  /faultreceivers/ReceiverId       (receivers,)     the receiver's number
+  /faultreceivers/SimulationIndex  (receivers,)     which fused simulation the row holds
+  /faultreceivers/FaceId           (receivers,)     the fault face, globally
+  /faultreceivers/PlusCellId       (receivers,)     the cell on the plus side
+  /faultreceivers/PlusFaceSide     (receivers,)     and its local face number
+  /faultreceivers/MinusCellId      (receivers,)     the cell on the minus side
+  /faultreceivers/MinusFaceSide    (receivers,)     and its local face number
+  /faultreceivers/Coordinates      (receivers, 3)   where the receiver sits
+  /faultreceivers/InitialStress    (receivers, 3)   P_0, T_s and T_d of the text header
+
+The quantities of a sample are ``Time`` followed by the components the
+``OutputMask`` turned on.
+
+With local time stepping, the clusters a rank holds do not all cache the same
+number of samples between two writes, while the table has one sample axis for
+all of them. The count is therefore agreed across the ranks, and the receivers
+that cached fewer samples leave the rest of their column at a quiet ``NaN`` --
+which a reader can drop, unlike a zero it could not tell from a measurement.
+
+``samplechunk`` in the same section sets the storage chunking along the sample
+axis, as :code:`receiversamplechunk` does for the off-fault receivers.
+
 High-Order VTKHDF Output
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The high-order elementwise output can be enabled by setting ``vtkorder`` in the ``elementwise`` section to a positive value, corresponding to the order of the output polynomial per cell.
+
+File groupings
+~~~~~~~~~~~~~~
+
+``timeseries`` in the ``elementwise`` section overrides ``outputtimeseries`` for
+the fault output, so that it can be written as one file for the whole run while
+the other outputs stay one file per step, or the other way round. It takes
+effect only with a ``vtkorder`` set; see :ref:`io_infrastructure` for what the
+groupings are.
+
+Cell fields
+~~~~~~~~~~~
+
+Beside the quantities, every cell of the elementwise output carries:
+
+``fault-tag``
+  the tag the mesh gave this fault face (see the fault tagging page). Several faces
+  carry the same tag, and a mesh that tags nothing leaves it at its default.
+
+``global-id``
+  an identifier of the face, unique across the mesh
+
+``partition``
+  the rank that computed the cell

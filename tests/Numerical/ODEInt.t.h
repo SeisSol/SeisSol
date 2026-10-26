@@ -9,29 +9,32 @@
 #include "Numerical/ODEVector.h"
 
 #include <Eigen/Dense>
+#include <type_traits>
 
 namespace seissol::unit_test {
 
-TEST_CASE("Test ODE Solver") {
-  constexpr real Eps = Config::Precision == RealType::F32 ? 10e-4 : 10e-11;
+TEST_CASE_TEMPLATE("Test ODE Solver" * doctest::test_suite("numerical"), RealT, float, double) {
+  constexpr RealT Eps = std::is_same_v<RealT, float> ? 10e-4 : 10e-11;
   SUBCASE("Test simple integration") {
     constexpr auto SizeSolution = 5;
     constexpr auto SizeIntegratedSolution = SizeSolution;
 
-    alignas(Alignment) real curUSolutionIntegrated[SizeIntegratedSolution] = {};
-    alignas(Alignment) real curUSolution[SizeSolution] = {};
+    alignas(Alignment) RealT curUSolutionIntegrated[SizeIntegratedSolution] = {};
+    alignas(Alignment) RealT curUSolution[SizeSolution] = {};
 
-    auto curU = seissol::ode::ODEVector{{curUSolutionIntegrated, curUSolution},
-                                        {SizeIntegratedSolution, SizeSolution}};
+    auto curU = seissol::ode::ODEVector<RealT>{{curUSolutionIntegrated, curUSolution},
+                                               {SizeIntegratedSolution, SizeSolution}};
 
     // Setup ODE solver
     const auto timeSpan = seissol::ode::TimeSpan{0, 2};
     const double dt = 0.0007;
     auto odeSolverConfig = seissol::ode::ODESolverConfig(dt);
 
-    auto solver =
-        seissol::ode::RungeKuttaODESolver({SizeIntegratedSolution, SizeSolution}, odeSolverConfig);
-    const auto f = [&](seissol::ode::ODEVector& du, seissol::ode::ODEVector& u, double /*time*/) {
+    auto solver = seissol::ode::RungeKuttaODESolver<RealT>({SizeIntegratedSolution, SizeSolution},
+                                                           odeSolverConfig);
+    const auto f = [&](seissol::ode::ODEVector<RealT>& du,
+                       seissol::ode::ODEVector<RealT>& u,
+                       double /*time*/) {
       // Unpack du
       auto [dUIntegratedStorage, dUIntegratedSize] = du.getSubvector(0);
       REQUIRE(dUIntegratedSize == SizeIntegratedSolution);
@@ -63,16 +66,16 @@ TEST_CASE("Test ODE Solver") {
     const double uShould = std::exp(2 * timeSpan.end);
     const double uIntegratedShould = std::exp(2 * timeSpan.end) / 2 - 0.5;
     for (int i = 0; i < SizeSolution; ++i) {
-      REQUIRE(curUSolution[i] == AbsApprox(uShould).epsilon(Eps));
-      REQUIRE(curUSolutionIntegrated[i] == AbsApprox(uIntegratedShould).epsilon(Eps));
+      CHECK(curUSolution[i] == AbsApprox(uShould).epsilon(Eps));
+      CHECK(curUSolutionIntegrated[i] == AbsApprox(uIntegratedShould).epsilon(Eps));
     }
   }
   SUBCASE("Test integration of Lotka-Voltera model") {
     constexpr auto SizeSolution = 2;
 
-    alignas(Alignment) real curUSolution[SizeSolution] = {};
+    alignas(Alignment) RealT curUSolution[SizeSolution] = {};
 
-    auto curU = seissol::ode::ODEVector{{curUSolution}, {SizeSolution}};
+    auto curU = seissol::ode::ODEVector<RealT>{{curUSolution}, {SizeSolution}};
 
     // Setup ODE solver
     const auto timeSpan = seissol::ode::TimeSpan{0, 1};
@@ -80,9 +83,11 @@ TEST_CASE("Test ODE Solver") {
     auto odeSolverConfig = seissol::ode::ODESolverConfig(dt);
     odeSolverConfig.solver = seissol::ode::RungeKuttaVariant::RK7VernerMostEfficient;
 
-    auto solver = seissol::ode::RungeKuttaODESolver({SizeSolution}, odeSolverConfig);
-    auto parameters = std::array<real, 4>{1.5, 1.0, 3.0, 1.0};
-    const auto f = [&](seissol::ode::ODEVector& du, seissol::ode::ODEVector& u, double /*time*/) {
+    auto solver = seissol::ode::RungeKuttaODESolver<RealT>({SizeSolution}, odeSolverConfig);
+    auto parameters = std::array<RealT, 4>{1.5, 1.0, 3.0, 1.0};
+    const auto f = [&](seissol::ode::ODEVector<RealT>& du,
+                       seissol::ode::ODEVector<RealT>& u,
+                       double /*time*/) {
       // A simple Lotka-Volterra model
       // See: https://en.wikipedia.org/wiki/Lotka%E2%80%93Volterra_equations
 
@@ -114,8 +119,8 @@ TEST_CASE("Test ODE Solver") {
     sol = solve(prob, DifferentialEquations.Vern7(), dt=0.01, adaptive=false)
      */
     const auto uShould = std::array<double, 2>{2.070817357298899e-8, 15.074149470779822};
-    REQUIRE(curU[0] == AbsApprox(uShould[0]).epsilon(Eps));
-    REQUIRE(curU[1] == AbsApprox(uShould[1]).epsilon(Eps));
+    CHECK(curU[0] == AbsApprox(uShould[0]).epsilon(Eps));
+    CHECK(curU[1] == AbsApprox(uShould[1]).epsilon(Eps));
   }
 }
 

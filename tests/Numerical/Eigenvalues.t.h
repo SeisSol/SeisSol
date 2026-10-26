@@ -5,7 +5,6 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Kernels/Precision.h"
 #include "Numerical/Eigenvalues.h"
 #include "TestHelper.h"
 
@@ -38,7 +37,7 @@ void testResidual(std::array<std::complex<double>, Dim * Dim>& m,
   }
 }
 
-TEST_CASE("Eigenvalues are correctly computed") {
+TEST_CASE("Eigenvalues are correctly computed" * doctest::test_suite("numerical")) {
   SUBCASE("Eigenvalues 3") {
     constexpr std::size_t Dim = 3;
 
@@ -48,8 +47,14 @@ TEST_CASE("Eigenvalues are correctly computed") {
     }};
     for (auto& m : matrices) {
       seissol::eigenvalues::Eigenpair<std::complex<double>, Dim> eigenpair{};
-      seissol::eigenvalues::computeEigenvalues(m, eigenpair);
+      seissol::eigenvalues::computeEigenvalues<seissol::eigenvalues::Backend::Eigen3>(m, eigenpair);
       testResidual<Dim>(m, eigenpair);
+#ifdef USE_LAPACK
+      seissol::eigenvalues::Eigenpair<std::complex<double>, Dim> eigenpairLapack{};
+      seissol::eigenvalues::computeEigenvalues<seissol::eigenvalues::Backend::Lapack>(
+          m, eigenpairLapack);
+      testResidual<Dim>(m, eigenpairLapack);
+#endif
     }
   }
 }

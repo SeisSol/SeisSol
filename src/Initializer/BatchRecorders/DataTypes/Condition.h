@@ -20,8 +20,7 @@ constexpr bool isEncodedConstant() {
          std::is_same_v<FaceId, T> || std::is_same_v<FaceRelations, T> ||
          std::is_same_v<DrFaceRelations, T> || std::is_same_v<ComputationKind, T> ||
          std::is_same_v<ExchangeInfo, T> || std::is_same_v<inner_keys::Wp::Id, T> ||
-         std::is_same_v<inner_keys::Dr::Id, T> || std::is_same_v<inner_keys::Indices::Id, T> ||
-         std::is_same_v<inner_keys::Material::Id, T>;
+         std::is_same_v<inner_keys::Dr::Id, T> || std::is_same_v<inner_keys::Indices::Id, T>;
 }
 
 template <class T, std::enable_if_t<isEncodedConstant<T>()>>
@@ -30,7 +29,7 @@ class Condition {
   Condition() = delete;
 
   explicit Condition(T initialEncoding)
-      : highBitsMask_(~((~static_cast<size_t>(0)) << static_cast<size_t>(T::Count))),
+      : highBitsMask_(~((~0_UZ) << static_cast<size_t>(T::Count))),
         encoding_(static_cast<size_t>(initialEncoding)) {}
 
   Condition& operator!() {

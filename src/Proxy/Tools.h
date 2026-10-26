@@ -9,9 +9,7 @@
 #ifndef SEISSOL_SRC_PROXY_TOOLS_H_
 #define SEISSOL_SRC_PROXY_TOOLS_H_
 
-#include <ctime>
-
-auto derive_cycles_from_time(double time) -> double;
+#include <sys/time.h>
 
 void print_hostname();
 

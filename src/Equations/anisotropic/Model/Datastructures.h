@@ -13,35 +13,57 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/LinearCK/Solver.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <cstddef>
 #include <string>
 
 namespace seissol::model {
-struct AnisotropicLocalData;
-struct AnisotropicNeighborData;
+template <typename Cfg>
+struct AnisotropicEnergyData;
 
 struct AnisotropicMaterial : public Material {
   static constexpr std::size_t NumQuantities = 9;
   static constexpr std::size_t NumElasticQuantities = 9;
   static constexpr std::size_t NumberPerMechanism = 0;
-  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Anisotropic;
-  static const inline std::string Text = "anisotropic";
-  static const inline std::array<std::string, NumQuantities> Quantities{
+  static inline const std::string Text = "anisotropic";
+  /// The material the Riemann problem at a face of a cell is posed in. Cells of different
+  /// configurations can neighbor each other if their materials pose it in the same one.
+  using RiemannMaterial = AnisotropicMaterial;
+  static inline const std::array<std::string, NumQuantities> Quantities{
       "s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz", "v1", "v2", "v3"};
+
+  static constexpr auto PrimaryGroups = ElasticQuantities;
+  /// The groups of the face rotation as the solver `SolverT` lays out the quantities; every
+  /// solver lays them out alike.
+  template <typename SolverT>
+  static constexpr auto RotationGroups = PrimaryGroups;
+  template <typename SolverT>
+  static constexpr auto InverseRotationGroups = PrimaryGroups;
+
+  /// Where the velocity components start. Everything reaching for them --
+  /// energy output, point sources, initial fields -- goes through this.
+  static constexpr std::size_t VelocityOffset = roleOffset(PrimaryGroups, FaceRole::Velocity);
+  /// Components of the mechanical traction, i.e. the stress-like quantities
+  /// dynamic rupture and plasticity operate on.
+  static constexpr std::size_t TractionComponents = roleExtent(PrimaryGroups, FaceRole::Traction);
+
   static constexpr std::size_t Parameters = 21 + Material::Parameters;
 
-  static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsDR = true;
+  static constexpr bool SupportsPlasticity = true;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = AnisotropicLocalData;
-  using NeighborSpecificData = AnisotropicNeighborData;
-  using Solver = kernels::solver::linearck::Solver;
+  using LocalSpecificData = std::monostate;
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
+  using EnergyData = AnisotropicEnergyData<Cfg>;
 
   double c11{};
   double c12{};
@@ -64,6 +86,8 @@ struct AnisotropicMaterial : public Material {
   double c55{};
   double c56{};
   double c66{};
+
+  static const std::unordered_map<std::string, double AnisotropicMaterial::*> ParameterMap;
 
   [[nodiscard]] double getLambdaBar() const override;
 
@@ -92,6 +116,22 @@ struct AnisotropicMaterial : public Material {
 
   void setLameParameters(double mu, double lambda) override;
 };
+
+inline const std::unordered_map<std::string, double AnisotropicMaterial::*>
+    AnisotropicMaterial::ParameterMap{
+        {"rho", &AnisotropicMaterial::rho}, {"c11", &AnisotropicMaterial::c11},
+        {"c12", &AnisotropicMaterial::c12}, {"c13", &AnisotropicMaterial::c13},
+        {"c14", &AnisotropicMaterial::c14}, {"c15", &AnisotropicMaterial::c15},
+        {"c16", &AnisotropicMaterial::c16}, {"c22", &AnisotropicMaterial::c22},
+        {"c23", &AnisotropicMaterial::c23}, {"c24", &AnisotropicMaterial::c24},
+        {"c25", &AnisotropicMaterial::c25}, {"c26", &AnisotropicMaterial::c26},
+        {"c33", &AnisotropicMaterial::c33}, {"c34", &AnisotropicMaterial::c34},
+        {"c35", &AnisotropicMaterial::c35}, {"c36", &AnisotropicMaterial::c36},
+        {"c44", &AnisotropicMaterial::c44}, {"c45", &AnisotropicMaterial::c45},
+        {"c46", &AnisotropicMaterial::c46}, {"c55", &AnisotropicMaterial::c55},
+        {"c56", &AnisotropicMaterial::c56}, {"c66", &AnisotropicMaterial::c66},
+    };
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_DATASTRUCTURES_H_

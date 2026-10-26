@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_ENCODEDCONSTANTS_H_
 
-#include "Kernels/Precision.h"
+#include "Common/Literals.h"
 
 #include <cstdlib>
 
@@ -19,7 +19,6 @@ namespace seissol::recording::inner_keys {
  * of the Wave Propagation (Wp) solver.
  */
 struct Wp {
-  using DataType = real*;
   enum struct Id : size_t {
     Dofs = 0,
     Idofs,
@@ -29,7 +28,7 @@ struct Wp {
     Derivatives,
     Godunov,
     FluxSolver,
-    Ivelocities, // 6th, 7the and 8th columns of Idofs
+    Ivelocities, // Idofs at the first velocity column (the VelocityOffset of the material)
     FaceDisplacement,
     NodalStressTensor,
     Pstrains,
@@ -37,22 +36,22 @@ struct Wp {
     NodalAvgDisplacements,
     T,
     Tinv,
-    EasiBoundaryMap,
-    EasiBoundaryConstant,
-    Stp,
-    StpRhs,
+    FSGData,
+    Rhos,
+    DirichletOffset,
+    ZinvExtra,
     IdofsAne,
     DofsAne,
     DofsExt,
     DerivativesAne,
     DerivativesExt,
     Analytical,
-    RotateDisplacementToFaceNormal,
-    RotateDisplacementToGlobal,
-    RotatedFaceDisplacement,
-    DofsFaceNodal,
-    PrevCoefficients,
-    DofsFaceBoundaryNodal,
+    QEtaNodal,
+    Integrals,
+    // a time integral of a neighbor of another configuration in the canonical form of the family
+    CanonicalIdofs,
+    // the weights of the normal stress on a face of a cell of a fluid, for a neighbor of a solid
+    NormalStress,
     Count
   };
 };
@@ -62,7 +61,6 @@ struct Wp {
  * of the Dynamic Rupture (Dr) solver.
  */
 struct Dr {
-  using DataType = real*;
   enum struct Id : size_t {
     DerivativesPlus = 0,
     DerivativesMinus,
@@ -75,19 +73,13 @@ struct Dr {
   };
 };
 
-struct Material {
-  using DataType = double;
-  enum struct Id : size_t { Rho = 0, Lambda, InvImpedances, Count };
-};
-
 struct Indices {
-  using DataType = unsigned;
   enum struct Id : size_t { Cells = 0, Count };
 };
 } // namespace seissol::recording::inner_keys
 
 namespace seissol::recording {
-constexpr size_t AllBits = ~static_cast<size_t>(0);
+constexpr size_t AllBits = ~0_UZ;
 constexpr size_t encodeAny(unsigned count) { return ~(AllBits << count); }
 
 enum struct KernelNames : size_t {
@@ -99,6 +91,8 @@ enum struct KernelNames : size_t {
   Plasticity = 1 << 5,
   DrSpaceMap = 1 << 6,
   BoundaryConditions = 1 << 7,
+  // the time integrals of the neighbors of another configuration
+  ConfigBoundary = 1 << 8,
   Count = 9,
   Any = encodeAny(Count)
 };
@@ -122,14 +116,13 @@ enum struct FaceKinds : size_t {
   FreeSurface = 1 << 1,
   Outflow = 1 << 2,
   DynamicRupture = 1 << 3,
-  Periodic = 1 << 4,
-  Count = 5,
+  Count = 4,
   None = encodeAny(Count)
 };
 
 enum struct FaceId : size_t { Count = 4, Any = AllBits };
-enum struct FaceRelations : size_t { Count = 48, Any = AllBits };
-enum struct DrFaceRelations : size_t { Count = 16, Any = AllBits };
+enum struct FaceRelations : size_t { PerFace = 4, Count = 16, Any = AllBits };
+enum struct DrFaceRelations : size_t { PerFace = 2, Count = 8, Any = AllBits };
 
 enum struct ExchangeInfo : size_t {
   Buffers = 1 << 0,

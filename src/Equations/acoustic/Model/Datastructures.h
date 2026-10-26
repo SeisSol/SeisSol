@@ -11,42 +11,66 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_
 
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
-#include "Kernels/LinearCK/Solver.h"
+#include "GeneratedCode/general/init.h"
+#include "GeneratedCode/general/kernel.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace seissol::model {
-struct AcousticLocalData;
-struct AcousticNeighborData;
 
 struct AcousticMaterial : public Material {
   static constexpr std::size_t NumQuantities = 4;
   static constexpr std::size_t NumElasticQuantities = 4;
   static constexpr std::size_t NumberPerMechanism = 0;
-  static constexpr std::size_t TractionQuantities = 1;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Acoustic;
-  static const inline std::string Text = "acoustic";
+  static inline const std::string Text = "acoustic";
+  /// The material the Riemann problem at a face of a cell is posed in. Cells of different
+  /// configurations can neighbor each other if their materials pose it in the same one.
+  using RiemannMaterial = AcousticMaterial;
   // The stress-velocity formulation of the elastic model is reused.
   // By definition, the normal stress and pressure are negatives of each other.
-  static const inline std::array<std::string, NumQuantities> Quantities = {"-p", "v1", "v2", "v3"};
+  static inline const std::array<std::string, NumQuantities> Quantities = {
+      "pprime", "v1", "v2", "v3"};
+
+  static constexpr auto PrimaryGroups = AcousticQuantities;
+  /// The groups of the face rotation as the solver `SolverT` lays out the quantities; every
+  /// solver lays them out alike.
+  template <typename SolverT>
+  static constexpr auto RotationGroups = PrimaryGroups;
+  template <typename SolverT>
+  static constexpr auto InverseRotationGroups = PrimaryGroups;
+
+  /// Where the velocity components start. Everything reaching for them --
+  /// energy output, point sources, initial fields -- goes through this.
+  static constexpr std::size_t VelocityOffset = roleOffset(PrimaryGroups, FaceRole::Velocity);
+  /// Components of the mechanical traction, i.e. the stress-like quantities
+  /// dynamic rupture and plasticity operate on.
+  static constexpr std::size_t TractionComponents = roleExtent(PrimaryGroups, FaceRole::Traction);
+
   static constexpr std::size_t Parameters = 1 + Material::Parameters;
 
   static constexpr bool SupportsDR = false;
+  static constexpr bool SupportsPlasticity = false;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = AcousticLocalData;
-  using NeighborSpecificData = AcousticNeighborData;
-  using Solver = kernels::solver::linearck::Solver;
+  using LocalSpecificData = std::monostate;
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
+  using EnergyData = std::monostate;
 
   double lambda{};
+
+  static const std::unordered_map<std::string, double AcousticMaterial::*> ParameterMap;
 
   [[nodiscard]] double getLambdaBar() const override { return lambda; }
 
@@ -87,6 +111,13 @@ struct AcousticMaterial : public Material {
 
   void setLameParameters(double /*mu*/, double lambda) override { this->lambda = lambda; }
 };
+
+inline const std::unordered_map<std::string, double AcousticMaterial::*>
+    AcousticMaterial::ParameterMap{
+        {"rho", &AcousticMaterial::rho},
+        {"lambda", &AcousticMaterial::lambda},
+    };
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_DATASTRUCTURES_H_

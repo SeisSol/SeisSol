@@ -12,12 +12,128 @@ Performance measurement
 Simulation time
 ---------------
 
-SeisSol currently prints the total simulation time twice via stdout (i.e. to the terminal log), with mostly similar values.
-The first value is in the line starting with "Elapsed time (via clock_gettime)",
-the second value is printed in the line starting with "Time spent in simulation:", just one line before we see "Simulation done."
+At the end of the simulation, SeisSol prints its time in the lines starting with "Simulation time (total):",
+"Simulation time (compute):" and "Simulation time (blocking IO):", each as the mean over the ranks with their range;
+the line "Time spent in simulation:", just before "Simulation done.", gives nearly the same total once more.
+The compute time is the time spent advancing the clusters, waiting for other ranks included; the blocking IO time is
+the time the output took on the main thread.
 
 The "total time spent in compute kernels" denotes the time in which all CPUs execute some function to advance the computation of the solution.
 In particular, it excludes the time spent with MPI communication.
+
+.. _run-summary:
+
+Run summary
+-----------
+
+What the log says about a run, its performance included, SeisSol also writes for programs to read, next to the
+output (``OutputFile`` is the prefix):
+
+* ``<prefix>-summary.json``, the run summary.
+* ``<prefix>-epochs.csv``, a row per simulation epoch, i.e. per stretch of simulated time between two synchronization
+  points (the times outputs are written at): its simulated time span, its wall time (minimum, mean and maximum over the
+  ranks), its compute and blocking IO time (mean and maximum), and the FLOP/s and kernel bytes/s of the epoch,
+  summed over the ranks.
+* ``<prefix>-ranks.csv``, a row per rank, written at the end of the run: the values of the rank that the summary gives
+  the statistics of over the ranks (see below).
+
+An epoch ends at every synchronization point, i.e. wherever an output is due. A run without outputs, such as a
+benchmark, has a single epoch, and reports how fast it goes at its end only. ``EpochInterval`` in the ``output``
+section adds synchronization points that write nothing, at its multiples: then an epoch is that long at most, and the
+log, the summary and the epoch table follow the run as it goes; the first epochs, which include the warm-up, can be
+told from the rest. Each synchronization point waits for all clusters to reach it, and copies the solution to the
+host in GPU builds, so that it should not come more often than needed.
+
+Rank 0 writes the summary when the run starts, at every stage of the initialization, every ten seconds or so during
+the simulation, and at its end, each time replacing the file at once, so that a reader always finds a complete file.
+``status`` is ``completed`` once the run has ended as planned; a run that ended early, by an error or by the time limit
+of its job, leaves ``running``, and ``stage`` says how far it got (``init``, ``init.mesh``, ``init.layout``,
+``init.model``, ``init.sideConditions``, ``init.io``, ``simulation``; ``finished`` at the end).
+
+Times are in seconds, timesteps and simulated times in simulated seconds. Where a value differs between the ranks, the
+summary gives its statistics over them, an object with ``min``, ``max``, ``mean``, ``median``, ``std`` and ``sum``. The
+members of the summary are:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Member
+     - Content
+   * - ``schema``
+     - the format, ``seissol-run-summary/1``
+   * - ``runId``, ``status``, ``stage``, ``started``, ``updated``
+     - the ID of the run (see :ref:`env_vars`), how far it got, and when (UTC)
+   * - ``build``
+     - version, commit, host and device architecture, compiler, build type and the configurations built
+   * - ``parallel``
+     - ranks, nodes, ranks per node, threads per rank, the MPI library, whether a communication thread runs, the
+       ASYNC mode
+   * - ``environment``
+     - the environment variables of SeisSol, OpenMP, MPI, ASYNC, the device runtimes and the job scheduler
+   * - ``invocation``
+     - executable, parameter file, working directory, the ``--set`` overrides and the checkpoint the run started from
+   * - ``configurations``
+     - the configurations the run computes in
+   * - ``mesh``
+     - cells, copy cells, ghost cells, fault faces and neighbor ranks (the ranks it exchanges cells with) per rank; a
+       fault face between two ranks counts on both, which both compute it
+   * - ``lts``
+     - the clusters: timestep, update factor, cells and dynamic rupture faces each, and, at the end, the updates of
+       their cells (``cellUpdates``), of the further copies of their copy cells (``duplicateCellUpdates``) and of
+       their dynamic rupture faces (``dynamicRuptureFaceUpdates``); the smallest
+       cell timestep before and after the wiggle factor; and how many times fewer cell updates elementwise and
+       clustered LTS take in theory than global time stepping does (``theoreticalSpeedup``)
+   * - ``time``
+     - ``init``: reading the mesh (``meshRead``), setting it up (``mesh``, which includes reading it), laying out the
+       cells (``layout``), setting up the model (``model``), the side conditions (``sideConditions``) and the output
+       (``io``), and the whole initialization (``total``); ``simulation``: the initial output (``initialIo``), the time
+       up to the last epoch (``elapsed``), ``total``, ``compute`` and ``io`` as in the log, and the compute time outside
+       of the compute kernels (``outsideKernels``): the waiting for other clusters and ranks, and the communication
+       and scheduling on the main thread
+   * - ``simulation``
+     - start and end time, the time reached, the share of the simulation done, the number of epochs, whether it
+       was aborted (e.g. by an energy criterion), and the cell updates, duplicate cell updates and dynamic rupture
+       face updates of the whole run
+   * - ``kernels``
+     - the time in the compute kernels per rank (``total``), the load imbalance (one minus mean over maximum), and per
+       region its time per rank, iterations, samples and the regression of its time over the iterations
+   * - ``performance``
+     - hardware and non-zero FLOP and kernel bytes, in total, per second and per category, and the cell updates per
+       second (``cellUpdatesPerSecond``)
+   * - ``memory``
+     - per rank, in bytes: the peak of the host memory (``hostPeak``) and, in GPU builds, the device memory occupied,
+       the unified memory occupied and the device capacity (``device``); once after the initialization
+       (``afterInit``) and once at the end (``atEnd``)
+
+The table of the ranks has a column ``rank``, its ``host`` and its rank on the node (``localRank``), and then, in the
+order the run gets them: ``initMeshRead``, ``initMesh``, ``cells``, ``copyCells``, ``ghostCells``, ``faultFaces``,
+``neighborRanks``, ``initLayout``, ``initModel``, ``initSideConditions``, ``initIo``, ``initTotal``,
+``hostMemoryAfterInit``, ``simulationInitialIo``, ``simulationTotal``, ``simulationCompute``, ``simulationIo``,
+``kernels`` (the time in the compute kernels), ``outsideKernels``, ``cellUpdates``, ``duplicateCellUpdates``,
+``dynamicRuptureFaceUpdates`` and ``hostMemoryAtEnd``; in GPU builds, ``deviceMemoryAfterInit`` and ``deviceMemoryAtEnd`` (the device memory occupied)
+as well. ``initMeshRead`` is there for PUML meshes only. The last column is ``runId``.
+
+.. _cell-updates:
+
+Cell updates
+------------
+
+A cell update is one timestep of one cell: what the solver does for every cell, whatever the order, the equations or
+the machine. At the end of the simulation, SeisSol prints how many it did, over all ranks, and how many per second of
+the total simulation time (on the slowest rank); the run summary has them per cluster as well. Unlike FLOP/s, cell
+updates per second compare across orders and equations, and across machines whose kernels differ: a run that takes
+fewer, or cheaper, operations per cell update is faster, though not more FLOP/s. They are the same for any number of
+ranks. A copy cell, which borders other ranks, is stored and computed once per neighbor it sends to, and its further
+copies are counted apart, as duplicate cell updates: work that the partition adds, which grows with the ranks. A
+dynamic rupture face update is the same for a face of the fault; a face between two ranks is computed by both, and it
+counts on both.
+
+The theoretical speedup that SeisSol prints after the clustering ("Theoretical speedup to GTS:") compares the cell
+updates that elementwise and clustered local time stepping take with those of global time stepping, where every cell
+takes the smallest timestep: over a stretch of simulated time, a cell takes one update per its timestep, so the
+speedup is the number of cells over the smallest timestep, divided by the sum over all cells of one over their
+timestep. Clustered LTS takes more updates than elementwise LTS, for a cluster rounds the timesteps of its cells down
+to its own; and what a run achieves stays below the clustered speedup, for the clusters wait for each other.
 
 FLOP/s counter
 --------------
@@ -39,6 +155,24 @@ During the simulation, we print both HW-FLOP/s and NZ-FLOP/s at synchronization 
 HW-GLOP/s and NZ-GFLOP/s.
 
 Note that the Dynamic Rupture friction law computation or the Point Sources both are *not* counted into the HW-/NZ-FLOP numbers at the moment; only the matrix operations do (as used, e.g., during the ADER computation).
+
+Kernel Memory Throughput (B/s)
+------------------------------
+
+SeisSol outputs one throughput estimation number, namely the kernel memory throughput.
+
+It consists of all non-constant data that is read and written by a kernel;
+regardless of where the data resides in memory. As such, it is supposed
+to only be an over-estimation over the L2 and main memory bandwidth values.
+
+Constant matrices are assumed to be loaded once at the first kernel launch,
+and reside near the compute units (i.e. in L1 or L0, depending on the nomenclature)
+during all following executions — thus they are not counted in here.
+
+Due to the structure of SeisSol, the kernel memory throughput will work better for GPUs
+than CPUs: on the GPUs (and not on CPUs), a loop over all elements corresponds to a single kernel.
+As such, the kernel memory throughput should lie somewhere between L2 and main memory bandwidth
+for most kernels.
 
 Performance
 -----------
