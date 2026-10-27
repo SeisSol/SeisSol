@@ -57,7 +57,12 @@ inline std::unique_ptr<seissol::geometry::PUMLReader> readMesh(const std::string
                                                                seissol::SeisSol& seissolInstance) {
   using namespace seissol::initializer;
   static const auto FaceMap = defaultFaceMap();
-  const ClusteringConfig config{{2}, 1, 1, 1, &FaceMap, {}};
+  const ClusteringConfig config{.rate = {2},
+                                .vertexWeightElement = 1,
+                                .vertexWeightDynamicRupture = 1,
+                                .vertexWeightFreeSurfaceWithGravity = 1,
+                                .faceMap = &FaceMap,
+                                .configCostFactors = {}};
   Clustering clustering(config, seissolInstance);
   ExponentialWeights weightModel;
   return std::make_unique<seissol::geometry::PUMLReader>(

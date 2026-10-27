@@ -378,8 +378,8 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
         // A time series carries its own step list, and every step would enter the collection under
         // the same file name, so there is nothing for a pvd to say.
         if (!self.temporal_) {
-          writer.addInstructions(
-              pvu.add(filenamePvu, {metadata::makePvuDataset({filenameFile, time})}));
+          writer.addInstructions(pvu.add(
+              filenamePvu, {metadata::makePvuDataset({.file = filenameFile, .timestep = time})}));
         }
         return writer;
       };

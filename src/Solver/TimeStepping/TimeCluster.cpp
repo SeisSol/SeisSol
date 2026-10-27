@@ -103,7 +103,7 @@ TimeCluster<Cfg>::TimeCluster(
       frictionSolverCopyDevice_(
           dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),
       faultOutputManager_(faultOutputManager),
-      sourceCluster_(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
+      sourceCluster_(seissol::kernels::PointSourceClusterPair{.host = nullptr, .device = nullptr}),
       // cells
       loopStatistics_(loopStatistics), actorStateStatistics_(actorStateStatistics),
       conditionalCounterHost_(1, seissol::memory::Memkind::Standard),

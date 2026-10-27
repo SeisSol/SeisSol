@@ -32,8 +32,13 @@ template <std::size_t OrderP,
           std::size_t SimulationsP>
 struct ConfigOf {
     // the configuration as a runtime value; all constants below are taken from it
-    static constexpr ConfigValue Value{
-        OrderP, MechanismsP, MaterialTypeP, PrecisionP, SolverP, DRQuadRuleP, SimulationsP};
+    static constexpr ConfigValue Value{.convergenceOrder = OrderP,
+                                       .relaxationMechanisms = MechanismsP,
+                                       .materialType = MaterialTypeP,
+                                       .precision = PrecisionP,
+                                       .solver = SolverP,
+                                       .drQuadRule = DRQuadRuleP,
+                                       .numSimulations = SimulationsP};
 
     static constexpr std::size_t ConvergenceOrder = Value.convergenceOrder;
     static constexpr std::size_t RelaxationMechanisms = Value.relaxationMechanisms;

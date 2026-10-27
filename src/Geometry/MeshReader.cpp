@@ -127,8 +127,10 @@ void MeshReader::extractFaultInformation(
 
         // FIXME we use the MPI number here for the neighbor element id
         // It is not very nice but should generate the correct ordering.
-        const auto neighbor = MPINeighborElement{
-            cell.localId, cell.mpiIndices[j], static_cast<int8_t>(j), cell.neighborSides[j]};
+        const auto neighbor = MPINeighborElement{.localElement = cell.localId,
+                                                 .neighborElement = cell.mpiIndices[j],
+                                                 .localSide = static_cast<int8_t>(j),
+                                                 .neighborSide = cell.neighborSides[j]};
         mpiFaultNeighbors_[cell.neighborRanks[j]].push_back(neighbor);
       }
 
@@ -360,7 +362,7 @@ void MeshReader::linearizeGhostlayer() {
       for (const auto& index : ids) {
         toLinearGhostlayer_[{rank, index}] = linearGhostlayer_.size();
       }
-      linearGhostlayer_.push_back(LinearGhostCell{ids, rank});
+      linearGhostlayer_.push_back(LinearGhostCell{.inRankIndices = ids, .rank = rank});
     }
   }
 }

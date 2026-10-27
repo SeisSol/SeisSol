@@ -83,8 +83,8 @@ TEST_CASE("convertToHdf5 StructDatatype" * doctest::test_suite("io")) {
   auto f64 = std::make_shared<F64Datatype>();
   auto f32 = std::make_shared<F32Datatype>();
   const std::vector<StructDatatype::MemberInfo> members = {
-      {"x", 0, f64},
-      {"y", 8, f32},
+      {.name = "x", .offset = 0, .datatype = f64},
+      {.name = "y", .offset = 8, .datatype = f32},
   };
   const auto dt = std::make_shared<StructDatatype>(members, 16);
   const hid_t h5t = convertToHdf5(dt);

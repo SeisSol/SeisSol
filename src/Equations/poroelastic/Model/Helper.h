@@ -64,7 +64,16 @@ inline AdditionalPoroelasticParameters
   const double beta1 = material.rhoFluid / m;
   const double beta2 = rhoBar / material.rhoFluid;
 
-  return {alpha, cKBar, cM, m, cBar, rhoBar, rho1, rho2, beta1, beta2};
+  return {.alpha = alpha,
+          .KBar = cKBar,
+          .M = cM,
+          .m = m,
+          .cBar = cBar,
+          .rhoBar = rhoBar,
+          .rho1 = rho1,
+          .rho2 = rho2,
+          .beta1 = beta1,
+          .beta2 = beta2};
 }
 
 } // namespace seissol::model

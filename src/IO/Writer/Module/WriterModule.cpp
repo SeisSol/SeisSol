@@ -159,7 +159,8 @@ void WriterModule::syncPoint(double time) {
             << "s)";
   lastWrite_ = time;
   ++writeCount_;
-  call(AsyncWriterExec{resumed_, nextTicket(seissolInstance_.asyncIO().config().mode())});
+  call(AsyncWriterExec{.resumed = resumed_,
+                       .ticket = nextTicket(seissolInstance_.asyncIO().config().mode())});
 }
 
 int WriterModule::addBuffer(const void* pointer, std::size_t size) {
@@ -192,7 +193,9 @@ void WriterModule::simulationEnd() {
   wait();
   // the files the writes kept open for the next one; closing is collective, and takes its turn
   // like a write
-  call(AsyncWriterExec{resumed_, nextTicket(seissolInstance_.asyncIO().config().mode()), true});
+  call(AsyncWriterExec{.resumed = resumed_,
+                       .ticket = nextTicket(seissolInstance_.asyncIO().config().mode()),
+                       .close = true});
   wait();
 }
 

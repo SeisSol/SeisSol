@@ -179,8 +179,10 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         ++duplicateCells;
       }
     }
-    clusterSizes_.push_back(
-        ClusterSize{clusterId, clusterSize - duplicateCells, duplicateCells, dynRupSize});
+    clusterSizes_.push_back(ClusterSize{.globalClusterId = clusterId,
+                                        .cells = clusterSize - duplicateCells,
+                                        .duplicateCells = duplicateCells,
+                                        .dynamicRuptureFaces = dynRupSize});
     // Add writer to output
     clusteringWriter.addCluster(profilingId,
                                 clusterId,

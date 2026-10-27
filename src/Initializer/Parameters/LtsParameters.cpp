@@ -207,7 +207,8 @@ LtsClusteringSearch LtsParameters::getClusteringSearch() const { return clusteri
 std::uint64_t LtsParameters::getMaxRate() const { return maxRate_; }
 
 ClusterCostModel LtsParameters::getClusterCostModel() const {
-  return ClusterCostModel{costUpdate_, costLaunch_, costFill_};
+  return ClusterCostModel{
+      .updateCost = costUpdate_, .launchCost = costLaunch_, .fillThreshold = costFill_};
 }
 
 TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeight,
@@ -270,7 +271,9 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
                           "material",
                           "npolymap"});
 
-  return TimeSteppingParameters({weightElement, weightDynamicRupture, weightFreeSurfaceWithGravity},
+  return TimeSteppingParameters({.weightElement = weightElement,
+                                 .weightDynamicRupture = weightDynamicRupture,
+                                 .weightFreeSurfaceWithGravity = weightFreeSurfaceWithGravity},
                                 cfl,
                                 maxTimestepWidth,
                                 endTime,

@@ -165,10 +165,10 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
 
   // The grid sweep tunes the wiggle factor only, so the ladder is the configured one -- but it
   // is handed back expanded, because everything past the search expects a complete ladder.
-  return SearchResult{bestWiggleFactor,
-                      minAdmissibleMaxClusterId,
-                      bestCostEstimate,
-                      evaluator.configuredRatios(bestWiggleFactor)};
+  return SearchResult{.wiggleFactor = bestWiggleFactor,
+                      .maxClusterId = minAdmissibleMaxClusterId,
+                      .cost = bestCostEstimate,
+                      .ratios = evaluator.configuredRatios(bestWiggleFactor)};
 }
 
 } // namespace seissol::initializer

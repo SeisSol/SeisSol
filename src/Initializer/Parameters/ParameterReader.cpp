@@ -142,7 +142,7 @@ std::vector<ParameterReader::NamedPath> ParameterReader::paths() const {
   std::vector<NamedPath> result;
   result.reserve(paths_.size());
   for (const auto& [field, path] : paths_) {
-    result.push_back(NamedPath{{field}, path});
+    result.push_back(NamedPath{.field = {field}, .path = path});
   }
   for (const auto& section : sortedSections(subreaders_)) {
     for (auto entry : subreaders_.at(section)->paths()) {

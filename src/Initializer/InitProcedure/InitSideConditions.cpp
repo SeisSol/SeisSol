@@ -49,8 +49,10 @@ std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList(
 
   return physics::scenario::build(
       type,
-      physics::scenario::Input{
-          parameters, materialData, seissolInstance.gravitationSetup(), config});
+      physics::scenario::Input{.parameters = parameters,
+                               .materialData = materialData,
+                               .gravitation = seissolInstance.gravitationSetup(),
+                               .config = config});
 }
 
 void initInitialCondition(seissol::SeisSol& seissolInstance) {

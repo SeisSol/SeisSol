@@ -86,9 +86,9 @@ inline PointMap deduplicatePoints(const std::vector<double>& coordinates,
   buckets.reserve(count);
 
   const auto cellOf = [&](const double* point) {
-    return Key{static_cast<std::int64_t>(std::floor(point[0] / spacing)),
-               static_cast<std::int64_t>(std::floor(point[1] / spacing)),
-               static_cast<std::int64_t>(std::floor(point[2] / spacing))};
+    return Key{.x = static_cast<std::int64_t>(std::floor(point[0] / spacing)),
+               .y = static_cast<std::int64_t>(std::floor(point[1] / spacing)),
+               .z = static_cast<std::int64_t>(std::floor(point[2] / spacing))};
   };
 
   for (std::size_t point = 0; point < count; ++point) {
@@ -99,7 +99,8 @@ inline PointMap deduplicatePoints(const std::vector<double>& coordinates,
     for (std::int64_t dx = -1; dx <= 1 && found == result.pointCount(); ++dx) {
       for (std::int64_t dy = -1; dy <= 1 && found == result.pointCount(); ++dy) {
         for (std::int64_t dz = -1; dz <= 1 && found == result.pointCount(); ++dz) {
-          const auto neighbor = buckets.find(Key{cell.x + dx, cell.y + dy, cell.z + dz});
+          const auto neighbor =
+              buckets.find(Key{.x = cell.x + dx, .y = cell.y + dy, .z = cell.z + dz});
           if (neighbor == buckets.end()) {
             continue;
           }

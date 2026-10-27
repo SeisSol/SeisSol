@@ -39,7 +39,7 @@ TEST_CASE("MessageQueue basic operations" * doctest::test_suite("solver")) {
   }
 
   SUBCASE("Push and pop prediction message") {
-    AdvancedPredictionTimeMessage msg{1.5, 3};
+    AdvancedPredictionTimeMessage msg{.time = 1.5, .stepsSinceSync = 3};
     q.push(msg);
     CHECK(q.hasMessages());
     CHECK(q.size() == 1);
@@ -53,7 +53,7 @@ TEST_CASE("MessageQueue basic operations" * doctest::test_suite("solver")) {
   }
 
   SUBCASE("Push and pop correction message") {
-    AdvancedCorrectionTimeMessage msg{2.0, 5};
+    AdvancedCorrectionTimeMessage msg{.time = 2.0, .stepsSinceSync = 5};
     q.push(msg);
 
     Message popped = q.pop();
@@ -64,9 +64,9 @@ TEST_CASE("MessageQueue basic operations" * doctest::test_suite("solver")) {
   }
 
   SUBCASE("FIFO ordering") {
-    q.push(AdvancedPredictionTimeMessage{1.0, 1});
-    q.push(AdvancedCorrectionTimeMessage{2.0, 2});
-    q.push(AdvancedPredictionTimeMessage{3.0, 3});
+    q.push(AdvancedPredictionTimeMessage{.time = 1.0, .stepsSinceSync = 1});
+    q.push(AdvancedCorrectionTimeMessage{.time = 2.0, .stepsSinceSync = 2});
+    q.push(AdvancedPredictionTimeMessage{.time = 3.0, .stepsSinceSync = 3});
     CHECK(q.size() == 3);
 
     auto m1 = q.pop();

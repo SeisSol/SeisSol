@@ -138,9 +138,9 @@ TEST_CASE("makePvu empty entries" * doctest::test_suite("io")) {
 
 TEST_CASE("makePvu with entries" * doctest::test_suite("io")) {
   const std::vector<PvuEntry> entries = {
-      {"output-0001.vtu", 0.0},
-      {"output-0002.vtu", 0.5},
-      {"output-0003.vtu", 1.0},
+      {.file = "output-0001.vtu", .timestep = 0.0},
+      {.file = "output-0002.vtu", .timestep = 0.5},
+      {.file = "output-0003.vtu", .timestep = 1.0},
   };
   const auto file = makePvu(entries);
   const auto instrs = file.instructions("test.pvd");
@@ -165,7 +165,7 @@ TEST_CASE("makePvu with entries" * doctest::test_suite("io")) {
 }
 
 TEST_CASE("makePvu single entry" * doctest::test_suite("io")) {
-  const auto file = makePvu({{"step.vtu", 42.0}});
+  const auto file = makePvu({{.file = "step.vtu", .timestep = 42.0}});
   const auto instrs = file.instructions("out.pvd");
   const std::string xml = extractInlineText(instrs);
 
@@ -259,7 +259,8 @@ TEST_CASE("GrowingXmlFile writes a pvd a step at a time" * doctest::test_suite("
   std::vector<PvuEntry> entries;
   std::string file;
   for (int index = 0; index < 3; ++index) {
-    entries.push_back({"output-" + std::to_string(index) + ".vtkhdf", 0.5 * index});
+    entries.push_back(
+        {.file = "output-" + std::to_string(index) + ".vtkhdf", .timestep = 0.5 * index});
     applyWrites(file, growing.add("out.pvd", {makePvuDataset(entries.back())}));
     CHECK(file == makePvu(entries).text());
   }

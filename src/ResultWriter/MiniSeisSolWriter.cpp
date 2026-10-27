@@ -29,7 +29,7 @@ std::size_t widest(const std::vector<std::string>& values) {
 } // namespace
 
 void seissol::writer::MiniSeisSolWriter::record(double elapsedTime, double weight) {
-  measurement_ = Measurement{elapsedTime, weight};
+  measurement_ = Measurement{.elapsedTime = elapsedTime, .weight = weight};
 }
 
 void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix,

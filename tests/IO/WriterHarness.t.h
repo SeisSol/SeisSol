@@ -173,8 +173,8 @@ inline std::vector<double> readSampleTable(seissol::io::reader::file::Hdf5Reader
   using namespace seissol::io::datatype;
   std::vector<StructDatatype::MemberInfo> members(quantities.size());
   for (std::size_t i = 0; i < quantities.size(); ++i) {
-    members[i] =
-        StructDatatype::MemberInfo{quantities[i], i * sizeof(double), inferDatatype<double>()};
+    members[i] = StructDatatype::MemberInfo{
+        .name = quantities[i], .offset = i * sizeof(double), .datatype = inferDatatype<double>()};
   }
   const auto rows = hdf5.dataCount(name);
   std::vector<double> values(rows * hdf5.dataRowSize(name) * quantities.size());

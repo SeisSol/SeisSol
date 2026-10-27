@@ -286,12 +286,12 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
                              std::numeric_limits<std::size_t>::max()};
 
     std::vector<Vertex> vertices;
-    vertices.push_back({{0.0, 0.0, 0.0}, {0}});
-    vertices.push_back({{1.0, 0.0, 0.0}, {0, 1}});
-    vertices.push_back({{0.0, 1.0, 0.0}, {0, 1}});
-    vertices.push_back({{0.0, 0.0, 1.0}, {0}});
-    vertices.push_back({{1.0, 1.0, 0.0}, {1}});
-    vertices.push_back({{1.0, 1.0, 1.0}, {1}});
+    vertices.push_back({.coords = {0.0, 0.0, 0.0}, .elements = {0}});
+    vertices.push_back({.coords = {1.0, 0.0, 0.0}, .elements = {0, 1}});
+    vertices.push_back({.coords = {0.0, 1.0, 0.0}, .elements = {0, 1}});
+    vertices.push_back({.coords = {0.0, 0.0, 1.0}, .elements = {0}});
+    vertices.push_back({.coords = {1.0, 1.0, 0.0}, .elements = {1}});
+    vertices.push_back({.coords = {1.0, 1.0, 1.0}, .elements = {1}});
 
     std::vector<Element> elements;
     Element e1{};

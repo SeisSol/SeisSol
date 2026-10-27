@@ -627,14 +627,15 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
                                   : io::instance::geometry::WriterFormat::Vtk;
 
   const auto config = io::instance::geometry::WriterConfig{
-      order,
-      format,
-      seissolParams.output.xdmfWriterBackend == seissol::initializer::parameters::XdmfBackend::Posix
-          ? io::instance::geometry::WriterBackend::Binary
-          : io::instance::geometry::WriterBackend::Hdf5,
-      io::instance::geometry::supportedWriterGroup(
+      .order = order,
+      .format = format,
+      .backend = seissolParams.output.xdmfWriterBackend ==
+                         seissol::initializer::parameters::XdmfBackend::Posix
+                     ? io::instance::geometry::WriterBackend::Binary
+                     : io::instance::geometry::WriterBackend::Hdf5,
+      .time = io::instance::geometry::supportedWriterGroup(
           writerGroupOf(parameters.timeSeries), format, "wavefield"),
-      seissolParams.output.hdfcompress};
+      .compress = seissolParams.output.hdfcompress};
 
   const auto cells = std::make_shared<const std::vector<std::size_t>>(std::move(celllist));
   setup.cells = cells;
@@ -882,14 +883,15 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
                                   : io::instance::geometry::WriterFormat::Vtk;
 
   const auto config = io::instance::geometry::WriterConfig{
-      order,
-      format,
-      seissolParams.output.xdmfWriterBackend == seissol::initializer::parameters::XdmfBackend::Posix
-          ? io::instance::geometry::WriterBackend::Binary
-          : io::instance::geometry::WriterBackend::Hdf5,
-      io::instance::geometry::supportedWriterGroup(
+      .order = order,
+      .format = format,
+      .backend = seissolParams.output.xdmfWriterBackend ==
+                         seissol::initializer::parameters::XdmfBackend::Posix
+                     ? io::instance::geometry::WriterBackend::Binary
+                     : io::instance::geometry::WriterBackend::Hdf5,
+      .time = io::instance::geometry::supportedWriterGroup(
           writerGroupOf(parameters.timeSeries), format, "free surface"),
-      seissolParams.output.hdfcompress};
+      .compress = seissolParams.output.hdfcompress};
 
   auto writer = io::instance::geometry::GeometryWriter(
       "surface",

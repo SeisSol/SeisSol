@@ -193,7 +193,7 @@ TEST_CASE("IO/AsyncWriter: a file every write appends to holds every step once c
 
   // what WriterModule asks for when the simulation ends
   const io::LocalExecInfo info;
-  executor.exec(info, module::AsyncWriterExec{false, 0, true});
+  executor.exec(info, module::AsyncWriterExec{.resumed = false, .ticket = 0, .close = true});
 
   reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
   hdf5.openFile(file);

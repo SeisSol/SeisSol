@@ -116,14 +116,15 @@ const ClusteringResult&
       autoMergeBaseline = seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor;
     }
 
-    const SearchConstraints constraints{ltsParameters.getWiggleFactorMinimum(),
-                                        ltsParameters.getWiggleFactorStepsize(),
-                                        maxClusterIdToEnforce,
-                                        ltsParameters.isAutoMergeUsed(),
-                                        ltsParameters.getAllowedPerformanceLossRatioAutoMerge(),
-                                        autoMergeBaseline,
-                                        ltsParameters.getClusterCostModel(),
-                                        ltsParameters.getMaxRate()};
+    const SearchConstraints constraints{
+        .minWiggleFactor = ltsParameters.getWiggleFactorMinimum(),
+        .wiggleFactorStepsize = ltsParameters.getWiggleFactorStepsize(),
+        .maxClusterId = maxClusterIdToEnforce,
+        .autoMerge = ltsParameters.isAutoMergeUsed(),
+        .allowedPerformanceLossRatio = ltsParameters.getAllowedPerformanceLossRatioAutoMerge(),
+        .autoMergeBaseline = autoMergeBaseline,
+        .costModel = ltsParameters.getClusterCostModel(),
+        .maxRatio = ltsParameters.getMaxRate()};
 
     std::unique_ptr<LadderSearch> search;
     if (usesLatticeSearch) {
@@ -162,11 +163,11 @@ const ClusteringResult&
             << " reductions)";
   logInfo() << "Cluster rates:" << effectiveRates;
 
-  result_ = ClusteringResult{std::move(clusterIds),
-                             std::move(effectiveRates),
-                             wiggleFactor,
-                             std::move(cellCosts),
-                             std::move(details)};
+  result_ = ClusteringResult{.clusterIds = std::move(clusterIds),
+                             .ratios = std::move(effectiveRates),
+                             .wiggleFactor = wiggleFactor,
+                             .cellCosts = std::move(cellCosts),
+                             .timesteps = std::move(details)};
   return result_;
 }
 

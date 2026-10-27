@@ -26,7 +26,7 @@ TEST_CASE_TEMPLATE("Test ODE Solver" * doctest::test_suite("numerical"), RealT, 
                                                {SizeIntegratedSolution, SizeSolution}};
 
     // Setup ODE solver
-    const auto timeSpan = seissol::ode::TimeSpan{0, 2};
+    const auto timeSpan = seissol::ode::TimeSpan{.begin = 0, .end = 2};
     const double dt = 0.0007;
     const auto odeSolverConfig = seissol::ode::ODESolverConfig(dt);
 
@@ -78,7 +78,7 @@ TEST_CASE_TEMPLATE("Test ODE Solver" * doctest::test_suite("numerical"), RealT, 
     auto curU = seissol::ode::ODEVector<RealT>{{curUSolution}, {SizeSolution}};
 
     // Setup ODE solver
-    const auto timeSpan = seissol::ode::TimeSpan{0, 1};
+    const auto timeSpan = seissol::ode::TimeSpan{.begin = 0, .end = 1};
     const double dt = 0.01;
     auto odeSolverConfig = seissol::ode::ODESolverConfig(dt);
     odeSolverConfig.solver = seissol::ode::RungeKuttaVariant::RK7VernerMostEfficient;

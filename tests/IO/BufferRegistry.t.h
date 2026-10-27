@@ -38,13 +38,13 @@ class RecordingAllocator : public BufferAllocator {
   int addBuffer(const void* pointer, std::size_t size) override {
     const auto id = static_cast<int>(storage_.size());
     storage_.emplace_back(size);
-    calls.push_back({id, pointer, size, false});
+    calls.push_back({.id = id, .pointer = pointer, .size = size, .resize = false});
     return id;
   }
 
   void resizeBuffer(int id, const void* pointer, std::size_t size) override {
     storage_[id].resize(size);
-    calls.push_back({id, pointer, size, true});
+    calls.push_back({.id = id, .pointer = pointer, .size = size, .resize = true});
   }
 
   void* managedBuffer(int id) override { return storage_[id].data(); }

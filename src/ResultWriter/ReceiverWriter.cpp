@@ -266,11 +266,11 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     std::vector<double> coordinates;
     for (const auto& entry : orderedReceivers()) {
       std::vector<io::instance::point::TableQuantity> quantitySet;
-      quantitySet.push_back(
-          io::instance::point::TableQuantity{"Time", io::datatype::inferDatatype<double>()});
+      quantitySet.push_back(io::instance::point::TableQuantity{
+          .name = "Time", .datatype = io::datatype::inferDatatype<double>()});
       for (const auto& name : entry.cluster->quantityNames()) {
-        quantitySet.push_back(
-            io::instance::point::TableQuantity{name, io::datatype::inferDatatype<double>()});
+        quantitySet.push_back(io::instance::point::TableQuantity{
+            .name = name, .datatype = io::datatype::inferDatatype<double>()});
       }
       for (std::size_t simulation = 0; simulation < entry.cluster->simulationCount();
            ++simulation) {
@@ -308,7 +308,8 @@ std::vector<ReceiverWriter::OrderedReceiver> ReceiverWriter::orderedReceivers() 
   std::vector<OrderedReceiver> receivers;
   for (const auto& cluster : receiverClusters_) {
     for (auto& receiver : *cluster) {
-      receivers.push_back(OrderedReceiver{&receiver, cluster.get(), cluster->ncols()});
+      receivers.push_back(OrderedReceiver{
+          .receiver = &receiver, .cluster = cluster.get(), .columns = cluster->ncols()});
     }
   }
   // the rows of a rank are its receivers in the order of the file they were read from, which is

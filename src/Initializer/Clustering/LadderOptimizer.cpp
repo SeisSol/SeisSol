@@ -131,7 +131,7 @@ LadderCandidate optimalLadder(const TimestepHistogram& histogram,
     rung = next;
   }
 
-  return LadderCandidate{std::move(ratios), best[at(maxRungs, 1)] / baseTimestep};
+  return LadderCandidate{.ratios = std::move(ratios), .cost = best[at(maxRungs, 1)] / baseTimestep};
 }
 
 } // namespace seissol::initializer

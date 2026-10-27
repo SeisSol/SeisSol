@@ -281,8 +281,8 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
                                                           element.mpiIndices[faultSide]);
       if (elementIndicesGhost.find(ghostIndex) == elementIndicesGhost.end()) {
         const auto index = elementIndicesGhost.size();
-        elementIndicesGhost[ghostIndex] =
-            GhostElement{std::pair<std::size_t, int>(elementIndex, faultSide), index};
+        elementIndicesGhost[ghostIndex] = GhostElement{
+            .data = std::pair<std::size_t, int>(elementIndex, faultSide), .index = index};
       }
     }
   }

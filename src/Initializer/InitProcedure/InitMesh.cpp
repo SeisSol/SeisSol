@@ -302,12 +302,13 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   }();
 
   const seissol::initializer::ClusteringConfig config{
-      seissolParams.timeStepping.lts.getRate(),
-      seissolParams.timeStepping.vertexWeight.weightElement,
-      seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
-      seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity,
-      &faceMap,
-      std::move(configCostFactors)};
+      .rate = seissolParams.timeStepping.lts.getRate(),
+      .vertexWeightElement = seissolParams.timeStepping.vertexWeight.weightElement,
+      .vertexWeightDynamicRupture = seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
+      .vertexWeightFreeSurfaceWithGravity =
+          seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity,
+      .faceMap = &faceMap,
+      .configCostFactors = std::move(configCostFactors)};
 
   seissol::initializer::Clustering clustering(config, seissolInstance);
   auto weightModel = seissol::initializer::getVertexWeightModel(

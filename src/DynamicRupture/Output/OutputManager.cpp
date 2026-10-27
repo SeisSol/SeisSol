@@ -245,17 +245,17 @@ void OutputManager::initElementwiseOutput() {
                                    : io::instance::geometry::WriterFormat::Vtk;
 
   const auto config = io::instance::geometry::WriterConfig{
-      order,
-      format,
-      seissolParameters.output.xdmfWriterBackend ==
-              seissol::initializer::parameters::XdmfBackend::Posix
-          ? io::instance::geometry::WriterBackend::Binary
-          : io::instance::geometry::WriterBackend::Hdf5,
-      io::instance::geometry::supportedWriterGroup(
+      .order = order,
+      .format = format,
+      .backend = seissolParameters.output.xdmfWriterBackend ==
+                         seissol::initializer::parameters::XdmfBackend::Posix
+                     ? io::instance::geometry::WriterBackend::Binary
+                     : io::instance::geometry::WriterBackend::Hdf5,
+      .time = io::instance::geometry::supportedWriterGroup(
           writerGroupOf(seissolParameters.output.elementwiseParameters.timeSeries),
           format,
           "elementwise fault"),
-      seissolParameters.output.hdfcompress};
+      .compress = seissolParameters.output.hdfcompress};
 
   auto writer = io::instance::geometry::GeometryWriter(
       "fault",
@@ -440,7 +440,7 @@ void OutputManager::initPickpointOutput() {
           buildIndexedMPIFileName(seissolParameters.output.prefix, index + 1, "faultreceiver");
       seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp_});
       fileName += ".dat";
-      files.push_back(PickpointFile{fileName, simulations});
+      files.push_back(PickpointFile{.fileName = fileName, .indices = simulations});
 
       if (std::filesystem::exists(fileName)) {
         continue;
@@ -586,8 +586,8 @@ void OutputManager::initPickpointTable() {
   // time plus the active components -- the per-simulation column names the text files carry are
   // a row of their own here.
   std::vector<io::instance::point::TableQuantity> quantitySet;
-  quantitySet.push_back(
-      io::instance::point::TableQuantity{"Time", io::datatype::inferDatatype<double>()});
+  quantitySet.push_back(io::instance::point::TableQuantity{
+      .name = "Time", .datatype = io::datatype::inferDatatype<double>()});
   // A rank without on-fault receivers has no point to describe; the table learns the quantity
   // sets of the other ranks when it groups the points.
   if (!ppOutputData_.empty()) {
@@ -595,7 +595,7 @@ void OutputManager::initPickpointTable() {
       if (var.isActive) {
         for (std::size_t dim = 0; dim < var.dim(); ++dim) {
           quantitySet.push_back(io::instance::point::TableQuantity{
-              VariableLabels[i][dim], io::datatype::inferDatatype<double>()});
+              .name = VariableLabels[i][dim], .datatype = io::datatype::inferDatatype<double>()});
         }
       }
     });

@@ -263,8 +263,8 @@ TEST_CASE("StructDatatype" * doctest::test_suite("io")) {
   auto floatType = std::make_shared<F32Datatype>();
 
   const std::vector<StructDatatype::MemberInfo> members = {
-      {"x", 0, intType},
-      {"y", 4, floatType},
+      {.name = "x", .offset = 0, .datatype = intType},
+      {.name = "y", .offset = 4, .datatype = floatType},
   };
 
   SUBCASE("Auto-computed minSize") {

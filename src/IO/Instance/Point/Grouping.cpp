@@ -43,8 +43,9 @@ std::vector<TableQuantity> quantitySetFromKey(const std::string& key) {
   std::vector<TableQuantity> quantities;
   quantities.reserve(node.size());
   for (const auto& entry : node) {
-    quantities.push_back(TableQuantity{entry["name"].as<std::string>(),
-                                       datatype::Datatype::deserialize(entry["datatype"])});
+    quantities.push_back(
+        TableQuantity{.name = entry["name"].as<std::string>(),
+                      .datatype = datatype::Datatype::deserialize(entry["datatype"])});
   }
   return quantities;
 }

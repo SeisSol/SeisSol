@@ -26,9 +26,21 @@ TEST_CASE("EnergiesStorage handles") {
   EnergiesStorage storage;
   storage.setSimcount(1);
 
-  const auto first = storage.addEnergy(EnergyDescriptor{"first", EnergyUnit::Scalar, {}, {}, {}});
-  const auto second = storage.addEnergy(EnergyDescriptor{"second", EnergyUnit::Scalar, {}, {}, {}});
-  const auto third = storage.addEnergy(EnergyDescriptor{"third", EnergyUnit::Scalar, {}, {}, {}});
+  const auto first = storage.addEnergy(EnergyDescriptor{.name = "first",
+                                                        .unit = EnergyUnit::Scalar,
+                                                        .group = {},
+                                                        .groupLabel = {},
+                                                        .shortLabel = {}});
+  const auto second = storage.addEnergy(EnergyDescriptor{.name = "second",
+                                                         .unit = EnergyUnit::Scalar,
+                                                         .group = {},
+                                                         .groupLabel = {},
+                                                         .shortLabel = {}});
+  const auto third = storage.addEnergy(EnergyDescriptor{.name = "third",
+                                                        .unit = EnergyUnit::Scalar,
+                                                        .group = {},
+                                                        .groupLabel = {},
+                                                        .shortLabel = {}});
 
   SUBCASE("handles are consecutive and follow registration order") {
     CHECK(first == 0);
@@ -70,8 +82,13 @@ TEST_CASE("EnergiesStorage multi-simulation indexing") {
   EnergiesStorage storage;
   storage.setSimcount(Simcount);
 
-  const auto alpha = storage.addEnergy(EnergyDescriptor{"alpha", EnergyUnit::Scalar, {}, {}, {}});
-  const auto beta = storage.addEnergy(EnergyDescriptor{"beta", EnergyUnit::Scalar, {}, {}, {}});
+  const auto alpha = storage.addEnergy(EnergyDescriptor{.name = "alpha",
+                                                        .unit = EnergyUnit::Scalar,
+                                                        .group = {},
+                                                        .groupLabel = {},
+                                                        .shortLabel = {}});
+  const auto beta = storage.addEnergy(EnergyDescriptor{
+      .name = "beta", .unit = EnergyUnit::Scalar, .group = {}, .groupLabel = {}, .shortLabel = {}});
 
   for (std::size_t sim = 0; sim < Simcount; ++sim) {
     storage.energy(alpha, sim) = 10.0 + static_cast<double>(sim);

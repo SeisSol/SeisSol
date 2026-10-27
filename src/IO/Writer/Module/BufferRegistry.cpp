@@ -72,13 +72,17 @@ std::vector<int> BufferRegistry::assignCollective(Writer& writer) {
   std::size_t managed = 0;
   for (auto* source : sources) {
     if (const auto* buffer = dynamic_cast<WriteBuffer*>(source); buffer != nullptr) {
-      uses.push_back({&passThroughSlots_,
-                      passThrough++,
-                      buffer->getLocalPointer(),
-                      buffer->getLocalSize(),
-                      nullptr});
+      uses.push_back({.slots = &passThroughSlots_,
+                      .slot = passThrough++,
+                      .pointer = buffer->getLocalPointer(),
+                      .size = buffer->getLocalSize(),
+                      .managed = nullptr});
     } else if (auto* adhoc = dynamic_cast<AdhocBuffer*>(source); adhoc != nullptr) {
-      uses.push_back({&managedSlots_, managed++, nullptr, adhoc->getTargetSize(), adhoc});
+      uses.push_back({.slots = &managedSlots_,
+                      .slot = managed++,
+                      .pointer = nullptr,
+                      .size = adhoc->getTargetSize(),
+                      .managed = adhoc});
     } else {
       logError() << "Unsupported buffer type.";
     }
@@ -136,7 +140,7 @@ int BufferRegistry::idForPassThrough(WriteBuffer* source, const std::unordered_s
 
   const auto entry = pointerMap_.find(pointer);
   if (entry == pointerMap_.end()) {
-    const BufferPointer added{size, allocator_.addBuffer(pointer, size)};
+    const BufferPointer added{.size = size, .id = allocator_.addBuffer(pointer, size)};
     pointerMap_[pointer] = added;
     return added.id;
   }

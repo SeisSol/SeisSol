@@ -54,8 +54,9 @@ struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr auto InverseRotationGroups = PrimaryGroups;
 
   /// The fluid velocities relax against the solid ones through Biot drag.
-  static constexpr std::array StiffSourceRows{
-      StiffSourceRow{10, 6}, StiffSourceRow{11, 7}, StiffSourceRow{12, 8}};
+  static constexpr std::array StiffSourceRows{StiffSourceRow{.quantity = 10, .target = 6},
+                                              StiffSourceRow{.quantity = 11, .target = 7},
+                                              StiffSourceRow{.quantity = 12, .target = 8}};
 
   /// Where the velocity components start. Everything reaching for them --
   /// energy output, point sources, initial fields -- goes through this.

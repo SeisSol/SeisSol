@@ -216,7 +216,8 @@ void FlopCounter::incrementMetric(std::size_t handle, const PerformanceEstimate&
 std::size_t FlopCounter::addMetric(const std::string& name, const std::string& category) {
   const auto handle = metrics_.size();
 
-  metrics_.emplace_back(Metric{PerformanceEstimate{}, name, category});
+  metrics_.emplace_back(
+      Metric{.estimate = PerformanceEstimate{}, .name = name, .category = category});
 
   metricCategories_[category].push_back(handle);
 

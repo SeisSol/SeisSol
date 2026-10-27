@@ -114,7 +114,8 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
 
       if (maxValue <= tolerance) {
         // meaning: we're below tolerance to consider the cell
-        const Candidate candidate{maxDistance <= onFace ? 0.0 : maxValue, elements[elem].globalId};
+        const Candidate candidate{.key = maxDistance <= onFace ? 0.0 : maxValue,
+                                  .globalId = elements[elem].globalId};
 
 #pragma omp critical
         {

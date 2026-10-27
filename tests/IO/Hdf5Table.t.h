@@ -25,7 +25,7 @@ using namespace seissol::io;
 using namespace seissol::io::instance::point;
 
 inline TableQuantity doubleColumn(const std::string& name) {
-  return {name, seissol::io::datatype::inferDatatype<double>()};
+  return {.name = name, .datatype = seissol::io::datatype::inferDatatype<double>()};
 }
 
 //! What a point of the first group records, and of the second: a quantity more.
