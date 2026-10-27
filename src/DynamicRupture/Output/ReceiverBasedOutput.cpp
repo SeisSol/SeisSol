@@ -111,6 +111,21 @@ void ReceiverOutput::gatherFaultOutput(const std::shared_ptr<ReceiverOutputData>
   }
 }
 
+parallel::runtime::HostBufferPool::Buffer
+    ReceiverOutput::gatherForHost(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                  parallel::runtime::StreamRuntime& runtime,
+                                  bool withDerivatives) {
+  const auto buffer = outputData->hostBuffers->take();
+  auto* bytes = static_cast<std::uint8_t*>(buffer.device);
+  if (withDerivatives) {
+    outputData->deviceDataCollector->gatherTo(bytes, runtime.stream());
+  }
+  if (outputData->deviceVariables != nullptr) {
+    outputData->deviceVariables->gatherTo(bytes + outputData->variablesOffset, runtime.stream());
+  }
+  return buffer;
+}
+
 void ReceiverOutput::gatherFaultState(const std::shared_ptr<ReceiverOutputData>& outputData,
                                       parallel::runtime::StreamRuntime& runtime) {
   if constexpr (isDeviceOn()) {
@@ -137,7 +152,7 @@ void ReceiverOutput::keepStepStart(const std::shared_ptr<ReceiverOutputData>& ou
       assert(bytes == kept.faceBytes);
       const auto* source = gathered != outputData->deviceVariableSets.end()
                                ? static_cast<const std::uint8_t*>(
-                                     outputData->deviceVariables->get(gathered->second, faceId))
+                                     outputData->gatheredVariable(gathered->second, faceId))
                                : static_cast<const std::uint8_t*>(layer.varUntyped(variable)) +
                                      bytes * position.cell;
       std::memcpy(kept.data.data() + kept.faceBytes * faceId, source, bytes);
@@ -161,6 +176,34 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
 
   auto& callRuntime =
       outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+
+  if (isDeviceOn() && outputData->hostQueue != nullptr) {
+    // the host actor takes the samples from a buffer of their own, once the device is done
+    const auto buffer = gatherForHost(outputData, runtime);
+    std::vector<std::function<void(std::size_t)>> handlers;
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
+        handlers.push_back(this->template faultOutputHandler<Cfg>(
+            outputType, slipRateOutputType, outputData, level, time, dt, indt));
+      }
+    });
+    outputData->hostQueue->post(runtime.eventRecord(), [outputData, buffer, handlers]() {
+      outputData->gathered = buffer.host;
+      static const auto TraceName = monitoring::Trace::name("fault receivers");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
+      for (const auto& handler : handlers) {
+        parallel::runtime::HostRuntime::forEach(outputData->topology.faceCount(), handler);
+      }
+      outputData->gathered = nullptr;
+      outputData->hostBuffers->give(buffer);
+    });
+    if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
+      outputData->cachedTime[outputData->currentCacheLevel] = time;
+      outputData->currentCacheLevel += 1;
+    }
+    return;
+  }
 
   if constexpr (isDeviceOn()) {
     if (outputData->extraRuntime.has_value()) {
@@ -303,10 +346,8 @@ std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler
       const real* steMinus = nullptr;
 
       if constexpr (isDeviceOn()) {
-        stePlus =
-            static_cast<const real*>(outputData->deviceDataCollector->get(outFace.deviceDataPlus));
-        steMinus =
-            static_cast<const real*>(outputData->deviceDataCollector->get(outFace.deviceDataMinus));
+        stePlus = static_cast<const real*>(outputData->gatheredData(outFace.deviceDataPlus));
+        steMinus = static_cast<const real*>(outputData->gatheredData(outFace.deviceDataMinus));
       } else {
         getDofs<Cfg>(stePlus, faultInfo.element.value());
         if (faultInfo.neighborElement.hasValue()) {

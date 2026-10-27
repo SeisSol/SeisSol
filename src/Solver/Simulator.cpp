@@ -96,6 +96,8 @@ void startOutputThread(SeisSol& seissolInstance) {
   if (useHostActor(seissolInstance.env()) &&
       parallel::runtime::HostRuntime::scheduling() == parallel::runtime::HostScheduling::Static) {
     auto& modules = seissolInstance.modules();
+    // (e.g. the initial samples of the fault receivers are there already)
+    parallel::runtime::HostActor::instance().drain();
     parallel::runtime::HostActor::instance().setExecutor(
         [&modules](std::function<void()> task) { modules.enqueueOnOutputThread(std::move(task)); });
     logInfo() << "The work on the host for the device (e.g. the receiver samples) runs on the"

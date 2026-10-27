@@ -7,6 +7,7 @@
 
 #include "DynamicRupture/Output/OutputManager.h"
 
+#include "Alignment.h"
 #include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
@@ -37,6 +38,9 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
+#include "Parallel/Helper.h"
+#include "Parallel/Runtime/HostActor.h"
+#include "Parallel/Runtime/HostBufferPool.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 
@@ -221,6 +225,9 @@ io::instance::geometry::WriterGroup
 void waitForPickpointSamples(
     std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>>& outputData) {
   for (auto& [layerId, data] : outputData) {
+    if (data->hostQueue != nullptr) {
+      data->hostQueue->drain();
+    }
     if (data->extraRuntime.has_value()) {
       data->extraRuntime->wait();
     }
@@ -403,6 +410,24 @@ std::array<double, 6> OutputManager::initialStress(const ReceiverOutputData& out
 void OutputManager::initPickpointOutput() {
   logInfo() << "Setting up on-fault receivers.";
   ppOutputBuilder_->build(ppOutputData_);
+  if (isDeviceOn() && useHostActor(seissolInstance_.env())) {
+    // the host actor takes the samples, from buffers that hold the derivatives, then the variables
+    for (auto& [layerId, data] : ppOutputData_) {
+      if (data->deviceDataCollector == nullptr) {
+        continue;
+      }
+      const auto aligned = [](std::size_t bytes) {
+        return (bytes + Alignment - 1) / Alignment * Alignment;
+      };
+      data->variablesOffset = aligned(data->deviceDataCollector->gatheredBytes());
+      const auto bytes =
+          data->variablesOffset +
+          (data->deviceVariables != nullptr ? data->deviceVariables->gatheredBytes() : 0);
+      data->hostBuffers = std::make_unique<parallel::runtime::HostBufferPool>(bytes);
+      data->hostQueue = std::make_unique<parallel::runtime::HostActor::Queue>();
+      data->extraRuntime.reset();
+    }
+  }
   const auto& seissolParameters = seissolInstance_.parameters();
   const auto numSimulations = configValue(seissolParameters.model.config).numSimulations;
 
@@ -602,10 +627,15 @@ void OutputManager::recordPickpointOutput(std::size_t layerId,
     // On CUDA and SYCL, calcFaultOutput leaves the samples to a host function on a stream, which
     // runs once the friction law is done, and stores into whatever memory the cache has at that
     // time. Growing the cache moves it, and a sample stored into the old memory while it is being
-    // moved is lost. Hence, all samples taken so far have to be in first.
-    auto& sampleRuntime =
-        outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
-    sampleRuntime.wait();
+    // moved is lost. Hence, all samples taken so far have to be in first. Likewise for the host
+    // actor.
+    if (outputData->hostQueue != nullptr) {
+      outputData->hostQueue->drain();
+    } else {
+      auto& sampleRuntime =
+          outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+      sampleRuntime.wait();
+    }
   }
   ensureCacheLevel(*outputData);
 
@@ -634,6 +664,17 @@ void OutputManager::finishPickpointStep(std::size_t layerId,
                                         bool sampled,
                                         parallel::runtime::StreamRuntime& runtime) {
   const auto& outputData = ppOutputData_.at(layerId);
+  if (isDeviceOn() && outputData->hostQueue != nullptr) {
+    // the friction state at the end of the step, in a buffer of its own for the host actor
+    const auto buffer = ReceiverOutput::gatherForHost(outputData, runtime, false);
+    outputData->hostQueue->post(runtime.eventRecord(), [this, outputData, buffer]() {
+      outputData->gathered = buffer.host;
+      impl_->keepStepStart(outputData);
+      outputData->gathered = nullptr;
+      outputData->hostBuffers->give(buffer);
+    });
+    return;
+  }
   if constexpr (isDeviceOn()) {
     if (!sampled) {
       // in the order of the streams that calcFaultOutput() keeps

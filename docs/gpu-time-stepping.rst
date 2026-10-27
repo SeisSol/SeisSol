@@ -64,8 +64,8 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - Experimental. Process the outputs of a synchronization point on a thread of their own, while the GPU
        goes on with the next epoch (see below).
    * - ``SEISSOL_HOST_ACTOR=1``
-     - Experimental, GPU builds only. Take the samples of the receivers on the host once the GPU is done
-       with what they read, instead of in host functions on streams (see below). Not yet with
+     - Experimental, GPU builds only. Take the samples of the receivers and the fault receivers on the host once
+       the GPU is done with what they read, instead of in host functions on streams (see below). Not yet with
        ``SEISSOL_SUPERSTEP_GRAPHS=1``.
    * - ``SEISSOL_OUTPUT_SNAPSHOT=0``
      - With ``SEISSOL_OUTPUT_THREAD=1``: keep no snapshots of the data, and copy the data for the outputs to the host
@@ -263,7 +263,8 @@ Work on the host for the GPU
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Some work on the host reads what the GPU computes during an epoch: the samples of the receivers
-read the unknowns of their cells, which the GPU gathers into host memory. By default, a host
+read the unknowns of their cells, and those of the fault receivers the derivatives next to the faults
+and the friction state, which the GPU gathers into host memory. By default, a host
 function on a stream takes them, which the device runtime calls on a thread of its own once the
 gather is done. Such a call is not cheap: on an MI250X, 20–55 µs with ROCm 6.3 and about 500 µs
 with ROCm 6.4 and newer (October 2026); and the stream it is on waits for it.
@@ -280,8 +281,9 @@ synchronization point, all of it runs.
 Checking an event is safe on all backends, as the host reads the data only once the GPU is done with
 it, in whatever host memory.
 On the Radeon 890M (ROCm 6.3), TPV13 with eight receivers took 3.49 s instead of 3.83 s with the
-time-stepping plan and concurrent clusters; the outputs came out bitwise the same (also on an RTX 5070
-Laptop GPU, where host functions are cheap and the times stay the same).
+time-stepping plan and concurrent clusters, with the receivers alone on the host actor. On an RTX 5070
+Laptop GPU, with the fault receivers as well, 0.67 s instead of 0.76 s (also with tasks, and on the
+thread of the outputs); the outputs came out bitwise the same.
 
 Diagnostics
 ~~~~~~~~~~~

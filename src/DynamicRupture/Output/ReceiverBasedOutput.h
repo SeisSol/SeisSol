@@ -79,6 +79,15 @@ class ReceiverOutput {
                                parallel::runtime::StreamRuntime& runtime);
 
   /**
+   * For the host actor: gathers the derivatives (if asked for) and the variables of the faces into
+   * a buffer of their own (see ReceiverOutputData::hostBuffers) on the stream of the runtime.
+   */
+  static parallel::runtime::HostBufferPool::Buffer
+      gatherForHost(const std::shared_ptr<ReceiverOutputData>& outputData,
+                    parallel::runtime::StreamRuntime& runtime,
+                    bool withDerivatives = true);
+
+  /**
    * Keeps the friction state the faces have now as the one at the start of the next time step, for
    * the samples within that step; from the data the output reads (gathered from the device before,
    * or in the storage on the host).
@@ -206,7 +215,7 @@ class ReceiverOutputImpl : public ReceiverOutput {
     const auto devVar = local.state->deviceVariableSets.find(drStorage_->info<StorageT>().index);
     if (devVar != local.state->deviceVariableSets.end()) {
       return reinterpret_cast<const ValueT*>(
-          local.state->deviceVariables->get(devVar->second, local.faceId));
+          local.state->gatheredVariable(devVar->second, local.faceId));
     } else {
       return local.layer->template var<StorageT>(Cfg())[local.ltsId];
     }
