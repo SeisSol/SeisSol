@@ -43,7 +43,7 @@ HostBufferPool::~HostBufferPool() {
 
 HostBufferPool::Buffer HostBufferPool::take() {
   {
-    const std::lock_guard lock(mutex_);
+    const std::scoped_lock lock(mutex_);
     if (!free_.empty()) {
       const auto buffer = free_.back();
       free_.pop_back();
@@ -66,7 +66,7 @@ HostBufferPool::Buffer HostBufferPool::take() {
 }
 
 void HostBufferPool::give(const Buffer& buffer) {
-  const std::lock_guard lock(mutex_);
+  const std::scoped_lock lock(mutex_);
   free_.push_back(buffer);
 }
 

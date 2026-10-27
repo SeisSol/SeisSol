@@ -111,7 +111,7 @@ std::string SplitHaloTransport::describe() const {
     description += sendDeferred_ ? " the send" : "";
     description += sendDeferred_ && receiveDeferred_ ? " and" : "";
     description += receiveDeferred_ ? " the receive" : "";
-    description += ")";
+    description += ')';
   }
   return description;
 }

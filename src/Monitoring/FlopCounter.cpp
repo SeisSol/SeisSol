@@ -64,7 +64,7 @@ EpochRates FlopCounter::printPerformanceUpdate(double wallTime) {
 
   auto estimate = PerformanceEstimate{};
   {
-    const std::lock_guard lock(mutex_);
+    const std::scoped_lock lock(mutex_);
     for (const auto& metric : metrics_) {
       estimate = estimate + metric.estimate;
     }
@@ -142,7 +142,7 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
 
   // total first; then by category
   {
-    const std::lock_guard lock(mutex_);
+    const std::scoped_lock lock(mutex_);
     auto estimate = PerformanceEstimate{};
     for (const auto& metric : metrics_) {
       estimate = estimate + metric.estimate;
@@ -216,12 +216,12 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
 }
 
 void FlopCounter::incrementMetric(std::size_t handle, const PerformanceEstimate& data) {
-  const std::lock_guard lock(mutex_);
+  const std::scoped_lock lock(mutex_);
   metrics_[handle].estimate = metrics_[handle].estimate + data;
 }
 
 PerformanceEstimate FlopCounter::estimate(const std::vector<std::string>& names) const {
-  const std::lock_guard lock(mutex_);
+  const std::scoped_lock lock(mutex_);
   auto estimate = PerformanceEstimate{};
   for (const auto& metric : metrics_) {
     if (std::find(names.begin(), names.end(), metric.name) != names.end()) {
@@ -232,7 +232,7 @@ PerformanceEstimate FlopCounter::estimate(const std::vector<std::string>& names)
 }
 
 std::size_t FlopCounter::addMetric(const std::string& name, const std::string& category) {
-  const std::lock_guard lock(mutex_);
+  const std::scoped_lock lock(mutex_);
   const auto handle = metrics_.size();
 
   metrics_.emplace_back(Metric{PerformanceEstimate{}, name, category});
