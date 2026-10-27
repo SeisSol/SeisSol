@@ -67,8 +67,6 @@ jobs:
           mkdir -p build && cd build
           CMAKE_PREFIX_PATH=/opt/dependencies cmake -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DCONFIGS=ci-cpu -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGRAPH_PARTITIONING_LIBS=ptscotch ..
           make -j $(nproc) seissol-codegen
-          # clang-tidy can not handle -fprofile-abs-path, so we remove it from the compile commands.
-          sed -i 's/-fprofile-abs-path //g' compile_commands.json
           TIDY_SHARD=${{ matrix.shard }}/4 ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-23) -quiet -j $(nproc)
 
   clang-tidy-gpu:
