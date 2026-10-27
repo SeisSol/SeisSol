@@ -34,13 +34,13 @@ class Value {
 
   //! @brief null
   Value() = default;
-  // NOLINTNEXTLINE(google-explicit-constructor)
+  // NOLINTNEXTLINE(misc-explicit-constructor)
   Value(std::nullptr_t /*null*/) {}
-  // NOLINTNEXTLINE(google-explicit-constructor)
+  // NOLINTNEXTLINE(misc-explicit-constructor)
   Value(bool value) : data_(value) {}
 
   template <typename T>
-  // NOLINTNEXTLINE(google-explicit-constructor)
+  // NOLINTNEXTLINE(misc-explicit-constructor)
   Value(T value)
     requires(std::is_integral_v<T> && !std::is_same_v<T, bool>)
   {
@@ -51,19 +51,19 @@ class Value {
     }
   }
 
-  // NOLINTNEXTLINE(google-explicit-constructor)
+  // NOLINTNEXTLINE(misc-explicit-constructor)
   Value(double value) : data_(value) {}
-  // NOLINTNEXTLINE(google-explicit-constructor)
+  // NOLINTNEXTLINE(misc-explicit-constructor)
   Value(float value) : data_(static_cast<double>(value)) {}
-  // NOLINTNEXTLINE(google-explicit-constructor)
+  // NOLINTNEXTLINE(misc-explicit-constructor)
   Value(const char* value) : data_(std::string(value)) {}
-  // NOLINTNEXTLINE(google-explicit-constructor)
+  // NOLINTNEXTLINE(misc-explicit-constructor)
   Value(std::string value) : data_(std::move(value)) {}
-  // NOLINTNEXTLINE(google-explicit-constructor)
+  // NOLINTNEXTLINE(misc-explicit-constructor)
   Value(std::string_view value) : data_(std::string(value)) {}
-  // NOLINTNEXTLINE(google-explicit-constructor)
+  // NOLINTNEXTLINE(misc-explicit-constructor)
   Value(Array value) : data_(std::move(value)) {}
-  // NOLINTNEXTLINE(google-explicit-constructor)
+  // NOLINTNEXTLINE(misc-explicit-constructor)
   Value(Object value) : data_(std::move(value)) {}
 
   //! @brief An array of @p values, one element each.

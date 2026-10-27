@@ -173,7 +173,7 @@ TEST_CASE("Anisotropic DR impedance reduces to the elastic one" *
                                        Eigen::Vector3d(1, 1, 1),
                                        Eigen::Vector3d(0.3, -0.5, 0.81)};
   // deterministic on purpose, so that a failure can be reproduced
-  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  // NOLINTNEXTLINE(bugprone-random-generator-seed)
   std::mt19937 rng(20260803);
   std::normal_distribution<double> normalDist;
   for (int i = 0; i < 64; ++i) {

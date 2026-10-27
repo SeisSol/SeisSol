@@ -67,10 +67,12 @@ inline auto readCycles() -> std::uint64_t {
   // but does not link
   std::uint32_t low = 0;
   std::uint32_t high = 0;
+  // NOLINTNEXTLINE(portability-no-assembler)
   asm volatile("rdtsc" : "=a"(low), "=d"(high));
   return (static_cast<std::uint64_t>(high) << 32U) | low;
 #elif defined(SEISSOL_PROXY_CYCLES_CNTVCT)
   std::uint64_t value = 0;
+  // NOLINTNEXTLINE(portability-no-assembler)
   asm volatile("mrs %0, cntvct_el0" : "=r"(value));
   return value;
 #else

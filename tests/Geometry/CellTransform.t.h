@@ -63,7 +63,7 @@ inline auto randomTetrahedron(std::mt19937& rng, double scale, const VectorT& sh
 
 TEST_CASE("Affine cell transform" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = 1e-12;
-  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  // NOLINTNEXTLINE(bugprone-random-generator-seed)
   std::mt19937 rng(20260928);
 
   SUBCASE("Maps the reference vertices onto the cell vertices") {

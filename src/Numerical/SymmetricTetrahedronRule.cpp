@@ -57,6 +57,8 @@ struct Rule {
  *     and 14 by removing and merging orbits
  */
 const std::vector<Rule>& rules() {
+  // one orbit per line; designators would spread every orbit over three lines
+  // NOLINTBEGIN(modernize-use-designated-initializers)
   static const std::vector<Rule> Rules = {
       // witherden-vincent/witherden-vincent-n1-d1.txt
       {1,
@@ -270,6 +272,7 @@ const std::vector<Rule>& rules() {
             {0.060758751957025510785, 0.12274782493550955677, 0.24114955109756799626}},
        }},
   };
+  // NOLINTEND(modernize-use-designated-initializers)
   return Rules;
 }
 
