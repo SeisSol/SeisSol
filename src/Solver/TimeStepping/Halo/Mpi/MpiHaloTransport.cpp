@@ -83,7 +83,8 @@ MpiHaloTransport::MpiHaloTransport(const RemoteClusterPair& regions, bool persis
 }
 
 void MpiHaloTransport::startSend() {
-  if (persistent_) {
+  // (some MPIs take the null array of no requests for an invalid one; e.g. Open MPI 5)
+  if (persistent_ && !sendRequests_.empty()) {
     MPI_Startall(static_cast<int>(sendRequests_.size()), sendRequests_.data());
   }
   for (std::size_t region = 0; region < regions_.copy.size(); ++region) {
@@ -103,7 +104,7 @@ void MpiHaloTransport::startSend() {
 bool MpiHaloTransport::testSend() { return testRequests(sendRequests_.data(), sendQueue_); }
 
 void MpiHaloTransport::startReceive() {
-  if (persistent_) {
+  if (persistent_ && !recvRequests_.empty()) {
     MPI_Startall(static_cast<int>(recvRequests_.size()), recvRequests_.data());
   }
   for (std::size_t region = 0; region < regions_.ghost.size(); ++region) {

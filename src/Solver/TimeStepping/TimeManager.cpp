@@ -66,6 +66,7 @@
 #include <limits>
 #include <memory>
 #include <mpi.h>
+#include <numeric>
 #include <set>
 #include <sstream>
 #include <string>
@@ -149,6 +150,39 @@ void reportClusterDependencies(initializer::MemoryManager& memoryManager,
   if (counts[2] > 0) {
     logError() << counts[2] << "dependencies between cell layers have no connection.";
   }
+}
+
+/**
+ * By rank, whether the process is on the own node. For tests, SEISSOL_EXCHANGE_RANKS_PER_NODE=N
+ * makes nodes of N consecutive ranks each instead.
+ */
+std::vector<bool> ranksOnNode(utils::Env& env) {
+  const auto size = static_cast<std::size_t>(Mpi::mpi.size());
+  const auto rank = static_cast<std::size_t>(Mpi::mpi.rank());
+  std::vector<bool> onNode(size, false);
+  const auto perNode = env.get<std::size_t>("EXCHANGE_RANKS_PER_NODE", 0);
+  if (perNode > 0) {
+    for (std::size_t other = 0; other < size; ++other) {
+      onNode[other] = other / perNode == rank / perNode;
+    }
+    return onNode;
+  }
+  MPI_Group world{};
+  MPI_Group shared{};
+  MPI_Comm_group(Mpi::mpi.comm(), &world);
+  MPI_Comm_group(Mpi::mpi.sharedMemComm(), &shared);
+  int sharedSize = 0;
+  MPI_Group_size(shared, &sharedSize);
+  std::vector<int> sharedRanks(static_cast<std::size_t>(sharedSize));
+  std::iota(sharedRanks.begin(), sharedRanks.end(), 0);
+  std::vector<int> worldRanks(sharedRanks.size());
+  MPI_Group_translate_ranks(shared, sharedSize, sharedRanks.data(), world, worldRanks.data());
+  MPI_Group_free(&shared);
+  MPI_Group_free(&world);
+  for (const auto other : worldRanks) {
+    onNode.at(static_cast<std::size_t>(other)) = true;
+  }
+  return onNode;
 }
 
 } // namespace
@@ -366,6 +400,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                              clusterLayout.globalClusterCount * runConfigs.size(),
                                              runConfigs.size(),
                                              exchangeLanes(seissolInstance_.env()));
+  if (useExchangeSplitByNode(seissolInstance_.env()) && haloTransports_->scheduler() != nullptr) {
+    haloTransports_->splitByNode(ranksOnNode(seissolInstance_.env()));
+    logInfo() << "The halo exchange on device streams stays within the node; with the processes"
+              << "on other nodes, it goes over GPU-aware MPI from the host.";
+  }
   // what the test of the halo exchange before the time stepping goes through
   std::vector<CheckedTransport> checkedTransports;
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
@@ -522,10 +561,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       logWarning() << "Recording super-timesteps with halo exchange needs a transfer mode on device"
                    << "streams (ccl, stream-mpi or shmem) in its global order, and no"
                    << "communication thread.";
-    } else if (!ghostClusterPointer->empty() && !haloTransports_->scheduler()->recordable()) {
+    } else if (!ghostClusterPointer->empty() &&
+               (!haloTransports_->scheduler()->recordable() || haloTransports_->split())) {
       logWarning() << "The halo exchange of this transfer mode cannot be replayed from a recording"
-                   << "of super-timesteps (stream-mpi, and shmem with Intel SHMEM); use ccl, or"
-                   << "shmem with NVSHMEM or ROCSHMEM.";
+                   << "of super-timesteps (stream-mpi, shmem with Intel SHMEM, and any split by"
+                   << "node); use ccl, or shmem with NVSHMEM or ROCSHMEM.";
     } else if (!SuperStepRecorder::available()) {
       logWarning() << "Recording super-timesteps needs a device that builds graphs node by node"
                    << "(and SEISSOL_DEVICE_GRAPH_NODES not set to 0).";

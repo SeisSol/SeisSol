@@ -51,6 +51,15 @@ inline bool useExchangePerDirection(utils::Env& env) {
 }
 
 /**
+ * Whether the transfer modes that run on device streams (ccl, stream-mpi, shmem) exchange only
+ * within a node on them, and with the processes on other nodes with GPU-aware MPI from the host, as
+ * the direct mode does (experimental).
+ */
+inline bool useExchangeSplitByNode(utils::Env& env) {
+  return env.get<bool>("EXCHANGE_SPLIT_BY_NODE", false);
+}
+
+/**
  * Into how many lanes the transfer modes that run on device streams (ccl, stream-mpi) split their
  * global order (experimental): streams of the highest priority, which run at the same time, with
  * the groups of each in the global order.

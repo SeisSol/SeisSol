@@ -88,6 +88,10 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
    * - ``SEISSOL_EXCHANGE_LANES``
      - Experimental. For ``ccl`` and ``stream-mpi`` in the global order: split it into this many lanes
        (1 by default) that run at the same time (see below).
+   * - ``SEISSOL_EXCHANGE_SPLIT_BY_NODE=1``
+     - Experimental. For ``ccl``, ``stream-mpi`` and ``shmem``: exchange on the GPU streams only with the
+       processes of the own node, and with the others over GPU-aware MPI from the host, as ``direct`` does
+       (see below). Not with ``SEISSOL_SUPERSTEP_GRAPHS=1``.
    * - ``SEISSOL_SCRATCHPAD_PER_LAYER=1``
      - GPU builds only. Give each layer scratchpads of its own, instead of sharing them between all layers.
        The log shows the memory needed either way.
@@ -145,6 +149,13 @@ work of the clusters (up to ``GPU_MAX_HW_QUEUES`` of them, minus one for a strea
 A group goes to a lane by its direction and its exchange, the same on all processes, so each lane has its groups in
 the global order on all processes, and the lanes run at the same time.
 Ordered on the GPU, the work that depends on the exchange waits for an event that joins all lanes.
+
+With ``SEISSOL_EXCHANGE_SPLIT_BY_NODE=1``, the regions with the processes of other nodes leave the GPU streams:
+GPU-aware MPI from the host moves them, once the GPU is done with the work before (as the host sees by polling an
+event), while the regions within the node stay on the streams, in the global order. So the latency of the network
+does not add up along the order of the exchanges. A send or receive counts as done once MPI has completed its
+part, and the streams have launched theirs. For tests, ``SEISSOL_EXCHANGE_RANKS_PER_NODE=N`` takes nodes of ``N``
+consecutive ranks each instead of the actual ones.
 
 ``shmem`` puts the data into a staging window of the receiving process in symmetric memory
 (as large as the ghost layers of the process with the largest ones),

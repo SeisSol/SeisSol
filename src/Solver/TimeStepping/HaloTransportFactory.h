@@ -14,6 +14,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <vector>
 
 namespace seissol::solver {
 
@@ -59,6 +60,16 @@ class HaloTransportFactory {
   [[nodiscard]] ExchangeScheduler* scheduler() { return scheduler_.get(); }
 
   /**
+   * Lets the transports created from now on that run on device streams (ccl, stream-mpi, shmem)
+   * move only the regions with the processes for which `onNode` is true (by their rank), and the
+   * others with GPU-aware MPI from the host (see SplitHaloTransport); experimental.
+   */
+  void splitByNode(std::vector<bool> onNode);
+
+  /// whether some transports move regions with MPI from the host (see splitByNode())
+  [[nodiscard]] bool split() const { return !onNode_.empty(); }
+
+  /**
    * What starts and tests the exchanges, with a task graph on the host (see TaskHaloTransport);
    * null otherwise.
    */
@@ -67,6 +78,8 @@ class HaloTransportFactory {
   private:
   Mpi::DataTransferMode mode_;
   bool persistent_;
+  // by rank, whether the regions with the process stay on the device streams; empty for all
+  std::vector<bool> onNode_;
   std::unique_ptr<ExchangeScheduler> scheduler_;
   std::unique_ptr<TaskHaloEngine> taskEngine_;
 };

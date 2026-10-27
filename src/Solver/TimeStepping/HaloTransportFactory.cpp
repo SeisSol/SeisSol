@@ -13,6 +13,7 @@
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
 #include "Solver/TimeStepping/Halo/Mpi/MpiHaloTransport.h"
+#include "Solver/TimeStepping/Halo/SplitHaloTransport.h"
 #include "Solver/TimeStepping/Halo/Stream/CclExchangeScheduler.h"
 #include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
 #include "Solver/TimeStepping/Halo/Stream/ShmemExchangeScheduler.h"
@@ -66,6 +67,8 @@ HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
 
 HaloTransportFactory::~HaloTransportFactory() = default;
 
+void HaloTransportFactory::splitByNode(std::vector<bool> onNode) { onNode_ = std::move(onNode); }
+
 std::unique_ptr<HaloTransport> HaloTransportFactory::create(const RemoteClusterPair& regions,
                                                             std::size_t cluster,
                                                             std::size_t otherCluster) {
@@ -86,6 +89,13 @@ std::unique_ptr<HaloTransport> HaloTransportFactory::create(const RemoteClusterP
   case Mpi::DataTransferMode::DirectCcl:
   case Mpi::DataTransferMode::DirectStreamMpi:
   case Mpi::DataTransferMode::DirectShmem:
+    if (split()) {
+      // within the node on the device streams, to the other nodes from the host
+      auto [onNode, offNode] = SplitHaloTransport::split(regions, onNode_);
+      return std::make_unique<SplitHaloTransport>(
+          std::make_unique<ScheduledTransport>(*scheduler_, onNode, cluster, otherCluster),
+          std::make_unique<MpiHaloTransport>(offNode, persistent_));
+    }
     return std::make_unique<ScheduledTransport>(*scheduler_, regions, cluster, otherCluster);
   default:
     logError() << "The requested data transfer mode is not available in this build.";
