@@ -279,8 +279,13 @@ void bindFaultRotation(KernelT& krnl, const real* rotation) {
 template <typename KernelT>
 void bindFaultFluxOperandsBatched(KernelT& krnl, const real** fluxSolvers) {
   if constexpr (NodalFaultFlux) {
-    krnl.T = fluxSolvers;
-    krnl.extraOffset_T = dr::FaultFluxLayout::RotationOffset;
+    if constexpr (Curvilinear) {
+      krnl.TPoints = fluxSolvers;
+      krnl.extraOffset_TPoints = dr::FaultFluxLayout::RotationOffset;
+    } else {
+      krnl.T = fluxSolvers;
+      krnl.extraOffset_T = dr::FaultFluxLayout::RotationOffset;
+    }
     for (std::size_t coefficient = 0; coefficient < FaultFluxCoefficientCount; ++coefficient) {
       krnl.faultFluxCoefficients(coefficient) = fluxSolvers;
       krnl.extraOffset_faultFluxCoefficients(coefficient) =
