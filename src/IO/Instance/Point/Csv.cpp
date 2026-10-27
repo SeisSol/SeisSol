@@ -143,12 +143,12 @@ CsvTable parseCsv(const std::string& content, const CsvFormat& format) {
   bool quoted = false;
   bool started = false;
 
-  const auto endField = [&]() {
+  const auto endField = [&] {
     row.push_back(value);
     value.clear();
     started = false;
   };
-  const auto endRow = [&]() {
+  const auto endRow = [&] {
     endField();
     if (table.header.empty()) {
       table.header = std::move(row);

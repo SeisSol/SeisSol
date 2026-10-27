@@ -58,8 +58,8 @@ void MemoryManager::initializeFrictionLaw() {
   const auto drParameters = std::make_shared<parameters::DRParameters>(params);
   logInfo() << "Initialize Friction Model";
 
-  logInfo() << "Friction law:" << dr::misc::frictionLawName(drParameters->frictionLawType).c_str()
-            << "(" << static_cast<int>(drParameters->frictionLawType) << ")";
+  logInfo() << "Friction law:" << dr::misc::frictionLawName(drParameters->frictionLawType) << "("
+            << static_cast<int>(drParameters->frictionLawType) << ")";
   logInfo() << "Thermal pressurization:" << (drParameters->isThermalPressureOn ? "on" : "off");
 
   const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance_);

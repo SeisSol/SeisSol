@@ -108,9 +108,8 @@ using namespace vertexorderinvariancetest;
 
 TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
           doctest::test_suite("geometry")) {
-  for (const auto& meshPair : MeshPairs) {
-    const auto& file = meshPair.first;
-    const auto& filePermuted = meshPair.second;
+  for (const auto& [file, filePermuted] : MeshPairs) {
+
     CAPTURE(file);
     seissol::geometry::PumlMesh mesh;
     seissol::geometry::PumlMesh meshPermuted;
@@ -205,9 +204,8 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
     }
   }
   for (const auto& partitioningLib : partitioningLibs) {
-    for (const auto& meshPair : MeshPairs) {
-      const auto& file = meshPair.first;
-      const auto& filePermuted = meshPair.second;
+    for (const auto& [file, filePermuted] : MeshPairs) {
+
       CAPTURE(partitioningLib);
       CAPTURE(file);
       std::cout.setstate(std::ios_base::failbit);

@@ -221,7 +221,7 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
     constexpr std::array<double, 6> ContractionWeight{1.0, 1.0, 1.0, 2.0, 2.0, 2.0};
 
     // moments of the traces
-    const auto traceSigmaSq = [&]() {
+    const auto traceSigmaSq = [&] {
       double sum = 0.0;
       for (std::size_t i = 0; i < 3; ++i) {
         for (std::size_t j = 0; j < 3; ++j) {
@@ -250,7 +250,7 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
     };
 
     // moments of the full double contractions
-    const auto contractSigmaSq = [&]() {
+    const auto contractSigmaSq = [&] {
       double sum = 0.0;
       for (std::size_t i = 0; i < 6; ++i) {
         sum += ContractionWeight[i] * quadSub(i, i);

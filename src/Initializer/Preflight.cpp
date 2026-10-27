@@ -341,7 +341,7 @@ int preflight(const std::string& parameterFile,
   }
   parameters::applyOverrides(node, parsedOverrides);
   parameters::ParameterReader reader(node, parameterFile, false);
-  const auto seissolParameters = [&]() {
+  const auto seissolParameters = [&] {
     try {
       return parameters::readSeisSolParameters(&reader);
     } catch (const std::exception& error) {

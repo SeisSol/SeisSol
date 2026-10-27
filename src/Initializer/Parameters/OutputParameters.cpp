@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utils/logger.h>
 #include <vector>
@@ -50,7 +51,7 @@ TimeSeriesMode readTimeSeriesMode(ParameterReader* reader,
       });
 }
 
-std::string timeSeriesName(TimeSeriesMode mode) {
+std::string_view timeSeriesName(TimeSeriesMode mode) {
   switch (mode) {
   case TimeSeriesMode::Incremental:
     return "incremental";
@@ -380,7 +381,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
   // string keeps that one reader helper in charge of validating every one of them; going through
   // the enum and back also settles the spelling of what the user wrote.
   const auto defaultTimeSeries =
-      timeSeriesName(readTimeSeriesMode(reader, "outputtimeseries", "snapshot"));
+      std::string(timeSeriesName(readTimeSeriesMode(reader, "outputtimeseries", "snapshot")));
   const auto format = reader->readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
   const auto xdmfWriterBackend =

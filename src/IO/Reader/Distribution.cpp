@@ -366,7 +366,7 @@ Distributor::DistributionInstance Distributor::distributeRaw(
                            // above that copy, uninitialized there, in place of typesize
                            elementSize = typesize,
                            typesizeTarget,
-                           copyFn]() {
+                           copyFn] {
     // temporary hack to make requests non-const (as it will not matter)
     auto requests2 = requests;
     MPI_Waitall(requests2.size(), requests2.data(), MPI_STATUSES_IGNORE);

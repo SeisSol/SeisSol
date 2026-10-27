@@ -81,7 +81,7 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
          reinterpret_cast<uintptr_t>(timeDerivatives) % Vectorsize == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
-  updateDisplacement &= [&]() {
+  updateDisplacement &= [&] {
     bool anyOfResult = false;
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
       anyOfResult |=

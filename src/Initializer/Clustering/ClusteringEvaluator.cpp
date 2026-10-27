@@ -63,7 +63,7 @@ std::size_t ClusteringEvaluator::realize(double wiggleFactor) {
   std::size_t numberOfReductions = 0;
   const auto lb = cache_.lower_bound(wiggleFactor);
 
-  if (lb != cache_.end() && !(cache_.key_comp()(wiggleFactor, lb->first))) {
+  if (lb != cache_.end() && !cache_.key_comp()(wiggleFactor, lb->first)) {
     clusterIds_ = lb->second;
   } else {
     // re-use best computed maxdiff enforcement available

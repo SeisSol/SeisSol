@@ -26,7 +26,7 @@
 namespace seissol::initializer::parameters {
 
 DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
-  using FrictionLawType = seissol::dr::misc::FrictionLawType;
+  using seissol::dr::misc::FrictionLawType;
   constexpr auto MaxNucleations = seissol::dr::MaxNucleations;
 
   auto* reader = baseReader->readSubNode("dynamicrupture");
@@ -165,7 +165,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
       "terminatormaxtimepostrupture", std::numeric_limits<double>::max());
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
-  const double etaDamp = [&]() {
+  const double etaDamp = [&] {
     const auto dampRead1 = reader->read<double>("etadamp");
     if (dampRead1.has_value()) {
       return dampRead1.value();

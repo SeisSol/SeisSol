@@ -198,10 +198,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
 
   const auto freqCentral = reader->readIfRequired<double>("freqcentral", isAnelastic);
   const auto freqRatio = reader->readIfRequired<double>("freqratio", isAnelastic);
-  if (isAnelastic) {
-    if (freqRatio <= 0) {
-      logError() << "The freqratio parameter must be positive; but that is currently not the case.";
-    }
+  if (isAnelastic && (freqRatio <= 0)) {
+    logError() << "The freqratio parameter must be positive; but that is currently not the case.";
   }
 
   const ITMParameters itmParameters = readITMParameters(baseReader);

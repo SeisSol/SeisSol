@@ -84,7 +84,7 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
   kernel::derivative<Cfg> krnl = krnlPrototype_;
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
-  updateDisplacement &= [&]() {
+  updateDisplacement &= [&] {
     bool anyOfResult = false;
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
       anyOfResult |=

@@ -32,7 +32,7 @@ void generateBackupFileIfNecessary(const std::string& fileName,
 
   if (seissol::directoryExists(entry)) {
     const auto actualTimeStamp = timeStamp.value_or(
-        []() { return utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr)); }());
+        [] { return utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr)); }());
     std::stringstream backupFileName;
     backupFileName << fileName << ".bak_" << actualTimeStamp << '.' << fileExtension;
     const auto copyPath = std::filesystem::path(backupFileName.str());

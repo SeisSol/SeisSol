@@ -63,7 +63,7 @@ namespace seissol::initializer::initprocedure {
 
 namespace {
 
-using Plasticity = seissol::model::Plasticity;
+using seissol::model::Plasticity;
 
 // The material of the cell at `position`, which holds it in its own configuration. A function of
 // its own rather than part of the body of the loop over the cells: with the lambda in an OpenMP

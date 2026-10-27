@@ -48,7 +48,7 @@ auto Aux::kernel2str(const std::vector<Kernel>& kernel) -> std::string {
   std::string output;
   for (std::size_t i = 0; i < kernel.size(); ++i) {
     if (i > 0) {
-      output += ",";
+      output += ',';
     }
     if (Map.contains(kernel[i])) {
       output += Map.at(kernel[i]);

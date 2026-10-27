@@ -28,7 +28,6 @@
 #include <array>
 #include <cstddef>
 #include <limits>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -117,7 +116,7 @@ TriangleQuadratureData<Cfg> generateTriangleQuadrature() {
   const auto pointsView = init::quadpoints<Cfg>::view::create(init::quadpoints<Cfg>::Values);
   const auto weightsView = init::quadweights<Cfg>::view::create(init::quadweights<Cfg>::Values);
 
-  auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
+  auto* reshapedPoints = unsafe_reshape<2>(data.points.data());
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData<Cfg>::Size; ++i) {
     reshapedPoints[i][0] = seissol::multisim::multisimTranspose<Cfg>(pointsView, i, 0);
     reshapedPoints[i][1] = seissol::multisim::multisimTranspose<Cfg>(pointsView, i, 1);
@@ -155,9 +154,7 @@ void assignNearestGaussianPoint(Receiver& geoPoint) {
       geometry::ReferenceFaceMap(geoPoint.localFaceSideId.value())
           .cellToFace(geometry::CellTransform::VectorEigenT(geoPoint.reference.data()));
 
-  int nearestPoint{-1};
-  double shortestDistance = std::numeric_limits<double>::max();
-  std::tie(nearestPoint, shortestDistance) = getNearestFacePoint(
+  const auto [nearestPoint, shortestDistance] = getNearestFacePoint(
       targetPoint2D.data(), trianglePoints2D, seissol::dr::TriangleQuadratureData<Cfg>::Size);
   geoPoint.nearestGpIndex = nearestPoint;
 }

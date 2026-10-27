@@ -545,7 +545,7 @@ DenseMatrix nodalToModal(std::size_t order, NodalSet set) {
   }
 
   // unisolvent nodal set: the transform is the inverse Vandermonde matrix
-  const auto points = [&]() {
+  const auto points = [&] {
     if constexpr (Dim == 3) {
       return nodalPoints3D(order, set);
     } else {

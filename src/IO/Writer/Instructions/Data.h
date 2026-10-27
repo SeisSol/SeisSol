@@ -111,7 +111,7 @@ class WriteInline : public DataSource {
 
   static std::shared_ptr<DataSource> createString(const std::string& data) {
     return std::make_shared<WriteInline>(data.data(),
-                                         (data.size()) * sizeof(char),
+                                         data.size() * sizeof(char),
                                          std::make_shared<datatype::StringDatatype>(data.size()),
                                          std::vector<std::size_t>());
   }

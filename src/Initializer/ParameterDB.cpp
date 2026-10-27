@@ -621,7 +621,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
   // * if not (e.g. poroelastic or anisotropic with just elastic parameters), parse elastic or
   // acoustic first, then convert to the target material
 
-  const auto evaluateModel = [&]() {
+  const auto evaluateModel = [&] {
     easi::Query query = queryGen.generate();
     const std::size_t numPoints = query.numPoints();
 
@@ -782,7 +782,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
     for (size_t j = 0; j < varNames.size(); ++j) {
       auto termName = std::string{"map_"};
       termName += varNames[i];
-      termName += "_";
+      termName += '_';
       termName += varNames[j];
       known.insert(termName);
       if (supplied.contains(termName)) {

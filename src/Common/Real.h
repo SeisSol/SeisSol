@@ -8,7 +8,7 @@
 #define SEISSOL_SRC_COMMON_REAL_H_
 
 #include <cstddef>
-#include <string>
+#include <string_view>
 namespace seissol {
 
 enum class RealType { F32, F64 };
@@ -44,9 +44,7 @@ constexpr std::size_t sizeOfRealType(RealType type) {
   }
 }
 
-// TODO: make constexpr with C++20
-
-inline std::string stringRealType(RealType type) {
+constexpr std::string_view stringRealType(RealType type) {
   switch (type) {
   case seissol::RealType::F32:
     return "f32";

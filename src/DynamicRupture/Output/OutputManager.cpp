@@ -393,7 +393,7 @@ void OutputManager::initPickpointOutput() {
 
   seissolInstance_.pickpointWriter().enable(
       seissolInstance_.modules(), seissolParameters.output.pickpointParameters.writeInterval);
-  seissolInstance_.pickpointWriter().setupWriter([&]() { flushPickpointDataToFile(); });
+  seissolInstance_.pickpointWriter().setupWriter([&] { flushPickpointDataToFile(); });
 
   if (seissolParameters.output.pickpointParameters.format ==
       seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {

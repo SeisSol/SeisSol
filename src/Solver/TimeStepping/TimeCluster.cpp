@@ -871,7 +871,7 @@ void TimeCluster<Cfg>::correct() {
 
     incrementPerformanceMetrics(ComputePart::DRFrictionLawCopy);
 
-    dynamicRuptureScheduler_->setLastCorrectionStepsCopy((ct_.stepsSinceStart));
+    dynamicRuptureScheduler_->setLastCorrectionStepsCopy(ct_.stepsSinceStart);
   }
 
   if (executor_ == Executor::Device) {
@@ -887,7 +887,7 @@ void TimeCluster<Cfg>::correct() {
 
     const auto nextCorrectionSteps = ct_.nextCorrectionSteps();
     if (((nextCorrectionSteps / timeStepRate_) % 100) == 0) {
-      streamRuntime_.enqueueHost([this, nextCorrectionSteps]() {
+      streamRuntime_.enqueueHost([this, nextCorrectionSteps] {
         logInfo() << "Max cluster / LTS cycle updates since sync: " << nextCorrectionSteps
                   << " at time " << ct_.nextCorrectionTime(syncTime_);
       });

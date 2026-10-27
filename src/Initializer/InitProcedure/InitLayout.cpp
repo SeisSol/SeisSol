@@ -278,7 +278,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
           if (element.neighbors[face].hasValue() || element.neighborRanks[face] != rank) {
-            const auto& neighbor = [&]() {
+            const auto& neighbor = [&] {
               const bool ghostNeighbor = element.neighborRanks[face] != rank;
               if (ghostNeighbor) {
                 const auto rank = element.neighborRanks[face];

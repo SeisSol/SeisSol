@@ -212,7 +212,7 @@ TEST_CASE("IO/RunFiles: a resumed Xdmf output describes its own files" *
   run(3, 5, resumed);
 
   // the mesh is described again, and the two steps of the resumed run lie at its start
-  const auto xml = [&]() {
+  const auto xml = [&] {
     const std::ifstream stream(dir.prefix() + "-volume.xdmf");
     std::ostringstream buffer;
     buffer << stream.rdbuf();
@@ -239,7 +239,7 @@ TEST_CASE("IO/RunFiles: a binary write that does not append starts the file over
         path, writer::WriteInline::createString(text), 0, append));
     unit_test::io::runPlan(plan, MPI_COMM_SELF);
   };
-  const auto content = [&]() {
+  const auto content = [&] {
     const std::ifstream stream(path);
     std::ostringstream buffer;
     buffer << stream.rdbuf();

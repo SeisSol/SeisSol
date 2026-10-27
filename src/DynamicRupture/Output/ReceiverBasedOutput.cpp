@@ -206,9 +206,9 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
     local.printWarning = &this->printRSFWarning_;
 
     local.waveSpeedsPlus =
-        &((local.layer->template var<DynamicRupture::WaveSpeedsPlus>())[local.ltsId]);
+        &local.layer->template var<DynamicRupture::WaveSpeedsPlus>()[local.ltsId];
     local.waveSpeedsMinus =
-        &((local.layer->template var<DynamicRupture::WaveSpeedsMinus>())[local.ltsId]);
+        &local.layer->template var<DynamicRupture::WaveSpeedsMinus>()[local.ltsId];
     const auto& faultInfo = faultInfos[faceIndex];
 
     if (outputType == initializer::parameters::OutputType::Elementwise) {
@@ -503,11 +503,11 @@ void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
     //   T*   = eta * (Y+ T+ + Y- T- + (v- - v+))
     //   v*_+ = v+ + Y+ (T* - T+)
     const auto& impedanceMatrices =
-        ((local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
 
     constexpr std::size_t Count =
         model::MaterialOf<Cfg>::Type == model::MaterialType::Poroelastic ? 4 : 3;
-    constexpr auto StressIndices = []() {
+    constexpr auto StressIndices = [] {
       if constexpr (Count == 4) {
         return std::array<int, 4>{
             QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ, QuantityIndices::FP};
@@ -515,7 +515,7 @@ void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
         return std::array<int, 3>{QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ};
       }
     }();
-    constexpr auto VelocityIndices = []() {
+    constexpr auto VelocityIndices = [] {
       if constexpr (Count == 4) {
         return std::array<int, 4>{
             QuantityIndices::U, QuantityIndices::V, QuantityIndices::W, QuantityIndices::FU};
@@ -569,7 +569,7 @@ void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
     local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ] + lateralStress[2];
   } else {
     const auto& impAndEta =
-        ((local.layer->template var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
     const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
     const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
@@ -621,9 +621,9 @@ void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local,
     // an anisotropic impedance the slip is not parallel to the trial traction, and the strength
     // follows the fault-normal traction, which follows the slip rate
     const auto& impAndEta =
-        ((local.layer->template var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
     const auto& impedanceMatrices =
-        ((local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
 
     const auto solution = friction_law::common::solveSlipRate<Cfg>(
         impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
@@ -706,7 +706,7 @@ void ReceiverOutputImpl<Derived>::computeSlipRate(
     // frame -- poroelasticity included, where the fluid column does not reach the shear rows -- so
     // a scalar is exact and the order of scaling and rotation does not matter
     const auto& impAndEta =
-        ((local.layer->template var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
     local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
                                                  rotatedStress[QuantityIndices::XY]);
     local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -

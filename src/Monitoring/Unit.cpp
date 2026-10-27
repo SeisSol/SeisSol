@@ -127,7 +127,7 @@ std::string SIUnit::formatPrefix(double value, std::optional<double> error, int 
     // out of range, default to scientific notation
     return formatScientific(value, error, digits);
   } else {
-    const std::string prefix = [&]() {
+    const std::string prefix = [&] {
       if (position < 0) {
         return NegativePrefixes[-position - 1];
       } else if (position > 0) {

@@ -21,7 +21,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
-#include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 
@@ -211,7 +211,7 @@ SEISSOL_HOSTDEVICE constexpr T clamp(T value, T minval, T maxval) {
  */
 void computeStrikeAndDipVectors(const CoordinateT& normal, CoordinateT& strike, CoordinateT& dip);
 
-std::string frictionLawName(seissol::dr::misc::FrictionLawType type);
+std::string_view frictionLawName(seissol::dr::misc::FrictionLawType type);
 
 // NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
 

@@ -40,7 +40,7 @@ void HelperThread::start() {
 
     // Start a new helper thread.
     // Note: Easier than keeping one alive, and not that expensive.
-    thread_ = std::thread([this]() {
+    thread_ = std::thread([this] {
 #ifdef ACL_DEVICE
       const device::DeviceInstance& device = device::DeviceInstance::instance();
       device.api().setDevice(seissol::AcceleratorDevice::instance().getDeviceId());

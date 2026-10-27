@@ -90,11 +90,10 @@ MPI_Datatype convertToMPI(const std::shared_ptr<Datatype>& datatype, bool autoco
     }
     serialized = sstr.str();
   }
-  if (autocommit) {
-    if (autocommitRegistry.contains(serialized)) {
-      return autocommitRegistry.at(serialized);
-    }
+  if (autocommit && autocommitRegistry.contains(serialized)) {
+    return autocommitRegistry.at(serialized);
   }
+
   MPI_Datatype type = MPI_DATATYPE_NULL;
   bool needsCommit = false;
   if (dynamic_cast<const ArrayDatatype*>(datatype.get()) != nullptr) {

@@ -301,7 +301,7 @@ int main(int argc, char* argv[]) {
     seissol::initializer::parameters::applyOverrides(*yamlParams, overrides);
     seissol::initializer::parameters::ParameterReader parameterReader(
         *yamlParams, parameterFile, false);
-    const auto parameters = [&]() {
+    const auto parameters = [&] {
       try {
         return seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
       } catch (const std::exception& error) {

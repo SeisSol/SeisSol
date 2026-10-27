@@ -171,7 +171,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 
         hid_t boundaryAttributeType = _eh(H5Aget_type(boundaryAttribute));
 
-        const auto format = [&]() {
+        const auto format = [&] {
           if (_eh(H5Tis_variable_str(boundaryAttributeType))) {
             char* formatRaw = nullptr;
             _eh(H5Aread(
@@ -292,7 +292,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   seissol::Stopwatch watch;
   watch.start();
 
-  const auto faceMap = [&]() {
+  const auto faceMap = [&] {
     const auto faceMapFile = seissolParams.mesh.faceMapFile;
     if (faceMapFile.has_value()) {
       return readFaceMap(faceMapFile.value());
@@ -403,7 +403,7 @@ void initMesh(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "End init mesh.";
 
-  if ((seissolParams.mesh.showEdgeCutStatistics) && (commSize > 1)) {
+  if (seissolParams.mesh.showEdgeCutStatistics && (commSize > 1)) {
     logInfo() << "Computing edge cut.";
     const auto numEdges = getNumOutgoingEdges(meshReader);
     const auto summary = statistics::parallelSummary(static_cast<double>(numEdges));

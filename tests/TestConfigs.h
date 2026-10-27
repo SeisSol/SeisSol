@@ -108,7 +108,7 @@ using DynamicRuptureConfigs = ConfigsWhere<internal::SupportsDynamicRupture>;
 
 /// The first configuration of each material built into the executable (SEISSOL_FOR_EACH_MATERIAL);
 /// for the tests of a material, `model::MaterialOf<Cfg>`.
-using MaterialConfigs = internal::MaterialConfigs;
+using internal::MaterialConfigs;
 
 } // namespace seissol::unit_test
 
