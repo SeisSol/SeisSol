@@ -25,6 +25,8 @@
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
+#include "Parallel/Runtime/HostActor.h"
+#include "Parallel/Runtime/HostBufferPool.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
@@ -191,6 +193,9 @@ class ReceiverCluster {
 
   protected:
   std::optional<parallel::runtime::StreamRuntime> extraRuntime_;
+  // with the host actor (instead of the extra runtime): the samples of device clusters, taken once
+  // the device has gathered what they read
+  std::unique_ptr<parallel::runtime::HostActor::Queue> hostQueue_;
   std::vector<Receiver> receivers_;
 
   // for sampleAtRunTime(): the next sample time
@@ -262,13 +267,30 @@ class ReceiverClusterImpl : public ReceiverCluster {
 
   /**
    * Samples the receivers of one receiver cell in the step that starts at `expansionPoint`, from
-   * the sample time `time` on.
+   * the sample time `time` on. A device cluster reads the DOFs from `gathered` (a buffer that
+   * gatherForHost() has filled) if given, and from the buffers of its collectors otherwise.
    */
   void sampleReceiver(std::size_t cell,
                       double time,
                       double expansionPoint,
                       double timeStepWidth,
-                      Executor executor);
+                      Executor executor,
+                      const void* gathered = nullptr);
+
+  /// samples all receiver cells as sampleReceiver() does, and counts it
+  void sampleAll(const Sampling& sampling,
+                 double expansionPoint,
+                 double timeStepWidth,
+                 Executor executor,
+                 const void* gathered);
+
+  /**
+   * For the host actor: gathers the DOFs of the receiver cells, and the start of the step from the
+   * device clock if given, into a buffer of their own on the stream of the cluster; the host reads
+   * them from there once the device is done.
+   */
+  parallel::runtime::HostBufferPool::Buffer gatherForHost(parallel::runtime::StreamRuntime& runtime,
+                                                          const double* deviceClock);
 
   /// counts the operations of sampling all receiver cells in `samplingSteps` sample times
   void countSamples(std::size_t samplingSteps);
@@ -276,6 +298,12 @@ class ReceiverClusterImpl : public ReceiverCluster {
   /// copies the DOFs of the receiver cells to the host on the stream of the cluster, for the stream
   /// of the samples
   void gatherDofs(parallel::runtime::StreamRuntime& runtime);
+
+  // with the host actor: the buffers gatherForHost() fills, which hold the start of the step at
+  // their beginning, then the DOFs at these offsets
+  std::unique_ptr<parallel::runtime::HostBufferPool> hostBuffers_;
+  std::size_t dofsOffset_{0};
+  std::size_t dofsAneOffset_{0};
 
   // for sampleAtRunTime(): the start of the step the samples are taken in, and its address on the
   // device, which writes it

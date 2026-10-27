@@ -166,6 +166,11 @@ void Modules::waitForOutputs() {
 
 bool Modules::outputWorkerRunning() const { return worker_ != nullptr; }
 
+void Modules::enqueueOnOutputThread(std::function<void()> task) {
+  assert(worker_ != nullptr);
+  worker_->enqueue(std::move(task));
+}
+
 void Modules::stopOutputWorker() {
   // the thread processes what is left before it ends
   worker_.reset();

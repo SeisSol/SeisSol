@@ -11,6 +11,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #ifdef ACL_DEVICE
@@ -72,25 +73,35 @@ DataCollectorUntyped::~DataCollectorUntyped() {
   }
 }
 
+void DataCollectorUntyped::gatherToHost(void* stream) { gatherTo(copiedDataDevice_, stream); }
+
 // NOLINTNEXTLINE (silence errors due to ifdef ACL_DEVICE)
-void DataCollectorUntyped::gatherToHost(void* stream) {
+void DataCollectorUntyped::gatherTo(void* destination, void* stream) {
   if (!direct_ && indexCount_ > 0) {
 #ifdef ACL_DEVICE
     if (sets_.size() == 1) {
       // a block of threads per block, which suits large blocks (e.g. the DOFs of cells)
       device::DeviceInstance::instance().algorithms().copyScatterToUniformI(
           const_cast<const void**>(indexDataDevice_),
-          copiedDataDevice_,
+          destination,
           sets_[0].size,
           sets_[0].size,
           indexCount_,
           stream);
     } else {
       kernels::device::aux::gather::copyBlocks(
-          sets_.data(), sets_.size(), indexDataDevice_, copiedDataDevice_, false, stream);
+          sets_.data(), sets_.size(), indexDataDevice_, destination, false, stream);
     }
 #endif
   }
+}
+
+const void* DataCollectorUntyped::get(size_t set, size_t index, const void* gathered) const {
+  const auto& blocks = sets_[set];
+  if (direct_) {
+    return indexDataHost_[blocks.begin + index];
+  }
+  return static_cast<const uint8_t*>(gathered) + blocks.offset + index * blocks.size;
 }
 
 // NOLINTNEXTLINE (silence errors due to ifdef ACL_DEVICE)

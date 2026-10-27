@@ -64,6 +64,16 @@ inline bool useConcurrentClusters(utils::Env& env) {
 inline bool useSuperStepGraphs(utils::Env& env) { return env.get<bool>("SUPERSTEP_GRAPHS", false); }
 
 /**
+ * Whether the work on the host that reads what the device has written (the samples of the
+ * receivers) runs on the thread that enqueues the work of the device once the device is done with
+ * it (see parallel::runtime::HostActor), instead of in host functions on streams. Not with recorded
+ * super-timesteps yet, whose replays still take the host functions along.
+ */
+inline bool useHostActor(utils::Env& env) {
+  return env.get<bool>("HOST_ACTOR", false) && !useSuperStepGraphs(env);
+}
+
+/**
  * Whether the independent branches of the work of a cluster (e.g. the neighbor fluxes of the face
  * relations of a face) become nodes of their own in the recordings of super-timesteps, so that they
  * can run concurrently. Otherwise, they run one after another, as one node: the graphs get fewer

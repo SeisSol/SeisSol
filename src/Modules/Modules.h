@@ -146,6 +146,12 @@ class Modules {
   /** Whether the outputs have a thread of their own. */
   [[nodiscard]] bool outputWorkerRunning() const;
 
+  /**
+   * Runs `task` on the thread of the outputs, after all that was enqueued there before (e.g. work
+   * on the host for the device, see parallel::runtime::HostActor); only while it runs.
+   */
+  void enqueueOnOutputThread(std::function<void()> task);
+
   /** Waits for the outputs, and ends the thread they are processed on. */
   void stopOutputWorker();
 

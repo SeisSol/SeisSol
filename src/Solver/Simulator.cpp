@@ -25,6 +25,8 @@
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
 #include "Parallel/Pin.h"
+#include "Parallel/Runtime/HostActor.h"
+#include "Parallel/Runtime/HostRuntime.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
 #include "SeisSol.h"
@@ -33,8 +35,10 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <functional>
 #include <mpi.h>
 #include <optional>
+#include <utility>
 #include <utils/logger.h>
 
 namespace seissol {
@@ -86,6 +90,17 @@ void startOutputThread(SeisSol& seissolInstance) {
   seissolInstance.modules().startOutputWorker(cpus, threads);
   logInfo() << "The outputs are processed on a thread of their own, with" << threads
             << "OpenMP threads, on the CPUs" << parallel::Pinning::maskToString(cpus).c_str();
+
+  // the work on the host for the device goes there as well, unless the threads of the main thread
+  // take it as tasks
+  if (useHostActor(seissolInstance.env()) &&
+      parallel::runtime::HostRuntime::scheduling() == parallel::runtime::HostScheduling::Static) {
+    auto& modules = seissolInstance.modules();
+    parallel::runtime::HostActor::instance().setExecutor(
+        [&modules](std::function<void()> task) { modules.enqueueOnOutputThread(std::move(task)); });
+    logInfo() << "The work on the host for the device (e.g. the receiver samples) runs on the"
+              << "thread of the outputs.";
+  }
 }
 
 /**
@@ -278,7 +293,9 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   seissolInstance.timeManager().synchronizeTo(initializer::AllocationPlace::Host);
 
   modules.callSyncHook(currentTime_, timeTolerance, true);
-  // the outputs end on the main thread
+  // the outputs end on the main thread, and so does the work on the host for the device
+  parallel::runtime::HostActor::instance().drain();
+  parallel::runtime::HostActor::instance().setExecutor({});
   modules.stopOutputWorker();
 
   // and the writes still under way finish

@@ -14,6 +14,8 @@ add_library(seissol-parallel OBJECT
     Pin.cpp
 
     Runtime/EventPool.cpp
+    Runtime/HostActor.cpp
+    Runtime/HostBufferPool.cpp
     Runtime/Stream.cpp
 )
 

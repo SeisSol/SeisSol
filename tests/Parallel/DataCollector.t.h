@@ -10,6 +10,7 @@
 #include "Kernels/Common.h"
 #include "Memory/MemoryAllocator.h"
 #include "Parallel/DataCollector.h"
+#include "Parallel/Runtime/HostBufferPool.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <cstddef>
@@ -153,6 +154,36 @@ TEST_CASE("A data collector gathers and scatters sets of blocks of different siz
       }
     }
   }
+  runtime.dispose();
+}
+
+TEST_CASE("A data collector gathers into buffers of a host buffer pool, one per round" *
+          doctest::test_suite("parallel")) {
+  setUpDevice();
+  const Blocks blocks({2016, 6, 64}, 4);
+  parallel::DataCollectorUntyped collector(blocks.sets, blocks.sizes);
+  parallel::runtime::HostBufferPool pool(collector.gatheredBytes());
+  parallel::runtime::StreamRuntime runtime;
+
+  // two rounds in flight at once: each one keeps what the device gathered for it
+  const auto first = pool.take();
+  collector.gatherTo(first.device, runtime.stream());
+  const auto second = pool.take();
+  CHECK(second.host != first.host);
+  collector.gatherTo(second.device, runtime.stream());
+  runtime.wait();
+  for (const auto& buffer : {first, second}) {
+    for (std::size_t set = 0; set < blocks.sizes.size(); ++set) {
+      for (std::size_t block = 0; block < blocks.sets[set].size(); ++block) {
+        if (blocks.sets[set][block] != nullptr) {
+          CHECK(holds(collector.get(set, block, buffer.host), blocks.sizes[set], set, block, 0));
+        }
+      }
+    }
+  }
+  pool.give(first);
+  pool.give(second);
+  CHECK(pool.size() == 2);
   runtime.dispose();
 }
 

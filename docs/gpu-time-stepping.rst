@@ -63,6 +63,10 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
    * - ``SEISSOL_OUTPUT_THREAD=1``
      - Experimental. Process the outputs of a synchronization point on a thread of their own, while the GPU
        goes on with the next epoch (see below).
+   * - ``SEISSOL_HOST_ACTOR=1``
+     - Experimental, GPU builds only. Take the samples of the receivers on the host once the GPU is done
+       with what they read, instead of in host functions on streams (see below). Not yet with
+       ``SEISSOL_SUPERSTEP_GRAPHS=1``.
    * - ``SEISSOL_OUTPUT_SNAPSHOT=0``
      - With ``SEISSOL_OUTPUT_THREAD=1``: keep no snapshots of the data, and copy the data for the outputs to the host
        before the next epoch, instead of from the snapshots while the GPU goes on (see below).
@@ -228,6 +232,30 @@ On a laptop (RTX 5070 Laptop GPU, PCIe link at 7 GB/s, October 2026), TPV5 with 
 time-stepping plan with concurrent clusters took 3.19 s without the thread, 2.80 s with it, and 2.69 s with it and the
 snapshot (16 % less); with two processes on the GPU, 4.33 s, 4.15 s and 3.83 s (12 % less).
 The outputs came out bitwise the same.
+
+Work on the host for the GPU
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Some work on the host reads what the GPU computes during an epoch: the samples of the receivers
+read the unknowns of their cells, which the GPU gathers into host memory. By default, a host
+function on a stream takes them, which the device runtime calls on a thread of its own once the
+gather is done. Such a call is not cheap: on an MI250X, 20–55 µs with ROCm 6.3 and about 500 µs
+with ROCm 6.4 and newer (October 2026); and the stream it is on waits for it.
+
+With ``SEISSOL_HOST_ACTOR=1``, the GPU gathers what the work reads into a buffer of host memory of
+its own for each step, and an event after the gather stands for it. The thread that enqueues the
+work of the GPU checks the events while it goes along (as it does for the halo exchange), and runs
+the work of the steps that are done, in their order: by itself, with its OpenMP threads in the loops;
+with ``SEISSOL_HOST_TASK_GRAPH=1``, as tasks that the other threads take, in one parallel region per
+epoch (see the task graph on the host); or, with ``SEISSOL_OUTPUT_THREAD=1`` (and no task graph), on
+the thread of the outputs. The GPU never waits for the host then; there are as many buffers as steps
+whose work has not run yet. Before an output reads what the work writes, e.g. the samples at a
+synchronization point, all of it runs.
+Checking an event is safe on all backends, as the host reads the data only once the GPU is done with
+it, in whatever host memory.
+On the Radeon 890M (ROCm 6.3), TPV13 with eight receivers took 3.49 s instead of 3.83 s with the
+time-stepping plan and concurrent clusters; the outputs came out bitwise the same (also on an RTX 5070
+Laptop GPU, where host functions are cheap and the times stay the same).
 
 Diagnostics
 ~~~~~~~~~~~

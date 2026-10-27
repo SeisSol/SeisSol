@@ -35,6 +35,7 @@
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
+#include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 #include "ResultWriter/ClusteringWriter.h"
@@ -483,6 +484,16 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   auto* ghostClusterPointer = communicationManager_->getGhostClusters();
 
+  if (isDeviceOn() && useHostActor(seissolInstance_.env())) {
+    logInfo()
+        << "The work on the host for the device (the receiver samples) runs once the device is"
+        << "done with what it reads (SEISSOL_HOST_ACTOR=1).";
+  } else if (isDeviceOn() && seissolInstance_.env().get<bool>("HOST_ACTOR", false)) {
+    logWarning() << "The host actor (SEISSOL_HOST_ACTOR=1) does not take recorded super-timesteps"
+                 << "(SEISSOL_SUPERSTEP_GRAPHS=1) yet; the receivers take their samples in host"
+                 << "functions on streams.";
+  }
+
   concurrent_ = isDeviceOn() && useConcurrentClusters(seissolInstance_.env());
   if (concurrent_) {
     logInfo() << "The clusters run concurrently on the device.";
@@ -706,6 +717,9 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   }
   device.api().popLastProfilingMark();
 #endif
+  // the work on the host for the data of the epoch, before anything reads what it writes (e.g. the
+  // samples of the receivers at the synchronization point)
+  parallel::runtime::HostActor::instance().drain();
   for (auto& cluster : clusters_) {
     cluster->finishPhase();
   }
@@ -806,6 +820,8 @@ void TimeManager::actUntilSynchronized() {
 }
 
 void TimeManager::throttleHostWork() {
+  // the work on the host whose data the device has written meanwhile
+  parallel::runtime::HostActor::instance().progress();
   // with a task graph, the actions do not run too far ahead of their work
   parallel::runtime::HostRuntime::throttle([this]() { communicationManager_->progression(); });
 }
@@ -819,9 +835,10 @@ void TimeManager::setUpHostScheduling() {
     HostRuntime::setScheduling(HostScheduling::Static, taskSize);
     return;
   }
-  if (isDeviceOn()) {
+  if (isDeviceOn() && !useHostActor(env)) {
     logWarning() << "A task graph on the host (SEISSOL_HOST_TASK_GRAPH=1) is only available in"
-                 << "builds without a device; the loops keep a static schedule.";
+                 << "builds without a device, or with the host actor (SEISSOL_HOST_ACTOR=1);"
+                 << "the loops keep a static schedule.";
     HostRuntime::setScheduling(HostScheduling::Static, taskSize);
     return;
   }
@@ -844,6 +861,12 @@ void TimeManager::setUpHostScheduling() {
   }
   HostRuntime::setScheduling(HostScheduling::TaskGraph, taskSize);
   HostRuntime::setActionLimit(hostActionLimit(env));
+  if (isDeviceOn()) {
+    logInfo() << "The work on the host for the device runs in a task graph, while the main thread"
+              << "enqueues the work of the device; with tasks of" << taskSize
+              << "elements in its loops (SEISSOL_HOST_TASK_SIZE).";
+    return;
+  }
   logInfo() << "The clusters run their work on the host in a task graph, with tasks of" << taskSize
             << "cells or faces in their loops (SEISSOL_HOST_TASK_SIZE), and at most"
             << HostRuntime::actionLimit() << "actions waiting for their work"
@@ -894,6 +917,7 @@ StepWork TimeManager::takeSteps(const std::vector<PlannedAction>& plan,
     auto action = cluster->getNextLegalAction();
     while (action == ActorAction::Nothing) {
       communicationManager_->progression();
+      parallel::runtime::HostActor::instance().progress();
       watchProgress();
       action = cluster->getNextLegalAction();
     }

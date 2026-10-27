@@ -52,6 +52,22 @@ class DataCollectorUntyped {
   // gathers and sends data to the device to the host
   void gatherToHost(void* stream);
 
+  /**
+   * Gathers the data into `destination` instead (as the device addresses it), which has room for
+   * gatheredBytes() (e.g. a buffer of a runtime::HostBufferPool); get(set, index, gathered) finds
+   * the blocks there. Without a device, there is nothing to gather.
+   */
+  void gatherTo(void* destination, void* stream);
+
+  /// the bytes of all blocks, as they get gathered
+  [[nodiscard]] size_t gatheredBytes() const { return gatheredBytes_; }
+
+  /**
+   * Block `index` of set `set` in what gatherTo() has gathered into `gathered` (as the host
+   * addresses it); without a device, the block where it is.
+   */
+  [[nodiscard]] const void* get(size_t set, size_t index, const void* gathered) const;
+
   // sends and scatters data from the host to the device
   void scatterFromHost(void* stream);
 
@@ -100,6 +116,16 @@ class DataCollector : DataCollectorUntyped {
             std::vector<void*>(data.begin(), data.end()), elemCount * sizeof(T), hostAccessible) {}
 
   void gatherToHost(void* stream) { DataCollectorUntyped::gatherToHost(stream); }
+
+  void gatherTo(void* destination, void* stream) {
+    DataCollectorUntyped::gatherTo(destination, stream);
+  }
+
+  [[nodiscard]] size_t gatheredBytes() const { return DataCollectorUntyped::gatheredBytes(); }
+
+  [[nodiscard]] const T* get(std::size_t index, const void* gathered) const {
+    return reinterpret_cast<const T*>(DataCollectorUntyped::get(0, index, gathered));
+  }
 
   void scatterFromHost(void* stream) { DataCollectorUntyped::scatterFromHost(stream); }
 

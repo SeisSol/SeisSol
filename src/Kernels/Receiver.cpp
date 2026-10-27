@@ -162,8 +162,12 @@ ReceiverCluster::Sampling ReceiverClusterImpl<Cfg>::planSampling(double time,
 }
 
 template <typename Cfg>
-void ReceiverClusterImpl<Cfg>::sampleReceiver(
-    std::size_t cell, double time, double expansionPoint, double timeStepWidth, Executor executor) {
+void ReceiverClusterImpl<Cfg>::sampleReceiver(std::size_t cell,
+                                              double time,
+                                              double expansionPoint,
+                                              double timeStepWidth,
+                                              Executor executor,
+                                              const void* gathered) {
   using Multisim = seissol::multisim::MultisimHelperWrapper<Cfg>;
 
   const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
@@ -194,13 +198,20 @@ void ReceiverClusterImpl<Cfg>::sampleReceiver(
   auto tmpReceiverData{receiverCell.dataHost};
 
   if (executor == Executor::Device) {
+    const auto* bytes = static_cast<const std::byte*>(gathered);
+    const real* dofs = gathered == nullptr ? deviceCollector_->get(cell)
+                                           : deviceCollector_->get(cell, bytes + dofsOffset_);
+    // (only read)
     tmpReceiverData.template setPointer<LTS::Dofs>(
         reinterpret_cast<decltype(tmpReceiverData.template getPointer<LTS::Dofs>())>(
-            deviceCollector_->get(cell)));
+            const_cast<real*>(dofs)));
     if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
+      const real* dofsAne = gathered == nullptr
+                                ? deviceCollectorAne_->get(cell)
+                                : deviceCollectorAne_->get(cell, bytes + dofsAneOffset_);
       tmpReceiverData.template setPointer<LTS::DofsAne>(
           reinterpret_cast<decltype(tmpReceiverData.template getPointer<LTS::DofsAne>())>(
-              deviceCollectorAne_->get(cell)));
+              const_cast<real*>(dofsAne)));
     }
   }
 
@@ -268,6 +279,40 @@ void ReceiverClusterImpl<Cfg>::countSamples(std::size_t samplingSteps) {
 }
 
 template <typename Cfg>
+void ReceiverClusterImpl<Cfg>::sampleAll(const Sampling& sampling,
+                                         double expansionPoint,
+                                         double timeStepWidth,
+                                         Executor executor,
+                                         const void* gathered) {
+  static const auto TraceName = monitoring::Trace::name("receivers");
+  const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
+  parallel::runtime::HostRuntime::forEach(receiverCells_.size(), [&](std::size_t cell) {
+    sampleReceiver(cell, sampling.time, expansionPoint, timeStepWidth, executor, gathered);
+  });
+  countSamples(sampling.steps);
+}
+
+template <typename Cfg>
+parallel::runtime::HostBufferPool::Buffer
+    ReceiverClusterImpl<Cfg>::gatherForHost(parallel::runtime::StreamRuntime& runtime,
+                                            [[maybe_unused]] const double* deviceClock) {
+  const auto buffer = hostBuffers_->take();
+  auto* bytes = static_cast<std::byte*>(buffer.device);
+#ifdef ACL_DEVICE
+  if (deviceClock != nullptr) {
+    // by a kernel, as the copy engines may be busy with a large copy of another stream
+    kernels::device::aux::hostcopy::copyToHost(
+        bytes, deviceClock, sizeof(double), runtime.stream());
+  }
+#endif
+  deviceCollector_->gatherTo(bytes + dofsOffset_, runtime.stream());
+  if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
+    deviceCollectorAne_->gatherTo(bytes + dofsAneOffset_, runtime.stream());
+  }
+  return buffer;
+}
+
+template <typename Cfg>
 void ReceiverClusterImpl<Cfg>::sample(const Sampling& sampling,
                                       double expansionPoint,
                                       double timeStepWidth,
@@ -277,6 +322,17 @@ void ReceiverClusterImpl<Cfg>::sample(const Sampling& sampling,
     return;
   }
   const double time = sampling.time;
+
+  if (executor == Executor::Device && hostQueue_ != nullptr) {
+    // the host actor takes the samples from a buffer of their own, once the device is done
+    const auto buffer = gatherForHost(runtime, nullptr);
+    hostQueue_->post(
+        runtime.eventRecord(), [this, sampling, expansionPoint, timeStepWidth, buffer]() {
+          sampleAll(sampling, expansionPoint, timeStepWidth, Executor::Device, buffer.host);
+          hostBuffers_->give(buffer);
+        });
+    return;
+  }
 
   // copy dofs from the device to the host.
   if (executor == Executor::Device) {
@@ -320,17 +376,13 @@ void ReceiverClusterImpl<Cfg>::sampleAtRunTime([[maybe_unused]] const double* de
     return;
   }
 
-  const auto sampleStep = [this, timeStepWidth, executor]() {
-    const double expansionPoint = *stepStart_;
+  // the samples of the step that starts at `expansionPoint`, decided only now
+  const auto sampleStep = [this, timeStepWidth, executor](double expansionPoint,
+                                                          const void* gathered) {
     const auto sampling = planSampling(nextSampleTime_, expansionPoint, timeStepWidth);
     nextSampleTime_ = sampling.nextTime;
     if (sampling.due) {
-      static const auto TraceName = monitoring::Trace::name("receivers");
-      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
-      parallel::runtime::HostRuntime::forEach(receiverCells_.size(), [&](std::size_t cell) {
-        sampleReceiver(cell, sampling.time, expansionPoint, timeStepWidth, executor);
-      });
-      countSamples(sampling.steps);
+      sampleAll(sampling, expansionPoint, timeStepWidth, executor, gathered);
     }
   };
 
@@ -338,7 +390,17 @@ void ReceiverClusterImpl<Cfg>::sampleAtRunTime([[maybe_unused]] const double* de
     // A cluster that runs on the host goes on to integrate right after this and overwrites the
     // DOFs the sampling reads, so it samples right here, like sample() does.
     *stepStart_ = hostTime;
-    sampleStep();
+    sampleStep(hostTime, nullptr);
+    return;
+  }
+
+  if (hostQueue_ != nullptr) {
+    // the host actor takes the samples from a buffer of their own, which starts with the time
+    const auto buffer = gatherForHost(runtime, deviceClock);
+    hostQueue_->post(runtime.eventRecord(), [this, sampleStep, buffer]() {
+      sampleStep(*static_cast<const double*>(buffer.host), buffer.host);
+      hostBuffers_->give(buffer);
+    });
     return;
   }
 
@@ -354,7 +416,7 @@ void ReceiverClusterImpl<Cfg>::sampleAtRunTime([[maybe_unused]] const double* de
 #endif
 
   auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
-  callRuntime.enqueueHost(sampleStep);
+  callRuntime.enqueueHost([this, sampleStep]() { sampleStep(*stepStart_, nullptr); });
 }
 
 parallel::runtime::StreamRuntime* ReceiverCluster::sampleRuntime() {
@@ -422,6 +484,23 @@ void ReceiverClusterImpl<Cfg>::allocateData() {
       deviceCollectorAne_ = std::make_unique<seissol::parallel::DataCollector<real>>(
           dofsAne, kernels::size<tensor::Qane<Cfg>>(), hostAccessible);
     }
+
+    if (useHostActor(seissolInstance_.env()) && !receiverCells_.empty()) {
+      // the start of the step, then the DOFs, aligned for the kernels that read them
+      const auto aligned = [](std::size_t bytes) {
+        return (bytes + Alignment - 1) / Alignment * Alignment;
+      };
+      dofsOffset_ = aligned(sizeof(double));
+      dofsAneOffset_ = aligned(dofsOffset_ + deviceCollector_->gatheredBytes());
+      std::size_t bytes = dofsAneOffset_;
+      if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
+        bytes += deviceCollectorAne_->gatheredBytes();
+      }
+      hostBuffers_ = std::make_unique<parallel::runtime::HostBufferPool>(bytes);
+      hostQueue_ = std::make_unique<parallel::runtime::HostActor::Queue>();
+      // nothing runs on it then
+      extraRuntime_.reset();
+    }
   }
 
   meshToReceiverCell_ = {};
@@ -430,6 +509,8 @@ template <typename Cfg>
 void ReceiverClusterImpl<Cfg>::freeData() {
   // a handler still running would read the collector, the step start, and write the outputs
   waitForSamples();
+  hostQueue_.reset();
+  hostBuffers_.reset();
   deviceCollector_.reset(nullptr);
   deviceCollectorAne_.reset(nullptr);
   extraRuntime_.reset();
@@ -446,7 +527,10 @@ void ReceiverCluster::waitForSamples() {
   // On CUDA and SYCL, sample() and sampleAtRunTime() leave the sampling of a device cluster to a
   // host function on a stream, which appends to the output of the receivers once the gathered DOFs
   // are there. Nothing in the time stepping waits for the one enqueued last before a
-  // synchronization point, so whoever reads the output has to.
+  // synchronization point, so whoever reads the output has to. Likewise for the host actor.
+  if (hostQueue_ != nullptr) {
+    hostQueue_->drain();
+  }
   if (extraRuntime_.has_value()) {
     extraRuntime_->wait();
   }

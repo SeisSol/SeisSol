@@ -7,6 +7,7 @@
 
 #include "HaloTransportFactory.h"
 
+#include "Kernels/Common.h"
 #include "Parallel/MPI.h"
 #include "Parallel/Runtime/HostRuntime.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
@@ -46,8 +47,11 @@ HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
     scheduler_ = std::make_unique<ShmemExchangeScheduler>(clusterCount, configCount);
   }
 #ifdef SEISSOL_HOST_TASK_GRAPH
+  // (with a device, the task graph only takes the work on the host for the device, see
+  // parallel::runtime::HostActor; the clusters there do not wait for each other in it)
   if (parallel::runtime::HostRuntime::scheduling() ==
-      parallel::runtime::HostScheduling::TaskGraph) {
+          parallel::runtime::HostScheduling::TaskGraph &&
+      !isDeviceOn()) {
     taskEngine_ = std::make_unique<TaskHaloEngine>();
   }
 #endif
