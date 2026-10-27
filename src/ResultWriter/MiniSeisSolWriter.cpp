@@ -64,7 +64,7 @@ void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix,
     table.addColumn<double>("weight");
     table.addTextColumn("runId", seissol::RunIdLength);
 
-    for (auto rank : ranks) {
+    for (const auto rank : ranks) {
       table.addText(hostNames[rank]);
       table.addCell<std::size_t>(rank);
       table.addCell<int>(localRanks[rank]);

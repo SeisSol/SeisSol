@@ -269,7 +269,7 @@ struct FsrmFile : public SourceFile {
 auto mapClusterToMesh(ClusterMapping& clusterMapping,
                       const std::size_t* meshIds,
                       LTS::Storage& ltsStorage,
-                      LTS::Backmap& backmap,
+                      const LTS::Backmap& backmap,
                       seissol::initializer::AllocationPlace place) {
   std::size_t clusterSource = 0;
   std::size_t mapping = 0;
@@ -320,7 +320,8 @@ auto mapPointSourcesToClusters(const std::size_t* meshIds,
   for (std::size_t cluster = 0; cluster < ltsStorage.numChildren(); ++cluster) {
     // Determine number of mappings by counting unique mesh Ids
     std::sort(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
-    auto last = std::unique(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
+    const auto last =
+        std::unique(clusterToMeshIds[cluster].begin(), clusterToMeshIds[cluster].end());
     std::size_t numberOfMappings = 0;
     for (auto it = clusterToMeshIds[cluster].begin(); it != last; ++it) {
       const auto meshId = *it;
@@ -453,7 +454,7 @@ auto loadSourceFile(const char* fileName,
     const auto config = ltsStorage.layer(cluster).getIdentifier().config;
     sourceCluster[cluster] = dispatchConfig(config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      auto numberOfSources = clusterMappings[cluster].sources.size();
+      const auto numberOfSources = clusterMappings[cluster].sources.size();
 
       auto sources = PointSources<Cfg>{memkind};
       sources.numberOfSources = numberOfSources;

@@ -156,7 +156,7 @@ std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
     if (recv) {
       sendReorder.resize(source.size());
       for (std::size_t i = 0; i < source.size(); ++i) {
-        auto it = reorderMap.find(source[i]);
+        const auto it = reorderMap.find(source[i]);
         if (it == reorderMap.end()) {
           logError() << "Element requested for target" << source[i] << "but no source given.";
         }
@@ -208,7 +208,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   }
   std::size_t globalMax = 0;
   MPI_Allreduce(&localMax, &globalMax, 1, sizetype, MPI_MAX, comm_);
-  auto globalCount = globalMax + 1;
+  const auto globalCount = globalMax + 1;
 
   // note that the following operations all need to be stable (i.e. order-preserving) for these
   // methods to work correctly right now
@@ -269,17 +269,17 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
     }
   }
 
-  auto sendResult = matchRanks(sourceToTargetRankMap,
-                               sourceIds,
-                               false,
-                               comm_,
-                               sizetype,
-                               pairtype,
-                               TagFromIntermediateSource);
+  const auto sendResult = matchRanks(sourceToTargetRankMap,
+                                     sourceIds,
+                                     false,
+                                     comm_,
+                                     sizetype,
+                                     pairtype,
+                                     TagFromIntermediateSource);
   sendOffsets_ = sendResult.first;
   sendReorder_ = sendResult.second;
 
-  auto recvResult = matchRanks(
+  const auto recvResult = matchRanks(
       targetToSourceRankMap, targetIds, true, comm_, sizetype, pairtype, TagFromIntermediateTarget);
   recvOffsets_ = recvResult.first;
   recvReorder_ = recvResult.second;

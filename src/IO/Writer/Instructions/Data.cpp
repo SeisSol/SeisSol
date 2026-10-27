@@ -173,7 +173,7 @@ YAML::Node WriteBuffer::serialize() {
 const void* WriteBuffer::getLocalPointer() const { return data_; }
 size_t WriteBuffer::getLocalSize() const {
   std::size_t shapeprod = 1;
-  for (auto dim : shape()) {
+  for (const auto dim : shape()) {
     shapeprod *= dim;
   }
   return shapeprod * size_ * datatype()->size();

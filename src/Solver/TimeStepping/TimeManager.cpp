@@ -205,8 +205,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   };
 
-  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
-    for (auto& otherLayer : memoryManager.ltsStorage().leaves(Ghost)) {
+  for (const auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+    for (const auto& otherLayer : memoryManager.ltsStorage().leaves(Ghost)) {
       // only traverse half of all combinations
       if (layer.id() < otherLayer.id()) {
         const int64_t lts1 = layer.getIdentifier().lts;
@@ -221,7 +221,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // Create ghost time clusters for MPI
   const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
   const auto persistent = usePersistentMpi(seissolInstance_.env());
-  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
+  for (const auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
 
     const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);
 
@@ -260,7 +260,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   // Sort clusters by time step size in increasing order
-  auto rateSorter = [](const auto& a, const auto& b) {
+  const auto rateSorter = [](const auto& a, const auto& b) {
     return a->getTimeStepRate() < b->getTimeStepRate();
   };
   std::sort(clusters_.begin(), clusters_.end(), rateSorter);
@@ -379,7 +379,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     });
 
     // Update one low priority cluster
-    if (auto predictable =
+    if (const auto predictable =
             std::find_if(lowPrioClusters_.begin(),
                          lowPrioClusters_.end(),
                          [](auto& c) { return c->getNextLegalAction() == ActorAction::Predict; });
@@ -387,12 +387,13 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
       (*predictable)->act();
     } else {
     }
-    if (auto correctable = std::find_if(lowPrioClusters_.begin(),
-                                        lowPrioClusters_.end(),
-                                        [](auto& c) {
-                                          return c->getNextLegalAction() != ActorAction::Predict &&
-                                                 c->getNextLegalAction() != ActorAction::Nothing;
-                                        });
+    if (const auto correctable =
+            std::find_if(lowPrioClusters_.begin(),
+                         lowPrioClusters_.end(),
+                         [](auto& c) {
+                           return c->getNextLegalAction() != ActorAction::Predict &&
+                                  c->getNextLegalAction() != ActorAction::Nothing;
+                         });
         correctable != lowPrioClusters_.end()) {
       (*correctable)->act();
     } else {

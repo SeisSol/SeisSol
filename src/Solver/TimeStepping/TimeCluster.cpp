@@ -700,8 +700,8 @@ void TimeCluster<Cfg>::computeNeighborIntegrationFlops() {
   estimateRegular = PerformanceEstimate{};
   estimateDR = PerformanceEstimate{};
 
-  auto* cellInformation = clusterData_->var<LTS::CellInformation>();
-  auto* drMapping = clusterData_->var<LTS::DRMapping>(Cfg());
+  const auto* cellInformation = clusterData_->var<LTS::CellInformation>();
+  const auto* drMapping = clusterData_->var<LTS::DRMapping>(Cfg());
   for (std::size_t cell = 0; cell < clusterData_->size(); ++cell) {
     const auto [cellRegular, cellDR] = neighborKernel_.metrics(
         cellInformation[cell].faceTypes, cellInformation[cell].faceRelations, drMapping[cell]);
@@ -751,7 +751,7 @@ void TimeCluster<Cfg>::predict() {
   }
 
   bool resetBuffers = true;
-  for (auto& neighbor : neighbors_) {
+  for (const auto& neighbor : neighbors_) {
     if (neighbor.ct.timeStepRate > ct_.timeStepRate &&
         ct_.stepsSinceLastSync > neighbor.ct.stepsSinceLastSync) {
       resetBuffers = false;
@@ -774,8 +774,9 @@ void TimeCluster<Cfg>::predict() {
   incrementPerformanceMetrics(ComputePart::Local);
 
   if (hasDifferentExecutorNeighbor()) {
-    auto other = executor_ == Executor::Device ? seissol::initializer::AllocationPlace::Host
-                                               : seissol::initializer::AllocationPlace::Device;
+    const auto other = executor_ == Executor::Device
+                           ? seissol::initializer::AllocationPlace::Host
+                           : seissol::initializer::AllocationPlace::Device;
     clusterData_->varSynchronizeTo<LTS::Buffers>(other, streamRuntime_.stream());
   }
 
@@ -816,8 +817,9 @@ void TimeCluster<Cfg>::handleDynamicRupture(DynamicRupture::Layer& layerData) {
 
   // TODO(David): restrict to copy/interior of same cluster type
   if (hasDifferentExecutorNeighbor()) {
-    auto other = executor_ == Executor::Device ? seissol::initializer::AllocationPlace::Host
-                                               : seissol::initializer::AllocationPlace::Device;
+    const auto other = executor_ == Executor::Device
+                           ? seissol::initializer::AllocationPlace::Host
+                           : seissol::initializer::AllocationPlace::Device;
     layerData.varSynchronizeTo<DynamicRupture::FluxSolverMinus>(other, streamRuntime_.stream());
     layerData.varSynchronizeTo<DynamicRupture::FluxSolverPlus>(other, streamRuntime_.stream());
     layerData.varSynchronizeTo<DynamicRupture::ImposedStateMinus>(other, streamRuntime_.stream());
@@ -906,7 +908,7 @@ void TimeCluster<Cfg>::reset() {
   AbstractTimeCluster::reset();
   // note: redundant computation, but it needs to be done somewhere
   neighborTimestep_ = timeStepSize();
-  for (auto& neighbor : neighbors_) {
+  for (const auto& neighbor : neighbors_) {
     neighborTimestep_ = std::max(neighbor.ct.getTimeStepSize(), neighborTimestep_);
   }
 }
@@ -960,7 +962,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
   const auto* faceNeighbors = clusterData_->var<LTS::FaceNeighbors>();
   const auto* drMapping = clusterData_->var<LTS::DRMapping>(Cfg());
   const auto* cellInformation = clusterData_->var<LTS::CellInformation>();
-  auto* plasticity = clusterData_->var<LTS::Plasticity>(Cfg());
+  const auto* plasticity = clusterData_->var<LTS::Plasticity>(Cfg());
   auto* pstrain = clusterData_->var<LTS::PStrain>(Cfg());
 
   // NOLINTNEXTLINE

@@ -74,7 +74,7 @@ bool SeisSol::init() {
 
   seissol::printCommThreadInfo(seissol::Mpi::mpi, env_);
   if (seissol::useCommThread(seissol::Mpi::mpi, env_)) {
-    auto freeCpus = pinning_.getFreeCPUsMask();
+    const auto freeCpus = pinning_.getFreeCPUsMask();
     logInfo() << "Communication thread affinity        :"
               << parallel::Pinning::maskToString(freeCpus) << "("
               << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";

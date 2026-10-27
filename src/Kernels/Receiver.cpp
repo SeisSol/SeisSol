@@ -192,10 +192,10 @@ double ReceiverClusterImpl<Cfg>::calcReceivers(double time,
       derivativeKrnl.Q = runtime::init::Q::view(Variant, timeEvaluated);
 
       auto qAtPoint = init::QAtPoint<Cfg>::view::create(timeEvaluatedAtPoint);
-      auto qDerivativeAtPoint =
+      const auto qDerivativeAtPoint =
           init::QDerivativeAtPoint<Cfg>::view::create(timeEvaluatedDerivativesAtPoint);
 
-      auto& receiverCell = receiverCells_[i];
+      const auto& receiverCell = receiverCells_[i];
 
       // Use device pointers where required.
       auto tmpReceiverData{receiverCell.dataHost};
@@ -242,7 +242,7 @@ double ReceiverClusterImpl<Cfg>::calcReceivers(double time,
           // note: necessary receiver space is reserved in advance
           receiver.output.push_back(receiverTime);
           for (auto sim = Multisim::MultisimStart; sim < Multisim::MultisimEnd; ++sim) {
-            for (auto quantity : quantities_) {
+            for (const auto quantity : quantities_) {
               if (!std::isfinite(seissol::multisim::multisimWrap<Cfg>(qAtPoint, sim, quantity))) {
                 logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0]
                            << "," << receiver.position[1] << "," << receiver.position[2]

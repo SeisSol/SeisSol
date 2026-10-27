@@ -165,8 +165,8 @@ void initializeCellMaterialOfConfig(
       continue;
     }
 
-    auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* materialDataArray = layer.var<LTS::MaterialData>(Cfg());
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
@@ -332,7 +332,7 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                            seissolParams.model.plasticity,
                            seissolInstance.gravitationSetup().acceleration);
 
-  auto itmParameters = seissolInstance.parameters().model.itmParameters;
+  const auto itmParameters = seissolInstance.parameters().model.itmParameters;
 
   if (itmParameters.itmEnabled) {
     auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();

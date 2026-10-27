@@ -87,7 +87,7 @@ TEST_CASE("ElasticMaterial stiffness tensor" * doctest::test_suite("equations"))
   ElasticMaterial m(vals);
   std::array<double, 81> tensor{};
   m.getFullStiffnessTensor(tensor);
-  auto idx = [](int i, int j, int k, int l) { return i * 27 + j * 9 + k * 3 + l; };
+  const auto idx = [](int i, int j, int k, int l) { return i * 27 + j * 9 + k * 3 + l; };
 
   SUBCASE("C_iiii = lambda+2*mu") {
     CHECK(tensor[idx(0, 0, 0, 0)] == doctest::Approx(lambda + 2 * mu));

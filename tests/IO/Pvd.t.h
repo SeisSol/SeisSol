@@ -25,7 +25,7 @@ static std::string
     extractInlineText(const std::vector<std::shared_ptr<instructions::WriteInstruction>>& instrs) {
   std::string result;
   for (const auto& instr : instrs) {
-    auto* bw = dynamic_cast<instructions::BinaryWrite*>(instr.get());
+    const auto* bw = dynamic_cast<instructions::BinaryWrite*>(instr.get());
     if ((bw != nullptr) && bw->dataSource) {
       const auto* ptr = reinterpret_cast<const char*>(bw->dataSource->getLocalPointer());
       const auto size = bw->dataSource->getLocalSize();
@@ -56,7 +56,7 @@ TEST_CASE("formatExact keeps a time as it is" * doctest::test_suite("io")) {
 
 TEST_CASE("XmlAttribute create and getImmediate" * doctest::test_suite("io")) {
   SUBCASE("String attribute") {
-    auto attr = XmlAttribute::create("name", "test");
+    const auto attr = XmlAttribute::create("name", "test");
     CHECK(attr.getImmediate<std::string>() == std::string("test"));
   }
 
@@ -64,12 +64,12 @@ TEST_CASE("XmlAttribute create and getImmediate" * doctest::test_suite("io")) {
   // interface more for that)
 
   SUBCASE("Int attribute") {
-    auto attr = XmlAttribute::create("count", "42");
+    const auto attr = XmlAttribute::create("count", "42");
     CHECK(attr.getImmediate<std::string>() == std::string("42"));
   }
 
   SUBCASE("Double attribute") {
-    auto attr = XmlAttribute::create("timestep", "1.5");
+    const auto attr = XmlAttribute::create("timestep", "1.5");
     CHECK(attr.getImmediate<std::string>() == std::string("1.5"));
   }
 }
@@ -79,13 +79,13 @@ TEST_CASE("XmlAttribute create and getImmediate" * doctest::test_suite("io")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("XmlFile simple node produces XML" * doctest::test_suite("io")) {
-  auto root = std::make_shared<XmlNode>("Root");
+  const auto root = std::make_shared<XmlNode>("Root");
   root->addAttribute(XmlAttribute::create("version", std::string("1.0")));
 
   XmlFile file;
   file.setRoot(root);
 
-  auto instrs = file.instructions("out.xml");
+  const auto instrs = file.instructions("out.xml");
   // Should produce at least one instruction
   CHECK_FALSE(instrs.empty());
 
@@ -103,8 +103,8 @@ TEST_CASE("XmlFile simple node produces XML" * doctest::test_suite("io")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("XmlFile nested nodes" * doctest::test_suite("io")) {
-  auto root = std::make_shared<XmlNode>("Parent");
-  auto child = std::make_shared<XmlNode>("Child");
+  const auto root = std::make_shared<XmlNode>("Parent");
+  const auto child = std::make_shared<XmlNode>("Child");
   child->addAttribute(XmlAttribute::create("id", "1"));
   root->addNode(child);
 
@@ -122,8 +122,8 @@ TEST_CASE("XmlFile nested nodes" * doctest::test_suite("io")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("makePvu empty entries" * doctest::test_suite("io")) {
-  auto file = makePvu({});
-  auto instrs = file.instructions("test.pvd");
+  const auto file = makePvu({});
+  const auto instrs = file.instructions("test.pvd");
   CHECK_FALSE(instrs.empty());
 
   const std::string xml = extractInlineText(instrs);
@@ -142,8 +142,8 @@ TEST_CASE("makePvu with entries" * doctest::test_suite("io")) {
       {"output-0002.vtu", 0.5},
       {"output-0003.vtu", 1.0},
   };
-  auto file = makePvu(entries);
-  auto instrs = file.instructions("test.pvd");
+  const auto file = makePvu(entries);
+  const auto instrs = file.instructions("test.pvd");
   const std::string xml = extractInlineText(instrs);
 
   CHECK(xml.find("<VTKFile ") != std::string::npos);
@@ -165,8 +165,8 @@ TEST_CASE("makePvu with entries" * doctest::test_suite("io")) {
 }
 
 TEST_CASE("makePvu single entry" * doctest::test_suite("io")) {
-  auto file = makePvu({{"step.vtu", 42.0}});
-  auto instrs = file.instructions("out.pvd");
+  const auto file = makePvu({{"step.vtu", 42.0}});
+  const auto instrs = file.instructions("out.pvd");
   const std::string xml = extractInlineText(instrs);
 
   CHECK(xml.find("<VTKFile ") != std::string::npos);
@@ -214,8 +214,8 @@ static void
 TEST_CASE("GrowingXmlFile writes the file a step at a time" * doctest::test_suite("io")) {
   // nested as an Xdmf file, whose time series takes a grid per step
   const auto document = [](const std::vector<std::shared_ptr<XmlEntry>>& steps) {
-    auto root = std::make_shared<XmlNode>("Outer");
-    auto series = std::make_shared<XmlNode>("Series");
+    const auto root = std::make_shared<XmlNode>("Outer");
+    const auto series = std::make_shared<XmlNode>("Series");
     series->addAttribute(XmlAttribute::create("kind", "temporal"));
     root->addNode(series);
     for (const auto& step : steps) {
@@ -228,7 +228,7 @@ TEST_CASE("GrowingXmlFile writes the file a step at a time" * doctest::test_suit
   const auto makeStep = [](int index) {
     auto step = std::make_shared<XmlNode>("Step");
     step->addAttribute(XmlAttribute::create("index", std::to_string(index)));
-    auto value = std::make_shared<XmlData>("Value");
+    const auto value = std::make_shared<XmlData>("Value");
     value->setImmediate<std::string>("data of step " + std::to_string(index));
     step->addNode(value);
     return step;

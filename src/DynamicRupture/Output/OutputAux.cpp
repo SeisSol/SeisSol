@@ -234,7 +234,7 @@ PlusMinusBasisFunctions<Cfg>
 
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
 
-  auto getBasisFunctions = [&point](const geometry::CellTransform& transform) {
+  const auto getBasisFunctions = [&point](const geometry::CellTransform& transform) {
     const auto referenceCoords = transform.spaceToRef(point);
     const basisFunction::SampledBasisFunctions<Real<Cfg>> sampler(
         Cfg::ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);

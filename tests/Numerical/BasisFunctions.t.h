@@ -264,7 +264,7 @@ TEST_CASE_TEMPLATE("Sampled Derivatives Functions" * doctest::test_suite("numeri
     basisFunction::SampledBasisFunctionDerivatives<RealT> sampledBasisFunctionDerivatives(
         order, 0.3, 0.3, 0.3);
     const auto funs = sampledBasisFunctionDerivatives.size() / 3;
-    auto dataView = [&](auto i, auto dir) {
+    const auto dataView = [&](auto i, auto dir) {
       return sampledBasisFunctionDerivatives.data()[i + funs * dir];
     };
     REQUIRE(funs <= precomputedValues[0].size());

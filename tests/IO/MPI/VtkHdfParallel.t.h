@@ -399,7 +399,7 @@ TEST_CASE("IO/Hdf5Table: a rank without points of a table still writes with it" 
   CHECK(grouping.globalCount[smallGroup] == static_cast<std::size_t>(size));
   CHECK(grouping.globalCount[largeGroup] == 1);
 
-  auto plan = table.makeWriter();
+  const auto plan = table.makeWriter();
   const std::vector<std::size_t> samplesPerWrite{2, 3};
   std::size_t written = 0;
   for (std::size_t step = 0; step < samplesPerWrite.size(); ++step) {

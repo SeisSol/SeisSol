@@ -28,7 +28,7 @@ TEST_CASE_TEMPLATE("Test ODE Solver" * doctest::test_suite("numerical"), RealT, 
     // Setup ODE solver
     const auto timeSpan = seissol::ode::TimeSpan{0, 2};
     const double dt = 0.0007;
-    auto odeSolverConfig = seissol::ode::ODESolverConfig(dt);
+    const auto odeSolverConfig = seissol::ode::ODESolverConfig(dt);
 
     auto solver = seissol::ode::RungeKuttaODESolver<RealT>({SizeIntegratedSolution, SizeSolution},
                                                            odeSolverConfig);

@@ -132,7 +132,7 @@ class Mpi : public MpiBasic {
     int commSize{};
     MPI_Comm_size(comm.value(), &commSize);
 
-    auto length = static_cast<int>(container.size());
+    const auto length = static_cast<int>(container.size());
     auto lengths = collect(length, comm);
 
     // including the total length

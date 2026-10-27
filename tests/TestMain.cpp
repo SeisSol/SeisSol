@@ -19,7 +19,7 @@ extern long long pspamm_num_total_flops;
 
 namespace {
 // Whether doctest is asked to list the test cases rather than to run them.
-bool listsTestCases(int argc, char** argv) {
+bool listsTestCases(int argc, char* const* argv) {
   for (int i = 1; i < argc; ++i) {
     const std::string_view arg(argv[i]);
     if (arg.find("list-test-cases") != std::string_view::npos || arg == "-ltc" ||

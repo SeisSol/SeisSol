@@ -117,17 +117,17 @@ inline double relError(const DrMatrix& value, const DrMatrix& reference) {
 inline model::AnisotropicMaterial nondimensionalized(const model::AnisotropicMaterial& material) {
   model::AnisotropicMaterial scaled = material;
   scaled.rho = 1.0;
-  for (auto coefficient : {&model::AnisotropicMaterial::c11, &model::AnisotropicMaterial::c12,
-                           &model::AnisotropicMaterial::c13, &model::AnisotropicMaterial::c14,
-                           &model::AnisotropicMaterial::c15, &model::AnisotropicMaterial::c16,
-                           &model::AnisotropicMaterial::c22, &model::AnisotropicMaterial::c23,
-                           &model::AnisotropicMaterial::c24, &model::AnisotropicMaterial::c25,
-                           &model::AnisotropicMaterial::c26, &model::AnisotropicMaterial::c33,
-                           &model::AnisotropicMaterial::c34, &model::AnisotropicMaterial::c35,
-                           &model::AnisotropicMaterial::c36, &model::AnisotropicMaterial::c44,
-                           &model::AnisotropicMaterial::c45, &model::AnisotropicMaterial::c46,
-                           &model::AnisotropicMaterial::c55, &model::AnisotropicMaterial::c56,
-                           &model::AnisotropicMaterial::c66}) {
+  for (const auto coefficient : {&model::AnisotropicMaterial::c11, &model::AnisotropicMaterial::c12,
+                                 &model::AnisotropicMaterial::c13, &model::AnisotropicMaterial::c14,
+                                 &model::AnisotropicMaterial::c15, &model::AnisotropicMaterial::c16,
+                                 &model::AnisotropicMaterial::c22, &model::AnisotropicMaterial::c23,
+                                 &model::AnisotropicMaterial::c24, &model::AnisotropicMaterial::c25,
+                                 &model::AnisotropicMaterial::c26, &model::AnisotropicMaterial::c33,
+                                 &model::AnisotropicMaterial::c34, &model::AnisotropicMaterial::c35,
+                                 &model::AnisotropicMaterial::c36, &model::AnisotropicMaterial::c44,
+                                 &model::AnisotropicMaterial::c45, &model::AnisotropicMaterial::c46,
+                                 &model::AnisotropicMaterial::c55, &model::AnisotropicMaterial::c56,
+                                 &model::AnisotropicMaterial::c66}) {
     scaled.*coefficient /= material.c11;
   }
   return scaled;

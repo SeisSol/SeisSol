@@ -33,7 +33,7 @@ namespace seissol::io::instance::checkpoint {
 
 std::function<writer::Writer(const std::string&, std::size_t, double)>
     CheckpointManager::makeWriter() {
-  auto dataRegistry = this->dataRegistry_;
+  const auto dataRegistry = this->dataRegistry_;
   // the order of the configuration of the data
   const std::size_t order = configValue(config_).convergenceOrder;
   return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
@@ -107,12 +107,12 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
     auto distributor = reader::Distributor(seissol::Mpi::mpi.comm());
 
     logInfo() << "Reading group IDs for" << ckpTree.name;
-    auto groupIds = reader.readData<std::size_t>("__ids");
+    const auto groupIds = reader.readData<std::size_t>("__ids");
     distributor.setup(groupIds, ckpTree.ids);
 
     std::vector<reader::Distributor::DistributionInstance> distributions;
     distributions.reserve(ckpTree.variables.size());
-    for (auto& variable : ckpTree.variables) {
+    for (const auto& variable : ckpTree.variables) {
       logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
       const std::size_t count = reader.dataCount(variable.name);
       const std::size_t currsize = count * variable.datatype->size();

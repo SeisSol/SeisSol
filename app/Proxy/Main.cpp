@@ -31,7 +31,7 @@ using namespace seissol::proxy;
 
 int main(int argc, char* argv[]) {
   std::stringstream kernelHelp;
-  auto allowedKernels = Aux::getAllowedKernels();
+  const auto allowedKernels = Aux::getAllowedKernels();
   kernelHelp << "Kernels to benchmark. A comma-separated list of (those kernels will be run "
                 "sequentially in each pass): ";
   {
@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
 #endif
   print_hostname();
 
-  auto output = runProxy(config);
+  const auto output = runProxy(config);
 
 #ifdef ACL_DEVICE
   device.finalize();

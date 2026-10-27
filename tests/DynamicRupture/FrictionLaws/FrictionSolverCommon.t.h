@@ -97,7 +97,7 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common" * doctest::test_suite("dynami
   }
 
   // stands in for the friction law: fills the single-slice traction results for step o
-  auto seedTractionResults = [&](size_t o) {
+  const auto seedTractionResults = [&](size_t o) {
     for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
       tractionResults.normalStress[p] = tn(o, p);
       tractionResults.traction1[p] = t1(o, p);
@@ -106,15 +106,15 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common" * doctest::test_suite("dynami
   };
 
   // the trial stresses precomputeStressFromQInterpolated is expected to produce for step o
-  auto trialNormalStress = [&](size_t o, size_t p) {
+  const auto trialNormalStress = [&](size_t o, size_t p) {
     return impAndEta.etaP * (qM(o, 6, p) - qP(o, 6, p) + impAndEta.invZp * qP(o, 0, p) +
                              impAndEta.invZpNeig * qM(o, 0, p));
   };
-  auto trialTraction1 = [&](size_t o, size_t p) {
+  const auto trialTraction1 = [&](size_t o, size_t p) {
     return impAndEta.etaS * (qM(o, 7, p) - qP(o, 7, p) + impAndEta.invZs * qP(o, 3, p) +
                              impAndEta.invZsNeig * qM(o, 3, p));
   };
-  auto trialTraction2 = [&](size_t o, size_t p) {
+  const auto trialTraction2 = [&](size_t o, size_t p) {
     return impAndEta.etaS * (qM(o, 8, p) - qP(o, 8, p) + impAndEta.invZs * qP(o, 5, p) +
                              impAndEta.invZsNeig * qM(o, 5, p));
   };

@@ -168,8 +168,8 @@ std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& c
   };
 
   const auto determineColor = [&](std::size_t a, std::size_t b) {
-    auto idA = colormap.argument(a);
-    auto idB = colormap.argument(b);
+    const auto idA = colormap.argument(a);
+    const auto idB = colormap.argument(b);
 
     if (idA.halo == HaloType::Ghost || idB.halo == HaloType::Ghost) {
       return colorAdjust(a, HaloType::Copy);

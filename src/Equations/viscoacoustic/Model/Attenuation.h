@@ -63,7 +63,7 @@ void fitAttenuation(seissol::model::ViscoAcousticMaterial<Mechanisms>& vm,
     const Eigen::VectorXd qpinv =
         Eigen::VectorXd::Constant(static_cast<std::int64_t>(KMax), 1 / vm.qp);
 
-    auto matAPodc = matAP.completeOrthogonalDecomposition();
+    const auto matAPodc = matAP.completeOrthogonalDecomposition();
 
     Eigen::VectorXd alpha = matAPodc.solve(qpinv);
 

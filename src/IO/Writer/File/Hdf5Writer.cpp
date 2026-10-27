@@ -122,7 +122,7 @@ void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
 }
 void Hdf5File::openGroup(const std::string& name) {
   // cf. https://stackoverflow.com/a/18468735
-  auto existenceTest = _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT));
+  const auto existenceTest = _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT));
   hid_t handle = 0;
   if (existenceTest > 0) {
     handle = _eh(H5Gopen(handles_.top(), name.c_str(), H5P_DEFAULT));

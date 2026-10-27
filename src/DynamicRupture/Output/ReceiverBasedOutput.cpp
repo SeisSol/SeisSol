@@ -485,7 +485,7 @@ template <typename Cfg>
 void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
   using real = Real<Cfg>;
 
-  auto diff = [&local](int i) {
+  const auto diff = [&local](int i) {
     return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
   };
 

@@ -62,7 +62,7 @@ TEST_CASE("GTS Timesteping works" * doctest::test_suite("solver")) {
   const double endTime = dt * numberOfIterations;
   auto cluster1 = MockTimeCluster(dt, 1);
   auto cluster2 = MockTimeCluster(dt, 1);
-  auto clusters = std::vector<MockTimeCluster*>{
+  const auto clusters = std::vector<MockTimeCluster*>{
       &cluster1,
       &cluster2,
   };
@@ -77,7 +77,7 @@ TEST_CASE("GTS Timesteping works" * doctest::test_suite("solver")) {
   }
 
   // First, move from synced -> corrected
-  for (auto& cluster : clusters) {
+  for (auto* cluster : clusters) {
     REQUIRE_CALL(*cluster, start());
     cluster->act();
     CHECK(cluster->getState() == ActorState::Corrected);
@@ -93,7 +93,7 @@ TEST_CASE("GTS Timesteping works" * doctest::test_suite("solver")) {
     ALLOW_CALL(cluster1, handleAdvancedPredictionTimeMessage(ANY(NeighborCluster)));
     ALLOW_CALL(cluster2, handleAdvancedPredictionTimeMessage(ANY(NeighborCluster)));
 
-    for (auto& cluster : clusters) {
+    for (auto* cluster : clusters) {
       REQUIRE(cluster->getState() == ActorState::Corrected);
       if (iteration < numberOfIterations) {
         REQUIRE(cluster->getNextLegalAction() == ActorAction::Predict);
@@ -106,7 +106,7 @@ TEST_CASE("GTS Timesteping works" * doctest::test_suite("solver")) {
         CHECK(cluster->getState() == ActorState::Synced);
       }
     }
-    for (auto& cluster : clusters) {
+    for (auto* cluster : clusters) {
       if (!cluster->synced()) {
         REQUIRE_CALL(*cluster, correct());
         CHECK(cluster->getNextLegalAction() == ActorAction::Correct);
@@ -118,7 +118,7 @@ TEST_CASE("GTS Timesteping works" * doctest::test_suite("solver")) {
     ++iteration;
   }
 
-  for (auto& cluster : clusters) {
+  for (const auto* cluster : clusters) {
     CHECK(cluster->synced());
   }
 }
@@ -129,7 +129,7 @@ TEST_CASE("LTS Timesteping works" * doctest::test_suite("solver")) {
   const double endTime = dt * numberOfIterations;
   auto cluster1 = MockTimeCluster(dt, 1);
   auto cluster2 = MockTimeCluster(2 * dt, 2);
-  auto clusters = std::vector<MockTimeCluster*>{
+  const auto clusters = std::vector<MockTimeCluster*>{
       &cluster1,
       &cluster2,
   };
@@ -149,7 +149,7 @@ TEST_CASE("LTS Timesteping works" * doctest::test_suite("solver")) {
   ALLOW_CALL(cluster2, handleAdvancedPredictionTimeMessage(ANY(NeighborCluster)));
 
   // First, move from synced -> corrected -> predicted
-  for (auto& cluster : clusters) {
+  for (auto* cluster : clusters) {
     REQUIRE_CALL(*cluster, start());
     cluster->act();
     REQUIRE(cluster->getState() == ActorState::Corrected);

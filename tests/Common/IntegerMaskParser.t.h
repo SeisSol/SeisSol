@@ -43,7 +43,7 @@ TEST_CASE("Integer Mask Parser" * doctest::test_suite("common")) {
   }
 
   SUBCASE("Parse with the leading error / integer") {
-    auto parsedResult = IntegerMaskParser::parse("0th,{3,4,5},6-8");
+    const auto parsedResult = IntegerMaskParser::parse("0th,{3,4,5},6-8");
     CHECK(!parsedResult.has_value());
   }
 

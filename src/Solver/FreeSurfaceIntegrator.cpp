@@ -69,8 +69,8 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   totalNumberOfFreeSurfaces = 0;
   for (auto [layer, surfaceLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
-    auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* cellMaterialData = layer.var<LTS::Material>();
 
     std::size_t numberOfFreeSurfaces = 0;
@@ -117,7 +117,7 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
       auto* displacementDofsDevice =
           surfaceLayer.var<SurfaceLTS::DisplacementDofs>(cfg, initializer::AllocationPlace::Device);
       auto* cellMaterialData = layer.var<LTS::Material>();
-      auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       auto* locationFlagLayer = surfaceLayer.var<SurfaceLTS::LocationFlag>();
 
       auto* side = surfaceLayer.var<SurfaceLTS::Side>();

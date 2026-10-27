@@ -28,7 +28,7 @@ std::vector<int> BufferRegistry::assign(Writer& writer) {
   std::vector<int> ids;
 
   for (const auto& instruction : writer.getInstructions()) {
-    for (auto& dataSource : instruction->dataSources()) {
+    for (const auto& dataSource : instruction->dataSources()) {
       if (!dataSource->managed() || handled.find(dataSource.get()) != handled.end()) {
         continue;
       }
@@ -51,7 +51,7 @@ std::vector<int> BufferRegistry::assignCollective(Writer& writer) {
   std::vector<DataSource*> sources;
   std::unordered_set<DataSource*> handled;
   for (const auto& instruction : writer.getInstructions()) {
-    for (auto& dataSource : instruction->dataSources()) {
+    for (const auto& dataSource : instruction->dataSources()) {
       if (dataSource->managed() && handled.emplace(dataSource.get()).second) {
         sources.push_back(dataSource.get());
       }
@@ -71,7 +71,7 @@ std::vector<int> BufferRegistry::assignCollective(Writer& writer) {
   std::size_t passThrough = 0;
   std::size_t managed = 0;
   for (auto* source : sources) {
-    if (auto* buffer = dynamic_cast<WriteBuffer*>(source); buffer != nullptr) {
+    if (const auto* buffer = dynamic_cast<WriteBuffer*>(source); buffer != nullptr) {
       uses.push_back({&passThroughSlots_,
                       passThrough++,
                       buffer->getLocalPointer(),

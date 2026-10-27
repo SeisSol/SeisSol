@@ -84,7 +84,7 @@ void ParameterReader::warnDeprecated(const std::vector<std::string>& fields) {
 
 void ParameterReader::warnUnknown(const std::string& prefix) const {
   for (const auto& subnodes : node_) {
-    auto field = subnodes.first.as<std::string>();
+    const auto field = subnodes.first.as<std::string>();
     if (visited_.find(field) == visited_.end()) {
       logWarning() << "The field" << field << "in" << prefix
                    << "was given in the parameter file, but is unknown to SeisSol.";
@@ -156,7 +156,7 @@ std::vector<ParameterReader::NamedPath> ParameterReader::paths() const {
 std::vector<std::string> ParameterReader::unknownFields() const {
   std::vector<std::string> result;
   for (const auto& subnodes : node_) {
-    auto field = subnodes.first.as<std::string>();
+    const auto field = subnodes.first.as<std::string>();
     if (visited_.find(field) == visited_.end()) {
       result.push_back(field);
     }

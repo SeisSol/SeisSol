@@ -74,7 +74,7 @@ TEST_CASE("IO/Hdf5Table: the samples of a point lie together" * doctest::test_su
   // two writes carrying a different number of samples each, which is what a sampling interval
   // that does not divide the output interval produces
   const std::vector<std::size_t> samplesPerWrite{3, 2};
-  auto plan = table.makeWriter();
+  const auto plan = table.makeWriter();
 
   std::size_t written = 0;
   for (std::size_t step = 0; step < samplesPerWrite.size(); ++step) {
@@ -139,7 +139,7 @@ TEST_CASE("IO/Hdf5Table: a write without samples leaves the table alone" *
   Hdf5Table table("receivers", pointQuantities, MPI_COMM_SELF);
   const auto group = table.grouping().group[0];
   const auto points = table.localPointCount(group);
-  auto plan = table.makeWriter();
+  const auto plan = table.makeWriter();
 
   const std::vector<std::size_t> samplesPerWrite{0, 3, 0};
   std::size_t written = 0;

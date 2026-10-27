@@ -61,7 +61,7 @@ std::vector<std::size_t> ClusteringEvaluator::binCells(const ClusterLadder& ladd
 
 std::size_t ClusteringEvaluator::realize(double wiggleFactor) {
   std::size_t numberOfReductions = 0;
-  auto lb = cache_.lower_bound(wiggleFactor);
+  const auto lb = cache_.lower_bound(wiggleFactor);
 
   if (lb != cache_.end() && !(cache_.key_comp()(wiggleFactor, lb->first))) {
     clusterIds_ = lb->second;

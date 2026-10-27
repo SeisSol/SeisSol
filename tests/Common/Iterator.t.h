@@ -52,7 +52,7 @@ TEST_CASE("Pre-C++20/23 Iterators" * doctest::test_suite("common")) {
 
     auto it =
         common::FilteredIterator(v1.begin(), v1.end(), [](auto value) { return value % 4 == 0; });
-    auto itEnd =
+    const auto itEnd =
         common::FilteredIterator(v1.end(), v1.end(), [](auto value) { return value % 4 == 0; });
     std::size_t i = 0;
     for (; it != itEnd; ++it) {

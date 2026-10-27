@@ -704,7 +704,7 @@ auto PUMLReader::partition(PumlMesh& meshTopology,
                            const std::string& partitioningLib) -> PartitionArrays {
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  auto partType = toPartitionerType(std::string_view(partitioningLib));
+  const auto partType = toPartitionerType(std::string_view(partitioningLib));
   logInfo() << "Using the" << toStringView(partType) << "partition library and strategy.";
   if (partType == PUML::PartitionerType::None && Mpi::mpi.size() > 1) {
     logWarning()

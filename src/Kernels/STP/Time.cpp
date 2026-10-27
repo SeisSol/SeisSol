@@ -106,7 +106,7 @@ void Spacetime<Cfg>::executeSTP(double timeStepWidth,
   };
 
   if (!defaultTimestep) {
-    auto sourceMatrix = init::ET<Cfg>::view::create(
+    const auto sourceMatrix = init::ET<Cfg>::view::create(
         data.template get<LTS::LocalIntegration>().specific.sourceMatrix);
     real zinvData[kernels::familySize<tensor::Zinv<Cfg>>()];
     model::ZInvInitializer<Cfg,

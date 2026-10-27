@@ -107,7 +107,7 @@ std::optional<ParameterOverride> parseOverride(std::string_view text) {
   return entry;
 }
 
-void applyOverrides(YAML::Node& parameters, const std::vector<ParameterOverride>& overrides) {
+void applyOverrides(const YAML::Node& parameters, const std::vector<ParameterOverride>& overrides) {
   for (const auto& entry : overrides) {
     setAt(parameters, entry.path, 0, convertValue(entry));
   }

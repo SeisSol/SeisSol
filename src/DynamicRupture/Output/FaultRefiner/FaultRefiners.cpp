@@ -109,7 +109,7 @@ void FaultFaceQuadRefiner::refineAndAccumulate(Data data, TrianglePair face) {
   auto& globalFace = std::get<Global>(face);
   auto& referenceFace = std::get<Reference>(face);
 
-  auto split = [&globalFace, &referenceFace](size_t pointIndex1, size_t pointIndex2) {
+  const auto split = [&globalFace, &referenceFace](size_t pointIndex1, size_t pointIndex2) {
     return std::make_pair(
         getMidPoint(globalFace.point(pointIndex1), globalFace.point(pointIndex2)),
         getMidPoint(referenceFace.point(pointIndex1), referenceFace.point(pointIndex2)));

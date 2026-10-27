@@ -268,7 +268,7 @@ class GeneratedBuffer : public AdhocBuffer {
       : AdhocBuffer(std::move(datatype), std::move(dimensions)), generator_(std::move(generator)),
         sourceCount_(sourceCount), targetStride_(targetCount) {
 
-    for (auto dim : shape()) {
+    for (const auto dim : shape()) {
       targetStride_ *= dim;
     }
   }

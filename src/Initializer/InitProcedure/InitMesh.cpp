@@ -59,7 +59,7 @@ TT _checkH5Err(TT&& status, const char* file, int line) {
 void postMeshread(seissol::geometry::MeshReader& meshReader,
                   const Eigen::Vector3d& displacement,
                   const Eigen::Matrix3d& scalingMatrix,
-                  seissol::SeisSol& seissolInstance) {
+                  const seissol::SeisSol& seissolInstance) {
   logInfo() << "The mesh has been read. Starting post processing.";
 
   if (meshReader.getElements().empty()) {
@@ -334,7 +334,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 #endif // defined(USE_HDF)
 }
 
-size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
+size_t getNumOutgoingEdges(const seissol::geometry::MeshReader& meshReader) {
   const auto& mpiNeighbors = meshReader.getMPINeighbors();
   size_t numEdges{0};
   for (const auto& [_, neighborInfo] : mpiNeighbors) {

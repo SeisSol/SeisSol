@@ -214,10 +214,10 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   LTS::Storage& ltsStorage,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
-                                  seissol::SeisSol& seissolInstance,
+                                  const seissol::SeisSol& seissolInstance,
                                   const initializer::ClusterLayout* clusterLayout) {
   increaseManager.init(scalingFactor, triggerTime, meshReader, ltsStorage, clusterLayout);
-  auto itmParameters = seissolInstance.parameters().model.itmParameters;
+  const auto itmParameters = seissolInstance.parameters().model.itmParameters;
   const double eps = itmParameters.itmDuration;
 
   decreaseManager.init(1 / scalingFactor, triggerTime + eps, meshReader, ltsStorage, clusterLayout);

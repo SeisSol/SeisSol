@@ -36,7 +36,7 @@ inline std::pair<Writer, std::vector<std::int64_t>>
     expected[i] = base + static_cast<std::int64_t>(i);
   }
 
-  auto source = GeneratedBuffer::createElementwise<std::int64_t>(
+  const auto source = GeneratedBuffer::createElementwise<std::int64_t>(
       expected.size(), 1, {}, [base](std::int64_t* target, std::size_t index) {
         target[0] = base + static_cast<std::int64_t>(index);
       });

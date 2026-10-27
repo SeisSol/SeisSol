@@ -114,7 +114,7 @@ void ReceiverWriter::writeHeader(std::size_t pointId,
                                  const Eigen::Vector3d& point,
                                  std::size_t globalId,
                                  const std::vector<std::string>& names) {
-  auto name = fileName(pointId);
+  const auto name = fileName(pointId);
 
   /// \todo Find a nicer solution that is not so hard-coded.
   struct stat fileStat{};
@@ -306,7 +306,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 
 std::vector<ReceiverWriter::OrderedReceiver> ReceiverWriter::orderedReceivers() {
   std::vector<OrderedReceiver> receivers;
-  for (auto& cluster : receiverClusters_) {
+  for (const auto& cluster : receiverClusters_) {
     for (auto& receiver : *cluster) {
       receivers.push_back(OrderedReceiver{&receiver, cluster.get(), cluster->ncols()});
     }
@@ -321,7 +321,7 @@ std::vector<ReceiverWriter::OrderedReceiver> ReceiverWriter::orderedReceivers() 
 }
 
 void ReceiverWriter::collectSamples() {
-  for (auto& cluster : receiverClusters_) {
+  for (const auto& cluster : receiverClusters_) {
     cluster->waitForSamples();
   }
   const auto receivers = orderedReceivers();
@@ -399,7 +399,7 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
   stopwatch_.start();
 
-  for (auto& cluster : receiverClusters_) {
+  for (const auto& cluster : receiverClusters_) {
     cluster->waitForSamples();
     const auto ncols = cluster->ncols();
     const auto simulations = cluster->simulationCount();
@@ -437,14 +437,14 @@ void ReceiverWriter::syncPoint(double /*currentTime*/) {
 
 // --------------------------------------------------------------------------
 void ReceiverWriter::simulationStart(std::optional<double> /*checkpointTime*/) {
-  for (auto& cluster : receiverClusters_) {
+  for (const auto& cluster : receiverClusters_) {
     cluster->allocateData();
   }
 }
 
 // --------------------------------------------------------------------------
 void ReceiverWriter::shutdown() {
-  for (auto& cluster : receiverClusters_) {
+  for (const auto& cluster : receiverClusters_) {
     cluster->freeData();
   }
   table_.reset();

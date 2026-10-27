@@ -84,7 +84,7 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
                 "Shape mismatch for flux matrices");
 
   auto* material = layer.var<LTS::Material>();
-  auto* materialData = layer.var<LTS::MaterialData>(Cfg());
+  const auto* materialData = layer.var<LTS::MaterialData>(Cfg());
   auto* localIntegration = layer.var<LTS::LocalIntegration>(Cfg());
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(Cfg());
   auto* normalStress = layer.var<LTS::NormalStress>(Cfg());

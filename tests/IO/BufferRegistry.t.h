@@ -108,8 +108,8 @@ TEST_CASE("IO/BufferRegistry: sources of equal size do not share an id within a 
 
   // recycling is keyed by size, so two equally sized sources are exactly the case that must not
   // collapse onto one buffer -- they are written in the same step
-  auto first = managedOf(64);
-  auto second = managedOf(64);
+  const auto first = managedOf(64);
+  const auto second = managedOf(64);
   auto plan = planOf({first, second});
 
   const auto ids = registry.assign(plan);
@@ -182,7 +182,7 @@ TEST_CASE("IO/BufferRegistry: one source used twice gets one id" * doctest::test
   BufferRegistry registry(allocator);
 
   // the geometry of a mesh output is referenced by several instructions
-  auto shared = managedOf(64);
+  const auto shared = managedOf(64);
   auto plan = planOf({shared, shared, managedOf(64)});
 
   const auto ids = registry.assign(plan);
@@ -283,7 +283,7 @@ TEST_CASE("IO/BufferRegistry: collectively, one source used twice gets one buffe
   CollectiveAllocator allocator;
   BufferRegistry registry(allocator);
 
-  auto shared = managedOf(64);
+  const auto shared = managedOf(64);
   auto plan = planOf({shared, shared, managedOf(64)});
 
   const auto ids = registry.assign(plan);

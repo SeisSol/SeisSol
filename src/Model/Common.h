@@ -529,9 +529,9 @@ template <typename T, typename Tmatrix, typename Tarray1, typename Tarray2>
 void setBlocks(T qGodLocal, Tmatrix mS, Tarray1 tractionIndices, Tarray2 velocityIndices) {
   // set lower left block
   int col = 0;
-  for (auto& t : tractionIndices) {
+  for (const auto& t : tractionIndices) {
     int row = 0;
-    for (auto& v : velocityIndices) {
+    for (const auto& v : velocityIndices) {
       qGodLocal(t, v) = mS(row, col);
       row++;
     }
@@ -539,7 +539,7 @@ void setBlocks(T qGodLocal, Tmatrix mS, Tarray1 tractionIndices, Tarray2 velocit
   }
 
   // set lower right block
-  for (auto& v : velocityIndices) {
+  for (const auto& v : velocityIndices) {
     qGodLocal(v, v) = 1.0;
   }
 }

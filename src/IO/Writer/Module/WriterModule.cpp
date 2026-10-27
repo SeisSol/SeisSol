@@ -136,7 +136,7 @@ void WriterModule::syncPoint(double time) {
   const auto generated = std::chrono::steady_clock::now();
 
   // take care of the plan (i.e. resize our managed buffer and send it)
-  auto serialized = writer.serialize();
+  const auto serialized = writer.serialize();
   AsyncWriterModule::resizeBuffer(planId_, nullptr, serialized.size());
   auto* planBuffer = AsyncWriterModule::managedBuffer<char*>(planId_);
   std::memcpy(planBuffer, serialized.c_str(), serialized.size());

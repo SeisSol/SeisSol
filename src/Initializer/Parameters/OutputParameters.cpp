@@ -68,7 +68,7 @@ void warnIntervalAndDisable(bool& enabled,
                             const std::string& valName,
                             const std::string& intName) {
   if (enabled && interval <= 0) {
-    auto intPhrase = valName + " = 0";
+    const auto intPhrase = valName + " = 0";
     logInfo() << "In your parameter file, you have specified a non-positive interval for" << intName
               << ". This mechanism is deprecated and may be removed in a future version of "
                  "SeisSol. Consider disabling the whole module by setting"

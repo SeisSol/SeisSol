@@ -226,7 +226,7 @@ TEST_CASE("OpaqueDatatype" * doctest::test_suite("io")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("ArrayDatatype" * doctest::test_suite("io")) {
-  auto base = std::make_shared<F64Datatype>();
+  const auto base = std::make_shared<F64Datatype>();
   const ArrayDatatype dt(base, {3, 4});
 
   SUBCASE("Size") {
@@ -311,14 +311,14 @@ TEST_CASE("Datatype deserialize dispatch" * doctest::test_suite("io")) {
   SUBCASE("f32") {
     YAML::Node node;
     node["type"] = "f32";
-    auto dt = Datatype::deserialize(node);
+    const auto dt = Datatype::deserialize(node);
     CHECK(dt->size() == 4);
   }
 
   SUBCASE("f64") {
     YAML::Node node;
     node["type"] = "f64";
-    auto dt = Datatype::deserialize(node);
+    const auto dt = Datatype::deserialize(node);
     CHECK(dt->size() == 8);
   }
 
@@ -327,7 +327,7 @@ TEST_CASE("Datatype deserialize dispatch" * doctest::test_suite("io")) {
     node["type"] = "int";
     node["size"] = 4;
     node["sign"] = true;
-    auto dt = Datatype::deserialize(node);
+    const auto dt = Datatype::deserialize(node);
     CHECK(dt->size() == 4);
   }
 
@@ -335,14 +335,14 @@ TEST_CASE("Datatype deserialize dispatch" * doctest::test_suite("io")) {
     YAML::Node node;
     node["type"] = "opaque";
     node["size"] = 16;
-    auto dt = Datatype::deserialize(node);
+    const auto dt = Datatype::deserialize(node);
     CHECK(dt->size() == 16);
   }
 
   SUBCASE("Unknown type falls back to OpaqueDatatype(0)") {
     YAML::Node node;
     node["type"] = "unknown_type";
-    auto dt = Datatype::deserialize(node);
+    const auto dt = Datatype::deserialize(node);
     CHECK(dt->size() == 0);
   }
 }

@@ -151,7 +151,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 #pragma omp simd
 #endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      auto i{startLoopIndex + index};
+      const auto i{startLoopIndex + index};
       VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, i) =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                   qIMinus[o][N][i] * invZpNeig);
@@ -316,7 +316,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
 #endif
     for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
          index += NumPointsRange::Step) {
-      auto i{startIndex + index};
+      const auto i{startIndex + index};
 
       const auto normalStress = Acc::index(tractionResults.normalStress, i);
       const auto traction1 = Acc::index(tractionResults.traction1, i);
@@ -426,7 +426,7 @@ SEISSOL_HOSTDEVICE inline void
 
   for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
        index += NumPointsRange::Step) {
-    auto i{startIndex + index};
+    const auto i{startIndex + index};
 #pragma unroll
     for (std::uint32_t q = 0; q < dr::misc::NumQuantities<Cfg>; ++q) {
       imposedStateM[q][i] =
@@ -629,7 +629,7 @@ SEISSOL_HOSTDEVICE inline void
 #pragma omp simd
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    auto pointIndex{startIndex + index};
+    const auto pointIndex{startIndex + index};
     constexpr Real<Cfg> RuptureFrontThreshold = 0.001;
     if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > RuptureFrontThreshold) {
       ruptureTime[pointIndex] = crossingTime<Cfg>(previousSlipRateMagnitude[index],
@@ -662,7 +662,7 @@ SEISSOL_HOSTDEVICE inline void
 #pragma omp simd
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    auto pointIndex{startIndex + index};
+    const auto pointIndex{startIndex + index};
     peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
   }
 }
@@ -692,7 +692,7 @@ SEISSOL_HOSTDEVICE inline void updateTimeSinceSlipRateBelowThreshold(
 #pragma omp simd
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    auto pointIndex{startIndex + index};
+    const auto pointIndex{startIndex + index};
     if (not ruptureTimePending[pointIndex]) {
       if (slipRateMagnitude[pointIndex] < slipRateThreshold) {
         timeSinceSlipRateBelowThreshold[pointIndex] += dt;
@@ -779,7 +779,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   Real<Cfg> localSlip[3][Range::Size]{};
 
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    auto i{startIndex + index};
+    const auto i{startIndex + index};
     localAccumulatedSlip[index] = accumulatedSlip[i];
     localFrictionalEnergy[index] = frictionalEnergy[i];
 #pragma unroll
@@ -846,7 +846,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   }
 
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    auto i{startIndex + index};
+    const auto i{startIndex + index};
     accumulatedSlip[i] = localAccumulatedSlip[index];
     frictionalEnergy[i] = localFrictionalEnergy[index];
 #pragma unroll

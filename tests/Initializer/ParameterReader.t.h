@@ -101,7 +101,7 @@ TEST_CASE("ParameterReader read<T>" * doctest::test_suite("initializer")) {
   }
 
   SUBCASE("Missing field returns empty optional") {
-    auto val = reader.read<int>("nonexistent");
+    const auto val = reader.read<int>("nonexistent");
     CHECK_FALSE(val.has_value());
   }
 }
@@ -163,7 +163,7 @@ TEST_CASE("ParameterReader empty mode" * doctest::test_suite("initializer")) {
   ParameterReader reader(node, "", true); // empty=true → hasField always false
 
   SUBCASE("Read returns empty even if data exists in node") {
-    auto val = reader.read<int>("field");
+    const auto val = reader.read<int>("field");
     CHECK_FALSE(val.has_value());
   }
 
@@ -202,7 +202,7 @@ TEST_CASE("ParameterReader readSubNode" * doctest::test_suite("initializer")) {
   SUBCASE("Missing subnode returns empty reader") {
     auto* missing = reader.readSubNode("nonexistentsection");
     REQUIRE(missing != nullptr);
-    auto val = missing->read<int>("field");
+    const auto val = missing->read<int>("field");
     CHECK_FALSE(val.has_value());
   }
 }

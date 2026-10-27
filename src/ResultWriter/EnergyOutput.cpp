@@ -411,8 +411,8 @@ void addVolumeEnergies(const LTS::Layer& layer,
 
     for (size_t sim = 0; sim < SimCount; sim++) {
 
-      auto linSub = multisim::simtensor<Cfg>(lin, sim);
-      auto quadSub = multisim::simtensor<Cfg>(quad, sim);
+      const auto linSub = multisim::simtensor<Cfg>(lin, sim);
+      const auto quadSub = multisim::simtensor<Cfg>(quad, sim);
 
       // assume _constant_ material over a cell (will need adjustments for e.g. #1297)
 

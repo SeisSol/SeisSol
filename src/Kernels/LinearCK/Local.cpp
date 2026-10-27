@@ -136,7 +136,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       break;
     }
     case FaceType::Dirichlet: {
-      auto* dirichletOffset = cellBoundaryMapping[face].dirichletOffset;
+      const auto* dirichletOffset = cellBoundaryMapping[face].dirichletOffset;
       assert(dirichletOffset != nullptr);
 
       auto kernel = dirichletFlux_;

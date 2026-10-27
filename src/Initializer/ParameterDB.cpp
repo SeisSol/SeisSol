@@ -153,7 +153,7 @@ CellToVertexArray
       [&](size_t index) {
         std::array<Eigen::Vector3d, 4> verts;
         for (size_t i = 0; i < Cell::NumVertices; ++i) {
-          auto vindex = elements[index].vertices[i];
+          const auto vindex = elements[index].vertices[i];
           const auto& vertex = vertices[vindex];
           verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
         }
@@ -283,7 +283,7 @@ easi::Query ElementAverageGenerator::generate() const {
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
-    auto vertices = cellToVertex_.elementCoordinates(elem);
+    const auto vertices = cellToVertex_.elementCoordinates(elem);
     const auto transform = seissol::geometry::AffineTransform(vertices);
     for (std::size_t i = 0; i < numQuadpoints; ++i) {
       const auto transformed = transform.refToSpace(quadraturePoints_[i]);
@@ -376,7 +376,7 @@ template <typename Cfg>
 easi::Query FaultGPGenerator<Cfg>::generate() const {
   const std::vector<Fault>& fault = meshReader_.getFault();
   const std::vector<Element>& elements = meshReader_.getElements();
-  auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
+  const auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
 
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim<Cfg>;
   const auto pointsView = init::quadpoints<Cfg>::view::create(init::quadpoints<Cfg>::Values);
@@ -401,7 +401,7 @@ easi::Query FaultGPGenerator<Cfg>::generate() const {
       sideOrientation = seissol::geometry::FaceOrientation::Rotate0;
     }
 
-    auto coords = cellToVertex.elementCoordinates(element);
+    const auto coords = cellToVertex.elementCoordinates(element);
     const auto face = seissol::geometry::AffineFaceTransform(
         seissol::geometry::AffineTransform(coords),
         seissol::geometry::ReferenceFaceMap(side, sideOrientation));
@@ -614,7 +614,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
   // NOLINTNEXTLINE(misc-const-correctness)
   easi::Component* const model = loadEasiModel(fileName);
-  auto suppliedParameters = model->suppliedParameters();
+  const auto suppliedParameters = model->suppliedParameters();
 
   // the following code does:
   // * try to evaluate the model just normally
@@ -689,7 +689,7 @@ void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
   easi::Query query = queryGen.generate();
 
   easi::ArraysAdapter<T> adapter;
-  for (auto& kv : parameters_) {
+  for (const auto& kv : parameters_) {
     adapter.addBindingPoint(kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
   }
 

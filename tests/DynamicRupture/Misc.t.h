@@ -119,11 +119,11 @@ TEST_CASE("DR Misc clamp" * doctest::test_suite("dynamicrupture")) {
 TEST_CASE("DR Misc computeStrikeAndDipVectors" * doctest::test_suite("dynamicrupture")) {
   constexpr double Eps = 1e-12;
 
-  auto dotProduct = [](const CoordinateT& a, const CoordinateT& b) {
+  const auto dotProduct = [](const CoordinateT& a, const CoordinateT& b) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   };
 
-  auto vecLength = [](const CoordinateT& v) {
+  const auto vecLength = [](const CoordinateT& v) {
     return std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
   };
 

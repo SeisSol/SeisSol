@@ -140,7 +140,7 @@ TEST_CASE("IO/RunFiles: a resumed time series is a file of its own" * doctest::t
     vtk.addCellData<double>("v1", {}, false, [&value](double* target, std::size_t index) {
       target[0] = value + static_cast<double>(index);
     });
-    auto plan = vtk.makeWriter();
+    const auto plan = vtk.makeWriter();
     for (std::size_t counter = from; counter < to; ++counter) {
       value = times[counter];
       auto write = plan(dir.prefix(), counter, times[counter]);
@@ -198,7 +198,7 @@ TEST_CASE("IO/RunFiles: a resumed Xdmf output describes its own files" *
     xdmf.addCellData<double>("v1", {}, false, [&current](double* target, std::size_t index) {
       target[0] = 10.0 * static_cast<double>(current) + static_cast<double>(index);
     });
-    auto plan = xdmf.makeWriter();
+    const auto plan = xdmf.makeWriter();
     for (std::size_t counter = from; counter < to; ++counter) {
       current = counter;
       auto write = plan(dir.prefix(), counter, static_cast<double>(counter));

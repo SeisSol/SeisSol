@@ -58,7 +58,7 @@ template <typename VarmapT>
 class CompositeRecorder : public AbstractRecorder<VarmapT> {
   public:
   void record(initializer::Layer<VarmapT>& layer) override {
-    for (auto& recorder : concreteRecorders_) {
+    for (const auto& recorder : concreteRecorders_) {
       recorder->record(layer);
     }
   }

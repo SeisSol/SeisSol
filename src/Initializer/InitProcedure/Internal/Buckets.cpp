@@ -213,13 +213,13 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
 
       // transfer allocation
       manager.align();
-      auto startPosition = manager.position();
+      const auto startPosition = manager.position();
       allocationPass(counter, region, true, BufferType::StepIntegrals);
       allocationPass(counter, region, true, BufferType::AccumulatedIntegrals);
       allocationPass(counter, region, true, BufferType::Derivatives);
       manager.align();
-      auto endPosition = manager.position();
-      auto size = endPosition - startPosition;
+      const auto endPosition = manager.position();
+      const auto size = endPosition - startPosition;
       assert(size % typeSize == 0);
 
       // NOLINTNEXTLINE

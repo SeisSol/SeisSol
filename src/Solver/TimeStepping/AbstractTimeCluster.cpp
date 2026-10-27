@@ -72,7 +72,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     ++numberOfTimeSteps_;
     ct_.stepsSinceLastSync += ct_.timeStepRate;
     ct_.stepsSinceStart += ct_.timeStepRate;
-    for (auto& neighbor : neighbors_) {
+    for (const auto& neighbor : neighbors_) {
       const bool justBeforeSync = ct_.stepsUntilSync <= ct_.predictionsSinceLastSync;
       const bool sendMessage =
           justBeforeSync || ct_.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
@@ -92,7 +92,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     ct_.predictionsSinceStart += ct_.timeStepRate;
     ct_.predictionTime += timeStepSize();
 
-    for (auto& neighbor : neighbors_) {
+    for (const auto& neighbor : neighbors_) {
       // Maybe check also how many steps neighbor has to sync!
       const bool justBeforeSync = ct_.stepsUntilSync <= ct_.predictionsSinceLastSync;
       const bool sendMessage =
@@ -125,8 +125,8 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
 
 ActResult AbstractTimeCluster::act() {
   ActResult result;
-  auto stateBefore = state_;
-  auto nextAction = getNextLegalAction();
+  const auto stateBefore = state_;
+  const auto nextAction = getNextLegalAction();
   unsafePerformAction(nextAction);
 
   const auto currentTime = std::chrono::steady_clock::now();
@@ -189,7 +189,7 @@ bool AbstractTimeCluster::mayPredict() {
 bool AbstractTimeCluster::mayCorrect() {
   // We can correct, if our prediction time is smaller than the one of all neighbors.
   bool stepBasedCorrect = true;
-  for (auto& neighbor : neighbors_) {
+  for (const auto& neighbor : neighbors_) {
     const bool isSynced = neighbor.ct.stepsUntilSync <= neighbor.ct.predictionsSinceLastSync;
     stepBasedCorrect =
         stepBasedCorrect &&
@@ -281,7 +281,7 @@ void AbstractTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLast
                    << " mayCorrect = " << mayCorrect()
                    << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
                    << " maySync = " << maySync();
-  for (auto& neighbor : neighbors_) {
+  for (const auto& neighbor : neighbors_) {
     logWarning(true) << "Neighbor with rate = " << neighbor.ct.timeStepRate
                      << "PredTime = " << neighbor.ct.predictionTime
                      << "CorrTime = " << neighbor.ct.correctionTime

@@ -26,7 +26,7 @@ Hdf5Location::Hdf5Location(const std::string& longstring) {
   auto parts = utils::StringUtils::split(longstring, ':');
   assert(parts.size() == 2);
   fileP_ = parts[0];
-  auto groupParts = utils::StringUtils::split(parts[1], '/');
+  const auto groupParts = utils::StringUtils::split(parts[1], '/');
   groupsP_ = groupParts;
 }
 

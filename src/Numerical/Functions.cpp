@@ -69,7 +69,7 @@ double SingularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, doub
   for (unsigned m = 2; m <= n; ++m) {
     pm2 = pm1;
     pm1 = pm;
-    auto c = SingularityFreeJacobiPFactors(m, a, b);
+    const auto c = SingularityFreeJacobiPFactors(m, a, b);
     pm = SingularityFreeJacobiPRecursion(x, y, c, pm1, pm2);
   }
   return pm;
@@ -126,7 +126,7 @@ std::array<double, 2> gradTriDubinerP(const std::array<unsigned, 2>& i,
   auto ti = SingularityFreeJacobiPAndDerivatives(i[0], 0, 0, rNum, theta);
   auto tij = SingularityFreeJacobiPAndDerivatives(i[1], 2 * i[0] + 1, 0, s, 1.0);
 
-  auto ddalpha = [&](double drNum, double dtheta, double dt) {
+  const auto ddalpha = [&](double drNum, double dtheta, double dt) {
     return (ti[1] * drNum + ti[2] * dtheta) * tij[0] + ti[0] * tij[1] * dt;
   };
 
@@ -159,10 +159,12 @@ std::array<double, 3> gradTetraDubinerP(const std::array<unsigned, 3>& i,
   auto tij = SingularityFreeJacobiPAndDerivatives(i[1], 2 * i[0] + 1, 0, sNum, theta);
   auto tijk = SingularityFreeJacobiPAndDerivatives(i[2], 2 * i[0] + 2 * i[1] + 2, 0, t, 1.0);
 
-  auto ddalpha = [&](double drNum, double dsigmatheta, double dsNum, double dtheta, double dt) {
-    return (ti[1] * drNum + ti[2] * dsigmatheta) * tij[0] * tijk[0] +
-           ti[0] * (tij[1] * dsNum + tij[2] * dtheta) * tijk[0] + ti[0] * tij[0] * (tijk[1] * dt);
-  };
+  const auto ddalpha =
+      [&](double drNum, double dsigmatheta, double dsNum, double dtheta, double dt) {
+        return (ti[1] * drNum + ti[2] * dsigmatheta) * tij[0] * tijk[0] +
+               ti[0] * (tij[1] * dsNum + tij[2] * dtheta) * tijk[0] +
+               ti[0] * tij[0] * (tijk[1] * dt);
+      };
 
   return {ddalpha(2.0, 0.0, 0.0, 0.0, 0.0),
           ddalpha(1.0, -1.0, 2.0, 0.0, 0.0),

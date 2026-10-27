@@ -139,7 +139,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     }
 
     reportFoundReceivers(contained);
-    for (auto& receiver : potentialReceivers_) {
+    for (const auto& receiver : potentialReceivers_) {
       if (receiver.isInside) {
         for (std::size_t i = 0; i < numSimulations_; ++i) {
           auto singleReceiver = receiver;

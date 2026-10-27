@@ -40,9 +40,9 @@ namespace seissol::proxy {
 
 namespace {
 
-void testKernel(std::shared_ptr<ProxyData>& data,
-                std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
-                std::shared_ptr<ProxyKernel>& kernel,
+void testKernel(const std::shared_ptr<ProxyData>& data,
+                const std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
+                const std::shared_ptr<ProxyKernel>& kernel,
                 std::size_t timesteps) {
   for (std::size_t i = 0; i < timesteps; ++i) {
     kernel->run(*data, *runtime);

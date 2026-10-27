@@ -58,9 +58,10 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
   const auto numberOfStepsWiggleFactor = static_cast<std::size_t>(
       std::ceil((maxWiggleFactor - minWiggleFactor) / stepSizeWiggleFactor) + 1);
 
-  auto computeWiggleFactor = [minWiggleFactor, stepSizeWiggleFactor, maxWiggleFactor](auto ith) {
-    return std::min(minWiggleFactor + ith * stepSizeWiggleFactor, maxWiggleFactor);
-  };
+  const auto computeWiggleFactor =
+      [minWiggleFactor, stepSizeWiggleFactor, maxWiggleFactor](auto ith) {
+        return std::min(minWiggleFactor + ith * stepSizeWiggleFactor, maxWiggleFactor);
+      };
 
   std::size_t totalWiggleFactorReductions = 0;
 
@@ -105,7 +106,7 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
     // Compute cost
     const double cost = evaluator.globalCost(curWiggleFactor);
 
-    if (auto it = mapMaxClusterIdToLowestCost.find(maxClusterId);
+    if (const auto it = mapMaxClusterIdToLowestCost.find(maxClusterId);
         it == mapMaxClusterIdToLowestCost.end() || cost <= it->second) {
       maxMapClusterIdToBestWiggleFactor[maxClusterId] = curWiggleFactor;
       mapMaxClusterIdToLowestCost[maxClusterId] = cost;
