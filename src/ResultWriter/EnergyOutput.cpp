@@ -619,7 +619,7 @@ double& EnergiesStorage::energy(std::string_view name, size_t sim) {
 
 std::vector<double>& EnergiesStorage::values() { return values_; }
 
-void EnergiesStorage::reset() { std::fill(values_.begin(), values_.end(), 0); }
+void EnergiesStorage::reset() { std::ranges::fill(values_, 0); }
 
 void EnergyOutput::init(
     const DynamicRupture::Storage& newDynRuptTree,
@@ -758,9 +758,7 @@ void EnergyOutput::simulationStart(std::optional<double> checkpointTime) {
 EnergyOutput::~EnergyOutput() = default;
 
 void EnergyOutput::computeDynamicRuptureEnergies() {
-  std::fill(minTimeSinceSlipRateBelowThreshold_.begin(),
-            minTimeSinceSlipRateBelowThreshold_.end(),
-            std::numeric_limits<double>::max());
+  std::ranges::fill(minTimeSinceSlipRateBelowThreshold_, std::numeric_limits<double>::max());
 
   auto& memoryManager = seissolInstance_.memoryManager();
   for (const auto& layer : drStorage_->leaves()) {
@@ -885,9 +883,8 @@ void EnergyOutput::printEnergies() {
                   << ", of total moment:" << ratioPlasticMoment << "%";
       }
 
-      if (std::all_of(MomentumComponents.begin(),
-                      MomentumComponents.end(),
-                      [&](std::string_view name) { return energiesStorage_.has(name); })) {
+      if (std::ranges::all_of(MomentumComponents,
+                              [&](std::string_view name) { return energiesStorage_.has(name); })) {
         logInfo()
             << std::setprecision(outputPrecision) << fusedPrefix.c_str() << " Total momentum: X"
             << printValue(energiesStorage_.energy(MomentumComponents[0], sim), UnitMomentum).c_str()

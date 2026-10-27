@@ -240,21 +240,18 @@ void MeshReader::extractFaultInformation(
   for (auto& neighbor : mpiFaultNeighbors_) {
 
     if (neighbor.first > seissol::Mpi::mpi.rank()) {
-      std::sort(neighbor.second.begin(),
-                neighbor.second.end(),
-                [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
-                  return (elem1.localElement < elem2.localElement) ||
-                         (elem1.localElement == elem2.localElement &&
-                          elem1.localSide < elem2.localSide);
-                });
+      std::ranges::sort(
+          neighbor.second, [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
+            return (elem1.localElement < elem2.localElement) ||
+                   (elem1.localElement == elem2.localElement && elem1.localSide < elem2.localSide);
+          });
     } else {
-      std::sort(neighbor.second.begin(),
-                neighbor.second.end(),
-                [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
-                  return (elem1.neighborElement < elem2.neighborElement) ||
-                         (elem1.neighborElement == elem2.neighborElement &&
-                          elem1.neighborSide < elem2.neighborSide);
-                });
+      std::ranges::sort(neighbor.second,
+                        [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
+                          return (elem1.neighborElement < elem2.neighborElement) ||
+                                 (elem1.neighborElement == elem2.neighborElement &&
+                                  elem1.neighborSide < elem2.neighborSide);
+                        });
     }
   }
 }

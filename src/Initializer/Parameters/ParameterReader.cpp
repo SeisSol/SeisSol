@@ -133,7 +133,7 @@ std::vector<std::string> sortedSections(const Map& subreaders) {
   for (const auto& [name, _] : subreaders) {
     sections.push_back(name);
   }
-  std::sort(sections.begin(), sections.end());
+  std::ranges::sort(sections);
   return sections;
 }
 } // namespace

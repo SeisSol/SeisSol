@@ -249,8 +249,8 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
 
   // we need the same ordering, to transfer the IDs in the right order
   // TODO(David): may be removable
-  std::sort(intermediateSource.begin(), intermediateSource.end());
-  std::sort(intermediateTarget.begin(), intermediateTarget.end());
+  std::ranges::sort(intermediateSource);
+  std::ranges::sort(intermediateTarget);
 
   std::vector<std::pair<std::pair<std::size_t, int>, int>> sourceToTargetRankMap;
   std::vector<std::pair<std::pair<std::size_t, int>, int>> targetToSourceRankMap;

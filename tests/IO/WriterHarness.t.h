@@ -16,6 +16,7 @@
 #include "IO/Writer/Module/AsyncWriter.h"
 #include "IO/Writer/Writer.h"
 
+#include <algorithm>
 #include <async/ExecInfo.h>
 #include <cstddef>
 #include <cstdio>
@@ -117,7 +118,7 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
   // ids are assigned by now, so the plan is final
   const auto plan = writer.serialize();
   info.resizeBuffer(planId, plan.size());
-  std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+  std::ranges::copy(plan, info.bufferData(planId).begin());
 
   if (runFiles != nullptr) {
     WriteInstance instance(comm, runFiles);

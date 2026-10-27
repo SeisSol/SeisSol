@@ -20,7 +20,7 @@ seissol::statistics::Summary::Summary(double value)
 
 seissol::statistics::Summary::Summary(const std::vector<double>& values) {
   std::vector<double> sortedValues(values);
-  std::sort(sortedValues.begin(), sortedValues.end());
+  std::ranges::sort(sortedValues);
 
   const auto n = sortedValues.size();
 

@@ -103,11 +103,10 @@ GlobalTimestep
     });
   }
 
-  const auto minmaxCellPosition =
-      std::minmax_element(timestep.cellTimeStepWidths.begin(), timestep.cellTimeStepWidths.end());
+  const auto minmaxCellPosition = std::ranges::minmax_element(timestep.cellTimeStepWidths);
 
-  double localMinTimestep = *minmaxCellPosition.first;
-  double localMaxTimestep = *minmaxCellPosition.second;
+  double localMinTimestep = *minmaxCellPosition.min;
+  double localMaxTimestep = *minmaxCellPosition.max;
 
   MPI_Allreduce(&localMinTimestep,
                 &timestep.globalMinTimeStep,

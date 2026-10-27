@@ -90,7 +90,7 @@ std::vector<std::size_t> enforceMaxClusterId(const std::vector<std::size_t>& clu
                                              std::size_t maxClusterId) {
   auto newClusterIds = clusterIds;
 
-  std::for_each(newClusterIds.begin(), newClusterIds.end(), [maxClusterId](auto& clusterId) {
+  std::ranges::for_each(newClusterIds, [maxClusterId](auto& clusterId) {
     clusterId = std::min(clusterId, maxClusterId);
   });
 
@@ -104,8 +104,7 @@ std::size_t computeMaxClusterIdAfterAutoMerge(const std::vector<std::size_t>& cl
                                               double maximalAdmissibleCost,
                                               double wiggleFactor,
                                               double minimalTimestep) {
-  std::size_t maxClusterId =
-      clusterIds.empty() ? 0 : *std::max_element(clusterIds.begin(), clusterIds.end());
+  std::size_t maxClusterId = clusterIds.empty() ? 0 : *std::ranges::max_element(clusterIds);
   MPI_Allreduce(
       MPI_IN_PLACE, &maxClusterId, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, Mpi::mpi.comm());
 

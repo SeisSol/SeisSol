@@ -247,7 +247,7 @@ void addOutputsByName(io::instance::geometry::GeometryWriter& writer,
   std::vector<std::vector<PointOutput>> outputs;
   for (const auto config : configs) {
     for (const auto& [name, output] : outputsOfConfigs.at(config)) {
-      auto found = std::find(names.begin(), names.end(), name);
+      auto found = std::ranges::find(names, name);
       if (found == names.end()) {
         names.push_back(name);
         outputs.emplace_back(builtConfigCount());

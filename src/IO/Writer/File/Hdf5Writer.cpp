@@ -295,9 +295,7 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
   // 0; the other ranks take part in the collective write with nothing. Otherwise every rank would
   // send its own copy of the same entries along -- for the few numbers a step of a time series adds
   // to its metadata, thousands of copies.
-  layout.empty = std::any_of(layout.blockSizes.begin(),
-                             layout.blockSizes.end(),
-                             [](hsize_t size) { return size == 0; }) ||
+  layout.empty = std::ranges::any_of(layout.blockSizes, [](hsize_t size) { return size == 0; }) ||
                  (!distributedDim.has_value() && rank != 0);
 
   // Rounds split the leading dimension: a block is contiguous along it in memory, so a round is

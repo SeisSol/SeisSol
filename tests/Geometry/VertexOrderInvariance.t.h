@@ -166,7 +166,7 @@ TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
           CHECK(graph.adj()[eid] == neighbor);
           CHECK(self == gids[lid]);
         });
-    CHECK(std::all_of(visits.begin(), visits.end(), [](int count) { return count == 1; }));
+    CHECK(std::ranges::all_of(visits, [](int count) { return count == 1; }));
   }
 }
 

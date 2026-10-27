@@ -26,10 +26,8 @@ FaceMap parseFaceMap(const YAML::Node& node) {
 
   for (const auto& entry : node) {
     const auto stringType = entry.first.as<std::string>();
-    const auto* const typeFind =
-        std::find_if(FaceTypes.begin(), FaceTypes.end(), [&](FaceType candidate) {
-          return faceTypeName(candidate) == stringType;
-        });
+    const auto* const typeFind = std::ranges::find_if(
+        FaceTypes, [&](FaceType candidate) { return faceTypeName(candidate) == stringType; });
     if (typeFind == FaceTypes.end()) {
       std::stringstream known;
       for (std::size_t i = 0; i < FaceTypes.size(); ++i) {

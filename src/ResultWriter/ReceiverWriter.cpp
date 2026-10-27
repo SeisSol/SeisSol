@@ -79,7 +79,7 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
   std::ifstream file{receiverFileName};
   std::string line{};
   while (std::getline(file, line)) {
-    const bool onlyWhiteSpace = std::all_of(line.begin(), line.end(), [](auto& c) {
+    const bool onlyWhiteSpace = std::ranges::all_of(line, [](auto& c) {
       return std::isspace(c); // This lambda is needed (opt. argument)
     });
     if (!onlyWhiteSpace) {
@@ -314,10 +314,9 @@ std::vector<ReceiverWriter::OrderedReceiver> ReceiverWriter::orderedReceivers() 
   }
   // the rows of a rank are its receivers in the order of the file they were read from, which is
   // the order the point map and the coordinates are written in as well
-  std::sort(
-      receivers.begin(), receivers.end(), [](const OrderedReceiver& a, const OrderedReceiver& b) {
-        return a.receiver->pointId < b.receiver->pointId;
-      });
+  std::ranges::sort(receivers, [](const OrderedReceiver& a, const OrderedReceiver& b) {
+    return a.receiver->pointId < b.receiver->pointId;
+  });
   return receivers;
 }
 

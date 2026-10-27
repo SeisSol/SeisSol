@@ -52,7 +52,7 @@ inline std::vector<std::string> targets(const writer::Writer& writer) {
 }
 
 inline bool contains(const std::vector<std::string>& haystack, const std::string& needle) {
-  return std::find(haystack.begin(), haystack.end(), needle) != haystack.end();
+  return std::ranges::find(haystack, needle) != haystack.end();
 }
 
 //! The value of an inline int64 dataset, so that the announced global counts can be checked.

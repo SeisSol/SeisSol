@@ -17,6 +17,7 @@
 #include "IO/WriterHarness.t.h"
 #include "Parallel/MPI.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -42,7 +43,7 @@ struct SharedTempDir {
       std::string name = "/tmp/seissoliompitestXXXXXX";
       const char* created = mkdtemp(name.data());
       REQUIRE(created != nullptr);
-      std::copy(name.begin(), name.end(), buffer.begin());
+      std::ranges::copy(name, buffer.begin());
     }
     MPI_Bcast(buffer.data(), static_cast<int>(buffer.size()), MPI_CHAR, 0, Mpi::mpi.comm());
     path = std::string(buffer.data());

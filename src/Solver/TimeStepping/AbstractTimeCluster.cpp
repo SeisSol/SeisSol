@@ -176,8 +176,8 @@ bool AbstractTimeCluster::processMessages() {
 bool AbstractTimeCluster::mayPredict() {
   // We can predict, if our prediction time is smaller/equals than the next correction time of all
   // neighbors.
-  const auto minNeighborSteps = std::min_element(
-      neighbors_.begin(), neighbors_.end(), [](const NeighborCluster& a, const NeighborCluster& b) {
+  const auto minNeighborSteps =
+      std::ranges::min_element(neighbors_, [](const NeighborCluster& a, const NeighborCluster& b) {
         return a.ct.nextCorrectionSteps() < b.ct.nextCorrectionSteps();
       });
   const bool stepBasedPredict =
@@ -266,9 +266,8 @@ void AbstractTimeCluster::setClusterTimes(double newTimeStepSize) {
 std::vector<NeighborCluster>* AbstractTimeCluster::getNeighborClusters() { return &neighbors_; }
 
 bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
-  return std::any_of(neighbors_.begin(), neighbors_.end(), [&](auto& neighbor) {
-    return neighbor.executor != executor_;
-  });
+  return std::ranges::any_of(neighbors_,
+                             [&](auto& neighbor) { return neighbor.executor != executor_; });
 }
 
 void AbstractTimeCluster::finishPhase() {}

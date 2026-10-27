@@ -31,7 +31,7 @@ namespace seissol::initializer::parameters {
 AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str) {
   // Convert str to lower case to make function case-insensitive
   // Note: This is, of course, broken for non-ASCI input.
-  std::transform(str.begin(), str.end(), str.begin(), [](auto c) { return std::tolower(c); });
+  std::ranges::transform(str, str.begin(), [](auto c) { return std::tolower(c); });
   if (str == "bestwigglefactor") {
     return AutoMergeCostBaseline::BestWiggleFactor;
   } else if (str == "maxwigglefactor") {
@@ -41,7 +41,7 @@ AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str) {
 }
 
 LtsClusteringSearch parseLtsClusteringSearch(std::string str) {
-  std::transform(str.begin(), str.end(), str.begin(), [](auto c) { return std::tolower(c); });
+  std::ranges::transform(str, str.begin(), [](auto c) { return std::tolower(c); });
   if (str == "legacy") {
     return LtsClusteringSearch::Legacy;
   } else if (str == "lattice") {
@@ -231,9 +231,8 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
   const double cfl = reader->readWithDefault("cfl", 0.5);
   double maxTimestepWidth = std::numeric_limits<double>::max();
 
-  const bool isAnelastic = std::any_of(configs.begin(), configs.end(), [](ConfigId config) {
-    return configValue(config).relaxationMechanisms > 0;
-  });
+  const bool isAnelastic = std::ranges::any_of(
+      configs, [](ConfigId config) { return configValue(config).relaxationMechanisms > 0; });
 
   if (isAnelastic) {
     auto* modelReader = baseReader->readSubNode("equations");

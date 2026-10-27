@@ -55,9 +55,8 @@ const std::vector<Dimension>& DataSource::dimensions() const { return dimensions
 const std::vector<std::size_t>& DataSource::shape() const { return shapeP_; }
 
 bool DataSource::distributed() const {
-  return std::any_of(dimensionsP_.begin(), dimensionsP_.end(), [](const Dimension& dimension) {
-    return dimension.isDistributed();
-  });
+  return std::ranges::any_of(dimensionsP_,
+                             [](const Dimension& dimension) { return dimension.isDistributed(); });
 }
 
 std::vector<std::size_t> DataSource::parts(const async::ExecInfo& info) { return {count(info)}; }

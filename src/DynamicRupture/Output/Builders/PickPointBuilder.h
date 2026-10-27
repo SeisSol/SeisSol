@@ -19,6 +19,7 @@
 #include "Parallel/Runtime/Stream.h"
 #include "ReceiverBasedOutputBuilder.h"
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -130,7 +131,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           const auto point = seissol::geometry::AffineTransform::fromMeshCell(
                                  faultItem.element.value(), *meshReader_)
                                  .spaceToRef(Eigen::Vector3d(receiver.global.data()));
-          std::copy(point.begin(), point.end(), receiver.reference.begin());
+          std::ranges::copy(point, receiver.reference.begin());
         }
       } catch (const std::exception& error) {
         logError() << "An error occurred while trying to find an on-fault receiver point:"

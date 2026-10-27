@@ -120,8 +120,7 @@ std::size_t ClusteringEvaluator::smoothCurrent() {
 }
 
 std::size_t ClusteringEvaluator::globalMaxClusterId() const {
-  std::size_t maxClusterId =
-      clusterIds_.empty() ? 0 : *std::max_element(clusterIds_.begin(), clusterIds_.end());
+  std::size_t maxClusterId = clusterIds_.empty() ? 0 : *std::ranges::max_element(clusterIds_);
   MPI_Allreduce(
       MPI_IN_PLACE, &maxClusterId, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, Mpi::mpi.comm());
   return maxClusterId;

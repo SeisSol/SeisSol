@@ -163,8 +163,8 @@ class Storage {
     for (std::size_t color = 0; color < getColorMap().size(); ++color) {
       configs.push_back(getColorMap().argument(color).config);
     }
-    std::sort(configs.begin(), configs.end());
-    configs.erase(std::unique(configs.begin(), configs.end()), configs.end());
+    std::ranges::sort(configs);
+    configs.erase(std::ranges::unique(configs).begin(), configs.end());
     return configs;
   }
 
@@ -319,7 +319,7 @@ class Storage {
       }
     }
 
-    std::fill(sizes.begin(), sizes.end(), 0);
+    std::ranges::fill(sizes, 0);
     for (auto& leaf : this->leaves()) {
       leaf.setMemoryRegionsForVariables(memoryContainer_, sizes);
       leaf.addVariableSizes(sizes);
@@ -352,7 +352,7 @@ class Storage {
       }
     }
 
-    std::fill(sizes.begin(), sizes.end(), 0);
+    std::ranges::fill(sizes, 0);
     for (auto& leaf : this->leaves()) {
       leaf.setMemoryRegionsForBuckets(memoryContainer_, sizes);
       leaf.addBucketSizes(sizes);

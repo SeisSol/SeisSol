@@ -132,7 +132,7 @@ Grouping groupPoints(const std::vector<std::vector<TableQuantity>>& pointQuantit
   MPI_Comm_rank(comm, &rank);
   if (rank == 0) {
     // MPI_Exscan leaves the result untouched on the first rank
-    std::fill(offset.begin(), offset.end(), 0);
+    std::ranges::fill(offset, 0);
   }
 
   grouping.index.resize(pointQuantities.size());

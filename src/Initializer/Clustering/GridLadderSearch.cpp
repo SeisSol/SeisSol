@@ -137,10 +137,9 @@ SearchResult GridLadderSearch::sweep(ClusteringEvaluator& evaluator,
   } else {
     // Otherwise choose one with the smallest cost
     minAdmissibleMaxClusterId =
-        std::min_element(mapMaxClusterIdToLowestCost.begin(),
-                         mapMaxClusterIdToLowestCost.end(),
-                         [](const auto& a, const auto& b) { return a.second < b.second; })
-            ->first;
+        std::ranges::min_element(mapMaxClusterIdToLowestCost, [](const auto& a, const auto& b) {
+          return a.second < b.second;
+        })->first;
   }
 
   logInfo() << "Enforcing maximum difference when finding best wiggle factor took"

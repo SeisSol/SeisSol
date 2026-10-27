@@ -75,9 +75,9 @@ ClusterSmoother::ClusterSmoother(const geometry::PumlMesh& mesh,
   }
 
   for (auto& sharedFaces : rankToSharedFacesPre) {
-    std::sort(sharedFaces.second.begin(),
-              sharedFaces.second.end(),
-              [&](unsigned int a, unsigned int b) { return faces[a].gid() < faces[b].gid(); });
+    std::ranges::sort(sharedFaces.second, [&](unsigned int a, unsigned int b) {
+      return faces[a].gid() < faces[b].gid();
+    });
   }
 
   rankToSharedFaces_ =

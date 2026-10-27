@@ -234,8 +234,8 @@ constexpr std::array<Entry, 12> Registry = {{
 }};
 
 const Entry* find(InitializationType type) {
-  const auto* entry = std::find_if(
-      Registry.begin(), Registry.end(), [type](const Entry& e) { return e.type == type; });
+  const auto* entry =
+      std::ranges::find_if(Registry, [type](const Entry& e) { return e.type == type; });
   return entry == Registry.end() ? nullptr : entry;
 }
 

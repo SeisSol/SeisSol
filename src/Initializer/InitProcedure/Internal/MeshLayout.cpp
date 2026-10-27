@@ -81,7 +81,7 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
         const auto [rank, color] = id;
 
         std::vector cellsCopy(cells.begin(), cells.end());
-        std::sort(cellsCopy.begin(), cellsCopy.end(), [&](const auto& a, const auto& b) {
+        std::ranges::sort(cellsCopy, [&](const auto& a, const auto& b) {
           return meshReader.getElements()[a].globalId < meshReader.getElements()[b].globalId;
         });
         clusters[i].cellMap.insert(clusters[i].cellMap.end(), cellsCopy.begin(), cellsCopy.end());
@@ -125,9 +125,8 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
         const auto [rank, color] = id;
 
         std::vector cellsCopy(cells.begin(), cells.end());
-        std::sort(cellsCopy.begin(), cellsCopy.end(), [&](const auto& a, const auto& b) {
-          return globalId(a) < globalId(b);
-        });
+        std::ranges::sort(cellsCopy,
+                          [&](const auto& a, const auto& b) { return globalId(a) < globalId(b); });
         clusters[i].cellMap.insert(clusters[i].cellMap.end(), cellsCopy.begin(), cellsCopy.end());
         const auto tag = colorAdjust(i, HaloType::Interior) +
                          colorAdjust(color, HaloType::Interior) * colormap.size();

@@ -156,7 +156,7 @@ bool runOpens(const std::vector<std::string>& field,
 
 bool isYamlFile(const std::string& path) {
   auto extension = std::filesystem::path(path).extension().string();
-  std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) {
+  std::ranges::transform(extension, extension.begin(), [](unsigned char c) {
     return static_cast<char>(std::tolower(c));
   });
   return extension == ".yaml" || extension == ".yml";

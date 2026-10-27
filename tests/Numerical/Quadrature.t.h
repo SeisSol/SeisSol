@@ -76,7 +76,7 @@ TEST_CASE("Symmetric tetrahedron quadrature rules" * doctest::test_suite("numeri
     for (std::size_t i = 0; i < points.size(); ++i) {
       const auto lambda = barycentric(points[i]);
       CHECK(weights[i] > 0);
-      CHECK(*std::min_element(lambda.begin(), lambda.end()) > 1e-3);
+      CHECK(*std::ranges::min_element(lambda) > 1e-3);
     }
 
     // exact for x^a y^b z^c with a + b + c <= degree
@@ -110,7 +110,7 @@ TEST_CASE("Symmetric tetrahedron quadrature rules" * doctest::test_suite("numeri
         }
         CHECK(found);
       }
-    } while (std::next_permutation(permutation.begin(), permutation.end()));
+    } while (std::ranges::next_permutation(permutation).found);
   }
   CHECK(seissol::quadrature::symmetricTetrahedronRuleSize(
             seissol::quadrature::MaxSymmetricTetrahedronDegree + 1) == 0);

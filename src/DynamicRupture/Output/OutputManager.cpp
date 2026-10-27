@@ -343,9 +343,8 @@ std::array<double, 6> OutputManager::initialStress(const ReceiverOutputData& out
   // the receivers of a point are numbered contiguously, so the point is the last one whose
   // receivers start at or before this one
   const auto& receiverOffset = outputData.topology.receiverOffset;
-  const auto point = static_cast<std::size_t>(
-      std::upper_bound(receiverOffset.begin(), receiverOffset.end(), index) -
-      receiverOffset.begin() - 1);
+  const auto point = static_cast<std::size_t>(std::ranges::upper_bound(receiverOffset, index) -
+                                              receiverOffset.begin() - 1);
   const auto& face = outputData.topology.faces[outputData.topology.points[point].faceId];
   const auto position = faceToLtsMap_.get(receiver.faultFaceIndex.value());
   const auto sourceCount = dr::stressSourceCount(seissolInstance_.parameters().drParameters);
@@ -432,7 +431,7 @@ void OutputManager::initPickpointOutput() {
     // (C++17 lambdas cannot capture the structured binding outputData itself)
     const auto& receivers = outputData->receivers;
     for (auto& [index, simulations] : simulationsOfReceiver) {
-      std::sort(simulations.begin(), simulations.end(), [&receivers](std::size_t a, std::size_t b) {
+      std::ranges::sort(simulations, [&receivers](std::size_t a, std::size_t b) {
         return receivers[a].simIndex < receivers[b].simIndex;
       });
 
@@ -609,7 +608,7 @@ void OutputManager::initPickpointTable() {
       ppTableRows_.emplace_back(layerId, point);
     }
   }
-  std::sort(ppTableRows_.begin(), ppTableRows_.end(), [this](const auto& a, const auto& b) {
+  std::ranges::sort(ppTableRows_, [this](const auto& a, const auto& b) {
     const auto& left = ppOutputData_.at(a.first)->receivers[a.second];
     const auto& right = ppOutputData_.at(b.first)->receivers[b.second];
     return std::make_tuple(left.globalReceiverIndex.value(), left.simIndex) <

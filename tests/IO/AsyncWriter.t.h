@@ -15,6 +15,7 @@
 #include "IO/Writer/Writer.h"
 #include "WriterHarness.t.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -87,7 +88,7 @@ TEST_CASE("IO/AsyncWriter: the plan and its buffers travel through ExecInfo" *
 
   const auto plan = writer.serialize();
   info.resizeBuffer(planId, plan.size());
-  std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+  std::ranges::copy(plan, info.bufferData(planId).begin());
 
   // the id has to survive into the serialized plan, otherwise the executor cannot find the data
   CHECK(plan.find("id: " + std::to_string(dataId)) != std::string::npos);
@@ -133,7 +134,7 @@ TEST_CASE("IO/AsyncWriter: one executor runs several plans" * doctest::test_suit
 
     const auto plan = writer.serialize();
     info.resizeBuffer(planId, plan.size());
-    std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+    std::ranges::copy(plan, info.bufferData(planId).begin());
 
     executor.execInit(info, module::AsyncWriterInit{});
     executor.exec(info, module::AsyncWriterExec{});
@@ -184,7 +185,7 @@ TEST_CASE("IO/AsyncWriter: a file every write appends to holds every step once c
     const auto planId = info.addBuffer(0);
     const auto plan = writer.serialize();
     info.resizeBuffer(planId, plan.size());
-    std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+    std::ranges::copy(plan, info.bufferData(planId).begin());
 
     executor.execInit(info, module::AsyncWriterInit{});
     executor.exec(info, module::AsyncWriterExec{});

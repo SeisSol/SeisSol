@@ -84,8 +84,7 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
     // The normals are not normalized, their length is twice the area of the face; hence the square
     // root of the largest one is about the edge length of the cell. What lies within a small
     // fraction of it from a face is on that face as far as round-off can tell.
-    const double onFace =
-        1e-8 * std::sqrt(*std::max_element(normLengths.begin(), normLengths.end()));
+    const double onFace = 1e-8 * std::sqrt(*std::ranges::max_element(normLengths));
 
     for (std::size_t point = 0; point < numPoints; ++point) {
       // geometric Interpretation (up to numerical errors, hence tolerance parameter):

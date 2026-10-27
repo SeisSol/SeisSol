@@ -305,7 +305,7 @@ std::vector<std::array<double, 4>> orbitPoints(const Orbit& orbit) {
   do {
     points.push_back(
         {values[letters[0]], values[letters[1]], values[letters[2]], values[letters[3]]});
-  } while (std::next_permutation(letters.begin(), letters.end()));
+  } while (std::ranges::next_permutation(letters).found);
   return points;
 }
 
@@ -314,8 +314,8 @@ std::vector<std::array<double, 4>> orbitPoints(const Orbit& orbit) {
 std::pair<std::vector<std::array<double, 3>>, std::vector<double>>
     symmetricTetrahedronRule(std::size_t degree) {
   const auto& all = rules();
-  const auto rule = std::find_if(
-      all.begin(), all.end(), [&](const Rule& candidate) { return candidate.degree >= degree; });
+  const auto rule =
+      std::ranges::find_if(all, [&](const Rule& candidate) { return candidate.degree >= degree; });
   if (rule == all.end()) {
     logError() << "No symmetric tetrahedral quadrature rule of degree" << degree
                << "is available; the highest is" << MaxSymmetricTetrahedronDegree;

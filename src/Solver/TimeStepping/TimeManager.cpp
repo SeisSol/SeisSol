@@ -265,7 +265,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   const auto rateSorter = [](const auto& a, const auto& b) {
     return a->getTimeStepRate() < b->getTimeStepRate();
   };
-  std::sort(clusters_.begin(), clusters_.end(), rateSorter);
+  std::ranges::sort(clusters_, rateSorter);
 
   for (const auto& cluster : clusters_) {
     if (cluster->getPriority() == ActorPriority::High) {
@@ -275,7 +275,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   }
 
-  std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
+  std::ranges::sort(ghostClusters, rateSorter);
 
   if (seissol::useCommThread(Mpi::mpi, seissolInstance_.env())) {
     communicationManager_ = std::make_unique<ThreadedCommunicationManager>(
@@ -366,13 +366,13 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     communicationManager_->progression();
 
     // Update all high priority clusters
-    std::for_each(highPrioClusters_.begin(), highPrioClusters_.end(), [&](auto& cluster) {
+    std::ranges::for_each(highPrioClusters_, [&](auto& cluster) {
       if (cluster->getNextLegalAction() == ActorAction::Predict) {
         communicationManager_->progression();
         cluster->act();
       }
     });
-    std::for_each(highPrioClusters_.begin(), highPrioClusters_.end(), [&](auto& cluster) {
+    std::ranges::for_each(highPrioClusters_, [&](auto& cluster) {
       if (cluster->getNextLegalAction() != ActorAction::Predict &&
           cluster->getNextLegalAction() != ActorAction::Nothing) {
         communicationManager_->progression();
@@ -381,26 +381,24 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     });
 
     // Update one low priority cluster
-    if (const auto predictable =
-            std::find_if(lowPrioClusters_.begin(),
-                         lowPrioClusters_.end(),
-                         [](auto& c) { return c->getNextLegalAction() == ActorAction::Predict; });
+    if (const auto predictable = std::ranges::find_if(
+            lowPrioClusters_,
+            [](auto& c) { return c->getNextLegalAction() == ActorAction::Predict; });
         predictable != lowPrioClusters_.end()) {
       (*predictable)->act();
     } else {
     }
     if (const auto correctable =
-            std::find_if(lowPrioClusters_.begin(),
-                         lowPrioClusters_.end(),
-                         [](auto& c) {
-                           return c->getNextLegalAction() != ActorAction::Predict &&
-                                  c->getNextLegalAction() != ActorAction::Nothing;
-                         });
+            std::ranges::find_if(lowPrioClusters_,
+                                 [](auto& c) {
+                                   return c->getNextLegalAction() != ActorAction::Predict &&
+                                          c->getNextLegalAction() != ActorAction::Nothing;
+                                 });
         correctable != lowPrioClusters_.end()) {
       (*correctable)->act();
     } else {
     }
-    finished = std::all_of(clusters_.begin(), clusters_.end(), [](auto& c) { return c->synced(); });
+    finished = std::ranges::all_of(clusters_, [](auto& c) { return c->synced(); });
     finished &= communicationManager_->checkIfFinished();
   }
 #ifdef ACL_DEVICE

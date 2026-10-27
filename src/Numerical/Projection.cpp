@@ -71,7 +71,7 @@ std::vector<double> gaussLobatto(std::size_t degree) {
     std::vector<double> inner(degree - 1);
     std::vector<double> innerWeights(degree - 1);
     quadrature::GaussJacobi(inner.data(), innerWeights.data(), degree - 1, 1, 1);
-    std::sort(inner.begin(), inner.end());
+    std::ranges::sort(inner);
     points.insert(points.end(), inner.begin(), inner.end());
   }
   points.push_back(1.0);

@@ -50,7 +50,7 @@ void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix,
     }
 
     // the slowest rank first, which is the one a reader of this file is after
-    std::sort(ranks.begin(), ranks.end(), [&elapsedTimeVector](const size_t& i, const size_t& j) {
+    std::ranges::sort(ranks, [&elapsedTimeVector](const size_t& i, const size_t& j) {
       return elapsedTimeVector[i] > elapsedTimeVector[j];
     });
 

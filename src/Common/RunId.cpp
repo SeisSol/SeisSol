@@ -23,7 +23,7 @@ namespace {
 constexpr std::array<std::size_t, 4> DashPositions{8, 13, 18, 23};
 
 bool isDashPosition(std::size_t position) {
-  return std::find(DashPositions.begin(), DashPositions.end(), position) != DashPositions.end();
+  return std::ranges::find(DashPositions, position) != DashPositions.end();
 }
 } // namespace
 

@@ -129,7 +129,7 @@ void Csv::writeFile(const std::string& path) {
 }
 
 std::size_t CsvTable::column(const std::string& name) const {
-  const auto position = std::find(header.begin(), header.end(), name);
+  const auto position = std::ranges::find(header, name);
   if (position == header.end()) {
     logError() << "The column" << name << "is not in the table.";
   }

@@ -36,10 +36,10 @@ std::vector<ConfigId> ModelParameters::configs() const {
   for (const auto& [group, groupConfig] : groupConfigs) {
     ofGroups.push_back(groupConfig);
   }
-  std::sort(ofGroups.begin(), ofGroups.end());
+  std::ranges::sort(ofGroups);
   std::vector<ConfigId> result{config};
   for (const auto groupConfig : ofGroups) {
-    if (std::find(result.begin(), result.end(), groupConfig) == result.end()) {
+    if (std::ranges::find(result, groupConfig) == result.end()) {
       result.push_back(groupConfig);
     }
   }

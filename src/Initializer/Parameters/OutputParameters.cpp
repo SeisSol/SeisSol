@@ -317,8 +317,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
   const auto boundsString =
       reader->readWithDefault("outputregionbounds", std::string("0.0 0.0 0.0 0.0 0.0 0.0"));
   const auto boundsRaw = convertStringToArray<double, 6>(boundsString);
-  const auto boundsEnabled =
-      std::none_of(boundsRaw.begin(), boundsRaw.end(), [](double d) { return d == 0; });
+  const auto boundsEnabled = std::ranges::none_of(boundsRaw, [](double d) { return d == 0; });
   const OutputInterval intervalX = {.lower = boundsRaw[0], .upper = boundsRaw[1]};
   const OutputInterval intervalY = {.lower = boundsRaw[2], .upper = boundsRaw[3]};
   const OutputInterval intervalZ = {.lower = boundsRaw[4], .upper = boundsRaw[5]};
