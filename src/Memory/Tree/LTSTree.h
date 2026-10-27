@@ -107,7 +107,7 @@ class Storage {
       m.bytes = 0;
       m.bytesLayer = [count](const LayerIdentifier& identifier) {
         return dispatchConfig(identifier.config, [&](auto config) {
-          using SelfT = typename TraitT::template VariantType<decltype(config)>;
+          using SelfT = TraitT::template VariantType<decltype(config)>;
           if constexpr (!std::is_same_v<void, SelfT>) {
             return sizeof(SelfT) * count;
           }
@@ -116,7 +116,7 @@ class Storage {
       };
       m.alignmentLayer = [](const LayerIdentifier& identifier) {
         return dispatchConfig(identifier.config, [&](auto config) {
-          using SelfT = typename TraitT::template VariantType<decltype(config)>;
+          using SelfT = TraitT::template VariantType<decltype(config)>;
           if constexpr (!std::is_same_v<void, SelfT>) {
             return alignof(SelfT);
           }
@@ -124,7 +124,7 @@ class Storage {
         });
       };
     } else {
-      using SelfT = typename TraitT::Type;
+      using SelfT = TraitT::Type;
       m.bytes = sizeof(SelfT) * count;
       m.bytesLayer = [count](const LayerIdentifier& /*identifier*/) {
         return sizeof(SelfT) * count;
@@ -211,17 +211,17 @@ class Storage {
   }
 
   template <typename StorageT>
-  typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
+  StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
-  const typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
+  const StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>

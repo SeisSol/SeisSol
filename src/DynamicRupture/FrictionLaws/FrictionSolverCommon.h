@@ -145,7 +145,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 
     using namespace dr::misc::quantity_indices;
 
-    using Range = typename NumPoints<Cfg, Type>::Range;
+    using Range = NumPoints<Cfg, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -178,7 +178,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 
     using namespace dr::misc::quantity_indices;
 
-    using Range = typename NumPoints<Cfg, Type>::Range;
+    using Range = NumPoints<Cfg, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -252,7 +252,7 @@ SEISSOL_HOSTDEVICE inline void initializeTractionResults(
     const FaultStresses<Cfg, RangeExecutor<Type>::Exec>& __restrict faultStresses,
     TractionResults<Cfg, RangeExecutor<Type>::Exec>& __restrict tractionResults,
     uint32_t startIndex = 0) {
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -291,7 +291,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     Real<Cfg> weight,
     uint32_t startIndex = 0) {
 
-  using NumPointsRange = typename NumPoints<Cfg, Type>::Range;
+  using NumPointsRange = NumPoints<Cfg, Type>::Range;
 
   const auto o = step;
 
@@ -418,7 +418,7 @@ SEISSOL_HOSTDEVICE inline void
                          Real<Cfg> imposedStateMinus[tensor::QInterpolated<Cfg>::size()],
                          uint32_t startIndex = 0) {
 
-  using NumPointsRange = typename NumPoints<Cfg, Type>::Range;
+  using NumPointsRange = NumPoints<Cfg, Type>::Range;
 
   using ImposedStateShapeT = Real<Cfg>(*__restrict)[misc::NumPaddedPoints<Cfg>];
   auto* __restrict imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
@@ -463,7 +463,7 @@ SEISSOL_HOSTDEVICE inline void computeInitialStress(
     Real<Cfg> fullUpdateTime,
     uint32_t startIndex = 0) {
   constexpr auto Exec = RangeExecutor<Type>::Exec;
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
 
   // the components of the stress tensor which take part in the fault-normal Riemann problem
   constexpr std::size_t NormalIndex = 0;
@@ -623,7 +623,7 @@ SEISSOL_HOSTDEVICE inline void
                            Real<Cfg> currentTime,
                            uint32_t startIndex = 0) {
 
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -656,7 +656,7 @@ SEISSOL_HOSTDEVICE inline void
                            Real<Cfg> peakSlipRate[misc::NumPaddedPoints<Cfg>],
                            uint32_t startIndex = 0) {
 
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -685,7 +685,7 @@ SEISSOL_HOSTDEVICE inline void updateTimeSinceSlipRateBelowThreshold(
     const Real<Cfg> slipRateThreshold,
     uint32_t startIndex = 0) {
 
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
   auto* timeSinceSlipRateBelowThreshold = energyData.timeSinceSlipRateBelowThreshold;
 
 #ifndef ACL_DEVICE
@@ -773,7 +773,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     bMinus22 = impAndEta.etaS * impAndEta.invZsNeig;
   }
 
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
   double localAccumulatedSlip[Range::Size]{};
   double localFrictionalEnergy[Range::Size]{};
   Real<Cfg> localSlip[3][Range::Size]{};

@@ -27,12 +27,12 @@ namespace seissol::unit_test {
  * outgoing modes, parametrised by the traction, so the two are consistent by construction.
  */
 template <typename MaterialT>
-typename seissol::model::ImpedanceCompute<MaterialT>::Matrix admittanceFromEigendecomposition(
+seissol::model::ImpedanceCompute<MaterialT>::Matrix admittanceFromEigendecomposition(
     const MaterialT& materialLocal,
     typename seissol::model::ImpedanceCompute<MaterialT>::LateralMatrix* lateralStress = nullptr) {
   using ImpedanceCompute = seissol::model::ImpedanceCompute<MaterialT>;
-  using Matrix = typename ImpedanceCompute::Matrix;
-  using LateralMatrix = typename ImpedanceCompute::LateralMatrix;
+  using Matrix = ImpedanceCompute::Matrix;
+  using LateralMatrix = ImpedanceCompute::LateralMatrix;
 
   auto eigenpair = seissol::model::getEigenDecomposition(materialLocal);
 

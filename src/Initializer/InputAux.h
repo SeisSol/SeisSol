@@ -44,7 +44,7 @@ bool isCapacityEnough(const std::string& inputString, ContainerT& outputMask) {
  * */
 template <typename ContainerT>
 void convertStringToMask(const std::string& stringMask, ContainerT& mask) {
-  using T = typename std::iterator_traits<typename ContainerT::iterator>::value_type;
+  using T = std::iterator_traits<typename ContainerT::iterator>::value_type;
 
   if (!isCapacityEnough<T>(stringMask, mask)) {
     throw std::runtime_error("Number of input elements is more than the mask capacity");

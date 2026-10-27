@@ -54,7 +54,7 @@ struct ImpedanceCompute;
 
 /// Admittance of one side; `materialLocal` in the fault-local frame. See ImpedanceCompute.
 template <typename MaterialT>
-typename ImpedanceCompute<MaterialT>::Matrix computeAdmittance(
+ImpedanceCompute<MaterialT>::Matrix computeAdmittance(
     const MaterialT& materialLocal,
     typename ImpedanceCompute<MaterialT>::LateralMatrix* lateralStress = nullptr) {
   return ImpedanceCompute<MaterialT>::admittance(materialLocal, lateralStress);

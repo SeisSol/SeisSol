@@ -114,8 +114,7 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
   }
 
   template <typename Cfg>
-  static typename ViscoMaterial::template EnergyData<Cfg>
-      initEnergyData(const ViscoMaterial& /*material*/) {
+  static ViscoMaterial::template EnergyData<Cfg> initEnergyData(const ViscoMaterial& /*material*/) {
     return {};
   }
 
@@ -156,7 +155,7 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
   template <typename Cfg, typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const ViscoMaterial& material,
-                      const typename ViscoMaterial::template EnergyData<Cfg>& /*data*/,
+                      const ViscoMaterial::template EnergyData<Cfg>& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
                       [[maybe_unused]] const Moments<Cfg>& moments,

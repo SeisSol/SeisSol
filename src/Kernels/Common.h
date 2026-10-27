@@ -160,18 +160,18 @@ struct HasSize {
   using Helper = HasSizeHelper<T, void, Args...>;
 
   static constexpr bool Value = Helper::Value;
-  using Type = typename Helper::Type;
+  using Type = Helper::Type;
 };
 
 /**
  * returns T::size() if T has size function and 0 otherwise.
  */
 template <class T, typename... Args>
-constexpr auto size(Args... args) -> typename HasSize<T, Args...>::Type {
+constexpr auto size(Args... args) -> HasSize<T, Args...>::Type {
   if constexpr (HasSize<T, Args...>::Value) {
     return T::size(args...);
   } else {
-    return static_cast<typename HasSize<T, Args...>::Type>(0);
+    return static_cast<HasSize<T, Args...>::Type>(0);
   }
 }
 

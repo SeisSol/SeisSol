@@ -27,7 +27,7 @@ struct RealTypeWrapper<RealType::F64> {
 };
 
 template <RealType P>
-using RealT = typename RealTypeWrapper<P>::Type;
+using RealT = RealTypeWrapper<P>::Type;
 
 /// The type of the reals a configuration computes in.
 template <typename Cfg>

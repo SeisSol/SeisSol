@@ -183,18 +183,18 @@ struct ScratchpadDescriptor {
  */
 template <typename StorageT, typename Cfg, typename = void>
 struct StorageTypeOf {
-  using Type = typename StorageT::Type;
+  using Type = StorageT::Type;
 };
 
 template <typename StorageT, typename Cfg>
 struct StorageTypeOf<StorageT,
                      Cfg,
                      std::enable_if_t<std::is_same_v<typename StorageT::Type, void>>> {
-  using Type = typename StorageT::template VariantType<Cfg>;
+  using Type = StorageT::template VariantType<Cfg>;
 };
 
 template <typename StorageT, typename Cfg>
-using StorageType = typename StorageTypeOf<StorageT, Cfg>::Type;
+using StorageType = StorageTypeOf<StorageT, Cfg>::Type;
 
 template <typename T>
 struct Variable : public VariableDescriptor {
@@ -420,7 +420,7 @@ public:
 private:
     // the varmap of the layer: a GenericVarmap finds the variables by what it holds
     const VarmapT* varmap_;
-    typename VarmapT::PointerContainerT pointers_;
+    VarmapT::PointerContainerT pointers_;
   };
 
   template <typename Cfg>
@@ -441,10 +441,10 @@ private:
   }
 
   template <typename StorageT>
-  typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
+  StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   /// The values of a variable as the configuration `ConfigT` holds them.
@@ -459,11 +459,10 @@ private:
   }
 
   template <typename StorageT>
-  [[nodiscard]] const typename StorageT::Type*
-      var(AllocationPlace place = AllocationPlace::Host) const {
+  [[nodiscard]] const StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT,

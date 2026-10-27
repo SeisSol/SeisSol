@@ -134,7 +134,7 @@ class PerConfig {
   }
 
   private:
-  typename internal::PerConfigValues<T, ConfigVariant>::Type values_;
+  internal::PerConfigValues<T, ConfigVariant>::Type values_;
 };
 
 /**
@@ -145,7 +145,7 @@ class PerConfig {
  * face.
  */
 template <template <typename> typename T>
-using ConfigVariantOf = typename internal::OfConfigVariant<T, ConfigVariant>::Type;
+using ConfigVariantOf = internal::OfConfigVariant<T, ConfigVariant>::Type;
 
 } // namespace seissol
 

@@ -21,7 +21,7 @@ template <typename Derived>
 class RateAndStateImpl : public ReceiverOutputImpl<Derived> {
   public:
   template <typename Cfg>
-  using LocalInfo = typename ReceiverOutputImpl<Derived>::template LocalInfo<Cfg>;
+  using LocalInfo = ReceiverOutputImpl<Derived>::template LocalInfo<Cfg>;
 
   template <typename Cfg>
   Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& local) {

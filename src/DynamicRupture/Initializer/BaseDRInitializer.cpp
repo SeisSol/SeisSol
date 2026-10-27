@@ -197,7 +197,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
                                                StressTensor<Cfg>& initialStress,
                                                int readNucleation) {
         // return pointer to first element, which a layer without faces does not have
-        const auto getRawData = [](typename StressTensor<Cfg>::VectorOfArraysT& vectorOfArrays) {
+        const auto getRawData = [](StressTensor<Cfg>::VectorOfArraysT& vectorOfArrays) {
           return vectorOfArrays.empty() ? nullptr : vectorOfArrays.front().data();
         };
         // fault can be either initialized by traction or by cartesian stress

@@ -232,7 +232,7 @@ void getTransposedGodunovState(const Tmaterial& local,
 
 /// The material in which the material `MaterialT` poses the Riemann problem at its faces.
 template <typename MaterialT>
-using RiemannMaterialOf = typename MaterialT::RiemannMaterial;
+using RiemannMaterialOf = MaterialT::RiemannMaterial;
 
 /// Whether the materials `MaterialT` and `NeighborT` pose the Riemann problem at their faces in the
 /// same material.
@@ -265,8 +265,8 @@ MaterialT neighborAs(const NeighborT& neighbor) {
   if constexpr (std::is_same_v<MaterialT, NeighborT>) {
     return neighbor;
   } else {
-    using RiemannMaterialT = typename MaterialT::RiemannMaterial;
-    using NeighborRiemannMaterialT = typename NeighborT::RiemannMaterial;
+    using RiemannMaterialT = MaterialT::RiemannMaterial;
+    using NeighborRiemannMaterialT = NeighborT::RiemannMaterial;
     const auto& riemannNeighbor = static_cast<const NeighborRiemannMaterialT&>(neighbor);
     MaterialT material{};
     auto& riemann = static_cast<RiemannMaterialT&>(material);
@@ -472,10 +472,10 @@ struct SolverSetupDefaults {
 
   static void initializeSpecificLocalData(const MaterialT& /*material*/,
                                           double /*timeStepWidth*/,
-                                          typename SolverT::LocalData* /*localData*/) {}
+                                          SolverT::LocalData* /*localData*/) {}
 
   static void initializeSpecificNeighborData(const MaterialT& /*material*/,
-                                             typename SolverT::NeighborData* /*neighborData*/) {}
+                                             SolverT::NeighborData* /*neighborData*/) {}
 
   /// Materials without relaxation describe their source term directly.
   template <typename T>
