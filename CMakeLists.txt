@@ -587,9 +587,10 @@ if (WITH_GPU)
         target_link_libraries(numa::numa INTERFACE NUMA::NUMA)
       endif()
       # (cmake/hip.cmake replaces the rule for shared HIP libraries with one for the helper of
-      # hipcc; this library gets linked by the HIP compiler, as CMake does it)
+      # hipcc; this library gets linked by the HIP compiler, as CMake does it; CMake before 4 has
+      # -shared in the flags for creating it only)
       set(CMAKE_HIP_CREATE_SHARED_LIBRARY
-          "<CMAKE_HIP_COMPILER> <CMAKE_SHARED_LIBRARY_HIP_FLAGS> <LANGUAGE_COMPILE_FLAGS> <LINK_FLAGS> <SONAME_FLAG><TARGET_SONAME> -o <TARGET> <OBJECTS> <LINK_LIBRARIES>")
+          "<CMAKE_HIP_COMPILER> <CMAKE_SHARED_LIBRARY_HIP_FLAGS> <LANGUAGE_COMPILE_FLAGS> <LINK_FLAGS> <CMAKE_SHARED_LIBRARY_CREATE_HIP_FLAGS> <SONAME_FLAG><TARGET_SONAME> -o <TARGET> <OBJECTS> <LINK_LIBRARIES>")
       set_source_files_properties(src/Solver/TimeStepping/Halo/Stream/RocshmemKernels.cpp
           PROPERTIES LANGUAGE HIP)
       add_library(seissol-rocshmem-kernels SHARED
