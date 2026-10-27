@@ -33,13 +33,20 @@ HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
                                            bool persistent,
                                            bool perDirection,
                                            std::size_t clusterCount,
-                                           std::size_t configCount)
+                                           std::size_t configCount,
+                                           std::size_t lanes)
     : mode_(mode), persistent_(persistent) {
   const auto order = perDirection ? LaunchOrder::PerDirection : LaunchOrder::Global;
+  if (lanes > 1 && (perDirection || mode_ == Mpi::DataTransferMode::DirectShmem)) {
+    logWarning() << "Lanes of the halo exchange (SEISSOL_EXCHANGE_LANES) are only for ccl and"
+                 << "stream-mpi in the global order; the exchange takes none.";
+    lanes = 1;
+  }
   if (mode_ == Mpi::DataTransferMode::DirectCcl) {
-    scheduler_ = std::make_unique<CclExchangeScheduler>(clusterCount, order, configCount);
+    scheduler_ = std::make_unique<CclExchangeScheduler>(clusterCount, order, configCount, lanes);
   } else if (mode_ == Mpi::DataTransferMode::DirectStreamMpi) {
-    scheduler_ = std::make_unique<StreamMpiExchangeScheduler>(clusterCount, order, configCount);
+    scheduler_ =
+        std::make_unique<StreamMpiExchangeScheduler>(clusterCount, order, configCount, lanes);
   } else if (mode_ == Mpi::DataTransferMode::DirectShmem) {
     if (perDirection) {
       logWarning() << "The shmem transfer mode exchanges in the global order only.";

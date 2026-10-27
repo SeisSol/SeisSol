@@ -22,8 +22,12 @@ namespace seissol::parallel::runtime {
 
 #ifdef ACL_DEVICE
 ManagedStream::ManagedStream() : streamPtr_(dev().api().createStream()) {}
+
+ManagedStream::ManagedStream(double priority) : streamPtr_(dev().api().createStream(priority)) {}
 #else
 ManagedStream::ManagedStream() = default;
+
+ManagedStream::ManagedStream(double /*priority*/) {}
 #endif
 
 auto ManagedStream::operator=(ManagedStream&& old) noexcept -> ManagedStream& {

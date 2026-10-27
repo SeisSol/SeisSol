@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -49,6 +50,9 @@ class StreamMemoryHandle;
 class ManagedStream {
   public:
   ManagedStream();
+
+  /// a stream of the given priority, from 0 for the lowest to 1 for the highest the device offers
+  explicit ManagedStream(double priority);
 
   ManagedStream(const ManagedStream&) = delete;
   auto operator=(const ManagedStream&) = delete;
@@ -105,9 +109,17 @@ class StreamRuntime {
   public:
   StreamRuntime() : StreamRuntime(0) {}
 
-  explicit StreamRuntime(size_t ringbufferSize)
+  /**
+   * With `ringbufferSize` further streams for independent branches (see envMany()); the stream of
+   * the runtime has the given priority (see ManagedStream), or the default one of the device.
+   */
+  explicit StreamRuntime(size_t ringbufferSize, std::optional<double> priority = std::nullopt)
       : ringbufferSize_(ringbufferSize), disposed_(false) {
-    streamPtr_.emplace();
+    if (priority.has_value()) {
+      streamPtr_.emplace(priority.value());
+    } else {
+      streamPtr_.emplace();
+    }
     ringbufferPtr_.resize(ringbufferSize);
 
     allStreams_.resize(ringbufferSize + 1);
@@ -633,7 +645,8 @@ class StreamRuntime {
   public:
   StreamRuntime() : StreamRuntime(0) {}
 
-  explicit StreamRuntime(std::size_t ringbufferSize) {}
+  explicit StreamRuntime(std::size_t ringbufferSize,
+                         std::optional<double> /*priority*/ = std::nullopt) {}
 
   template <typename F>
   void enqueueLoop(std::size_t elemCount,

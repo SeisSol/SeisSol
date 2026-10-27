@@ -82,10 +82,11 @@ CCL(DataType_t) datatype(RealType type) {
 
 CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount,
                                            LaunchOrder order,
-                                           std::size_t configCount)
-    : StreamExchangeScheduler(clusterCount, order, configCount),
-      communicators_(order == LaunchOrder::Global ? 1 : clusterCount * clusterCount, nullptr),
-      senders_(communicators_.size(), nullptr), receivers_(communicators_.size(), nullptr) {
+                                           std::size_t configCount,
+                                           std::size_t lanes)
+    : StreamExchangeScheduler(clusterCount, order, configCount, lanes),
+      communicators_(slotCount(), nullptr), senders_(communicators_.size(), nullptr),
+      receivers_(communicators_.size(), nullptr) {
 #if defined(CCL_NCCL) || defined(CCL_RCCL)
   // After a replay of a recorded super-timestep, the next exchanges are enqueued right away, while
   // those of the replay are still outstanding on the same communicator. That needs the support for
@@ -143,15 +144,21 @@ void CclExchangeScheduler::added(const ScheduledTransport& transport) {
   // from it
   const auto registerRegions =
       [&](const std::vector<RemoteCluster>& regions, std::size_t from, std::size_t to) {
-        auto* communicator = communicators_[slot(from, to)];
-        for (const auto& region : regions) {
-          void* handle = nullptr;
-          check(CCL(CommRegister)(static_cast<CCL(Comm_t)>(communicator),
-                                  region.data,
-                                  region.size * sizeOfRealType(region.datatype),
-                                  &handle),
-                "CommRegister");
-          registrations_.emplace_back(communicator, handle);
+        // with lanes, the groups of a direction go over all of their communicators
+        const auto slots = launchOrder() == LaunchOrder::Global
+                               ? usedSlots()
+                               : std::vector<std::size_t>{slot(from, to)};
+        for (const auto current : slots) {
+          auto* communicator = communicators_[current];
+          for (const auto& region : regions) {
+            void* handle = nullptr;
+            check(CCL(CommRegister)(static_cast<CCL(Comm_t)>(communicator),
+                                    region.data,
+                                    region.size * sizeOfRealType(region.datatype),
+                                    &handle),
+                  "CommRegister");
+            registrations_.emplace_back(communicator, handle);
+          }
         }
       };
   registerRegions(transport.regions().copy, transport.cluster(), transport.otherCluster());
@@ -238,8 +245,9 @@ namespace seissol::solver {
 
 CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount,
                                            LaunchOrder order,
-                                           std::size_t configCount)
-    : StreamExchangeScheduler(clusterCount, order, configCount) {
+                                           std::size_t configCount,
+                                           std::size_t lanes)
+    : StreamExchangeScheduler(clusterCount, order, configCount, lanes) {
   logError() << "This build of SeisSol does not support exchanging the halo data with CCL.";
 }
 

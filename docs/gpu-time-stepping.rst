@@ -85,6 +85,9 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - For ``ccl`` and ``stream-mpi``: one GPU stream per direction between two time clusters,
        instead of one stream for all exchanges in a global order (see below).
        ``SEISSOL_CCL_PER_DIRECTION`` is accepted as well.
+   * - ``SEISSOL_EXCHANGE_LANES``
+     - Experimental. For ``ccl`` and ``stream-mpi`` in the global order: split it into this many lanes
+       (1 by default) that run at the same time (see below).
    * - ``SEISSOL_SCRATCHPAD_PER_LAYER=1``
      - GPU builds only. Give each layer scratchpads of its own, instead of sharing them between all layers.
        The log shows the memory needed either way.
@@ -130,6 +133,18 @@ the groups of different directions may then run at the same time.
 With ``ccl``, each direction then also gets a communicator of its own. The first operation towards a peer on a
 communicator blocks the process until the peer has joined, to connect them; so all communicators get connected
 at the start, one after the other in the same order on all processes, with one exchange of each direction.
+As the processes launch the groups of different directions in different orders then, operations that wait for their
+peer on streams that share a hardware queue can wait for each other in a cycle; NCCL and RCCL require a
+consistent order of the operations on different communicators on all processes.
+On LUMI (October 2026), RCCL per direction got stuck in the test of the exchange with the four hardware queues per
+process that HIP has by default (``GPU_MAX_HW_QUEUES``), and passed it with 16 or 64 of them.
+
+With ``SEISSOL_EXCHANGE_LANES=K``, the global order goes to ``K`` lanes instead: a stream (with a communicator of
+its own for ``ccl``) each, of the highest priority, which HIP puts on hardware queues of their own, apart from the
+work of the clusters (up to ``GPU_MAX_HW_QUEUES`` of them, minus one for a stream that joins the lanes).
+A group goes to a lane by its direction and its exchange, the same on all processes, so each lane has its groups in
+the global order on all processes, and the lanes run at the same time.
+Ordered on the GPU, the work that depends on the exchange waits for an event that joins all lanes.
 
 ``shmem`` puts the data into a staging window of the receiving process in symmetric memory
 (as large as the ghost layers of the process with the largest ones),

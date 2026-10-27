@@ -364,7 +364,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                              usePersistentMpi(seissolInstance_.env()),
                                              useExchangePerDirection(seissolInstance_.env()),
                                              clusterLayout.globalClusterCount * runConfigs.size(),
-                                             runConfigs.size());
+                                             runConfigs.size(),
+                                             exchangeLanes(seissolInstance_.env()));
   // what the test of the halo exchange before the time stepping goes through
   std::vector<CheckedTransport> checkedTransports;
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {

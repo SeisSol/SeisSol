@@ -81,6 +81,8 @@ class StreamDevices {
     long sendTarget{0};
     std::size_t receiver{NoActor};
     long receiveTarget{0};
+    // the communicator, whose operations match by their order between two processes
+    std::size_t lane{0};
   };
 
   std::vector<Actor> actors;
@@ -271,8 +273,8 @@ class StreamDevices {
 
   void post(Group& group) {
     for (const auto& [send, peer] : group.operations) {
-      auto& counter =
-          send ? postedSends_[{group.process, peer}] : postedReceives_[{peer, group.process}];
+      auto& counter = send ? postedSends_[{group.process, peer, group.lane}]
+                           : postedReceives_[{peer, group.process, group.lane}];
       group.sequence.push_back(counter++);
     }
     group.posted = true;
@@ -287,7 +289,8 @@ class StreamDevices {
       for (std::size_t i = 0; i < group.operations.size(); ++i) {
         const auto& [send, peer] = group.operations[i];
         const auto& counterparts = send ? postedReceives_ : postedSends_;
-        const auto key = send ? std::pair{group.process, peer} : std::pair{peer, group.process};
+        const auto key = send ? std::tuple{group.process, peer, group.lane}
+                              : std::tuple{peer, group.process, group.lane};
         const auto found = counterparts.find(key);
         if (found == counterparts.end() || found->second <= group.sequence[i]) {
           return false;
@@ -360,8 +363,9 @@ class StreamDevices {
 
   std::map<std::size_t, std::deque<Item>> streams_;
   std::vector<Group> groups_;
-  std::map<std::pair<int, int>, std::size_t> postedSends_;
-  std::map<std::pair<int, int>, std::size_t> postedReceives_;
+  // by sending and receiving process, and communicator
+  std::map<std::tuple<int, int, std::size_t>, std::size_t> postedSends_;
+  std::map<std::tuple<int, int, std::size_t>, std::size_t> postedReceives_;
   std::map<std::size_t, int> processes_;
   std::map<int, std::size_t> recordings_;
   std::size_t lastRecording_{0};
@@ -436,17 +440,31 @@ enum class EventHandling {
 
 /**
  * The exchange scheduler of one process, in the global order and ordered on the device: one
- * communicator and one stream.
+ * communicator and one stream; or, with several lanes, as StreamExchangeScheduler has them: a
+ * communicator and a stream for each, and a stream where the latest event joins them.
  */
 class StreamScheduler : public ExchangeScheduler {
   public:
   StreamScheduler(StreamDevices& devices,
                   int process,
                   std::size_t clusterCount,
-                  EventHandling handling)
+                  EventHandling handling,
+                  std::size_t lanes = 1)
       : ExchangeScheduler(clusterCount, LaunchOrder::Global), devices_(devices), process_(process),
-        handling_(handling), events_(devices.pool()) {
+        handling_(handling), events_(devices.pool()), clusterCount_(clusterCount), lanes_(lanes) {
     setStreamOrdered(true);
+  }
+
+  /// the streams of the scheduler
+  [[nodiscard]] std::vector<std::size_t> streams() const {
+    std::vector<std::size_t> streams;
+    for (std::size_t lane = 0; lane < lanes_; ++lane) {
+      streams.push_back(laneStream(lane));
+    }
+    if (lanes_ > 1) {
+      streams.push_back(joinStream());
+    }
+    return streams;
   }
 
   std::map<const ScheduledTransport*, std::size_t> ghosts;
@@ -484,17 +502,19 @@ class StreamScheduler : public ExchangeScheduler {
   [[nodiscard]] std::size_t poolSize() const { return events_.size(); }
 
   protected:
-  Ticket launch(std::size_t /*from*/,
-                std::size_t /*to*/,
-                std::size_t /*exchange*/,
+  Ticket launch(std::size_t from,
+                std::size_t to,
+                std::size_t exchange,
                 const ScheduledTransport* sender,
                 const ScheduledTransport* receiver,
                 const std::vector<ActorEvent>& after) override {
-    const auto stream = StreamOffset + static_cast<std::size_t>(process_);
+    // the lane as StreamExchangeScheduler picks it
+    const auto lane = (from * clusterCount_ + to + exchange) % lanes_;
+    const auto stream = laneStream(lane);
     for (const auto& event : after) {
       devices_.wait(stream, event.get());
     }
-    StreamDevices::Group group{process_, {}, {}, false, NoActor, 0, NoActor, 0};
+    StreamDevices::Group group{process_, {}, {}, false, NoActor, 0, NoActor, 0, lane};
     if (sender != nullptr) {
       for (const auto& region : sender->regions().copy) {
         group.operations.emplace_back(true, region.rank);
@@ -513,6 +533,12 @@ class StreamScheduler : public ExchangeScheduler {
     if (handling_ == EventHandling::Pool) {
       auto event = events_.next();
       devices_.record(stream, event.get());
+      if (lanes_ > 1) {
+        // the latest event stands for the groups of all lanes
+        devices_.wait(joinStream(), event.get());
+        event = events_.next();
+        devices_.record(joinStream(), event.get());
+      }
       setLatestEvent(ActorEvent(std::move(event)));
     } else {
       auto* event = devices_.create();
@@ -528,13 +554,21 @@ class StreamScheduler : public ExchangeScheduler {
   public:
   static constexpr std::size_t StreamOffset = 1000000;
   static constexpr std::size_t RecorderOffset = 2000000;
+  static constexpr std::size_t MaxLanes = 8;
   const std::map<std::size_t, GhostCluster*>* ghostClusters{nullptr};
 
   private:
+  [[nodiscard]] std::size_t laneStream(std::size_t lane) const {
+    return StreamOffset + static_cast<std::size_t>(process_) * (MaxLanes + 1) + lane;
+  }
+  [[nodiscard]] std::size_t joinStream() const { return laneStream(MaxLanes); }
+
   StreamDevices& devices_;
   int process_;
   EventHandling handling_;
   parallel::runtime::EventPool events_;
+  std::size_t clusterCount_;
+  std::size_t lanes_;
   // with EventHandling::CreateAndDestroy: the events of the groups since the last release
   std::vector<StreamDevices::Event> launched_;
   Ticket tickets_{0};
@@ -561,7 +595,9 @@ class ProcessRecorder {
   ProcessRecorder(StreamDevices& devices, int process, StreamScheduler& scheduler)
       : devices_(devices), process_(process), scheduler_(scheduler), events_(devices.pool()) {
     devices_.assign(recorderStream(), process);
-    devices_.assign(schedulerStream(), process);
+    for (const auto stream : scheduler_.streams()) {
+      devices_.assign(stream, process);
+    }
   }
 
   /// a copy layer of the process, on its stream
@@ -653,14 +689,11 @@ class ProcessRecorder {
   [[nodiscard]] std::size_t recorderStream() const {
     return StreamScheduler::RecorderOffset + static_cast<std::size_t>(process_);
   }
-  [[nodiscard]] std::size_t schedulerStream() const {
-    return StreamScheduler::StreamOffset + static_cast<std::size_t>(process_);
-  }
-
   /// the streams of the stream runtimes of the process: of the copy layers, and of the scheduler
   [[nodiscard]] std::vector<std::size_t> streams() const {
     auto streams = copyStreams_;
-    streams.push_back(schedulerStream());
+    const auto scheduler = scheduler_.streams();
+    streams.insert(streams.end(), scheduler.begin(), scheduler.end());
     return streams;
   }
 
@@ -711,7 +744,8 @@ inline void runStreamOrdered(int processes,
                              std::mt19937& random,
                              StreamOutcome& outcome,
                              bool recordings = false,
-                             EventHandling handling = EventHandling::Pool) {
+                             EventHandling handling = EventHandling::Pool,
+                             std::size_t lanes = 1) {
   StreamDevices devices;
   const auto rate = [](std::size_t cluster) { return 1L << cluster; };
 
@@ -719,7 +753,7 @@ inline void runStreamOrdered(int processes,
   schedulers.reserve(static_cast<std::size_t>(processes));
   for (int process = 0; process < processes; ++process) {
     schedulers.push_back(
-        std::make_unique<StreamScheduler>(devices, process, clusterCount, handling));
+        std::make_unique<StreamScheduler>(devices, process, clusterCount, handling, lanes));
   }
 
   std::map<std::pair<int, std::size_t>, std::size_t> copyIndex;
@@ -979,6 +1013,41 @@ TEST_CASE("Recordings of exchanges ordered on the device only wait for their own
   CHECK(outcome.prematureRecords == 0);
   CHECK(outcome.leakedEvents == 0);
   CHECK(outcome.schedulerPool == parallel::runtime::EventPool::InitialSize);
+}
+
+TEST_CASE("Exchanges ordered on the device in several lanes neither get stuck nor break the "
+          "dependencies" *
+          doctest::test_suite("solver")) {
+  const std::vector<long> syncTimes{6, 13, 16, 29};
+  for (const std::size_t lanes : {2, 3}) {
+    for (const bool recordings : {false, true}) {
+      CAPTURE(lanes);
+      CAPTURE(recordings);
+      // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+      std::mt19937 random(1357);
+      StreamOutcome outcome;
+      for (int trial = 0; trial < 100; ++trial) {
+        const auto processes = std::uniform_int_distribution<int>(2, 4)(random);
+        const auto clusters = std::uniform_int_distribution<std::size_t>(1, 3)(random);
+        const auto neighborhoods = randomNeighborhoods(processes, clusters, random);
+        runStreamOrdered(processes,
+                         clusters,
+                         neighborhoods,
+                         syncTimes,
+                         random,
+                         outcome,
+                         recordings,
+                         EventHandling::Pool,
+                         lanes);
+      }
+      CHECK(outcome.stuck == 0);
+      CHECK(outcome.violations == 0);
+      CHECK(outcome.isolationViolations == 0);
+      CHECK(outcome.destroyedUses == 0);
+      CHECK(outcome.prematureRecords == 0);
+      CHECK(outcome.leakedEvents == 0);
+    }
+  }
 }
 
 TEST_CASE("Exchange events that get destroyed at synchronization points are waited for too late" *

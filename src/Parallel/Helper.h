@@ -10,6 +10,7 @@
 
 #include "Common/Marker.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <string>
 #include <utils/env.h>
@@ -47,6 +48,15 @@ inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSIS
  */
 inline bool useExchangePerDirection(utils::Env& env) {
   return env.get<bool>("EXCHANGE_PER_DIRECTION", env.get<bool>("CCL_PER_DIRECTION", false));
+}
+
+/**
+ * Into how many lanes the transfer modes that run on device streams (ccl, stream-mpi) split their
+ * global order (experimental): streams of the highest priority, which run at the same time, with
+ * the groups of each in the global order.
+ */
+inline std::size_t exchangeLanes(utils::Env& env) {
+  return std::max<std::size_t>(env.get<std::size_t>("EXCHANGE_LANES", 1), 1);
 }
 
 /**

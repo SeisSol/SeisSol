@@ -27,7 +27,10 @@ class CclExchangeScheduler : public StreamExchangeScheduler {
   /**
    * Sets up the communicators; collective over all processes.
    */
-  CclExchangeScheduler(std::size_t clusterCount, LaunchOrder order, std::size_t configCount);
+  CclExchangeScheduler(std::size_t clusterCount,
+                       LaunchOrder order,
+                       std::size_t configCount,
+                       std::size_t lanes = 1);
   ~CclExchangeScheduler() override;
 
   CclExchangeScheduler(const CclExchangeScheduler&) = delete;
