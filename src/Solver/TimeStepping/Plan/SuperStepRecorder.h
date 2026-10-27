@@ -47,7 +47,11 @@ class SuperStepRecorder {
 
   using Runtimes = std::vector<parallel::runtime::StreamRuntime*>;
 
-  SuperStepRecorder();
+  /**
+   * With `branches`, the independent branches of the work of the runtimes become nodes of their own
+   * (see parallel::runtime::StreamRuntime::attach()).
+   */
+  explicit SuperStepRecorder(bool branches = true);
 #ifdef ACL_DEVICE
   ~SuperStepRecorder();
 #else
@@ -136,6 +140,7 @@ class SuperStepRecorder {
   // builds the recordings, and launches them on its stream; the pool of the events around them
   parallel::runtime::StreamRuntime runtime_;
   void* stream_{nullptr};
+  bool branches_{true};
   // completes with the latest replay
   ActorEvent lastEvent_;
   // the latest work before the super-timestep, until the replay has been enqueued after it

@@ -198,7 +198,8 @@ class StreamRuntime {
     if (count == 0) {
       return;
     }
-    if (building()) {
+    // a runtime attached to a graph without branches (see attach()) adds them to its chain
+    if (building() && (parent_ == nullptr || branches_)) {
       closeOpenNode();
 
       // fork and join are properties of the graph here, so neither costs an event
@@ -224,8 +225,8 @@ class StreamRuntime {
       return;
     }
 
-    void* stream = mainStream();
-    if (Backend != DeviceBackend::Hip && ringbufferSize_ > 0) {
+    void* stream = building() ? this->stream() : mainStream();
+    if (!building() && Backend != DeviceBackend::Hip && ringbufferSize_ > 0) {
       const auto forkEvent = nextEvent();
       device().api().recordEventOnStream(forkEvent.get(), stream);
       for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
@@ -397,14 +398,16 @@ class StreamRuntime {
    * Makes the work that this runtime enqueues from now on part of the graph that `parent` builds
    * (see beginGraph()), until it gets detached. The graph has to be launched after what this
    * runtime has enqueued before, and after a wait it defers (see deferWait()); whoever launches it
-   * sees to that.
+   * sees to that. Without `branches`, the independent branches of envMany() run one after another,
+   * in the chain of nodes of the runtime.
    */
-  void attach(StreamRuntime& parent) {
+  void attach(StreamRuntime& parent, bool branches = true) {
     if (building() || capturing_) {
       logError() << "A stream runtime cannot attach to a graph while it builds one.";
     }
     deferred_ = Event();
     parent_ = &parent;
+    branches_ = branches;
     parent.children_.push_back(this);
     lastNodes_.clear();
     dependencies_.clear();
@@ -604,8 +607,9 @@ class StreamRuntime {
   device::DeviceGraphHandle buildGraph_;
   StreamRuntime* openNode_{nullptr};
   std::vector<StreamRuntime*> children_;
-  // the runtime whose graph this one builds as well (see attach())
+  // the runtime whose graph this one builds as well, and whether with branches (see attach())
   StreamRuntime* parent_{nullptr};
+  bool branches_{true};
   // the nodes the work of this runtime ends with (several after independent branches, see
   // envMany()), and what it waits for since (see eventSync())
   std::vector<device::DeviceGraphNodeHandle> lastNodes_;

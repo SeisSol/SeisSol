@@ -30,7 +30,8 @@ namespace {
 device::DeviceInstance& deviceInstance() { return device::DeviceInstance::instance(); }
 } // namespace
 
-SuperStepRecorder::SuperStepRecorder() : stream_(runtime_.stream()) {}
+SuperStepRecorder::SuperStepRecorder(bool branches)
+    : stream_(runtime_.stream()), branches_(branches) {}
 
 SuperStepRecorder::~SuperStepRecorder() { dispose(); }
 
@@ -60,7 +61,7 @@ void SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& 
 
   runtime_.beginGraph();
   for (auto* runtime : runtimes) {
-    runtime->attach(runtime_);
+    runtime->attach(runtime_, branches_);
   }
   for (auto* cluster : clusters) {
     cluster->publishEvent(ActorEvent());
@@ -154,7 +155,7 @@ void SuperStepRecorder::launch(const device::DeviceGraphHandle& graph,
 
 #else
 
-SuperStepRecorder::SuperStepRecorder() = default;
+SuperStepRecorder::SuperStepRecorder(bool /*branches*/) {}
 
 void SuperStepRecorder::dispose() {}
 

@@ -519,7 +519,12 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                    << "(and SEISSOL_DEVICE_GRAPH_NODES not set to 0).";
     } else {
       replay_ = true;
-      recorder_ = std::make_unique<SuperStepRecorder>();
+      const bool branches = useSuperStepBranches(seissolInstance_.env());
+      recorder_ = std::make_unique<SuperStepRecorder>(branches);
+      if (!branches) {
+        logInfo() << "The branches of the work of a cluster run one after another in the recordings"
+                  << "(SEISSOL_SUPERSTEP_BRANCHES=0).";
+      }
       if (DeviceTimeline::active()) {
         superStepTimer_ = std::make_unique<DeviceTimer>(
             nullptr, &deviceTimeline_, DeviceTimeline::Kind::SuperSteps);

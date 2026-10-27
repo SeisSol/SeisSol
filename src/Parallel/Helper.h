@@ -64,6 +64,17 @@ inline bool useConcurrentClusters(utils::Env& env) {
 inline bool useSuperStepGraphs(utils::Env& env) { return env.get<bool>("SUPERSTEP_GRAPHS", false); }
 
 /**
+ * Whether the independent branches of the work of a cluster (e.g. the neighbor fluxes of the face
+ * relations of a face) become nodes of their own in the recordings of super-timesteps, so that they
+ * can run concurrently. Otherwise, they run one after another, as one node: the graphs get fewer
+ * nodes, which makes them quicker to record and to launch (with HIP, each launch costs the host
+ * time per node).
+ */
+inline bool useSuperStepBranches(utils::Env& env) {
+  return env.get<bool>("SUPERSTEP_BRANCHES", true);
+}
+
+/**
  * Which super-timesteps get recorded into graphs with SEISSOL_SUPERSTEP_GRAPHS=1 (experimental).
  */
 enum class SuperStepGraphMode {

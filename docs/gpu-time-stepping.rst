@@ -70,6 +70,10 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - Experimental, with ``SEISSOL_SUPERSTEP_GRAPHS=1``. ``replay`` (default): as described below.
        ``always``: besides, record each other super-timestep and launch it once.
        ``rebuild``: record every super-timestep anew and launch it once, replaying none; this measures what the recordings cost.
+   * - ``SEISSOL_SUPERSTEP_BRANCHES=0``
+     - With ``SEISSOL_SUPERSTEP_GRAPHS=1``: run the independent branches of the work of a cluster (e.g. the neighbor fluxes
+       of the face relations) one after another in the recordings, instead of as nodes of their own that can run concurrently.
+       The graphs get fewer nodes, which makes them quicker to record and to launch (see below).
    * - ``SEISSOL_TRANSFER_MODE``
      - How the halo data gets exchanged: ``direct`` (default), ``host``, ``ccl``, ``stream-mpi``, ``shmem``.
        The name ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`` is accepted as well.
@@ -181,7 +185,11 @@ Recording every super-timestep anew (``rebuild``) took 20 to 40 % longer.
 Capturing a node into a graph costs the more time the more nodes the graph already has, on HIP (ROCm 6.3 to 7.2)
 much more than with CUDA: recording a super-timestep of TPV13 (2784 cells, 3 clusters) took 0.04 s on the RTX 5070
 and 0.2 s on a Radeon 890M (October 2026). With ROCm 6.3, the host needed 40 ms for each launch of that graph
-(2136 kernels); such a graph only pays off where the GPU takes longer for the super-timestep.
+(2136 kernels), with ROCm 7.2 6 ms; such a graph only pays off where the GPU takes longer for the super-timestep.
+The log reports both times for the replays.
+With ``SEISSOL_SUPERSTEP_BRANCHES=0``, the graphs of TPV5 (19183 cells) took 9 instead of 51 ms of the host to launch
+with ROCm 6.3 on the Radeon 890M, and 1 % less time in all; on the smaller TPV13 mesh, the concurrent branches made up for
+their launches, and the run took 3 % (with receivers, 10 %) less time with them.
 
 Outputs while the GPU computes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
