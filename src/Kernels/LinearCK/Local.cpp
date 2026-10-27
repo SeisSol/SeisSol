@@ -49,7 +49,6 @@
 #endif
 
 GENERATE_HAS_MEMBER(ET)
-GENERATE_HAS_MEMBER(extraOffset_ET)
 GENERATE_HAS_MEMBER(sourceMatrix)
 GENERATE_HAS_MEMBER(volumeFused)
 
@@ -86,7 +85,6 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   foldedBoundaryFlux_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
   deviceFaceTraceKernelPrototype_.bindGlobals(*global.onDevice);
   deviceNodalLfKrnlPrototype_.bindGlobals(*global.onDevice);
   deviceFsgFlux_.bindGlobals(*global.onDevice);
@@ -198,15 +196,14 @@ void Local::computeBatchedIntegral(
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
-  // Volume integral
-  ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  kernel::gpu_volume volKrnl = deviceVolumeKernelPrototype_;
+  // The predictor has added the volume term to the field already (Spacetime::computeBatchedAder).
+  const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
 
   // the boundary kernels below run on the same temporary memory
-  const auto maxTmpMem = yateto::getMaxTmpMemRequired(
-      volKrnl, deviceFsgFlux_, deviceDirichletFlux_, deviceFoldedBoundaryFlux_);
+  const auto maxTmpMem =
+      yateto::getMaxTmpMemRequired(deviceFsgFlux_, deviceDirichletFlux_, deviceFoldedBoundaryFlux_);
 
-  // volume kernel always contains more elements than any local one
+  // the batch of the predictor has every cell, so at least as many as any batch of faces
   const auto maxNumElements = dataTable.find(key) != dataTable.end()
                                   ? (dataTable[key].get(inner_keys::Wp::Id::Dofs))->getSize()
                                   : 0;
@@ -216,35 +213,6 @@ void Local::computeBatchedIntegral(
   // which the neighbour integral finishes (WeightAdjustable); the flux kernels below write where
   // the batch says the faces of a cell lift into (inner_keys::Wp::Id::FluxTarget)
   WeightAdjustmentT::clearBatched(dataTable, runtime);
-
-  if (dataTable.find(key) != dataTable.end()) {
-    auto& entry = dataTable[key];
-
-    volKrnl.numElements = maxNumElements;
-
-    volKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    volKrnl.I =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-
-    const auto** localIntegrationPtrs = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-
-    kernels::bindStarOperandsBatched(volKrnl, localIntegrationPtrs);
-
-    constexpr auto SourceMatrixOffset =
-        offsetof(LocalIntegrationData, specific) +
-        get_offset_sourceMatrix<decltype(LocalIntegrationData::specific)>();
-    static_assert(SourceMatrixOffset % sizeof(real) == 0,
-                  "SourceMatrixOffset is not dividable by the real size.");
-
-    set_ET(volKrnl, localIntegrationPtrs);
-    set_extraOffset_ET(volKrnl, SourceMatrixOffset / sizeof(real));
-    kernels::bindSourceOperandsBatched(volKrnl, localIntegrationPtrs);
-
-    volKrnl.linearAllocator.initialize(tmpMem.get());
-    volKrnl.streamPtr = runtime.stream();
-    volKrnl.execute();
-  }
 
   // the trace of the time integral on every face, which the corrector of the cell reads together
   // with the one its neighbor writes there

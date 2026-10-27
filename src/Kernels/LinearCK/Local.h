@@ -65,7 +65,6 @@ class Local : public LocalKernel {
   kernel::foldedBoundaryFlux foldedBoundaryFlux_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volume deviceVolumeKernelPrototype_;
   kernel::gpu_faceTrace deviceFaceTraceKernelPrototype_;
   kernel::gpu_localFluxNodal deviceNodalLfKrnlPrototype_;
   device::DeviceInstance& device_ = device::DeviceInstance::getInstance();

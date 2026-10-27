@@ -55,7 +55,6 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceVolumeKernelPrototype_.bindGlobals(*global.onDevice);
   deviceFaceTraceKernelPrototype_.bindGlobals(*global.onDevice);
   deviceLocalKernelPrototype_.bindGlobals(*global.onDevice);
 
@@ -231,32 +230,18 @@ void Local::computeBatchedIntegral(
   // and the memory variables through the extended field either way.
   WeightAdjustmentT::clearBatched(dataTable, runtime);
 
-  // Volume integral
+  // The predictor has written the volume term to the extended field already
+  // (Spacetime::computeBatchedAder).
   const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(key) != dataTable.end()) {
     auto& entry = dataTable[key];
     const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
 
-    kernel::gpu_volumeExt volKrnl = deviceVolumeKernelPrototype_;
     kernel::gpu_local localKrnl = deviceLocalKernelPrototype_;
     auto tmpMem = runtime.memoryHandle<real>(
-        (yateto::getMaxTmpMemRequired(
-             volKrnl, localKrnl, deviceDirichletFlux_, deviceFoldedBoundaryFlux_) *
+        (yateto::getMaxTmpMemRequired(localKrnl, deviceDirichletFlux_, deviceFoldedBoundaryFlux_) *
          numElements) /
         sizeof(real));
-
-    volKrnl.numElements = numElements;
-    volKrnl.I =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-    volKrnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
-
-    kernels::bindStarOperandsBatched(
-        volKrnl,
-        const_cast<const real**>(
-            (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr()));
-    volKrnl.linearAllocator.initialize(tmpMem.get());
-    volKrnl.streamPtr = runtime.stream();
-    volKrnl.execute();
 
     // the trace of the time integral on every face, which the corrector of the cell reads together
     // with the one its neighbor writes there

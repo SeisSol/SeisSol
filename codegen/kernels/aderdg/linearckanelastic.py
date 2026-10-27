@@ -280,6 +280,23 @@ class LinearCKAnelastic(ADERDGBase):
             momentQQane["IJm"] <= self.db.M3["ij"] * self.Q["iI"] * self.Qane["jJm"],
         )
 
+    def volumeStatements(self):
+        """The volume term, a step of the chain (volumeDerivatives) applied to
+        the time integral, into the extended field, which the local kernel
+        hands on to the field and the memory variables together with the
+        fluxes of the faces. The operators are the ones the chain applies,
+        assembled by starAssembly. A predictor that applies the volume term
+        (predictorAppliesVolume) writes it there itself; nothing on the device
+        uses the extended field between the predictor and the local kernel but
+        the fluxes of the faces, which add to it."""
+        if self.nodalMaterial:
+            return self.nodalApply(self.I, self.Qext, self.volumeDerivatives())
+        statements, terms = self.modalDerivative(self.I)
+        volumeSum = Accumulate(ops.Add())
+        for term in terms:
+            volumeSum += term
+        return statements + [self.Qext["kp"] <= volumeSum]
+
     def addLocal(self, generator, targets):
         for target in targets:
             # a device kernel writes each temporary once, see
@@ -287,23 +304,12 @@ class LinearCKAnelastic(ADERDGBase):
             with self.singleDefinitions(target == "gpu"):
                 name_prefix = generate_kernel_name_prefix(target)
 
-                if self.nodalMaterial:
-                    volumeExpr = self.nodalApply(
-                        self.I, self.Qext, self.volumeDerivatives()
+                if not self.predictorAppliesVolume(target):
+                    generator.add(
+                        f"{name_prefix}volumeExt",
+                        self.starAssembly() + self.volumeStatements(),
+                        target=target,
                     )
-                else:
-                    # a step of the chain, applied to the time integral
-                    # (volumeDerivatives)
-                    volumeExpr, terms = self.modalDerivative(self.I)
-                    volumeSum = Accumulate(ops.Add())
-                    for term in terms:
-                        volumeSum += term
-                    volumeExpr += [self.Qext["kp"] <= volumeSum]
-                generator.add(
-                    f"{name_prefix}volumeExt",
-                    self.starAssembly() + volumeExpr,
-                    target=target,
-                )
 
                 local_ops = [
                     self.Qane["kpm"]
@@ -513,6 +519,10 @@ class LinearCKAnelastic(ADERDGBase):
                 #   derivativeTaylorExpansionElaExpr,
                 #   derivativeTaylorExpansionAneExpr
                 # ]
+
+                if self.predictorAppliesVolume(target):
+                    # once the time integral is complete
+                    derivativeExpr += self.volumeStatements()
 
                 generator.add(f"{name_prefix}derivative", derivativeExpr, target=target)
                 generator.add(

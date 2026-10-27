@@ -209,7 +209,9 @@ void Spacetime::computeBatchedAder(
     krnl.numElements = numElements;
 
     krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
-    krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+    // the field at the start of the step, to which the kernel adds the volume term of the corrector
+    // once it has solved the time system; the device has no volume kernel
+    krnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
     krnl.timestep = timeStepWidth;
 
     krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();

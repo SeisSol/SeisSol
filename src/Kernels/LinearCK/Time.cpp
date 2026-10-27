@@ -185,8 +185,9 @@ void Spacetime::computeBatchedAder(
       derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
     }
 
-    derivativesKrnl.Q =
-        const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+    // the field at the start of the step, to which the kernel adds the volume term of the corrector
+    // once it has formed the time integral; the device has no volume kernel
+    derivativesKrnl.Q = (entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
 
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
     auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));

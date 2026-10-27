@@ -61,7 +61,13 @@ class STP(LinearCK):
 
     def fusesVolume(self, target):
         """Whether the predictor of a target hands the corrector its volume
-        term, the operator and the source term applied to the time integral.
+        term: on the host, where it forms it (formsVolume). The device has no
+        volume kernel (predictorAppliesVolume)."""
+        return target == "cpu" and self.formsVolume()
+
+    def formsVolume(self):
+        """Whether the predictor forms the volume term, the operator and the
+        source term applied to the time integral.
 
         The first row of the time system the predictor solves tests with the
         function of time that is one: the field at the end of the step less
@@ -74,12 +80,8 @@ class STP(LinearCK):
         basis at the operator of the cell, which is the solution after as many
         steps as there are degrees. The fixed point at the sample points of a
         material that varies inside the cell stops short of it, so such a cell
-        forms the volume term in its corrector.
-
-        The device runs the predictor and the corrector of a batch as two
-        kernels without a buffer per cell between them, so its corrector forms
-        the volume term itself."""
-        return target == "cpu" and not self.nodalMaterial
+        applies the volume term to the time integral (volumeStatements)."""
+        return not self.nodalMaterial
 
     def timeBasisAtEnd(self):
         """The functions of the time basis of the predictor at the end of the
@@ -419,6 +421,17 @@ class STP(LinearCK):
                         <= spaceTimePredictor["kpt"] * self.timeBasisAtEnd()["t"]
                         - self.Q["kp"]
                     )
+                elif self.predictorAppliesVolume(target):
+                    # the field at the end of the step, where the predictor
+                    # forms the volume term; last, since the right-hand side of
+                    # the time system reads the field at the start of the step
+                    if self.formsVolume():
+                        kernels.append(
+                            self.Q["kp"]
+                            <= spaceTimePredictor["kpt"] * self.timeBasisAtEnd()["t"]
+                        )
+                    else:
+                        kernels += self.volumeStatements()
 
                 generator.add(
                     f"{name_prefix}spaceTimePredictor",

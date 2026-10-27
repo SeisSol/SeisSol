@@ -63,6 +63,10 @@ class LocalKernel : public Kernel {
                                double time,
                                double timeStepWidth) = 0;
 
+  /**
+   * @brief computeIntegral for the batches the recorders noted, without the volume integral: on the
+   * device, SpacetimeKernel::computeBatchedAder has applied that already.
+   */
   virtual void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
                                       recording::ConditionalIndicesTable& indicesTable,
                                       double timeStepWidth,

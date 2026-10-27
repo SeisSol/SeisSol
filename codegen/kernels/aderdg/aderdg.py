@@ -1829,6 +1829,23 @@ class ADERDGBase(ABC):
         derivative (see fusesVolume)."""
         return self.db.kDivMT
 
+    def predictorAppliesVolume(self, target):
+        """Whether the predictor of a target applies the volume term of the
+        corrector itself, so that the target has no volume kernel: on the
+        device, which keeps nothing per cell between the kernels of a batch
+        but what the cells hold.
+
+        The volume term is a step of the chain applied to the time integral
+        (volumeDerivatives), through the operators the predictor has put
+        together for the chain already (starAssembly), so the predictor applies
+        it once the time integral is complete. It reads the field at the start
+        of the step only, and nothing on the device reads the field after the
+        predictor and before the corrector adds the fluxes of the faces: the
+        receivers gather it before the predictor runs, the traces and the
+        conditions of the boundary read the time integral, the displacement of
+        a free surface the derivatives."""
+        return target == "gpu"
+
     def sourceTerm(self, source, target):
         """The source term added to a target, in whichever shape this build
         forms it: from the matrix a cell carries, or from the scalars it

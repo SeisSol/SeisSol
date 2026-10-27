@@ -57,6 +57,12 @@ class SpacetimeKernel : public Kernel {
                            real* timeDerivativesOrSTP = nullptr,
                            bool updateDisplacement = false) = 0;
 
+  /**
+   * @brief computeAder for the batch the recorder noted (see recording::LocalIntegrationRecorder),
+   * which also applies the volume term of the corrector once it has formed the time integral: to
+   * the field, or to the extended field where a solver keeps one. The device has no volume kernel,
+   * so LocalKernel::computeBatchedIntegral starts from there.
+   */
   virtual void computeBatchedAder(const real* coeffs,
                                   double timeStepWidth,
                                   LTS::Layer& layer,

@@ -59,7 +59,6 @@ class Local : public LocalKernel {
   kernels::AnalyticalBoundary analyticalBoundary_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volumeExt deviceVolumeKernelPrototype_;
   kernel::gpu_faceTrace deviceFaceTraceKernelPrototype_;
   kernel::gpu_local deviceLocalKernelPrototype_;
 

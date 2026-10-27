@@ -315,6 +315,10 @@ void Spacetime::computeBatchedAder(
       derivativesOffset += tensor::dQ::size(i);
     }
     krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+    // once it has formed the time integral, the kernel writes the volume term of the corrector to
+    // the extended field, which the local kernel hands on to the field and the memory variables
+    // together with the fluxes of the faces; the device has no volume kernel
+    krnl.Qext = (entry.get(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
 
     kernels::bindStarOperandsBatched(
         krnl,
@@ -346,6 +350,9 @@ void Spacetime::computeBatchedAder(
       krnl.power(der) = coeffs[der];
     }
 
+    const auto maxTmpMem = yateto::getMaxTmpMemRequired(krnl);
+    auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
+    krnl.linearAllocator.initialize(tmpMem.get());
     krnl.streamPtr = runtime.stream();
     krnl.execute();
   }

@@ -364,15 +364,51 @@ class TestNarrowedDerivatives:
         assert not adg.narrowsDerivatives()
 
 
+class _KernelRecorder:
+    """Stands in for the generator: records the statements of every kernel a
+    solver adds, every member of a family by its parameters."""
+
+    def __init__(self):
+        self.kernels = {}
+
+    @staticmethod
+    def _statements(ast):
+        return ast if isinstance(ast, list) else [ast]
+
+    def add(self, name, ast, prefetch=None, namespace=None, target="cpu", attrs=None):
+        self.kernels[name] = self._statements(ast)
+
+    def addFamily(
+        self,
+        name,
+        parameterSpace,
+        astGenerator,
+        prefetchGenerator=None,
+        namespace=None,
+        target="cpu",
+        attrs=None,
+    ):
+        self.kernels[name] = {
+            parameters: self._statements(astGenerator(*parameters))
+            for parameters in parameterSpace
+        }
+
+
+def _written(statements):
+    """The tensors a list of statements writes, in order."""
+    return [statement.leftTerm().viewed().name() for statement in statements]
+
+
 class TestFusedVolume:
     """Where the operator is one per cell, the predictor of the host hands the
     corrector its volume term, the field at the end of the step less the one at
     its start, where it forms that exactly: the Taylor expansion of a chain
-    without a source term, and the space-time predictor. The device, a material
-    that varies inside a cell and a chain with a source term keep the volume
-    term in the corrector."""
+    without a source term, and the space-time predictor. A material that
+    varies inside a cell and a chain with a source term keep the volume term in
+    the corrector of the host. The device has no volume kernel: its predictor
+    applies the volume term, whichever way it forms it."""
 
-    def _make(self, equation, solver, numMechanisms=0, nodal=False):
+    def _make(self, equation, solver, numMechanisms=0, nodal=False, targets=("cpu",)):
         import importlib
 
         kwargs = dict(
@@ -388,7 +424,7 @@ class TestFusedVolume:
             material_points="sq",
             material_operator="assembled",
             material_narrow_derivatives=False,
-            targets=["cpu"],
+            targets=list(targets),
             old_gpu_interface=False,
         )
         module = importlib.import_module(f"kernels.equations.{equation}")
@@ -418,8 +454,44 @@ class TestFusedVolume:
         assert adg.fusesVolume("cpu")
         assert not adg.fusesVolume("gpu")
         # its derivative chain has a source term, and forms none
-        assert not adg.chainFormsVolume("cpu")
+        assert not adg.chainFormsVolume()
         assert not self._make("poroelastic", "stp", nodal=True).fusesVolume("cpu")
+
+    @pytest.mark.parametrize(
+        "equation,solver,mechanisms,nodal",
+        [
+            ("elastic", "linearck", 0, False),
+            ("elastic", "linearck", 0, True),
+            ("viscoelastic", "linearck", 3, False),
+            ("viscoelastic", "linearckanelastic", 3, False),
+            ("viscoelastic", "linearckanelastic", 3, True),
+            ("poroelastic", "stp", 0, False),
+            ("poroelastic", "stp", 0, True),
+        ],
+    )
+    def test_device_predictor_applies_volume(self, equation, solver, mechanisms, nodal):
+        """The device has no volume kernel: its predictor applies the volume
+        term once it has formed the time integral, to the field, or to the
+        extended field the local kernel hands on, for every solver and every
+        way of forming the term. The host keeps its volume kernel."""
+        adg = self._make(
+            equation,
+            solver,
+            numMechanisms=mechanisms,
+            nodal=nodal,
+            targets=("cpu", "gpu"),
+        )
+        assert adg.predictorAppliesVolume("gpu")
+        assert not adg.predictorAppliesVolume("cpu")
+        recorder = _KernelRecorder()
+        adg.addLocal(recorder, ["cpu", "gpu"])
+        adg.addTime(recorder, ["cpu", "gpu"])
+        volume = "volumeExt" if solver == "linearckanelastic" else "volume"
+        assert volume in recorder.kernels
+        assert f"gpu_{volume}" not in recorder.kernels
+        predictor = "gpu_spaceTimePredictor" if solver == "stp" else "gpu_derivative"
+        target = "Qext" if solver == "linearckanelastic" else "Q"
+        assert _written(recorder.kernels[predictor])[-1] == target
 
 
 class TestLeftFactor:
