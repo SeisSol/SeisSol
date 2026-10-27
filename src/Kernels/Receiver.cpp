@@ -357,11 +357,8 @@ void ReceiverClusterImpl<Cfg>::sampleAtRunTime([[maybe_unused]] const double* de
   callRuntime.enqueueHost(sampleStep);
 }
 
-void* ReceiverCluster::sampleStream() {
-  if (extraRuntime_.has_value()) {
-    return extraRuntime_->stream();
-  }
-  return nullptr;
+parallel::runtime::StreamRuntime* ReceiverCluster::sampleRuntime() {
+  return extraRuntime_.has_value() ? &extraRuntime_.value() : nullptr;
 }
 
 template <typename Cfg>

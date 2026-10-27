@@ -18,6 +18,7 @@
 #include "Solver/TimeStepping/Actor/ActorState.h"
 
 #include <Device/device.h>
+#include <memory>
 #include <utility>
 #endif
 
@@ -54,29 +55,28 @@ StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount,
                                                  LaunchOrder order,
                                                  std::size_t configCount)
     : ExchangeScheduler(clusterCount, order, configCount), clusterCount_(clusterCount),
-      streams_(order == LaunchOrder::Global ? 1 : clusterCount * clusterCount, nullptr) {
+      runtimes_(order == LaunchOrder::Global ? 1 : clusterCount * clusterCount) {
   for (const auto current : usedSlots()) {
-    streams_[current] = deviceInstance().api().createStream();
+    runtimes_[current] = std::make_unique<parallel::runtime::StreamRuntime>();
   }
 }
 
 StreamExchangeScheduler::~StreamExchangeScheduler() {
   synchronize();
-  // the pool goes before the members of the base class, and its events with it
+  // the pools go before the members of the base class, and their events with them
   forgetEvents();
   pendingEvents_.clear();
-  events_.dispose();
-  for (auto* stream : streams_) {
-    if (stream != nullptr) {
-      deviceInstance().api().destroyGenericStream(stream);
+  for (auto& runtime : runtimes_) {
+    if (runtime != nullptr) {
+      runtime->dispose();
     }
   }
 }
 
 void StreamExchangeScheduler::synchronize() {
-  for (auto* stream : streams_) {
-    if (stream != nullptr) {
-      deviceInstance().api().syncStreamWithHost(stream);
+  for (auto& runtime : runtimes_) {
+    if (runtime != nullptr) {
+      runtime->wait();
     }
   }
 }
@@ -86,31 +86,30 @@ ExchangeScheduler::Ticket StreamExchangeScheduler::launch(std::size_t from,
                                                           std::size_t exchange,
                                                           const ScheduledTransport* sender,
                                                           const ScheduledTransport* receiver,
-                                                          const std::vector<void*>& after) {
+                                                          const std::vector<ActorEvent>& after) {
   const auto current = slot(from, to);
-  auto* stream = streams_[current];
-  if (stream == nullptr) {
+  if (runtimes_[current] == nullptr) {
     logError() << "There is no stream for the halo exchange from cluster" << from << "to cluster"
                << to;
   }
-  for (auto* event : after) {
-    deviceInstance().api().syncStreamWithEvent(stream, event);
+  auto& runtime = *runtimes_[current];
+  for (const auto& event : after) {
+    runtime.eventSync(event);
   }
 
   // the time from where the group can start, the waits for the remote side included
   const bool timed = timer_ != nullptr;
-  const auto interval = timed ? timer_->begin(stream) : DeviceTimer::Interval{};
+  const auto interval = timed ? timer_->begin(runtime.stream()) : DeviceTimer::Interval{};
   enqueueGroup(current, from, to, exchange, sender, receiver);
   if (timed) {
-    timer_->end(interval, stream, deviceTime_);
+    timer_->end(interval, runtime.stream(), deviceTime_);
   }
 
-  auto event = events_.next();
-  deviceInstance().api().recordEventOnStream(event.get(), stream);
+  auto event = runtime.eventRecord();
   const auto ticket = nextTicket_++;
   if (streamOrdered()) {
     // the dependent work waits for the event on the device; whoever gets it to wait for keeps it
-    setLatestEvent(ActorEvent(std::move(event)));
+    setLatestEvent(std::move(event));
   } else {
     pendingEvents_.emplace(ticket, std::move(event));
   }
@@ -130,18 +129,26 @@ bool StreamExchangeScheduler::completed(Ticket ticket) {
   return false;
 }
 
-std::vector<void*> StreamExchangeScheduler::streams() const {
-  std::vector<void*> result;
-  for (auto* stream : streams_) {
-    if (stream != nullptr) {
-      result.push_back(stream);
+std::vector<parallel::runtime::StreamRuntime*> StreamExchangeScheduler::runtimes() const {
+  std::vector<parallel::runtime::StreamRuntime*> result;
+  for (const auto& runtime : runtimes_) {
+    if (runtime != nullptr) {
+      result.push_back(runtime.get());
     }
   }
   return result;
 }
 
 ExchangeScheduler::EventUsage StreamExchangeScheduler::eventUsage() const {
-  return {events_.size(), events_.peakReferenced()};
+  // summed over the runtimes; the peaks need not have been at the same time
+  EventUsage usage;
+  for (const auto& runtime : runtimes_) {
+    if (runtime != nullptr) {
+      usage.pool += runtime->eventPool().size();
+      usage.peak += runtime->eventPool().peakReferenced();
+    }
+  }
+  return usage;
 }
 
 #else
@@ -157,18 +164,21 @@ StreamExchangeScheduler::~StreamExchangeScheduler() = default;
 
 void StreamExchangeScheduler::synchronize() {}
 
-ExchangeScheduler::Ticket StreamExchangeScheduler::launch(std::size_t /*from*/,
-                                                          std::size_t /*to*/,
-                                                          std::size_t /*exchange*/,
-                                                          const ScheduledTransport* /*sender*/,
-                                                          const ScheduledTransport* /*receiver*/,
-                                                          const std::vector<void*>& /*after*/) {
+ExchangeScheduler::Ticket
+    StreamExchangeScheduler::launch(std::size_t /*from*/,
+                                    std::size_t /*to*/,
+                                    std::size_t /*exchange*/,
+                                    const ScheduledTransport* /*sender*/,
+                                    const ScheduledTransport* /*receiver*/,
+                                    const std::vector<ActorEvent>& /*after*/) {
   return 0;
 }
 
 bool StreamExchangeScheduler::completed(Ticket /*ticket*/) { return true; }
 
-std::vector<void*> StreamExchangeScheduler::streams() const { return {}; }
+std::vector<parallel::runtime::StreamRuntime*> StreamExchangeScheduler::runtimes() const {
+  return {};
+}
 
 ExchangeScheduler::EventUsage StreamExchangeScheduler::eventUsage() const { return {}; }
 

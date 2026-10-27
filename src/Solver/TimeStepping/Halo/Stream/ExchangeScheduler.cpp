@@ -208,13 +208,11 @@ void ExchangeScheduler::forgetEvents() {
 void ExchangeScheduler::launchNext(std::size_t from, std::size_t to) {
   auto& current = direction(from, to);
   // the events stay reserved until the group has been launched, i.e. its waits are enqueued
-  std::vector<ActorEvent> held;
-  std::vector<void*> after;
+  std::vector<ActorEvent> after;
   for (auto* queue : {&current.sendsAfter, &current.receivesAfter}) {
     if (!queue->empty()) {
       if (queue->front()) {
-        after.push_back(queue->front().get());
-        held.push_back(std::move(queue->front()));
+        after.push_back(std::move(queue->front()));
       }
       queue->pop_front();
     }

@@ -181,8 +181,10 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
   }
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    // only the face relations with cells get a branch, and so a node in a graph
     runtime.envMany(
-        (*FaceRelations::PerFace) + (*DrFaceRelations::PerFace), [&](void* stream, size_t i) {
+        (*FaceRelations::PerFace) + (*DrFaceRelations::PerFace),
+        [&](void* stream, size_t i) {
           // regular and periodic
           if (i < (*FaceRelations::PerFace)) {
             // regular and periodic
@@ -238,6 +240,18 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
                seissol::dynamicRupture::kernel::gpu_nodalFlux<Cfg>::ExecutePtrs[faceRelation])();
             }
           }
+        },
+        [&](size_t i) {
+          // the face relations with cells; the side is the minor index of the dynamic rupture
+          // ones, cf. the NeighIntegrationRecorder
+          const bool regular = i < (*FaceRelations::PerFace);
+          const ConditionalKey key(*KernelNames::NeighborFlux,
+                                   regular ? *FaceKinds::Regular : *FaceKinds::DynamicRupture,
+                                   face,
+                                   regular
+                                       ? i + (*FaceRelations::PerFace) * face
+                                       : face + Cell::NumFaces * (i - (*FaceRelations::PerFace)));
+          return table.find(key) != table.end();
         });
   }
 

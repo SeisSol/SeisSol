@@ -60,10 +60,10 @@ class OutputManager {
   [[nodiscard]] bool hasPickpoints(std::size_t layerId) const;
 
   /**
-   * The stream the fault receivers of the layer take their samples on, if it is one of their own;
-   * null otherwise.
+   * The stream runtime the fault receivers of the layer take their samples on, if it is one of
+   * their own; null otherwise.
    */
-  [[nodiscard]] void* pickpointStream(std::size_t layerId);
+  [[nodiscard]] parallel::runtime::StreamRuntime* pickpointRuntime(std::size_t layerId);
 
   /**
    * For fault receivers whose samples get decided when the work of a step runs: waits until

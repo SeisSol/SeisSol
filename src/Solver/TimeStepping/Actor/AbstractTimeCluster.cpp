@@ -187,7 +187,7 @@ void AbstractTimeCluster::waitForNeighbors() {
     // everything a neighbor did before this action has been enqueued before it
     for (const auto& neighbor : neighbors_) {
       if (const auto event = neighbor.progress->event()) {
-        waitForEvent(event.get());
+        waitForEvent(event);
       }
     }
   }

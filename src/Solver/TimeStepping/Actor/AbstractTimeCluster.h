@@ -21,6 +21,10 @@
 #include <utility>
 #include <vector>
 
+namespace seissol::parallel::runtime {
+class StreamRuntime;
+} // namespace seissol::parallel::runtime
+
 namespace seissol::solver {
 
 class AbstractTimeCluster {
@@ -70,7 +74,7 @@ class AbstractTimeCluster {
   /**
    * Makes the work enqueued from now on wait for the event.
    */
-  virtual void waitForEvent(void* /*event*/) {}
+  virtual void waitForEvent(const ActorEvent& /*event*/) {}
 
   [[nodiscard]] bool concurrent() const { return concurrent_; }
 
@@ -300,27 +304,17 @@ class AbstractTimeCluster {
   virtual void setRunTimeOutputs(bool /*runTimeOutputs*/) {}
 
   /**
-   * The stream the outputs of this cluster take their samples on, if they have one of their own
-   * besides the streams of the cluster; null otherwise. A recording of the work of the cluster has
-   * to comprise it.
+   * The stream runtimes that the device work of this cluster goes through: its own, and those of
+   * its outputs that take their samples on streams of their own. A recording of the work of the
+   * cluster has to comprise them all.
    */
-  [[nodiscard]] virtual void* outputStream() { return nullptr; }
+  [[nodiscard]] virtual std::vector<parallel::runtime::StreamRuntime*> runtimes() { return {}; }
 
   /**
    * Without device work, an action only runs its host part and keeps the books; its device work
    * then has to come from elsewhere, e.g. a recording.
    */
   void setDeviceWork(bool deviceWork) { deviceWork_ = deviceWork; }
-
-  /**
-   * Makes the work enqueued from now on wait for the event.
-   */
-  void joinEvent(void* event) { waitForEvent(event); }
-
-  /**
-   * Returns an event that completes with the work enqueued so far; empty if there is none.
-   */
-  ActorEvent markEvent() { return recordActionEvent(); }
 
   /**
    * The event that completes with the work of the latest action; empty if there is none.

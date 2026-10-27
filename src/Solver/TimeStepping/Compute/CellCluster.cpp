@@ -58,6 +58,7 @@
 #include <string>
 #include <utility>
 #include <utils/logger.h>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
@@ -721,17 +722,17 @@ void CellCluster<Cfg>::timeSet(double time) {
 
 template <typename Cfg>
 ActorEvent CellCluster<Cfg>::recordActionEvent() {
-  return ActorEvent(streamRuntime_.eventRecord());
+  return streamRuntime_.eventRecord();
 }
 
 template <typename Cfg>
-void CellCluster<Cfg>::waitForEvent(SEISSOL_GPU_PARAM void* event) {
+void CellCluster<Cfg>::waitForEvent(SEISSOL_GPU_PARAM const ActorEvent& event) {
 #ifdef ACL_DEVICE
   if (executor_ == Executor::Host) {
-    // the host kernels run right away, so the host has to wait
-    device_.api().syncEventWithHost(event);
+    // the host kernels run right away, so the host has to wait (they never get recorded)
+    device_.api().syncEventWithHost(event.get());
   } else {
-    device_.api().syncStreamWithEvent(streamRuntime_.stream(), event);
+    streamRuntime_.eventSync(event);
   }
 #endif
 }
@@ -776,8 +777,12 @@ void CellCluster<Cfg>::setRunTimeOutputs(bool runTimeOutputs) {
 }
 
 template <typename Cfg>
-void* CellCluster<Cfg>::outputStream() {
-  return receiverCluster_ != nullptr ? receiverCluster_->sampleStream() : nullptr;
+std::vector<parallel::runtime::StreamRuntime*> CellCluster<Cfg>::runtimes() {
+  std::vector<parallel::runtime::StreamRuntime*> runtimes{&streamRuntime_};
+  if (receiverCluster_ != nullptr && receiverCluster_->sampleRuntime() != nullptr) {
+    runtimes.push_back(receiverCluster_->sampleRuntime());
+  }
+  return runtimes;
 }
 
 template <typename Cfg>

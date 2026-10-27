@@ -278,14 +278,14 @@ class CellCluster : public CellClusterInterface {
 
   protected:
   ActorEvent recordActionEvent() override;
-  void waitForEvent(void* event) override;
+  void waitForEvent(const ActorEvent& event) override;
   void timeSet(double time) override;
   StepWork prepare(ActorAction action) override;
 
   public:
   [[nodiscard]] bool outputsAhead(long steps) const override;
   [[nodiscard]] bool hostWork() const override;
-  [[nodiscard]] void* outputStream() override;
+  [[nodiscard]] std::vector<parallel::runtime::StreamRuntime*> runtimes() override;
 
   protected:
   public:

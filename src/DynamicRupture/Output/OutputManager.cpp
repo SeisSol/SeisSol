@@ -546,9 +546,9 @@ bool OutputManager::hasPickpoints(std::size_t layerId) const {
   return this->ppOutputBuilder_ && ppOutputData_.find(layerId) != ppOutputData_.end();
 }
 
-void* OutputManager::pickpointStream(std::size_t layerId) {
+parallel::runtime::StreamRuntime* OutputManager::pickpointRuntime(std::size_t layerId) {
   auto& outputData = ppOutputData_.at(layerId);
-  return outputData->extraRuntime.has_value() ? outputData->extraRuntime->stream() : nullptr;
+  return outputData->extraRuntime.has_value() ? &outputData->extraRuntime.value() : nullptr;
 }
 
 parallel::runtime::StreamRuntime&

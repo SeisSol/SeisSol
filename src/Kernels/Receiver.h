@@ -184,10 +184,10 @@ class ReceiverCluster {
   void waitForSamples();
 
   /**
-   * The stream the samples of device clusters are taken on, if it is not the one of the cluster;
-   * null otherwise.
+   * The stream runtime the samples of device clusters are taken on, if it is not the one of the
+   * cluster; null otherwise.
    */
-  [[nodiscard]] void* sampleStream();
+  [[nodiscard]] parallel::runtime::StreamRuntime* sampleRuntime();
 
   protected:
   std::optional<parallel::runtime::StreamRuntime> extraRuntime_;

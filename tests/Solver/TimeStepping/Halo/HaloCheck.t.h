@@ -8,6 +8,7 @@
 #include <doctest.h>
 
 #include "Common/Real.h"
+#include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/HaloCheck.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
@@ -122,7 +123,7 @@ class LoopbackScheduler : public ExchangeScheduler {
                 std::size_t /*exchange*/,
                 const ScheduledTransport* sender,
                 const ScheduledTransport* receiver,
-                const std::vector<void*>& /*after*/) override {
+                const std::vector<ActorEvent>& /*after*/) override {
     for (const auto& copy : sender->regions().copy) {
       for (const auto& ghost : receiver->regions().ghost) {
         if (ghost.tag == copy.tag) {

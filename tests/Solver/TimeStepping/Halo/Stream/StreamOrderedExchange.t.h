@@ -124,9 +124,11 @@ class StreamDevices {
   void endRecording(int process) { recordings_.erase(process); }
 
   void work(std::size_t stream, std::size_t actor, ActorAction action) {
+    enqueueDeferred(stream);
     streams_[stream].push_back({Kind::Work, actor, action, 0, 0});
   }
   void wait(std::size_t stream, Event event) {
+    enqueueDeferred(stream);
     if (destroyed_.count(event) > 0) {
       ++destroyedUses;
       return;
@@ -140,6 +142,7 @@ class StreamDevices {
     streams_[stream].push_back({Kind::Wait, 0, ActorAction::Nothing, record, 0});
   }
   void record(std::size_t stream, Event event) {
+    enqueueDeferred(stream);
     if (destroyed_.count(event) > 0) {
       ++destroyedUses;
     }
@@ -152,8 +155,51 @@ class StreamDevices {
     streams_[stream].push_back({Kind::Record, 0, ActorAction::Nothing, record, 0});
   }
   void group(std::size_t stream, Group group) {
+    enqueueDeferred(stream);
     groups_.push_back(std::move(group));
     streams_[stream].push_back({Kind::Group, 0, ActorAction::Nothing, 0, groups_.size() - 1});
+  }
+
+  /**
+   * Makes the next item of the stream wait for the event, as a stream runtime does with a wait it
+   * defers (see StreamRuntime::deferWait()); or lets go of the deferred wait with an empty event.
+   */
+  void deferWait(std::size_t stream, ActorEvent event) {
+    if (event) {
+      deferred_[stream] = std::move(event);
+    } else {
+      deferred_.erase(stream);
+    }
+  }
+
+  /// whether the stream still defers its wait for the event, i.e. has had no item since
+  [[nodiscard]] bool defersWaitFor(std::size_t stream, const ActorEvent& event) const {
+    const auto found = deferred_.find(stream);
+    return event && found != deferred_.end() && found->second == event;
+  }
+
+  /// whether a stream still defers its wait for the event
+  [[nodiscard]] bool defers(Event event) const {
+    return std::any_of(deferred_.begin(), deferred_.end(), [&](const auto& deferred) {
+      return deferred.second.get() == event;
+    });
+  }
+
+  /// enqueues the deferred wait of the stream, if any
+  void enqueueDeferred(std::size_t stream) {
+    const auto found = deferred_.find(stream);
+    if (found != deferred_.end()) {
+      const auto event = std::move(found->second);
+      deferred_.erase(found);
+      wait(stream, event.get());
+    }
+  }
+
+  /// enqueues all deferred waits, as the time manager does at the end of an epoch
+  void enqueueDeferred() {
+    while (!deferred_.empty()) {
+      enqueueDeferred(deferred_.begin()->first);
+    }
   }
 
   /**
@@ -319,6 +365,7 @@ class StreamDevices {
   std::map<std::size_t, int> processes_;
   std::map<int, std::size_t> recordings_;
   std::size_t lastRecording_{0};
+  std::map<std::size_t, ActorEvent> deferred_;
 
   // the handles of the events (a deque keeps their addresses), the destroyed ones, and the ones
   // free to be handed out again, the one destroyed last at the back
@@ -366,7 +413,7 @@ class StreamCopyCluster : public AbstractTimeCluster {
     return ActorEvent(std::move(event));
   }
 
-  void waitForEvent(void* event) override { devices_.wait(actor_, event); }
+  void waitForEvent(const ActorEvent& event) override { devices_.wait(actor_, event.get()); }
 
   private:
   std::size_t actor_;
@@ -442,10 +489,10 @@ class StreamScheduler : public ExchangeScheduler {
                 std::size_t /*exchange*/,
                 const ScheduledTransport* sender,
                 const ScheduledTransport* receiver,
-                const std::vector<void*>& after) override {
+                const std::vector<ActorEvent>& after) override {
     const auto stream = StreamOffset + static_cast<std::size_t>(process_);
-    for (auto* event : after) {
-      devices_.wait(stream, event);
+    for (const auto& event : after) {
+      devices_.wait(stream, event.get());
     }
     StreamDevices::Group group{process_, {}, {}, false, NoActor, 0, NoActor, 0};
     if (sender != nullptr) {
@@ -504,6 +551,10 @@ struct Neighborhood {
  * Records the work of one process into a graph, from any point on, as the `SuperStepRecorder` and
  * the `TimeManager` do on the device and with the scheduler; the replay follows right after the
  * recording. Its events come from a pool, as those of the `SuperStepRecorder` do.
+ *
+ * The work of the clusters and of the scheduler goes into the graph through their stream runtimes,
+ * as nodes; where it waits for each other, the graph gets an edge, which the model takes as a wait
+ * for an event recorded inside the recording.
  */
 class ProcessRecorder {
   public:
@@ -531,60 +582,69 @@ class ProcessRecorder {
   }
 
   void begin() {
-    // The replay waits for the latest work of the clusters and the streams before the recording,
-    // as noted now; the recorder keeps the events until then (SuperStepRecorder::beginReplay()).
-    // The model runs the recorded work right away, so it enqueues the waits right away as well.
+    // The replay waits for the latest work of the streams before the recording, as noted now; the
+    // recorder keeps the events until then (SuperStepRecorder::beginReplay()). A stream that has
+    // had no work since the latest replay is behind it already, as the replays follow each other
+    // on the stream of the recorder. The model runs the recorded work right away, so it enqueues
+    // the waits right away as well.
     waitFor_.clear();
-    for (auto* cluster : clusters_) {
-      waitFor_.push_back(cluster->latestEvent());
-    }
-    auto before = events_.next();
-    devices_.record(schedulerStream(), before.get());
-    waitFor_.emplace_back(std::move(before));
-    for (const auto& event : waitFor_) {
-      if (event) {
-        devices_.wait(recorderStream(), event.get());
+    for (const auto stream : streams()) {
+      if (!devices_.defersWaitFor(stream, last_)) {
+        auto event = events_.next();
+        devices_.record(stream, event.get());
+        waitFor_.emplace_back(std::move(event));
       }
+    }
+    for (const auto& event : waitFor_) {
+      devices_.wait(recorderStream(), event.get());
+    }
+
+    // The recorded work starts with the replay, after the waits; the streams let go of the waits
+    // they defer (StreamRuntime::attach()). The replay has no event for its start, so the model
+    // has the streams wait for one before the recording begins.
+    const auto start = events_.next();
+    devices_.record(recorderStream(), start.get());
+    for (const auto stream : streams()) {
+      devices_.deferWait(stream, ActorEvent());
+      devices_.wait(stream, start.get());
     }
 
     devices_.beginRecording(process_);
     recording_ = true;
-    fork_ = ActorEvent(events_.next());
-    devices_.record(recorderStream(), fork_.get());
+    // inside the recording, nobody waits for anything from before it
     for (auto* cluster : clusters_) {
-      cluster->joinEvent(fork_.get());
-      cluster->publishEvent(fork_);
+      cluster->publishEvent(ActorEvent());
     }
-    devices_.wait(schedulerStream(), fork_.get());
-    scheduler_.restartAfter(fork_);
+    scheduler_.restartAfter(ActorEvent());
   }
 
   void end() {
-    for (const auto stream : copyStreams_) {
+    // the replay ends once all of its work has; the model has the recorder wait for each stream
+    for (const auto stream : streams()) {
       join(stream);
     }
-    join(schedulerStream());
     devices_.endRecording(process_);
     recording_ = false;
 
     // the replay has enqueued its waits
     waitFor_.clear();
 
-    // everything enqueued from now on comes after the replay
+    // everything enqueued from now on comes after the replay; the streams wait for it with the
+    // next work they get
     last_ = ActorEvent(events_.next());
     devices_.record(recorderStream(), last_.get());
+    for (const auto stream : streams()) {
+      devices_.deferWait(stream, last_);
+    }
     for (auto* cluster : clusters_) {
-      cluster->joinEvent(last_.get());
       cluster->publishEvent(last_);
     }
-    devices_.wait(schedulerStream(), last_.get());
     scheduler_.restartAfter(last_);
   }
 
   /// as in the end; returns the number of events still referenced
   std::size_t dispose() {
     waitFor_.clear();
-    fork_ = ActorEvent();
     last_ = ActorEvent();
     return events_.dispose();
   }
@@ -595,6 +655,13 @@ class ProcessRecorder {
   }
   [[nodiscard]] std::size_t schedulerStream() const {
     return StreamScheduler::StreamOffset + static_cast<std::size_t>(process_);
+  }
+
+  /// the streams of the stream runtimes of the process: of the copy layers, and of the scheduler
+  [[nodiscard]] std::vector<std::size_t> streams() const {
+    auto streams = copyStreams_;
+    streams.push_back(schedulerStream());
+    return streams;
   }
 
   void join(std::size_t stream) {
@@ -611,7 +678,6 @@ class ProcessRecorder {
   std::vector<AbstractTimeCluster*> clusters_;
   bool recording_{false};
   std::vector<ActorEvent> waitFor_;
-  ActorEvent fork_;
   ActorEvent last_;
 };
 
@@ -747,15 +813,16 @@ inline void runStreamOrdered(int processes,
     actors.push_back(ghost.get());
   }
 
-  // an event is still meant to be waited for while a cluster publishes it, or while a recorder
-  // has yet to wait for it
+  // an event is still meant to be waited for while a cluster publishes it, while a recorder has
+  // yet to wait for it, or while a stream defers its wait for it
   devices.awaited = [&](StreamDevices::Event event) {
     return std::any_of(actors.begin(),
                        actors.end(),
                        [&](const auto* actor) { return actor->latestEvent().get() == event; }) ||
-           std::any_of(recorders.begin(), recorders.end(), [&](const auto& recorder) {
-             return recorder->awaits(event);
-           });
+           std::any_of(recorders.begin(),
+                       recorders.end(),
+                       [&](const auto& recorder) { return recorder->awaits(event); }) ||
+           devices.defers(event);
   };
 
   std::bernoulli_distribution deviceRuns(0.3);
@@ -813,6 +880,7 @@ inline void runStreamOrdered(int processes,
         recorder->end();
       }
     }
+    devices.enqueueDeferred();
   }
   if (stuck || !devices.drain(random)) {
     ++outcome.stuck;

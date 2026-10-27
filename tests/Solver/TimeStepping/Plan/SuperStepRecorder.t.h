@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/Plan/SuperStepRecorder.h"
 
 #include <vector>
@@ -21,11 +22,11 @@ namespace seissol::unit_test {
 
 namespace supersteprecorder {
 
-/// The device work of a super-timestep: copies `source` to `target` on the stream.
+/// The device work of a super-timestep: copies `source` to `target`, through a stream runtime.
 class CopyOnDevice {
   public:
   CopyOnDevice()
-      : api_(::device::DeviceInstance::instance().api()), stream_(api_.createStream()),
+      : api_(::device::DeviceInstance::instance().api()),
         source_(static_cast<int*>(api_.allocGlobMem(sizeof(int)))),
         target_(static_cast<int*>(api_.allocGlobMem(sizeof(int)))) {
     setSource(0);
@@ -36,7 +37,7 @@ class CopyOnDevice {
     api_.syncDevice();
     api_.freeGlobMem(source_);
     api_.freeGlobMem(target_);
-    api_.destroyGenericStream(stream_);
+    runtime_.dispose();
   }
   CopyOnDevice(const CopyOnDevice&) = delete;
   CopyOnDevice(CopyOnDevice&&) = delete;
@@ -45,7 +46,7 @@ class CopyOnDevice {
 
   void setSource(int value) { api_.copyTo(source_, &value, sizeof(int)); }
 
-  void enqueue() { api_.copyBetweenAsync(target_, source_, sizeof(int), stream_); }
+  void enqueue() { api_.copyBetweenAsync(target_, source_, sizeof(int), runtime_.stream()); }
 
   /// the target, once the device is past everything
   [[nodiscard]] int target() {
@@ -55,11 +56,19 @@ class CopyOnDevice {
     return value;
   }
 
-  [[nodiscard]] std::vector<void*> streams() const { return {stream_}; }
+  [[nodiscard]] solver::SuperStepRecorder::Runtimes runtimes() { return {&runtime_}; }
+
+  /// whether the work enqueued next waits for the event first (see StreamRuntime::deferWait())
+  [[nodiscard]] bool defersWaitFor(const parallel::runtime::Event& event) const {
+    return runtime_.defersWaitFor(event);
+  }
+
+  /// lets go of the event of the latest replay, as at the end of an epoch
+  void enqueueDeferredWait() { runtime_.enqueueDeferredWait(); }
 
   private:
   ::device::AbstractAPI& api_;
-  void* stream_{nullptr};
+  parallel::runtime::StreamRuntime runtime_;
   int* source_{nullptr};
   int* target_{nullptr};
 };
@@ -85,30 +94,40 @@ TEST_CASE("A recorded super-timestep replays its work, on the data of the time o
 
   // a recording only runs once replayed
   work.setSource(1);
-  recorder.beginRecording({}, work.streams());
+  recorder.beginRecording({}, work.runtimes());
   work.enqueue();
-  recorder.endRecording(key, {}, work.streams());
+  recorder.endRecording(key);
   CHECK(recorder.has(key));
   CHECK_FALSE(recorder.has(otherKey));
   CHECK(work.target() == 0);
-  recorder.replay(key, {}, work.streams());
+  recorder.replay(key, {}, work.runtimes());
   CHECK(work.target() == 1);
+
+  // the work of the runtime waits for the replay only once it gets some
+  CHECK(work.defersWaitFor(recorder.lastEvent()));
 
   // a replay takes the data as it is then
   work.setSource(2);
-  recorder.beginReplay({}, work.streams());
-  recorder.replay(key, {}, work.streams());
+  recorder.beginReplay(work.runtimes());
+  recorder.replay(key, {}, work.runtimes());
+  CHECK(work.target() == 2);
+
+  // the next work of the runtime waits for the replay
+  CHECK(work.defersWaitFor(recorder.lastEvent()));
+  work.enqueue();
+  CHECK_FALSE(work.defersWaitFor(recorder.lastEvent()));
   CHECK(work.target() == 2);
 
   // launched once, a recording runs, but is not kept
   work.setSource(3);
-  recorder.beginRecording({}, work.streams());
+  recorder.beginRecording({}, work.runtimes());
   work.enqueue();
-  recorder.endRecordingAndLaunch({}, work.streams());
+  recorder.endRecordingAndLaunch({}, work.runtimes());
   CHECK(work.target() == 3);
   CHECK_FALSE(recorder.has(otherKey));
 
   // an epoch that has replayed a recording keeps it; the next one without a replay lets it go
+  work.enqueueDeferredWait();
   recorder.forgetUnused();
   CHECK(recorder.has(key));
   recorder.forgetUnused();

@@ -189,7 +189,7 @@ class SimulatedScheduler : public ExchangeScheduler {
                 std::size_t /*exchange*/,
                 const ScheduledTransport* sender,
                 const ScheduledTransport* receiver,
-                const std::vector<void*>& /*after*/) override {
+                const std::vector<ActorEvent>& /*after*/) override {
     const auto communicator = single_ ? 0 : from * clusterCount_ + to;
     std::vector<RendezvousNetwork::Operation> group;
     if (sender != nullptr) {
@@ -232,8 +232,11 @@ class WaitRecordingScheduler : public ExchangeScheduler {
                 std::size_t /*exchange*/,
                 const ScheduledTransport* /*sender*/,
                 const ScheduledTransport* /*receiver*/,
-                const std::vector<void*>& after) override {
-    waits.push_back(after);
+                const std::vector<ActorEvent>& after) override {
+    auto& waited = waits.emplace_back();
+    for (const auto& event : after) {
+      waited.push_back(event.get());
+    }
     setLatestEvent(ActorEvent(&events.emplace_back()));
     return waits.size();
   }

@@ -359,11 +359,15 @@ void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params,
 }
 
 template <typename Cfg>
-void* DynamicRuptureCluster<Cfg>::outputStream() {
-  if (faultOutputManager_ == nullptr || !faultOutputManager_->hasPickpoints(layerData_->id())) {
-    return nullptr;
+std::vector<parallel::runtime::StreamRuntime*> DynamicRuptureCluster<Cfg>::runtimes() {
+  std::vector<parallel::runtime::StreamRuntime*> runtimes{&streamRuntime_};
+  if (faultOutputManager_ != nullptr && faultOutputManager_->hasPickpoints(layerData_->id())) {
+    auto* runtime = faultOutputManager_->pickpointRuntime(layerData_->id());
+    if (runtime != nullptr) {
+      runtimes.push_back(runtime);
+    }
   }
-  return faultOutputManager_->pickpointStream(layerData_->id());
+  return runtimes;
 }
 
 template <typename Cfg>
@@ -458,17 +462,17 @@ void DynamicRuptureCluster<Cfg>::interact(const StepParams& params) {
 
 template <typename Cfg>
 ActorEvent DynamicRuptureCluster<Cfg>::recordActionEvent() {
-  return ActorEvent(streamRuntime_.eventRecord());
+  return streamRuntime_.eventRecord();
 }
 
 template <typename Cfg>
-void DynamicRuptureCluster<Cfg>::waitForEvent(SEISSOL_GPU_PARAM void* event) {
+void DynamicRuptureCluster<Cfg>::waitForEvent(SEISSOL_GPU_PARAM const ActorEvent& event) {
 #ifdef ACL_DEVICE
   if (executor_ == Executor::Host) {
-    // the host kernels run right away, so the host has to wait
-    device_.api().syncEventWithHost(event);
+    // the host kernels run right away, so the host has to wait (they never get recorded)
+    device_.api().syncEventWithHost(event.get());
   } else {
-    device_.api().syncStreamWithEvent(streamRuntime_.stream(), event);
+    streamRuntime_.eventSync(event);
   }
 #endif
 }

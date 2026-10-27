@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTOR_ACTORSTATE_H_
 
 #include "Common/Executor.h"
-#include "Parallel/Runtime/EventPool.h"
+#include "Parallel/Runtime/Event.h"
 
 #include <atomic>
 #include <limits>
@@ -21,7 +21,8 @@ namespace seissol::solver {
 
 /**
  * An event that completes with the device work of an action, as it gets handed from a cluster to
- * the ones that wait for it.
+ * the ones that wait for it. While a super-timestep gets recorded, it is the node of the recording
+ * that the work ends with (see parallel::runtime::Event).
  *
  * While it is held, an event from an event pool stays reserved: the pool does not hand it out to be
  * recorded anew (see parallel::runtime::EventRef). The events of the clusters, of the halo exchange
@@ -31,25 +32,7 @@ namespace seissol::solver {
  * across synchronization points. An event that does not come from a pool is not reserved; whoever
  * hands it out has to keep it valid, and must not record it anew, while anybody may wait for it.
  */
-class ActorEvent {
-  public:
-  ActorEvent() = default;
-
-  /// an event that does not come from a pool; not reserved
-  explicit ActorEvent(void* event) : event_(event) {}
-
-  /// an event from an event pool; reserved while held
-  explicit ActorEvent(parallel::runtime::EventRef event)
-      : event_(event.get()), reference_(std::move(event)) {}
-
-  [[nodiscard]] void* get() const { return event_; }
-
-  explicit operator bool() const { return event_ != nullptr; }
-
-  private:
-  void* event_{nullptr};
-  parallel::runtime::EventRef reference_;
-};
+using ActorEvent = parallel::runtime::Event;
 
 /**
  * The progress of a cluster since the last synchronization point, as seen by the other clusters.

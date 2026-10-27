@@ -10,6 +10,7 @@
 
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
+#include "Parallel/Runtime/Event.h"
 #include "Parallel/Runtime/EventPool.h"
 #include "Parallel/Runtime/HostRuntime.h"
 
@@ -67,8 +68,8 @@ class ManagedStream {
 
 /**
  * Whether the calling thread records a graph that spans several stream runtimes (e.g. a whole
- * super-timestep). The graphs of single actions then run their work directly, so that it becomes
- * part of it.
+ * super-timestep, see StreamRuntime::beginGraph()). All work then has to go through the runtimes
+ * that take part in it; and no event may be recorded for timing, or queried.
  */
 inline bool& recordingOuterGraph() {
   static thread_local bool recording = false;
@@ -86,6 +87,16 @@ inline bool& hostFunctionsOnStreams() {
   return onStreams;
 }
 
+/**
+ * Enqueues work on a stream of its own (and on further ones for independent branches, see
+ * envMany()), or builds it into a graph.
+ *
+ * Runtimes form a hierarchy for graphs that span several of them: one runtime begins such a graph
+ * (see beginGraph()), and the others attach to it (see attach()). Each of them then adds its work
+ * as a chain of nodes, in the order it gets enqueued, and the work of one runtime waits for that of
+ * another one where it says so (see eventRecord() and eventSync()): as edges of the graph, without
+ * any event. The graphs of single actions (see runGraph()) become part of such a graph.
+ */
 class StreamRuntime {
 #ifdef ACL_DEVICE
   private:
@@ -108,6 +119,7 @@ class StreamRuntime {
 
   void dispose() {
     if (!disposed_) {
+      deferred_ = Event();
       streamPtr_.reset();
       ringbufferPtr_.clear();
       events_.dispose();
@@ -130,16 +142,11 @@ class StreamRuntime {
    */
   template <typename F>
   void record(F&& handler) {
-    if (buildGraph_.isInitialized()) {
-      closeImplicitNode();
-
-      std::vector<device::DeviceGraphNodeHandle> dependencies;
-      if (lastNode_.isInitialized()) {
-        dependencies.push_back(lastNode_);
-      }
-      lastNode_ = addNode(dependencies, streamPtr_->get(), std::forward<F>(handler));
+    if (building()) {
+      closeOpenNode();
+      lastNodes_ = {addNode(takeDependencies(), streamPtr_->get(), std::forward<F>(handler))};
     } else {
-      std::invoke(std::forward<F>(handler), streamPtr_->get());
+      std::invoke(std::forward<F>(handler), mainStream());
     }
   }
 
@@ -151,9 +158,8 @@ class StreamRuntime {
   template <typename F>
   void enqueueHost(F&& handler) {
     // A graph that is being recorded cannot be waited for, but it takes the host function over.
-    // That includes a graph spanning several stream runtimes that the calling thread records.
-    if (Backend != DeviceBackend::Hip || hostFunctionsOnStreams() || buildGraph_.isInitialized() ||
-        capturing_ || recordingOuterGraph()) {
+    if (Backend != DeviceBackend::Hip || hostFunctionsOnStreams() || building() || capturing_ ||
+        recordingOuterGraph()) {
       device().api().streamHostFunction(stream(), std::forward<F>(handler));
     } else {
       // if the stream host function call isn't implemented or slow, we'll need to synchronize
@@ -171,16 +177,32 @@ class StreamRuntime {
 
   EventRef nextEvent() { return events_.next(); }
 
+  /**
+   * Runs the handler for the branches `i` with `hasWork(i)` out of `count`, as envMany() does for
+   * all of them; the others neither run nor get a node in a graph.
+   */
+  template <typename F, typename P>
+  void envMany(size_t count, const F& handler, const P& hasWork) {
+    std::vector<size_t> branches;
+    for (size_t i = 0; i < count; ++i) {
+      if (std::invoke(hasWork, i)) {
+        branches.push_back(i);
+      }
+    }
+    envMany(branches.size(),
+            [&](void* stream, size_t branch) { std::invoke(handler, stream, branches[branch]); });
+  }
+
   template <typename F>
   void envMany(size_t count, const F& handler) {
-    if (buildGraph_.isInitialized()) {
-      closeImplicitNode();
+    if (count == 0) {
+      return;
+    }
+    if (building()) {
+      closeOpenNode();
 
       // fork and join are properties of the graph here, so neither costs an event
-      std::vector<device::DeviceGraphNodeHandle> forkDependencies;
-      if (lastNode_.isInitialized()) {
-        forkDependencies.push_back(lastNode_);
-      }
+      const auto forkDependencies = takeDependencies();
 
       // Sibling branches go onto different streams. The graph edges are what orders them, so
       // for CUDA and HIP the choice of stream makes no difference - but SYCL derives edges from
@@ -197,15 +219,15 @@ class StreamRuntime {
         }));
       }
 
-      // an empty recorder yields a handle that stands for its own dependencies, which is
-      // exactly a join
-      lastNode_ = addNode(branches, streamPtr_->get(), [](void*) {});
+      // the work after it depends on all branches, which is exactly a join
+      lastNodes_ = std::move(branches);
       return;
     }
 
+    void* stream = mainStream();
     if (Backend != DeviceBackend::Hip && ringbufferSize_ > 0) {
       const auto forkEvent = nextEvent();
-      device().api().recordEventOnStream(forkEvent.get(), streamPtr_->get());
+      device().api().recordEventOnStream(forkEvent.get(), stream);
       for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
         device().api().syncStreamWithEvent(ringbufferPtr_[i].get(), forkEvent.get());
       }
@@ -215,20 +237,20 @@ class StreamRuntime {
       for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
         const auto joinEvent = nextEvent();
         device().api().recordEventOnStream(joinEvent.get(), ringbufferPtr_[i].get());
-        device().api().syncStreamWithEvent(streamPtr_->get(), joinEvent.get());
+        device().api().syncStreamWithEvent(stream, joinEvent.get());
       }
     } else {
       for (size_t i = 0; i < count; ++i) {
-        std::invoke(handler, streamPtr_->get(), i);
+        std::invoke(handler, stream, i);
       }
     }
   }
 
   void wait() {
-    if (buildGraph_.isInitialized() || capturing_ || recordingOuterGraph()) {
+    if (building() || capturing_ || recordingOuterGraph()) {
       logError() << "Cannot synchronize a stream while a compute graph is being recorded on it.";
     }
-    device().api().syncStreamWithHost(streamPtr_->get());
+    device().api().syncStreamWithHost(mainStream());
   }
 
   /**
@@ -237,40 +259,49 @@ class StreamRuntime {
    * Inside an explicit node this is that node's recording stream. While a graph is being built
    * from nodes and no explicit node is open, asking for the stream opens an implicit one, so
    * that code which was never taught about graphs still ends up in the graph rather than
-   * running straight away. The implicit node is closed again at the next env, envMany or record,
-   * and at the end of the graph.
+   * running straight away. The implicit node is closed again at the next env, envMany, record,
+   * eventRecord or eventSync, and at the end of the graph.
+   *
+   * The device captures one node of a graph at a time. So, while several runtimes build a graph
+   * together, the implicit node also gets closed once another one of them starts a node: work must
+   * not be issued on a stream taken from this one before another runtime has been called.
    */
   void* stream() {
     if (recordingStream_ != nullptr) {
       return recordingStream_;
     }
-    if (buildGraph_.isInitialized()) {
+    if (building()) {
       openImplicitNode();
+      return streamPtr_->get();
     }
-    return streamPtr_->get();
+    return mainStream();
   }
 
   template <typename F>
   void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle,
                        F&& handler,
                        GraphMode mode = GraphMode::Nodes) {
-    if (recordingOuterGraph()) {
-      // the work becomes part of the graph being recorded; neither building nor capturing a graph
-      // of its own may start on a stream that is being captured already
+    if (building()) {
+      // the work becomes part of the graph being built (e.g. that of a whole super-timestep); a
+      // graph of its own can be neither built nor captured within it
       std::invoke(std::forward<F>(handler), *this);
       return;
     }
+    // the graph gets built on the stream, which may not wait for anything while it does
+    void* stream = mainStream();
     if (!computeGraphHandle.isInitialized()) {
       if (mode == GraphMode::Nodes && seissol::useGraphNodes()) {
         computeGraphHandle = device().api().graphCreate();
 
         buildGraph_ = computeGraphHandle;
-        lastNode_ = device::DeviceGraphNodeHandle();
+        lastNodes_.clear();
 
         std::invoke(std::forward<F>(handler), *this);
 
-        closeImplicitNode();
+        closeOpenNode();
         buildGraph_.reset();
+        lastNodes_.clear();
+        dependencies_.clear();
         device().api().graphInstantiate(computeGraphHandle);
       } else {
         computeGraphHandle = device().api().streamBeginCapture(allStreams_);
@@ -288,7 +319,7 @@ class StreamRuntime {
     }
 
     if (computeGraphHandle.isInitialized()) {
-      device().api().launchGraph(computeGraphHandle, streamPtr_->get());
+      device().api().launchGraph(computeGraphHandle, stream);
     }
   }
 
@@ -323,6 +354,76 @@ class StreamRuntime {
     }
   }
 
+  /**
+   * Begins a graph that spans this runtime and the ones that get attached to it (see attach()),
+   * built node by node. The work that this runtime enqueues goes into it as well.
+   */
+  void beginGraph() {
+    if (building() || capturing_) {
+      logError() << "A stream runtime cannot begin a graph while it builds one already.";
+    }
+    buildGraph_ = device().api().graphCreate();
+    if (!buildGraph_.isInitialized()) {
+      logError() << "The device cannot build graphs node by node.";
+    }
+    lastNodes_.clear();
+    dependencies_.clear();
+  }
+
+  /**
+   * Ends the graph begun with beginGraph(): detaches all runtimes from it, and returns it ready to
+   * be launched (see launchGraph()), as often as needed.
+   */
+  device::DeviceGraphHandle endGraph() {
+    while (!children_.empty()) {
+      children_.back()->detach();
+    }
+    closeImplicitNode();
+    auto graph = std::exchange(buildGraph_, device::DeviceGraphHandle());
+    lastNodes_.clear();
+    dependencies_.clear();
+    device().api().graphInstantiate(graph);
+    return graph;
+  }
+
+  /**
+   * Launches a graph (see endGraph()) on the stream of this runtime.
+   */
+  void launchGraph(const device::DeviceGraphHandle& graph) {
+    device().api().launchGraph(graph, mainStream());
+  }
+
+  /**
+   * Makes the work that this runtime enqueues from now on part of the graph that `parent` builds
+   * (see beginGraph()), until it gets detached. The graph has to be launched after what this
+   * runtime has enqueued before, and after a wait it defers (see deferWait()); whoever launches it
+   * sees to that.
+   */
+  void attach(StreamRuntime& parent) {
+    if (building() || capturing_) {
+      logError() << "A stream runtime cannot attach to a graph while it builds one.";
+    }
+    deferred_ = Event();
+    parent_ = &parent;
+    parent.children_.push_back(this);
+    lastNodes_.clear();
+    dependencies_.clear();
+  }
+
+  /**
+   * Lets the work of this runtime run directly again (see attach()).
+   */
+  void detach() {
+    if (parent_ != nullptr) {
+      closeImplicitNode();
+      auto& siblings = parent_->children_;
+      siblings.erase(std::remove(siblings.begin(), siblings.end(), this), siblings.end());
+      parent_ = nullptr;
+      lastNodes_.clear();
+      dependencies_.clear();
+    }
+  }
+
   template <typename T>
   T* allocMemory(std::size_t count) {
     return reinterpret_cast<T*>(device().api().allocMemAsync(count * sizeof(T), stream()));
@@ -338,17 +439,112 @@ class StreamRuntime {
     return StreamMemoryHandle<T>(count, *this);
   }
 
-  void eventSync(const EventRef& event) {
+  /**
+   * Makes the work enqueued from now on wait for the event: for a node of the graph that the work
+   * goes into, the next node depends on it; otherwise, the stream waits for the event.
+   */
+  void eventSync(const Event& event) {
+    if (!event) {
+      return;
+    }
+    if (building()) {
+      if (event.graph() != buildGraph().get()) {
+        logError()
+            << "Work that gets built into a graph can only wait for the nodes of that graph.";
+      }
+      closeImplicitNode();
+      dependencies_.emplace_back(event.node());
+      return;
+    }
+    if (event.graph() != nullptr) {
+      logError() << "Work that runs directly cannot wait for a node of a graph.";
+    }
     device().api().syncStreamWithEvent(stream(), event.get());
   }
 
-  EventRef eventRecord() {
+  /**
+   * An event that completes with the work enqueued so far (see Event): while the work goes into a
+   * graph node by node, the node it ends with (none before the first node).
+   */
+  Event eventRecord() {
+    if (building()) {
+      closeImplicitNode();
+      if (!dependencies_.empty() || lastNodes_.size() > 1) {
+        // a node that stands for the work so far and what it has been ordered after since: an
+        // empty recorder yields a handle that stands for its own dependencies
+        closeOpenNode();
+        lastNodes_ = {addNode(takeDependencies(), streamPtr_->get(), [](void*) {})};
+      }
+      return lastNodes_.empty() ? Event()
+                                : Event(buildGraph().get(), lastNodes_.front().getNodeId());
+    }
     auto event = nextEvent();
     device().api().recordEventOnStream(event.get(), stream());
-    return event;
+    return Event(std::move(event));
   }
 
+  /**
+   * Makes the work enqueued from now on wait for the event, like eventSync(); but the wait only
+   * gets enqueued with that work. Nothing gets enqueued while the runtime has nothing to do: e.g.
+   * while its work gets replayed from a recording, on the stream of the recording, which needs
+   * none of its waits. Replaces a wait deferred before, which the event has to come after; an
+   * empty event lets go of it.
+   */
+  void deferWait(Event event) { deferred_ = std::move(event); }
+
+  /**
+   * Whether the wait for the event is still deferred (see deferWait()), i.e. the runtime has
+   * enqueued nothing since.
+   */
+  [[nodiscard]] bool defersWaitFor(const Event& event) const {
+    return static_cast<bool>(event) && deferred_ == event;
+  }
+
+  /**
+   * Enqueues a deferred wait (see deferWait()) right away, and lets go of its event.
+   */
+  void enqueueDeferredWait() {
+    if (deferred_) {
+      mainStream();
+    }
+  }
+
+  [[nodiscard]] const EventPool& eventPool() const { return events_; }
+
   private:
+  /**
+   * The stream of the runtime, for work that runs directly: with the wait that has been deferred to
+   * such work (see deferWait()) enqueued first.
+   */
+  void* mainStream() {
+    if (recordingOuterGraph() && !capturing_) {
+      logError()
+          << "A stream runtime got work while the calling thread records a graph without it.";
+    }
+    if (deferred_) {
+      device().api().syncStreamWithEvent(streamPtr_->get(), deferred_.get());
+      deferred_ = Event();
+    }
+    return streamPtr_->get();
+  }
+
+  /// the runtime that holds the graph that the work goes into: the one attached to, or this one
+  StreamRuntime& root() { return parent_ != nullptr ? *parent_ : *this; }
+
+  /// the graph that the work goes into, node by node; empty if none
+  device::DeviceGraphHandle& buildGraph() { return root().buildGraph_; }
+
+  [[nodiscard]] bool building() const {
+    return (parent_ != nullptr ? parent_->buildGraph_ : buildGraph_).isInitialized();
+  }
+
+  /// what the next node of this runtime depends on: its last nodes, and what it waits for since
+  std::vector<device::DeviceGraphNodeHandle> takeDependencies() {
+    auto dependencies = std::exchange(dependencies_, {});
+    dependencies.insert(dependencies.end(), lastNodes_.begin(), lastNodes_.end());
+    return dependencies;
+  }
+
   template <typename F>
   device::DeviceGraphNodeHandle
       addNode(const std::vector<device::DeviceGraphNodeHandle>& dependencies,
@@ -357,36 +553,52 @@ class StreamRuntime {
     void* previousRecordingStream = recordingStream_;
     recordingStream_ = streamPtr;
     auto node =
-        device().api().graphAddNode(buildGraph_, dependencies, streamPtr, [&](void* recorded) {
+        device().api().graphAddNode(buildGraph(), dependencies, streamPtr, [&](void* recorded) {
           std::invoke(std::forward<F>(handler), recorded);
         });
     recordingStream_ = previousRecordingStream;
     return node;
   }
 
+  /// closes the implicit node that is open in the graph, of whichever runtime builds it
+  void closeOpenNode() {
+    auto* open = root().openNode_;
+    if (open != nullptr) {
+      open->closeImplicitNode();
+    }
+  }
+
   void openImplicitNode() {
-    if (!implicitNodeOpen_) {
-      std::vector<device::DeviceGraphNodeHandle> dependencies;
-      if (lastNode_.isInitialized()) {
-        dependencies.push_back(lastNode_);
-      }
-      device().api().graphBeginNode(buildGraph_, dependencies, streamPtr_->get());
-      implicitNodeOpen_ = true;
+    auto& root = this->root();
+    if (root.openNode_ != this) {
+      closeOpenNode();
+      device().api().graphBeginNode(root.buildGraph_, takeDependencies(), streamPtr_->get());
+      root.openNode_ = this;
     }
   }
 
   void closeImplicitNode() {
-    if (implicitNodeOpen_) {
-      lastNode_ = device().api().graphEndNode(buildGraph_, streamPtr_->get());
-      implicitNodeOpen_ = false;
+    auto& root = this->root();
+    if (root.openNode_ == this) {
+      lastNodes_ = {device().api().graphEndNode(root.buildGraph_, streamPtr_->get())};
+      root.openNode_ = nullptr;
     }
   }
 
+  // the graph this runtime builds (see runGraphGeneric() and beginGraph()); and of that, the
+  // runtime whose implicit node is open, and the runtimes attached to it
   device::DeviceGraphHandle buildGraph_;
-  device::DeviceGraphNodeHandle lastNode_;
+  StreamRuntime* openNode_{nullptr};
+  std::vector<StreamRuntime*> children_;
+  // the runtime whose graph this one builds as well (see attach())
+  StreamRuntime* parent_{nullptr};
+  // the nodes the work of this runtime ends with (several after independent branches, see
+  // envMany()), and what it waits for since (see eventSync())
+  std::vector<device::DeviceGraphNodeHandle> lastNodes_;
+  std::vector<device::DeviceGraphNodeHandle> dependencies_;
   void* recordingStream_{nullptr};
-  bool implicitNodeOpen_{false};
   bool capturing_{false};
+  Event deferred_;
 
   std::size_t ringbufferSize_{0};
   bool disposed_;
@@ -433,8 +645,11 @@ class StreamRuntime {
   void wait() {}
   void dispose() {}
 
-  void eventSync(const EventRef& event) {}
-  EventRef eventRecord() { return EventRef(); }
+  void eventSync(const Event& /*event*/) {}
+  Event eventRecord() { return {}; }
+  void deferWait(const Event& /*event*/) {}
+  [[nodiscard]] bool defersWaitFor(const Event& /*event*/) const { return false; }
+  void enqueueDeferredWait() {}
 #endif
 };
 

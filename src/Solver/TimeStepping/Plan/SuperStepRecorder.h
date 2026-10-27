@@ -29,19 +29,23 @@ namespace seissol::solver {
  * Records the device work of whole super-timesteps (steps of the largest cluster) into graphs, and
  * replays them.
  *
- * The clusters enqueue their work on streams of their own; further streams (e.g. of the halo
- * exchange) can take part as well. A recording starts on a stream of the recorder, forks all
- * streams from it, and joins them back at its end. A replay waits for the latest work of all
- * clusters and streams before the super-timestep, launches the graph on the stream of the
- * recorder, and makes all clusters and streams wait for it. Meanwhile, the clusters only run the
- * host parts of their actions.
+ * The work goes through the stream runtimes of the clusters, of their outputs and of the halo
+ * exchange. While a super-timestep gets recorded, they all build one graph, node by node (see
+ * parallel::runtime::StreamRuntime::attach()); where the work of one of them waits for that of
+ * another one, the graph gets an edge. A replay launches the graph on the stream of the recorder,
+ * after the latest work of the runtimes before; the runtimes then defer their wait for the replay
+ * to the work they get next (see parallel::runtime::StreamRuntime::deferWait()). So one replay
+ * after another costs one launch and one event, and nothing else. Meanwhile, the clusters only run
+ * the host parts of their actions.
  *
- * Only available on devices that can record graphs.
+ * Only available on devices that can build graphs node by node.
  */
 class SuperStepRecorder {
   public:
   /// what makes two super-timesteps do the same work: the step sizes of all clusters
   using Key = std::vector<double>;
+
+  using Runtimes = std::vector<parallel::runtime::StreamRuntime*>;
 
   SuperStepRecorder();
 #ifdef ACL_DEVICE
@@ -60,19 +64,16 @@ class SuperStepRecorder {
   [[nodiscard]] bool has(const Key& key) const;
 
   /**
-   * Starts recording the work the clusters enqueue from now on. Returns the event that starts the
-   * recording: all clusters and streams wait for it, and, once replayed, it comes after all work
-   * before the recording. It stays reserved while the copy is held.
+   * Starts recording the work the runtimes enqueue from now on. Inside the recording, the work
+   * must not wait for anything from before it, which its launch waits for; so the clusters publish
+   * no event until they have work in it.
    */
-  ActorEvent beginRecording(const std::vector<AbstractTimeCluster*>& clusters,
-                            const std::vector<void*>& streams);
+  void beginRecording(const std::vector<AbstractTimeCluster*>& clusters, const Runtimes& runtimes);
 
   /**
    * Ends the recording, and keeps it for the key. It still needs to be replayed once to run.
    */
-  void endRecording(const Key& key,
-                    const std::vector<AbstractTimeCluster*>& clusters,
-                    const std::vector<void*>& streams);
+  void endRecording(const Key& key);
 
   /**
    * Ends the recording and launches it once, as replay() would; it is not kept for the key of the
@@ -80,14 +81,14 @@ class SuperStepRecorder {
    * setTimer()).
    */
   void endRecordingAndLaunch(const std::vector<AbstractTimeCluster*>& clusters,
-                             const std::vector<void*>& streams,
+                             const Runtimes& runtimes,
                              double* deviceTime = nullptr);
 
   /**
-   * Notes the latest work of the clusters, before they run the host parts of a super-timestep.
+   * Notes the latest work of the runtimes, before the clusters run the host parts of a
+   * super-timestep.
    */
-  void beginReplay(const std::vector<AbstractTimeCluster*>& clusters,
-                   const std::vector<void*>& streams);
+  void beginReplay(const Runtimes& runtimes);
 
   /**
    * Replays the recording for the key after the work noted last. Its device time gets added to
@@ -95,7 +96,7 @@ class SuperStepRecorder {
    */
   void replay(const Key& key,
               const std::vector<AbstractTimeCluster*>& clusters,
-              const std::vector<void*>& streams,
+              const Runtimes& runtimes,
               double* deviceTime = nullptr);
 
   /**
@@ -118,7 +119,7 @@ class SuperStepRecorder {
 
   /**
    * Releases the device resources; needs to happen before the device is finalized, and after
-   * everybody has let go of the events of the recorder.
+   * everybody has let go of the events of the recorder (the runtimes their deferred waits).
    */
   void dispose();
 
@@ -126,29 +127,19 @@ class SuperStepRecorder {
   DeviceTimer* timer_{nullptr};
 
 #ifdef ACL_DEVICE
-  /// records an event on the stream, from a pool that does not hand it out again while it is held
-  ActorEvent recordEvent(void* stream);
-
-  /// joins all streams back into the stream of the recorder, and ends the recording
-  void endCapture(const std::vector<AbstractTimeCluster*>& clusters,
-                  const std::vector<void*>& streams);
-
-  /// launches the graph after the work noted last, and makes all clusters and streams wait for it
+  /// launches the graph after the work noted last, and orders the work after it
   void launch(const device::DeviceGraphHandle& graph,
               const std::vector<AbstractTimeCluster*>& clusters,
-              const std::vector<void*>& streams,
+              const Runtimes& runtimes,
               double* deviceTime);
 
-  // the stream the recordings get replayed on, and the pool of the events around them
+  // builds the recordings, and launches them on its stream; the pool of the events around them
   parallel::runtime::StreamRuntime runtime_;
   void* stream_{nullptr};
   // completes with the latest replay
   ActorEvent lastEvent_;
-  // starts the latest recording
-  ActorEvent fork_;
   // the latest work before the super-timestep, until the replay has been enqueued after it
   std::vector<ActorEvent> waitFor_;
-  device::DeviceGraphHandle recording_;
   std::map<Key, device::DeviceGraphHandle> graphs_;
   // the keys recorded or replayed since the last forgetUnused()
   std::set<Key> used_;

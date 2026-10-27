@@ -515,7 +515,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                    << "of super-timesteps (stream-mpi, and shmem with Intel SHMEM); use ccl, or"
                    << "shmem with NVSHMEM or ROCSHMEM.";
     } else if (!SuperStepRecorder::available()) {
-      logWarning() << "This device cannot record super-timesteps.";
+      logWarning() << "Recording super-timesteps needs a device that builds graphs node by node"
+                   << "(and SEISSOL_DEVICE_GRAPH_NODES not set to 0).";
     } else {
       replay_ = true;
       recorder_ = std::make_unique<SuperStepRecorder>();
@@ -918,7 +919,9 @@ void TimeManager::followPlan() {
   }
   const auto plan = planTimeSteps(planned);
 
-  // what a recording of a super-timestep comprises besides the cell and face clusters
+  // what a recording of a super-timestep comprises: the clusters, ghost clusters included, and the
+  // stream runtimes that their device work goes through (those of the clusters, of their outputs,
+  // and of the halo exchange)
   auto* scheduler = haloTransports_->scheduler();
   std::vector<AbstractTimeCluster*> ghosts;
   for (auto& ghost : *communicationManager_->getGhostClusters()) {
@@ -926,12 +929,12 @@ void TimeManager::followPlan() {
   }
   std::vector<AbstractTimeCluster*> participants(clusters_.begin(), clusters_.end());
   participants.insert(participants.end(), ghosts.begin(), ghosts.end());
-  auto streams = scheduler != nullptr ? scheduler->streams() : std::vector<void*>{};
-  // the outputs take their samples on streams of their own, which a recording has to comprise
+  auto runtimes = scheduler != nullptr ? scheduler->runtimes() : SuperStepRecorder::Runtimes{};
   for (auto* cluster : clusters_) {
-    auto* stream = cluster->outputStream();
-    if (stream != nullptr && std::find(streams.begin(), streams.end(), stream) == streams.end()) {
-      streams.push_back(stream);
+    for (auto* runtime : cluster->runtimes()) {
+      if (std::find(runtimes.begin(), runtimes.end(), runtime) == runtimes.end()) {
+        runtimes.push_back(runtime);
+      }
     }
   }
 
@@ -979,7 +982,7 @@ void TimeManager::followPlan() {
       scheduler->setHorizon(superStepEnd);
     }
     if (replayNow) {
-      recorder_->beginReplay(participants, streams);
+      recorder_->beginReplay(runtimes);
       for (auto* cluster : clusters_) {
         cluster->setDeviceWork(false);
       }
@@ -994,29 +997,29 @@ void TimeManager::followPlan() {
       for (auto* cluster : clusters_) {
         cluster->setDeviceWork(true);
       }
-      recorder_->replay(key, participants, streams, superStepDeviceTimes_.data());
+      recorder_->replay(key, participants, runtimes, superStepDeviceTimes_.data());
       if (scheduler != nullptr) {
         scheduler->setLatestEvent(recorder_->lastEvent());
       }
       ++replayedSuperSteps_;
       superStepHostTimes_[1] += seconds(hostStart);
     } else if (keep || once) {
-      auto fork = recorder_->beginRecording(participants, streams);
+      recorder_->beginRecording(participants, runtimes);
       if (scheduler != nullptr) {
-        // the recording must not wait for events from before it: neither for those of the pending
+        // the recording must not wait for anything from before it: neither for the pending
         // operations, nor for the latest group, which its ghost cluster may acknowledge only inside
-        // the recording (e.g. one launched by setHorizon() above)
-        scheduler->restartAfter(std::move(fork));
+        // the recording (e.g. one launched by setHorizon() above); its launch does
+        scheduler->restartAfter(ActorEvent());
       }
       work = takeSteps(plan, begin, end);
       completeExchanges(superStepEnd);
       const auto ending = std::chrono::steady_clock::now();
       if (keep) {
-        recorder_->endRecording(key, participants, streams);
-        recorder_->replay(key, participants, streams, &superStepDeviceTimes_[1]);
+        recorder_->endRecording(key);
+        recorder_->replay(key, participants, runtimes, &superStepDeviceTimes_[1]);
         ++recordedSuperSteps_;
       } else {
-        recorder_->endRecordingAndLaunch(participants, streams, &superStepDeviceTimes_[2]);
+        recorder_->endRecordingAndLaunch(participants, runtimes, &superStepDeviceTimes_[2]);
         ++launchedOnceSuperSteps_;
       }
       superStepHostTimes_[3] += seconds(ending);
@@ -1053,6 +1056,13 @@ void TimeManager::followPlan() {
       outputFreeSuperSteps_ += work.outputs ? 0 : 1;
       regularSuperSteps_ += work.irregular() ? 0 : 1;
     }
+  }
+
+  // the runtimes may still defer their waits for the latest replay to their next work; they
+  // enqueue them now, so that nobody holds an event of the recorder beyond the epoch (the outputs
+  // may let go of their runtimes after the last one)
+  for (auto* runtime : runtimes) {
+    runtime->enqueueDeferredWait();
   }
 }
 

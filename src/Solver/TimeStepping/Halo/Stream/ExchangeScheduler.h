@@ -20,6 +20,10 @@
 #include <utility>
 #include <vector>
 
+namespace seissol::parallel::runtime {
+class StreamRuntime;
+} // namespace seissol::parallel::runtime
+
 namespace seissol::solver {
 
 class ScheduledTransport;
@@ -98,10 +102,11 @@ class ExchangeScheduler {
    * Makes the event stand for all groups launched so far (see setLatestEvent()), and forgets the
    * events that the ready operations which have not gone out yet wait for. Only for an event that
    * all streams of the scheduler and all clusters wait for, and that comes after all work behind
-   * the forgotten events and all groups launched so far: e.g. the one that starts a recording,
-   * whose work must not wait for events from before it, and the one that completes its replay,
-   * after which no event from inside of it may be waited for. A ghost cluster may acknowledge a
-   * group launched before such an event only after it, and then passes on the latest event.
+   * the forgotten events and all groups launched so far: e.g. the one that completes the replay of
+   * a recording, after which no node from inside of it may be waited for; or an empty one when a
+   * recording starts, whose work must not wait for anything from before it (its launch does). A
+   * ghost cluster may acknowledge a group launched before such an event only after it, and then
+   * passes on the latest event.
    */
   void restartAfter(ActorEvent event);
 
@@ -168,9 +173,11 @@ class ExchangeScheduler {
   virtual void prepare() {}
 
   /**
-   * The streams the groups run on.
+   * The stream runtimes the groups run on.
    */
-  [[nodiscard]] virtual std::vector<void*> streams() const { return {}; }
+  [[nodiscard]] virtual std::vector<parallel::runtime::StreamRuntime*> runtimes() const {
+    return {};
+  }
 
   /**
    * Whether the groups can be part of a recording of super-timesteps, i.e. whether a replay of the
@@ -226,7 +233,7 @@ class ExchangeScheduler {
                         std::size_t exchange,
                         const ScheduledTransport* sender,
                         const ScheduledTransport* receiver,
-                        const std::vector<void*>& after) = 0;
+                        const std::vector<ActorEvent>& after) = 0;
 
   /**
    * Whether the group behind the ticket has completed.

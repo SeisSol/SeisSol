@@ -82,7 +82,7 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
        The log shows the memory needed either way.
    * - ``SEISSOL_DEVICE_GRAPH_NODES=0``
      - GPU builds only. Capture all compute graphs from streams, instead of building them node by node where the device allows it.
-       The log says which way the graphs get built.
+       The log says which way the graphs get built. No super-timestep gets recorded then.
    * - ``SEISSOL_MPI_PERSISTENT=0``
      - Start new MPI requests for each exchange, instead of restarting persistent ones.
 
@@ -155,7 +155,13 @@ the exchange counts of ``shmem`` with NVSHMEM or ROCSHMEM,
 and the outputs decide about their samples when their work runs.
 Hence, the receivers and fault receivers copy their data to the host in every step in this mode.
 
-Recording needs a GPU that can record graphs, and either no halo exchange (a single process),
+The stream runtimes of the clusters, of their outputs and of the halo exchange build a recording together, node by node:
+where the work of one of them waits for that of another, the graph gets an edge, no event.
+A replay waits for the work before it, and records one event at its end; the runtimes wait for that event only once they
+get work again. So the replays of one super-timestep after another follow each other on one stream, without any wait.
+
+Recording needs a GPU that can build graphs node by node (CUDA 12.3, ROCm 6.3, or SYCL with the oneAPI graph
+extension), and either no halo exchange (a single process),
 or ``ccl`` or ``shmem`` with NVSHMEM or ROCSHMEM in the global order and ``SEISSOL_CONCURRENT_CLUSTERS=1``,
 without a communication thread.
 ``stream-mpi`` cannot be recorded: MPICH creates the requests of an enqueued operation on the host
@@ -171,6 +177,11 @@ on average, enqueuing its work directly 1 to 2 ms, and a graph that runs once do
 With an epoch every 0.05 s, TPV5 and TTPV1 (order 6, single precision) took 0.4 % longer and 0.6 % less time with ``always``
 than without recording, and 0.4 % less and 1.0 % more than with the default ``replay``.
 Recording every super-timestep anew (``rebuild``) took 20 to 40 % longer.
+
+Capturing a node into a graph costs the more time the more nodes the graph already has, on HIP (ROCm 6.3 to 7.2)
+much more than with CUDA: recording a super-timestep of TPV13 (2784 cells, 3 clusters) took 0.04 s on the RTX 5070
+and 0.2 s on a Radeon 890M (October 2026). With ROCm 6.3, the host needed 40 ms for each launch of that graph
+(2136 kernels); such a graph only pays off where the GPU takes longer for the super-timestep.
 
 Outputs while the GPU computes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -160,8 +160,8 @@ class EnqueueingCluster : public AbstractTimeCluster {
     return ActorEvent(reinterpret_cast<void*>(event));
   }
 
-  void waitForEvent(void* event) override {
-    waits_.push_back(reinterpret_cast<std::uintptr_t>(event));
+  void waitForEvent(const ActorEvent& event) override {
+    waits_.push_back(reinterpret_cast<std::uintptr_t>(event.get()));
   }
 
   private:
