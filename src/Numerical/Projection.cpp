@@ -71,7 +71,7 @@ std::vector<double> gaussLobatto(std::size_t degree) {
   if (degree >= 2) {
     std::vector<double> inner(degree - 1);
     std::vector<double> innerWeights(degree - 1);
-    quadrature::GaussJacobi(inner.data(), innerWeights.data(), degree - 1, 1, 1);
+    quadrature::gaussJacobi(inner.data(), innerWeights.data(), degree - 1, 1, 1);
     std::ranges::sort(inner);
     points.insert(points.end(), inner.begin(), inner.end());
   }
@@ -522,7 +522,7 @@ DenseMatrix nodalToModal(std::size_t order, NodalSet set) {
       DenseMatrix vandermonde(points.size(), indices.size());
       for (std::size_t n = 0; n < points.size(); ++n) {
         for (std::size_t b = 0; b < indices.size(); ++b) {
-          vandermonde(n, b) = functions::DubinerP<3>(indices[b], points[n]);
+          vandermonde(n, b) = functions::dubinerP<3>(indices[b], points[n]);
         }
       }
       std::vector<double> mass(indices.size(), 0.0);
@@ -556,7 +556,7 @@ DenseMatrix nodalToModal(std::size_t order, NodalSet set) {
   DenseMatrix vandermonde(points.size(), indices.size());
   for (std::size_t n = 0; n < points.size(); ++n) {
     for (std::size_t b = 0; b < indices.size(); ++b) {
-      vandermonde(n, b) = functions::DubinerP<Dim>(indices[b], points[n]);
+      vandermonde(n, b) = functions::dubinerP<Dim>(indices[b], points[n]);
     }
   }
   return vandermonde.inverse();
@@ -579,7 +579,7 @@ DenseMatrix build(const std::vector<std::array<double, From>>& referenceTargetPo
       assert(spec.derivative.value() < To);
       return functions::gradDubinerP<To>(sourceIndices[basis], position)[spec.derivative.value()];
     }
-    return functions::DubinerP<To>(sourceIndices[basis], position);
+    return functions::dubinerP<To>(sourceIndices[basis], position);
   };
 
   DenseMatrix matrix(pointCount, sourceCount);
@@ -619,7 +619,7 @@ DenseMatrix build(const std::vector<std::array<double, From>>& referenceTargetPo
     for (std::size_t q = 0; q < quadraturePoints.size(); ++q) {
       const auto position = map(quadraturePoints[q]);
       for (std::size_t i = 0; i < targetCount; ++i) {
-        targetValues[i] = functions::DubinerP<From>(targetIndices[i], quadraturePoints[q]);
+        targetValues[i] = functions::dubinerP<From>(targetIndices[i], quadraturePoints[q]);
         mass[i] += quadratureWeights[q] * targetValues[i] * targetValues[i];
       }
       for (std::size_t b = 0; b < sourceCount; ++b) {
@@ -638,7 +638,7 @@ DenseMatrix build(const std::vector<std::array<double, From>>& referenceTargetPo
     DenseMatrix vandermonde(pointCount, targetCount);
     for (std::size_t p = 0; p < pointCount; ++p) {
       for (std::size_t i = 0; i < targetCount; ++i) {
-        vandermonde(p, i) = functions::DubinerP<From>(targetIndices[i], referenceTargetPoints[p]);
+        vandermonde(p, i) = functions::dubinerP<From>(targetIndices[i], referenceTargetPoints[p]);
       }
     }
 

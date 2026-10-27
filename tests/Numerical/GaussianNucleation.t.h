@@ -17,8 +17,8 @@
 namespace seissol::unit_test {
 namespace gaussiannucleation {
 
-using seissol::gaussianNucleationFunction::smoothStep;
-using seissol::gaussianNucleationFunction::smoothStepIncrement;
+using seissol::gaussian_nucleation_function::smoothStep;
+using seissol::gaussian_nucleation_function::smoothStepIncrement;
 
 struct Sample {
   double t0;

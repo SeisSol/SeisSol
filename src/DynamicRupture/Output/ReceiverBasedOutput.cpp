@@ -160,7 +160,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
   // the friction solve advances in the sub intervals of the time quadrature; the stored friction
   // state belongs to the last of them
   const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT<Cfg>(
-      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, dt).first);
+      seissol::quadrature::shiftedGaussLegendre(Cfg::ConvergenceOrder, 0, dt).first);
 
   const auto timeCoeffs = kernels::timeBasis<Cfg>().point(indt, dt);
 
@@ -768,7 +768,7 @@ Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
       const real chi = seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, jBndGP, 0);
       const real tau = seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, jBndGP, 1);
 
-      basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
+      basis_function::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
       for (size_t d = 0; std::cmp_less(d, NumDegFr2d); ++d) {
         projectedRT[d] +=
@@ -784,7 +784,7 @@ Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
         seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, local.nearestInternalGpIndex, 0);
     const real tau =
         seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, local.nearestInternalGpIndex, 1);
-    basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
+    basis_function::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
     real dTdChi{0.0};
     real dTdTau{0.0};

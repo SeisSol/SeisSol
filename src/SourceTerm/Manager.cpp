@@ -83,7 +83,7 @@ void computeMInvJInvPhisAtSources(
 
   const auto transform = seissol::geometry::AffineTransform::fromMeshCell(meshId, mesh);
   const auto xiEtaZeta = transform.spaceToRef(center);
-  const auto basisFunctionsAtPoint = basisFunction::SampledBasisFunctions<Real<Cfg>>(
+  const auto basisFunctionsAtPoint = basis_function::SampledBasisFunctions<Real<Cfg>>(
       Cfg::ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
   const double volume = MeshTools::volume(elements[meshId], vertices);

@@ -75,7 +75,7 @@ TEST_CASE_TEMPLATE("Sampled Basis Functions" * doctest::test_suite("numerical"),
                                           -0.44044};
 
   for (std::size_t order = 1; order <= 6; ++order) {
-    const basisFunction::SampledBasisFunctions<RealT> sampledBasisFunctions(order, 0.3, 0.3, 0.3);
+    const basis_function::SampledBasisFunctions<RealT> sampledBasisFunctions(order, 0.3, 0.3, 0.3);
     const auto funs = sampledBasisFunctions.size();
     REQUIRE(funs <= precomputedValues.size());
     for (size_t i = 0; i < funs; ++i) {
@@ -261,7 +261,7 @@ TEST_CASE_TEMPLATE("Sampled Derivatives Functions" * doctest::test_suite("numeri
                                                            1.876000000000009}}};
 
   for (std::size_t order = 1; order <= 6; ++order) {
-    basisFunction::SampledBasisFunctionDerivatives<RealT> sampledBasisFunctionDerivatives(
+    basis_function::SampledBasisFunctionDerivatives<RealT> sampledBasisFunctionDerivatives(
         order, 0.3, 0.3, 0.3);
     const auto funs = sampledBasisFunctionDerivatives.size() / 3;
     const auto dataView = [&](auto i, auto dir) {

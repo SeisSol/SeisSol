@@ -20,7 +20,7 @@
 namespace seissol::unit_test {
 namespace regularizedyoffe {
 
-using seissol::regularizedYoffe::regularizedYoffe;
+using seissol::regularized_yoffe::regularizedYoffe;
 
 // (tauS, tauR) in both regimes, tauR > 2 tauS and tauR <= 2 tauS; typed, since NVHPC deduces no
 // initializer list of a pair and braced pairs

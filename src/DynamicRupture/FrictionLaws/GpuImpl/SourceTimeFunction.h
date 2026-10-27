@@ -35,10 +35,10 @@ class YoffeSTF : public ImposedSlipRates<Cfg, YoffeSTF<Cfg>> {
   SEISSOL_DEVICE static real evaluateSTF(FrictionLawContext<Cfg>& __restrict ctx,
                                          real currentTime,
                                          [[maybe_unused]] real timeIncrement) {
-    return regularizedYoffe::regularizedYoffe(currentTime -
-                                                  ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
-                                              ctx.data->tauS[ctx.ltsFace][ctx.pointIndex],
-                                              ctx.data->tauR[ctx.ltsFace][ctx.pointIndex]);
+    return regularized_yoffe::regularizedYoffe(currentTime -
+                                                   ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
+                                               ctx.data->tauS[ctx.ltsFace][ctx.pointIndex],
+                                               ctx.data->tauR[ctx.ltsFace][ctx.pointIndex]);
   }
 };
 
@@ -55,7 +55,7 @@ class GaussianSTF : public ImposedSlipRates<Cfg, GaussianSTF<Cfg>> {
 
   SEISSOL_DEVICE static real
       evaluateSTF(FrictionLawContext<Cfg>& __restrict ctx, real currentTime, real timeIncrement) {
-    const real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement(
+    const real smoothStepIncrement = gaussian_nucleation_function::smoothStepIncrement(
         currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
         timeIncrement,
         ctx.data->riseTime[ctx.ltsFace][ctx.pointIndex]);
@@ -75,8 +75,8 @@ class DeltaSTF : public ImposedSlipRates<Cfg, DeltaSTF<Cfg>> {
 
   SEISSOL_DEVICE static real
       evaluateSTF(FrictionLawContext<Cfg>& __restrict ctx, real currentTime, real timeIncrement) {
-    return deltaPulse::deltaPulse(currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
-                                  timeIncrement);
+    return delta_pulse::deltaPulse(currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
+                                   timeIncrement);
   }
 };
 

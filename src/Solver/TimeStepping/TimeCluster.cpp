@@ -255,7 +255,7 @@ void TimeCluster<Cfg>::computeDynamicRupture(DynamicRupture::Layer& layerData) {
   const auto timestep = timeStepSize();
 
   const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timestep);
+      seissol::quadrature::shiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timestep);
 
   const auto pointsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, timestep);
   const auto frictionTime =
@@ -321,7 +321,7 @@ void TimeCluster<Cfg>::computeDynamicRuptureDevice(
     auto& table = layerData.getConditionalTable<inner_keys::Dr>();
 
     const auto [timePoints, timeWeights] =
-        seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timestep);
+        seissol::quadrature::shiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timestep);
 
     const auto pointsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, timestep);
     const auto frictionTime =

@@ -157,7 +157,7 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
         const auto config = configName(Cfg::Value);
         CAPTURE(config);
         auto data = generateTriangleQuadrature<Cfg>();
-        double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
+        double (*testTrianglePoints)[2] = unsafeReshape<2>(data.points.data());
 
         constexpr double Epsilon = 1e-6;
         for (unsigned i = 0; i < TriangleQuadratureData<Cfg>::Size; ++i) {

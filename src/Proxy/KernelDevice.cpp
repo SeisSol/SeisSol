@@ -113,7 +113,7 @@ void runGodunovDR(ProxyDataImpl<Cfg>& data, seissol::parallel::runtime::StreamRu
   auto& dataTable = layer.getConditionalTable<inner_keys::Dr>();
 
   const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
+      seissol::quadrature::shiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
   const auto coeffsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, Timestep);
 
   const ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;

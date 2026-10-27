@@ -82,7 +82,7 @@ class AnalyticalBoundary {
   using real = Real<Cfg>;
 
   AnalyticalBoundary() {
-    quadrature::GaussLegendre(quadPoints_.data(), quadWeights_.data(), Cfg::ConvergenceOrder);
+    quadrature::gaussLegendre(quadPoints_.data(), quadWeights_.data(), Cfg::ConvergenceOrder);
   }
 
   template <typename Func>

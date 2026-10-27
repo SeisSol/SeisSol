@@ -61,9 +61,9 @@ template <typename Cfg>
 ReceiverBasis<Cfg>::ReceiverBasis(const Eigen::Vector3d& position,
                                   const seissol::geometry::CellTransform& transform) {
   const auto xiEtaZeta = transform.spaceToRef(position);
-  basisFunctions = basisFunction::SampledBasisFunctions<Real<Cfg>>(
+  basisFunctions = basis_function::SampledBasisFunctions<Real<Cfg>>(
       Cfg::ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
-  basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<Real<Cfg>>(
+  basisFunctionDerivatives = basis_function::SampledBasisFunctionDerivatives<Real<Cfg>>(
       Cfg::ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives.transformToGlobalCoordinates(
       transform, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);

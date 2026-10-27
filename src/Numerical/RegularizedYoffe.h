@@ -12,7 +12,7 @@
 
 #include <cmath>
 
-namespace seissol::regularizedYoffe {
+namespace seissol::regularized_yoffe {
 /**
  * Implementation of the regularized Yoffe function defined in Appendix of Tinti et al. (2005)
  *
@@ -107,6 +107,6 @@ SEISSOL_HOSTDEVICE inline T regularizedYoffe(T timeIn, T tauSIn, T tauRIn) {
     }
   }
 }
-} // namespace seissol::regularizedYoffe
+} // namespace seissol::regularized_yoffe
 
 #endif // SEISSOL_SRC_NUMERICAL_REGULARIZEDYOFFE_H_

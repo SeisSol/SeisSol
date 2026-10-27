@@ -269,7 +269,7 @@ TEST_CASE_TEMPLATE("Numerical/Projection: all volume nodal sets round-trip",
     for (std::size_t coefficient = 0; coefficient < indices.size(); ++coefficient) {
       std::vector<double> nodalValues(points.size());
       for (std::size_t n = 0; n < points.size(); ++n) {
-        nodalValues[n] = functions::DubinerP<3>(indices[coefficient], points[n]);
+        nodalValues[n] = functions::dubinerP<3>(indices[coefficient], points[n]);
       }
       for (std::size_t b = 0; b < indices.size(); ++b) {
         double value = 0;

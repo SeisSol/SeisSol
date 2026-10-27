@@ -373,7 +373,7 @@ TEST_CASE_TEMPLATE_DEFINE("Friction solver event times" * doctest::test_suite("d
   // the time points of a step as the time stepping gets them
   const double stepLength = 0.7;
   const auto timePoints =
-      seissol::quadrature::ShiftedGaussLegendre(misc::TimeSteps<Cfg>, 0, stepLength).first;
+      seissol::quadrature::shiftedGaussLegendre(misc::TimeSteps<Cfg>, 0, stepLength).first;
   const auto frictionTime = friction_law::FrictionSolver::computeDeltaT<Cfg>(timePoints);
   real deltaT[misc::TimeSteps<Cfg>]{};
   for (std::size_t i = 0; i < misc::TimeSteps<Cfg>; ++i) {

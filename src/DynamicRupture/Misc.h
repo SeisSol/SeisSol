@@ -278,7 +278,7 @@ SEISSOL_HOSTDEVICE inline RealT stressSourceFraction(RealT time, RealT t0, RealT
     // without a rise time, a source is in full effect from its onset on
     return time >= s0 ? static_cast<RealT>(1.0) : static_cast<RealT>(0.0);
   }
-  return gaussianNucleationFunction::smoothStep<RealT>(time - s0, t0);
+  return gaussian_nucleation_function::smoothStep<RealT>(time - s0, t0);
 }
 
 /**

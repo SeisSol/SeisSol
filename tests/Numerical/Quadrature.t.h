@@ -20,7 +20,7 @@ TEST_CASE("Test generation of Gauss Jacobi quadrature points" * doctest::test_su
   constexpr auto Epsilon = std::numeric_limits<double>::epsilon() * 10;
   double points[5];
   double weights[5];
-  seissol::quadrature::GaussJacobi(points, weights, 5, 1, 3);
+  seissol::quadrature::gaussJacobi(points, weights, 5, 1, 3);
   // Compare to Maple reference solution
   CHECK(points[0] == AbsApprox(0.86698568210542769702).epsilon(Epsilon));
   CHECK(points[1] == AbsApprox(0.57652877512667440772).epsilon(Epsilon));
@@ -39,7 +39,7 @@ TEST_CASE("test triangle quadrature" * doctest::test_suite("numerical")) {
 
   std::array<std::array<double, 2>, 4> points{};
   std::array<double, 4> weights{};
-  seissol::quadrature::TriangleQuadrature(points.data(), weights.data(), 2);
+  seissol::quadrature::triangleQuadrature(points.data(), weights.data(), 2);
   // Compare to Maple reference solution
   CHECK(points[0][0] == AbsApprox(0.64494897427831780982).epsilon(Epsilon));
   CHECK(points[1][0] == AbsApprox(0.64494897427831780982).epsilon(Epsilon));

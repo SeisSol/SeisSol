@@ -116,7 +116,7 @@ TriangleQuadratureData<Cfg> generateTriangleQuadrature() {
   const auto pointsView = init::quadpoints<Cfg>::view::create(init::quadpoints<Cfg>::Values);
   const auto weightsView = init::quadweights<Cfg>::view::create(init::quadweights<Cfg>::Values);
 
-  auto* reshapedPoints = unsafe_reshape<2>(data.points.data());
+  auto* reshapedPoints = unsafeReshape<2>(data.points.data());
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData<Cfg>::Size; ++i) {
     reshapedPoints[i][0] = seissol::multisim::multisimTranspose<Cfg>(pointsView, i, 0);
     reshapedPoints[i][1] = seissol::multisim::multisimTranspose<Cfg>(pointsView, i, 1);
@@ -148,7 +148,7 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 template <typename Cfg>
 void assignNearestGaussianPoint(Receiver& geoPoint) {
   static auto quadratureData = generateTriangleQuadrature<Cfg>();
-  const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
+  const double (*trianglePoints2D)[2] = unsafeReshape<2>(quadratureData.points.data());
 
   const auto targetPoint2D =
       geometry::ReferenceFaceMap(geoPoint.localFaceSideId.value())
@@ -233,7 +233,7 @@ PlusMinusBasisFunctions<Cfg>
 
   const auto getBasisFunctions = [&point](const geometry::CellTransform& transform) {
     const auto referenceCoords = transform.spaceToRef(point);
-    const basisFunction::SampledBasisFunctions<Real<Cfg>> sampler(
+    const basis_function::SampledBasisFunctions<Real<Cfg>> sampler(
         Cfg::ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
     return sampler.data();
   };

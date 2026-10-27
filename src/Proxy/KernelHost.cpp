@@ -243,7 +243,7 @@ void runGodunovDR(ProxyDataImpl<Cfg>& data) {
   alignas(Alignment)
       real qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
   const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
+      seissol::quadrature::shiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
   const auto coeffsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, Timestep);
 
 #pragma omp parallel for schedule(static) private(qInterpolatedPlus, qInterpolatedMinus)
