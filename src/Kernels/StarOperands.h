@@ -212,38 +212,34 @@ constexpr std::size_t fluxCoefficientOffset(std::size_t face, std::size_t coeffi
 }
 } // namespace internal
 
-/// The rotation of a face for a batch, as bindFaceRotation hands it to one cell.
+/// What the correctors of the four faces of a cell apply to the jumps of their traces, for a batch
+/// of the kernel that takes the four at once (see bindCorrectorOperands): each face the rotation of
+/// the face and its scalars, or the matrix of the cell's own side, from the cell's own data.
 template <typename KernelT>
-void bindFaceRotationBatched(KernelT& krnl, const real** localIntegrationPtrs, std::size_t face) {
-  if constexpr (Curvilinear) {
-    krnl.TNodes = localIntegrationPtrs;
-    krnl.extraOffset_TNodes = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, faceRotation, face);
-  } else {
-    krnl.T = localIntegrationPtrs;
-    krnl.extraOffset_T = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, faceRotation, face);
-  }
-}
-
-/// What the corrector of one face applies to the jump of its two traces, for a batch (see
-/// bindCorrectorOperands): the rotation of the face and the scalars, or the matrix of the cell's
-/// own side, from the cell's own data.
-template <typename KernelT>
-void bindCorrectorOperandsBatched(KernelT& krnl,
-                                  const real** localIntegrationPtrs,
-                                  std::size_t face) {
-  if constexpr (NodalFlux) {
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, faceRotation);
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, fluxCoefficients);
-    bindFaceRotationBatched(krnl, localIntegrationPtrs, face);
-    for (std::size_t coefficient = 0; coefficient < FluxCoefficientCount; ++coefficient) {
-      krnl.fluxCoefficients(coefficient) = localIntegrationPtrs;
-      krnl.extraOffset_fluxCoefficients(coefficient) =
-          internal::fluxCoefficientOffset<LocalIntegrationData>(face, coefficient);
+void bindFaceCorrectorOperandsBatched(KernelT& krnl, const real** localIntegrationPtrs) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    if constexpr (NodalFlux) {
+      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, faceRotation);
+      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, fluxCoefficients);
+      if constexpr (Curvilinear) {
+        krnl.faceTNodes(face) = localIntegrationPtrs;
+        krnl.extraOffset_faceTNodes(face) =
+            SEISSOL_ARRAY_OFFSET(LocalIntegrationData, faceRotation, face);
+      } else {
+        krnl.faceT(face) = localIntegrationPtrs;
+        krnl.extraOffset_faceT(face) =
+            SEISSOL_ARRAY_OFFSET(LocalIntegrationData, faceRotation, face);
+      }
+      for (std::size_t coefficient = 0; coefficient < FluxCoefficientCount; ++coefficient) {
+        krnl.faceFluxCoefficients(face, coefficient) = localIntegrationPtrs;
+        krnl.extraOffset_faceFluxCoefficients(face, coefficient) =
+            internal::fluxCoefficientOffset<LocalIntegrationData>(face, coefficient);
+      }
+    } else {
+      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
+      krnl.faceAplusT(face) = localIntegrationPtrs;
+      krnl.extraOffset_faceAplusT(face) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
     }
-  } else {
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, nApNm1);
-    krnl.AplusT = localIntegrationPtrs;
-    krnl.extraOffset_AplusT = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, nApNm1, face);
   }
 }
 

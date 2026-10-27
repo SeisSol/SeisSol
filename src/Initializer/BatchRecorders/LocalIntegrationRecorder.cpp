@@ -17,6 +17,7 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/BoundarySetup.h"
 #include "Initializer/LtsSetup.h"
+#include "Kernels/FaceTraces.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
@@ -193,28 +194,36 @@ void LocalIntegrationRecorder::recordFaceTraces() {
   auto* faceTraces = currentLayer_->var<LTS::FaceTracesDevice>();
   auto* faceBuffers = currentLayer_->var<LTS::FaceBuffersDevice>();
   const auto* cellInformation = currentLayer_->var<LTS::CellInformation>();
+  real* sideOperators = currentLayer_->var<LTS::TraceSideOperators>(AllocationPlace::Device);
+  const auto sideOperatorOf = [&](std::size_t cell, std::size_t face) {
+    return sideOperators + cellInformation[cell].traceSides[face] * kernels::TraceSideOperatorSize;
+  };
 
-  // by the face and by the side of the face the cell is on (CellLocalInformation::traceSides)
-  using PerFaceSide = std::array<std::array<std::vector<real*>, 2>, Cell::NumFaces>;
-  PerFaceSide integralPtrs{};
-  PerFaceSide tracePtrs{};
-  PerFaceSide derivativesPtrs{};
-  PerFaceSide faceDerivativesPtrs{};
+  const auto size = currentLayer_->size();
+  // the four faces of every cell, face after face, each with the operator of the side the cell is
+  // on there (CellLocalInformation::traceSides): the kernel that writes the traces of the four at
+  // once reads them so (kernels::writeFaceTracesBatched)
+  std::vector<real*> tracePtrs(Cell::NumFaces * size);
+  std::vector<real*> sidePtrs(Cell::NumFaces * size);
+  // by the face, the cells that write the traces of their time derivatives there
+  using PerFace = std::array<std::vector<real*>, Cell::NumFaces>;
+  PerFace derivativesPtrs{};
+  PerFace faceDerivativesPtrs{};
+  PerFace derivativeSidePtrs{};
   // a trace accumulated over the steps of a neighbor that takes fewer
   std::vector<real*> accumulatedTracePtrs;
   std::vector<real*> accumulatedBufferPtrs;
 
-  const auto size = currentLayer_->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      const auto side = cellInformation[cell].traceSides[face];
-      integralPtrs[face][side].push_back(idofsPtrs_[cell]);
-      tracePtrs[face][side].push_back(faceTraces[cell][face]);
+      tracePtrs[face * size + cell] = faceTraces[cell][face];
+      sidePtrs[face * size + cell] = sideOperatorOf(cell, face);
 
       const auto type = cellInformation[cell].ltsSetup.faceBuffer(face);
       if (type == BufferType::Derivatives) {
-        derivativesPtrs[face][side].push_back(dQPtrs_[cell]);
-        faceDerivativesPtrs[face][side].push_back(faceBuffers[cell][face]);
+        derivativesPtrs[face].push_back(dQPtrs_[cell]);
+        faceDerivativesPtrs[face].push_back(faceBuffers[cell][face]);
+        derivativeSidePtrs[face].push_back(sideOperatorOf(cell, face));
       } else if (type == BufferType::AccumulatedIntegrals) {
         accumulatedTracePtrs.push_back(faceTraces[cell][face]);
         accumulatedBufferPtrs.push_back(faceBuffers[cell][face]);
@@ -222,21 +231,21 @@ void LocalIntegrationRecorder::recordFaceTraces() {
     }
   }
 
+  if (size > 0) {
+    const ConditionalKey key(*KernelNames::FaceTrace, *ComputationKind::None);
+    checkKey(key);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, idofsPtrs_);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::FaceTrace, tracePtrs);
+    (*currentTable_)[key].set(inner_keys::Wp::Id::TraceSide, sidePtrs);
+  }
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    for (std::size_t side = 0; side < 2; ++side) {
-      if (!tracePtrs[face][side].empty()) {
-        const ConditionalKey key(*KernelNames::FaceTrace, *ComputationKind::None, face, side);
-        checkKey(key);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, integralPtrs[face][side]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::FaceTrace, tracePtrs[face][side]);
-      }
-      if (!faceDerivativesPtrs[face][side].empty()) {
-        const ConditionalKey key(
-            *KernelNames::FaceTrace, *ComputationKind::WithDerivatives, face, side);
-        checkKey(key);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, derivativesPtrs[face][side]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::FaceBuffer, faceDerivativesPtrs[face][side]);
-      }
+    if (!faceDerivativesPtrs[face].empty()) {
+      const ConditionalKey key(*KernelNames::FaceTrace, *ComputationKind::WithDerivatives, face);
+      checkKey(key);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, derivativesPtrs[face]);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::FaceBuffer, faceDerivativesPtrs[face]);
+      (*currentTable_)[key].set(inner_keys::Wp::Id::TraceSide, derivativeSidePtrs[face]);
     }
   }
 

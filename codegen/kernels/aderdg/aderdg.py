@@ -42,6 +42,19 @@ from yateto.util import (
 )
 
 
+def cloneOperand(tensor, name):
+    """A tensor of its own with the shape, the pattern and the memory layout of
+    `tensor`, for a kernel that reads several of it at once: the copies are
+    laid out as the one a cell stores, so each can be bound to where the cell
+    stores one of them."""
+    clone = Tensor(name, tensor.shape(), spp=tensor.spp().as_ndarray())
+    layout = tensor.memoryLayout()
+    clone.setMemoryLayout(type(layout), alignStride=layout.alignedStride())
+    if clone.memoryLayout().requiredReals() != layout.requiredReals():
+        raise ValueError(f"{name} is not laid out as {tensor.name()}")
+    return clone
+
+
 def negateFamily(db, baseName, alignStride):
     """Replaces a tensor family in `db` with its negation.
 
@@ -1059,8 +1072,142 @@ class ADERDGBase(ABC):
             )
             # the jump of the two traces, which the corrector applies the flux to
             self.traceJump = self.nodalTemporary("traceJump", shape)
+        if any(self.fusesFaces(target) for target in self.kwargs.get("targets") or []):
+            self._configureTraceSides()
 
-    def traceCorrector(self, face, side, ownTrace=None, neighborTrace=None):
+    def fusesFaces(self, target):
+        """Whether the face kernels of a target take the four faces of a cell
+        in one kernel, with the side of each face as data
+        (_configureTraceSides): on the device, where a launch costs more than
+        applying the reflection of a side does. The host keeps a kernel per
+        face and side, where the reflection is folded into the operators."""
+        return target == "gpu"
+
+    def traceSideArgs(self, name):
+        """The tensor arguments of the side operators (_configureTraceSides): a
+        sparse layout of the pattern they share, which the old GPU interface
+        reads as dense (see traceMatrixArgs)."""
+        oldGpu = self.kwargs.get("old_gpu_interface", True) and "gpu" in (
+            self.kwargs.get("targets") or []
+        )
+        if oldGpu:
+            return {"alignStride": self.alignStride(name)}
+        return {"memoryLayoutClass": CSCMemoryLayout, "alignStride": False}
+
+    def _configureTraceSides(self):
+        """The side of a face as data, for the kernels that take the four faces
+        of a cell at once (fusesFaces).
+
+        The operators of side 1 of a face are those of side 0 with the
+        reflection R = M2^-1 fP(0) applied (see _configureTraces): the trace
+        R rT(i), the lift L(i, 0) R, the points V(0) R. A kernel over the four
+        faces of a cell applies the operators of side 0 and, between the trace
+        and what reads it, the operator of the side of each face, I or R, which
+        it reads where the cell points it (traceSide). The two are stored by
+        the pattern they share (traceSideOperator), so that the kernel is the
+        same for either: in the Bernstein basis R renumbers the face modes and
+        a row of the union has two entries at most; in a hierarchical basis R
+        keeps the degree of a mode, and the union is the blocks of the
+        degrees, which keeps a trace that reaches the modes up to a degree
+        there.
+
+        The four faces of a kernel read their operators at once, so each has
+        tensors of its own: its two traces (faceTraces, faceTracesNeighbor),
+        and the operator of the corrector in the shape the cell carries it,
+        laid out as the one of a single face (faceAplusT, or the rotation and
+        the scalars per point).
+        """
+        name = "traceSideOperator"
+        modes = self.num2DBasisFunctions()
+        reflection = dense(self.db.M2inv, self.transpose(self.db.M2inv.name())) @ dense(
+            self.db.fP[0], self.transpose(self.db.fP[0].name())
+        )
+        scale = np.max(np.abs(reflection))
+        reflection[np.abs(reflection) <= self.TraceZeroTolerance * scale] = 0.0
+        operators = [np.eye(modes), reflection]
+        pattern = (operators[0] != 0.0) | (operators[1] != 0.0)
+        # face mode by face mode, what checkSideKeeps reads
+        self._traceSidePattern = pattern
+        if self.transpose(name):
+            operators = [operator.T for operator in operators]
+            pattern = pattern.T
+        entries = list(zip(*np.nonzero(pattern)))
+        args = self.traceSideArgs(name)
+        self.traceSideOperator = [
+            Tensor(
+                f"{name}({side})",
+                pattern.shape,
+                spp={entry: repr(float(operator[entry])) for entry in entries},
+                **args,
+            )
+            for side, operator in enumerate(operators)
+        ]
+        self.traceSide = [
+            Tensor(f"traceSide({face})", pattern.shape, spp=pattern, **args)
+            for face in range(4)
+        ]
+        shape = (modes, self.numQuantities())
+        self.faceTraces, self.faceTracesNeighbor = (
+            [
+                OptionalDimTensor(
+                    f"{base}({face})",
+                    self.Q.optName(),
+                    self.Q.optSize(),
+                    self.Q.optPos(),
+                    shape,
+                )
+                for face in range(4)
+            ]
+            for base in ("faceTraces", "faceTracesNeighbor")
+        )
+        if self.nodalFaceFlux:
+            rotation = self.faceRotation()
+            self.faceRotations = [
+                cloneOperand(rotation, f"face{rotation.name()}({face})")
+                for face in range(4)
+            ]
+            self.faceFluxCoefficients = [
+                [
+                    cloneOperand(coefficient, f"faceFluxCoefficients({face},{a})")
+                    for a, coefficient in enumerate(self.fluxCoefficients)
+                ]
+                for face in range(4)
+            ]
+        else:
+            self.faceAplusT = [
+                cloneOperand(self.AplusT, f"faceAplusT({face})") for face in range(4)
+            ]
+
+    def faceOperands(self, face):
+        """What the corrector of a face reads of the cell in a kernel that takes
+        the four faces of a cell at once (_configureTraceSides)."""
+        if self.nodalFaceFlux:
+            return {
+                "rotation": self.faceRotations[face],
+                "coefficients": self.faceFluxCoefficients[face],
+            }
+        return {"fluxMatrix": self.faceAplusT[face]}
+
+    def sideStatement(self, target, sideOperator, source, indices="mq"):
+        """target = the side operator applied to source (_configureTraceSides):
+        `source` in the parametrisation of side 0 of a face, `target` in the
+        one of the side the operator stands for. `indices` names the face modes
+        first."""
+        inner = "z"
+        return (
+            target[indices]
+            <= sideOperator[self.t(indices[0] + inner)] * source[inner + indices[1:]]
+        )
+
+    def traceCorrector(
+        self,
+        face,
+        side,
+        ownTrace=None,
+        neighborTrace=None,
+        sideOperator=None,
+        operands=None,
+    ):
         """What the corrector of one face adds to the field the faces lift into:
         the flux of the two traces of the face, lifted into the cell, less the
         normal flux of the cell's own trace, since the volume term is in the
@@ -1079,23 +1226,39 @@ class ADERDGBase(ABC):
         normal flux, and any other face reads a zero trace for the neighbour. So
         the one matrix, applied to the jump of the traces (the cell's own less
         the neighbour's), is the flux of both on every face.
+
+        Given a `sideOperator`, the corrector takes the side as data: it
+        applies the operator to the jump and goes on as side 0 does
+        (_configureTraceSides). `operands` are the tensors of the face it
+        reads the operator of the corrector from (faceOperands); the ones of
+        the single face a kernel applies otherwise.
         """
         own = self.faceTrace if ownTrace is None else ownTrace
         neighbor = self.faceTraceNeighbor if neighborTrace is None else neighborTrace
+        operands = operands or {}
         target = self.extendedQTensor()
         jump = self.definedOnce(self.traceJump)
         if self.nodalFaceFlux:
-            return [jump["mq"] <= neighbor["mq"] - own["mq"]] + self.nodalFlux(
+            statements = [jump["mq"] <= neighbor["mq"] - own["mq"]]
+        else:
+            statements = [jump["mq"] <= own["mq"] - neighbor["mq"]]
+        if sideOperator is not None:
+            sided = self.definedOnce(self.traceJump)
+            statements.append(self.sideStatement(sided, sideOperator, jump))
+            jump, side = sided, 0
+        if self.nodalFaceFlux:
+            return statements + self.nodalFlux(
                 jump,
                 target,
                 self.traceToFace[side][self.t("nl")],
                 self.faceLift(face),
-                self.fluxCoefficients,
+                operands.get("coefficients", self.fluxCoefficients),
+                rotation=operands.get("rotation"),
             )
         product = self.definedOnce(self.traceProduct)
-        return [
-            jump["mq"] <= own["mq"] - neighbor["mq"],
-            product["mp"] <= jump["mq"] * self.AplusT["qp"],
+        fluxMatrix = operands.get("fluxMatrix", self.AplusT)
+        return statements + [
+            product["mp"] <= jump["mq"] * fluxMatrix["qp"],
             target["kp"]
             <= target["kp"] + self.traceLift[face, side][self.t("km")] * product["mp"],
         ]
@@ -1156,9 +1319,10 @@ class ADERDGBase(ABC):
                 reached = max(reached, int(rows.max()) + 1)
         return reached
 
-    def faceDerivativeStatements(self, face, side):
+    def faceDerivativeStatements(self, face, side, sideOperator=None):
         """The traces of the time derivatives on one face, see
-        faceDerivativeTraces."""
+        faceDerivativeTraces. Given a `sideOperator`, the traces of side 0
+        with the side of the face as data (_configureTraceSides)."""
         statements = []
         for k, (trace, derivative) in enumerate(
             zip(self.faceDerivativeTraces(), self.dQs)
@@ -1168,7 +1332,65 @@ class ADERDGBase(ABC):
                 if self.derivativesByDegree() and k > 0
                 else self.traceMatrix[face, side]
             )
-            statements.append(trace["mq"] <= matrix[self.t("ml")] * derivative["lq"])
+            if sideOperator is None:
+                statements.append(
+                    trace["mq"] <= matrix[self.t("ml")] * derivative["lq"]
+                )
+                continue
+            self.checkSideKeeps(trace)
+            gathered = self.definedOnce(trace)
+            statements.append(gathered["mq"] <= matrix[self.t("ml")] * derivative["lq"])
+            statements.append(self.sideStatement(trace, sideOperator, gathered))
+        return statements
+
+    def checkSideKeeps(self, trace):
+        """Refuses a trace that reaches the face modes up to a degree where the
+        side operators do not keep it there (_configureTraceSides): the trace
+        of the other side has to have the pattern of the trace of side 0."""
+        pattern = trace.spp().as_ndarray()
+        if isinstance(trace, OptionalDimTensor) and trace.hasOptDim():
+            pattern = pattern.any(axis=trace.optPos())
+        reached = (
+            int(np.nonzero(pattern.any(axis=tuple(range(1, pattern.ndim))))[0].max())
+            + 1
+        )
+        if self._traceSidePattern[reached:, :reached].any():
+            raise ValueError(
+                f"the side operators take the first {reached} face modes of "
+                f"{trace.name()} beyond them"
+            )
+
+    def faceTracesStatements(self):
+        """The traces of the time integral of a cell on its four faces, each in
+        the parametrisation of the side its face takes (_configureTraceSides):
+        the trace of side 0, then the side operator of the face."""
+        statements = []
+        for face in range(4):
+            gathered = self.definedOnce(self.faceTraces[face])
+            statements.append(
+                gathered["mq"] <= self.traceMatrix[face, 0][self.t("ml")] * self.I["lq"]
+            )
+            statements.append(
+                self.sideStatement(
+                    self.faceTraces[face], self.traceSide[face], gathered
+                )
+            )
+        return statements
+
+    def faceCorrectorsStatements(self):
+        """The correctors of the four faces of a cell (traceCorrector), each
+        with the side of its face as data and the operands of its face
+        (_configureTraceSides)."""
+        statements = []
+        for face in range(4):
+            statements += self.traceCorrector(
+                face,
+                0,
+                ownTrace=self.faceTraces[face],
+                neighborTrace=self.faceTracesNeighbor[face],
+                sideOperator=self.traceSide[face],
+                operands=self.faceOperands(face),
+            )
         return statements
 
     def faceTraceAtTime(self, coefficients):
@@ -1194,10 +1416,41 @@ class ADERDGBase(ABC):
         the time integral of a cell on one of its faces, the traces of its time
         derivatives on one face, their evaluation over an interval, and the
         corrector of one face. A family is indexed by the face and by the side
-        of the face the cell is on."""
+        of the face the cell is on.
+
+        A target that takes the side as data (fusesFaces) has a kernel for
+        the traces of the time integral on the four faces of a cell
+        (faceTraces), one for the correctors of the four (faceCorrectors), and
+        a family of the traces of the time derivatives indexed by the face
+        alone."""
         for target in targets:
             prefix = generate_kernel_name_prefix(target)
             with self.singleDefinitions(target == "gpu"):
+                if self.fusesFaces(target):
+                    generator.add(
+                        f"{prefix}faceTraces",
+                        self.faceTracesStatements(),
+                        target=target,
+                    )
+                    generator.addFamily(
+                        f"{prefix}faceDerivatives",
+                        simpleParameterSpace(4),
+                        lambda face: self.faceDerivativeStatements(
+                            face, 0, self.traceSide[face]
+                        ),
+                        target=target,
+                    )
+                    generator.add(
+                        f"{prefix}faceCorrectors",
+                        self.faceCorrectorsStatements(),
+                        target=target,
+                    )
+                    generator.add(
+                        f"{prefix}faceDerivativesAtTime",
+                        self.faceDerivativesAtTimeStatements(),
+                        target=target,
+                    )
+                    continue
                 generator.addFamily(
                     f"{prefix}faceTrace",
                     simpleParameterSpace(4, 2),
@@ -1258,7 +1511,9 @@ class ADERDGBase(ABC):
             )
         return statements
 
-    def nodalFlux(self, source, target, toFace, lift, coefficientsOfFace):
+    def nodalFlux(
+        self, source, target, toFace, lift, coefficientsOfFace, rotation=None
+    ):
         """One face contribution where the operator varies along the face.
 
         The field is read at the points of the face and turned into the face
@@ -1272,8 +1527,10 @@ class ADERDGBase(ABC):
         `toFace` reads the field at the points of the face, with the point index
         first and the mode index second; `lift` goes the other way. Both come
         indexed, because how a matrix is laid out is the caller's to state.
+        `rotation` is the tensor the rotation is read from, the one of the
+        single face a kernel applies where not given (faceRotation).
         """
-        rotation = self.faceRotation()
+        rotation = self.faceRotation() if rotation is None else rotation
         into, back = self.faceRotationIndices()
         faceValues = self.definedOnce(self.faceValues)
         faceRotated = self.definedOnce(self.faceRotated)
@@ -2180,3 +2437,8 @@ class ADERDGBase(ABC):
         for family in (self.db.rDivM, self.db.fMrT):
             for member in family.values():
                 include_tensors.add(member)
+        # the operators of the two sides of a face, which the host hands to the
+        # kernels that take the side as data (_configureTraceSides); no kernel
+        # names them
+        for operator in getattr(self, "traceSideOperator", []):
+            include_tensors.add(operator)

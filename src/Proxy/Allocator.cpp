@@ -15,6 +15,7 @@
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
+#include "Kernels/FaceTraces.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Kernels/Touch.h"
@@ -119,6 +120,7 @@ void fakeData(LTS::Layer& layer, FaceType faceTp) {
   kernels::fillWithStuff(reinterpret_cast<real*>(dofs), tensor::Q::size() * layer.size(), false);
   kernels::fillWithStuff(bucket, Cell::NumFaces * TraceSize * layer.size(), false);
   std::fill_n(layer.var<LTS::ZeroFaceTrace>(), TraceSize, real{0});
+  kernels::writeTraceSideOperators(layer.var<LTS::TraceSideOperators>());
   kernels::fillWithStuff(reinterpret_cast<real*>(localIntegration),
                          sizeof(LocalIntegrationData) / sizeof(real) * layer.size(),
                          false);
@@ -189,6 +191,7 @@ void ProxyData::initDataStructures(bool enableDR) {
   layer.setEntrySize<LTS::Buffers>(sizeof(real) * Cell::NumFaces * kernels::Solver::FaceTraceSize *
                                    layer.size());
   layer.setEntrySize<LTS::ZeroFaceTrace>(sizeof(real) * kernels::Solver::FaceTraceSize);
+  layer.setEntrySize<LTS::TraceSideOperators>(sizeof(real) * 2 * kernels::TraceSideOperatorSize);
 
   ltsStorage.allocateVariables();
   ltsStorage.touchVariables();

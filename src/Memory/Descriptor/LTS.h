@@ -131,6 +131,11 @@ struct LTS {
   /// A trace of zeros, which the corrector of a face without a neighbor reads as the neighbor's
   /// (see kernels::applyFaceCorrectors). One per layer.
   struct ZeroFaceTrace : public initializer::Bucket<real> {};
+  /// The operators of the two sides of a face, the identity and the reflection, laid out as the
+  /// device kernels that take the side of a face as data read them (tensor::traceSide); a cell
+  /// points each of its faces to the one of the side it is on there
+  /// (CellLocalInformation::traceSides). One pair per layer, on a device only.
+  struct TraceSideOperators : public initializer::Bucket<real> {};
 
   struct FaceTracesDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
   struct FaceBuffersDevice : public initializer::Variable<std::array<real*, Cell::NumFaces>> {};
@@ -188,6 +193,7 @@ struct LTS {
                                                         FaceDisplacements,
                                                         Buffers,
                                                         ZeroFaceTrace,
+                                                        TraceSideOperators,
                                                         FaceTracesDevice,
                                                         FaceBuffersDevice,
                                                         FaceNeighborsDevice,
@@ -289,6 +295,8 @@ struct LTS {
     storage.add<Buffers>(
         LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
     storage.add<ZeroFaceTrace>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Timebucket), true);
+    storage.add<TraceSideOperators>(
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Timebucket), true);
 
     storage.add<FaceTracesDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);

@@ -141,7 +141,7 @@ void Spacetime::computeBatchedFaceDerivatives(
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
-  kernels::internal::runFaceSideBatches(
+  kernels::internal::runFaceBatches(
       deviceFaceDerivativesKrnlPrototype_,
       *KernelNames::FaceTrace,
       *ComputationKind::WithDerivatives,

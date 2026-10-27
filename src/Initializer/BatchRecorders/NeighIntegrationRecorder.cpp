@@ -11,6 +11,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/LtsSetup.h"
+#include "Kernels/FaceTraces.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
@@ -84,45 +85,52 @@ void NeighIntegrationRecorder::recordNeighborTraces() {
 void NeighIntegrationRecorder::recordFaceCorrectors() {
   auto* faceTraces = currentLayer_->var<LTS::FaceTracesDevice>();
   const auto* cellInformation = currentLayer_->var<LTS::CellInformation>();
-
-  // by the face and by the side of the face the cell is on (CellLocalInformation::traceSides)
-  using PerFaceSide = std::array<std::array<std::vector<real*>, 2>, Cell::NumFaces>;
-  PerFaceSide tracePtrs{};
-  PerFaceSide neighborTracePtrs{};
-  // what the faces lift into, see fluxTargetOf
-  PerFaceSide fluxTargetPtrs{};
-  PerFaceSide localPtrs{};
+  real* zeroTrace = currentLayer_->var<LTS::ZeroFaceTrace>(AllocationPlace::Device);
+  real* sideOperators = currentLayer_->var<LTS::TraceSideOperators>(AllocationPlace::Device);
 
   const auto size = currentLayer_->size();
+  if (size == 0) {
+    return;
+  }
+
+  // the four faces of every cell, face after face, each with the operator of the side the cell is
+  // on there (CellLocalInformation::traceSides): the kernel that applies the correctors of the four
+  // at once reads them so (kernels::applyFaceCorrectorsBatched). A face that takes no corrector
+  // (appliesFaceCorrector) reads a trace of zeros on both sides, which its corrector turns into
+  // nothing.
+  std::vector<real*> tracePtrs(Cell::NumFaces * size);
+  std::vector<real*> neighborTracePtrs(Cell::NumFaces * size);
+  std::vector<real*> sidePtrs(Cell::NumFaces * size);
+  // what the faces lift into, see fluxTargetOf, and where a cell keeps the operators of its faces
+  std::vector<real*> fluxTargetPtrs(size);
+  std::vector<real*> localPtrs(size);
+
   for (std::size_t cell = 0; cell < size; ++cell) {
     auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
-    real* fluxTarget = fluxTargetOf(*currentLayer_, cell);
+    fluxTargetPtrs[cell] = fluxTargetOf(*currentLayer_, cell);
+    localPtrs[cell] = reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>());
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      if (!appliesFaceCorrector(cellInformation[cell].faceTypes[face])) {
-        continue;
+      const auto index = face * size + cell;
+      sidePtrs[index] =
+          sideOperators + cellInformation[cell].traceSides[face] * kernels::TraceSideOperatorSize;
+      if (appliesFaceCorrector(cellInformation[cell].faceTypes[face])) {
+        tracePtrs[index] = faceTraces[cell][face];
+        neighborTracePtrs[index] = neighborTraces_[cell][face];
+      } else {
+        tracePtrs[index] = zeroTrace;
+        neighborTracePtrs[index] = zeroTrace;
       }
-      const auto side = cellInformation[cell].traceSides[face];
-      tracePtrs[face][side].push_back(faceTraces[cell][face]);
-      neighborTracePtrs[face][side].push_back(neighborTraces_[cell][face]);
-      fluxTargetPtrs[face][side].push_back(fluxTarget);
-      localPtrs[face][side].push_back(reinterpret_cast<real*>(&data.get<LTS::LocalIntegration>()));
     }
   }
 
-  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    for (std::size_t side = 0; side < 2; ++side) {
-      if (!tracePtrs[face][side].empty()) {
-        const ConditionalKey key(*KernelNames::FaceCorrector, *ComputationKind::None, face, side);
-        checkKey(key);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::FaceTrace, tracePtrs[face][side]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::FaceTraceNeighbor,
-                                  neighborTracePtrs[face][side]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget, fluxTargetPtrs[face][side]);
-        (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs[face][side]);
-      }
-    }
-  }
+  const ConditionalKey key(*KernelNames::FaceCorrector, *ComputationKind::None);
+  checkKey(key);
+  (*currentTable_)[key].set(inner_keys::Wp::Id::FaceTrace, tracePtrs);
+  (*currentTable_)[key].set(inner_keys::Wp::Id::FaceTraceNeighbor, neighborTracePtrs);
+  (*currentTable_)[key].set(inner_keys::Wp::Id::TraceSide, sidePtrs);
+  (*currentTable_)[key].set(inner_keys::Wp::Id::FluxTarget, fluxTargetPtrs);
+  (*currentTable_)[key].set(inner_keys::Wp::Id::LocalIntegrationData, localPtrs);
 }
 
 void NeighIntegrationRecorder::recordDynamicRuptureFluxes() {

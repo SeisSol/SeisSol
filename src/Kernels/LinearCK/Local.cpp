@@ -85,7 +85,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   foldedBoundaryFlux_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceFaceTraceKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceFaceTracesKernelPrototype_.bindGlobals(*global.onDevice);
   deviceNodalLfKrnlPrototype_.bindGlobals(*global.onDevice);
   deviceFsgFlux_.bindGlobals(*global.onDevice);
   deviceDirichletFlux_.bindGlobals(*global.onDevice);
@@ -216,7 +216,7 @@ void Local::computeBatchedIntegral(
 
   // the trace of the time integral on every face, which the corrector of the cell reads together
   // with the one its neighbor writes there
-  kernels::writeFaceTracesBatched(deviceFaceTraceKernelPrototype_, dataTable, runtime);
+  kernels::writeFaceTracesBatched(deviceFaceTracesKernelPrototype_, dataTable, runtime);
 
   // what the condition of the faces of a batch folds into the local flux solver, where the
   // corrector does not apply it (appliesFoldApart)

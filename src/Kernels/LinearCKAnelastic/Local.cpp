@@ -55,7 +55,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceFaceTraceKernelPrototype_.bindGlobals(*global.onDevice);
+  deviceFaceTracesKernelPrototype_.bindGlobals(*global.onDevice);
   deviceLocalKernelPrototype_.bindGlobals(*global.onDevice);
 
   deviceDirichletFlux_.bindGlobals(*global.onDevice);
@@ -245,7 +245,7 @@ void Local::computeBatchedIntegral(
 
     // the trace of the time integral on every face, which the corrector of the cell reads together
     // with the one its neighbor writes there
-    kernels::writeFaceTracesBatched(deviceFaceTraceKernelPrototype_, dataTable, runtime);
+    kernels::writeFaceTracesBatched(deviceFaceTracesKernelPrototype_, dataTable, runtime);
 
     // The Dirichlet condition of the boundary faces goes where the faces of a cell lift into -- the
     // extended field, which the local kernel below hands on to the field and the memory variables,

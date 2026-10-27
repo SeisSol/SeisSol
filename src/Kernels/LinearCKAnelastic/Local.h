@@ -59,7 +59,8 @@ class Local : public LocalKernel {
   kernels::AnalyticalBoundary analyticalBoundary_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_faceTrace deviceFaceTraceKernelPrototype_;
+  // the traces of the four faces of a cell at once, with the side of each face as data
+  kernel::gpu_faceTraces deviceFaceTracesKernelPrototype_;
   kernel::gpu_local deviceLocalKernelPrototype_;
 
   kernel::gpu_dirichletFlux deviceDirichletFlux_;

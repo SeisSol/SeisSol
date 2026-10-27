@@ -15,15 +15,26 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Kernels/Common.h"
 #include "Kernels/Precision.h"
 #include "Kernels/StarOperands.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Model/OperatorLayout.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <yateto.h>
+
+#ifdef ACL_DEVICE
+#include "GeneratedCode/init.h"
+#endif
+
+namespace seissol::tensor {
+// generated where a target takes the side of a face as data, on a device
+struct traceSide;
+} // namespace seissol::tensor
 
 /// The corrector of a cell works from face traces: after the predictor, a cell writes the trace of
 /// its time integral on each of its faces (LTS::FaceTraces), in the face basis; the corrector of a
@@ -105,86 +116,131 @@ void applyFaceCorrectors(const KernelT& prototype,
   }
 }
 
+/// The reals one operator of the side of a face takes (LTS::TraceSideOperators), as the device
+/// kernels that take the side as data read it (tensor::traceSide); none where no kernel does.
+constexpr std::size_t TraceSideOperatorSize = kernels::size<tensor::traceSide>(0);
+
+/// Writes the operators of the two sides of a face, the identity and the reflection, one after the
+/// other, where the device kernels that take the side as data read them (LTS::TraceSideOperators).
+inline void writeTraceSideOperators([[maybe_unused]] real* operators) {
+#ifdef ACL_DEVICE
+  for (std::size_t side = 0; side < 2; ++side) {
+    std::copy_n(init::traceSideOperator::Values[side],
+                TraceSideOperatorSize,
+                operators + side * TraceSideOperatorSize);
+  }
+#endif
+}
+
 namespace internal {
-/// Runs the member (face, side) of the kernel family of `prototype` on every batch the recorders
-/// noted under `kernelName` and `kind` for that face and side, once `bind(krnl, entry, face)` has
-/// handed it the batch; `counted` is a pointer array of the batch. The batches run one after the
-/// other on the stream of `runtime`, which the correctors need: those of different faces add to
-/// the same cells.
+/// The pointers of one face in an array the recorders fill face after face for the cells of a
+/// batch (see recording::LocalIntegrationRecorder): those of face `face` start `face * cells` in.
+template <typename T>
+T** ofFace(T** pointers, std::size_t face, std::size_t cells) {
+  return pointers + face * cells;
+}
+
+/// Runs the member `face` of the kernel family of `prototype` on every batch the recorders noted
+/// under `kernelName` and `kind` for that face, once `bind(krnl, entry, face)` has handed it the
+/// batch, with the operator of the side each cell of the batch is on
+/// (inner_keys::Wp::Id::TraceSide); `counted` is a pointer array of the batch. The batches run one
+/// after the other on the stream of `runtime`.
 template <typename KernelT, typename BindT>
-void runFaceSideBatches(const KernelT& prototype,
-                        std::size_t kernelName,
-                        std::size_t kind,
-                        recording::inner_keys::Wp::Id counted,
-                        recording::ConditionalPointersToRealsTable& table,
-                        parallel::runtime::StreamRuntime& runtime,
-                        const BindT& bind) {
+void runFaceBatches(const KernelT& prototype,
+                    std::size_t kernelName,
+                    std::size_t kind,
+                    recording::inner_keys::Wp::Id counted,
+                    recording::ConditionalPointersToRealsTable& table,
+                    parallel::runtime::StreamRuntime& runtime,
+                    const BindT& bind) {
+  using namespace seissol::recording;
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-    for (std::size_t side = 0; side < 2; ++side) {
-      const auto found = table.find(recording::ConditionalKey(kernelName, kind, face, side));
-      if (found == table.end()) {
-        continue;
-      }
-      auto& entry = found->second;
-      KernelT krnl = prototype;
-      krnl.numElements = entry.get(counted)->getSize();
-      auto tmpMem = runtime.memoryHandle<real>(
-          (KernelT::TmpMaxMemRequiredInBytes * krnl.numElements) / sizeof(real));
-      krnl.linearAllocator.initialize(tmpMem.get());
-      bind(krnl, entry, face);
-      krnl.streamPtr = runtime.stream();
-      krnl.execute(face, side);
+    const auto found = table.find(ConditionalKey(kernelName, kind, face));
+    if (found == table.end()) {
+      continue;
     }
+    auto& entry = found->second;
+    KernelT krnl = prototype;
+    krnl.numElements = entry.get(counted)->getSize();
+    auto tmpMem = runtime.memoryHandle<real>(
+        (KernelT::TmpMaxMemRequiredInBytes * krnl.numElements) / sizeof(real));
+    krnl.linearAllocator.initialize(tmpMem.get());
+    krnl.traceSide(face) =
+        const_cast<const real**>(entry.get(inner_keys::Wp::Id::TraceSide)->getDeviceDataPtr());
+    bind(krnl, entry, face);
+    krnl.streamPtr = runtime.stream();
+    krnl.execute(face);
   }
 }
 } // namespace internal
 
-/// writeFaceTraces on the device, for the batches the recorder noted by face and by side (see
-/// recording::LocalIntegrationRecorder).
+/// writeFaceTraces on the device: one kernel writes the traces of the four faces of every cell of
+/// the batch the recorder noted, each face with the operator of the side its cell is on there
+/// (see recording::LocalIntegrationRecorder).
 template <typename KernelT>
 void writeFaceTracesBatched(const KernelT& prototype,
                             recording::ConditionalPointersToRealsTable& table,
                             parallel::runtime::StreamRuntime& runtime) {
   using namespace seissol::recording;
-  internal::runFaceSideBatches(
-      prototype,
-      *KernelNames::FaceTrace,
-      *ComputationKind::None,
-      inner_keys::Wp::Id::FaceTrace,
-      table,
-      runtime,
-      [](KernelT& krnl, auto& entry, std::size_t /*face*/) {
-        krnl.I = const_cast<const real**>(entry.get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr());
-        krnl.faceTrace = entry.get(inner_keys::Wp::Id::FaceTrace)->getDeviceDataPtr();
-      });
+  const auto found = table.find(ConditionalKey(*KernelNames::FaceTrace, *ComputationKind::None));
+  if (found == table.end()) {
+    return;
+  }
+  auto& entry = found->second;
+  KernelT krnl = prototype;
+  const auto cells = entry.get(inner_keys::Wp::Id::Idofs)->getSize();
+  krnl.numElements = cells;
+  krnl.I = const_cast<const real**>(entry.get(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr());
+  auto** traces = entry.get(inner_keys::Wp::Id::FaceTrace)->getDeviceDataPtr();
+  auto** sides =
+      const_cast<const real**>(entry.get(inner_keys::Wp::Id::TraceSide)->getDeviceDataPtr());
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    krnl.faceTraces(face) = internal::ofFace(traces, face, cells);
+    krnl.traceSide(face) = internal::ofFace(sides, face, cells);
+  }
+  auto tmpMem =
+      runtime.memoryHandle<real>((KernelT::TmpMaxMemRequiredInBytes * cells) / sizeof(real));
+  krnl.linearAllocator.initialize(tmpMem.get());
+  krnl.streamPtr = runtime.stream();
+  krnl.execute();
 }
 
-/// applyFaceCorrectors on the device, for the batches the recorder noted by face and by side (see
-/// recording::NeighIntegrationRecorder); `bindTarget(krnl, entry)` hands the kernel what the cells
-/// of a batch lift into.
+/// applyFaceCorrectors on the device: one kernel applies the correctors of the four faces of every
+/// cell of the batch the recorder noted, each face with the operator of the side its cell is on
+/// there (see recording::NeighIntegrationRecorder); `bindTarget(krnl, entry)` hands the kernel what
+/// the cells lift into. A face that takes no corrector (appliesFaceCorrector) reads a trace of
+/// zeros on both sides, which its corrector turns into nothing.
 template <typename KernelT, typename BindTargetT>
 void applyFaceCorrectorsBatched(const KernelT& prototype,
                                 recording::ConditionalPointersToRealsTable& table,
                                 parallel::runtime::StreamRuntime& runtime,
                                 const BindTargetT& bindTarget) {
   using namespace seissol::recording;
-  internal::runFaceSideBatches(
-      prototype,
-      *KernelNames::FaceCorrector,
-      *ComputationKind::None,
-      inner_keys::Wp::Id::FaceTrace,
-      table,
-      runtime,
-      [&](KernelT& krnl, auto& entry, std::size_t face) {
-        const auto pointers = [&](inner_keys::Wp::Id id) {
-          return const_cast<const real**>(entry.get(id)->getDeviceDataPtr());
-        };
-        krnl.faceTrace = pointers(inner_keys::Wp::Id::FaceTrace);
-        krnl.faceTraceNeighbor = pointers(inner_keys::Wp::Id::FaceTraceNeighbor);
-        bindCorrectorOperandsBatched(
-            krnl, pointers(inner_keys::Wp::Id::LocalIntegrationData), face);
-        bindTarget(krnl, entry);
-      });
+  const auto found =
+      table.find(ConditionalKey(*KernelNames::FaceCorrector, *ComputationKind::None));
+  if (found == table.end()) {
+    return;
+  }
+  auto& entry = found->second;
+  const auto pointers = [&](inner_keys::Wp::Id id) {
+    return const_cast<const real**>(entry.get(id)->getDeviceDataPtr());
+  };
+  KernelT krnl = prototype;
+  const auto cells = entry.get(inner_keys::Wp::Id::FluxTarget)->getSize();
+  krnl.numElements = cells;
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    krnl.faceTraces(face) = internal::ofFace(pointers(inner_keys::Wp::Id::FaceTrace), face, cells);
+    krnl.faceTracesNeighbor(face) =
+        internal::ofFace(pointers(inner_keys::Wp::Id::FaceTraceNeighbor), face, cells);
+    krnl.traceSide(face) = internal::ofFace(pointers(inner_keys::Wp::Id::TraceSide), face, cells);
+  }
+  bindFaceCorrectorOperandsBatched(krnl, pointers(inner_keys::Wp::Id::LocalIntegrationData));
+  bindTarget(krnl, entry);
+  auto tmpMem =
+      runtime.memoryHandle<real>((KernelT::TmpMaxMemRequiredInBytes * cells) / sizeof(real));
+  krnl.linearAllocator.initialize(tmpMem.get());
+  krnl.streamPtr = runtime.stream();
+  krnl.execute();
 }
 
 } // namespace seissol::kernels

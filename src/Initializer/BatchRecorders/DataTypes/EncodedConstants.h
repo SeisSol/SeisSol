@@ -61,6 +61,9 @@ struct Wp {
     // what a cell writes on a face for the neighbor across it (LTS::FaceBuffers), or reads there
     // from the neighbor
     FaceBuffer,
+    // the operator of the side of a face, for a kernel that takes the side as data
+    // (LTS::TraceSideOperators)
+    TraceSide,
     Count
   };
 };

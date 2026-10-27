@@ -688,6 +688,114 @@ class TestFaceTraceLayout:
             assert not matrix.memoryLayout().isSparse()
 
 
+class TestTraceSides:
+    """The device takes the four faces of a cell in one kernel and the side of
+    each face as data: the operators of side 1 of a face are those of side 0
+    with the reflection R = M2^-1 fP(0) applied -- the trace R T, the lift L R,
+    the points V R -- and the kernels apply the operators of side 0 with the
+    operator of the side of each face, I or R, in between, which the two store
+    by the pattern they share."""
+
+    @staticmethod
+    def _elastic(basis, order, nodal=False):
+        import importlib
+
+        matrices = MATRICES_DIR if basis == "dubiner" else MATRICES_DIR / basis
+        kwargs = dict(
+            equations="elastic",
+            order=order,
+            multipleSimulations=1,
+            matricesDir=str(matrices),
+            memLayout=_default_memLayout(),
+            numMechanisms=0,
+            solver="linearck",
+            factored_star=True,
+            material_nodal=nodal,
+            material_points="sq",
+            material_operator="factored",
+            material_narrow_derivatives=False,
+            targets=["cpu", "gpu"],
+            old_gpu_interface=False,
+        )
+        module = importlib.import_module("kernels.equations.elastic")
+        return module.kernel_class(**kwargs)(**kwargs)
+
+    @staticmethod
+    def _dense(adg, tensor):
+        from kernels.basis import dense
+
+        return dense(tensor, adg.transpose(tensor.name()))
+
+    def _sides(self, adg):
+        identity, reflection = (self._dense(adg, t) for t in adg.traceSideOperator)
+        assert np.allclose(identity, np.eye(adg.num2DBasisFunctions()))
+        return reflection
+
+    @pytest.mark.parametrize("basis", ["dubiner", "bernstein"])
+    @pytest.mark.parametrize("order", [4, 6])
+    def test_side_1_is_side_0_reflected(self, basis, order):
+        adg = self._elastic(basis, order)
+        reflection = self._sides(adg)
+        for face in range(4):
+            trace = [self._dense(adg, adg.traceMatrix[face, side]) for side in range(2)]
+            lift = [self._dense(adg, adg.traceLift[face, side]) for side in range(2)]
+            scale = np.abs(trace[0]).max()
+            assert np.abs(trace[1] - reflection @ trace[0]).max() < 1e-12 * scale
+            scale = np.abs(lift[0]).max()
+            assert np.abs(lift[1] - lift[0] @ reflection).max() < 1e-12 * scale
+
+    @pytest.mark.parametrize("basis", ["dubiner", "bernstein"])
+    def test_side_1_reads_the_points_reflected(self, basis):
+        adg = self._elastic(basis, 4, nodal=True)
+        assert adg.nodalFaceFlux
+        reflection = self._sides(adg)
+        points = [self._dense(adg, adg.traceToFace[side]) for side in range(2)]
+        scale = np.abs(points[0]).max()
+        assert np.abs(points[1] - points[0] @ reflection).max() < 1e-12 * scale
+
+    @pytest.mark.parametrize("order", [4, 6, 8])
+    def test_bernstein_sides_have_two_entries_a_row(self, order):
+        adg = self._elastic("bernstein", order)
+        reflection = self._sides(adg)
+        assert (np.count_nonzero(reflection, axis=1) == 1).all()
+        assert np.allclose(np.abs(reflection).sum(axis=1), 1.0)
+        pattern = adg.traceSide[0].spp().as_ndarray()
+        assert np.count_nonzero(pattern, axis=1).max() <= 2
+
+    @pytest.mark.parametrize("basis", ["dubiner", "bernstein"])
+    def test_operands_and_operators_share_the_layout(self, basis):
+        """The host copies the operators where the cells point the operands of
+        the kernels, so the two have to be laid out alike."""
+        adg = self._elastic(basis, 6)
+        reference = adg.traceSideOperator[0]
+        entries = list(zip(*np.nonzero(reference.spp().as_ndarray())))
+        for tensor in adg.traceSideOperator[1:] + adg.traceSide:
+            assert type(tensor.memoryLayout()) is type(reference.memoryLayout())
+            for entry in entries:
+                assert tensor.memoryLayout().address(entry) == (
+                    reference.memoryLayout().address(entry)
+                )
+
+    @pytest.mark.parametrize("nodal", [False, True])
+    def test_the_device_takes_four_faces_at_once(self, nodal):
+        adg = self._elastic("bernstein", 4, nodal=nodal)
+        recorder = _KernelRecorder()
+        adg.addTime(recorder, ["cpu", "gpu"])
+        adg.addTraces(recorder, ["cpu", "gpu"])
+        perFaceSide = {(face, side) for face in range(4) for side in range(2)}
+        for kernel in ("faceTrace", "faceDerivatives", "faceCorrector"):
+            assert set(recorder.kernels[kernel]) == perFaceSide
+            assert (
+                f"gpu_{kernel}" not in recorder.kernels or kernel == "faceDerivatives"
+            )
+        assert set(recorder.kernels["gpu_faceDerivatives"]) == {
+            (face,) for face in range(4)
+        }
+        traces = _written(recorder.kernels["gpu_faceTraces"])
+        assert traces[1::2] == [f"faceTraces({face})" for face in range(4)]
+        assert _written(recorder.kernels["gpu_faceCorrectors"]).count("Q") == 4
+
+
 # =============================================================================
 # Matrix-file inventory — catches missing files for supported orders
 # =============================================================================

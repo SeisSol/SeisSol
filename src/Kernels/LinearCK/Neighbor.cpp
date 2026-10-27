@@ -54,7 +54,6 @@ namespace seissol::kernels::solver::linearck {
 static_assert(std::size(kernel::faceCorrector::ExecutePtrs) == Cell::NumFaces * 2);
 
 #ifdef ACL_DEVICE
-static_assert(std::size(kernel::gpu_faceCorrector::ExecutePtrs) == Cell::NumFaces * 2);
 static_assert(std::size(dynamicRupture::kernel::gpu_nodalFlux::ExecutePtrs) ==
               *seissol::recording::DrFaceRelations::Count);
 #endif
@@ -68,7 +67,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
 #ifdef ACL_DEVICE
   assert(global.onDevice != nullptr);
 
-  deviceCorrectorKrnlPrototype_.bindGlobals(*global.onDevice);
+  deviceCorrectorsKrnlPrototype_.bindGlobals(*global.onDevice);
   deviceDrKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
@@ -113,7 +112,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
 
   // the corrector of every face, into what the faces of the cells lift into (FluxTarget)
   kernels::applyFaceCorrectorsBatched(
-      deviceCorrectorKrnlPrototype_, table, runtime, [](auto& krnl, auto& entry) {
+      deviceCorrectorsKrnlPrototype_, table, runtime, [](auto& krnl, auto& entry) {
         krnl.Q = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
       });
 

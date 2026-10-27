@@ -115,12 +115,21 @@ class STP(LinearCK):
             ]
         return self._faceDerivatives
 
-    def faceDerivativeStatements(self, face, side):
+    def faceDerivativeStatements(self, face, side, sideOperator=None):
         (trace,) = self.faceDerivativeTraces()
+        if sideOperator is None:
+            return [
+                trace["mqt"]
+                <= self.traceMatrix[face, side][self.t("ml")]
+                * self.spaceTimePredictor["lqt"]
+            ]
+        # the trace of side 0, then the side of the face as data
+        # (_configureTraceSides)
+        gathered = self.definedOnce(trace)
         return [
-            trace["mqt"]
-            <= self.traceMatrix[face, side][self.t("ml")]
-            * self.spaceTimePredictor["lqt"]
+            gathered["mqt"]
+            <= self.traceMatrix[face, 0][self.t("ml")] * self.spaceTimePredictor["lqt"],
+            self.sideStatement(trace, sideOperator, gathered, "mqt"),
         ]
 
     def faceTraceAtTime(self, coefficients):

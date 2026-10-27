@@ -40,7 +40,7 @@ void Neighbor::setGlobalData(const CompoundGlobalData& global) {
   weightAdjustment_.setGlobalData(global);
 
 #ifdef ACL_DEVICE
-  deviceCorrectorKrnlPrototype_.bindGlobals(*global.onDevice);
+  deviceCorrectorsKrnlPrototype_.bindGlobals(*global.onDevice);
   deviceDrKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
@@ -145,7 +145,7 @@ void Neighbor::computeBatchedNeighborsIntegral(
 
   // the corrector of every face, into what the faces of the cells lift into (FluxTarget)
   kernels::applyFaceCorrectorsBatched(
-      deviceCorrectorKrnlPrototype_, table, runtime, [](auto& krnl, auto& entry) {
+      deviceCorrectorsKrnlPrototype_, table, runtime, [](auto& krnl, auto& entry) {
         krnl.Qext = (entry.get(inner_keys::Wp::Id::FluxTarget))->getDeviceDataPtr();
       });
 

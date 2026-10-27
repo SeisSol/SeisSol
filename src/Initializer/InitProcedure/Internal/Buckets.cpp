@@ -16,6 +16,7 @@
 #include "Initializer/LtsSetup.h"
 #include "Initializer/TimeStepping/Halo.h"
 #include "Kernels/Common.h"
+#include "Kernels/FaceTraces.h"
 #include "Kernels/Precision.h"
 #include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
@@ -233,6 +234,7 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   layer.setEntrySize<LTS::Buffers>(manager.size());
   if (!ghost) {
     layer.setEntrySize<LTS::ZeroFaceTrace>(kernels::Solver::FaceTraceSize * sizeof(real));
+    layer.setEntrySize<LTS::TraceSideOperators>(2 * kernels::TraceSideOperatorSize * sizeof(real));
   }
 
   return remoteClusters;
@@ -241,6 +243,7 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
 void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
   if (layer.getIdentifier().halo != HaloType::Ghost) {
     std::fill_n(layer.var<LTS::ZeroFaceTrace>(), kernels::Solver::FaceTraceSize, real{0});
+    kernels::writeTraceSideOperators(layer.var<LTS::TraceSideOperators>());
   }
 
   auto* buffers = layer.var<LTS::Buffers>();

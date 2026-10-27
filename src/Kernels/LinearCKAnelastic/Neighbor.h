@@ -42,7 +42,8 @@ class Neighbor : public NeighborKernel {
   WeightAdjustmentT weightAdjustment_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_faceCorrector deviceCorrectorKrnlPrototype_;
+  // the correctors of the four faces of a cell at once, with the side of each face as data
+  kernel::gpu_faceCorrectors deviceCorrectorsKrnlPrototype_;
   kernel::gpu_neighbor deviceNKrnlPrototype_;
   dynamicRupture::kernel::gpu_nodalFlux deviceDrKrnlPrototype_;
 #endif
