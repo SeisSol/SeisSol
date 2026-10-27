@@ -134,7 +134,7 @@ void Pinning::checkEnvVariables() {
         const auto maxCpuId = get_nprocs() - 1;
         for (auto localProcessId = 0; std::cmp_less(localProcessId, parsedFreeCPUsMask_.size());
              ++localProcessId) {
-          for (auto cpu : parsedFreeCPUsMask_[localProcessId]) {
+          for (const auto cpu : parsedFreeCPUsMask_[localProcessId]) {
             if (cpu > maxCpuId) {
               logInfo() << "Free cpu mask of the local process" << localProcessId
                         << "is out of bounds. CPU/core id" << cpu << "exceeds max. value"
@@ -275,7 +275,7 @@ bool Pinning::areAllCpusOnline() {
 
 void Pinning::pinToFreeCPUs() const {
 #ifndef __APPLE__
-  auto freeMask = getFreeCPUsMask();
+  const auto freeMask = getFreeCPUsMask();
   sched_setaffinity(0, sizeof(cpu_set_t), &freeMask.set);
 #endif // __APPLE__
 }

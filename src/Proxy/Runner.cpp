@@ -70,7 +70,7 @@ auto estimateProxy(const ProxyConfig& config) -> PerformanceEstimate {
 }
 
 auto runProxy(const ProxyConfig& config) -> ProxyOutput {
-  auto kernel = makeKernel(config);
+  const auto kernel = makeKernel(config);
 
   const bool enableDynamicRupture = kernel->needsDR();
 

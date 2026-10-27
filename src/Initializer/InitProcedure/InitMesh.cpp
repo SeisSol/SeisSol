@@ -121,7 +121,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   if (miniSeisSolEnabled) {
     if (seissol::Mpi::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
-      auto elapsedTime = seissol::solver::miniSeisSol(seissolParams.model.config);
+      const auto elapsedTime = seissol::solver::miniSeisSol(seissolParams.model.config);
       nodeWeight = 1.0 / elapsedTime;
 
       const auto summary = seissol::statistics::parallelSummary(nodeWeight);
@@ -179,7 +179,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
             _eh(H5free_memory(formatRaw));
             return format;
           } else {
-            auto length = H5Tget_size(boundaryAttributeType);
+            const auto length = H5Tget_size(boundaryAttributeType);
             std::vector<char> data(length);
             _eh(H5Aread(boundaryAttribute, boundaryAttributeType, data.data()));
             std::size_t actualLength = length;
@@ -219,7 +219,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
         logInfo() << "Boundary format not given in PUML file; inferring from array shape.";
         const hid_t boundaryDataset = _eh(H5Dopen2(dataFile, "boundary", H5P_DEFAULT));
         const hid_t boundarySpace = _eh(H5Dget_space(boundaryDataset));
-        auto boundaryTypeRank = _eh(H5Sget_simple_extent_ndims(boundarySpace));
+        const auto boundaryTypeRank = _eh(H5Sget_simple_extent_ndims(boundarySpace));
 
         _eh(H5Sclose(boundarySpace));
         _eh(H5Dclose(boundaryDataset));
@@ -310,7 +310,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       .configCostFactors = std::move(configCostFactors)};
 
   seissol::initializer::Clustering clustering(config, seissolInstance);
-  auto weightModel = seissol::initializer::getVertexWeightModel(
+  const auto weightModel = seissol::initializer::getVertexWeightModel(
       seissolParams.timeStepping.lts.getLtsWeightsType());
   auto meshReader =
       std::make_unique<seissol::geometry::PUMLReader>(seissolParams.mesh.meshFileName,

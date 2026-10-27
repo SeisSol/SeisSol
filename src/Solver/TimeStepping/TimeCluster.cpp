@@ -963,6 +963,8 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
   const auto* drMapping = clusterData_->var<LTS::DRMapping>(Cfg());
   const auto* cellInformation = clusterData_->var<LTS::CellInformation>();
   const auto* plasticity = clusterData_->var<LTS::Plasticity>(Cfg());
+  // written only where the configuration uses plasticity
+  // NOLINTNEXTLINE(misc-const-correctness)
   auto* pstrain = clusterData_->var<LTS::PStrain>(Cfg());
 
   // NOLINTNEXTLINE

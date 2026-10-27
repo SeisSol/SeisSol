@@ -162,7 +162,7 @@ TEST_CASE("IO/Instruction: the VTKHDF plan has the mandatory datasets" *
   vtk.addCellData<std::int32_t>(
       "partition", {}, true, [](std::int32_t* target, std::size_t /*index*/) { target[0] = 0; });
 
-  auto plan = vtk.makeWriter()("prefix", 0, 0.0);
+  const auto plan = vtk.makeWriter()("prefix", 0, 0.0);
   const auto paths = targets(plan);
 
   // https://docs.vtk.org/en/latest/design_documents/VTKFileFormats.html#vtkhdf-file-format
@@ -196,7 +196,7 @@ TEST_CASE("IO/Instruction: the time series adds the step bookkeeping" * doctest:
   vtk.addCellData<double>(
       "v1", {}, false, [](double* target, std::size_t index) { target[0] = index; });
 
-  auto plan = vtk.makeWriter()("prefix", 0, 0.5);
+  const auto plan = vtk.makeWriter()("prefix", 0, 0.5);
   const auto paths = targets(plan);
 
   // the step bookkeeping lives in its own group, per the VTKHDF specification

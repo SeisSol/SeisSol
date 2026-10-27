@@ -83,7 +83,7 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
   static_assert(seissol::tensor::AplusT<Cfg>::Shape[1] == seissol::tensor::AminusT<Cfg>::Shape[1],
                 "Shape mismatch for flux matrices");
 
-  auto* material = layer.var<LTS::Material>();
+  const auto* material = layer.var<LTS::Material>();
   const auto* materialData = layer.var<LTS::MaterialData>(Cfg());
   auto* localIntegration = layer.var<LTS::LocalIntegration>(Cfg());
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(Cfg());

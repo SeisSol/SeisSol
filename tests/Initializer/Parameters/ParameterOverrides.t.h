@@ -87,7 +87,7 @@ TEST_CASE("Applying parameter overrides" * doctest::test_suite("initializer")) {
 }
 
 TEST_CASE("Overrides of parameters that are not read" * doctest::test_suite("initializer")) {
-  auto parameters = readParameters(
+  const auto parameters = readParameters(
       {"&output", "OutputFile = 'output/data'", "/", "&AbortCriteria", "EndTime = 15.0", "/"});
   const std::vector<ParameterOverride> overrides{makeOverride("output.outputfile=runs/a"),
                                                  makeOverride("output.outputfle=runs/a"),

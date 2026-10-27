@@ -646,7 +646,7 @@ void Hdf5Writer::writeLinkExternal(const async::ExecInfo& /*info*/,
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (auto _ [[maybe_unused]] : write.location.groups()) {
+  for (const auto& _ [[maybe_unused]] : write.location.groups()) {
     file.closeGroup();
   }
 }

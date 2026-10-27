@@ -303,7 +303,7 @@ auto mapClusterToMesh(ClusterMapping& clusterMapping,
 auto mapPointSourcesToClusters(const std::size_t* meshIds,
                                std::size_t numberOfSources,
                                LTS::Storage& ltsStorage,
-                               LTS::Backmap& backmap,
+                               const LTS::Backmap& backmap,
                                seissol::memory::Memkind memkind) -> std::vector<ClusterMapping> {
   auto clusterToPointSources = std::vector<std::vector<std::size_t>>(ltsStorage.numChildren());
   auto clusterToMeshIds = std::vector<std::vector<std::size_t>>(ltsStorage.numChildren());
@@ -361,8 +361,9 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
                             SEISSOL_GPU_PARAM LTS::Storage& ltsStorage,
                             SEISSOL_GPU_PARAM LTS::Backmap& backmap)
     -> seissol::kernels::PointSourceClusterPair {
-  auto hostData = std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources<Cfg>>>(
-      std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources<Cfg>>(sources));
+  const auto hostData =
+      std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources<Cfg>>>(
+          std::make_shared<ClusterMapping>(mapping), std::make_shared<PointSources<Cfg>>(sources));
 
 #ifdef ACL_DEVICE
   using GpuImpl = seissol::kernels::PointSourceClusterOnDevice<Cfg>;
@@ -387,7 +388,7 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
   }();
 #else
   using GpuImpl = seissol::kernels::PointSourceClusterOnHost<Cfg>;
-  const auto deviceData = hostData;
+  const auto& deviceData = hostData;
 #endif
 
   return seissol::kernels::PointSourceClusterPair{

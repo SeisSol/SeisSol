@@ -51,7 +51,7 @@ PinningInfo getPinningInfo(const cpu_set_t& set) {
     }
   }
 
-  auto trim = [](std::string& str) {
+  const auto trim = [](std::string& str) {
     if (str.empty()) {
 #ifdef USE_NUMA_AWARE_PINNING
       str = std::string("no-info");
@@ -78,11 +78,11 @@ PinningInfo getPinningInfo(const cpu_set_t& set) {
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning,
                                                   utils::Env& env) {
 #ifndef __APPLE__
-  auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
+  const auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
   PinningInfo commThreadInfo;
   if (seissol::useCommThread(seissol::Mpi::mpi, env)) {
-    auto freeCpus = pinning.getFreeCPUsMask();
+    const auto freeCpus = pinning.getFreeCPUsMask();
     commThreadInfo = getPinningInfo(freeCpus.set);
   } else {
     cpu_set_t emptyUnion;

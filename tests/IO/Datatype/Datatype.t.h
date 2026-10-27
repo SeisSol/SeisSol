@@ -260,8 +260,8 @@ TEST_CASE("ArrayDatatype" * doctest::test_suite("io")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("StructDatatype" * doctest::test_suite("io")) {
-  auto intType = std::make_shared<IntegerDatatype>(4, true);
-  auto floatType = std::make_shared<F32Datatype>();
+  const auto intType = std::make_shared<IntegerDatatype>(4, true);
+  const auto floatType = std::make_shared<F32Datatype>();
 
   const std::vector<StructDatatype::MemberInfo> members = {
       {.name = "x", .offset = 0, .datatype = intType},

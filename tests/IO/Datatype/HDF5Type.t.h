@@ -80,8 +80,8 @@ TEST_CASE("convertToHdf5 ArrayDatatype" * doctest::test_suite("io")) {
 }
 
 TEST_CASE("convertToHdf5 StructDatatype" * doctest::test_suite("io")) {
-  auto f64 = std::make_shared<F64Datatype>();
-  auto f32 = std::make_shared<F32Datatype>();
+  const auto f64 = std::make_shared<F64Datatype>();
+  const auto f32 = std::make_shared<F32Datatype>();
   const std::vector<StructDatatype::MemberInfo> members = {
       {.name = "x", .offset = 0, .datatype = f64},
       {.name = "y", .offset = 8, .datatype = f32},

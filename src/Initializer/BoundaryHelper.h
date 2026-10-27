@@ -28,7 +28,7 @@ inline bool isElasticSideOfElasticAcousticInterface(const CellMaterialData& mate
   return material.local->getMuBar() > Eps && material.neighbor[face]->getMuBar() < Eps;
 }
 
-constexpr bool isAtElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
+constexpr bool isAtElasticAcousticInterface(const CellMaterialData& material, std::size_t face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
   return material.local != nullptr && material.neighbor[face] != nullptr &&
@@ -37,7 +37,7 @@ constexpr bool isAtElasticAcousticInterface(CellMaterialData& material, std::siz
 }
 
 constexpr bool requiresDisplacement(CellLocalInformation cellLocalInformation,
-                                    CellMaterialData& material,
+                                    const CellMaterialData& material,
                                     std::size_t face) {
   const auto faceType = cellLocalInformation.faceTypes[face];
   return faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||
