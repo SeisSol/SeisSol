@@ -154,7 +154,7 @@ SEISSOL_HOSTDEVICE constexpr auto power(T base) -> T {
 #endif
   for (std::int32_t i = ILogExp - 1; i >= 0; --i) {
     res *= res;
-    if ((Exp & (1 << i)) != 0) {
+    if (((static_cast<std::uint32_t>(Exp) >> static_cast<std::uint32_t>(i)) & 1U) != 0) {
       res *= base;
     }
   }
