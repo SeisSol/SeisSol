@@ -59,8 +59,13 @@ void runAder(ProxyDataImpl<Cfg>& data) {
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef<Cfg>(cell);
-      data.spacetimeKernel.computeAder(
-          integrationCoeffs.data(), Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(integrationCoeffs.data(),
+                                       Timestep,
+                                       local,
+                                       tmp,
+                                       stepIntegrals[cell],
+                                       derivatives[cell],
+                                       /*updateDisplacement=*/false);
     }
     LIKWID_MARKER_STOP("ader");
   }
@@ -134,8 +139,13 @@ void runLocal(ProxyDataImpl<Cfg>& data) {
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef<Cfg>(cell);
-      data.spacetimeKernel.computeAder(
-          integrationCoeffs.data(), Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(integrationCoeffs.data(),
+                                       Timestep,
+                                       local,
+                                       tmp,
+                                       stepIntegrals[cell],
+                                       derivatives[cell],
+                                       /*updateDisplacement=*/false);
       data.localKernel.computeIntegral(stepIntegrals[cell], local, tmp, 0, 0);
     }
     LIKWID_MARKER_STOP("local");

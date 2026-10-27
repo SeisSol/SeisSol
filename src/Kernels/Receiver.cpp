@@ -217,7 +217,8 @@ double ReceiverClusterImpl<Cfg>::calcReceivers(double time,
                                    tmpReceiverData,
                                    tmp,
                                    timeEvaluated, // useless but the interface requires it
-                                   timeDerivatives);
+                                   timeDerivatives,
+                                   /*updateDisplacement=*/false);
 
       double receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {

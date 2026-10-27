@@ -794,7 +794,10 @@ void OutputManager::updateElementwiseOutput(double time) {
                            seissolParameters.drParameters.slipRateOutputType,
                            ewOutputData_,
                            runtime_,
-                           time);
+                           time,
+                           /*time=*/0.0,
+                           /*dt=*/1.0,
+                           /*indt=*/0.0);
     runtime_.wait();
   }
 }

@@ -35,8 +35,8 @@ class Spacetime : public SpacetimeKernel<Cfg> {
                    LTS::Ref<Cfg>& data,
                    LocalTmp<Cfg>& tmp,
                    real* timeIntegrated,
-                   real* timeDerivativesOrSTP = nullptr,
-                   bool updateDisplacement = false) override;
+                   real* timeDerivativesOrSTP,
+                   bool updateDisplacement) override;
   void computeBatchedAder(const real* coeffs,
                           double timeStepWidth,
                           LTS::Layer& layer,

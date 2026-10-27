@@ -53,9 +53,9 @@ class ReceiverOutput {
                       const std::shared_ptr<ReceiverOutputData>& outputData,
                       parallel::runtime::StreamRuntime& runtime,
                       double stateTime,
-                      double time = 0.0,
-                      double dt = 1.0,
-                      double indt = 0.0) = 0;
+                      double time,
+                      double dt,
+                      double indt) = 0;
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
@@ -83,9 +83,9 @@ class ReceiverOutputImpl : public ReceiverOutput {
                        const std::shared_ptr<ReceiverOutputData>& outputData,
                        parallel::runtime::StreamRuntime& runtime,
                        double stateTime,
-                       double time = 0.0,
-                       double dt = 1.0,
-                       double indt = 0.0) override;
+                       double time,
+                       double dt,
+                       double indt) override;
 
   template <typename Cfg>
   struct LocalInfo {
