@@ -360,8 +360,9 @@ class ADERDGBase(ABC):
         self.kwargs = kwargs
         self._configureRotationLayout(kwargs)
         self._configureStarAssembly(kwargs)
-        # after the memory layout: the trace matrices are dense whatever a
-        # layout file says about the matrices they are formed from
+        # after the memory layout: the trace matrices take the layout that
+        # traceMatrixArgs gives them, whatever a layout file says about the
+        # matrices they are formed from
         self._configureTraces()
 
     def _configureRotationLayout(self, kwargs):
@@ -927,6 +928,41 @@ class ADERDGBase(ABC):
                 addressing=AddressingMode.IMMEDIATE,
             )
 
+    #: Below this magnitude relative to its largest entry, an entry of a trace
+    #: matrix is rounding of the matrix files it is formed from. The rounding
+    #: reaches 5e-12 of the largest entry in the Bernstein basis at order 8,
+    #: where every true entry of a trace is one; the smallest true entry in the
+    #: Dubiner basis is above 1e-6 of the largest up to order 8.
+    TraceZeroTolerance = 1e-10
+
+    def tracesSelectModes(self):
+        """Whether the trace of every function of the basis on a face is a
+        function of the face basis or zero, as in the Bernstein basis: then
+        every row of rT(i) has a single entry, and every mode of a face trace
+        is one mode of the cell."""
+        for i in range(4):
+            tensor = self.db.rT[i]
+            trace = dense(tensor, self.transpose(tensor.name()))
+            if np.any(np.count_nonzero(trace, axis=1) != 1):
+                return False
+        return True
+
+    def traceMatrixArgs(self, name):
+        """The tensor arguments of a trace matrix: where the traces select modes
+        (tracesSelectModes), a sparse layout of exactly its entries -- an
+        aligned one would pad every column to a block of rows, which for a
+        matrix of one entry per row is most of the bounding box again -- and a
+        dense one otherwise, where a trace fills its bounding box. The old GPU
+        interface (gemmforge and chainforge) reads its operands as dense, so a
+        GPU build served by it keeps the dense layout, as for the face
+        rotation."""
+        oldGpu = self.kwargs.get("old_gpu_interface", True) and "gpu" in (
+            self.kwargs.get("targets") or []
+        )
+        if self.tracesSelectModes() and not oldGpu:
+            return {"memoryLayoutClass": CSCMemoryLayout, "alignStride": False}
+        return {"alignStride": self.alignStride(name)}
+
     def _configureTraces(self):
         """The face traces the corrector of a cell works from.
 
@@ -953,6 +989,13 @@ class ADERDGBase(ABC):
 
         The traces carry no padding: a face has as many modes as its basis,
         which is what the cells exchange.
+
+        Where the trace selects modes (tracesSelectModes), so does R rT(i), R
+        renumbering the face modes, and the trace matrices take a sparse layout
+        (traceMatrixArgs): writing a trace gathers modes of the cell rather than
+        multiplying the bounding box of a matrix of zeros and ones. Their
+        entries below TraceZeroTolerance of the largest are rounding of the
+        matrix files they are formed from, and are dropped.
         """
         modes = self.num2DBasisFunctions()
         self.traceMatrix = tensor_collection_from_constant_expression(
@@ -964,8 +1007,8 @@ class ADERDGBase(ABC):
             ),
             simpleParameterSpace(4, 2),
             target_indices=self.t("ml"),
-            tensor_args={"alignStride": self.alignStride("faceTraceMatrix")},
-            zero_tolerance=1e-14,
+            tensor_args=self.traceMatrixArgs("faceTraceMatrix"),
+            zero_tolerance=self.TraceZeroTolerance,
         )["faceTraceMatrix"]
         shape = (modes, self.numQuantities())
         self.faceTrace = OptionalDimTensor(
@@ -1687,7 +1730,8 @@ class ADERDGBase(ABC):
             tensor = self.traceMatrix[face, side]
             trace = dense(tensor, self.transpose(tensor.name()))
             folded = trace @ self.embeddingOfDegree(degree)
-            folded[np.abs(folded) < 1e-14] = 0.0
+            scale = np.max(np.abs(folded))
+            folded[np.abs(folded) <= self.TraceZeroTolerance * scale] = 0.0
             full = np.zeros(trace.shape)
             full[:, : folded.shape[1]] = folded
             stored = full.T if self.transpose(name) else full
@@ -1699,7 +1743,7 @@ class ADERDGBase(ABC):
                     for index, value in np.ndenumerate(stored)
                     if value != 0.0
                 },
-                alignStride=self.alignStride(name),
+                **self.traceMatrixArgs(name),
             )
         return self._faceTracesOfDegree[name]
 

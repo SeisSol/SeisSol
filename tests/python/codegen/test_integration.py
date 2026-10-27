@@ -563,6 +563,59 @@ class TestWeightAdjustable:
         assert reached[:6, :6].all()
 
 
+class TestFaceTraceLayout:
+    """Where the trace of every function of the basis on a face is a function
+    of the face basis or zero (Bernstein), a face trace selects modes of the
+    cell: its matrices are sparse, one entry per row on either side of a face,
+    and so are the traces of the derivatives kept in the bases of their
+    degrees. Where it is not (Dubiner), a trace fills its bounding box and its
+    matrices stay dense; so do they for the old GPU interface, which reads its
+    operands as dense."""
+
+    @staticmethod
+    def _elastic(basis, order, **kwargs):
+        from kernels.equations.elastic import ElasticADERDG
+
+        matrices = MATRICES_DIR if basis == "dubiner" else MATRICES_DIR / basis
+        return ElasticADERDG(
+            order=order,
+            multipleSimulations=1,
+            matricesDir=str(matrices),
+            memLayout=_default_memLayout(),
+            **kwargs,
+        )
+
+    @pytest.mark.parametrize("order", [4, 6, 8])
+    def test_bernstein_traces_select_one_mode_per_row(self, order):
+        adg = self._elastic("bernstein", order)
+        assert adg.tracesSelectModes()
+        for matrix in adg.traceMatrix.values():
+            assert matrix.memoryLayout().isSparse()
+            pattern = matrix.spp().as_ndarray()
+            assert pattern.shape[0] == adg.num2DBasisFunctions()
+            assert (np.count_nonzero(pattern, axis=1) == 1).all()
+
+    def test_bernstein_traces_of_lower_degrees_are_sparse(self):
+        adg = self._elastic("bernstein", 6)
+        for face in range(4):
+            for side in range(2):
+                for degree in range(adg.order - 1):
+                    matrix = adg.faceTraceOfDegree(face, side, degree)
+                    assert matrix.memoryLayout().isSparse()
+
+    @pytest.mark.parametrize("order", [4, 6])
+    def test_dubiner_traces_stay_dense(self, order):
+        adg = self._elastic("dubiner", order)
+        assert not adg.tracesSelectModes()
+        for matrix in adg.traceMatrix.values():
+            assert not matrix.memoryLayout().isSparse()
+
+    def test_the_old_gpu_interface_reads_bernstein_traces_dense(self):
+        adg = self._elastic("bernstein", 4, targets=["cpu", "gpu"])
+        for matrix in adg.traceMatrix.values():
+            assert not matrix.memoryLayout().isSparse()
+
+
 # =============================================================================
 # Matrix-file inventory — catches missing files for supported orders
 # =============================================================================
