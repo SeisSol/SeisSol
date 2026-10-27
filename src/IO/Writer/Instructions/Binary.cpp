@@ -31,13 +31,13 @@ YAML::Node BinaryWrite::serialize() {
   return node;
 }
 
-BinaryWrite::BinaryWrite(const std::string& filename,
+BinaryWrite::BinaryWrite(std::string filename,
                          std::shared_ptr<writer::DataSource> dataSource,
                          std::size_t alignment,
                          bool append,
                          std::optional<std::size_t> offset)
-    : filename(filename), dataSource(std::move(dataSource)), alignment(alignment), append(append),
-      offset(offset) {}
+    : filename(std::move(filename)), dataSource(std::move(dataSource)), alignment(alignment),
+      append(append), offset(offset) {}
 
 BinaryWrite::BinaryWrite(YAML::Node node)
     : filename(node["file"].as<std::string>()),

@@ -18,12 +18,13 @@
 #include <filesystem>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 namespace seissol::writer {
 
-ClusteringWriter::ClusteringWriter(const std::string& outputPrefix, const std::string& runId)
-    : outputPrefix_(outputPrefix), runId_(runId) {}
+ClusteringWriter::ClusteringWriter(std::string outputPrefix, std::string runId)
+    : outputPrefix_(std::move(outputPrefix)), runId_(std::move(runId)) {}
 
 void ClusteringWriter::addCluster(unsigned profilingId,
                                   unsigned localClusterId,

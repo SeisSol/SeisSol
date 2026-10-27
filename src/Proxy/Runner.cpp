@@ -83,7 +83,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>();
 
   if (config.verbose) {
-    std::cerr << "...done" << std::endl;
+    std::cerr << "...done" << '\n';
   }
 
   struct timeval startTime{};

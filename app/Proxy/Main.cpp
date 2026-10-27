@@ -76,8 +76,7 @@ int main(int argc, char* argv[]) {
     const auto configName = args.getArgument<std::string>("config");
     const auto configId = seissol::findConfig(configName);
     if (!configId.has_value()) {
-      std::cerr << "The configuration " << configName << " is not built into this proxy."
-                << std::endl;
+      std::cerr << "The configuration " << configName << " is not built into this proxy." << '\n';
       return -1;
     }
     config.config = *configId;
@@ -88,7 +87,7 @@ int main(int argc, char* argv[]) {
   try {
     config.kernels = Aux::str2kernel(kernelStr);
   } catch (std::runtime_error& error) {
-    std::cerr << error.what() << std::endl;
+    std::cerr << error.what() << '\n';
     return -1;
   }
 

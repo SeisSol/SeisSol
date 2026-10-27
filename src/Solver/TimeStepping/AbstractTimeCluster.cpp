@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <iostream>
 #include <memory>
 #include <type_traits>
 #include <utils/logger.h>
@@ -110,7 +109,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     assert(state_ == ActorState::Corrected);
     logDebug() << "synced at" << syncTime_ << ", corrTime =" << ct_.correctionTime
                << "stepsSinceLastSync" << ct_.stepsSinceLastSync << "stepsUntilLastSync"
-               << ct_.stepsUntilSync << std::endl;
+               << ct_.stepsUntilSync;
     state_ = ActorState::Synced;
     break;
   case ActorAction::RestartAfterSync:

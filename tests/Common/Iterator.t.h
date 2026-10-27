@@ -22,8 +22,8 @@ TEST_CASE("Pre-C++20/23 Iterators" * doctest::test_suite("common")) {
   }
 
   std::size_t n4 = 0;
-  for (std::size_t i = 0; i < v1.size(); ++i) {
-    if (v1[i] % 4 == 0) {
+  for (const int i : v1) {
+    if (i % 4 == 0) {
       ++n4;
     }
   }

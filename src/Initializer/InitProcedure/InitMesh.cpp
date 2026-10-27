@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <math.h>
 #include <memory>
 #include <mpi.h>
 #include <optional>

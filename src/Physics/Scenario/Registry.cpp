@@ -22,7 +22,8 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <math.h>
+// M_PI is POSIX and only declared by the C header
+#include <math.h> // NOLINT(modernize-deprecated-headers)
 #include <memory>
 #include <string_view>
 #include <vector>

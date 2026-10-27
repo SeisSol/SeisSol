@@ -28,7 +28,6 @@
 #include <cstdint>
 #include <cstring>
 #include <iterator>
-#include <stdint.h>
 #include <utility>
 
 #ifdef ACL_DEVICE

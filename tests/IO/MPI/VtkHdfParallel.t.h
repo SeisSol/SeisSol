@@ -283,8 +283,7 @@ TEST_CASE("IO/VtkHdf: shared points are offset per rank" * doctest::test_suite("
   const auto points = hdf5.readData<double>("Points");
   REQUIRE(connectivity.size() == globalCells * 4);
   REQUIRE(points.size() == contributingRanks * 3);
-  for (std::size_t entry = 0; entry < connectivity.size(); ++entry) {
-    const auto point = connectivity[entry];
+  for (const auto point : connectivity) {
     REQUIRE(point >= 0);
     REQUIRE(static_cast<std::size_t>(point) < contributingRanks);
     // rank 0 contributes nothing, so the point of rank r is the (r-1)th

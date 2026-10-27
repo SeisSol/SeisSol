@@ -32,7 +32,7 @@
 #include <vector>
 
 namespace seissol::io::instance::mesh {
-VtkHdfWriter::VtkHdfWriter(const std::string& name,
+VtkHdfWriter::VtkHdfWriter(std::string name,
                            std::size_t localElementCount,
                            geometry::Shape shape,
                            std::size_t targetDegree,
@@ -40,7 +40,8 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                            std::int32_t compress,
                            bool constFile,
                            std::optional<VertexMap> vertexMap)
-    : name_(name), localElementCount_(localElementCount), globalElementCount_(localElementCount),
+    : name_(std::move(name)), localElementCount_(localElementCount),
+      globalElementCount_(localElementCount),
       pointsPerElement_(
           geometry::numPoints(std::max(targetDegree, static_cast<std::size_t>(1)), shape)),
       type_(geometry::vtkType(shape)), targetDegree_(targetDegree), constFile_(constFile),

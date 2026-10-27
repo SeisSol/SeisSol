@@ -32,7 +32,6 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <stdint.h>
 #include <yateto.h>
 #include <yateto/InitTools.h>
 

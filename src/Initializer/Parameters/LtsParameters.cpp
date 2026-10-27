@@ -18,7 +18,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <math.h>
 #include <stdexcept>
 #include <string>
 #include <utility>

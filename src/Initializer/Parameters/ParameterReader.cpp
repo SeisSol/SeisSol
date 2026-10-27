@@ -18,8 +18,8 @@
 
 namespace seissol::initializer::parameters {
 
-ParameterReader::ParameterReader(const YAML::Node& node, const std::string& rootPath, bool empty)
-    : node_(node), rootPath_(rootPath), empty_(empty) {}
+ParameterReader::ParameterReader(const YAML::Node& node, std::string rootPath, bool empty)
+    : node_(node), rootPath_(std::move(rootPath)), empty_(empty) {}
 
 std::optional<std::string> ParameterReader::readPath(const std::string& field) {
   const auto fileName = read<std::string>(field);

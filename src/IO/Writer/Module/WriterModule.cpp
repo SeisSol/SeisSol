@@ -26,6 +26,7 @@
 #include <mpi.h>
 #include <optional>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -45,12 +46,13 @@ std::uint64_t nextTicket(async::Mode mode) {
 }
 } // namespace
 
-WriterModule::WriterModule(const std::string& prefix,
-                           const ScheduledWriter& settings,
+WriterModule::WriterModule(std::string prefix,
+                           ScheduledWriter settings,
                            const parallel::Pinning& pinning,
                            SeisSol& seissolInstance)
     : AsyncWriterModule(seissolInstance.asyncIO().config()), rank_(seissol::Mpi::mpi.rank()),
-      prefix_(prefix), settings_(settings), pinning_(pinning), seissolInstance_(seissolInstance) {}
+      prefix_(std::move(prefix)), settings_(std::move(settings)), pinning_(pinning),
+      seissolInstance_(seissolInstance) {}
 
 void WriterModule::setUp() {
   logInfo() << "Output Writer" << settings_.name << ": setup.";

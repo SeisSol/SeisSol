@@ -117,8 +117,8 @@ struct XdmfDataset {
       dimensionStream << " 1";
     }
     // dimensions
-    for (std::size_t i = 0; i < dimensions.size(); ++i) {
-      dimensionStream << " " << dimensions[i];
+    for (const auto dimension : dimensions) {
+      dimensionStream << " " << dimension;
     }
     hyperslab->addAttribute(XmlAttribute::create("ItemType", "HyperSlab"))
         .addAttribute(XmlAttribute::create("Dimensions", std::to_string(dimensions[1])));

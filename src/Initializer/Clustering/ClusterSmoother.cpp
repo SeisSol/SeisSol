@@ -174,7 +174,9 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
 
   MPI_Waitall(2 * numExchanges, requests_.data(), MPI_STATUSES_IGNORE);
 
+  // an index loop; OpenMP loop constructs take range-based loops only from OpenMP 5.0 on
 #pragma omp parallel for reduction(+ : numberOfReductions)
+  // NOLINTNEXTLINE(modernize-loop-convert)
   for (std::size_t bcell = 0; bcell < boundaryCells_.size(); ++bcell) {
     const auto cell = boundaryCells_[bcell];
     std::size_t& timeCluster = clusterIds[cell];

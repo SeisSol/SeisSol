@@ -64,7 +64,9 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
 
   std::vector<Candidate> best(numPoints);
 
+  // an index loop; OpenMP loop constructs take range-based loops only from OpenMP 5.0 on
 #pragma omp parallel for schedule(static)
+  // NOLINTNEXTLINE(modernize-loop-convert)
   for (std::size_t elem = 0; elem < elements.size(); ++elem) {
     auto planeEquations = std::array<std::array<double, Cell::Dim + 1>, Cell::Dim + 1>();
     auto normLengths = std::array<double, Cell::NumFaces>();

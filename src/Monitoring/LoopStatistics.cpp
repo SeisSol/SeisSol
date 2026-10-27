@@ -22,14 +22,16 @@
 #include <iterator>
 #include <mpi.h>
 #include <string>
-#include <time.h>
+// clock_gettime is POSIX and only declared by the C header
+#include <time.h> // NOLINT(modernize-deprecated-headers)
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
 namespace seissol {
 
-LoopStatistics::Region::Region(const std::string& name, bool includeInSummary)
-    : name(name), includeInSummary(includeInSummary) {}
+LoopStatistics::Region::Region(std::string name, bool includeInSummary)
+    : name(std::move(name)), includeInSummary(includeInSummary) {}
 
 void LoopStatistics::addRegion(const std::string& name, bool includeInSummary) {
   regions_.emplace_back(name, includeInSummary);

@@ -28,7 +28,8 @@
 #include <complex>
 #include <cstddef>
 #include <limits>
-#include <math.h>
+// M_PI is POSIX and only declared by the C header
+#include <math.h> // NOLINT(modernize-deprecated-headers)
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -397,8 +398,8 @@ void seissol::physics::TravellingWave::evaluateIn(
 }
 
 seissol::physics::PressureInjection::PressureInjection(
-    const seissol::initializer::parameters::InitializationParameters& initializationParameters)
-    : parameters_(initializationParameters) {
+    seissol::initializer::parameters::InitializationParameters initializationParameters)
+    : parameters_(std::move(initializationParameters)) {
   const auto o1 = parameters_.origin[0];
   const auto o2 = parameters_.origin[1];
   const auto o3 = parameters_.origin[2];

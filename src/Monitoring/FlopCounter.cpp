@@ -52,7 +52,7 @@ void FlopCounter::init(const std::string& outputFileNamePrefix, const std::strin
     datasetHeaders("nz_epoch");
     datasetHeaders("kb_accumulated");
     datasetHeaders("kb_epoch");
-    out_ << "runId" << std::endl;
+    out_ << "runId" << '\n';
   }
 }
 
@@ -117,7 +117,7 @@ EpochRates FlopCounter::printPerformanceUpdate(double wallTime) {
       handleFlopsDataset(previousKBPerSecond, UnitBytePerS, "Kernel B/s last epoch: ");
 
   if (rank == 0) {
-    out_ << runId_ << std::endl;
+    out_ << runId_ << '\n';
   }
   return epoch;
 }

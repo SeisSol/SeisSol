@@ -28,7 +28,8 @@
 #include <filesystem>
 #include <fty/fty.hpp>
 #include <optional>
-#include <signal.h>
+// SIGTRAP is POSIX and only declared by the C header
+#include <signal.h> // NOLINT(modernize-deprecated-headers)
 #include <string>
 #include <string_view>
 #include <system_error>

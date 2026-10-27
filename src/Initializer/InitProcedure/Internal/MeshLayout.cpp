@@ -55,8 +55,7 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
     if (colormap.argument(i).halo == HaloType::Copy) {
       std::map<std::pair<int, std::size_t>, std::vector<std::size_t>> byColor;
       std::size_t newCount = 0;
-      for (std::size_t j = 0; j < clusters[i].cellMap.size(); ++j) {
-        const auto cell = clusters[i].cellMap[j];
+      for (const auto cell : clusters[i].cellMap) {
         std::set<std::pair<int, std::size_t>> neighborColors;
         for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
           const auto& element = meshReader.getElements()[cell];
@@ -101,8 +100,7 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
 
       std::map<std::pair<int, std::size_t>, std::vector<std::size_t>> byColor;
       std::size_t newCount = 0;
-      for (std::size_t j = 0; j < clusters[i].cellMap.size(); ++j) {
-        const auto cell = clusters[i].cellMap[j];
+      for (const auto cell : clusters[i].cellMap) {
         const auto& linearCell = meshReader.linearGhostlayer()[cell];
 
         std::set<std::pair<int, std::size_t>> neighborColors;

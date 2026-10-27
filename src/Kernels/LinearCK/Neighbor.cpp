@@ -29,7 +29,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
-#include <stdint.h>
 #include <utility>
 
 #ifdef ACL_DEVICE

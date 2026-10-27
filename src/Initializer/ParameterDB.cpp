@@ -139,9 +139,10 @@ easi::Component* loadEasiModel(const std::string& fileName) {
 } // namespace
 
 CellToVertexArray::CellToVertexArray(size_t size,
-                                     const CellToVertexFunction& elementCoordinates,
-                                     const CellToGroupFunction& elementGroups)
-    : size(size), elementCoordinates(elementCoordinates), elementGroups(elementGroups) {}
+                                     CellToVertexFunction elementCoordinates,
+                                     CellToGroupFunction elementGroups)
+    : size(size), elementCoordinates(std::move(elementCoordinates)),
+      elementGroups(std::move(elementGroups)) {}
 
 CellToVertexArray
     CellToVertexArray::fromMeshReader(const seissol::geometry::MeshReader& meshReader) {
@@ -259,9 +260,9 @@ easi::Query ElementBarycenterGenerator::generate() const {
   return query;
 }
 
-ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex,
+ElementAverageGenerator::ElementAverageGenerator(CellToVertexArray cellToVertex,
                                                  std::size_t convergenceOrder)
-    : cellToVertex_(cellToVertex) {
+    : cellToVertex_(std::move(cellToVertex)) {
   const auto [quadraturePoints, quadratureWeights] =
       seissol::quadrature::simplexRule<3>(convergenceOrder);
 

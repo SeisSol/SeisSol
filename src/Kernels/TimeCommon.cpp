@@ -23,7 +23,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <stdint.h>
+#include <cstdint>
 
 #ifdef ACL_DEVICE
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
@@ -36,8 +36,6 @@
 
 #ifndef NDEBUG
 #include "Alignment.h"
-
-#include <cstdint>
 #endif
 
 namespace seissol::kernels {

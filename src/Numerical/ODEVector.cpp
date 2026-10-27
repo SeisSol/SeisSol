@@ -151,13 +151,13 @@ template <typename RealT>
 void ODEVector<RealT>::print() {
   const auto* const delim = "----------- print() -----------";
   for (std::size_t i = 0; i < storages_.size(); ++i) {
-    std::cout << delim << std::endl;
+    std::cout << delim << '\n';
     for (std::size_t j = 0; j < sizes_[i]; ++j) {
       std::cout << storages_[i][j] << ", ";
     }
-    std::cout << std::endl;
+    std::cout << '\n';
   }
-  std::cout << delim << std::endl;
+  std::cout << delim << '\n';
 }
 
 template class ODEVector<float>;

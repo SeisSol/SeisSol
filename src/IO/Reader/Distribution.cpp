@@ -131,23 +131,23 @@ std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
   std::vector<std::size_t> sendOffsets;
   std::vector<std::size_t> sendReorder;
 
-  auto sourceToTarget = distributeIds<std::pair<std::size_t, int>>(
+  const auto sourceToTarget = distributeIds<std::pair<std::size_t, int>>(
       sourceToTargetRankMap, comm, sizetype, datatype, tag);
   {
     std::unordered_multimap<std::size_t, std::size_t> reorderMap;
     reorderMap.reserve(sourceToTarget.size());
     {
       std::vector<std::size_t> sourceCounter(commsize);
-      for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
-        ++sourceCounter[sourceToTarget[i].first.second];
+      for (const auto& entry : sourceToTarget) {
+        ++sourceCounter[entry.first.second];
       }
       sendOffsets = computeHistogram(sourceCounter);
     }
     {
       std::vector<std::size_t> tempHistogram(sendOffsets.begin(), sendOffsets.end());
-      for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
-        auto& position = tempHistogram[sourceToTarget[i].first.second];
-        reorderMap.insert({sourceToTarget[i].first.first, position});
+      for (const auto& entry : sourceToTarget) {
+        auto& position = tempHistogram[entry.first.second];
+        reorderMap.insert({entry.first.first, position});
         ++position;
       }
     }
@@ -224,20 +224,20 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   {
     std::unordered_set<std::size_t> seenIds;
     seenIds.reserve(sourceIds.size());
-    for (std::size_t i = 0; i < sourceIds.size(); ++i) {
-      if (!seenIds.contains(sourceIds[i])) {
-        seenIds.insert(sourceIds[i]);
-        source.emplace_back(sourceIds[i], getRank(sourceIds[i], globalCount, commsize));
+    for (const auto sourceId : sourceIds) {
+      if (!seenIds.contains(sourceId)) {
+        seenIds.insert(sourceId);
+        source.emplace_back(sourceId, getRank(sourceId, globalCount, commsize));
       }
     }
   }
   {
     std::unordered_set<std::size_t> seenIds;
     seenIds.reserve(targetIds.size());
-    for (std::size_t i = 0; i < targetIds.size(); ++i) {
-      if (!seenIds.contains(targetIds[i])) {
-        seenIds.insert(targetIds[i]);
-        target.emplace_back(targetIds[i], getRank(targetIds[i], globalCount, commsize));
+    for (const auto targetId : targetIds) {
+      if (!seenIds.contains(targetId)) {
+        seenIds.insert(targetId);
+        target.emplace_back(targetId, getRank(targetId, globalCount, commsize));
       }
     }
   }

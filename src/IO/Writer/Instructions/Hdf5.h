@@ -22,7 +22,7 @@ class Hdf5Location {
   public:
   explicit Hdf5Location(const std::string& longstring);
 
-  Hdf5Location(const std::string& file,
+  Hdf5Location(std::string file,
                const std::vector<std::string>& groups,
                const std::optional<std::string>& dataset = std::optional<std::string>());
 
@@ -51,8 +51,8 @@ struct Hdf5AttributeWrite : public WriteInstruction {
 
   YAML::Node serialize() override;
 
-  Hdf5AttributeWrite(const Hdf5Location& location,
-                     const std::string& name,
+  Hdf5AttributeWrite(Hdf5Location location,
+                     std::string name,
                      std::shared_ptr<writer::DataSource> dataSource);
 
   explicit Hdf5AttributeWrite(YAML::Node node);
@@ -75,8 +75,8 @@ struct Hdf5DataWrite : public WriteInstruction {
    * source: a dimension marked as appended makes the dataset unlimited there, and every write
    * lands behind what is already in it.
    */
-  Hdf5DataWrite(const Hdf5Location& location,
-                const std::string& name,
+  Hdf5DataWrite(Hdf5Location location,
+                std::string name,
                 std::shared_ptr<writer::DataSource> dataSource,
                 std::shared_ptr<datatype::Datatype> targetType,
                 int compress = 0);
@@ -96,9 +96,7 @@ struct Hdf5LinkExternalWrite : public WriteInstruction {
 
   YAML::Node serialize() override;
 
-  Hdf5LinkExternalWrite(const Hdf5Location& location,
-                        const std::string& name,
-                        const Hdf5Location& remote);
+  Hdf5LinkExternalWrite(Hdf5Location location, std::string name, Hdf5Location remote);
 
   explicit Hdf5LinkExternalWrite(YAML::Node node);
 

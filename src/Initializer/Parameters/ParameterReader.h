@@ -30,7 +30,7 @@ inline void sanitize(std::string& input) {
 // been visited), and output all non-understood values at the end and not between sections
 class ParameterReader {
   public:
-  ParameterReader(const YAML::Node& node, const std::string& rootPath, bool empty);
+  ParameterReader(const YAML::Node& node, std::string rootPath, bool empty);
 
   template <typename T>
   std::optional<T> read(const std::string& field) {

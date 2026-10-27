@@ -43,12 +43,12 @@ std::string newRunId() {
   constexpr std::string_view Digits = "0123456789abcdef";
   std::string text;
   text.reserve(RunIdLength);
-  for (std::size_t i = 0; i < bytes.size(); ++i) {
+  for (const auto byte : bytes) {
     if (isDashPosition(text.size())) {
       text += '-';
     }
-    text += Digits[bytes[i] >> 4U];
-    text += Digits[bytes[i] & 0x0fU];
+    text += Digits[byte >> 4U];
+    text += Digits[byte & 0x0fU];
   }
   return text;
 }

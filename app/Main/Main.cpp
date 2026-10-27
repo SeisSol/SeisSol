@@ -45,7 +45,8 @@
 
 #if defined(__GNUC__) || defined(__linux__)
 #include <cfenv>
-#include <fenv.h>
+// feenableexcept is a glibc extension and only declared by the C header
+#include <fenv.h> // NOLINT(modernize-deprecated-headers)
 #endif
 
 namespace {

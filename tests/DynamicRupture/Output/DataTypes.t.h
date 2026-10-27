@@ -165,9 +165,9 @@ TEST_CASE("VariableLabels matches VariableID::Size" * doctest::test_suite("dynam
 }
 
 TEST_CASE("VariableLabels all non-empty" * doctest::test_suite("dynamicrupture")) {
-  for (std::size_t i = 0; i < VariableLabels.size(); ++i) {
-    CHECK_FALSE(VariableLabels[i].empty());
-    for (const auto& label : VariableLabels[i]) {
+  for (const auto& labels : VariableLabels) {
+    CHECK_FALSE(labels.empty());
+    for (const auto& label : labels) {
       CHECK_FALSE(label.empty());
     }
   }

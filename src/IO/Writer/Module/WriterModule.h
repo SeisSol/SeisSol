@@ -49,8 +49,8 @@ inline std::size_t outputCountBefore(double startTime, double interval) {
 
 class WriterModule : public seissol::Module, private AsyncWriterModule, private BufferAllocator {
   public:
-  WriterModule(const std::string& prefix,
-               const ScheduledWriter& settings,
+  WriterModule(std::string prefix,
+               ScheduledWriter settings,
                const parallel::Pinning& pinning,
                SeisSol& seissolInstance);
   void startup();

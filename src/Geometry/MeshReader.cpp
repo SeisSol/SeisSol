@@ -67,9 +67,9 @@ const std::map<std::pair<int, std::size_t>, std::size_t>& MeshReader::toLinearGh
 }
 
 void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
-  for (std::size_t vertexNo = 0; vertexNo < vertices_.size(); ++vertexNo) {
+  for (auto& vertex : vertices_) {
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
-      vertices_[vertexNo].coords[i] += displacement[i];
+      vertex.coords[i] += displacement[i];
     }
   }
 }
@@ -78,13 +78,12 @@ void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
 //  scalingMatrix is stored column-major, i.e.
 //  scalingMatrix_ij = scalingMatrix[j][i]
 void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
-  for (std::size_t vertexNo = 0; vertexNo < vertices_.size(); ++vertexNo) {
+  for (auto& vertex : vertices_) {
     Eigen::Vector3d point;
-    point << vertices_[vertexNo].coords[0], vertices_[vertexNo].coords[1],
-        vertices_[vertexNo].coords[2];
+    point << vertex.coords[0], vertex.coords[1], vertex.coords[2];
     const auto result = scalingMatrix * point;
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
-      vertices_[vertexNo].coords[i] = result[i];
+      vertex.coords[i] = result[i];
     }
   }
 }

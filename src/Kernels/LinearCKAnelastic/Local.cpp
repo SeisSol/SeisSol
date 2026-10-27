@@ -29,7 +29,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <stdint.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE

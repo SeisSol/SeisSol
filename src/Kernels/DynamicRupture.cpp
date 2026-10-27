@@ -22,9 +22,9 @@
 #include "Parallel/Runtime/Stream.h"
 
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <iterator>
-#include <stdint.h>
 #include <yateto.h>
 #include <yateto/InitTools.h>
 
@@ -37,10 +37,6 @@
 
 #ifndef ACL_DEVICE
 #include <utils/logger.h>
-#endif
-
-#ifndef NDEBUG
-#include <cstdint>
 #endif
 
 GENERATE_HAS_MEMBER(I)
