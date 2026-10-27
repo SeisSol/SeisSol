@@ -39,10 +39,11 @@ class Value {
   // NOLINTNEXTLINE(google-explicit-constructor)
   Value(bool value) : data_(value) {}
 
-  template <typename T,
-            std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>, bool> = true>
+  template <typename T>
   // NOLINTNEXTLINE(google-explicit-constructor)
-  Value(T value) {
+  Value(T value)
+    requires(std::is_integral_v<T> && !std::is_same_v<T, bool>)
+  {
     if constexpr (std::is_signed_v<T>) {
       data_ = static_cast<std::int64_t>(value);
     } else {

@@ -586,7 +586,7 @@ Hdf5Writer::Hdf5Writer(MPI_Comm comm, RunFiles* runFiles) : comm_(comm), runFile
 
 Hdf5File Hdf5Writer::file(const std::string& name) {
   written_.insert(name);
-  if (openFiles_.find(name) == openFiles_.end()) {
+  if (!openFiles_.contains(name)) {
     // a file this run has not written yet belongs to an earlier run, and is replaced; a run
     // resuming from a checkpoint keeps it as a backup, since it holds the output before that
     const bool fresh = runFiles_ != nullptr && runFiles_->firstWrite(name);
@@ -653,7 +653,7 @@ void Hdf5Writer::writeLinkExternal(const async::ExecInfo& /*info*/,
 void Hdf5Writer::endWrite() {
   for (auto entry = openFiles_.begin(); entry != openFiles_.end();) {
     const auto& name = entry->first;
-    if (written_.count(name) > 0 && writtenBefore_.count(name) > 0) {
+    if (written_.contains(name) && writtenBefore_.contains(name)) {
       if (outputFlush()) {
         entry->second.flushFile();
       }

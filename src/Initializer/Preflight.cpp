@@ -145,7 +145,7 @@ bool runOpens(const std::vector<std::string>& field,
            (faultOutput == parameters::OutputType::AtPickpoint ||
             faultOutput == parameters::OutputType::AtPickpointAndElementwise);
   }
-  if (name.rfind("equations.plasticityfilename", 0) == 0) {
+  if (name.starts_with("equations.plasticityfilename")) {
     return parameters.model.plasticity;
   }
   if (name == "inicondition.filename") {

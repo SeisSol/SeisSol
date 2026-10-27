@@ -23,7 +23,7 @@ bool listsTestCases(int argc, char* const* argv) {
   for (int i = 1; i < argc; ++i) {
     const std::string_view arg(argv[i]);
     if (arg.find("list-test-cases") != std::string_view::npos || arg == "-ltc" ||
-        arg == "-dt-ltc" || arg.rfind("-ltc=", 0) == 0 || arg.rfind("-dt-ltc=", 0) == 0) {
+        arg == "-dt-ltc" || arg.starts_with("-ltc=") || arg.starts_with("-dt-ltc=")) {
       return true;
     }
   }

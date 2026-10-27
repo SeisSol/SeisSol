@@ -116,7 +116,7 @@ void ReceiverClusterImpl<Cfg>::addReceiver(std::size_t meshId,
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (syncPointInterval_ / samplingInterval_ + 1);
 
-  if (meshToReceiverCell_.find(meshId) == meshToReceiverCell_.end()) {
+  if (!meshToReceiverCell_.contains(meshId)) {
     const auto position = backmap.get(meshId);
     auto& ltsStorage = seissolInstance_.memoryManager().ltsStorage();
 

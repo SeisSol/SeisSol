@@ -572,8 +572,7 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
       const auto& vertex1 = vertexArray[element.vertices[1]].coords;
       const auto& vertex2 = vertexArray[element.vertices[2]].coords;
       const auto& vertex3 = vertexArray[element.vertices[3]].coords;
-      const bool inGroup = parameters.groups.empty() ||
-                           parameters.groups.find(element.group) != parameters.groups.end();
+      const bool inGroup = parameters.groups.empty() || parameters.groups.contains(element.group);
       const bool inRegion = !parameters.bounds.enabled ||
                             (parameters.bounds.contains(vertex0[0], vertex0[1], vertex0[2]) ||
                              parameters.bounds.contains(vertex1[0], vertex1[1], vertex1[2]) ||

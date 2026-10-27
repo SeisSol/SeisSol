@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstring>
 #include <memory>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -61,7 +62,7 @@ TEST_CASE("F64Datatype" * doctest::test_suite("io")) {
   }
 
   SUBCASE("toString roundtrip") {
-    double val = 2.718281828459045;
+    double val = std::numbers::e;
     const auto str = dt.toStringRaw(&val);
     const auto back = dt.fromStringRaw(str);
     REQUIRE(back.has_value());
@@ -77,7 +78,7 @@ TEST_CASE("Floating-point text reads back exactly" * doctest::test_suite("io")) 
   const F64Datatype f64;
   double tenth = 0.1;
   CHECK(f64.toStringRaw(&tenth) == "0.1");
-  for (double value : {1.0 / 3.0, 2.718281828459045, 1e-300, 123456789.123456789}) {
+  for (double value : {1.0 / 3.0, std::numbers::e, 1e-300, 123456789.123456789}) {
     CHECK(std::stod(f64.toStringRaw(&value)) == value);
   }
 

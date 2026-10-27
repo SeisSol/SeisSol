@@ -49,7 +49,7 @@ void FaultRefiner::repeatRefinement(Data data,
 }
 
 void FaultRefiner::addReceiver(Data data, TrianglePair& face) {
-  if (orderPoints_.find(data.order) == orderPoints_.end()) {
+  if (!orderPoints_.contains(data.order)) {
     orderPoints_[data.order] = seissol::io::instance::geometry::pointsTriangle(data.order);
   }
 

@@ -29,7 +29,7 @@ std::vector<int> BufferRegistry::assign(Writer& writer) {
 
   for (const auto& instruction : writer.getInstructions()) {
     for (const auto& dataSource : instruction->dataSources()) {
-      if (!dataSource->managed() || handled.find(dataSource.get()) != handled.end()) {
+      if (!dataSource->managed() || handled.contains(dataSource.get())) {
         continue;
       }
       const auto id = idFor(dataSource.get(), used);
@@ -147,7 +147,7 @@ int BufferRegistry::idForPassThrough(WriteBuffer* source, const std::unordered_s
 
   auto& existing = entry->second;
   if (existing.size != size) {
-    if (used.find(existing.id) != used.end()) {
+    if (used.contains(existing.id)) {
       // it is ok to request the same buffer multiple times, but not with different sizes (that's
       // currently still unsupported)
       logError() << "The same buffer is requested with different sizes. This is not supported at "
@@ -166,7 +166,7 @@ int BufferRegistry::idForManaged(AdhocBuffer* source, const std::unordered_set<i
   // course assume that we don't change the size too often...
   int id = -1;
   for (const auto candidate : bufferMap_[targetSize]) {
-    if (used.find(candidate) == used.end()) {
+    if (!used.contains(candidate)) {
       id = candidate;
       break;
     }

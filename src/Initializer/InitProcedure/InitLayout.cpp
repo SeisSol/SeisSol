@@ -360,7 +360,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < size; ++i) {
-        cellInfo[i].plasticityEnabled = supported && pdis.find(cellInfo2[i].group) == pdis.end();
+        cellInfo[i].plasticityEnabled = supported && !pdis.contains(cellInfo2[i].group);
       }
     }
   }

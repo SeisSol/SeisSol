@@ -91,7 +91,7 @@ MPI_Datatype convertToMPI(const std::shared_ptr<Datatype>& datatype, bool autoco
     serialized = sstr.str();
   }
   if (autocommit) {
-    if (autocommitRegistry.find(serialized) != autocommitRegistry.end()) {
+    if (autocommitRegistry.contains(serialized)) {
       return autocommitRegistry.at(serialized);
     }
   }

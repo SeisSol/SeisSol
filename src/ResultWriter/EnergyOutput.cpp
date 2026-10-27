@@ -572,7 +572,7 @@ size_t EnergiesStorage::addEnergy(const model::EnergyDescriptor& descriptor) {
     logError() << "Attempted to register an energy without a name. This usually means that an"
                << "EnergyCompute specialization declares more energies than it names.";
   }
-  if (handles_.find(descriptor.name) != handles_.end()) {
+  if (handles_.contains(descriptor.name)) {
     logError() << "Energy" << std::string(descriptor.name) << "registered twice.";
   }
   const auto index = descriptors_.size();
@@ -610,7 +610,7 @@ double& EnergiesStorage::energy(std::string_view name, size_t sim) {
 }
 
 [[nodiscard]] bool EnergiesStorage::has(std::string_view name) const {
-  return handles_.find(name) != handles_.end();
+  return handles_.contains(name);
 }
 
 [[nodiscard]] const std::vector<model::EnergyDescriptor>& EnergiesStorage::descriptors() const {

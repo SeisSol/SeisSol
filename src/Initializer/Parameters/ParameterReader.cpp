@@ -85,7 +85,7 @@ void ParameterReader::warnDeprecated(const std::vector<std::string>& fields) {
 void ParameterReader::warnUnknown(const std::string& prefix) const {
   for (const auto& subnodes : node_) {
     const auto field = subnodes.first.as<std::string>();
-    if (visited_.find(field) == visited_.end()) {
+    if (!visited_.contains(field)) {
       logWarning() << "The field" << field << "in" << prefix
                    << "was given in the parameter file, but is unknown to SeisSol.";
     }
@@ -105,7 +105,7 @@ void ParameterReader::markUnused(const std::vector<std::string>& fields) {
 ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
   visited_.emplace(subnodeName);
   logDebug() << "Entering section" << subnodeName;
-  if (subreaders_.find(subnodeName) == subreaders_.end()) {
+  if (!subreaders_.contains(subnodeName)) {
     bool empty = false;
     if (hasField(subnodeName)) {
       empty = false;
@@ -157,7 +157,7 @@ std::vector<std::string> ParameterReader::unknownFields() const {
   std::vector<std::string> result;
   for (const auto& subnodes : node_) {
     const auto field = subnodes.first.as<std::string>();
-    if (visited_.find(field) == visited_.end()) {
+    if (!visited_.contains(field)) {
       result.push_back(field);
     }
   }
@@ -174,7 +174,7 @@ bool ParameterReader::visited(const std::vector<std::string>& path) const {
     return false;
   }
   if (path.size() == 1) {
-    return visited_.find(path.front()) != visited_.end();
+    return visited_.contains(path.front());
   }
   const auto subreader = subreaders_.find(path.front());
   if (subreader == subreaders_.end()) {

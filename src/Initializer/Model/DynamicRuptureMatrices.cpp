@@ -40,6 +40,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -75,8 +76,8 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
   // (the dim praameters need to be int due to Eigen)
 
   tensorView.setZero();
-  for (size_t row = 0; row < Dim1; ++row) {
-    for (size_t col = 0; col < Dim2; ++col) {
+  for (size_t row = 0; std::cmp_less(row, Dim1); ++row) {
+    for (size_t col = 0; std::cmp_less(col, Dim2); ++col) {
       tensorView(row, col) = static_cast<S>(matrix(row, col));
     }
   }

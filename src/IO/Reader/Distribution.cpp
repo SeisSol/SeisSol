@@ -225,7 +225,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
     std::unordered_set<std::size_t> seenIds;
     seenIds.reserve(sourceIds.size());
     for (std::size_t i = 0; i < sourceIds.size(); ++i) {
-      if (seenIds.find(sourceIds[i]) == seenIds.end()) {
+      if (!seenIds.contains(sourceIds[i])) {
         seenIds.insert(sourceIds[i]);
         source.emplace_back(sourceIds[i], getRank(sourceIds[i], globalCount, commsize));
       }
@@ -235,7 +235,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
     std::unordered_set<std::size_t> seenIds;
     seenIds.reserve(targetIds.size());
     for (std::size_t i = 0; i < targetIds.size(); ++i) {
-      if (seenIds.find(targetIds[i]) == seenIds.end()) {
+      if (!seenIds.contains(targetIds[i])) {
         seenIds.insert(targetIds[i]);
         target.emplace_back(targetIds[i], getRank(targetIds[i], globalCount, commsize));
       }

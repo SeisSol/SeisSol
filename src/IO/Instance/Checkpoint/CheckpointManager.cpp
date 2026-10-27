@@ -26,6 +26,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -99,7 +100,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   reader.openFile(file);
   reader.openGroup("checkpoint");
   const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
-  if (convergenceOrderRead != static_cast<int>(configValue(config_).convergenceOrder)) {
+  if (std::cmp_not_equal(convergenceOrderRead, configValue(config_).convergenceOrder)) {
     logError() << "Convergence order does not match. Read:" << convergenceOrderRead;
   }
   for (auto& [_, ckpTree] : dataRegistry_) {

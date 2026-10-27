@@ -16,6 +16,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <numbers>
 #include <optional>
 #include <utility>
 #include <utils/logger.h>
@@ -26,7 +27,7 @@ namespace {
 using namespace seissol;
 using namespace seissol::numerical;
 
-constexpr double Pi = 3.14159265358979323846;
+constexpr double Pi = std::numbers::pi;
 
 // Hesthaven/Warburton warp&blend blending parameters, indexed by polynomial degree - 1.
 constexpr std::array<double, 15> WarpBlendAlpha2D = {0.0000,
@@ -261,7 +262,7 @@ std::vector<std::array<double, 2>> nodalPoints2D(std::size_t order) {
   std::vector<double> y(count);
   for (std::size_t p = 0; p < count; ++p) {
     x[p] = lambda3[p] - lambda2[p];
-    y[p] = (2.0 * lambda1[p] - lambda2[p] - lambda3[p]) / std::sqrt(3.0);
+    y[p] = (2.0 * lambda1[p] - lambda2[p] - lambda3[p]) / std::numbers::sqrt3;
   }
 
   const auto difference = [&](const std::vector<double>& a, const std::vector<double>& b) {
@@ -293,8 +294,8 @@ std::vector<std::array<double, 2>> nodalPoints2D(std::size_t order) {
 
   std::vector<std::array<double, 2>> points(count);
   for (std::size_t p = 0; p < count; ++p) {
-    points[p][0] = (std::sqrt(3.0) * y[p] + 1.0) / 3.0;
-    points[p][1] = (2.0 - 3.0 * x[p] - std::sqrt(3.0) * y[p]) / 6.0;
+    points[p][0] = (std::numbers::sqrt3 * y[p] + 1.0) / 3.0;
+    points[p][1] = (2.0 - 3.0 * x[p] - std::numbers::sqrt3 * y[p]) / 6.0;
   }
   return points;
 }
@@ -340,10 +341,10 @@ std::vector<std::array<double, 3>> nodalPoints3D(std::size_t order, NodalSet set
 
   // the equilateral reference tetrahedron the warp is applied in; vertex v[i] carries lambda[i]
   const std::array<std::array<double, 3>, 4> vertices = {
-      std::array<double, 3>{1.0, -1.0 / std::sqrt(3.0), -1.0 / std::sqrt(6.0)},
-      std::array<double, 3>{0.0, 2.0 / std::sqrt(3.0), -1.0 / std::sqrt(6.0)},
+      std::array<double, 3>{1.0, -1.0 / std::numbers::sqrt3, -1.0 / std::sqrt(6.0)},
+      std::array<double, 3>{0.0, 2.0 / std::numbers::sqrt3, -1.0 / std::sqrt(6.0)},
       std::array<double, 3>{0.0, 0.0, 3.0 / std::sqrt(6.0)},
-      std::array<double, 3>{-1.0, -1.0 / std::sqrt(3.0), -1.0 / std::sqrt(6.0)}};
+      std::array<double, 3>{-1.0, -1.0 / std::numbers::sqrt3, -1.0 / std::sqrt(6.0)}};
 
   // the two orthogonal in-plane directions of each face, indexed as the faces below
   const auto subtract = [](const std::array<double, 3>& a, const std::array<double, 3>& b) {

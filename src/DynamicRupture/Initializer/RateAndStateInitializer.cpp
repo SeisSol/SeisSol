@@ -306,7 +306,7 @@ void RateAndStateFastVelocityThermalPressurizationInitializer::addAdditionalPara
 std::string ThermalPressurizationInitializer::faultNameAlternatives(
     const std::vector<std::string>& parameter) {
   for (const auto& name : parameter) {
-    if (faultParameterNames_.find(name) != faultParameterNames_.end()) {
+    if (faultParameterNames_.contains(name)) {
       if (name != parameter[0]) {
         logWarning() << "You are using the deprecated fault parameter name" << name << "for"
                      << parameter[0];

@@ -23,6 +23,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
@@ -124,14 +125,14 @@ void Pinning::checkEnvVariables() {
 
       bool isMaskGood{true};
       const auto numLocalProcesses = Mpi::mpi.sharedMemMpiSize();
-      if (numLocalProcesses > static_cast<int>(parsedFreeCPUsMask_.size())) {
+      if (std::cmp_greater(numLocalProcesses, parsedFreeCPUsMask_.size())) {
         logInfo() << "There are more communication (and/or output-writing) threads"
                   << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
 
         isMaskGood = false;
       } else {
         const auto maxCpuId = get_nprocs() - 1;
-        for (auto localProcessId = 0; localProcessId < static_cast<int>(parsedFreeCPUsMask_.size());
+        for (auto localProcessId = 0; std::cmp_less(localProcessId, parsedFreeCPUsMask_.size());
              ++localProcessId) {
           for (auto cpu : parsedFreeCPUsMask_[localProcessId]) {
             if (cpu > maxCpuId) {
@@ -217,7 +218,7 @@ CpuMask Pinning::getFreeCPUsMask() const {
     const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask.set);
     if (isOnline && isFree) {
       const int numaNode = numa_node_of_cpu(cpu);
-      const bool isValidNumaNode = numaDomainsOfThisProcess.count(numaNode) != 0;
+      const bool isValidNumaNode = numaDomainsOfThisProcess.contains(numaNode);
       if (isValidNumaNode) {
         CPU_SET(cpu, &freeMask);
       }

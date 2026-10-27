@@ -170,13 +170,13 @@ json::Value relevantEnvironment() {
     const auto name = variable.substr(0, equals);
     bool relevant = false;
     for (const auto prefix : Prefixes) {
-      relevant = relevant || name.substr(0, prefix.size()) == prefix;
+      relevant = relevant || name.starts_with(prefix);
     }
     for (const auto known : Names) {
       relevant = relevant || name == known;
     }
     for (const auto prefix : RuntimePrefixes) {
-      relevant = relevant && name.substr(0, prefix.size()) != prefix;
+      relevant = relevant && !name.starts_with(prefix);
     }
     if (relevant) {
       environment[name] = std::string(variable.substr(equals + 1));

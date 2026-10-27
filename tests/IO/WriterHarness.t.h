@@ -97,7 +97,7 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
   std::set<DataSource*> handled;
   for (const auto& instruction : writer.getInstructions()) {
     for (const auto& source : instruction->dataSources()) {
-      if (!source->distributed() || handled.count(source.get()) > 0) {
+      if (!source->distributed() || handled.contains(source.get())) {
         continue;
       }
       handled.emplace(source.get());

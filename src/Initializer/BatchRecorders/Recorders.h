@@ -35,7 +35,7 @@ class AbstractRecorder {
 
   protected:
   void checkKey(const ConditionalKey& key) {
-    if (currentTable_->find(key) != currentTable_->end()) {
+    if (currentTable_->contains(key)) {
       logError()
           << "Table key conflict detected. Problems with hashing in batch recording subsystem";
     }

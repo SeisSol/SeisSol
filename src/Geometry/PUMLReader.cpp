@@ -50,6 +50,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -949,7 +950,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
       PUML::Upward::cells(meshTopology, faces[info.second[i]], cellIds.data());
       const auto pumlSide =
           PUML::Downward::faceSide(meshTopology, cells[cellIds[0]], info.second[i]);
-      logassert(pumlSide >= 0 && static_cast<std::size_t>(pumlSide) < Cell::NumFaces);
+      logassert(pumlSide >= 0 && std::cmp_less(pumlSide, Cell::NumFaces));
 
       // Send the SeisSol side under the canonical numbering: the receiving rank cannot translate
       // a PUML side, because the numbering is per cell now.

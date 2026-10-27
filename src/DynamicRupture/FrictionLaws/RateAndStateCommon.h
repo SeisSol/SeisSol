@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <numbers>
 #include <type_traits>
 
 namespace seissol::dr::friction_law::rs {
@@ -51,7 +52,7 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T expLog, T exp) {
   // or replacement formula not being accurate enough if x * exp(c) is small
   constexpr T Switch = 10;
   constexpr T Threshold = 50;
-  constexpr T Log2 = 0.69314718055994530943;
+  constexpr T Log2 = std::numbers::ln2;
   int xexp{};
   (void)std::frexp(x, &xexp);
 
@@ -98,7 +99,7 @@ template <typename T>
 SEISSOL_HOSTDEVICE constexpr T arsinhexpDerivative(T x, T expLog, T exp) {
   constexpr T Switch = 10;
   constexpr T Threshold = 50;
-  constexpr T Log2 = 0.69314718055994530943;
+  constexpr T Log2 = std::numbers::ln2;
   int xexp{};
   (void)std::frexp(x, &xexp);
 

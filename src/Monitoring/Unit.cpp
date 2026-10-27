@@ -16,6 +16,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -120,8 +121,8 @@ std::string SIUnit::formatPrefix(double value, std::optional<double> error, int 
     ++position;
   }
 
-  if ((binary_ && position > static_cast<int>(PositiveBytePrefixes.size())) ||
-      (!binary_ && position > static_cast<int>(PositivePrefixes.size())) ||
+  if ((binary_ && std::cmp_greater(position, PositiveBytePrefixes.size())) ||
+      (!binary_ && std::cmp_greater(position, PositivePrefixes.size())) ||
       -position > static_cast<int>(NegativePrefixes.size())) {
     // out of range, default to scientific notation
     return formatScientific(value, error, digits);

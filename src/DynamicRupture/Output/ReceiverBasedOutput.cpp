@@ -50,6 +50,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <utility>
 #include <vector>
 
 using namespace seissol::dr::misc::quantity_indices;
@@ -769,13 +770,13 @@ Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
 
       basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
-      for (size_t d = 0; d < NumDegFr2d; ++d) {
+      for (size_t d = 0; std::cmp_less(d, NumDegFr2d); ++d) {
         projectedRT[d] +=
             weights(jBndGP) * rt[jBndGP * Cfg::NumSimulations + local.fusedIndex] * phiAtPoint[d];
       }
     }
     const auto m2inv = seissol::init::M2inv<Cfg>::view::create(seissol::init::M2inv<Cfg>::Values);
-    for (size_t d = 0; d < NumDegFr2d; ++d) {
+    for (size_t d = 0; std::cmp_less(d, NumDegFr2d); ++d) {
       projectedRT[d] *= m2inv(d, d);
     }
 
@@ -787,7 +788,7 @@ Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
 
     real dTdChi{0.0};
     real dTdTau{0.0};
-    for (size_t d = 0; d < NumDegFr2d; ++d) {
+    for (size_t d = 0; std::cmp_less(d, NumDegFr2d); ++d) {
       dTdChi += projectedRT[d] * phiAtPoint[2 * d];
       dTdTau += projectedRT[d] * phiAtPoint[2 * d + 1];
     }

@@ -448,11 +448,11 @@ private:
   }
 
   /// The values of a variable as the configuration `ConfigT` holds them.
-  template <typename StorageT,
-            typename ConfigT,
-            typename = std::enable_if_t<!std::is_same_v<ConfigT, AllocationPlace>>>
+  template <typename StorageT, typename ConfigT>
   StorageType<StorageT, ConfigT>* var(const ConfigT& /*config*/,
-                                      AllocationPlace place = AllocationPlace::Host) {
+                                      AllocationPlace place = AllocationPlace::Host)
+    requires(!std::is_same_v<ConfigT, AllocationPlace>)
+  {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageType<StorageT, ConfigT>*>(memoryContainer_[index].get(place));
@@ -465,11 +465,11 @@ private:
     return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
-  template <typename StorageT,
-            typename ConfigT,
-            typename = std::enable_if_t<!std::is_same_v<ConfigT, AllocationPlace>>>
+  template <typename StorageT, typename ConfigT>
   [[nodiscard]] const StorageType<StorageT, ConfigT>*
-      var(const ConfigT& /*config*/, AllocationPlace place = AllocationPlace::Host) const {
+      var(const ConfigT& /*config*/, AllocationPlace place = AllocationPlace::Host) const
+    requires(!std::is_same_v<ConfigT, AllocationPlace>)
+  {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageType<StorageT, ConfigT>*>(memoryContainer_[index].get(place));

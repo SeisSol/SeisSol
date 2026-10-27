@@ -764,7 +764,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   // easi supplies numbers, so the frame is stated as one: 0 for global, 1 for face-aligned.
   real frame = 0.0;
   known.insert("frame");
-  if (supplied.count("frame") > 0) {
+  if (supplied.contains("frame")) {
     adapter.addBindingPoint("frame", &frame);
   }
 
@@ -785,7 +785,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
       termName += "_";
       termName += varNames[j];
       known.insert(termName);
-      if (supplied.count(termName) > 0) {
+      if (supplied.contains(termName)) {
         adapter.addBindingPoint(termName, &mapTerms(i, j));
       } else {
         // Default: Extrapolate
@@ -795,7 +795,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   }
 
   for (const auto& termName : supplied) {
-    if (known.count(termName) == 0) {
+    if (!known.contains(termName)) {
       std::ostringstream valid;
       for (size_t i = 0; i < varNames.size(); ++i) {
         valid << (i == 0 ? "" : ", ") << varNames[i];

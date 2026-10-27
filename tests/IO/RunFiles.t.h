@@ -61,7 +61,7 @@ inline std::vector<std::string> backupsOf(const std::string& directory, const st
   std::vector<std::string> found;
   for (const auto& entry : std::filesystem::directory_iterator(directory)) {
     const auto name = entry.path().filename().string();
-    if (name.rfind(stem, 0) == 0 && name.find(".bak_") != std::string::npos) {
+    if (name.starts_with(stem) && name.find(".bak_") != std::string::npos) {
       found.push_back(entry.path().string());
     }
   }

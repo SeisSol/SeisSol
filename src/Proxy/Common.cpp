@@ -50,7 +50,7 @@ auto Aux::kernel2str(const std::vector<Kernel>& kernel) -> std::string {
     if (i > 0) {
       output += ",";
     }
-    if (Map.find(kernel[i]) != Map.end()) {
+    if (Map.contains(kernel[i])) {
       output += Map.at(kernel[i]);
     } else {
       throw std::runtime_error("Unknown kernel type");
@@ -67,7 +67,7 @@ auto Aux::str2kernel(const std::string& kernelStr) -> std::vector<Kernel> {
 
   std::vector<Kernel> kernels(parts.size());
   for (std::size_t i = 0; i < parts.size(); ++i) {
-    if (InvMap.find(parts[i]) != InvMap.end()) {
+    if (InvMap.contains(parts[i])) {
       kernels[i] = InvMap.at(parts[i]);
     } else {
       throw std::runtime_error("Unknown kernel string: " + parts[i]);

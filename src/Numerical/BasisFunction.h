@@ -20,6 +20,7 @@
 #include <cmath>
 #include <numeric>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace seissol::basisFunction {
@@ -304,7 +305,7 @@ namespace tri_dubiner {
 inline void evaluatePolynomials(double* phis, double xi, double eta, std::int32_t numPoly) {
   assert(numPoly > 0);
   std::uint32_t idx = 0;
-  for (std::uint32_t d = 0; d <= static_cast<std::uint32_t>(numPoly); ++d) {
+  for (std::uint32_t d = 0; std::cmp_less_equal(d, numPoly); ++d) {
     for (std::uint32_t j = 0; j <= d; ++j) {
       phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
     }
@@ -314,7 +315,7 @@ inline void evaluatePolynomials(double* phis, double xi, double eta, std::int32_
 inline void evaluateGradPolynomials(double* phis, double xi, double eta, std::int32_t numPoly) {
   assert(numPoly > 0);
   std::uint32_t idx = 0;
-  for (std::uint32_t d = 0; d <= static_cast<std::uint32_t>(numPoly); ++d) {
+  for (std::uint32_t d = 0; std::cmp_less_equal(d, numPoly); ++d) {
     for (std::uint32_t j = 0; j <= d; ++j) {
       const auto grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
       for (const auto& g : grad) {

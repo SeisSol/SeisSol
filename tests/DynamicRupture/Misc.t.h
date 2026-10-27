@@ -161,7 +161,8 @@ TEST_CASE("DR Misc computeStrikeAndDipVectors" * doctest::test_suite("dynamicrup
   }
 
   SUBCASE("Arbitrary oblique normal") {
-    const CoordinateT normal{1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
+    const CoordinateT normal{
+        std::numbers::inv_sqrt3, std::numbers::inv_sqrt3, std::numbers::inv_sqrt3};
     CoordinateT strike{};
     CoordinateT dip{};
 
