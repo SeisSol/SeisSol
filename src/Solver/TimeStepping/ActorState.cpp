@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -46,7 +47,7 @@ std::string actorStateToString(ActorState state) {
   case ActorState::Synced:
     return "Synced";
   }
-  throw;
+  std::abort();
 }
 
 void MessageQueue::push(const Message& message) {

@@ -41,6 +41,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <hdf5.h>
 #include <mpi.h>
@@ -1064,7 +1065,7 @@ void PUMLReader::addMPINeighor(
           return pumlFaceMaps[cellIds[0]][f];
         }
       }
-      throw;
+      std::abort();
     }();
   }
 }

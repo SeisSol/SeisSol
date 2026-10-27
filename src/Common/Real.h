@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_COMMON_REAL_H_
 
 #include <cstddef>
+#include <cstdlib>
 #include <string_view>
 namespace seissol {
 
@@ -40,7 +41,7 @@ constexpr std::size_t sizeOfRealType(RealType type) {
   case seissol::RealType::F64:
     return 8;
   default:
-    throw;
+    std::abort();
   }
 }
 
@@ -51,7 +52,7 @@ constexpr std::string_view stringRealType(RealType type) {
   case seissol::RealType::F64:
     return "f64";
   default:
-    throw;
+    std::abort();
   }
 }
 

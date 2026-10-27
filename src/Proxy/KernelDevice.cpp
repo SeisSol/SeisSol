@@ -12,6 +12,7 @@
 #include "Kernel.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <cstdlib>
 #include <memory>
 
 #ifdef ACL_DEVICE
@@ -187,6 +188,6 @@ std::shared_ptr<ProxyKernel> getProxyKernelDevice(Kernel kernel) {
   case Kernel::GodunovDR:
     return std::make_shared<ProxyKernelDeviceGodunovDR>();
   }
-  throw;
+  std::abort();
 }
 } // namespace seissol::proxy

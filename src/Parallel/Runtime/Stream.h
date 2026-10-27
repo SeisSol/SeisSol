@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <exception>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -87,6 +88,29 @@ struct EventSlot {
   ManagedEvent event;
   std::atomic<std::uint32_t> refs{0};
 };
+
+/// Calls `handler` for every index below `elemCount` in an OpenMP loop. An exception must not leave
+/// an OpenMP region, so the first one is passed on to the caller once the loop has ended.
+template <typename F>
+void parallelLoop(std::size_t elemCount, const F& handler) {
+  std::exception_ptr error;
+#pragma omp parallel for schedule(static)
+  for (std::size_t i = 0; i < elemCount; ++i) {
+    try {
+      std::invoke(handler, i);
+    } catch (...) {
+#pragma omp critical(seissol_parallel_loop_error)
+      {
+        if (!error) {
+          error = std::current_exception();
+        }
+      }
+    }
+  }
+  if (error) {
+    std::rethrow_exception(error);
+  }
+}
 } // namespace internal
 
 /**
@@ -234,12 +258,7 @@ class StreamRuntime {
 
   template <typename F>
   void enqueueLoop(std::size_t elemCount, const F& handler) {
-    enqueueHost([=]() {
-#pragma omp parallel for schedule(static)
-      for (std::size_t i = 0; i < elemCount; ++i) {
-        std::invoke(handler, i);
-      }
-    });
+    enqueueHost([=]() { internal::parallelLoop(elemCount, handler); });
   }
 
   EventRef nextEvent() {
@@ -503,10 +522,7 @@ class StreamRuntime {
 
   template <typename F>
   void enqueueLoop(std::size_t elemCount, const F& handler) {
-#pragma omp parallel for schedule(static)
-    for (std::size_t i = 0; i < elemCount; ++i) {
-      std::invoke(handler, i);
-    }
+    internal::parallelLoop(elemCount, handler);
   }
 
   template <typename F>

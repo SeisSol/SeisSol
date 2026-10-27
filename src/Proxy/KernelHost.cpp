@@ -33,6 +33,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdlib>
 #include <memory>
 
 namespace seissol::proxy {
@@ -341,7 +342,7 @@ std::shared_ptr<ProxyKernel> getProxyKernelHost(Kernel kernel) {
   case Kernel::GodunovDR:
     return std::make_shared<ProxyKernelHostGodunovDR>();
   }
-  throw;
+  std::abort();
 }
 
 } // namespace seissol::proxy

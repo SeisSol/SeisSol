@@ -37,7 +37,7 @@ FaceType decodeFaceType(const geometry::BoundaryTagsView& boundaryTags,
   if (!faceType.has_value()) {
     logError() << "Read invalid face tag during cluster determining:" << tag;
   }
-  return faceType.value();
+  return *faceType;
 }
 
 // PUML's traversal API works in `PUML::LocalId` face and cell ids, and MPI counts are `int`.

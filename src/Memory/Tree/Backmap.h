@@ -8,8 +8,8 @@
 #define SEISSOL_SRC_MEMORY_TREE_BACKMAP_H_
 
 #include <array>
-#include <cassert>
 #include <cstddef>
+#include <cstdlib>
 #include <limits>
 #include <optional>
 #include <utility>
@@ -71,8 +71,10 @@ class StorageBackmap {
 
   [[nodiscard]] StoragePosition get(std::size_t id) const {
     const auto position = getDup(id, 0);
-    assert(position.has_value());
-    return position.value();
+    if (!position.has_value()) {
+      logError() << "Backmap has no position stored for" << id << ".";
+    }
+    return *position;
   }
 
   [[nodiscard]] std::optional<StoragePosition> getDup(std::size_t id, std::size_t duplicate) const {
@@ -115,7 +117,7 @@ class StorageBackmap {
     }
     logError() << "Backmap has stored more than" << MaxDuplicates << "duplicates for" << cell
                << ". Out of capacity.";
-    throw;
+    std::abort();
   }
 };
 

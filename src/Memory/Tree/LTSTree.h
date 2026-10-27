@@ -153,7 +153,12 @@ class Storage {
 
   ~Storage() = default;
 
-  [[nodiscard]] const LTSColorMap& getColorMap() const { return map_.value(); }
+  [[nodiscard]] const LTSColorMap& getColorMap() const {
+    if (!map_.has_value()) {
+      logError() << "The color map of the storage was used before it was set.";
+    }
+    return *map_;
+  }
 
   /// The configurations of the layers, each once, by increasing id. Every rank has the same
   /// layers, so they are the same on every rank.
@@ -198,10 +203,10 @@ class Storage {
 
   [[nodiscard]] const Layer<VarmapT>& layer(std::size_t index) const { return layers_.at(index); }
 
-  Layer<VarmapT>& layer(const LayerIdentifier& id) { return layer(map_.value().colorId(id)); }
+  Layer<VarmapT>& layer(const LayerIdentifier& id) { return layer(getColorMap().colorId(id)); }
 
   [[nodiscard]] const Layer<VarmapT>& layer(const LayerIdentifier& id) const {
-    return layer(map_.value().colorId(id));
+    return layer(getColorMap().colorId(id));
   }
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
