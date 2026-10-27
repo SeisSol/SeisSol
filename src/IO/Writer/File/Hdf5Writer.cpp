@@ -24,6 +24,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <filesystem>
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>

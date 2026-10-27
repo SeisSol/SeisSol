@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <exception>
 #include <fcntl.h>
+#include <filesystem>
 #include <fty/fty.hpp>
 #include <optional>
 #include <signal.h>

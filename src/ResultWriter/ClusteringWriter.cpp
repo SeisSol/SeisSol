@@ -7,7 +7,6 @@
 
 #include "ClusteringWriter.h"
 
-#include "Common/Filesystem.h"
 #include "Common/RunId.h"
 #include "IO/Instance/Point/Csv.h"
 #include "Initializer/BasicTypedefs.h"
@@ -16,6 +15,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <type_traits>
 #include <utils/logger.h>

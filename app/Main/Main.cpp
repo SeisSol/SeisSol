@@ -8,7 +8,6 @@
 
 #include "BuildInfo.h"
 #include "Common/ConfigRegistry.h"
-#include "Common/Filesystem.h"
 #include "Common/Json.h"
 #include "Common/RunId.h"
 #include "Initializer/InitProcedure/Init.h"
@@ -22,6 +21,7 @@
 
 #include <ctime>
 #include <exception>
+#include <filesystem>
 #include <fty/fty.hpp>
 #include <memory>
 #include <optional>

@@ -7,7 +7,6 @@
 
 #include "VtkHdf.h"
 
-#include "Common/Filesystem.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
