@@ -160,7 +160,11 @@ class StreamRuntime {
     // A graph that is being recorded cannot be waited for, but it takes the host function over.
     if (Backend != DeviceBackend::Hip || hostFunctionsOnStreams() || building() || capturing_ ||
         recordingOuterGraph()) {
-      device().api().streamHostFunction(stream(), std::forward<F>(handler));
+      // the device runtime calls it on a thread of its own, where its loops run alone
+      device().api().streamHostFunction(stream(), [handler = std::forward<F>(handler)]() mutable {
+        const HostRuntime::AloneOnThisThread alone;
+        std::invoke(handler);
+      });
     } else {
       // if the stream host function call isn't implemented or slow, we'll need to synchronize
       wait();

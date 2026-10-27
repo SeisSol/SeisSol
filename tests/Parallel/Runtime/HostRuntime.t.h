@@ -65,6 +65,30 @@ TEST_CASE("The loops of the host runtime visit each element once" *
   }
 }
 
+TEST_CASE("A thread that runs its loops alone takes all of a loop itself" *
+          doctest::test_suite("parallel")) {
+  const auto caller = std::this_thread::get_id();
+  std::mutex mutex;
+  std::vector<std::pair<std::size_t, std::size_t>> ranges;
+  std::vector<std::thread::id> threads;
+  {
+    const HostRuntime::AloneOnThisThread alone;
+    HostRuntime::forRange(1000, [&](std::size_t begin, std::size_t end) {
+      const std::scoped_lock lock(mutex);
+      ranges.emplace_back(begin, end);
+      threads.push_back(std::this_thread::get_id());
+    });
+  }
+  REQUIRE(ranges.size() == 1);
+  CHECK(ranges[0] == std::pair<std::size_t, std::size_t>{0, 1000});
+  CHECK(threads[0] == caller);
+
+  // with the scope gone, the loops go back to the threads of the host runtime
+  std::vector<std::atomic<int>> visits(1000);
+  HostRuntime::forEach(visits.size(), [&](std::size_t i) { visits[i].fetch_add(1); });
+  CHECK(std::all_of(visits.begin(), visits.end(), [](const auto& v) { return v.load() == 1; }));
+}
+
 TEST_CASE("The host runtime counts the time of the threads in loops" *
           doctest::test_suite("parallel")) {
   HostRuntime::resetLoopTime();

@@ -271,14 +271,19 @@ class HostRuntime {
   /**
    * Runs `body(begin, end)` on ranges that together cover [0, count) once each: one range per
    * thread, as a static schedule splits it; or, within the work of a task graph, one per task, of
-   * taskSize() elements each. Whatever a range needs (e.g. scratch memory) can be set up in the
-   * body, once per range. Returns once all ranges are done. In a trace, the ranges are spans named
+   * taskSize() elements each; or as one range on a thread that runs its loops alone (see
+   * AloneOnThisThread). Whatever a range needs (e.g. scratch memory) can be set up in the body,
+   * once per range. Returns once all ranges are done. In a trace, the ranges are spans named
    * `traceName` (see monitoring::Trace), by default as LoopName names them.
    */
   template <typename F>
   static void
       forRange(std::size_t count, const F& body, std::uint32_t traceName = loopTraceName()) {
     if (count == 0) {
+      return;
+    }
+    if (alone() > 0) {
+      timed(body, std::size_t{0}, count, traceName);
       return;
     }
 #ifdef SEISSOL_HOST_TASK_GRAPH
@@ -333,6 +338,24 @@ class HostRuntime {
         },
         traceName);
   }
+
+  /**
+   * Makes the loops (see forRange()) that the calling thread starts while it lives run on that
+   * thread alone, e.g. in a host function on a stream: the device runtime calls these on a thread
+   * of its own, and a team of OpenMP threads of that thread would compete with the one of the main
+   * thread for its cores. (On LUMI with ROCm 6.3, the receivers that sampled in such teams made
+   * runs with concurrent clusters take 13 times as long.)
+   */
+  class AloneOnThisThread {
+public:
+    AloneOnThisThread() { ++alone(); }
+    ~AloneOnThisThread() { --alone(); }
+
+    AloneOnThisThread(const AloneOnThisThread&) = delete;
+    AloneOnThisThread(AloneOnThisThread&&) = delete;
+    AloneOnThisThread& operator=(const AloneOnThisThread&) = delete;
+    AloneOnThisThread& operator=(AloneOnThisThread&&) = delete;
+  };
 
   /**
    * Names the loops that the calling thread starts while it lives (with forRange(), forEach(), or
@@ -426,6 +449,12 @@ private:
   static std::uint32_t& currentLoopName() {
     thread_local std::uint32_t name = monitoring::Trace::name("loop");
     return name;
+  }
+
+  /// how many AloneOnThisThread scopes the calling thread is in
+  static int& alone() {
+    thread_local int scopes = 0;
+    return scopes;
   }
 
   [[nodiscard]] static std::uint32_t workTraceName() {
