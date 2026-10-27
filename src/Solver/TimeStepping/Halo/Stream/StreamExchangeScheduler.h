@@ -63,6 +63,12 @@ class StreamExchangeScheduler : public ExchangeScheduler {
   [[nodiscard]] std::size_t clusterCount() const { return clusterCount_; }
 
   /**
+   * Captures the groups into graphs of their own when super-timesteps get recorded (see
+   * parallel::runtime::StreamRuntime::isolateNodes()).
+   */
+  void isolateGroups();
+
+  /**
    * Enqueues the operations of a group on the stream of its slot.
    */
   virtual void enqueueGroup(std::size_t slot,

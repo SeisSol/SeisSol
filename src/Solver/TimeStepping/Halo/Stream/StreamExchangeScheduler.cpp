@@ -81,6 +81,14 @@ void StreamExchangeScheduler::synchronize() {
   }
 }
 
+void StreamExchangeScheduler::isolateGroups() {
+  for (auto& runtime : runtimes_) {
+    if (runtime != nullptr) {
+      runtime->isolateNodes();
+    }
+  }
+}
+
 ExchangeScheduler::Ticket StreamExchangeScheduler::launch(std::size_t from,
                                                           std::size_t to,
                                                           std::size_t exchange,
@@ -175,6 +183,8 @@ ExchangeScheduler::Ticket
 }
 
 bool StreamExchangeScheduler::completed(Ticket /*ticket*/) { return true; }
+
+void StreamExchangeScheduler::isolateGroups() {}
 
 std::vector<parallel::runtime::StreamRuntime*> StreamExchangeScheduler::runtimes() const {
   return {};

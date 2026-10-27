@@ -255,6 +255,8 @@ Compare the results of a run bitwise to the default before relying on these opti
 On HIP, graphs need Device d2fe2de or newer, which works around two bugs of HIP 7.2:
 graph roots that do not wait for the work before the launch, and captures that do not end
 when streams waited for each other.
+With CUDA, recording ``ccl`` needs Device 2ec6a42 or newer: CUDA gives all captures into one graph the same id,
+which NCCL takes for a single capture, so the NCCL operations get captured into graphs of their own.
 SeisSol sets ``NCCL_GRAPH_MIXING_SUPPORT=1`` for ``ccl`` (unless set already), which RCCL needs for recorded super-timesteps.
 
 ROCSHMEM needs version 3.0 or newer (on RDNA GPUs, one whose loads and stores cover their architecture, which those

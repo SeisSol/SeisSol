@@ -95,6 +95,9 @@ CclExchangeScheduler::CclExchangeScheduler(std::size_t clusterCount,
   // NOLINTNEXTLINE(concurrency-mt-unsafe)
   setenv("NCCL_GRAPH_MIXING_SUPPORT", "1", 0);
 #endif
+  // NCCL keeps its state of a capture by its id, which CUDA gives all captures into one graph
+  // alike; so the groups of a recorded super-timestep get captured into graphs of their own
+  isolateGroups();
 
   const auto slots = usedSlots();
 

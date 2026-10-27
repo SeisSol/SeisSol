@@ -411,6 +411,13 @@ class StreamRuntime {
   }
 
   /**
+   * Captures each node of this runtime into a graph of its own, which then becomes a single node of
+   * the graph being built (see device::AbstractAPI::graphBeginIsolatedNode): for libraries that
+   * fail when they get captured into the same graph several times, such as NCCL.
+   */
+  void isolateNodes() { isolated_ = true; }
+
+  /**
    * Lets the work of this runtime run directly again (see attach()).
    */
   void detach() {
@@ -552,12 +559,19 @@ class StreamRuntime {
               F&& handler) {
     void* previousRecordingStream = recordingStream_;
     recordingStream_ = streamPtr;
-    auto node =
-        device().api().graphAddNode(buildGraph(), dependencies, streamPtr, [&](void* recorded) {
-          std::invoke(std::forward<F>(handler), recorded);
-        });
+    beginNode(dependencies, streamPtr);
+    std::invoke(std::forward<F>(handler), streamPtr);
+    auto node = device().api().graphEndNode(buildGraph(), streamPtr);
     recordingStream_ = previousRecordingStream;
     return node;
+  }
+
+  void beginNode(const std::vector<device::DeviceGraphNodeHandle>& dependencies, void* streamPtr) {
+    if (isolated_) {
+      device().api().graphBeginIsolatedNode(buildGraph(), dependencies, streamPtr);
+    } else {
+      device().api().graphBeginNode(buildGraph(), dependencies, streamPtr);
+    }
   }
 
   /// closes the implicit node that is open in the graph, of whichever runtime builds it
@@ -572,7 +586,7 @@ class StreamRuntime {
     auto& root = this->root();
     if (root.openNode_ != this) {
       closeOpenNode();
-      device().api().graphBeginNode(root.buildGraph_, takeDependencies(), streamPtr_->get());
+      beginNode(takeDependencies(), streamPtr_->get());
       root.openNode_ = this;
     }
   }
@@ -598,6 +612,7 @@ class StreamRuntime {
   std::vector<device::DeviceGraphNodeHandle> dependencies_;
   void* recordingStream_{nullptr};
   bool capturing_{false};
+  bool isolated_{false};
   Event deferred_;
 
   std::size_t ringbufferSize_{0};
