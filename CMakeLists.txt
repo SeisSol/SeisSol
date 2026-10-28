@@ -481,12 +481,6 @@ if (WARNINGS_AS_ERRORS)
   # the generated code and the device code take it back where their targets are defined
   # (codegen/CMakeLists.txt, src/sources.cmake and tests/CMakeLists.txt)
   target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-Werror>)
-  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    # once the buffer handling of the async submodule is inlined, -Wmismatched-dealloc pairs its
-    # realloc with its aligned operator delete; the alignment keeps the two apart
-    target_compile_options(seissol-common-properties INTERFACE
-      $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=mismatched-dealloc>)
-  endif()
   if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
     # a loop under "omp simd" that the vectorizer leaves as it is (-Wpass-failed) costs time, but
     # computes the same
