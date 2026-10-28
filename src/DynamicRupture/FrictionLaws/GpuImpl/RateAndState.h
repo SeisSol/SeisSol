@@ -24,15 +24,18 @@ namespace seissol::dr::friction_law::gpu {
  */
 template <typename Cfg, class Derived, class TPMethod>
 class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>> {
+  private:
+  // only the CRTP subclass `Derived` constructs this base
+  explicit RateAndStateBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>>::BaseFrictionSolver(
+            drParameters) {}
+  friend Derived;
+
   public:
   using real = Real<Cfg>;
 
   // the slip rate of a sub-step is the one the friction solve finds at its time point
   static constexpr bool SlipRateAtIntervalEnds = false;
-
-  explicit RateAndStateBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
-      : BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, Derived, TPMethod>>::BaseFrictionSolver(
-            drParameters) {}
 
   ~RateAndStateBase() override = default;
 

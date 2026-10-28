@@ -166,11 +166,15 @@ SEISSOL_DEVICE inline Real<Cfg> resampleVariable(FrictionLawContext<Cfg>& __rest
 
 template <typename Cfg, typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
+  private:
+  // only the CRTP subclass `Derived` constructs this base
+  explicit BaseFrictionSolver(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : FrictionSolverDetails<Cfg>(drParameters) {}
+  friend Derived;
+
   public:
   using real = Real<Cfg>;
 
-  explicit BaseFrictionSolver(const FrictionLawParameters<Real<Cfg>>& drParameters)
-      : FrictionSolverDetails<Cfg>(drParameters) {}
   ~BaseFrictionSolver() override = default;
 
   SEISSOL_DEVICE static void evaluatePoint(FrictionLawContext<Cfg>& __restrict ctx) {

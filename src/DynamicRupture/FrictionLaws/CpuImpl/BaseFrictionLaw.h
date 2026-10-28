@@ -31,11 +31,13 @@ class BaseFrictionLaw : public FrictionSolverImpl<Cfg> {
   private:
   size_t currLayerSize_{};
 
-  public:
-  using real = Real<Cfg>;
-
+  // only the CRTP subclass `Derived` constructs this base
   explicit BaseFrictionLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : FrictionSolverImpl<Cfg>(drParameters) {}
+  friend Derived;
+
+  public:
+  using real = Real<Cfg>;
 
   void setupLayer(DynamicRupture::Layer& layerData,
                   seissol::parallel::runtime::StreamRuntime& /*runtime*/) override {

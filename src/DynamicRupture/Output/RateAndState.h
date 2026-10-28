@@ -19,6 +19,11 @@ namespace seissol::dr::output {
  */
 template <typename Derived>
 class RateAndStateImpl : public ReceiverOutputImpl<Derived> {
+  private:
+  // only the CRTP subclass `Derived` constructs this base
+  RateAndStateImpl() = default;
+  friend Derived;
+
   public:
   template <typename Cfg>
   using LocalInfo = ReceiverOutputImpl<Derived>::template LocalInfo<Cfg>;

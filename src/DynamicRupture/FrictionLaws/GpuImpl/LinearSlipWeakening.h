@@ -22,14 +22,17 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Cfg, typename Derived>
 class LinearSlipWeakeningBase
     : public BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>> {
+  private:
+  // only the CRTP subclass `Derived` constructs this base
+  explicit LinearSlipWeakeningBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>>(drParameters) {}
+  friend Derived;
+
   public:
   using real = Real<Cfg>;
 
   // the slip rate of a sub-step is the one the friction solve finds at its time point
   static constexpr bool SlipRateAtIntervalEnds = false;
-
-  explicit LinearSlipWeakeningBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
-      : BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>>(drParameters) {};
 
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {

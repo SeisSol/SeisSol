@@ -13,7 +13,8 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "FrictionSolverInterface.h"
-#include "ImposedSlipRates.h"
+#include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Tree/Layer.h"
 #include "Numerical/DeltaPulse.h"
 #include "Numerical/GaussianNucleationFunction.h"
 #include "Numerical/RegularizedYoffe.h"
@@ -21,7 +22,7 @@
 namespace seissol::dr::friction_law::gpu {
 
 template <typename Cfg>
-class YoffeSTF : public ImposedSlipRates<Cfg, YoffeSTF<Cfg>> {
+class YoffeSTF {
   public:
   using real = Real<Cfg>;
 
@@ -43,7 +44,7 @@ class YoffeSTF : public ImposedSlipRates<Cfg, YoffeSTF<Cfg>> {
 };
 
 template <typename Cfg>
-class GaussianSTF : public ImposedSlipRates<Cfg, GaussianSTF<Cfg>> {
+class GaussianSTF {
   public:
   using real = Real<Cfg>;
 
@@ -64,7 +65,7 @@ class GaussianSTF : public ImposedSlipRates<Cfg, GaussianSTF<Cfg>> {
 };
 
 template <typename Cfg>
-class DeltaSTF : public ImposedSlipRates<Cfg, DeltaSTF<Cfg>> {
+class DeltaSTF {
   public:
   using real = Real<Cfg>;
 

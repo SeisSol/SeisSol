@@ -70,6 +70,9 @@ class ReceiverOutput {
   bool printRSFWarning_{false};
 };
 
+template <typename Derived>
+class RateAndStateImpl;
+
 /**
   The output of the on-fault receivers of a friction law `Derived` (CRTP). `Derived` provides
   `computeLocalStrength` and may provide its own versions of the other hooks below; each hook is a
@@ -229,6 +232,12 @@ class ReceiverOutputImpl : public ReceiverOutput {
                                       const std::array<double, 3>& dip);
 
   private:
+  // only the CRTP subclass `Derived` constructs this base, directly or through the output of the
+  // rate-and-state friction laws in between
+  ReceiverOutputImpl() = default;
+  friend Derived;
+  friend class RateAndStateImpl<Derived>;
+
   template <typename Cfg>
   void calcFaultOutputOfConfig(
       seissol::initializer::parameters::OutputType outputType,

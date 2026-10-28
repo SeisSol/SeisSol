@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SLIPLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SLIPLAW_H_
 
+#include "Common/Real.h"
+#include "DynamicRupture/Misc.h"
 #include "SlowVelocityWeakeningLaw.h"
 
 namespace seissol::dr::friction_law::cpu {
@@ -16,7 +18,9 @@ class SlipLaw : public SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPM
   public:
   using real = Real<Cfg>;
 
-  using SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
+  explicit SlipLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPMethod>(drParameters) {}
+
   using SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPMethod>::copyStorageToLocal;
 
 /**
