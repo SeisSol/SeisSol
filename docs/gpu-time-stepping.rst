@@ -100,6 +100,21 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
        The log says which way the graphs get built. No super-timestep gets recorded then.
    * - ``SEISSOL_MPI_PERSISTENT=0``
      - Start new MPI requests for each exchange, instead of restarting persistent ones.
+   * - ``SEISSOL_EXCHANGE_TRANSPORT_EVENTS=1``
+     - Experimental. For the modes on GPU streams in the global order with one lane: the work of a cluster waits
+       only for the groups of its own transports, instead of all groups launched so far.
+   * - ``SEISSOL_ACTOR_MPI_WAIT=kernel``
+     - Experimental. For ``actor-mpi``: the streams wait for the host with a kernel of SeisSol that polls with growing
+       pauses, instead of the wait of the GPU runtime.
+   * - ``SEISSOL_ACTOR_MPI_COPY_ENGINES=1``
+     - Experimental. For ``actor-mpi``: copy from and to the host buffers with the copy engines instead of kernels.
+   * - ``SEISSOL_ACTOR_MPI_STAGING=0``
+     - Experimental. For ``actor-mpi``: MPI sends and receives the regions in GPU memory, instead of host buffers;
+       only for MPI libraries whose GPU path does not need the GPU runtime (e.g. HPE Cray MPICH; Open MPI with CUDA hangs).
+   * - ``SEISSOL_ACTOR_MPI_ENGINE=1``
+     - Experimental, CUDA only for now. For ``actor-mpi``: a kernel that keeps running during the time stepping does the
+       copies of all groups in the order they get ready (see below); ``SEISSOL_ACTOR_MPI_ENGINE_BLOCKS`` (4 by default),
+       ``SEISSOL_ACTOR_MPI_ENGINE_FROM_EPOCH`` (the first epoch with it, counted from 0).
 
 Transfer modes
 ~~~~~~~~~~~~~~
@@ -179,6 +194,26 @@ already; and a stream that waits blocks the other streams on its hardware queue 
 from waiting for each other in a cycle, as for the other modes.
 On a workstation (CUDA, RTX 5070, four ranks on one GPU, October 2026), TPV13 took as long as with ``ccl`` (38 s,
 ``direct``: 3.1 s; the ranks share the GPU in time slices, and each wait on the GPU costs one).
+
+In the global order on one stream, a group that waits for its data holds up all groups after it. With
+``SEISSOL_ACTOR_MPI_ENGINE=1``, the groups only request their copies on the stream instead: a kernel of a few blocks
+runs during the time stepping, and does each copy once it is ready, in any order; the work of a cluster then waits only
+for the counts of its own transports. At the end of an epoch, it stops once it has done all copies of the epoch.
+Before the time stepping, the groups copy on their streams as without it. With CUDA, the first instantiation of some of
+the graphs of the clusters waits until the engine has stopped, for a reason not known yet (a test program does not
+reproduce it); ``SEISSOL_ACTOR_MPI_ENGINE_FROM_EPOCH=1`` lets the first epoch run without it. On the workstation, an
+epoch of TPV13 took 2.5 s with it, against 9.4 s on one stream and 4.4 s on four lanes.
+With HIP (ROCm 6.3), the engine hangs: CLR puts all streams, of any priority, and also those with a mask of compute
+units, on a few shared hardware queues (``GPU_MAX_HW_QUEUES``), so a kernel that keeps running holds up the streams
+that share its queue (13 of 16 streams ran next to it in a test on LUMI). This is also why more lanes do not help there.
+
+On two nodes of LUMI (ROCm 6.3, October 2026; compute time over four or five runs), ``actor-mpi`` took 4.0 to 6.0 s for
+TPV5 (``direct``: 3.5 to 4.2 s, ``ccl`` split by node: 3.9 to 5.1 s, ``host``: 3.8 to 4.0 s) and 9.4 to 13.3 s for TPV13
+(``direct``: 5.3 to 6.4 s, ``ccl`` split: 6.1 to 7.7 s, ``host``: 5.8 to 6.1 s), bitwise the same as ``direct``. More
+lanes, the polling kernel, the copy engines (TPV13: 16 to 18 s), MPI in GPU memory (17 to 20 s), and waiting only for
+the own transports did not make it faster; one stream per direction hung. On one node, TPV13 took 12.5 s with ``ccl``
+and 12 to 16 s with ``actor-mpi`` (``direct``: 6.2 s): there, the order of the exchange on the GPU costs, not the
+network.
 
 ``shmem`` puts the data into a staging window of the receiving process in symmetric memory
 (as large as the ghost layers of the process with the largest ones),
