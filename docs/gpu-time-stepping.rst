@@ -157,6 +157,11 @@ does not add up along the order of the exchanges. A send or receive counts as do
 part, and the streams have launched theirs. For tests, ``SEISSOL_EXCHANGE_RANKS_PER_NODE=N`` takes nodes of ``N``
 consecutive ranks each instead of the actual ones.
 
+On two nodes of LUMI (MI250X, ROCm 6.3, eight ranks each, October 2026), TPV5 with the time-stepping plan and
+concurrent clusters took 34 s with ``ccl`` in the global order, 4.0 s split by node, and 3.8 s with ``direct``.
+Lanes got stuck there: RCCL hung with a second communicator over the network (with the RCCL of TheRock even with
+one), while on one node, two and three lanes took 4.3 and 4.8 s (one lane: 4.2 s).
+
 ``shmem`` puts the data into a staging window of the receiving process in symmetric memory
 (as large as the ghost layers of the process with the largest ones),
 signals its arrival, and waits until the receiver has cleared the window for the next exchange;
@@ -280,6 +285,12 @@ whose work has not run yet. Before an output reads what the work writes, e.g. th
 synchronization point, all of it runs.
 Checking an event is safe on all backends, as the host reads the data only once the GPU is done with
 it, in whatever host memory.
+Where the thread that enqueues the work of the GPU is what limits a run, as on LUMI, the work should not run on it:
+on two nodes there (MI250X, ROCm 6.3, ``direct``, the time-stepping plan and concurrent clusters), TPV5 took 3.6 s
+instead of 3.9 s and TPV13 5.5 s instead of 6.2 s with tasks (``SEISSOL_HOST_TASK_GRAPH=1``), while the work on
+the main thread itself gained less and lost in some runs. Next to RCCL (``ccl``), the OpenMP threads that wait for
+tasks should not spin (``OMP_WAIT_POLICY=passive``): they take the cores of the proxy threads of RCCL otherwise
+(split by node: 4.9 s instead of 3.9 s).
 On the Radeon 890M (ROCm 6.3), TPV13 with eight receivers took 3.49 s instead of 3.83 s with the
 time-stepping plan and concurrent clusters, with the receivers alone on the host actor. On an RTX 5070
 Laptop GPU, with the fault receivers as well, 0.67 s instead of 0.76 s (also with tasks, and on the
