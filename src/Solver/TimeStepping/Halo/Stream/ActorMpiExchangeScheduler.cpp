@@ -39,13 +39,15 @@ namespace hostcopy = kernels::device::aux::hostcopy;
 
 // the counters of a transport in host memory
 enum Counter : std::size_t {
-  // the sends whose copy regions the device has copied into the host buffer (by the device)
+  // the sends whose data MPI may take (by the device): copied into the host buffer, or without
+  // staging, there in the copy regions
   CopiedOut,
   // the sends that MPI has completed (by the host)
   Sent,
   // the receives that MPI has completed (by the host)
   Received,
-  // the receives whose ghost regions the device has copied out of the host buffer (by the device)
+  // the receives whose ghost regions the device is done with (by the device): copied out of the
+  // host buffer, or without staging, ready to be overwritten
   CopiedIn,
   CounterCount
 };
@@ -87,23 +89,29 @@ void advance(std::uint32_t* counter, std::uint32_t value) {
 }
 } // namespace
 
+/// pinned host memory of the given size, if `staged`
+void* allocate(bool staged, std::size_t bytes) {
+  return staged ? deviceInstance().api().allocPinnedMem(std::max<std::size_t>(bytes, 1)) : nullptr;
+}
+
 struct ActorMpiExchangeScheduler::Staging {
-  Staging(const RemoteClusterPair& regions, bool persistent)
+  Staging(const RemoteClusterPair& regions, bool persistent, bool staged)
       : regions(regions), copyOffsets(offsets(regions.copy)), ghostOffsets(offsets(regions.ghost)),
-        hostCopy(
-            deviceInstance().api().allocPinnedMem(std::max<std::size_t>(copyOffsets.back(), 1))),
-        hostGhost(
-            deviceInstance().api().allocPinnedMem(std::max<std::size_t>(ghostOffsets.back(), 1))),
-        mpi(RemoteClusterPair{inBuffer(regions.copy, hostCopy, copyOffsets),
-                              inBuffer(regions.ghost, hostGhost, ghostOffsets)},
+        hostCopy(allocate(staged, copyOffsets.back())),
+        hostGhost(allocate(staged, ghostOffsets.back())),
+        mpi(staged ? RemoteClusterPair{inBuffer(regions.copy, hostCopy, copyOffsets),
+                                       inBuffer(regions.ghost, hostGhost, ghostOffsets)}
+                   : regions,
             persistent) {
     auto& api = deviceInstance().api();
     counters = static_cast<std::uint32_t*>(api.allocPinnedMem(
         CounterCount * sizeof(std::uint32_t), false, device::Destination::CurrentDevice));
     std::fill_n(counters, CounterCount, 0);
     countersOnDevice = static_cast<std::uint32_t*>(api.devicePointer(counters));
-    hostCopyOnDevice = static_cast<std::uint8_t*>(api.devicePointer(hostCopy));
-    hostGhostOnDevice = static_cast<std::uint8_t*>(api.devicePointer(hostGhost));
+    if (staged) {
+      hostCopyOnDevice = static_cast<std::uint8_t*>(api.devicePointer(hostCopy));
+      hostGhostOnDevice = static_cast<std::uint8_t*>(api.devicePointer(hostGhost));
+    }
     // MPI goes on while the thread that enqueues the work of the device may block in it
     sendQueue.setOnProgressThread(true);
     receiveQueue.setOnProgressThread(true);
@@ -114,8 +122,10 @@ struct ActorMpiExchangeScheduler::Staging {
     receiveQueue.drain();
     mpi.finalize();
     auto& api = deviceInstance().api();
-    api.freePinnedMem(hostCopy);
-    api.freePinnedMem(hostGhost);
+    if (hostCopy != nullptr) {
+      api.freePinnedMem(hostCopy);
+      api.freePinnedMem(hostGhost);
+    }
     api.freePinnedMem(counters);
   }
 
@@ -130,7 +140,7 @@ struct ActorMpiExchangeScheduler::Staging {
   std::vector<std::size_t> copyOffsets;
   std::vector<std::size_t> ghostOffsets;
   // the copy regions and the ghost regions, each one after the other in pinned host memory; and
-  // their addresses on the device
+  // their addresses on the device; none without staging
   void* hostCopy{nullptr};
   void* hostGhost{nullptr};
   std::uint8_t* hostCopyOnDevice{nullptr};
@@ -140,7 +150,7 @@ struct ActorMpiExchangeScheduler::Staging {
   std::uint32_t* countersOnDevice{nullptr};
   std::uint32_t sends{0};
   std::uint32_t receives{0};
-  // the MPI operations on the host buffers
+  // the MPI operations on the host buffers, or without staging, on the regions
   MpiHaloTransport mpi;
   HostActor::Queue sendQueue;
   HostActor::Queue receiveQueue;
@@ -162,6 +172,11 @@ ActorMpiExchangeScheduler::ActorMpiExchangeScheduler(std::size_t clusterCount,
   if (waitKernel_) {
     logInfo() << "The streams of the halo exchange wait for the host with a kernel that polls"
               << "(SEISSOL_ACTOR_MPI_WAIT=kernel).";
+  }
+  staged_ = env.get<bool>("ACTOR_MPI_STAGING", true);
+  if (!staged_) {
+    logInfo() << "MPI sends and receives the halo data in device memory"
+              << "(SEISSOL_ACTOR_MPI_STAGING=0); it must not call the device runtime there.";
   }
   if (order == LaunchOrder::PerDirection) {
     logWarning()
@@ -188,7 +203,7 @@ void ActorMpiExchangeScheduler::waitFor(void* stream, std::uint32_t* counter, st
 }
 
 void ActorMpiExchangeScheduler::added(const ScheduledTransport& transport) {
-  staging_[&transport] = std::make_unique<Staging>(transport.regions(), persistent_);
+  staging_[&transport] = std::make_unique<Staging>(transport.regions(), persistent_, staged_);
 }
 
 void ActorMpiExchangeScheduler::enqueueGroup(std::size_t slot,
@@ -198,6 +213,10 @@ void ActorMpiExchangeScheduler::enqueueGroup(std::size_t slot,
                                              const ScheduledTransport* sender,
                                              const ScheduledTransport* receiver) {
   void* deviceStream = stream(slot);
+  if (!staged_) {
+    enqueueUnstaged(deviceStream, sender, receiver);
+    return;
+  }
   // the sends first: the other processes may wait for them in this group
   if (sender != nullptr) {
     auto& staging = *staging_.at(sender);
@@ -235,6 +254,40 @@ void ActorMpiExchangeScheduler::enqueueGroup(std::size_t slot,
                              deviceStream);
     }
     hostcopy::signalHost(&staging.countersOnDevice[CopiedIn], receive, deviceStream);
+  }
+}
+
+void ActorMpiExchangeScheduler::enqueueUnstaged(void* deviceStream,
+                                                const ScheduledTransport* sender,
+                                                const ScheduledTransport* receiver) {
+  // MPI may take the copy regions and overwrite the ghost regions from here on; the stream goes on
+  // once it is done with both
+  std::uint32_t send = 0;
+  std::uint32_t receive = 0;
+  if (sender != nullptr) {
+    auto& staging = *staging_.at(sender);
+    send = ++staging.sends;
+    hostcopy::signalHost(&staging.countersOnDevice[CopiedOut], send, deviceStream);
+    staging.sendQueue.post(Event(HostCounter{&staging.counters[CopiedOut], send}),
+                           [&staging]() { staging.mpi.startSend(); });
+    staging.sendQueue.post([&staging]() { return staging.mpi.testSend(); },
+                           [&staging, send]() { advance(&staging.counters[Sent], send); });
+  }
+  if (receiver != nullptr) {
+    auto& staging = *staging_.at(receiver);
+    receive = ++staging.receives;
+    hostcopy::signalHost(&staging.countersOnDevice[CopiedIn], receive, deviceStream);
+    staging.receiveQueue.post(Event(HostCounter{&staging.counters[CopiedIn], receive}),
+                              [&staging]() { staging.mpi.startReceive(); });
+    staging.receiveQueue.post(
+        [&staging]() { return staging.mpi.testReceive(); },
+        [&staging, receive]() { advance(&staging.counters[Received], receive); });
+  }
+  if (sender != nullptr) {
+    waitFor(deviceStream, &staging_.at(sender)->counters[Sent], send);
+  }
+  if (receiver != nullptr) {
+    waitFor(deviceStream, &staging_.at(receiver)->counters[Received], receive);
   }
 }
 
