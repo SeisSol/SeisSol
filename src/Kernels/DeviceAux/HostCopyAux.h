@@ -33,6 +33,14 @@ void copyFromHost(void* device, const void* hostOnDevice, std::size_t bytes, voi
  */
 void signalHost(std::uint32_t* counterOnDevice, std::uint32_t value, void* stream);
 
+/**
+ * Lets the stream wait until a counter in host memory that the device maps (`counterOnDevice` is
+ * its address on the device) has reached at least `value`, with a kernel that polls it, pausing
+ * longer and longer in between: unlike the wait of HIP (a kernel that polls after the shortest
+ * pause), several of them do not flood the memory of the host with reads.
+ */
+void waitHost(const std::uint32_t* counterOnDevice, std::uint32_t value, void* stream);
+
 } // namespace seissol::kernels::device::aux::hostcopy
 
 #endif // SEISSOL_SRC_KERNELS_DEVICEAUX_HOSTCOPYAUX_H_

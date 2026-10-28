@@ -12,6 +12,7 @@
 #include "Solver/TimeStepping/Halo/Stream/StreamExchangeScheduler.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <memory>
 
@@ -74,7 +75,13 @@ class ActorMpiExchangeScheduler : public StreamExchangeScheduler {
   private:
   struct Staging;
 #ifdef ACL_DEVICE
+  /// lets the stream wait until the counter has reached the value
+  void waitFor(void* stream, std::uint32_t* counter, std::uint32_t value);
+
   bool persistent_;
+  // with a kernel of its own (see kernels::device::aux::hostcopy::waitHost()), instead of the wait
+  // of the device
+  bool waitKernel_{false};
   // for each transport: its host buffers, its counters, and its MPI operations
   std::map<const ScheduledTransport*, std::unique_ptr<Staging>> staging_;
 #endif

@@ -34,6 +34,19 @@ void copyFromHost(void* device, const void* hostOnDevice, std::size_t bytes, voi
   copy(device, hostOnDevice, bytes, stream);
 }
 
+void waitHost(const std::uint32_t* counterOnDevice, std::uint32_t value, void* stream) {
+  auto* queue = reinterpret_cast<sycl::queue*>(stream);
+  queue->single_task([=]() {
+    sycl::atomic_ref<std::uint32_t,
+                     sycl::memory_order::acquire,
+                     sycl::memory_scope::system,
+                     sycl::access::address_space::global_space>
+        counter(*const_cast<std::uint32_t*>(counterOnDevice));
+    while (counter.load() < value) {
+    }
+  });
+}
+
 void signalHost(std::uint32_t* counterOnDevice, std::uint32_t value, void* stream) {
   auto* queue = reinterpret_cast<sycl::queue*>(stream);
   queue->single_task([=]() {

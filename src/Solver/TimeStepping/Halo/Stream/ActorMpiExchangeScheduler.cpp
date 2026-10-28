@@ -14,7 +14,6 @@
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-
 #include "Common/Real.h"
 #include "Kernels/DeviceAux/HostCopyAux.h"
 #include "Parallel/Runtime/Event.h"
@@ -26,6 +25,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <string>
+#include <utils/env.h>
 #include <vector>
 
 namespace seissol::solver {
@@ -151,6 +152,17 @@ ActorMpiExchangeScheduler::ActorMpiExchangeScheduler(std::size_t clusterCount,
                                                      std::size_t lanes,
                                                      bool persistent)
     : StreamExchangeScheduler(clusterCount, order, configCount, lanes), persistent_(persistent) {
+  utils::Env env("SEISSOL_");
+  const auto wait = env.get<std::string>("ACTOR_MPI_WAIT", "stream");
+  if (wait != "stream" && wait != "kernel") {
+    logWarning() << "SEISSOL_ACTOR_MPI_WAIT takes stream or kernel; the streams wait as the device"
+                 << "offers it.";
+  }
+  waitKernel_ = wait == "kernel";
+  if (waitKernel_) {
+    logInfo() << "The streams of the halo exchange wait for the host with a kernel that polls"
+              << "(SEISSOL_ACTOR_MPI_WAIT=kernel).";
+  }
   if (order == LaunchOrder::PerDirection) {
     logWarning()
         << "With the actor-mpi transfer mode, the stream of each direction may wait for the"
@@ -164,6 +176,17 @@ ActorMpiExchangeScheduler::~ActorMpiExchangeScheduler() {
   staging_.clear();
 }
 
+void ActorMpiExchangeScheduler::waitFor(void* stream, std::uint32_t* counter, std::uint32_t value) {
+  if (waitKernel_) {
+    hostcopy::waitHost(
+        static_cast<const std::uint32_t*>(deviceInstance().api().devicePointer(counter)),
+        value,
+        stream);
+  } else {
+    deviceInstance().api().streamWaitMemory(stream, counter, value);
+  }
+}
+
 void ActorMpiExchangeScheduler::added(const ScheduledTransport& transport) {
   staging_[&transport] = std::make_unique<Staging>(transport.regions(), persistent_);
 }
@@ -175,14 +198,13 @@ void ActorMpiExchangeScheduler::enqueueGroup(std::size_t slot,
                                              const ScheduledTransport* sender,
                                              const ScheduledTransport* receiver) {
   void* deviceStream = stream(slot);
-  auto& api = deviceInstance().api();
   // the sends first: the other processes may wait for them in this group
   if (sender != nullptr) {
     auto& staging = *staging_.at(sender);
     const auto send = ++staging.sends;
     if (send > 1) {
       // MPI is done with the copies before
-      api.streamWaitMemory(deviceStream, &staging.counters[Sent], send - 1);
+      waitFor(deviceStream, &staging.counters[Sent], send - 1);
     }
     for (std::size_t region = 0; region < staging.regions.copy.size(); ++region) {
       hostcopy::copyToHost(staging.hostCopyOnDevice + staging.copyOffsets[region],
@@ -205,7 +227,7 @@ void ActorMpiExchangeScheduler::enqueueGroup(std::size_t slot,
     staging.receiveQueue.post(
         [&staging]() { return staging.mpi.testReceive(); },
         [&staging, receive]() { advance(&staging.counters[Received], receive); });
-    api.streamWaitMemory(deviceStream, &staging.counters[Received], receive);
+    waitFor(deviceStream, &staging.counters[Received], receive);
     for (std::size_t region = 0; region < staging.regions.ghost.size(); ++region) {
       hostcopy::copyFromHost(staging.regions.ghost[region].data,
                              staging.hostGhostOnDevice + staging.ghostOffsets[region],

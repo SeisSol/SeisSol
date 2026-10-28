@@ -48,6 +48,27 @@ __global__ void signalKernel(std::uint32_t* counter, std::uint32_t value) {
   *static_cast<volatile std::uint32_t*>(counter) = value;
 }
 
+__global__ void waitKernel(const std::uint32_t* counter, std::uint32_t value) {
+  // from about 40 ns up to about 5 us
+#ifdef __HIP__
+  unsigned pause = 1;
+  while (__hip_atomic_load(counter, __ATOMIC_RELAXED, __HIP_MEMORY_SCOPE_SYSTEM) < value) {
+    for (unsigned i = 0; i < pause; ++i) {
+      __builtin_amdgcn_s_sleep(1);
+    }
+    pause = std::min(2 * pause, 128U);
+  }
+#else
+  unsigned pause = 32;
+  while (*static_cast<const volatile std::uint32_t*>(counter) < value) {
+    __nanosleep(pause);
+    pause = std::min(2 * pause, 4096U);
+  }
+#endif
+  // what the host has written before the counter is there for the work after
+  __threadfence_system();
+}
+
 void copy(void* target, const void* source, std::size_t bytes, void* stream) {
   if (bytes == 0) {
     return;
@@ -80,6 +101,10 @@ void copyFromHost(void* device, const void* hostOnDevice, std::size_t bytes, voi
 
 void signalHost(std::uint32_t* counterOnDevice, std::uint32_t value, void* stream) {
   signalKernel<<<1, 1, 0, reinterpret_cast<StreamT>(stream)>>>(counterOnDevice, value);
+}
+
+void waitHost(const std::uint32_t* counterOnDevice, std::uint32_t value, void* stream) {
+  waitKernel<<<1, 1, 0, reinterpret_cast<StreamT>(stream)>>>(counterOnDevice, value);
 }
 
 } // namespace seissol::kernels::device::aux::hostcopy
