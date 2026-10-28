@@ -158,6 +158,21 @@ class ExchangeScheduler {
   void setLatestEvent(ActorEvent event) { latestEvent_ = std::move(event); }
 
   /**
+   * The event that completes with the operations of the transport launched so far, when ordered on
+   * the device; by default the latest event, which stands for those of all transports.
+   */
+  [[nodiscard]] virtual ActorEvent transportEvent(const ScheduledTransport& /*transport*/) const {
+    return latestEvent();
+  }
+
+  /**
+   * Lets go of what keeps the device busy for the exchanges (e.g. a kernel that runs them) once
+   * all exchanges up to the synchronization point have been launched, so that the device can get
+   * done; before the device gets synchronized at the end of an epoch.
+   */
+  virtual void quiesce() {}
+
+  /**
    * Times the groups launched on device streams with `timer`; their device time adds up in
    * `deviceTime`.
    */
@@ -298,7 +313,7 @@ class ScheduledTransport : public HaloTransport {
 
   void startInterval(const ExchangeInterval& interval) override;
   [[nodiscard]] bool streamOrdered() const override { return scheduler_.streamOrdered(); }
-  [[nodiscard]] ActorEvent latestEvent() const override { return scheduler_.latestEvent(); }
+  [[nodiscard]] ActorEvent latestEvent() const override { return scheduler_.transportEvent(*this); }
   void startSendAfter(const ActorEvent& event) override;
   void startReceiveAfter(const ActorEvent& event) override;
   void startSend() override;

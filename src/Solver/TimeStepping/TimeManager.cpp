@@ -765,6 +765,10 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     // the exchanges of the epoch may still need this thread to get done
     communicationManager_->awaitExchanges();
   });
+  if (auto* scheduler = haloTransports_->scheduler(); scheduler != nullptr) {
+    // e.g. the exchange engine of actor-mpi stops once it has done the exchanges of the epoch
+    scheduler->quiesce();
+  }
   // the work on the host that the device may still wait for (e.g. the MPI operations of the
   // actor-mpi transfer mode), and the rest of it
   parallel::runtime::HostActor::instance().drain();
