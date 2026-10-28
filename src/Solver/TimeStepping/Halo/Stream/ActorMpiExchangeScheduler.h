@@ -113,6 +113,9 @@ class ActorMpiExchangeScheduler : public StreamExchangeScheduler {
   bool waitKernel_{false};
   // through host buffers (by default), or MPI on the regions on the device
   bool staged_{true};
+  // the copies from and to the host buffers by the copy engines, instead of kernels (on the streams
+  // of the groups; the engine always copies itself)
+  bool copyEngines_{false};
   // with a kernel that does the copies of all groups in the order they get ready (see
   // kernels::device::aux::exchangeengine), instead of the streams of the groups: its transports in
   // device memory (and their copy on the host), the tables of their regions, its control in host

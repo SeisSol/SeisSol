@@ -176,6 +176,11 @@ ActorMpiExchangeScheduler::ActorMpiExchangeScheduler(std::size_t clusterCount,
     logInfo() << "The streams of the halo exchange wait for the host with a kernel that polls"
               << "(SEISSOL_ACTOR_MPI_WAIT=kernel).";
   }
+  copyEngines_ = env.get<bool>("ACTOR_MPI_COPY_ENGINES", false);
+  if (copyEngines_) {
+    logInfo() << "The copy engines copy the halo data from and to host memory"
+              << "(SEISSOL_ACTOR_MPI_COPY_ENGINES=1).";
+  }
   staged_ = env.get<bool>("ACTOR_MPI_STAGING", true);
   if (!staged_) {
     logInfo() << "MPI sends and receives the halo data in device memory"
@@ -375,10 +380,18 @@ void ActorMpiExchangeScheduler::enqueueGroup(std::size_t slot,
       waitFor(deviceStream, &staging.counters[Sent], send - 1);
     }
     for (std::size_t region = 0; region < staging.regions.copy.size(); ++region) {
-      hostcopy::copyToHost(staging.hostCopyOnDevice + staging.copyOffsets[region],
-                           staging.regions.copy[region].data,
-                           bytes(staging.regions.copy[region]),
-                           deviceStream);
+      if (copyEngines_) {
+        deviceInstance().api().copyFromAsync(static_cast<std::uint8_t*>(staging.hostCopy) +
+                                                 staging.copyOffsets[region],
+                                             staging.regions.copy[region].data,
+                                             bytes(staging.regions.copy[region]),
+                                             deviceStream);
+      } else {
+        hostcopy::copyToHost(staging.hostCopyOnDevice + staging.copyOffsets[region],
+                             staging.regions.copy[region].data,
+                             bytes(staging.regions.copy[region]),
+                             deviceStream);
+      }
     }
     hostcopy::signalHost(&staging.countersOnDevice[CopiedOut], send, deviceStream);
     staging.sendQueue.post(Event(HostCounter{&staging.counters[CopiedOut], send}),
@@ -397,10 +410,18 @@ void ActorMpiExchangeScheduler::enqueueGroup(std::size_t slot,
         [&staging, receive]() { advance(&staging.counters[Received], receive); });
     waitFor(deviceStream, &staging.counters[Received], receive);
     for (std::size_t region = 0; region < staging.regions.ghost.size(); ++region) {
-      hostcopy::copyFromHost(staging.regions.ghost[region].data,
-                             staging.hostGhostOnDevice + staging.ghostOffsets[region],
-                             bytes(staging.regions.ghost[region]),
-                             deviceStream);
+      if (copyEngines_) {
+        deviceInstance().api().copyToAsync(staging.regions.ghost[region].data,
+                                           static_cast<const std::uint8_t*>(staging.hostGhost) +
+                                               staging.ghostOffsets[region],
+                                           bytes(staging.regions.ghost[region]),
+                                           deviceStream);
+      } else {
+        hostcopy::copyFromHost(staging.regions.ghost[region].data,
+                               staging.hostGhostOnDevice + staging.ghostOffsets[region],
+                               bytes(staging.regions.ghost[region]),
+                               deviceStream);
+      }
     }
     hostcopy::signalHost(&staging.countersOnDevice[CopiedIn], receive, deviceStream);
   }
