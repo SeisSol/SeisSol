@@ -593,7 +593,8 @@ SEISSOL_HOSTDEVICE inline Real<Cfg> crossingTime(Real<Cfg> previousValue,
 
 /**
  * output rupture front, saves update time of the rupture front
- * rupture front is the first registered change in slip rates that exceeds 0.001
+ * rupture front is the first registered change in slip rates that exceeds parameter file variable
+ * ruptureFrontThreshold (default: 0.001)
  *
  * The time is the one at which the slip rate crosses the threshold, interpolated between the time
  * points of the previous and the current evaluation (see crossingTime). The caller passes the
@@ -621,6 +622,7 @@ SEISSOL_HOSTDEVICE inline void
                            const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
                            Real<Cfg> previousTime,
                            Real<Cfg> currentTime,
+                           Real<Cfg> ruptureFrontThreshold,
                            uint32_t startIndex = 0) {
 
   using Range = typename NumPoints<Cfg, Type>::Range;
@@ -630,11 +632,10 @@ SEISSOL_HOSTDEVICE inline void
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto pointIndex{startIndex + index};
-    constexpr Real<Cfg> RuptureFrontThreshold = 0.001;
-    if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > RuptureFrontThreshold) {
+    if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > ruptureFrontThreshold) {
       ruptureTime[pointIndex] = crossingTime<Cfg>(previousSlipRateMagnitude[index],
                                                   slipRateMagnitude[pointIndex],
-                                                  RuptureFrontThreshold,
+                                                  ruptureFrontThreshold,
                                                   previousTime,
                                                   currentTime);
       ruptureTimePending[pointIndex] = false;

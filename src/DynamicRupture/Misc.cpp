@@ -74,6 +74,7 @@ FrictionLawParameters<RealT>::FrictionLawParameters(
       rsF0(parameters.rsF0), rsB(parameters.rsB), rsSr0(parameters.rsSr0),
       rsInitialSlipRate1(parameters.rsInitialSlipRate1),
       rsInitialSlipRate2(parameters.rsInitialSlipRate2), muW(parameters.muW),
+      ruptureFrontThreshold(parameters.ruptureFrontThreshold),
       thermalDiffusivity(parameters.thermalDiffusivity), heatCapacity(parameters.heatCapacity),
       undrainedTPResponse(parameters.undrainedTPResponse),
       initialTemperature(parameters.initialTemperature),

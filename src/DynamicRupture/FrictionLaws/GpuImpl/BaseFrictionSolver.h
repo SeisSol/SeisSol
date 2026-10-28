@@ -230,13 +230,15 @@ class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
         Derived::updateFrictionAndSlip(ctx, timeIndex);
 
         // time-dependent outputs
-        common::saveRuptureFrontOutput<Cfg, GpuRangeType>(ctx.data->ruptureTimePending[ctx.ltsFace],
-                                                          ctx.data->ruptureTime[ctx.ltsFace],
-                                                          &previousSlipRate,
-                                                          ctx.data->slipRateMagnitude[ctx.ltsFace],
-                                                          rateTimes.previousPoint,
-                                                          rateTimes.point,
-                                                          ctx.pointIndex);
+        common::saveRuptureFrontOutput<Cfg, GpuRangeType>(
+            ctx.data->ruptureTimePending[ctx.ltsFace],
+            ctx.data->ruptureTime[ctx.ltsFace],
+            &previousSlipRate,
+            ctx.data->slipRateMagnitude[ctx.ltsFace],
+            rateTimes.previousPoint,
+            rateTimes.point,
+            ctx.data->drParameters.ruptureFrontThreshold,
+            ctx.pointIndex);
 
         Derived::saveDynamicStressOutput(ctx, previousDynamicStressQuantity, times);
 

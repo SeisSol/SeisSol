@@ -67,6 +67,7 @@ struct DRParameters {
   // per fused simulation of the configuration of the run
   std::vector<std::optional<std::string>> faultFileNames;
   Eigen::Vector3d referencePoint;
+  double ruptureFrontThreshold{0.001};
   double terminatorSlipRateThreshold{0.0};
   double etaDamp{1.0};
   double etaDampEnd{std::numeric_limits<double>::infinity()};

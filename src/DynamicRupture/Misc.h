@@ -310,6 +310,7 @@ struct FrictionLawParameters {
   RealT rsInitialSlipRate1{0.0};
   RealT rsInitialSlipRate2{0.0};
   RealT muW{0.0};
+  RealT ruptureFrontThreshold{0.001};
   RealT thermalDiffusivity{0.0};
   RealT heatCapacity{0.0};
   RealT undrainedTPResponse{0.0};

@@ -161,6 +161,8 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
   const auto terminatorSlipRateThreshold = static_cast<double>(abortCriteriaReader->readWithDefault(
       "terminatorslipratethreshold", std::numeric_limits<double>::max()));
+  const auto ruptureFrontThreshold =
+      static_cast<double>(reader->readWithDefault("rupturefrontthreshold", 0.001));
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
       "terminatormaxtimepostrupture", std::numeric_limits<double>::max());
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
@@ -228,6 +230,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
                       faultFileName.value_or(""),
                       faultFileNames,
                       referencePoint,
+                      ruptureFrontThreshold,
                       terminatorSlipRateThreshold,
                       etaDamp,
                       etaDampEnd,

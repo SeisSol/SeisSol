@@ -146,7 +146,8 @@ class BaseFrictionLaw : public FrictionSolverImpl<Cfg> {
                                               previousSlipRate,
                                               this->slipRateMagnitude_[ltsFace],
                                               rateTimes.previousPoint,
-                                              rateTimes.point);
+                                              rateTimes.point,
+                                              this->drParameters_.ruptureFrontThreshold);
 
           static_cast<Derived*>(this)->saveDynamicStressOutput(
               ltsFace, previousDynamicStressQuantity, times);
