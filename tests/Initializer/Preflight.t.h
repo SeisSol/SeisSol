@@ -33,7 +33,7 @@ TEST_CASE("The check option is taken out of the command line" *
     int argc = 3;
     const auto report = initializer::extractCheckOption(argc, argv.data());
     REQUIRE(report.has_value());
-    CHECK(report->empty());
+    CHECK(report.value().empty());
     REQUIRE(argc == 2);
     CHECK(std::string(argv[1]) == "parameters.par");
   }

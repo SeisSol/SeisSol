@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdlib>
 #include <type_traits>
 #include <utility>
 #include <utils/logger.h>
@@ -156,6 +157,7 @@ class Storage {
   [[nodiscard]] const LTSColorMap& getColorMap() const {
     if (!map_.has_value()) {
       logError() << "The color map of the storage was used before it was set.";
+      std::abort(); // not reached: logError() ends the run
     }
     return *map_;
   }

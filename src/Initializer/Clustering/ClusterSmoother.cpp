@@ -20,6 +20,7 @@
 #include <PUML/Upward.h>
 #include <algorithm>
 #include <cstddef>
+#include <cstdlib>
 #include <mpi.h>
 #include <unordered_map>
 #include <utility>
@@ -36,6 +37,7 @@ FaceType decodeFaceType(const geometry::BoundaryTagsView& boundaryTags,
   const auto faceType = faceMap.at(tag);
   if (!faceType.has_value()) {
     logError() << "Read invalid face tag during cluster determining:" << tag;
+    std::abort(); // not reached: logError() ends the run
   }
   return *faceType;
 }

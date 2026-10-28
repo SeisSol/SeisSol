@@ -962,19 +962,20 @@ void EnergyOutput::checkAbortCriterion(const std::vector<double>& timeSinceThres
 }
 
 void EnergyOutput::writeEnergies(double time) {
+  auto& table = table_.value();
   // iterate the descriptors, not the name->handle map: the map is ordered
   // alphabetically, the descriptors in registration order
   const auto& descriptors = energiesStorage_.descriptors();
   for (std::size_t handle = 0; handle < descriptors.size(); ++handle) {
     for (size_t sim = 0; sim < simulationCount_; sim++) {
-      table_->addCell<double>(time);
-      table_->addText(std::string(descriptors[handle].name));
-      table_->addCell<std::uint64_t>(sim);
-      table_->addCell<double>(energiesStorage_.energy(handle, sim));
-      table_->addText(seissolInstance_.runId());
+      table.addCell<double>(time);
+      table.addText(std::string(descriptors[handle].name));
+      table.addCell<std::uint64_t>(sim);
+      table.addCell<double>(energiesStorage_.energy(handle, sim));
+      table.addText(seissolInstance_.runId());
     }
   }
-  table_->appendFile(outputFileName_);
+  table.appendFile(outputFileName_);
 }
 
 bool EnergyOutput::shouldComputeVolumeEnergies() const {

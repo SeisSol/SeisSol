@@ -14,9 +14,11 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <cstdlib>
 #include <exception>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -179,6 +181,15 @@ class StreamRuntime {
   private:
   static device::DeviceInstance& device() { return device::DeviceInstance::instance(); }
 
+  // the stream of the runtime itself, from its construction until dispose()
+  [[nodiscard]] void* mainStream() const {
+    if (!streamPtr_.has_value()) {
+      // the runtime is used after dispose()
+      std::abort();
+    }
+    return streamPtr_->get();
+  }
+
   public:
   static constexpr size_t EventPoolSize = 100;
   static constexpr size_t EventPoolGrowth = 100;
@@ -233,9 +244,9 @@ class StreamRuntime {
       if (lastNode_.isInitialized()) {
         dependencies.push_back(lastNode_);
       }
-      lastNode_ = addNode(dependencies, streamPtr_->get(), std::forward<F>(handler));
+      lastNode_ = addNode(dependencies, mainStream(), std::forward<F>(handler));
     } else {
-      std::invoke(std::forward<F>(handler), streamPtr_->get());
+      std::invoke(std::forward<F>(handler), mainStream());
     }
   }
 
@@ -294,9 +305,8 @@ class StreamRuntime {
       std::vector<device::DeviceGraphNodeHandle> branches;
       branches.reserve(count);
       for (size_t i = 0; i < count; ++i) {
-        void* branchStream = ringbufferPtr_.empty()
-                                 ? streamPtr_->get()
-                                 : ringbufferPtr_[i % ringbufferPtr_.size()].get();
+        void* branchStream =
+            ringbufferPtr_.empty() ? mainStream() : ringbufferPtr_[i % ringbufferPtr_.size()].get();
         branches.push_back(addNode(forkDependencies, branchStream, [&](void* streamPtr) {
           std::invoke(handler, streamPtr, i);
         }));
@@ -304,13 +314,13 @@ class StreamRuntime {
 
       // an empty recorder yields a handle that stands for its own dependencies, which is
       // exactly a join
-      lastNode_ = addNode(branches, streamPtr_->get(), [](void*) {});
+      lastNode_ = addNode(branches, mainStream(), [](void*) {});
       return;
     }
 
     if (Backend != DeviceBackend::Hip && ringbufferSize_ > 0) {
       const auto forkEvent = nextEvent();
-      device().api().recordEventOnStream(forkEvent.get(), streamPtr_->get());
+      device().api().recordEventOnStream(forkEvent.get(), mainStream());
       for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
         device().api().syncStreamWithEvent(ringbufferPtr_[i].get(), forkEvent.get());
       }
@@ -320,11 +330,11 @@ class StreamRuntime {
       for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
         const auto joinEvent = nextEvent();
         device().api().recordEventOnStream(joinEvent.get(), ringbufferPtr_[i].get());
-        device().api().syncStreamWithEvent(streamPtr_->get(), joinEvent.get());
+        device().api().syncStreamWithEvent(mainStream(), joinEvent.get());
       }
     } else {
       for (size_t i = 0; i < count; ++i) {
-        std::invoke(handler, streamPtr_->get(), i);
+        std::invoke(handler, mainStream(), i);
       }
     }
   }
@@ -333,7 +343,7 @@ class StreamRuntime {
     if (buildGraph_.isInitialized() || capturing_) {
       logError() << "Cannot synchronize a stream while a compute graph is being recorded on it.";
     }
-    device().api().syncStreamWithHost(streamPtr_->get());
+    device().api().syncStreamWithHost(mainStream());
   }
 
   /**
@@ -352,7 +362,7 @@ class StreamRuntime {
     if (buildGraph_.isInitialized()) {
       openImplicitNode();
     }
-    return streamPtr_->get();
+    return mainStream();
   }
 
   template <typename F>
@@ -387,7 +397,7 @@ class StreamRuntime {
     }
 
     if (computeGraphHandle.isInitialized()) {
-      device().api().launchGraph(computeGraphHandle, streamPtr_->get());
+      device().api().launchGraph(computeGraphHandle, mainStream());
     }
   }
 
@@ -487,14 +497,14 @@ class StreamRuntime {
       if (lastNode_.isInitialized()) {
         dependencies.push_back(lastNode_);
       }
-      device().api().graphBeginNode(buildGraph_, dependencies, streamPtr_->get());
+      device().api().graphBeginNode(buildGraph_, dependencies, mainStream());
       implicitNodeOpen_ = true;
     }
   }
 
   void closeImplicitNode() {
     if (implicitNodeOpen_) {
-      lastNode_ = device().api().graphEndNode(buildGraph_, streamPtr_->get());
+      lastNode_ = device().api().graphEndNode(buildGraph_, mainStream());
       implicitNodeOpen_ = false;
     }
   }

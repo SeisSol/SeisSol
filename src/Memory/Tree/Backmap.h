@@ -73,6 +73,7 @@ class StorageBackmap {
     const auto position = getDup(id, 0);
     if (!position.has_value()) {
       logError() << "Backmap has no position stored for" << id << ".";
+      std::abort(); // not reached: logError() ends the run
     }
     return *position;
   }

@@ -43,10 +43,10 @@ TEST_CASE("F32Datatype" * doctest::test_suite("io")) {
 
     const auto back = dt.fromStringRaw(str);
     REQUIRE(back.has_value());
-    CHECK(back->size() == sizeof(float));
+    CHECK(back.value().size() == sizeof(float));
 
     float result = 0;
-    std::memcpy(&result, back->data(), sizeof(float));
+    std::memcpy(&result, back.value().data(), sizeof(float));
     CHECK(result == doctest::Approx(val).epsilon(1e-6));
   }
 }
@@ -68,7 +68,7 @@ TEST_CASE("F64Datatype" * doctest::test_suite("io")) {
     REQUIRE(back.has_value());
 
     double result = 0;
-    std::memcpy(&result, back->data(), sizeof(double));
+    std::memcpy(&result, back.value().data(), sizeof(double));
     CHECK(result == doctest::Approx(val).epsilon(1e-14));
   }
 }
@@ -141,7 +141,7 @@ TEST_CASE("IntegerDatatype" * doctest::test_suite("io")) {
     REQUIRE(back.has_value());
 
     long long result = 0;
-    std::memcpy(&result, back->data(), sizeof(long long));
+    std::memcpy(&result, back.value().data(), sizeof(long long));
     CHECK(result == 42);
   }
 }
@@ -170,7 +170,7 @@ TEST_CASE("StringDatatype" * doctest::test_suite("io")) {
   SUBCASE("fromString") {
     const auto back = dt.fromStringRaw("World");
     REQUIRE(back.has_value());
-    CHECK(std::string(back->begin(), back->end()) == "World");
+    CHECK(std::string(back.value().begin(), back.value().end()) == "World");
   }
 }
 
@@ -203,10 +203,10 @@ TEST_CASE("OpaqueDatatype" * doctest::test_suite("io")) {
 
     const auto decoded = dt.fromStringRaw(encoded);
     REQUIRE(decoded.has_value());
-    CHECK(decoded->size() == 3);
-    CHECK((*decoded)[0] == '\x01');
-    CHECK((*decoded)[1] == '\x02');
-    CHECK((*decoded)[2] == '\x03');
+    CHECK(decoded.value().size() == 3);
+    CHECK(decoded.value()[0] == '\x01');
+    CHECK(decoded.value()[1] == '\x02');
+    CHECK(decoded.value()[2] == '\x03');
   }
 
   SUBCASE("Base64 roundtrip 6 bytes — no padding") {
@@ -215,9 +215,9 @@ TEST_CASE("OpaqueDatatype" * doctest::test_suite("io")) {
     const auto encoded = dt.toStringRaw(data);
     const auto decoded = dt.fromStringRaw(encoded);
     REQUIRE(decoded.has_value());
-    CHECK(decoded->size() == 6);
+    CHECK(decoded.value().size() == 6);
     for (int i = 0; i < 6; ++i) {
-      CHECK((*decoded)[i] == data[i]);
+      CHECK(decoded.value()[i] == data[i]);
     }
   }
 }

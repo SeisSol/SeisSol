@@ -73,31 +73,31 @@ TEST_CASE("ParameterReader read<T>" * doctest::test_suite("initializer")) {
   SUBCASE("Read int") {
     auto val = reader.read<int>("intfield");
     REQUIRE(val.has_value());
-    CHECK(*val == 42);
+    CHECK(val.value() == 42);
   }
 
   SUBCASE("Read double") {
     auto val = reader.read<double>("doublefield");
     REQUIRE(val.has_value());
-    CHECK(*val == doctest::Approx(3.14));
+    CHECK(val.value() == doctest::Approx(3.14));
   }
 
   SUBCASE("Read string") {
     auto val = reader.read<std::string>("strfield");
     REQUIRE(val.has_value());
-    CHECK(*val == "hello");
+    CHECK(val.value() == "hello");
   }
 
   SUBCASE("Read bool true") {
     auto val = reader.read<bool>("boolfield");
     REQUIRE(val.has_value());
-    CHECK(*val == true);
+    CHECK(val.value() == true);
   }
 
   SUBCASE("Read bool false") {
     auto val = reader.read<bool>("boolfalse");
     REQUIRE(val.has_value());
-    CHECK(*val == false);
+    CHECK(val.value() == false);
   }
 
   SUBCASE("Missing field returns empty optional") {
@@ -190,13 +190,13 @@ TEST_CASE("ParameterReader readSubNode" * doctest::test_suite("initializer")) {
   SUBCASE("Read from subnode") {
     auto mat = sub->read<std::string>("materialfilename");
     REQUIRE(mat.has_value());
-    CHECK(*mat == "rock.yaml");
+    CHECK(mat.value() == "rock.yaml");
   }
 
   SUBCASE("Read bool from subnode") {
     auto val = sub->read<bool>("plasticity");
     REQUIRE(val.has_value());
-    CHECK(*val == false);
+    CHECK(val.value() == false);
   }
 
   SUBCASE("Missing subnode returns empty reader") {
