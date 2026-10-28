@@ -17,11 +17,9 @@
 Checks:
   - bugprone-*
   - -bugprone-branch-clone                                         # noise: piecewise formulas, and branches that coincide only without memkind or a GPU
-  - -bugprone-crtp-constructor-accessibility                       # TODO
   - -bugprone-easily-swappable-parameters                          # noise: many functions take several coordinates, indices or sizes
   - -bugprone-narrowing-conversions                                # TODO
   - -bugprone-throwing-static-initialization                       # noise: static name tables of std::string and std::vector
-  - -bugprone-unchecked-optional-access                            # TODO
 
   # all other cert checks are aliases of checks enabled here; this one checks its own list of C functions
   - cert-err33-c
@@ -58,7 +56,6 @@ Checks:
   - -cppcoreguidelines-pro-bounds-pointer-arithmetic               # noise: buffer and kernel addressing
   - -cppcoreguidelines-pro-type-reinterpret-cast                   # noise: byte buffers for MPI, HDF5 and other I/O
   - -cppcoreguidelines-use-default-member-init                     # alias of modernize-use-default-member-init
-  - -cppcoreguidelines-use-enum-class                              # TODO
 
   - google-*
   - -google-build-namespaces                                       # alias of misc-anonymous-namespace-in-header
@@ -116,6 +113,10 @@ RemovedArgs:
   - -fprofile-abs-path
 CheckOptions:
   - key:             bugprone-signed-bitwise.IgnorePositiveIntegerLiterals
+    value:           true
+  # value() of an empty optional throws, which a test reports as a failure and a run as an
+  # uncaught exception; only * and -> are undefined then
+  - key:             bugprone-unchecked-optional-access.IgnoreValueCalls
     value:           true
   # what cert-oop54-cpp checks
   - key:             bugprone-unhandled-self-assignment.WarnOnlyIfThisHasSuspiciousField
