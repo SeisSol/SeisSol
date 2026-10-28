@@ -31,7 +31,7 @@ void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::Stre
                                                 double fullUpdateTime,
                                                 const double* timeWeights,
                                                 const FrictionSolver::FrictionTime& frictionTime) {
-  auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
+  auto& queue = *reinterpret_cast<sycl::queue*>(runtime.stream());
 
   FrictionLawArgs<Cfg> args{};
   args.data = this->data_;
@@ -46,7 +46,7 @@ void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::Stre
 
   sycl::nd_range rng{{this->currLayerSize_ * misc::NumPaddedPoints<Cfg>},
                      {misc::NumPaddedPoints<Cfg>}};
-  queue->submit([&](sycl::handler& cgh) {
+  queue.submit([&](sycl::handler& cgh) {
     // the kernel writes to the local memory through it
     // NOLINTNEXTLINE(misc-const-correctness)
     sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints<Cfg>, cgh);

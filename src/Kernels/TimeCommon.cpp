@@ -105,29 +105,27 @@ void TimeCommon<Cfg>::computeBatchedIntegrals(
   // Compute time integrated dofs using neighbors derivatives using the GTS relation,
   // i.e. the expansion point is around 'timeStepStart'
   ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
-  if (table.find(key) != table.end()) {
+  if (table.contains(key)) {
     auto& entry = table[key];
-    time.evaluateBatched(
-        timeCoeffs,
-        const_cast<const real**>(
-            (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
-        (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
-        (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getSize(),
-        runtime);
+    time.evaluateBatched(timeCoeffs,
+                         const_cast<const real**>(
+                             entry.get<real*>(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr()),
+                         entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr(),
+                         entry.get<real*>(inner_keys::Wp::Id::Idofs)->getSize(),
+                         runtime);
   }
 
   // Compute time integrated dofs using neighbors derivatives using the LTS relation,
   // i.e. the expansion point is around '0'
   key = ConditionalKey(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
-  if (table.find(key) != table.end()) {
+  if (table.contains(key)) {
     auto& entry = table[key];
-    time.evaluateBatched(
-        subtimeCoeffs,
-        const_cast<const real**>(
-            (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr()),
-        (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr(),
-        (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getSize(),
-        runtime);
+    time.evaluateBatched(subtimeCoeffs,
+                         const_cast<const real**>(
+                             entry.get<real*>(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr()),
+                         entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr(),
+                         entry.get<real*>(inner_keys::Wp::Id::Idofs)->getSize(),
+                         runtime);
   }
 #else
   logError() << "No GPU implementation provided";

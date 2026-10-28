@@ -49,11 +49,11 @@ void reportDeviceMemoryStatus() {
   if (device.api().getCurrentlyOccupiedMem() > device.api().getMaxAvailableMem()) {
     std::stringstream stream;
 
-    stream << "Memory of the device is overloaded." << std::endl
+    stream << "Memory of the device is overloaded." << '\n'
            << "Totally allocated device memory: "
-           << UnitByte.formatPrefix(device.api().getCurrentlyOccupiedMem()) << std::endl
+           << UnitByte.formatPrefix(device.api().getCurrentlyOccupiedMem()) << '\n'
            << "Allocated unified memory: "
-           << UnitByte.formatPrefix(device.api().getCurrentlyOccupiedUnifiedMem()) << std::endl
+           << UnitByte.formatPrefix(device.api().getCurrentlyOccupiedUnifiedMem()) << '\n'
            << "Memory capacity of device: "
            << UnitByte.formatPrefix(device.api().getMaxAvailableMem());
 

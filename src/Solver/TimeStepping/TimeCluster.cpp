@@ -317,7 +317,7 @@ void TimeCluster<Cfg>::computeDynamicRuptureDevice(
 
     const ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
     device_.api().putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
-    auto computeGraphKey = initializer::GraphKey(graphType, timestep);
+    const auto computeGraphKey = initializer::GraphKey(graphType, timestep);
     auto& table = layerData.getConditionalTable<inner_keys::Dr>();
 
     const auto [timePoints, timeWeights] =
@@ -487,12 +487,12 @@ void TimeCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool rese
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
-    timeDependentBc = timeDependentBc || indicesTable.find(analyticalKey) != indicesTable.end();
+    timeDependentBc = timeDependentBc || indicesTable.contains(analyticalKey);
   }
 
   const ComputeGraphType graphType =
       resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
-  auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
+  const auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
   streamRuntime_.runGraph(
       computeGraphKey,
       *clusterData_,
@@ -516,7 +516,7 @@ void TimeCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool rese
 
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           const ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
-          if (dataTable.find(key) != dataTable.end()) {
+          if (dataTable.contains(key)) {
             auto& entry = dataTable[key];
             // NOTE: the integrated velocities are not stored separately; the recorded pointers
             // point into the integrated dofs, at the first velocity column
@@ -539,24 +539,24 @@ void TimeCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool rese
 
         const ConditionalKey key =
             ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
-        if (dataTable.find(key) != dataTable.end()) {
+        if (dataTable.contains(key)) {
           auto& entry = dataTable[key];
 
           if (resetBuffers) {
             device_.algorithms().streamBatchedData(
                 const_cast<const real**>(
-                    (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
-                (entry.get<real*>(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
+                    entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr()),
+                entry.get<real*>(inner_keys::Wp::Id::Buffers)->getDeviceDataPtr(),
                 tensor::I<Cfg>::Size,
-                (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getSize(),
+                entry.get<real*>(inner_keys::Wp::Id::Idofs)->getSize(),
                 streamRuntime_.stream());
           } else {
             device_.algorithms().accumulateBatchedData(
                 const_cast<const real**>(
-                    (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
-                (entry.get<real*>(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
+                    entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr()),
+                entry.get<real*>(inner_keys::Wp::Id::Buffers)->getDeviceDataPtr(),
                 tensor::I<Cfg>::Size,
-                (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getSize(),
+                entry.get<real*>(inner_keys::Wp::Id::Idofs)->getSize(),
                 streamRuntime_.stream());
           }
         }
@@ -613,7 +613,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
   }
 
   const ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
-  auto computeGraphKey = initializer::GraphKey(graphType);
+  const auto computeGraphKey = initializer::GraphKey(graphType);
 
   streamRuntime_.runGraph(
       computeGraphKey,
@@ -624,7 +624,8 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
       true);
 
   if (settings_.plasticity) {
-    auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
+    const auto plasticityGraphKey =
+        initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
     auto* plasticity =
         clusterData_->var<LTS::Plasticity>(Cfg(), seissol::initializer::AllocationPlace::Device);
     auto* isAdjustableVector =
@@ -654,14 +655,13 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM dou
 
   if (settings_.integrate) {
     const ConditionalKey key = ConditionalKey(*KernelNames::Time);
-    if (table.find(key) != table.end()) {
+    if (table.contains(key)) {
       auto entry = table.at(key);
       device_.algorithms().accumulateBatchedData(
-          const_cast<const real**>(
-              (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
-          (entry.get<real*>(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
+          const_cast<const real**>(entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr()),
+          entry.get<real*>(inner_keys::Wp::Id::Integrals)->getDeviceDataPtr(),
           tensor::Q<Cfg>::Size,
-          (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize(),
+          entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize(),
           streamRuntime_.stream());
     }
   }

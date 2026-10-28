@@ -371,6 +371,8 @@ auto makePointSourceCluster(const ClusterMapping& mapping,
   const auto deviceData =
       [&]() -> std::pair<std::shared_ptr<ClusterMapping>, std::shared_ptr<PointSources<Cfg>>> {
     if (useUSM()) {
+      // hostData belongs to the enclosing function: the lambda returns a copy of it, const or not
+      // NOLINTNEXTLINE(performance-no-automatic-move)
       return hostData;
     } else {
       constexpr auto GpuMemkind = seissol::memory::Memkind::DeviceGlobalMemory;

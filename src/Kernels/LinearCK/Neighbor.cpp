@@ -140,15 +140,15 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
             const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
 
-            if (table.find(key) != table.end()) {
+            if (table.contains(key)) {
               auto& entry = table[key];
 
-              const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
+              const auto numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
               neighFluxKrnl.numElements = numElements;
 
-              neighFluxKrnl.Q = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+              neighFluxKrnl.Q = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
               neighFluxKrnl.I = const_cast<const real**>(
-                  (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+                  entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   entry.get<real*>(inner_keys::Wp::Id::NeighborIntegrationData)
                       ->getDeviceDataPtr());
@@ -174,17 +174,17 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
             const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
 
-            if (table.find(key) != table.end()) {
+            if (table.contains(key)) {
               auto& entry = table[key];
 
-              const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
+              const auto numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
               drKrnl.numElements = numElements;
 
               drKrnl.fluxSolver = const_cast<const real**>(
-                  (entry.get<real*>(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+                  entry.get<real*>(inner_keys::Wp::Id::FluxSolver)->getDeviceDataPtr());
               drKrnl.QInterpolated = const_cast<const real**>(
-                  (entry.get<real*>(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
-              drKrnl.Q = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+                  entry.get<real*>(inner_keys::Wp::Id::Godunov)->getDeviceDataPtr());
+              drKrnl.Q = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
 
               real* tmpMem = reinterpret_cast<real*>(device_.api().allocMemAsync(
                   seissol::dynamicRupture::kernel::gpu_nodalFlux<Cfg>::TmpMaxMemRequiredInBytes *

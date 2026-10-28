@@ -119,7 +119,7 @@ void executeWithTemporaries(Kernel& krnl,
   krnl.streamPtr = runtime.stream();
   void* temporaries = nullptr;
   if constexpr (Kernel::TmpMaxMemRequiredInBytes > 0) {
-    auto& device = ::device::DeviceInstance::instance();
+    const auto& device = ::device::DeviceInstance::instance();
     temporaries = device.api().allocMemAsync(Kernel::TmpMaxMemRequiredInBytes * numElements,
                                              runtime.stream());
     krnl.linearAllocator.initialize(static_cast<std::int8_t*>(temporaries));
@@ -339,7 +339,7 @@ void ConfigBoundary<Cfg>::computeBatchedIntegrals(
     const auto* pool = static_cast<const GlobalData<Cfg>*>(devicePools_.at(configIdOf<Cfg>()));
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
       const auto key = configboundary::fromCanonicalKey(side);
-      if (table.find(key) != table.end()) {
+      if (table.contains(key)) {
         auto& entry = table.at(key);
         auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
         auto* integrals = entry.get<real*>(inner_keys::Wp::Id::Idofs);
@@ -348,7 +348,7 @@ void ConfigBoundary<Cfg>::computeBatchedIntegrals(
         krnl.bindGlobals(*pool);
         krnl.canonicalI = const_cast<const double**>(canonical->getDeviceDataPtr());
         krnl.I = integrals->getDeviceDataPtr();
-        executeWithTemporaries(krnl, integrals->getSize(), runtime, [&]() { krnl.execute(side); });
+        executeWithTemporaries(krnl, integrals->getSize(), runtime, [&] { krnl.execute(side); });
       }
     }
   }
@@ -358,7 +358,7 @@ void ConfigBoundary<Cfg>::computeBatchedIntegrals(
     const auto* pool = static_cast<const GlobalData<Cfg>*>(devicePools_.at(configIdOf<Cfg>()));
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
       const auto key = configboundary::fromCoupledCanonicalKey(side);
-      if (table.find(key) != table.end()) {
+      if (table.contains(key)) {
         auto& entry = table.at(key);
         auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
         auto* integrals = entry.get<real*>(inner_keys::Wp::Id::Idofs);
@@ -371,7 +371,7 @@ void ConfigBoundary<Cfg>::computeBatchedIntegrals(
           krnl.normalStress = const_cast<const real**>(normalStress->getDeviceDataPtr());
         }
         krnl.I = integrals->getDeviceDataPtr();
-        executeWithTemporaries(krnl, integrals->getSize(), runtime, [&]() { krnl.execute(side); });
+        executeWithTemporaries(krnl, integrals->getSize(), runtime, [&] { krnl.execute(side); });
       }
     }
   }
@@ -393,7 +393,7 @@ void ConfigBoundary<Cfg>::computeBatchedCanonical(
   // the time integrals of the neighbors that provide derivatives, in their time basis
   for (const bool gts : {true, false}) {
     const ConditionalKey key = configboundary::timeKey(configIdOf<NeighborCfg>(), gts);
-    if (table.find(key) != table.end()) {
+    if (table.contains(key)) {
       auto& entry = table.at(key);
       const auto& coeffs = gts ? neighbor.timeCoeffs : neighbor.subtimeCoeffs;
       std::array<NeighborReal, NeighborCfg::ConvergenceOrder> neighborCoeffs{};
@@ -413,7 +413,7 @@ void ConfigBoundary<Cfg>::computeBatchedCanonical(
   }
 
   const ConditionalKey key = configboundary::toCanonicalKey(configIdOf<NeighborCfg>());
-  if (table.find(key) != table.end()) {
+  if (table.contains(key)) {
     auto& entry = table.at(key);
     auto* integrals = entry.get<NeighborReal*>(inner_keys::Wp::Id::Idofs);
     auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
@@ -424,7 +424,7 @@ void ConfigBoundary<Cfg>::computeBatchedCanonical(
     krnl.bindGlobals(*pool);
     krnl.I = const_cast<const NeighborReal**>(integrals->getDeviceDataPtr());
     krnl.canonicalI = canonical->getDeviceDataPtr();
-    executeWithTemporaries(krnl, integrals->getSize(), runtime, [&]() { krnl.execute(); });
+    executeWithTemporaries(krnl, integrals->getSize(), runtime, [&] { krnl.execute(); });
   }
 #endif
 }

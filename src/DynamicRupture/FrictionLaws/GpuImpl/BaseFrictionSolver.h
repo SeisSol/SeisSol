@@ -117,12 +117,12 @@ inline void deviceBarrier(FrictionLawContext<Cfg>& __restrict ctx) {
 }
 template <typename Cfg>
 inline void deviceWarpBarrier(FrictionLawContext<Cfg>& __restrict ctx) {
-  auto subgroup = reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->get_sub_group();
+  const auto subgroup = reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->get_sub_group();
   sycl::group_barrier(subgroup);
 }
 template <typename Cfg>
 inline bool deviceWarpAll(FrictionLawContext<Cfg>& __restrict ctx, bool value) {
-  auto subgroup = reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->get_sub_group();
+  const auto subgroup = reinterpret_cast<sycl::nd_item<1>*>(ctx.item)->get_sub_group();
   return sycl::all_of_group(subgroup, value);
 }
 #else

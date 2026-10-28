@@ -42,12 +42,12 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
     const auto* __restrict sample = sources.sample.data();
     const auto* __restrict simulationIndex = sources.simulationIndex.data();
 
-    auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
+    auto& queue = *reinterpret_cast<sycl::queue*>(runtime.stream());
 
     const auto elements = mapping.size();
 
     sycl::nd_range<2> rng{{elements * SubBlock, PerBlock}, {SubBlock, PerBlock}};
-    queue->submit([&](sycl::handler& cgh) {
+    queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<2> item) {
         const auto block = item.get_group().get_group_id(0) * PerBlock + item.get_local_id(1);
         const auto thread = item.get_local_id(0);
