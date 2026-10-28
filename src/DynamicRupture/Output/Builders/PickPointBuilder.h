@@ -100,10 +100,15 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
     std::vector<short> contained(potentialReceivers_.size());
 
+    // the OpenMP region takes the receivers through a reference: as a member of this class, which
+    // holds an optional (in pickpointParams_), they make NVHPC (24.9, 26.9) fail internally in
+    // C++20 mode ("size of unknown type") where the file also constructs the class
+    auto& potentialReceivers = potentialReceivers_;
+
 #pragma omp parallel for schedule(static)
     for (size_t receiverIdx = 0; receiverIdx < numReceivers; ++receiverIdx) {
       try {
-        auto& receiver = potentialReceivers_[receiverIdx];
+        auto& receiver = potentialReceivers[receiverIdx];
 
         const auto closest = findClosestFaultIndex(receiver.global);
 
