@@ -13,7 +13,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <cstddef>
 #include <functional>
 #include <tuple>
@@ -53,13 +52,13 @@ Result callWithConfig(F&& function) {
 
 /// Dispatches through a table with one `callWithConfig` per configuration, without std::visit,
 /// whose valueless case cannot occur here but would count as a possible exception for every caller.
+/// An id outside the table throws std::out_of_range.
 template <typename F, std::size_t... Ids>
 decltype(auto) dispatchConfigById(ConfigId id, F&& function, std::index_sequence<Ids...> /*ids*/) {
   using Result = std::invoke_result_t<F, const std::variant_alternative_t<0, ConfigVariant>&>;
   static constexpr std::array<Result (*)(F&&), sizeof...(Ids)> Callers{
       &callWithConfig<Result, Ids, F>...};
-  assert(id < Callers.size());
-  return Callers[id](std::forward<F>(function));
+  return Callers.at(id)(std::forward<F>(function));
 }
 
 template <template <typename> typename T, typename Variant>
@@ -102,7 +101,7 @@ constexpr ConfigId configIdOf() {
  * @brief Calls `function` with the configuration type that `id` stands for.
  *
  * The configuration is passed as a value-initialized object of its type; `decltype` recovers the
- * type from it.
+ * type from it. An id that no configuration of the build has throws std::out_of_range.
  */
 template <typename F>
 decltype(auto) dispatchConfig(ConfigId id, F&& function) {
