@@ -123,7 +123,8 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
       const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
       const auto meshId = secondaryInformation[cell].meshId;
 
-      // NOLINTNEXTLINE
+      // the layer holds materials of exactly this type
+      // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
       auto& materialLocal = materialData[cell];
 
       std::array<double, Cell::Dim> gradXi{};

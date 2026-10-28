@@ -177,8 +177,8 @@ void initializeCellMaterialOfConfig(
         const auto meshId = localSecondaryInformation.meshId;
         const auto& linear = meshReader.linearGhostlayer()[meshId];
 
-        // explicitly use polymorphic pointer arithmetic here
-        // NOLINTNEXTLINE
+        // the layer holds materials of exactly this type
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
         auto& materialData = materialDataArray[cell];
 
         const auto neighborRank = linear.rank;
@@ -201,8 +201,8 @@ void initializeCellMaterialOfConfig(
         const auto& localMaterial = materialsDB[position(meshId)];
         const auto& localCellInformation = cellInformation[cell];
 
-        // explicitly use polymorphic pointer arithmetic here
-        // NOLINTNEXTLINE
+        // the layer holds materials of exactly this type
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
         auto& materialData = materialDataArray[cell];
         initAssign(materialData, localMaterial);
         material.local = &materialData;

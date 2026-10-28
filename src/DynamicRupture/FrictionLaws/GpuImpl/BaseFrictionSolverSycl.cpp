@@ -47,7 +47,8 @@ void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::Stre
   sycl::nd_range rng{{this->currLayerSize_ * misc::NumPaddedPoints<Cfg>},
                      {misc::NumPaddedPoints<Cfg>}};
   queue->submit([&](sycl::handler& cgh) {
-    // NOLINTNEXTLINE
+    // the kernel writes to the local memory through it
+    // NOLINTNEXTLINE(misc-const-correctness)
     sycl::local_accessor<real> sharedMemory(misc::NumPaddedPoints<Cfg>, cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {

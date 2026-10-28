@@ -402,7 +402,8 @@ void addVolumeEnergies(const LTS::Layer& layer,
     const auto elementId = secondaryInformation[cell].meshId;
     const double volume = MeshTools::volume(elements[elementId], vertices);
 
-    // NOLINTNEXTLINE
+    // the layer holds materials of exactly this type
+    // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
     const auto& material = materialData[cell];
     const auto& cellInformation = cellInformationData[cell];
     const auto& faceDisplacements = faceDisplacementsData[cell];

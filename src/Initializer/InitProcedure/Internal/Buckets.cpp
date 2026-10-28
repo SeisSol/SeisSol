@@ -49,8 +49,9 @@ class BucketManager {
     const uintptr_t offset = this->dataSize_;
     this->dataSize_ += size;
 
-    // the following "hack" was copied from the MemoryManager. Add +1 to pointers to differentiate
-    // from nullptr NOLINTNEXTLINE
+    // the following "hack" was copied from the MemoryManager: the offset goes into a pointer,
+    // plus 1 to differentiate it from nullptr
+    // NOLINTNEXTLINE(performance-no-int-to-ptr)
     return reinterpret_cast<T*>(offset + 1);
   }
 
@@ -222,7 +223,8 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
       const auto size = endPosition - startPosition;
       assert(size % typeSize == 0);
 
-      // NOLINTNEXTLINE
+      // the offset into the buckets, which becomes a pointer once they are allocated
+      // NOLINTNEXTLINE(performance-no-int-to-ptr)
       auto* startPtr = reinterpret_cast<void*>(startPosition);
 
       remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.rank, region.tag);

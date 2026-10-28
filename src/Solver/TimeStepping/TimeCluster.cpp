@@ -967,7 +967,8 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
   // NOLINTNEXTLINE(misc-const-correctness)
   auto* pstrain = clusterData_->var<LTS::PStrain>(Cfg());
 
-  // NOLINTNEXTLINE
+  // counted only where the configuration uses plasticity
+  // NOLINTNEXTLINE(misc-const-correctness)
   std::size_t numberOfTetsWithPlasticYielding = 0;
 
   std::array<real*, Cell::NumFaces> timeIntegrated{};

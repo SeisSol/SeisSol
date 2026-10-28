@@ -23,10 +23,11 @@ namespace seissol::model {
  */
 struct AdditionalPoroelasticParameters {
   Eigen::Matrix<double, 6, 1> alpha;
-  // NOLINTNEXTLINE
+  // the symbols of the Biot model, in which M and m are two quantities
+  // NOLINTBEGIN(readability-identifier-naming)
   double KBar;
-  // NOLINTNEXTLINE
   double M;
+  // NOLINTEND(readability-identifier-naming)
   double m;
   Eigen::Matrix<double, 6, 6> cBar;
   double rhoBar;

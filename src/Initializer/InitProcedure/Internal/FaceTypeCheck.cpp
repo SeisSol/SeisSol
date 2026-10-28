@@ -53,12 +53,13 @@ std::vector<FaceTypeCensus> collectFaceTypes(LTS::Storage& storage) {
       const auto* cellInformation = layer.var<LTS::CellInformation>();
       const auto* materialData = layer.var<LTS::MaterialData>(Cfg());
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        // the layer holds materials of exactly this type
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
+        const auto& material = materialData[cell];
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           const auto faceType = cellInformation[cell].faceTypes[face];
           configCensus.present |= faceTypeBit(faceType);
-          // NOLINTNEXTLINE
-          if (!model::faceTypeCellAdmissible<model::MaterialOf<Cfg>>(faceType,
-                                                                     materialData[cell])) {
+          if (!model::faceTypeCellAdmissible<model::MaterialOf<Cfg>>(faceType, material)) {
             configCensus.cellRejected |= faceTypeBit(faceType);
           }
         }

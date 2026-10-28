@@ -19,9 +19,9 @@
 #include <yaml-cpp/yaml.h>
 
 namespace {
-// (needs to stay non-const)
-// NOLINTNEXTLINE
-static std::unordered_map<std::string, MPI_Datatype> autocommitRegistry;
+// the datatypes committed so far, by their serialized description
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::unordered_map<std::string, MPI_Datatype> autocommitRegistry;
 } // namespace
 
 namespace {

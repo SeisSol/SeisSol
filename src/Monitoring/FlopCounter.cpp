@@ -26,9 +26,10 @@
 #include <utils/logger.h>
 #include <vector>
 
-// NOLINTNEXTLINE
+// counted into by the matrix kernels
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 long long libxsmm_num_total_flops = 0;
-// NOLINTNEXTLINE
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 long long pspamm_num_total_flops = 0;
 
 namespace seissol::monitoring {

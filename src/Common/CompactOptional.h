@@ -32,7 +32,8 @@ class CompactOptional {
   T value_{Empty};
 
   public:
-  // NOLINTNEXTLINE
+  // converts from a value implicitly, as std::optional does
+  // NOLINTNEXTLINE(misc-explicit-constructor)
   constexpr CompactOptional(T value) : value_(value) {}
   constexpr CompactOptional() = default;
 

@@ -97,9 +97,7 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
       // we look for the face, where resultFace is the largest; i.e. the face that will the best
       // "invalidate" our membership in the cell.
 
-      // NOLINTNEXTLINE
       double maxValue = -std::numeric_limits<double>::infinity();
-      // NOLINTNEXTLINE
       double maxDistance = -std::numeric_limits<double>::infinity();
 
 #pragma omp simd reduction(max : maxValue, maxDistance)

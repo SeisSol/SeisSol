@@ -611,11 +611,7 @@ SEISSOL_HOSTDEVICE inline Real<Cfg> crossingTime(Real<Cfg> previousValue,
  */
 template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
-    // See https://github.com/llvm/llvm-project/issues/60163
-    // NOLINTNEXTLINE
     saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints<Cfg>],
-                           // See https://github.com/llvm/llvm-project/issues/60163
-                           // NOLINTNEXTLINE
                            Real<Cfg> ruptureTime[misc::NumPaddedPoints<Cfg>],
                            const Real<Cfg>* previousSlipRateMagnitude,
                            const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
@@ -651,8 +647,6 @@ SEISSOL_HOSTDEVICE inline void
 template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
     savePeakSlipRateOutput(const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
-                           // See https://github.com/llvm/llvm-project/issues/60163
-                           // NOLINTNEXTLINE
                            Real<Cfg> peakSlipRate[misc::NumPaddedPoints<Cfg>],
                            uint32_t startIndex = 0) {
 
@@ -678,8 +672,6 @@ template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void updateTimeSinceSlipRateBelowThreshold(
     const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
     const bool ruptureTimePending[misc::NumPaddedPoints<Cfg>],
-    // See https://github.com/llvm/llvm-project/issues/60163
-    // NOLINTNEXTLINE
     DREnergyOutput<Cfg>& __restrict energyData,
     const Real<Cfg> dt,
     const Real<Cfg> slipRateThreshold,

@@ -12,9 +12,10 @@
 
 #include <string_view>
 
-// NOLINTNEXTLINE
+// the flop counters of the matrix kernels, as Monitoring/FlopCounter.h declares them
+// NOLINTNEXTLINE(readability-identifier-naming,cppcoreguidelines-avoid-non-const-global-variables)
 extern long long libxsmm_num_total_flops;
-// NOLINTNEXTLINE
+// NOLINTNEXTLINE(readability-identifier-naming,cppcoreguidelines-avoid-non-const-global-variables)
 extern long long pspamm_num_total_flops;
 
 namespace {
