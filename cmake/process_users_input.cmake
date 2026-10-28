@@ -34,6 +34,10 @@ set(SANITIZERS "" CACHE STRING
 set(SANITIZERS_OPTIONS address undefined leak thread memory)
 set_property(CACHE SANITIZERS PROPERTY STRINGS "" ${SANITIZERS_OPTIONS})
 
+# The code of SeisSol compiles without warnings with GCC and Clang. The code that yateto and the GEMM
+# generators write keeps its warnings as warnings, as does the code that the GPU toolchains compile.
+option(WARNINGS_AS_ERRORS "Treat compiler warnings in the code of SeisSol as errors" OFF)
+
 # General switch for unit testing. By default, it enables the C++ unit tests.
 option(TESTING "Compile unit tests and collect them for execution" OFF)
 

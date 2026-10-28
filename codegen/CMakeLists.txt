@@ -190,3 +190,8 @@ add_custom_target(seissol-codegen ALL DEPENDS ${GENERATED_FILES_FOR_SEISSOL})
 add_library(seissol-kernel-lib
   ${SEISSOL_CODEGEN_KERNELS}
 )
+
+if (WARNINGS_AS_ERRORS)
+  # what the generated code looks like is up to yateto and the GEMM generators
+  set_property(SOURCE ${SEISSOL_CODEGEN_KERNELS} APPEND PROPERTY COMPILE_OPTIONS -Wno-error)
+endif()
