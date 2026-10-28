@@ -163,7 +163,7 @@ inline std::string tpath(const std::string& subpath) {
 
 // we add a printer for a vector; as the stdlib doesn't provide one as of C++20
 
-// NOLINTBEGIN (cert-dcl58-cpp)
+// NOLINTBEGIN(bugprone-std-namespace-modification)
 
 namespace std {
 template <typename T>
@@ -187,6 +187,6 @@ ostream& operator<<(ostream& stream, const std::array<T, N>& vec) {
 }
 } // namespace std
 
-// NOLINTEND
+// NOLINTEND(bugprone-std-namespace-modification)
 
 #endif // SEISSOL_TESTS_TESTHELPER_H_

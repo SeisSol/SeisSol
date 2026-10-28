@@ -213,8 +213,6 @@ void computeStrikeAndDipVectors(const CoordinateT& normal, CoordinateT& strike, 
 
 std::string_view frictionLawName(seissol::dr::misc::FrictionLawType type);
 
-// NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
-
 namespace quantity_indices {
 /**
  * Defines the indices under which one can find a specific quantity.
@@ -228,6 +226,9 @@ namespace quantity_indices {
  * real normalStress = quantities[N];
  * ```
  * */
+// plain indices into the quantity arrays; the friction laws use them unqualified, also on the
+// device
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
 enum QuantityIndices : uint32_t {
   U = 6,
   V = 7,
@@ -248,8 +249,6 @@ enum QuantityIndices : uint32_t {
 };
 } // namespace quantity_indices
 } // namespace seissol::dr::misc
-
-// NOLINTEND ()
 
 namespace seissol::initializer::parameters {
 struct DRParameters;
