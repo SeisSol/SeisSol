@@ -19,6 +19,7 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -78,6 +79,19 @@ class OutputManager {
                                                         double* stepStartOnDevice,
                                                         double hostTime,
                                                         parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * For fault receivers whose samples get decided when the work of a step runs, with the host actor
+   * (see parallel::runtime::HostActor): gathers the data of the output points and the start of the
+   * step (from the clock on the device) into a buffer of their own, and has the actor call `record`
+   * with that start once they are there, also after each replay of a recording; meanwhile, the data
+   * is at hand for evaluatePickpointOutput() and finishPickpointStepNow(). Returns false, and does
+   * nothing, without the host actor.
+   */
+  bool postPickpointsAtRunTime(std::size_t layerId,
+                               const double* deviceClock,
+                               parallel::runtime::StreamRuntime& runtime,
+                               std::function<void(double)> record);
 
   /**
    * Records the fault receivers of the layer at `time` right away, from data gathered before; the

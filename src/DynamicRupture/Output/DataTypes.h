@@ -18,7 +18,6 @@
 #include "Memory/Tree/Backmap.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Runtime/HostActor.h"
-#include "Parallel/Runtime/HostBufferPool.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
@@ -278,10 +277,10 @@ struct ReceiverOutputData {
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
 
   /// with the host actor (instead of the extra runtime): the samples, taken once the device has
-  /// gathered the data of a step into a buffer of its own (the derivatives, then the variables at
-  /// variablesOffset)
+  /// gathered the data of a step into a buffer of its own: the start of the step (at run time), the
+  /// derivatives at dataOffset, the variables at variablesOffset
   std::unique_ptr<parallel::runtime::HostActor::Queue> hostQueue;
-  std::unique_ptr<parallel::runtime::HostBufferPool> hostBuffers;
+  std::size_t dataOffset{0};
   std::size_t variablesOffset{0};
   /// the buffer that the work of the host actor reads at the moment; null for the collectors
   const void* gathered{nullptr};
@@ -289,7 +288,8 @@ struct ReceiverOutputData {
   /// block `index` of the gathered derivatives
   [[nodiscard]] const void* gatheredData(std::size_t index) const {
     if (gathered != nullptr) {
-      return deviceDataCollector->get(0, index, gathered);
+      return deviceDataCollector->get(
+          0, index, static_cast<const std::uint8_t*>(gathered) + dataOffset);
     }
     return deviceDataCollector->get(index);
   }

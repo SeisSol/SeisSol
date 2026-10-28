@@ -294,6 +294,17 @@ class StreamRuntime {
     return mainStream();
   }
 
+  /**
+   * While a graph is being built: closes the node that this runtime, or another one of the graph,
+   * captures from its stream (see stream()), e.g. before an allocation, which no capture allows;
+   * the next work opens a new one.
+   */
+  void pauseCapture() {
+    if (building()) {
+      closeOpenNode();
+    }
+  }
+
   template <typename F>
   void runGraphGeneric(device::DeviceGraphHandle& computeGraphHandle,
                        F&& handler,

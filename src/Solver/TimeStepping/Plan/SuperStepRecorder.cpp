@@ -7,6 +7,7 @@
 
 #include "SuperStepRecorder.h"
 
+#include "Parallel/Runtime/HostActor.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 
@@ -38,10 +39,12 @@ SuperStepRecorder::~SuperStepRecorder() { dispose(); }
 void SuperStepRecorder::dispose() {
   if (stream_ != nullptr) {
     deviceInstance().api().syncStreamWithHost(stream_);
-    // the graphs own their executable instances; they have to go before the device does
+    // the graphs own their executable instances, and the recordings device memory for the work
+    // on the host; they have to go before the device does
     graphs_.clear();
     used_.clear();
     launchedOnce_.clear();
+    hostWork_.reset();
     waitFor_.clear();
     lastEvent_ = ActorEvent();
     runtime_.dispose();
@@ -59,6 +62,8 @@ void SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& 
                                        const Runtimes& runtimes) {
   beginReplay(runtimes);
 
+  hostWork_ = std::make_unique<parallel::runtime::HostActor::Recording>();
+  parallel::runtime::HostActor::instance().beginRecording(*hostWork_);
   runtime_.beginGraph();
   for (auto* runtime : runtimes) {
     runtime->attach(runtime_, branches_);
@@ -71,7 +76,8 @@ void SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& 
 
 void SuperStepRecorder::endRecording(const Key& key) {
   parallel::runtime::recordingOuterGraph() = false;
-  graphs_[key] = runtime_.endGraph();
+  parallel::runtime::HostActor::instance().endRecording();
+  graphs_[key] = Recording{runtime_.endGraph(), std::move(hostWork_)};
   used_.insert(key);
 }
 
@@ -79,7 +85,8 @@ void SuperStepRecorder::endRecordingAndLaunch(const std::vector<AbstractTimeClus
                                               const Runtimes& runtimes,
                                               double* deviceTime) {
   parallel::runtime::recordingOuterGraph() = false;
-  auto recording = runtime_.endGraph();
+  parallel::runtime::HostActor::instance().endRecording();
+  auto recording = Recording{runtime_.endGraph(), std::move(hostWork_)};
   // the graphs launched once before that have run by now go (no event may be queried while
   // recording)
   launchedOnce_.erase(std::remove_if(launchedOnce_.begin(),
@@ -126,7 +133,7 @@ void SuperStepRecorder::forgetUnused() {
   used_.clear();
 }
 
-void SuperStepRecorder::launch(const device::DeviceGraphHandle& graph,
+void SuperStepRecorder::launch(const Recording& recording,
                                const std::vector<AbstractTimeCluster*>& clusters,
                                const Runtimes& runtimes,
                                double* deviceTime) {
@@ -137,9 +144,14 @@ void SuperStepRecorder::launch(const device::DeviceGraphHandle& graph,
   // the time from where the replay can start
   const bool timed = timer_ != nullptr && deviceTime != nullptr;
   const auto interval = timed ? timer_->begin(stream_) : DeviceTimer::Interval{};
-  runtime_.launchGraph(graph);
+  runtime_.launchGraph(recording.graph);
   if (timed) {
     timer_->end(interval, stream_, deviceTime);
+  }
+  // the data of the work for the host to the host, and the work to the host actor; before the
+  // event of the replay, so that its device memory is free once that has completed
+  if (recording.hostWork != nullptr) {
+    recording.hostWork->launched(runtime_);
   }
 
   // everything enqueued from now on comes after the replayed work; the runtimes wait for it only

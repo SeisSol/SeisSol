@@ -65,8 +65,8 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
        goes on with the next epoch (see below).
    * - ``SEISSOL_HOST_ACTOR=1``
      - Experimental, GPU builds only. Take the samples of the receivers and the fault receivers on the host once
-       the GPU is done with what they read, instead of in host functions on streams (see below). Not yet with
-       ``SEISSOL_SUPERSTEP_GRAPHS=1``.
+       the GPU is done with what they read, instead of in host functions on streams; also for recorded
+       super-timesteps (see below).
    * - ``SEISSOL_OUTPUT_SNAPSHOT=0``
      - With ``SEISSOL_OUTPUT_THREAD=1``: keep no snapshots of the data, and copy the data for the outputs to the host
        before the next epoch, instead of from the snapshots while the GPU goes on (see below).
@@ -283,6 +283,13 @@ epoch (see the task graph on the host); or, with ``SEISSOL_OUTPUT_THREAD=1`` (an
 the thread of the outputs. The GPU never waits for the host then; there are as many buffers as steps
 whose work has not run yet. Before an output reads what the work writes, e.g. the samples at a
 synchronization point, all of it runs.
+
+While a super-timestep gets recorded, the GPU gathers that data into device memory of the recording
+instead, at addresses the graph keeps. After each launch of the recording, a kernel copies all of it to
+a buffer of host memory of its own, and the work goes to the actor, for once the copy is done. So the
+recordings contain no host functions, which would hold up the graph while they run. On an RTX 5070 Laptop
+GPU, TPV13 with the receivers and fault receivers took 0.63 s instead of 1.84 s with recorded
+super-timesteps (0.60 s with tasks), with the same outputs bit for bit.
 Checking an event is safe on all backends, as the host reads the data only once the GPU is done with
 it, in whatever host memory.
 Where the thread that enqueues the work of the GPU is what limits a run, as on LUMI, the work should not run on it:

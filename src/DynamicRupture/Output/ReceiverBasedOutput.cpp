@@ -38,6 +38,7 @@
 #include "Monitoring/Trace.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Quadrature.h"
+#include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
@@ -54,6 +55,10 @@
 #include <functional>
 #include <memory>
 #include <vector>
+
+#ifdef ACL_DEVICE
+#include "Kernels/DeviceAux/HostCopyAux.h"
+#endif
 
 using namespace seissol::dr::misc::quantity_indices;
 
@@ -111,19 +116,27 @@ void ReceiverOutput::gatherFaultOutput(const std::shared_ptr<ReceiverOutputData>
   }
 }
 
-parallel::runtime::HostBufferPool::Buffer
+parallel::runtime::HostActor::Staging
     ReceiverOutput::gatherForHost(const std::shared_ptr<ReceiverOutputData>& outputData,
                                   parallel::runtime::StreamRuntime& runtime,
-                                  bool withDerivatives) {
-  const auto buffer = outputData->hostBuffers->take();
-  auto* bytes = static_cast<std::uint8_t*>(buffer.device);
+                                  bool withDerivatives,
+                                  [[maybe_unused]] const double* deviceClock) {
+  const auto staging = outputData->hostQueue->take(runtime);
+  auto* bytes = static_cast<std::uint8_t*>(staging.device);
+#ifdef ACL_DEVICE
+  if (deviceClock != nullptr) {
+    // by a kernel, as the copy engines may be busy with a large copy of another stream
+    kernels::device::aux::hostcopy::copyToHost(
+        bytes, deviceClock, sizeof(double), runtime.stream());
+  }
+#endif
   if (withDerivatives) {
-    outputData->deviceDataCollector->gatherTo(bytes, runtime.stream());
+    outputData->deviceDataCollector->gatherTo(bytes + outputData->dataOffset, runtime.stream());
   }
   if (outputData->deviceVariables != nullptr) {
     outputData->deviceVariables->gatherTo(bytes + outputData->variablesOffset, runtime.stream());
   }
-  return buffer;
+  return staging;
 }
 
 void ReceiverOutput::gatherFaultState(const std::shared_ptr<ReceiverOutputData>& outputData,
@@ -179,7 +192,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
 
   if (isDeviceOn() && outputData->hostQueue != nullptr) {
     // the host actor takes the samples from a buffer of their own, once the device is done
-    const auto buffer = gatherForHost(outputData, runtime);
+    const auto staging = gatherForHost(outputData, runtime);
     std::vector<std::function<void(std::size_t)>> handlers;
     forEachConfig([&](auto cfg) {
       using Cfg = decltype(cfg);
@@ -188,15 +201,14 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
             outputType, slipRateOutputType, outputData, level, time, dt, indt));
       }
     });
-    outputData->hostQueue->post(runtime.eventRecord(), [outputData, buffer, handlers]() {
-      outputData->gathered = buffer.host;
+    outputData->hostQueue->post(runtime, staging, [outputData, handlers](const void* data) {
+      outputData->gathered = data;
       static const auto TraceName = monitoring::Trace::name("fault receivers");
       const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
       for (const auto& handler : handlers) {
         parallel::runtime::HostRuntime::forEach(outputData->topology.faceCount(), handler);
       }
       outputData->gathered = nullptr;
-      outputData->hostBuffers->give(buffer);
     });
     if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
       outputData->cachedTime[outputData->currentCacheLevel] = time;

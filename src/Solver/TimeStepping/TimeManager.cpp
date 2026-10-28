@@ -525,13 +525,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   auto* ghostClusterPointer = communicationManager_->getGhostClusters();
 
   if (isDeviceOn() && useHostActor(seissolInstance_.env())) {
-    logInfo()
-        << "The work on the host for the device (the receiver samples) runs once the device is"
-        << "done with what it reads (SEISSOL_HOST_ACTOR=1).";
-  } else if (isDeviceOn() && seissolInstance_.env().get<bool>("HOST_ACTOR", false)) {
-    logWarning() << "The host actor (SEISSOL_HOST_ACTOR=1) does not take recorded super-timesteps"
-                 << "(SEISSOL_SUPERSTEP_GRAPHS=1) yet; the receivers take their samples in host"
-                 << "functions on streams.";
+    logInfo() << "The work on the host for the device (the samples of the receivers and fault"
+              << "receivers) runs once the device is done with what it reads"
+              << "(SEISSOL_HOST_ACTOR=1).";
   }
 
   concurrent_ = isDeviceOn() && useConcurrentClusters(seissolInstance_.env());

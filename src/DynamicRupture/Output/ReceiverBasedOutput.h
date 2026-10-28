@@ -79,13 +79,15 @@ class ReceiverOutput {
                                parallel::runtime::StreamRuntime& runtime);
 
   /**
-   * For the host actor: gathers the derivatives (if asked for) and the variables of the faces into
-   * a buffer of their own (see ReceiverOutputData::hostBuffers) on the stream of the runtime.
+   * For the host actor: gathers the derivatives (if asked for) and the variables of the faces, and
+   * the start of the step from the device clock if given, into a buffer of their own (see
+   * ReceiverOutputData::hostQueue) on the stream of the runtime.
    */
-  static parallel::runtime::HostBufferPool::Buffer
+  static parallel::runtime::HostActor::Staging
       gatherForHost(const std::shared_ptr<ReceiverOutputData>& outputData,
                     parallel::runtime::StreamRuntime& runtime,
-                    bool withDerivatives = true);
+                    bool withDerivatives = true,
+                    const double* deviceClock = nullptr);
 
   /**
    * Keeps the friction state the faces have now as the one at the start of the next time step, for

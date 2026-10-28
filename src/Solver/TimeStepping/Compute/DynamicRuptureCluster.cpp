@@ -333,6 +333,12 @@ void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params,
   if (runTimeOutputs_) {
     const auto layerId = layerData_->id();
     if (faultOutputManager_->hasPickpoints(layerId)) {
+      if (faultOutputManager_->postPickpointsAtRunTime(
+              layerId, clock_.device(), streamRuntime_, [this, lastStep](double stepStart) {
+                recordPickpointsNow(stepStart, lastStep);
+              })) {
+        return;
+      }
       auto& callRuntime = faultOutputManager_->gatherPickpointData(layerId,
                                                                    clock_.device(),
                                                                    pickpointStepStart_,

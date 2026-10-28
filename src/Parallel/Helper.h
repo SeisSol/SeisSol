@@ -84,13 +84,11 @@ inline bool useSuperStepGraphs(utils::Env& env) { return env.get<bool>("SUPERSTE
 
 /**
  * Whether the work on the host that reads what the device has written (the samples of the
- * receivers) runs on the thread that enqueues the work of the device once the device is done with
- * it (see parallel::runtime::HostActor), instead of in host functions on streams. Not with recorded
- * super-timesteps yet, whose replays still take the host functions along.
+ * receivers and fault receivers) runs on the thread that enqueues the work of the device once the
+ * device is done with it (see parallel::runtime::HostActor), instead of in host functions on
+ * streams; also for recorded super-timesteps, after each of their replays.
  */
-inline bool useHostActor(utils::Env& env) {
-  return env.get<bool>("HOST_ACTOR", false) && !useSuperStepGraphs(env);
-}
+inline bool useHostActor(utils::Env& env) { return env.get<bool>("HOST_ACTOR", false); }
 
 /**
  * Whether the independent branches of the work of a cluster (e.g. the neighbor fluxes of the face

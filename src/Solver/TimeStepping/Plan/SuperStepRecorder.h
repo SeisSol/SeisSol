@@ -9,12 +9,14 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_PLAN_SUPERSTEPRECORDER_H_
 
 #include "Monitoring/DeviceTimer.h"
+#include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 
 #include <cstddef>
 #include <map>
+#include <memory>
 #include <set>
 #include <utility>
 #include <vector>
@@ -37,6 +39,10 @@ namespace seissol::solver {
  * to the work they get next (see parallel::runtime::StreamRuntime::deferWait()). So one replay
  * after another costs one launch and one event, and nothing else. Meanwhile, the clusters only run
  * the host parts of their actions.
+ *
+ * The work for the host that the host actor gets while a super-timestep is recorded (e.g. the
+ * samples of the receivers) goes with the recording (see parallel::runtime::HostActor::Recording):
+ * its data gets staged on the device, copied to the host after each launch, and the work posted.
  *
  * Only available on devices that can build graphs node by node.
  */
@@ -131,8 +137,14 @@ class SuperStepRecorder {
   DeviceTimer* timer_{nullptr};
 
 #ifdef ACL_DEVICE
+  /// a recording, with the work for the host that goes with it
+  struct Recording {
+    device::DeviceGraphHandle graph;
+    std::unique_ptr<parallel::runtime::HostActor::Recording> hostWork;
+  };
+
   /// launches the graph after the work noted last, and orders the work after it
-  void launch(const device::DeviceGraphHandle& graph,
+  void launch(const Recording& recording,
               const std::vector<AbstractTimeCluster*>& clusters,
               const Runtimes& runtimes,
               double* deviceTime);
@@ -145,11 +157,13 @@ class SuperStepRecorder {
   ActorEvent lastEvent_;
   // the latest work before the super-timestep, until the replay has been enqueued after it
   std::vector<ActorEvent> waitFor_;
-  std::map<Key, device::DeviceGraphHandle> graphs_;
+  std::map<Key, Recording> graphs_;
+  // the work for the host of the super-timestep being recorded
+  std::unique_ptr<parallel::runtime::HostActor::Recording> hostWork_;
   // the keys recorded or replayed since the last forgetUnused()
   std::set<Key> used_;
   // the recordings launched once, until the event after each has completed
-  std::vector<std::pair<device::DeviceGraphHandle, ActorEvent>> launchedOnce_;
+  std::vector<std::pair<Recording, ActorEvent>> launchedOnce_;
 #endif
 };
 

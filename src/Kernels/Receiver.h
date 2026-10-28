@@ -26,7 +26,6 @@
 #include "Numerical/Transformation.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Runtime/HostActor.h"
-#include "Parallel/Runtime/HostBufferPool.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
@@ -286,11 +285,11 @@ class ReceiverClusterImpl : public ReceiverCluster {
 
   /**
    * For the host actor: gathers the DOFs of the receiver cells, and the start of the step from the
-   * device clock if given, into a buffer of their own on the stream of the cluster; the host reads
-   * them from there once the device is done.
+   * device clock if given, into a buffer of their own (see HostActor::Queue::take()) on the stream
+   * of the cluster; the host reads them from there once the device is done.
    */
-  parallel::runtime::HostBufferPool::Buffer gatherForHost(parallel::runtime::StreamRuntime& runtime,
-                                                          const double* deviceClock);
+  parallel::runtime::HostActor::Staging gatherForHost(parallel::runtime::StreamRuntime& runtime,
+                                                      const double* deviceClock);
 
   /// counts the operations of sampling all receiver cells in `samplingSteps` sample times
   void countSamples(std::size_t samplingSteps);
@@ -299,9 +298,8 @@ class ReceiverClusterImpl : public ReceiverCluster {
   /// of the samples
   void gatherDofs(parallel::runtime::StreamRuntime& runtime);
 
-  // with the host actor: the buffers gatherForHost() fills, which hold the start of the step at
-  // their beginning, then the DOFs at these offsets
-  std::unique_ptr<parallel::runtime::HostBufferPool> hostBuffers_;
+  // with the host actor: the buffers gatherForHost() fills hold the start of the step at their
+  // beginning, then the DOFs at these offsets
   std::size_t dofsOffset_{0};
   std::size_t dofsAneOffset_{0};
 

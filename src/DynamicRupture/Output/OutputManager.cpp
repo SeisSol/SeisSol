@@ -40,7 +40,6 @@
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
 #include "Parallel/Runtime/HostActor.h"
-#include "Parallel/Runtime/HostBufferPool.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 
@@ -52,6 +51,7 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <ios>
 #include <limits>
@@ -419,12 +419,14 @@ void OutputManager::initPickpointOutput() {
       const auto aligned = [](std::size_t bytes) {
         return (bytes + Alignment - 1) / Alignment * Alignment;
       };
-      data->variablesOffset = aligned(data->deviceDataCollector->gatheredBytes());
+      // the start of the step, the derivatives, the variables
+      data->dataOffset = aligned(sizeof(double));
+      data->variablesOffset =
+          aligned(data->dataOffset + data->deviceDataCollector->gatheredBytes());
       const auto bytes =
           data->variablesOffset +
           (data->deviceVariables != nullptr ? data->deviceVariables->gatheredBytes() : 0);
-      data->hostBuffers = std::make_unique<parallel::runtime::HostBufferPool>(bytes);
-      data->hostQueue = std::make_unique<parallel::runtime::HostActor::Queue>();
+      data->hostQueue = std::make_unique<parallel::runtime::HostActor::Queue>(bytes);
       data->extraRuntime.reset();
     }
   }
@@ -601,6 +603,24 @@ parallel::runtime::StreamRuntime&
   return outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
 }
 
+bool OutputManager::postPickpointsAtRunTime(std::size_t layerId,
+                                            const double* deviceClock,
+                                            parallel::runtime::StreamRuntime& runtime,
+                                            std::function<void(double)> record) {
+  const auto& outputData = ppOutputData_.at(layerId);
+  if (!isDeviceOn() || outputData->hostQueue == nullptr) {
+    return false;
+  }
+  const auto staging = ReceiverOutput::gatherForHost(outputData, runtime, true, deviceClock);
+  outputData->hostQueue->post(
+      runtime, staging, [outputData, record = std::move(record)](const void* data) {
+        outputData->gathered = data;
+        std::invoke(record, *static_cast<const double*>(data));
+        outputData->gathered = nullptr;
+      });
+  return true;
+}
+
 void OutputManager::evaluatePickpointOutput(std::size_t layerId,
                                             double time,
                                             double stepSize,
@@ -666,12 +686,11 @@ void OutputManager::finishPickpointStep(std::size_t layerId,
   const auto& outputData = ppOutputData_.at(layerId);
   if (isDeviceOn() && outputData->hostQueue != nullptr) {
     // the friction state at the end of the step, in a buffer of its own for the host actor
-    const auto buffer = ReceiverOutput::gatherForHost(outputData, runtime, false);
-    outputData->hostQueue->post(runtime.eventRecord(), [this, outputData, buffer]() {
-      outputData->gathered = buffer.host;
+    const auto staging = ReceiverOutput::gatherForHost(outputData, runtime, false);
+    outputData->hostQueue->post(runtime, staging, [this, outputData](const void* data) {
+      outputData->gathered = data;
       impl_->keepStepStart(outputData);
       outputData->gathered = nullptr;
-      outputData->hostBuffers->give(buffer);
     });
     return;
   }

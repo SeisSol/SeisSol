@@ -293,11 +293,11 @@ void ReceiverClusterImpl<Cfg>::sampleAll(const Sampling& sampling,
 }
 
 template <typename Cfg>
-parallel::runtime::HostBufferPool::Buffer
+parallel::runtime::HostActor::Staging
     ReceiverClusterImpl<Cfg>::gatherForHost(parallel::runtime::StreamRuntime& runtime,
                                             [[maybe_unused]] const double* deviceClock) {
-  const auto buffer = hostBuffers_->take();
-  auto* bytes = static_cast<std::byte*>(buffer.device);
+  const auto staging = hostQueue_->take(runtime);
+  auto* bytes = static_cast<std::byte*>(staging.device);
 #ifdef ACL_DEVICE
   if (deviceClock != nullptr) {
     // by a kernel, as the copy engines may be busy with a large copy of another stream
@@ -309,7 +309,7 @@ parallel::runtime::HostBufferPool::Buffer
   if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
     deviceCollectorAne_->gatherTo(bytes + dofsAneOffset_, runtime.stream());
   }
-  return buffer;
+  return staging;
 }
 
 template <typename Cfg>
@@ -325,11 +325,10 @@ void ReceiverClusterImpl<Cfg>::sample(const Sampling& sampling,
 
   if (executor == Executor::Device && hostQueue_ != nullptr) {
     // the host actor takes the samples from a buffer of their own, once the device is done
-    const auto buffer = gatherForHost(runtime, nullptr);
+    const auto staging = gatherForHost(runtime, nullptr);
     hostQueue_->post(
-        runtime.eventRecord(), [this, sampling, expansionPoint, timeStepWidth, buffer]() {
-          sampleAll(sampling, expansionPoint, timeStepWidth, Executor::Device, buffer.host);
-          hostBuffers_->give(buffer);
+        runtime, staging, [this, sampling, expansionPoint, timeStepWidth](const void* data) {
+          sampleAll(sampling, expansionPoint, timeStepWidth, Executor::Device, data);
         });
     return;
   }
@@ -395,11 +394,11 @@ void ReceiverClusterImpl<Cfg>::sampleAtRunTime([[maybe_unused]] const double* de
   }
 
   if (hostQueue_ != nullptr) {
-    // the host actor takes the samples from a buffer of their own, which starts with the time
-    const auto buffer = gatherForHost(runtime, deviceClock);
-    hostQueue_->post(runtime.eventRecord(), [this, sampleStep, buffer]() {
-      sampleStep(*static_cast<const double*>(buffer.host), buffer.host);
-      hostBuffers_->give(buffer);
+    // the host actor takes the samples from a buffer of their own, which starts with the time;
+    // in a recording, after each replay
+    const auto staging = gatherForHost(runtime, deviceClock);
+    hostQueue_->post(runtime, staging, [sampleStep](const void* data) {
+      sampleStep(*static_cast<const double*>(data), data);
     });
     return;
   }
@@ -496,8 +495,7 @@ void ReceiverClusterImpl<Cfg>::allocateData() {
       if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
         bytes += deviceCollectorAne_->gatheredBytes();
       }
-      hostBuffers_ = std::make_unique<parallel::runtime::HostBufferPool>(bytes);
-      hostQueue_ = std::make_unique<parallel::runtime::HostActor::Queue>();
+      hostQueue_ = std::make_unique<parallel::runtime::HostActor::Queue>(bytes);
       // nothing runs on it then
       extraRuntime_.reset();
     }
@@ -510,7 +508,6 @@ void ReceiverClusterImpl<Cfg>::freeData() {
   // a handler still running would read the collector, the step start, and write the outputs
   waitForSamples();
   hostQueue_.reset();
-  hostBuffers_.reset();
   deviceCollector_.reset(nullptr);
   deviceCollectorAne_.reset(nullptr);
   extraRuntime_.reset();
