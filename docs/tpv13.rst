@@ -75,6 +75,10 @@ Plasticity related parameters are defined in **material.yaml**:
       bulkFriction:        0.85
   [s_xx, s_yy, s_zz, s_xy, s_yz, s_xz]: !Include tpv12_13_initial_stress.yaml
 
+Plasticity acts on the cells of a solid: elastic, viscoelastic, anisotropic or poroelastic.
+The cells of an acoustic or viscoacoustic configuration take no part in it, and their material
+file need not define the plasticity parameters.
+
 Results
 ~~~~~~~
 

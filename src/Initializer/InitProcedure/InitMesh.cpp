@@ -11,6 +11,8 @@
 #include "Initializer/Clustering/Clustering.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Monitoring/Instrumentation.h"
+#include "Monitoring/RunSummary.h"
 #include "Solver/Estimator.h"
 
 #include <Eigen/Core>
@@ -19,8 +21,10 @@
 #include <cmath>
 #include <cstring>
 #include <math.h>
+#include <memory>
 #include <mpi.h>
 #include <optional>
+#include <utility>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
@@ -73,9 +77,9 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.linearizeGhostlayer();
 
   const auto& drParameters = seissolInstance.parameters().drParameters;
-  const VrtxCoords center{drParameters.referencePoint[0],
-                          drParameters.referencePoint[1],
-                          drParameters.referencePoint[2]};
+  const CoordinateT center{drParameters.referencePoint[0],
+                           drParameters.referencePoint[1],
+                           drParameters.referencePoint[2]};
   if (!drParameters.isDynamicRuptureEnabled) {
     logInfo() << "The Dynamic Rupture component has been disabled for this simulation.";
     meshReader.disableDR();
@@ -114,10 +118,11 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 #ifdef USE_HDF
   double nodeWeight = 1.0;
 
-  if (seissolInstance.env().get<bool>("MINISEISSOL", true)) {
+  const bool miniSeisSolEnabled = seissolInstance.env().get<bool>("MINISEISSOL", true);
+  if (miniSeisSolEnabled) {
     if (seissol::Mpi::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
-      auto elapsedTime = seissol::solver::miniSeisSol();
+      auto elapsedTime = seissol::solver::miniSeisSol(seissolParams.model.config);
       nodeWeight = 1.0 / elapsedTime;
 
       const auto summary = seissol::statistics::parallelSummary(nodeWeight);
@@ -125,13 +130,24 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
                 << " min =" << summary.min << " median =" << summary.median
                 << " max =" << summary.max;
 
-      writer::MiniSeisSolWriter writer(seissolParams.output.prefix.c_str());
-      writer.write(elapsedTime, nodeWeight);
+      // written in initIO, with the rest of the output
+      seissolInstance.miniSeisSolWriter().record(elapsedTime, nodeWeight);
     } else {
       logInfo() << "Skipping mini SeisSol (SeisSol is used with a single rank only).";
     }
   } else {
     logInfo() << "Skipping mini SeisSol (disabled).";
+  }
+
+  // In a run with several configurations, a cell costs according to its configuration. Measuring
+  // that only matters with several ranks; a single one gets by with the estimate for the
+  // clustering.
+  const auto configs = seissolParams.model.configs();
+  std::vector<double> configCostFactors;
+  if (configs.size() > 1) {
+    const bool measure = miniSeisSolEnabled && seissol::Mpi::mpi.size() > 1;
+    configCostFactors =
+        seissol::solver::configCostFactors(configs, seissolParams.model.config, measure);
   }
 
   logInfo() << "Reading PUML mesh";
@@ -279,38 +295,39 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   const auto faceMap = [&]() {
     const auto faceMapFile = seissolParams.mesh.faceMapFile;
     if (faceMapFile.has_value()) {
-      const auto yamlNode = YAML::Load(faceMapFile.value());
-      return parseFaceMap(yamlNode);
+      return readFaceMap(faceMapFile.value());
     } else {
       return defaultFaceMap();
     }
   }();
 
   const seissol::initializer::ClusteringConfig config{
-      boundaryFormat,
       seissolParams.timeStepping.lts.getRate(),
       seissolParams.timeStepping.vertexWeight.weightElement,
       seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
       seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity,
-      &faceMap};
+      &faceMap,
+      std::move(configCostFactors)};
 
   seissol::initializer::Clustering clustering(config, seissolInstance);
   auto weightModel = seissol::initializer::getVertexWeightModel(
       seissolParams.timeStepping.lts.getLtsWeightsType());
-  auto* meshReader = new seissol::geometry::PUMLReader(seissolParams.mesh.meshFileName,
-                                                       seissolParams.mesh.partitioningLib,
-                                                       faceMap,
-                                                       boundaryFormat,
-                                                       topologyFormat,
-                                                       &clustering,
-                                                       weightModel.get(),
-                                                       nodeWeight);
-  seissolInstance.setMeshReader(meshReader);
+  auto meshReader =
+      std::make_unique<seissol::geometry::PUMLReader>(seissolParams.mesh.meshFileName,
+                                                      seissolParams.mesh.partitioningLib,
+                                                      faceMap,
+                                                      boundaryFormat,
+                                                      topologyFormat,
+                                                      &clustering,
+                                                      weightModel.get(),
+                                                      nodeWeight);
+  seissolInstance.setMeshReader(std::move(meshReader));
   seissolInstance.setTimestepScale(clustering.result().wiggleFactor);
   seissolInstance.setEffectiveClusterRates(clustering.result().ratios);
 
-  watch.pause();
-  watch.printTime("PUML mesh read in:");
+  auto& summary = seissolInstance.runSummary();
+  summary.setRankValue("initMeshRead", watch.pause());
+  summary["time"]["init"]["meshRead"] = monitoring::toJson(watch.printTime("PUML mesh read in:"));
 
 #else  // defined(USE_HDF)
   logError() << "Tried to load a PUML mesh. However, PUML needs SeisSol to be linked against HDF5.";
@@ -350,7 +367,7 @@ void initMesh(seissol::SeisSol& seissolInstance) {
   logInfo() << "Begin init mesh.";
 
   // Call the pre mesh initialization hook
-  seissol::Modules::callHook<ModuleHook::PreMesh>();
+  seissolInstance.modules().callHook<ModuleHook::PreMesh>();
 
   const auto meshFormat = seissolParams.mesh.meshFormat;
 
@@ -376,11 +393,12 @@ void initMesh(seissol::SeisSol& seissolInstance) {
   postMeshread(
       meshReader, seissolParams.mesh.displacement, seissolParams.mesh.scaling, seissolInstance);
 
-  watch.pause();
-  watch.printTime("Mesh initialized in:");
+  auto& summary = seissolInstance.runSummary();
+  summary.setRankValue("initMesh", watch.pause());
+  summary["time"]["init"]["mesh"] = monitoring::toJson(watch.printTime("Mesh initialized in:"));
 
   // Call the post mesh initialization hook
-  seissol::Modules::callHook<ModuleHook::PostMesh>();
+  seissolInstance.modules().callHook<ModuleHook::PostMesh>();
 
   logInfo() << "End init mesh.";
 

@@ -12,11 +12,16 @@
 #include "DynamicRupture/Output/Builders/PickPointBuilder.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "IO/Instance/Point/Hdf5Table.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Backmap.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <array>
+#include <cstddef>
 #include <memory>
+#include <utility>
+#include <vector>
 
 namespace seissol {
 class SeisSol;
@@ -43,13 +48,14 @@ class OutputManager {
   void initFaceToLtsMap();
   void writePickpointOutput(double time, double dt);
   void writePickpointOutput(std::size_t layerId,
+                            double stateTime,
                             double time,
                             double dt,
                             double meshDt,
                             double meshInDt,
                             parallel::runtime::StreamRuntime& runtime);
   void flushPickpointDataToFile();
-  void updateElementwiseOutput();
+  void updateElementwiseOutput(double time);
 
   private:
   seissol::SeisSol& seissolInstance_;
@@ -58,6 +64,14 @@ class OutputManager {
   bool isAtPickpoint(double time, double dt);
   void initElementwiseOutput();
   void initPickpointOutput();
+  void initPickpointTable();
+
+  //! @brief Moves the samples cached since the last write into the tables.
+  void collectPickpointSamples();
+
+  //! @brief The stress the fault starts out under at an on-fault receiver, aligned with strike
+  //! and dip, as the six components of a symmetric tensor.
+  std::array<double, 6> initialStress(const ReceiverOutputData& outputData, std::size_t index);
 
   std::unique_ptr<ElementWiseBuilder> ewOutputBuilder_{nullptr};
   std::unique_ptr<PickPointBuilder> ppOutputBuilder_{nullptr};
@@ -68,11 +82,16 @@ class OutputManager {
   struct PickpointFile {
     std::string fileName;
 
-    // all receivers to be printed into this file
+    // the receiver the file holds: its receivers, one per simulation, in the order of their index
     std::vector<std::size_t> indices;
   };
 
   std::unordered_map<std::size_t, std::vector<PickpointFile>> ppFiles_;
+
+  //! One table per quantity set, holding the on-fault receivers this rank samples.
+  std::unique_ptr<io::instance::point::Hdf5Table> ppTable_;
+  //! The layer and the receiver a row of the tables belongs to, in the order of the rows.
+  std::vector<std::pair<std::size_t, std::size_t>> ppTableRows_;
 
   LTS::Storage* wpStorage_{nullptr};
   LTS::Backmap* wpBackmap_{nullptr};

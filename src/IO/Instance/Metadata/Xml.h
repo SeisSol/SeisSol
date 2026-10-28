@@ -12,11 +12,33 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Instruction.h"
 
+#include <cstddef>
+#include <functional>
+#include <iomanip>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace seissol::io::instance::metadata {
+
+/**
+ * @brief A double as text that reads back as the same double, e.g. an output time.
+ *
+ * Fifteen significant digits where they suffice, which keeps 0.1 as "0.1", and seventeen where
+ * they do not.
+ */
+inline std::string formatExact(double value) {
+  std::ostringstream shortForm;
+  shortForm << std::setprecision(15) << value;
+  if (std::stod(shortForm.str()) == value) {
+    return shortForm.str();
+  }
+  std::ostringstream longForm;
+  longForm << std::setprecision(17) << value;
+  return longForm.str();
+}
 
 class XmlInstructor {
   public:
@@ -34,6 +56,12 @@ class XmlInstructor {
   void flush();
 
   std::vector<std::shared_ptr<writer::instructions::WriteInstruction>> instructions();
+
+  /**
+   * @brief What was written, as text; only for an XML file holding no distributed data (which
+   * gets written by an instruction of its own).
+   */
+  [[nodiscard]] std::string text() const;
 
   private:
   bool written_{false};
@@ -78,8 +106,8 @@ inline std::string XmlAttribute::getImmediate<std::string>() const {
   const auto* data = this->data_->getLocalPointer();
   const auto* dataConv = reinterpret_cast<const char*>(data);
 
-  // exclude null terminator
-  return std::string(dataConv, dataConv + this->data_->getLocalSize() - 1);
+  // createString stores the text without a null terminator
+  return std::string(dataConv, dataConv + this->data_->getLocalSize());
 }
 
 inline XmlAttribute XmlAttribute::create(const std::string& name, const std::string& value) {
@@ -160,13 +188,15 @@ inline std::string XmlData::getImmediate<std::string>() const {
   const auto* data = this->data_->getLocalPointer();
   const auto* dataConv = reinterpret_cast<const char*>(data);
 
-  // exclude null terminator
-  return std::string(dataConv, dataConv + this->data_->getLocalSize() - 1);
+  // createString stores the text without a null terminator
+  return std::string(dataConv, dataConv + this->data_->getLocalSize());
 }
 
 class XmlFile {
   private:
   std::shared_ptr<XmlEntry> root_;
+
+  void write(XmlInstructor& instructor) const;
 
   public:
   std::shared_ptr<XmlEntry> getRoot();
@@ -175,6 +205,41 @@ class XmlFile {
 
   [[nodiscard]] std::vector<std::shared_ptr<writer::instructions::WriteInstruction>>
       instructions(const std::string& file) const;
+
+  //! The file as text; cf. XmlInstructor::text.
+  [[nodiscard]] std::string text() const;
+};
+
+/**
+ * @brief An XML file that grows by entries at one place, such as by a step per output.
+ *
+ * Writing the whole file anew every time it grows makes every write longer than the one before,
+ * and all of them together take time growing with the square of their number. Here, only the
+ * first write writes the file in full. A later one puts its entries where the closing tags behind
+ * the earlier ones are, and writes these after them again; so it is as long as what it adds. The
+ * file is the same as if written in full.
+ *
+ * The entries cannot hold distributed data (cf. XmlInstructor::text).
+ */
+class GrowingXmlFile {
+  public:
+  //! The file holding the given entries at the place where it grows.
+  using Document = std::function<XmlFile(const std::vector<std::shared_ptr<XmlEntry>>&)>;
+
+  explicit GrowingXmlFile(const Document& document);
+
+  //! The instructions adding @p entries to @p file, behind those of the calls before.
+  [[nodiscard]] std::vector<std::shared_ptr<writer::instructions::WriteInstruction>>
+      add(const std::string& file, const std::vector<std::shared_ptr<XmlEntry>>& entries);
+
+  private:
+  //! The file before and behind the entries.
+  std::string head_;
+  std::string tail_;
+  //! The indentation of the line an entry starts on.
+  int indent_{0};
+  //! Where the tail starts in the file; nothing before the first write.
+  std::optional<std::size_t> tailOffset_;
 };
 
 } // namespace seissol::io::instance::metadata

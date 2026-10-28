@@ -7,9 +7,10 @@
 
 #include "DRParameters.h"
 
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/ParameterReader.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
 #include <array>
@@ -20,10 +21,11 @@
 #include <optional>
 #include <string>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
-DRParameters readDRParameters(ParameterReader* baseReader) {
+DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
   using FrictionLawType = seissol::dr::misc::FrictionLawType;
   constexpr auto MaxNucleations = seissol::dr::MaxNucleations;
 
@@ -63,6 +65,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   if (frictionLawType == FrictionLawType::LinearSlipWeakeningLegacy) {
     logWarning() << "Using FL=2 for the linear slip weakening friction law is deprecated; consider "
                     "switching it to FL=16";
+    frictionLawType = FrictionLawType::LinearSlipWeakening;
   }
   auto slipRateOutputType = reader->readWithDefaultEnum<SlipRateOutputType>(
       "sliprateoutputtype",
@@ -129,7 +132,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
 
   const auto faultFileName = reader->readPath("modelfilename");
 
-  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
+  std::vector<std::optional<std::string>> faultFileNames(configValue(config).numSimulations);
 
   bool isDynamicRuptureEnabled = false;
 

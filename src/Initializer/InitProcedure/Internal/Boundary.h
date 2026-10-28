@@ -17,8 +17,7 @@ namespace seissol::initializer::internal {
 void initBoundaryStorage(Boundary::Storage& boundaryStorage, LTS::Storage& storage);
 void initSurfaceStorage(SurfaceLTS::Storage& surfaceStorage,
                         LTS::Storage& storage,
-                        solver::FreeSurfaceIntegrator& freeSurfaceIntegrator,
-                        int refinement);
+                        solver::FreeSurfaceIntegrator& freeSurfaceIntegrator);
 
 } // namespace seissol::initializer::internal
 #endif // SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_BOUNDARY_H_

@@ -7,8 +7,6 @@
 
 #include "ODEVector.h"
 
-#include "Kernels/Precision.h"
-
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -19,7 +17,8 @@
 #include <vector>
 
 namespace seissol::ode {
-std::pair<std::size_t, std::size_t> ODEVector::index(std::size_t idx) const {
+template <typename RealT>
+std::pair<std::size_t, std::size_t> ODEVector<RealT>::index(std::size_t idx) const {
   for (std::size_t i = 0; i < storages_.size(); ++i) {
     const auto begin = offsets_[i];
     const auto end = begin + sizes_[i];
@@ -31,7 +30,8 @@ std::pair<std::size_t, std::size_t> ODEVector::index(std::size_t idx) const {
   std::abort(); // Unreachable!
 }
 
-ODEVector::ODEVector(std::vector<real*> storages, std::vector<std::size_t> sizes)
+template <typename RealT>
+ODEVector<RealT>::ODEVector(std::vector<RealT*> storages, std::vector<std::size_t> sizes)
     : storages_(std::move(storages)), sizes_(std::move(sizes)) {
   std::size_t curOffset = 0;
   for (const unsigned long size : this->sizes_) {
@@ -40,8 +40,9 @@ ODEVector::ODEVector(std::vector<real*> storages, std::vector<std::size_t> sizes
   }
 }
 
-void ODEVector::updateStoragesAndSizes(std::vector<real*> newStorages,
-                                       std::vector<std::size_t> newSizes) {
+template <typename RealT>
+void ODEVector<RealT>::updateStoragesAndSizes(std::vector<RealT*> newStorages,
+                                              std::vector<std::size_t> newSizes) {
   storages_ = std::move(newStorages);
   sizes_ = std::move(newSizes);
   offsets_.clear();
@@ -52,21 +53,25 @@ void ODEVector::updateStoragesAndSizes(std::vector<real*> newStorages,
   }
 }
 
-std::pair<real*, size_t> ODEVector::getSubvector(size_t storageIdx) {
+template <typename RealT>
+std::pair<RealT*, size_t> ODEVector<RealT>::getSubvector(size_t storageIdx) {
   return {storages_[storageIdx], sizes_[storageIdx]};
 }
 
-real& ODEVector::operator[](std::size_t idx) {
+template <typename RealT>
+RealT& ODEVector<RealT>::operator[](std::size_t idx) {
   const auto idxPair = index(idx);
   return storages_[idxPair.first][idxPair.second];
 }
 
-const real& ODEVector::operator[](std::size_t idx) const {
+template <typename RealT>
+const RealT& ODEVector<RealT>::operator[](std::size_t idx) const {
   const auto idxPair = index(idx);
   return storages_[idxPair.first][idxPair.second];
 }
 
-ODEVector& ODEVector::operator+=(ODEVector& rhs) {
+template <typename RealT>
+ODEVector<RealT>& ODEVector<RealT>::operator+=(ODEVector& rhs) {
   for (std::size_t i = 0; i < storages_.size(); ++i) {
     assert(sizes_[i] == rhs.sizes_[i]);
 #pragma omp simd
@@ -77,7 +82,8 @@ ODEVector& ODEVector::operator+=(ODEVector& rhs) {
   return *this;
 }
 
-ODEVector& ODEVector::operator*=(real scalar) {
+template <typename RealT>
+ODEVector<RealT>& ODEVector<RealT>::operator*=(RealT scalar) {
   for (std::size_t i = 0; i < storages_.size(); ++i) {
 #pragma omp simd
     for (std::size_t j = 0; j < sizes_[i]; ++j) {
@@ -87,7 +93,8 @@ ODEVector& ODEVector::operator*=(real scalar) {
   return *this;
 }
 
-ODEVector& ODEVector::copyFrom(const ODEVector& other) {
+template <typename RealT>
+ODEVector<RealT>& ODEVector<RealT>::copyFrom(const ODEVector& other) {
   for (std::size_t i = 0; i < storages_.size(); ++i) {
     assert(sizes_[i] == other.sizes_[i]);
     std::copy_n(other.storages_[i], sizes_[i], storages_[i]);
@@ -95,7 +102,8 @@ ODEVector& ODEVector::copyFrom(const ODEVector& other) {
   return *this;
 }
 
-void ODEVector::weightedAddInplace(real weight, const ODEVector& rhs) {
+template <typename RealT>
+void ODEVector<RealT>::weightedAddInplace(RealT weight, const ODEVector& rhs) {
   if (weight == 0.0) {
     return;
   }
@@ -108,14 +116,15 @@ void ODEVector::weightedAddInplace(real weight, const ODEVector& rhs) {
   }
 }
 
-real ODEVector::normDifferenceTo(ODEVector& other, bool useLInfNorm) {
+template <typename RealT>
+RealT ODEVector<RealT>::normDifferenceTo(ODEVector& other, bool useLInfNorm) {
   // Computes the L2 or LInf norm of the difference between two vectors.
-  real error = 0.0;
-  real maxError = -1;
+  RealT error = 0.0;
+  RealT maxError = -1;
   for (std::size_t i = 0; i < storages_.size(); ++i) {
     assert(sizes_[i] == other.sizes_[i]);
     for (std::size_t j = 0; j < sizes_[i]; ++j) {
-      const real curDiff = storages_[i][j] - other.storages_[i][j];
+      const RealT curDiff = storages_[i][j] - other.storages_[i][j];
       error += curDiff * curDiff;
       maxError = std::max(std::abs(curDiff), maxError);
     }
@@ -126,9 +135,10 @@ real ODEVector::normDifferenceTo(ODEVector& other, bool useLInfNorm) {
   return std::sqrt(error);
 }
 
-real ODEVector::l2Norm() {
+template <typename RealT>
+RealT ODEVector<RealT>::l2Norm() {
   // Computes the L2 norm.
-  real norm = 0.0;
+  RealT norm = 0.0;
   for (std::size_t i = 0; i < storages_.size(); ++i) {
     for (std::size_t j = 0; j < sizes_[i]; ++j) {
       norm += storages_[i][j] * storages_[i][j];
@@ -137,7 +147,8 @@ real ODEVector::l2Norm() {
   return std::sqrt(norm);
 }
 
-void ODEVector::print() {
+template <typename RealT>
+void ODEVector<RealT>::print() {
   const auto* const delim = "----------- print() -----------";
   for (std::size_t i = 0; i < storages_.size(); ++i) {
     std::cout << delim << std::endl;
@@ -148,5 +159,8 @@ void ODEVector::print() {
   }
   std::cout << delim << std::endl;
 }
+
+template class ODEVector<float>;
+template class ODEVector<double>;
 
 } // namespace seissol::ode

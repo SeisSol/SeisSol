@@ -9,16 +9,15 @@
 #define SEISSOL_SRC_PHYSICS_INITIALFIELD_H_
 
 #include "GeneratedCode/init.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
-#include "Kernels/Precision.h"
 
-#include <Eigen/Dense>
 #include <array>
-#include <complex>
-#include <vector>
+#include <cstddef>
 
 namespace seissol::physics {
+
+/// A field that is known analytically. It is evaluated in the reals of whoever asks: into views of
+/// float and of double alike.
 class InitialField {
   public:
   virtual ~InitialField() = default;
@@ -26,164 +25,49 @@ class InitialField {
                         const std::array<double, 3>* points,
                         std::size_t count,
                         const CellMaterialData& materialData,
-                        yateto::DenseTensorView<2, real, unsigned>& dofsQP) const = 0;
+                        yateto::DenseTensorView<2, float, unsigned>& dofsQP) const = 0;
+  virtual void evaluate(double time,
+                        const std::array<double, 3>* points,
+                        std::size_t count,
+                        const CellMaterialData& materialData,
+                        yateto::DenseTensorView<2, double, unsigned>& dofsQP) const = 0;
 };
 
-class ZeroField : public InitialField {
+/// Implements `evaluate` of `Base`, an `InitialField`, for both types of reals by `evaluateIn` of
+/// `Derived`, a template of the type of the reals.
+template <typename Derived, typename Base = InitialField>
+class InitialFieldOf : public Base {
   public:
-  void evaluate(double /*time*/,
-                const std::array<double, 3>* /*points*/,
-                std::size_t /*count*/,
-                const CellMaterialData& /*materialData*/,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override {
+  using Base::Base;
+
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, float, unsigned>& dofsQP) const override {
+    static_cast<const Derived*>(this)->evaluateIn(time, points, count, materialData, dofsQP);
+  }
+  void evaluate(double time,
+                const std::array<double, 3>* points,
+                std::size_t count,
+                const CellMaterialData& materialData,
+                yateto::DenseTensorView<2, double, unsigned>& dofsQP) const override {
+    static_cast<const Derived*>(this)->evaluateIn(time, points, count, materialData, dofsQP);
+  }
+};
+
+class ZeroField : public InitialFieldOf<ZeroField> {
+  public:
+  template <typename RealT>
+  void evaluateIn(double /*time*/,
+                  const std::array<double, 3>* /*points*/,
+                  std::size_t /*count*/,
+                  const CellMaterialData& /*materialData*/,
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const {
     dofsQP.setZero();
   }
 };
 
-class PressureInjection : public InitialField {
-  public:
-  explicit PressureInjection(
-      const seissol::initializer::parameters::InitializationParameters& initializationParameters);
-
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
-
-  private:
-  seissol::initializer::parameters::InitializationParameters parameters_;
-};
-
-// A planar wave travelling in direction kVec
-class Planarwave : public InitialField {
-  public:
-  // Choose phase in [0, 2*pi]
-  Planarwave(const CellMaterialData& materialData,
-             double phase,
-             Eigen::Vector3d kVec,
-             std::vector<int> varField,
-             std::vector<std::complex<double>> ampField);
-  explicit Planarwave(const CellMaterialData& materialData,
-                      double phase = 0.0,
-                      Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
-
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
-
-  protected:
-  std::vector<int> varField_;
-  std::vector<std::complex<double>> ampField_;
-  double phase_;
-  Eigen::Vector3d kVec_;
-  std::array<std::complex<double>, seissol::model::MaterialT::NumQuantities> lambdaA_;
-  std::array<std::complex<double>,
-             seissol::model::MaterialT::NumQuantities * seissol::model::MaterialT::NumQuantities>
-      eigenvectors_;
-
-  private:
-  void init(const CellMaterialData& materialData);
-};
-
-// superimpose three planar waves travelling into different directions
-class SuperimposedPlanarwave : public InitialField {
-  public:
-  //! Choose phase in [0, 2*pi]
-  explicit SuperimposedPlanarwave(const CellMaterialData& materialData, real phase = 0.0);
-
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
-
-  private:
-  std::array<Eigen::Vector3d, 3> kVec_;
-  std::array<Planarwave, 3> pw_;
-};
-
-// A part of a planar wave travelling in one direction
-class TravellingWave : public Planarwave {
-  public:
-  TravellingWave(const CellMaterialData& materialData,
-                 const TravellingWaveParameters& travellingWaveParameters);
-
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
-
-  private:
-  Eigen::Vector3d origin_;
-};
-
-class AcousticTravellingWaveITM : public InitialField {
-  public:
-  AcousticTravellingWaveITM(
-      const CellMaterialData& materialData,
-      const AcousticTravellingWaveParametersITM& acousticTravellingWaveParametersITM);
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
-
-  private:
-  void init(const CellMaterialData& materialData);
-  double rho0_;
-  double c0_;
-  double k_;
-  double tITMMinus_;
-  double tau_;
-  double tITMPlus_;
-  double n_;
-};
-
-class ScholteWave : public InitialField {
-  public:
-  ScholteWave() = default;
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
-};
-class SnellsLaw : public InitialField {
-  public:
-  SnellsLaw() = default;
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
-};
-/*
- * From
- * Abrahams, L. S., Krenz, L., Dunham, E. M., & Gabriel, A. A. (2019, December).
- * Verification of a 3D fully-coupled earthquake and tsunami model.
- * In AGU Fall Meeting Abstracts (Vol. 2019, pp. NH43F-1000).
- * A 3D extension of the 2D scenario in
- * Lotto, G. C., & Dunham, E. M. (2015).
- * High-order finite difference modeling of tsunami generation in a compressible ocean from offshore
- * earthquakes. Computational Geosciences, 19(2), 327-340.
- */
-class Ocean : public InitialField {
-  private:
-  int mode_;
-  double gravitationalAcceleration_;
-
-  public:
-  Ocean(int mode, double gravitationalAcceleration);
-  void evaluate(double time,
-                const std::array<double, 3>* points,
-                std::size_t count,
-                const CellMaterialData& materialData,
-                yateto::DenseTensorView<2, real, unsigned>& dofsQP) const override;
-};
 } // namespace seissol::physics
 
 #endif // SEISSOL_SRC_PHYSICS_INITIALFIELD_H_

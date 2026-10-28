@@ -8,10 +8,12 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_LTSPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_LTSPARAMETERS_H_
 
+#include "Common/ConfigRegistry.h"
 #include "Initializer/Clustering/ClusterCostModel.h"
 #include "ParameterReader.h"
 
 #include <cstdint>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -116,7 +118,9 @@ struct TimeSteppingParameters {
 };
 
 LtsParameters readLtsParameters(ParameterReader* baseReader);
-TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader);
+/// The time stepping of a run whose cells compute in the configurations `configs`.
+TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
+                                                  const std::vector<ConfigId>& configs);
 
 } // namespace seissol::initializer::parameters
 

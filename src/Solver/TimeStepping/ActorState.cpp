@@ -10,6 +10,7 @@
 #include "Common/Executor.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -51,18 +52,20 @@ std::string actorStateToString(ActorState state) {
 void MessageQueue::push(const Message& message) {
   const std::scoped_lock lock{mutex_};
   queue_.push(message);
+  size_.store(queue_.size(), std::memory_order_release);
 }
 
 Message MessageQueue::pop() {
   const std::scoped_lock lock{mutex_};
   const Message message = queue_.front();
   queue_.pop();
+  size_.store(queue_.size(), std::memory_order_release);
   return message;
 }
 
-bool MessageQueue::hasMessages() const { return !queue_.empty(); }
+bool MessageQueue::hasMessages() const { return size_.load(std::memory_order_acquire) > 0; }
 
-size_t MessageQueue::size() const { return queue_.size(); }
+size_t MessageQueue::size() const { return size_.load(std::memory_order_acquire); }
 
 double ClusterTimes::nextCorrectionTime(double syncTime) const {
   return std::min(syncTime, correctionTime + maxTimeStepSize);

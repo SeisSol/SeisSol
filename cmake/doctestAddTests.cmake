@@ -43,6 +43,36 @@ if("${spec}" MATCHES .)
   set(spec "--test-case=${spec}")
 endif()
 
+# In a build with sanitizers (cmake/sanitizers.cmake), listing the tests runs MPI_Init and
+# MPI_Finalize, after which Open MPI leaves memory allocated, and in which it takes its locks in an
+# order that the thread sanitizer reports without the options the tests run with
+# (.ci/sanitizers/environment.sh); what the sanitizers find is for the runs of the tests to
+# report, not for the listing of them.
+foreach(_variable_and_option ASAN_OPTIONS:detect_leaks=0 LSAN_OPTIONS:detect_leaks=0
+                             TSAN_OPTIONS:report_bugs=0)
+  string(REPLACE ":" ";" _variable_and_option "${_variable_and_option}")
+  list(GET _variable_and_option 0 _variable)
+  list(GET _variable_and_option 1 _option)
+  if(DEFINED ENV{${_variable}})
+    set(ENV{${_variable}} "$ENV{${_variable}}:${_option}")
+  else()
+    set(ENV{${_variable}} "${_option}")
+  endif()
+endforeach()
+# With the thread sanitizer, PMIx (of Open MPI) cannot attach its shared memory at the address it
+# wants, which the sanitizer keeps for itself, and MPI_Init crashes; PMIx stores its data without
+# shared memory then (as .ci/sanitizers/environment.sh has the runs of the tests do).
+if(NOT DEFINED ENV{PMIX_MCA_gds})
+  set(ENV{PMIX_MCA_gds} "hash")
+endif()
+# Open MPI 5 patches the memory functions of the process (mmap, munmap, brk, ...) to see memory go
+# back to the system; with the sanitizers, which intercept these functions themselves, MPI_Init
+# crashes. Listing the tests needs none of it (nor do their runs, in the options of
+# .ci/sanitizers/environment.sh).
+if(NOT DEFINED ENV{OMPI_MCA_memory})
+  set(ENV{OMPI_MCA_memory} "^patcher")
+endif()
+
 execute_process(
   COMMAND ${TEST_EXECUTOR} "${TEST_EXECUTABLE}" ${spec} --list-test-cases -nc
   OUTPUT_VARIABLE output

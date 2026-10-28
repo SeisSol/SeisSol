@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# SuperMUC-NG (LRZ), phase 1: after the job script of docs/supermuc.rst. One
+# rank per node, whose workers take the hyperthreads of 47 cores; the 48th core
+# is left to the communication thread. Give the project in the campaign:
+#   machine: {profile: supermuc-ng, slurm: {account: <project>}}
+name: supermuc-ng
+description: SuperMUC-NG phase 1, thin nodes
+scheduler: slurm
+node:
+  cores: 48
+  threads_per_core: 2
+  memory: 96G
+  numa_domains: 2
+layout:
+  ranks_per_node: 1
+  cpus_per_rank: 96
+  threads_per_rank: 94
+slurm:
+  # a job goes to the partition of its size
+  partition:
+    - {max_nodes: 16, partition: micro}
+    - {max_nodes: 768, partition: general}
+    - {max_nodes: 3168, partition: large}
+  exclusive: true
+  # a rank takes its node, as Slurm hands it out
+  cpus_per_task: false
+  extra:
+    - --export=ALL
+    # EAR may change the clock of the cores
+    - --ear=off
+launcher: srun --nodes={nodes} --ntasks={ranks} --ntasks-per-node={ranks_per_node}
+setup:
+  - module load slurm_setup
+  - ulimit -Ss 2097152
+  # after loading a SeisSol module, which may set it
+  - unset KMP_AFFINITY
+env:
+  MP_SINGLE_THREAD: "no"
+  OMP_PLACES: cores(47)
+  # see SeisSol issue 691
+  I_MPI_SHM_HEAP_VSIZE: "32768"
+  SEISSOL_ASYNC_MODE: THREAD
+  SEISSOL_ASYNC_BUFFER_ALIGNMENT: "8388608"
+  XDMFWRITER_ALIGNMENT: "8388608"
+  XDMFWRITER_BLOCK_SIZE: "8388608"
+  SEISSOL_CHECKPOINT_ALIGNMENT: "8388608"
+  SEISSOL_CHECKPOINT_DIRECT: "1"

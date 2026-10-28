@@ -8,10 +8,10 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
 #include <array>
@@ -46,23 +46,27 @@ namespace seissol::dr::friction_law::gpu {
  * We then compute the pressure and temperature update with an inverse Fourier transform from
  * \f$\Pi, \Theta\f$.
  */
+template <typename Cfg>
 class ThermalPressurization {
   public:
+  using real = Real<Cfg>;
+
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes
    */
-  static void copyStorageToLocal(FrictionLawData* data, DynamicRupture::Layer& layerData) {
+  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const auto place = seissol::initializer::AllocationPlace::Device;
-    data->temperature = layerData.var<LTSThermalPressurization::Temperature>(place);
-    data->pressure = layerData.var<LTSThermalPressurization::Pressure>(place);
-    data->theta = layerData.var<LTSThermalPressurization::Theta>(place);
-    data->sigma = layerData.var<LTSThermalPressurization::Sigma>(place);
-    data->halfWidthShearZone = layerData.var<LTSThermalPressurization::HalfWidthShearZone>(place);
+    data->temperature = layerData.var<LTSThermalPressurization::Temperature>(Cfg(), place);
+    data->pressure = layerData.var<LTSThermalPressurization::Pressure>(Cfg(), place);
+    data->theta = layerData.var<LTSThermalPressurization::Theta>(Cfg(), place);
+    data->sigma = layerData.var<LTSThermalPressurization::Sigma>(Cfg(), place);
+    data->halfWidthShearZone =
+        layerData.var<LTSThermalPressurization::HalfWidthShearZone>(Cfg(), place);
     data->hydraulicDiffusivity =
-        layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(place);
+        layerData.var<LTSThermalPressurization::HydraulicDiffusivity>(Cfg(), place);
   }
 
-  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext& __restrict ctx) {
+  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext<Cfg>& __restrict ctx) {
     return ctx.data->pressure[ctx.ltsFace][ctx.pointIndex];
   }
 
@@ -71,8 +75,9 @@ class ThermalPressurization {
    * bool saveTmpInTP is used to save final values for Theta and Sigma in the storage.
    * Compute temperature and pressure update according to Noda&Lapusta (2010) on one Gaus point.
    */
-  SEISSOL_DEVICE static void
-      calcFluidPressure(FrictionLawContext& __restrict ctx, uint32_t timeIndex, bool saveTmpInTP) {
+  SEISSOL_DEVICE static void calcFluidPressure(FrictionLawContext<Cfg>& __restrict ctx,
+                                               uint32_t timeIndex,
+                                               bool saveTmpInTP) {
     real temperatureUpdate = 0.0;
     real pressureUpdate = 0.0;
 
@@ -99,31 +104,23 @@ class ThermalPressurization {
           ctx.data->hydraulicDiffusivity[ctx.ltsFace][ctx.pointIndex] * squaredNormalizedTpGrid;
       const real preExpTheta = -thetaTpGrid * ctx.args->deltaT[timeIndex];
       const real preExpSigma = -sigmaTpGrid * ctx.args->deltaT[timeIndex];
-      const real expTheta = std::exp(preExpTheta);
-      const real expSigma = std::exp(preExpSigma);
       const real exp1mTheta = -std::expm1(preExpTheta);
       const real exp1mSigma = -std::expm1(preExpSigma);
 
-      // Temperature and pressure diffusion in spectral domain over timestep
-      // This is + F(t) exp(-A dt) in equation (10)
-      const real thetaDiffusion =
-          ctx.data->theta[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex] * expTheta;
-      const real sigmaDiffusion =
-          ctx.data->sigma[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex] * expSigma;
-
-      // Heat generation during timestep
-      // This is B/A * (1 - exp(-A dt)) in Noda & Lapusta (2010) equation (10)
+      // Noda & Lapusta (2010) equation (10), F(t) exp(-A dt) + B/A (1 - exp(-A dt)), written as
+      // F(t) + (B/A - F(t)) (1 - exp(-A dt)) with expm1 alone: a mode at its steady state B/A stays
+      // there in any precision, rather than drifting by the mismatch of exp and expm1 in every
+      // step.
+      //
       // heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
       const real omega = tauV * ctx.args->heatSource[tpGridPointIndex];
-      const real thetaGeneration =
-          omega / (ctx.data->drParameters.heatCapacity * thetaTpGrid) * exp1mTheta;
-      const real sigmaGeneration = omega *
-                                   (ctx.data->drParameters.undrainedTPResponse + lambdaPrime) /
-                                   (ctx.data->drParameters.heatCapacity * sigmaTpGrid) * exp1mSigma;
-
-      // Sum both contributions up
-      const auto thetaNew = thetaDiffusion + thetaGeneration;
-      const auto sigmaNew = sigmaDiffusion + sigmaGeneration;
+      const real thetaSteady = omega / (ctx.data->drParameters.heatCapacity * thetaTpGrid);
+      const real sigmaSteady = omega * (ctx.data->drParameters.undrainedTPResponse + lambdaPrime) /
+                               (ctx.data->drParameters.heatCapacity * sigmaTpGrid);
+      const real thetaOld = ctx.data->theta[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex];
+      const real sigmaOld = ctx.data->sigma[ctx.ltsFace][tpGridPointIndex][ctx.pointIndex];
+      const auto thetaNew = thetaOld + (thetaSteady - thetaOld) * exp1mTheta;
+      const auto sigmaNew = sigmaOld + (sigmaSteady - sigmaOld) * exp1mSigma;
 
       // Recover temperature and altered pressure using inverse Fourier transformation from the new
       // contribution

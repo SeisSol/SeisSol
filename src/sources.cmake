@@ -8,7 +8,7 @@
 # Generated code does only work without red-zone.
 if (HAS_REDZONE)
   set_source_files_properties(
-      ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/subroutine.cpp PROPERTIES COMPILE_FLAGS -mno-red-zone
+      ${SEISSOL_CODEGEN_ROUTINES} PROPERTIES COMPILE_FLAGS -mno-red-zone
   )
 endif()
 
@@ -25,60 +25,44 @@ SeisSol.cpp
 )
 target_link_libraries(seissol-lib PUBLIC seissol-config)
 
-# Eqations have to be set at compile time currently.
-if ("${EQUATIONS}" STREQUAL "elastic")
+# include necessary kernel files (we can't include all of them right now, because of some undefined kernels + tensors)
+
+# the kernels of the solvers the configurations advance their cells with (cmake/configs.cmake);
+# stp takes the local and neighbor kernels of linearck
+if ("linearck" IN_LIST SEISSOL_SOLVERS_USED OR "stp" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
     Kernels/LinearCK/Local.cpp
     Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Time.cpp
     )
-  target_include_directories(seissol-common-properties INTERFACE Equations/elastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ELASTIC)
-
-elseif ("${EQUATIONS}" STREQUAL "acoustic")
+endif()
+if ("linearck" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Neighbor.cpp
     Kernels/LinearCK/Time.cpp
     )
-  target_include_directories(seissol-common-properties INTERFACE Equations/acoustic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ACOUSTIC)
-
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Time.cpp
-    )
-  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC)
-
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
+endif()
+if ("linearckanelastic" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
     Kernels/LinearCKAnelastic/Neighbor.cpp
     Kernels/LinearCKAnelastic/Local.cpp
     Kernels/LinearCKAnelastic/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic2)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_VISCOELASTIC2)
-
-elseif ("${EQUATIONS}" STREQUAL "anisotropic")
+    )
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCKANELASTIC)
+endif()
+if ("stp" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Time.cpp
-  )
-  target_include_directories(seissol-common-properties INTERFACE Equations/anisotropic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_ANISOTROPIC)
-
-elseif ("${EQUATIONS}" STREQUAL "poroelastic")
-  target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Neighbor.cpp
-    Kernels/LinearCK/Local.cpp
     Kernels/STP/Time.cpp
-  )
+    )
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_STP)
+endif()
+
+# the material headers of the equation of the first configuration
+if ("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "acoustic" OR "${EQUATIONS}" STREQUAL "anisotropic")
+  target_include_directories(seissol-common-properties INTERFACE Equations/elastic)
+elseif ("${EQUATIONS}" STREQUAL "viscoelastic" OR "${EQUATIONS}" STREQUAL "viscoacoustic")
+  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
+elseif ("${EQUATIONS}" STREQUAL "poroelastic")
   target_include_directories(seissol-common-properties INTERFACE Equations/poroelastic)
-  target_compile_definitions(seissol-common-properties INTERFACE USE_POROELASTIC)
 endif()
 
 
@@ -87,14 +71,14 @@ if (WITH_GPU)
   # include cmake files will define seissol-device-lib target
   if ("${DEVICE_BACKEND}" STREQUAL "cuda" OR "${DEVICE_BACKEND}" STREQUAL "hip")
     set(DEVICE_SRC ${DEVICE_SRC}
-      ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
+      ${SEISSOL_CODEGEN_DEVICE}
       Kernels/DeviceAux/cudahip/PlasticityAux.cpp
       Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
       DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
       Kernels/PointSourceClusterCudaHip.cpp)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "acpp" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
     set(DEVICE_SRC ${DEVICE_SRC}
-          ${CMAKE_BINARY_DIR}/codegen/GeneratedCode/gpulike_subroutine.cpp
+          ${SEISSOL_CODEGEN_DEVICE}
           Kernels/DeviceAux/sycl/PlasticityAux.cpp
           Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
           DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp
@@ -106,19 +90,6 @@ if (WITH_GPU)
   target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
 
   target_compile_options(seissol-device-lib PRIVATE -fPIC)
-  if ("${EQUATIONS}" STREQUAL "elastic")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_ELASTIC)
-  elseif ("${EQUATIONS}" STREQUAL "acoustic")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_ACOUSTIC)
-  elseif ("${EQUATIONS}" STREQUAL "viscoelastic")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_VISCOELASTIC)
-  elseif ("${EQUATIONS}" STREQUAL "viscoelastic2")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_VISCOELASTIC2)
-  elseif ("${EQUATIONS}" STREQUAL "anisotropic")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_ANISOTROPIC)
-  elseif ("${EQUATIONS}" STREQUAL "poroelastic")
-    target_compile_definitions(seissol-device-lib PRIVATE USE_POROELASTIC)
-  endif()
   target_include_directories(seissol-lib PRIVATE ${DEVICE_INCLUDE_DIRS})
 
   if (USE_DEVICE_EXPERIMENTAL_EXPLICIT_KERNELS)

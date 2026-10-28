@@ -110,6 +110,23 @@ std::size_t Hdf5Reader::dataCount(const std::string& name) {
 
   return dims[0] / mpisize + ((dims[0] % mpisize) > static_cast<std::size_t>(mpirank) ? 1 : 0);
 }
+std::size_t Hdf5Reader::dataRowSize(const std::string& name) {
+  checkExistence(name, "dataset");
+  const hid_t dataset = _eh(H5Dopen(handles_.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t dataspace = _eh(H5Dget_space(dataset));
+  const hid_t rank = _eh(H5Sget_simple_extent_ndims(dataspace));
+  std::vector<hsize_t> dims(rank);
+  _eh(H5Sget_simple_extent_dims(dataspace, dims.data(), nullptr));
+  _eh(H5Sclose(dataspace));
+  _eh(H5Dclose(dataset));
+
+  std::size_t rowSize = 1;
+  for (std::size_t i = 1; i < dims.size(); ++i) {
+    rowSize *= dims[i];
+  }
+  return rowSize;
+}
+
 void Hdf5Reader::readDataRaw(void* data,
                              const std::string& name,
                              std::size_t count,

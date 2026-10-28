@@ -6,6 +6,8 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-kernels OBJECT
+    BuiltConfigs.cpp
+    ConfigBoundary.cpp
     DynamicRupture.cpp
     Plasticity.cpp
     PointSourceClusterOnDevice.cpp
@@ -13,8 +15,6 @@ add_library(seissol-kernels OBJECT
     Receiver.cpp
     TimeCommon.cpp
     Touch.cpp
-
-    LinearCK/GravitationalFreeSurfaceBC.cpp
 )
 
 target_link_libraries(seissol-kernels PUBLIC seissol-common-properties)

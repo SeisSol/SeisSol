@@ -10,7 +10,6 @@
 
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 
 #include <array>
@@ -22,7 +21,7 @@ namespace seissol::dr::friction_law::tp {
  * Logarithmic gridpoints as defined in Noda&Lapusta (14). These are the \f$\hat{l}\f$ for
  * ThermalPressurization.
  */
-template <size_t N, typename RealT = real>
+template <size_t N, typename RealT>
 class GridPoints {
   public:
   GridPoints() {
@@ -43,7 +42,7 @@ class GridPoints {
 /**
  * Inverse Fourier coefficients on the logarithmic grid.
  */
-template <size_t N, typename RealT = real>
+template <size_t N, typename RealT>
 class InverseFourierCoefficients {
   public:
   constexpr InverseFourierCoefficients() {
@@ -67,7 +66,7 @@ class InverseFourierCoefficients {
 /**
  * Stores the heat generation (without tauV) \f$\exp\left(\hat{l}^2/2\right) / \sqrt{2 \pi}\f$.
  */
-template <size_t N, typename RealT = real>
+template <size_t N, typename RealT>
 class GaussianHeatSource {
   public:
   constexpr GaussianHeatSource() {

@@ -135,8 +135,8 @@ In particular, note how timeout and retry count are increased.
 
     export XDMFWRITER_ALIGNMENT=8388608
     export XDMFWRITER_BLOCK_SIZE=8388608
-    export ASYNC_MODE=THREAD
-    export ASYNC_BUFFER_ALIGNMENT=8388608
+    export SEISSOL_ASYNC_MODE=THREAD
+    export SEISSOL_ASYNC_BUFFER_ALIGNMENT=8388608
 
     echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS
     ulimit -Ss 2097152
@@ -156,6 +156,6 @@ In particular, note how timeout and retry count are increased.
 
 
     # Launch MPI code...
-    seissol_exe=SeisSol_Release_dskx_6_viscoelastic2
+    seissol_exe=SeisSol_Release_dskx_6_viscoelastic
     echo $seissol_exe
     time -p ibrun $seissol_exe parameters.par

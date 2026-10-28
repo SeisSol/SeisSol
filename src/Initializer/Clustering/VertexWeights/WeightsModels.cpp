@@ -7,7 +7,6 @@
 
 #include "WeightsModels.h"
 
-#include "GeneratedCode/init.h"
 #include "Initializer/Clustering/ClusteringCost.h"
 
 #include <cassert>

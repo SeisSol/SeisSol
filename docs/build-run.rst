@@ -102,10 +102,10 @@ For the IO, the following environment variables are recommended to be set, when 
     export XDMFWRITER_ALIGNMENT=8388608
     export XDMFWRITER_BLOCK_SIZE=8388608
 
-    export ASYNC_MODE=THREAD
-    export ASYNC_BUFFER_ALIGNMENT=8388608
+    export SEISSOL_ASYNC_MODE=THREAD
+    export SEISSOL_ASYNC_BUFFER_ALIGNMENT=8388608
 
-If there are problems during running SeisSol in IO segments, try setting ``ASYNC_MODE=SYNC`` instead.
+If there are problems during running SeisSol in IO segments, try setting ``SEISSOL_ASYNC_MODE=SYNC`` instead.
 
 Environment Variables
 ---------------------
@@ -140,3 +140,5 @@ Finally, to run SeisSol, you simply invoke your compiled binary (not the proxy) 
     ./SeisSol_YOUR_CONFIGURATION parameters.par
 
 If your parameter file is in your launch directory and called ``parameters.par``, you may also leave that parameter away.
+
+Single parameters can be changed on the command line without editing the file, with ``--set section.field=value`` (see :ref:`parameter-overrides`). ``--check`` checks a run without starting it, e.g. before submitting its job (see :ref:`parameter-check`).

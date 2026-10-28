@@ -28,45 +28,39 @@ TEST_CASE("getNumberOfBasisFunctions" * doctest::test_suite("kernel")) {
   CHECK(getNumberOfBasisFunctions(8) == 120); // 8*9*10/6
 }
 
-TEST_CASE("getNumberOfBasisFunctions default uses ConvergenceOrder" *
-          doctest::test_suite("kernel")) {
-  // Default argument is ConvergenceOrder (from Config)
-  auto bf = getNumberOfBasisFunctions();
-  auto bfExplicit = getNumberOfBasisFunctions(ConvergenceOrder);
-  CHECK(bf == bfExplicit);
-  CHECK(bf > 0);
-}
-
 // ---------------------------------------------------------------------------
 // getNumberOfAlignedReals
 // ---------------------------------------------------------------------------
 
-TEST_CASE("getNumberOfAlignedReals" * doctest::test_suite("kernel")) {
+TEST_CASE_TEMPLATE("getNumberOfAlignedReals" * doctest::test_suite("kernel"),
+                   RealT,
+                   float,
+                   double) {
   SUBCASE("Already aligned") {
-    // If numberOfReals * sizeof(real) is already a multiple of alignment,
+    // If numberOfReals * sizeof(RealT) is already a multiple of alignment,
     // no padding needed.
-    const unsigned alignment = sizeof(real);
+    const unsigned alignment = sizeof(RealT);
     unsigned n = 10;
-    CHECK(getNumberOfAlignedReals(n, alignment) == n);
+    CHECK(getNumberOfAlignedReals<RealT>(n, alignment) == n);
   }
 
   SUBCASE("Padding is applied") {
     // For a larger alignment, the result should be >= input
     unsigned n = 7;
-    unsigned result = getNumberOfAlignedReals(n);
+    unsigned result = getNumberOfAlignedReals<RealT>(n, Vectorsize);
     CHECK(result >= n);
-    // result * sizeof(real) should be a multiple of the alignment
-    CHECK((result * sizeof(real)) % Vectorsize == 0);
+    // result * sizeof(RealT) should be a multiple of the alignment
+    CHECK((result * sizeof(RealT)) % Vectorsize == 0);
   }
 
   SUBCASE("One real") {
-    unsigned result = getNumberOfAlignedReals(1);
+    unsigned result = getNumberOfAlignedReals<RealT>(1, Vectorsize);
     CHECK(result >= 1);
-    CHECK((result * sizeof(real)) % Vectorsize == 0);
+    CHECK((result * sizeof(RealT)) % Vectorsize == 0);
   }
 
   SUBCASE("Zero reals") {
-    unsigned result = getNumberOfAlignedReals(0);
+    unsigned result = getNumberOfAlignedReals<RealT>(0, Vectorsize);
     CHECK(result == 0);
   }
 }
@@ -75,10 +69,13 @@ TEST_CASE("getNumberOfAlignedReals" * doctest::test_suite("kernel")) {
 // getNumberOfAlignedBasisFunctions
 // ---------------------------------------------------------------------------
 
-TEST_CASE("getNumberOfAlignedBasisFunctions" * doctest::test_suite("kernel")) {
+TEST_CASE_TEMPLATE("getNumberOfAlignedBasisFunctions" * doctest::test_suite("kernel"),
+                   RealT,
+                   float,
+                   double) {
   SUBCASE("At least as many as unaligned") {
     for (unsigned order = 1; order <= 8; ++order) {
-      auto aligned = getNumberOfAlignedBasisFunctions(order);
+      auto aligned = getNumberOfAlignedBasisFunctions<RealT>(order, Vectorsize);
       auto unaligned = getNumberOfBasisFunctions(order);
       CHECK(aligned >= unaligned);
     }
@@ -86,15 +83,9 @@ TEST_CASE("getNumberOfAlignedBasisFunctions" * doctest::test_suite("kernel")) {
 
   SUBCASE("Alignment property holds") {
     for (unsigned order = 1; order <= 8; ++order) {
-      auto aligned = getNumberOfAlignedBasisFunctions(order);
-      CHECK((aligned * sizeof(real)) % Vectorsize == 0);
+      auto aligned = getNumberOfAlignedBasisFunctions<RealT>(order, Vectorsize);
+      CHECK((aligned * sizeof(RealT)) % Vectorsize == 0);
     }
-  }
-
-  SUBCASE("Default argument matches ConvergenceOrder") {
-    auto a = getNumberOfAlignedBasisFunctions();
-    auto b = getNumberOfAlignedBasisFunctions(ConvergenceOrder);
-    CHECK(a == b);
   }
 }
 

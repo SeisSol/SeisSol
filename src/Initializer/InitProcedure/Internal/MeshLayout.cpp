@@ -145,15 +145,15 @@ std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& c
                                                const geometry::MeshReader& meshReader) {
   std::vector<std::vector<std::size_t>> clusters(colormap.size());
 
-  const auto getColor = [&](int id, int idOther, std::size_t sideOther) {
-    if (id < 0) {
-      const auto rank = meshReader.getElements()[idOther].neighborRanks[sideOther];
-      const auto index = meshReader.getElements()[idOther].mpiIndices[sideOther];
+  const auto getColor = [&](const auto& id, const auto& idOther, std::size_t sideOther) {
+    if (id.hasValue()) {
+      return color[id.value()];
+    } else {
+      const auto rank = meshReader.getElements()[idOther.value()].neighborRanks[sideOther];
+      const auto index = meshReader.getElements()[idOther.value()].mpiIndices[sideOther];
 
       return ghostColor[meshReader.toLinearGhostlayer().at(
           std::pair<int, std::size_t>{rank, index})];
-    } else {
-      return color[id];
     }
   };
 

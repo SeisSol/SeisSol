@@ -8,9 +8,11 @@
 #ifndef SEISSOL_SRC_PROXY_COMMON_H_
 #define SEISSOL_SRC_PROXY_COMMON_H_
 
+#include "Common/ConfigRegistry.h"
 #include "Common/Executor.h"
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace seissol::proxy {
@@ -25,11 +27,15 @@ struct ProxyConfig {
   std::vector<Kernel> kernels;
   bool verbose{true};
   Executor executor;
+  //! The configuration the kernels run in.
+  ConfigId config{defaultConfig()};
 };
 
 struct ProxyOutput {
   double time{};
   double cycles{};
+  /// Which hardware counter `cycles` came from; see Proxy/Cycles.h.
+  std::string_view cycleSource{"none"};
   double libxsmmNumTotalGFlop{};
   double pspammNumTotalGFlop{};
   double libxsmmAndpspammNumTotalGFlop{};

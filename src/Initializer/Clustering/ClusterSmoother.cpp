@@ -13,14 +13,13 @@
 #include "Geometry/PUMLReader.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/FaceMap.h"
-#include "Initializer/Parameters/MeshParameters.h"
 #include "Parallel/MPI.h"
 
 #include <PUML/Downward.h>
+#include <PUML/Types.h>
 #include <PUML/Upward.h>
 #include <algorithm>
 #include <cstddef>
-#include <cstdint>
 #include <mpi.h>
 #include <unordered_map>
 #include <utility>
@@ -29,12 +28,11 @@
 
 namespace seissol::initializer {
 
-FaceType decodeFaceType(const void* boundaryCond,
+FaceType decodeFaceType(const geometry::BoundaryTagsView& boundaryTags,
                         std::size_t cell,
-                        std::uint8_t face,
-                        parameters::BoundaryFormat boundaryFormat,
+                        std::size_t face,
                         const FaceMap& faceMap) {
-  const auto tag = seissol::geometry::decodeBoundary(boundaryCond, cell, face, boundaryFormat);
+  const auto tag = boundaryTags.tag(cell, face);
   const auto faceType = faceMap.at(tag);
   if (!faceType.has_value()) {
     logError() << "Read invalid face tag during cluster determining:" << tag;
@@ -42,24 +40,24 @@ FaceType decodeFaceType(const void* boundaryCond,
   return faceType.value();
 }
 
-// PUML's traversal API works in `unsigned int` face ids and `int` local cell ids, and MPI counts
-// are `int`. Those types appear verbatim wherever this file talks to either library; everything
-// in between uses `std::size_t`.
+// PUML's traversal API works in `PUML::LocalId` face and cell ids, and MPI counts are `int`.
+// Those types appear verbatim wherever this file talks to either library; everything in between
+// uses `std::size_t`.
 ClusterSmoother::ClusterSmoother(const geometry::PumlMesh& mesh,
-                                 parameters::BoundaryFormat boundaryFormat,
+                                 const geometry::PumlCellArrays& arrays,
                                  const FaceMap& faceMap)
-    : mesh_(&mesh), boundaryFormat_(boundaryFormat), faceMap_(&faceMap) {
+    : mesh_(&mesh), arrays_(arrays), faceMap_(&faceMap) {
   const auto& cells = mesh_->cells();
   const auto& faces = mesh_->faces();
-  const void* boundaryCond = mesh_->cellData(1);
+  const auto boundaryTags = geometry::boundaryTagsOf(*mesh_, arrays_);
 
   std::unordered_map<int, std::vector<std::size_t>> rankToSharedFacesPre;
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
-    unsigned int faceids[Cell::NumFaces]{};
+    PUML::LocalId faceids[Cell::NumFaces]{};
     bool atBoundary = false;
     PUML::Downward::faces(*mesh_, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_, *faceMap_);
+      const auto boundary = decodeFaceType(boundaryTags, cell, f, *faceMap_);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
         // We treat MPI neighbors later
@@ -110,27 +108,30 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
 
   const auto& cells = mesh_->cells();
   const auto& faces = mesh_->faces();
-  const void* boundaryCond = mesh_->cellData(1);
+  const auto boundaryTags = geometry::boundaryTagsOf(*mesh_, arrays_);
 
+  // A cell reads the clusters of its neighbors while the threads of their cells may update them;
+  // whether it sees the old or the new value only decides how many sweeps the relaxation takes.
 #pragma omp parallel for reduction(+ : numberOfReductions)
   for (std::size_t cell = 0; cell < cells.size(); ++cell) {
     std::size_t timeCluster = clusterIds[cell];
 
-    unsigned int faceids[Cell::NumFaces]{};
+    PUML::LocalId faceids[Cell::NumFaces]{};
     PUML::Downward::faces(*mesh_, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_, *faceMap_);
+      const auto boundary = decodeFaceType(boundaryTags, cell, f, *faceMap_);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
         // We treat MPI neighbors later
         const auto& face = faces.at(faceids[f]);
         if (!face.isShared()) {
-          int cellIds[2];
+          PUML::LocalId cellIds[2];
           PUML::Upward::cells(*mesh_, face, cellIds);
 
-          // PUML hands back signed local ids; widening to the index type is explicit here
-          const int neighborCell = (cellIds[0] == static_cast<int>(cell)) ? cellIds[1] : cellIds[0];
-          const auto otherTimeCluster = clusterIds[static_cast<std::size_t>(neighborCell)];
+          const auto neighborCell = (cellIds[0] == cell) ? cellIds[1] : cellIds[0];
+          std::size_t otherTimeCluster{};
+#pragma omp atomic read
+          otherTimeCluster = clusterIds[static_cast<std::size_t>(neighborCell)];
 
           // the rule yields a non-negative index difference, so the sum cannot wrap
           const auto admissible = otherTimeCluster + rule.differenceFor(boundary);
@@ -142,6 +143,7 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
         }
       }
     }
+#pragma omp atomic write
     clusterIds[cell] = timeCluster;
   }
 
@@ -177,10 +179,10 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
     const auto cell = boundaryCells_[bcell];
     std::size_t& timeCluster = clusterIds[cell];
 
-    unsigned int faceids[Cell::NumFaces]{};
+    PUML::LocalId faceids[Cell::NumFaces]{};
     PUML::Downward::faces(*mesh_, cells[cell], faceids);
     for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
-      const auto boundary = decodeFaceType(boundaryCond, cell, f, boundaryFormat_, *faceMap_);
+      const auto boundary = decodeFaceType(boundaryTags, cell, f, *faceMap_);
       // Continue for regular, dynamic rupture, and periodic boundary cells
       if (isInternalFaceType(boundary)) {
         // We treat MPI neighbors later

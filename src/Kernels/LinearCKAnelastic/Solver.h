@@ -8,6 +8,7 @@
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_SOLVER_H_
 
 #include "GeneratedCode/tensor.h"
+#include "Initializer/BasicTypedefs.h"
 
 #include <cstddef>
 #include <yateto/InitTools.h>
@@ -19,22 +20,54 @@ class MonomialBasis;
 
 namespace seissol::kernels::solver::linearckanelastic {
 
+template <typename Cfg>
 class Spacetime;
+template <typename Cfg>
 class Time;
+template <typename Cfg>
 class Local;
+template <typename Cfg>
 class Neighbor;
 
+template <typename Cfg>
+struct AnelasticLocalData;
+template <typename Cfg>
+struct AnelasticNeighborData;
+
+/// The solver as a configuration `Cfg` runs it, with the kernels of `Cfg`.
+template <typename Cfg>
 struct Solver {
-  using SpacetimeKernelT = Spacetime;
-  using TimeKernelT = Time;
-  using LocalKernelT = Local;
-  using NeighborKernelT = Neighbor;
+  using SpacetimeKernelT = Spacetime<Cfg>;
+  using TimeKernelT = Time<Cfg>;
+  using LocalKernelT = Local<Cfg>;
+  using NeighborKernelT = Neighbor<Cfg>;
 
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
 
-  static constexpr std::size_t BuffersSize = tensor::I::size();
-  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ>();
+  static constexpr FaceTypeSupport implementsFaceType([[maybe_unused]] FaceType faceType) {
+#ifdef ACL_DEVICE
+    // the device kernels of the local integral (Local::computeBatchedIntegral and
+    // Local::evaluateBatchedTimeDependentBc) apply no boundary condition with a nodal flux; such
+    // faces would act as absorbing ones
+    if (faceType == FaceType::FreeSurfaceGravity || faceType == FaceType::Dirichlet ||
+        faceType == FaceType::Analytical) {
+      return faceTypeUnsupported(
+          "its device kernels apply no boundary condition with a nodal flux");
+    }
+#endif
+    return faceTypeSupported();
+  }
+
+  /// The memory variables keep the mechanism in a tensor dimension of their own, apart from the
+  /// quantity axis.
+  static constexpr bool FusedMechanisms = false;
+
+  static constexpr std::size_t IntegralsSize = tensor::I<Cfg>::size();
+  static constexpr std::size_t DerivativesSize = yateto::computeFamilySize<tensor::dQ<Cfg>>();
+
+  using LocalData = AnelasticLocalData<Cfg>;
+  using NeighborData = AnelasticNeighborData<Cfg>;
 };
 
 } // namespace seissol::kernels::solver::linearckanelastic

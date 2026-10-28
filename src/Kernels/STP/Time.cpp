@@ -7,25 +7,38 @@
 
 #include "Time.h"
 
+#include "Alignment.h"
 #include "Common/Marker.h"
-#include "Equations/poroelastic/Model/PoroelasticSetup.h"
+#include "Config.h"
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
-#include "Kernels/MemoryOps.h"
+#include "Kernels/Interface.h"
+#include "Kernels/STP/Setup.h"
+#include "Memory/Descriptor/LTS.h"
 #include "Monitoring/Metric.h"
+#include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <stdint.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
+#include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif
 
-#ifndef NDEBUG
-extern long long libxsmm_num_total_flops;
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
 #endif
 
 GENERATE_HAS_MEMBER(ET)
@@ -33,44 +46,45 @@ GENERATE_HAS_MEMBER(sourceMatrix)
 
 namespace seissol::kernels::solver::stp {
 
-void Spacetime::setGlobalData(const CompoundGlobalData& global) {
-  krnlPrototype_.kDivMT = global.onHost->stiffnessMatricesTransposed;
-  krnlPrototype_.timeInt = global.onHost->stpInt;
-  krnlPrototype_.wHat = global.onHost->stpZero;
+template <typename Cfg>
+void Spacetime<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {
+  krnlPrototype_.bindGlobals(*global.onHost);
 
 #ifdef ACL_DEVICE
-  deviceKrnlPrototype_.kDivMT = global.onDevice->stiffnessMatricesTransposed;
-  deviceKrnlPrototype_.timeInt = global.onDevice->stpInt;
-  deviceKrnlPrototype_.wHat = global.onDevice->stpZero;
+  deviceKrnlPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
-void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeIntegrated, real* stp)
+template <typename Cfg>
+void Spacetime<Cfg>::executeSTP(double timeStepWidth,
+                                LTS::Ref<Cfg>& data,
+                                real* timeIntegrated,
+                                real* stp)
 
 {
-  assert((reinterpret_cast<uintptr_t>(stp)) % Alignment == 0);
-  std::fill(stp, stp + tensor::spaceTimePredictor::size(), 0);
-  kernel::spaceTimePredictor krnl = krnlPrototype_;
+  assert((reinterpret_cast<uintptr_t>(stp)) % Vectorsize == 0);
+  std::fill(stp, stp + tensor::spaceTimePredictor<Cfg>::size(), 0);
+  kernel::spaceTimePredictor<Cfg> krnl = krnlPrototype_;
 
   // libxsmm can not generate GEMMs with alpha!=1. As a workaround we multiply the
   // star matrices with dt before we execute the kernel.
-  real A_values[init::star::size(0)];
-  real B_values[init::star::size(1)];
-  real C_values[init::star::size(2)];
-  for (std::size_t i = 0; i < init::star::size(0); i++) {
-    A_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[0][i];
-    B_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[1][i];
-    C_values[i] = timeStepWidth * data.get<LTS::LocalIntegration>().starMatrices[2][i];
+  real aValues[init::star<Cfg>::size(0)];
+  real bValues[init::star<Cfg>::size(1)];
+  real cValues[init::star<Cfg>::size(2)];
+  for (std::size_t i = 0; i < init::star<Cfg>::size(0); i++) {
+    aValues[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[0][i];
+    bValues[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[1][i];
+    cValues[i] = timeStepWidth * data.template get<LTS::LocalIntegration>().starMatrices[2][i];
   }
-  krnl.star(0) = A_values;
-  krnl.star(1) = B_values;
-  krnl.star(2) = C_values;
+  krnl.star(0) = aValues;
+  krnl.star(1) = bValues;
+  krnl.star(2) = cValues;
 
-  krnl.Gk = data.get<LTS::LocalIntegration>().specific.G[10] * timeStepWidth;
-  krnl.Gl = data.get<LTS::LocalIntegration>().specific.G[11] * timeStepWidth;
-  krnl.Gm = data.get<LTS::LocalIntegration>().specific.G[12] * timeStepWidth;
+  for (std::size_t i = 0; i < model::MaterialOf<Cfg>::StiffSourceRows.size(); ++i) {
+    krnl.G(i) = data.template get<LTS::LocalIntegration>().specific.G[i] * timeStepWidth;
+  }
 
-  krnl.Q = const_cast<real*>(data.get<LTS::Dofs>());
+  krnl.Q = const_cast<real*>(data.template get<LTS::Dofs>());
   krnl.I = timeIntegrated;
   krnl.timestep = timeStepWidth;
   krnl.spaceTimePredictor = stp;
@@ -82,64 +96,75 @@ void Spacetime::executeSTP(double timeStepWidth, LTS::Ref& data, real* timeInteg
   // beware of float comparison errors with the timestep
 
   const auto defaultTimestep =
-      std::abs((data.get<LTS::LocalIntegration>().specific.typicalTimeStepWidth - timeStepWidth) /
+      std::abs((data.template get<LTS::LocalIntegration>().specific.typicalTimeStepWidth -
+                timeStepWidth) /
                timeStepWidth) < 1e-7;
 
+  // the members of the Zinv family are stored back to back
+  const auto zinvOffset = [](std::size_t i) {
+    return yateto::computeFamilySize<tensor::Zinv<Cfg>>(1, i);
+  };
+
   if (!defaultTimestep) {
-    auto sourceMatrix =
-        init::ET::view::create(data.get<LTS::LocalIntegration>().specific.sourceMatrix);
-    real ZinvData[seissol::model::MaterialT::NumQuantities][ConvergenceOrder * ConvergenceOrder];
-    model::zInvInitializerForLoop<0,
-                                  seissol::model::MaterialT::NumQuantities,
-                                  decltype(sourceMatrix)>(ZinvData, sourceMatrix, timeStepWidth);
-    for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
-      krnl.Zinv(i) = ZinvData[i];
+    auto sourceMatrix = init::ET<Cfg>::view::create(
+        data.template get<LTS::LocalIntegration>().specific.sourceMatrix);
+    real zinvData[kernels::familySize<tensor::Zinv<Cfg>>()];
+    model::ZInvInitializer<Cfg,
+                           seissol::model::MaterialOf<Cfg>,
+                           0,
+                           seissol::model::MaterialOf<Cfg>::NumQuantities,
+                           decltype(sourceMatrix)>(zinvData, sourceMatrix, timeStepWidth);
+    for (std::size_t i = 0; i < seissol::model::MaterialOf<Cfg>::NumQuantities; i++) {
+      krnl.Zinv(i) = zinvData + zinvOffset(i);
     }
-    // krnl.execute has to be run here: ZinvData is only allocated locally
+    // krnl.execute has to be run here: zinvData is only allocated locally
     krnl.execute();
   } else {
-    for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; i++) {
-      krnl.Zinv(i) = data.get<LTS::LocalIntegration>().specific.Zinv[i];
+    const real* zinvData = data.template get<LTS::LocalIntegration>().specific.Zinv;
+    for (std::size_t i = 0; i < seissol::model::MaterialOf<Cfg>::NumQuantities; i++) {
+      krnl.Zinv(i) = zinvData + zinvOffset(i);
     }
     krnl.execute();
   }
 }
 
-void Spacetime::computeAder(const real* coeffs,
-                            double timeStepWidth,
-                            LTS::Ref& data,
-                            LocalTmp& tmp,
-                            real* timeIntegrated,
-                            real* timeDerivatives,
-                            bool updateDisplacement) {
+template <typename Cfg>
+void Spacetime<Cfg>::computeAder(const real* /*coeffs*/,
+                                 double timeStepWidth,
+                                 LTS::Ref<Cfg>& data,
+                                 LocalTmp<Cfg>& /*tmp*/,
+                                 real* timeIntegrated,
+                                 real* timeDerivatives,
+                                 bool /*updateDisplacement*/) {
   /*
    * assert alignments.
    */
-  assert((reinterpret_cast<uintptr_t>(data.get<LTS::Dofs>())) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Alignment == 0);
-  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Alignment == 0 ||
+  assert((reinterpret_cast<uintptr_t>(data.template get<LTS::Dofs>())) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeIntegrated)) % Vectorsize == 0);
+  assert((reinterpret_cast<uintptr_t>(timeDerivatives)) % Vectorsize == 0 ||
          timeDerivatives == nullptr);
 
-  alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor::size()];
+  alignas(Alignment) real temporaryBuffer[tensor::spaceTimePredictor<Cfg>::size()];
   real* stpBuffer = (timeDerivatives != nullptr) ? timeDerivatives : temporaryBuffer;
   executeSTP(timeStepWidth, data, timeIntegrated, stpBuffer);
 }
 
-PerformanceEstimate Spacetime::metrics() const {
-  auto estimate = PerformanceEstimate::fromKernel<kernel::spaceTimePredictor>();
+template <typename Cfg>
+PerformanceEstimate Spacetime<Cfg>::metrics() const {
+  auto estimate = PerformanceEstimate::fromKernel<kernel::spaceTimePredictor<Cfg>>();
 
-  estimate.nonzeroFlop += 3 * init::star::size(0);
-  estimate.hardwareFlop += 3 * init::star::size(0);
+  estimate.nonzeroFlop += 3 * init::star<Cfg>::size(0);
+  estimate.hardwareFlop += 3 * init::star<Cfg>::size(0);
 
   // legacy memory estimate
   std::uint64_t reals = 0;
 
   // DOFs load, tDOFs load, tDOFs write
-  reals += tensor::Q::size() + 2 * tensor::I::size();
+  reals += tensor::Q<Cfg>::size() + 2 * tensor::I<Cfg>::size();
   // star matrices, source matrix
-  reals += yateto::computeFamilySize<tensor::star>();
+  reals += yateto::computeFamilySize<tensor::star<Cfg>>();
   // Zinv
-  reals += yateto::computeFamilySize<tensor::Zinv>();
+  reals += yateto::computeFamilySize<tensor::Zinv<Cfg>>();
   // G
   reals += 3;
 
@@ -150,96 +175,96 @@ PerformanceEstimate Spacetime::metrics() const {
   return estimate;
 }
 
-void Spacetime::computeBatchedAder(
-    SEISSOL_GPU_PARAM const real* coeffs,
+template <typename Cfg>
+void Spacetime<Cfg>::computeBatchedAder(
+    const real* /*coeffs*/,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
-    SEISSOL_GPU_PARAM LocalTmp& tmp,
+    LocalTmp<Cfg>& /*tmp*/,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM recording::ConditionalMaterialTable& materialTable,
-    SEISSOL_GPU_PARAM bool updateDisplacement,
+    bool /*updateDisplacement*/,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
   using namespace seissol::recording;
-  kernel::gpu_spaceTimePredictor krnl = deviceKrnlPrototype_;
+  kernel::gpu_spaceTimePredictor<Cfg> krnl = deviceKrnlPrototype_;
 
-  ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
+  const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
   if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
     auto& entry = dataTable[timeVolumeKernelKey];
 
-    const auto numElements = (entry.get(inner_keys::Wp::Id::Dofs))->getSize();
+    const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
     krnl.numElements = numElements;
 
-    krnl.I = (entry.get(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
-    krnl.Q = const_cast<const real**>((entry.get(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+    krnl.I = (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+    krnl.Q =
+        const_cast<const real**>((entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
     krnl.timestep = timeStepWidth;
 
-    krnl.spaceTimePredictor = (entry.get(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+    krnl.spaceTimePredictor =
+        (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
 
-    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, starMatrices);
-    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star>(); ++i) {
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Cfg>, starMatrices);
+    for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       krnl.star(i) = const_cast<const real**>(
-          (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, starMatrices, i);
+          (entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      krnl.extraOffset_star(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, starMatrices, i);
     }
 
-    krnl.Gkt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-    krnl.Glt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-    krnl.Gmt = const_cast<const real**>(
-        (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-    krnl.extraOffset_Gkt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[10]);
-    krnl.extraOffset_Glt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[11]);
-    krnl.extraOffset_Gmt = SEISSOL_OFFSET(LocalIntegrationData, specific.G[12]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[10]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[11]);
-    SEISSOL_OFFSET_ASSERT(LocalIntegrationData, specific.G[12]);
+    SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Cfg>, specific.G);
+    for (std::size_t i = 0; i < model::MaterialOf<Cfg>::StiffSourceRows.size(); ++i) {
+      krnl.Gt(i) = const_cast<const real**>(
+          (entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+      krnl.extraOffset_Gt(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, specific.G, i);
+    }
 
     // checking the first cell should suffice; if we always work on the same cluster.
     // (which we currently always do)
     const auto defaultTimestep =
-        std::abs(
-            (layer.var<LTS::LocalIntegration>()[0].specific.typicalTimeStepWidth - timeStepWidth) /
-            timeStepWidth) < 1e-7;
+        std::abs((layer.var<LTS::LocalIntegration>(Cfg())[0].specific.typicalTimeStepWidth -
+                  timeStepWidth) /
+                 timeStepWidth) < 1e-7;
 
     if (defaultTimestep) {
-      SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData, specific.Zinv);
-      for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+      // Zinv is one flat family, so its members are not spaced by the size of a single entry
+      SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Cfg>, specific.Zinv);
+      for (std::size_t i = 0; i < seissol::model::MaterialOf<Cfg>::NumQuantities; ++i) {
         krnl.Zinv(i) = const_cast<const real**>(
-            (entry.get(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
-        krnl.extraOffset_Zinv(i) = SEISSOL_ARRAY_OFFSET(LocalIntegrationData, specific.Zinv, i);
+            (entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+        krnl.extraOffset_Zinv(i) = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.Zinv) +
+                                   yateto::computeFamilySize<tensor::Zinv<Cfg>>(1, i);
       }
     } else {
-      auto* layerZinvData = layer.var<LTS::ZinvExtra>();
-      const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>();
+      auto* layerZinvData = layer.var<LTS::ZinvExtra>(Cfg());
+      const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>(Cfg());
       runtime.enqueueLoop(numElements, [=](std::size_t i) {
-        auto* ZinvData = reinterpret_cast<real(*)[ConvergenceOrder * ConvergenceOrder]>(
-            layerZinvData + yateto::computeFamilySize<tensor::Zinv>() * i);
+        auto* zinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv<Cfg>>() * i;
         const auto& localIntegration = layerLocalIntegration[i];
 
-        const auto sourceMatrix = init::ET::view::create(localIntegration.specific.sourceMatrix);
-        model::zInvInitializerForLoop<0,
-                                      seissol::model::MaterialT::NumQuantities,
-                                      decltype(sourceMatrix)>(
-            ZinvData, sourceMatrix, timeStepWidth);
+        const auto sourceMatrix =
+            init::ET<Cfg>::view::create(localIntegration.specific.sourceMatrix);
+        model::ZInvInitializer<Cfg,
+                               seissol::model::MaterialOf<Cfg>,
+                               0,
+                               seissol::model::MaterialOf<Cfg>::NumQuantities,
+                               decltype(sourceMatrix)>(zinvData, sourceMatrix, timeStepWidth);
       });
-      for (std::size_t i = 0; i < seissol::model::MaterialT::NumQuantities; ++i) {
+      for (std::size_t i = 0; i < seissol::model::MaterialOf<Cfg>::NumQuantities; ++i) {
         krnl.Zinv(i) = const_cast<const real**>(
-            (entry.get(inner_keys::Wp::Id::ZinvExtra))->getDeviceDataPtr());
-        krnl.extraOffset_Zinv(i) = yateto::computeFamilySize<tensor::Zinv>(1, i);
+            (entry.get<real*>(inner_keys::Wp::Id::ZinvExtra))->getDeviceDataPtr());
+        krnl.extraOffset_Zinv(i) = yateto::computeFamilySize<tensor::Zinv<Cfg>>(1, i);
       }
     }
 
     krnl.streamPtr = runtime.stream();
 
     // TODO: integrate into the following kernel
-    device.algorithms.setToValue(krnl.spaceTimePredictor,
-                                 static_cast<real>(0.0),
-                                 tensor::spaceTimePredictor::size(),
-                                 krnl.numElements,
-                                 krnl.streamPtr);
+    device::DeviceInstance::instance().algorithms().setToValue(
+        krnl.spaceTimePredictor,
+        static_cast<real>(0.0),
+        tensor::spaceTimePredictor<Cfg>::size(),
+        krnl.numElements,
+        krnl.streamPtr);
 
     krnl.execute();
   }
@@ -248,29 +273,32 @@ void Spacetime::computeBatchedAder(
 #endif
 }
 
-void Time::evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) {
-  kernel::evaluateDOFSAtTimeSTP krnl;
+template <typename Cfg>
+void Time<Cfg>::evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) {
+  kernel::evaluateDOFSAtTimeSTP<Cfg> krnl;
   krnl.spaceTimePredictor = timeDerivatives;
   krnl.QAtTimeSTP = timeEvaluated;
   krnl.timeBasisFunctionsAtPoint = coeffs;
   krnl.execute();
 }
 
-void Time::evaluateBatched(const real* coeffs,
-                           const real** timeDerivatives,
-                           real** timeIntegratedDofs,
-                           std::size_t numElements,
-                           seissol::parallel::runtime::StreamRuntime& runtime) {
+template <typename Cfg>
+void Time<Cfg>::evaluateBatched(
+    SEISSOL_GPU_PARAM const real* coeffs,
+    SEISSOL_GPU_PARAM const real** timeDerivatives,
+    SEISSOL_GPU_PARAM real** timeIntegratedDofs,
+    SEISSOL_GPU_PARAM std::size_t numElements,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
   // for now, use the Taylor kernel here; since it'll do exactly the same as in the LinearCK case.
   // if there are any errors, check this one again.
 
 #ifdef ACL_DEVICE
-  kernel::gpu_derivativeTaylorExpansion krnl;
+  kernel::gpu_derivativeTaylorExpansion<Cfg> krnl;
   krnl.numElements = numElements;
   krnl.I = timeIntegratedDofs;
-  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ>(); ++i) {
-    krnl.dQ(i) = const_cast<const real**>(timeDerivatives);
-    krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ>(1, i);
+  for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
+    krnl.dQ(i) = timeDerivatives;
+    krnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
     krnl.power(i) = coeffs[i];
   }
   krnl.streamPtr = runtime.stream();
@@ -280,10 +308,18 @@ void Time::evaluateBatched(const real* coeffs,
 #endif
 }
 
-PerformanceEstimate Time::metrics() const {
-  return PerformanceEstimate::fromKernel<kernel::evaluateDOFSAtTimeSTP>();
+template <typename Cfg>
+PerformanceEstimate Time<Cfg>::metrics() const {
+  return PerformanceEstimate::fromKernel<kernel::evaluateDOFSAtTimeSTP<Cfg>>();
 }
 
-void Time::setGlobalData(const CompoundGlobalData& global) {}
+template <typename Cfg>
+void Time<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {}
+
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template class Spacetime<Cfg>;                                                                   \
+  template class Time<Cfg>;
+SEISSOL_FOR_EACH_CONFIG_STP(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::kernels::solver::stp

@@ -8,3 +8,4 @@
 #include <doctest.h>
 
 #include "InstantaneousTimeMirror.t.h"
+#include "Scenarios.t.h"
