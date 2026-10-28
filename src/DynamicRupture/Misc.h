@@ -310,13 +310,13 @@ struct FrictionLawParameters {
   RealT rsInitialSlipRate1{0.0};
   RealT rsInitialSlipRate2{0.0};
   RealT muW{0.0};
+  RealT ruptureFrontThreshold{0.001};
   RealT thermalDiffusivity{0.0};
   RealT heatCapacity{0.0};
   RealT undrainedTPResponse{0.0};
   RealT initialTemperature{0.0};
   RealT initialPressure{0.0};
   // Prakash-Clifton regularization parameter
-  RealT ruptureFrontThreshold{0.001};
   RealT vStar{0.0};
   RealT prakashLength{0.0};
   RealT terminatorSlipRateThreshold{0.0};

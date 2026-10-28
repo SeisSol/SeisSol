@@ -632,10 +632,10 @@ SEISSOL_HOSTDEVICE inline void
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto pointIndex{startIndex + index};
-    if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > RuptureFrontThreshold) {
+    if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > ruptureFrontThreshold) {
       ruptureTime[pointIndex] = crossingTime<Cfg>(previousSlipRateMagnitude[index],
                                                   slipRateMagnitude[pointIndex],
-                                                  RuptureFrontThreshold,
+                                                  ruptureFrontThreshold,
                                                   previousTime,
                                                   currentTime);
       ruptureTimePending[pointIndex] = false;
