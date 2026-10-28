@@ -109,8 +109,10 @@ using namespace vertexorderinvariancetest;
 TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
           doctest::test_suite("geometry")) {
   for (const auto& [file, filePermuted] : MeshPairs) {
-
-    CAPTURE(file);
+    // CAPTURE takes its argument into a lambda, which Clang 18 does not allow for a structured
+    // binding when OpenMP is enabled
+    const auto& meshFile = file;
+    CAPTURE(meshFile);
     seissol::geometry::PumlMesh mesh;
     seissol::geometry::PumlMesh meshPermuted;
     readPumlMesh(mesh, tpath(file));
@@ -205,9 +207,10 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
   }
   for (const auto& partitioningLib : partitioningLibs) {
     for (const auto& [file, filePermuted] : MeshPairs) {
-
+      // as above, a structured binding cannot go into CAPTURE
+      const auto& meshFile = file;
       CAPTURE(partitioningLib);
-      CAPTURE(file);
+      CAPTURE(meshFile);
       std::cout.setstate(std::ios_base::failbit);
       const auto reader = readMesh(file, partitioningLib, seissolInstance);
       const auto readerPermuted = readMesh(filePermuted, partitioningLib, seissolInstance);
