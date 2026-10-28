@@ -31,7 +31,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-  message(WARNING "The Intel Compiler Classic (ICC) is deprecated; consider switching to the Intel oneAPI C++ Compiler (ICX) instead.")
+  message(WARNING "The Intel Compiler Classic (ICC) is not supported; use the Intel oneAPI C++ Compiler (ICX) instead.")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Cray|CrayClang")

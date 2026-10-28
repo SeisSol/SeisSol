@@ -20,7 +20,6 @@ For compiling SeisSol, you will need the following dependencies during build:
   - Clang (tested: 18, 19)
   - NVHPC (tested: 24.09; currently still slow!)
   - Cray CE (however: no commthread support; needs ``SEISSOL_COMMTHREAD=0``)
-  - ICC 2021.9 (except v1.3.0; v1.3.1 will work again)
 - CMake (>= 3.20; with NVHPC: >= 3.21.2; with CUDA: >= 3.25.2)
 - Python (>= 3.9)
 
@@ -98,7 +97,7 @@ for building—adjust to your actual location.
 .. code-block:: bash
 
   # Set your compiler, e.g., for the Intel compiler
-  # source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
+  # source /opt/intel/oneapi/setvars.sh
   # or
   # export CC=icx
   # export CXX=icpx
