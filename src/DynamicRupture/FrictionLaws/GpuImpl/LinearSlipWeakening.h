@@ -55,9 +55,9 @@ class LinearSlipWeakeningBase
                                                      uint32_t timeIndex) {
     const auto deltaT{ctx.args->deltaT[timeIndex]};
 
-    auto& faultStresses = ctx.faultStresses;
+    const auto& faultStresses = ctx.faultStresses;
     auto& tractionResults = ctx.tractionResults;
-    auto& strength = ctx.strengthBuffer;
+    const auto& strength = ctx.strengthBuffer;
 
     // calculate absolute value of stress in Y and Z direction
     const real totalStress1 = ctx.initialStress.traction1 + faultStresses.traction1;

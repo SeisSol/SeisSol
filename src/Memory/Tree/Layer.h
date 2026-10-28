@@ -635,7 +635,7 @@ private:
 
 #ifdef ACL_DEVICE
   device::DeviceGraphHandle getDeviceComputeGraphHandle(GraphKey graphKey) {
-    if (computeGraphHandles_.find(graphKey) != computeGraphHandles_.end()) {
+    if (computeGraphHandles_.contains(graphKey)) {
       return computeGraphHandles_[graphKey];
     } else {
       return device::DeviceGraphHandle();
@@ -644,7 +644,7 @@ private:
 
   void updateDeviceComputeGraphHandle(GraphKey graphKey,
                                       const device::DeviceGraphHandle& graphHandle) {
-    assert(computeGraphHandles_.find(graphKey) == computeGraphHandles_.end() &&
+    assert(!computeGraphHandles_.contains(graphKey) &&
            "an entry of hash table must be empty on write");
     if (graphHandle.isInitialized()) {
       computeGraphHandles_[graphKey] = graphHandle;

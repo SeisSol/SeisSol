@@ -330,8 +330,8 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
   SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& __restrict ctx,
                                                      real previousMu,
                                                      const common::SubStepTimes<Cfg>& times) {
-    auto muW{ctx.data->muW[ctx.ltsFace][ctx.pointIndex]};
-    auto rsF0{ctx.data->f0[ctx.ltsFace][ctx.pointIndex]};
+    const auto muW{ctx.data->muW[ctx.ltsFace][ctx.pointIndex]};
+    const auto rsF0{ctx.data->f0[ctx.ltsFace][ctx.pointIndex]};
     const real threshold = muW + static_cast<real>(0.05) * (rsF0 - muW);
     const real mu = ctx.data->mu[ctx.ltsFace][ctx.pointIndex];
 

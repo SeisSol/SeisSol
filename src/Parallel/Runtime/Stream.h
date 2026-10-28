@@ -258,7 +258,7 @@ class StreamRuntime {
 
   template <typename F>
   void enqueueLoop(std::size_t elemCount, const F& handler) {
-    enqueueHost([=]() { internal::parallelLoop(elemCount, handler); });
+    enqueueHost([=] { internal::parallelLoop(elemCount, handler); });
   }
 
   EventRef nextEvent() {
