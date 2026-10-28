@@ -216,7 +216,7 @@ ActorMpiExchangeScheduler::~ActorMpiExchangeScheduler() {
   synchronize();
   if (engineRuntime_ != nullptr) {
     quiesce();
-    engineRuntime_->wait();
+    exchangeengine::waitForStop(engineRuntime_->stream());
     engineRuntime_->dispose();
   }
   auto& api = deviceInstance().api();
@@ -301,8 +301,9 @@ void ActorMpiExchangeScheduler::startEngine() {
   if (engineRunning_) {
     return;
   }
-  // the engine before has stopped, as the device has been synchronized since: it goes on from the
-  // exchanges done so far (also those before the time stepping, without the engine)
+  // it goes on from the exchanges done so far (also those before the time stepping, without it),
+  // once the one before has stopped
+  exchangeengine::waitForStop(engineRuntime_->stream());
   for (const auto& [transport, staging] : staging_) {
     auto& entry = engineTable_[staging->index];
     entry.sendRequested = staging->sends;

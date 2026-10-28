@@ -58,16 +58,23 @@ void request(Transport* sender,
              void* stream);
 
 /**
- * Runs the engine for the `count` transports on the stream, with `blocks` blocks: each one takes up
- * whatever send or receive is ready, in any order, and pauses longer and longer while there is
- * none. It stops once `control[0]` (in host memory, by its device address) is set, and all sends
- * and receives up to `control[1 + t]` and `control[1 + count + t]` of each transport `t` are done.
+ * Runs the engine for the `count` transports with `blocks` blocks: each one takes up whatever send
+ * or receive is ready, in any order, and pauses longer and longer while there is none. It stops
+ * once `control[0]` (in host memory, by its device address) is set, and all sends and receives up
+ * to `control[1 + t]` and `control[1 + count + t]` of each transport `t` are done. With CUDA, on
+ * the stream; with HIP, on an HSA queue of its own (a kernel that keeps running holds up the
+ * streams that share its queue, and CLR puts all streams on a few queues), which the
+ * synchronization of the device does not wait for. The engine before has to have stopped (see
+ * waitForStop()).
  */
 void run(Transport* transports,
          std::uint32_t count,
          const std::uint32_t* control,
          unsigned blocks,
          void* stream);
+
+/// waits until the engine that run() has started (with the same stream) has stopped
+void waitForStop(void* stream);
 
 } // namespace seissol::kernels::device::aux::exchangeengine
 

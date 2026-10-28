@@ -12,6 +12,13 @@
 
 #ifdef __HIP__
 #include "hip/hip_runtime.h"
+
+#include <cstring>
+#include <hsa/hsa.h>
+#include <hsa/hsa_ext_amd.h>
+#include <hsa/hsa_ven_amd_loader.h>
+#include <string>
+#include <utils/logger.h>
 using StreamT = hipStream_t;
 #endif
 #ifdef __CUDACC__
@@ -67,9 +74,9 @@ __device__ void pauseFor(unsigned pause) {
 }
 
 /**
- * Copies the regions with all threads of the block, in words of 16 bytes where both sides are
- * aligned to them; past the caches that may hold what the source had before (written by other
- * kernels, or by the host).
+ * Copies the regions with all threads of the block (of `Threads` threads), in words of 16 bytes
+ * where both sides are aligned to them; past the caches that may hold what the source had before
+ * (written by other kernels, or by the host).
  */
 __device__ void copyRegions(const Region* regions, std::uint32_t count, bool fromHost) {
   for (std::uint32_t current = 0; current < count; ++current) {
@@ -81,7 +88,7 @@ __device__ void copyRegions(const Region* regions, std::uint32_t count, bool fro
             sizeof(uint4) ==
         0;
     const std::size_t words = aligned ? region.bytes / sizeof(uint4) : 0;
-    for (std::size_t i = threadIdx.x; i < words; i += blockDim.x) {
+    for (std::size_t i = threadIdx.x; i < words; i += Threads) {
       const auto* from = reinterpret_cast<const uint4*>(source) + i;
 #ifdef __HIP__
       // (host memory is not cached; the caches of the block were invalidated before)
@@ -91,7 +98,7 @@ __device__ void copyRegions(const Region* regions, std::uint32_t count, bool fro
 #endif
       reinterpret_cast<uint4*>(target)[i] = value;
     }
-    for (std::size_t i = words * sizeof(uint4) + threadIdx.x; i < region.bytes; i += blockDim.x) {
+    for (std::size_t i = words * sizeof(uint4) + threadIdx.x; i < region.bytes; i += Threads) {
       target[i] = static_cast<const volatile unsigned char*>(source)[i];
     }
   }
@@ -111,8 +118,24 @@ __global__ void requestKernel(Transport* sender,
   }
 }
 
-__global__ void
-    runKernel(Transport* transports, std::uint32_t count, const std::uint32_t* control) {
+} // namespace
+
+/// the arguments of the engine, in one piece (for its dispatch with HSA)
+struct EngineArguments {
+  Transport* transports{nullptr};
+  const std::uint32_t* control{nullptr};
+  std::uint32_t count{0};
+};
+
+/**
+ * The engine (see run()): with C linkage, so that it can be found by its name among the kernels
+ * that HIP has loaded; and with blocks of `Threads` threads, without reading their size (its
+ * dispatch with HSA leaves out the hidden arguments of HIP).
+ */
+extern "C" __global__ void seissolExchangeEngine(EngineArguments arguments) {
+  auto* transports = arguments.transports;
+  const auto* control = arguments.control;
+  const auto count = arguments.count;
   // the send (2 t) or receive (2 t + 1) of transport t that the block takes up, -1 for none; and
   // its number
   __shared__ int job;
@@ -188,6 +211,212 @@ __global__ void
     __syncthreads();
   }
 }
+
+namespace {
+#ifdef __HIP__
+/**
+ * An HSA queue of its own for the engine: CLR puts all of its streams on a few queues, of whatever
+ * priority, so that a kernel that keeps running on a stream holds up the streams that share its
+ * queue. The engine gets dispatched there by hand, with the kernel object that HIP has loaded for
+ * it; and the synchronization of the device does not wait for it.
+ */
+class EngineQueue {
+  public:
+  static EngineQueue& instance() {
+    static EngineQueue queue;
+    return queue;
+  }
+
+  void dispatch(const EngineArguments& arguments, unsigned blocks) {
+    if (queue_ == nullptr) {
+      setUp();
+    }
+    wait();
+    hsa_signal_store_relaxed(done_, 1);
+    std::memcpy(kernargs_, &arguments, sizeof(arguments));
+    const auto index = hsa_queue_add_write_index_relaxed(queue_, 1);
+    auto* packet =
+        static_cast<hsa_kernel_dispatch_packet_t*>(queue_->base_address) + (index % queue_->size);
+    // all but the header, which makes the packet valid
+    std::memset(reinterpret_cast<std::uint8_t*>(packet) + sizeof(std::uint32_t),
+                0,
+                sizeof(*packet) - sizeof(std::uint32_t));
+    packet->workgroup_size_x = Threads;
+    packet->workgroup_size_y = 1;
+    packet->workgroup_size_z = 1;
+    packet->grid_size_x = Threads * blocks;
+    packet->grid_size_y = 1;
+    packet->grid_size_z = 1;
+    packet->private_segment_size = privateSize_;
+    packet->group_segment_size = groupSize_;
+    packet->kernel_object = kernelObject_;
+    packet->kernarg_address = kernargs_;
+    packet->completion_signal = done_;
+    const std::uint32_t header =
+        (HSA_PACKET_TYPE_KERNEL_DISPATCH << HSA_PACKET_HEADER_TYPE) |
+        (HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_SCACQUIRE_FENCE_SCOPE) |
+        (HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_SCRELEASE_FENCE_SCOPE);
+    const std::uint32_t setup = 1U << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS;
+    __atomic_store_n(
+        reinterpret_cast<std::uint32_t*>(packet), header | (setup << 16U), __ATOMIC_RELEASE);
+    hsa_signal_store_screlease(queue_->doorbell_signal, static_cast<hsa_signal_value_t>(index));
+  }
+
+  void wait() {
+    if (queue_ != nullptr) {
+      while (hsa_signal_wait_scacquire(
+                 done_, HSA_SIGNAL_CONDITION_LT, 1, UINT64_MAX, HSA_WAIT_STATE_BLOCKED) >= 1) {
+      }
+    }
+  }
+
+  private:
+  static void check(hsa_status_t status, const char* call) {
+    if (status != HSA_STATUS_SUCCESS) {
+      const char* text = nullptr;
+      hsa_status_string(status, &text);
+      logError() << "The queue of the exchange engine: HSA failed in" << call << "with"
+                 << (text != nullptr ? text : "an unknown error");
+    }
+  }
+
+  static hsa_status_t visitAgent(hsa_agent_t agent, void* data) {
+    auto& queue = *static_cast<EngineQueue*>(data);
+    hsa_device_type_t type{};
+    hsa_agent_get_info(agent, HSA_AGENT_INFO_DEVICE, &type);
+    if (type == HSA_DEVICE_TYPE_CPU && queue.cpu_.handle == 0) {
+      queue.cpu_ = agent;
+    }
+    if (type == HSA_DEVICE_TYPE_GPU) {
+      // the device of HIP, by its place on the PCI bus
+      std::uint32_t location = 0;
+      std::uint32_t domain = 0;
+      hsa_agent_get_info(agent, static_cast<hsa_agent_info_t>(HSA_AMD_AGENT_INFO_BDFID), &location);
+      hsa_agent_get_info(agent, static_cast<hsa_agent_info_t>(HSA_AMD_AGENT_INFO_DOMAIN), &domain);
+      if (((location >> 8U) & 0xffU) == queue.bus_ && ((location >> 3U) & 0x1fU) == queue.slot_ &&
+          domain == queue.domain_) {
+        queue.gpu_ = agent;
+      }
+    }
+    return HSA_STATUS_SUCCESS;
+  }
+
+  static hsa_status_t visitPool(hsa_amd_memory_pool_t pool, void* data) {
+    auto& queue = *static_cast<EngineQueue*>(data);
+    std::uint32_t flags = 0;
+    hsa_amd_memory_pool_get_info(pool, HSA_AMD_MEMORY_POOL_INFO_GLOBAL_FLAGS, &flags);
+    if ((flags & HSA_AMD_MEMORY_POOL_GLOBAL_FLAG_KERNARG_INIT) != 0 && !queue.havePool_) {
+      queue.kernargPool_ = pool;
+      queue.havePool_ = true;
+    }
+    return HSA_STATUS_SUCCESS;
+  }
+
+  static hsa_status_t visitSymbol(hsa_executable_t /*executable*/,
+                                  hsa_agent_t /*agent*/,
+                                  hsa_executable_symbol_t symbol,
+                                  void* data) {
+    auto& queue = *static_cast<EngineQueue*>(data);
+    hsa_symbol_kind_t kind{};
+    hsa_executable_symbol_get_info(symbol, HSA_EXECUTABLE_SYMBOL_INFO_TYPE, &kind);
+    if (kind != HSA_SYMBOL_KIND_KERNEL) {
+      return HSA_STATUS_SUCCESS;
+    }
+    std::uint32_t length = 0;
+    hsa_executable_symbol_get_info(symbol, HSA_EXECUTABLE_SYMBOL_INFO_NAME_LENGTH, &length);
+    std::string name(length, '\0');
+    hsa_executable_symbol_get_info(symbol, HSA_EXECUTABLE_SYMBOL_INFO_NAME, name.data());
+    // (the name of the kernel descriptor, with the suffix .kd)
+    if (name == "seissolExchangeEngine" || name == "seissolExchangeEngine.kd") {
+      hsa_executable_symbol_get_info(
+          symbol, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT, &queue.kernelObject_);
+      hsa_executable_symbol_get_info(
+          symbol, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_KERNARG_SEGMENT_SIZE, &queue.kernargSize_);
+      hsa_executable_symbol_get_info(
+          symbol, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE, &queue.groupSize_);
+      hsa_executable_symbol_get_info(
+          symbol, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_PRIVATE_SEGMENT_SIZE, &queue.privateSize_);
+    }
+    return HSA_STATUS_SUCCESS;
+  }
+
+  static hsa_status_t visitExecutable(hsa_executable_t executable, void* data) {
+    auto& queue = *static_cast<EngineQueue*>(data);
+    hsa_executable_iterate_agent_symbols(executable, queue.gpu_, visitSymbol, data);
+    return HSA_STATUS_SUCCESS;
+  }
+
+  void setUp() {
+    // HIP loads the code object of the engine (its loading may be deferred until it is needed)
+    hipFuncAttributes attributes{};
+    if (hipFuncGetAttributes(&attributes, reinterpret_cast<const void*>(seissolExchangeEngine)) !=
+        hipSuccess) {
+      logError() << "The exchange engine could not be loaded.";
+    }
+    int device = 0;
+    hipGetDevice(&device);
+    int bus = 0;
+    int slot = 0;
+    int domain = 0;
+    hipDeviceGetAttribute(&bus, hipDeviceAttributePciBusId, device);
+    hipDeviceGetAttribute(&slot, hipDeviceAttributePciDeviceId, device);
+    hipDeviceGetAttribute(&domain, hipDeviceAttributePciDomainID, device);
+    bus_ = static_cast<std::uint32_t>(bus);
+    slot_ = static_cast<std::uint32_t>(slot);
+    domain_ = static_cast<std::uint32_t>(domain);
+    // (HIP has initialized HSA already; this only counts up)
+    check(hsa_init(), "hsa_init");
+    check(hsa_iterate_agents(visitAgent, this), "hsa_iterate_agents");
+    if (gpu_.handle == 0 || cpu_.handle == 0) {
+      logError() << "The exchange engine found no HSA agent for its device.";
+    }
+    check(hsa_amd_agent_iterate_memory_pools(cpu_, visitPool, this),
+          "hsa_amd_agent_iterate_memory_pools");
+    hsa_ven_amd_loader_1_03_pfn_t loader{};
+    check(
+        hsa_system_get_major_extension_table(HSA_EXTENSION_AMD_LOADER, 1, sizeof(loader), &loader),
+        "hsa_system_get_major_extension_table");
+    check(loader.hsa_ven_amd_loader_iterate_executables(visitExecutable, this),
+          "hsa_ven_amd_loader_iterate_executables");
+    if (kernelObject_ == 0 || !havePool_ || kernargSize_ < sizeof(EngineArguments)) {
+      logError() << "The exchange engine found no kernel object of its own (or no memory for its"
+                 << "arguments).";
+    }
+    check(hsa_amd_memory_pool_allocate(kernargPool_, kernargSize_, 0, &kernargs_),
+          "hsa_amd_memory_pool_allocate");
+    check(hsa_amd_agents_allow_access(1, &gpu_, nullptr, kernargs_), "hsa_amd_agents_allow_access");
+    std::memset(kernargs_, 0, kernargSize_);
+    check(hsa_signal_create(0, 0, nullptr, &done_), "hsa_signal_create");
+    check(hsa_queue_create(gpu_,
+                           QueueSize,
+                           HSA_QUEUE_TYPE_SINGLE,
+                           nullptr,
+                           nullptr,
+                           UINT32_MAX,
+                           UINT32_MAX,
+                           &queue_),
+          "hsa_queue_create");
+  }
+
+  // (one dispatch at a time)
+  static constexpr std::uint32_t QueueSize = 64;
+
+  std::uint32_t bus_{0};
+  std::uint32_t slot_{0};
+  std::uint32_t domain_{0};
+  hsa_agent_t gpu_{};
+  hsa_agent_t cpu_{};
+  hsa_amd_memory_pool_t kernargPool_{};
+  bool havePool_{false};
+  std::uint64_t kernelObject_{0};
+  std::uint32_t kernargSize_{0};
+  std::uint32_t groupSize_{0};
+  std::uint32_t privateSize_{0};
+  hsa_queue_t* queue_{nullptr};
+  void* kernargs_{nullptr};
+  hsa_signal_t done_{};
+};
+#endif
 } // namespace
 
 void request(Transport* sender,
@@ -209,7 +438,20 @@ void run(Transport* transports,
   if (count == 0) {
     return;
   }
-  runKernel<<<blocks, Threads, 0, reinterpret_cast<StreamT>(stream)>>>(transports, count, control);
+  const EngineArguments arguments{transports, control, count};
+#ifdef __HIP__
+  EngineQueue::instance().dispatch(arguments, blocks);
+#else
+  seissolExchangeEngine<<<blocks, Threads, 0, reinterpret_cast<StreamT>(stream)>>>(arguments);
+#endif
+}
+
+void waitForStop(void* stream) {
+#ifdef __HIP__
+  EngineQueue::instance().wait();
+#else
+  cudaStreamSynchronize(reinterpret_cast<StreamT>(stream));
+#endif
 }
 
 } // namespace seissol::kernels::device::aux::exchangeengine

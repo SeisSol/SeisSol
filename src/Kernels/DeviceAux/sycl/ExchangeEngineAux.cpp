@@ -31,4 +31,6 @@ void run(Transport* /*transports*/,
   logError() << "The exchange engine is only available with CUDA and HIP.";
 }
 
+void waitForStop(void* /*stream*/) {}
+
 } // namespace seissol::kernels::device::aux::exchangeengine
