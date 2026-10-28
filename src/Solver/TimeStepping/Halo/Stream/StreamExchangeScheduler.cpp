@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <numeric>
+#include <optional>
 #include <utils/logger.h>
 #include <vector>
 
@@ -80,13 +81,17 @@ StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount,
     logError() << "Lanes of the halo exchange need the global order.";
   }
   runtimes_.resize(slotCount());
+  // with own queues (only with actor-mpi, which hands its streams to no library), the exchange runs
+  // on one of its own, after those of the clusters
+  const int ownQueue = parallel::runtime::ownQueueCount() + 1;
   for (const auto current : usedSlots()) {
     // lanes on hardware queues of their own (HIP has a pool of them for each priority)
-    runtimes_[current] = lanes_ > 1 ? std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0)
-                                    : std::make_unique<parallel::runtime::StreamRuntime>();
+    runtimes_[current] =
+        lanes_ > 1 ? std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0, ownQueue)
+                   : std::make_unique<parallel::runtime::StreamRuntime>(0, std::nullopt, ownQueue);
   }
   if (lanes_ > 1) {
-    join_ = std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0);
+    join_ = std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0, ownQueue);
   }
 }
 

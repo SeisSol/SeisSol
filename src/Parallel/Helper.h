@@ -69,6 +69,12 @@ inline std::size_t exchangeLanes(utils::Env& env) {
 }
 
 /**
+ * On how many queues of their own the clusters run their work on the device, 0 for none (see
+ * device::AbstractAPI::enableOwnQueues(); HIP only): the other stream runtimes share one more.
+ */
+inline int ownQueueCount(utils::Env& env) { return std::max(env.get<int>("OWN_QUEUES", 0), 0); }
+
+/**
  * Whether the clusters on the device only enqueue their work and wait for each other on the device,
  * instead of waiting for the completion of each of their steps. Implies scratchpads per layer.
  */

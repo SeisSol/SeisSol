@@ -15,6 +15,7 @@
 #include "Parallel/Runtime/HostRuntime.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -47,12 +48,54 @@ enum class GraphMode { Capture, Nodes };
 template <typename T>
 class StreamMemoryHandle;
 
+/**
+ * The queues of their own of the stream runtimes (see device::AbstractAPI::enableOwnQueues()): with
+ * SEISSOL_OWN_QUEUES=n, the clusters run their work on n of them (see ownQueueOf()), and the other
+ * stream runtimes share one more (SharedOwnQueue); 0 if there are none.
+ */
+inline int& ownQueueCount() {
+  static int count = 0;
+  return count;
+}
+
+/// the own queue that the stream runtimes share which have none of their own
+constexpr int SharedOwnQueue = 0;
+
+/// a stream runtime that hands its stream to libraries (e.g. NCCL), which need streams of the
+/// device
+constexpr int NoOwnQueue = -1;
+
+/**
+ * How the layers get distributed over the own queues (SEISSOL_OWN_QUEUE_LAYOUT): `layers` gives the
+ * copy and the interior layer of each time cluster queues of their own, as long as there are
+ * enough; `halo` puts all copy layers on one queue of a high priority, whose work the halo exchange
+ * waits for, and all interior layers on one of a low priority.
+ */
+enum class OwnQueueLayout { Layers, Halo };
+inline OwnQueueLayout& ownQueueLayout() {
+  static OwnQueueLayout layout = OwnQueueLayout::Layers;
+  return layout;
+}
+
+/// the own queue of the work of a layer, its cell cluster and its dynamic rupture cluster
+int ownQueueOf(const initializer::LayerIdentifier& identifier);
+
+/// the priority of the own queue of a layer (see ownQueueLayout()); none without own queues
+std::optional<double> ownQueuePriorityOf(const initializer::LayerIdentifier& identifier);
+
 class ManagedStream {
   public:
   ManagedStream();
 
   /// a stream of the given priority, from 0 for the lowest to 1 for the highest the device offers
   explicit ManagedStream(double priority);
+
+  /// a stream on an own queue (see ownQueueCount()), which gets the priority unless that is NAN
+  struct OnOwnQueue {
+    int queue;
+    double priority;
+  };
+  explicit ManagedStream(OnOwnQueue queue);
 
   ManagedStream(const ManagedStream&) = delete;
   auto operator=(const ManagedStream&) = delete;
@@ -111,11 +154,17 @@ class StreamRuntime {
 
   /**
    * With `ringbufferSize` further streams for independent branches (see envMany()); the stream of
-   * the runtime has the given priority (see ManagedStream), or the default one of the device.
+   * the runtime has the given priority (see ManagedStream), or the default one of the device. With
+   * own queues (see ownQueueCount()), the stream is on the own queue `ownQueue` instead (the
+   * further ones stay streams of the device: HIP only records on them), unless that is NoOwnQueue.
    */
-  explicit StreamRuntime(size_t ringbufferSize, std::optional<double> priority = std::nullopt)
+  explicit StreamRuntime(size_t ringbufferSize,
+                         std::optional<double> priority = std::nullopt,
+                         int ownQueue = SharedOwnQueue)
       : ringbufferSize_(ringbufferSize), disposed_(false) {
-    if (priority.has_value()) {
+    if (ownQueueCount() > 0 && ownQueue != NoOwnQueue) {
+      streamPtr_.emplace(ManagedStream::OnOwnQueue{ownQueue, priority.value_or(NAN)});
+    } else if (priority.has_value()) {
       streamPtr_.emplace(priority.value());
     } else {
       streamPtr_.emplace();
@@ -670,7 +719,8 @@ class StreamRuntime {
   StreamRuntime() : StreamRuntime(0) {}
 
   explicit StreamRuntime(std::size_t ringbufferSize,
-                         std::optional<double> /*priority*/ = std::nullopt) {}
+                         std::optional<double> /*priority*/ = std::nullopt,
+                         int /*ownQueue*/ = SharedOwnQueue) {}
 
   template <typename F>
   void enqueueLoop(std::size_t elemCount,

@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Stream.h"
 
+#include <optional>
 #include <utility>
 
 #ifdef ACL_DEVICE
@@ -24,11 +25,35 @@ namespace seissol::parallel::runtime {
 ManagedStream::ManagedStream() : streamPtr_(dev().api().createStream()) {}
 
 ManagedStream::ManagedStream(double priority) : streamPtr_(dev().api().createStream(priority)) {}
+
+ManagedStream::ManagedStream(OnOwnQueue queue)
+    : streamPtr_(dev().api().createStreamOnOwnQueue(queue.queue, queue.priority)) {}
 #else
 ManagedStream::ManagedStream() = default;
 
 ManagedStream::ManagedStream(double /*priority*/) {}
+
+ManagedStream::ManagedStream(OnOwnQueue /*queue*/) {}
 #endif
+
+int ownQueueOf(const initializer::LayerIdentifier& identifier) {
+  if (ownQueueCount() <= 0) {
+    return SharedOwnQueue;
+  }
+  const bool copy = identifier.halo == HaloType::Copy;
+  if (ownQueueLayout() == OwnQueueLayout::Halo) {
+    return ownQueueCount() > 1 && !copy ? 2 : 1;
+  }
+  const auto layer = identifier.lts * 2 + (copy ? 1 : 0);
+  return 1 + static_cast<int>(layer % static_cast<std::size_t>(ownQueueCount()));
+}
+
+std::optional<double> ownQueuePriorityOf(const initializer::LayerIdentifier& identifier) {
+  if (ownQueueCount() <= 1 || ownQueueLayout() != OwnQueueLayout::Halo) {
+    return std::nullopt;
+  }
+  return identifier.halo == HaloType::Copy ? 1.0 : 0.0;
+}
 
 auto ManagedStream::operator=(ManagedStream&& old) noexcept -> ManagedStream& {
   if (this != &old) {

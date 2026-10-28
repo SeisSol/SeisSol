@@ -55,6 +55,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <utility>
 #include <utils/logger.h>
@@ -89,7 +90,10 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
           maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
       // cluster ids
       settings_(settings), seissolInstance_(seissolInstance),
-      configBoundary_(seissolInstance.parameters().model.configs()), streamRuntime_(4),
+      configBoundary_(seissolInstance.parameters().model.configs()),
+      streamRuntime_(4,
+                     parallel::runtime::ownQueuePriorityOf(clusterData->getIdentifier()),
+                     parallel::runtime::ownQueueOf(clusterData->getIdentifier())),
       globalData_(globalData), clusterData_(clusterData),
       sourceCluster_(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
       // cells

@@ -17,7 +17,9 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Preflight.h"
 #include "Monitoring/Instrumentation.h"
+#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
+#include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 
 #include <cstdlib>
@@ -202,9 +204,38 @@ int main(int argc, char* argv[]) {
       // a kernel on its first launch, as it may wait for the device meanwhile (unless set already)
       setenv("CUDA_MODULE_LOADING", "EAGER", 0);
     }
+    // queues of their own for the stream runtimes; not for the transfer modes that hand their
+    // streams to libraries
+    utils::Env deviceEnv("SEISSOL_");
+    const auto requestedMode = seissol::Mpi::requestedDataTransferMode();
+    const bool streamLibraries =
+        requestedMode.has_value() &&
+        (requestedMode == seissol::Mpi::DataTransferMode::DirectCcl ||
+         requestedMode == seissol::Mpi::DataTransferMode::DirectStreamMpi ||
+         requestedMode == seissol::Mpi::DataTransferMode::DirectShmem);
+    auto ownQueues = streamLibraries ? 0 : seissol::ownQueueCount(deviceEnv);
+    if (ownQueues > 0 && requestedMode == seissol::Mpi::DataTransferMode::ActorMpi &&
+        ownQueues % 2 != 0) {
+      // the copy layers wait for the halo exchange there; with the interior layers on the same
+      // queues, runs hung (TPV13 on LUMI, one queue for all clusters): an even number keeps them
+      // apart (see ownQueueOf())
+      ++ownQueues;
+    }
+    if (ownQueues > 0) {
+      // the streams of HIP then only record graphs and hold allocations: one hardware queue each
+      // leaves the others of the device to the own queues
+      setenv("GPU_MAX_HW_QUEUES", "1", 0);
+    }
     seissol::Mpi::mpi.bindAcceleratorDevice();
     const device::DeviceInstance& device = device::DeviceInstance::instance();
     device.api().initialize();
+    if (ownQueues > 0 && device.api().enableOwnQueues()) {
+      seissol::parallel::runtime::ownQueueCount() = ownQueues;
+      if (deviceEnv.get<std::string>("OWN_QUEUE_LAYOUT", "layers") == "halo") {
+        seissol::parallel::runtime::ownQueueLayout() =
+            seissol::parallel::runtime::OwnQueueLayout::Halo;
+      }
+    }
 #endif // ACL_DEVICE
 
     utils::Env env("SEISSOL_");
@@ -220,6 +251,17 @@ int main(int argc, char* argv[]) {
     const int rank = seissol::Mpi::mpi.rank();
 
     utils::Logger::setRank(rank);
+#ifdef ACL_DEVICE
+    if (seissol::parallel::runtime::ownQueueCount() > 0) {
+      logInfo() << "The clusters run their work on" << seissol::parallel::runtime::ownQueueCount()
+                << "queues of their own, the other stream runtimes on one more"
+                << "(SEISSOL_OWN_QUEUES).";
+    } else if (seissol::ownQueueCount(env) > 0) {
+      logWarning() << "Queues of their own (SEISSOL_OWN_QUEUES) are not available: they need HIP,"
+                   << "and a transfer mode that does not hand streams to libraries (direct, host"
+                   << "or actor-mpi).";
+    }
+#endif
 
     const auto runId = determineRunId(env);
 
