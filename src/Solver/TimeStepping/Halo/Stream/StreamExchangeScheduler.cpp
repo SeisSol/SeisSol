@@ -150,6 +150,14 @@ ExchangeScheduler::Ticket StreamExchangeScheduler::launch(std::size_t from,
 
   auto event = runtime.eventRecord();
   const auto ticket = nextTicket_++;
+  if (streamOrdered() && transportEvents() && lanes_ == 1) {
+    // on the one stream, the event of a group stands for all groups before it
+    for (const auto* transport : {sender, receiver}) {
+      if (transport != nullptr) {
+        setTransportEvent(*transport, event);
+      }
+    }
+  }
   if (streamOrdered() && join_ != nullptr) {
     // the latest event stands for the groups of all lanes
     join_->eventSync(event);

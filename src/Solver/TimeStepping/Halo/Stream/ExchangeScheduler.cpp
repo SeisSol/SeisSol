@@ -197,12 +197,28 @@ void ExchangeScheduler::restartAfter(ActorEvent event) {
   forgetPendingEvents();
   // otherwise, a ghost cluster that acknowledges a group launched before the event would pass on
   // an older one
+  transportEvents_.clear();
+  restartEvent_ = event;
   setLatestEvent(std::move(event));
 }
 
 void ExchangeScheduler::forgetEvents() {
   forgetPendingEvents();
+  transportEvents_.clear();
+  restartEvent_ = ActorEvent();
   latestEvent_ = ActorEvent();
+}
+
+ActorEvent ExchangeScheduler::transportEvent(const ScheduledTransport& transport) const {
+  if (!perTransport_) {
+    return latestEvent();
+  }
+  const auto found = transportEvents_.find(&transport);
+  return found == transportEvents_.end() ? restartEvent_ : found->second;
+}
+
+void ExchangeScheduler::setTransportEvent(const ScheduledTransport& transport, ActorEvent event) {
+  transportEvents_[&transport] = std::move(event);
 }
 
 void ExchangeScheduler::launchNext(std::size_t from, std::size_t to) {

@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <deque>
 #include <limits>
+#include <map>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -159,11 +160,21 @@ class ExchangeScheduler {
 
   /**
    * The event that completes with the operations of the transport launched so far, when ordered on
-   * the device; by default the latest event, which stands for those of all transports.
+   * the device: the latest event, which stands for those of all transports; or, with events per
+   * transport (see setTransportEvents()), the one of the last group of the transport.
    */
-  [[nodiscard]] virtual ActorEvent transportEvent(const ScheduledTransport& /*transport*/) const {
-    return latestEvent();
-  }
+  [[nodiscard]] virtual ActorEvent transportEvent(const ScheduledTransport& transport) const;
+
+  /**
+   * Whether the work that depends on the exchanges of a transport only waits for its own groups
+   * (experimental): for schedulers whose groups run one after another, where the event of the last
+   * group of a transport stands for all groups before it (see setTransportEvent()).
+   */
+  void setTransportEvents(bool perTransport) { perTransport_ = perTransport; }
+  [[nodiscard]] bool transportEvents() const { return perTransport_; }
+
+  /// with events per transport: makes the event stand for the groups of the transport so far
+  void setTransportEvent(const ScheduledTransport& transport, ActorEvent event);
 
   /**
    * Lets go of what keeps the device busy for the exchanges (e.g. a kernel that runs them) once
@@ -295,6 +306,12 @@ class ExchangeScheduler {
 
   bool streamOrdered_{false};
   bool launching_{true};
+
+  // with events per transport: the event of the last group of each transport, and the one that
+  // stands for the transports without a group since (re)starting
+  bool perTransport_{false};
+  std::map<const ScheduledTransport*, ActorEvent> transportEvents_;
+  ActorEvent restartEvent_;
   long horizon_{std::numeric_limits<long>::max()};
 
   ActorEvent latestEvent_;

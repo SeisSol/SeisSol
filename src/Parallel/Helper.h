@@ -91,6 +91,15 @@ inline bool useSuperStepGraphs(utils::Env& env) { return env.get<bool>("SUPERSTE
 inline bool useHostActor(utils::Env& env) { return env.get<bool>("HOST_ACTOR", false); }
 
 /**
+ * Whether the work that depends on the halo exchange on device streams waits only for the groups
+ * of its own transport, instead of all groups launched so far (experimental; one stream in the
+ * global order only).
+ */
+inline bool useExchangeTransportEvents(utils::Env& env) {
+  return env.get<bool>("EXCHANGE_TRANSPORT_EVENTS", false);
+}
+
+/**
  * Whether the independent branches of the work of a cluster (e.g. the neighbor fluxes of the face
  * relations of a face) become nodes of their own in the recordings of super-timesteps, so that they
  * can run concurrently. Otherwise, they run one after another, as one node: the graphs get fewer

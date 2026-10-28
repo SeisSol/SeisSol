@@ -562,6 +562,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     if (scheduler != nullptr && scheduler->launchOrder() == LaunchOrder::Global) {
       scheduler->setStreamOrdered(true);
       logInfo() << "The halo exchange is ordered on the device.";
+      if (useExchangeTransportEvents(seissolInstance_.env())) {
+        scheduler->setTransportEvents(true);
+        logInfo() << "The work of a cluster waits only for the halo exchange of its own transports"
+                  << "(SEISSOL_EXCHANGE_TRANSPORT_EVENTS=1; with one lane only).";
+      }
     }
   }
 
