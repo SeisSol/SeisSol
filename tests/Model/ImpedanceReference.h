@@ -26,10 +26,12 @@ namespace seissol::unit_test {
  * extracted from the very same decomposition -- both express the state jump in the span of the
  * outgoing modes, parametrised by the traction, so the two are consistent by construction.
  */
+// the return type trails for NVHPC, as computeAdmittance's does
 template <typename MaterialT>
-seissol::model::ImpedanceCompute<MaterialT>::Matrix admittanceFromEigendecomposition(
+auto admittanceFromEigendecomposition(
     const MaterialT& materialLocal,
-    typename seissol::model::ImpedanceCompute<MaterialT>::LateralMatrix* lateralStress = nullptr) {
+    typename seissol::model::ImpedanceCompute<MaterialT>::LateralMatrix* lateralStress = nullptr)
+    -> seissol::model::ImpedanceCompute<MaterialT>::Matrix {
   using ImpedanceCompute = seissol::model::ImpedanceCompute<MaterialT>;
   using Matrix = ImpedanceCompute::Matrix;
   using LateralMatrix = ImpedanceCompute::LateralMatrix;
