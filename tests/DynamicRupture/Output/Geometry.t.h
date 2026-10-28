@@ -21,6 +21,7 @@
 #include <Eigen/Dense>
 #include <cstddef>
 #include <iostream>
+#include <numbers>
 
 namespace seissol::unit_test {
 

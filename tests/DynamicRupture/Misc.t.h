@@ -13,6 +13,7 @@
 
 #include <cmath>
 #include <limits>
+#include <numbers>
 
 namespace seissol::unit_test {
 
