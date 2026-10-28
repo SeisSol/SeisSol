@@ -14,6 +14,7 @@
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
 #include "Solver/TimeStepping/Halo/Mpi/MpiHaloTransport.h"
 #include "Solver/TimeStepping/Halo/SplitHaloTransport.h"
+#include "Solver/TimeStepping/Halo/Stream/ActorMpiExchangeScheduler.h"
 #include "Solver/TimeStepping/Halo/Stream/CclExchangeScheduler.h"
 #include "Solver/TimeStepping/Halo/Stream/ExchangeScheduler.h"
 #include "Solver/TimeStepping/Halo/Stream/ShmemExchangeScheduler.h"
@@ -39,8 +40,8 @@ HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
     : mode_(mode), persistent_(persistent) {
   const auto order = perDirection ? LaunchOrder::PerDirection : LaunchOrder::Global;
   if (lanes > 1 && (perDirection || mode_ == Mpi::DataTransferMode::DirectShmem)) {
-    logWarning() << "Lanes of the halo exchange (SEISSOL_EXCHANGE_LANES) are only for ccl and"
-                 << "stream-mpi in the global order; the exchange takes none.";
+    logWarning() << "Lanes of the halo exchange (SEISSOL_EXCHANGE_LANES) are only for ccl,"
+                 << "stream-mpi and actor-mpi in the global order; the exchange takes none.";
     lanes = 1;
   }
   if (mode_ == Mpi::DataTransferMode::DirectCcl) {
@@ -48,6 +49,9 @@ HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
   } else if (mode_ == Mpi::DataTransferMode::DirectStreamMpi) {
     scheduler_ =
         std::make_unique<StreamMpiExchangeScheduler>(clusterCount, order, configCount, lanes);
+  } else if (mode_ == Mpi::DataTransferMode::ActorMpi) {
+    scheduler_ = std::make_unique<ActorMpiExchangeScheduler>(
+        clusterCount, order, configCount, lanes, persistent_);
   } else if (mode_ == Mpi::DataTransferMode::DirectShmem) {
     if (perDirection) {
       logWarning() << "The shmem transfer mode exchanges in the global order only.";
@@ -89,6 +93,7 @@ std::unique_ptr<HaloTransport> HaloTransportFactory::create(const RemoteClusterP
   case Mpi::DataTransferMode::DirectCcl:
   case Mpi::DataTransferMode::DirectStreamMpi:
   case Mpi::DataTransferMode::DirectShmem:
+  case Mpi::DataTransferMode::ActorMpi:
     if (split()) {
       // within the node on the device streams, to the other nodes from the host
       auto [onNode, offNode] = SplitHaloTransport::split(regions, onNode_);

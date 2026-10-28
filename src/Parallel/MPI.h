@@ -270,12 +270,19 @@ class Mpi : public MpiBasic {
     CopyInCopyOutHost,
     DirectCcl,
     DirectStreamMpi,
-    DirectShmem
+    DirectShmem,
+    ActorMpi
   };
   DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode_; }
 
   /// the name of the transfer mode, as SEISSOL_TRANSFER_MODE takes it
   static std::string dataTransferModeName(DataTransferMode mode);
+
+  /**
+   * The transfer mode that SEISSOL_TRANSFER_MODE names, if any; whether this build supports it or
+   * not (e.g. before the device gets set up).
+   */
+  static std::optional<DataTransferMode> requestedDataTransferMode();
 
   /** The only instance of the class */
   static Mpi mpi;

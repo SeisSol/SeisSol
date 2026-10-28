@@ -20,6 +20,7 @@
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 
+#include <cstdlib>
 #include <ctime>
 #include <exception>
 #include <fty/fty.hpp>
@@ -196,6 +197,11 @@ int main(int argc, char* argv[]) {
     }
 
 #ifdef ACL_DEVICE
+    if (seissol::Mpi::requestedDataTransferMode() == seissol::Mpi::DataTransferMode::ActorMpi) {
+      // the device then waits for the host, and the host for other processes: CUDA must not load
+      // a kernel on its first launch, as it may wait for the device meanwhile (unless set already)
+      setenv("CUDA_MODULE_LOADING", "EAGER", 0);
+    }
     seissol::Mpi::mpi.bindAcceleratorDevice();
     const device::DeviceInstance& device = device::DeviceInstance::instance();
     device.api().initialize();

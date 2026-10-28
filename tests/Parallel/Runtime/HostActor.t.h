@@ -14,12 +14,15 @@
 
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <future>
 #include <mutex>
 #include <set>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -130,6 +133,45 @@ TEST_CASE("Work of the host actor may post more work" * doctest::test_suite("par
   CHECK(ran == std::vector<int>{0, 1});
 }
 
+TEST_CASE("The progress thread of the host actor runs the work that waits for counters in host "
+          "memory, without asking the device" *
+          doctest::test_suite("parallel")) {
+  std::atomic<bool> asked{false};
+  HostActor actor([&](const Event& /*event*/) {
+    asked = true;
+    return true;
+  });
+  std::uint32_t counter = 0;
+  std::atomic<bool> ready{false};
+  // written on the progress thread, read once its work is done
+  std::vector<int> ran;
+  {
+    HostActor::Queue queue(actor);
+    queue.setOnProgressThread(true);
+    actor.startProgressThread();
+    CHECK(actor.progressThreadRuns());
+    queue.post(Event(Event::HostCounter{&counter, 2}), [&]() { ran.push_back(0); });
+    queue.post([&]() { return ready.load(); }, [&]() { ran.push_back(1); });
+    // the queue belongs to the progress thread
+    CHECK_FALSE(actor.progress());
+    __atomic_store_n(&counter, 1, __ATOMIC_RELEASE);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    CHECK(queue.pending() == 2);
+    __atomic_store_n(&counter, 2, __ATOMIC_RELEASE);
+    // (the thread gets to it soon enough)
+    for (int wait = 0; wait < 5000 && queue.pending() > 1; ++wait) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    CHECK(queue.pending() == 1);
+    ready = true;
+    queue.drain();
+    CHECK(ran == std::vector<int>{0, 1});
+    actor.stopProgressThread();
+    CHECK_FALSE(actor.progressThreadRuns());
+  }
+  CHECK_FALSE(asked);
+}
+
 TEST_CASE("The host actor hands ready work to its executor, and waits for it to be done" *
           doctest::test_suite("parallel")) {
   HostActor actor([](const Event& /*event*/) { return true; });
@@ -210,10 +252,12 @@ TEST_CASE("The work for the host in a recording runs after each launch, with the
     CHECK(seenFirst.empty());
     CHECK(seenSecond.empty());
 
-    // two launches, each of which writes other data, as a replay would
+    // two launches, each of which writes other data, as a replay would (on the stream of the
+    // copies, which a replay is ordered on as well)
     for (int launch = 0; launch < 2; ++launch) {
       const int value = 10 * (launch + 1);
       const std::array<int, 2> pair{value, 1};
+      runtime.wait();
       api.copyTo(a.device, &value, sizeof(int));
       api.copyTo(b.device, pair.data(), sizeof(pair));
       recording.launched(runtime);

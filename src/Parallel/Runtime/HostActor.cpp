@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <utility>
 #include <utils/logger.h>
@@ -48,22 +49,34 @@ HostActor::Queue::Queue(HostActor& actor, std::size_t bytes) : actor_(actor), by
   if (bytes_ > 0) {
     buffers_ = std::make_unique<HostBufferPool>(bytes_);
   }
+  const std::scoped_lock lock(actor_.queuesMutex_);
   actor_.queues_.push_back(this);
 }
 
 HostActor::Queue::~Queue() {
   // whatever the work reads or writes may go right after this; it has to be done before
   drain();
+  const std::scoped_lock lock(actor_.queuesMutex_);
   auto& queues = actor_.queues_;
   queues.erase(std::remove(queues.begin(), queues.end(), this), queues.end());
 }
 
 void HostActor::Queue::post(Event after, std::function<void()> work) {
   if (after.graph() != nullptr) {
-    logError() << "Work on the host cannot wait for a node of a graph that is being built.";
+    logError() << "Work on the host can only wait for device events, and for counters.";
   }
-  items_.push_back(Item{std::move(after), std::move(work)});
-  ++posted_;
+  if (onProgressThread_ && after.get() != nullptr) {
+    logError() << "The progress thread of the host actor does not ask the device about events.";
+  }
+  const std::scoped_lock lock(mutex_);
+  items_.push_back(Item{std::move(after), {}, std::move(work)});
+  posted_.fetch_add(1, std::memory_order_release);
+}
+
+void HostActor::Queue::post(std::function<bool()> ready, std::function<void()> work) {
+  const std::scoped_lock lock(mutex_);
+  items_.push_back(Item{Event(), std::move(ready), std::move(work)});
+  posted_.fetch_add(1, std::memory_order_release);
 }
 
 HostActor::Staging HostActor::Queue::take(StreamRuntime& runtime) {
@@ -88,15 +101,38 @@ void HostActor::Queue::post(StreamRuntime& runtime,
 }
 
 bool HostActor::Queue::progress() {
+  // the progress thread takes its queues while it runs
+  if (onProgressThread_ && actor_.progressThreadRuns()) {
+    return false;
+  }
+  return progressHere();
+}
+
+bool HostActor::Queue::progressHere() {
   bool handedOver = false;
-  while (!items_.empty() && actor_.ready(items_.front().after)) {
-    // out of the queue first: the work may post more
-    auto task = [this, work = std::move(items_.front().work)]() {
+  while (true) {
+    std::function<void()> work;
+    {
+      // (only one thread takes the work of a queue; the lock is for those that post)
+      std::unique_lock lock(mutex_);
+      if (items_.empty()) {
+        break;
+      }
+      auto& front = items_.front();
+      if (!(front.ready ? std::invoke(front.ready) : actor_.ready(front.after))) {
+        break;
+      }
+      // out of the queue first: the work may post more
+      work = std::move(front.work);
+      items_.pop_front();
+    }
+    auto task = [this, work = std::move(work)]() {
       std::invoke(work);
       done_.fetch_add(1, std::memory_order_release);
     };
-    items_.pop_front();
-    if (actor_.executor_) {
+    if (onProgressThread_) {
+      std::invoke(task);
+    } else if (actor_.executor_) {
       actor_.executor_(std::move(task));
     } else {
       // the work changes only what belongs to the queue
@@ -108,18 +144,17 @@ bool HostActor::Queue::progress() {
 }
 
 void HostActor::Queue::drain() {
-  if (!items_.empty() && recordingOuterGraph()) {
+  if (!empty() && recordingOuterGraph()) {
     logError() << "Work on the host cannot be waited for while a graph is being recorded.";
   }
-  while (!items_.empty()) {
-    if (!progress()) {
+  // the work of all queues goes on meanwhile: what the device does before this work may wait for
+  // what other queues do (e.g. for the MPI operations of the halo exchange); and that handed over
+  // to tasks, to the executor, or to the progress thread
+  while (!empty()) {
+    if (!actor_.progress()) {
+      HostRuntime::yield();
       std::this_thread::yield();
     }
-  }
-  // the work handed over to tasks or to the executor
-  while (!empty()) {
-    HostRuntime::yield();
-    std::this_thread::yield();
   }
 }
 
@@ -153,15 +188,60 @@ bool HostActor::progress() {
     return false;
   }
   bool handedOver = false;
-  // by index: the work may set up queues
+  // by index: the work may set up queues (on the thread that polls, which changes the list)
   for (std::size_t i = 0; i < queues_.size(); ++i) {
     handedOver = queues_[i]->progress() || handedOver;
   }
   return handedOver;
 }
 
+void HostActor::startProgressThread(std::function<void()> onStart) {
+  if (progressThread_.joinable()) {
+    return;
+  }
+  stopProgress_.store(false, std::memory_order_relaxed);
+  progressThread_ =
+      std::thread([this, onStart = std::move(onStart)]() { runProgressThread(onStart); });
+}
+
+void HostActor::stopProgressThread() {
+  if (progressThread_.joinable()) {
+    stopProgress_.store(true, std::memory_order_release);
+    progressThread_.join();
+  }
+}
+
+HostActor::~HostActor() { stopProgressThread(); }
+
+void HostActor::runProgressThread(const std::function<void()>& onStart) {
+  if (onStart) {
+    std::invoke(onStart);
+  }
+  // until stopped, and its queues are empty
+  while (true) {
+    bool handedOver = false;
+    bool pending = false;
+    {
+      const std::scoped_lock lock(queuesMutex_);
+      for (auto* queue : queues_) {
+        if (queue->onProgressThread_) {
+          handedOver = queue->progressHere() || handedOver;
+          pending = pending || !queue->empty();
+        }
+      }
+    }
+    if (!pending && stopProgress_.load(std::memory_order_acquire)) {
+      break;
+    }
+    if (!handedOver) {
+      std::this_thread::yield();
+    }
+  }
+}
+
 void HostActor::drain() {
   for (std::size_t i = 0; i < queues_.size(); ++i) {
+    // (each one goes on with all of them)
     queues_[i]->drain();
   }
 }
@@ -271,6 +351,16 @@ std::size_t HostActor::pending() const {
   return pending;
 }
 
-bool HostActor::ready(const Event& event) const { return !event || completed_(event); }
+bool HostActor::ready(const Event& event) const {
+  if (event.onCounters()) {
+    // in host memory: no need to ask the device
+    return std::all_of(
+        event.counters().begin(), event.counters().end(), [](const HostCounter& counter) {
+          return counter.counter == nullptr ||
+                 __atomic_load_n(counter.counter, __ATOMIC_ACQUIRE) >= counter.value;
+        });
+  }
+  return !event || completed_(event);
+}
 
 } // namespace seissol::parallel::runtime

@@ -17,6 +17,8 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 namespace seissol::parallel::runtime {
@@ -88,9 +90,30 @@ public:
     /**
      * Runs `work` once the device has done all that comes before `after` (e.g. an event recorded
      * after the work that writes what `work` reads), and after the work posted before it. Without
-     * an event, the work counts as ready right away.
+     * an event, the work counts as ready right away. An event on counters in host memory is there
+     * once the counters have reached their values (e.g. written by the device, see
+     * kernels::device::aux::hostcopy::signalHost()); only such events, for the queues of the
+     * progress thread.
      */
     void post(Event after, std::function<void()> work);
+
+    /**
+     * Runs `work` once `ready()` returns true (e.g. once MPI has completed a request), and after
+     * the work posted before it; `ready` gets called on the polling thread, until then.
+     */
+    void post(std::function<bool()> ready, std::function<void()> work);
+
+    /**
+     * Whether the progress thread of the actor polls this queue and runs its work, while it runs
+     * (see startProgressThread()); otherwise the thread that polls the actor does, also with an
+     * executor or a task graph. For work that the device waits for (e.g. the MPI operations of the
+     * halo exchange): the thread that enqueues the work of the device may block (e.g. in a launch,
+     * once the device runs far behind) until the device gets on, and hold a lock of the device
+     * runtime meanwhile. So neither the progress thread nor the work may call the device runtime:
+     * the work waits for counters in host memory instead of events, and must not use device memory
+     * (e.g. with MPI). Before any work is posted.
+     */
+    void setOnProgressThread(bool onProgressThread) { onProgressThread_ = onProgressThread; }
 
     /**
      * Room for the data of the next piece of work, which the device writes on the stream of the
@@ -123,24 +146,34 @@ public:
 
     /// the work posted so far that is not done yet
     [[nodiscard]] std::size_t pending() const {
-      return posted_ - done_.load(std::memory_order_acquire);
+      return posted_.load(std::memory_order_acquire) - done_.load(std::memory_order_acquire);
     }
 
 private:
     struct Item {
       Event after;
+      // instead of the event, if given
+      std::function<bool()> ready;
       std::function<void()> work;
     };
 
-    // the work that waits for the device
+    // the progress thread takes the queues that belong to it
+    friend class HostActor;
+
+    /// runs the ready work; on the progress thread, if the queue belongs to it
+    bool progressHere();
+
+    // the work that waits for the device; with the progress thread, guarded by the mutex
     std::deque<Item> items_;
-    std::size_t posted_{0};
+    std::mutex mutex_;
+    std::atomic<std::size_t> posted_{0};
     // the work done so far, on whatever thread it ran
     std::atomic<std::size_t> done_{0};
     // where the ready work becomes actions (tasks with a task graph), one after the other
     HostRuntime runtime_;
     HostActor& actor_;
     std::size_t bytes_;
+    bool onProgressThread_{false};
     std::unique_ptr<HostBufferPool> buffers_;
   };
 
@@ -213,8 +246,6 @@ private:
   /// an actor that asks `completed` instead (e.g. for tests)
   explicit HostActor(Completed completed);
 
-  ~HostActor() = default;
-
   HostActor(const HostActor&) = delete;
   HostActor& operator=(const HostActor&) = delete;
   HostActor(HostActor&&) = delete;
@@ -254,13 +285,31 @@ private:
   void beginRecording(Recording& recording);
   void endRecording();
 
+  /**
+   * Starts a thread that polls the queues that belong to it (see Queue::setOnProgressThread()),
+   * and runs their work, until stopProgressThread(); `onStart` runs on it first (e.g. to pin it).
+   */
+  void startProgressThread(std::function<void()> onStart = {});
+
+  /// stops the progress thread once its queues are empty; their work then runs on the poller again
+  void stopProgressThread();
+
+  [[nodiscard]] bool progressThreadRuns() const { return progressThread_.joinable(); }
+
+  ~HostActor();
+
   private:
   [[nodiscard]] bool ready(const Event& event) const;
+  void runProgressThread(const std::function<void()>& onStart);
 
   Completed completed_;
   Executor executor_;
   std::vector<Queue*> queues_;
+  // for the list of the queues, which the progress thread goes through
+  std::mutex queuesMutex_;
   Recording* recording_{nullptr};
+  std::thread progressThread_;
+  std::atomic<bool> stopProgress_{false};
 };
 
 } // namespace seissol::parallel::runtime

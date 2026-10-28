@@ -153,9 +153,10 @@ That is especially useful, since some MPI implementations are not GPU-aware and 
 communication on device buffers.
 As a (subpar) alternative, you can also try using ``SEISSOL_USM_MPI=1`` and ``direct`` to utilize unified/managed memory.
 
-Three further values run the exchange on GPU streams: ``ccl`` (NCCL, RCCL or oneCCL),
-``stream-mpi`` (MPI operations enqueued on a stream) and ``shmem`` (NVSHMEM, ROCSHMEM or Intel SHMEM).
-They need to be enabled at build time and are considered experimental;
+Four further values run the exchange on GPU streams: ``ccl`` (NCCL, RCCL or oneCCL),
+``stream-mpi`` (MPI operations enqueued on a stream), ``shmem`` (NVSHMEM, ROCSHMEM or Intel SHMEM),
+and ``actor-mpi`` (any MPI from the host, with the GPU streams waiting for it).
+They are considered experimental, and all but the last one need to be enabled at build time;
 see :ref:`gpu-time-stepping` for their requirements, and for the other ways of running the time stepping on GPUs.
 
 .. figure:: figures/gpu-comm-layer-data-flow.png

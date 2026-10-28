@@ -484,6 +484,19 @@ class StreamRuntime {
     if (!event) {
       return;
     }
+    if (event.onCounters()) {
+      if (building()) {
+        logError() << "Work that gets built into a graph cannot wait for counters on the host yet.";
+      }
+      // the stream waits on the device until the host has advanced them
+      for (const auto& wait : event.counters()) {
+        if (wait.counter != nullptr) {
+          device().api().streamWaitMemory(
+              stream(), const_cast<std::uint32_t*>(wait.counter), wait.value);
+        }
+      }
+      return;
+    }
     if (building()) {
       if (event.graph() != buildGraph().get()) {
         logError()

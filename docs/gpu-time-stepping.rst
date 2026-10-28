@@ -79,17 +79,17 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
        of the face relations) one after another in the recordings, instead of as nodes of their own that can run concurrently.
        The graphs get fewer nodes, which makes them quicker to record and to launch (see below).
    * - ``SEISSOL_TRANSFER_MODE``
-     - How the halo data gets exchanged: ``direct`` (default), ``host``, ``ccl``, ``stream-mpi``, ``shmem``.
+     - How the halo data gets exchanged: ``direct`` (default), ``host``, ``ccl``, ``stream-mpi``, ``shmem``, ``actor-mpi``.
        The name ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`` is accepted as well.
    * - ``SEISSOL_EXCHANGE_PER_DIRECTION=1``
-     - For ``ccl`` and ``stream-mpi``: one GPU stream per direction between two time clusters,
+     - For ``ccl``, ``stream-mpi`` and ``actor-mpi``: one GPU stream per direction between two time clusters,
        instead of one stream for all exchanges in a global order (see below).
        ``SEISSOL_CCL_PER_DIRECTION`` is accepted as well.
    * - ``SEISSOL_EXCHANGE_LANES``
-     - Experimental. For ``ccl`` and ``stream-mpi`` in the global order: split it into this many lanes
+     - Experimental. For ``ccl``, ``stream-mpi`` and ``actor-mpi`` in the global order: split it into this many lanes
        (1 by default) that run at the same time (see below).
    * - ``SEISSOL_EXCHANGE_SPLIT_BY_NODE=1``
-     - Experimental. For ``ccl``, ``stream-mpi`` and ``shmem``: exchange on the GPU streams only with the
+     - Experimental. For ``ccl``, ``stream-mpi``, ``shmem`` and ``actor-mpi``: exchange on the GPU streams only with the
        processes of the own node, and with the others over GPU-aware MPI from the host, as ``direct`` does
        (see below). Not with ``SEISSOL_SUPERSTEP_GRAPHS=1``.
    * - ``SEISSOL_SCRATCHPAD_PER_LAYER=1``
@@ -126,6 +126,9 @@ The remaining modes run the exchange on GPU streams. They need to be enabled at 
    * - ``shmem``
      - ``-DSHMEM=ON``
      - NVSHMEM (CUDA), ROCSHMEM (HIP), Intel SHMEM (oneAPI)
+   * - ``actor-mpi``
+     - (none; CUDA and HIP)
+     - any MPI (experimental, see below)
 
 These modes launch the operations of an exchange as one group.
 Operations that occupy their stream until the peer has posted the counterpart could wait for each other in a cycle
@@ -161,6 +164,21 @@ On two nodes of LUMI (MI250X, ROCm 6.3, eight ranks each, October 2026), TPV5 wi
 concurrent clusters took 34 s with ``ccl`` in the global order, 4.0 s split by node, and 3.8 s with ``direct``.
 Lanes got stuck there: RCCL hung with a second communicator over the network (with the RCCL of TheRock even with
 one), while on one node, two and three lanes took 4.3 and 4.8 s (one lane: 4.2 s).
+
+``actor-mpi`` does what ``stream-mpi`` does with any MPI, from the host: a group copies the copy regions of its sends
+into buffers in pinned host memory by kernels, and counts that in host memory; a thread of the host sends them once
+the count is there, and receives into host buffers as well, counting the completed operations in host memory. The
+stream waits for these counts (``cuStreamWaitValue32``, ``hipStreamWaitValue32``) before it copies the received data
+into the ghost regions, and before it overwrites the host buffers of a send. So the host never waits for MPI to
+enqueue the work of the GPU, and neither the thread nor MPI calls the GPU runtime: the thread that enqueues the work
+may block in it meanwhile (e.g. in a launch while the GPU waits), holding locks of the runtime that the copies of a
+GPU-aware MPI need as well. Two things on the GPU must not wait for the host then: CUDA must not load a kernel on its
+first launch, which may wait for the GPU, so ``actor-mpi`` sets ``CUDA_MODULE_LOADING=EAGER`` unless it is set
+already; and a stream that waits blocks the other streams on its hardware queue as well (CUDA has eight by default,
+``CUDA_DEVICE_MAX_CONNECTIONS``; on an RTX 5070, eight waiting streams held up all others), which the global order keeps
+from waiting for each other in a cycle, as for the other modes.
+On a workstation (CUDA, RTX 5070, four ranks on one GPU, October 2026), TPV13 took as long as with ``ccl`` (38 s,
+``direct``: 3.1 s; the ranks share the GPU in time slices, and each wait on the GPU costs one).
 
 ``shmem`` puts the data into a staging window of the receiving process in symmetric memory
 (as large as the ghost layers of the process with the largest ones),
@@ -205,6 +223,7 @@ or ``ccl`` or ``shmem`` with NVSHMEM or ROCSHMEM in the global order and ``SEISS
 without a communication thread.
 ``stream-mpi`` cannot be recorded: MPICH creates the requests of an enqueued operation on the host
 and releases its state in host functions on the stream, which a replay would run again.
+Neither can ``actor-mpi`` yet: the host takes up the MPI operations of a group when it enqueues the group.
 Neither can ``shmem`` with Intel SHMEM: a replay would signal and wait for the counts of the recorded exchanges.
 If a requirement is missing, a warning says which one, and the super-timesteps (and outputs) run as usual.
 Clusters that compute on the host (``SEISSOL_DEVICE_HOST_SWITCH``) keep all super-timesteps from getting recorded;

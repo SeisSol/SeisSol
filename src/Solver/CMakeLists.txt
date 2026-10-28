@@ -23,6 +23,7 @@ add_library(seissol-solver OBJECT
     TimeStepping/Halo/TaskHaloTransport.cpp
     TimeStepping/Halo/Mpi/MpiHaloTransport.cpp
     TimeStepping/Halo/Mpi/StagedMpiHaloTransport.cpp
+    TimeStepping/Halo/Stream/ActorMpiExchangeScheduler.cpp
     TimeStepping/Halo/Stream/CclExchangeScheduler.cpp
     TimeStepping/Halo/Stream/ExchangeScheduler.cpp
     TimeStepping/Halo/Stream/ShmemExchangeScheduler.cpp

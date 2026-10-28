@@ -9,10 +9,12 @@
 
 #include "TimeManager.h"
 
+#include "Alignment.h"
 #include "Common/ConfigDispatch.h"
 #include "Common/Executor.h"
 #include "Common/Iterator.h"
 #include "Common/Json.h"
+#include "Common/Typedefs.h"
 #include "DynamicRupture/Output/OutputManager.h"
 #include "DynamicRupture/Output/PickpointSampling.h"
 #include "Initializer/BasicTypedefs.h"
@@ -35,6 +37,7 @@
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
+#include "Parallel/Pin.h"
 #include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
@@ -63,10 +66,12 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <mpi.h>
 #include <numeric>
+#include <pthread.h>
 #include <set>
 #include <sstream>
 #include <string>
@@ -400,6 +405,19 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                              clusterLayout.globalClusterCount * runConfigs.size(),
                                              runConfigs.size(),
                                              exchangeLanes(seissolInstance_.env()));
+  if (Mpi::mpi.getPreferredDataTransferMode() == Mpi::DataTransferMode::ActorMpi) {
+    // MPI goes on while this thread waits for the device; on the CPUs the OpenMP threads leave
+    // free, if there are any
+    const auto cpus = seissolInstance_.pinning().getFreeCPUsMask();
+    std::function<void()> pin;
+    if (!parallel::Pinning::freeCPUsMaskEmpty(cpus)) {
+      pin = [cpus]() { cpus.setaffinity_np(pthread_self()); };
+    }
+    parallel::runtime::HostActor::instance().startProgressThread(pin);
+    logInfo() << "A thread of its own" << (pin ? "on the free CPUs" : "")
+              << "sends and receives the halo data with MPI through host memory; the device"
+              << "waits for it.";
+  }
   if (useExchangeSplitByNode(seissolInstance_.env()) && haloTransports_->scheduler() != nullptr) {
     haloTransports_->splitByNode(ranksOnNode(seissolInstance_.env()));
     logInfo() << "The halo exchange on device streams stays within the node; with the processes"
@@ -747,6 +765,9 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     // the exchanges of the epoch may still need this thread to get done
     communicationManager_->awaitExchanges();
   });
+  // the work on the host that the device may still wait for (e.g. the MPI operations of the
+  // actor-mpi transfer mode), and the rest of it
+  parallel::runtime::HostActor::instance().drain();
 #ifdef ACL_DEVICE
   if (concurrent_) {
     // the clusters have only enqueued their work
@@ -1283,6 +1304,8 @@ void TimeManager::freeDynamicResources() {
     messages[1] += cluster->receivedMessages();
     cluster->finalize();
   }
+  // the MPI operations of the actor-mpi transfer mode are done with the transports
+  parallel::runtime::HostActor::instance().stopProgressThread();
   for (auto& cluster : clusters_) {
     cluster->finalize();
   }
