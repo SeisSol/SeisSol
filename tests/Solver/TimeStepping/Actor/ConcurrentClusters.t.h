@@ -101,7 +101,12 @@ class SimulatedDevice {
 
   void run(std::size_t index, ActorAction action) {
     auto& cluster = clusters[index];
-    if (action == ActorAction::Predict) {
+    // the prediction of a face cluster does nothing; its correction (the face work) writes the data
+    // of the faces, which the corrections of the cells read
+    const bool face = cluster.readiness == DataReadiness::AfterCorrection;
+    if (action == ActorAction::Predict && face) {
+      cluster.predictions += cluster.rate;
+    } else if (action == ActorAction::Predict) {
       // the neighbors must have read what this prediction overwrites
       for (const auto neighbor : cluster.neighbors) {
         const auto& other = clusters[neighbor];
@@ -112,6 +117,13 @@ class SimulatedDevice {
       }
       cluster.predictions += cluster.rate;
     } else {
+      // the cells must have read the face data of the step before, which the face work overwrites
+      for (const auto neighbor : face ? cluster.neighbors : std::vector<std::size_t>{}) {
+        const auto& other = clusters[neighbor];
+        if (other.corrections < cluster.corrections && other.stepsUntilSync > other.corrections) {
+          ++violations;
+        }
+      }
       // the neighbors must have provided what this correction reads
       for (const auto neighbor : cluster.neighbors) {
         const auto& other = clusters[neighbor];
@@ -145,8 +157,23 @@ class EnqueueingCluster : public AbstractTimeCluster {
 
   protected:
   void start() override {}
-  void predict() override { action_ = ActorAction::Predict; }
+  void predict() override {
+    action_ = ActorAction::Predict;
+    if (actionAccess(ActorAction::Predict) == DataAccess::None) {
+      // the device keeps the books of the prediction, which neither waits nor has an event
+      device_.enqueue(index_, action_, {}, nextEvent_++);
+    }
+  }
   void correct() override { action_ = ActorAction::Correct; }
+
+  // as the face clusters of the solver (see FaceCluster)
+  [[nodiscard]] DataAccess dataAccess(ActorAction action) const override {
+    if (readiness_ == DataReadiness::AfterCorrection) {
+      return action == ActorAction::Predict ? DataAccess::None : DataAccess::ReadWrite;
+    }
+    return AbstractTimeCluster::dataAccess(action);
+  }
+
   void handleNeighborPrediction(const NeighborCluster& /*neighbor*/) override {}
   void handleNeighborCorrection(const NeighborCluster& /*neighbor*/) override {}
   void printTimeoutMessage(std::chrono::seconds /*timeSinceLastUpdate*/) override {}
@@ -181,7 +208,10 @@ struct ConcurrentLayout {
   std::uintptr_t nextEvent{1};
   std::vector<std::unique_ptr<EnqueueingCluster>> clusters;
 
-  ConcurrentLayout(std::size_t clusterCount, long ratio, std::mt19937& random) {
+  ConcurrentLayout(std::size_t clusterCount,
+                   long ratio,
+                   std::mt19937& random,
+                   bool accessEvents = false) {
     std::bernoulli_distribution withFaces(0.6);
     std::vector<std::size_t> cells;
     std::vector<long> cellCluster;
@@ -208,6 +238,9 @@ struct ConcurrentLayout {
         connect(face, copy);
       }
       rate *= ratio;
+    }
+    for (auto& cluster : clusters) {
+      cluster->setAccessEvents(accessEvents);
     }
   }
 
@@ -367,26 +400,31 @@ TEST_CASE("Concurrent clusters wait for their neighbors on the device" *
           doctest::test_suite("solver")) {
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 random(2468);
-  for (const auto alongPlan : {true, false}) {
-    std::size_t violations = 0;
-    for (int trial = 0; trial < 200; ++trial) {
-      std::uniform_int_distribution<std::size_t> clusterCount(1, 4);
-      std::uniform_int_distribution<long> ratio(2, 3);
-      std::uniform_int_distribution<long> interval(1, 30);
-      ConcurrentLayout layout(clusterCount(random), ratio(random), random);
-      std::vector<long> syncTimes;
-      long time = 0;
-      for (int i = 0; i < 3; ++i) {
-        time += interval(random);
-        syncTimes.push_back(time);
+  // waiting for the latest action of each neighbor, or only for its latest writes before reading
+  // and for its latest reads before writing
+  for (const auto accessEvents : {false, true}) {
+    for (const auto alongPlan : {true, false}) {
+      std::size_t violations = 0;
+      for (int trial = 0; trial < 200; ++trial) {
+        std::uniform_int_distribution<std::size_t> clusterCount(1, 4);
+        std::uniform_int_distribution<long> ratio(2, 3);
+        std::uniform_int_distribution<long> interval(1, 30);
+        ConcurrentLayout layout(clusterCount(random), ratio(random), random, accessEvents);
+        std::vector<long> syncTimes;
+        long time = 0;
+        for (int i = 0; i < 3; ++i) {
+          time += interval(random);
+          syncTimes.push_back(time);
+        }
+        CAPTURE(accessEvents);
+        CAPTURE(alongPlan);
+        CAPTURE(trial);
+        const auto trialViolations = runConcurrently(layout, syncTimes, alongPlan, random);
+        CHECK(trialViolations == 0);
+        violations += trialViolations;
       }
-      CAPTURE(alongPlan);
-      CAPTURE(trial);
-      const auto trialViolations = runConcurrently(layout, syncTimes, alongPlan, random);
-      CHECK(trialViolations == 0);
-      violations += trialViolations;
+      CHECK(violations == 0);
     }
-    CHECK(violations == 0);
   }
 }
 

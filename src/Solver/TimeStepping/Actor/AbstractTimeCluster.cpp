@@ -78,9 +78,10 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     const auto traceStart = traceBegin();
     stepWork_ = prepare(ActorAction::Correct);
     if (deviceWork_) {
-      waitForNeighbors();
+      const auto access = actionAccess(ActorAction::Correct);
+      waitForNeighbors(access);
       correct();
-      publishEvent();
+      publishEvent(access);
     }
     traceEnd(ActorAction::Correct, traceStart);
     ct_.correctionTime += timeStepSize();
@@ -97,9 +98,10 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     const auto traceStart = traceBegin();
     stepWork_ = prepare(ActorAction::Predict);
     if (deviceWork_) {
-      waitForNeighbors();
+      const auto access = actionAccess(ActorAction::Predict);
+      waitForNeighbors(access);
       predict();
-      publishEvent();
+      publishEvent(access);
     }
     traceEnd(ActorAction::Predict, traceStart);
     ct_.predictionsSinceLastSync += ct_.timeStepRate;
@@ -182,20 +184,39 @@ void AbstractTimeCluster::trackProgress(bool progressed) {
   }
 }
 
-void AbstractTimeCluster::waitForNeighbors() {
-  if (concurrent_) {
-    // everything a neighbor did before this action has been enqueued before it
-    for (const auto& neighbor : neighbors_) {
-      if (const auto event = neighbor.progress->event()) {
-        waitForEvent(event);
-      }
+DataAccess AbstractTimeCluster::actionAccess(ActorAction action) const {
+  return accessEvents_ ? dataAccess(action) : DataAccess::ReadWrite;
+}
+
+ActorEvent AbstractTimeCluster::writesOf(const NeighborCluster& neighbor) const {
+  return accessEvents_ ? neighbor.progress->writerEvent() : neighbor.progress->event();
+}
+
+ActorEvent AbstractTimeCluster::readsOf(const NeighborCluster& neighbor) const {
+  return accessEvents_ ? neighbor.progress->readerEvent() : neighbor.progress->event();
+}
+
+void AbstractTimeCluster::waitForNeighbors(DataAccess access) {
+  if (!concurrent_) {
+    return;
+  }
+  // everything a neighbor did before this action has been enqueued before it
+  for (const auto& neighbor : neighbors_) {
+    // before reading what the neighbor writes, and before overwriting what it reads
+    const auto written = reads(access) ? writesOf(neighbor) : ActorEvent();
+    const auto read = writes(access) ? readsOf(neighbor) : ActorEvent();
+    if (written) {
+      waitForEvent(written);
+    }
+    if (read && read.get() != written.get()) {
+      waitForEvent(read);
     }
   }
 }
 
-void AbstractTimeCluster::publishEvent() {
-  if (concurrent_) {
-    progress_.publishEvent(recordActionEvent());
+void AbstractTimeCluster::publishEvent(DataAccess access) {
+  if (concurrent_ && access != DataAccess::None) {
+    progress_.publishEvent(recordActionEvent(), access);
   }
 }
 

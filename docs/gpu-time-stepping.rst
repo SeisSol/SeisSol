@@ -57,6 +57,9 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
    * - ``SEISSOL_CONCURRENT_CLUSTERS=1``
      - GPU builds only. The clusters only enqueue their GPU work and wait for each other on the GPU (via events),
        instead of waiting for each of their steps. Needs separate scratchpads per layer, which it enables.
+   * - ``SEISSOL_ACCESS_EVENTS=0``
+     - With concurrent clusters, wait for the latest action of each neighbor, instead of only for what the work depends
+       on (see below; on by default).
    * - ``SEISSOL_SUPERSTEP_GRAPHS=1``
      - Record the GPU work of a super-timestep into a graph, and replay it for all further super-timesteps of the same kind
        (see below). Needs ``SEISSOL_TIMESTEPPING_PLAN=1`` and ``SEISSOL_CONCURRENT_CLUSTERS=1``.
@@ -236,6 +239,13 @@ device library, with ROCSHMEM in a shared library of SeisSol's own (``libseissol
 all calls of ROCSHMEM go; ``-DSHMEM=ON`` sets this up.
 Intel SHMEM gets the counts from the host when the operations are enqueued.
 
+With concurrent clusters, the work of an action waits for what it depends on: a prediction, which writes the buffers and
+derivatives that the neighbors read, for their latest reads (corrections, face work, sends); a correction, which reads
+the data of the neighbors, for their latest writes (predictions, face work, receives); the face work for both; the
+prediction of a face cluster does nothing and waits for nothing. With ``SEISSOL_ACCESS_EVENTS=0``, every action waits
+for the latest action of each neighbor instead, which chains the copy and the interior layer of a cluster one after the
+other (their predictions, then their corrections), and all layers of neighboring time clusters as well.
+
 With ``SEISSOL_CONCURRENT_CLUSTERS=1``, the exchange is ordered on the GPU as well:
 the groups wait for the GPU work that produces or last reads their data,
 and the clusters wait for the groups they need, all via events.
@@ -318,11 +328,17 @@ concurrent clusters and the host actor (``SEISSOL_HOST_ACTOR=1``):
      - 5.6 to 5.9 s
 
 With fences of the system for all waits, more own queues made it slower, as with HIP, and one was the fastest (TPV13:
-4.8 s, against 5.6 s with two and 7.1 s with eight); with fences of the device, two queues are the fastest, which keep
-the copy layers apart from the interior layers (as the ``halo`` layout does, which was as fast with ``actor-mpi``). The
-device computed
-57 to 59 % of the time for TPV13 and 83 to 84 % for TPV5 on two own queues (HIP: 51 % and 73 %; the rank with the least
-work 25 % and 29 %). With ``actor-mpi``, the copy layers wait for MPI on the GPU; on queues apart from the interior
+4.8 s, against 5.6 s with two and 7.1 s with eight). With fences of the device, two queues were the fastest, which keep
+the copy layers apart from the interior layers (as the ``halo`` layout does, which was as fast with ``actor-mpi``); the
+device computed 57 to 59 % of the time for TPV13 and 83 to 84 % for TPV5 then (HIP: 51 % and 73 %; the rank with the
+least work 25 % and 29 %). With the waits for what the work depends on (``SEISSOL_ACCESS_EVENTS``, see above), more
+queues pay off: TPV13 took 2.7 to 2.9 s on two own queues, 2.4 to 2.5 s on four and 2.4 s on eight (without: 3.9 s on
+four), TPV5 1.8 to 1.9 s, 1.6 s and 1.5 to 1.6 s; ``actor-mpi`` on four 2.8 to 3.0 s and 1.6 s (three runs each, the
+outputs bitwise the same; with HIP and ``GPU_MAX_HW_QUEUES=2``, they made it 1 to 3 % slower). A trace of the kernels
+(``SEISSOL_TRACE_KERNELS``, see :ref:`trace`) showed why: on the ranks with the most work, the queue of the copy layers
+ran kernels 85 to 88 % of the time, mostly one right after the other, while kernels of the copy and of the interior
+layer that ran at the same time took about as long as alone; the kernels of these small setups leave most of the GPU
+idle. With ``actor-mpi``, the copy layers wait for MPI on the GPU; on queues apart from the interior
 layers, these go on meanwhile. On the same queues, TPV13 hung (with one queue for all clusters, before the fences of the
 device), so ``actor-mpi`` takes an even number of own queues, which keeps them apart; the priorities of the ``halo``
 layout, lanes on queues of their own (``SEISSOL_EXCHANGE_LANES``), transport events and kernel arguments in device

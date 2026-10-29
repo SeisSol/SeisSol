@@ -41,6 +41,12 @@ class FaceCluster : public AbstractTimeCluster {
   void predict() final {}
   void correct() final;
 
+  /// the face work reads the cells (and the ghost layers) and writes the data of the faces; the
+  /// prediction does nothing, so it neither waits nor has an event
+  [[nodiscard]] DataAccess dataAccess(ActorAction action) const override {
+    return action == ActorAction::Predict ? DataAccess::None : DataAccess::ReadWrite;
+  }
+
   void handleNeighborPrediction(const NeighborCluster& /*neighborCluster*/) override {}
   void handleNeighborCorrection(const NeighborCluster& /*neighborCluster*/) override {}
 };

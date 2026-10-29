@@ -12,6 +12,7 @@
 #include "Parallel/Runtime/Event.h"
 
 #include <atomic>
+#include <cstdint>
 #include <limits>
 #include <mutex>
 #include <string>
@@ -35,6 +36,17 @@ namespace seissol::solver {
 using ActorEvent = parallel::runtime::Event;
 
 /**
+ * What the device work of an action does with the data that the clusters share: the buffers and
+ * derivatives of the cells, the data of the faces, and the ghost layers. Work that reads shared
+ * data waits for the latest writes of the neighbors, work that writes it for their latest reads
+ * (see ActorProgress).
+ */
+enum class DataAccess : std::uint8_t { None = 0, Read = 1, Write = 2, ReadWrite = 3 };
+
+inline bool reads(DataAccess access) { return (static_cast<unsigned>(access) & 1U) != 0; }
+inline bool writes(DataAccess access) { return (static_cast<unsigned>(access) & 2U) != 0; }
+
+/**
  * The progress of a cluster since the last synchronization point, as seen by the other clusters.
  *
  * Only the cluster itself writes its progress, after each of its actions; its neighbors read it,
@@ -49,12 +61,18 @@ struct ActorProgress {
   std::atomic<double> correctionTime{0.0};
 
   /**
-   * Makes `event` the one that completes with the device work of the latest action. Before the
-   * step counters of the action, so that a neighbor which has seen the action also sees its event
-   * (or a later one).
+   * Makes `event` the one that completes with the device work of the latest action, and of the
+   * latest one that read or wrote shared data, as `access` says. Before the step counters of the
+   * action, so that a neighbor which has seen the action also sees its event (or a later one).
    */
-  void publishEvent(ActorEvent event) {
+  void publishEvent(ActorEvent event, DataAccess access = DataAccess::ReadWrite) {
     const std::scoped_lock lock(eventMutex_);
+    if (reads(access)) {
+      reader_ = event;
+    }
+    if (writes(access)) {
+      writer_ = event;
+    }
     event_ = std::move(event);
   }
 
@@ -67,9 +85,23 @@ struct ActorProgress {
     return event_;
   }
 
+  /// the event of the latest action that read shared data: what work that overwrites it waits for
+  [[nodiscard]] ActorEvent readerEvent() const {
+    const std::scoped_lock lock(eventMutex_);
+    return reader_;
+  }
+
+  /// the event of the latest action that wrote shared data: what work that reads it waits for
+  [[nodiscard]] ActorEvent writerEvent() const {
+    const std::scoped_lock lock(eventMutex_);
+    return writer_;
+  }
+
   private:
   mutable std::mutex eventMutex_;
   ActorEvent event_;
+  ActorEvent reader_;
+  ActorEvent writer_;
 };
 
 enum class ActorState { Corrected, Predicted, Synced };

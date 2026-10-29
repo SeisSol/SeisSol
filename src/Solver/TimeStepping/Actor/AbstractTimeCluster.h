@@ -57,14 +57,32 @@ class AbstractTimeCluster {
   void trackProgress(bool progressed);
 
   /**
-   * With concurrent clusters, makes the next action wait for the latest actions of the neighbors.
+   * With concurrent clusters, makes the next action wait for the latest actions of the neighbors:
+   * with access events, for their latest writes if it reads shared data, and for their latest reads
+   * if it writes shared data (see DataAccess); otherwise, for their latest actions of any kind.
    */
-  void waitForNeighbors();
+  void waitForNeighbors(DataAccess access);
 
   /**
    * With concurrent clusters, publishes the event of the action just enqueued.
    */
-  void publishEvent();
+  void publishEvent(DataAccess access);
+
+  /**
+   * What the device work of an action does with the shared data; the cell layers write it when
+   * they predict, and read it when they correct.
+   */
+  [[nodiscard]] virtual DataAccess dataAccess(ActorAction action) const {
+    return action == ActorAction::Predict ? DataAccess::Write : DataAccess::Read;
+  }
+
+  /// dataAccess(), or reads and writes of everything without access events
+  [[nodiscard]] DataAccess actionAccess(ActorAction action) const;
+
+  /// the event that work reading the data of `neighbor` waits for (see waitForNeighbors())
+  [[nodiscard]] ActorEvent writesOf(const NeighborCluster& neighbor) const;
+  /// the event that work overwriting data that `neighbor` reads waits for
+  [[nodiscard]] ActorEvent readsOf(const NeighborCluster& neighbor) const;
 
   /**
    * Returns an event that completes with the device work enqueued so far; empty if there is none.
@@ -209,6 +227,8 @@ class AbstractTimeCluster {
 
   //! only enqueue the device work of an action, instead of waiting for it
   bool concurrent_{false};
+  //! with concurrent clusters, wait for the reads and writes of the neighbors apart
+  bool accessEvents_{false};
 
   //! what the host part of the latest action has decided
   StepWork stepWork_{};
@@ -249,6 +269,12 @@ class AbstractTimeCluster {
    * the device work of the latest action of each neighbor, and publishes an event for its own.
    */
   void setConcurrent(bool concurrent) { concurrent_ = concurrent; }
+
+  /**
+   * With concurrent clusters, makes the actions wait only for the latest reads or writes of the
+   * shared data by the neighbors that they depend on (see waitForNeighbors()).
+   */
+  void setAccessEvents(bool accessEvents) { accessEvents_ = accessEvents; }
 
   /**
    * Connects two clusters that wait for each other.
@@ -329,7 +355,9 @@ class AbstractTimeCluster {
   /**
    * Publishes the given event as the one that completes with the work of the latest action.
    */
-  void publishEvent(ActorEvent event) { progress_.publishEvent(std::move(event)); }
+  void publishEvent(ActorEvent event, DataAccess access = DataAccess::ReadWrite) {
+    progress_.publishEvent(std::move(event), access);
+  }
 
   /**
    * The number of steps of the smallest time cluster until the synchronization point; set by

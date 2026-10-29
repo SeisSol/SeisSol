@@ -552,11 +552,18 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   if (concurrent_) {
     logInfo() << "The clusters run concurrently on the device.";
     parallel::runtime::hostFunctionsOnStreams() = true;
+    const bool accessEvents = useAccessEvents(seissolInstance_.env());
+    if (accessEvents) {
+      logInfo() << "The work of a cluster waits for the latest writes of its neighbors before it"
+                << "reads their data, and for their latest reads before it overwrites its own.";
+    }
     for (auto* cluster : clusters_) {
       cluster->setConcurrent(true);
+      cluster->setAccessEvents(accessEvents);
     }
     for (auto& cluster : *ghostClusterPointer) {
       cluster->setConcurrent(true);
+      cluster->setAccessEvents(accessEvents);
     }
     auto* scheduler = haloTransports_->scheduler();
     if (scheduler != nullptr && scheduler->launchOrder() == LaunchOrder::Global) {

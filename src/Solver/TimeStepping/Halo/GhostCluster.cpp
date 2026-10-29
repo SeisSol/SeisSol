@@ -167,7 +167,7 @@ void GhostCluster::startDeferred() {
 }
 
 void GhostCluster::start() {
-  receiveGhostLayer(std::min(exchangePeriod(), finalSteps()), neighbors_.front().progress->event());
+  receiveGhostLayer(std::min(exchangePeriod(), finalSteps()), readsOf(neighbors_.front()));
 }
 
 void GhostCluster::handleNeighborPrediction(const NeighborCluster& neighbor) {
@@ -181,12 +181,12 @@ void GhostCluster::handleNeighborPrediction(const NeighborCluster& neighbor) {
     const auto target = std::min((predictions + rate - 1) / rate * rate, finalSteps());
     if (transport_->streamOrdered()) {
       // the send waits on the device until the copy layer has written the data
-      sendCopyLayer(target, neighbor.progress->event());
+      sendCopyLayer(target, writesOf(neighbor));
     } else if (concurrent()) {
       assert(!sendDeferred_);
       sendDeferred_ = true;
       deferredSendTarget_ = target;
-      deferredSendEvent_ = neighbor.progress->event();
+      deferredSendEvent_ = writesOf(neighbor);
     } else {
       sendCopyLayer(target);
     }
@@ -211,12 +211,12 @@ void GhostCluster::handleNeighborCorrection(const NeighborCluster& neighbor) {
     const auto target = std::min(ct_.predictionsSinceLastSync + exchangePeriod(), finalSteps);
     if (transport_->streamOrdered()) {
       // the receive waits on the device until the copy layer has read the last ghost data
-      receiveGhostLayer(target, neighbor.progress->event());
+      receiveGhostLayer(target, readsOf(neighbor));
     } else if (concurrent()) {
       assert(!receiveDeferred_);
       receiveDeferred_ = true;
       deferredReceiveTarget_ = target;
-      deferredReceiveEvent_ = neighbor.progress->event();
+      deferredReceiveEvent_ = readsOf(neighbor);
     } else {
       receiveGhostLayer(target);
     }

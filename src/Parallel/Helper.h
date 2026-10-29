@@ -83,6 +83,13 @@ inline bool useConcurrentClusters(utils::Env& env) {
 }
 
 /**
+ * Whether concurrent clusters wait for each other by what their work does with the shared data:
+ * before reading, for the latest writes of the neighbors, before writing, for their latest reads;
+ * instead of for their latest actions of any kind.
+ */
+inline bool useAccessEvents(utils::Env& env) { return env.get<bool>("ACCESS_EVENTS", true); }
+
+/**
  * Whether the device work of regular super-timesteps gets recorded into graphs and replayed.
  * Requires the time stepping plan and concurrent clusters.
  */
