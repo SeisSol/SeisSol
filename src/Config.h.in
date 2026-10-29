@@ -22,7 +22,8 @@ namespace seissol {
 
 // contains everything that modifies the kernels in a numerical sense
 // (i.e. for which the user might re-build)
-// TODO: make concept once we switch to C++20
+// (the concept ConfigC in Model/Concepts.h describes a configuration; Kernels/BuiltConfigs.cpp
+// checks every configuration of the build against it)
 template <std::size_t OrderP,
           std::size_t MechanismsP,
           model::MaterialType MaterialTypeP,

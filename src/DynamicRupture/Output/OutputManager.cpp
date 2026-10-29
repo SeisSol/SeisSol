@@ -429,7 +429,8 @@ void OutputManager::initPickpointOutput() {
 
     auto& files = ppFiles_[id];
     files.clear();
-    // (C++17 lambdas cannot capture the structured binding outputData itself)
+    // (with OpenMP enabled, Clang 18 does not let a lambda capture the structured binding
+    // outputData itself)
     const auto& receivers = outputData->receivers;
     for (auto& [index, simulations] : simulationsOfReceiver) {
       std::ranges::sort(simulations, [&receivers](std::size_t a, std::size_t b) {
@@ -711,8 +712,8 @@ void OutputManager::collectPickpointSamples() {
   }
 
   for (std::size_t row = 0; row < ppTableRows_.size(); ++row) {
-    // named rather than bound, since the lambda below captures the point, which a structured
-    // binding only allows from C++20 on
+    // named rather than bound, since the lambda below captures the point, which Clang 18 does not
+    // allow for a structured binding with OpenMP enabled
     const auto layerId = ppTableRows_[row].first;
     const auto point = ppTableRows_[row].second;
     auto& outputData = *ppOutputData_.at(layerId);

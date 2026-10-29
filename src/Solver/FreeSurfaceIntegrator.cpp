@@ -105,7 +105,7 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   std::size_t surfaceCellGlobal = 0;
   for (auto [ltsLayer, surfaceLtsLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
-    // (lambdas cannot capture structured bindings in C++17)
+    // (with OpenMP enabled, Clang 18 does not let a lambda capture a structured binding)
     auto& layer = ltsLayer;
     auto& surfaceLayer = surfaceLtsLayer;
     // the displacements of a layer are held in the configuration of the layer

@@ -478,7 +478,6 @@ void BaseDRInitializer::initializeOtherVariables(DynamicRupture::Layer& layer) {
 }
 
 bool BaseDRInitializer::faultProvides(const std::string& parameter) {
-  // TODO: Use C++20 contains
   return faultParameterNames_.contains(parameter);
 }
 
