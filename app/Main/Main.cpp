@@ -231,6 +231,11 @@ int main(int argc, char* argv[]) {
     device.api().initialize();
     if (ownQueues > 0 && device.api().enableOwnQueues()) {
       seissol::parallel::runtime::ownQueueCount() = ownQueues;
+      seissol::parallel::runtime::ownFaceQueueCount() = seissol::ownFaceQueueCount(deviceEnv);
+      const auto priorities = deviceEnv.get<std::string>("OWN_QUEUE_PRIORITIES", "");
+      seissol::parallel::runtime::ownQueuePriorities() = {
+          priorities.find("copy") != std::string::npos,
+          priorities.find("faces") != std::string::npos};
       if (deviceEnv.get<std::string>("OWN_QUEUE_LAYOUT", "layers") == "halo") {
         seissol::parallel::runtime::ownQueueLayout() =
             seissol::parallel::runtime::OwnQueueLayout::Halo;
@@ -256,6 +261,10 @@ int main(int argc, char* argv[]) {
       logInfo() << "The clusters run their work on" << seissol::parallel::runtime::ownQueueCount()
                 << "queues of their own, the other stream runtimes on one more"
                 << "(SEISSOL_OWN_QUEUES).";
+      if (seissol::parallel::runtime::ownFaceQueueCount() > 0) {
+        logInfo() << "The face work runs on" << seissol::parallel::runtime::ownFaceQueueCount()
+                  << "more (SEISSOL_OWN_QUEUES_FACES).";
+      }
     } else if (seissol::ownQueueCount(env) > 0) {
       logWarning() << "Queues of their own (SEISSOL_OWN_QUEUES) are not available: they need HIP,"
                    << "and a transfer mode that does not hand streams to libraries (direct, host"

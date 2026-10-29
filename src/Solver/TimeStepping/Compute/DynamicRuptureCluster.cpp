@@ -90,9 +90,10 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
     ActorStateStatistics* actorStateStatistics)
     : DynamicRuptureClusterInterface(maxTimeStepSize, timeStepRate, executor),
       seissolInstance_(seissolInstance),
-      streamRuntime_(4,
-                     parallel::runtime::ownQueuePriorityOf(layerData->getIdentifier()),
-                     parallel::runtime::ownQueueOf(layerData->getIdentifier())),
+      streamRuntime_(
+          4,
+          parallel::runtime::ownQueuePriorityOf(layerData->getIdentifier(), /*faces=*/true),
+          parallel::runtime::ownQueueOf(layerData->getIdentifier(), /*faces=*/true)),
       globalData_(globalData), layerData_(layerData),
       frictionSolver_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
       frictionSolverDevice_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),

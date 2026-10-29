@@ -119,6 +119,13 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
        this many hardware queues of their own (0 by default: none), outside of HIP; all other stream runtimes share one
        more, and the halo exchange of ``actor-mpi`` gets one of its own (with ``actor-mpi``, an odd number gets rounded
        up; see below).
+   * - ``SEISSOL_OWN_QUEUES_FACES``
+     - Experimental. With ``SEISSOL_OWN_QUEUES``: the face work (dynamic rupture) of the layers on this many own queues
+       of its own, next to the work of the cells, instead of on the queues of their cells (0 by default; see below).
+   * - ``SEISSOL_OWN_QUEUE_PRIORITIES``
+     - Experimental. With ``SEISSOL_OWN_QUEUES``: ``copy`` gives the queues of the copy layers a high priority and those
+       of the interior layers a low one (with an even number of queues), ``faces`` the queues of the face work a high
+       one; both together as ``copy,faces``.
    * - ``SEISSOL_OWN_QUEUE_LAYOUT=halo``
      - With ``SEISSOL_OWN_QUEUES`` of 2 or more: all copy layers on one queue of a high priority, all interior layers on
        one of a low priority, instead of the copy and interior layer of each time cluster on queues of their own
@@ -338,7 +345,12 @@ outputs bitwise the same; with HIP and ``GPU_MAX_HW_QUEUES=2``, they made it 1 t
 (``SEISSOL_TRACE_KERNELS``, see :ref:`trace`) showed why: on the ranks with the most work, the queue of the copy layers
 ran kernels 85 to 88 % of the time, mostly one right after the other, while kernels of the copy and of the interior
 layer that ran at the same time took about as long as alone; the kernels of these small setups leave most of the GPU
-idle. With ``actor-mpi``, the copy layers wait for MPI on the GPU; on queues apart from the interior
+idle. On a fixed partition (``SEISSOL_MINISEISSOL=0``: MiniSeisSol weights the partition by a measurement of each rank,
+which changes it from run to run), the face work on queues of its own made TPV13 slower, 3.3 s with two of them and 3.0 s
+with eight, against 2.5 s on four queues for all (TPV5: 2.1 and 1.9 s against 1.6 s), although none of its loops took
+longer: the ranks waited longer for the halo of their neighbors. High priorities for the copy layers or the face work
+made no difference, and neither did compute units of their own for the face work (``DEVICE_OWN_QUEUE_CU_MASKS``, e.g.
+``-10:0-23;1:24-109`` for queue numbers and ranges of compute units). With ``actor-mpi``, the copy layers wait for MPI on the GPU; on queues apart from the interior
 layers, these go on meanwhile. On the same queues, TPV13 hung (with one queue for all clusters, before the fences of the
 device), so ``actor-mpi`` takes an even number of own queues, which keeps them apart; the priorities of the ``halo``
 layout, lanes on queues of their own (``SEISSOL_EXCHANGE_LANES``), transport events and kernel arguments in device

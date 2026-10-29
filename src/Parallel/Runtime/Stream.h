@@ -84,11 +84,37 @@ inline OwnQueueLayout& ownQueueLayout() {
   return layout;
 }
 
-/// the own queue of the work of a layer, its cell cluster and its dynamic rupture cluster
-int ownQueueOf(const initializer::LayerIdentifier& identifier);
+/**
+ * The number of own queues for the dynamic rupture clusters (SEISSOL_OWN_QUEUES_FACES): 0 puts the
+ * face work of a layer on the queue of its cells; otherwise, the face work goes to queues of its
+ * own (the first one FirstFaceOwnQueue, then downwards), next to the work of the cells.
+ */
+inline int& ownFaceQueueCount() {
+  static int count = 0;
+  return count;
+}
+constexpr int FirstFaceOwnQueue = -10;
+
+/**
+ * Which own queues get a high priority (SEISSOL_OWN_QUEUE_PRIORITIES): those of the copy layers
+ * (and those of the interior layers a low one), as with the halo layout, and those of the face work
+ * (see ownFaceQueueCount()).
+ */
+struct OwnQueuePriorities {
+  bool copy{false};
+  bool faces{false};
+};
+inline OwnQueuePriorities& ownQueuePriorities() {
+  static OwnQueuePriorities priorities;
+  return priorities;
+}
+
+/// the own queue of the work of a layer: of its cell cluster, or of its dynamic rupture cluster
+int ownQueueOf(const initializer::LayerIdentifier& identifier, bool faces = false);
 
 /// the priority of the own queue of a layer (see ownQueueLayout()); none without own queues
-std::optional<double> ownQueuePriorityOf(const initializer::LayerIdentifier& identifier);
+std::optional<double> ownQueuePriorityOf(const initializer::LayerIdentifier& identifier,
+                                         bool faces = false);
 
 class ManagedStream {
   public:

@@ -74,6 +74,11 @@ inline std::size_t exchangeLanes(utils::Env& env) {
  */
 inline int ownQueueCount(utils::Env& env) { return std::max(env.get<int>("OWN_QUEUES", 0), 0); }
 
+/// the own queues of the dynamic rupture clusters (see parallel::runtime::ownFaceQueueCount())
+inline int ownFaceQueueCount(utils::Env& env) {
+  return std::max(env.get<int>("OWN_QUEUES_FACES", 0), 0);
+}
+
 /**
  * Whether the clusters on the device only enqueue their work and wait for each other on the device,
  * instead of waiting for the completion of each of their steps. Implies scratchpads per layer.

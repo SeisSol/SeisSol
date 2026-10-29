@@ -36,11 +36,16 @@ ManagedStream::ManagedStream(double /*priority*/) {}
 ManagedStream::ManagedStream(OnOwnQueue /*queue*/) {}
 #endif
 
-int ownQueueOf(const initializer::LayerIdentifier& identifier) {
+int ownQueueOf(const initializer::LayerIdentifier& identifier, bool faces) {
   if (ownQueueCount() <= 0) {
     return SharedOwnQueue;
   }
   const bool copy = identifier.halo == HaloType::Copy;
+  if (faces && ownFaceQueueCount() > 0) {
+    const auto layer = identifier.lts * 2 + (copy ? 1 : 0);
+    return FirstFaceOwnQueue -
+           static_cast<int>(layer % static_cast<std::size_t>(ownFaceQueueCount()));
+  }
   if (ownQueueLayout() == OwnQueueLayout::Halo) {
     return ownQueueCount() > 1 && !copy ? 2 : 1;
   }
@@ -48,8 +53,20 @@ int ownQueueOf(const initializer::LayerIdentifier& identifier) {
   return 1 + static_cast<int>(layer % static_cast<std::size_t>(ownQueueCount()));
 }
 
-std::optional<double> ownQueuePriorityOf(const initializer::LayerIdentifier& identifier) {
-  if (ownQueueCount() <= 1 || ownQueueLayout() != OwnQueueLayout::Halo) {
+std::optional<double> ownQueuePriorityOf(const initializer::LayerIdentifier& identifier,
+                                         bool faces) {
+  if (ownQueueCount() <= 0) {
+    return std::nullopt;
+  }
+  if (faces && ownFaceQueueCount() > 0) {
+    return ownQueuePriorities().faces ? std::optional<double>(1.0) : std::nullopt;
+  }
+  // (the queues of the layers hold either copy or interior layers: with an even number of them in
+  // the layers layout, or with the halo layout)
+  const bool byLayer = ownQueueLayout() == OwnQueueLayout::Halo
+                           ? ownQueueCount() > 1
+                           : ownQueuePriorities().copy && ownQueueCount() % 2 == 0;
+  if (!byLayer) {
     return std::nullopt;
   }
   return identifier.halo == HaloType::Copy ? 1.0 : 0.0;
