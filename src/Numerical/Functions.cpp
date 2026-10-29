@@ -22,7 +22,7 @@ uint64_t rangeProduct(uint64_t from, uint64_t to) {
   return product;
 }
 
-double JacobiP(unsigned n, unsigned a, unsigned b, double x) {
+double jacobiP(unsigned n, unsigned a, unsigned b, double x) {
   if (n == 0) {
     return 1.0;
   }
@@ -40,11 +40,11 @@ double JacobiP(unsigned n, unsigned a, unsigned b, double x) {
   return pm;
 }
 
-double JacobiPDerivative(unsigned n, unsigned a, unsigned b, double x) {
-  return (n == 0) ? 0.0 : 0.5 * (n + a + b + 1.0) * JacobiP(n - 1, a + 1, b + 1, x);
+double jacobiPDerivative(unsigned n, unsigned a, unsigned b, double x) {
+  return (n == 0) ? 0.0 : 0.5 * (n + a + b + 1.0) * jacobiP(n - 1, a + 1, b + 1, x);
 }
 
-std::array<double, 5> SingularityFreeJacobiPFactors(unsigned m, unsigned a, unsigned b) {
+std::array<double, 5> singularityFreeJacobiPFactors(unsigned m, unsigned a, unsigned b) {
   const double c0 = 2.0 * m + a + b;
   const double c1 = c0 - 1.0;
   const double c2 = static_cast<double>(a * a) - static_cast<double>(b * b);
@@ -54,12 +54,12 @@ std::array<double, 5> SingularityFreeJacobiPFactors(unsigned m, unsigned a, unsi
   return {c1, c2, c3, c4, c5};
 }
 
-double SingularityFreeJacobiPRecursion(
+double singularityFreeJacobiPRecursion(
     double x, double y, const std::array<double, 5>& cm, double pm1, double pm2) {
   return (cm[0] * (cm[1] * y + cm[2] * x) * pm1 - cm[3] * y * y * pm2) / cm[4];
 }
 
-double SingularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, double y) {
+double singularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, double y) {
   if (n == 0) {
     return 1.0;
   }
@@ -69,14 +69,14 @@ double SingularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, doub
   for (unsigned m = 2; m <= n; ++m) {
     pm2 = pm1;
     pm1 = pm;
-    auto c = SingularityFreeJacobiPFactors(m, a, b);
-    pm = SingularityFreeJacobiPRecursion(x, y, c, pm1, pm2);
+    const auto c = singularityFreeJacobiPFactors(m, a, b);
+    pm = singularityFreeJacobiPRecursion(x, y, c, pm1, pm2);
   }
   return pm;
 }
 
 std::array<double, 3>
-    SingularityFreeJacobiPAndDerivatives(unsigned n, unsigned a, unsigned b, double x, double y) {
+    singularityFreeJacobiPAndDerivatives(unsigned n, unsigned a, unsigned b, double x, double y) {
   if (n == 0) {
     return {1.0, 0.0, 0.0};
   }
@@ -86,7 +86,7 @@ std::array<double, 3>
   double pm1 = 1.0;
   double ddxPm1 = 0.0;
   double ddyPm1 = 0.0;
-  double pm = SingularityFreeJacobiP(1, a, b, x, y);
+  double pm = singularityFreeJacobiP(1, a, b, x, y);
   double ddxPm = 1.0 + 0.5 * (a + b);
   double ddyPm = 0.5 * (static_cast<double>(a) - static_cast<double>(b));
   for (unsigned m = 2; m <= n; ++m) {
@@ -96,8 +96,8 @@ std::array<double, 3>
     ddxPm1 = ddxPm;
     ddyPm2 = ddyPm1;
     ddyPm1 = ddyPm;
-    auto c = SingularityFreeJacobiPFactors(m, a, b);
-    pm = SingularityFreeJacobiPRecursion(x, y, c, pm1, pm2);
+    auto c = singularityFreeJacobiPFactors(m, a, b);
+    pm = singularityFreeJacobiPRecursion(x, y, c, pm1, pm2);
     ddxPm = (c[0] * (c[2] * pm1 + (c[1] * y + c[2] * x) * ddxPm1) - c[3] * y * y * ddxPm2) / c[4];
     ddyPm = (c[0] * (c[1] * pm1 + (c[1] * y + c[2] * x) * ddyPm1) -
              c[3] * (2.0 * y * pm2 + y * y * ddyPm2)) /
@@ -106,13 +106,13 @@ std::array<double, 3>
   return {pm, ddxPm, ddyPm};
 }
 
-double TriDubinerP(const std::array<unsigned, 2>& i, const std::array<double, 2>& xi) {
+double triDubinerP(const std::array<unsigned, 2>& i, const std::array<double, 2>& xi) {
   const double rNum = 2.0 * xi[0] - 1.0 + xi[1];
   const double s = 2.0 * xi[1] - 1.0;
   const double theta = 1.0 - xi[1];
 
-  const double ti = SingularityFreeJacobiP(i[0], 0, 0, rNum, theta);
-  const double tij = SingularityFreeJacobiP(i[1], 2 * i[0] + 1, 0, s, 1.0);
+  const double ti = singularityFreeJacobiP(i[0], 0, 0, rNum, theta);
+  const double tij = singularityFreeJacobiP(i[1], 2 * i[0] + 1, 0, s, 1.0);
 
   return ti * tij;
 }
@@ -123,26 +123,26 @@ std::array<double, 2> gradTriDubinerP(const std::array<unsigned, 2>& i,
   const double s = 2.0 * xi[1] - 1.0;
   const double theta = 1.0 - xi[1];
 
-  auto ti = SingularityFreeJacobiPAndDerivatives(i[0], 0, 0, rNum, theta);
-  auto tij = SingularityFreeJacobiPAndDerivatives(i[1], 2 * i[0] + 1, 0, s, 1.0);
+  auto ti = singularityFreeJacobiPAndDerivatives(i[0], 0, 0, rNum, theta);
+  auto tij = singularityFreeJacobiPAndDerivatives(i[1], 2 * i[0] + 1, 0, s, 1.0);
 
-  auto ddalpha = [&](double drNum, double dtheta, double dt) {
+  const auto ddalpha = [&](double drNum, double dtheta, double dt) {
     return (ti[1] * drNum + ti[2] * dtheta) * tij[0] + ti[0] * tij[1] * dt;
   };
 
   return {ddalpha(2.0, 0.0, 0.0), ddalpha(1.0, -1.0, 2.0)};
 }
 
-double TetraDubinerP(const std::array<unsigned, 3>& i, const std::array<double, 3>& xi) {
+double tetraDubinerP(const std::array<unsigned, 3>& i, const std::array<double, 3>& xi) {
   const double rNum = 2.0 * xi[0] - 1.0 + xi[1] + xi[2];
   const double sNum = 2.0 * xi[1] - 1.0 + xi[2];
   const double t = 2.0 * xi[2] - 1.0;
   const double sigmatheta = 1.0 - xi[1] - xi[2];
   const double theta = 1.0 - xi[2];
 
-  const double ti = SingularityFreeJacobiP(i[0], 0, 0, rNum, sigmatheta);
-  const double tij = SingularityFreeJacobiP(i[1], 2 * i[0] + 1, 0, sNum, theta);
-  const double tijk = SingularityFreeJacobiP(i[2], 2 * i[0] + 2 * i[1] + 2, 0, t, 1.0);
+  const double ti = singularityFreeJacobiP(i[0], 0, 0, rNum, sigmatheta);
+  const double tij = singularityFreeJacobiP(i[1], 2 * i[0] + 1, 0, sNum, theta);
+  const double tijk = singularityFreeJacobiP(i[2], 2 * i[0] + 2 * i[1] + 2, 0, t, 1.0);
 
   return ti * tij * tijk;
 }
@@ -155,14 +155,16 @@ std::array<double, 3> gradTetraDubinerP(const std::array<unsigned, 3>& i,
   const double sigmatheta = 1.0 - xi[1] - xi[2];
   const double theta = 1.0 - xi[2];
 
-  auto ti = SingularityFreeJacobiPAndDerivatives(i[0], 0, 0, rNum, sigmatheta);
-  auto tij = SingularityFreeJacobiPAndDerivatives(i[1], 2 * i[0] + 1, 0, sNum, theta);
-  auto tijk = SingularityFreeJacobiPAndDerivatives(i[2], 2 * i[0] + 2 * i[1] + 2, 0, t, 1.0);
+  auto ti = singularityFreeJacobiPAndDerivatives(i[0], 0, 0, rNum, sigmatheta);
+  auto tij = singularityFreeJacobiPAndDerivatives(i[1], 2 * i[0] + 1, 0, sNum, theta);
+  auto tijk = singularityFreeJacobiPAndDerivatives(i[2], 2 * i[0] + 2 * i[1] + 2, 0, t, 1.0);
 
-  auto ddalpha = [&](double drNum, double dsigmatheta, double dsNum, double dtheta, double dt) {
-    return (ti[1] * drNum + ti[2] * dsigmatheta) * tij[0] * tijk[0] +
-           ti[0] * (tij[1] * dsNum + tij[2] * dtheta) * tijk[0] + ti[0] * tij[0] * (tijk[1] * dt);
-  };
+  const auto ddalpha =
+      [&](double drNum, double dsigmatheta, double dsNum, double dtheta, double dt) {
+        return (ti[1] * drNum + ti[2] * dsigmatheta) * tij[0] * tijk[0] +
+               ti[0] * (tij[1] * dsNum + tij[2] * dtheta) * tijk[0] +
+               ti[0] * tij[0] * (tijk[1] * dt);
+      };
 
   return {ddalpha(2.0, 0.0, 0.0, 0.0, 0.0),
           ddalpha(1.0, -1.0, 2.0, 0.0, 0.0),
@@ -202,22 +204,22 @@ double shiftedLegendre(int n, double x, int d) {
 }
 
 template <>
-double DubinerP<1U>(const std::array<unsigned, 1U>& i, const std::array<double, 1U>& xi) {
-  return JacobiP(i[0], 0, 0, 2.0 * xi[0] - 1.0);
+double dubinerP<1U>(const std::array<unsigned, 1U>& i, const std::array<double, 1U>& xi) {
+  return jacobiP(i[0], 0, 0, 2.0 * xi[0] - 1.0);
 }
 template <>
-double DubinerP<2U>(const std::array<unsigned, 2U>& i, const std::array<double, 2U>& xi) {
-  return TriDubinerP(i, xi);
+double dubinerP<2U>(const std::array<unsigned, 2U>& i, const std::array<double, 2U>& xi) {
+  return triDubinerP(i, xi);
 }
 template <>
-double DubinerP<3U>(const std::array<unsigned, 3U>& i, const std::array<double, 3U>& xi) {
-  return TetraDubinerP(i, xi);
+double dubinerP<3U>(const std::array<unsigned, 3U>& i, const std::array<double, 3U>& xi) {
+  return tetraDubinerP(i, xi);
 }
 
 template <>
 std::array<double, 1U> gradDubinerP<1U>(const std::array<unsigned, 1U>& i,
                                         const std::array<double, 1U>& xi) {
-  return {2.0 * JacobiPDerivative(i[0], 0, 0, 2.0 * xi[0] - 1.0)};
+  return {2.0 * jacobiPDerivative(i[0], 0, 0, 2.0 * xi[0] - 1.0)};
 }
 template <>
 std::array<double, 2U> gradDubinerP<2U>(const std::array<unsigned, 2U>& i,

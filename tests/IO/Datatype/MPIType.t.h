@@ -18,26 +18,26 @@ namespace seissol::unit_test {
 using namespace seissol::io::datatype;
 
 TEST_CASE("convertToMPI F32" * doctest::test_suite("io")) {
-  auto dt = std::make_shared<F32Datatype>();
+  const auto dt = std::make_shared<F32Datatype>();
   MPI_Datatype mpit = convertToMPI(dt);
   CHECK(mpit == MPI_FLOAT);
 }
 
 TEST_CASE("convertToMPI F64" * doctest::test_suite("io")) {
-  auto dt = std::make_shared<F64Datatype>();
+  const auto dt = std::make_shared<F64Datatype>();
   MPI_Datatype mpit = convertToMPI(dt);
   CHECK(mpit == MPI_DOUBLE);
 }
 
 TEST_CASE("convertToMPI F80" * doctest::test_suite("io")) {
-  auto dt = std::make_shared<F80Datatype>();
+  const auto dt = std::make_shared<F80Datatype>();
   MPI_Datatype mpit = convertToMPI(dt);
   CHECK(mpit == MPI_LONG_DOUBLE);
 }
 
 TEST_CASE("convertToMPI IntegerDatatype" * doctest::test_suite("io")) {
   SUBCASE("int32 signed") {
-    auto dt = std::make_shared<IntegerDatatype>(4, true);
+    const auto dt = std::make_shared<IntegerDatatype>(4, true);
     MPI_Datatype mpit = convertToMPI(dt);
     int size = 0;
     MPI_Type_size(mpit, &size);
@@ -45,7 +45,7 @@ TEST_CASE("convertToMPI IntegerDatatype" * doctest::test_suite("io")) {
   }
 
   SUBCASE("uint32 unsigned") {
-    auto dt = std::make_shared<IntegerDatatype>(4, false);
+    const auto dt = std::make_shared<IntegerDatatype>(4, false);
     MPI_Datatype mpit = convertToMPI(dt);
     int size = 0;
     MPI_Type_size(mpit, &size);
@@ -53,7 +53,7 @@ TEST_CASE("convertToMPI IntegerDatatype" * doctest::test_suite("io")) {
   }
 
   SUBCASE("int8") {
-    auto dt = std::make_shared<IntegerDatatype>(1, true);
+    const auto dt = std::make_shared<IntegerDatatype>(1, true);
     MPI_Datatype mpit = convertToMPI(dt);
     int size = 0;
     MPI_Type_size(mpit, &size);
@@ -61,7 +61,7 @@ TEST_CASE("convertToMPI IntegerDatatype" * doctest::test_suite("io")) {
   }
 
   SUBCASE("int64 unsigned") {
-    auto dt = std::make_shared<IntegerDatatype>(8, false);
+    const auto dt = std::make_shared<IntegerDatatype>(8, false);
     MPI_Datatype mpit = convertToMPI(dt);
     int size = 0;
     MPI_Type_size(mpit, &size);
@@ -69,7 +69,7 @@ TEST_CASE("convertToMPI IntegerDatatype" * doctest::test_suite("io")) {
   }
 
   SUBCASE("int16 signed") {
-    auto dt = std::make_shared<IntegerDatatype>(2, true);
+    const auto dt = std::make_shared<IntegerDatatype>(2, true);
     MPI_Datatype mpit = convertToMPI(dt);
     int size = 0;
     MPI_Type_size(mpit, &size);
@@ -78,8 +78,8 @@ TEST_CASE("convertToMPI IntegerDatatype" * doctest::test_suite("io")) {
 }
 
 TEST_CASE("convertToMPI ArrayDatatype" * doctest::test_suite("io")) {
-  auto base = std::make_shared<F64Datatype>();
-  auto dt = std::make_shared<ArrayDatatype>(base, std::vector<std::size_t>{4, 3});
+  const auto base = std::make_shared<F64Datatype>();
+  const auto dt = std::make_shared<ArrayDatatype>(base, std::vector<std::size_t>{4, 3});
   MPI_Datatype mpit = convertToMPI(dt);
   int size = 0;
   MPI_Type_size(mpit, &size);
@@ -87,13 +87,13 @@ TEST_CASE("convertToMPI ArrayDatatype" * doctest::test_suite("io")) {
 }
 
 TEST_CASE("convertToMPI StructDatatype" * doctest::test_suite("io")) {
-  auto f64 = std::make_shared<F64Datatype>();
-  auto i32 = std::make_shared<IntegerDatatype>(4, true);
+  const auto f64 = std::make_shared<F64Datatype>();
+  const auto i32 = std::make_shared<IntegerDatatype>(4, true);
   const std::vector<StructDatatype::MemberInfo> members = {
-      {"a", 0, f64},
-      {"b", 8, i32},
+      {.name = "a", .offset = 0, .datatype = f64},
+      {.name = "b", .offset = 8, .datatype = i32},
   };
-  auto dt = std::make_shared<StructDatatype>(members, 16);
+  const auto dt = std::make_shared<StructDatatype>(members, 16);
   MPI_Datatype mpit = convertToMPI(dt);
 
   // The struct type after create_resized should report the full padded size
@@ -109,7 +109,7 @@ TEST_CASE("convertToMPI StructDatatype" * doctest::test_suite("io")) {
 }
 
 TEST_CASE("convertToMPI OpaqueDatatype" * doctest::test_suite("io")) {
-  auto dt = std::make_shared<OpaqueDatatype>(7);
+  const auto dt = std::make_shared<OpaqueDatatype>(7);
   MPI_Datatype mpit = convertToMPI(dt);
   int size = 0;
   MPI_Type_size(mpit, &size);
@@ -117,7 +117,7 @@ TEST_CASE("convertToMPI OpaqueDatatype" * doctest::test_suite("io")) {
 }
 
 TEST_CASE("convertToMPI StringDatatype" * doctest::test_suite("io")) {
-  auto dt = std::make_shared<StringDatatype>(32);
+  const auto dt = std::make_shared<StringDatatype>(32);
   MPI_Datatype mpit = convertToMPI(dt);
   int size = 0;
   MPI_Type_size(mpit, &size);
@@ -126,8 +126,8 @@ TEST_CASE("convertToMPI StringDatatype" * doctest::test_suite("io")) {
 
 TEST_CASE("convertToMPI caching" * doctest::test_suite("io")) {
   // Calling convertToMPI twice with the same datatype should return the same handle
-  auto dt1 = std::make_shared<F32Datatype>();
-  auto dt2 = std::make_shared<F32Datatype>();
+  const auto dt1 = std::make_shared<F32Datatype>();
+  const auto dt2 = std::make_shared<F32Datatype>();
   MPI_Datatype t1 = convertToMPI(dt1);
   MPI_Datatype t2 = convertToMPI(dt2);
   CHECK(t1 == t2);

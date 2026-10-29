@@ -26,7 +26,7 @@ namespace seissol::initializer::parameters {
 namespace {
 //! @brief Whether @p name can be the name of a section or a field, which are words.
 bool isName(std::string_view name) {
-  return !name.empty() && std::all_of(name.begin(), name.end(), [](char character) {
+  return !name.empty() && std::ranges::all_of(name, [](char character) {
     return std::isalnum(static_cast<unsigned char>(character)) != 0 || character == '_';
   });
 }
@@ -107,7 +107,7 @@ std::optional<ParameterOverride> parseOverride(std::string_view text) {
   return entry;
 }
 
-void applyOverrides(YAML::Node& parameters, const std::vector<ParameterOverride>& overrides) {
+void applyOverrides(const YAML::Node& parameters, const std::vector<ParameterOverride>& overrides) {
   for (const auto& entry : overrides) {
     setAt(parameters, entry.path, 0, convertValue(entry));
   }

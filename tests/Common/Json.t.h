@@ -121,11 +121,11 @@ TEST_CASE("Atomic file writes" * doctest::test_suite("common")) {
   std::stringstream content;
   content << stream.rdbuf();
   CHECK(content.str() == "{\"a\": 2}\n");
-  CHECK_FALSE(seissol::filesystem::exists(path + ".partial"));
+  CHECK_FALSE(std::filesystem::exists(path + ".partial"));
 
   CHECK_FALSE(seissol::writeFileAtomically("this-directory-does-not-exist/file.json", "{}"));
 
-  seissol::filesystem::remove(path);
+  std::filesystem::remove(path);
 }
 
 } // namespace seissol::unit_test

@@ -63,7 +63,7 @@ namespace seissol::initializer::initprocedure {
 
 namespace {
 
-using Plasticity = seissol::model::Plasticity;
+using seissol::model::Plasticity;
 
 // The material of the cell at `position`, which holds it in its own configuration. A function of
 // its own rather than part of the body of the loop over the cells: with the lambda in an OpenMP
@@ -165,8 +165,8 @@ void initializeCellMaterialOfConfig(
       continue;
     }
 
-    auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* materialDataArray = layer.var<LTS::MaterialData>(Cfg());
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
@@ -177,8 +177,8 @@ void initializeCellMaterialOfConfig(
         const auto meshId = localSecondaryInformation.meshId;
         const auto& linear = meshReader.linearGhostlayer()[meshId];
 
-        // explicitly use polymorphic pointer arithmetic here
-        // NOLINTNEXTLINE
+        // the layer holds materials of exactly this type
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
         auto& materialData = materialDataArray[cell];
 
         const auto neighborRank = linear.rank;
@@ -201,8 +201,8 @@ void initializeCellMaterialOfConfig(
         const auto& localMaterial = materialsDB[position(meshId)];
         const auto& localCellInformation = cellInformation[cell];
 
-        // explicitly use polymorphic pointer arithmetic here
-        // NOLINTNEXTLINE
+        // the layer holds materials of exactly this type
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
         auto& materialData = materialDataArray[cell];
         initAssign(materialData, localMaterial);
         material.local = &materialData;
@@ -332,7 +332,7 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                            seissolParams.model.plasticity,
                            seissolInstance.gravitationSetup().acceleration);
 
-  auto itmParameters = seissolInstance.parameters().model.itmParameters;
+  const auto itmParameters = seissolInstance.parameters().model.itmParameters;
 
   if (itmParameters.itmEnabled) {
     auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();

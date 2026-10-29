@@ -48,24 +48,29 @@ jobs:
         # `name` selects the entry from the `toolchains:` block in
         # scripts/compile/compile-variants.yaml; the compiler itself is a
         # property of the container image, which is why it stays here and not
-        # in the variant-set file.
+        # in the variant-set file. `werror` sets WARNINGS_AS_ERRORS, for the
+        # compilers that compile the code of SeisSol without warnings.
         setup:
           - name: gcc-13
             container: seissol/gha-cpu:davschneller-gpu-image
             parallel-builds: 1
             pythonbreak: true
+            werror: "ON"
           - name: clang-19
             container: seissol/gha-cpu:davschneller-gpu-image
             parallel-builds: 1
             pythonbreak: true
+            werror: "ON"
           - name: icx-2024
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             parallel-builds: 1
             pythonbreak: false
+            werror: "OFF"
           - name: nvhpc
             container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
             parallel-builds: 1
             pythonbreak: true
+            werror: "OFF"
     steps:
       - name: setup
         run: |
@@ -98,6 +103,7 @@ jobs:
           python3 scripts/compile/compile_variants.py \
             --preset ci-cpu \
             --toolchain ${{ matrix.setup.name }} \
+            --set defines.WARNINGS_AS_ERRORS=${{ matrix.setup.werror }} \
             --install-prefix /opt/seissol \
             --max-parallel ${{ matrix.setup.parallel-builds }} \
             --report build-report.json

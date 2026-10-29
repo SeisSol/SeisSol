@@ -11,7 +11,7 @@
 
 #include <sys/time.h>
 
-void print_hostname();
+void printHostname();
 
 auto sec(struct timeval start, struct timeval end) -> double;
 

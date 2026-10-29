@@ -9,17 +9,21 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_
 
 #include "Common/Real.h"
+#include "DynamicRupture/Misc.h"
 #include "RateAndState.h"
 
 namespace seissol::dr::friction_law::cpu {
 template <typename Cfg, class Derived, class TPMethod>
 class SlowVelocityWeakeningLaw
     : public RateAndStateBase<Cfg, SlowVelocityWeakeningLaw<Cfg, Derived, TPMethod>, TPMethod> {
+  private:
+  // only the CRTP subclass `Derived` constructs this base
+  explicit SlowVelocityWeakeningLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : RateAndStateBase<Cfg, SlowVelocityWeakeningLaw, TPMethod>(drParameters) {}
+  friend Derived;
+
   public:
   using real = Real<Cfg>;
-
-  SlowVelocityWeakeningLaw() = default;
-  using RateAndStateBase<Cfg, SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes

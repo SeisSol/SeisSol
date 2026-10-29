@@ -26,9 +26,10 @@
 #include <utils/logger.h>
 #include <vector>
 
-// NOLINTNEXTLINE
+// counted into by the matrix kernels
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 long long libxsmm_num_total_flops = 0;
-// NOLINTNEXTLINE
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 long long pspamm_num_total_flops = 0;
 
 namespace seissol::monitoring {
@@ -52,7 +53,7 @@ void FlopCounter::init(const std::string& outputFileNamePrefix, const std::strin
     datasetHeaders("nz_epoch");
     datasetHeaders("kb_accumulated");
     datasetHeaders("kb_epoch");
-    out_ << "runId" << std::endl;
+    out_ << "runId" << '\n' << std::flush;
   }
 }
 
@@ -117,7 +118,9 @@ EpochRates FlopCounter::printPerformanceUpdate(double wallTime) {
       handleFlopsDataset(previousKBPerSecond, UnitBytePerS, "Kernel B/s last epoch: ");
 
   if (rank == 0) {
-    out_ << runId_ << std::endl;
+    // a row per epoch, on disk at once: for reading the file during the run, and so that a run
+    // that ends in an abort keeps its last epochs
+    out_ << runId_ << '\n' << std::flush;
   }
   return epoch;
 }
@@ -216,7 +219,8 @@ void FlopCounter::incrementMetric(std::size_t handle, const PerformanceEstimate&
 std::size_t FlopCounter::addMetric(const std::string& name, const std::string& category) {
   const auto handle = metrics_.size();
 
-  metrics_.emplace_back(Metric{PerformanceEstimate{}, name, category});
+  metrics_.emplace_back(
+      Metric{.estimate = PerformanceEstimate{}, .name = name, .category = category});
 
   metricCategories_[category].push_back(handle);
 

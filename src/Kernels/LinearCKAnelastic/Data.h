@@ -20,10 +20,11 @@ namespace seissol::kernels::solver::linearckanelastic {
 
 template <typename Cfg>
 struct AnelasticLocalData {
-  // NOLINTNEXTLINE
+  // named like the tensors they hold, among which W and w are two
+  // NOLINTNEXTLINE(readability-identifier-naming)
   Real<Cfg> E[zeroGuard(kernels::size<tensor::E<Cfg>>())]{};
   Real<Cfg> w[zeroGuard(kernels::size<tensor::w<Cfg>>())]{};
-  // NOLINTNEXTLINE
+  // NOLINTNEXTLINE(readability-identifier-naming)
   Real<Cfg> W[zeroGuard(kernels::size<tensor::W<Cfg>>())]{};
 };
 

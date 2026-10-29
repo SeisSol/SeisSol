@@ -21,7 +21,7 @@
 
 namespace seissol {
 template <int N, typename T>
-auto unsafe_reshape(T* ptr) -> T (*)[N] {
+auto unsafeReshape(T* ptr) -> T (*)[N] {
   return reinterpret_cast<T(*)[N]>(ptr);
 }
 } // namespace seissol

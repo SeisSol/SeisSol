@@ -24,7 +24,7 @@ set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" "${HIP_PATH}/lib/cmake/hip" ${CMAKE_MO
 
 find_package(HIP REQUIRED)
 
-set(SEISSOL_HIPCC -std=c++17; -O3)
+set(SEISSOL_HIPCC -std=c++20; -O3)
 
 set(IS_NVCC_PLATFORM OFF)
 if (DEFINED ENV{HIP_PLATFORM})

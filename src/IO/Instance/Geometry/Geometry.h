@@ -121,7 +121,8 @@ class GeometryWriter {
       // read the count before the points are moved out from under it
       const auto uniqueCount = merged.pointCount();
       uniquePoints = std::move(merged.points);
-      vertexMap = mesh::VertexMap{uniqueCount, std::move(merged.indices)};
+      vertexMap = mesh::VertexMap{.localPointCount = uniqueCount,
+                                  .connectivity = std::move(merged.indices)};
     }
 
     const auto pointProjector = [&](auto& writer) {

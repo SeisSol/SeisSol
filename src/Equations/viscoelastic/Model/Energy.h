@@ -114,8 +114,7 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
   }
 
   template <typename Cfg>
-  static typename ViscoMaterial::template EnergyData<Cfg>
-      initEnergyData(const ViscoMaterial& /*material*/) {
+  static ViscoMaterial::template EnergyData<Cfg> initEnergyData(const ViscoMaterial& /*material*/) {
     return {};
   }
 
@@ -156,7 +155,7 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
   template <typename Cfg, typename LinearViewT, typename QuadraticViewT>
   static std::array<double, EnergyCount>
       computeEnergies(const ViscoMaterial& material,
-                      const typename ViscoMaterial::template EnergyData<Cfg>& /*data*/,
+                      const ViscoMaterial::template EnergyData<Cfg>& /*data*/,
                       const LinearViewT& linSub,
                       const QuadraticViewT& quadSub,
                       [[maybe_unused]] const Moments<Cfg>& moments,
@@ -222,7 +221,7 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
     constexpr std::array<double, 6> ContractionWeight{1.0, 1.0, 1.0, 2.0, 2.0, 2.0};
 
     // moments of the traces
-    const auto traceSigmaSq = [&]() {
+    const auto traceSigmaSq = [&] {
       double sum = 0.0;
       for (std::size_t i = 0; i < 3; ++i) {
         for (std::size_t j = 0; j < 3; ++j) {
@@ -251,7 +250,7 @@ struct EnergyCompute<ViscoElasticMaterial<Mechanisms>> {
     };
 
     // moments of the full double contractions
-    const auto contractSigmaSq = [&]() {
+    const auto contractSigmaSq = [&] {
       double sum = 0.0;
       for (std::size_t i = 0; i < 6; ++i) {
         sum += ContractionWeight[i] * quadSub(i, i);

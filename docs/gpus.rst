@@ -16,7 +16,7 @@ General
 .. _gpu_process_pinning:
 
 The current GPU version of SeisSol targets the latest NVIDIA, AMD, and Intel graphics cards. Therefore, you
-need to have at least CUDA 11.8 or ROCm 6.0 installed in your environment. Moreover, for the best performance, make sure
+need to have at least CUDA 12.0 or ROCm 6.3 installed in your environment. Moreover, for the best performance, make sure
 that your installed MPI implementation is GPU-aware. If you are unsure, consult the documentation of the cluster you are using.
 
 You can also utilize `UCX communication layer

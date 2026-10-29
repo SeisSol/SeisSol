@@ -24,7 +24,7 @@ TEST_CASE("Point mapper" * doctest::test_suite("initializer")) {
 
   const seissol::MockReader mockReader(vertices);
 
-  // NOLINTNEXTLINE (-cert-dcl59-cpp)
+  // NOLINTNEXTLINE(bugprone-random-generator-seed)
   std::mt19937 rnggen(321);
   std::uniform_real_distribution<> rngdist(0.0, 1.0);
 

@@ -22,22 +22,24 @@
 #include <iterator>
 #include <mpi.h>
 #include <string>
-#include <time.h>
+// clock_gettime is POSIX and only declared by the C header
+#include <time.h> // NOLINT(modernize-deprecated-headers)
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
 namespace seissol {
 
-LoopStatistics::Region::Region(const std::string& name, bool includeInSummary)
-    : name(name), includeInSummary(includeInSummary) {}
+LoopStatistics::Region::Region(std::string name, bool includeInSummary)
+    : name(std::move(name)), includeInSummary(includeInSummary) {}
 
 void LoopStatistics::addRegion(const std::string& name, bool includeInSummary) {
   regions_.emplace_back(name, includeInSummary);
 }
 
 unsigned LoopStatistics::getRegion(const std::string& name) const {
-  auto first = regions_.cbegin();
-  auto it =
+  const auto first = regions_.cbegin();
+  const auto it =
       std::find_if(first, regions_.cend(), [&name](const auto& elem) { return elem.name == name; });
   assert(it != regions_.end());
   return std::distance(first, it);
@@ -92,22 +94,22 @@ json::Value LoopStatistics::printSummary(MPI_Comm comm) {
   const double totalTimePerRank = kernelTime();
 
   // Helper functions to access sums
-  auto getNumIters = [&sums](std::size_t region) -> double& {
+  const auto getNumIters = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 0];
   };
-  auto getNumItersSquared = [&sums](std::size_t region) -> double& {
+  const auto getNumItersSquared = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 1];
   };
-  auto getTimeTimesNumIters = [&sums](std::size_t region) -> double& {
+  const auto getTimeTimesNumIters = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 2];
   };
-  auto getTime = [&sums](std::size_t region) -> double& {
+  const auto getTime = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 3];
   };
-  auto getTimeSquared = [&sums](std::size_t region) -> double& {
+  const auto getTimeSquared = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 4];
   };
-  auto getNumberOfSamples = [&sums](std::size_t region) -> double& {
+  const auto getNumberOfSamples = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 5];
   };
 

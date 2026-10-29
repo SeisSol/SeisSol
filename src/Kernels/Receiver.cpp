@@ -61,9 +61,9 @@ template <typename Cfg>
 ReceiverBasis<Cfg>::ReceiverBasis(const Eigen::Vector3d& position,
                                   const seissol::geometry::CellTransform& transform) {
   const auto xiEtaZeta = transform.spaceToRef(position);
-  basisFunctions = basisFunction::SampledBasisFunctions<Real<Cfg>>(
+  basisFunctions = basis_function::SampledBasisFunctions<Real<Cfg>>(
       Cfg::ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
-  basisFunctionDerivatives = basisFunction::SampledBasisFunctionDerivatives<Real<Cfg>>(
+  basisFunctionDerivatives = basis_function::SampledBasisFunctionDerivatives<Real<Cfg>>(
       Cfg::ConvergenceOrder, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
   basisFunctionDerivatives.transformToGlobalCoordinates(
       transform, xiEtaZeta[0], xiEtaZeta[1], xiEtaZeta[2]);
@@ -116,7 +116,7 @@ void ReceiverClusterImpl<Cfg>::addReceiver(std::size_t meshId,
   // (time + number of quantities) * number of samples until sync point
   const size_t reserved = ncols() * (syncPointInterval_ / samplingInterval_ + 1);
 
-  if (meshToReceiverCell_.find(meshId) == meshToReceiverCell_.end()) {
+  if (!meshToReceiverCell_.contains(meshId)) {
     const auto position = backmap.get(meshId);
     auto& ltsStorage = seissolInstance_.memoryManager().ltsStorage();
 
@@ -192,10 +192,10 @@ double ReceiverClusterImpl<Cfg>::calcReceivers(double time,
       derivativeKrnl.Q = runtime::init::Q::view(Variant, timeEvaluated);
 
       auto qAtPoint = init::QAtPoint<Cfg>::view::create(timeEvaluatedAtPoint);
-      auto qDerivativeAtPoint =
+      const auto qDerivativeAtPoint =
           init::QDerivativeAtPoint<Cfg>::view::create(timeEvaluatedDerivativesAtPoint);
 
-      auto& receiverCell = receiverCells_[i];
+      const auto& receiverCell = receiverCells_[i];
 
       // Use device pointers where required.
       auto tmpReceiverData{receiverCell.dataHost};
@@ -217,7 +217,8 @@ double ReceiverClusterImpl<Cfg>::calcReceivers(double time,
                                    tmpReceiverData,
                                    tmp,
                                    timeEvaluated, // useless but the interface requires it
-                                   timeDerivatives);
+                                   timeDerivatives,
+                                   /*updateDisplacement=*/false);
 
       double receiverTime = time;
       while (receiverTime < expansionPoint + timeStepWidth) {
@@ -242,7 +243,7 @@ double ReceiverClusterImpl<Cfg>::calcReceivers(double time,
           // note: necessary receiver space is reserved in advance
           receiver.output.push_back(receiverTime);
           for (auto sim = Multisim::MultisimStart; sim < Multisim::MultisimEnd; ++sim) {
-            for (auto quantity : quantities_) {
+            for (const auto quantity : quantities_) {
               if (!std::isfinite(seissol::multisim::multisimWrap<Cfg>(qAtPoint, sim, quantity))) {
                 logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0]
                            << "," << receiver.position[1] << "," << receiver.position[2]

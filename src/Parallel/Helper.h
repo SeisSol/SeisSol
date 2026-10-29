@@ -43,6 +43,8 @@ inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSIS
  * Kill switch for explicit graph node construction. When off, graphs that would be built node
  * by node fall back to whole-stream capture, which is what every graph used before.
  */
+// with ACL_DEVICE, env is read through Env::get, which is not const
+// NOLINTNEXTLINE(misc-const-correctness)
 inline bool useGraphNodes(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
   return env.get<bool>("DEVICE_GRAPH_NODES", true) &&
@@ -65,6 +67,8 @@ inline void printPersistentMpiInfo(utils::Env& env) {
   }
 }
 
+// with ACL_DEVICE, env is read through Env::get, which is not const
+// NOLINTNEXTLINE(misc-const-correctness)
 inline bool useUSM(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
   return env.get<bool>("USM", device::DeviceInstance::instance().api().isUnifiedMemoryDefault());
@@ -86,6 +90,8 @@ inline void printUSMInfo(utils::Env& env) {
   }
 }
 
+// with ACL_DEVICE, env is read through Env::get, which is not const
+// NOLINTNEXTLINE(misc-const-correctness)
 inline bool useMPIUSM(SEISSOL_GPU_PARAM utils::Env& env) {
 #ifdef ACL_DEVICE
   return env.get<bool>("USM_MPI",

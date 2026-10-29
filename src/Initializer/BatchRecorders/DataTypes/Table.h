@@ -51,7 +51,7 @@ class GenericTableEntry {
 /// of the entries from the vector, and `get` names it again.
 template <typename KeyType>
 struct GenericTable {
-  using VariableIdType = typename KeyType::Id;
+  using VariableIdType = KeyType::Id;
 
   public:
   GenericTable() = default;

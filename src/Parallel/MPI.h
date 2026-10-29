@@ -124,7 +124,7 @@ class Mpi : public MpiBasic {
   template <typename ContainerType>
   [[nodiscard]] std::vector<ContainerType>
       collectContainer(const ContainerType& container, std::optional<MPI_Comm> comm = {}) const {
-    using InternalType = typename ContainerType::value_type;
+    using InternalType = ContainerType::value_type;
 
     if (not comm.has_value()) {
       comm = std::optional<MPI_Comm>(comm_);
@@ -132,7 +132,7 @@ class Mpi : public MpiBasic {
     int commSize{};
     MPI_Comm_size(comm.value(), &commSize);
 
-    auto length = static_cast<int>(container.size());
+    const auto length = static_cast<int>(container.size());
     auto lengths = collect(length, comm);
 
     // including the total length
@@ -211,7 +211,7 @@ class Mpi : public MpiBasic {
   void broadcastContainer(ContainerType& container,
                           int root,
                           std::optional<MPI_Comm> comm = {}) const {
-    using InternalType = typename ContainerType::value_type;
+    using InternalType = ContainerType::value_type;
     if (not comm.has_value()) {
       comm = std::optional<MPI_Comm>(comm_);
     }

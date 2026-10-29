@@ -179,9 +179,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   }
 
   const auto needsIntegration =
-      std::any_of(seissolParams.output.waveFieldParameters.integrationMask.begin(),
-                  seissolParams.output.waveFieldParameters.integrationMask.end(),
-                  [](const auto& value) { return value; }) ||
+      std::ranges::any_of(seissolParams.output.waveFieldParameters.integrationMask,
+                          [](const auto& value) { return value; }) ||
       seissolParams.output.waveFieldParameters.computeStrain;
   const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
 
@@ -279,7 +278,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
           if (element.neighbors[face].hasValue() || element.neighborRanks[face] != rank) {
-            const auto& neighbor = [&]() {
+            const auto& neighbor = [&] {
               const bool ghostNeighbor = element.neighborRanks[face] != rank;
               if (ghostNeighbor) {
                 const auto rank = element.neighborRanks[face];
@@ -361,7 +360,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < size; ++i) {
-        cellInfo[i].plasticityEnabled = supported && pdis.find(cellInfo2[i].group) == pdis.end();
+        cellInfo[i].plasticityEnabled = supported && !pdis.contains(cellInfo2[i].group);
       }
     }
   }

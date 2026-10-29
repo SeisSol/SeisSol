@@ -28,8 +28,8 @@ std::vector<int> BufferRegistry::assign(Writer& writer) {
   std::vector<int> ids;
 
   for (const auto& instruction : writer.getInstructions()) {
-    for (auto& dataSource : instruction->dataSources()) {
-      if (!dataSource->managed() || handled.find(dataSource.get()) != handled.end()) {
+    for (const auto& dataSource : instruction->dataSources()) {
+      if (!dataSource->managed() || handled.contains(dataSource.get())) {
         continue;
       }
       const auto id = idFor(dataSource.get(), used);
@@ -51,7 +51,7 @@ std::vector<int> BufferRegistry::assignCollective(Writer& writer) {
   std::vector<DataSource*> sources;
   std::unordered_set<DataSource*> handled;
   for (const auto& instruction : writer.getInstructions()) {
-    for (auto& dataSource : instruction->dataSources()) {
+    for (const auto& dataSource : instruction->dataSources()) {
       if (dataSource->managed() && handled.emplace(dataSource.get()).second) {
         sources.push_back(dataSource.get());
       }
@@ -71,14 +71,18 @@ std::vector<int> BufferRegistry::assignCollective(Writer& writer) {
   std::size_t passThrough = 0;
   std::size_t managed = 0;
   for (auto* source : sources) {
-    if (auto* buffer = dynamic_cast<WriteBuffer*>(source); buffer != nullptr) {
-      uses.push_back({&passThroughSlots_,
-                      passThrough++,
-                      buffer->getLocalPointer(),
-                      buffer->getLocalSize(),
-                      nullptr});
+    if (const auto* buffer = dynamic_cast<WriteBuffer*>(source); buffer != nullptr) {
+      uses.push_back({.slots = &passThroughSlots_,
+                      .slot = passThrough++,
+                      .pointer = buffer->getLocalPointer(),
+                      .size = buffer->getLocalSize(),
+                      .managed = nullptr});
     } else if (auto* adhoc = dynamic_cast<AdhocBuffer*>(source); adhoc != nullptr) {
-      uses.push_back({&managedSlots_, managed++, nullptr, adhoc->getTargetSize(), adhoc});
+      uses.push_back({.slots = &managedSlots_,
+                      .slot = managed++,
+                      .pointer = nullptr,
+                      .size = adhoc->getTargetSize(),
+                      .managed = adhoc});
     } else {
       logError() << "Unsupported buffer type.";
     }
@@ -136,14 +140,14 @@ int BufferRegistry::idForPassThrough(WriteBuffer* source, const std::unordered_s
 
   const auto entry = pointerMap_.find(pointer);
   if (entry == pointerMap_.end()) {
-    const BufferPointer added{size, allocator_.addBuffer(pointer, size)};
+    const BufferPointer added{.size = size, .id = allocator_.addBuffer(pointer, size)};
     pointerMap_[pointer] = added;
     return added.id;
   }
 
   auto& existing = entry->second;
   if (existing.size != size) {
-    if (used.find(existing.id) != used.end()) {
+    if (used.contains(existing.id)) {
       // it is ok to request the same buffer multiple times, but not with different sizes (that's
       // currently still unsupported)
       logError() << "The same buffer is requested with different sizes. This is not supported at "
@@ -162,7 +166,7 @@ int BufferRegistry::idForManaged(AdhocBuffer* source, const std::unordered_set<i
   // course assume that we don't change the size too often...
   int id = -1;
   for (const auto candidate : bufferMap_[targetSize]) {
-    if (used.find(candidate) == used.end()) {
+    if (!used.contains(candidate)) {
       id = candidate;
       break;
     }

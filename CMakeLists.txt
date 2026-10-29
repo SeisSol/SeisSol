@@ -24,14 +24,14 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-  set(GNU_REQUIRED_VERSION "9.0")
+  set(GNU_REQUIRED_VERSION "10.0")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS GNU_REQUIRED_VERSION)
     message(WARNING "GCC versions below ${GNU_REQUIRED_VERSION} are not supported.")
   endif()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-  message(WARNING "The Intel Compiler Classic (ICC) is deprecated; consider switching to the Intel oneAPI C++ Compiler (ICX) instead.")
+  message(WARNING "The Intel Compiler Classic (ICC) is not supported; use the Intel oneAPI C++ Compiler (ICX) instead.")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Cray|CrayClang")
@@ -68,7 +68,7 @@ if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   append_coverage_compiler_flags()
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE)
@@ -451,7 +451,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -std=c++17>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic>)
 
   # Activate interprocedual optimization.
   #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
@@ -477,8 +477,17 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     endif()
 endif()
 
-find_package(FILESYSTEM REQUIRED)
-target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
+if (WARNINGS_AS_ERRORS)
+  # the generated code and the device code take it back where their targets are defined
+  # (codegen/CMakeLists.txt, src/sources.cmake and tests/CMakeLists.txt)
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-Werror>)
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
+    # a loop under "omp simd" that the vectorizer leaves as it is (-Wpass-failed) costs time, but
+    # computes the same
+    target_compile_options(seissol-common-properties INTERFACE
+      $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=pass-failed>)
+  endif()
+endif()
 
 # put every executable and shared library in the root build directory at the end
 # (for compatibility reasons; TODO: remove at some point)

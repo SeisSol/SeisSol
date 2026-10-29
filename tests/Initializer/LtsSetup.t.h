@@ -27,7 +27,7 @@ struct CellSetup {
   std::uint64_t clusterId{};
 };
 
-constexpr auto derive(const CellSetup& setup) -> LtsSetup {
+inline auto derive(const CellSetup& setup) -> LtsSetup {
   CellLocalInformation primary{};
   primary.faceTypes = setup.faceTypes;
   SecondaryCellLocalInformation secondary{};

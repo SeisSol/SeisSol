@@ -17,16 +17,18 @@ namespace seissol {
 // TODO: make all constexpr with C++20.
 
 // (the material parameters are doubles, whatever the reals of the configurations of the cells)
-inline bool isAcousticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
+inline bool isAcousticSideOfElasticAcousticInterface(const CellMaterialData& material,
+                                                     std::size_t face) {
   constexpr auto Eps = std::numeric_limits<double>::epsilon();
   return material.neighbor[face]->getMuBar() > Eps && material.local->getMuBar() < Eps;
 }
-inline bool isElasticSideOfElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
+inline bool isElasticSideOfElasticAcousticInterface(const CellMaterialData& material,
+                                                    std::size_t face) {
   constexpr auto Eps = std::numeric_limits<double>::epsilon();
   return material.local->getMuBar() > Eps && material.neighbor[face]->getMuBar() < Eps;
 }
 
-constexpr bool isAtElasticAcousticInterface(CellMaterialData& material, std::size_t face) {
+constexpr bool isAtElasticAcousticInterface(const CellMaterialData& material, std::size_t face) {
   // We define the interface cells as all cells that are in the elastic domain but have a
   // neighbor with acoustic material.
   return material.local != nullptr && material.neighbor[face] != nullptr &&
@@ -35,7 +37,7 @@ constexpr bool isAtElasticAcousticInterface(CellMaterialData& material, std::siz
 }
 
 constexpr bool requiresDisplacement(CellLocalInformation cellLocalInformation,
-                                    CellMaterialData& material,
+                                    const CellMaterialData& material,
                                     std::size_t face) {
   const auto faceType = cellLocalInformation.faceTypes[face];
   return faceType == FaceType::FreeSurface || faceType == FaceType::FreeSurfaceGravity ||

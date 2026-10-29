@@ -37,8 +37,8 @@ namespace seissol::initializer::model {
  */
 template <typename MaterialT>
 struct FaultImpedance {
-  using Matrix = typename seissol::model::ImpedanceCompute<MaterialT>::Matrix;
-  using LateralMatrix = typename seissol::model::ImpedanceCompute<MaterialT>::LateralMatrix;
+  using Matrix = seissol::model::ImpedanceCompute<MaterialT>::Matrix;
+  using LateralMatrix = seissol::model::ImpedanceCompute<MaterialT>::LateralMatrix;
 
   Matrix admittancePlus;
   Matrix admittanceMinus;
@@ -66,7 +66,7 @@ FaultImpedance<MaterialT>
 template <typename MaterialT>
 FaultImpedance<MaterialT> computeFaultImpedance(const MaterialT& plusLocal,
                                                 const MaterialT& minusLocal) {
-  using LateralMatrix = typename FaultImpedance<MaterialT>::LateralMatrix;
+  using LateralMatrix = FaultImpedance<MaterialT>::LateralMatrix;
   LateralMatrix lateralStressPlus = LateralMatrix::Zero();
   const auto admittancePlus = seissol::model::computeAdmittance(plusLocal, &lateralStressPlus);
   auto impedance = assembleFaultImpedance<MaterialT>(admittancePlus,
@@ -89,7 +89,7 @@ template <typename MaterialT>
 std::optional<std::string> checkFaultImpedance(const FaultImpedance<MaterialT>& impedance,
                                                bool expectSelfAdjoint = true,
                                                double tolerance = 1e-9) {
-  using Matrix = typename FaultImpedance<MaterialT>::Matrix;
+  using Matrix = FaultImpedance<MaterialT>::Matrix;
   const Matrix signature = seissol::model::ImpedanceCompute<MaterialT>::signature();
 
   const auto relIdentityError = [](const Matrix& matrix) {

@@ -65,18 +65,18 @@ TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
   const std::string runId = "123e4567-e89b-42d3-a456-426614174000";
   const auto summaryPath = prefix + "-summary.json";
   const auto epochPath = prefix + "-epochs.csv";
-  seissol::filesystem::remove(summaryPath);
-  seissol::filesystem::remove(epochPath);
+  std::filesystem::remove(summaryPath);
+  std::filesystem::remove(epochPath);
 
   monitoring::RunSummary summary;
   summary["invocation"]["parameterFile"] = "parameters.par";
   CHECK_FALSE(summary.started());
   // nothing is written before the start
   summary.setStage("init.mesh");
-  CHECK_FALSE(seissol::filesystem::exists(summaryPath));
+  CHECK_FALSE(std::filesystem::exists(summaryPath));
 
   summary.start(prefix, runId);
-  REQUIRE(seissol::filesystem::exists(summaryPath));
+  REQUIRE(std::filesystem::exists(summaryPath));
   {
     const auto text = readFile(summaryPath);
     // the header comes first, what was there before after it
@@ -114,16 +114,16 @@ TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
   CHECK(std::stod(table.rows[0][table.column("wallMax")]) == 3.0);
   CHECK(table.rows[0][table.column("runId")] == runId);
 
-  seissol::filesystem::remove(summaryPath);
-  seissol::filesystem::remove(epochPath);
+  std::filesystem::remove(summaryPath);
+  std::filesystem::remove(epochPath);
 }
 
 TEST_CASE("Run summary rank table" * doctest::test_suite("monitoring")) {
   const std::string prefix = "runsummary-ranks-test";
   const std::string runId = "123e4567-e89b-42d3-a456-426614174000";
   const auto rankPath = prefix + "-ranks.csv";
-  seissol::filesystem::remove(prefix + "-summary.json");
-  seissol::filesystem::remove(rankPath);
+  std::filesystem::remove(prefix + "-summary.json");
+  std::filesystem::remove(rankPath);
 
   monitoring::RunSummary summary;
   summary.start(prefix, runId);
@@ -148,8 +148,8 @@ TEST_CASE("Run summary rank table" * doctest::test_suite("monitoring")) {
   CHECK(std::stod(table.rows[0][table.column("cellUpdates")]) == 2.0);
   CHECK(table.rows[0][table.column("runId")] == runId);
 
-  seissol::filesystem::remove(prefix + "-summary.json");
-  seissol::filesystem::remove(rankPath);
+  std::filesystem::remove(prefix + "-summary.json");
+  std::filesystem::remove(rankPath);
 }
 
 } // namespace seissol::unit_test

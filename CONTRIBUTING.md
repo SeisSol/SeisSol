@@ -135,11 +135,11 @@ code generation.
 
 #### C++
 
-SeisSol follows C++17, with the following extensions:
+SeisSol follows C++20, with the following extensions:
 
 - `__restrict` keyword (for better control over array accesses)
 
-C++17 is also used for all CUDA/HIP/SYCL code.
+C++20 is also used for all CUDA/HIP/SYCL code.
 
 We use `clang-format` and `clang-tidy`
 to enforce a consistent code style.
@@ -161,7 +161,7 @@ When submitting code, follow
 - Follow the existing patterns in the codebase and use the `seissol::`
   namespace hierarchy.
 
-- **Prefer modern C++ code**; that is C++17 in our case.
+- **Prefer modern C++ code**; that is C++20 in our case.
 
 - **Static analysis**: Running `clang-tidy`
   locally before submitting is encouraged, as the CI requires it to

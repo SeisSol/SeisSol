@@ -31,8 +31,8 @@
 #include "Solver/Settings.h"
 
 #include <cstddef>
+#include <cstdlib>
 #include <random>
-#include <stdlib.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Real.h"

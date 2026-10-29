@@ -40,7 +40,7 @@ struct VertexMap {
 };
 class VtkHdfWriter {
   public:
-  VtkHdfWriter(const std::string& name,
+  VtkHdfWriter(std::string name,
                std::size_t localElementCount,
                geometry::Shape shape,
                std::size_t targetDegree,

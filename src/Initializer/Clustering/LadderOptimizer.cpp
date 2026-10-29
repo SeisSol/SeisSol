@@ -87,7 +87,7 @@ LadderCandidate optimalLadder(const TimestepHistogram& histogram,
   // with clusters that carry nothing.
   std::vector<std::size_t> clusterCount((maxRungs + 1) * stride, 1);
 
-  auto at = [stride](std::size_t rungs, std::size_t rung) { return rungs * stride + rung; };
+  const auto at = [stride](std::size_t rungs, std::size_t rung) { return rungs * stride + rung; };
 
   auto effectiveConstraints = constraints;
   effectiveConstraints.maxIndex = maxIndex;
@@ -131,7 +131,7 @@ LadderCandidate optimalLadder(const TimestepHistogram& histogram,
     rung = next;
   }
 
-  return LadderCandidate{std::move(ratios), best[at(maxRungs, 1)] / baseTimestep};
+  return LadderCandidate{.ratios = std::move(ratios), .cost = best[at(maxRungs, 1)] / baseTimestep};
 }
 
 } // namespace seissol::initializer

@@ -57,7 +57,7 @@ inline auto samplePointsOnReferenceFace(std::mt19937& rng, int count) -> std::ve
 
 TEST_CASE("Reference face map" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = 1e-14;
-  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  // NOLINTNEXTLINE(bugprone-random-generator-seed)
   std::mt19937 rng(20260928);
   const auto points = samplePointsOnReferenceFace(rng, 200);
 
@@ -106,7 +106,7 @@ TEST_CASE("Reference face map" * doctest::test_suite("geometry")) {
 
 TEST_CASE("Affine face transform" * doctest::test_suite("geometry")) {
   constexpr double Epsilon = 1e-12;
-  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  // NOLINTNEXTLINE(bugprone-random-generator-seed)
   std::mt19937 rng(20260929);
 
   // a well-shaped tetrahedron, so that the geometric quantities below are not dominated by

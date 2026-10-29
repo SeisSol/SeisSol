@@ -24,6 +24,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <filesystem>
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>
@@ -105,7 +106,7 @@ void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
     if (fresh && backUp) {
       backUpFile(name);
     } else if (!fresh) {
-      exists = seissol::directoryExists(seissol::filesystem::directory_entry(name)) ? 1 : 0;
+      exists = seissol::directoryExists(std::filesystem::directory_entry(name)) ? 1 : 0;
     }
   }
   MPI_Bcast(&exists, 1, MPI_INT, 0, comm_);
@@ -122,7 +123,7 @@ void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
 }
 void Hdf5File::openGroup(const std::string& name) {
   // cf. https://stackoverflow.com/a/18468735
-  auto existenceTest = _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT));
+  const auto existenceTest = _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT));
   hid_t handle = 0;
   if (existenceTest > 0) {
     handle = _eh(H5Gopen(handles_.top(), name.c_str(), H5P_DEFAULT));
@@ -295,9 +296,7 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
   // 0; the other ranks take part in the collective write with nothing. Otherwise every rank would
   // send its own copy of the same entries along -- for the few numbers a step of a time series adds
   // to its metadata, thousands of copies.
-  layout.empty = std::any_of(layout.blockSizes.begin(),
-                             layout.blockSizes.end(),
-                             [](hsize_t size) { return size == 0; }) ||
+  layout.empty = std::ranges::any_of(layout.blockSizes, [](hsize_t size) { return size == 0; }) ||
                  (!distributedDim.has_value() && rank != 0);
 
   // Rounds split the leading dimension: a block is contiguous along it in memory, so a round is
@@ -588,7 +587,7 @@ Hdf5Writer::Hdf5Writer(MPI_Comm comm, RunFiles* runFiles) : comm_(comm), runFile
 
 Hdf5File Hdf5Writer::file(const std::string& name) {
   written_.insert(name);
-  if (openFiles_.find(name) == openFiles_.end()) {
+  if (!openFiles_.contains(name)) {
     // a file this run has not written yet belongs to an earlier run, and is replaced; a run
     // resuming from a checkpoint keeps it as a backup, since it holds the output before that
     const bool fresh = runFiles_ != nullptr && runFiles_->firstWrite(name);
@@ -647,7 +646,7 @@ void Hdf5Writer::writeLinkExternal(const async::ExecInfo& /*info*/,
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (auto _ [[maybe_unused]] : write.location.groups()) {
+  for (const auto& _ [[maybe_unused]] : write.location.groups()) {
     file.closeGroup();
   }
 }
@@ -655,7 +654,7 @@ void Hdf5Writer::writeLinkExternal(const async::ExecInfo& /*info*/,
 void Hdf5Writer::endWrite() {
   for (auto entry = openFiles_.begin(); entry != openFiles_.end();) {
     const auto& name = entry->first;
-    if (written_.count(name) > 0 && writtenBefore_.count(name) > 0) {
+    if (written_.contains(name) && writtenBefore_.contains(name)) {
       if (outputFlush()) {
         entry->second.flushFile();
       }

@@ -83,8 +83,7 @@ class LayerSet {
   }
 
   template <typename... RestArgs>
-  [[nodiscard]] std::size_t color(const typename Definition::Type& value,
-                                  const RestArgs&... rest) const {
+  [[nodiscard]] std::size_t color(const Definition::Type& value, const RestArgs&... rest) const {
     return definition_.color(value) + definition_.size() * subLayerSet_.color(rest...);
   }
 
@@ -124,7 +123,7 @@ class ColorMap {
     using Type = LayerSet<Head, StopLayerSet>;
     static Type create(Head&& head) { return Type(std::move(head), StopLayerSet()); }
   };
-  using NestedLayerSets = typename NestTypes<Definitions...>::Type;
+  using NestedLayerSets = NestTypes<Definitions...>::Type;
   NestedLayerSets layerSets_;
 
   public:
@@ -160,7 +159,7 @@ class ColorMap {
     return ConvenienceType::fromTuple(res);
   }
 
-  using Type = typename NestedLayerSets::Type;
+  using Type = NestedLayerSets::Type;
 };
 
 /**

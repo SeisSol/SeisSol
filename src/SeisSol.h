@@ -35,6 +35,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
@@ -64,7 +65,7 @@ class MeshReader;
  */
 class SeisSolCore {
   protected:
-  explicit SeisSolCore(const utils::Env& env) : env_(env) {}
+  explicit SeisSolCore(utils::Env env) : env_(std::move(env)) {}
 
   parallel::Pinning pinning_;
   utils::Env env_;
@@ -314,10 +315,10 @@ class SeisSol : private SeisSolCore {
   std::vector<std::uint64_t> effectiveClusterRates_;
 
   public:
-  SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
-      : SeisSolCore(env), outputManager_(*this), seissolParameters_(parameters), asyncIO_(env_),
-        memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
-        analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this) {}
+  SeisSol(initializer::parameters::SeisSolParameters parameters, const utils::Env& env)
+      : SeisSolCore(env), outputManager_(*this), seissolParameters_(std::move(parameters)),
+        asyncIO_(env_), memoryManager_(std::make_unique<initializer::MemoryManager>(*this)),
+        timeManager_(*this), analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

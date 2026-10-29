@@ -451,7 +451,7 @@ std::size_t StructDatatype::minSize(const std::vector<MemberInfo>& members) {
 }
 
 std::shared_ptr<Datatype> Datatype::deserialize(YAML::Node node) {
-  auto type = node["type"].as<std::string>();
+  const auto type = node["type"].as<std::string>();
   if (type == "f32") {
     return std::make_shared<F32Datatype>();
   }

@@ -8,7 +8,8 @@
 #define SEISSOL_SRC_COMMON_REAL_H_
 
 #include <cstddef>
-#include <string>
+#include <cstdlib>
+#include <string_view>
 namespace seissol {
 
 enum class RealType { F32, F64 };
@@ -27,7 +28,7 @@ struct RealTypeWrapper<RealType::F64> {
 };
 
 template <RealType P>
-using RealT = typename RealTypeWrapper<P>::Type;
+using RealT = RealTypeWrapper<P>::Type;
 
 /// The type of the reals a configuration computes in.
 template <typename Cfg>
@@ -40,20 +41,18 @@ constexpr std::size_t sizeOfRealType(RealType type) {
   case seissol::RealType::F64:
     return 8;
   default:
-    throw;
+    std::abort();
   }
 }
 
-// TODO: make constexpr with C++20
-
-inline std::string stringRealType(RealType type) {
+constexpr std::string_view stringRealType(RealType type) {
   switch (type) {
   case seissol::RealType::F32:
     return "f32";
   case seissol::RealType::F64:
     return "f64";
   default:
-    throw;
+    std::abort();
   }
 }
 

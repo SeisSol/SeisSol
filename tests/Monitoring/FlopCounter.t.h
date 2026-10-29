@@ -25,9 +25,15 @@ TEST_CASE("FlopCounter increment operations" * doctest::test_suite("monitoring")
   const auto two = counter.addMetric("two", "");
 
   SUBCASE("Increment metric") {
-    counter.incrementMetric(one, PerformanceEstimate{1, 2, 3, 4});
-    counter.incrementMetric(two, PerformanceEstimate{1, 2, 3, 4});
-    counter.incrementMetric(one, PerformanceEstimate{2, 3, 4, 5});
+    counter.incrementMetric(
+        one,
+        PerformanceEstimate{.hardwareFlop = 1, .nonzeroFlop = 2, .bytes = 3, .kernelBytes = 4});
+    counter.incrementMetric(
+        two,
+        PerformanceEstimate{.hardwareFlop = 1, .nonzeroFlop = 2, .bytes = 3, .kernelBytes = 4});
+    counter.incrementMetric(
+        one,
+        PerformanceEstimate{.hardwareFlop = 2, .nonzeroFlop = 3, .bytes = 4, .kernelBytes = 5});
     CHECK(true);
   }
 
@@ -39,10 +45,10 @@ TEST_CASE("FlopCounter increment operations" * doctest::test_suite("monitoring")
   SUBCASE("Large values") {
     counter.incrementMetric(one,
                             PerformanceEstimate{
-                                1'000'000'000ULL,
-                                1'000'000'000ULL,
-                                1'000'000'000ULL,
-                                1'000'000'000ULL,
+                                .hardwareFlop = 1'000'000'000ULL,
+                                .nonzeroFlop = 1'000'000'000ULL,
+                                .bytes = 1'000'000'000ULL,
+                                .kernelBytes = 1'000'000'000ULL,
                             });
     CHECK(true);
   }

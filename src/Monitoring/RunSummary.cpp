@@ -170,13 +170,13 @@ json::Value relevantEnvironment() {
     const auto name = variable.substr(0, equals);
     bool relevant = false;
     for (const auto prefix : Prefixes) {
-      relevant = relevant || name.substr(0, prefix.size()) == prefix;
+      relevant = relevant || name.starts_with(prefix);
     }
     for (const auto known : Names) {
       relevant = relevant || name == known;
     }
     for (const auto prefix : RuntimePrefixes) {
-      relevant = relevant && name.substr(0, prefix.size()) != prefix;
+      relevant = relevant && !name.starts_with(prefix);
     }
     if (relevant) {
       environment[name] = std::string(variable.substr(equals + 1));
@@ -316,20 +316,21 @@ void RunSummary::addEpoch(const EpochRecord& epoch, double endTime) {
   simulation["epochs"] = epochCount_;
 
   if (started_ && seissol::Mpi::mpi.rank() == 0) {
-    epochs_->addCell<std::uint64_t>(epochCount_);
-    epochs_->addCell<double>(epoch.timeFrom);
-    epochs_->addCell<double>(epoch.timeTo);
-    epochs_->addCell<double>(epoch.wall.min);
-    epochs_->addCell<double>(epoch.wall.mean);
-    epochs_->addCell<double>(epoch.wall.max);
-    epochs_->addCell<double>(epoch.compute.mean);
-    epochs_->addCell<double>(epoch.compute.max);
-    epochs_->addCell<double>(epoch.io.mean);
-    epochs_->addCell<double>(epoch.io.max);
-    epochs_->addCell<double>(epoch.hardwareFlopPerSecond);
-    epochs_->addCell<double>(epoch.nonzeroFlopPerSecond);
-    epochs_->addCell<double>(epoch.kernelBytesPerSecond);
-    epochs_->addText(runId_);
+    auto& epochs = epochs_.value();
+    epochs.addCell<std::uint64_t>(epochCount_);
+    epochs.addCell<double>(epoch.timeFrom);
+    epochs.addCell<double>(epoch.timeTo);
+    epochs.addCell<double>(epoch.wall.min);
+    epochs.addCell<double>(epoch.wall.mean);
+    epochs.addCell<double>(epoch.wall.max);
+    epochs.addCell<double>(epoch.compute.mean);
+    epochs.addCell<double>(epoch.compute.max);
+    epochs.addCell<double>(epoch.io.mean);
+    epochs.addCell<double>(epoch.io.max);
+    epochs.addCell<double>(epoch.hardwareFlopPerSecond);
+    epochs.addCell<double>(epoch.nonzeroFlopPerSecond);
+    epochs.addCell<double>(epoch.kernelBytesPerSecond);
+    epochs.addText(runId_);
   }
 
   // an epoch can take a fraction of a second; a file system should not see a write for each
@@ -351,7 +352,7 @@ void RunSummary::flush() {
     return;
   }
   if (epochCount_ > 0) {
-    epochs_->appendFile(epochPath_);
+    epochs_.value().appendFile(epochPath_);
   }
   writeSummary();
 }

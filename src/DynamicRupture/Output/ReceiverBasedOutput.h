@@ -53,9 +53,9 @@ class ReceiverOutput {
                       const std::shared_ptr<ReceiverOutputData>& outputData,
                       parallel::runtime::StreamRuntime& runtime,
                       double stateTime,
-                      double time = 0.0,
-                      double dt = 1.0,
-                      double indt = 0.0) = 0;
+                      double time,
+                      double dt,
+                      double indt) = 0;
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
@@ -70,6 +70,9 @@ class ReceiverOutput {
   bool printRSFWarning_{false};
 };
 
+template <typename Derived>
+class RateAndStateImpl;
+
 /**
   The output of the on-fault receivers of a friction law `Derived` (CRTP). `Derived` provides
   `computeLocalStrength` and may provide its own versions of the other hooks below; each hook is a
@@ -83,9 +86,9 @@ class ReceiverOutputImpl : public ReceiverOutput {
                        const std::shared_ptr<ReceiverOutputData>& outputData,
                        parallel::runtime::StreamRuntime& runtime,
                        double stateTime,
-                       double time = 0.0,
-                       double dt = 1.0,
-                       double indt = 0.0) override;
+                       double time,
+                       double dt,
+                       double indt) override;
 
   template <typename Cfg>
   struct LocalInfo {
@@ -229,6 +232,12 @@ class ReceiverOutputImpl : public ReceiverOutput {
                                       const std::array<double, 3>& dip);
 
   private:
+  // only the CRTP subclass `Derived` constructs this base, directly or through the output of the
+  // rate-and-state friction laws in between
+  ReceiverOutputImpl() = default;
+  friend Derived;
+  friend class RateAndStateImpl<Derived>;
+
   template <typename Cfg>
   void calcFaultOutputOfConfig(
       seissol::initializer::parameters::OutputType outputType,

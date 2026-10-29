@@ -150,7 +150,7 @@ TEST_CASE("Module runthrough" * doctest::test_suite("modules")) {
   CHECK(syncOnly.time == 0);
   CHECK(syncOnlyShort.time == 0);
 
-  std::vector<int32_t> expectedTimes{2, 3, 4, 6, 8, 9, 10, 12, 14, 15};
+  const std::vector<int32_t> expectedTimes{2, 3, 4, 6, 8, 9, 10, 12, 14, 15};
 
   double time = startTime;
   double mod1Time = startTime;
@@ -164,17 +164,17 @@ TEST_CASE("Module runthrough" * doctest::test_suite("modules")) {
   REQUIRE(syncOnly.time == 0);
   REQUIRE(syncOnlyShort.time == 0);
 
-  for (std::size_t i = 0; i < expectedTimes.size(); ++i) {
-    CHECK(time == AbsApprox(expectedTimes[i]));
+  for (const auto expectedTime : expectedTimes) {
+    CHECK(time == AbsApprox(expectedTime));
 
-    if (expectedTimes[i] % 2 == 0) {
-      mod1Time = expectedTimes[i];
+    if (expectedTime % 2 == 0) {
+      mod1Time = expectedTime;
     }
-    if (expectedTimes[i] % 3 == 0) {
-      mod2Time = expectedTimes[i];
+    if (expectedTime % 3 == 0) {
+      mod2Time = expectedTime;
     }
-    if (expectedTimes[i] % 2 == 0) {
-      syncOnlyShortTime = expectedTimes[i];
+    if (expectedTime % 2 == 0) {
+      syncOnlyShortTime = expectedTime;
     }
 
     time = modules.callSyncHook(time, 1e-14, false);

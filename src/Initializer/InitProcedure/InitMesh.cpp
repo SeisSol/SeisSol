@@ -20,7 +20,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <math.h>
 #include <memory>
 #include <mpi.h>
 #include <optional>
@@ -59,7 +58,7 @@ TT _checkH5Err(TT&& status, const char* file, int line) {
 void postMeshread(seissol::geometry::MeshReader& meshReader,
                   const Eigen::Vector3d& displacement,
                   const Eigen::Matrix3d& scalingMatrix,
-                  seissol::SeisSol& seissolInstance) {
+                  const seissol::SeisSol& seissolInstance) {
   logInfo() << "The mesh has been read. Starting post processing.";
 
   if (meshReader.getElements().empty()) {
@@ -122,7 +121,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   if (miniSeisSolEnabled) {
     if (seissol::Mpi::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
-      auto elapsedTime = seissol::solver::miniSeisSol(seissolParams.model.config);
+      const auto elapsedTime = seissol::solver::miniSeisSol(seissolParams.model.config);
       nodeWeight = 1.0 / elapsedTime;
 
       const auto summary = seissol::statistics::parallelSummary(nodeWeight);
@@ -171,7 +170,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 
         hid_t boundaryAttributeType = _eh(H5Aget_type(boundaryAttribute));
 
-        const auto format = [&]() {
+        const auto format = [&] {
           if (_eh(H5Tis_variable_str(boundaryAttributeType))) {
             char* formatRaw = nullptr;
             _eh(H5Aread(
@@ -180,7 +179,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
             _eh(H5free_memory(formatRaw));
             return format;
           } else {
-            auto length = H5Tget_size(boundaryAttributeType);
+            const auto length = H5Tget_size(boundaryAttributeType);
             std::vector<char> data(length);
             _eh(H5Aread(boundaryAttribute, boundaryAttributeType, data.data()));
             std::size_t actualLength = length;
@@ -220,7 +219,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
         logInfo() << "Boundary format not given in PUML file; inferring from array shape.";
         const hid_t boundaryDataset = _eh(H5Dopen2(dataFile, "boundary", H5P_DEFAULT));
         const hid_t boundarySpace = _eh(H5Dget_space(boundaryDataset));
-        auto boundaryTypeRank = _eh(H5Sget_simple_extent_ndims(boundarySpace));
+        const auto boundaryTypeRank = _eh(H5Sget_simple_extent_ndims(boundarySpace));
 
         _eh(H5Sclose(boundarySpace));
         _eh(H5Dclose(boundaryDataset));
@@ -292,7 +291,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   seissol::Stopwatch watch;
   watch.start();
 
-  const auto faceMap = [&]() {
+  const auto faceMap = [&] {
     const auto faceMapFile = seissolParams.mesh.faceMapFile;
     if (faceMapFile.has_value()) {
       return readFaceMap(faceMapFile.value());
@@ -302,15 +301,16 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   }();
 
   const seissol::initializer::ClusteringConfig config{
-      seissolParams.timeStepping.lts.getRate(),
-      seissolParams.timeStepping.vertexWeight.weightElement,
-      seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
-      seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity,
-      &faceMap,
-      std::move(configCostFactors)};
+      .rate = seissolParams.timeStepping.lts.getRate(),
+      .vertexWeightElement = seissolParams.timeStepping.vertexWeight.weightElement,
+      .vertexWeightDynamicRupture = seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
+      .vertexWeightFreeSurfaceWithGravity =
+          seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity,
+      .faceMap = &faceMap,
+      .configCostFactors = std::move(configCostFactors)};
 
   seissol::initializer::Clustering clustering(config, seissolInstance);
-  auto weightModel = seissol::initializer::getVertexWeightModel(
+  const auto weightModel = seissol::initializer::getVertexWeightModel(
       seissolParams.timeStepping.lts.getLtsWeightsType());
   auto meshReader =
       std::make_unique<seissol::geometry::PUMLReader>(seissolParams.mesh.meshFileName,
@@ -334,7 +334,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 #endif // defined(USE_HDF)
 }
 
-size_t getNumOutgoingEdges(seissol::geometry::MeshReader& meshReader) {
+size_t getNumOutgoingEdges(const seissol::geometry::MeshReader& meshReader) {
   const auto& mpiNeighbors = meshReader.getMPINeighbors();
   size_t numEdges{0};
   for (const auto& [_, neighborInfo] : mpiNeighbors) {
@@ -402,7 +402,7 @@ void initMesh(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "End init mesh.";
 
-  if ((seissolParams.mesh.showEdgeCutStatistics) && (commSize > 1)) {
+  if (seissolParams.mesh.showEdgeCutStatistics && (commSize > 1)) {
     logInfo() << "Computing edge cut.";
     const auto numEdges = getNumOutgoingEdges(meshReader);
     const auto summary = statistics::parallelSummary(static_cast<double>(numEdges));

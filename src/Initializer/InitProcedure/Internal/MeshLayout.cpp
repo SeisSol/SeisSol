@@ -55,8 +55,7 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
     if (colormap.argument(i).halo == HaloType::Copy) {
       std::map<std::pair<int, std::size_t>, std::vector<std::size_t>> byColor;
       std::size_t newCount = 0;
-      for (std::size_t j = 0; j < clusters[i].cellMap.size(); ++j) {
-        const auto cell = clusters[i].cellMap[j];
+      for (const auto cell : clusters[i].cellMap) {
         std::set<std::pair<int, std::size_t>> neighborColors;
         for (std::size_t f = 0; f < Cell::NumFaces; ++f) {
           const auto& element = meshReader.getElements()[cell];
@@ -81,7 +80,7 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
         const auto [rank, color] = id;
 
         std::vector cellsCopy(cells.begin(), cells.end());
-        std::sort(cellsCopy.begin(), cellsCopy.end(), [&](const auto& a, const auto& b) {
+        std::ranges::sort(cellsCopy, [&](const auto& a, const auto& b) {
           return meshReader.getElements()[a].globalId < meshReader.getElements()[b].globalId;
         });
         clusters[i].cellMap.insert(clusters[i].cellMap.end(), cellsCopy.begin(), cellsCopy.end());
@@ -101,8 +100,7 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
 
       std::map<std::pair<int, std::size_t>, std::vector<std::size_t>> byColor;
       std::size_t newCount = 0;
-      for (std::size_t j = 0; j < clusters[i].cellMap.size(); ++j) {
-        const auto cell = clusters[i].cellMap[j];
+      for (const auto cell : clusters[i].cellMap) {
         const auto& linearCell = meshReader.linearGhostlayer()[cell];
 
         std::set<std::pair<int, std::size_t>> neighborColors;
@@ -125,9 +123,8 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
         const auto [rank, color] = id;
 
         std::vector cellsCopy(cells.begin(), cells.end());
-        std::sort(cellsCopy.begin(), cellsCopy.end(), [&](const auto& a, const auto& b) {
-          return globalId(a) < globalId(b);
-        });
+        std::ranges::sort(cellsCopy,
+                          [&](const auto& a, const auto& b) { return globalId(a) < globalId(b); });
         clusters[i].cellMap.insert(clusters[i].cellMap.end(), cellsCopy.begin(), cellsCopy.end());
         const auto tag = colorAdjust(i, HaloType::Interior) +
                          colorAdjust(color, HaloType::Interior) * colormap.size();
@@ -168,8 +165,8 @@ std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& c
   };
 
   const auto determineColor = [&](std::size_t a, std::size_t b) {
-    auto idA = colormap.argument(a);
-    auto idB = colormap.argument(b);
+    const auto idA = colormap.argument(a);
+    const auto idB = colormap.argument(b);
 
     if (idA.halo == HaloType::Ghost || idB.halo == HaloType::Ghost) {
       return colorAdjust(a, HaloType::Copy);

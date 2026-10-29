@@ -35,7 +35,7 @@ class AbstractRecorder {
 
   protected:
   void checkKey(const ConditionalKey& key) {
-    if (currentTable_->find(key) != currentTable_->end()) {
+    if (currentTable_->contains(key)) {
       logError()
           << "Table key conflict detected. Problems with hashing in batch recording subsystem";
     }
@@ -58,7 +58,7 @@ template <typename VarmapT>
 class CompositeRecorder : public AbstractRecorder<VarmapT> {
   public:
   void record(initializer::Layer<VarmapT>& layer) override {
-    for (auto& recorder : concreteRecorders_) {
+    for (const auto& recorder : concreteRecorders_) {
       recorder->record(layer);
     }
   }

@@ -49,8 +49,10 @@ DataCollectorUntyped::~DataCollectorUntyped() {
   }
 }
 
-// NOLINTNEXTLINE (silence errors due to ifdef ACL_DEVICE)
-void DataCollectorUntyped::gatherToHost(void* stream) {
+// changes the collected data; without ACL_DEVICE, its body reads no device buffer, which is what
+// makes it look const to readability-make-member-function-const
+// NOLINTNEXTLINE(readability-make-member-function-const)
+void DataCollectorUntyped::gatherToHost([[maybe_unused]] void* stream) {
   if (!hostAccessible_ && indexCount_ > 0) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::instance().algorithms().copyScatterToUniformI(
@@ -64,8 +66,9 @@ void DataCollectorUntyped::gatherToHost(void* stream) {
   }
 }
 
-// NOLINTNEXTLINE (silence errors due to ifdef ACL_DEVICE)
-void DataCollectorUntyped::scatterFromHost(void* stream) {
+// changes the collected data; as gatherToHost, it only looks const without ACL_DEVICE
+// NOLINTNEXTLINE(readability-make-member-function-const)
+void DataCollectorUntyped::scatterFromHost([[maybe_unused]] void* stream) {
   if (!hostAccessible_ && indexCount_ > 0) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::instance().algorithms().copyUniformToScatterI(

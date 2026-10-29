@@ -46,6 +46,7 @@
 #include <cstdint>
 #include <cstring>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <ios>
@@ -245,17 +246,17 @@ void OutputManager::initElementwiseOutput() {
                                    : io::instance::geometry::WriterFormat::Vtk;
 
   const auto config = io::instance::geometry::WriterConfig{
-      order,
-      format,
-      seissolParameters.output.xdmfWriterBackend ==
-              seissol::initializer::parameters::XdmfBackend::Posix
-          ? io::instance::geometry::WriterBackend::Binary
-          : io::instance::geometry::WriterBackend::Hdf5,
-      io::instance::geometry::supportedWriterGroup(
+      .order = order,
+      .format = format,
+      .backend = seissolParameters.output.xdmfWriterBackend ==
+                         seissol::initializer::parameters::XdmfBackend::Posix
+                     ? io::instance::geometry::WriterBackend::Binary
+                     : io::instance::geometry::WriterBackend::Hdf5,
+      .time = io::instance::geometry::supportedWriterGroup(
           writerGroupOf(seissolParameters.output.elementwiseParameters.timeSeries),
           format,
           "elementwise fault"),
-      seissolParameters.output.hdfcompress};
+      .compress = seissolParameters.output.hdfcompress};
 
   auto writer = io::instance::geometry::GeometryWriter(
       "fault",
@@ -343,9 +344,8 @@ std::array<double, 6> OutputManager::initialStress(const ReceiverOutputData& out
   // the receivers of a point are numbered contiguously, so the point is the last one whose
   // receivers start at or before this one
   const auto& receiverOffset = outputData.topology.receiverOffset;
-  const auto point = static_cast<std::size_t>(
-      std::upper_bound(receiverOffset.begin(), receiverOffset.end(), index) -
-      receiverOffset.begin() - 1);
+  const auto point = static_cast<std::size_t>(std::ranges::upper_bound(receiverOffset, index) -
+                                              receiverOffset.begin() - 1);
   const auto& face = outputData.topology.faces[outputData.topology.points[point].faceId];
   const auto position = faceToLtsMap_.get(receiver.faultFaceIndex.value());
   const auto sourceCount = dr::stressSourceCount(seissolInstance_.parameters().drParameters);
@@ -394,7 +394,7 @@ void OutputManager::initPickpointOutput() {
 
   seissolInstance_.pickpointWriter().enable(
       seissolInstance_.modules(), seissolParameters.output.pickpointParameters.writeInterval);
-  seissolInstance_.pickpointWriter().setupWriter([&]() { flushPickpointDataToFile(); });
+  seissolInstance_.pickpointWriter().setupWriter([&] { flushPickpointDataToFile(); });
 
   if (seissolParameters.output.pickpointParameters.format ==
       seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
@@ -429,10 +429,11 @@ void OutputManager::initPickpointOutput() {
 
     auto& files = ppFiles_[id];
     files.clear();
-    // (C++17 lambdas cannot capture the structured binding outputData itself)
+    // (with OpenMP enabled, Clang 18 does not let a lambda capture the structured binding
+    // outputData itself)
     const auto& receivers = outputData->receivers;
     for (auto& [index, simulations] : simulationsOfReceiver) {
-      std::sort(simulations.begin(), simulations.end(), [&receivers](std::size_t a, std::size_t b) {
+      std::ranges::sort(simulations, [&receivers](std::size_t a, std::size_t b) {
         return receivers[a].simIndex < receivers[b].simIndex;
       });
 
@@ -440,9 +441,9 @@ void OutputManager::initPickpointOutput() {
           buildIndexedMPIFileName(seissolParameters.output.prefix, index + 1, "faultreceiver");
       seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp_});
       fileName += ".dat";
-      files.push_back(PickpointFile{fileName, simulations});
+      files.push_back(PickpointFile{.fileName = fileName, .indices = simulations});
 
-      if (seissol::filesystem::exists(fileName)) {
+      if (std::filesystem::exists(fileName)) {
         continue;
       }
       std::ofstream file(fileName, std::ios_base::out);
@@ -586,8 +587,8 @@ void OutputManager::initPickpointTable() {
   // time plus the active components -- the per-simulation column names the text files carry are
   // a row of their own here.
   std::vector<io::instance::point::TableQuantity> quantitySet;
-  quantitySet.push_back(
-      io::instance::point::TableQuantity{"Time", io::datatype::inferDatatype<double>()});
+  quantitySet.push_back(io::instance::point::TableQuantity{
+      .name = "Time", .datatype = io::datatype::inferDatatype<double>()});
   // A rank without on-fault receivers has no point to describe; the table learns the quantity
   // sets of the other ranks when it groups the points.
   if (!ppOutputData_.empty()) {
@@ -595,7 +596,7 @@ void OutputManager::initPickpointTable() {
       if (var.isActive) {
         for (std::size_t dim = 0; dim < var.dim(); ++dim) {
           quantitySet.push_back(io::instance::point::TableQuantity{
-              VariableLabels[i][dim], io::datatype::inferDatatype<double>()});
+              .name = VariableLabels[i][dim], .datatype = io::datatype::inferDatatype<double>()});
         }
       }
     });
@@ -609,7 +610,7 @@ void OutputManager::initPickpointTable() {
       ppTableRows_.emplace_back(layerId, point);
     }
   }
-  std::sort(ppTableRows_.begin(), ppTableRows_.end(), [this](const auto& a, const auto& b) {
+  std::ranges::sort(ppTableRows_, [this](const auto& a, const auto& b) {
     const auto& left = ppOutputData_.at(a.first)->receivers[a.second];
     const auto& right = ppOutputData_.at(b.first)->receivers[b.second];
     return std::make_tuple(left.globalReceiverIndex.value(), left.simIndex) <
@@ -711,8 +712,8 @@ void OutputManager::collectPickpointSamples() {
   }
 
   for (std::size_t row = 0; row < ppTableRows_.size(); ++row) {
-    // named rather than bound, since the lambda below captures the point, which a structured
-    // binding only allows from C++20 on
+    // named rather than bound, since the lambda below captures the point, which Clang 18 does not
+    // allow for a structured binding with OpenMP enabled
     const auto layerId = ppTableRows_[row].first;
     const auto point = ppTableRows_[row].second;
     auto& outputData = *ppOutputData_.at(layerId);
@@ -794,7 +795,10 @@ void OutputManager::updateElementwiseOutput(double time) {
                            seissolParameters.drParameters.slipRateOutputType,
                            ewOutputData_,
                            runtime_,
-                           time);
+                           time,
+                           /*time=*/0.0,
+                           /*dt=*/1.0,
+                           /*indt=*/0.0);
     runtime_.wait();
   }
 }

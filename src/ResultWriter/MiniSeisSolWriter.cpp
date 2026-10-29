@@ -7,13 +7,13 @@
 
 #include "MiniSeisSolWriter.h"
 
-#include "Common/Filesystem.h"
 #include "Common/RunId.h"
 #include "IO/Instance/Point/Csv.h"
 #include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <cstddef>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -29,7 +29,7 @@ std::size_t widest(const std::vector<std::string>& values) {
 } // namespace
 
 void seissol::writer::MiniSeisSolWriter::record(double elapsedTime, double weight) {
-  measurement_ = Measurement{elapsedTime, weight};
+  measurement_ = Measurement{.elapsedTime = elapsedTime, .weight = weight};
 }
 
 void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix,
@@ -50,7 +50,7 @@ void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix,
     }
 
     // the slowest rank first, which is the one a reader of this file is after
-    std::sort(ranks.begin(), ranks.end(), [&elapsedTimeVector](const size_t& i, const size_t& j) {
+    std::ranges::sort(ranks, [&elapsedTimeVector](const size_t& i, const size_t& j) {
       return elapsedTimeVector[i] > elapsedTimeVector[j];
     });
 
@@ -64,7 +64,7 @@ void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix,
     table.addColumn<double>("weight");
     table.addTextColumn("runId", seissol::RunIdLength);
 
-    for (auto rank : ranks) {
+    for (const auto rank : ranks) {
       table.addText(hostNames[rank]);
       table.addCell<std::size_t>(rank);
       table.addCell<int>(localRanks[rank]);
@@ -73,8 +73,8 @@ void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix,
       table.addText(runId);
     }
 
-    seissol::filesystem::path path(outputPrefix);
-    path += seissol::filesystem::path("-miniSeissol.csv");
+    std::filesystem::path path(outputPrefix);
+    path += std::filesystem::path("-miniSeissol.csv");
     table.writeFile(path.string());
   }
 }

@@ -21,22 +21,22 @@ using namespace seissol;
 
 TEST_CASE("Configuration names" * doctest::test_suite("common")) {
   SUBCASE("Every field appears in the name") {
-    const ConfigValue elastic{6,
-                              0,
-                              model::MaterialType::Elastic,
-                              RealType::F64,
-                              SolverType::LinearCK,
-                              DRQuadRuleType::Stroud,
-                              1};
+    const ConfigValue elastic{.convergenceOrder = 6,
+                              .relaxationMechanisms = 0,
+                              .materialType = model::MaterialType::Elastic,
+                              .precision = RealType::F64,
+                              .solver = SolverType::LinearCK,
+                              .drQuadRule = DRQuadRuleType::Stroud,
+                              .numSimulations = 1};
     CHECK(configName(elastic) == "elastic-linearck-o6-f64-stroud");
 
-    const ConfigValue viscoelastic{4,
-                                   3,
-                                   model::MaterialType::Viscoelastic,
-                                   RealType::F32,
-                                   SolverType::LinearCKAnelastic,
-                                   DRQuadRuleType::Dunavant,
-                                   8};
+    const ConfigValue viscoelastic{.convergenceOrder = 4,
+                                   .relaxationMechanisms = 3,
+                                   .materialType = model::MaterialType::Viscoelastic,
+                                   .precision = RealType::F32,
+                                   .solver = SolverType::LinearCKAnelastic,
+                                   .drQuadRule = DRQuadRuleType::Dunavant,
+                                   .numSimulations = 8};
     CHECK(configName(viscoelastic) == "viscoelastic-linearckanelastic-m3-o4-f32-dunavant-s8");
   }
 
@@ -66,8 +66,13 @@ TEST_CASE("Configuration names" * doctest::test_suite("common")) {
             for (const auto precision : Precisions) {
               for (const auto rule : Rules) {
                 for (const auto simulations : Simulations) {
-                  const ConfigValue value{
-                      order, mechanisms, material, precision, solver, rule, simulations};
+                  const ConfigValue value{.convergenceOrder = order,
+                                          .relaxationMechanisms = mechanisms,
+                                          .materialType = material,
+                                          .precision = precision,
+                                          .solver = solver,
+                                          .drQuadRule = rule,
+                                          .numSimulations = simulations};
                   const auto name = configName(value);
                   const auto parsed = parseConfigName(name);
                   REQUIRE(parsed.has_value());
@@ -111,13 +116,13 @@ TEST_CASE("Configuration names" * doctest::test_suite("common")) {
   }
 
   SUBCASE("The description lists every field") {
-    const ConfigValue poroelastic{3,
-                                  0,
-                                  model::MaterialType::Poroelastic,
-                                  RealType::F32,
-                                  SolverType::STP,
-                                  DRQuadRuleType::WitherdenVincent,
-                                  1};
+    const ConfigValue poroelastic{.convergenceOrder = 3,
+                                  .relaxationMechanisms = 0,
+                                  .materialType = model::MaterialType::Poroelastic,
+                                  .precision = RealType::F32,
+                                  .solver = SolverType::STP,
+                                  .drQuadRule = DRQuadRuleType::WitherdenVincent,
+                                  .numSimulations = 1};
     CHECK(describeConfig(poroelastic) == "Material: poroelastic\n"
                                          "Solver: stp\n"
                                          "Relaxation mechanisms: 0\n"

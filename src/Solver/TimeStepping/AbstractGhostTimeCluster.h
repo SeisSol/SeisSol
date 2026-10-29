@@ -55,8 +55,8 @@ class AbstractGhostTimeCluster : public AbstractTimeCluster {
                            std::uint64_t timeStepRate,
                            std::size_t globalTimeClusterId,
                            std::size_t otherGlobalTimeClusterId,
-                           const std::string& displayName,
-                           const std::string& otherDisplayName,
+                           std::string displayName,
+                           std::string otherDisplayName,
                            const seissol::solver::HaloCommunication& meshStructure);
 
   void reset() override;

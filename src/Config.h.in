@@ -22,7 +22,8 @@ namespace seissol {
 
 // contains everything that modifies the kernels in a numerical sense
 // (i.e. for which the user might re-build)
-// TODO: make concept once we switch to C++20
+// (the concept ConfigC in Model/Concepts.h describes a configuration; Kernels/BuiltConfigs.cpp
+// checks every configuration of the build against it)
 template <std::size_t OrderP,
           std::size_t MechanismsP,
           model::MaterialType MaterialTypeP,
@@ -32,8 +33,13 @@ template <std::size_t OrderP,
           std::size_t SimulationsP>
 struct ConfigOf {
     // the configuration as a runtime value; all constants below are taken from it
-    static constexpr ConfigValue Value{
-        OrderP, MechanismsP, MaterialTypeP, PrecisionP, SolverP, DRQuadRuleP, SimulationsP};
+    static constexpr ConfigValue Value{.convergenceOrder = OrderP,
+                                       .relaxationMechanisms = MechanismsP,
+                                       .materialType = MaterialTypeP,
+                                       .precision = PrecisionP,
+                                       .solver = SolverP,
+                                       .drQuadRule = DRQuadRuleP,
+                                       .numSimulations = SimulationsP};
 
     static constexpr std::size_t ConvergenceOrder = Value.convergenceOrder;
     static constexpr std::size_t RelaxationMechanisms = Value.relaxationMechanisms;

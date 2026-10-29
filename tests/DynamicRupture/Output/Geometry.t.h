@@ -21,6 +21,7 @@
 #include <Eigen/Dense>
 #include <cstddef>
 #include <iostream>
+#include <numbers>
 
 namespace seissol::unit_test {
 
@@ -157,7 +158,7 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
         const auto config = configName(Cfg::Value);
         CAPTURE(config);
         auto data = generateTriangleQuadrature<Cfg>();
-        double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
+        double (*testTrianglePoints)[2] = unsafeReshape<2>(data.points.data());
 
         constexpr double Epsilon = 1e-6;
         for (unsigned i = 0; i < TriangleQuadratureData<Cfg>::Size; ++i) {
@@ -169,7 +170,8 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
   }
 
   SUBCASE("StrikeAndDipVectors") {
-    const CoordinateT testNormal{-1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
+    const CoordinateT testNormal{
+        -std::numbers::inv_sqrt3, std::numbers::inv_sqrt3, std::numbers::inv_sqrt3};
     CoordinateT testStrike{0.0, 0.0, 0.0};
     CoordinateT testDip{0.0, 0.0, 0.0};
     misc::computeStrikeAndDipVectors(testNormal, testStrike, testDip);
@@ -286,12 +288,12 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
                              std::numeric_limits<std::size_t>::max()};
 
     std::vector<Vertex> vertices;
-    vertices.push_back({{0.0, 0.0, 0.0}, {0}});
-    vertices.push_back({{1.0, 0.0, 0.0}, {0, 1}});
-    vertices.push_back({{0.0, 1.0, 0.0}, {0, 1}});
-    vertices.push_back({{0.0, 0.0, 1.0}, {0}});
-    vertices.push_back({{1.0, 1.0, 0.0}, {1}});
-    vertices.push_back({{1.0, 1.0, 1.0}, {1}});
+    vertices.push_back({.coords = {0.0, 0.0, 0.0}, .elements = {0}});
+    vertices.push_back({.coords = {1.0, 0.0, 0.0}, .elements = {0, 1}});
+    vertices.push_back({.coords = {0.0, 1.0, 0.0}, .elements = {0, 1}});
+    vertices.push_back({.coords = {0.0, 0.0, 1.0}, .elements = {0}});
+    vertices.push_back({.coords = {1.0, 1.0, 0.0}, .elements = {1}});
+    vertices.push_back({.coords = {1.0, 1.0, 1.0}, .elements = {1}});
 
     std::vector<Element> elements;
     Element e1{};

@@ -62,7 +62,7 @@ class LoopStatistics {
     timespec begin{};
     StatisticVariables variables;
 
-    Region(const std::string& name, bool includeInSummary);
+    Region(std::string name, bool includeInSummary);
   };
 
   std::vector<Region> regions_;

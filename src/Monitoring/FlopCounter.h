@@ -19,10 +19,11 @@
 
 // Floating point operations performed in the matrix kernels.
 // Remark: These variables are updated by the matrix kernels (subroutine.cpp) only in debug builds.
+// The GEMM generators write these names into the kernels.
 
-// NOLINTNEXTLINE
+// NOLINTNEXTLINE(readability-identifier-naming,cppcoreguidelines-avoid-non-const-global-variables)
 extern long long libxsmm_num_total_flops;
-// NOLINTNEXTLINE
+// NOLINTNEXTLINE(readability-identifier-naming,cppcoreguidelines-avoid-non-const-global-variables)
 extern long long pspamm_num_total_flops;
 
 namespace seissol::monitoring {

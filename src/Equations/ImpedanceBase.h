@@ -53,10 +53,12 @@ template <typename MaterialT>
 struct ImpedanceCompute;
 
 /// Admittance of one side; `materialLocal` in the fault-local frame. See ImpedanceCompute.
+// the return type trails: in front and without typename, NVHPC (24.9, 26.9) looks it up in the
+// primary template, which is only declared, and rejects that as incomplete
 template <typename MaterialT>
-typename ImpedanceCompute<MaterialT>::Matrix computeAdmittance(
-    const MaterialT& materialLocal,
-    typename ImpedanceCompute<MaterialT>::LateralMatrix* lateralStress = nullptr) {
+auto computeAdmittance(const MaterialT& materialLocal,
+                       typename ImpedanceCompute<MaterialT>::LateralMatrix* lateralStress = nullptr)
+    -> ImpedanceCompute<MaterialT>::Matrix {
   return ImpedanceCompute<MaterialT>::admittance(materialLocal, lateralStress);
 }
 

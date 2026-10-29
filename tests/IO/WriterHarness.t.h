@@ -16,6 +16,7 @@
 #include "IO/Writer/Module/AsyncWriter.h"
 #include "IO/Writer/Writer.h"
 
+#include <algorithm>
 #include <async/ExecInfo.h>
 #include <cstddef>
 #include <cstdio>
@@ -96,7 +97,7 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
   std::set<DataSource*> handled;
   for (const auto& instruction : writer.getInstructions()) {
     for (const auto& source : instruction->dataSources()) {
-      if (!source->distributed() || handled.count(source.get()) > 0) {
+      if (!source->distributed() || handled.contains(source.get())) {
         continue;
       }
       handled.emplace(source.get());
@@ -117,7 +118,7 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
   // ids are assigned by now, so the plan is final
   const auto plan = writer.serialize();
   info.resizeBuffer(planId, plan.size());
-  std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+  std::ranges::copy(plan, info.bufferData(planId).begin());
 
   if (runFiles != nullptr) {
     WriteInstance instance(comm, runFiles);
@@ -173,8 +174,8 @@ inline std::vector<double> readSampleTable(seissol::io::reader::file::Hdf5Reader
   using namespace seissol::io::datatype;
   std::vector<StructDatatype::MemberInfo> members(quantities.size());
   for (std::size_t i = 0; i < quantities.size(); ++i) {
-    members[i] =
-        StructDatatype::MemberInfo{quantities[i], i * sizeof(double), inferDatatype<double>()};
+    members[i] = StructDatatype::MemberInfo{
+        .name = quantities[i], .offset = i * sizeof(double), .datatype = inferDatatype<double>()};
   }
   const auto rows = hdf5.dataCount(name);
   std::vector<double> values(rows * hdf5.dataRowSize(name) * quantities.size());

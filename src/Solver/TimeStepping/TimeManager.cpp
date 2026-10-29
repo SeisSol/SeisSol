@@ -179,8 +179,10 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         ++duplicateCells;
       }
     }
-    clusterSizes_.push_back(
-        ClusterSize{clusterId, clusterSize - duplicateCells, duplicateCells, dynRupSize});
+    clusterSizes_.push_back(ClusterSize{.globalClusterId = clusterId,
+                                        .cells = clusterSize - duplicateCells,
+                                        .duplicateCells = duplicateCells,
+                                        .dynamicRuptureFaces = dynRupSize});
     // Add writer to output
     clusteringWriter.addCluster(profilingId,
                                 clusterId,
@@ -205,8 +207,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   };
 
-  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
-    for (auto& otherLayer : memoryManager.ltsStorage().leaves(Ghost)) {
+  for (const auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+    for (const auto& otherLayer : memoryManager.ltsStorage().leaves(Ghost)) {
       // only traverse half of all combinations
       if (layer.id() < otherLayer.id()) {
         const int64_t lts1 = layer.getIdentifier().lts;
@@ -221,7 +223,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // Create ghost time clusters for MPI
   const auto preferredDataTransferMode = Mpi::mpi.getPreferredDataTransferMode();
   const auto persistent = usePersistentMpi(seissolInstance_.env());
-  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
+  for (const auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
 
     const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);
 
@@ -260,10 +262,10 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   // Sort clusters by time step size in increasing order
-  auto rateSorter = [](const auto& a, const auto& b) {
+  const auto rateSorter = [](const auto& a, const auto& b) {
     return a->getTimeStepRate() < b->getTimeStepRate();
   };
-  std::sort(clusters_.begin(), clusters_.end(), rateSorter);
+  std::ranges::sort(clusters_, rateSorter);
 
   for (const auto& cluster : clusters_) {
     if (cluster->getPriority() == ActorPriority::High) {
@@ -273,7 +275,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   }
 
-  std::sort(ghostClusters.begin(), ghostClusters.end(), rateSorter);
+  std::ranges::sort(ghostClusters, rateSorter);
 
   if (seissol::useCommThread(Mpi::mpi, seissolInstance_.env())) {
     communicationManager_ = std::make_unique<ThreadedCommunicationManager>(
@@ -364,13 +366,13 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     communicationManager_->progression();
 
     // Update all high priority clusters
-    std::for_each(highPrioClusters_.begin(), highPrioClusters_.end(), [&](auto& cluster) {
+    std::ranges::for_each(highPrioClusters_, [&](auto& cluster) {
       if (cluster->getNextLegalAction() == ActorAction::Predict) {
         communicationManager_->progression();
         cluster->act();
       }
     });
-    std::for_each(highPrioClusters_.begin(), highPrioClusters_.end(), [&](auto& cluster) {
+    std::ranges::for_each(highPrioClusters_, [&](auto& cluster) {
       if (cluster->getNextLegalAction() != ActorAction::Predict &&
           cluster->getNextLegalAction() != ActorAction::Nothing) {
         communicationManager_->progression();
@@ -379,25 +381,24 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     });
 
     // Update one low priority cluster
-    if (auto predictable =
-            std::find_if(lowPrioClusters_.begin(),
-                         lowPrioClusters_.end(),
-                         [](auto& c) { return c->getNextLegalAction() == ActorAction::Predict; });
+    if (const auto predictable = std::ranges::find_if(
+            lowPrioClusters_,
+            [](auto& c) { return c->getNextLegalAction() == ActorAction::Predict; });
         predictable != lowPrioClusters_.end()) {
       (*predictable)->act();
     } else {
     }
-    if (auto correctable = std::find_if(lowPrioClusters_.begin(),
-                                        lowPrioClusters_.end(),
-                                        [](auto& c) {
-                                          return c->getNextLegalAction() != ActorAction::Predict &&
-                                                 c->getNextLegalAction() != ActorAction::Nothing;
-                                        });
+    if (const auto correctable =
+            std::ranges::find_if(lowPrioClusters_,
+                                 [](auto& c) {
+                                   return c->getNextLegalAction() != ActorAction::Predict &&
+                                          c->getNextLegalAction() != ActorAction::Nothing;
+                                 });
         correctable != lowPrioClusters_.end()) {
       (*correctable)->act();
     } else {
     }
-    finished = std::all_of(clusters_.begin(), clusters_.end(), [](auto& c) { return c->synced(); });
+    finished = std::ranges::all_of(clusters_, [](auto& c) { return c->synced(); });
     finished &= communicationManager_->checkIfFinished();
   }
 #ifdef ACL_DEVICE

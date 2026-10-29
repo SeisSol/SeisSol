@@ -68,7 +68,7 @@ struct alignas(Alignment) LocalIntegrationData {
   Real<Cfg> nApNm1[4][seissol::tensor::AplusT<Cfg>::size()]{};
 
   // solver-specific data
-  typename seissol::kernels::SolverOf<Cfg>::LocalData specific;
+  seissol::kernels::SolverOf<Cfg>::LocalData specific;
 };
 
 // data for the neighboring boundary integration
@@ -78,7 +78,7 @@ struct alignas(Alignment) NeighboringIntegrationData {
   Real<Cfg> nAmNm1[4][seissol::tensor::AminusT<Cfg>::size()]{};
 
   // solver-specific data
-  typename seissol::kernels::SolverOf<Cfg>::NeighborData specific;
+  seissol::kernels::SolverOf<Cfg>::NeighborData specific;
 };
 
 /**

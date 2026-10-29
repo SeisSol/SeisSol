@@ -8,6 +8,7 @@
 #include "Filesystem.h"
 
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <optional>
@@ -18,33 +19,25 @@
 #include <utils/timeutils.h>
 
 namespace seissol {
-#ifdef EXPERIMENTAL_FS
-auto directoryExists(const seissol::filesystem::directory_entry& entry) -> bool {
-  auto pathName = entry.path().string();
-  struct stat info;
-  return stat(pathName.c_str(), &info) == 0;
-}
-#else
-auto directoryExists(const seissol::filesystem::directory_entry& entry) -> bool {
+auto directoryExists(const std::filesystem::directory_entry& entry) -> bool {
   return entry.exists();
 }
-#endif // EXPERIMENTAL_FS
 
 void generateBackupFileIfNecessary(const std::string& fileName,
                                    const std::string& fileExtension,
                                    const std::optional<std::string>& timeStamp) {
   std::stringstream fullName;
   fullName << fileName << '.' << fileExtension;
-  const auto path = seissol::filesystem::path(fullName.str());
-  const auto entry = seissol::filesystem::directory_entry(path);
+  const auto path = std::filesystem::path(fullName.str());
+  const auto entry = std::filesystem::directory_entry(path);
 
   if (seissol::directoryExists(entry)) {
     const auto actualTimeStamp = timeStamp.value_or(
-        []() { return utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr)); }());
+        [] { return utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr)); }());
     std::stringstream backupFileName;
     backupFileName << fileName << ".bak_" << actualTimeStamp << '.' << fileExtension;
-    const auto copyPath = seissol::filesystem::path(backupFileName.str());
-    seissol::filesystem::rename(path, copyPath);
+    const auto copyPath = std::filesystem::path(backupFileName.str());
+    std::filesystem::rename(path, copyPath);
   }
 }
 
@@ -61,15 +54,15 @@ bool writeFileAtomically(const std::string& path, std::string_view content) {
     if (!stream.good()) {
       stream.close();
       std::error_code ignored;
-      seissol::filesystem::remove(temporary, ignored);
+      std::filesystem::remove(temporary, ignored);
       return false;
     }
   }
   std::error_code error;
-  seissol::filesystem::rename(temporary, path, error);
+  std::filesystem::rename(temporary, path, error);
   if (error) {
     std::error_code ignored;
-    seissol::filesystem::remove(temporary, ignored);
+    std::filesystem::remove(temporary, ignored);
     return false;
   }
   return true;

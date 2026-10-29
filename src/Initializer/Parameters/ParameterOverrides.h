@@ -45,7 +45,7 @@ std::optional<ParameterOverride> parseOverride(std::string_view text);
  * A later override of the same field wins over an earlier one; a section that the file does not
  * have is added.
  */
-void applyOverrides(YAML::Node& parameters, const std::vector<ParameterOverride>& overrides);
+void applyOverrides(const YAML::Node& parameters, const std::vector<ParameterOverride>& overrides);
 
 /**
  * @brief The overrides of fields that reading the parameters with @p reader did not look at.

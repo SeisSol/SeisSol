@@ -83,8 +83,8 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
   static_assert(seissol::tensor::AplusT<Cfg>::Shape[1] == seissol::tensor::AminusT<Cfg>::Shape[1],
                 "Shape mismatch for flux matrices");
 
-  auto* material = layer.var<LTS::Material>();
-  auto* materialData = layer.var<LTS::MaterialData>(Cfg());
+  const auto* material = layer.var<LTS::Material>();
+  const auto* materialData = layer.var<LTS::MaterialData>(Cfg());
   auto* localIntegration = layer.var<LTS::LocalIntegration>(Cfg());
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(Cfg());
   auto* normalStress = layer.var<LTS::NormalStress>(Cfg());
@@ -123,7 +123,8 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
       const auto timeStepWidth = clusterLayout.timestepRate(clusterId);
       const auto meshId = secondaryInformation[cell].meshId;
 
-      // NOLINTNEXTLINE
+      // the layer holds materials of exactly this type
+      // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
       auto& materialLocal = materialData[cell];
 
       std::array<double, Cell::Dim> gradXi{};

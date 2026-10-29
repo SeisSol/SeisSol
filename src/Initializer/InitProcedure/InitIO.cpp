@@ -11,7 +11,6 @@
 #include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
-#include "Common/Filesystem.h"
 #include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
@@ -46,6 +45,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <functional>
 #include <iterator>
 #include <limits>
@@ -167,13 +167,13 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 
   {
     auto& storage = seissolInstance.memoryManager().drStorage();
-    auto& dynrup = seissolInstance.memoryManager().drDescriptor();
+    const auto& dynrup = seissolInstance.memoryManager().drDescriptor();
     std::vector<std::size_t> faceIdentifiers(storage.size(seissol::initializer::LayerMask(Ghost)));
     const auto* drFaceInformation = storage.var<DynamicRupture::FaceInformation>();
 
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
-      auto faultFace = drFaceInformation[i].meshFace;
+      const auto faultFace = drFaceInformation[i].meshFace;
       const auto& fault = seissolInstance.meshReader().getFault()[faultFace];
       // take the positive cell and side as fault face identifier
       // (should result in roughly twice as large numbers as when indexing all faces; cf.
@@ -247,7 +247,7 @@ void addOutputsByName(io::instance::geometry::GeometryWriter& writer,
   std::vector<std::vector<PointOutput>> outputs;
   for (const auto config : configs) {
     for (const auto& [name, output] : outputsOfConfigs.at(config)) {
-      auto found = std::find(names.begin(), names.end(), name);
+      auto found = std::ranges::find(names, name);
       if (found == names.end()) {
         names.push_back(name);
         outputs.emplace_back(builtConfigCount());
@@ -318,8 +318,8 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
   constexpr std::size_t MaxProjectionOrder = Cfg::ConvergenceOrder;
   const auto& seissolParams = seissolInstance.parameters();
   auto& memoryManager = seissolInstance.memoryManager();
-  auto* ltsStorage = &memoryManager.ltsStorage();
-  auto* backmap = &memoryManager.backmap();
+  const auto* ltsStorage = &memoryManager.ltsStorage();
+  const auto* backmap = &memoryManager.backmap();
   const auto* meshReader = &seissolInstance.meshReader();
 
   // TODO(David): change Yateto/TensorForge interface to make padded sizes more accessible
@@ -572,8 +572,7 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
       const auto& vertex1 = vertexArray[element.vertices[1]].coords;
       const auto& vertex2 = vertexArray[element.vertices[2]].coords;
       const auto& vertex3 = vertexArray[element.vertices[3]].coords;
-      const bool inGroup = parameters.groups.empty() ||
-                           parameters.groups.find(element.group) != parameters.groups.end();
+      const bool inGroup = parameters.groups.empty() || parameters.groups.contains(element.group);
       const bool inRegion = !parameters.bounds.enabled ||
                             (parameters.bounds.contains(vertex0[0], vertex0[1], vertex0[2]) ||
                              parameters.bounds.contains(vertex1[0], vertex1[1], vertex1[2]) ||
@@ -627,14 +626,15 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
                                   : io::instance::geometry::WriterFormat::Vtk;
 
   const auto config = io::instance::geometry::WriterConfig{
-      order,
-      format,
-      seissolParams.output.xdmfWriterBackend == seissol::initializer::parameters::XdmfBackend::Posix
-          ? io::instance::geometry::WriterBackend::Binary
-          : io::instance::geometry::WriterBackend::Hdf5,
-      io::instance::geometry::supportedWriterGroup(
+      .order = order,
+      .format = format,
+      .backend = seissolParams.output.xdmfWriterBackend ==
+                         seissol::initializer::parameters::XdmfBackend::Posix
+                     ? io::instance::geometry::WriterBackend::Binary
+                     : io::instance::geometry::WriterBackend::Hdf5,
+      .time = io::instance::geometry::supportedWriterGroup(
           writerGroupOf(parameters.timeSeries), format, "wavefield"),
-      seissolParams.output.hdfcompress};
+      .compress = seissolParams.output.hdfcompress};
 
   const auto cells = std::make_shared<const std::vector<std::size_t>>(std::move(celllist));
   setup.cells = cells;
@@ -678,7 +678,7 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   // the cells of every configuration of the run
   const auto configs = seissolParams.model.configs();
   auto& ltsStorage = memoryManager.ltsStorage();
-  auto& backmap = memoryManager.backmap();
+  const auto& backmap = memoryManager.backmap();
   std::vector<ConfigId> configOfCell(cells->size());
   for (std::size_t index = 0; index < cells->size(); ++index) {
     configOfCell[index] =
@@ -719,11 +719,11 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
   constexpr std::size_t MaxProjectionOrder = Cfg::ConvergenceOrder;
   const auto& seissolParams = seissolInstance.parameters();
   auto& memoryManager = seissolInstance.memoryManager();
-  auto* ltsStorage = &memoryManager.ltsStorage();
-  auto* backmap = &memoryManager.backmap();
+  const auto* ltsStorage = &memoryManager.ltsStorage();
+  const auto* backmap = &memoryManager.backmap();
   auto* freeSurfaceIntegrator = &seissolInstance.freeSurfaceIntegrator();
-  auto* surfaceMeshIds = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
-  auto* surfaceMeshSides = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
+  const auto* surfaceMeshIds = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
+  const auto* surfaceMeshSides = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
 
   constexpr auto QDofSizePadded =
       tensor::Q<Cfg>::Size / tensor::Q<Cfg>::Shape[multisim::BasisDim<Cfg> + 1];
@@ -791,8 +791,8 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
         outputs.emplace_back(
             namewrap(MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
-              auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
-              auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
+              const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
+              const auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
               const auto position = backmap->get(meshId);
               const auto* dofsAllQuantities = ltsStorage->lookup<LTS::Dofs>(Cfg(), position);
               const auto* dofsSingleQuantity = dofsAllQuantities + QDofSizePadded * quantity;
@@ -817,8 +817,8 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
       outputs.emplace_back(
           namewrap(quantityLabelsDisplacement[quantity], sim),
           [=](double* target, std::size_t index, std::size_t subcell) {
-            auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
-            auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
+            const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
+            const auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
             const auto position = backmap->get(meshId);
             const auto& faceDisplacements =
                 ltsStorage->lookup<LTS::FaceDisplacements>(Cfg(), position);
@@ -857,9 +857,9 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
   io::writer::ScheduledWriter schedWriter;
   schedWriter.name = "surface";
   schedWriter.interval = parameters.interval;
-  auto* surfaceMeshIds = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
-  auto* surfaceMeshSides = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
-  auto* surfaceLocationFlag =
+  const auto* surfaceMeshIds = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
+  const auto* surfaceMeshSides = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
+  const auto* surfaceLocationFlag =
       freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::LocationFlag>();
 
   SurfaceOutputSetup setup;
@@ -882,14 +882,15 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
                                   : io::instance::geometry::WriterFormat::Vtk;
 
   const auto config = io::instance::geometry::WriterConfig{
-      order,
-      format,
-      seissolParams.output.xdmfWriterBackend == seissol::initializer::parameters::XdmfBackend::Posix
-          ? io::instance::geometry::WriterBackend::Binary
-          : io::instance::geometry::WriterBackend::Hdf5,
-      io::instance::geometry::supportedWriterGroup(
+      .order = order,
+      .format = format,
+      .backend = seissolParams.output.xdmfWriterBackend ==
+                         seissol::initializer::parameters::XdmfBackend::Posix
+                     ? io::instance::geometry::WriterBackend::Binary
+                     : io::instance::geometry::WriterBackend::Hdf5,
+      .time = io::instance::geometry::supportedWriterGroup(
           writerGroupOf(parameters.timeSeries), format, "free surface"),
-      seissolParams.output.hdfcompress};
+      .compress = seissolParams.output.hdfcompress};
 
   auto writer = io::instance::geometry::GeometryWriter(
       "surface",
@@ -899,8 +900,8 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
       setup.subcells.size(),
 
       [=](double* target, std::size_t index, std::size_t subcell) {
-        auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
-        auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
+        const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
+        const auto side = surfaceMeshSides[freeSurfaceIntegrator->backmap[index]];
         const auto face =
             seissol::geometry::AffineFaceTransform::fromMeshCell(meshId, side, *meshReader);
 
@@ -944,7 +945,7 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
   // the faces of every configuration of the run
   const auto configs = seissolParams.model.configs();
   auto& ltsStorage = memoryManager.ltsStorage();
-  auto& backmap = memoryManager.backmap();
+  const auto& backmap = memoryManager.backmap();
   std::vector<ConfigId> configOfFace(freeSurfaceIntegrator->backmap.size());
   for (std::size_t index = 0; index < configOfFace.size(); ++index) {
     const auto meshId = surfaceMeshIds[freeSurfaceIntegrator->backmap[index]];
@@ -1028,16 +1029,18 @@ void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
   seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
 }
 
-void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {}
+void enableFreeSurfaceOutput(const seissol::SeisSol& seissolInstance) {}
 
 } // namespace
 
-void seissol::initializer::initprocedure::createOutputDirectory(seissol::SeisSol& seissolInstance) {
-  const auto directory = filesystem::path(seissolInstance.parameters().output.prefix).parent_path();
-  if (Mpi::mpi.rank() == 0 && !directory.empty() && !filesystem::exists(directory)) {
+void seissol::initializer::initprocedure::createOutputDirectory(
+    const seissol::SeisSol& seissolInstance) {
+  const auto directory =
+      std::filesystem::path(seissolInstance.parameters().output.prefix).parent_path();
+  if (Mpi::mpi.rank() == 0 && !directory.empty() && !std::filesystem::exists(directory)) {
     logInfo() << "Creating the output directory" << directory.string();
     std::error_code error;
-    filesystem::create_directories(directory, error);
+    std::filesystem::create_directories(directory, error);
     if (error) {
       logError() << "Could not create the output directory" << directory.string() << ":"
                  << error.message();

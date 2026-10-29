@@ -118,7 +118,7 @@ struct LTS {
   template <typename Cfg>
   using FaceBoundaryMappings = std::array<CellBoundaryMapping<Cfg>, Cell::NumFaces>;
   template <typename Cfg>
-  using EnergyDataOf = typename model::MaterialOf<Cfg>::template EnergyData<Cfg>;
+  using EnergyDataOf = model::MaterialOf<Cfg>::template EnergyData<Cfg>;
   template <typename Cfg>
   using NormalStressWeightsOf = seissol::NormalStressWeights<Cfg>;
 

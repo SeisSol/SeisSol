@@ -50,6 +50,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <utility>
 #include <vector>
 
 using namespace seissol::dr::misc::quantity_indices;
@@ -159,7 +160,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
   // the friction solve advances in the sub intervals of the time quadrature; the stored friction
   // state belongs to the last of them
   const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT<Cfg>(
-      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, dt).first);
+      seissol::quadrature::shiftedGaussLegendre(Cfg::ConvergenceOrder, 0, dt).first);
 
   const auto timeCoeffs = kernels::timeBasis<Cfg>().point(indt, dt);
 
@@ -205,9 +206,9 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
     local.printWarning = &this->printRSFWarning_;
 
     local.waveSpeedsPlus =
-        &((local.layer->template var<DynamicRupture::WaveSpeedsPlus>())[local.ltsId]);
+        &local.layer->template var<DynamicRupture::WaveSpeedsPlus>()[local.ltsId];
     local.waveSpeedsMinus =
-        &((local.layer->template var<DynamicRupture::WaveSpeedsMinus>())[local.ltsId]);
+        &local.layer->template var<DynamicRupture::WaveSpeedsMinus>()[local.ltsId];
     const auto& faultInfo = faultInfos[faceIndex];
 
     if (outputType == initializer::parameters::OutputType::Elementwise) {
@@ -485,7 +486,7 @@ template <typename Cfg>
 void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
   using real = Real<Cfg>;
 
-  auto diff = [&local](int i) {
+  const auto diff = [&local](int i) {
     return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
   };
 
@@ -502,11 +503,11 @@ void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
     //   T*   = eta * (Y+ T+ + Y- T- + (v- - v+))
     //   v*_+ = v+ + Y+ (T* - T+)
     const auto& impedanceMatrices =
-        ((local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
 
     constexpr std::size_t Count =
         model::MaterialOf<Cfg>::Type == model::MaterialType::Poroelastic ? 4 : 3;
-    constexpr auto StressIndices = []() {
+    constexpr auto StressIndices = [] {
       if constexpr (Count == 4) {
         return std::array<int, 4>{
             QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ, QuantityIndices::FP};
@@ -514,7 +515,7 @@ void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
         return std::array<int, 3>{QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ};
       }
     }();
-    constexpr auto VelocityIndices = []() {
+    constexpr auto VelocityIndices = [] {
       if constexpr (Count == 4) {
         return std::array<int, 4>{
             QuantityIndices::U, QuantityIndices::V, QuantityIndices::W, QuantityIndices::FU};
@@ -568,7 +569,7 @@ void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
     local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ] + lateralStress[2];
   } else {
     const auto& impAndEta =
-        ((local.layer->template var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
     const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
     const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
@@ -620,9 +621,9 @@ void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local,
     // an anisotropic impedance the slip is not parallel to the trial traction, and the strength
     // follows the fault-normal traction, which follows the slip rate
     const auto& impAndEta =
-        ((local.layer->template var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
     const auto& impedanceMatrices =
-        ((local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
 
     const auto solution = friction_law::common::solveSlipRate<Cfg>(
         impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
@@ -705,7 +706,7 @@ void ReceiverOutputImpl<Derived>::computeSlipRate(
     // frame -- poroelasticity included, where the fluid column does not reach the shear rows -- so
     // a scalar is exact and the order of scaling and rotation does not matter
     const auto& impAndEta =
-        ((local.layer->template var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
     local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
                                                  rotatedStress[QuantityIndices::XY]);
     local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
@@ -767,15 +768,15 @@ Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
       const real chi = seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, jBndGP, 0);
       const real tau = seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, jBndGP, 1);
 
-      basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
+      basis_function::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
-      for (size_t d = 0; d < NumDegFr2d; ++d) {
+      for (size_t d = 0; std::cmp_less(d, NumDegFr2d); ++d) {
         projectedRT[d] +=
             weights(jBndGP) * rt[jBndGP * Cfg::NumSimulations + local.fusedIndex] * phiAtPoint[d];
       }
     }
     const auto m2inv = seissol::init::M2inv<Cfg>::view::create(seissol::init::M2inv<Cfg>::Values);
-    for (size_t d = 0; d < NumDegFr2d; ++d) {
+    for (size_t d = 0; std::cmp_less(d, NumDegFr2d); ++d) {
       projectedRT[d] *= m2inv(d, d);
     }
 
@@ -783,11 +784,11 @@ Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
         seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, local.nearestInternalGpIndex, 0);
     const real tau =
         seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, local.nearestInternalGpIndex, 1);
-    basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
+    basis_function::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
     real dTdChi{0.0};
     real dTdTau{0.0};
-    for (size_t d = 0; d < NumDegFr2d; ++d) {
+    for (size_t d = 0; std::cmp_less(d, NumDegFr2d); ++d) {
       dTdChi += projectedRT[d] * phiAtPoint[2 * d];
       dTdTau += projectedRT[d] * phiAtPoint[2 * d + 1];
     }

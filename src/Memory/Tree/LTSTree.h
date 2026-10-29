@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdlib>
 #include <type_traits>
 #include <utility>
 #include <utils/logger.h>
@@ -107,7 +108,7 @@ class Storage {
       m.bytes = 0;
       m.bytesLayer = [count](const LayerIdentifier& identifier) {
         return dispatchConfig(identifier.config, [&](auto config) {
-          using SelfT = typename TraitT::template VariantType<decltype(config)>;
+          using SelfT = TraitT::template VariantType<decltype(config)>;
           if constexpr (!std::is_same_v<void, SelfT>) {
             return sizeof(SelfT) * count;
           }
@@ -116,7 +117,7 @@ class Storage {
       };
       m.alignmentLayer = [](const LayerIdentifier& identifier) {
         return dispatchConfig(identifier.config, [&](auto config) {
-          using SelfT = typename TraitT::template VariantType<decltype(config)>;
+          using SelfT = TraitT::template VariantType<decltype(config)>;
           if constexpr (!std::is_same_v<void, SelfT>) {
             return alignof(SelfT);
           }
@@ -124,7 +125,7 @@ class Storage {
         });
       };
     } else {
-      using SelfT = typename TraitT::Type;
+      using SelfT = TraitT::Type;
       m.bytes = sizeof(SelfT) * count;
       m.bytesLayer = [count](const LayerIdentifier& /*identifier*/) {
         return sizeof(SelfT) * count;
@@ -153,7 +154,13 @@ class Storage {
 
   ~Storage() = default;
 
-  [[nodiscard]] const LTSColorMap& getColorMap() const { return map_.value(); }
+  [[nodiscard]] const LTSColorMap& getColorMap() const {
+    if (!map_.has_value()) {
+      logError() << "The color map of the storage was used before it was set.";
+      std::abort(); // not reached: logError() ends the run
+    }
+    return *map_;
+  }
 
   /// The configurations of the layers, each once, by increasing id. Every rank has the same
   /// layers, so they are the same on every rank.
@@ -163,15 +170,15 @@ class Storage {
     for (std::size_t color = 0; color < getColorMap().size(); ++color) {
       configs.push_back(getColorMap().argument(color).config);
     }
-    std::sort(configs.begin(), configs.end());
-    configs.erase(std::unique(configs.begin(), configs.end()), configs.end());
+    std::ranges::sort(configs);
+    configs.erase(std::ranges::unique(configs).begin(), configs.end());
     return configs;
   }
 
   void setName(const std::string& name) { this->name_ = name; }
 
   void synchronizeTo(AllocationPlace place, void* stream) {
-    for (auto& container : memoryContainer_) {
+    for (const auto& container : memoryContainer_) {
       container.synchronizeTo(place, stream);
     }
   }
@@ -198,10 +205,10 @@ class Storage {
 
   [[nodiscard]] const Layer<VarmapT>& layer(std::size_t index) const { return layers_.at(index); }
 
-  Layer<VarmapT>& layer(const LayerIdentifier& id) { return layer(map_.value().colorId(id)); }
+  Layer<VarmapT>& layer(const LayerIdentifier& id) { return layer(getColorMap().colorId(id)); }
 
   [[nodiscard]] const Layer<VarmapT>& layer(const LayerIdentifier& id) const {
-    return layer(map_.value().colorId(id));
+    return layer(getColorMap().colorId(id));
   }
 
   void* varUntyped(std::size_t index, AllocationPlace place = AllocationPlace::Host) {
@@ -211,17 +218,17 @@ class Storage {
   }
 
   template <typename StorageT>
-  typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
+  StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
-  const typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
+  const StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
@@ -319,7 +326,7 @@ class Storage {
       }
     }
 
-    std::fill(sizes.begin(), sizes.end(), 0);
+    std::ranges::fill(sizes, 0);
     for (auto& leaf : this->leaves()) {
       leaf.setMemoryRegionsForVariables(memoryContainer_, sizes);
       leaf.addVariableSizes(sizes);
@@ -352,7 +359,7 @@ class Storage {
       }
     }
 
-    std::fill(sizes.begin(), sizes.end(), 0);
+    std::ranges::fill(sizes, 0);
     for (auto& leaf : this->leaves()) {
       leaf.setMemoryRegionsForBuckets(memoryContainer_, sizes);
       leaf.addBucketSizes(sizes);

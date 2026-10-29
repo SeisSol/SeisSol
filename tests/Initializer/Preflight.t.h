@@ -33,7 +33,7 @@ TEST_CASE("The check option is taken out of the command line" *
     int argc = 3;
     const auto report = initializer::extractCheckOption(argc, argv.data());
     REQUIRE(report.has_value());
-    CHECK(report->empty());
+    CHECK(report.value().empty());
     REQUIRE(argc == 2);
     CHECK(std::string(argv[1]) == "parameters.par");
   }
@@ -50,7 +50,7 @@ TEST_CASE("The check option is taken out of the command line" *
 
 TEST_CASE("The check of a run finds the files it misses" * doctest::test_suite("initializer")) {
   const std::string directory = "preflight-test";
-  seissol::filesystem::create_directories(directory);
+  std::filesystem::create_directories(directory);
   {
     std::ofstream file(directory + "/parameters.par");
     file << "&equations\nMaterialFileName = 'material.yaml'\n/\n"
@@ -83,7 +83,7 @@ TEST_CASE("The check of a run finds the files it misses" * doctest::test_suite("
   // the output directory does not exist yet, but can be created
   CHECK(report.find("\"writable\": true") != std::string::npos);
 
-  seissol::filesystem::remove_all(directory);
+  std::filesystem::remove_all(directory);
 }
 
 } // namespace seissol::unit_test

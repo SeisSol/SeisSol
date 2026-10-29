@@ -20,6 +20,7 @@
 #include <PUML/Upward.h>
 #include <algorithm>
 #include <cstddef>
+#include <cstdlib>
 #include <mpi.h>
 #include <unordered_map>
 #include <utility>
@@ -36,8 +37,9 @@ FaceType decodeFaceType(const geometry::BoundaryTagsView& boundaryTags,
   const auto faceType = faceMap.at(tag);
   if (!faceType.has_value()) {
     logError() << "Read invalid face tag during cluster determining:" << tag;
+    std::abort(); // not reached: logError() ends the run
   }
-  return faceType.value();
+  return *faceType;
 }
 
 // PUML's traversal API works in `PUML::LocalId` face and cell ids, and MPI counts are `int`.
@@ -75,9 +77,9 @@ ClusterSmoother::ClusterSmoother(const geometry::PumlMesh& mesh,
   }
 
   for (auto& sharedFaces : rankToSharedFacesPre) {
-    std::sort(sharedFaces.second.begin(),
-              sharedFaces.second.end(),
-              [&](unsigned int a, unsigned int b) { return faces[a].gid() < faces[b].gid(); });
+    std::ranges::sort(sharedFaces.second, [&](unsigned int a, unsigned int b) {
+      return faces[a].gid() < faces[b].gid();
+    });
   }
 
   rankToSharedFaces_ =
@@ -174,7 +176,9 @@ std::size_t ClusterSmoother::relaxOnce(std::vector<std::size_t>& clusterIds,
 
   MPI_Waitall(2 * numExchanges, requests_.data(), MPI_STATUSES_IGNORE);
 
+  // an index loop; OpenMP loop constructs take range-based loops only from OpenMP 5.0 on
 #pragma omp parallel for reduction(+ : numberOfReductions)
+  // NOLINTNEXTLINE(modernize-loop-convert)
   for (std::size_t bcell = 0; bcell < boundaryCells_.size(); ++bcell) {
     const auto cell = boundaryCells_[bcell];
     std::size_t& timeCluster = clusterIds[cell];

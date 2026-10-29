@@ -23,10 +23,11 @@ namespace seissol::model {
  */
 struct AdditionalPoroelasticParameters {
   Eigen::Matrix<double, 6, 1> alpha;
-  // NOLINTNEXTLINE
+  // the symbols of the Biot model, in which M and m are two quantities
+  // NOLINTBEGIN(readability-identifier-naming)
   double KBar;
-  // NOLINTNEXTLINE
   double M;
+  // NOLINTEND(readability-identifier-naming)
   double m;
   Eigen::Matrix<double, 6, 6> cBar;
   double rhoBar;
@@ -64,7 +65,16 @@ inline AdditionalPoroelasticParameters
   const double beta1 = material.rhoFluid / m;
   const double beta2 = rhoBar / material.rhoFluid;
 
-  return {alpha, cKBar, cM, m, cBar, rhoBar, rho1, rho2, beta1, beta2};
+  return {.alpha = alpha,
+          .KBar = cKBar,
+          .M = cM,
+          .m = m,
+          .cBar = cBar,
+          .rhoBar = rhoBar,
+          .rho1 = rho1,
+          .rho2 = rho2,
+          .beta1 = beta1,
+          .beta2 = beta2};
 }
 
 } // namespace seissol::model

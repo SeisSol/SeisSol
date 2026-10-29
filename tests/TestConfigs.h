@@ -63,7 +63,7 @@ struct ConfigFilter {
 
 template <template <typename> typename Pred, typename Cfg, typename... Rest>
 struct ConfigFilter<Pred, Cfg, Rest...> {
-  using RestType = typename ConfigFilter<Pred, Rest...>::Type;
+  using RestType = ConfigFilter<Pred, Rest...>::Type;
   using Type =
       std::conditional_t<Pred<Cfg>::value, typename TuplePrepend<Cfg, RestType>::Type, RestType>;
 };
@@ -93,7 +93,7 @@ using MaterialConfigs =
 /// The configurations built into the executable for which `Pred<Cfg>::value` holds, as a
 /// `std::tuple` for TEST_CASE_TEMPLATE_APPLY. A test applied to none of them does not exist.
 template <template <typename> typename Pred>
-using ConfigsWhere = typename internal::ConfigFilter<Pred, SEISSOL_CONFIG_TYPES>::Type;
+using ConfigsWhere = internal::ConfigFilter<Pred, SEISSOL_CONFIG_TYPES>::Type;
 
 /// The configurations built into the executable whose material is of the type `Type`.
 template <model::MaterialType Type>
@@ -108,7 +108,7 @@ using DynamicRuptureConfigs = ConfigsWhere<internal::SupportsDynamicRupture>;
 
 /// The first configuration of each material built into the executable (SEISSOL_FOR_EACH_MATERIAL);
 /// for the tests of a material, `model::MaterialOf<Cfg>`.
-using MaterialConfigs = internal::MaterialConfigs;
+using internal::MaterialConfigs;
 
 } // namespace seissol::unit_test
 

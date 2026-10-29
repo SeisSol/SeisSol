@@ -17,6 +17,7 @@
 #include "IO/WriterHarness.t.h"
 #include "Parallel/MPI.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -42,7 +43,7 @@ struct SharedTempDir {
       std::string name = "/tmp/seissoliompitestXXXXXX";
       const char* created = mkdtemp(name.data());
       REQUIRE(created != nullptr);
-      std::copy(name.begin(), name.end(), buffer.begin());
+      std::ranges::copy(name, buffer.begin());
     }
     MPI_Bcast(buffer.data(), static_cast<int>(buffer.size()), MPI_CHAR, 0, Mpi::mpi.comm());
     path = std::string(buffer.data());
@@ -282,8 +283,7 @@ TEST_CASE("IO/VtkHdf: shared points are offset per rank" * doctest::test_suite("
   const auto points = hdf5.readData<double>("Points");
   REQUIRE(connectivity.size() == globalCells * 4);
   REQUIRE(points.size() == contributingRanks * 3);
-  for (std::size_t entry = 0; entry < connectivity.size(); ++entry) {
-    const auto point = connectivity[entry];
+  for (const auto point : connectivity) {
     REQUIRE(point >= 0);
     REQUIRE(static_cast<std::size_t>(point) < contributingRanks);
     // rank 0 contributes nothing, so the point of rank r is the (r-1)th
@@ -311,11 +311,11 @@ TEST_CASE("IO/Grouping: the groups agree across ranks" * doctest::test_suite("io
     return;
   }
 
-  const std::vector<TableQuantity> elastic{{"v1", inferDatatype<double>()},
-                                           {"v2", inferDatatype<double>()}};
-  const std::vector<TableQuantity> poroelastic{{"v1", inferDatatype<double>()},
-                                               {"v2", inferDatatype<double>()},
-                                               {"p", inferDatatype<double>()}};
+  const std::vector<TableQuantity> elastic{{.name = "v1", .datatype = inferDatatype<double>()},
+                                           {.name = "v2", .datatype = inferDatatype<double>()}};
+  const std::vector<TableQuantity> poroelastic{{.name = "v1", .datatype = inferDatatype<double>()},
+                                               {.name = "v2", .datatype = inferDatatype<double>()},
+                                               {.name = "p", .datatype = inferDatatype<double>()}};
 
   // only the last rank holds poroelastic points, and rank 0 holds none at all
   std::vector<std::vector<TableQuantity>> points;
@@ -376,7 +376,7 @@ TEST_CASE("IO/Hdf5Table: a rank without points of a table still writes with it" 
   const auto size = Mpi::mpi.size();
 
   const auto quantity = [](const std::string& name) {
-    return TableQuantity{name, datatype::inferDatatype<double>()};
+    return TableQuantity{.name = name, .datatype = datatype::inferDatatype<double>()};
   };
   const std::vector<TableQuantity> small{quantity("v1"), quantity("v2")};
   const std::vector<TableQuantity> large{quantity("v1"), quantity("v2"), quantity("p")};
@@ -399,7 +399,7 @@ TEST_CASE("IO/Hdf5Table: a rank without points of a table still writes with it" 
   CHECK(grouping.globalCount[smallGroup] == static_cast<std::size_t>(size));
   CHECK(grouping.globalCount[largeGroup] == 1);
 
-  auto plan = table.makeWriter();
+  const auto plan = table.makeWriter();
   const std::vector<std::size_t> samplesPerWrite{2, 3};
   std::size_t written = 0;
   for (std::size_t step = 0; step < samplesPerWrite.size(); ++step) {

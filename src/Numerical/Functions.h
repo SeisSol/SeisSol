@@ -34,45 +34,45 @@ inline uint64_t factorial(uint64_t n) { return rangeProduct(1, n); }
 /**
  * @brief Evaluates Jacobi polynomial P_{n}^{(a,b)}(x).
  */
-double JacobiP(unsigned n, unsigned a, unsigned b, double x);
+double jacobiP(unsigned n, unsigned a, unsigned b, double x);
 
 /**
  * @brief Evaluates derivative of Jacobi polynomial.
  */
-double JacobiPDerivative(unsigned n, unsigned a, unsigned b, double x);
+double jacobiPDerivative(unsigned n, unsigned a, unsigned b, double x);
 
 /**
- * @brief Factors in recursion formulas used by SingularityFreeJacobiP functions.
+ * @brief Factors in recursion formulas used by singularityFreeJacobiP functions.
  */
-std::array<double, 5> SingularityFreeJacobiPFactors(unsigned m, unsigned a, unsigned b);
+std::array<double, 5> singularityFreeJacobiPFactors(unsigned m, unsigned a, unsigned b);
 
 /**
- * @brief Computes JacobiP(n, a, b, x/y) * y^n.
+ * @brief Computes jacobiP(n, a, b, x/y) * y^n.
  *
  * @param Output of SingularityFreeJacobiPFactors
- * @param Pm_1 JacobiP(n-1, a, b, x/y) * y^{n-1}
- * @param Pm_2 JacobiP(n-2, a, b, x/y) * y^{n-2}
+ * @param Pm_1 jacobiP(n-1, a, b, x/y) * y^{n-1}
+ * @param Pm_2 jacobiP(n-2, a, b, x/y) * y^{n-2}
  *
  */
-double SingularityFreeJacobiPRecursion(
+double singularityFreeJacobiPRecursion(
     double x, double y, const std::array<double, 5>& cm, double pm1, double pm2);
 
 /**
- * @brief Computes JacobiP(n, a, b, x/y) * y^n.
+ * @brief Computes jacobiP(n, a, b, x/y) * y^n.
  *
  * Works for y = 0.
  */
-double SingularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, double y);
+double singularityFreeJacobiP(unsigned n, unsigned a, unsigned b, double x, double y);
 
 /**
  * @brief Singularity free Jacobi polynomial evaluation with derivatives.
  *
- * Computes K_{a,b}^n(x,y) = JacobiP(n, a, b, x/y) * y^n, dK_{a,b}^n/dx, and dK_{a,b}^n/dy.
+ * Computes K_{a,b}^n(x,y) = jacobiP(n, a, b, x/y) * y^n, dK_{a,b}^n/dx, and dK_{a,b}^n/dy.
  *
  * return {K, dKdx, dKdy}
  */
 std::array<double, 3>
-    SingularityFreeJacobiPAndDerivatives(unsigned n, unsigned a, unsigned b, double x, double y);
+    singularityFreeJacobiPAndDerivatives(unsigned n, unsigned a, unsigned b, double x, double y);
 
 /**
  * @brief Evaluate Dubiner basis on reference triangle
@@ -84,12 +84,12 @@ std::array<double, 3>
  *
  * @return Function value at xi
  */
-double TriDubinerP(const std::array<unsigned, 2>& i, const std::array<double, 2>& xi);
+double triDubinerP(const std::array<unsigned, 2>& i, const std::array<double, 2>& xi);
 
 /**
  * @brief Gradient of Dubiner basis on triangle
  *
- * See TriDubinerP.
+ * See triDubinerP.
  *
  * @return Gradient at xi
  */
@@ -110,12 +110,12 @@ std::array<double, 2> gradTriDubinerP(const std::array<unsigned, 2>& i,
  *
  * @return Function value at xi
  */
-double TetraDubinerP(const std::array<unsigned, 3>& i, const std::array<double, 3>& xi);
+double tetraDubinerP(const std::array<unsigned, 3>& i, const std::array<double, 3>& xi);
 
 /**
  * @brief Gradient of Dubiner basis on tetrahedron
  *
- * See TetraDubinerP.
+ * See tetraDubinerP.
  *
  * @return Gradient at xi
  */
@@ -146,7 +146,7 @@ double shiftedLegendre(int n, double x, int d);
  * D = 3: (0,0,0), (1,0,0), (0,1,0), (0,0,1)
  */
 template <std::size_t D>
-double DubinerP(const std::array<unsigned, D>& i, const std::array<double, D>& xi);
+double dubinerP(const std::array<unsigned, D>& i, const std::array<double, D>& xi);
 
 /**
  * @brief Templated gradient for D=1,2,3.

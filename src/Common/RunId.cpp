@@ -23,7 +23,7 @@ namespace {
 constexpr std::array<std::size_t, 4> DashPositions{8, 13, 18, 23};
 
 bool isDashPosition(std::size_t position) {
-  return std::find(DashPositions.begin(), DashPositions.end(), position) != DashPositions.end();
+  return std::ranges::find(DashPositions, position) != DashPositions.end();
 }
 } // namespace
 
@@ -43,12 +43,12 @@ std::string newRunId() {
   constexpr std::string_view Digits = "0123456789abcdef";
   std::string text;
   text.reserve(RunIdLength);
-  for (std::size_t i = 0; i < bytes.size(); ++i) {
+  for (const auto byte : bytes) {
     if (isDashPosition(text.size())) {
       text += '-';
     }
-    text += Digits[bytes[i] >> 4U];
-    text += Digits[bytes[i] & 0x0fU];
+    text += Digits[byte >> 4U];
+    text += Digits[byte & 0x0fU];
   }
   return text;
 }

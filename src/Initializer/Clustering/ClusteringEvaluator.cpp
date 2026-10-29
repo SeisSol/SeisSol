@@ -61,9 +61,9 @@ std::vector<std::size_t> ClusteringEvaluator::binCells(const ClusterLadder& ladd
 
 std::size_t ClusteringEvaluator::realize(double wiggleFactor) {
   std::size_t numberOfReductions = 0;
-  auto lb = cache_.lower_bound(wiggleFactor);
+  const auto lb = cache_.lower_bound(wiggleFactor);
 
-  if (lb != cache_.end() && !(cache_.key_comp()(wiggleFactor, lb->first))) {
+  if (lb != cache_.end() && !cache_.key_comp()(wiggleFactor, lb->first)) {
     clusterIds_ = lb->second;
   } else {
     // re-use best computed maxdiff enforcement available
@@ -120,8 +120,7 @@ std::size_t ClusteringEvaluator::smoothCurrent() {
 }
 
 std::size_t ClusteringEvaluator::globalMaxClusterId() const {
-  std::size_t maxClusterId =
-      clusterIds_.empty() ? 0 : *std::max_element(clusterIds_.begin(), clusterIds_.end());
+  std::size_t maxClusterId = clusterIds_.empty() ? 0 : *std::ranges::max_element(clusterIds_);
   MPI_Allreduce(
       MPI_IN_PLACE, &maxClusterId, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, Mpi::mpi.comm());
   return maxClusterId;

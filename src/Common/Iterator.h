@@ -39,17 +39,15 @@ class Zip {
   template <typename... IteratorTs>
   class Iterator {
 public:
-    // NOLINTNEXTLINE
+    // the names under which the standard library looks up the types of an iterator
+    // NOLINTBEGIN(readability-identifier-naming)
     using iterator_category = std::input_iterator_tag;
-    // NOLINTNEXTLINE
     using difference_type =
         std::tuple<typename std::iterator_traits<IteratorTs>::difference_type...>;
-    // NOLINTNEXTLINE
     using value_type = std::tuple<typename std::iterator_traits<IteratorTs>::value_type...>;
-    // NOLINTNEXTLINE
     using pointer = std::tuple<typename std::iterator_traits<IteratorTs>::pointer...>;
-    // NOLINTNEXTLINE
     using reference = std::tuple<typename std::iterator_traits<IteratorTs>::reference...>;
+    // NOLINTEND(readability-identifier-naming)
 
     constexpr static auto makeReference(std::tuple<IteratorTs...>& iterators) -> reference {
       return std::apply([](auto&... values) { return reference{*values...}; }, iterators);
@@ -182,19 +180,17 @@ class Range {
   public:
   class Iterator {
 public:
-    // NOLINTNEXTLINE
+    // the names under which the standard library looks up the types of an iterator
+    // NOLINTBEGIN(readability-identifier-naming)
     using iterator_category = std::input_iterator_tag;
-    // NOLINTNEXTLINE
     using difference_type = std::make_signed_t<T>;
-    // NOLINTNEXTLINE
     using value_type = T;
-    // NOLINTNEXTLINE
     using pointer = const T*;
-    // NOLINTNEXTLINE
     using reference =
         std::conditional_t<std::is_trivially_copyable_v<T> && sizeof(T) <= sizeof(std::size_t),
                            T,
                            const T&>;
+    // NOLINTEND(readability-identifier-naming)
 
     Iterator(T value, T step, T end) : value_(value), step_(step), end_(end) {
       if (value > end) {
@@ -323,16 +319,14 @@ constexpr auto enumerate(RangeT&& iterator) {
 template <typename T>
 class FilteredIterator {
   public:
-  // NOLINTNEXTLINE
-  using iterator_category = typename std::iterator_traits<T>::iterator_category;
-  // NOLINTNEXTLINE
-  using difference_type = typename std::iterator_traits<T>::difference_type;
-  // NOLINTNEXTLINE
-  using value_type = typename std::iterator_traits<T>::value_type;
-  // NOLINTNEXTLINE
-  using pointer = typename std::iterator_traits<T>::pointer;
-  // NOLINTNEXTLINE
-  using reference = typename std::iterator_traits<T>::reference;
+  // the names under which the standard library looks up the types of an iterator
+  // NOLINTBEGIN(readability-identifier-naming)
+  using iterator_category = std::iterator_traits<T>::iterator_category;
+  using difference_type = std::iterator_traits<T>::difference_type;
+  using value_type = std::iterator_traits<T>::value_type;
+  using pointer = std::iterator_traits<T>::pointer;
+  using reference = std::iterator_traits<T>::reference;
+  // NOLINTEND(readability-identifier-naming)
 
   FilteredIterator(T base, T end, const std::function<bool(reference)>& filter)
       : base_(base), end_(end), filter_(filter) {

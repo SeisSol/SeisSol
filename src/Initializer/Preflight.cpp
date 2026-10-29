@@ -25,9 +25,11 @@
 #include <cstddef>
 #include <exception>
 #include <fcntl.h>
+#include <filesystem>
 #include <fty/fty.hpp>
 #include <optional>
-#include <signal.h>
+// SIGTRAP is POSIX and only declared by the C header
+#include <signal.h> // NOLINT(modernize-deprecated-headers)
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -145,7 +147,7 @@ bool runOpens(const std::vector<std::string>& field,
            (faultOutput == parameters::OutputType::AtPickpoint ||
             faultOutput == parameters::OutputType::AtPickpointAndElementwise);
   }
-  if (name.rfind("equations.plasticityfilename", 0) == 0) {
+  if (name.starts_with("equations.plasticityfilename")) {
     return parameters.model.plasticity;
   }
   if (name == "inicondition.filename") {
@@ -155,8 +157,8 @@ bool runOpens(const std::vector<std::string>& field,
 }
 
 bool isYamlFile(const std::string& path) {
-  auto extension = filesystem::path(path).extension().string();
-  std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) {
+  auto extension = std::filesystem::path(path).extension().string();
+  std::ranges::transform(extension, extension.begin(), [](unsigned char c) {
     return static_cast<char>(std::tolower(c));
   });
   return extension == ".yaml" || extension == ".yml";
@@ -172,7 +174,7 @@ json::Value meshSection(const parameters::MeshParameters& mesh, Report& report) 
   section["format"] = "puml";
 #ifdef USE_HDF
   std::error_code error;
-  if (!filesystem::is_regular_file(mesh.meshFileName, error)) {
+  if (!std::filesystem::is_regular_file(mesh.meshFileName, error)) {
     // which the check of the files has reported already
     return section;
   }
@@ -230,17 +232,17 @@ json::Value outputSection(const parameters::SeisSolParameters& parameters, Repor
   section["prefix"] = output.prefix;
 
   std::error_code error;
-  const auto directory = filesystem::absolute(output.prefix, error).parent_path();
-  const bool exists = filesystem::is_directory(directory, error);
+  const auto directory = std::filesystem::absolute(output.prefix, error).parent_path();
+  const bool exists = std::filesystem::is_directory(directory, error);
   section["directory"] = directory.string();
   section["exists"] = exists;
   // a run creates the directory, with its parents, in the closest one that exists
   auto existing = directory;
   while (!existing.empty() && existing != existing.root_path() &&
-         !filesystem::exists(existing, error)) {
+         !std::filesystem::exists(existing, error)) {
     existing = existing.parent_path();
   }
-  const bool writable = filesystem::is_directory(existing, error) &&
+  const bool writable = std::filesystem::is_directory(existing, error) &&
                         ::access(existing.string().c_str(), W_OK | X_OK) == 0;
   section["writable"] = writable;
   if (!writable) {
@@ -310,9 +312,9 @@ int preflight(const std::string& parameterFile,
   {
     auto& invocation = report["invocation"];
     std::error_code error;
-    const auto absolute = filesystem::absolute(parameterFile, error);
+    const auto absolute = std::filesystem::absolute(parameterFile, error);
     invocation["parameterFile"] = error ? parameterFile : absolute.string();
-    const auto workingDirectory = filesystem::current_path(error);
+    const auto workingDirectory = std::filesystem::current_path(error);
     invocation["workingDirectory"] = error ? std::string() : workingDirectory.string();
     invocation["overrides"] = json::Value::object();
     invocation["checkpoint"] =
@@ -341,7 +343,7 @@ int preflight(const std::string& parameterFile,
   }
   parameters::applyOverrides(node, parsedOverrides);
   parameters::ParameterReader reader(node, parameterFile, false);
-  const auto seissolParameters = [&]() {
+  const auto seissolParameters = [&] {
     try {
       return parameters::readSeisSolParameters(&reader);
     } catch (const std::exception& error) {
@@ -371,7 +373,7 @@ int preflight(const std::string& parameterFile,
     }
     const auto name = joined(entry.field);
     std::error_code error;
-    const bool exists = filesystem::exists(entry.path, error);
+    const bool exists = std::filesystem::exists(entry.path, error);
     const bool opened = runOpens(entry.field, seissolParameters);
     auto& file = files.push(json::Value::object());
     file["parameter"] = name;
@@ -389,7 +391,7 @@ int preflight(const std::string& parameterFile,
     std::error_code error;
     if (entry.path.empty() || !isYamlFile(entry.path) ||
         !runOpens(entry.field, seissolParameters) ||
-        !filesystem::is_regular_file(entry.path, error)) {
+        !std::filesystem::is_regular_file(entry.path, error)) {
       continue;
     }
     try {
@@ -406,7 +408,7 @@ int preflight(const std::string& parameterFile,
   if (checkpoint.has_value()) {
     report.step("checkpoint");
     std::error_code error;
-    if (!filesystem::is_regular_file(checkpoint.value(), error)) {
+    if (!std::filesystem::is_regular_file(checkpoint.value(), error)) {
       report.problem("The checkpoint " + checkpoint.value() + " does not exist.");
     }
   }

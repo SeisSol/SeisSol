@@ -13,6 +13,7 @@
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
+#include "DynamicRupture/Misc.h"
 
 #include <cstdint>
 
@@ -24,7 +25,8 @@ class FastVelocityWeakeningLaw
   public:
   using real = Real<Cfg>;
 
-  using RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  explicit FastVelocityWeakeningLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>(drParameters) {}
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 

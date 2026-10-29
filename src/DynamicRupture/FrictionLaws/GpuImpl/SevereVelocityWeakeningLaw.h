@@ -8,9 +8,11 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SEVEREVELOCITYWEAKENINGLAW_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
+#include "DynamicRupture/Misc.h"
 
 namespace seissol::dr::friction_law::gpu {
 template <typename Cfg, class TPMethod>
@@ -19,7 +21,8 @@ class SevereVelocityWeakeningLaw
   public:
   using real = Real<Cfg>;
 
-  using RateAndStateBase<Cfg, SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  explicit SevereVelocityWeakeningLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : RateAndStateBase<Cfg, SevereVelocityWeakeningLaw, TPMethod>(drParameters) {}
 
   /*
     ! friction develops as                    mu = mu_s + a V/(V+Vc) - b SV/(SV + Dc)

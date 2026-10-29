@@ -7,9 +7,8 @@
 
 #include "ParameterReader.h"
 
-#include "Common/Filesystem.h"
-
 #include <algorithm>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -19,8 +18,8 @@
 
 namespace seissol::initializer::parameters {
 
-ParameterReader::ParameterReader(const YAML::Node& node, const std::string& rootPath, bool empty)
-    : node_(node), rootPath_(rootPath), empty_(empty) {}
+ParameterReader::ParameterReader(const YAML::Node& node, std::string rootPath, bool empty)
+    : node_(node), rootPath_(std::move(rootPath)), empty_(empty) {}
 
 std::optional<std::string> ParameterReader::readPath(const std::string& field) {
   const auto fileName = read<std::string>(field);
@@ -32,9 +31,9 @@ std::optional<std::string> ParameterReader::readPath(const std::string& field) {
       // no file; relative to the directory of the parameter file, it would name that directory
       return fileName.value();
     }
-    const auto lastPath = filesystem::path(rootPath_);
-    auto nextPath = filesystem::path(fileName.value());
-    const auto loadFileName = [&]() {
+    const auto lastPath = std::filesystem::path(rootPath_);
+    auto nextPath = std::filesystem::path(fileName.value());
+    const auto loadFileName = [&] {
       if (nextPath.is_relative()) {
         // remove file
         return lastPath.parent_path() / nextPath;
@@ -43,10 +42,10 @@ std::optional<std::string> ParameterReader::readPath(const std::string& field) {
       }
     }();
     // try to get the full file name (if that works)
-    if (filesystem::exists(loadFileName)) {
-      return filesystem::canonical(loadFileName);
-    } else if (filesystem::exists(nextPath)) {
-      return filesystem::canonical(nextPath);
+    if (std::filesystem::exists(loadFileName)) {
+      return std::filesystem::canonical(loadFileName);
+    } else if (std::filesystem::exists(nextPath)) {
+      return std::filesystem::canonical(nextPath);
     } else {
       // otherwise, just return the string (TODO: or should be fail here then?)
       return nextPath;
@@ -84,8 +83,8 @@ void ParameterReader::warnDeprecated(const std::vector<std::string>& fields) {
 
 void ParameterReader::warnUnknown(const std::string& prefix) const {
   for (const auto& subnodes : node_) {
-    auto field = subnodes.first.as<std::string>();
-    if (visited_.find(field) == visited_.end()) {
+    const auto field = subnodes.first.as<std::string>();
+    if (!visited_.contains(field)) {
       logWarning() << "The field" << field << "in" << prefix
                    << "was given in the parameter file, but is unknown to SeisSol.";
     }
@@ -105,7 +104,7 @@ void ParameterReader::markUnused(const std::vector<std::string>& fields) {
 ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
   visited_.emplace(subnodeName);
   logDebug() << "Entering section" << subnodeName;
-  if (subreaders_.find(subnodeName) == subreaders_.end()) {
+  if (!subreaders_.contains(subnodeName)) {
     bool empty = false;
     if (hasField(subnodeName)) {
       empty = false;
@@ -133,7 +132,7 @@ std::vector<std::string> sortedSections(const Map& subreaders) {
   for (const auto& [name, _] : subreaders) {
     sections.push_back(name);
   }
-  std::sort(sections.begin(), sections.end());
+  std::ranges::sort(sections);
   return sections;
 }
 } // namespace
@@ -142,7 +141,7 @@ std::vector<ParameterReader::NamedPath> ParameterReader::paths() const {
   std::vector<NamedPath> result;
   result.reserve(paths_.size());
   for (const auto& [field, path] : paths_) {
-    result.push_back(NamedPath{{field}, path});
+    result.push_back(NamedPath{.field = {field}, .path = path});
   }
   for (const auto& section : sortedSections(subreaders_)) {
     for (auto entry : subreaders_.at(section)->paths()) {
@@ -156,8 +155,8 @@ std::vector<ParameterReader::NamedPath> ParameterReader::paths() const {
 std::vector<std::string> ParameterReader::unknownFields() const {
   std::vector<std::string> result;
   for (const auto& subnodes : node_) {
-    auto field = subnodes.first.as<std::string>();
-    if (visited_.find(field) == visited_.end()) {
+    const auto field = subnodes.first.as<std::string>();
+    if (!visited_.contains(field)) {
       result.push_back(field);
     }
   }
@@ -174,7 +173,7 @@ bool ParameterReader::visited(const std::vector<std::string>& path) const {
     return false;
   }
   if (path.size() == 1) {
-    return visited_.find(path.front()) != visited_.end();
+    return visited_.contains(path.front());
   }
   const auto subreader = subreaders_.find(path.front());
   if (subreader == subreaders_.end()) {

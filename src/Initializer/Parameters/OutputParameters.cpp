@@ -18,6 +18,7 @@
 #include <cstddef>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utils/logger.h>
 #include <vector>
@@ -50,7 +51,7 @@ TimeSeriesMode readTimeSeriesMode(ParameterReader* reader,
       });
 }
 
-std::string timeSeriesName(TimeSeriesMode mode) {
+std::string_view timeSeriesName(TimeSeriesMode mode) {
   switch (mode) {
   case TimeSeriesMode::Incremental:
     return "incremental";
@@ -68,7 +69,7 @@ void warnIntervalAndDisable(bool& enabled,
                             const std::string& valName,
                             const std::string& intName) {
   if (enabled && interval <= 0) {
-    auto intPhrase = valName + " = 0";
+    const auto intPhrase = valName + " = 0";
     logInfo() << "In your parameter file, you have specified a non-positive interval for" << intName
               << ". This mechanism is deprecated and may be removed in a future version of "
                  "SeisSol. Consider disabling the whole module by setting"
@@ -93,7 +94,7 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
 
   reader->warnDeprecated({"checkpointbackend", "checkpointfile"});
 
-  return CheckpointParameters{enabled, interval};
+  return CheckpointParameters{.enabled = enabled, .interval = interval};
 }
 
 ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader,
@@ -115,8 +116,12 @@ ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader
 
   const auto timeSeries = readTimeSeriesMode(reader, "timeseries", defaultTimeSeries);
 
-  return ElementwiseFaultParameters{
-      printTimeIntervalSec, outputMask, refinementStrategy, refinement, vtkorder, timeSeries};
+  return ElementwiseFaultParameters{.printTimeIntervalSec = printTimeIntervalSec,
+                                    .outputMask = outputMask,
+                                    .refinementStrategy = refinementStrategy,
+                                    .refinement = refinement,
+                                    .vtkorder = vtkorder,
+                                    .timeSeries = timeSeries};
 }
 
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
@@ -137,13 +142,14 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
   const auto terminatorMomentRateThreshold = abortCriteriaReader->readWithDefault(
       "terminatormomentratethreshold", -std::numeric_limits<double>::infinity());
 
-  return EnergyOutputParameters{enabled,
-                                computeVolumeEnergiesEveryOutput,
-                                interval,
-                                terminalOutput,
-                                terminalPrecision,
-                                terminatorMaxTimePostRupture,
-                                terminatorMomentRateThreshold};
+  return EnergyOutputParameters{.enabled = enabled,
+                                .computeVolumeEnergiesEveryOutput =
+                                    computeVolumeEnergiesEveryOutput,
+                                .interval = interval,
+                                .terminalOutput = terminalOutput,
+                                .terminalPrecision = terminalPrecision,
+                                .terminatorMaxTimePostRupture = terminatorMaxTimePostRupture,
+                                .terminatorMomentRateThreshold = terminatorMomentRateThreshold};
 }
 
 FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader,
@@ -186,8 +192,13 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
 
   const auto timeSeries = readTimeSeriesMode(reader, "surfacetimeseries", defaultTimeSeries);
 
-  return FreeSurfaceOutputParameters{
-      enabled, refinement, interval, vtkorder, surfaceOutputMask, projection, timeSeries};
+  return FreeSurfaceOutputParameters{.enabled = enabled,
+                                     .refinement = refinement,
+                                     .interval = interval,
+                                     .vtkorder = vtkorder,
+                                     .outputMask = surfaceOutputMask,
+                                     .projection = projection,
+                                     .timeSeries = timeSeries};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
@@ -219,13 +230,13 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
 
   reader->warnDeprecated({"noutpoints", "maxpickstore"});
 
-  return PickpointParameters{printTimeInterval,
-                             interval,
-                             outputMask,
-                             pickpointFileName,
-                             collectiveio,
-                             format,
-                             samplechunk};
+  return PickpointParameters{.printTimeInterval = printTimeInterval,
+                             .writeInterval = interval,
+                             .outputMask = outputMask,
+                             .pickpointFileName = pickpointFileName,
+                             .collectiveio = collectiveio,
+                             .format = format,
+                             .samplechunk = samplechunk};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
@@ -259,15 +270,15 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   }
 
   // note: we'll need to supply a filename, even if we don't use the receivers
-  return ReceiverOutputParameters{enabled,
-                                  format,
-                                  computeRotation,
-                                  computeStrain,
-                                  interval,
-                                  samplingInterval,
-                                  fileName.value_or(""),
-                                  collectiveio,
-                                  samplechunk};
+  return ReceiverOutputParameters{.enabled = enabled,
+                                  .format = format,
+                                  .computeRotation = computeRotation,
+                                  .computeStrain = computeStrain,
+                                  .writeInterval = interval,
+                                  .samplingInterval = samplingInterval,
+                                  .fileName = fileName.value_or(""),
+                                  .collectiveio = collectiveio,
+                                  .samplechunk = samplechunk};
 }
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
@@ -307,11 +318,10 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
   const auto boundsString =
       reader->readWithDefault("outputregionbounds", std::string("0.0 0.0 0.0 0.0 0.0 0.0"));
   const auto boundsRaw = convertStringToArray<double, 6>(boundsString);
-  const auto boundsEnabled =
-      std::none_of(boundsRaw.begin(), boundsRaw.end(), [](double d) { return d == 0; });
-  const OutputInterval intervalX = {boundsRaw[0], boundsRaw[1]};
-  const OutputInterval intervalY = {boundsRaw[2], boundsRaw[3]};
-  const OutputInterval intervalZ = {boundsRaw[4], boundsRaw[5]};
+  const auto boundsEnabled = std::ranges::none_of(boundsRaw, [](double d) { return d == 0; });
+  const OutputInterval intervalX = {.lower = boundsRaw[0], .upper = boundsRaw[1]};
+  const OutputInterval intervalY = {.lower = boundsRaw[2], .upper = boundsRaw[3]};
+  const OutputInterval intervalZ = {.lower = boundsRaw[4], .upper = boundsRaw[5]};
   const OutputBounds bounds(boundsEnabled, intervalX, intervalY, intervalZ);
 
   const auto outputMaskString =
@@ -347,19 +357,19 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
     reader->warnDeprecated({"format"});
   }
 
-  return WaveFieldOutputParameters{enabled,
-                                   vtkorder,
-                                   interval,
-                                   refinement,
-                                   bounds,
-                                   outputMask,
-                                   plasticityMask,
-                                   integrationMask,
-                                   groups,
-                                   computeRotation,
-                                   computeStrain,
-                                   projection,
-                                   timeSeries};
+  return WaveFieldOutputParameters{.enabled = enabled,
+                                   .vtkorder = vtkorder,
+                                   .interval = interval,
+                                   .refinement = refinement,
+                                   .bounds = bounds,
+                                   .outputMask = outputMask,
+                                   .plasticityMask = plasticityMask,
+                                   .integrationMask = integrationMask,
+                                   .groups = groups,
+                                   .computeRotation = computeRotation,
+                                   .computeStrain = computeStrain,
+                                   .projection = projection,
+                                   .timeSeries = timeSeries};
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId config) {
@@ -371,7 +381,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
   // string keeps that one reader helper in charge of validating every one of them; going through
   // the enum and back also settles the spelling of what the user wrote.
   const auto defaultTimeSeries =
-      timeSeriesName(readTimeSeriesMode(reader, "outputtimeseries", "snapshot"));
+      std::string(timeSeriesName(readTimeSeriesMode(reader, "outputtimeseries", "snapshot")));
   const auto format = reader->readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
   const auto xdmfWriterBackend =

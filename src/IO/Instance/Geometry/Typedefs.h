@@ -8,7 +8,7 @@
 #define SEISSOL_SRC_IO_INSTANCE_GEOMETRY_TYPEDEFS_H_
 
 #include <cstddef>
-#include <string>
+#include <string_view>
 #include <utils/logger.h>
 namespace seissol::io::instance::geometry {
 
@@ -56,7 +56,7 @@ constexpr std::size_t vtkType(Shape shape) {
   return 0;
 }
 
-inline std::string xdmfType(Shape shape, std::size_t order) {
+inline std::string_view xdmfType(Shape shape, std::size_t order) {
   if (order > 1) {
     logError() << "High-order output is not supported for Xdmf.";
   }

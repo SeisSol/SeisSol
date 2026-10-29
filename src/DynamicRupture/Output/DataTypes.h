@@ -111,29 +111,48 @@ using Var1D = VarT<1>;
 using Var2D = VarT<2>;
 using Var3D = VarT<3>;
 
-// Description is given in `enum VariableID`
+/// The variables of the fault output, in the order of the constants of VariableID.
 using DrVarsT =
     std::tuple<Var2D, Var3D, Var1D, Var2D, Var3D, Var2D, Var1D, Var1D, Var1D, Var1D, Var1D, Var2D>;
 
-enum DirectionID { Strike = 0, Dip = 1, Normal = 2 };
-enum TPID { Pressure = 0, Temperature = 1 };
-enum ParamID { FrictionCoefficient = 0, State = 1 };
-
-enum VariableID {
-  SlipRate = 0,
-  TransientTractions,
-  NormalVelocity,
-  FrictionAndState,
-  TotalTractions,
-  Slip,
-  RuptureVelocity,
-  AccumulatedSlip,
-  PeakSlipRate,
-  RuptureTime,
-  DynamicStressTime,
-  ThermalPressurizationVariables,
-  Size
+/// The components of the vector variables of the fault output.
+struct DirectionID {
+  static constexpr std::size_t Strike = 0;
+  static constexpr std::size_t Dip = 1;
+  static constexpr std::size_t Normal = 2;
 };
+
+/// The components of the thermal pressurization variable of the fault output.
+struct TPID {
+  static constexpr std::size_t Pressure = 0;
+  static constexpr std::size_t Temperature = 1;
+};
+
+/// The components of the friction and state variable of the fault output.
+struct ParamID {
+  static constexpr std::size_t FrictionCoefficient = 0;
+  static constexpr std::size_t State = 1;
+};
+
+/// The variables of the fault output, as indices into DrVarsT and VariableLabels.
+struct VariableID {
+  static constexpr std::size_t SlipRate = 0;
+  static constexpr std::size_t TransientTractions = 1;
+  static constexpr std::size_t NormalVelocity = 2;
+  static constexpr std::size_t FrictionAndState = 3;
+  static constexpr std::size_t TotalTractions = 4;
+  static constexpr std::size_t Slip = 5;
+  static constexpr std::size_t RuptureVelocity = 6;
+  static constexpr std::size_t AccumulatedSlip = 7;
+  static constexpr std::size_t PeakSlipRate = 8;
+  static constexpr std::size_t RuptureTime = 9;
+  static constexpr std::size_t DynamicStressTime = 10;
+  static constexpr std::size_t ThermalPressurizationVariables = 11;
+  static constexpr std::size_t Size = 12;
+};
+
+static_assert(std::tuple_size_v<DrVarsT> == VariableID::Size,
+              "DrVarsT holds one entry per variable of VariableID.");
 
 const inline std::vector<std::vector<std::string>> VariableLabels = {{"SRs", "SRd"},
                                                                      {"T_s", "T_d", "P_n"},

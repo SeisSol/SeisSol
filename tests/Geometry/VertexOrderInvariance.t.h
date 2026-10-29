@@ -57,7 +57,12 @@ inline std::unique_ptr<seissol::geometry::PUMLReader> readMesh(const std::string
                                                                seissol::SeisSol& seissolInstance) {
   using namespace seissol::initializer;
   static const auto FaceMap = defaultFaceMap();
-  const ClusteringConfig config{{2}, 1, 1, 1, &FaceMap, {}};
+  const ClusteringConfig config{.rate = {2},
+                                .vertexWeightElement = 1,
+                                .vertexWeightDynamicRupture = 1,
+                                .vertexWeightFreeSurfaceWithGravity = 1,
+                                .faceMap = &FaceMap,
+                                .configCostFactors = {}};
   Clustering clustering(config, seissolInstance);
   ExponentialWeights weightModel;
   return std::make_unique<seissol::geometry::PUMLReader>(
@@ -103,10 +108,11 @@ using namespace vertexorderinvariancetest;
 
 TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
           doctest::test_suite("geometry")) {
-  for (const auto& meshPair : MeshPairs) {
-    const auto& file = meshPair.first;
-    const auto& filePermuted = meshPair.second;
-    CAPTURE(file);
+  for (const auto& [file, filePermuted] : MeshPairs) {
+    // CAPTURE takes its argument into a lambda, which Clang 18 does not allow for a structured
+    // binding when OpenMP is enabled
+    const auto& meshFile = file;
+    CAPTURE(meshFile);
     seissol::geometry::PumlMesh mesh;
     seissol::geometry::PumlMesh meshPermuted;
     readPumlMesh(mesh, tpath(file));
@@ -161,7 +167,7 @@ TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
           CHECK(graph.adj()[eid] == neighbor);
           CHECK(self == gids[lid]);
         });
-    CHECK(std::all_of(visits.begin(), visits.end(), [](int count) { return count == 1; }));
+    CHECK(std::ranges::all_of(visits, [](int count) { return count == 1; }));
   }
 }
 
@@ -200,11 +206,11 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
     }
   }
   for (const auto& partitioningLib : partitioningLibs) {
-    for (const auto& meshPair : MeshPairs) {
-      const auto& file = meshPair.first;
-      const auto& filePermuted = meshPair.second;
+    for (const auto& [file, filePermuted] : MeshPairs) {
+      // as above, a structured binding cannot go into CAPTURE
+      const auto& meshFile = file;
       CAPTURE(partitioningLib);
-      CAPTURE(file);
+      CAPTURE(meshFile);
       std::cout.setstate(std::ios_base::failbit);
       const auto reader = readMesh(file, partitioningLib, seissolInstance);
       const auto readerPermuted = readMesh(filePermuted, partitioningLib, seissolInstance);

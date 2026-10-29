@@ -8,7 +8,6 @@
 
 #include "BuildInfo.h"
 #include "Common/ConfigRegistry.h"
-#include "Common/Filesystem.h"
 #include "Common/Json.h"
 #include "Common/RunId.h"
 #include "Initializer/InitProcedure/Init.h"
@@ -22,6 +21,7 @@
 
 #include <ctime>
 #include <exception>
+#include <filesystem>
 #include <fty/fty.hpp>
 #include <memory>
 #include <optional>
@@ -45,7 +45,8 @@
 
 #if defined(__GNUC__) || defined(__linux__)
 #include <cfenv>
-#include <fenv.h>
+// feenableexcept is a glibc extension and only declared by the C header
+#include <fenv.h> // NOLINT(modernize-deprecated-headers)
 #endif
 
 namespace {
@@ -114,11 +115,11 @@ json::Value invocation(const char* executable,
   json::Value value;
   std::error_code error;
   // the executable as it is on disk, which argv[0] need not name
-  const auto self = filesystem::read_symlink("/proc/self/exe", error);
+  const auto self = std::filesystem::read_symlink("/proc/self/exe", error);
   value["executable"] = error ? std::string(executable) : self.string();
-  const auto absolute = filesystem::absolute(parameterFile, error);
+  const auto absolute = std::filesystem::absolute(parameterFile, error);
   value["parameterFile"] = error ? parameterFile : absolute.string();
-  const auto workingDirectory = filesystem::current_path(error);
+  const auto workingDirectory = std::filesystem::current_path(error);
   value["workingDirectory"] = error ? std::string() : workingDirectory.string();
   auto& given = value["overrides"] = json::Value::object();
   for (const auto& entry : overrides) {
@@ -301,7 +302,7 @@ int main(int argc, char* argv[]) {
     seissol::initializer::parameters::applyOverrides(*yamlParams, overrides);
     seissol::initializer::parameters::ParameterReader parameterReader(
         *yamlParams, parameterFile, false);
-    auto parameters = [&]() {
+    const auto parameters = [&] {
       try {
         return seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
       } catch (const std::exception& error) {

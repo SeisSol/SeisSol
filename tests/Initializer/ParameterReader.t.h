@@ -73,35 +73,35 @@ TEST_CASE("ParameterReader read<T>" * doctest::test_suite("initializer")) {
   SUBCASE("Read int") {
     auto val = reader.read<int>("intfield");
     REQUIRE(val.has_value());
-    CHECK(*val == 42);
+    CHECK(val.value() == 42);
   }
 
   SUBCASE("Read double") {
     auto val = reader.read<double>("doublefield");
     REQUIRE(val.has_value());
-    CHECK(*val == doctest::Approx(3.14));
+    CHECK(val.value() == doctest::Approx(3.14));
   }
 
   SUBCASE("Read string") {
     auto val = reader.read<std::string>("strfield");
     REQUIRE(val.has_value());
-    CHECK(*val == "hello");
+    CHECK(val.value() == "hello");
   }
 
   SUBCASE("Read bool true") {
     auto val = reader.read<bool>("boolfield");
     REQUIRE(val.has_value());
-    CHECK(*val == true);
+    CHECK(val.value() == true);
   }
 
   SUBCASE("Read bool false") {
     auto val = reader.read<bool>("boolfalse");
     REQUIRE(val.has_value());
-    CHECK(*val == false);
+    CHECK(val.value() == false);
   }
 
   SUBCASE("Missing field returns empty optional") {
-    auto val = reader.read<int>("nonexistent");
+    const auto val = reader.read<int>("nonexistent");
     CHECK_FALSE(val.has_value());
   }
 }
@@ -163,7 +163,7 @@ TEST_CASE("ParameterReader empty mode" * doctest::test_suite("initializer")) {
   ParameterReader reader(node, "", true); // empty=true → hasField always false
 
   SUBCASE("Read returns empty even if data exists in node") {
-    auto val = reader.read<int>("field");
+    const auto val = reader.read<int>("field");
     CHECK_FALSE(val.has_value());
   }
 
@@ -190,19 +190,19 @@ TEST_CASE("ParameterReader readSubNode" * doctest::test_suite("initializer")) {
   SUBCASE("Read from subnode") {
     auto mat = sub->read<std::string>("materialfilename");
     REQUIRE(mat.has_value());
-    CHECK(*mat == "rock.yaml");
+    CHECK(mat.value() == "rock.yaml");
   }
 
   SUBCASE("Read bool from subnode") {
     auto val = sub->read<bool>("plasticity");
     REQUIRE(val.has_value());
-    CHECK(*val == false);
+    CHECK(val.value() == false);
   }
 
   SUBCASE("Missing subnode returns empty reader") {
     auto* missing = reader.readSubNode("nonexistentsection");
     REQUIRE(missing != nullptr);
-    auto val = missing->read<int>("field");
+    const auto val = missing->read<int>("field");
     CHECK_FALSE(val.has_value());
   }
 }
@@ -226,7 +226,7 @@ TEST_CASE("ParameterReader hasField" * doctest::test_suite("initializer")) {
 
 TEST_CASE("ParameterReader readPath" * doctest::test_suite("initializer")) {
   const std::string directory = "readpath-test";
-  seissol::filesystem::create_directories(directory);
+  std::filesystem::create_directories(directory);
   {
     std::ofstream file(directory + "/material.yaml");
     file << "!ConstantMap\n";
@@ -242,7 +242,7 @@ TEST_CASE("ParameterReader readPath" * doctest::test_suite("initializer")) {
   SUBCASE("A file next to the parameter file") {
     const auto path = reader.readPath("material");
     REQUIRE(path.has_value());
-    CHECK(path.value() == seissol::filesystem::canonical(directory + "/material.yaml").string());
+    CHECK(path.value() == std::filesystem::canonical(directory + "/material.yaml").string());
   }
 
   SUBCASE("A file that does not exist comes back as given") {
@@ -255,7 +255,7 @@ TEST_CASE("ParameterReader readPath" * doctest::test_suite("initializer")) {
 
   SUBCASE("A name that is not given") { CHECK_FALSE(reader.readPath("other").has_value()); }
 
-  seissol::filesystem::remove_all(directory);
+  std::filesystem::remove_all(directory);
 }
 
 TEST_CASE("ParameterReader paths and unknown fields" * doctest::test_suite("initializer")) {

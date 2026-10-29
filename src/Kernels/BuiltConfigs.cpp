@@ -15,6 +15,9 @@
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "GeneratedCode/variant.h"
+#include "Kernels/Solver.h" // IWYU pragma: keep
+#include "Kernels/SolverSelector.h"
+#include "Model/Concepts.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <cstddef>
@@ -66,6 +69,26 @@ constexpr std::size_t configsListedForSolvers() {
 
 static_assert(configsListedForSolvers() == std::variant_size_v<ConfigVariant>,
               "Every configuration is listed for the solver it advances its cells with.");
+
+/// Checks the configuration `Cfg`, its material, the Riemann material of that and its solver
+/// against the concepts.
+template <typename Cfg>
+constexpr bool satisfiesConcepts() {
+  using MaterialT = model::MaterialOf<Cfg>;
+  using SolverT = kernels::SolverOf<Cfg>;
+  static_assert(ConfigC<Cfg>, "A configuration lacks a constant of ConfigC.");
+  static_assert(MaterialC<MaterialT>,
+                "The material of a configuration lacks a property of MaterialC.");
+  static_assert(MaterialC<typename MaterialT::RiemannMaterial>,
+                "The Riemann material of a configuration lacks a property of MaterialC.");
+  static_assert(SolverC<SolverT, Cfg>,
+                "The solver of a configuration lacks a kernel or property of SolverC.");
+  return true;
+}
+
+#define SEISSOL_SATISFIES_CONCEPTS(Cfg) static_assert(satisfiesConcepts<Cfg>());
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_SATISFIES_CONCEPTS)
+#undef SEISSOL_SATISFIES_CONCEPTS
 
 /// The layout of the configuration `Cfg`, as its generated code has it.
 template <typename Cfg>

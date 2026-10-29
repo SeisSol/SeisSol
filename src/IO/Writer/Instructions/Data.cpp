@@ -55,9 +55,8 @@ const std::vector<Dimension>& DataSource::dimensions() const { return dimensions
 const std::vector<std::size_t>& DataSource::shape() const { return shapeP_; }
 
 bool DataSource::distributed() const {
-  return std::any_of(dimensionsP_.begin(), dimensionsP_.end(), [](const Dimension& dimension) {
-    return dimension.isDistributed();
-  });
+  return std::ranges::any_of(dimensionsP_,
+                             [](const Dimension& dimension) { return dimension.isDistributed(); });
 }
 
 std::vector<std::size_t> DataSource::parts(const async::ExecInfo& info) { return {count(info)}; }
@@ -173,7 +172,7 @@ YAML::Node WriteBuffer::serialize() {
 const void* WriteBuffer::getLocalPointer() const { return data_; }
 size_t WriteBuffer::getLocalSize() const {
   std::size_t shapeprod = 1;
-  for (auto dim : shape()) {
+  for (const auto dim : shape()) {
     shapeprod *= dim;
   }
   return shapeprod * size_ * datatype()->size();

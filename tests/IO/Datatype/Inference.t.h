@@ -28,27 +28,27 @@ using namespace seissol::io::datatype;
 TEST_CASE("inferDatatype primitives" * doctest::test_suite("io")) {
 
   SUBCASE("float -> F32Datatype") {
-    auto dt = inferDatatype<float>();
+    const auto dt = inferDatatype<float>();
     CHECK(dt->size() == sizeof(float));
     const auto node = dt->serialize();
     CHECK(node["type"].as<std::string>() == "f32");
   }
 
   SUBCASE("double -> F64Datatype") {
-    auto dt = inferDatatype<double>();
+    const auto dt = inferDatatype<double>();
     CHECK(dt->size() == sizeof(double));
     const auto node = dt->serialize();
     CHECK(node["type"].as<std::string>() == "f64");
   }
 
   SUBCASE("long double -> F80Datatype") {
-    auto dt = inferDatatype<long double>();
+    const auto dt = inferDatatype<long double>();
     const auto node = dt->serialize();
     CHECK(node["type"].as<std::string>() == "f80");
   }
 
   SUBCASE("int -> IntegerDatatype, signed") {
-    auto dt = inferDatatype<int>();
+    const auto dt = inferDatatype<int>();
     CHECK(dt->size() == sizeof(int));
     const auto node = dt->serialize();
     CHECK(node["type"].as<std::string>() == "int");
@@ -56,7 +56,7 @@ TEST_CASE("inferDatatype primitives" * doctest::test_suite("io")) {
   }
 
   SUBCASE("unsigned int -> IntegerDatatype, unsigned") {
-    auto dt = inferDatatype<unsigned int>();
+    const auto dt = inferDatatype<unsigned int>();
     CHECK(dt->size() == sizeof(unsigned int));
     const auto node = dt->serialize();
     CHECK(node["type"].as<std::string>() == "int");
@@ -64,12 +64,12 @@ TEST_CASE("inferDatatype primitives" * doctest::test_suite("io")) {
   }
 
   SUBCASE("char -> IntegerDatatype") {
-    auto dt = inferDatatype<char>();
+    const auto dt = inferDatatype<char>();
     CHECK(dt->size() == sizeof(char));
   }
 
   SUBCASE("size_t -> IntegerDatatype") {
-    auto dt = inferDatatype<std::size_t>();
+    const auto dt = inferDatatype<std::size_t>();
     CHECK(dt->size() == sizeof(std::size_t));
     const auto node = dt->serialize();
     CHECK(node["sign"].as<bool>() == false);
@@ -83,7 +83,7 @@ TEST_CASE("inferDatatype primitives" * doctest::test_suite("io")) {
 TEST_CASE("inferDatatype C-arrays" * doctest::test_suite("io")) {
 
   SUBCASE("double[3] -> ArrayDatatype") {
-    auto dt = inferDatatype<double[3]>();
+    const auto dt = inferDatatype<double[3]>();
     CHECK(dt->size() == 3 * sizeof(double));
     const auto node = dt->serialize();
     CHECK(node["type"].as<std::string>() == "array");
@@ -91,7 +91,7 @@ TEST_CASE("inferDatatype C-arrays" * doctest::test_suite("io")) {
   }
 
   SUBCASE("double[3][4] -> ArrayDatatype multidimensional") {
-    auto dt = inferDatatype<double[3][4]>();
+    const auto dt = inferDatatype<double[3][4]>();
     constexpr auto Size = 3 * 4;
     CHECK(dt->size() == static_cast<std::size_t>(Size * sizeof(double)));
     const auto node = dt->serialize();
@@ -99,7 +99,7 @@ TEST_CASE("inferDatatype C-arrays" * doctest::test_suite("io")) {
   }
 
   SUBCASE("int[2][3][4] -> ArrayDatatype 3D") {
-    auto dt = inferDatatype<int[2][3][4]>();
+    const auto dt = inferDatatype<int[2][3][4]>();
     constexpr auto Size = 2 * 3 * 4;
     CHECK(dt->size() == static_cast<std::size_t>(Size * sizeof(int)));
     const auto node = dt->serialize();
@@ -114,7 +114,7 @@ TEST_CASE("inferDatatype C-arrays" * doctest::test_suite("io")) {
 TEST_CASE("inferDatatype std::array" * doctest::test_suite("io")) {
 
   SUBCASE("std::array<float, 5>") {
-    auto dt = inferDatatype<std::array<float, 5>>();
+    const auto dt = inferDatatype<std::array<float, 5>>();
     CHECK(dt->size() == 5 * sizeof(float));
     const auto node = dt->serialize();
     CHECK(node["type"].as<std::string>() == "array");
@@ -122,7 +122,7 @@ TEST_CASE("inferDatatype std::array" * doctest::test_suite("io")) {
   }
 
   SUBCASE("std::array<double, 1>") {
-    auto dt = inferDatatype<std::array<double, 1>>();
+    const auto dt = inferDatatype<std::array<double, 1>>();
     CHECK(dt->size() == sizeof(double));
   }
 }
@@ -132,7 +132,7 @@ TEST_CASE("inferDatatype std::array" * doctest::test_suite("io")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("inferDatatype std::pair" * doctest::test_suite("io")) {
-  auto dt = inferDatatype<std::pair<int, double>>();
+  const auto dt = inferDatatype<std::pair<int, double>>();
   const auto node = dt->serialize();
   CHECK(node["type"].as<std::string>() == "struct");
 
@@ -150,7 +150,7 @@ TEST_CASE("inferDatatype std::pair" * doctest::test_suite("io")) {
 TEST_CASE("inferDatatype std::tuple" * doctest::test_suite("io")) {
 
   SUBCASE("Two-element tuple") {
-    auto dt = inferDatatype<std::tuple<int, float>>();
+    const auto dt = inferDatatype<std::tuple<int, float>>();
     const auto node = dt->serialize();
     CHECK(node["type"].as<std::string>() == "struct");
     CHECK(node["members"].size() == 2);
@@ -159,7 +159,7 @@ TEST_CASE("inferDatatype std::tuple" * doctest::test_suite("io")) {
   }
 
   SUBCASE("Three-element tuple") {
-    auto dt = inferDatatype<std::tuple<int, float, double>>();
+    const auto dt = inferDatatype<std::tuple<int, float, double>>();
     const auto node = dt->serialize();
     CHECK(node["members"].size() == 3);
     CHECK(node["members"][2]["name"].as<std::string>() == "_2");
@@ -177,7 +177,7 @@ TEST_CASE("inferDatatype opaque fallback" * doctest::test_suite("io")) {
     char c;
   };
 
-  auto dt = inferDatatype<CustomPOD>();
+  const auto dt = inferDatatype<CustomPOD>();
   CHECK(dt->size() == sizeof(CustomPOD));
   const auto node = dt->serialize();
   CHECK(node["type"].as<std::string>() == "opaque");

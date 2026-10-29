@@ -275,7 +275,7 @@ void checkBatchedConversion() {
     std::copy(buffer.begin(), buffer.end(), expected.begin() + side * Size);
   }
 
-  auto& device = ::device::DeviceInstance::instance();
+  const auto& device = ::device::DeviceInstance::instance();
   memory::ManagedAllocator allocator;
   GlobalData<Cfg> globalData{};
   GlobalData<NeighborCfg> neighborGlobalData{};
@@ -387,7 +387,7 @@ TEST_CASE("A neighbor of another configuration keeps its trace on the shared fac
 
 #ifdef ACL_DEVICE
 TEST_CASE("On GPUs a neighbor of another configuration converts as on the host") {
-  auto& device = ::device::DeviceInstance::instance();
+  const auto& device = ::device::DeviceInstance::instance();
   device.api().setDevice(0);
   device.api().initialize();
 

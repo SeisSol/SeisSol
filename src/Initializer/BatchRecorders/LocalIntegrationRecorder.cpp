@@ -16,6 +16,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Initializer/LtsSetup.h"
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
@@ -30,8 +31,6 @@
 
 using namespace seissol::initializer;
 using namespace seissol::recording;
-
-// NOLINTBEGIN (-misc-const-correctness)
 
 template <typename Cfg>
 void LocalIntegrationRecorder<Cfg>::record(LTS::Layer& layer) {
@@ -57,23 +56,25 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
     std::vector<real*> integralsPtrs(size, nullptr);
-    std::vector<real*> dofsAnePtrs(size, nullptr);
-    std::vector<real*> dofsExtPtrs(size, nullptr);
     std::vector<real*> localPtrs(size, nullptr);
     std::vector<real*> idofsPtrs;
-    std::vector<real*> idofsAnePtrs(size, nullptr);
-    std::vector<real*> derivativesAnePtrs(size, nullptr);
-    std::vector<real*> derivativesExtPtrs(size, nullptr);
     std::vector<real*> ltsBuffers;
     std::vector<real*> idofsForLtsBuffers;
+    // only the configurations of the anelastic and of the STP solver fill these; in the others,
+    // misc-const-correctness takes them for const
+    // NOLINTBEGIN(misc-const-correctness)
+    std::vector<real*> dofsAnePtrs(size, nullptr);
+    std::vector<real*> dofsExtPtrs(size, nullptr);
+    std::vector<real*> idofsAnePtrs(size, nullptr);
     std::vector<real*> zinvExtraPtrs(size, nullptr);
+    // NOLINTEND(misc-const-correctness)
 
     idofsPtrs.reserve(size);
     dQPtrs_.resize(size);
 
-    real** derivatives = currentLayer_->var<LTS::DerivativesDevice>(Cfg());
-    real** stepIntegrals = currentLayer_->var<LTS::StepIntegralsDevice>(Cfg());
-    real** accumulatedIntegrals = currentLayer_->var<LTS::AccumulatedIntegralsDevice>(Cfg());
+    const auto* derivatives = currentLayer_->var<LTS::DerivativesDevice>(Cfg());
+    const auto* stepIntegrals = currentLayer_->var<LTS::StepIntegralsDevice>(Cfg());
+    const auto* accumulatedIntegrals = currentLayer_->var<LTS::AccumulatedIntegralsDevice>(Cfg());
 
     for (unsigned cell = 0; cell < size; ++cell) {
       auto data = currentLayer_->cellRef<Cfg>(cell, AllocationPlace::Device);
@@ -177,6 +178,8 @@ void LocalIntegrationRecorder<Cfg>::recordLocalFluxIntegral() {
     std::vector<real*> dofsPtrs;
     std::vector<real*> localPtrs;
 
+    // only the configurations of the anelastic solver fill it
+    // NOLINTNEXTLINE(misc-const-correctness)
     std::vector<real*> dofsExtPtrs;
 
     idofsPtrs.reserve(size);
@@ -226,9 +229,10 @@ void LocalIntegrationRecorder<Cfg>::recordDisplacements() {
     auto dataHost = currentLayer_->cellRef<Cfg>(cell, AllocationPlace::Host);
 
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      auto isRequired = faceDisplacements[cell][face] != nullptr;
-      auto notFreeSurfaceGravity = dataHost.template get<LTS::CellInformation>().faceTypes[face] !=
-                                   FaceType::FreeSurfaceGravity;
+      const auto isRequired = faceDisplacements[cell][face] != nullptr;
+      const auto notFreeSurfaceGravity =
+          dataHost.template get<LTS::CellInformation>().faceTypes[face] !=
+          FaceType::FreeSurfaceGravity;
 
       if (isRequired && notFreeSurfaceGravity) {
         auto iview = init::I<Cfg>::view::create(idofsAddressRegistry_[cell]);
@@ -274,8 +278,6 @@ void LocalIntegrationRecorder<Cfg>::recordFreeSurfaceGravityBc() {
     std::array<std::vector<real*>, 4> t{};
     std::array<std::vector<real*>, 4> tInv{};
     std::array<std::vector<real*>, 4> fsgdata{};
-
-    std::array<std::vector<double>, 4> invImpedances{};
 
     std::array<std::size_t, Cell::NumFaces> counter{};
 
@@ -437,5 +439,3 @@ void LocalIntegrationRecorder<Cfg>::recordAnalyticalBc(LTS::Layer& layer) {
 #define SEISSOL_INSTANTIATE(Cfg) template class seissol::recording::LocalIntegrationRecorder<Cfg>;
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE
-
-// NOLINTEND (-misc-const-correctness)

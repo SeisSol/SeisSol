@@ -28,7 +28,8 @@
 #include <complex>
 #include <cstddef>
 #include <limits>
-#include <math.h>
+// M_PI is POSIX and only declared by the C header
+#include <math.h> // NOLINT(modernize-deprecated-headers)
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -384,10 +385,10 @@ void seissol::physics::TravellingWave::evaluateIn(
     const auto omega = lambdaA_[varField_[v]];
     for (unsigned j = 0; j < dofsQp.shape(1); ++j) {
       for (size_t i = 0; i < count; ++i) {
-        auto arg = std::complex<double>(0.0, 1.0) *
-                   (omega * time - kVec_[0] * (points[i][0] - origin_[0]) -
-                    kVec_[1] * (points[i][1] - origin_[1]) -
-                    kVec_[2] * (points[i][2] - origin_[2]) + phase_);
+        const auto arg = std::complex<double>(0.0, 1.0) *
+                         (omega * time - kVec_[0] * (points[i][0] - origin_[0]) -
+                          kVec_[1] * (points[i][1] - origin_[1]) -
+                          kVec_[2] * (points[i][2] - origin_[2]) + phase_);
         if (arg.imag() > -0.5 * M_PI && arg.imag() < 1.5 * M_PI) {
           dofsQp(i, j) += (r(j, varField_[v]) * ampField_[v] * std::exp(arg)).real();
         }
@@ -397,8 +398,8 @@ void seissol::physics::TravellingWave::evaluateIn(
 }
 
 seissol::physics::PressureInjection::PressureInjection(
-    const seissol::initializer::parameters::InitializationParameters& initializationParameters)
-    : parameters_(initializationParameters) {
+    seissol::initializer::parameters::InitializationParameters initializationParameters)
+    : parameters_(std::move(initializationParameters)) {
   const auto o1 = parameters_.origin[0];
   const auto o2 = parameters_.origin[1];
   const auto o3 = parameters_.origin[2];

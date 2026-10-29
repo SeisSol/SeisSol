@@ -43,8 +43,9 @@ std::vector<TableQuantity> quantitySetFromKey(const std::string& key) {
   std::vector<TableQuantity> quantities;
   quantities.reserve(node.size());
   for (const auto& entry : node) {
-    quantities.push_back(TableQuantity{entry["name"].as<std::string>(),
-                                       datatype::Datatype::deserialize(entry["datatype"])});
+    quantities.push_back(
+        TableQuantity{.name = entry["name"].as<std::string>(),
+                      .datatype = datatype::Datatype::deserialize(entry["datatype"])});
   }
   return quantities;
 }
@@ -131,7 +132,7 @@ Grouping groupPoints(const std::vector<std::vector<TableQuantity>>& pointQuantit
   MPI_Comm_rank(comm, &rank);
   if (rank == 0) {
     // MPI_Exscan leaves the result untouched on the first rank
-    std::fill(offset.begin(), offset.end(), 0);
+    std::ranges::fill(offset, 0);
   }
 
   grouping.index.resize(pointQuantities.size());

@@ -29,7 +29,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <stdint.h>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
@@ -229,19 +228,19 @@ void Local<Cfg>::computeBatchedIntegral(
   const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volumeExt<Cfg> volKrnl = deviceVolumeKernelPrototype_;
 
-  if (dataTable.find(key) != dataTable.end()) {
+  if (dataTable.contains(key)) {
     auto& entry = dataTable[key];
 
-    volKrnl.numElements = (dataTable[key].get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
+    volKrnl.numElements = dataTable[key].get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
 
     volKrnl.I =
-        const_cast<const real**>((entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
-    volKrnl.Qext = (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+        const_cast<const real**>(entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr());
+    volKrnl.Qext = entry.get<real*>(inner_keys::Wp::Id::DofsExt)->getDeviceDataPtr();
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Cfg>, starMatrices);
     for (size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
       volKrnl.star(i) = const_cast<const real**>(
-          (entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+          entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
       volKrnl.extraOffset_star(i) =
           SEISSOL_ARRAY_OFFSET(LocalIntegrationData<Cfg>, starMatrices, i);
     }
@@ -252,11 +251,11 @@ void Local<Cfg>::computeBatchedIntegral(
     auto krnl = deviceFluxLocalAllKernelPrototype_;
 
     krnl.numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
-    krnl.Q = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    krnl.Qane = (entry.get<real*>(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
-    krnl.Qext = (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+    krnl.Q = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+    krnl.Qane = entry.get<real*>(inner_keys::Wp::Id::DofsAne)->getDeviceDataPtr();
+    krnl.Qext = entry.get<real*>(inner_keys::Wp::Id::DofsExt)->getDeviceDataPtr();
     krnl.Iane = const_cast<const real**>(
-        (entry.get<real*>(inner_keys::Wp::Id::IdofsAne))->getDeviceDataPtr());
+        entry.get<real*>(inner_keys::Wp::Id::IdofsAne)->getDeviceDataPtr());
     krnl.W = const_cast<const real**>(
         entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     krnl.extraOffset_W = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.W);
@@ -273,7 +272,7 @@ void Local<Cfg>::computeBatchedIntegral(
     SEISSOL_OFFSET_ASSERT(LocalIntegrationData<Cfg>, specific.E);
 
     krnl.I =
-        const_cast<const real**>((entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+        const_cast<const real**>(entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr());
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Cfg>, nApNm1);
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {

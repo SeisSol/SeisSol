@@ -117,8 +117,8 @@ struct XdmfDataset {
       dimensionStream << " 1";
     }
     // dimensions
-    for (std::size_t i = 0; i < dimensions.size(); ++i) {
-      dimensionStream << " " << dimensions[i];
+    for (const auto dimension : dimensions) {
+      dimensionStream << " " << dimension;
     }
     hyperslab->addAttribute(XmlAttribute::create("ItemType", "HyperSlab"))
         .addAttribute(XmlAttribute::create("Dimensions", std::to_string(dimensions[1])));
@@ -167,13 +167,13 @@ struct XdmfMeta {
   //! The file, holding @p grids as the steps of the time series.
   static XmlFile document(const std::vector<std::shared_ptr<XmlEntry>>& grids) {
 
-    auto root = std::make_shared<XmlNode>("Xdmf");
+    const auto root = std::make_shared<XmlNode>("Xdmf");
     root->addAttribute(XmlAttribute::create("Version", "2.0"));
 
-    auto root2 = std::make_shared<XmlNode>("Domain");
+    const auto root2 = std::make_shared<XmlNode>("Domain");
     root->addNode(root2);
 
-    auto root3 = std::make_shared<XmlNode>("Grid");
+    const auto root3 = std::make_shared<XmlNode>("Grid");
     root3->addAttribute(XmlAttribute::create("Name", "TimeSeries"))
         .addAttribute(XmlAttribute::create("GridType", "Collection"))
         .addAttribute(XmlAttribute::create("CollectionType", "Temporal"));
@@ -195,7 +195,7 @@ struct XdmfMeta {
         .addAttribute(XmlAttribute::create("GridType", "Uniform"));
 
     // add the time node here already
-    auto gridTime = std::make_shared<XmlNode>("Time");
+    const auto gridTime = std::make_shared<XmlNode>("Time");
     gridTime->addAttribute(XmlAttribute::create("Value", metadata::formatExact(entry.time)));
     grid->addNode(gridTime);
 

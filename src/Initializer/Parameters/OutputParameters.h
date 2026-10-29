@@ -17,6 +17,7 @@
 #include <list>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace seissol::initializer::parameters {
@@ -188,19 +189,21 @@ struct OutputParameters {
   OutputParameters(OutputFormat format,
                    XdmfBackend xdmfWriterBackend,
                    uint32_t hdfcompress,
-                   const std::string& prefix,
+                   std::string prefix,
                    const CheckpointParameters& checkpointParameters,
                    const ElementwiseFaultParameters& elementwiseParameters,
                    const EnergyOutputParameters& energyParameters,
-                   const FreeSurfaceOutputParameters& freeSurfaceParameters,
-                   const PickpointParameters& pickpointParameters,
-                   const ReceiverOutputParameters& receiverParameters,
-                   const WaveFieldOutputParameters& waveFieldParameters)
+                   FreeSurfaceOutputParameters freeSurfaceParameters,
+                   PickpointParameters pickpointParameters,
+                   ReceiverOutputParameters receiverParameters,
+                   WaveFieldOutputParameters waveFieldParameters)
       : format(format), xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress),
-        prefix(prefix), checkpointParameters(checkpointParameters),
+        prefix(std::move(prefix)), checkpointParameters(checkpointParameters),
         elementwiseParameters(elementwiseParameters), energyParameters(energyParameters),
-        freeSurfaceParameters(freeSurfaceParameters), pickpointParameters(pickpointParameters),
-        receiverParameters(receiverParameters), waveFieldParameters(waveFieldParameters) {}
+        freeSurfaceParameters(std::move(freeSurfaceParameters)),
+        pickpointParameters(std::move(pickpointParameters)),
+        receiverParameters(std::move(receiverParameters)),
+        waveFieldParameters(std::move(waveFieldParameters)) {}
 };
 
 void warnIntervalAndDisable(bool& enabled,

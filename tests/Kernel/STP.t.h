@@ -66,7 +66,7 @@ class SpaceTimePredictorTestFixture {
         std::vector<double>{{40.0e9, 2500, 12.0e9, 10.0e9, 0.2, 600.0e-15, 3, 2.5e9, 1040, 0.001}};
     const model::PoroElasticMaterial material(materialVals);
 
-    // NOLINTNEXTLINE (-cert-dcl59-cpp)
+    // NOLINTNEXTLINE(bugprone-random-generator-seed)
     std::mt19937 generator(20210109); // Standard mersenne_twister_engine seeded with today's date
     std::uniform_real_distribution<Real<Cfg>> distribution(0, 1);
     std::array<CoordinateT, Cell::NumVertices> vertices{};
@@ -151,7 +151,7 @@ class SpaceTimePredictorTestFixture {
     std::array<Real<Cfg>, 13> factor = {{1e9, 1e9, 1e9, 1e9, 1e9, 1e9, 1, 1, 1, 1e9, 1, 1, 1}};
     auto q = init::Q<Cfg>::view::create(qData);
 
-    // NOLINTNEXTLINE (-cert-dcl59-cpp)
+    // NOLINTNEXTLINE(bugprone-random-generator-seed)
     std::mt19937 rnggen(1234);
     std::uniform_real_distribution<> rngdist(0.0, 1.0);
 

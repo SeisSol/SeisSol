@@ -45,7 +45,7 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
     other.convergenceOrder += 10;
     CHECK_FALSE(findConfig(other).has_value());
     CHECK_FALSE(findConfig(configName(other)).has_value());
-    CHECK_FALSE(findConfig(std::string("not-a-configuration")).has_value());
+    CHECK_FALSE(findConfig("not-a-configuration").has_value());
   }
 
   SUBCASE("The layout matches the generated code") {

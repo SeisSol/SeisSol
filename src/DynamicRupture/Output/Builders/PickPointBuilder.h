@@ -19,6 +19,7 @@
 #include "Parallel/Runtime/Stream.h"
 #include "ReceiverBasedOutputBuilder.h"
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -99,10 +100,15 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
     std::vector<short> contained(potentialReceivers_.size());
 
+    // the OpenMP region takes the receivers through a reference: as a member of this class, which
+    // holds an optional (in pickpointParams_), they make NVHPC (24.9, 26.9) fail internally in
+    // C++20 mode ("size of unknown type") where the file also constructs the class
+    auto& potentialReceivers = potentialReceivers_;
+
 #pragma omp parallel for schedule(static)
     for (size_t receiverIdx = 0; receiverIdx < numReceivers; ++receiverIdx) {
       try {
-        auto& receiver = potentialReceivers_[receiverIdx];
+        auto& receiver = potentialReceivers[receiverIdx];
 
         const auto closest = findClosestFaultIndex(receiver.global);
 
@@ -130,7 +136,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
           const auto point = seissol::geometry::AffineTransform::fromMeshCell(
                                  faultItem.element.value(), *meshReader_)
                                  .spaceToRef(Eigen::Vector3d(receiver.global.data()));
-          std::copy(point.begin(), point.end(), receiver.reference.begin());
+          std::ranges::copy(point, receiver.reference.begin());
         }
       } catch (const std::exception& error) {
         logError() << "An error occurred while trying to find an on-fault receiver point:"
@@ -139,7 +145,7 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
     }
 
     reportFoundReceivers(contained);
-    for (auto& receiver : potentialReceivers_) {
+    for (const auto& receiver : potentialReceivers_) {
       if (receiver.isInside) {
         for (std::size_t i = 0; i < numSimulations_; ++i) {
           auto singleReceiver = receiver;

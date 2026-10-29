@@ -37,10 +37,10 @@ double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
       1.0, x[3](0), x[3](1), x[3](2), 1.0;
 
   const double alpha = a.determinant();
-  const double nabc = ((x[1] - x[0]).cross(x[2] - x[0])).norm();
-  const double nabd = ((x[1] - x[0]).cross(x[3] - x[0])).norm();
-  const double nacd = ((x[2] - x[0]).cross(x[3] - x[0])).norm();
-  const double nbcd = ((x[2] - x[1]).cross(x[3] - x[1])).norm();
+  const double nabc = (x[1] - x[0]).cross(x[2] - x[0]).norm();
+  const double nabd = (x[1] - x[0]).cross(x[3] - x[0]).norm();
+  const double nacd = (x[2] - x[0]).cross(x[3] - x[0]).norm();
+  const double nbcd = (x[2] - x[1]).cross(x[3] - x[1]).norm();
   const double insphere = std::fabs(alpha) / (nabc + nabd + nacd + nbcd);
 
   // Compute maximum timestep
@@ -103,11 +103,10 @@ GlobalTimestep
     });
   }
 
-  const auto minmaxCellPosition =
-      std::minmax_element(timestep.cellTimeStepWidths.begin(), timestep.cellTimeStepWidths.end());
+  const auto minmaxCellPosition = std::ranges::minmax_element(timestep.cellTimeStepWidths);
 
-  double localMinTimestep = *minmaxCellPosition.first;
-  double localMaxTimestep = *minmaxCellPosition.second;
+  double localMinTimestep = *minmaxCellPosition.min;
+  double localMaxTimestep = *minmaxCellPosition.max;
 
   MPI_Allreduce(&localMinTimestep,
                 &timestep.globalMinTimeStep,

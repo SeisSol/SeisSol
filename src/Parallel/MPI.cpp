@@ -86,9 +86,7 @@ void seissol::Mpi::setDataTransferModeFromEnv() {
       utils::Env("SEISSOL_").getOptional<std::string>("PREFERRED_MPI_DATA_TRANSFER_MODE");
   if (envVariable.has_value()) {
     std::string option{envVariable.value()};
-    std::transform(option.begin(), option.end(), option.begin(), [](unsigned char c) {
-      return std::tolower(c);
-    });
+    std::ranges::transform(option, option.begin(), [](unsigned char c) { return std::tolower(c); });
 
     if (option == "direct") {
       preferredDataTransferMode_ = DataTransferMode::Direct;
