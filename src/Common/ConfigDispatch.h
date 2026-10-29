@@ -46,7 +46,13 @@ constexpr ConfigId configIdOf() {
 /// Calls `function` with an object of the configuration with id `Id`.
 template <typename Result, std::size_t Id, typename F>
 Result callWithConfig(F&& function) {
-  static constexpr std::variant_alternative_t<Id, ConfigVariant> Config{};
+  using ConfigT = std::variant_alternative_t<Id, ConfigVariant>;
+  // as std::visit did: the table would otherwise convert every result to that of the first
+  // configuration without a word, e.g. a Real<Cfg> of double precision to float
+  static_assert(std::is_same_v<std::invoke_result_t<F, const ConfigT&>, Result>,
+                "dispatchConfig takes a function whose result type is the same for every "
+                "configuration.");
+  static constexpr ConfigT Config{};
   return std::invoke(std::forward<F>(function), Config);
 }
 
@@ -101,7 +107,8 @@ constexpr ConfigId configIdOf() {
  * @brief Calls `function` with the configuration type that `id` stands for.
  *
  * The configuration is passed as a value-initialized object of its type; `decltype` recovers the
- * type from it. An id that no configuration of the build has throws std::out_of_range.
+ * type from it. `function` has to return the same type for every configuration. An id that no
+ * configuration of the build has throws std::out_of_range.
  */
 template <typename F>
 decltype(auto) dispatchConfig(ConfigId id, F&& function) {
