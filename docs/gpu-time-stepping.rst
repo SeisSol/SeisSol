@@ -378,7 +378,12 @@ as they come. On a fixed partition, TPV13 then took 1.9 to 2.0 s on four own que
 eight, 2.2 s on three; TPV5 1.4 s (1.6 s), 1.3 to 1.4 s and 1.6 s; the outputs bitwise the same. The queues of HIP and of
 other libraries take pipes as well. Spreading the kernels of a level of a graph over helper queues
 (``DEVICE_OWN_QUEUE_GRAPH_LANES=k``, ``DEVICE_OWN_QUEUE_GRAPH_LANE_MIN``) pays off only with pipes left for them: TPV13
-2.2 s instead of 2.7 s on two own queues, 2.9 s instead of 1.9 s on four. The exchange queue of ``actor-mpi`` waits
+2.2 s instead of 2.7 s on two own queues, 2.9 s instead of 1.9 s on four. With
+``DEVICE_OWN_QUEUE_GRAPH_BORROW=1``, the lanes go to other own queues on other pipes instead, chosen anew at each
+replay among those that are idle, and only while the queue of the graph is idle as well
+(``DEVICE_OWN_QUEUE_GRAPH_BORROW_IDLE=0``: whenever the others are); that made no difference on four queues (TPV13
+1.94 s, TPV5 1.37 s), and without the condition, which couples the queues, it made them slower (2.03 s and 1.42 s):
+which work should run where takes a schedule of the super-steps. The exchange queue of ``actor-mpi`` waits
 nearly all the time and takes a pipe of its own: 2.9 s and 1.6 s on four queues. The clustering of the time steps for
 the costs of launches (``LtsClusteringSearch = 'lattice'``, see :ref:`lts_lattice_search`; with the costs of launches and
 fills that had made TPV13 14 % faster before) no longer paid off (2.0 s and 1.5 s).
