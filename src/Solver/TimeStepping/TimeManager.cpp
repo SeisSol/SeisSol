@@ -1020,7 +1020,10 @@ void TimeManager::followPlan() {
   for (const auto& cluster : planned) {
     largestRate = std::max(largestRate, cluster.timeStepRate);
   }
-  const auto plan = planTimeSteps(planned);
+  // the interior layers correct and do face work before the copy layers, which wait for the halo
+  // (SEISSOL_PLAN_INTERIOR_FIRST=0 orders by priority throughout)
+  const auto plan =
+      planTimeSteps(planned, seissolInstance_.env().get<bool>("PLAN_INTERIOR_FIRST", true));
 
   // what a recording of a super-timestep comprises: the clusters, ghost clusters included, and the
   // stream runtimes that their device work goes through (those of the clusters, of their outputs,

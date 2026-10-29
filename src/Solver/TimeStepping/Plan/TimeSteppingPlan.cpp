@@ -38,11 +38,14 @@ struct Key {
 
 } // namespace
 
-std::vector<PlannedAction> planTimeSteps(const std::vector<PlannedCluster>& clusters) {
+std::vector<PlannedAction> planTimeSteps(const std::vector<PlannedCluster>& clusters,
+                                         bool interiorFirst) {
   std::vector<std::pair<Key, PlannedAction>> actions;
   for (std::size_t cluster = 0; cluster < clusters.size(); ++cluster) {
     const auto& info = clusters[cluster];
     const auto priority = info.priority == ActorPriority::High ? 0 : 1;
+    // (see interiorFirst)
+    const auto correctionPriority = interiorFirst ? 1 - priority : priority;
     const bool face = info.dataReadiness == DataReadiness::AfterCorrection;
     const auto steps = (info.stepsUntilSync + info.timeStepRate - 1) / info.timeStepRate;
     for (long step = 0; step < steps; ++step) {
@@ -50,8 +53,8 @@ std::vector<PlannedAction> planTimeSteps(const std::vector<PlannedCluster>& clus
       const auto end = std::min(start + info.timeStepRate, info.stepsUntilSync);
       actions.emplace_back(Key{start, Phase::Prediction, priority, cluster, step},
                            PlannedAction{cluster, ActorAction::Predict, step});
-      const auto correction = face ? Key{start, Phase::FaceWork, priority, cluster, step}
-                                   : Key{end, Phase::Correction, priority, cluster, step};
+      const auto correction = face ? Key{start, Phase::FaceWork, correctionPriority, cluster, step}
+                                   : Key{end, Phase::Correction, correctionPriority, cluster, step};
       actions.emplace_back(correction, PlannedAction{cluster, ActorAction::Correct, step});
     }
   }

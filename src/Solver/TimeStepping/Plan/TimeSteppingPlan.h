@@ -43,11 +43,16 @@ struct PlannedAction {
  * other action at the start of its step. At the same point, the corrections come first, since they
  * complete the steps before it; then the predictions, which start the steps from there on; then the
  * face work, which needs the predictions on both sides. Everything a cluster waits for thereby
- * comes earlier in the plan. Within these rules, clusters of high priority go first.
+ * comes earlier in the plan. Within these rules, clusters of high priority (the copy layers) go
+ * first when they predict, so that their halo goes out early. With `interiorFirst`, they go last
+ * when they correct and do face work: then they wait for the halo of other processes, the clusters
+ * of low priority do not, and a host that waits for the halo in the order of the plan (MPI on the
+ * host) has enqueued their work already.
  *
  * The plan leaves out the ghost clusters: their progress depends on other processes.
  */
-std::vector<PlannedAction> planTimeSteps(const std::vector<PlannedCluster>& clusters);
+std::vector<PlannedAction> planTimeSteps(const std::vector<PlannedCluster>& clusters,
+                                         bool interiorFirst = false);
 
 /**
  * A super-timestep of a plan: the step of the largest cluster that covers the ticks from
