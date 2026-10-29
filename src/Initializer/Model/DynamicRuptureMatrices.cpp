@@ -492,11 +492,7 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
       break;
     }
     default: {
-
-      // NOTE: could be made `if constexpr`. However, that breaks ICC with a segfault.
-      // So we don't do that, yet (until we drop ICC support at least).
-
-      if (!seissol::model::MaterialOf<Cfg>::SupportsDR) {
+      if constexpr (!seissol::model::MaterialOf<Cfg>::SupportsDR) {
         logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
                       "(built with:"
                    << seissol::model::MaterialOf<Cfg>::Text << ")";
