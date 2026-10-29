@@ -175,6 +175,12 @@ With ``SEISSOL_TRACE_KERNELS=1`` as well, the device puts each of its kernels an
 each of its queues (``device queue <n>``), from when it started to when it ended; only HIP with own queues
 (``SEISSOL_OWN_QUEUES``, see :ref:`gpu-env`) can do that so far. It gives each kernel and wait a signal that takes its
 times, which costs the device a little for each kernel.
+With ``DEVICE_OWN_QUEUE_DAG_LOG=<prefix>`` too, the Device library writes what the streams do while the kernels get
+traced into ``<prefix>-<rank>.txt`` (the rank from ``SLURM_PROCID``, ``PMI_RANK`` or ``OMPI_COMM_WORLD_RANK``): the work
+of each stream (kernels, graphs with the level of each kernel, copies, host functions), when the host enqueued it, the
+events the streams record and wait for, and when each kernel ran, with the names of the streams of the clusters; enough
+for the dependencies of all work and a schedule of it over the queues (the format: ``OwnQueues.cpp`` of the Device
+library).
 
 .. _cell-updates:
 

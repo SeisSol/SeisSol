@@ -247,6 +247,14 @@ class StreamRuntime {
     }
   }
 
+  /// names the streams for the logs of the device (e.g. the DAG log of own queues)
+  void nameStreams(const std::string& name) {
+    device().api().nameStream(allStreams_[0], name);
+    for (std::size_t i = 1; i < allStreams_.size(); ++i) {
+      device().api().nameStream(allStreams_[i], name + " branch " + std::to_string(i - 1));
+    }
+  }
+
   ~StreamRuntime() { dispose(); }
 
   StreamRuntime(const StreamRuntime&) = delete;
@@ -817,6 +825,7 @@ class StreamRuntime {
 
   void wait() {}
   void dispose() {}
+  void nameStreams(const std::string& /*name*/) {}
 
   void eventSync(const Event& /*event*/) {}
   Event eventRecord() { return {}; }

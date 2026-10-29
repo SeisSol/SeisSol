@@ -9,6 +9,7 @@
 
 #include "Common/Executor.h"
 #include "Monitoring/Trace.h"
+#include "Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"
 
@@ -142,6 +143,9 @@ double AbstractTimeCluster::traceBegin() {
                    monitoring::Trace::name(name + ": correct")};
     // before the work of the first action gets handed over
     hostRuntime_.setTraceName(monitoring::Trace::name(name + ": work"));
+    for (auto* runtime : runtimes()) {
+      runtime->nameStreams(name);
+    }
     traceNamed_ = true;
   }
   return monitoring::Trace::now();

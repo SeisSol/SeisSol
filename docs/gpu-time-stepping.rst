@@ -383,7 +383,26 @@ other libraries take pipes as well. Spreading the kernels of a level of a graph 
 replay among those that are idle, and only while the queue of the graph is idle as well
 (``DEVICE_OWN_QUEUE_GRAPH_BORROW_IDLE=0``: whenever the others are); that made no difference on four queues (TPV13
 1.94 s, TPV5 1.37 s), and without the condition, which couples the queues, it made them slower (2.03 s and 1.42 s):
-which work should run where takes a schedule of the super-steps. The exchange queue of ``actor-mpi`` waits
+which work should run where takes a schedule of the super-steps.
+
+The graphs of the clusters hold most of that latitude: on the rank with the most fault faces of TPV13, the longest path
+of dependencies took 87 of 100 ms of a run (with the kernel trace and ``DEVICE_OWN_QUEUE_DAG_LOG``, see
+:ref:`trace`), and half of it was the interpolation of the dynamic rupture: per step, eight independent kernels of
+about 45 µs, one for each face relation, one after the other on one queue (the four queues computed 58 % of the time).
+A simulation of that log over four queues ended the 100 ms in 92 ms with whole graphs placed where they end first,
+and in 63 ms with the kernels of the levels of the graphs spread, the longest path first. With
+``DEVICE_OWN_QUEUE_SCHEDULE=1``, the graphs spread the kernels of a level over own queues of other pipes where that
+ends the level earlier: by the durations each graph measures for its kernels (in a few replays early on, then every
+128th), and by the predicted work of the queues (their work as measured or guessed, and that of the queues they wait
+for), the longest kernel first onto the queue where it ends first, with a fork and a join of
+``DEVICE_OWN_QUEUE_SCHEDULE_FORK_US`` (5 µs) each; a level gets spread only with at least
+``DEVICE_OWN_QUEUE_SCHEDULE_MIN_US`` of work (120 µs), and only onto queues alone on their pipe (but for light
+ones). On four own queues, TPV13 then took 1.57 to 1.61 s instead of 1.91 to 1.94 s, TPV5 1.06 to 1.09 s instead of
+1.37 to 1.38 s, the outputs bitwise the same; with a weight of 1000 for the fault faces in the partition
+(``discretization.vertexweightdynamicrupture``, 100 by default; without the schedule, 1.69 s), TPV13 took 1.39 s.
+Levels of 60 µs of work and less made it as slow as without (forks, joins, and the queues that wait for each other's
+work), all levels above 80 µs gave about the same; three own queues took 1.94 and 1.36 s, six 1.67 and 1.18 s, eight
+1.88 and 1.36 s (as without). The exchange queue of ``actor-mpi`` waits
 nearly all the time and takes a pipe of its own: 2.9 s and 1.6 s on four queues. The clustering of the time steps for
 the costs of launches (``LtsClusteringSearch = 'lattice'``, see :ref:`lts_lattice_search`; with the costs of launches and
 fills that had made TPV13 14 % faster before) no longer paid off (2.0 s and 1.5 s).
