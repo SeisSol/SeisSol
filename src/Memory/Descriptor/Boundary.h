@@ -23,8 +23,10 @@ inline auto allocationModeBoundary() {
   if constexpr (!isDeviceOn()) {
     return AllocationMode::HostOnly;
   } else {
-    const auto modeMaybeCompress = useDeviceL2Compress() ? AllocationMode::HostDeviceCompress
-                                                         : AllocationMode::HostDeviceSplit;
+    // pinned on the host, so that the copies of the data for the outputs do not block (see
+    // HostSnapshot)
+    const auto modeMaybeCompress = useDeviceL2Compress() ? AllocationMode::HostDeviceCompressPinned
+                                                         : AllocationMode::HostDeviceSplitPinned;
     return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
   }
 }

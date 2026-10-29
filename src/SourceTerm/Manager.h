@@ -26,7 +26,7 @@ class Manager {
                           const seissol::geometry::MeshReader& mesh,
                           LTS::Storage& ltsStorage,
                           LTS::Backmap& backmap,
-                          time_stepping::TimeManager& timeManager);
+                          solver::TimeManager& timeManager);
 };
 
 } // namespace seissol::sourceterm

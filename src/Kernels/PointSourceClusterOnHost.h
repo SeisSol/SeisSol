@@ -24,7 +24,7 @@ class PointSourceClusterOnHost : public PointSourceCluster {
   PointSourceClusterOnHost(std::shared_ptr<sourceterm::ClusterMapping> mapping,
                            std::shared_ptr<sourceterm::PointSources<Cfg>> sources);
   void addTimeIntegratedPointSources(double from,
-                                     double to,
+                                     double timeStepSize,
                                      seissol::parallel::runtime::StreamRuntime& runtime) override;
   [[nodiscard]] std::size_t size() const override;
 

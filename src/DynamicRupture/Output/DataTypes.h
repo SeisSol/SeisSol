@@ -17,12 +17,14 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Backmap.h"
 #include "Parallel/DataCollector.h"
+#include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -268,8 +270,49 @@ struct ReceiverOutputData {
   std::unique_ptr<parallel::DataCollectorUntyped> deviceDataCollector;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollectorUntyped>> deviceVariables;
+  /// the variables of the faces, all gathered by one kernel; null without any
+  std::unique_ptr<parallel::DataCollectorUntyped> deviceVariables;
+  /// the set of each variable (by its index in the storage) in deviceVariables
+  std::unordered_map<std::size_t, std::size_t> deviceVariableSets;
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
+
+  /// with the host actor (instead of the extra runtime): the samples, taken once the device has
+  /// gathered the data of a step into a buffer of its own: the start of the step (at run time), the
+  /// derivatives at dataOffset, the variables at variablesOffset
+  std::unique_ptr<parallel::runtime::HostActor::Queue> hostQueue;
+  std::size_t dataOffset{0};
+  std::size_t variablesOffset{0};
+  /// the buffer that the work of the host actor reads at the moment; null for the collectors
+  const void* gathered{nullptr};
+
+  /// block `index` of the gathered derivatives
+  [[nodiscard]] const void* gatheredData(std::size_t index) const {
+    if (gathered != nullptr) {
+      return deviceDataCollector->get(
+          0, index, static_cast<const std::uint8_t*>(gathered) + dataOffset);
+    }
+    return deviceDataCollector->get(index);
+  }
+
+  /// the gathered variable of set `set` of face `face`
+  [[nodiscard]] const void* gatheredVariable(std::size_t set, std::size_t face) const {
+    if (gathered != nullptr) {
+      return deviceVariables->get(
+          set, face, static_cast<const std::uint8_t*>(gathered) + variablesOffset);
+    }
+    return deviceVariables->get(set, face);
+  }
+
+  /// a variable of the friction state of all faces, one face after the other
+  struct FaceData {
+    std::vector<std::uint8_t> data;
+    std::size_t faceBytes{0};
+  };
+
+  /// The friction state of the faces at the start of the current time step, by variable (its index
+  /// in the storage); the samples within the step interpolate between it and the state at the end.
+  /// Empty before the first time step.
+  std::unordered_map<std::size_t, FaceData> stepStart;
 };
 } // namespace seissol::dr
 

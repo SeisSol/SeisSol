@@ -33,6 +33,8 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 
 #include <Device/device.h>
+#include <cstddef>
+#include <vector>
 #endif
 
 #ifndef ACL_DEVICE
@@ -140,7 +142,18 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
 
   // interpolate all timesteps in a single kernel
 
-  runtime.envMany(Cell::NumFaces * dr::misc::NumFaceRelations, [&](void* stream, size_t i) {
+  // only the face relations with faces get a branch, and so a node in a graph
+  std::vector<std::size_t> branches;
+  for (std::size_t i = 0; i < Cell::NumFaces * dr::misc::NumFaceRelations; ++i) {
+    const ConditionalKey key(
+        *KernelNames::DrSpaceMap, i / dr::misc::NumFaceRelations, i % dr::misc::NumFaceRelations);
+    if (table.find(key) != table.end()) {
+      branches.push_back(i);
+    }
+  }
+
+  runtime.envMany(branches.size(), [&](void* stream, size_t branch) {
+    const auto i = branches[branch];
     const auto side = i / dr::misc::NumFaceRelations;
     const auto faceRelation = i % dr::misc::NumFaceRelations;
 

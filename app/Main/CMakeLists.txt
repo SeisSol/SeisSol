@@ -13,6 +13,10 @@ else()
 endif()
 
 target_link_libraries(seissol-bin PUBLIC seissol-lib)
+if (TARGET device-own-queue-hook)
+  # queues of their own for the stream runtimes (SEISSOL_OWN_QUEUES, HIP only)
+  target_link_libraries(seissol-bin PRIVATE device-own-queue-hook)
+endif()
 
 install(TARGETS seissol-bin RUNTIME)
 

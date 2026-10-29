@@ -176,8 +176,8 @@ set_tests_properties(verification.faultreceivers PROPERTIES
 #                      [EXPECT_FAILURE regex] [NO_SNAPSHOT] [SNAPSHOT_KEY key]
 #                      [SNAPSHOT_EVERYWHERE]
 #                      [REQUIRE key=value ...] [SET Section.Key=Value ...]
-#                      [FILES name ...] [ACTIVITY column:threshold ...]
-#                      [LABELS label ...])
+#                      [ENV NAME=VALUE ...] [FILES name ...]
+#                      [ACTIVITY column:threshold ...] [LABELS label ...])
 #
 # REQUIRE is matched against capabilities.json by the runner, not here: a case
 # that this build cannot run has to remain a visible skip. File names and
@@ -195,7 +195,7 @@ function(seissol_add_minitest)
   cmake_parse_arguments(MT
       "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
       "NAME;MESH;PARAMETERS;MATERIAL;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS;EXPECT_FAILURE;SNAPSHOT_KEY"
-      "REQUIRE;SET;FILES;ACTIVITY;LABELS"
+      "REQUIRE;SET;ENV;FILES;ACTIVITY;LABELS"
       ${ARGN})
   if (NOT MT_NAME OR NOT MT_MESH OR NOT MT_PARAMETERS)
     message(FATAL_ERROR "seissol_add_minitest needs NAME, MESH and PARAMETERS")
@@ -260,6 +260,9 @@ function(seissol_add_minitest)
   endif()
   foreach (entry ${MT_SET})
     list(APPEND arguments --set ${entry})
+  endforeach()
+  foreach (entry ${MT_ENV})
+    list(APPEND arguments --env ${entry})
   endforeach()
   foreach (entry ${MT_FILES})
     list(APPEND arguments --file ${entry})
@@ -397,7 +400,7 @@ function(seissol_add_comparison)
 endfunction()
 
 # ---------------------------------------------------------------------------
-# seissol_add_rupture(NAME <name> FL <law> FAULT <file> [SET ...] [MESH mesh]
+# seissol_add_rupture(NAME <name> FL <law> FAULT <file> [SET ...] [ENV ...] [MESH mesh]
 #                     [RANKS n] [EXPECT_FAILURE regex] [EXPECT_ZERO])
 #
 # A case of a friction law on fault48 (see the friction laws in Cases.cmake).
@@ -407,7 +410,7 @@ function(seissol_add_rupture)
   cmake_parse_arguments(RUP
       "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
       "NAME;FL;FAULT;MESH;RANKS;EXPECT_FAILURE"
-      "SET;LABELS"
+      "SET;ENV;LABELS"
       ${ARGN})
   if (NOT RUP_MESH)
     set(RUP_MESH fault48)
@@ -426,6 +429,9 @@ function(seissol_add_rupture)
   endif()
   if (RUP_NO_SNAPSHOT)
     list(APPEND options NO_SNAPSHOT)
+  endif()
+  if (RUP_ENV)
+    list(APPEND options ENV ${RUP_ENV})
   endif()
   seissol_add_minitest(
       NAME ${RUP_NAME}

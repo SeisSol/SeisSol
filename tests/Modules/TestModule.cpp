@@ -8,3 +8,4 @@
 #include <doctest.h>
 
 #include "Module.t.h"
+#include "OutputWorker.t.h"

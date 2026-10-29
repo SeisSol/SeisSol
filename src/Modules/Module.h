@@ -9,6 +9,8 @@
 #ifndef SEISSOL_SRC_MODULES_MODULE_H_
 #define SEISSOL_SRC_MODULES_MODULE_H_
 
+#include "Memory/HostData.h"
+
 #include <optional>
 namespace seissol {
 
@@ -40,6 +42,37 @@ class Module {
    * @return The next synchronization point for this module
    */
   double potentialSyncPoint(double currentTime, double timeTolerance, bool forceSyncPoint);
+
+  /**
+   * Whether potentialSyncPoint() would call {@link syncPoint} at `currentTime`; without side
+   * effects.
+   */
+  [[nodiscard]] bool dueAt(double currentTime, double timeTolerance, bool forceSyncPoint) const;
+
+  /**
+   * Notes that `currentTime` was a synchronization point of this module, as potentialSyncPoint()
+   * does after calling {@link syncPoint}.
+   */
+  void markSyncPoint(double currentTime);
+
+  /** The next synchronization point of this module. */
+  [[nodiscard]] double nextSyncPoint() const { return nextSyncPoint_; }
+
+  /**
+   * Whether the second part of a synchronization point (processSyncPoint()) may run on the thread
+   * of the outputs (see Modules), while the device goes on with the next epoch. Then
+   * captureSyncPoint() takes all that changes in that epoch, and processSyncPoint() reads only
+   * what it took, and the host copies of the data (see hostData()).
+   */
+  [[nodiscard]] virtual bool processesAsynchronously() const { return false; }
+
+  /**
+   * The variables of the storages this module reads on the host at its synchronization points,
+   * which get copied there from the device before; all of them, unless the module says otherwise.
+   */
+  [[nodiscard]] virtual initializer::HostData hostData() const {
+    return initializer::HostData::everything();
+  }
 
   /**
    * Called by {@link Modules} before the simulation starts to set the synchronization point.
@@ -99,9 +132,24 @@ class Module {
   virtual void shutdown() {}
 
   /**
-   * Called at synchronization points
+   * Called at synchronization points; by default, the two parts of one, on the calling thread.
    */
-  virtual void syncPoint(double currentTime) {}
+  virtual void syncPoint(double currentTime) {
+    captureSyncPoint(currentTime);
+    processSyncPoint(currentTime);
+  }
+
+  /**
+   * The first part of a synchronization point, which runs on the main thread, with the data just
+   * copied to the host, before the next epoch starts.
+   */
+  virtual void captureSyncPoint(double /*currentTime*/) {}
+
+  /**
+   * The second part of a synchronization point; on the thread of the outputs if
+   * processesAsynchronously().
+   */
+  virtual void processSyncPoint(double /*currentTime*/) {}
 
   protected:
   [[nodiscard]] double syncInterval() const { return isyncInterval_; }

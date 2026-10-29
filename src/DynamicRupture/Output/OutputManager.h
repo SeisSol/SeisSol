@@ -19,7 +19,9 @@
 
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <memory>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -46,22 +48,99 @@ class OutputManager {
 
   void init();
   void initFaceToLtsMap();
-  void writePickpointOutput(double time, double dt);
-  void writePickpointOutput(std::size_t layerId,
-                            double stateTime,
-                            double time,
-                            double dt,
-                            double meshDt,
-                            double meshInDt,
-                            parallel::runtime::StreamRuntime& runtime);
-  void flushPickpointDataToFile();
-  void updateElementwiseOutput(double time);
+
+  /**
+   * Records the fault receivers of all layers at the start of the simulation, `time`, before the
+   * first time step; the time steps take the samples after it (see PickpointSampling).
+   */
+  void recordInitialPickpointOutput(double time);
+
+  /**
+   * Whether the layer has fault receivers.
+   */
+  [[nodiscard]] bool hasPickpoints(std::size_t layerId) const;
+
+  /**
+   * The stream runtime the fault receivers of the layer take their samples on, if it is one of
+   * their own; null otherwise.
+   */
+  [[nodiscard]] parallel::runtime::StreamRuntime* pickpointRuntime(std::size_t layerId);
+
+  /**
+   * For fault receivers whose samples get decided when the work of a step runs: waits until
+   * the fault receivers of the last step have been recorded, takes the start of the step (from the
+   * clock on the device, into pinned memory at `stepStartOnDevice` there; as `hostTime` into
+   * `stepStart` on the host), and copies the data of the output points to the host. Returns the
+   * runtime to enqueue the decision on.
+   */
+  parallel::runtime::StreamRuntime& gatherPickpointData(std::size_t layerId,
+                                                        const double* deviceClock,
+                                                        double* stepStart,
+                                                        double* stepStartOnDevice,
+                                                        double hostTime,
+                                                        parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * For fault receivers whose samples get decided when the work of a step runs, with the host actor
+   * (see parallel::runtime::HostActor): gathers the data of the output points and the start of the
+   * step (from the clock on the device) into a buffer of their own, and has the actor call `record`
+   * with that start once they are there, also after each replay of a recording; meanwhile, the data
+   * is at hand for evaluatePickpointOutput() and finishPickpointStepNow(). Returns false, and does
+   * nothing, without the host actor.
+   */
+  bool postPickpointsAtRunTime(std::size_t layerId,
+                               const double* deviceClock,
+                               parallel::runtime::StreamRuntime& runtime,
+                               std::function<void(double)> record);
+
+  /**
+   * Records the fault receivers of the layer at `time` right away, from data gathered before; the
+   * times are those of recordPickpointOutput().
+   */
+  void evaluatePickpointOutput(std::size_t layerId, double time, double stepSize, double inStep);
+
+  /**
+   * Records the fault receivers of the layer at `time`, in the time step of size `stepSize` that
+   * contains it, `inStep` after the start of that step.
+   */
+  void recordPickpointOutput(std::size_t layerId,
+                             double time,
+                             double stepSize,
+                             double inStep,
+                             parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Keeps the friction state at the end of a time step of the layer, after its samples, as the
+   * start of the next one; `sampled` tells whether the step recorded any sample, which copied the
+   * state from the device already.
+   */
+  void finishPickpointStep(std::size_t layerId,
+                           bool sampled,
+                           parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * As finishPickpointStep(), right away, from data gathered before; for work that already runs in
+   * the order of the stream.
+   */
+  void finishPickpointStepNow(std::size_t layerId);
+  /**
+   * Formats the samples the fault receivers cached since the last write (text output), which frees
+   * their cache for the next ones.
+   */
+  void takePickpointText();
+  /** Appends what takePickpointText() formatted to the files. */
+  void writePickpointText();
+  /** Copies the data of the elementwise output from the device to the host, and waits for it. */
+  void gatherElementwiseOutput();
+  /** Evaluates the elementwise output from the data gathered, on the host. */
+  void evaluateElementwiseOutput(double time);
 
   private:
   seissol::SeisSol& seissolInstance_;
 
   protected:
-  bool isAtPickpoint(double time, double dt);
+  /// makes room in the cache for one more sample
+  static void ensureCacheLevel(ReceiverOutputData& outputData);
   void initElementwiseOutput();
   void initPickpointOutput();
   void initPickpointTable();
@@ -90,6 +169,8 @@ class OutputManager {
 
   //! One table per quantity set, holding the on-fault receivers this rank samples.
   std::unique_ptr<io::instance::point::Hdf5Table> ppTable_;
+  //! what takePickpointText() formatted, by file
+  std::vector<std::pair<std::string, std::string>> takenPickpointText_;
   //! The layer and the receiver a row of the tables belongs to, in the order of the rows.
   std::vector<std::pair<std::size_t, std::size_t>> ppTableRows_;
 
@@ -100,8 +181,6 @@ class OutputManager {
   ::seissol::initializer::StorageBackmap<1> faceToLtsMap_;
   seissol::geometry::MeshReader* meshReader_{nullptr};
 
-  size_t iterationStep_{0};
-  static constexpr double TimeMargin{1.005};
   std::string backupTimeStamp_;
 
   std::unique_ptr<ReceiverOutput> impl_{nullptr};

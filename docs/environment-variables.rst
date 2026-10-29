@@ -37,6 +37,72 @@ For that, it is required to leave at least one thread vacant in your OpenMP thre
 
 If you do not want to use a communication thread, you may set ``SEISSOL_COMMTHREAD=0`` to make SeisSol poll the progress from time to time.
 
+Task graph on the host
+----------------------
+
+By default, every loop over the cells or faces of a cluster is a parallel region of its own, split
+among the OpenMP threads evenly; the clusters take their steps one after the other, and all threads
+wait at the end of each loop. With ``SEISSOL_HOST_TASK_GRAPH=1``, the main thread decides the steps
+of the clusters up to the next synchronization point instead, in one parallel region, and turns the
+work of each step into a task, which runs as soon as the work it depends on is done: so the steps of
+different clusters run at the same time, and the threads that are done with one loop go on with the
+next one. The loops become tasks of ``SEISSOL_HOST_TASK_SIZE`` cells or faces each (32 by default).
+The main thread stays at most ``SEISSOL_HOST_ACTION_LIMIT`` steps of the clusters ahead of their work
+(256 by default; 0 for no limit): meanwhile, it takes tasks itself. Without a limit, it would decide
+all steps up to the next synchronization point first, which costs memory and time with long
+intervals between synchronization points.
+The halo exchange becomes part of the task graph as well: a send starts once the copy layer is
+complete, and the work that reads the ghost layer waits for the data, without the main thread waiting
+for either. That pays off the more, the more threads a rank has and the more unevenly they are fast
+(e.g. on processors with cores of different kinds); with few threads per rank, it changes little.
+
+The task graph needs tasks with dependencies on lists of a length known at run time, detached tasks,
+``taskloop`` and ``masked`` (OpenMP 5.1), which the build tests the compiler for: e.g. GCC 13, Clang
+19 and ICX have them, NVHPC does not. It is not available in builds for a device. With it, a
+communication thread (see above) starts and tests the exchanges in the task graph; with
+``SEISSOL_COMMTHREAD=0``, the main thread does so between the tasks it takes, which may be faster
+where the communication thread shares its core or cache with the workers. That works with the OpenMP
+runtimes of LLVM and Intel only: others (e.g. that of GCC) may wait for a task of an exchange where
+the main thread creates it, so a thread of its own polls the exchanges there in any case. With a
+single thread per rank, the halo exchange in the task graph does not work with the OpenMP runtime of
+LLVM before version 19 (e.g. with Clang 18 of Ubuntu 24.04), which SeisSol recognizes and keeps the
+static schedule then. The times of the loops in the summary of the run overlap each other in a task
+graph. The watchdog (see below) also watches the work done of each cluster then, and at a stall
+reports the exchanges of the task graph in flight.
+
+Watchdog
+--------
+
+A thread of its own watches the progress of a run, also where the main thread cannot report any
+more, e.g. when it waits for the GPU while the halo exchange on the GPU (``ccl``, ``shmem``)
+waits for a process that has stopped. If none of the clusters makes progress for
+``SEISSOL_WATCHDOG_TIMEOUT`` seconds while the run takes its steps (900 by default), it reports the
+phase of the run, the times of the clusters (also those the GPU has reached), and the clusters
+report their state from the threads they act on, the halo clusters with the messages in flight
+(with MPI, the rank, the tag and the size of each). Then the run aborts, unless
+``SEISSOL_WATCHDOG_ABORT=0``. If anything else takes that long, e.g. the outputs at a
+synchronization point (a large checkpoint, or the last writes at the end), it reports that as well,
+but the run goes on: writing much data may well take that long. The clusters themselves report after
+the same time without progress. With NCCL and RCCL, the watchdog
+also checks for the errors that the library reports asynchronously, e.g. of the network.
+``SEISSOL_WATCHDOG=0`` turns it off.
+
+Test of the halo exchange
+-------------------------
+
+Before the time stepping, SeisSol tests the halo exchange, through the transfer mode of the run
+(see ``SEISSOL_TRANSFER_MODE`` in :ref:`gpu-env`): each copy region gets values that tell the
+sending rank, the tag of the region and the position in it, one exchange in each direction moves
+them, and each ghost region then has to hold the values of its sender. If a ghost region received
+wrong data, each rank concerned names its first such region and position, and the run aborts. A
+crash in the library of the exchange, e.g. of an MPI that cannot read device memory, comes right
+after the line that announces the test, instead of somewhere in the time stepping. If the exchange
+does not complete within ``SEISSOL_WATCHDOG_TIMEOUT`` seconds (and the watchdog is on), the ranks
+report the messages still in flight, and the run aborts, unless ``SEISSOL_WATCHDOG_ABORT=0``.
+Afterwards, the halo regions are zero again, as before the test. The test costs about one exchange of
+the halo, on GPUs plus a few copies of it between the host and the device; ``SEISSOL_HALO_CHECK=0``
+turns it off.
+
 Load balancing
 --------------
 

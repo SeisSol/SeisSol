@@ -35,6 +35,8 @@
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Monitoring/Trace.h"
+#include "Parallel/Runtime/HostRuntime.h"
 #endif
 
 #ifndef ACL_DEVICE
@@ -237,6 +239,8 @@ void Spacetime<Cfg>::computeBatchedAder(
     } else {
       auto* layerZinvData = layer.var<LTS::ZinvExtra>(Cfg());
       const auto* layerLocalIntegration = layer.var<LTS::LocalIntegration>(Cfg());
+      static const auto TraceName = monitoring::Trace::name("space-time predictor");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
       runtime.enqueueLoop(numElements, [=](std::size_t i) {
         auto* zinvData = layerZinvData + yateto::computeFamilySize<tensor::Zinv<Cfg>>() * i;
         const auto& localIntegration = layerLocalIntegration[i];

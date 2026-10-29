@@ -39,7 +39,8 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   const MeshParameters meshParameters = readMeshParameters(parameterReader);
   const ModelParameters modelParameters =
       readModelParameters(parameterReader, config, groupConfigs);
-  const OutputParameters outputParameters = readOutputParameters(parameterReader, config);
+  const OutputParameters outputParameters =
+      readOutputParameters(parameterReader, modelParameters.configs());
   const SourceParameters sourceParameters = readSourceParameters(parameterReader);
   const TimeSteppingParameters timeSteppingParameters =
       readTimeSteppingParameters(parameterReader, modelParameters.configs());

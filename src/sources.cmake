@@ -72,6 +72,10 @@ if (WITH_GPU)
   if ("${DEVICE_BACKEND}" STREQUAL "cuda" OR "${DEVICE_BACKEND}" STREQUAL "hip")
     set(DEVICE_SRC ${DEVICE_SRC}
       ${SEISSOL_CODEGEN_DEVICE}
+      Kernels/DeviceAux/cudahip/ClockAux.cpp
+      Kernels/DeviceAux/cudahip/ExchangeEngineAux.cpp
+      Kernels/DeviceAux/cudahip/GatherAux.cpp
+      Kernels/DeviceAux/cudahip/HostCopyAux.cpp
       Kernels/DeviceAux/cudahip/PlasticityAux.cpp
       Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
       DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
@@ -79,6 +83,10 @@ if (WITH_GPU)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "acpp" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
     set(DEVICE_SRC ${DEVICE_SRC}
           ${SEISSOL_CODEGEN_DEVICE}
+          Kernels/DeviceAux/sycl/ClockAux.cpp
+          Kernels/DeviceAux/sycl/ExchangeEngineAux.cpp
+          Kernels/DeviceAux/sycl/GatherAux.cpp
+          Kernels/DeviceAux/sycl/HostCopyAux.cpp
           Kernels/DeviceAux/sycl/PlasticityAux.cpp
           Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
           DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp

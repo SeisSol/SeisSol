@@ -107,7 +107,13 @@ void WriterModule::simulationStart(std::optional<double> checkpointTime) {
   }
 }
 
-void WriterModule::syncPoint(double time) {
+void WriterModule::captureSyncPoint(double time) {
+  if (settings_.capture) {
+    settings_.capture(time);
+  }
+}
+
+void WriterModule::processSyncPoint(double time) {
   const auto start = std::chrono::steady_clock::now();
   if (lastWrite_ >= 0) {
     logInfo() << "Output Writer" << settings_.name << ": finishing previous write from"

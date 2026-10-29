@@ -351,9 +351,16 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
         assert(indexPtrs[arrayIndex] != nullptr);
       }
 
+      // The derivatives are in the host-accessible memory of the MPI buffers with
+      // SEISSOL_USM_MPI=1. But the samples get taken on a stream of their own, while the clusters
+      // go on and overwrite the derivatives: then only a copy gathered in the order of the stream
+      // of the cluster holds the data of the step.
+      const bool hostAccessible = useMPIUSM() && !outputData_->extraRuntime.has_value();
       outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollectorUntyped>(
-          indexPtrs, derivativesBytes, useMPIUSM());
+          indexPtrs, derivativesBytes, hostAccessible);
 
+      std::vector<std::vector<void*>> variablePointers;
+      std::vector<std::size_t> variableSizes;
       for (const auto& variable : variables_) {
         std::size_t elementSize = 0;
         std::vector<void*> dataPointers(topology.faceCount());
@@ -366,12 +373,16 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
                                      variable, initializer::AllocationPlace::Device)) +
                                  elementSize * position.cell;
         }
-
-        const bool hostAccessible = useUSM() && !outputData_->extraRuntime.has_value();
-        outputData_->deviceVariables[variable] =
-            std::make_unique<seissol::parallel::DataCollectorUntyped>(
-                dataPointers, elementSize, hostAccessible);
+        outputData_->deviceVariableSets[variable] = variablePointers.size();
+        variablePointers.emplace_back(std::move(dataPointers));
+        variableSizes.push_back(elementSize);
       }
+
+      // all variables with one kernel: a launch per variable cost the stream of the cluster more
+      // than the copies themselves
+      const bool variablesHostAccessible = useUSM() && !outputData_->extraRuntime.has_value();
+      outputData_->deviceVariables = std::make_unique<seissol::parallel::DataCollectorUntyped>(
+          variablePointers, variableSizes, variablesHostAccessible);
     }
   }
 }

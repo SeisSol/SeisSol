@@ -25,6 +25,20 @@
 namespace seissol::initializer::parameters {
 
 namespace {
+/**
+ * A mask over the quantities of the material of every configuration in `configs`, by its id: the
+ * first entries of `mask`, as many as the material has quantities; those `mask` does not give are
+ * off.
+ */
+std::vector<std::vector<bool>> quantityMasks(const std::string& mask,
+                                             const std::vector<ConfigId>& configs) {
+  std::vector<std::vector<bool>> masks(builtConfigCount());
+  for (const auto config : configs) {
+    masks[config] = convertStringToVector<bool>(mask, configLayout(config).numQuantities, false);
+  }
+  return masks;
+}
+
 ProjectionMethod readProjectionMethod(ParameterReader* reader,
                                       const std::string& field,
                                       const std::string& defaultValue) {
@@ -148,7 +162,7 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
 
 FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader,
                                                       const std::string& defaultTimeSeries,
-                                                      ConfigId config) {
+                                                      const std::vector<ConfigId>& configs) {
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("surfaceoutput", false);
@@ -169,16 +183,19 @@ FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReade
 
   const auto vtkorder = reader->readWithDefault("surfacevtkorder", -1);
 
-  // handle acoustic and elastic
-  const auto& layout = configLayout(config);
-  std::string velocities;
-  for (std::size_t i = 0; i < layout.velocityOffset; ++i) {
-    velocities += "0 ";
+  // the velocities by default, wherever the material has them (e.g. acoustic or elastic)
+  const auto surfaceOutputMaskString = reader->read<std::string>("surfaceoutputmask");
+  std::vector<std::vector<bool>> surfaceOutputMask(builtConfigCount());
+  for (const auto config : configs) {
+    const auto& layout = configLayout(config);
+    std::string velocities;
+    for (std::size_t i = 0; i < layout.velocityOffset; ++i) {
+      velocities += "0 ";
+    }
+    velocities += "1 1 1";
+    surfaceOutputMask[config] = convertStringToVector<bool>(
+        surfaceOutputMaskString.value_or(velocities), layout.numQuantities, false);
   }
-  velocities += "1 1 1";
-  const auto surfaceOutputMaskString = reader->readWithDefault("surfaceoutputmask", velocities);
-  const auto surfaceOutputMask =
-      convertStringToVector<bool>(surfaceOutputMaskString, layout.numQuantities, false);
 
   // The free-surface output has always been an average over each output subcell (cf. the former
   // FreeSurfaceIntegrator::computeSubTriangleAverages), i.e. an L2 projection.
@@ -194,6 +211,17 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("pickpoint");
 
   const auto printTimeInterval = reader->readWithDefault("printtimeinterval", 1);
+  if (printTimeInterval < 1) {
+    logError() << "printtimeinterval of the on-fault receivers has to be at least 1, but is"
+               << printTimeInterval;
+  }
+
+  // zero: every printtimeinterval time steps of the finest time cluster with fault faces
+  const auto samplingInterval = reader->readWithDefault("pickdt", 0.0);
+  if (samplingInterval < 0) {
+    logError() << "pickdt of the on-fault receivers must not be negative, but is"
+               << samplingInterval;
+  }
 
   const auto interval = reader->readWithDefault("outputinterval", VeryLongTime);
 
@@ -225,7 +253,8 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
                              pickpointFileName,
                              collectiveio,
                              format,
-                             samplechunk};
+                             samplechunk,
+                             samplingInterval};
 }
 
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
@@ -272,7 +301,7 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
                                                   const std::string& defaultTimeSeries,
-                                                  ConfigId config) {
+                                                  const std::vector<ConfigId>& configs) {
   auto* reader = baseReader->readSubNode("output");
 
   bool enabled = false;
@@ -316,8 +345,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
 
   const auto outputMaskString =
       reader->readOrFail<std::string>("ioutputmask", "No output mask given.");
-  const auto numQuantities = configLayout(config).numQuantities;
-  const auto outputMask = convertStringToVector<bool>(outputMaskString, numQuantities, false);
+  const auto outputMask = quantityMasks(outputMaskString, configs);
 
   const auto plasticityMaskString =
       reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
@@ -326,8 +354,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
 
   const auto integrationMaskString =
       reader->readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
-  const auto integrationMask =
-      convertStringToVector<bool>(integrationMaskString, numQuantities, false);
+  const auto integrationMask = quantityMasks(integrationMaskString, configs);
 
   const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());
@@ -362,7 +389,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
                                    timeSeries};
 }
 
-OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId config) {
+OutputParameters readOutputParameters(ParameterReader* baseReader,
+                                      const std::vector<ConfigId>& configs) {
   auto* reader = baseReader->readSubNode("output");
 
   const auto hdfcompress = reader->readWithDefault("hdfcompress", 0);
@@ -391,10 +419,10 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
   const auto elementwiseParameters = readElementwiseParameters(baseReader, defaultTimeSeries);
   const auto energyParameters = readEnergyParameters(baseReader);
   const auto freeSurfaceParameters =
-      readFreeSurfaceParameters(baseReader, defaultTimeSeries, config);
+      readFreeSurfaceParameters(baseReader, defaultTimeSeries, configs);
   const auto pickpointParameters = readPickpointParameters(baseReader);
   const auto receiverParameters = readReceiverParameters(baseReader);
-  const auto waveFieldParameters = readWaveFieldParameters(baseReader, defaultTimeSeries, config);
+  const auto waveFieldParameters = readWaveFieldParameters(baseReader, defaultTimeSeries, configs);
 
   reader->warnDeprecated({"projection",
                           "rotation",

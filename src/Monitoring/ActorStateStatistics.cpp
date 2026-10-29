@@ -8,7 +8,7 @@
 #include "ActorStateStatistics.h"
 
 #include "LoopStatistics.h"
-#include "Solver/TimeStepping/ActorState.h"
+#include "Solver/TimeStepping/Actor/ActorState.h"
 
 #include <optional>
 #include <time.h>
@@ -16,10 +16,10 @@
 namespace seissol {
 
 ActorStateStatistics::ActorStateStatistics(unsigned globalClusterId, LoopStatistics& loopStatistics)
-    : currentSample_(time_stepping::ActorState::Synced), globalClusterId_(globalClusterId),
+    : currentSample_(solver::ActorState::Synced), globalClusterId_(globalClusterId),
       loopStatistics_(loopStatistics) {}
 
-void ActorStateStatistics::enter(time_stepping::ActorState actorState) {
+void ActorStateStatistics::enter(solver::ActorState actorState) {
   if (actorState == currentSample_.state) {
     ++currentSample_.numEnteredRegion;
   } else {
@@ -31,12 +31,12 @@ void ActorStateStatistics::enter(time_stepping::ActorState actorState) {
 void ActorStateStatistics::exit() {
   currentSample_.finish();
   const auto state = currentSample_.state;
-  const auto region = loopStatistics_.getRegion(seissol::time_stepping::actorStateToString(state));
+  const auto region = loopStatistics_.getRegion(seissol::solver::actorStateToString(state));
   loopStatistics_.addSample(
       region, 1, globalClusterId_, currentSample_.begin, currentSample_.end.value());
 }
 
-ActorStateStatistics::Sample::Sample(seissol::time_stepping::ActorState state)
+ActorStateStatistics::Sample::Sample(seissol::solver::ActorState state)
     : state(state), end(std::nullopt), numEnteredRegion(0) {
   (void)clock_gettime(CLOCK_MONOTONIC, &begin);
 }
@@ -48,12 +48,9 @@ void ActorStateStatistics::Sample::finish() {
 
 ActorStateStatisticsManager::ActorStateStatisticsManager(LoopStatistics& loopStatistics)
     : loopStatistics_(loopStatistics) {
-  loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Synced),
-                           false);
-  loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Corrected),
-                           false);
-  loopStatistics.addRegion(time_stepping::actorStateToString(time_stepping::ActorState::Predicted),
-                           false);
+  loopStatistics.addRegion(solver::actorStateToString(solver::ActorState::Synced), false);
+  loopStatistics.addRegion(solver::actorStateToString(solver::ActorState::Corrected), false);
+  loopStatistics.addRegion(solver::actorStateToString(solver::ActorState::Predicted), false);
 }
 
 ActorStateStatistics& ActorStateStatisticsManager::addCluster(unsigned globalClusterId) {

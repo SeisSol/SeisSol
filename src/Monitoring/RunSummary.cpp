@@ -221,6 +221,13 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   epochs.addColumn<double>("hardwareFlopPerSecond");
   epochs.addColumn<double>("nonzeroFlopPerSecond");
   epochs.addColumn<double>("kernelBytesPerSecond");
+  epochs.addColumn<double>("threadLoopsMean");
+  epochs.addColumn<double>("threadLoopsMin");
+  epochs.addColumn<double>("deviceComputingMean");
+  epochs.addColumn<double>("deviceComputingMin");
+  epochs.addColumn<double>("deviceExchangesMean");
+  epochs.addColumn<double>("deviceIdleMean");
+  epochs.addColumn<double>("deviceIdleMax");
   epochs.addTextColumn("runId", RunIdLength);
 
   started_ = true;
@@ -329,6 +336,15 @@ void RunSummary::addEpoch(const EpochRecord& epoch, double endTime) {
     epochs_->addCell<double>(epoch.hardwareFlopPerSecond);
     epochs_->addCell<double>(epoch.nonzeroFlopPerSecond);
     epochs_->addCell<double>(epoch.kernelBytesPerSecond);
+    epochs_->addCell<double>(epoch.threadLoops.mean);
+    epochs_->addCell<double>(epoch.threadLoops.min);
+    // nothing to tell without times of the device
+    const double none = std::numeric_limits<double>::quiet_NaN();
+    epochs_->addCell<double>(epoch.deviceTimed ? epoch.deviceComputing.mean : none);
+    epochs_->addCell<double>(epoch.deviceTimed ? epoch.deviceComputing.min : none);
+    epochs_->addCell<double>(epoch.deviceTimed ? epoch.deviceExchanges.mean : none);
+    epochs_->addCell<double>(epoch.deviceTimed ? epoch.deviceIdle.mean : none);
+    epochs_->addCell<double>(epoch.deviceTimed ? epoch.deviceIdle.max : none);
     epochs_->addText(runId_);
   }
 

@@ -29,7 +29,8 @@ template <typename Cfg>
 __launch_bounds__(Blocksize) __global__ void launchKernel(
     std::size_t numElements,
     double from,
-    double to,
+    double timeStepSize,
+    const double* __restrict clock,
     sourceterm::CellToPointSourcesMapping* __restrict mappingPtr,
     const seissol::memory::AlignedArray<
         Real<Cfg>,
@@ -43,10 +44,12 @@ __launch_bounds__(Blocksize) __global__ void launchKernel(
     const Real<Cfg>* __restrict sample) {
   const auto index = threadIdx.y + PerBlock * blockIdx.x;
   if (index < numElements) {
+    const double start = clock == nullptr ? from : *clock;
+    const double end = start + timeStepSize;
     pointSourceKernelDevice<Cfg, SubBlock>(threadIdx.x,
                                            index,
-                                           from,
-                                           to,
+                                           start,
+                                           end,
                                            mappingPtr,
                                            mInvJInvPhisAtSources,
                                            simulationIndex,
@@ -65,7 +68,8 @@ template <typename Cfg>
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                        sourceterm::PointSources<Cfg>& sources,
                        double from,
-                       double to,
+                       double timeStepSize,
+                       const double* clock,
                        seissol::parallel::runtime::StreamRuntime& runtime) {
   auto& mapping = clusterMapping.cellToSources;
   auto* __restrict mappingPtr = mapping.data();
@@ -97,7 +101,8 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
 
     launchKernel<Cfg><<<grid, block, 0, stream>>>(mapping.size(),
                                                   from,
-                                                  to,
+                                                  timeStepSize,
+                                                  clock,
                                                   mappingPtr,
                                                   mInvJInvPhisAtSources,
                                                   simulationIndex,
@@ -114,7 +119,8 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
   template void pointSourceKernel<Cfg>(sourceterm::ClusterMapping & clusterMapping,                \
                                        sourceterm::PointSources<Cfg> & sources,                    \
                                        double from,                                                \
-                                       double to,                                                  \
+                                       double timeStepSize,                                        \
+                                       const double* clock,                                        \
                                        seissol::parallel::runtime::StreamRuntime& runtime);
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE

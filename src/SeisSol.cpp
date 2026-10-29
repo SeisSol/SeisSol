@@ -47,6 +47,7 @@ bool SeisSol::init() {
   printUSMInfo(env_);
   printMPIUSMInfo(env_);
 #endif
+  printDeviceOptionInfo(env_);
   pinning_.checkEnvVariables();
   if (OpenMP::enabled()) {
     logInfo() << "Using OpenMP with #threads/rank:" << seissol::OpenMP::threadCount();
