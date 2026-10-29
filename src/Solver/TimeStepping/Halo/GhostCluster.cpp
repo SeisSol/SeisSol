@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <string>
 #include <utility>
 #include <utils/logger.h>
@@ -233,7 +234,18 @@ GhostCluster::GhostCluster(double maxTimeStepSize,
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       transport_(std::move(transport)), copyRegionCount_(regions.copy.size()),
       ghostRegionCount_(regions.ghost.size()), displayName_(displayName),
-      otherDisplayName_(otherDisplayName) {}
+      otherDisplayName_(otherDisplayName) {
+  // for the trace: the ranks the transfers go to and come from
+  std::set<int> ranks;
+  for (const auto* side : {&regions.copy, &regions.ghost}) {
+    for (const auto& region : *side) {
+      ranks.insert(region.rank);
+    }
+  }
+  for (const auto rank : ranks) {
+    traceRanks_ += (traceRanks_.empty() ? " ranks " : ",") + std::to_string(rank);
+  }
+}
 
 void GhostCluster::reset() {
   // all transfers of the previous interval have completed when this cluster synchronized
@@ -261,8 +273,9 @@ void GhostCluster::traceTransfer(bool send) {
   static const auto SendName = monitoring::Trace::name("send");
   static const auto ReceiveName = monitoring::Trace::name("receive");
   // at most one of each is in flight, so the spans of a track follow each other
-  const auto track = send ? monitoring::Trace::track(&sendTarget_, description() + " send")
-                          : monitoring::Trace::track(&receiveTarget_, description() + " receive");
+  const auto track =
+      send ? monitoring::Trace::track(&sendTarget_, description() + traceRanks_ + " send")
+           : monitoring::Trace::track(&receiveTarget_, description() + traceRanks_ + " receive");
   monitoring::Trace::span(send ? SendName : ReceiveName, track, begin, monitoring::Trace::now());
 }
 

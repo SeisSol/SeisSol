@@ -108,6 +108,8 @@ class GhostCluster : public AbstractTimeCluster {
 
   std::string displayName_;
   std::string otherDisplayName_;
+  // the ranks of the regions, for the names of the tracks of the trace (" ranks 3,5")
+  std::string traceRanks_;
 
   bool receiving_{false};
   bool sending_{false};
