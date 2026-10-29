@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <iostream>
+#include <ostream>
 #include <utility>
 #include <vector>
 
@@ -157,7 +158,8 @@ void ODEVector<RealT>::print() {
     }
     std::cout << '\n';
   }
-  std::cout << delim << '\n';
+  // a debugging aid: out at once, also when the output goes to a file
+  std::cout << delim << '\n' << std::flush;
 }
 
 template class ODEVector<float>;
