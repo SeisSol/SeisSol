@@ -18,6 +18,7 @@
 #include "Initializer/InitProcedure/InitLayout.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/DeviceTimeline.h"
 #include "Monitoring/Memory.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
@@ -250,6 +251,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   // make sure everyone is really done
   logInfo() << "Simulation done.";
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  DeviceTimeline::stopKernelTrace();
   monitoring::Trace::write(seissolInstance.parameters().output.prefix + "-trace.json",
                            seissol::Mpi::mpi.comm());
   summary["memory"]["atEnd"] = memorySection(summary, "AtEnd");

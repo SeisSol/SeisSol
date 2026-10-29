@@ -171,6 +171,11 @@ a rank records at most ``SEISSOL_TRACE_SPANS`` spans (a million by default, abou
 end if it reached that. Recording costs two readings of the clock per span; without ``SEISSOL_TRACE``, nothing but a
 check.
 
+With ``SEISSOL_TRACE_KERNELS=1`` as well, the device puts each of its kernels and waits into the trace, on a track for
+each of its queues (``device queue <n>``), from when it started to when it ended; only HIP with own queues
+(``SEISSOL_OWN_QUEUES``, see :ref:`gpu-env`) can do that so far. It gives each kernel and wait a signal that takes its
+times, which costs the device a little for each kernel.
+
 .. _cell-updates:
 
 Cell updates

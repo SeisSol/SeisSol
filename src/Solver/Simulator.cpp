@@ -202,6 +202,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // the time stepping is where a trace starts (SEISSOL_TRACE)
   monitoring::Trace::start(monitoring::Trace::settingsFromEnv(seissolInstance.env()),
                            seissol::Mpi::mpi.comm());
+  DeviceTimeline::startKernelTrace(seissolInstance.env().get<bool>("TRACE_KERNELS", false));
 
   while (finalTime_ > currentTime_ + timeTolerance) {
     if (upcomingTime < currentTime_ + timeTolerance) {
