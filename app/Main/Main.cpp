@@ -225,6 +225,11 @@ int main(int argc, char* argv[]) {
       // the streams of HIP then only record graphs and hold allocations: one hardware queue each
       // leaves the others of the device to the own queues
       setenv("GPU_MAX_HW_QUEUES", "1", 0);
+      // the queue of the other stream runtimes and that of the device timeline are idle most of
+      // the time: they may share a pipe of the command processor with a queue of the clusters
+      // (the others get pipes of their own as long as there are, see the Device library)
+      const auto light = "0," + std::to_string(seissol::parallel::runtime::TimelineOwnQueue);
+      setenv("DEVICE_OWN_QUEUE_LIGHT", light.c_str(), 0);
     }
     seissol::Mpi::mpi.bindAcceleratorDevice();
     const device::DeviceInstance& device = device::DeviceInstance::instance();

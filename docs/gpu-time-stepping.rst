@@ -359,7 +359,31 @@ which changes it from run to run), the face work on queues of its own made TPV13
 with eight, against 2.5 s on four queues for all (TPV5: 2.1 and 1.9 s against 1.6 s), although none of its loops took
 longer: the ranks waited longer for the halo of their neighbors. High priorities for the copy layers or the face work
 made no difference, and neither did compute units of their own for the face work (``DEVICE_OWN_QUEUE_CU_MASKS``, e.g.
-``-10:0-23;1:24-109`` for queue numbers and ranges of compute units). With ``actor-mpi``, the copy layers wait for MPI on the GPU; on queues apart from the interior
+``-10:0-23;1:24-109`` for queue numbers and ranges of compute units).
+
+Queues hold each other up when they share a pipe of the command processor. On the MI250X, the hardware scheduler gives
+the queues of a process four pipes, the i-th queue the pipe i modulo 4 (queues after one that goes move up by one), and
+a pipe serves its queues together: a kernel that one queue starts after a long one of another queue on the pipe
+completes only after it, and a queue that waits in a packet (for another queue, the host or MPI) holds up the others
+on its pipe for about 40 µs at a time (in a test, a queue of short kernels next to four waiting queues lost 40 µs at
+every second kernel, next to sixteen at each; kernels that wait instead made it worse, four of them starved a fifth
+queue). In SeisSol, the queues of the copy and of the interior layer of different clusters shared pipes: a quarter of
+the kernels of the face relations of the copy layers took 50 µs instead of 9. So the library spreads the own queues
+over the pipes (``DEVICE_OWN_QUEUE_PIPES=spread``, the default on gfx90a): it finds the pipes with an idle queue on
+each, and creates queues until one is on a pipe with the fewest busy own queues; the others stay unused, since the
+queues after them would move otherwise. SeisSol declares the queue of the other stream runtimes and that of the
+timeline light (``DEVICE_OWN_QUEUE_LIGHT``, queue numbers), which may share a pipe with a busy one;
+``DEVICE_OWN_QUEUE_PIPES=check`` only logs the pipes (with ``DEVICE_OWN_QUEUE_VERBOSE=1`` too), ``any`` takes the queues
+as they come. On a fixed partition, TPV13 then took 1.9 to 2.0 s on four own queues (2.4 s before), 1.9 s on six and on
+eight, 2.2 s on three; TPV5 1.4 s (1.6 s), 1.3 to 1.4 s and 1.6 s; the outputs bitwise the same. The queues of HIP and of
+other libraries take pipes as well. Spreading the kernels of a level of a graph over helper queues
+(``DEVICE_OWN_QUEUE_GRAPH_LANES=k``, ``DEVICE_OWN_QUEUE_GRAPH_LANE_MIN``) pays off only with pipes left for them: TPV13
+2.2 s instead of 2.7 s on two own queues, 2.9 s instead of 1.9 s on four. The exchange queue of ``actor-mpi`` waits
+nearly all the time and takes a pipe of its own: 2.9 s and 1.6 s on four queues. The clustering of the time steps for
+the costs of launches (``LtsClusteringSearch = 'lattice'``, see :ref:`lts_lattice_search`; with the costs of launches and
+fills that had made TPV13 14 % faster before) no longer paid off (2.0 s and 1.5 s).
+
+With ``actor-mpi``, the copy layers wait for MPI on the GPU; on queues apart from the interior
 layers, these go on meanwhile. On the same queues, TPV13 hung (with one queue for all clusters, before the fences of the
 device), so ``actor-mpi`` takes an even number of own queues, which keeps them apart; the priorities of the ``halo``
 layout, lanes on queues of their own (``SEISSOL_EXCHANGE_LANES``), transport events and kernel arguments in device
