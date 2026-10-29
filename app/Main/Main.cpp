@@ -232,6 +232,7 @@ int main(int argc, char* argv[]) {
     if (ownQueues > 0 && device.api().enableOwnQueues()) {
       seissol::parallel::runtime::ownQueueCount() = ownQueues;
       seissol::parallel::runtime::ownFaceQueueCount() = seissol::ownFaceQueueCount(deviceEnv);
+      seissol::parallel::runtime::ownBranchQueueCount() = seissol::ownBranchQueueCount(deviceEnv);
       const auto priorities = deviceEnv.get<std::string>("OWN_QUEUE_PRIORITIES", "");
       seissol::parallel::runtime::ownQueuePriorities() = {
           priorities.find("copy") != std::string::npos,
@@ -261,6 +262,11 @@ int main(int argc, char* argv[]) {
       logInfo() << "The clusters run their work on" << seissol::parallel::runtime::ownQueueCount()
                 << "queues of their own, the other stream runtimes on one more"
                 << "(SEISSOL_OWN_QUEUES).";
+      if (seissol::parallel::runtime::ownBranchQueueCount() > 0) {
+        logInfo() << "The branches of the work run on"
+                  << seissol::parallel::runtime::ownBranchQueueCount()
+                  << "more (SEISSOL_OWN_QUEUE_BRANCHES).";
+      }
       if (seissol::parallel::runtime::ownFaceQueueCount() > 0) {
         logInfo() << "The face work runs on" << seissol::parallel::runtime::ownFaceQueueCount()
                   << "more (SEISSOL_OWN_QUEUES_FACES).";

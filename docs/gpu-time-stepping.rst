@@ -122,6 +122,15 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
    * - ``SEISSOL_OWN_QUEUES_FACES``
      - Experimental. With ``SEISSOL_OWN_QUEUES``: the face work (dynamic rupture) of the layers on this many own queues
        of its own, next to the work of the cells, instead of on the queues of their cells (0 by default; see below).
+   * - ``SEISSOL_OWN_QUEUE_BRANCHES``
+     - Experimental. With ``SEISSOL_OWN_QUEUES``: the independent branches of the work of an action (e.g. the face
+       relations of the neighboring integration) on this many own queues of their own, shared by all stream runtimes,
+       without graphs of single actions (0 by default). A queue of the MI250X runs its kernels one after the other,
+       also without barriers in between.
+   * - ``SEISSOL_PLAN_INTERIOR_FIRST=0``
+     - With ``SEISSOL_TIMESTEPPING_PLAN=1``: correct and do the face work of the copy layers before those of the
+       interior layers, as when predicting, instead of after them (on by default: the copy layers wait for the halo,
+       and with MPI on the host, the host waits for it in the order of the plan).
    * - ``SEISSOL_OWN_QUEUE_PRIORITIES``
      - Experimental. With ``SEISSOL_OWN_QUEUES``: ``copy`` gives the queues of the copy layers a high priority and those
        of the interior layers a low one (with an even number of queues), ``faces`` the queues of the face work a high

@@ -109,6 +109,23 @@ inline OwnQueuePriorities& ownQueuePriorities() {
   return priorities;
 }
 
+/**
+ * The number of own queues for the branches of the stream runtimes (SEISSOL_OWN_QUEUE_BRANCHES, see
+ * StreamRuntime::envMany(); experimental): the further streams of the runtimes, shared by all of
+ * them (the first one FirstBranchOwnQueue, then downwards), and the work runs without graphs of
+ * single actions. A queue runs its kernels one after the other, also those without a barrier
+ * (MI250X, ROCm 6.3), so independent kernels only run at the same time on queues of their own. 0
+ * (the default) keeps the branches on the stream of the runtime.
+ */
+inline int& ownBranchQueueCount() {
+  static int count = 0;
+  return count;
+}
+constexpr int FirstBranchOwnQueue = -20;
+
+/// whether the branches of the stream runtimes go to own queues of their own
+inline bool branchesOnOwnQueues() { return ownQueueCount() > 0 && ownBranchQueueCount() > 0; }
+
 /// the own queue of the work of a layer: of its cell cluster, or of its dynamic rupture cluster
 int ownQueueOf(const initializer::LayerIdentifier& identifier, bool faces = false);
 
@@ -202,7 +219,16 @@ class StreamRuntime {
     } else {
       streamPtr_.emplace();
     }
-    ringbufferPtr_.resize(ringbufferSize);
+    if (branchesOnOwnQueues() && ownQueue != NoOwnQueue) {
+      ringbufferPtr_.reserve(ringbufferSize);
+      for (size_t i = 0; i < ringbufferSize; ++i) {
+        ringbufferPtr_.emplace_back(ManagedStream::OnOwnQueue{
+            FirstBranchOwnQueue - static_cast<int>(i % static_cast<size_t>(ownBranchQueueCount())),
+            NAN});
+      }
+    } else {
+      ringbufferPtr_.resize(ringbufferSize);
+    }
 
     allStreams_.resize(ringbufferSize + 1);
     allStreams_[0] = streamPtr_->get();
@@ -324,7 +350,9 @@ class StreamRuntime {
     }
 
     void* stream = building() ? this->stream() : mainStream();
-    if (!building() && Backend != DeviceBackend::Hip && ringbufferSize_ > 0) {
+    // (HIP branches only on own queues of their own: its waits for events cost too much)
+    if (!building() && (Backend != DeviceBackend::Hip || branchesOnOwnQueues()) &&
+        ringbufferSize_ > 0) {
       const auto forkEvent = nextEvent();
       device().api().recordEventOnStream(forkEvent.get(), stream);
       for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
@@ -448,7 +476,9 @@ class StreamRuntime {
                 F&& handler,
                 bool cacheable = true,
                 GraphMode mode = GraphMode::Nodes) {
-    if (!cacheable) {
+    // (with branches on own queues, the work runs directly, so that its branches go there: a graph
+    // would run on the queue of the runtime alone)
+    if (!cacheable || branchesOnOwnQueues()) {
       std::invoke(std::forward<F>(handler), *this);
       return;
     }

@@ -74,6 +74,12 @@ inline std::size_t exchangeLanes(utils::Env& env) {
  */
 inline int ownQueueCount(utils::Env& env) { return std::max(env.get<int>("OWN_QUEUES", 0), 0); }
 
+/// the own queues of the branches of the stream runtimes (see
+/// parallel::runtime::ownBranchQueueCount())
+inline int ownBranchQueueCount(utils::Env& env) {
+  return std::max(env.get<int>("OWN_QUEUE_BRANCHES", 0), 0);
+}
+
 /// the own queues of the dynamic rupture clusters (see parallel::runtime::ownFaceQueueCount())
 inline int ownFaceQueueCount(utils::Env& env) {
   return std::max(env.get<int>("OWN_QUEUES_FACES", 0), 0);
