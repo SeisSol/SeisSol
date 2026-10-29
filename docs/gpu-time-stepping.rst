@@ -246,12 +246,12 @@ Queues of their own (HIP)
 
 HIP (its runtime CLR) puts all streams onto a few hardware queues that they share in turn, ``GPU_MAX_HW_QUEUES``
 for each priority (4 by default), and creates one more stream for each branch of each graph. A stream that waits
-holds up the streams behind it on its queue, and a wait for an event of another queue costs about 12 µs (MI250X,
-ROCm 6.3); a launch takes 1.7 µs on the host. A GCD of an MI250X has 24 hardware queues only, and SeisSol has about a
-hundred streams per process: with 16 queues per priority, runs hung (the queues that waited kept those they waited for
-from getting a slot), and from 64 on, instantiating the graphs ran out of memory. On two nodes of LUMI, two queues per
-priority were the fastest (TPV5 3.1 to 3.3 s, TPV13 4.9 to 5.2 s, against 3.6 to 3.9 s and 5.5 to 5.9 s with four),
-and so are the clusters faster the less they run at the same time on that GPU.
+holds up the streams behind it on its queue, and a wait for an event of another queue costs about 9 µs on the GPU
+(MI250X, ROCm 6.3; the host needs 12 µs for the launch, the record and the wait); a launch takes 1.7 µs on the host. A
+GCD of an MI250X has 24 hardware queues only, and SeisSol has about a hundred streams per process: with 16 queues per
+priority, runs hung (the queues that waited kept those they waited for from getting a slot), and from 64 on,
+instantiating the graphs ran out of memory. On two nodes of LUMI, two queues per priority were the fastest (TPV5 3.1 to
+3.3 s, TPV13 4.9 to 5.2 s, against 3.6 to 3.9 s and 5.5 to 5.9 s with four).
 
 With ``SEISSOL_OWN_QUEUES``, the Device library runs the streams of SeisSol on HSA queues of its own instead
 (``device::AbstractAPI::enableOwnQueues()``): the clusters on the given number of queues, all other stream runtimes on
@@ -261,16 +261,26 @@ one more, and the halo exchange of ``actor-mpi`` on one of its own; SeisSol leav
 takes the kernel object from the loader and the layout of the arguments from the metadata of the code object. A graph
 gets translated into packets when it gets launched on such a stream first, with its temporary allocations moved to
 memory of the queue. Events are the marks of a queue (a packet that waits for all work before it, and counts a signal
-down); a queue waits for a mark of another one with a packet that the command processor checks (on gfx90a; on RDNA
-GPUs, which lack such packets, a kernel waits). A launch then takes 0.7 µs on the host, a wait for another queue about
-4 µs, a graph of five small kernels 8 µs (HIP: 91 µs). Events cannot time anything in this mode, and host functions run
-on a thread of the library while their queue waits. The host never waits to enqueue: packets that find their queue
-full wait in host memory, until the thread of the library writes them; with ``actor-mpi``, the queues wait for work
-that the host enqueues only later.
+down); a queue waits for a mark of another one with a packet that the command processor checks (on gfx90a and the
+MI300; the RDNA GPUs reject such packets, there a kernel waits). The counters of ``actor-mpi`` are signals, which the
+command processor waits for in the same way. A launch then takes 0.7 µs on the host, a wait for another queue about
+5 µs, a graph of five small kernels 8 µs (HIP: 91 µs). Events time only on request (``DEVICE_OWN_QUEUE_TIMING=1``,
+by a kernel for each event with timing), and host functions run on a thread of the library while their queue waits.
+The host never waits to enqueue: packets that find their queue full wait in host memory, until the thread of the
+library writes them; with ``actor-mpi``, the queues wait for work that the host enqueues only later.
 
-On two nodes of LUMI (MI250X, ROCm 6.3, October 2026; compute time, mean of two to six runs; the outputs of TPV13
-bitwise the same as with HIP and ``direct``, also with ``actor-mpi`` and with the host actor), with the time-stepping
-plan and concurrent clusters:
+The fences decide the speed. An acquire of the system in a packet (as HIP has it for its waits) drops the whole L2
+cache of the GCD: on the MI250X, a kernel that read 4 MiB again and again took 3.3 times as long next to a queue of such
+packets. So a queue waits for another one only with an acquire of the device, which is enough within it; where the
+work has to see what the host or MPI wrote into host memory (after a wait for a counter or a host function, and in
+copies from host memory), a kernel of the library fences in the shader instead, which drops only the lines that may be
+stale (``buffer_invl2``; the hardware keeps those of device memory coherent): 1.1 times as long next to a queue of
+those. The marks keep writing back the L2 cache for the system, since MPI reads the device memory past it: with marks
+of the device only (``DEVICE_OWN_QUEUE_MARK_SCOPE=agent``), ``direct`` sent stale data.
+
+On two nodes of LUMI (MI250X, ROCm 6.3, October 2026; compute time of two to four runs; the outputs of TPV13 bitwise
+the same as with HIP and ``direct``, also with ``actor-mpi`` and with two and four queues), with the time-stepping plan,
+concurrent clusters and the host actor (``SEISSOL_HOST_ACTOR=1``):
 
 .. list-table::
    :header-rows: 1
@@ -280,37 +290,48 @@ plan and concurrent clusters:
      - TPV5
      - TPV13
    * - ``direct``, HIP with ``GPU_MAX_HW_QUEUES=2``
-     - 3.38 s
-     - 5.24 s
+     - 3.2 to 3.4 s
+     - 4.8 to 4.9 s
    * - ``direct``, one own queue for the clusters
-     - 3.40 s
-     - 4.82 s
+     - 2.9 to 3.1 s
+     - 4.5 s
+   * - ``direct``, two own queues
+     - 2.2 to 2.3 s
+     - 3.2 to 3.3 s
+   * - ``direct``, four own queues
+     - 2.7 s
+     - 3.9 s
    * - ``direct``, eight own queues
-     - 4.63 s
-     - 7.08 s
-   * - ``direct``, HIP with ``GPU_MAX_HW_QUEUES=2``, ``SEISSOL_HOST_ACTOR=1``
-     - 3.40 s
-     - 4.97 s
-   * - ``direct``, one own queue, ``SEISSOL_HOST_ACTOR=1``
-     - 3.01 s
-     - 4.30 s
-   * - ``actor-mpi``, HIP with ``GPU_MAX_HW_QUEUES=2``
-     - 3.86 s
-     - 10.57 s
-   * - ``actor-mpi``, own queues, ``SEISSOL_OWN_QUEUE_LAYOUT=halo``
-     - 3.62 s
-     - 5.93 s
+     - 2.9 s
+     - 4.4 to 4.5 s
+   * - ``actor-mpi``, HIP with ``GPU_MAX_HW_QUEUES=2`` (without the host actor)
+     - 3.9 s
+     - 10.6 s
+   * - ``actor-mpi``, two own queues
+     - 2.2 to 2.3 s
+     - 3.3 s
+   * - ``actor-mpi``, two own queues, fences of packets for the host (``DEVICE_OWN_QUEUE_HOST_ACQUIRE=packet``)
+     - 2.9 s
+     - 4.5 s
+   * - ``actor-mpi``, two own queues, also waits for other queues of the system (``DEVICE_OWN_QUEUE_WAIT_SCOPE=system``)
+     - 3.6 to 3.7 s
+     - 5.6 to 5.9 s
 
-On four nodes, ``actor-mpi`` took 12 to 16 s for TPV13 with HIP, and 5.6 to 5.9 s on own queues (``direct``: 4.7 to
-5.1 s with HIP, 4.6 to 4.7 s on one own queue). More queues make it slower, as with HIP: the clusters run better one
-after the other on that GPU. With ``actor-mpi``, the copy layers wait for MPI on the GPU; on queues apart from the
-interior layers, these go on meanwhile. On the same queues, TPV13 hung (with one queue for all clusters), so
-``actor-mpi`` takes an even number of own queues, which keeps them apart; the priorities of the ``halo`` layout made no
-difference. Kernel arguments in device memory (``DEVICE_OWN_QUEUE_KERNARGS=device``) and marks that leave the caches of
-other agents alone (``DEVICE_OWN_QUEUE_MARK_SCOPE=agent``) made no difference either. The library logs its settings
-once; further options are ``DEVICE_OWN_QUEUE_PACKETS`` (the size of the queues, 131072 packets by default),
-``DEVICE_OWN_QUEUE_KERNARG_MIB`` (128) and ``DEVICE_OWN_QUEUE_WAITS=kernel|packet``. The 890M (RDNA 3.5) has 8 hardware
-queues only; there, runs with more own queues than fit hung the GPU.
+With fences of the system for all waits, more own queues made it slower, as with HIP, and one was the fastest (TPV13:
+4.8 s, against 5.6 s with two and 7.1 s with eight); with fences of the device, two queues are the fastest, which keep
+the copy layers apart from the interior layers (as the ``halo`` layout does, which was as fast with ``actor-mpi``). The
+device computed
+57 to 59 % of the time for TPV13 and 83 to 84 % for TPV5 on two own queues (HIP: 51 % and 73 %; the rank with the least
+work 25 % and 29 %). With ``actor-mpi``, the copy layers wait for MPI on the GPU; on queues apart from the interior
+layers, these go on meanwhile. On the same queues, TPV13 hung (with one queue for all clusters, before the fences of the
+device), so ``actor-mpi`` takes an even number of own queues, which keeps them apart; the priorities of the ``halo``
+layout, lanes on queues of their own (``SEISSOL_EXCHANGE_LANES``), transport events and kernel arguments in device
+memory (``DEVICE_OWN_QUEUE_KERNARGS=device``) made no difference or made it slower. The exchange engine
+(``SEISSOL_ACTOR_MPI_ENGINE=1``) hangs on own queues as well, also on a queue of its own; it is not needed there, since
+the command processor waits without a kernel. The library logs its settings once; further options are
+``DEVICE_OWN_QUEUE_PACKETS`` (the size of the queues, 131072 packets by default), ``DEVICE_OWN_QUEUE_KERNARG_MIB``
+(128) and ``DEVICE_OWN_QUEUE_WAITS=kernel|packet``. The 890M (RDNA 3.5) has 8 hardware queues only; there, runs with
+more own queues than fit hung the GPU.
 
 Recording super-timesteps
 ~~~~~~~~~~~~~~~~~~~~~~~~~

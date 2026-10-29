@@ -81,17 +81,24 @@ StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount,
     logError() << "Lanes of the halo exchange need the global order.";
   }
   runtimes_.resize(slotCount());
-  // with own queues (only with actor-mpi, which hands its streams to no library), the exchange runs
-  // on one of its own, after those of the clusters
-  const int ownQueue = parallel::runtime::ownQueueCount() + 1;
+  // With own queues (only with actor-mpi, which hands its streams to no library), the exchange runs
+  // on queues of its own, after those of the clusters: each lane (or direction) on one, up to
+  // MaxOwnQueues, and the join of the lanes on one more. A stream that waits on a queue that others
+  // share holds them up as well, and the join waits for all lanes.
+  constexpr std::size_t MaxOwnQueues = 8;
+  const int firstOwnQueue = parallel::runtime::ownQueueCount() + 1;
+  std::size_t index = 0;
   for (const auto current : usedSlots()) {
+    const int ownQueue = firstOwnQueue + static_cast<int>(index % MaxOwnQueues);
+    ++index;
     // lanes on hardware queues of their own (HIP has a pool of them for each priority)
     runtimes_[current] =
         lanes_ > 1 ? std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0, ownQueue)
                    : std::make_unique<parallel::runtime::StreamRuntime>(0, std::nullopt, ownQueue);
   }
   if (lanes_ > 1) {
-    join_ = std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0, ownQueue);
+    join_ = std::make_unique<parallel::runtime::StreamRuntime>(
+        0, 1.0, firstOwnQueue + static_cast<int>(std::min(index, MaxOwnQueues)));
   }
 }
 

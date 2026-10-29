@@ -65,6 +65,13 @@ constexpr int SharedOwnQueue = 0;
 /// device
 constexpr int NoOwnQueue = -1;
 
+/// the own queue of the device timeline (see monitoring::DeviceTimeline), which nothing else uses
+constexpr int TimelineOwnQueue = -2;
+
+/// the own queue of the exchange engine of actor-mpi: a kernel that keeps running, and so holds up
+/// all work behind it on its queue
+constexpr int EngineOwnQueue = -3;
+
 /**
  * How the layers get distributed over the own queues (SEISSOL_OWN_QUEUE_LAYOUT): `layers` gives the
  * copy and the interior layer of each time cluster queues of their own, as long as there are

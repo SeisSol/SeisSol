@@ -24,6 +24,7 @@
 
 #include <Device/device.h>
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -105,10 +106,12 @@ struct ActorMpiExchangeScheduler::Staging {
                    : regions,
             persistent) {
     auto& api = deviceInstance().api();
-    counters = static_cast<std::uint32_t*>(api.allocPinnedMem(
-        CounterCount * sizeof(std::uint32_t), false, device::Destination::CurrentDevice));
-    std::fill_n(counters, CounterCount, 0);
-    countersOnDevice = static_cast<std::uint32_t*>(api.devicePointer(counters));
+    for (std::size_t counter = 0; counter < CounterCount; ++counter) {
+      // each on its own: the device may wait for it in its command processor (see
+      // device::AbstractAPI::allocCounter())
+      counters[counter] = api.allocCounter();
+      countersOnDevice[counter] = static_cast<std::uint32_t*>(api.devicePointer(counters[counter]));
+    }
     if (staged) {
       hostCopyOnDevice = static_cast<std::uint8_t*>(api.devicePointer(hostCopy));
       hostGhostOnDevice = static_cast<std::uint8_t*>(api.devicePointer(hostGhost));
@@ -127,7 +130,9 @@ struct ActorMpiExchangeScheduler::Staging {
       api.freePinnedMem(hostCopy);
       api.freePinnedMem(hostGhost);
     }
-    api.freePinnedMem(counters);
+    for (auto* counter : counters) {
+      api.freeCounter(counter);
+    }
   }
 
   Staging(const Staging&) = delete;
@@ -146,9 +151,9 @@ struct ActorMpiExchangeScheduler::Staging {
   void* hostGhost{nullptr};
   std::uint8_t* hostCopyOnDevice{nullptr};
   std::uint8_t* hostGhostOnDevice{nullptr};
-  // the counters in pinned host memory, and their address on the device
-  std::uint32_t* counters{nullptr};
-  std::uint32_t* countersOnDevice{nullptr};
+  // the counters in host memory, and their addresses on the device
+  std::array<std::uint32_t*, CounterCount> counters{};
+  std::array<std::uint32_t*, CounterCount> countersOnDevice{};
   std::uint32_t sends{0};
   std::uint32_t receives{0};
   // the position among the transports of the engine
@@ -281,10 +286,10 @@ void ActorMpiExchangeScheduler::prepare() {
     entry.outCount = static_cast<std::uint32_t>(out.size());
     entry.in = upload(in);
     entry.inCount = static_cast<std::uint32_t>(in.size());
-    entry.copiedOut = &staging->countersOnDevice[CopiedOut];
-    entry.sent = &staging->countersOnDevice[Sent];
-    entry.received = &staging->countersOnDevice[Received];
-    entry.copiedIn = &staging->countersOnDevice[CopiedIn];
+    entry.copiedOut = staging->countersOnDevice[CopiedOut];
+    entry.sent = staging->countersOnDevice[Sent];
+    entry.received = staging->countersOnDevice[Received];
+    entry.copiedIn = staging->countersOnDevice[CopiedIn];
   }
   engineTransports_ = static_cast<exchangeengine::Transport*>(api.allocGlobMem(
       std::max<std::size_t>(engineTable_.size(), 1) * sizeof(exchangeengine::Transport)));
@@ -294,7 +299,8 @@ void ActorMpiExchangeScheduler::prepare() {
   std::fill_n(engineControl_, controlSize, 0);
   engineControlOnDevice_ = static_cast<std::uint32_t*>(api.devicePointer(engineControl_));
   // on a hardware queue of its own, which it occupies while it runs
-  engineRuntime_ = std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0);
+  engineRuntime_ =
+      std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0, parallel::runtime::EngineOwnQueue);
 }
 
 void ActorMpiExchangeScheduler::startEngine() {
@@ -349,8 +355,8 @@ ActorEvent ActorMpiExchangeScheduler::transportEvent(const ScheduledTransport& t
   // with the engine, the work of the copy layer waits for the copies of its own transport only: the
   // copy regions may change once copied out, and the ghost regions are there once copied in
   const auto& staging = *staging_.at(&transport);
-  const HostCounter out{&staging.counters[CopiedOut], staging.sends};
-  const HostCounter in{&staging.counters[CopiedIn], staging.receives};
+  const HostCounter out{staging.counters[CopiedOut], staging.sends};
+  const HostCounter in{staging.counters[CopiedIn], staging.receives};
   if (staging.sends == 0) {
     return staging.receives == 0 ? ActorEvent() : ActorEvent(in);
   }
@@ -378,7 +384,7 @@ void ActorMpiExchangeScheduler::enqueueGroup(std::size_t slot,
     const auto send = ++staging.sends;
     if (send > 1) {
       // MPI is done with the copies before
-      waitFor(deviceStream, &staging.counters[Sent], send - 1);
+      waitFor(deviceStream, staging.counters[Sent], send - 1);
     }
     for (std::size_t region = 0; region < staging.regions.copy.size(); ++region) {
       if (copyEngines_) {
@@ -394,22 +400,22 @@ void ActorMpiExchangeScheduler::enqueueGroup(std::size_t slot,
                              deviceStream);
       }
     }
-    hostcopy::signalHost(&staging.countersOnDevice[CopiedOut], send, deviceStream);
-    staging.sendQueue.post(Event(HostCounter{&staging.counters[CopiedOut], send}),
+    hostcopy::signalHost(staging.countersOnDevice[CopiedOut], send, deviceStream);
+    staging.sendQueue.post(Event(HostCounter{staging.counters[CopiedOut], send}),
                            [&staging]() { staging.mpi.startSend(); });
     staging.sendQueue.post([&staging]() { return staging.mpi.testSend(); },
-                           [&staging, send]() { advance(&staging.counters[Sent], send); });
+                           [&staging, send]() { advance(staging.counters[Sent], send); });
   }
   if (receiver != nullptr) {
     auto& staging = *staging_.at(receiver);
     const auto receive = ++staging.receives;
     // MPI receives once the device has copied the receive before out of the host buffer
-    staging.receiveQueue.post(Event(HostCounter{&staging.counters[CopiedIn], receive - 1}),
+    staging.receiveQueue.post(Event(HostCounter{staging.counters[CopiedIn], receive - 1}),
                               [&staging]() { staging.mpi.startReceive(); });
     staging.receiveQueue.post(
         [&staging]() { return staging.mpi.testReceive(); },
-        [&staging, receive]() { advance(&staging.counters[Received], receive); });
-    waitFor(deviceStream, &staging.counters[Received], receive);
+        [&staging, receive]() { advance(staging.counters[Received], receive); });
+    waitFor(deviceStream, staging.counters[Received], receive);
     for (std::size_t region = 0; region < staging.regions.ghost.size(); ++region) {
       if (copyEngines_) {
         deviceInstance().api().copyToAsync(staging.regions.ghost[region].data,
@@ -424,7 +430,7 @@ void ActorMpiExchangeScheduler::enqueueGroup(std::size_t slot,
                                deviceStream);
       }
     }
-    hostcopy::signalHost(&staging.countersOnDevice[CopiedIn], receive, deviceStream);
+    hostcopy::signalHost(staging.countersOnDevice[CopiedIn], receive, deviceStream);
   }
 }
 
@@ -442,20 +448,20 @@ void ActorMpiExchangeScheduler::enqueueForEngine(void* deviceStream,
     auto& staging = *staging_.at(sender);
     send = ++staging.sends;
     sending = engineTransports_ + staging.index;
-    staging.sendQueue.post(Event(HostCounter{&staging.counters[CopiedOut], send}),
+    staging.sendQueue.post(Event(HostCounter{staging.counters[CopiedOut], send}),
                            [&staging]() { staging.mpi.startSend(); });
     staging.sendQueue.post([&staging]() { return staging.mpi.testSend(); },
-                           [&staging, send]() { advance(&staging.counters[Sent], send); });
+                           [&staging, send]() { advance(staging.counters[Sent], send); });
   }
   if (receiver != nullptr) {
     auto& staging = *staging_.at(receiver);
     receive = ++staging.receives;
     receiving = engineTransports_ + staging.index;
-    staging.receiveQueue.post(Event(HostCounter{&staging.counters[CopiedIn], receive - 1}),
+    staging.receiveQueue.post(Event(HostCounter{staging.counters[CopiedIn], receive - 1}),
                               [&staging]() { staging.mpi.startReceive(); });
     staging.receiveQueue.post(
         [&staging]() { return staging.mpi.testReceive(); },
-        [&staging, receive]() { advance(&staging.counters[Received], receive); });
+        [&staging, receive]() { advance(staging.counters[Received], receive); });
   }
   exchangeengine::request(sending, send, receiving, receive, deviceStream);
 }
@@ -470,27 +476,27 @@ void ActorMpiExchangeScheduler::enqueueUnstaged(void* deviceStream,
   if (sender != nullptr) {
     auto& staging = *staging_.at(sender);
     send = ++staging.sends;
-    hostcopy::signalHost(&staging.countersOnDevice[CopiedOut], send, deviceStream);
-    staging.sendQueue.post(Event(HostCounter{&staging.counters[CopiedOut], send}),
+    hostcopy::signalHost(staging.countersOnDevice[CopiedOut], send, deviceStream);
+    staging.sendQueue.post(Event(HostCounter{staging.counters[CopiedOut], send}),
                            [&staging]() { staging.mpi.startSend(); });
     staging.sendQueue.post([&staging]() { return staging.mpi.testSend(); },
-                           [&staging, send]() { advance(&staging.counters[Sent], send); });
+                           [&staging, send]() { advance(staging.counters[Sent], send); });
   }
   if (receiver != nullptr) {
     auto& staging = *staging_.at(receiver);
     receive = ++staging.receives;
-    hostcopy::signalHost(&staging.countersOnDevice[CopiedIn], receive, deviceStream);
-    staging.receiveQueue.post(Event(HostCounter{&staging.counters[CopiedIn], receive}),
+    hostcopy::signalHost(staging.countersOnDevice[CopiedIn], receive, deviceStream);
+    staging.receiveQueue.post(Event(HostCounter{staging.counters[CopiedIn], receive}),
                               [&staging]() { staging.mpi.startReceive(); });
     staging.receiveQueue.post(
         [&staging]() { return staging.mpi.testReceive(); },
-        [&staging, receive]() { advance(&staging.counters[Received], receive); });
+        [&staging, receive]() { advance(staging.counters[Received], receive); });
   }
   if (sender != nullptr) {
-    waitFor(deviceStream, &staging_.at(sender)->counters[Sent], send);
+    waitFor(deviceStream, staging_.at(sender)->counters[Sent], send);
   }
   if (receiver != nullptr) {
-    waitFor(deviceStream, &staging_.at(receiver)->counters[Received], receive);
+    waitFor(deviceStream, staging_.at(receiver)->counters[Received], receive);
   }
 }
 
