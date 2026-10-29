@@ -397,9 +397,10 @@ ends the level earlier: by the durations each graph measures for its kernels (in
 for), the longest kernel first onto the queue where it ends first, with a fork and a join of
 ``DEVICE_OWN_QUEUE_SCHEDULE_FORK_US`` (5 µs) each; a level gets spread only with at least
 ``DEVICE_OWN_QUEUE_SCHEDULE_MIN_US`` of work (120 µs), and only onto queues alone on their pipe (but for light
-ones). On four own queues, TPV13 then took 1.57 to 1.61 s instead of 1.91 to 1.94 s, TPV5 1.06 to 1.09 s instead of
-1.37 to 1.38 s, the outputs bitwise the same; with a weight of 1000 for the fault faces in the partition
-(``discretization.vertexweightdynamicrupture``, 100 by default; without the schedule, 1.69 s), TPV13 took 1.39 s.
+ones). On four own queues, TPV13 then took 1.57 to 1.66 s instead of 1.91 to 1.94 s, TPV5 1.06 to 1.09 s instead of
+1.36 to 1.38 s, the outputs bitwise the same; with a weight of 1000 for the fault faces in the partition
+(``discretization.vertexweightdynamicrupture``, 100 by default; without the schedule, 1.69 s), TPV13 took 1.39 to
+1.42 s (TPV5 1.11 s).
 Levels of 60 µs of work and less made it as slow as without (forks, joins, and the queues that wait for each other's
 work), all levels above 80 µs gave about the same; three own queues took 1.94 and 1.36 s, six 1.67 and 1.18 s, eight
 1.88 and 1.36 s (as without). The exchange queue of ``actor-mpi`` waits
