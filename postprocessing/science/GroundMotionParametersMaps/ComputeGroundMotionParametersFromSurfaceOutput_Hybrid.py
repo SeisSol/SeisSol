@@ -56,7 +56,10 @@ import lxml.etree as ET
 import seissolxdmf
 import seissolxdmfwriter as sxw
 from scipy import signal
-from scipy.integrate import cumulative_trapezoid
+try:
+    from scipy.integrate import cumulative_trapezoid
+except ImportError:
+    from scipy.integrate import cumtrapz as cumulative_trapezoid
 
 sys.path.append("%s/gmpe-smtk/" %(os.path.dirname(sys.argv[0])))
 try:
@@ -81,26 +84,71 @@ def low_pass_filter(waveform, fs, cutoff_freq):
     b,a = signal.butter(order, cutoff_freq, 'low', fs=fs)
     return signal.filtfilt(b, a, waveform)
 
-def compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile, no_gmrotdpp=True):
+def butter_bandpass_filter(waveform, fs, freqmin, freqmax, order=2):
+    " applied 2 pass zero-phase order 2 band pass filter on data"
+    nyquist = 0.5 * fs
+    if freqmin <= 0.0 or freqmin >= freqmax or freqmax >= nyquist:
+        raise ValueError("Band-pass frequencies must satisfy 0 < fmin < fmax < Nyquist.")
+    b, a = signal.butter(order, [freqmin, freqmax], btype='band', fs=fs)
+    return signal.filtfilt(b, a, waveform)
+
+def _rotation_penalty_index(max_a_theta, percentile):
+    """ Select the RotI/GMRotI angle closest to the requested target spectrum. """
+    target = np.percentile(max_a_theta, percentile, axis=0)
+    spectra_by_angle = max_a_theta[:, 3:]
+    target_spectrum = target[3:]
+
+    if not np.all(np.isfinite(target_spectrum)):
+        raise ValueError("The target response spectrum contains non-finite values.")
+    valid_periods = target_spectrum > 0.0
+    if not np.any(valid_periods):
+        raise ValueError("Cannot determine RotI angle: target response spectrum is zero at all periods.")
+
+    relative_difference = (
+        spectra_by_angle[:, valid_periods] - target_spectrum[valid_periods]
+    ) / target_spectrum[valid_periods]
+    penalty = np.mean(relative_difference ** 2, axis=1)
+    if not np.all(np.isfinite(penalty)):
+        raise ValueError("The RotI angle penalty contains non-finite values.")
+    return int(np.argmin(penalty)), target
+
+def compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile, idx_angle=None):
     """ compute the cumulative velocity using gmrot """
     from smtk.intensity_measures import get_cav, rotate_horizontal
-    if no_gmrotdpp:
-      return np.sqrt(get_cav(acceleration_x, time_step_x) * 
+    if idx_angle is not None:
+        if idx_angle == 0:
+            return np.sqrt(get_cav(acceleration_x, time_step_x) * 
+                           get_cav(acceleration_y, time_step_y))
+        rot_x, rot_y = rotate_horizontal(acceleration_x, acceleration_y, angles[idx_angle])
+        return np.sqrt(get_cav(rot_x, time_step_x) * get_cav(rot_y, time_step_y))
+
+    cav_theta = np.zeros(len(angles), dtype=float)
+    for iloc, theta in enumerate(angles):
+        if iloc == 0:
+            cav_theta[iloc] = np.sqrt(get_cav(acceleration_x, time_step_x) * 
                     get_cav(acceleration_y, time_step_y))
-    else:
-      cav_theta = np.zeros(len(angles), dtype=float)
-      for iloc, theta in enumerate(angles):
-          if iloc == 0:
-              cav_theta[iloc] = np.sqrt(get_cav(acceleration_x, time_step_x) * 
-                      get_cav(acceleration_y, time_step_y))
-          else:
-              rot_x, rot_y = rotate_horizontal(acceleration_x, acceleration_y, theta)
-              cav_theta[iloc] = np.sqrt(get_cav(rot_x, time_step_x) * 
-                      get_cav(rot_y, time_step_y))
-      return np.percentile(cav_theta, percentile)
+        else:
+            rot_x, rot_y = rotate_horizontal(acceleration_x, acceleration_y, theta)
+            cav_theta[iloc] = np.sqrt(get_cav(rot_x, time_step_x) * 
+                    get_cav(rot_y, time_step_y))
+    return np.percentile(cav_theta, percentile)
+
+def compute_cav_rotd(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile, idx_angle=None):
+    """ compute the cumulative velocity using rotd """
+    from smtk.intensity_measures import get_cav
+    if idx_angle is not None:
+        rad = angles[idx_angle]
+        rotated = acceleration_x * np.cos(rad) + acceleration_y * np.sin(rad)
+        return get_cav(rotated, time_step_x)
+
+    cav_theta = np.zeros(len(angles), dtype=float)
+    for iloc, rad in enumerate(angles):
+        rotated = acceleration_x * np.cos(rad) + acceleration_y * np.sin(rad)
+        cav_theta[iloc] = get_cav(rotated, time_step_x)
+    return np.percentile(cav_theta, percentile)
 
 def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, periods,
-        percentile, damping=0.05, units="cm/s/s", method="Nigam-Jennings"):
+        percentile=50.0, damping=0.05, units="cm/s/s", method="Nigam-Jennings", ipp=False, include_cav=False):
     """
     modified from gmrotdpp to also return gmrotdpp(PGA, PGV and PGD)
     This is much faster than gmrotdpp_slow
@@ -132,8 +180,6 @@ def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, pe
 
     angles = np.arange(0., 90., 1.)
     max_a_theta = np.zeros([len(angles), len(periods)+3], dtype=float)
-    max_a_theta[0, :] = np.sqrt(np.max(np.fabs(x_a), axis=0) *
-                                np.max(np.fabs(y_a), axis=0))
     for iloc, theta in enumerate(angles):
         if iloc == 0:
             max_a_theta[iloc, :] = np.sqrt(np.max(np.fabs(x_a), axis=0) *
@@ -143,16 +189,80 @@ def gmrotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, pe
             max_a_theta[iloc, :] = np.sqrt(np.max(np.fabs(rot_x), axis=0) *
                                            np.max(np.fabs(rot_y), axis=0))
 
-    gmrotd = np.percentile(max_a_theta, percentile, axis=0)
+    if not ipp:
+        gmrotd = np.percentile(max_a_theta, percentile, axis=0)
+        res =  {"PGA": gmrotd[0],
+                "PGV": gmrotd[1],
+                "PGD": gmrotd[2],
+                "Acceleration": gmrotd[3:]}
+        if include_cav or (args and getattr(args, 'CAV', False)):
+            cav = compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile)
+            res['CAV'] = cav
+    else:
+        idx_i_perc, _ = _rotation_penalty_index(max_a_theta, percentile)
+        gmroti = max_a_theta[idx_i_perc, :]
+        res =  {"PGA": gmroti[0],
+                "PGV": gmroti[1],
+                "PGD": gmroti[2],
+                "Acceleration": gmroti[3:]}
+        if include_cav or (args and getattr(args, 'CAV', False)):
+            cav = compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile, idx_angle=idx_i_perc)
+            res['CAV'] = cav
 
-    res =  {"PGA": gmrotd[0],
-            "PGV": gmrotd[1],
-            "PGD": gmrotd[2],
-            "Acceleration": gmrotd[3:]}
+    return res
 
-    if args.CAV:
-        cav = compute_cav_gmrot(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile, no_gmrotdpp=True)
-        res['CAV']=cav
+def rotdpp_withPG(acceleration_x, time_step_x, acceleration_y, time_step_y, periods,
+        percentile=50.0, damping=0.05, units="cm/s/s", method="Nigam-Jennings", ipp=False, include_cav=False):
+    """
+    Compute RotD/RotI ground motion parameters (PGA, PGV, PGD, SA(T), optionally CAV)
+    """
+    from smtk.intensity_measures import get_response_spectrum, equalise_series
+    if (percentile > 100. + 1E-9) or (percentile < 0.):
+        raise ValueError("Percentile for RotDpp must be between 0. and 100.")
+    sax, _, x_a, _, _ = get_response_spectrum(acceleration_x,
+                                              time_step_x,
+                                              periods, damping,
+                                              units, method)
+    say, _, y_a, _, _ = get_response_spectrum(acceleration_y,
+                                              time_step_y,
+                                              periods, damping,
+                                              units, method)
+    x_a, y_a = equalise_series(x_a, y_a)
+
+    velocity_x = time_step_x * cumulative_trapezoid(acceleration_x[0:-1], initial=0.)
+    displacement_x = time_step_x * cumulative_trapezoid(velocity_x, initial=0.)
+    x_a = np.column_stack((acceleration_x[0:-1], velocity_x, displacement_x, x_a))
+
+    velocity_y = time_step_y * cumulative_trapezoid(acceleration_y[0:-1], initial=0.)
+    displacement_y = time_step_y * cumulative_trapezoid(velocity_y, initial=0.)
+    y_a = np.column_stack((acceleration_y[0:-1], velocity_y, displacement_y, y_a))
+
+    angles = np.radians(np.arange(0., 180., 1.))
+    max_a_theta = np.zeros([len(angles), len(periods)+3], dtype=float)
+
+    for iloc, rad in enumerate(angles):
+        rotated = x_a * np.cos(rad) + y_a * np.sin(rad)
+        max_a_theta[iloc, :] = np.max(np.fabs(rotated), axis=0)
+
+    if not ipp:
+        rotd = np.percentile(max_a_theta, percentile, axis=0)
+        res = {"PGA": rotd[0],
+               "PGV": rotd[1],
+               "PGD": rotd[2],
+               "Acceleration": rotd[3:]}
+        if include_cav or (args and getattr(args, 'CAV', False)):
+            cav = compute_cav_rotd(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile)
+            res['CAV'] = cav
+    else:
+        idx_i_perc, _ = _rotation_penalty_index(max_a_theta, percentile)
+        roti = max_a_theta[idx_i_perc, :]
+        res = {"PGA": roti[0],
+               "PGV": roti[1],
+               "PGD": roti[2],
+               "Acceleration": roti[3:]}
+        if include_cav or (args and getattr(args, 'CAV', False)):
+            cav = compute_cav_rotd(acceleration_x, time_step_x, acceleration_y, time_step_y, angles, percentile, idx_angle=idx_i_perc)
+            res['CAV'] = cav
 
     return res
 
@@ -165,18 +275,22 @@ def ComputeGroundMotionParameters(args2):
    velocity = u[ir,:]
    if args.lowpass:
        velocity = low_pass_filter(velocity, fs=1./dt, cutoff_freq=args.lowpass[0])
+   elif args.bandpass:
+       velocity = butter_bandpass_filter(velocity, fs=1./dt, freqmin=args.bandpass[0], freqmax=args.bandpass[1])
    acceleration_x = np.gradient(velocity, dt)
 
    #Ydirection
    velocity = v[ir,:]
    if args.lowpass:
        velocity = low_pass_filter(velocity, fs=1./dt, cutoff_freq=args.lowpass[0])
+   elif args.bandpass:
+       velocity = butter_bandpass_filter(velocity, fs=1./dt, freqmin=args.bandpass[0], freqmax=args.bandpass[1])
    acceleration_y = np.gradient(velocity, dt)
 
 
    #compute SA(T) and PGA,...
    res = myfunc(acceleration_x, dt, acceleration_y, dt, periods,
-            percentile=50, damping=0.05, units="cm/s/s", method="Nigam-Jennings")
+            percentile=args.percentile, damping=0.05, units="cm/s/s", method="Nigam-Jennings", ipp=args.ipp, include_cav=args.CAV)
    
 
    myres = [res['PGA'],res['PGV'],res['PGD']]
@@ -197,8 +311,17 @@ parser.add_argument('--noMPI',  dest='noMPI', action='store_true' , default = Fa
 parser.add_argument('--periods', nargs='+', help='list of periods for computing SA(T)' ,type=float)
 parser.add_argument('--ipp',  dest='ipp', action='store_true' , default = False, help='use gmrotipp rather than the period dependant estimate (~30 times slower)')
 parser.add_argument('--CAV',  dest='CAV', action='store_true' , default = False, help='compute cumulated absolute velocity (slow down the code by a factor ~3)')
-parser.add_argument('--lowpass', nargs=1, metavar=('cutoff_freq'), help='low pass filter the velocity waveforms prior to computing the GME. cutoff_freq in Hz' ,type=float)
+parser.add_argument('--metric', choices=['GMRot', 'Rot'], default='GMRot', help='rotation metric family: GMRot or Rot (default: GMRot)')
+parser.add_argument('--percentile', type=float, default=50.0, help='percentile across rotation angles (0 to 100, default: 50)')
+
+filter_group = parser.add_mutually_exclusive_group()
+filter_group.add_argument('--lowpass', nargs=1, metavar=('cutoff_freq'), help='low pass filter the velocity waveforms prior to computing the GME. cutoff_freq in Hz' ,type=float)
+filter_group.add_argument('--bandpass', nargs=2, metavar=('fmin', 'fmax'), help='band pass filter the velocity waveforms prior to computing the GME. fmin and fmax in Hz', type=float)
+
 args = parser.parse_args()
+
+if not 0.0 <= args.percentile <= 100.0:
+    parser.error("--percentile must be between 0 and 100.")
 
 if args.noMPI:
    nranks = 1
@@ -209,13 +332,18 @@ else:
    nranks = comm.size
    irank = comm.rank
 
-if args.ipp:
-   myfunc = gmrotipp
+if args.metric == 'Rot':
+    myfunc = rotdpp_withPG
 else:
-   myfunc = gmrotdpp_withPG
+    myfunc = gmrotdpp_withPG
 
 sx = seissolxdmf.seissolxdmf(args.filename)
 dt = sx.ReadTimeStep()
+if args.lowpass and args.lowpass[0] >= 0.5 / dt:
+    parser.error("--lowpass cutoff frequency must be below the Nyquist frequency (0.5 / dt).")
+if args.bandpass and args.bandpass[1] >= 0.5 / dt:
+    parser.error("--bandpass fmax must be below the Nyquist frequency (0.5 / dt).")
+
 nElements = sx.nElements
 connect = sx.ReadConnect()
 
@@ -289,8 +417,17 @@ for per in periods:
 mypath, fn = os.path.split(args.filename)
 prefix = fn.split('-')[-2] if not isVolumeData else fn.split('.')[-2]
 
-sLowPass=f'_lp{args.lowpass[0]:.1f}' if args.lowpass else ''
-prefixGME = f'{prefix}{sLowPass}-GME'
+perc_str = f"{int(args.percentile)}" if args.percentile.is_integer() else f"{args.percentile:g}"
+type_letter = "I" if args.ipp else "D"
+effective_metric = f"{args.metric}{type_letter}{perc_str}"
+
+sFilter = ''
+if args.lowpass:
+    sFilter = f"_lp{args.lowpass[0]:.1f}"
+elif args.bandpass:
+    sFilter = f"_bp{args.bandpass[0]:.2f}-{args.bandpass[1]:.2f}"
+
+prefixGME = f"{prefix}_{effective_metric}{sFilter}-GME"
 
 if not args.noMPI:
     comm.Barrier()
