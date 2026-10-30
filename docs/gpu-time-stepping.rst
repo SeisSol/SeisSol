@@ -316,11 +316,12 @@ October 2026), TPV13 and TPV5 took 3.3 and 2.1 s with eight own queues and ``ccl
 there, which the kernels of the waits lengthen, and the host has time to spare. ``host`` was the fastest there (3.0
 and 1.8 s), as the GPU-aware MPI could not use IPC with TheRock.
 
-On the MI300, the kernel arguments go into device memory that the host writes (``DEVICE_OWN_QUEUE_KERNARGS=host`` keeps
-them in host memory, as on the other GPUs): on one node with four MI300A, TPV5 and TPV13 took 1.66 and 2.51 s instead
-of 1.82 and 2.79 s with eight own queues and ``host``, TPV5 on one MI300A 1.28 s instead of 1.42 s, and 1.44 s instead
-of 1.83 s with recorded super-timesteps, whose kernels read the same arguments again in every replay. On the MI250X,
-device memory made no difference (see below).
+On the MI250X and the MI300, the kernel arguments go into device memory that the host writes
+(``DEVICE_OWN_QUEUE_KERNARGS=host`` keeps them in host memory, as on the other GPUs): on one node with four MI300A, TPV5
+and TPV13 took 1.66 and 2.51 s instead of 1.82 and 2.79 s with eight own queues and ``host``, TPV5 on one MI300A 1.28 s
+instead of 1.42 s, and 1.44 s instead of 1.83 s with recorded super-timesteps, whose kernels read the same arguments
+again in every replay. On two nodes of LUMI (four own queues, the same partition each time), TPV13 took 2.84–2.86 s
+instead of 2.89–3.00 s, and TPV5 the same.
 
 The fences decide the speed. An acquire of the system in a packet (as HIP has it for its waits) drops the whole L2
 cache of the GCD: on the MI250X, a kernel that read 4 MiB again and again took 3.3 times as long next to a queue of such
