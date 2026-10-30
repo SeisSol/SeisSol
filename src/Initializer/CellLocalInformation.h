@@ -46,7 +46,8 @@ struct CellLocalInformation {
   bool weightAdjusted{false};
 
   // whether the cell is curved: then it is weight-adjusted with the weight J W, J its Jacobian
-  // determinant (see initializer::CurvedCell). Set for the cells of this rank.
+  // determinant (see initializer::CurvedCell), and forms its volume term in the split form (see
+  // kernels::CurvedSplit). Set for the cells of this rank.
   bool curved{false};
 };
 

@@ -213,9 +213,12 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
         if constexpr (FactoredStar) {
           if constexpr (Curvilinear) {
             // a curved cell has its metric at every point the operator is formed at, and its
-            // weight takes the Jacobian determinant there
+            // weight and its volume term take the Jacobian determinant there
             CurvedCell::setGradients(*curvedTransform, localIntegration[cell].referenceGradients);
             CurvedCell::setWeightScale(*curvedTransform, localIntegration[cell].weightScale);
+            CurvedCell::setSplitCoefficients(*curvedTransform,
+                                             layer.var<LTS::NodalMaterialData>()[cell].data(),
+                                             localIntegration[cell].splitCoefficients);
           } else {
             CurvedCell::setConstantGradients(grad, localIntegration[cell].referenceGradients);
           }
@@ -411,6 +414,14 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               correctorScalars(cellInformation[cell].faceTypes[side], plus, minus, scalars);
               for (std::size_t c = 0; c < FluxCoefficientCount; ++c) {
                 localIntegration[cell].fluxCoefficients[side][c][node] = scalars[c];
+              }
+              if constexpr (Curvilinear) {
+                // what the momentum rows of a curved cell take back of the flux the corrector
+                // subtracts at this point (see kernels::CurvedSplit)
+                CurvedCell::setOwnTraction(ownAtFace[node],
+                                           nodeScale[node],
+                                           node,
+                                           localIntegration[cell].ownTractionCoefficients[side]);
               }
             }
           }

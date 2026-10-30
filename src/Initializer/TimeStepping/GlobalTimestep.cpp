@@ -237,7 +237,8 @@ GlobalTimestep
                   MPI_SUM,
                   seissol::Mpi::mpi.comm());
     logInfo() << globalCurved
-              << "cells are curved: they are weight-adjusted with their Jacobian determinant.";
+              << "cells are curved: they are weight-adjusted with their Jacobian determinant and "
+                 "take the momentum in the weak form.";
   }
 
   if (weightAdjustedRatio > 0.0) {

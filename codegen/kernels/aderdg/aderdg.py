@@ -17,6 +17,7 @@ from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
     FaceRole,
     extra_face_blocks,
+    face_block,
     layout,
     role_offset,
     rotation_spp,
@@ -552,6 +553,8 @@ class ADERDGBase(ABC):
             self._configureLeftFactor(entries, count, starSpp, npoints)
         else:
             self._configurePointOperator(entries, count, starSpp, npoints)
+        if self.curvilinear:
+            self._configureCurvedSplit(entries, count, starSpp, npoints)
 
         if self.nodalFaceFlux:
             self._configureNodalFlux()
@@ -699,7 +702,8 @@ class ADERDGBase(ABC):
         J the Jacobian determinant: the cell lifts its face terms without
         material and with the surface Jacobian alone into its flux buffer, and
         the inverse weight applied there carries 1 / J at every point
-        (weightScale, see weightAdjust).
+        (weightScale, see weightAdjust). Its volume term goes through the
+        weight as well, in the split form (_configureCurvedSplit).
 
         A face carries its rotation per point, since its normal turns along it;
         that makes the flux one that has to be applied at the points of the
@@ -725,6 +729,304 @@ class ADERDGBase(ABC):
         # 1 / J at the points the operator is formed at, which the inverse
         # weight of a curved cell carries on top of the one of its medium
         self.weightScale = Tensor("weightScale", (npoints,))
+
+    def momentumColumns(self):
+        """The columns of the operator that give the rate of the momentum: the
+        ones of the velocity, which the divergence of the stress drives."""
+        velocity = face_block(self.quantityBlocks(), FaceRole.VELOCITY)
+        return set(range(velocity.offset, velocity.offset + velocity.extent))
+
+    def _configureCurvedSplit(self, entries, count, starSpp, npoints):
+        """Sets up the split form of the corrector of a curved cell.
+
+        The scheme tests with the basis and weighs with J W (see
+        _configureCurvilinear). In the strong form its energy balance has a
+        remainder that no rule of the volume and of the faces integrates away,
+        the error of the rules on the divergence theorem of the momentum rows
+        on a curved cell: the strong form grows with the rules of some orders.
+        The split form takes the rows of the momentum in the weak form and the
+        others in the strong form. In the energy the two volume terms then
+        cancel at every point the rule has, whatever the rule, and the faces
+        leave the dissipation of the upwind flux.
+
+        So a curved cell forms its volume term itself, into its flux buffer and
+        through the weight, as moments without material (splitVolume): with J
+        times the operator without material at every point,
+
+        - the columns other than the momentum ones in the strong form, the
+          derivative of the time integral at the points against the operator,
+          projected back;
+        - the momentum columns in the weak form, the time integral at the
+          points against the operator, projected back, against the derivatives
+          of the test functions (kDivM).
+
+        The faces lift the strong form of the flux as on any face. For the
+        momentum rows the weak form wants the flux alone, so a curved cell adds
+        the normal flux of its own trace for those rows back (ownTraction), at
+        the points of each face and with the scale of the face there, except on
+        a fault, whose lift leaves the traction of the cell's own trace in
+        place (see FaultSubtractsOwnTrace on the host).
+
+        A curved cell holds J times the coefficients of the operator without
+        material at its points (splitCoefficients) and those times the scale of
+        each point of each face (ownTractionCoefficients). A constant state
+        gives nothing, and on a straight-sided cell the split form is the
+        strong form: the rules integrate both exactly there.
+        """
+        if self.sourceStructurePrototype() is not None:
+            raise ValueError(
+                "a curved cell takes the momentum rows in the weak form, and its "
+                "volume term together with a source term is not done yet"
+            )
+        momentum = self.momentumColumns()
+
+        def structures(name, keep, dims=(0, 1, 2), shape=None, factor=None):
+            # one immediate per coefficient that has entries in the columns
+            # `keep` takes, as _configurePointOperator states them
+            result = {}
+            for a in range(count):
+                values = {}
+                for entry in entries:
+                    if (
+                        entry.coefficient != a
+                        or entry.dim not in dims
+                        or not keep(entry.column)
+                    ):
+                        continue
+                    idx = (
+                        (entry.dim, entry.row, entry.column)
+                        if shape is None
+                        else (entry.row, entry.column)
+                    )
+                    scale = 1.0 if factor is None else factor(entry)
+                    values[idx] = repr(
+                        float(values.get(idx, 0.0)) + entry.factor * scale
+                    )
+                if values:
+                    result[a] = Tensor(
+                        f"{name}({a})",
+                        (3,) + tuple(starSpp.shape) if shape is None else shape,
+                        spp=values,
+                        addressing=AddressingMode.IMMEDIATE,
+                    )
+            return result
+
+        self.splitCoefficients = [
+            Tensor(f"splitCoefficients({a})", (npoints,)) for a in range(count)
+        ]
+        # the structures without the metric, which the kernel applies to the
+        # field in physical coordinates (_configurePointOperator states them
+        # with it): the columns of the strong form, read from the derivative,
+        # and the momentum columns, read from the field
+        self.splitStrongStructure = structures(
+            "splitStrongStructure", lambda column: column not in momentum
+        )
+        self.splitWeakStructure = structures(
+            "splitWeakStructure", lambda column: column in momentum
+        )
+        quantities, columns = starSpp.shape
+
+        def rowsOf(parts):
+            rows = np.zeros(quantities, dtype=bool)
+            for structure in parts.values():
+                rows |= structure.spp().as_ndarray().any(axis=(0, 2))
+            return rows
+
+        def columnsOf(parts):
+            used = np.zeros(columns, dtype=bool)
+            for structure in parts.values():
+                used |= structure.spp().as_ndarray().any(axis=(0, 1))
+            return used
+
+        def inputs(name, rows):
+            # the quantities a part reads, so that the field is read at the
+            # points for those alone
+            return Tensor(
+                name,
+                (quantities, quantities),
+                spp={(q, q): "1.0" for q in np.nonzero(rows)[0]},
+                addressing=AddressingMode.IMMEDIATE,
+            )
+
+        def over(shape, last):
+            # every entry of the leading indices, the last one where `last` is
+            return np.broadcast_to(last, tuple(shape)).copy()
+
+        strongRows = rowsOf(self.splitStrongStructure)
+        weakRows = rowsOf(self.splitWeakStructure)
+        strongColumns = columnsOf(self.splitStrongStructure)
+        weakColumns = columnsOf(self.splitWeakStructure)
+        self.splitStrongInputs = inputs("splitStrongInputs", strongRows)
+        self.splitWeakInputs = inputs("splitWeakInputs", weakRows)
+        self.splitGradient = self.nodalTemporary(
+            "splitGradient",
+            (npoints, quantities),
+            over((npoints, quantities), strongRows),
+        )
+        self.splitPhysical = self.nodalTemporary(
+            "splitPhysical",
+            (3, npoints, quantities),
+            over((3, npoints, quantities), strongRows),
+        )
+        self.splitRate = self.nodalTemporary(
+            "splitRate", (npoints, columns), over((npoints, columns), strongColumns)
+        )
+        self.splitValues = self.nodalTemporary(
+            "splitValues", (npoints, quantities), over((npoints, quantities), weakRows)
+        )
+        self.splitFlux = self.nodalTemporary(
+            "splitFlux", (3, npoints, columns), over((3, npoints, columns), weakColumns)
+        )
+        self.splitFluxRef = self.nodalTemporary(
+            "splitFluxRef", (npoints, columns), over((npoints, columns), weakColumns)
+        )
+
+        # The normal flux of the cell's own trace in the momentum rows, in the
+        # coordinates of a face, where the normal is the first direction: the
+        # entries of that direction, with the Voigt weights of the flux
+        # (_configureNodalFlux) folded in.
+        weights = voigt_weights(self.quantityBlocks())
+        extended = self.numExtendedQuantities()
+        self.ownTractionStructure = structures(
+            "ownTractionStructure",
+            lambda column: column in momentum,
+            dims=(0,),
+            shape=(extended, extended),
+            factor=lambda entry: weights[entry.row],
+        )
+        self._ownTractionIndices = sorted(self.ownTractionStructure)
+        faceNodes = self.numFaceFluxPoints()
+        self.ownTractionCoefficients = {
+            a: Tensor(f"ownTractionCoefficients({a})", (faceNodes,))
+            for a in self._ownTractionIndices
+        }
+        # the field reaches the face with the rotation of every quantity of a
+        # block that the own traction reads, and with no other one: the inverse
+        # Voigt weights of the flux restricted to those blocks
+        read = set()
+        for structure in self.ownTractionStructure.values():
+            read |= set(np.nonzero(structure.spp().as_ndarray().any(axis=1))[0])
+        blocks = [
+            block
+            for block in self.quantityBlocks()
+            if read & set(range(block.offset, block.offset + block.extent))
+        ]
+        self.ownTractionWeights = Tensor(
+            "ownTractionWeights",
+            (self.numQuantities(), extended),
+            spp={
+                (q, q): repr(1.0 / weights[q])
+                for block in blocks
+                for q in range(block.offset, block.offset + block.extent)
+            },
+            addressing=AddressingMode.IMMEDIATE,
+        )
+        # the temporaries of nodalFlux, with the entries the own traction has
+        readRows = np.zeros(extended, dtype=bool)
+        for block in blocks:
+            readRows[block.offset : block.offset + block.extent] = True
+        writes = np.zeros(extended, dtype=bool)
+        for column in momentum:
+            writes[column] = True
+        shape = (faceNodes, extended)
+        self.ownTractionTemporaries = (
+            self.nodalTemporary("ownTractionValues", shape, over(shape, readRows)),
+            self.nodalTemporary("ownTractionRotated", shape, over(shape, readRows)),
+            self.nodalTemporary("ownTractionProduct", shape, over(shape, writes)),
+            self.nodalTemporary("ownTractionBack", shape, over(shape, writes)),
+        )
+
+    def ownTractionCoefficientIndices(self):
+        """The scalars of the operator without material the own traction of a
+        face reads at each of its points (_configureCurvedSplit), as indices
+        into the scalars the solver's operator is linear in. Empty where no
+        cell may be curved."""
+        return list(getattr(self, "_ownTractionIndices", []))
+
+    def splitVolumeStatements(self, source, target):
+        """The volume term of a curved cell in the split form, added to
+        `target`, from the time integral `source` (_configureCurvedSplit).
+
+        The strong columns: the derivative of the field at the points in each
+        reference direction, turned into the physical one with the rows of the
+        inverse Jacobian, against the structure and the coefficients (J times
+        those of the operator without material), projected back. The momentum
+        columns: the field at the points against the structure and the
+        coefficients, the flux of each physical direction, turned into the one
+        of each reference direction, projected back and tested with the
+        derivative of the test functions of that direction (kDivM)."""
+        statements = []
+        physical = self.definedOnce(self.splitPhysical)
+        for dim in range(3):
+            gradient = self.definedOnce(self.splitGradient)
+            statements.append(
+                gradient["nq"]
+                <= self.operatorEval["nk"]
+                * self.db.kDivMT[dim][self.t("kl")]
+                * source["lr"]
+                * self.splitStrongInputs["rq"]
+            )
+            term = self.referenceGradients[dim]["nj"] * gradient["nq"]
+            statements.append(
+                physical["jnq"] <= (term if dim == 0 else physical["jnq"] + term)
+            )
+        rate = self.definedOnce(self.splitRate)
+        terms = [
+            self.splitCoefficients[a]["n"] * physical["jnq"] * structure["jqp"]
+            for a, structure in self.splitStrongStructure.items()
+        ]
+        for position, term in enumerate(terms):
+            statements.append(
+                rate["np"] <= (term if position == 0 else rate["np"] + term)
+            )
+        statements.append(
+            target["kp"] <= target["kp"] + self.operatorProject["kn"] * rate["np"]
+        )
+
+        values = self.definedOnce(self.splitValues)
+        statements.append(
+            values["nq"]
+            <= self.operatorEval["nk"] * source["kr"] * self.splitWeakInputs["rq"]
+        )
+        flux = self.definedOnce(self.splitFlux)
+        terms = [
+            self.splitCoefficients[a]["n"] * values["nq"] * structure["jqp"]
+            for a, structure in self.splitWeakStructure.items()
+        ]
+        for position, term in enumerate(terms):
+            statements.append(
+                flux["jnp"] <= (term if position == 0 else flux["jnp"] + term)
+            )
+        for dim in range(3):
+            fluxOfDirection = self.definedOnce(self.splitFluxRef)
+            statements.append(
+                fluxOfDirection["np"]
+                <= self.referenceGradients[dim]["nj"] * flux["jnp"]
+            )
+            statements.append(
+                target["kp"]
+                <= target["kp"]
+                + self.db.kDivM[dim][self.t("kl")]
+                * self.operatorProject["ln"]
+                * fluxOfDirection["np"]
+            )
+        return statements
+
+    def ownTractionStatements(self, face, side, source, target):
+        """The normal flux of the cell's own trace `source` on the face `face`,
+        in the momentum rows, added to `target` (_configureCurvedSplit): read
+        at the points of the face as the corrector reads the jump there, from
+        the side of the face the cell is on."""
+        return self.nodalFlux(
+            source,
+            target,
+            self.traceToFace[side][self.t("nl")],
+            self.faceLift(face),
+            [self.ownTractionCoefficients[a] for a in self._ownTractionIndices],
+            structures=[self.ownTractionStructure[a] for a in self._ownTractionIndices],
+            voigt=self.ownTractionWeights,
+            temporaries=self.ownTractionTemporaries,
+        )
 
     def faceRotation(self):
         """The rotation a face's flux is applied with: one per face, or one per
@@ -1523,7 +1825,16 @@ class ADERDGBase(ABC):
         return statements
 
     def nodalFlux(
-        self, source, target, toFace, lift, coefficientsOfFace, rotation=None
+        self,
+        source,
+        target,
+        toFace,
+        lift,
+        coefficientsOfFace,
+        rotation=None,
+        structures=None,
+        voigt=None,
+        temporaries=None,
     ):
         """One face contribution where the operator varies along the face.
 
@@ -1540,20 +1851,33 @@ class ADERDGBase(ABC):
         indexed, because how a matrix is laid out is the caller's to state.
         `rotation` is the tensor the rotation is read from, the one of the
         single face a kernel applies where not given (faceRotation).
+        `structures` are the fixed entries the scalars scale, one per scalar,
+        those of the flux where not given, and `voigt` the inverse Voigt
+        weights the field reaches the face with, all of them where not given.
+        `temporaries` are the four the field passes through, the ones of the
+        flux where not given.
         """
         rotation = self.faceRotation() if rotation is None else rotation
+        structures = self.fluxStructure if structures is None else structures
+        voigt = self.inverseVoigtWeights if voigt is None else voigt
         into, back = self.faceRotationIndices()
-        faceValues = self.definedOnce(self.faceValues)
-        faceRotated = self.definedOnce(self.faceRotated)
-        faceProduct = self.definedOnce(self.faceProduct)
-        faceBack = self.definedOnce(self.faceBack)
+        if temporaries is None:
+            temporaries = (
+                self.faceValues,
+                self.faceRotated,
+                self.faceProduct,
+                self.faceBack,
+            )
+        faceValues, faceRotated, faceProduct, faceBack = (
+            self.definedOnce(temporary) for temporary in temporaries
+        )
         statements = [
-            faceValues["nq"] <= toFace * source["lk"] * self.inverseVoigtWeights["kq"],
+            faceValues["nq"] <= toFace * source["lk"] * voigt["kq"],
             faceRotated["nk"] <= faceValues["nq"] * rotation[into],
         ]
         first = True
-        for a, coefficient in enumerate(coefficientsOfFace):
-            term = coefficient["n"] * faceRotated["nk"] * self.fluxStructure[a]["kl"]
+        for coefficient, structure in zip(coefficientsOfFace, structures):
+            term = coefficient["n"] * faceRotated["nk"] * structure["kl"]
             statements.append(
                 faceProduct["nl"] <= (term if first else faceProduct["nl"] + term)
             )
@@ -1597,18 +1921,29 @@ class ADERDGBase(ABC):
             }
         )
 
-    def nodalTemporary(self, name, shape):
+    def nodalTemporary(self, name, shape, pattern=None):
         """A temporary of the nodal path.
 
         It carries the same field a kernel's operands do, so a build that fuses
         simulations gives it that index as well; everything else about the
-        nodal path is per cell and shared across them."""
+        nodal path is per cell and shared across them. `pattern`, over `shape`,
+        names the entries it has, where those are fewer than all."""
+        spp = None
+        if pattern is not None:
+            spp = np.asarray(pattern, dtype=bool)
+            if self.Q.optSize() > 1:
+                spp = np.repeat(
+                    np.expand_dims(spp, self.Q.optPos()),
+                    self.Q.optSize(),
+                    axis=self.Q.optPos(),
+                )
         return OptionalDimTensor(
             name,
             self.Q.optName(),
             self.Q.optSize(),
             self.Q.optPos(),
             shape,
+            spp=spp,
             temporary=True,
         )
 

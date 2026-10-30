@@ -481,6 +481,7 @@ def main():
             flux_diagonal=adgForTables.rusanovDiagonal(),
             flux_decomposes=adgForTables.fluxDecomposes(),
             fault_flux_indices=adgForTables.faultFluxCoefficients(),
+            own_traction_indices=adgForTables.ownTractionCoefficientIndices(),
             weight_adjustable=adgForTables.weightAdjustable(),
         )
 

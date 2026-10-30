@@ -21,6 +21,7 @@
 #include "Initializer/Typedefs.h"
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
+#include "Kernels/CurvedSplit.h"
 #include "Kernels/FaceTraces.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Precision.h"
@@ -83,6 +84,7 @@ void Local::setGlobalData(const CompoundGlobalData& global) {
   fsgFlux_.bindGlobals(*global.onHost);
   dirichletFlux_.bindGlobals(*global.onHost);
   foldedBoundaryFlux_.bindGlobals(*global.onHost);
+  curvedSplit_.setGlobalData(global);
 
 #ifdef ACL_DEVICE
   deviceFaceTracesKernelPrototype_.bindGlobals(*global.onDevice);
@@ -103,22 +105,31 @@ void Local::computeIntegral(
 
   // A weight-adjusted cell lifts its face terms without material into its flux buffer, which
   // starts empty here and which the neighbour integral finishes (WeightAdjustable); the volume
-  // term goes to the field either way.
+  // term goes to the field, except for a curved cell, which forms its own through its weight
+  // (CurvedSplit).
   real* fluxTarget = data.get<LTS::Dofs>();
   if (WeightAdjustable && data.get<LTS::CellInformation>().weightAdjusted) {
     fluxTarget = data.get<LTS::FluxBuffer>();
     std::fill_n(fluxTarget, kernels::size<tensor::fluxBuffer>(), static_cast<real>(0));
   }
+  const bool curved = Curvilinear && data.get<LTS::CellInformation>().curved;
+  assert(!curved || data.get<LTS::CellInformation>().weightAdjusted);
 
-  kernel::volume volKrnl = volumeKernelPrototype_;
-  volKrnl.Q = data.get<LTS::Dofs>();
-  bindVolumeOperands(volKrnl, timeIntegratedDoFs, data, tmp);
+  if (!curved) {
+    kernel::volume volKrnl = volumeKernelPrototype_;
+    volKrnl.Q = data.get<LTS::Dofs>();
+    bindVolumeOperands(volKrnl, timeIntegratedDoFs, data, tmp);
 
-  volKrnl.execute();
+    volKrnl.execute();
+  }
 
   // the trace of the time integral on every face, which the corrector of the cell reads together
   // with the one its neighbor writes there
   kernels::writeFaceTraces(faceTraceKernelPrototype_, timeIntegratedDoFs, data);
+
+  if (curved) {
+    curvedSplit_.apply(timeIntegratedDoFs, data);
+  }
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];

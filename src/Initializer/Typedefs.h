@@ -104,6 +104,16 @@ struct alignas(Alignment) LocalIntegrationData {
   // initializer::CurvedCell)
   real weightScale[zeroGuard(Curvilinear ? OperatorPointCount : 0)]{};
 
+  // What the corrector of a curved cell reads (see kernels::CurvedSplit): J times the coefficients
+  // of the operator without material at the points the operator is formed at, which its volume
+  // term reads; and at every point of every face the scale of the face there times the
+  // coefficients of the operator without material the normal flux of the cell's own trace reads in
+  // the momentum rows.
+  real splitCoefficients[zeroGuard(Curvilinear ? StarCoefficientCount : 0)]
+                        [zeroGuard(Curvilinear ? OperatorPointCount : 0)]{};
+  real ownTractionCoefficients[zeroGuard(Curvilinear ? Cell::NumFaces : 0)][zeroGuard(
+      Curvilinear ? OwnTractionCoefficientCount : 0)][zeroGuard(Curvilinear ? FluxFaceNodes : 0)]{};
+
   // solver-specific data
   seissol::model::MaterialT::Solver::LocalData specific;
 };
@@ -133,6 +143,11 @@ struct DRFaceInformation {
   std::uint8_t minusSide{};
   std::uint8_t faceRelation{};
   bool plusSideOnThisRank{};
+  // whether the cell of a side is curved: it then takes the momentum rows in the weak form, and
+  // the fault subtracts its own trace in the velocity alone (see FaultSubtractsOwnTrace). Set for
+  // the sides on this rank.
+  bool plusSideCurved{};
+  bool minusSideCurved{};
 };
 
 struct DRGodunovData {

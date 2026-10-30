@@ -590,7 +590,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       assert(plusLtsId.has_value() || minusLtsId.has_value());
 
       // The cell of a side, where it is on this rank; a side on another rank is set up there. A
-      // side whose cell is weight-adjusted lifts without material, as its other faces do.
+      // side whose cell is weight-adjusted lifts without material, as its other faces do, and one
+      // whose cell is curved takes the momentum rows in the weak form (see FaultSubtractsOwnTrace).
       const auto cellOfSide = [&](const auto& ltsId) -> const CellLocalInformation* {
         return ltsId.has_value() ? &ltsStorage.lookup<LTS::CellInformation>(ltsId.value())
                                  : nullptr;
@@ -599,6 +600,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       const auto* minusCell = cellOfSide(minusLtsId);
       const bool plusWeightAdjusted = plusCell != nullptr && plusCell->weightAdjusted;
       const bool minusWeightAdjusted = minusCell != nullptr && minusCell->weightAdjusted;
+      faceInformation[ltsFace].plusSideCurved = plusCell != nullptr && plusCell->curved;
+      faceInformation[ltsFace].minusSideCurved = minusCell != nullptr && minusCell->curved;
 
       if (plusLtsId.has_value()) {
         const auto& cellMaterialData = ltsStorage.lookup<LTS::Material>(plusLtsId.value());

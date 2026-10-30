@@ -176,7 +176,9 @@ class BaseFrictionLaw : public FrictionSolver {
           common::subtractOwnTraces(imposedState,
                                     qInterpolatedPlus_[ltsFace],
                                     qInterpolatedMinus_[ltsFace],
-                                    localTimeWeights.data());
+                                    localTimeWeights.data(),
+                                    faceInformation_[ltsFace].plusSideCurved,
+                                    faceInformation_[ltsFace].minusSideCurved);
         }
         common::finalizeImposedState(
             imposedState, imposedStatePlus_[ltsFace], imposedStateMinus_[ltsFace]);

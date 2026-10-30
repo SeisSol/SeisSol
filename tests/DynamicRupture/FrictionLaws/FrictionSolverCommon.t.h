@@ -9,8 +9,10 @@
 #include "DynamicRupture/Misc.h"
 #include "TestHelper.h"
 
+#include <array>
 #include <cstdint>
 #include <numeric>
+#include <utility>
 
 namespace seissol::unit_test {
 
@@ -236,29 +238,41 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
     }
 
     SUBCASE("Subtract Own Traces") {
-      // the jump against the own trace of either side, the trace integrated with the time weights
-      ImposedState<Executor::Host> state{};
+      // the jump against the own trace of either side, the trace integrated with the time weights;
+      // a side whose cell is curved has its trace subtracted in the velocity alone
       auto before = [](int side, size_t q, size_t p) {
         return static_cast<real>(side * (1.0 + q) + 0.01 * p);
       };
-      for (size_t q = 0; q < misc::NumQuantities; q++) {
-        for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
-          state.plus[q][p] = before(1, q, p);
-          state.minus[q][p] = before(-2, q, p);
-        }
-      }
-      friction_law::common::subtractOwnTraces(
-          state, qInterpolatedPlus, qInterpolatedMinus, timeWeights);
-      for (size_t q = 0; q < misc::NumQuantities; q++) {
-        for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
-          real tracePlus = 0;
-          real traceMinus = 0;
-          for (size_t o = 0; o < misc::TimeSteps; o++) {
-            tracePlus += timeWeights[o] * qP(o, q, p);
-            traceMinus += timeWeights[o] * qM(o, q, p);
+      for (const auto& [plusCurved, minusCurved] :
+           std::array<std::pair<bool, bool>, 3>{{{false, false}, {true, false}, {false, true}}}) {
+        ImposedState<Executor::Host> state{};
+        for (size_t q = 0; q < misc::NumQuantities; q++) {
+          for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+            state.plus[q][p] = before(1, q, p);
+            state.minus[q][p] = before(-2, q, p);
           }
-          CHECK(state.plus[q][p] == AbsApprox(before(1, q, p) - tracePlus).epsilon(Epsilon));
-          CHECK(state.minus[q][p] == AbsApprox(before(-2, q, p) - traceMinus).epsilon(Epsilon));
+        }
+        friction_law::common::subtractOwnTraces(
+            state, qInterpolatedPlus, qInterpolatedMinus, timeWeights, plusCurved, minusCurved);
+        for (size_t q = 0; q < misc::NumQuantities; q++) {
+          using namespace misc::quantity_indices;
+          const bool velocity = q == U || q == V || q == W;
+          for (size_t p = 0; p < misc::NumPaddedPoints; p++) {
+            real tracePlus = 0;
+            real traceMinus = 0;
+            for (size_t o = 0; o < misc::TimeSteps; o++) {
+              tracePlus += timeWeights[o] * qP(o, q, p);
+              traceMinus += timeWeights[o] * qM(o, q, p);
+            }
+            if (plusCurved && !velocity) {
+              tracePlus = 0;
+            }
+            if (minusCurved && !velocity) {
+              traceMinus = 0;
+            }
+            CHECK(state.plus[q][p] == AbsApprox(before(1, q, p) - tracePlus).epsilon(Epsilon));
+            CHECK(state.minus[q][p] == AbsApprox(before(-2, q, p) - traceMinus).epsilon(Epsilon));
+          }
         }
       }
     }

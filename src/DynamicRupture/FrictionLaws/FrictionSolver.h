@@ -106,6 +106,7 @@ class FrictionSolver {
 
   real (*__restrict qInterpolatedPlus_)[misc::TimeSteps][tensor::QInterpolated::size()]{};
   real (*__restrict qInterpolatedMinus_)[misc::TimeSteps][tensor::QInterpolated::size()]{};
+  const DRFaceInformation* __restrict faceInformation_{};
 };
 } // namespace seissol::dr::friction_law
 

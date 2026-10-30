@@ -752,6 +752,7 @@ def generate(
     flux_diagonal=None,
     flux_decomposes: bool = True,
     fault_flux_indices=(),
+    own_traction_indices=(),
     weight_adjustable: bool = False,
 ) -> None:
     """Write the declarations of every material into a C++ header.
@@ -902,6 +903,25 @@ def generate(
     else:
         lines.append(
             "inline constexpr std::array<std::size_t, 0> FaultFluxCoefficientIndices{};\n\n"
+        )
+
+    lines += [
+        "// the scalars of the operator without material the normal flux of the\n",
+        "// cell's own trace on a face of a curved cell reads in the momentum rows,\n",
+        "// at each point of the face, as indices into the scalars the solver's\n",
+        "// operator is linear in. None, where no cell may be curved.\n",
+        "inline constexpr std::size_t OwnTractionNumCoefficients = "
+        f"{len(own_traction_indices)};\n",
+    ]
+    if own_traction_indices:
+        lines += _table(
+            "std::size_t",
+            "OwnTractionCoefficientIndices",
+            [str(index) for index in own_traction_indices],
+        )
+    else:
+        lines.append(
+            "inline constexpr std::array<std::size_t, 0> OwnTractionCoefficientIndices{};\n\n"
         )
 
     lines += [

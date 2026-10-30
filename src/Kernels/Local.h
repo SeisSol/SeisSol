@@ -82,6 +82,13 @@ class LocalKernel : public Kernel {
 
   [[nodiscard]] virtual PerformanceEstimate
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const = 0;
+
+  /// What a curved cell adds to the local integral (see CurvedSplit): nothing, where no cell may
+  /// be curved.
+  [[nodiscard]] virtual PerformanceEstimate
+      curvedMetrics(const std::array<FaceType, Cell::NumFaces>& /*faceTypes*/) const {
+    return {};
+  }
 };
 
 } // namespace seissol::kernels

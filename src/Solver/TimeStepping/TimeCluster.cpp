@@ -608,6 +608,9 @@ void TimeCluster::computeLocalIntegrationFlops() {
   for (std::size_t cell = 0; cell < clusterData_->size(); ++cell) {
     estimate += spacetimeKernel_.metrics();
     estimate += localKernel_.metrics(cellInformation[cell].faceTypes);
+    if (cellInformation[cell].curved) {
+      estimate += localKernel_.curvedMetrics(cellInformation[cell].faceTypes);
+    }
 
     // the traces of the time derivatives on the faces that take them
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {

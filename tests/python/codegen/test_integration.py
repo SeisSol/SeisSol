@@ -635,6 +635,61 @@ class TestWeightAdjustable:
         assert reached[:6, :6].all()
 
 
+class TestCurvedSplit:
+    """A curved cell forms its volume term in the split form: the columns of
+    the momentum from the field against the operator, the others from its
+    derivative. Together the two parts are the operator without material, and
+    the own traction of a face is its normal direction in the momentum columns,
+    in the coordinates of the face. A medium with a source term takes no curved
+    cells yet."""
+
+    _make = TestLeftFactor._make
+
+    @staticmethod
+    def _dense(structures, shape):
+        out = np.zeros(shape)
+        for a, structure in structures.items():
+            for index, value in structure.values().items():
+                out[(a,) + tuple(index)] += float(value)
+        return out
+
+    @pytest.mark.parametrize("equation", ["elastic", "acoustic"])
+    def test_parts_make_the_operator(self, equation):
+        adg = self._make(equation, "linearck", curvilinear=True)
+        momentum = adg.momentumColumns()
+        assert momentum
+        count = len(adg.splitCoefficients)
+        shape = (count,) + adg.splitStrongStructure[
+            next(iter(adg.splitStrongStructure))
+        ].shape()
+        strong = self._dense(adg.splitStrongStructure, shape)
+        weak = self._dense(adg.splitWeakStructure, shape)
+        expected = np.zeros(shape)
+        for entry in adg.solverCoefficientEntries():
+            expected[
+                entry.coefficient, entry.dim, entry.row, entry.column
+            ] += entry.factor
+        np.testing.assert_allclose(strong + weak, expected, rtol=0, atol=1e-14)
+        columns = np.arange(shape[-1])
+        isMomentum = np.isin(columns, sorted(momentum))
+        assert not strong[..., isMomentum].any()
+        assert not weak[..., ~isMomentum].any()
+
+    @pytest.mark.parametrize("equation", ["elastic", "acoustic"])
+    def test_own_traction_is_the_normal_flux_of_the_momentum(self, equation):
+        adg = self._make(equation, "linearck", curvilinear=True)
+        momentum = adg.momentumColumns()
+        indices = adg.ownTractionCoefficientIndices()
+        assert indices == sorted(adg.ownTractionStructure)
+        for entry in adg.solverCoefficientEntries():
+            if entry.dim == 0 and entry.column in momentum:
+                assert entry.coefficient in indices
+
+    def test_source_term_takes_no_curved_cells(self):
+        with pytest.raises(ValueError, match="source term"):
+            self._make("viscoelastic", "linearckanelastic", 3, curvilinear=True)
+
+
 class TestFaceTraceLayout:
     """Where the trace of every function of the basis on a face is a function
     of the face basis or zero (Bernstein), a face trace selects modes of the

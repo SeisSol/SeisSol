@@ -244,6 +244,24 @@ class LinearCK(ADERDGBase):
                         volumeExpr = self.starAssembly() + self.volumeStatements()
                     generator.add(f"{name_prefix}volume", volumeExpr, target=target)
 
+            if self.curvilinear and target == "cpu":
+                # the corrector of a curved cell forms its volume term through
+                # its weight, in the split form, and adds the normal flux of its
+                # own trace back for the momentum rows (_configureCurvedSplit)
+                generator.add(
+                    "splitVolume",
+                    self.splitVolumeStatements(self.I, self.fluxBuffer),
+                    target=target,
+                )
+                generator.addFamily(
+                    "ownTraction",
+                    simpleParameterSpace(4, 2),
+                    lambda face, side: self.ownTractionStatements(
+                        face, side, self.faceTrace, self.fluxBuffer
+                    ),
+                    target=target,
+                )
+
             localFluxNodal = (
                 lambda i: self.extendedQTensor()["kp"]
                 <= self.extendedQTensor()["kp"]

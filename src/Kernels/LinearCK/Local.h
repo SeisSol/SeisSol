@@ -11,6 +11,7 @@
 
 #include "Common/Constants.h"
 #include "GeneratedCode/kernel.h"
+#include "Kernels/CurvedSplit.h"
 #include "Kernels/Local.h"
 #include "Monitoring/Metric.h"
 
@@ -51,10 +52,17 @@ class Local : public LocalKernel {
   [[nodiscard]] PerformanceEstimate
       metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
+  [[nodiscard]] PerformanceEstimate
+      curvedMetrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override {
+    return decltype(curvedSplit_)::metrics(faceTypes);
+  }
+
   protected:
   kernel::volume volumeKernelPrototype_;
   kernel::faceTrace faceTraceKernelPrototype_;
   kernel::localFluxNodal nodalLfKrnlPrototype_;
+  // the volume term of a curved cell and what its momentum rows take back on its faces
+  kernels::CurvedSplitT curvedSplit_;
 
   kernels::AnalyticalBoundary analyticalBoundary_;
 

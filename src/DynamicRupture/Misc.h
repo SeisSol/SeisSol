@@ -241,6 +241,16 @@ enum QuantityIndices : uint32_t {
   FW = 12,
 };
 } // namespace quantity_indices
+
+/**
+ * Whether a quantity on the fault is a velocity, of the solid or of the fluid, which the rows of
+ * the stresses of the flux of the fault normal read; the momentum rows read the others.
+ */
+constexpr bool isVelocity(uint32_t quantity) {
+  using namespace quantity_indices;
+  return quantity == U || quantity == V || quantity == W || quantity == FU || quantity == FV ||
+         quantity == FW;
+}
 } // namespace seissol::dr::misc
 
 // NOLINTEND ()

@@ -34,9 +34,11 @@ namespace seissol::initializer {
  * determinant at every point of a face its flux is integrated at, together with the rotation into
  * the frame the face has there (CurvedCell::setFace), and all of these are the constants the
  * one-per-cell form carries. A curved cell is weight-adjusted with the weight J W instead, J its
- * Jacobian determinant: it tests with the basis, its faces take the surface Jacobian alone, and
- * its inverse weight takes 1 / J at every point (CurvedCell::setWeightScale). A weight-adjusted
- * cell that is straight-sided takes its scales the same way, with a J that is constant.
+ * Jacobian determinant: its faces take the surface Jacobian alone, its inverse weight takes 1 / J
+ * at every point (CurvedCell::setWeightScale), and it forms its volume term itself, in the split
+ * form (see kernels::CurvedSplit), from J times the coefficients of the operator without material
+ * (CurvedCell::setSplitCoefficients). A weight-adjusted cell that is straight-sided takes its
+ * scales the same way, with a J that is constant.
  */
 struct CurvedCell {
   /// The reference coordinates of the point `point` the operator is formed at.
@@ -99,6 +101,41 @@ struct CurvedCell {
   static void setWeightScale(const geometry::CellTransform& transform, TargetT& target) {
     for (std::size_t point = 0; point < OperatorPointCount; ++point) {
       target[point] = 1.0 / jacobianDeterminant(transform, point);
+    }
+  }
+
+  /**
+   * J times the coefficients of the operator without material at every point the operator is
+   * formed at, from `samples`, the material there; what the volume term of a curved cell reads
+   * (see kernels::CurvedSplit). `target` is LocalIntegrationData::splitCoefficients.
+   */
+  template <typename MaterialT, typename TargetT>
+  static void setSplitCoefficients(const geometry::CellTransform& transform,
+                                   const MaterialT* samples,
+                                   TargetT& target) {
+    static_assert(MaterialSampleCount == OperatorPointCount,
+                  "the material is sampled where the operator is formed");
+    for (std::size_t point = 0; point < OperatorPointCount; ++point) {
+      const auto coefficients = seissol::model::getUnweightedCoefficients(samples[point]);
+      const double determinant = jacobianDeterminant(transform, point);
+      for (std::size_t a = 0; a < coefficients.size(); ++a) {
+        target[a][point] = determinant * coefficients[a];
+      }
+    }
+  }
+
+  /**
+   * The scalars the normal flux of a curved cell's own trace on a face reads at the point of the
+   * face with the material `material` and the scale `scale` (setFace) there, into the slot `node`
+   * of `target`, LocalIntegrationData::ownTractionCoefficients of the face: the scale times the
+   * coefficients of the operator without material named by OwnTractionCoefficientIndices.
+   */
+  template <typename MaterialT, typename TargetT>
+  static void
+      setOwnTraction(const MaterialT& material, double scale, std::size_t node, TargetT& target) {
+    const auto coefficients = seissol::model::getUnweightedCoefficients(material);
+    for (std::size_t c = 0; c < OwnTractionCoefficientCount; ++c) {
+      target[c][node] = scale * coefficients[OwnTractionCoefficientIndices[c]];
     }
   }
 

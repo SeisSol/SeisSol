@@ -80,6 +80,12 @@ constexpr bool NodalFaultFlux = NodalMaterial && FaultFluxCoefficientCount > 0;
 /// the operator is formed at, and a face carries its rotation and its scale at its nodes; which
 /// cells are curved, the mesh decides (see geometry::MeshReader::geometryOrder).
 constexpr bool Curvilinear = Config::Curvilinear && NodalFlux;
+
+/// How many scalars of the operator without material the normal flux of a curved cell's own trace
+/// on a face reads in the momentum rows, at each point of the face (see kernels::CurvedSplit), and
+/// which.
+constexpr std::size_t OwnTractionCoefficientCount = generated::OwnTractionNumCoefficients;
+constexpr auto OwnTractionCoefficientIndices = generated::OwnTractionCoefficientIndices;
 static_assert(Config::Curvilinear == generated::Curvilinear,
               "The build and the generated code disagree about whether a cell may be curved.");
 static_assert(!Config::Curvilinear || NodalFlux,
@@ -112,7 +118,10 @@ static_assert(
 /// the face. Where a cell may be curved, the scale of a point carries the surface Jacobian there,
 /// and the inverse of the Jacobian determinant where the cell is not weight-adjusted, which no
 /// quadrature integrates exactly; the lift and the subtraction cancel for a state that is
-/// continuous across a locked fault only where they are taken at the same points.
+/// continuous across a locked fault only where they are taken at the same points. A curved cell
+/// takes the momentum rows in the weak form (see kernels::CurvedSplit), so the fault subtracts its
+/// own trace in the velocity alone, and the lift applies the flux of the imposed state alone to
+/// those rows.
 constexpr bool FaultSubtractsOwnTrace = Curvilinear;
 
 /// Whether the corrector of a cell applies the flux of a face of this type to the traces of the

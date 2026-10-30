@@ -403,10 +403,16 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
  * taken at the points of the fault (see FaultSubtractsOwnTrace). A quantity the lift does not read
  * is left as it is.
  *
+ * A side whose cell is curved takes the momentum rows in the weak form, which want the flux of the
+ * imposed state alone: of its own trace, the velocity is subtracted, which the stress rows read,
+ * and the stress is not, which the momentum rows read.
+ *
  * @param[inout] state
  * @param[in] qInterpolatedPlus
  * @param[in] qInterpolatedMinus
  * @param[in] timeWeights
+ * @param[in] plusCurved whether the cell of the plus side is curved
+ * @param[in] minusCurved the same for the minus side
  */
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
@@ -414,6 +420,8 @@ SEISSOL_HOSTDEVICE inline void
                       const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
                       const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
                       const real timeWeights[misc::TimeSteps],
+                      bool plusCurved,
+                      bool minusCurved,
                       uint32_t startIndex = 0) {
   using NumPointsRange = typename NumPoints<Type>::Range;
   using Acc = VariableIndexing<RangeExecutor<Type>::Exec>;
@@ -422,17 +430,20 @@ SEISSOL_HOSTDEVICE inline void
   const auto* __restrict qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
   const auto* __restrict qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
 
-  for (std::uint32_t o = 0; o < misc::TimeSteps; ++o) {
-    const auto weight = timeWeights[o];
-    for (std::uint32_t q = 0; q < misc::NumQuantities; ++q) {
+  for (std::uint32_t q = 0; q < misc::NumQuantities; ++q) {
+    const bool velocity = misc::isVelocity(q);
+    const real plus = !plusCurved || velocity ? 1 : 0;
+    const real minus = !minusCurved || velocity ? 1 : 0;
+    for (std::uint32_t o = 0; o < misc::TimeSteps; ++o) {
+      const auto weight = timeWeights[o];
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
       for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
            index += NumPointsRange::Step) {
         const auto i{startIndex + index};
-        Acc::index(state.plus[q], i) -= weight * qIPlus[o][q][i];
-        Acc::index(state.minus[q], i) -= weight * qIMinus[o][q][i];
+        Acc::index(state.plus[q], i) -= plus * weight * qIPlus[o][q][i];
+        Acc::index(state.minus[q], i) -= minus * weight * qIMinus[o][q][i];
       }
     }
   }

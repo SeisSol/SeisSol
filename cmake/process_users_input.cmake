@@ -56,7 +56,7 @@ set_property(CACHE ORDER PROPERTY STRINGS ${ORDER_OPTIONS})
 
 set(NUMBER_OF_MECHANISMS 0 CACHE STRING "Number of mechanisms")
 option(FACTORED_STAR "Store the material coefficients and the Jacobian rows of a cell instead of its assembled star matrices" ON)
-option(CURVILINEAR "Let a cell be curved: carry the rows of its inverse Jacobian at the points the operator is formed at, and the rotation and scale of a face at the points its flux is integrated at, instead of one of each per cell and per face. Needs MATERIAL_NODAL=ON with MATERIAL_OPERATOR=assembled and a medium whose flux decomposes into scalars per point, and runs on the CPU. Which cells are curved, the mesh decides" OFF)
+option(CURVILINEAR "Let a cell be curved: carry the rows of its inverse Jacobian at the points the operator is formed at, and the rotation and scale of a face at the points its flux is integrated at, instead of one of each per cell and per face. Needs MATERIAL_NODAL=ON with MATERIAL_OPERATOR=assembled and a medium whose flux decomposes into scalars per point and that has no source term, and runs on the CPU. Which cells are curved, the mesh decides; a curved cell is weight-adjusted with its Jacobian determinant" OFF)
 option(MATERIAL_NODAL "Let the material vary inside a cell: sample it at MATERIAL_POINTS and form the operator there, instead of one operator per cell. A face carries its flux operator the same way, at the points of the symmetric rule its flux is integrated with, where that operator is a handful of scalars of the face, which is where the medium is isotropic and one medium per cell; elsewhere the flux keeps the one operator per side built from the material of the two cells" OFF)
 
 set(OVERRIDE_VECTORSIZE 0 CACHE STRING "If not 0, it overrides the pre-defined architecture vector length")
@@ -246,6 +246,12 @@ if (CURVILINEAR AND NOT MATERIAL_OPERATOR STREQUAL "assembled")
     "CURVILINEAR=ON needs MATERIAL_OPERATOR=assembled: the metric is folded into the "
     "operator at every point once per kernel, where the factored form would fold it at "
     "every application.")
+endif()
+if (CURVILINEAR AND EQUATIONS MATCHES "visco|poro")
+  message(FATAL_ERROR
+    "CURVILINEAR=ON is not available for EQUATIONS=${EQUATIONS} yet: a curved cell takes "
+    "the rate of the momentum in the weak form, and its volume term together with a source "
+    "term has not been done.")
 endif()
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")

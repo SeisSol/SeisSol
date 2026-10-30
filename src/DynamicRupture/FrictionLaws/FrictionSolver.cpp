@@ -64,5 +64,7 @@ void FrictionSolver::copyStorageToLocal(DynamicRupture::Layer& layerData) {
   stressSourcePressure_ = layerData.var<DynamicRupture::StressSourcePressure>(place);
   stressSourceOnset_ = layerData.var<DynamicRupture::StressSourceOnset>(place);
   stressSourceRiseTime_ = layerData.var<DynamicRupture::StressSourceRiseTime>(place);
+  // kept on the host alone
+  faceInformation_ = layerData.var<DynamicRupture::FaceInformation>();
 }
 } // namespace seissol::dr::friction_law
