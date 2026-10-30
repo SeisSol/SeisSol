@@ -76,6 +76,14 @@ auto relativeThickness(const CellTransform& transform,
                        const std::array<CellTransform::VectorEigenT, Cell::NumVertices>& vertices)
     -> double;
 
+/**
+ * Whether a cell is curved: whether its Jacobian varies inside it, measured against the one of the
+ * straight-sided cell through its vertices on the nodes of a lattice in the cell. A cell of a
+ * curved mesh whose nodes sit where the straight-sided cell puts them is not.
+ */
+auto isCurved(const CellTransform& transform,
+              const std::array<CellTransform::VectorEigenT, Cell::NumVertices>& vertices) -> bool;
+
 } // namespace seissol::geometry
 
 #endif // SEISSOL_SRC_GEOMETRY_CELLGEOMETRY_H_

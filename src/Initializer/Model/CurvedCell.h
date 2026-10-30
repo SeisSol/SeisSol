@@ -28,14 +28,15 @@ namespace seissol::initializer {
 /**
  * What a cell that may be curved carries of its geometry.
  *
- * The scheme a curved cell runs is the one a straight-sided cell runs, tested with the basis
- * divided by the Jacobian determinant: the volume term is the strong form, whose metric is the
- * inverse Jacobian at a point (CurvedCell::setGradients), and the mass matrix is the one of the
- * reference cell, so that nothing that has the inverse mass matrix folded in changes. The face
- * terms take on what is left -- the surface Jacobian over the Jacobian determinant of the cell,
- * at every point of the face its flux is integrated at -- together with the rotation into the
- * frame the face has at that point (CurvedCell::setFace). For a straight-sided cell all of these
- * are the constants the one-per-cell form carries, at every point.
+ * The predictor of every cell applies the strong form, whose metric is the inverse Jacobian at a
+ * point (CurvedCell::setGradients). A straight-sided cell runs the corrector of the one-per-cell
+ * form: tested with the basis, the face terms take the surface Jacobian over the Jacobian
+ * determinant at every point of a face its flux is integrated at, together with the rotation into
+ * the frame the face has there (CurvedCell::setFace), and all of these are the constants the
+ * one-per-cell form carries. A curved cell is weight-adjusted with the weight J W instead, J its
+ * Jacobian determinant: it tests with the basis, its faces take the surface Jacobian alone, and
+ * its inverse weight takes 1 / J at every point (CurvedCell::setWeightScale). A weight-adjusted
+ * cell that is straight-sided takes its scales the same way, with a J that is constant.
  */
 struct CurvedCell {
   /// The reference coordinates of the point `point` the operator is formed at.
@@ -85,16 +86,34 @@ struct CurvedCell {
     }
   }
 
+  /// The Jacobian determinant of a cell at the point `point` the operator is formed at; positive
+  /// for a cell that is not turned inside out, whichever way round its vertices are numbered.
+  static auto jacobianDeterminant(const geometry::CellTransform& transform, std::size_t point)
+      -> double {
+    return std::abs(transform.refToSpaceJacobian(operatorPoint(point)).determinant());
+  }
+
+  /// 1 / J at every point the operator is formed at, which the inverse weight of a weight-adjusted
+  /// cell carries (see setFace); `target` is LocalIntegrationData::weightScale.
+  template <typename TargetT>
+  static void setWeightScale(const geometry::CellTransform& transform, TargetT& target) {
+    for (std::size_t point = 0; point < OperatorPointCount; ++point) {
+      target[point] = 1.0 / jacobianDeterminant(transform, point);
+    }
+  }
+
   /**
    * The rotation of the face `side` at each of the points its flux is integrated at, into
    * `rotation` in the layout the kernels read TNodes in, and the scale its flux takes there: the
-   * surface Jacobian over the Jacobian determinant of the cell, with the sign of a flux that is
-   * subtracted. The normal is the outward one; the rotation's frame is the one faceAlignedBasis
-   * gives at the point, so a straight face gets the rotation it would get as one face.
+   * surface Jacobian, over the Jacobian determinant of the cell unless the cell is weight-adjusted
+   * (its weight carries that, see setWeightScale), with the sign of a flux that is subtracted. The
+   * normal is the outward one; the rotation's frame is the one faceAlignedBasis gives at the point,
+   * so a straight face gets the rotation it would get as one face.
    */
   static void setFace(const geometry::CellTransform& cell,
                       const geometry::FaceTransform& face,
                       std::size_t side,
+                      bool weightAdjusted,
                       real* rotation,
                       std::array<double, FluxFaceNodes>& fluxScale) {
     auto target = init::TNodes::view::create(rotation);
@@ -104,7 +123,7 @@ struct CurvedCell {
       const auto basis = face.faceAlignedBasis(point);
       // the face normal is the outward one of a cell that is not turned inside out, which the mesh
       // checks; its norm is the surface Jacobian
-      fluxScale[node] = -basis[0].norm() / std::abs(determinant);
+      fluxScale[node] = -basis[0].norm() / (weightAdjusted ? 1.0 : std::abs(determinant));
 
       alignas(Alignment) std::array<real, tensor::T::size()> matT{};
       alignas(Alignment) std::array<real, tensor::Tinv::size()> matTinv{};

@@ -25,6 +25,7 @@
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/Model/DynamicRuptureImpedance.h"
 #include "Initializer/Model/FaceSamples.h"
@@ -57,9 +58,10 @@ namespace {
 /**
  * What a fault face carries at each of its points where it may be curved: the rotation into the
  * coordinates of the fault (transposed, as DRGodunovData::dataTinvT), the one back out of them (as
- * dr::FaultFluxLayout), the scale each side lifts with -- the surface Jacobian over the Jacobian
- * determinant of the cell of that side at the point, with the sign of the side -- and the doubled
- * area of the face.
+ * dr::FaultFluxLayout), the scale each side lifts with -- the surface Jacobian, over the Jacobian
+ * determinant of the cell of that side at the point unless that cell is weight-adjusted (its weight
+ * carries it, see CurvedCell::setWeightScale), with the sign of the side -- and the doubled area of
+ * the face.
  */
 struct FaultFaceAtPoints {
   std::vector<real> rotationIntoFault;
@@ -71,7 +73,9 @@ struct FaultFaceAtPoints {
 };
 
 FaultFaceAtPoints faultFaceAtPoints(const seissol::geometry::MeshReader& meshReader,
-                                    std::size_t meshFace) {
+                                    std::size_t meshFace,
+                                    bool plusWeightAdjusted,
+                                    bool minusWeightAdjusted) {
   using seissol::dr::misc::NumBoundaryGaussPoints;
   const auto& fault = meshReader.getFault()[meshFace];
   const auto frames = seissol::dr::faultFramesAtPoints(meshFace, meshReader);
@@ -107,6 +111,7 @@ FaultFaceAtPoints faultFaceAtPoints(const seissol::geometry::MeshReader& meshRea
                           std::int8_t side,
                           seissol::geometry::FaceOrientation orientation,
                           double sign,
+                          bool weightAdjusted,
                           std::array<double, NumBoundaryGaussPoints>& target) {
     if (!element.hasValue()) {
       target.fill(sign * 1.e99);
@@ -118,17 +123,27 @@ FaultFaceAtPoints faultFaceAtPoints(const seissol::geometry::MeshReader& meshRea
     for (std::size_t point = 0; point < NumBoundaryGaussPoints; ++point) {
       const auto chiTau = seissol::dr::quadraturePoint(point);
       const auto jacobian = cell->refToSpaceJacobian(ofSide->refToCell(chiTau));
-      target[point] = sign * ofSide->surfaceJacobian(chiTau) / std::abs(jacobian.determinant());
+      target[point] = sign * ofSide->surfaceJacobian(chiTau) /
+                      (weightAdjusted ? 1.0 : std::abs(jacobian.determinant()));
     }
   };
-  scales(
-      fault.element, fault.side, seissol::geometry::FaceOrientation::Local, -1.0, face.scalePlus);
+  scales(fault.element,
+         fault.side,
+         seissol::geometry::FaceOrientation::Local,
+         -1.0,
+         plusWeightAdjusted,
+         face.scalePlus);
   const auto minusOrientation = fault.neighborElement.hasValue()
                                     ? static_cast<seissol::geometry::FaceOrientation>(
                                           meshReader.getElements()[fault.neighborElement.value()]
                                               .sideOrientations[fault.neighborSide])
                                     : seissol::geometry::FaceOrientation::Rotate0;
-  scales(fault.neighborElement, fault.neighborSide, minusOrientation, 1.0, face.scaleMinus);
+  scales(fault.neighborElement,
+         fault.neighborSide,
+         minusOrientation,
+         1.0,
+         minusWeightAdjusted,
+         face.scaleMinus);
   return face;
 }
 
@@ -574,6 +589,17 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       assert(plusLtsId.has_value() || minusLtsId.has_value());
 
+      // The cell of a side, where it is on this rank; a side on another rank is set up there. A
+      // side whose cell is weight-adjusted lifts without material, as its other faces do.
+      const auto cellOfSide = [&](const auto& ltsId) -> const CellLocalInformation* {
+        return ltsId.has_value() ? &ltsStorage.lookup<LTS::CellInformation>(ltsId.value())
+                                 : nullptr;
+      };
+      const auto* plusCell = cellOfSide(plusLtsId);
+      const auto* minusCell = cellOfSide(minusLtsId);
+      const bool plusWeightAdjusted = plusCell != nullptr && plusCell->weightAdjusted;
+      const bool minusWeightAdjusted = minusCell != nullptr && minusCell->weightAdjusted;
+
       if (plusLtsId.has_value()) {
         const auto& cellMaterialData = ltsStorage.lookup<LTS::Material>(plusLtsId.value());
         plusMaterial = dynamic_cast<seissol::model::MaterialT*>(cellMaterialData.local);
@@ -672,7 +698,9 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       // a face that may be curved has its rotation, and with it its scales, at each of its points
       [[maybe_unused]] const auto atPoints =
-          Curvilinear ? faultFaceAtPoints(meshReader, meshFace) : FaultFaceAtPoints{};
+          Curvilinear
+              ? faultFaceAtPoints(meshReader, meshFace, plusWeightAdjusted, minusWeightAdjusted)
+              : FaultFaceAtPoints{};
       if constexpr (Curvilinear) {
         std::copy(atPoints.rotationIntoFault.begin(),
                   atPoints.rotationIntoFault.end(),
@@ -731,15 +759,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
 
       const double fluxScalePlus = -2.0 * plusSurfaceArea / (6.0 * plusVolume);
       const double fluxScaleMinus = 2.0 * minusSurfaceArea / (6.0 * minusVolume);
-
-      // a side whose cell is weight-adjusted lifts without material, as its other faces do; a side
-      // on another rank is set up there
-      const auto weightAdjustedSide = [&](const auto& ltsId) {
-        return ltsId.has_value() &&
-               ltsStorage.lookup<LTS::CellInformation>(ltsId.value()).weightAdjusted;
-      };
-      const bool plusWeightAdjusted = weightAdjustedSide(plusLtsId);
-      const bool minusWeightAdjusted = weightAdjustedSide(minusLtsId);
 
       // Either form of the lift takes the material in the coordinates of the face, rotated with
       // the bond matrix as for the impedance matrices of initializeFaultImpedance above; the

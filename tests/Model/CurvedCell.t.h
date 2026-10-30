@@ -12,8 +12,10 @@
 //
 // - A straight-sided cell evaluated at every point carries what it carries as one cell: the
 //   metric at every operator point, the rotation and the scale at every node of a face.
-// - On a curved face, the scale is the surface Jacobian over the Jacobian determinant and the
-//   rotation the frame of the face at the node -- here measured by differencing the map.
+// - On a curved face, the scale is the surface Jacobian over the Jacobian determinant, or the
+//   surface Jacobian alone where the cell is weight-adjusted, and the rotation the frame of the
+//   face at the node -- here measured by differencing the map; a weight-adjusted cell carries
+//   1 / J at the points the operator is formed at.
 // - A field that is linear in space is a polynomial on a curved cell of order two, and the
 //   volume term has to give its derivative exactly. With the metric of one point for the whole
 //   cell it does not, so this is what checks that the metric is the one at the point.
@@ -109,13 +111,24 @@ void straightCell() {
       }
     }
 
+    // a weight-adjusted cell carries 1 / J in its weight, and its faces the surface Jacobian alone
+    CurvedCell::setWeightScale(cell, pointwise.weightScale);
+    for (std::size_t point = 0; point < OperatorPointCount; ++point) {
+      REQUIRE(pointwise.weightScale[point] ==
+              doctest::Approx(1.0 / std::abs(cell.determinant())).epsilon(1e-13));
+    }
+
     for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
       const seissol::geometry::AffineFaceTransform face(cell,
                                                         seissol::geometry::ReferenceFaceMap(side));
       std::array<double, FluxFaceNodes> scale{};
-      CurvedCell::setFace(cell, face, side, pointwise.faceRotation[side], scale);
+      CurvedCell::setFace(cell, face, side, false, pointwise.faceRotation[side], scale);
       for (const auto value : scale) {
         REQUIRE(value == doctest::Approx(-2.0 * face.area() / cell.determinant()).epsilon(1e-13));
+      }
+      CurvedCell::setFace(cell, face, side, true, pointwise.faceRotation[side], scale);
+      for (const auto value : scale) {
+        REQUIRE(value == doctest::Approx(-2.0 * face.area()).epsilon(1e-13));
       }
 
       const auto basis = face.faceAlignedBasis();
@@ -143,7 +156,9 @@ void curvedFace() {
       const seissol::geometry::IsoparametricFaceTransform face(
           cell, seissol::geometry::ReferenceFaceMap(side));
       std::array<double, FluxFaceNodes> scale{};
-      CurvedCell::setFace(cell, face, side, local.faceRotation[side], scale);
+      std::array<double, FluxFaceNodes> adjustedScale{};
+      CurvedCell::setFace(cell, face, side, true, local.faceRotation[side], adjustedScale);
+      CurvedCell::setFace(cell, face, side, false, local.faceRotation[side], scale);
       auto rotations = init::TNodes::view::create(local.faceRotation[side]);
 
       const VectorT center = cell.refToSpace(VectorT(Cell::ReferenceBarycenter.data()));
@@ -164,6 +179,7 @@ void curvedFace() {
         const double determinant = cell.refToSpaceJacobian(reference).determinant();
         REQUIRE(determinant > 0);
         REQUIRE(scale[node] == doctest::Approx(-normal.norm() / determinant).epsilon(1e-8));
+        REQUIRE(adjustedScale[node] == doctest::Approx(-normal.norm()).epsilon(1e-8));
 
         // the face points away from the cell
         REQUIRE(normal.dot(face.refToSpace(point) - center) > 0);
@@ -341,7 +357,7 @@ void constantState() {
       const seissol::geometry::IsoparametricFaceTransform face(
           cell, seissol::geometry::ReferenceFaceMap(side));
       std::array<double, FluxFaceNodes> scale{};
-      CurvedCell::setFace(cell, face, side, local.faceRotation[side], scale);
+      CurvedCell::setFace(cell, face, side, false, local.faceRotation[side], scale);
       for (std::size_t node = 0; node < FluxFaceNodes; ++node) {
         const auto material = materialAt(cell.refToSpace(CurvedCell::faceNode(side, node)));
         std::array<double, FluxCoefficientCount> plus{};

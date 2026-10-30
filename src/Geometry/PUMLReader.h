@@ -44,6 +44,7 @@ constexpr const char* CellIdsAsInFile = "cellIdsAsInFile";
 constexpr const char* ClusterIds = "clusterIds";
 constexpr const char* Timesteps = "timesteps";
 constexpr const char* WeightAdjusted = "weightAdjusted";
+constexpr const char* Curved = "curved";
 constexpr const char* VertexOrders = "vertexOrders";
 /// the order of every cell and its nodes but the vertices, where the file gives them
 constexpr const char* Order = "order";

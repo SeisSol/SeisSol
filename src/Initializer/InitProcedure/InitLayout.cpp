@@ -249,6 +249,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         secondaryCellInformation[index].globalId = element.globalId;
         secondaryCellInformation[index].group = element.group;
         cellInformation[index].weightAdjusted = element.weightAdjusted;
+        cellInformation[index].curved = element.curved;
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           secondaryCellInformation[index].neighborRanks[face] = element.neighborRanks[face];
           cellInformation[index].faceTypes[face] = element.boundaries[face];

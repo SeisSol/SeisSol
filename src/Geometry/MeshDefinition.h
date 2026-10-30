@@ -39,6 +39,9 @@ struct Element {
   double timestep{};
   /** Whether the cell is weight-adjusted, decided where its time step is (see WeightAdjustable) */
   bool weightAdjusted{false};
+
+  /** Whether the cell is curved, decided where its time step is (see initializer::CurvedCell) */
+  bool curved{false};
 };
 
 struct Vertex {

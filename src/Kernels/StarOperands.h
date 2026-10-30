@@ -86,11 +86,15 @@ void bindStarOperands(KernelT& krnl, const LocalIntegrationT& localIntegration) 
 
 /// Hands the kernel that applies the inverse weight of the medium (kernel::weightAdjust) what the
 /// material of the cell says at its sample points: the coefficients of its operator, of which the
-/// weight reads the material's own.
+/// weight reads the material's own; and where a cell may be curved, the 1 / J the weight carries
+/// at those points on top (see initializer::CurvedCell::setWeightScale).
 template <typename KernelT, typename LocalIntegrationT>
 void bindWeightOperands(KernelT& krnl, const LocalIntegrationT& localIntegration) {
   for (std::size_t a = 0; a < StarCoefficientCount; ++a) {
     krnl.nodalCoefficients(a) = localIntegration.materialCoefficients[a];
+  }
+  if constexpr (Curvilinear) {
+    krnl.weightScale = localIntegration.weightScale;
   }
 }
 

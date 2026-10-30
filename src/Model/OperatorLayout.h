@@ -100,15 +100,19 @@ static_assert(!Config::Curvilinear || NodalFaultFlux,
 /// face with its scalars per point does. Which cells take it, the run decides (see
 /// seissol::initializer::ImpedanceSpread).
 constexpr bool WeightAdjustable = NodalMaterial && generated::WeightAdjustable;
+static_assert(
+    !Curvilinear || WeightAdjustable,
+    "A curved cell is weight-adjusted with its Jacobian determinant, which needs a medium "
+    "that states its weight.");
 
 /// Whether the fault takes the subtraction of the normal flux of the cell's own trace on itself
 /// (the volume term of the corrector is in the strong form, see initializer::toCorrectorForm): its
 /// lift then applies the flux of the fault normal to the imposed state less the side's own trace,
 /// at the points of the fault, where it otherwise is the corrector of the face, at the points of
-/// the face. Where a cell may be curved, the scale of a point carries the inverse of the Jacobian
-/// determinant there, which no quadrature integrates exactly; the lift and the subtraction cancel
-/// for a state that is continuous across a locked fault only where they are taken at the same
-/// points.
+/// the face. Where a cell may be curved, the scale of a point carries the surface Jacobian there,
+/// and the inverse of the Jacobian determinant where the cell is not weight-adjusted, which no
+/// quadrature integrates exactly; the lift and the subtraction cancel for a state that is
+/// continuous across a locked fault only where they are taken at the same points.
 constexpr bool FaultSubtractsOwnTrace = Curvilinear;
 
 /// Whether the corrector of a cell applies the flux of a face of this type to the traces of the

@@ -109,6 +109,8 @@ GlobalTimestep
   GlobalTimestep timestep;
   timestep.cellTimeStepWidths.resize(cellToVertex.size);
   timestep.weightAdjusted.assign(cellToVertex.size, 0);
+  timestep.curved.assign(cellToVertex.size, 0);
+  std::size_t localCurved = 0;
   const double weightAdjustedRatio = seissolParams.model.weightAdjustedRatio;
   const double weightAdjustedJumpRatio = seissolParams.model.weightAdjustedJumpRatio;
   std::size_t localWeightAdjusted = 0;
@@ -180,10 +182,20 @@ GlobalTimestep
     const std::array<Eigen::Vector3d, 4> vertices = cellToVertex.elementCoordinates(cell);
     const auto cellMaxTimestep =
         std::min(materialMaxTimestep, seissolParams.timeStepping.maxTimestepWidth);
+    const auto transform = cellToVertex.elementTransform(cell);
+    // a curved cell is weight-adjusted with the weight J W whatever its material does (see
+    // initializer::CurvedCell); its time step is shortened for its material alone, as above
+    if constexpr (Curvilinear) {
+      if (seissol::geometry::isCurved(*transform, vertices)) {
+        timestep.curved[cell] = 1;
+        timestep.weightAdjusted[cell] = 1;
+        ++localCurved;
+      }
+    }
     // a curved cell is as narrow as it is where it is thinnest, which its vertices do not say;
     // that scales what the wave speed permits, not the bounds from above
-    const auto thickness = std::min(
-        1.0, seissol::geometry::relativeThickness(*cellToVertex.elementTransform(cell), vertices));
+    const auto thickness =
+        std::min(1.0, seissol::geometry::relativeThickness(*transform, vertices));
     const auto cellTimestep = [&](double waveSpeed) {
       return std::min(thickness * computeCellTimestep(vertices,
                                                       waveSpeed,
@@ -215,6 +227,18 @@ GlobalTimestep
                 MPI_DOUBLE,
                 MPI_MAX,
                 seissol::Mpi::mpi.comm());
+
+  if constexpr (Curvilinear) {
+    std::size_t globalCurved = 0;
+    MPI_Allreduce(&localCurved,
+                  &globalCurved,
+                  1,
+                  Mpi::castToMpiType<std::size_t>(),
+                  MPI_SUM,
+                  seissol::Mpi::mpi.comm());
+    logInfo() << globalCurved
+              << "cells are curved: they are weight-adjusted with their Jacobian determinant.";
+  }
 
   if (weightAdjustedRatio > 0.0) {
     std::size_t globalWeightAdjusted = 0;

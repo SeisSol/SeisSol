@@ -96,6 +96,26 @@ auto faultFrameAt(const FaceTransform& face,
   return {unitNormal, tangent1, unitNormal.cross(tangent1), surfaceJacobian};
 }
 
+auto isCurved(const CellTransform& transform,
+              const std::array<CellTransform::VectorEigenT, Cell::NumVertices>& vertices) -> bool {
+  if (dynamic_cast<const AffineTransform*>(&transform) != nullptr) {
+    return false;
+  }
+  // the deviation of rounding in the nodes of a mesh written in double precision, relative to the
+  // Jacobian of the cell
+  constexpr double Tolerance = 1e-10;
+  const auto straight = AffineTransform(vertices).jacobian();
+  const double scale = straight.norm();
+  auto points = IsoparametricTransform::latticeNodes(4);
+  points.emplace_back(Cell::ReferenceBarycenter.data());
+  for (const auto& point : points) {
+    if ((transform.refToSpaceJacobian(point) - straight).norm() > Tolerance * scale) {
+      return true;
+    }
+  }
+  return false;
+}
+
 auto relativeThickness(const CellTransform& transform,
                        const std::array<CellTransform::VectorEigenT, Cell::NumVertices>& vertices)
     -> double {

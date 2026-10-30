@@ -692,12 +692,14 @@ class ADERDGBase(ABC):
 
         The rows of the inverse Jacobian vary inside a curved cell, so a cell
         carries them at the points the operator is formed at, where they go
-        into the operator together with the material. That is all the volume
-        needs: the predictor and the volume term both apply the strong form,
-        whose metric is the inverse Jacobian at the point, and the mass matrix
-        stays the one of the reference cell -- the scheme tests with the basis
-        divided by the Jacobian determinant, which the face terms take on as a
-        factor of their own at every point of a face (see the host).
+        into the operator together with the material; the predictor applies
+        the operator there in the strong form, as on a straight-sided cell.
+
+        The corrector of a curved cell is weight-adjusted with the weight J W,
+        J the Jacobian determinant: the cell lifts its face terms without
+        material and with the surface Jacobian alone into its flux buffer, and
+        the inverse weight applied there carries 1 / J at every point
+        (weightScale, see weightAdjust).
 
         A face carries its rotation per point, since its normal turns along it;
         that makes the flux one that has to be applied at the points of the
@@ -720,6 +722,9 @@ class ADERDGBase(ABC):
         self.referenceGradients = [
             Tensor(f"referenceGradients({dim})", (npoints, 3)) for dim in range(3)
         ]
+        # 1 / J at the points the operator is formed at, which the inverse
+        # weight of a curved cell carries on top of the one of its medium
+        self.weightScale = Tensor("weightScale", (npoints,))
 
     def faceRotation(self):
         """The rotation a face's flux is applied with: one per face, or one per
@@ -1491,7 +1496,13 @@ class ADERDGBase(ABC):
         read = source["kq"]
         if self._weightInject is not None:
             read = read.subslice("q", 0, weighted)
-        statements = [values["nq"] <= self.operatorEval["nk"] * read]
+        # a curved cell weighs with J W, so 1 / J comes on top at every point
+        # (_configureCurvilinear)
+        scale = getattr(self, "weightScale", None)
+        read = self.operatorEval["nk"] * read
+        if scale is not None:
+            read = scale["n"] * read
+        statements = [values["nq"] <= read]
         for position, (a, structure) in enumerate(self._weightStructure.items()):
             term = self.nodalCoefficients[a]["n"] * values["nq"] * structure["qp"]
             statements.append(

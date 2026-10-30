@@ -99,6 +99,11 @@ struct alignas(Alignment) LocalIntegrationData {
       NodalMaterial ? (Curvilinear ? seissol::tensor::TNodes::size() : seissol::tensor::T::size())
                     : 0)]{};
 
+  // 1 / J at the points the operator is formed at, which the inverse weight of a weight-adjusted
+  // cell carries on top of the one of its medium where a cell may be curved (see
+  // initializer::CurvedCell)
+  real weightScale[zeroGuard(Curvilinear ? OperatorPointCount : 0)]{};
+
   // solver-specific data
   seissol::model::MaterialT::Solver::LocalData specific;
 };

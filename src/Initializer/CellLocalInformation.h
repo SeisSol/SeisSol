@@ -44,6 +44,10 @@ struct CellLocalInformation {
   // weight of its medium once they are all in (see WeightAdjustable). Set for the cells of this
   // rank; a ghost cell computes nothing here.
   bool weightAdjusted{false};
+
+  // whether the cell is curved: then it is weight-adjusted with the weight J W, J its Jacobian
+  // determinant (see initializer::CurvedCell). Set for the cells of this rank.
+  bool curved{false};
 };
 
 // cell local information which is not needed during the main iterations, but only during setup and

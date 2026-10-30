@@ -460,9 +460,11 @@ void kernelAgainstMatrices() {
         Points);
 
     for (std::size_t sample = 0; sample < 3; ++sample) {
-      // a material of its own at every point, a fluid among them where the medium has shear
+      // a material of its own at every point, a fluid among them where the medium has shear; and
+      // where a cell may be curved, a 1 / J of its own at every point, which the weight carries
       LocalIntegrationData local{};
       std::vector<Eigen::MatrixXd> weights;
+      std::uniform_real_distribution<double> inverseDeterminant(0.3, 3.0);
       for (std::size_t point = 0; point < Points; ++point) {
         const auto material = coefficients::configuredMaterial<Material>(rng, point % 7 == 3);
         const auto values = seissol::model::getStarCoefficients(material);
@@ -470,6 +472,10 @@ void kernelAgainstMatrices() {
           local.materialCoefficients[a][point] = values[a];
         }
         weights.emplace_back(inverseweight::inverseWeight<Material, Weighted>(material));
+        if constexpr (Curvilinear) {
+          local.weightScale[point] = static_cast<real>(inverseDeterminant(rng));
+          weights.back() *= static_cast<double>(local.weightScale[point]);
+        }
       }
 
       alignas(Alignment) std::array<real, Size> buffer{};
@@ -613,6 +619,14 @@ void faultSameWhereConstant() {
       }
       std::array<double, Points> fluxScale{};
       fluxScale.fill(-0.37 * positive(rng));
+      // where a cell may be curved, the side of a weight-adjusted cell lifts with the surface
+      // Jacobian alone, and its weight carries the 1 / J of the scale (see
+      // initializer::CurvedCell::setWeightScale)
+      const double determinant = Curvilinear ? positive(rng) : 1.0;
+      std::array<double, Points> adjustedScale{};
+      for (std::size_t point = 0; point < Points; ++point) {
+        adjustedScale[point] = fluxScale[point] * determinant;
+      }
       std::array<Material, dr::ImpedancePoints> atPoints{};
       atPoints.fill(material);
 
@@ -621,7 +635,7 @@ void faultSameWhereConstant() {
       seissol::initializer::setPointwiseFaultFlux(
           plainLift.data(), rotation.data(), fluxScale, atPoints, material, bond, false);
       seissol::initializer::setPointwiseFaultFlux(
-          adjustedLift.data(), rotation.data(), fluxScale, atPoints, material, bond, true);
+          adjustedLift.data(), rotation.data(), adjustedScale, atPoints, material, bond, true);
 
       alignas(Alignment) std::array<real, tensor::QInterpolated::size()> imposed{};
       fillRandom(imposed, rng);
@@ -631,6 +645,9 @@ void faultSameWhereConstant() {
       for (std::size_t point = 0; point < MaterialSampleCount; ++point) {
         for (std::size_t a = 0; a < values.size(); ++a) {
           local.materialCoefficients[a][point] = values[a];
+        }
+        if constexpr (Curvilinear) {
+          local.weightScale[point] = static_cast<real>(1.0 / determinant);
         }
       }
 

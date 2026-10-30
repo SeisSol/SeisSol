@@ -15,6 +15,7 @@
 #include "Common/Marker.h"
 #include "Equations/Datastructures.h"
 #include "FSRMReader.h"
+#include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
@@ -22,6 +23,7 @@
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MeshTools.h"
+#include "Initializer/Model/CurvedCell.h"
 #include "Initializer/Parameters/SourceParameters.h"
 #include "Initializer/PointMapper.h"
 #include "Kernels/PointSourceCluster.h"
@@ -33,6 +35,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Datastructures.h" // IWYU pragma: keep
+#include "Model/OperatorLayout.h"
 #include "Numerical/BasisFunction.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
@@ -71,9 +74,50 @@ namespace seissol::sourceterm {
 namespace {
 
 /**
+ * Applies the inverse of the weight J of a curved cell to `modes`: read at the points the operator
+ * is formed at, divided by J there, and projected back (see initializer::CurvedCell).
+ */
+void applyInverseJacobianWeight(const seissol::geometry::CellTransform& transform, real* modes) {
+  const auto evaluate =
+      init::materialEval::view::create(const_cast<real*>(init::materialEval::Values));
+  const auto project =
+      init::materialProject::view::create(const_cast<real*>(init::materialProject::Values));
+  auto view = init::mInvJInvPhisAtSources::view::create(modes);
+  constexpr std::size_t Points = tensor::materialEval::Shape[0];
+  constexpr std::size_t Basis = tensor::materialEval::Shape[1];
+  static_assert(!Curvilinear || Points == OperatorPointCount,
+                "the operator is formed at the material samples");
+  std::array<double, Points> atPoints{};
+  for (std::size_t point = 0; point < Points; ++point) {
+    for (std::size_t mode = 0; mode < Basis; ++mode) {
+      if (evaluate.isInRange(point, mode) && view.isInRange(mode)) {
+        atPoints[point] += evaluate(point, mode) * view(mode);
+      }
+    }
+    atPoints[point] /= seissol::initializer::CurvedCell::jacobianDeterminant(transform, point);
+  }
+  for (std::size_t mode = 0; mode < Basis; ++mode) {
+    if (!view.isInRange(mode)) {
+      continue;
+    }
+    double value = 0;
+    for (std::size_t point = 0; point < Points; ++point) {
+      if (project.isInRange(mode, point)) {
+        value += project(mode, point) * atPoints[point];
+      }
+    }
+    view(mode) = static_cast<real>(value);
+  }
+}
+
+/**
  * Computes mInvJInvPhisAtSources = |J|^-1 * M^-1 * phi(xi, eta, zeta), with M the mass matrix of
  * the reference cell and phi the basis functions,
  * where xi, eta, zeta is the point in the reference tetrahedron corresponding to x, y, z.
+ *
+ * A curved cell tests with the basis and weighs with J (see initializer::CurvedCell), so it takes
+ * phi(xi, eta, zeta) through the inverse of its weight instead: M^-1 M_{1/J} M^-1 phi, with
+ * M_{1/J} the mass matrix weighted with 1 / J at the points the operator is formed at.
  */
 void computeMInvJInvPhisAtSources(
     const Eigen::Vector3d& center,
@@ -91,11 +135,15 @@ void computeMInvJInvPhisAtSources(
       ConvergenceOrder, xiEtaZeta(0), xiEtaZeta(1), xiEtaZeta(2));
 
   // A point source is a delta in space, and in reference coordinates a delta divided by the
-  // Jacobian determinant at the point; for a straight-sided cell that is six times its volume.
-  const double volume = MeshTools::volume(elements[meshId], vertices);
-  const double jInv = mesh.geometryOrder() > 1
-                          ? 1.0 / std::abs(transform->refToSpaceJacobian(xiEtaZeta).determinant())
-                          : 1.0 / (6.0 * volume);
+  // Jacobian determinant at the point; for a straight-sided cell that is six times its volume. A
+  // curved cell takes the delta through its weight instead, below.
+  const bool curved = Curvilinear && elements[meshId].curved;
+  double jInv = 1.0 / (6.0 * MeshTools::volume(elements[meshId], vertices));
+  if (curved) {
+    jInv = 1.0;
+  } else if (mesh.geometryOrder() > 1) {
+    jInv = 1.0 / std::abs(transform->refToSpaceJacobian(xiEtaZeta).determinant());
+  }
 
   kernel::computeMInvJInvPhisAtSources krnl;
   krnl.basisFunctionsAtPoint = basisFunctionsAtPoint.data().data();
@@ -103,6 +151,10 @@ void computeMInvJInvPhisAtSources(
   krnl.mInvJInvPhisAtSources = mInvJInvPhisAtSources.data();
   krnl.JInv = jInv;
   krnl.execute();
+
+  if (curved) {
+    applyInverseJacobianWeight(*transform, mInvJInvPhisAtSources.data());
+  }
 }
 
 struct SourceFile {

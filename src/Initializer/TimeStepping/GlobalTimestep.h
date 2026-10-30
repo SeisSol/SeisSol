@@ -19,6 +19,9 @@ struct GlobalTimestep {
   // whether a cell is weight-adjusted (see WeightAdjustable), one byte per cell, so that the
   // partitioning can carry it along with the time step it went into
   std::vector<std::uint8_t> weightAdjusted;
+  // whether a cell is curved (see initializer::CurvedCell), the same way; a curved cell is
+  // weight-adjusted
+  std::vector<std::uint8_t> curved;
   double globalMinTimeStep{std::numeric_limits<double>::max()};
   double globalMaxTimeStep{std::numeric_limits<double>::min()};
 };

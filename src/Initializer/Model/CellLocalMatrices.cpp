@@ -212,8 +212,10 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
 
         if constexpr (FactoredStar) {
           if constexpr (Curvilinear) {
-            // a curved cell has its metric at every point the operator is formed at
+            // a curved cell has its metric at every point the operator is formed at, and its
+            // weight takes the Jacobian determinant there
             CurvedCell::setGradients(*curvedTransform, localIntegration[cell].referenceGradients);
+            CurvedCell::setWeightScale(*curvedTransform, localIntegration[cell].weightScale);
           } else {
             CurvedCell::setConstantGradients(grad, localIntegration[cell].referenceGradients);
           }
@@ -368,6 +370,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
               CurvedCell::setFace(*curvedTransform,
                                   *seissol::geometry::faceTransformOf(meshId, side, meshReader),
                                   side,
+                                  weightAdjusted,
                                   localIntegration[cell].faceRotation[side],
                                   nodeScale);
             } else {

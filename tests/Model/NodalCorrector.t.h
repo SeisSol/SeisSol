@@ -130,6 +130,10 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
   // from the material at the barycentre, and with a step width that nothing here reads
   seissol::model::initializeSpecificLocalData(
       field(cell.refToSpace(VectorT(Cell::ReferenceBarycenter.data()))), 1.0e-3, &local.specific);
+  // the 1 / |J| the weight of a weight-adjusted cell carries where a cell may be curved
+  if constexpr (Curvilinear) {
+    initializer::CurvedCell::setWeightScale(cell, local.weightScale);
+  }
 
   for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
     const seissol::geometry::AffineFaceTransform face(cell,
@@ -161,8 +165,10 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
       return seissol::model::getRotatedMaterialCoefficients(bond, material);
     };
 
-    // |S| / |J| with the sign of a subtracted flux, as the setup takes it
+    // |S| / |J| with the sign of a subtracted flux, as the setup takes it; a weight-adjusted cell
+    // of a build whose cells may be curved lifts with |S| alone, its weight carries the rest
     const double fluxScale = -2.0 * face.area() / std::abs(cell.determinant());
+    const double liftScale = Curvilinear && weightAdjusted ? -2.0 * face.area() : fluxScale;
 
     // a cell keeps the scalars of a face at its points only where the flux reads the material there
     if constexpr (NodalFlux) {
@@ -174,7 +180,7 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
                                                 material,
                                                 faceTypes[side],
                                                 initializer::parameters::NumericalFlux::Godunov,
-                                                fluxScale,
+                                                liftScale,
                                                 plus,
                                                 minus,
                                                 weightAdjusted);
@@ -204,7 +210,7 @@ void setupCell(const seissol::geometry::AffineTransform& cell,
       alignas(Alignment) std::array<real, tensor::QcorrLocal::size()> qcorrLocal{};
 
       kernel::computeFluxSolverLocal localSolver{};
-      localSolver.fluxScale = fluxScale;
+      localSolver.fluxScale = liftScale;
       localSolver.AplusT = local.nApNm1[side];
       localSolver.QgodLocal = godLocal.data();
       localSolver.QcorrLocal = qcorrLocal.data();
