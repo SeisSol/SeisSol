@@ -1174,6 +1174,30 @@ void TimeManager::followPlan() {
 
 json::Value TimeManager::printComputationTime() {
   actorStateStatisticsManager_.finish();
+
+  // on a device that times no work, the loops only have the times of their launches on the host,
+  // and without the loop statistics of the device none at all: neither says anything about the
+  // kernels, their balance, or their throughput (decided by all ranks, as the summaries are
+  // collective)
+  std::array<int, 2> timed{1, 1};
+#ifdef ACL_DEVICE
+  timed = {DeviceTimer::available() ? 1 : 0, DeviceTimer::enabled() ? 1 : 0};
+#endif
+  MPI_Allreduce(MPI_IN_PLACE, timed.data(), timed.size(), MPI_INT, MPI_MIN, Mpi::mpi.comm());
+  kernelTimesKnown_ = timed[0] != 0 && timed[1] != 0;
+  if (!kernelTimesKnown_) {
+    if (timed[0] == 0) {
+      logInfo() << "The time of the compute kernels is not known, as the device does not time"
+                << "them (own queues do with DEVICE_OWN_QUEUE_TIMING=1).";
+    } else {
+      logInfo() << "The time of the compute kernels is not known, as the loops on the device are"
+                << "not timed (SEISSOL_DEVICE_LOOP_STATISTICS=0).";
+    }
+    json::Value result;
+    result["activity"] = printActivity();
+    return result;
+  }
+
   auto result = loopStatistics_.printSummary(Mpi::mpi.comm());
 
   // the loops replayed from recordings of super-timesteps count in the FLOP of the loops, but their

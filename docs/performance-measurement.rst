@@ -23,6 +23,10 @@ In particular, it excludes the time spent with MPI communication.
 On GPUs, it is the time in which the GPU executes the loops of the clusters, timed by events on their streams
 (see ``SEISSOL_DEVICE_LOOP_STATISTICS`` in :ref:`gpu-env`). The loops of clusters that run concurrently overlap in it,
 as do those of a task graph on the CPU; the steps replayed from a recording of super-timesteps do not count.
+Where the device does not time its work (own queues without ``DEVICE_OWN_QUEUE_TIMING=1``, see
+:ref:`gpu-time-stepping`), or its loops are not timed (``SEISSOL_DEVICE_LOOP_STATISTICS=0``), the time of the kernels
+is not known: SeisSol says so instead of printing it, and the run summary leaves out the kernel times, the load
+imbalance and the compute time outside of the kernels.
 
 .. _run-summary:
 

@@ -116,6 +116,8 @@ class TimeManager {
   std::size_t replayedSuperSteps_{0};
   std::size_t launchedOnceSuperSteps_{0};
   std::size_t mispredictedSuperSteps_{0};
+  //! whether the loop statistics hold the times of the kernels (see kernelTimesKnown())
+  bool kernelTimesKnown_{true};
   //! the host time of the super-timesteps, by how they ran, and of ending their recordings (which
   //! instantiates the graphs), in seconds
   std::array<double, 4> superStepHostTimes_{};
@@ -294,6 +296,13 @@ class TimeManager {
 
   //! The time this rank spent in the compute kernels so far.
   [[nodiscard]] double kernelTime() const { return loopStatistics_.kernelTime(); }
+
+  /**
+   * Whether kernelTime() and the loop statistics hold the times of the kernels, as
+   * printComputationTime() found it on all ranks. On a device that times no work (own queues
+   * without DEVICE_OWN_QUEUE_TIMING=1), they only hold those of the launches on the host.
+   */
+  [[nodiscard]] bool kernelTimesKnown() const { return kernelTimesKnown_; }
 
   void freeDynamicResources();
 

@@ -320,11 +320,13 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   summary["simulation"]["aborted"] = aborted_;
 
   summary["kernels"] = seissolInstance.timeManager().printComputationTime();
-  const double kernelTime = seissolInstance.timeManager().kernelTime();
-  summary.setRankValue("kernels", kernelTime);
-  // what the compute time holds besides the kernels: waiting for the other clusters and ranks, the
-  // communication on the main thread, and the scheduling of the clusters
-  times["outsideKernels"] = summary.overRanks("outsideKernels", lastCompute - kernelTime);
+  if (seissolInstance.timeManager().kernelTimesKnown()) {
+    const double kernelTime = seissolInstance.timeManager().kernelTime();
+    summary.setRankValue("kernels", kernelTime);
+    // what the compute time holds besides the kernels: waiting for the other clusters and ranks,
+    // the communication on the main thread, and the scheduling of the clusters
+    times["outsideKernels"] = summary.overRanks("outsideKernels", lastCompute - kernelTime);
+  }
 
   seissolInstance.analysisWriter().printAnalysis(currentTime_);
 
