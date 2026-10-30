@@ -143,13 +143,16 @@ class SimulatedDevice {
 
 class EnqueueingCluster : public AbstractTimeCluster {
   public:
+  /// with `nodes`, the events are the nodes of a graph that is being built (as while recording)
   EnqueueingCluster(std::size_t index,
                     long timeStepRate,
                     DataReadiness readiness,
                     SimulatedDevice& device,
-                    std::uintptr_t& nextEvent)
+                    std::uintptr_t& nextEvent,
+                    bool nodes)
       : AbstractTimeCluster(static_cast<double>(timeStepRate), timeStepRate, Executor::Device),
-        index_(index), readiness_(readiness), device_(device), nextEvent_(nextEvent) {
+        index_(index), readiness_(readiness), device_(device), nextEvent_(nextEvent),
+        nodes_(nodes) {
     setConcurrent(true);
   }
 
@@ -182,13 +185,18 @@ class EnqueueingCluster : public AbstractTimeCluster {
     const auto event = nextEvent_++;
     device_.enqueue(index_, action_, waits_, event);
     waits_.clear();
+    if (nodes_) {
+      // a node, which has no device event (see parallel::runtime::Event)
+      return ActorEvent(&device_, event);
+    }
     // the simulated device names its events by numbers
     // NOLINTNEXTLINE(performance-no-int-to-ptr)
     return ActorEvent(reinterpret_cast<void*>(event));
   }
 
   void waitForEvent(const ActorEvent& event) override {
-    waits_.push_back(reinterpret_cast<std::uintptr_t>(event.get()));
+    waits_.push_back(event.graph() != nullptr ? event.node()
+                                              : reinterpret_cast<std::uintptr_t>(event.get()));
   }
 
   private:
@@ -198,6 +206,7 @@ class EnqueueingCluster : public AbstractTimeCluster {
   std::uintptr_t& nextEvent_;
   ActorAction action_{ActorAction::Nothing};
   std::vector<std::uintptr_t> waits_;
+  bool nodes_{false};
 };
 
 /**
@@ -207,11 +216,14 @@ struct ConcurrentLayout {
   SimulatedDevice device;
   std::uintptr_t nextEvent{1};
   std::vector<std::unique_ptr<EnqueueingCluster>> clusters;
+  bool nodes{false};
 
   ConcurrentLayout(std::size_t clusterCount,
                    long ratio,
                    std::mt19937& random,
-                   bool accessEvents = false) {
+                   bool accessEvents = false,
+                   bool nodes = false)
+      : nodes(nodes) {
     std::bernoulli_distribution withFaces(0.6);
     std::vector<std::size_t> cells;
     std::vector<long> cellCluster;
@@ -247,7 +259,7 @@ struct ConcurrentLayout {
   std::size_t add(long rate, DataReadiness readiness, ActorPriority priority) {
     const auto index = clusters.size();
     clusters.push_back(
-        std::make_unique<EnqueueingCluster>(index, rate, readiness, device, nextEvent));
+        std::make_unique<EnqueueingCluster>(index, rate, readiness, device, nextEvent, nodes));
     clusters.back()->setPriority(priority);
     device.clusters.push_back({rate, 0, readiness, {}});
     return index;
@@ -401,15 +413,17 @@ TEST_CASE("Concurrent clusters wait for their neighbors on the device" *
   // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
   std::mt19937 random(2468);
   // waiting for the latest action of each neighbor, or only for its latest writes before reading
-  // and for its latest reads before writing
-  for (const auto accessEvents : {false, true}) {
+  // and for its latest reads before writing; with events of the device, or with the nodes of a
+  // graph that is being built (as while recording super-timesteps)
+  for (const auto [accessEvents, nodes] :
+       {std::pair{false, false}, std::pair{true, false}, std::pair{true, true}}) {
     for (const auto alongPlan : {true, false}) {
       std::size_t violations = 0;
       for (int trial = 0; trial < 200; ++trial) {
         std::uniform_int_distribution<std::size_t> clusterCount(1, 4);
         std::uniform_int_distribution<long> ratio(2, 3);
         std::uniform_int_distribution<long> interval(1, 30);
-        ConcurrentLayout layout(clusterCount(random), ratio(random), random, accessEvents);
+        ConcurrentLayout layout(clusterCount(random), ratio(random), random, accessEvents, nodes);
         std::vector<long> syncTimes;
         long time = 0;
         for (int i = 0; i < 3; ++i) {
@@ -417,6 +431,7 @@ TEST_CASE("Concurrent clusters wait for their neighbors on the device" *
           syncTimes.push_back(time);
         }
         CAPTURE(accessEvents);
+        CAPTURE(nodes);
         CAPTURE(alongPlan);
         CAPTURE(trial);
         const auto trialViolations = runConcurrently(layout, syncTimes, alongPlan, random);

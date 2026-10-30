@@ -212,7 +212,8 @@ void AbstractTimeCluster::waitForNeighbors(DataAccess access) {
     if (written) {
       waitForEvent(written);
     }
-    if (read && read.get() != written.get()) {
+    // (the events of a recording are nodes, which have no device event to compare)
+    if (read && read != written) {
       waitForEvent(read);
     }
   }
