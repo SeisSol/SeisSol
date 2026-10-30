@@ -115,10 +115,10 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - Experimental. For ``actor-mpi``: MPI sends and receives the regions in GPU memory, instead of host buffers;
        only for MPI libraries whose GPU path does not need the GPU runtime (e.g. HPE Cray MPICH; Open MPI with CUDA hangs).
    * - ``SEISSOL_OWN_QUEUES``
-     - Experimental, HIP only, not with ``ccl``, ``stream-mpi`` and ``shmem``. The clusters run their GPU work on
+     - Experimental, HIP only, not with ``stream-mpi``. The clusters run their GPU work on
        this many hardware queues of their own (0 by default: none), outside of HIP; all other stream runtimes share one
        more, and the halo exchange of ``actor-mpi`` gets one of its own (with ``actor-mpi``, an odd number gets rounded
-       up; see below).
+       up; ``ccl`` and ``shmem`` keep streams of HIP; see below).
    * - ``SEISSOL_OWN_QUEUES_FACES``
      - Experimental. With ``SEISSOL_OWN_QUEUES``: the face work (dynamic rupture) of the layers on this many own queues
        of its own, next to the work of the cells, instead of on the queues of their cells (0 by default; see below).
@@ -294,6 +294,17 @@ command processor waits for in the same way. A launch then takes 0.7 µs on the 
 by a kernel for each event with timing), and host functions run on a thread of the library while their queue waits.
 The host never waits to enqueue: packets that find their queue full wait in host memory, until the thread of the
 library writes them; with ``actor-mpi``, the queues wait for work that the host enqueues only later.
+
+``ccl`` and ``shmem`` hand their streams to libraries (RCCL, and the kernels of ROCSHMEM), which need streams of HIP:
+their exchange runs on such streams, which wait for the own queues on the device and they for them. A stream of HIP
+waits for a mark by a kernel of the Device library that polls the signal of the marks (CLR cannot wait for a signal of
+another runtime); after each event recorded on a stream of HIP, a kernel of the library sets a counter of that stream,
+which the own queues wait for by a packet, as for the counters of ``actor-mpi``
+(``DEVICE_OWN_QUEUE_HIP_WAITS=host`` waits on the host instead). On one node with four MI300A (TheRock 23.2.1,
+October 2026), TPV13 and TPV5 took 3.3 and 2.1 s with eight own queues and ``ccl`` (HIP with two hardware queues:
+3.5 and 2.6 s); with the waits on the host, TPV5 took 1.9 s: all exchanges go through one stream in the global order
+there, which the kernels of the waits lengthen, and the host has time to spare. ``host`` was the fastest there (3.0
+and 1.8 s), as the GPU-aware MPI could not use IPC with TheRock.
 
 The fences decide the speed. An acquire of the system in a packet (as HIP has it for its waits) drops the whole L2
 cache of the GCD: on the MI250X, a kernel that read 4 MiB again and again took 3.3 times as long next to a queue of such

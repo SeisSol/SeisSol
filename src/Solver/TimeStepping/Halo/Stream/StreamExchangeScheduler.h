@@ -46,11 +46,14 @@ namespace seissol::solver {
  */
 class StreamExchangeScheduler : public ExchangeScheduler {
   public:
-  /// with `lanes` lanes in the global order (see above), one by default
+  /// with `lanes` lanes in the global order (see above), one by default; `libraryStreams`: the
+  /// library needs streams of the device (CCL, stream-aware MPI, SHMEM), which then stay streams of
+  /// HIP with own queues as well (see parallel::runtime::NoOwnQueue)
   StreamExchangeScheduler(std::size_t clusterCount,
                           LaunchOrder order,
                           std::size_t configCount,
-                          std::size_t lanes = 1);
+                          std::size_t lanes = 1,
+                          bool libraryStreams = true);
   ~StreamExchangeScheduler() override;
 
   StreamExchangeScheduler(const StreamExchangeScheduler&) = delete;

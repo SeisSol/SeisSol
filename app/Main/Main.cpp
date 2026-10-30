@@ -204,15 +204,13 @@ int main(int argc, char* argv[]) {
       // a kernel on its first launch, as it may wait for the device meanwhile (unless set already)
       setenv("CUDA_MODULE_LOADING", "EAGER", 0);
     }
-    // queues of their own for the stream runtimes; not for the transfer modes that hand their
-    // streams to libraries
+    // queues of their own for the stream runtimes; not with stream-mpi, which is untried with them
+    // (CCL and SHMEM get streams of HIP, which wait for the own streams on the device, see
+    // StreamExchangeScheduler)
     utils::Env deviceEnv("SEISSOL_");
     const auto requestedMode = seissol::Mpi::requestedDataTransferMode();
-    const bool streamLibraries =
-        requestedMode.has_value() &&
-        (requestedMode == seissol::Mpi::DataTransferMode::DirectCcl ||
-         requestedMode == seissol::Mpi::DataTransferMode::DirectStreamMpi ||
-         requestedMode == seissol::Mpi::DataTransferMode::DirectShmem);
+    const bool streamLibraries = requestedMode.has_value() &&
+                                 requestedMode == seissol::Mpi::DataTransferMode::DirectStreamMpi;
     auto ownQueues = streamLibraries ? 0 : seissol::ownQueueCount(deviceEnv);
     if (ownQueues > 0 && requestedMode == seissol::Mpi::DataTransferMode::ActorMpi &&
         ownQueues % 2 != 0) {
@@ -278,8 +276,7 @@ int main(int argc, char* argv[]) {
       }
     } else if (seissol::ownQueueCount(env) > 0) {
       logWarning() << "Queues of their own (SEISSOL_OWN_QUEUES) are not available: they need HIP,"
-                   << "and a transfer mode that does not hand streams to libraries (direct, host"
-                   << "or actor-mpi).";
+                   << "and a transfer mode other than stream-mpi.";
     }
 #endif
 

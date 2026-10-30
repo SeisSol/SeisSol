@@ -169,7 +169,8 @@ ActorMpiExchangeScheduler::ActorMpiExchangeScheduler(std::size_t clusterCount,
                                                      std::size_t configCount,
                                                      std::size_t lanes,
                                                      bool persistent)
-    : StreamExchangeScheduler(clusterCount, order, configCount, lanes), persistent_(persistent) {
+    : StreamExchangeScheduler(clusterCount, order, configCount, lanes, false),
+      persistent_(persistent) {
   utils::Env env("SEISSOL_");
   const auto wait = env.get<std::string>("ACTOR_MPI_WAIT", "stream");
   if (wait != "stream" && wait != "kernel") {
@@ -513,7 +514,7 @@ ActorMpiExchangeScheduler::ActorMpiExchangeScheduler(std::size_t clusterCount,
                                                      std::size_t configCount,
                                                      std::size_t lanes,
                                                      bool /*persistent*/)
-    : StreamExchangeScheduler(clusterCount, order, configCount, lanes) {
+    : StreamExchangeScheduler(clusterCount, order, configCount, lanes, false) {
   logError() << "The actor-mpi transfer mode needs a device.";
 }
 
