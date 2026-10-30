@@ -21,13 +21,13 @@ Building and feeding it
 
 ``CURVILINEAR=ON`` needs ``MATERIAL_NODAL=ON`` and
 ``MATERIAL_OPERATOR=assembled``, runs on the CPU, and takes the media whose flux
-decomposes into scalars per face point: elastic, acoustic and the attenuating
-variants of both, not the anisotropic or the poroelastic one. cmake and the code
-generator refuse the rest. A material that does not vary is carried as samples
-that agree.
+decomposes into scalars per face point and that have no source term: elastic
+and acoustic, not the attenuating, the anisotropic or the poroelastic ones.
+cmake and the code generator refuse the rest. A material that does not vary is
+carried as samples that agree.
 
 Which cells are curved, the mesh decides. PUMGen writes a mesh of gmsh whose
-cells are of a higher order (from its branch ``davschneller/more-modernize`` on)
+cells are of a higher order (from its master at ``662398c`` on, msh 2 and 4)
 as it writes any other mesh -- the vertices in ``/geometry``, the cells by their
 vertices in ``/connect`` -- and adds the other nodes of every cell:
 ``/geometry_ho``, in the order gmsh numbers them (its attribute
@@ -45,7 +45,18 @@ cell on the equispaced lattice of the geometry order
 (``IsoparametricTransform::latticeNodes``; order two adds the six edge midpoints
 to the vertices), the vertices first. The call checks that the vertices are the
 cell's and that the cell is not turned inside out anywhere on a lattice of twice
-its order.
+its order. The nodes of a cell next to another rank go there with the metadata
+of its ghost cell (``MeshReader::ghostCellNodes``), so that the material a face
+between two ranks reads on its far side is asked for on the face where it is.
+
+Whether a cell is curved is decided with its time step (``isCurved``: its
+Jacobian differs from the one of the straight-sided cell through its vertices
+somewhere on a lattice in it), and carried through the partitioning with it. A
+curved cell is weight-adjusted and forms its volume term itself (see below),
+which the load balance counts: a weight-adjusted cell weighs as much more than an
+element as the weight adds to the operations of a cell, and a curved one as much
+more again as its volume term and the traction of its faces add (at order 4,
+elastic, 12 and 32 against the 100 of an element).
 
 A build without ``CURVILINEAR`` takes such a file only where all cells are
 straight-sided -- their nodes within :math:`10^{-8}` of their longest edge of
@@ -58,7 +69,10 @@ it computes: a plane wave through a cube gives the same error norms to
 
 At order 4 a cell carries 1.7 kB of metric at the 24 points the operator is formed at and 17.3 kB
 of face rotations at the 12 points of each face, against 72 B and 1.4 kB for a
-straight-sided cell.
+straight-sided cell, and for the corrector of a curved cell 1.9 kB more (elastic):
+:math:`1/\det J` and :math:`\det J` times the coefficients of the operator without
+material at the 24 points, and the two scalars of its own traction at the points
+of its faces.
 
 The scheme on a curved cell
 ---------------------------
@@ -119,7 +133,10 @@ varying medium drifted by 2 to 18 percent within 0.1 s with the weak form, and
 by about as much on a mesh twice as fine; with the strong form it stays
 constant to :math:`10^{-14}`. The corrector of every face takes off the
 normal flux of the cell's own trace (``toCorrectorForm``), a fault face
-included, where it is that subtraction alone.
+included, where it is that subtraction alone. The weak form a curved cell takes
+for its momentum rows (below) is consistent: it takes the operator without
+material, which is one operator inside the cell and on its faces, and the
+material comes in through the weight.
 
 **The predictor keeps the degrees a constant operator gives.** A constant
 operator drops a degree with every time derivative, so for a scheme of order
@@ -157,22 +174,62 @@ the CPU: the device runs the predictor and the corrector of a batch as two
 kernels without a buffer per cell between them, and its corrector forms the
 volume term itself.
 
-**The mass matrix stays the one of the reference cell.** The scheme tests with
-the basis functions divided by :math:`\det J`. A point source then is
-:math:`\varphi(\xi_s) / \det J(\xi_s)`, the initial state is the projection of
-its values at the quadrature points, and the face terms take on
-:math:`|n| / \det J` at every face point, :math:`|n|` the surface Jacobian -- for
-a straight-sided cell that is the flux scale :math:`2|S| / |J|` it always had.
-Nothing that has the inverse mass matrix folded in -- ``kDivMT``,
-``projectFaceQuadTo3m``, ``project2nFaceTo3m``, ``M3inv``,
-``V3mTo2nTWDivM`` -- changes, and no
-cell carries a dense mass matrix. The price is exact conservation, which the
-scheme for a material that varies inside a cell does not have either, and
-stability is not proven the way it is for the Galerkin scheme with
-:math:`M_J`. Measured instead: the spectrum of the semi-discrete operator of 1D
-acoustics on curved cells, with a varying material and the Godunov flux, has no
-eigenvalue with a positive real part beyond round-off at orders 4 and 6, and in
-3D a constant state stays constant on curved meshes.
+**A curved cell is weight-adjusted with the weight J W.** A straight-sided cell
+tests with the basis functions and keeps the mass matrix of the reference cell,
+its Jacobian determinant a constant. A curved cell tests with the basis
+functions as well and weighs with :math:`\det J` times the weight :math:`W` of
+its medium (see :doc:`weight-adjusted-cells`): it applies the inverse of its
+mass matrix :math:`M_{JW}` as :math:`M^{-1} M_{1/(JW)} M^{-1}`, what its faces
+lift into its buffer read at the points the operator is formed at, times
+:math:`W^{-1}/\det J` there (``weightScale``), and projected back. Its faces
+lift their flux without material and with the surface Jacobian :math:`|n|`
+alone at every point, and so does its side of a fault; a weight-adjusted cell
+that is straight-sided takes its scales the same way, with a constant
+:math:`\det J`. A point source in a curved cell is
+:math:`M^{-1} M_{1/J} M^{-1} \varphi(\xi_s)`, the initial state the projection
+of its values at the quadrature points. Nothing that has the inverse mass
+matrix folded in -- ``kDivMT``, ``projectFaceQuadTo3m``, ``project2nFaceTo3m``,
+``M3inv``, ``V3mTo2nTWDivM`` -- changes, and no cell carries a dense mass
+matrix.
+
+Testing a curved cell with the basis functions divided by :math:`\det J`
+instead, with the mass matrix of the reference cell, would need no weight. But
+its energy balance has the remainder
+:math:`\tfrac12 \int q \cdot B_k q\, \partial_k (1/\det J)\,dx`, which is no
+boundary term and has no sign, and it grows with every face rule: on the curved
+box of the measurements below (acoustic, order 4, a velocity without
+divergence), the energy of that form rises by 35 percent from its minimum to
+:math:`t = 1000`, at a rate of 1.8e-3.
+
+**The volume term of a curved cell is split.** With the weight :math:`J W`, the
+strong form has its energy balance only where the rules integrate the divergence
+theorem of the cell exactly: what is left is
+:math:`D = Q_V[\nabla \cdot F] - Q_F[F \cdot N]`,
+:math:`F = \varphi\, \mathrm{cof}(J)\, \sigma`, the error of the volume rule on
+the divergence and of the face rule on the flux, which vanishes on a
+straight-sided cell and grows with the curvature. Measured in a prototype that
+gives SeisSol's energies to round-off, the strong form held at orders 3, 4 and 6
+with SeisSol's rules, but grew at order 5 (at a rate of 3.4e-4 on the box at the
+curvature of 0.03; in SeisSol as well, see **The split on curved cells** below)
+and at order 4 with another face rule of the same degree. So a
+curved cell takes the rows of the momentum in the weak form -- the stress
+against the gradient of the test functions, the traction on its faces -- and the
+others in the strong form. In the energy, the shear components counted twice as
+the strain energy counts them, the two volume terms cancel at every point of the
+volume rule, whatever the rule, and the faces leave the dissipation of the
+upwind flux: the semi-discrete scheme is stable in the energy of
+:math:`M^{-1} M_{1/(JW)} M^{-1}`.
+
+A curved cell forms that volume term itself, from its time integral read at the
+points the operator is formed at, with :math:`\det J` times the coefficients of
+the operator without material there, into its buffer (``splitVolume``), and
+leaves out the one the predictor forms. The corrector of every face subtracts the
+normal flux of the cell's own trace, as for every cell; the weak form of the
+momentum rows wants the flux alone, so a curved cell adds that normal flux back
+in those rows, at the points of each face and with the scale the corrector has
+there (``ownTraction``). On a fault face the fault does that, see below. A
+constant state gives nothing, and on a straight-sided cell the split form is the
+strong form. The predictor of a curved cell keeps the strong form.
 
 **A curved face has its rotation and its scale per point.** Its flux is
 integrated with the symmetric rule of degree :math:`2(N-1)` on the face; its
@@ -211,7 +268,10 @@ locked fault drifted by :math:`2.4 \cdot 10^{-5}` within 0.2 s. So in a
 ``CURVILINEAR`` build the fault lifts the imposed state less the side's own
 trace, both integrated in time with the same weights, and the corrector leaves
 fault faces alone (``FaultSubtractsOwnTrace``); the constant state then stays
-constant to :math:`10^{-14}`, as across a plane fault.
+constant to :math:`10^{-14}`, as across a plane fault. Of the own trace of a
+curved side the fault subtracts the velocity alone, which the rows of the stress
+read: the rows of the momentum, in the weak form, take the flux of the imposed
+state alone (``DRFaceInformation::plusSideCurved``).
 
 Where it has to be per point
 ----------------------------
@@ -241,12 +301,18 @@ Where it has to be per point
       reads the derivative of every direction at the points, since its metric
       differs from point to point.
   * - Mass matrix
-    - no
-    - The reference mass matrix stays, see above. The Galerkin mass matrix
-      :math:`M_J` would be dense per cell and folded into six matrix families.
+    - the weight, per operator point
+    - The reference mass matrix stays, and a curved cell weighs with
+      :math:`\det J` at the points the operator is formed at, see above. The
+      Galerkin mass matrix :math:`M_J` would be dense per cell and folded into
+      six matrix families.
+  * - Volume term of a curved cell
+    - yes, per operator point
+    - :math:`\det J` times the operator without material, in the split form.
   * - Point sources
-    - one point
-    - :math:`1 / \det J` at the source.
+    - through the weight
+    - :math:`M^{-1} M_{1/J} M^{-1} \varphi(\xi_s)` in a curved cell, formed
+      once.
   * - Energies, error norms
     - per quadrature point
     - :math:`\det J` weighs every point.
@@ -279,9 +345,10 @@ What is not done
 - The fault output on a curved face: its points are on the face and take the
   frame of the quadrature point they read the fault at, but the triangles the
   elementwise output writes at order zero are plane between their corners.
-- Ghost cells on other ranks are sampled straight-sided: their metadata carries
-  their vertices only, so the material a face reads from a neighbour on
-  another rank is asked for at points placed by the straight-sided map.
+- Media with a source term on curved cells -- the attenuating and the
+  poroelastic ones: the source term would have to go through the weight as
+  well, and the volume term of their memory variables or their fluid be split.
+  cmake refuses them.
 - The device path. A curved face's rotation per point has not been generated or
   checked with tensorforge.
 - ``MATERIAL_OPERATOR=factored``, which would fold the metric at every
@@ -296,20 +363,34 @@ Unit checks, in either build where they apply: a straight-sided cell evaluated
 at every point carries what it carries as one cell; the isoparametric map passes
 through its nodes, its Jacobian is its derivative, its cofactor matrix is free
 of divergence and gives the face normal (Nanson); on a curved cell the face
-scale and frame per point agree with differencing the map; the volume term
-differentiates a linear field exactly on a curved cell -- with the metric of one
-point for the whole cell, a mode that has to vanish comes out at a sizeable
-fraction of the derivative -- and a constant state stays constant; the strong
-form with its face terms is the weak form for one material per cell, a fault
-face included; the time derivatives of the predictor are the ones of the
-matrices for one material per cell, and where the material varies from point to
-point they are the chain formed at the points by hand, each derivative cut to
-the modes it keeps. On a fault: the lift of every point is the flux of the normal
-there, with the rotation and the scale of the point; the frame of a plane face
-is the one of the fault at every point, and the one of a curved face is the
-normal there with the tangent of the fault turned into it; the fault subtracts
-the trace of a side integrated in time; and the output finds the point of a
-curved face nearest to a point it is given.
+scale and frame per point agree with differencing the map, the scale of a
+weight-adjusted cell being the surface Jacobian alone, and its weight carries
+:math:`1/\det J`; the volume term of the predictor differentiates a linear
+field exactly on a curved cell -- with the metric of one point for the whole
+cell, a mode that has to vanish comes out at a sizeable fraction of the
+derivative; on a straight-sided cell the split volume term and the own traction
+of the faces, through the weight, are the volume term of the predictor, with a
+material that varies inside the cell; on a curved cell the split volume term
+does no work in the energy, and a constant state stays constant where the
+material varies; the strong form with its face terms is the weak form for one
+material per cell, a fault face included; the time derivatives of the predictor
+are the ones of the matrices for one material per cell, and where the material
+varies from point to point they are the chain formed at the points by hand, each
+derivative cut to the modes it keeps. On a fault: the lift of every point is the
+flux of the normal there, with the rotation and the scale of the point; the frame
+of a plane face is the one of the fault at every point, and the one of a curved
+face is the normal there with the tangent of the fault turned into it; the fault
+subtracts the trace of a side integrated in time, of a curved side the velocity
+alone; and the output finds the point of a curved face nearest to a point it is
+given. In the code generator, the two parts of the split make the operator
+without material, and the own traction is its normal direction in the momentum
+columns.
+
+The runs of the cubes and of the curved fault below were made with the curved
+cells tested with the basis divided by :math:`\det J` and in the strong form
+throughout; the ball and **The split on curved cells** at the end with the weight
+and the split. A plane wave through curved cubes has the same errors with both
+to 0.3 percent (see there).
 
 End to end, with a hook that is not part of the series: a cube of
 :math:`n^3` hexahedra cut into six tetrahedra each, its vertices moved by the
@@ -360,10 +441,11 @@ for both they agree to 1e-15.
 **A curved boundary.** The unit ball meshed by gmsh at order two and converted by
 PUMGen, its surface a free surface, oscillating in its fundamental torsional mode
 :math:`{}_0T_2` (:math:`\mu = \rho = 1`, the frequency the root
-:math:`x \approx 2.5011` of :math:`j_2(x) = x\, j_3(x)`) for two periods; five
-receivers against the mode, as the relative L2 difference of their time series
-(largest over the receivers), with the cells of order one -- the same vertices,
-plane faces between them -- and of order two:
+:math:`x \approx 2.5011` of :math:`j_2(x) = x\, j_3(x)`) for two periods, the mode
+handed to easi as a Lua function; five receivers against the mode, as the
+relative L2 difference of their time series (largest over the receivers), with
+the cells of order one -- the same vertices, plane faces between them -- and of
+order two (216, 387 and 867 of them curved):
 
 .. list-table::
   :header-rows: 1
@@ -375,21 +457,23 @@ plane faces between them -- and of order two:
     - order two
   * - 0.5
     - 256
-    - 1.9e-1
-    - 3.1e-3
+    - 1.8e-1
+    - 2.7e-3
   * - 0.35
     - 503
     - 1.2e-1
-    - 1.3e-3
+    - 1.2e-3
   * - 0.25
     - 1435
     - 5.1e-2
-    - 2.7e-4
+    - 1.9e-4
 
 With plane faces the ball is the polyhedron inside the sphere, which is too
-small, and the difference falls with the square of the mesh size (1.9 from the
+small, and the difference falls with the square of the mesh size (1.8 from the
 coarsest mesh to the finest); with the cells of order two it falls faster than
-with its cube (3.5).
+with its cube (3.8). Over the two periods the energy falls by 1.4e-4, 4.0e-5
+and 5.7e-6 of itself with the cells of order two, and by 1.8e-2, 1.2e-2 and
+5.0e-3 with plane faces.
 
 **A curved fault.** The cubes again, in the layout PUMGen writes, with the faces
 of a coordinate plane through the middle of the unmoved cube a fault, which the
@@ -449,6 +533,49 @@ takes the slip rate of the quadrature point nearest to it. Where the slip is
 done within the run, the potency of the fault is the integral of the slip over
 the bent plane to :math:`2.6 \cdot 10^{-6}`, on every mesh alike -- what is
 left is the time integration of the slip rate.
+
+**The split on curved cells.** The curved box -- the periodic box of
+:math:`3 \times 4 \times 4` cubes of edge 1/3 cut into six tetrahedra each (288
+cells), its vertices shifted at random and its cells curved by a smooth periodic
+map, :math:`\det J` varying inside a cell by up to a factor of 2 at the
+curvature 0.03 and of 12 at 0.08 -- starts from a rough state the equations
+keep: a velocity without divergence (acoustic), a stress without divergence and
+no velocity (elastic). What the projection adds to it runs off and is damped by
+the flux, so the energy falls; with the weight and the split it falls at every
+output. At order 4: acoustic to
+:math:`t = 1000` at 0.03 (from 0.1250 to 0.0831) and to :math:`t = 300` at 0.08
+(to 0.0812), elastic to :math:`t = 400` at 0.03 (from 0.401 to 0.188) and to
+:math:`t = 100` at 0.08 (from 0.385 to 0.157). Tested with the basis divided
+by :math:`\det J`, the acoustic box at 0.03 falls to 0.0888 by :math:`t = 104`
+and rises from there, by 35 percent to :math:`t = 1000`. At order 5, at 0.08,
+the energy falls at every output to :math:`t = 114` with the split (from 0.1421
+to 0.1079); with the weight and the strong form alone, with which the prototype
+grows, it falls to 0.1127 by :math:`t = 9` and rises from there, by 6.8 percent
+to :math:`t = 100` and 9.0 percent to :math:`t = 130`.
+
+The plane wave through the periodic cube :math:`[0, 2]^3` of :math:`n^3`
+hexahedra cut into six tetrahedra each, its vertices moved by the map above and
+its cells curved (elastic, order 4, to :math:`t = 0.2`), has the same L2 errors
+with the weight and the split as tested with the basis divided by
+:math:`\det J`, to 0.3 percent, at every :math:`n` from 4 to 12 and for every
+quantity, and converges at the same rate
+(the first stress 3.06e-2, 7.02e-3, 2.28e-3 and 4.69e-4 for
+:math:`n = 4, 6, 8, 12`); on the same cubes with straight edges, where no cell is
+curved, the errors are the same to the last digit printed. Per cell and step,
+the curved cube of :math:`8^3` takes 1.43 times the operations of the one with
+straight edges, as the weights of the load balance have it (144 against 100).
+
+A constant state across the locked fault of the cube of :math:`4^3`, bent by the
+map with :math:`\varepsilon = 0.1` (every cell curved, 32 fault faces), stays
+constant to :math:`3 \cdot 10^{-16}` in its energies within 0.2 s, on one rank and
+on two, as across the same fault left plane (:math:`1.5 \cdot 10^{-16}`). On the
+curved box above with a material that varies by a factor of three across it,
+the energies of a run on two ranks are the ones on one rank to
+:math:`1.1 \cdot 10^{-15}` over two time units (with the ghost cells sampled
+through their straight-sided map, to :math:`2.9 \cdot 10^{-5}`). The first slab of
+:doc:`weight-adjusted-cells`, on the cube of :math:`6^3` whose cells are all
+curved, 406 of them cut by the slab, keeps its kinetic energy between 0.40 and
+1.05 to :math:`t = 1`.
 
 What ``davschneller/config`` holds
 -----------------------------------

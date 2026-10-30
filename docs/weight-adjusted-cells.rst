@@ -163,9 +163,10 @@ A weight-adjusted cell
   in as they are;
 * keeps its volume term as it is. On a straight-sided cell the volume term
   without material is a polynomial of the cell's degree, so applying the weight
-  to it at the points is what the cell does already. On a curved cell it is not;
-  in the prototype the two then grow alike, by what a curved cell grows with one
-  material as well.
+  to it at the points is what the cell does already. A curved cell is
+  weight-adjusted whatever its material does, weighs with its Jacobian
+  determinant as well, and forms its volume term through the weight, in a split
+  form (see :doc:`curvilinear-elements`).
 
 A cell that is not weight-adjusted writes its fluxes into its field as before and
 leaves the buffer alone; both kinds share their clusters. The Rusanov penalty
@@ -440,10 +441,11 @@ its material from the first cell of each rank -- gives the same kinetic energy o
 one rank and on two to 9e-16.
 
 On curved cells -- the same cube, its cells of order two, ``CURVILINEAR`` with
-the assembled operator -- the first slab grows from 1.05 to 4.4e59 by
-:math:`t = 1` with the plain lift and stays between 0.40 and 1.05 with 406 cells
-weight-adjusted; with every cell weight-adjusted on a constant material, the
-errors against the planar wave are the plain run's to 4e-15.
+the assembled operator -- every cell, being curved, is weight-adjusted with its
+Jacobian determinant and forms its volume term in the split form (see
+:doc:`curvilinear-elements`), and the 406 cells the slab cuts take the time
+step of their impedances as well: the first slab stays between 0.40 and 1.05 to
+:math:`t = 1` and ends at 0.50.
 
 A viscoelastic medium with three mechanisms, :math:`Q_P = 40` and :math:`Q_S = 20`
 everywhere at a central frequency of 1 and a ratio of 100, with the solver that
@@ -585,7 +587,7 @@ for CUDA, for the elastic, the acoustic and the viscoelastic media with both
 solvers, and the weight kernels compile to machine code for ``sm_80``.
 
 End to end: the runs above -- a weight-adjusted run on a constant material
-against the plain one, on straight and on curved cells, elastic, acoustic,
-viscoelastic, viscoacoustic and poroelastic; the slabs against the plain lift and
-against longer time steps, at orders 3 to 6; a smooth material against cells
-half as large; one rank against two.
+against the plain one, elastic, acoustic, viscoelastic, viscoacoustic and
+poroelastic; the slabs against the plain lift and against longer time steps, at
+orders 3 to 6, and the first one on curved cells; a smooth material against
+cells half as large; one rank against two.
