@@ -21,10 +21,16 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
+#include "Initializer/Typedefs.h"
+#include "Kernels/Solver.h"
+#include "Monitoring/Metric.h"
 #include "SeisSol.h"
 
 #include <PUML/Downward.h>
 #include <algorithm>
+#include <array>
+#include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -35,12 +41,43 @@
 
 namespace seissol::initializer {
 
+namespace {
+/// What a weight-adjusted and a curved cell add to the work of a cell whose faces are all regular,
+/// in proportion to it, as the time clusters count the work (TimeCluster::computeFlops).
+auto extraWorkOfCells() -> std::pair<double, double> {
+  const kernels::Spacetime spacetime{};
+  const kernels::Local local{};
+  const kernels::Neighbor neighbor{};
+  std::array<FaceType, Cell::NumFaces> faceTypes{};
+  faceTypes.fill(FaceType::Regular);
+  const std::array<CellDRMapping, Cell::NumFaces> drMapping{};
+  const auto regular =
+      spacetime.metrics() + local.metrics(faceTypes) + neighbor.metrics(faceTypes, drMapping).first;
+  const auto share = [&](const PerformanceEstimate& extra) {
+    return regular.hardwareFlop == 0 ? 0.0
+                                     : static_cast<double>(extra.hardwareFlop) /
+                                           static_cast<double>(regular.hardwareFlop);
+  };
+  return {share(neighbor.weightAdjustMetrics()), share(local.curvedMetrics(faceTypes))};
+}
+} // namespace
+
 Clustering::Clustering(const ClusteringConfig& config, seissol::SeisSol& seissolInstance)
     : seissolInstance_(seissolInstance), rate_(config.rate),
       vertexWeightElement_(config.vertexWeightElement),
       vertexWeightDynamicRupture_(config.vertexWeightDynamicRupture),
       vertexWeightFreeSurfaceWithGravity_(config.vertexWeightFreeSurfaceWithGravity),
-      boundaryFormat_(config.boundaryFormat), faceMap_(config.faceMap) {}
+      boundaryFormat_(config.boundaryFormat), faceMap_(config.faceMap) {
+  const auto [weightAdjusted, curved] = extraWorkOfCells();
+  const auto element = static_cast<double>(vertexWeightElement_);
+  vertexWeightWeightAdjusted_ = static_cast<std::uint64_t>(std::llround(element * weightAdjusted));
+  vertexWeightCurved_ = static_cast<std::uint64_t>(std::llround(element * curved));
+  if (vertexWeightWeightAdjusted_ > 0 || vertexWeightCurved_ > 0) {
+    logInfo() << "A weight-adjusted cell weighs" << vertexWeightWeightAdjusted_ << "more than the"
+              << vertexWeightElement_ << "of an element, and a curved one" << vertexWeightCurved_
+              << "more on top.";
+  }
+}
 
 const ClusteringResult&
     Clustering::compute(const seissol::geometry::PumlMesh& meshTopology,
@@ -61,7 +98,7 @@ const ClusteringResult&
 
   auto details = computeTimesteps(CellToVertexArray::fromPUML(meshGeometry, vertexOrders),
                                   seissolInstance_.parameters());
-  auto cellCosts = computeCostsPerTimestep(meshTopology);
+  auto cellCosts = computeCostsPerTimestep(meshTopology, details);
 
   const auto& ltsParameters = seissolInstance_.parameters().timeStepping.lts;
   // getMaxNumberOfClusters() is validated to be positive, so the decrement cannot wrap
@@ -159,8 +196,11 @@ const ClusteringResult&
 }
 
 std::vector<std::uint64_t>
-    Clustering::computeCostsPerTimestep(const seissol::geometry::PumlMesh& mesh) const {
+    Clustering::computeCostsPerTimestep(const seissol::geometry::PumlMesh& mesh,
+                                        const GlobalTimestep& timesteps) const {
   const auto& cells = mesh.cells();
+  assert(timesteps.weightAdjusted.size() == cells.size());
+  assert(timesteps.curved.size() == cells.size());
 
   std::vector<std::uint64_t> cellCosts(cells.size());
   const void* boundaryCond = seissol::geometry::boundaryTagsOf(mesh, boundaryFormat_);
@@ -179,7 +219,11 @@ std::vector<std::uint64_t>
 
     const auto costDynamicRupture = vertexWeightDynamicRupture_ * dynamicRupture;
     const auto costDisplacement = vertexWeightFreeSurfaceWithGravity_ * freeSurfaceWithGravity;
-    cellCosts[cell] = vertexWeightElement_ + costDynamicRupture + costDisplacement;
+    // a curved cell is weight-adjusted as well
+    const auto costWeight =
+        (timesteps.weightAdjusted[cell] != 0 ? vertexWeightWeightAdjusted_ : 0) +
+        (timesteps.curved[cell] != 0 ? vertexWeightCurved_ : 0);
+    cellCosts[cell] = vertexWeightElement_ + costDynamicRupture + costDisplacement + costWeight;
   }
   return cellCosts;
 }

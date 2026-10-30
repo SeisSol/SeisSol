@@ -69,14 +69,21 @@ class Clustering {
   [[nodiscard]] const ClusteringResult& result() const { return result_; }
 
   private:
+  /// The cost of every cell per time step: of an element, its faces that cost more, and what a
+  /// weight-adjusted or a curved cell (as `timesteps` says it is) adds to the work of a cell.
   [[nodiscard]] std::vector<std::uint64_t>
-      computeCostsPerTimestep(const geometry::PumlMesh& mesh) const;
+      computeCostsPerTimestep(const geometry::PumlMesh& mesh,
+                              const GlobalTimestep& timesteps) const;
 
   seissol::SeisSol& seissolInstance_;
   std::vector<std::uint64_t> rate_;
   std::uint64_t vertexWeightElement_{};
   std::uint64_t vertexWeightDynamicRupture_{};
   std::uint64_t vertexWeightFreeSurfaceWithGravity_{};
+  // what a weight-adjusted and a curved cell add to the cost of an element, in its proportion to
+  // the work of a cell whose faces are all regular
+  std::uint64_t vertexWeightWeightAdjusted_{};
+  std::uint64_t vertexWeightCurved_{};
   parameters::BoundaryFormat boundaryFormat_;
   const FaceMap* faceMap_{nullptr};
 
