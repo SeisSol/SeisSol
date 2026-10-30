@@ -95,6 +95,9 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - Experimental. For ``ccl``, ``stream-mpi``, ``shmem`` and ``actor-mpi``: exchange on the GPU streams only with the
        processes of the own node, and with the others over GPU-aware MPI from the host, as ``direct`` does
        (see below). Not with ``SEISSOL_SUPERSTEP_GRAPHS=1``.
+   * - ``SEISSOL_SHMEM_GROUP_KERNELS=0``
+     - For ``shmem`` with ROCSHMEM: a kernel for each operation of a group of the exchange, instead of one kernel for
+       the whole group (see below).
    * - ``SEISSOL_SCRATCHPAD_PER_LAYER=1``
      - GPU builds only. Give each layer scratchpads of its own, instead of sharing them between all layers.
        The log shows the memory needed either way.
@@ -254,6 +257,13 @@ when they run. This needs relocatable device code linked with the device code of
 device library, with ROCSHMEM in a shared library of SeisSol's own (``libseissol-rocshmem-kernels.so``), through which
 all calls of ROCSHMEM go; ``-DSHMEM=ON`` sets this up.
 Intel SHMEM gets the counts from the host when the operations are enqueued.
+With ROCSHMEM, a group of the exchange is one kernel: each workgroup sends to one peer (it waits for the clear to send,
+then puts the regions with their signals) or receives from one (it signals the clear to send, waits for the arrival,
+and copies the regions out of the staging window), all at the same time, and the last workgroup advances the count.
+The operations of a group took dozens of small kernels one after another otherwise, a put and a copy for each region.
+On one node with four MI300A (TheRock 23.2.1 and its ROCSHMEM and Open MPI, October 2026), TPV13 and TPV5 took
+3.2 and 2.2 s with the time stepping plan and HIP with two hardware queues (3.5 and 2.5 s with a kernel for each
+operation), and 3.2 and 2.0 s with eight own queues (3.3 and 2.3 s); the outputs are bitwise the same.
 
 With concurrent clusters, the work of an action waits for what it depends on: a prediction, which writes the buffers and
 derivatives that the neighbors read, for their latest reads (corrections, face work, sends); a correction, which reads

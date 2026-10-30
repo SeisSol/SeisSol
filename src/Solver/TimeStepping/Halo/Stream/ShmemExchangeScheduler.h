@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_SHMEMEXCHANGESCHEDULER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_SHMEMEXCHANGESCHEDULER_H_
 
+#include "Solver/TimeStepping/Halo/Stream/ShmemGroup.h"
 #include "Solver/TimeStepping/Halo/Stream/StreamExchangeScheduler.h"
 
 #include <cstddef>
@@ -32,11 +33,16 @@ namespace seissol::solver {
  * ghost regions. Since a group signals before it waits for anything, it can complete once all
  * peers have started their groups of the same exchange, as for two-sided operations.
  *
- * The signals count the exchanges of each direction. With NVSHMEM, the count of the current
- * exchange is kept on the device: each group advances it on the stream, and the operations signal
- * and wait from kernels that read it when they run. A group replayed from a recording of
- * super-timesteps thus counts on. With ROCSHMEM and Intel SHMEM, the host passes the count to the
- * operations when it enqueues them, so their groups cannot be replayed.
+ * The signals count the exchanges of each direction. With NVSHMEM and ROCSHMEM, the count of the
+ * current exchange is kept on the device: each group advances it on the stream, and the operations
+ * signal and wait from kernels that read it when they run. A group replayed from a recording of
+ * super-timesteps thus counts on. With Intel SHMEM, the host passes the count to the operations
+ * when it enqueues them, so its groups cannot be replayed.
+ *
+ * With ROCSHMEM, a group is one kernel (SEISSOL_SHMEM_GROUP_KERNELS=0: a kernel for each operation
+ * instead): each workgroup sends to one peer or receives from one, all of them at the same time,
+ * and the last one advances the count (see ShmemGroup.h). The operations of a group took dozens of
+ * small kernels one after another otherwise, a put and a copy for each region.
  *
  * Only available in device builds with SHMEM support.
  */
@@ -76,6 +82,23 @@ class ShmemExchangeScheduler : public StreamExchangeScheduler {
   private:
   [[nodiscard]] std::size_t signalIndex(std::size_t from, std::size_t to, int peer) const;
 
+  /// the tasks of the group of a direction as one kernel, in device memory (see ShmemGroup.h)
+  struct GroupTasks {
+    shmem::Task* tasks{nullptr};
+    std::size_t count{0};
+    shmem::Region* regions{nullptr};
+  };
+  /// the tasks of the groups of the direction with these transports; built on first use
+  const GroupTasks& groupOf(std::size_t from,
+                            std::size_t to,
+                            const ScheduledTransport* sender,
+                            const ScheduledTransport* receiver);
+  std::map<
+      std::tuple<std::size_t, std::size_t, const ScheduledTransport*, const ScheduledTransport*>,
+      GroupTasks>
+      groups_;
+  bool groupKernels_{true};
+
   std::vector<const ScheduledTransport*> transports_;
   // for each transport: where its ghost regions lie in the own staging window, and where its copy
   // regions go in the staging windows of the receivers
@@ -94,6 +117,8 @@ class ShmemExchangeScheduler : public StreamExchangeScheduler {
   std::uint64_t* scratch_{nullptr};
   // for each direction: the count of its current exchange, in device memory
   std::uint64_t* counts_{nullptr};
+  // for each direction: the workgroups of its group kernel that have finished, in device memory
+  std::uint32_t* finished_{nullptr};
 #endif
 };
 

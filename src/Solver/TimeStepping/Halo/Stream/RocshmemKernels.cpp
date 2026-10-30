@@ -45,6 +45,88 @@ __global__ void putSignalKernel(
 
 __global__ void quietKernel() { ::rocshmem::rocshmem_quiet(); }
 
+// copies with the threads of the workgroup, by 16 bytes where it can
+__device__ void copyInGroup(void* destination, const void* source, std::uint64_t bytes) {
+  const auto start = static_cast<std::uint64_t>(threadIdx.x);
+  const auto stride = static_cast<std::uint64_t>(blockDim.x);
+  if (((reinterpret_cast<std::uintptr_t>(destination) | reinterpret_cast<std::uintptr_t>(source) |
+        bytes) &
+       15U) == 0) {
+    auto* to = static_cast<uint4*>(destination);
+    const auto* from = static_cast<const uint4*>(source);
+    for (std::uint64_t i = start; i < bytes / 16; i += stride) {
+      to[i] = from[i];
+    }
+  } else {
+    auto* to = static_cast<char*>(destination);
+    const auto* from = static_cast<const char*>(source);
+    for (std::uint64_t i = start; i < bytes; i += stride) {
+      to[i] = from[i];
+    }
+  }
+}
+
+// a group: each workgroup one task (see ShmemGroup.h)
+__global__ void groupKernel(const shmem::Task* tasks,
+                            const shmem::Region* regions,
+                            std::uint64_t* count,
+                            std::uint32_t* finished) {
+  __shared__ std::uint64_t current;
+  if (threadIdx.x == 0) {
+    current = __hip_atomic_load(count, __ATOMIC_RELAXED, __HIP_MEMORY_SCOPE_AGENT) + 1;
+  }
+  __syncthreads();
+  const auto& task = tasks[blockIdx.x];
+  if (task.receive != 0) {
+    if (threadIdx.x == 0) {
+      // the staging window is free again: the group before has copied its data out
+      ::rocshmem::rocshmem_uint64_atomic_set(task.clearToSend, current, task.peer);
+      ::rocshmem::rocshmem_ulonglong_wait_until(reinterpret_cast<unsigned long long*>(task.arrived),
+                                                ::rocshmem::ROCSHMEM_CMP_GE,
+                                                current * task.regionCount);
+    }
+    __syncthreads();
+    // (the data came from other processes)
+    __builtin_amdgcn_fence(__ATOMIC_ACQUIRE, "");
+    for (std::uint32_t i = 0; i < task.regionCount; ++i) {
+      const auto& region = regions[task.firstRegion + i];
+      copyInGroup(region.destination, region.source, region.bytes);
+    }
+  } else {
+    if (threadIdx.x == 0) {
+      ::rocshmem::rocshmem_ulonglong_wait_until(
+          reinterpret_cast<unsigned long long*>(task.clearToSend),
+          ::rocshmem::ROCSHMEM_CMP_GE,
+          current);
+    }
+    __syncthreads();
+    for (std::uint32_t i = 0; i < task.regionCount; ++i) {
+      const auto& region = regions[task.firstRegion + i];
+      ::rocshmem::rocshmem_putmem_signal_nbi_wg(region.destination,
+                                                region.source,
+                                                region.bytes,
+                                                task.arrived,
+                                                1,
+                                                ::rocshmem::ROCSHMEM_SIGNAL_ADD,
+                                                task.peer);
+    }
+    __syncthreads();
+    if (threadIdx.x == 0) {
+      // the copy layer may overwrite its data once the puts have left
+      ::rocshmem::rocshmem_quiet();
+    }
+  }
+  // the last workgroup advances the count; all of them have read it by then
+  __syncthreads();
+  if (threadIdx.x == 0) {
+    __threadfence();
+    if (atomicAdd(finished, 1U) + 1 == gridDim.x) {
+      *finished = 0;
+      __hip_atomic_store(count, current, __ATOMIC_RELEASE, __HIP_MEMORY_SCOPE_AGENT);
+    }
+  }
+}
+
 } // namespace
 
 int initialize(MPI_Comm comm) {
@@ -110,6 +192,16 @@ void putSignal(void* destination,
 }
 
 void quiet(void* stream) { quietKernel<<<1, 1, 0, native(stream)>>>(); }
+
+void group(const shmem::Task* tasks,
+           std::size_t taskCount,
+           const shmem::Region* regions,
+           std::uint64_t* count,
+           std::uint32_t* finished,
+           void* stream) {
+  groupKernel<<<static_cast<unsigned>(taskCount), PutThreads, 0, native(stream)>>>(
+      tasks, regions, count, finished);
+}
 
 const char* lastError() {
   const auto error = hipGetLastError();

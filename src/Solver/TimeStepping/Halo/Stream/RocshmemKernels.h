@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_ROCSHMEMKERNELS_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_STREAM_ROCSHMEMKERNELS_H_
 
+#include "Solver/TimeStepping/Halo/Stream/ShmemGroup.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <mpi.h>
@@ -85,6 +87,18 @@ void putSignal(void* destination,
  * Waits until all puts have completed.
  */
 void quiet(void* stream);
+
+/**
+ * A whole group as one kernel (see ShmemGroup.h): a workgroup for each of the `taskCount` tasks;
+ * the count of the direction in device memory gets advanced by the kernel (by its last workgroup,
+ * with the help of the counter `finished`, which it leaves at 0).
+ */
+void group(const shmem::Task* tasks,
+           std::size_t taskCount,
+           const shmem::Region* regions,
+           std::uint64_t* count,
+           std::uint32_t* finished,
+           void* stream);
 
 /**
  * The error of the latest kernel launch on the calling thread, and resets it; null if none.

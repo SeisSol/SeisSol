@@ -22,7 +22,10 @@
 #include <Device/device.h>
 #include <algorithm>
 #include <cstdint>
+#include <map>
 #include <mpi.h>
+#include <tuple>
+#include <utils/env.h>
 #include <vector>
 
 #ifdef SHMEM_NVSHMEM
@@ -59,6 +62,13 @@ struct Count {
 // the host API would take it when they get enqueued, and a recording would keep it. (Recorded
 // signal operations of the host API even came out with garbage.)
 constexpr bool CountsOnDevice = true;
+constexpr bool GroupKernels = false;
+void groupOnStream(const shmem::Task* /*tasks*/,
+                   std::size_t /*taskCount*/,
+                   const shmem::Region* /*regions*/,
+                   std::uint64_t* /*count*/,
+                   std::uint32_t* /*finished*/,
+                   void* /*stream*/) {}
 void shmemInit(MPI_Comm comm) {
   if (nvshmem::initialize(comm) != 0) {
     logError() << "Could not initialize NVSHMEM.";
@@ -96,6 +106,15 @@ void checkOnStream() {
 #ifdef SHMEM_ROCSHMEM
 // as with NVSHMEM, kernels that read the exchange counts from device memory when they run
 constexpr bool CountsOnDevice = true;
+constexpr bool GroupKernels = true;
+void groupOnStream(const shmem::Task* tasks,
+                   std::size_t taskCount,
+                   const shmem::Region* regions,
+                   std::uint64_t* count,
+                   std::uint32_t* finished,
+                   void* stream) {
+  rocshmem::group(tasks, taskCount, regions, count, finished, stream);
+}
 void shmemInit(MPI_Comm comm) {
   if (rocshmem::initialize(comm) != 0) {
     logError() << "Could not initialize ROCSHMEM.";
@@ -133,6 +152,13 @@ void checkOnStream() {
 #ifdef SHMEM_ISHMEM
 // the host passes the exchange counts
 constexpr bool CountsOnDevice = false;
+constexpr bool GroupKernels = false;
+void groupOnStream(const shmem::Task* /*tasks*/,
+                   std::size_t /*taskCount*/,
+                   const shmem::Region* /*regions*/,
+                   std::uint64_t* /*count*/,
+                   std::uint32_t* /*finished*/,
+                   void* /*stream*/) {}
 sycl::queue& queue(void* stream) { return *static_cast<sycl::queue*>(stream); }
 void shmemInit(MPI_Comm comm) {
   ishmemx_attr_t attr{};
@@ -200,6 +226,8 @@ constexpr std::size_t Alignment = 256;
 ShmemExchangeScheduler::ShmemExchangeScheduler(std::size_t clusterCount, std::size_t configCount)
     : StreamExchangeScheduler(clusterCount, LaunchOrder::Global, configCount),
       rank_(Mpi::mpi.rank()), size_(Mpi::mpi.size()) {
+  utils::Env env("SEISSOL_");
+  groupKernels_ = GroupKernels && env.get<bool>("SHMEM_GROUP_KERNELS", true);
   shmemInit(Mpi::mpi.comm());
   if (shmemPe() != rank_) {
     logError() << "The SHMEM processing elements are not numbered as the MPI ranks.";
@@ -217,6 +245,13 @@ ShmemExchangeScheduler::~ShmemExchangeScheduler() {
   }
   if (counts_ != nullptr) {
     deviceInstance().api().freeGlobMem(counts_);
+    deviceInstance().api().freeGlobMem(finished_);
+  }
+  for (const auto& [key, group] : groups_) {
+    if (group.tasks != nullptr) {
+      deviceInstance().api().freeGlobMem(group.tasks);
+      deviceInstance().api().freeGlobMem(group.regions);
+    }
   }
   shmemFinalize();
 }
@@ -258,6 +293,9 @@ void ShmemExchangeScheduler::prepare() {
   counts_ = static_cast<std::uint64_t*>(
       deviceInstance().api().allocGlobMem(directionCount * sizeof(std::uint64_t)));
   deviceInstance().api().copyTo(counts_, zeros.data(), directionCount * sizeof(std::uint64_t));
+  finished_ = static_cast<std::uint32_t*>(
+      deviceInstance().api().allocGlobMem(directionCount * sizeof(std::uint32_t)));
+  deviceInstance().api().copyTo(finished_, zeros.data(), directionCount * sizeof(std::uint32_t));
   shmemBarrierAll();
 
   // the receivers tell the senders where to put their data, matched as the data would be
@@ -292,6 +330,70 @@ void ShmemExchangeScheduler::prepare() {
   MPI_Waitall(static_cast<int>(requests.size()), requests.data(), MPI_STATUSES_IGNORE);
 }
 
+const ShmemExchangeScheduler::GroupTasks&
+    ShmemExchangeScheduler::groupOf(std::size_t from,
+                                    std::size_t to,
+                                    const ScheduledTransport* sender,
+                                    const ScheduledTransport* receiver) {
+  const auto key = std::make_tuple(from, to, sender, receiver);
+  const auto found = groups_.find(key);
+  if (found != groups_.end()) {
+    return found->second;
+  }
+  // the same operations as a group of single ones (see enqueueGroup()), a task for each peer
+  std::vector<shmem::Task> tasks;
+  std::vector<shmem::Region> regions;
+  if (receiver != nullptr) {
+    const auto& ghost = receiver->regions().ghost;
+    const auto& offsets = ghostOffsets_.at(receiver);
+    for (const auto peer : peersOf(ghost)) {
+      shmem::Task task{1,
+                       peer,
+                       static_cast<std::uint32_t>(regions.size()),
+                       0,
+                       &clearToSend_[signalIndex(from, to, rank_)],
+                       &arrived_[signalIndex(from, to, peer)]};
+      for (std::size_t i = 0; i < ghost.size(); ++i) {
+        if (ghost[i].rank == peer) {
+          regions.push_back({ghost[i].data, window_ + offsets[i], bytesOf(ghost[i])});
+          ++task.regionCount;
+        }
+      }
+      tasks.push_back(task);
+    }
+  }
+  if (sender != nullptr) {
+    const auto& copy = sender->regions().copy;
+    const auto& remote = remoteOffsets_.at(sender);
+    for (const auto peer : peersOf(copy)) {
+      shmem::Task task{0,
+                       peer,
+                       static_cast<std::uint32_t>(regions.size()),
+                       0,
+                       &clearToSend_[signalIndex(from, to, peer)],
+                       &arrived_[signalIndex(from, to, rank_)]};
+      for (std::size_t i = 0; i < copy.size(); ++i) {
+        if (copy[i].rank == peer) {
+          regions.push_back({window_ + remote[i], copy[i].data, bytesOf(copy[i])});
+          ++task.regionCount;
+        }
+      }
+      tasks.push_back(task);
+    }
+  }
+  GroupTasks group;
+  group.count = tasks.size();
+  if (!tasks.empty()) {
+    auto& api = deviceInstance().api();
+    group.tasks = static_cast<shmem::Task*>(api.allocGlobMem(tasks.size() * sizeof(shmem::Task)));
+    api.copyTo(group.tasks, tasks.data(), tasks.size() * sizeof(shmem::Task));
+    group.regions = static_cast<shmem::Region*>(
+        api.allocGlobMem(std::max<std::size_t>(regions.size(), 1) * sizeof(shmem::Region)));
+    api.copyTo(group.regions, regions.data(), regions.size() * sizeof(shmem::Region));
+  }
+  return groups_.emplace(key, group).first->second;
+}
+
 void ShmemExchangeScheduler::enqueueGroup(std::size_t slot,
                                           std::size_t from,
                                           std::size_t to,
@@ -301,6 +403,21 @@ void ShmemExchangeScheduler::enqueueGroup(std::size_t slot,
   void* current = stream(slot);
   // the number of this exchange of the direction
   const Count count{&counts_[from * clusterCount() + to], exchange + 1};
+  if (groupKernels_) {
+    const auto& group = groupOf(from, to, sender, receiver);
+    if (group.count > 0) {
+      groupOnStream(group.tasks,
+                    group.count,
+                    group.regions,
+                    count.device,
+                    &finished_[from * clusterCount() + to],
+                    current);
+    } else {
+      advanceOnStream(count, current);
+    }
+    checkOnStream();
+    return;
+  }
   advanceOnStream(count, current);
 
   // the staging window is free again: the group before has copied its data out
