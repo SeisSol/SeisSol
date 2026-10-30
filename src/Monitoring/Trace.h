@@ -39,10 +39,13 @@ class Trace {
     double duration{std::numeric_limits<double>::infinity()};
     /// the most spans a process records
     std::size_t maxSpans{1000000};
+    /// the ranks that record, e.g. "0,5,%128" (ranks 0 and 5, and every 128th from 0) or "16-31";
+    /// all if empty
+    std::string ranks;
   };
 
   /// SEISSOL_TRACE, SEISSOL_TRACE_START and SEISSOL_TRACE_DURATION (in seconds),
-  /// SEISSOL_TRACE_SPANS
+  /// SEISSOL_TRACE_SPANS, SEISSOL_TRACE_RANKS
   static Settings settingsFromEnv(utils::Env& env);
 
   /**

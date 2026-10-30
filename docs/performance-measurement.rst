@@ -168,7 +168,9 @@ The ranks share the origin of the time up to the skew of a barrier; the times of
 placed by an event at the start of each epoch. A trace grows quickly: ``SEISSOL_TRACE_START`` and
 ``SEISSOL_TRACE_DURATION`` choose a window, in seconds since the start of the time stepping (by default, all of it), and
 a rank records at most ``SEISSOL_TRACE_SPANS`` spans (a million by default, about 100 MB of the file), and warns at the
-end if it reached that. Recording costs two readings of the clock per span; without ``SEISSOL_TRACE``, nothing but a
+end if it reached that. On many ranks, ``SEISSOL_TRACE_RANKS`` chooses the ranks that record, as a list of ranks,
+ranges and strides, e.g. ``0,17,100-103,%256`` (every 256th rank from 0 on); the others only name themselves in the
+file. Recording costs two readings of the clock per span; without ``SEISSOL_TRACE``, nothing but a
 check.
 
 With ``SEISSOL_TRACE_KERNELS=1`` as well, the device puts each of its kernels and waits into the trace, on a track for

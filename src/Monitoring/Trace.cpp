@@ -14,6 +14,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <iomanip>
 #include <ios>
 #include <limits>
@@ -125,8 +126,40 @@ Trace::Settings Trace::settingsFromEnv(utils::Env& env) {
   settings.duration =
       std::max(0.0, env.get<double>("TRACE_DURATION", std::numeric_limits<double>::infinity()));
   settings.maxSpans = env.get<std::size_t>("TRACE_SPANS", std::size_t{settings.maxSpans});
+  settings.ranks = env.get<std::string>("TRACE_RANKS", "");
   return settings;
 }
+
+namespace {
+/// whether `rank` is one of `ranks` (see Trace::Settings::ranks); a part that is not a number, a
+/// range or a stride selects nothing
+bool selected(const std::string& ranks, int rank) {
+  if (ranks.empty()) {
+    return true;
+  }
+  std::istringstream parts(ranks);
+  std::string part;
+  while (std::getline(parts, part, ',')) {
+    try {
+      if (!part.empty() && part.front() == '%') {
+        const auto stride = std::stoi(part.substr(1));
+        if (stride > 0 && rank % stride == 0) {
+          return true;
+        }
+      } else if (const auto dash = part.find('-'); dash != std::string::npos && dash > 0) {
+        if (rank >= std::stoi(part.substr(0, dash)) && rank <= std::stoi(part.substr(dash + 1))) {
+          return true;
+        }
+      } else if (!part.empty() && std::stoi(part) == rank) {
+        return true;
+      }
+    } catch (const std::exception&) {
+      // (not a number)
+    }
+  }
+  return false;
+}
+} // namespace
 
 void Trace::start(const Settings& settings, MPI_Comm comm) {
   if (!settings.enabled) {
@@ -138,16 +171,21 @@ void Trace::start(const Settings& settings, MPI_Comm comm) {
   state.truncated.store(false, std::memory_order_relaxed);
   state.windowBegin = settings.start * 1e6;
   state.windowEnd = (settings.start + settings.duration) * 1e6;
+  const auto on = settings.ranks.empty() ? std::string() : " on the ranks " + settings.ranks;
   if (std::isinf(settings.duration)) {
     logInfo() << "Recording a trace of the time stepping from" << settings.start
-              << "s on, of at most" << settings.maxSpans << "spans per rank.";
+              << "s on, of at most" << settings.maxSpans << "spans per rank" << on.c_str();
   } else {
     logInfo() << "Recording a trace of the time stepping from" << settings.start << "s on for"
-              << settings.duration << "s, of at most" << settings.maxSpans << "spans per rank.";
+              << settings.duration << "s, of at most" << settings.maxSpans << "spans per rank"
+              << on.c_str();
   }
   MPI_Barrier(comm);
   state.origin = std::chrono::steady_clock::now();
-  recordingFlag().store(true, std::memory_order_release);
+  int rank = 0;
+  MPI_Comm_rank(comm, &rank);
+  // (the other ranks take part in writing the trace all the same, with their names only)
+  recordingFlag().store(selected(settings.ranks, rank), std::memory_order_release);
 }
 
 double Trace::time(std::chrono::steady_clock::time_point point) {
