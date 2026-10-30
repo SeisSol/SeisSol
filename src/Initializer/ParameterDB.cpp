@@ -21,6 +21,7 @@
 #include "Geometry/CellGeometry.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
+#include "Geometry/IsoparametricTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/PUMLReader.h"
 #include "Kernels/Precision.h"
@@ -217,6 +218,27 @@ CellToVertexArray CellToVertexArray::fromVectors(
         return verts;
       },
       [&](size_t i) { return groups[i]; });
+}
+
+CellToVertexArray CellToVertexArray::fromVectors(
+    const std::vector<std::array<std::array<double, Cell::Dim>, Cell::NumVertices>>& vertices,
+    const std::vector<int>& groups,
+    std::size_t order,
+    const std::vector<std::vector<CoordinateT>>& nodes) {
+  auto array = fromVectors(vertices, groups);
+  if (order > 1) {
+    assert(nodes.size() == vertices.size());
+    array.elementTransform = [order, &nodes](size_t index) {
+      std::vector<seissol::geometry::CellTransform::VectorEigenT> eigenNodes;
+      eigenNodes.reserve(nodes[index].size());
+      for (const auto& node : nodes[index]) {
+        eigenNodes.emplace_back(node[0], node[1], node[2]);
+      }
+      return std::unique_ptr<seissol::geometry::CellTransform>(
+          std::make_unique<seissol::geometry::IsoparametricTransform>(order, eigenNodes));
+    };
+  }
+  return array;
 }
 
 CellToVertexArray CellToVertexArray::join(std::vector<CellToVertexArray> arrays) {

@@ -119,6 +119,17 @@ std::vector<CoordinateT> MeshReader::cellNodes(std::size_t id) const {
           cellNodes_.begin() + static_cast<std::ptrdiff_t>((id + 1) * perCell)};
 }
 
+std::vector<CoordinateT> MeshReader::ghostCellNodes(int rank, std::size_t index) const {
+  if (geometryOrder_ <= 1) {
+    const auto& vertices = ghostlayerMetadata_.at(rank).at(index).vertices;
+    return {vertices.begin(), vertices.end()};
+  }
+  const auto& nodes = ghostCellNodes_.at(rank);
+  const auto perCell = nodes.size() / ghostlayerMetadata_.at(rank).size();
+  return {nodes.begin() + static_cast<std::ptrdiff_t>(index * perCell),
+          nodes.begin() + static_cast<std::ptrdiff_t>((index + 1) * perCell)};
+}
+
 void MeshReader::setCurvedGeometry(std::size_t order, const std::vector<CoordinateT>& nodes) {
   const auto lattice = IsoparametricTransform::latticeNodes(order);
   const auto perCell = lattice.size();
@@ -428,6 +439,33 @@ void MeshReader::exchangeGhostlayerMetadata() {
   ghostlayerMetadata_ = std::move(recvData);
 
   MPI_Type_free(&ghostElementType);
+
+  // the nodes of the curved ghost cells, through which what a face across ranks needs is sampled
+  // on the face where it is
+  ghostCellNodes_.clear();
+  if (geometryOrder_ > 1) {
+    constexpr int NodeTag = 11;
+    std::unordered_map<int, std::vector<CoordinateT>> sendNodes;
+    std::vector<MPI_Request> nodeRequests(mpiNeighbors_.size() * 2);
+    std::size_t request = 0;
+    for (const auto& [targetRank, neighbor] : mpiNeighbors_) {
+      auto& send = sendNodes[targetRank];
+      for (const auto& element : neighbor.elements) {
+        const auto nodes = cellNodes(element.localElement);
+        send.insert(send.end(), nodes.begin(), nodes.end());
+      }
+      auto& receive = ghostCellNodes_[targetRank];
+      receive.resize(send.size());
+      static_assert(sizeof(CoordinateT) == Cell::Dim * sizeof(double));
+      const auto count = static_cast<int>(send.size() * Cell::Dim);
+      MPI_Irecv(
+          receive.data(), count, MPI_DOUBLE, targetRank, NodeTag, comm, &nodeRequests[request]);
+      MPI_Isend(
+          send.data(), count, MPI_DOUBLE, targetRank, NodeTag, comm, &nodeRequests[request + 1]);
+      request += 2;
+    }
+    MPI_Waitall(nodeRequests.size(), nodeRequests.data(), MPI_STATUS_IGNORE);
+  }
 }
 
 void MeshReader::linearizeGhostlayer() {

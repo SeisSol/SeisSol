@@ -14,6 +14,7 @@
 #include "Equations/Energy.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
+#include "Geometry/MeshDefinition.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
 #include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
@@ -84,10 +85,14 @@ FaceSamples initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // requires an vector there)
   std::vector<std::array<std::array<double, Cell::Dim>, Cell::NumVertices>> ghostVertices;
   std::vector<int> ghostGroups;
+  // where the cells may be curved, the ghost cells are, so that a face across ranks is sampled
+  // where it is from both sides
+  std::vector<std::vector<CoordinateT>> ghostNodes;
   std::unordered_map<int, std::vector<unsigned>> ghostIdxMap;
   for (const auto& neighbor : meshReader.getGhostlayerMetadata()) {
     ghostIdxMap[neighbor.first].reserve(neighbor.second.size());
-    for (const auto& metadata : neighbor.second) {
+    for (std::size_t index = 0; index < neighbor.second.size(); ++index) {
+      const auto& metadata = neighbor.second[index];
       ghostIdxMap[neighbor.first].push_back(ghostVertices.size());
       auto& vertices = ghostVertices.emplace_back();
       for (size_t i = 0; i < Cell::NumVertices; ++i) {
@@ -96,6 +101,9 @@ FaceSamples initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         }
       }
       ghostGroups.push_back(metadata.group);
+      if (meshReader.geometryOrder() > 1) {
+        ghostNodes.emplace_back(meshReader.ghostCellNodes(neighbor.first, index));
+      }
     }
   }
 
@@ -107,8 +115,8 @@ FaceSamples initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
   // material retrieval for copy+interior layers
   const auto ctvInner = seissol::initializer::CellToVertexArray::fromMeshReader(meshReader);
-  const auto ctvGhost =
-      seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups);
+  const auto ctvGhost = seissol::initializer::CellToVertexArray::fromVectors(
+      ghostVertices, ghostGroups, meshReader.geometryOrder(), ghostNodes);
   const auto ctv = seissol::initializer::CellToVertexArray::join({ctvInner, ctvGhost});
   const auto ghostOffset = ctvInner.size;
 

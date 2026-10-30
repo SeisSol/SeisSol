@@ -81,6 +81,9 @@ class MeshReader {
    * straight-sided mesh */
   std::vector<CoordinateT> cellNodes_;
 
+  /** The same for the ghost cells, per neighbour rank in the order of ghostlayerMetadata_ */
+  std::unordered_map<int, std::vector<CoordinateT>> ghostCellNodes_;
+
   MeshReader();
 
   public:
@@ -110,6 +113,13 @@ class MeshReader {
    * cell as this reader stores it; for a straight-sided mesh, its vertices.
    */
   [[nodiscard]] std::vector<CoordinateT> cellNodes(std::size_t id) const;
+
+  /**
+   * The same for the ghost cell `index` of the neighbour rank `rank`, in the order of
+   * getGhostlayerMetadata(); for a straight-sided mesh, its vertices. Known once the ghost layer
+   * metadata are exchanged.
+   */
+  [[nodiscard]] std::vector<CoordinateT> ghostCellNodes(int rank, std::size_t index) const;
 
   /**
    * Makes the local cells curved. `nodes` holds the nodes of every local cell on the lattice of

@@ -14,6 +14,7 @@
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/CellTransform.h"
+#include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/PUMLReader.h"
 #include "Initializer/Typedefs.h"
@@ -83,6 +84,14 @@ struct CellToVertexArray {
   static CellToVertexArray
       fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
                   const std::vector<int>& groups);
+  /// The same for cells that may be curved: where `order` is above one, a cell maps through its
+  /// `nodes` on the lattice of that order (see geometry::MeshReader::cellNodes). The array refers
+  /// to the vectors, which therefore have to outlive it.
+  static CellToVertexArray
+      fromVectors(const std::vector<std::array<std::array<double, 3>, 4>>& vertices,
+                  const std::vector<int>& groups,
+                  std::size_t order,
+                  const std::vector<std::vector<CoordinateT>>& nodes);
   static CellToVertexArray join(std::vector<CellToVertexArray> arrays);
 };
 
