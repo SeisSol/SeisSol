@@ -267,6 +267,10 @@ int main(int argc, char* argv[]) {
         seissol::parallel::runtime::ownQueueLayout() =
             seissol::parallel::runtime::OwnQueueLayout::Halo;
       }
+    } else {
+      const auto priorities = deviceEnv.get<std::string>("STREAM_PRIORITIES", "");
+      seissol::parallel::runtime::streamPriorities() = {
+          priorities.find("copy") != std::string::npos, false};
     }
 #endif // ACL_DEVICE
 

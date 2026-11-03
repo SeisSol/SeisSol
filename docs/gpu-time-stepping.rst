@@ -138,6 +138,10 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - Experimental. With ``SEISSOL_OWN_QUEUES``: ``copy`` gives the queues of the copy layers a high priority and those
        of the interior layers a low one (with an even number of queues), ``faces`` the queues of the face work a high
        one; both together as ``copy,faces``.
+   * - ``SEISSOL_STREAM_PRIORITIES=copy``
+     - Experimental. Without own queues: the streams of the copy layers (cells and faces) get the highest priority of
+       the device and those of the interior layers the lowest, so that with ``SEISSOL_CONCURRENT_CLUSTERS=1`` the work
+       whose results the neighbors wait for goes first.
    * - ``SEISSOL_OWN_QUEUE_LAYOUT=halo``
      - With ``SEISSOL_OWN_QUEUES`` of 2 or more: all copy layers on one queue of a high priority, all interior layers on
        one of a low priority, instead of the copy and interior layer of each time cluster on queues of their own

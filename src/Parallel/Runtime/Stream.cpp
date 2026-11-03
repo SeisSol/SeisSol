@@ -56,6 +56,9 @@ int ownQueueOf(const initializer::LayerIdentifier& identifier, bool faces) {
 std::optional<double> ownQueuePriorityOf(const initializer::LayerIdentifier& identifier,
                                          bool faces) {
   if (ownQueueCount() <= 0) {
+    if (streamPriorities().copy) {
+      return identifier.halo == HaloType::Copy ? 1.0 : 0.0;
+    }
     return std::nullopt;
   }
   if (faces && ownFaceQueueCount() > 0) {

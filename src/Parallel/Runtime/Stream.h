@@ -110,6 +110,17 @@ inline OwnQueuePriorities& ownQueuePriorities() {
 }
 
 /**
+ * Which streams of the clusters get a high priority without own queues (SEISSOL_STREAM_PRIORITIES;
+ * experimental): with `copy`, those of the copy layers (and those of the interior layers a low
+ * one), for the cell and the face work alike. With concurrent clusters, the work whose results the
+ * neighbors wait for goes first then.
+ */
+inline OwnQueuePriorities& streamPriorities() {
+  static OwnQueuePriorities priorities;
+  return priorities;
+}
+
+/**
  * The number of own queues for the branches of the stream runtimes (SEISSOL_OWN_QUEUE_BRANCHES, see
  * StreamRuntime::envMany(); experimental): the further streams of the runtimes, shared by all of
  * them (the first one FirstBranchOwnQueue, then downwards), and the work runs without graphs of
@@ -129,7 +140,8 @@ inline bool branchesOnOwnQueues() { return ownQueueCount() > 0 && ownBranchQueue
 /// the own queue of the work of a layer: of its cell cluster, or of its dynamic rupture cluster
 int ownQueueOf(const initializer::LayerIdentifier& identifier, bool faces = false);
 
-/// the priority of the own queue of a layer (see ownQueueLayout()); none without own queues
+/// the priority of the own queue of a layer (see ownQueueLayout()); without own queues, that of its
+/// stream (see streamPriorities()), or none
 std::optional<double> ownQueuePriorityOf(const initializer::LayerIdentifier& identifier,
                                          bool faces = false);
 
