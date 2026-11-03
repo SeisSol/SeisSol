@@ -11,7 +11,13 @@ from pathlib import Path
 
 import pytest
 from strongscaling import config
-from strongscaling.scheduler import JobSpec, SchedulerError, SlurmScheduler, slurm_state
+from strongscaling.scheduler import (
+    JobSpec,
+    SchedulerError,
+    SlurmScheduler,
+    parsable_job_id,
+    slurm_state,
+)
 
 
 def machine(**slurm):
@@ -88,6 +94,39 @@ def test_submissions(fake_slurm, tmp_path):
     submissions = (fake_slurm / "submissions").read_text().splitlines()
     assert submissions[0] == f"--parsable {script}"
     assert submissions[1] == f"--parsable --dependency=afterany:1001:77 {script}"
+
+
+def test_submission_behind_a_banner(tmp_path, monkeypatch):
+    # TACC's sbatch checks the account and the queue first, and says so on stdout
+    folder = tmp_path / "bin"
+    folder.mkdir()
+    (folder / "sbatch").write_text(
+        "#!/bin/bash\n"
+        "echo '-----------------------------------------------------------------'\n"
+        "echo '          Welcome to the Horizon Supercomputer'\n"
+        "echo '--> Verifying valid submit host (login1)...OK'\n"
+        "echo '--> Checking available allocation (EAR24034)...OK'\n"
+        "echo '79585'\n"
+    )
+    (folder / "sbatch").chmod(0o755)
+    monkeypatch.setenv("PATH", str(folder))
+    script = tmp_path / "job.sh"
+    assert SlurmScheduler(machine()).submit(script, after=[]) == "79585"
+
+
+@pytest.mark.parametrize(
+    "output,job_id",
+    [
+        ("1234\n", "1234"),
+        ("1234;cluster\n", "1234"),
+        ("banner\n--> OK\n1234\n", "1234"),
+        ("12_3\n", "12_3"),
+        ("--> OK\n", ""),
+        ("", ""),
+    ],
+)
+def test_parsable_job_id(output, job_id):
+    assert parsable_job_id(output) == job_id
 
 
 def test_refused_submission(tmp_path, monkeypatch):
