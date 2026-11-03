@@ -242,6 +242,51 @@ Interaction with the other settings
 
 These features should be considered experimental at this point in time.
 
+Partitioning by measured costs (experimental)
+---------------------------------------------
+
+By default, a cell weighs in the partition of the mesh what a model says it costs: its update rate times
+*vertexWeightElement*, plus *vertexWeightDynamicRupture* for each of its fault faces.
+What a cell really costs depends on the machine, the case and the number of ranks, however:
+on a GPU, the small time clusters at a fault are expensive per cell, as each of their loops has a fixed cost
+that only a few cells share.
+SeisSol can measure the costs instead and partition by them, in two runs or in one:
+
+.. code-block:: Fortran
+
+    &Discretization
+    ...
+    vertexWeightFile = 'output/run1-vertexweights.h5'   ! partition by the costs measured in an earlier run
+    vertexWeightCycles = 2                              ! or: measure them in short runs first
+    vertexWeightCycleSteps = 20
+    /
+
+    &Output
+    ...
+    VertexWeightOutput = 1   ! measure the costs, and write them to <OutputFile>-vertexweights.h5
+    /
+
+A run with :code:`VertexWeightOutput = 1` times the loops of every time cluster on every rank
+(the median loop, times the number of loops, which leaves out the first ones that set things up).
+The cells of a cluster share the time of its loops evenly, the interior and the copy layer alike;
+the fault faces of a cluster share the time of its dynamic rupture loops, and a cell gets the share of the faces it lies at.
+At the end, the run writes these costs, in seconds per simulated second, to :code:`<OutputFile>-vertexweights.h5`
+(the datasets :code:`ids`, the cells by their ids in the mesh file, and :code:`costs`).
+A later run of the same mesh and clustering partitions by them with :code:`vertexWeightFile`;
+the weights sum to what the default model would give.
+
+With :code:`vertexWeightCycles = n`, SeisSol does the same in one go: it first runs *n* short runs
+of *vertexWeightCycleSteps* time steps of the largest time cluster, each partitioned by what the one before measured,
+and then the actual run, partitioned by what the last of them measured.
+The short runs start from the beginning, write no outputs but their run summary (under :code:`<OutputFile>-cycle<i>`),
+and need the asynchronous output on threads or none (not :code:`ASYNC_MODE=MPI`).
+Each of them initializes SeisSol anew, so it costs about one initialization.
+
+The costs of a cell include the speed of the rank it was measured on, so the partition does not weight the ranks
+by Mini SeisSol then (see :ref:`env_vars`).
+The costs can only be measured where the loops get timed: not within recorded super-timesteps
+(``SEISSOL_SUPERSTEP_GRAPHS``), and on own queues only with ``DEVICE_OWN_QUEUE_TIMING=1``.
+
 References
 ----------
 
