@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <mpi.h>
+#include <vector>
 
 /**
  * The operations of the SHMEM exchange with NVSHMEM, as small kernels on a stream that call the
@@ -70,6 +71,25 @@ void quiet(void* stream);
  * The error of the latest kernel launch on the calling thread, and resets it; null if none.
  */
 const char* lastError();
+
+/**
+ * Registers the memory that puts read from, `count` ranges of `bytes` bytes at `sources`, with
+ * NVSHMEM: each allocation that holds a part of a range, once, as a whole. Puts to another node
+ * read their source through the network card (IBRC, IBGDA), which needs the memory registered
+ * unless it is symmetric; within a node, the devices read each other's memory directly.
+ *
+ * Fills `registered` with what got registered, for unregisterSources(); returns null on success,
+ * or else what failed.
+ */
+const char* registerSources(const void* const* sources,
+                            const std::size_t* bytes,
+                            std::size_t count,
+                            std::vector<void*>& registered);
+
+/**
+ * Takes back what registerSources() registered.
+ */
+void unregisterSources(const std::vector<void*>& registered);
 
 } // namespace seissol::solver::nvshmem
 

@@ -563,9 +563,11 @@ if (WITH_GPU)
           CUDA_RUNTIME_LIBRARY Shared
           CUDA_ARCHITECTURES "${NVSHMEM_KERNELS_ARCH}")
       target_compile_features(seissol-nvshmem-kernels PRIVATE cuda_std_17)
+      # (the driver API tells where the allocations that the puts read from start and end)
+      find_package(CUDAToolkit REQUIRED)
       target_link_libraries(seissol-nvshmem-kernels
           PUBLIC nvshmem::nvshmem_host ${NVSHMEM_DEVICE_LIBRARY}
-          PRIVATE MPI::MPI_C)
+          PRIVATE MPI::MPI_C CUDA::cuda_driver)
       target_include_directories(seissol-nvshmem-kernels SYSTEM PRIVATE ${SEISSOL_MPI_INCLUDE_DIRS})
       target_link_libraries(seissol-common-properties INTERFACE seissol-nvshmem-kernels)
       target_compile_definitions(seissol-common-properties INTERFACE USE_SHMEM SHMEM_NVSHMEM)

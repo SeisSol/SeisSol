@@ -96,6 +96,18 @@ void putSignalOnStream(void* destination,
   nvshmem::putSignal(destination, source, bytes, signal, pe, stream);
 }
 void quietOnStream(void* stream) { nvshmem::quiet(stream); }
+// the puts to other nodes read the copy layers through the network card
+void registerSources(const std::vector<const void*>& sources,
+                     const std::vector<std::size_t>& bytes,
+                     std::vector<void*>& registered) {
+  if (const auto* error =
+          nvshmem::registerSources(sources.data(), bytes.data(), sources.size(), registered)) {
+    logError() << "Could not register the memory of the copy layers with NVSHMEM:" << error;
+  }
+}
+void unregisterSources(const std::vector<void*>& registered) {
+  nvshmem::unregisterSources(registered);
+}
 void checkOnStream() {
   if (const auto* error = nvshmem::lastError()) {
     logError() << "Could not enqueue the halo exchange with NVSHMEM:" << error;
@@ -142,6 +154,10 @@ void putSignalOnStream(void* destination,
   rocshmem::putSignal(destination, source, bytes, signal, pe, stream);
 }
 void quietOnStream(void* stream) { rocshmem::quiet(stream); }
+void registerSources(const std::vector<const void*>& /*sources*/,
+                     const std::vector<std::size_t>& /*bytes*/,
+                     std::vector<void*>& /*registered*/) {}
+void unregisterSources(const std::vector<void*>& /*registered*/) {}
 void checkOnStream() {
   if (const auto* error = rocshmem::lastError()) {
     logError() << "Could not enqueue the halo exchange with ROCSHMEM:" << error;
@@ -199,6 +215,10 @@ void putSignalOnStream(void* destination,
       destination, source, bytes, signal, 1, ISHMEM_SIGNAL_ADD, pe, queue(stream));
 }
 void quietOnStream(void* stream) { ishmemx_quiet_on_queue(queue(stream)); }
+void registerSources(const std::vector<const void*>& /*sources*/,
+                     const std::vector<std::size_t>& /*bytes*/,
+                     std::vector<void*>& /*registered*/) {}
+void unregisterSources(const std::vector<void*>& /*registered*/) {}
 void checkOnStream() {}
 #endif
 
@@ -253,6 +273,7 @@ ShmemExchangeScheduler::~ShmemExchangeScheduler() {
       deviceInstance().api().freeGlobMem(group.regions);
     }
   }
+  unregisterSources(registeredSources_);
   shmemFinalize();
 }
 
@@ -285,6 +306,17 @@ void ShmemExchangeScheduler::prepare() {
   if (window_ == nullptr || clearToSend_ == nullptr || arrived_ == nullptr || scratch_ == nullptr) {
     logError() << "Could not allocate the symmetric memory for the halo exchange.";
   }
+
+  // the puts read the copy layers where they are, which is no symmetric memory
+  std::vector<const void*> sources;
+  std::vector<std::size_t> sourceBytes;
+  for (const auto* transport : transports_) {
+    for (const auto& region : transport->regions().copy) {
+      sources.push_back(region.data);
+      sourceBytes.push_back(bytesOf(region));
+    }
+  }
+  registerSources(sources, sourceBytes, registeredSources_);
   const std::vector<std::uint64_t> zeros(signalCount, 0);
   deviceInstance().api().copyTo(clearToSend_, zeros.data(), signalCount * sizeof(std::uint64_t));
   deviceInstance().api().copyTo(arrived_, zeros.data(), signalCount * sizeof(std::uint64_t));

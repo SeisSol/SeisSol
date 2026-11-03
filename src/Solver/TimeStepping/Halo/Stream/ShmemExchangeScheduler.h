@@ -111,6 +111,8 @@ class ShmemExchangeScheduler : public StreamExchangeScheduler {
   int rank_{0};
   int size_{1};
   char* window_{nullptr};
+  //! the memory of the copy layers, as registered with the SHMEM library where it needs that
+  std::vector<void*> registeredSources_;
   std::uint64_t* clearToSend_{nullptr};
   std::uint64_t* arrived_{nullptr};
   // a word in symmetric memory, for libraries that set signals by putting it
