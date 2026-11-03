@@ -63,7 +63,33 @@ class LoopStatistics {
   }
   [[nodiscard]] double regionTime(unsigned region) const { return regions_[region].variables.y; }
 
+  /**
+   * @brief Keeps the time of the loops per layer as well, from now on: the sub-region of a loop of
+   * the time stepping is the layer it computes (its color). For the measured vertex weights; off by
+   * default.
+   */
+  void recordLayers() { recordLayers_ = true; }
+  [[nodiscard]] bool recordsLayers() const { return recordLayers_; }
+
+  /**
+   * @brief The time the loops of `region` spent on the layer `subRegion` since recordLayers(): the
+   * median time of a loop, times the number of loops.
+   *
+   * The median leaves out the few loops that take much longer than the others, such as the first
+   * ones, which e.g. capture graphs or touch memory for the first time. Zero for a layer without
+   * loops.
+   */
+  [[nodiscard]] double layerTime(unsigned region, unsigned subRegion) const;
+
   private:
+  //! The loops of one region on one layer.
+  struct LayerSamples {
+    //! the times of the first MaxLayerSamples loops, for their median
+    std::vector<double> times;
+    std::size_t loops{0};
+  };
+  static constexpr std::size_t MaxLayerSamples = 4096;
+
   struct StatisticVariables {
     double x = 0;
     double x2 = 0;
@@ -84,6 +110,10 @@ class LoopStatistics {
   std::vector<Region> regions_;
   // the samples of loops that run at the same time
   std::mutex samplesMutex_;
+
+  bool recordLayers_{false};
+  //! by region, then by layer
+  std::vector<std::vector<LayerSamples>> layers_;
 };
 } // namespace seissol
 

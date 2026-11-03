@@ -9,6 +9,8 @@
 
 #include "Simulator.h"
 
+#include "Common/Json.h"
+#include "Initializer/Clustering/VertexWeights/MeasuredWeights.h"
 #include "Kernels/Common.h"
 #include "Memory/Tree/Layer.h"
 #include "Modules/Modules.h"
@@ -134,6 +136,61 @@ void printActivity(const solver::EpochActivity& activity, monitoring::EpochRecor
             << "%), exchanged the halo" << 100 * epoch.deviceExchanges.mean << "%, and was idle"
             << 100 * epoch.deviceIdle.mean << "%";
 }
+
+/**
+ * Splits the time the loops took over the cells of this rank, and writes it to
+ * <prefix>-vertexweights.h5, for a later run to partition by (discretization.vertexweightfile).
+ * Collective.
+ */
+json::Value writeVertexWeights(SeisSol& seissolInstance, double simulatedTime) {
+  json::Value section;
+  const bool write = seissolInstance.parameters().output.vertexWeightOutput;
+  const auto file = seissolInstance.parameters().output.prefix + "-vertexweights.h5";
+  auto costs = initializer::measureCellCosts(seissolInstance.timeManager().loopStatistics(),
+                                             seissolInstance.memoryManager(),
+                                             seissolInstance.meshReader(),
+                                             simulatedTime,
+                                             Mpi::mpi.comm());
+  if (!costs.has_value()) {
+    if (seissolInstance.measuringSteps().has_value()) {
+      logError() << "The run measured nothing of what the cells cost, as the loops were not timed "
+                    "on all ranks (not within recorded super-timesteps, and on own queues only "
+                    "with DEVICE_OWN_QUEUE_TIMING=1).";
+    }
+    logWarning() << "The costs of the cells are not known, as the loops were not timed on all "
+                    "ranks (not within recorded super-timesteps, and on own queues only with "
+                    "DEVICE_OWN_QUEUE_TIMING=1). There are no vertex weights to write to"
+                 << file;
+    section["written"] = false;
+    return section;
+  }
+  if (write) {
+    initializer::writeCellCosts(file, costs.value(), simulatedTime, Mpi::mpi.comm());
+  }
+
+  // what the ranks cost, as measured: what partitioning by it would even out
+  double rankCost = 0;
+  for (const auto cost : costs->costs) {
+    rankCost += cost;
+  }
+  const auto summary = statistics::parallelSummary(rankCost);
+  logInfo() << "Per rank, the cells cost" << summary.mean
+            << "s per simulated s on average, and up to" << summary.max << "("
+            << summary.max / summary.mean << "times the mean), as measured.";
+  if (write) {
+    logInfo() << "The measured costs of the cells (vertex weights) went to" << file;
+  }
+  section["written"] = write;
+  if (write) {
+    section["file"] = file;
+  }
+  section["rankCost"] = monitoring::toJson(summary);
+  // for the partition of the run after this one
+  if (seissolInstance.measuringSteps().has_value()) {
+    seissolInstance.cellCosts() = std::move(costs);
+  }
+  return section;
+}
 } // namespace
 
 void Simulator::simulate(SeisSol& seissolInstance) {
@@ -145,6 +202,14 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   auto& summary = seissolInstance.runSummary();
   summary["simulation"]["startTime"] = currentTime_;
   summary["simulation"]["endTime"] = finalTime_;
+  const double startTime = currentTime_;
+
+  // the loops of each layer, for the vertex weights a later run may partition by
+  const bool vertexWeightOutput = seissolInstance.parameters().output.vertexWeightOutput ||
+                                  seissolInstance.measuringSteps().has_value();
+  if (vertexWeightOutput) {
+    seissolInstance.timeManager().loopStatistics().recordLayers();
+  }
 
   Stopwatch simulationStopwatch;
   if (checkpoint_) {
@@ -320,6 +385,9 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   summary["simulation"]["aborted"] = aborted_;
 
   summary["kernels"] = seissolInstance.timeManager().printComputationTime();
+  if (vertexWeightOutput) {
+    summary["vertexWeights"] = writeVertexWeights(seissolInstance, currentTime_ - startTime);
+  }
   if (seissolInstance.timeManager().kernelTimesKnown()) {
     const double kernelTime = seissolInstance.timeManager().kernelTime();
     summary.setRankValue("kernels", kernelTime);

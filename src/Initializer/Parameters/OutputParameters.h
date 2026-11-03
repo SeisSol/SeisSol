@@ -190,6 +190,9 @@ struct OutputParameters {
   WaveFieldOutputParameters waveFieldParameters;
   //! the simulated time after which a simulation epoch ends at the latest; zero for no limit
   double epochInterval{0};
+  //! whether the run measures what its cells cost, and writes it to <prefix>-vertexweights.h5 at
+  //! the end, for a later run to partition by (discretization.vertexweightfile)
+  bool vertexWeightOutput{false};
 
   OutputParameters() = default;
   OutputParameters(OutputFormat format,

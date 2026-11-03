@@ -227,6 +227,12 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
       static_cast<std::uint64_t>(reader->readWithDefault("vertexweightdynamicrupture", 100));
   const auto weightFreeSurfaceWithGravity = static_cast<std::uint64_t>(
       reader->readWithDefault("vertexweightfreesurfacewithgravity", 100));
+  const auto measuredCosts = reader->readWithDefault<std::string>("vertexweightfile", "");
+  const auto cycles = reader->readWithDefault<unsigned>("vertexweightcycles", 0);
+  const auto cycleSteps = reader->readWithDefault<unsigned>("vertexweightcyclesteps", 20);
+  if (cycles > 0 && cycleSteps == 0) {
+    logError() << "vertexweightcyclesteps has to be positive.";
+  }
   const double cfl = reader->readWithDefault("cfl", 0.5);
   double maxTimestepWidth = std::numeric_limits<double>::max();
 
@@ -270,7 +276,12 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
                           "material",
                           "npolymap"});
 
-  return TimeSteppingParameters({weightElement, weightDynamicRupture, weightFreeSurfaceWithGravity},
+  return TimeSteppingParameters({weightElement,
+                                 weightDynamicRupture,
+                                 weightFreeSurfaceWithGravity,
+                                 measuredCosts,
+                                 cycles,
+                                 cycleSteps},
                                 cfl,
                                 maxTimestepWidth,
                                 endTime,

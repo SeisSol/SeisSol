@@ -30,6 +30,7 @@
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
 
+#include <algorithm>
 #include <async/Config.h>
 #include <cstddef>
 #include <string>
@@ -136,6 +137,14 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
   auto& sim = seissolInstance.simulator();
   sim.setUsePlasticity(seissolParams.model.plasticity);
   sim.setFinalTime(seissolParams.timeStepping.endTime);
+  if (const auto steps = seissolInstance.measuringSteps()) {
+    // a run that measures what the cells cost goes for some time steps of the largest cluster
+    const auto& layout = seissolInstance.memoryManager().clusterLayout();
+    const double length = steps.value() * layout.timestepRate(layout.globalClusterCount - 1);
+    sim.setFinalTime(std::min(seissolParams.timeStepping.endTime, length));
+    logInfo() << "This run measures what the cells cost, over" << steps.value()
+              << "time steps of the largest cluster (" << length << "s).";
+  }
 }
 
 void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {

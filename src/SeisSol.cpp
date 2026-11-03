@@ -127,7 +127,7 @@ bool SeisSol::init() {
   return true;
 }
 
-void SeisSol::finalize() {
+void SeisSol::finalize(bool finalizeMpi) {
   // the writers are finalized while the dispatcher still runs, which takes them out together with
   // its executors
   modules_.callHook<ModuleHook::Shutdown>();
@@ -137,9 +137,10 @@ void SeisSol::finalize() {
 
   timeManager_.freeDynamicResources();
 
-  seissol::Mpi::finalize();
-
-  logInfo() << "SeisSol done. Goodbye.";
+  if (finalizeMpi) {
+    seissol::Mpi::finalize();
+    logInfo() << "SeisSol done. Goodbye.";
+  }
 }
 
 void SeisSol::setBackupTimeStamp(const std::string& stamp) {

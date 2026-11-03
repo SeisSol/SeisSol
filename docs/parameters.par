@@ -142,6 +142,12 @@ LtsWeightTypeId = 1                  ! 0=exponential, 1=exponential-balanced, 2=
 vertexWeightElement = 100 ! Base vertex weight for each element used as input to ParMETIS
 vertexWeightDynamicRupture = 200 ! Weight that's added for each DR face to element vertex weight
 vertexWeightFreeSurfaceWithGravity = 300 ! Weight that's added for each free surface with gravity face to element vertex weight
+vertexWeightFile = '' ! (optional) Partitions by the costs of the cells measured in an earlier run of the same mesh and
+! clustering (see VertexWeightOutput in &Output) instead of the weights above; the weights still sum to what they would.
+vertexWeightCycles = 0 ! (optional) Short runs before the actual one, in the same process: each measures what the cells
+! cost (as VertexWeightOutput does) and the next one is partitioned by it; the actual run by the costs of the last one.
+! They write no outputs but the run summary (under <OutputFile>-cycle<n>), and start from the beginning.
+vertexWeightCycleSteps = 20 ! (optional) How long each of these runs is, in time steps of the largest time cluster.
 
 ! Wiggle factor settings:
 ! Wiggle factor adjusts time step size by a small factor. This can lead to a slightly better clustering.
@@ -235,6 +241,10 @@ FaultEnergiesFromAcrossFaultVelocities = 0 ! 1: (less accurate but kept for back
 EpochInterval = 0 ! (optional) Ends a simulation epoch at least every this much simulated time, with
 ! a synchronization point that writes nothing; the log and the run summary report the progress and
 ! the performance of every epoch. 0 (the default) leaves that to the outputs.
+VertexWeightOutput = 0 ! (optional) 1: measures what each cell costs in the run (the time of the loops of its
+! cluster on its rank, shared over its cells, plus that of its fault faces) and writes it to
+! <OutputFile>-vertexweights.h5 at the end, for a later run to partition by (vertexWeightFile in &Discretization).
+! It needs timed loops: not within recorded super-timesteps, and on own queues only with DEVICE_OWN_QUEUE_TIMING=1.
 /
 
 &AbortCriteria

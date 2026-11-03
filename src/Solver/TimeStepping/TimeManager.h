@@ -297,6 +297,9 @@ class TimeManager {
   //! The time this rank spent in the compute kernels so far.
   [[nodiscard]] double kernelTime() const { return loopStatistics_.kernelTime(); }
 
+  //! the times of the loops of the clusters
+  [[nodiscard]] LoopStatistics& loopStatistics() { return loopStatistics_; }
+
   /**
    * Whether kernelTime() and the loop statistics hold the times of the kernels, as
    * printComputationTime() found it on all ranks. On a device that times no work (own queues

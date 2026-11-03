@@ -66,7 +66,7 @@ void LoopStatistics::addSample(
 
 void LoopStatistics::addTime(unsigned region,
                              unsigned numIterations,
-                             unsigned /*subRegion*/,
+                             unsigned subRegion,
                              double time) {
   if (numIterations > 0) {
     const std::scoped_lock lock(samplesMutex_);
@@ -77,13 +77,44 @@ void LoopStatistics::addTime(unsigned region,
     vars.y += time;
     vars.y2 += time * time;
     ++vars.n;
+
+    // only the kernels; the other regions, such as the actor states, overlap with them
+    if (recordLayers_ && regions_[region].includeInSummary) {
+      if (layers_.size() <= region) {
+        layers_.resize(region + 1);
+      }
+      auto& layers = layers_[region];
+      if (layers.size() <= subRegion) {
+        layers.resize(subRegion + 1);
+      }
+      auto& samples = layers[subRegion];
+      if (samples.times.size() < MaxLayerSamples) {
+        samples.times.push_back(time);
+      }
+      ++samples.loops;
+    }
   }
+}
+
+double LoopStatistics::layerTime(unsigned region, unsigned subRegion) const {
+  if (region >= layers_.size() || subRegion >= layers_[region].size()) {
+    return 0;
+  }
+  const auto& samples = layers_[region][subRegion];
+  if (samples.times.empty()) {
+    return 0;
+  }
+  auto times = samples.times;
+  const auto middle = times.begin() + static_cast<std::ptrdiff_t>(times.size() / 2);
+  std::nth_element(times.begin(), middle, times.end());
+  return *middle * static_cast<double>(samples.loops);
 }
 
 void LoopStatistics::reset() {
   for (auto& region : regions_) {
     region.variables = StatisticVariables();
   }
+  layers_.clear();
 }
 
 double LoopStatistics::kernelTime() const {

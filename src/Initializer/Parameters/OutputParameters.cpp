@@ -414,6 +414,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
   const auto prefix =
       reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
   const auto epochInterval = reader->readWithDefault("epochinterval", 0.0);
+  const auto vertexWeightOutput = reader->readWithDefault("vertexweightoutput", false);
 
   const auto checkpointParameters = readCheckpointParameters(baseReader);
   const auto elementwiseParameters = readElementwiseParameters(baseReader, defaultTimeSeries);
@@ -446,6 +447,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
                                      receiverParameters,
                                      waveFieldParameters);
   parameters.epochInterval = epochInterval;
+  parameters.vertexWeightOutput = vertexWeightOutput;
   return parameters;
 }
 } // namespace seissol::initializer::parameters
