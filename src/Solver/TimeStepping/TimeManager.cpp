@@ -98,6 +98,20 @@ TimeManager::~TimeManager() = default;
 
 namespace {
 
+/// the directions of groups of the halo exchange, as (from, to), in the order they were launched
+using Journal = std::vector<std::pair<std::size_t, std::size_t>>;
+
+/// the groups of a journal from `first` on, as one number (FNV-1a)
+std::uint64_t groupsHash(const Journal& journal, std::size_t first) {
+  std::uint64_t hash = 14695981039346656037ULL;
+  for (std::size_t i = first; i < journal.size(); ++i) {
+    for (const auto value : {journal[i].first, journal[i].second}) {
+      hash = (hash ^ static_cast<std::uint64_t>(value)) * 1099511628211ULL;
+    }
+  }
+  return hash;
+}
+
 /**
  * Compares the connections between the clusters with the dependencies that the face neighbors of
  * the cells impose: each cell layer is connected to every local layer of a time cluster differing
@@ -611,6 +625,10 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                    << "(and SEISSOL_DEVICE_GRAPH_NODES not set to 0).";
     } else {
       replay_ = true;
+      if (haloTransports_->scheduler() != nullptr) {
+        // which groups each super-timestep launches before and within its recording or replay
+        haloTransports_->scheduler()->keepJournal();
+      }
       // (not by default with HIP: on MI300A, the recordings with concurrent branches computed other
       // results than the runs without recordings, see the documentation)
       constexpr bool BranchesByDefault = Backend != DeviceBackend::Hip;
@@ -1074,6 +1092,17 @@ void TimeManager::followPlan() {
     const auto superStep = superTimestep.index;
     const auto& steps = superTimestep.steps;
 
+    const auto superStepEnd = (superStep + 1) * largestRate;
+    if (replay_ && scheduler != nullptr) {
+      scheduler->clearJournal();
+      // each super-timestep launches exactly the exchanges whose data it completes, so that
+      // recordings and replays comprise the same ones; but those whose operations have been made
+      // ready before go right away, outside of the recording or replay
+      scheduler->setHorizon(superStepEnd);
+    }
+    // the groups launched before, as (from, to)
+    const auto launchedBefore = scheduler != nullptr ? scheduler->journal() : Journal{};
+
     // decide on the super-timestep before any of its host parts has run
     bool outputsAhead = false;
     bool hostWork = false;
@@ -1088,6 +1117,16 @@ void TimeManager::followPlan() {
     }
     for (auto* ghost : ghosts) {
       key.push_back(ghost->nextTimeStepSize());
+    }
+    // ... and the groups launched before it: a replay launches the groups of its recording, which
+    // must not have gone before. At the start of an interval, a group that would go before the
+    // recording in the regular course may not be ready yet, and has to be part of the
+    // super-timestep then: on two nodes of Horizon, TPV13 lost an exchange of a direction that way,
+    // and its halo data went astray after each synchronization point (November 2026).
+    key.push_back(-1.0 - static_cast<double>(launchedBefore.size()));
+    for (const auto& [from, to] : launchedBefore) {
+      key.push_back(static_cast<double>(from));
+      key.push_back(static_cast<double>(to));
     }
     const bool full = superTimestep.beforeSync;
     const bool replayable = replay_ && full && regularSteps && !outputsAhead && !hostWork;
@@ -1105,12 +1144,10 @@ void TimeManager::followPlan() {
     const auto seconds = [](auto from) {
       return std::chrono::duration<double>(std::chrono::steady_clock::now() - from).count();
     };
-    const auto superStepEnd = (superStep + 1) * largestRate;
-    if (replay_ && scheduler != nullptr) {
-      // each super-timestep launches exactly the exchanges whose data it completes, so that
-      // recordings and replays comprise the same ones
-      scheduler->setHorizon(superStepEnd);
-    }
+    // the groups launched within the super-timestep, after those before
+    const auto launchedWithin = [&]() {
+      return scheduler != nullptr ? groupsHash(scheduler->journal(), launchedBefore.size()) : 0;
+    };
     if (replayNow) {
       recorder_->beginReplay(runtimes);
       for (auto* cluster : clusters_) {
@@ -1131,6 +1168,15 @@ void TimeManager::followPlan() {
       if (scheduler != nullptr) {
         scheduler->setLatestEvent(recorder_->lastEvent());
       }
+      const auto recorded = superStepGroups_.find(key);
+      if (recorded != superStepGroups_.end() && recorded->second != launchedWithin()) {
+        if (mismatchedSuperSteps_ == 0) {
+          logWarning(true) << "A replayed super-timestep counted other groups of the halo exchange"
+                           << "as launched than its recording launched; the halo data may go"
+                           << "astray.";
+        }
+        ++mismatchedSuperSteps_;
+      }
       ++replayedSuperSteps_;
       superStepHostTimes_[1] += seconds(hostStart);
     } else if (keep || once) {
@@ -1145,6 +1191,7 @@ void TimeManager::followPlan() {
       completeExchanges(superStepEnd);
       const auto ending = std::chrono::steady_clock::now();
       if (keep) {
+        superStepGroups_[key] = launchedWithin();
         recorder_->endRecording(key);
         recorder_->replay(key, participants, runtimes, &superStepDeviceTimes_[1]);
         ++recordedSuperSteps_;
@@ -1432,6 +1479,18 @@ void TimeManager::freeDynamicResources() {
               << "; recorded:" << superSteps[4] << "; replayed:" << superSteps[5]
               << "; recorded and launched once:" << superSteps[7] << "(summed over all ranks)";
     if (replay_) {
+      auto mismatched = mismatchedSuperSteps_;
+      MPI_Allreduce(MPI_IN_PLACE,
+                    &mismatched,
+                    1,
+                    Mpi::castToMpiType<std::size_t>(),
+                    MPI_SUM,
+                    Mpi::mpi.comm());
+      if (mismatched > 0) {
+        logWarning() << "Replayed super-timesteps that counted other groups of the halo exchange as"
+                     << "launched than their recordings:" << mismatched
+                     << "(summed over all ranks)";
+      }
       auto times = superStepHostTimes_;
       MPI_Allreduce(MPI_IN_PLACE, times.data(), times.size(), MPI_DOUBLE, MPI_MAX, Mpi::mpi.comm());
       logInfo() << "Host time of the super-timesteps: run directly" << times[0] << "s, replayed"

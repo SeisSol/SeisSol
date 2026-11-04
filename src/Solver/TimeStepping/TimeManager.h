@@ -35,7 +35,9 @@
 #include <array>
 #include <cassert>
 #include <chrono>
+#include <cstdint>
 #include <list>
+#include <map>
 #include <memory>
 #include <optional>
 #include <queue>
@@ -138,6 +140,10 @@ class TimeManager {
   //! one before; older ones get forgotten, as the recordings that an epoch has not replayed
   std::set<SuperStepRecorder::Key> seenSuperSteps_;
   std::set<SuperStepRecorder::Key> seenSuperStepsBefore_;
+  //! the groups of the halo exchange that each recording launched (see groupsHash()), and the
+  //! replays that counted other ones as launched
+  std::map<SuperStepRecorder::Key, std::uint64_t> superStepGroups_;
+  std::size_t mismatchedSuperSteps_{0};
 
   //! the ghost clusters act on a thread of their own
   bool commThread_{false};

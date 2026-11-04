@@ -222,6 +222,9 @@ void ExchangeScheduler::setTransportEvent(const ScheduledTransport& transport, A
 }
 
 void ExchangeScheduler::launchNext(std::size_t from, std::size_t to) {
+  if (journaling_) {
+    journal_.emplace_back(from, to);
+  }
   auto& current = direction(from, to);
   // the events stay reserved until the group has been launched, i.e. its waits are enqueued
   std::vector<ActorEvent> after;

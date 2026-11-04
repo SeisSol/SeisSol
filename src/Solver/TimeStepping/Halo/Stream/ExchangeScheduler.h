@@ -159,6 +159,17 @@ class ExchangeScheduler {
   void setLatestEvent(ActorEvent event) { latestEvent_ = std::move(event); }
 
   /**
+   * Notes the directions of the groups launched or counted as launched from now on, in their
+   * order, as (from, to), until the journal gets cleared; a replay of a recording has to comprise
+   * the groups of the recording.
+   */
+  void keepJournal() { journaling_ = true; }
+  [[nodiscard]] const std::vector<std::pair<std::size_t, std::size_t>>& journal() const {
+    return journal_;
+  }
+  void clearJournal() { journal_.clear(); }
+
+  /**
    * The event that completes with the operations of the transport launched so far, when ordered on
    * the device: the latest event, which stands for those of all transports; or, with events per
    * transport (see setTransportEvents()), the one of the last group of the transport.
@@ -315,6 +326,8 @@ class ExchangeScheduler {
   long horizon_{std::numeric_limits<long>::max()};
 
   ActorEvent latestEvent_;
+  bool journaling_{false};
+  std::vector<std::pair<std::size_t, std::size_t>> journal_;
 };
 
 /**

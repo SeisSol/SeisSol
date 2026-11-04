@@ -484,7 +484,15 @@ With ``SEISSOL_SUPERSTEP_GRAPHS=1``, the time manager takes the plan one super-t
 A super-timestep can be recorded if it ends before the next synchronization point and no cluster computes on the host.
 (The super-timestep that reaches the synchronization point takes the last steps of the clusters, which end exactly there;
 their sizes change from one synchronization interval to the next.)
-Two such super-timesteps do the same GPU work if all clusters have the same step sizes.
+Two such super-timesteps do the same GPU work if all clusters have the same step sizes,
+and the same groups of the halo exchange went right before them: a super-timestep launches the groups whose data it
+completes, but those whose operations are ready when it begins go right away, outside of its recording or replay. At the
+start of a synchronization interval, a group that goes before a super-timestep in the regular course may not be ready
+yet; it is part of the super-timestep then. (Until November 2026, the kind did not take this into account, and a replay
+in that place counted such a group as launched without running it. On two nodes of Horizon, the halo data of TPV13 with
+``shmem`` went astray from the first synchronization point on, as one direction was an exchange behind, and with a
+synchronization point every 0.5 s, the run hung. A replay that counts other groups as launched than its recording
+launched gives a warning now.)
 The first super-timestep of a kind runs as usual, the second one gets recorded into a graph,
 and all further ones replay it, while the clusters only keep their books on the host.
 All values that change from step to step are read on the GPU: the current time from a clock of each cluster,
