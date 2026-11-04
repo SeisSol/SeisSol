@@ -32,6 +32,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -524,7 +525,7 @@ void OutputManager::initFaceToLtsMap() {
 }
 
 bool OutputManager::hasPickpoints(std::size_t layerId) const {
-  return this->ppOutputBuilder_ && ppOutputData_.find(layerId) != ppOutputData_.end();
+  return this->ppOutputBuilder_ && ppOutputData_.contains(layerId);
 }
 
 void OutputManager::recordPickpointOutput(std::size_t layerId,
@@ -586,7 +587,7 @@ void OutputManager::finishPickpointStep(std::size_t layerId,
   }
   auto& callRuntime =
       outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
-  callRuntime.enqueueHost([this, outputData]() { impl_->keepStepStart(outputData); });
+  callRuntime.enqueueHost([this, outputData] { impl_->keepStepStart(outputData); });
 }
 
 void OutputManager::recordInitialPickpointOutput(double time) {

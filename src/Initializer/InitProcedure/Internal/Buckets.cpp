@@ -11,7 +11,6 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
-#include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
@@ -413,11 +412,12 @@ void setupCoupling(LTS::Layer& layer) {
       couplingDevice[cell][face] = nullptr;
       std::size_t family = 0;
       if (kernels::coupledFace<Cfg>(cellInformation[cell], face, &family)) {
-        coupling[cell][face] = layer.var<LTS::CouplingMatrices>(Cfg()) + offset / sizeof(Real<Cfg>);
+        // the offsets are aligned, and so a whole number of reals
+        const auto realOffset = offset / sizeof(Real<Cfg>);
+        coupling[cell][face] = layer.var<LTS::CouplingMatrices>(Cfg()) + realOffset;
         if constexpr (isDeviceOn()) {
           couplingDevice[cell][face] =
-              layer.var<LTS::CouplingMatrices>(Cfg(), AllocationPlace::Device) +
-              offset / sizeof(Real<Cfg>);
+              layer.var<LTS::CouplingMatrices>(Cfg(), AllocationPlace::Device) + realOffset;
         }
         offset += couplingBytes<Cfg>(family);
       }

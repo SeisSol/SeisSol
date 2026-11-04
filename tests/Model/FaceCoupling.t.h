@@ -137,7 +137,9 @@ inline Face generalFace() {
   const Eigen::Vector3d n = Eigen::Vector3d(1, -2, 3).normalized();
   const Eigen::Vector3d t1 = n.cross(Eigen::Vector3d(0, 0, 1)).normalized();
   const Eigen::Vector3d t2 = n.cross(t1);
-  return {{n(0), n(1), n(2)}, {t1(0), t1(1), t1(2)}, {t2(0), t2(1), t2(2)}};
+  return {.normal = {n(0), n(1), n(2)},
+          .tangent1 = {t1(0), t1(1), t1(2)},
+          .tangent2 = {t2(0), t2(1), t2(2)}};
 }
 
 /// The impedance of a solid without pores of the impedance `impedance` (3x3), in the interface
@@ -235,8 +237,8 @@ void checkRows(const Eigen::MatrixXd& computed,
 template <typename MaterialT>
 std::array<Eigen::MatrixXd, 2> godunovState(const MaterialT& local, const MaterialT& neighbor) {
   constexpr auto Count = static_cast<unsigned>(MaterialT::NumQuantities);
-  std::vector<double> localData(Count * Count);
-  std::vector<double> neighborData(Count * Count);
+  std::vector<double> localData(static_cast<std::size_t>(Count) * Count);
+  std::vector<double> neighborData(static_cast<std::size_t>(Count) * Count);
   yateto::DenseTensorView<2, double, unsigned> localView(localData.data(), {Count, Count});
   yateto::DenseTensorView<2, double, unsigned> neighborView(neighborData.data(), {Count, Count});
   model::getTransposedGodunovState(local, neighbor, FaceType::Regular, localView, neighborView);

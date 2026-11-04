@@ -8,6 +8,7 @@
 #include "ActorState.h"
 
 #include "Common/Executor.h"
+#include "DynamicRupture/Output/PickpointSampling.h"
 
 #include <algorithm>
 #include <atomic>

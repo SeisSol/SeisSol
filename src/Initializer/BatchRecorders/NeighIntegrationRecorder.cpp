@@ -22,6 +22,7 @@
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/Common.h"
 #include "Recorders.h"
 
 #include <algorithm>

@@ -198,7 +198,7 @@ inline InterfaceGodunov interfaceGodunov(const InterfaceImpedance& zLocal,
     w = resistance.inverse();
   }
   const InterfaceImpedance identity = InterfaceImpedance::Identity();
-  InterfaceGodunov godunov{InterfaceMap::Zero(), InterfaceMap::Zero()};
+  InterfaceGodunov godunov{.local = InterfaceMap::Zero(), .neighbor = InterfaceMap::Zero()};
   godunov.local.block<4, 4>(0, 0) = identity - zLocal * w;
   godunov.local.block<4, 4>(0, 4) = zLocal * w * zLocal - zLocal;
   godunov.local.block<4, 4>(4, 0) = -w;

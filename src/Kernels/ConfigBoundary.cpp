@@ -26,22 +26,23 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
-#include "Initializer/Typedefs.h"
 #include "Kernels/Solver.h"
 #include "Kernels/SolverSelector.h"
-#include "Model/Quantities.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <iterator>
 #include <type_traits>
 #include <utils/logger.h>
 #include <vector>
 
 #ifdef ACL_DEVICE
+// the global data and the families of the device kernels
+#include "Initializer/Typedefs.h"
+#include "Model/Common.h"
+
 #include <Device/device.h>
 #include <cstdint>
 #include <functional>

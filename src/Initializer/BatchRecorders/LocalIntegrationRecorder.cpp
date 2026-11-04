@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "Common/Typedefs.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
