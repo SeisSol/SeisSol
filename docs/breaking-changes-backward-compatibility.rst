@@ -13,6 +13,17 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The files of a mesh output in VTKHDF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since a single time series is the default of VTKHDF)
+
+A mesh output written as VTKHDF (with a ``vtkorder``) that is given no grouping
+of its steps writes them all into one file, as a VTKHDF time series
+(``monolith``), instead of one file per step; see :ref:`io_infrastructure`. Setting
+``outputtimeseries = 'snapshot'`` in the ``output`` section brings back a file
+per step for all mesh outputs. An output written as Xdmf writes a file per step
+as before.
+
 The quadrature rule of the dynamic rupture faces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since Dunavant's rules are the default)

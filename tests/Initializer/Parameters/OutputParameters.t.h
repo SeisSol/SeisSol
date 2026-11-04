@@ -16,7 +16,7 @@
 namespace seissol::unit_test {
 using namespace seissol::initializer::parameters;
 
-TEST_CASE("readOutputParameters: time series defaults to snapshots" *
+TEST_CASE("readOutputParameters: without a time series setting, the format of an output decides" *
           doctest::test_suite("initializer")) {
   const YAML::Node node = YAML::Load(R"(
     output:
@@ -27,9 +27,9 @@ TEST_CASE("readOutputParameters: time series defaults to snapshots" *
   ParameterReader reader(node, "", false);
   const auto params = readOutputParameters(&reader, defaultConfig());
 
-  CHECK(params.waveFieldParameters.timeSeries == TimeSeriesMode::Snapshot);
-  CHECK(params.freeSurfaceParameters.timeSeries == TimeSeriesMode::Snapshot);
-  CHECK(params.elementwiseParameters.timeSeries == TimeSeriesMode::Snapshot);
+  CHECK_FALSE(params.waveFieldParameters.timeSeries.has_value());
+  CHECK_FALSE(params.freeSurfaceParameters.timeSeries.has_value());
+  CHECK_FALSE(params.elementwiseParameters.timeSeries.has_value());
 }
 
 TEST_CASE("readOutputParameters: epochs end at the outputs only by default" *

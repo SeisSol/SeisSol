@@ -17,8 +17,8 @@
 #include <array>
 #include <cstddef>
 #include <limits>
+#include <optional>
 #include <string>
-#include <string_view>
 #include <unordered_set>
 #include <utils/logger.h>
 #include <vector>
@@ -38,29 +38,21 @@ ProjectionMethod readProjectionMethod(ParameterReader* reader,
       });
 }
 
-TimeSeriesMode readTimeSeriesMode(ParameterReader* reader,
-                                  const std::string& field,
-                                  const std::string& defaultValue) {
+// the mode that `field` chooses, or else `fallback`
+std::optional<TimeSeriesMode> readTimeSeriesMode(ParameterReader* reader,
+                                                 const std::string& field,
+                                                 std::optional<TimeSeriesMode> fallback) {
+  if (!reader->hasField(field)) {
+    return fallback;
+  }
   return reader->readWithDefaultStringEnum<TimeSeriesMode>(
       field,
-      defaultValue,
+      "snapshot",
       {
           {"snapshot", TimeSeriesMode::Snapshot},
           {"incremental", TimeSeriesMode::Incremental},
           {"monolith", TimeSeriesMode::Monolith},
       });
-}
-
-std::string_view timeSeriesName(TimeSeriesMode mode) {
-  switch (mode) {
-  case TimeSeriesMode::Incremental:
-    return "incremental";
-  case TimeSeriesMode::Monolith:
-    return "monolith";
-  case TimeSeriesMode::Snapshot:
-    return "snapshot";
-  }
-  return "snapshot";
 }
 } // namespace
 
@@ -97,8 +89,9 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
   return CheckpointParameters{.enabled = enabled, .interval = interval};
 }
 
-ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader,
-                                                     const std::string& defaultTimeSeries) {
+ElementwiseFaultParameters
+    readElementwiseParameters(ParameterReader* baseReader,
+                              std::optional<TimeSeriesMode> defaultTimeSeries) {
   auto* reader = baseReader->readSubNode("elementwise");
 
   const auto printTimeIntervalSec = reader->readWithDefault("printtimeinterval_sec", 1.0);
@@ -152,9 +145,8 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
                                 .terminatorMomentRateThreshold = terminatorMomentRateThreshold};
 }
 
-FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader,
-                                                      const std::string& defaultTimeSeries,
-                                                      ConfigId config) {
+FreeSurfaceOutputParameters readFreeSurfaceParameters(
+    ParameterReader* baseReader, std::optional<TimeSeriesMode> defaultTimeSeries, ConfigId config) {
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("surfaceoutput", false);
@@ -282,7 +274,7 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
 }
 
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
-                                                  const std::string& defaultTimeSeries,
+                                                  std::optional<TimeSeriesMode> defaultTimeSeries,
                                                   ConfigId config) {
   auto* reader = baseReader->readSubNode("output");
 
@@ -377,11 +369,9 @@ OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId conf
 
   const auto hdfcompress = reader->readWithDefault("hdfcompress", 0);
 
-  // Each output has a field of its own that falls back to this one. Passing the fallback on as a
-  // string keeps that one reader helper in charge of validating every one of them; going through
-  // the enum and back also settles the spelling of what the user wrote.
-  const auto defaultTimeSeries =
-      std::string(timeSeriesName(readTimeSeriesMode(reader, "outputtimeseries", "snapshot")));
+  // Each output has a field of its own that falls back to this one; where neither is given, the
+  // writer chooses by the format of the output (see TimeSeriesMode).
+  const auto defaultTimeSeries = readTimeSeriesMode(reader, "outputtimeseries", std::nullopt);
   const auto format = reader->readWithDefaultEnum<OutputFormat>(
       "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
   const auto xdmfWriterBackend =

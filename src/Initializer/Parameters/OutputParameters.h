@@ -15,6 +15,7 @@
 
 #include <array>
 #include <list>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -54,7 +55,8 @@ enum class ProjectionMethod : int { Pointwise, L2 };
  * of one per output step.
  *
  * Only the VTKHDF format can do more than `Snapshot`; an Xdmf output (that is, one written
- * without a `vtkorder`) references its unchanging parts from every step anyway.
+ * without a `vtkorder`) references its unchanging parts from every step anyway. An output whose
+ * parameters choose none is written as `Monolith` in VTKHDF and as a snapshot per step in Xdmf.
  */
 enum class TimeSeriesMode : int { Snapshot, Incremental, Monolith };
 
@@ -69,7 +71,8 @@ struct ElementwiseFaultParameters {
   FaultRefinement refinementStrategy{FaultRefinement::Quad};
   int refinement{2};
   int vtkorder{-1};
-  TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
+  // none if the parameters choose none (see TimeSeriesMode)
+  std::optional<TimeSeriesMode> timeSeries;
 };
 
 struct EnergyOutputParameters {
@@ -90,7 +93,8 @@ struct FreeSurfaceOutputParameters {
   // per quantity of the material of the configuration of the run
   std::vector<bool> outputMask;
   ProjectionMethod projection{ProjectionMethod::L2};
-  TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
+  // none if the parameters choose none (see TimeSeriesMode)
+  std::optional<TimeSeriesMode> timeSeries;
 };
 
 enum class ReceiverOutputFormat { Csv, Hdf5 };
@@ -167,7 +171,8 @@ struct WaveFieldOutputParameters {
   bool computeRotation{false};
   bool computeStrain{false};
   ProjectionMethod projection{ProjectionMethod::Pointwise};
-  TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
+  // none if the parameters choose none (see TimeSeriesMode)
+  std::optional<TimeSeriesMode> timeSeries;
 };
 
 struct OutputParameters {
@@ -211,16 +216,16 @@ void warnIntervalAndDisable(bool& enabled,
                             const std::string& valName,
                             const std::string& intName);
 CheckpointParameters readCheckpointParameters(ParameterReader* baseReader);
-ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader,
-                                                     const std::string& defaultTimeSeries);
+ElementwiseFaultParameters
+    readElementwiseParameters(ParameterReader* baseReader,
+                              std::optional<TimeSeriesMode> defaultTimeSeries);
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader);
-FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader,
-                                                      const std::string& defaultTimeSeries,
-                                                      ConfigId config);
+FreeSurfaceOutputParameters readFreeSurfaceParameters(
+    ParameterReader* baseReader, std::optional<TimeSeriesMode> defaultTimeSeries, ConfigId config);
 PickpointParameters readPickpointParameters(ParameterReader* baseReader);
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader);
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
-                                                  const std::string& defaultTimeSeries,
+                                                  std::optional<TimeSeriesMode> defaultTimeSeries,
                                                   ConfigId config);
 OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId config);
 } // namespace seissol::initializer::parameters

@@ -54,6 +54,7 @@
 #include <map>
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -195,10 +196,13 @@ void OutputManager::setLtsData(LTS::Storage& userWpStorage,
 }
 
 namespace {
-//! @brief The file grouping a time series mode asks the writer for.
-io::instance::geometry::WriterGroup
-    writerGroupOf(seissol::initializer::parameters::TimeSeriesMode mode) {
-  switch (mode) {
+//! @brief The file grouping a time series mode asks the writer for; none if there is no mode.
+std::optional<io::instance::geometry::WriterGroup>
+    writerGroupOf(std::optional<seissol::initializer::parameters::TimeSeriesMode> mode) {
+  if (!mode.has_value()) {
+    return std::nullopt;
+  }
+  switch (mode.value()) {
   case seissol::initializer::parameters::TimeSeriesMode::Incremental:
     return io::instance::geometry::WriterGroup::IncrementalSnapshot;
   case seissol::initializer::parameters::TimeSeriesMode::Monolith:
