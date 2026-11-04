@@ -170,33 +170,31 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
         // for a neighbor of a solid in another configuration, if the cell is of a fluid
         kernels::setNormalStressWeights<Cfg>(normalStress[cell], side, normal);
 
-        // the neighbor as a material of this cell, for the Riemann problem at their face; it may
-        // compute in another configuration (checkConfigBoundaries admits the pairs that can)
-        const auto neighborConfig = isInternalFaceType(cellInformation[cell].faceTypes[side])
-                                        ? cellInformation[cell].neighborConfigIds[side]
-                                        : configIdOf<Cfg>();
-        const auto materialNeighbor = dispatchConfig(neighborConfig, [&](auto neighborCfg) {
-          using NeighborMaterialT = model::MaterialOf<decltype(neighborCfg)>;
-          if constexpr (model::CanNeighbor<model::MaterialOf<Cfg>, NeighborMaterialT>) {
-            return model::neighborAs<model::MaterialOf<Cfg>>(
-                dynamic_cast<const NeighborMaterialT&>(*material[cell].neighbor[side]));
-          } else {
-            logError() << "The materials" << model::MaterialOf<Cfg>::Text << "and"
-                       << NeighborMaterialT::Text << "cannot be face neighbors.";
-            return model::MaterialOf<Cfg>{};
-          }
-        });
-
         // Defines a rotation matrix for computing material properties in face-local coordinates
         // for anisotropy. It has no effect for isotropic materials.
         std::array<double, 36> nLocalData{};
         seissol::model::getBondMatrix(normal, tangent1, tangent2, nLocalData);
-        seissol::model::getTransposedGodunovState(
-            seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
-            seissol::model::getRotatedMaterialCoefficients(nLocalData, materialNeighbor),
-            cellInformation[cell].faceTypes[side],
-            qGodLocal,
-            qGodNeighbor);
+
+        // the Riemann problem with the neighbor at their face; it may compute in another
+        // configuration (checkConfigBoundaries admits the pairs that can)
+        const auto neighborConfig = isInternalFaceType(cellInformation[cell].faceTypes[side])
+                                        ? cellInformation[cell].neighborConfigIds[side]
+                                        : configIdOf<Cfg>();
+        dispatchConfig(neighborConfig, [&](auto neighborCfg) {
+          using NeighborMaterialT = model::MaterialOf<decltype(neighborCfg)>;
+          if constexpr (model::CanNeighbor<model::MaterialOf<Cfg>, NeighborMaterialT>) {
+            seissol::model::getFaceGodunovState(
+                nLocalData,
+                materialLocal,
+                dynamic_cast<const NeighborMaterialT&>(*material[cell].neighbor[side]),
+                cellInformation[cell].faceTypes[side],
+                qGodLocal,
+                qGodNeighbor);
+          } else {
+            logError() << "The materials" << model::MaterialOf<Cfg>::Text << "and"
+                       << NeighborMaterialT::Text << "cannot be face neighbors.";
+          }
+        });
         seissol::model::getTransposedCoefficientMatrix<Cfg>(
             seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
             0,

@@ -7,9 +7,12 @@
 
 """The kernels for the faces between cells of different configurations.
 
-The cells of two configurations can be face neighbors if their materials pose
-the Riemann problem in the same material and if they fuse the same number of
-simulations (cf. model::CanNeighbor); such configurations form a family. The
+The cells of two configurations can be face neighbors if the Riemann problems of
+their materials have the same quantities and if they fuse the same number of
+simulations (cf. model::CanNeighbor); such configurations form a family. An
+anisotropic solid poses its Riemann problem in a material of its own, but in
+the quantities of an elastic one: it is of the family of the isotropic solids.
+The
 neighbor flux of a cell reads the time integral of a neighbor only through its
 trace on the shared face, tested with the face basis of the cell. The time
 integral of a neighbor of another configuration of the family is converted in
@@ -34,7 +37,8 @@ and the kernels of a configuration only depend on the canonical form of its
 family.
 
 A solid and a fluid pose the Riemann problem in different materials, but their
-cells can be face neighbors as well: their families are coupled. A cell of the
+cells can be face neighbors as well: their families are coupled, with the
+isotropic solids only. A cell of the
 one converts the time integral of a neighbor of the other from the canonical
 form of the family of the neighbor:
 
@@ -70,16 +74,22 @@ from yateto.input import parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
 from yateto.type import Datatype
 
-#: The material each equation poses the Riemann problem in (cf. RiemannMaterial
-#: in the C++ material models).
+#: The material whose quantities the Riemann problem of each equation has (cf.
+#: RiemannQuantitiesOf in the C++ material models): an anisotropic solid has
+#: those of an elastic one.
 RIEMANN_MATERIAL = {
     "elastic": "elastic",
     "viscoelastic": "elastic",
     "acoustic": "acoustic",
     "viscoacoustic": "acoustic",
-    "anisotropic": "anisotropic",
+    "anisotropic": "elastic",
     "poroelastic": "poroelastic",
 }
+
+#: The equations whose cells can be face neighbors of the coupled family (cf.
+#: model::SolidAndFluid): not an anisotropic solid, whose shear tractions change
+#: the normal velocity that a fluid sees at their face.
+COUPLING = {"elastic", "viscoelastic", "acoustic", "viscoacoustic"}
 
 
 #: The Riemann materials whose cells are face neighbors although they pose the
@@ -124,8 +134,8 @@ def plans(config_args):
     """Per configuration: its Plan. The canonical form of a family has the
     largest order of the family in the build. toCanonical and fromCanonical
     exist for the configurations of a family with more than one configuration in
-    the build; toCanonical and fromCoupledCanonical for those of a family whose
-    coupled family is in the build as well."""
+    the build; toCanonical and fromCoupledCanonical for those of COUPLING whose
+    coupled family has a configuration of COUPLING in the build as well."""
     orders = {}
     counts = {}
     for args in config_args:
@@ -133,12 +143,14 @@ def plans(config_args):
         orders[key] = max(orders.get(key, 0), args.order)
         counts[key] = counts.get(key, 0) + 1
 
+    coupling = {family(args) for args in config_args if args.equations in COUPLING}
+
     result = []
     for args in config_args:
         material, simulations = family(args)
         coupled = (COUPLED.get(material), simulations)
         with_family = counts[(material, simulations)] > 1
-        with_coupled = coupled in counts
+        with_coupled = args.equations in COUPLING and coupled in coupling
         result.append(
             Plan(
                 canonical_order=(

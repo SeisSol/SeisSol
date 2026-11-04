@@ -182,8 +182,8 @@ seissol_add_comparison(
 # the cells before it, so that each face of the plane joins the two. The pairs
 # are those of the set ci-interaction (cmake/confignames.cmake): across their
 # faces, the time integrals of a neighbor change order and precision, within a
-# family (elastic and viscoelastic, acoustic and viscoacoustic) and between a
-# solid and a fluid. A case runs in the configuration of the near half, in a
+# family (elastic, viscoelastic and anisotropic; acoustic and viscoacoustic) and
+# between a solid and a fluid. A case runs in the configuration of the near half, in a
 # build that holds both; the material file has a medium for each half. Only a
 # pair in double precision keeps a snapshot reference: in another environment,
 # a run that is partly single precision deviates from its reference by more
@@ -193,6 +193,8 @@ seissol_add_comparison(
 foreach (pair
     elastic-o6-f64:acoustic-o4-f64:solid-fluid
     elastic-o6-f64:viscoelastic-m3-o5-f32:solid-solid
+    elastic-o6-f64:anisotropic-o6-f64:solid-uniform
+    anisotropic-o6-f64:viscoelastic-m3-o5-f32:solid-solid
     viscoelastic-m3-o5-f32:viscoacoustic-m3-o4-f32:solid-fluid
     acoustic-o4-f64:viscoacoustic-m3-o4-f32:fluid-fluid)
   string(REPLACE ":" ";" pair ${pair})
@@ -224,6 +226,32 @@ foreach (pair
       EXPECT_ZERO
       LABELS "null;interaction")
 endforeach()
+
+# The solid of material-interaction-solid-uniform.yaml is isotropic, also as the stiffness tensor
+# that an anisotropic configuration reads: with the far half anisotropic, the run solves the same
+# problem as one with both halves elastic, apart from rounding, the Riemann problem at the plane
+# included, which it poses in the anisotropic material. (A planar wave is set up from one cell per
+# configuration, so that it is the same wave in both runs in a uniform medium only; the Riemann
+# problem between different solids is held against the isotropic one by a unit test.) Compared
+# sample by sample, the two runs differ by 1e-14 relative to the values, and by up to 2e-8 where a
+# small stress component crosses zero; an error in the conversion or the Riemann problem gives a
+# difference of order one.
+seissol_add_minitest(
+    NAME interaction-elastic-o6-f64-alone
+    MESH mat48
+    PARAMETERS wave.par
+    MATERIAL material-interaction-solid-uniform.yaml
+    STEPS 20
+    REQUIRE configuration=elastic-o6-f64 configurations=anisotropic-o6-f64
+    NO_SNAPSHOT
+    ACTIVITY "v1:1e-12"
+    LABELS "smoke;interaction")
+seissol_add_comparison(
+    NAME identity-interaction-anisotropic
+    REFERENCE interaction-elastic-o6-f64-alone
+    CANDIDATE interaction-elastic-o6-f64-anisotropic-o6-f64
+    TOLERANCE 1e-6
+    LABELS "identity;interaction")
 
 # ---------------------------------------------------------------------------
 # Friction laws (seissol_add_rupture).

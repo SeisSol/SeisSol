@@ -359,11 +359,12 @@ TEST_CASE("The canonical form of a family has the quantities of its Riemann prob
       CAPTURE(configName(configValue(configIdOf<Cfg>())));
       using Material = model::MaterialOf<Cfg>;
       constexpr auto Count = generated::ConfigBoundaryKernels<Cfg>::CanonicalQuantities;
-      REQUIRE(Count == Material::RiemannMaterial::NumQuantities);
+      using RiemannQuantities = model::RiemannQuantitiesOf<Material>;
+      REQUIRE(Count == RiemannQuantities::NumQuantities);
       REQUIRE(Count <= configboundarytest::Quantities<Cfg>);
-      // the leading quantities of the configuration, in the order of the Riemann material
+      // the leading quantities of the configuration, in the order of the Riemann problem
       for (std::size_t quantity = 0; quantity < Count; ++quantity) {
-        CHECK(Material::Quantities[quantity] == Material::RiemannMaterial::Quantities[quantity]);
+        CHECK(Material::Quantities[quantity] == RiemannQuantities::Quantities[quantity]);
       }
     }
   });

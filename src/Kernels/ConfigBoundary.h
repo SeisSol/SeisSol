@@ -35,7 +35,7 @@ namespace seissol::kernels {
  * The neighbor flux of the cell reads the time integral of a neighbor only through its trace on
  * the shared face, tested with the face basis of the cell. The conversion keeps these face
  * integrals exact. It goes through the canonical form of the family of both configurations (the
- * configurations whose materials pose the Riemann problem in the same material, and that fuse the
+ * configurations whose materials pose the Riemann problem in the same quantities, and that fuse the
  * same number of simulations): toCanonical of the neighbor pads its time integral to the largest
  * order of the family in the build, selects the quantities of the Riemann problem and widens it to
  * double precision; fromCanonical of the cell, for the side of the neighbor on the shared face,
@@ -54,7 +54,7 @@ template <typename Cfg, typename NeighborCfg>
 constexpr bool FamilyConvertible =
     generated::ConfigBoundaryKernels<Cfg>::Host &&
     generated::ConfigBoundaryKernels<NeighborCfg>::Host &&
-    model::SameRiemannMaterial<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
+    model::SameFamily<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
     Cfg::NumSimulations == NeighborCfg::NumSimulations;
 
 /// The conversion of Convertible between a solid and a fluid.

@@ -33,7 +33,9 @@ set(SEISSOL_MATERIALS elastic anisotropic viscoelastic poroelastic acoustic visc
 # the conversions of their time integrals (codegen/kernels/configboundary.py): the solids lift the
 # trace of the order 6 of their family to order 5 and pad the order 4 of the fluids, the fluids lift
 # the order 6 of the solids to their order 4, and each family has a configuration in single and one
-# in double precision. Its unit tests, its verification cases with ConfigMap (interaction-* in
+# in double precision; an anisotropic and an elastic solid of the same order meet as well, which
+# pose the Riemann problem in different materials. Its unit tests, its verification cases with
+# ConfigMap (interaction-* in
 # tests/verification/Cases.cmake) and its sanitizer job check these conversions, which no other set
 # takes, since all of their configurations of one simulation share their order.
 #
@@ -77,6 +79,7 @@ endforeach()
 
 set(SEISSOL_CONFIG_SET_ci-interaction
   elastic-o6-f64
+  anisotropic-o6-f64
   viscoelastic-m3-o5-f32
   acoustic-o4-f64
   viscoacoustic-m3-o4-f32)
