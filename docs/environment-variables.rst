@@ -109,6 +109,7 @@ Load balancing
 When running with multiple ranks, SeisSol will estimate the node-level performance, enabling better load balancing.
 For that, it runs the so-called "Mini SeisSol" benchmark. As its name already hints, it simulates a small test workload on each node;
 thus estimating the performance of all nodes relative to each other. The number of elements per node assigned during the partitioning will be resized according to these values.
+On GPUs, it runs the kernels for half a second before it times 100 steps of them: a GPU that has been idle raises its clocks only under load, within some hundred milliseconds, and a few steps measure how fast it does that rather than how fast it computes.
 
 As a result, the partitioning of runs may become non-deterministic, and the initialization procedure may take a little longer, especially when running only on a single node with multiple ranks.
 To disable it, set ``SEISSOL_MINISEISSOL=0``.

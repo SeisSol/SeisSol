@@ -64,15 +64,27 @@ auto estimatedCost(ConfigId config) -> double {
 } // namespace
 
 auto miniSeisSol(ConfigId config) -> double {
-  const auto proxyConfig = proxy::ProxyConfig{50000,
-                                              10,
-                                              {seissol::proxy::Kernel::Local},
-                                              false,
-                                              isDeviceOn() ? Executor::Device : Executor::Host,
-                                              config};
+  // A device that has been idle raises its clocks within some hundred milliseconds under load; ten
+  // steps (~20 ms on a B200) measured how fast it did that, not how fast it computes: on Horizon
+  // (November 2026), some nodes came out 1.5 times as fast as the others, but were 3 % faster in
+  // 1000 steps, and their ranks got 1.5 times the cells. So the kernels run for a while first.
+  constexpr bool OnDevice = isDeviceOn();
+  auto proxyConfig = proxy::ProxyConfig{50000,
+                                        OnDevice ? 100U : 10U,
+                                        {seissol::proxy::Kernel::Local},
+                                        false,
+                                        OnDevice ? Executor::Device : Executor::Host,
+                                        config};
+  proxyConfig.warmup = OnDevice ? 0.5 : 0.0;
 
-  logInfo() << "Running MiniSeisSol with" << proxyConfig.cells << "cells and"
-            << proxyConfig.timesteps << "repetitions.";
+  if (OnDevice) {
+    logInfo() << "Running MiniSeisSol with" << proxyConfig.cells << "cells and"
+              << proxyConfig.timesteps << "repetitions, after" << proxyConfig.warmup
+              << "s of warm-up.";
+  } else {
+    logInfo() << "Running MiniSeisSol with" << proxyConfig.cells << "cells and"
+              << proxyConfig.timesteps << "repetitions.";
+  }
   const auto proxyResult = seissol::proxy::runProxy(proxyConfig);
 
   const auto summary = statistics::parallelSummary(proxyResult.time);
