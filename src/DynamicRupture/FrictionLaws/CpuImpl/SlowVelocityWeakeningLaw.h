@@ -30,7 +30,6 @@ class SlowVelocityWeakeningLaw
    */
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
-#pragma omp declare simd
   template <typename S>
   S updateStateVariable(std::uint32_t pointIndex,
                         std::size_t faceIndex,
@@ -113,7 +112,6 @@ class SlowVelocityWeakeningLaw
    * @param localStateVariable \f$ \Psi \f$
    * @return \f$ \mu \f$
    */
-#pragma omp declare simd
   /// generic over the scalar: a dual slip rate carries the derivative out with the value
   template <typename S>
   S updateMu(std::uint32_t pointIndex, S localSlipRateMagnitude, const MuDetails& details) {
@@ -121,17 +119,6 @@ class SlowVelocityWeakeningLaw
     return S(details.a[pointIndex]) *
            rs::arsinhexp(lx, S(details.cExpLog[pointIndex]), S(details.cExp[pointIndex]));
   }
-
-  /**
-   * Computes the derivative of the friction coefficient with respect to the slip rate.
-   * \f[\frac{\partial}{\partial V}\mu = \frac{aC}{\sqrt{(VC)^2 +1}} \text{ with } C =
-   * \frac{1}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi / L)}{a} \right). \f]
-   * Note that we need double precision here, since single precision led to NaNs.
-   * @param localSlipRateMagnitude \f$ V \f$
-   * @param localStateVariable \f$ \Psi \f$
-   * @return \f$ \mu \f$
-   */
-#pragma omp declare simd
 
   /**
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the

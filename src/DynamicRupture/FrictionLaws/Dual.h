@@ -33,7 +33,10 @@ namespace seissol::dr::friction_law {
  * single precision.
  *
  * The type is trivially copyable and every operation is inlined, so it goes through device code
- * and vectorised loops as a pair of scalars.
+ * and vectorised loops as a pair of scalars. Inlined is also the only way it goes through them: a
+ * SIMD clone (`omp declare simd`) can neither take nor return a struct, so a function that a dual
+ * number passes through carries no such declaration -- GCC would warn at every instantiation with
+ * a dual -- and is vectorised as part of the loop it is inlined into.
  *
  * First order only: nesting a dual inside a dual would give second derivatives, but the elementary
  * functions below reach for the standard library by qualified name, which a nested value would not

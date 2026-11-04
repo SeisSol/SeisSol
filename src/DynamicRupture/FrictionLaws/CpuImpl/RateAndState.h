@@ -857,7 +857,6 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
    * evaluating it inside the Newton moves the coupling out of the outer fixed point, which
    * resolves it at a linear rate, into the quadratic one.
    */
-#pragma omp declare simd
   template <typename S>
   static S stickAt(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
                    const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStressStick,

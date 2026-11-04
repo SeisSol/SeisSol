@@ -29,19 +29,18 @@ class AgingLaw : public SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, T
 
   using SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod>::copyStorageToLocal;
 
-/**
- * Integrates the state variable ODE in time
- * \f[ \frac{\partial \Psi}{\partial t} = 1 - \frac{V}{L} \Psi \f]
- * Analytic solution:
- * \f[\Psi(t) = \frac{L}{V} + \left(\Psi_0 - \frac{L}{V}\right) \exp\left( -\frac{V}{L} \cdot t
- * \right). \f]
- * Note that we need double precision here, since single precision led to NaNs.
- * @param stateVarReference \f$ \Psi_0 \f$
- * @param timeIncrement \f$ t \f$
- * @param localSlipRate \f$ V \f$
- * @return \f$ \Psi(t) \f$
- */
-#pragma omp declare simd
+  /**
+   * Integrates the state variable ODE in time
+   * \f[ \frac{\partial \Psi}{\partial t} = 1 - \frac{V}{L} \Psi \f]
+   * Analytic solution:
+   * \f[\Psi(t) = \frac{L}{V} + \left(\Psi_0 - \frac{L}{V}\right) \exp\left( -\frac{V}{L} \cdot t
+   * \right). \f]
+   * Note that we need double precision here, since single precision led to NaNs.
+   * @param stateVarReference \f$ \Psi_0 \f$
+   * @param timeIncrement \f$ t \f$
+   * @param localSlipRate \f$ V \f$
+   * @return \f$ \Psi(t) \f$
+   */
   /// generic over the scalar the slip rate arrives in; see SlowVelocityWeakeningLaw::StateScalar
   template <typename S>
   [[nodiscard]] S updateStateVariable(std::uint32_t pointIndex,

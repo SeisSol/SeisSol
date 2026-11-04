@@ -27,8 +27,7 @@ class SevereVelocityWeakeningLaw
    */
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
-// Note that we need double precision here, since single precision led to NaNs.
-#pragma omp declare simd
+  // Note that we need double precision here, since single precision led to NaNs.
   /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
   /// the state variable by the very slip rate it is solving for
   template <typename S>
@@ -108,7 +107,6 @@ class SevereVelocityWeakeningLaw
            c;
   }
 
-#pragma omp declare simd
   /// generic over the scalar: a dual slip rate carries the derivative out with the value
   template <typename S>
   S updateMu(std::uint32_t pointIndex, S localSlipRateMagnitude, const MuDetails& details) {
@@ -117,8 +115,6 @@ class SevereVelocityWeakeningLaw
                (localSlipRateMagnitude + S(this->drParameters_.rsSr0)) -
            S(details.c[pointIndex]);
   }
-
-#pragma omp declare simd
 
   /**
    * Resample the state variable. For Slow Velocity Weakening Laws, we just copy the buffer into the

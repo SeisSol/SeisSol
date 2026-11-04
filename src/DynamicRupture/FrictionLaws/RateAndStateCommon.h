@@ -67,7 +67,6 @@ SEISSOL_HOSTDEVICE constexpr T logMaxExp() {
   branches on every lane, and inf * 0 raises FE_INVALID on a locked point where 0 * 0 stays quiet.
   It also survives the licence -ffast-math grants the compiler to assume that no infinities exist.
  */
-#pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T computeCExp(T cExpLog) {
   // unqualified so that a dual number picks up the overload next to its own definition, while a
@@ -103,7 +102,6 @@ SEISSOL_HOSTDEVICE constexpr T computeCExp(T cExpLog) {
   one, which costs a sixth of this function in the folded inversion -- measured -- for accuracy
   outside the domain the friction laws occupy.
  */
-#pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T cExpLog, T cExp) {
   using std::abs;
@@ -146,7 +144,6 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T cExpLog, T cExp) {
   untroubled: at the floor the quotient is 2e29 and its derivative 2e64. Splitting the logarithm
   keeps the reciprocal out of the expression, and the derivative that comes back is -1 / V.
  */
-#pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE T logsinhOver(T y, T c) {
   using std::abs;
@@ -171,7 +168,6 @@ SEISSOL_HOSTDEVICE T logsinhOver(T y, T c) {
   phi_1(-z) of Numerical/PhiFunctions.h, which reaches for the standard library by qualified name
   and so cannot take a dual number.
  */
-#pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE T relaxationWeight(T z) {
   using std::expm1;
@@ -195,10 +191,9 @@ SEISSOL_HOSTDEVICE T relaxationWeight(T z) {
 
   Both executors solve the same algebra, and it depends on nothing a friction law carries.
  */
-#pragma omp declare simd
 template <typename T>
-SEISSOL_HOSTDEVICE
-    T effectiveNormalStress(T stick, decltype(valueOf(T{})) pressureSlope, T slipRate, T mu) {
+SEISSOL_HOSTDEVICE T
+    effectiveNormalStress(T stick, decltype(valueOf(T{})) pressureSlope, T slipRate, T mu) {
   using Scalar = decltype(valueOf(T{}));
   const T divisor = T(static_cast<Scalar>(1.0)) - mu * slipRate * T(pressureSlope);
   const T sigma = stick / divisor;
@@ -219,7 +214,6 @@ SEISSOL_HOSTDEVICE
   In total,
   log(x * sinh(c)) = |c| + log(x / 2 * -sign(c) * expm1(-2|c|))
  */
-#pragma omp declare simd
 template <typename T>
 SEISSOL_HOSTDEVICE constexpr T logsinh(T x, T c) {
   using std::abs;

@@ -123,7 +123,6 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
  * @param base
  * @return
  */
-#pragma omp declare simd
 template <int32_t Exp, typename T>
 SEISSOL_HOSTDEVICE constexpr auto power(T base) -> T {
   if constexpr (Exp == 0) {
