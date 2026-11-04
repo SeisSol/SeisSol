@@ -286,7 +286,10 @@ super-timesteps, whatever ``SEISSOL_CONCURRENT_CLUSTERS``, ``SEISSOL_TIMESTEPPIN
 say (the actual run follows them): with concurrent clusters, the time of a loop on the device also counts the time its
 kernels share the device with those of other clusters, and recorded super-timesteps time nothing at all.
 On 128 nodes of Horizon (November 2026), short runs with the time-stepping plan and concurrent clusters measured costs
-that made the actual run of the Turkey case take 40 s instead of 24 s.
+that made the actual run of the Turkey case take 40 s instead of 24 s (on 32 nodes, some ranks got 1.8 times the mean
+of the cells, and failed to set up). Measured with the clusters one after another, the run with the plan took 23.6 s
+against 24.4 s without measured costs on 128 nodes, and 47.5 s against 46.0 s on 64 nodes; the default time stepping
+took 23.0 s against 23.4 s and 43.4 s against 44.3 s.
 
 The costs of a cell include the speed of the rank it was measured on, so the partition does not weight the ranks
 by Mini SeisSol then (see :ref:`env_vars`).
