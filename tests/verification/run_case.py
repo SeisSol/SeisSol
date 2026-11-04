@@ -956,6 +956,8 @@ def _relative(a, b, scale):
 _COMPONENTS = {
     **{name: "stress" for name in ("s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz")},
     **{name: "velocity" for name in ("v1", "v2", "v3")},
+    # the filtration velocity of a poroelastic material
+    **{name: "fluid velocity" for name in ("v1_f", "v2_f", "v3_f")},
     **{name: "traction" for name in ("T_s", "T_d", "P_n")},
     **{name: "initial traction" for name in ("Ts0", "Td0", "Pn0")},
     **{name: "slip" for name in ("Sls", "Sld")},
