@@ -118,4 +118,54 @@ TEST_CASE("readOutputParameters: the fault output follows the shared setting" *
   CHECK(params.elementwiseParameters.timeSeries == TimeSeriesMode::Incremental);
 }
 
+TEST_CASE("readOutputParameters: the receivers and the checkpoints are on where their parameters "
+          "say what to write" *
+          doctest::test_suite("initializer")) {
+  SUBCASE("neither of them without their parameters") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        ioutputmask: '1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, defaultConfig());
+
+    CHECK_FALSE(params.receiverParameters.enabled);
+    CHECK_FALSE(params.checkpointParameters.enabled);
+  }
+
+  SUBCASE("the receivers with their points, the checkpoints with their interval") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        ioutputmask: '1'
+        rfilename: 'receivers.dat'
+        checkpointinterval: 0.5
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, defaultConfig());
+
+    CHECK(params.receiverParameters.enabled);
+    CHECK(params.checkpointParameters.enabled);
+    CHECK(params.checkpointParameters.interval == 0.5);
+  }
+
+  SUBCASE("both of them switched off in spite of their parameters") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        ioutputmask: '1'
+        receiveroutput: 0
+        rfilename: 'receivers.dat'
+        checkpoint: 0
+        checkpointinterval: 0.5
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, defaultConfig());
+
+    CHECK_FALSE(params.receiverParameters.enabled);
+    CHECK_FALSE(params.checkpointParameters.enabled);
+  }
+}
+
 } // namespace seissol::unit_test

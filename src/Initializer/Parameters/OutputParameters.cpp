@@ -75,7 +75,8 @@ void warnIntervalAndDisable(bool& enabled,
 CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
-  auto enabled = reader->readWithDefault("checkpoint", true);
+  // a run writes checkpoints if it says how often, unless it switches them off
+  auto enabled = reader->readWithDefault("checkpoint", reader->hasField("checkpointinterval"));
   double interval = 0.0;
   if (enabled) {
     interval = reader->readWithDefault("checkpointinterval", 0.0);
@@ -235,7 +236,8 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
   const auto interval = reader->readWithDefault("receiveroutputinterval", VeryLongTime);
-  auto enabled = reader->readWithDefault("receiveroutput", true);
+  // a run writes the off-fault receivers if it gives their points, unless it switches them off
+  auto enabled = reader->readWithDefault("receiveroutput", reader->hasField("rfilename"));
   warnIntervalAndDisable(enabled, interval, "receiveroutput", "receiveroutputinterval");
 
   const auto format = reader->readWithDefaultStringEnum<ReceiverOutputFormat>(

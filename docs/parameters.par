@@ -179,7 +179,8 @@ wavefieldprojection = 'pointwise' ! how the solution is transferred onto the out
 wavefieldtimeseries = 'snapshot' ! overrides outputtimeseries for the wavefield output
 
 ! off-fault receivers
-ReceiverOutput = 1                   ! Enable/disable off-fault receiver output
+ReceiverOutput = 1                   ! Enable/disable off-fault receiver output; on by default
+! where RFileName is given
 ReceiverFormat = 'csv'               ! Format of receiver output: 'csv' (default) or 'hdf5'
 RFileName = 'tpv33_receivers.dat'    ! Record Points in extra file
 pickdt = 0.005                       ! Pickpoint Sampling
@@ -208,7 +209,8 @@ surfaceprojection = 'l2' ! as wavefieldprojection, for the free-surface output
 surfacetimeseries = 'snapshot' ! overrides outputtimeseries for the free-surface output
 
 !Checkpointing
-Checkpoint = 1                       ! enable/disable checkpointing
+Checkpoint = 1                       ! enable/disable checkpointing; on by default where
+! checkPointInterval is given
 checkPointInterval = 6
 
 xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
