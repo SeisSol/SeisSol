@@ -56,6 +56,17 @@ jobs:
             dr-quad-rule: dunavant
             testing-generated: 'ON'
             threads: false
+          - name: interaction
+            sanitizers: address;undefined
+            cc: gcc
+            cxx: g++
+            cxx-flags: -D_GLIBCXX_ASSERTIONS
+            # the faces between configurations of other orders and precisions, which the other
+            # sets do not have (cmake/confignames.cmake)
+            configs: ci-interaction
+            dr-quad-rule: dunavant
+            testing-generated: 'OFF'
+            threads: false
           - name: thread
             sanitizers: thread
             cc: clang

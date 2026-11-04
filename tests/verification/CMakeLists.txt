@@ -464,6 +464,10 @@ else()
 endif()
 message(STATUS "Verification: cases for ${verification_configs}")
 
+# all configurations of the executable, which a case that computes in several of them requires
+list(TRANSFORM SEISSOL_CONFIG_NAMES REPLACE "^(.+)$" "\"\\1\"" OUTPUT_VARIABLE quoted_names)
+string(JOIN ", " SEISSOL_CAP_CONFIGURATIONS ${quoted_names})
+
 foreach (SEISSOL_VERIFICATION_CONFIG IN LISTS verification_configs)
   list(FIND SEISSOL_CONFIG_NAMES ${SEISSOL_VERIFICATION_CONFIG} index)
   if (index LESS 0)

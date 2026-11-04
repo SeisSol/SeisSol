@@ -1,5 +1,6 @@
 {
   "configuration": "@SEISSOL_VERIFICATION_CONFIG@",
+  "configurations": [@SEISSOL_CAP_CONFIGURATIONS@],
   "equations": "@SEISSOL_CAP_MATERIALS@",
   "solver": "@SEISSOL_CAP_SOLVERS@",
   "order": @SEISSOL_CAP_ORDERS@,

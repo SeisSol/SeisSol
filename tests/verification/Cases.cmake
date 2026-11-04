@@ -177,6 +177,55 @@ seissol_add_comparison(
 
 
 # ---------------------------------------------------------------------------
+# Several configurations in one run. ConfigMap puts the cells beyond the split
+# plane of mat48 (group 2) into another configuration of the executable than
+# the cells before it, so that each face of the plane joins the two. The pairs
+# are those of the set ci-interaction (cmake/confignames.cmake): across their
+# faces, the time integrals of a neighbor change order and precision, within a
+# family (elastic and viscoelastic, acoustic and viscoacoustic) and between a
+# solid and a fluid. A case runs in the configuration of the near half, in a
+# build that holds both; the material file has a medium for each half. Only a
+# pair in double precision keeps a snapshot reference: in another environment,
+# a run that is partly single precision deviates from its reference by more
+# than the snapshot tolerance of double precision allows.
+# ---------------------------------------------------------------------------
+
+foreach (pair
+    elastic-o6-f64:acoustic-o4-f64:solid-fluid
+    elastic-o6-f64:viscoelastic-m3-o5-f32:solid-solid
+    viscoelastic-m3-o5-f32:viscoacoustic-m3-o4-f32:solid-fluid
+    acoustic-o4-f64:viscoacoustic-m3-o4-f32:fluid-fluid)
+  string(REPLACE ":" ";" pair ${pair})
+  list(GET pair 0 near)
+  list(GET pair 1 far)
+  list(GET pair 2 media)
+  set(snapshot "")
+  if (near MATCHES "-f32" OR far MATCHES "-f32")
+    set(snapshot NO_SNAPSHOT)
+  endif()
+  set(interaction
+      MESH mat48
+      PARAMETERS wave.par
+      MATERIAL material-interaction-${media}.yaml
+      STEPS 20
+      REQUIRE configuration=${near} configurations=${far}
+      # the relaxation frequencies are read where a configuration of the run is anelastic
+      SET "equations.ConfigMap='2:${far}'" "equations.FreqCentral=60.0" "equations.FreqRatio=100.0")
+  seissol_add_minitest(
+      NAME interaction-${near}-${far}
+      ${interaction}
+      ${snapshot}
+      ACTIVITY "v1:1e-12"
+      LABELS "smoke;interaction")
+  seissol_add_minitest(
+      NAME null-interaction-${near}-${far}
+      ${interaction}
+      SET ${SEISSOL_ZERO_STATE}
+      EXPECT_ZERO
+      LABELS "null;interaction")
+endforeach()
+
+# ---------------------------------------------------------------------------
 # Friction laws (seissol_add_rupture).
 #
 # Every law runs on fault48 from rest, with a nucleation stress that breaks

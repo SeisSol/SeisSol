@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The solids of material-elastic.yaml, with the quality factors that a
+# viscoelastic configuration reads as well; an elastic one leaves them aside.
+# Group 2, the far half of mat48, is the softer solid.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        rho:    2700.0
+        mu:     3.24e10
+        lambda: 3.24e10
+        Qp:     120.0
+        Qs:     60.0
+  - !GroupFilter
+    groups: 2
+    components: !ConstantMap
+      map:
+        rho:    2700.0
+        mu:     1.62e10
+        lambda: 1.62e10
+        Qp:     80.0
+        Qs:     40.0

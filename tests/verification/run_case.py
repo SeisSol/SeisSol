@@ -158,7 +158,9 @@ def apply_overrides(parameters, overrides):
 def unmet_requirements(capabilities, requirements):
     """Return the requirements this build does not satisfy.
 
-    A requirement is ``key=a|b``, ``key!=a``, ``key>=n`` or ``key<=n``. An
+    A requirement is ``key=a|b``, ``key!=a``, ``key>=n`` or ``key<=n``. A
+    capability that is a list, as ``configurations``, meets ``key=a|b`` if it
+    holds one of the alternatives, and ``key!=a`` if it holds none of them. An
     unknown key is a failure of the test declaration, not of the build, so it
     raises instead of quietly skipping: a typo that skips everything would
     leave the suite green and empty.
@@ -177,9 +179,13 @@ def unmet_requirements(capabilities, requirements):
         have = capabilities[key]
         if operator in ("=", "!="):
             alternatives = [item.strip().lower() for item in wanted.split("|")]
-            matched = str(have).lower() in alternatives
+            if isinstance(have, list):
+                matched = any(str(item).lower() in alternatives for item in have)
+            else:
+                matched = str(have).lower() in alternatives
             if matched != (operator == "="):
-                unmet.append(f"{key} is {have}, required {operator} {wanted}")
+                shown = ", ".join(map(str, have)) if isinstance(have, list) else have
+                unmet.append(f"{key} is {shown}, required {operator} {wanted}")
         else:
             try:
                 left, right = float(have), float(wanted)
