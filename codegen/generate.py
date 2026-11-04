@@ -534,18 +534,17 @@ def main():
             unit_tests=unitTests,
         )
         summary = single.generate_single(0, cmdLineArgs.outputDir, namespace="seissol")
-        with open(
-            os.path.join(cmdLineArgs.outputDir, folder, EXCHANGE_FILE), "w"
-        ) as file:
-            # the directories relative to the output directory, so that the file is
-            # the same wherever that is
-            json.dump(
+        # the directories relative to the output directory, so that the file is the
+        # same wherever that is
+        kernels.output.write_if_changed(
+            os.path.join(cmdLineArgs.outputDir, folder, EXCHANGE_FILE),
+            json.dumps(
                 {
                     "summary": summary,
                     "routines": cache.export(root=cmdLineArgs.outputDir),
-                },
-                file,
-            )
+                }
+            ),
+        )
 
     def generate_general():
         # we use always use double here,
@@ -588,12 +587,14 @@ def main():
             for folder in folders + ["general"]
             if os.path.exists(os.path.join(cmdLineArgs.outputDir, folder, filename))
         ]
-        with open(os.path.join(cmdLineArgs.outputDir, filename), "w") as file:
-            file.writelines(["// IWYU pragma: begin_exports\n"])
-            file.writelines(
-                [f'#include "{os.path.join(folder, filename)}"\n' for folder in present]
+        kernels.output.write_if_changed(
+            os.path.join(cmdLineArgs.outputDir, filename),
+            "// IWYU pragma: begin_exports\n"
+            + "".join(
+                f'#include "{os.path.join(folder, filename)}"\n' for folder in present
             )
-            file.writelines(["// IWYU pragma: end_exports\n"])
+            + "// IWYU pragma: end_exports\n",
+        )
 
     def generate_shared():
         """The shared step, from EXCHANGE_FILE of every configuration."""

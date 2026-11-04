@@ -170,12 +170,25 @@ foreach(IDX RANGE ${STEPCOUNT})
     set(STEP_COMMENT "Code generation for ${STEP_TARGET}")
   endif()
 
+  # A step writes a file only where its content changes, as yateto does, so that the build does not
+  # compile again what it has compiled from the other files. Ninja checks the times of the outputs
+  # again after the step (restat, which CMake sets for every custom command) and records that the
+  # step has run; Make tells that a step has run by the times of its outputs alone, and would run it
+  # at every build while one of them is older than an input, so for Make, the step gives all of
+  # them its time.
+  if (CMAKE_GENERATOR MATCHES "Ninja")
+    set(STEP_TOUCH)
+  else()
+    set(STEP_TOUCH COMMAND ${CMAKE_COMMAND} -E touch ${STEP_outputs})
+  endif()
+
   # The step writes the files it has read into the depfile, the modules of the code generator and
   # the matrices among them (see codegen/kernels/depfile.py), so that the build runs it again when
   # one of them changes.
   add_custom_command(
     COMMAND
        ${GENERATE_ARGS} "--mode" "codegen" "--codegen_target" "${STEP_TARGET}"
+    ${STEP_TOUCH}
        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
        DEPENDS
           build-time-make-directory
