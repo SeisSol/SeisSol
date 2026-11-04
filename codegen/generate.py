@@ -18,6 +18,7 @@ import sys
 
 import kernels.arch
 import kernels.configboundary
+import kernels.depfile
 import kernels.dynamic_rupture
 import kernels.general
 import kernels.memlayout
@@ -167,6 +168,14 @@ def main():
 
     cmdLineParser.set_defaults(enable_premultiply_flux=False)
     cmdLineArgs = cmdLineParser.parse_args()
+
+    # what a step reads, for the build to run it again when that changes (see kernels.depfile)
+    recorder = None
+    if cmdLineArgs.mode == "codegen" and cmdLineArgs.codegen_target != STEP_ALL:
+        recorder = kernels.depfile.InputRecorder(
+            [os.path.dirname(os.path.abspath(__file__))]
+            + ([cmdLineArgs.matricesDir] if cmdLineArgs.matricesDir else [])
+        )
 
     # derive the compute platform
     gpu_platforms = ["cuda", "hip", "hipsycl", "acpp", "oneapi"]
@@ -751,6 +760,17 @@ def main():
             generate_configuration(index)
     if target in (STEP_ALL, STEP_SHARED):
         generate_shared()
+
+    if recorder is not None:
+        with open(os.path.join(cmdLineArgs.outputDir, "steps.json")) as file:
+            (outputs,) = [
+                step["outputs"] for step in json.load(file) if step["target"] == target
+            ]
+        kernels.depfile.write_depfile(
+            os.path.join(cmdLineArgs.outputDir, f"{target}.d"),
+            os.path.join(cmdLineArgs.outputDir, outputs[0]),
+            recorder.files | kernels.depfile.imported_files(),
+        )
 
 
 if __name__ == "__main__":

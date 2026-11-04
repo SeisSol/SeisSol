@@ -170,6 +170,9 @@ foreach(IDX RANGE ${STEPCOUNT})
     set(STEP_COMMENT "Code generation for ${STEP_TARGET}")
   endif()
 
+  # The step writes the files it has read into the depfile, the modules of the code generator and
+  # the matrices among them (see codegen/kernels/depfile.py), so that the build runs it again when
+  # one of them changes.
   add_custom_command(
     COMMAND
        ${GENERATE_ARGS} "--mode" "codegen" "--codegen_target" "${STEP_TARGET}"
@@ -177,13 +180,11 @@ foreach(IDX RANGE ${STEPCOUNT})
        DEPENDS
           build-time-make-directory
           "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
-          "${CMAKE_CURRENT_SOURCE_DIR}/kernels"
-          "${CMAKE_CURRENT_SOURCE_DIR}/matrices"
-          "${CMAKE_CURRENT_SOURCE_DIR}/config"
           "${CMAKE_CURRENT_BINARY_DIR}/configs.json"
           ${STEP_inputs}
       OUTPUT
           ${STEP_outputs}
+      DEPFILE "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/${STEP_TARGET}.d"
       COMMENT "${STEP_COMMENT}"
          )
   list(APPEND GENERATED_FILES_FOR_SEISSOL ${STEP_outputs})
