@@ -491,8 +491,9 @@ start of a synchronization interval, a group that goes before a super-timestep i
 yet; it is part of the super-timestep then. (Until November 2026, the kind did not take this into account, and a replay
 in that place counted such a group as launched without running it. On two nodes of Horizon, the halo data of TPV13 with
 ``shmem`` went astray from the first synchronization point on, as one direction was an exchange behind, and with a
-synchronization point every 0.5 s, the run hung. A replay that counts other groups as launched than its recording
-launched gives a warning now.)
+synchronization point every 0.5 s, the run hung; with ``ccl``, and with ``shmem`` with a kernel for each operation, it
+hung at the first one. With the fix, they took 1.2 to 1.4 s, 0.73 s and 0.85 to 0.88 s, bitwise the same as without
+recordings (2.6 s). A replay that counts other groups as launched than its recording launched gives a warning now.)
 The first super-timestep of a kind runs as usual, the second one gets recorded into a graph,
 and all further ones replay it, while the clusters only keep their books on the host.
 All values that change from step to step are read on the GPU: the current time from a clock of each cluster,
