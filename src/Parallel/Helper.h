@@ -128,10 +128,10 @@ inline bool useExchangeTransportEvents(utils::Env& env) {
  * relations of a face) become nodes of their own in the recordings of super-timesteps, so that they
  * can run concurrently. Otherwise, they run one after another, as one node: the graphs get fewer
  * nodes, which makes them quicker to record and to launch (with HIP, each launch costs the host
- * time per node).
+ * time per node). `byDefault` without SEISSOL_SUPERSTEP_BRANCHES.
  */
-inline bool useSuperStepBranches(utils::Env& env) {
-  return env.get<bool>("SUPERSTEP_BRANCHES", true);
+inline bool useSuperStepBranches(utils::Env& env, bool byDefault) {
+  return env.get<bool>("SUPERSTEP_BRANCHES", bool{byDefault});
 }
 
 /**

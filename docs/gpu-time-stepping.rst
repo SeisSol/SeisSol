@@ -77,10 +77,11 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - Experimental, with ``SEISSOL_SUPERSTEP_GRAPHS=1``. ``replay`` (default): as described below.
        ``always``: besides, record each other super-timestep and launch it once.
        ``rebuild``: record every super-timestep anew and launch it once, replaying none; this measures what the recordings cost.
-   * - ``SEISSOL_SUPERSTEP_BRANCHES=0``
-     - With ``SEISSOL_SUPERSTEP_GRAPHS=1``: run the independent branches of the work of a cluster (e.g. the neighbor fluxes
-       of the face relations) one after another in the recordings, instead of as nodes of their own that can run concurrently.
-       The graphs get fewer nodes, which makes them quicker to record and to launch (see below).
+   * - ``SEISSOL_SUPERSTEP_BRANCHES``
+     - With ``SEISSOL_SUPERSTEP_GRAPHS=1``: ``0`` runs the independent branches of the work of a cluster (e.g. the
+       neighbor fluxes of the face relations) one after another in the recordings, ``1`` as nodes of their own that can
+       run concurrently. With ``0``, the graphs get fewer nodes, which makes them quicker to record and to launch
+       (see below). ``1`` by default with CUDA and SYCL, ``0`` with HIP.
    * - ``SEISSOL_TRANSFER_MODE``
      - How the halo data gets exchanged: ``direct`` (default), ``host``, ``ccl``, ``stream-mpi``, ``shmem``, ``actor-mpi``.
        The name ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE`` is accepted as well.
@@ -523,6 +524,16 @@ The log reports both times for the replays.
 With ``SEISSOL_SUPERSTEP_BRANCHES=0``, the graphs of TPV5 (19183 cells) took 9 instead of 51 ms of the host to launch
 with ROCm 6.3 on the Radeon 890M, and 1 % less time in all; on the smaller TPV13 mesh, the concurrent branches made up for
 their launches, and the run took 3 % (with receivers, 10 %) less time with them.
+On one node with four MI300A (TheRock 23.2.1, November 2026), the recordings with concurrent branches computed other
+results than the runs without recordings: on one rank, TPV13 differed in 31 of its 38 outputs, the same way in every run
+with two hardware queues (``GPU_MAX_HW_QUEUES``) and another way with four; on four ranks (``ccl``, or ``shmem`` with its
+group kernels), it differed from run to run (TPV5 did not). With one hardware queue, or with the branches one after
+another, the outputs were bitwise the same as without recordings; the scratch memory of all branches allocated before
+they fork, scratchpads of their own for each layer, the access events, the packet capture of CLR
+(``DEBUG_CLR_GRAPH_PACKET_CAPTURE=0``) and an empty node after all leaves of a graph made no difference. The cause is not
+known yet; on an RTX 5070, TPV13 on one rank comes out bitwise the same with concurrent branches. So with HIP, the
+branches run one after another by default: then TPV13 took 1.75 s on one rank of the MI300A (2.07 s without
+recordings), and 1.99 s on four ranks with ``shmem`` (``host`` without recordings: 4.8 s), bitwise the same.
 
 Outputs while the GPU computes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
