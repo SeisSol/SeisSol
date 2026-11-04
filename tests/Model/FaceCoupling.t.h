@@ -541,6 +541,9 @@ TEST_CASE("The state at a face is the one of the Godunov state of the materials 
         godunov.neighbor, reference[1] * asFluid, rows);
   }
 
+// the Godunov state of a poroelastic solid needs its setup, which only a build with a configuration
+// of the STP kernels has (Equations/poroelastic/Model/Setup.h)
+#ifdef SEISSOL_KERNELS_STP
   SUBCASE("Two poroelastic solids with open pores") {
     const auto reference = godunovState(sandstone(), porousSandstone());
     const auto godunov = model::coupledGodunov(sandstone(), porousSandstone(), Unbounded);
@@ -552,6 +555,7 @@ TEST_CASE("The state at a face is the one of the Godunov state of the materials 
     checkRows<model::PoroElasticMaterial, model::PoroElasticMaterial>(
         godunov.neighbor, reference[1], rows, Epsilon);
   }
+#endif
 }
 
 TEST_CASE("Between different materials, the state at a face in general position solves their "
@@ -559,7 +563,6 @@ TEST_CASE("Between different materials, the state at a face in general position 
           doctest::test_suite("model")) {
   using namespace facecouplingtest;
   const auto face = generalFace();
-  const Eigen::Vector3d normal = face.n();
   const auto fluid = water();
 
   SUBCASE("An isotropic solid and a fluid") {
@@ -589,6 +592,9 @@ TEST_CASE("Between different materials, the state at a face in general position 
               sampleState<model::AcousticMaterial>(1.1),
               sampleState<model::AnisotropicMaterial>(0.8));
   }
+
+#ifdef SEISSOL_KERNELS_STP
+  const Eigen::Vector3d normal = face.n();
 
   SUBCASE("A poroelastic and an anisotropic solid") {
     const auto solid = triclinic();
@@ -635,6 +641,7 @@ TEST_CASE("Between different materials, the state at a face in general position 
               sampleState<model::PoroElasticMaterial>(0.4),
               sampleState<model::PoroElasticMaterial>(2.3));
   }
+#endif
 }
 
 TEST_CASE("The conductances of both sides of a face add up in series" *

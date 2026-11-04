@@ -68,6 +68,16 @@ void setStarMatrix(const Real<Cfg>* matAT,
   }
 }
 
+/// The view of the coupling matrix `data` of a face of a cell of the configuration `Cfg` towards a
+/// neighbor of the configuration `NeighborCfg`. It names init::coupling<Cfg> only when it is called
+/// for such a pair: a build whose configurations couple no families has no coupling matrices, and
+/// init::coupling<Cfg> is void there. Named within the dispatch over the neighbors instead, Clang
+/// would reject it already when it substitutes `Cfg` into the lambda, before discarding the branch.
+template <typename Cfg, typename NeighborCfg, typename T>
+auto couplingViewOf(T* data) {
+  return init::coupling<Cfg>::template view<kernels::FamilyOf<NeighborCfg>>::create(data);
+}
+
 /// Writes the matrix `matrix` transposed into the view `view`, as the Godunov states are stored;
 /// the rest of the view is zero.
 template <typename View>
@@ -230,9 +240,7 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
                 const auto map = seissol::model::coupledNeighborMap<MaterialT, NeighborMaterialT>(
                     godunov, normal, tangent1, tangent2);
                 assert(coupling[cell][side] != nullptr);
-                auto couplingView =
-                    init::coupling<Cfg>::template view<kernels::FamilyOf<NeighborCfg>>::create(
-                        coupling[cell][side]);
+                auto couplingView = couplingViewOf<Cfg, NeighborCfg>(coupling[cell][side]);
                 couplingView.setZero();
                 for (Eigen::Index q = 0; q < map.rows(); ++q) {
                   for (Eigen::Index p = 0; p < map.cols(); ++p) {
