@@ -90,8 +90,8 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
        instead of one stream for all exchanges in a global order (see below).
        ``SEISSOL_CCL_PER_DIRECTION`` is accepted as well.
    * - ``SEISSOL_EXCHANGE_LANES``
-     - Experimental. For ``ccl``, ``stream-mpi`` and ``actor-mpi`` in the global order: split it into this many lanes
-       (1 by default) that run at the same time (see below).
+     - Experimental. For ``ccl``, ``stream-mpi``, ``actor-mpi`` and ``shmem`` (not with Intel SHMEM) in the global order:
+       split it into this many lanes (1 by default) that run at the same time (see below).
    * - ``SEISSOL_EXCHANGE_SPLIT_BY_NODE=1``
      - Experimental. For ``ccl``, ``stream-mpi``, ``shmem`` and ``actor-mpi``: exchange on the GPU streams only with the
        processes of the own node, and with the others over GPU-aware MPI from the host, as ``direct`` does
@@ -108,8 +108,9 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
    * - ``SEISSOL_MPI_PERSISTENT=0``
      - Start new MPI requests for each exchange, instead of restarting persistent ones.
    * - ``SEISSOL_EXCHANGE_TRANSPORT_EVENTS=1``
-     - Experimental. For the modes on GPU streams in the global order with one lane: the work of a cluster waits
-       only for the groups of its own transports, instead of all groups launched so far.
+     - Experimental. For the modes on GPU streams in the global order with one lane, or with the lanes of ``shmem``:
+       the work of a cluster waits only for the groups of its own transports, instead of all groups launched so far
+       (with the lanes of the other modes, it still waits for all of them).
    * - ``SEISSOL_ACTOR_MPI_WAIT=kernel``
      - Experimental. For ``actor-mpi``: the streams wait for the host with a kernel of SeisSol that polls with growing
        pauses, instead of the wait of the GPU runtime.
@@ -214,8 +215,18 @@ With ``SEISSOL_EXCHANGE_LANES=K``, the global order goes to ``K`` lanes instead:
 its own for ``ccl``) each, of the highest priority, which HIP puts on hardware queues of their own, apart from the
 work of the clusters (up to ``GPU_MAX_HW_QUEUES`` of them, minus one for a stream that joins the lanes).
 A group goes to a lane by its direction and its exchange, the same on all processes, so each lane has its groups in
-the global order on all processes, and the lanes run at the same time.
+the global order on all processes, and the lanes run at the same time. With ``shmem``, both directions between two
+clusters keep to one lane (the count of the exchanges of a direction on the GPU orders them, and a transport sends in
+the one direction and receives in the other), and the pairs of clusters go to the lanes in turn.
+As the host launches all groups in the global order, the lanes cannot wait for each other in a cycle either, even
+where they share a hardware queue.
 Ordered on the GPU, the work that depends on the exchange waits for an event that joins all lanes.
+On 128 nodes of Horizon (four B200 each, 512 ranks; the Turkey setup over 0.2 s, compute time, November 2026),
+``shmem`` with the time-stepping plan and concurrent clusters took 33.6 s on one lane, 32.4 s on two and 32.6 s on
+four (31.1 s in an earlier version that sent the two directions between two clusters to different lanes), and with
+recorded super-timesteps 33.2 s on one lane and 30.2 to 30.6 s on four; ``ccl`` took 34.2 s on one lane and 34.8 s
+on two. Waiting only for the own transports made it slower (four lanes: 33.4 s, eight: 34.3 s; recorded: 31.0 s).
+``direct`` took 24.3 s with the plan and concurrent clusters, and 23.3 to 24.2 s without.
 
 With ``SEISSOL_EXCHANGE_SPLIT_BY_NODE=1``, the regions with the processes of other nodes leave the GPU streams:
 GPU-aware MPI from the host moves them, once the GPU is done with the work before (as the host sees by polling an

@@ -351,7 +351,7 @@ void ActorMpiExchangeScheduler::quiesce() {
 
 ActorEvent ActorMpiExchangeScheduler::transportEvent(const ScheduledTransport& transport) const {
   if (!engine_ || !streamOrdered() || epochs_ < engineFromEpoch_) {
-    return ExchangeScheduler::transportEvent(transport);
+    return StreamExchangeScheduler::transportEvent(transport);
   }
   // with the engine, the work of the copy layer waits for the copies of its own transport only: the
   // copy regions may change once copied out, and the ghost regions are there once copied in
@@ -525,7 +525,7 @@ void ActorMpiExchangeScheduler::added(const ScheduledTransport& /*transport*/) {
 void ActorMpiExchangeScheduler::prepare() {}
 
 ActorEvent ActorMpiExchangeScheduler::transportEvent(const ScheduledTransport& transport) const {
-  return ExchangeScheduler::transportEvent(transport);
+  return StreamExchangeScheduler::transportEvent(transport);
 }
 
 void ActorMpiExchangeScheduler::quiesce() {}

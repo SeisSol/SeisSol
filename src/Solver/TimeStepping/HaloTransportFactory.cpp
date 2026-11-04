@@ -39,9 +39,16 @@ HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
                                            std::size_t lanes)
     : mode_(mode), persistent_(persistent) {
   const auto order = perDirection ? LaunchOrder::PerDirection : LaunchOrder::Global;
-  if (lanes > 1 && (perDirection || mode_ == Mpi::DataTransferMode::DirectShmem)) {
+#ifdef SHMEM_ISHMEM
+  // (its signals share one word of symmetric memory, see ShmemExchangeScheduler)
+  constexpr bool ShmemLanes = false;
+#else
+  constexpr bool ShmemLanes = true;
+#endif
+  if (lanes > 1 && (perDirection || (mode_ == Mpi::DataTransferMode::DirectShmem && !ShmemLanes))) {
     logWarning() << "Lanes of the halo exchange (SEISSOL_EXCHANGE_LANES) are only for ccl,"
-                 << "stream-mpi and actor-mpi in the global order; the exchange takes none.";
+                 << "stream-mpi, actor-mpi and shmem (not with Intel SHMEM) in the global order;"
+                 << "the exchange takes none.";
     lanes = 1;
   }
   if (mode_ == Mpi::DataTransferMode::DirectCcl) {
@@ -56,7 +63,7 @@ HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode,
     if (perDirection) {
       logWarning() << "The shmem transfer mode exchanges in the global order only.";
     }
-    scheduler_ = std::make_unique<ShmemExchangeScheduler>(clusterCount, configCount);
+    scheduler_ = std::make_unique<ShmemExchangeScheduler>(clusterCount, configCount, lanes);
   }
 #ifdef SEISSOL_HOST_TASK_GRAPH
   // (with a device, the task graph only takes the work on the host for the device, see

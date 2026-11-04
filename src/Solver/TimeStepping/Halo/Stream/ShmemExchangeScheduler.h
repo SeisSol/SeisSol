@@ -49,9 +49,12 @@ namespace seissol::solver {
 class ShmemExchangeScheduler : public StreamExchangeScheduler {
   public:
   /**
-   * Initializes the SHMEM library; collective over all processes.
+   * Initializes the SHMEM library; collective over all processes. With `lanes` lanes of the global
+   * order (see StreamExchangeScheduler), all groups between two clusters keep to one of them: the
+   * count of the exchanges of a direction on the device orders them (not with Intel SHMEM, whose
+   * signals share a word of memory), and the events per transport rely on it.
    */
-  ShmemExchangeScheduler(std::size_t clusterCount, std::size_t configCount);
+  ShmemExchangeScheduler(std::size_t clusterCount, std::size_t configCount, std::size_t lanes = 1);
   ~ShmemExchangeScheduler() override;
 
   ShmemExchangeScheduler(const ShmemExchangeScheduler&) = delete;

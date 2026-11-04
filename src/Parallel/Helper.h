@@ -117,7 +117,7 @@ inline bool useHostActor(utils::Env& env) { return env.get<bool>("HOST_ACTOR", f
 /**
  * Whether the work that depends on the halo exchange on device streams waits only for the groups
  * of its own transport, instead of all groups launched so far (experimental; one stream in the
- * global order only).
+ * global order, or lanes that keep the groups of a transport to one of them, as those of shmem).
  */
 inline bool useExchangeTransportEvents(utils::Env& env) {
   return env.get<bool>("EXCHANGE_TRANSPORT_EVENTS", false);

@@ -178,8 +178,9 @@ class ExchangeScheduler {
 
   /**
    * Whether the work that depends on the exchanges of a transport only waits for its own groups
-   * (experimental): for schedulers whose groups run one after another, where the event of the last
-   * group of a transport stands for all groups before it (see setTransportEvent()).
+   * (experimental): for schedulers whose groups of a transport run one after another, where the
+   * event of the last group of a transport stands for all its groups before it (see
+   * setTransportEvent()).
    */
   void setTransportEvents(bool perTransport) { perTransport_ = perTransport; }
   [[nodiscard]] bool transportEvents() const { return perTransport_; }

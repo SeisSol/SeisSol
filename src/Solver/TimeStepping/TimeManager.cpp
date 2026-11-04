@@ -600,7 +600,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       if (useExchangeTransportEvents(seissolInstance_.env())) {
         scheduler->setTransportEvents(true);
         logInfo() << "The work of a cluster waits only for the halo exchange of its own transports"
-                  << "(SEISSOL_EXCHANGE_TRANSPORT_EVENTS=1; with one lane only).";
+                  << "(SEISSOL_EXCHANGE_TRANSPORT_EVENTS=1; with one lane, or with the lanes of"
+                  << "shmem).";
       }
     }
   }

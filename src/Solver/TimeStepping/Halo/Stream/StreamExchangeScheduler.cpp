@@ -33,6 +33,11 @@ std::size_t StreamExchangeScheduler::slot(std::size_t from, std::size_t to) cons
 std::size_t
     StreamExchangeScheduler::slot(std::size_t from, std::size_t to, std::size_t exchange) const {
   if (launchOrder() == LaunchOrder::Global) {
+    if (lanesByPair_) {
+      // both directions between two clusters keep to one lane, which holds all groups of their
+      // transports then (a transport sends in the one direction and receives in the other)
+      return (std::min(from, to) * clusterCount_ + std::max(from, to)) % lanes_;
+    }
     // the exchanges of a direction take turns on the lanes, and the directions start apart
     return (from * clusterCount_ + to + exchange) % lanes_;
   }
@@ -41,6 +46,15 @@ std::size_t
 
 std::size_t StreamExchangeScheduler::slotCount() const {
   return launchOrder() == LaunchOrder::Global ? lanes_ : clusterCount_ * clusterCount_;
+}
+
+ActorEvent StreamExchangeScheduler::transportEvent(const ScheduledTransport& transport) const {
+  if (lanes_ > 1 && !lanesByPair_) {
+    // the groups of a transport take turns on the lanes: only the event that joins all lanes
+    // covers them
+    return latestEvent();
+  }
+  return ExchangeScheduler::transportEvent(transport);
 }
 
 std::vector<std::size_t> StreamExchangeScheduler::usedSlots() const {
@@ -75,9 +89,10 @@ StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount,
                                                  LaunchOrder order,
                                                  std::size_t configCount,
                                                  std::size_t lanes,
-                                                 bool libraryStreams)
+                                                 bool libraryStreams,
+                                                 bool lanesByPair)
     : ExchangeScheduler(clusterCount, order, configCount), clusterCount_(clusterCount),
-      lanes_(std::max<std::size_t>(lanes, 1)) {
+      lanes_(std::max<std::size_t>(lanes, 1)), lanesByPair_(lanesByPair) {
   if (lanes_ > 1 && order != LaunchOrder::Global) {
     logError() << "Lanes of the halo exchange need the global order.";
   }
@@ -169,8 +184,9 @@ ExchangeScheduler::Ticket StreamExchangeScheduler::launch(std::size_t from,
 
   auto event = runtime.eventRecord();
   const auto ticket = nextTicket_++;
-  if (streamOrdered() && transportEvents() && lanes_ == 1) {
-    // on the one stream, the event of a group stands for all groups before it
+  if (streamOrdered() && transportEvents() && (lanes_ == 1 || lanesByPair_)) {
+    // on the one stream, the event of a group stands for all groups before it; on the lane of its
+    // pair of clusters, for all groups of its transports before it
     for (const auto* transport : {sender, receiver}) {
       if (transport != nullptr) {
         setTransportEvent(*transport, event);
@@ -233,9 +249,10 @@ StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount,
                                                  LaunchOrder order,
                                                  std::size_t configCount,
                                                  std::size_t lanes,
-                                                 bool /*libraryStreams*/)
+                                                 bool /*libraryStreams*/,
+                                                 bool lanesByPair)
     : ExchangeScheduler(clusterCount, order, configCount), clusterCount_(clusterCount),
-      lanes_(std::max<std::size_t>(lanes, 1)) {
+      lanes_(std::max<std::size_t>(lanes, 1)), lanesByPair_(lanesByPair) {
   logError() << "Exchanging the halo data on device streams needs a device build.";
 }
 

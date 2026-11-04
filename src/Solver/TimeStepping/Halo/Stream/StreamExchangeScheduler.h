@@ -28,11 +28,12 @@ namespace seissol::solver {
  * In the global order, the groups may go to several lanes instead (experimental): slots of streams
  * of the highest priority (which HIP puts on hardware queues of their own, apart from the work of
  * the clusters), where the groups go one after another as before, but the lanes run at the same
- * time. A group goes to a lane by its direction and its exchange, the same on all processes; each
- * lane thus gets its groups in the global order everywhere, so that operations that occupy their
- * stream until the peer has posted its counterpart cannot wait for each other in a cycle across
- * lanes either. Ordered on the device, the latest event then joins all lanes, on a stream of its
- * own.
+ * time. A group goes to a lane by its direction and its exchange (or, with `lanesByPair`, by the
+ * pair of clusters alone, so that the groups of both directions between two clusters follow each
+ * other on one stream), the same on all processes; each lane thus gets its groups in the global
+ * order everywhere, so that operations that occupy their stream until the peer has posted its
+ * counterpart cannot wait for each other in a cycle across lanes either. Ordered on the device, the
+ * latest event then joins all lanes, on a stream of its own.
  *
  * Before a group, its stream waits for the events the group has to wait for; after it, an event
  * gets recorded. The host either tests that event, or, ordered on the device, the dependent work
@@ -48,12 +49,14 @@ class StreamExchangeScheduler : public ExchangeScheduler {
   public:
   /// with `lanes` lanes in the global order (see above), one by default; `libraryStreams`: the
   /// library needs streams of the device (CCL, stream-aware MPI, SHMEM), which then stay streams of
-  /// HIP with own queues as well (see parallel::runtime::NoOwnQueue)
+  /// HIP with own queues as well (see parallel::runtime::NoOwnQueue); `lanesByPair`: all groups
+  /// between two clusters on one lane (see above)
   StreamExchangeScheduler(std::size_t clusterCount,
                           LaunchOrder order,
                           std::size_t configCount,
                           std::size_t lanes = 1,
-                          bool libraryStreams = true);
+                          bool libraryStreams = true,
+                          bool lanesByPair = false);
   ~StreamExchangeScheduler() override;
 
   StreamExchangeScheduler(const StreamExchangeScheduler&) = delete;
@@ -63,6 +66,9 @@ class StreamExchangeScheduler : public ExchangeScheduler {
 
   [[nodiscard]] std::vector<parallel::runtime::StreamRuntime*> runtimes() const override;
   [[nodiscard]] EventUsage eventUsage() const override;
+  /// per transport only where its groups follow each other on one stream (one lane, or the lanes
+  /// by pair); otherwise, the latest event, which joins all lanes
+  [[nodiscard]] ActorEvent transportEvent(const ScheduledTransport& transport) const override;
 
   protected:
   /// the slot of a direction; the first one with lanes
@@ -116,6 +122,7 @@ class StreamExchangeScheduler : public ExchangeScheduler {
   private:
   std::size_t clusterCount_;
   std::size_t lanes_;
+  bool lanesByPair_;
   // one for each used slot
   std::vector<std::unique_ptr<parallel::runtime::StreamRuntime>> runtimes_;
   // with several lanes: where the latest event joins them

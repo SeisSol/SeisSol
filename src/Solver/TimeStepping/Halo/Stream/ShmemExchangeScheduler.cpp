@@ -250,8 +250,10 @@ constexpr std::size_t Alignment = 256;
 
 } // namespace
 
-ShmemExchangeScheduler::ShmemExchangeScheduler(std::size_t clusterCount, std::size_t configCount)
-    : StreamExchangeScheduler(clusterCount, LaunchOrder::Global, configCount),
+ShmemExchangeScheduler::ShmemExchangeScheduler(std::size_t clusterCount,
+                                               std::size_t configCount,
+                                               std::size_t lanes)
+    : StreamExchangeScheduler(clusterCount, LaunchOrder::Global, configCount, lanes, true, true),
       rank_(Mpi::mpi.rank()), size_(Mpi::mpi.size()) {
   utils::Env env("SEISSOL_");
   groupKernels_ = GroupKernels && env.get<bool>("SHMEM_GROUP_KERNELS", true);
@@ -511,8 +513,10 @@ void ShmemExchangeScheduler::enqueueGroup(std::size_t slot,
 
 namespace seissol::solver {
 
-ShmemExchangeScheduler::ShmemExchangeScheduler(std::size_t clusterCount, std::size_t configCount)
-    : StreamExchangeScheduler(clusterCount, LaunchOrder::Global, configCount) {
+ShmemExchangeScheduler::ShmemExchangeScheduler(std::size_t clusterCount,
+                                               std::size_t configCount,
+                                               std::size_t lanes)
+    : StreamExchangeScheduler(clusterCount, LaunchOrder::Global, configCount, lanes, true, true) {
   logError() << "This build of SeisSol does not support exchanging the halo data with SHMEM.";
 }
 
