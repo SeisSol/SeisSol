@@ -28,13 +28,14 @@ HELP = textwrap.dedent(
     The SeisSol proxy is used to benchmark the kernels used in the SeisSol earthquake
     simulation software. This version of SeisSol proxy was built for the following
     configurations:
-    elastic-linearck-o6-f64-stroud
+    elastic-o6-f64
       material: elastic
       order: 6
-    viscoelastic-linearckanelastic-m3-o6-f32-stroud
+    viscoelastic-m3-o6-f32
       material: viscoelastic
-    elastic-linearck-o3-f64-stroud-s8
+    elastic-o3-f64-s8
       simulations: 8
+    Dynamic rupture quadrature rule (all configurations): dunavant
     """
 )
 
@@ -92,9 +93,9 @@ def test_spread_of_a_single_value_is_zero():
 def test_configs_are_read_from_the_help(tmp_path):
     proxy = [sys.executable, str(fake_proxy(tmp_path))]
     assert benchmark.built_configs(proxy) == [
-        "elastic-linearck-o6-f64-stroud",
-        "viscoelastic-linearckanelastic-m3-o6-f32-stroud",
-        "elastic-linearck-o3-f64-stroud-s8",
+        "elastic-o6-f64",
+        "viscoelastic-m3-o6-f32",
+        "elastic-o3-f64-s8",
     ]
 
 
@@ -113,7 +114,7 @@ def test_run_writes_every_sample(tmp_path):
             "--launcher",
             str(launcher),
             "--config",
-            "elastic-linearck-o6-f64-stroud",
+            "elastic-o6-f64",
             "--kernel",
             "all",
             "--cells",
@@ -132,7 +133,7 @@ def test_run_writes_every_sample(tmp_path):
     )
     assert code == 0
     written = json.loads(output.read_text())
-    data = written["benchmarks"]["elastic-linearck-o6-f64-stroud/all"]
+    data = written["benchmarks"]["elastic-o6-f64/all"]
     # 0.25 s for 1000 cells and 5 steps
     assert data["ns_per_cell_step"] == pytest.approx([50000.0] * 3)
     assert written["parameters"]["repetitions"] == 3

@@ -631,6 +631,13 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     for (const auto& [name, pointer] : T::ParameterMap) {
       adapter.addBindingPoint(name, pointer);
     }
+    if constexpr (requires { T::OptionalParameterMap; }) {
+      for (const auto& [name, pointer] : T::OptionalParameterMap) {
+        if (suppliedParameters.contains(name)) {
+          adapter.addBindingPoint(name, pointer);
+        }
+      }
+    }
 
     easiEvalSafe(model, query, adapter, "volume material:" + T::Text);
 

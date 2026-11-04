@@ -19,9 +19,18 @@ jobs:
     name: build-macos
     runs-on: macos-15
     steps:
+      # The Python of the runner image follows the newest release (3.15 since the image of
+      # 2026-10-28), for which not every package has wheels yet: pip then builds h5py from source,
+      # against the HDF5 with MPI of Homebrew. The code generators and the verification tests take
+      # this Python instead, with all their packages from pip.
+      - name: setup-python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
       # for OMP cf. https://github.com/alecjacobson/openmp-on-macos/
       # and also cf. https://gist.github.com/scivision/16c2ca1dc250f54d34f1a1a35596f4a0
-      - name: install-yamlcpp
+      - name: install-libraries
         run: |
           brew install libomp
           brew install yaml-cpp
@@ -29,11 +38,11 @@ jobs:
           brew install hdf5-mpi
           brew install eigen
 
-          brew install numpy
-          brew install scipy
-          # h5py for the verification tests, which write their meshes with it; Homebrew has no
-          # formula of it, so pip installs it next to the numpy of Homebrew
-          python3 -m pip install --break-system-packages h5py
+      - name: install-python-packages
+        run: |
+          # numpy and scipy for the code generators, h5py for the verification tests, which write
+          # their meshes with it
+          python3 -m pip install numpy scipy h5py
 
       - name: checkout-easi
         uses: actions/checkout@v6
@@ -48,7 +57,7 @@ jobs:
 
       - name: install-pspamm
         run: |
-          sudo pip install git+https://github.com/SeisSol/PSpaMM.git
+          python3 -m pip install git+https://github.com/SeisSol/PSpaMM.git
 
       - id: checkout
         name: checkout-seissol
@@ -98,7 +107,8 @@ jobs:
             -DGRAPH_PARTITIONING_LIBS=none \
             -DNUMA_AWARE_PINNING=OFF \
             -DSEISSOL_SNAPSHOT_TOLERANCE_DOUBLE=1e-9 \
-            -DSEISSOL_VERIFICATION_CONFIGS=first
+            -DSEISSOL_VERIFICATION_CONFIGS=first \
+            -DPython3_EXECUTABLE="$(command -v python3)"
 
           # one compile job per core: a translation unit of the set takes up to 1.6 GB
           ninja -j $(sysctl -n hw.ncpu)

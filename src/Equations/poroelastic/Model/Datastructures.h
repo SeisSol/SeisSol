@@ -15,6 +15,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -85,8 +86,15 @@ struct PoroElasticMaterial : public ElasticMaterial {
   double bulkFluid{};
   double rhoFluid{};
   double viscosity{};
+  /// The hydraulic conductance [m / (Pa s)] of the boundary of the region of the mesh that the
+  /// cell is in, towards other regions: the normal filtration velocity through a face of the
+  /// boundary is the conductance times the jump of the pore pressure across it. Zero seals the
+  /// boundary; unbounded, the pore pressure is continuous across it (see sideConductance).
+  double interfaceConductance{std::numeric_limits<double>::infinity()};
 
   static const std::unordered_map<std::string, double PoroElasticMaterial::*> ParameterMap;
+  /// The parameters that a material file may leave out, at their defaults then.
+  static const std::unordered_map<std::string, double PoroElasticMaterial::*> OptionalParameterMap;
 
   PoroElasticMaterial() = default;
 
@@ -132,6 +140,11 @@ inline const std::unordered_map<std::string, double PoroElasticMaterial::*>
         {"bulk_fluid", &PoroElasticMaterial::bulkFluid},
         {"rho_fluid", &PoroElasticMaterial::rhoFluid},
         {"viscosity", &PoroElasticMaterial::viscosity},
+    };
+
+inline const std::unordered_map<std::string, double PoroElasticMaterial::*>
+    PoroElasticMaterial::OptionalParameterMap{
+        {"interface_conductance", &PoroElasticMaterial::interfaceConductance},
     };
 
 } // namespace seissol::model

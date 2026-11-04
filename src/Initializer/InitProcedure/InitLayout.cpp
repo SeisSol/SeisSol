@@ -318,8 +318,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           const auto neighbor = backmap.get(boundaryElement.localElement);
           const auto& elementNeighbor = meshReader.getElements()[boundaryElement.localElement];
 
-          secondaryCellInformation[i].globalId =
-              meshReader.getGhostlayerMetadata().at(linear.rank)[index].globalId;
+          const auto& metadata = meshReader.getGhostlayerMetadata().at(linear.rank)[index];
+          secondaryCellInformation[i].globalId = metadata.globalId;
+          secondaryCellInformation[i].group = metadata.group;
 
           // equivalent to elementNeighbor.neighborSides[boundaryElement.localSide]
           const auto face = boundaryElement.neighborSide;

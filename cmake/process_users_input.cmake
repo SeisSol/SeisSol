@@ -68,12 +68,17 @@ set(OVERRIDE_VECTORSIZE 0 CACHE STRING "If not 0, it overrides the pre-defined a
 set(OVERRIDE_ALIGNMENT 0 CACHE STRING "If not 0, it overrides the pre-defined architecture alignment")
 
 set(EQUATIONS "elastic" CACHE STRING "Equation set used")
-set(EQUATIONS_OPTIONS elastic anisotropic viscoelastic viscoelastic2 poroelastic acoustic viscoacoustic)
+# the materials of cmake/confignames.cmake, and viscoelastic2 as an alias of viscoelastic
+set(EQUATIONS_OPTIONS ${SEISSOL_MATERIALS} viscoelastic2)
 set_property(CACHE EQUATIONS PROPERTY STRINGS ${EQUATIONS_OPTIONS})
 
-set(SOLVER "auto" CACHE STRING "Scheme that advances a cell in time")
+# The scheme that advances the cells of a material in time, for every material of the executable
+# that can be advanced with it; the others, and all with auto, take their first solver below. It
+# holds for all configurations of the executable alike, so a configuration name does not carry it.
+set(SOLVER "auto" CACHE STRING "Scheme that advances the cells in time, where a material offers a choice")
 set(SOLVER_OPTIONS auto linearck linearckanelastic stp)
 set_property(CACHE SOLVER PROPERTY STRINGS ${SOLVER_OPTIONS})
+mark_as_advanced(SOLVER)
 
 # Which solvers each equation set can be built with, and which one it takes by
 # default. The mapping is fixed, but it lives here rather than in the material.
@@ -117,8 +122,10 @@ set(PLASTICITY_OPTIONS sq nb ip)
 set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 
 
-set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic Rupture quadrature rule")
-set(DR_QUAD_RULE_OPTIONS stroud dunavant)
+# The quadrature rule of the dynamic rupture faces, for all configurations of the executable alike,
+# so a configuration name does not carry it.
+set(DR_QUAD_RULE "dunavant" CACHE STRING "Dynamic Rupture quadrature rule")
+set(DR_QUAD_RULE_OPTIONS dunavant stroud)
 set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
 
 
@@ -126,9 +133,8 @@ set(NUMBER_OF_FUSED_SIMULATIONS 1 CACHE STRING "A number of fused simulations")
 
 # The configurations to build into the executable, as a list of their names or of named sets of
 # them (see cmake/confignames.cmake). The first one is the one a run takes if neither its parameter
-# file nor SEISSOL_CONFIGURATION names one. If given, CONFIGS replaces EQUATIONS, SOLVER,
-# NUMBER_OF_MECHANISMS, ORDER, PRECISION, DR_QUAD_RULE, NUMBER_OF_FUSED_SIMULATIONS and
-# EXTRA_CONFIGS.
+# file nor SEISSOL_CONFIGURATION names one. If given, CONFIGS replaces EQUATIONS,
+# NUMBER_OF_MECHANISMS, ORDER, PRECISION, NUMBER_OF_FUSED_SIMULATIONS and EXTRA_CONFIGS.
 set(CONFIGS "" CACHE STRING
   "The configurations to build, by name or named set (e.g. o4, all or ci-cpu); replaces EQUATIONS, ORDER, PRECISION, ... and EXTRA_CONFIGS")
 
@@ -195,11 +201,9 @@ if (NOT "${CONFIGS}" STREQUAL "")
   list(GET _configs 0 _first_config)
   seissol_parse_config_name(_first ${_first_config} "CONFIGS")
   set(EQUATIONS ${_first_MATERIAL})
-  set(SOLVER ${_first_SOLVER})
   set(NUMBER_OF_MECHANISMS ${_first_MECHANISMS})
   set(ORDER ${_first_ORDER})
   set(PRECISION ${_first_PRECISION})
-  set(DR_QUAD_RULE ${_first_DRQUADRULE})
   set(NUMBER_OF_FUSED_SIMULATIONS ${_first_SIMULATIONS})
   list(REMOVE_AT _configs 0)
   set(SEISSOL_CONFIGS_FURTHER ${_configs})
@@ -221,27 +225,8 @@ if (EQUATIONS STREQUAL "viscoelastic2")
 endif()
 
 check_parameter("SOLVER" ${SOLVER} "${SOLVER_OPTIONS}")
+# whether a material of the build can be advanced with SOLVER is checked in cmake/configs.cmake
 
-set(_allowed_solvers ${SOLVERS_${EQUATIONS}})
-if (NOT _allowed_solvers)
-  message(FATAL_ERROR "No solver is declared for EQUATIONS=${EQUATIONS}.")
-endif()
-
-if (SOLVER STREQUAL "auto")
-  list(GET _allowed_solvers 0 SOLVER)
-elseif (NOT SOLVER IN_LIST _allowed_solvers)
-  if (EQUATIONS MATCHES "visco.?" AND SOLVER STREQUAL "stp")
-    message(FATAL_ERROR
-      "SOLVER=stp cannot be combined with ${EQUATIONS} yet: the space-time "
-      "predictor substitutes one entry per stiff source row, and relaxation "
-      "needs several per row.")
-  endif()
-  message(FATAL_ERROR
-    "SOLVER=${SOLVER} cannot be combined with EQUATIONS=${EQUATIONS}. "
-    "Available: ${_allowed_solvers}.")
-endif()
-
-message(STATUS "Solver: ${SOLVER}")
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
 # check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")

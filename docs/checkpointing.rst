@@ -28,6 +28,8 @@ The checkpoint writing is configured as any other output writer, i.e. you will h
    checkpoint = 1
    checkpointinterval = 0.4
 
+A run writes checkpoints as soon as it gives ``checkpointinterval``; ``checkpoint = 0`` switches them off nonetheless, and without ``checkpointinterval``, a run writes none.
+
 Thus, the checkpoint writer is also influenced by the ASYNC parameters.
 
 The checkpoint writer will, in essence, dump the current simulation data into an Hdf5 file, without altering it.

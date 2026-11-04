@@ -10,6 +10,7 @@
 
 #include "Common/ConfigLayout.h"
 #include "Common/ConfigValue.h"
+#include "Common/Typedefs.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -39,6 +40,14 @@ using ConfigId = std::uint32_t;
  */
 const std::vector<ConfigLayout>& builtConfigLayouts();
 
+/**
+ * @brief The quadrature rule of the dynamic rupture faces, the same for all configurations of the
+ * executable.
+ *
+ * Provided by the code that is generated for the configurations, as `builtConfigLayouts`.
+ */
+DRQuadRuleType builtDRQuadRule();
+
 /// The number of configurations built into the executable.
 std::size_t builtConfigCount();
 
@@ -66,7 +75,8 @@ std::optional<ConfigId> environmentConfig();
 /// environment variable SEISSOL_CONFIGURATION names, or else the first one built.
 ConfigId defaultConfig();
 
-/// A description of all built configurations for humans: each name, followed by its fields.
+/// A description of all built configurations for humans: each name, followed by its fields and its
+/// solver, and then what all of them share, the quadrature rule of the dynamic rupture faces.
 std::string describeBuiltConfigs();
 
 } // namespace seissol

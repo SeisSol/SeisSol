@@ -19,7 +19,6 @@
 #include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
-#include "GeneratedCode/configboundary.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Datatype/Datatype.h"
@@ -79,24 +78,6 @@ struct alignas(Alignment) NeighboringIntegrationData {
 
   // solver-specific data
   seissol::kernels::SolverOf<Cfg>::NeighborData specific;
-};
-
-/**
- * @brief For a cell of a fluid in the configuration `Cfg`: per face, the weights of the stress
- * components of a solid in the normal stress on the face, in the quantities of the canonical form
- * of the solid and in the reals of the configuration. That is n_i n_j for the components ij of the
- * stress, with the off-diagonal ones counted twice, and zero for the velocities. Empty for the
- * configurations that read no such weights.
- */
-template <typename Cfg, bool = generated::ConfigBoundaryKernels<Cfg>::NormalStress>
-struct alignas(16) NormalStressWeights {
-  // (we currently need to enforce alignment for the empty struct)
-};
-
-template <typename Cfg>
-struct alignas(16) NormalStressWeights<Cfg, true> {
-  Real<Cfg> weights[Cell::NumFaces]
-                   [generated::ConfigBoundaryKernels<Cfg>::CoupledCanonicalQuantities]{};
 };
 
 // material constants per cell

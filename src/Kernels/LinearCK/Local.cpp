@@ -185,11 +185,10 @@ void Local<Cfg>::computeBatchedIntegral(
   // Volume integral
   const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
   kernel::gpu_volume<Cfg> volKrnl = deviceVolumeKernelPrototype_;
-  const kernel::gpu_localFlux<Cfg> localFluxKrnl = deviceLocalFluxKernelPrototype_;
 
   // the boundary kernels below run on the same temporary memory
-  const auto maxTmpMem =
-      yateto::getMaxTmpMemRequired(volKrnl, localFluxKrnl, deviceFsgFlux_, deviceDirichletFlux_);
+  const auto maxTmpMem = yateto::getMaxTmpMemRequired(
+      volKrnl, deviceLocalFluxKernelPrototype_, deviceFsgFlux_, deviceDirichletFlux_);
 
   // volume kernel always contains more elements than any local one
   const auto maxNumElements =
@@ -255,6 +254,7 @@ void Local<Cfg>::computeBatchedIntegral(
 
     if (dataTable.find(key) != dataTable.end()) {
       auto& entry = dataTable[key];
+      kernel::gpu_localFlux<Cfg> localFluxKrnl = deviceLocalFluxKernelPrototype_;
       localFluxKrnl.numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
       localFluxKrnl.Q = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
       localFluxKrnl.I = const_cast<const real**>(

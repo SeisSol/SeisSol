@@ -54,6 +54,7 @@ void Spacetime<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {
 
 #ifdef ACL_DEVICE
   deviceKrnlPrototype_.bindGlobals(*global.onDevice);
+  deviceFsgKernelPrototype_.bindGlobals(*global.onDevice);
 #endif
 }
 
@@ -241,11 +242,11 @@ void Time<Cfg>::evaluateBatched(
 template <typename Cfg>
 void Spacetime<Cfg>::computeBatchedAder(
     SEISSOL_GPU_PARAM const real* coeffs,
-    double /*timeStepWidth*/,
+    SEISSOL_GPU_PARAM double timeStepWidth,
     LTS::Layer& /*layer*/,
-    LocalTmp<Cfg>& /*tmp*/,
+    SEISSOL_GPU_PARAM LocalTmp<Cfg>& tmp,
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    bool /*updateDisplacement*/,
+    SEISSOL_GPU_PARAM bool updateDisplacement,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 
@@ -304,6 +305,15 @@ void Spacetime<Cfg>::computeBatchedAder(
 
     krnl.streamPtr = runtime.stream();
     krnl.execute();
+  }
+
+  // the displacement of the faces with the free surface with gravity, from the derivatives
+  if (updateDisplacement) {
+    auto& bc = tmp.gravitationalFreeSurfaceBc;
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      bc.evaluateOnDevice(
+          face, deviceFsgKernelPrototype_, dataTable, timeStepWidth, device_, runtime);
+    }
   }
 #else
   logError() << "No GPU implementation provided";

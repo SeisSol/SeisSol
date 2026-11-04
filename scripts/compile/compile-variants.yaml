@@ -102,7 +102,7 @@ presets:
     variants:
       - configs: ci-gpu
         device_codegen: tensorforge
-      - configs: elastic-linearck-o6-f32-stroud
+      - configs: elastic-o6-f32
         device_codegen: gemmforge-chainforge
         custom_suffix: gemmforge
 

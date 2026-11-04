@@ -18,6 +18,7 @@ import sys
 
 import kernels.arch
 import kernels.configboundary
+import kernels.depfile
 import kernels.dynamic_rupture
 import kernels.general
 import kernels.memlayout
@@ -54,45 +55,64 @@ STEP_SHARED = "__shared__"
 EXCHANGE_FILE = "codegen.json"
 
 
+def config_name(equations, numMechanisms, order, precision, multipleSimulations):
+    """The name of a configuration, as cmake/confignames.cmake and seissol::configName write it:
+    <material>[-m<mechanisms>]-o<order>-<f32|f64>[-s<fused simulations>]."""
+    name = "viscoelastic" if equations == "viscoelastic2" else equations
+    if numMechanisms > 0:
+        name += f"-m{numMechanisms}"
+    name += f"-o{order}-" + ("f64" if precision in ["d", "f64"] else "f32")
+    if multipleSimulations != 1:
+        name += f"-s{multipleSimulations}"
+    return name
+
+
+def config_type(name):
+    """The C++ type of the configuration named `name`, as cmake/confignames.cmake gives it: its
+    parts capitalized and joined, after Config, e.g. ConfigViscoelasticM3O6F64."""
+    return "Config" + "".join(part[:1].upper() + part[1:] for part in name.split("-"))
+
+
 def load_configs(cmdLineArgs):
     """The configurations to generate, in the order of their ids.
 
-    Each one names the C++ type it is generated for (`key`) and the arguments it differs in from
-    the command line. Without --configs, it is the one configuration that the command line
-    describes, generated for seissol::Config0.
+    Each one names the C++ type it is generated for (`key`), its name and the arguments it differs
+    in from the command line. Without --configs, it is the one configuration that the command line
+    describes, generated for the type of its name. The quadrature rule of the dynamic rupture faces
+    is the one of the command line for all of them.
     """
     if cmdLineArgs.configs is not None:
         with open(cmdLineArgs.configs) as file:
             return json.load(file)
+    name = config_name(
+        cmdLineArgs.equations,
+        cmdLineArgs.numMechanisms,
+        cmdLineArgs.order,
+        cmdLineArgs.precision,
+        cmdLineArgs.multipleSimulations,
+    )
     return [
         {
-            "key": "seissol::Config0",
+            "key": f"seissol::{config_type(name)}",
+            "name": name,
             "equations": cmdLineArgs.equations,
             "order": cmdLineArgs.order,
             "precision": cmdLineArgs.precision,
             "numMechanisms": cmdLineArgs.numMechanisms,
             "multipleSimulations": cmdLineArgs.multipleSimulations,
-            "drQuadRule": cmdLineArgs.drQuadRule,
             "solver": cmdLineArgs.solver,
         }
     ]
 
 
-def config_folders(configArgs):
-    """The directory of each configuration, below the output directory."""
-    folders = []
-    for args in configArgs:
-        precision = "double" if args.precision in ["d", "f64"] else "single"
-        fusedSuffix = (
-            "-f" + str(args.multipleSimulations) if args.multipleSimulations > 1 else ""
-        )
-        folder = f"equation-{args.equations}-{args.order}-{precision}{fusedSuffix}"
-        # configurations that differ in other respects, e.g. the solver, get one each
-        if folder in folders:
-            folder += f"-{args.solver}-m{args.numMechanisms}-{args.drQuadRule}"
-        if folder in folders:
+def config_folders(configs):
+    """The directory of each configuration, below the output directory: its name."""
+    folders = [config["name"] for config in configs]
+    for folder in folders:
+        if folders.count(folder) > 1:
             raise RuntimeError(f"Two configurations would be generated into {folder}.")
-        folders.append(folder)
+        if folder == "general":
+            raise RuntimeError("No configuration can be named general.")
     return folders
 
 
@@ -139,7 +159,7 @@ def main():
     # (__shared__); or all of it, one after the other (__all__)
     cmdLineParser.add_argument("--codegen_target", type=str, default=STEP_ALL)
     # the configurations to generate, in the order of their ids; without it, the one that the
-    # arguments above describe, under the key seissol::Config0
+    # arguments above describe, under the key of its type
     cmdLineParser.add_argument("--configs", type=str, default=None)
     # the frameworks to write the unit tests of the kernels for, comma-separated, or none
     cmdLineParser.add_argument("--unit_tests", type=str, default="doctest")
@@ -148,6 +168,14 @@ def main():
 
     cmdLineParser.set_defaults(enable_premultiply_flux=False)
     cmdLineArgs = cmdLineParser.parse_args()
+
+    # what a step reads, for the build to run it again when that changes (see kernels.depfile)
+    recorder = None
+    if cmdLineArgs.mode == "codegen" and cmdLineArgs.codegen_target != STEP_ALL:
+        recorder = kernels.depfile.InputRecorder(
+            [os.path.dirname(os.path.abspath(__file__))]
+            + ([cmdLineArgs.matricesDir] if cmdLineArgs.matricesDir else [])
+        )
 
     # derive the compute platform
     gpu_platforms = ["cuda", "hip", "hipsycl", "acpp", "oneapi"]
@@ -163,7 +191,11 @@ def main():
         argparse.Namespace(
             **{
                 **vars(cmdLineArgs),
-                **{key: value for key, value in config.items() if key != "key"},
+                **{
+                    key: value
+                    for key, value in config.items()
+                    if key not in ("key", "name")
+                },
             }
         )
         for config in configs
@@ -327,6 +359,7 @@ def main():
     optionalTensors = [
         "canonicalI",
         "coupledCanonicalI",
+        "coupling",
         "E",
         "ET",
         "Iane",
@@ -336,7 +369,6 @@ def main():
         "Zinv",
         "dQane",
         "dQext",
-        "normalStress",
         "spaceTimePredictor",
         "w",
     ]
@@ -352,7 +384,7 @@ def main():
         target for target in targets if target == "cpu" or not isOldGpuInterface
     ]
 
-    folders = config_folders(configArgs)
+    folders = config_folders(configs)
     for folder, config in zip(folders, configs):
         metagen.add_generator(
             [config["key"]],
@@ -472,7 +504,7 @@ def main():
 
         kernels.quantities.emit_header(adg, trueOutputDir, key)
         kernels.configboundary.emit_header(
-            adg, trueOutputDir, key, boundaryPlan, riemannMaterial, boundaryTargets
+            adg, trueOutputDir, key, boundaryPlan, boundaryTargets
         )
 
         return generator, include_tensors
@@ -502,18 +534,17 @@ def main():
             unit_tests=unitTests,
         )
         summary = single.generate_single(0, cmdLineArgs.outputDir, namespace="seissol")
-        with open(
-            os.path.join(cmdLineArgs.outputDir, folder, EXCHANGE_FILE), "w"
-        ) as file:
-            # the directories relative to the output directory, so that the file is
-            # the same wherever that is
-            json.dump(
+        # the directories relative to the output directory, so that the file is the
+        # same wherever that is
+        kernels.output.write_if_changed(
+            os.path.join(cmdLineArgs.outputDir, folder, EXCHANGE_FILE),
+            json.dumps(
                 {
                     "summary": summary,
                     "routines": cache.export(root=cmdLineArgs.outputDir),
-                },
-                file,
-            )
+                }
+            ),
+        )
 
     def generate_general():
         # we use always use double here,
@@ -556,12 +587,14 @@ def main():
             for folder in folders + ["general"]
             if os.path.exists(os.path.join(cmdLineArgs.outputDir, folder, filename))
         ]
-        with open(os.path.join(cmdLineArgs.outputDir, filename), "w") as file:
-            file.writelines(["// IWYU pragma: begin_exports\n"])
-            file.writelines(
-                [f'#include "{os.path.join(folder, filename)}"\n' for folder in present]
+        kernels.output.write_if_changed(
+            os.path.join(cmdLineArgs.outputDir, filename),
+            "// IWYU pragma: begin_exports\n"
+            + "".join(
+                f'#include "{os.path.join(folder, filename)}"\n' for folder in present
             )
-            file.writelines(["// IWYU pragma: end_exports\n"])
+            + "// IWYU pragma: end_exports\n",
+        )
 
     def generate_shared():
         """The shared step, from EXCHANGE_FILE of every configuration."""
@@ -728,6 +761,17 @@ def main():
             generate_configuration(index)
     if target in (STEP_ALL, STEP_SHARED):
         generate_shared()
+
+    if recorder is not None:
+        with open(os.path.join(cmdLineArgs.outputDir, "steps.json")) as file:
+            (outputs,) = [
+                step["outputs"] for step in json.load(file) if step["target"] == target
+            ]
+        kernels.depfile.write_depfile(
+            os.path.join(cmdLineArgs.outputDir, f"{target}.d"),
+            os.path.join(cmdLineArgs.outputDir, outputs[0]),
+            recorder.files | kernels.depfile.imported_files(),
+        )
 
 
 if __name__ == "__main__":

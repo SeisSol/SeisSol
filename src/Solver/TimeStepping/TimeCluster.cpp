@@ -19,6 +19,7 @@
 #include "Config.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Output/OutputManager.h"
+#include "DynamicRupture/Output/PickpointSampling.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -53,6 +54,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <utility>
@@ -67,6 +69,22 @@
 #endif
 
 namespace seissol::time_stepping {
+
+namespace {
+/**
+ * The time from the start of a step to a sample in it. A sample at the end of the step, within the
+ * tolerance of the sampling, is taken exactly there, where the time derivatives and the friction
+ * state of the step end; the sampling counts a sample within its tolerance after the end of a step
+ * to that step.
+ */
+double timeInStep(double time, double stepStart, double stepSize) {
+  if (std::abs(stepStart + stepSize - time) <=
+      dr::output::PickpointSampling::Tolerance * stepSize) {
+    return stepSize;
+  }
+  return std::clamp(time - stepStart, 0.0, stepSize);
+}
+} // namespace
 
 template <typename Cfg>
 TimeCluster<Cfg>::TimeCluster(
@@ -795,25 +813,19 @@ void TimeCluster<Cfg>::handleDynamicRupture(DynamicRupture::Layer& layerData) {
     computeDynamicRupture(layerData);
   }
 
-  double time = ct_.correctionTime;
-
-  // repeat the current solution for some times---to match the existing output scheme.
-  // maybe replace with just writePickpointOutput(layerId(), time + dt, dt); some day?
-
-  const double meshDt = ct_.getTimeStepSize();
-  // the friction law has just evaluated this step up to its end, and that is the state written out
-  const double stateTime = ct_.correctionTime + timeStepSize();
-
-  do {
-    const auto oldTime = time;
-    time += dynamicRuptureScheduler_->getOutputTimestep();
-    const auto trueTime = std::min(time, syncTime_);
-    const auto trueDt = trueTime - oldTime;
-    faultOutputManager_->writePickpointOutput(
-        layerData.id(), stateTime, trueTime, trueDt, meshDt, 0, streamRuntime_);
-
-    // write until we've completed the current copy interval, or if we've hit a sync point
-  } while (time * (1 + 1e-8) < ct_.correctionTime + ct_.maxTimeStepSize && time < syncTime_);
+  // the on-fault receivers sample at the times that fall into this step (see PickpointSampling),
+  // each from the time derivatives of the step and the friction state the friction law has just
+  // computed for it
+  if (faultOutputManager_->hasPickpoints(layerData.id())) {
+    const double stepStart = ct_.correctionTime;
+    const double stepSize = timeStepSize();
+    const auto times = dynamicRuptureScheduler_->pickpointSampling().times(stepStart, stepSize);
+    for (const auto time : times) {
+      faultOutputManager_->recordPickpointOutput(
+          layerData.id(), time, stepSize, timeInStep(time, stepStart, stepSize), streamRuntime_);
+    }
+    faultOutputManager_->finishPickpointStep(layerData.id(), !times.empty(), streamRuntime_);
+  }
 
   // TODO(David): restrict to copy/interior of same cluster type
   if (hasDifferentExecutorNeighbor()) {
@@ -1028,7 +1040,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
                                                         timeIntegrated);
     if (configBoundary) {
       configBoundary_.computeIntegrals(data.template get<LTS::CellInformation>(),
-                                       data.template get<LTS::NormalStress>(),
+                                       data.template get<LTS::Coupling>(),
                                        faceNeighbors[cell],
                                        integrationBuffers,
                                        timeIntegrated);

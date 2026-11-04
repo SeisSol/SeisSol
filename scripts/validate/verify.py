@@ -10,12 +10,14 @@ the existing ``compare-{mesh,receivers,energies}.py`` scripts next to this file.
 
 Binaries: the CI builds one executable of several configurations (``CONFIGS``,
 the set ci-cpu or ci-gpu of cmake/confignames.cmake), ``seissol``, which a case
-runs with ``SEISSOL_CONFIGURATION`` set to the canonical name of its
-configuration (``elastic-linearck-o6-f64-stroud``, ...); a case whose
-configuration it does not hold is skipped. A build of a single configuration
-names its executable ``seissol-<config>`` after the config of cases.json (e.g.
-``elastic-o6-f64``, ``viscoelastic-3-o6-f64``, ``elastic-o3-f64-s8``), and where
-there is one, it is taken first.
+runs with ``SEISSOL_CONFIGURATION`` set to the name of its configuration, the
+config of cases.json (``elastic-o6-f64``, ``viscoelastic-m3-o6-f64``,
+``elastic-o3-f64-s8``, ...); a case whose configuration it does not hold is
+skipped. A build of a single configuration names its executable
+``seissol-<config>``, and where there is one, it is taken first. A case with
+dynamic rupture whose reference states another quadrature rule on the faults
+(``drQuadRule`` in references.json) than the executable uses fails without
+being compared.
 
 Examples
 --------
@@ -163,8 +165,9 @@ class CaseSpec:
     # referenced case's output_dir):
     reference_dir: Optional[Path] = None
     # Case-level conditional rules (each: {"when": {...}, "reason": ...}); apply
-    # to the whole case / all its categories. Category-level rules live in the
-    # per-category <prefix>-data.json instead.
+    # to the whole case / all its categories, and an xfail to the run itself (see
+    # failed_run). Category-level rules live in the per-category
+    # <prefix>-data.json instead.
     xfail: list = dataclasses.field(default_factory=list)
     skip: list = dataclasses.field(default_factory=list)
 
@@ -241,7 +244,11 @@ class CaseResult:
         if self.skipped:
             return True
         if self.ran and self.run_returncode != 0:
-            return False
+            # only as the expected failure of a case-level xfail
+            return any(
+                c.category == "run" and c.xfail_outcome == "xfail"
+                for c in self.compares
+            )
         if self.recorded:
             return True
         if not self.compares:
@@ -436,75 +443,36 @@ def _evaluate_quantities(
 # ---------------------------------------------------------------------------
 
 
-# The solver each material advances with by default, which the canonical name
-# of a configuration spells out and the one of cases.json leaves implicit.
-DEFAULT_SOLVERS = {
-    "acoustic": "linearck",
-    "anisotropic": "linearck",
-    "elastic": "linearck",
-    "poroelastic": "stp",
-    "viscoacoustic": "linearckanelastic",
-    "viscoelastic": "linearckanelastic",
-}
-# <material>[-<mechanisms>]-o<order>-<f32|f64>[-s<simulations>], as in cases.json
-_CASE_CONFIG = re.compile(
-    r"^(?P<material>[a-z]+)(?:-(?P<mechanisms>\d+))?-o(?P<order>\d+)"
-    r"-(?P<precision>f32|f64)(?:-s(?P<simulations>\d+))?$"
-)
-# <material>-<solver>[-m<mechanisms>]-o<order>-<f32|f64>-<rule>[-s<simulations>]
-_CANONICAL_CONFIG = re.compile(
-    r"^[a-z]+-[a-z]+(?:-m\d+)?-o\d+-(?:f32|f64)-[a-z]+(?:-s\d+)?$"
-)
-_CANONICAL_PARTS = re.compile(
-    r"^(?P<material>[a-z]+)-[a-z]+(?:-m(?P<mechanisms>\d+))?-o(?P<order>\d+)"
-    r"-(?P<precision>f32|f64)-[a-z]+(?:-s(?P<simulations>\d+))?$"
+# <material>[-m<mechanisms>]-o<order>-<f32|f64>[-s<simulations>], as SeisSol names its
+# configurations (cmake/confignames.cmake) and cases.json selects them
+_CONFIG_NAME = re.compile(r"^[a-z]+(?:-m\d+)?-o\d+-f(?:32|64)(?:-s\d+)?$")
+# what the help of an executable says about the quadrature rule of its dynamic rupture faces
+_DR_QUAD_RULE = re.compile(
+    r"^Dynamic rupture quadrature rule \(all configurations\): (\w+)$"
 )
 
 
-class ConfigurationMismatch(Exception):
-    """An executable holds the configuration of a case under another name than the one
-    `canonical_config` gives it: the solver or the quadrature rule it assumes no longer is
-    SeisSol's."""
-
-
-def _setup(canonical: str) -> Optional[tuple]:
-    """What a configuration computes, leaving out the names of its solver and its rule."""
-    match = _CANONICAL_PARTS.match(canonical)
-    if match is None:
-        return None
-    return (
-        match["material"],
-        int(match["mechanisms"] or 0),
-        int(match["order"]),
-        match["precision"],
-        int(match["simulations"] or 1),
-    )
+class RuleMismatch(Exception):
+    """The reference of a case with dynamic rupture was recorded with another quadrature rule on
+    the faults than the executable uses: comparing them says nothing about the numerics.
+    """
 
 
 def canonical_config(config: str) -> str:
     """The name SeisSol knows the configuration of a cases.json entry by, as
-    ``SEISSOL_CONFIGURATION`` takes it: ``elastic-o6-f64`` is
-    ``elastic-linearck-o6-f64-stroud``, ``viscoelastic-3-o6-f64`` is
-    ``viscoelastic-linearckanelastic-m3-o6-f64-stroud``. A canonical name stays
-    as it is."""
-    if _CANONICAL_CONFIG.match(config):
-        return config
-    match = _CASE_CONFIG.match(config)
-    if match is None or match["material"] not in DEFAULT_SOLVERS:
-        raise ValueError(f"cannot read the configuration '{config}'")
-    name = f"{match['material']}-{DEFAULT_SOLVERS[match['material']]}"
-    if match["mechanisms"] and int(match["mechanisms"]) > 0:
-        name += f"-m{int(match['mechanisms'])}"
-    name += f"-o{int(match['order'])}-{match['precision']}-stroud"
-    if match["simulations"] and int(match["simulations"]) > 1:
-        name += f"-s{int(match['simulations'])}"
-    return name
+    ``SEISSOL_CONFIGURATION`` takes it: the name itself, e.g. ``elastic-o6-f64`` or
+    ``viscoelastic-m3-o6-f64``."""
+    if not _CONFIG_NAME.match(config):
+        raise ValueError(
+            f"cannot read the configuration '{config}'; a configuration is named "
+            "<material>[-m<mechanisms>]-o<order>-<f32|f64>[-s<simulations>]"
+        )
+    return config
 
 
 @functools.lru_cache(maxsize=None)
-def built_configurations(binary: Path) -> Optional[frozenset]:
-    """The configurations an executable was built for, by their canonical names,
-    as its help lists them; None if it does not say."""
+def _help_lines(binary: Path) -> Optional[tuple]:
+    """The lines of the help of an executable; None if it does not run."""
     try:
         proc = subprocess.run(
             [str(binary), "--help"],
@@ -515,11 +483,59 @@ def built_configurations(binary: Path) -> Optional[frozenset]:
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
-    lines = (proc.stdout + "\n" + proc.stderr).splitlines()
-    names = frozenset(
-        line.strip() for line in lines if _CANONICAL_CONFIG.match(line.strip())
+    return tuple(
+        line.strip() for line in (proc.stdout + "\n" + proc.stderr).splitlines()
     )
+
+
+def built_configurations(binary: Path) -> Optional[frozenset]:
+    """The configurations an executable was built for, by their names, as its help lists them;
+    None if it does not say."""
+    lines = _help_lines(binary)
+    if lines is None:
+        return None
+    names = frozenset(line for line in lines if _CONFIG_NAME.match(line))
     return names or None
+
+
+def built_dr_quad_rule(binary: Path) -> Optional[str]:
+    """The quadrature rule of the dynamic rupture faces of an executable, as its help states it;
+    None if it does not say."""
+    for line in _help_lines(binary) or ():
+        match = _DR_QUAD_RULE.match(line)
+        if match is not None:
+            return match.group(1)
+    return None
+
+
+def has_fault_output(case: CaseSpec) -> bool:
+    """Whether the committed reference of a case holds output of dynamic rupture faces."""
+    target = case.reference_dir or case.output_dir
+    return target is not None and any(target.glob(f"{case.prefix}-fault*"))
+
+
+def reference_dr_quad_rule(precomputed_dir: Path, case: CaseSpec) -> Optional[str]:
+    """The quadrature rule of the dynamic rupture faces that the reference of a case was recorded
+    with, as references.json states it; None if it does not say."""
+    f = precomputed_dir / "references.json"
+    if not f.is_file():
+        return None
+    entry = json.loads(f.read_text()).get(case.reference or case.key, {})
+    return entry.get("drQuadRule")
+
+
+def check_dr_quad_rule(precomputed_dir: Path, case: CaseSpec, binary: Path) -> None:
+    """Raises RuleMismatch if the reference of a case with dynamic rupture was recorded with
+    another quadrature rule on the faults than `binary` uses."""
+    recorded = reference_dr_quad_rule(precomputed_dir, case)
+    if recorded is None or not has_fault_output(case):
+        return
+    built = built_dr_quad_rule(binary)
+    if built is not None and built != recorded:
+        raise RuleMismatch(
+            f"the reference was recorded with the quadrature rule {recorded} on the faults, "
+            f"{binary} uses {built}; record it anew or build with DR_QUAD_RULE={recorded}"
+        )
 
 
 def resolve_binary(binary_dir: Path, config: str) -> tuple[Path, Optional[str]]:
@@ -551,15 +567,6 @@ def resolve_binary(binary_dir: Path, config: str) -> tuple[Path, Optional[str]]:
                 raise FileNotFoundError(f"{cand} needs a configuration: {e}") from e
             built = built_configurations(cand.absolute())
             if built is not None and configuration not in built:
-                # The same material, mechanisms, order, precision and simulations under another
-                # name is no configuration the executable lacks: skipped, the case would pass
-                # unrun, and so would every other one if SeisSol renamed its configurations.
-                alike = sorted(n for n in built if _setup(n) == _setup(configuration))
-                if alike:
-                    raise ConfigurationMismatch(
-                        f"{cand} holds {', '.join(alike)} for {config}, which verify.py "
-                        f"names {configuration}"
-                    )
                 raise FileNotFoundError(
                     f"{cand} is not built for {configuration}; it has "
                     + ", ".join(sorted(built))
@@ -793,6 +800,15 @@ def _apply_xfail(
         cr.xfail_outcome = "xfail" if not cr.passed else "xpass"
 
 
+def failed_run(case: CaseSpec, returncode: int, labels: set) -> list[CompareResult]:
+    """The comparisons of a case whose run failed: none, or, where a case-level
+    xfail rule matches, the run itself as an expected failure (as of a case that
+    the libraries of an environment are too old for)."""
+    run = CompareResult("run", False, 0.0, f"SeisSol exited with {returncode}")
+    _apply_xfail(run, case, {}, "run", labels)
+    return [run] if run.xfail_outcome == "xfail" else []
+
+
 def _category_skip_reason(case: CaseSpec, tpv_data: dict, category: str, labels: set):
     """Reason if this category is conditionally skipped (category-level rules only)."""
     return _first_matching_reason(
@@ -993,6 +1009,7 @@ def update_references_json(
     case: CaseSpec,
     seissol_commit: str,
     note: str = "",
+    dr_quad_rule: Optional[str] = None,
 ) -> None:
     """Append/update an entry in ``references.json`` (one entry per case name).
 
@@ -1003,21 +1020,28 @@ def update_references_json(
             "commit": "<sha>",
             "date":   "2026-05-21",
             "configs": ["elastic-o6-f32", "elastic-o6-f64"],
+            "drQuadRule": "dunavant",
             "note":   "..."
           },
           ...
         }
+
+    ``drQuadRule`` is the quadrature rule of the dynamic rupture faces of the executable that
+    recorded the case, kept for the cases with fault output only: the rule changes nothing else.
     """
     f = precomputed_dir / "references.json"
     db = json.loads(f.read_text()) if f.is_file() else {}
     existing = db.get(case.key, {})
     configs = sorted(set(existing.get("configs", []) + [case.config]))
-    db[case.key] = {
+    entry = {
         "commit": seissol_commit,
         "date": _dt.date.today().isoformat(),
         "configs": configs,
         "note": note or existing.get("note", ""),
     }
+    if dr_quad_rule is not None and has_fault_output(case):
+        entry["drQuadRule"] = dr_quad_rule
+    db[case.key] = entry
     f.write_text(json.dumps(db, indent=2, sort_keys=True) + "\n")
 
 
@@ -1080,7 +1104,7 @@ def _state_of(r: "CaseResult") -> str:
         return "SKIP"
     if r.recorded:
         return "REC"
-    if r.ran and r.run_returncode != 0:
+    if r.ran and r.run_returncode != 0 and not r.passed:
         return f"RC={r.run_returncode}"
     if not r.compares:
         return "FAIL"
@@ -2026,7 +2050,9 @@ def main(argv: Optional[list[str]] = None) -> int:
 
         try:
             binary, configuration = resolve_binary(args.binary_dir, case.config)
-        except ConfigurationMismatch as e:
+            if not args.record:
+                check_dr_quad_rule(precomputed_dir, case, binary)
+        except RuleMismatch as e:
             print(f"{_bad('[fail]')} {case.key}: {e}", file=sys.stderr)
             results.append(CaseResult(case, False, 0, 0.0, [], note=str(e)))
             if args.fail_fast:
@@ -2054,12 +2080,19 @@ def main(argv: Optional[list[str]] = None) -> int:
             )
             ran = True
             if rc != 0:
-                print(
-                    f"{_bad('[fail]')} {case.key}: SeisSol exited with {rc}",
-                    file=sys.stderr,
-                )
-                results.append(CaseResult(case, True, rc, duration, []))
-                if args.fail_fast:
+                compares = failed_run(case, rc, labels)
+                if compares:
+                    print(
+                        f"{_dim('[xfail]')} {case.key}: SeisSol exited with {rc}: "
+                        f"{compares[0].xfail_reason}"
+                    )
+                else:
+                    print(
+                        f"{_bad('[fail]')} {case.key}: SeisSol exited with {rc}",
+                        file=sys.stderr,
+                    )
+                results.append(CaseResult(case, True, rc, duration, compares))
+                if args.fail_fast and not compares:
                     break
                 continue
 
@@ -2068,7 +2101,11 @@ def main(argv: Optional[list[str]] = None) -> int:
                 record_case(case)
                 if args.seissol_commit:
                     update_references_json(
-                        precomputed_dir, case, args.seissol_commit, args.note
+                        precomputed_dir,
+                        case,
+                        args.seissol_commit,
+                        args.note,
+                        built_dr_quad_rule(binary),
                     )
                 results.append(CaseResult(case, ran, rc, duration, [], recorded=True))
             except Exception as e:
