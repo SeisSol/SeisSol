@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <numbers>
 #include <type_traits>
 
 namespace seissol::dr::friction_law::rs {
@@ -109,7 +110,7 @@ SEISSOL_HOSTDEVICE constexpr T arsinhexp(T x, T cExpLog, T cExp) {
   using std::asinh;
   using std::log;
   using Scalar = decltype(valueOf(T{}));
-  constexpr Scalar Log2 = 0.69314718055994530943;
+  constexpr Scalar Log2 = std::numbers::ln2_v<Scalar>;
 
   int xexp{};
   int dexp{};

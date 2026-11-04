@@ -37,7 +37,9 @@ void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSources(
   auto& mapping = clusterMapping_->cellToSources;
   if (mapping.size() > 0) {
 
+    // an index loop; OpenMP loop constructs take range-based loops only from OpenMP 5.0 on
 #pragma omp parallel for schedule(static)
+    // NOLINTNEXTLINE(modernize-loop-convert)
     for (std::size_t m = 0; m < mapping.size(); ++m) {
       const auto startSource = mapping[m].pointSourcesOffset;
       const auto endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;

@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The solid of material-elastic.yaml in group 1, the near half of mat48, and a
+# sandstone saturated with water in group 2, the far half: the face between
+# them is sealed.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        rho:    2700.0
+        mu:     3.24e10
+        lambda: 3.24e10
+  - !GroupFilter
+    groups: 2
+    components: !ConstantMap
+      map:
+        bulk_solid:   40.0e9
+        rho:          2500.0
+        lambda:       12.0e9
+        mu:           10.0e9
+        porosity:     0.2
+        permeability: 6.0e-13
+        tortuosity:   3.0
+        bulk_fluid:   2.5e9
+        rho_fluid:    1040.0
+        viscosity:    0.001

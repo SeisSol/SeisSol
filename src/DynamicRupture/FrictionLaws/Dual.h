@@ -11,6 +11,7 @@
 #include "Common/Marker.h"
 
 #include <cmath>
+#include <numbers>
 #include <type_traits>
 
 namespace seissol::dr::friction_law {
@@ -50,8 +51,8 @@ struct Dual {
   Dual() = default;
 
   /// a constant: it carries no dependence on the differentiation variable
-  SEISSOL_HOSTDEVICE constexpr Dual(T constantValue) // NOLINT(google-explicit-constructor)
-      : value(constantValue), derivative(0) {}
+  // NOLINTNEXTLINE(misc-explicit-constructor)
+  SEISSOL_HOSTDEVICE constexpr Dual(T constantValue) : value(constantValue), derivative(0) {}
 
   SEISSOL_HOSTDEVICE constexpr Dual(T nodeValue, T nodeDerivative)
       : value(nodeValue), derivative(nodeDerivative) {}
@@ -202,9 +203,8 @@ SEISSOL_HOSTDEVICE Dual<T> exp(Dual<T> a) {
 }
 template <typename T>
 SEISSOL_HOSTDEVICE Dual<T> exp2(Dual<T> a) {
-  constexpr T Ln2 = 0.69314718055994530942;
   const T e = std::exp2(a.value);
-  return {e, e * Ln2 * a.derivative};
+  return {e, e * std::numbers::ln2_v<T> * a.derivative};
 }
 /// exp(v) = expm1(v) + 1 reuses the call, at the price of the low digits of the derivative once
 /// expm1 approaches -1 -- from v = -37 down there are none left. That is where the derivative is
@@ -222,13 +222,11 @@ SEISSOL_HOSTDEVICE Dual<T> log(Dual<T> a) {
 }
 template <typename T>
 SEISSOL_HOSTDEVICE Dual<T> log2(Dual<T> a) {
-  constexpr T Ln2 = 0.69314718055994530942;
-  return {std::log2(a.value), a.derivative / (a.value * Ln2)};
+  return {std::log2(a.value), a.derivative / (a.value * std::numbers::ln2_v<T>)};
 }
 template <typename T>
 SEISSOL_HOSTDEVICE Dual<T> log10(Dual<T> a) {
-  constexpr T Ln10 = 2.30258509299404568402;
-  return {std::log10(a.value), a.derivative / (a.value * Ln10)};
+  return {std::log10(a.value), a.derivative / (a.value * std::numbers::ln10_v<T>)};
 }
 template <typename T>
 SEISSOL_HOSTDEVICE Dual<T> log1p(Dual<T> a) {
@@ -458,7 +456,8 @@ template <typename T, typename U>
 SEISSOL_HOSTDEVICE constexpr Dual<T> dualCast(Dual<U> x) {
   return {static_cast<T>(x.value), static_cast<T>(x.derivative)};
 }
-template <typename T, typename U, std::enable_if_t<std::is_floating_point_v<U>, int> = 0>
+template <typename T, typename U>
+  requires std::is_floating_point_v<U>
 SEISSOL_HOSTDEVICE constexpr T dualCast(U x) {
   return static_cast<T>(x);
 }

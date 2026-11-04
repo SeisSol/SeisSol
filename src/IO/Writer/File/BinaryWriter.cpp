@@ -143,8 +143,8 @@ void BinaryWriter::beginWrite(const std::set<std::string>& distributedFiles) {
 
 void BinaryWriter::write(const async::ExecInfo& info, const instructions::BinaryWrite& write) {
   written_.insert(write.filename);
-  if (openFiles_.find(write.filename) == openFiles_.end()) {
-    const bool rootOnly = distributedFiles_.count(write.filename) == 0;
+  if (!openFiles_.contains(write.filename)) {
+    const bool rootOnly = !distributedFiles_.contains(write.filename);
     openFiles_[write.filename] = std::make_unique<BinaryFile>(comm_, rootOnly);
     // as for HDF5: the first write of a resuming run keeps what an earlier run left as a backup
     const bool backUp =
@@ -177,7 +177,7 @@ void BinaryWriter::write(const async::ExecInfo& info, const instructions::Binary
 void BinaryWriter::endWrite() {
   for (auto entry = openFiles_.begin(); entry != openFiles_.end();) {
     const auto& name = entry->first;
-    if (written_.count(name) > 0 && writtenBefore_.count(name) > 0) {
+    if (written_.contains(name) && writtenBefore_.contains(name)) {
       ++entry;
     } else {
       entry->second->closeFile();

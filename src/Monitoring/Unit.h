@@ -21,7 +21,7 @@ std::string formatInteger(uint64_t value);
 
 struct SIUnit {
   public:
-  SIUnit(const std::string& unit, bool binary);
+  SIUnit(std::string unit, bool binary);
 
   [[nodiscard]] std::string formatTime(double value, bool exact = true, int digits = 4) const;
 

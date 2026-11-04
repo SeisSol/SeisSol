@@ -22,6 +22,13 @@ struct BufferPointer {
   int id{-1};
 };
 
+//! A buffer that the n-th data source of a kind uses in every plan.
+struct BufferSlot {
+  int id{-1};
+  const void* pointer{nullptr};
+  std::size_t size{0};
+};
+
 /**
  * @brief The buffer operations BufferRegistry needs, i.e. the part of ASYNC it uses.
  *
@@ -42,6 +49,20 @@ class BufferAllocator {
   virtual void resizeBuffer(int id, const void* pointer, std::size_t size) = 0;
   //! @brief The memory of an allocator-provided buffer; nullptr if it is empty.
   virtual void* managedBuffer(int id) = 0;
+
+  /**
+   * @brief Whether all ranks have to add and resize the same buffers, in the same order.
+   *
+   * Where an executor joins the parts of several ranks under one id (ASYNC mode NODE), adding and
+   * resizing a buffer is collective.
+   */
+  [[nodiscard]] virtual bool collective() const { return false; }
+
+  /**
+   * @brief Sets every entry of @p flags that is set on any rank; only needed where collective()
+   * holds.
+   */
+  virtual void agreeOnAny(std::vector<int>& flags) {}
 };
 
 /**
@@ -62,10 +83,16 @@ class BufferRegistry {
    *
    * A source occurring several times in the plan is handled once. Within one call, two sources
    * never share an id, even when they would be interchangeable across calls.
+   *
+   * Where the allocator is collective, the n-th pass-through source and the n-th managed source of
+   * a plan always take the n-th buffer of their kind: the plans of all ranks are alike, so the
+   * buffers line up across the ranks, while their pointers and sizes do not. A buffer is resized
+   * on all ranks whenever it changes on one of them.
    */
   std::vector<int> assign(Writer& writer);
 
   private:
+  std::vector<int> assignCollective(Writer& writer);
   int idFor(DataSource* source, const std::unordered_set<int>& used);
   int idForPassThrough(WriteBuffer* source, const std::unordered_set<int>& used);
   int idForManaged(AdhocBuffer* source, const std::unordered_set<int>& used);
@@ -75,6 +102,10 @@ class BufferRegistry {
   std::unordered_map<const void*, BufferPointer> pointerMap_;
   //! Managed buffers, keyed by their size, so that an allocation can be reused.
   std::unordered_map<std::size_t, std::vector<int>> bufferMap_;
+  //! Where the allocator is collective: the pass-through buffers by their place among their kind.
+  std::vector<BufferSlot> passThroughSlots_;
+  //! Where the allocator is collective: the managed buffers by their place among their kind.
+  std::vector<BufferSlot> managedSlots_;
 };
 
 } // namespace seissol::io::writer::module

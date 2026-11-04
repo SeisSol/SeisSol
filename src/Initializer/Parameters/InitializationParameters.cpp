@@ -64,7 +64,15 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
 
   const auto avoidIC = reader->read<bool>("avoidic").value_or(false);
 
-  return InitializationParameters{
-      type, origin, kVec, ampField, magnitude, width, k, filename, hasTime, avoidIC};
+  return InitializationParameters{.type = type,
+                                  .origin = origin,
+                                  .kVec = kVec,
+                                  .ampField = ampField,
+                                  .magnitude = magnitude,
+                                  .width = width,
+                                  .k = k,
+                                  .filename = filename,
+                                  .hasTime = hasTime,
+                                  .avoidIC = avoidIC};
 }
 } // namespace seissol::initializer::parameters

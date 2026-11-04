@@ -16,6 +16,7 @@
 #include "Initializer/LtsSetup.h"
 #include "Initializer/TimeStepping/Halo.h"
 #include "Kernels/Common.h"
+#include "Kernels/ConfigBoundary.h"
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -49,8 +50,9 @@ class BucketManager {
     const uintptr_t offset = this->dataSize_;
     this->dataSize_ += size;
 
-    // the following "hack" was copied from the MemoryManager. Add +1 to pointers to differentiate
-    // from nullptr NOLINTNEXTLINE
+    // the following "hack" was copied from the MemoryManager: the offset goes into a pointer,
+    // plus 1 to differentiate it from nullptr
+    // NOLINTNEXTLINE(performance-no-int-to-ptr)
     return reinterpret_cast<T*>(offset + 1);
   }
 
@@ -213,16 +215,17 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
 
       // transfer allocation
       manager.align();
-      auto startPosition = manager.position();
+      const auto startPosition = manager.position();
       allocationPass(counter, region, true, BufferType::StepIntegrals);
       allocationPass(counter, region, true, BufferType::AccumulatedIntegrals);
       allocationPass(counter, region, true, BufferType::Derivatives);
       manager.align();
-      auto endPosition = manager.position();
-      auto size = endPosition - startPosition;
+      const auto endPosition = manager.position();
+      const auto size = endPosition - startPosition;
       assert(size % typeSize == 0);
 
-      // NOLINTNEXTLINE
+      // the offset into the buckets, which becomes a pointer once they are allocated
+      // NOLINTNEXTLINE(performance-no-int-to-ptr)
       auto* startPtr = reinterpret_cast<void*>(startPosition);
 
       remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.rank, region.tag);
@@ -368,6 +371,61 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
                              faceNeighborsDevice == nullptr ? nullptr : &faceNeighborsDevice[cell]);
   }
 }
+
+/// The bytes the coupling matrix of a face of a cell of the configuration `Cfg` towards a
+/// neighbor of the family `family` takes in the bucket, rounded up to the alignment.
+template <typename Cfg>
+constexpr std::size_t couplingBytes(std::size_t family) {
+  const auto bytes = kernels::couplingSize<Cfg>(family) * sizeof(Real<Cfg>);
+  return (bytes + Alignment - 1) / Alignment * Alignment;
+}
+
+/// Sizes the bucket of the coupling matrices of a layer: one per face of a cell towards a neighbor
+/// of another family in another configuration.
+template <typename Cfg>
+void sizeCouplingBucket(LTS::Layer& layer) {
+  std::size_t bytes = 0;
+  const auto* cellInformation = layer.var<LTS::CellInformation>();
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      std::size_t family = 0;
+      if (kernels::coupledFace<Cfg>(cellInformation[cell], face, &family)) {
+        bytes += couplingBytes<Cfg>(family);
+      }
+    }
+  }
+  layer.setEntrySize<LTS::CouplingMatrices>(bytes);
+}
+
+/// Points each face of the cells of a layer that converts the time integral of its neighbor with a
+/// coupling matrix to its matrix in the bucket, on the host and on the device; the other faces to
+/// null.
+template <typename Cfg>
+void setupCoupling(LTS::Layer& layer) {
+  auto* coupling = layer.var<LTS::Coupling>(Cfg());
+  auto* couplingDevice = layer.var<LTS::CouplingDevice>(Cfg());
+  const auto* cellInformation = layer.var<LTS::CellInformation>();
+  std::size_t offset = 0;
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      coupling[cell][face] = nullptr;
+      couplingDevice[cell][face] = nullptr;
+      std::size_t family = 0;
+      if (kernels::coupledFace<Cfg>(cellInformation[cell], face, &family)) {
+        // the offsets are aligned, and so a whole number of reals
+        const auto realOffset = offset / sizeof(Real<Cfg>);
+        coupling[cell][face] = layer.var<LTS::CouplingMatrices>(Cfg()) + realOffset;
+        if constexpr (isDeviceOn()) {
+          couplingDevice[cell][face] =
+              layer.var<LTS::CouplingMatrices>(Cfg(), AllocationPlace::Device) + realOffset;
+        }
+        offset += couplingBytes<Cfg>(family);
+      }
+    }
+  }
+  assert(offset == layer.getEntrySize<LTS::CouplingMatrices>());
+}
+
 } // namespace
 
 solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const MeshLayout& layout) {
@@ -380,11 +438,20 @@ solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const M
     });
   }
 
+  for (auto& layer : storage.leaves(Ghost)) {
+    dispatchConfig(layer.getIdentifier().config,
+                   [&](auto cfg) { sizeCouplingBucket<decltype(cfg)>(layer); });
+  }
+
   storage.allocateBuckets();
 
   for (auto& layer : storage.leaves()) {
     dispatchConfig(layer.getIdentifier().config,
                    [&](auto cfg) { setupBuckets<decltype(cfg)>(layer, commInfo[layer.id()]); });
+  }
+  for (auto& layer : storage.leaves(Ghost)) {
+    dispatchConfig(layer.getIdentifier().config,
+                   [&](auto cfg) { setupCoupling<decltype(cfg)>(layer); });
   }
   for (auto& layer : storage.leaves(Ghost)) {
     setupFaceNeighbors(storage, layer);

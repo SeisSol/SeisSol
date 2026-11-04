@@ -20,9 +20,10 @@
 #include <cmath>
 #include <numeric>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
-namespace seissol::basisFunction {
+namespace seissol::basis_function {
 
 //------------------------------------------------------------------------------
 
@@ -42,7 +43,7 @@ class BasisFunctionGenerator {
    * @param x Sampling point
    */
   static T sampleJacobiPolynomial(T x, std::uint32_t n, std::uint32_t a, std::uint32_t b) {
-    return seissol::functions::JacobiP(n, a, b, x);
+    return seissol::functions::jacobiP(n, a, b, x);
   }
 
   public:
@@ -66,7 +67,7 @@ class BasisFunctionGenerator {
    * @param k Polynomial index information
    */
   T operator()(std::uint32_t i, std::uint32_t j, std::uint32_t k) const {
-    return static_cast<T>(functions::TetraDubinerP({i, j, k}, {xi_, eta_, zeta_}));
+    return static_cast<T>(functions::tetraDubinerP({i, j, k}, {xi_, eta_, zeta_}));
   }
 };
 //------------------------------------------------------------------------------
@@ -264,13 +265,13 @@ class TimeBasisFunctionGenerator {
   T tau_;
 
   static T sampleJacobiPolynomial(T x, std::uint32_t n) {
-    return seissol::functions::JacobiP(n, 0, 0, x);
+    return seissol::functions::jacobiP(n, 0, 0, x);
   }
 
   public:
   explicit TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
 
-  T operator()(std::uint32_t i) const { return functions::DubinerP<1>({i}, {tau_}); }
+  T operator()(std::uint32_t i) const { return functions::dubinerP<1>({i}, {tau_}); }
 };
 
 template <class T>
@@ -304,9 +305,9 @@ namespace tri_dubiner {
 inline void evaluatePolynomials(double* phis, double xi, double eta, std::int32_t numPoly) {
   assert(numPoly > 0);
   std::uint32_t idx = 0;
-  for (std::uint32_t d = 0; d <= static_cast<std::uint32_t>(numPoly); ++d) {
+  for (std::uint32_t d = 0; std::cmp_less_equal(d, numPoly); ++d) {
     for (std::uint32_t j = 0; j <= d; ++j) {
-      phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
+      phis[idx++] = seissol::functions::triDubinerP({d - j, j}, {xi, eta});
     }
   }
 }
@@ -314,7 +315,7 @@ inline void evaluatePolynomials(double* phis, double xi, double eta, std::int32_
 inline void evaluateGradPolynomials(double* phis, double xi, double eta, std::int32_t numPoly) {
   assert(numPoly > 0);
   std::uint32_t idx = 0;
-  for (std::uint32_t d = 0; d <= static_cast<std::uint32_t>(numPoly); ++d) {
+  for (std::uint32_t d = 0; std::cmp_less_equal(d, numPoly); ++d) {
     for (std::uint32_t j = 0; j <= d; ++j) {
       const auto grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
       for (const auto& g : grad) {
@@ -325,6 +326,6 @@ inline void evaluateGradPolynomials(double* phis, double xi, double eta, std::in
 }
 } // namespace tri_dubiner
 
-} // namespace seissol::basisFunction
+} // namespace seissol::basis_function
 
 #endif // SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_

@@ -41,6 +41,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <hdf5.h>
 #include <mpi.h>
@@ -50,6 +51,7 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -202,9 +204,7 @@ VertexOrder canonicalVertexOrder(const std::array<PUML::GlobalId, Cell::NumVerti
                                  const std::array<const double*, Cell::NumVertices>& coords) {
   VertexOrder order{};
   std::iota(order.begin(), order.end(), 0);
-  std::sort(order.begin(), order.end(), [&](auto a, auto b) {
-    return topoVertices[a] < topoVertices[b];
-  });
+  std::ranges::sort(order, [&](auto a, auto b) { return topoVertices[a] < topoVertices[b]; });
 
   std::array<const double*, Cell::NumVertices> sorted{};
   for (std::size_t k = 0; k < Cell::NumVertices; ++k) {
@@ -704,7 +704,7 @@ auto PUMLReader::partition(PumlMesh& meshTopology,
                            const std::string& partitioningLib) -> PartitionArrays {
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  auto partType = toPartitionerType(std::string_view(partitioningLib));
+  const auto partType = toPartitionerType(std::string_view(partitioningLib));
   logInfo() << "Using the" << toStringView(partType) << "partition library and strategy.";
   if (partType == PUML::PartitionerType::None && Mpi::mpi.size() > 1) {
     logWarning()
@@ -827,7 +827,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
     std::array<PUML::LocalId, Cell::NumVertices> geomVertices{};
     PUML::Downward::vertices(meshGeometry, cellsGeometry[i], geomVertices.data());
     applyVertexOrder(geomVertices, vertexOrder);
-    std::copy(geomVertices.begin(), geomVertices.end(), elements_[i].vertices.begin());
+    std::ranges::copy(geomVertices, elements_[i].vertices.begin());
 
     std::array<PUML::LocalId, Cell::NumVertices> topoVertices{};
     PUML::Downward::vertices(meshTopology, cells[i], topoVertices.data());
@@ -865,7 +865,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
 
         std::array<PUML::LocalId, Cell::NumFaces> nfaces{};
         PUML::Neighbor::face(meshTopology, neighbors[j], nfaces.data());
-        const auto* back = std::find(nfaces.begin(), nfaces.end(), i);
+        const auto* back = std::ranges::find(nfaces, i);
         logassert(back != nfaces.end());
 
         const auto& neighborPumlToSeisSol = pumlFaceMaps[neighbors[j]];
@@ -876,8 +876,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
         std::array<PUML::LocalId, Cell::NumVertices> nvertices{};
         PUML::Downward::vertices(meshTopology, cells[neighbors[j]], nvertices.data());
         applyVertexOrder(nvertices, vertexOrderFromFaceMap(neighborPumlToSeisSol));
-        const auto* neighborFirstVertex =
-            std::find(nvertices.begin(), nvertices.end(), firstVertex);
+        const auto* neighborFirstVertex = std::ranges::find(nvertices, firstVertex);
         logassert(neighborFirstVertex != nvertices.end());
 
         elements_[i].sideOrientations[side] =
@@ -915,7 +914,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
 
   for (auto [k, info] : seissol::common::enumerate(neighborInfo)) {
     // Need to sort the neighborInfo vectors once
-    std::sort(info.second.begin(), info.second.end(), [&](auto a, auto b) {
+    std::ranges::sort(info.second, [&](auto a, auto b) {
       return meshTopology.faces()[a].gid() < meshTopology.faces()[b].gid();
     });
 
@@ -952,7 +951,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
       PUML::Upward::cells(meshTopology, faces[info.second[i]], cellIds.data());
       const auto pumlSide =
           PUML::Downward::faceSide(meshTopology, cells[cellIds[0]], info.second[i]);
-      logassert(pumlSide >= 0 && static_cast<std::size_t>(pumlSide) < Cell::NumFaces);
+      logassert(pumlSide >= 0 && std::cmp_less(pumlSide, Cell::NumFaces));
 
       // Send the SeisSol side under the canonical numbering: the receiving rank cannot translate
       // a PUML side, because the numbering is per cell now.
@@ -1010,8 +1009,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
       PUML::Downward::gvertices(meshTopology, cells[cellIds[0]], nvertices.data());
       applyVertexOrder(nvertices, vertexOrderFromFaceMap(pumlFaceMaps[cellIds[0]]));
 
-      const auto* localFirstVertex =
-          std::find(nvertices.begin(), nvertices.end(), ghostFirstVertex[k][i]);
+      const auto* localFirstVertex = std::ranges::find(nvertices, ghostFirstVertex[k][i]);
       logassert(localFirstVertex != nvertices.end());
 
       elements_[cellIds[0]].sideOrientations[side] =
@@ -1029,7 +1027,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
 
     PUML::Upward::cells(meshGeometry, verticesGeometry[i], preElements);
     vertices_[i].elements.resize(preElements.size());
-    std::copy(preElements.begin(), preElements.end(), vertices_[i].elements.begin());
+    std::ranges::copy(preElements, vertices_[i].elements.begin());
   }
 
   // the neighborSide needs to be _inferred_ here.
@@ -1067,7 +1065,7 @@ void PUMLReader::addMPINeighor(
           return pumlFaceMaps[cellIds[0]][f];
         }
       }
-      throw;
+      std::abort();
     }();
   }
 }

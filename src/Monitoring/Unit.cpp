@@ -9,13 +9,13 @@
 
 #include <array>
 #include <cmath>
-#include <cstddef>
 #include <cstdint>
 #include <iomanip>
 #include <ios>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -28,15 +28,15 @@ const std::vector<std::string> NegativePrefixes = {
 } // namespace
 
 namespace seissol {
-SIUnit::SIUnit(const std::string& unit, bool binary) : unit_(unit), binary_(binary) {}
+SIUnit::SIUnit(std::string unit, bool binary) : unit_(std::move(unit)), binary_(binary) {}
 
 std::string formatInteger(uint64_t value) {
   std::stringstream out;
 
   std::array<uint64_t, 8> parts{};
 
-  for (std::size_t i = 0; i < parts.size(); ++i) {
-    parts[i] = value % 1000;
+  for (auto& part : parts) {
+    part = value % 1000;
     value /= 1000;
   }
 
@@ -120,13 +120,13 @@ std::string SIUnit::formatPrefix(double value, std::optional<double> error, int 
     ++position;
   }
 
-  if ((binary_ && position > static_cast<int>(PositiveBytePrefixes.size())) ||
-      (!binary_ && position > static_cast<int>(PositivePrefixes.size())) ||
+  if ((binary_ && std::cmp_greater(position, PositiveBytePrefixes.size())) ||
+      (!binary_ && std::cmp_greater(position, PositivePrefixes.size())) ||
       -position > static_cast<int>(NegativePrefixes.size())) {
     // out of range, default to scientific notation
     return formatScientific(value, error, digits);
   } else {
-    const std::string prefix = [&]() {
+    const std::string prefix = [&] {
       if (position < 0) {
         return NegativePrefixes[-position - 1];
       } else if (position > 0) {

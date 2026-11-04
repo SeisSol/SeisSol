@@ -18,10 +18,7 @@
 
 #include <algorithm>
 #include <cassert>
-#include <type_traits>
 #include <utility>
-
-// TODO: once we use C++20, remove the SFINAE usage.
 
 /**
  * Generate the following functions (needs a macro, since it's qualifier dependent)
@@ -39,13 +36,9 @@
 #define GENERATE_HAS_MEMBER(NAME)                                                                  \
   namespace {                                                                                      \
   using namespace seissol::kernels;                                                                \
-  template <typename T, typename = void>                                                           \
-  struct has_##NAME {                                                                              \
-    static constexpr bool value = false;                                                           \
-  };                                                                                               \
   template <typename T>                                                                            \
-  struct has_##NAME<T, decltype(std::declval<T>().NAME, void())> {                                 \
-    static constexpr bool value = true;                                                            \
+  struct has_##NAME {                                                                              \
+    static constexpr bool value = requires { std::declval<T>().NAME; };                            \
   };                                                                                               \
   template <typename T, typename PtrT>                                                             \
   void set_##NAME(T& kernel, PtrT&& ptr) {                                                         \
@@ -126,66 +119,39 @@ constexpr std::size_t getNumberOfAlignedBasisFunctions(std::size_t convergenceOr
 }
 
 /**
-  Helper for HasSizeInternal (to allow an arbitrary number of parameters)
+ * Check if a type has a .size(...) member; Type is what it returns, or std::size_t without one.
  */
-template <typename T, typename... Ts>
-using HasSizeExists = decltype(std::declval<T>().size(std::declval<Ts>()...), void());
-
-/**
-  Helper for HasSizeInternal (to allow an arbitrary number of parameters)
- */
-template <typename T, typename... Ts>
-using HasSizeSizeT = decltype(std::declval<T>().size(std::declval<Ts>()...));
-
-/**
-  Helper struct for HasSize (interface wrapper).
- */
-template <typename T, typename Void, typename... Ts>
-struct HasSizeHelper {
+template <typename T, typename... Args>
+struct HasSize {
   static constexpr bool Value = false;
   using Type = std::size_t;
 };
 
-template <typename T, typename... Ts>
-struct HasSizeHelper<T, HasSizeExists<T, Ts...>, Ts...> {
-  static constexpr bool Value = true;
-  using Type = HasSizeSizeT<T, Ts...>;
-};
-
-/**
- * Check if a type has a .size(...) member.
- */
 template <typename T, typename... Args>
-struct HasSize {
-  using Helper = HasSizeHelper<T, void, Args...>;
-
-  static constexpr bool Value = Helper::Value;
-  using Type = typename Helper::Type;
+  requires requires { std::declval<T>().size(std::declval<Args>()...); }
+struct HasSize<T, Args...> {
+  static constexpr bool Value = true;
+  using Type = decltype(std::declval<T>().size(std::declval<Args>()...));
 };
 
 /**
  * returns T::size() if T has size function and 0 otherwise.
  */
 template <class T, typename... Args>
-constexpr auto size(Args... args) -> typename HasSize<T, Args...>::Type {
+constexpr auto size(Args... args) -> HasSize<T, Args...>::Type {
   if constexpr (HasSize<T, Args...>::Value) {
     return T::size(args...);
   } else {
-    return static_cast<typename HasSize<T, Args...>::Type>(0);
+    return static_cast<HasSize<T, Args...>::Type>(0);
   }
 }
-
-template <typename T, typename = void>
-struct IsFamilyInternal {
-  static constexpr bool Value = false;
-};
 
 // A generated family is recognised by its Size array, which is what yateto
 // reads to add the members up. Its Container is a class template, so naming it
 // without arguments never matched and every family measured as empty.
 template <typename T>
-struct IsFamilyInternal<T, std::void_t<decltype(T::Size)>> {
-  static constexpr bool Value = true;
+struct IsFamilyInternal {
+  static constexpr bool Value = requires { T::Size; };
 };
 
 template <class T>

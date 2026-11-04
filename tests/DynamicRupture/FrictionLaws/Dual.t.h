@@ -17,6 +17,7 @@
 
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <type_traits>
 #include <vector>
 
@@ -205,8 +206,8 @@ TEST_CASE("DR Dual classification" * doctest::test_suite("dynamicrupture")) {
 
 TEST_CASE_TEMPLATE("DR Dual exponentials and logarithms", T, float, double) { // NOLINT
   using namespace dualtest;
-  constexpr double Ln2 = 0.69314718055994530942;
-  constexpr double Ln10 = 2.30258509299404568402;
+  constexpr double Ln2 = std::numbers::ln2;
+  constexpr double Ln10 = std::numbers::ln10;
 
   unary<T>(
       {-3.0, -0.5, 0.0, 0.5, 3.0, 20.0},

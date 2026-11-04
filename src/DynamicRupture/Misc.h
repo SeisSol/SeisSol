@@ -21,7 +21,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
-#include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 
@@ -155,7 +155,7 @@ SEISSOL_HOSTDEVICE constexpr auto power(T base) -> T {
 #endif
   for (std::int32_t i = ILogExp - 1; i >= 0; --i) {
     res *= res;
-    if ((Exp & (1 << i)) != 0) {
+    if (((static_cast<std::uint32_t>(Exp) >> static_cast<std::uint32_t>(i)) & 1U) != 0) {
       res *= base;
     }
   }
@@ -212,9 +212,7 @@ SEISSOL_HOSTDEVICE constexpr T clamp(T value, T minval, T maxval) {
  */
 void computeStrikeAndDipVectors(const CoordinateT& normal, CoordinateT& strike, CoordinateT& dip);
 
-std::string frictionLawName(seissol::dr::misc::FrictionLawType type);
-
-// NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
+std::string_view frictionLawName(seissol::dr::misc::FrictionLawType type);
 
 namespace quantity_indices {
 /**
@@ -229,6 +227,9 @@ namespace quantity_indices {
  * real normalStress = quantities[N];
  * ```
  * */
+// plain indices into the quantity arrays; the friction laws use them unqualified, also on the
+// device
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
 enum QuantityIndices : uint32_t {
   U = 6,
   V = 7,
@@ -249,8 +250,6 @@ enum QuantityIndices : uint32_t {
 };
 } // namespace quantity_indices
 } // namespace seissol::dr::misc
-
-// NOLINTEND ()
 
 namespace seissol::initializer::parameters {
 struct DRParameters;
@@ -279,7 +278,7 @@ SEISSOL_HOSTDEVICE inline RealT stressSourceFraction(RealT time, RealT t0, RealT
     // without a rise time, a source is in full effect from its onset on
     return time >= s0 ? static_cast<RealT>(1.0) : static_cast<RealT>(0.0);
   }
-  return gaussianNucleationFunction::smoothStep<RealT>(time - s0, t0);
+  return gaussian_nucleation_function::smoothStep<RealT>(time - s0, t0);
 }
 
 /**

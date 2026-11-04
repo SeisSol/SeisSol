@@ -16,7 +16,7 @@
 namespace seissol::unit_test {
 using namespace seissol::initializer::parameters;
 
-TEST_CASE("readOutputParameters: time series defaults to snapshots" *
+TEST_CASE("readOutputParameters: without a time series setting, the format of an output decides" *
           doctest::test_suite("initializer")) {
   const YAML::Node node = YAML::Load(R"(
     output:
@@ -27,9 +27,38 @@ TEST_CASE("readOutputParameters: time series defaults to snapshots" *
   ParameterReader reader(node, "", false);
   const auto params = readOutputParameters(&reader, defaultConfig());
 
-  CHECK(params.waveFieldParameters.timeSeries == TimeSeriesMode::Snapshot);
-  CHECK(params.freeSurfaceParameters.timeSeries == TimeSeriesMode::Snapshot);
-  CHECK(params.elementwiseParameters.timeSeries == TimeSeriesMode::Snapshot);
+  CHECK_FALSE(params.waveFieldParameters.timeSeries.has_value());
+  CHECK_FALSE(params.freeSurfaceParameters.timeSeries.has_value());
+  CHECK_FALSE(params.elementwiseParameters.timeSeries.has_value());
+}
+
+TEST_CASE("readOutputParameters: epochs end at the outputs only by default" *
+          doctest::test_suite("initializer")) {
+  const YAML::Node node = YAML::Load(R"(
+    output:
+      outputfile: 'out'
+      receiveroutput: 0
+      ioutputmask: '1'
+  )");
+  ParameterReader reader(node, "", false);
+  const auto params = readOutputParameters(&reader, defaultConfig());
+
+  CHECK(params.epochInterval == 0.0);
+}
+
+TEST_CASE("readOutputParameters: an epoch interval of its own" *
+          doctest::test_suite("initializer")) {
+  const YAML::Node node = YAML::Load(R"(
+    output:
+      outputfile: 'out'
+      receiveroutput: 0
+      ioutputmask: '1'
+      epochinterval: 0.25
+  )");
+  ParameterReader reader(node, "", false);
+  const auto params = readOutputParameters(&reader, defaultConfig());
+
+  CHECK(params.epochInterval == 0.25);
 }
 
 TEST_CASE("readOutputParameters: one setting reaches every mesh output" *
@@ -87,6 +116,56 @@ TEST_CASE("readOutputParameters: the fault output follows the shared setting" *
   const auto params = readOutputParameters(&reader, defaultConfig());
 
   CHECK(params.elementwiseParameters.timeSeries == TimeSeriesMode::Incremental);
+}
+
+TEST_CASE("readOutputParameters: the receivers and the checkpoints are on where their parameters "
+          "say what to write" *
+          doctest::test_suite("initializer")) {
+  SUBCASE("neither of them without their parameters") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        ioutputmask: '1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, defaultConfig());
+
+    CHECK_FALSE(params.receiverParameters.enabled);
+    CHECK_FALSE(params.checkpointParameters.enabled);
+  }
+
+  SUBCASE("the receivers with their points, the checkpoints with their interval") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        ioutputmask: '1'
+        rfilename: 'receivers.dat'
+        checkpointinterval: 0.5
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, defaultConfig());
+
+    CHECK(params.receiverParameters.enabled);
+    CHECK(params.checkpointParameters.enabled);
+    CHECK(params.checkpointParameters.interval == 0.5);
+  }
+
+  SUBCASE("both of them switched off in spite of their parameters") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        ioutputmask: '1'
+        receiveroutput: 0
+        rfilename: 'receivers.dat'
+        checkpoint: 0
+        checkpointinterval: 0.5
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, defaultConfig());
+
+    CHECK_FALSE(params.receiverParameters.enabled);
+    CHECK_FALSE(params.checkpointParameters.enabled);
+  }
 }
 
 } // namespace seissol::unit_test

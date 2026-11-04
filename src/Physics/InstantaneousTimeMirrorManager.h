@@ -78,7 +78,7 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   LTS::Storage& ltsStorage,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
-                                  seissol::SeisSol& seissolInstance,
+                                  const seissol::SeisSol& seissolInstance,
                                   const initializer::ClusterLayout* clusterLayout);
 } // namespace physics
 } // namespace seissol

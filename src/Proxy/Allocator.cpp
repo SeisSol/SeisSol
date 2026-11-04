@@ -31,8 +31,8 @@
 #include "Solver/Settings.h"
 
 #include <cstddef>
+#include <cstdlib>
 #include <random>
-#include <stdlib.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Real.h"
@@ -214,6 +214,7 @@ void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
       const auto offset = OpenMP::threadId();
       std::mt19937 rng(cellCount + offset);
       std::uniform_real_distribution<real> urd;
+#pragma omp for schedule(static)
       for (std::size_t cell = 0; cell < cellCount; ++cell) {
         for (std::size_t i = 0; i < seissol::kernels::SolverOf<Cfg>::DerivativesSize; i++) {
           fakeDerivativesHost[cell * seissol::kernels::SolverOf<Cfg>::DerivativesSize + i] =

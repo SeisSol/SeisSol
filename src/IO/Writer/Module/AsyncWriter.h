@@ -28,9 +28,9 @@ struct AsyncWriterExec {
    * @brief The place of this write among the writes of all outputs, or zero for none.
    *
    * With one executor thread per output, the writes run in this order. Every write is collective
-   * on the communicator of its output, and all of them share one lock; taking it in the order the
-   * threads happen to arrive in could let two ranks each wait in a different write for the other.
-   * The places are handed out on the main thread, in the same order on every rank.
+   * on the communicator of the executors, and all of them share one lock; taking it in the order
+   * the threads happen to arrive in could let two ranks each wait in a different write for the
+   * other. The places are handed out on the main thread, in the same order on every rank.
    */
   std::uint64_t ticket{0};
   //! Instead of a write: closes the files the output kept open from one write to the next.
@@ -47,14 +47,11 @@ class AsyncWriter {
   auto operator=(const AsyncWriter&) = delete;
   auto operator=(AsyncWriter&&) = delete;
 
-  void setComm(MPI_Comm comm);
   //! The name of the output, for the log.
   void setName(const std::string& name);
   void execInit(const async::ExecInfo& info, const AsyncWriterInit& params);
   void exec(const async::ExecInfo& info, const AsyncWriterExec& params);
   void execWait(const async::ExecInfo& info);
-  void finalize();
-
   /**
    * @brief Closes the files the writes kept open, if any are.
    *
@@ -69,7 +66,6 @@ class AsyncWriter {
   std::string name_;
   seissol::io::writer::Writer writer_;
   std::optional<seissol::io::writer::WriteInstance> instance_;
-  MPI_Comm comm_{MPI_COMM_WORLD};
 
   static std::mutex globalLock;
   //! Signaled whenever a write is done, for the one whose turn is next.

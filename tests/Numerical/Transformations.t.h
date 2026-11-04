@@ -19,7 +19,7 @@ TEST_CASE("Test mapping a cell barycenter to reference coordinates" *
   // We do all tests in double precision
   constexpr double Epsilon = 10 * std::numeric_limits<double>::epsilon();
 
-  // NOLINTNEXTLINE (-cert-dcl59-cpp)
+  // NOLINTNEXTLINE(bugprone-random-generator-seed)
   std::mt19937 rnggen(9);
   std::uniform_real_distribution<> rngdist(0.0, 1.0);
 

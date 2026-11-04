@@ -25,12 +25,73 @@ following:
    size. The elements are separated by spaces (``1 2 3 4``)
 -  **String**
 -  **Path** A path references a file or a directory and is given as a
-   string in the parameter file with additional restrictions. A path might be absolute or relative to the starting directory of the execution. If the path is used for an output file, the user has to make sure that the directory exists. (E.g. If the path is set to
-   "output/wavefield", then the directory "output" must exist.)
+   string in the parameter file with additional restrictions. A path might be absolute or relative to the starting directory of the execution.
 -  **Path prefix** Path prefixes are similar to paths. However, SeisSol
    will automatically append a filename extension or other suffixes
-   (e.g. "-fault").
+   (e.g. "-fault"). SeisSol creates the directory of the output prefix
+   (``OutputFile``), with its parents, if it does not exist yet; e.g. for
+   "runs/a/output/data", it creates "runs/a/output".
 
+
+.. _parameter-overrides:
+
+Overriding parameters on the command line
+-----------------------------------------
+
+``--set section.field=value`` gives a parameter on the command line in place of the
+value in the parameter file; it can be given several times, and a later one wins
+over an earlier one. Section and field are written as in the parameter file, in any
+case, and the value is read as if it stood there, quotes and Fortran exponents
+included:
+
+.. code-block:: bash
+
+    ./SeisSol_YOUR_CONFIGURATION parameters.par \
+        --set output.outputfile=runs/strong-16/data \
+        --set abortcriteria.endtime=2.5d0 \
+        --set output.wavefieldoutput=0
+
+That way, a series of runs can share one parameter file. A section the file does not
+have is added. An override of a field SeisSol does not read is an error, unlike a
+field in the file that SeisSol does not know, which only gives a warning: a
+misspelt override would otherwise silently leave the run unchanged.
+
+.. _parameter-check:
+
+Checking a run before starting it
+---------------------------------
+
+``--check`` reads the parameter file and the overrides as a run does, but instead of
+running, it checks what a run finds out only later, when it may have waited in a queue
+for hours:
+
+* that the files the parameters name exist, those that the run opens (the receiver
+  file, e.g., only if the receiver output is on);
+* that the YAML files among them, i.e. the easi models, parse, though not what they
+  hold, nor the files they refer to in turn;
+* that the mesh opens, and how many cells and vertices it has;
+* that the output directory can be written, or created;
+* that the checkpoint given with ``-c`` exists.
+
+It runs on one process, without MPI and without devices, e.g. on a login node with the
+executable built for the compute nodes, provided that the login node can run it:
+
+.. code-block:: bash
+
+    ./SeisSol_YOUR_CONFIGURATION --check=check.json parameters.par \
+        --set output.outputfile=runs/strong-16/data
+
+An error in the parameters stops the check as it would stop the run; what the check
+itself finds, it collects. The exit code is 0 if the run can start, 1 otherwise.
+``--check=<file>`` writes a report as JSON, also when an error stops the check: its
+``status`` is ``passed`` or ``failed``; ``problems`` lists what the check found;
+``stoppedAt`` names the step an error stopped (``parameters``, ``files``, ``yaml``,
+``mesh``, ``checkpoint`` or ``output``), whose message is in the log; ``mesh`` has the
+``cells`` and ``vertices`` of a PUML mesh; ``files`` lists the files the parameters name,
+whether they exist and whether the run opens them; ``output`` gives the output
+directory, whether it is ``writable``, and which outputs are ``enabled``; the report has
+the ``build``, the ``invocation``, the ``configurations``, the ``endTime`` and the
+``unknownFields`` of the parameter file as well.
 
 Commented parameter file
 ------------------------

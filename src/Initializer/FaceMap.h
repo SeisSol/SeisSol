@@ -10,6 +10,8 @@
 #include "Common/SegmentMap.h"
 #include "Initializer/BasicTypedefs.h"
 
+#include <string>
+
 namespace YAML {
 class Node;
 } // namespace YAML
@@ -19,6 +21,10 @@ namespace seissol {
 using FaceMap = SegmentMap<uint32_t, FaceType>;
 
 FaceMap parseFaceMap(const YAML::Node& node);
+
+//! @brief The face map in the YAML file @p path , as parseFaceMap() reads it.
+FaceMap readFaceMap(const std::string& path);
+
 FaceMap defaultFaceMap();
 
 } // namespace seissol

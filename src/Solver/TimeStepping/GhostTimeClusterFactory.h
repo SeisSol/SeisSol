@@ -29,6 +29,8 @@ struct GhostTimeClusterFactory {
           const solver::HaloCommunication& meshStructure,
           Mpi::DataTransferMode mode,
           bool persistent) {
+    // a single case unless ACL_DEVICE adds the transfer modes through the host
+    // NOLINTNEXTLINE(readability-trivial-switch)
     switch (mode) {
 #ifdef ACL_DEVICE
     case Mpi::DataTransferMode::CopyInCopyOutHost: {

@@ -39,6 +39,7 @@
 #include "Model/Plasticity.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Helper.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
@@ -62,7 +63,7 @@ namespace seissol::initializer::initprocedure {
 
 namespace {
 
-using Plasticity = seissol::model::Plasticity;
+using seissol::model::Plasticity;
 
 // The material of the cell at `position`, which holds it in its own configuration. A function of
 // its own rather than part of the body of the loop over the cells: with the lambda in an OpenMP
@@ -164,8 +165,8 @@ void initializeCellMaterialOfConfig(
       continue;
     }
 
-    auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* materialDataArray = layer.var<LTS::MaterialData>(Cfg());
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
@@ -176,8 +177,8 @@ void initializeCellMaterialOfConfig(
         const auto meshId = localSecondaryInformation.meshId;
         const auto& linear = meshReader.linearGhostlayer()[meshId];
 
-        // explicitly use polymorphic pointer arithmetic here
-        // NOLINTNEXTLINE
+        // the layer holds materials of exactly this type
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
         auto& materialData = materialDataArray[cell];
 
         const auto neighborRank = linear.rank;
@@ -200,8 +201,8 @@ void initializeCellMaterialOfConfig(
         const auto& localMaterial = materialsDB[position(meshId)];
         const auto& localCellInformation = cellInformation[cell];
 
-        // explicitly use polymorphic pointer arithmetic here
-        // NOLINTNEXTLINE
+        // the layer holds materials of exactly this type
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
         auto& materialData = materialDataArray[cell];
         initAssign(materialData, localMaterial);
         material.local = &materialData;
@@ -331,7 +332,7 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                            seissolParams.model.plasticity,
                            seissolInstance.gravitationSetup().acceleration);
 
-  auto itmParameters = seissolInstance.parameters().model.itmParameters;
+  const auto itmParameters = seissolInstance.parameters().model.itmParameters;
 
   if (itmParameters.itmEnabled) {
     auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
@@ -415,7 +416,7 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Begin init model.";
 
   // Call the pre mesh initialization hook
-  seissol::Modules::callHook<ModuleHook::PreModel>();
+  seissolInstance.modules().callHook<ModuleHook::PreModel>();
 
   seissol::Stopwatch watch;
   watch.start();
@@ -465,11 +466,12 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Initialize cell-local matrices.";
   initializeCellMatrices(seissolInstance);
 
-  watch.pause();
-  watch.printTime("Model initialized in:");
+  auto& summary = seissolInstance.runSummary();
+  summary.setRankValue("initModel", watch.pause());
+  summary["time"]["init"]["model"] = monitoring::toJson(watch.printTime("Model initialized in:"));
 
   // Call the post mesh initialization hook
-  seissol::Modules::callHook<ModuleHook::PostModel>();
+  seissolInstance.modules().callHook<ModuleHook::PostModel>();
 
   logInfo() << "End init model.";
 }

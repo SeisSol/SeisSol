@@ -38,13 +38,13 @@ class RecordingAllocator : public BufferAllocator {
   int addBuffer(const void* pointer, std::size_t size) override {
     const auto id = static_cast<int>(storage_.size());
     storage_.emplace_back(size);
-    calls.push_back({id, pointer, size, false});
+    calls.push_back({.id = id, .pointer = pointer, .size = size, .resize = false});
     return id;
   }
 
   void resizeBuffer(int id, const void* pointer, std::size_t size) override {
     storage_[id].resize(size);
-    calls.push_back({id, pointer, size, true});
+    calls.push_back({.id = id, .pointer = pointer, .size = size, .resize = true});
   }
 
   void* managedBuffer(int id) override { return storage_[id].data(); }
@@ -56,6 +56,27 @@ class RecordingAllocator : public BufferAllocator {
 
   private:
   std::vector<std::vector<char>> storage_;
+};
+
+/**
+ * Records what the registry asks of ASYNC on one rank of a node whose executor joins the buffers of
+ * all its ranks: there, adding and resizing are collective.
+ */
+class CollectiveAllocator : public RecordingAllocator {
+  public:
+  [[nodiscard]] bool collective() const override { return true; }
+
+  void agreeOnAny(std::vector<int>& flags) override {
+    for (std::size_t i = 0; i < flags.size() && i < elsewhere.size(); ++i) {
+      flags[i] = (flags[i] != 0 || elsewhere[i] != 0) ? 1 : 0;
+    }
+    agreed.push_back(flags);
+  }
+
+  //! What changes on the other ranks, by place in the plan
+  std::vector<int> elsewhere;
+  //! What the ranks agreed on, write by write
+  std::vector<std::vector<int>> agreed;
 };
 
 //! A plan with one instruction per data source, in the given order.
@@ -87,8 +108,8 @@ TEST_CASE("IO/BufferRegistry: sources of equal size do not share an id within a 
 
   // recycling is keyed by size, so two equally sized sources are exactly the case that must not
   // collapse onto one buffer -- they are written in the same step
-  auto first = managedOf(64);
-  auto second = managedOf(64);
+  const auto first = managedOf(64);
+  const auto second = managedOf(64);
   auto plan = planOf({first, second});
 
   const auto ids = registry.assign(plan);
@@ -161,7 +182,7 @@ TEST_CASE("IO/BufferRegistry: one source used twice gets one id" * doctest::test
   BufferRegistry registry(allocator);
 
   // the geometry of a mesh output is referenced by several instructions
-  auto shared = managedOf(64);
+  const auto shared = managedOf(64);
   auto plan = planOf({shared, shared, managedOf(64)});
 
   const auto ids = registry.assign(plan);
@@ -194,6 +215,81 @@ TEST_CASE("IO/BufferRegistry: the ids reach the plan" * doctest::test_suite("io"
   for (const auto id : ids) {
     CHECK(serialized.find("id: " + std::to_string(id)) != std::string::npos);
   }
+}
+
+TEST_CASE("IO/BufferRegistry: collectively, buffers line up by their place in the plan" *
+          doctest::test_suite("io")) {
+  // two ranks of one node, whose sources differ in size, in a different way in every write
+  CollectiveAllocator first;
+  CollectiveAllocator second;
+  BufferRegistry firstRegistry(first);
+  BufferRegistry secondRegistry(second);
+
+  auto firstPlan = planOf({managedOf(64), managedOf(32)});
+  auto secondPlan = planOf({managedOf(16), managedOf(16)});
+  const auto firstIds = firstRegistry.assign(firstPlan);
+  const auto secondIds = secondRegistry.assign(secondPlan);
+  CHECK(firstIds == std::vector<int>{0, 1});
+  CHECK(secondIds == firstIds);
+
+  // the first rank swaps its sizes: recycling by size would swap its ids, and so would leave the
+  // executor joining the parts of different sources under one id
+  first.elsewhere = {0, 0};
+  second.elsewhere = {1, 1};
+  auto firstAgain = planOf({managedOf(32), managedOf(64)});
+  auto secondAgain = planOf({managedOf(16), managedOf(16)});
+  CHECK(firstRegistry.assign(firstAgain) == firstIds);
+  CHECK(secondRegistry.assign(secondAgain) == secondIds);
+  CHECK(first.bufferSize(0) == 32);
+  CHECK(first.bufferSize(1) == 64);
+
+  // the second rank resizes as well, to what it has, since the resize is collective
+  REQUIRE(second.calls.size() == 4);
+  CHECK(second.calls[2].resize);
+  CHECK(second.calls[3].resize);
+  CHECK(second.calls[2].size == 16);
+  CHECK(second.agreed.back() == std::vector<int>{1, 1});
+}
+
+TEST_CASE("IO/BufferRegistry: collectively, a pass-through buffer follows its pointer" *
+          doctest::test_suite("io")) {
+  CollectiveAllocator allocator;
+  BufferRegistry registry(allocator);
+
+  std::vector<char> data(32);
+  std::vector<char> moved(32);
+
+  auto plan = planOf({WriteBuffer::create(data.data(), data.size()), managedOf(8)});
+  const auto ids = registry.assign(plan);
+  REQUIRE(ids.size() == 2);
+  CHECK(allocator.calls.size() == 2);
+
+  // nothing changed anywhere: nothing to do, and every rank agrees on that
+  auto same = planOf({WriteBuffer::create(data.data(), data.size()), managedOf(8)});
+  CHECK(registry.assign(same) == ids);
+  CHECK(allocator.calls.size() == 2);
+  CHECK(allocator.agreed.back() == std::vector<int>{0, 0});
+
+  // the data moved: the buffer keeps its place and learns the new pointer
+  auto elsewhere = planOf({WriteBuffer::create(moved.data(), moved.size()), managedOf(8)});
+  CHECK(registry.assign(elsewhere) == ids);
+  REQUIRE(allocator.calls.size() == 3);
+  CHECK(allocator.calls.back().resize);
+  CHECK(allocator.calls.back().pointer == moved.data());
+}
+
+TEST_CASE("IO/BufferRegistry: collectively, one source used twice gets one buffer" *
+          doctest::test_suite("io")) {
+  CollectiveAllocator allocator;
+  BufferRegistry registry(allocator);
+
+  const auto shared = managedOf(64);
+  auto plan = planOf({shared, shared, managedOf(64)});
+
+  const auto ids = registry.assign(plan);
+  CHECK(ids == std::vector<int>{0, 1});
+  CHECK(allocator.bufferCount() == 2);
+  CHECK(allocator.managedBuffer(ids[0]) != allocator.managedBuffer(ids[1]));
 }
 
 } // namespace seissol::unit_test

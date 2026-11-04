@@ -19,7 +19,8 @@ class SevereVelocityWeakeningLaw
   public:
   using real = Real<Cfg>;
 
-  using RateAndStateBase<Cfg, SevereVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  explicit SevereVelocityWeakeningLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : RateAndStateBase<Cfg, SevereVelocityWeakeningLaw, TPMethod>(drParameters) {}
 
   /**
    * copies all parameters from the DynamicRupture LTS to the local attributes

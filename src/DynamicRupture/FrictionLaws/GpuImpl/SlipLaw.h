@@ -8,7 +8,9 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLIPLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLIPLAW_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/SlowVelocityWeakeningLaw.h"
+#include "DynamicRupture/Misc.h"
 
 namespace seissol::dr::friction_law::gpu {
 template <typename Cfg, typename TPMethod>
@@ -16,7 +18,9 @@ class SlipLaw : public SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPM
   public:
   using real = Real<Cfg>;
 
-  using SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPMethod>::SlowVelocityWeakeningLaw;
+  explicit SlipLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPMethod>(drParameters) {}
+
   using SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPMethod>::copyStorageToLocal;
 
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,

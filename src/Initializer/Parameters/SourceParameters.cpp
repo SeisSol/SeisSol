@@ -29,7 +29,7 @@ SourceParameters readSourceParameters(ParameterReader* baseReader) {
   }();
   reader->warnDeprecated({"rtype", "ndirac", "npulsesource", "nricker"});
 
-  return SourceParameters{type, fileName};
+  return SourceParameters{.type = type, .fileName = fileName};
 }
 
 } // namespace seissol::initializer::parameters

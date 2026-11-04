@@ -27,7 +27,7 @@ namespace seissol::unit_test {
 TEST_CASE("Cost factors of the configurations from their FLOPs" * doctest::test_suite("solver")) {
 #ifdef ACL_DEVICE
   // the proxy runs on the device, as in a run
-  auto& device = ::device::DeviceInstance::instance();
+  const auto& device = ::device::DeviceInstance::instance();
   device.api().setDevice(0);
   device.api().initialize();
 #endif

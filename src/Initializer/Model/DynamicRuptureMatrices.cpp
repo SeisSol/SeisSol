@@ -40,6 +40,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -75,8 +76,8 @@ void copyEigenToYateto(const Eigen::Matrix<T, Dim1, Dim2>& matrix,
   // (the dim praameters need to be int due to Eigen)
 
   tensorView.setZero();
-  for (size_t row = 0; row < Dim1; ++row) {
-    for (size_t col = 0; col < Dim2; ++col) {
+  for (size_t row = 0; std::cmp_less(row, Dim1); ++row) {
+    for (size_t col = 0; std::cmp_less(col, Dim2); ++col) {
       tensorView(row, col) = static_cast<S>(matrix(row, col));
     }
   }
@@ -166,7 +167,7 @@ void initializeFaultImpedance(const Fault& fault,
             seissol::initializer::model::checkFaultImpedance(faultImpedance, CheckSelfAdjoint);
         violation.has_value()) {
       logError() << "Invalid dynamic rupture impedance at fault face" << meshFace << ":"
-                 << violation.value();
+                 << *violation;
     }
 
     const auto& impedanceMatrix = faultImpedance.admittancePlus;
@@ -268,6 +269,10 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
       layer.var<DynamicRupture::FluxSolverPlus>(Cfg(), AllocationPlace::Device);
   auto* fluxSolverMinusDevice =
       layer.var<DynamicRupture::FluxSolverMinus>(Cfg(), AllocationPlace::Device);
+  // the data of a face on the device, which a build for the host alone holds no copy of
+  const auto onDevice = [](auto* data, std::size_t face) -> decltype(&data[face][0]) {
+    return data == nullptr ? nullptr : &data[face][0];
+  };
   auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
   auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
   auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
@@ -320,7 +325,7 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
       const auto positionOpt = backmap.getDup(derivativesMeshId, duplicate);
       if (positionOpt.has_value()) {
-        const auto position = positionOpt.value();
+        const auto position = *positionOpt;
         const auto& cellInformation = ltsStorage.lookup<LTS::CellInformation>(position);
         if (timeDerivative1 == nullptr &&
             cellInformation.ltsSetup.hasBuffer(BufferType::Derivatives)) {
@@ -374,17 +379,17 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
 #pragma omp critical
         {
           auto& mapping = ltsStorage.lookup<LTS::DRMapping>(
-              Cfg(), plusLtsId.value())[faceInformation[ltsFace].plusSide];
+              Cfg(), *plusLtsId)[faceInformation[ltsFace].plusSide];
           mapping.side = faceInformation[ltsFace].plusSide;
           mapping.faceRelation = 0;
           mapping.godunov = &imposedStatePlus[ltsFace][0];
           mapping.fluxSolver = &fluxSolverPlus[ltsFace][0];
           auto& mappingDevice = ltsStorage.lookup<LTS::DRMappingDevice>(
-              Cfg(), plusLtsId.value())[faceInformation[ltsFace].plusSide];
+              Cfg(), *plusLtsId)[faceInformation[ltsFace].plusSide];
           mappingDevice.side = faceInformation[ltsFace].plusSide;
           mappingDevice.faceRelation = 0;
-          mappingDevice.godunov = &imposedStatePlusDevice[ltsFace][0];
-          mappingDevice.fluxSolver = &fluxSolverPlusDevice[ltsFace][0];
+          mappingDevice.godunov = onDevice(imposedStatePlusDevice, ltsFace);
+          mappingDevice.fluxSolver = onDevice(fluxSolverPlusDevice, ltsFace);
         }
       }
       if (minusLtsId.has_value()) {
@@ -392,17 +397,17 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
 #pragma omp critical
         {
           auto& mapping = ltsStorage.lookup<LTS::DRMapping>(
-              Cfg(), minusLtsId.value())[faceInformation[ltsFace].minusSide];
+              Cfg(), *minusLtsId)[faceInformation[ltsFace].minusSide];
           mapping.side = faceInformation[ltsFace].minusSide;
           mapping.faceRelation = faceInformation[ltsFace].faceRelation;
           mapping.godunov = &imposedStateMinus[ltsFace][0];
           mapping.fluxSolver = &fluxSolverMinus[ltsFace][0];
           auto& mappingDevice = ltsStorage.lookup<LTS::DRMappingDevice>(
-              Cfg(), minusLtsId.value())[faceInformation[ltsFace].minusSide];
+              Cfg(), *minusLtsId)[faceInformation[ltsFace].minusSide];
           mappingDevice.side = faceInformation[ltsFace].minusSide;
           mappingDevice.faceRelation = faceInformation[ltsFace].faceRelation;
-          mappingDevice.godunov = &imposedStateMinusDevice[ltsFace][0];
-          mappingDevice.fluxSolver = &fluxSolverMinusDevice[ltsFace][0];
+          mappingDevice.godunov = onDevice(imposedStateMinusDevice, ltsFace);
+          mappingDevice.fluxSolver = onDevice(fluxSolverMinusDevice, ltsFace);
         }
       }
     }
@@ -422,13 +427,15 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     assert(plusLtsId.has_value() || minusLtsId.has_value());
 
     if (plusLtsId.has_value()) {
-      const auto& cellMaterialData = ltsStorage.lookup<LTS::Material>(plusLtsId.value());
+      const auto& cellMaterialData = ltsStorage.lookup<LTS::Material>(*plusLtsId);
       plusMaterial = dynamic_cast<seissol::model::MaterialOf<Cfg>*>(cellMaterialData.local);
       minusMaterial = dynamic_cast<seissol::model::MaterialOf<Cfg>*>(
           cellMaterialData.neighbor[faceInformation[ltsFace].plusSide]);
     } else {
-      assert(minusLtsId.has_value());
-      const auto& cellMaterialData = ltsStorage.lookup<LTS::Material>(minusLtsId.value());
+      if (!minusLtsId.has_value()) {
+        logError() << "The fault face" << meshFace << "has no adjacent cell on this rank.";
+      }
+      const auto& cellMaterialData = ltsStorage.lookup<LTS::Material>(*minusLtsId);
       plusMaterial = dynamic_cast<seissol::model::MaterialOf<Cfg>*>(
           cellMaterialData.neighbor[faceInformation[ltsFace].minusSide]);
       minusMaterial = dynamic_cast<seissol::model::MaterialOf<Cfg>*>(cellMaterialData.local);
@@ -485,11 +492,7 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
       break;
     }
     default: {
-
-      // NOTE: could be made `if constexpr`. However, that breaks ICC with a segfault.
-      // So we don't do that, yet (until we drop ICC support at least).
-
-      if (!seissol::model::MaterialOf<Cfg>::SupportsDR) {
+      if constexpr (!seissol::model::MaterialOf<Cfg>::SupportsDR) {
         logError() << "The Dynamic Rupture mechanism does not work with the given material yet. "
                       "(built with:"
                    << seissol::model::MaterialOf<Cfg>::Text << ")";

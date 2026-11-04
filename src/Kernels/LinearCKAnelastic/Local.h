@@ -64,6 +64,12 @@ class Local : public LocalKernel<Cfg> {
   kernel::gpu_localFluxExt<Cfg> deviceLocalFluxKernelPrototype_;
   kernel::gpu_local<Cfg> deviceLocalKernelPrototype_;
   kernel::gpu_fluxLocalAll<Cfg> deviceFluxLocalAllKernelPrototype_;
+
+  kernel::gpu_fsgFlux<Cfg> deviceFsgFlux_;
+  kernel::gpu_dirichletFlux<Cfg> deviceDirichletFlux_;
+  kernel::gpu_localFluxNodal<Cfg> deviceNodalLfKrnlPrototype_;
+  // folds the extended DOFs into the DOFs and the memory variables, as the neighbor integral does
+  kernel::gpu_neighbor<Cfg> deviceFoldKrnlPrototype_;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

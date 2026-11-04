@@ -20,6 +20,7 @@
 #include <list>
 #include <mpi.h>
 #include <string>
+#include <utility>
 
 namespace seissol::time_stepping {
 bool AbstractGhostTimeCluster::testQueue(MPI_Request* requests, std::list<std::size_t>& regions) {
@@ -103,8 +104,8 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(
     std::uint64_t timeStepRate,
     std::size_t globalTimeClusterId,
     std::size_t otherGlobalTimeClusterId,
-    const std::string& displayName,
-    const std::string& otherDisplayName,
+    std::string displayName,
+    std::string otherDisplayName,
     const seissol::solver::HaloCommunication& meshStructure)
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
@@ -113,7 +114,7 @@ AbstractGhostTimeCluster::AbstractGhostTimeCluster(
       sendRequests_(meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).copy.size()),
       recvRequests_(
           meshStructure.at(globalTimeClusterId).at(otherGlobalTimeClusterId).ghost.size()),
-      displayName_(displayName), otherDisplayName_(otherDisplayName) {}
+      displayName_(std::move(displayName)), otherDisplayName_(std::move(otherDisplayName)) {}
 
 void AbstractGhostTimeCluster::reset() {
   AbstractTimeCluster::reset();

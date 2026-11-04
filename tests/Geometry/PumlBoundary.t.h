@@ -136,13 +136,14 @@ TEST_CASE("PUMLReader reads the boundary condition tags whatever integer type th
     hid_t fileType;
   };
   // the first of every format as PUMGen writes it
-  const std::vector<Case> cases = {{"i32-int32", BoundaryFormat::I32, H5T_STD_I32LE},
-                                   {"i32-uint32", BoundaryFormat::I32, H5T_STD_U32LE},
-                                   {"i32-int64", BoundaryFormat::I32, H5T_STD_I64LE},
-                                   {"i64-int64", BoundaryFormat::I64, H5T_STD_I64LE},
-                                   {"i64-uint64", BoundaryFormat::I64, H5T_STD_U64LE},
-                                   {"i32x4-int32", BoundaryFormat::I32x4, H5T_STD_I32LE},
-                                   {"i32x4-uint32", BoundaryFormat::I32x4, H5T_STD_U32LE}};
+  const std::vector<Case> cases = {
+      {.name = "i32-int32", .format = BoundaryFormat::I32, .fileType = H5T_STD_I32LE},
+      {.name = "i32-uint32", .format = BoundaryFormat::I32, .fileType = H5T_STD_U32LE},
+      {.name = "i32-int64", .format = BoundaryFormat::I32, .fileType = H5T_STD_I64LE},
+      {.name = "i64-int64", .format = BoundaryFormat::I64, .fileType = H5T_STD_I64LE},
+      {.name = "i64-uint64", .format = BoundaryFormat::I64, .fileType = H5T_STD_U64LE},
+      {.name = "i32x4-int32", .format = BoundaryFormat::I32x4, .fileType = H5T_STD_I32LE},
+      {.name = "i32x4-uint32", .format = BoundaryFormat::I32x4, .fileType = H5T_STD_U32LE}};
 
   for (const auto& testCase : cases) {
     CAPTURE(testCase.name);

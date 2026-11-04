@@ -33,7 +33,7 @@ static const double Tolerance = 10. * std::numeric_limits<double>::epsilon();
  *  int_{a}^{b} f(y)dy = (b-a)/2. * sum_{i=0}^{n-1} f( ((b-a) * points[i] + a + b) / 2.) *
  * weights[i]
  */
-inline void GaussLegendre(double* points, double* weights, unsigned n) {
+inline void gaussLegendre(double* points, double* weights, unsigned n) {
   // The polynomials are symmetric, thus we only need to find the first half.
   const unsigned nh = (n + 1) / 2;
   for (unsigned i = 1; i <= nh; ++i) {
@@ -75,10 +75,10 @@ inline void GaussLegendre(double* points, double* weights, unsigned n) {
   @return [quadrature points, quadrature weights]
 */
 inline std::pair<std::vector<double>, std::vector<double>>
-    ShiftedGaussLegendre(unsigned n, double a, double b) {
+    shiftedGaussLegendre(unsigned n, double a, double b) {
   std::pair<std::vector<double>, std::vector<double>> output{std::vector<double>(n),
                                                              std::vector<double>(n)};
-  GaussLegendre(output.first.data(), output.second.data(), n);
+  gaussLegendre(output.first.data(), output.second.data(), n);
   const auto ba = b - a;
   const auto ab = b + a;
   for (auto& point : output.first) {
@@ -98,7 +98,7 @@ inline std::pair<std::vector<double>, std::vector<double>>
  *
  *  Note: Initial guess ported from Fortran gauss_jacobi routine.
  */
-inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a, unsigned b) {
+inline void gaussJacobi(double* points, double* weights, unsigned n, unsigned a, unsigned b) {
   const double weightFactor =
       -(2.0 * n + a + b + 2) * functions::factorial(n + a) * functions::factorial(n + b) *
       (1 << (a + b)) /
@@ -112,11 +112,11 @@ inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a,
     // Refine polynomial roots with Newton iteration
     do {
       x -= pn / dpn;
-      pn = functions::JacobiP(n, a, b, x);
-      dpn = functions::JacobiPDerivative(n, a, b, x);
+      pn = functions::jacobiP(n, a, b, x);
+      dpn = functions::jacobiPDerivative(n, a, b, x);
     } while (std::abs(pn) > Tolerance && ++it < MaxIterations);
     points[i - 1] = x;
-    weights[i - 1] = weightFactor / (functions::JacobiP(n + 1, a, b, x) * dpn);
+    weights[i - 1] = weightFactor / (functions::jacobiP(n + 1, a, b, x) * dpn);
   }
 }
 
@@ -126,14 +126,14 @@ inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a,
  *
  *  n is the polynomial degree. Make sure that points and weights have space for n^2 entries.
  */
-inline void TriangleQuadrature(std::array<double, 2>* points, double* weights, std::size_t n) {
+inline void triangleQuadrature(std::array<double, 2>* points, double* weights, std::size_t n) {
   auto points0 = std::vector<double>(n);
   auto weights0 = std::vector<double>(n);
   auto points1 = std::vector<double>(n);
   auto weights1 = std::vector<double>(n);
 
-  GaussJacobi(points0.data(), weights0.data(), n, 0, 0);
-  GaussJacobi(points1.data(), weights1.data(), n, 1, 0);
+  gaussJacobi(points0.data(), weights0.data(), n, 0, 0);
+  gaussJacobi(points1.data(), weights1.data(), n, 1, 0);
 
   for (std::size_t i = 0; i < n; ++i) {
     for (std::size_t j = 0; j < n; ++j) {
@@ -148,7 +148,7 @@ inline void TriangleQuadrature(std::array<double, 2>* points, double* weights, s
 /** Quadrature formula of arbitrary accuracy on the reference tetrahedron
  *  consisting of the nodes (0,0,0), (1,0,0), (0,1,0), (0,0,1)
  */
-inline void TetrahedronQuadrature(std::array<double, 3>* points, double* weights, std::size_t n) {
+inline void tetrahedronQuadrature(std::array<double, 3>* points, double* weights, std::size_t n) {
   // This is a port of similarly named fortran method
   // (TetrahedronQuadraturePoints) in quadpoints.f90.
   // Note:
@@ -164,9 +164,9 @@ inline void TetrahedronQuadrature(std::array<double, 3>* points, double* weights
   auto weights2 = std::vector<double>(n);
 
   // Get the Gauss-Jacobi positions and weights.
-  GaussJacobi(points0.data(), weights0.data(), n, 2, 0);
-  GaussJacobi(points1.data(), weights1.data(), n, 1, 0);
-  GaussJacobi(points2.data(), weights2.data(), n, 0, 0);
+  gaussJacobi(points0.data(), weights0.data(), n, 2, 0);
+  gaussJacobi(points1.data(), weights1.data(), n, 1, 0);
+  gaussJacobi(points2.data(), weights2.data(), n, 0, 0);
 
   // Shift and rescale positions because Stroud
   // integrates over [0,1] and gaujac of num. recipes
@@ -220,14 +220,14 @@ std::pair<std::vector<std::array<double, Dim>>, std::vector<double>>
   std::vector<std::array<double, Dim>> points(arraysize);
   std::vector<double> weights(arraysize);
   if constexpr (Dim == 3) {
-    TetrahedronQuadrature(points.data(), weights.data(), degree);
+    tetrahedronQuadrature(points.data(), weights.data(), degree);
   }
   if constexpr (Dim == 2) {
-    TriangleQuadrature(points.data(), weights.data(), degree);
+    triangleQuadrature(points.data(), weights.data(), degree);
   }
   if constexpr (Dim == 1) {
     std::vector<double> points1d(arraysize);
-    GaussLegendre(points1d.data(), weights.data(), degree);
+    gaussLegendre(points1d.data(), weights.data(), degree);
 
     // convert to shifted GL
     for (std::size_t i = 0; i < arraysize; ++i) {

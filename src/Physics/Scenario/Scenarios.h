@@ -26,7 +26,7 @@ namespace seissol::physics {
 class PressureInjection : public InitialFieldOf<PressureInjection> {
   public:
   explicit PressureInjection(
-      const seissol::initializer::parameters::InitializationParameters& initializationParameters);
+      seissol::initializer::parameters::InitializationParameters initializationParameters);
 
   template <typename RealT>
   void evaluateIn(double time,

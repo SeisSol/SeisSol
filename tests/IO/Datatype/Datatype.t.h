@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstring>
 #include <memory>
+#include <numbers>
 #include <string>
 #include <vector>
 
@@ -42,10 +43,10 @@ TEST_CASE("F32Datatype" * doctest::test_suite("io")) {
 
     const auto back = dt.fromStringRaw(str);
     REQUIRE(back.has_value());
-    CHECK(back->size() == sizeof(float));
+    CHECK(back.value().size() == sizeof(float));
 
     float result = 0;
-    std::memcpy(&result, back->data(), sizeof(float));
+    std::memcpy(&result, back.value().data(), sizeof(float));
     CHECK(result == doctest::Approx(val).epsilon(1e-6));
   }
 }
@@ -61,13 +62,13 @@ TEST_CASE("F64Datatype" * doctest::test_suite("io")) {
   }
 
   SUBCASE("toString roundtrip") {
-    double val = 2.718281828459045;
+    double val = std::numbers::e;
     const auto str = dt.toStringRaw(&val);
     const auto back = dt.fromStringRaw(str);
     REQUIRE(back.has_value());
 
     double result = 0;
-    std::memcpy(&result, back->data(), sizeof(double));
+    std::memcpy(&result, back.value().data(), sizeof(double));
     CHECK(result == doctest::Approx(val).epsilon(1e-14));
   }
 }
@@ -77,7 +78,7 @@ TEST_CASE("Floating-point text reads back exactly" * doctest::test_suite("io")) 
   const F64Datatype f64;
   double tenth = 0.1;
   CHECK(f64.toStringRaw(&tenth) == "0.1");
-  for (double value : {1.0 / 3.0, 2.718281828459045, 1e-300, 123456789.123456789}) {
+  for (double value : {1.0 / 3.0, std::numbers::e, 1e-300, 123456789.123456789}) {
     CHECK(std::stod(f64.toStringRaw(&value)) == value);
   }
 
@@ -140,7 +141,7 @@ TEST_CASE("IntegerDatatype" * doctest::test_suite("io")) {
     REQUIRE(back.has_value());
 
     long long result = 0;
-    std::memcpy(&result, back->data(), sizeof(long long));
+    std::memcpy(&result, back.value().data(), sizeof(long long));
     CHECK(result == 42);
   }
 }
@@ -169,7 +170,7 @@ TEST_CASE("StringDatatype" * doctest::test_suite("io")) {
   SUBCASE("fromString") {
     const auto back = dt.fromStringRaw("World");
     REQUIRE(back.has_value());
-    CHECK(std::string(back->begin(), back->end()) == "World");
+    CHECK(std::string(back.value().begin(), back.value().end()) == "World");
   }
 }
 
@@ -202,10 +203,10 @@ TEST_CASE("OpaqueDatatype" * doctest::test_suite("io")) {
 
     const auto decoded = dt.fromStringRaw(encoded);
     REQUIRE(decoded.has_value());
-    CHECK(decoded->size() == 3);
-    CHECK((*decoded)[0] == '\x01');
-    CHECK((*decoded)[1] == '\x02');
-    CHECK((*decoded)[2] == '\x03');
+    CHECK(decoded.value().size() == 3);
+    CHECK(decoded.value()[0] == '\x01');
+    CHECK(decoded.value()[1] == '\x02');
+    CHECK(decoded.value()[2] == '\x03');
   }
 
   SUBCASE("Base64 roundtrip 6 bytes — no padding") {
@@ -214,9 +215,9 @@ TEST_CASE("OpaqueDatatype" * doctest::test_suite("io")) {
     const auto encoded = dt.toStringRaw(data);
     const auto decoded = dt.fromStringRaw(encoded);
     REQUIRE(decoded.has_value());
-    CHECK(decoded->size() == 6);
+    CHECK(decoded.value().size() == 6);
     for (int i = 0; i < 6; ++i) {
-      CHECK((*decoded)[i] == data[i]);
+      CHECK(decoded.value()[i] == data[i]);
     }
   }
 }
@@ -226,7 +227,7 @@ TEST_CASE("OpaqueDatatype" * doctest::test_suite("io")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("ArrayDatatype" * doctest::test_suite("io")) {
-  auto base = std::make_shared<F64Datatype>();
+  const auto base = std::make_shared<F64Datatype>();
   const ArrayDatatype dt(base, {3, 4});
 
   SUBCASE("Size") {
@@ -259,12 +260,12 @@ TEST_CASE("ArrayDatatype" * doctest::test_suite("io")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("StructDatatype" * doctest::test_suite("io")) {
-  auto intType = std::make_shared<IntegerDatatype>(4, true);
-  auto floatType = std::make_shared<F32Datatype>();
+  const auto intType = std::make_shared<IntegerDatatype>(4, true);
+  const auto floatType = std::make_shared<F32Datatype>();
 
   const std::vector<StructDatatype::MemberInfo> members = {
-      {"x", 0, intType},
-      {"y", 4, floatType},
+      {.name = "x", .offset = 0, .datatype = intType},
+      {.name = "y", .offset = 4, .datatype = floatType},
   };
 
   SUBCASE("Auto-computed minSize") {
@@ -311,14 +312,14 @@ TEST_CASE("Datatype deserialize dispatch" * doctest::test_suite("io")) {
   SUBCASE("f32") {
     YAML::Node node;
     node["type"] = "f32";
-    auto dt = Datatype::deserialize(node);
+    const auto dt = Datatype::deserialize(node);
     CHECK(dt->size() == 4);
   }
 
   SUBCASE("f64") {
     YAML::Node node;
     node["type"] = "f64";
-    auto dt = Datatype::deserialize(node);
+    const auto dt = Datatype::deserialize(node);
     CHECK(dt->size() == 8);
   }
 
@@ -327,7 +328,7 @@ TEST_CASE("Datatype deserialize dispatch" * doctest::test_suite("io")) {
     node["type"] = "int";
     node["size"] = 4;
     node["sign"] = true;
-    auto dt = Datatype::deserialize(node);
+    const auto dt = Datatype::deserialize(node);
     CHECK(dt->size() == 4);
   }
 
@@ -335,14 +336,14 @@ TEST_CASE("Datatype deserialize dispatch" * doctest::test_suite("io")) {
     YAML::Node node;
     node["type"] = "opaque";
     node["size"] = 16;
-    auto dt = Datatype::deserialize(node);
+    const auto dt = Datatype::deserialize(node);
     CHECK(dt->size() == 16);
   }
 
   SUBCASE("Unknown type falls back to OpaqueDatatype(0)") {
     YAML::Node node;
     node["type"] = "unknown_type";
-    auto dt = Datatype::deserialize(node);
+    const auto dt = Datatype::deserialize(node);
     CHECK(dt->size() == 0);
   }
 }

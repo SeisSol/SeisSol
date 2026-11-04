@@ -176,7 +176,7 @@ bool GhostTimeClusterWithCopy<CommType>::testReceiveQueue() {
     switch (state) {
     case ReceiveState::RequiresMpiTesting: {
       int testSuccess = 0;
-      MPI_Request* request = &(recvRequests_.data())[*region];
+      MPI_Request* request = &recvRequests_.data()[*region];
       MPI_Test(request, &testSuccess, MPI_STATUS_IGNORE);
       if (testSuccess != 0) {
         prefetchGhostRegion(*region);

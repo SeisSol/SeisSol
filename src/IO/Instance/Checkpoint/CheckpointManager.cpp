@@ -27,6 +27,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -60,7 +61,7 @@ std::shared_ptr<datatype::Datatype>
 
 std::function<writer::Writer(const std::string&, std::size_t, double)>
     CheckpointManager::makeWriter() {
-  auto dataRegistry = this->dataRegistry_;
+  const auto dataRegistry = this->dataRegistry_;
   // the order of the configuration of the data
   const std::size_t order = configValue(config_).convergenceOrder;
   return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
@@ -126,7 +127,7 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   reader.openFile(file);
   reader.openGroup("checkpoint");
   const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
-  if (convergenceOrderRead != static_cast<int>(configValue(config_).convergenceOrder)) {
+  if (std::cmp_not_equal(convergenceOrderRead, configValue(config_).convergenceOrder)) {
     logError() << "Convergence order does not match. Read:" << convergenceOrderRead;
   }
   for (auto& [_, ckpTree] : dataRegistry_) {
@@ -134,12 +135,12 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
     auto distributor = reader::Distributor(seissol::Mpi::mpi.comm());
 
     logInfo() << "Reading group IDs for" << ckpTree.name;
-    auto groupIds = reader.readData<std::size_t>("__ids");
+    const auto groupIds = reader.readData<std::size_t>("__ids");
     distributor.setup(groupIds, ckpTree.ids);
 
     std::vector<reader::Distributor::DistributionInstance> distributions;
     distributions.reserve(ckpTree.variables.size());
-    for (auto& variable : ckpTree.variables) {
+    for (const auto& variable : ckpTree.variables) {
       logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
       // the shape of a value includes how many values a cell holds (see perCellDatatype), e.g.
       // the number of grid points of the thermal pressurization: a checkpoint of another one

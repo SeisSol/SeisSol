@@ -141,20 +141,20 @@ class TestGeneratedFilesExist:
         assert not missing, f"Missing top-level headers: {missing}"
 
     def test_equation_subfolder_name_pattern(self, generated_elastic_o3):
-        """The per-equation subfolder is named
-        `equation-<name>-<order>-<precision>[-f<multi>]`.
+        """The per-equation subfolder is named after the configuration,
+        `<material>[-m<mechanisms>]-o<order>-<f32|f64>[-s<simulations>]`.
         Test covers elastic/3/double."""
         outdir, _ = generated_elastic_o3
         subdirs = [p for p in outdir.iterdir() if p.is_dir()]
         names = {p.name for p in subdirs}
         assert (
-            "equation-elastic-3-double" in names
-        ), f"Expected equation-elastic-3-double subfolder; got {names}"
+            "elastic-o3-f64" in names
+        ), f"Expected elastic-o3-f64 subfolder; got {names}"
         assert "general" in names
 
     def test_equation_subfolder_contains_per_equation_files(self, generated_elastic_o3):
         outdir, _ = generated_elastic_o3
-        sub = outdir / "equation-elastic-3-double"
+        sub = outdir / "elastic-o3-f64"
         files = {p.name for p in sub.iterdir() if p.is_file()}
         # The per-equation subfolder must contain its own copies of these
         for expected in [
@@ -205,14 +205,14 @@ class TestGeneratedContent:
         to no configuration and is included from there."""
         outdir, _ = generated_elastic_o3
         content = (outdir / "init.h").read_text()
-        assert "equation-elastic-3-double/init.h" in content
+        assert "elastic-o3-f64/init.h" in content
         assert "general/init.h" not in content
 
     def test_kernel_h_declares_aderdg_kernels(self, generated_elastic_o3):
         """ADER-DG pipeline kernels must appear in kernel.h. If generate.py
         or the kernel-name contract changes, the C++ side breaks."""
         outdir, _ = generated_elastic_o3
-        content = (outdir / "equation-elastic-3-double" / "kernel.h").read_text()
+        content = (outdir / "elastic-o3-f64" / "kernel.h").read_text()
         # A handful of canonical kernel names
         for name in [
             "computeFluxSolverLocal",
@@ -223,7 +223,7 @@ class TestGeneratedContent:
     def test_test_kernel_cpp_not_empty(self, generated_elastic_o3):
         """test-kernel.cpp feeds the TESTING_GENERATED compile path."""
         outdir, _ = generated_elastic_o3
-        content = (outdir / "equation-elastic-3-double" / "test-kernel.cpp").read_text()
+        content = (outdir / "elastic-o3-f64" / "test-kernel.cpp").read_text()
         assert len(content.strip()) > 0
         # A handful of canonical kernel names
         for name in [
@@ -244,7 +244,9 @@ class TestRuntime:
     operands as views. CMake builds its units from what `--mode collect` lists.
     """
 
-    EQUATION = "equation-elastic-3-double"
+    EQUATION = "elastic-o3-f64"
+    # the type of the configuration, named after it
+    TYPE = "seissol::ConfigElasticO3F64"
 
     def test_runtime_files_produced(self, generated_elastic_o3):
         outdir, _ = generated_elastic_o3
@@ -254,16 +256,17 @@ class TestRuntime:
         assert (outdir / self.EQUATION / "runtime.cpp").is_file()
 
     def test_variant_h_keys_the_configuration(self, generated_elastic_o3):
-        """The id of a configuration is its variant, runtime::variantOf<Config0>()."""
+        """The id of a configuration is its variant, runtime::variantOf<Cfg>()."""
         outdir, _ = generated_elastic_o3
         content = (outdir / "variant.h").read_text()
         assert '#include "Config.h"' in content
-        assert "VariantOf<seissol::Config0>" in content
+        assert f"VariantOf<{self.TYPE}>" in content
 
     def test_code_is_named_by_the_key_of_its_configuration(self, generated_elastic_o3):
         """The code of the equation is in a namespace of its own, and the headers
         at the top level name it by the key of its configuration:
-        seissol::kernel::X<seissol::Config0>, seissol::Pool<seissol::Config0>."""
+        seissol::kernel::X<Cfg>, seissol::Pool<Cfg>, with the type Cfg named after the
+        configuration."""
         outdir, _ = generated_elastic_o3
         space = "yatetometagen_" + self.EQUATION.replace("-", "_")
         content = (outdir / self.EQUATION / "kernel.h").read_text()
@@ -278,7 +281,7 @@ class TestRuntime:
             assert f"using Type = ::seissol::{space}::{prefix}" in typed
         pool = (outdir / "pool.h").read_text()
         assert (
-            f"struct Internal_Pool<seissol::Config0> {{ using Type = ::seissol::{space}::Pool; }};"
+            f"struct Internal_Pool<{self.TYPE}> {{ using Type = ::seissol::{space}::Pool; }};"
             in pool
         )
 
@@ -290,7 +293,7 @@ class TestRuntime:
         outdir, _ = generated_elastic_o3
         tensor = (outdir / "tensor.h").read_text()
         assert "template<typename Arg0> using Qane = " in tensor
-        assert "Internal_Qane<seissol::Config0>" not in tensor
+        assert f"Internal_Qane<{self.TYPE}>" not in tensor
 
     def test_collect_lists_what_codegen_writes(self, generated_elastic_o3, tmp_path):
         outdir, _ = generated_elastic_o3
@@ -429,7 +432,7 @@ class TestAcousticSmoke:
             f"stdout:\n{result.stdout[-1000:]}\n"
             f"stderr:\n{result.stderr[-1000:]}"
         )
-        assert (tmp_path / "equation-acoustic-3-double").is_dir()
+        assert (tmp_path / "acoustic-o3-f64").is_dir()
 
 
 # =============================================================================
@@ -448,7 +451,7 @@ class TestPoroelasticSmoke:
             f"stdout:\n{result.stdout[-1000:]}\n"
             f"stderr:\n{result.stderr[-1000:]}"
         )
-        assert (tmp_path / "equation-poroelastic-3-double").is_dir()
+        assert (tmp_path / "poroelastic-o3-f64").is_dir()
 
 
 # =============================================================================
@@ -461,16 +464,16 @@ class TestSinglePrecisionSmoke:
     def test_elastic_single_precision_generates(self, tmp_path):
         result = _invoke_generate(tmp_path, equation="elastic", order=3, precision="s")
         assert result.returncode == 0, result.stderr[-1000:]
-        # Subfolder name uses "single" not "s"
-        assert (tmp_path / "equation-elastic-3-single").is_dir()
+        # Subfolder name uses "f32" not "s"
+        assert (tmp_path / "elastic-o3-f32").is_dir()
 
     def test_subfolder_name_for_f32(self, tmp_path):
-        """generate.py maps --precision=f32 to subfolder suffix 'single'."""
+        """generate.py maps --precision=f32 to subfolder suffix 'f32'."""
         result = _invoke_generate(
             tmp_path, equation="elastic", order=3, precision="f32"
         )
         assert result.returncode == 0
-        assert (tmp_path / "equation-elastic-3-single").is_dir()
+        assert (tmp_path / "elastic-o3-f32").is_dir()
 
 
 # =============================================================================
@@ -483,8 +486,8 @@ class TestFusedSimsSmoke:
     def test_fused_8_sims_generates(self, tmp_path):
         result = _invoke_generate(tmp_path, equation="elastic", order=3, multi_sims=8)
         assert result.returncode == 0, result.stderr[-1000:]
-        # Subfolder name suffixes the multi-sim count with -f<N>
-        assert (tmp_path / "equation-elastic-3-double-f8").is_dir()
+        # Subfolder name suffixes the multi-sim count with -s<N>
+        assert (tmp_path / "elastic-o3-f64-s8").is_dir()
 
 
 # =============================================================================

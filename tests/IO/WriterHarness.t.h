@@ -16,16 +16,19 @@
 #include "IO/Writer/Module/AsyncWriter.h"
 #include "IO/Writer/Writer.h"
 
+#include <algorithm>
 #include <async/ExecInfo.h>
 #include <cstddef>
 #include <cstdio>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <mpi.h>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <unistd.h>
+#include <utility>
 #include <vector>
 
 namespace seissol::unit_test::io {
@@ -40,6 +43,9 @@ namespace seissol::unit_test::io {
  */
 class LocalExecInfo : public async::ExecInfo {
   public:
+  //! @param comm The ranks that execute, as ASYNC hands them to the executor
+  explicit LocalExecInfo(MPI_Comm comm = MPI_COMM_SELF) { setCommInternal(comm); }
+
   [[nodiscard]] const void* buffer(unsigned int id) const override { return buffers_[id].data(); }
 
   int addBuffer(std::size_t size) {
@@ -55,8 +61,20 @@ class LocalExecInfo : public async::ExecInfo {
 
   std::vector<char>& bufferData(int id) { return buffers_[id]; }
 
+  /**
+   * Let a buffer stand for the contributions of several ranks, as the executor of ASYNC mode NODE
+   * holds them: one after another, in @p parts bytes each
+   */
+  void setParts(int id, std::vector<std::size_t> parts) { parts_[id] = std::move(parts); }
+
+  [[nodiscard]] std::vector<std::size_t> bufferParts(unsigned int id) const override {
+    const auto it = parts_.find(static_cast<int>(id));
+    return it == parts_.end() ? async::ExecInfo::bufferParts(id) : it->second;
+  }
+
   private:
   std::vector<std::vector<char>> buffers_;
+  std::map<int, std::vector<std::size_t>> parts_;
 };
 
 /**
@@ -72,14 +90,14 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
                            seissol::io::writer::file::RunFiles* runFiles = nullptr) {
   using namespace seissol::io::writer;
 
-  LocalExecInfo info;
+  LocalExecInfo info(comm);
   // buffer 0 is where WriterModule puts the serialized plan; the executor reads it from there
   const auto planId = info.addBuffer(0);
 
   std::set<DataSource*> handled;
   for (const auto& instruction : writer.getInstructions()) {
     for (const auto& source : instruction->dataSources()) {
-      if (!source->distributed() || handled.count(source.get()) > 0) {
+      if (!source->distributed() || handled.contains(source.get())) {
         continue;
       }
       handled.emplace(source.get());
@@ -100,7 +118,7 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
   // ids are assigned by now, so the plan is final
   const auto plan = writer.serialize();
   info.resizeBuffer(planId, plan.size());
-  std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+  std::ranges::copy(plan, info.bufferData(planId).begin());
 
   if (runFiles != nullptr) {
     WriteInstance instance(comm, runFiles);
@@ -112,12 +130,10 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
   // hand it to the real executor rather than writing the plan directly, so that the plan travels
   // the way it does in production
   module::AsyncWriter executor;
-  executor.setComm(comm);
   executor.execInit(info, module::AsyncWriterInit{});
   executor.exec(info, module::AsyncWriterExec{});
   executor.execWait(info);
   executor.closeFiles();
-  executor.finalize();
 
   return plan;
 }
@@ -158,8 +174,8 @@ inline std::vector<double> readSampleTable(seissol::io::reader::file::Hdf5Reader
   using namespace seissol::io::datatype;
   std::vector<StructDatatype::MemberInfo> members(quantities.size());
   for (std::size_t i = 0; i < quantities.size(); ++i) {
-    members[i] =
-        StructDatatype::MemberInfo{quantities[i], i * sizeof(double), inferDatatype<double>()};
+    members[i] = StructDatatype::MemberInfo{
+        .name = quantities[i], .offset = i * sizeof(double), .datatype = inferDatatype<double>()};
   }
   const auto rows = hdf5.dataCount(name);
   std::vector<double> values(rows * hdf5.dataRowSize(name) * quantities.size());

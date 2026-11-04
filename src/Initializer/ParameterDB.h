@@ -50,8 +50,8 @@ struct CellToVertexArray {
   using CellToGroupFunction = std::function<int(size_t)>;
 
   CellToVertexArray(size_t size,
-                    const CellToVertexFunction& elementCoordinates,
-                    const CellToGroupFunction& elementGroups);
+                    CellToVertexFunction elementCoordinates,
+                    CellToGroupFunction elementGroups);
 
   size_t size;
   CellToVertexFunction elementCoordinates;
@@ -98,8 +98,8 @@ class QueryGenerator {
 
 class ElementBarycenterGenerator : public QueryGenerator {
   public:
-  explicit ElementBarycenterGenerator(const CellToVertexArray& cellToVertex)
-      : cellToVertex_(cellToVertex) {}
+  explicit ElementBarycenterGenerator(CellToVertexArray cellToVertex)
+      : cellToVertex_(std::move(cellToVertex)) {}
   [[nodiscard]] easi::Query generate() const override;
 
   private:
@@ -109,7 +109,7 @@ class ElementBarycenterGenerator : public QueryGenerator {
 /// Queries the points of the quadrature for the given convergence order in each cell.
 class ElementAverageGenerator : public QueryGenerator {
   public:
-  ElementAverageGenerator(const CellToVertexArray& cellToVertex, std::size_t convergenceOrder);
+  ElementAverageGenerator(CellToVertexArray cellToVertex, std::size_t convergenceOrder);
   [[nodiscard]] easi::Query generate() const override;
   [[nodiscard]] const std::vector<double>& getQuadratureWeights() const {
     return quadratureWeights_;
@@ -125,10 +125,10 @@ class ElementAverageGenerator : public QueryGenerator {
 /// coordinates, or only the barycenter if not pointwise.
 class PlasticityPointGenerator : public QueryGenerator {
   public:
-  PlasticityPointGenerator(const CellToVertexArray& cellToVertex,
+  PlasticityPointGenerator(CellToVertexArray cellToVertex,
                            std::vector<std::array<double, Cell::Dim>> nodes,
                            bool pointwise = true)
-      : cellToVertex_(cellToVertex), nodes_(std::move(nodes)), pointwise_(pointwise) {}
+      : cellToVertex_(std::move(cellToVertex)), nodes_(std::move(nodes)), pointwise_(pointwise) {}
   [[nodiscard]] easi::Query generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;
 

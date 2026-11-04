@@ -24,14 +24,14 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-  set(GNU_REQUIRED_VERSION "9.0")
+  set(GNU_REQUIRED_VERSION "10.0")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS GNU_REQUIRED_VERSION)
     message(WARNING "GCC versions below ${GNU_REQUIRED_VERSION} are not supported.")
   endif()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-  message(WARNING "The Intel Compiler Classic (ICC) is deprecated; consider switching to the Intel oneAPI C++ Compiler (ICX) instead.")
+  message(WARNING "The Intel Compiler Classic (ICC) is not supported; use the Intel oneAPI C++ Compiler (ICX) instead.")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Cray|CrayClang")
@@ -68,7 +68,7 @@ if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   append_coverage_compiler_flags()
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE)
@@ -78,6 +78,8 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
+# before any target is defined, so that every C and C++ translation unit of the build is instrumented
+include(cmake/sanitizers.cmake)
 
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -266,18 +268,6 @@ if (DEVICE_COMBINE_LOCAL_FLUX)
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
 endif()
 
-if (ADDRESS_SANITIZER_DEBUG)
-  target_link_libraries(seissol-common-properties INTERFACE debug
-          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
-  )
-
-  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
-    target_link_libraries(seissol-common-properties INTERFACE debug
-            -static-libasan
-    )
-  endif()
-endif()
-
 find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
 
@@ -380,24 +370,14 @@ if (NOT NEW_BINARY_NAMING)
     set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_${CUSTOM_BINARY_SUFFIX}")
   endif()
 else()
-  # the suffix of the names of the executables and libraries, with its leading dash
-  if (NOT "${CONFIGS}" STREQUAL "")
+  # the suffix of the names of the executables and libraries, with its leading dash: the name of the
+  # configuration (cmake/confignames.cmake) for a build of one
+  if ("${CONFIGS}" STREQUAL "" AND "${EXTRA_CONFIGS}" STREQUAL "")
+    list(GET SEISSOL_CONFIG_NAMES 0 _config_name)
+    set(NAME_SUFFIX "-${_config_name}")
+  else()
     # one executable for all configurations of the list; a run chooses its own
     set(NAME_SUFFIX "")
-  else()
-    set(NAME_SUFFIX "-${EQUATIONS}")
-    if (NUMBER_OF_MECHANISMS GREATER 0)
-      set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
-    endif()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-o${ORDER}")
-    if (PRECISION STREQUAL "single")
-      set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
-    else()
-      set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
-    endif()
-    if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
-      set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
-    endif()
   endif()
   if(NOT ${CUSTOM_BINARY_SUFFIX} STREQUAL "")
     set(NAME_SUFFIX "${NAME_SUFFIX}-${CUSTOM_BINARY_SUFFIX}")
@@ -461,7 +441,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -std=c++17>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic>)
 
   # Activate interprocedual optimization.
   #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
@@ -487,8 +467,17 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     endif()
 endif()
 
-find_package(FILESYSTEM REQUIRED)
-target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
+if (WARNINGS_AS_ERRORS)
+  # the generated code and the device code take it back where their targets are defined
+  # (codegen/CMakeLists.txt, src/sources.cmake and tests/CMakeLists.txt)
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-Werror>)
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
+    # a loop under "omp simd" that the vectorizer leaves as it is (-Wpass-failed) costs time, but
+    # computes the same
+    target_compile_options(seissol-common-properties INTERFACE
+      $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=pass-failed>)
+  endif()
+endif()
 
 # put every executable and shared library in the root build directory at the end
 # (for compatibility reasons; TODO: remove at some point)

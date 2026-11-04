@@ -32,6 +32,7 @@
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/Common.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
@@ -46,6 +47,7 @@
 #include <cstdint>
 #include <cstring>
 #include <ctime>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <ios>
@@ -53,6 +55,7 @@
 #include <map>
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -149,8 +152,11 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
     ppOutputBuilder_->setParams(seissolParameters.output.pickpointParameters);
     ppOutputBuilder_->setSimulationCount(
         configValue(seissolParameters.model.config).numSimulations);
-    ppOutputBuilder_->setTimestep(seissolInstance_.memoryManager().clusterLayout().minimumTimestep,
-                                  seissolParameters.timeStepping.endTime);
+    // the shortest time between two samples, which sizes the cache of the samples between writes
+    const double pickdt = seissolParameters.output.pickpointParameters.samplingInterval;
+    ppOutputBuilder_->setTimestep(
+        pickdt > 0 ? pickdt : seissolInstance_.memoryManager().clusterLayout().minimumTimestep,
+        seissolParameters.timeStepping.endTime);
   }
   if (elementwiseEnabled) {
     logInfo() << "Enabling 2D fault output";
@@ -194,10 +200,13 @@ void OutputManager::setLtsData(LTS::Storage& userWpStorage,
 }
 
 namespace {
-//! @brief The file grouping a time series mode asks the writer for.
-io::instance::geometry::WriterGroup
-    writerGroupOf(seissol::initializer::parameters::TimeSeriesMode mode) {
-  switch (mode) {
+//! @brief The file grouping a time series mode asks the writer for; none if there is no mode.
+std::optional<io::instance::geometry::WriterGroup>
+    writerGroupOf(std::optional<seissol::initializer::parameters::TimeSeriesMode> mode) {
+  if (!mode.has_value()) {
+    return std::nullopt;
+  }
+  switch (mode.value()) {
   case seissol::initializer::parameters::TimeSeriesMode::Incremental:
     return io::instance::geometry::WriterGroup::IncrementalSnapshot;
   case seissol::initializer::parameters::TimeSeriesMode::Monolith:
@@ -245,17 +254,17 @@ void OutputManager::initElementwiseOutput() {
                                    : io::instance::geometry::WriterFormat::Vtk;
 
   const auto config = io::instance::geometry::WriterConfig{
-      order,
-      format,
-      seissolParameters.output.xdmfWriterBackend ==
-              seissol::initializer::parameters::XdmfBackend::Posix
-          ? io::instance::geometry::WriterBackend::Binary
-          : io::instance::geometry::WriterBackend::Hdf5,
-      io::instance::geometry::supportedWriterGroup(
+      .order = order,
+      .format = format,
+      .backend = seissolParameters.output.xdmfWriterBackend ==
+                         seissol::initializer::parameters::XdmfBackend::Posix
+                     ? io::instance::geometry::WriterBackend::Binary
+                     : io::instance::geometry::WriterBackend::Hdf5,
+      .time = io::instance::geometry::supportedWriterGroup(
           writerGroupOf(seissolParameters.output.elementwiseParameters.timeSeries),
           format,
           "elementwise fault"),
-      seissolParameters.output.hdfcompress};
+      .compress = seissolParameters.output.hdfcompress};
 
   auto writer = io::instance::geometry::GeometryWriter(
       "fault",
@@ -343,9 +352,8 @@ std::array<double, 6> OutputManager::initialStress(const ReceiverOutputData& out
   // the receivers of a point are numbered contiguously, so the point is the last one whose
   // receivers start at or before this one
   const auto& receiverOffset = outputData.topology.receiverOffset;
-  const auto point = static_cast<std::size_t>(
-      std::upper_bound(receiverOffset.begin(), receiverOffset.end(), index) -
-      receiverOffset.begin() - 1);
+  const auto point = static_cast<std::size_t>(std::ranges::upper_bound(receiverOffset, index) -
+                                              receiverOffset.begin() - 1);
   const auto& face = outputData.topology.faces[outputData.topology.points[point].faceId];
   const auto position = faceToLtsMap_.get(receiver.faultFaceIndex.value());
   const auto sourceCount = dr::stressSourceCount(seissolInstance_.parameters().drParameters);
@@ -393,8 +401,8 @@ void OutputManager::initPickpointOutput() {
   const auto numSimulations = configValue(seissolParameters.model.config).numSimulations;
 
   seissolInstance_.pickpointWriter().enable(
-      seissolParameters.output.pickpointParameters.writeInterval);
-  seissolInstance_.pickpointWriter().setupWriter([&]() { flushPickpointDataToFile(); });
+      seissolInstance_.modules(), seissolParameters.output.pickpointParameters.writeInterval);
+  seissolInstance_.pickpointWriter().setupWriter([&] { flushPickpointDataToFile(); });
 
   if (seissolParameters.output.pickpointParameters.format ==
       seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
@@ -429,10 +437,11 @@ void OutputManager::initPickpointOutput() {
 
     auto& files = ppFiles_[id];
     files.clear();
-    // (C++17 lambdas cannot capture the structured binding outputData itself)
+    // (with OpenMP enabled, Clang 18 does not let a lambda capture the structured binding
+    // outputData itself)
     const auto& receivers = outputData->receivers;
     for (auto& [index, simulations] : simulationsOfReceiver) {
-      std::sort(simulations.begin(), simulations.end(), [&receivers](std::size_t a, std::size_t b) {
+      std::ranges::sort(simulations, [&receivers](std::size_t a, std::size_t b) {
         return receivers[a].simIndex < receivers[b].simIndex;
       });
 
@@ -440,9 +449,9 @@ void OutputManager::initPickpointOutput() {
           buildIndexedMPIFileName(seissolParameters.output.prefix, index + 1, "faultreceiver");
       seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp_});
       fileName += ".dat";
-      files.push_back(PickpointFile{fileName, simulations});
+      files.push_back(PickpointFile{.fileName = fileName, .indices = simulations});
 
-      if (seissol::filesystem::exists(fileName)) {
+      if (std::filesystem::exists(fileName)) {
         continue;
       }
       std::ofstream file(fileName, std::ios_base::out);
@@ -481,6 +490,7 @@ void OutputManager::initPickpointOutput() {
         }
         file << '\n';
       }
+      file << "# run-id\t" << seissolInstance_.runId() << '\n';
     }
   }
 }
@@ -514,67 +524,81 @@ void OutputManager::initFaceToLtsMap() {
   impl_->setFaceToLtsMap(&faceToLtsMap_);
 }
 
-bool OutputManager::isAtPickpoint(double time, double dt) {
-  const auto& seissolParameters = seissolInstance_.parameters();
-  const bool isFirstStep = iterationStep_ == 0;
-  const double abortTime = seissolParameters.timeStepping.endTime;
-  const bool isCloseToTimeOut = (abortTime - time) < (dt * TimeMargin);
-
-  const int printTimeInterval = seissolParameters.output.pickpointParameters.printTimeInterval;
-  const bool isOutputIteration = iterationStep_ % printTimeInterval == 0;
-
-  return (isFirstStep || isOutputIteration || isCloseToTimeOut);
+bool OutputManager::hasPickpoints(std::size_t layerId) const {
+  return this->ppOutputBuilder_ && ppOutputData_.contains(layerId);
 }
 
-void OutputManager::writePickpointOutput(std::size_t layerId,
-                                         double stateTime,
-                                         double time,
-                                         double dt,
-                                         double meshDt,
-                                         double meshInDt,
-                                         parallel::runtime::StreamRuntime& runtime) {
+void OutputManager::recordPickpointOutput(std::size_t layerId,
+                                          double time,
+                                          double stepSize,
+                                          double inStep,
+                                          parallel::runtime::StreamRuntime& runtime) {
+  if (!hasPickpoints(layerId)) {
+    return;
+  }
   const auto& seissolParameters = seissolInstance_.parameters();
-  if (this->ppOutputBuilder_) {
-    if (this->isAtPickpoint(time, dt)) {
-      const auto findResult = ppOutputData_.find(layerId);
-      if (findResult != ppOutputData_.end()) {
-        const auto& outputData = findResult->second;
+  const auto& outputData = ppOutputData_.at(layerId);
 
-        if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
-          // our calculation was off (maybe due to many intermediate sync points), so resize
+  if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
+    // our calculation was off (maybe due to many intermediate sync points), so resize
 
-          // On CUDA and SYCL, calcFaultOutput leaves the samples to a host function on a stream,
-          // which runs once the friction law is done, and stores into whatever memory the cache
-          // has at that time. Growing the cache moves it, and a sample stored into the old memory
-          // while it is being moved is lost. Hence, all samples taken so far have to be in first.
-          auto& sampleRuntime =
-              outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
-          sampleRuntime.wait();
+    // On CUDA and SYCL, calcFaultOutput leaves the samples to a host function on a stream,
+    // which runs once the friction law is done, and stores into whatever memory the cache
+    // has at that time. Growing the cache moves it, and a sample stored into the old memory
+    // while it is being moved is lost. Hence, all samples taken so far have to be in first.
+    auto& sampleRuntime =
+        outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+    sampleRuntime.wait();
 
-          outputData->maxCacheLevel = outputData->currentCacheLevel + 1;
-          const auto newCacheLevel = outputData->maxCacheLevel;
-          outputData->cachedTime.resize(newCacheLevel);
-          misc::forEach(outputData->vars,
-                        [newCacheLevel](auto& var, int) { var.resizeCache(newCacheLevel); });
-        }
+    outputData->maxCacheLevel = outputData->currentCacheLevel + 1;
+    const auto newCacheLevel = outputData->maxCacheLevel;
+    outputData->cachedTime.resize(newCacheLevel);
+    misc::forEach(outputData->vars,
+                  [newCacheLevel](auto& var, int) { var.resizeCache(newCacheLevel); });
+  }
 
-        impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
-                               seissolParameters.drParameters.slipRateOutputType,
-                               outputData,
-                               runtime,
-                               stateTime,
-                               time,
-                               meshDt,
-                               meshInDt);
+  impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
+                         seissolParameters.drParameters.slipRateOutputType,
+                         outputData,
+                         runtime,
+                         time,
+                         stepSize,
+                         inStep);
+}
+
+void OutputManager::finishPickpointStep(std::size_t layerId,
+                                        bool sampled,
+                                        parallel::runtime::StreamRuntime& runtime) {
+  if (!hasPickpoints(layerId)) {
+    return;
+  }
+  const auto& outputData = ppOutputData_.at(layerId);
+  if constexpr (isDeviceOn()) {
+    if (!sampled) {
+      // in the order of the streams that calcFaultOutput() keeps
+      if (outputData->extraRuntime.has_value()) {
+        runtime.eventSync(outputData->extraRuntime->eventRecord());
+      }
+      ReceiverOutput::gatherFaultState(outputData, runtime);
+      if (outputData->extraRuntime.has_value()) {
+        outputData->extraRuntime->eventSync(runtime.eventRecord());
       }
     }
-    ++iterationStep_;
   }
+  auto& callRuntime =
+      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+  callRuntime.enqueueHost([this, outputData] { impl_->keepStepStart(outputData); });
 }
 
-void OutputManager::writePickpointOutput(double time, double dt) {
+void OutputManager::recordInitialPickpointOutput(double time) {
+  if (!this->ppOutputBuilder_) {
+    return;
+  }
   for (const auto& [id, _] : ppOutputData_) {
-    writePickpointOutput(id, time, time, dt, 0, 1, runtime_);
+    // at the start of the expansion the cells hold before the first step; the step size only scales
+    // the time basis, and has to be positive for that
+    recordPickpointOutput(id, time, 1.0, 0.0, runtime_);
+    finishPickpointStep(id, true, runtime_);
   }
 }
 
@@ -585,8 +609,8 @@ void OutputManager::initPickpointTable() {
   // time plus the active components -- the per-simulation column names the text files carry are
   // a row of their own here.
   std::vector<io::instance::point::TableQuantity> quantitySet;
-  quantitySet.push_back(
-      io::instance::point::TableQuantity{"Time", io::datatype::inferDatatype<double>()});
+  quantitySet.push_back(io::instance::point::TableQuantity{
+      .name = "Time", .datatype = io::datatype::inferDatatype<double>()});
   // A rank without on-fault receivers has no point to describe; the table learns the quantity
   // sets of the other ranks when it groups the points.
   if (!ppOutputData_.empty()) {
@@ -594,7 +618,7 @@ void OutputManager::initPickpointTable() {
       if (var.isActive) {
         for (std::size_t dim = 0; dim < var.dim(); ++dim) {
           quantitySet.push_back(io::instance::point::TableQuantity{
-              VariableLabels[i][dim], io::datatype::inferDatatype<double>()});
+              .name = VariableLabels[i][dim], .datatype = io::datatype::inferDatatype<double>()});
         }
       }
     });
@@ -608,7 +632,7 @@ void OutputManager::initPickpointTable() {
       ppTableRows_.emplace_back(layerId, point);
     }
   }
-  std::sort(ppTableRows_.begin(), ppTableRows_.end(), [this](const auto& a, const auto& b) {
+  std::ranges::sort(ppTableRows_, [this](const auto& a, const auto& b) {
     const auto& left = ppOutputData_.at(a.first)->receivers[a.second];
     const auto& right = ppOutputData_.at(b.first)->receivers[b.second];
     return std::make_tuple(left.globalReceiverIndex.value(), left.simIndex) <
@@ -710,8 +734,8 @@ void OutputManager::collectPickpointSamples() {
   }
 
   for (std::size_t row = 0; row < ppTableRows_.size(); ++row) {
-    // named rather than bound, since the lambda below captures the point, which a structured
-    // binding only allows from C++20 on
+    // named rather than bound, since the lambda below captures the point, which Clang 18 does not
+    // allow for a structured binding with OpenMP enabled
     const auto layerId = ppTableRows_[row].first;
     const auto point = ppTableRows_[row].second;
     auto& outputData = *ppOutputData_.at(layerId);
@@ -788,12 +812,14 @@ void OutputManager::updateElementwiseOutput(double time) {
   if (this->ewOutputBuilder_) {
     const auto& seissolParameters = seissolInstance_.parameters();
     // at a synchronization point every cluster has just completed a time step ending here, so this
-    // is also the time the stored friction state belongs to
+    // is also the time the stored friction state belongs to: the end of the step
     impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
                            seissolParameters.drParameters.slipRateOutputType,
                            ewOutputData_,
                            runtime_,
-                           time);
+                           time,
+                           /*dt=*/1.0,
+                           /*indt=*/1.0);
     runtime_.wait();
   }
 }

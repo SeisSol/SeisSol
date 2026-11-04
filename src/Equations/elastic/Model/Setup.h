@@ -117,7 +117,7 @@ struct MaterialSetup<ElasticMaterial> : public MaterialSetupDefaults<ElasticMate
       matR(0, 0) = local.lambda;
       matR(1, 0) = local.lambda;
       matR(2, 0) = local.lambda;
-      matR(6, 0) = std::sqrt((local.lambda) / local.rho);
+      matR(6, 0) = std::sqrt(local.lambda / local.rho);
 
       // scale for better condition number of matR
       matR(3, 1) = local.lambda;

@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <async/ExecInfo.h>
 #include <cstddef>
-#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -56,18 +55,19 @@ const std::vector<Dimension>& DataSource::dimensions() const { return dimensions
 const std::vector<std::size_t>& DataSource::shape() const { return shapeP_; }
 
 bool DataSource::distributed() const {
-  return std::any_of(dimensionsP_.begin(), dimensionsP_.end(), [](const Dimension& dimension) {
-    return dimension.isDistributed();
-  });
+  return std::ranges::any_of(dimensionsP_,
+                             [](const Dimension& dimension) { return dimension.isDistributed(); });
 }
+
+std::vector<std::size_t> DataSource::parts(const async::ExecInfo& info) { return {count(info)}; }
 
 WriteInline::WriteInline(const void* dataPtr,
                          std::size_t size,
                          std::shared_ptr<datatype::Datatype> datatype,
                          const std::vector<std::size_t>& shape)
     : DataSource(std::move(datatype), shape, false) {
-  data_.resize(size);
-  std::memcpy(data_.data(), dataPtr, size);
+  const auto* bytes = static_cast<const unsigned char*>(dataPtr);
+  data_.assign(bytes, bytes + size);
 }
 
 WriteInline::WriteInline(const void* dataPtr,
@@ -75,8 +75,8 @@ WriteInline::WriteInline(const void* dataPtr,
                          std::shared_ptr<datatype::Datatype> datatype,
                          std::vector<Dimension> dimensions)
     : DataSource(std::move(datatype), std::move(dimensions)) {
-  data_.resize(size);
-  std::memcpy(data_.data(), dataPtr, size);
+  const auto* bytes = static_cast<const unsigned char*>(dataPtr);
+  data_.assign(bytes, bytes + size);
 }
 
 WriteInline::WriteInline(YAML::Node node)
@@ -133,6 +133,14 @@ std::size_t WriteBufferRemote::count(const async::ExecInfo& info) {
   return info.bufferSize(id_) / datatype()->size();
 }
 
+std::vector<std::size_t> WriteBufferRemote::parts(const async::ExecInfo& info) {
+  auto parts = info.bufferParts(id_);
+  for (auto& part : parts) {
+    part /= datatype()->size();
+  }
+  return parts;
+}
+
 void WriteBufferRemote::assignId(int /*id*/) {}
 
 const void* WriteBufferRemote::getLocalPointer() const { return nullptr; }
@@ -164,7 +172,7 @@ YAML::Node WriteBuffer::serialize() {
 const void* WriteBuffer::getLocalPointer() const { return data_; }
 size_t WriteBuffer::getLocalSize() const {
   std::size_t shapeprod = 1;
-  for (auto dim : shape()) {
+  for (const auto dim : shape()) {
     shapeprod *= dim;
   }
   return shapeprod * size_ * datatype()->size();

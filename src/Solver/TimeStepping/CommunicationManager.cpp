@@ -60,7 +60,7 @@ ThreadedCommunicationManager::ThreadedCommunicationManager(
     AbstractCommunicationManager::GhostClustersT ghostClusters,
     const seissol::parallel::Pinning* pinning)
     : AbstractCommunicationManager(std::move(ghostClusters)),
-      helper_([&]() { return this->poll(); }, pinning) {}
+      helper_([&] { return this->poll(); }, pinning) {}
 
 void ThreadedCommunicationManager::progression() {
   // Do nothing: Thread takes care of that.

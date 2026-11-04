@@ -122,16 +122,12 @@ std::string_view drQuadRuleName(DRQuadRuleType rule) { return nameOf(DRQuadRuleN
 std::string configName(const ConfigValue& value) {
   std::string name;
   name += materialTypeName(value.materialType);
-  name += '-';
-  name += solverTypeName(value.solver);
   if (value.relaxationMechanisms > 0) {
     name += "-m" + std::to_string(value.relaxationMechanisms);
   }
   name += "-o" + std::to_string(value.convergenceOrder);
   name += '-';
   name += stringRealType(value.precision);
-  name += '-';
-  name += drQuadRuleName(value.drQuadRule);
   if (value.numSimulations != 1) {
     name += "-s" + std::to_string(value.numSimulations);
   }
@@ -154,13 +150,6 @@ std::optional<ConfigValue> parseConfigName(std::string_view name) {
   value.materialType = material.value();
   ++next;
 
-  const auto solver = entryOf(SolverNames, peek());
-  if (!solver.has_value()) {
-    return std::nullopt;
-  }
-  value.solver = solver.value();
-  ++next;
-
   if (const auto mechanisms = prefixedNumber(peek(), 'm'); mechanisms.has_value()) {
     value.relaxationMechanisms = mechanisms.value();
     ++next;
@@ -178,13 +167,6 @@ std::optional<ConfigValue> parseConfigName(std::string_view name) {
     return std::nullopt;
   }
   value.precision = precision.value();
-  ++next;
-
-  const auto drQuadRule = entryOf(DRQuadRuleNames, peek());
-  if (!drQuadRule.has_value()) {
-    return std::nullopt;
-  }
-  value.drQuadRule = drQuadRule.value();
   ++next;
 
   value.numSimulations = 1;
@@ -207,11 +189,9 @@ std::optional<ConfigValue> parseConfigName(std::string_view name) {
 std::string describeConfig(const ConfigValue& value) {
   std::ostringstream stream;
   stream << "Material: " << materialTypeName(value.materialType) << "\n";
-  stream << "Solver: " << solverTypeName(value.solver) << "\n";
   stream << "Relaxation mechanisms: " << value.relaxationMechanisms << "\n";
   stream << "Convergence order: " << value.convergenceOrder << "\n";
   stream << "Precision: " << stringRealType(value.precision) << "\n";
-  stream << "Dynamic rupture quadrature rule: " << drQuadRuleName(value.drQuadRule) << "\n";
   stream << "Fused simulations: " << value.numSimulations << "\n";
   return stream.str();
 }

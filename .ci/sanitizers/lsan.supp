@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# Open MPI keeps what it allocates in MPI_Init (its components, the topology of hwloc, ...) until
+# the process ends, and frees little of it in MPI_Finalize. A frame of these libraries in the stack
+# of an allocation suppresses its report.
+leak:libmpi.so
+# Open MPI 4
+leak:libopen-pal.so
+leak:libopen-rte.so
+# Open MPI 5
+leak:libpmix.so
+leak:libprrte.so
+# the threads of Open MPI and what its components allocate in the dynamic loader; the components
+# are unloaded in MPI_Finalize, so that no frame of them is left to match in these stacks
+leak:libevent
+leak:ld-linux-x86-64.so

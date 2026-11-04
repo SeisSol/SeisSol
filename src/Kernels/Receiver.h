@@ -53,8 +53,8 @@ struct Receiver {
 template <typename Cfg>
 struct ReceiverBasis {
   ReceiverBasis(const Eigen::Vector3d& position, const seissol::geometry::CellTransform& transform);
-  basisFunction::SampledBasisFunctions<Real<Cfg>> basisFunctions;
-  basisFunction::SampledBasisFunctionDerivatives<Real<Cfg>> basisFunctionDerivatives;
+  basis_function::SampledBasisFunctions<Real<Cfg>> basisFunctions;
+  basis_function::SampledBasisFunctionDerivatives<Real<Cfg>> basisFunctionDerivatives;
 };
 
 /**

@@ -12,6 +12,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Real.h"
+#include "Common/RunId.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
@@ -127,13 +128,17 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
   table.addColumn<std::uint64_t>("simulation_index");
   table.addTextColumn("norm", 8);
   table.addColumn<double>("error");
-  const auto addObservation =
-      [&table](std::size_t variable, std::size_t sim, const std::string& norm, double error) {
-        table.addCell<std::int32_t>(static_cast<std::int32_t>(variable));
-        table.addCell<std::uint64_t>(sim);
-        table.addText(norm);
-        table.addCell<double>(error);
-      };
+  table.addTextColumn("runId", RunIdLength);
+  const auto addObservation = [&table, &runId = seissolInstance_.runId()](std::size_t variable,
+                                                                          std::size_t sim,
+                                                                          const std::string& norm,
+                                                                          double error) {
+    table.addCell<std::int32_t>(static_cast<std::int32_t>(variable));
+    table.addCell<std::uint64_t>(sim);
+    table.addText(norm);
+    table.addCell<double>(error);
+    table.addText(runId);
+  };
 
   for (unsigned sim = 0; sim < Cfg::NumSimulations; ++sim) {
     logInfo() << "Analysis for simulation" << sim << configLabel.c_str() << ": absolute, relative";

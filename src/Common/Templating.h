@@ -32,7 +32,7 @@ struct TransformVariadic<ElementTransform, VariadicT<Args...>> {
   OriginalT<ElementTransform<T1>, ElementTransform<T2>, ElementTransform<T3>>
  */
 template <template <typename> typename ElementTransform, typename OriginalT>
-using TransformVariadicT = typename TransformVariadic<ElementTransform, OriginalT>::Result;
+using TransformVariadicT = TransformVariadic<ElementTransform, OriginalT>::Result;
 
 // changes the underlying variadic type
 template <template <typename...> typename TargetT, typename OriginalT>
@@ -52,7 +52,7 @@ struct ChangeVariadic<TargetT, VariadicT<Args...>> {
   TargetT<T1, T2, T3>
  */
 template <template <typename...> typename TargetT, typename OriginalT>
-using ChangeVariadicT = typename ChangeVariadic<TargetT, OriginalT>::Result;
+using ChangeVariadicT = ChangeVariadic<TargetT, OriginalT>::Result;
 
 // removes type duplicates inside a variadic type
 template <typename OriginalT>
@@ -72,7 +72,7 @@ struct RemoveDuplicateVariadic<VariadicT<Args...>> {
   };
   template <typename Head, typename... Rest>
   struct Intermediate {
-    using PreResult = typename Intermediate<Rest...>::Result;
+    using PreResult = Intermediate<Rest...>::Result;
     using Result = std::conditional_t<containsHead<Head, Rest...>(),
                                       PreResult,
                                       typename VariadicPrepend<Head, PreResult>::Result>;
@@ -82,7 +82,7 @@ struct RemoveDuplicateVariadic<VariadicT<Args...>> {
     using Result = VariadicT<Head>;
   };
 
-  using Result = typename Intermediate<Args...>::Result;
+  using Result = Intermediate<Args...>::Result;
 };
 
 /**
@@ -93,7 +93,7 @@ struct RemoveDuplicateVariadic<VariadicT<Args...>> {
   ContainerT<T1, T2, T3, T4>
  */
 template <typename OriginalT>
-using RemoveDuplicateVariadicT = typename RemoveDuplicateVariadic<OriginalT>::Result;
+using RemoveDuplicateVariadicT = RemoveDuplicateVariadic<OriginalT>::Result;
 
 // a dummy type to contain variadic arguments
 template <typename... Args>
@@ -115,7 +115,7 @@ struct ConcatVariadic<VariadicT<Args1...>, VariadicT<Args2...>> {
   ContainerT<T1, T2, T3, T4>
  */
 template <typename T1, typename T2>
-using ConcatVariadicT = typename ConcatVariadic<T1, T2>::Type;
+using ConcatVariadicT = ConcatVariadic<T1, T2>::Type;
 
 template <typename PreT, typename T>
 struct PrependVariadic {};
@@ -133,7 +133,7 @@ struct PrependVariadic<PreT, VariadicT<Args...>> {
   ContainerT<Tn, T1, T2>
  */
 template <typename PreT, typename T>
-using PrependVariadicT = typename PrependVariadic<PreT, T>::Type;
+using PrependVariadicT = PrependVariadic<PreT, T>::Type;
 
 template <typename PostT, typename T>
 struct AppendVariadic {};
@@ -151,7 +151,7 @@ struct AppendVariadic<PostT, VariadicT<Args...>> {
   ContainerT<T1, T2, Tn>
  */
 template <typename PostT, typename T>
-using AppendVariadicT = typename AppendVariadic<PostT, T>::Type;
+using AppendVariadicT = AppendVariadic<PostT, T>::Type;
 
 } // namespace seissol
 #endif // SEISSOL_SRC_COMMON_TEMPLATING_H_

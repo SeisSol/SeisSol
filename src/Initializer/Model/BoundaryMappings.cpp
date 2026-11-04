@@ -52,7 +52,7 @@ void initializeBoundaryMappingsOfLayer(
 
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* boundary = layer.var<LTS::BoundaryMapping>(Cfg());
-  auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+  const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
 #pragma omp for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {

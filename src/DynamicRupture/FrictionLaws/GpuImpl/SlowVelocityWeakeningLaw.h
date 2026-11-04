@@ -8,18 +8,24 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SLOWVELOCITYWEAKENINGLAW_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/RateAndState.h"
+#include "DynamicRupture/Misc.h"
 
 namespace seissol::dr::friction_law::gpu {
 template <typename Cfg, class Derived, class TPMethod>
 class SlowVelocityWeakeningLaw
     : public RateAndStateBase<Cfg, SlowVelocityWeakeningLaw<Cfg, Derived, TPMethod>, TPMethod> {
+  private:
+  // only the CRTP subclass `Derived` constructs this base
+  explicit SlowVelocityWeakeningLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : RateAndStateBase<Cfg, SlowVelocityWeakeningLaw, TPMethod>(drParameters) {}
+  friend Derived;
+
   public:
   using real = Real<Cfg>;
-
-  using RateAndStateBase<Cfg, SlowVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
 
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {}

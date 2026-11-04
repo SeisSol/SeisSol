@@ -32,7 +32,6 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <stdint.h>
 #include <yateto.h>
 #include <yateto/InitTools.h>
 
@@ -81,7 +80,7 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
          reinterpret_cast<uintptr_t>(timeDerivatives) % Vectorsize == 0);
 
   // Only a small fraction of cells has the gravitational free surface boundary condition
-  updateDisplacement &= [&]() {
+  updateDisplacement &= [&] {
     bool anyOfResult = false;
     for (std::size_t i = 0; i < Cell::NumFaces; ++i) {
       anyOfResult |=
@@ -159,15 +158,15 @@ void Spacetime<Cfg>::computeBatchedAder(
   kernel::gpu_derivative<Cfg> derivativesKrnl = deviceKrnlPrototype_;
 
   const ConditionalKey timeVolumeKernelKey(KernelNames::Time || KernelNames::Volume);
-  if (dataTable.find(timeVolumeKernelKey) != dataTable.end()) {
+  if (dataTable.contains(timeVolumeKernelKey)) {
     auto& entry = dataTable[timeVolumeKernelKey];
 
-    const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
+    const auto numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
     derivativesKrnl.numElements = numElements;
-    derivativesKrnl.I = (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr();
+    derivativesKrnl.I = entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
 
     const auto** localIntegrationPtrs = const_cast<const real**>(
-        (entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData))->getDeviceDataPtr());
+        entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
 
     SEISSOL_ARRAY_OFFSET_ASSERT(LocalIntegrationData<Cfg>, starMatrices);
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::star<Cfg>>(); ++i) {
@@ -186,13 +185,12 @@ void Spacetime<Cfg>::computeBatchedAder(
     set_extraOffset_ET(derivativesKrnl, SourceMatrixOffset / sizeof(real));
 
     for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
-      derivativesKrnl.dQ(i) =
-          (entry.get<real*>(inner_keys::Wp::Id::Derivatives))->getDeviceDataPtr();
+      derivativesKrnl.dQ(i) = entry.get<real*>(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
       derivativesKrnl.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
     }
 
     derivativesKrnl.Q =
-        const_cast<const real**>((entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr());
+        const_cast<const real**>(entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr());
 
     const auto maxTmpMem = yateto::getMaxTmpMemRequired(derivativesKrnl);
     auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));

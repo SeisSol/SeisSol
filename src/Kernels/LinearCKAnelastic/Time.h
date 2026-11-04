@@ -18,6 +18,10 @@
 #include "Kernels/Spacetime.h"
 #include "Kernels/Time.h"
 
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
+
 namespace seissol::kernels::solver::linearckanelastic {
 template <typename Cfg>
 class Spacetime : public SpacetimeKernel<Cfg> {
@@ -30,8 +34,8 @@ class Spacetime : public SpacetimeKernel<Cfg> {
                    LTS::Ref<Cfg>& data,
                    LocalTmp<Cfg>& tmp,
                    real* timeIntegrated,
-                   real* timeDerivativesOrSTP = nullptr,
-                   bool updateDisplacement = false) override;
+                   real* timeDerivativesOrSTP,
+                   bool updateDisplacement) override;
   void computeBatchedAder(const real* coeffs,
                           double timeStepWidth,
                           LTS::Layer& layer,
@@ -48,6 +52,8 @@ class Spacetime : public SpacetimeKernel<Cfg> {
 
 #ifdef ACL_DEVICE
   kernel::gpu_derivative<Cfg> deviceKrnlPrototype_;
+  kernel::gpu_fsgKernel<Cfg> deviceFsgKernelPrototype_;
+  device::DeviceInstance& device_ = device::DeviceInstance::instance();
 #endif
 };
 

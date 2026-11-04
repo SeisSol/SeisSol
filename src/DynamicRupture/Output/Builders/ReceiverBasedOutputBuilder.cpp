@@ -13,6 +13,7 @@
 #include "Common/Iterator.h"
 #include "Common/Real.h"
 #include "Common/Typedefs.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
@@ -129,7 +130,7 @@ void ReceiverBasedOutputBuilder::initTopology() {
     }
 
     const auto faceKey = faceToLtsMap_->get(receiver.faultFaceIndex.value()).global;
-    if (faceIds.find(faceKey) == faceIds.end()) {
+    if (!faceIds.contains(faceKey)) {
       faceIds[faceKey] = faceBuckets.size();
       auto& bucket = faceBuckets.emplace_back();
       bucket.faultFaceIndex = receiver.faultFaceIndex.value();
@@ -265,24 +266,24 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
     const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
     const auto& element = elementsInfo[elementIndex];
 
-    if (elementIndices.find(elementIndex) == elementIndices.end()) {
+    if (!elementIndices.contains(elementIndex)) {
       elementIndices[elementIndex] = elementIndices.size();
     }
     face.deviceDataPlus = elementIndices.at(elementIndex);
 
     const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
     if (neighborElementIndex.hasValue()) {
-      if (elementIndices.find(neighborElementIndex.value()) == elementIndices.end()) {
+      if (!elementIndices.contains(neighborElementIndex.value())) {
         elementIndices[neighborElementIndex.value()] = elementIndices.size();
       }
     } else {
       const auto faultSide = faultInfo[face.faultFaceIndex].side;
       const auto ghostIndex = std::pair<int, std::size_t>(element.neighborRanks[faultSide],
                                                           element.mpiIndices[faultSide]);
-      if (elementIndicesGhost.find(ghostIndex) == elementIndicesGhost.end()) {
+      if (!elementIndicesGhost.contains(ghostIndex)) {
         const auto index = elementIndicesGhost.size();
-        elementIndicesGhost[ghostIndex] =
-            GhostElement{std::pair<std::size_t, int>(elementIndex, faultSide), index};
+        elementIndicesGhost[ghostIndex] = GhostElement{
+            .data = std::pair<std::size_t, int>(elementIndex, faultSide), .index = index};
       }
     }
   }
@@ -495,7 +496,7 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
     dispatchConfig(configOfFace(geoPoint.faultFaceIndex.value()), [&](auto cfg) {
       using Cfg = decltype(cfg);
       constexpr int NumPoly = Cfg::ConvergenceOrder - 1;
-      if constexpr (Cfg::DRQuadRule == DRQuadRuleType::Stroud) {
+      if constexpr (seissol::DRQuadRule == DRQuadRuleType::Stroud) {
         geoPoint.nearestInternalGpIndex =
             getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
       } else {

@@ -92,7 +92,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   this->ltsStorage_ = &ltsStorage;
   this->clusterLayout_ = clusterLayout;
   setSyncInterval(triggerTime);
-  Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
+  seissolInstance_.modules().registerHook(*this, ModuleHook::SynchronizationPoint);
 }
 
 void InstantaneousTimeMirrorManager::syncPoint(double currentTime) {
@@ -214,10 +214,10 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   LTS::Storage& ltsStorage,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
-                                  seissol::SeisSol& seissolInstance,
+                                  const seissol::SeisSol& seissolInstance,
                                   const initializer::ClusterLayout* clusterLayout) {
   increaseManager.init(scalingFactor, triggerTime, meshReader, ltsStorage, clusterLayout);
-  auto itmParameters = seissolInstance.parameters().model.itmParameters;
+  const auto itmParameters = seissolInstance.parameters().model.itmParameters;
   const double eps = itmParameters.itmDuration;
 
   decreaseManager.init(1 / scalingFactor, triggerTime + eps, meshReader, ltsStorage, clusterLayout);

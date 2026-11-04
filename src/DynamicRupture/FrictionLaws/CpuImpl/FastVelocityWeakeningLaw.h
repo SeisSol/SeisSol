@@ -25,7 +25,8 @@ class FastVelocityWeakeningLaw
   public:
   using real = Real<Cfg>;
 
-  using RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::RateAndStateBase;
+  explicit FastVelocityWeakeningLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>(drParameters) {}
 
   void allocateAuxiliaryMemory(GlobalData<Cfg>* globalData) override {
     RateAndStateBase<Cfg, FastVelocityWeakeningLaw, TPMethod>::allocateAuxiliaryMemory(globalData);

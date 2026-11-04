@@ -30,8 +30,8 @@ method combined with ADER time discretization.
 
 ### Prerequisites
 
-- C++ compiler (GCC ≥ 9, Clang ≥ 18, ICX, or NVHPC)
-- CMake ≥ 3.20
+- C++ compiler (GCC ≥ 10, Clang ≥ 18, ICX, or NVHPC)
+- CMake ≥ 3.20 (≥ 3.21.2 with NVHPC, ≥ 3.25.2 with CUDA)
 - Python ≥ 3.9 with numpy and setuptools
 - MPI (standard ≥ 2.2), HDF5 (parallel), Eigen ≥ 3.4,
 and [easi](https://github.com/SeisSol/easi) ≥ 1.5

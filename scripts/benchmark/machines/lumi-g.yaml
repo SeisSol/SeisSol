@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# LUMI-G (CSC): after the job script of docs/lumi.rst. Eight ranks per node,
+# one per GCD, each pinned to six cores of the CCD next to its GCD (the first
+# core of every CCD is left to the system); three of them run the workers, the
+# others are free for the communication and the IO threads. Give the project
+# in the campaign:
+#   machine: {profile: lumi-g, slurm: {account: <project>}}
+name: lumi-g
+description: LUMI-G, eight MI250X GCDs per node
+scheduler: slurm
+node:
+  cores: 64
+  threads_per_core: 2
+  gpus: 8
+  memory: 512G
+  numa_domains: 4
+layout:
+  ranks_per_node: 8
+  cpus_per_rank: 6
+  threads_per_rank: 3
+  gpus_per_rank: 1
+slurm:
+  partition: standard-g
+  exclusive: true
+launcher: >-
+  srun --unbuffered --nodes={nodes} --ntasks={ranks} --ntasks-per-node={ranks_per_node}
+  --cpu-bind=mask_cpu:${CPU_BIND}
+# selects the GCD of a rank by its local rank; installed with SeisSol
+wrapper: seissol-launch
+setup:
+  - CPU_BIND="7e000000000000,7e00000000000000"
+  - CPU_BIND="${CPU_BIND},7e0000,7e000000"
+  - CPU_BIND="${CPU_BIND},7e,7e00"
+  - CPU_BIND="${CPU_BIND},7e00000000,7e0000000000"
+env:
+  MPICH_GPU_SUPPORT_ENABLED: "1"
+  HSA_XNACK: "0"
+  OMP_PLACES: cores(3)
+  OMP_PROC_BIND: close
+  DEVICE_STACK_MEM_SIZE: "4"
+  SEISSOL_FREE_CPUS_MASK: 52-54,60-62,20-22,28-30,4-6,12-14,36-38,44-46

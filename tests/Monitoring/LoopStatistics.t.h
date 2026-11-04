@@ -9,6 +9,7 @@
 
 #include "Monitoring/LoopStatistics.h"
 #include "Monitoring/Stopwatch.h"
+#include "Parallel/MPI.h"
 
 #include <string>
 #include <thread>
@@ -68,8 +69,7 @@ TEST_CASE("LoopStatistics addSample accumulates" * doctest::test_suite("monitori
   ls.addSample(region, 200, 0, t2, t3);
 
   // We can't directly inspect the private StatisticVariables,
-  // but we can verify that no crash happens and the samples
-  // are stored when output is enabled.
+  // but we can verify that no crash happens.
   CHECK(true);
 }
 
@@ -89,34 +89,6 @@ TEST_CASE("LoopStatistics addSample zero iterations" * doctest::test_suite("moni
   ls.addSample(region, 0, 0, t0, t1);
 
   CHECK(true);
-}
-
-// ---------------------------------------------------------------------------
-// enableSampleOutput: samples stored only when enabled
-// ---------------------------------------------------------------------------
-
-TEST_CASE("LoopStatistics sample storage" * doctest::test_suite("monitoring")) {
-  seissol::LoopStatistics ls;
-  ls.addRegion("work");
-  const unsigned region = ls.getRegion("work");
-
-  const timespec t0 = makeTime(0, 0);
-  const timespec t1 = makeTime(1, 0);
-
-  SUBCASE("Samples not stored by default") {
-    // Default: outputSamples = false
-    ls.addSample(region, 10, 0, t0, t1);
-    // No crash; samples are silently not stored
-    CHECK(true);
-  }
-
-  SUBCASE("Samples stored when enabled") {
-    ls.enableSampleOutput(true);
-    ls.addSample(region, 10, 0, t0, t1);
-    ls.addSample(region, 20, 1, t0, t1);
-    // No crash; samples are stored internally
-    CHECK(true);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +119,6 @@ TEST_CASE("LoopStatistics begin/end cycle" * doctest::test_suite("monitoring")) 
 
 TEST_CASE("LoopStatistics reset" * doctest::test_suite("monitoring")) {
   seissol::LoopStatistics ls;
-  ls.enableSampleOutput(true);
   ls.addRegion("work");
   const unsigned region = ls.getRegion("work");
 
@@ -168,7 +139,6 @@ TEST_CASE("LoopStatistics reset" * doctest::test_suite("monitoring")) {
 
 TEST_CASE("LoopStatistics multiple regions and subRegions" * doctest::test_suite("monitoring")) {
   seissol::LoopStatistics ls;
-  ls.enableSampleOutput(true);
   ls.addRegion("local");
   ls.addRegion("neighbor");
   ls.addRegion("dr");
@@ -191,6 +161,47 @@ TEST_CASE("LoopStatistics multiple regions and subRegions" * doctest::test_suite
   ls.addSample(dr, 200, 0, t0, t1);
 
   CHECK(true);
+}
+
+// ---------------------------------------------------------------------------
+// printSummary: what it returns for the run summary
+// ---------------------------------------------------------------------------
+
+TEST_CASE("LoopStatistics summary" * doctest::test_suite("monitoring")) {
+  seissol::LoopStatistics ls;
+  ls.addRegion("work");
+  ls.addRegion("state", false);
+  const unsigned work = ls.getRegion("work");
+  const unsigned state = ls.getRegion("state");
+
+  // time = 0.5 s + 0.01 s per iteration
+  ls.addSample(work, 100, 0, makeTime(0, 0), makeTime(1, 500000000));
+  ls.addSample(work, 200, 0, makeTime(0, 0), makeTime(2, 500000000));
+  ls.addSample(work, 300, 0, makeTime(0, 0), makeTime(3, 500000000));
+  ls.addSample(state, 1, 0, makeTime(0, 0), makeTime(10, 0));
+
+  const auto summary = ls.printSummary(seissol::Mpi::mpi.comm());
+  if (seissol::Mpi::mpi.rank() == 0) {
+    const auto* regions = summary.find("regions");
+    REQUIRE(regions != nullptr);
+    const auto* entry = regions->find("work");
+    REQUIRE(entry != nullptr);
+    CHECK(entry->find("includedInTotal")->asBool());
+    CHECK(entry->find("time")->find("sum")->asDouble() ==
+          doctest::Approx(7.5 * seissol::Mpi::mpi.size()));
+    CHECK(entry->find("iterations")->asDouble() == 600.0 * seissol::Mpi::mpi.size());
+    CHECK(entry->find("samples")->asDouble() == 3.0 * seissol::Mpi::mpi.size());
+    CHECK(entry->find("regression")->find("constant")->asDouble() == doctest::Approx(0.5));
+    CHECK(entry->find("regression")->find("perElement")->asDouble() == doctest::Approx(0.01));
+
+    // a state is no compute kernel: neither in the total nor regressed
+    const auto* stateEntry = regions->find("state");
+    REQUIRE(stateEntry != nullptr);
+    CHECK_FALSE(stateEntry->find("includedInTotal")->asBool());
+    CHECK(stateEntry->find("regression") == nullptr);
+    CHECK(summary.find("total")->find("max")->asDouble() == doctest::Approx(7.5));
+    CHECK(summary.find("loadImbalance")->asDouble() == doctest::Approx(0.0));
+  }
 }
 
 } // namespace seissol::unit_test

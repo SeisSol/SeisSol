@@ -147,8 +147,8 @@ inline double signedVolume(const AffineMap<3, 3>& map) {
 inline void requireSameCell(const Tet& actual, const Tet& expected) {
   auto lhs = actual;
   auto rhs = expected;
-  std::sort(lhs.begin(), lhs.end());
-  std::sort(rhs.begin(), rhs.end());
+  std::ranges::sort(lhs);
+  std::ranges::sort(rhs);
   for (std::size_t i = 0; i < 4; ++i) {
     for (std::size_t d = 0; d < 3; ++d) {
       REQUIRE(lhs[i][d] == AbsApprox(rhs[i][d]).epsilon(Tolerance).delta(Tolerance));
@@ -269,7 +269,7 @@ TEST_CASE_TEMPLATE("Numerical/Projection: all volume nodal sets round-trip",
     for (std::size_t coefficient = 0; coefficient < indices.size(); ++coefficient) {
       std::vector<double> nodalValues(points.size());
       for (std::size_t n = 0; n < points.size(); ++n) {
-        nodalValues[n] = functions::DubinerP<3>(indices[coefficient], points[n]);
+        nodalValues[n] = functions::dubinerP<3>(indices[coefficient], points[n]);
       }
       for (std::size_t b = 0; b < indices.size(); ++b) {
         double value = 0;

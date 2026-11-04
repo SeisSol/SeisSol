@@ -62,8 +62,7 @@ struct MaterialTypeSelector<MaterialType::Poroelastic, Mechanisms> {
 
 /// The material a configuration computes with.
 template <typename Cfg>
-using MaterialOf =
-    typename MaterialTypeSelector<Cfg::MaterialType, Cfg::RelaxationMechanisms>::Type;
+using MaterialOf = MaterialTypeSelector<Cfg::MaterialType, Cfg::RelaxationMechanisms>::Type;
 
 } // namespace seissol::model
 

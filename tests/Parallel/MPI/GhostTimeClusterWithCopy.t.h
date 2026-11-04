@@ -49,7 +49,7 @@ inline double haloValue(int sender, std::size_t region, int step, std::size_t in
 }
 
 inline void exchangeRing(bool persistent) {
-  auto& device = ::device::DeviceInstance::instance();
+  const auto& device = ::device::DeviceInstance::instance();
   const int rank = seissol::Mpi::mpi.rank();
   const int size = seissol::Mpi::mpi.size();
 
@@ -133,7 +133,7 @@ inline void exchangeRing(bool persistent) {
 using namespace ghosttimeclusterwithcopytest;
 
 TEST_CASE("Ghost clusters exchange device halos through host memory" * doctest::test_suite("mpi")) {
-  auto& device = ::device::DeviceInstance::instance();
+  const auto& device = ::device::DeviceInstance::instance();
   device.api().setDevice(0);
   device.api().initialize();
 

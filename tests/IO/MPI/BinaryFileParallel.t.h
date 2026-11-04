@@ -10,6 +10,7 @@
 #include "IO/Writer/File/BinaryWriter.h"
 #include "Parallel/MPI.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
@@ -47,7 +48,7 @@ TEST_CASE("IO/BinaryFile: ranks with different numbers of pieces write in rounds
     std::string pattern = "/tmp/seissolbinaryXXXXXX";
     const char* created = mkdtemp(pattern.data());
     REQUIRE(created != nullptr);
-    std::copy(pattern.begin(), pattern.end(), name.begin());
+    std::ranges::copy(pattern, name.begin());
   }
   MPI_Bcast(name.data(), static_cast<int>(name.size()), MPI_CHAR, 0, Mpi::mpi.comm());
   const std::string dir(name.data());

@@ -93,7 +93,7 @@ struct BoundaryTagsView {
 /// the boundary condition tags of the faces of the cells of a mesh, which PUMLReader read as
 /// `arrays`
 inline auto boundaryTagsOf(const PumlMesh& mesh, const PumlCellArrays& arrays) -> BoundaryTagsView {
-  return BoundaryTagsView{mesh.data(arrays.boundary), arrays.boundaryFormat};
+  return BoundaryTagsView{.values = mesh.data(arrays.boundary), .format = arrays.boundaryFormat};
 }
 
 /// The order of every cell and its nodes but the vertices, where the file gives them; neither

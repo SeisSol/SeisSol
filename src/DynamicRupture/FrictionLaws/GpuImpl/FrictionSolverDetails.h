@@ -49,7 +49,7 @@ class FrictionSolverDetails : public FrictionSolverInterface<Cfg> {
     // the device allocation they sit next to, and are rebuilt whenever it is.
     // The grid has the tp_gridpoints the kernels loop over.
     const auto upload = [](const auto& source) {
-      auto& device = device::DeviceInstance::instance();
+      const auto& device = device::DeviceInstance::instance();
       const std::size_t bytes = source.data().size() * sizeof(real);
       auto* target = reinterpret_cast<real*>(device.api().allocGlobMem(bytes));
       device.api().copyTo(target, source.data().data(), bytes);

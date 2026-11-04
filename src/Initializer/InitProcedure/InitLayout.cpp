@@ -10,6 +10,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
+#include "Common/Json.h"
 #include "Equations/Datastructures.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/BasicTypedefs.h"
@@ -104,6 +105,31 @@ void verifyHaloSetup(const LTS::Storage& ltsStorage, const std::vector<ClusterMa
   }
 }
 
+//! @brief The clusters of the run, for its summary.
+json::Value ltsSection(const ClusterLayout& layout) {
+  json::Value section;
+  section["minimumTimestep"] = layout.minimumTimestep;
+  section["rates"] = json::Value::arrayOf(layout.rates);
+  if (layout.report.has_value()) {
+    section["minimumCellTimestep"] = layout.report->minimumCellTimestep;
+    section["wiggleFactor"] = layout.report->wiggleFactor;
+    section["theoreticalSpeedup"]["elementwise"] = layout.report->elementwiseSpeedup;
+    section["theoreticalSpeedup"]["clustered"] = layout.report->clusteredSpeedup;
+  }
+  auto& clusters = section["clusters"] = json::Value::array();
+  for (std::size_t id = 0; id < layout.globalClusterCount; ++id) {
+    auto& cluster = clusters.push(json::Value::object());
+    cluster["id"] = id;
+    cluster["timestep"] = layout.timestepRate(id);
+    cluster["updateFactor"] = layout.clusterRate(id);
+    if (layout.report.has_value()) {
+      cluster["cells"] = layout.report->cells.at(id);
+      cluster["dynamicRuptureFaces"] = layout.report->dynamicRuptureFaces.at(id);
+    }
+  }
+  return section;
+}
+
 void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.parameters();
   const auto& meshReader = seissolInstance.meshReader();
@@ -122,6 +148,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       effectiveRates, seissolInstance.meshReader(), seissolInstance.timestepScale(), true);
 
   seissolInstance.memoryManager().setClusterLayout(clusterLayout);
+  seissolInstance.runSummary()["lts"] = ltsSection(clusterLayout);
 
   std::vector<std::size_t> clusterMap(clusterLayout.globalClusterCount);
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
@@ -152,9 +179,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   }
 
   const auto needsIntegration =
-      std::any_of(seissolParams.output.waveFieldParameters.integrationMask.begin(),
-                  seissolParams.output.waveFieldParameters.integrationMask.end(),
-                  [](const auto& value) { return value; }) ||
+      std::ranges::any_of(seissolParams.output.waveFieldParameters.integrationMask,
+                          [](const auto& value) { return value; }) ||
       seissolParams.output.waveFieldParameters.computeStrain;
   const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
 
@@ -252,7 +278,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
           if (element.neighbors[face].hasValue() || element.neighborRanks[face] != rank) {
-            const auto& neighbor = [&]() {
+            const auto& neighbor = [&] {
               const bool ghostNeighbor = element.neighborRanks[face] != rank;
               if (ghostNeighbor) {
                 const auto rank = element.neighborRanks[face];
@@ -292,8 +318,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           const auto neighbor = backmap.get(boundaryElement.localElement);
           const auto& elementNeighbor = meshReader.getElements()[boundaryElement.localElement];
 
-          secondaryCellInformation[i].globalId =
-              meshReader.getGhostlayerMetadata().at(linear.rank)[index].globalId;
+          const auto& metadata = meshReader.getGhostlayerMetadata().at(linear.rank)[index];
+          secondaryCellInformation[i].globalId = metadata.globalId;
+          secondaryCellInformation[i].group = metadata.group;
 
           // equivalent to elementNeighbor.neighborSides[boundaryElement.localSide]
           const auto face = boundaryElement.neighborSide;
@@ -334,7 +361,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < size; ++i) {
-        cellInfo[i].plasticityEnabled = supported && pdis.find(cellInfo2[i].group) == pdis.end();
+        cellInfo[i].plasticityEnabled = supported && !pdis.contains(cellInfo2[i].group);
       }
     }
   }

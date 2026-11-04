@@ -24,7 +24,7 @@ using namespace seissol::io::instance::point;
 using seissol::io::datatype::inferDatatype;
 
 inline TableQuantity doubleQuantity(const std::string& name) {
-  return {name, inferDatatype<double>()};
+  return {.name = name, .datatype = inferDatatype<double>()};
 }
 
 //! what an elastic receiver records

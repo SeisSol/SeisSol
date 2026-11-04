@@ -9,7 +9,10 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTORSTATE_H_
 
 #include "Common/Executor.h"
+#include "DynamicRupture/Output/PickpointSampling.h"
 
+#include <atomic>
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <queue>
@@ -35,6 +38,9 @@ class MessageQueue {
   private:
   std::queue<Message> queue_;
   std::mutex mutex_;
+  // the number of messages in the queue, which the receiver polls without taking the lock, while
+  // the sender may push to the queue
+  std::atomic<std::size_t> size_{0};
 
   public:
   MessageQueue() = default;
@@ -95,10 +101,11 @@ class DynamicRuptureScheduler {
   long lastCorrectionStepsInterior_ = -1;
   long lastCorrectionStepsCopy_ = -1;
   long numberOfDynamicRuptureFaces_;
-  double outputTimestep_{};
+  dr::output::PickpointSampling pickpointSampling_;
 
   public:
-  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, double outputTimestep);
+  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces,
+                          const dr::output::PickpointSampling& pickpointSampling);
 
   [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const;
 
@@ -108,7 +115,8 @@ class DynamicRuptureScheduler {
 
   [[nodiscard]] bool hasDynamicRuptureFaces() const;
 
-  [[nodiscard]] double getOutputTimestep() const;
+  /// when the on-fault receivers take their samples
+  [[nodiscard]] const dr::output::PickpointSampling& pickpointSampling() const;
 };
 
 struct ActResult {

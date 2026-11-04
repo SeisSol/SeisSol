@@ -45,8 +45,12 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
       using VectorOfArraysT = std::vector<std::array<real, misc::NumPaddedPoints<Cfg>>>;
       VectorOfArraysT strikeSlip(layer.size());
       VectorOfArraysT dipSlip(layer.size());
-      parameterToStorageMap.insert({"strike_slip", strikeSlip.data()->data()});
-      parameterToStorageMap.insert({"dip_slip", dipSlip.data()->data()});
+      // the first value, which a layer without faces does not have
+      const auto firstValue = [](VectorOfArraysT& values) -> real* {
+        return values.empty() ? nullptr : values.front().data();
+      };
+      parameterToStorageMap.insert({"strike_slip", firstValue(strikeSlip)});
+      parameterToStorageMap.insert({"dip_slip", firstValue(dipSlip)});
       parameterToStorageMap.insert({"rupture_onset", reinterpret_cast<real*>(onsetTime)});
 
       // get additional parameters (for derived friction laws)

@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <type_traits>
 #include <vector>
 
@@ -197,7 +198,7 @@ TEST_CASE_TEMPLATE("DR RateAndState the slip-rate floor keeps the law representa
     // |x| < exp(-log 2 - c), and it is only entered from c >= logMaxExp. The tightest point is
     // therefore c = logMaxExp itself; beyond it the band retreats exponentially.
     const auto limit = static_cast<double>(rs::logMaxExp<T>());
-    const double critical = std::exp(-0.6931471805599453 - limit);
+    const double critical = std::exp(-std::numbers::ln2 - limit);
     const double criticalRate = critical * 2.0 * static_cast<double>(referenceRate);
     CAPTURE(criticalRate);
     CHECK(criticalRate < static_cast<double>(floorRate));

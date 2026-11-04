@@ -81,7 +81,7 @@ struct PlasticityData {
   static constexpr std::size_t NumberPerMechanism = 0;
   static constexpr std::size_t Parameters = 9;
   static const inline std::string Text = "plasticity";
-  static inline const std::array<std::string, NumQuantities> Quantities = PlasticityQuantities;
+  static const inline std::array<std::string, NumQuantities> Quantities = PlasticityQuantities;
 };
 
 } // namespace seissol::model

@@ -24,9 +24,9 @@
 
 // TODO: remove the following
 
-// NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
+// the bits of a layer mask, used unqualified throughout
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
 enum LayerType { Ghost = (1U << 0U), Copy = (1U << 1U), Interior = (1U << 2U), NumLayers = 3U };
-// NOLINTEND (-cppcoreguidelines-use-enum-class)
 
 namespace seissol::initializer {
 using LayerMask = std::bitset<NumLayers>;
@@ -183,18 +183,18 @@ struct ScratchpadDescriptor {
  */
 template <typename StorageT, typename Cfg, typename = void>
 struct StorageTypeOf {
-  using Type = typename StorageT::Type;
+  using Type = StorageT::Type;
 };
 
 template <typename StorageT, typename Cfg>
 struct StorageTypeOf<StorageT,
                      Cfg,
                      std::enable_if_t<std::is_same_v<typename StorageT::Type, void>>> {
-  using Type = typename StorageT::template VariantType<Cfg>;
+  using Type = StorageT::template VariantType<Cfg>;
 };
 
 template <typename StorageT, typename Cfg>
-using StorageType = typename StorageTypeOf<StorageT, Cfg>::Type;
+using StorageType = StorageTypeOf<StorageT, Cfg>::Type;
 
 template <typename T>
 struct Variable : public VariableDescriptor {
@@ -420,7 +420,7 @@ public:
 private:
     // the varmap of the layer: a GenericVarmap finds the variables by what it holds
     const VarmapT* varmap_;
-    typename VarmapT::PointerContainerT pointers_;
+    VarmapT::PointerContainerT pointers_;
   };
 
   template <typename Cfg>
@@ -429,7 +429,7 @@ private:
   }
 
   void synchronizeTo(AllocationPlace place, void* stream) {
-    for (auto& container : memoryContainer_) {
+    for (const auto& container : memoryContainer_) {
       container.synchronizeTo(place, stream);
     }
   }
@@ -441,36 +441,35 @@ private:
   }
 
   template <typename StorageT>
-  typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
+  StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   /// The values of a variable as the configuration `ConfigT` holds them.
-  template <typename StorageT,
-            typename ConfigT,
-            typename = std::enable_if_t<!std::is_same_v<ConfigT, AllocationPlace>>>
+  template <typename StorageT, typename ConfigT>
   StorageType<StorageT, ConfigT>* var(const ConfigT& /*config*/,
-                                      AllocationPlace place = AllocationPlace::Host) {
+                                      AllocationPlace place = AllocationPlace::Host)
+    requires(!std::is_same_v<ConfigT, AllocationPlace>)
+  {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageType<StorageT, ConfigT>*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
-  [[nodiscard]] const typename StorageT::Type*
-      var(AllocationPlace place = AllocationPlace::Host) const {
+  [[nodiscard]] const StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
-  template <typename StorageT,
-            typename ConfigT,
-            typename = std::enable_if_t<!std::is_same_v<ConfigT, AllocationPlace>>>
+  template <typename StorageT, typename ConfigT>
   [[nodiscard]] const StorageType<StorageT, ConfigT>*
-      var(const ConfigT& /*config*/, AllocationPlace place = AllocationPlace::Host) const {
+      var(const ConfigT& /*config*/, AllocationPlace place = AllocationPlace::Host) const
+    requires(!std::is_same_v<ConfigT, AllocationPlace>)
+  {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageType<StorageT, ConfigT>*>(memoryContainer_[index].get(place));
@@ -636,7 +635,7 @@ private:
 
 #ifdef ACL_DEVICE
   device::DeviceGraphHandle getDeviceComputeGraphHandle(GraphKey graphKey) {
-    if (computeGraphHandles_.find(graphKey) != computeGraphHandles_.end()) {
+    if (computeGraphHandles_.contains(graphKey)) {
       return computeGraphHandles_[graphKey];
     } else {
       return device::DeviceGraphHandle();
@@ -645,7 +644,7 @@ private:
 
   void updateDeviceComputeGraphHandle(GraphKey graphKey,
                                       const device::DeviceGraphHandle& graphHandle) {
-    assert(computeGraphHandles_.find(graphKey) == computeGraphHandles_.end() &&
+    assert(!computeGraphHandles_.contains(graphKey) &&
            "an entry of hash table must be empty on write");
     if (graphHandle.isInitialized()) {
       computeGraphHandles_[graphKey] = graphHandle;

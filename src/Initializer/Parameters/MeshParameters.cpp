@@ -64,14 +64,14 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
 
   reader->warnDeprecated({"periodic", "periodic_direction"});
 
-  return MeshParameters{showEdgeCutStatistics,
-                        pumlBoundaryFormat,
-                        pumlTopologyFormat,
-                        meshFormat,
-                        meshFileName,
-                        partitioningLib,
-                        faceMap,
-                        displacement,
-                        scaling};
+  return MeshParameters{.showEdgeCutStatistics = showEdgeCutStatistics,
+                        .pumlBoundaryFormat = pumlBoundaryFormat,
+                        .pumlTopologyFormat = pumlTopologyFormat,
+                        .meshFormat = meshFormat,
+                        .meshFileName = meshFileName,
+                        .partitioningLib = partitioningLib,
+                        .faceMapFile = faceMap,
+                        .displacement = displacement,
+                        .scaling = scaling};
 }
 } // namespace seissol::initializer::parameters

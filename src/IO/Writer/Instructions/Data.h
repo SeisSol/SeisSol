@@ -16,6 +16,7 @@
 #include <functional>
 #include <memory>
 #include <utility>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace async {
@@ -35,6 +36,13 @@ class DataSource {
   virtual YAML::Node serialize() = 0;
   virtual const void* getPointer(const async::ExecInfo& info) = 0;
   virtual std::size_t count(const async::ExecInfo& info) = 0;
+
+  /**
+   * @brief The contributions the data is made of, in entries, in the order they follow one
+   * another: one for every rank whose output the executor of ASYNC mode NODE collects, and the
+   * whole data otherwise. They add up to count().
+   */
+  virtual std::vector<std::size_t> parts(const async::ExecInfo& info);
   virtual void assignId(int id) = 0;
   [[nodiscard]] virtual const void* getLocalPointer() const = 0;
   [[nodiscard]] virtual size_t getLocalSize() const = 0;
@@ -103,7 +111,7 @@ class WriteInline : public DataSource {
 
   static std::shared_ptr<DataSource> createString(const std::string& data) {
     return std::make_shared<WriteInline>(data.data(),
-                                         (data.size()) * sizeof(char),
+                                         data.size() * sizeof(char),
                                          std::make_shared<datatype::StringDatatype>(data.size()),
                                          std::vector<std::size_t>());
   }
@@ -139,6 +147,7 @@ class WriteBufferRemote : public DataSource {
   const void* getPointer(const async::ExecInfo& info) override;
 
   std::size_t count(const async::ExecInfo& info) override;
+  std::vector<std::size_t> parts(const async::ExecInfo& info) override;
 
   void assignId(int /*id*/) override;
 
@@ -259,7 +268,7 @@ class GeneratedBuffer : public AdhocBuffer {
       : AdhocBuffer(std::move(datatype), std::move(dimensions)), generator_(std::move(generator)),
         sourceCount_(sourceCount), targetStride_(targetCount) {
 
-    for (auto dim : shape()) {
+    for (const auto dim : shape()) {
       targetStride_ *= dim;
     }
   }

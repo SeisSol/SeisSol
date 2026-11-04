@@ -46,14 +46,37 @@ class OutputManager {
 
   void init();
   void initFaceToLtsMap();
-  void writePickpointOutput(double time, double dt);
-  void writePickpointOutput(std::size_t layerId,
-                            double stateTime,
-                            double time,
-                            double dt,
-                            double meshDt,
-                            double meshInDt,
-                            parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Records the fault receivers of all layers at the start of the simulation, `time`, before the
+   * first time step; the time steps take the samples after it (see PickpointSampling).
+   */
+  void recordInitialPickpointOutput(double time);
+
+  /**
+   * Whether the layer has fault receivers.
+   */
+  [[nodiscard]] bool hasPickpoints(std::size_t layerId) const;
+
+  /**
+   * Records the fault receivers of the layer at `time`, in the time step of size `stepSize` that
+   * contains it, `inStep` after the start of that step.
+   */
+  void recordPickpointOutput(std::size_t layerId,
+                             double time,
+                             double stepSize,
+                             double inStep,
+                             parallel::runtime::StreamRuntime& runtime);
+
+  /**
+   * Keeps the friction state at the end of a time step of the layer, after its samples, as the
+   * start of the next one; `sampled` tells whether the step recorded any sample, which copied the
+   * state from the device already.
+   */
+  void finishPickpointStep(std::size_t layerId,
+                           bool sampled,
+                           parallel::runtime::StreamRuntime& runtime);
+
   void flushPickpointDataToFile();
   void updateElementwiseOutput(double time);
 
@@ -61,7 +84,6 @@ class OutputManager {
   seissol::SeisSol& seissolInstance_;
 
   protected:
-  bool isAtPickpoint(double time, double dt);
   void initElementwiseOutput();
   void initPickpointOutput();
   void initPickpointTable();
@@ -100,8 +122,6 @@ class OutputManager {
   ::seissol::initializer::StorageBackmap<1> faceToLtsMap_;
   seissol::geometry::MeshReader* meshReader_{nullptr};
 
-  size_t iterationStep_{0};
-  static constexpr double TimeMargin{1.005};
   std::string backupTimeStamp_;
 
   std::unique_ptr<ReceiverOutput> impl_{nullptr};

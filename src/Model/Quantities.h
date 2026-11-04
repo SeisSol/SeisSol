@@ -183,28 +183,28 @@ constexpr bool quantitiesWellFormed(const std::array<QuantityGroup, N>& groups,
 // than spelling out the same groups again.
 
 inline constexpr std::array AcousticQuantities{
-    QuantityGroup{"pprime", QuantityKind::Scalar, FaceRole::Traction},
-    QuantityGroup{"v", QuantityKind::Vector, FaceRole::Velocity},
+    QuantityGroup{.name = "pprime", .kind = QuantityKind::Scalar, .role = FaceRole::Traction},
+    QuantityGroup{.name = "v", .kind = QuantityKind::Vector, .role = FaceRole::Velocity},
 };
 
 inline constexpr std::array ElasticQuantities{
-    QuantityGroup{"s", QuantityKind::SymTensor2, FaceRole::Traction},
-    QuantityGroup{"v", QuantityKind::Vector, FaceRole::Velocity},
+    QuantityGroup{.name = "s", .kind = QuantityKind::SymTensor2, .role = FaceRole::Traction},
+    QuantityGroup{.name = "v", .kind = QuantityKind::Vector, .role = FaceRole::Velocity},
 };
 
 inline constexpr std::array PoroelasticExtraQuantities{
-    QuantityGroup{"p", QuantityKind::Scalar, FaceRole::ExtraTraction},
-    QuantityGroup{"vf", QuantityKind::Vector, FaceRole::ExtraVelocity},
+    QuantityGroup{.name = "p", .kind = QuantityKind::Scalar, .role = FaceRole::ExtraTraction},
+    QuantityGroup{.name = "vf", .kind = QuantityKind::Vector, .role = FaceRole::ExtraVelocity},
 };
 
 /// One relaxation mechanism of a material whose traction is a stress tensor.
 inline constexpr std::array ElasticMechanismQuantities{
-    QuantityGroup{"theta", QuantityKind::SymTensor2},
+    QuantityGroup{.name = "theta", .kind = QuantityKind::SymTensor2},
 };
 
 /// One relaxation mechanism of a material whose traction is a scalar.
 inline constexpr std::array AcousticMechanismQuantities{
-    QuantityGroup{"theta", QuantityKind::Scalar},
+    QuantityGroup{.name = "theta", .kind = QuantityKind::Scalar},
 };
 
 } // namespace seissol::model

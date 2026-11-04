@@ -50,15 +50,15 @@ void plasticityNonlinearOfSolid(Real<Cfg>** __restrict nodalStressTensors,
   constexpr unsigned NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisDim<Cfg>] -
                                 init::QStressNodal<Cfg>::Start[multisim::BasisDim<Cfg>];
 
-  auto* queue = reinterpret_cast<sycl::queue*>(streamPtr);
+  auto& queue = *reinterpret_cast<sycl::queue*>(streamPtr);
   auto rng = getrange<Cfg>(NumNodes, numElements);
 
-  queue->submit([&](sycl::handler& cgh) {
+  queue.submit([&](sycl::handler& cgh) {
     const sycl::local_accessor<int> isAdjusted(1, cgh);
 
     cgh.parallel_for(rng, [=](sycl::nd_item<1> item) {
-      auto wid = item.get_group().get_group_id(0);
-      auto tid = item.get_local_id(0);
+      const auto wid = item.get_group().get_group_id(0);
+      const auto tid = item.get_local_id(0);
 
       real* qStressNodal = nodalStressTensors[wid];
       const seissol::model::PlasticityData<Cfg>& cellPlasticity = plasticity[cellIndices[wid]];
@@ -133,7 +133,7 @@ void plasticityNonlinearOfSolid(Real<Cfg>** __restrict nodalStressTensors,
 
         eta[tid] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtUpdate);
 
-        auto yieldCounterAR =
+        const auto yieldCounterAR =
             sycl::atomic_ref<std::size_t,
                              sycl::memory_order::relaxed,
                              sycl::memory_scope::device,

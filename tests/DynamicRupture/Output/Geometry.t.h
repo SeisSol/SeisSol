@@ -7,7 +7,9 @@
 
 #include "Common/ConfigDispatch.h"
 #include "Common/ConfigValue.h"
+#include "Common/Real.h"
 #include "Common/Typedefs.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/CellTransform.h"
@@ -19,8 +21,10 @@
 #include "TestHelper.h"
 
 #include <Eigen/Dense>
+#include <cmath>
 #include <cstddef>
 #include <iostream>
+#include <numbers>
 
 namespace seissol::unit_test {
 
@@ -147,17 +151,17 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
         0.48876030678064375,     0.29039930608799031,     0.12632929701966925,
         2.4874032376060777E-002};
 
-    // the reference is the Stroud rule with 7 x 7 points; it is checked in every configuration
-    // whose faults use that rule
+    // the reference is the Stroud rule with 7 x 7 points; it is checked in every configuration of
+    // order 6, if the faults of the executable use that rule
     constexpr std::size_t ReferenceSize = 49;
     forEachConfig([&](auto cfg) {
       using Cfg = decltype(cfg);
-      if constexpr (Cfg::DRQuadRule == DRQuadRuleType::Stroud &&
+      if constexpr (seissol::DRQuadRule == DRQuadRuleType::Stroud &&
                     TriangleQuadratureData<Cfg>::Size == ReferenceSize) {
         const auto config = configName(Cfg::Value);
         CAPTURE(config);
         auto data = generateTriangleQuadrature<Cfg>();
-        double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
+        double (*testTrianglePoints)[2] = unsafeReshape<2>(data.points.data());
 
         constexpr double Epsilon = 1e-6;
         for (unsigned i = 0; i < TriangleQuadratureData<Cfg>::Size; ++i) {
@@ -168,8 +172,44 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
     });
   }
 
+  SUBCASE("The quadrature of a fault face integrates the products of two face basis functions") {
+    // exactly up to the degree of such a product, whichever rule the faults use: the monomials
+    // x^a y^b on the reference triangle integrate to a! b! / (a + b + 2)!
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      const auto config = configName(Cfg::Value);
+      CAPTURE(config);
+      const auto data = generateTriangleQuadrature<Cfg>();
+      // the points and weights are stored in the precision of the configuration
+      const double epsilon = Cfg::Precision == RealType::F64 ? 1e-12 : 1e-6;
+      const auto factorial = [](std::size_t n) {
+        double result = 1;
+        for (std::size_t i = 2; i <= n; ++i) {
+          result *= static_cast<double>(i);
+        }
+        return result;
+      };
+      const auto degree = 2 * (Cfg::ConvergenceOrder - 1);
+      for (std::size_t total = 0; total <= degree; ++total) {
+        for (std::size_t a = 0; a <= total; ++a) {
+          const auto b = total - a;
+          double integral = 0;
+          for (std::size_t i = 0; i < TriangleQuadratureData<Cfg>::Size; ++i) {
+            integral += data.weights[i] * std::pow(data.points[2 * i], static_cast<double>(a)) *
+                        std::pow(data.points[2 * i + 1], static_cast<double>(b));
+          }
+          const auto exact = factorial(a) * factorial(b) / factorial(a + b + 2);
+          CAPTURE(a);
+          CAPTURE(b);
+          CHECK(integral == AbsApprox(exact).epsilon(epsilon));
+        }
+      }
+    });
+  }
+
   SUBCASE("StrikeAndDipVectors") {
-    const CoordinateT testNormal{-1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
+    const CoordinateT testNormal{
+        -std::numbers::inv_sqrt3, std::numbers::inv_sqrt3, std::numbers::inv_sqrt3};
     CoordinateT testStrike{0.0, 0.0, 0.0};
     CoordinateT testDip{0.0, 0.0, 0.0};
     misc::computeStrikeAndDipVectors(testNormal, testStrike, testDip);
@@ -286,12 +326,12 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
                              std::numeric_limits<std::size_t>::max()};
 
     std::vector<Vertex> vertices;
-    vertices.push_back({{0.0, 0.0, 0.0}, {0}});
-    vertices.push_back({{1.0, 0.0, 0.0}, {0, 1}});
-    vertices.push_back({{0.0, 1.0, 0.0}, {0, 1}});
-    vertices.push_back({{0.0, 0.0, 1.0}, {0}});
-    vertices.push_back({{1.0, 1.0, 0.0}, {1}});
-    vertices.push_back({{1.0, 1.0, 1.0}, {1}});
+    vertices.push_back({.coords = {0.0, 0.0, 0.0}, .elements = {0}});
+    vertices.push_back({.coords = {1.0, 0.0, 0.0}, .elements = {0, 1}});
+    vertices.push_back({.coords = {0.0, 1.0, 0.0}, .elements = {0, 1}});
+    vertices.push_back({.coords = {0.0, 0.0, 1.0}, .elements = {0}});
+    vertices.push_back({.coords = {1.0, 1.0, 0.0}, .elements = {1}});
+    vertices.push_back({.coords = {1.0, 1.0, 1.0}, .elements = {1}});
 
     std::vector<Element> elements;
     Element e1{};

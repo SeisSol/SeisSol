@@ -20,6 +20,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace seissol {
 class SeisSol;
@@ -48,8 +49,8 @@ inline std::size_t outputCountBefore(double startTime, double interval) {
 
 class WriterModule : public seissol::Module, private AsyncWriterModule, private BufferAllocator {
   public:
-  WriterModule(const std::string& prefix,
-               const ScheduledWriter& settings,
+  WriterModule(std::string prefix,
+               ScheduledWriter settings,
                const parallel::Pinning& pinning,
                SeisSol& seissolInstance);
   void startup();
@@ -65,6 +66,8 @@ class WriterModule : public seissol::Module, private AsyncWriterModule, private 
   int addBuffer(const void* pointer, std::size_t size) override;
   void resizeBuffer(int id, const void* pointer, std::size_t size) override;
   void* managedBuffer(int id) override;
+  [[nodiscard]] bool collective() const override;
+  void agreeOnAny(std::vector<int>& flags) override;
 
   int rank_;
   std::string prefix_;

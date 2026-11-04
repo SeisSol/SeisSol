@@ -36,10 +36,10 @@ std::vector<ConfigId> ModelParameters::configs() const {
   for (const auto& [group, groupConfig] : groupConfigs) {
     ofGroups.push_back(groupConfig);
   }
-  std::sort(ofGroups.begin(), ofGroups.end());
+  std::ranges::sort(ofGroups);
   std::vector<ConfigId> result{config};
   for (const auto groupConfig : ofGroups) {
-    if (std::find(result.begin(), result.end(), groupConfig) == result.end()) {
+    if (std::ranges::find(result, groupConfig) == result.end()) {
       result.push_back(groupConfig);
     }
   }
@@ -74,8 +74,11 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
     reader->markUnused(
         {"itmstartingtime", "itmtime", "itmvelocityscalingfactor", "itmreflectiontype"});
   }
-  return ITMParameters{
-      itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
+  return ITMParameters{.itmEnabled = itmEnabled,
+                       .itmStartingTime = itmStartingTime,
+                       .itmDuration = itmDuration,
+                       .itmVelocityScalingFactor = itmVelocityScalingFactor,
+                       .itmReflectionType = reflectionType};
 }
 
 namespace {
@@ -195,10 +198,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
 
   const auto freqCentral = reader->readIfRequired<double>("freqcentral", isAnelastic);
   const auto freqRatio = reader->readIfRequired<double>("freqratio", isAnelastic);
-  if (isAnelastic) {
-    if (freqRatio <= 0) {
-      logError() << "The freqratio parameter must be positive; but that is currently not the case.";
-    }
+  if (isAnelastic && (freqRatio <= 0)) {
+    logError() << "The freqratio parameter must be positive; but that is currently not the case.";
   }
 
   const ITMParameters itmParameters = readITMParameters(baseReader);
@@ -221,23 +222,23 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                                                            {"rusanov", NumericalFlux::Rusanov},
                                                        });
 
-  return ModelParameters{hasBoundaryFile,
-                         plasticity,
-                         plasticityPointwise,
-                         plasticityDisabledGroups,
-                         useCellHomogenizedMaterial,
-                         freqCentral,
-                         freqRatio,
-                         gravitationalAcceleration,
-                         tv,
-                         boundaryFileName.value_or(""),
-                         materialFileName,
-                         plasticityFileNames,
-                         itmParameters,
-                         flux,
-                         fluxNearFault,
-                         config,
-                         std::move(groupConfigs)};
+  return ModelParameters{.hasBoundaryFile = hasBoundaryFile,
+                         .plasticity = plasticity,
+                         .plasticityPointwise = plasticityPointwise,
+                         .plasticityDisabledGroups = plasticityDisabledGroups,
+                         .useCellHomogenizedMaterial = useCellHomogenizedMaterial,
+                         .freqCentral = freqCentral,
+                         .freqRatio = freqRatio,
+                         .gravitationalAcceleration = gravitationalAcceleration,
+                         .tv = tv,
+                         .boundaryFileName = boundaryFileName.value_or(""),
+                         .materialFileName = materialFileName,
+                         .plasticityFileNames = plasticityFileNames,
+                         .itmParameters = itmParameters,
+                         .flux = flux,
+                         .fluxNearFault = fluxNearFault,
+                         .config = config,
+                         .groupConfigs = std::move(groupConfigs)};
 }
 
 std::string fluxToString(NumericalFlux flux) {

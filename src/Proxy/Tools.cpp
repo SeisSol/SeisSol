@@ -8,7 +8,7 @@
 
 #include "Tools.h"
 
-void print_hostname() {
+void printHostname() {
   /*FILE* fp = popen("hostname", "r");
   if (fp > 0) {
     char buffer[256];

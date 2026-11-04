@@ -16,6 +16,8 @@
 
 #include <memory>
 #include <mpi.h>
+#include <string>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace async {
@@ -68,6 +70,9 @@ class Writer {
 
   [[nodiscard]] const std::vector<std::shared_ptr<instructions::WriteInstruction>>&
       getInstructions() const;
+
+  //! @brief The HDF5 files the plan writes to, each once, in the order they first appear in.
+  [[nodiscard]] std::vector<std::string> hdf5Files() const;
 
   private:
   std::vector<std::shared_ptr<instructions::WriteInstruction>> instructions_;

@@ -87,6 +87,12 @@ if (WITH_GPU)
 
   make_device_lib(seissol-device-lib "${DEVICE_SRC}")
 
+  if (WARNINGS_AS_ERRORS)
+    # mostly generated code, compiled by the GPU toolchains
+    set_property(SOURCE ${DEVICE_SRC} APPEND PROPERTY COMPILE_OPTIONS
+      $<$<COMPILE_LANGUAGE:CXX>:-Wno-error>)
+  endif()
+
   target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
 
   target_compile_options(seissol-device-lib PRIVATE -fPIC)

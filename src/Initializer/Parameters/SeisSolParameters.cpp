@@ -62,13 +62,13 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
 
   logInfo() << "SeisSol parameter file read successfully.";
 
-  return SeisSolParameters{cubeGeneratorParameters,
-                           drParameters,
-                           initializationParameters,
-                           meshParameters,
-                           modelParameters,
-                           outputParameters,
-                           sourceParameters,
-                           timeSteppingParameters};
+  return SeisSolParameters{.cubeGenerator = cubeGeneratorParameters,
+                           .drParameters = drParameters,
+                           .initialization = initializationParameters,
+                           .mesh = meshParameters,
+                           .model = modelParameters,
+                           .output = outputParameters,
+                           .source = sourceParameters,
+                           .timeStepping = timeSteppingParameters};
 }
 } // namespace seissol::initializer::parameters

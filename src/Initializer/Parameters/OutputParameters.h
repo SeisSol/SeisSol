@@ -15,8 +15,10 @@
 
 #include <array>
 #include <list>
+#include <optional>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 namespace seissol::initializer::parameters {
@@ -53,7 +55,8 @@ enum class ProjectionMethod : int { Pointwise, L2 };
  * of one per output step.
  *
  * Only the VTKHDF format can do more than `Snapshot`; an Xdmf output (that is, one written
- * without a `vtkorder`) references its unchanging parts from every step anyway.
+ * without a `vtkorder`) references its unchanging parts from every step anyway. An output whose
+ * parameters choose none is written as `Monolith` in VTKHDF and as a snapshot per step in Xdmf.
  */
 enum class TimeSeriesMode : int { Snapshot, Incremental, Monolith };
 
@@ -68,7 +71,8 @@ struct ElementwiseFaultParameters {
   FaultRefinement refinementStrategy{FaultRefinement::Quad};
   int refinement{2};
   int vtkorder{-1};
-  TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
+  // none if the parameters choose none (see TimeSeriesMode)
+  std::optional<TimeSeriesMode> timeSeries;
 };
 
 struct EnergyOutputParameters {
@@ -89,7 +93,8 @@ struct FreeSurfaceOutputParameters {
   // per quantity of the material of the configuration of the run
   std::vector<bool> outputMask;
   ProjectionMethod projection{ProjectionMethod::L2};
-  TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
+  // none if the parameters choose none (see TimeSeriesMode)
+  std::optional<TimeSeriesMode> timeSeries;
 };
 
 enum class ReceiverOutputFormat { Csv, Hdf5 };
@@ -103,6 +108,11 @@ struct PickpointParameters {
   ReceiverOutputFormat format{ReceiverOutputFormat::Csv};
   //! @brief As ReceiverOutputParameters::samplechunk, for the on-fault receivers.
   std::size_t samplechunk{0};
+  /**
+   * @brief The time between two samples of the on-fault receivers (`pickdt`); zero samples every
+   * `printTimeInterval` time steps of the finest time cluster with fault faces instead.
+   */
+  double samplingInterval{0};
 };
 
 struct ReceiverOutputParameters {
@@ -166,11 +176,11 @@ struct WaveFieldOutputParameters {
   bool computeRotation{false};
   bool computeStrain{false};
   ProjectionMethod projection{ProjectionMethod::Pointwise};
-  TimeSeriesMode timeSeries{TimeSeriesMode::Snapshot};
+  // none if the parameters choose none (see TimeSeriesMode)
+  std::optional<TimeSeriesMode> timeSeries;
 };
 
 struct OutputParameters {
-  bool loopStatisticsNetcdfOutput{false};
   OutputFormat format{OutputFormat::None};
   XdmfBackend xdmfWriterBackend{};
   uint32_t hdfcompress{0};
@@ -182,26 +192,28 @@ struct OutputParameters {
   PickpointParameters pickpointParameters;
   ReceiverOutputParameters receiverParameters;
   WaveFieldOutputParameters waveFieldParameters;
+  //! the simulated time after which a simulation epoch ends at the latest; zero for no limit
+  double epochInterval{0};
 
   OutputParameters() = default;
-  OutputParameters(bool loopStatisticsNetcdfOutput,
-                   OutputFormat format,
+  OutputParameters(OutputFormat format,
                    XdmfBackend xdmfWriterBackend,
                    uint32_t hdfcompress,
-                   const std::string& prefix,
+                   std::string prefix,
                    const CheckpointParameters& checkpointParameters,
                    const ElementwiseFaultParameters& elementwiseParameters,
                    const EnergyOutputParameters& energyParameters,
-                   const FreeSurfaceOutputParameters& freeSurfaceParameters,
-                   const PickpointParameters& pickpointParameters,
-                   const ReceiverOutputParameters& receiverParameters,
-                   const WaveFieldOutputParameters& waveFieldParameters)
-      : loopStatisticsNetcdfOutput(loopStatisticsNetcdfOutput), format(format),
-        xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress), prefix(prefix),
-        checkpointParameters(checkpointParameters), elementwiseParameters(elementwiseParameters),
-        energyParameters(energyParameters), freeSurfaceParameters(freeSurfaceParameters),
-        pickpointParameters(pickpointParameters), receiverParameters(receiverParameters),
-        waveFieldParameters(waveFieldParameters) {}
+                   FreeSurfaceOutputParameters freeSurfaceParameters,
+                   PickpointParameters pickpointParameters,
+                   ReceiverOutputParameters receiverParameters,
+                   WaveFieldOutputParameters waveFieldParameters)
+      : format(format), xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress),
+        prefix(std::move(prefix)), checkpointParameters(checkpointParameters),
+        elementwiseParameters(elementwiseParameters), energyParameters(energyParameters),
+        freeSurfaceParameters(std::move(freeSurfaceParameters)),
+        pickpointParameters(std::move(pickpointParameters)),
+        receiverParameters(std::move(receiverParameters)),
+        waveFieldParameters(std::move(waveFieldParameters)) {}
 };
 
 void warnIntervalAndDisable(bool& enabled,
@@ -209,16 +221,16 @@ void warnIntervalAndDisable(bool& enabled,
                             const std::string& valName,
                             const std::string& intName);
 CheckpointParameters readCheckpointParameters(ParameterReader* baseReader);
-ElementwiseFaultParameters readElementwiseParameters(ParameterReader* baseReader,
-                                                     const std::string& defaultTimeSeries);
+ElementwiseFaultParameters
+    readElementwiseParameters(ParameterReader* baseReader,
+                              std::optional<TimeSeriesMode> defaultTimeSeries);
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader);
-FreeSurfaceOutputParameters readFreeSurfaceParameters(ParameterReader* baseReader,
-                                                      const std::string& defaultTimeSeries,
-                                                      ConfigId config);
+FreeSurfaceOutputParameters readFreeSurfaceParameters(
+    ParameterReader* baseReader, std::optional<TimeSeriesMode> defaultTimeSeries, ConfigId config);
 PickpointParameters readPickpointParameters(ParameterReader* baseReader);
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader);
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
-                                                  const std::string& defaultTimeSeries,
+                                                  std::optional<TimeSeriesMode> defaultTimeSeries,
                                                   ConfigId config);
 OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId config);
 } // namespace seissol::initializer::parameters

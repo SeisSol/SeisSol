@@ -20,7 +20,7 @@
 
 namespace seissol {
 
-void Modules::_registerHook(Module& module, ModuleHook hook, ModulePriority priority) {
+void Modules::registerHook(Module& module, ModuleHook hook, ModulePriority priority) {
   assert(static_cast<int>(hook) < static_cast<int>(ModuleHook::MaxHooks));
 
   if (nextHook_ >= ModuleHook::MaxInitHooks) {
@@ -37,8 +37,6 @@ void Modules::_registerHook(Module& module, ModuleHook hook, ModulePriority prio
 
 const char* Modules::strHook(ModuleHook hook) {
   switch (hook) {
-  case ModuleHook::PreMPI:
-    return "PRE_MPI";
   case ModuleHook::PostMPIInit:
     return "POST_MPI_INIT";
   case ModuleHook::PreMesh:
@@ -68,7 +66,7 @@ const char* Modules::strHook(ModuleHook hook) {
 
 Modules::Modules() = default;
 
-double Modules::_callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
+double Modules::callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
   double nextSyncTime = std::numeric_limits<double>::max();
 
   for (auto& [_, module] : hooks_[static_cast<size_t>(ModuleHook::SynchronizationPoint)]) {
@@ -79,7 +77,7 @@ double Modules::_callSyncHook(double currentTime, double timeTolerance, bool for
   return nextSyncTime;
 }
 
-void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
+void Modules::callSimulationStartHook(std::optional<double> checkpointTime) {
   assert(static_cast<int>(nextHook_) <= static_cast<int>(ModuleHook::SynchronizationPoint));
 
   const auto startTime = checkpointTime.value_or(0);
@@ -95,23 +93,6 @@ void Modules::_callSimulationStartHook(std::optional<double> checkpointTime) {
   }
 }
 
-Modules& Modules::instance() {
-  static Modules instance;
-  return instance;
-}
-
-void Modules::registerHook(Module& module, ModuleHook hook, ModulePriority priority) {
-  instance()._registerHook(module, hook, priority);
-}
-
-double Modules::callSyncHook(double currentTime, double timeTolerance, bool forceSyncPoint) {
-  return instance()._callSyncHook(currentTime, timeTolerance, forceSyncPoint);
-}
-
-void Modules::callSimulationStartHook(std::optional<double> checkpointTime) {
-  instance()._callSimulationStartHook(checkpointTime);
-}
-
 // Create all template instances for call
 #define MODULES_CALL_INSTANCE(enum, func)                                                          \
   template <>                                                                                      \
@@ -119,7 +100,6 @@ void Modules::callSimulationStartHook(std::optional<double> checkpointTime) {
     module->func();                                                                                \
   }
 
-MODULES_CALL_INSTANCE(ModuleHook::PreMPI, preMPI)
 MODULES_CALL_INSTANCE(ModuleHook::PostMPIInit, postMPIInit)
 MODULES_CALL_INSTANCE(ModuleHook::PreMesh, preMesh)
 MODULES_CALL_INSTANCE(ModuleHook::PostMesh, postMesh)

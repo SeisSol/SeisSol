@@ -8,10 +8,13 @@
 #include "ActorState.h"
 
 #include "Common/Executor.h"
+#include "DynamicRupture/Output/PickpointSampling.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <iostream>
 #include <mutex>
 #include <string>
@@ -45,24 +48,26 @@ std::string actorStateToString(ActorState state) {
   case ActorState::Synced:
     return "Synced";
   }
-  throw;
+  std::abort();
 }
 
 void MessageQueue::push(const Message& message) {
   const std::scoped_lock lock{mutex_};
   queue_.push(message);
+  size_.store(queue_.size(), std::memory_order_release);
 }
 
 Message MessageQueue::pop() {
   const std::scoped_lock lock{mutex_};
   const Message message = queue_.front();
   queue_.pop();
+  size_.store(queue_.size(), std::memory_order_release);
   return message;
 }
 
-bool MessageQueue::hasMessages() const { return !queue_.empty(); }
+bool MessageQueue::hasMessages() const { return size_.load(std::memory_order_acquire) > 0; }
 
-size_t MessageQueue::size() const { return queue_.size(); }
+size_t MessageQueue::size() const { return size_.load(std::memory_order_acquire); }
 
 double ClusterTimes::nextCorrectionTime(double syncTime) const {
   return std::min(syncTime, correctionTime + maxTimeStepSize);
@@ -89,9 +94,10 @@ NeighborCluster::NeighborCluster(double maxTimeStepSize,
   ct.timeStepRate = timeStepRate;
 }
 
-DynamicRuptureScheduler::DynamicRuptureScheduler(long numberOfDynamicRuptureFaces,
-                                                 double outputTimestep)
-    : numberOfDynamicRuptureFaces_(numberOfDynamicRuptureFaces), outputTimestep_(outputTimestep) {}
+DynamicRuptureScheduler::DynamicRuptureScheduler(
+    long numberOfDynamicRuptureFaces, const dr::output::PickpointSampling& pickpointSampling)
+    : numberOfDynamicRuptureFaces_(numberOfDynamicRuptureFaces),
+      pickpointSampling_(pickpointSampling) {}
 
 bool DynamicRuptureScheduler::mayComputeInterior(long curCorrectionSteps) const {
   return curCorrectionSteps > lastCorrectionStepsInterior_;
@@ -109,5 +115,7 @@ bool DynamicRuptureScheduler::hasDynamicRuptureFaces() const {
   return numberOfDynamicRuptureFaces_ > 0;
 }
 
-double DynamicRuptureScheduler::getOutputTimestep() const { return outputTimestep_; }
+const dr::output::PickpointSampling& DynamicRuptureScheduler::pickpointSampling() const {
+  return pickpointSampling_;
+}
 } // namespace seissol::time_stepping

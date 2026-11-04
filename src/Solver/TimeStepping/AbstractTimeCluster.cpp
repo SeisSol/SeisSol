@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <iostream>
 #include <memory>
 #include <type_traits>
 #include <utils/logger.h>
@@ -72,7 +71,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     ++numberOfTimeSteps_;
     ct_.stepsSinceLastSync += ct_.timeStepRate;
     ct_.stepsSinceStart += ct_.timeStepRate;
-    for (auto& neighbor : neighbors_) {
+    for (const auto& neighbor : neighbors_) {
       const bool justBeforeSync = ct_.stepsUntilSync <= ct_.predictionsSinceLastSync;
       const bool sendMessage =
           justBeforeSync || ct_.stepsSinceLastSync >= neighbor.ct.predictionsSinceLastSync;
@@ -92,7 +91,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     ct_.predictionsSinceStart += ct_.timeStepRate;
     ct_.predictionTime += timeStepSize();
 
-    for (auto& neighbor : neighbors_) {
+    for (const auto& neighbor : neighbors_) {
       // Maybe check also how many steps neighbor has to sync!
       const bool justBeforeSync = ct_.stepsUntilSync <= ct_.predictionsSinceLastSync;
       const bool sendMessage =
@@ -110,7 +109,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
     assert(state_ == ActorState::Corrected);
     logDebug() << "synced at" << syncTime_ << ", corrTime =" << ct_.correctionTime
                << "stepsSinceLastSync" << ct_.stepsSinceLastSync << "stepsUntilLastSync"
-               << ct_.stepsUntilSync << std::endl;
+               << ct_.stepsUntilSync;
     state_ = ActorState::Synced;
     break;
   case ActorAction::RestartAfterSync:
@@ -125,8 +124,8 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
 
 ActResult AbstractTimeCluster::act() {
   ActResult result;
-  auto stateBefore = state_;
-  auto nextAction = getNextLegalAction();
+  const auto stateBefore = state_;
+  const auto nextAction = getNextLegalAction();
   unsafePerformAction(nextAction);
 
   const auto currentTime = std::chrono::steady_clock::now();
@@ -176,8 +175,8 @@ bool AbstractTimeCluster::processMessages() {
 bool AbstractTimeCluster::mayPredict() {
   // We can predict, if our prediction time is smaller/equals than the next correction time of all
   // neighbors.
-  const auto minNeighborSteps = std::min_element(
-      neighbors_.begin(), neighbors_.end(), [](const NeighborCluster& a, const NeighborCluster& b) {
+  const auto minNeighborSteps =
+      std::ranges::min_element(neighbors_, [](const NeighborCluster& a, const NeighborCluster& b) {
         return a.ct.nextCorrectionSteps() < b.ct.nextCorrectionSteps();
       });
   const bool stepBasedPredict =
@@ -189,7 +188,7 @@ bool AbstractTimeCluster::mayPredict() {
 bool AbstractTimeCluster::mayCorrect() {
   // We can correct, if our prediction time is smaller than the one of all neighbors.
   bool stepBasedCorrect = true;
-  for (auto& neighbor : neighbors_) {
+  for (const auto& neighbor : neighbors_) {
     const bool isSynced = neighbor.ct.stepsUntilSync <= neighbor.ct.predictionsSinceLastSync;
     stepBasedCorrect =
         stepBasedCorrect &&
@@ -266,9 +265,8 @@ void AbstractTimeCluster::setClusterTimes(double newTimeStepSize) {
 std::vector<NeighborCluster>* AbstractTimeCluster::getNeighborClusters() { return &neighbors_; }
 
 bool AbstractTimeCluster::hasDifferentExecutorNeighbor() {
-  return std::any_of(neighbors_.begin(), neighbors_.end(), [&](auto& neighbor) {
-    return neighbor.executor != executor_;
-  });
+  return std::ranges::any_of(neighbors_,
+                             [&](auto& neighbor) { return neighbor.executor != executor_; });
 }
 
 void AbstractTimeCluster::finishPhase() {}
@@ -281,7 +279,7 @@ void AbstractTimeCluster::printTimeoutMessage(std::chrono::seconds timeSinceLast
                    << " mayCorrect = " << mayCorrect()
                    << " mayCorrect (steps) = " << AbstractTimeCluster::mayCorrect()
                    << " maySync = " << maySync();
-  for (auto& neighbor : neighbors_) {
+  for (const auto& neighbor : neighbors_) {
     logWarning(true) << "Neighbor with rate = " << neighbor.ct.timeStepRate
                      << "PredTime = " << neighbor.ct.predictionTime
                      << "CorrTime = " << neighbor.ct.correctionTime
