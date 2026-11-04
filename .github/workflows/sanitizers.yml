@@ -53,6 +53,7 @@ jobs:
             # memory a container holds, not how much of it is in use
             cxx-flags: -D_GLIBCXX_ASSERTIONS
             configs: ci-sanitize
+            dr-quad-rule: dunavant
             testing-generated: 'ON'
             threads: false
           - name: thread
@@ -61,6 +62,9 @@ jobs:
             cxx: clang++
             cxx-flags: ''
             configs: elastic-o6-f64
+            # the rule of the faults that no other build of the CI takes, with its own snapshot
+            # references of the rupture cases
+            dr-quad-rule: stroud
             # the generated kernels run on one thread
             testing-generated: 'OFF'
             threads: true
@@ -117,6 +121,7 @@ jobs:
             -DCMAKE_CXX_FLAGS_DEBUG="-O1 -g1" \
             -DSANITIZERS="${{ matrix.setup.sanitizers }}" \
             -DCONFIGS=${{ matrix.setup.configs }} \
+            -DDR_QUAD_RULE=${{ matrix.setup.dr-quad-rule }} \
             -DGEMM_TOOLS_LIST=none \
             -DHOST_ARCH=hsw \
             -DNETCDF=OFF \

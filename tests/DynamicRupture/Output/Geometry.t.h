@@ -7,6 +7,7 @@
 
 #include "Common/ConfigDispatch.h"
 #include "Common/ConfigValue.h"
+#include "Common/Real.h"
 #include "Common/Typedefs.h"
 #include "Config.h"
 #include "DynamicRupture/Misc.h"
@@ -20,6 +21,7 @@
 #include "TestHelper.h"
 
 #include <Eigen/Dense>
+#include <cmath>
 #include <cstddef>
 #include <iostream>
 #include <numbers>
@@ -165,6 +167,41 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
         for (unsigned i = 0; i < TriangleQuadratureData<Cfg>::Size; ++i) {
           CHECK(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(Epsilon));
           CHECK(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(Epsilon));
+        }
+      }
+    });
+  }
+
+  SUBCASE("The quadrature of a fault face integrates the products of two face basis functions") {
+    // exactly up to the degree of such a product, whichever rule the faults use: the monomials
+    // x^a y^b on the reference triangle integrate to a! b! / (a + b + 2)!
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      const auto config = configName(Cfg::Value);
+      CAPTURE(config);
+      const auto data = generateTriangleQuadrature<Cfg>();
+      // the points and weights are stored in the precision of the configuration
+      const double epsilon = Cfg::Precision == RealType::F64 ? 1e-12 : 1e-6;
+      const auto factorial = [](std::size_t n) {
+        double result = 1;
+        for (std::size_t i = 2; i <= n; ++i) {
+          result *= static_cast<double>(i);
+        }
+        return result;
+      };
+      const auto degree = 2 * (Cfg::ConvergenceOrder - 1);
+      for (std::size_t total = 0; total <= degree; ++total) {
+        for (std::size_t a = 0; a <= total; ++a) {
+          const auto b = total - a;
+          double integral = 0;
+          for (std::size_t i = 0; i < TriangleQuadratureData<Cfg>::Size; ++i) {
+            integral += data.weights[i] * std::pow(data.points[2 * i], static_cast<double>(a)) *
+                        std::pow(data.points[2 * i + 1], static_cast<double>(b));
+          }
+          const auto exact = factorial(a) * factorial(b) / factorial(a + b + 2);
+          CAPTURE(a);
+          CAPTURE(b);
+          CHECK(integral == AbsApprox(exact).epsilon(epsilon));
         }
       }
     });

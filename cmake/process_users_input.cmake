@@ -124,8 +124,8 @@ set_property(CACHE PLASTICITY_METHOD PROPERTY STRINGS ${PLASTICITY_OPTIONS})
 
 # The quadrature rule of the dynamic rupture faces, for all configurations of the executable alike,
 # so a configuration name does not carry it.
-set(DR_QUAD_RULE "stroud" CACHE STRING "Dynamic Rupture quadrature rule")
-set(DR_QUAD_RULE_OPTIONS stroud dunavant)
+set(DR_QUAD_RULE "dunavant" CACHE STRING "Dynamic Rupture quadrature rule")
+set(DR_QUAD_RULE_OPTIONS dunavant stroud)
 set_property(CACHE DR_QUAD_RULE PROPERTY STRINGS ${DR_QUAD_RULE_OPTIONS})
 
 

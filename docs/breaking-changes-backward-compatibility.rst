@@ -13,6 +13,14 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The quadrature rule of the dynamic rupture faces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since Dunavant's rules are the default)
+
+``DR_QUAD_RULE`` defaults to ``dunavant`` instead of ``stroud``. The friction laws are solved at the
+points of Dunavant's rules, 33 instead of 49 per face at order 6, which changes the results of a
+run with dynamic rupture slightly. A build with ``-DDR_QUAD_RULE=stroud`` computes as before.
+
 The names of configurations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the scheme and the fault quadrature rule hold for the whole executable)
