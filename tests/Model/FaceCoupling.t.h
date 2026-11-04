@@ -182,8 +182,9 @@ Eigen::Matrix4d globalImpedance(const MaterialT& material, const Face& face) {
     return solidImpedance(zp * normal * normal.transpose() +
                           zs * (Eigen::Matrix3d::Identity() - normal * normal.transpose()));
   } else if constexpr (std::is_same_v<MaterialT, model::AcousticMaterial>) {
-    Eigen::Vector4d direction;
-    direction << normal, 1;
+    // element by element: the comma initializer from a vector of three and a scalar makes GCC 13
+    // warn about the bounds of the vector it reads with packets (-Warray-bounds)
+    const Eigen::Vector4d direction(normal(0), normal(1), normal(2), 1.0);
     return std::sqrt(material.rho * material.lambda) * direction * direction.transpose();
   } else {
     static_assert(std::is_same_v<MaterialT, model::PoroElasticMaterial>);
