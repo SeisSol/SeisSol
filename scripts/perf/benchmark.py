@@ -54,10 +54,9 @@ DEFAULT_KERNELS = ("all", "all_dr")
 # what the reports of two machines have to agree in to be compared
 COMPARABLE_KEYS = ("cpu", "cpus", "omp_num_threads", "omp_places", "omp_proc_bind")
 
-# a configuration name as describeBuiltConfigs() starts it, at the start of an unindented line
-CONFIG_NAME = re.compile(
-    r"^([a-z]+-[a-z]+(?:-m\d+)?-o\d+-f(?:32|64)-[a-z]+(?:-s\d+)?)\s*$"
-)
+# a configuration name as describeBuiltConfigs() starts it, at the start of an unindented line:
+# <material>[-m<mechanisms>]-o<order>-<f32|f64>[-s<simulations>]
+CONFIG_NAME = re.compile(r"^([a-z]+(?:-m\d+)?-o\d+-f(?:32|64)(?:-s\d+)?)\s*$")
 
 
 class BenchmarkError(Exception):

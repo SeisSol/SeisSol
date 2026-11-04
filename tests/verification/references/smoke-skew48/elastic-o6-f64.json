@@ -1,6 +1,6 @@
 {
- "case": "smoke-skew48-plasticity",
- "configuration": "elastic-m0-o6-double-s1",
+ "case": "smoke-skew48",
+ "configuration": "elastic-o6-f64",
  "environment": {
   "build-type": "Release",
   "commit": "d2de06a37281",
@@ -10,7 +10,7 @@
   "host-arch": "hsw",
   "processor": "x86_64"
  },
- "inputs-id": "47afb71f60e8d286",
+ "inputs-id": "5ecf1f5733175991",
  "mesh-id": "4f1bae6f8f535852",
  "outputs": {
   "mini-analysis.csv": {

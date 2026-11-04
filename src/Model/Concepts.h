@@ -44,7 +44,6 @@ concept ConfigC = requires {
   { T::MaterialType } -> std::same_as<const model::MaterialType&>;
   { T::Precision } -> std::same_as<const RealType&>;
   { T::Solver } -> std::same_as<const SolverType&>;
-  { T::DRQuadRule } -> std::same_as<const DRQuadRuleType&>;
   { T::NumSimulations } -> std::same_as<const std::size_t&>;
 };
 

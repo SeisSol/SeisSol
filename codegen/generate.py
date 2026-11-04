@@ -54,12 +54,25 @@ STEP_SHARED = "__shared__"
 EXCHANGE_FILE = "codegen.json"
 
 
+def config_name(equations, numMechanisms, order, precision, multipleSimulations):
+    """The name of a configuration, as cmake/confignames.cmake and seissol::configName write it:
+    <material>[-m<mechanisms>]-o<order>-<f32|f64>[-s<fused simulations>]."""
+    name = "viscoelastic" if equations == "viscoelastic2" else equations
+    if numMechanisms > 0:
+        name += f"-m{numMechanisms}"
+    name += f"-o{order}-" + ("f64" if precision in ["d", "f64"] else "f32")
+    if multipleSimulations != 1:
+        name += f"-s{multipleSimulations}"
+    return name
+
+
 def load_configs(cmdLineArgs):
     """The configurations to generate, in the order of their ids.
 
-    Each one names the C++ type it is generated for (`key`) and the arguments it differs in from
-    the command line. Without --configs, it is the one configuration that the command line
-    describes, generated for seissol::Config0.
+    Each one names the C++ type it is generated for (`key`), its name and the arguments it differs
+    in from the command line. Without --configs, it is the one configuration that the command line
+    describes, generated for seissol::Config0. The quadrature rule of the dynamic rupture faces is
+    the one of the command line for all of them.
     """
     if cmdLineArgs.configs is not None:
         with open(cmdLineArgs.configs) as file:
@@ -67,32 +80,31 @@ def load_configs(cmdLineArgs):
     return [
         {
             "key": "seissol::Config0",
+            "name": config_name(
+                cmdLineArgs.equations,
+                cmdLineArgs.numMechanisms,
+                cmdLineArgs.order,
+                cmdLineArgs.precision,
+                cmdLineArgs.multipleSimulations,
+            ),
             "equations": cmdLineArgs.equations,
             "order": cmdLineArgs.order,
             "precision": cmdLineArgs.precision,
             "numMechanisms": cmdLineArgs.numMechanisms,
             "multipleSimulations": cmdLineArgs.multipleSimulations,
-            "drQuadRule": cmdLineArgs.drQuadRule,
             "solver": cmdLineArgs.solver,
         }
     ]
 
 
-def config_folders(configArgs):
-    """The directory of each configuration, below the output directory."""
-    folders = []
-    for args in configArgs:
-        precision = "double" if args.precision in ["d", "f64"] else "single"
-        fusedSuffix = (
-            "-f" + str(args.multipleSimulations) if args.multipleSimulations > 1 else ""
-        )
-        folder = f"equation-{args.equations}-{args.order}-{precision}{fusedSuffix}"
-        # configurations that differ in other respects, e.g. the solver, get one each
-        if folder in folders:
-            folder += f"-{args.solver}-m{args.numMechanisms}-{args.drQuadRule}"
-        if folder in folders:
+def config_folders(configs):
+    """The directory of each configuration, below the output directory: its name."""
+    folders = [config["name"] for config in configs]
+    for folder in folders:
+        if folders.count(folder) > 1:
             raise RuntimeError(f"Two configurations would be generated into {folder}.")
-        folders.append(folder)
+        if folder == "general":
+            raise RuntimeError("No configuration can be named general.")
     return folders
 
 
@@ -163,7 +175,11 @@ def main():
         argparse.Namespace(
             **{
                 **vars(cmdLineArgs),
-                **{key: value for key, value in config.items() if key != "key"},
+                **{
+                    key: value
+                    for key, value in config.items()
+                    if key not in ("key", "name")
+                },
             }
         )
         for config in configs
@@ -352,7 +368,7 @@ def main():
         target for target in targets if target == "cpu" or not isOldGpuInterface
     ]
 
-    folders = config_folders(configArgs)
+    folders = config_folders(configs)
     for folder, config in zip(folders, configs):
         metagen.add_generator(
             [config["key"]],

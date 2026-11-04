@@ -1,6 +1,6 @@
 {
  "case": "rupture-rs-svw-tp",
- "configuration": "elastic-m0-o6-double-s1-stroud",
+ "configuration": "elastic-o6-f64-stroud",
  "environment": {
   "build-type": "Release",
   "commit": "378edfc2a603",

@@ -95,6 +95,7 @@ template <typename Cfg>
 ConfigLayout generatedLayout() {
   ConfigLayout layout;
   layout.config = Cfg::Value;
+  layout.solver = Cfg::Solver;
 
   layout.numQuantities = model::MaterialOf<Cfg>::NumQuantities;
   layout.velocityOffset = model::MaterialOf<Cfg>::VelocityOffset;
@@ -117,5 +118,7 @@ const std::vector<ConfigLayout>& builtConfigLayouts() {
 #undef SEISSOL_CONFIG_LAYOUT
   return Layouts;
 }
+
+DRQuadRuleType builtDRQuadRule() { return DRQuadRule; }
 
 } // namespace seissol

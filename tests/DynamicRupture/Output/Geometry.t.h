@@ -8,6 +8,7 @@
 #include "Common/ConfigDispatch.h"
 #include "Common/ConfigValue.h"
 #include "Common/Typedefs.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/CellTransform.h"
@@ -148,12 +149,12 @@ TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
         0.48876030678064375,     0.29039930608799031,     0.12632929701966925,
         2.4874032376060777E-002};
 
-    // the reference is the Stroud rule with 7 x 7 points; it is checked in every configuration
-    // whose faults use that rule
+    // the reference is the Stroud rule with 7 x 7 points; it is checked in every configuration of
+    // order 6, if the faults of the executable use that rule
     constexpr std::size_t ReferenceSize = 49;
     forEachConfig([&](auto cfg) {
       using Cfg = decltype(cfg);
-      if constexpr (Cfg::DRQuadRule == DRQuadRuleType::Stroud &&
+      if constexpr (seissol::DRQuadRule == DRQuadRuleType::Stroud &&
                     TriangleQuadratureData<Cfg>::Size == ReferenceSize) {
         const auto config = configName(Cfg::Value);
         CAPTURE(config);

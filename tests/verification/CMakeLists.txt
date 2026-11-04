@@ -44,7 +44,7 @@ set(SEISSOL_SNAPSHOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/references" CACHE PATH
 # most cases, since rupture and plasticity need it. A build outside this list
 # reports its snapshots as skipped, which the coverage test lists, so the gap
 # stays visible; a case marked SNAPSHOT_EVERYWHERE is kept in every build.
-set(SEISSOL_SNAPSHOT_CONFIGURATIONS "elastic-m0-o6-double-s1" CACHE STRING
+set(SEISSOL_SNAPSHOT_CONFIGURATIONS "elastic-o6-f64" CACHE STRING
     "Build configurations that keep snapshot references")
 # The tolerances are a property of the environment a build runs in, relative
 # to the one the references were computed in, not of the cases: identical
@@ -312,7 +312,7 @@ function(seissol_add_minitest)
       "    {\"name\": \"${MT_NAME}\", \"mesh\": \"${MT_MESH}\", \"requires\": [${requires_json}]},\n")
 
   if (NOT MT_SNAPSHOT_KEY)
-    set(MT_SNAPSHOT_KEY "{equations}-m{mechanisms}-o{order}-{precision}-s{fused}")
+    set(MT_SNAPSHOT_KEY "{configuration}")
   endif()
   set(snapshot_scope "")
   if (NOT MT_SNAPSHOT_EVERYWHERE)
@@ -431,8 +431,9 @@ function(seissol_add_rupture)
       NAME ${RUP_NAME}
       MESH ${RUP_MESH}
       PARAMETERS rupture.par
-      # the quadrature rule on the fault changes the result of every case with one
-      SNAPSHOT_KEY "{equations}-m{mechanisms}-o{order}-{precision}-s{fused}-{dr-quad-rule}"
+      # the quadrature rule on the fault changes the result of every case with one; it holds for
+      # all configurations of the executable, so the name of the configuration does not carry it
+      SNAPSHOT_KEY "{configuration}-{dr-quad-rule}"
       FILES ${RUP_FAULT} faultreceiver.dat
       STEPS 64
       REQUIRE equations=elastic
@@ -447,7 +448,7 @@ endfunction()
 # The cases of Cases.cmake, for every configuration they are registered for.
 #
 # The tests of a configuration carry its name, as in
-# verification.smoke-box48<elastic-linearck-o6-f64-stroud>, and work in a
+# verification.smoke-box48<elastic-o6-f64>, and work in a
 # directory of their own; the runner chooses the configuration of the
 # executable with SEISSOL_CONFIGURATION. The coverage test of a configuration
 # runs after its cases because it cleans up the fixture they require, and fails
@@ -469,12 +470,13 @@ foreach (SEISSOL_VERIFICATION_CONFIG IN LISTS verification_configs)
     message(FATAL_ERROR "SEISSOL_VERIFICATION_CONFIGS: ${SEISSOL_VERIFICATION_CONFIG} is not "
                         "built; the build holds ${SEISSOL_CONFIG_NAMES}")
   endif()
-  # what the configuration is, for capabilities.json and the snapshot keys
-  foreach (property MATERIALS SOLVERS MECHANISMS ORDERS PRECISIONS DRQUADRULES SIMULATIONS)
+  # what the configuration is, for capabilities.json and the snapshot keys; the quadrature rule of
+  # the dynamic rupture faces is the one of the executable
+  foreach (property MATERIALS SOLVERS MECHANISMS ORDERS PRECISIONS SIMULATIONS)
     list(GET SEISSOL_CONFIG_${property} ${index} SEISSOL_CAP_${property})
   endforeach()
-  set(SEISSOL_BUILD_CONFIGURATION
-      "${SEISSOL_CAP_MATERIALS}-m${SEISSOL_CAP_MECHANISMS}-o${SEISSOL_CAP_ORDERS}-${SEISSOL_CAP_PRECISIONS}-s${SEISSOL_CAP_SIMULATIONS}")
+  set(SEISSOL_CAP_DRQUADRULE ${DR_QUAD_RULE})
+  set(SEISSOL_BUILD_CONFIGURATION ${SEISSOL_VERIFICATION_CONFIG})
   set(SEISSOL_VERIFICATION_SUFFIX "<${SEISSOL_VERIFICATION_CONFIG}>")
   set(SEISSOL_VERIFICATION_DIR ${CMAKE_CURRENT_BINARY_DIR}/${SEISSOL_VERIFICATION_CONFIG})
   configure_file(

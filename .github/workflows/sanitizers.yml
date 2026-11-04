@@ -60,7 +60,7 @@ jobs:
             cc: clang
             cxx: clang++
             cxx-flags: ''
-            configs: elastic-linearck-o6-f64-stroud
+            configs: elastic-o6-f64
             # the generated kernels run on one thread
             testing-generated: 'OFF'
             threads: true

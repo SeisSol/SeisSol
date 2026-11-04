@@ -6,7 +6,7 @@
   "precision": "@SEISSOL_CAP_PRECISIONS@",
   "mechanisms": @SEISSOL_CAP_MECHANISMS@,
   "fused": @SEISSOL_CAP_SIMULATIONS@,
-  "dr-quad-rule": "@SEISSOL_CAP_DRQUADRULES@",
+  "dr-quad-rule": "@SEISSOL_CAP_DRQUADRULE@",
   "mpi": @SEISSOL_CAP_MPI@,
   "openmp": @SEISSOL_CAP_OPENMP@,
   "device-backend": "@SEISSOL_CAP_DEVICE@"

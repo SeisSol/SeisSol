@@ -1,6 +1,6 @@
 {
  "case": "convergence-periodicx72",
- "configuration": "elastic-m0-o6-double-s1",
+ "configuration": "elastic-o6-f64",
  "environment": {
   "build-type": "Release",
   "commit": "d2de06a37281",

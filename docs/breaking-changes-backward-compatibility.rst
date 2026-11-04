@@ -13,6 +13,22 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The names of configurations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the scheme and the fault quadrature rule hold for the whole executable)
+
+A configuration is named ``<material>[-m<mechanisms>]-o<order>-<f32|f64>[-s<fused simulations>]``,
+e.g. ``elastic-o6-f64`` or ``viscoelastic-m3-o6-f64``, in ``Configuration`` and ``ConfigMap`` of
+the parameter file, in ``SEISSOL_CONFIGURATION``, in ``CONFIGS`` and ``EXTRA_CONFIGS``, and in the
+names of the executables of a single configuration. The scheme that advances a material
+(``SOLVER``) and the quadrature rule of the dynamic rupture faces (``DR_QUAD_RULE``) are chosen for
+the whole executable and are no part of a name any more: ``elastic-linearck-o6-f64-stroud`` is now
+``elastic-o6-f64``, ``viscoelastic-linearckanelastic-m3-o6-f64-stroud`` is
+``viscoelastic-m3-o6-f64``. An executable of a viscoelastic or viscoacoustic configuration is named
+with ``-m`` before its number of mechanisms, ``seissol-viscoelastic-m3-o6-f64`` instead of
+``seissol-viscoelastic-3-o6-f64``. An executable built with ``EXTRA_CONFIGS`` holds several
+configurations and is named ``seissol``, as one built with ``CONFIGS``.
+
 The theoretical speedup of local time stepping
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the machine-readable run summary)

@@ -13,6 +13,7 @@
 #include "Common/Iterator.h"
 #include "Common/Real.h"
 #include "Common/Typedefs.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
@@ -495,7 +496,7 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
     dispatchConfig(configOfFace(geoPoint.faultFaceIndex.value()), [&](auto cfg) {
       using Cfg = decltype(cfg);
       constexpr int NumPoly = Cfg::ConvergenceOrder - 1;
-      if constexpr (Cfg::DRQuadRule == DRQuadRuleType::Stroud) {
+      if constexpr (seissol::DRQuadRule == DRQuadRuleType::Stroud) {
         geoPoint.nearestInternalGpIndex =
             getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
       } else {

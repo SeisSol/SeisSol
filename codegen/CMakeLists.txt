@@ -47,9 +47,11 @@ endif()
 
 # common arguments between configure and build
 # the configurations to generate (cmake/configs.cmake), each under the C++ type it is generated for
+# and with its name, which also names its directory; the quadrature rule of the dynamic rupture
+# faces is the one of --drQuadRule for all of them
 set(SEISSOL_CONFIGS_JSON "[")
 foreach(IDX RANGE ${SEISSOL_CONFIG_LAST})
-  foreach(FIELD TYPES MATERIALS SOLVERS MECHANISMS ORDERS PRECISIONS DRQUADRULES SIMULATIONS)
+  foreach(FIELD TYPES NAMES MATERIALS SOLVERS MECHANISMS ORDERS PRECISIONS SIMULATIONS)
     list(GET SEISSOL_CONFIG_${FIELD} ${IDX} CONFIG_${FIELD})
   endforeach()
   string(SUBSTRING ${CONFIG_PRECISIONS} 0 1 CONFIG_PRECISION_PREFIX)
@@ -57,10 +59,10 @@ foreach(IDX RANGE ${SEISSOL_CONFIG_LAST})
     string(APPEND SEISSOL_CONFIGS_JSON ",")
   endif()
   string(APPEND SEISSOL_CONFIGS_JSON
-    "\n  {\"key\": \"seissol::${CONFIG_TYPES}\", \"equations\": \"${CONFIG_MATERIALS}\", "
+    "\n  {\"key\": \"seissol::${CONFIG_TYPES}\", \"name\": \"${CONFIG_NAMES}\", "
+    "\"equations\": \"${CONFIG_MATERIALS}\", "
     "\"solver\": \"${CONFIG_SOLVERS}\", \"numMechanisms\": ${CONFIG_MECHANISMS}, "
     "\"order\": ${CONFIG_ORDERS}, \"precision\": \"${CONFIG_PRECISION_PREFIX}\", "
-    "\"drQuadRule\": \"${CONFIG_DRQUADRULES}\", "
     "\"multipleSimulations\": ${CONFIG_SIMULATIONS}}")
 endforeach()
 string(APPEND SEISSOL_CONFIGS_JSON "\n]\n")
@@ -69,6 +71,8 @@ string(APPEND SEISSOL_CONFIGS_JSON "\n]\n")
 file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/configs.json"
      CONTENT "${SEISSOL_CONFIGS_JSON}" @ONLY)
 
+# the arguments describe the first configuration; configs.json all of them
+list(GET SEISSOL_CONFIG_SOLVERS 0 FIRST_CONFIG_SOLVER)
 set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/matrices
@@ -88,7 +92,7 @@ set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.
      "--drQuadRule" ${DR_QUAD_RULE}
      "--executable_libxsmm=${Libxsmm_executable_PROGRAM}"
      "--executable_pspamm=${PSpaMM_PROGRAM}"
-     "--solver" ${SOLVER}
+     "--solver" ${FIRST_CONFIG_SOLVER}
      "--configs" "${CMAKE_CURRENT_BINARY_DIR}/configs.json"
      ${PREMULTIPLY_FLUX_VALUE} # boolean flag
      ${OVERRIDE_VECTORSIZE_PARAM}
