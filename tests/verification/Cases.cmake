@@ -195,6 +195,8 @@ foreach (pair
     elastic-o6-f64:viscoelastic-m3-o5-f32:solid-solid
     elastic-o6-f64:anisotropic-o6-f64:solid-uniform
     anisotropic-o6-f64:viscoelastic-m3-o5-f32:solid-solid
+    acoustic-o4-f64:elastic-o6-f64:fluid-solid
+    acoustic-o4-f64:anisotropic-o6-f64:fluid-solid
     viscoelastic-m3-o5-f32:viscoacoustic-m3-o4-f32:solid-fluid
     acoustic-o4-f64:viscoacoustic-m3-o4-f32:fluid-fluid)
   string(REPLACE ":" ";" pair ${pair})
@@ -250,6 +252,17 @@ seissol_add_comparison(
     NAME identity-interaction-anisotropic
     REFERENCE interaction-elastic-o6-f64-alone
     CANDIDATE interaction-elastic-o6-f64-anisotropic-o6-f64
+    TOLERANCE 1e-6
+    LABELS "identity;interaction")
+
+# Likewise, the solid of material-interaction-fluid-solid.yaml is isotropic as a stiffness tensor:
+# with the far half anisotropic, the run solves the same problem as with the far half elastic, the
+# face to the fluid included, whose Riemann problem takes the impedance of the anisotropic solid
+# from its Christoffel matrix.
+seissol_add_comparison(
+    NAME identity-interaction-anisotropic-fluid
+    REFERENCE interaction-acoustic-o4-f64-elastic-o6-f64
+    CANDIDATE interaction-acoustic-o4-f64-anisotropic-o6-f64
     TOLERANCE 1e-6
     LABELS "identity;interaction")
 

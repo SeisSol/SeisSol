@@ -263,17 +263,16 @@ constexpr bool AnisotropicAndIsotropic =
     SameFamily<MaterialT, NeighborT> && !SameRiemannMaterial<MaterialT, NeighborT>;
 
 /// Whether the material `MaterialT` is a solid and `NeighborT` a fluid, or the other way round, by
-/// the materials they pose the Riemann problem at their faces in.
+/// the quantities of the Riemann problems at their faces: at their face, both meet in the traction
+/// and the velocity (see coupledGodunov).
 template <typename MaterialT, typename NeighborT>
-constexpr bool SolidAndFluid = (std::is_same_v<RiemannMaterialOf<MaterialT>, ElasticMaterial> &&
-                                std::is_same_v<RiemannMaterialOf<NeighborT>, AcousticMaterial>) ||
-                               (std::is_same_v<RiemannMaterialOf<MaterialT>, AcousticMaterial> &&
-                                std::is_same_v<RiemannMaterialOf<NeighborT>, ElasticMaterial>);
+constexpr bool SolidAndFluid = (std::is_same_v<RiemannQuantitiesOf<MaterialT>, ElasticMaterial> &&
+                                std::is_same_v<RiemannQuantitiesOf<NeighborT>, AcousticMaterial>) ||
+                               (std::is_same_v<RiemannQuantitiesOf<MaterialT>, AcousticMaterial> &&
+                                std::is_same_v<RiemannQuantitiesOf<NeighborT>, ElasticMaterial>);
 
 /// Whether cells of the materials `MaterialT` and `NeighborT` can be face neighbors: the Riemann
-/// problems at their faces have the same quantities, or one is a solid and the other a fluid, by
-/// the materials they pose it in (an anisotropic solid and a fluid cannot: at their face, the fluid
-/// sees the normal velocity of the solid change with its shear tractions as well).
+/// problems at their faces have the same quantities, or one is a solid and the other a fluid.
 template <typename MaterialT, typename NeighborT>
 constexpr bool CanNeighbor =
     SameFamily<MaterialT, NeighborT> || SolidAndFluid<MaterialT, NeighborT>;

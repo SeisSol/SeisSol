@@ -34,10 +34,10 @@ set(SEISSOL_MATERIALS elastic anisotropic viscoelastic poroelastic acoustic visc
 # trace of the order 6 of their family to order 5 and pad the order 4 of the fluids, the fluids lift
 # the order 6 of the solids to their order 4, and each family has a configuration in single and one
 # in double precision; an anisotropic and an elastic solid of the same order meet as well, which
-# pose the Riemann problem in different materials. Its unit tests, its verification cases with
-# ConfigMap (interaction-* in
-# tests/verification/Cases.cmake) and its sanitizer job check these conversions, which no other set
-# takes, since all of their configurations of one simulation share their order.
+# pose the Riemann problem in different materials, and the anisotropic solid meets a fluid. Its unit
+# tests, its verification cases with ConfigMap (interaction-* in tests/verification/Cases.cmake) and
+# its sanitizer job check these conversions, which no other set takes, since all of their
+# configurations of one simulation share their order.
 #
 # o2 to o8: one set per order, the six materials in that order and both precisions, viscoelastic and
 # viscoacoustic with 3 mechanisms.
