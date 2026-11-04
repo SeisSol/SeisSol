@@ -53,8 +53,9 @@ struct ConfigOf {
     static constexpr SolverType Solver = SolverP;
 };
 
-// The configurations built into the executable, in the order of their ids; a type each. The first
-// one, Config0, is the one a run takes by default.
+// The configurations built into the executable, in the order of their ids; a type each, named after
+// the configuration (e.g. ConfigViscoelasticM3O6F64 for viscoelastic-m3-o6-f64). The first one is the
+// one a run takes by default.
 @SEISSOL_CONFIG_STRUCTS@
 } // namespace seissol
 

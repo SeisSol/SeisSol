@@ -66,27 +66,34 @@ def config_name(equations, numMechanisms, order, precision, multipleSimulations)
     return name
 
 
+def config_type(name):
+    """The C++ type of the configuration named `name`, as cmake/confignames.cmake gives it: its
+    parts capitalized and joined, after Config, e.g. ConfigViscoelasticM3O6F64."""
+    return "Config" + "".join(part[:1].upper() + part[1:] for part in name.split("-"))
+
+
 def load_configs(cmdLineArgs):
     """The configurations to generate, in the order of their ids.
 
     Each one names the C++ type it is generated for (`key`), its name and the arguments it differs
     in from the command line. Without --configs, it is the one configuration that the command line
-    describes, generated for seissol::Config0. The quadrature rule of the dynamic rupture faces is
-    the one of the command line for all of them.
+    describes, generated for the type of its name. The quadrature rule of the dynamic rupture faces
+    is the one of the command line for all of them.
     """
     if cmdLineArgs.configs is not None:
         with open(cmdLineArgs.configs) as file:
             return json.load(file)
+    name = config_name(
+        cmdLineArgs.equations,
+        cmdLineArgs.numMechanisms,
+        cmdLineArgs.order,
+        cmdLineArgs.precision,
+        cmdLineArgs.multipleSimulations,
+    )
     return [
         {
-            "key": "seissol::Config0",
-            "name": config_name(
-                cmdLineArgs.equations,
-                cmdLineArgs.numMechanisms,
-                cmdLineArgs.order,
-                cmdLineArgs.precision,
-                cmdLineArgs.multipleSimulations,
-            ),
+            "key": f"seissol::{config_type(name)}",
+            "name": name,
             "equations": cmdLineArgs.equations,
             "order": cmdLineArgs.order,
             "precision": cmdLineArgs.precision,
@@ -151,7 +158,7 @@ def main():
     # (__shared__); or all of it, one after the other (__all__)
     cmdLineParser.add_argument("--codegen_target", type=str, default=STEP_ALL)
     # the configurations to generate, in the order of their ids; without it, the one that the
-    # arguments above describe, under the key seissol::Config0
+    # arguments above describe, under the key of its type
     cmdLineParser.add_argument("--configs", type=str, default=None)
     # the frameworks to write the unit tests of the kernels for, comma-separated, or none
     cmdLineParser.add_argument("--unit_tests", type=str, default="doctest")

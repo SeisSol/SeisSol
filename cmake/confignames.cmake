@@ -165,6 +165,20 @@ function(seissol_parse_config_name prefix name context)
   set(${prefix}_SIMULATIONS ${_simulations} PARENT_SCOPE)
 endfunction()
 
+# The C++ type of the configuration named `name`: its parts capitalized and joined, after Config,
+# e.g. ConfigViscoelasticM3O6F64 for viscoelastic-m3-o6-f64.
+function(seissol_config_type output name)
+  set(_type Config)
+  string(REPLACE "-" ";" _parts "${name}")
+  foreach(_part IN LISTS _parts)
+    string(SUBSTRING "${_part}" 0 1 _first)
+    string(SUBSTRING "${_part}" 1 -1 _rest)
+    string(TOUPPER "${_first}" _first)
+    string(APPEND _type "${_first}${_rest}")
+  endforeach()
+  set(${output} ${_type} PARENT_SCOPE)
+endfunction()
+
 # The configuration names that the list `names` stands for: its names, with each named set replaced
 # by the configurations it holds.
 function(seissol_expand_configs output names)

@@ -245,6 +245,8 @@ class TestRuntime:
     """
 
     EQUATION = "elastic-o3-f64"
+    # the type of the configuration, named after it
+    TYPE = "seissol::ConfigElasticO3F64"
 
     def test_runtime_files_produced(self, generated_elastic_o3):
         outdir, _ = generated_elastic_o3
@@ -254,16 +256,17 @@ class TestRuntime:
         assert (outdir / self.EQUATION / "runtime.cpp").is_file()
 
     def test_variant_h_keys_the_configuration(self, generated_elastic_o3):
-        """The id of a configuration is its variant, runtime::variantOf<Config0>()."""
+        """The id of a configuration is its variant, runtime::variantOf<Cfg>()."""
         outdir, _ = generated_elastic_o3
         content = (outdir / "variant.h").read_text()
         assert '#include "Config.h"' in content
-        assert "VariantOf<seissol::Config0>" in content
+        assert f"VariantOf<{self.TYPE}>" in content
 
     def test_code_is_named_by_the_key_of_its_configuration(self, generated_elastic_o3):
         """The code of the equation is in a namespace of its own, and the headers
         at the top level name it by the key of its configuration:
-        seissol::kernel::X<seissol::Config0>, seissol::Pool<seissol::Config0>."""
+        seissol::kernel::X<Cfg>, seissol::Pool<Cfg>, with the type Cfg named after the
+        configuration."""
         outdir, _ = generated_elastic_o3
         space = "yatetometagen_" + self.EQUATION.replace("-", "_")
         content = (outdir / self.EQUATION / "kernel.h").read_text()
@@ -278,7 +281,7 @@ class TestRuntime:
             assert f"using Type = ::seissol::{space}::{prefix}" in typed
         pool = (outdir / "pool.h").read_text()
         assert (
-            f"struct Internal_Pool<seissol::Config0> {{ using Type = ::seissol::{space}::Pool; }};"
+            f"struct Internal_Pool<{self.TYPE}> {{ using Type = ::seissol::{space}::Pool; }};"
             in pool
         )
 
@@ -290,7 +293,7 @@ class TestRuntime:
         outdir, _ = generated_elastic_o3
         tensor = (outdir / "tensor.h").read_text()
         assert "template<typename Arg0> using Qane = " in tensor
-        assert "Internal_Qane<seissol::Config0>" not in tensor
+        assert f"Internal_Qane<{self.TYPE}>" not in tensor
 
     def test_collect_lists_what_codegen_writes(self, generated_elastic_o3, tmp_path):
         outdir, _ = generated_elastic_o3
