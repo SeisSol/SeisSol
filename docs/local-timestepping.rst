@@ -281,6 +281,12 @@ and then the actual run, partitioned by what the last of them measured.
 The short runs start from the beginning, write no outputs but their run summary (under :code:`<OutputFile>-cycle<i>`),
 and need the asynchronous output on threads or none (not :code:`ASYNC_MODE=MPI`).
 Each of them initializes SeisSol anew, so it costs about one initialization.
+They take the steps of the time clusters one after another, without the time-stepping plan and recorded
+super-timesteps, whatever ``SEISSOL_CONCURRENT_CLUSTERS``, ``SEISSOL_TIMESTEPPING_PLAN`` and ``SEISSOL_SUPERSTEP_GRAPHS``
+say (the actual run follows them): with concurrent clusters, the time of a loop on the device also counts the time its
+kernels share the device with those of other clusters, and recorded super-timesteps time nothing at all.
+On 128 nodes of Horizon (November 2026), short runs with the time-stepping plan and concurrent clusters measured costs
+that made the actual run of the Turkey case take 40 s instead of 24 s.
 
 The costs of a cell include the speed of the rank it was measured on, so the partition does not weight the ranks
 by Mini SeisSol then (see :ref:`env_vars`).

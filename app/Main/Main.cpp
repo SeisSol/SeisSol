@@ -25,7 +25,9 @@
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 
+#include <array>
 #include <async/Config.h>
+#include <cstddef>
 #include <cstdlib>
 #include <ctime>
 #include <exception>
@@ -80,6 +82,42 @@ seissol::initializer::parameters::SeisSolParameters
   measuring.drParameters.outputPointType = OutputType::None;
   return measuring;
 }
+
+/**
+ * While it exists, the time clusters take their steps one after another, without the time-stepping
+ * plan and recorded super-timesteps, whatever the environment says: for the runs that measure what
+ * the cells cost. With concurrent clusters, the time of a loop on the device also counts the time
+ * its kernels share the device with those of other clusters, and recorded super-timesteps time
+ * nothing at all.
+ */
+class SequentialClusters {
+  public:
+  SequentialClusters() {
+    for (const auto* name : Names) {
+      const char* value = std::getenv(name);
+      saved_.push_back(value != nullptr ? std::make_optional<std::string>(value) : std::nullopt);
+      setenv(name, "0", 1);
+    }
+  }
+  ~SequentialClusters() {
+    for (std::size_t i = 0; i < Names.size(); ++i) {
+      if (saved_[i].has_value()) {
+        setenv(Names[i], saved_[i]->c_str(), 1);
+      } else {
+        unsetenv(Names[i]);
+      }
+    }
+  }
+  SequentialClusters(const SequentialClusters&) = delete;
+  SequentialClusters& operator=(const SequentialClusters&) = delete;
+  SequentialClusters(SequentialClusters&&) = delete;
+  SequentialClusters& operator=(SequentialClusters&&) = delete;
+
+  private:
+  static constexpr std::array<const char*, 3> Names{
+      "SEISSOL_CONCURRENT_CLUSTERS", "SEISSOL_TIMESTEPPING_PLAN", "SEISSOL_SUPERSTEP_GRAPHS"};
+  std::vector<std::optional<std::string>> saved_;
+};
 
 /**
  * The ID of this run: the one SEISSOL_RUN_ID gives, so that whoever started the run can find its
@@ -421,14 +459,21 @@ int main(int argc, char* argv[]) {
       const bool measuring = cycle < cycles;
       if (measuring) {
         logInfo() << "Partition cycle" << cycle + 1 << "of" << cycles
-                  << ": a short run that measures what the cells cost.";
+                  << ": a short run that measures what the cells cost, with the time clusters one"
+                  << "after another.";
       } else if (cycles > 0) {
         logInfo() << "The actual run, partitioned by the costs the run before measured.";
       }
       const auto runParameters = measuring ? measuringRun(parameters, cycle) : parameters;
+      // (see SequentialClusters; the variables get read anew for the measuring run)
+      std::optional<SequentialClusters> sequential;
+      if (measuring) {
+        sequential.emplace();
+      }
+      const utils::Env measuringEnv("SEISSOL_");
 
       // Initialize SeisSol
-      seissol::SeisSol seissolInstance(runParameters, env);
+      seissol::SeisSol seissolInstance(runParameters, measuring ? measuringEnv : env);
 #ifdef USE_ASAGI
       auto& asagiModule = seissol::asagi::AsagiModule::getInstance();
       asagiModule.setPinning(seissolInstance.pinning());
