@@ -1028,7 +1028,7 @@ void TimeCluster<Cfg>::computeNeighboringIntegrationImplementation(double subTim
                                                         timeIntegrated);
     if (configBoundary) {
       configBoundary_.computeIntegrals(data.template get<LTS::CellInformation>(),
-                                       data.template get<LTS::NormalStress>(),
+                                       data.template get<LTS::Coupling>(),
                                        faceNeighbors[cell],
                                        integrationBuffers,
                                        timeIntegrated);

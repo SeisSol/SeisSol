@@ -43,11 +43,12 @@ one converts the time integral of a neighbor of the other from the canonical
 form of the family of the neighbor:
 
 - fromCoupledCanonical(side): as fromCanonical, from the canonical form of the
-  coupled family, with the quantities mapped across. A solid takes the pressure
-  of a fluid as an isotropic stress. A fluid takes the normal stress of a solid
-  on the shared face as its pressure, with weights that the face gives (the
-  runtime tensor normalStress). The velocities carry over. If the order of the
-  configuration is the larger one, the basis is padded instead of lifted. As
+  coupled family, with the quantities mapped across by the matrix of the face
+  (the runtime tensor coupling): the contribution of the neighbor to the
+  Godunov state at the face, in the quantities of the cell, which the code sets
+  up from the impedances of both sides (model::coupledNeighborMap). The flux
+  matrix of the cell at such a face is then its own flux alone. If the order of
+  the configuration is the larger one, the basis is padded instead of lifted. As
   in fromCanonical, a configuration in single precision narrows first.
 
 For that, toCanonical exists for the configurations of a family whose coupled
@@ -374,54 +375,15 @@ def _add_coupled_kernels(
     bases = aderdg.num3DBasisFunctions()
     quantities = aderdg.numQuantities()
 
-    groups = tuple(aderdg.primaryGroups())
-    assert groups == RIEMANN_GROUPS[material]
-    blocks = layout(groups)
-    coupled_blocks = layout(RIEMANN_GROUPS[COUPLED[material]])
-    coupled_count = total_extent(coupled_blocks)
+    assert tuple(aderdg.primaryGroups()) == RIEMANN_GROUPS[material]
+    coupled_count = total_extent(layout(RIEMANN_GROUPS[COUPLED[material]]))
     coupled_bases = num_bases(coupled_order)
 
     coupled = _fused(integral, "coupledCanonicalI", (coupled_bases, coupled_count))
 
-    # the quantities: what carries over as it is, and the traction of a fluid as
-    # the isotropic stress of a solid; the traction of a solid becomes the
-    # pressure of a fluid with the weights of the face
-    mapping = np.zeros((coupled_count, quantities))
-    pressure = None
-    for block in blocks:
-        (source,) = [
-            other for other in coupled_blocks if other.group.role is block.group.role
-        ]
-        if block.group.kind is source.group.kind:
-            for component in range(block.extent):
-                mapping[source.offset + component, block.offset + component] = 1
-        elif source.group.kind is QuantityKind.SCALAR:
-            assert block.group.kind is QuantityKind.SYM_TENSOR2
-            # the normal components, xx, yy and zz
-            for component in range(3):
-                mapping[source.offset, block.offset + component] = 1
-        else:
-            assert source.group.kind is QuantityKind.SYM_TENSOR2
-            assert block.group.kind is QuantityKind.SCALAR
-            pressure = np.zeros((1, quantities))
-            pressure[0, block.offset] = 1
-
-    # in the precision of the configuration, as fromCoupledCanonical computes
-    mappingTensor = Tensor(
-        "coupledMap", mapping.shape, mapping, CSCMemoryLayout, datatype=real
-    )
-    weights = None
-    pressureTensor = None
-    if pressure is not None:
-        # per face: the weights of the stress components in the normal stress
-        weights = Tensor("normalStress", (coupled_count, 1), datatype=real)
-        pressureTensor = Tensor(
-            "coupledPressure",
-            pressure.shape,
-            pressure,
-            CSCMemoryLayout,
-            datatype=real,
-        )
+    # per face: the quantities of the neighbor into the contribution of the neighbor to the Godunov
+    # state, in the quantities of the cell and in the precision of the configuration
+    coupling = Tensor("coupling", (coupled_count, quantities), datatype=real)
 
     # the basis: lifted from a larger order as in fromCanonical, padded from a
     # smaller one
@@ -463,14 +425,10 @@ def _add_coupled_kernels(
                 narrow = coupled
                 narrowing = []
 
-            def basis(right):
-                if lift is None:
-                    return narrow["kq"] * right
-                return lift[side]["kl"] * narrow["lq"] * right
-
-            product = basis(mappingTensor["qp"])
-            if weights is not None:
-                product = product + basis(weights["qa"] * pressureTensor["ap"])
+            if lift is None:
+                product = narrow["kq"] * coupling["qp"]
+            else:
+                product = lift[side]["kl"] * narrow["lq"] * coupling["qp"]
             return narrowing + [integral["kp"] <= product]
 
         generator.addFamily(
@@ -489,11 +447,6 @@ def emit_header(aderdg, output_dir, key, plan, material, targets):
     count = canonical_quantities(aderdg) if to_canonical else 0
     coupled_count = (
         total_extent(layout(RIEMANN_GROUPS[COUPLED[material]])) if coupled else 0
-    )
-    # a fluid weighs the stress of a solid with the normal of the face
-    normal_stress = (
-        coupled
-        and RIEMANN_GROUPS[COUPLED[material]][0].kind is QuantityKind.SYM_TENSOR2
     )
 
     def boolean(value):
@@ -530,9 +483,6 @@ def emit_header(aderdg, output_dir, key, plan, material, targets):
         f"  static constexpr bool CoupledDevice = {boolean(coupled and 'gpu' in targets)};",
         f"  static constexpr std::size_t CoupledCanonicalOrder = {plan.coupled_order or 0};",
         f"  static constexpr std::size_t CoupledCanonicalQuantities = {coupled_count};",
-        "  // whether fromCoupledCanonical reads the weights of the stress components in the normal",
-        "  // stress of the face (normalStress)",
-        f"  static constexpr bool NormalStress = {boolean(normal_stress)};",
         "};",
         "",
         "} // namespace seissol::generated",

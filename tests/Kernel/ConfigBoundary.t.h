@@ -103,50 +103,49 @@ void fillIntegral(Real<Cfg>* integral) {
   }
 }
 
-/// The unit normal of the shared face in the tests.
-inline std::array<double, Cell::Dim> faceNormal() {
-  const double norm = std::sqrt(1.0 + 4.0 + 9.0);
-  return {1.0 / norm, -2.0 / norm, 3.0 / norm};
+/// The size of the coupling matrix of a face between a cell of the configuration `Cfg` and a
+/// neighbor of `NeighborCfg`, at least one.
+template <typename Cfg, typename NeighborCfg>
+constexpr std::size_t couplingSize() {
+  if constexpr (kernels::CoupledConvertible<Cfg, NeighborCfg>) {
+    return tensor::coupling<Cfg>::size();
+  } else {
+    return 1;
+  }
 }
 
 /// The coefficients with which the quantities of a neighbor of the configuration `NeighborCfg` make
-/// up the ones of the configuration `Cfg` on a face with the unit normal `normal`, by their names:
-/// the quantity of the same name; across a solid and a fluid, the pressure for each normal stress
-/// component, and the normal stress on the face for the pressure.
+/// up the ones of the configuration `Cfg` (a row per quantity of the cell): of the same family, the
+/// quantity of the same name; of the coupled family, the coupling matrix of the face, which this
+/// writes to `coupling` with distinct entries of order one.
 template <typename Cfg, typename NeighborCfg>
-std::vector<std::vector<double>> quantityMap(const std::array<double, Cell::Dim>& normal) {
-  const auto& names = model::MaterialOf<Cfg>::Quantities;
-  const auto& neighborNames = model::MaterialOf<NeighborCfg>::Quantities;
-  const std::array<std::string, 6> stress{"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
-  const std::array<double, 6> weights{normal[0] * normal[0],
-                                      normal[1] * normal[1],
-                                      normal[2] * normal[2],
-                                      2 * normal[0] * normal[1],
-                                      2 * normal[1] * normal[2],
-                                      2 * normal[0] * normal[2]};
-  const std::string pressure = "pprime";
-  const auto neighborIndex = [&](const std::string& name) {
-    return static_cast<std::size_t>(std::distance(
-        neighborNames.begin(), std::find(neighborNames.begin(), neighborNames.end(), name)));
-  };
-
+std::vector<std::vector<double>> quantityMap(Real<Cfg>* coupling) {
   std::vector<std::vector<double>> map(Quantities<Cfg>,
                                        std::vector<double>(Quantities<NeighborCfg>));
-  // the names of a viscoelastic material leave out its memory variables
-  const auto named = std::min(Quantities<Cfg>, names.size());
-  for (std::size_t quantity = 0; quantity < named; ++quantity) {
-    const auto same = neighborIndex(names[quantity]);
-    if (same < neighborNames.size()) {
-      map[quantity][same] = 1;
-    } else if constexpr (model::SolidAndFluid<model::MaterialOf<Cfg>,
-                                              model::MaterialOf<NeighborCfg>>) {
-      if (names[quantity] == pressure) {
-        for (std::size_t component = 0; component < stress.size(); ++component) {
-          map[quantity][neighborIndex(stress[component])] = weights[component];
-        }
-      } else if (std::find(stress.begin(), stress.begin() + 3, names[quantity]) !=
-                 stress.begin() + 3) {
-        map[quantity][neighborIndex(pressure)] = 1;
+  if constexpr (kernels::CoupledConvertible<Cfg, NeighborCfg>) {
+    auto view = init::coupling<Cfg>::view::create(coupling);
+    // the quantities of the Riemann problem of the neighbor, in the quantities of the cell
+    REQUIRE(view.shape(0) == generated::ConfigBoundaryKernels<Cfg>::CoupledCanonicalQuantities);
+    REQUIRE(view.shape(1) == Quantities<Cfg>);
+    for (std::size_t neighborQuantity = 0; neighborQuantity < view.shape(0); ++neighborQuantity) {
+      for (std::size_t quantity = 0; quantity < view.shape(1); ++quantity) {
+        view(neighborQuantity, quantity) =
+            static_cast<Real<Cfg>>(std::cos(0.3 + 0.9 * static_cast<double>(neighborQuantity) +
+                                            1.7 * static_cast<double>(quantity)));
+        map[quantity][neighborQuantity] = view(neighborQuantity, quantity);
+      }
+    }
+  } else {
+    const auto& names = model::MaterialOf<Cfg>::Quantities;
+    const auto& neighborNames = model::MaterialOf<NeighborCfg>::Quantities;
+    // the names of a viscoelastic material leave out its memory variables
+    const auto named = std::min(Quantities<Cfg>, names.size());
+    for (std::size_t quantity = 0; quantity < named; ++quantity) {
+      const auto same = static_cast<std::size_t>(
+          std::distance(neighborNames.begin(),
+                        std::find(neighborNames.begin(), neighborNames.end(), names[quantity])));
+      if (same < neighborNames.size()) {
+        map[quantity][same] = 1;
       }
     }
   }
@@ -154,12 +153,13 @@ std::vector<std::vector<double>> quantityMap(const std::array<double, Cell::Dim>
 }
 
 /// Converts `integral`, of a neighbor of the configuration `NeighborCfg` that touches the cell with
-/// its side `side`, into `converted` on the host, through `boundary`; the shared face has the unit
-/// normal faceNormal().
+/// its side `side`, into `converted` on the host, through `boundary`, with the coupling matrix
+/// `coupling` of the shared face.
 template <typename Cfg, typename NeighborCfg>
 void convertOnHost(const kernels::ConfigBoundary<Cfg>& boundary,
                    Real<NeighborCfg>* integral,
                    std::size_t side,
+                   Real<Cfg>* coupling,
                    Real<Cfg>* converted) {
   CellLocalInformation info{};
   info.faceTypes = {
@@ -176,9 +176,8 @@ void convertOnHost(const kernels::ConfigBoundary<Cfg>& boundary,
   const std::array<Real<Cfg>*, Cell::NumFaces> integrationBuffer{
       converted, nullptr, nullptr, nullptr};
   std::array<Real<Cfg>*, Cell::NumFaces> timeIntegrated{};
-  NormalStressWeights<Cfg> normalStress{};
-  kernels::setNormalStressWeights<Cfg>(normalStress, 0, faceNormal());
-  boundary.computeIntegrals(info, normalStress, timeDofs, integrationBuffer, timeIntegrated);
+  const std::array<Real<Cfg>*, Cell::NumFaces> couplings{coupling, nullptr, nullptr, nullptr};
+  boundary.computeIntegrals(info, couplings, timeDofs, integrationBuffer, timeIntegrated);
   REQUIRE(timeIntegrated[0] == converted);
 }
 
@@ -187,7 +186,8 @@ void checkConversion() {
   using RealT = Real<Cfg>;
   using NeighborReal = Real<NeighborCfg>;
 
-  const auto map = quantityMap<Cfg, NeighborCfg>(faceNormal());
+  alignas(Alignment) std::array<RealT, couplingSize<Cfg, NeighborCfg>()> coupling{};
+  const auto map = quantityMap<Cfg, NeighborCfg>(coupling.data());
 
   // the precision of the less precise configuration
   const double tolerance =
@@ -205,7 +205,8 @@ void checkConversion() {
     CAPTURE(side);
     // the conversion writes all of it
     buffer.fill(std::numeric_limits<RealT>::quiet_NaN());
-    convertOnHost<Cfg, NeighborCfg>(boundary, integral.data(), side, buffer.data());
+    convertOnHost<Cfg, NeighborCfg>(
+        boundary, integral.data(), side, coupling.data(), buffer.data());
 
     const auto converted = init::I<Cfg>::view::create(buffer.data());
     for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
@@ -268,10 +269,14 @@ void checkBatchedConversion() {
   alignas(Alignment) std::array<NeighborReal, NeighborSize> integral{};
   fillIntegral<NeighborCfg>(integral.data());
 
+  alignas(Alignment) std::array<RealT, couplingSize<Cfg, NeighborCfg>()> coupling{};
+  quantityMap<Cfg, NeighborCfg>(coupling.data());
+
   std::vector<RealT> expected(Cell::NumFaces * Size);
   for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
     alignas(Alignment) std::array<RealT, Size> buffer{};
-    convertOnHost<Cfg, NeighborCfg>(boundary, integral.data(), side, buffer.data());
+    convertOnHost<Cfg, NeighborCfg>(
+        boundary, integral.data(), side, coupling.data(), buffer.data());
     std::copy(buffer.begin(), buffer.end(), expected.begin() + side * Size);
   }
 
@@ -293,15 +298,11 @@ void checkBatchedConversion() {
   auto* deviceConverted =
       static_cast<RealT*>(device.api().allocGlobMem(Cell::NumFaces * Size * sizeof(RealT)));
   device.api().copyTo(deviceIntegral, integral.data(), NeighborSize * sizeof(NeighborReal));
-  // the weights of the normal stress on the shared face, as convertOnHost sets them
-  NormalStressWeights<Cfg> normalStress{};
-  kernels::setNormalStressWeights<Cfg>(normalStress, 0, faceNormal());
-  std::vector<RealT*> deviceNormalStress;
-  if constexpr (generated::ConfigBoundaryKernels<Cfg>::NormalStress) {
-    deviceNormalStress = {
-        static_cast<RealT*>(device.api().allocGlobMem(sizeof(normalStress.weights[0])))};
-    device.api().copyTo(
-        deviceNormalStress[0], normalStress.weights[0], sizeof(normalStress.weights[0]));
+  // the coupling matrix of the shared face, as on the host
+  std::vector<RealT*> deviceCoupling;
+  if constexpr (kernels::CoupledConvertible<Cfg, NeighborCfg>) {
+    deviceCoupling = {static_cast<RealT*>(device.api().allocGlobMem(sizeof(coupling)))};
+    device.api().copyTo(deviceCoupling[0], coupling.data(), sizeof(coupling));
   }
   // the conversion writes all of it
   const std::vector<RealT> nan(Cell::NumFaces * Size, std::numeric_limits<RealT>::quiet_NaN());
@@ -323,8 +324,8 @@ void checkBatchedConversion() {
       auto& fromCanonical = table[key];
       fromCanonical.set(recording::inner_keys::Wp::Id::CanonicalIdofs, canonical);
       fromCanonical.set(recording::inner_keys::Wp::Id::Idofs, converted[side]);
-      if (!kernels::FamilyConvertible<Cfg, NeighborCfg> && !deviceNormalStress.empty()) {
-        fromCanonical.set(recording::inner_keys::Wp::Id::NormalStress, deviceNormalStress);
+      if (!deviceCoupling.empty()) {
+        fromCanonical.set(recording::inner_keys::Wp::Id::Coupling, deviceCoupling);
       }
     }
 
@@ -341,7 +342,7 @@ void checkBatchedConversion() {
     CHECK(actual[i] == doctest::Approx(expected[i]).epsilon(tolerance).scale(1.0));
   }
 
-  for (auto* pointer : deviceNormalStress) {
+  for (auto* pointer : deviceCoupling) {
     device.api().freeGlobMem(pointer);
   }
   device.api().freeGlobMem(deviceConverted);

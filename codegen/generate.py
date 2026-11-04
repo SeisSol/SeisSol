@@ -350,6 +350,7 @@ def main():
     optionalTensors = [
         "canonicalI",
         "coupledCanonicalI",
+        "coupling",
         "E",
         "ET",
         "Iane",
@@ -359,7 +360,6 @@ def main():
         "Zinv",
         "dQane",
         "dQext",
-        "normalStress",
         "spaceTimePredictor",
         "w",
     ]

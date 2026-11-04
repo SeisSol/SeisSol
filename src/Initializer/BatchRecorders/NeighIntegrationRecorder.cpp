@@ -184,11 +184,9 @@ void NeighIntegrationRecorder<Cfg>::recordConfigBoundaryFace(std::size_t cell, s
         } else {
           fromCoupledCanonical_.at(side).push_back(found->second);
           coupledConverted_.at(side).push_back(converted);
-          if constexpr (generated::ConfigBoundaryKernels<Cfg>::NormalStress) {
-            auto& normalStress =
-                currentLayer_->var<LTS::NormalStress>(Cfg(), AllocationPlace::Device)[cell];
-            normalStress_.at(side).push_back(normalStress.weights[face]);
-          }
+          auto* coupling = currentLayer_->var<LTS::CouplingDevice>(Cfg())[cell][face];
+          assert(coupling != nullptr);
+          coupling_.at(side).push_back(coupling);
         }
         convertedRegistry_.emplace(key, converted);
       }
@@ -250,8 +248,8 @@ void NeighIntegrationRecorder<Cfg>::recordConfigBoundaryBatches() {
       checkKey(key);
       (*currentTable_)[key].set(inner_keys::Wp::Id::CanonicalIdofs, fromCoupledCanonical_[side]);
       (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, coupledConverted_[side]);
-      if (!normalStress_[side].empty()) {
-        (*currentTable_)[key].set(inner_keys::Wp::Id::NormalStress, normalStress_[side]);
+      if (!coupling_[side].empty()) {
+        (*currentTable_)[key].set(inner_keys::Wp::Id::Coupling, coupling_[side]);
       }
     }
   }

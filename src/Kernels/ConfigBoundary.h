@@ -46,9 +46,10 @@ namespace seissol::kernels {
  *
  * A solid and a fluid pose the Riemann problem in different materials, but their families are
  * coupled: fromCoupledCanonical of the cell converts from the canonical form of the family of the
- * neighbor instead. A solid takes the pressure of a fluid as an isotropic stress; a fluid takes the
- * normal stress of a solid on the shared face as its pressure, with the weights of the face
- * (NormalStressWeights). The velocities carry over.
+ * neighbor instead, with the coupling matrix of the face (LTS::Coupling): the contribution of the
+ * neighbor to the Godunov state at the face, in the quantities of the cell
+ * (model::coupledNeighborMap). The flux matrix of the cell at such a face (AminusT) is its own
+ * flux alone.
  */
 template <typename Cfg, typename NeighborCfg>
 constexpr bool FamilyConvertible =
@@ -77,11 +78,11 @@ constexpr bool DeviceConvertible =
     (CoupledConvertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::CoupledDevice &&
      generated::ConfigBoundaryKernels<NeighborCfg>::ToCanonicalDevice);
 
-/// The weights of NormalStressWeights for the face with the unit normal `normal`.
+/// Whether the face `face` of a cell of the configuration `Cfg` with the information
+/// `cellInformation` converts the time integral of its neighbor with a coupling matrix of its own:
+/// the neighbor is of the coupled family, in another configuration.
 template <typename Cfg>
-void setNormalStressWeights(NormalStressWeights<Cfg>& weights,
-                            std::size_t face,
-                            const std::array<double, Cell::Dim>& normal);
+bool coupledFace(const CellLocalInformation& cellInformation, std::size_t face);
 
 /// Whether the conversion from the configuration `neighbor` into `cell` exists on the device.
 bool deviceConvertible(ConfigId cell, ConfigId neighbor);
@@ -148,7 +149,7 @@ class ConfigBoundary {
    * `integrationBuffer`, and points `timeIntegrated` to it. The other faces are left as they are.
    */
   void computeIntegrals(const CellLocalInformation& cellInformation,
-                        const NormalStressWeights<Cfg>& normalStress,
+                        const std::array<real*, Cell::NumFaces>& coupling,
                         const std::array<void*, Cell::NumFaces>& timeDofs,
                         const std::array<real*, Cell::NumFaces>& integrationBuffer,
                         std::array<real*, Cell::NumFaces>& timeIntegrated) const;
@@ -184,13 +185,13 @@ class ConfigBoundary {
   };
 
   /// Computes the time integral of the neighbor of the configuration `NeighborCfg` on the face
-  /// `face` from `timeDofs`, and converts it into `integrationBuffer`, with the weights of the
-  /// normal stress on the face `normalStress` if the conversion reads them.
+  /// `face` from `timeDofs`, and converts it into `integrationBuffer`, with the coupling matrix of
+  /// the face `coupling` if the neighbor is of the coupled family.
   template <typename NeighborCfg>
   static void computeIntegral(const CellLocalInformation& cellInformation,
                               std::size_t face,
                               const Neighbor& neighbor,
-                              const real* normalStress,
+                              const real* coupling,
                               const void* timeDofs,
                               real* integrationBuffer);
 

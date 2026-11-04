@@ -54,13 +54,13 @@ namespace {
 
 /// Converts `integral`, a time integral of a neighbor of the configuration `NeighborCfg`, into
 /// `converted`, a time integral of the configuration `Cfg` of the cell, which the neighbor touches
-/// with its side `neighborSide`; with the weights `normalStress` of the shared face if the
-/// conversion reads them.
+/// with its side `neighborSide`; with the coupling matrix `coupling` of the shared face if the
+/// neighbor is of the coupled family.
 template <typename Cfg, typename NeighborCfg>
 void convertNeighborIntegral(const Real<NeighborCfg>* integral,
                              Real<Cfg>* converted,
                              std::size_t neighborSide,
-                             const Real<Cfg>* normalStress) {
+                             const Real<Cfg>* coupling) {
   using CellKernels = generated::ConfigBoundaryKernels<Cfg>;
   using NeighborKernels = generated::ConfigBoundaryKernels<NeighborCfg>;
 
@@ -98,10 +98,8 @@ void convertNeighborIntegral(const Real<NeighborCfg>* integral,
     kernel::fromCoupledCanonical<Cfg> fromCoupledCanonical;
     fromCoupledCanonical.bindGlobals(CellPool);
     fromCoupledCanonical.coupledCanonicalI = canonical;
-    if constexpr (CellKernels::NormalStress) {
-      assert(normalStress != nullptr);
-      fromCoupledCanonical.normalStress = normalStress;
-    }
+    assert(coupling != nullptr);
+    fromCoupledCanonical.coupling = coupling;
     fromCoupledCanonical.I = converted;
     fromCoupledCanonical.execute(neighborSide);
   }
@@ -139,28 +137,15 @@ constexpr bool CanonicalOfMaterial = !generated::ConfigBoundaryKernels<Cfg>::ToC
 } // namespace
 
 template <typename Cfg>
-void setNormalStressWeights(NormalStressWeights<Cfg>& weights,
-                            std::size_t face,
-                            const std::array<double, Cell::Dim>& normal) {
-  if constexpr (generated::ConfigBoundaryKernels<Cfg>::NormalStress) {
-    // the stress of the solid, in Voigt order (xx, yy, zz, xy, yz, xz)
-    constexpr auto Groups = model::ElasticMaterial::PrimaryGroups;
-    static_assert(model::roleKind(Groups, model::FaceRole::Traction) ==
-                  model::QuantityKind::SymTensor2);
-    constexpr auto Stress = model::roleOffset(Groups, model::FaceRole::Traction);
-    static_assert(generated::ConfigBoundaryKernels<Cfg>::CoupledCanonicalQuantities ==
-                  model::totalExtent(Groups));
-
-    using RealT = Real<Cfg>;
-    auto& faceWeights = weights.weights[face];
-    std::fill(std::begin(faceWeights), std::end(faceWeights), RealT{0});
-    faceWeights[Stress + 0] = static_cast<RealT>(normal[0] * normal[0]);
-    faceWeights[Stress + 1] = static_cast<RealT>(normal[1] * normal[1]);
-    faceWeights[Stress + 2] = static_cast<RealT>(normal[2] * normal[2]);
-    faceWeights[Stress + 3] = static_cast<RealT>(2 * normal[0] * normal[1]);
-    faceWeights[Stress + 4] = static_cast<RealT>(2 * normal[1] * normal[2]);
-    faceWeights[Stress + 5] = static_cast<RealT>(2 * normal[0] * normal[2]);
+bool coupledFace(const CellLocalInformation& cellInformation, std::size_t face) {
+  const auto neighborConfig = cellInformation.neighborConfigIds[face];
+  if (cellInformation.faceTypes[face] != FaceType::Regular || neighborConfig == configIdOf<Cfg>() ||
+      neighborConfig >= builtConfigCount()) {
+    return false;
   }
+  return dispatchConfig(neighborConfig, [](auto neighborCfg) {
+    return CoupledConvertible<Cfg, decltype(neighborCfg)>;
+  });
 }
 
 bool deviceConvertible(ConfigId cell, ConfigId neighbor) {
@@ -232,7 +217,7 @@ void ConfigBoundary<Cfg>::setIntervals(double timestep,
 template <typename Cfg>
 void ConfigBoundary<Cfg>::computeIntegrals(
     const CellLocalInformation& cellInformation,
-    const NormalStressWeights<Cfg>& normalStress,
+    const std::array<real*, Cell::NumFaces>& coupling,
     const std::array<void*, Cell::NumFaces>& timeDofs,
     const std::array<real*, Cell::NumFaces>& integrationBuffer,
     std::array<real*, Cell::NumFaces>& timeIntegrated) const {
@@ -249,12 +234,12 @@ void ConfigBoundary<Cfg>::computeIntegrals(
       using NeighborCfg = decltype(neighborCfg);
       // a neighbor of the same configuration is skipped above
       if constexpr (!std::is_same_v<NeighborCfg, Cfg>) {
-        const real* faceWeights = nullptr;
-        if constexpr (generated::ConfigBoundaryKernels<Cfg>::NormalStress) {
-          faceWeights = normalStress.weights[face];
-        }
-        computeIntegral<NeighborCfg>(
-            cellInformation, face, neighbor, faceWeights, timeDofs[face], integrationBuffer[face]);
+        computeIntegral<NeighborCfg>(cellInformation,
+                                     face,
+                                     neighbor,
+                                     coupling[face],
+                                     timeDofs[face],
+                                     integrationBuffer[face]);
         timeIntegrated[face] = integrationBuffer[face];
       }
     });
@@ -266,7 +251,7 @@ template <typename NeighborCfg>
 void ConfigBoundary<Cfg>::computeIntegral(const CellLocalInformation& cellInformation,
                                           std::size_t face,
                                           const Neighbor& neighbor,
-                                          const real* normalStress,
+                                          const real* coupling,
                                           const void* timeDofs,
                                           real* integrationBuffer) {
   using NeighborReal = Real<NeighborCfg>;
@@ -296,7 +281,7 @@ void ConfigBoundary<Cfg>::computeIntegral(const CellLocalInformation& cellInform
       integral = buffer;
     }
     convertNeighborIntegral<Cfg, NeighborCfg>(
-        integral, integrationBuffer, cellInformation.faceRelations[face][0], normalStress);
+        integral, integrationBuffer, cellInformation.faceRelations[face][0], coupling);
   }
 }
 
@@ -366,10 +351,8 @@ void ConfigBoundary<Cfg>::computeBatchedIntegrals(
         kernel::gpu_fromCoupledCanonical<Cfg> krnl;
         krnl.bindGlobals(*pool);
         krnl.coupledCanonicalI = const_cast<const double**>(canonical->getDeviceDataPtr());
-        if constexpr (generated::ConfigBoundaryKernels<Cfg>::NormalStress) {
-          auto* normalStress = entry.get<real*>(inner_keys::Wp::Id::NormalStress);
-          krnl.normalStress = const_cast<const real**>(normalStress->getDeviceDataPtr());
-        }
+        auto* coupling = entry.get<real*>(inner_keys::Wp::Id::Coupling);
+        krnl.coupling = const_cast<const real**>(coupling->getDeviceDataPtr());
         krnl.I = integrals->getDeviceDataPtr();
         executeWithTemporaries(krnl, integrals->getSize(), runtime, [&] { krnl.execute(side); });
       }
@@ -431,8 +414,7 @@ void ConfigBoundary<Cfg>::computeBatchedCanonical(
 
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \
   static_assert(CanonicalOfMaterial<Cfg>);                                                         \
-  template void setNormalStressWeights<Cfg>(                                                       \
-      NormalStressWeights<Cfg>&, std::size_t, const std::array<double, Cell::Dim>&);               \
+  template bool coupledFace<Cfg>(const CellLocalInformation&, std::size_t);                        \
   template class ConfigBoundary<Cfg>;
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE

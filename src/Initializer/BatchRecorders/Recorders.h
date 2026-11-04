@@ -127,7 +127,7 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
     converted_ = {};
     fromCoupledCanonical_ = {};
     coupledConverted_ = {};
-    normalStress_ = {};
+    coupling_ = {};
     canonicalRegistry_.clear();
     convertedRegistry_.clear();
     configBoundaryScratchCounter_ = 0;
@@ -164,11 +164,10 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   // per side of the neighbors: the canonical forms, and their conversions
   std::array<std::vector<double*>, Cell::NumFaces> fromCanonical_;
   std::array<std::vector<real*>, Cell::NumFaces> converted_;
-  // the same for the neighbors of the coupled family, with the weights of the normal stress on the
-  // face if the cells are of a fluid
+  // the same for the neighbors of the coupled family, with the coupling matrices of the faces
   std::array<std::vector<double*>, Cell::NumFaces> fromCoupledCanonical_;
   std::array<std::vector<real*>, Cell::NumFaces> coupledConverted_;
-  std::array<std::vector<real*>, Cell::NumFaces> normalStress_;
+  std::array<std::vector<real*>, Cell::NumFaces> coupling_;
   // the canonical form of each neighbor, and its conversion per side
   std::unordered_map<const void*, double*> canonicalRegistry_;
   std::map<std::pair<const void*, std::size_t>, real*> convertedRegistry_;

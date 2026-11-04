@@ -33,6 +33,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/FaceCoupling.h"
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -87,7 +88,7 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
   const auto* materialData = layer.var<LTS::MaterialData>(Cfg());
   auto* localIntegration = layer.var<LTS::LocalIntegration>(Cfg());
   auto* neighboringIntegration = layer.var<LTS::NeighboringIntegration>(Cfg());
-  auto* normalStress = layer.var<LTS::NormalStress>(Cfg());
+  auto* coupling = layer.var<LTS::Coupling>(Cfg());
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
   auto* boundaryMapping = layer.var<LTS::BoundaryMapping>(Cfg());
@@ -167,9 +168,6 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
         MeshTools::normalize(tangent1, tangent1);
         MeshTools::normalize(tangent2, tangent2);
 
-        // for a neighbor of a solid in another configuration, if the cell is of a fluid
-        kernels::setNormalStressWeights<Cfg>(normalStress[cell], side, normal);
-
         // Defines a rotation matrix for computing material properties in face-local coordinates
         // for anisotropy. It has no effect for isotropic materials.
         std::array<double, 36> nLocalData{};
@@ -180,19 +178,64 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
         const auto neighborConfig = isInternalFaceType(cellInformation[cell].faceTypes[side])
                                         ? cellInformation[cell].neighborConfigIds[side]
                                         : configIdOf<Cfg>();
+        // whether the face converts the time integral of the neighbor with a coupling matrix
+        bool coupledFace = false;
         dispatchConfig(neighborConfig, [&](auto neighborCfg) {
-          using NeighborMaterialT = model::MaterialOf<decltype(neighborCfg)>;
-          if constexpr (model::CanNeighbor<model::MaterialOf<Cfg>, NeighborMaterialT>) {
-            seissol::model::getFaceGodunovState(
-                nLocalData,
-                materialLocal,
-                dynamic_cast<const NeighborMaterialT&>(*material[cell].neighbor[side]),
-                cellInformation[cell].faceTypes[side],
-                qGodLocal,
-                qGodNeighbor);
+          using NeighborCfg = decltype(neighborCfg);
+          using MaterialT = model::MaterialOf<Cfg>;
+          using NeighborMaterialT = model::MaterialOf<NeighborCfg>;
+          const auto& neighborMaterial =
+              dynamic_cast<const NeighborMaterialT&>(*material[cell].neighbor[side]);
+          if constexpr (model::SolidAndFluid<MaterialT, NeighborMaterialT>) {
+            if constexpr (kernels::CoupledConvertible<Cfg, NeighborCfg>) {
+              if (kernels::coupledFace<Cfg>(cellInformation[cell], side)) {
+                // the Godunov state of the cell goes into AplusT, and the contribution of the
+                // neighbor into the coupling matrix of the face, with which the time integral of
+                // the neighbor is converted: AminusT is the flux of the cell alone
+                const auto godunov = seissol::model::coupledGodunov(
+                    seissol::model::getRotatedMaterialCoefficients(nLocalData, materialLocal),
+                    seissol::model::getRotatedMaterialCoefficients(nLocalData, neighborMaterial));
+                qGodLocal.setZero();
+                qGodNeighbor.setZero();
+                for (Eigen::Index i = 0; i < godunov.local.rows(); ++i) {
+                  // transposed, as the Godunov states are stored
+                  for (Eigen::Index j = 0; j < godunov.local.cols(); ++j) {
+                    if (qGodLocal.isInRange(i, j)) {
+                      qGodLocal(i, j) = godunov.local(j, i);
+                    }
+                  }
+                  if (qGodNeighbor.isInRange(i, i)) {
+                    qGodNeighbor(i, i) = 1;
+                  }
+                }
+
+                const auto map = seissol::model::coupledNeighborMap<MaterialT, NeighborMaterialT>(
+                    godunov, normal, tangent1, tangent2);
+                assert(coupling[cell][side] != nullptr);
+                auto couplingView = init::coupling<Cfg>::view::create(coupling[cell][side]);
+                couplingView.setZero();
+                for (Eigen::Index q = 0; q < map.rows(); ++q) {
+                  for (Eigen::Index p = 0; p < map.cols(); ++p) {
+                    couplingView(q, p) = static_cast<real>(map(q, p));
+                  }
+                }
+                coupledFace = true;
+                return;
+              }
+            }
+            logError() << "The face between the materials" << MaterialT::Text << "and"
+                       << NeighborMaterialT::Text
+                       << "in different configurations is not a regular face.";
+          } else if constexpr (model::CanNeighbor<MaterialT, NeighborMaterialT>) {
+            seissol::model::getFaceGodunovState(nLocalData,
+                                                materialLocal,
+                                                neighborMaterial,
+                                                cellInformation[cell].faceTypes[side],
+                                                qGodLocal,
+                                                qGodNeighbor);
           } else {
-            logError() << "The materials" << model::MaterialOf<Cfg>::Text << "and"
-                       << NeighborMaterialT::Text << "cannot be face neighbors.";
+            logError() << "The materials" << MaterialT::Text << "and" << NeighborMaterialT::Text
+                       << "cannot be face neighbors.";
           }
         });
         seissol::model::getTransposedCoefficientMatrix<Cfg>(
@@ -263,7 +306,8 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
 
         const auto enforceGodunovEa = isAtElasticAcousticInterface(material[cell], side);
 
-        const auto enforceGodunov = enforceGodunovBc || enforceGodunovEa;
+        // the coupling matrix holds the contribution of the neighbor to the Godunov state
+        const auto enforceGodunov = enforceGodunovBc || enforceGodunovEa || coupledFace;
 
         const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
 

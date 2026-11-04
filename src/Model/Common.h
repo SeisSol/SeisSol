@@ -278,33 +278,21 @@ template <typename MaterialT, typename NeighborT>
 constexpr bool CanNeighbor =
     SameFamily<MaterialT, NeighborT> || SolidAndFluid<MaterialT, NeighborT>;
 
-/// The neighbor `neighbor` as a material `MaterialT`, for the Riemann problem at their face: with
-/// the parameters it is posed with, all others at their defaults. A solid sees a fluid as a solid
-/// without shear modulus, and a fluid sees a solid as a fluid with the P-wave modulus of the solid:
-/// at their face, the fluid couples to the normal stress and the normal velocity of the solid only.
+/// The neighbor `neighbor` as a material `MaterialT` that poses the Riemann problem at its faces in
+/// the same material, for the Riemann problem at their face: with the parameters it is posed with,
+/// all others at their defaults.
 template <typename MaterialT, typename NeighborT>
 MaterialT neighborAs(const NeighborT& neighbor) {
-  static_assert(SameRiemannMaterial<MaterialT, NeighborT> || SolidAndFluid<MaterialT, NeighborT>,
+  static_assert(SameRiemannMaterial<MaterialT, NeighborT>,
                 "The materials pose the Riemann problem at their faces differently; between an "
-                "anisotropic and an isotropic solid, it is posed in the anisotropic material.");
+                "anisotropic and an isotropic solid, it is posed in the anisotropic material, and "
+                "between a solid and a fluid with the impedances of both (see coupledGodunov).");
   if constexpr (std::is_same_v<MaterialT, NeighborT>) {
     return neighbor;
   } else {
     using RiemannMaterialT = MaterialT::RiemannMaterial;
-    using NeighborRiemannMaterialT = NeighborT::RiemannMaterial;
-    const auto& riemannNeighbor = static_cast<const NeighborRiemannMaterialT&>(neighbor);
     MaterialT material{};
-    auto& riemann = static_cast<RiemannMaterialT&>(material);
-    if constexpr (SameRiemannMaterial<MaterialT, NeighborT>) {
-      riemann = riemannNeighbor;
-    } else if constexpr (std::is_same_v<RiemannMaterialT, ElasticMaterial>) {
-      riemann.rho = riemannNeighbor.rho;
-      riemann.lambda = riemannNeighbor.lambda;
-      riemann.mu = 0;
-    } else {
-      riemann.rho = riemannNeighbor.rho;
-      riemann.lambda = riemannNeighbor.lambda + 2 * riemannNeighbor.mu;
-    }
+    static_cast<RiemannMaterialT&>(material) = static_cast<const RiemannMaterialT&>(neighbor);
     return material;
   }
 }
@@ -441,11 +429,11 @@ MaterialT getRotatedMaterialCoefficients(const std::array<double, 36>& rotationP
 }
 
 /// The transposed Godunov state at the face of a cell of the material `local` towards the
-/// neighbor `neighbor`, in the coordinates of the face that `rotation` gives (cf. getBondMatrix).
-/// Between an anisotropic and an isotropic solid, it is the one of the anisotropic material, into
-/// which the isotropic solid converts exactly (a viscoelastic one with the elastic part it poses
-/// its Riemann problem with); otherwise, the one of the material of the cell, with the neighbor as
-/// neighborAs gives it.
+/// neighbor `neighbor` of the same family, in the coordinates of the face that `rotation` gives
+/// (cf. getBondMatrix). Between an anisotropic and an isotropic solid, it is the one of the
+/// anisotropic material, into which the isotropic solid converts exactly (a viscoelastic one with
+/// the elastic part it poses its Riemann problem with); otherwise, the one of the material of the
+/// cell, with the neighbor as neighborAs gives it.
 template <typename MaterialT, typename NeighborT, typename Tloc, typename Tneigh>
 void getFaceGodunovState(const std::array<double, 36>& rotation,
                          const MaterialT& local,
