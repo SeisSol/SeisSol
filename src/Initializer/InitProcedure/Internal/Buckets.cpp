@@ -372,30 +372,30 @@ void setupFaceNeighbors(LTS::Storage& storage, LTS::Layer& layer) {
                              faceNeighborsDevice == nullptr ? nullptr : &faceNeighborsDevice[cell]);
   }
 }
-/// The bytes the coupling matrix of a face of a cell of the configuration `Cfg` takes in the
-/// bucket, rounded up to the alignment; zero for a configuration without coupled neighbors.
+
+/// The bytes the coupling matrix of a face of a cell of the configuration `Cfg` towards a
+/// neighbor of the family `family` takes in the bucket, rounded up to the alignment.
 template <typename Cfg>
-constexpr std::size_t couplingBytes() {
-  constexpr auto Bytes = kernels::size<tensor::coupling<Cfg>>() * sizeof(Real<Cfg>);
-  return (Bytes + Alignment - 1) / Alignment * Alignment;
+constexpr std::size_t couplingBytes(std::size_t family) {
+  const auto bytes = kernels::couplingSize<Cfg>(family) * sizeof(Real<Cfg>);
+  return (bytes + Alignment - 1) / Alignment * Alignment;
 }
 
 /// Sizes the bucket of the coupling matrices of a layer: one per face of a cell towards a neighbor
-/// of the coupled family in another configuration.
+/// of another family in another configuration.
 template <typename Cfg>
 void sizeCouplingBucket(LTS::Layer& layer) {
-  std::size_t faces = 0;
-  if constexpr (couplingBytes<Cfg>() > 0) {
-    const auto* cellInformation = layer.var<LTS::CellInformation>();
-    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-        if (kernels::coupledFace<Cfg>(cellInformation[cell], face)) {
-          ++faces;
-        }
+  std::size_t bytes = 0;
+  const auto* cellInformation = layer.var<LTS::CellInformation>();
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      std::size_t family = 0;
+      if (kernels::coupledFace<Cfg>(cellInformation[cell], face, &family)) {
+        bytes += couplingBytes<Cfg>(family);
       }
     }
   }
-  layer.setEntrySize<LTS::CouplingMatrices>(faces * couplingBytes<Cfg>());
+  layer.setEntrySize<LTS::CouplingMatrices>(bytes);
 }
 
 /// Points each face of the cells of a layer that converts the time integral of its neighbor with a
@@ -406,26 +406,26 @@ void setupCoupling(LTS::Layer& layer) {
   auto* coupling = layer.var<LTS::Coupling>(Cfg());
   auto* couplingDevice = layer.var<LTS::CouplingDevice>(Cfg());
   const auto* cellInformation = layer.var<LTS::CellInformation>();
-  std::size_t next = 0;
+  std::size_t offset = 0;
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       coupling[cell][face] = nullptr;
       couplingDevice[cell][face] = nullptr;
-      if constexpr (couplingBytes<Cfg>() > 0) {
-        if (kernels::coupledFace<Cfg>(cellInformation[cell], face)) {
-          constexpr auto Stride = couplingBytes<Cfg>() / sizeof(Real<Cfg>);
-          coupling[cell][face] = layer.var<LTS::CouplingMatrices>(Cfg()) + next * Stride;
-          if constexpr (isDeviceOn()) {
-            couplingDevice[cell][face] =
-                layer.var<LTS::CouplingMatrices>(Cfg(), AllocationPlace::Device) + next * Stride;
-          }
-          ++next;
+      std::size_t family = 0;
+      if (kernels::coupledFace<Cfg>(cellInformation[cell], face, &family)) {
+        coupling[cell][face] = layer.var<LTS::CouplingMatrices>(Cfg()) + offset / sizeof(Real<Cfg>);
+        if constexpr (isDeviceOn()) {
+          couplingDevice[cell][face] =
+              layer.var<LTS::CouplingMatrices>(Cfg(), AllocationPlace::Device) +
+              offset / sizeof(Real<Cfg>);
         }
+        offset += couplingBytes<Cfg>(family);
       }
     }
   }
-  assert(next * couplingBytes<Cfg>() == layer.getEntrySize<LTS::CouplingMatrices>());
+  assert(offset == layer.getEntrySize<LTS::CouplingMatrices>());
 }
+
 } // namespace
 
 solver::HaloCommunication bucketsAndCommunication(LTS::Storage& storage, const MeshLayout& layout) {

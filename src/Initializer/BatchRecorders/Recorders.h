@@ -15,6 +15,7 @@
 #include "Kernels/Interface.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/Common.h"
 
 #include <array>
 #include <cstddef>
@@ -164,10 +165,14 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   // per side of the neighbors: the canonical forms, and their conversions
   std::array<std::vector<double*>, Cell::NumFaces> fromCanonical_;
   std::array<std::vector<real*>, Cell::NumFaces> converted_;
-  // the same for the neighbors of the coupled family, with the coupling matrices of the faces
-  std::array<std::vector<double*>, Cell::NumFaces> fromCoupledCanonical_;
-  std::array<std::vector<real*>, Cell::NumFaces> coupledConverted_;
-  std::array<std::vector<real*>, Cell::NumFaces> coupling_;
+  // the same per family of the neighbors of other families (see model::familyIndex), with the
+  // coupling matrices of the faces
+  template <typename T>
+  using PerFamilyAndSide =
+      std::array<std::array<std::vector<T>, Cell::NumFaces>, model::FamilyCount>;
+  PerFamilyAndSide<double*> fromCoupledCanonical_;
+  PerFamilyAndSide<real*> coupledConverted_;
+  PerFamilyAndSide<real*> coupling_;
   // the canonical form of each neighbor, and its conversion per side
   std::unordered_map<const void*, double*> canonicalRegistry_;
   std::map<std::pair<const void*, std::size_t>, real*> convertedRegistry_;

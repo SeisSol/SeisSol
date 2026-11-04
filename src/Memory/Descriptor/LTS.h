@@ -134,10 +134,9 @@ struct LTS {
   struct LocalIntegration : public initializer::VariantVariable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::VariantVariable<NeighboringIntegrationData> {
   };
-  // per face towards a neighbor of the coupled family (a solid and a fluid) in another
-  // configuration: the coupling matrix of the face, the contribution of the neighbor to the
-  // Godunov state in the quantities of the cell (see kernels::ConfigBoundary), in the bucket
-  // CouplingMatrices; null for the other faces
+  // per face towards a neighbor of another family in another configuration: the coupling matrix
+  // of the face, the contribution of the neighbor to the Godunov state in the quantities of the
+  // cell (see kernels::ConfigBoundary), in the bucket CouplingMatrices; null for the other faces
   struct Coupling : public initializer::VariantVariable<FaceRealPtrs> {};
   struct CouplingMatrices : public initializer::VariantBucket<Real> {};
   struct MaterialData : public initializer::VariantVariable<model::MaterialOf> {};

@@ -182,11 +182,12 @@ void NeighIntegrationRecorder<Cfg>::recordConfigBoundaryFace(std::size_t cell, s
           fromCanonical_.at(side).push_back(found->second);
           converted_.at(side).push_back(converted);
         } else {
-          fromCoupledCanonical_.at(side).push_back(found->second);
-          coupledConverted_.at(side).push_back(converted);
+          constexpr auto Family = kernels::FamilyOf<NeighborCfg>;
+          fromCoupledCanonical_.at(Family).at(side).push_back(found->second);
+          coupledConverted_.at(Family).at(side).push_back(converted);
           auto* coupling = currentLayer_->var<LTS::CouplingDevice>(Cfg())[cell][face];
           assert(coupling != nullptr);
-          coupling_.at(side).push_back(coupling);
+          coupling_.at(Family).at(side).push_back(coupling);
         }
         convertedRegistry_.emplace(key, converted);
       }
@@ -243,13 +244,14 @@ void NeighIntegrationRecorder<Cfg>::recordConfigBoundaryBatches() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::CanonicalIdofs, fromCanonical_[side]);
       (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, converted_[side]);
     }
-    if (!coupledConverted_[side].empty()) {
-      const auto key = kernels::configboundary::fromCoupledCanonicalKey(side);
-      checkKey(key);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::CanonicalIdofs, fromCoupledCanonical_[side]);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, coupledConverted_[side]);
-      if (!coupling_[side].empty()) {
-        (*currentTable_)[key].set(inner_keys::Wp::Id::Coupling, coupling_[side]);
+    for (std::size_t family = 0; family < model::FamilyCount; ++family) {
+      if (!coupledConverted_[family][side].empty()) {
+        const auto key = kernels::configboundary::fromCoupledCanonicalKey(family, side);
+        checkKey(key);
+        auto& entry = (*currentTable_)[key];
+        entry.set(inner_keys::Wp::Id::CanonicalIdofs, fromCoupledCanonical_[family][side]);
+        entry.set(inner_keys::Wp::Id::Idofs, coupledConverted_[family][side]);
+        entry.set(inner_keys::Wp::Id::Coupling, coupling_[family][side]);
       }
     }
   }

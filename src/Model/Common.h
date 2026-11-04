@@ -262,20 +262,27 @@ template <typename MaterialT, typename NeighborT>
 constexpr bool AnisotropicAndIsotropic =
     SameFamily<MaterialT, NeighborT> && !SameRiemannMaterial<MaterialT, NeighborT>;
 
-/// Whether the material `MaterialT` is a solid and `NeighborT` a fluid, or the other way round, by
-/// the quantities of the Riemann problems at their faces: at their face, both meet in the traction
-/// and the velocity (see coupledGodunov).
-template <typename MaterialT, typename NeighborT>
-constexpr bool SolidAndFluid = (std::is_same_v<RiemannQuantitiesOf<MaterialT>, ElasticMaterial> &&
-                                std::is_same_v<RiemannQuantitiesOf<NeighborT>, AcousticMaterial>) ||
-                               (std::is_same_v<RiemannQuantitiesOf<MaterialT>, AcousticMaterial> &&
-                                std::is_same_v<RiemannQuantitiesOf<NeighborT>, ElasticMaterial>);
+/// The position of the family of the material `MaterialT`, by the quantities of its Riemann
+/// problem, among the families of the code generator (FAMILIES in
+/// codegen/kernels/configboundary.py): the solids, the fluids and the poroelastic solids. The
+/// cells of any two families can be face neighbors; at their face, both meet in the interface
+/// variables (see coupledGodunov).
+template <typename MaterialT>
+constexpr std::size_t familyIndex() {
+  using QuantitiesT = RiemannQuantitiesOf<MaterialT>;
+  if constexpr (std::is_same_v<QuantitiesT, ElasticMaterial>) {
+    return 0;
+  } else if constexpr (std::is_same_v<QuantitiesT, AcousticMaterial>) {
+    return 1;
+  } else {
+    static_assert(std::is_same_v<QuantitiesT, PoroElasticMaterial>,
+                  "the material is of none of the families");
+    return 2;
+  }
+}
 
-/// Whether cells of the materials `MaterialT` and `NeighborT` can be face neighbors: the Riemann
-/// problems at their faces have the same quantities, or one is a solid and the other a fluid.
-template <typename MaterialT, typename NeighborT>
-constexpr bool CanNeighbor =
-    SameFamily<MaterialT, NeighborT> || SolidAndFluid<MaterialT, NeighborT>;
+/// The number of the families of familyIndex.
+constexpr std::size_t FamilyCount = 3;
 
 /// The neighbor `neighbor` as a material `MaterialT` that poses the Riemann problem at its faces in
 /// the same material, for the Riemann problem at their face: with the parameters it is posed with,

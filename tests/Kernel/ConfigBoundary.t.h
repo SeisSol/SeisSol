@@ -108,7 +108,7 @@ void fillIntegral(Real<Cfg>* integral) {
 template <typename Cfg, typename NeighborCfg>
 constexpr std::size_t couplingSize() {
   if constexpr (kernels::CoupledConvertible<Cfg, NeighborCfg>) {
-    return tensor::coupling<Cfg>::size();
+    return tensor::coupling<Cfg>::size(kernels::FamilyOf<NeighborCfg>);
   } else {
     return 1;
   }
@@ -123,9 +123,11 @@ std::vector<std::vector<double>> quantityMap(Real<Cfg>* coupling) {
   std::vector<std::vector<double>> map(Quantities<Cfg>,
                                        std::vector<double>(Quantities<NeighborCfg>));
   if constexpr (kernels::CoupledConvertible<Cfg, NeighborCfg>) {
-    auto view = init::coupling<Cfg>::view::create(coupling);
+    constexpr auto Family = kernels::FamilyOf<NeighborCfg>;
+    auto view = init::coupling<Cfg>::template view<Family>::create(coupling);
     // the quantities of the Riemann problem of the neighbor, in the quantities of the cell
-    REQUIRE(view.shape(0) == generated::ConfigBoundaryKernels<Cfg>::CoupledCanonicalQuantities);
+    REQUIRE(view.shape(0) ==
+            generated::ConfigBoundaryKernels<Cfg>::CoupledCanonicalQuantities[Family]);
     REQUIRE(view.shape(1) == Quantities<Cfg>);
     for (std::size_t neighborQuantity = 0; neighborQuantity < view.shape(0); ++neighborQuantity) {
       for (std::size_t quantity = 0; quantity < view.shape(1); ++quantity) {
@@ -320,7 +322,8 @@ void checkBatchedConversion() {
       converted[side] = {deviceConverted + side * Size};
       const auto key = kernels::FamilyConvertible<Cfg, NeighborCfg>
                            ? kernels::configboundary::fromCanonicalKey(side)
-                           : kernels::configboundary::fromCoupledCanonicalKey(side);
+                           : kernels::configboundary::fromCoupledCanonicalKey(
+                                 kernels::FamilyOf<NeighborCfg>, side);
       auto& fromCanonical = table[key];
       fromCanonical.set(recording::inner_keys::Wp::Id::CanonicalIdofs, canonical);
       fromCanonical.set(recording::inner_keys::Wp::Id::Idofs, converted[side]);

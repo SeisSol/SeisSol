@@ -50,7 +50,7 @@ struct Wp {
     Integrals,
     // a time integral of a neighbor of another configuration in the canonical form of the family
     CanonicalIdofs,
-    // the coupling matrix of a face towards a neighbor of the coupled family (a solid and a fluid)
+    // the coupling matrix of a face towards a neighbor of another family
     Coupling,
     Count
   };

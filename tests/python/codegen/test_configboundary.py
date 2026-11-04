@@ -21,14 +21,14 @@ def config(equations, order, simulations=1):
 
 
 def test_a_configuration_alone_converts_nothing():
-    assert plans([config("elastic", 6)]) == [Plan(None, False, None)]
+    assert plans([config("elastic", 6)]) == [Plan(None, False, {})]
 
 
 def test_anisotropic_is_of_the_family_of_the_isotropic_solids():
     result = plans(
         [config("elastic", 6), config("viscoelastic", 5), config("anisotropic", 4)]
     )
-    assert result == [Plan(6, True, None)] * 3
+    assert result == [Plan(6, True, {})] * 3
 
 
 def test_the_solids_couple_to_a_fluid():
@@ -36,25 +36,31 @@ def test_the_solids_couple_to_a_fluid():
         [config("elastic", 5), config("anisotropic", 6), config("acoustic", 4)]
     )
     # the canonical form of the solids has the order of the anisotropic one, which the fluid reads
-    assert elastic == Plan(6, True, 4)
-    assert anisotropic == Plan(6, True, 4)
-    assert acoustic == Plan(4, False, 6)
+    assert elastic == Plan(6, True, {"acoustic": 4})
+    assert anisotropic == Plan(6, True, {"acoustic": 4})
+    assert acoustic == Plan(4, False, {"elastic": 6})
 
 
 def test_an_anisotropic_solid_alone_couples_to_a_fluid():
     anisotropic, viscoacoustic = plans(
         [config("anisotropic", 6), config("viscoacoustic", 4)]
     )
-    assert anisotropic == Plan(6, False, 4)
-    assert viscoacoustic == Plan(4, False, 6)
+    assert anisotropic == Plan(6, False, {"acoustic": 4})
+    assert viscoacoustic == Plan(4, False, {"elastic": 6})
 
 
-def test_a_poroelastic_solid_couples_to_nothing():
-    poroelastic, acoustic = plans([config("poroelastic", 4), config("acoustic", 4)])
-    assert poroelastic == Plan(None, False, None)
-    assert acoustic == Plan(None, False, None)
+def test_a_poroelastic_solid_couples_to_solids_and_fluids():
+    poroelastic, elastic, acoustic = plans(
+        [config("poroelastic", 4), config("elastic", 6), config("acoustic", 3)]
+    )
+    # each converts from the canonical forms of both other families
+    assert poroelastic == Plan(4, False, {"elastic": 6, "acoustic": 3})
+    assert elastic == Plan(6, False, {"acoustic": 3, "poroelastic": 4})
+    assert acoustic == Plan(3, False, {"elastic": 6, "poroelastic": 4})
 
 
 def test_families_are_apart_by_their_fused_simulations():
-    result = plans([config("elastic", 3, 8), config("anisotropic", 3)])
-    assert result == [Plan(None, False, None)] * 2
+    result = plans(
+        [config("elastic", 3, 8), config("anisotropic", 3), config("acoustic", 3, 4)]
+    )
+    assert result == [Plan(None, False, {})] * 3

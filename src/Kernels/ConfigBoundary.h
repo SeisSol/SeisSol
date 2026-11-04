@@ -14,6 +14,7 @@
 #include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/configboundary.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/CellLocalInformation.h"
@@ -24,6 +25,7 @@
 #include <array>
 #include <cstddef>
 #include <optional>
+#include <type_traits>
 #include <vector>
 
 namespace seissol::kernels {
@@ -44,10 +46,11 @@ namespace seissol::kernels {
  * canonical form, such as memory variables, are zero. The code generator generates both kernels
  * for the configurations of a family that has more than one configuration in the build.
  *
- * A solid and a fluid pose the Riemann problem in different materials, but their families are
- * coupled: fromCoupledCanonical of the cell converts from the canonical form of the family of the
- * neighbor instead, with the coupling matrix of the face (LTS::Coupling): the contribution of the
- * neighbor to the Godunov state at the face, in the quantities of the cell
+ * Configurations of different families pose the Riemann problem in different quantities, but
+ * their families are coupled: fromCoupledCanonical of the cell converts from the canonical form of
+ * the family of the neighbor instead (the kernel and its tensors are indexed by
+ * model::familyIndex of the neighbor), with the coupling matrix of the face (LTS::Coupling): the
+ * contribution of the neighbor to the Godunov state at the face, in the quantities of the cell
  * (model::coupledNeighborMap). The flux matrix of the cell at such a face (AminusT) is its own
  * flux alone.
  */
@@ -58,12 +61,16 @@ constexpr bool FamilyConvertible =
     model::SameFamily<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
     Cfg::NumSimulations == NeighborCfg::NumSimulations;
 
-/// The conversion of Convertible between a solid and a fluid.
+/// The family of the configuration `Cfg` among the families of the code generator.
+template <typename Cfg>
+constexpr std::size_t FamilyOf = model::familyIndex<model::MaterialOf<Cfg>>();
+
+/// The conversion of Convertible between configurations of different families.
 template <typename Cfg, typename NeighborCfg>
 constexpr bool CoupledConvertible =
-    generated::ConfigBoundaryKernels<Cfg>::CoupledHost &&
+    FamilyOf<Cfg> != FamilyOf<NeighborCfg> &&
+    generated::ConfigBoundaryKernels<Cfg>::CoupledHost[FamilyOf<NeighborCfg>] &&
     generated::ConfigBoundaryKernels<NeighborCfg>::ToCanonicalHost &&
-    model::SolidAndFluid<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
     Cfg::NumSimulations == NeighborCfg::NumSimulations;
 
 template <typename Cfg, typename NeighborCfg>
@@ -75,14 +82,32 @@ template <typename Cfg, typename NeighborCfg>
 constexpr bool DeviceConvertible =
     (FamilyConvertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::Device &&
      generated::ConfigBoundaryKernels<NeighborCfg>::Device) ||
-    (CoupledConvertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::CoupledDevice &&
+    (CoupledConvertible<Cfg, NeighborCfg> &&
+     generated::ConfigBoundaryKernels<Cfg>::CoupledDevice[FamilyOf<NeighborCfg>] &&
      generated::ConfigBoundaryKernels<NeighborCfg>::ToCanonicalDevice);
+
+/// The reals of the coupling matrix of a face of a cell of the configuration `Cfg` towards a
+/// neighbor of the family `family`, or zero if there is none.
+template <typename Cfg>
+constexpr std::size_t couplingSize(std::size_t family) {
+  using Kernels = generated::ConfigBoundaryKernels<Cfg>;
+  if constexpr (std::is_void_v<tensor::coupling<Cfg>>) {
+    return 0;
+  } else {
+    return Kernels::CoupledHost[family] || Kernels::CoupledDevice[family]
+               ? tensor::coupling<Cfg>::size(family)
+               : 0;
+  }
+}
 
 /// Whether the face `face` of a cell of the configuration `Cfg` with the information
 /// `cellInformation` converts the time integral of its neighbor with a coupling matrix of its own:
-/// the neighbor is of the coupled family, in another configuration.
+/// the neighbor is of another family, in another configuration. If so, `family` is set to the
+/// family of the neighbor.
 template <typename Cfg>
-bool coupledFace(const CellLocalInformation& cellInformation, std::size_t face);
+bool coupledFace(const CellLocalInformation& cellInformation,
+                 std::size_t face,
+                 std::size_t* family = nullptr);
 
 /// Whether the conversion from the configuration `neighbor` into `cell` exists on the device.
 bool deviceConvertible(ConfigId cell, ConfigId neighbor);
@@ -101,9 +126,9 @@ recording::ConditionalKey toCanonicalKey(ConfigId neighbor);
 /// their side `side`.
 recording::ConditionalKey fromCanonicalKey(std::size_t side);
 
-/// The batch of the conversion from the canonical form of the coupled family, for the neighbors
-/// that touch the cell with their side `side`.
-recording::ConditionalKey fromCoupledCanonicalKey(std::size_t side);
+/// The batch of the conversion from the canonical form of the coupled family `family`, for the
+/// neighbors that touch the cell with their side `side`.
+recording::ConditionalKey fromCoupledCanonicalKey(std::size_t family, std::size_t side);
 
 /// The alignment of each part of the device scratch of a face.
 constexpr std::size_t ScratchAlignment = 256;
@@ -186,7 +211,7 @@ class ConfigBoundary {
 
   /// Computes the time integral of the neighbor of the configuration `NeighborCfg` on the face
   /// `face` from `timeDofs`, and converts it into `integrationBuffer`, with the coupling matrix of
-  /// the face `coupling` if the neighbor is of the coupled family.
+  /// the face `coupling` if the neighbor is of another family.
   template <typename NeighborCfg>
   static void computeIntegral(const CellLocalInformation& cellInformation,
                               std::size_t face,

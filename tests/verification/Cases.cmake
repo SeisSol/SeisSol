@@ -183,8 +183,9 @@ seissol_add_comparison(
 # are those of the set ci-interaction (cmake/confignames.cmake): across their
 # faces, the time integrals of a neighbor change order and precision, within a
 # family (elastic, viscoelastic and anisotropic; acoustic and viscoacoustic) and
-# between a solid and a fluid. A case runs in the configuration of the near half, in a
-# build that holds both; the material file has a medium for each half. Only a
+# between the families (a solid, a fluid and a poroelastic solid). A case runs in
+# the configuration of the near half, in a build that holds both; the material
+# file has a medium for each half. Only a
 # pair in double precision keeps a snapshot reference: in another environment,
 # a run that is partly single precision deviates from its reference by more
 # than the snapshot tolerance of double precision allows.
@@ -197,6 +198,8 @@ foreach (pair
     anisotropic-o6-f64:viscoelastic-m3-o5-f32:solid-solid
     acoustic-o4-f64:elastic-o6-f64:fluid-solid
     acoustic-o4-f64:anisotropic-o6-f64:fluid-solid
+    elastic-o6-f64:poroelastic-o5-f64:solid-poro
+    poroelastic-o5-f64:acoustic-o4-f64:poro-fluid
     viscoelastic-m3-o5-f32:viscoacoustic-m3-o4-f32:solid-fluid
     acoustic-o4-f64:viscoacoustic-m3-o4-f32:fluid-fluid)
   string(REPLACE ":" ";" pair ${pair})
@@ -263,6 +266,38 @@ seissol_add_comparison(
     NAME identity-interaction-anisotropic-fluid
     REFERENCE interaction-acoustic-o4-f64-elastic-o6-f64
     CANDIDATE interaction-acoustic-o4-f64-anisotropic-o6-f64
+    TOLERANCE 1e-6
+    LABELS "identity;interaction")
+
+# Two poroelastic sandstones in the halves of mat48, in one configuration: with the pore pressure
+# continuous across the boundary of their groups (open), with a skin at it (skin), and with a skin
+# of a conductance so large (nearly-open) that it solves the same problem as open apart from
+# rounding. The Riemann problem at a face with a skin is posed with the impedances of both sides,
+# the one of open faces with the eigenvectors of the poroelastic material.
+foreach (pores open nearly-open skin)
+  set(poroelastic
+      MESH mat48
+      PARAMETERS wave.par
+      MATERIAL material-interaction-poro-${pores}.yaml
+      STEPS 20
+      REQUIRE configuration=poroelastic-o5-f64)
+  seissol_add_minitest(
+      NAME interaction-poroelastic-o5-f64-${pores}
+      ${poroelastic}
+      NO_SNAPSHOT
+      ACTIVITY "v1:1e-12"
+      LABELS "smoke;interaction")
+  seissol_add_minitest(
+      NAME null-interaction-poroelastic-o5-f64-${pores}
+      ${poroelastic}
+      SET ${SEISSOL_ZERO_STATE}
+      EXPECT_ZERO
+      LABELS "null;interaction")
+endforeach()
+seissol_add_comparison(
+    NAME identity-interaction-poroelastic-skin
+    REFERENCE interaction-poroelastic-o5-f64-open
+    CANDIDATE interaction-poroelastic-o5-f64-nearly-open
     TOLERANCE 1e-6
     LABELS "identity;interaction")
 

@@ -55,7 +55,7 @@ namespace {
 /// Converts `integral`, a time integral of a neighbor of the configuration `NeighborCfg`, into
 /// `converted`, a time integral of the configuration `Cfg` of the cell, which the neighbor touches
 /// with its side `neighborSide`; with the coupling matrix `coupling` of the shared face if the
-/// neighbor is of the coupled family.
+/// neighbor is of another family.
 template <typename Cfg, typename NeighborCfg>
 void convertNeighborIntegral(const Real<NeighborCfg>* integral,
                              Real<Cfg>* converted,
@@ -90,18 +90,20 @@ void convertNeighborIntegral(const Real<NeighborCfg>* integral,
     fromCanonical.execute(neighborSide);
   } else {
     // the canonical form of the family of the neighbor, which is coupled to the one of the cell
-    static_assert(CellKernels::CoupledCanonicalOrder == NeighborKernels::CanonicalOrder &&
-                  CellKernels::CoupledCanonicalQuantities == NeighborKernels::CanonicalQuantities);
-    static_assert(tensor::coupledCanonicalI<Cfg>::size() ==
+    constexpr auto Family = FamilyOf<NeighborCfg>;
+    static_assert(CellKernels::CoupledCanonicalOrder[Family] == NeighborKernels::CanonicalOrder &&
+                  CellKernels::CoupledCanonicalQuantities[Family] ==
+                      NeighborKernels::CanonicalQuantities);
+    static_assert(tensor::coupledCanonicalI<Cfg>::size(Family) ==
                   tensor::canonicalI<NeighborCfg>::size());
 
     kernel::fromCoupledCanonical<Cfg> fromCoupledCanonical;
     fromCoupledCanonical.bindGlobals(CellPool);
-    fromCoupledCanonical.coupledCanonicalI = canonical;
+    fromCoupledCanonical.coupledCanonicalI(Family) = canonical;
     assert(coupling != nullptr);
-    fromCoupledCanonical.coupling = coupling;
+    fromCoupledCanonical.coupling(Family) = coupling;
     fromCoupledCanonical.I = converted;
-    fromCoupledCanonical.execute(neighborSide);
+    fromCoupledCanonical.execute(Family, neighborSide);
   }
 }
 
@@ -137,14 +139,20 @@ constexpr bool CanonicalOfMaterial = !generated::ConfigBoundaryKernels<Cfg>::ToC
 } // namespace
 
 template <typename Cfg>
-bool coupledFace(const CellLocalInformation& cellInformation, std::size_t face) {
+bool coupledFace(const CellLocalInformation& cellInformation,
+                 std::size_t face,
+                 std::size_t* family) {
   const auto neighborConfig = cellInformation.neighborConfigIds[face];
   if (cellInformation.faceTypes[face] != FaceType::Regular || neighborConfig == configIdOf<Cfg>() ||
       neighborConfig >= builtConfigCount()) {
     return false;
   }
-  return dispatchConfig(neighborConfig, [](auto neighborCfg) {
-    return CoupledConvertible<Cfg, decltype(neighborCfg)>;
+  return dispatchConfig(neighborConfig, [&](auto neighborCfg) {
+    using NeighborCfg = decltype(neighborCfg);
+    if (family != nullptr) {
+      *family = FamilyOf<NeighborCfg>;
+    }
+    return CoupledConvertible<Cfg, NeighborCfg>;
   });
 }
 
@@ -176,11 +184,13 @@ recording::ConditionalKey fromCanonicalKey(std::size_t side) {
   return ConditionalKey(*KernelNames::ConfigBoundary, *ComputationKind::None, *FaceId::Any, side);
 }
 
-recording::ConditionalKey fromCoupledCanonicalKey(std::size_t side) {
+recording::ConditionalKey fromCoupledCanonicalKey(std::size_t family, std::size_t side) {
   using namespace seissol::recording;
   // after the sides of fromCanonicalKey
-  return ConditionalKey(
-      *KernelNames::ConfigBoundary, *ComputationKind::None, *FaceId::Any, Cell::NumFaces + side);
+  return ConditionalKey(*KernelNames::ConfigBoundary,
+                        *ComputationKind::None,
+                        *FaceId::Any,
+                        Cell::NumFaces * (1 + family) + side);
 }
 
 } // namespace configboundary
@@ -256,8 +266,8 @@ void ConfigBoundary<Cfg>::computeIntegral(const CellLocalInformation& cellInform
                                           real* integrationBuffer) {
   using NeighborReal = Real<NeighborCfg>;
   if constexpr (!Convertible<Cfg, NeighborCfg>) {
-    // checkConfigBoundaries admits only the faces between the configurations of one family, and
-    // between a solid and a fluid
+    // checkConfigBoundaries admits only the faces between the configurations that fuse the same
+    // number of simulations
     logError() << "No conversion from the configuration"
                << configName(configValue(configIdOf<NeighborCfg>())) << "into"
                << configName(configValue(configIdOf<Cfg>())) << "was generated.";
@@ -338,23 +348,30 @@ void ConfigBoundary<Cfg>::computeBatchedIntegrals(
     }
   }
 
-  // from the canonical form of the coupled family, per side of the neighbors
-  if constexpr (generated::ConfigBoundaryKernels<Cfg>::CoupledDevice) {
+  // from the canonical forms of the coupled families, per family and side of the neighbors
+  if constexpr (!std::is_void_v<kernel::gpu_fromCoupledCanonical<Cfg>>) {
     const auto* pool = static_cast<const GlobalData<Cfg>*>(devicePools_.at(configIdOf<Cfg>()));
-    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
-      const auto key = configboundary::fromCoupledCanonicalKey(side);
-      if (table.contains(key)) {
-        auto& entry = table.at(key);
-        auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
-        auto* integrals = entry.get<real*>(inner_keys::Wp::Id::Idofs);
-        assert(pool != nullptr);
-        kernel::gpu_fromCoupledCanonical<Cfg> krnl;
-        krnl.bindGlobals(*pool);
-        krnl.coupledCanonicalI = const_cast<const double**>(canonical->getDeviceDataPtr());
-        auto* coupling = entry.get<real*>(inner_keys::Wp::Id::Coupling);
-        krnl.coupling = const_cast<const real**>(coupling->getDeviceDataPtr());
-        krnl.I = integrals->getDeviceDataPtr();
-        executeWithTemporaries(krnl, integrals->getSize(), runtime, [&] { krnl.execute(side); });
+    for (std::size_t family = 0; family < model::FamilyCount; ++family) {
+      if (!generated::ConfigBoundaryKernels<Cfg>::CoupledDevice[family]) {
+        continue;
+      }
+      for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+        const auto key = configboundary::fromCoupledCanonicalKey(family, side);
+        if (table.contains(key)) {
+          auto& entry = table.at(key);
+          auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
+          auto* integrals = entry.get<real*>(inner_keys::Wp::Id::Idofs);
+          auto* coupling = entry.get<real*>(inner_keys::Wp::Id::Coupling);
+          assert(pool != nullptr);
+          kernel::gpu_fromCoupledCanonical<Cfg> krnl;
+          krnl.bindGlobals(*pool);
+          krnl.coupledCanonicalI(family) =
+              const_cast<const double**>(canonical->getDeviceDataPtr());
+          krnl.coupling(family) = const_cast<const real**>(coupling->getDeviceDataPtr());
+          krnl.I = integrals->getDeviceDataPtr();
+          executeWithTemporaries(
+              krnl, integrals->getSize(), runtime, [&] { krnl.execute(family, side); });
+        }
       }
     }
   }
@@ -414,7 +431,7 @@ void ConfigBoundary<Cfg>::computeBatchedCanonical(
 
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \
   static_assert(CanonicalOfMaterial<Cfg>);                                                         \
-  template bool coupledFace<Cfg>(const CellLocalInformation&, std::size_t);                        \
+  template bool coupledFace<Cfg>(const CellLocalInformation&, std::size_t, std::size_t*);          \
   template class ConfigBoundary<Cfg>;
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE

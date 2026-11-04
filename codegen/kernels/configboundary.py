@@ -7,12 +7,12 @@
 
 """The kernels for the faces between cells of different configurations.
 
-The cells of two configurations can be face neighbors if the Riemann problems of
-their materials have the same quantities and if they fuse the same number of
-simulations (cf. model::CanNeighbor); such configurations form a family. An
-anisotropic solid poses its Riemann problem in a material of its own, but in
-the quantities of an elastic one: it is of the family of the isotropic solids.
-The
+The configurations whose materials pose the Riemann problem in the same
+quantities, and that fuse the same number of simulations, form a family (cf.
+model::SameFamily). An anisotropic solid poses its Riemann problem in a material
+of its own, but in the quantities of an elastic one: it is of the family of the
+isotropic solids. The cells of two configurations can be face neighbors if they
+fuse the same number of simulations. The
 neighbor flux of a cell reads the time integral of a neighbor only through its
 trace on the shared face, tested with the face basis of the cell. The time
 integral of a neighbor of another configuration of the family is converted in
@@ -36,26 +36,28 @@ Hence the number of kernels grows linearly with the number of configurations,
 and the kernels of a configuration only depend on the canonical form of its
 family.
 
-A solid and a fluid pose the Riemann problem in different quantities, but their
-cells can be face neighbors as well: their families are coupled. A cell of the
-one converts the time integral of a neighbor of the other from the canonical
-form of the family of the neighbor:
+The families (FAMILIES: the solids, the fluids and the poroelastic solids) pose
+the Riemann problem in different quantities, but the cells of any two of them
+can be face neighbors as well: their families are coupled. A cell of the one
+converts the time integral of a neighbor of the other from the canonical form
+of the family of the neighbor:
 
-- fromCoupledCanonical(side): as fromCanonical, from the canonical form of the
-  coupled family, with the quantities mapped across by the matrix of the face
-  (the runtime tensor coupling): the contribution of the neighbor to the
-  Godunov state at the face, in the quantities of the cell, which the code sets
-  up from the impedances of both sides (model::coupledNeighborMap). The flux
-  matrix of the cell at such a face is then its own flux alone. If the order of
-  the configuration is the larger one, the basis is padded instead of lifted. As
-  in fromCanonical, a configuration in single precision narrows first.
+- fromCoupledCanonical(family, side): as fromCanonical, from the canonical form
+  of the coupled family with the index `family`, with the quantities mapped
+  across by the matrix of the face (the runtime tensor coupling(family)): the
+  contribution of the neighbor to the Godunov state at the face, in the
+  quantities of the cell, which the code sets up from the impedances of both
+  sides (model::coupledNeighborMap). The flux matrix of the cell at such a face
+  is then its own flux alone. If the order of the configuration is the larger
+  one, the basis is padded instead of lifted. As in fromCanonical, a
+  configuration in single precision narrows first.
 
-For that, toCanonical exists for the configurations of a family whose coupled
-family is in the build, too.
+For that, toCanonical exists for the configurations of a family that another
+family in the build is coupled to, too.
 """
 
 import os
-from typing import NamedTuple, Optional
+from typing import Dict, NamedTuple, Optional
 
 import numpy as np
 from kernels.common import generate_kernel_name_prefix
@@ -68,7 +70,7 @@ from kernels.quantities import (
     layout,
     total_extent,
 )
-from yateto import Tensor, simpleParameterSpace
+from yateto import Tensor, parameterSpaceFromRanges, simpleParameterSpace
 from yateto.functions import cast
 from yateto.input import parseXMLMatrixFile
 from yateto.memory import CSCMemoryLayout
@@ -86,12 +88,14 @@ RIEMANN_MATERIAL = {
     "poroelastic": "poroelastic",
 }
 
-#: The families whose cells are face neighbors although their Riemann problems
-#: have different quantities: a solid and a fluid (cf. model::SolidAndFluid).
-COUPLED = {"elastic": "acoustic", "acoustic": "elastic"}
+#: The families, by the materials whose quantities their Riemann problems have:
+#: the solids, the fluids and the poroelastic solids. The index of a family is
+#: its position here, as model::FamilyIndex has it. The cells of any two
+#: families can be face neighbors: their families are coupled.
+FAMILIES = ("elastic", "acoustic", "poroelastic")
 
-#: The quantities of the Riemann problem of the coupled Riemann materials, as
-#: their equations lay them out.
+#: The quantities of the Riemann problem of each family, as its equations lay
+#: them out.
 RIEMANN_GROUPS = {
     "elastic": (
         QuantityGroup("s", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
@@ -100,6 +104,12 @@ RIEMANN_GROUPS = {
     "acoustic": (
         QuantityGroup("pprime", QuantityKind.SCALAR, FaceRole.TRACTION),
         QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
+    ),
+    "poroelastic": (
+        QuantityGroup("s", QuantityKind.SYM_TENSOR2, FaceRole.TRACTION),
+        QuantityGroup("v", QuantityKind.VECTOR, FaceRole.VELOCITY),
+        QuantityGroup("p", QuantityKind.SCALAR, FaceRole.EXTRA_TRACTION),
+        QuantityGroup("vf", QuantityKind.VECTOR, FaceRole.EXTRA_VELOCITY),
     ),
 }
 
@@ -118,17 +128,17 @@ class Plan(NamedTuple):
     #: whether fromCanonical, from the canonical form of the family, is
     #: generated
     from_family: bool
-    #: the order of the canonical form of the coupled family, which
-    #: fromCoupledCanonical converts from; None if that is not generated
-    coupled_order: Optional[int]
+    #: per coupled family with a configuration in the build, by its name: the
+    #: order of its canonical form, which fromCoupledCanonical converts from
+    coupled: Dict[str, int]
 
 
 def plans(config_args):
     """Per configuration: its Plan. The canonical form of a family has the
     largest order of the family in the build. toCanonical and fromCanonical
     exist for the configurations of a family with more than one configuration in
-    the build; toCanonical and fromCoupledCanonical for those whose coupled
-    family has a configuration in the build as well."""
+    the build; toCanonical and fromCoupledCanonical for those of a family that
+    another family in the build is coupled to, for each of them."""
     orders = {}
     counts = {}
     for args in config_args:
@@ -139,18 +149,19 @@ def plans(config_args):
     result = []
     for args in config_args:
         material, simulations = family(args)
-        coupled = (COUPLED.get(material), simulations)
+        coupled = {
+            other: orders[(other, simulations)]
+            for other in FAMILIES
+            if other != material and (other, simulations) in orders
+        }
         with_family = counts[(material, simulations)] > 1
-        with_coupled = coupled in counts
         result.append(
             Plan(
                 canonical_order=(
-                    orders[(material, simulations)]
-                    if with_family or with_coupled
-                    else None
+                    orders[(material, simulations)] if with_family or coupled else None
                 ),
                 from_family=with_family,
-                coupled_order=orders[coupled] if with_coupled else None,
+                coupled=coupled,
             )
         )
     return result
@@ -230,12 +241,12 @@ def add_kernels(generator, aderdg, matrices_dir, plan, material, precision, targ
             precision,
             targets,
         )
-    if plan.coupled_order is not None:
+    if plan.coupled:
         _add_coupled_kernels(
             generator,
             aderdg,
             matrices_dir,
-            plan.coupled_order,
+            plan.coupled,
             material,
             precision,
             targets,
@@ -354,9 +365,12 @@ def _add_family_kernels(
 
 
 def _add_coupled_kernels(
-    generator, aderdg, matrices_dir, coupled_order, material, precision, targets
+    generator, aderdg, matrices_dir, coupled, material, precision, targets
 ):
-    """Adds the family fromCoupledCanonical (over the side of the neighbor)."""
+    """Adds the family fromCoupledCanonical, over the index of the coupled family
+    of the neighbor (see FAMILIES) and the side of the neighbor, for the coupled
+    families in `coupled` (see Plan). Its tensors are groups over the index of
+    the coupled family."""
     real = Datatype.F64 if precision == "double" else Datatype.F32
     f64 = Datatype.F64
 
@@ -366,81 +380,107 @@ def _add_coupled_kernels(
     quantities = aderdg.numQuantities()
 
     assert tuple(aderdg.primaryGroups()) == RIEMANN_GROUPS[material]
-    coupled_count = total_extent(layout(RIEMANN_GROUPS[COUPLED[material]]))
-    coupled_bases = num_bases(coupled_order)
 
-    coupled = _fused(integral, "coupledCanonicalI", (coupled_bases, coupled_count))
+    shape = {}
+    canonical = {}
+    coupling = {}
+    lift = {}
+    for name, coupled_order in coupled.items():
+        index = FAMILIES.index(name)
+        coupled_count = total_extent(layout(RIEMANN_GROUPS[name]))
+        coupled_bases = num_bases(coupled_order)
 
-    # per face: the quantities of the neighbor into the contribution of the neighbor to the Godunov
-    # state, in the quantities of the cell and in the precision of the configuration
-    coupling = Tensor("coupling", (coupled_count, quantities), datatype=real)
+        shape[index] = (coupled_bases, coupled_count)
+        canonical[index] = _fused(integral, f"coupledCanonicalI({index})", shape[index])
 
-    # the basis: lifted from a larger order as in fromCanonical, padded from a
-    # smaller one
-    lift = None
-    if coupled_order > order:
-        lift = [
-            Tensor(
-                f"coupledLift({side})",
+        # per face: the quantities of the neighbor into the contribution of the
+        # neighbor to the Godunov state, in the quantities of the cell and in the
+        # precision of the configuration
+        coupling[index] = Tensor(
+            f"coupling({index})", (coupled_count, quantities), datatype=real
+        )
+
+        # the basis: lifted from a larger order as in fromCanonical, padded from
+        # a smaller one
+        if coupled_order > order:
+            lift[index] = [
+                Tensor(
+                    f"coupledLift({index},{side})",
+                    (bases, coupled_bases),
+                    values,
+                    datatype=real,
+                )
+                for side, values in enumerate(lifts(matrices_dir, order, coupled_order))
+            ]
+        elif coupled_order < order:
+            embed = Tensor(
+                f"coupledEmbed({index})",
                 (bases, coupled_bases),
-                values,
+                np.eye(bases, coupled_bases),
+                CSCMemoryLayout,
                 datatype=real,
             )
-            for side, values in enumerate(lifts(matrices_dir, order, coupled_order))
-        ]
-    elif coupled_order < order:
-        embed = Tensor(
-            "coupledEmbed",
-            (bases, coupled_bases),
-            np.eye(bases, coupled_bases),
-            CSCMemoryLayout,
-            datatype=real,
-        )
-        lift = [embed] * 4
+            lift[index] = [embed] * 4
+        else:
+            lift[index] = None
 
     for target in targets:
         prefix = generate_kernel_name_prefix(target)
 
-        def fromCoupledCanonical(side):
+        def fromCoupledCanonical(index, side):
+            source = canonical[index]
             if real != f64:
                 narrow = _fused(
                     integral,
-                    f"{prefix}narrowCoupledCanonicalI",
-                    (coupled_bases, coupled_count),
+                    f"{prefix}narrowCoupledCanonicalI({index})",
+                    shape[index],
                     datatype=real,
                     temporary=True,
                 )
-                narrowing = [narrow["lq"] <= cast(coupled["lq"], real)]
+                narrowing = [narrow["lq"] <= cast(source["lq"], real)]
             else:
-                narrow = coupled
+                narrow = source
                 narrowing = []
 
-            if lift is None:
-                product = narrow["kq"] * coupling["qp"]
+            if lift[index] is None:
+                product = narrow["kq"] * coupling[index]["qp"]
             else:
-                product = lift[side]["kl"] * narrow["lq"] * coupling["qp"]
+                product = lift[index][side]["kl"] * narrow["lq"] * coupling[index]["qp"]
             return narrowing + [integral["kp"] <= product]
 
         generator.addFamily(
             f"{prefix}fromCoupledCanonical",
-            simpleParameterSpace(4),
+            parameterSpaceFromRanges(sorted(canonical), range(4)),
             fromCoupledCanonical,
             target=target,
         )
 
 
-def emit_header(aderdg, output_dir, key, plan, material, targets):
+def emit_header(aderdg, output_dir, key, plan, targets):
     """Tells the C++ side which kernels of the configuration `key` exist, and
     for which canonical forms."""
     to_canonical = plan.canonical_order is not None
-    coupled = plan.coupled_order is not None
     count = canonical_quantities(aderdg) if to_canonical else 0
-    coupled_count = (
-        total_extent(layout(RIEMANN_GROUPS[COUPLED[material]])) if coupled else 0
-    )
 
     def boolean(value):
         return "true" if value else "false"
+
+    def per_family(value):
+        return "{" + ", ".join(value(name) for name in FAMILIES) + "}"
+
+    def coupled_kernels(target):
+        return per_family(
+            lambda name: boolean(name in plan.coupled and target in targets)
+        )
+
+    coupled_orders = per_family(lambda name: str(plan.coupled.get(name, 0)))
+    coupled_counts = per_family(
+        lambda name: (
+            str(total_extent(layout(RIEMANN_GROUPS[name])))
+            if name in plan.coupled
+            else "0"
+        )
+    )
 
     lines = [
         "// Generated by codegen/kernels/configboundary.py. Do not edit.",
@@ -449,6 +489,7 @@ def emit_header(aderdg, output_dir, key, plan, material, targets):
         "",
         '#include "Config.h"',
         "",
+        "#include <array>",
         "#include <cstddef>",
         "",
         "namespace seissol::generated {",
@@ -463,16 +504,18 @@ def emit_header(aderdg, output_dir, key, plan, material, targets):
         "  // toCanonical and fromCanonical, into and from the canonical form of the family",
         f"  static constexpr bool Host = {boolean(plan.from_family and 'cpu' in targets)};",
         f"  static constexpr bool Device = {boolean(plan.from_family and 'gpu' in targets)};",
-        "  // toCanonical alone, which the configurations of the coupled family read as well",
+        "  // toCanonical alone, which the configurations of the coupled families read as well",
         f"  static constexpr bool ToCanonicalHost = {boolean(to_canonical and 'cpu' in targets)};",
         f"  static constexpr bool ToCanonicalDevice = {boolean(to_canonical and 'gpu' in targets)};",
         f"  static constexpr std::size_t CanonicalOrder = {plan.canonical_order or 0};",
         f"  static constexpr std::size_t CanonicalQuantities = {count};",
-        "  // fromCoupledCanonical, from the canonical form of the coupled family (a solid and a fluid)",
-        f"  static constexpr bool CoupledHost = {boolean(coupled and 'cpu' in targets)};",
-        f"  static constexpr bool CoupledDevice = {boolean(coupled and 'gpu' in targets)};",
-        f"  static constexpr std::size_t CoupledCanonicalOrder = {plan.coupled_order or 0};",
-        f"  static constexpr std::size_t CoupledCanonicalQuantities = {coupled_count};",
+        "  // fromCoupledCanonical, by the family of the neighbor (the solids, the fluids, the",
+        "  // poroelastic solids): whether it converts from the canonical form of that family, and the",
+        "  // order and the quantities of the form",
+        f"  static constexpr std::array<bool, 3> CoupledHost = {coupled_kernels('cpu')};",
+        f"  static constexpr std::array<bool, 3> CoupledDevice = {coupled_kernels('gpu')};",
+        f"  static constexpr std::array<std::size_t, 3> CoupledCanonicalOrder = {coupled_orders};",
+        f"  static constexpr std::array<std::size_t, 3> CoupledCanonicalQuantities = {coupled_counts};",
         "};",
         "",
         "} // namespace seissol::generated",

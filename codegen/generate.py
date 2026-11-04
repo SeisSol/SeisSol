@@ -504,7 +504,7 @@ def main():
 
         kernels.quantities.emit_header(adg, trueOutputDir, key)
         kernels.configboundary.emit_header(
-            adg, trueOutputDir, key, boundaryPlan, riemannMaterial, boundaryTargets
+            adg, trueOutputDir, key, boundaryPlan, boundaryTargets
         )
 
         return generator, include_tensors
