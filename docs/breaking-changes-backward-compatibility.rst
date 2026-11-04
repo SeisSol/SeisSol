@@ -13,6 +13,19 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The samples of the on-fault receivers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the on-fault receivers sample at fixed times within the time steps)
+
+The on-fault receivers sample at the multiples of the new parameter ``pickdt`` of the
+``Pickpoint`` section, or without it every ``printtimeinterval`` time steps of the finest time
+cluster with fault faces counted from time zero, and at the end of the simulation. A sample takes
+the wave field of its time from the time derivatives of the cells, and the friction state
+interpolated linearly within the time step. Before, the receivers sampled in the time steps of the
+finest cluster with fault faces, counted from the last synchronization point, with the wave field
+of the start of the step and the friction state of its end; a face of a coarser cluster repeated
+the state of its step. After a restart, the first sample carries the time of the checkpoint.
+
 The static frictional work
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the static frictional work takes the traction at the output time)

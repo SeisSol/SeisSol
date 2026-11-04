@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTORSTATE_H_
 
 #include "Common/Executor.h"
+#include "DynamicRupture/Output/PickpointSampling.h"
 
 #include <atomic>
 #include <cstddef>
@@ -100,10 +101,11 @@ class DynamicRuptureScheduler {
   long lastCorrectionStepsInterior_ = -1;
   long lastCorrectionStepsCopy_ = -1;
   long numberOfDynamicRuptureFaces_;
-  double outputTimestep_{};
+  dr::output::PickpointSampling pickpointSampling_;
 
   public:
-  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces, double outputTimestep);
+  DynamicRuptureScheduler(long numberOfDynamicRuptureFaces,
+                          const dr::output::PickpointSampling& pickpointSampling);
 
   [[nodiscard]] bool mayComputeInterior(long curCorrectionSteps) const;
 
@@ -113,7 +115,8 @@ class DynamicRuptureScheduler {
 
   [[nodiscard]] bool hasDynamicRuptureFaces() const;
 
-  [[nodiscard]] double getOutputTimestep() const;
+  /// when the on-fault receivers take their samples
+  [[nodiscard]] const dr::output::PickpointSampling& pickpointSampling() const;
 };
 
 struct ActResult {

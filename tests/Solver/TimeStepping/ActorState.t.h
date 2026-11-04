@@ -202,25 +202,25 @@ TEST_CASE("NeighborCluster construction" * doctest::test_suite("solver")) {
 
 TEST_CASE("DynamicRuptureScheduler" * doctest::test_suite("solver")) {
   SUBCASE("Has DR faces") {
-    const DynamicRuptureScheduler sched(100, 0.01);
+    const DynamicRuptureScheduler sched(100, seissol::dr::output::PickpointSampling(0.01, 1.0));
     CHECK(sched.hasDynamicRuptureFaces());
-    CHECK(sched.getOutputTimestep() == doctest::Approx(0.01));
+    CHECK(sched.pickpointSampling().interval() == doctest::Approx(0.01));
   }
 
   SUBCASE("No DR faces") {
-    const DynamicRuptureScheduler sched(0, 0.0);
+    const DynamicRuptureScheduler sched(0, seissol::dr::output::PickpointSampling());
     CHECK_FALSE(sched.hasDynamicRuptureFaces());
   }
 
   SUBCASE("mayComputeInterior starts at -1") {
-    const DynamicRuptureScheduler sched(10, 0.01);
+    const DynamicRuptureScheduler sched(10, seissol::dr::output::PickpointSampling(0.01, 1.0));
     // lastCorrectionStepsInterior is initialized to -1
     CHECK(sched.mayComputeInterior(0));
     CHECK(sched.mayComputeInterior(1));
   }
 
   SUBCASE("mayComputeInterior updates") {
-    DynamicRuptureScheduler sched(10, 0.01);
+    DynamicRuptureScheduler sched(10, seissol::dr::output::PickpointSampling(0.01, 1.0));
     sched.setLastCorrectionStepsInterior(5);
     CHECK_FALSE(sched.mayComputeInterior(5));
     CHECK_FALSE(sched.mayComputeInterior(4));
@@ -228,7 +228,7 @@ TEST_CASE("DynamicRuptureScheduler" * doctest::test_suite("solver")) {
   }
 
   SUBCASE("setLastCorrectionStepsCopy does not affect interior") {
-    DynamicRuptureScheduler sched(10, 0.01);
+    DynamicRuptureScheduler sched(10, seissol::dr::output::PickpointSampling(0.01, 1.0));
     sched.setLastCorrectionStepsCopy(5);
     // Interior is still at -1
     CHECK(sched.mayComputeInterior(0));

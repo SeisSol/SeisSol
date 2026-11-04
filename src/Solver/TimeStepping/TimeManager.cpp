@@ -14,6 +14,7 @@
 #include "Common/Json.h"
 #include "CommunicationManager.h"
 #include "DynamicRupture/Output/OutputManager.h"
+#include "DynamicRupture/Output/PickpointSampling.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
@@ -115,9 +116,18 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                     ? std::numeric_limits<double>::infinity()
                                     : clusterLayout.timestepRate(drClusterOutput);
 
+  // the on-fault receivers sample every pickdt, or else every printtimeinterval time steps of the
+  // finest cluster with fault faces, counted from time zero
+  const auto& pickpointParameters = seissolInstance_.parameters().output.pickpointParameters;
+  const double pickpointInterval = pickpointParameters.samplingInterval > 0
+                                       ? pickpointParameters.samplingInterval
+                                       : pickpointParameters.printTimeInterval * drOutputTimestep;
+  const dr::output::PickpointSampling pickpointSampling(
+      pickpointInterval, seissolInstance_.parameters().timeStepping.endTime);
+
   for (const auto drCells : drCellsPerPair) {
     dynamicRuptureSchedulers_.emplace_back(
-        std::make_unique<DynamicRuptureScheduler>(drCells, drOutputTimestep));
+        std::make_unique<DynamicRuptureScheduler>(drCells, pickpointSampling));
   }
 
   std::vector<AbstractTimeCluster*> cellClusterBackmap(
