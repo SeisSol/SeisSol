@@ -305,6 +305,9 @@ void Trace::write(const std::string& path, MPI_Comm comm) {
   MPI_File file{};
   MPI_File_open(comm, path.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &file);
   MPI_File_set_size(file, 0);
+  // the size may be set on each process (OMPIO of Open MPI): no chunk goes in before all are done,
+  // or a late truncation cuts out those written before it (on 512 ranks of Horizon, all but 172)
+  MPI_Barrier(comm);
   if (rank == 0) {
     writeAt(file, 0, header.data(), header.size());
     writeAt(file, static_cast<MPI_Offset>(header.size() + total), footer.data(), footer.size());
