@@ -242,6 +242,44 @@ CpuMask Pinning::getFreeCPUsMask() const {
 #endif // __APPLE__
 }
 
+CpuMask Pinning::getHelperMask() const {
+#ifndef __APPLE__
+  cpu_set_t own;
+  CPU_ZERO(&own);
+  sched_getaffinity(0, sizeof(cpu_set_t), &own);
+  const auto workers = getWorkerUnionMask();
+  cpu_set_t helpers;
+  CPU_ZERO(&helpers);
+  for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
+    if (CPU_ISSET(cpu, &workers.set) != 0 && CPU_ISSET(cpu, &own) == 0) {
+      CPU_SET(cpu, &helpers);
+    }
+  }
+  if (CPU_COUNT(&helpers) == 0) {
+    return getFreeCPUsMask();
+  }
+  return CpuMask{helpers};
+#else
+  return {};
+#endif // __APPLE__
+}
+
+ScopedAffinity::ScopedAffinity(const CpuMask& mask) {
+#ifndef __APPLE__
+  if (CPU_COUNT(&mask.set) > 0 && sched_getaffinity(0, sizeof(cpu_set_t), &own_.set) == 0) {
+    bound_ = sched_setaffinity(0, sizeof(cpu_set_t), &mask.set) == 0;
+  }
+#endif // __APPLE__
+}
+
+ScopedAffinity::~ScopedAffinity() {
+#ifndef __APPLE__
+  if (bound_) {
+    sched_setaffinity(0, sizeof(cpu_set_t), &own_.set);
+  }
+#endif // __APPLE__
+}
+
 bool Pinning::freeCPUsMaskEmpty(const CpuMask& mask) {
 #ifndef __APPLE__
   return CPU_COUNT(&(mask.set)) == 0;

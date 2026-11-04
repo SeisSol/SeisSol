@@ -180,6 +180,19 @@ The remaining modes run the exchange on GPU streams. They need to be enabled at 
      - (none; CUDA and HIP)
      - any MPI (experimental, see below)
 
+The libraries of these modes keep their operations going with threads of their own on the host (the proxies of NCCL,
+RCCL and NVSHMEM; with NVSHMEM over InfiniBand, its default transport IBRC sends every put through its proxy), and
+``actor-mpi`` runs MPI on a thread of its own. Such a thread must not share its core with one that polls all the time:
+each of them then gets the core for a time slice at a time, and every message takes milliseconds. The libraries give
+their threads the CPUs of the thread that sets them up, which OpenMP binds to its first CPU when it binds its threads
+(``OMP_PROC_BIND``); and that thread, the main thread, polls all the time while the GPU computes. So SeisSol sets the
+libraries up on the CPUs of the OpenMP workers of the process other than that core (the workers are idle while the GPU
+computes), and runs the thread of ``actor-mpi`` there as well, apart from the communication thread on the free CPUs.
+On two nodes of Horizon (B200, November 2026), TPV5 had taken 15 s with ``ccl``, 16 to 19 s with ``shmem`` (3.6 s
+with IBGDA) and 12 s with ``actor-mpi`` before, against 0.27 s with ``direct``; then it took 0.29, 0.35 and 0.36 s,
+and over 2 s of simulated time 0.99 to 1.16 s with ``ccl`` and 0.99 to 1.00 s with ``shmem`` (0.98 to 1.23 s with
+IBGDA), against 0.94 to 0.99 s with ``direct`` (three runs each).
+
 These modes launch the operations of an exchange as one group.
 Operations that occupy their stream until the peer has posted the counterpart could wait for each other in a cycle
 if every process launched them in its own order.

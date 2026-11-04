@@ -398,23 +398,37 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     assert(position < runConfigs.size());
     return identifier.lts * runConfigs.size() + position;
   };
-  haloTransports_ =
-      std::make_unique<HaloTransportFactory>(Mpi::mpi.getPreferredDataTransferMode(),
-                                             usePersistentMpi(seissolInstance_.env()),
-                                             useExchangePerDirection(seissolInstance_.env()),
-                                             clusterLayout.globalClusterCount * runConfigs.size(),
-                                             runConfigs.size(),
-                                             exchangeLanes(seissolInstance_.env()));
-  if (Mpi::mpi.getPreferredDataTransferMode() == Mpi::DataTransferMode::ActorMpi) {
-    // MPI goes on while this thread waits for the device; on the CPUs the OpenMP threads leave
-    // free, if there are any
-    const auto cpus = seissolInstance_.pinning().getFreeCPUsMask();
+  // the libraries of the device streams start threads that keep their operations going (the
+  // proxies of NCCL and NVSHMEM), with the CPUs of the thread that sets them up: not the core of
+  // this one, which OpenMP binds to its first CPU, and which polls all the time
+  const auto helperCpus = seissolInstance_.pinning().getHelperMask();
+  {
+    const parallel::ScopedAffinity helperAffinity(helperCpus);
+    haloTransports_ =
+        std::make_unique<HaloTransportFactory>(Mpi::mpi.getPreferredDataTransferMode(),
+                                               usePersistentMpi(seissolInstance_.env()),
+                                               useExchangePerDirection(seissolInstance_.env()),
+                                               clusterLayout.globalClusterCount * runConfigs.size(),
+                                               runConfigs.size(),
+                                               exchangeLanes(seissolInstance_.env()));
+  }
+  const auto helperCpusText = parallel::Pinning::maskToStringShort(helperCpus);
+  const auto mode = Mpi::mpi.getPreferredDataTransferMode();
+  if ((mode == Mpi::DataTransferMode::DirectCcl || mode == Mpi::DataTransferMode::DirectShmem) &&
+      !parallel::Pinning::freeCPUsMaskEmpty(helperCpus)) {
+    logInfo() << "The threads of the libraries of the halo exchange run on the CPUs"
+              << helperCpusText.c_str() << "(those of the OpenMP workers but the first).";
+  }
+  if (mode == Mpi::DataTransferMode::ActorMpi) {
+    // MPI goes on while this thread waits for the device; not on the core of the main thread, nor
+    // on the free CPUs, where the communication thread polls
     std::function<void()> pin;
-    if (!parallel::Pinning::freeCPUsMaskEmpty(cpus)) {
-      pin = [cpus]() { cpus.setaffinity_np(pthread_self()); };
+    if (!parallel::Pinning::freeCPUsMaskEmpty(helperCpus)) {
+      pin = [helperCpus]() { helperCpus.setaffinity_np(pthread_self()); };
     }
     parallel::runtime::HostActor::instance().startProgressThread(pin);
-    logInfo() << "A thread of its own" << (pin ? "on the free CPUs" : "")
+    const auto where = pin ? "on the CPUs " + helperCpusText : std::string();
+    logInfo() << "A thread of its own" << where.c_str()
               << "sends and receives the halo data with MPI through host memory; the device"
               << "waits for it.";
   }
