@@ -217,6 +217,10 @@ xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
 ! and free-surface output. The HDF5 backend is only supported when SeisSol is compiled with
 ! HDF5 support.
 
+hdfcompress = 0 ! the deflate level (1 to 9) of the fault, wavefield and free-surface output, with
+! the shuffle filter of HDF5 before it; 0 (the default) writes them uncompressed. Only the HDF5
+! backend compresses.
+
 outputtimeseries = 'monolith' ! how the steps of a mesh output are distributed over files:
 ! 'snapshot' writes one self-contained file per step, 'incremental' keeps the geometry in a file
 ! of its own that the snapshots link to, and 'monolith' writes a single VTKHDF time series for the

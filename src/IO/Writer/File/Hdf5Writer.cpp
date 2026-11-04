@@ -468,6 +468,13 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     if (!layout.chunkSizes.empty() && chunked) {
       _eh(H5Pset_chunk(h5filter, layout.chunkSizes.size(), layout.chunkSizes.data()));
       if (compress > 0) {
+        // The shuffle filter groups the bytes of the values of a chunk by their significance, so
+        // that the bytes of sign and exponent, which change little from value to value, form runs
+        // for deflate. On the outputs of tpv5, it made the fields 2 % to 6 % smaller, and 16 % to
+        // 24 % in a run in single precision, whose values are written in double precision; the
+        // integers of the cells 11 % to 57 %. The connectivity and the points came out up to 11 %
+        // smaller, or up to 9 % larger.
+        _eh(H5Pset_shuffle(h5filter));
         const int deflateStrength = compress;
         _eh(H5Pset_deflate(h5filter, deflateStrength));
       }
