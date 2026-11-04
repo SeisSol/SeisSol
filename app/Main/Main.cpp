@@ -13,6 +13,8 @@
 #include "Common/RunId.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/InitProcedure/Init.h"
+#include "Initializer/Parameters/DRParameters.h"
+#include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/Parameters/ParameterOverrides.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -23,6 +25,7 @@
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 
+#include <async/Config.h>
 #include <cstdlib>
 #include <ctime>
 #include <exception>
@@ -32,6 +35,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <utils/args.h>
 #include <utils/env.h>
 #include <utils/logger.h>

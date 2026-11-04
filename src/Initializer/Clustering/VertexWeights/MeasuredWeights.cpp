@@ -11,10 +11,9 @@
 #include "IO/Reader/Distribution.h"
 #include "IO/Reader/File/Hdf5Reader.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/Clustering/VertexWeights/WeightsModels.h"
 #include "Initializer/MemoryManager.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/LoopStatistics.h"
@@ -116,7 +115,6 @@ std::optional<MeasuredCellCosts> measureCellCosts(const LoopStatistics& statisti
   const auto faceRegion = statistics.getRegion("computeDynamicRupture");
 
   auto& ltsStorage = memoryManager.ltsStorage();
-  auto& drStorage = memoryManager.drStorage();
   const auto& colorMap = ltsStorage.getColorMap();
   const auto colors = colorMap.size();
 
@@ -289,7 +287,7 @@ MeasuredWeights::MeasuredWeights(const MeasuredCellCosts& costs) : costs_(&costs
 
 void MeasuredWeights::setVertexWeights() {
   const auto& clustering = this->clustering();
-  const auto comm = seissol::Mpi::mpi.comm();
+  MPI_Comm comm = seissol::Mpi::mpi.comm();
   const std::size_t count = clustering.clusterIds.size();
 
   // the cells of this rank are a run of those of the file

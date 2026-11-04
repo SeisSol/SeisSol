@@ -131,7 +131,7 @@ inline bool useExchangeTransportEvents(utils::Env& env) {
  * time per node). `byDefault` without SEISSOL_SUPERSTEP_BRANCHES.
  */
 inline bool useSuperStepBranches(utils::Env& env, bool byDefault) {
-  return env.get<bool>("SUPERSTEP_BRANCHES", bool{byDefault});
+  return env.get("SUPERSTEP_BRANCHES", byDefault);
 }
 
 /**
