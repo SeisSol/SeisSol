@@ -107,6 +107,8 @@ class ShmemExchangeScheduler : public StreamExchangeScheduler {
 
 #if defined(ACL_DEVICE) && defined(USE_SHMEM)
   std::size_t windowSize_{0};
+  //! where the second copy of the staging window starts (group kernels only)
+  std::uint64_t windowStride_{0};
 
   int rank_{0};
   int size_{1};

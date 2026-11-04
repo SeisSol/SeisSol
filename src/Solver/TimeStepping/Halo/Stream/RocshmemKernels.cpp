@@ -69,6 +69,7 @@ __device__ void copyInGroup(void* destination, const void* source, std::uint64_t
 // a group: each workgroup one task (see ShmemGroup.h)
 __global__ void groupKernel(const shmem::Task* tasks,
                             const shmem::Region* regions,
+                            std::uint64_t windowStride,
                             std::uint64_t* count,
                             std::uint32_t* finished) {
   __shared__ std::uint64_t current;
@@ -77,10 +78,10 @@ __global__ void groupKernel(const shmem::Task* tasks,
   }
   __syncthreads();
   const auto& task = tasks[blockIdx.x];
+  // the copy of the staging window of this exchange (see ShmemGroup.h)
+  const auto window = (current % 2) * windowStride;
   if (task.receive != 0) {
     if (threadIdx.x == 0) {
-      // the staging window is free again: the group before has copied its data out
-      ::rocshmem::rocshmem_uint64_atomic_set(task.clearToSend, current, task.peer);
       ::rocshmem::rocshmem_ulonglong_wait_until(reinterpret_cast<unsigned long long*>(task.arrived),
                                                 ::rocshmem::ROCSHMEM_CMP_GE,
                                                 current * task.regionCount);
@@ -90,19 +91,26 @@ __global__ void groupKernel(const shmem::Task* tasks,
     __builtin_amdgcn_fence(__ATOMIC_ACQUIRE, "");
     for (std::uint32_t i = 0; i < task.regionCount; ++i) {
       const auto& region = regions[task.firstRegion + i];
-      copyInGroup(region.destination, region.source, region.bytes);
+      copyInGroup(
+          region.destination, static_cast<const char*>(region.source) + window, region.bytes);
+    }
+    __syncthreads();
+    if (threadIdx.x == 0) {
+      // this copy of the window is free again, for the exchange after the next one
+      ::rocshmem::rocshmem_uint64_atomic_set(task.clearToSend, current, task.peer);
     }
   } else {
     if (threadIdx.x == 0) {
+      // the receiver has copied the exchange before the last one out of this copy of the window
       ::rocshmem::rocshmem_ulonglong_wait_until(
           reinterpret_cast<unsigned long long*>(task.clearToSend),
           ::rocshmem::ROCSHMEM_CMP_GE,
-          current);
+          current > 2 ? current - 2 : 0);
     }
     __syncthreads();
     for (std::uint32_t i = 0; i < task.regionCount; ++i) {
       const auto& region = regions[task.firstRegion + i];
-      ::rocshmem::rocshmem_putmem_signal_nbi_wg(region.destination,
+      ::rocshmem::rocshmem_putmem_signal_nbi_wg(static_cast<char*>(region.destination) + window,
                                                 region.source,
                                                 region.bytes,
                                                 task.arrived,
@@ -196,11 +204,12 @@ void quiet(void* stream) { quietKernel<<<1, 1, 0, native(stream)>>>(); }
 void group(const shmem::Task* tasks,
            std::size_t taskCount,
            const shmem::Region* regions,
+           std::uint64_t windowStride,
            std::uint64_t* count,
            std::uint32_t* finished,
            void* stream) {
   groupKernel<<<static_cast<unsigned>(taskCount), PutThreads, 0, native(stream)>>>(
-      tasks, regions, count, finished);
+      tasks, regions, windowStride, count, finished);
 }
 
 const char* lastError() {

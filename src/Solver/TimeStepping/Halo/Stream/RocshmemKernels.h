@@ -96,6 +96,7 @@ void quiet(void* stream);
 void group(const shmem::Task* tasks,
            std::size_t taskCount,
            const shmem::Region* regions,
+           std::uint64_t windowStride,
            std::uint64_t* count,
            std::uint32_t* finished,
            void* stream);

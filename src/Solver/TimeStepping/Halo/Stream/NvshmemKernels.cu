@@ -44,6 +44,95 @@ __global__ void putSignalKernel(
 
 __global__ void quietKernel() { nvshmem_quiet(); }
 
+static_assert(sizeof(unsigned long long) == sizeof(std::uint64_t));
+
+// copies with the threads of the block, by 16 bytes where it can; the source is what the network
+// card wrote, read past the cache of the SM
+__device__ void copyInBlock(void* destination, const void* source, std::uint64_t bytes) {
+  const auto start = static_cast<std::uint64_t>(threadIdx.x);
+  const auto stride = static_cast<std::uint64_t>(blockDim.x);
+  if (((reinterpret_cast<std::uintptr_t>(destination) | reinterpret_cast<std::uintptr_t>(source) |
+        bytes) &
+       15U) == 0) {
+    auto* to = static_cast<uint4*>(destination);
+    const auto* from = static_cast<const uint4*>(source);
+    for (std::uint64_t i = start; i < bytes / 16; i += stride) {
+      to[i] = __ldcg(from + i);
+    }
+  } else {
+    auto* to = static_cast<char*>(destination);
+    const auto* from = static_cast<const char*>(source);
+    for (std::uint64_t i = start; i < bytes; i += stride) {
+      to[i] = __ldcg(from + i);
+    }
+  }
+}
+
+// a group: each block one task (see ShmemGroup.h)
+__global__ void groupKernel(const shmem::Task* tasks,
+                            const shmem::Region* regions,
+                            std::uint64_t windowStride,
+                            std::uint64_t* count,
+                            std::uint32_t* finished) {
+  __shared__ std::uint64_t current;
+  if (threadIdx.x == 0) {
+    current = atomicAdd(reinterpret_cast<unsigned long long*>(count), 0ULL) + 1;
+  }
+  __syncthreads();
+  const auto& task = tasks[blockIdx.x];
+  // the copy of the staging window of this exchange (see ShmemGroup.h)
+  const auto window = (current % 2) * windowStride;
+  if (task.receive != 0) {
+    if (threadIdx.x == 0) {
+      nvshmem_signal_wait_until(task.arrived, NVSHMEM_CMP_GE, current * task.regionCount);
+      // (the data came from other processes)
+      __threadfence_system();
+    }
+    __syncthreads();
+    for (std::uint32_t i = 0; i < task.regionCount; ++i) {
+      const auto& region = regions[task.firstRegion + i];
+      copyInBlock(
+          region.destination, static_cast<const char*>(region.source) + window, region.bytes);
+    }
+    __syncthreads();
+    if (threadIdx.x == 0) {
+      // this copy of the window is free again, for the exchange after the next one
+      nvshmemx_signal_op(task.clearToSend, current, NVSHMEM_SIGNAL_SET, task.peer);
+    }
+  } else {
+    if (threadIdx.x == 0) {
+      // the receiver has copied the exchange before the last one out of this copy of the window
+      nvshmem_signal_wait_until(task.clearToSend, NVSHMEM_CMP_GE, current > 2 ? current - 2 : 0);
+    }
+    __syncthreads();
+    for (std::uint32_t i = 0; i < task.regionCount; ++i) {
+      const auto& region = regions[task.firstRegion + i];
+      nvshmemx_putmem_signal_nbi_block(static_cast<char*>(region.destination) + window,
+                                       region.source,
+                                       region.bytes,
+                                       task.arrived,
+                                       1,
+                                       NVSHMEM_SIGNAL_ADD,
+                                       task.peer);
+    }
+    __syncthreads();
+    if (threadIdx.x == 0) {
+      // the copy layer may overwrite its data once the puts have left
+      nvshmem_quiet();
+    }
+  }
+  // the last block advances the count; all of them have read it by then
+  __syncthreads();
+  if (threadIdx.x == 0) {
+    __threadfence();
+    if (atomicAdd(finished, 1U) + 1 == gridDim.x) {
+      *finished = 0;
+      __threadfence();
+      atomicExch(reinterpret_cast<unsigned long long*>(count), current);
+    }
+  }
+}
+
 } // namespace
 
 int initialize(MPI_Comm comm) {
@@ -79,6 +168,17 @@ void putSignal(void* destination,
 }
 
 void quiet(void* stream) { quietKernel<<<1, 1, 0, native(stream)>>>(); }
+
+void group(const shmem::Task* tasks,
+           std::size_t taskCount,
+           const shmem::Region* regions,
+           std::uint64_t windowStride,
+           std::uint64_t* count,
+           std::uint32_t* finished,
+           void* stream) {
+  groupKernel<<<static_cast<unsigned>(taskCount), PutThreads, 0, native(stream)>>>(
+      tasks, regions, windowStride, count, finished);
+}
 
 const char* lastError() {
   const auto error = cudaGetLastError();

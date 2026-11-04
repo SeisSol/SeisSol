@@ -569,6 +569,9 @@ if (WITH_GPU)
           PUBLIC nvshmem::nvshmem_host ${NVSHMEM_DEVICE_LIBRARY}
           PRIVATE MPI::MPI_C CUDA::cuda_driver)
       target_include_directories(seissol-nvshmem-kernels SYSTEM PRIVATE ${SEISSOL_MPI_INCLUDE_DIRS})
+      # (for the description of the groups, see ShmemGroup.h)
+      target_include_directories(seissol-nvshmem-kernels PRIVATE
+          ${CMAKE_CURRENT_SOURCE_DIR}/src)
       target_link_libraries(seissol-common-properties INTERFACE seissol-nvshmem-kernels)
       target_compile_definitions(seissol-common-properties INTERFACE USE_SHMEM SHMEM_NVSHMEM)
     elseif (DEVICE_BACKEND STREQUAL "hip")

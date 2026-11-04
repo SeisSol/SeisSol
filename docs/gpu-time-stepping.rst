@@ -96,8 +96,8 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
        processes of the own node, and with the others over GPU-aware MPI from the host, as ``direct`` does
        (see below). Not with ``SEISSOL_SUPERSTEP_GRAPHS=1``.
    * - ``SEISSOL_SHMEM_GROUP_KERNELS=0``
-     - For ``shmem`` with ROCSHMEM: a kernel for each operation of a group of the exchange, instead of one kernel for
-       the whole group (see below).
+     - For ``shmem`` with ROCSHMEM or NVSHMEM: a kernel for each operation of a group of the exchange, instead of one
+       kernel for the whole group (see below).
    * - ``SEISSOL_SCRATCHPAD_PER_LAYER=1``
      - GPU builds only. Give each layer scratchpads of its own, instead of sharing them between all layers.
        The log shows the memory needed either way.
@@ -264,23 +264,35 @@ and 12 to 16 s with ``actor-mpi`` (``direct``: 6.2 s): there, the order of the e
 network.
 
 ``shmem`` puts the data into a staging window of the receiving process in symmetric memory
-(as large as the ghost layers of the process with the largest ones),
+(as large as the ghost layers of the process with the largest ones; twice that with the group kernels below),
 signals its arrival, and waits until the receiver has cleared the window for the next exchange;
 the receiver copies the data from there into its ghost layers.
-It always uses the global order.
+It always uses the global order. The puts are one-sided, but an operation waits on its stream for the data or the
+clear to send of its peer, and thereby holds up the streams that share its hardware queue; so with a stream for each
+direction, the directions can wait for each other in a cycle, as with ``ccl``. Tried that way (November 2026), TPV5
+hung on two nodes of Horizon with the eight hardware queues per process that CUDA has by default, and in two of three
+runs with 32 of them (``CUDA_DEVICE_MAX_CONNECTIONS=32``; the one that ran was no faster than in the global order),
+and TPV5 and TPV13 hung on one node with four MI300A.
 The signals count the exchanges of each direction. With NVSHMEM and ROCSHMEM, the count of the current exchange is kept
 on the GPU: each exchange advances it, and small kernels signal and wait with the device API of the library, reading it
 when they run. This needs relocatable device code linked with the device code of the library: with NVSHMEM its static
 device library, with ROCSHMEM in a shared library of SeisSol's own (``libseissol-rocshmem-kernels.so``), through which
 all calls of ROCSHMEM go; ``-DSHMEM=ON`` sets this up.
 Intel SHMEM gets the counts from the host when the operations are enqueued.
-With ROCSHMEM, a group of the exchange is one kernel: each workgroup sends to one peer (it waits for the clear to send,
-then puts the regions with their signals) or receives from one (it signals the clear to send, waits for the arrival,
-and copies the regions out of the staging window), all at the same time, and the last workgroup advances the count.
-The operations of a group took dozens of small kernels one after another otherwise, a put and a copy for each region.
+With ROCSHMEM and NVSHMEM, a group of the exchange is one kernel: each workgroup sends to one peer (it waits for the
+clear to send, then puts the regions with their signals) or receives from one (it waits for the arrival, copies the
+regions out of the staging window, and only then signals the clear to send), all at the same time, and the last
+workgroup advances the count. The operations of a group took dozens of small kernels one after another otherwise, a
+put and a copy for each region.
+The staging window is there twice then: exchange ``c`` of a direction goes into copy ``c mod 2``, so its sender waits
+for the clear to send of exchange ``c - 2``, which the receiver has given long before as a rule;
+the handshake is off the path of the data, where with one window every exchange waits for a clear to send of its own.
 On one node with four MI300A (TheRock 23.2.1 and its ROCSHMEM and Open MPI, October 2026), TPV13 and TPV5 took
 3.2 and 2.2 s with the time stepping plan and HIP with two hardware queues (3.5 and 2.5 s with a kernel for each
 operation), and 3.2 and 2.0 s with eight own queues (3.3 and 2.3 s); the outputs are bitwise the same.
+With the two copies of the staging window (November 2026), they took 3.2 to 3.3 and 2.1 s there (3.7 and 2.4 to 2.6 s
+with a kernel for each operation), bitwise the same as with ``host``; with NVSHMEM on two nodes of Horizon, TPV5 took
+0.35 s, and 0.40 s with a kernel for each operation.
 
 With concurrent clusters, the work of an action waits for what it depends on: a prediction, which writes the buffers and
 derivatives that the neighbors read, for their latest reads (corrections, face work, sends); a correction, which reads

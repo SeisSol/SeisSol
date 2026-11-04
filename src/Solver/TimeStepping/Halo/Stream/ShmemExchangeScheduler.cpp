@@ -62,13 +62,18 @@ struct Count {
 // the host API would take it when they get enqueued, and a recording would keep it. (Recorded
 // signal operations of the host API even came out with garbage.)
 constexpr bool CountsOnDevice = true;
-constexpr bool GroupKernels = false;
-void groupOnStream(const shmem::Task* /*tasks*/,
-                   std::size_t /*taskCount*/,
-                   const shmem::Region* /*regions*/,
-                   std::uint64_t* /*count*/,
-                   std::uint32_t* /*finished*/,
-                   void* /*stream*/) {}
+// a group as one kernel, as with ROCSHMEM: the waits for the peers overlap, and the copies out of
+// the staging window need no kernels of their own
+constexpr bool GroupKernels = true;
+void groupOnStream(const shmem::Task* tasks,
+                   std::size_t taskCount,
+                   const shmem::Region* regions,
+                   std::uint64_t windowStride,
+                   std::uint64_t* count,
+                   std::uint32_t* finished,
+                   void* stream) {
+  nvshmem::group(tasks, taskCount, regions, windowStride, count, finished, stream);
+}
 void shmemInit(MPI_Comm comm) {
   if (nvshmem::initialize(comm) != 0) {
     logError() << "Could not initialize NVSHMEM.";
@@ -122,10 +127,11 @@ constexpr bool GroupKernels = true;
 void groupOnStream(const shmem::Task* tasks,
                    std::size_t taskCount,
                    const shmem::Region* regions,
+                   std::uint64_t windowStride,
                    std::uint64_t* count,
                    std::uint32_t* finished,
                    void* stream) {
-  rocshmem::group(tasks, taskCount, regions, count, finished, stream);
+  rocshmem::group(tasks, taskCount, regions, windowStride, count, finished, stream);
 }
 void shmemInit(MPI_Comm comm) {
   if (rocshmem::initialize(comm) != 0) {
@@ -172,6 +178,7 @@ constexpr bool GroupKernels = false;
 void groupOnStream(const shmem::Task* /*tasks*/,
                    std::size_t /*taskCount*/,
                    const shmem::Region* /*regions*/,
+                   std::uint64_t /*windowStride*/,
                    std::uint64_t* /*count*/,
                    std::uint32_t* /*finished*/,
                    void* /*stream*/) {}
@@ -294,10 +301,12 @@ void ShmemExchangeScheduler::added(const ScheduledTransport& transport) {
 }
 
 void ShmemExchangeScheduler::prepare() {
-  // symmetric memory has the same size on all processes
+  // symmetric memory has the same size on all processes; the group kernels alternate between two
+  // copies of the window (see ShmemGroup.h)
   std::uint64_t windowSize = std::max<std::uint64_t>(windowSize_, Alignment);
   MPI_Allreduce(MPI_IN_PLACE, &windowSize, 1, MPI_UINT64_T, MPI_MAX, Mpi::mpi.comm());
-  window_ = static_cast<char*>(shmemMalloc(windowSize));
+  windowStride_ = groupKernels_ ? windowSize : 0;
+  window_ = static_cast<char*>(shmemMalloc(groupKernels_ ? 2 * windowSize : windowSize));
 
   const auto signalCount = clusterCount() * clusterCount() * static_cast<std::size_t>(size_);
   clearToSend_ = static_cast<std::uint64_t*>(shmemMalloc(signalCount * sizeof(std::uint64_t)));
@@ -441,6 +450,7 @@ void ShmemExchangeScheduler::enqueueGroup(std::size_t slot,
       groupOnStream(group.tasks,
                     group.count,
                     group.regions,
+                    windowStride_,
                     count.device,
                     &finished_[from * clusterCount() + to],
                     current);
