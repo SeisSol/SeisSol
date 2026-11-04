@@ -40,7 +40,7 @@ You may explicitly compile and install multiple of these configurations at the s
 - ``SOLVER`` (advanced): the scheme which advances the cells in time. It holds for every configuration of the executable whose material can be advanced with it; the others, and all with the default ``auto``, take the first scheme their equation system supports. So all configurations of one material in an executable share their scheme, and a configuration name does not carry it.
 
     * ``linearck``: the Cauchy-Kovalevskaya procedure for linear equations. The only choice for ``elastic``, ``acoustic`` and ``anisotropic``. For ``viscoelastic`` and ``viscoacoustic``, it carries the memory variables as additional quantities; this replaces ``VISCO_MODE=extend``.
-    * ``linearckanelastic``: the Cauchy-Kovalevskaya procedure with the memory variables kept separately, which is faster. The default for ``viscoelastic`` and ``viscoacoustic``; this replaces ``VISCO_MODE=split``. On GPUs, it does not support free surfaces with gravity, Dirichlet or analytical boundaries; SeisSol stops during the initialization if the mesh has any.
+    * ``linearckanelastic``: the Cauchy-Kovalevskaya procedure with the memory variables kept separately, which is faster. The default for ``viscoelastic`` and ``viscoacoustic``; this replaces ``VISCO_MODE=split``.
     * ``stp``: the space-time predictor, which treats stiff source terms implicitly. The only choice for ``poroelastic``. It does not support free surfaces with gravity; SeisSol stops during the initialization if the mesh has any.
 
 - ``NUMBER_OF_MECHANISMS``: the number of mechanisms for viscoelastic and viscoacoustic simulations. For all other equations, this parameter is required to be 0.
