@@ -299,10 +299,13 @@ So the partition balances groups of time clusters there, each as a constraint of
 from the cluster with the smallest time step on, a group takes clusters until it has at least the share
 ``SEISSOL_MEASURED_CLUSTER_SHARE`` of the measured costs (0.1 with concurrent clusters, else 0: a single group),
 and a last group with less joins the one before; each group may be off balance by
-``SEISSOL_MEASURED_CLUSTER_IMBALANCE`` (1.05 by default). The log names the groups.
+``SEISSOL_MEASURED_CLUSTER_IMBALANCE`` (1.02 by default). The log names the groups.
 In the Turkey case, the clusters 0 to 2 made one group, with 18 % of the costs, and the clusters 3 to 7 the other;
-the run with the plan and the host actor then took 22.5, 22.6 and 23.0 s against 24.5, 24.8 and 24.0 s with the costs
-in all, and the default time stepping (one run each) 23.9 s against 23.7 s.
+the run with the plan and the host actor then took 21.9, 22.2 and 22.4 s against 24.5, 24.8, 24.0 and 24.4 s with the
+costs in all, and the default time stepping (one run each) 23.8 s against 23.7 s.
+ParMETIS bounds only the ranks that cost the most in a group: with an imbalance of 1.05, the other ranks got so much less
+that the device of the weakest one computed only 65 to 73 % of the time, against 74 to 80 % with 1.02; the run with the
+plan took 22.5, 22.6, 22.6 and 23.0 s then (with 1.01: 22.0 and 22.2 s).
 
 The costs of a cell include the speed of the rank it was measured on, so the partition does not weight the ranks
 by Mini SeisSol then (see :ref:`env_vars`).

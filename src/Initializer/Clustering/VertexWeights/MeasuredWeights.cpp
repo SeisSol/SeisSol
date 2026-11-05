@@ -315,9 +315,12 @@ void MeasuredWeights::readSettings() {
   utils::Env env("SEISSOL_");
   // concurrent clusters wait for those of the neighbors in every step: groups by default there
   constexpr double ConcurrentClusterShare{0.1};
+  // ParMETIS bounds only the ranks that cost the most in a group; with 1.05, other ranks got so
+  // much less that their devices computed only 65 to 73 % of the time in the Turkey case
+  constexpr double GroupImbalance{1.02};
   const bool concurrent = isDeviceOn() && useConcurrentClusters(env);
   minShare_ = env.get<double>("MEASURED_CLUSTER_SHARE", concurrent ? ConcurrentClusterShare : 0.0);
-  groupImbalance_ = env.get<double>("MEASURED_CLUSTER_IMBALANCE", 1.05);
+  groupImbalance_ = env.get("MEASURED_CLUSTER_IMBALANCE", GroupImbalance);
 }
 
 std::size_t MeasuredWeights::evaluateNumberOfConstraints() {

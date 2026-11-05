@@ -86,7 +86,7 @@ std::vector<std::size_t> constraintGroups(const std::vector<double>& shares, dou
  *
  * With SEISSOL_MEASURED_CLUSTER_SHARE=s, the time clusters go to groups of at least the share s of
  * the costs each (see constraintGroups()), and each group is a constraint of its own, with the
- * imbalance SEISSOL_MEASURED_CLUSTER_IMBALANCE (1.05 by default): the partition then balances what
+ * imbalance SEISSOL_MEASURED_CLUSTER_IMBALANCE (1.02 by default): the partition then balances what
  * the ranks cost in each group, as the clusters of a group wait for those of their neighbors in
  * every step. By default, s is 0.1 with concurrent clusters on a device, which need the work of
  * other groups to overlap with these waits; otherwise, s is 0: one constraint, which balances what
@@ -114,7 +114,7 @@ class MeasuredWeights : public VertexWeightModel {
   std::string file_;
   const MeasuredCellCosts* costs_{nullptr};
   double minShare_{0};
-  double groupImbalance_{1.05};
+  double groupImbalance_{1.02};
   //! the costs of the cells of this rank, and the constraint of each cluster
   std::vector<double> cellCosts_;
   std::vector<std::size_t> groups_;
