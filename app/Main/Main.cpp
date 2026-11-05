@@ -274,6 +274,20 @@ int main(int argc, char* argv[]) {
     // StreamExchangeScheduler)
     utils::Env deviceEnv("SEISSOL_");
     const auto requestedMode = seissol::Mpi::requestedDataTransferMode();
+    if constexpr (seissol::Backend == seissol::DeviceBackend::Cuda) {
+      // with concurrent clusters, the halo exchange on device streams has streams that wait for
+      // other processes. CUDA puts all streams on eight hardware queues by default, and a stream
+      // that waits holds up the others on its queue once about as many wait as there are queues:
+      // on 128 nodes of Horizon (November 2026), shmem with four lanes took 32.4 s with eight and
+      // 27.5 s with 32 of them, the most CUDA has (unless set already; the exchange from the host
+      // got slower with 32)
+      using Mode = seissol::Mpi::DataTransferMode;
+      if (seissol::useConcurrentClusters(deviceEnv) && requestedMode.has_value() &&
+          (requestedMode == Mode::DirectCcl || requestedMode == Mode::DirectStreamMpi ||
+           requestedMode == Mode::DirectShmem || requestedMode == Mode::ActorMpi)) {
+        setenv("CUDA_DEVICE_MAX_CONNECTIONS", "32", 0);
+      }
+    }
     const bool streamLibraries = requestedMode.has_value() &&
                                  requestedMode == seissol::Mpi::DataTransferMode::DirectStreamMpi;
     auto ownQueues = streamLibraries ? 0 : seissol::ownQueueCount(deviceEnv);

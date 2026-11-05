@@ -66,6 +66,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -579,6 +580,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   concurrent_ = isDeviceOn() && useConcurrentClusters(seissolInstance_.env());
   if (concurrent_) {
     logInfo() << "The clusters run concurrently on the device.";
+    if constexpr (Backend == DeviceBackend::Cuda) {
+      const char* connections = std::getenv("CUDA_DEVICE_MAX_CONNECTIONS");
+      logInfo() << "CUDA puts the streams on" << (connections != nullptr ? connections : "8")
+                << "hardware queues (CUDA_DEVICE_MAX_CONNECTIONS).";
+    }
     parallel::runtime::hostFunctionsOnStreams() = true;
     const bool accessEvents = useAccessEvents(seissolInstance_.env());
     if (accessEvents) {

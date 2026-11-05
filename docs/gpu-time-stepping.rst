@@ -331,6 +331,24 @@ queues of CUDA (28.3 s against 27.5 s with 32, see below; one lane: 37.9 s); ``c
 (35.9 s on one lane, ordered on the GPU). ``direct`` took 24.6 s, and 24.9 s with the plan and concurrent clusters. So
 these modes do not lose against ``direct`` by waiting on the GPU, but by the exchange on device streams itself.
 
+Hardware queues of CUDA
+~~~~~~~~~~~~~~~~~~~~~~~
+
+CUDA puts the streams of a process on eight hardware queues by default, at most 32 (``CUDA_DEVICE_MAX_CONNECTIONS``).
+A stream that waits for an event holds up the streams behind it on its queue; CUDA spreads the streams over the queues,
+however, so that this matters only once about as many streams wait as there are queues. In a test on an RTX 5070 and on
+a B200 (November 2026), 16 streams of short kernels ran on while up to four other streams waited for an event with eight
+queues (up to 16 with 32 queues); with seven (31) waiting streams, half of them were held up, and with eight (32) or
+more, all. The branches of a graph were never held up, with up to 64 chains of kernels that waited.
+With concurrent clusters and the exchange on device streams, the streams of the clusters wait for the exchange on the
+GPU, and each group of the exchange waits for its peers on its lane (which holds up the next group of the lane, and the
+streams that share its queue, also when the host orders the exchange). On 128 nodes of Horizon, ``shmem`` on four lanes
+took 32.4, 29.2 and 27.5 s with 8, 16 and 32 hardware queues (one lane: 33.6 and 30.6 s with 8 and 32), and ``ccl``
+on one lane 35.9 and 33.9 s with 8 and 32; recorded super-timesteps took 30.2 and 30.5 s, and the exchange from the
+host with the plan and concurrent clusters got slower (24.3 and 26.7 s). So with concurrent clusters and ``ccl``,
+``stream-mpi``, ``shmem`` or ``actor-mpi``, SeisSol sets ``CUDA_DEVICE_MAX_CONNECTIONS=32``, unless it is set already;
+the log says how many queues CUDA has.
+
 Queues of their own (HIP)
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
