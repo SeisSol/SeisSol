@@ -15,6 +15,7 @@
 #include "Initializer/Typedefs.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Counters.h"
+#include "Monitoring/EnergyMeter.h"
 #include "Monitoring/EpochSynchronization.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/RunSummary.h"
@@ -150,6 +151,11 @@ class SeisSol : private SeisSolCore {
    * Get the counters of the run: the work it does and what it costs
    */
   monitoring::Counters& counters() { return counters_; }
+
+  /**
+   * Get the energy meter, which counts the energy of the nodes of the run
+   */
+  monitoring::EnergyMeter& energyMeter() { return energyMeter_; }
 
   /**
    * Get the flop counter
@@ -295,6 +301,9 @@ class SeisSol : private SeisSolCore {
 
   //! Counters of the work and of the cost of the run
   monitoring::Counters counters_;
+
+  //! Energy of the nodes of the run
+  monitoring::EnergyMeter energyMeter_;
 
   //! Flop Counter
   monitoring::FlopCounter flopCounter_;

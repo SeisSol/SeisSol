@@ -7,11 +7,13 @@
 
 #include <doctest.h>
 
+#include "Monitoring/Counters.h"
 #include "Monitoring/Energy/Discovery.h"
 #include "Monitoring/Energy/Library.h"
 #include "Monitoring/Energy/Sensor.h"
 #include "Monitoring/Energy/Sysfs.h"
 #include "Monitoring/Energy/Vendors.h"
+#include "Monitoring/EnergyMeter.h"
 #include "Parallel/MPI.h"
 
 #include <algorithm>
@@ -195,6 +197,72 @@ TEST_CASE("The sensors of a node" * doctest::test_suite("monitoring")) {
     REQUIRE(sensors.size() == 1);
     CHECK(sensors[0]->part() == Part::Devices);
     CHECK(sensors[0]->source() == "hwmon");
+  }
+}
+
+TEST_CASE("The energy meter counts the nodes" * doctest::test_suite("monitoring")) {
+  const FakeRoot root;
+  const std::string pm = "sys/cray/pm_counters/";
+  root.write(pm + "energy", "1000 J 1000000000 us");
+  root.write(pm + "cpu_energy", "300 J 1000000000 us");
+  root.write(pm + "accel0_energy", "200 J 1000000000 us");
+  root.write(pm + "accel1_energy", "200 J 1000000000 us");
+  root.write(pm + "power_cap", "2500 W");
+
+  SUBCASE("Not enabled, it registers no counter") {
+    monitoring::Counters counters;
+    monitoring::EnergyMeter meter;
+    meter.setup(counters, false, root.str());
+    CHECK(counters.size() == 0);
+    CHECK_FALSE(meter.describe().find("enabled")->asBool());
+  }
+
+  SUBCASE("The parts that the nodes measure") {
+    monitoring::Counters counters;
+    monitoring::EnergyMeter meter;
+    meter.setup(counters, true, root.str());
+    // the same on every rank, read on the first rank of every node
+    REQUIRE(counters.size() == 3);
+    CHECK(counters.info(0).name == "nodeEnergy");
+    CHECK(counters.info(1).name == "cpuEnergy");
+    CHECK(counters.info(2).name == "acceleratorEnergy");
+    CHECK(counters.info(2).rateName == "acceleratorPower");
+    CHECK(counters.info(0).perStage);
+    CHECK(counters.info(0).scope == monitoring::CounterScope::Node);
+
+    const auto from = counters.snapshot(0.0);
+    root.write(pm + "energy", "1400 J 1002000000 us");
+    root.write(pm + "accel0_energy", "250 J 1002000000 us");
+    root.write(pm + "accel1_energy", "260 J 1002000000 us");
+    const auto to = counters.snapshot(1.0);
+    const auto totals = counters.reduce(from, to);
+    // one node: the ranks share the files
+    CHECK(totals.contributors[0] == 1);
+    CHECK(totals.amounts[0] == doctest::Approx(400.0));
+    // on the clock of the node: two seconds
+    CHECK(totals.rates[0] == doctest::Approx(200.0));
+    // two sensors updated together: on their clock, two seconds
+    CHECK(totals.amounts[2] == doctest::Approx(110.0));
+    CHECK(totals.rates[2] == doctest::Approx(55.0));
+
+    // updated apart: on the clock of the rank, one second more
+    root.write(pm + "accel0_energy", "300 J 1003000000 us");
+    root.write(pm + "accel1_energy", "300 J 1003500000 us");
+    const auto later = counters.snapshot(2.0);
+    const auto apart = counters.reduce(to, later);
+    CHECK(apart.amounts[2] == doctest::Approx(90.0));
+    CHECK(apart.rates[2] == doctest::Approx(90.0));
+
+    const auto description = meter.describe();
+    const auto* parts = description.find("parts");
+    REQUIRE(parts != nullptr);
+    REQUIRE(parts->find("accelerators") != nullptr);
+    CHECK(parts->find("accelerators")->find("counter")->asString() == "acceleratorEnergy");
+    CHECK(parts->find("accelerators")->find("sources")->asArray().front().asString() == "cray-pm");
+    CHECK(parts->find("accelerators")->find("nodes")->asDouble() == 1.0);
+    CHECK(parts->find("accelerators")->find("sensorsPerNode")->find("max")->asDouble() == 2.0);
+    CHECK(parts->find("memory") == nullptr);
+    CHECK(description.find("nodePowerCap")->find("max")->asDouble() == 2500.0);
   }
 }
 

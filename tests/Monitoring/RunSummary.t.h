@@ -138,6 +138,51 @@ TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
   std::filesystem::remove(epochPath);
 }
 
+TEST_CASE("Run summary stages" * doctest::test_suite("monitoring")) {
+  const std::string prefix = "runsummary-stages-test";
+  const std::string runId = "123e4567-e89b-42d3-a456-426614174000";
+  const auto rankPath = prefix + "-ranks.csv";
+
+  // a counter given per stage, and one that is not
+  monitoring::Counters counters;
+  double energy = 0;
+  double work = 0;
+  counters.add(monitoring::CounterInfo{.name = "energy", .rateName = "power", .perStage = true},
+               [&]() { return monitoring::CounterValue{energy, {}}; });
+  counters.add(monitoring::CounterInfo{.name = "work", .rateName = "workPerSecond"},
+               [&]() { return monitoring::CounterValue{work, {}}; });
+
+  monitoring::RunSummary summary;
+  summary.setCounters(counters);
+  summary.start(prefix, runId);
+  energy = 2.0;
+  summary.setStage("init.mesh");
+  energy = 5.0;
+  work = 10.0;
+  summary.setStage("simulation");
+  energy = 9.0;
+  const auto run = summary.writeStages();
+  summary.writeRanks();
+
+  const auto ranks = static_cast<double>(seissol::Mpi::mpi.size());
+  const auto* stages = summary.content().find("stages");
+  REQUIRE(stages != nullptr);
+  CHECK(stages->find("init")->find("energy")->asDouble() == 2.0 * ranks);
+  CHECK(stages->find("init.mesh")->find("energy")->asDouble() == 3.0 * ranks);
+  CHECK(stages->find("simulation")->find("energy")->asDouble() == 4.0 * ranks);
+  CHECK(stages->find("simulation")->find("wallTime")->asDouble() >= 0.0);
+  CHECK(stages->find("simulation")->find("power") != nullptr);
+  // only what is given per stage
+  CHECK(stages->find("simulation")->find("work") == nullptr);
+  CHECK(run.find("energy")->asDouble() == 9.0 * ranks);
+
+  const auto table = io::instance::point::readCsv(rankPath);
+  CHECK(std::stod(table.rows[0][table.column("energy")]) == 9.0);
+
+  std::filesystem::remove(prefix + "-summary.json");
+  std::filesystem::remove(rankPath);
+}
+
 TEST_CASE("Run summary rank table" * doctest::test_suite("monitoring")) {
   const std::string prefix = "runsummary-ranks-test";
   const std::string runId = "123e4567-e89b-42d3-a456-426614174000";

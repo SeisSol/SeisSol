@@ -100,7 +100,20 @@ members of the summary are:
        region its time per rank, iterations, samples and the regression of its time over the iterations
    * - ``performance``
      - hardware and non-zero FLOP and kernel bytes, in total, per second and per category, and the cell updates per
-       second (``cellUpdatesPerSecond``)
+       second (``cellUpdatesPerSecond``); where all nodes measure the energy, the energy of the epochs (``energy``),
+       which counter it is (``energyBasis``: ``nodeEnergy`` where the nodes count it, else ``deviceEnergy``, else
+       ``cpuEnergy``), and the cell updates and FLOP per joule (``cellUpdatesPerJoule``, ``hardwareFlopPerJoule``,
+       ``nonzeroFlopPerJoule``)
+   * - ``energy``
+     - whether the energy is measured (``enabled``), and for each part of a node that is (``parts``: ``node``,
+       ``cpu``, ``memory``, ``accelerators``, ``devices``) its counter, its sources, the number of nodes that measure
+       it and their sensors per node, and for the GPUs the sum of their power limits per node; the power cap of the
+       nodes (``nodePowerCap``); and what the energy counters counted over the whole run (``run``), see
+       :ref:`run-energy`
+   * - ``stages``
+     - per stage of the run (``init``, ``init.mesh``, ..., ``simulation``): its wall time on rank 0 (``wallTime``),
+       and the energy the nodes took in it and its mean power, under the names of the energy counters and of their
+       rates
    * - ``memory``
      - per rank, in bytes: the peak of the host memory (``hostPeak``) and, in GPU builds, the device memory occupied,
        the unified memory occupied and the device capacity (``device``); once after the initialization
@@ -112,7 +125,8 @@ order the run gets them: ``initMeshRead``, ``initMesh``, ``cells``, ``copyCells`
 ``hostMemoryAfterInit``, ``simulationInitialIo``, ``simulationTotal``, ``simulationCompute``, ``simulationIo``,
 ``kernels`` (the time in the compute kernels), ``outsideKernels``, ``cellUpdates``, ``duplicateCellUpdates``,
 ``dynamicRuptureFaceUpdates`` and ``hostMemoryAtEnd``; in GPU builds, ``deviceMemoryAfterInit`` and ``deviceMemoryAtEnd`` (the device memory occupied)
-as well. ``initMeshRead`` is there for PUML meshes only. The last column is ``runId``.
+as well; where the energy is measured, the energy counters (``nodeEnergy``, ...) over the whole run, on the first rank
+of each node, and ``nan`` on the others. ``initMeshRead`` is there for PUML meshes only. The last column is ``runId``.
 
 .. _run-counters:
 
@@ -138,6 +152,10 @@ the end of every epoch, and summed over the ranks. Their names are those of the 
      - ``cellUpdatesPerSecond``, ``duplicateCellUpdatesPerSecond``, ``dynamicRuptureFaceUpdatesPerSecond``
      - the updates of the cells, of the further copies of copy cells and of the dynamic rupture faces (see
        :ref:`cell-updates`)
+   * - ``nodeEnergy``, ``cpuEnergy``, ``memoryEnergy``, ``acceleratorEnergy``, ``deviceEnergy``
+     - ``nodePower``, ``cpuPower``, ``memoryPower``, ``acceleratorPower``, ``devicePower``
+     - the energy of the nodes and of their parts, in joules, and its power, in watts, where the nodes measure it
+       (see :ref:`run-energy`)
 
 The rate of a counter is, on every rank, what it counted over the time it took the rank, summed over the ranks: the
 sum of what the ranks achieved at once. A counter of a node is read by one rank of the node, and is summed over the
@@ -224,6 +242,38 @@ Note that, empirically, the "HW-TFLOP/s per node" performance metric is used mor
 
 Energy
 ------
+
+.. _run-energy:
+
+Energy of a run
+~~~~~~~~~~~~~~~
+
+Where the nodes of a run have energy sensors that their users can read, SeisSol counts the energy of the run: the
+first rank of every node reads the sensors of the node, at every stage of the initialization and at the end of every
+epoch. The energy counters sum them per part of a node:
+
+* ``nodeEnergy``: the whole node, as the HPE Cray power management counters (``/sys/cray/pm_counters``) count it;
+* ``cpuEnergy`` and ``memoryEnergy``: its CPUs and their memory, from the same counters, else from RAPL;
+* ``acceleratorEnergy``: its accelerators, as the HPE Cray power management counters count them;
+* ``deviceEnergy``: its GPUs, as the management library of their vendor counts them (NVML, AMD SMI or ROCm SMI, Level
+  Zero, else the counters of the i915 and xe drivers), all GPUs of the node, whether the run uses them or not.
+
+The accelerators and the devices are two measurements of the same GPUs, and the parts are contained in the node: they
+are not to be added up. The libraries of the vendors are loaded when the run starts, if they are installed; a node
+without them, or whose sensors its users cannot read (RAPL on most kernels), measures what it can, and a run whose
+nodes measure nothing runs as before. ``SEISSOL_ENERGY=0`` turns the measurement off.
+
+The run summary says which part is measured from which sources, and on how many nodes (``energy``); it gives the
+energy and the mean power of every stage of the run (``stages``) and of the whole run (``energy.run``), and the cell
+updates and FLOP per joule of the epochs (``performance``). The epoch table has the energy and the power of every
+epoch, and the table of the ranks the energy of every node over the run. The log prints the energy of every epoch.
+
+The energy of a node counts what runs on the node, the run or not, so it only means something for nodes that the run
+has to itself. The network and the file system are not part of it. The sensors update at their own pace, the HPE Cray
+counters ten times a second, so that the energy of a short stage or epoch has an error of up to an update at each of
+its ends: let ``EpochInterval`` make the epochs some seconds long (see :ref:`energy-probe` for how often the sensors
+of a machine update). A part whose sensors share a clock, as those of the HPE Cray counters do, takes its power over
+that clock, the other parts over the time of the rank.
 
 .. _energy-probe:
 

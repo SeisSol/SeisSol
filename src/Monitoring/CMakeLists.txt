@@ -13,6 +13,7 @@ add_library(seissol-monitoring OBJECT
     Energy/Sensor.cpp
     Energy/Sysfs.cpp
     Energy/Vendors.cpp
+    EnergyMeter.cpp
     EpochSynchronization.cpp
     FlopCounter.cpp
     LoopStatistics.cpp

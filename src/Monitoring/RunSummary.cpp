@@ -191,6 +191,7 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   epochPath_ = prefix + "-epochs.csv";
   rankPath_ = prefix + "-ranks.csv";
   runId_ = runId;
+  origin_ = std::chrono::steady_clock::now();
 
   // the header first, so that a reader sees what the file is before anything else
   json::Value root;
@@ -209,7 +210,69 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   root_ = std::move(root);
 
   started_ = true;
+  beginStage("init");
   flush();
+}
+
+void RunSummary::beginStage(std::string_view name) {
+  if (!started_ || counters_ == nullptr) {
+    return;
+  }
+  const auto time = std::chrono::duration<double>(std::chrono::steady_clock::now() - origin_);
+  stages_.push_back(Stage{std::string(name), counters_->snapshot(time.count())});
+}
+
+json::Value RunSummary::stageCounters(const Counters::Totals& totals, double wallTime) const {
+  json::Value result;
+  result["wallTime"] = wallTime;
+  for (std::size_t counter = 0; counter < counters_->size(); ++counter) {
+    const auto& info = counters_->info(counter);
+    if (info.perStage && totals.counted(counter)) {
+      result[info.name] = totals.amounts[counter];
+      result[info.rateName] = totals.rates[counter];
+    }
+  }
+  return result;
+}
+
+json::Value RunSummary::writeStages() {
+  if (stages_.empty()) {
+    return json::Value::object();
+  }
+  // the end of the last stage
+  const auto time = std::chrono::duration<double>(std::chrono::steady_clock::now() - origin_);
+  const auto end = counters_->snapshot(time.count());
+
+  // each stage, and then the whole run, at once
+  std::vector<std::pair<const Counters::Snapshot*, const Counters::Snapshot*>> stretches;
+  for (std::size_t stage = 0; stage < stages_.size(); ++stage) {
+    stretches.emplace_back(&stages_[stage].counters,
+                           stage + 1 < stages_.size() ? &stages_[stage + 1].counters : &end);
+  }
+  stretches.emplace_back(&stages_.front().counters, &end);
+  const auto totals = counters_->reduce(stretches);
+
+  auto& stages = root_["stages"] = json::Value::object();
+  for (std::size_t stage = 0; stage < stages_.size(); ++stage) {
+    stages[stages_[stage].name] =
+        stageCounters(totals[stage], stretches[stage].second->time - stretches[stage].first->time);
+  }
+
+  // the table of the ranks gets what each rank counted over the run, and nan where it counted none
+  const auto& first = stages_.front().counters;
+  for (std::size_t counter = 0; counter < counters_->size(); ++counter) {
+    if (!counters_->info(counter).perStage) {
+      continue;
+    }
+    double amount = std::numeric_limits<double>::quiet_NaN();
+    if (counter < first.values.size() && first.values[counter].has_value() &&
+        end.values[counter].has_value()) {
+      amount = end.values[counter].value().amount - first.values[counter].value().amount;
+    }
+    setRankValue(counters_->info(counter).name, amount);
+  }
+  flush();
+  return stageCounters(totals.back(), end.time - first.time);
 }
 
 void RunSummary::startEpochTable() {
@@ -238,6 +301,7 @@ void RunSummary::startEpochTable() {
 
 void RunSummary::setStage(std::string_view stage) {
   root_["stage"] = std::string(stage);
+  beginStage(stage);
   flush();
 }
 

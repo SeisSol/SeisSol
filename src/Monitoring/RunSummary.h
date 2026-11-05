@@ -80,8 +80,22 @@ class RunSummary {
   //! @brief The summary as it stands.
   [[nodiscard]] const json::Value& content() const { return root_; }
 
-  //! @brief Records that the run has reached @p stage , and writes the summary.
+  /**
+   * @brief Records that the run has reached @p stage , and writes the summary.
+   *
+   * The counters given per stage (see CounterInfo::perStage) are read here, where the stage before
+   * ends.
+   */
   void setStage(std::string_view stage);
+
+  /**
+   * @brief Ends the last stage, and records what the counters given per stage counted: under
+   * stages, for every stage, with its wall time on rank 0, and in the table of the ranks, for the
+   * whole run, on the ranks that count them. Collective.
+   *
+   * Returns what they counted over the whole run, from the start of the summary.
+   */
+  json::Value writeStages();
 
   /**
    * @brief Records @p localValue , the value of this rank, in the column @p column of the table of
@@ -141,6 +155,20 @@ class RunSummary {
   std::size_t epochCounters_{0};
   std::chrono::steady_clock::time_point lastFlush_;
   std::vector<std::pair<std::string, double>> rankValues_;
+
+  //! @brief The stages, each with the counters when it began.
+  struct Stage {
+    std::string name;
+    Counters::Snapshot counters;
+  };
+  std::vector<Stage> stages_;
+  std::chrono::steady_clock::time_point origin_;
+
+  //! @brief Reads the counters, if there are any, at the beginning of the stage @p name .
+  void beginStage(std::string_view name);
+
+  //! @brief The counters given per stage, from @p totals , with the wall time @p wallTime .
+  [[nodiscard]] json::Value stageCounters(const Counters::Totals& totals, double wallTime) const;
 };
 
 /**

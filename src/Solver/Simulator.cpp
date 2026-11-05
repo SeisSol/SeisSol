@@ -16,6 +16,7 @@
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
+#include "Monitoring/Unit.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/EnergyOutput.h"
@@ -27,6 +28,7 @@
 #include <cstddef>
 #include <mpi.h>
 #include <optional>
+#include <string>
 #include <utils/logger.h>
 
 namespace seissol {
@@ -107,6 +109,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // its time on each rank, like its wall time
   auto& counters = seissolInstance.counters();
   auto lastCounters = counters.snapshot(lastSplit);
+  const auto firstCounters = lastCounters;
 
   // use an empty log message as visual separator
   logInfo() << "";
@@ -163,6 +166,15 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     epoch.counters = counters.reduce(lastCounters, currentCounters);
     lastCounters = currentCounters;
     lastSplit = currentSplit;
+    // the cost of the epoch, which the FLOP counter does not print
+    for (std::size_t counter = 0; counter < counters.size(); ++counter) {
+      const auto& info = counters.info(counter);
+      if (info.perStage && epoch.counters.counted(counter)) {
+        logInfo() << (info.name + " last epoch:").c_str()
+                  << info.unit->formatPrefix(epoch.counters.amounts[counter]).c_str() << "("
+                  << info.rateUnit->formatPrefix(epoch.counters.rates[counter]).c_str() << ")";
+      }
+    }
 
     summary["time"]["simulation"]["elapsed"] =
         monitoring::toJson(Stopwatch::print("Total time spent:", currentSplit));
@@ -252,6 +264,32 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   summary["performance"]["cellUpdatesPerSecond"] = cellUpdates / totalTime.max;
   logInfo() << "Cell updates:" << cellUpdates << "(" << cellUpdates / totalTime.max
             << "per second); duplicate updates of copy cells:" << duplicateUpdates;
+
+  // the work per energy, over the epochs: on the energy of the nodes where all of them count it,
+  // else of their GPUs, else of their CPUs
+  const auto simulated = counters.reduce(firstCounters, lastCounters);
+  int nodes = Mpi::mpi.sharedMemMpiRank() == 0 ? 1 : 0;
+  MPI_Allreduce(MPI_IN_PLACE, &nodes, 1, MPI_INT, MPI_SUM, Mpi::mpi.comm());
+  for (const auto* basis : {"nodeEnergy", "deviceEnergy", "cpuEnergy"}) {
+    const auto energy = counters.find(basis);
+    if (!energy.has_value() || simulated.contributors[energy.value()] != nodes ||
+        simulated.amounts[energy.value()] <= 0) {
+      continue;
+    }
+    const double joules = simulated.amounts[energy.value()];
+    auto& performance = summary["performance"];
+    performance["energyBasis"] = basis;
+    performance["energy"] = joules;
+    for (const auto* work : {"cellUpdates", "hardwareFlop", "nonzeroFlop"}) {
+      if (const auto counter = counters.find(work); counter.has_value()) {
+        performance[std::string(work) + "PerJoule"] = simulated.amounts[counter.value()] / joules;
+      }
+    }
+    logInfo() << "Energy of the simulation (" << basis
+              << "):" << UnitEnergy.formatPrefix(joules).c_str()
+              << "; cell updates per joule:" << cellUpdates / joules;
+    break;
+  }
 }
 
 } // namespace seissol
