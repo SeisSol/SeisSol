@@ -14,9 +14,11 @@
 #include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/Clustering/VertexWeights/WeightsModels.h"
 #include "Initializer/MemoryManager.h"
+#include "Kernels/Common.h"
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/LoopStatistics.h"
+#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 
 #include <algorithm>
@@ -31,6 +33,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -281,24 +284,99 @@ std::vector<double> readCellCosts(const std::string& file,
   return distributeCellCosts(costs, firstCell, count, comm);
 }
 
-MeasuredWeights::MeasuredWeights(std::string file) : file_(std::move(file)) {}
+std::vector<std::size_t> constraintGroups(const std::vector<double>& shares, double minShare) {
+  std::vector<std::size_t> groups(shares.size(), 0);
+  std::size_t group = 0;
+  double share = 0;
+  for (std::size_t cluster = 0; cluster < shares.size(); ++cluster) {
+    groups[cluster] = group;
+    share += shares[cluster];
+    if (share >= minShare && cluster + 1 < shares.size()) {
+      ++group;
+      share = 0;
+    }
+  }
+  if (group > 0 && share < minShare) {
+    // the last group is too small on its own
+    for (auto& cluster : groups) {
+      cluster = std::min(cluster, group - 1);
+    }
+  }
+  return groups;
+}
 
-MeasuredWeights::MeasuredWeights(const MeasuredCellCosts& costs) : costs_(&costs) {}
+MeasuredWeights::MeasuredWeights(std::string file) : file_(std::move(file)) { readSettings(); }
 
-void MeasuredWeights::setVertexWeights() {
+MeasuredWeights::MeasuredWeights(const MeasuredCellCosts& costs) : costs_(&costs) {
+  readSettings();
+}
+
+void MeasuredWeights::readSettings() {
+  utils::Env env("SEISSOL_");
+  // concurrent clusters wait for those of the neighbors in every step: groups by default there
+  constexpr double ConcurrentClusterShare{0.1};
+  const bool concurrent = isDeviceOn() && useConcurrentClusters(env);
+  minShare_ = env.get<double>("MEASURED_CLUSTER_SHARE", concurrent ? ConcurrentClusterShare : 0.0);
+  groupImbalance_ = env.get<double>("MEASURED_CLUSTER_IMBALANCE", 1.05);
+}
+
+std::size_t MeasuredWeights::evaluateNumberOfConstraints() {
   const auto& clustering = this->clustering();
   MPI_Comm comm = seissol::Mpi::mpi.comm();
   const std::size_t count = clustering.clusterIds.size();
 
   // the cells of this rank are a run of those of the file
-  const auto [first, total] = runOf(count, comm);
+  const auto first = runOf(count, comm).first;
   if (costs_ != nullptr) {
     logInfo() << "Partition by the costs of the cells measured in the run before.";
   } else {
     logInfo() << "Partition by the costs of the cells measured in" << file_;
   }
-  const auto costs = costs_ != nullptr ? distributeCellCosts(*costs_, first, count, comm)
-                                       : readCellCosts(file_, first, count, comm);
+  cellCosts_ = costs_ != nullptr ? distributeCellCosts(*costs_, first, count, comm)
+                                 : readCellCosts(file_, first, count, comm);
+
+  const auto clusters = clustering.clusterCount();
+  if (!(minShare_ > 0)) {
+    groups_.assign(clusters, 0);
+    return 1;
+  }
+  // what each cluster costs, as a share of all costs
+  std::vector<double> shares(clusters, 0);
+  for (std::size_t cell = 0; cell < count; ++cell) {
+    shares[clustering.clusterIds[cell]] += cellCosts_[cell];
+  }
+  MPI_Allreduce(
+      MPI_IN_PLACE, shares.data(), static_cast<int>(shares.size()), MPI_DOUBLE, MPI_SUM, comm);
+  const auto sum = std::accumulate(shares.begin(), shares.end(), 0.0);
+  for (auto& share : shares) {
+    share = sum > 0 ? share / sum : 0;
+  }
+  groups_ = constraintGroups(shares, minShare_);
+  const auto groupCount = groups_.back() + 1;
+  logInfo() << "The partition balances each of" << groupCount
+            << "groups of time clusters (SEISSOL_MEASURED_CLUSTER_SHARE =" << minShare_
+            << "), to an imbalance of" << groupImbalance_ << ":";
+  for (std::size_t group = 0; group < groupCount; ++group) {
+    double groupShare = 0;
+    std::string members;
+    for (std::size_t cluster = 0; cluster < clusters; ++cluster) {
+      if (groups_[cluster] == group) {
+        groupShare += shares[cluster];
+        members += (members.empty() ? "" : ", ") + std::to_string(cluster);
+      }
+    }
+    logInfo() << "Group" << group << ": the clusters" << members.c_str() << "with"
+              << 100 * groupShare << "% of the measured costs.";
+  }
+  return groupCount;
+}
+
+void MeasuredWeights::setVertexWeights() {
+  const auto& clustering = this->clustering();
+  MPI_Comm comm = seissol::Mpi::mpi.comm();
+  const std::size_t count = clustering.clusterIds.size();
+  const auto total = runOf(count, comm).second;
+  const auto& costs = cellCosts_;
 
   // the weights sum to what those of the default model would, which ParMETIS has been taking
   ExponentialWeights reference;
@@ -317,7 +395,9 @@ void MeasuredWeights::setVertexWeights() {
   std::array<double, 2> range{std::numeric_limits<double>::max(), 0};
   for (std::size_t cell = 0; cell < count; ++cell) {
     const auto weight = std::max(1.0, std::round(costs[cell] * scale));
-    vertexWeights_[cell] = static_cast<std::uint64_t>(weight);
+    // (in the constraint of its group of clusters; zero in the others)
+    vertexWeights_[ncon_ * cell + groups_[clustering.clusterIds[cell]]] =
+        static_cast<std::uint64_t>(weight);
     range[0] = std::min(range[0], weight);
     range[1] = std::max(range[1], weight);
   }
@@ -329,9 +409,9 @@ void MeasuredWeights::setVertexWeights() {
 }
 
 void MeasuredWeights::setAllowedImbalances() {
-  // as for ExponentialWeights
+  // one constraint as for ExponentialWeights; several are harder to meet together
   constexpr double TinyLtsWeightImbalance{1.01};
-  imbalances_.assign(1, TinyLtsWeightImbalance);
+  imbalances_.assign(ncon_, ncon_ == 1 ? TinyLtsWeightImbalance : groupImbalance_);
 }
 
 } // namespace seissol::initializer

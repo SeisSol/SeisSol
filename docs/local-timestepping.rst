@@ -291,6 +291,19 @@ of the cells, and failed to set up). Measured with the clusters one after anothe
 against 24.4 s without measured costs on 128 nodes, and 47.5 s against 46.0 s on 64 nodes; the default time stepping
 took 23.0 s against 23.4 s and 43.4 s against 44.3 s.
 
+With concurrent clusters, balancing what the ranks cost in all is not enough: each cluster of a rank waits for those
+of its neighbors in every step, and a rank overlaps these waits only with the work of its other clusters.
+Partitioned by the costs in all, some ranks of the Turkey case on 128 nodes got cells of the largest cluster only,
+and their neighbors waited for them.
+So the partition balances groups of time clusters there, each as a constraint of its own:
+from the cluster with the smallest time step on, a group takes clusters until it has at least the share
+``SEISSOL_MEASURED_CLUSTER_SHARE`` of the measured costs (0.1 with concurrent clusters, else 0: a single group),
+and a last group with less joins the one before; each group may be off balance by
+``SEISSOL_MEASURED_CLUSTER_IMBALANCE`` (1.05 by default). The log names the groups.
+In the Turkey case, the clusters 0 to 2 made one group, with 18 % of the costs, and the clusters 3 to 7 the other;
+the run with the plan and the host actor then took 22.5, 22.6 and 23.0 s against 24.5, 24.8 and 24.0 s with the costs
+in all, and the default time stepping (one run each) 23.9 s against 23.7 s.
+
 The costs of a cell include the speed of the rank it was measured on, so the partition does not weight the ranks
 by Mini SeisSol then (see :ref:`env_vars`).
 The costs can only be measured where the loops get timed: not within recorded super-timesteps

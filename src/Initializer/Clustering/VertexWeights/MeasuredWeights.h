@@ -73,8 +73,24 @@ std::vector<double> distributeCellCosts(const MeasuredCellCosts& costs,
                                         MPI_Comm comm);
 
 /**
+ * @brief Groups the time clusters into constraints of the partition: from the cluster with the
+ * smallest time step on, each group takes clusters until it has at least `minShare` of the
+ * measured costs (`shares`, one per cluster); a last group with less joins the one before. Returns
+ * the group of each cluster, counted from zero.
+ */
+std::vector<std::size_t> constraintGroups(const std::vector<double>& shares, double minShare);
+
+/**
  * @brief Vertex weights from measured costs: a cell weighs what it cost (see measureCellCosts()),
  * scaled such that the weights of all cells sum to those of ExponentialWeights.
+ *
+ * With SEISSOL_MEASURED_CLUSTER_SHARE=s, the time clusters go to groups of at least the share s of
+ * the costs each (see constraintGroups()), and each group is a constraint of its own, with the
+ * imbalance SEISSOL_MEASURED_CLUSTER_IMBALANCE (1.05 by default): the partition then balances what
+ * the ranks cost in each group, as the clusters of a group wait for those of their neighbors in
+ * every step. By default, s is 0.1 with concurrent clusters on a device, which need the work of
+ * other groups to overlap with these waits; otherwise, s is 0: one constraint, which balances what
+ * the ranks cost in all.
  *
  * The cells a rank partitions are those it read from the mesh file, which the ranks read in runs,
  * one after the other; so the costs are those of the cells `firstCell` ... with `firstCell` the
@@ -88,13 +104,20 @@ class MeasuredWeights : public VertexWeightModel {
   explicit MeasuredWeights(const MeasuredCellCosts& costs);
 
   protected:
-  std::size_t evaluateNumberOfConstraints() final { return 1; }
+  std::size_t evaluateNumberOfConstraints() final;
   void setVertexWeights() final;
   void setAllowedImbalances() final;
 
   private:
+  void readSettings();
+
   std::string file_;
   const MeasuredCellCosts* costs_{nullptr};
+  double minShare_{0};
+  double groupImbalance_{1.05};
+  //! the costs of the cells of this rank, and the constraint of each cluster
+  std::vector<double> cellCosts_;
+  std::vector<std::size_t> groups_;
 };
 
 } // namespace seissol::initializer

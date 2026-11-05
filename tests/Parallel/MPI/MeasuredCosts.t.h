@@ -98,4 +98,18 @@ TEST_CASE("Measured costs go through a file" * doctest::test_suite("mpi")) {
   }
 }
 
+TEST_CASE("The time clusters go to groups with a share of the costs each" *
+          doctest::test_suite("mpi")) {
+  using initializer::constraintGroups;
+  using Groups = std::vector<std::size_t>;
+  // two tiny clusters with small time steps join the next one, the bulk is a group of its own
+  CHECK(constraintGroups({1e-5, 0.002, 0.2, 0.798}, 0.1) == Groups{0, 0, 0, 1});
+  // a last group with too little of the costs joins the one before
+  CHECK(constraintGroups({0.5, 0.45, 0.05}, 0.1) == Groups{0, 1, 1});
+  CHECK(constraintGroups({0.25, 0.25, 0.25, 0.25}, 0.1) == Groups{0, 1, 2, 3});
+  // a share above all costs: one group
+  CHECK(constraintGroups({0.3, 0.7}, 2.0) == Groups{0, 0});
+  CHECK(constraintGroups({1.0}, 0.1) == Groups{0});
+}
+
 } // namespace seissol::unit_test
