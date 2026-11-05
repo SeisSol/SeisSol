@@ -70,6 +70,7 @@ StagedMpiHaloTransport::~StagedMpiHaloTransport() {
 }
 
 void StagedMpiHaloTransport::startSend() {
+  sendBegin_ = regionTraceBegin();
   std::list<std::size_t> copying;
   for (std::size_t region = 0; region < regions_.copy.size(); ++region) {
     device_.api().copyFromAsync(hostCopyRegions_[region],
@@ -104,9 +105,13 @@ void StagedMpiHaloTransport::startSend() {
   }
 }
 
-bool StagedMpiHaloTransport::testSend() { return testRequests(sendRequests_.data(), sendQueue_); }
+bool StagedMpiHaloTransport::testSend() {
+  const RegionTrace trace{&regions_.copy, true, sendBegin_};
+  return testRequests(sendRequests_.data(), sendQueue_, &trace);
+}
 
 void StagedMpiHaloTransport::startReceive() {
+  receiveBegin_ = regionTraceBegin();
   if (persistent_) {
     MPI_Startall(static_cast<int>(recvRequests_.size()), recvRequests_.data());
   }
@@ -132,6 +137,7 @@ bool StagedMpiHaloTransport::testReceive() {
       int testSuccess = 0;
       MPI_Test(recvRequests_.data() + *region, &testSuccess, MPI_STATUS_IGNORE);
       if (testSuccess != 0) {
+        traceRegion(RegionTrace{&regions_.ghost, false, receiveBegin_}, *region);
         device_.api().copyToAsync(regions_.ghost[*region].data,
                                   hostGhostRegions_[*region],
                                   regions_.ghost[*region].size *

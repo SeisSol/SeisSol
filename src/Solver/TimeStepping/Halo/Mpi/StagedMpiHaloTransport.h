@@ -56,6 +56,8 @@ class StagedMpiHaloTransport : public HaloTransport {
   std::vector<void*> copyStreams_;
   std::vector<void*> ghostStreams_;
   std::vector<ReceiveState> receiveStates_;
+  double sendBegin_{-1};
+  double receiveBegin_{-1};
   device::DeviceInstance& device_ = device::DeviceInstance::instance();
 };
 

@@ -20,10 +20,30 @@
 namespace seissol::solver {
 
 /**
- * Tests the requests of the given regions, and removes the completed ones from the list. Returns
- * true once the list is empty.
+ * Where the messages of the regions of a transport go in the trace (SEISSOL_TRACE): a track for
+ * each region, named after its peer, with a span from the start of the exchange to the completion
+ * of its message as the transport saw it.
  */
-bool testRequests(MPI_Request* requests, std::list<std::size_t>& regions);
+struct RegionTrace {
+  const std::vector<RemoteCluster>* clusters{nullptr};
+  bool send{false};
+  /// the start of the exchange, in microseconds of the trace; negative while it does not record
+  double begin{-1};
+};
+
+/**
+ * Tests the requests of the given regions, and removes the completed ones from the list (and puts
+ * them into the trace, if given). Returns true once the list is empty.
+ */
+bool testRequests(MPI_Request* requests,
+                  std::list<std::size_t>& regions,
+                  const RegionTrace* trace = nullptr);
+
+/// the start of an exchange for RegionTrace::begin: now if the trace records, else negative
+double regionTraceBegin();
+
+/// puts the message of a region, completed now, into the trace (if it records)
+void traceRegion(const RegionTrace& trace, std::size_t region);
 
 /**
  * The messages of the regions in flight, with the rank, the tag and the size of each.
@@ -59,6 +79,8 @@ class MpiHaloTransport : public HaloTransport {
   std::vector<MPI_Request> recvRequests_;
   std::list<std::size_t> sendQueue_;
   std::list<std::size_t> receiveQueue_;
+  double sendBegin_{-1};
+  double receiveBegin_{-1};
 };
 
 } // namespace seissol::solver

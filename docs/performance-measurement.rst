@@ -165,7 +165,10 @@ With ``SEISSOL_TRACE=1``, SeisSol records what each rank does during the time st
   ``SEISSOL_DEVICE_LOOP_STATISTICS``, see :ref:`gpu-env`; CUDA and HIP);
 * the sends and receives of the halo exchange, from their start to their completion, a track for each direction of each
   pair of clusters; where the exchange is ordered on device streams (with concurrent clusters), the groups on the
-  device streams instead;
+  device streams instead; with MPI from the host (``direct``, ``host``, and the messages to other nodes with
+  ``SEISSOL_EXCHANGE_SPLIT_BY_NODE``), also each message on a track of its own
+  (``mpi receive from rank <peer> tag <tag>``, ``mpi send to rank ...``), until the rank saw it complete, which tells
+  the peer whose message came last;
 * ``time stepping``, with the epochs.
 
 The ranks share the origin of the time up to the skew of a barrier; the times of the device are those of its events,

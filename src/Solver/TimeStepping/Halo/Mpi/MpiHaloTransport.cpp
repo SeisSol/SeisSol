@@ -7,6 +7,7 @@
 
 #include "MpiHaloTransport.h"
 
+#include "Monitoring/Trace.h"
 #include "Parallel/MPI.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 
@@ -19,12 +20,34 @@
 
 namespace seissol::solver {
 
-bool testRequests(MPI_Request* requests, std::list<std::size_t>& regions) {
+void traceRegion(const RegionTrace& trace, std::size_t region) {
+  if (trace.begin < 0 || !monitoring::Trace::recording()) {
+    return;
+  }
+  const auto& cluster = (*trace.clusters)[region];
+  static const auto SendName = monitoring::Trace::name("send");
+  static const auto ReceiveName = monitoring::Trace::name("receive");
+  const auto track = monitoring::Trace::track(
+      &cluster,
+      std::string(trace.send ? "mpi send to rank " : "mpi receive from rank ") +
+          std::to_string(cluster.rank) + " tag " + std::to_string(cluster.tag));
+  monitoring::Trace::span(
+      trace.send ? SendName : ReceiveName, track, trace.begin, monitoring::Trace::now());
+}
+
+double regionTraceBegin() { return monitoring::Trace::recording() ? monitoring::Trace::now() : -1; }
+
+bool testRequests(MPI_Request* requests,
+                  std::list<std::size_t>& regions,
+                  const RegionTrace* trace) {
   for (auto region = regions.begin(); region != regions.end();) {
     MPI_Request* request = &requests[*region];
     int testSuccess = 0;
     MPI_Test(request, &testSuccess, MPI_STATUS_IGNORE);
     if (testSuccess != 0) {
+      if (trace != nullptr) {
+        traceRegion(*trace, *region);
+      }
       region = regions.erase(region);
     } else {
       ++region;
@@ -83,6 +106,7 @@ MpiHaloTransport::MpiHaloTransport(const RemoteClusterPair& regions, bool persis
 }
 
 void MpiHaloTransport::startSend() {
+  sendBegin_ = regionTraceBegin();
   // (some MPIs take the null array of no requests for an invalid one; e.g. Open MPI 5)
   if (persistent_ && !sendRequests_.empty()) {
     MPI_Startall(static_cast<int>(sendRequests_.size()), sendRequests_.data());
@@ -101,9 +125,13 @@ void MpiHaloTransport::startSend() {
   }
 }
 
-bool MpiHaloTransport::testSend() { return testRequests(sendRequests_.data(), sendQueue_); }
+bool MpiHaloTransport::testSend() {
+  const RegionTrace trace{&regions_.copy, true, sendBegin_};
+  return testRequests(sendRequests_.data(), sendQueue_, &trace);
+}
 
 void MpiHaloTransport::startReceive() {
+  receiveBegin_ = regionTraceBegin();
   if (persistent_ && !recvRequests_.empty()) {
     MPI_Startall(static_cast<int>(recvRequests_.size()), recvRequests_.data());
   }
@@ -121,7 +149,10 @@ void MpiHaloTransport::startReceive() {
   }
 }
 
-bool MpiHaloTransport::testReceive() { return testRequests(recvRequests_.data(), receiveQueue_); }
+bool MpiHaloTransport::testReceive() {
+  const RegionTrace trace{&regions_.ghost, false, receiveBegin_};
+  return testRequests(recvRequests_.data(), receiveQueue_, &trace);
+}
 
 void MpiHaloTransport::finalize() {
   if (persistent_) {
