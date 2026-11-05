@@ -50,6 +50,19 @@ class ThermalPressurization {
   public:
   using real = Real<Cfg>;
 
+  /**
+   * The affine law of one step of one face; see prepareFluidPressure. It belongs to the face that
+   * a thread works on, not to the law: one law serves every thread of the loop over the faces, so
+   * coefficients kept in the law would be overwritten by the face of another thread between the
+   * pass that writes them and the solve that reads them.
+   */
+  struct StepCoefficients {
+    std::array<real, misc::NumPaddedPoints<Cfg>> temperatureOffset{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> temperatureSlope{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> pressureOffset{};
+    std::array<real, misc::NumPaddedPoints<Cfg>> pressureSlope{};
+  };
+
   explicit ThermalPressurization(const FrictionLawParameters<Real<Cfg>>& drParameters)
       : gridPoints_(drParameters.tpGridPoints),
         inverseFourierCoefficients_(drParameters.tpGridPoints),
@@ -70,31 +83,35 @@ class ThermalPressurization {
    * and the same for the temperature. Whatever slip rate the solve settles on, the pressure
    * follows from these coefficients without touching the grid again.
    */
-  void prepareFluidPressure(real deltaT, std::size_t ltsFace);
+  void prepareFluidPressure(real deltaT, std::size_t ltsFace, StepCoefficients& step) const;
 
   /// Evaluate the affine law of the preceding pass at the shear heating of the given state.
   void applyShearHeating(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
                          const real (*mu)[misc::NumPaddedPoints<Cfg>],
                          const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
-                         std::size_t ltsFace);
+                         std::size_t ltsFace,
+                         const StepCoefficients& step);
 
   /// Advance the spectral state by the shear heating the solve settled on, and store it.
   void finalizeFluidPressure(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
                              const real (*mu)[misc::NumPaddedPoints<Cfg>],
                              const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
                              real deltaT,
-                             std::size_t ltsFace);
+                             std::size_t ltsFace,
+                             const StepCoefficients& step);
 
   [[nodiscard]] real getFluidPressure(std::size_t ltsFace, std::uint32_t pointIndex) const {
     return pressure_[ltsFace][pointIndex];
   }
 
   /// the affine law of this step: p(tau V) = offset + slope * tau V; see prepareFluidPressure
-  [[nodiscard]] real fluidPressureOffset(std::uint32_t pointIndex) const {
-    return pressureOffset_[pointIndex];
+  [[nodiscard]] static real fluidPressureOffset(const StepCoefficients& step,
+                                                std::uint32_t pointIndex) {
+    return step.pressureOffset[pointIndex];
   }
-  [[nodiscard]] real fluidPressureSlope(std::uint32_t pointIndex) const {
-    return pressureSlope_[pointIndex];
+  [[nodiscard]] static real fluidPressureSlope(const StepCoefficients& step,
+                                               std::uint32_t pointIndex) {
+    return step.pressureSlope[pointIndex];
   }
 
   protected:
@@ -107,12 +124,6 @@ class ThermalPressurization {
   real (*__restrict hydraulicDiffusivity_)[misc::NumPaddedPoints<Cfg>]{};
 
   private:
-  /// the affine law of this step; see prepareFluidPressure
-  std::array<real, misc::NumPaddedPoints<Cfg>> temperatureOffset_{};
-  std::array<real, misc::NumPaddedPoints<Cfg>> temperatureSlope_{};
-  std::array<real, misc::NumPaddedPoints<Cfg>> pressureOffset_{};
-  std::array<real, misc::NumPaddedPoints<Cfg>> pressureSlope_{};
-
   /// the wavenumber grid and the coefficients on it, built for the configured point count
   tp::GridPoints<real> gridPoints_;
   tp::InverseFourierCoefficients<real> inverseFourierCoefficients_;

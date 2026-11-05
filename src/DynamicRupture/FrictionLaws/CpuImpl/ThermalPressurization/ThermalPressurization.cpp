@@ -37,7 +37,9 @@ RealT shearHeating(RealT mu, RealT normalStress, RealT slipRate) {
 } // namespace
 
 template <typename Cfg>
-void ThermalPressurization<Cfg>::prepareFluidPressure(real deltaT, std::size_t ltsFace) {
+void ThermalPressurization<Cfg>::prepareFluidPressure(real deltaT,
+                                                      std::size_t ltsFace,
+                                                      StepCoefficients& step) const {
 #pragma omp simd
   for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
     real temperatureDiffusion = 0.0;
@@ -87,11 +89,11 @@ void ThermalPressurization<Cfg>::prepareFluidPressure(real deltaT, std::size_t l
     }
 
     // Update pore pressure change: sigma = pore pressure + lambda' * temperature
-    temperatureOffset_[pointIndex] = temperatureDiffusion + drParameters_.initialTemperature;
-    temperatureSlope_[pointIndex] = temperatureSlope;
-    pressureOffset_[pointIndex] =
+    step.temperatureOffset[pointIndex] = temperatureDiffusion + drParameters_.initialTemperature;
+    step.temperatureSlope[pointIndex] = temperatureSlope;
+    step.pressureOffset[pointIndex] =
         -(pressureDiffusion - lambdaPrime * temperatureDiffusion) + drParameters_.initialPressure;
-    pressureSlope_[pointIndex] = -(pressureSlope - lambdaPrime * temperatureSlope);
+    step.pressureSlope[pointIndex] = -(pressureSlope - lambdaPrime * temperatureSlope);
   }
 }
 
@@ -100,15 +102,16 @@ void ThermalPressurization<Cfg>::applyShearHeating(
     const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
     const real (*mu)[misc::NumPaddedPoints<Cfg>],
     const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
-    std::size_t ltsFace) {
+    std::size_t ltsFace,
+    const StepCoefficients& step) {
 #pragma omp simd
   for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
     const real tauV = shearHeating(
         mu[ltsFace][pointIndex], normalStress[pointIndex], slipRateMagnitude[pointIndex]);
     temperature_[ltsFace][pointIndex] =
-        temperatureOffset_[pointIndex] + temperatureSlope_[pointIndex] * tauV;
+        step.temperatureOffset[pointIndex] + step.temperatureSlope[pointIndex] * tauV;
     pressure_[ltsFace][pointIndex] =
-        pressureOffset_[pointIndex] + pressureSlope_[pointIndex] * tauV;
+        step.pressureOffset[pointIndex] + step.pressureSlope[pointIndex] * tauV;
   }
 }
 
@@ -118,7 +121,8 @@ void ThermalPressurization<Cfg>::finalizeFluidPressure(
     const real (*mu)[misc::NumPaddedPoints<Cfg>],
     const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
     real deltaT,
-    std::size_t ltsFace) {
+    std::size_t ltsFace,
+    const StepCoefficients& step) {
 #pragma omp simd
   for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
     const real tauV = shearHeating(
@@ -156,9 +160,9 @@ void ThermalPressurization<Cfg>::finalizeFluidPressure(
     // the coefficients of the preceding pass describe this very state, so the output follows from
     // them rather than from a second sum over the grid
     temperature_[ltsFace][pointIndex] =
-        temperatureOffset_[pointIndex] + temperatureSlope_[pointIndex] * tauV;
+        step.temperatureOffset[pointIndex] + step.temperatureSlope[pointIndex] * tauV;
     pressure_[ltsFace][pointIndex] =
-        pressureOffset_[pointIndex] + pressureSlope_[pointIndex] * tauV;
+        step.pressureOffset[pointIndex] + step.pressureSlope[pointIndex] * tauV;
   }
 }
 

@@ -71,6 +71,8 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
     auto normalStress = std::move(initialVariables.normalStress);
     auto normalStressStick = std::move(initialVariables.normalStressStick);
     const auto stateVarReference = std::move(initialVariables.stateVarReference);
+    // the pressurization of this step of this face; local, as the threads share tpMethod_
+    typename TPMethod::StepCoefficients tpStep{};
     // compute slip rates by solving non-linear system of equations
     this->updateStateVariableIterative(hasConverged,
                                        stateVarReference,
@@ -85,12 +87,13 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
                                        etaNormal,
                                        slipDirection1,
                                        slipDirection2,
+                                       tpStep,
                                        timeIndex,
                                        ltsFace);
 
     // compute final thermal pressure and normalStress
     tpMethod_.finalizeFluidPressure(
-        normalStress, this->mu_, localSlipRate, this->deltaT_[timeIndex], ltsFace);
+        normalStress, this->mu_, localSlipRate, this->deltaT_[timeIndex], ltsFace, tpStep);
     updateDirectionAndProjections(slipDirection1,
                                   slipDirection2,
                                   absoluteShearStress,
@@ -314,6 +317,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
       std::array<real, misc::NumPaddedPoints<Cfg>>& etaNormal,
       std::array<real, misc::NumPaddedPoints<Cfg>>& slipDirection1,
       std::array<real, misc::NumPaddedPoints<Cfg>>& slipDirection2,
+      TPMethod::StepCoefficients& tpStep,
       uint32_t timeIndex,
       std::size_t ltsFace) {
     std::array<real, misc::NumPaddedPoints<Cfg>> testSlipRate{};
@@ -337,7 +341,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
     // The pressurization of this step is affine in the shear heating, so one walk over the
     // wavenumber grid covers every iteration below; what the iterations then do is evaluate two
     // coefficients per point.
-    tpMethod_.prepareFluidPressure(this->deltaT_[timeIndex], ltsFace);
+    tpMethod_.prepareFluidPressure(this->deltaT_[timeIndex], ltsFace, tpStep);
 
     for (uint32_t j = 0; j < this->drParameters_.rsNumberStateVariableUpdates; j++) {
       if constexpr (!Derived::FoldsStateVariable) {
@@ -353,7 +357,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
               static_cast<Derived::StateScalar>(localSlipRate[pointIndex]));
         }
       }
-      tpMethod_.applyShearHeating(normalStress, this->mu_, localSlipRate, ltsFace);
+      tpMethod_.applyShearHeating(normalStress, this->mu_, localSlipRate, ltsFace, tpStep);
 
       updateDirectionAndProjections(slipDirection1,
                                     slipDirection2,
@@ -376,6 +380,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
                                                    etaNormal,
                                                    absoluteShearStress,
                                                    etaInv,
+                                                   tpStep,
                                                    testSlipRate);
 
       // int for ICX not to fail
@@ -594,6 +599,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
       const std::array<real, misc::NumPaddedPoints<Cfg>>& etaNormal,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& absoluteShearStress,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& invEta,
+      const TPMethod::StepCoefficients& tpStep,
       std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateTest) {
 
     real muF[misc::NumPaddedPoints<Cfg>]{};
@@ -643,7 +649,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
       const bool openAtLimit = stickAt(normalStress,
                                        normalStressStick,
                                        etaNormal,
-                                       tpMethod_.fluidPressureOffset(pointIndex),
+                                       TPMethod::fluidPressureOffset(tpStep, pointIndex),
                                        hi,
                                        pointIndex) >= static_cast<real>(0.0);
       xLow[pointIndex] = lo;
@@ -688,10 +694,10 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
             rs::effectiveNormalStress(stickAt(normalStress,
                                               normalStressStick,
                                               etaNormal,
-                                              tpMethod_.fluidPressureOffset(pointIndex),
+                                              TPMethod::fluidPressureOffset(tpStep, pointIndex),
                                               trial,
                                               pointIndex),
-                                      tpMethod_.fluidPressureSlope(pointIndex),
+                                      TPMethod::fluidPressureSlope(tpStep, pointIndex),
                                       trial,
                                       mu);
         const auto absSigmaDual = abs(sigma);
