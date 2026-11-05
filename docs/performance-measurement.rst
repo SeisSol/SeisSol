@@ -275,6 +275,11 @@ its ends: let ``EpochInterval`` make the epochs some seconds long (see :ref:`ene
 of a machine update). A part whose sensors share a clock, as those of the HPE Cray counters do, takes its power over
 that clock, the other parts over the time of the rank.
 
+The proxy measures the energy of the node during its timed run the same way, and prints it per part, with the power
+and the GFLOP per joule of the node, else of its GPUs, else of its CPUs (``energy-basis``, ``joules``, ``watts``,
+``gflopj-nz`` and ``gflopj-hw`` in its JSON output, which are ``none`` and zero where the node measures nothing, or
+where the run is too short for the sensors to update).
+
 .. _energy-probe:
 
 Energy sources of a machine

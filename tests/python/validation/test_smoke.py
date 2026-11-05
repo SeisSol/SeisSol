@@ -41,6 +41,11 @@ VALID_FIELDS = {
     "gflops-hw": 170.0,
     "gibs": 32.0,
     "gibs-kernel": 24.0,
+    "energy-basis": "none",
+    "joules": 0.0,
+    "watts": 0.0,
+    "gflopj-nz": 0.0,
+    "gflopj-hw": 0.0,
 }
 
 
@@ -58,6 +63,34 @@ def test_non_finite_value_is_rejected(field):
     document = dict(VALID_FIELDS)
     document[field] = float("inf")
     with pytest.raises(smoke.CheckFailed, match="not finite"):
+        smoke.check_proxy_fields(document, "all")
+
+
+def test_measured_energy_passes():
+    document = dict(VALID_FIELDS)
+    document.update(
+        {
+            "energy-basis": "node",
+            "joules": 120.0,
+            "watts": 400.0,
+            "gflopj-nz": 0.0125,
+            "gflopj-hw": 0.0175,
+        }
+    )
+    smoke.check_proxy_fields(document, "all")
+
+
+def test_unknown_energy_basis_is_rejected():
+    document = dict(VALID_FIELDS)
+    document["energy-basis"] = "rack"
+    with pytest.raises(smoke.CheckFailed, match="energy-basis"):
+        smoke.check_proxy_fields(document, "all")
+
+
+def test_energy_without_a_basis_is_rejected():
+    document = dict(VALID_FIELDS)
+    document["joules"] = 5.0
+    with pytest.raises(smoke.CheckFailed, match="energy-basis is 'none'"):
         smoke.check_proxy_fields(document, "all")
 
 

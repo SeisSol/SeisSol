@@ -13,6 +13,7 @@
 
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace seissol::proxy {
@@ -51,6 +52,16 @@ struct ProxyOutput {
   double hardwareGFlops{};
   double gibPerSecond{};
   double kernelGibPerSecond{};
+  //! The part of the node whose energy the run is put against: node, devices or cpu, the first
+  //! that the node measures; none if it measures none.
+  std::string energyBasis{"none"};
+  //! The energy of that part during the run, in joules, and its mean power, in watts.
+  double joules{};
+  double watts{};
+  double nonZeroGFlopPerJoule{};
+  double hardwareGFlopPerJoule{};
+  //! The energy of every part of the node that it measures, in joules, by the name of the part.
+  std::vector<std::pair<std::string, double>> partJoules;
 };
 
 struct Aux {
