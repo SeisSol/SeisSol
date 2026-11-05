@@ -30,7 +30,6 @@ class SlowVelocityWeakeningLaw
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {}
 
-  // Note that we need double precision here, since single precision led to NaNs.
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
                                                  real timeIncrement) {
     Derived::updateStateVariable(ctx, timeIncrement);

@@ -35,7 +35,6 @@ class AgingLaw : public SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, T
    * Analytic solution:
    * \f[\Psi(t) = \frac{L}{V} + \left(\Psi_0 - \frac{L}{V}\right) \exp\left( -\frac{V}{L} \cdot t
    * \right). \f]
-   * Note that we need double precision here, since single precision led to NaNs.
    * @param stateVarReference \f$ \Psi_0 \f$
    * @param timeIncrement \f$ t \f$
    * @param localSlipRate \f$ V \f$

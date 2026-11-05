@@ -30,7 +30,6 @@ class SlipLaw : public SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, TPMethod>, TPM
    * Analytic solution
    * \f[ \Psi(t) = \frac{L}{V} \exp\left[ \log\left( \frac{V
    * \Psi_0}{L}\right) \exp\left( - \frac{V}{L} t\right)\right].\f]
-   * Note that we need double precision here, since single precision led to NaNs.
    * @param stateVarReference \f$ \Psi_0 \f$
    * @param timeIncremetn \f$ t \f$
    * @param localSlipRate \f$ V \f$

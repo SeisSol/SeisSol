@@ -107,7 +107,6 @@ class SlowVelocityWeakeningLaw
    * Computes the friction coefficient from the state variable and slip rate
    * \f[\mu = a \cdot \sinh^{-1} \left( \frac{V}{2V_0} \cdot \exp \left(\frac{f_0 + b \log(V_0\Psi
    * / L)}{a} \right)\right).\f]
-   * Note that we need double precision here, since single precision led to NaNs.
    * @param localSlipRateMagnitude \f$ V \f$
    * @param localStateVariable \f$ \Psi \f$
    * @return \f$ \mu \f$
