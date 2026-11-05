@@ -191,3 +191,28 @@ performance in "TFLOP/s per node" (formerly "GFLOP/s per node"). It comes in the
 You can compare these values with the publications in order to see if your performance is in line with what to expect.
 
 Note that, empirically, the "HW-TFLOP/s per node" performance metric is used more often; especially in relation to the peak hardware performance.
+
+Energy
+------
+
+.. _energy-probe:
+
+Energy sources of a machine
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+What a machine offers for measuring energy differs from machine to machine, and between the users of one machine:
+the nodes of HPE Cray EX systems count the energy of the node, of its CPUs, of its memory and of its accelerators in
+``/sys/cray/pm_counters``; GPUs count their own through the management library of their vendor (NVML, AMD SMI or ROCm
+SMI, Level Zero); RAPL (``/sys/class/powercap``) counts the CPU packages and their memory, which only root may read on
+most kernels. ``scripts/perf/energy_probe.py`` lists the sources a node offers, how often each updates, how long a
+read takes and the smallest step it counts in. With ``run -- <command>``, it measures the energy of the command with
+every source and holds them against each other: the node against the sum of its parts, the GPUs against the
+accelerator counters of the node, the energy counters against their power integrated over time, and all of it against
+the account of Slurm, where the job runs in a step. Run it once per kind of node, as the only job on the node and as
+the user who runs the simulations, for example:
+
+.. code-block:: bash
+
+   srun -N1 -n1 --exclusive python3 scripts/perf/energy_probe.py --json probe.json run -- <command>
+
+It needs nothing but Python 3.5 or later; the libraries of the GPU vendors are loaded if they are installed.
