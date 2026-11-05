@@ -759,7 +759,13 @@ TEST_CASE("DR RateAndState relaxationWeight" * doctest::test_suite("dynamicruptu
     CHECK(rs::relaxationWeight(0.0) == 1.0);
     CHECK(rs::relaxationWeight(0.0F) == 1.0F);
     CHECK(rs::relaxationWeight(1e-300) == doctest::Approx(1.0));
-    CHECK(rs::relaxationWeight(1e-40F) == doctest::Approx(1.0F));
+    // A subnormal z, read through volatile so that it reaches the function at run time, as it does
+    // in a friction law. As a literal, the comparison with zero is decided at compile time, and
+    // where the program runs with denormals-are-zero (NVHPC sets it on start), the quotient taken
+    // instead reads z as zero: 0 / 0.
+    const volatile auto subnormalInput = 1e-40F;
+    const float subnormal = subnormalInput;
+    CHECK(rs::relaxationWeight(subnormal) == doctest::Approx(1.0F));
     CHECK(relativeError(rs::relaxationWeight(500.0), 1.0 / 500.0) < 1e-14);
     // and monotone in between, since it is a mean of a decreasing function
     double previous = 1.0;
