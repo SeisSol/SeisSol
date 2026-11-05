@@ -111,6 +111,11 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - Experimental. For the modes on GPU streams in the global order with one lane, or with the lanes of ``shmem``:
        the work of a cluster waits only for the groups of its own transports, instead of all groups launched so far
        (with the lanes of the other modes, it still waits for all of them).
+   * - ``SEISSOL_EXCHANGE_DEVICE_ORDER=0``
+     - Experimental. With concurrent clusters, for the modes on GPU streams in the global order: the host launches a
+       group of the exchange once it has seen the work complete whose data the group sends, and enqueues the work that
+       needs the group once it has seen the group complete, as with ``direct``; instead of ordering both on the GPU
+       (see below). Not with ``SEISSOL_SUPERSTEP_GRAPHS=1``.
    * - ``SEISSOL_ACTOR_MPI_WAIT=kernel``
      - Experimental. For ``actor-mpi``: the streams wait for the host with a kernel of SeisSol that polls with growing
        pauses, instead of the wait of the GPU runtime.
@@ -317,6 +322,14 @@ With ``SEISSOL_CONCURRENT_CLUSTERS=1``, the exchange is ordered on the GPU as we
 the groups wait for the GPU work that produces or last reads their data,
 and the clusters wait for the groups they need, all via events.
 The host then never waits for the GPU during a super-timestep.
+
+With ``SEISSOL_EXCHANGE_DEVICE_ORDER=0``, the host orders the exchange instead, as with ``direct``: it launches a group
+once it has seen the work complete whose data the group sends, and enqueues the work that needs the group once it has
+seen the group complete. On 128 nodes of Horizon (four B200 each; the Turkey setup over 0.2 s, compute time, November
+2026), that made ``shmem`` on four lanes slower: 38.9 s against 32.3 s ordered on the GPU, with the eight hardware
+queues of CUDA (28.3 s against 27.5 s with 32, see below; one lane: 37.9 s); ``ccl`` on four lanes took 40.9 s
+(35.9 s on one lane, ordered on the GPU). ``direct`` took 24.6 s, and 24.9 s with the plan and concurrent clusters. So
+these modes do not lose against ``direct`` by waiting on the GPU, but by the exchange on device streams itself.
 
 Queues of their own (HIP)
 ~~~~~~~~~~~~~~~~~~~~~~~~~

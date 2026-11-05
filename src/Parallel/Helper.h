@@ -124,6 +124,18 @@ inline bool useExchangeTransportEvents(utils::Env& env) {
 }
 
 /**
+ * Whether, with concurrent clusters, the halo exchange on device streams in the global order gets
+ * ordered on the device: a group waits there for the work whose data it sends, and the work that
+ * needs it waits there for the group. Otherwise, the host launches a group once it has seen that
+ * work complete, and enqueues the work that needs the group once it has seen the group complete,
+ * as with an exchange from the host (experimental). Recording super-timesteps needs the order on
+ * the device.
+ */
+inline bool useExchangeDeviceOrder(utils::Env& env) {
+  return env.get<bool>("EXCHANGE_DEVICE_ORDER", true);
+}
+
+/**
  * Whether the independent branches of the work of a cluster (e.g. the neighbor fluxes of the face
  * relations of a face) become nodes of their own in the recordings of super-timesteps, so that they
  * can run concurrently. Otherwise, they run one after another, as one node: the graphs get fewer

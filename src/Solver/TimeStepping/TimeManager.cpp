@@ -594,7 +594,12 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       cluster->setAccessEvents(accessEvents);
     }
     auto* scheduler = haloTransports_->scheduler();
-    if (scheduler != nullptr && scheduler->launchOrder() == LaunchOrder::Global) {
+    if (scheduler != nullptr && scheduler->launchOrder() == LaunchOrder::Global &&
+        !useExchangeDeviceOrder(seissolInstance_.env())) {
+      logInfo() << "The host launches a group of the halo exchange once it has seen its data"
+                << "complete, and the work that needs the group once it has seen the group"
+                << "complete (SEISSOL_EXCHANGE_DEVICE_ORDER=0).";
+    } else if (scheduler != nullptr && scheduler->launchOrder() == LaunchOrder::Global) {
       scheduler->setStreamOrdered(true);
       logInfo() << "The halo exchange is ordered on the device.";
       if (useExchangeTransportEvents(seissolInstance_.env())) {
@@ -614,8 +619,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                (haloTransports_->scheduler() == nullptr ||
                 !haloTransports_->scheduler()->streamOrdered() || commThread_)) {
       logWarning() << "Recording super-timesteps with halo exchange needs a transfer mode on device"
-                   << "streams (ccl, stream-mpi or shmem) in its global order, and no"
-                   << "communication thread.";
+                   << "streams (ccl, stream-mpi or shmem) in its global order, ordered on the"
+                   << "device (not SEISSOL_EXCHANGE_DEVICE_ORDER=0), and no communication thread.";
     } else if (!ghostClusterPointer->empty() &&
                (!haloTransports_->scheduler()->recordable() || haloTransports_->split())) {
       logWarning() << "The halo exchange of this transfer mode cannot be replayed from a recording"
