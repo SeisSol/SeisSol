@@ -226,6 +226,22 @@ void initializeFaultImpedance(const Fault& fault,
   }
 }
 
+/// Writes TinvT, the transpose of matTinv. Through the view rather than through a kernel, because
+/// TinvT is stored in whichever layout the projections read it from -- packed to its sparsity
+/// pattern where the build can take a packed operand -- and a packed destination is not something
+/// the generated copy can write. forall visits the entries the view actually stores, so the same
+/// line fills a dense and a packed TinvT, and the entries a packed one leaves out are the ones the
+/// rotation has no value for anyway.
+///
+/// A function of its own rather than part of the body of the loop over the faces: with the lambda
+/// in an OpenMP loop, NVHPC 24.9 runs it wrongly with several threads.
+template <typename Cfg>
+void transposeInverseRotation(const typename init::Tinv<Cfg>::view::type& matTinv,
+                              Real<Cfg>* dataTinvT) {
+  auto tinvT = init::TinvT<Cfg>::view::create(dataTinvT);
+  tinvT.forall([&matTinv](const auto* entry, auto& value) { value = matTinv(entry[1], entry[0]); });
+}
+
 /// The matrices of the faults faces of a layer of the configuration `Cfg`.
 template <typename Cfg>
 void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
@@ -246,6 +262,15 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
       return backmap.getDup(elem.value(), duplicate);
     }
     return std::optional<StoragePosition>();
+  };
+
+  const auto getDofs = [&](const StoragePosition& position) -> real* {
+    const auto halo = ltsStorage.getColorMap().argument(position.color).halo;
+    if (halo == HaloType::Ghost) {
+      return ltsStorage.lookup<LTS::DofsHalo>(Cfg(), position);
+    } else {
+      return ltsStorage.lookup<LTS::Dofs>(Cfg(), position);
+    }
   };
 
   auto* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>(Cfg());
@@ -279,6 +304,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
   auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>(Cfg());
   auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>(Cfg());
 
+  // The body of the loop holds no lambda: with one in it, NVHPC 24.9 runs the loop wrongly with
+  // several threads (see transposeInverseRotation).
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
     schedule(static)
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
@@ -312,15 +339,6 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     real* timeDerivative2 = nullptr;
     real* timeDerivative1Device = nullptr;
     real* timeDerivative2Device = nullptr;
-
-    const auto getDofs = [&](const StoragePosition& position) -> real* {
-      const auto halo = ltsStorage.getColorMap().argument(position.color).halo;
-      if (halo == HaloType::Ghost) {
-        return ltsStorage.lookup<LTS::DofsHalo>(Cfg(), position);
-      } else {
-        return ltsStorage.lookup<LTS::Dofs>(Cfg(), position);
-      }
-    };
 
     for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
       const auto positionOpt = backmap.getDup(derivativesMeshId, duplicate);
@@ -528,16 +546,7 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     }
 
     /// Transpose matTinv.
-    // Through the view rather than through a kernel, because TinvT is stored
-    // in whichever layout the projections read it from -- packed to its
-    // sparsity pattern where the build can take a packed operand -- and a
-    // packed destination is not something the generated copy can write.
-    // forall visits the entries the view actually stores, so the same line
-    // fills a dense and a packed TinvT, and the entries a packed one leaves
-    // out are the ones the rotation has no value for anyway.
-    auto tinvT = init::TinvT<Cfg>::view::create(godunovData[ltsFace].dataTinvT);
-    tinvT.forall(
-        [&matTinv](const auto* entry, auto& value) { value = matTinv(entry[1], entry[0]); });
+    transposeInverseRotation<Cfg>(matTinv, godunovData[ltsFace].dataTinvT);
 
     double plusSurfaceArea = 0;
     double plusVolume = 0;
