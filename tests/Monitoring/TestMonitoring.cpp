@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Counters.t.h"
 #include "FlopCounter.t.h"
 #include "LoopStatistics.t.h"
 #include "RunSummary.t.h"

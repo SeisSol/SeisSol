@@ -11,6 +11,7 @@
 #include "FlopCounter.h"
 
 #include "Common/Json.h"
+#include "Monitoring/Counters.h"
 #include "Monitoring/Metric.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
@@ -19,8 +20,10 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <fstream>
 #include <mpi.h>
+#include <optional>
 #include <ostream>
 #include <string>
 #include <utils/logger.h>
@@ -57,7 +60,34 @@ void FlopCounter::init(const std::string& outputFileNamePrefix, const std::strin
   }
 }
 
-EpochRates FlopCounter::printPerformanceUpdate(double wallTime) {
+void FlopCounter::registerCounters(Counters& counters) {
+  const auto total = [this](std::uint64_t PerformanceEstimate::* member) {
+    return [this, member]() -> std::optional<CounterValue> {
+      std::uint64_t sum = 0;
+      for (const auto& metric : metrics_) {
+        sum += metric.estimate.*member;
+      }
+      return CounterValue{static_cast<double>(sum), {}};
+    };
+  };
+  counters.add(CounterInfo{.name = "hardwareFlop",
+                           .rateName = "hardwareFlopPerSecond",
+                           .unit = &UnitFlop,
+                           .rateUnit = &UnitFlopPerS},
+               total(&PerformanceEstimate::hardwareFlop));
+  counters.add(CounterInfo{.name = "nonzeroFlop",
+                           .rateName = "nonzeroFlopPerSecond",
+                           .unit = &UnitFlop,
+                           .rateUnit = &UnitFlopPerS},
+               total(&PerformanceEstimate::nonzeroFlop));
+  counters.add(CounterInfo{.name = "kernelBytes",
+                           .rateName = "kernelBytesPerSecond",
+                           .unit = &UnitByte,
+                           .rateUnit = &UnitBytePerS},
+               total(&PerformanceEstimate::kernelBytes));
+}
+
+void FlopCounter::printPerformanceUpdate(double wallTime) {
   const int rank = seissol::Mpi::mpi.rank();
   const auto worldSize = static_cast<size_t>(seissol::Mpi::mpi.size());
 
@@ -86,7 +116,6 @@ EpochRates FlopCounter::printPerformanceUpdate(double wallTime) {
     out_ << wallTime << ",";
   }
 
-  // returns the sum over the ranks, in units (not giga-units); on rank 0 only
   const auto handleFlopsDataset = [&](auto local, const SIUnit& unit, const std::string& message) {
     const auto localOnRanks = seissol::Mpi::mpi.collect(local);
 
@@ -100,29 +129,22 @@ EpochRates FlopCounter::printPerformanceUpdate(double wallTime) {
       for (size_t i = 0; i < worldSize; i++) {
         out_ << localOnRanks[i] << ",";
       }
-      return localSummary.sum * 1e9;
     }
-    return 0.0;
   };
 
   // make sure to keep it the same width. Otherwise, if may become confusing
-  EpochRates epoch;
   handleFlopsDataset(accumulatedHWGflopsPerSecond, UnitFlopPerS, "HW-FLOP/s since start:");
-  epoch.hardwareFlopPerSecond =
-      handleFlopsDataset(previousHWGflopsPerSecond, UnitFlopPerS, "HW-FLOP/s last epoch: ");
+  handleFlopsDataset(previousHWGflopsPerSecond, UnitFlopPerS, "HW-FLOP/s last epoch: ");
   handleFlopsDataset(accumulatedNZGflopsPerSecond, UnitFlopPerS, "NZ-FLOP/s since start:");
-  epoch.nonzeroFlopPerSecond =
-      handleFlopsDataset(previousNZGflopsPerSecond, UnitFlopPerS, "NZ-FLOP/s last epoch: ");
+  handleFlopsDataset(previousNZGflopsPerSecond, UnitFlopPerS, "NZ-FLOP/s last epoch: ");
   handleFlopsDataset(accumulatedKBPerSecond, UnitBytePerS, "Kernel B/s since start:");
-  epoch.kernelBytesPerSecond =
-      handleFlopsDataset(previousKBPerSecond, UnitBytePerS, "Kernel B/s last epoch: ");
+  handleFlopsDataset(previousKBPerSecond, UnitBytePerS, "Kernel B/s last epoch: ");
 
   if (rank == 0) {
     // a row per epoch, on disk at once: for reading the file during the run, and so that a run
     // that ends in an abort keeps its last epochs
     out_ << runId_ << '\n' << std::flush;
   }
-  return epoch;
 }
 
 /**

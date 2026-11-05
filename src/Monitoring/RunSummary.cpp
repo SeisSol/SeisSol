@@ -14,6 +14,7 @@
 #include "Common/Json.h"
 #include "Common/RunId.h"
 #include "IO/Instance/Point/Csv.h"
+#include "Monitoring/Counters.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
@@ -207,6 +208,13 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   }
   root_ = std::move(root);
 
+  started_ = true;
+  flush();
+}
+
+void RunSummary::startEpochTable() {
+  epochCounters_ = counters_ == nullptr ? 0 : counters_->size();
+
   auto& epochs = epochs_.emplace("epochs");
   epochs.addColumn<std::uint64_t>("epoch");
   epochs.addColumn<double>("timeFrom");
@@ -218,13 +226,14 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   epochs.addColumn<double>("computeMax");
   epochs.addColumn<double>("ioMean");
   epochs.addColumn<double>("ioMax");
-  epochs.addColumn<double>("hardwareFlopPerSecond");
-  epochs.addColumn<double>("nonzeroFlopPerSecond");
-  epochs.addColumn<double>("kernelBytesPerSecond");
+  // the rates first, which tell how fast the epoch went, then the amounts
+  for (std::size_t counter = 0; counter < epochCounters_; ++counter) {
+    epochs.addColumn<double>(counters_->info(counter).rateName);
+  }
+  for (std::size_t counter = 0; counter < epochCounters_; ++counter) {
+    epochs.addColumn<double>(counters_->info(counter).name);
+  }
   epochs.addTextColumn("runId", RunIdLength);
-
-  started_ = true;
-  flush();
 }
 
 void RunSummary::setStage(std::string_view stage) {
@@ -316,6 +325,9 @@ void RunSummary::addEpoch(const EpochRecord& epoch, double endTime) {
   simulation["epochs"] = epochCount_;
 
   if (started_ && seissol::Mpi::mpi.rank() == 0) {
+    if (!epochs_.has_value()) {
+      startEpochTable();
+    }
     auto& epochs = epochs_.value();
     epochs.addCell<std::uint64_t>(epochCount_);
     epochs.addCell<double>(epoch.timeFrom);
@@ -327,9 +339,19 @@ void RunSummary::addEpoch(const EpochRecord& epoch, double endTime) {
     epochs.addCell<double>(epoch.compute.max);
     epochs.addCell<double>(epoch.io.mean);
     epochs.addCell<double>(epoch.io.max);
-    epochs.addCell<double>(epoch.hardwareFlopPerSecond);
-    epochs.addCell<double>(epoch.nonzeroFlopPerSecond);
-    epochs.addCell<double>(epoch.kernelBytesPerSecond);
+    // a counter that did not count in the epoch, or was registered after the table was laid out,
+    // has no value
+    const auto counted = [&](const std::vector<double>& values, std::size_t counter) {
+      return epoch.counters.counted(counter) && counter < values.size()
+                 ? values[counter]
+                 : std::numeric_limits<double>::quiet_NaN();
+    };
+    for (std::size_t counter = 0; counter < epochCounters_; ++counter) {
+      epochs.addCell<double>(counted(epoch.counters.rates, counter));
+    }
+    for (std::size_t counter = 0; counter < epochCounters_; ++counter) {
+      epochs.addCell<double>(counted(epoch.counters.amounts, counter));
+    }
     epochs.addText(runId_);
   }
 
@@ -351,7 +373,7 @@ void RunSummary::flush() {
   if (!started_ || seissol::Mpi::mpi.rank() != 0) {
     return;
   }
-  if (epochCount_ > 0) {
+  if (epochs_.has_value()) {
     epochs_.value().appendFile(epochPath_);
   }
   writeSummary();

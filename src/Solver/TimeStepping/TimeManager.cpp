@@ -21,7 +21,9 @@
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Counters.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/Unit.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "ResultWriter/ClusteringWriter.h"
@@ -43,6 +45,7 @@
 #include <limits>
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -331,6 +334,33 @@ TimeManager::Updates TimeManager::updates() const {
         static_cast<double>(size.dynamicRuptureFaces) * steps;
   }
   return updates;
+}
+
+void TimeManager::registerCounters(monitoring::Counters& counters) const {
+  const auto total = [this](std::vector<double> Updates::* member) {
+    return [this, member]() -> std::optional<monitoring::CounterValue> {
+      double sum = 0;
+      for (const auto value : updates().*member) {
+        sum += value;
+      }
+      return monitoring::CounterValue{sum, {}};
+    };
+  };
+  counters.add(monitoring::CounterInfo{.name = "cellUpdates",
+                                       .rateName = "cellUpdatesPerSecond",
+                                       .unit = &UnitScalar,
+                                       .rateUnit = &UnitScalar},
+               total(&Updates::cells));
+  counters.add(monitoring::CounterInfo{.name = "duplicateCellUpdates",
+                                       .rateName = "duplicateCellUpdatesPerSecond",
+                                       .unit = &UnitScalar,
+                                       .rateUnit = &UnitScalar},
+               total(&Updates::duplicateCells));
+  counters.add(monitoring::CounterInfo{.name = "dynamicRuptureFaceUpdates",
+                                       .rateName = "dynamicRuptureFaceUpdatesPerSecond",
+                                       .unit = &UnitScalar,
+                                       .rateUnit = &UnitScalar},
+               total(&Updates::dynamicRuptureFaces));
 }
 
 void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {

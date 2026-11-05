@@ -10,6 +10,7 @@
 
 #include "Common/Json.h"
 #include "IO/Instance/Point/Csv.h"
+#include "Monitoring/Counters.h"
 #include "Numerical/Statistics.h"
 
 #include <chrono>
@@ -30,10 +31,8 @@ struct EpochRecord {
   statistics::Summary wall;
   statistics::Summary compute;
   statistics::Summary io;
-  //! the rates of the epoch, summed over the ranks: hardware and non-zero FLOP/s, kernel bytes/s
-  double hardwareFlopPerSecond{0};
-  double nonzeroFlopPerSecond{0};
-  double kernelBytesPerSecond{0};
+  //! what the counters of the run counted in the epoch, and their rates, summed over the ranks
+  Counters::Totals counters;
 };
 
 /**
@@ -46,7 +45,8 @@ struct EpochRecord {
  * stage it reached: its status stays "running", and its stage says how far it got.
  *
  * Next to it, <prefix>-epochs.csv holds a row per simulation epoch, which the summary only counts,
- * and <prefix>-ranks.csv a row per rank, with the values of which the summary gives the statistics.
+ * with the rate and the amount of every counter of the run, and <prefix>-ranks.csv a row per rank,
+ * with the values of which the summary gives the statistics.
  *
  * Every rank may fill in content; only rank 0's is written. What the statistics over the ranks
  * give is complete on rank 0 only, which is all that is needed.
@@ -66,6 +66,13 @@ class RunSummary {
 
   //! @brief Whether start() was called; until then, nothing is written.
   [[nodiscard]] bool started() const { return started_; }
+
+  /**
+   * @brief The counters of the run, whose rates and amounts the epoch table gets.
+   *
+   * The columns of the table are those of the counters registered when the first epoch ends.
+   */
+  void setCounters(const Counters& counters) { counters_ = &counters; }
 
   //! @brief The member @p key of the top level of the summary.
   json::Value& operator[](std::string_view key) { return root_[key]; }
@@ -118,6 +125,9 @@ class RunSummary {
   private:
   void writeSummary();
 
+  //! @brief Lays out the epoch table, once the counters are known.
+  void startEpochTable();
+
   std::string path_;
   std::string epochPath_;
   std::string rankPath_;
@@ -126,6 +136,9 @@ class RunSummary {
   bool started_{false};
   std::size_t epochCount_{0};
   std::optional<io::instance::point::Csv> epochs_;
+  const Counters* counters_{nullptr};
+  //! the counters that the epoch table has columns for
+  std::size_t epochCounters_{0};
   std::chrono::steady_clock::time_point lastFlush_;
   std::vector<std::pair<std::string, double>> rankValues_;
 };

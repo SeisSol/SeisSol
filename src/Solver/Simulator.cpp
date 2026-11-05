@@ -11,6 +11,7 @@
 
 #include "Memory/Tree/Layer.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Counters.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
@@ -102,6 +103,11 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   double lastSplit = simulationStopwatch.split();
 
+  // the counters of the run, read at the end of every epoch; the rates of an epoch are taken over
+  // its time on each rank, like its wall time
+  auto& counters = seissolInstance.counters();
+  auto lastCounters = counters.snapshot(lastSplit);
+
   // use an empty log message as visual separator
   logInfo() << "";
 
@@ -152,10 +158,10 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     lastCompute = compute;
     lastIo = io;
 
-    const auto rates = seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
-    epoch.hardwareFlopPerSecond = rates.hardwareFlopPerSecond;
-    epoch.nonzeroFlopPerSecond = rates.nonzeroFlopPerSecond;
-    epoch.kernelBytesPerSecond = rates.kernelBytesPerSecond;
+    seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
+    const auto currentCounters = counters.snapshot(currentSplit);
+    epoch.counters = counters.reduce(lastCounters, currentCounters);
+    lastCounters = currentCounters;
     lastSplit = currentSplit;
 
     summary["time"]["simulation"]["elapsed"] =

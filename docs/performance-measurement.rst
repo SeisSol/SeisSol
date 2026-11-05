@@ -32,8 +32,9 @@ output (``OutputFile`` is the prefix):
 * ``<prefix>-summary.json``, the run summary.
 * ``<prefix>-epochs.csv``, a row per simulation epoch, i.e. per stretch of simulated time between two synchronization
   points (the times outputs are written at): its simulated time span, its wall time (minimum, mean and maximum over the
-  ranks), its compute and blocking IO time (mean and maximum), and the FLOP/s and kernel bytes/s of the epoch,
-  summed over the ranks.
+  ranks), its compute and blocking IO time (mean and maximum), and then, for every counter of the run (see
+  :ref:`run-counters`), first its rate in the epoch (e.g. ``hardwareFlopPerSecond``), then what it counted in the epoch
+  (e.g. ``hardwareFlop``), both summed over the ranks; a counter that counted nothing in an epoch has ``nan`` there.
 * ``<prefix>-ranks.csv``, a row per rank, written at the end of the run: the values of the rank that the summary gives
   the statistics of over the ranks (see below).
 
@@ -112,6 +113,35 @@ order the run gets them: ``initMeshRead``, ``initMesh``, ``cells``, ``copyCells`
 ``kernels`` (the time in the compute kernels), ``outsideKernels``, ``cellUpdates``, ``duplicateCellUpdates``,
 ``dynamicRuptureFaceUpdates`` and ``hostMemoryAtEnd``; in GPU builds, ``deviceMemoryAfterInit`` and ``deviceMemoryAtEnd`` (the device memory occupied)
 as well. ``initMeshRead`` is there for PUML meshes only. The last column is ``runId``.
+
+.. _run-counters:
+
+Counters
+--------
+
+The work a run does and what it costs, SeisSol counts in counters: quantities that only grow, read on every rank at
+the end of every epoch, and summed over the ranks. Their names are those of the columns of the epoch table:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Counter
+     - Rate
+     - Content
+   * - ``hardwareFlop``, ``nonzeroFlop``
+     - ``hardwareFlopPerSecond``, ``nonzeroFlopPerSecond``
+     - the FLOP of the kernels (see below)
+   * - ``kernelBytes``
+     - ``kernelBytesPerSecond``
+     - the bytes the kernels read and write (see below)
+   * - ``cellUpdates``, ``duplicateCellUpdates``, ``dynamicRuptureFaceUpdates``
+     - ``cellUpdatesPerSecond``, ``duplicateCellUpdatesPerSecond``, ``dynamicRuptureFaceUpdatesPerSecond``
+     - the updates of the cells, of the further copies of copy cells and of the dynamic rupture faces (see
+       :ref:`cell-updates`)
+
+The rate of a counter is, on every rank, what it counted over the time it took the rank, summed over the ranks: the
+sum of what the ranks achieved at once. A counter of a node is read by one rank of the node, and is summed over the
+nodes.
 
 .. _cell-updates:
 

@@ -223,6 +223,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 
   auto& summary = seissolInstance.runSummary();
   summary["configurations"] = configurationNames(seissolInstance);
+  summary.setCounters(seissolInstance.counters());
   summary.start(seissolInstance.parameters().output.prefix, seissolInstance.runId());
 
   seissol::Stopwatch initWatch;

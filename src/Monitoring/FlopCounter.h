@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_MONITORING_FLOPCOUNTER_H_
 
 #include "Common/Json.h"
+#include "Monitoring/Counters.h"
 #include "Monitoring/Metric.h"
 
 #include <fstream>
@@ -27,23 +28,24 @@ extern long long libxsmm_num_total_flops;
 extern long long pspamm_num_total_flops;
 
 namespace seissol::monitoring {
-//! @brief The rates of one epoch, summed over all ranks.
-struct EpochRates {
-  double hardwareFlopPerSecond{0};
-  double nonzeroFlopPerSecond{0};
-  double kernelBytesPerSecond{0};
-};
 
 struct FlopCounter {
   public:
   void init(const std::string& outputFileNamePrefix, const std::string& runId);
 
   /**
-   * @brief Prints the rates since the start and of the epoch that ended at @p wallTime.
-   *
-   * Collective. Returns the rates of the epoch (complete on rank 0 only).
+   * @brief Registers the hardware and non-zero FLOP and the kernel bytes, summed over all metrics,
+   * as counters of the run.
    */
-  EpochRates printPerformanceUpdate(double wallTime);
+  void registerCounters(Counters& counters);
+
+  /**
+   * @brief Prints the rates since the start and of the epoch that ended at @p wallTime, and writes
+   * them per rank to the FLOP table.
+   *
+   * Collective.
+   */
+  void printPerformanceUpdate(double wallTime);
 
   /**
    * @brief Prints the FLOP and bytes of the whole simulation, which took @p wallTime.
