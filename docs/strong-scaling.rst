@@ -163,7 +163,10 @@ The results
     A row per run, of its latest attempt that completed: its setting, its state (``completed``, ``failed``,
     ``check-failed``, ``incomplete``, ``killed``, ``not-run``, ``queued``, ...), and from its run summary its times
     (initialization, simulation, compute, IO, kernels and outside of them), load imbalance, cell updates and duplicate
-    cell updates, FLOP/s and peak memory; the ``steady`` time of the epochs after the warm-up; and the problems of its
+    cell updates, FLOP/s and peak memory; where its nodes measure energy (:ref:`run-energy`), the counter the work is
+    put against (``energyBasis``), the energy of the epochs (``energy``) and of the whole run (``runEnergy``), the mean
+    power of the simulation (``simulationPower``), and the cell updates and hardware FLOP per joule; the ``steady``
+    time of the epochs after the warm-up; and the problems of its
     pinning, as its thread pinning table shows them: ranks of a node that share CPUs, communication threads that
     share CPUs with workers, ranks with fewer CPUs than workers, or workers spread over NUMA domains.
 ``ranks.csv`` and ``epochs.csv``
@@ -172,7 +175,9 @@ The results
 ``report`` writes, per build and variant and per node count, the median time over the repetitions and its range, the
 speedup and the parallel efficiency against the smallest node count of the series, the cell updates per second and
 node, the share of the duplicate cell updates, the load imbalance, and the shares of the compute time outside of the
-kernels and of the blocking IO (``scaling.csv``, ``scaling.json``, ``report.md``), and plots them (``plots/``). Its
+kernels and of the blocking IO, and, where the energy is measured, the energy of the epochs and the cell updates per
+joule (``scaling.csv``, ``scaling.json``, ``report.md``), and plots them (``plots/``; ``energy.png`` holds the energy
+of the simulation over the node counts, against the energy of the smallest one, which ideal scaling keeps). Its
 checks name the runs that did not complete or had problems, series whose cell updates differ between the node
 counts, and repetitions that spread by more than a tenth. ``--metric`` chooses the time to scale: ``total``, the
 simulation time of the slowest rank (the default); ``compute``, its compute part; or ``steady``, the epochs after

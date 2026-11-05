@@ -64,6 +64,12 @@ RUN_COLUMNS = [
     "cellUpdatesPerSecond",
     "hardwareFlopPerSecond",
     "nonzeroFlopPerSecond",
+    "energyBasis",
+    "energy",
+    "simulationPower",
+    "runEnergy",
+    "cellUpdatesPerJoule",
+    "hardwareFlopPerJoule",
     "hostMemoryPeak",
     "version",
     "commit",
@@ -268,6 +274,12 @@ def run_row(
             "cellUpdatesPerSecond": get(summary, "performance.cellUpdatesPerSecond"),
             "hardwareFlopPerSecond": get(summary, "performance.hardwareFlopPerSecond"),
             "nonzeroFlopPerSecond": get(summary, "performance.nonzeroFlopPerSecond"),
+            # the energy of the epochs, of the counter that the summary puts the work
+            # against, where the nodes measure it
+            "energyBasis": get(summary, "performance.energyBasis"),
+            "energy": get(summary, "performance.energy"),
+            "cellUpdatesPerJoule": get(summary, "performance.cellUpdatesPerJoule"),
+            "hardwareFlopPerJoule": get(summary, "performance.hardwareFlopPerJoule"),
             "hostMemoryPeak": get(summary, "memory.atEnd.hostPeak.max"),
             "version": get(summary, "build.version"),
             "commit": get(summary, "build.commit"),
@@ -275,6 +287,12 @@ def run_row(
     )
     if row["cells"] and run.ranks:
         row["cellsPerRank"] = row["cells"] / run.ranks
+    basis = row["energyBasis"]
+    if basis:
+        # the whole run, the initialization included, and the mean power of the simulation
+        row["runEnergy"] = get(summary, f"energy.run.{basis}")
+        power = basis.replace("Energy", "Power")
+        row["simulationPower"] = get(summary, f"stages.simulation.{power}")
     ranks_reported = get(summary, "parallel.ranks")
     if ranks_reported is not None and ranks_reported != run.ranks:
         problems.append(f"it ran on {ranks_reported} ranks, not {run.ranks}")
