@@ -1,0 +1,16 @@
+{
+  "comment": [
+    "Error thresholds for the analytical comparison of the planar wave in the",
+    "tilted medium of material-fault1d-anisotropic.yaml, keyed by the build",
+    "configuration as in thresholds.json. They are 1.5 times the error measured",
+    "with GCC 13 for hsw, rounded up. On a mesh refined by two, the error falls",
+    "by a factor of 54, the order of the scheme; were the eigenvectors of the",
+    "initial condition inaccurate, it would stay at the 1.2e-2 they give."
+  ],
+  "entries": {
+    "anisotropic/o6/double": {
+      "L2_rel": 0.00053,
+      "LInf_rel": 0.007
+    }
+  }
+}

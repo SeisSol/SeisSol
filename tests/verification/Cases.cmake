@@ -589,3 +589,24 @@ seissol_add_minitest(
     REQUIRE ${SEISSOL_WAVE_MATERIALS}
     ACTIVITY "v1:1e-12"
     LABELS convergence)
+
+# The planar wave in the tilted medium of the anisotropic fault1d cases, in
+# which each of the three waves along x moves all components of the velocity.
+# The analytical solution is an eigenvector of the Jacobian of the medium,
+# whose rows of the stresses and of the velocities differ in scale by some
+# thirteen orders of magnitude. Where the waves couple all components, it is
+# accurate only if the eigensolver balances them; in the media of the cases
+# above, they decouple. Its own thresholds, cases/thresholds-tilted.json,
+# take the largest relative error over the quantities, which the small stress
+# sigma_yz sets.
+seissol_add_minitest(
+    NAME convergence-periodic162-tilted
+    MESH periodic162
+    PARAMETERS wave.par
+    MATERIAL material-fault1d-anisotropic.yaml
+    STEPS 256
+    THRESHOLDS thresholds-tilted.json
+    REQUIRE equations=anisotropic
+    NO_SNAPSHOT
+    ACTIVITY "v1:1e-12"
+    LABELS convergence)
