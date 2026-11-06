@@ -300,6 +300,9 @@ class TimeManager {
   //! What the device and the threads did in the epoch that ended last.
   [[nodiscard]] const EpochActivity& lastEpochActivity() const { return lastActivity_; }
 
+  //! What the device and the threads did in all epochs so far.
+  [[nodiscard]] const EpochActivity& totalEpochActivity() const { return totalActivity_; }
+
   //! The time this rank spent in the compute kernels so far.
   [[nodiscard]] double kernelTime() const { return loopStatistics_.kernelTime(); }
 

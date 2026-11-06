@@ -122,7 +122,10 @@ The table of the ranks has a column ``rank``, its ``host`` and its rank on the n
 order the run gets them: ``initMeshRead``, ``initMesh``, ``cells``, ``copyCells``, ``ghostCells``, ``faultFaces``,
 ``neighborRanks``, ``initLayout``, ``initModel``, ``initSideConditions``, ``initIo``, ``initTotal``,
 ``hostMemoryAfterInit``, ``simulationInitialIo``, ``simulationTotal``, ``simulationCompute``, ``simulationIo``,
-``kernels`` (the time in the compute kernels), ``outsideKernels``, ``cellUpdates``, ``duplicateCellUpdates``,
+``kernels`` (the time in the compute kernels), ``outsideKernels``, on GPUs with times of the device the shares of the
+time of the device over the run in which it computed (``deviceComputing``) and was idle (``deviceIdle``, see
+:ref:`activity`; with concurrent clusters, the kernels overlap, so these tell which ranks waited for others where
+``kernels`` does not), ``cellUpdates``, ``duplicateCellUpdates``,
 ``dynamicRuptureFaceUpdates`` and ``hostMemoryAtEnd``; in GPU builds, ``deviceMemoryAfterInit`` and ``deviceMemoryAtEnd`` (the device memory occupied)
 as well. ``initMeshRead`` is there for PUML meshes only. The last column is ``runId``.
 

@@ -395,6 +395,14 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     // the communication on the main thread, and the scheduling of the clusters
     times["outsideKernels"] = summary.overRanks("outsideKernels", lastCompute - kernelTime);
   }
+  if (DeviceTimeline::active()) {
+    // which ranks waited for others: with concurrent clusters, the times of the kernels overlap, so
+    // the kernels above do not tell
+    const auto& device = seissolInstance.timeManager().totalEpochActivity().device;
+    const auto share = [&](double time) { return device.span > 0 ? time / device.span : 0.0; };
+    summary.setRankValue("deviceComputing", share(device.computing));
+    summary.setRankValue("deviceIdle", share(device.span - device.busy));
+  }
 
   seissolInstance.analysisWriter().printAnalysis(currentTime_);
 
