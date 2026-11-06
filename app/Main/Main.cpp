@@ -321,16 +321,22 @@ int main(int argc, char* argv[]) {
       // apart (see hsaQueueOf())
       ++hsaQueues;
     }
+    // whether SeisSol leaves HIP one hardware queue per priority, for the HSA queues
+    bool hipQueuesLimited = false;
     if (hsaQueues > 0) {
       // the streams of HIP then only record graphs and hold allocations: one hardware queue each
       // leaves the others of the device to the HSA queues
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
+      hipQueuesLimited = std::getenv("GPU_MAX_HW_QUEUES") == nullptr;
       setenv("GPU_MAX_HW_QUEUES", "1", 0);
       // the queue of the other stream runtimes and that of the device timeline are idle most of
       // the time: they may share a pipe of the command processor with a queue of the clusters
       // (the others get pipes of their own as long as there are, see the Device library)
       const auto light = "0," + std::to_string(seissol::parallel::runtime::TimelineHsaQueue);
       // (unless set already, also under its deprecated name)
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
       if (std::getenv("DEVICE_OWN_QUEUE_LIGHT") == nullptr) {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
         setenv("DEVICE_HSA_QUEUE_LIGHT", light.c_str(), 0);
       }
     }
@@ -383,9 +389,27 @@ int main(int argc, char* argv[]) {
         logInfo() << "The face work runs on" << seissol::parallel::runtime::hsaFaceQueueCount()
                   << "more (SEISSOL_HSA_QUEUES_FACES).";
       }
+      using Mode = seissol::Mpi::DataTransferMode;
+      if (requestedMode == Mode::DirectCcl || requestedMode == Mode::DirectShmem) {
+        logWarning() << "With ccl and shmem, the HSA queues wait for the streams of HIP of the"
+                     << "halo exchange by events, which was slower in tests than without HSA"
+                     << "queues; host and direct suit them better.";
+      }
+      if (seissol::useSuperStepGraphs(env)) {
+        logWarning() << "A recorded super-timestep runs on the one HSA queue it gets launched on,"
+                     << "which was slower in tests than without recordings"
+                     << "(DEVICE_HSA_QUEUE_GRAPH_ORIGIN=1 puts its work back on the queues of its"
+                     << "streams, experimental).";
+      }
     } else if (seissol::hsaQueueCount() > 0) {
-      logWarning() << "HSA queues (SEISSOL_HSA_QUEUES) are not available: they need HIP,"
-                   << "and a transfer mode other than stream-mpi.";
+      logWarning() << "HSA queues (SEISSOL_HSA_QUEUES) are not available: they need HIP, an AMD"
+                   << "GPU where programs have run with them (see the warnings of the Device"
+                   << "library), and a transfer mode other than stream-mpi.";
+      if (hipQueuesLimited) {
+        logWarning() << "The streams of HIP share one hardware queue per priority now"
+                     << "(GPU_MAX_HW_QUEUES=1, set for the HSA queues), which makes them slower:"
+                     << "run without SEISSOL_HSA_QUEUES, or set GPU_MAX_HW_QUEUES.";
+      }
     }
 #endif
 

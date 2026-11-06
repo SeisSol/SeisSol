@@ -128,7 +128,8 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - Experimental, HIP only, not with ``stream-mpi``. The clusters run their GPU work on this many HSA queues,
        hardware queues outside of HIP (0 by default: none); all other stream runtimes share one
        more, and the halo exchange of ``actor-mpi`` gets one of its own (with ``actor-mpi``, an odd number gets rounded
-       up; ``ccl`` and ``shmem`` keep streams of HIP; see below).
+       up; ``ccl`` and ``shmem`` keep streams of HIP; see below). Only on GPUs where programs have run with them
+       (gfx90a, gfx942), unless ``DEVICE_HSA_QUEUE_UNTESTED=1``.
    * - ``SEISSOL_HSA_QUEUES_FACES``
      - Experimental. With ``SEISSOL_HSA_QUEUES``: the face work (dynamic rupture) of the layers on this many HSA queues
        of its own, next to the work of the cells, instead of on the queues of their cells (0 by default; see below).

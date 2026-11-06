@@ -19,6 +19,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/DeviceTimeline.h"
+#include "Monitoring/DeviceTimer.h"
 #include "Monitoring/Memory.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
@@ -144,6 +145,13 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
     sim.setFinalTime(std::min(seissolParams.timeStepping.endTime, length));
     logInfo() << "This run measures what the cells cost, over" << steps.value()
               << "time steps of the largest cluster (" << length << "s).";
+#ifdef ACL_DEVICE
+    // (rather now than after the run)
+    if (!DeviceTimer::canTimeEvents()) {
+      logError() << "This run cannot measure what the cells cost, as the device does not time its"
+                 << "work (HSA queues do with DEVICE_HSA_QUEUE_TIMING=1).";
+    }
+#endif
   }
 }
 
