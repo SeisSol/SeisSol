@@ -7,6 +7,18 @@
     "itself; the state of aging and slip law is compared by its logarithm."
   ],
   "entries": {
+    "fault1d-anisotropic-imposed/anisotropic/o6/double": {
+      "accumulated-slip": 0.00027,
+      "direction": 0.0034,
+      "normal-stress": 0.0011,
+      "peak-slip-rate": 1e-06,
+      "rupture-time": 5.3e-05,
+      "slip": 0.00027,
+      "slip-rate": 0.0084,
+      "stress": 0.0086,
+      "traction": 0.002,
+      "velocity": 0.0088
+    },
     "fault1d-anisotropic-lsw-bimaterial/anisotropic/o6/double": {
       "accumulated-slip": 6.8e-05,
       "direction": 1e-06,

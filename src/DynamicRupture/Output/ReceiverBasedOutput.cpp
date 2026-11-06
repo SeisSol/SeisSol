@@ -461,7 +461,7 @@ std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler
         this->computeLocalStresses(local);
         const real strength = derived().computeLocalStrength(local);
         const real strengthSlope = derived().computeLocalStrengthSlope(local);
-        updateLocalTractions(local, strength, strengthSlope);
+        derived().updateLocalTractions(local, strength, strengthSlope);
 
         std::array<real, 6> updatedStress{};
         updatedStress[QuantityIndices::XX] = local.transientNormalTraction;
@@ -755,25 +755,8 @@ void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local,
     const auto solution = friction_law::common::solveSlipRate<Cfg>(
         impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
 
-    local.slipRateTangent1 = solution.slipRate * solution.direction1;
-    local.slipRateTangent2 = solution.slipRate * solution.direction2;
-
-    const auto [tractionUpdate1, tractionUpdate2] = friction_law::common::matmulEta<Cfg>(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
-    const auto normalUpdate = friction_law::common::matmulEtaNormal<Cfg>(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
-
-    local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
-    local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
-    local.transientNormalTraction -= normalUpdate;
-
-    // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
-    // state through the first row of Y+. The friction solve moves that traction, and with an
-    // anisotropic admittance the two shear components move the fault-normal velocity as well.
-    constexpr std::size_t Count = tensor::Zplus<Cfg>::Shape[0];
-    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
-                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
-                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
+    applySlipRate(
+        local, solution.slipRate * solution.direction1, solution.slipRate * solution.direction2);
   } else {
     if (tracEla > std::abs(strength)) {
       local.updatedTraction1 =
@@ -788,6 +771,38 @@ void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local,
       local.updatedTraction1 = local.faceAlignedStress12;
       local.updatedTraction2 = local.faceAlignedStress13;
     }
+  }
+}
+
+template <typename Derived>
+template <typename Cfg>
+void ReceiverOutputImpl<Derived>::applySlipRate(LocalInfo<Cfg>& local,
+                                                Real<Cfg> slipRate1,
+                                                Real<Cfg> slipRate2) {
+  const auto& impAndEta = local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
+  const auto& impedanceMatrices =
+      local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
+
+  local.slipRateTangent1 = slipRate1;
+  local.slipRateTangent2 = slipRate2;
+
+  const auto [tractionUpdate1, tractionUpdate2] =
+      friction_law::common::matmulEta<Cfg>(impAndEta, impedanceMatrices, slipRate1, slipRate2);
+  const auto normalUpdate = friction_law::common::matmulEtaNormal<Cfg>(
+      impAndEta, impedanceMatrices, slipRate1, slipRate2);
+
+  local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
+  local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
+  local.transientNormalTraction -= normalUpdate;
+
+  if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
+    // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
+    // state through the first row of Y+. The slip moves that traction, and with an anisotropic
+    // admittance the two shear components move the fault-normal velocity as well.
+    constexpr std::size_t Count = tensor::Zplus<Cfg>::Shape[0];
+    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
+                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
+                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
   }
 }
 

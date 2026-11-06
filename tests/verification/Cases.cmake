@@ -557,6 +557,12 @@ seissol_add_fault1d(NAME fault1d-anisotropic-rs-aging FL 3 FAULT fault1d-rs-agin
                     STEPS 2048 SET ${SEISSOL_RS}
                     MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
                     LABELS convergence)
+# the receivers report the normal stress the imposed slip leaves; the shear
+# tractions are those of the Godunov state, see docs/fault-output.rst
+seissol_add_fault1d(NAME fault1d-anisotropic-imposed FL 33 FAULT fault1d-imposed-oblique.yaml
+                    STEPS 2048 SET "DynamicRupture.SlipRateOutputType=0"
+                    MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
+                    LABELS convergence)
 
 # ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic

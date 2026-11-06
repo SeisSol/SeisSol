@@ -103,6 +103,7 @@ The imposed slip rates (:code:`FL=33`, :code:`34` and :code:`35`) prescribe the 
 **T_s** and **T_d**, and with them **Ts0** and **Td0**, are then the shear tractions of the Godunov state, the traction that a point would carry if it did not slip at that instant.
 They contain the stress changes that reach the point from elsewhere on the fault, but not the drop :math:`\eta V` that its own slip rate :math:`V` causes, where :math:`\eta = (1/Z^+ + 1/Z^-)^{-1}` and :math:`Z = \rho c_s` are the shear impedances on both sides of the fault.
 On an infinite planar fault that slips uniformly, nothing arrives from elsewhere, and they keep their initial values while the traction on the fault is the initial one reduced by :math:`\eta V`.
+**P_n** and **Pn0**, in contrast, are the normal traction on the fault, which in an anisotropic medium the imposed slip changes as well.
 
 Initial fault tractions
 -----------------------
