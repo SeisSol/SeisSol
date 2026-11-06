@@ -416,8 +416,11 @@ TEST_CASE("Concurrent clusters wait for their neighbors on the device" *
   // waiting for the latest action of each neighbor, or only for its latest writes before reading
   // and for its latest reads before writing; with events of the device, or with the nodes of a
   // graph that is being built (as while recording super-timesteps)
-  for (const auto& [accessEvents, nodes] :
+  for (const auto& variant :
        {std::pair{false, false}, std::pair{true, false}, std::pair{true, true}}) {
+    // no structured binding: Clang 18 cannot capture one where OpenMP is on, as CAPTURE does
+    const bool accessEvents = variant.first;
+    const bool nodes = variant.second;
     for (const auto alongPlan : {true, false}) {
       std::size_t violations = 0;
       for (int trial = 0; trial < 200; ++trial) {
