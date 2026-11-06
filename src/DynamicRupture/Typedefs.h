@@ -101,6 +101,10 @@ struct NodalImpedanceParameters {
   real mu0Minus{};
   real gammaRMinus{};
   real xi0Minus{};
+  /// The coefficients aB0 ... aB3 of the granular branch on each side. The
+  /// stress blends it in with the breakage, and so does the tangent.
+  real granularPlus[4]{};
+  real granularMinus[4]{};
   /// The strain each side carries before the first timestep, rotated into the
   /// frame of this face. The tangent of the stress turns on the direction of
   /// the total strain, and at a fault the background dominates it.
@@ -130,6 +134,10 @@ void setNodalImpedanceParameters([[maybe_unused]] const MaterialT& plus,
     parameters.mu0Minus = minus.mu0;
     parameters.gammaRMinus = minus.gammaR;
     parameters.xi0Minus = minus.xi0;
+    for (std::size_t k = 0; k < 4; ++k) {
+      parameters.granularPlus[k] = plus.aB[k];
+      parameters.granularMinus[k] = minus.aB[k];
+    }
 
     // A strain in tensor components rotates with the matrix a stress rotates
     // with; only the engineering convention, which doubles the shear, would
@@ -303,18 +311,28 @@ SEISSOL_HOSTDEVICE inline void inverseSqrtSymmetric(const real input[9], real re
 /// strain in tensor components is contracted with.
 ///
 /// With n the strain normalised in the Frobenius norm, xi = tr(n) and
-/// g = gammaR alpha,
+/// g = gammaR alpha, the solid branch has
 ///
-///   C = lambda0 d(x)d + (2 mu0 - 2 g xi0 - g xi) Isym
-///         - g (d(x)n + n(x)d) + g xi n(x)n,
+///   C_s = lambda0 d(x)d + (2 mu0 - 2 g xi0 - g xi) Isym
+///           - g (d(x)n + n(x)d) + g xi n(x)n,
 ///
-/// whose last two groups no pair of Lame parameters expresses. The solid
-/// branch alone, without the breakage blend.
+/// whose last two groups no pair of Lame parameters expresses. The granular
+/// branch is the gradient of P(xi) I2, with P the cubic whose coefficients are
+/// `granular`, and differentiating it once more gives the same four groups,
+///
+///   C_g = (2 P - xi P') Isym + P'' d(x)d + (P' - xi P'') (d(x)n + n(x)d)
+///           - xi (P' - xi P'') n(x)n.
+///
+/// The stress is the convex blend of the two in the breakage, and so is the
+/// tangent: one scalar per group, as in the operator the recursion transports
+/// by.
 SEISSOL_HOSTDEVICE inline void damageTangent(real lambda0,
                                              real mu0,
                                              real gammaR,
                                              real xi0,
+                                             const real granular[4],
                                              real alpha,
+                                             real breakage,
                                              const real strain[6],
                                              real tangent[36]) {
   constexpr real Weight[6] = {static_cast<real>(1.0),
@@ -331,12 +349,28 @@ SEISSOL_HOSTDEVICE inline void damageTangent(real lambda0,
   const auto floor = std::numeric_limits<real>::epsilon() * std::numeric_limits<real>::epsilon();
   const auto deformed = i2 > floor;
   const auto root = std::sqrt(deformed ? i2 : floor);
-  // A node at rest has no direction to give, and there the material is the
-  // undamaged one whatever the damage says.
+  // A node at rest has no direction to give: there the solid branch is the
+  // undamaged one whatever the damage says, and the granular one is its
+  // isotropic pair.
   const auto xi = deformed ? i1 / root : static_cast<real>(0.0);
   const auto coupling = deformed ? gammaR * alpha : static_cast<real>(0.0);
-  const auto shear =
-      static_cast<real>(2.0) * mu0 - static_cast<real>(2.0) * coupling * xi0 - coupling * xi;
+  const auto intact = static_cast<real>(1.0) - breakage;
+
+  // What the granular branch puts on the groups; across is P' - xi P'', which
+  // both the mixed group and the directional one are made of.
+  const auto across = granular[1] - static_cast<real>(3.0) * granular[3] * xi * xi;
+  const auto granularShear =
+      static_cast<real>(2.0) * granular[0] + granular[1] * xi - granular[3] * xi * xi * xi;
+  const auto granularVolume =
+      static_cast<real>(2.0) * granular[2] + static_cast<real>(6.0) * granular[3] * xi;
+
+  // The blend, one scalar per group.
+  const auto volumetric = intact * lambda0 + breakage * granularVolume;
+  const auto shear = intact * (static_cast<real>(2.0) * mu0 -
+                               static_cast<real>(2.0) * coupling * xi0 - coupling * xi) +
+                     breakage * granularShear;
+  const auto mixed = -intact * coupling + breakage * across;
+  const auto directional = intact * coupling * xi - breakage * xi * across;
 
   constexpr real Delta[6] = {static_cast<real>(1.0),
                              static_cast<real>(1.0),
@@ -348,8 +382,8 @@ SEISSOL_HOSTDEVICE inline void damageTangent(real lambda0,
     const auto na = deformed ? strain[a] / root : static_cast<real>(0.0);
     for (std::size_t b = 0; b < 6; ++b) {
       const auto nb = deformed ? strain[b] / root : static_cast<real>(0.0);
-      auto value = lambda0 * Delta[a] * Delta[b] - coupling * (Delta[a] * nb + na * Delta[b]) +
-                   coupling * xi * na * nb;
+      auto value = volumetric * Delta[a] * Delta[b] + mixed * (Delta[a] * nb + na * Delta[b]) +
+                   directional * na * nb;
       if (a == b) {
         value += shear * (a < 3 ? static_cast<real>(1.0) : static_cast<real>(0.5));
       }
@@ -445,8 +479,10 @@ SEISSOL_HOSTDEVICE inline void lateralFromTangent(const real tangent[36], real l
 /// it out of the tangent, which is formed once per side and read three times.
 SEISSOL_HOSTDEVICE inline void nodalAdmittance(const NodalImpedanceParameters& params,
                                                real alphaPlus,
+                                               real breakagePlus,
                                                const real strainPlus[6],
                                                real alphaMinus,
+                                               real breakageMinus,
                                                const real strainMinus[6],
                                                real admittancePlus[9],
                                                real admittanceMinus[9],
@@ -465,14 +501,18 @@ SEISSOL_HOSTDEVICE inline void nodalAdmittance(const NodalImpedanceParameters& p
                 params.mu0Plus,
                 params.gammaRPlus,
                 params.xi0Plus,
+                params.granularPlus,
                 alphaPlus,
+                breakagePlus,
                 totalPlus,
                 tangentPlus);
   damageTangent(params.lambda0Minus,
                 params.mu0Minus,
                 params.gammaRMinus,
                 params.xi0Minus,
+                params.granularMinus,
                 alphaMinus,
+                breakageMinus,
                 totalMinus,
                 tangentMinus);
   admittanceFromTangent(params.rhoPlus, tangentPlus, admittancePlus);

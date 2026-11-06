@@ -282,9 +282,10 @@ friction laws read the result. The impedance a node scales its Riemann problem
 with is a matrix and not four scalars, because the tangent of this stress is not
 isotropic -- the normal mode couples to the shear modes and the two shear modes
 to each other -- and it belongs to a point and an instant rather than to the
-face. In the elastic limit the rupture reproduces the linear elastic one on the
-same mesh and with the same clustering to better than 0.2 percent in rupture
-time, peak slip rate and final slip.
+face. It is formed from the tangent of the blended stress, with the damage and
+the breakage of the node. In the elastic limit the rupture reproduces the
+linear elastic one on the same mesh and with the same clustering to better than
+0.2 percent in rupture time, peak slip rate and final slip.
 
 A scenario that states the fault background twice will count it twice. The
 friction law compares the fault file's initial stress plus the interpolated

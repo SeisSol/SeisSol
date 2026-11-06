@@ -450,8 +450,10 @@ NodalImpedanceT ReceiverOutput::nodalImpedanceAt(const LocalInfo& local) {
     gather(local.faceAlignedValuesMinus, strainMinus);
     nodalAdmittance(params,
                     local.faceAlignedValuesPlus[QuantityIndices::ALPHA],
+                    local.faceAlignedValuesPlus[QuantityIndices::BREAKAGE],
                     strainPlus,
                     local.faceAlignedValuesMinus[QuantityIndices::ALPHA],
+                    local.faceAlignedValuesMinus[QuantityIndices::BREAKAGE],
                     strainMinus,
                     impedance.admittance,
                     impedance.admittanceNeig,

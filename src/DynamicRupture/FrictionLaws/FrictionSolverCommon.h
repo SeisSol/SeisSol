@@ -222,8 +222,10 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
         gather(qIMinus, strainMinus);
         dr::nodalAdmittance(*nodalImpedanceParams,
                             qIPlus[o][ALPHA][i],
+                            qIPlus[o][BREAKAGE][i],
                             strainPlus,
                             qIMinus[o][ALPHA][i],
+                            qIMinus[o][BREAKAGE][i],
                             strainMinus,
                             nodalPlus,
                             nodalMinus,
