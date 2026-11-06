@@ -268,6 +268,13 @@ if (DEVICE_COMBINE_LOCAL_FLUX)
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
 endif()
 
+# TensorForge reports the arithmetic it emits for a kernel, which the run then counts as the
+# hardware FLOP of the device; the other device code generators report none (see
+# src/Monitoring/Metric.h)
+if (WITH_GPU AND DEVICE_CODEGEN STREQUAL "tensorforge")
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_DEVICE_CODEGEN_REPORTS_FLOP)
+endif()
+
 find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
 

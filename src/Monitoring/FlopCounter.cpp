@@ -194,6 +194,12 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
 
   const auto percentageUsefulFlops = totalNonZeroFlops / totalHardwareFlops * 100;
 
+#ifdef ACL_DEVICE
+  if constexpr (KernelHardwareFlopSource == HardwareFlopSource::HostKernels) {
+    logInfo() << "The HW-FLOP are those of the host kernels: the device code generator does not "
+                 "report the arithmetic it emits.";
+  }
+#endif
   logInfo() << "Total calculated HW-FLOP: " << UnitFlop.formatPrefix(totalHardwareFlops).c_str();
   logInfo() << "Total calculated NZ-FLOP: " << UnitFlop.formatPrefix(totalNonZeroFlops).c_str();
   logInfo() << "Total calculated Kernel B: " << UnitByte.formatPrefix(totalKernelBytes).c_str();
@@ -206,6 +212,8 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
             << UnitBytePerS.formatPrefix(totalKernelBytes / wallTime).c_str();
 
   json::Value summary;
+  // whose hardware FLOP and kernel bytes these are: of the host kernels, or of the device kernels
+  summary["hardwareFlopOf"] = std::string(hardwareFlopSourceName(KernelHardwareFlopSource));
   summary["hardwareFlop"] = totalHardwareFlops;
   summary["nonzeroFlop"] = totalNonZeroFlops;
   summary["kernelBytes"] = totalKernelBytes;

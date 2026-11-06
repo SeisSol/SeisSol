@@ -63,6 +63,7 @@ RUN_COLUMNS = [
     "duplicateCellUpdates",
     "cellUpdatesPerSecond",
     "hardwareFlopPerSecond",
+    "hardwareFlopOf",
     "nonzeroFlopPerSecond",
     "energyBasis",
     "energy",
@@ -273,6 +274,9 @@ def run_row(
             "duplicateCellUpdates": get(summary, "simulation.duplicateCellUpdates"),
             "cellUpdatesPerSecond": get(summary, "performance.cellUpdatesPerSecond"),
             "hardwareFlopPerSecond": get(summary, "performance.hardwareFlopPerSecond"),
+            # whose hardware FLOP these are: of the device kernels, where the device code
+            # generator reports them, or of the host kernels
+            "hardwareFlopOf": get(summary, "performance.hardwareFlopOf"),
             "nonzeroFlopPerSecond": get(summary, "performance.nonzeroFlopPerSecond"),
             # the energy of the epochs, of the counter that the summary puts the work
             # against, where the nodes measure it

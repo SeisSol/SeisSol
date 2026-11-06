@@ -220,11 +220,13 @@ std::pair<PerformanceEstimate, PerformanceEstimate> Neighbor<Cfg>::metrics(
     case FaceType::Regular:
       // regular neighbor
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] == 0);
-      neigh += PerformanceEstimate::fromKernel<kernel::neighboringFlux<Cfg>>(
-          neighboringIndices[face][0], face);
+      neigh +=
+          SEISSOL_KERNEL_ESTIMATE(kernel::neighboringFlux<Cfg>, kernel::gpu_neighboringFlux<Cfg>)(
+              neighboringIndices[face][0], face);
       break;
     case FaceType::DynamicRupture:
-      neighDR += PerformanceEstimate::fromKernel<dynamicRupture::kernel::nodalFlux<Cfg>>(
+      neighDR += SEISSOL_KERNEL_ESTIMATE(dynamicRupture::kernel::nodalFlux<Cfg>,
+                                         dynamicRupture::kernel::gpu_nodalFlux<Cfg>)(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);
       break;
     default:

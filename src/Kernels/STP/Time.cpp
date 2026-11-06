@@ -150,7 +150,8 @@ void Spacetime<Cfg>::computeAder(const real* /*coeffs*/,
 
 template <typename Cfg>
 PerformanceEstimate Spacetime<Cfg>::metrics() const {
-  auto estimate = PerformanceEstimate::fromKernel<kernel::spaceTimePredictor<Cfg>>();
+  auto estimate = SEISSOL_KERNEL_ESTIMATE(kernel::spaceTimePredictor<Cfg>,
+                                          kernel::gpu_spaceTimePredictor<Cfg>)();
 
   estimate.nonzeroFlop += 3 * init::star<Cfg>::size(0);
   estimate.hardwareFlop += 3 * init::star<Cfg>::size(0);

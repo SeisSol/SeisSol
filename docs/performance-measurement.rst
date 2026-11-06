@@ -199,6 +199,8 @@ This is mostly due to two reasons:
 
 From the latter point, it follows that only the HW-FLOP depend on the underlying hardware. To note, both the HW-FLOP and the NZ-FLOP depend on the scenario and the equation system to be solved.
 
+On a GPU, the HW-FLOP and the kernel bytes are those of the device kernels where the device code generator reports the arithmetic it emits, which TensorForge does. Gemmforge and chainforge report none, so a build with them counts those of the host kernels instead, which say nothing about what the GPU carries out. The run summary says which it counts in ``hardwareFlopOf`` of its ``performance`` section (``device-kernels`` or ``host-kernels``), as does the log at the end of a run with a device code generator that reports none. The NZ-FLOP are those of the host kernels in every build: the device kernels count them in the layout their code generator chose, and builds with different code generators would otherwise differ in how much useful work they did.
+
 During the simulation, we print both HW-FLOP/s and NZ-FLOP/s at synchronization points. After the simulation has finished, we print both the cumulative HW-GFLOP and the NZ-GFLOP, as well as
 HW-GLOP/s and NZ-GFLOP/s.
 

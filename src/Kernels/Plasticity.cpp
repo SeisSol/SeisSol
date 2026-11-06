@@ -324,7 +324,8 @@ std::pair<PerformanceEstimate, PerformanceEstimate> Plasticity<Cfg>::metrics() {
   PerformanceEstimate yield;
 
   // flops from checking, i.e. outside if (adjust) {}
-  check += PerformanceEstimate::fromKernel<kernel::plConvertToNodal<Cfg>>();
+  check +=
+      SEISSOL_KERNEL_ESTIMATE(kernel::plConvertToNodal<Cfg>, kernel::gpu_plConvertToNodal<Cfg>)();
 
   // compute mean stress
   check += PerformanceEstimate::fromKernel<kernel::plComputeMean<Cfg>>();
@@ -342,7 +343,8 @@ std::pair<PerformanceEstimate, PerformanceEstimate> Plasticity<Cfg>::metrics() {
   // check for yield (NOT counted, as it would require counting the number of yielding points)
 
   // flops from plastic yielding, i.e. inside if (adjust) {}
-  yield += PerformanceEstimate::fromKernel<kernel::plConvertToModal<Cfg>>();
+  yield +=
+      SEISSOL_KERNEL_ESTIMATE(kernel::plConvertToModal<Cfg>, kernel::gpu_plConvertToModal<Cfg>)();
 
   // manually counted
   yield.nonzeroFlop += static_cast<std::uint64_t>(tensor::QStressNodal<Cfg>::size() * 6);
