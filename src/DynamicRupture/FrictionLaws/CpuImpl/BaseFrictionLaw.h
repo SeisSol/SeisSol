@@ -147,6 +147,18 @@ class BaseFrictionLaw : public FrictionSolver {
                 this->drParameters_.terminatorSlipRateThreshold);
           }
 
+          if (this->drParameters_.isFrictionEnergyRequired) {
+            common::computeFrictionEnergy(energyData_[ltsFace],
+                                          faultStresses,
+                                          qInterpolatedPlus_[ltsFace],
+                                          qInterpolatedMinus_[ltsFace],
+                                          impAndEta_[ltsFace],
+                                          localTimeWeights[timeIndex],
+                                          spaceWeights_,
+                                          godunovData_[ltsFace],
+                                          timeIndex);
+          }
+
           common::postcomputeImposedStateFromNewStress(imposedState,
                                                        faultStresses,
                                                        tractionResults,
@@ -178,15 +190,12 @@ class BaseFrictionLaw : public FrictionSolver {
         SCOREP_USER_REGION_END(myRegionHandle)
 
         if (this->drParameters_.isFrictionEnergyRequired) {
-          common::computeFrictionEnergy(energyData_[ltsFace],
-                                        qInterpolatedPlus_[ltsFace],
-                                        qInterpolatedMinus_[ltsFace],
-                                        impAndEta_[ltsFace],
-                                        localTimeWeights.data(),
-                                        spaceWeights_,
-                                        godunovData_[ltsFace],
-                                        slipRateMagnitude_[ltsFace],
-                                        this->drParameters_.energiesFromAcrossFaultVelocities);
+          common::accumulateSlip(energyData_[ltsFace],
+                                 qInterpolatedPlus_[ltsFace],
+                                 qInterpolatedMinus_[ltsFace],
+                                 localTimeWeights.data(),
+                                 slipRateMagnitude_[ltsFace],
+                                 this->drParameters_.energiesFromAcrossFaultVelocities);
         }
       }
     } else {

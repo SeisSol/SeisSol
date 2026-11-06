@@ -10,6 +10,7 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "DynamicRupture/Misc.h"
+#include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h"
 #include "Equations/EnergyBase.h"
@@ -68,6 +69,68 @@ namespace seissol::writer {
 
 namespace {
 
+/// The traction both sides interpolate, where the impedance belongs to the node: at every point
+/// the matrices are formed from the state both sides have there, as the friction solve forms them,
+/// and the two traces are weighted with them. The traction is stored as the slip is, one row of
+/// points per component.
+void nodalTractionInterpolated(const seissol::dr::NodalImpedanceParameters& params,
+                               const real qInterpolatedPlus[tensor::QInterpolatedPlus::size()],
+                               const real qInterpolatedMinus[tensor::QInterpolatedMinus::size()],
+                               real tractionInterpolated[tensor::tractionInterpolated::size()]) {
+  using namespace seissol::dr::misc::quantity_indices;
+  constexpr auto Points = seissol::dr::misc::NumPaddedPoints;
+  static_assert(tensor::tractionInterpolated::size() == tensor::slipInterpolated::size(),
+                "the traction is laid out as the slip it is contracted with");
+  static_assert(tensor::QInterpolatedPlus::size() == tensor::QInterpolated::size() &&
+                    tensor::QInterpolatedMinus::size() == tensor::QInterpolated::size(),
+                "the two sides are laid out as the friction solve reads them");
+
+  using QShape = const real(*)[Points];
+  const auto* qPlus = reinterpret_cast<QShape>(qInterpolatedPlus);
+  const auto* qMinus = reinterpret_cast<QShape>(qInterpolatedMinus);
+  auto* traction = reinterpret_cast<real(*)[Points]>(tractionInterpolated);
+
+  for (std::size_t i = 0; i < Points; ++i) {
+    const auto gather = [i](QShape side, real* into) {
+      into[0] = side[EXX][i];
+      into[1] = side[EYY][i];
+      into[2] = side[EZZ][i];
+      into[3] = side[EXY][i];
+      into[4] = side[EYZ][i];
+      into[5] = side[EXZ][i];
+    };
+    real strainPlus[6];
+    real strainMinus[6];
+    gather(qPlus, strainPlus);
+    gather(qMinus, strainMinus);
+
+    real admittancePlus[9];
+    real admittanceMinus[9];
+    real eta[9];
+    real lateralStress[9];
+    seissol::dr::nodalAdmittance(params,
+                                 qPlus[ALPHA][i],
+                                 qPlus[BREAKAGE][i],
+                                 strainPlus,
+                                 qMinus[ALPHA][i],
+                                 qMinus[BREAKAGE][i],
+                                 strainMinus,
+                                 admittancePlus,
+                                 admittanceMinus,
+                                 eta,
+                                 lateralStress);
+
+    const real tractionPlus[3] = {qPlus[N][i], qPlus[T1][i], qPlus[T2][i]};
+    const real tractionMinus[3] = {qMinus[N][i], qMinus[T1][i], qMinus[T2][i]};
+    real local[3];
+    seissol::dr::interpolatedTraction(
+        admittancePlus, admittanceMinus, eta, tractionPlus, tractionMinus, local);
+    for (std::size_t component = 0; component < 3; ++component) {
+      traction[component][i] = local[component];
+    }
+  }
+}
+
 std::array<real, multisim::NumSimulations>
     computeStaticWork(const real* degreesOfFreedomPlus,
                       const real* degreesOfFreedomMinus,
@@ -75,6 +138,7 @@ std::array<real, multisim::NumSimulations>
                       const typename model::MaterialT::Solver::LocalData& localDataMinus,
                       const DRFaceInformation& faceInfo,
                       const DRGodunovData& godunovData,
+                      [[maybe_unused]] const seissol::dr::NodalImpedanceParameters* nodalParams,
                       const real slip[seissol::tensor::slipInterpolated::size()],
                       const GlobalData* global) {
   dynamicRupture::kernel::evaluateAndRotateQAtInterpolationPoints krnl;
@@ -106,13 +170,20 @@ std::array<real, multisim::NumSimulations>
   krnl._prefetch.QInterpolated = qInterpolatedMinus;
   krnl.execute(faceInfo.minusSide, faceInfo.faceRelation);
 
-  dynamicRupture::kernel::computeTractionInterpolated trKrnl;
-  trKrnl.tractionPlusMatrix = godunovData.tractionPlusMatrix;
-  trKrnl.tractionMinusMatrix = godunovData.tractionMinusMatrix;
-  trKrnl.QInterpolatedPlus = qInterpolatedPlus;
-  trKrnl.QInterpolatedMinus = qInterpolatedMinus;
-  trKrnl.tractionInterpolated = tractionInterpolated;
-  trKrnl.execute();
+  if constexpr (seissol::dr::NodalImpedance) {
+    // the matrices of the face are the undamaged ones; the ones the traction is weighted with
+    // belong to its points
+    nodalTractionInterpolated(
+        *nodalParams, qInterpolatedPlus, qInterpolatedMinus, tractionInterpolated);
+  } else {
+    dynamicRupture::kernel::computeTractionInterpolated trKrnl;
+    trKrnl.tractionPlusMatrix = godunovData.tractionPlusMatrix;
+    trKrnl.tractionMinusMatrix = godunovData.tractionMinusMatrix;
+    trKrnl.QInterpolatedPlus = qInterpolatedPlus;
+    trKrnl.QInterpolatedMinus = qInterpolatedMinus;
+    trKrnl.tractionInterpolated = tractionInterpolated;
+    trKrnl.execute();
+  }
 
   alignas(Alignment) real staticFrictionalWork[tensor::staticFrictionalWork::size()]{};
 
@@ -379,6 +450,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     const auto* waveSpeedsPlus = layer.var<DynamicRupture::WaveSpeedsPlus>();
     const auto* waveSpeedsMinus = layer.var<DynamicRupture::WaveSpeedsMinus>();
     const auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
+    const seissol::dr::NodalImpedanceParameters* nodalImpedanceParams = nullptr;
+    if constexpr (seissol::dr::NodalImpedance) {
+      nodalImpedanceParams = layer.var<DynamicRupture::NodalImpedanceParams>();
+    }
     const auto layerSize = layer.size();
 
 #if !NVHPC_AVOID_OMP
@@ -389,14 +464,16 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
 #endif
     for (std::size_t i = 0; i < layerSize; ++i) {
       if (faceInformation[i].plusSideOnThisRank) {
-        const auto staticFrictionalWorkIncrease = computeStaticWork(timeDofsPlus[i],
-                                                                    timeDofsMinus[i],
-                                                                    *localDataPlus[i],
-                                                                    *localDataMinus[i],
-                                                                    faceInformation[i],
-                                                                    godunovData[i],
-                                                                    drEnergyOutput[i].slip,
-                                                                    global_);
+        const auto staticFrictionalWorkIncrease =
+            computeStaticWork(timeDofsPlus[i],
+                              timeDofsMinus[i],
+                              *localDataPlus[i],
+                              *localDataMinus[i],
+                              faceInformation[i],
+                              godunovData[i],
+                              nodalImpedanceParams == nullptr ? nullptr : &nodalImpedanceParams[i],
+                              drEnergyOutput[i].slip,
+                              global_);
 
 #pragma omp simd
         for (size_t sim = 0; sim < SimCount; sim++) {

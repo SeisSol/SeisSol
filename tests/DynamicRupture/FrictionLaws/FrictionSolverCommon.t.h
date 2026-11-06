@@ -9,7 +9,9 @@
 #include "DynamicRupture/Misc.h"
 #include "TestHelper.h"
 
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <numeric>
 
 namespace seissol::unit_test {
@@ -329,6 +331,181 @@ TEST_CASE("Friction Solver Common" * doctest::test_suite("dynamicrupture")) {
         }
       }
     }
+  }
+}
+
+namespace frictionenergy {
+
+/// The matrices of node p at step o. Nothing in particular -- only different from node to node
+/// and from step to step, and not symmetric, so that a read of the wrong node, of the wrong step
+/// or of the transpose all change the result.
+inline void nodeMatrices(std::size_t o, std::size_t p, real plus[9], real minus[9], real eta[9]) {
+  for (std::size_t k = 0; k < 9; ++k) {
+    plus[k] = static_cast<real>(1.0e-3 * (1.0 + 0.7 * k + 0.05 * p + 0.2 * o));
+    minus[k] = static_cast<real>(1.0e-3 * (2.0 + 0.3 * k * k + 0.02 * p + 0.1 * o));
+    eta[k] = static_cast<real>(1.0e2 * (1.0 + 0.4 * k + 0.01 * k * p + 0.3 * o));
+  }
+}
+
+/// Puts the matrices of step o where the friction solve keeps them: with the stresses of every
+/// node, where the impedance belongs to the node. A template, so that the members it fills are
+/// looked up once the stresses are put in: they have them only where it belongs to the node.
+template <typename StressesT>
+void fillHost([[maybe_unused]] StressesT& stresses, [[maybe_unused]] std::size_t o) {
+  if constexpr (NodalImpedance) {
+    for (std::size_t p = 0; p < misc::NumPaddedPoints; ++p) {
+      real plus[9];
+      real minus[9];
+      real eta[9];
+      nodeMatrices(o, p, plus, minus, eta);
+      for (std::size_t k = 0; k < 9; ++k) {
+        stresses.admittance[k][p] = plus[k];
+        stresses.admittanceNeig[k][p] = minus[k];
+        stresses.eta[k][p] = eta[k];
+      }
+    }
+  }
+}
+
+template <typename StressesT>
+void fillDevice([[maybe_unused]] StressesT& stresses,
+                [[maybe_unused]] std::size_t o,
+                [[maybe_unused]] std::size_t p) {
+  if constexpr (NodalImpedance) {
+    real plus[9];
+    real minus[9];
+    real eta[9];
+    nodeMatrices(o, p, plus, minus, eta);
+    for (std::size_t k = 0; k < 9; ++k) {
+      stresses.admittance[k] = plus[k];
+      stresses.admittanceNeig[k] = minus[k];
+      stresses.eta[k] = eta[k];
+    }
+  }
+}
+
+} // namespace frictionenergy
+
+TEST_CASE("Frictional energy weighs the two traces the way the Riemann problem does" *
+          doctest::skip(!model::MaterialT::SupportsDR ||
+                        model::MaterialT::Type == model::MaterialType::Anisotropic) *
+          doctest::test_suite("dynamicrupture")) {
+  // An anisotropic face weighs with the matrices of the face, as assembled for its averaging
+  // kernel; that path is not the subject here.
+  using namespace frictionenergy;
+  using namespace misc::quantity_indices;
+  namespace common = friction_law::common;
+  constexpr auto GpuRange = common::RangeType::GPU;
+
+  alignas(Alignment) real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()] = {{}};
+  alignas(Alignment) real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()] = {{}};
+  using QInterpolatedShapeT = real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  auto* qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  auto* qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+  // the minus side moves faster and carries more traction, so that no term cancels another
+  auto qP = [](std::size_t o, std::size_t q, std::size_t p) {
+    return static_cast<real>(1.0 + o + 0.1 * q + 0.01 * p);
+  };
+  auto qM = [](std::size_t o, std::size_t q, std::size_t p) {
+    return static_cast<real>(2.0 + 2.0 * o + 0.3 * q + 0.02 * p);
+  };
+  for (std::size_t o = 0; o < misc::TimeSteps; ++o) {
+    for (std::size_t q = 0; q < misc::NumQuantities; ++q) {
+      for (std::size_t p = 0; p < misc::NumPaddedPoints; ++p) {
+        qIPlus[o][q][p] = qP(o, q, p);
+        qIMinus[o][q][p] = qM(o, q, p);
+      }
+    }
+  }
+
+  ImpedancesAndEta impAndEta{};
+  impAndEta.etaS = 7.5e6;
+  impAndEta.invZs = 1.0 / 1.5e7;
+  impAndEta.invZsNeig = 1.0 / 2.5e7;
+
+  DRGodunovData godunovData{};
+  godunovData.doubledSurfaceArea = 3.0;
+
+  real timeWeights[misc::TimeSteps]{};
+  for (std::size_t o = 0; o < misc::TimeSteps; ++o) {
+    timeWeights[o] = static_cast<real>(0.1 * (o + 1));
+  }
+  real spaceWeights[misc::NumPaddedPoints]{};
+  for (std::size_t p = 0; p < misc::NumPaddedPoints; ++p) {
+    spaceWeights[p] = static_cast<real>(0.5 + 0.01 * p);
+  }
+
+  // tau* of one node, written out row by row: eta (Y+ tau+ + Y- tau-) where the impedance belongs
+  // to the node, the scalar pair of the face everywhere else
+  auto interpolated = [&](std::size_t o, std::size_t p, std::size_t row) {
+    const double plusTraction[3] = {qP(o, N, p), qP(o, T1, p), qP(o, T2, p)};
+    const double minusTraction[3] = {qM(o, N, p), qM(o, T1, p), qM(o, T2, p)};
+    if constexpr (NodalImpedance) {
+      real plus[9];
+      real minus[9];
+      real eta[9];
+      nodeMatrices(o, p, plus, minus, eta);
+      double result = 0.0;
+      for (std::size_t k = 0; k < 3; ++k) {
+        double admitted = 0.0;
+        for (std::size_t c = 0; c < 3; ++c) {
+          admitted += plus[3 * c + k] * plusTraction[c] + minus[3 * c + k] * minusTraction[c];
+        }
+        result += eta[3 * k + row] * admitted;
+      }
+      return result;
+    } else {
+      return impAndEta.etaS *
+             (impAndEta.invZs * plusTraction[row] + impAndEta.invZsNeig * minusTraction[row]);
+    }
+  };
+
+  DREnergyOutput energy{};
+  FaultStresses<Executor::Host> faultStresses{};
+  for (std::size_t o = 0; o < misc::TimeSteps; ++o) {
+    fillHost(faultStresses, o);
+    common::computeFrictionEnergy(energy,
+                                  faultStresses,
+                                  qInterpolatedPlus,
+                                  qInterpolatedMinus,
+                                  impAndEta,
+                                  timeWeights[o],
+                                  spaceWeights,
+                                  godunovData,
+                                  o);
+  }
+
+  DREnergyOutput deviceEnergy{};
+  for (std::uint32_t p = 0; p < misc::NumPaddedPoints; ++p) {
+    FaultStresses<Executor::Device> deviceStresses{};
+    for (std::uint32_t o = 0; o < misc::TimeSteps; ++o) {
+      fillDevice(deviceStresses, o, p);
+      common::computeFrictionEnergy<GpuRange>(deviceEnergy,
+                                              deviceStresses,
+                                              qInterpolatedPlus,
+                                              qInterpolatedMinus,
+                                              impAndEta,
+                                              timeWeights[o],
+                                              spaceWeights,
+                                              godunovData,
+                                              o,
+                                              p);
+    }
+  }
+
+  constexpr double Epsilon = 1e3 * std::numeric_limits<real>::epsilon();
+  for (std::size_t p = 0; p < misc::NumPaddedPoints; ++p) {
+    double expected = 0.0;
+    for (std::size_t o = 0; o < misc::TimeSteps; ++o) {
+      const double slipRate2 = qM(o, V, p) - qP(o, V, p);
+      const double slipRate3 = qM(o, W, p) - qP(o, W, p);
+      const double weight = static_cast<double>(timeWeights[o]) *
+                            spaceWeights[p / multisim::NumSimulations] *
+                            -godunovData.doubledSurfaceArea;
+      expected += weight * (interpolated(o, p, 1) * slipRate2 + interpolated(o, p, 2) * slipRate3);
+    }
+    CHECK(energy.frictionalEnergy[p] == doctest::Approx(expected).epsilon(Epsilon));
+    CHECK(deviceEnergy.frictionalEnergy[p] == doctest::Approx(expected).epsilon(Epsilon));
   }
 }
 

@@ -537,6 +537,32 @@ SEISSOL_HOSTDEVICE inline void nodalAdmittance(const NodalImpedanceParameters& p
   inverse3(sum, eta);
 }
 
+/// The traction both sides of a node interpolate, weighted the way their Riemann
+/// problem weighs them: tau* = eta (Y+ tau+ + Y- tau-), which is b+ tau+ + b- tau-
+/// with b+- = eta Y+-. The three matrices are dense and column major, as the
+/// stresses keep them; the tractions are normal, then the two shear components.
+SEISSOL_HOSTDEVICE inline void interpolatedTraction(const real admittancePlus[9],
+                                                    const real admittanceMinus[9],
+                                                    const real eta[9],
+                                                    const real tractionPlus[3],
+                                                    const real tractionMinus[3],
+                                                    real traction[3]) {
+  real admitted[3];
+  for (std::size_t row = 0; row < 3; ++row) {
+    admitted[row] = static_cast<real>(0.0);
+    for (std::size_t col = 0; col < 3; ++col) {
+      admitted[row] += admittancePlus[3 * col + row] * tractionPlus[col] +
+                       admittanceMinus[3 * col + row] * tractionMinus[col];
+    }
+  }
+  for (std::size_t row = 0; row < 3; ++row) {
+    traction[row] = static_cast<real>(0.0);
+    for (std::size_t col = 0; col < 3; ++col) {
+      traction[row] += eta[3 * col + row] * admitted[col];
+    }
+  }
+}
+
 /// The strain invariant ratio at a node, from the six Voigt components of the
 /// strain there. An invariant, so the rotation into the face frame does not
 /// enter and a face may form it from the rotated strain directly.

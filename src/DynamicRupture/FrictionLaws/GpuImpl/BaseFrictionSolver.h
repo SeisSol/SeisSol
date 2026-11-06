@@ -215,6 +215,19 @@ class BaseFrictionSolver : public FrictionSolverDetails {
               ctx.pointIndex);
         }
 
+        if (isFrictionEnergyRequired) {
+          common::computeFrictionEnergy<GpuRangeType>(ctx.data->energyData[ctx.ltsFace],
+                                                      ctx.faultStresses,
+                                                      ctx.data->qInterpolatedPlus[ctx.ltsFace],
+                                                      ctx.data->qInterpolatedMinus[ctx.ltsFace],
+                                                      ctx.data->impAndEta[ctx.ltsFace],
+                                                      ctx.args->timeWeights[timeIndex],
+                                                      ctx.args->spaceWeights,
+                                                      ctx.data->godunovData[ctx.ltsFace],
+                                                      timeIndex,
+                                                      ctx.pointIndex);
+        }
+
         common::postcomputeImposedStateFromNewStress<GpuRangeType>(
             imposedState,
             ctx.faultStresses,
@@ -239,16 +252,13 @@ class BaseFrictionSolver : public FrictionSolverDetails {
         const auto energiesFromAcrossFaultVelocities{
             ctx.data->drParameters.energiesFromAcrossFaultVelocities};
 
-        common::computeFrictionEnergy<GpuRangeType>(ctx.data->energyData[ctx.ltsFace],
-                                                    ctx.data->qInterpolatedPlus[ctx.ltsFace],
-                                                    ctx.data->qInterpolatedMinus[ctx.ltsFace],
-                                                    ctx.data->impAndEta[ctx.ltsFace],
-                                                    ctx.args->timeWeights,
-                                                    ctx.args->spaceWeights,
-                                                    ctx.data->godunovData[ctx.ltsFace],
-                                                    ctx.data->slipRateMagnitude[ctx.ltsFace],
-                                                    energiesFromAcrossFaultVelocities,
-                                                    ctx.pointIndex);
+        common::accumulateSlip<GpuRangeType>(ctx.data->energyData[ctx.ltsFace],
+                                             ctx.data->qInterpolatedPlus[ctx.ltsFace],
+                                             ctx.data->qInterpolatedMinus[ctx.ltsFace],
+                                             ctx.args->timeWeights,
+                                             ctx.data->slipRateMagnitude[ctx.ltsFace],
+                                             energiesFromAcrossFaultVelocities,
+                                             ctx.pointIndex);
       }
     }
   }

@@ -658,23 +658,31 @@ SEISSOL_HOSTDEVICE inline void
     }
   }
 }
+/**
+ * Adds the work the fault traction does along the slip of one timestep to the frictional energy.
+ *
+ * The traction is the one both sides interpolate, weighted the way the Riemann problem weighs
+ * them: tau* = b+ tau+ + b- tau-, b+- = eta Y+-. Where the impedance belongs to the face, the
+ * weights are its own. Where it belongs to the node, they come from the matrices the
+ * precomputation of this timestep kept with the stresses -- which is why this runs inside the loop
+ * over the timesteps, while those matrices are there.
+ */
 template <RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     DREnergyOutput& __restrict energyData,
+    [[maybe_unused]] const FaultStresses<RangeExecutor<Type>::Exec>& __restrict faultStresses,
     const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
     const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
     const ImpedancesAndEta& __restrict impAndEta,
-    const real timeWeights[misc::TimeSteps],
+    real timeWeight,
     const real spaceWeights[seissol::kernels::NumSpaceQuadraturePoints],
     const DRGodunovData& __restrict godunovData,
-    const real slipRateMagnitude[misc::NumPaddedPoints],
-    const bool energiesFromAcrossFaultVelocities,
+    uint32_t step,
     size_t startIndex = 0) {
 
-  auto* slip = reinterpret_cast<real(*)[misc::NumPaddedPoints]>(energyData.slip);
-  auto* accumulatedSlip = energyData.accumulatedSlip;
   auto* frictionalEnergy = energyData.frictionalEnergy;
   const real doubledSurfaceAreaN = -static_cast<real>(godunovData.doubledSurfaceArea);
+  const auto o = step;
 
   using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
   const auto* __restrict qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
@@ -727,14 +735,90 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   }
 
   using Range = typename NumPoints<Type>::Range;
+
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
+  for (size_t index = Range::Start; index < Range::End; index += Range::Step) {
+
+    const size_t i{startIndex + index}; // startIndex is always 0 for CPU
+
+    const real interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
+    const real interpolatedSlipRate3 = qIMinus[o][W][i] - qIPlus[o][W][i];
+
+    const auto qIPlusN = qIPlus[o][N][i];
+    const auto qIPlusT1 = qIPlus[o][T1][i];
+    const auto qIPlusT2 = qIPlus[o][T2][i];
+    const auto qIMinusN = qIMinus[o][N][i];
+    const auto qIMinusT1 = qIMinus[o][T1][i];
+    const auto qIMinusT2 = qIMinus[o][T2][i];
+
+    real interpolatedTraction12{};
+    real interpolatedTraction13{};
+    if constexpr (NodalImpedance) {
+      using Indexing = VariableIndexing<RangeExecutor<Type>::Exec>;
+      real admittancePlus[9];
+      real admittanceMinus[9];
+      real eta[9];
+#pragma unroll
+      for (std::uint32_t k = 0; k < 9; ++k) {
+        admittancePlus[k] = Indexing::index(faultStresses.admittance[k], i);
+        admittanceMinus[k] = Indexing::index(faultStresses.admittanceNeig[k], i);
+        eta[k] = Indexing::index(faultStresses.eta[k], i);
+      }
+      const real tractionPlus[3] = {qIPlusN, qIPlusT1, qIPlusT2};
+      const real tractionMinus[3] = {qIMinusN, qIMinusT1, qIMinusT2};
+      real traction[3];
+      interpolatedTraction(
+          admittancePlus, admittanceMinus, eta, tractionPlus, tractionMinus, traction);
+      interpolatedTraction12 = traction[1];
+      interpolatedTraction13 = traction[2];
+    } else {
+      // tau* = b+ tau+ + b- tau-, i.e. b+ pairs with the *plus* side -- matching the
+      // computeTractionInterpolated kernel in EnergyOutput, which contracts tractionPlusMatrix
+      // with QInterpolatedPlus. Only relevant for a bimaterial interface, where b+ != b-.
+      interpolatedTraction12 = bPlus10 * qIPlusN + bPlus11 * qIPlusT1 + bPlus12 * qIPlusT2 +
+                               bMinus10 * qIMinusN + bMinus11 * qIMinusT1 + bMinus12 * qIMinusT2;
+      interpolatedTraction13 = bPlus20 * qIPlusN + bPlus21 * qIPlusT1 + bPlus22 * qIPlusT2 +
+                               bMinus20 * qIMinusN + bMinus21 * qIMinusT1 + bMinus22 * qIMinusT2;
+    }
+
+    const auto spaceWeight = spaceWeights[i / multisim::NumSimulations];
+    const auto weight = timeWeight * spaceWeight * doubledSurfaceAreaN;
+    frictionalEnergy[i] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
+                                     interpolatedTraction13 * interpolatedSlipRate3);
+  }
+}
+
+/**
+ * Accumulates the slip of a whole step, as a vector and as a magnitude, for the energy output.
+ */
+template <RangeType Type = RangeType::CPU>
+SEISSOL_HOSTDEVICE inline void
+    accumulateSlip(DREnergyOutput& __restrict energyData,
+                   const real qInterpolatedPlus[misc::TimeSteps][tensor::QInterpolated::size()],
+                   const real qInterpolatedMinus[misc::TimeSteps][tensor::QInterpolated::size()],
+                   const real timeWeights[misc::TimeSteps],
+                   const real slipRateMagnitude[misc::NumPaddedPoints],
+                   const bool energiesFromAcrossFaultVelocities,
+                   size_t startIndex = 0) {
+
+  auto* slip = reinterpret_cast<real(*)[misc::NumPaddedPoints]>(energyData.slip);
+  auto* accumulatedSlip = energyData.accumulatedSlip;
+
+  using QInterpolatedShapeT = const real(*)[misc::NumQuantities][misc::NumPaddedPoints];
+  const auto* __restrict qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
+  const auto* __restrict qIMinus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedMinus);
+
+  using namespace dr::misc::quantity_indices;
+
+  using Range = typename NumPoints<Type>::Range;
   real localAccumulatedSlip[Range::Size]{};
-  real localFrictionalEnergy[Range::Size]{};
   real localSlip[3][Range::Size]{};
 
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto i{startIndex + index};
     localAccumulatedSlip[index] = accumulatedSlip[i];
-    localFrictionalEnergy[index] = frictionalEnergy[i];
 #pragma unroll
     for (uint32_t d = 0; d < 3; ++d) {
       localSlip[d][index] = slip[d][i];
@@ -773,35 +857,12 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       localSlip[0][index] += timeWeight * interpolatedSlipRate1;
       localSlip[1][index] += timeWeight * interpolatedSlipRate2;
       localSlip[2][index] += timeWeight * interpolatedSlipRate3;
-
-      const auto qIPlusN = qIPlus[o][N][i];
-      const auto qIPlusT1 = qIPlus[o][T1][i];
-      const auto qIPlusT2 = qIPlus[o][T2][i];
-      const auto qIMinusN = qIMinus[o][N][i];
-      const auto qIMinusT1 = qIMinus[o][T1][i];
-      const auto qIMinusT2 = qIMinus[o][T2][i];
-
-      // tau* = b+ tau+ + b- tau-, i.e. b+ pairs with the *plus* side -- matching the
-      // computeTractionInterpolated kernel in EnergyOutput, which contracts tractionPlusMatrix
-      // with QInterpolatedPlus. Only relevant for a bimaterial interface, where b+ != b-.
-      const real interpolatedTraction12 = bPlus10 * qIPlusN + bPlus11 * qIPlusT1 +
-                                          bPlus12 * qIPlusT2 + bMinus10 * qIMinusN +
-                                          bMinus11 * qIMinusT1 + bMinus12 * qIMinusT2;
-      const real interpolatedTraction13 = bPlus20 * qIPlusN + bPlus21 * qIPlusT1 +
-                                          bPlus22 * qIPlusT2 + bMinus20 * qIMinusN +
-                                          bMinus21 * qIMinusT1 + bMinus22 * qIMinusT2;
-
-      const auto spaceWeight = spaceWeights[i / multisim::NumSimulations];
-      const auto weight = timeWeight * spaceWeight * doubledSurfaceAreaN;
-      localFrictionalEnergy[index] += weight * (interpolatedTraction12 * interpolatedSlipRate2 +
-                                                interpolatedTraction13 * interpolatedSlipRate3);
     }
   }
 
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     auto i{startIndex + index};
     accumulatedSlip[i] = localAccumulatedSlip[index];
-    frictionalEnergy[i] = localFrictionalEnergy[index];
 #pragma unroll
     for (uint32_t d = 0; d < 3; ++d) {
       slip[d][i] = localSlip[d][index];
