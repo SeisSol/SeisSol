@@ -313,3 +313,93 @@ def test_end_to_end(tmp_path):
         == 0
     )
     assert (work / "state.json").read_text() == before
+
+
+# a build that fails while broken.txt says so, as an old commit may with today's tools
+CMAKE_LISTS_CHECKED = CMAKE_LISTS.replace(
+    "project(fake NONE)\n",
+    "project(fake NONE)\n"
+    "file(READ ${CMAKE_SOURCE_DIR}/broken.txt broken)\n"
+    'if (broken MATCHES "yes")\n'
+    '  message(FATAL_ERROR "this revision does not build")\n'
+    "endif()\n",
+)
+
+
+@pytest.mark.skipif(
+    shutil.which("cmake") is None or shutil.which("git") is None,
+    reason="needs cmake and git",
+)
+def test_fixups_make_old_commits_build(tmp_path):
+    repo = tmp_path / "source"
+    repo.mkdir()
+    git(repo, "init", "-q", "-b", "main")
+    (repo / "CMakeLists.txt").write_text(CMAKE_LISTS_CHECKED)
+    (repo / "seissol.in").write_text(FAKE_SEISSOL.format(python=sys.executable))
+    (repo / "src").mkdir()
+    revisions = [(1.0, "no"), (1.0, "yes"), (2.0, "yes"), (2.0, "no")]
+    for index, (value, broken) in enumerate(revisions):
+        (repo / "value.txt").write_text(str(value))
+        (repo / "broken.txt").write_text(broken)
+        (repo / "src" / "code.cpp").write_text(f"// revision {index}\n")
+        git(repo, "add", "-A")
+        git(repo, "commit", "-q", "-m", f"revision {index}")
+        git(repo, "tag", f"r{index}")
+    tags = {
+        subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", f"r{i}"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip(): i
+        for i in range(len(revisions))
+    }
+    case = tmp_path / "precomputed" / "fake"
+    case.mkdir(parents=True)
+    (case / "parameters.par").write_text("&output\n/\n")
+
+    def bisect(work, fixups):
+        arguments = [
+            "--source",
+            str(repo),
+            "--case",
+            str(case),
+            "--work",
+            str(work),
+            "--range",
+            "r0..main",
+            "--stride",
+            "1",
+            "--launcher",
+            "",
+            "--threads",
+            "1",
+            "--jobs",
+            "1",
+            "--no-history",
+        ]
+        assert bh.main(arguments + [f"--fixup={fixup}" for fixup in fixups]) == 0
+        return json.loads((work / "changes.json").read_text())
+
+    # without a fixup, the change lies among the two commits that do not build
+    plain = bisect(tmp_path / "plain", [])
+    assert plain["changes"] == []
+    assert [tags[sha] for sha in plain["unresolved"][0]["failed"]] == [1, 2]
+    assert plain["patched"] == {}
+
+    # with one, every commit builds, and the commits it changed are named
+    seen = tmp_path / "seen.txt"
+    work = tmp_path / "fixed"
+    fixed = bisect(
+        work, ["sed -i s/yes/no/ broken.txt", f'echo "$BISECT_COMMIT" >> {seen}']
+    )
+    assert [tags[change["at"]] for change in fixed["changes"]] == [2]
+    assert not fixed["changes"][0]["fixups_differ"]
+    assert sorted(tags[sha] for sha in fixed["patched"]) == [1, 2]
+    assert all(paths == ["broken.txt"] for paths in fixed["patched"].values())
+    assert set(seen.read_text().split()) == set(tags)
+    report = (work / "changes.md").read_text()
+    assert "## Commits that the fixups changed" in report
+    assert "fixups differ" not in report
+    log = (work / "logs" / f"{next(iter(fixed['patched']))[:9]}.build.log").read_text()
+    assert "fixups changed: broken.txt" in log

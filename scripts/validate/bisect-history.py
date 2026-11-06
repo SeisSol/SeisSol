@@ -28,6 +28,11 @@ arguments at every commit: keep the host architecture and the GEMM generators fi
 they show up as changes. The case directory is copied per run, next to a link to the
 meshes directory of precomputed-seissol, so that "../meshes/..." resolves.
 
+An old commit may not build with the tools of today, e.g. a code generator that a newer
+Python rejects. --fixup names a shell command that runs in the source after each
+checkout (with the commit in BISECT_COMMIT) and patches what needs it; the build log
+records what it changed, and the report lists the commits that it changed.
+
 Everything lands in --work: the candidates (commits.tsv), the state of every commit
 (state.json, so that a second call resumes), the logs, the outputs, the changes found
 (changes.md, changes.json) and a manifest of all runs for compare-history.py, which runs
@@ -349,6 +354,9 @@ class Campaign:
     output_prefix: str = "output/tpv"
     commits: list = field(default_factory=list)
     state: dict = field(default_factory=dict)
+    fixups: list = field(default_factory=list)
+    # the paths that the fixups changed at a commit, by its sha
+    patched: dict = field(default_factory=dict)
 
     @property
     def build_dir(self) -> str:
@@ -417,7 +425,28 @@ class Campaign:
                 "git clean -ffdxq",
             ],
         )
-        return all(self._call(step, log, 3600) for step in steps)
+        if not all(self._call(step, log, 3600) for step in steps):
+            return False
+        return self.fix(commit, log)
+
+    def fix(self, commit: Commit, log: str) -> bool:
+        """Run the fixups in the checked-out source and note what they changed."""
+        self.patched.pop(commit.sha, None)
+        if not self.fixups:
+            return True
+        env = dict(os.environ, BISECT_COMMIT=commit.sha)
+        for command in self.fixups:
+            if not self._call(["/bin/sh", "-c", command], log, 3600, self.source, env):
+                return False
+        status = git(self.source, "status", "--porcelain", "--ignore-submodules=none")
+        paths = sorted(
+            {line[3:].strip() for line in status.splitlines() if line.strip()}
+        )
+        with open(log, "a") as handle:
+            handle.write(f"fixups changed: {', '.join(paths) or 'nothing'}\n")
+        if paths:
+            self.patched[commit.sha] = paths
+        return True
 
     def build(self, commit: Commit) -> str | None:
         """Build the executable at a commit; a failed build is tried once more anew."""
@@ -501,6 +530,8 @@ class Campaign:
         print(f"[{time.strftime('%H:%M:%S')}] {commit.short} {commit.subject[:60]}")
         executable = self.build(commit)
         record = {"built": executable is not None}
+        if commit.sha in self.patched:
+            record["patched"] = self.patched[commit.sha]
         record["ok"] = executable is not None and self.run(commit, executable)
         record["seconds"] = round(time.time() - started)
         print(f"    {'ok' if record['ok'] else 'failed'} after {record['seconds']} s")
@@ -519,11 +550,26 @@ def _number(value, digits=3) -> str:
 
 
 def write_report(
-    work, commits, result: SearchResult, measured: dict, repeat, left_out: dict
+    work,
+    commits,
+    result: SearchResult,
+    measured: dict,
+    repeat,
+    left_out: dict,
+    patched: dict | None = None,
 ) -> None:
     """changes.json and changes.md; left_out counts, per change, the commits between
     its two candidates that the search left out (as irrelevant), any of which may be
-    the change instead."""
+    the change instead. patched holds the paths that the fixups changed, by the sha of
+    the commit; a change between two commits that the fixups changed differently may
+    come from the fixups."""
+    patched = patched or {}
+
+    def fixups_differ(a, b):
+        return set(patched.get(commits[a].sha, ())) != set(
+            patched.get(commits[b].sha, ())
+        )
+
     changes = []
     for a, b in result.changes:
         values = measured[(a, b)]
@@ -532,6 +578,7 @@ def write_report(
                 "before": commits[a].sha,
                 "at": commits[b].sha,
                 "left_out_before": left_out.get((a, b), 0),
+                "fixups_differ": fixups_differ(a, b),
                 **values,
             }
         )
@@ -545,7 +592,16 @@ def write_report(
     ]
     with open(os.path.join(work, "changes.json"), "w") as handle:
         json.dump(
-            {"changes": changes, "unresolved": unresolved, "repeat": repeat},
+            {
+                "changes": changes,
+                "unresolved": unresolved,
+                "repeat": repeat,
+                "patched": {
+                    commits[i].sha: patched[commits[i].sha]
+                    for i in sorted(result.evaluated)
+                    if commits[i].sha in patched
+                },
+            },
             handle,
             indent=1,
         )
@@ -592,7 +648,8 @@ def write_report(
                     f"`{commit.short}`",
                     commit.date,
                     commit.subject.replace("|", "/"),
-                    commit.relevance,
+                    commit.relevance
+                    + (", fixups differ" if fixups_differ(a, b) else ""),
                     str(left_out.get((a, b), 0)),
                     _number(values["station_nrms"]),
                     _number(values["map_nrms"]),
@@ -613,6 +670,13 @@ def write_report(
     if failed:
         lines += ["", "## Failed builds or runs", ""]
         lines += [f"- `{c.short}` {c.date} {c.subject}" for c in failed]
+    fixed = [commits[i] for i in sorted(result.evaluated) if commits[i].sha in patched]
+    if fixed:
+        lines += ["", "## Commits that the fixups changed", ""]
+        lines += [
+            f"- `{c.short}` {c.date} {c.subject}: {', '.join(patched[c.sha])}"
+            for c in fixed
+        ]
     with open(os.path.join(work, "changes.md"), "w") as handle:
         handle.write("\n".join(lines) + "\n")
 
@@ -668,6 +732,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--stride", type=int, default=8, help="run every n-th first")
     parser.add_argument("--cmake-arg", action="append", default=[], dest="cmake_args")
+    parser.add_argument(
+        "--fixup",
+        action="append",
+        default=[],
+        dest="fixups",
+        help="shell command run in the source after each checkout (with the commit "
+        "in BISECT_COMMIT), e.g. a script that patches what today's tools reject",
+    )
     parser.add_argument("--jobs", type=int, default=os.cpu_count() or 1)
     parser.add_argument(
         "--launcher",
@@ -754,6 +826,7 @@ def main(argv: list[str] | None = None) -> int:
         output_prefix=args.output_prefix,
         commits=commits,
         state=state,
+        fixups=args.fixups,
     )
     tolerances = Tolerances(
         args.tolerance, args.rupture_tolerance, args.moment_tolerance
@@ -804,7 +877,12 @@ def main(argv: list[str] | None = None) -> int:
             check=False,
         ).strip()
         left_out[(a, b)] = max(int(count or "1") - 1, 0)
-    write_report(work, commits, result, measured, repeat, left_out)
+    patched = {
+        sha: record["patched"]
+        for sha, record in campaign.state.items()
+        if record.get("patched")
+    }
+    write_report(work, commits, result, measured, repeat, left_out, patched)
     manifest = write_manifest(work, campaign, commits, result, args.region)
     print(f"changes: {os.path.join(work, 'changes.md')}")
     if not args.no_history:
