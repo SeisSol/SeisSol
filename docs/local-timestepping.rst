@@ -242,6 +242,79 @@ Interaction with the other settings
 
 These features should be considered experimental at this point in time.
 
+Partitioning by measured costs (experimental)
+---------------------------------------------
+
+By default, a cell weighs in the partition of the mesh what a model says it costs: its update rate times
+*vertexWeightElement*, plus *vertexWeightDynamicRupture* for each of its fault faces.
+What a cell really costs depends on the machine, the case and the number of ranks, however:
+on a GPU, the small time clusters at a fault are expensive per cell, as each of their loops has a fixed cost
+that only a few cells share.
+SeisSol can measure the costs instead and partition by them, in two runs or in one:
+
+.. code-block:: Fortran
+
+    &Discretization
+    ...
+    vertexWeightFile = 'output/run1-vertexweights.h5'   ! partition by the costs measured in an earlier run
+    vertexWeightCycles = 2                              ! or: measure them in short runs first
+    vertexWeightCycleSteps = 20
+    /
+
+    &Output
+    ...
+    VertexWeightOutput = 1   ! measure the costs, and write them to <OutputFile>-vertexweights.h5
+    /
+
+A run with :code:`VertexWeightOutput = 1` times the loops of every time cluster on every rank
+(the median loop, times the number of loops, which leaves out the first ones that set things up).
+The cells of a cluster share the time of its loops evenly, the interior and the copy layer alike;
+the fault faces of a cluster share the time of its dynamic rupture loops, and a cell gets the share of the faces it lies at.
+At the end, the run writes these costs, in seconds per simulated second, to :code:`<OutputFile>-vertexweights.h5`
+(the datasets :code:`ids`, the cells by their ids in the mesh file, and :code:`costs`).
+A later run of the same mesh and clustering partitions by them with :code:`vertexWeightFile`;
+the weights sum to what the default model would give.
+
+With :code:`vertexWeightCycles = n`, SeisSol does the same in one go: it first runs *n* short runs
+of *vertexWeightCycleSteps* time steps of the largest time cluster, each partitioned by what the one before measured,
+and then the actual run, partitioned by what the last of them measured.
+The short runs start from the beginning, write no outputs but their run summary (under :code:`<OutputFile>-cycle<i>`),
+and need the asynchronous output on threads or none (not :code:`ASYNC_MODE=MPI`).
+Each of them initializes SeisSol anew, so it costs about one initialization.
+They take the steps of the time clusters one after another, without the time-stepping plan and recorded
+super-timesteps, whatever ``SEISSOL_CONCURRENT_CLUSTERS``, ``SEISSOL_TIMESTEPPING_PLAN`` and ``SEISSOL_SUPERSTEP_GRAPHS``
+say (the actual run follows them): with concurrent clusters, the time of a loop on the device also counts the time its
+kernels share the device with those of other clusters, and recorded super-timesteps time nothing at all.
+On 128 nodes of Horizon (November 2026), short runs with the time-stepping plan and concurrent clusters measured costs
+that made the actual run of the Turkey case take 40 s instead of 24 s (on 32 nodes, some ranks got 1.8 times the mean
+of the cells, and failed to set up). Measured with the clusters one after another, the run with the plan took 23.6 s
+against 24.4 s without measured costs on 128 nodes, and 47.5 s against 46.0 s on 64 nodes; the default time stepping
+took 23.0 s against 23.4 s and 43.4 s against 44.3 s.
+
+A run with :code:`VertexWeightOutput = 1` measures with the settings it runs with; for the same reasons, it should take
+the time clusters one after another.
+
+With concurrent clusters, balancing what the ranks cost in all is not enough: each cluster of a rank waits for those
+of its neighbors in every step, and a rank overlaps these waits only with the work of its other clusters.
+Partitioned by the costs in all, some ranks of the Turkey case on 128 nodes got cells of the largest cluster only,
+and their neighbors waited for them.
+So the partition balances groups of time clusters there, each as a constraint of its own:
+from the cluster with the smallest time step on, a group takes clusters until it has at least the share
+``SEISSOL_MEASURED_CLUSTER_SHARE`` of the measured costs (0.1 with concurrent clusters, else 0: a single group),
+and a last group with less joins the one before; each group may be off balance by
+``SEISSOL_MEASURED_CLUSTER_IMBALANCE`` (1.02 by default). The log names the groups.
+In the Turkey case, the clusters 0 to 2 made one group, with 18 % of the costs, and the clusters 3 to 7 the other;
+the run with the plan and the host actor then took 21.9, 22.2 and 22.4 s against 24.5, 24.8, 24.0 and 24.4 s with the
+costs in all, and the default time stepping (one run each) 23.8 s against 23.7 s.
+ParMETIS bounds only the ranks that cost the most in a group: with an imbalance of 1.05, the other ranks got so much less
+that the device of the weakest one computed only 65 to 73 % of the time, against 74 to 80 % with 1.02; the run with the
+plan took 22.5, 22.6, 22.6 and 23.0 s then (with 1.01: 22.0 and 22.2 s).
+
+The costs of a cell include the speed of the rank it was measured on, so the partition does not weight the ranks
+by Mini SeisSol then (see :ref:`env_vars`).
+The costs can only be measured where the loops get timed: not within recorded super-timesteps
+(``SEISSOL_SUPERSTEP_GRAPHS``).
+
 References
 ----------
 

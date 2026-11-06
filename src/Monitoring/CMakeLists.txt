@@ -7,13 +7,17 @@
 
 add_library(seissol-monitoring OBJECT
     ActorStateStatistics.cpp
+    DeviceTimeline.cpp
+    DeviceTimer.cpp
     EpochSynchronization.cpp
     FlopCounter.cpp
     LoopStatistics.cpp
     Memory.cpp
     RunSummary.cpp
     Stopwatch.cpp
+    Trace.cpp
     Unit.cpp
+    Watchdog.cpp
 )
 
 target_link_libraries(seissol-monitoring PUBLIC seissol-common-properties)

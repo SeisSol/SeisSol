@@ -427,7 +427,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
 
     for (std::size_t quantity = 0; quantity < MaterialT::Quantities.size(); ++quantity) {
 
-      if (seissolParams.output.waveFieldParameters.outputMask[quantity]) {
+      if (seissolParams.output.waveFieldParameters.outputMask[Variant][quantity]) {
         outputs.emplace_back(
             namewrap(MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
@@ -438,7 +438,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
             });
       }
 
-      if (seissolParams.output.waveFieldParameters.integrationMask[quantity]) {
+      if (seissolParams.output.waveFieldParameters.integrationMask[Variant][quantity]) {
         outputs.emplace_back(
             namewrap("int-" + MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
@@ -645,6 +645,11 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   io::writer::ScheduledWriter schedWriter;
   schedWriter.name = "wavefield";
   schedWriter.interval = parameters.interval;
+  // the unknowns of the cells, their time integrals and their plastic strain
+  schedWriter.hostData = {};
+  schedWriter.hostData.add<LTS::Dofs>(memoryManager.ltsStorage())
+      .add<LTS::Integrals>(memoryManager.ltsStorage())
+      .add<LTS::PStrain>(memoryManager.ltsStorage());
   auto writer = io::instance::geometry::GeometryWriter(
       "wavefield",
       cells->size(),
@@ -790,7 +795,7 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
   NamedOutputs outputs;
   for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
     for (std::size_t quantity = 0; quantity < MaterialT::Quantities.size(); ++quantity) {
-      if (seissolParams.output.freeSurfaceParameters.outputMask[quantity]) {
+      if (seissolParams.output.freeSurfaceParameters.outputMask[Variant][quantity]) {
         outputs.emplace_back(
             namewrap(MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
@@ -860,6 +865,10 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
   io::writer::ScheduledWriter schedWriter;
   schedWriter.name = "surface";
   schedWriter.interval = parameters.interval;
+  // the unknowns of the cells at the surface, and its displacements
+  schedWriter.hostData = {};
+  schedWriter.hostData.add<LTS::Dofs>(memoryManager.ltsStorage())
+      .add<SurfaceLTS::DisplacementDofs>(memoryManager.surfaceStorage());
   const auto* surfaceMeshIds = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
   const auto* surfaceMeshSides = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
   const auto* surfaceLocationFlag =

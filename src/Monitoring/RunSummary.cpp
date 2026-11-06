@@ -221,6 +221,13 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   epochs.addColumn<double>("hardwareFlopPerSecond");
   epochs.addColumn<double>("nonzeroFlopPerSecond");
   epochs.addColumn<double>("kernelBytesPerSecond");
+  epochs.addColumn<double>("threadLoopsMean");
+  epochs.addColumn<double>("threadLoopsMin");
+  epochs.addColumn<double>("deviceComputingMean");
+  epochs.addColumn<double>("deviceComputingMin");
+  epochs.addColumn<double>("deviceExchangesMean");
+  epochs.addColumn<double>("deviceIdleMean");
+  epochs.addColumn<double>("deviceIdleMax");
   epochs.addTextColumn("runId", RunIdLength);
 
   started_ = true;
@@ -316,21 +323,29 @@ void RunSummary::addEpoch(const EpochRecord& epoch, double endTime) {
   simulation["epochs"] = epochCount_;
 
   if (started_ && seissol::Mpi::mpi.rank() == 0) {
-    auto& epochs = epochs_.value();
-    epochs.addCell<std::uint64_t>(epochCount_);
-    epochs.addCell<double>(epoch.timeFrom);
-    epochs.addCell<double>(epoch.timeTo);
-    epochs.addCell<double>(epoch.wall.min);
-    epochs.addCell<double>(epoch.wall.mean);
-    epochs.addCell<double>(epoch.wall.max);
-    epochs.addCell<double>(epoch.compute.mean);
-    epochs.addCell<double>(epoch.compute.max);
-    epochs.addCell<double>(epoch.io.mean);
-    epochs.addCell<double>(epoch.io.max);
-    epochs.addCell<double>(epoch.hardwareFlopPerSecond);
-    epochs.addCell<double>(epoch.nonzeroFlopPerSecond);
-    epochs.addCell<double>(epoch.kernelBytesPerSecond);
-    epochs.addText(runId_);
+    epochs_->addCell<std::uint64_t>(epochCount_);
+    epochs_->addCell<double>(epoch.timeFrom);
+    epochs_->addCell<double>(epoch.timeTo);
+    epochs_->addCell<double>(epoch.wall.min);
+    epochs_->addCell<double>(epoch.wall.mean);
+    epochs_->addCell<double>(epoch.wall.max);
+    epochs_->addCell<double>(epoch.compute.mean);
+    epochs_->addCell<double>(epoch.compute.max);
+    epochs_->addCell<double>(epoch.io.mean);
+    epochs_->addCell<double>(epoch.io.max);
+    epochs_->addCell<double>(epoch.hardwareFlopPerSecond);
+    epochs_->addCell<double>(epoch.nonzeroFlopPerSecond);
+    epochs_->addCell<double>(epoch.kernelBytesPerSecond);
+    epochs_->addCell<double>(epoch.threadLoops.mean);
+    epochs_->addCell<double>(epoch.threadLoops.min);
+    // nothing to tell without times of the device
+    const double none = std::numeric_limits<double>::quiet_NaN();
+    epochs_->addCell<double>(epoch.deviceTimed ? epoch.deviceComputing.mean : none);
+    epochs_->addCell<double>(epoch.deviceTimed ? epoch.deviceComputing.min : none);
+    epochs_->addCell<double>(epoch.deviceTimed ? epoch.deviceExchanges.mean : none);
+    epochs_->addCell<double>(epoch.deviceTimed ? epoch.deviceIdle.mean : none);
+    epochs_->addCell<double>(epoch.deviceTimed ? epoch.deviceIdle.max : none);
+    epochs_->addText(runId_);
   }
 
   // an epoch can take a fraction of a second; a file system should not see a write for each

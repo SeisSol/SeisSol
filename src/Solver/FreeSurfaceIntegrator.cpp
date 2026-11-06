@@ -64,6 +64,8 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
 
   surfaceStorage->setLayerCount(ltsStorage.getColorMap());
+  // the displacements get read for the outputs as the unknowns do
+  surfaceStorage->setSnapshots(ltsStorage.snapshots());
   surfaceStorage->fixate();
 
   totalNumberOfFreeSurfaces = 0;

@@ -20,6 +20,12 @@ the time the output took on the main thread.
 
 The "total time spent in compute kernels" denotes the time in which all CPUs execute some function to advance the computation of the solution.
 In particular, it excludes the time spent with MPI communication.
+On GPUs, it is the time in which the GPU executes the loops of the clusters, timed by events on their streams
+(see ``SEISSOL_DEVICE_LOOP_STATISTICS`` in :ref:`gpu-env`). The loops of clusters that run concurrently overlap in it,
+as do those of a task graph on the CPU; the steps replayed from a recording of super-timesteps do not count.
+Where the device does not time its work, or its loops are not timed (``SEISSOL_DEVICE_LOOP_STATISTICS=0``), the
+time of the kernels is not known: SeisSol says so instead of printing it, and the run summary leaves out the kernel times, the load
+imbalance and the compute time outside of the kernels.
 
 .. _run-summary:
 
@@ -32,10 +38,14 @@ output (``OutputFile`` is the prefix):
 * ``<prefix>-summary.json``, the run summary.
 * ``<prefix>-epochs.csv``, a row per simulation epoch, i.e. per stretch of simulated time between two synchronization
   points (the times outputs are written at): its simulated time span, its wall time (minimum, mean and maximum over the
-  ranks), its compute and blocking IO time (mean and maximum), and the FLOP/s and kernel bytes/s of the epoch,
-  summed over the ranks.
+  ranks), its compute and blocking IO time (mean and maximum), the FLOP/s and kernel bytes/s of the epoch,
+  summed over the ranks, and how busy the threads and the device were (see :ref:`activity`): the share of the time
+  the threads spent in loops (``threadLoopsMean``, ``threadLoopsMin``), and on GPUs the shares of the time of the
+  device in which it computed (``deviceComputingMean``, ``deviceComputingMin``), exchanged the halo
+  (``deviceExchangesMean``) and was idle (``deviceIdleMean``, ``deviceIdleMax``); ``nan`` without times of the device.
 * ``<prefix>-ranks.csv``, a row per rank, written at the end of the run: the values of the rank that the summary gives
   the statistics of over the ranks (see below).
+* ``<prefix>-trace.json``, with ``SEISSOL_TRACE=1``: a timeline of the time stepping (see :ref:`trace`).
 
 An epoch ends at every synchronization point, i.e. wherever an output is due. A run without outputs, such as a
 benchmark, has a single epoch, and reports how fast it goes at its end only. ``EpochInterval`` in the ``output``
@@ -95,8 +105,10 @@ members of the summary are:
        was aborted (e.g. by an energy criterion), and the cell updates, duplicate cell updates and dynamic rupture
        face updates of the whole run
    * - ``kernels``
-     - the time in the compute kernels per rank (``total``), the load imbalance (one minus mean over maximum), and per
-       region its time per rank, iterations, samples and the regression of its time over the iterations
+     - the time in the compute kernels per rank (``total``), the load imbalance (one minus mean over maximum), per
+       region its time per rank, iterations, samples, the regression of its time over the iterations and its
+       throughput while it runs (``throughput``: hardware FLOP/s and kernel bytes/s per rank), and how busy the
+       threads and the device were over the run (``activity``, see :ref:`activity`)
    * - ``performance``
      - hardware and non-zero FLOP and kernel bytes, in total, per second and per category, and the cell updates per
        second (``cellUpdatesPerSecond``)
@@ -109,9 +121,61 @@ The table of the ranks has a column ``rank``, its ``host`` and its rank on the n
 order the run gets them: ``initMeshRead``, ``initMesh``, ``cells``, ``copyCells``, ``ghostCells``, ``faultFaces``,
 ``neighborRanks``, ``initLayout``, ``initModel``, ``initSideConditions``, ``initIo``, ``initTotal``,
 ``hostMemoryAfterInit``, ``simulationInitialIo``, ``simulationTotal``, ``simulationCompute``, ``simulationIo``,
-``kernels`` (the time in the compute kernels), ``outsideKernels``, ``cellUpdates``, ``duplicateCellUpdates``,
+``kernels`` (the time in the compute kernels), ``outsideKernels``, on GPUs with times of the device the shares of the
+time of the device over the run in which it computed (``deviceComputing``) and was idle (``deviceIdle``, see
+:ref:`activity`; with concurrent clusters, the kernels overlap, so these tell which ranks waited for others where
+``kernels`` does not), ``cellUpdates``, ``duplicateCellUpdates``,
 ``dynamicRuptureFaceUpdates`` and ``hostMemoryAtEnd``; in GPU builds, ``deviceMemoryAfterInit`` and ``deviceMemoryAtEnd`` (the device memory occupied)
 as well. ``initMeshRead`` is there for PUML meshes only. The last column is ``runId``.
+
+.. _activity:
+
+Activity of the threads and the device
+--------------------------------------
+
+At the end of each epoch and of the run, SeisSol prints how busy the threads and the device were. The threads count the
+time they spend in the loops over the cells or faces (on GPUs, the log gives it only where they ran any loops); the rest
+of their time, they do other work, e.g. the main thread drives the clusters, or they wait, e.g. at the end of a loop for
+the slowest thread, or for the halo exchange. A task graph on the host (``SEISSOL_HOST_TASK_GRAPH``, see
+:ref:`env_vars`) fills that time with the work of other clusters.
+
+On GPUs, the loops of the clusters and the replays of recorded super-timesteps get timed by events, from where each
+can start to where it has run. So the device time of the epoch splits into the time the device computed (in loops or
+replays) and was idle, e.g. waiting for the host to enqueue its work, or for other processes. See ``SEISSOL_DEVICE_LOOP_STATISTICS`` in :ref:`gpu-env` for the timing on the device.
+
+The log at the end of the run also gives the device time of the replays, and the throughput of each
+loop while it runs: its hardware FLOP/s and kernel bytes/s, from the counted FLOP over its time. The throughput is not
+known where some steps ran in replays of super-timesteps.
+
+.. _trace:
+
+Timeline of the run
+-------------------
+
+With ``SEISSOL_TRACE=1``, SeisSol records what each rank does during the time stepping, and writes it at the end into
+``<prefix>-trace.json``, in the trace event format of Chrome, which e.g. Perfetto (https://ui.perfetto.dev) and
+``chrome://tracing`` show. Each rank is a process there, with tracks of its own:
+
+* the host threads: the predictions and corrections of the clusters (e.g. ``compute-copy-2: predict``) on the thread
+  that decides them, and the ranges of the loops over the cells or faces (e.g. ``computeLocalIntegration``) on the
+  threads that run them; with a task graph on the host, also the work of each step as a task (``...: work``);
+* on GPUs, a track per device stream with the loops of its clusters, and the replays of super-timesteps, from where
+  each could start to where it has run (with
+  ``SEISSOL_DEVICE_LOOP_STATISTICS``, see :ref:`gpu-env`; CUDA and HIP);
+* the sends and receives of the halo exchange, from their start to their completion, a track for each direction of each
+  pair of clusters; also each message on a track of its own
+  (``mpi receive from rank <peer> tag <tag>``, ``mpi send to rank ...``), until the rank saw it complete, which tells
+  the peer whose message came last;
+* ``time stepping``, with the epochs.
+
+The ranks share the origin of the time up to the skew of a barrier; the times of the device are those of its events,
+placed by an event at the start of each epoch. A trace grows quickly: ``SEISSOL_TRACE_START`` and
+``SEISSOL_TRACE_DURATION`` choose a window, in seconds since the start of the time stepping (by default, all of it), and
+a rank records at most ``SEISSOL_TRACE_SPANS`` spans (a million by default, about 100 MB of the file), and warns at the
+end if it reached that. On many ranks, ``SEISSOL_TRACE_RANKS`` chooses the ranks that record, as a list of ranks,
+ranges and strides, e.g. ``0,17,100-103,%256`` (every 256th rank from 0 on); the others only name themselves in the
+file. Recording costs two readings of the clock per span; without ``SEISSOL_TRACE``, nothing but a
+check.
 
 .. _cell-updates:
 

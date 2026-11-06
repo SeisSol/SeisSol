@@ -7,6 +7,7 @@
 
 #include "DynamicRupture/Output/OutputManager.h"
 
+#include "Alignment.h"
 #include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
@@ -37,6 +38,8 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
+#include "Parallel/Helper.h"
+#include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 
@@ -49,6 +52,7 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <ios>
 #include <limits>
@@ -66,6 +70,10 @@
 #include <utils/logger.h>
 #include <utils/timeutils.h>
 #include <vector>
+
+#ifdef ACL_DEVICE
+#include "Kernels/DeviceAux/HostCopyAux.h"
+#endif
 
 namespace {
 
@@ -222,6 +230,9 @@ std::optional<io::instance::geometry::WriterGroup>
 void waitForPickpointSamples(
     std::unordered_map<std::size_t, std::shared_ptr<ReceiverOutputData>>& outputData) {
   for (auto& [layerId, data] : outputData) {
+    if (data->hostQueue != nullptr) {
+      data->hostQueue->drain();
+    }
     if (data->extraRuntime.has_value()) {
       data->extraRuntime->wait();
     }
@@ -334,13 +345,19 @@ void OutputManager::initElementwiseOutput() {
   auto& self = *this;
   writer.addHook([&](std::size_t, double time) {
     self.seissolInstance_.dofSync().syncDofs(time);
-    self.updateElementwiseOutput(time);
+    self.evaluateElementwiseOutput(time);
   });
 
   io::writer::ScheduledWriter schedWriter;
   schedWriter.interval = writeInterval;
   schedWriter.name = "fault";
   schedWriter.planWrite = writer.makeWriter();
+  // the data of the faces comes from the device at the synchronization point itself
+  schedWriter.capture = [&self](double /*time*/) { self.gatherElementwiseOutput(); };
+  // the faces gather their data from the device themselves; the halo exchange of the unknowns
+  // before (dofSync) reads those of the cells
+  schedWriter.hostData = {};
+  schedWriter.hostData.add<LTS::Dofs>(*wpStorage_).addVariables(*drStorage_);
 
   seissolInstance_.outputManager().addOutput(schedWriter);
 }
@@ -397,12 +414,33 @@ std::array<double, 6> OutputManager::initialStress(const ReceiverOutputData& out
 void OutputManager::initPickpointOutput() {
   logInfo() << "Setting up on-fault receivers.";
   ppOutputBuilder_->build(ppOutputData_);
+  if (isDeviceOn() && useHostActor(seissolInstance_.env())) {
+    // the host actor takes the samples, from buffers that hold the derivatives, then the variables
+    for (auto& [layerId, data] : ppOutputData_) {
+      if (data->deviceDataCollector == nullptr) {
+        continue;
+      }
+      const auto aligned = [](std::size_t bytes) {
+        return (bytes + Alignment - 1) / Alignment * Alignment;
+      };
+      // the start of the step, the derivatives, the variables
+      data->dataOffset = aligned(sizeof(double));
+      data->variablesOffset =
+          aligned(data->dataOffset + data->deviceDataCollector->gatheredBytes());
+      const auto bytes =
+          data->variablesOffset +
+          (data->deviceVariables != nullptr ? data->deviceVariables->gatheredBytes() : 0);
+      data->hostQueue = std::make_unique<parallel::runtime::HostActor::Queue>(bytes);
+      data->extraRuntime.reset();
+    }
+  }
   const auto& seissolParameters = seissolInstance_.parameters();
   const auto numSimulations = configValue(seissolParameters.model.config).numSimulations;
 
   seissolInstance_.pickpointWriter().enable(
       seissolInstance_.modules(), seissolParameters.output.pickpointParameters.writeInterval);
-  seissolInstance_.pickpointWriter().setupWriter([&] { flushPickpointDataToFile(); });
+  seissolInstance_.pickpointWriter().setupWriter([&]() { takePickpointText(); },
+                                                 [&]() { writePickpointText(); });
 
   if (seissolParameters.output.pickpointParameters.format ==
       seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
@@ -524,8 +562,83 @@ void OutputManager::initFaceToLtsMap() {
   impl_->setFaceToLtsMap(&faceToLtsMap_);
 }
 
+void OutputManager::ensureCacheLevel(ReceiverOutputData& outputData) {
+  if (outputData.currentCacheLevel >= outputData.maxCacheLevel) {
+    // our calculation was off (maybe due to many intermediate sync points), so resize
+
+    outputData.maxCacheLevel = outputData.currentCacheLevel + 1;
+    const auto newCacheLevel = outputData.maxCacheLevel;
+    outputData.cachedTime.resize(newCacheLevel);
+    misc::forEach(outputData.vars,
+                  [newCacheLevel](auto& var, int) { var.resizeCache(newCacheLevel); });
+  }
+}
+
 bool OutputManager::hasPickpoints(std::size_t layerId) const {
   return this->ppOutputBuilder_ && ppOutputData_.contains(layerId);
+}
+
+parallel::runtime::StreamRuntime* OutputManager::pickpointRuntime(std::size_t layerId) {
+  auto& outputData = ppOutputData_.at(layerId);
+  return outputData->extraRuntime.has_value() ? &outputData->extraRuntime.value() : nullptr;
+}
+
+parallel::runtime::StreamRuntime&
+    OutputManager::gatherPickpointData(std::size_t layerId,
+                                       [[maybe_unused]] const double* deviceClock,
+                                       [[maybe_unused]] double* stepStart,
+                                       [[maybe_unused]] double* stepStartOnDevice,
+                                       [[maybe_unused]] double hostTime,
+                                       parallel::runtime::StreamRuntime& runtime) {
+  const auto& outputData = ppOutputData_.at(layerId);
+#ifdef ACL_DEVICE
+  if (outputData->extraRuntime.has_value()) {
+    runtime.eventSync(outputData->extraRuntime->eventRecord());
+  }
+  // by a kernel, as the copy engines may be busy with a large copy of another stream
+  kernels::device::aux::hostcopy::copyToHost(
+      stepStartOnDevice, deviceClock, sizeof(double), runtime.stream());
+  ReceiverOutput::gatherFaultOutput(outputData, runtime);
+  if (outputData->extraRuntime.has_value()) {
+    outputData->extraRuntime->eventSync(runtime.eventRecord());
+  }
+#else
+  *stepStart = hostTime;
+#endif
+  return outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+}
+
+bool OutputManager::postPickpointsAtRunTime(std::size_t layerId,
+                                            const double* deviceClock,
+                                            parallel::runtime::StreamRuntime& runtime,
+                                            std::function<void(double)> record) {
+  const auto& outputData = ppOutputData_.at(layerId);
+  if (!isDeviceOn() || outputData->hostQueue == nullptr) {
+    return false;
+  }
+  const auto staging = ReceiverOutput::gatherForHost(outputData, runtime, true, deviceClock);
+  outputData->hostQueue->post(
+      runtime, staging, [outputData, record = std::move(record)](const void* data) {
+        outputData->gathered = data;
+        std::invoke(record, *static_cast<const double*>(data));
+        outputData->gathered = nullptr;
+      });
+  return true;
+}
+
+void OutputManager::evaluatePickpointOutput(std::size_t layerId,
+                                            double time,
+                                            double stepSize,
+                                            double inStep) {
+  const auto& seissolParameters = seissolInstance_.parameters();
+  const auto& outputData = ppOutputData_.at(layerId);
+  ensureCacheLevel(*outputData);
+  impl_->evaluateFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
+                             seissolParameters.drParameters.slipRateOutputType,
+                             outputData,
+                             time,
+                             stepSize,
+                             inStep);
 }
 
 void OutputManager::recordPickpointOutput(std::size_t layerId,
@@ -538,24 +651,21 @@ void OutputManager::recordPickpointOutput(std::size_t layerId,
   }
   const auto& seissolParameters = seissolInstance_.parameters();
   const auto& outputData = ppOutputData_.at(layerId);
-
   if (outputData->currentCacheLevel >= outputData->maxCacheLevel) {
-    // our calculation was off (maybe due to many intermediate sync points), so resize
-
-    // On CUDA and SYCL, calcFaultOutput leaves the samples to a host function on a stream,
-    // which runs once the friction law is done, and stores into whatever memory the cache
-    // has at that time. Growing the cache moves it, and a sample stored into the old memory
-    // while it is being moved is lost. Hence, all samples taken so far have to be in first.
-    auto& sampleRuntime =
-        outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
-    sampleRuntime.wait();
-
-    outputData->maxCacheLevel = outputData->currentCacheLevel + 1;
-    const auto newCacheLevel = outputData->maxCacheLevel;
-    outputData->cachedTime.resize(newCacheLevel);
-    misc::forEach(outputData->vars,
-                  [newCacheLevel](auto& var, int) { var.resizeCache(newCacheLevel); });
+    // On CUDA and SYCL, calcFaultOutput leaves the samples to a host function on a stream, which
+    // runs once the friction law is done, and stores into whatever memory the cache has at that
+    // time. Growing the cache moves it, and a sample stored into the old memory while it is being
+    // moved is lost. Hence, all samples taken so far have to be in first. Likewise for the host
+    // actor.
+    if (outputData->hostQueue != nullptr) {
+      outputData->hostQueue->drain();
+    } else {
+      auto& sampleRuntime =
+          outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+      sampleRuntime.wait();
+    }
   }
+  ensureCacheLevel(*outputData);
 
   impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::AtPickpoint,
                          seissolParameters.drParameters.slipRateOutputType,
@@ -566,6 +676,18 @@ void OutputManager::recordPickpointOutput(std::size_t layerId,
                          inStep);
 }
 
+void OutputManager::recordInitialPickpointOutput(double time) {
+  if (!this->ppOutputBuilder_) {
+    return;
+  }
+  for (const auto& [id, _] : ppOutputData_) {
+    // at the start of the expansion the cells hold before the first step; the step size only scales
+    // the time basis, and has to be positive for that
+    recordPickpointOutput(id, time, 1.0, 0.0, runtime_);
+    finishPickpointStep(id, true, runtime_);
+  }
+}
+
 void OutputManager::finishPickpointStep(std::size_t layerId,
                                         bool sampled,
                                         parallel::runtime::StreamRuntime& runtime) {
@@ -573,6 +695,16 @@ void OutputManager::finishPickpointStep(std::size_t layerId,
     return;
   }
   const auto& outputData = ppOutputData_.at(layerId);
+  if (isDeviceOn() && outputData->hostQueue != nullptr) {
+    // the friction state at the end of the step, in a buffer of its own for the host actor
+    const auto staging = ReceiverOutput::gatherForHost(outputData, runtime, false);
+    outputData->hostQueue->post(runtime, staging, [this, outputData](const void* data) {
+      outputData->gathered = data;
+      impl_->keepStepStart(outputData);
+      outputData->gathered = nullptr;
+    });
+    return;
+  }
   if constexpr (isDeviceOn()) {
     if (!sampled) {
       // in the order of the streams that calcFaultOutput() keeps
@@ -590,16 +722,8 @@ void OutputManager::finishPickpointStep(std::size_t layerId,
   callRuntime.enqueueHost([this, outputData] { impl_->keepStepStart(outputData); });
 }
 
-void OutputManager::recordInitialPickpointOutput(double time) {
-  if (!this->ppOutputBuilder_) {
-    return;
-  }
-  for (const auto& [id, _] : ppOutputData_) {
-    // at the start of the expansion the cells hold before the first step; the step size only scales
-    // the time basis, and has to be positive for that
-    recordPickpointOutput(id, time, 1.0, 0.0, runtime_);
-    finishPickpointStep(id, true, runtime_);
-  }
+void OutputManager::finishPickpointStepNow(std::size_t layerId) {
+  impl_->keepStepStart(ppOutputData_.at(layerId));
 }
 
 void OutputManager::initPickpointTable() {
@@ -693,11 +817,12 @@ void OutputManager::initPickpointTable() {
   io::writer::ScheduledWriter scheduled;
   scheduled.name = "faultreceivers";
   scheduled.interval = seissolParameters.output.pickpointParameters.writeInterval;
-  scheduled.planWrite = [this, plan = ppTable_->makeWriter()](
-                            const std::string& prefix, std::size_t counter, double time) {
-    collectPickpointSamples();
-    return plan(prefix, counter, time);
-  };
+  // the fault receivers take their samples into buffers of their own
+  scheduled.hostData = {};
+  // the samples get taken into the table at the synchronization point, before the next epoch
+  // adds to the cache
+  scheduled.capture = [this](double /*time*/) { collectPickpointSamples(); };
+  scheduled.planWrite = ppTable_->makeWriter();
   seissolInstance_.outputManager().addOutput(scheduled);
 }
 
@@ -764,7 +889,7 @@ void OutputManager::collectPickpointSamples() {
   }
 }
 
-void OutputManager::flushPickpointDataToFile() {
+void OutputManager::takePickpointText() {
   if (ppTable_ != nullptr) {
     // the tables are filled and handed over by the writer they are registered with
     return;
@@ -796,31 +921,45 @@ void OutputManager::flushPickpointDataToFile() {
         }
       }
 
-      std::ofstream file(ppfile.fileName, std::ios_base::app);
-      if (file.is_open()) {
-        file << data.str();
-      } else {
-        logError() << "cannot open" << ppfile.fileName;
-      }
-      file.close();
+      takenPickpointText_.emplace_back(ppfile.fileName, data.str());
     }
     outputData->currentCacheLevel = 0;
   }
 }
 
-void OutputManager::updateElementwiseOutput(double time) {
+void OutputManager::writePickpointText() {
+  for (const auto& [fileName, data] : takenPickpointText_) {
+    std::ofstream file(fileName, std::ios_base::app);
+    if (file.is_open()) {
+      file << data;
+    } else {
+      logError() << "cannot open" << fileName;
+    }
+    file.close();
+  }
+  takenPickpointText_.clear();
+}
+
+void OutputManager::gatherElementwiseOutput() {
+  if constexpr (isDeviceOn()) {
+    if (this->ewOutputBuilder_) {
+      ReceiverOutput::gatherFaultOutput(ewOutputData_, runtime_);
+      runtime_.wait();
+    }
+  }
+}
+
+void OutputManager::evaluateElementwiseOutput(double time) {
   if (this->ewOutputBuilder_) {
     const auto& seissolParameters = seissolInstance_.parameters();
     // at a synchronization point every cluster has just completed a time step ending here, so this
     // is also the time the stored friction state belongs to: the end of the step
-    impl_->calcFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
-                           seissolParameters.drParameters.slipRateOutputType,
-                           ewOutputData_,
-                           runtime_,
-                           time,
-                           /*dt=*/1.0,
-                           /*indt=*/1.0);
-    runtime_.wait();
+    impl_->evaluateFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
+                               seissolParameters.drParameters.slipRateOutputType,
+                               ewOutputData_,
+                               time,
+                               1.0,
+                               1.0);
   }
 }
 } // namespace seissol::dr::output

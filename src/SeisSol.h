@@ -11,6 +11,7 @@
 
 #include "Common/Executor.h"
 #include "IO/Manager.h"
+#include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Modules/Modules.h"
@@ -92,16 +93,38 @@ class SeisSol : private SeisSolCore {
   bool init();
 
   /**
-   * Finalize SeisSol
+   * Finalize SeisSol; and MPI with it, unless another instance runs after this one (see
+   * discretization.vertexweightcycles).
    */
-  void finalize();
+  void finalize(bool finalizeMpi = true);
+
+  /**
+   * The costs of the cells measured in the run before (in this process), which partition the mesh
+   * of this run; none by default. They have to outlive the initialization.
+   */
+  void setMeasuredCosts(const initializer::MeasuredCellCosts* costs) { measuredCosts_ = costs; }
+  [[nodiscard]] const initializer::MeasuredCellCosts* measuredCosts() const {
+    return measuredCosts_;
+  }
+
+  /**
+   * Makes this run a short one that measures what the cells cost, for the partition of the next
+   * one: it runs `steps` time steps of the largest time cluster, and keeps the costs (cellCosts()).
+   */
+  void setMeasuringSteps(unsigned steps) { measuringSteps_ = steps; }
+  [[nodiscard]] std::optional<unsigned> measuringSteps() const { return measuringSteps_; }
+
+  //! what the cells cost in this run, where it measured that
+  std::optional<initializer::MeasuredCellCosts>& cellCosts() { return cellCosts_; }
 
   void loadCheckpoint(const std::string& file);
 
   Executor executionPlace(std::size_t clusterSize) {
     constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
     if (executionPlaceCutoff_.has_value()) {
-      if (executionPlaceCutoff_.value() <= clusterSize) {
+      // An empty cluster computes nothing anywhere. On the host, it would only make its neighbors
+      // exchange data with the host, and keep super-timesteps from getting recorded.
+      if (executionPlaceCutoff_.value() <= clusterSize || clusterSize == 0) {
         return DefaultDevice;
       } else {
         return Executor::Host;
@@ -115,7 +138,7 @@ class SeisSol : private SeisSolCore {
 
   initializer::MemoryManager& memoryManager() { return *memoryManager_; }
 
-  time_stepping::TimeManager& timeManager() { return timeManager_; }
+  solver::TimeManager& timeManager() { return timeManager_; }
 
   Simulator& simulator() { return simulator_; }
 
@@ -264,7 +287,7 @@ class SeisSol : private SeisSolCore {
   std::unique_ptr<initializer::MemoryManager> memoryManager_{nullptr};
 
   //! Time Manager
-  time_stepping::TimeManager timeManager_;
+  solver::TimeManager timeManager_;
 
   //! Simulator
   Simulator simulator_;
@@ -306,6 +329,10 @@ class SeisSol : private SeisSolCore {
   std::string backupTimeStamp_;
 
   std::optional<std::string> checkpointLoadFile_;
+
+  const initializer::MeasuredCellCosts* measuredCosts_{nullptr};
+  std::optional<unsigned> measuringSteps_;
+  std::optional<initializer::MeasuredCellCosts> cellCosts_;
 
   std::optional<std::size_t> executionPlaceCutoff_;
 

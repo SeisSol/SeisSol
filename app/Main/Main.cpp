@@ -10,15 +10,23 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Json.h"
 #include "Common/RunId.h"
+#include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/InitProcedure/Init.h"
+#include "Initializer/Parameters/DRParameters.h"
+#include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/Parameters/ParameterOverrides.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Preflight.h"
 #include "Monitoring/Instrumentation.h"
+#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 
+#include <array>
+#include <async/Config.h>
+#include <cstddef>
+#include <cstdlib>
 #include <ctime>
 #include <exception>
 #include <filesystem>
@@ -28,6 +36,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <utils/args.h>
 #include <utils/env.h>
 #include <utils/logger.h>
@@ -51,6 +60,71 @@
 
 namespace {
 using namespace seissol;
+
+/**
+ * The parameters of the run `cycle` (counted from zero) of those that measure what the cells cost
+ * before the actual run (discretization.vertexweightcycles): as the actual run, but without any
+ * output, and with the files of the run summary under a prefix of their own.
+ */
+seissol::initializer::parameters::SeisSolParameters
+    measuringRun(const seissol::initializer::parameters::SeisSolParameters& parameters,
+                 unsigned cycle) {
+  using namespace seissol::initializer::parameters;
+  auto measuring = parameters;
+  auto& output = measuring.output;
+  output.prefix += "-cycle" + std::to_string(cycle + 1);
+  output.format = OutputFormat::None;
+  output.waveFieldParameters.enabled = false;
+  output.freeSurfaceParameters.enabled = false;
+  output.receiverParameters.enabled = false;
+  output.energyParameters.enabled = false;
+  output.checkpointParameters.enabled = false;
+  measuring.drParameters.outputPointType = OutputType::None;
+  return measuring;
+}
+
+/**
+ * While it exists, the environment says what the runs that measure what the cells cost need,
+ * whatever it said before: the time clusters take their steps one after another, without the
+ * time-stepping plan and recorded super-timesteps. With concurrent clusters, the time of a loop on
+ * the device also counts the time its kernels share the device with those of other clusters, and
+ * recorded super-timesteps time nothing at all.
+ */
+class MeasuringSettings {
+  public:
+  MeasuringSettings() {
+    for (const auto* name : SequentialNames) {
+      set(name, "0");
+    }
+  }
+  ~MeasuringSettings() {
+    for (const auto& [name, value] : saved_) {
+      if (value.has_value()) {
+        setenv(name.c_str(), value->c_str(), 1);
+      } else {
+        unsetenv(name.c_str());
+      }
+    }
+  }
+  MeasuringSettings(const MeasuringSettings&) = delete;
+  MeasuringSettings& operator=(const MeasuringSettings&) = delete;
+  MeasuringSettings(MeasuringSettings&&) = delete;
+  MeasuringSettings& operator=(MeasuringSettings&&) = delete;
+
+  private:
+  /// what makes the time clusters take their steps one after another
+  static constexpr std::array<const char*, 3> SequentialNames{
+      "SEISSOL_CONCURRENT_CLUSTERS", "SEISSOL_TIMESTEPPING_PLAN", "SEISSOL_SUPERSTEP_GRAPHS"};
+
+  void set(const char* name, const char* value) {
+    const char* before = std::getenv(name);
+    saved_.emplace_back(name,
+                        before != nullptr ? std::make_optional<std::string>(before) : std::nullopt);
+    setenv(name, value, 1);
+  }
+
+  std::vector<std::pair<std::string, std::optional<std::string>>> saved_;
+};
 
 /**
  * The ID of this run: the one SEISSOL_RUN_ID gives, so that whoever started the run can find its
@@ -318,9 +392,29 @@ int main(int argc, char* argv[]) {
                  << "names a parameter that SeisSol does not read; check its spelling.";
     }
 
-    {
+    // Short runs first, each measuring what the cells cost for the partition of the next one; then
+    // the actual run, partitioned by the costs the last of them measured.
+    const auto cycles = parameters.timeStepping.vertexWeight.cycles;
+    std::optional<seissol::initializer::MeasuredCellCosts> measuredCosts;
+    for (unsigned cycle = 0; cycle <= cycles; ++cycle) {
+      const bool measuring = cycle < cycles;
+      if (measuring) {
+        logInfo() << "Partition cycle" << cycle + 1 << "of" << cycles
+                  << ": a short run that measures what the cells cost, with the time clusters one"
+                  << "after another.";
+      } else if (cycles > 0) {
+        logInfo() << "The actual run, partitioned by the costs the run before measured.";
+      }
+      const auto runParameters = measuring ? measuringRun(parameters, cycle) : parameters;
+      // (see MeasuringSettings; the variables get read anew for the measuring run)
+      std::optional<MeasuringSettings> measuringSettings;
+      if (measuring) {
+        measuringSettings.emplace();
+      }
+      const utils::Env measuringEnv("SEISSOL_");
+
       // Initialize SeisSol
-      seissol::SeisSol seissolInstance(parameters, env);
+      seissol::SeisSol seissolInstance(runParameters, measuring ? measuringEnv : env);
 #ifdef USE_ASAGI
       auto& asagiModule = seissol::asagi::AsagiModule::getInstance();
       asagiModule.setPinning(seissolInstance.pinning());
@@ -334,14 +428,25 @@ int main(int argc, char* argv[]) {
           args.isSet("checkpoint")
               ? std::make_optional<std::string>(args.getArgument<const char*>("checkpoint"))
               : std::nullopt);
-
-      if (args.isSet("checkpoint")) {
+      if (measuredCosts.has_value()) {
+        seissolInstance.setMeasuredCosts(&measuredCosts.value());
+      }
+      if (measuring) {
+        seissolInstance.setMeasuringSteps(parameters.timeStepping.vertexWeight.cycleSteps);
+      } else if (args.isSet("checkpoint")) {
+        // (the runs that measure start from the beginning)
         const auto* checkpointFile = args.getArgument<const char*>("checkpoint");
         seissolInstance.loadCheckpoint(checkpointFile);
       }
 
       // run SeisSol
       const bool runSeisSol = seissolInstance.init();
+      if (cycles > 0 && seissolInstance.asyncIO().layout().mode == async::Mode::MPI) {
+        // its executors would have to take part in every run
+        logError() << "The runs that measure the costs of the cells (discretization."
+                      "vertexweightcycles) need the asynchronous output on threads, or none; not "
+                      "ASYNC_MODE=MPI.";
+      }
 
       const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
       seissolInstance.setBackupTimeStamp(stamp);
@@ -351,14 +456,23 @@ int main(int argc, char* argv[]) {
         seissol::initializer::initprocedure::seissolMain(seissolInstance);
       }
 
+      if (!measuring) {
 #pragma omp parallel
-      {
-        LIKWID_MARKER_STOP("SeisSol");
-      }
+        {
+          LIKWID_MARKER_STOP("SeisSol");
+        }
 
-      LIKWID_MARKER_CLOSE;
-      // Finalize SeisSol
-      seissolInstance.finalize();
+        LIKWID_MARKER_CLOSE;
+      }
+      if (measuring) {
+        // what this run measured partitions the next one (this one is done with the costs it was
+        // partitioned by, which they replace)
+        auto costs = std::move(seissolInstance.cellCosts());
+        seissolInstance.setMeasuredCosts(nullptr);
+        measuredCosts = std::move(costs);
+      }
+      // Finalize SeisSol; MPI only after the actual run
+      seissolInstance.finalize(!measuring);
     }
 
 #ifdef ACL_DEVICE
