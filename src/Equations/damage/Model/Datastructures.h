@@ -197,7 +197,9 @@ struct DamageMaterial : public Material {
   /// what is left is the invariant ratio, which the coefficients are a cubic in
   /// at worst, and which is scanned. The constraint that ties a to xi is not
   /// imposed, and neither is a negative bound kept: both err upwards, which
-  /// costs a timestep rather than a run.
+  /// costs a timestep rather than a run. The other two eigenvalues are M / 2,
+  /// which is the largest of the three wherever L + M / 2 plus the directional
+  /// term is negative, so it is taken as well.
   ///
   /// With aB1 = aB3 = 0 the mixed group is zero and this is 2 aB0 + 2 aB2, the
   /// isotropic pair of a granular branch that has one.
@@ -215,7 +217,7 @@ struct DamageMaterial : public Material {
       if (mixed * ratio > 0.0 && std::abs(ratio) >= 1.0) {
         directional = std::max(directional, mixed / ratio);
       }
-      stiffest = std::max(stiffest, volumetric + isotropic + directional);
+      stiffest = std::max({stiffest, volumetric + isotropic + directional, 0.5 * isotropic});
     }
     return stiffest;
   }

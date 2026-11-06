@@ -278,6 +278,26 @@ follow the damage: a softened cell carries slower waves and gets a smaller
 correction. The speed is accumulated over the step rather than taken at an
 instant, so it is well defined for a neighbor reading a part of the step.
 
+The compressional speed is a bound on the fastest wave the tangent of the
+stress carries, and not the speed of its isotropic part alone. In a direction
+:math:`e` along an eigenvector of the strain direction :math:`n`, with
+:math:`a = e \cdot n e`, the acoustic tensor has the eigenvalue
+
+.. math::
+
+   \rho c^2 = \lambda + 2\mu + X \left(2a - \xi a^2\right),
+
+and twice :math:`\mu`, with :math:`\lambda` and :math:`\mu` the isotropic pair
+of the blended tangent and :math:`X` the weight of its mixed group,
+:math:`-\gamma_R \alpha` on the solid branch. Over the strain directions of one
+ratio :math:`\xi` the fastest wave is one of these. The bound takes the largest
+of the first over the values :math:`a` can have for that ratio,
+:math:`[(\xi - r)/3, (\xi + r)/3]` with :math:`r = \sqrt{2(3 - \xi^2)}`, and
+never less than :math:`\mu`. For an undamaged solid :math:`X` is zero and the
+bound is the isotropic pair; for a shear strain at a damage of one half and
+:math:`\gamma_R = \mu_0`, the isotropic pair alone is about a quarter below the
+fastest :math:`\rho c^2`.
+
 The Godunov flux dissipates with the absolute value of the flux Jacobian of the
 face normal. For a system whose state is a strain that is
 

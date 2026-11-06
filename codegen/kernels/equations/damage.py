@@ -465,9 +465,11 @@ class DamageADERDG(NonLinearCK):
         return statements
 
     def waveSpeedStatements(self):
-        """The squares of the fastest wave of each family at this instant. The
-        squares, because that is what the moduli are affine in; the root is
-        taken once per face, by whoever reads a bound.
+        """The squares of the wave speeds of each family at this instant: a
+        bound on the fastest wave the tangent carries for the compressional
+        one, the isotropic shear speed for the other. The squares, because
+        that is what the moduli are affine in; the root is taken once per
+        face, by whoever reads a bound.
 
         Two of them, because a dissipation that scales every mode with the
         faster of the two spends the difference on the slower -- and a rupture
@@ -476,6 +478,53 @@ class DamageADERDG(NonLinearCK):
         may take the larger of what its two sides hand it without either
         needing the other's material.
         """
+        # The tangent has four groups (see addTransport), and the last two --
+        # the mixed one with the weight X and the directional one, which is
+        # minus xi times it -- are what makes it anisotropic. In a direction e
+        # that is an eigenvector of the strain direction n, with a = e.n.e,
+        # the acoustic tensor has
+        #
+        #   rho c^2 = lambda + 2 mu + X (2 a - xi a^2),
+        #
+        # and its other two eigenvalues are mu. A unit n with the ratio xi
+        # holds a within [(xi - r) / 3, (xi + r) / 3], r = sqrt(2 (3 - xi^2)),
+        # and over the strain directions of that ratio the largest eigenvalue
+        # is largest at such an e. So the largest of the quadratic in a over
+        # that interval -- at its ends or at its vertex 1 / xi, clamped into
+        # it -- is a bound on the fastest wave, for every direction a face can
+        # have. The isotropic pair alone would be below that wherever the
+        # damage or the granular branch is directional; X is zero for an
+        # undamaged solid, and there the bound is the isotropic pair.
+        aB = self.aB
+        mixed = yf.mul(
+            self.breakageNodal["l"],
+            aB[1] - 3.0 * aB[3] * yf.mul(self.xi["l"], self.xi["l"]),
+        ) - self.gammaR * yf.mul(self.intact["l"], self.alphaNodal["l"])
+        root = yf.sqrt(
+            yf.maximum(2.0 * (3.0 - yf.mul(self.xi["l"], self.xi["l"])), 0.0)
+        )
+        lower = (1.0 / 3.0) * (self.xi["l"] - root)
+        upper = (1.0 / 3.0) * (self.xi["l"] + root)
+        # 1 / xi without a division by zero: a ratio this small has its vertex
+        # far outside the interval, and the clamp puts it on an end either way
+        vertex = yf.minimum(
+            yf.maximum(
+                yf.div(
+                    self.xi["l"],
+                    yf.maximum(yf.mul(self.xi["l"], self.xi["l"]), self.floor),
+                ),
+                lower,
+            ),
+            upper,
+        )
+
+        def directional(a):
+            return yf.mul(mixed, 2.0 * a - yf.mul(self.xi["l"], yf.mul(a, a)))
+
+        excess = yf.maximum(
+            yf.maximum(directional(lower), directional(upper)), directional(vertex)
+        )
+
         # Floored, because a face takes a root of these. The effective shear
         # modulus is affine in the damage and falls through zero at the point
         # where the solid branch stops describing anything -- and the shear
@@ -488,7 +537,11 @@ class DamageADERDG(NonLinearCK):
         # cell that has left the model from taking the run with it, and the
         # state that got there is the thing to look at.
         pSquared = yf.maximum(
-            self.rhoInv * (self.lambdaBlend["l"] + self.twoMuBlend["l"]), 0.0
+            yf.maximum(
+                self.rhoInv * (self.lambdaBlend["l"] + self.twoMuBlend["l"] + excess),
+                self.rhoInv * 0.5 * self.twoMuBlend["l"],
+            ),
+            0.0,
         )
         sSquared = yf.maximum(self.rhoInv * 0.5 * self.twoMuBlend["l"], 0.0)
         return [
