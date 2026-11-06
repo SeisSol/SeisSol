@@ -584,12 +584,10 @@ class DamageADERDG(NonLinearCK):
         #
         # The quadratic is written in moduli relative to mu0, which divides all
         # three coefficients by mu0 squared and leaves the root where it is. In
-        # the moduli themselves the coefficients are some 1e22 and the
-        # discriminant some 1e44, past what single precision holds: the root
-        # came out infinite there, the cap fell back to the modulus ratio, and a
-        # run in single precision grew the damage well past where breakage sets
-        # in -- with a breakage rate ten thousand times too small. Relative to
-        # mu0 the coefficients are of order one in either precision.
+        # the moduli themselves the coefficients would be some 1e22 and the
+        # discriminant some 1e44, past what single precision holds, and the
+        # root would not be finite there. Relative to mu0 the coefficients are
+        # of order one in either precision.
         g, lam = self.gammaRatio[""], self.lambdaRatio[""]
         quadA = (
             3.0 * g * g * yf.mul(xi["l"], xi["l"])
@@ -630,13 +628,13 @@ class DamageADERDG(NonLinearCK):
         # where the variable runs out of room; the critical damage is where the
         # model says the solid branch stops describing anything and the breakage
         # takes over, and it is the smaller of the two -- the three-way minimum
-        # above caps against one itself. Reading one instead let a run drive the
-        # damage past the point where the tangent of its own stress is no longer
+        # above caps against one itself. A guard at one would let the damage
+        # pass the point where the tangent of its own stress is no longer
         # positive, and there the medium carries no waves: a uniform state grows
         # roundoff instead of staying put, at a rate that does not care what the
         # timestep is, because what it has left is well-posedness and not
         # accuracy. Where the critical damage is one -- every scenario with a
-        # mild gammaR -- this is the guard that stood here before, to the digit.
+        # mild gammaR -- the two guards are the same, to the digit.
         #
         # It is the model's own bound rather than a bound on hyperbolicity: the
         # minimum caps against the damage at which the effective shear modulus
@@ -674,8 +672,7 @@ class DamageADERDG(NonLinearCK):
             # and a truth value that is also a factor is a tensor with two
             # datatypes: the host path promotes it and the device path derives
             # one type per occurrence, so the two occurrences disagree and the
-            # generator refuses the kernel. Every reader of it is a condition
-            # now, as the one above already was.
+            # generator refuses the kernel. Every reader of it is a condition.
             self.sourceBreakage[node]["l"]
             <= yf.where(
                 growing["l"],
@@ -861,8 +858,8 @@ class DamageADERDG(NonLinearCK):
         2 aB2 d(x)d, an isotropic pair, and the granular case of the plane wave
         is the statement that those two are Hooke's law.
 
-        Taking the solid branch alone was wrong wherever the breakage is not
-        zero: the recursion then transports at speeds the medium does not have,
+        The solid branch alone would be wrong wherever the breakage is not
+        zero: the recursion would transport at speeds the medium does not have,
         which a uniform state at breakage one shows as a growth of roundoff
         rather than as an error.
 

@@ -726,8 +726,7 @@ class NonLinearCK(ADERDGBase):
         # against the thousands the half itself costs.
         # Temporaries of their own rather than the declared pair: the pair is
         # what a cell stores per face, and the C++ sizes those arrays with it,
-        # so it has to stay a tensor even though no kernel takes it as an
-        # argument any more.
+        # so it is a tensor even though no kernel takes it as an argument.
         self.fluxPlus = Tensor(
             "fluxPlus",
             self.flux_solver_spp().shape,

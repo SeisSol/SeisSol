@@ -253,9 +253,9 @@ SEISSOL_HOSTDEVICE inline void eigenvaluesSymmetric(const real matrix[9], real v
 /// It works on the matrix divided by the mean of its eigenvalues and scales
 /// the result back. The matrix is a density times a modulus, some 1e14 per
 /// eigenvalue, and the invariants of its root reach the product of all three:
-/// 2e42, past what single precision holds. The admittance came out not a
-/// number there, at every node of every face, from the first timestep on.
-/// Divided through, every intermediate is of order one in either precision.
+/// 2e42, past what single precision holds, where the admittance would not be
+/// a number. Divided through, every intermediate is of order one in either
+/// precision.
 SEISSOL_HOSTDEVICE inline void inverseSqrtSymmetric(const real input[9], real result[9]) {
   const auto mean = (input[0] + input[4] + input[8]) / static_cast<real>(3.0);
   real matrix[9];

@@ -17,13 +17,14 @@
 
 namespace seissol::model {
 
-/// Linearization of the flux about the cell's mean state.
+/// The directional flux Jacobian of an isotropic linearization, at the moduli
+/// passed in.
 ///
-/// This is the operator the Cauchy-Kovalevskaya recursion runs on, not the
-/// constitutive law: the law itself is evaluated pointwise by the kernels. The
-/// moduli are therefore the effective ones at the cell mean, passed in, and
-/// the structure is that of an elastic material embedded in eleven quantities
-/// -- the two internal variables carry no flux.
+/// The structure is that of an elastic material embedded in eleven quantities
+/// -- the two internal variables carry no flux. It is neither the constitutive
+/// law, which the kernels evaluate pointwise, nor the operator the
+/// Cauchy-Kovalevskaya recursion transports by, which the damageTransport
+/// kernel assembles once per step from the tangent at the cell mean.
 template <typename T>
 void getTransposedCoefficientMatrix(
     const DamageMaterial& material, unsigned dim, double lambdaEff, double muEff, T& matM) {
@@ -57,11 +58,12 @@ void getTransposedCoefficientMatrix(
 
 /// What the generic setup asks of this material.
 ///
-/// The linearization the recursion runs on is the undamaged one: the star
-/// matrices are built once per cell, and a linearization that followed the
-/// damage would have to be rebuilt every step. What follows the damage is the
-/// constitutive law the kernels evaluate pointwise, and the flux the faces are
-/// scaled with -- not this operator.
+/// The coefficient matrix it hands out is that of the undamaged medium: what
+/// is formed from it once, at setup -- the plane wave of an initial condition,
+/// say -- sees the material before any damage. What follows the damage is
+/// formed per step: the operator the recursion transports by, from the tangent
+/// at the cell mean and the Jacobian rows fillStarMatrices keeps, the
+/// constitutive law at the points, and the bounds the faces are scaled with.
 template <>
 struct MaterialSetup<DamageMaterial> : public MaterialSetupDefaults<DamageMaterial> {
   template <typename T>

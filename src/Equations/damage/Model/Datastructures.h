@@ -76,8 +76,8 @@ struct DamageMaterial : public Material {
   // its own, so a neighbour on a coarser cluster reconstructs a subinterval of
   // the stress from that -- rather than rebuilding the stress out of this
   // cell's material, which is a question this cell answers and not its
-  // neighbour. Whether the two agree to the scheme's order is what a run
-  // against global time stepping says, and that has not been run.
+  // neighbour. How closely that agrees with global time stepping is what the
+  // documentation of the damaged material reports.
   static constexpr bool SupportsLTS = true;
   static constexpr bool SupportsEnergy = true;
 
@@ -146,9 +146,9 @@ struct DamageMaterial : public Material {
   ///
   /// whose last two groups no pair of Lame parameters can express. In a
   /// direction e the acoustic tensor is m Id + S, with m = mu0 - g xi0 -
-  /// g xi / 2 and S supported on the plane spanned by e and n.e. Its largest
-  /// eigenvalue is maximal where n.e is parallel to e, and there, with
-  /// a = e.n.e,
+  /// g xi / 2 and S supported on the plane spanned by e and n.e. Over the
+  /// strain directions of one ratio, its largest eigenvalue is largest where
+  /// n.e is parallel to e, and there, with a = e.n.e,
   ///
   ///   rho c^2 = lambda0 + 2 mu0 + g (xi (a^2 - 1) - 2 a - 2 xi0).
   ///
@@ -156,8 +156,8 @@ struct DamageMaterial : public Material {
   /// a - sqrt(2 (1 - a^2)); that floor reaches the range limit -sqrt(3) at
   /// a = -1 / sqrt(3), and only there. The excess over the undamaged
   /// stiffness is therefore 4 / sqrt(3) - 2 xi0 per unit of gammaR, all of it
-  /// carried at alpha = 1, and negative xi0 is the case where damage only
-  /// softens and the undamaged speed already bounds everything.
+  /// carried at alpha = 1; only from xi0 = 2 / sqrt(3) on does the undamaged
+  /// speed bound everything.
   ///
   /// The size of the strain drops out: the tangent depends on its direction
   /// alone, so this is a constant of the material rather than something a
@@ -225,8 +225,8 @@ struct DamageMaterial : public Material {
     const double damage = std::max(gammaR * (TangentExcess - 2.0 * xi0), 0.0);
     const double solid = lambda0 + 2.0 * mu0 + damage;
     // The stress is a convex blend of the two branches, so the acoustic tensor
-    // is, and so the larger of the two bounds is one for the blend. Taking the
-    // solid branch alone was a bound only for a medium that never breaks.
+    // is, and so the larger of the two bounds is one for the blend. The solid
+    // branch alone would be a bound only for a medium that never breaks.
     return std::sqrt(std::max(solid, granularStiffness()) / rho);
   }
 
