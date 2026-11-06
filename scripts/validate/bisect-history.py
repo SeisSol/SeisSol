@@ -853,9 +853,16 @@ def main(argv: list[str] | None = None) -> int:
 
     repeat = None
     if args.repeat and campaign.evaluate(commits[0]):
-        # a second run of a build of the first commit, beside the first run
-        executable = campaign.build(commits[0])
-        if executable and campaign.run(commits[0], executable, "-repeat"):
+        # a second run of a build of the first commit, beside the first run; like the
+        # first run, it is kept for a later call
+        record = campaign.state[commits[0].sha]
+        if "repeated" not in record:
+            executable = campaign.build(commits[0])
+            record["repeated"] = bool(
+                executable and campaign.run(commits[0], executable, "-repeat")
+            )
+            campaign.save()
+        if record["repeated"]:
             again = history.load_run(
                 {"id": "repeat", "output": campaign.output(commits[0], "-repeat")},
                 axes,

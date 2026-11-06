@@ -267,6 +267,7 @@ def test_end_to_end(tmp_path):
             "--jobs",
             "1",
             "--no-history",
+            "--repeat",
         ]
     )
     assert code == 0
@@ -289,6 +290,11 @@ def test_end_to_end(tmp_path):
     assert "| `" in (work / "changes.md").read_text()
     manifest = json.loads((work / "manifest.json").read_text())
     assert [run["label"] for run in manifest["runs"]][0] == "#100"
+    # the first commit ran twice, alike
+    assert changes["repeat"]["station_nrms"] == 0.0
+    first = commits[0].split()[0][:9]
+    repeat_log = work / "logs" / f"{first}.run-repeat.log"
+    assert repeat_log.read_text().count("$ ") == 1
 
     # a second call resumes: nothing is built or run again
     before = (work / "state.json").read_text()
@@ -308,11 +314,13 @@ def test_end_to_end(tmp_path):
                 "--launcher",
                 "",
                 "--no-history",
+                "--repeat",
             ]
         )
         == 0
     )
     assert (work / "state.json").read_text() == before
+    assert repeat_log.read_text().count("$ ") == 1
 
 
 # a build that fails while broken.txt says so, as an old commit may with today's tools
