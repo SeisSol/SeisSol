@@ -96,6 +96,7 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - With ``SEISSOL_TIMESTEPPING_PLAN=1``: correct and do the face work of the copy layers before those of the
        interior layers, as when predicting, instead of after them (on by default: the copy layers wait for the halo,
        and with MPI on the host, the host waits for it in the order of the plan).
+
 Transfer modes
 ~~~~~~~~~~~~~~
 
