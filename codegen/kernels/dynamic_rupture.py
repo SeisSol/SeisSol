@@ -431,8 +431,12 @@ def addKernels(
     if skipStateShaped:
         # Nothing was generated, so nothing pulls these in by use. The code
         # that reads and writes a fault names them, and it is compiled
-        # whether or not a fault may be built.
+        # whether or not a fault may be built. The two extraction matrices
+        # are named by the test that ties them to the impedance layout, which
+        # is compiled in every build as well.
         declared |= {
+            extractTractions,
+            extractVelocities,
             QInterpolated,
             QInterpolatedPlus,
             QInterpolatedMinus,

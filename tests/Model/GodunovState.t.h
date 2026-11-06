@@ -128,60 +128,71 @@ inline void testNAN(init::QgodNeighbor::view::type& qgodNeighbor) {
   }
 }
 
-TEST_CASE("Godunov state is correct" * doctest::test_suite("model")) {
-  // Tolerance for comparing against the stored reference matrices. This is a property of the
-  // equation set (see SolutionData::MatrixEpsilon): the elastic family assembles its eigenbasis in
-  // closed form and hits machine precision, whereas the poroelastic one goes through a numerical
-  // eigendecomposition and cannot.
-  constexpr double MatrixEpsilon = SolutionData<model::MaterialT>::MatrixEpsilon;
+/**
+ * A template, so that the `if constexpr` below depends on the material: a solver that builds its
+ * faces from a tabulated flux has no Godunov state to check, and no reference data for one either.
+ */
+template <typename MaterialT>
+void checkGodunovState() {
+  if constexpr (!MaterialT::Solver::FluxSolverFromTable) {
+    // Tolerance for comparing against the stored reference matrices. This is a property of the
+    // equation set (see SolutionData::MatrixEpsilon): the elastic family assembles its eigenbasis
+    // in closed form and hits machine precision, whereas the poroelastic one goes through a
+    // numerical eigendecomposition and cannot.
+    constexpr double MatrixEpsilon = SolutionData<MaterialT>::MatrixEpsilon;
 
-  // The structural invariants below hold independently of how well conditioned matR is, so they are
-  // checked at machine precision for every equation set.
-  constexpr double StructuralEpsilon = 1e2 * std::numeric_limits<real>::epsilon();
+    // The structural invariants below hold independently of how well conditioned matR is, so they
+    // are checked at machine precision for every equation set.
+    constexpr double StructuralEpsilon = 1e2 * std::numeric_limits<real>::epsilon();
 
-  real localData[tensor::QgodLocal::size()]{};
-  real neighborData[tensor::QgodNeighbor::size()]{};
-  init::QgodLocal::view::type qgodLocal = init::QgodLocal::view::create(localData);
-  init::QgodNeighbor::view::type qgodNeighbor = init::QgodNeighbor::view::create(neighborData);
-  qgodLocal.setZero();
-  qgodNeighbor.setZero();
+    real localData[tensor::QgodLocal::size()]{};
+    real neighborData[tensor::QgodNeighbor::size()]{};
+    init::QgodLocal::view::type qgodLocal = init::QgodLocal::view::create(localData);
+    init::QgodNeighbor::view::type qgodNeighbor = init::QgodNeighbor::view::create(neighborData);
+    qgodLocal.setZero();
+    qgodNeighbor.setZero();
 
-  SUBCASE("Homogenous material") {
-    // material 1 vs 1
-    const model::MaterialT local(SolutionData<model::MaterialT>::MaterialVal1);
-    const model::MaterialT neighbor(SolutionData<model::MaterialT>::MaterialVal1);
+    SUBCASE("Homogenous material") {
+      // material 1 vs 1
+      const MaterialT local(SolutionData<MaterialT>::MaterialVal1);
+      const MaterialT neighbor(SolutionData<MaterialT>::MaterialVal1);
 
-    model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
-    testMatrix(qgodLocal, SolutionData<model::MaterialT>::SolutionHomogeneousLocal, MatrixEpsilon);
-    testMatrix(
-        qgodNeighbor, SolutionData<model::MaterialT>::SolutionHomogeneousNeighbor, MatrixEpsilon);
-    testConsistency(qgodLocal, qgodNeighbor, StructuralEpsilon);
-    testProjector(qgodNeighbor, StructuralEpsilon);
+      model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
+      testMatrix(qgodLocal, SolutionData<MaterialT>::SolutionHomogeneousLocal, MatrixEpsilon);
+      testMatrix(qgodNeighbor, SolutionData<MaterialT>::SolutionHomogeneousNeighbor, MatrixEpsilon);
+      testConsistency(qgodLocal, qgodNeighbor, StructuralEpsilon);
+      testProjector(qgodNeighbor, StructuralEpsilon);
+    }
+
+    SUBCASE("Free surface material") {
+      // material 1 vs 1
+      const MaterialT local(SolutionData<MaterialT>::MaterialVal1);
+      const MaterialT neighbor(SolutionData<MaterialT>::MaterialVal1);
+
+      model::getTransposedGodunovState(
+          local, neighbor, FaceType::FreeSurface, qgodLocal, qgodNeighbor);
+      testMatrix(qgodLocal, SolutionData<MaterialT>::SolutionBoundary, MatrixEpsilon);
+      testNAN(qgodNeighbor);
+    }
+
+    SUBCASE("Heterogenous material") {
+      // material 1 vs 2
+      const MaterialT local(SolutionData<MaterialT>::MaterialVal1);
+      const MaterialT neighbor(SolutionData<MaterialT>::MaterialVal2);
+
+      model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
+      testMatrix(qgodLocal, SolutionData<MaterialT>::SolutionHeterogeneousLocal, MatrixEpsilon);
+      testMatrix(
+          qgodNeighbor, SolutionData<MaterialT>::SolutionHeterogeneousNeighbor, MatrixEpsilon);
+      testConsistency(qgodLocal, qgodNeighbor, StructuralEpsilon);
+      testProjector(qgodNeighbor, StructuralEpsilon);
+    }
   }
+}
 
-  SUBCASE("Free surface material") {
-    // material 1 vs 1
-    const model::MaterialT local(SolutionData<model::MaterialT>::MaterialVal1);
-    const model::MaterialT neighbor(SolutionData<model::MaterialT>::MaterialVal1);
-
-    model::getTransposedGodunovState(
-        local, neighbor, FaceType::FreeSurface, qgodLocal, qgodNeighbor);
-    testMatrix(qgodLocal, SolutionData<model::MaterialT>::SolutionBoundary, MatrixEpsilon);
-    testNAN(qgodNeighbor);
-  }
-
-  SUBCASE("Heterogenous material") {
-    // material 1 vs 2
-    const model::MaterialT local(SolutionData<model::MaterialT>::MaterialVal1);
-    const model::MaterialT neighbor(SolutionData<model::MaterialT>::MaterialVal2);
-
-    model::getTransposedGodunovState(local, neighbor, FaceType::Regular, qgodLocal, qgodNeighbor);
-    testMatrix(
-        qgodLocal, SolutionData<model::MaterialT>::SolutionHeterogeneousLocal, MatrixEpsilon);
-    testMatrix(
-        qgodNeighbor, SolutionData<model::MaterialT>::SolutionHeterogeneousNeighbor, MatrixEpsilon);
-    testConsistency(qgodLocal, qgodNeighbor, StructuralEpsilon);
-    testProjector(qgodNeighbor, StructuralEpsilon);
-  }
+TEST_CASE("Godunov state is correct" *
+          doctest::skip(model::MaterialT::Solver::FluxSolverFromTable) *
+          doctest::test_suite("model")) {
+  checkGodunovState<model::MaterialT>();
 }
 } // namespace seissol::unit_test

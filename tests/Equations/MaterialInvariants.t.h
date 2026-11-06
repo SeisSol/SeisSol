@@ -15,6 +15,31 @@ namespace seissol::unit_test {
 
 namespace materialinvariants {
 
+/// The quantities the primary groups hold past the elastic ones: internal
+/// variables, which the cell evolves on its own and no face couples.
+template <typename MaterialT>
+constexpr std::size_t internalVariables() {
+  static_assert(model::totalExtent(MaterialT::PrimaryGroups) >= MaterialT::NumElasticQuantities,
+                "the primary groups have to hold the elastic quantities");
+  return model::totalExtent(MaterialT::PrimaryGroups) - MaterialT::NumElasticQuantities;
+}
+
+/// Whether every primary group past the elastic quantities stays out of the
+/// faces, and none of them straddles the end of the elastic quantities.
+template <typename MaterialT>
+constexpr bool internalVariablesStayInside() {
+  std::size_t offset = 0;
+  for (const auto& group : MaterialT::PrimaryGroups) {
+    const bool internal = offset >= MaterialT::NumElasticQuantities;
+    const bool straddles = !internal && offset + group.extent() > MaterialT::NumElasticQuantities;
+    if (straddles || (internal && group.role != model::FaceRole::None)) {
+      return false;
+    }
+    offset += group.extent();
+  }
+  return true;
+}
+
 /// The mechanism-dependent assertions live in a template so that `if
 /// constexpr` actually discards the branch that does not apply; in a plain
 /// function both branches are still evaluated and every static_assert fires.
@@ -26,11 +51,13 @@ void checkRelaxation() {
     static_assert(MaterialT::NumberPerMechanism > 0,
                   "a mechanism that occupies nothing cannot carry a memory variable");
     static_assert(MaterialT::NumQuantities ==
-                      MaterialT::NumElasticQuantities +
+                      MaterialT::NumElasticQuantities + internalVariables<MaterialT>() +
                           MaterialT::Mechanisms * MaterialT::NumberPerMechanism,
                   "the quantity count has to account for every mechanism");
   } else {
-    static_assert(MaterialT::NumQuantities == MaterialT::NumElasticQuantities);
+    static_assert(MaterialT::NumQuantities ==
+                      MaterialT::NumElasticQuantities + internalVariables<MaterialT>(),
+                  "the quantity count has to account for every internal variable");
   }
 }
 
@@ -83,6 +110,12 @@ TEST_CASE("Configured material is self consistent" * doctest::test_suite("equati
   }
 
   SUBCASE("relaxation is configured consistently") { checkRelaxation<MaterialT>(); }
+
+  SUBCASE("the internal variables stay out of the faces") {
+    // The damage and the breakage of a damaged material are two of them.
+    static_assert(internalVariablesStayInside<MaterialT>(),
+                  "a quantity past the elastic ones cannot take part in the face coupling");
+  }
 
   SUBCASE("the stiff source rows are inside the material") {
     static_assert(MaterialT::StiffSourceRows.size() == generated::StiffSourceRowCount,

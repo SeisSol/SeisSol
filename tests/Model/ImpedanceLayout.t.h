@@ -10,6 +10,7 @@
 
 #include <doctest.h>
 
+#include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Impedance.h" // IWYU pragma: keep
 #include "Equations/ImpedanceBase.h"
@@ -27,10 +28,13 @@ namespace seissol::unit_test {
  * traction averaging matrices tie to TractionIndices). If they disagreed, the averaging matrices
  * and the Riemann solver would not agree on which quantities are tractions; in a release build
  * nothing else would notice.
+ *
+ * Where the impedance belongs to the node, the material has no ImpedanceCompute: the friction solve
+ * forms the matrices from the state of the node, and no averaging matrix is filled from a layout.
  */
 template <typename MaterialT>
 void checkInterfaceQuantities() {
-  if constexpr (MaterialT::SupportsDR) {
+  if constexpr (MaterialT::SupportsDR && !seissol::dr::NodalImpedance) {
     using ImpedanceCompute = seissol::model::ImpedanceCompute<MaterialT>;
 
     const auto check = [](const auto* values,
@@ -70,6 +74,7 @@ void checkInterfaceQuantities() {
 }
 
 TEST_CASE("Interface quantities of the impedance match the generated extraction matrices" *
+          doctest::skip(!model::MaterialT::SupportsDR || seissol::dr::NodalImpedance) *
           doctest::test_suite("dynamicrupture")) {
   checkInterfaceQuantities<model::MaterialT>();
 }
