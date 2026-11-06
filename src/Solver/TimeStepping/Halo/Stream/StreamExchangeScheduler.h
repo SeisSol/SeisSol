@@ -49,7 +49,7 @@ class StreamExchangeScheduler : public ExchangeScheduler {
   public:
   /// with `lanes` lanes in the global order (see above), one by default; `libraryStreams`: the
   /// library needs streams of the device (CCL, stream-aware MPI, SHMEM), which then stay streams of
-  /// HIP with own queues as well (see parallel::runtime::NoOwnQueue); `lanesByPair`: all groups
+  /// HIP with HSA queues as well (see parallel::runtime::NoHsaQueue); `lanesByPair`: all groups
   /// between two clusters on one lane (see above)
   StreamExchangeScheduler(std::size_t clusterCount,
                           LaunchOrder order,

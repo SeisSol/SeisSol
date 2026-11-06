@@ -301,7 +301,7 @@ void ActorMpiExchangeScheduler::prepare() {
   engineControlOnDevice_ = static_cast<std::uint32_t*>(api.devicePointer(engineControl_));
   // on a hardware queue of its own, which it occupies while it runs
   engineRuntime_ =
-      std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0, parallel::runtime::EngineOwnQueue);
+      std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0, parallel::runtime::EngineHsaQueue);
 }
 
 void ActorMpiExchangeScheduler::startEngine() {

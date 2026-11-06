@@ -97,30 +97,30 @@ StreamExchangeScheduler::StreamExchangeScheduler(std::size_t clusterCount,
     logError() << "Lanes of the halo exchange need the global order.";
   }
   runtimes_.resize(slotCount());
-  // With own queues, the exchange runs on queues of its own, after those of the clusters (with
+  // With HSA queues, the exchange runs on queues of its own, after those of the clusters (with
   // actor-mpi, which hands its streams to no library): each lane (or direction) on one, up to
-  // MaxOwnQueues, and the join of the lanes on one more. A stream that waits on a queue that others
+  // MaxHsaQueues, and the join of the lanes on one more. A stream that waits on a queue that others
   // share holds them up as well, and the join waits for all lanes. A library that needs streams of
-  // the device (e.g. CCL) gets streams of HIP instead, which wait for the own streams of the
+  // the device (e.g. CCL) gets streams of HIP instead, which wait for the HSA streams of the
   // clusters on the device, and they for them.
-  constexpr std::size_t MaxOwnQueues = 8;
-  const int firstOwnQueue = parallel::runtime::ownQueueCount() + 1;
+  constexpr std::size_t MaxHsaQueues = 8;
+  const int firstHsaQueue = parallel::runtime::hsaQueueCount() + 1;
   std::size_t index = 0;
   for (const auto current : usedSlots()) {
-    const int ownQueue = libraryStreams ? parallel::runtime::NoOwnQueue
-                                        : firstOwnQueue + static_cast<int>(index % MaxOwnQueues);
+    const int hsaQueue = libraryStreams ? parallel::runtime::NoHsaQueue
+                                        : firstHsaQueue + static_cast<int>(index % MaxHsaQueues);
     ++index;
     // lanes on hardware queues of their own (HIP has a pool of them for each priority)
     runtimes_[current] =
-        lanes_ > 1 ? std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0, ownQueue)
-                   : std::make_unique<parallel::runtime::StreamRuntime>(0, std::nullopt, ownQueue);
+        lanes_ > 1 ? std::make_unique<parallel::runtime::StreamRuntime>(0, 1.0, hsaQueue)
+                   : std::make_unique<parallel::runtime::StreamRuntime>(0, std::nullopt, hsaQueue);
   }
   if (lanes_ > 1) {
     join_ = std::make_unique<parallel::runtime::StreamRuntime>(
         0,
         1.0,
-        libraryStreams ? parallel::runtime::NoOwnQueue
-                       : firstOwnQueue + static_cast<int>(std::min(index, MaxOwnQueues)));
+        libraryStreams ? parallel::runtime::NoHsaQueue
+                       : firstHsaQueue + static_cast<int>(std::min(index, MaxHsaQueues)));
   }
 }
 

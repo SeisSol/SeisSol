@@ -124,33 +124,33 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
    * - ``SEISSOL_ACTOR_MPI_STAGING=0``
      - Experimental. For ``actor-mpi``: MPI sends and receives the regions in GPU memory, instead of host buffers;
        only for MPI libraries whose GPU path does not need the GPU runtime (e.g. HPE Cray MPICH; Open MPI with CUDA hangs).
-   * - ``SEISSOL_OWN_QUEUES``
-     - Experimental, HIP only, not with ``stream-mpi``. The clusters run their GPU work on
-       this many hardware queues of their own (0 by default: none), outside of HIP; all other stream runtimes share one
+   * - ``SEISSOL_HSA_QUEUES``
+     - Experimental, HIP only, not with ``stream-mpi``. The clusters run their GPU work on this many HSA queues,
+       hardware queues outside of HIP (0 by default: none); all other stream runtimes share one
        more, and the halo exchange of ``actor-mpi`` gets one of its own (with ``actor-mpi``, an odd number gets rounded
        up; ``ccl`` and ``shmem`` keep streams of HIP; see below).
-   * - ``SEISSOL_OWN_QUEUES_FACES``
-     - Experimental. With ``SEISSOL_OWN_QUEUES``: the face work (dynamic rupture) of the layers on this many own queues
+   * - ``SEISSOL_HSA_QUEUES_FACES``
+     - Experimental. With ``SEISSOL_HSA_QUEUES``: the face work (dynamic rupture) of the layers on this many HSA queues
        of its own, next to the work of the cells, instead of on the queues of their cells (0 by default; see below).
-   * - ``SEISSOL_OWN_QUEUE_BRANCHES``
-     - Experimental. With ``SEISSOL_OWN_QUEUES``: the independent branches of the work of an action (e.g. the face
-       relations of the neighboring integration) on this many own queues of their own, shared by all stream runtimes,
+   * - ``SEISSOL_HSA_QUEUE_BRANCHES``
+     - Experimental. With ``SEISSOL_HSA_QUEUES``: the independent branches of the work of an action (e.g. the face
+       relations of the neighboring integration) on this many HSA queues of their own, shared by all stream runtimes,
        without graphs of single actions (0 by default). A queue of the MI250X runs its kernels one after the other,
        also without barriers in between.
    * - ``SEISSOL_PLAN_INTERIOR_FIRST=0``
      - With ``SEISSOL_TIMESTEPPING_PLAN=1``: correct and do the face work of the copy layers before those of the
        interior layers, as when predicting, instead of after them (on by default: the copy layers wait for the halo,
        and with MPI on the host, the host waits for it in the order of the plan).
-   * - ``SEISSOL_OWN_QUEUE_PRIORITIES``
-     - Experimental. With ``SEISSOL_OWN_QUEUES``: ``copy`` gives the queues of the copy layers a high priority and those
+   * - ``SEISSOL_HSA_QUEUE_PRIORITIES``
+     - Experimental. With ``SEISSOL_HSA_QUEUES``: ``copy`` gives the queues of the copy layers a high priority and those
        of the interior layers a low one (with an even number of queues), ``faces`` the queues of the face work a high
        one; both together as ``copy,faces``.
    * - ``SEISSOL_STREAM_PRIORITIES=copy``
-     - Experimental. Without own queues: the streams of the copy layers (cells and faces) get the highest priority of
+     - Experimental. Without HSA queues: the streams of the copy layers (cells and faces) get the highest priority of
        the device and those of the interior layers the lowest, so that with ``SEISSOL_CONCURRENT_CLUSTERS=1`` the work
        whose results the neighbors wait for goes first.
-   * - ``SEISSOL_OWN_QUEUE_LAYOUT=halo``
-     - With ``SEISSOL_OWN_QUEUES`` of 2 or more: all copy layers on one queue of a high priority, all interior layers on
+   * - ``SEISSOL_HSA_QUEUE_LAYOUT=halo``
+     - With ``SEISSOL_HSA_QUEUES`` of 2 or more: all copy layers on one queue of a high priority, all interior layers on
        one of a low priority, instead of the copy and interior layer of each time cluster on queues of their own
        (``layers``, the default) as far as there are enough.
    * - ``SEISSOL_ACTOR_MPI_ENGINE=1``
@@ -306,7 +306,7 @@ for the clear to send of exchange ``c - 2``, which the receiver has given long b
 the handshake is off the path of the data, where with one window every exchange waits for a clear to send of its own.
 On one node with four MI300A (TheRock 23.2.1 and its ROCSHMEM and Open MPI, October 2026), TPV13 and TPV5 took
 3.2 and 2.2 s with the time stepping plan and HIP with two hardware queues (3.5 and 2.5 s with a kernel for each
-operation), and 3.2 and 2.0 s with eight own queues (3.3 and 2.3 s); the outputs are bitwise the same.
+operation), and 3.2 and 2.0 s with eight HSA queues (3.3 and 2.3 s); the outputs are bitwise the same.
 With the two copies of the staging window (November 2026), they took 3.2 to 3.3 and 2.1 s there (3.7 and 2.4 to 2.6 s
 with a kernel for each operation), bitwise the same as with ``host``; with NVSHMEM on two nodes of Horizon, TPV5 took
 0.35 s, and 0.40 s with a kernel for each operation.
@@ -349,8 +349,8 @@ host with the plan and concurrent clusters got slower (24.3 and 26.7 s). So with
 ``stream-mpi``, ``shmem`` or ``actor-mpi``, SeisSol sets ``CUDA_DEVICE_MAX_CONNECTIONS=32``, unless it is set already;
 the log says how many queues CUDA has.
 
-Queues of their own (HIP)
-~~~~~~~~~~~~~~~~~~~~~~~~~
+HSA queues (HIP)
+~~~~~~~~~~~~~~~~
 
 HIP (its runtime CLR) puts all streams onto a few hardware queues that they share in turn, ``GPU_MAX_HW_QUEUES``
 for each priority (4 by default), and creates one more stream for each branch of each graph. A stream that waits
@@ -361,38 +361,41 @@ priority, runs hung (the queues that waited kept those they waited for from gett
 instantiating the graphs ran out of memory. On two nodes of LUMI, two queues per priority were the fastest (TPV5 3.1 to
 3.3 s, TPV13 4.9 to 5.2 s, against 3.6 to 3.9 s and 5.5 to 5.9 s with four).
 
-With ``SEISSOL_OWN_QUEUES``, the Device library runs the streams of SeisSol on HSA queues of its own instead
-(``device::AbstractAPI::enableOwnQueues()``): the clusters on the given number of queues, all other stream runtimes on
+With ``SEISSOL_HSA_QUEUES``, the Device library runs the streams of SeisSol on HSA queues of its own instead
+(``device::AbstractAPI::enableHsaQueues()``): the clusters on the given number of queues, all other stream runtimes on
 one more, and the halo exchange of ``actor-mpi`` on one of its own; SeisSol leaves HIP one hardware queue per priority
 (``GPU_MAX_HW_QUEUES=1``, unless set). The library writes the packets of the queues itself: SeisSol defines
-``hipLaunchKernel`` (``device-own-queue-hook``), which hands the kernels launched on such a stream to the library; it
+``hipLaunchKernel`` (``device-hsa-queue-hook``), which hands the kernels launched on such a stream to the library; it
 takes the kernel object from the loader and the layout of the arguments from the metadata of the code object. A graph
 gets translated into packets when it gets launched on such a stream first, with its temporary allocations moved to
 memory of the queue. Events are the marks of a queue (a packet that waits for all work before it, and counts a signal
 down); a queue waits for a mark of another one with a packet that the command processor checks (on gfx90a and the
 MI300; the RDNA GPUs reject such packets, there a kernel waits). The counters of ``actor-mpi`` are signals, which the
 command processor waits for in the same way. A launch then takes 0.7 µs on the host, a wait for another queue about
-5 µs, a graph of five small kernels 8 µs (HIP: 91 µs). Events time only on request (``DEVICE_OWN_QUEUE_TIMING=1``,
+5 µs, a graph of five small kernels 8 µs (HIP: 91 µs). Events time only on request (``DEVICE_HSA_QUEUE_TIMING=1``,
 by a kernel for each event with timing), and host functions run on a thread of the library while their queue waits.
 The host never waits to enqueue: packets that find their queue full wait in host memory, until the thread of the
 library writes them; with ``actor-mpi``, the queues wait for work that the host enqueues only later.
 
+Before, these variables were called ``SEISSOL_OWN_QUEUES``, ``SEISSOL_OWN_QUEUE_*`` and ``DEVICE_OWN_QUEUE_*``; the
+old names still work, with a warning.
+
 ``ccl`` and ``shmem`` hand their streams to libraries (RCCL, and the kernels of ROCSHMEM), which need streams of HIP:
-their exchange runs on such streams, which wait for the own queues on the device and they for them. A stream of HIP
+their exchange runs on such streams, which wait for the HSA queues on the device and they for them. A stream of HIP
 waits for a mark by a kernel of the Device library that polls the signal of the marks (CLR cannot wait for a signal of
 another runtime); after each event recorded on a stream of HIP, a kernel of the library sets a counter of that stream,
-which the own queues wait for by a packet, as for the counters of ``actor-mpi``
-(``DEVICE_OWN_QUEUE_HIP_WAITS=host`` waits on the host instead). On one node with four MI300A (TheRock 23.2.1,
-October 2026), TPV13 and TPV5 took 3.3 and 2.1 s with eight own queues and ``ccl`` (HIP with two hardware queues:
+which the HSA queues wait for by a packet, as for the counters of ``actor-mpi``
+(``DEVICE_HSA_QUEUE_HIP_WAITS=host`` waits on the host instead). On one node with four MI300A (TheRock 23.2.1,
+October 2026), TPV13 and TPV5 took 3.3 and 2.1 s with eight HSA queues and ``ccl`` (HIP with two hardware queues:
 3.5 and 2.6 s); with the waits on the host, TPV5 took 1.9 s: all exchanges go through one stream in the global order
 there, which the kernels of the waits lengthen, and the host has time to spare. ``host`` was the fastest there (3.0
 and 1.8 s), as the GPU-aware MPI could not use IPC with TheRock.
 
 On the MI250X and the MI300, the kernel arguments go into device memory that the host writes
-(``DEVICE_OWN_QUEUE_KERNARGS=host`` keeps them in host memory, as on the other GPUs): on one node with four MI300A, TPV5
-and TPV13 took 1.66 and 2.51 s instead of 1.82 and 2.79 s with eight own queues and ``host``, TPV5 on one MI300A 1.28 s
+(``DEVICE_HSA_QUEUE_KERNARGS=host`` keeps them in host memory, as on the other GPUs): on one node with four MI300A, TPV5
+and TPV13 took 1.66 and 2.51 s instead of 1.82 and 2.79 s with eight HSA queues and ``host``, TPV5 on one MI300A 1.28 s
 instead of 1.42 s, and 1.44 s instead of 1.83 s with recorded super-timesteps, whose kernels read the same arguments
-again in every replay. On two nodes of LUMI (four own queues, the same partition each time), TPV13 took 2.84–2.86 s
+again in every replay. On two nodes of LUMI (four HSA queues, the same partition each time), TPV13 took 2.84–2.86 s
 instead of 2.89–3.00 s, and TPV5 the same.
 
 The fences decide the speed. An acquire of the system in a packet (as HIP has it for its waits) drops the whole L2
@@ -402,7 +405,7 @@ work has to see what the host or MPI wrote into host memory (after a wait for a 
 copies from host memory), a kernel of the library fences in the shader instead, which drops only the lines that may be
 stale (``buffer_invl2``; the hardware keeps those of device memory coherent): 1.1 times as long next to a queue of
 those. The marks keep writing back the L2 cache for the system, since MPI reads the device memory past it: with marks
-of the device only (``DEVICE_OWN_QUEUE_MARK_SCOPE=agent``), ``direct`` sent stale data.
+of the device only (``DEVICE_HSA_QUEUE_MARK_SCOPE=agent``), ``direct`` sent stale data.
 
 On two nodes of LUMI (MI250X, ROCm 6.3, October 2026; compute time of two to four runs; the outputs of TPV13 bitwise
 the same as with HIP and ``direct``, also with ``actor-mpi`` and with two and four queues), with the time-stepping plan,
@@ -418,37 +421,37 @@ concurrent clusters and the host actor (``SEISSOL_HOST_ACTOR=1``):
    * - ``direct``, HIP with ``GPU_MAX_HW_QUEUES=2``
      - 3.2 to 3.4 s
      - 4.8 to 4.9 s
-   * - ``direct``, one own queue for the clusters
+   * - ``direct``, one HSA queue for the clusters
      - 2.9 to 3.1 s
      - 4.5 s
-   * - ``direct``, two own queues
+   * - ``direct``, two HSA queues
      - 2.2 to 2.3 s
      - 3.2 to 3.3 s
-   * - ``direct``, four own queues
+   * - ``direct``, four HSA queues
      - 2.7 s
      - 3.9 s
-   * - ``direct``, eight own queues
+   * - ``direct``, eight HSA queues
      - 2.9 s
      - 4.4 to 4.5 s
    * - ``actor-mpi``, HIP with ``GPU_MAX_HW_QUEUES=2`` (without the host actor)
      - 3.9 s
      - 10.6 s
-   * - ``actor-mpi``, two own queues
+   * - ``actor-mpi``, two HSA queues
      - 2.2 to 2.3 s
      - 3.3 s
-   * - ``actor-mpi``, two own queues, fences of packets for the host (``DEVICE_OWN_QUEUE_HOST_ACQUIRE=packet``)
+   * - ``actor-mpi``, two HSA queues, fences of packets for the host (``DEVICE_HSA_QUEUE_HOST_ACQUIRE=packet``)
      - 2.9 s
      - 4.5 s
-   * - ``actor-mpi``, two own queues, also waits for other queues of the system (``DEVICE_OWN_QUEUE_WAIT_SCOPE=system``)
+   * - ``actor-mpi``, two HSA queues, also waits for other queues of the system (``DEVICE_HSA_QUEUE_WAIT_SCOPE=system``)
      - 3.6 to 3.7 s
      - 5.6 to 5.9 s
 
-With fences of the system for all waits, more own queues made it slower, as with HIP, and one was the fastest (TPV13:
+With fences of the system for all waits, more HSA queues made it slower, as with HIP, and one was the fastest (TPV13:
 4.8 s, against 5.6 s with two and 7.1 s with eight). With fences of the device, two queues were the fastest, which keep
 the copy layers apart from the interior layers (as the ``halo`` layout does, which was as fast with ``actor-mpi``); the
 device computed 57 to 59 % of the time for TPV13 and 83 to 84 % for TPV5 then (HIP: 51 % and 73 %; the rank with the
 least work 25 % and 29 %). With the waits for what the work depends on (``SEISSOL_ACCESS_EVENTS``, see above), more
-queues pay off: TPV13 took 2.7 to 2.9 s on two own queues, 2.4 to 2.5 s on four and 2.4 s on eight (without: 3.9 s on
+queues pay off: TPV13 took 2.7 to 2.9 s on two HSA queues, 2.4 to 2.5 s on four and 2.4 s on eight (without: 3.9 s on
 four), TPV5 1.8 to 1.9 s, 1.6 s and 1.5 to 1.6 s; ``actor-mpi`` on four 2.8 to 3.0 s and 1.6 s (three runs each, the
 outputs bitwise the same; with HIP and ``GPU_MAX_HW_QUEUES=2``, they made it 1 to 3 % slower). A trace of the kernels
 (``SEISSOL_TRACE_KERNELS``, see :ref:`trace`) showed why: on the ranks with the most work, the queue of the copy layers
@@ -458,7 +461,7 @@ idle. On a fixed partition (``SEISSOL_MINISEISSOL=0``: MiniSeisSol weights the p
 which changes it from run to run), the face work on queues of its own made TPV13 slower, 3.3 s with two of them and 3.0 s
 with eight, against 2.5 s on four queues for all (TPV5: 2.1 and 1.9 s against 1.6 s), although none of its loops took
 longer: the ranks waited longer for the halo of their neighbors. High priorities for the copy layers or the face work
-made no difference, and neither did compute units of their own for the face work (``DEVICE_OWN_QUEUE_CU_MASKS``, e.g.
+made no difference, and neither did compute units of their own for the face work (``DEVICE_HSA_QUEUE_CU_MASKS``, e.g.
 ``-10:0-23;1:24-109`` for queue numbers and ranges of compute units).
 
 Queues hold each other up when they share a pipe of the command processor. On the MI250X, the hardware scheduler gives
@@ -468,41 +471,41 @@ completes only after it, and a queue that waits in a packet (for another queue, 
 on its pipe for about 40 µs at a time (in a test, a queue of short kernels next to four waiting queues lost 40 µs at
 every second kernel, next to sixteen at each; kernels that wait instead made it worse, four of them starved a fifth
 queue). In SeisSol, the queues of the copy and of the interior layer of different clusters shared pipes: a quarter of
-the kernels of the face relations of the copy layers took 50 µs instead of 9. So the library spreads the own queues
-over the pipes (``DEVICE_OWN_QUEUE_PIPES=spread``, the default on gfx90a): it finds the pipes with an idle queue on
-each, and creates queues until one is on a pipe with the fewest busy own queues; the others stay unused, since the
+the kernels of the face relations of the copy layers took 50 µs instead of 9. So the library spreads the HSA queues
+over the pipes (``DEVICE_HSA_QUEUE_PIPES=spread``, the default on gfx90a): it finds the pipes with an idle queue on
+each, and creates queues until one is on a pipe with the fewest busy HSA queues; the others stay unused, since the
 queues after them would move otherwise. SeisSol declares the queue of the other stream runtimes and that of the
-timeline light (``DEVICE_OWN_QUEUE_LIGHT``, queue numbers), which may share a pipe with a busy one;
-``DEVICE_OWN_QUEUE_PIPES=check`` only logs the pipes (with ``DEVICE_OWN_QUEUE_VERBOSE=1`` too), ``any`` takes the queues
-as they come. On a fixed partition, TPV13 then took 1.9 to 2.0 s on four own queues (2.4 s before), 1.9 s on six and on
+timeline light (``DEVICE_HSA_QUEUE_LIGHT``, queue numbers), which may share a pipe with a busy one;
+``DEVICE_HSA_QUEUE_PIPES=check`` only logs the pipes (with ``DEVICE_HSA_QUEUE_VERBOSE=1`` too), ``any`` takes the queues
+as they come. On a fixed partition, TPV13 then took 1.9 to 2.0 s on four HSA queues (2.4 s before), 1.9 s on six and on
 eight, 2.2 s on three; TPV5 1.4 s (1.6 s), 1.3 to 1.4 s and 1.6 s; the outputs bitwise the same. The queues of HIP and of
 other libraries take pipes as well. Spreading the kernels of a level of a graph over helper queues
-(``DEVICE_OWN_QUEUE_GRAPH_LANES=k``, ``DEVICE_OWN_QUEUE_GRAPH_LANE_MIN``) pays off only with pipes left for them: TPV13
-2.2 s instead of 2.7 s on two own queues, 2.9 s instead of 1.9 s on four. With
-``DEVICE_OWN_QUEUE_GRAPH_BORROW=1``, the lanes go to other own queues on other pipes instead, chosen anew at each
+(``DEVICE_HSA_QUEUE_GRAPH_LANES=k``, ``DEVICE_HSA_QUEUE_GRAPH_LANE_MIN``) pays off only with pipes left for them: TPV13
+2.2 s instead of 2.7 s on two HSA queues, 2.9 s instead of 1.9 s on four. With
+``DEVICE_HSA_QUEUE_GRAPH_BORROW=1``, the lanes go to other HSA queues on other pipes instead, chosen anew at each
 replay among those that are idle, and only while the queue of the graph is idle as well
-(``DEVICE_OWN_QUEUE_GRAPH_BORROW_IDLE=0``: whenever the others are); that made no difference on four queues (TPV13
+(``DEVICE_HSA_QUEUE_GRAPH_BORROW_IDLE=0``: whenever the others are); that made no difference on four queues (TPV13
 1.94 s, TPV5 1.37 s), and without the condition, which couples the queues, it made them slower (2.03 s and 1.42 s):
 which work should run where takes a schedule of the super-steps.
 
 The graphs of the clusters hold most of that latitude: on the rank with the most fault faces of TPV13, the longest path
-of dependencies took 87 of 100 ms of a run (with the kernel trace and ``DEVICE_OWN_QUEUE_DAG_LOG``, see
+of dependencies took 87 of 100 ms of a run (with the kernel trace and ``DEVICE_HSA_QUEUE_DAG_LOG``, see
 :ref:`trace`), and half of it was the interpolation of the dynamic rupture: per step, eight independent kernels of
 about 45 µs, one for each face relation, one after the other on one queue (the four queues computed 58 % of the time).
 A simulation of that log over four queues ended the 100 ms in 92 ms with whole graphs placed where they end first,
 and in 63 ms with the kernels of the levels of the graphs spread, the longest path first. With
-``DEVICE_OWN_QUEUE_SCHEDULE=1``, the graphs spread the kernels of a level over own queues of other pipes where that
+``DEVICE_HSA_QUEUE_SCHEDULE=1``, the graphs spread the kernels of a level over HSA queues of other pipes where that
 ends the level earlier: by the durations each graph measures for its kernels (in a few replays early on, then every
 128th), and by the predicted work of the queues (their work as measured or guessed, and that of the queues they wait
 for), the longest kernel first onto the queue where it ends first, with a fork and a join of
-``DEVICE_OWN_QUEUE_SCHEDULE_FORK_US`` (5 µs) each; a level gets spread only with at least
-``DEVICE_OWN_QUEUE_SCHEDULE_MIN_US`` of work (120 µs), and only onto queues alone on their pipe (but for light
-ones). On four own queues, TPV13 then took 1.57 to 1.66 s instead of 1.91 to 1.94 s, TPV5 1.06 to 1.09 s instead of
+``DEVICE_HSA_QUEUE_SCHEDULE_FORK_US`` (5 µs) each; a level gets spread only with at least
+``DEVICE_HSA_QUEUE_SCHEDULE_MIN_US`` of work (120 µs), and only onto queues alone on their pipe (but for light
+ones). On four HSA queues, TPV13 then took 1.57 to 1.66 s instead of 1.91 to 1.94 s, TPV5 1.06 to 1.09 s instead of
 1.36 to 1.38 s, the outputs bitwise the same; with a weight of 1000 for the fault faces in the partition
 (``discretization.vertexweightdynamicrupture``, 100 by default; without the schedule, 1.69 s), TPV13 took 1.39 to
 1.42 s (TPV5 1.11 s).
 Levels of 60 µs of work and less made it as slow as without (forks, joins, and the queues that wait for each other's
-work), all levels above 80 µs gave about the same; three own queues took 1.94 and 1.36 s, six 1.67 and 1.18 s, eight
+work), all levels above 80 µs gave about the same; three HSA queues took 1.94 and 1.36 s, six 1.67 and 1.18 s, eight
 1.88 and 1.36 s (as without). The exchange queue of ``actor-mpi`` waits
 nearly all the time and takes a pipe of its own: 2.9 s and 1.6 s on four queues. The clustering of the time steps for
 the costs of launches (``LtsClusteringSearch = 'lattice'``, see :ref:`lts_lattice_search`; with the costs of launches and
@@ -510,14 +513,14 @@ fills that had made TPV13 14 % faster before) no longer paid off (2.0 s and 1.5 
 
 With ``actor-mpi``, the copy layers wait for MPI on the GPU; on queues apart from the interior
 layers, these go on meanwhile. On the same queues, TPV13 hung (with one queue for all clusters, before the fences of the
-device), so ``actor-mpi`` takes an even number of own queues, which keeps them apart; the priorities of the ``halo``
+device), so ``actor-mpi`` takes an even number of HSA queues, which keeps them apart; the priorities of the ``halo``
 layout, lanes on queues of their own (``SEISSOL_EXCHANGE_LANES``), transport events and kernel arguments in device
-memory (``DEVICE_OWN_QUEUE_KERNARGS=device``) made no difference or made it slower. The exchange engine
-(``SEISSOL_ACTOR_MPI_ENGINE=1``) hangs on own queues as well, also on a queue of its own; it is not needed there, since
+memory (``DEVICE_HSA_QUEUE_KERNARGS=device``) made no difference or made it slower. The exchange engine
+(``SEISSOL_ACTOR_MPI_ENGINE=1``) hangs on HSA queues as well, also on a queue of its own; it is not needed there, since
 the command processor waits without a kernel. The library logs its settings once; further options are
-``DEVICE_OWN_QUEUE_PACKETS`` (the size of the queues, 131072 packets by default), ``DEVICE_OWN_QUEUE_KERNARG_MIB``
-(128) and ``DEVICE_OWN_QUEUE_WAITS=kernel|packet``. The 890M (RDNA 3.5) has 8 hardware queues only; there, runs with
-more own queues than fit hung the GPU.
+``DEVICE_HSA_QUEUE_PACKETS`` (the size of the queues, 131072 packets by default), ``DEVICE_HSA_QUEUE_KERNARG_MIB``
+(128) and ``DEVICE_HSA_QUEUE_WAITS=kernel|packet``. The 890M (RDNA 3.5) has 8 hardware queues only; there, runs with
+more HSA queues than fit hung the GPU.
 
 Recording super-timesteps
 ~~~~~~~~~~~~~~~~~~~~~~~~~

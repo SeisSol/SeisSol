@@ -26,49 +26,49 @@ ManagedStream::ManagedStream() : streamPtr_(dev().api().createStream()) {}
 
 ManagedStream::ManagedStream(double priority) : streamPtr_(dev().api().createStream(priority)) {}
 
-ManagedStream::ManagedStream(OnOwnQueue queue)
-    : streamPtr_(dev().api().createStreamOnOwnQueue(queue.queue, queue.priority)) {}
+ManagedStream::ManagedStream(OnHsaQueue queue)
+    : streamPtr_(dev().api().createStreamOnHsaQueue(queue.queue, queue.priority)) {}
 #else
 ManagedStream::ManagedStream() = default;
 
 ManagedStream::ManagedStream(double /*priority*/) {}
 
-ManagedStream::ManagedStream(OnOwnQueue /*queue*/) {}
+ManagedStream::ManagedStream(OnHsaQueue /*queue*/) {}
 #endif
 
-int ownQueueOf(const initializer::LayerIdentifier& identifier, bool faces) {
-  if (ownQueueCount() <= 0) {
-    return SharedOwnQueue;
+int hsaQueueOf(const initializer::LayerIdentifier& identifier, bool faces) {
+  if (hsaQueueCount() <= 0) {
+    return SharedHsaQueue;
   }
   const bool copy = identifier.halo == HaloType::Copy;
-  if (faces && ownFaceQueueCount() > 0) {
+  if (faces && hsaFaceQueueCount() > 0) {
     const auto layer = identifier.lts * 2 + (copy ? 1 : 0);
-    return FirstFaceOwnQueue -
-           static_cast<int>(layer % static_cast<std::size_t>(ownFaceQueueCount()));
+    return FirstFaceHsaQueue -
+           static_cast<int>(layer % static_cast<std::size_t>(hsaFaceQueueCount()));
   }
-  if (ownQueueLayout() == OwnQueueLayout::Halo) {
-    return ownQueueCount() > 1 && !copy ? 2 : 1;
+  if (hsaQueueLayout() == HsaQueueLayout::Halo) {
+    return hsaQueueCount() > 1 && !copy ? 2 : 1;
   }
   const auto layer = identifier.lts * 2 + (copy ? 1 : 0);
-  return 1 + static_cast<int>(layer % static_cast<std::size_t>(ownQueueCount()));
+  return 1 + static_cast<int>(layer % static_cast<std::size_t>(hsaQueueCount()));
 }
 
-std::optional<double> ownQueuePriorityOf(const initializer::LayerIdentifier& identifier,
+std::optional<double> hsaQueuePriorityOf(const initializer::LayerIdentifier& identifier,
                                          bool faces) {
-  if (ownQueueCount() <= 0) {
+  if (hsaQueueCount() <= 0) {
     if (streamPriorities().copy) {
       return identifier.halo == HaloType::Copy ? 1.0 : 0.0;
     }
     return std::nullopt;
   }
-  if (faces && ownFaceQueueCount() > 0) {
-    return ownQueuePriorities().faces ? std::optional<double>(1.0) : std::nullopt;
+  if (faces && hsaFaceQueueCount() > 0) {
+    return hsaQueuePriorities().faces ? std::optional<double>(1.0) : std::nullopt;
   }
   // (the queues of the layers hold either copy or interior layers: with an even number of them in
   // the layers layout, or with the halo layout)
-  const bool byLayer = ownQueueLayout() == OwnQueueLayout::Halo
-                           ? ownQueueCount() > 1
-                           : ownQueuePriorities().copy && ownQueueCount() % 2 == 0;
+  const bool byLayer = hsaQueueLayout() == HsaQueueLayout::Halo
+                           ? hsaQueueCount() > 1
+                           : hsaQueuePriorities().copy && hsaQueueCount() % 2 == 0;
   if (!byLayer) {
     return std::nullopt;
   }

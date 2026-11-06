@@ -311,8 +311,8 @@ class TimeManager {
 
   /**
    * Whether kernelTime() and the loop statistics hold the times of the kernels, as
-   * printComputationTime() found it on all ranks. On a device that times no work (own queues
-   * without DEVICE_OWN_QUEUE_TIMING=1), they only hold those of the launches on the host.
+   * printComputationTime() found it on all ranks. On a device that times no work (HSA queues
+   * without DEVICE_HSA_QUEUE_TIMING=1), they only hold those of the launches on the host.
    */
   [[nodiscard]] bool kernelTimesKnown() const { return kernelTimesKnown_; }
 

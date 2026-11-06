@@ -49,100 +49,100 @@ template <typename T>
 class StreamMemoryHandle;
 
 /**
- * The queues of their own of the stream runtimes (see device::AbstractAPI::enableOwnQueues()): with
- * SEISSOL_OWN_QUEUES=n, the clusters run their work on n of them (see ownQueueOf()), and the other
- * stream runtimes share one more (SharedOwnQueue); 0 if there are none.
+ * The HSA queues of the stream runtimes (see device::AbstractAPI::enableHsaQueues()): with
+ * SEISSOL_HSA_QUEUES=n, the clusters run their work on n of them (see hsaQueueOf()), and the other
+ * stream runtimes share one more (SharedHsaQueue); 0 if there are none.
  */
-inline int& ownQueueCount() {
+inline int& hsaQueueCount() {
   static int count = 0;
   return count;
 }
 
-/// the own queue that the stream runtimes share which have none of their own
-constexpr int SharedOwnQueue = 0;
+/// the HSA queue that the stream runtimes share which have none of their own
+constexpr int SharedHsaQueue = 0;
 
 /// a stream runtime that hands its stream to libraries (e.g. NCCL), which need streams of the
 /// device
-constexpr int NoOwnQueue = -1;
+constexpr int NoHsaQueue = -1;
 
-/// the own queue of the device timeline (see monitoring::DeviceTimeline), which nothing else uses
-constexpr int TimelineOwnQueue = -2;
+/// the HSA queue of the device timeline (see monitoring::DeviceTimeline), which nothing else uses
+constexpr int TimelineHsaQueue = -2;
 
-/// the own queue of the exchange engine of actor-mpi: a kernel that keeps running, and so holds up
+/// the HSA queue of the exchange engine of actor-mpi: a kernel that keeps running, and so holds up
 /// all work behind it on its queue
-constexpr int EngineOwnQueue = -3;
+constexpr int EngineHsaQueue = -3;
 
 /**
- * How the layers get distributed over the own queues (SEISSOL_OWN_QUEUE_LAYOUT): `layers` gives the
+ * How the layers get distributed over the HSA queues (SEISSOL_HSA_QUEUE_LAYOUT): `layers` gives the
  * copy and the interior layer of each time cluster queues of their own, as long as there are
  * enough; `halo` puts all copy layers on one queue of a high priority, whose work the halo exchange
  * waits for, and all interior layers on one of a low priority.
  */
-enum class OwnQueueLayout { Layers, Halo };
-inline OwnQueueLayout& ownQueueLayout() {
-  static OwnQueueLayout layout = OwnQueueLayout::Layers;
+enum class HsaQueueLayout { Layers, Halo };
+inline HsaQueueLayout& hsaQueueLayout() {
+  static HsaQueueLayout layout = HsaQueueLayout::Layers;
   return layout;
 }
 
 /**
- * The number of own queues for the dynamic rupture clusters (SEISSOL_OWN_QUEUES_FACES): 0 puts the
+ * The number of HSA queues for the dynamic rupture clusters (SEISSOL_HSA_QUEUES_FACES): 0 puts the
  * face work of a layer on the queue of its cells; otherwise, the face work goes to queues of its
- * own (the first one FirstFaceOwnQueue, then downwards), next to the work of the cells.
+ * own (the first one FirstFaceHsaQueue, then downwards), next to the work of the cells.
  */
-inline int& ownFaceQueueCount() {
+inline int& hsaFaceQueueCount() {
   static int count = 0;
   return count;
 }
-constexpr int FirstFaceOwnQueue = -10;
+constexpr int FirstFaceHsaQueue = -10;
 
 /**
- * Which own queues get a high priority (SEISSOL_OWN_QUEUE_PRIORITIES): those of the copy layers
+ * Which HSA queues get a high priority (SEISSOL_HSA_QUEUE_PRIORITIES): those of the copy layers
  * (and those of the interior layers a low one), as with the halo layout, and those of the face work
- * (see ownFaceQueueCount()).
+ * (see hsaFaceQueueCount()).
  */
-struct OwnQueuePriorities {
+struct HsaQueuePriorities {
   bool copy{false};
   bool faces{false};
 };
-inline OwnQueuePriorities& ownQueuePriorities() {
-  static OwnQueuePriorities priorities;
+inline HsaQueuePriorities& hsaQueuePriorities() {
+  static HsaQueuePriorities priorities;
   return priorities;
 }
 
 /**
- * Which streams of the clusters get a high priority without own queues (SEISSOL_STREAM_PRIORITIES;
+ * Which streams of the clusters get a high priority without HSA queues (SEISSOL_STREAM_PRIORITIES;
  * experimental): with `copy`, those of the copy layers (and those of the interior layers a low
  * one), for the cell and the face work alike. With concurrent clusters, the work whose results the
  * neighbors wait for goes first then.
  */
-inline OwnQueuePriorities& streamPriorities() {
-  static OwnQueuePriorities priorities;
+inline HsaQueuePriorities& streamPriorities() {
+  static HsaQueuePriorities priorities;
   return priorities;
 }
 
 /**
- * The number of own queues for the branches of the stream runtimes (SEISSOL_OWN_QUEUE_BRANCHES, see
+ * The number of HSA queues for the branches of the stream runtimes (SEISSOL_HSA_QUEUE_BRANCHES, see
  * StreamRuntime::envMany(); experimental): the further streams of the runtimes, shared by all of
- * them (the first one FirstBranchOwnQueue, then downwards), and the work runs without graphs of
+ * them (the first one FirstBranchHsaQueue, then downwards), and the work runs without graphs of
  * single actions. A queue runs its kernels one after the other, also those without a barrier
  * (MI250X, ROCm 6.3), so independent kernels only run at the same time on queues of their own. 0
  * (the default) keeps the branches on the stream of the runtime.
  */
-inline int& ownBranchQueueCount() {
+inline int& hsaBranchQueueCount() {
   static int count = 0;
   return count;
 }
-constexpr int FirstBranchOwnQueue = -20;
+constexpr int FirstBranchHsaQueue = -20;
 
-/// whether the branches of the stream runtimes go to own queues of their own
-inline bool branchesOnOwnQueues() { return ownQueueCount() > 0 && ownBranchQueueCount() > 0; }
+/// whether the branches of the stream runtimes go to HSA queues of their own
+inline bool branchesOnHsaQueues() { return hsaQueueCount() > 0 && hsaBranchQueueCount() > 0; }
 
-/// the own queue of the work of a layer: of its cell cluster, or of its dynamic rupture cluster
-int ownQueueOf(const initializer::LayerIdentifier& identifier, bool faces = false);
+/// the HSA queue of the work of a layer: of its cell cluster, or of its dynamic rupture cluster
+int hsaQueueOf(const initializer::LayerIdentifier& identifier, bool faces = false);
 
-/// the priority of the own queue of a layer (see ownQueueLayout()); without own queues, that of its
+/// the priority of the HSA queue of a layer (see hsaQueueLayout()); without HSA queues, that of its
 /// stream (see streamPriorities()), or none
-std::optional<double> ownQueuePriorityOf(const initializer::LayerIdentifier& identifier,
+std::optional<double> hsaQueuePriorityOf(const initializer::LayerIdentifier& identifier,
                                          bool faces = false);
 
 class ManagedStream {
@@ -152,12 +152,12 @@ class ManagedStream {
   /// a stream of the given priority, from 0 for the lowest to 1 for the highest the device offers
   explicit ManagedStream(double priority);
 
-  /// a stream on an own queue (see ownQueueCount()), which gets the priority unless that is NAN
-  struct OnOwnQueue {
+  /// a stream on an HSA queue (see hsaQueueCount()), which gets the priority unless that is NAN
+  struct OnHsaQueue {
     int queue;
     double priority;
   };
-  explicit ManagedStream(OnOwnQueue queue);
+  explicit ManagedStream(OnHsaQueue queue);
 
   ManagedStream(const ManagedStream&) = delete;
   auto operator=(const ManagedStream&) = delete;
@@ -217,25 +217,25 @@ class StreamRuntime {
   /**
    * With `ringbufferSize` further streams for independent branches (see envMany()); the stream of
    * the runtime has the given priority (see ManagedStream), or the default one of the device. With
-   * own queues (see ownQueueCount()), the stream is on the own queue `ownQueue` instead (the
-   * further ones stay streams of the device: HIP only records on them), unless that is NoOwnQueue.
+   * HSA queues (see hsaQueueCount()), the stream is on the HSA queue `hsaQueue` instead (the
+   * further ones stay streams of the device: HIP only records on them), unless that is NoHsaQueue.
    */
   explicit StreamRuntime(size_t ringbufferSize,
                          std::optional<double> priority = std::nullopt,
-                         int ownQueue = SharedOwnQueue)
+                         int hsaQueue = SharedHsaQueue)
       : ringbufferSize_(ringbufferSize), disposed_(false) {
-    if (ownQueueCount() > 0 && ownQueue != NoOwnQueue) {
-      streamPtr_.emplace(ManagedStream::OnOwnQueue{ownQueue, priority.value_or(NAN)});
+    if (hsaQueueCount() > 0 && hsaQueue != NoHsaQueue) {
+      streamPtr_.emplace(ManagedStream::OnHsaQueue{hsaQueue, priority.value_or(NAN)});
     } else if (priority.has_value()) {
       streamPtr_.emplace(priority.value());
     } else {
       streamPtr_.emplace();
     }
-    if (branchesOnOwnQueues() && ownQueue != NoOwnQueue) {
+    if (branchesOnHsaQueues() && hsaQueue != NoHsaQueue) {
       ringbufferPtr_.reserve(ringbufferSize);
       for (size_t i = 0; i < ringbufferSize; ++i) {
-        ringbufferPtr_.emplace_back(ManagedStream::OnOwnQueue{
-            FirstBranchOwnQueue - static_cast<int>(i % static_cast<size_t>(ownBranchQueueCount())),
+        ringbufferPtr_.emplace_back(ManagedStream::OnHsaQueue{
+            FirstBranchHsaQueue - static_cast<int>(i % static_cast<size_t>(hsaBranchQueueCount())),
             NAN});
       }
     } else {
@@ -259,7 +259,7 @@ class StreamRuntime {
     }
   }
 
-  /// names the streams for the logs of the device (e.g. the DAG log of own queues)
+  /// names the streams for the logs of the device (e.g. the DAG log of HSA queues)
   void nameStreams(const std::string& name) {
     device().api().nameStream(allStreams_[0], name);
     for (std::size_t i = 1; i < allStreams_.size(); ++i) {
@@ -370,8 +370,8 @@ class StreamRuntime {
     }
 
     void* stream = building() ? this->stream() : mainStream();
-    // (HIP branches only on own queues of their own: its waits for events cost too much)
-    if (!building() && (Backend != DeviceBackend::Hip || branchesOnOwnQueues()) &&
+    // (HIP branches only on HSA queues of their own: its waits for events cost too much)
+    if (!building() && (Backend != DeviceBackend::Hip || branchesOnHsaQueues()) &&
         ringbufferSize_ > 0) {
       const auto forkEvent = nextEvent();
       device().api().recordEventOnStream(forkEvent.get(), stream);
@@ -496,9 +496,9 @@ class StreamRuntime {
                 F&& handler,
                 bool cacheable = true,
                 GraphMode mode = GraphMode::Nodes) {
-    // (with branches on own queues, the work runs directly, so that its branches go there: a graph
+    // (with branches on HSA queues, the work runs directly, so that its branches go there: a graph
     // would run on the queue of the runtime alone)
-    if (!cacheable || branchesOnOwnQueues()) {
+    if (!cacheable || branchesOnHsaQueues()) {
       std::invoke(std::forward<F>(handler), *this);
       return;
     }
@@ -803,7 +803,7 @@ class StreamRuntime {
 
   explicit StreamRuntime(std::size_t ringbufferSize,
                          std::optional<double> /*priority*/ = std::nullopt,
-                         int /*ownQueue*/ = SharedOwnQueue) {}
+                         int /*hsaQueue*/ = SharedHsaQueue) {}
 
   template <typename F>
   void enqueueLoop(std::size_t elemCount,

@@ -292,8 +292,8 @@ int main(int argc, char* argv[]) {
       // a kernel on its first launch, as it may wait for the device meanwhile (unless set already)
       setenv("CUDA_MODULE_LOADING", "EAGER", 0);
     }
-    // queues of their own for the stream runtimes; not with stream-mpi, which is untried with them
-    // (CCL and SHMEM get streams of HIP, which wait for the own streams on the device, see
+    // HSA queues for the stream runtimes; not with stream-mpi, which is untried with them
+    // (CCL and SHMEM get streams of HIP, which wait for the HSA streams on the device, see
     // StreamExchangeScheduler)
     utils::Env deviceEnv("SEISSOL_");
     const auto requestedMode = seissol::Mpi::requestedDataTransferMode();
@@ -313,38 +313,41 @@ int main(int argc, char* argv[]) {
     }
     const bool streamLibraries = requestedMode.has_value() &&
                                  requestedMode == seissol::Mpi::DataTransferMode::DirectStreamMpi;
-    auto ownQueues = streamLibraries ? 0 : seissol::ownQueueCount(deviceEnv);
-    if (ownQueues > 0 && requestedMode == seissol::Mpi::DataTransferMode::ActorMpi &&
-        ownQueues % 2 != 0) {
+    auto hsaQueues = streamLibraries ? 0 : seissol::hsaQueueCount();
+    if (hsaQueues > 0 && requestedMode == seissol::Mpi::DataTransferMode::ActorMpi &&
+        hsaQueues % 2 != 0) {
       // the copy layers wait for the halo exchange there; with the interior layers on the same
       // queues, runs hung (TPV13 on LUMI, one queue for all clusters): an even number keeps them
-      // apart (see ownQueueOf())
-      ++ownQueues;
+      // apart (see hsaQueueOf())
+      ++hsaQueues;
     }
-    if (ownQueues > 0) {
+    if (hsaQueues > 0) {
       // the streams of HIP then only record graphs and hold allocations: one hardware queue each
-      // leaves the others of the device to the own queues
+      // leaves the others of the device to the HSA queues
       setenv("GPU_MAX_HW_QUEUES", "1", 0);
       // the queue of the other stream runtimes and that of the device timeline are idle most of
       // the time: they may share a pipe of the command processor with a queue of the clusters
       // (the others get pipes of their own as long as there are, see the Device library)
-      const auto light = "0," + std::to_string(seissol::parallel::runtime::TimelineOwnQueue);
-      setenv("DEVICE_OWN_QUEUE_LIGHT", light.c_str(), 0);
+      const auto light = "0," + std::to_string(seissol::parallel::runtime::TimelineHsaQueue);
+      // (unless set already, also under its deprecated name)
+      if (std::getenv("DEVICE_OWN_QUEUE_LIGHT") == nullptr) {
+        setenv("DEVICE_HSA_QUEUE_LIGHT", light.c_str(), 0);
+      }
     }
     seissol::Mpi::mpi.bindAcceleratorDevice();
     const device::DeviceInstance& device = device::DeviceInstance::instance();
     device.api().initialize();
-    if (ownQueues > 0 && device.api().enableOwnQueues()) {
-      seissol::parallel::runtime::ownQueueCount() = ownQueues;
-      seissol::parallel::runtime::ownFaceQueueCount() = seissol::ownFaceQueueCount(deviceEnv);
-      seissol::parallel::runtime::ownBranchQueueCount() = seissol::ownBranchQueueCount(deviceEnv);
-      const auto priorities = deviceEnv.get<std::string>("OWN_QUEUE_PRIORITIES", "");
-      seissol::parallel::runtime::ownQueuePriorities() = {
+    if (hsaQueues > 0 && device.api().enableHsaQueues()) {
+      seissol::parallel::runtime::hsaQueueCount() = hsaQueues;
+      seissol::parallel::runtime::hsaFaceQueueCount() = seissol::hsaFaceQueueCount();
+      seissol::parallel::runtime::hsaBranchQueueCount() = seissol::hsaBranchQueueCount();
+      const auto priorities = seissol::hsaQueueEnv().get<std::string>("QUEUE_PRIORITIES", "");
+      seissol::parallel::runtime::hsaQueuePriorities() = {
           priorities.find("copy") != std::string::npos,
           priorities.find("faces") != std::string::npos};
-      if (deviceEnv.get<std::string>("OWN_QUEUE_LAYOUT", "layers") == "halo") {
-        seissol::parallel::runtime::ownQueueLayout() =
-            seissol::parallel::runtime::OwnQueueLayout::Halo;
+      if (seissol::hsaQueueEnv().get<std::string>("QUEUE_LAYOUT", "layers") == "halo") {
+        seissol::parallel::runtime::hsaQueueLayout() =
+            seissol::parallel::runtime::HsaQueueLayout::Halo;
       }
     } else {
       const auto priorities = deviceEnv.get<std::string>("STREAM_PRIORITIES", "");
@@ -367,21 +370,21 @@ int main(int argc, char* argv[]) {
 
     utils::Logger::setRank(rank);
 #ifdef ACL_DEVICE
-    if (seissol::parallel::runtime::ownQueueCount() > 0) {
-      logInfo() << "The clusters run their work on" << seissol::parallel::runtime::ownQueueCount()
-                << "queues of their own, the other stream runtimes on one more"
-                << "(SEISSOL_OWN_QUEUES).";
-      if (seissol::parallel::runtime::ownBranchQueueCount() > 0) {
+    if (seissol::parallel::runtime::hsaQueueCount() > 0) {
+      logInfo() << "The clusters run their work on" << seissol::parallel::runtime::hsaQueueCount()
+                << "HSA queues, the other stream runtimes on one more"
+                << "(SEISSOL_HSA_QUEUES).";
+      if (seissol::parallel::runtime::hsaBranchQueueCount() > 0) {
         logInfo() << "The branches of the work run on"
-                  << seissol::parallel::runtime::ownBranchQueueCount()
-                  << "more (SEISSOL_OWN_QUEUE_BRANCHES).";
+                  << seissol::parallel::runtime::hsaBranchQueueCount()
+                  << "more (SEISSOL_HSA_QUEUE_BRANCHES).";
       }
-      if (seissol::parallel::runtime::ownFaceQueueCount() > 0) {
-        logInfo() << "The face work runs on" << seissol::parallel::runtime::ownFaceQueueCount()
-                  << "more (SEISSOL_OWN_QUEUES_FACES).";
+      if (seissol::parallel::runtime::hsaFaceQueueCount() > 0) {
+        logInfo() << "The face work runs on" << seissol::parallel::runtime::hsaFaceQueueCount()
+                  << "more (SEISSOL_HSA_QUEUES_FACES).";
       }
-    } else if (seissol::ownQueueCount(env) > 0) {
-      logWarning() << "Queues of their own (SEISSOL_OWN_QUEUES) are not available: they need HIP,"
+    } else if (seissol::hsaQueueCount() > 0) {
+      logWarning() << "HSA queues (SEISSOL_HSA_QUEUES) are not available: they need HIP,"
                    << "and a transfer mode other than stream-mpi.";
     }
 #endif

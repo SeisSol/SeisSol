@@ -326,7 +326,7 @@ costs; with ``ccl`` and the plan, 30.2 s with a single group against 30.9 s with
 The costs of a cell include the speed of the rank it was measured on, so the partition does not weight the ranks
 by Mini SeisSol then (see :ref:`env_vars`).
 The costs can only be measured where the loops get timed: not within recorded super-timesteps
-(``SEISSOL_SUPERSTEP_GRAPHS``), and on own queues only with ``DEVICE_OWN_QUEUE_TIMING=1``.
+(``SEISSOL_SUPERSTEP_GRAPHS``), and on HSA queues only with ``DEVICE_HSA_QUEUE_TIMING=1``.
 
 References
 ----------

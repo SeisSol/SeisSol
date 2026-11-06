@@ -23,7 +23,7 @@ In particular, it excludes the time spent with MPI communication.
 On GPUs, it is the time in which the GPU executes the loops of the clusters, timed by events on their streams
 (see ``SEISSOL_DEVICE_LOOP_STATISTICS`` in :ref:`gpu-env`). The loops of clusters that run concurrently overlap in it,
 as do those of a task graph on the CPU; the steps replayed from a recording of super-timesteps do not count.
-Where the device does not time its work (own queues without ``DEVICE_OWN_QUEUE_TIMING=1``, see
+Where the device does not time its work (HSA queues without ``DEVICE_HSA_QUEUE_TIMING=1``, see
 :ref:`gpu-time-stepping`), or its loops are not timed (``SEISSOL_DEVICE_LOOP_STATISTICS=0``), the time of the kernels
 is not known: SeisSol says so instead of printing it, and the run summary leaves out the kernel times, the load
 imbalance and the compute time outside of the kernels.
@@ -184,14 +184,14 @@ file. Recording costs two readings of the clock per span; without ``SEISSOL_TRAC
 check.
 
 With ``SEISSOL_TRACE_KERNELS=1`` as well, the device puts each of its kernels and waits into the trace, on a track for
-each of its queues (``device queue <n>``), from when it started to when it ended; only HIP with own queues
-(``SEISSOL_OWN_QUEUES``, see :ref:`gpu-env`) can do that so far. It gives each kernel and wait a signal that takes its
+each of its queues (``device queue <n>``), from when it started to when it ended; only HIP with HSA queues
+(``SEISSOL_HSA_QUEUES``, see :ref:`gpu-env`) can do that so far. It gives each kernel and wait a signal that takes its
 times, which costs the device a little for each kernel.
-With ``DEVICE_OWN_QUEUE_DAG_LOG=<prefix>`` too, the Device library writes what the streams do while the kernels get
+With ``DEVICE_HSA_QUEUE_DAG_LOG=<prefix>`` too, the Device library writes what the streams do while the kernels get
 traced into ``<prefix>-<rank>.txt`` (the rank from ``SLURM_PROCID``, ``PMI_RANK`` or ``OMPI_COMM_WORLD_RANK``): the work
 of each stream (kernels, graphs with the level of each kernel, copies, host functions), when the host enqueued it, the
 events the streams record and wait for, and when each kernel ran, with the names of the streams of the clusters; enough
-for the dependencies of all work and a schedule of it over the queues (the format: ``OwnQueues.cpp`` of the Device
+for the dependencies of all work and a schedule of it over the queues (the format: ``HsaQueues.cpp`` of the Device
 library).
 
 .. _cell-updates:

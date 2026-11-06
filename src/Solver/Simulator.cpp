@@ -154,12 +154,12 @@ json::Value writeVertexWeights(SeisSol& seissolInstance, double simulatedTime) {
   if (!costs.has_value()) {
     if (seissolInstance.measuringSteps().has_value()) {
       logError() << "The run measured nothing of what the cells cost, as the loops were not timed "
-                    "on all ranks (not within recorded super-timesteps, and on own queues only "
-                    "with DEVICE_OWN_QUEUE_TIMING=1).";
+                    "on all ranks (not within recorded super-timesteps, and on HSA queues only "
+                    "with DEVICE_HSA_QUEUE_TIMING=1).";
     }
     logWarning() << "The costs of the cells are not known, as the loops were not timed on all "
-                    "ranks (not within recorded super-timesteps, and on own queues only with "
-                    "DEVICE_OWN_QUEUE_TIMING=1). There are no vertex weights to write to"
+                    "ranks (not within recorded super-timesteps, and on HSA queues only with "
+                    "DEVICE_HSA_QUEUE_TIMING=1). There are no vertex weights to write to"
                  << file;
     section["written"] = false;
     return section;

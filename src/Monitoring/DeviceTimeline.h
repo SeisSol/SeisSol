@@ -81,7 +81,7 @@ class DeviceTimeline {
   /**
    * With a trace (see monitoring::Trace) and SEISSOL_TRACE_KERNELS=1: lets the device put each of
    * its kernels and waits into it, on a track for each of its queues, where it can (see
-   * device::AbstractAPI::traceDevice(); HIP with own queues). stopKernelTrace() waits until all of
+   * device::AbstractAPI::traceDevice(); HIP with HSA queues). stopKernelTrace() waits until all of
    * them are in; call it before the trace gets written.
    */
   static void startKernelTrace(bool requested);

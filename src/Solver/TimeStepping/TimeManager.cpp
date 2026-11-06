@@ -1271,7 +1271,7 @@ json::Value TimeManager::printComputationTime() {
   if (!kernelTimesKnown_) {
     if (timed[0] == 0) {
       logInfo() << "The time of the compute kernels is not known, as the device does not time"
-                << "them (own queues do with DEVICE_OWN_QUEUE_TIMING=1).";
+                << "them (HSA queues do with DEVICE_HSA_QUEUE_TIMING=1).";
     } else {
       logInfo() << "The time of the compute kernels is not known, as the loops on the device are"
                 << "not timed (SEISSOL_DEVICE_LOOP_STATISTICS=0).";

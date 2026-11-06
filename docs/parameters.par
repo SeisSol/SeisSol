@@ -244,7 +244,7 @@ EpochInterval = 0 ! (optional) Ends a simulation epoch at least every this much 
 VertexWeightOutput = 0 ! (optional) 1: measures what each cell costs in the run (the time of the loops of its
 ! cluster on its rank, shared over its cells, plus that of its fault faces) and writes it to
 ! <OutputFile>-vertexweights.h5 at the end, for a later run to partition by (vertexWeightFile in &Discretization).
-! It needs timed loops: not within recorded super-timesteps, and on own queues only with DEVICE_OWN_QUEUE_TIMING=1.
+! It needs timed loops: not within recorded super-timesteps, and on HSA queues only with DEVICE_HSA_QUEUE_TIMING=1.
 /
 
 &AbortCriteria

@@ -74,7 +74,7 @@ void DeviceTimeline::startKernelTrace([[maybe_unused]] bool requested) {
     logInfo() << "The trace takes each kernel and wait of the device.";
   } else {
     logWarning() << "The device cannot trace its kernels (SEISSOL_TRACE_KERNELS needs HIP with "
-                    "own queues).";
+                    "HSA queues).";
   }
 #endif
 }
@@ -98,10 +98,10 @@ void DeviceTimeline::beginEpoch() {
 #ifdef ACL_DEVICE
   if (stream_ == nullptr) {
     // a stream of its own, idle whenever an event gets recorded on it: the event completes right
-    // away; with own queues, on one of them as the events that it gets compared with (the device
+    // away; with HSA queues, on one of them as the events that it gets compared with (the device
     // times events of only one kind against each other)
-    stream_ = parallel::runtime::ownQueueCount() > 0
-                  ? api().createStreamOnOwnQueue(parallel::runtime::TimelineOwnQueue)
+    stream_ = parallel::runtime::hsaQueueCount() > 0
+                  ? api().createStreamOnHsaQueue(parallel::runtime::TimelineHsaQueue)
                   : api().createStream();
     reference_ = api().createEvent(true);
     end_ = api().createEvent(true);
