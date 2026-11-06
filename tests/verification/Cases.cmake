@@ -531,6 +531,13 @@ seissol_add_fault1d(NAME fault1d-rs-fvw FL 103 FAULT fault1d-rs-fvw.yaml
 seissol_add_fault1d(NAME fault1d-rs-fvw-tp FL 103 FAULT fault1d-rs-fvw-tp.yaml
                     STEPS 2048 SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
                     LABELS convergence)
+# the initial pore pressure lowers the effective normal stress the initial state
+# has to hold the traction under
+seissol_add_fault1d(NAME fault1d-rs-fvw-tp-pressurized FL 103
+                    FAULT fault1d-rs-fvw-tp-pressurized.yaml STEPS 2048
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} "DynamicRupture.tp_iniPressure=-80.0e6"
+                        ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS convergence)
 foreach (law yoffe:33 gaussian:34)
   string(REPLACE ":" ";" law ${law})
   list(GET law 0 name)

@@ -1432,8 +1432,11 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
                         for a, b in zip(state, exact["state"])
                     ),
                 )
-        if "pressure-change" in exact:
-            worst("pressure", _deviation(column("P_f"), -exact["pressure-change"]))
+        if "pore-pressure" in exact:
+            # the change, which is small against an initial pore pressure
+            pore = exact["pore-pressure"]
+            change = max(abs(value - pore[0]) for value in pore)
+            worst("pressure", _deviation(column("P_f"), pore, change))
             # the change, which is small against the initial temperature
             initial = series["temperature"][0]
             worst(

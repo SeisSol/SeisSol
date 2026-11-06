@@ -71,6 +71,10 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
 
       const auto initialSlipRate =
           misc::magnitude(drParameters_->rsInitialSlipRate1, drParameters_->rsInitialSlipRate2);
+      // the friction law acts on the effective normal stress, from which thermal pressurization
+      // takes the pore pressure; it starts at tp_iniPressure
+      const double initialPorePressure =
+          drParameters_->isThermalPressureOn ? drParameters_->initialPressure : 0.0;
 
       using namespace dr::misc::quantity_indices;
       for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
@@ -99,15 +103,16 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
                                                        sourceCount,
                                                        pointIndex,
                                                        static_cast<real>(0.0));
-          const auto stateAndFriction = computeInitialStateAndFriction(initialStress[XY],
-                                                                       initialStress[XZ],
-                                                                       initialStress[XX],
-                                                                       rsA[ltsFace][pointIndex],
-                                                                       rsB[ltsFace][pointIndex],
-                                                                       rsSl0[ltsFace][pointIndex],
-                                                                       drParameters_->rsSr0,
-                                                                       rsF0[ltsFace][pointIndex],
-                                                                       initialSlipRate);
+          const auto stateAndFriction =
+              computeInitialStateAndFriction(initialStress[XY],
+                                             initialStress[XZ],
+                                             initialStress[XX] - initialPorePressure,
+                                             rsA[ltsFace][pointIndex],
+                                             rsB[ltsFace][pointIndex],
+                                             rsSl0[ltsFace][pointIndex],
+                                             drParameters_->rsSr0,
+                                             rsF0[ltsFace][pointIndex],
+                                             initialSlipRate);
           stateVariable[ltsFace][pointIndex] = stateAndFriction.stateVariable;
           mu[ltsFace][pointIndex] = stateAndFriction.frictionCoefficient;
         }

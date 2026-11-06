@@ -265,6 +265,8 @@ SeisSol chooses the initial state variable :math:`\psi_0` such that the fault sl
 
   |\tau_0| = |\sigma_{n,0}| \, f(V_{ini}, \psi_0).
 
+Here, :math:`\sigma_{n,0}` is the normal stress the friction law acts on: with thermal pressurization, the effective normal stress :math:`\sigma_n - P_f`, with the initial pore pressure :math:`P_f =` :code:`tp_iniPressure` (see :ref:`thermal pressurization<thermal-pressurization>`).
+
 Aging law (:code:`FL=3`)
 -------------------------
 Reference benchmarks: TVP101 and TPV102

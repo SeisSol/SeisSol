@@ -423,8 +423,12 @@ class RateAndState:
             inputs.get("rs_iniSlipRate1"), inputs.get("rs_iniSlipRate2")
         )
         # the state that holds the traction at the start, the initial stress
-        # with every nucleation in effect then, at the initial slip rate
+        # with every nucleation in effect then, at the initial slip rate, under
+        # the effective normal stress, which the initial pore pressure p_0 of
+        # thermal pressurization lowers (its tp_iniPressure is -p_0)
         normal, along_y, along_z = loading(0.0)
+        if int(inputs.get("thermalPress", default=0)):
+            normal -= inputs.get("tp_iniPressure", "iniPressure")
         friction = math.hypot(along_y, along_z) / -normal
         if law == 7:
             direct = self.a * initial_rate / (initial_rate + self.v0)
@@ -579,6 +583,10 @@ class ThermalPressurization:
     product rule over the steps of the integration, with the kernels integrated
     exactly over each step; on steps of equal width, the kernels depend on the
     distance in steps only and are tabulated once.
+
+    SeisSol keeps the pore pressure as a stress, -p, so that tp_iniPressure is
+    -p_0, and the friction acts on the effective normal stress sigma_n + p
+    (docs/dynamic-rupture.rst).
     """
 
     def __init__(self, inputs):
@@ -586,10 +594,8 @@ class ThermalPressurization:
         self.rho_c = inputs.get("tp_heatCapacity", "rho_c")
         self.lam = inputs.get("tp_undrainedTPResponse", "tp_lambda")
         self.t0 = inputs.get("tp_iniTemp", "iniTemp")
-        if inputs.get("tp_iniPressure", "iniPressure") != 0.0:
-            # how it enters the normal stress of the fault file is a convention
-            # of the input, which this module does not reproduce
-            raise Unsupported("an initial pore pressure is not supported")
+        # the initial pore pressure as SeisSol states it, -p_0
+        self.pore_pressure = inputs.get("tp_iniPressure", "iniPressure")
         self.a_hy = inputs.get("tp_hydraulicDiffusivity")
         self.width = inputs.get("tp_halfWidthShearZone")
         if abs(self.a_hy - self.a_th) <= 1e-9 * max(self.a_hy, self.a_th):
@@ -915,7 +921,8 @@ class Problem:
         def observe(t, state):
             pressure = temperature = 0.0
             if thermal is not None:
-                temperature, pressure = thermal.changes()
+                temperature, change = thermal.changes()
+                pressure = change - thermal.pore_pressure
             _, result, direction = self._rates(t, state, pressure)
             row = dict(result)
             row["time"] = t
@@ -925,7 +932,8 @@ class Problem:
             row["slip"] = math.hypot(state[0], state[1])
             row["accumulated-slip"] = state[2]
             if thermal is not None:
-                row["pressure-change"] = pressure
+                # the pore pressure as SeisSol states it, -p
+                row["pore-pressure"] = -pressure
                 row["temperature"] = thermal.t0 + temperature
             return row
 
@@ -943,7 +951,8 @@ class Problem:
                     probe = [s + scale * k for s, k in zip(state, slopes[previous])]
                 pressure = 0.0
                 if thermal is not None:
-                    _, pressure = thermal.changes(fraction, current)
+                    _, change = thermal.changes(fraction, current)
+                    pressure = change - thermal.pore_pressure
                 rates, result, _ = self._rates(t + fraction * step, probe, pressure)
                 current = result["traction"] * result["slip-rate"]
                 slopes.append(rates)
