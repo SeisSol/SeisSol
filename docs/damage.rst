@@ -102,12 +102,40 @@ modulus degrades through :math:`\gamma_R`, and the coupling term
 loading and not only on its size.
 
 The internal variables follow rate equations. Damage grows where the loading
-exceeds the onset ratio :math:`\xi_0` and heals where it does not, at rates
-:math:`C_d` and the healing rate, until a point has no damage left; breakage
-grows out of damage once
-:math:`\alpha` approaches a critical value, with :math:`\beta_\alpha` setting
-how sharp that transition is. Both are sources rather than fluxes: they do not
-propagate, they are made where the strain is.
+exceeds the onset ratio :math:`-\xi_0` and heals where it does not, at rates
+:math:`C_d` and :math:`C_h`, until a point has no damage left; breakage grows
+out of damage once :math:`\alpha` approaches a critical value
+:math:`\alpha_{cr}`, with :math:`\beta_\alpha` setting how sharp that
+transition is. With the drive :math:`D = \gamma_R (1 - B)\, I_2\, (\xi + \xi_0)`,
+
+.. math::
+
+   \partial_t \alpha =
+   \begin{cases}
+     C_d\, D & \text{where it grows,} \\
+     C_h \min(D, 0) & \text{elsewhere, where } \alpha > 0, \\
+     0 & \text{otherwise,}
+   \end{cases}
+   \qquad
+   \partial_t B =
+   \begin{cases}
+     C_B\, D \,/\, \left(1 + e^{(\alpha_{cr} - \alpha)/\beta_\alpha}\right)
+       & \text{where it grows,} \\
+     0 & \text{otherwise,}
+   \end{cases}
+
+and a point grows where :math:`\xi + \xi_0 > 0` while the mean damage of its
+cell is below :math:`\alpha_{cr}` and its mean breakage below one. Both are
+sources rather than fluxes: they do not propagate, they are made where the
+strain is. :math:`\gamma_R` is part of the drive, which is why the three rates
+:math:`C_d`, :math:`C_h` and :math:`C_B` are given per pascal and second.
+
+The onset enters as :math:`\xi + \xi_0`, so ``xi0`` is the onset ratio
+negated. In the notation of Lyakhovsky, Ben-Zion and Agnon (1997) the onset
+ratio is negative; their :math:`-0.8` is ``xi0 = 0.8`` here. With a positive
+``xi0`` the damage softens the shear modulus of the solid branch,
+:math:`2\mu_0 - \gamma_R \alpha (2\xi_0 + \xi)`, wherever
+:math:`\xi > -2\xi_0`.
 
 The damage saturates at that critical value rather than at one. One is where
 the variable runs out of room; the critical damage is where the solid branch
@@ -117,6 +145,27 @@ waves -- a uniform state then grows roundoff at a rate that does not depend on
 the timestep, because what it has lost is well-posedness rather than accuracy.
 For a mild :math:`\gamma_R` the critical damage is one and the two bounds
 coincide.
+
+The critical damage depends on the direction of the strain alone:
+
+.. math::
+
+   \alpha_{cr} = \min\left(\alpha_1,\ \frac{2\mu_0}{\gamma_R (\xi + 2\xi_0)},\ 1\right),
+
+where the second is the damage at which the shear modulus of the solid branch
+vanishes, and :math:`\alpha_1` is the smaller root of
+
+.. math::
+
+   g^2 \left(3\xi^2 - 3 + 6\xi_0\xi + 4\xi_0^2\right) \alpha^2
+   - g \left((8 + 6\ell)\,\xi_0 + \ell\,\xi^3 + 6\xi\right) \alpha
+   + 4 + 6\ell = 0,
+   \qquad g = \gamma_R / \mu_0,\quad \ell = \lambda_0 / \mu_0,
+
+the damage at which the energy of the solid branch stops being convex in the
+plane of :math:`\mathbf{1}` and :math:`\epsilon` -- its Hessian there has the
+determinant :math:`\mu_0^2 (3 - \xi^2)` times the left-hand side. A candidate
+that is not positive stands in as one.
 
 Momentum and the strain rate are as usual --
 :math:`\rho \partial_t v = \nabla \cdot \sigma` and
@@ -140,7 +189,7 @@ Per cell, from the :ref:`easi <easi>` material file:
 +------------------------------------------+---------------------+------------------------+-------------------------+
 | Damage modulus                           | ``gammaR``          | :math:`\gamma_R`       | :math:`Pa`              |
 +------------------------------------------+---------------------+------------------------+-------------------------+
-| Onset strain invariant ratio             | ``xi0``             | :math:`\xi_0`          |                         |
+| Negated onset strain invariant ratio     | ``xi0``             | :math:`\xi_0`          |                         |
 +------------------------------------------+---------------------+------------------------+-------------------------+
 | Damage rate                              | ``Cd``              | :math:`C_d`            | :math:`Pa^{-1}s^{-1}`   |
 +------------------------------------------+---------------------+------------------------+-------------------------+
@@ -159,9 +208,9 @@ Per model, from the ``[equations]`` section of the :ref:`parameter file
 +------------------------------------------+---------------------+------------------------+------------------+
 | Parameter                                | SeisSol name        | Abbreviation           | Default          |
 +==========================================+=====================+========================+==================+
-| Breakage rate                            | ``breakagerate``    |                        | :math:`0`        |
+| Breakage rate                            | ``breakagerate``    | :math:`C_B`            | :math:`0`        |
 +------------------------------------------+---------------------+------------------------+------------------+
-| Healing rate                             | ``healingrate``     |                        | :math:`0`        |
+| Healing rate                             | ``healingrate``     | :math:`C_h`            | :math:`0`        |
 +------------------------------------------+---------------------+------------------------+------------------+
 | Width of the damage-breakage transition  | ``betaalpha``       | :math:`\beta_\alpha`   | :math:`1`        |
 +------------------------------------------+---------------------+------------------------+------------------+
@@ -267,8 +316,8 @@ What is supported
 | Plasticity                                | no -- the rheology already carries the           |
 |                                           | inelastic part                                   |
 +-------------------------------------------+--------------------------------------------------+
-| Energy output                             | momenta, kinetic energy, mean damage and         |
-|                                           | breakage                                         |
+| Energy output                             | momenta, kinetic and free energy, the energy the |
+|                                           | damage released, mean damage and breakage        |
 +-------------------------------------------+--------------------------------------------------+
 | Receivers, wavefield and surface output   | as for any other material                        |
 +-------------------------------------------+--------------------------------------------------+
@@ -303,13 +352,23 @@ ten percent, and both fall at first order in the timestep. The second expansion
 is therefore not what limits it -- the clustered scheme is, for either
 material.
 
-*The stored energy* is absent from the energy output rather than approximated.
-The free energy of this rheology carries a square root of the second strain
-invariant and terms of third order in the state; the moments the energy output
-is built on reach second order in polynomials, so it cannot be assembled from
-them at any accuracy. Reporting the kinetic energy and the two means, which
-are exact, is preferred to a column that is named like an energy and is not
-one.
+*The stored energy* is taken of what a cell transports. Both branches of the
+free energy are homogeneous of degree two in the strain, so the free energy is
+half the stress contracted with the total strain,
+:math:`F = \tfrac12 \int \sigma : (\epsilon + \epsilon^0)`, and with the stress
+the cell transports that is exact in the basis of the element. What the same
+strain would store undamaged is
+:math:`U_0 = \int \tfrac{\lambda_0}{2} I_1^2 + \mu_0 I_2`, and
+:math:`U_0 - F` is what the damage has released. Of that, the onset part
+:math:`\gamma_R \xi_0 \int \alpha I_2` is integrated with the damage as a
+weight, through a trilinear moment of the basis, so it is exact and not a cell
+mean. The rest is the root part: :math:`\gamma_R \int \alpha I_1 \sqrt{I_2}`
+where there is no breakage, and where there is, also whatever the granular
+branch makes of the difference. The columns are ``damage_kinetic_energy``,
+``damage_free_energy``, ``damage_undamaged_energy``,
+``damage_released_energy``, ``damage_released_onset_energy`` and
+``damage_released_root_energy``, beside the momenta, ``mean_damage`` and
+``mean_breakage``.
 
 Numerical notes
 ---------------
@@ -336,15 +395,15 @@ uniform state that will not stay uniform, at a rate independent of the timestep,
 is what leaving that range looks like from the outside.
 
 Single precision holds the moduli, of order :math:`10^{10}`, and their squares,
-but not their cubes. Two places used to form those: the quadratic whose smaller
-root is the critical damage, with a discriminant of order :math:`10^{44}`, and
-the admittance of a fault node, whose invariants reach the product of three
-eigenvalues of :math:`\rho` times a modulus, of order :math:`10^{42}`. Both are
-now computed relative to a modulus -- the quadratic in :math:`\gamma_R / \mu_0`
-and :math:`\lambda_0 / \mu_0`, the admittance on the matrix divided by the mean
-of its eigenvalues -- which leaves every root where it is. In the moduli
-themselves the first let the damage grow well past where breakage sets in, and
-the second made every fault node not a number from the first timestep on.
+but not their cubes. Two places would form those in the moduli themselves: the
+quadratic whose smaller root is the critical damage, with a discriminant of
+order :math:`10^{44}`, and the admittance of a fault node, whose invariants
+reach the product of three eigenvalues of :math:`\rho` times a modulus, of
+order :math:`10^{42}`. Both are computed relative to a modulus instead -- the
+quadratic in :math:`\gamma_R / \mu_0` and :math:`\lambda_0 / \mu_0`, the
+admittance on the matrix divided by the mean of its eigenvalues -- which leaves
+every root where it is and keeps every intermediate of order one in either
+precision.
 
 With that, single precision agrees with double to single precision: the five
 uniform scenarios to the digits single precision carries, the plane wave down
