@@ -19,7 +19,10 @@
 #ifdef __INTEL_LLVM_COMPILER
 #if __INTEL_LLVM_COMPILER >= 20250000
 #define SEISSOL_INTEL_SIMD_EXCEPTION
-#if __INTEL_LLVM_COMPILER < 20260000
+// icpx 2026.0 still crashes in its vectorizer (vplan-vec) in single precision, on the strength
+// and slip rate loop of calcSlipRateAndTraction and on the loops of invertSlipRateIterative; they
+// stay scalar for it in either precision. Re-check with newer releases.
+#if __INTEL_LLVM_COMPILER < 20260100
 #define SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #endif
 #endif
@@ -68,6 +71,8 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
     auto normalStress = std::move(initialVariables.normalStress);
     auto normalStressStick = std::move(initialVariables.normalStressStick);
     const auto stateVarReference = std::move(initialVariables.stateVarReference);
+    // the pressurization of this step of this face; local, as the threads share tpMethod_
+    typename TPMethod::StepCoefficients tpStep{};
     // compute slip rates by solving non-linear system of equations
     this->updateStateVariableIterative(hasConverged,
                                        stateVarReference,
@@ -82,12 +87,13 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
                                        etaNormal,
                                        slipDirection1,
                                        slipDirection2,
+                                       tpStep,
                                        timeIndex,
                                        ltsFace);
 
     // compute final thermal pressure and normalStress
-    tpMethod_.calcFluidPressure(
-        normalStress, this->mu_, localSlipRate, this->deltaT_[timeIndex], true, ltsFace);
+    tpMethod_.finalizeFluidPressure(
+        normalStress, this->mu_, localSlipRate, this->deltaT_[timeIndex], ltsFace, tpStep);
     updateDirectionAndProjections(slipDirection1,
                                   slipDirection2,
                                   absoluteShearStress,
@@ -311,6 +317,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
       std::array<real, misc::NumPaddedPoints<Cfg>>& etaNormal,
       std::array<real, misc::NumPaddedPoints<Cfg>>& slipDirection1,
       std::array<real, misc::NumPaddedPoints<Cfg>>& slipDirection2,
+      TPMethod::StepCoefficients& tpStep,
       uint32_t timeIndex,
       std::size_t ltsFace) {
     std::array<real, misc::NumPaddedPoints<Cfg>> testSlipRate{};
@@ -331,20 +338,26 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
     // procedure source: Kaneko 2008; doi:10.1029/2007JB005154 . Section 2.3. But extended for a
     // virtually unlimited number of outer fixed point iterations.
 
+    // The pressurization of this step is affine in the shear heating, so one walk over the
+    // wavenumber grid covers every iteration below; what the iterations then do is evaluate two
+    // coefficients per point.
+    tpMethod_.prepareFluidPressure(this->deltaT_[timeIndex], ltsFace, tpStep);
+
     for (uint32_t j = 0; j < this->drParameters_.rsNumberStateVariableUpdates; j++) {
+      if constexpr (!Derived::FoldsStateVariable) {
 #pragma omp simd
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
-        // fault strength using friction coefficient and fluid pressure from previous
-        // timestep/iteration update state variable using sliprate from the previous time step
-        localStateVariable[pointIndex] =
-            static_cast<Derived*>(this)->updateStateVariable(pointIndex,
-                                                             ltsFace,
-                                                             stateVarReference[pointIndex],
-                                                             this->deltaT_[timeIndex],
-                                                             localSlipRate[pointIndex]);
+        for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
+          // fault strength using friction coefficient and fluid pressure from previous
+          // timestep/iteration update state variable using sliprate from the previous time step
+          localStateVariable[pointIndex] = static_cast<Derived*>(this)->updateStateVariable(
+              pointIndex,
+              ltsFace,
+              stateVarReference[pointIndex],
+              this->deltaT_[timeIndex],
+              static_cast<Derived::StateScalar>(localSlipRate[pointIndex]));
+        }
       }
-      tpMethod_.calcFluidPressure(
-          normalStress, this->mu_, localSlipRate, this->deltaT_[timeIndex], false, ltsFace);
+      tpMethod_.applyShearHeating(normalStress, this->mu_, localSlipRate, ltsFace, tpStep);
 
       updateDirectionAndProjections(slipDirection1,
                                     slipDirection2,
@@ -360,11 +373,14 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
       // solve for new slip rate
       hasConverged = this->invertSlipRateIterative(ltsFace,
                                                    localStateVariable,
+                                                   stateVarReference,
+                                                   this->deltaT_[timeIndex],
                                                    normalStress,
                                                    normalStressStick,
                                                    etaNormal,
                                                    absoluteShearStress,
                                                    etaInv,
+                                                   tpStep,
                                                    testSlipRate);
 
       // int for ICX not to fail
@@ -428,21 +444,41 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       // SV from mean slip rate in tmp
-      localStateVariable[pointIndex] =
-          static_cast<Derived*>(this)->updateStateVariable(pointIndex,
-                                                           ltsFace,
-                                                           stateVarReference[pointIndex],
-                                                           this->deltaT_[timeIndex],
-                                                           localSlipRate[pointIndex]);
+      localStateVariable[pointIndex] = static_cast<Derived*>(this)->updateStateVariable(
+          pointIndex,
+          ltsFace,
+          stateVarReference[pointIndex],
+          this->deltaT_[timeIndex],
+          static_cast<Derived::StateScalar>(localSlipRate[pointIndex]));
     }
 
-    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+    // Where the law can state its state variable as a function of the slip rate, the friction
+    // coefficient follows the accepted slip rate directly and the coefficients that would be
+    // precomputed from a supplied state have no meaning here.
+    const auto details = [&]() -> typename Derived::MuDetails {
+      if constexpr (!Derived::FoldsStateVariable) {
+        return static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+      } else {
+        return {};
+      }
+    }();
 
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       // update LocMu for next strength determination, only needed for last update
-      this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
-          pointIndex, this->slipRateMagnitude_[ltsFace][pointIndex], details);
+      if constexpr (Derived::FoldsStateVariable) {
+        this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMuFolded(
+            ltsFace,
+            pointIndex,
+            this->slipRateMagnitude_[ltsFace][pointIndex],
+            stateVarReference[pointIndex],
+            this->deltaT_[timeIndex]);
+      } else {
+        this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
+            pointIndex, this->slipRateMagnitude_[ltsFace][pointIndex], details);
+      }
       const real strength = -this->mu_[ltsFace][pointIndex] * normalStress[pointIndex];
 
       // the direction along which the slip rate is decomposed; scaled such that dividing by
@@ -535,9 +571,17 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
    * needs \f$\mu(0)=0\f$, \f$\mu\ge0\f$ and \f$|\sigma|\ge0\f$ (endpoints are NOT evaluated):
    *   g(0+)           = +invEta * Theta            > 0
    *   g(Theta*invEta) = -invEta * |sigma| * mu    <= 0.
-   * Without the coupling \f$g' < -1\f$ and the root is unique. The coupling can weaken \f$g'\f$
-   * (cf. the derivative below); bisection converges to a root inside the bracket either way, so
-   * the solver does not rest on uniqueness.
+   * The root need not be unique, and for a law that folds its state variable it usually is not. The
+   * state variable weakens with the slip rate, so once it travels inside the residual
+   * \f$\partial\mu/\partial V\f$ changes sign -- around a metre per second for the fast law --
+   * and \f$g'\f$ rises towards zero with it: a plain isotropic fault at 50 MPa reaches
+   * \f$g' = -0.72\f$ there, and stepping rupture histories through the fast law leaves 471 of 3240
+   * inversions with more than one root inside the bracket. The anisotropic normal coupling weakens
+   * \f$g'\f$ further (cf. the derivative below). Bisection converges to a root in the bracket
+   * either way, so the solver does not rest on uniqueness -- but which root it converges to is
+   * decided by where it starts, which is why the warm start below matters for more than speed:
+   * started at the previous step 2 of those 3240 land on a different root than a bisection from the
+   * whole bracket would, started at the free-slip limit 469 of them do.
    * We take Newton while it stays in the bracket and outruns bisection, else bisect. The bracket
    * is non-increasing and loses half of its decades on every fallback, so the iterate settles and
    * termination is relative in SLIP-RATE space (|dV| < xacc * V). Two floors keep that test
@@ -548,21 +592,27 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
   bool invertSlipRateIterative(
       std::size_t ltsFace,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable,
+      const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVarReference,
+      real timeIncrement,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStressStick,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& etaNormal,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& absoluteShearStress,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& invEta,
+      const TPMethod::StepCoefficients& tpStep,
       std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateTest) {
 
     real muF[misc::NumPaddedPoints<Cfg>]{};
     real g[misc::NumPaddedPoints<Cfg>]{};
     real xLow[misc::NumPaddedPoints<Cfg>]{};
     real xHigh[misc::NumPaddedPoints<Cfg>]{};
-    real dxOld[misc::NumPaddedPoints<Cfg>]{};  // previous step, for the "outrun bisection" test
-    real gNoise[misc::NumPaddedPoints<Cfg>]{}; // rounding noise of the residual, per point
-    int32_t converged[misc::NumPaddedPoints<Cfg>]{}; // int not bool: keeps ICX SIMD happy (cf.
-                                                     // below)
+    real dxOld[misc::NumPaddedPoints<Cfg>]{};     // previous step, for the "outrun bisection" test
+    real gNoise[misc::NumPaddedPoints<Cfg>]{};    // rounding noise of the residual, per point
+    real dMuF[misc::NumPaddedPoints<Cfg>]{};      // d(mu)/dV, from the same pass as mu itself
+    real absSigma[misc::NumPaddedPoints<Cfg>]{};  // |sigma| at the trial slip rate
+    real dAbsSigma[misc::NumPaddedPoints<Cfg>]{}; // and its derivative, from the same pass
+    // int not bool: keeps ICX SIMD happy (cf. below)
+    int32_t converged[misc::NumPaddedPoints<Cfg>]{};
 
     // Number of roundings that enter one residual evaluation; used to size both floors below.
     constexpr real NoiseFactor = 4;
@@ -573,7 +623,16 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
     // guard as the only way out. Clamp it to a few ulp.
     const real xacc = std::max(this->drParameters_.rsSlipRateTolerance, NoiseFactor * Eps);
 
-    const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+    // Where the law can state its state variable as a function of the slip rate, the residual
+    // evaluates it at the trial slip rate rather than at one the outer fixed point supplies, and
+    // the coefficients that would be precomputed from a frozen state have no meaning here.
+    const auto details = [&]() -> typename Derived::MuDetails {
+      if constexpr (!Derived::FoldsStateVariable) {
+        return static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
+      } else {
+        return {};
+      }
+    }();
 
     // closed-form bracket + warm start (clamped previous-step V); no endpoint evaluations
 #ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
@@ -587,9 +646,12 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
       // directly, because it is the one root rtsafe cannot approach: a root on the bracket
       // boundary leaves the Newton step the same size as the previous one, so the guard falls
       // back to bisection on every iteration and the solve spends its whole budget halving.
-      const bool openAtLimit =
-          effectiveNormalStress(normalStress, normalStressStick, etaNormal, hi, pointIndex) ==
-          static_cast<real>(0.0);
+      const bool openAtLimit = stickAt(normalStress,
+                                       normalStressStick,
+                                       etaNormal,
+                                       TPMethod::fluidPressureOffset(tpStep, pointIndex),
+                                       hi,
+                                       pointIndex) >= static_cast<real>(0.0);
       xLow[pointIndex] = lo;
       xHigh[pointIndex] = hi;
       slipRateTest[pointIndex] =
@@ -611,19 +673,45 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
 #endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
         const real x = slipRateTest[pointIndex];
-        muF[pointIndex] = static_cast<Derived*>(this)->updateMu(pointIndex, x, details);
+        // one pass through mu() yields the value and its derivative; the friction law is written
+        // once and instantiated for a dual number here. Where the state variable is folded in, the
+        // derivative that comes back is the one of the composition mu(V, psi(V)).
+        const Dual<real> trial(x, static_cast<real>(1.0));
+        Dual<real> mu{};
+        if constexpr (Derived::FoldsStateVariable) {
+          mu = static_cast<Derived*>(this)->updateMuFolded(
+              ltsFace, pointIndex, trial, stateVarReference[pointIndex], timeIncrement);
+        } else {
+          mu = static_cast<Derived*>(this)->updateMu(pointIndex, trial, details);
+        }
+        muF[pointIndex] = mu.value;
+        dMuF[pointIndex] = mu.derivative;
         // sigma follows the trial slip rate, so it is evaluated at x rather than taken frozen:
-        // that moves the normal coupling out of the outer fixed point and into this Newton.
-        const real sigma =
-            effectiveNormalStress(normalStress, normalStressStick, etaNormal, x, pointIndex);
-        g[pointIndex] = -invEta[pointIndex] *
-                            (std::abs(sigma) * muF[pointIndex] - absoluteShearStress[pointIndex]) -
+        // that moves the normal coupling and the pressurization out of the outer fixed point and
+        // into this Newton. The dual carries d|sigma|/dV of the whole composition, including the
+        // part that reaches through mu.
+        const Dual<real> sigma =
+            rs::effectiveNormalStress(stickAt(normalStress,
+                                              normalStressStick,
+                                              etaNormal,
+                                              TPMethod::fluidPressureOffset(tpStep, pointIndex),
+                                              trial,
+                                              pointIndex),
+                                      TPMethod::fluidPressureSlope(tpStep, pointIndex),
+                                      trial,
+                                      mu);
+        const auto absSigmaDual = abs(sigma);
+        absSigma[pointIndex] = absSigmaDual.value;
+        dAbsSigma[pointIndex] = absSigmaDual.derivative;
+        g[pointIndex] = -invEta[pointIndex] * (absSigma[pointIndex] * muF[pointIndex] -
+                                               absoluteShearStress[pointIndex]) -
                         x;
         // |sigma| * mu and tau cancel at the root, so the rounding error of g does not shrink
         // with the iterate: it stays at Eps times the magnitude of the two cancelling terms. Below
         // that level the sign of g -- and with it the bracket update -- carries no information.
-        gNoise[pointIndex] = NoiseFactor * Eps * invEta[pointIndex] *
-                             (std::abs(sigma) * muF[pointIndex] + absoluteShearStress[pointIndex]);
+        gNoise[pointIndex] =
+            NoiseFactor * Eps * invEta[pointIndex] *
+            (absSigma[pointIndex] * muF[pointIndex] + absoluteShearStress[pointIndex]);
         const bool gPos = g[pointIndex] > static_cast<real>(0); // g decreasing: g>0 => root above x
         xLow[pointIndex] = gPos ? x : xLow[pointIndex];
         xHigh[pointIndex] = !gPos ? x : xHigh[pointIndex];
@@ -635,24 +723,12 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
 #endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
         const real x = slipRateTest[pointIndex];
-        const real dMuF = static_cast<Derived*>(this)->updateMuDerivative(pointIndex, x, details);
-        const real sigma =
-            effectiveNormalStress(normalStress, normalStressStick, etaNormal, x, pointIndex);
 
-        // |sigma| = -sigma while the fault is closed, and sigma follows the slip rate through the
-        // anisotropic normal coupling, so d|sigma|/dV = etaNormal there.
-        real dAbsSigma{};
-        if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
-          dAbsSigma =
-              (sigma < static_cast<real>(0.0)) ? etaNormal[pointIndex] : static_cast<real>(0.0);
-        } else {
-          dAbsSigma = static_cast<real>(0.0);
-        }
-        const real dGFrozen =
-            -invEta[pointIndex] * (std::abs(sigma) * dMuF) - static_cast<real>(1.0);
-        const real dGCoupled =
-            -invEta[pointIndex] * (std::abs(sigma) * dMuF + dAbsSigma * muF[pointIndex]) -
-            static_cast<real>(1.0);
+        const real dGFrozen = -invEta[pointIndex] * (absSigma[pointIndex] * dMuF[pointIndex]) -
+                              static_cast<real>(1.0);
+        const real dGCoupled = -invEta[pointIndex] * (absSigma[pointIndex] * dMuF[pointIndex] +
+                                                      dAbsSigma[pointIndex] * muF[pointIndex]) -
+                               static_cast<real>(1.0);
         // A fault that loses normal stress as it slips (etaNormal < 0) is the only case in which
         // the coupling can weaken g. It stays strictly decreasing as long as
         //   |etaNormal| * mu < eta_proj + |sigma| * mu' ,
@@ -723,8 +799,17 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
 #pragma omp simd
 #endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
-      this->mu_[ltsFace][pointIndex] =
-          static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
+      if constexpr (Derived::FoldsStateVariable) {
+        this->mu_[ltsFace][pointIndex] =
+            static_cast<Derived*>(this)->updateMuFolded(ltsFace,
+                                                        pointIndex,
+                                                        slipRateTest[pointIndex],
+                                                        stateVarReference[pointIndex],
+                                                        timeIncrement);
+      } else {
+        this->mu_[ltsFace][pointIndex] =
+            static_cast<Derived*>(this)->updateMu(pointIndex, slipRateTest[pointIndex], details);
+      }
       convergenceInner_[ltsFace][pointIndex] &= (converged[pointIndex] != 0);
     }
 
@@ -751,13 +836,14 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
     // Todo(SW): consider poroelastic materials together with thermal pressurization
 #pragma omp simd
     for (uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
+      // the stick keeps what does not follow this step's shear heating; the pressurization
+      // enters where sigma is formed, so that the solve can resolve it instead of lagging it
       normalStressStick[pointIndex] =
           faultStresses.normalStress[pointIndex] + initialStress.normalStress[pointIndex] +
-          faultStresses.fluidPressure[pointIndex] + initialStress.fluidPressure[pointIndex] -
-          tpMethod_.getFluidPressure(ltsFace, pointIndex);
+          faultStresses.fluidPressure[pointIndex] + initialStress.fluidPressure[pointIndex];
       normalStress[pointIndex] =
           std::min(static_cast<real>(0.0),
-                   normalStressStick[pointIndex] -
+                   normalStressStick[pointIndex] - tpMethod_.getFluidPressure(ltsFace, pointIndex) -
                        this->slipRateMagnitude_[ltsFace][pointIndex] * etaNormal[pointIndex]);
     }
   }
@@ -770,18 +856,18 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
    * evaluating it inside the Newton moves the coupling out of the outer fixed point, which
    * resolves it at a linear rate, into the quadratic one.
    */
-#pragma omp declare simd
-  static real
-      effectiveNormalStress(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
-                            const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStressStick,
-                            const std::array<real, misc::NumPaddedPoints<Cfg>>& etaNormal,
-                            real slipRate,
-                            std::uint32_t pointIndex) {
+  template <typename S>
+  static S stickAt(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                   const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStressStick,
+                   const std::array<real, misc::NumPaddedPoints<Cfg>>& etaNormal,
+                   real pressureOffset,
+                   S slipRate,
+                   std::uint32_t pointIndex) {
     if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
-      return std::min(static_cast<real>(0.0),
-                      normalStressStick[pointIndex] - slipRate * etaNormal[pointIndex]);
+      return S(normalStressStick[pointIndex] - pressureOffset) -
+             slipRate * S(etaNormal[pointIndex]);
     } else {
-      return normalStress[pointIndex];
+      return S(normalStress[pointIndex]);
     }
   }
 

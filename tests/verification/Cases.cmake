@@ -396,6 +396,18 @@ seissol_add_comparison(
     TOLERANCE 0
     LABELS "bitwise;mpi;dr")
 
+# the faces of a layer are solved by the threads side by side, and a law that keeps the scratch of
+# a face in itself shares it among them: thermal pressurization prepares coefficients for a face
+# that the slip-rate solve reads afterwards
+seissol_add_rupture(NAME rupture-rs-fvw-tp-threads4 FL 103 FAULT fault-rs-fvw-tp.yaml
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} THREADS 4 LABELS threads)
+seissol_add_comparison(
+    NAME bitwise-rupture-rs-fvw-tp-threads4
+    REFERENCE rupture-rs-fvw-tp
+    CANDIDATE rupture-rs-fvw-tp-threads4
+    TOLERANCE 0
+    LABELS "bitwise;threads;dr")
+
 # a deprecated spelling of the same law has to give the same run
 seissol_add_comparison(
     NAME identity-lsw-legacy

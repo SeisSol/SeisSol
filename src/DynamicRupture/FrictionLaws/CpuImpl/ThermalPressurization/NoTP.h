@@ -18,20 +18,40 @@ class NoTP {
   public:
   using real = Real<Cfg>;
 
+  /// without pressurization, a step has no coefficients
+  struct StepCoefficients {};
+
   explicit NoTP(const FrictionLawParameters<Real<Cfg>>& drParameters) {};
 
   void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
 
-  void calcFluidPressure(std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
-                         real (*mu)[misc::NumPaddedPoints<Cfg>],
-                         std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
-                         real deltaT,
-                         bool saveTmpInTP,
-                         std::size_t ltsFace) {}
+  void prepareFluidPressure(real deltaT, std::size_t ltsFace, StepCoefficients& step) const {}
+
+  void applyShearHeating(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                         const real (*mu)[misc::NumPaddedPoints<Cfg>],
+                         const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
+                         std::size_t ltsFace,
+                         const StepCoefficients& step) {}
+
+  void finalizeFluidPressure(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
+                             const real (*mu)[misc::NumPaddedPoints<Cfg>],
+                             const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
+                             real deltaT,
+                             std::size_t ltsFace,
+                             const StepCoefficients& step) {}
 
   [[nodiscard]] static real getFluidPressure(std::size_t /*unused*/, std::uint32_t /*unused*/) {
     return 0;
   };
+
+  [[nodiscard]] static real fluidPressureOffset(const StepCoefficients& /*unused*/,
+                                                std::uint32_t /*unused*/) {
+    return 0;
+  }
+  [[nodiscard]] static real fluidPressureSlope(const StepCoefficients& /*unused*/,
+                                               std::uint32_t /*unused*/) {
+    return 0;
+  }
 };
 
 } // namespace seissol::dr::friction_law::cpu

@@ -91,7 +91,8 @@ static constexpr inline uint32_t NumFaceRelations = 2;
 /**
  * Constants for Thermal Pressurization
  */
-static constexpr uint32_t NumTpGridPoints = 60;
+/// the grid point count is a parameter; this is what it defaults to
+static constexpr uint32_t DefaultTpGridPoints = 60;
 static constexpr double TpLogDz = 0.3;
 static constexpr double TpMaxWaveNumber = 10.0;
 
@@ -122,7 +123,6 @@ constexpr F forEach(TupleT&& tuple, F&& functor) {
  * @param base
  * @return
  */
-#pragma omp declare simd
 template <int32_t Exp, typename T>
 SEISSOL_HOSTDEVICE constexpr auto power(T base) -> T {
   if constexpr (Exp == 0) {
@@ -324,6 +324,7 @@ struct FrictionLawParameters {
   RealT forcedRuptureRiseTime{0.0};
   /// the rise time and the onset of a source are fields; see StressSourceRiseTime
   std::uint32_t sourceCount{1};
+  std::uint32_t tpGridPoints{misc::DefaultTpGridPoints};
   std::uint32_t rsMaxNumberSlipRateUpdates{60};
   std::uint32_t rsNumberStateVariableUpdates{10};
   RealT rsSlipRateTolerance{1e-8};

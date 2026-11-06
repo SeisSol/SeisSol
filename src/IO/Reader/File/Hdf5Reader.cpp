@@ -126,6 +126,20 @@ std::size_t Hdf5Reader::dataRowSize(const std::string& name) {
   }
   return rowSize;
 }
+std::vector<std::size_t> Hdf5Reader::dataValueShape(const std::string& name) {
+  checkExistence(name, "dataset");
+  const hid_t dataset = _eh(H5Dopen(handles_.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t type = _eh(H5Dget_type(dataset));
+  std::vector<std::size_t> shape;
+  if (H5Tget_class(type) == H5T_ARRAY) {
+    std::vector<hsize_t> dims(static_cast<std::size_t>(_eh(H5Tget_array_ndims(type))));
+    _eh(H5Tget_array_dims2(type, dims.data()));
+    shape.assign(dims.begin(), dims.end());
+  }
+  _eh(H5Tclose(type));
+  _eh(H5Dclose(dataset));
+  return shape;
+}
 
 void Hdf5Reader::readDataRaw(void* data,
                              const std::string& name,

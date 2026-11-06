@@ -45,6 +45,17 @@ struct InitialVariables {
   real slipDirection2{};
 };
 
+/// the affine law a step of the thermal pressurization reduces to; see prepareFluidPressure
+template <typename Cfg>
+struct FluidPressureCoefficients {
+  using real = Real<Cfg>;
+
+  real temperatureOffset{};
+  real temperatureSlope{};
+  real pressureOffset{};
+  real pressureSlope{};
+};
+
 template <typename Cfg>
 struct FrictionLawArgs {
   using real = Real<Cfg>;
@@ -81,6 +92,7 @@ struct FrictionLawContext {
   /// d(strength)/d(-sigma_eff); only used for the anisotropic normal/shear coupling
   real strengthSlopeBuffer{};
   InitialVariables<Cfg> initialVariables{};
+  FluidPressureCoefficients<Cfg> fluidPressure{};
 };
 
 #ifdef __CUDACC__
