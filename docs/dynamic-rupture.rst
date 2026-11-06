@@ -193,6 +193,15 @@ Friction law :code:`16` implements linear slip-weakening with a forced rupture t
 If you are only interested in linear slip weakening friction without forced rupture time, do not supply the parameter :code:`forced_rupture_time` in the fault `yaml` file.
 
 Friction law :code:`6` uses Prakash-Clifton regularization for bimaterial faults.
+It regularizes the fault strength, in the simplified form of Cochard and Rice (2000): the strength :math:`\tau_s` that resists slip relaxes towards the slip-weakening strength :math:`\tau` above,
+
+.. math::
+
+  \frac{\partial \tau_s}{\partial t} = -\frac{|V| + v^*}{L} \left( \tau_s - \tau \right),
+
+starting from the static strength under the initial stress.
+A change of the normal stress thus reaches the strength only over the time :math:`L / (|V| + v^*)`.
+Both parameters are set in the parameter file (namelist :code:`DynamicRupture`): :math:`v^*` as :code:`pc_vstar` and :math:`L` as :code:`pc_prakashLength`.
 For friction law :code:`16`, we resample the slip rate in every step to suppress spurious oscillations.
 In the case of Prakash-Clifton regularization, we do not resample the slip rate.
 If the slip rate :math:`V` drops below the threshold velocity :math:`v_0`, we reset the friction parameter :math:`\mu = \mu_s`.
@@ -230,13 +239,13 @@ You can modify the default value 1/3 of :math:`\alpha`, by adjusting the :code:`
 Rate-and-state friction
 ^^^^^^^^^^^^^^^^^^^^^^^
 Rate-and-state friction laws allow modeling the frictional shear strength variations as a function of slip rate and of the evolving properties of the contact population (Dieterich, 1979, 1981; Ruina, 1983).
-In SeisSol, we currently support 3 types of rate-and-state friction laws, which differ by the set of ordinary differential equations describing the evolution of the state variable.
+In SeisSol, we currently support 4 types of rate-and-state friction laws, which differ by the set of ordinary differential equations describing the evolution of the state variable.
 The type of rate-and-state friction law is set by the FL variable in the DynamicRupture namelist (parameters.par):
-Friction law :code:`3` implements the aging law, friction law :code:`4` implements the slip law, and friction law :code:`103` implements a slip law with strong rate-weakening.
+Friction law :code:`3` implements the aging law, friction law :code:`4` implements the slip law, friction law :code:`7` implements severe velocity weakening, and friction law :code:`103` implements a slip law with strong rate-weakening.
 More details about these friction laws can be found in the `SCEC benchmarks descriptions <https://strike.scec.org/cvws/benchmark_descriptions.html>`_ (TPV101 to 105) or in Pelties et al. (2013, `GMD <https://gmd.copernicus.org/articles/7/847/2014/>`_).
 
 Some parameters are considered homogeneous across the fault and defined in the main parameter file.
-Others can spatially vary (:code:`rs_a`, :code:`rs_sl0` for FL=3,4 and 103 and :code:`rs_srW` for FL=103) and are defined in the fault yaml file.
+Others can spatially vary (:code:`rs_a`, :code:`rs_sl0` for FL=3, 4, 7 and 103 and :code:`rs_srW` for FL=103) and are defined in the fault yaml file.
 Examples of input files for the `aging law <https://github.com/SeisSol/Examples/tree/master/tpv101>`_
 and for the `rate and state friction with strong velocity weakening <https://github.com/SeisSol/Examples/tree/master/tpv104>`_
 are available at the given links.
@@ -249,6 +258,12 @@ All rate-and-state friction laws are described by the following system of differ
     \tau &= \sigma_n f(V,\psi) \\
     \frac{\partial\psi}{\partial t} &= g(V,\psi)
   \end{aligned}
+
+SeisSol chooses the initial state variable :math:`\psi_0` such that the fault slips at the initial slip rate :math:`V_{ini} = \sqrt{V_{ini1}^2 + V_{ini2}^2}` under the initial traction, that is, under the initial stress together with every nucleation stress that is in effect at :math:`t = 0`:
+
+.. math::
+
+  |\tau_0| = |\sigma_{n,0}| \, f(V_{ini}, \psi_0).
 
 Aging law (:code:`FL=3`)
 -------------------------
@@ -300,6 +315,20 @@ No reference benchmark.
 
 The Severe Velocity Weakening Law has the same parameters as the Aging Law does.
 
+.. math::
+  \begin{aligned}
+    f(V, \psi) &= f_0 + a \frac{V}{V + V_0} - b \frac{\psi}{\psi + L} \\
+    g(V, \psi) &= V - \frac{V_0}{L} \psi
+  \end{aligned}
+
+The state variable has the dimension of a slip.
+In steady state, :math:`\psi = V L / V_0`, and the friction falls from :math:`f_0` at rest to :math:`f_0 + a - b` at slip rates far above :math:`V_0`.
+This is the friction law of Ampuero and Ben-Zion (2008), with their static friction :math:`\mu_s`, their coefficients :math:`\alpha` and :math:`\beta` and their velocity scale :math:`V_c` as :math:`f_0`, :math:`a`, :math:`b` and :math:`V_0`, and with their state variable, a velocity, multiplied by their time scale :math:`\tau_c = L / V_0`.
+
+With a non-negative state variable, the law holds a friction between :math:`f_0 + a V_{ini} / (V_{ini} + V_0) - b` and :math:`f_0 + a V_{ini} / (V_{ini} + V_0)` at the initial slip rate.
+Above that range, the initial state variable comes out negative, and SeisSol warns.
+At or below it, no state lets the fault slip at the initial slip rate: the fault is locked there and starts healed, in the steady state of the initial slip rate, :math:`\psi_0 = V_{ini} L / V_0`.
+
 Strong velocity weakening (:code:`FL=103`)
 ------------------------------------------
 Reference TPV103 and TPV104
@@ -335,6 +364,8 @@ Note that from the merge of pull request `#306 <https://github.com/SeisSol/SeisS
 This enforcement aimed at avoiding the state variable getting negative because of Gibbs effects when projecting the state increment onto the modal basis functions (resampling matrix).
 Since then, we realized that the state variable can get negative due to other factors, and, therefore, reverted this change.
 
+.. _thermal-pressurization:
+
 Thermal Pressurization
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -343,7 +374,7 @@ As deformation occurs within the fault gauge, frictional heating increases the t
 The pore fluids then pressurize, which weakens the fault.
 The evolution of the pore fluid pressure and temperature is governed by the diffusion of heat and fluid.
 TP can be activated using ``thermalPress`` in the ``DynamicRupture`` namelist.
-TP can be enabled with all rate-and-state friction laws (FL=3,4 and 103).
+TP can be enabled with all rate-and-state friction laws (FL=3, 4, 7 and 103).
 The TP parameters for which no spatial dependence has been implemented are defined directly in the ``DynamicRupture`` namelist:
 
 .. code-block:: Fortran
@@ -364,6 +395,11 @@ Two additional thermal pressurization parameters are space-dependent and therefo
   map:
     tp_hydraulicDiffusivity: 1e-4   # Hydraulic diffusivity [m^2/s]
     tp_halfWidthShearZone: 0.01     # Half width of shearing zone [m]
+
+SeisSol keeps the pore pressure in the sign convention of the stresses, where compression is negative: for a pore fluid pressure :math:`p`, :code:`tp_iniPressure` and the pore pressure on the fault, :math:`P_f`, are :math:`-p`.
+A pore pressure of 80 MPa is thus :code:`tp_iniPressure = -80.0e6`, and :math:`P_f` decreases as the shear heating pressurizes the fluid.
+The friction acts on the effective normal stress :math:`\sigma_n - P_f`, where :math:`\sigma_n` is the total normal stress.
+The normal stress of the initial stress yaml file is the total one, which is why the initial pore pressure has to be added to it there.
 
 TP generates 2 additional on-fault outputs: Pore pressure and temperature (see fault output).
 
