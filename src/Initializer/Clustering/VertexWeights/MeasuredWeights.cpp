@@ -319,7 +319,15 @@ void MeasuredWeights::readSettings() {
   // much less that their devices computed only 65 to 73 % of the time in the Turkey case
   constexpr double GroupImbalance{1.02};
   const bool concurrent = isDeviceOn() && useConcurrentClusters(env);
-  minShare_ = env.get<double>("MEASURED_CLUSTER_SHARE", concurrent ? ConcurrentClusterShare : 0.0);
+  // Except where the devices exchange the halos themselves: the groups give the ranks more
+  // clusters with a copy layer, and more neighbors, which costs the device more than the waits
+  // save (with shmem in the Turkey case, 29.6 to 30.5 s against 27.0 to 27.6 s with one group)
+  using Mode = Mpi::DataTransferMode;
+  const auto mode = Mpi::mpi.getPreferredDataTransferMode();
+  const bool deviceExchange =
+      mode == Mode::DirectCcl || mode == Mode::DirectStreamMpi || mode == Mode::DirectShmem;
+  minShare_ = env.get<double>("MEASURED_CLUSTER_SHARE",
+                              concurrent && !deviceExchange ? ConcurrentClusterShare : 0.0);
   groupImbalance_ = env.get("MEASURED_CLUSTER_IMBALANCE", GroupImbalance);
 }
 

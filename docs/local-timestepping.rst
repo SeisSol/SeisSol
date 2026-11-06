@@ -291,13 +291,24 @@ of the cells, and failed to set up). Measured with the clusters one after anothe
 against 24.4 s without measured costs on 128 nodes, and 47.5 s against 46.0 s on 64 nodes; the default time stepping
 took 23.0 s against 23.4 s and 43.4 s against 44.3 s.
 
+With ``ccl``, ``stream-mpi`` or ``shmem`` (``SEISSOL_TRANSFER_MODE``), the short runs exchange the halos through the
+host (``host``) instead: these libraries wait for other processes on the device (CCL and SHMEM in kernels), and slow
+down the kernels of the clusters by how long they wait, not by what the cells cost. On 128 nodes of Horizon, the kernels
+of the Turkey case took 1.36 times as long with ``shmem`` as with direct MPI, on the same partition (from 1.08 to 1.59
+times, by rank); partitioned by these costs, the run with ``shmem`` and the plan took 31.7 s against 27.5 s without
+measured costs. Measured through the host, it took 27.1 and 27.6 s against 27.4 and 27.5 s without measured costs
+(with a single group of time clusters, see below).
+A run with :code:`VertexWeightOutput = 1` measures with the settings it runs with; for the same reasons, it should take
+the time clusters one after another and exchange the halos with MPI from the host (``direct`` or ``host``).
+
 With concurrent clusters, balancing what the ranks cost in all is not enough: each cluster of a rank waits for those
 of its neighbors in every step, and a rank overlaps these waits only with the work of its other clusters.
 Partitioned by the costs in all, some ranks of the Turkey case on 128 nodes got cells of the largest cluster only,
 and their neighbors waited for them.
 So the partition balances groups of time clusters there, each as a constraint of its own:
 from the cluster with the smallest time step on, a group takes clusters until it has at least the share
-``SEISSOL_MEASURED_CLUSTER_SHARE`` of the measured costs (0.1 with concurrent clusters, else 0: a single group),
+``SEISSOL_MEASURED_CLUSTER_SHARE`` of the measured costs (0.1 with concurrent clusters, unless the devices exchange
+the halos themselves with ``ccl``, ``stream-mpi`` or ``shmem``; else 0: a single group),
 and a last group with less joins the one before; each group may be off balance by
 ``SEISSOL_MEASURED_CLUSTER_IMBALANCE`` (1.02 by default). The log names the groups.
 In the Turkey case, the clusters 0 to 2 made one group, with 18 % of the costs, and the clusters 3 to 7 the other;
@@ -306,6 +317,11 @@ costs in all, and the default time stepping (one run each) 23.8 s against 23.7 s
 ParMETIS bounds only the ranks that cost the most in a group: with an imbalance of 1.05, the other ranks got so much less
 that the device of the weakest one computed only 65 to 73 % of the time, against 74 to 80 % with 1.02; the run with the
 plan took 22.5, 22.6, 22.6 and 23.0 s then (with 1.01: 22.0 and 22.2 s).
+Where the devices exchange the halos themselves, the groups cost more than they save: they gave the ranks more clusters
+(3.7 against 3.2 per rank), more of them with a copy layer (2.8 against 2.3), and more neighbors (12.8 against 11.2),
+each with halos of its own for the device to send. With ``shmem`` and the plan, the Turkey case took 29.6, 30.3 and
+30.5 s with the groups, against 27.0, 27.0, 27.1 and 27.6 s with a single group, and 27.4 and 27.5 s without measured
+costs; with ``ccl`` and the plan, 30.2 s with a single group against 30.9 s without measured costs.
 
 The costs of a cell include the speed of the rank it was measured on, so the partition does not weight the ranks
 by Mini SeisSol then (see :ref:`env_vars`).

@@ -84,39 +84,62 @@ seissol::initializer::parameters::SeisSolParameters
 }
 
 /**
- * While it exists, the time clusters take their steps one after another, without the time-stepping
- * plan and recorded super-timesteps, whatever the environment says: for the runs that measure what
- * the cells cost. With concurrent clusters, the time of a loop on the device also counts the time
- * its kernels share the device with those of other clusters, and recorded super-timesteps time
- * nothing at all.
+ * While it exists, the environment says what the runs that measure what the cells cost need,
+ * whatever it said before:
+ * - the time clusters take their steps one after another, without the time-stepping plan and
+ *   recorded super-timesteps: with concurrent clusters, the time of a loop on the device also
+ *   counts the time its kernels share the device with those of other clusters, and recorded
+ *   super-timesteps time nothing at all;
+ * - with ccl, stream-mpi or shmem, the halo exchange goes through the host instead (host): these
+ *   libraries wait for other processes on the device (CCL and SHMEM in kernels), and slow down the
+ *   kernels of the clusters by how long they wait, not by what the cells cost. On 128 nodes of
+ *   Horizon (November 2026), the kernels of the Turkey case took 1.36 times as long with shmem as
+ *   with direct MPI, on the same partition (from 1.08 to 1.59 times, by rank).
  */
-class SequentialClusters {
+class MeasuringSettings {
   public:
-  SequentialClusters() {
-    for (const auto* name : Names) {
-      const char* value = std::getenv(name);
-      saved_.push_back(value != nullptr ? std::make_optional<std::string>(value) : std::nullopt);
-      setenv(name, "0", 1);
+  MeasuringSettings() {
+    for (const auto* name : SequentialNames) {
+      set(name, "0");
     }
+#ifdef ACL_DEVICE
+    using Mode = seissol::Mpi::DataTransferMode;
+    const auto mode = seissol::Mpi::requestedDataTransferMode();
+    if (mode == Mode::DirectCcl || mode == Mode::DirectStreamMpi || mode == Mode::DirectShmem) {
+      logInfo() << "The short run exchanges the halos through the host (host): the library of"
+                << seissol::Mpi::dataTransferModeName(mode.value()).c_str()
+                << "waits on the device, which would slow down the kernels of the clusters.";
+      set("SEISSOL_TRANSFER_MODE", "host");
+    }
+#endif
   }
-  ~SequentialClusters() {
-    for (std::size_t i = 0; i < Names.size(); ++i) {
-      if (saved_[i].has_value()) {
-        setenv(Names[i], saved_[i]->c_str(), 1);
+  ~MeasuringSettings() {
+    for (const auto& [name, value] : saved_) {
+      if (value.has_value()) {
+        setenv(name.c_str(), value->c_str(), 1);
       } else {
-        unsetenv(Names[i]);
+        unsetenv(name.c_str());
       }
     }
   }
-  SequentialClusters(const SequentialClusters&) = delete;
-  SequentialClusters& operator=(const SequentialClusters&) = delete;
-  SequentialClusters(SequentialClusters&&) = delete;
-  SequentialClusters& operator=(SequentialClusters&&) = delete;
+  MeasuringSettings(const MeasuringSettings&) = delete;
+  MeasuringSettings& operator=(const MeasuringSettings&) = delete;
+  MeasuringSettings(MeasuringSettings&&) = delete;
+  MeasuringSettings& operator=(MeasuringSettings&&) = delete;
 
   private:
-  static constexpr std::array<const char*, 3> Names{
+  /// what makes the time clusters take their steps one after another
+  static constexpr std::array<const char*, 3> SequentialNames{
       "SEISSOL_CONCURRENT_CLUSTERS", "SEISSOL_TIMESTEPPING_PLAN", "SEISSOL_SUPERSTEP_GRAPHS"};
-  std::vector<std::optional<std::string>> saved_;
+
+  void set(const char* name, const char* value) {
+    const char* before = std::getenv(name);
+    saved_.emplace_back(name,
+                        before != nullptr ? std::make_optional<std::string>(before) : std::nullopt);
+    setenv(name, value, 1);
+  }
+
+  std::vector<std::pair<std::string, std::optional<std::string>>> saved_;
 };
 
 /**
@@ -479,10 +502,10 @@ int main(int argc, char* argv[]) {
         logInfo() << "The actual run, partitioned by the costs the run before measured.";
       }
       const auto runParameters = measuring ? measuringRun(parameters, cycle) : parameters;
-      // (see SequentialClusters; the variables get read anew for the measuring run)
-      std::optional<SequentialClusters> sequential;
+      // (see MeasuringSettings; the variables get read anew for the measuring run)
+      std::optional<MeasuringSettings> measuringSettings;
       if (measuring) {
-        sequential.emplace();
+        measuringSettings.emplace();
       }
       const utils::Env measuringEnv("SEISSOL_");
 
