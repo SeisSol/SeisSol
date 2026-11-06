@@ -511,13 +511,16 @@ seissol_add_fault1d(NAME fault1d-lsw-bimaterial FL 6 FAULT fault1d-lsw.yaml
                     MESH fault1d-bimaterial
                     SET "DynamicRupture.pc_vstar=0.1" "DynamicRupture.pc_prakashLength=0.1"
                     LABELS convergence)
-foreach (law aging:3 slip:4)
+foreach (law aging:3 slip:4 svw:7)
   string(REPLACE ":" ";" law ${law})
   list(GET law 0 name)
   list(GET law 1 number)
   seissol_add_fault1d(NAME fault1d-rs-${name} FL ${number} FAULT fault1d-rs-${name}.yaml
                       STEPS 2048 SET ${SEISSOL_RS} LABELS convergence)
 endforeach()
+seissol_add_fault1d(NAME fault1d-rs-svw-tp FL 7 FAULT fault1d-rs-svw-tp.yaml
+                    STEPS 2048 SET ${SEISSOL_RS} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS convergence)
 seissol_add_fault1d(NAME fault1d-rs-fvw FL 103 FAULT fault1d-rs-fvw.yaml
                     STEPS 2048 SET ${SEISSOL_RS_FVW} LABELS convergence)
 seissol_add_fault1d(NAME fault1d-rs-fvw-tp FL 103 FAULT fault1d-rs-fvw-tp.yaml

@@ -1417,7 +1417,8 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
                 )
         if "state" in exact:
             state = column("StV")
-            if problem.law == 103:
+            if problem.law in (7, 103):
+                # a slip and a friction coefficient, respectively
                 worst("state", _deviation(state, exact["state"]))
             else:
                 # the state of aging and slip law spans orders of magnitude

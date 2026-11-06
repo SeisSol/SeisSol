@@ -286,6 +286,66 @@
       "stress": 0.0007,
       "traction": 0.00032,
       "velocity": 0.0007
+    },
+    "fault1d-rs-svw-tp/elastic/o6/double": {
+      "accumulated-slip": 0.0005,
+      "direction": 1e-06,
+      "friction": 1.4e-06,
+      "normal-stress": 0.00028,
+      "peak-slip-rate": 0.00046,
+      "pressure": 0.00034,
+      "rupture-time": 0.00022,
+      "slip": 0.00037,
+      "slip-rate": 0.00036,
+      "state": 0.00047,
+      "stress": 0.0026,
+      "temperature": 0.00028,
+      "traction": 0.00028,
+      "velocity": 0.0026
+    },
+    "fault1d-rs-svw-tp/elastic/o6/single": {
+      "accumulated-slip": 0.0005,
+      "direction": 1e-06,
+      "friction": 1.4e-06,
+      "normal-stress": 0.00028,
+      "peak-slip-rate": 0.00046,
+      "pressure": 0.00034,
+      "rupture-time": 0.00022,
+      "slip": 0.00036,
+      "slip-rate": 0.00036,
+      "state": 0.00047,
+      "stress": 0.0026,
+      "temperature": 0.00028,
+      "traction": 0.00028,
+      "velocity": 0.0026
+    },
+    "fault1d-rs-svw/elastic/o6/double": {
+      "accumulated-slip": 9.1e-05,
+      "direction": 1e-06,
+      "friction": 6.8e-07,
+      "normal-stress": 0.00021,
+      "peak-slip-rate": 0.00089,
+      "rupture-time": 0.00022,
+      "slip": 9.1e-05,
+      "slip-rate": 0.00085,
+      "state": 8.1e-05,
+      "stress": 0.0061,
+      "traction": 0.00021,
+      "velocity": 0.0062
+    },
+    "fault1d-rs-svw/elastic/o6/single": {
+      "accumulated-slip": 9.7e-05,
+      "direction": 1e-06,
+      "friction": 1.4e-06,
+      "normal-stress": 0.00021,
+      "peak-slip-rate": 0.00089,
+      "rupture-time": 0.00022,
+      "slip": 9.7e-05,
+      "slip-rate": 0.00085,
+      "state": 9.1e-05,
+      "stress": 0.0061,
+      "traction": 0.00021,
+      "velocity": 0.0062
     }
   }
 }

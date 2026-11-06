@@ -42,8 +42,7 @@ are meant to check:
   Green's function of the diffusion across a Gaussian shear zone, rather than a
   sum over wave numbers.
 
-Laws without a documented definition (the severe velocity weakening, FL=7) or
-whose output is a single impulse (the delta pulse, FL=35) are not covered.
+The delta pulse (FL=35), whose output is a single impulse, is not covered.
 """
 
 import math
@@ -341,13 +340,17 @@ class SlipWeakening:
 
 
 class RateAndState:
-    """The rate-and-state laws FL=3 (aging), FL=4 (slip) and FL=103 (fast
-    velocity weakening), optionally with thermal pressurization.
+    """The rate-and-state laws FL=3 (aging), FL=4 (slip), FL=7 (severe
+    velocity weakening) and FL=103 (fast velocity weakening), optionally with
+    thermal pressurization.
 
-    The friction coefficient is a asinh(V / (2 V_0) exp(Psi / a)), with
-    Psi = f_0 + b ln(V_0 psi / L) for aging and slip law, and Psi = psi for
-    FL=103. The slip rate solves tau_load - eta V = sigma_eff f(V, psi), which
-    has exactly one root since f grows with V.
+    The friction coefficient of FL=3, 4 and 103 is
+    a asinh(V / (2 V_0) exp(Psi / a)), with Psi = f_0 + b ln(V_0 psi / L) for
+    aging and slip law, and Psi = psi for FL=103; that of FL=7 is
+    f_0 + a V / (V + V_0) - b psi / (psi + L). The slip rate solves
+    tau_load - eta V = sigma_eff f(V, psi), which has at most one root since f
+    grows with V. The asinh always has one; FL=7 has none where the traction
+    does not exceed sigma_eff f(0, psi), and the fault is locked there.
     """
 
     def __init__(self, law, inputs, loading):
@@ -363,10 +366,24 @@ class RateAndState:
         initial_rate = math.hypot(
             inputs.get("rs_iniSlipRate1"), inputs.get("rs_iniSlipRate2")
         )
-        normal, along_y, along_z = loading.initial
-        # the state that holds the initial traction at the initial slip rate
-        x = math.hypot(along_y, along_z) / (self.a * -normal)
-        psi = self.a * (math.log(2.0) + _log_sinh(x) - math.log(initial_rate / self.v0))
+        # the state that holds the traction at the start, the initial stress
+        # with every nucleation in effect then, at the initial slip rate
+        normal, along_y, along_z = loading(0.0)
+        friction = math.hypot(along_y, along_z) / -normal
+        if law == 7:
+            direct = self.a * initial_rate / (initial_rate + self.v0)
+            weakening = (self.f0 + direct - friction) / self.b
+            if weakening < 1.0:
+                self.psi0 = self.length * weakening / (1.0 - weakening)
+            else:
+                # no state slips at the initial slip rate: locked, and healed
+                self.psi0 = self.length * initial_rate / self.v0
+            return
+        psi = self.a * (
+            math.log(2.0)
+            + _log_sinh(friction / self.a)
+            - math.log(initial_rate / self.v0)
+        )
         if law == 103:
             self.psi0 = psi
         else:
@@ -380,17 +397,37 @@ class RateAndState:
             return psi
         return self.f0 + self.b * math.log(self.v0 * psi / self.length)
 
+    def severe_friction(self, rate, psi):
+        """The friction coefficient of FL=7."""
+        return (
+            self.f0
+            + self.a * rate / (rate + self.v0)
+            - self.b * psi / (psi + self.length)
+        )
+
     def slip_rate(self, shear, sigma, psi, eta):
-        """Solve shear - eta V = sigma f(V, psi) for V, by Newton in log V."""
+        """Solve shear - eta V = sigma f(V, psi) for V, by Newton in log V;
+        0 where no slip rate solves it."""
         if shear <= 0.0:
             return 0.0
-        offset = self.big_psi(psi) / self.a - math.log(2.0 * self.v0)
+        if self.law == 7:
+
+            def friction(u):
+                rate = math.exp(u)
+                slope = self.a * rate * self.v0 / (rate + self.v0) ** 2
+                return self.severe_friction(rate, psi), slope
+
+        else:
+            offset = self.big_psi(psi) / self.a - math.log(2.0 * self.v0)
+
+            def friction(u):
+                log_z = offset + u
+                return self.a * _arsinh_exp(log_z), self.a * _arsinh_exp_slope(log_z)
 
         def residual(u):
-            log_z = offset + u
-            value = sigma * self.a * _arsinh_exp(log_z) + eta * math.exp(u) - shear
-            slope = sigma * self.a * _arsinh_exp_slope(log_z) + eta * math.exp(u)
-            return value, slope
+            value, slope = friction(u)
+            rate = math.exp(u)
+            return sigma * value + eta * rate - shear, sigma * slope + eta * rate
 
         upper = math.log(shear / eta)
         lower = upper - 1.0
@@ -417,6 +454,8 @@ class RateAndState:
     def state_rate(self, rate, psi):
         if self.law == 3:
             return 1.0 - rate * psi / self.length
+        if self.law == 7:
+            return rate - self.v0 / self.length * psi
         if self.law == 4:
             product = rate * psi / self.length
             return -product * math.log(product) if product > 0.0 else 0.0
@@ -434,9 +473,14 @@ class RateAndState:
         psi = state[3]
         rate = self.slip_rate(shear, sigma, psi, eta)
         traction = shear - eta * rate
+        if self.law == 7:
+            # where the fault is locked, the friction exceeds the traction
+            friction = self.severe_friction(rate, psi)
+        else:
+            friction = traction / sigma
         result = {
             "slip-rate": rate,
-            "friction": traction / sigma,
+            "friction": friction,
             "traction": traction,
             "state": psi,
         }
@@ -665,7 +709,7 @@ class Problem:
             self.friction = SlipWeakening(
                 16 if self.law == 2 else self.law, self.inputs
             )
-        elif self.law in (3, 4, 103):
+        elif self.law in (3, 4, 7, 103):
             self.friction = RateAndState(self.law, self.inputs, self.loading)
             if int(self.inputs.get("thermalPress", default=0)):
                 self.thermal = ThermalPressurization(self.inputs)
@@ -956,6 +1000,34 @@ def self_test():
         ),
         1e-8,
     )
+
+    # severe velocity weakening: the initial state holds the initial traction at
+    # the initial slip rate; the healing then locks the fault, and while it is
+    # locked, the state relaxes as psi_0 exp(-V_0 t / L)
+    fault = {"s_xx": -120.0e6, "s_xy": 70.8e6, "rs_a": 0.008, "rs_sl0": 1.0e-7}
+    parameters = {
+        "FL": 7,
+        "rs_f0": 0.6,
+        "rs_sr0": 1e-6,
+        "rs_b": 0.012,
+        "rs_iniSlipRate1": 1e-16,
+        "rs_iniSlipRate2": 0.0,
+    }
+    problem = Problem(parameters, fault, medium, medium)
+    law = problem.friction
+    check(
+        "the initial state of FL=7",
+        abs(law.severe_friction(1e-16, law.psi0) - 70.8e6 / 120.0e6),
+        1e-14,
+    )
+    series = problem.solve(0.1, 1e-4)
+    healed = law.psi0 * np.exp(-law.v0 / law.length * series["time"])
+    check(
+        "healing of FL=7 on the locked fault",
+        float(np.max(np.abs(series["state"] - healed)) / law.psi0),
+        1e-10,
+    )
+    check("FL=7 stays locked", float(np.max(series["slip-rate"][1:])), 0.0)
     return failures
 
 
