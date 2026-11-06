@@ -1351,14 +1351,11 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
     """The deviations of the receivers from the exact solution, per quantity.
 
     The fault receivers are compared as magnitudes, of the slip rate, the
-    traction and the slip, since which of the two directions on the fault is
-    the strike and which sign it carries is a convention the solution has no
-    business assuming. The direction is checked separately: a friction law
-    slips along the initial traction, which the header of a receiver states in
-    fault coordinates, and an imposed slip rate along the imposed slip. The
-    volume receivers see a plane shear wave: what is not that wave (the
-    velocity across the fault, and every stress component other than the shear
-    on planes parallel to it) counts as deviation.
+    traction and the slip, and the direction of the slip separately, in the
+    strike and dip of the documented fault frame; that the receivers use this
+    frame is checked against the initial traction their header states. The
+    volume receivers are compared component by component, as vectors of the
+    velocity and the stress in global coordinates.
 
     Where the receivers report something else than the physical quantity, they
     are held against what they report: the traction of an imposed slip rate is
@@ -1367,8 +1364,14 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
     Pn0 is the effective normal stress, and P_f the pore pressure as a stress,
     negative where it pushes the faces apart (as tp_iniPressure is given).
     """
+    import fault1d
+    import numpy as np
+
     exact = {key: value[indices] for key, value in series.items() if _is_series(value)}
     shear_exact = exact["traction"]
+    # the direction of the slip, in the strike and dip of the fault receivers
+    along = np.array([exact["slip-rate-y"], exact["slip-rate-z"]]).T @ problem.frame.T
+    initial_traction = np.array(problem.loading(0.0)[1:])
     deviations = {}
 
     def worst(name, value):
@@ -1441,43 +1444,38 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
                 ),
             )
 
-        direction = problem.slip_direction()
-        if direction == "traction":
-            direction = (float(header["T_s"][0]), float(header["T_d"][0]))
-        if direction is not None:
-            norm = math.hypot(*direction)
-            limit = 1e-3 * max(exact["slip-rate"])
-            misalignment = 0.0
-            for s, d, rate in zip(column("SRs"), column("SRd"), exact["slip-rate"]):
-                length = math.hypot(s, d)
-                if rate < limit or length == 0.0:
-                    continue
-                cosine = (s * direction[0] + d * direction[1]) / (length * norm)
-                misalignment = max(misalignment, 1.0 - cosine)
-            worst("direction", misalignment)
+        stated = np.array([float(header["T_s"][0]), float(header["T_d"][0])])
+        expected = problem.frame @ initial_traction
+        if np.linalg.norm(stated - expected) > 1e-6 * max(np.linalg.norm(stated), 1.0):
+            raise SystemExit(
+                f"the receivers state the initial traction {stated} in fault "
+                f"coordinates, where the documented frame gives {expected}"
+            )
+        limit = 1e-3 * max(exact["slip-rate"])
+        misalignment = 0.0
+        for s, d, rate, direction in zip(
+            column("SRs"), column("SRd"), exact["slip-rate"], along
+        ):
+            length = math.hypot(s, d)
+            if rate < limit or length == 0.0:
+                continue
+            cosine = (s * direction[0] + d * direction[1]) / (length * rate)
+            misalignment = max(misalignment, 1.0 - cosine)
+        worst("direction", misalignment)
 
+    step = series["time"][1] - series["time"][0]
     for position, (names, rows) in volume_receivers:
+        recorded = np.array(rows)
+        # the volume receivers sample on their own, up to a step before the end
+        samples = np.rint(recorded[:, names.index("Time")] / step).astype(int)
         velocity, stress = problem.radiated(series, position[0])
-        velocity, stress = velocity[indices], stress[indices]
-        index = {name: names.index(name) for name in names}
-        velocity_error = [
-            math.hypot(
-                math.hypot(row[index["v2"]], row[index["v3"]]) - exact_value,
-                row[index["v1"]],
-            )
-            for row, exact_value in zip(rows, velocity)
-        ]
-        stress_error = [
-            math.sqrt(
-                (math.hypot(row[index["s_xy"]], row[index["s_xz"]]) - exact_value) ** 2
-                + sum(
-                    row[index[name]] ** 2 for name in ("s_xx", "s_yy", "s_zz", "s_yz")
-                )
-            )
-            for row, exact_value in zip(rows, stress)
-        ]
-        worst("velocity", max(velocity_error) / max(velocity))
-        worst("stress", max(stress_error) / max(stress))
+        velocity, stress = velocity[samples], stress[samples]
+        index = [names.index(name) for name in ("v1", "v2", "v3")]
+        error = np.linalg.norm(recorded[:, index] - velocity, axis=1)
+        worst("velocity", float(error.max() / np.linalg.norm(velocity, axis=1).max()))
+        index = [names.index(f"s_{name}") for name in fault1d.VOIGT]
+        error = np.linalg.norm(recorded[:, index] - stress, axis=1)
+        worst("stress", float(error.max() / np.linalg.norm(stress, axis=1).max()))
     return deviations
 
 

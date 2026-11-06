@@ -494,6 +494,11 @@ seissol_add_comparison(
 # milliseconds through a cell of fault1d, and a slip rate that changes faster
 # sends out a wave the mesh does not resolve. Like the convergence cases, these
 # run for long, so they carry that label too.
+#
+# An anisotropic build runs them all with material-anisotropic.yaml, which is
+# isotropic in effect, and adds media with tilted axes: there the radiation
+# damping depends on the direction of the slip, which then leaves the direction
+# of the traction, and the slip changes the normal stress.
 # ---------------------------------------------------------------------------
 
 set(SEISSOL_FAULT1D_TP_OUTPUT "Pickpoint.OutputMask=1 1 1 1 1 1 0 1 1 1 1 1")
@@ -534,6 +539,17 @@ foreach (law yoffe:33 gaussian:34)
                       STEPS 2048 SET "DynamicRupture.SlipRateOutputType=0"
                       LABELS convergence)
 endforeach()
+seissol_add_fault1d(NAME fault1d-anisotropic-lsw FL 16 FAULT fault1d-lsw-oblique.yaml
+                    MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-anisotropic-lsw-bimaterial FL 16
+                    FAULT fault1d-lsw-oblique.yaml MESH fault1d-bimaterial
+                    MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-anisotropic-rs-aging FL 3 FAULT fault1d-rs-aging-oblique.yaml
+                    STEPS 2048 SET ${SEISSOL_RS}
+                    MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
+                    LABELS convergence)
 
 # ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic

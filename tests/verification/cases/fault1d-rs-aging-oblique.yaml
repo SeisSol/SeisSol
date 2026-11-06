@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The aging law on fault1d with an oblique traction, 65 MPa along y and 35 MPa
+# along z, which the nucleation turns towards y; it drives the fault from creep
+# to over a metre per second within the run.
+!ConstantMap
+map:
+  s_xx:   -120.0e6
+  s_yy:   0.0
+  s_zz:   0.0
+  s_xy:   65.0e6
+  s_yz:   0.0
+  s_xz:   35.0e6
+  nuc_xx: 0.0
+  nuc_yy: 0.0
+  nuc_zz: 0.0
+  nuc_xy: 40.0e6
+  nuc_yz: 0.0
+  nuc_xz: 0.0
+  rs_a:     0.008
+  rs_sl0:   0.02

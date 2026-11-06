@@ -10,9 +10,9 @@
 
 fault1d is a column that is periodic along the fault plane x = 0 and open
 across it. A fault that starts out uniform stays uniform there: nothing varies
-along it, so nothing is transferred along it, and each side radiates a plane
-shear wave straight away from it. The traction then depends on the slip rate V
-of the same instant only,
+along it, so nothing is transferred along it, and each side radiates plane
+waves straight away from it. The traction then depends on the slip rate V of
+the same instant only,
 
     tau(t) = tau_load(t) - eta V(t),    eta = 1 / (1 / Z_left + 1 / Z_right),
 
@@ -23,6 +23,13 @@ every point of the fault solves the same ordinary differential equation, and the
 wave it sends out follows from it: at the distance |x| on a side of impedance Z
 and shear wave speed c_s, the particle velocity is eta / Z V(t - |x| / c_s), and
 the shear stress eta V(t - |x| / c_s).
+
+In an anisotropic medium, the impedances are matrices, the radiation damping
+depends on the direction of the slip, which then leaves the direction of
+tau_load, and the slip changes the normal stress; each side sends out three
+waves, polarized and as fast as the Christoffel matrix of the direction x
+makes them (see Medium and Problem). The receivers are compared with all of
+this in the fault frame that the documentation defines.
 
 The equation is integrated here with steps far below the time step of the case,
 so that what remains of the difference to SeisSol is the error of SeisSol. The
@@ -47,7 +54,6 @@ The delta pulse (FL=35), whose output is a single impulse, is not covered.
 
 import math
 import re
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -108,28 +114,61 @@ def read_constant_maps(path):
     return maps
 
 
-@dataclass(frozen=True)
+# the stress components in Voigt notation, in the order of the stiffness c_ij
+VOIGT = ("xx", "yy", "zz", "yz", "xz", "xy")
+# the Voigt indices of the components (x, x), (y, x) and (z, x): the traction on
+# a plane x = const, and the strains of a plane wave that travels along x
+_ALONG_X = (0, 5, 4)
+
+
 class Medium:
-    """An isotropic elastic medium."""
+    """A homogeneous elastic medium, by its density and its stiffness in Voigt
+    notation, ordered as VOIGT.
 
-    rho: float
-    mu: float
-    lam: float
+    Along x, it carries three plane waves: their polarizations q are the
+    eigenvectors of the Christoffel matrix Gamma_ik = C_i1k1, and their speeds
+    c follow from its eigenvalues rho c^2. A wave leaving a plane x = const
+    with the velocity q (q . v) carries the traction -rho c q (q . v) on it, so
+    that the impedance Z = sum rho c q q^T = (rho Gamma)^(1/2) maps the
+    velocity of the waves leaving a plane to the traction they carry, and the
+    admittance Y = Z^-1 maps back.
+    """
 
-    @property
-    def shear_speed(self):
-        return math.sqrt(self.mu / self.rho)
+    def __init__(self, rho, stiffness):
+        self.rho = float(rho)
+        self.stiffness = np.array(stiffness, dtype=float)
+        christoffel = self.stiffness[np.ix_(_ALONG_X, _ALONG_X)]
+        values, vectors = np.linalg.eigh(christoffel)
+        if values[0] <= 0.0:
+            raise Unsupported("the medium carries no wave along x")
+        self.speeds = np.sqrt(values / self.rho)
+        self.polarizations = vectors
+        self.impedance = vectors @ np.diag(self.rho * self.speeds) @ vectors.T
+        self.admittance = vectors @ np.diag(1.0 / (self.rho * self.speeds)) @ vectors.T
 
-    @property
-    def shear_impedance(self):
-        return math.sqrt(self.rho * self.mu)
+    @classmethod
+    def isotropic(cls, rho, mu, lam):
+        stiffness = np.zeros((6, 6))
+        stiffness[:3, :3] = lam
+        for index in range(3):
+            stiffness[index, index] = lam + 2.0 * mu
+            stiffness[index + 3, index + 3] = mu
+        return cls(rho, stiffness)
 
 
 def medium_of(maps, group):
+    """The medium of a group: rho, and either mu and lambda or the 21 c_ij of an
+    anisotropic medium."""
     values = dict(maps.get(None, {}))
     values.update(maps.get(group, {}))
     try:
-        return Medium(values["rho"], values["mu"], values["lambda"])
+        if "c11" in values:
+            stiffness = np.zeros((6, 6))
+            for i in range(6):
+                for j in range(i, 6):
+                    stiffness[i, j] = stiffness[j, i] = values[f"c{i + 1}{j + 1}"]
+            return Medium(values["rho"], stiffness)
+        return Medium.isotropic(values["rho"], values["mu"], values["lambda"])
     except KeyError as error:
         raise Unsupported(f"the material of group {group} lacks {error}") from error
 
@@ -267,11 +306,13 @@ class SlipWeakening:
 
     The strength is -C - min(0, sigma_n) mu, with mu a function of the
     accumulated slip S, and of the time where a forced rupture time is given.
-    The strength does not depend on the slip rate, so the slip rate is explicit:
-    V = max(0, |tau_load| - strength) / eta. With FL=6, the strength itself
-    relaxes towards that of the slip-weakening law at the rate (|V| + v*) / L,
-    the form of the Prakash-Clifton regularization that Cochard and Rice (2000)
-    use for faults between different media.
+    The friction coefficient does not depend on the slip rate, so the slip rate
+    is explicit: with the normal stress sigma_n - k V of a slip rate V,
+    V = max(0, tau - strength(sigma_n)) / (eta + mu k), for the traction tau
+    and the radiation damping eta along the slip. With FL=6, the strength
+    itself relaxes towards that of the slip-weakening law at the rate
+    (|V| + v*) / L, the form of the Prakash-Clifton regularization that Cochard
+    and Rice (2000) use for faults between different media.
     """
 
     def __init__(self, law, inputs):
@@ -320,17 +361,28 @@ class SlipWeakening:
                 weakening = 1.0
         return self.mu_s - (self.mu_s - self.mu_d) * weakening
 
-    def evaluate(self, t, state, normal, shear, eta, pressure):
-        strength = self.strength(t, state, normal)
-        regularized = state[3] if self.law == 6 else strength
-        rate = max(0.0, shear - regularized) / eta
+    def evaluate(self, t, state, normal, shear, eta, pressure, coupling=0.0):
+        friction = self.friction(t, state)
+        if self.law == 6:
+            rate = max(0.0, shear - state[3]) / eta
+        else:
+            # the strength grows by mu k V as the slip rate clamps the fault
+            divisor = eta + (friction * coupling if normal < 0.0 else 0.0)
+            if divisor <= 0.0:
+                raise Unsupported("the fault loses its strength faster than it slips")
+            rate = max(0.0, shear - self.strength(t, state, normal)) / divisor
+        normal_stress = normal - coupling * rate
+        if (normal_stress < 0.0) != (normal < 0.0):
+            raise Unsupported("the slip rate opens or closes the fault")
         result = {
             "slip-rate": rate,
-            "friction": self.friction(t, state),
+            "friction": friction,
             "traction": shear - eta * rate,
+            "normal-stress": normal_stress,
         }
         extra = []
         if self.law == 6:
+            strength = self.strength(t, state, normal_stress)
             extra.append(-(rate + self.v_star) / self.length * (state[3] - strength))
         return result, extra
 
@@ -348,9 +400,13 @@ class RateAndState:
     a asinh(V / (2 V_0) exp(Psi / a)), with Psi = f_0 + b ln(V_0 psi / L) for
     aging and slip law, and Psi = psi for FL=103; that of FL=7 is
     f_0 + a V / (V + V_0) - b psi / (psi + L). The slip rate solves
-    tau_load - eta V = sigma_eff f(V, psi), which has at most one root since f
-    grows with V. The asinh always has one; FL=7 has none where the traction
-    does not exceed sigma_eff f(0, psi), and the fault is locked there.
+    tau - eta V = (sigma_eff + k V) f(V, psi), for the traction tau and the
+    radiation damping eta along the slip and the effective normal stress
+    sigma_eff + k V that the slip rate leaves, positive in compression here. It
+    has at most one root where f and the normal stress grow with V, and, for
+    k < 0, where eta outweighs |k| f. The asinh always has one; FL=7 has none
+    where the traction does not exceed sigma_eff f(0, psi), and the fault is
+    locked there.
     """
 
     def __init__(self, law, inputs, loading):
@@ -405,11 +461,13 @@ class RateAndState:
             - self.b * psi / (psi + self.length)
         )
 
-    def slip_rate(self, shear, sigma, psi, eta):
-        """Solve shear - eta V = sigma f(V, psi) for V, by Newton in log V;
-        0 where no slip rate solves it."""
+    def slip_rate(self, shear, sigma, psi, eta, coupling=0.0):
+        """Solve shear - eta V = (sigma + coupling V) f(V, psi) for V, by Newton
+        in log V; 0 where no slip rate solves it."""
         if shear <= 0.0:
             return 0.0
+        if sigma + coupling * shear / eta <= 0.0:
+            raise Unsupported("the slip rate may open the fault")
         if self.law == 7:
 
             def friction(u):
@@ -427,7 +485,11 @@ class RateAndState:
         def residual(u):
             value, slope = friction(u)
             rate = math.exp(u)
-            return sigma * value + eta * rate - shear, sigma * slope + eta * rate
+            normal = sigma + coupling * rate
+            return (
+                normal * value + eta * rate - shear,
+                normal * slope + (coupling * value + eta) * rate,
+            )
 
         upper = math.log(shear / eta)
         lower = upper - 1.0
@@ -466,22 +528,23 @@ class RateAndState:
         psi_ss = self.a * (math.log(2.0) - math.log(ratio) + _log_sinh(mu_ss / self.a))
         return -rate / self.length * (psi - psi_ss)
 
-    def evaluate(self, t, state, normal, shear, eta, pressure):
+    def evaluate(self, t, state, normal, shear, eta, pressure, coupling=0.0):
         sigma = -(normal + pressure)
         if sigma <= 0.0:
             raise Unsupported("the effective normal stress is not compressive")
         psi = state[3]
-        rate = self.slip_rate(shear, sigma, psi, eta)
+        rate = self.slip_rate(shear, sigma, psi, eta, coupling)
         traction = shear - eta * rate
         if self.law == 7:
             # where the fault is locked, the friction exceeds the traction
             friction = self.severe_friction(rate, psi)
         else:
-            friction = traction / sigma
+            friction = traction / (sigma + coupling * rate)
         result = {
             "slip-rate": rate,
             "friction": friction,
             "traction": traction,
+            "normal-stress": normal - coupling * rate,
             "state": psi,
         }
         return result, [self.state_rate(rate, psi)]
@@ -696,13 +759,35 @@ class Problem:
     `dynamic_rupture` maps the names of the DynamicRupture section of the
     parameter file to their values, `fault` is the constant map of the fault,
     and `left` and `right` are the media at x < 0 and at x > 0.
+
+    A slip rate V = v(x > 0) - v(x < 0), which lies in the fault plane, leaves
+    the traction t = -H V on the fault, H = (Y_left + Y_right)^-1, since the
+    waves that leave the two sides carry t = -Z_right v(x > 0) and
+    t = Z_left v(x < 0). Its tangential block H_tt is the radiation damping,
+    which an anisotropic medium makes depend on the direction of the slip, and
+    its normal row H_nt changes the normal stress by -H_nt V. Friction acts
+    against the slip, so that the traction the slip leaves is the strength S
+    along the direction n of the slip: tau_load - V H_tt n = S n. For an
+    isotropic medium, H_tt = eta I, and n is the direction of tau_load.
     """
 
     def __init__(self, dynamic_rupture, fault, left, right):
         self.inputs = Inputs(dynamic_rupture, fault)
         self.law = int(self.inputs.get("FL"))
         self.left, self.right = left, right
-        self.eta = 1.0 / (1.0 / left.shear_impedance + 1.0 / right.shear_impedance)
+        self.impedance = np.linalg.inv(left.admittance + right.admittance)
+        self.impedance = 0.5 * (self.impedance + self.impedance.T)
+        self.eta_shear = self.impedance[1:, 1:]
+        self.eta_normal = self.impedance[0, 1:]
+        scale = float(np.max(np.abs(self.impedance)))
+        self.isotropic = (
+            abs(self.eta_shear[0, 0] - self.eta_shear[1, 1])
+            + abs(self.eta_shear[0, 1])
+            + float(np.max(np.abs(self.eta_normal)))
+            <= 1e-14 * scale
+        )
+        self.eta = float(self.eta_shear[0, 0])
+        self._direction = None
         self.loading = Loading(self.inputs)
         self.thermal = None
         if self.law in (2, 16, 6, 1058):
@@ -719,24 +804,46 @@ class Problem:
             raise Unsupported(f"friction law {self.law} has no exact solution here")
 
     @property
+    def frame(self):
+        """The map from the y and z components of a vector in the fault plane
+        to the strike and dip components the fault receivers report.
+
+        As docs/dynamic-rupture.rst and docs/parameter-file.rst state it: the
+        normal n points from the side of the reference point (or, with
+        refPointMethod=1, against the reference direction) to the other side;
+        the strike is (n_y, -n_x, 0) / |.|, the dip
+        (-s_y n_z, s_x n_z, s_y n_x - n_y s_x) / |.|; the traction is sigma n,
+        and the slip rate the velocity on the side n points to minus that on
+        the other, which is the side of x > 0 for n = e_x.
+        """
+        reference = self.inputs.get("XRef", default=0.0)
+        if reference == 0.0:
+            raise Unsupported("the reference point does not tell the sides apart")
+        method = int(self.inputs.get("refPointMethod", default=0))
+        side = 1.0 if reference > 0.0 else -1.0
+        n_x = -side if method == 0 else side
+        normal = np.array((n_x, 0.0, 0.0))
+        strike = np.array((normal[1], -normal[0], 0.0)) / math.hypot(*normal[:2])
+        dip = np.array(
+            (
+                -strike[1] * normal[2],
+                strike[0] * normal[2],
+                strike[1] * normal[0] - normal[1] * strike[0],
+            )
+        )
+        dip /= np.linalg.norm(dip)
+        return n_x * np.array((strike[1:], dip[1:]))
+
+    @property
     def imposed(self):
         return isinstance(self.friction, ImposedSlipRate)
-
-    def slip_direction(self):
-        """The direction of the slip in fault coordinates, where the case fixes
-        it: the imposed slip, or else the initial shear traction (the friction
-        laws slip along the traction). None if it may turn."""
-        if self.imposed:
-            return self.friction.direction
-        if not self.loading.direction_is_fixed():
-            return None
-        return "traction"
 
     # the solution ------------------------------------------------------
 
     def solve(self, end, step):
         """Integrate up to `end` with steps of `step`; returns the series."""
         count = int(round(end / step))
+        self._direction = None
         if self.imposed:
             return self._imposed(count, step)
         return self._integrate(count, step)
@@ -744,14 +851,21 @@ class Problem:
     def _imposed(self, count, step):
         time = np.arange(count + 1) * step
         rate, slip = np.array([self.friction(t) for t in time]).T
-        normal = np.full_like(time, self.loading.initial[0])
+        direction = self.frame.T @ np.asarray(self.friction.direction)
+        direction /= np.linalg.norm(direction)
+        load = np.array([self.loading(t) for t in time])
+        vector = np.outer(rate, direction)
+        traction = load[:, 1:] - vector @ self.eta_shear.T
+        normal = load[:, 0] - vector @ self.eta_normal
         return self._finish(
             {
                 "time": time,
                 "slip-rate": rate,
-                "traction": self.eta * rate,
+                "slip-rate-y": vector[:, 0],
+                "slip-rate-z": vector[:, 1],
+                "traction": np.hypot(traction[:, 0], traction[:, 1]),
                 # the traction the fault would carry if it were welded
-                "locked-traction": np.zeros_like(time),
+                "locked-traction": np.hypot(load[:, 1], load[:, 2]),
                 "normal-stress": normal,
                 "effective-normal-stress": normal,
                 "slip": slip,
@@ -761,17 +875,35 @@ class Problem:
 
     def _rates(self, t, state, pressure):
         normal, along_y, along_z = self.loading(t)
+        load = np.array((along_y, along_z))
         shear = math.hypot(along_y, along_z)
-        result, extra = self.friction.evaluate(
-            t, state, normal, shear, self.eta, pressure
-        )
-        rate = result["slip-rate"]
-        if shear > 0.0:
-            unit_y, unit_z = along_y / shear, along_z / shear
+        direction = load / shear if shear > 0.0 else np.array((1.0, 0.0))
+        if not self.isotropic and self._direction is not None:
+            direction = self._direction
+        for _ in range(200):
+            eta = float(direction @ self.eta_shear @ direction)
+            coupling = float(self.eta_normal @ direction)
+            result, extra = self.friction.evaluate(
+                t, state, normal, float(direction @ load), eta, pressure, coupling
+            )
+            rate = result["slip-rate"]
+            if self.isotropic or rate == 0.0:
+                if rate == 0.0 and shear > 0.0:
+                    direction = load / shear
+                break
+            # the direction in which the traction the slip leaves is the strength
+            strength = result["traction"]
+            update = np.linalg.solve(strength * np.eye(2) + rate * self.eta_shear, load)
+            update /= np.linalg.norm(update)
+            change = float(np.max(np.abs(update - direction)))
+            direction = update
+            if change <= 1e-15:
+                break
         else:
-            unit_y = unit_z = 0.0
-        rates = [rate * unit_y, rate * unit_z, rate] + extra
-        return rates, result, normal
+            raise Unsupported("the direction of the slip does not settle")
+        self._direction = direction
+        rates = [rate * direction[0], rate * direction[1], rate] + extra
+        return rates, result, direction
 
     def _integrate(self, count, step):
         state = self.friction.initial_state(self.loading)
@@ -784,11 +916,12 @@ class Problem:
             pressure = temperature = 0.0
             if thermal is not None:
                 temperature, pressure = thermal.changes()
-            _, result, normal = self._rates(t, state, pressure)
+            _, result, direction = self._rates(t, state, pressure)
             row = dict(result)
             row["time"] = t
-            row["normal-stress"] = normal
-            row["effective-normal-stress"] = normal + pressure
+            row["effective-normal-stress"] = result["normal-stress"] + pressure
+            row["slip-rate-y"] = result["slip-rate"] * direction[0]
+            row["slip-rate-z"] = result["slip-rate"] * direction[1]
             row["slip"] = math.hypot(state[0], state[1])
             row["accumulated-slip"] = state[2]
             if thermal is not None:
@@ -840,14 +973,33 @@ class Problem:
     # what the receivers see --------------------------------------------
 
     def radiated(self, series, x):
-        """Particle velocity and shear stress of the wave at the distance x,
-        as magnitudes; zero before the wave arrives."""
+        """The particle velocity (x, y, z) and the stress (ordered as VOIGT)
+        of the waves at the distance x, as the receivers record them: without
+        the initial stress, and zero before the waves arrive.
+
+        On the fault, the slip rate V leaves the velocity Y H V on the side
+        x > 0 and -Y H V on the side x < 0, Y being the admittance of the side.
+        Each of the three waves of a side carries its part q (q . v) away at
+        its own speed c, with the strain du/dx = -/+ q (q . v) / c on the side
+        x > 0 / x < 0, and the stress follows from the strain.
+        """
         medium = self.left if x < 0.0 else self.right
-        delay = abs(x) / medium.shear_speed
-        rate = np.interp(
-            series["time"] - delay, series["time"], series["slip-rate"], left=0.0
-        )
-        return self.eta / medium.shear_impedance * rate, self.eta * rate
+        side = -1.0 if x < 0.0 else 1.0
+        time = series["time"]
+        slip_rate = np.zeros((time.size, 3))
+        slip_rate[:, 1] = series["slip-rate-y"]
+        slip_rate[:, 2] = series["slip-rate-z"]
+        start = side * slip_rate @ (medium.admittance @ self.impedance).T
+        velocity = np.zeros((time.size, 3))
+        gradient = np.zeros((time.size, 3))
+        for speed, polarization in zip(medium.speeds, medium.polarizations.T):
+            delayed = np.interp(
+                time - abs(x) / speed, time, start @ polarization, left=0.0
+            )
+            velocity += np.outer(delayed, polarization)
+            gradient += np.outer(-side * delayed / speed, polarization)
+        stress = gradient @ medium.stiffness[:, _ALONG_X].T
+        return velocity, stress
 
 
 # --------------------------------------------------------------------------
@@ -861,8 +1013,8 @@ def self_test():
     Returns the failures, as text.
     """
     failures = []
-    medium = Medium(2700.0, 3.24e10, 3.24e10)
-    eta = medium.shear_impedance / 2.0
+    medium = Medium.isotropic(2700.0, 3.24e10, 3.24e10)
+    eta = medium.impedance[1, 1] / 2.0
 
     def check(label, deviation, tolerance):
         status = "ok" if deviation <= tolerance else "FAILED"
@@ -902,7 +1054,8 @@ def self_test():
         (34, {"rupture_rise_time": 0.05}),
     ):
         fault = {"strike_slip": 1.0, "dip_slip": 0.0, "rupture_onset": 0.01, **extra}
-        series = Problem({"FL": law}, fault, medium, medium).solve(0.1, 1e-5)
+        problem = Problem({"FL": law, "XRef": -1.0e5}, fault, medium, medium)
+        series = problem.solve(0.1, 1e-5)
         integral = np.concatenate(
             (
                 [0.0],
@@ -1028,6 +1181,115 @@ def self_test():
         1e-10,
     )
     check("FL=7 stays locked", float(np.max(series["slip-rate"][1:])), 0.0)
+
+    # the tilted media of the anisotropic cases: the waves they radiate solve
+    # rho dv/dt = dt/dx, d(sigma)/dt = C dv/dx with the traction t continuous
+    # across the fault and the velocity jumping by the slip rate; what remains is
+    # the error of the differences taken, and of the interpolation in time
+    maps = read_constant_maps(
+        Path(__file__).parent / "cases" / "material-fault1d-anisotropic.yaml"
+    )
+    left, right = medium_of(maps, 1), medium_of(maps, 2)
+    # the source time function ends with a kink in the slope of the slip rate,
+    # which the window leaves out, and starts smoothly
+    fault = {"strike_slip": 1.0, "dip_slip": 0.5, "rupture_onset": 0.002}
+    fault["rupture_rise_time"] = 0.04
+    problem = Problem({"FL": 34, "XRef": -1.0e5}, fault, left, right)
+    step, offset = 2e-7, 0.002
+    series = problem.solve(0.03, step)
+    slip_rate = np.zeros((series["time"].size, 3))
+    slip_rate[:, 1] = series["slip-rate-y"]
+    slip_rate[:, 2] = series["slip-rate-z"]
+    below, below_stress = problem.radiated(series, -1e-9)
+    above, above_stress = problem.radiated(series, 1e-9)
+    check(
+        "the waves of a tilted pair of media continue the slip rate",
+        float(np.max(np.abs(above - below - slip_rate)) / np.max(np.abs(slip_rate))),
+        1e-9,
+    )
+    traction = above_stress[:, _ALONG_X]
+    check(
+        "the waves of a tilted pair of media continue the traction, -H V",
+        float(
+            max(
+                np.max(np.abs(traction - below_stress[:, _ALONG_X])),
+                np.max(np.abs(traction + slip_rate @ problem.impedance)),
+            )
+            / np.max(np.abs(traction))
+        ),
+        1e-9,
+    )
+    # the one-sided differences at the ends of the series are left out
+    inner = slice(2, -2)
+    for x in (-17.3, 13.1):
+        medium = left if x < 0.0 else right
+        velocity, stress = problem.radiated(series, x)
+        _, ahead = problem.radiated(series, x + offset)
+        velocity_ahead, _ = problem.radiated(series, x + offset)
+        velocity_behind, behind = problem.radiated(series, x - offset)
+        velocity_gradient = (velocity_ahead - velocity_behind) / (2.0 * offset)
+        traction_gradient = (ahead - behind)[:, _ALONG_X] / (2.0 * offset)
+        rate = np.gradient(stress, step, axis=0)[inner]
+        momentum = medium.rho * np.gradient(velocity, step, axis=0)[inner]
+        momentum -= traction_gradient[inner]
+        hooke = rate - velocity_gradient[inner] @ medium.stiffness[:, _ALONG_X].T
+        check(
+            f"the waves at x = {x} solve the wave equation",
+            float(
+                max(
+                    np.max(np.abs(momentum)) / np.max(np.abs(traction_gradient)),
+                    np.max(np.abs(hooke)) / np.max(np.abs(rate)),
+                )
+            ),
+            1e-5,
+        )
+
+    # slip weakening in the tilted medium: the traction the slip leaves runs
+    # along the slip and is the strength under the normal stress it leaves
+    fault = {
+        "s_xx": -120.0e6,
+        "s_xy": 70.0e6,
+        "s_xz": 30.0e6,
+        "nuc_xy": 20.0e6,
+        "mu_s": 0.677,
+        "mu_d": 0.525,
+        "d_c": 0.08,
+    }
+    problem = Problem({"FL": 16, "t_0": 0.0625, "XRef": -1.0e5}, fault, left, left)
+    series = problem.solve(0.09, 1e-5)
+    slipping = series["slip-rate"] > 1e-3 * np.max(series["slip-rate"])
+    slip_rate = np.array([series["slip-rate-y"], series["slip-rate-z"]]).T[slipping]
+    load = np.array([problem.loading(t) for t in series["time"][slipping]])
+    left_traction = load[:, 1:] - slip_rate @ problem.eta_shear
+    normal = load[:, 0] - slip_rate @ problem.eta_normal
+    strength = -normal * series["friction"][slipping]
+    cross = (
+        left_traction[:, 0] * slip_rate[:, 1] - left_traction[:, 1] * slip_rate[:, 0]
+    )
+    check(
+        "the slip of the tilted medium runs along the traction it leaves",
+        float(
+            np.max(
+                np.abs(cross)
+                / (
+                    np.linalg.norm(left_traction, axis=1)
+                    * np.linalg.norm(slip_rate, axis=1)
+                )
+            )
+        ),
+        1e-12,
+    )
+    check(
+        "the traction of the tilted medium is the strength",
+        float(
+            max(
+                np.max(np.abs(np.linalg.norm(left_traction, axis=1) - strength)),
+                np.max(np.abs(normal - series["normal-stress"][slipping])),
+            )
+            / np.max(strength)
+        ),
+        1e-12,
+    )
     return failures
 
 

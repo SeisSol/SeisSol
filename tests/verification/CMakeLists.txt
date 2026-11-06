@@ -466,6 +466,7 @@ endfunction()
 
 # ---------------------------------------------------------------------------
 # seissol_add_fault1d(NAME <name> FL <law> FAULT <file> [MESH mesh] [STEPS n]
+#                     [MATERIAL file] [REQUIRE capability ...]
 #                     [SET ...] [LABELS label ...])
 #
 # A friction law on a fault1d mesh, held against the exact solution of the
@@ -473,24 +474,34 @@ endfunction()
 # there (see fault1d.py). The run is a case of its own, without a snapshot,
 # since the exact solution is the better reference; the comparison is a test of
 # its own, so that it can be repeated, and its thresholds recorded, without
-# running SeisSol again.
+# running SeisSol again. Without MATERIAL, the case takes the material of its
+# build, and without REQUIRE, it runs in elastic and anisotropic builds.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_fault1d)
-  cmake_parse_arguments(F1D "" "NAME;FL;FAULT;MESH;STEPS" "SET;LABELS" ${ARGN})
+  cmake_parse_arguments(F1D "" "NAME;FL;FAULT;MESH;STEPS;MATERIAL" "SET;LABELS;REQUIRE" ${ARGN})
   if (NOT F1D_MESH)
     set(F1D_MESH fault1d)
   endif()
   if (NOT F1D_STEPS)
     set(F1D_STEPS 1536)
   endif()
+  # the exact solution holds for elastic media, isotropic or not; an anisotropic
+  # build runs the isotropic cases with the material of material-anisotropic.yaml
+  if (NOT F1D_REQUIRE)
+    set(F1D_REQUIRE "equations=elastic|anisotropic")
+  endif()
+  if (F1D_MATERIAL)
+    set(F1D_MATERIAL MATERIAL ${F1D_MATERIAL})
+  endif()
   seissol_add_minitest(
       NAME ${F1D_NAME}
       MESH ${F1D_MESH}
       PARAMETERS rupture1d.par
+      ${F1D_MATERIAL}
       FILES ${F1D_FAULT} faultreceiver.dat
       STEPS ${F1D_STEPS}
-      REQUIRE equations=elastic
+      REQUIRE ${F1D_REQUIRE}
       SET "DynamicRupture.FL=${F1D_FL}"
           "DynamicRupture.ModelFileName='${F1D_FAULT}'"
           ${F1D_SET}
