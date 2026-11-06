@@ -121,7 +121,8 @@ function(seissol_add_minimesh)
   set_property(GLOBAL APPEND PROPERTY SEISSOL_MINIMESHES ${MM_NAME})
 endfunction()
 
-foreach (preset box6 box48 skew48 fault48 faultskew48 mat48 periodicx72 periodic162 open96)
+foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial mat48 periodicx72
+                periodic162 open96)
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 
@@ -164,9 +165,12 @@ add_test(NAME verification.faultreceivers
                  ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate --fault
                  ${CMAKE_CURRENT_SOURCE_DIR}/cases/faultreceiver.dat
                  ${SEISSOL_MINIMESH_DIR}/fault48.puml.h5
-                 ${SEISSOL_MINIMESH_DIR}/faultskew48.puml.h5)
+                 ${SEISSOL_MINIMESH_DIR}/faultskew48.puml.h5
+                 ${SEISSOL_MINIMESH_DIR}/fault1d.puml.h5
+                 ${SEISSOL_MINIMESH_DIR}/fault1d-bimaterial.puml.h5)
 set_tests_properties(verification.faultreceivers PROPERTIES
-                     FIXTURES_REQUIRED "minimesh.fault48;minimesh.faultskew48"
+                     FIXTURES_REQUIRED
+                     "minimesh.fault48;minimesh.faultskew48;minimesh.fault1d;minimesh.fault1d-bimaterial"
                      LABELS "verification;smoke;dr")
 
 # ---------------------------------------------------------------------------

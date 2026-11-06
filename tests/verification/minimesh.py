@@ -156,6 +156,31 @@ PRESETS = {
     "periodic162": Spec(
         name="periodic162", cells=(3, 3, 3), periodic=(True, True, True)
     ),
+    # a fault plane across a column that is periodic along the fault and open
+    # across it. A fault that starts out uniform stays uniform there: each side
+    # radiates a plane shear wave straight away from it, which leaves through
+    # the outflow planes, and every point of the fault solves the same ordinary
+    # differential equation (see fault1d.py). Three cells per periodic axis are
+    # the minimum; two on either side of the fault keep the receivers inside.
+    "fault1d": Spec(
+        name="fault1d",
+        cells=(4, 3, 3),
+        size=(400.0 / 3.0, 100.0, 100.0),
+        boundary=(("xmin", 5), ("xmax", 5)),
+        faults=(("x", None),),
+        periodic=(False, True, True),
+    ),
+    # the same with another medium on either side of the fault: group 1 at
+    # x < 0, group 2 at x > 0
+    "fault1d-bimaterial": Spec(
+        name="fault1d-bimaterial",
+        cells=(4, 3, 3),
+        size=(400.0 / 3.0, 100.0, 100.0),
+        boundary=(("xmin", 5), ("xmax", 5)),
+        faults=(("x", None),),
+        group_splits=(("x", None),),
+        periodic=(False, True, True),
+    ),
     # elongated and open on every side: energy has to decay monotonically.
     "open96": Spec(
         name="open96",
