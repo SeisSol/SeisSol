@@ -394,7 +394,7 @@ seissol_add_rupture(NAME rupture-lsw-tpapprox FL 1058 FAULT fault-lsw.yaml)
 # FL=16 is tested directly, so it needs no snapshot of its own
 seissol_add_rupture(NAME rupture-lsw-legacy FL 2 FAULT fault-lsw.yaml NO_SNAPSHOT)
 
-foreach (law aging:3 slip:4 svw:7)
+foreach (law aging:3 slip:4)
   string(REPLACE ":" ";" law ${law})
   list(GET law 0 name)
   list(GET law 1 number)
@@ -403,6 +403,12 @@ foreach (law aging:3 slip:4 svw:7)
   seissol_add_rupture(NAME rupture-rs-${name}-tp FL ${number} FAULT fault-rs-tp.yaml
                       SET ${SEISSOL_RS} ${SEISSOL_TP})
 endforeach()
+# a friction of 0.625 is beyond what this law holds at the initial slip rate in
+# a non-negative state; see its fault files
+seissol_add_rupture(NAME rupture-rs-svw FL 7 FAULT fault-rs-svw.yaml
+                    SET ${SEISSOL_RS})
+seissol_add_rupture(NAME rupture-rs-svw-tp FL 7 FAULT fault-rs-svw-tp.yaml
+                    SET ${SEISSOL_RS} ${SEISSOL_TP})
 seissol_add_rupture(NAME rupture-rs-fvw FL 103 FAULT fault-rs-fvw.yaml
                     SET ${SEISSOL_RS_FVW})
 seissol_add_rupture(NAME rupture-rs-fvw-tp FL 103 FAULT fault-rs-fvw-tp.yaml

@@ -210,6 +210,39 @@ void RateAndStateFastVelocityInitializer::addAdditionalParameters(
   });
 }
 
+RateAndStateInitializer::StateAndFriction
+    RateAndStateSevereVelocityInitializer::computeInitialStateAndFriction(double traction1,
+                                                                          double traction2,
+                                                                          double pressure,
+                                                                          double rsA,
+                                                                          double rsB,
+                                                                          double rsSl0,
+                                                                          double rsSr0,
+                                                                          double rsF0,
+                                                                          double initialSlipRate) {
+  StateAndFriction result{};
+  const double absoluteTraction = misc::magnitude(traction1, traction2);
+  const double friction = std::abs(absoluteTraction / pressure);
+  const double directEffect = rsA * initialSlipRate / (initialSlipRate + rsSr0);
+  // the weakening psi / (psi + sl0) the state has to supply, which lies in [0, 1) for psi >= 0
+  const double weakening = (rsF0 + directEffect - friction) / rsB;
+  if (weakening < 1.0) {
+    result.stateVariable = rsSl0 * weakening / (1.0 - weakening);
+    if (result.stateVariable < 0) {
+      logWarning()
+          << "Found a negative state variable while initializing the fault. Are you sure your "
+             "setup is correct?";
+    }
+    result.frictionCoefficient = friction;
+  } else {
+    // no state lets the fault slip at the initial slip rate; it is locked and starts healed
+    result.stateVariable = rsSl0 * initialSlipRate / rsSr0;
+    result.frictionCoefficient =
+        rsF0 + directEffect - rsB * result.stateVariable / (result.stateVariable + rsSl0);
+  }
+  return result;
+}
+
 ThermalPressurizationInitializer::ThermalPressurizationInitializer(
     const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
     const std::set<std::string>& faultParameterNames)
@@ -301,6 +334,26 @@ void RateAndStateFastVelocityThermalPressurizationInitializer::initializeFault(
 void RateAndStateFastVelocityThermalPressurizationInitializer::addAdditionalParameters(
     std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   RateAndStateFastVelocityInitializer::addAdditionalParameters(parameterToStorageMap, layer);
+  ThermalPressurizationInitializer::addAdditionalParameters(parameterToStorageMap, layer);
+}
+
+RateAndStateSevereVelocityThermalPressurizationInitializer::
+    RateAndStateSevereVelocityThermalPressurizationInitializer(
+        const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
+        SeisSol& instance)
+    : RateAndStateSevereVelocityInitializer(drParameters, instance),
+      ThermalPressurizationInitializer(
+          drParameters, RateAndStateSevereVelocityInitializer::faultParameterNames_) {}
+
+void RateAndStateSevereVelocityThermalPressurizationInitializer::initializeFault(
+    DynamicRupture::Storage& drStorage) {
+  RateAndStateSevereVelocityInitializer::initializeFault(drStorage);
+  ThermalPressurizationInitializer::initializeFault(drStorage);
+}
+
+void RateAndStateSevereVelocityThermalPressurizationInitializer::addAdditionalParameters(
+    std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
+  RateAndStateSevereVelocityInitializer::addAdditionalParameters(parameterToStorageMap, layer);
   ThermalPressurizationInitializer::addAdditionalParameters(parameterToStorageMap, layer);
 }
 
