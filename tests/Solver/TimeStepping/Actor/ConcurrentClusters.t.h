@@ -373,7 +373,7 @@ TEST_CASE("Without device work, the clusters only keep the books" * doctest::tes
   small.connect(large);
   std::vector<CountingCluster*> clusters{&small, &large};
 
-  for (const auto [syncTime, deviceWork] :
+  for (const auto& [syncTime, deviceWork] :
        std::vector<std::pair<long, bool>>{{5, false}, {9, true}}) {
     for (auto* cluster : clusters) {
       cluster->setSyncTime(static_cast<double>(syncTime));
@@ -416,7 +416,7 @@ TEST_CASE("Concurrent clusters wait for their neighbors on the device" *
   // waiting for the latest action of each neighbor, or only for its latest writes before reading
   // and for its latest reads before writing; with events of the device, or with the nodes of a
   // graph that is being built (as while recording super-timesteps)
-  for (const auto [accessEvents, nodes] :
+  for (const auto& [accessEvents, nodes] :
        {std::pair{false, false}, std::pair{true, false}, std::pair{true, true}}) {
     for (const auto alongPlan : {true, false}) {
       std::size_t violations = 0;
