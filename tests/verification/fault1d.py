@@ -31,6 +31,13 @@ waves, polarized and as fast as the Christoffel matrix of the direction x
 makes them (see Medium and Problem). The receivers are compared with all of
 this in the fault frame that the documentation defines.
 
+fault2d draws the column out along y. A forced rupture front that runs along
+y faster than the shear waves outruns everything it sends out, and leaves
+every point of the fault behind it with the problem of fault1d, shifted to its
+rupture time, in which the waves leave inclined at the angle of the Mach cone,
+until the waves of where the front starts and of where it meets itself arrive;
+see Front.
+
 The equation is integrated here with steps far below the time step of the case,
 so that what remains of the difference to SeisSol is the error of SeisSol. The
 friction laws follow their documentation (docs/dynamic-rupture.rst and
@@ -56,6 +63,7 @@ import math
 import re
 from pathlib import Path
 
+import easimodel
 import numpy as np
 
 # the slip rate above which a point counts as ruptured (docs/fault-output.rst)
@@ -154,6 +162,19 @@ class Medium:
             stiffness[index, index] = lam + 2.0 * mu
             stiffness[index + 3, index + 3] = mu
         return cls(rho, stiffness)
+
+    def is_isotropic(self):
+        mu, lam = self.stiffness[3, 3], self.stiffness[0, 1]
+        reference = Medium.isotropic(self.rho, mu, lam).stiffness
+        return bool(
+            np.max(np.abs(self.stiffness - reference))
+            <= 1e-12 * np.max(np.abs(reference))
+        )
+
+    @property
+    def shear_speed(self):
+        """The speed of the slowest of the waves along x."""
+        return float(self.speeds[0])
 
 
 def medium_of(maps, group):
@@ -777,7 +798,7 @@ class Problem:
     isotropic medium, H_tt = eta I, and n is the direction of tau_load.
     """
 
-    def __init__(self, dynamic_rupture, fault, left, right):
+    def __init__(self, dynamic_rupture, fault, left, right, front=None):
         self.inputs = Inputs(dynamic_rupture, fault)
         self.law = int(self.inputs.get("FL"))
         self.left, self.right = left, right
@@ -795,6 +816,9 @@ class Problem:
         self.eta = float(self.eta_shear[0, 0])
         self._direction = None
         self.loading = Loading(self.inputs)
+        self.front = None
+        if front is not None:
+            self._run_along(*front)
         self.thermal = None
         if self.law in (2, 16, 6, 1058):
             self.friction = SlipWeakening(
@@ -808,6 +832,34 @@ class Problem:
             self.friction = ImposedSlipRate(self.law, self.inputs, self.loading)
         else:
             raise Unsupported(f"friction law {self.law} has no exact solution here")
+
+    def _run_along(self, speed, slope):
+        """Take the slip as the steady antiplane slip behind a front that runs
+        along y at `speed`, with the forced rupture time rising by `slope`
+        along y here (see Front): its radiation damping is that of the plane
+        waves inclined at the angle of the Mach cone."""
+        if not (self.left.is_isotropic() and self.right.is_isotropic()):
+            raise Unsupported("a front is supported between isotropic media only")
+        traction = [self.loading.initial] + [
+            source for source, _, _ in self.loading.sources
+        ]
+        if any(along_y != 0.0 for _, along_y, _ in traction):
+            raise Unsupported("a front along y takes slip along z only")
+        self.front = []
+        for medium in (self.left, self.right):
+            shear = medium.shear_speed
+            if speed <= shear:
+                raise Unsupported("the front does not outrun the shear waves")
+            # the impedance of the inclined wave, and the time it takes to the
+            # distance |x|
+            factor = math.sqrt(1.0 - (shear / speed) ** 2)
+            delay = math.sqrt(1.0 / shear**2 - 1.0 / speed**2)
+            self.front.append((medium.rho * shear * factor, delay))
+        self.front_slope = slope
+        self.impedance = self.impedance.copy()
+        self.impedance[2, 2] = 1.0 / (1.0 / self.front[0][0] + 1.0 / self.front[1][0])
+        self.eta_shear = self.impedance[1:, 1:]
+        self.isotropic = False
 
     @property
     def frame(self):
@@ -995,6 +1047,8 @@ class Problem:
         medium = self.left if x < 0.0 else self.right
         side = -1.0 if x < 0.0 else 1.0
         time = series["time"]
+        if self.front is not None:
+            return self._radiated_inclined(series, x, medium, side)
         slip_rate = np.zeros((time.size, 3))
         slip_rate[:, 1] = series["slip-rate-y"]
         slip_rate[:, 2] = series["slip-rate-z"]
@@ -1009,6 +1063,131 @@ class Problem:
             gradient += np.outer(-side * delayed / speed, polarization)
         stress = gradient @ medium.stiffness[:, _ALONG_X].T
         return velocity, stress
+
+    def _radiated_inclined(self, series, x, medium, side):
+        """The plane wave behind a front, w = W(t - t_r(y) - |x| delay): its
+        velocity along z, and the stresses mu dw/dx = -/+ Z v and
+        mu dw/dy = -mu (dt_r/dy) v that come with it on the side x > 0 / x < 0,
+        with Z the impedance of the inclined wave."""
+        time = series["time"]
+        impedance, delay = self.front[0 if side < 0.0 else 1]
+        start = side * self.impedance[2, 2] / impedance * series["slip-rate-z"]
+        wave = np.interp(time - abs(x) * delay, time, start, left=0.0)
+        velocity = np.zeros((time.size, 3))
+        velocity[:, 2] = wave
+        stress = np.zeros((time.size, 6))
+        stress[:, VOIGT.index("xz")] = -side * impedance * wave
+        stress[:, VOIGT.index("yz")] = -medium.stiffness[3, 3] * self.front_slope * wave
+        return velocity, stress
+
+
+class Front:
+    """A forced rupture front along y, faster than the shear waves (fault2d).
+
+    The forced rupture time t_r = |y| / v starts a front at y = 0, which runs
+    to both sides at the speed v and meets itself at y = +-L / 2 on a mesh that
+    is periodic over the length L. A front that outruns the shear waves of both
+    sides outruns all it sends out: ahead of it, the fault carries its initial
+    traction, and behind it, an antiplane slip, along z, sends out a plane wave
+    inclined at the angle of the Mach cone,
+
+        w(x, y, t) = W(t - t_r(y) - |x| sqrt(1 / c^2 - 1 / v^2)).
+
+    Every point of the fault then solves the 0D problem of fault1d, shifted to
+    its rupture time, with the impedance rho c sqrt(1 - c^2 / v^2) of the
+    inclined wave in place of rho c (see Problem). This holds until the waves
+    of where the front starts or meets itself arrive, or the waves that the
+    boundaries x = +-W / 2 of the mesh of the width W reflect; window gives the
+    time.
+    """
+
+    def __init__(self, dynamic_rupture, model, left, right, length, width):
+        if not (left.is_isotropic() and right.is_isotropic()):
+            raise Unsupported("a front is supported between isotropic media only")
+        self.dynamic_rupture = dynamic_rupture
+        self.model = model
+        self.left, self.right = left, right
+        self.length, self.width = length, width
+        reach = 0.25 * length
+        reference = dict(self._parameters((0.0, reach, 0.0)))
+        self.slowness = reference.pop("forced_rupture_time") / reach
+        if not self.slowness > 0.0:
+            raise Unsupported("the forced rupture time does not grow along y")
+        # all else is the same along the front, which is what makes it steady
+        self.uniform = reference
+        for y in (0.0, -reach, 0.5 * reach, -0.5 * reach):
+            self._check((0.0, y, 0.0))
+        self.speed = 1.0 / self.slowness
+        # the faster medium, whose waves arrive first
+        self.shear_speed = max(left.shear_speed, right.shear_speed)
+        if not self.speed > self.shear_speed:
+            raise Unsupported("the front does not outrun the shear waves")
+        self.delay = math.sqrt(1.0 / self.shear_speed**2 - self.slowness**2)
+
+    def _parameters(self, point):
+        values = easimodel.evaluate_at(self.model, point)
+        if values is None or "forced_rupture_time" not in values:
+            raise Unsupported(f"the fault has no forced rupture time at {point}")
+        return values
+
+    def rupture_time(self, point):
+        """The forced rupture time at (x, y, z)."""
+        return self.slowness * abs(float(point[1]))
+
+    def _check(self, point):
+        values = self._parameters(point)
+        expected = self.rupture_time(point)
+        if abs(values["forced_rupture_time"] - expected) > 1e-12 * max(1.0, expected):
+            raise Unsupported("the forced rupture time is not |y| / v")
+        if any(values.get(name) != value for name, value in self.uniform.items()):
+            raise Unsupported("the fault varies along y in more than its rupture time")
+
+    def problem_at(self, point):
+        """The 0D problem of the fault at the point (x, y, z); x is ignored."""
+        point = (0.0, float(point[1]), float(point[2]))
+        self._check(point)
+        slope = math.copysign(self.slowness, point[1])
+        return Problem(
+            self.dynamic_rupture,
+            self._parameters(point),
+            self.left,
+            self.right,
+            front=(self.speed, slope),
+        )
+
+    def window(self, point, onset=0.0):
+        """The time up to which the steady solution holds at (x, y, z), where
+        the fault slips from `onset` after its rupture time on, as it does
+        everywhere on a steady front; nothing leaves the fault before.
+
+        For y > 0, say, the fault follows the rupture time y / v of the steady
+        front between y = 0 and y = L / 2 only. At y' = -u < 0, the steady
+        front would break it at -u / v, and the fault departs from it from
+        -u / v + onset on; what this sends out arrives at the shear wave speed
+        c, from y' = 0 first, or, at a point behind the Mach cone of y = 0,
+        with the steady wave itself. Beyond y = L / 2, the front from the other
+        side breaks the fault first, at y' = L / 2 + u at L / (2 v) - u / v,
+        and the same holds as at y = 0, with the distance from y = L / 2 and
+        the time L / (2 v) in place of the ones from y = 0 and 0. The
+        boundaries x = +-W / 2 absorb only the waves that arrive along x and
+        reflect part of the inclined ones, which return to the distance |x|
+        from the fault at t_r(y) + onset + (W - |x|) d, with the delay
+        d = sqrt(1 / c^2 - 1 / v^2) per distance along x.
+        """
+        x, y = abs(float(point[0])), abs(float(point[1]))
+        c, s = self.shear_speed, self.slowness
+
+        def arrival(along):
+            # from the part of the fault beyond the distance `along` along y
+            distance = math.hypot(x, along)
+            if along >= distance * c * s:
+                return distance / c
+            return along * s + x * self.delay
+
+        start = arrival(y)
+        meet = 0.5 * self.length * s + arrival(0.5 * self.length - y)
+        reflected = s * y + (self.width - x) * self.delay
+        return onset + min(start, meet, reflected)
 
 
 # --------------------------------------------------------------------------
@@ -1299,6 +1478,78 @@ def self_test():
         ),
         1e-12,
     )
+    # the front of fault2d-supershear.yaml: behind it, once the fault has
+    # weakened fully, the slip rate is (tau - tau_d) / eta with the radiation
+    # damping of the inclined waves; these solve the antiplane wave equation,
+    # rho dv/dt = d(sigma_xz)/dx + d(sigma_yz)/dy and d(sigma_iz)/dt = mu dv/di,
+    # where the field depends on y through t_r(y) alone
+    solid = Medium.isotropic(2700.0, 3.24e10, 3.24e10)
+    front = Front(
+        {"FL": 16, "t_0": 0.02, "XRef": -1.0e5},
+        easimodel.load(Path(__file__).parent / "cases" / "fault2d-supershear.yaml"),
+        solid,
+        solid,
+        1200.0,
+        400.0 / 3.0,
+    )
+    problem = front.problem_at((0.0, 300.0, 0.0))
+    step = 1e-6
+    series = problem.solve(0.12, step)
+    weakened = series["time"] > 300.0 * front.slowness + 0.02 + 1e-3
+    plateau = (75.0e6 - 0.525 * 120.0e6) / problem.impedance[2, 2]
+    check(
+        "the slip rate behind the front",
+        float(np.max(np.abs(series["slip-rate"][weakened] - plateau)) / plateau),
+        1e-12,
+    )
+    # the waves a smooth slip rate sends out, so that the differences hold
+    step = 2e-7
+    time = np.arange(0.0, 0.03 + 0.5 * step, step)
+    pulse = {"time": time, "slip-rate-z": np.exp(-(((time - 0.015) / 0.003) ** 2))}
+    along_xz, along_yz = VOIGT.index("xz"), VOIGT.index("yz")
+    slope = problem.front_slope
+    below, below_stress = problem.radiated(pulse, -1e-9)
+    above, above_stress = problem.radiated(pulse, 1e-9)
+    traction = above_stress[:, along_xz]
+    check(
+        "the inclined waves continue the slip rate and the traction, -eta V",
+        float(
+            max(
+                np.max(np.abs(above[:, 2] - below[:, 2] - pulse["slip-rate-z"])),
+                np.max(np.abs(traction - below_stress[:, along_xz]))
+                / problem.impedance[2, 2],
+                np.max(
+                    np.abs(traction + problem.impedance[2, 2] * pulse["slip-rate-z"])
+                )
+                / problem.impedance[2, 2],
+            )
+        ),
+        1e-9,
+    )
+    for x in (-17.3, 13.1):
+        velocity, stress = problem.radiated(pulse, x)
+        velocity_ahead, ahead = problem.radiated(pulse, x + offset)
+        velocity_behind, behind = problem.radiated(pulse, x - offset)
+        wave, xz, yz = velocity[:, 2], stress[:, along_xz], stress[:, along_yz]
+        wave_x = (velocity_ahead - velocity_behind)[:, 2] / (2.0 * offset)
+        xz_x = (ahead - behind)[:, along_xz] / (2.0 * offset)
+        wave_t = np.gradient(wave, step)
+        xz_t, yz_t = np.gradient(xz, step), np.gradient(yz, step)
+        momentum = solid.rho * wave_t - xz_x + slope * yz_t
+        hooke = xz_t - solid.stiffness[along_xz, along_xz] * wave_x
+        hooke_y = yz_t + solid.stiffness[along_yz, along_yz] * slope * wave_t
+        check(
+            f"the inclined wave at x = {x} solves the antiplane wave equation",
+            float(
+                max(
+                    np.max(np.abs(momentum[inner]))
+                    / np.max(np.abs(solid.rho * wave_t)),
+                    np.max(np.abs(hooke[inner])) / np.max(np.abs(xz_t)),
+                    np.max(np.abs(hooke_y[inner])) / np.max(np.abs(yz_t)),
+                )
+            ),
+            1e-5,
+        )
     return failures
 
 

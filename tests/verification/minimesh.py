@@ -181,6 +181,17 @@ PRESETS = {
         group_splits=(("x", None),),
         periodic=(False, True, True),
     ),
+    # the fault1d column drawn out along y, for a rupture front that runs along
+    # y: twelve hundred metres let a front faster than the shear waves run
+    # ahead of everything its start sends out for some tens of milliseconds
+    "fault2d": Spec(
+        name="fault2d",
+        cells=(4, 36, 3),
+        size=(400.0 / 3.0, 1200.0, 100.0),
+        boundary=(("xmin", 5), ("xmax", 5)),
+        faults=(("x", None),),
+        periodic=(False, True, True),
+    ),
     # elongated and open on every side: energy has to decay monotonically.
     "open96": Spec(
         name="open96",

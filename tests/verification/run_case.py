@@ -1486,8 +1486,68 @@ def _is_series(value):
     return hasattr(value, "shape") and value.shape != ()
 
 
+# what the fault receivers compute at their own position, from the jump of the
+# velocity across the fault, and what the volume receivers record; the other
+# quantities of the fault receivers come from the Gauss point of the fault
+# nearest to them
+_AT_RECEIVER = ("slip-rate", "normal-stress", "direction", "velocity", "stress")
+
+
+def compare_front(front, step, fault_receivers, volume_receivers):
+    """The deviations of the receivers from the exact solution of a forced
+    rupture front, per quantity, as compare_fault1d takes them for the problem
+    at the position of each receiver, up to the time to which it holds there
+    (see fault1d.Front.window). Only the quantities of _AT_RECEIVER are
+    compared: a front reaches the Gauss point next to a receiver at another
+    time than the receiver."""
+    import fault1d
+    import numpy as np
+
+    deviations = {}
+
+    def solve(point, rows, time):
+        """The problem at the point, its solution, and the rows up to the
+        time to which it holds."""
+        problem = front.problem_at(point)
+        series = problem.solve(rows[-1][time], step)
+        rate = series["slip-rate"]
+        slipping = np.flatnonzero(rate > 0.0)
+        # the time from the rupture time on to the first slip, before which
+        # nothing leaves the fault
+        onset = 0.0
+        if slipping.size and slipping[0] > 0:
+            onset = series["time"][slipping[0] - 1] - front.rupture_time(point)
+        end = front.window(point, max(onset, 0.0))
+        rows = [row for row in rows if row[time] <= end]
+        held = rate[: int(np.searchsorted(series["time"], end, side="right"))]
+        if len(rows) < 2 or not held.max() >= fault1d.RUPTURE_SLIP_RATE:
+            raise SystemExit(
+                f"the fault at {point} does not slip in the {end:.4g} s for "
+                "which the exact solution holds there"
+            )
+        return problem, series, rows
+
+    def merge(found):
+        for name in _AT_RECEIVER:
+            if name in found:
+                deviations[name] = max(deviations.get(name, 0.0), found[name])
+
+    for names, rows, header in fault_receivers:
+        point = [float(header[name][0]) for name in ("x1", "x2", "x3")]
+        problem, series, rows = solve(point, rows, 0)
+        indices = [round(row[0] / step) for row in rows]
+        merge(compare_fault1d(problem, series, indices, [(names, rows, header)], []))
+    for position, (names, rows) in volume_receivers:
+        problem, series, rows = solve(position, rows, names.index("Time"))
+        merge(compare_fault1d(problem, series, [], [], [(position, (names, rows))]))
+    return deviations
+
+
 def _command_exact(args):
-    """Hold a rupture on a fault1d mesh against the exact solution of its 0D problem."""
+    """Hold a rupture on a fault1d mesh against the exact solution of its 0D
+    problem, or a forced rupture front on fault2d against the one of the
+    problems along it."""
+    import easimodel
     import fault1d
 
     result = {"name": f"exact-{args.name}"}
@@ -1515,18 +1575,20 @@ def _command_exact(args):
     work = Path(args.work)
     parameters = ParameterFile((work / "parameters.par").read_text(encoding="utf-8"))
     rupture = parameters.values("DynamicRupture")
-    fault = fault1d.read_constant_maps(work / rupture["modelfilename"]).get(None, {})
+    model = work / rupture["modelfilename"]
+    try:
+        fault = fault1d.read_constant_maps(model).get(None, {})
+        uniform = None
+    except fault1d.Unsupported as reason:
+        # a fault that varies along it, which is held against a front
+        fault, uniform = None, reason
     materials = fault1d.read_constant_maps(
         work / parameters.get("equations", "MaterialFileName")
     )
     manifest = json.loads(Path(args.mesh_manifest).read_text(encoding="utf-8"))
     left, right = _fault1d_groups(manifest)
-    problem = fault1d.Problem(
-        rupture,
-        fault,
-        fault1d.medium_of(materials, left),
-        fault1d.medium_of(materials, right),
-    )
+    left = fault1d.medium_of(materials, left)
+    right = fault1d.medium_of(materials, right)
 
     prefix = Path(parameters.get("Output", "OutputFile") or "output/out")
     directory = work / prefix.parent
@@ -1558,11 +1620,28 @@ def _command_exact(args):
     # the step of the integration divides the interval of the samples, so that
     # every sample is a point of the integration
     step = interval / args.substeps
-    series = problem.solve(times[-1], step)
-    indices = [round(t / step) for t in times]
-    deviations = compare_fault1d(
-        problem, series, indices, fault_receivers, volume_receivers
-    )
+    try:
+        if fault is None:
+            width, length = manifest["spec"]["size"][:2]
+            try:
+                front = fault1d.Front(
+                    rupture, easimodel.load(model), left, right, length, width
+                )
+            except (fault1d.Unsupported, easimodel.Unsupported) as reason:
+                raise SystemExit(
+                    f"{model.name} is neither uniform ({uniform}) nor a forced "
+                    f"rupture front ({reason})"
+                ) from reason
+            deviations = compare_front(front, step, fault_receivers, volume_receivers)
+        else:
+            problem = fault1d.Problem(rupture, fault, left, right)
+            series = problem.solve(times[-1], step)
+            indices = [round(t / step) for t in times]
+            deviations = compare_fault1d(
+                problem, series, indices, fault_receivers, volume_receivers
+            )
+    except fault1d.Unsupported as reason:
+        raise SystemExit(f"the case has no exact solution here: {reason}") from reason
 
     capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))
     key = "{}/{}/o{}/{}".format(
@@ -1773,7 +1852,8 @@ def main(argv=None):
     snapshot.set_defaults(func=_command_snapshot)
 
     exact = commands.add_parser(
-        "exact", help="hold a rupture on fault1d against its exact solution"
+        "exact",
+        help="hold a rupture on fault1d, or a front on fault2d, against its exact solution",
     )
     exact.add_argument("--name", required=True)
     exact.add_argument("--case-result", required=True)

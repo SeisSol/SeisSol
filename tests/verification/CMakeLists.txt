@@ -121,8 +121,8 @@ function(seissol_add_minimesh)
   set_property(GLOBAL APPEND PROPERTY SEISSOL_MINIMESHES ${MM_NAME})
 endfunction()
 
-foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial mat48 periodicx72
-                periodic162 open96)
+foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial fault2d mat48
+                periodicx72 periodic162 open96)
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 
@@ -178,6 +178,24 @@ add_test(NAME verification.faultreceivers
 set_tests_properties(verification.faultreceivers PROPERTIES
                      FIXTURES_REQUIRED
                      "minimesh.fault48;minimesh.faultskew48;minimesh.fault1d;minimesh.fault1d-bimaterial"
+                     LABELS "verification;smoke;dr")
+
+# the receivers of the rupture front along y, spread out along it
+add_test(NAME verification.receivers2d
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/receiver2d.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d.puml.h5)
+set_tests_properties(verification.receivers2d PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d
+                     LABELS "verification;smoke;dr")
+add_test(NAME verification.faultreceivers2d
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate --fault
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/faultreceiver2d.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d.puml.h5)
+set_tests_properties(verification.faultreceivers2d PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d
                      LABELS "verification;smoke;dr")
 
 # ---------------------------------------------------------------------------
@@ -467,19 +485,22 @@ endfunction()
 # ---------------------------------------------------------------------------
 # seissol_add_fault1d(NAME <name> FL <law> FAULT <file> [MESH mesh] [STEPS n]
 #                     [MATERIAL file] [REQUIRE capability ...]
-#                     [SET ...] [LABELS label ...])
+#                     [FILES file ...] [SET ...] [LABELS label ...])
 #
 # A friction law on a fault1d mesh, held against the exact solution of the
 # ordinary differential equation that every point of a uniform fault solves
-# there (see fault1d.py). The run is a case of its own, without a snapshot,
+# there (see fault1d.py), or on fault2d, against the one of a forced rupture
+# front (see fault1d.Front). The run is a case of its own, without a snapshot,
 # since the exact solution is the better reference; the comparison is a test of
 # its own, so that it can be repeated, and its thresholds recorded, without
 # running SeisSol again. Without MATERIAL, the case takes the material of its
-# build, and without REQUIRE, it runs in elastic and anisotropic builds.
+# build, and without REQUIRE, it runs in elastic and anisotropic builds. FILES
+# are further inputs, such as receivers that SET names.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_fault1d)
-  cmake_parse_arguments(F1D "" "NAME;FL;FAULT;MESH;STEPS;MATERIAL" "SET;LABELS;REQUIRE" ${ARGN})
+  cmake_parse_arguments(F1D "" "NAME;FL;FAULT;MESH;STEPS;MATERIAL" "SET;LABELS;REQUIRE;FILES"
+                        ${ARGN})
   if (NOT F1D_MESH)
     set(F1D_MESH fault1d)
   endif()
@@ -499,7 +520,7 @@ function(seissol_add_fault1d)
       MESH ${F1D_MESH}
       PARAMETERS rupture1d.par
       ${F1D_MATERIAL}
-      FILES ${F1D_FAULT} faultreceiver.dat
+      FILES ${F1D_FAULT} faultreceiver.dat ${F1D_FILES}
       STEPS ${F1D_STEPS}
       REQUIRE ${F1D_REQUIRE}
       SET "DynamicRupture.FL=${F1D_FL}"

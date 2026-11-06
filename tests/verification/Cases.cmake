@@ -564,6 +564,31 @@ seissol_add_fault1d(NAME fault1d-anisotropic-imposed FL 33 FAULT fault1d-imposed
                     MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
                     LABELS convergence)
 
+# A forced rupture front along y on fault2d, at 1.5 times the shear wave
+# speed. A front that outruns the shear waves outruns all it sends out, and
+# behind it, every point of the fault solves the 0D problem of fault1d,
+# shifted to its rupture time, with the radiation damping of the antiplane
+# plane waves inclined at the angle of the Mach cone (see fault1d.Front).
+# This holds at a receiver until the waves of where the front starts or meets
+# itself arrive, or the part of the inclined waves that the boundaries
+# x = +-W/2 reflect; the comparison ends there. It takes the slip rate, the
+# normal stress and the direction of the slip that the fault receivers
+# compute at their position, from the jump of the velocity, and the volume
+# receivers. The other quantities of the fault receivers come from the Gauss
+# point of the fault nearest to them, a few metres away along the front,
+# which reaches it up to 0.4 ms earlier or later.
+seissol_add_fault1d(NAME fault2d-supershear FL 16 FAULT fault2d-supershear.yaml
+                    MESH fault2d STEPS 2048 FILES faultreceiver2d.dat receiver2d.dat
+                    SET "DynamicRupture.t_0=2.0e-02" "DynamicRupture.SlipRateOutputType=0"
+                        "Pickpoint.PPFileName='faultreceiver2d.dat'"
+                        "Output.RFileName='receiver2d.dat'"
+                    LABELS convergence)
+# with twelve times the cells of fault1d, the case runs for a few minutes;
+# it gets four times the time the others get
+math(EXPR SEISSOL_FAULT2D_TIMEOUT "4 * ${SEISSOL_MINITEST_TIMEOUT}")
+set_tests_properties(verification.fault2d-supershear${SEISSOL_VERIFICATION_SUFFIX}
+                     PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+
 # ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic
 # mesh, so this is the mesh the measurement runs on. 256 steps of 2^-14 s let

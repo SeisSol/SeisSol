@@ -1,10 +1,12 @@
 {
   "comment": [
-    "Thresholds for the deviation of the fault1d cases from their exact",
-    "solution, keyed by case and build configuration; see fault1d.py and",
+    "Thresholds for the deviation of the fault1d and fault2d cases from their",
+    "exact solution, keyed by case and build configuration; see fault1d.py and",
     "seissol_add_fault1d. Deviations are relative to the amplitude of the exact",
     "signal, those of the rupture and the dynamic stress time to the time",
-    "itself; the state of aging and slip law is compared by its logarithm."
+    "itself; the state of aging and slip law is compared by its logarithm. On",
+    "fault2d, the amplitude is the one up to the time to which the exact",
+    "solution holds at the receiver."
   ],
   "entries": {
     "fault1d-anisotropic-imposed/anisotropic/o6/double": {
@@ -621,6 +623,27 @@
       "stress": 0.0061,
       "traction": 0.00021,
       "velocity": 0.0062
+    },
+    "fault2d-supershear/anisotropic/o6/double": {
+      "direction": 0.0002,
+      "normal-stress": 0.00017,
+      "slip-rate": 0.019,
+      "stress": 0.042,
+      "velocity": 0.042
+    },
+    "fault2d-supershear/elastic/o6/double": {
+      "direction": 0.0002,
+      "normal-stress": 0.00017,
+      "slip-rate": 0.019,
+      "stress": 0.042,
+      "velocity": 0.042
+    },
+    "fault2d-supershear/elastic/o6/single": {
+      "direction": 0.0002,
+      "normal-stress": 0.00017,
+      "slip-rate": 0.019,
+      "stress": 0.042,
+      "velocity": 0.042
     }
   }
 }
