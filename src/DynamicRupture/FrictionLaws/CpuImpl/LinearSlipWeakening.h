@@ -110,6 +110,8 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
         const auto solution = common::solveSlipRate(this->impAndEta_[ltsFace],
                                                     this->impedanceMatrices_[ltsFace],
+                                                    faultStresses,
+                                                    pointIndex,
                                                     totalTraction1,
                                                     totalTraction2,
                                                     absoluteTraction,

@@ -27,6 +27,7 @@ namespace seissol::unit_test {
 
 namespace anisotropicsliprate {
 
+using seissol::dr::FaultStresses;
 using seissol::dr::ImpedanceMatrices;
 using seissol::dr::ImpedancesAndEta;
 
@@ -109,6 +110,9 @@ TEST_CASE("Anisotropic slip rate solve" *
   using seissol::dr::friction_law::common::solveSlipRate;
 
   const ImpedancesAndEta impAndEta{};
+  // where the impedance belongs to a node it is read from here; for this material it belongs to
+  // the face, and the stresses only fill the argument
+  const FaultStresses<Executor::Host> faultStresses{};
   constexpr real Strength = 30.0e6;
   constexpr real Slope = 0.6;
   // two sweeps leave a truncation error below 1e-4 for an overshoot up to 100 percent, single
@@ -124,8 +128,15 @@ TEST_CASE("Anisotropic slip rate solve" *
         const real traction1 = magnitude * std::cos(angle);
         const real traction2 = magnitude * std::sin(angle);
 
-        const auto solution = solveSlipRate(
-            impAndEta, impedanceMatrices, traction1, traction2, magnitude, Strength, Slope);
+        const auto solution = solveSlipRate(impAndEta,
+                                            impedanceMatrices,
+                                            faultStresses,
+                                            0,
+                                            traction1,
+                                            traction2,
+                                            magnitude,
+                                            Strength,
+                                            Slope);
 
         REQUIRE(solution.slipRate > 0);
         CHECK(std::abs(std::sqrt(solution.direction1 * solution.direction1 +
@@ -144,8 +155,15 @@ TEST_CASE("Anisotropic slip rate solve" *
     const real traction1 = Strength * 1.5 * std::cos(0.7);
     const real traction2 = Strength * 1.5 * std::sin(0.7);
 
-    const auto uncoupled = solveSlipRate(
-        impAndEta, impedanceMatrices, traction1, traction2, Strength * 1.5, Strength, 0.0);
+    const auto uncoupled = solveSlipRate(impAndEta,
+                                         impedanceMatrices,
+                                         faultStresses,
+                                         0,
+                                         traction1,
+                                         traction2,
+                                         Strength * 1.5,
+                                         Strength,
+                                         0.0);
 
     CHECK(slipRateResidual(impedanceMatrices, uncoupled, traction1, traction2, Strength, Slope) >
           10 * ResidualBar);
@@ -161,8 +179,15 @@ TEST_CASE("Anisotropic slip rate solve" *
     const real traction1 = magnitude * std::cos(angle);
     const real traction2 = magnitude * std::sin(angle);
 
-    const auto solution = solveSlipRate(
-        impAndEta, impedanceMatrices, traction1, traction2, magnitude, Strength, Slope);
+    const auto solution = solveSlipRate(impAndEta,
+                                        impedanceMatrices,
+                                        faultStresses,
+                                        0,
+                                        traction1,
+                                        traction2,
+                                        magnitude,
+                                        Strength,
+                                        Slope);
 
     CHECK(solution.slipRate == doctest::Approx((magnitude - Strength) / EtaS).epsilon(1e-5));
     CHECK(solution.direction1 == doctest::Approx(std::cos(angle)).epsilon(1e-6));
@@ -176,6 +201,8 @@ TEST_CASE("Anisotropic slip rate solve" *
 
     const auto solution = solveSlipRate(impAndEta,
                                         impedanceMatrices,
+                                        faultStresses,
+                                        0,
                                         magnitude * std::cos(0.7),
                                         magnitude * std::sin(0.7),
                                         magnitude,
@@ -188,8 +215,8 @@ TEST_CASE("Anisotropic slip rate solve" *
   SUBCASE("vanishing trial traction") {
     const auto impedanceMatrices = testImpedance();
 
-    const auto solution =
-        solveSlipRate(impAndEta, impedanceMatrices, 0.0, 0.0, 0.0, Strength, Slope);
+    const auto solution = solveSlipRate(
+        impAndEta, impedanceMatrices, faultStresses, 0, 0.0, 0.0, 0.0, Strength, Slope);
 
     CHECK(solution.slipRate == static_cast<real>(0.0));
     CHECK(std::isfinite(solution.direction1));
@@ -209,6 +236,9 @@ TEST_CASE("Anisotropic impedance projections" *
   namespace common = seissol::dr::friction_law::common;
 
   const ImpedancesAndEta impAndEta{};
+  // where the impedance belongs to a node it is read from here; for this material it belongs to
+  // the face, and the stresses only fill the argument
+  const FaultStresses<Executor::Host> faultStresses{};
   auto impedanceMatrices = asymmetricImpedance();
   const auto eta = init::eta::view::create(impedanceMatrices.eta);
 
@@ -233,7 +263,7 @@ TEST_CASE("Anisotropic impedance projections" *
 
   SUBCASE("projectEta is the quadratic form of the shear block") {
     const auto [etaProj, invEtaProj] =
-        common::projectEta(impAndEta, impedanceMatrices, V1, V2, magnitude);
+        common::projectEta(impAndEta, impedanceMatrices, faultStresses, 0, V1, V2, magnitude);
 
     const real expected =
         eta(1, 1) * n1 * n1 + (eta(1, 2) + eta(2, 1)) * n1 * n2 + eta(2, 2) * n2 * n2;

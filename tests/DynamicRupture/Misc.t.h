@@ -8,6 +8,8 @@
 #include <doctest.h>
 
 #include "DynamicRupture/Misc.h"
+#include "Equations/Datastructures.h"
+#include "GeneratedCode/quantities.h"
 #include "Geometry/MeshDefinition.h"
 #include "TestHelper.h"
 
@@ -193,22 +195,50 @@ TEST_CASE("DR Misc computeStrikeAndDipVectors" * doctest::test_suite("dynamicrup
 TEST_CASE("DR Misc quantity_indices" * doctest::test_suite("dynamicrupture")) {
   using namespace quantity_indices;
 
-  // Velocities are at indices 6,7,8
-  CHECK(U == 6);
-  CHECK(V == 7);
-  CHECK(W == 8);
+  // A six-element stress, in whatever frame it is written in, is in Voigt order
+  CHECK(voigt::XX == 0);
+  CHECK(voigt::YY == 1);
+  CHECK(voigt::ZZ == 2);
+  CHECK(voigt::XY == 3);
+  CHECK(voigt::YZ == 4);
+  CHECK(voigt::XZ == 5);
 
-  // Normal stress overlaps with XX
-  CHECK(N == XX);
-  CHECK(N == 0);
+  // The velocities are consecutive, where the transported tensor keeps them
+  CHECK(U == generated::TransportVelocityOffset);
+  CHECK(V == U + 1);
+  CHECK(W == U + 2);
 
-  // Traction1 overlaps with XY
-  CHECK(T1 == XY);
-  CHECK(T1 == 3);
+  if constexpr (model::MaterialT::SupportsDR) {
+    // The fault-normal Riemann problem is written in the normal row of the stress, which sits in
+    // Voigt order where the transported tensor keeps it; a fault reads all of it out of what it
+    // interpolates
+    CHECK(N == SXX);
+    CHECK(T1 == SXY);
+    CHECK(T2 == SXZ);
+    CHECK(SXX == generated::TransportTractionOffset + voigt::XX);
+    CHECK(SXY == generated::TransportTractionOffset + voigt::XY);
+    CHECK(SXZ == generated::TransportTractionOffset + voigt::XZ);
+    CHECK(SXZ < dr::misc::NumQuantities);
+    CHECK(W < dr::misc::NumQuantities);
+  }
 
-  // Traction2 overlaps with XZ
-  CHECK(T2 == XZ);
-  CHECK(T2 == 5);
+  if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
+    // strain, velocity and stress, then the two internal variables
+    CHECK(EXX == 0);
+    CHECK(U == 6);
+    CHECK(N == 9);
+    CHECK(T1 == 12);
+    CHECK(T2 == 14);
+    CHECK(ALPHA == 15);
+    CHECK(BREAKAGE == 16);
+    CHECK(BREAKAGE < dr::misc::NumQuantities);
+  } else if constexpr (model::MaterialT::SupportsDR) {
+    // a state that begins with the stress, followed by the velocity
+    CHECK(N == 0);
+    CHECK(T1 == 3);
+    CHECK(T2 == 5);
+    CHECK(U == 6);
+  }
 }
 
 } // namespace seissol::unit_test
