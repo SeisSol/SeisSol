@@ -294,6 +294,21 @@ TEST_CASE("Projections of a coupled impedance" * doctest::skip(!seissol::dr::Cou
     CHECK(cn == doctest::Approx(eta(0, 1) * n1 + eta(0, 2) * n2).epsilon(1e-5));
   }
 
+  SUBCASE("the slip direction solves with the shear block") {
+    // the adjugate route of updateSlipDirection, checked against the equation it solves:
+    // (S I + V eta_ss) n has to point along the trial traction
+    constexpr real Strength = 2.0e6;
+    constexpr real SlipRate = 1.3;
+    const auto [d1, d2] = common::updateSlipDirection(
+        impAndEta, impedanceMatrices, faultStresses, Node, Strength, SlipRate, V1, V2, magnitude);
+    const real image1 = Strength * d1 + SlipRate * (eta(1, 1) * d1 + eta(1, 2) * d2);
+    const real image2 = Strength * d2 + SlipRate * (eta(2, 1) * d1 + eta(2, 2) * d2);
+
+    CHECK(std::sqrt(d1 * d1 + d2 * d2) == doctest::Approx(1.0).epsilon(1e-6));
+    CHECK(image1 * V2 - image2 * V1 == doctest::Approx(0.0).scale(magnitude * 1.0e6));
+    CHECK(image1 * V1 + image2 * V2 > 0);
+  }
+
   SUBCASE("projectEta is the quadratic form of the shear block") {
     const auto [etaProj, invEtaProj] =
         common::projectEta(impAndEta, impedanceMatrices, faultStresses, Node, V1, V2, magnitude);

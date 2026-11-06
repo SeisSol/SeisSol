@@ -1000,10 +1000,11 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
       return etaEntry(impedanceMatrices, faultStresses, index, entry);
     };
 
-    // the very same 2x2 block, in the same convention, that matmulEta and projectEta use
+    // the shear block, e_rc in row r and column c: the array is column major, so e12, the row of
+    // the first shear component and the column of the second, sits at Count * 2 + 1
     const real e11 = eta(Count * 1 + 1);
-    const real e12 = eta(Count * 1 + 2);
-    const real e21 = eta(Count * 2 + 1);
+    const real e12 = eta(Count * 2 + 1);
+    const real e21 = eta(Count * 1 + 2);
     const real e22 = eta(Count * 2 + 2);
 
     // adjugate of (S * I + V * eta_ss), applied to tau0
