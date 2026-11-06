@@ -139,30 +139,16 @@ If a requirement is missing, a warning says which one, and the super-timesteps (
 Clusters that compute on the host (``SEISSOL_DEVICE_HOST_SWITCH``) keep all super-timesteps from getting recorded;
 a warning says so. (Clusters without cells stay on the GPU with any switch point.)
 
-Recording the other super-timesteps as well, each launched once (``SEISSOL_SUPERSTEP_GRAPH_MODE=always``), did not pay off
-on a workstation (CUDA, RTX 5070, October 2026): instantiating the graph of a super-timestep took the host 10 to 50 ms
-on average, enqueuing its work directly 1 to 2 ms, and a graph that runs once does not make up for that.
-With an epoch every 0.05 s, TPV5 and TTPV1 (order 6, single precision) took 0.4 % longer and 0.6 % less time with ``always``
-than without recording, and 0.4 % less and 1.0 % more than with the default ``replay``.
-Recording every super-timestep anew (``rebuild``) took 20 to 40 % longer.
+A graph that runs only once (``SEISSOL_SUPERSTEP_GRAPH_MODE=always`` or ``rebuild``) tends not to pay off:
+instantiating it can take the host longer than enqueuing its work directly.
+The more nodes a graph has, the longer the host takes to record it and to launch it;
+the log reports the host time of the recordings and of the replays.
+Whether concurrent branches (``SEISSOL_SUPERSTEP_BRANCHES=1``) make up for their additional nodes depends on the case.
 
-Capturing a node into a graph costs the more time the more nodes the graph already has, on HIP (ROCm 6.3 to 7.2)
-much more than with CUDA: recording a super-timestep of TPV13 (2784 cells, 3 clusters) took 0.04 s on the RTX 5070
-and 0.2 s on a Radeon 890M (October 2026). With ROCm 6.3, the host needed 40 ms for each launch of that graph
-(2136 kernels), with ROCm 7.2 6 ms; such a graph only pays off where the GPU takes longer for the super-timestep.
-The log reports both times for the replays.
-With ``SEISSOL_SUPERSTEP_BRANCHES=0``, the graphs of TPV5 (19183 cells) took 9 instead of 51 ms of the host to launch
-with ROCm 6.3 on the Radeon 890M, and 1 % less time in all; on the smaller TPV13 mesh, the concurrent branches made up for
-their launches, and the run took 3 % (with receivers, 10 %) less time with them.
-On one node with four MI300A (TheRock 23.2.1, November 2026), the recordings with concurrent branches computed other
-results than the runs without recordings: on one rank, TPV13 differed in 31 of its 38 outputs, the same way in every run
-with two hardware queues (``GPU_MAX_HW_QUEUES``) and another way with four. With one hardware queue, or with the branches one after
-another, the outputs were bitwise the same as without recordings; the scratch memory of all branches allocated before
-they fork, scratchpads of their own for each layer, the access events, the packet capture of CLR
-(``DEBUG_CLR_GRAPH_PACKET_CAPTURE=0``) and an empty node after all leaves of a graph made no difference. The cause is not
-known yet; on an RTX 5070, TPV13 on one rank comes out bitwise the same with concurrent branches. So with HIP, the
-branches run one after another by default: then TPV13 took 1.75 s on one rank of the MI300A (2.07 s without
-recordings), bitwise the same.
+On MI300A, the recordings with concurrent branches computed other results than the runs without recordings, depending
+on the number of hardware queues of HIP (``GPU_MAX_HW_QUEUES``); with one hardware queue, or with the branches one after
+another, the outputs were bitwise the same. The cause is not known yet; with CUDA, TPV13 came out bitwise the same with
+concurrent branches. So with HIP, the branches run one after another by default.
 
 Outputs while the GPU computes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -187,7 +173,7 @@ processed on the main thread as a whole.
 The copy to the host does not hold up the next epoch either: the GPU copies the data within its memory
 first, into snapshots, and the thread copies them to the host while the GPU goes on.
 For that, the storages keep a snapshot of all the data that changes during the run (e.g. the unknowns and the
-data of the faults), allocated along with it; the log lists their memory per storage (in TPV5 on one GPU, 82 MiB).
+data of the faults), allocated along with it; the log lists their memory per storage.
 The host memory of that data is pinned, so that its copies do not block.
 With ``SEISSOL_OUTPUT_SNAPSHOT=0``, there are no snapshots, and the data gets copied to the host before the next epoch.
 While the copy to the host runs, the kernels that write to the host themselves (e.g. those of the receivers, and the
@@ -197,10 +183,7 @@ With unified memory (``SEISSOL_USM=1``), the snapshots are the host memory of th
 the GPU computes on memory of its own for that data, and copies it there into the snapshots, which the thread
 reads without a further copy; the rest of the data keeps one memory for the host and the GPU.
 
-On a laptop (RTX 5070 Laptop GPU, PCIe link at 7 GB/s, October 2026), TPV5 with an energy output every 0.05 s and the
-time-stepping plan with concurrent clusters took 3.19 s without the thread, 2.80 s with it, and 2.69 s with it and the
-snapshot (16 % less); with two processes on the GPU, 4.33 s, 4.15 s and 3.83 s (12 % less).
-The outputs came out bitwise the same.
+The outputs came out bitwise the same with the thread and the snapshots as without them.
 
 Work on the host for the GPU
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -209,8 +192,7 @@ Some work on the host reads what the GPU computes during an epoch: the samples o
 read the unknowns of their cells, and those of the fault receivers the derivatives next to the faults
 and the friction state, which the GPU gathers into host memory. By default, a host
 function on a stream takes them, which the device runtime calls on a thread of its own once the
-gather is done. Such a call is not cheap: on an MI250X, 20–55 µs with ROCm 6.3 and about 500 µs
-with ROCm 6.4 and newer (October 2026); and the stream it is on waits for it.
+gather is done. Such a call is not cheap, and the stream it is on waits for it.
 
 With ``SEISSOL_HOST_ACTOR=1``, the GPU gathers what the work reads into a buffer of host memory of
 its own for each step, and an event after the gather stands for it. The thread that enqueues the
@@ -225,19 +207,13 @@ synchronization point, all of it runs.
 While a super-timestep gets recorded, the GPU gathers that data into device memory of the recording
 instead, at addresses the graph keeps. After each launch of the recording, a kernel copies all of it to
 a buffer of host memory of its own, and the work goes to the actor, for once the copy is done. So the
-recordings contain no host functions, which would hold up the graph while they run. On an RTX 5070 Laptop
-GPU, TPV13 with the receivers and fault receivers took 0.63 s instead of 1.84 s with recorded
-super-timesteps (0.60 s with tasks), with the same outputs bit for bit.
+recordings contain no host functions, which would hold up the graph while they run.
 Checking an event is safe on all backends, as the host reads the data only once the GPU is done with
 it, in whatever host memory.
-Where the thread that enqueues the work of the GPU is what limits a run, as on LUMI, the work should not run on it:
-on two nodes there (MI250X, ROCm 6.3, ``direct``, the time-stepping plan and concurrent clusters), TPV5 took 3.6 s
-instead of 3.9 s and TPV13 5.5 s instead of 6.2 s with tasks (``SEISSOL_HOST_TASK_GRAPH=1``), while the work on
-the main thread itself gained less and lost in some runs.
-On the Radeon 890M (ROCm 6.3), TPV13 with eight receivers took 3.49 s instead of 3.83 s with the
-time-stepping plan and concurrent clusters, with the receivers alone on the host actor. On an RTX 5070
-Laptop GPU, with the fault receivers as well, 0.67 s instead of 0.76 s (also with tasks, and on the
-thread of the outputs); the outputs came out bitwise the same.
+Where the thread that enqueues the work of the GPU is what limits a run, the work should not run on it:
+tasks (``SEISSOL_HOST_TASK_GRAPH=1``) tend to help there.
+The outputs came out bitwise the same with the host actor as without it, also with tasks, on the thread
+of the outputs and in recorded super-timesteps.
 
 Diagnostics
 ~~~~~~~~~~~
@@ -261,8 +237,8 @@ On GPUs, the verification cases pass with all of them.
 Scenarios with local time stepping came out bitwise the same as with the default (apart from the energy output,
 whose sums vary from run to run anyway), with one process and all options, recorded super-timesteps included,
 and with several processes for ``direct`` and ``host``; with SYCL (AdaptiveCpp), with one and two processes and
-concurrent clusters. With ``direct``, the time-stepping plan with concurrent clusters and the host actor has run on up
-to 128 nodes of Horizon (four B200 each, November 2026) and on LUMI (MI250X, October 2026).
+concurrent clusters. With ``direct``, the time-stepping plan with concurrent clusters and the host actor has run on
+several nodes of Horizon (B200) and of LUMI (MI250X).
 Compare the results of a run bitwise to the default before relying on these options on another system.
 
 On HIP, graphs need Device d2fe2de or newer, which works around two bugs of HIP 7.2:

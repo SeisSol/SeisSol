@@ -44,6 +44,7 @@ default where the GPU shares its memory with the CPU (e.g. Grace Hopper, Grace B
 APUs). The host then keeps a copy of the data; on an APU, it takes memory from the same pool as the
 GPU. ``SEISSOL_USM=1`` brings back the former behavior, and running clusters on the host
 (``SEISSOL_DEVICE_HOST_SWITCH``) needs it.
+
 The files of a mesh output in VTKHDF
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since a single time series is the default of VTKHDF)
