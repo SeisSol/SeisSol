@@ -13,7 +13,7 @@ namespace seissol::kernels::device::aux::clock {
 
 void set(double* device, double* host, double time, void* stream) {
   auto* queue = reinterpret_cast<sycl::queue*>(stream);
-  queue->single_task([=]() {
+  queue->single_task([=] {
     *device = time;
     *host = time;
   });
@@ -21,7 +21,7 @@ void set(double* device, double* host, double time, void* stream) {
 
 void advance(double* device, double* host, double timeStepSize, void* stream) {
   auto* queue = reinterpret_cast<sycl::queue*>(stream);
-  queue->single_task([=]() {
+  queue->single_task([=] {
     const double time = *device + timeStepSize;
     *device = time;
     *host = time;

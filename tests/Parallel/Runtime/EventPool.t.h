@@ -25,7 +25,7 @@ struct ModelEventFactory {
   std::set<void*> destroyed;
 
   parallel::runtime::EventPool pool(std::size_t initialSize) {
-    return {[this]() {
+    return {[this] {
               void* event = &storage.emplace_back();
               alive.insert(event);
               return event;

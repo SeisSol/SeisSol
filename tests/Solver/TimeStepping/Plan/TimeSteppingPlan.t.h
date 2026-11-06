@@ -104,10 +104,10 @@ inline std::size_t followPlan(Layout& layout, const std::vector<long>& syncTimes
     for (auto& cluster : layout.clusters) {
       REQUIRE(cluster->getNextLegalAction() == ActorAction::RestartAfterSync);
       cluster->act();
-      planned.push_back({cluster->getTimeStepRate(),
-                         cluster->getStepsUntilSync(),
-                         cluster->dataReadiness(),
-                         cluster->getPriority()});
+      planned.push_back({.timeStepRate = cluster->getTimeStepRate(),
+                         .stepsUntilSync = cluster->getStepsUntilSync(),
+                         .dataReadiness = cluster->dataReadiness(),
+                         .priority = cluster->getPriority()});
     }
 
     for (const auto& action : planTimeSteps(planned)) {
@@ -159,8 +159,14 @@ TEST_CASE("The time stepping plan is a legal order of all steps" * doctest::test
 TEST_CASE("The time stepping plan orders a pair of clusters by logical time" *
           doctest::test_suite("solver")) {
   // a cluster with twice the time step next to the smallest one, up to 3 steps of the smallest
-  const auto plan = planTimeSteps({{1, 3, DataReadiness::AfterPrediction, ActorPriority::Low},
-                                   {2, 3, DataReadiness::AfterPrediction, ActorPriority::Low}});
+  const auto plan = planTimeSteps({{.timeStepRate = 1,
+                                    .stepsUntilSync = 3,
+                                    .dataReadiness = DataReadiness::AfterPrediction,
+                                    .priority = ActorPriority::Low},
+                                   {.timeStepRate = 2,
+                                    .stepsUntilSync = 3,
+                                    .dataReadiness = DataReadiness::AfterPrediction,
+                                    .priority = ActorPriority::Low}});
   const std::vector<std::tuple<std::size_t, ActorAction, long>> expected{
       {0, ActorAction::Predict, 0},
       {1, ActorAction::Predict, 0},

@@ -86,7 +86,7 @@ TaskCommunicationManager::TaskCommunicationManager(
 #ifdef SEISSOL_HOST_TASK_GRAPH
   if (thread) {
     helper_ = std::make_unique<seissol::parallel::HelperThread>(
-        [this]() {
+        [this] {
           engine_.poll();
           // done once the main thread has created all exchanges of the epoch, and all have
           // completed
@@ -108,9 +108,8 @@ void TaskCommunicationManager::progression() {
 }
 
 bool TaskCommunicationManager::checkIfFinished() const {
-  return std::all_of(ghostClusters_.begin(), ghostClusters_.end(), [](const auto& ghostCluster) {
-    return ghostCluster->synced();
-  });
+  return std::ranges::all_of(ghostClusters_,
+                             [](const auto& ghostCluster) { return ghostCluster->synced(); });
 }
 
 void TaskCommunicationManager::reset(double newSyncTime) {

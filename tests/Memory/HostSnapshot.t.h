@@ -43,7 +43,7 @@ inline bool hostHolds(const initializer::DualMemoryContainer& container, int val
 TEST_CASE("A snapshot gives the host the data of the time it was taken" *
           doctest::test_suite("memory")) {
   using namespace hostsnapshot;
-  auto& device = ::device::DeviceInstance::instance();
+  const auto& device = ::device::DeviceInstance::instance();
   device.api().setDevice(0);
   device.api().initialize();
   void* stream = device.api().createStream();
@@ -95,7 +95,7 @@ TEST_CASE("A snapshot gives the host the data of the time it was taken" *
   CHECK(hostHolds(unified, 1));
 
   // e.g. on the thread of the outputs
-  std::thread([&snapshot]() { snapshot.copyToHost(); }).join();
+  std::thread([&snapshot] { snapshot.copyToHost(); }).join();
   CHECK(hostHolds(pinned, 1));
   CHECK(hostHolds(split, 1));
   CHECK(hostHolds(unified, 1));

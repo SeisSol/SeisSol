@@ -34,8 +34,10 @@ namespace {
 // where staged data starts in device memory, and in the copies on the host: for vector loads of
 // the work, and the copy kernel
 constexpr std::size_t StagingAlignment = 256;
+#ifdef ACL_DEVICE
 // device memory of a recording comes in chunks of at least this many bytes
 constexpr std::size_t ChunkBytes = std::size_t{1} << 20U;
+#endif
 
 std::size_t aligned(std::size_t bytes) {
   return (bytes + StagingAlignment - 1) / StagingAlignment * StagingAlignment;
@@ -54,24 +56,23 @@ HostActor::Queue::Queue(HostActor& actor, std::size_t bytes) : actor_(actor), by
 HostActor::Queue::~Queue() {
   // whatever the work reads or writes may go right after this; it has to be done before
   drain();
-  auto& queues = actor_.queues_;
-  queues.erase(std::remove(queues.begin(), queues.end(), this), queues.end());
+  std::erase(actor_.queues_, this);
 }
 
 void HostActor::Queue::post(Event after, std::function<void()> work) {
   if (after.graph() != nullptr) {
     logError() << "Work on the host cannot wait for a node of a graph that is being built.";
   }
-  items_.push_back(Item{std::move(after), std::move(work)});
+  items_.push_back(Item{.after = std::move(after), .work = std::move(work)});
   ++posted_;
 }
 
 HostActor::Staging HostActor::Queue::take(StreamRuntime& runtime) {
   if (actor_.recording_ != nullptr) {
-    return Staging{actor_.recording_->stage(bytes_, runtime), nullptr};
+    return Staging{.device = actor_.recording_->stage(bytes_, runtime), .host = nullptr};
   }
   const auto buffer = buffers_->take();
-  return Staging{buffer.device, buffer.host};
+  return Staging{.device = buffer.device, .host = buffer.host};
 }
 
 void HostActor::Queue::post(StreamRuntime& runtime,
@@ -81,9 +82,9 @@ void HostActor::Queue::post(StreamRuntime& runtime,
     actor_.recording_->add(*this, staging.device, std::move(work));
     return;
   }
-  post(runtime.eventRecord(), [this, staging, work = std::move(work)]() {
+  post(runtime.eventRecord(), [this, staging, work = std::move(work)] {
     std::invoke(work, staging.host);
-    buffers_->give(HostBufferPool::Buffer{staging.host, staging.device});
+    buffers_->give(HostBufferPool::Buffer{.host = staging.host, .device = staging.device});
   });
 }
 
@@ -91,7 +92,7 @@ bool HostActor::Queue::progress() {
   bool handedOver = false;
   while (!items_.empty() && actor_.ready(items_.front().after)) {
     // out of the queue first: the work may post more
-    auto task = [this, work = std::move(items_.front().work)]() {
+    auto task = [this, work = std::move(items_.front().work)] {
       std::invoke(work);
       done_.fetch_add(1, std::memory_order_release);
     };
@@ -154,6 +155,7 @@ bool HostActor::progress() {
   }
   bool handedOver = false;
   // by index: the work may set up queues
+  // NOLINTNEXTLINE(modernize-loop-convert)
   for (std::size_t i = 0; i < queues_.size(); ++i) {
     handedOver = queues_[i]->progress() || handedOver;
   }
@@ -161,6 +163,8 @@ bool HostActor::progress() {
 }
 
 void HostActor::drain() {
+  // by index: the work may set up queues
+  // NOLINTNEXTLINE(modernize-loop-convert)
   for (std::size_t i = 0; i < queues_.size(); ++i) {
     queues_[i]->drain();
   }
@@ -183,7 +187,7 @@ HostActor::Recording::~Recording() {
 #endif
 }
 
-void* HostActor::Recording::stage(std::size_t bytes, StreamRuntime& runtime) {
+void* HostActor::Recording::stage(std::size_t bytes, [[maybe_unused]] StreamRuntime& runtime) {
   const auto size = aligned(std::max<std::size_t>(bytes, 1));
   if (chunks_.empty() || chunks_.back().used + size > chunks_.back().capacity) {
 #ifdef ACL_DEVICE
@@ -250,7 +254,7 @@ void HostActor::Recording::launched([[maybe_unused]] StreamRuntime& runtime) {
   for (const auto& item : items_) {
     const auto* data =
         static_cast<const std::uint8_t*>(buffer.host) + copyOffsets_[item.chunk] + item.offset;
-    item.queue->post(copied, [work = item.work, data, release]() { std::invoke(work, data); });
+    item.queue->post(copied, [work = item.work, data, release] { std::invoke(work, data); });
   }
 #endif
 }

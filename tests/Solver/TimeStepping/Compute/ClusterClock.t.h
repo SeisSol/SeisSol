@@ -21,7 +21,7 @@ TEST_CASE("The cluster clock adds up the steps like the cluster time" *
           doctest::test_suite("solver")) {
 #ifdef ACL_DEVICE
   // the clock lives on the device of a run
-  auto& device = ::device::DeviceInstance::instance();
+  const auto& device = ::device::DeviceInstance::instance();
   device.api().setDevice(0);
   device.api().initialize();
 #endif

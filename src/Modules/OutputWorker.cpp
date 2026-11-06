@@ -71,7 +71,7 @@ void OutputWorker::run(const async::as::CpuMask& cpus, int ompThreads) {
     if (tasks_.empty()) {
       break;
     }
-    auto task = std::move(tasks_.front());
+    const auto task = std::move(tasks_.front());
     tasks_.pop_front();
     busy_ = true;
     lock.unlock();

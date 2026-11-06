@@ -40,7 +40,8 @@ Watchdog::~Watchdog() { stop(); }
 
 void Watchdog::addProbe(const std::string& name, std::function<double()> value) {
   assert(!thread_.joinable());
-  probes_.push_back(Probe{name, std::move(value), 0, Clock::now()});
+  probes_.push_back(
+      Probe{.name = name, .value = std::move(value), .last = 0, .lastChange = Clock::now()});
 }
 
 void Watchdog::addCheck(std::function<void()> check) {

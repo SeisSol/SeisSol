@@ -46,7 +46,7 @@ struct Device {
 
 inline void setUpDevice() {
 #ifdef ACL_DEVICE
-  auto& device = ::device::DeviceInstance::instance();
+  const auto& device = ::device::DeviceInstance::instance();
   device.api().setDevice(0);
   device.api().initialize();
 #endif
@@ -58,12 +58,12 @@ using hostactortest::Device;
 TEST_CASE("The host actor runs the work of a queue in order, once its events have completed" *
           doctest::test_suite("parallel")) {
   Device device;
-  HostActor actor([&](const Event& event) { return device.completed.count(event.get()) > 0; });
+  HostActor actor([&](const Event& event) { return device.completed.contains(event.get()); });
   HostActor::Queue queue(actor);
   std::vector<int> ran;
-  queue.post(device.event(0), [&]() { ran.push_back(0); });
-  queue.post(device.event(1), [&]() { ran.push_back(1); });
-  queue.post(Event(), [&]() { ran.push_back(2); });
+  queue.post(device.event(0), [&] { ran.push_back(0); });
+  queue.post(device.event(1), [&] { ran.push_back(1); });
+  queue.post(Event(), [&] { ran.push_back(2); });
 
   CHECK_FALSE(actor.progress());
   CHECK(ran.empty());
@@ -82,12 +82,12 @@ TEST_CASE("The host actor runs the work of a queue in order, once its events hav
 TEST_CASE("The queues of the host actor do not wait for each other" *
           doctest::test_suite("parallel")) {
   Device device;
-  HostActor actor([&](const Event& event) { return device.completed.count(event.get()) > 0; });
+  HostActor actor([&](const Event& event) { return device.completed.contains(event.get()); });
   HostActor::Queue first(actor);
   HostActor::Queue second(actor);
   std::vector<std::string> ran;
-  first.post(device.event(0), [&]() { ran.emplace_back("first"); });
-  second.post(device.event(1), [&]() { ran.emplace_back("second"); });
+  first.post(device.event(0), [&] { ran.emplace_back("first"); });
+  second.post(device.event(1), [&] { ran.emplace_back("second"); });
   CHECK(actor.pending() == 2);
   device.complete(1);
   CHECK(actor.progress());
@@ -106,13 +106,13 @@ TEST_CASE("Draining the host actor waits for the device" * doctest::test_suite("
   std::vector<int> ran;
   {
     HostActor::Queue queue(actor);
-    queue.post(device.event(0), [&]() { ran.push_back(0); });
-    queue.post(device.event(1), [&]() { ran.push_back(1); });
+    queue.post(device.event(0), [&] { ran.push_back(0); });
+    queue.post(device.event(1), [&] { ran.push_back(1); });
     actor.drain();
     CHECK(ran == std::vector<int>{0, 1});
     CHECK(queries > 3);
     // and a queue that goes runs its work before
-    queue.post(device.event(2), [&]() { ran.push_back(2); });
+    queue.post(device.event(2), [&] { ran.push_back(2); });
   }
   CHECK(ran == std::vector<int>{0, 1, 2});
   CHECK(actor.pending() == 0);
@@ -122,9 +122,9 @@ TEST_CASE("Work of the host actor may post more work" * doctest::test_suite("par
   HostActor actor([](const Event& /*event*/) { return true; });
   HostActor::Queue queue(actor);
   std::vector<int> ran;
-  queue.post(Event(), [&]() {
+  queue.post(Event(), [&] {
     ran.push_back(0);
-    queue.post(Event(), [&]() { ran.push_back(1); });
+    queue.post(Event(), [&] { ran.push_back(1); });
   });
   actor.drain();
   CHECK(ran == std::vector<int>{0, 1});
@@ -137,8 +137,8 @@ TEST_CASE("The host actor hands ready work to its executor, and waits for it to 
   // runs each piece of work on a thread of its own, one after the other
   std::mutex order;
   actor.setExecutor([&](std::function<void()> task) {
-    running.push_back(std::async(std::launch::async, [&order, task = std::move(task)]() {
-      const std::lock_guard lock(order);
+    running.push_back(std::async(std::launch::async, [&order, task = std::move(task)] {
+      const std::scoped_lock lock(order);
       task();
     }));
   });
@@ -146,7 +146,7 @@ TEST_CASE("The host actor hands ready work to its executor, and waits for it to 
   HostActor::Queue queue(actor);
   std::atomic<int> ran{0};
   for (int i = 0; i < 4; ++i) {
-    queue.post(Event(), [&ran]() { ran.fetch_add(1); });
+    queue.post(Event(), [&ran] { ran.fetch_add(1); });
   }
   queue.drain();
   CHECK(ran.load() == 4);

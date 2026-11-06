@@ -29,7 +29,7 @@ void TaskHaloEngine::enqueue(const TaskHaloTransport* owner,
                              bool send,
                              omp_event_handle_t event) {
   const std::scoped_lock lock(mutex_);
-  handedOver_.push_back({owner, transport, send, event});
+  handedOver_.push_back({.owner = owner, .transport = transport, .send = send, .event = event});
 }
 
 void TaskHaloEngine::poll() {

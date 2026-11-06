@@ -38,8 +38,8 @@ inline initializer::MeasuredCellCosts scattered() {
     costs.ids.push_back(cell);
     costs.costs.push_back(0.1 * static_cast<double>(cell));
   }
-  std::reverse(costs.ids.begin(), costs.ids.end());
-  std::reverse(costs.costs.begin(), costs.costs.end());
+  std::ranges::reverse(costs.ids);
+  std::ranges::reverse(costs.costs);
   return costs;
 }
 
@@ -76,7 +76,7 @@ TEST_CASE("Measured costs go through a file" * doctest::test_suite("mpi")) {
     std::string pattern = "/tmp/seissolcostsXXXXXX";
     const char* created = mkdtemp(pattern.data());
     REQUIRE(created != nullptr);
-    std::copy(pattern.begin(), pattern.end(), name.begin());
+    std::ranges::copy(pattern, name.begin());
   }
   MPI_Bcast(name.data(), static_cast<int>(name.size()), MPI_CHAR, 0, Mpi::mpi.comm());
   const std::string dir(name.data());

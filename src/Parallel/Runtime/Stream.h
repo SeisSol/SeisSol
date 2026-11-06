@@ -148,7 +148,7 @@ class StreamRuntime {
   void record(F&& handler) {
     if (building()) {
       closeOpenNode();
-      lastNodes_ = {addNode(takeDependencies(), streamPtr_->get(), std::forward<F>(handler))};
+      lastNodes_ = {addNode(takeDependencies(), ownStream(), std::forward<F>(handler))};
     } else {
       std::invoke(std::forward<F>(handler), mainStream());
     }
@@ -180,7 +180,7 @@ class StreamRuntime {
   void enqueueLoop(std::size_t elemCount,
                    const F& handler,
                    std::uint32_t traceName = HostRuntime::loopTraceName()) {
-    enqueueHost([=]() { HostRuntime::forEach(elemCount, handler, traceName); });
+    enqueueHost([=] { HostRuntime::forEach(elemCount, handler, traceName); });
   }
 
   EventRef nextEvent() { return events_.next(); }
@@ -281,7 +281,7 @@ class StreamRuntime {
     }
     if (building()) {
       openImplicitNode();
-      return streamPtr_->get();
+      return ownStream();
     }
     return mainStream();
   }
@@ -438,8 +438,7 @@ class StreamRuntime {
   void detach() {
     if (parent_ != nullptr) {
       closeImplicitNode();
-      auto& siblings = parent_->children_;
-      siblings.erase(std::remove(siblings.begin(), siblings.end(), this), siblings.end());
+      std::erase(parent_->children_, this);
       parent_ = nullptr;
       lastNodes_.clear();
       dependencies_.clear();
@@ -495,7 +494,7 @@ class StreamRuntime {
         // a node that stands for the work so far and what it has been ordered after since: an
         // empty recorder yields a handle that stands for its own dependencies
         closeOpenNode();
-        lastNodes_ = {addNode(takeDependencies(), streamPtr_->get(), [](void*) {})};
+        lastNodes_ = {addNode(takeDependencies(), ownStream(), [](void*) {})};
       }
       return lastNodes_.empty() ? Event()
                                 : Event(buildGraph().get(), lastNodes_.front().getNodeId());
@@ -534,6 +533,15 @@ class StreamRuntime {
   [[nodiscard]] const EventPool& eventPool() const { return events_; }
 
   private:
+  /// the stream of the runtime itself
+  void* ownStream() {
+    if (!streamPtr_.has_value()) {
+      // the runtime is used after dispose()
+      std::abort();
+    }
+    return streamPtr_->get();
+  }
+
   /**
    * The stream of the runtime, for work that runs directly: with the wait that has been deferred to
    * such work (see deferWait()) enqueued first.
@@ -601,7 +609,7 @@ class StreamRuntime {
     auto& root = this->root();
     if (root.openNode_ != this) {
       closeOpenNode();
-      beginNode(takeDependencies(), streamPtr_->get());
+      beginNode(takeDependencies(), ownStream());
       root.openNode_ = this;
     }
   }
@@ -609,7 +617,7 @@ class StreamRuntime {
   void closeImplicitNode() {
     auto& root = this->root();
     if (root.openNode_ == this) {
-      lastNodes_ = {device().api().graphEndNode(root.buildGraph_, streamPtr_->get())};
+      lastNodes_ = {device().api().graphEndNode(root.buildGraph_, ownStream())};
       root.openNode_ = nullptr;
     }
   }

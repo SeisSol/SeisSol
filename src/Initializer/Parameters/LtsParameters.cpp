@@ -215,8 +215,8 @@ TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeig
                                                double maxTimestepWidth,
                                                double endTime,
                                                LtsParameters lts)
-    : vertexWeight(vertexWeight), cfl(cfl), maxTimestepWidth(maxTimestepWidth), endTime(endTime),
-      lts(std::move(lts)) {}
+    : vertexWeight(std::move(vertexWeight)), cfl(cfl), maxTimestepWidth(maxTimestepWidth),
+      endTime(endTime), lts(std::move(lts)) {}
 
 TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
                                                   const std::vector<ConfigId>& configs) {

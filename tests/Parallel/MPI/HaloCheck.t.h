@@ -52,18 +52,19 @@ inline solver::HaloCheckResult checkRing(bool persistent, bool oneMore) {
   regions.ghost.emplace_back(ghostF32.data(), ghostF32.size(), RealType::F32, right, 1);
 
   solver::MpiHaloTransport transport(regions, persistent);
-  const auto result = solver::checkHaloExchange({{&transport, &regions, "the ring"}},
-                                                rank,
-                                                solver::HaloMemory::Host,
-                                                std::chrono::seconds(60),
-                                                true);
+  const auto result = solver::checkHaloExchange(
+      {{.transport = &transport, .regions = &regions, .description = "the ring"}},
+      rank,
+      solver::HaloMemory::Host,
+      std::chrono::seconds(60),
+      true);
   transport.finalize();
 
   const auto zero = [](auto value) { return value == 0; };
-  CHECK(std::all_of(copyF64.begin(), copyF64.end(), zero));
-  CHECK(std::all_of(ghostF64.begin(), ghostF64.end(), zero));
-  CHECK(std::all_of(copyF32.begin(), copyF32.end(), zero));
-  CHECK(std::all_of(ghostF32.begin(), ghostF32.end(), zero));
+  CHECK(std::ranges::all_of(copyF64, zero));
+  CHECK(std::ranges::all_of(ghostF64, zero));
+  CHECK(std::ranges::all_of(copyF32, zero));
+  CHECK(std::ranges::all_of(ghostF32, zero));
   return result;
 }
 

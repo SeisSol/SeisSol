@@ -402,7 +402,7 @@ void ReceiverWriter::captureSyncPoint(double /*currentTime*/) {
   // the samples move out of the receivers, which collect the next ones while the files get
   // written
   taken_.clear();
-  for (auto& cluster : receiverClusters_) {
+  for (const auto& cluster : receiverClusters_) {
     cluster->waitForSamples();
     for (auto& receiver : *cluster) {
       assert(receiver.output.size() % cluster->ncols() == 0);

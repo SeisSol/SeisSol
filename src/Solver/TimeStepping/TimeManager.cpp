@@ -37,7 +37,6 @@
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
-#include "Parallel/Pin.h"
 #include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
@@ -70,12 +69,11 @@
 #include <limits>
 #include <memory>
 #include <mpi.h>
-#include <numeric>
-#include <pthread.h>
 #include <set>
 #include <sstream>
 #include <string>
 #include <utility>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
 
@@ -343,7 +341,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                        }));
 
     cluster->setPriority(cellCluster->getPriority());
-    clusterSizes_.push_back(ClusterSize{cluster.get(), clusterId, 0, 0, layer.size()});
+    clusterSizes_.push_back(ClusterSize{.cluster = cluster.get(),
+                                        .globalClusterId = clusterId,
+                                        .cells = 0,
+                                        .duplicateCells = 0,
+                                        .dynamicRuptureFaces = layer.size()});
 
     cluster->connect(*cellClusterBackmap[haloId(layer.getIdentifier(), HaloType::Copy)]);
     if (layer.getIdentifier().halo == HaloType::Interior) {
@@ -363,7 +365,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       Mpi::mpi.getPreferredDataTransferMode(), usePersistentMpi(seissolInstance_.env()));
   // what the test of the halo exchange before the time stepping goes through
   std::vector<CheckedTransport> checkedTransports;
-  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
+  for (const auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
 
     const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);
 
@@ -388,8 +390,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         auto transport = haloTransports_->create(regions);
         auto description = displayName;
         description.append(" and ").append(otherDisplayName);
-        checkedTransports.push_back(
-            {&transport->dataTransport(), &regions, std::move(description)});
+        checkedTransports.push_back({.transport = &transport->dataTransport(),
+                                     .regions = &regions,
+                                     .description = std::move(description)});
         ghostClusters.push_back(std::make_unique<GhostCluster>(otherTimeStepSize,
                                                                otherTimeStepRate,
                                                                displayName,
@@ -423,7 +426,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   for (const auto& cluster : faceClusters_) {
     clusters_.emplace_back(cluster.get());
   }
-  std::stable_sort(clusters_.begin(), clusters_.end(), rateSorter);
+  std::ranges::stable_sort(clusters_, rateSorter);
 
   for (auto* cluster : clusters_) {
     if (cluster->getPriority() == ActorPriority::High) {
@@ -438,11 +441,12 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   if (useHaloCheck(seissolInstance_.env())) {
     // before the exchanges get timed, which would count the test
     const auto watchdog = monitoring::Watchdog::settingsFromEnv(seissolInstance_.env());
-    testHaloExchange(checkedTransports,
-                     isDeviceOn() ? HaloMemory::Device : HaloMemory::Host,
-                     Mpi::dataTransferModeName(Mpi::mpi.getPreferredDataTransferMode()),
-                     watchdog.enabled ? watchdog.timeout : std::chrono::seconds(0),
-                     watchdog.abort);
+    testHaloExchange(
+        checkedTransports,
+        isDeviceOn() ? HaloMemory::Device : HaloMemory::Host,
+        std::string(Mpi::dataTransferModeName(Mpi::mpi.getPreferredDataTransferMode())),
+        watchdog.enabled ? watchdog.timeout : std::chrono::seconds(0),
+        watchdog.abort);
   }
 
   commThread_ = seissol::useCommThread(Mpi::mpi, seissolInstance_.env());
@@ -479,8 +483,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   if (concurrent_) {
     logInfo() << "The clusters run concurrently on the device.";
     if constexpr (Backend == DeviceBackend::Cuda) {
-      const char* connections = std::getenv("CUDA_DEVICE_MAX_CONNECTIONS");
-      logInfo() << "CUDA puts the streams on" << (connections != nullptr ? connections : "8")
+      const auto connections = utils::Env("CUDA_").get("DEVICE_MAX_CONNECTIONS", "8");
+      logInfo() << "CUDA puts the streams on" << connections
                 << "hardware queues (CUDA_DEVICE_MAX_CONNECTIONS).";
     }
     parallel::runtime::hostFunctionsOnStreams() = true;
@@ -551,7 +555,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         cluster->setRunTimeOutputs(true);
       }
       logInfo() << "The outputs decide about their samples when the work of a step runs.";
-      if (std::any_of(clusters_.begin(), clusters_.end(), [](auto* c) { return c->hostWork(); })) {
+      if (std::ranges::any_of(clusters_, [](auto* c) { return c->hostWork(); })) {
         logWarning() << "Some clusters compute on the host (see SEISSOL_DEVICE_HOST_SWITCH), or"
                      << "exchange data with clusters that do; no super-timestep gets recorded.";
       }
@@ -592,7 +596,7 @@ void TimeManager::setUpWatchdog(const std::vector<AbstractTimeCluster*>& cluster
       watchdog_->addProbe("the device time of " + cluster->description(),
                           [time] { return *static_cast<const volatile double*>(time); });
     }
-    const bool computes = std::find(clusters_.begin(), clusters_.end(), cluster) != clusters_.end();
+    const bool computes = std::ranges::find(clusters_, cluster) != clusters_.end();
     if (computes && parallel::runtime::HostRuntime::scheduling() ==
                         parallel::runtime::HostScheduling::TaskGraph) {
       // in a task graph, the work comes after the actions
@@ -603,7 +607,7 @@ void TimeManager::setUpWatchdog(const std::vector<AbstractTimeCluster*>& cluster
     watchdog_->addReport([cluster] { cluster->requestReport(); });
   }
 #ifdef SEISSOL_HOST_TASK_GRAPH
-  if (auto* engine = haloTransports_->taskEngine(); engine != nullptr) {
+  if (const auto* engine = haloTransports_->taskEngine(); engine != nullptr) {
     // the main thread may wait for the tasks, and not get to report
     watchdog_->addReport([engine] {
       logWarning(true) << "Watchdog: the halo exchange in the task graph:" << engine->describe();
@@ -676,8 +680,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
   const auto ticks = clusters_.empty() ? 0 : clusters_.front()->getStepsUntilSync();
   const auto agrees = [&](const auto& cluster) { return cluster->getStepsUntilSync() == ticks; };
   const auto& ghostClusters = *communicationManager_->getGhostClusters();
-  if (!std::all_of(clusters_.begin(), clusters_.end(), agrees) ||
-      !std::all_of(ghostClusters.begin(), ghostClusters.end(), agrees)) {
+  if (!std::ranges::all_of(clusters_, agrees) || !std::ranges::all_of(ghostClusters, agrees)) {
     logError() << "The clusters disagree on the number of steps until the synchronization point at"
                << synchronizationTime << "s.";
   }
@@ -694,7 +697,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 
   // with a task graph on the host, the actions create the tasks of the epoch; this returns once
   // they are all done
-  parallel::runtime::HostRuntime::epoch([this]() {
+  parallel::runtime::HostRuntime::epoch([this] {
     actUntilSynchronized();
     // the exchanges of the epoch may still need this thread to get done
     communicationManager_->awaitExchanges();
@@ -811,7 +814,7 @@ void TimeManager::throttleHostWork() {
   // the work on the host whose data the device has written meanwhile
   parallel::runtime::HostActor::instance().progress();
   // with a task graph, the actions do not run too far ahead of their work
-  parallel::runtime::HostRuntime::throttle([this]() { communicationManager_->progression(); });
+  parallel::runtime::HostRuntime::throttle([this] { communicationManager_->progression(); });
 }
 
 void TimeManager::setUpHostScheduling() {
@@ -903,11 +906,11 @@ StepWork TimeManager::takeSteps(const std::vector<PlannedAction>& plan,
 void TimeManager::followPlan() {
   std::vector<PlannedCluster> planned;
   planned.reserve(clusters_.size());
-  for (auto* cluster : clusters_) {
-    planned.push_back({cluster->getTimeStepRate(),
-                       cluster->getStepsUntilSync(),
-                       cluster->dataReadiness(),
-                       cluster->getPriority()});
+  for (const auto* cluster : clusters_) {
+    planned.push_back({.timeStepRate = cluster->getTimeStepRate(),
+                       .stepsUntilSync = cluster->getStepsUntilSync(),
+                       .dataReadiness = cluster->dataReadiness(),
+                       .priority = cluster->getPriority()});
   }
 
   // the interior layers correct and do face work before the copy layers, which wait for the halo
@@ -919,7 +922,7 @@ void TimeManager::followPlan() {
   // stream runtimes that their device work goes through (those of the clusters and of their
   // outputs)
   std::vector<AbstractTimeCluster*> ghosts;
-  for (auto& ghost : *communicationManager_->getGhostClusters()) {
+  for (const auto& ghost : *communicationManager_->getGhostClusters()) {
     ghosts.push_back(ghost.get());
   }
   std::vector<AbstractTimeCluster*> participants(clusters_.begin(), clusters_.end());
@@ -927,7 +930,7 @@ void TimeManager::followPlan() {
   SuperStepRecorder::Runtimes runtimes;
   for (auto* cluster : clusters_) {
     for (auto* runtime : cluster->runtimes()) {
-      if (std::find(runtimes.begin(), runtimes.end(), runtime) == runtimes.end()) {
+      if (std::ranges::find(runtimes, runtime) == runtimes.end()) {
         runtimes.push_back(runtime);
       }
     }
@@ -950,7 +953,7 @@ void TimeManager::followPlan() {
       regularSteps = regularSteps && clusters_[cluster]->regularStepsAhead(steps[cluster]);
       key.push_back(clusters_[cluster]->nextTimeStepSize());
     }
-    for (auto* ghost : ghosts) {
+    for (const auto* ghost : ghosts) {
       key.push_back(ghost->nextTimeStepSize());
     }
     const bool full = superTimestep.beforeSync;
@@ -958,7 +961,7 @@ void TimeManager::followPlan() {
     const bool reuse = graphMode_ != SuperStepGraphMode::Rebuild;
     const bool replayNow = reuse && replayable && recorder_->has(key);
     // recorded to be replayed later, or else (with the experimental modes) launched once
-    const bool seen = seenSuperSteps_.count(key) > 0 || seenSuperStepsBefore_.count(key) > 0;
+    const bool seen = seenSuperSteps_.contains(key) || seenSuperStepsBefore_.contains(key);
     const bool keep =
         reuse && replayable && !replayNow && (seen || graphMode_ == SuperStepGraphMode::Always);
     const bool once =
@@ -1077,8 +1080,8 @@ json::Value TimeManager::printComputationTime() {
       {"computeDynamicRupture", {"dr-frictionlaw-copy", "dr-frictionlaw-interior"}}};
   for (unsigned region = 0; region < loopStatistics_.regionCount(); ++region) {
     const auto& name = loopStatistics_.regionName(region);
-    const auto metrics = std::find_if(
-        work.begin(), work.end(), [&](const auto& entry) { return entry.first == name; });
+    const auto metrics =
+        std::ranges::find_if(work, [&](const auto& entry) { return entry.first == name; });
     if (metrics == work.end()) {
       continue;
     }
@@ -1267,9 +1270,8 @@ void TimeManager::freeDynamicResources() {
 }
 
 bool TimeManager::clustersOnDevice() const {
-  return std::all_of(clusters_.begin(), clusters_.end(), [](const auto* cluster) {
-    return cluster->getExecutor() == Executor::Device;
-  });
+  return std::ranges::all_of(
+      clusters_, [](const auto* cluster) { return cluster->getExecutor() == Executor::Device; });
 }
 
 void TimeManager::synchronizeToHost(const initializer::HostData& data,

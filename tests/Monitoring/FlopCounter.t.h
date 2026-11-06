@@ -19,9 +19,16 @@ TEST_CASE("FlopCounter sums up the metrics of the names asked for" *
   const auto local = counter.addMetric("local", "WP");
   const auto otherLocal = counter.addMetric("local", "WP");
   const auto neighbor = counter.addMetric("neighbor", "WP");
-  counter.incrementMetric(local, PerformanceEstimate{1, 2, 3, 4});
-  counter.incrementMetric(otherLocal, PerformanceEstimate{10, 20, 30, 40});
-  counter.incrementMetric(neighbor, PerformanceEstimate{100, 200, 300, 400});
+  counter.incrementMetric(
+      local,
+      PerformanceEstimate{.hardwareFlop = 1, .nonzeroFlop = 2, .bytes = 3, .kernelBytes = 4});
+  counter.incrementMetric(
+      otherLocal,
+      PerformanceEstimate{.hardwareFlop = 10, .nonzeroFlop = 20, .bytes = 30, .kernelBytes = 40});
+  counter.incrementMetric(
+      neighbor,
+      PerformanceEstimate{
+          .hardwareFlop = 100, .nonzeroFlop = 200, .bytes = 300, .kernelBytes = 400});
 
   const auto locals = counter.estimate({"local"});
   CHECK(locals.hardwareFlop == 11);

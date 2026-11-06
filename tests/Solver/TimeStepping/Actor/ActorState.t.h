@@ -178,7 +178,7 @@ TEST_CASE("A published event stays reserved while it is held" * doctest::test_su
 
 #ifdef ACL_DEVICE
   // the same with the events a stream runtime records, on the device of a run
-  auto& device = ::device::DeviceInstance::instance();
+  const auto& device = ::device::DeviceInstance::instance();
   device.api().setDevice(0);
   device.api().initialize();
   parallel::runtime::StreamRuntime runtime;

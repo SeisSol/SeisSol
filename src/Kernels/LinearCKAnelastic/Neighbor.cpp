@@ -250,7 +250,7 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
                                    regular
                                        ? i + (*FaceRelations::PerFace) * face
                                        : face + Cell::NumFaces * (i - (*FaceRelations::PerFace)));
-          return table.find(key) != table.end();
+          return table.contains(key);
         });
   }
 

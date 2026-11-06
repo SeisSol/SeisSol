@@ -7,7 +7,6 @@
 
 #include "SuperStepRecorder.h"
 
-#include "Parallel/Runtime/HostActor.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 
@@ -15,11 +14,13 @@
 
 #ifdef ACL_DEVICE
 #include "Parallel/Helper.h"
+#include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <Device/device.h>
 #include <algorithm>
 #include <iterator>
+#include <memory>
 #include <utility>
 #endif
 
@@ -54,7 +55,7 @@ void SuperStepRecorder::dispose() {
 
 bool SuperStepRecorder::available() { return useGraphNodes(); }
 
-bool SuperStepRecorder::has(const Key& key) const { return graphs_.find(key) != graphs_.end(); }
+bool SuperStepRecorder::has(const Key& key) const { return graphs_.contains(key); }
 
 ActorEvent SuperStepRecorder::lastEvent() const { return lastEvent_; }
 
@@ -77,7 +78,7 @@ void SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& 
 void SuperStepRecorder::endRecording(const Key& key) {
   parallel::runtime::recordingOuterGraph() = false;
   parallel::runtime::HostActor::instance().endRecording();
-  graphs_[key] = Recording{runtime_.endGraph(), std::move(hostWork_)};
+  graphs_[key] = Recording{.graph = runtime_.endGraph(), .hostWork = std::move(hostWork_)};
   used_.insert(key);
 }
 
@@ -86,16 +87,12 @@ void SuperStepRecorder::endRecordingAndLaunch(const std::vector<AbstractTimeClus
                                               double* deviceTime) {
   parallel::runtime::recordingOuterGraph() = false;
   parallel::runtime::HostActor::instance().endRecording();
-  auto recording = Recording{runtime_.endGraph(), std::move(hostWork_)};
+  auto recording = Recording{.graph = runtime_.endGraph(), .hostWork = std::move(hostWork_)};
   // the graphs launched once before that have run by now go (no event may be queried while
   // recording)
-  launchedOnce_.erase(std::remove_if(launchedOnce_.begin(),
-                                     launchedOnce_.end(),
-                                     [](const auto& launched) {
-                                       return deviceInstance().api().isEventCompleted(
-                                           launched.second.get());
-                                     }),
-                      launchedOnce_.end());
+  std::erase_if(launchedOnce_, [](const auto& launched) {
+    return deviceInstance().api().isEventCompleted(launched.second.get());
+  });
   launch(recording, clusters, runtimes, deviceTime);
   launchedOnce_.emplace_back(std::move(recording), lastEvent_);
 }
@@ -120,14 +117,13 @@ void SuperStepRecorder::replay(const Key& key,
 }
 
 void SuperStepRecorder::forgetUnused() {
-  const bool unused = std::any_of(graphs_.begin(), graphs_.end(), [this](const auto& graph) {
-    return used_.count(graph.first) == 0;
-  });
+  const bool unused = std::ranges::any_of(
+      graphs_, [this](const auto& graph) { return !used_.contains(graph.first); });
   if (unused) {
     // all recordings run on the stream of the recorder
     deviceInstance().api().syncStreamWithHost(stream_);
     for (auto graph = graphs_.begin(); graph != graphs_.end();) {
-      graph = used_.count(graph->first) == 0 ? graphs_.erase(graph) : std::next(graph);
+      graph = !used_.contains(graph->first) ? graphs_.erase(graph) : std::next(graph);
     }
   }
   used_.clear();

@@ -36,8 +36,8 @@ class GhostCluster : public AbstractTimeCluster {
   public:
   GhostCluster(double maxTimeStepSize,
                std::uint64_t timeStepRate,
-               const std::string& displayName,
-               const std::string& otherDisplayName,
+               std::string displayName,
+               std::string otherDisplayName,
                const RemoteClusterPair& regions,
                std::unique_ptr<HaloTransport> transport);
 

@@ -53,15 +53,13 @@ struct Loopback {
   void deliver(std::size_t missing) {
     std::copy(
         copyF64.begin(), copyF64.end() - static_cast<std::ptrdiff_t>(missing), ghostF64.begin());
-    std::copy(copyF32.begin(), copyF32.end(), ghostF32.begin());
+    std::ranges::copy(copyF32, ghostF32.begin());
   }
 
   [[nodiscard]] bool allZero() const {
     const auto zero = [](auto value) { return value == 0; };
-    return std::all_of(copyF64.begin(), copyF64.end(), zero) &&
-           std::all_of(ghostF64.begin(), ghostF64.end(), zero) &&
-           std::all_of(copyF32.begin(), copyF32.end(), zero) &&
-           std::all_of(ghostF32.begin(), ghostF32.end(), zero);
+    return std::ranges::all_of(copyF64, zero) && std::ranges::all_of(ghostF64, zero) &&
+           std::ranges::all_of(copyF32, zero) && std::ranges::all_of(ghostF32, zero);
   }
 };
 
@@ -104,7 +102,9 @@ class LoopbackTransport : public HaloTransport {
 };
 
 inline HaloCheckResult check(HaloTransport& transport, const Loopback& loopback) {
-  return checkHaloExchange({{&transport, &loopback.regions, "copy-0 and ghost-1"}},
+  return checkHaloExchange({{.transport = &transport,
+                             .regions = &loopback.regions,
+                             .description = "copy-0 and ghost-1"}},
                            Rank,
                            HaloMemory::Host,
                            std::chrono::seconds(0),

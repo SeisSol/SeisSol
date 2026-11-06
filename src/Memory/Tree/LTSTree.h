@@ -198,8 +198,8 @@ class Storage {
     for (const auto& container : memoryContainer_) {
       container.synchronizeTo(place, stream);
     }
-    for (auto& slot : scratchpadSlots_) {
-      for (auto& container : slot) {
+    for (const auto& slot : scratchpadSlots_) {
+      for (const auto& container : slot) {
         container.synchronizeTo(place, stream);
       }
     }
@@ -457,9 +457,8 @@ class Storage {
       }
     }
 
-    const auto slotCount = slotOfLeaf.empty()
-                               ? std::size_t{1}
-                               : *std::max_element(slotOfLeaf.begin(), slotOfLeaf.end()) + 1;
+    const auto slotCount =
+        slotOfLeaf.empty() ? std::size_t{1} : *std::ranges::max_element(slotOfLeaf) + 1;
 
     std::vector<std::vector<std::size_t>> slotSizes(slotCount, std::vector<std::size_t>(varCount));
     for (std::size_t leaf = 0; leaf < leafSizes.size(); ++leaf) {

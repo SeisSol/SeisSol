@@ -226,15 +226,15 @@ void GhostCluster::handleNeighborCorrection(const NeighborCluster& neighbor) {
 
 GhostCluster::GhostCluster(double maxTimeStepSize,
                            std::uint64_t timeStepRate,
-                           const std::string& displayName,
-                           const std::string& otherDisplayName,
+                           std::string displayName,
+                           std::string otherDisplayName,
                            const RemoteClusterPair& regions,
                            std::unique_ptr<HaloTransport> transport)
     : AbstractTimeCluster(
           maxTimeStepSize, timeStepRate, isDeviceOn() ? Executor::Device : Executor::Host),
       transport_(std::move(transport)), copyRegionCount_(regions.copy.size()),
-      ghostRegionCount_(regions.ghost.size()), displayName_(displayName),
-      otherDisplayName_(otherDisplayName) {
+      ghostRegionCount_(regions.ghost.size()), displayName_(std::move(displayName)),
+      otherDisplayName_(std::move(otherDisplayName)) {
   // for the trace: the ranks the transfers go to and come from
   std::set<int> ranks;
   for (const auto* side : {&regions.copy, &regions.ghost}) {
@@ -258,11 +258,12 @@ void GhostCluster::reset() {
 
   // the copy layer has been reset before and published its steps until the synchronization point
   const auto& copy = neighbors_.front();
-  transport_->startInterval({copy.ct.timeStepRate,
-                             copy.progress->stepsUntilSync.load(std::memory_order_relaxed),
-                             ct_.timeStepRate,
-                             ct_.stepsUntilSync,
-                             exchangePeriod()});
+  transport_->startInterval(
+      {.sendRate = copy.ct.timeStepRate,
+       .sendSteps = copy.progress->stepsUntilSync.load(std::memory_order_relaxed),
+       .receiveRate = ct_.timeStepRate,
+       .receiveSteps = ct_.stepsUntilSync,
+       .exchangePeriod = exchangePeriod()});
 }
 
 void GhostCluster::traceTransfer(bool send) {

@@ -227,7 +227,7 @@ PerformanceEstimate FlopCounter::estimate(const std::vector<std::string>& names)
   const std::scoped_lock lock(mutex_);
   auto estimate = PerformanceEstimate{};
   for (const auto& metric : metrics_) {
-    if (std::find(names.begin(), names.end(), metric.name) != names.end()) {
+    if (std::ranges::find(names, metric.name) != names.end()) {
       estimate = estimate + metric.estimate;
     }
   }

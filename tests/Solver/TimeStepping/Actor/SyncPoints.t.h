@@ -103,7 +103,7 @@ struct Ladder {
   }
 
   [[nodiscard]] bool synced() const {
-    return std::all_of(clusters.begin(), clusters.end(), [](const auto& c) { return c->synced(); });
+    return std::ranges::all_of(clusters, [](const auto& c) { return c->synced(); });
   }
 
   /**
@@ -149,10 +149,10 @@ struct Ladder {
     for (auto& cluster : clusters) {
       REQUIRE(cluster->getNextLegalAction() == ActorAction::RestartAfterSync);
       cluster->act();
-      planned.push_back({cluster->getTimeStepRate(),
-                         cluster->getStepsUntilSync(),
-                         cluster->dataReadiness(),
-                         cluster->getPriority()});
+      planned.push_back({.timeStepRate = cluster->getTimeStepRate(),
+                         .stepsUntilSync = cluster->getStepsUntilSync(),
+                         .dataReadiness = cluster->dataReadiness(),
+                         .priority = cluster->getPriority()});
     }
     const auto plan = planTimeSteps(planned);
     for (const auto& superStep : superTimesteps(planned, plan)) {
@@ -192,10 +192,10 @@ struct Ladder {
     for (auto& cluster : clusters) {
       REQUIRE(cluster->getNextLegalAction() == ActorAction::RestartAfterSync);
       cluster->act();
-      planned.push_back({cluster->getTimeStepRate(),
-                         cluster->getStepsUntilSync(),
-                         cluster->dataReadiness(),
-                         cluster->getPriority()});
+      planned.push_back({.timeStepRate = cluster->getTimeStepRate(),
+                         .stepsUntilSync = cluster->getStepsUntilSync(),
+                         .dataReadiness = cluster->dataReadiness(),
+                         .priority = cluster->getPriority()});
     }
     for (const auto& action : planTimeSteps(planned)) {
       auto& cluster = *clusters[action.cluster];

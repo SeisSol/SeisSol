@@ -19,13 +19,11 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Preflight.h"
 #include "Monitoring/Instrumentation.h"
-#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 
 #include <array>
 #include <async/Config.h>
-#include <cstddef>
 #include <cstdlib>
 #include <ctime>
 #include <exception>
@@ -97,11 +95,14 @@ class MeasuringSettings {
       set(name, "0");
     }
   }
+  // (the environment changes only before and after the runs, while no other thread reads it)
   ~MeasuringSettings() {
     for (const auto& [name, value] : saved_) {
       if (value.has_value()) {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
         setenv(name.c_str(), value->c_str(), 1);
       } else {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
         unsetenv(name.c_str());
       }
     }
@@ -117,9 +118,11 @@ class MeasuringSettings {
       "SEISSOL_CONCURRENT_CLUSTERS", "SEISSOL_TIMESTEPPING_PLAN", "SEISSOL_SUPERSTEP_GRAPHS"};
 
   void set(const char* name, const char* value) {
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
     const char* before = std::getenv(name);
     saved_.emplace_back(name,
                         before != nullptr ? std::make_optional<std::string>(before) : std::nullopt);
+    // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
     setenv(name, value, 1);
   }
 

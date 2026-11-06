@@ -97,11 +97,10 @@ class RegionAccess {
       if (memory_ == HaloMemory::Host) {
         check(begin, count, data + begin);
       } else {
-        auto* chunk = static_cast<T*>(buffer_);
 #ifdef ACL_DEVICE
-        device::DeviceInstance::instance().api().copyFrom(chunk, data + begin, count * sizeof(T));
+        device::DeviceInstance::instance().api().copyFrom(buffer_, data + begin, count * sizeof(T));
 #endif
-        check(begin, count, static_cast<const T*>(chunk));
+        check(begin, count, static_cast<const T*>(buffer_));
       }
     }
   }

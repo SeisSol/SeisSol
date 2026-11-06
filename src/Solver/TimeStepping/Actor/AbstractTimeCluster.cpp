@@ -9,7 +9,6 @@
 
 #include "Common/Executor.h"
 #include "Monitoring/Trace.h"
-#include "Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"
 
@@ -18,7 +17,6 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
-#include <iostream>
 #include <utils/logger.h>
 #include <vector>
 
@@ -120,7 +118,7 @@ void AbstractTimeCluster::unsafePerformAction(ActorAction action) {
                                                            static_cast<double>(ct_.timeStepRate));
     logDebug() << "synced at" << syncTime_ << ", corrTime =" << ct_.correctionTime
                << "stepsSinceLastSync" << ct_.stepsSinceLastSync << "stepsUntilLastSync"
-               << ct_.stepsUntilSync << std::endl;
+               << ct_.stepsUntilSync << '\n';
     state_ = ActorState::Synced;
     break;
   case ActorAction::RestartAfterSync:
@@ -159,8 +157,8 @@ void AbstractTimeCluster::traceEnd(ActorAction action, double begin) {
 
 ActResult AbstractTimeCluster::act() {
   ActResult result;
-  auto stateBefore = state_;
-  auto nextAction = getNextLegalAction();
+  const auto stateBefore = state_;
+  const auto nextAction = getNextLegalAction();
   unsafePerformAction(nextAction);
 
   result.isStateChanged = stateBefore != state_;
@@ -271,7 +269,7 @@ bool AbstractTimeCluster::mayPredict() {
 bool AbstractTimeCluster::mayCorrect() {
   // We can correct, if our prediction time is smaller than the one of all neighbors.
   bool stepBasedCorrect = true;
-  for (auto& neighbor : neighbors_) {
+  for (const auto& neighbor : neighbors_) {
     // the progress up to which the neighbor has made its data available
     const auto provided = neighbor.dataReadiness == DataReadiness::AfterPrediction
                               ? neighbor.ct.predictionsSinceLastSync
@@ -380,9 +378,8 @@ void AbstractTimeCluster::setClusterTimes(double newTimeStepSize) {
 std::vector<NeighborCluster>* AbstractTimeCluster::getNeighborClusters() { return &neighbors_; }
 
 bool AbstractTimeCluster::hasDifferentExecutorNeighbor() const {
-  return std::any_of(neighbors_.begin(), neighbors_.end(), [&](auto& neighbor) {
-    return neighbor.executor != executor_;
-  });
+  return std::ranges::any_of(neighbors_,
+                             [&](auto& neighbor) { return neighbor.executor != executor_; });
 }
 
 void AbstractTimeCluster::finishPhase() {}
@@ -406,7 +403,7 @@ void AbstractTimeCluster::reportState() {
                    << " predictionsSinceSync = " << ct_.predictionsSinceLastSync
                    << " correctionsSinceSync = " << ct_.stepsSinceLastSync
                    << " stepsUntilSync = " << ct_.stepsUntilSync;
-  for (auto& neighbor : neighbors_) {
+  for (const auto& neighbor : neighbors_) {
     logWarning(true) << "Neighbor with rate = " << neighbor.ct.timeStepRate
                      << "PredTime = " << neighbor.ct.predictionTime
                      << "CorrTime = " << neighbor.ct.correctionTime

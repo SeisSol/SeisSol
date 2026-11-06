@@ -106,7 +106,7 @@ inline void awaitExchanges(TaskHaloEngine& engine) {
 class PollingThread {
   public:
   PollingThread(TaskHaloEngine& engine, const std::atomic<bool>& created)
-      : thread_([&engine, &created]() {
+      : thread_([&engine, &created] {
           while (!created.load() || engine.outstanding() > 0) {
             engine.poll();
           }
@@ -163,9 +163,9 @@ TEST_CASE("In a task graph, the halo exchange orders itself with the work on the
   if (!HostRuntime::detachedTasksNeverBlock()) {
     polling.emplace(engine, created);
   }
-  HostRuntime::epoch([&]() {
+  HostRuntime::epoch([&] {
     // the copy layer gets written slowly; the send has to wait for it
-    copy.action({/*readsNeighbors=*/false, /*writesShared=*/true}, [&]() {
+    copy.action({.readsNeighbors = false, .writesShared = true}, [&] {
       std::this_thread::sleep_for(std::chrono::milliseconds(20));
       copyData = 1;
     });
@@ -175,11 +175,11 @@ TEST_CASE("In a task graph, the halo exchange orders itself with the work on the
     // the correction reads the ghost layer, which has to be there by then
     tasks.startReceive();
     CHECK(tasks.testReceive());
-    copy.action({/*readsNeighbors=*/true, /*writesShared=*/false},
-                [&]() { receivedWhenCorrected = transport->completedReceives.load(); });
+    copy.action({.readsNeighbors = true, .writesShared = false},
+                [&] { receivedWhenCorrected = transport->completedReceives.load(); });
 
     // overwriting the copy layer waits until it has been sent
-    copy.action({/*readsNeighbors=*/false, /*writesShared=*/true}, [&]() {
+    copy.action({.readsNeighbors = false, .writesShared = true}, [&] {
       sentWhenOverwritten = transport->completedSends.load();
       copyData = 2;
     });
@@ -230,14 +230,14 @@ TEST_CASE("In a task graph of a single thread, the halo exchange goes on from ep
     if (!HostRuntime::detachedTasksNeverBlock()) {
       polling.emplace(engine, created);
     }
-    HostRuntime::epoch([&]() {
-      copy.action({/*readsNeighbors=*/false, /*writesShared=*/true}, [&]() { copyData = epoch; });
+    HostRuntime::epoch([&] {
+      copy.action({.readsNeighbors = false, .writesShared = true}, [&] { copyData = epoch; });
       tasks.startSend();
       CHECK(tasks.testSend());
       tasks.startReceive();
       CHECK(tasks.testReceive());
-      copy.action({/*readsNeighbors=*/true, /*writesShared=*/false},
-                  [&]() { receivedWhenCorrected = transport->completedReceives.load(); });
+      copy.action({.readsNeighbors = true, .writesShared = false},
+                  [&] { receivedWhenCorrected = transport->completedReceives.load(); });
       created = true;
       if (!polling.has_value()) {
         awaitExchanges(engine);

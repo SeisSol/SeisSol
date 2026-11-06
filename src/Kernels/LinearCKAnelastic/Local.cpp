@@ -22,8 +22,6 @@
 #include "Kernels/Interface.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Monitoring/Metric.h"
-#include "Monitoring/Trace.h"
-#include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <array>
@@ -37,6 +35,8 @@
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Monitoring/Trace.h"
+#include "Parallel/Runtime/HostRuntime.h"
 
 #include <Device/device.h>
 #include <utility>

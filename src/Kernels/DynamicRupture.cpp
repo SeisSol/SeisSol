@@ -143,7 +143,7 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
   for (std::size_t i = 0; i < Cell::NumFaces * dr::misc::NumFaceRelations; ++i) {
     const ConditionalKey key(
         *KernelNames::DrSpaceMap, i / dr::misc::NumFaceRelations, i % dr::misc::NumFaceRelations);
-    if (table.find(key) != table.end()) {
+    if (table.contains(key)) {
       branches.push_back(i);
     }
   }

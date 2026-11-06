@@ -51,16 +51,29 @@ std::vector<PlannedAction> planTimeSteps(const std::vector<PlannedCluster>& clus
     for (long step = 0; step < steps; ++step) {
       const auto start = step * info.timeStepRate;
       const auto end = std::min(start + info.timeStepRate, info.stepsUntilSync);
-      actions.emplace_back(Key{start, Phase::Prediction, priority, cluster, step},
-                           PlannedAction{cluster, ActorAction::Predict, step});
-      const auto correction = face ? Key{start, Phase::FaceWork, correctionPriority, cluster, step}
-                                   : Key{end, Phase::Correction, correctionPriority, cluster, step};
-      actions.emplace_back(correction, PlannedAction{cluster, ActorAction::Correct, step});
+      actions.emplace_back(
+          Key{.time = start,
+              .phase = Phase::Prediction,
+              .priority = priority,
+              .cluster = cluster,
+              .step = step},
+          PlannedAction{.cluster = cluster, .action = ActorAction::Predict, .step = step});
+      const auto correction = face ? Key{.time = start,
+                                         .phase = Phase::FaceWork,
+                                         .priority = correctionPriority,
+                                         .cluster = cluster,
+                                         .step = step}
+                                   : Key{.time = end,
+                                         .phase = Phase::Correction,
+                                         .priority = correctionPriority,
+                                         .cluster = cluster,
+                                         .step = step};
+      actions.emplace_back(
+          correction,
+          PlannedAction{.cluster = cluster, .action = ActorAction::Correct, .step = step});
     }
   }
-  std::sort(actions.begin(), actions.end(), [](const auto& a, const auto& b) {
-    return a.first < b.first;
-  });
+  std::ranges::sort(actions, [](const auto& a, const auto& b) { return a.first < b.first; });
 
   std::vector<PlannedAction> plan;
   plan.reserve(actions.size());

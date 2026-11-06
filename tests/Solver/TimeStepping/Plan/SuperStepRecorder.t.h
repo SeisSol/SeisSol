@@ -78,7 +78,7 @@ class CopyOnDevice {
 TEST_CASE("A recorded super-timestep replays its work, on the data of the time of the replay" *
           doctest::test_suite("solver")) {
   using namespace supersteprecorder;
-  auto& device = ::device::DeviceInstance::instance();
+  const auto& device = ::device::DeviceInstance::instance();
   device.api().setDevice(0);
   device.api().initialize();
   if (!solver::SuperStepRecorder::available()) {

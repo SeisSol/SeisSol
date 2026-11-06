@@ -55,7 +55,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
-#include <optional>
 #include <string>
 #include <utility>
 #include <utils/logger.h>
@@ -92,7 +91,7 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
       settings_(settings), seissolInstance_(seissolInstance),
       configBoundary_(seissolInstance.parameters().model.configs()), streamRuntime_(4),
       globalData_(globalData), clusterData_(clusterData),
-      sourceCluster_(seissol::kernels::PointSourceClusterPair{nullptr, nullptr}),
+      sourceCluster_(seissol::kernels::PointSourceClusterPair{.host = nullptr, .device = nullptr}),
       // cells
       loopStatistics_(loopStatistics),
       deviceLoops_(loopStatistics, deviceTimeline, DeviceTimeline::Kind::Loops),
@@ -341,7 +340,7 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
 
   const ComputeGraphType graphType =
       resetBuffers ? ComputeGraphType::AccumulatedVelocities : ComputeGraphType::StreamedVelocities;
-  auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
+  const auto computeGraphKey = initializer::GraphKey(graphType, timeStepWidth, true);
   streamRuntime_.runGraph(
       computeGraphKey,
       *clusterData_,
@@ -358,7 +357,7 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
 
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           const ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
-          if (dataTable.find(key) != dataTable.end()) {
+          if (dataTable.contains(key)) {
             auto& entry = dataTable[key];
             // NOTE: the integrated velocities are not stored separately; the recorded pointers
             // point into the integrated dofs, at the first velocity column
@@ -381,24 +380,24 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
 
         const ConditionalKey key =
             ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
-        if (dataTable.find(key) != dataTable.end()) {
+        if (dataTable.contains(key)) {
           auto& entry = dataTable[key];
 
           if (resetBuffers) {
             device_.algorithms().streamBatchedData(
                 const_cast<const real**>(
-                    (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
-                (entry.get<real*>(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
+                    entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr()),
+                entry.get<real*>(inner_keys::Wp::Id::Buffers)->getDeviceDataPtr(),
                 tensor::I<Cfg>::Size,
-                (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getSize(),
+                entry.get<real*>(inner_keys::Wp::Id::Idofs)->getSize(),
                 streamRuntime_.stream());
           } else {
             device_.algorithms().accumulateBatchedData(
                 const_cast<const real**>(
-                    (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr()),
-                (entry.get<real*>(inner_keys::Wp::Id::Buffers))->getDeviceDataPtr(),
+                    entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr()),
+                entry.get<real*>(inner_keys::Wp::Id::Buffers)->getDeviceDataPtr(),
                 tensor::I<Cfg>::Size,
-                (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getSize(),
+                entry.get<real*>(inner_keys::Wp::Id::Idofs)->getSize(),
                 streamRuntime_.stream());
           }
         }
@@ -465,7 +464,7 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
   }
 
   const ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
-  auto computeGraphKey = initializer::GraphKey(graphType);
+  const auto computeGraphKey = initializer::GraphKey(graphType);
 
   streamRuntime_.runGraph(
       computeGraphKey,
@@ -476,7 +475,8 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
       true);
 
   if (settings_.plasticity) {
-    auto plasticityGraphKey = initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
+    const auto plasticityGraphKey =
+        initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
     auto* plasticity =
         clusterData_->var<LTS::Plasticity>(Cfg(), seissol::initializer::AllocationPlace::Device);
     auto* isAdjustableVector =
@@ -502,14 +502,13 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
 
   if (settings_.integrate) {
     const ConditionalKey key = ConditionalKey(*KernelNames::Time);
-    if (table.find(key) != table.end()) {
+    if (table.contains(key)) {
       auto entry = table.at(key);
       device_.algorithms().accumulateBatchedData(
-          const_cast<const real**>(
-              (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr()),
-          (entry.get<real*>(inner_keys::Wp::Id::Integrals))->getDeviceDataPtr(),
+          const_cast<const real**>(entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr()),
+          entry.get<real*>(inner_keys::Wp::Id::Integrals)->getDeviceDataPtr(),
           tensor::Q<Cfg>::Size,
-          (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize(),
+          entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize(),
           streamRuntime_.stream());
     }
   }
@@ -552,8 +551,8 @@ void CellCluster<Cfg>::computeNeighborIntegrationFlops() {
   estimateRegular = PerformanceEstimate{};
   estimateDR = PerformanceEstimate{};
 
-  auto* cellInformation = clusterData_->var<LTS::CellInformation>();
-  auto* drMapping = clusterData_->var<LTS::DRMapping>(Cfg());
+  const auto* cellInformation = clusterData_->var<LTS::CellInformation>();
+  const auto* drMapping = clusterData_->var<LTS::DRMapping>(Cfg());
   for (std::size_t cell = 0; cell < clusterData_->size(); ++cell) {
     const auto [cellRegular, cellDR] = neighborKernel_.metrics(
         cellInformation[cell].faceTypes, cellInformation[cell].faceRelations, drMapping[cell]);
@@ -676,7 +675,7 @@ void CellCluster<Cfg>::predict() {
     // the prediction changes what the neighbors read; the work takes the sampling of its step
     // along, as the decisions about the next steps may come before it runs
     hostRuntime_.action({/*readsNeighbors=*/false, /*writesShared=*/true},
-                        [this, params, sampling = receiverSampling_]() {
+                        [this, params, sampling = receiverSampling_] {
                           writeReceivers(params, sampling);
                           computeLocalIntegration(params);
                           computeSources(params);
@@ -684,8 +683,9 @@ void CellCluster<Cfg>::predict() {
   }
 
   if (hasDifferentExecutorNeighbor()) {
-    auto other = executor_ == Executor::Device ? seissol::initializer::AllocationPlace::Host
-                                               : seissol::initializer::AllocationPlace::Device;
+    const auto other = executor_ == Executor::Device
+                           ? seissol::initializer::AllocationPlace::Host
+                           : seissol::initializer::AllocationPlace::Device;
     clusterData_->varSynchronizeTo<LTS::Buffers>(other, streamRuntime_.stream());
   }
 
@@ -705,7 +705,7 @@ void CellCluster<Cfg>::correct() {
   } else {
     // the correction reads what the neighbors share, and changes the DOFs only
     hostRuntime_.action({/*readsNeighbors=*/true, /*writesShared=*/false},
-                        [this, params]() { computeNeighboringIntegration(params); });
+                        [this, params] { computeNeighboringIntegration(params); });
   }
 
   // the time of the cluster advances by the same step after the correction
@@ -812,7 +812,9 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
   const auto* faceNeighbors = clusterData_->var<LTS::FaceNeighbors>();
   const auto* drMapping = clusterData_->var<LTS::DRMapping>(Cfg());
   const auto* cellInformation = clusterData_->var<LTS::CellInformation>();
-  auto* plasticity = clusterData_->var<LTS::Plasticity>(Cfg());
+  const auto* plasticity = clusterData_->var<LTS::Plasticity>(Cfg());
+  // written only where the configuration uses plasticity
+  // NOLINTNEXTLINE(misc-const-correctness)
   auto* pstrain = clusterData_->var<LTS::PStrain>(Cfg());
 
   // the cells whose plasticity yields, counted per range of cells and summed up (without

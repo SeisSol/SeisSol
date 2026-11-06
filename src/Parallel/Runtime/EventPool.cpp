@@ -29,11 +29,13 @@ void* createDeviceEvent() {
 #endif
 }
 
-void destroyDeviceEvent([[maybe_unused]] void* event) {
 #ifdef ACL_DEVICE
+void destroyDeviceEvent(void* event) {
   device::DeviceInstance::instance().api().destroyEvent(event);
-#endif
 }
+#else
+void destroyDeviceEvent(void* /*event*/) {}
+#endif
 } // namespace
 
 EventPool::EventPool() : EventPool(createDeviceEvent, destroyDeviceEvent) {}
@@ -100,14 +102,14 @@ std::size_t EventPool::dispose() {
       // Somebody may still wait for the event, and will drop the reference to it later. So the
       // event stays as it is, and so does its slot.
       ++leaked;
-      [[maybe_unused]] auto* kept = slot.release();
+      [[maybe_unused]] const auto* kept = slot.release();
     }
   }
   slots_.clear();
 
   if (leaked > 0) {
     // the kept slots still count their references here
-    [[maybe_unused]] auto* kept = referenced_.release();
+    [[maybe_unused]] const auto* kept = referenced_.release();
     logWarning(true) << "An event pool was disposed while" << leaked
                      << "of its events were still referenced; they are left alone.";
   }

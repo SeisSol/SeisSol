@@ -42,7 +42,10 @@ DataCollectorUntyped::DataCollectorUntyped(const std::vector<std::vector<void*>>
     : hostAccessible_(hostAccessible) {
   assert(sets.size() == sizes.size());
   for (size_t set = 0; set < sets.size(); ++set) {
-    sets_.push_back({indexDataHost_.size(), sets[set].size(), sizes[set], gatheredBytes_});
+    sets_.push_back({.begin = indexDataHost_.size(),
+                     .count = sets[set].size(),
+                     .size = sizes[set],
+                     .offset = gatheredBytes_});
     indexDataHost_.insert(indexDataHost_.end(), sets[set].begin(), sets[set].end());
     gatheredBytes_ += sets[set].size() * sizes[set];
   }

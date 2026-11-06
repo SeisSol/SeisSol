@@ -97,7 +97,14 @@ void DeviceTimer::end(const Interval& interval,
     statistics_->end(region, numIterations, subRegion, interval.hostBegin);
     return;
   }
-  push(interval, stream, {interval.events, stream, region, numIterations, subRegion, nullptr});
+  push(interval,
+       stream,
+       {.events = interval.events,
+        .stream = stream,
+        .region = region,
+        .numIterations = numIterations,
+        .subRegion = subRegion,
+        .total = nullptr});
 }
 
 void DeviceTimer::end(const Interval& interval, void* stream, double* total) {
@@ -108,7 +115,14 @@ void DeviceTimer::end(const Interval& interval, void* stream, double* total) {
   if (!interval.timed) {
     return;
   }
-  push(interval, stream, {interval.events, stream, 0, 0, 0, total});
+  push(interval,
+       stream,
+       {.events = interval.events,
+        .stream = stream,
+        .region = 0,
+        .numIterations = 0,
+        .subRegion = 0,
+        .total = total});
 }
 
 void DeviceTimer::push([[maybe_unused]] const Interval& interval,

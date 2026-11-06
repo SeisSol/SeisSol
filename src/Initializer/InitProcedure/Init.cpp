@@ -37,7 +37,6 @@
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
-#include <ostream>
 #include <sstream>
 #endif
 

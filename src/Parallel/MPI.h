@@ -18,6 +18,7 @@
 #include <numeric>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utils/logger.h>
 
 namespace seissol {
@@ -269,7 +270,7 @@ class Mpi : public MpiBasic {
   DataTransferMode getPreferredDataTransferMode() { return preferredDataTransferMode_; }
 
   /// the name of the transfer mode, as SEISSOL_TRANSFER_MODE takes it
-  static std::string dataTransferModeName(DataTransferMode mode);
+  static std::string_view dataTransferModeName(DataTransferMode mode);
 
   /**
    * The transfer mode that SEISSOL_TRANSFER_MODE names, if any; whether this build supports it or

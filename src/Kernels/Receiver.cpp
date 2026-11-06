@@ -33,6 +33,7 @@
 #include "Numerical/BasisFunction.h"
 #include "Parallel/DataCollector.h"
 #include "Parallel/Helper.h"
+#include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
@@ -189,10 +190,10 @@ void ReceiverClusterImpl<Cfg>::sampleReceiver(std::size_t cell,
   derivativeKrnl.Q = runtime::init::Q::view(Variant, timeEvaluated);
 
   auto qAtPoint = init::QAtPoint<Cfg>::view::create(timeEvaluatedAtPoint);
-  auto qDerivativeAtPoint =
+  const auto qDerivativeAtPoint =
       init::QDerivativeAtPoint<Cfg>::view::create(timeEvaluatedDerivativesAtPoint);
 
-  auto& receiverCell = receiverCells_[cell];
+  const auto& receiverCell = receiverCells_[cell];
 
   // Use device pointers where required.
   auto tmpReceiverData{receiverCell.dataHost};
@@ -204,6 +205,7 @@ void ReceiverClusterImpl<Cfg>::sampleReceiver(std::size_t cell,
     // (only read)
     tmpReceiverData.template setPointer<LTS::Dofs>(
         reinterpret_cast<decltype(tmpReceiverData.template getPointer<LTS::Dofs>())>(
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
             const_cast<real*>(dofs)));
     if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
       const real* dofsAne = gathered == nullptr
@@ -211,6 +213,7 @@ void ReceiverClusterImpl<Cfg>::sampleReceiver(std::size_t cell,
                                 : deviceCollectorAne_->get(cell, bytes + dofsAneOffset_);
       tmpReceiverData.template setPointer<LTS::DofsAne>(
           reinterpret_cast<decltype(tmpReceiverData.template getPointer<LTS::DofsAne>())>(
+              // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
               const_cast<real*>(dofsAne)));
     }
   }
@@ -247,7 +250,7 @@ void ReceiverClusterImpl<Cfg>::sampleReceiver(std::size_t cell,
       // note: necessary receiver space is reserved in advance
       receiver.output.push_back(receiverTime);
       for (auto sim = Multisim::MultisimStart; sim < Multisim::MultisimEnd; ++sim) {
-        for (auto quantity : quantities_) {
+        for (const auto quantity : quantities_) {
           if (!std::isfinite(seissol::multisim::multisimWrap<Cfg>(qAtPoint, sim, quantity))) {
             logError() << "Detected Inf/NaN in receiver output at" << receiver.position[0] << ","
                        << receiver.position[1] << "," << receiver.position[2] << " in simulation"
@@ -416,7 +419,7 @@ void ReceiverClusterImpl<Cfg>::sampleAtRunTime([[maybe_unused]] const double* de
 #endif
 
   auto& callRuntime = extraRuntime_.has_value() ? extraRuntime_.value() : runtime;
-  callRuntime.enqueueHost([this, sampleStep]() { sampleStep(*stepStart_, nullptr); });
+  callRuntime.enqueueHost([this, sampleStep] { sampleStep(*stepStart_, nullptr); });
 }
 
 parallel::runtime::StreamRuntime* ReceiverCluster::sampleRuntime() {
@@ -492,6 +495,8 @@ void ReceiverClusterImpl<Cfg>::allocateData() {
       };
       dofsOffset_ = aligned(sizeof(double));
       dofsAneOffset_ = aligned(dofsOffset_ + deviceCollector_->gatheredBytes());
+      // grows only where the configuration has anelastic DOFs
+      // NOLINTNEXTLINE(misc-const-correctness)
       std::size_t bytes = dofsAneOffset_;
       if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
         bytes += deviceCollectorAne_->gatheredBytes();

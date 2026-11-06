@@ -45,7 +45,7 @@ TEST_CASE("The loops of the host runtime visit each element once" *
   for (const std::size_t count : {0, 1, 7, 1000}) {
     std::vector<std::atomic<int>> visits(count);
     HostRuntime::forEach(count, [&](std::size_t i) { visits[i].fetch_add(1); });
-    CHECK(std::all_of(visits.begin(), visits.end(), [](const auto& v) { return v.load() == 1; }));
+    CHECK(std::ranges::all_of(visits, [](const auto& v) { return v.load() == 1; }));
 
     std::mutex mutex;
     std::vector<std::pair<std::size_t, std::size_t>> ranges;
@@ -53,7 +53,7 @@ TEST_CASE("The loops of the host runtime visit each element once" *
       const std::scoped_lock lock(mutex);
       ranges.emplace_back(begin, end);
     });
-    std::sort(ranges.begin(), ranges.end());
+    std::ranges::sort(ranges);
     std::size_t next = 0;
     for (const auto& [begin, end] : ranges) {
       // no empty ranges, none overlapping, none missing
@@ -86,7 +86,7 @@ TEST_CASE("A thread that runs its loops alone takes all of a loop itself" *
   // with the scope gone, the loops go back to the threads of the host runtime
   std::vector<std::atomic<int>> visits(1000);
   HostRuntime::forEach(visits.size(), [&](std::size_t i) { visits[i].fetch_add(1); });
-  CHECK(std::all_of(visits.begin(), visits.end(), [](const auto& v) { return v.load() == 1; }));
+  CHECK(std::ranges::all_of(visits, [](const auto& v) { return v.load() == 1; }));
 }
 
 TEST_CASE("The host runtime counts the time of the threads in loops" *
@@ -104,7 +104,7 @@ TEST_CASE("The host runtime counts the time of the threads in loops" *
 TEST_CASE("The work of an action runs right away" * doctest::test_suite("parallel")) {
   HostRuntime runtime;
   int ran = 0;
-  runtime.action({/*readsNeighbors=*/true, /*writesShared=*/false}, [&ran]() { ++ran; });
+  runtime.action({.readsNeighbors = true, .writesShared = false}, [&ran] { ++ran; });
   CHECK(ran == 1);
 }
 
@@ -133,15 +133,15 @@ TEST_CASE("In a task graph, the loops of the work run in tasks of the task size"
   HostRuntime runtime;
   std::mutex mutex;
   std::vector<std::pair<std::size_t, std::size_t>> ranges;
-  HostRuntime::epoch([&]() {
-    runtime.action({}, [&]() {
+  HostRuntime::epoch([&] {
+    runtime.action({}, [&] {
       HostRuntime::forRange(100, [&](std::size_t begin, std::size_t end) {
         const std::scoped_lock lock(mutex);
         ranges.emplace_back(begin, end);
       });
     });
   });
-  std::sort(ranges.begin(), ranges.end());
+  std::ranges::sort(ranges);
   REQUIRE(ranges.size() == 15);
   for (std::size_t i = 0; i < ranges.size(); ++i) {
     CHECK(ranges[i].first == 7 * i);
@@ -163,21 +163,21 @@ TEST_CASE("In a task graph, the work of the actions follows what it reads and wr
   std::atomic<int> step{0};
   std::vector<int> order(5, -1);
   const auto record = [&](std::size_t index) { order[index] = step.fetch_add(1); };
-  constexpr parallel::runtime::HostAccess Predict{/*readsNeighbors=*/false, /*writesShared=*/true};
-  constexpr parallel::runtime::HostAccess Correct{/*readsNeighbors=*/true, /*writesShared=*/false};
+  constexpr parallel::runtime::HostAccess Predict{.readsNeighbors = false, .writesShared = true};
+  constexpr parallel::runtime::HostAccess Correct{.readsNeighbors = true, .writesShared = false};
 
-  HostRuntime::epoch([&]() {
+  HostRuntime::epoch([&] {
     // the first cluster predicts slowly; the second one corrects with what it shares
-    first.action(Predict, [&]() {
+    first.action(Predict, [&] {
       std::this_thread::sleep_for(std::chrono::milliseconds(20));
       record(0);
     });
-    second.action(Correct, [&]() { record(1); });
+    second.action(Correct, [&] { record(1); });
     // overwriting what the second cluster has read waits for it
-    first.action(Predict, [&]() { record(2); });
+    first.action(Predict, [&] { record(2); });
     // the second cluster's own work comes in order
-    second.action(Predict, [&]() { record(3); });
-    second.action(Correct, [&]() { record(4); });
+    second.action(Predict, [&] { record(3); });
+    second.action(Correct, [&] { record(4); });
   });
 
   CHECK(order[0] < order[1]);
@@ -197,11 +197,11 @@ TEST_CASE("In a task graph, the main thread stays within the limit of waiting ac
   HostRuntime runtime;
   std::size_t mostWaiting = 0;
   std::atomic<int> done{0};
-  HostRuntime::epoch([&]() {
+  HostRuntime::epoch([&] {
     for (int i = 0; i < 20; ++i) {
-      HostRuntime::throttle([]() {});
+      HostRuntime::throttle([] {});
       mostWaiting = std::max(mostWaiting, HostRuntime::outstandingActions());
-      runtime.action({}, [&done]() {
+      runtime.action({}, [&done] {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         ++done;
       });

@@ -35,7 +35,7 @@ std::vector<const DualMemoryContainer*> HostData::containers() const {
   for (const auto& [key, addContainers] : variables_) {
     const auto& [storage, variable] = key;
     // a single variable of a storage whose variables all get copied anyway
-    if (variable != AllVariables && variables_.count(std::make_pair(storage, AllVariables)) > 0) {
+    if (variable != AllVariables && variables_.contains(std::make_pair(storage, AllVariables))) {
       continue;
     }
     addContainers(containers);

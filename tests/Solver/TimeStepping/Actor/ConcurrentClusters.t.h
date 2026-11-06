@@ -52,7 +52,7 @@ class SimulatedDevice {
                std::vector<std::uintptr_t> waits,
                std::uintptr_t event) {
     queues_.resize(clusters.size());
-    queues_[cluster].push_back({action, std::move(waits), event});
+    queues_[cluster].push_back({.action = action, .waits = std::move(waits), .event = event});
   }
 
   /**
@@ -261,7 +261,8 @@ struct ConcurrentLayout {
     clusters.push_back(
         std::make_unique<EnqueueingCluster>(index, rate, readiness, device, nextEvent, nodes));
     clusters.back()->setPriority(priority);
-    device.clusters.push_back({rate, 0, readiness, {}});
+    device.clusters.push_back(
+        {.rate = rate, .stepsUntilSync = 0, .readiness = readiness, .neighbors = {}});
     return index;
   }
 
@@ -295,10 +296,10 @@ inline std::size_t runConcurrently(ConcurrentLayout& layout,
       REQUIRE(cluster.getNextLegalAction() == ActorAction::RestartAfterSync);
       cluster.act();
       device.clusters[i].stepsUntilSync = cluster.getStepsUntilSync();
-      planned.push_back({cluster.getTimeStepRate(),
-                         cluster.getStepsUntilSync(),
-                         cluster.dataReadiness(),
-                         cluster.getPriority()});
+      planned.push_back({.timeStepRate = cluster.getTimeStepRate(),
+                         .stepsUntilSync = cluster.getStepsUntilSync(),
+                         .dataReadiness = cluster.dataReadiness(),
+                         .priority = cluster.getPriority()});
     }
 
     if (alongPlan) {
@@ -385,10 +386,10 @@ TEST_CASE("Without device work, the clusters only keep the books" * doctest::tes
     for (auto* cluster : clusters) {
       REQUIRE(cluster->getNextLegalAction() == ActorAction::RestartAfterSync);
       cluster->act();
-      planned.push_back({cluster->getTimeStepRate(),
-                         cluster->getStepsUntilSync(),
-                         cluster->dataReadiness(),
-                         cluster->getPriority()});
+      planned.push_back({.timeStepRate = cluster->getTimeStepRate(),
+                         .stepsUntilSync = cluster->getStepsUntilSync(),
+                         .dataReadiness = cluster->dataReadiness(),
+                         .priority = cluster->getPriority()});
     }
     for (const auto& step : planTimeSteps(planned)) {
       auto& cluster = *clusters[step.cluster];

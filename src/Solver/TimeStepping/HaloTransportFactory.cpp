@@ -40,24 +40,23 @@ HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode, bool pers
 HaloTransportFactory::~HaloTransportFactory() = default;
 
 std::unique_ptr<HaloTransport> HaloTransportFactory::create(const RemoteClusterPair& regions) {
-  switch (mode_) {
-  case Mpi::DataTransferMode::Direct:
-#ifdef SEISSOL_HOST_TASK_GRAPH
-    if (taskEngine_ != nullptr) {
-      // the exchanges become tasks of the task graph on the host
-      return std::make_unique<TaskHaloTransport>(
-          std::make_unique<MpiHaloTransport>(regions, persistent_), *taskEngine_);
-    }
-#endif
-    return std::make_unique<MpiHaloTransport>(regions, persistent_);
 #ifdef ACL_DEVICE
-  case Mpi::DataTransferMode::CopyInCopyOutHost:
+  if (mode_ == Mpi::DataTransferMode::CopyInCopyOutHost) {
     return std::make_unique<StagedMpiHaloTransport>(regions, persistent_);
+  }
 #endif
-  default:
+  if (mode_ != Mpi::DataTransferMode::Direct) {
     logError() << "The requested data transfer mode is not available in this build.";
     return nullptr;
   }
+#ifdef SEISSOL_HOST_TASK_GRAPH
+  if (taskEngine_ != nullptr) {
+    // the exchanges become tasks of the task graph on the host
+    return std::make_unique<TaskHaloTransport>(
+        std::make_unique<MpiHaloTransport>(regions, persistent_), *taskEngine_);
+  }
+#endif
+  return std::make_unique<MpiHaloTransport>(regions, persistent_);
 }
 
 } // namespace seissol::solver

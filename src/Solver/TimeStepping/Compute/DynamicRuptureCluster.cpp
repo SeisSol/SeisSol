@@ -39,7 +39,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -224,7 +223,7 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRuptureDevice(
 
     const ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
     device_.api().putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
-    auto computeGraphKey = initializer::GraphKey(graphType, timestep);
+    const auto computeGraphKey = initializer::GraphKey(graphType, timestep);
     auto& table = layerData.getConditionalTable<inner_keys::Dr>();
 
     const auto [timePoints, timeWeights] =
@@ -347,7 +346,7 @@ void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params,
                                                                    params.time,
                                                                    streamRuntime_);
       callRuntime.enqueueHost(
-          [this, lastStep]() { recordPickpointsNow(*pickpointStepStart_, lastStep); });
+          [this, lastStep] { recordPickpointsNow(*pickpointStepStart_, lastStep); });
     }
     return;
   }
@@ -443,7 +442,7 @@ void DynamicRuptureCluster<Cfg>::interact(const StepParams& params) {
     // correction; the work takes the sample times of its step along, as the decisions about the
     // next steps may come before it runs
     hostRuntime_.action({/*readsNeighbors=*/true, /*writesShared=*/true},
-                        [this, params, times = pickpointTimes_, lastStep]() {
+                        [this, params, times = pickpointTimes_, lastStep] {
                           computeDynamicRupture(params);
                           writePickpointOutput(params, times, lastStep);
                         });
@@ -451,8 +450,9 @@ void DynamicRuptureCluster<Cfg>::interact(const StepParams& params) {
 
   // TODO(David): restrict to copy/interior of same cluster type
   if (hasDifferentExecutorNeighbor()) {
-    auto other = executor_ == Executor::Device ? seissol::initializer::AllocationPlace::Host
-                                               : seissol::initializer::AllocationPlace::Device;
+    const auto other = executor_ == Executor::Device
+                           ? seissol::initializer::AllocationPlace::Host
+                           : seissol::initializer::AllocationPlace::Device;
     layerData_->varSynchronizeTo<DynamicRupture::FluxSolverMinus>(other, streamRuntime_.stream());
     layerData_->varSynchronizeTo<DynamicRupture::FluxSolverPlus>(other, streamRuntime_.stream());
     layerData_->varSynchronizeTo<DynamicRupture::ImposedStateMinus>(other, streamRuntime_.stream());

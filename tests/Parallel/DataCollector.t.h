@@ -26,7 +26,7 @@ namespace seissol::unit_test {
 namespace datacollectortest {
 inline void setUpDevice() {
 #ifdef ACL_DEVICE
-  auto& device = ::device::DeviceInstance::instance();
+  const auto& device = ::device::DeviceInstance::instance();
   device.api().setDevice(0);
   device.api().initialize();
 #endif

@@ -155,6 +155,7 @@ bool selected(const std::string& ranks, int rank) {
       }
     } catch (const std::exception&) {
       // (not a number)
+      continue;
     }
   }
   return false;
@@ -234,7 +235,7 @@ void Trace::span(std::uint32_t name, std::uint32_t track, double begin, double e
     state.truncated.store(true, std::memory_order_relaxed);
     return;
   }
-  threadBuffer().spans.push_back({name, track, begin, end});
+  threadBuffer().spans.push_back({.name = name, .track = track, .begin = begin, .end = end});
 }
 
 void Trace::write(const std::string& path, MPI_Comm comm) {

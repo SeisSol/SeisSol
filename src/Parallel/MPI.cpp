@@ -8,14 +8,12 @@
 
 #include "MPI.h"
 
-#include "Alignment.h"
-#include "Common/Typedefs.h"
-
 #include <algorithm>
 #include <cctype>
 #include <mpi.h>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <unistd.h>
 #include <utils/env.h>
 #include <utils/logger.h>
@@ -142,7 +140,7 @@ void seissol::Mpi::setDataTransferModeFromEnv() {
   }
 }
 
-std::string seissol::Mpi::dataTransferModeName(DataTransferMode mode) {
+std::string_view seissol::Mpi::dataTransferModeName(DataTransferMode mode) {
   switch (mode) {
   case DataTransferMode::Direct:
     return "direct";

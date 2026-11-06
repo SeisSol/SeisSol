@@ -126,7 +126,7 @@ void MpiHaloTransport::startSend() {
 }
 
 bool MpiHaloTransport::testSend() {
-  const RegionTrace trace{&regions_.copy, true, sendBegin_};
+  const RegionTrace trace{.clusters = &regions_.copy, .send = true, .begin = sendBegin_};
   return testRequests(sendRequests_.data(), sendQueue_, &trace);
 }
 
@@ -150,7 +150,7 @@ void MpiHaloTransport::startReceive() {
 }
 
 bool MpiHaloTransport::testReceive() {
-  const RegionTrace trace{&regions_.ghost, false, receiveBegin_};
+  const RegionTrace trace{.clusters = &regions_.ghost, .send = false, .begin = receiveBegin_};
   return testRequests(recvRequests_.data(), receiveQueue_, &trace);
 }
 

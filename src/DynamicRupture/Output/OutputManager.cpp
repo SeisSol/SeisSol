@@ -439,8 +439,8 @@ void OutputManager::initPickpointOutput() {
 
   seissolInstance_.pickpointWriter().enable(
       seissolInstance_.modules(), seissolParameters.output.pickpointParameters.writeInterval);
-  seissolInstance_.pickpointWriter().setupWriter([&]() { takePickpointText(); },
-                                                 [&]() { writePickpointText(); });
+  seissolInstance_.pickpointWriter().setupWriter([&] { takePickpointText(); },
+                                                 [&] { writePickpointText(); });
 
   if (seissolParameters.output.pickpointParameters.format ==
       seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
@@ -579,7 +579,7 @@ bool OutputManager::hasPickpoints(std::size_t layerId) const {
 }
 
 parallel::runtime::StreamRuntime* OutputManager::pickpointRuntime(std::size_t layerId) {
-  auto& outputData = ppOutputData_.at(layerId);
+  const auto& outputData = ppOutputData_.at(layerId);
   return outputData->extraRuntime.has_value() ? &outputData->extraRuntime.value() : nullptr;
 }
 

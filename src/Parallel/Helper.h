@@ -126,14 +126,14 @@ inline bool useOutputSnapshot(utils::Env& env) { return env.get<bool>("OUTPUT_SN
  * initializer::DualMemoryContainer::snapshot): for the thread of the outputs, unless
  * SEISSOL_OUTPUT_SNAPSHOT=0, with all clusters on the device.
  */
-inline bool keepOutputSnapshots([[maybe_unused]] utils::Env& env) {
 #ifdef ACL_DEVICE
+inline bool keepOutputSnapshots(utils::Env& env) {
   return useOutputThread(env) && useOutputSnapshot(env) &&
          env.get<std::string>("DEVICE_HOST_SWITCH", "none") == "none";
-#else
-  return false;
-#endif
 }
+#else
+inline bool keepOutputSnapshots(utils::Env& /*env*/) { return false; }
+#endif
 
 /**
  * Whether the clusters run their work on the host in a task graph (see

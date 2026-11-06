@@ -106,7 +106,7 @@ void StagedMpiHaloTransport::startSend() {
 }
 
 bool StagedMpiHaloTransport::testSend() {
-  const RegionTrace trace{&regions_.copy, true, sendBegin_};
+  const RegionTrace trace{.clusters = &regions_.copy, .send = true, .begin = sendBegin_};
   return testRequests(sendRequests_.data(), sendQueue_, &trace);
 }
 
@@ -137,7 +137,8 @@ bool StagedMpiHaloTransport::testReceive() {
       int testSuccess = 0;
       MPI_Test(recvRequests_.data() + *region, &testSuccess, MPI_STATUS_IGNORE);
       if (testSuccess != 0) {
-        traceRegion(RegionTrace{&regions_.ghost, false, receiveBegin_}, *region);
+        traceRegion(RegionTrace{.clusters = &regions_.ghost, .send = false, .begin = receiveBegin_},
+                    *region);
         device_.api().copyToAsync(regions_.ghost[*region].data,
                                   hostGhostRegions_[*region],
                                   regions_.ghost[*region].size *

@@ -86,8 +86,7 @@ std::vector<Module*>
 }
 
 bool Modules::asynchronous(const std::vector<Module*>& due) const {
-  return worker_ != nullptr && !due.empty() &&
-         std::all_of(due.begin(), due.end(), [](const Module* module) {
+  return worker_ != nullptr && !due.empty() && std::ranges::all_of(due, [](const Module* module) {
            return module->processesAsynchronously();
          });
 }

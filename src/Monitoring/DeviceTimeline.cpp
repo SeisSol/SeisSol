@@ -125,7 +125,7 @@ void DeviceTimeline::release() {
 }
 
 double DeviceTimeline::unionLength(std::vector<std::pair<double, double>> intervals) {
-  std::sort(intervals.begin(), intervals.end());
+  std::ranges::sort(intervals);
   double length = 0;
   double coveredUntil = 0;
   bool first = true;

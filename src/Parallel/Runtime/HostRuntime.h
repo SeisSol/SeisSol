@@ -408,15 +408,24 @@ private:
   static void epoch(F&& body) {
 #ifdef SEISSOL_HOST_TASK_GRAPH
     if (scheduling() == HostScheduling::TaskGraph) {
-#pragma omp parallel default(none) shared(body)
+      // an exception of the body may not leave the parallel region: it gets thrown after it
+      std::exception_ptr error;
+#pragma omp parallel default(none) shared(body, error)
       {
 #pragma omp masked
         {
-          std::invoke(body);
+          try {
+            std::invoke(body);
+          } catch (...) {
+            error = std::current_exception();
+          }
 #pragma omp taskwait
         }
       }
       settings().oldest.clear();
+      if (error) {
+        std::rethrow_exception(error);
+      }
       return;
     }
 #endif
