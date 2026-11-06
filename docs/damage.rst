@@ -103,7 +103,8 @@ loading and not only on its size.
 
 The internal variables follow rate equations. Damage grows where the loading
 exceeds the onset ratio :math:`\xi_0` and heals where it does not, at rates
-:math:`C_d` and the healing rate; breakage grows out of damage once
+:math:`C_d` and the healing rate, until a point has no damage left; breakage
+grows out of damage once
 :math:`\alpha` approaches a critical value, with :math:`\beta_\alpha` setting
 how sharp that transition is. Both are sources rather than fluxes: they do not
 propagate, they are made where the strain is.

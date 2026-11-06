@@ -623,8 +623,8 @@ class DamageADERDG(NonLinearCK):
         ]
 
         # Damage and breakage grow with the strain energy above the onset
-        # threshold; below it the damage heals at its own rate, and the cell
-        # stops once either variable saturates.
+        # threshold, until either variable saturates in the cell; below it the
+        # damage heals at its own rate, until a point has none left.
         #
         # Saturation of the damage is the critical damage and not one. One is
         # where the variable runs out of room; the critical damage is where the
@@ -654,11 +654,21 @@ class DamageADERDG(NonLinearCK):
                     yf.less(yf.sum(self.meanBreakage["u"], "u"), 1.0),
                 ),
             ),
+            # Healing is the side of the onset where the drive is negative, and
+            # nothing else that is not growth. A saturated cell under a load
+            # above the onset has a positive drive and stops: the drive is
+            # clamped at zero from above, so the healing rate never acts on it
+            # as a second rate of growth. And a point heals only the damage it
+            # has: a damage below zero is outside what the model describes.
             self.sourceAlpha[node]["l"]
             <= yf.where(
                 growing["l"],
                 self.damageRate * drive["l"],
-                self.healingRate * drive["l"],
+                yf.where(
+                    yf.greater(alpha["l"], 0.0),
+                    self.healingRate * yf.minimum(drive["l"], 0.0),
+                    0.0,
+                ),
             ),
             # Selected rather than multiplied by. `growing` is a truth value,
             # and a truth value that is also a factor is a tensor with two
