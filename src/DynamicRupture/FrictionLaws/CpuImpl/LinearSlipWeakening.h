@@ -39,7 +39,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                              std::array<real, misc::NumPaddedPoints>& strengthBuffer,
                              std::size_t ltsFace,
                              uint32_t timeIndex) {
-    // d(strength)/d(-sigma_eff); only needed for the anisotropic normal/shear coupling
+    // d(strength)/d(-sigma_eff); only needed where the impedance couples normal and shear
     alignas(Alignment) std::array<real, misc::NumPaddedPoints> strengthSlopeBuffer{};
 
     // computes fault strength, which is the critical value whether active slip exists.
@@ -107,7 +107,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
       real etaEff = eta;
       real slipRateMagnitude{};
 
-      if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+      if constexpr (CoupledImpedance) {
         const auto solution = common::solveSlipRate(this->impAndEta_[ltsFace],
                                                     this->impedanceMatrices_[ltsFace],
                                                     faultStresses,
@@ -141,11 +141,15 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 
       const auto [tU1, tU2] = common::matmulEta(this->impAndEta_[ltsFace],
                                                 this->impedanceMatrices_[ltsFace],
+                                                faultStresses,
+                                                pointIndex,
                                                 this->slipRate1_[ltsFace][pointIndex],
                                                 this->slipRate2_[ltsFace][pointIndex]);
 
       const auto tUN = common::matmulEtaNormal(this->impAndEta_[ltsFace],
                                                this->impedanceMatrices_[ltsFace],
+                                               faultStresses,
+                                               pointIndex,
                                                this->slipRate1_[ltsFace][pointIndex],
                                                this->slipRate2_[ltsFace][pointIndex]);
 
@@ -216,7 +220,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term.
-      // The anisotropic normal/shear coupling is deliberately *not* applied here: since the
+      // The normal/shear coupling of the impedance is deliberately *not* applied here: since the
       // strength is affine in the normal stress, it is handled exactly through the divisor in
       // calcSlipRateAndTraction, using the slope filled in below.
       const real totalNormalStress =
@@ -234,7 +238,7 @@ class LinearSlipWeakeningLaw : public BaseFrictionLaw<LinearSlipWeakeningLaw<Spe
                                        ltsFace,
                                        pointIndex);
 
-      if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+      if constexpr (CoupledImpedance) {
         // d(strength) / d(-sigma_eff). Zero while the normal stress is clamped -- note that the
         // clamp is evaluated at the uncorrected normal stress, which is second order in the
         // coupling and only matters right at the opening threshold.
@@ -333,7 +337,7 @@ class NoSpecialization {
   /**
    * d(strengthHook output) / d(its faultStrength argument).
    *
-   * Only needed for the anisotropic normal/shear coupling, where the fault strength depends on the
+   * Only needed where the impedance couples normal and shear, and the fault strength depends on the
    * slip rate through the normal stress. MUST be free of side effects -- unlike strengthHook,
    * which advances the Prakash-Clifton state -- and has to be evaluated with the same
    * localSlipRate and deltaT as the corresponding strengthHook call.
@@ -458,7 +462,7 @@ class TPApprox {
   /**
    * d(strengthHook output) / d(its faultStrength argument).
    *
-   * Only needed for the anisotropic normal/shear coupling, where the fault strength depends on the
+   * Only needed where the impedance couples normal and shear, and the fault strength depends on the
    * slip rate through the normal stress. MUST be free of side effects -- unlike strengthHook,
    * which advances the Prakash-Clifton state -- and has to be evaluated with the same
    * localSlipRate and deltaT as the corresponding strengthHook call.

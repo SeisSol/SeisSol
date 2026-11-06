@@ -48,6 +48,21 @@
 
 using namespace seissol::dr::misc::quantity_indices;
 
+namespace {
+/// The stresses of one node as the friction solve reads them. Where the impedance belongs to the
+/// node, they carry it, and the solve takes it from there. A template, so that the base it fills
+/// is looked up once the stresses are put in, and not before: they have that base only where the
+/// impedance belongs to the node.
+template <typename StressesT>
+StressesT stressesOfNode([[maybe_unused]] const seissol::dr::NodalImpedanceT& impedance) {
+  StressesT stresses{};
+  if constexpr (seissol::dr::NodalImpedance) {
+    static_cast<seissol::dr::NodalImpedanceT&>(stresses) = impedance;
+  }
+  return stresses;
+}
+} // namespace
+
 namespace seissol::dr::output {
 void ReceiverOutput::setLtsData(LTS::Storage& userWpStorage,
                                 LTS::Backmap& userWpBackmap,
@@ -468,14 +483,15 @@ void ReceiverOutput::computeLocalStresses(LocalInfo& local) {
     return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
   };
 
-  // named positively: the matrices below are only filled for the materials that go through the
+  // named positively: the face matrices below are only filled for the materials that go through the
   // general branch of initializeDynamicRuptureMatrices, and reading them for anything else would
-  // reconstruct the Godunov state from zeros
+  // reconstruct the Godunov state from zeros. Where the impedance belongs to the node, the matrices
+  // are formed below instead.
   if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic ||
-                model::MaterialT::Type == model::MaterialType::Poroelastic) {
-    // Anisotropy couples the fault-normal and the two tangential directions, poroelasticity adds
-    // the fluid pressure as a fourth interface variable. In both cases the Godunov state has to be
-    // reconstructed with the full matrix -- exactly as
+                model::MaterialT::Type == model::MaterialType::Poroelastic || NodalImpedance) {
+    // Anisotropy and the tangent of a damaged stress couple the fault-normal and the two tangential
+    // directions, poroelasticity adds the fluid pressure as a fourth interface variable. In each
+    // case the Godunov state has to be reconstructed with the full matrix -- exactly as
     // common::precomputeStressFromQInterpolated does it for the solver:
     //
     //   T*   = eta * (Y+ T+ + Y- T- + (v- - v+))
@@ -614,20 +630,25 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength, real 
   const auto component2 = local.iniTraction2 + local.faceAlignedStress13;
   const auto tracEla = misc::magnitude(component1, component2);
 
-  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-    // the very solve the friction laws run, so the reconstruction cannot drift away from it: with
-    // an anisotropic impedance the slip is not parallel to the trial traction, and the strength
-    // follows the fault-normal traction, which follows the slip rate
+  if constexpr (CoupledImpedance) {
+    // the very solve the friction laws run, so the reconstruction cannot drift away from it: where
+    // the impedance couples the modes of a face the slip is not parallel to the trial traction, and
+    // the strength follows the fault-normal traction, which follows the slip rate
     const auto& impAndEta = ((local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId]);
     const auto& impedanceMatrices =
         ((local.layer->var<DynamicRupture::ImpedanceMatrices>())[local.ltsId]);
 
-    // dummy needed due to damaged
-    const FaultStresses<Executor::Device> faultStressesDummy;
+    // Where the impedance belongs to the node it is formed here, as computeLocalStresses formed it,
+    // and the solve reads it from the stresses of the node, as on the device.
+    [[maybe_unused]] NodalImpedanceT nodal{};
+    if constexpr (NodalImpedance) {
+      nodal = nodalImpedanceAt(local);
+    }
+    const auto faultStresses = stressesOfNode<FaultStresses<Executor::Device>>(nodal);
 
     const auto solution = friction_law::common::solveSlipRate(impAndEta,
                                                               impedanceMatrices,
-                                                              faultStressesDummy,
+                                                              faultStresses,
                                                               0,
                                                               component1,
                                                               component2,
@@ -638,22 +659,33 @@ void ReceiverOutput::updateLocalTractions(LocalInfo& local, real strength, real 
     local.slipRateTangent1 = solution.slipRate * solution.direction1;
     local.slipRateTangent2 = solution.slipRate * solution.direction2;
 
-    const auto [tractionUpdate1, tractionUpdate2] = friction_law::common::matmulEta(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
-    const auto normalUpdate = friction_law::common::matmulEtaNormal(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
+    const auto [tractionUpdate1, tractionUpdate2] =
+        friction_law::common::matmulEta(impAndEta,
+                                        impedanceMatrices,
+                                        faultStresses,
+                                        0,
+                                        local.slipRateTangent1,
+                                        local.slipRateTangent2);
+    const auto normalUpdate = friction_law::common::matmulEtaNormal(impAndEta,
+                                                                    impedanceMatrices,
+                                                                    faultStresses,
+                                                                    0,
+                                                                    local.slipRateTangent1,
+                                                                    local.slipRateTangent2);
 
     local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
     local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
     local.transientNormalTraction -= normalUpdate;
 
     // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
-    // state through the first row of Y+. The friction solve moves that traction, and with an
-    // anisotropic admittance the two shear components move the fault-normal velocity as well.
+    // state through the first row of Y+. The friction solve moves that traction, and with a coupled
+    // admittance the two shear components move the fault-normal velocity as well.
     constexpr std::size_t Count = tensor::Zplus::Shape[0];
-    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
-                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
-                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
+    const auto* __restrict admittance =
+        NodalImpedance ? nodal.admittance : impedanceMatrices.impedance;
+    local.faultNormalVelocity -= admittance[0 * Count + 0] * normalUpdate +
+                                 admittance[1 * Count + 0] * tractionUpdate1 +
+                                 admittance[2 * Count + 0] * tractionUpdate2;
   } else {
     if (tracEla > std::abs(strength)) {
       local.updatedTraction1 =
@@ -697,43 +729,23 @@ void ReceiverOutput::computeSlipRate(
     [[maybe_unused]] const std::array<double, 3>& strike,
     [[maybe_unused]] const std::array<double, 3>& dip) {
 
-  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+  if constexpr (CoupledImpedance) {
     // updateLocalTractions resolves the slip direction along with the magnitude, so all that is
     // left is the rotation onto strike and dip. Recovering the slip rate from the traction
     // difference instead would have to invert the full eta, fault-normal row included, since the
-    // shear slip also changes the normal traction.
+    // shear slip also changes the normal traction -- and in the frame of the face, which the
+    // rotated stresses have left.
     projectOntoStrikeAndDip(
         local, local.slipRateTangent1, local.slipRateTangent2, tangent1, tangent2, strike, dip);
   } else {
-    if constexpr (NodalImpedance) {
-      // The sum of the two admittances is what turns a traction difference
-      // into a slip rate, and for this material it is a matrix: the two shear
-      // rows couple, and they reach the normal row as well.
-      const auto nodal = nodalImpedanceAt(local);
-      const real difference[3] = {
-          static_cast<real>(0.0),
-          rotatedUpdatedStress[misc::voigt::XY] - rotatedStress[misc::voigt::XY],
-          rotatedUpdatedStress[misc::voigt::XZ] - rotatedStress[misc::voigt::XZ]};
-      const auto apply = [&](std::size_t row) {
-        real sum = static_cast<real>(0.0);
-        for (std::size_t k = 0; k < 3; ++k) {
-          sum +=
-              (nodal.admittance[k * 3 + row] + nodal.admittanceNeig[k * 3 + row]) * difference[k];
-        }
-        return -sum;
-      };
-      local.slipRateStrike = apply(1);
-      local.slipRateDip = apply(2);
-    } else {
-      // the shear block of eta is a multiple of the identity for every material with an isotropic
-      // frame -- poroelasticity included, where the fluid column does not reach the shear rows --
-      // so a scalar is exact and the order of scaling and rotation does not matter
-      const auto invEtaS = (local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId].invEtaS;
-      local.slipRateStrike =
-          -invEtaS * (rotatedUpdatedStress[misc::voigt::XY] - rotatedStress[misc::voigt::XY]);
-      local.slipRateDip =
-          -invEtaS * (rotatedUpdatedStress[misc::voigt::XZ] - rotatedStress[misc::voigt::XZ]);
-    }
+    // the shear block of eta is a multiple of the identity for every material with an isotropic
+    // frame -- poroelasticity included, where the fluid column does not reach the shear rows --
+    // so a scalar is exact and the order of scaling and rotation does not matter
+    const auto invEtaS = (local.layer->var<DynamicRupture::ImpAndEta>())[local.ltsId].invEtaS;
+    local.slipRateStrike =
+        -invEtaS * (rotatedUpdatedStress[misc::voigt::XY] - rotatedStress[misc::voigt::XY]);
+    local.slipRateDip =
+        -invEtaS * (rotatedUpdatedStress[misc::voigt::XZ] - rotatedStress[misc::voigt::XZ]);
   }
 }
 

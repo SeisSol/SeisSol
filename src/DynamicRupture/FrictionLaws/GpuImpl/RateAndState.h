@@ -115,8 +115,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   }
 
   /**
-   * Anisotropy: sweeps the slip direction, and with it every direction dependent projection of the
-   * impedance. A no-op for isotropy, where the slip is exactly parallel to the trial traction.
+   * Sweeps the slip direction, and with it every direction dependent projection of the impedance.
+   * A no-op wherever the impedance does not couple the modes of a face, since the slip is exactly
+   * parallel to the trial traction there.
    *
    * The exact condition is tau0 = (S I + V eta_ss) n with |n| = 1, see common::updateSlipDirection.
    * The strength belonging to the current slip rate is recovered as S = n^T tau0 - V * eta_proj,
@@ -130,7 +131,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     const real totalTraction2 = ctx.initialStress.traction2 + ctx.faultStresses.traction2;
 
-    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    if constexpr (CoupledImpedance) {
       const auto [etaProj, unusedInv] = common::projectEta(ctx.data->impAndEta[ctx.ltsFace],
                                                            ctx.data->impedanceMatrices[ctx.ltsFace],
                                                            ctx.faultStresses,
@@ -145,6 +146,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const auto [n1, n2] =
           common::updateSlipDirection(ctx.data->impAndEta[ctx.ltsFace],
                                       ctx.data->impedanceMatrices[ctx.ltsFace],
+                                      ctx.faultStresses,
+                                      ctx.pointIndex,
                                       strength,
                                       slipRate,
                                       totalTraction1,
@@ -273,7 +276,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     // the direction along which the slip rate is decomposed; scaled such that dividing by
     // `divisor` yields the unit slip direction. For isotropy slipDirection is the normalized trial
-    // traction and absoluteShearTraction its magnitude, so this is the previous expression.
+    // traction and absoluteShearTraction its magnitude, so this is the trial traction itself.
     const real dirTraction1 =
         ctx.initialVariables.slipDirection1 * ctx.initialVariables.absoluteShearTraction;
     const real dirTraction2 =
@@ -294,6 +297,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
 
     const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
                                               ctx.data->impedanceMatrices[ctx.ltsFace],
+                                              ctx.faultStresses,
+                                              ctx.pointIndex,
                                               slipRate1,
                                               slipRate2);
 
@@ -342,8 +347,8 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   /**
    * The effective normal stress a trial slip rate belongs to.
    *
-   * Without the anisotropic normal coupling this is the value updateNormalStress left behind and
-   * the solve is the one every other material runs. With it, sigma follows the slip rate, and
+   * Without the normal coupling of the impedance this is the value updateNormalStress left behind
+   * and the solve is the one every other material runs. With it, sigma follows the slip rate, and
    * evaluating it inside the Newton moves the coupling out of the outer fixed point, which
    * resolves it at a linear rate, into the quadratic one.
    */
@@ -351,7 +356,7 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                    real normalStressStick,
                                                    real etaNormal,
                                                    real slipRate) {
-    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    if constexpr (CoupledImpedance) {
       return std::min(static_cast<real>(0.0), normalStressStick - slipRate * etaNormal);
     } else {
       return normalStress;
@@ -369,9 +374,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
                                                      real invEtaS,
                                                      real& exportMu) {
     // Solve  g(V) = -invEtaS * (|sigma(V)| * mu(V) - tau) - V = 0   for V = slipRateTest,
-    // with sigma following the slip rate through the anisotropic normal coupling. The bracket is
-    // closed-form and survives that coupling: it only needs mu(0) = 0, mu >= 0, |sigma| >= 0
-    // (no search, endpoints not evaluated):
+    // with sigma following the slip rate through the normal coupling of the impedance. The bracket
+    // is closed-form and survives that coupling: it only needs mu(0) = 0, mu >= 0, |sigma| >= 0 (no
+    // search, endpoints not evaluated):
     //   g(0+)          = invEtaS * tau             > 0
     //   g(tau*invEtaS) = -invEtaS*|sigma(.)|*mu(.) <= 0
     // Without the coupling dG < -1 everywhere and the root is unique; the coupling can weaken dG
@@ -428,9 +433,9 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
       const real g = -invEtaS * (absSigma * muF - tau) - x;
 
       // |sigma| = -sigma while the fault is closed, and sigma follows the slip rate through the
-      // anisotropic normal coupling, so d|sigma|/dV = etaNormal there.
+      // normal coupling of the impedance, so d|sigma|/dV = etaNormal there.
       real dAbsSigma{};
-      if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+      if constexpr (CoupledImpedance) {
         dAbsSigma = (sigma < static_cast<real>(0)) ? etaNormal : static_cast<real>(0);
       } else {
         dAbsSigma = static_cast<real>(0);
@@ -514,11 +519,12 @@ class RateAndStateBase : public BaseFrictionSolver<RateAndStateBase<Derived, TPM
   }
 
   /**
-   * Effective normal stress, including the anisotropic normal/shear coupling.
+   * Effective normal stress, including the normal/shear coupling of the impedance.
    *
    * With the 3x3 impedance eta, shear slip changes the fault-normal traction:
    *   sigma(V) = sigma_stick - V * etaNormal,   etaNormal = (eta * n)_n
-   * For every isotropic material etaNormal is zero and this reduces to the previous formula.
+   * Wherever the impedance does not couple the modes of a face etaNormal is zero, and this is the
+   * clamped sigma_stick.
    *
    * The slip rate is taken from the previous outer fixed-point iteration (or, on entry, from the
    * previous time step). normalStressStick keeps the part that does not depend on it, so that the

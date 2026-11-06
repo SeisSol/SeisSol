@@ -83,6 +83,16 @@ struct ImposedState;
 /// there is nothing about it to keep between timesteps.
 inline constexpr bool NodalImpedance = model::MaterialT::Type == model::MaterialType::Damage;
 
+/// Whether the impedance of a face couples its modes.
+///
+/// An anisotropic material couples them, and so does every material whose
+/// impedance belongs to the node: the tangent of a damaged stress mixes the
+/// two shear modes and the normal one as an anisotropic stiffness does. Slip
+/// then need not run along the traction that drives it, and it moves the
+/// normal traction as it goes.
+inline constexpr bool CoupledImpedance =
+    model::MaterialT::Type == model::MaterialType::Anisotropic || NodalImpedance;
+
 /// What the impedance of a node needs from the material of the two sides.
 ///
 /// Everything the effective moduli need except the state of the node itself.
@@ -559,9 +569,9 @@ struct FaultStresses<Executor::Host> : FaultImpedances<Executor::Host> {
  *
  * normalStress is the fault-normal traction *after* the friction solve. It differs from
  * FaultStresses::normalStress only if the impedance couples the fault-normal and the tangential
- * directions, which is the case for anisotropic materials. It is therefore seeded with the trial
- * value by common::initializeTractionResults, and a friction law only has to overwrite it if it
- * actually changes the normal stress.
+ * directions, which is the case wherever CoupledImpedance holds. It is therefore seeded with the
+ * trial value by common::initializeTractionResults, and a friction law only has to overwrite it if
+ * it actually changes the normal stress.
  */
 template <>
 struct TractionResults<Executor::Host> {

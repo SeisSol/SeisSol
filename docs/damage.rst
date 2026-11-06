@@ -352,9 +352,12 @@ with is a matrix and not four scalars, because the tangent of this stress is not
 isotropic -- the normal mode couples to the shear modes and the two shear modes
 to each other -- and it belongs to a point and an instant rather than to the
 face. It is formed from the tangent of the blended stress, with the damage and
-the breakage of the node. In the elastic limit the rupture reproduces the
-linear elastic one on the same mesh and with the same clustering to better than
-0.2 percent in rupture time, peak slip rate and final slip.
+the breakage of the node. The friction laws and the fault output solve with that
+same matrix, as they do on an anisotropic face: the slip need not run along the
+traction that drives it, and it moves the normal traction as it goes. In the
+elastic limit the matrix is the isotropic one of the face, and the rupture
+reproduces the linear elastic one on the same mesh and with the same clustering
+to better than 0.2 percent in rupture time, peak slip rate and final slip.
 
 A scenario that states the fault background twice will count it twice. The
 friction law compares the fault file's initial stress plus the interpolated

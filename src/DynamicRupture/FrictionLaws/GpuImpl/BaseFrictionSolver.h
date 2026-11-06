@@ -35,7 +35,7 @@ struct InitialVariables {
   real normalStressStick{};
   real stateVarReference{};
   real etaNormal{};
-  /// unit slip direction; equals the normalized trial traction unless the impedance is anisotropic
+  /// unit slip direction; equals the normalized trial traction unless the impedance couples modes
   real slipDirection1{};
   real slipDirection2{};
 };
@@ -67,7 +67,7 @@ struct FrictionLawContext {
   TractionResults<Executor::Device> tractionResults{};
   real stateVariableBuffer{};
   real strengthBuffer{};
-  /// d(strength)/d(-sigma_eff); only used for the anisotropic normal/shear coupling
+  /// d(strength)/d(-sigma_eff); only used where the impedance couples normal and shear
   real strengthSlopeBuffer{};
   InitialVariables initialVariables{};
 };

@@ -76,7 +76,7 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
     real etaEff = eta;
     real slipRateMagnitude{};
 
-    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    if constexpr (CoupledImpedance) {
       const auto solution = common::solveSlipRate(ctx.data->impAndEta[ctx.ltsFace],
                                                   ctx.data->impedanceMatrices[ctx.ltsFace],
                                                   ctx.faultStresses,
@@ -105,11 +105,15 @@ class LinearSlipWeakeningBase : public BaseFrictionSolver<LinearSlipWeakeningBas
 
     const auto [tU1, tU2] = common::matmulEta(ctx.data->impAndEta[ctx.ltsFace],
                                               ctx.data->impedanceMatrices[ctx.ltsFace],
+                                              ctx.faultStresses,
+                                              ctx.pointIndex,
                                               ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
                                               ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
 
     const auto tUN = common::matmulEtaNormal(ctx.data->impAndEta[ctx.ltsFace],
                                              ctx.data->impedanceMatrices[ctx.ltsFace],
+                                             ctx.faultStresses,
+                                             ctx.pointIndex,
                                              ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
                                              ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
 
@@ -202,7 +206,7 @@ class LinearSlipWeakeningLaw
 
     auto& strength = ctx.strengthBuffer;
 
-    // The anisotropic normal/shear coupling is deliberately not applied here: the strength is
+    // The normal/shear coupling of the impedance is deliberately not applied here: the strength is
     // affine in the normal stress, so it is handled exactly through the divisor in
     // calcSlipRateAndTraction, using the slope filled in below.
     const real totalNormalStress = ctx.initialStress.normalStress + ctx.faultStresses.normalStress +
@@ -220,7 +224,7 @@ class LinearSlipWeakeningLaw
                                       vStar,
                                       prakashLength);
 
-    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    if constexpr (CoupledImpedance) {
       // d(strength) / d(-sigma_eff). Zero while the normal stress is clamped; the clamp is
       // evaluated at the uncorrected normal stress, which is second order in the coupling.
       ctx.strengthSlopeBuffer = (totalNormalStress < 0 ? ctx.data->mu[ctx.ltsFace][ctx.pointIndex]
@@ -302,9 +306,9 @@ class NoSpecialization {
   };
 
   /**
-   * d(strengthHook output) / d(its faultStrength argument). Only needed for the anisotropic
-   * normal/shear coupling. MUST be free of side effects and evaluated with the same arguments as
-   * the corresponding strengthHook call.
+   * d(strengthHook output) / d(its faultStrength argument). Only needed where the impedance couples
+   * normal and shear. MUST be free of side effects and evaluated with the same arguments as the
+   * corresponding strengthHook call.
    */
   SEISSOL_DEVICE static real strengthHookSlope(real /*localSlipRate*/,
                                                real /*deltaT*/,
@@ -398,9 +402,9 @@ class TPApprox {
   };
 
   /**
-   * d(strengthHook output) / d(its faultStrength argument). Only needed for the anisotropic
-   * normal/shear coupling. MUST be free of side effects and evaluated with the same arguments as
-   * the corresponding strengthHook call.
+   * d(strengthHook output) / d(its faultStrength argument). Only needed where the impedance couples
+   * normal and shear. MUST be free of side effects and evaluated with the same arguments as the
+   * corresponding strengthHook call.
    */
   SEISSOL_DEVICE static real strengthHookSlope(real /*localSlipRate*/,
                                                real /*deltaT*/,

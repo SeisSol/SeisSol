@@ -231,8 +231,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   /**
-   * Anisotropy: sweeps the slip direction, and with it every direction dependent projection of the
-   * impedance. A no-op for isotropy, where the slip is exactly parallel to the trial traction.
+   * Sweeps the slip direction, and with it every direction dependent projection of the impedance.
+   * A no-op wherever the impedance does not couple the modes of a face, since the slip is exactly
+   * parallel to the trial traction there.
    *
    * The exact condition is tau0 = (S I + V eta_ss) n with |n| = 1, see common::updateSlipDirection.
    * The strength belonging to the current slip rate is recovered as S = n^T tau0 - V * eta_proj,
@@ -248,7 +249,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       [[maybe_unused]] const FaultStresses<Executor::Host>& faultStresses,
       [[maybe_unused]] const FaultStresses<Executor::Host>& initialStress,
       [[maybe_unused]] std::size_t ltsFace) {
-    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    if constexpr (CoupledImpedance) {
 #pragma omp simd
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         const real totalTraction1 =
@@ -270,6 +271,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
         const auto [n1, n2] = common::updateSlipDirection(this->impAndEta_[ltsFace],
                                                           this->impedanceMatrices_[ltsFace],
+                                                          faultStresses,
+                                                          pointIndex,
                                                           strength,
                                                           slipRate,
                                                           totalTraction1,
@@ -468,6 +471,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
       const auto [tU1, tU2] = common::matmulEta(this->impAndEta_[ltsFace],
                                                 this->impedanceMatrices_[ltsFace],
+                                                faultStresses,
+                                                pointIndex,
                                                 this->slipRate1_[ltsFace][pointIndex],
                                                 this->slipRate2_[ltsFace][pointIndex]);
 
@@ -519,7 +524,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
    * Solve for new slip rate (\f$\hat{s}\f$) with a bracketed Newton (rtsafe). \f$\hat{s}\f$ solves
    * \f[g := -\frac{1}{\eta}(|\sigma(\hat{s})|\,\mu(\hat{s}) - \Theta) - \hat{s} = 0,\f]
    * c.f. Carsten Uphoff's dissertation eq. (4.57), with \f$\eta\f$ projected onto the fault plane
-   * per point and \f$\sigma\f$ following the slip rate through the anisotropic normal coupling.
+   * per point and \f$\sigma\f$ following the slip rate through the normal coupling of eta.
    * The root is bracketed in closed form, and the bracket survives that coupling because it only
    * needs \f$\mu(0)=0\f$, \f$\mu\ge0\f$ and \f$|\sigma|\ge0\f$ (endpoints are NOT evaluated):
    *   g(0+)           = +invEta * Theta            > 0
@@ -627,9 +632,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
             effectiveNormalStress(normalStress, normalStressStick, etaNormal, x, pointIndex);
 
         // |sigma| = -sigma while the fault is closed, and sigma follows the slip rate through the
-        // anisotropic normal coupling, so d|sigma|/dV = etaNormal there.
+        // normal coupling of the impedance, so d|sigma|/dV = etaNormal there.
         real dAbsSigma{};
-        if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+        if constexpr (CoupledImpedance) {
           dAbsSigma =
               (sigma < static_cast<real>(0.0)) ? etaNormal[pointIndex] : static_cast<real>(0.0);
         } else {
@@ -719,11 +724,12 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   }
 
   /**
-   * Effective normal stress, including the anisotropic normal/shear coupling.
+   * Effective normal stress, including the normal/shear coupling of the impedance.
    *
    * With the 3x3 impedance eta, shear slip changes the fault-normal traction:
    *   sigma(V) = sigma_stick - V * etaNormal,   etaNormal = (eta * n)_n
-   * For every isotropic material etaNormal is zero and this reduces to the previous formula.
+   * Wherever the impedance does not couple the modes of a face etaNormal is zero, and this is the
+   * clamped sigma_stick.
    *
    * The slip rate is taken from slipRateMagnitude_, i.e. from the previous outer fixed-point
    * iteration (or, on entry, from the previous time step). normalStressStick keeps the part that
@@ -752,8 +758,8 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
   /**
    * The effective normal stress a trial slip rate belongs to.
    *
-   * Without the anisotropic normal coupling this is the value updateNormalStress left behind and
-   * the solve is the one every other material runs. With it, sigma follows the slip rate, and
+   * Without the normal coupling of the impedance this is the value updateNormalStress left behind
+   * and the solve is the one every other material runs. With it, sigma follows the slip rate, and
    * evaluating it inside the Newton moves the coupling out of the outer fixed point, which
    * resolves it at a linear rate, into the quadratic one.
    */
@@ -764,7 +770,7 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                             const std::array<real, misc::NumPaddedPoints>& etaNormal,
                             real slipRate,
                             std::uint32_t pointIndex) {
-    if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
+    if constexpr (CoupledImpedance) {
       return std::min(static_cast<real>(0.0),
                       normalStressStick[pointIndex] - slipRate * etaNormal[pointIndex]);
     } else {

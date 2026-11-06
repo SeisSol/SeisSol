@@ -47,13 +47,17 @@ class ImposedSlipRates : public BaseFrictionLaw<ImposedSlipRates<STF>> {
 
       const auto [tU1, tU2] = common::matmulEta(this->impAndEta_[ltsFace],
                                                 this->impedanceMatrices_[ltsFace],
+                                                faultStresses,
+                                                pointIndex,
                                                 evalCardinal1,
                                                 evalCardinal2);
 
       // the prescribed slip rate also changes the fault-normal traction if the impedance couples
-      // the normal and the tangential directions (anisotropy); zero otherwise
+      // the normal and the tangential directions (CoupledImpedance); zero otherwise
       const auto tUN = common::matmulEtaNormal(this->impAndEta_[ltsFace],
                                                this->impedanceMatrices_[ltsFace],
+                                               faultStresses,
+                                               pointIndex,
                                                evalCardinal1,
                                                evalCardinal2);
 

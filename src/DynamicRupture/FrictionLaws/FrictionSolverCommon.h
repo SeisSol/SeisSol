@@ -287,10 +287,11 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
  * Seeds the post-solve tractions with the trial ("stick") state.
  *
  * At the moment this only concerns the fault-normal stress: for every impedance that is block
- * diagonal in the fault-normal direction versus the two tangential ones -- i.e. everything except
- * anisotropy -- a frictional interface with no opening leaves the normal stress at its trial value,
- * so the friction laws never touch it. Seeding it here keeps those friction laws free of
- * boilerplate and makes postcomputeImposedStateFromNewStress read a single, well-defined source.
+ * diagonal in the fault-normal direction versus the two tangential ones -- i.e. wherever
+ * CoupledImpedance does not hold -- a frictional interface with no opening leaves the normal stress
+ * at its trial value, so the friction laws never touch it. Seeding it here keeps those friction
+ * laws free of boilerplate and makes postcomputeImposedStateFromNewStress read a single,
+ * well-defined source.
  *
  * @param[in] faultStresses trial stresses from precomputeStressFromQInterpolated
  * @param[out] tractionResults
@@ -809,8 +810,27 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
 }
 
 /**
-  Anisotropy projection handling.
-  Has no effect for isotropy.
+  Entry `entry` of eta -- dense and column major, eta[col * 3 + row] -- wherever the material keeps
+  it. An anisotropic face assembled its own once; where the impedance belongs to the node it was
+  formed in the precomputation, from the state that was there, and kept with the stresses, since a
+  friction law has no way back to that state. Only read where the impedance couples the modes of a
+  face, and the matrix is 3x3 there: no such material carries a fluid pressure.
+ */
+template <Executor Exec>
+SEISSOL_HOSTDEVICE inline real etaEntry([[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+                                        [[maybe_unused]] const FaultStresses<Exec>& faultStresses,
+                                        [[maybe_unused]] uint32_t index,
+                                        std::uint32_t entry) {
+  if constexpr (NodalImpedance) {
+    return VariableIndexing<Exec>::index(faultStresses.eta[entry], index);
+  } else {
+    return impedanceMatrices.eta[entry];
+  }
+}
+
+/**
+  Projection of eta onto the slip direction n = (t1, t2) / tmag, the shear block taken as a
+  quadratic form. The scalar eta_s wherever the impedance does not couple the modes of a face.
 
   Returns {etaProj, invEtaProj}
  */
@@ -818,38 +838,22 @@ template <Executor Exec>
 SEISSOL_HOSTDEVICE inline std::pair<real, real>
     projectEta(const ImpedancesAndEta& impAndEta,
                [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
-               const FaultStresses<Exec>& faultStresses,
+               [[maybe_unused]] const FaultStresses<Exec>& faultStresses,
                [[maybe_unused]] uint32_t index,
                [[maybe_unused]] real t1,
                [[maybe_unused]] real t2,
                [[maybe_unused]] real tmag) {
-  if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
-    // Formed at this node in the precomputation, from the state that was
-    // there; a friction law has no way back to it. Projected onto the slip
-    // direction the same way an anisotropic face projects its own, because
-    // the tangent this material carries couples the two shear modes.
+  if constexpr (CoupledImpedance) {
     constexpr std::uint32_t Count = 3;
-
-    const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
-    const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
-
-    const auto entry = [&](std::uint32_t row, std::uint32_t col) {
-      return VariableIndexing<Exec>::index(faultStresses.eta[Count * col + row], index);
+    const auto eta = [&](std::uint32_t entry) {
+      return etaEntry(impedanceMatrices, faultStresses, index, entry);
     };
-    const real etaProj = entry(1, 1) * n1 * n1 + entry(2, 1) * n1 * n2 + entry(1, 2) * n2 * n1 +
-                         entry(2, 2) * n2 * n2;
-    return std::pair<real, real>{etaProj, static_cast<real>(1.0) / etaProj};
-  } else if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-    // the anisotropic block is always 3x3 (no fluid pressure component)
-    constexpr std::uint32_t Count = 3;
 
     const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
     const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
 
-    const real etaProj = impedanceMatrices.eta[Count * 1 + 1] * n1 * n1 +
-                         impedanceMatrices.eta[Count * 1 + 2] * n1 * n2 +
-                         impedanceMatrices.eta[Count * 2 + 1] * n2 * n1 +
-                         impedanceMatrices.eta[Count * 2 + 2] * n2 * n2;
+    const real etaProj = eta(Count * 1 + 1) * n1 * n1 + eta(Count * 1 + 2) * n1 * n2 +
+                         eta(Count * 2 + 1) * n2 * n1 + eta(Count * 2 + 2) * n2 * n2;
 
     return {etaProj, static_cast<real>(1.0) / etaProj};
   } else {
@@ -858,8 +862,7 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
 }
 
 /**
-  Anisotropy normal/shear coupling handling.
-  Has no effect for isotropy.
+  Normal/shear coupling of the impedance.
 
   Returns the coefficient
 
@@ -871,63 +874,55 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
     sigma(V) = sigma_stick - V * c,
 
   i.e. shear slip changes the normal stress whenever eta is not block diagonal in the fault-normal
-  direction. c is identically zero for every isotropic material, so the whole correction disappears
-  there.
+  direction. c is identically zero wherever the impedance does not couple the modes of a face, so
+  the whole correction disappears there.
  */
 template <Executor Exec>
 SEISSOL_HOSTDEVICE inline real
     projectEtaNormal([[maybe_unused]] const ImpedancesAndEta& impAndEta,
                      [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
-                     const FaultStresses<Exec>& faultStresses,
+                     [[maybe_unused]] const FaultStresses<Exec>& faultStresses,
                      [[maybe_unused]] uint32_t index,
                      [[maybe_unused]] real t1,
                      [[maybe_unused]] real t2,
                      [[maybe_unused]] real tmag) {
-  if constexpr (model::MaterialT::Type == model::MaterialType::Damage) {
-    // The tangent this material carries couples the normal mode of a face to
-    // its shear modes, so there is a row to read rather than a zero to state.
+  if constexpr (CoupledImpedance) {
     constexpr std::uint32_t Count = 3;
+    const auto eta = [&](std::uint32_t entry) {
+      return etaEntry(impedanceMatrices, faultStresses, index, entry);
+    };
 
     const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
     const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
 
-    return VariableIndexing<Exec>::index(faultStresses.eta[Count * 1 + 0], index) * n1 +
-           VariableIndexing<Exec>::index(faultStresses.eta[Count * 2 + 0], index) * n2;
-  } else if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-    // the anisotropic block is always 3x3 (no fluid pressure component)
-    constexpr std::uint32_t Count = 3;
-
-    const real n1 = (tmag > 0) ? (t1 / tmag) : static_cast<real>(1.0);
-    const real n2 = (tmag > 0) ? (t2 / tmag) : static_cast<real>(0.0);
-
-    // eta is a dense, column-major tensor: eta[col * Count + row]
-    return impedanceMatrices.eta[Count * 1 + 0] * n1 + impedanceMatrices.eta[Count * 2 + 0] * n2;
+    return eta(Count * 1 + 0) * n1 + eta(Count * 2 + 0) * n2;
   } else {
     return static_cast<real>(0.0);
   }
 }
 
 /**
-  Anisotropy direction handling.
-  Has no effect for isotropy.
+  The shear components of eta * (0, v1, v2), the traction a slip rate takes off the trial one.
+  eta_s * v wherever the impedance does not couple the modes of a face.
 
   Returns a 2-element vector
  */
+template <Executor Exec>
 SEISSOL_HOSTDEVICE inline std::pair<real, real>
     matmulEta(const ImpedancesAndEta& impAndEta,
               [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+              [[maybe_unused]] const FaultStresses<Exec>& faultStresses,
+              [[maybe_unused]] uint32_t index,
               real v1,
               real v2) {
-  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-    // the anisotropic block is always 3x3 (no fluid pressure component)
+  if constexpr (CoupledImpedance) {
     constexpr std::uint32_t Count = 3;
+    const auto eta = [&](std::uint32_t entry) {
+      return etaEntry(impedanceMatrices, faultStresses, index, entry);
+    };
 
-    // eta is a dense, column-major tensor: eta[col * Count + row]
-    const real w1 =
-        impedanceMatrices.eta[Count * 1 + 1] * v1 + impedanceMatrices.eta[Count * 2 + 1] * v2;
-
-    const real w2 =
-        impedanceMatrices.eta[Count * 1 + 2] * v1 + impedanceMatrices.eta[Count * 2 + 2] * v2;
+    const real w1 = eta(Count * 1 + 1) * v1 + eta(Count * 2 + 1) * v2;
+    const real w2 = eta(Count * 1 + 2) * v1 + eta(Count * 2 + 2) * v2;
 
     return {w1, w2};
   } else {
@@ -936,8 +931,7 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
 }
 
 /**
-  Anisotropy normal/shear coupling, for a known slip rate vector.
-  Has no effect for isotropy.
+  Normal/shear coupling of the impedance, for a known slip rate vector.
 
   Returns the fault-normal component of eta * (0, v1, v2), i.e.
 
@@ -945,37 +939,40 @@ SEISSOL_HOSTDEVICE inline std::pair<real, real>
 
   so that the fault-normal traction after the solve is sigma = sigma_stick - (eta * v)_n. This is
   the counterpart of projectEtaNormal for the case where the slip rate vector -- and not just its
-  direction -- is known.
+  direction -- is known. Zero wherever the impedance does not couple the modes of a face.
  */
+template <Executor Exec>
 SEISSOL_HOSTDEVICE inline real
     matmulEtaNormal([[maybe_unused]] const ImpedancesAndEta& impAndEta,
                     [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+                    [[maybe_unused]] const FaultStresses<Exec>& faultStresses,
+                    [[maybe_unused]] uint32_t index,
                     [[maybe_unused]] real v1,
                     [[maybe_unused]] real v2) {
-  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-    // the anisotropic block is always 3x3 (no fluid pressure component)
+  if constexpr (CoupledImpedance) {
     constexpr std::uint32_t Count = 3;
+    const auto eta = [&](std::uint32_t entry) {
+      return etaEntry(impedanceMatrices, faultStresses, index, entry);
+    };
 
-    // eta is a dense, column-major tensor: eta[col * Count + row]
-    return impedanceMatrices.eta[Count * 1 + 0] * v1 + impedanceMatrices.eta[Count * 2 + 0] * v2;
+    return eta(Count * 1 + 0) * v1 + eta(Count * 2 + 0) * v2;
   } else {
     return static_cast<real>(0.0);
   }
 }
 
 /**
-  Anisotropy: updates the slip direction.
-  Has no effect for isotropy.
+  Updates the slip direction.
 
-  With a non-isotropic shear impedance block, the slip rate and the trial traction are no longer
-  collinear. The exact condition is
+  With a shear impedance block that is not a multiple of the identity, the slip rate and the trial
+  traction are no longer collinear. The exact condition is
 
     tau0 = (S * I + V * eta_ss) n ,   |n| = 1
 
   hence n = normalize((S * I + V * eta_ss)^-1 tau0). The 2x2 inverse is written out through the
   adjugate; its determinant cancels when normalising, so it is never formed and there is no
   singularity unless S and V both vanish. For eta_ss = eta * I this returns tau0 / |tau0| exactly,
-  i.e. the isotropic case is untouched.
+  and that is all it returns wherever the impedance does not couple the modes of a face.
 
   Sweeping n -> V -> n twice reaches machine precision; a single sweep already brings the relative
   error of |V| from ~1e-4 down to ~1e-8.
@@ -986,23 +983,28 @@ SEISSOL_HOSTDEVICE inline real
   @param[in] slipRate the current slip rate magnitude V
   @param[in] t1, t2, tmag the trial (stick) shear traction and its magnitude
  */
+template <Executor Exec>
 SEISSOL_HOSTDEVICE inline std::pair<real, real>
     updateSlipDirection([[maybe_unused]] const ImpedancesAndEta& impAndEta,
                         [[maybe_unused]] const ImpedanceMatrices& impedanceMatrices,
+                        [[maybe_unused]] const FaultStresses<Exec>& faultStresses,
+                        [[maybe_unused]] uint32_t index,
                         [[maybe_unused]] real strength,
                         [[maybe_unused]] real slipRate,
                         real t1,
                         real t2,
                         real tmag) {
-  if constexpr (model::MaterialT::Type == model::MaterialType::Anisotropic) {
-    // the anisotropic block is always 3x3 (no fluid pressure component)
+  if constexpr (CoupledImpedance) {
     constexpr std::uint32_t Count = 3;
+    const auto eta = [&](std::uint32_t entry) {
+      return etaEntry(impedanceMatrices, faultStresses, index, entry);
+    };
 
     // the very same 2x2 block, in the same convention, that matmulEta and projectEta use
-    const real e11 = impedanceMatrices.eta[Count * 1 + 1];
-    const real e12 = impedanceMatrices.eta[Count * 1 + 2];
-    const real e21 = impedanceMatrices.eta[Count * 2 + 1];
-    const real e22 = impedanceMatrices.eta[Count * 2 + 2];
+    const real e11 = eta(Count * 1 + 1);
+    const real e12 = eta(Count * 1 + 2);
+    const real e21 = eta(Count * 2 + 1);
+    const real e22 = eta(Count * 2 + 2);
 
     // adjugate of (S * I + V * eta_ss), applied to tau0
     const real u1 = (strength + slipRate * e22) * t1 - slipRate * e12 * t2;
@@ -1038,14 +1040,15 @@ struct SlipRateSolution {
  *
  *   tau0 = (S I + V eta_ss) n ,   S = strength + strengthSlope * V * (eta n)_n ,   |n| = 1
  *
- * for the slip rate V and the slip direction n. With an anisotropic impedance the slip is not
- * parallel to the trial traction, and the strength follows the fault-normal traction, which in turn
- * follows the slip rate. Sweeping n -> V -> n twice resolves both: the strength being affine in the
- * normal traction keeps the closed form for V exact, so only the direction has to be iterated, and
- * the first sweep alone reproduces the isotropic formula.
+ * for the slip rate V and the slip direction n. Where the impedance couples the modes of a face the
+ * slip is not parallel to the trial traction, and the strength follows the fault-normal traction,
+ * which in turn follows the slip rate. Sweeping n -> V -> n twice resolves both: the strength being
+ * affine in the normal traction keeps the closed form for V exact, so only the direction has to be
+ * iterated, and the first sweep alone reproduces the isotropic formula.
  *
  * Every projection is a no-op for an isotropic impedance, where n is the direction of tau0 and the
- * result reduces to V = (|tau0| - strength) / eta.
+ * result reduces to V = (|tau0| - strength) / eta. Where the impedance belongs to the node, eta is
+ * the one faultStresses keeps at index.
  */
 template <Executor Exec>
 SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta& impAndEta,
@@ -1077,8 +1080,7 @@ SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta&
 
   // the sweep can only move the direction where the shear block of eta is not a multiple of the
   // identity, so one pass is the exact closed form for every other material
-  constexpr std::uint32_t DirectionSweeps =
-      model::MaterialT::Type == model::MaterialType::Anisotropic ? 2 : 1;
+  constexpr std::uint32_t DirectionSweeps = CoupledImpedance ? 2 : 1;
   for (std::uint32_t sweep = 0; sweep < DirectionSweeps; ++sweep) {
     // S(V) = S0 + slope * (eta * n)_n * V is exact, so the closed form survives
     etaEff = eta + strengthSlope * etaNormal;
@@ -1093,6 +1095,8 @@ SEISSOL_HOSTDEVICE inline SlipRateSolution solveSlipRate(const ImpedancesAndEta&
     const real localStrength = projectedTraction - slipRate * eta;
     const auto [d1, d2] = updateSlipDirection(impAndEta,
                                               impedanceMatrices,
+                                              faultStresses,
+                                              index,
                                               localStrength,
                                               slipRate,
                                               traction1,
