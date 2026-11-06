@@ -125,6 +125,23 @@ class ParameterFile:
                     return value.strip().strip("'\"")
         return None
 
+    def values(self, section):
+        """All assignments of a section, with the names in lower case."""
+        found = {}
+        for name, lines in self.sections:
+            if name.lower() != section.lower():
+                continue
+            for line in lines:
+                match = ASSIGNMENT.match(line)
+                if match is None:
+                    continue
+                value = match.group(4)
+                position = value.find("!")
+                if position >= 0:
+                    value = value[:position]
+                found[match.group(2).lower()] = value.strip().strip("'\"")
+        return found
+
     def render(self):
         parts = []
         for item in self.items:
@@ -272,6 +289,21 @@ def _join_simulations(names, rows):
         f"{name}[{simulation}]" for simulation in simulations for name in quantities
     ]
     return [names[0]] + header, joined
+
+
+def read_receiver_header(path):
+    """Read the ``# name value`` lines of a receiver file's header."""
+    header = {}
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("#"):
+            if stripped and not stripped.upper().startswith(("TITLE", "VARIABLES")):
+                break
+            continue
+        parts = stripped[1:].split()
+        if len(parts) >= 2:
+            header[parts[0]] = parts[1:]
+    return header
 
 
 def receiver_columns(name, simulations):
@@ -1271,6 +1303,308 @@ def _command_snapshot(args):
     return 1 if problems else 0
 
 
+# --------------------------------------------------------------------------
+# exact solutions
+# --------------------------------------------------------------------------
+
+
+def _fault1d_groups(manifest):
+    """The material groups at x < 0 and at x > 0 of a fault1d mesh."""
+    spec = manifest["spec"]
+    if (
+        [list(plane) for plane in spec["faults"]] != [["x", None]]
+        or list(spec["periodic"]) != [False, True, True]
+        or spec["origin"] is not None
+    ):
+        raise SystemExit(
+            f"{manifest['name']} is no fault1d mesh: the exact solution needs the fault "
+            "x = 0 in the middle of a column that is periodic along y and z"
+        )
+    splits = [list(plane) for plane in spec["group_splits"]]
+    base = spec["group_base"]
+    if not splits:
+        return base, base
+    if splits == [["x", None]]:
+        return base, base + 1
+    raise SystemExit(f"{manifest['name']}: groups split elsewhere than at the fault")
+
+
+def _deviation(measured, exact, scale=None):
+    """The largest deviation, relative to the amplitude of the exact signal."""
+    if scale is None:
+        scale = max(abs(value) for value in exact)
+    largest = max(abs(a - b) for a, b in zip(measured, exact))
+    return largest / scale if scale > 0.0 else largest
+
+
+def _event_deviation(measured, exact):
+    """The deviation of the time of an event; an event that happened in only
+    one of the two is infinitely far off, one that happened in neither is not."""
+    if exact is None:
+        return 0.0 if measured == 0.0 else math.inf
+    if measured == 0.0 and exact > 0.0:
+        return math.inf
+    return abs(measured - exact) / exact if exact > 0.0 else abs(measured)
+
+
+def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers):
+    """The deviations of the receivers from the exact solution, per quantity.
+
+    The fault receivers are compared as magnitudes, of the slip rate, the
+    traction and the slip, since which of the two directions on the fault is
+    the strike and which sign it carries is a convention the solution has no
+    business assuming. The direction is checked separately: a friction law
+    slips along the initial traction, which the header of a receiver states in
+    fault coordinates, and an imposed slip rate along the imposed slip. The
+    volume receivers see a plane shear wave: what is not that wave (the
+    velocity across the fault, and every stress component other than the shear
+    on planes parallel to it) counts as deviation.
+
+    Where the receivers report something else than the physical quantity, they
+    are held against what they report: the traction of an imposed slip rate is
+    that of the Godunov state, i.e. of the welded fault, so that the change the
+    imposed slip causes elsewhere stays visible; with thermal pressurization,
+    Pn0 is the effective normal stress, and P_f the pore pressure as a stress,
+    negative where it pushes the faces apart (as tp_iniPressure is given).
+    """
+    exact = {key: value[indices] for key, value in series.items() if _is_series(value)}
+    shear_exact = exact["traction"]
+    deviations = {}
+
+    def worst(name, value):
+        deviations[name] = max(deviations.get(name, 0.0), value)
+
+    for names, rows, header in fault_receivers:
+
+        def column(name, names=names, rows=rows):
+            if name not in names:
+                raise SystemExit(f"the fault receivers do not record {name}")
+            index = names.index(name)
+            return [row[index] for row in rows]
+
+        def magnitude(first, second):
+            return [math.hypot(a, b) for a, b in zip(column(first), column(second))]
+
+        slip_rate = magnitude("SRs", "SRd")
+        worst("slip-rate", _deviation(slip_rate, exact["slip-rate"]))
+        traction_scale = max(abs(value) for value in shear_exact)
+        if problem.imposed:
+            worst(
+                "traction",
+                _deviation(
+                    magnitude("Ts0", "Td0"), exact["locked-traction"], traction_scale
+                ),
+            )
+        else:
+            worst("traction", _deviation(magnitude("Ts0", "Td0"), shear_exact))
+        normal = exact["effective-normal-stress"]
+        normal_scale = max(max(abs(value) for value in normal), traction_scale)
+        worst("normal-stress", _deviation(column("Pn0"), normal, normal_scale))
+        worst("slip", _deviation(magnitude("Sls", "Sld"), exact["slip"]))
+        worst("accumulated-slip", _deviation(column("ASl"), exact["accumulated-slip"]))
+        worst("peak-slip-rate", _deviation(column("PSR"), exact["peak-slip-rate"]))
+        worst(
+            "rupture-time", _event_deviation(column("RT")[-1], series["rupture-time"])
+        )
+        if not problem.imposed:
+            worst("friction", _deviation(column("Mud"), exact["friction"]))
+            # defined for slip weakening, and among the rate-and-state laws for
+            # the one with a weakened friction mu_w only
+            if problem.law in (2, 6, 16, 1058, 103):
+                worst(
+                    "dynamic-stress-time",
+                    _event_deviation(column("DS")[-1], series["dynamic-stress-time"]),
+                )
+        if "state" in exact:
+            state = column("StV")
+            if problem.law == 103:
+                worst("state", _deviation(state, exact["state"]))
+            else:
+                # the state of aging and slip law spans orders of magnitude
+                worst(
+                    "state",
+                    max(
+                        abs(math.log(a) - math.log(b)) if a > 0.0 else math.inf
+                        for a, b in zip(state, exact["state"])
+                    ),
+                )
+        if "pressure-change" in exact:
+            worst("pressure", _deviation(column("P_f"), -exact["pressure-change"]))
+            # the change, which is small against the initial temperature
+            initial = series["temperature"][0]
+            worst(
+                "temperature",
+                _deviation(
+                    [value - initial for value in column("Tmp")],
+                    exact["temperature"] - initial,
+                ),
+            )
+
+        direction = problem.slip_direction()
+        if direction == "traction":
+            direction = (float(header["T_s"][0]), float(header["T_d"][0]))
+        if direction is not None:
+            norm = math.hypot(*direction)
+            limit = 1e-3 * max(exact["slip-rate"])
+            misalignment = 0.0
+            for s, d, rate in zip(column("SRs"), column("SRd"), exact["slip-rate"]):
+                length = math.hypot(s, d)
+                if rate < limit or length == 0.0:
+                    continue
+                cosine = (s * direction[0] + d * direction[1]) / (length * norm)
+                misalignment = max(misalignment, 1.0 - cosine)
+            worst("direction", misalignment)
+
+    for position, (names, rows) in volume_receivers:
+        velocity, stress = problem.radiated(series, position[0])
+        velocity, stress = velocity[indices], stress[indices]
+        index = {name: names.index(name) for name in names}
+        velocity_error = [
+            math.hypot(
+                math.hypot(row[index["v2"]], row[index["v3"]]) - exact_value,
+                row[index["v1"]],
+            )
+            for row, exact_value in zip(rows, velocity)
+        ]
+        stress_error = [
+            math.sqrt(
+                (math.hypot(row[index["s_xy"]], row[index["s_xz"]]) - exact_value) ** 2
+                + sum(
+                    row[index[name]] ** 2 for name in ("s_xx", "s_yy", "s_zz", "s_yz")
+                )
+            )
+            for row, exact_value in zip(rows, stress)
+        ]
+        worst("velocity", max(velocity_error) / max(velocity))
+        worst("stress", max(stress_error) / max(stress))
+    return deviations
+
+
+def _is_series(value):
+    return hasattr(value, "shape") and value.shape != ()
+
+
+def _command_exact(args):
+    """Hold a rupture on a fault1d mesh against the exact solution of its 0D problem."""
+    import fault1d
+
+    result = {"name": f"exact-{args.name}"}
+    case_path = Path(args.case_result)
+    if not case_path.exists():
+        result["status"] = "skipped"
+        result["reason"] = ["the case left no result behind"]
+        record(args.result, result)
+        print("skipped: the case did not report")
+        return SKIP_RETURN_CODE
+    case = json.loads(case_path.read_text(encoding="utf-8"))
+    if case["status"] != "run":
+        result["status"] = "skipped"
+        result["reason"] = [f"the case was skipped: {'; '.join(case['reason'])}"]
+        record(args.result, result)
+        print(result["reason"][0])
+        return SKIP_RETURN_CODE
+    if case.get("problems"):
+        print(
+            "error: the case itself failed; there is nothing to compare",
+            file=sys.stderr,
+        )
+        return 1
+
+    work = Path(args.work)
+    parameters = ParameterFile((work / "parameters.par").read_text(encoding="utf-8"))
+    rupture = parameters.values("DynamicRupture")
+    fault = fault1d.read_constant_maps(work / rupture["modelfilename"]).get(None, {})
+    materials = fault1d.read_constant_maps(
+        work / parameters.get("equations", "MaterialFileName")
+    )
+    manifest = json.loads(Path(args.mesh_manifest).read_text(encoding="utf-8"))
+    left, right = _fault1d_groups(manifest)
+    problem = fault1d.Problem(
+        rupture,
+        fault,
+        fault1d.medium_of(materials, left),
+        fault1d.medium_of(materials, right),
+    )
+
+    prefix = Path(parameters.get("Output", "OutputFile") or "output/out")
+    directory = work / prefix.parent
+    fault_receivers = []
+    for path in sorted(directory.glob(f"{prefix.name}-faultreceiver-*.dat")):
+        names, rows = read_receiver(path)
+        fault_receivers.append((names, rows, read_receiver_header(path)))
+    if not fault_receivers:
+        raise SystemExit("the case wrote no fault receivers")
+    times = [row[0] for row in fault_receivers[0][1]]
+    interval = times[1] - times[0]
+    if any(abs(t - k * interval) > 1e-9 * interval for k, t in enumerate(times)):
+        raise SystemExit(
+            "the fault receivers do not sample at a fixed interval from zero"
+        )
+
+    positions = [
+        [float(value) for value in line.split()]
+        for line in (work / parameters.get("Output", "RFileName"))
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    volume_receivers = []
+    for number, position in enumerate(positions, start=1):
+        path = directory / f"{prefix.name}-receiver-{number:05d}.dat"
+        volume_receivers.append((position, read_receiver(path)))
+
+    # the step of the integration divides the interval of the samples, so that
+    # every sample is a point of the integration
+    step = interval / args.substeps
+    series = problem.solve(times[-1], step)
+    indices = [round(t / step) for t in times]
+    deviations = compare_fault1d(
+        problem, series, indices, fault_receivers, volume_receivers
+    )
+
+    capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))
+    key = "{}/{}/o{}/{}".format(
+        args.name,
+        capabilities["equations"],
+        capabilities["order"],
+        capabilities["precision"],
+    )
+    table = json.loads(Path(args.thresholds).read_text(encoding="utf-8"))
+    wanted = table.get("entries", {}).get(key)
+    problems = []
+    print(
+        "deviations from the exact solution: "
+        + ", ".join(f"{name}={value:.3g}" for name, value in sorted(deviations.items()))
+    )
+    if wanted is None:
+        print(f"no thresholds for {key}")
+    else:
+        for name, limit in sorted(wanted.items()):
+            seen = deviations.get(name)
+            if seen is None:
+                problems.append(f"{name} has a threshold but was not compared")
+            elif limit is None:
+                print(f"{key} {name} = {seen:.6g} (no threshold set)")
+            elif not seen <= limit:
+                problems.append(
+                    f"{name} is {seen:.6g}, above the threshold {limit:.6g}"
+                )
+        unjudged = sorted(set(deviations) - set(wanted))
+        if unjudged:
+            problems.append(f"no threshold for {', '.join(unjudged)}")
+    if args.record:
+        print("record:", json.dumps({key: deviations}))
+
+    result["status"] = "run"
+    result["configuration"] = key
+    result["deviations"] = deviations
+    result["problems"] = problems
+    record(args.result, result)
+    for problem_text in problems:
+        print(f"error: {problem_text}", file=sys.stderr)
+    return 1 if problems else 0
+
+
 def _command_coverage(args):
     """Check that every declared case was run somewhere, not just skipped."""
     declared = json.loads(Path(args.declared).read_text(encoding="utf-8"))
@@ -1435,6 +1769,30 @@ def main(argv=None):
     )
     snapshot.add_argument("--result")
     snapshot.set_defaults(func=_command_snapshot)
+
+    exact = commands.add_parser(
+        "exact", help="hold a rupture on fault1d against its exact solution"
+    )
+    exact.add_argument("--name", required=True)
+    exact.add_argument("--case-result", required=True)
+    exact.add_argument("--work", required=True)
+    exact.add_argument("--mesh-manifest", required=True)
+    exact.add_argument("--capabilities", required=True)
+    exact.add_argument("--thresholds", required=True)
+    exact.add_argument(
+        "--substeps",
+        type=int,
+        default=8,
+        help="steps of the exact integration per sample of the receivers",
+    )
+    exact.add_argument(
+        "--record",
+        action="store_true",
+        default=bool(os.environ.get("SEISSOL_RECORD_THRESHOLDS")),
+        help="print the deviations in a form that can be pasted into the table",
+    )
+    exact.add_argument("--result")
+    exact.set_defaults(func=_command_exact)
 
     coverage = commands.add_parser(
         "coverage", help="account for declared versus run cases"

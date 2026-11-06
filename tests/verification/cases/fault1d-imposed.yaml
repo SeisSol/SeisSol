@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# Imposed slip rates on fault1d, for the Yoffe and the Gaussian source time
+# function: one metre of strike slip within tens of milliseconds. Without an
+# initial stress, the traction is the radiation damping -eta V alone.
+!ConstantMap
+map:
+  strike_slip:       1.0
+  dip_slip:          0.0
+  rupture_onset:     1.5625e-02
+  tau_S:             1.5625e-02
+  tau_R:             6.25e-02
+  rupture_rise_time: 6.25e-02

@@ -474,6 +474,59 @@ seissol_add_comparison(
     LABELS "identity;dr")
 
 # ---------------------------------------------------------------------------
+# Stage 2: friction laws against an exact solution (seissol_add_fault1d).
+#
+# On fault1d, a uniform fault stays uniform: nothing is transferred along it,
+# each side radiates a plane shear wave, and every point of the fault solves the
+# same ordinary differential equation, which fault1d.py integrates to far below
+# the error of the case. The fault receivers are compared with it, and so are
+# the receivers in the volume, which the wave reaches. What this cannot see is
+# a rupture front: there is none on a fault that breaks everywhere at once.
+#
+# The inputs are those of the cases on fault48, slowed down where the friction
+# law would change the slip rate within a few steps: a shear wave takes ten
+# milliseconds through a cell of fault1d, and a slip rate that changes faster
+# sends out a wave the mesh does not resolve. Like the convergence cases, these
+# run for long, so they carry that label too.
+# ---------------------------------------------------------------------------
+
+set(SEISSOL_FAULT1D_TP_OUTPUT "Pickpoint.OutputMask=1 1 1 1 1 1 0 1 1 1 1 1")
+
+seissol_add_fault1d(NAME fault1d-lsw FL 16 FAULT fault1d-lsw.yaml LABELS convergence)
+# the forced rupture weakens the fault over t_0
+seissol_add_fault1d(NAME fault1d-lsw-forced FL 16 FAULT fault1d-lsw-forced.yaml
+                    SET ${SEISSOL_NO_NUCLEATION} "DynamicRupture.t_0=3.125e-02"
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-lsw-tpapprox FL 1058 FAULT fault1d-lsw.yaml
+                    LABELS convergence)
+# the radiation damping of two media; across a fault that slips uniformly, the
+# normal stress does not change, so the Prakash-Clifton regularization holds it
+seissol_add_fault1d(NAME fault1d-lsw-bimaterial FL 6 FAULT fault1d-lsw.yaml
+                    MESH fault1d-bimaterial
+                    SET "DynamicRupture.pc_vstar=0.1" "DynamicRupture.pc_prakashLength=0.1"
+                    LABELS convergence)
+foreach (law aging:3 slip:4)
+  string(REPLACE ":" ";" law ${law})
+  list(GET law 0 name)
+  list(GET law 1 number)
+  seissol_add_fault1d(NAME fault1d-rs-${name} FL ${number} FAULT fault1d-rs-${name}.yaml
+                      STEPS 2048 SET ${SEISSOL_RS} LABELS convergence)
+endforeach()
+seissol_add_fault1d(NAME fault1d-rs-fvw FL 103 FAULT fault1d-rs-fvw.yaml
+                    STEPS 2048 SET ${SEISSOL_RS_FVW} LABELS convergence)
+seissol_add_fault1d(NAME fault1d-rs-fvw-tp FL 103 FAULT fault1d-rs-fvw-tp.yaml
+                    STEPS 2048 SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS convergence)
+foreach (law yoffe:33 gaussian:34)
+  string(REPLACE ":" ";" law ${law})
+  list(GET law 0 name)
+  list(GET law 1 number)
+  seissol_add_fault1d(NAME fault1d-imposed-${name} FL ${number} FAULT fault1d-imposed.yaml
+                      STEPS 2048 SET "DynamicRupture.SlipRateOutputType=0"
+                      LABELS convergence)
+endforeach()
+
+# ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic
 # mesh, so this is the mesh the measurement runs on. 256 steps of 2^-14 s let
 # the P wave cross about one wavelength. The thresholds are deliberately

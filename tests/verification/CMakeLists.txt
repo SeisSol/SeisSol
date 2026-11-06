@@ -465,6 +465,60 @@ function(seissol_add_rupture)
 endfunction()
 
 # ---------------------------------------------------------------------------
+# seissol_add_fault1d(NAME <name> FL <law> FAULT <file> [MESH mesh] [STEPS n]
+#                     [SET ...] [LABELS label ...])
+#
+# A friction law on a fault1d mesh, held against the exact solution of the
+# ordinary differential equation that every point of a uniform fault solves
+# there (see fault1d.py). The run is a case of its own, without a snapshot,
+# since the exact solution is the better reference; the comparison is a test of
+# its own, so that it can be repeated, and its thresholds recorded, without
+# running SeisSol again.
+# ---------------------------------------------------------------------------
+
+function(seissol_add_fault1d)
+  cmake_parse_arguments(F1D "" "NAME;FL;FAULT;MESH;STEPS" "SET;LABELS" ${ARGN})
+  if (NOT F1D_MESH)
+    set(F1D_MESH fault1d)
+  endif()
+  if (NOT F1D_STEPS)
+    set(F1D_STEPS 1536)
+  endif()
+  seissol_add_minitest(
+      NAME ${F1D_NAME}
+      MESH ${F1D_MESH}
+      PARAMETERS rupture1d.par
+      FILES ${F1D_FAULT} faultreceiver.dat
+      STEPS ${F1D_STEPS}
+      REQUIRE equations=elastic
+      SET "DynamicRupture.FL=${F1D_FL}"
+          "DynamicRupture.ModelFileName='${F1D_FAULT}'"
+          ${F1D_SET}
+      NO_SNAPSHOT
+      ACTIVITY "SRs|SRd:1e-3"
+      LABELS "dr;exact;${F1D_LABELS}")
+
+  add_test(NAME verification.exact.${F1D_NAME}${SEISSOL_VERIFICATION_SUFFIX}
+           COMMAND ${Python3_EXECUTABLE}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py exact
+                   --name ${F1D_NAME}
+                   --case-result ${SEISSOL_VERIFICATION_DIR}/results/${F1D_NAME}.json
+                   --work ${SEISSOL_VERIFICATION_DIR}/work/${F1D_NAME}
+                   --mesh-manifest ${SEISSOL_MINIMESH_DIR}/${F1D_MESH}.json
+                   --capabilities ${SEISSOL_VERIFICATION_DIR}/capabilities.json
+                   --thresholds ${CMAKE_CURRENT_SOURCE_DIR}/cases/thresholds-fault1d.json
+                   --result ${SEISSOL_VERIFICATION_DIR}/results/exact-${F1D_NAME}.json)
+  set_tests_properties(verification.exact.${F1D_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
+      SKIP_RETURN_CODE 77
+      FIXTURES_REQUIRED
+      "case.${SEISSOL_VERIFICATION_CONFIG}.${F1D_NAME};minimesh.${F1D_MESH};verification"
+      TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
+      LABELS "verification;dr;exact;${F1D_LABELS}")
+  set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
+      "    {\"name\": \"exact-${F1D_NAME}\", \"mesh\": \"${F1D_MESH}\", \"requires\": []},\n")
+endfunction()
+
+# ---------------------------------------------------------------------------
 # The cases of Cases.cmake, for every configuration they are registered for.
 #
 # The tests of a configuration carry its name, as in
