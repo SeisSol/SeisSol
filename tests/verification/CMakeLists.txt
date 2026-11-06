@@ -144,6 +144,13 @@ add_test(NAME verification.minimesh.self-test
 set_tests_properties(verification.minimesh.self-test PROPERTIES
                      LABELS "verification;smoke")
 
+# the exact solution of the fault1d cases, against what is known in closed form
+add_test(NAME verification.fault1d.self-test
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/fault1d.py self-test)
+set_tests_properties(verification.fault1d.self-test PROPERTIES
+                     LABELS "verification;smoke;dr")
+
 # every receiver strictly inside a cell of every mesh; see minimesh.py locate
 get_property(meshes GLOBAL PROPERTY SEISSOL_MINIMESHES)
 set(mesh_files "")
