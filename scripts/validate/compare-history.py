@@ -289,11 +289,15 @@ def _increasing(time: np.ndarray) -> np.ndarray:
 
 
 def read_text_coordinates(path: str) -> tuple | None:
-    """The position a text receiver file states in its "# x1", "# x2", "# x3" lines."""
+    """The position a text receiver file states in its "# x1", "# x2", "# x3" lines.
+
+    From 16 to 25 June 2025, the fault receivers put the numbers of the receiver and
+    the simulation before them ("# 1,1 x1").
+    """
     point = {}
     with open(path) as handle:
         for number, line in enumerate(handle):
-            match = re.match(r"\s*#\s*x([123])\s+(\S+)", line)
+            match = re.match(r"\s*#\s*(?:\d+(?:,\d+)*\s+)?x([123])\s+(\S+)", line)
             if match:
                 point[int(match.group(1))] = float(
                     match.group(2).replace("D", "E").replace("d", "e")
@@ -317,9 +321,15 @@ def receiver_coordinates(directory: str, prefix: str, file_type: str) -> dict:
 
         group_name, id_name = _HDF5_LAYOUT[file_type]
         with h5py.File(path, "r") as handle:
-            group = handle[group_name]
-            numbers = group[id_name][:] + 1
-            points = group["Coordinates"][:]
+            if group_name in handle:
+                group = handle[group_name]
+                numbers = group[id_name][:] + 1
+                points = group["Coordinates"][:]
+            else:
+                # the off-fault receivers of April to September 2026, which list all
+                # points in the order of the input (see compare_receivers)
+                points = handle["Coordinates"][:]
+                numbers = np.arange(1, len(points) + 1)
         coordinates = {}
         for number, point in zip(numbers, points):
             coordinates.setdefault(int(number), tuple(float(x) for x in point))
@@ -411,12 +421,28 @@ def energy_table(frame: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
+def read_energy_csv(path: str) -> pd.DataFrame:
+    """The energy output as written.
+
+    From 12 to 25 March 2025, SeisSol wrote the momentum rows with an empty field
+    too many ("0.0,momentumX,,1.5"); such a row is read without its empty fields.
+    """
+    with open(path) as handle:
+        width = len(handle.readline().split(","))
+
+    def repair(fields: list[str]) -> list[str] | None:
+        kept = [field for field in fields if field.strip()]
+        return kept if len(kept) == width else None
+
+    return pd.read_csv(path, engine="python", on_bad_lines=repair)
+
+
 def read_moment(directory: str, prefix: str) -> Station | None:
     """The moment rate, from the seismic moment of the energy output."""
     path = os.path.join(directory, f"{prefix}-energy.csv")
     if not os.path.isfile(path):
         return None
-    frame = energy_table(pd.read_csv(path))
+    frame = energy_table(read_energy_csv(path))
     if "seismic_moment" not in frame.columns:
         return None
     time = frame["time"].to_numpy(dtype=float)

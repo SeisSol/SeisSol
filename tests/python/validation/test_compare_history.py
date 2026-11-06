@@ -477,6 +477,71 @@ class TestReadingRuns:
         # displacement is the integral of the velocity
         assert station.fields["h-disp"][-1] == pytest.approx(0.5, rel=1e-2)
 
+    def test_fault_receivers_with_numbers_before_the_coordinates(self, tmp_path):
+        # the header of 16 to 25 June 2025; the number of the file does not matter,
+        # the station is named after the position
+        time = np.linspace(0.0, 1.0, 11)
+        with open(tmp_path / "tpv-faultreceiver-00000.dat", "w") as handle:
+            handle.write('TITLE = "Temporal Signal for fault receiver 1,1;"\n')
+            handle.write('VARIABLES = "Time", "SRs", "SRd", "Ts0", "Pn0"\n')
+            for axis, value in zip(("x1", "x2", "x3"), (-9000.0, 0.0, -7500.0)):
+                handle.write(f"# 1,1 {axis}\t{value:.16e}\n")
+            handle.write("# 1,1 P_0\t-1.2e+08\n")
+            for t in time:
+                handle.write(f"{t:.16e}\t{t:.16e}\t0.0\t4.0e+07\t-1.2e+08\n")
+        stations = ch.read_fault_receivers(
+            str(tmp_path), "tpv", ch.Axes.from_spec(None)
+        )
+        assert sorted(stations) == ["faultst-090dp075"]
+        assert stations["faultst-090dp075"].fields["h-shear-stress"][0] == (
+            pytest.approx(40.0)
+        )
+
+    def test_hdf5_receivers_of_the_first_layout(self, tmp_path):
+        # the off-fault receivers of April to September 2026: one array over time,
+        # receiver and quantity; the second receiver took one sample less, left at 0
+        h5py = pytest.importorskip("h5py")
+        times = np.linspace(0.0, 1.0, 11)
+        names = ["Time", "s_xx", "v1", "v2", "v3"]
+        data = np.zeros((len(times), 2, len(names)))
+        for receiver, sign in enumerate((1.0, -1.0)):
+            data[:, receiver, 0] = times
+            data[:, receiver, 2] = sign * times
+            data[:, receiver, 3] = 2 * times
+        data[-1, 1, :] = 0.0
+        with h5py.File(tmp_path / "tpv-receivers.h5", "w") as handle:
+            handle["Coordinates"] = np.array(
+                [(12000.0, 6000.0, -0.1), (12000.0, -6000.0, -0.1)]
+            )
+            handle["ReceiverData"] = data
+            handle["ReceiverData"].attrs["VariableNames"] = np.array(
+                [name.encode() for name in names]
+            )
+        stations = ch.read_receivers(str(tmp_path), "tpv", ch.Axes.from_spec(None))
+        assert sorted(stations) == ["body-060st120dp000", "body060st120dp000"]
+        assert stations["body060st120dp000"].fields["h-vel"] == pytest.approx(times)
+        assert stations["body-060st120dp000"].time == pytest.approx(times[:-1])
+        assert stations["body-060st120dp000"].fields["h-vel"] == pytest.approx(
+            -times[:-1]
+        )
+
+    def test_energy_output_with_empty_fields(self, tmp_path):
+        # as written from 12 to 25 March 2025: the momentum rows have an empty field
+        # too many
+        rows = ["time,variable,measurement"]
+        for time, moment in ((0.0, 0.0), (1.0, 2.0), (2.0, 6.0)):
+            rows += [
+                f"{time},elastic_energy,1.0",
+                f"{time},momentumX,,0.5",
+                f"{time},seismic_moment,{moment}",
+            ]
+        (tmp_path / "tpv-energy.csv").write_text("\n".join(rows) + "\n")
+        moment = ch.read_moment(str(tmp_path), "tpv")
+        assert moment.time.tolist() == [0.0, 1.0, 2.0]
+        assert moment.fields["moment"].tolist() == [0.0, 2.0, 6.0]
+        table = ch.energy_table(ch.read_energy_csv(str(tmp_path / "tpv-energy.csv")))
+        assert table["momentumX"].tolist() == [0.5, 0.5, 0.5]
+
     def test_fault_output(self, tmp_path):
         pytest.importorskip("seissolxdmf")
         vertices, cells = fault_mesh()
