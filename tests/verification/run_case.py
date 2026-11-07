@@ -2075,10 +2075,16 @@ def _compare_antiplane_case(
             _save_reference(path, reference)
             print(f"the spectral solution is kept in {path}")
     frame = fault1d.fault_frame(fault1d.Inputs(rupture, {}))
-    return _worst(
+    deviations = _worst(
         compare_antiplane(solver, reference, frame, faults, volumes, law, gauss)
         for faults, volumes in simulations
     )
+    unavailable = None
+    if not any(gauss):
+        unavailable = (
+            "no fault receiver lies on a Gauss point of the fault of this build"
+        )
+    return deviations, unavailable
 
 
 def _command_exact(args):
@@ -2181,11 +2187,13 @@ def _command_exact(args):
     # the step of the integration divides the interval of the samples, so that
     # every sample is a point of the integration
     step = interval / args.substeps
+    # why the quantities of the Gauss points were not compared, if they were not
+    unavailable = None
     try:
         if manifest["spec"]["periodic"][0]:
             # whatever the fault sends out returns to it; only the spectral
             # method takes this into account
-            deviations = _compare_antiplane_case(
+            deviations, unavailable = _compare_antiplane_case(
                 args, rupture, model, manifest, left, right, interval, simulations
             )
         elif fault is None:
@@ -2233,7 +2241,9 @@ def _command_exact(args):
     else:
         for name, limit in sorted(wanted.items()):
             seen = deviations.get(name)
-            if seen is None:
+            if seen is None and unavailable is not None and name not in _AT_RECEIVER:
+                print(f"{name} is not compared: {unavailable}")
+            elif seen is None:
                 problems.append(f"{name} has a threshold but was not compared")
             elif limit is None:
                 print(f"{key} {name} = {seen:.6g} (no threshold set)")

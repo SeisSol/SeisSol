@@ -153,7 +153,9 @@ stress time (see :doc:`fault-output`). On ``fault2d-periodic``, the fault
 receivers lie on Gauss points of the fault of the quadrature of order 6, so
 that all of this holds at their position; the comparison checks that they do,
 for the quadrature of the build, and compares the quantities of the Gauss
-points only where they do.
+points only where they do. Where none of them does, as with Stroud's rules,
+whose points depend on the order of the vertices of a face, the thresholds of
+those quantities are not applied either.
 
 Each quantity is compared as its largest deviation over time, relative to the
 largest value of the exact solution, the events as their deviation relative
