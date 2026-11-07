@@ -36,6 +36,12 @@ output (``OutputFile`` is the prefix):
   summed over the ranks.
 * ``<prefix>-ranks.csv``, a row per rank, written at the end of the run: the values of the rank that the summary gives
   the statistics of over the ranks (see below).
+* ``<prefix>-log.jsonl``, the log of rank 0 as JSON Lines, an object per message, appended to: its ``time`` (ISO 8601,
+  UTC), ``level``, ``rank`` and the ``run`` ID; the ``message``; its ``template``, the message with each value
+  replaced by ``{}``, which is the same for every message of a kind; its ``arguments``, the values in the order of the
+  ``{}``; ``fields``, the values the code gives a name; and the ``source`` in the code (``file``, ``line``,
+  ``function``). The messages from before the file is opened, those on the parameters among them, come first; a fatal
+  error is the last line.
 
 An epoch ends at every synchronization point, i.e. wherever an output is due. A run without outputs, such as a
 benchmark, has a single epoch, and reports how fast it goes at its end only. ``EpochInterval`` in the ``output``

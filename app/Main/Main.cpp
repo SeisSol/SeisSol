@@ -221,6 +221,8 @@ int main(int argc, char* argv[]) {
         [](const utils::LogRecord& /*record*/) { MPI_Abort(seissol::Mpi::mpi.comm(), 134); });
 
     const auto runId = determineRunId(env);
+    // every message from now on carries the ID of the run, in the JSON lines of the log
+    utils::Logger::setField("run", runId);
 
     LIKWID_MARKER_INIT;
 #pragma omp parallel
