@@ -48,6 +48,8 @@ struct Wp {
     Analytical,
     QEtaNodal,
     Integrals,
+    // per face of the nonlinear Dirichlet boundary, its block of LTS::NonlinearDirichletScratch
+    NonlinearDirichletScratch,
     // a time integral of a neighbor of another configuration in the canonical form of the family
     CanonicalIdofs,
     // the coupling matrix of a face towards a neighbor of another family
@@ -107,7 +109,8 @@ enum struct ComputationKind : size_t {
   FreeSurfaceGravity = 1 << 6,
   Dirichlet = 1 << 7,
   Analytical = 1 << 8,
-  Count = 9,
+  NonlinearDirichlet = 1 << 9,
+  Count = 10,
   None = encodeAny(Count)
 };
 

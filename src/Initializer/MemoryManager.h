@@ -27,7 +27,9 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
+#include "Physics/GhostState.h"
 #include "Physics/InitialField.h"
+#include "Physics/NonlinearDirichlet.h"
 
 #include <memory>
 #include <mpi.h>
@@ -63,6 +65,13 @@ class MemoryManager {
 
   // the initial conditions of the cells of each configuration, by its id
   std::vector<std::vector<std::unique_ptr<physics::InitialField>>> iniConds_;
+
+  // the condition of the nonlinear Dirichlet boundary of each configuration, by its id
+  std::vector<std::unique_ptr<physics::NonlinearDirichlet>> nonlinearDirichlet_;
+
+  // the ghost state of the analytical boundary of each configuration, by its id, if its initial
+  // condition is a script that compiles
+  std::vector<std::unique_ptr<physics::AnalyticalGhostState>> analyticalGhostState_;
 
   DynamicRupture::Backmap drBackmap_;
 
@@ -136,6 +145,31 @@ class MemoryManager {
   /// The initial conditions of the cells of every configuration, by its id.
   const std::vector<std::vector<std::unique_ptr<physics::InitialField>>>& initialConditions() {
     return iniConds_;
+  }
+
+  void setNonlinearDirichlet(ConfigId config,
+                             std::unique_ptr<physics::NonlinearDirichlet> condition) {
+    nonlinearDirichlet_.at(config) = std::move(condition);
+  }
+
+  /// Where the condition of the nonlinear Dirichlet boundary of the configuration `config` is
+  /// kept, null if there is none; the reference stays valid, the condition is set during the setup.
+  [[nodiscard]] const std::unique_ptr<physics::NonlinearDirichlet>&
+      nonlinearDirichlet(ConfigId config) const {
+    return nonlinearDirichlet_.at(config);
+  }
+
+  void setAnalyticalGhostState(ConfigId config,
+                               std::unique_ptr<physics::AnalyticalGhostState> state) {
+    analyticalGhostState_.at(config) = std::move(state);
+  }
+
+  /// Where the ghost state of the analytical boundary of the configuration `config` is kept, null
+  /// if its initial condition is no script that compiles (or it has no such boundary); the
+  /// reference stays valid, the ghost state is set during the setup.
+  [[nodiscard]] const std::unique_ptr<physics::AnalyticalGhostState>&
+      analyticalGhostState(ConfigId config) const {
+    return analyticalGhostState_.at(config);
   }
 
   const dr::friction_law::FrictionSolverFactory& frictionLaw() { return frictionLaw_; }

@@ -11,12 +11,15 @@
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
+#include "Model/ScriptParameters.h"
 
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <limits>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace seissol::model {
@@ -92,7 +95,9 @@ struct PoroElasticMaterial : public ElasticMaterial {
   /// boundary; unbounded, the pore pressure is continuous across it (see sideConductance).
   double interfaceConductance{std::numeric_limits<double>::infinity()};
 
-  static const std::unordered_map<std::string, double PoroElasticMaterial::*> ParameterMap;
+  /// The parameters a material file gives, in the order scripts read them
+  /// (model::scriptParameterNames).
+  static const std::array<std::pair<std::string, double PoroElasticMaterial::*>, 10> ParameterList;
   /// The parameters that a material file may leave out, at their defaults then.
   static const std::unordered_map<std::string, double PoroElasticMaterial::*> OptionalParameterMap;
 
@@ -126,13 +131,15 @@ struct PoroElasticMaterial : public ElasticMaterial {
   [[nodiscard]] double getSWaveSpeed() const override { return std::sqrt(mu / rho); }
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
+
+  void scriptParameters(double* values) const override;
 };
 
-inline const std::unordered_map<std::string, double PoroElasticMaterial::*>
-    PoroElasticMaterial::ParameterMap{
+inline const std::array<std::pair<std::string, double PoroElasticMaterial::*>, 10>
+    PoroElasticMaterial::ParameterList{{
         {"rho", &PoroElasticMaterial::rho},
-        {"lambda", &PoroElasticMaterial::lambda},
         {"mu", &PoroElasticMaterial::mu},
+        {"lambda", &PoroElasticMaterial::lambda},
         {"bulk_solid", &PoroElasticMaterial::bulkSolid},
         {"porosity", &PoroElasticMaterial::porosity},
         {"permeability", &PoroElasticMaterial::permeability},
@@ -140,7 +147,11 @@ inline const std::unordered_map<std::string, double PoroElasticMaterial::*>
         {"bulk_fluid", &PoroElasticMaterial::bulkFluid},
         {"rho_fluid", &PoroElasticMaterial::rhoFluid},
         {"viscosity", &PoroElasticMaterial::viscosity},
-    };
+    }};
+
+inline void PoroElasticMaterial::scriptParameters(double* values) const {
+  fillScriptParameters(*this, values);
+}
 
 inline const std::unordered_map<std::string, double PoroElasticMaterial::*>
     PoroElasticMaterial::OptionalParameterMap{

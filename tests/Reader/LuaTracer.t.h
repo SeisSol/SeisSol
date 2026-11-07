@@ -1,0 +1,828 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+// Every script is a string literal here rather than a file on disk: the corpus
+// is small, the tests are then hermetic (no path resolution, no install step,
+// no risk of a test passing because it silently read a stale file), and a
+// failing case can be pasted straight into a bug report.
+//
+// The suite has three layers, matching the three things that can go wrong:
+//   POSITIVE     a script traces, and the resulting Program has the signature
+//                and shape it should
+//   NEGATIVE     a script that would trace WRONG is refused, with the right
+//                cause -- checking the cause and not merely "it failed" is the
+//                point, because the four detection nets are independent and a
+//                test that only asserts failure cannot tell which one fired
+//   DIFFERENTIAL the traced Program and the interpreted LuaReader agree
+//                numerically on the same points
+
+#include <doctest.h>
+
+#include "Expr/Backend.h"
+#include "Expr/Binding.h"
+#include "Expr/Program.h"
+#include "Reader/Datafield/Grid.h"
+#include "Reader/Scripting/CompiledReader.h"
+#include "Reader/Scripting/DataTable.h"
+#include "Reader/Scripting/LuaReader.h"
+#include "Reader/Scripting/LuaTracer.h"
+#include "TestHelper.h"
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace seissol::unit_test {
+
+using namespace seissol::reader::scripting;
+using Cause = TraceFailure::Cause;
+
+namespace {
+
+// ---------------------------------------------------------------- corpus ---
+
+constexpr auto PlanarWave = R"lua(
+local M = {}
+M.output_parameters = {"u", "v", "w"}
+-- Declared only because the INTERPRETED reader needs it; the tracer derives
+-- the signature from the prototype and ignores this. Kept in step with
+-- M.evaluate's parameter list by hand -- which is exactly the maintenance the
+-- tracer exists to remove.
+M.input_parameters = {"x", "y", "z", "t"}
+
+local kx, ky, kz = 1.0, 0.5, -0.25
+local omega = 2.0
+
+function M.evaluate(fields, x, y, z, t)
+  local phase = kx*x + ky*y + kz*z - omega*t
+  local a = math.sin(phase)
+  local b = math.cos(phase)
+  local amp = 0.0
+  for i = 1, 3 do
+    amp = amp + 1.0 / i
+  end
+  return amp*a, amp*b, amp*(a + b)
+end
+
+return M
+)lua";
+
+constexpr auto LayeredSelect = R"lua(
+local M = {}
+M.output_parameters = {"rho"}
+M.input_parameters = {"x", "y", "z"}
+
+function M.evaluate(fields, x, y, z)
+  local shallow = ssol.gt(z, -1000.0)
+  return ssol.select(shallow, 2200.0 + 0.1*z, 2700.0)
+end
+
+return M
+)lua";
+
+constexpr auto GridSample = R"lua(
+local M = {}
+M.output_parameters = {"rho", "mu", "lambda"}
+M.field_specs = {
+  { name = "field_0001", kind = "asagi", file = "model.nc",
+    interpolation = "linear", parameters = {"rho", "vp", "vs"} },
+}
+
+function M.evaluate(fields, x, y, z)
+  local rho, vp, vs = fields.field_0001:sample(x, y, z)
+  local mu = rho * vs * vs
+  return rho, mu, rho*vp*vp - 2.0*mu
+end
+
+return M
+)lua";
+
+constexpr auto SharedSubexpression = R"lua(
+local M = {}
+M.output_parameters = {"a", "b"}
+M.input_parameters = {"x", "y"}
+
+function M.evaluate(fields, x, y)
+  local r = math.sqrt(x*x + y*y)
+  return r + 1.0, r * 2.0
+end
+
+return M
+)lua";
+
+constexpr auto RawIfGreater = R"lua(
+local M = {}
+M.output_parameters = {"rho"}
+
+function M.evaluate(fields, x, y, z)
+  if z > -1000.0 then
+    return 2200.0
+  else
+    return 2700.0
+  end
+end
+
+return M
+)lua";
+
+constexpr auto RawIfEqual = R"lua(
+local M = {}
+M.output_parameters = {"rho"}
+
+function M.evaluate(fields, x, y, z)
+  if z == 0.0 then
+    return 1000.0
+  end
+  return 2700.0 + 0.0*z
+end
+
+return M
+)lua";
+
+constexpr auto ConditionInRawIf = R"lua(
+local M = {}
+M.output_parameters = {"rho"}
+
+function M.evaluate(fields, x, y, z)
+  local shallow = ssol.gt(z, -1000.0)
+  if shallow then
+    return 2200.0 + 0.0*z
+  end
+  return 2700.0 + 0.0*z
+end
+
+return M
+)lua";
+
+constexpr auto MutatesModuleState = R"lua(
+local M = {}
+M.output_parameters = {"n"}
+
+local counter = 0
+
+function M.evaluate(fields, x)
+  counter = counter + 1
+  return x + counter
+end
+
+return M
+)lua";
+
+constexpr auto VariadicEvaluate = R"lua(
+local M = {}
+M.output_parameters = {"a"}
+function M.evaluate(...)
+  local fields, x = ...
+  return x + 1.0
+end
+return M
+)lua";
+
+constexpr auto MethodSyntaxEvaluate = R"lua(
+local M = {}
+M.output_parameters = {"a"}
+function M:evaluate(fields, x)
+  return x + 1.0
+end
+return M
+)lua";
+
+constexpr auto OutputCountMismatch = R"lua(
+local M = {}
+M.output_parameters = {"a", "b"}
+function M.evaluate(fields, x)
+  return x
+end
+return M
+)lua";
+
+constexpr auto TableIterationOrder = R"lua(
+local M = {}
+M.output_parameters = {"s"}
+local coeffs = { a = 1.0, b = 2.0, c = 3.0, d = 4.0, e = 5.0, f = 6.0 }
+function M.evaluate(fields, x)
+  local s = 0.0
+  for k, v in pairs(coeffs) do s = s + v * x end
+  return s
+end
+return M
+)lua";
+
+constexpr auto UntraceableMathFmod = R"lua(
+local M = {}
+M.output_parameters = {"m"}
+function M.evaluate(fields, x)
+  return math.fmod(x, 3.0)
+end
+return M
+)lua";
+
+constexpr auto LuaFloorMod = R"lua(
+local M = {}
+M.output_parameters = {"m"}
+function M.evaluate(fields, x)
+  return x % 3.0
+end
+return M
+)lua";
+
+constexpr auto TooManyCoordinates = R"lua(
+local M = {}
+M.output_parameters = {"a"}
+M.field_specs = {
+  { name = "g", kind = "asagi", file = "f.nc", interpolation = "linear", parameters = {"a"} },
+}
+function M.evaluate(fields, x, y, z, t, u, v, w)
+  return fields.g:sample(x, y, z, t, u, v, w)
+end
+return M
+)lua";
+
+constexpr auto NamedOutputs = R"lua(
+local M = {}
+function M.evaluate(fields, x, y)
+  return { sum = x + y, diff = x - y }
+end
+return M
+)lua";
+
+constexpr auto PeakOverTime = R"lua(
+local M = {}
+M.state = { peak = 0.0 }
+function M.evaluate(fields, v, peak)
+  return { peak = math.max(peak, math.abs(v)) }
+end
+return M
+)lua";
+
+// the window example of the state declaration: the peak restarts whenever the window advances, and
+// the window it belongs to is kept, but not written
+constexpr auto WindowedPeak = R"lua(
+local M = {}
+M.state = { last = -1.0, peak = 0.0 }
+M.output_parameters = { "peak" }
+function M.evaluate(fields, v, window, last, peak)
+  local fresh = ssol.lt(last, window)
+  return { peak = ssol.select(fresh, v, math.max(peak, v)), last = window }
+end
+return M
+)lua";
+
+constexpr auto SderivBuiltins = R"lua(
+local M = {}
+M.output_parameters = { "sign", "mod", "atan2", "pow", "g" }
+function M.evaluate(fields, x)
+  return ssol.sign(x), ssol.mod(x, 3.0), ssol.atan2(x, -2.0), ssol.pow(1.5, ssol.mod(x, 2.0)),
+         ssol.g * x + ssol.pi
+end
+return M
+)lua";
+
+constexpr auto StateWithoutNextValue = R"lua(
+local M = {}
+M.state = { acc = 0.0 }
+function M.evaluate(fields, x, acc)
+  return { other = x + acc }
+end
+return M
+)lua";
+
+constexpr auto UndeclaredResult = R"lua(
+local M = {}
+M.output_parameters = { "a" }
+function M.evaluate(fields, x)
+  return { a = x, b = 2.0 * x }
+end
+return M
+)lua";
+
+// ---------------------------------------------------------------- helpers ---
+
+expr::Program mustTrace(const std::string& code, const TraceOptions& options = {}) {
+  TraceFailure failure;
+  auto program = traceLuaModule(code, options, failure);
+  REQUIRE_MESSAGE(program.has_value(), failure.reason);
+  return std::move(*program);
+}
+
+TraceFailure mustRefuse(const std::string& code, const TraceOptions& options = {}) {
+  TraceFailure failure;
+  auto program = traceLuaModule(code, options, failure);
+  REQUIRE_FALSE(program.has_value());
+  return failure;
+}
+
+std::vector<std::string> names(const std::vector<expr::VarSpec>& specs) {
+  std::vector<std::string> out;
+  out.reserve(specs.size());
+  for (const auto& s : specs) {
+    out.push_back(s.name);
+  }
+  return out;
+}
+
+/// A traced program and the interpreted reader of the same script, bound to the same inputs, for
+/// running both over several calls -- which is what a state needs to be compared.
+struct Agreement {
+  expr::Program program;
+  std::size_t numPoints;
+  std::vector<std::vector<double>> inputs;
+  std::vector<std::vector<double>> traced;
+  std::vector<std::vector<double>> expected;
+  DataTable compiledTable;
+  DataTable referenceTable;
+  expr::Binding binding;
+  reader::datafield::GridStore grids;
+  std::unique_ptr<expr::Kernel> kernel;
+  LuaReader interpreted;
+
+  Agreement(const std::string& code, std::size_t numPoints)
+      : program(mustTrace(code)), numPoints(numPoints),
+        inputs(program.inputs().size(), std::vector<double>(numPoints, 0.0)),
+        traced(program.outputs().size(), std::vector<double>(numPoints, 0.0)),
+        expected(program.outputs().size(), std::vector<double>(numPoints, 0.0)),
+        compiledTable(numPoints), referenceTable(numPoints), binding(bindBoth()),
+        kernel(makeKernelFor()), interpreted(code) {
+    interpreted.prepare(referenceTable);
+  }
+
+  expr::Binding bindBoth() {
+    for (std::size_t i = 0; i < program.inputs().size(); ++i) {
+      compiledTable.bindViewConst<double>(
+          program.inputs()[i].name, Direction::In, inputs[i].data());
+      referenceTable.bindViewConst<double>(
+          program.inputs()[i].name, Direction::In, inputs[i].data());
+    }
+    for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+      compiledTable.bindView<double>(program.outputs()[i].name, Direction::Out, traced[i].data());
+      referenceTable.bindView<double>(
+          program.outputs()[i].name, Direction::Out, expected[i].data());
+    }
+    return expr::Binding::bind(program, compiledTable);
+  }
+
+  std::unique_ptr<expr::Kernel> makeKernelFor() {
+    expr::BackendOptions options;
+    options.preferred = expr::BackendKind::Interpreter;
+    auto made = makeKernel(program, binding, grids, options);
+    made->precompute(compiledTable);
+    return made;
+  }
+
+  [[nodiscard]] std::size_t input(const std::string& name) const {
+    for (std::size_t i = 0; i < program.inputs().size(); ++i) {
+      if (program.inputs()[i].name == name) {
+        return i;
+      }
+    }
+    FAIL("no input " << name);
+    return 0;
+  }
+
+  [[nodiscard]] std::size_t output(const std::string& name) const {
+    for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+      if (program.outputs()[i].name == name) {
+        return i;
+      }
+    }
+    FAIL("no output " << name);
+    return 0;
+  }
+
+  /// Runs both, and checks that they agree bit for bit.
+  void call() {
+    kernel->run(compiledTable);
+    interpreted.call(referenceTable);
+    for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+      for (std::size_t point = 0; point < numPoints; ++point) {
+        CAPTURE(program.outputs()[i].name);
+        CAPTURE(point);
+        CHECK(bitwiseEqual(traced[i][point], expected[i][point]));
+      }
+    }
+  }
+};
+
+} // namespace
+
+TEST_SUITE("LuaTracer") {
+
+  // ------------------------------------------------------------ positive ---
+
+  TEST_CASE("signature comes from the parameter names of evaluate") {
+    const auto program = mustTrace(PlanarWave);
+    CHECK(names(program.inputs()) == std::vector<std::string>{"x", "y", "z", "t"});
+    CHECK(names(program.outputs()) == std::vector<std::string>{"u", "v", "w"});
+    CHECK(program.roots().size() == 3);
+  }
+
+  TEST_CASE("a constant loop unrolls without IR support") {
+    // amp = 1 + 1/2 + 1/3 is folded to a single Const during the trace; nothing
+    // loop-shaped survives into the DAG.
+    const auto program = mustTrace(PlanarWave);
+    bool sawConst = false;
+    for (std::size_t i = 0; i < program.arena().size(); ++i) {
+      const auto& node = program.arena()[static_cast<expr::NodeId>(i)];
+      if (node.kind == expr::Kind::Const &&
+          std::abs(node.value - (1.0 + 1.0 / 2.0 + 1.0 / 3.0)) < 1e-15) {
+        sawConst = true;
+      }
+    }
+    CHECK(sawConst);
+  }
+
+  TEST_CASE("shared subexpressions collapse in the arena") {
+    const auto program = mustTrace(SharedSubexpression);
+    int sqrtCount = 0;
+    for (std::size_t i = 0; i < program.arena().size(); ++i) {
+      const auto& node = program.arena()[static_cast<expr::NodeId>(i)];
+      if (node.kind == expr::Kind::PW && node.fn == expr::Fn::Sqrt) {
+        ++sqrtCount;
+      }
+    }
+    // Interning, not a CSE pass: the second `r` reference finds the first node.
+    CHECK(sqrtCount == 1);
+  }
+
+  TEST_CASE("ssol.select lowers to a ternary Select over a boolean-valued node") {
+    const auto program = mustTrace(LayeredSelect);
+    const auto& arena = program.arena();
+    const auto& root = arena[program.roots().at(0)];
+    REQUIRE(root.kind == expr::Kind::PW);
+    REQUIRE(root.fn == expr::Fn::Select);
+    // ssol.gt(a, b) is Lt with the operands swapped -- there is no Fn::Gt.
+    CHECK(arena[root.a].fn == expr::Fn::Lt);
+  }
+
+  TEST_CASE("a grid sample becomes one Lookup per declared component") {
+    const auto program = mustTrace(GridSample);
+    REQUIRE(program.grids().size() == 1);
+    std::vector<bool> seen(3, false);
+    for (std::size_t i = 0; i < program.arena().size(); ++i) {
+      const auto& node = program.arena()[static_cast<expr::NodeId>(i)];
+      if (node.kind == expr::Kind::Lookup) {
+        REQUIRE(node.argCount == 3);
+        REQUIRE(node.comp >= 0);
+        REQUIRE(node.comp < 3);
+        seen[node.comp] = true;
+      }
+    }
+    // rho, vp and vs are each read exactly once despite three uses of the tuple.
+    CHECK(seen[0]);
+    CHECK(seen[1]);
+    CHECK(seen[2]);
+  }
+
+  TEST_CASE("`%` traces to Fn::Mod and matches Lua's floor semantics") {
+    // Regression guard for the lowering that looks obvious and is wrong:
+    // a - floor(a/b)*b disagrees with Lua's `%` on 14 of 121 sign/magnitude
+    // pairs, so Fn::Mod must be fmod pulled onto the sign of the divisor.
+    const auto program = mustTrace(LuaFloorMod);
+    const auto& root = program.arena()[program.roots().at(0)];
+    REQUIRE(root.kind == expr::Kind::PW);
+    CHECK(root.fn == expr::Fn::Mod);
+  }
+
+  // ------------------------------------------------------------ negative ---
+
+  TEST_CASE("net 1: a comparison operator on a traced value is refused") {
+    const auto failure = mustRefuse(RawIfGreater);
+    CHECK(failure.cause == Cause::UntracedOperator);
+    // Line 6, not 5: the raw string literal opens with a newline, so `local M`
+    // is the chunk's second line.
+    CHECK(failure.line == 6);
+  }
+
+  TEST_CASE("net 2: a condition that never reaches select is refused") {
+    // The dangerous one: it uses the sanctioned API and then puts the result in
+    // a raw `if`, where a userdata is unconditionally truthy. No metamethod
+    // fires, and the probe ladder does not straddle -1000 either.
+    const auto failure = mustRefuse(ConditionInRawIf);
+    CHECK(failure.cause == Cause::RawCondition);
+  }
+
+  TEST_CASE("net 3: `== 0` against a number is caught by the probes") {
+    // __eq is only dispatched when both operands are full userdata, so this one
+    // is invisible to nets 1 and 2 and can only be found by running.
+    const auto failure = mustRefuse(RawIfEqual);
+    CHECK(failure.cause == Cause::DataDependentFlow);
+  }
+
+  TEST_CASE("mutating module state during the trace is refused") {
+    // Detected by comparing evaluate's upvalues before and after: a module-scope
+    // local is an upvalue, not a table field, so no __newindex on M would see it.
+    const auto failure = mustRefuse(MutatesModuleState);
+    CHECK(failure.cause == Cause::SideEffect);
+  }
+
+  TEST_CASE("a variadic evaluate is refused rather than traced as constant") {
+    // lua_getinfo reports nparams == 0 for `function M.evaluate(...)`, which
+    // would otherwise yield a valid-looking Program with no inputs at all.
+    const auto failure = mustRefuse(VariadicEvaluate);
+    CHECK(failure.cause == Cause::NoEvaluate);
+  }
+
+  TEST_CASE("method syntax is refused because `self` shifts every parameter") {
+    const auto failure = mustRefuse(MethodSyntaxEvaluate);
+    CHECK(failure.cause == Cause::NoEvaluate);
+  }
+
+  TEST_CASE("output_parameters is checked against the number of returned values") {
+    const auto failure = mustRefuse(OutputCountMismatch);
+    CHECK(failure.cause == Cause::SignatureMismatch);
+  }
+
+  TEST_CASE("math.fmod is refused rather than lowered onto Fn::Mod") {
+    // math.fmod is C truncation; `%` is floor. Treating them as one op would be
+    // a silent sign bug for negative arguments.
+    const auto failure = mustRefuse(UntraceableMathFmod);
+    CHECK(failure.cause == Cause::UntracedOperator);
+  }
+
+  TEST_CASE("a sample with more than six coordinates is refused") {
+    const auto failure = mustRefuse(TooManyCoordinates);
+    CHECK(failure.cause == Cause::UntracedOperator);
+  }
+
+  TEST_CASE("the node budget stops a runaway constant loop") {
+    const auto code = std::string(R"lua(
+local M = {}
+M.output_parameters = {"s"}
+function M.evaluate(fields, x)
+  local s = x
+  for i = 1, 1000000 do s = s + 1.0 end
+  return s
+end
+return M
+)lua");
+    TraceOptions options;
+    options.nodeBudget = 1000;
+    const auto failure = mustRefuse(code, options);
+    CHECK(failure.cause == Cause::BudgetExceeded);
+  }
+
+  // -------------------------------------------------------- determinism ----
+
+  TEST_CASE("pairs iteration does not leak into the fingerprint") {
+    // Lua seeds its string hash per state, so an unshadowed `pairs` gives a
+    // different accumulation order in every process -- and under a domain
+    // decomposition, different values at the same point on different ranks.
+    // Tracing the same source repeatedly must give one fingerprint.
+    const auto reference = mustTrace(TableIterationOrder).fingerprint();
+    for (int repeat = 0; repeat < 8; ++repeat) {
+      CHECK(mustTrace(TableIterationOrder).fingerprint() == reference);
+    }
+  }
+
+  TEST_CASE("a traced program has a stable fingerprint across traces") {
+    CHECK(mustTrace(PlanarWave).fingerprint() == mustTrace(PlanarWave).fingerprint());
+    CHECK(mustTrace(PlanarWave).fingerprint() != mustTrace(SharedSubexpression).fingerprint());
+  }
+
+  // ------------------------------------------------- sderiv parity -------
+
+  TEST_CASE("a returned table names the outputs") {
+    const auto program = mustTrace(NamedOutputs);
+    CHECK(names(program.inputs()) == std::vector<std::string>{"x", "y"});
+    // in the order of their names: a table has none
+    CHECK(names(program.outputs()) == std::vector<std::string>{"diff", "sum"});
+
+    Agreement both(NamedOutputs, 5);
+    for (std::size_t point = 0; point < both.numPoints; ++point) {
+      both.inputs[both.input("x")][point] = 1.5 * static_cast<double>(point);
+      both.inputs[both.input("y")][point] = -0.25 * static_cast<double>(point * point);
+    }
+    both.call();
+    CHECK(both.traced[both.output("diff")][3] == 4.5 + 2.25);
+  }
+
+  TEST_CASE("state carries a maximum from one call to the next") {
+    const auto program = mustTrace(PeakOverTime);
+    CHECK(names(program.inputs()) == std::vector<std::string>{"v"});
+    REQUIRE(program.state().size() == 1);
+    CHECK(program.state()[0].name == "peak");
+    CHECK(names(program.outputs()) == std::vector<std::string>{"peak"});
+
+    Agreement both(PeakOverTime, 4);
+    const std::vector<std::vector<double>> calls{
+        {1.0, -2.0, 0.5, 0.0}, {-3.0, 1.0, 0.25, 2.0}, {2.0, 1.5, -4.0, 1.0}};
+    std::vector<double> reference(4, 0.0);
+    for (const auto& values : calls) {
+      both.inputs[both.input("v")] = values;
+      both.call();
+      for (std::size_t point = 0; point < 4; ++point) {
+        reference[point] = std::max(reference[point], std::abs(values[point]));
+        CHECK(both.traced[0][point] == reference[point]);
+      }
+    }
+  }
+
+  TEST_CASE("a state left out of output_parameters is kept, not written") {
+    const auto program = mustTrace(WindowedPeak);
+    CHECK(names(program.outputs()) == std::vector<std::string>{"peak"});
+    REQUIRE(program.state().size() == 2);
+    CHECK(program.state()[0].name == "last");
+    CHECK(program.state()[1].name == "peak");
+
+    // window 0 sees 3, 7, 2 and keeps 7; window 1 sees 1, 4 and keeps 4, not 7
+    Agreement both(WindowedPeak, 1);
+    const std::vector<std::pair<double, double>> calls{
+        {3.0, 0.0}, {7.0, 0.0}, {2.0, 0.0}, {1.0, 1.0}, {4.0, 1.0}};
+    const std::vector<double> peaks{3.0, 7.0, 7.0, 1.0, 4.0};
+    for (std::size_t i = 0; i < calls.size(); ++i) {
+      both.inputs[both.input("v")][0] = calls[i].first;
+      both.inputs[both.input("window")][0] = calls[i].second;
+      both.call();
+      CHECK(both.traced[0][0] == peaks[i]);
+    }
+  }
+
+  TEST_CASE("ssol has the builtins of sderiv, computed alike") {
+    const auto program = mustTrace(SderivBuiltins);
+    CHECK(names(program.outputs()) == std::vector<std::string>{"sign", "mod", "atan2", "pow", "g"});
+    Agreement both(SderivBuiltins, 9);
+    both.inputs[0] = {-1e3, -7.5, -1.0, -0.0, 0.0, 0.25, 1.0, 5.5, 1e3};
+    both.call();
+    // Lua's `%` keeps the sign of the divisor
+    CHECK(both.traced[both.output("mod")][1] == 1.5);
+    CHECK(both.traced[both.output("sign")][3] == 0.0);
+  }
+
+  TEST_CASE("a state without a next value is refused") {
+    CHECK(mustRefuse(StateWithoutNextValue).cause == Cause::SignatureMismatch);
+  }
+
+  TEST_CASE("a returned name that is neither an output nor a state is refused") {
+    CHECK(mustRefuse(UndeclaredResult).cause == Cause::SignatureMismatch);
+  }
+
+  // ------------------------------------------------------ differential -----
+
+  TEST_CASE("a compiled reader evaluates an empty table to nothing") {
+    // the faces of a layer without any, say: there is nothing to evaluate, and no point to bind to
+    reader::scripting::CompiledReader compiled(mustTrace(PlanarWave), nullptr);
+    const DataTable empty(0);
+    CHECK_NOTHROW(compiled.call(empty));
+  }
+
+  TEST_CASE("a compiled reader computes the outputs a table asks for, and no others") {
+    // as an easi file may give more parameters than a friction law reads
+    reader::scripting::CompiledReader compiled(mustTrace(PlanarWave), nullptr);
+    constexpr std::size_t NumPoints = 3;
+    std::vector<double> x = {0.0, 0.5, 1.0};
+    std::vector<double> u(NumPoints, -1.0);
+    DataTable table(NumPoints);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindViewConst<double>("y", Direction::In, x.data());
+    table.bindViewConst<double>("z", Direction::In, x.data());
+    table.bindConstant<double>("t", 0.25);
+    table.bindView<double>("u", Direction::Out, u.data());
+    CHECK_NOTHROW(compiled.call(table));
+    CHECK(compiled.outputVars().size() == 3);
+    for (const double value : u) {
+      CHECK(value != -1.0);
+    }
+  }
+
+  TEST_CASE("a compiled reader reads only what the outputs a table asks for read") {
+    // an output nobody asks for may read an input the table does not give, here the time
+    constexpr auto TwoParts = R"lua(
+local M = {}
+M.output_parameters = {"near", "late"}
+M.input_parameters = {"x", "t"}
+
+function M.evaluate(fields, x, t)
+  return 2.0 * x, 3.0 * t
+end
+
+return M
+)lua";
+    reader::scripting::CompiledReader compiled(mustTrace(TwoParts), nullptr);
+    std::vector<double> x = {0.0, 0.5, 1.0};
+    std::vector<double> near(x.size(), -1.0);
+    DataTable table(x.size());
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindView<double>("near", Direction::Out, near.data());
+    CHECK_NOTHROW(compiled.call(table));
+    for (std::size_t i = 0; i < x.size(); ++i) {
+      CHECK(near[i] == 2.0 * x[i]);
+    }
+  }
+
+  TEST_CASE("a compiled reader binds a table made in the place of another anew") {
+    // as a table made per face may take the address of the last one, with other columns -- those
+    // of another material, say
+    reader::scripting::CompiledReader compiled(mustTrace(PlanarWave), nullptr);
+    std::optional<DataTable> table;
+    std::vector<double> first = {0.0, 0.5};
+    std::vector<double> second = {1.0, 1.5};
+    std::vector<double> firstU(2, -1.0);
+    std::vector<double> secondU(2, -1.0);
+
+    table.emplace(first.size());
+    table->bindViewConst<double>("x", Direction::In, first.data());
+    table->bindViewConst<double>("y", Direction::In, first.data());
+    table->bindViewConst<double>("z", Direction::In, first.data());
+    table->bindConstant<double>("t", 0.25);
+    table->bindView<double>("u", Direction::Out, firstU.data());
+    compiled.call(*table);
+    const auto firstRevision = table->revision();
+
+    // the same columns elsewhere, in another order
+    table.emplace(second.size());
+    table->bindConstant<double>("t", 0.25);
+    table->bindViewConst<double>("z", Direction::In, second.data());
+    table->bindViewConst<double>("y", Direction::In, second.data());
+    table->bindViewConst<double>("x", Direction::In, second.data());
+    table->bindView<double>("u", Direction::Out, secondU.data());
+    CHECK(table->revision() != firstRevision);
+    compiled.call(*table);
+
+    // what a reader that never saw the first table gives
+    reader::scripting::CompiledReader fresh(mustTrace(PlanarWave), nullptr);
+    std::vector<double> expected(second.size(), -1.0);
+    DataTable reference(second.size());
+    reference.bindViewConst<double>("x", Direction::In, second.data());
+    reference.bindViewConst<double>("y", Direction::In, second.data());
+    reference.bindViewConst<double>("z", Direction::In, second.data());
+    reference.bindConstant<double>("t", 0.25);
+    reference.bindView<double>("u", Direction::Out, expected.data());
+    fresh.call(reference);
+    for (std::size_t i = 0; i < second.size(); ++i) {
+      CHECK(secondU[i] == expected[i]);
+    }
+  }
+
+  TEST_CASE("the traced program agrees with the interpreted reader") {
+    // The same check CompiledReader::prepare runs at init before trusting a
+    // kernel. Deliberately not only at "nice" coordinates: the ladder is where
+    // the interesting disagreements live.
+    const std::vector<double> ladder = {-1e6, -1e3, -1.0, -1e-3, 0.0, 1e-3, 1.0, 1e3, 1e6};
+    const std::size_t numPoints = ladder.size();
+
+    for (const auto* code : {PlanarWave, LayeredSelect, SharedSubexpression}) {
+      const auto program = mustTrace(code);
+
+      // One storage vector per channel, since bindView is a view onto memory
+      // the caller owns rather than a column the table allocates.
+      std::vector<std::vector<double>> inputs(program.inputs().size(),
+                                              std::vector<double>(numPoints));
+      std::vector<std::vector<double>> traced(program.outputs().size(),
+                                              std::vector<double>(numPoints, 0.0));
+      std::vector<std::vector<double>> expected(program.outputs().size(),
+                                                std::vector<double>(numPoints, 0.0));
+      for (auto& channel : inputs) {
+        channel = ladder;
+      }
+
+      DataTable compiledTable(numPoints);
+      DataTable referenceTable(numPoints);
+      for (std::size_t i = 0; i < program.inputs().size(); ++i) {
+        compiledTable.bindViewConst<double>(
+            program.inputs()[i].name, Direction::In, inputs[i].data());
+        referenceTable.bindViewConst<double>(
+            program.inputs()[i].name, Direction::In, inputs[i].data());
+      }
+      for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+        compiledTable.bindView<double>(program.outputs()[i].name, Direction::Out, traced[i].data());
+        referenceTable.bindView<double>(
+            program.outputs()[i].name, Direction::Out, expected[i].data());
+      }
+
+      expr::Binding binding = expr::Binding::bind(program, compiledTable);
+      expr::BackendOptions options;
+      options.preferred = expr::BackendKind::Interpreter;
+      reader::datafield::GridStore grids;
+      const auto kernel = makeKernel(program, binding, grids, options);
+      kernel->precompute(compiledTable);
+      kernel->run(compiledTable);
+
+      LuaReader interpreted{code};
+      interpreted.prepare(referenceTable);
+      interpreted.call(referenceTable);
+
+      for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+        for (std::size_t point = 0; point < numPoints; ++point) {
+          if (std::isnan(expected[i][point])) {
+            CHECK(std::isnan(traced[i][point]));
+          } else {
+            // Bit equality is the right bar here, not a tolerance: both paths
+            // evaluate the same operations in the same order in fp64, so any
+            // difference is a lowering bug and not accumulated rounding.
+            CHECK(traced[i][point] == expected[i][point]);
+          }
+        }
+      }
+    }
+  }
+}
+
+} // namespace seissol::unit_test

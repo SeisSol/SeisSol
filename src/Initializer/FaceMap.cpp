@@ -122,6 +122,8 @@ FaceMap defaultFaceMap() {
 
   map.addEntry(7, FaceType::Analytical);
 
+  map.addEntry(8, FaceType::NonlinearDirichlet);
+
   return map;
 }
 

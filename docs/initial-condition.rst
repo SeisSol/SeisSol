@@ -45,7 +45,72 @@ The parameter ``hastime`` indicates that the easi file has ``t`` as a time input
 This way, the easi boundary condition can be used for comparing against after time has passed (e.g. for convergence tests).
 However, it requires easi 1.5.0 or higher to function correctly.
 
-As a caveat, the Easi initial condition does not support the analytical boundary condition; SeisSol stops during the initialization if the mesh has analytical faces.
+The file can also be a program: ``filename = 'sderiv:$FILE'`` for an sderiv module, or
+``filename = 'lua:$FILE'`` for a Lua model, which then give the quantities by name in the same way
+(``cICType = 'script'`` is a synonym of ``'easi'``). For instance, a state linear in space and time,
+which the scheme represents exactly:
+
+.. code-block:: text
+
+  out def s_xx = 0.1 * x
+  out def v1 = 0.1 * t
+
+The script also serves the analytical boundary condition, which evaluates it at the nodes of a
+face and the times of a time step as the simulation runs. A program is compiled once and then
+called for every face; an easi file is evaluated through easi, which works but is much slower.
+
+A script reads ``x``, ``y``, ``z``, ``t``, the simulation index ``sim`` and the parameters of the
+material of the cell, by the names below; for the initial condition, but not at the boundary, also
+the mesh ``group``. A name that is none of these is an error at startup, which lists the names
+there are. An easi file reads the position, and the time with ``hastime``. For instance, a plane P
+wave along :math:`x` whose speed and amplitudes the material gives:
+
+.. code-block:: text
+
+  def a = 0.01
+  def c = sqrt((lambda + 2.0 * mu) / rho)
+  def phase = 6.283185307179586 * (x - c * t)
+  out def v1 = a * sin(phase)
+  out def s_xx = -rho * c * a * sin(phase)
+  out def s_yy = -lambda / c * a * sin(phase)
+  out def s_zz = -lambda / c * a * sin(phase)
+
+.. _script_material_parameters:
+
+The parameters of the material that scripts read -- here, at the boundaries
+(:doc:`boundary-conditions`) and in the outputs -- are those of its material file, by the same
+names, and for every material ``mu`` and ``lambda``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Material
+     - Parameters
+   * - elastic
+     - ``rho``, ``mu``, ``lambda``
+   * - viscoelastic
+     - ``rho``, ``mu``, ``lambda``, ``Qp``, ``Qs``
+   * - acoustic
+     - ``rho``, ``lambda``, and ``mu``, which is 0
+   * - viscoacoustic
+     - ``rho``, ``lambda``, ``Qp``, and ``mu``, which is 0
+   * - anisotropic
+     - ``rho``, ``c11``, ``c12``, ..., ``c16``, ``c22``, ..., ``c66``, and ``mu`` and ``lambda`` of
+       the closest isotropic material
+   * - poroelastic
+     - ``rho``, ``mu``, ``lambda``, ``bulk_solid``, ``porosity``, ``permeability``,
+       ``tortuosity``, ``bulk_fluid``, ``rho_fluid``, ``viscosity``
+
+For a viscoelastic or viscoacoustic material, ``mu`` and ``lambda`` are the moduli of the material
+file, not the unrelaxed ones that the solver computes from them.
+
+Besides the quantities, a script may give the memory variables of a viscoelastic or viscoacoustic
+material, one group per relaxation mechanism: ``theta1_xx``, ``theta1_yy``, ..., ``theta1_xz``,
+``theta2_xx``, ... (``theta1``, ``theta2``, ... for a viscoacoustic one). What it does not give is
+zero. With fused simulations, it is evaluated once for each simulation, which it can tell by
+``sim``. In a run of several materials, a script gives the quantities of each, and each configuration
+takes those of its material (see :ref:`several_configurations`).
 
 Hard-Coded Initial Conditions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -59,6 +124,12 @@ To select these, it suffices to set
   cICType = '$NAME'
 
 where ``$NAME`` is the name of one of the following inital conditions.
+
+SeisSol evaluates each of them as an sderiv module that it writes at setup, with the constants of
+its closed form as numbers -- the planar waves from the eigenvalues and eigenvectors of the
+material, in real arithmetic -- and compiles like a script of its own. The projection, the analysis
+and the analytical boundary therefore all run the same program; the boundary integrates it over a
+time step in one call per face.
 
 Zero (``Zero``)
 ---------------
@@ -77,6 +148,7 @@ For elastic, anisotropic and viscoelastic materials, we impose a P and an S wave
 For poroelastic materials, we impose a slow P and an S wave travelling in one direction and a fast P wave travelling in opposite direction.
 For acoustic and viscoacoustic materials, we impose a P wave.
 This scenario needs periodic boundary conditions to make sense.
+With fused simulations, the phase of simulation :math:`s` out of :math:`N` is shifted by :math:`2\pi s/N`.
 After the simulation is finished the errors between the analytic solution and the numerical one are plotted in the :math:`L^1`-,  :math:`L^2`- and :math:`L^\infty`-norm.
 
 SeisSol does not generate such meshes itself (the ``cubegenerator`` mesh format is currently disabled).
@@ -122,26 +194,30 @@ With ``ITMEnable = 1``, it switches at the times of the instantaneous time mirro
 keeping the pressure continuous and scaling the velocity by ``ITMVelocityScalingFactor``, independent of ``ITMReflectionType``;
 this has not been validated against the ITM that SeisSol computes, which changes the material instead.
 With ``ITMEnable = 0``, the ITM parameters are ignored and the wave is a plain travelling wave.
-It needs a fluid: the elastic equations with :math:`\mu = 0`, or the acoustic equations.
+It needs a fluid: the elastic equations with :math:`\mu = 0`, or the acoustic equations; its density and speed are those of the material of the first cell of the run.
 The acoustic equations do not support the mirror itself (SeisSol rejects ``ITMEnable = 1`` there), so use ``ITMEnable = 0`` with them.
 
 Scholte (``Scholte``)
 ---------------------
 
-A Scholte wave to test elastic-acoustic coupling.
-It needs a solid next to a fluid, i.e. the elastic equations with an acoustic (:math:`\mu = 0`) region; other equations reject it.
+A Scholte wave to test elastic-acoustic coupling: along the interface :math:`z = 0` between an
+elastic material below and an acoustic one (``mu = 0``) above. A cell is acoustic if its ``mu`` is
+zero. It needs a solid next to a fluid, i.e. the elastic equations with an acoustic
+(:math:`\mu = 0`) region; other equations reject it.
 
 Snell (``Snell``)
 -----------------
 
-Snells law to test elastic-acoustic coupling.
-It needs a solid next to a fluid, i.e. the elastic equations with an acoustic (:math:`\mu = 0`) region; other equations reject it.
+Snells law to test elastic-acoustic coupling, at the same interface. It needs a solid next to a
+fluid, i.e. the elastic equations with an acoustic (:math:`\mu = 0`) region; other equations reject
+it.
 
 Ocean (``Ocean_0``, ``Ocean_1``, ``Ocean_2``)
 ---------------------------------------------
 
-An uncoupled ocean test case for acoustic equations, in one of three modes; ``Ocean_0`` is the gravity mode.
-It needs a fluid: the elastic equations with :math:`\mu = 0`, or the acoustic equations.
+An uncoupled ocean test case for acoustic equations, in the mode 0 (gravity), 1 or 2. It reads the
+density of each cell, needs a fluid everywhere -- the elastic equations with :math:`\mu = 0`, or the
+acoustic equations -- and the gravitational acceleration ``9.81e-3``.
 
 Pressure injection (``PressureInjection``)
 ------------------------------------------
@@ -152,30 +228,11 @@ It is configured by ``origin`` (:math:`x_0`), ``magnitude`` (:math:`m`) and ``wi
 How to implement a new hard-coded initial condition?
 ----------------------------------------------------
 
-Alternatively, you can implement a new initial condition in the code itself.
-
-For that, derive a class from
-
-.. code-block:: c
-
-  seissol::physics::InitialFieldOf<YourField>
-
-and implement the method
-
-.. code-block:: c
-
-  template <typename RealT>
-  void evaluateIn(double time,
-                  const std::array<double, 3>* points,
-                  std::size_t count,
-                  const CellMaterialData& materialData,
-                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const;
-
-Here :code:`dofsQP(i,j)` is the value of the :math:`j^\text{th}` quantity at the :code:`points[i]`.
-The quantities are those of the configuration the cells compute in; e.g. the velocity starts at the
-``velocityOffset`` of its ``configLayout``.
-
-Furthermore, you will also need to add the new initial condition to the parameter file parser
-in ``src/Initializer/Parameters/InitializationParameters.cpp``, and register it in
+Most initial conditions are best written as a script (see above). To add one to SeisSol itself,
+write a function that returns its sderiv module as a string and hands it to
+``seissol::physics::scenario::scriptedFields`` (``src/Physics/Scenario/ScriptedScenario.h``), as
+the scenarios in ``src/Physics/Scenario/Scenarios.cpp`` do. The module gives the quantities of the
+configuration the cells compute in by their names. Add it to the parameter file parser in
+``src/Initializer/Parameters/InitializationParameters.cpp``, and register it in
 ``src/Physics/Scenario/Registry.cpp``, with the materials it is meaningful for; SeisSol rejects it
 for all others.

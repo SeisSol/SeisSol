@@ -11,8 +11,10 @@
 #include "Alignment.h"
 #include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
+#include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
+#include "Expr/Backend.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
@@ -23,87 +25,30 @@
 #include "Kernels/Common.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/CommonDatastructures.h"
+#include "Model/ScriptParameters.h"
+#include "Model/StateNames.h"
 #include "Numerical/Quadrature.h"
-#include "ParameterDB.h"
 #include "Physics/InitialField.h"
+#include "Physics/ScriptScope.h"
+#include "Reader/Scripting/CompiledReader.h"
+#include "Reader/Scripting/DataReader.h"
+#include "Reader/Scripting/DataTable.h"
+#include "Reader/Scripting/ReaderBuilder.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
-#include <easi/Query.h>
-#include <easi/ResultAdapter.h>
-#include <easi/YAMLParser.h>
-#include <exception>
+#include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
-#ifdef USE_ASAGI
-#include "Common/Real.h"
-#include "Reader/AsagiReader.h"
-
-#include <easi/util/AsagiReader.h>
-#endif
-
-// time-dependent conditions require easi version 1.5.0 or higher
-#ifdef EASI_VERSION_MAJOR
-#if EASI_VERSION_MINOR >= 5 || EASI_VERSION_MAJOR > 1
-#define SUPPORTS_EASI_TIME
-#endif
-#endif
-
-#ifdef SUPPORTS_EASI_TIME
-#include <set>
-#endif
-
 GENERATE_HAS_MEMBER(Qane)
-
-#ifndef USE_ASAGI
-namespace easi {
-class AsagiReader {};
-} // namespace easi
-#endif
-
-namespace {
-struct EasiLoader {
-  bool hasTime;
-  std::vector<std::unique_ptr<easi::Component>> components;
-  std::unique_ptr<easi::AsagiReader> asagiReader;
-  std::unique_ptr<easi::YAMLParser> parser;
-  EasiLoader(bool hasTime, const std::vector<std::string>& files) : hasTime(hasTime) {
-#ifdef USE_ASAGI
-    asagiReader = std::make_unique<seissol::asagi::AsagiReader>();
-#else
-    asagiReader.reset();
-#endif
-
-    // NOTE: easi currently sorts the dimension names lexicographically (due to using std::set)
-    // hence: if we have time as a dimension, it will come first
-#ifdef SUPPORTS_EASI_TIME
-    const auto dimensionNames =
-        hasTime ? std::set<std::string>{"t", "x", "y", "z"} : std::set<std::string>{"x", "y", "z"};
-    parser = std::make_unique<easi::YAMLParser>(dimensionNames, asagiReader.get());
-#else
-    // ignore time
-    if (hasTime) {
-      logError() << "easi is too old for time-dependent initial conditions. You need at least "
-                    "version 1.5.0.";
-    }
-    parser = std::make_unique<easi::YAMLParser>(3, asagiReader.get(), 'x');
-#endif
-    components.resize(files.size());
-    for (std::size_t i = 0; i < files.size(); ++i) {
-      try {
-        components[i] = std::unique_ptr<easi::Component>(parser->parse(files.at(i)));
-      } catch (const std::exception& error) {
-        logError() << "Error while parsing easi file" << files.at(i) << ":"
-                   << std::string(error.what());
-      }
-    }
-  }
-};
-} // namespace
 
 namespace seissol::initializer {
 
@@ -168,12 +113,10 @@ void projectInitialFieldOnLayer(
   }
 }
 
-/// Projects the values `data` of the easi fields, as `projectEasiFields<Cfg>` gives them, onto the
-/// cells of `layer`, which compute in the configuration `Cfg`.
+/// Projects the values `data` of a scripted field, as `projectScriptFields<Cfg>` gives them, onto
+/// the cells of `layer`, which compute in the configuration `Cfg`.
 template <typename Cfg>
-void projectEasiFieldsOnLayer(const std::vector<double>& data,
-                              std::size_t fieldCount,
-                              LTS::Layer& layer) {
+void projectScriptFieldsOnLayer(const std::vector<double>& data, LTS::Layer& layer) {
   using real = Real<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
   // Looked up rather than named: a configuration without anelastic unknowns has no Qane.
@@ -181,8 +124,7 @@ void projectEasiFieldsOnLayer(const std::vector<double>& data,
   constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  const auto quantityCount = model::MaterialOf<Cfg>::Quantities.size();
-  const auto dataStride = NumQuadPoints * fieldCount * quantityCount;
+  const auto componentCount = model::stateNames<model::MaterialOf<Cfg>>().size();
 
 #if !NVHPC_AVOID_OMP
 #pragma omp parallel
@@ -202,13 +144,17 @@ void projectEasiFieldsOnLayer(const std::vector<double>& data,
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto meshId = secondaryInformation[cell].meshId;
-      // TODO: multisim loop
 
       for (std::size_t s = 0; s < Cfg::NumSimulations; s++) {
         auto sub = multisim::simtensor<Cfg>(iniCond, s);
+        // the state of the solver may leave out memory variables that it keeps apart
+        const auto columns = std::min<std::size_t>(componentCount, sub.shape(1));
         for (std::size_t i = 0; i < NumQuadPoints; ++i) {
-          for (std::size_t j = 0; j < quantityCount; ++j) {
-            sub(i, j) = data.at(meshId * dataStride + quantityCount * i + j);
+          const auto* point =
+              data.data() +
+              ((meshId * NumQuadPoints + i) * Cfg::NumSimulations + s) * componentCount;
+          for (std::size_t j = 0; j < columns; ++j) {
+            sub(i, j) = point[j];
           }
         }
       }
@@ -237,20 +183,23 @@ void projectInitialField(
 }
 
 template <typename Cfg>
-std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
-                                      double time,
-                                      const seissol::geometry::MeshReader& meshReader,
-                                      bool needsTime) {
-  using MaterialT = model::MaterialOf<Cfg>;
+std::vector<double> projectScriptFields(const std::string& path,
+                                        double time,
+                                        const seissol::geometry::MeshReader& meshReader,
+                                        const LTS::Storage& storage,
+                                        bool needsTime) {
   const auto& elements = meshReader.getElements();
+  const auto names = model::stateNames<model::MaterialOf<Cfg>>();
 
   constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
-  const int dimensions = needsTime ? (Cell::Dim + 1) : Cell::Dim;
-  const int spaceStart = needsTime ? 1 : 0;
-  easi::Query query(elements.size() * NumQuadPoints, dimensions);
+  const std::size_t numPoints = elements.size() * NumQuadPoints;
 
+  // The point set is materialised once and bound as plain strided views, so a compiled program
+  // can read it through raw pointers instead of a per-point callback.
+  std::vector<std::array<double, Cell::Dim>> points(numPoints);
+  std::vector<std::int32_t> groups(numPoints);
   {
     const auto rule = seissol::quadrature::simplexRule<Cell::Dim>(QuadPolyDegree);
     const auto& quadraturePoints = rule.first;
@@ -261,58 +210,131 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
       for (size_t i = 0; i < NumQuadPoints; ++i) {
         const auto transformed = transform.refToSpace(quadraturePoints[i]);
         for (std::size_t d = 0; d < Cell::Dim; ++d) {
-          query.x(elem * NumQuadPoints + i, spaceStart + d) = transformed[d];
+          points[elem * NumQuadPoints + i][d] = transformed[d];
         }
-        if (needsTime) {
-          query.x(elem * NumQuadPoints + i, 0) = time;
-        }
-        query.group(elem * NumQuadPoints + i) = elements[elem].group;
+        groups[elem * NumQuadPoints + i] = elements[elem].group;
       }
     }
   }
 
-  std::vector<double> data(NumQuadPoints * iniFields.size() * MaterialT::Quantities.size() *
-                           elements.size());
-  const auto dataPointStride = iniFields.size() * MaterialT::Quantities.size();
-  {
-    auto models = EasiLoader(needsTime, iniFields);
-    for (std::size_t i = 0; i < iniFields.size(); ++i) {
-      auto adapter = easi::ArraysAdapter();
-      for (std::size_t j = 0; j < MaterialT::Quantities.size(); ++j) {
-        const auto& quantity = MaterialT::Quantities.at(j);
-        const std::size_t bindOffset = i + j * iniFields.size();
-        adapter.addBindingPoint(quantity, data.data() + bindOffset, dataPointStride);
+  const auto inVars = needsTime ? std::vector<std::string>{"t", "x", "y", "z"}
+                                : std::vector<std::string>{"x", "y", "z"};
+
+  // a script that compiles runs compiled, with what it computes in this configuration of the run;
+  // easi, and Lua that does not trace, interpreted
+  std::unique_ptr<reader::scripting::DataReader> reader;
+  if (auto program = reader::scripting::buildProgram(path)) {
+    reader::scripting::CompiledReaderOptions options;
+    options.backend.preferred = expr::BackendKind::RtcCpu;
+    reader = std::make_unique<reader::scripting::CompiledReader>(
+        physics::fieldScope(storage.configs()).restrict(*program, configIdOf<Cfg>(), path, false),
+        nullptr,
+        options);
+  } else {
+    reader = reader::scripting::buildReader(path, inVars);
+  }
+
+  // the parameters of the material the script reads, by their position among those of the material
+  const auto parameterNames = model::scriptParameterNames<model::MaterialOf<Cfg>>();
+  std::vector<std::size_t> readParameters;
+  for (const auto& input : reader->inputVars()) {
+    if (input == "x" || input == "y" || input == "z" || input == "t" || input == "sim" ||
+        input == "group") {
+      continue;
+    }
+    const auto parameter = model::parameterIndexOf(parameterNames, input);
+    if (!parameter.has_value()) {
+      logError() << "The scripted field" << path << "reads" << input
+                 << ", which a field of the initial condition does not have; it reads x, y, z, t, "
+                    "sim, group and the parameters of the material:"
+                 << model::parameterList(parameterNames);
+    }
+    readParameters.push_back(parameter.value_or(0));
+  }
+
+  // per parameter read, its value at every point: that of the material of the cell of the element
+  std::vector<std::vector<double>> parameterColumns(
+      readParameters.size(),
+      std::vector<double>(numPoints, std::numeric_limits<double>::quiet_NaN()));
+  if (!readParameters.empty()) {
+    for (const auto& layer : storage.leaves(Ghost)) {
+      if (layer.getIdentifier().config != configIdOf<Cfg>()) {
+        continue;
       }
-      try {
-        models.components.at(i)->evaluate(query, adapter);
-      } catch (const std::exception& error) {
-        logError() << "Error while applying easi file" << iniFields.at(i) << ":"
-                   << std::string(error.what());
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* material = layer.var<LTS::Material>();
+#pragma omp parallel
+      {
+        std::vector<double> values(parameterNames.size());
+#pragma omp for schedule(static)
+        for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+          // a cell kept twice has the material of the first
+          if (secondaryInformation[cell].duplicate > 0) {
+            continue;
+          }
+          material[cell].local->scriptParameters(values.data());
+          const auto first = secondaryInformation[cell].meshId * NumQuadPoints;
+          for (std::size_t k = 0; k < readParameters.size(); ++k) {
+            std::fill_n(parameterColumns[k].begin() + static_cast<std::ptrdiff_t>(first),
+                        NumQuadPoints,
+                        values[readParameters[k]]);
+          }
+        }
       }
     }
+  }
+
+  constexpr auto Simulations = Cfg::NumSimulations;
+  std::vector<double> data(numPoints * Simulations * names.size());
+  const auto pointStride = Simulations * names.size();
+
+  for (std::size_t simulation = 0; simulation < Simulations; ++simulation) {
+    reader::scripting::DataTable table(numPoints);
+    table.bindViewConst("x", reader::scripting::Direction::In, points.data()->data(), Cell::Dim, 0);
+    table.bindViewConst("y", reader::scripting::Direction::In, points.data()->data(), Cell::Dim, 1);
+    table.bindViewConst("z", reader::scripting::Direction::In, points.data()->data(), Cell::Dim, 2);
+    table.bindViewConst("group", reader::scripting::Direction::In, groups.data());
+    table.bindConstant("t", time);
+    table.bindConstant("sim", static_cast<std::int32_t>(simulation));
+    for (std::size_t k = 0; k < readParameters.size(); ++k) {
+      table.bindViewConst(parameterNames[readParameters[k]],
+                          reader::scripting::Direction::In,
+                          parameterColumns[k].data());
+    }
+    for (std::size_t j = 0; j < names.size(); ++j) {
+      table.bindView(names[j],
+                     reader::scripting::Direction::Out,
+                     data.data(),
+                     pointStride,
+                     simulation * names.size() + j);
+    }
+    reader->call(table);
   }
 
   return data;
 }
 
 #define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
-  template std::vector<double> projectEasiFields<Cfg>(                                             \
-      const std::vector<std::string>&, double, const seissol::geometry::MeshReader&, bool);
+  template std::vector<double> projectScriptFields<Cfg>(const std::string&,                        \
+                                                        double,                                    \
+                                                        const seissol::geometry::MeshReader&,      \
+                                                        const LTS::Storage&,                       \
+                                                        bool);
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
 #undef SEISSOL_CONFIG_INSTANTIATE
 
-void projectEasiInitialField(const std::vector<std::string>& iniFields,
-                             const seissol::geometry::MeshReader& meshReader,
-                             LTS::Storage& storage,
-                             bool needsTime) {
-  // the fields are sampled at the points of each configuration, once for all of its layers
+void projectScriptInitialField(const std::string& path,
+                               const seissol::geometry::MeshReader& meshReader,
+                               LTS::Storage& storage,
+                               bool needsTime) {
+  // the field is sampled at the points of each configuration, once for all of its layers
   for (const auto config : storage.configs()) {
     dispatchConfig(config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      const auto data = projectEasiFields<Cfg>(iniFields, 0, meshReader, needsTime);
+      const auto data = projectScriptFields<Cfg>(path, 0, meshReader, storage, needsTime);
       for (auto& layer : storage.leaves(Ghost)) {
         if (layer.getIdentifier().config == config) {
-          projectEasiFieldsOnLayer<Cfg>(data, iniFields.size(), layer);
+          projectScriptFieldsOnLayer<Cfg>(data, layer);
         }
       }
     });

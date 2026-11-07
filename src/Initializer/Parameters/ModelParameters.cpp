@@ -60,6 +60,8 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
                                                    ReflectionType::BothWavesVelocity,
                                                    ReflectionType::Pwave,
                                                    ReflectionType::Swave});
+  const auto itmMaterialScript =
+      itmEnabled ? reader->readPath("itmmaterialscript").value_or("") : std::string();
   if (itmEnabled) {
     if (itmDuration <= 0.0) {
       logError() << "ITM Time is not positive. It should be positive!";
@@ -71,14 +73,18 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
       logError() << "ITM Starting Time can not be less than zero";
     }
   } else {
-    reader->markUnused(
-        {"itmstartingtime", "itmtime", "itmvelocityscalingfactor", "itmreflectiontype"});
+    reader->markUnused({"itmstartingtime",
+                        "itmtime",
+                        "itmvelocityscalingfactor",
+                        "itmreflectiontype",
+                        "itmmaterialscript"});
   }
   return ITMParameters{.itmEnabled = itmEnabled,
                        .itmStartingTime = itmStartingTime,
                        .itmDuration = itmDuration,
                        .itmVelocityScalingFactor = itmVelocityScalingFactor,
-                       .itmReflectionType = reflectionType};
+                       .itmReflectionType = reflectionType,
+                       .itmMaterialScript = itmMaterialScript};
 }
 
 namespace {
@@ -159,6 +165,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
   auto* reader = baseReader->readSubNode("equations");
 
   const auto boundaryFileName = reader->readPath("boundaryfilename");
+  const auto nonlinearDirichletFileName =
+      reader->readPath("nonlineardirichletfilename").value_or("");
   const std::string materialFileName =
       reader->readPathOrFail("materialfilename", "No material file given.");
   std::vector<std::string> plasticityFileNames(configValue(config).numSimulations);
@@ -232,6 +240,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                          .gravitationalAcceleration = gravitationalAcceleration,
                          .tv = tv,
                          .boundaryFileName = boundaryFileName.value_or(""),
+                         .nonlinearDirichletFileName = nonlinearDirichletFileName,
                          .materialFileName = materialFileName,
                          .plasticityFileNames = plasticityFileNames,
                          .itmParameters = itmParameters,

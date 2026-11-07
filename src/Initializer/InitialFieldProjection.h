@@ -16,6 +16,7 @@
 #include "Physics/InitialField.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace seissol::initializer {
@@ -26,18 +27,24 @@ void projectInitialField(
     const seissol::geometry::MeshReader& meshReader,
     LTS::Storage& storage);
 
-/// The values of the easi fields `iniFields` at the quadrature points of every element, as the
-/// configuration `Cfg` projects them: by element, point, quantity and field.
+/// The values of the scripted field `path` at the quadrature points of every element, as the
+/// configuration `Cfg` projects them, for each of its fused simulations: by element, point,
+/// simulation and component of the state (model::stateNames, memory variables included).
+///
+/// The script reads x, y, z, t, sim, the group of the element, and the parameters of the material
+/// of its cell in `storage` (model::scriptParameterNames), which are NaN for an element of another
+/// configuration. What else it reads is an error.
 template <typename Cfg>
-std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
-                                      double time,
-                                      const seissol::geometry::MeshReader& meshReader,
-                                      bool needsTime);
+std::vector<double> projectScriptFields(const std::string& path,
+                                        double time,
+                                        const seissol::geometry::MeshReader& meshReader,
+                                        const LTS::Storage& storage,
+                                        bool needsTime);
 
-void projectEasiInitialField(const std::vector<std::string>& iniFields,
-                             const seissol::geometry::MeshReader& meshReader,
-                             LTS::Storage& storage,
-                             bool needsTime);
+void projectScriptInitialField(const std::string& path,
+                               const seissol::geometry::MeshReader& meshReader,
+                               LTS::Storage& storage,
+                               bool needsTime);
 } // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_INITIALIZER_INITIALFIELDPROJECTION_H_

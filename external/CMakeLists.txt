@@ -7,4 +7,6 @@
 
 add_library(seissol-external INTERFACE)
 
+add_subdirectory(lmathx)
+
 target_include_directories(seissol-external SYSTEM INTERFACE .)

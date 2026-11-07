@@ -16,6 +16,7 @@
 #include <array>
 #include <limits>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace seissol::model {
@@ -80,6 +81,10 @@ struct Material {
 
   virtual void setLameParameters(double mu, double lambda) {}
   virtual void setDensity(double rho) { this->rho = rho; }
+
+  /// The parameters of the material as scripts read them, in the order of
+  /// model::scriptParameterNames of its type: the values the material file gave.
+  virtual void scriptParameters(double* values) const = 0;
 };
 
 struct Plasticity {
@@ -93,10 +98,11 @@ struct Plasticity {
   double sYZ;
   double sXZ;
 
-  static const std::unordered_map<std::string, double Plasticity::*> ParameterMap;
+  /// The parameters a plasticity file gives.
+  static const std::array<std::pair<std::string, double Plasticity::*>, 8> ParameterList;
 };
 
-inline const std::unordered_map<std::string, double Plasticity::*> Plasticity::ParameterMap{
+inline const std::array<std::pair<std::string, double Plasticity::*>, 8> Plasticity::ParameterList{{
     {"bulkFriction", &Plasticity::bulkFriction},
     {"plastCo", &Plasticity::plastCo},
     {"s_xx", &Plasticity::sXX},
@@ -105,7 +111,7 @@ inline const std::unordered_map<std::string, double Plasticity::*> Plasticity::P
     {"s_xy", &Plasticity::sXY},
     {"s_yz", &Plasticity::sYZ},
     {"s_xz", &Plasticity::sXZ},
-};
+}};
 
 struct IsotropicWaveSpeeds {
   double density;

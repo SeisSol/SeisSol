@@ -61,6 +61,48 @@ It has the value 2 for an ordinary free surface boundary condition and the value
 boundary condition.
 This value can be used to filter the output (which contains all these surfaces), for example using Paraview's Threshold filter.
 
+Region
+------
+
+The faces written may be restricted to a region given by a script or an easi file, which gives
+``surface`` as a function of the position ``x``, ``y``, ``z``, of the ``group`` of the cell and of
+the parameters of its material: a face is written if it is positive at one of its vertices. The
+file is named by ``OutputRegionFileName`` and may give the region of the wavefield output as well,
+see :ref:`output_region_file`.
+
+.. code-block:: text
+
+   # regions.sderiv: the free surface within 20 km of the epicenter
+   out def surface = 2.0e4 - sqrt(x*x + y*y)
+
+Derived outputs
+---------------
+
+``surfacescript`` names a program whose outputs are written along with the free surface, at the
+same points; it is written like the one of the wavefield output (see :ref:`derived_outputs`). On a
+face, a program reads the quantities of the cell the face belongs to, with their derivatives, and
+the parameters of its material, and in addition the displacement of the face, ``u1``, ``u2``,
+``u3`` (without derivatives); ``x``, ``y``, ``z`` are the output points on the face. The built-in
+outputs are computed the same way, in one program with those of a script without state, and an
+output of a script needs a name of its own, as for the wavefield. The state of a program lives
+with the faces and is written to the checkpoints, as for the wavefield; ``surfacevtkorder``,
+``surfaceoutputrefinement`` and ``surfaceprojection`` decide its layout.
+
+.. code-block:: text
+
+   # surface.sderiv: the peak ground displacement and velocity, and the divergence of the velocity
+   state pgd = 0.0
+   state pgv = 0.0
+   out def pgd = max(pgd, sqrt(u1*u1 + u2*u2 + u3*u3))
+   out def pgv = max(pgv, sqrt(v1*v1 + v2*v2 + v3*v3))
+   out def divv = dx_v1 + dy_v2 + dz_v3
+
+.. code-block:: Fortran
+
+   &Output
+   surfacescript = 'sderiv:surface.sderiv'
+   /
+
 High-Order VTKHDF Output
 ------------------------
 

@@ -8,4 +8,8 @@
 #include <doctest.h>
 
 #include "InstantaneousTimeMirror.t.h"
+#include "NonlinearDirichlet.t.h"
+#include "PlaneWave.t.h"
 #include "Scenarios.t.h"
+#include "ScriptField.t.h"
+#include "ScriptScope.t.h"

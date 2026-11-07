@@ -141,6 +141,11 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
     std::vector<reader::Distributor::DistributionInstance> distributions;
     distributions.reserve(ckpTree.variables.size());
     for (const auto& variable : ckpTree.variables) {
+      if (variable.optional && !reader.hasDataset(variable.name)) {
+        logWarning() << "The checkpoint has no" << ckpTree.name << "/" << variable.name
+                     << "; it keeps its initial values.";
+        continue;
+      }
       logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
       // the shape of a value includes how many values a cell holds (see perCellDatatype), e.g.
       // the number of grid points of the thermal pressurization: a checkpoint of another one

@@ -7,8 +7,14 @@
 
 add_library(seissol-physics OBJECT
     InstantaneousTimeMirrorManager.cpp
+    Scenario/PlaneWave.cpp
     Scenario/Registry.cpp
     Scenario/Scenarios.cpp
+    Scenario/ScriptedScenario.cpp
+    ScriptField.cpp
+    ScriptScope.cpp
+    GhostState.cpp
+    NonlinearDirichlet.cpp
 )
 
 target_link_libraries(seissol-physics PUBLIC seissol-common-properties)

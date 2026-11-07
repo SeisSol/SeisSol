@@ -9,6 +9,7 @@ add_library(seissol-dynamicrupture OBJECT
     Factory.cpp
     Misc.cpp
     FrictionLaws/FrictionSolver.cpp
+    FrictionLaws/SlipRateScript.cpp
     FrictionLaws/CpuImpl/SourceTimeFunction.cpp
     FrictionLaws/CpuImpl/ThermalPressurization/ThermalPressurization.cpp
     Initializer/BaseDRInitializer.cpp

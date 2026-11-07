@@ -151,7 +151,7 @@ bool runOpens(const std::vector<std::string>& field,
     return parameters.model.plasticity;
   }
   if (name == "inicondition.filename") {
-    return parameters.initialization.type == parameters::InitializationType::Easi;
+    return parameters.initialization.type == parameters::InitializationType::Script;
   }
   return true;
 }

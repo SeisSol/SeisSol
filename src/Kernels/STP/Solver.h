@@ -53,6 +53,15 @@ struct Solver {
       // space-time predictor does not produce.
       return faceTypeUnsupported("the space-time predictor provides no Taylor derivatives");
     }
+#ifdef ACL_DEVICE
+    if (faceType == FaceType::NonlinearDirichlet) {
+      // the device kernels take the inner state from the Taylor series
+      return faceTypeUnsupported("the device kernels of the nonlinear Dirichlet boundary take the "
+                                 "state inside from the Taylor series, which the space-time "
+                                 "predictor does not produce");
+    }
+#endif
+    // the nonlinear Dirichlet boundary evaluates the polynomial in time of the predictor
     return faceTypeSupported();
   }
 

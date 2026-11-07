@@ -19,6 +19,10 @@
 
 #include <memory>
 
+#ifdef ACL_DEVICE
+#include "Kernels/LinearCK/DeviceGhostStates.h"
+#endif
+
 namespace seissol::kernels::solver::linearckanelastic {
 template <typename Cfg>
 class Local : public LocalKernel<Cfg> {
@@ -37,6 +41,11 @@ class Local : public LocalKernel<Cfg> {
                               recording::ConditionalIndicesTable& indicesTable,
                               double timeStepWidth,
                               seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  void prepareBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
+                                     recording::ConditionalIndicesTable& indicesTable,
+                                     LTS::Layer& layer,
+                                     seissol::parallel::runtime::StreamRuntime& runtime) override;
 
   void evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
                                       recording::ConditionalIndicesTable& indicesTable,
@@ -57,7 +66,7 @@ class Local : public LocalKernel<Cfg> {
   kernel::dirichletFlux<Cfg> dirichletFlux_;
   kernel::localFluxNodal<Cfg> nodalLfKrnlPrototype_;
 
-  kernels::AnalyticalBoundary<Cfg> analyticalBoundary_;
+  kernels::GhostStateBoundary<Cfg> ghostStateBoundary_;
 
 #ifdef ACL_DEVICE
   kernel::gpu_volumeExt<Cfg> deviceVolumeKernelPrototype_;
@@ -70,6 +79,9 @@ class Local : public LocalKernel<Cfg> {
   kernel::gpu_localFluxNodal<Cfg> deviceNodalLfKrnlPrototype_;
   // folds the extended DOFs into the DOFs and the memory variables, as the neighbor integral does
   kernel::gpu_neighbor<Cfg> deviceFoldKrnlPrototype_;
+
+  /// the analytical boundary of the layer of the cluster
+  std::shared_ptr<linearck::DeviceGhostStates<Cfg>> deviceGhostStates_;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

@@ -93,6 +93,10 @@ void Hdf5Reader::readAttributeRaw(void* data,
   _eh(H5Aread(attr, datatype::convertToHdf5(type), data));
   _eh(H5Aclose(attr));
 }
+bool Hdf5Reader::hasDataset(const std::string& name) {
+  return _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT)) > 0;
+}
+
 std::size_t Hdf5Reader::dataCount(const std::string& name) {
   checkExistence(name, "dataset");
   const hid_t dataset = _eh(H5Dopen(handles_.top(), name.c_str(), H5P_DEFAULT));

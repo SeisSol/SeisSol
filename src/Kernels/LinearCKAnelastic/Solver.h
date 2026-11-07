@@ -45,7 +45,16 @@ struct Solver {
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
 
-  static constexpr FaceTypeSupport implementsFaceType(FaceType /*faceType*/) {
+  static constexpr FaceTypeSupport implementsFaceType([[maybe_unused]] FaceType faceType) {
+#ifdef ACL_DEVICE
+    // the ghost state of the nonlinear Dirichlet boundary takes the state inside from the Taylor
+    // series of the cell, which the device kernels of linearck give only
+    if (faceType == FaceType::NonlinearDirichlet) {
+      return faceTypeUnsupported(
+          "its device kernels give no Taylor series of the state for the nonlinear Dirichlet "
+          "boundary");
+    }
+#endif
     return faceTypeSupported();
   }
 

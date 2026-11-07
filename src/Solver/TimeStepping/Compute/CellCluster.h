@@ -32,11 +32,14 @@
 #include "Solver/TimeStepping/Compute/ClusterClock.h"
 #include "SourceTerm/Typedefs.h"
 
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <list>
 #include <memory>
 #include <mpi.h>
 #include <utils/logger.h>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
@@ -63,6 +66,12 @@ class CellClusterInterface : public AbstractTimeCluster {
   virtual void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) = 0;
 
   virtual void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
+
+  /// What runs after every correction of a cluster on the host: called with the id of its layer
+  /// and the time its cells have reached.
+  using CorrectionHook = std::function<void(std::size_t, double)>;
+
+  virtual void addCorrectionHook(const CorrectionHook& hook) = 0;
 
   [[nodiscard]] virtual std::size_t layerId() const = 0;
 };
@@ -144,10 +153,21 @@ class CellCluster : public CellClusterInterface {
 
   kernels::ReceiverCluster* receiverCluster_{nullptr};
 
+  std::vector<CorrectionHook> correctionHooks_;
+
   seissol::memory::MemkindArray<std::size_t> conditionalCounterHost_;
   seissol::memory::MemkindArray<std::size_t> conditionalCounterDevice_;
 
+  // the time derivatives of a cell with a nonlinear Dirichlet face that does not keep them, which
+  // the boundary reads: a slot of derivativesSlot_ values per thread; derivativesSlot_ is 0 in a
+  // cluster without such a cell
+  seissol::memory::MemkindArray<real> derivativesScratch_{seissol::memory::Memkind::Standard};
+  std::size_t derivativesSlot_{0};
+
   std::size_t numPlasticCells_{0};
+
+  //! whether the device kernels of the time-dependent boundaries are made (see reset())
+  bool timeDependentBcPrepared_{false};
 
   /**
    * Writes the receiver output if applicable (receivers present, receivers have to be written),
@@ -271,6 +291,10 @@ class CellCluster : public CellClusterInterface {
       receiverCluster_->setNextSampleTime(receiverTime_);
     }
   }
+
+  void addCorrectionHook(const CorrectionHook& hook) override { correctionHooks_.push_back(hook); }
+
+  void reset() override;
 
   void finalize() override;
 

@@ -19,6 +19,12 @@
 #include "Physics/InitialField.h"
 
 #include <cassert>
+#include <memory>
+
+namespace seissol::physics {
+class AnalyticalGhostState;
+class NonlinearDirichlet;
+} // namespace seissol::physics
 
 namespace seissol::kernels {
 
@@ -30,11 +36,35 @@ class LocalKernel : public Kernel<Cfg> {
   protected:
   double gravitationalAcceleration_{9.81};
   const std::vector<std::unique_ptr<physics::InitialField>>* initConds_{nullptr};
+  /// where the condition of the nonlinear Dirichlet boundary is kept: the kernels are made before
+  /// it is
+  const std::unique_ptr<physics::NonlinearDirichlet>* nonlinearDirichletSlot_{nullptr};
+  /// where the ghost state of the analytical boundary is kept, likewise
+  const std::unique_ptr<physics::AnalyticalGhostState>* analyticalGhostStateSlot_{nullptr};
 
   public:
   ~LocalKernel() override = default;
   void setGravitationalAcceleration(double g) { gravitationalAcceleration_ = g; }
   void setInitConds(decltype(initConds_) initConds) { this->initConds_ = initConds; }
+  void setNonlinearDirichlet(decltype(nonlinearDirichletSlot_) slot) {
+    this->nonlinearDirichletSlot_ = slot;
+  }
+
+  void setAnalyticalGhostState(decltype(analyticalGhostStateSlot_) slot) {
+    this->analyticalGhostStateSlot_ = slot;
+  }
+
+  /// The condition of the nonlinear Dirichlet boundary, null if there is none.
+  [[nodiscard]] const physics::NonlinearDirichlet* nonlinearDirichlet() const {
+    return nonlinearDirichletSlot_ == nullptr ? nullptr : nonlinearDirichletSlot_->get();
+  }
+
+  /// The ghost state of the analytical boundary integrated over a step at once, null if the
+  /// initial condition is no script that compiles: the boundary then evaluates it at one time after
+  /// the other.
+  [[nodiscard]] const physics::AnalyticalGhostState* analyticalGhostState() const {
+    return analyticalGhostStateSlot_ == nullptr ? nullptr : analyticalGhostStateSlot_->get();
+  }
 
   physics::InitialField* getInitCond(size_t index) {
     const auto& condition = this->initConds_->at(index);
@@ -71,8 +101,19 @@ class LocalKernel : public Kernel<Cfg> {
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   /**
+   * Makes what the device kernels of the time-dependent boundary conditions of `layer` need: once,
+   * before the time stepping, where no graph is recorded.
+   */
+  virtual void
+      prepareBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& /*dataTable*/,
+                                    recording::ConditionalIndicesTable& /*indicesTable*/,
+                                    LTS::Layer& /*layer*/,
+                                    seissol::parallel::runtime::StreamRuntime& /*runtime*/) {}
+
+  /**
    * Evaluates the time-dependent boundary conditions. The time at the start of the step is read
-   * from `time` when the evaluation runs.
+   * from `time`, in device memory (the clock of the cluster, solver::ClusterClock::device()), when
+   * the evaluation runs on the stream: also when it is replayed from a graph.
    */
   virtual void
       evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,

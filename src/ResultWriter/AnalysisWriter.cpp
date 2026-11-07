@@ -13,6 +13,7 @@
 #include "Common/ConfigValue.h"
 #include "Common/Real.h"
 #include "Common/RunId.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
@@ -27,6 +28,7 @@
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/StateNames.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
@@ -49,10 +51,7 @@ namespace seissol::writer {
 
 void AnalysisWriter::printAnalysis(double simulationTime) {
   const auto initialConditionType = seissolInstance_.parameters().initialization.type;
-  if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
-      initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
-      initialConditionType ==
-          seissol::initializer::parameters::InitializationType::PressureInjection) {
+  if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero) {
     return;
   }
 
@@ -109,13 +108,16 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
 
   std::vector<double> data;
 
-  if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
+  if (initialConditionType == seissol::initializer::parameters::InitializationType::Script) {
     data =
-        initializer::projectEasiFields<Cfg>({seissolInstance_.parameters().initialization.filename},
-                                            simulationTime,
-                                            *meshReader_,
-                                            seissolInstance_.parameters().initialization.hasTime);
+        initializer::projectScriptFields<Cfg>(seissolInstance_.parameters().initialization.filename,
+                                              simulationTime,
+                                              *meshReader_,
+                                              seissolInstance_.memoryManager().ltsStorage(),
+                                              seissolInstance_.parameters().initialization.hasTime);
   }
+  // the components of the state a scripted field gives, per point and fused simulation
+  const auto componentCount = model::stateNames<model::MaterialOf<Cfg>>().size();
 
   const auto rule = seissol::quadrature::simplexRule<3>(QuadPolyDegree);
   const auto& quadraturePoints = rule.first;
@@ -212,7 +214,7 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
         const auto volume = MeshTools::volume(elements[meshId], vertices);
         const auto jacobiDet = 6 * volume;
 
-        if (initialConditionType != seissol::initializer::parameters::InitializationType::Easi) {
+        if (initialConditionType != seissol::initializer::parameters::InitializationType::Script) {
           // Compute global position of quadrature points.
           const auto transform =
               seissol::geometry::AffineTransform::fromMeshCell(meshId, *meshReader_);
@@ -229,9 +231,11 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
                                                       analyticalSolution);
         } else {
           for (std::size_t i = 0; i < NumQuadPoints; ++i) {
+            const auto* point =
+                data.data() +
+                ((meshId * NumQuadPoints + i) * Cfg::NumSimulations + sim) * componentCount;
             for (std::size_t j = 0; j < NumQuantities; ++j) {
-              analyticalSolution(i, j) =
-                  data.at(meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j);
+              analyticalSolution(i, j) = point[j];
             }
           }
         }

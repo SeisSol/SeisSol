@@ -15,6 +15,7 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/MaterialType.h"
 #include "Physics/InitialField.h"
+#include "Physics/Scenario/PlaneWave.h"
 #include "Physics/Scenario/Scenarios.h"
 
 #include <Eigen/Dense>
@@ -74,45 +75,6 @@ TravellingWaveParameters travellingWaveParameters(const Input& input) {
   return parameters;
 }
 
-// Fused simulations are offset against each other in phase, so that they do not all carry the
-// same wave.
-double simulationPhase(std::size_t sim, std::size_t numSimulations) {
-  return (2.0 * M_PI * sim) / numSimulations;
-}
-
-template <typename FieldT, typename... Args>
-FieldList perSimulation(const Input& input, const Args&... args) {
-  FieldList fields;
-  const auto numSimulations = configValue(input.config).numSimulations;
-  for (std::size_t sim = 0; sim < numSimulations; ++sim) {
-    fields.emplace_back(std::make_unique<FieldT>(args..., simulationPhase(sim, numSimulations)));
-  }
-  return fields;
-}
-
-// The planar wave travels along kVec where the parameter file sets it, and keeps its default wave
-// vector otherwise.
-FieldList planarWaves(const Input& input) {
-  const Eigen::Vector3d& kVec = input.parameters.initialization.kVec;
-  if (kVec.isZero(0.0)) {
-    return perSimulation<Planarwave>(input, input.materialData, input.config);
-  }
-  FieldList fields;
-  const auto numSimulations = configValue(input.config).numSimulations;
-  for (std::size_t sim = 0; sim < numSimulations; ++sim) {
-    fields.emplace_back(std::make_unique<Planarwave>(
-        input.materialData, input.config, simulationPhase(sim, numSimulations), kVec));
-  }
-  return fields;
-}
-
-template <typename FieldT, typename... Args>
-FieldList single(Args&&... args) {
-  FieldList fields;
-  fields.emplace_back(std::make_unique<FieldT>(std::forward<Args>(args)...));
-  return fields;
-}
-
 struct Entry {
   InitializationType type;
   std::string_view name;
@@ -132,13 +94,19 @@ constexpr std::array<Entry, 12> Registry = {{
      .requirement = MaterialRequirement::None,
      .materialRequirement = "",
      .timeDependent = true,
-     .build = [](const Input&) { return single<ZeroField>(); }},
+     .build = [](const Input& input) { return zeroField(input.config); }},
     {.type = InitializationType::Planarwave,
      .name = "planar wave",
      .requirement = MaterialRequirement::None,
      .materialRequirement = "",
      .timeDependent = true,
-     .build = [](const Input& input) { return planarWaves(input); }},
+     // along kVec where the parameter file sets it, else along (pi, pi, pi); fused simulations
+     // are offset against each other in phase, so that they do not all carry the same wave
+     .build =
+         [](const Input& input) {
+           return planarwave(
+               input.materialData, input.config, input.parameters.initialization.kVec);
+         }},
     {.type = InitializationType::SuperimposedPlanarwave,
      .name = "super-imposed planar wave",
      .requirement = MaterialRequirement::None,
@@ -146,7 +114,7 @@ constexpr std::array<Entry, 12> Registry = {{
      .timeDependent = true,
      .build =
          [](const Input& input) {
-           return perSimulation<SuperimposedPlanarwave>(input, input.materialData, input.config);
+           return superimposedPlanarwave(input.materialData, input.config);
          }},
     {.type = InitializationType::Travelling,
      .name = "travelling wave",
@@ -155,8 +123,7 @@ constexpr std::array<Entry, 12> Registry = {{
      .timeDependent = true,
      .build =
          [](const Input& input) {
-           return single<TravellingWave>(
-               input.materialData, input.config, travellingWaveParameters(input));
+           return travellingWave(input.materialData, input.config, travellingWaveParameters(input));
          }},
     {.type = InitializationType::AcousticTravellingWithITM,
      .name = "acoustic travelling wave with ITM",
@@ -166,7 +133,7 @@ constexpr std::array<Entry, 12> Registry = {{
      .timeDependent = true,
      .build =
          [](const Input& input) {
-           return single<AcousticTravellingWaveITM>(
+           return acousticTravellingWaveITM(
                input.materialData,
                acousticTravellingWaveParameters(input.parameters.initialization,
                                                 input.parameters.model.itmParameters),
@@ -178,14 +145,14 @@ constexpr std::array<Entry, 12> Registry = {{
      .materialRequirement =
          "it couples a solid to a fluid, which only the elastic material holds both of",
      .timeDependent = true,
-     .build = [](const Input&) { return single<ScholteWave>(); }},
+     .build = [](const Input& input) { return scholteWave(input.config); }},
     {.type = InitializationType::Snell,
      .name = "Snell's law (elastic-acoustic)",
      .requirement = MaterialRequirement::SolidAndFluid,
      .materialRequirement =
          "it couples a solid to a fluid, which only the elastic material holds both of",
      .timeDependent = true,
-     .build = [](const Input&) { return single<SnellsLaw>(); }},
+     .build = [](const Input& input) { return snellsLaw(input.config); }},
     {.type = InitializationType::Ocean0,
      .name = "ocean, an uncoupled ocean test case for acoustic equations (mode 0)",
      .requirement = MaterialRequirement::Fluid,
@@ -193,9 +160,7 @@ constexpr std::array<Entry, 12> Registry = {{
          "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
      .timeDependent = true,
      .build =
-         [](const Input& input) {
-           return single<Ocean>(0, input.gravitation.acceleration, input.config);
-         }},
+         [](const Input& input) { return ocean(0, input.gravitation.acceleration, input.config); }},
     {.type = InitializationType::Ocean1,
      .name = "ocean, an uncoupled ocean test case for acoustic equations (mode 1)",
      .requirement = MaterialRequirement::Fluid,
@@ -203,9 +168,7 @@ constexpr std::array<Entry, 12> Registry = {{
          "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
      .timeDependent = true,
      .build =
-         [](const Input& input) {
-           return single<Ocean>(1, input.gravitation.acceleration, input.config);
-         }},
+         [](const Input& input) { return ocean(1, input.gravitation.acceleration, input.config); }},
     {.type = InitializationType::Ocean2,
      .name = "ocean, an uncoupled ocean test case for acoustic equations (mode 2)",
      .requirement = MaterialRequirement::Fluid,
@@ -213,9 +176,7 @@ constexpr std::array<Entry, 12> Registry = {{
          "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
      .timeDependent = true,
      .build =
-         [](const Input& input) {
-           return single<Ocean>(2, input.gravitation.acceleration, input.config);
-         }},
+         [](const Input& input) { return ocean(2, input.gravitation.acceleration, input.config); }},
     {.type = InitializationType::PressureInjection,
      .name = "pressure injection",
      .requirement = MaterialRequirement::Poroelastic,
@@ -223,14 +184,15 @@ constexpr std::array<Entry, 12> Registry = {{
      .timeDependent = true,
      .build =
          [](const Input& input) {
-           return single<PressureInjection>(input.parameters.initialization);
+           return pressureInjection(input.parameters.initialization, input.config);
          }},
-    // Read from a file, and hence known at t = 0 only.
-    {.type = InitializationType::Easi,
-     .name = "easi file",
+    // Read from a script, which may read the time t: physics::ScriptField evaluates it at any
+    // point and time, as an analytical boundary condition asks.
+    {.type = InitializationType::Script,
+     .name = "script",
      .requirement = MaterialRequirement::None,
      .materialRequirement = {},
-     .timeDependent = false,
+     .timeDependent = true,
      .build = nullptr},
 }};
 

@@ -14,6 +14,7 @@
 #include "Equations/Datastructures.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/InitProcedure/DerivedOutput.h"
 #include "Initializer/InitProcedure/Internal/Buckets.h"
 #include "Initializer/InitProcedure/Internal/LtsSetup.h"
 #include "Initializer/InitProcedure/Internal/Scratchpads.h"
@@ -182,13 +183,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     colorsGhost[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
   }
 
-  const auto& integrationMask = seissolParams.output.waveFieldParameters.integrationMask;
-  const auto needsIntegration =
-      std::ranges::any_of(
-          integrationMask,
-          [](const auto& mask) { return std::ranges::find(mask, true) != mask.end(); }) ||
-      seissolParams.output.waveFieldParameters.computeStrain;
-  const auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
+  const auto needsIntegration = derivedOutputsReadIntegrals(seissolInstance);
+  auto settings = SimulationSettings(seissolParams.model.plasticity, needsIntegration);
+  settings.derivedState = derivedStateLayout(seissolInstance, DerivedOutputKind::WaveField).size();
 
   logInfo() << "Creating mesh layout...";
 

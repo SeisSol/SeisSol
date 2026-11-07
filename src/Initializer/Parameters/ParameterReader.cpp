@@ -22,17 +22,26 @@ ParameterReader::ParameterReader(const YAML::Node& node, std::string rootPath, b
     : node_(node), rootPath_(std::move(rootPath)), empty_(empty) {}
 
 std::optional<std::string> ParameterReader::readPath(const std::string& field) {
-  const auto fileName = read<std::string>(field);
-  if (!fileName.has_value()) {
+  const auto rawName = read<std::string>(field);
+  if (!rawName.has_value()) {
     return {};
   }
+  // A script keeps the prefix that names its kind; the file after it resolves like any other.
+  std::string prefix;
+  std::string fileName = rawName.value();
+  for (const std::string kind : {"easi:", "lua:", "sderiv:"}) {
+    if (rawName->starts_with(kind)) {
+      prefix = kind;
+      fileName = rawName->substr(kind.size());
+    }
+  }
   auto resolved = [&]() -> std::string {
-    if (fileName->empty()) {
+    if (fileName.empty()) {
       // no file; relative to the directory of the parameter file, it would name that directory
-      return fileName.value();
+      return fileName;
     }
     const auto lastPath = std::filesystem::path(rootPath_);
-    auto nextPath = std::filesystem::path(fileName.value());
+    auto nextPath = std::filesystem::path(fileName);
     const auto loadFileName = [&] {
       if (nextPath.is_relative()) {
         // remove file
@@ -51,8 +60,9 @@ std::optional<std::string> ParameterReader::readPath(const std::string& field) {
       return nextPath;
     }
   }();
+  // the file, as the preflight checks it; the prefix only names how to read it
   paths_.emplace_back(field, resolved);
-  return resolved;
+  return prefix + resolved;
 }
 
 std::string ParameterReader::readPathOrFail(const std::string& field,

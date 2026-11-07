@@ -44,7 +44,7 @@ struct Solver {
   template <typename RealT>
   using TimeBasis = seissol::numerical::MonomialBasis<RealT>;
 
-  static constexpr FaceTypeSupport implementsFaceType(FaceType /*faceType*/) {
+  static constexpr FaceTypeSupport implementsFaceType([[maybe_unused]] FaceType faceType) {
     return faceTypeSupported();
   }
 

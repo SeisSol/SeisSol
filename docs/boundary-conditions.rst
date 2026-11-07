@@ -49,6 +49,9 @@ Overview
    * - ``analytical``
      - 7
      - The exterior state is the analytical solution of the scenario.
+   * - ``nonlinearDirichlet``
+     - 8
+     - The exterior state is any function of the interior one, given by a script.
 
 Not every boundary condition is available in every build. A material model states
 which face types are defined for it, and a solver states which ones its kernels
@@ -111,7 +114,10 @@ block:
   /
 
 The condition is sampled once per face, at the face barycenter, so it may vary from
-face to face but not within one.
+face to face but not within one. The file may also be a script (``sderiv:file`` or
+``lua:file``). It reads the barycenter ``x``, ``y``, ``z`` and the ``group`` of the cell; a
+script also reads the parameters of the material of the cell (see
+:ref:`script_material_parameters`).
 
 Terms
 ~~~~~
@@ -208,7 +214,105 @@ evaluated at the face nodes and integrated over the timestep. It is used to meas
 convergence against a known solution rather than to model a physical boundary.
 
 The scenario has to be one that can be evaluated at an arbitrary time, not only at
-:math:`t = 0`. Of the scenarios in :doc:`initial-condition` every analytically given
-one qualifies; a scenario read from a file does not, since it supplies a state at
-:math:`t = 0` alone. A mesh with analytical faces combined with such a scenario is
-rejected at startup.
+:math:`t = 0`. Every analytically given scenario in :doc:`initial-condition` qualifies,
+and so does a script (``cICType = 'script'``), evaluated at the times of the quadrature;
+a script that does not read ``t`` gives the same state at every time. A script that
+compiles (an sderiv module or a Lua model that traces) becomes one program that
+evaluates it at all times of the quadrature of a timestep and integrates it, so that
+what does not depend on the time is computed once per face. Fused simulations of the
+same script share that program, with ``sim`` as its input. The scenarios SeisSol has
+built in are such scripts as well; only an easi file, or a Lua model that does not trace,
+is evaluated at one time after the other.
+
+In a device build, the program runs on the device, as one kernel for all faces of a side of
+the cells of a layer, which reads the nodes of the faces and the parameters of the materials
+where they are. The initial condition then has to be a script that compiles: an easi file or
+a Lua model that does not trace is rejected at startup, as is a build without the runtime
+compiler of its device (NVRTC, HIPRTC, or the kernel compiler of SYCL).
+
+.. _nonlinear_dirichlet:
+
+Nonlinear Dirichlet
+-------------------
+
+The state in the ghost cell behind the face is any function of the state inside, and of
+the position and the time:
+
+.. math::
+
+   q_\text{ghost} = f(q_\text{inside}, x, t)
+
+A script gives :math:`f`, an sderiv module (``sderiv:file`` or a ``.sderiv`` file) or a
+Lua model that traces (``lua:file`` or a ``.lua`` file), named in the equations block:
+
+.. code-block:: Fortran
+
+  &equations
+  NonlinearDirichletFileName = 'sderiv:wall.sderiv'
+  /
+
+The script reads the inner state by the names of the quantities of the material
+(``s_xx``, ``s_yy``, ``s_zz``, ``s_xy``, ``s_yz``, ``s_xz``, ``v1``, ``v2``, ``v3`` for an
+elastic one, as for the Dirichlet boundary), ``x``, ``y``, ``z``, ``t``, ``sim``, and the
+parameters of the material of the cell (:ref:`script_material_parameters`). It gives the ghost
+state by the same names; a quantity it does not give is the one inside. There are no ``map_*`` or
+``const_*`` terms. In an sderiv module a quantity reads the inner state wherever it
+appears, also next to the definition of its ghost value: the module is one parallel
+assignment. As with the Dirichlet boundary, ``frame = 1`` states both states in the
+face-aligned basis (the first axis is the outward normal); the default, 0, is global
+coordinates. The frame is the same on every face, so it may read nothing. In a run of several
+materials, a script gives and reads the quantities of each, and each configuration takes those of
+its material, as the Dirichlet boundary does its terms (see :ref:`several_configurations`).
+
+The condition is evaluated at the nodes of each face, at the times of the quadrature of
+each timestep, with the state inside at that time, and integrated over the timestep,
+all in one program; the ghost state then enters the Godunov flux as that of an
+analytical boundary does. The Dirichlet boundary above stays
+as it is: its affine condition is folded into the flux solver once, which a function
+that is not affine cannot be. An affine function gives the same result as the Dirichlet
+boundary, up to rounding.
+
+A rigid wall, and one that bounces back less of a fast normal velocity:
+
+.. code-block:: text
+
+  # wall.sderiv
+  out def frame = 1.0
+  out def v1 = -v1
+
+  # damped.sderiv
+  out def frame = 1.0
+  out def v1 = -v1 / (1.0 + abs(v1) / 0.1)
+
+In Lua, the same wall:
+
+.. code-block:: lua
+
+  local M = {}
+  function M.evaluate(fields, v1)
+    return {frame = 1.0, v1 = -v1}
+  end
+  return M
+
+What the script makes of the inner state is in the hands of its author. A condition
+that sends more back than comes in -- a ghost state that grows faster with the inner
+one than a mirror -- feeds the numerical noise at every timestep, and the solution
+diverges. Also one that sends back less may be stable with a global timestep and
+diverge with local timestepping, as the same affine condition does on a Dirichlet
+boundary: a reflection of half the whole state in global coordinates, for instance. A
+rigid wall is stable in both.
+
+In a device build, the boundary runs on the device: per side of the cells of a layer, the
+state inside at the time points of the step from the time derivatives of the cells, at the
+nodes of the faces (and in the face-aligned basis, if the script states it there), then one
+kernel of the script for all faces, and the ghost state back in global coordinates. A
+quantity the script does not give is the integrated state of the cell at the nodes, which is
+the same integral. The script is evaluated where it gives a quantity, and the state inside
+only computed if it reads it. As for the analytical boundary, the build needs the runtime
+compiler of its device.
+
+With the space-time predictor (poroelastic materials), the state inside at a time point is
+the polynomial in time of the predictor at that time, which the quadrature of the step
+integrates exactly as well. That is on the host only: device builds of the space-time predictor
+reject the boundary, as do device builds with the anelastic solver (viscoelastic and
+viscoacoustic materials).

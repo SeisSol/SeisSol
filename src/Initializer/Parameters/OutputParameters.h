@@ -96,6 +96,8 @@ struct FreeSurfaceOutputParameters {
   ProjectionMethod projection{ProjectionMethod::L2};
   // none if the parameters choose none (see TimeSeriesMode)
   std::optional<TimeSeriesMode> timeSeries;
+  // a derived-output program (sderiv or Lua) whose outputs are written along
+  std::string script;
 };
 
 enum class ReceiverOutputFormat { Csv, Hdf5 };
@@ -180,6 +182,8 @@ struct WaveFieldOutputParameters {
   ProjectionMethod projection{ProjectionMethod::Pointwise};
   // none if the parameters choose none (see TimeSeriesMode)
   std::optional<TimeSeriesMode> timeSeries;
+  // a derived-output program (sderiv or Lua) whose outputs are written along
+  std::string script;
 };
 
 struct OutputParameters {
@@ -194,6 +198,9 @@ struct OutputParameters {
   PickpointParameters pickpointParameters;
   ReceiverOutputParameters receiverParameters;
   WaveFieldOutputParameters waveFieldParameters;
+  /// The model (an easi file, or a script) whose `wavefield` and `surface` restrict the cells and
+  /// the faces of the free surface written (cf. OutputRegions); empty for none.
+  std::string regionFileName;
   //! the simulated time after which a simulation epoch ends at the latest; zero for no limit
   double epochInterval{0};
   //! whether the run measures what its cells cost, and writes it to <prefix>-vertexweights.h5 at
@@ -211,14 +218,16 @@ struct OutputParameters {
                    FreeSurfaceOutputParameters freeSurfaceParameters,
                    PickpointParameters pickpointParameters,
                    ReceiverOutputParameters receiverParameters,
-                   WaveFieldOutputParameters waveFieldParameters)
+                   WaveFieldOutputParameters waveFieldParameters,
+                   std::string regionFileName)
       : format(format), xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress),
         prefix(std::move(prefix)), checkpointParameters(checkpointParameters),
         elementwiseParameters(elementwiseParameters), energyParameters(energyParameters),
         freeSurfaceParameters(std::move(freeSurfaceParameters)),
         pickpointParameters(std::move(pickpointParameters)),
         receiverParameters(std::move(receiverParameters)),
-        waveFieldParameters(std::move(waveFieldParameters)) {}
+        waveFieldParameters(std::move(waveFieldParameters)),
+        regionFileName(std::move(regionFileName)) {}
 };
 
 void warnIntervalAndDisable(bool& enabled,

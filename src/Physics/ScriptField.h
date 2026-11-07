@@ -1,0 +1,129 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_PHYSICS_SCRIPTFIELD_H_
+#define SEISSOL_SRC_PHYSICS_SCRIPTFIELD_H_
+
+#include "Physics/InitialField.h"
+#include "Physics/ScriptScope.h"
+
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+namespace seissol::expr {
+class Program;
+} // namespace seissol::expr
+
+namespace seissol::physics {
+
+/// A field given by a script: an initial condition, an analytical solution, and with it the values
+/// of an analytic boundary condition, which ask for it at their points and times as they go.
+///
+/// The script gives the quantities by name. It reads `x`, `y`, `z`, and as it needs them the time
+/// `t`, the simulation `sim`, and the parameters of the material of the cell by the names
+/// `parameters` (model::scriptParameterNames). A quantity it does not give is zero.
+///
+/// A script that compiles to a program (an sderiv module, or a Lua model that traces) is evaluated
+/// by one kernel per thread, made here, with the points and values of a call passed as bases --
+/// the boundary condition asks for a few points per face and time step, which is far too often to
+/// bind a table each time. Any other script (easi) is evaluated by one reader per thread, which is
+/// correct but slow.
+class ScriptField : public InitialFieldOf<ScriptField> {
+  public:
+  /// A condition on the material of a cell, given the parameters of the material (in the order of
+  /// the names the field was made with): why the material does not fit, or nothing.
+  using MaterialCheck = std::function<std::optional<std::string>(const double* parameters)>;
+
+  /// A script that reads anything else, keeps state, or gives what is no quantity is an error
+  /// once the field is evaluated -- not before, since a script that serves as an initial condition
+  /// only is fine with that (it may read the mesh group, for one).
+  ///
+  /// `hasTime` says whether an easi script reads the time, as for the initial condition.
+  /// `filter`, if given, transforms the program of a script that compiles before it is used (in a
+  /// run of several configurations, it restricts it to one of them; see ScriptScope).
+  ScriptField(const std::string& path,
+              std::vector<std::string> quantities,
+              std::vector<std::string> parameters,
+              std::size_t simulation,
+              bool hasTime,
+              const ProgramFilter& filter = {});
+
+  /// The field of a program that SeisSol makes itself, which `name` names in messages. A program
+  /// that reads anything else, keeps state, or gives what is no quantity is an error here.
+  ScriptField(const expr::Program& program,
+              const std::string& name,
+              std::vector<std::string> quantities,
+              std::vector<std::string> parameters,
+              std::size_t simulation);
+  ~ScriptField() override;
+
+  ScriptField(const ScriptField&) = delete;
+  ScriptField& operator=(const ScriptField&) = delete;
+  ScriptField(ScriptField&&) = delete;
+  ScriptField& operator=(ScriptField&&) = delete;
+
+  template <typename RealT>
+  void evaluateIn(double time,
+                  const std::array<double, 3>* points,
+                  std::size_t count,
+                  const CellMaterialData& materialData,
+                  yateto::DenseTensorView<2, RealT, unsigned>& dofsQP) const {
+    auto& values = scratch(count);
+    evaluateValues(time, points, count, materialData, values.data());
+    // a view may hold fewer components than the field gives: the state at a face leaves out the
+    // memory variables that the solver keeps apart
+    const auto columns = std::min<std::size_t>(quantityCount(), dofsQP.shape(1));
+    for (std::size_t j = 0; j < columns; ++j) {
+      for (std::size_t i = 0; i < count; ++i) {
+        dofsQP(i, j) = static_cast<RealT>(values[j * count + i]);
+      }
+    }
+  }
+
+  /// Quantity j at point i, into values[j * count + i].
+  void evaluateValues(double time,
+                      const std::array<double, 3>* points,
+                      std::size_t count,
+                      const CellMaterialData& materialData,
+                      double* values) const;
+
+  [[nodiscard]] std::size_t quantityCount() const;
+
+  /// Checks the material of every cell the field is evaluated in by `check`; one that does not fit
+  /// is an error. For a scenario that SeisSol writes for one kind of material.
+  void checkMaterial(MaterialCheck check);
+
+  /// Whether the script compiled, and calls run a kernel rather than a reader.
+  [[nodiscard]] bool compiled() const;
+
+  /// The program of a script that compiled, else null.
+  [[nodiscard]] const expr::Program* program() const;
+
+  /// The simulation the field is for, which the script reads as `sim`.
+  [[nodiscard]] std::size_t simulation() const;
+
+  /// Why the script cannot be evaluated as a field, empty if it can.
+  [[nodiscard]] const std::string& error() const;
+
+  private:
+  void setUp();
+
+  [[nodiscard]] std::vector<double>& scratch(std::size_t count) const;
+
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+} // namespace seissol::physics
+
+#endif // SEISSOL_SRC_PHYSICS_SCRIPTFIELD_H_

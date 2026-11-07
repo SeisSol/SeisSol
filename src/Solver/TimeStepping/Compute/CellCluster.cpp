@@ -21,6 +21,7 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Typedefs.h"
@@ -50,6 +51,7 @@
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cassert>
@@ -69,6 +71,18 @@
 #endif
 
 namespace seissol::solver {
+
+namespace {
+
+/// Whether a face of the cell is a nonlinear Dirichlet boundary, which evaluates the state of the
+/// cell at the times of its quadrature, from the time derivatives.
+bool hasNonlinearDirichletFace(const CellLocalInformation& cellInformation) {
+  return std::ranges::any_of(cellInformation.faceTypes, [](FaceType faceType) {
+    return faceType == FaceType::NonlinearDirichlet;
+  });
+}
+
+} // namespace
 
 template <typename Cfg>
 CellCluster<Cfg>::CellCluster(unsigned int clusterId,
@@ -116,6 +130,10 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
   timeKernel_.setGlobalData(globalData);
   localKernel_.setGlobalData(globalData);
   localKernel_.setInitConds(&seissolInstance_.memoryManager().initialConditions(configIdOf<Cfg>()));
+  localKernel_.setNonlinearDirichlet(
+      &seissolInstance_.memoryManager().nonlinearDirichlet(configIdOf<Cfg>()));
+  localKernel_.setAnalyticalGhostState(
+      &seissolInstance_.memoryManager().analyticalGhostState(configIdOf<Cfg>()));
   localKernel_.setGravitationalAcceleration(seissolInstance_.gravitationSetup().acceleration);
   neighborKernel_.setGlobalData(globalData);
   if constexpr (seissol::isDeviceOn()) {
@@ -155,10 +173,20 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
       seissolInstance.flopCounter().addMetric("plasticity-yield", "PL");
 
   const auto* cellInfo = clusterData_->var<LTS::CellInformation>();
+  real* const* derivatives = clusterData_->var<LTS::Derivatives>(Cfg());
+  bool derivativesScratchNeeded = false;
   for (std::size_t i = 0; i < clusterData_->size(); ++i) {
     if (cellInfo[i].plasticityEnabled) {
       ++numPlasticCells_;
     }
+    if (hasNonlinearDirichletFace(cellInfo[i]) && derivatives[i] == nullptr) {
+      derivativesScratchNeeded = true;
+    }
+  }
+  if (derivativesScratchNeeded) {
+    constexpr std::size_t PerAlignment = Alignment / sizeof(real);
+    derivativesSlot_ =
+        (kernels::SolverOf<Cfg>::DerivativesSize + PerAlignment - 1) / PerAlignment * PerAlignment;
   }
 }
 
@@ -250,6 +278,13 @@ void CellCluster<Cfg>::computeLocalIntegration(const StepParams& params) {
         // local integration buffer
         alignas(Alignment) real integrationBuffer[kernels::SolverOf<Cfg>::IntegralsSize];
 
+        // the time derivatives of a cell with a nonlinear Dirichlet face that keeps none, which
+        // the boundary reads; nothing in a cluster without such a cell
+        seissol::memory::MemkindArray<real> derivativesScratch(seissol::memory::Memkind::Standard);
+        if (derivativesSlot_ > 0) {
+          derivativesScratch.resize(derivativesSlot_);
+        }
+
         auto rangeTmp = tmp;
 
         for (std::size_t cell = begin; cell < end; ++cell) {
@@ -268,12 +303,23 @@ void CellCluster<Cfg>::computeLocalIntegration(const StepParams& params) {
             bufferPointer = integrationBuffer;
           }
 
+          // the nonlinear Dirichlet boundary evaluates the state of the cell at the times of its
+          // quadrature, from the time derivatives
+          const bool readsDerivatives =
+              hasNonlinearDirichletFace(data.template get<LTS::CellInformation>());
+          real* cellDerivatives = derivatives[cell];
+          if (readsDerivatives && cellDerivatives == nullptr) {
+            assert(derivativesScratch.size() >= derivativesSlot_ && derivativesSlot_ > 0);
+            cellDerivatives = derivativesScratch.data();
+          }
+          rangeTmp.timeDerivatives = readsDerivatives ? cellDerivatives : nullptr;
+
           spacetimeKernel_.computeAder(integrationCoeffs.data(),
                                        timeStepWidth,
                                        data,
                                        rangeTmp,
                                        bufferPointer,
-                                       derivatives[cell],
+                                       cellDerivatives,
                                        true);
 
           // Compute local integrals (including local boundary conditions)
@@ -404,10 +450,11 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
       },
       isRecurringTimestep(timeStepWidth));
 
-  // depends on the current time, and therefore cannot be replayed from the graph above; it neither
-  // reads nor writes what the graph computes after the local integral
+  // reads the time of the step from the clock on the device, and so may be replayed in a graph of
+  // its own steps; it neither reads nor writes what the graph above computes after the local
+  // integral
   localKernel_.evaluateBatchedTimeDependentBc(
-      dataTable, indicesTable, *clusterData_, clock_.host(), timeStepWidth, streamRuntime_);
+      dataTable, indicesTable, *clusterData_, clock_.device(), timeStepWidth, streamRuntime_);
 
   deviceLoops_.end(loop,
                    streamRuntime_.stream(),
@@ -504,12 +551,16 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
     const ConditionalKey key = ConditionalKey(*KernelNames::Time);
     if (table.contains(key)) {
       auto entry = table.at(key);
-      device_.algorithms().accumulateBatchedData(
-          const_cast<const real**>(entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr()),
-          entry.get<real*>(inner_keys::Wp::Id::Integrals)->getDeviceDataPtr(),
-          tensor::Q<Cfg>::Size,
-          entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize(),
-          streamRuntime_.stream());
+      // as on the host: the state at the end of the step times the width of the step
+      kernel::gpu_integrateOutput<Cfg> integrateKrnl;
+      integrateKrnl.Q =
+          const_cast<const real**>(entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr());
+      integrateKrnl.QIntegral = entry.get<real*>(inner_keys::Wp::Id::Integrals)->getDeviceDataPtr();
+      integrateKrnl.dt = timeStepWidth;
+      // Note: this kernel doesn't require tmp. memory
+      integrateKrnl.numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
+      integrateKrnl.streamPtr = streamRuntime_.stream();
+      integrateKrnl.execute();
     }
   }
 
@@ -703,9 +754,14 @@ void CellCluster<Cfg>::correct() {
   if (executor_ == Executor::Device) {
     computeNeighboringIntegrationDevice(params);
   } else {
-    // the correction reads what the neighbors share, and changes the DOFs only
-    hostRuntime_.action({/*readsNeighbors=*/true, /*writesShared=*/false},
-                        [this, params] { computeNeighboringIntegration(params); });
+    // the correction reads what the neighbors share, and changes the DOFs only; what follows it
+    // (the derived outputs with state) reads the DOFs of the cells at the end of the step
+    hostRuntime_.action({/*readsNeighbors=*/true, /*writesShared=*/false}, [this, params] {
+      computeNeighboringIntegration(params);
+      for (const auto& hook : correctionHooks_) {
+        hook(layerId(), params.time + params.timeStepSize);
+      }
+    });
   }
 
   // the time of the cluster advances by the same step after the correction
@@ -719,6 +775,23 @@ void CellCluster<Cfg>::correct() {
 template <typename Cfg>
 void CellCluster<Cfg>::timeSet(double time) {
   clock_.set(time, streamRuntime_);
+}
+
+template <typename Cfg>
+void CellCluster<Cfg>::reset() {
+  AbstractTimeCluster::reset();
+#ifdef ACL_DEVICE
+  // before the first step of the run, which a graph may record
+  if (!timeDependentBcPrepared_ && executor_ == Executor::Device && clusterData_->size() > 0) {
+    using namespace seissol::recording;
+    localKernel_.prepareBatchedTimeDependentBc(
+        clusterData_->getConditionalTable<inner_keys::Wp>(),
+        clusterData_->getConditionalTable<inner_keys::Indices>(),
+        *clusterData_,
+        streamRuntime_);
+  }
+  timeDependentBcPrepared_ = true;
+#endif
 }
 
 template <typename Cfg>

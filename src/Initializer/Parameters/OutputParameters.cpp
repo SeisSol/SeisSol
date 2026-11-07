@@ -204,13 +204,16 @@ FreeSurfaceOutputParameters
 
   const auto timeSeries = readTimeSeriesMode(reader, "surfacetimeseries", defaultTimeSeries);
 
+  const auto script = reader->readPath("surfacescript").value_or("");
+
   return FreeSurfaceOutputParameters{.enabled = enabled,
                                      .refinement = refinement,
                                      .interval = interval,
                                      .vtkorder = vtkorder,
                                      .outputMask = surfaceOutputMask,
                                      .projection = projection,
-                                     .timeSeries = timeSeries};
+                                     .timeSeries = timeSeries,
+                                     .script = script};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
@@ -376,6 +379,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
 
   const auto timeSeries = readTimeSeriesMode(reader, "wavefieldtimeseries", defaultTimeSeries);
 
+  const auto script = reader->readPath("wavefieldscript").value_or("");
+
   if (enabledPre.has_value()) {
     reader->warnDeprecated({"format"});
   }
@@ -392,7 +397,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
                                    .computeRotation = computeRotation,
                                    .computeStrain = computeStrain,
                                    .projection = projection,
-                                   .timeSeries = timeSeries};
+                                   .timeSeries = timeSeries,
+                                   .script = script};
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader,
@@ -428,6 +434,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
   const auto pickpointParameters = readPickpointParameters(baseReader);
   const auto receiverParameters = readReceiverParameters(baseReader);
   const auto waveFieldParameters = readWaveFieldParameters(baseReader, defaultTimeSeries, configs);
+  const auto regionFileName = reader->readPath("outputregionfilename").value_or("");
 
   reader->warnDeprecated({"projection",
                           "rotation",
@@ -449,7 +456,8 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
                                      freeSurfaceParameters,
                                      pickpointParameters,
                                      receiverParameters,
-                                     waveFieldParameters);
+                                     waveFieldParameters,
+                                     regionFileName);
   parameters.epochInterval = epochInterval;
   parameters.vertexWeightOutput = vertexWeightOutput;
   return parameters;

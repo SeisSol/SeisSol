@@ -68,6 +68,10 @@ class Simulator {
    */
   void setCurrentTime(double currentTime);
 
+  /// The current time of the simulation: zero, or the time of the checkpoint it restarts from,
+  /// until it runs.
+  [[nodiscard]] double getCurrentTime() const { return currentTime_; }
+
   /**
    * Asks to abort the main loop of the simulation (see terminator); from any thread. It ends after
    * the current epoch, or, with a thread for the outputs, after the next one.

@@ -11,11 +11,17 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Constants.h"
+#include "Common/Executor.h"
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h" // IWYU pragma: keep
 #include "Equations/EnergyBase.h"
+#include "Expr/Program.h"
+#include "Expr/RtcGpuDriver.h"
+#include "Expr/SderivFrontend.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/BasicTypedefs.h"
+#include "Initializer/InitProcedure/DerivedOutput.h"
 #include "Initializer/InitProcedure/Internal/Boundary.h"
 #include "Initializer/InitProcedure/Internal/ConfigBoundaryCheck.h"
 #include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
@@ -37,14 +43,19 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Plasticity.h"
+#include "Model/ScriptParameters.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Helper.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
+#include "Physics/NonlinearDirichlet.h"
+#include "Physics/ScriptScope.h"
+#include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -291,6 +302,80 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   });
 }
 
+/// The conditions of the nonlinear Dirichlet boundary, for every configuration with such a face.
+void initializeNonlinearDirichlet(seissol::SeisSol& seissolInstance) {
+  const auto& seissolParams = seissolInstance.parameters();
+  auto& memoryManager = seissolInstance.memoryManager();
+
+  std::vector<bool> present(builtConfigCount(), false);
+  std::vector<bool> onHost(builtConfigCount(), false);
+  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+    for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+      for (const auto faceType : cellInformation[cell].faceTypes) {
+        if (faceType == FaceType::NonlinearDirichlet) {
+          present[layer.getIdentifier().config] = true;
+          if (seissolInstance.executionPlace(layer.size()) == Executor::Host) {
+            onHost[layer.getIdentifier().config] = true;
+          }
+        }
+      }
+    }
+  }
+
+  // the script serves the configurations of all materials of the run: it reads the inner state by
+  // the quantities of any of them, and gives in each what it computes there
+  const auto& fileName = seissolParams.model.nonlinearDirichletFileName;
+  const auto configs = seissolParams.model.configs();
+  const auto scope = physics::ghostStateScope(configs);
+  std::vector<std::string> innerState;
+  for (const auto config : configs) {
+    for (const auto& name : physics::quantityNamesOf(config)) {
+      if (std::find(innerState.begin(), innerState.end(), name) == innerState.end()) {
+        innerState.push_back(name);
+      }
+    }
+  }
+  if (std::any_of(present.begin(), present.end(), [](bool face) { return face; }) &&
+      !fileName.empty()) {
+    expr::SderivOptions options;
+    options.inputs.insert(innerState.begin(), innerState.end());
+    if (const auto program = reader::scripting::buildProgram(fileName, nullptr, options)) {
+      scope.checkKept(*program, fileName);
+    }
+  }
+  for (const auto config : configs) {
+    if (!present[config]) {
+      continue;
+    }
+    if (fileName.empty()) {
+      logError() << "The mesh has faces with the nonlinear Dirichlet boundary, but the equations "
+                    "section names no script for it (NonlinearDirichletFileName).";
+    }
+    if (isDeviceOn() && !expr::deviceRuntimeAvailable()) {
+      logError() << "The nonlinear Dirichlet boundary of a device build needs the runtime compiler "
+                    "of the device, which this build does not have.";
+    }
+    dispatchConfig(config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      const auto& quantities = model::MaterialOf<Cfg>::Quantities;
+      // per step, in the precision of the configuration; on the host where a cluster with such a
+      // face runs there
+      memoryManager.setNonlinearDirichlet(
+          config,
+          std::make_unique<physics::NonlinearDirichlet>(
+              fileName,
+              std::vector<std::string>(quantities.begin(), quantities.end()),
+              model::scriptParameterNames<model::MaterialOf<Cfg>>(),
+              Cfg::ConvergenceOrder,
+              innerState,
+              scope.filter(config, fileName),
+              expr::stepComputeType<Real<Cfg>>(),
+              onHost[config]));
+    });
+  }
+}
+
 void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.parameters();
 
@@ -300,12 +385,15 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
 
   std::optional<DirichletCondition> dirichletCondition;
   if (seissolParams.model.hasBoundaryFile) {
-    dirichletCondition = DirichletCondition(seissolParams.model.boundaryFileName);
+    dirichletCondition =
+        DirichletCondition(seissolParams.model.boundaryFileName, seissolParams.model.configs());
   }
 
   // the boundary mappings carry the Dirichlet map, which the flux solvers absorb
   seissol::initializer::initializeBoundaryMappings(
       meshReader, dirichletCondition, memoryManager.ltsStorage());
+
+  initializeNonlinearDirichlet(seissolInstance);
 
   seissol::initializer::initializeCellLocalMatrices(
       meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);
@@ -375,7 +463,10 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
   internal::initBoundaryStorage(mm.boundaryStorage(), mm.ltsStorage());
   internal::initSurfaceStorage(
-      mm.surfaceStorage(), mm.ltsStorage(), seissolInstance.freeSurfaceIntegrator());
+      mm.surfaceStorage(),
+      mm.ltsStorage(),
+      seissolInstance.freeSurfaceIntegrator(),
+      derivedStateLayout(seissolInstance, DerivedOutputKind::Surface).size());
 }
 
 } // namespace

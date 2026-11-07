@@ -23,6 +23,8 @@
 #include "Physics/InitialField.h"
 
 #ifdef ACL_DEVICE
+#include "Kernels/LinearCK/DeviceGhostStates.h"
+
 #include <Device/device.h>
 #endif
 
@@ -45,6 +47,11 @@ class Local : public LocalKernel<Cfg> {
                               double timeStepWidth,
                               seissol::parallel::runtime::StreamRuntime& runtime) override;
 
+  void prepareBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
+                                     recording::ConditionalIndicesTable& indicesTable,
+                                     LTS::Layer& layer,
+                                     seissol::parallel::runtime::StreamRuntime& runtime) override;
+
   void evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
                                       recording::ConditionalIndicesTable& indicesTable,
                                       LTS::Layer& layer,
@@ -60,7 +67,7 @@ class Local : public LocalKernel<Cfg> {
   kernel::localFlux<Cfg> localFluxKernelPrototype_;
   kernel::localFluxNodal<Cfg> nodalLfKrnlPrototype_;
 
-  kernels::AnalyticalBoundary<Cfg> analyticalBoundary_;
+  kernels::GhostStateBoundary<Cfg> ghostStateBoundary_;
 
   kernel::fsgFlux<Cfg> fsgFlux_;
   kernel::dirichletFlux<Cfg> dirichletFlux_;
@@ -74,6 +81,9 @@ class Local : public LocalKernel<Cfg> {
 
   kernel::gpu_fsgFlux<Cfg> deviceFsgFlux_;
   kernel::gpu_dirichletFlux<Cfg> deviceDirichletFlux_;
+
+  /// the analytical and the nonlinear Dirichlet boundary of the layer of the cluster
+  std::shared_ptr<DeviceGhostStates<Cfg>> deviceGhostStates_;
 #endif
 };
 

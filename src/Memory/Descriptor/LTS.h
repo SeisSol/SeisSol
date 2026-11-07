@@ -23,9 +23,12 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
+#include "Model/ScriptParameters.h"
 #include "Parallel/Helper.h"
 #include "Solver/Settings.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 
 namespace seissol {
@@ -119,6 +122,8 @@ struct LTS {
   using FaceBoundaryMappings = std::array<CellBoundaryMapping<Cfg>, Cell::NumFaces>;
   template <typename Cfg>
   using EnergyDataOf = model::MaterialOf<Cfg>::template EnergyData<Cfg>;
+  template <typename Cfg>
+  using MaterialParametersArray = Real<Cfg>[model::ScriptParameterCount<model::MaterialOf<Cfg>>];
 
   struct Dofs : public initializer::VariantVariable<DofsArray> {};
   struct DofsHalo : public initializer::VariantVariable<DofsArray> {};
@@ -140,6 +145,9 @@ struct LTS {
   struct Coupling : public initializer::VariantVariable<FaceRealPtrs> {};
   struct CouplingMatrices : public initializer::VariantBucket<Real> {};
   struct MaterialData : public initializer::VariantVariable<model::MaterialOf> {};
+  /// The parameters of the material of a cell as scripts read them, in the order of
+  /// model::scriptParameterNames and in the reals of its configuration.
+  struct MaterialParameters : public initializer::VariantVariable<MaterialParametersArray> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::VariantVariable<seissol::model::PlasticityData> {};
   struct DRMapping : public initializer::VariantVariable<FaceDRMappings> {};
@@ -163,6 +171,9 @@ struct LTS {
   struct DerivativesScratch : public initializer::VariantScratchpad<Real> {};
   struct NodalAvgDisplacements : public initializer::VariantScratchpad<Real> {};
   struct AnalyticScratch : public initializer::VariantScratchpad<Real> {};
+  /// per face of the nonlinear Dirichlet boundary, what the device kernels between the time
+  /// derivatives and the ghost state need (kernels::NonlinearDirichletScratch)
+  struct NonlinearDirichletScratch : public initializer::VariantScratchpad<Real> {};
   struct IDofsAneScratch : public initializer::VariantScratchpad<Real> {};
   struct DofsExtScratch : public initializer::VariantScratchpad<Real> {};
 
@@ -176,6 +187,10 @@ struct LTS {
   struct ConfigBoundaryScratch : public initializer::Scratchpad<std::uint8_t> {};
 
   struct Integrals : public initializer::VariantVariable<DofsArray> {};
+
+  /// The state of the derived outputs of the wave field, SimulationSettings::derivedState values
+  /// per cell (cf. initializer::DerivedStateLayout).
+  struct DerivedState : public initializer::Variable<double> {};
 
   struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
                                                         DofsHalo,
@@ -192,6 +207,7 @@ struct LTS {
                                                         CouplingMatrices,
                                                         Material,
                                                         MaterialData,
+                                                        MaterialParameters,
                                                         Plasticity,
                                                         DRMapping,
                                                         BoundaryMapping,
@@ -210,11 +226,13 @@ struct LTS {
                                                         DerivativesScratch,
                                                         NodalAvgDisplacements,
                                                         AnalyticScratch,
+                                                        NonlinearDirichletScratch,
                                                         IDofsAneScratch,
                                                         DofsExtScratch,
                                                         FlagScratch,
                                                         QStressNodalScratch,
                                                         Integrals,
+                                                        DerivedState,
                                                         EnergyData,
                                                         ZinvExtra,
                                                         ConfigBoundaryScratch> {};
@@ -277,6 +295,9 @@ struct LTS {
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    // also on the device, where the boundary integrals read it
+    storage.add<MaterialParameters>(
+        LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<Plasticity>(
         plasticityMask, Alignment, allocationModeWP(AllocationPreset::Plasticity), true);
     storage.add<DRMapping>(
@@ -304,6 +325,14 @@ struct LTS {
 
     storage.add<EnergyData>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<Integrals>(integralMask, Alignment, allocationModeWP(AllocationPreset::Dofs));
+    // On the host only, for now: it is evaluated there, on a device run when an output is written.
+    storage.add<DerivedState>(settings.derivedState > 0
+                                  ? LayerMask(Ghost)
+                                  : LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
+                              Alignment,
+                              AllocationMode::HostOnly,
+                              false,
+                              std::max<std::size_t>(settings.derivedState, 1));
 
     if constexpr (isDeviceOn()) {
       const auto mode = AllocationMode::DeviceOnly;
@@ -313,7 +342,8 @@ struct LTS {
       storage.add<IntegratedDofsScratch>(LayerMask(), Alignment, mode);
       storage.add<DerivativesScratch>(LayerMask(), Alignment, mode);
       storage.add<NodalAvgDisplacements>(LayerMask(), Alignment, mode);
-      storage.add<AnalyticScratch>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
+      storage.add<AnalyticScratch>(LayerMask(), Alignment, mode);
+      storage.add<NonlinearDirichletScratch>(LayerMask(), Alignment, mode);
 
       storage.add<FlagScratch>(LayerMask(), Alignment, mode);
       storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);

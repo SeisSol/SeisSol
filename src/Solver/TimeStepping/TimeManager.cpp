@@ -1165,6 +1165,12 @@ void TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter) {
   }
 }
 
+void TimeManager::addCorrectionHook(const CellClusterInterface::CorrectionHook& hook) {
+  for (auto& cluster : cellClusters_) {
+    cluster->addCorrectionHook(hook);
+  }
+}
+
 void TimeManager::setInitialTimes(double time) {
   assert(time >= 0);
 

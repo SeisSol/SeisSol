@@ -9,7 +9,7 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
-from kernels.common import cold_kernel_attrs
+from kernels.common import cold_kernel_attrs, generate_kernel_name_prefix
 from kernels.multsim import OptionalDimTensor
 from kernels.quantities import (
     FaceRole,
@@ -165,7 +165,7 @@ class ADERDGBase(ABC):
         project2nFaceTo3m = tensor_collection_from_constant_expression(
             base_name="project2nFaceTo3m",
             expressions=lambda i: self.db.rDivM[i][self.t("jk")]
-            * self.db.V2nTo2m["kl"],
+            * self.db.V2nTo2m[self.t("kl")],
             group_indices=simpleParameterSpace(4),
             target_indices="jl",
         )
@@ -441,6 +441,27 @@ class ADERDGBase(ABC):
             momentQQ["IJ"] <= self.db.M3["ij"] * self.Q["iI"] * self.Q["jJ"],
             attrs=cold_kernel_attrs(),
         )
+
+    def addOutputIntegral(self, generator, targets):
+        """The time integral of the state that the wave-field output reads, to first order: the
+        state at the end of each step times the width of the step, added up. The host loop
+        and the device kernel compute the same."""
+        integral = OptionalDimTensor(
+            "QIntegral",
+            self.Q.optName(),
+            self.Q.optSize(),
+            self.Q.optPos(),
+            (self.num3DBasisFunctions(), self.numQuantities()),
+            alignStride=True,
+        )
+        dt = Scalar("dt")
+        for target in targets:
+            name_prefix = generate_kernel_name_prefix(target)
+            generator.add(
+                f"{name_prefix}integrateOutput",
+                integral["kp"] <= integral["kp"] + dt * self.Q["kp"],
+                target=target,
+            )
 
     @abstractmethod
     def addLocal(self, generator, targets):

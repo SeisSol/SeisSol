@@ -15,6 +15,7 @@
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/ConfigBoundary.h"
+#include "Kernels/NonlinearDirichletScratch.h"
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
@@ -46,6 +47,7 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
   std::size_t integratedDofsCounterNeighbor{0};
   std::size_t nodalDisplacementsCounter{0};
   std::size_t analyticCounter = 0;
+  std::size_t nonlinearDirichletCounter = 0;
   std::size_t numPlasticCells = 0;
   // at most, as each face counts here, but a neighbor (and side) only once in the recorder
   std::size_t configBoundaryBytes = 0;
@@ -100,6 +102,10 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
       if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
         ++analyticCounter;
       }
+
+      if (cellInformation[cell].faceTypes[face] == FaceType::NonlinearDirichlet) {
+        ++nonlinearDirichletCounter;
+      }
     }
   }
 
@@ -120,8 +126,12 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
                                             sizeof(real));
   }
 
-  layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal<Cfg>::size() *
-                                           sizeof(real));
+  // the ghost state of the faces of the analytical and of the nonlinear Dirichlet boundary, which
+  // the nodal flux takes
+  layer.setEntrySize<LTS::AnalyticScratch>((analyticCounter + nonlinearDirichletCounter) *
+                                           tensor::INodal<Cfg>::size() * sizeof(real));
+  layer.setEntrySize<LTS::NonlinearDirichletScratch>(
+      nonlinearDirichletCounter * kernels::NonlinearDirichletScratch<Cfg>::PerFace * sizeof(real));
   layer.setEntrySize<LTS::ConfigBoundaryScratch>(configBoundaryBytes);
 
   if (plasticity) {

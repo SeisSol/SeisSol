@@ -122,6 +122,29 @@ Thus, we use persistent MPI communication which may reduce communication latency
 
 To disable persistent communication, set ``SEISSOL_MPI_PERSISTENT=0``. Then, SeisSol will use ``MPI_Isend`` and ``MPI_Irecv`` instead. To explicitly enable the persistent communication, set ``SEISSOL_MPI_PERSISTENT=1``. Right now, it is enabled by default.
 
+Scripts
+-------
+
+The scripts that a run evaluates per time step or per output (the analytical and the nonlinear
+Dirichlet boundary, the slip rates of ``FL = 36``, the derived outputs) compute in the precision of
+the configuration: in binary32 in a configuration of ``f32``, and in binary64 in one of ``f64``. The
+scripts evaluated once, at setup (materials, the initial condition, the Dirichlet boundary, the
+output regions), compute in binary64. ``SEISSOL_EXPR_PRECISION=f64`` (or ``f32``) sets the precision
+of the former for all configurations instead. Two cases where binary64 is worth its cost in a
+configuration of ``f32``: a time late in a run, which binary32 resolves to about
+:math:`6\cdot 10^{-8}` of its value (1.2 µs at 20 s), maybe coarser than a time step; and a formula
+that cancels, such as ``1 - cos(x)`` for a small ``x`` (``2 * sin(x / 2) ** 2`` does not). A derived
+output with state, and the slip rates of a script that gives the slip, compute in binary64 always.
+
+The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
+``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They
+are kept across runs in the directory ``SEISSOL_EXPR_CACHE`` names, by default ``seissol/expr`` in
+``$XDG_CACHE_HOME`` or ``~/.cache``; ``SEISSOL_EXPR_CACHE=off`` compiles them in every run. An entry
+is the kernel and all it was compiled from: the source, the flags, the compiler, and with
+``-march=native`` the processor, so that nodes of another kind compile their own. With
+``SEISSOL_EXPR_DUMP`` naming a directory, SeisSol writes the sources it generates there, and for
+CUDA the PTX that NVRTC makes of them.
+
 GPU-Specific Environment Variables
 ----------------------------------
 

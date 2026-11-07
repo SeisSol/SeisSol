@@ -110,6 +110,10 @@ using DynamicRuptureConfigs = ConfigsWhere<internal::SupportsDynamicRupture>;
 /// for the tests of a material, `model::MaterialOf<Cfg>`.
 using internal::MaterialConfigs;
 
+/// The first configuration built into the executable, the one a run takes by default; for the tests
+/// that need one configuration, whichever it is.
+using FirstConfig = std::tuple_element_t<0, std::tuple<SEISSOL_CONFIG_TYPES>>;
+
 } // namespace seissol::unit_test
 
 #endif // SEISSOL_TESTS_TESTCONFIGS_H_

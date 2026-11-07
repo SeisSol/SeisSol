@@ -12,6 +12,7 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Marker.h"
+#include "Common/Typedefs.h"
 #include "Config.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -21,6 +22,7 @@
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
+#include "Kernels/Solver.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
@@ -29,15 +31,12 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Monitoring/Trace.h"
-#include "Parallel/Runtime/HostRuntime.h"
 
 #include <utility>
 #endif
@@ -57,6 +56,7 @@ void Local<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {
   volumeKernelPrototype_.bindGlobals(*global.onHost);
   localFluxKernelPrototype_.bindGlobals(*global.onHost);
   nodalLfKrnlPrototype_.bindGlobals(*global.onHost);
+  ghostStateBoundary_.bindGlobals(*global.onHost);
   fsgFlux_.bindGlobals(*global.onHost);
   dirichletFlux_.bindGlobals(*global.onHost);
 
@@ -67,6 +67,7 @@ void Local<Cfg>::setGlobalData(const CompoundGlobalData<Cfg>& global) {
   deviceNodalLfKrnlPrototype_.bindGlobals(*global.onDevice);
   deviceFsgFlux_.bindGlobals(*global.onDevice);
   deviceDirichletFlux_.bindGlobals(*global.onDevice);
+  deviceGhostStates_ = std::make_shared<DeviceGhostStates<Cfg>>(global.onDevice);
 #endif
 }
 
@@ -151,14 +152,54 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
       break;
     }
     case FaceType::Analytical: {
-      assert(this->initConds_ != nullptr);
-      const auto applyAnalyticalSolution = ApplyAnalyticalSolution<Cfg>(this->initConds_, data);
-
-      analyticalBoundary_.evaluate(cellBoundaryMapping[face],
-                                   applyAnalyticalSolution,
-                                   dofsFaceBoundaryNodal,
-                                   time,
-                                   timeStepWidth);
+      ghostStateBoundary_.analytical(this->analyticalGhostState(),
+                                     this->initConds_,
+                                     data,
+                                     face,
+                                     time,
+                                     timeStepWidth,
+                                     dofsFaceBoundaryNodal);
+      nodalLfKrnl.execute(face);
+      break;
+    }
+    case FaceType::NonlinearDirichlet: {
+      assert(this->nonlinearDirichlet() != nullptr);
+      assert(tmp.timeDerivatives != nullptr);
+      // the state of the cell at a time into the step: from its Taylor series, or from the
+      // polynomial in time of the space-time predictor
+      const real* derivatives = tmp.timeDerivatives;
+      const auto stateAt = [derivatives, timeStepWidth](double tau, real* state) {
+        // the predictor reads it, the Taylor series does not
+        static_cast<void>(timeStepWidth);
+        if constexpr (Cfg::Solver == SolverType::LinearCK) {
+          kernel::derivativeTaylorExpansion<Cfg> taylorKrnl;
+          taylorKrnl.I = state;
+          double power = 1;
+          for (std::size_t d = 0; d < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++d) {
+            taylorKrnl.dQ(d) = derivatives + yateto::computeFamilySize<tensor::dQ<Cfg>>(1, d);
+            taylorKrnl.power(d) = static_cast<real>(power);
+            power *= tau / static_cast<double>(d + 1);
+          }
+          taylorKrnl.execute();
+        } else {
+#ifdef SEISSOL_KERNELS_STP
+          const auto basis = seissol::kernels::timeBasis<Cfg>().point(tau, timeStepWidth);
+          kernel::evaluateDOFSAtTimeSTP<Cfg> evaluateKrnl;
+          evaluateKrnl.spaceTimePredictor = derivatives;
+          evaluateKrnl.timeBasisFunctionsAtPoint = basis.data();
+          evaluateKrnl.QAtTimeSTP = state;
+          evaluateKrnl.execute();
+#endif
+        }
+      };
+      ghostStateBoundary_.nonlinearDirichlet(*this->nonlinearDirichlet(),
+                                             stateAt,
+                                             face,
+                                             cellBoundaryMapping[face],
+                                             data.template get<LTS::MaterialParameters>(),
+                                             time,
+                                             timeStepWidth,
+                                             dofsFaceBoundaryNodal);
       nodalLfKrnl.execute(face);
       break;
     }
@@ -335,6 +376,22 @@ void Local<Cfg>::computeBatchedIntegral(
 }
 
 template <typename Cfg>
+void Local<Cfg>::prepareBatchedTimeDependentBc(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  deviceGhostStates_->prepare(this->analyticalGhostState(),
+                              this->nonlinearDirichlet(),
+                              dataTable,
+                              indicesTable,
+                              layer,
+                              runtime.stream());
+#endif
+}
+
+template <typename Cfg>
 void Local<Cfg>::evaluateBatchedTimeDependentBc(
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
     SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
@@ -346,62 +403,55 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
 
+  // the flux of the ghost states of the faces of a batch, from their slots of AnalyticScratch
+  const auto nodalFlux = [&](const ConditionalKey& key, std::size_t face) {
+    const std::size_t numElements = dataTable[key].get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
+    auto nodalLfKrnl = deviceNodalLfKrnlPrototype_;
+    auto tmpMem = runtime.memoryHandle<real>(
+        (yateto::getMaxTmpMemRequired(nodalLfKrnl) * numElements) / sizeof(real));
+    nodalLfKrnl.linearAllocator.initialize(tmpMem.get());
+    nodalLfKrnl.INodal = const_cast<const real**>(
+        dataTable[key].get<real*>(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
+    nodalLfKrnl.AminusT = const_cast<const real**>(
+        dataTable[key].get<real*>(inner_keys::Wp::Id::NeighborIntegrationData)->getDeviceDataPtr());
+    nodalLfKrnl.extraOffset_AminusT =
+        SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Cfg>, nAmNm1, face);
+    nodalLfKrnl.Q = dataTable[key].get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+    nodalLfKrnl.streamPtr = runtime.stream();
+    nodalLfKrnl.numElements = numElements;
+    nodalLfKrnl.execute(face);
+  };
+
+  // the times of the step, from the clock on the device, for the boundaries of all faces
+  deviceGhostStates_->beginStep(time, timeStepWidth, runtime.stream());
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.contains(analyticalKey)) {
-      // the indices the table holds, not a copy of them: the loop below runs when the stream gets
-      // to it, after this scope
-      const auto& cellIds = std::as_const(indicesTable)
-                                .at(analyticalKey)
-                                .get<unsigned>(inner_keys::Indices::Id::Cells)
-                                ->getHostData();
-      const size_t numElements = cellIds.size();
-      auto* analytical = reinterpret_cast<real(*)[tensor::INodal<Cfg>::size()]>(
-          layer.var<LTS::AnalyticScratch>(Cfg()));
+      // the setup refuses an initial condition that is no script that compiles in a device build
+      assert(this->analyticalGhostState() != nullptr);
+      deviceGhostStates_->analytical(*this->analyticalGhostState(),
+                                     indicesTable,
+                                     layer,
+                                     face,
+                                     timeStepWidth,
+                                     runtime.stream());
+      nodalFlux(analyticalKey, face);
+    }
 
-      static const auto TraceName = monitoring::Trace::name("boundary conditions");
-      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
-      runtime.enqueueLoop(
-          numElements,
-          [this, face, time, timeStepWidth, analytical, &cellIds, &layer](std::size_t index) {
-            const auto cellId = cellIds.at(index);
-            auto data = layer.cellRef<Cfg>(cellId);
-
-            alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
-
-            assert(this->initConds_ != nullptr);
-            const ApplyAnalyticalSolution<Cfg> applyAnalyticalSolution(this->initConds_, data);
-
-            analyticalBoundary_.evaluate(data.template get<LTS::BoundaryMapping>()[face],
-                                         applyAnalyticalSolution,
-                                         dofsFaceBoundaryNodal,
-                                         *time,
-                                         timeStepWidth);
-
-            std::memcpy(analytical[index], dofsFaceBoundaryNodal, sizeof(dofsFaceBoundaryNodal));
-          });
-
-      auto nodalLfKrnl = deviceNodalLfKrnlPrototype_;
-
-      // as for the other device kernels of the local integral
-      const auto auxTmpMemSize = yateto::getMaxTmpMemRequired(nodalLfKrnl);
-      auto auxTmpMem = runtime.memoryHandle<real>((auxTmpMemSize * numElements) / sizeof(real));
-
-      nodalLfKrnl.INodal = const_cast<const real**>(
-          dataTable[analyticalKey].get<real*>(inner_keys::Wp::Id::Analytical)->getDeviceDataPtr());
-      nodalLfKrnl.AminusT =
-          const_cast<const real**>(dataTable[analyticalKey]
-                                       .get<real*>(inner_keys::Wp::Id::NeighborIntegrationData)
-                                       ->getDeviceDataPtr());
-      nodalLfKrnl.extraOffset_AminusT =
-          SEISSOL_ARRAY_OFFSET(NeighboringIntegrationData<Cfg>, nAmNm1, face);
-      nodalLfKrnl.Q =
-          dataTable[analyticalKey].get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
-      nodalLfKrnl.linearAllocator.initialize(auxTmpMem.get());
-      nodalLfKrnl.streamPtr = runtime.stream();
-      nodalLfKrnl.numElements = numElements;
-      nodalLfKrnl.execute(face);
+    const ConditionalKey nonlinearDirichletKey(
+        *KernelNames::BoundaryConditions, *ComputationKind::NonlinearDirichlet, face);
+    if (indicesTable.contains(nonlinearDirichletKey)) {
+      assert(this->nonlinearDirichlet() != nullptr);
+      deviceGhostStates_->nonlinearDirichlet(*this->nonlinearDirichlet(),
+                                             dataTable,
+                                             indicesTable,
+                                             layer,
+                                             face,
+                                             timeStepWidth,
+                                             runtime);
+      nodalFlux(nonlinearDirichletKey, face);
     }
   }
 #else
@@ -444,9 +494,25 @@ PerformanceEstimate
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::dirichletFlux<Cfg>>(face);
       break;
     case FaceType::Analytical:
+      // and the script, at every node, integrated over the step
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Cfg>>(face);
-      estimate += PerformanceEstimate::fromKernel<seissol::kernel::updateINodal<Cfg>>() *
-                  Cfg::ConvergenceOrder;
+      break;
+    case FaceType::NonlinearDirichlet:
+      // and the script, at every node, integrated over the step
+      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Cfg>>(face);
+      if constexpr (Cfg::Solver == SolverType::LinearCK) {
+        estimate +=
+            (PerformanceEstimate::fromKernel<seissol::kernel::projectToFaceNodes<Cfg>>(face) +
+             PerformanceEstimate::fromKernel<seissol::kernel::derivativeTaylorExpansion<Cfg>>()) *
+            Cfg::ConvergenceOrder;
+      } else {
+#ifdef SEISSOL_KERNELS_STP
+        estimate +=
+            (PerformanceEstimate::fromKernel<seissol::kernel::projectToFaceNodes<Cfg>>(face) +
+             PerformanceEstimate::fromKernel<seissol::kernel::evaluateDOFSAtTimeSTP<Cfg>>()) *
+            Cfg::ConvergenceOrder;
+#endif
+      }
       break;
     default:
       break;

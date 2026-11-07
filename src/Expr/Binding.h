@@ -1,0 +1,285 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#ifndef SEISSOL_SRC_EXPR_BINDING_H_
+#define SEISSOL_SRC_EXPR_BINDING_H_
+
+// Binding resolves a Program's signature against a concrete DataTable ONCE, in
+// DataReader::prepare(), and produces the gather/scatter descriptors the
+// backends work from.
+//
+// This is the layer that removes the per-point cost of the current readers. In
+// EasiReader/LuaReader the name lookup, the direction check and the datatype
+// dispatch all happen inside the point loop, behind a std::function. Here the
+// lookup happens once, the datatype dispatch collapses into a converter chosen
+// once per column, and the backend only ever sees contiguous SoA tiles.
+//
+// GROUP PARTITIONING lives here too, and it is the reason the IR needs no
+// dedicated switch/groups node. Select alone would be wrong for layered models:
+// a select chain evaluates every branch at every point, so a model with one
+// ASAGI grid per layer would read every grid at every point. Instead the tile
+// builder partitions the point set by the `group` column and runs each
+// sub-batch through the branch that its group selects — the same thing easi's
+// Switch does with subsetAdapter, one level lower. Programs without a group
+// input get a single partition covering all points.
+
+#include "Expr/Interp.h"
+#include "Expr/Program.h"
+#include "Reader/Scripting/DataTable.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <optional>
+#include <vector>
+
+namespace seissol::expr {
+
+// The input channel a program reads its layer/region id through. Spelled once,
+// here, because Binding is the only layer that treats a channel as anything
+// other than a name: it is the column the tile builder partitions on.
+inline constexpr const char* GroupChannelName = "group";
+
+// How one DataTable column maps into (or out of) a compute-type tile buffer.
+struct ColumnBinding {
+  std::size_t entry{0}; // index into DataTable::dataEntries()
+  int slot{0};          // index into Program::inputs() / Program::outputs()
+  reader::scripting::DataType tableType{reader::scripting::DataType::F64};
+  // The column has no setter, so it can never serve as an output. True for
+  // bindComputed and for the bindViewConst/bindMemberViewConst family alike --
+  // DataTable does not distinguish them from the outside, and the property that
+  // matters downstream is the writability, not which builder produced it.
+  bool computed{false};
+
+  /// Address arithmetic, resolved once at bind time. Empty exactly when the
+  /// column was bound with bindComputed -- see DataTable::StridedView. A
+  /// program with any empty entry can only be evaluated through the accessor,
+  /// which rules out the device backends and the per-call base override.
+  std::optional<reader::scripting::StridedView> view;
+
+  /// The range accessor of a batch-computed column (DataTable::bindComputedBatch), kept so that
+  /// the column can be gathered without the table; empty otherwise.
+  std::function<void(std::size_t, std::size_t, void*)> batch;
+};
+
+// A contiguous run of points sharing one group value. Half-open [begin, end).
+struct GroupRange {
+  std::int32_t group{0};
+  std::size_t begin{0};
+  std::size_t end{0};
+};
+
+class Binding {
+  public:
+  // Validates the Program against the table and resolves every column, block
+  // and matrix. Throws std::invalid_argument on: a required input with no
+  // matching column, an output bound to an In-only column, a duplicate column
+  // name, a point count of zero, a block or matrix the table does not offer or
+  // offers with a smaller length or another form, or a point count that is not
+  // a whole number of cells. Note that an *extra* table column is not an error
+  // — the consumer is allowed to offer more than the program reads.
+  static Binding bind(const Program& program, const reader::scripting::DataTable& table);
+
+  [[nodiscard]] const std::vector<ColumnBinding>& inputs() const { return inputs_; }
+  [[nodiscard]] const std::vector<ColumnBinding>& outputs() const { return outputs_; }
+  [[nodiscard]] std::size_t numPoints() const { return numPoints_; }
+  /// The type the program computes in, which the device kernels take their uniform inputs in.
+  [[nodiscard]] ComputeType computeType() const { return computeType_; }
+
+  // The blocks and matrices contractions read, in Program::blocks() and Program::matrices()
+  // order, as the table binds them.
+  [[nodiscard]] const std::vector<reader::scripting::BlockInput>& blocks() const { return blocks_; }
+  [[nodiscard]] const std::vector<reader::scripting::MatrixInput>& matrices() const {
+    return matrices_;
+  }
+
+  // The operands of the contraction of `block` against `matrix`, with the bound bases or, where
+  // non-null, the ones given for this call.
+  [[nodiscard]] ContractOperands contraction(MatrixId matrix,
+                                             BlockId block,
+                                             const void* matrixBase = nullptr,
+                                             const void* blockBase = nullptr) const;
+
+  // Present only when the program reads a `group` channel; empty otherwise.
+  [[nodiscard]] const std::vector<GroupRange>& groupRanges() const { return groupRanges_; }
+  // Permutation applied to reach the group ranges; empty when unpermuted.
+  [[nodiscard]] const std::vector<std::size_t>& permutation() const { return permutation_; }
+
+  // --- persistent storage ---
+  //
+  // The hoisted values live here, slot-major over the point set:
+  // persistent[(slot - stateSlots) * numPoints + point], for the persistent slots past the
+  // declared states. The buffer cannot be sized in bind(), because the slot count is a property of
+  // the LOWERING and bind() sees only the Program. Hence a second, explicit call once the lowering
+  // exists, rather than a hidden resize on first use: the allocation is
+  // numPoints * slots * sizeof(ComputeType) and belongs where a profile can see it.
+  //
+  // The same call allocates the states the table does not keep (see below), and sets them to
+  // StateSpec::initial. That is the documented meaning of a rebind -- a state slot is tied to the
+  // identity of the point set it was allocated for, and a new point set has no history to carry.
+  // A no-op when the shape already matches, so two kernels over one Binding share the state
+  // instead of the second resetting it to StateSpec::initial.
+  void allocatePersistent(const Program& program, std::int32_t slotCount);
+  [[nodiscard]] std::int32_t persistentSlotCount() const { return persistentSlotCount_; }
+
+  // Typed views of the hoisted values. Not a template, for the reason the gather
+  // overloads are not: the compute type is fixed per Program, so the choice is
+  // made once by the caller that already switched on it to pick an interpreter.
+  // Both log an error when asked for the type the Program does not compute in.
+  // Null without hoisted values.
+  [[nodiscard]] double* persistentF64();
+  [[nodiscard]] float* persistentF32();
+
+  // --- states ---
+  //
+  // Where the declared states live, in Program::state() order. A table can keep a state itself
+  // (DataTable::bindState) -- a consumer that writes it to checkpoints, say -- and the Binding
+  // keeps the others, slot-major over the point set like the hoisted values. Either way, the
+  // state of point p lies StateInput::offset(p) bytes past stateBase(state). A point is the one
+  // a column would read, i.e. past the permutation.
+  [[nodiscard]] const std::vector<reader::scripting::StateInput>& states() const { return states_; }
+  /// Whether the table keeps state `state`.
+  [[nodiscard]] bool stateKept(std::size_t state) const { return stateKept_[state]; }
+  /// The base of state `state`: `moved` if the table keeps the state and it is non-null, the base
+  /// the table bound otherwise, or the Binding's own storage.
+  [[nodiscard]] void* stateBase(std::size_t state, void* moved = nullptr) const;
+
+  // The states of the points of the tile at `first`, dst[state * count + lane], and back: from and
+  // to the bases given for this call where non-null (cf. KernelArgs::states).
+  void gatherState(void* const* bases,
+                   std::size_t baseCount,
+                   std::size_t first,
+                   std::size_t count,
+                   double* dst) const;
+  void gatherState(void* const* bases,
+                   std::size_t baseCount,
+                   std::size_t first,
+                   std::size_t count,
+                   float* dst) const;
+  void scatterState(void* const* bases,
+                    std::size_t baseCount,
+                    std::size_t first,
+                    std::size_t count,
+                    const double* src) const;
+  void scatterState(void* const* bases,
+                    std::size_t baseCount,
+                    std::size_t first,
+                    std::size_t count,
+                    const float* src) const;
+
+  // Gather `count` points starting at `first` into `dst`, one contiguous lane
+  // block per input channel: dst[channel * count + lane]. Scatter is the
+  // mirror image. Both are the only places a DataTable accessor is touched.
+  //
+  // Integer channels are NOT overloaded, and that is deliberate. A group or
+  // fault-tag column is read through the same tile as everything else, because
+  // the program has one compute type and Program.h already records what that
+  // costs (exactness above 2^24 under F32). Adding int32/int64 tiles would
+  // reintroduce the per-node typing that Program.h declines to build.
+  /// True when every bound column has a StridedView, i.e. when this binding can
+  /// be evaluated from raw pointers alone. What makeKernel checks before
+  /// offering a device backend.
+  [[nodiscard]] bool addressable() const { return addressable_; }
+
+  /// True when every input has a StridedView or is batch-computed and every
+  /// output has a StridedView: what a host backend needs to evaluate a call
+  /// without the table, i.e. what run(KernelArgs) on the host requires.
+  [[nodiscard]] bool hostAddressable() const { return hostAddressable_; }
+
+  /// Gather from bases supplied per call rather than from the bound table.
+  /// `inputs[i]` may be null to keep the bound base for that slot.
+  void gatherFrom(const void* const* inputs,
+                  std::size_t inputCount,
+                  std::size_t first,
+                  std::size_t count,
+                  double* dst) const;
+  void gatherFrom(const void* const* inputs,
+                  std::size_t inputCount,
+                  std::size_t first,
+                  std::size_t count,
+                  float* dst) const;
+  void scatterTo(void* const* outputs,
+                 std::size_t outputCount,
+                 std::size_t first,
+                 std::size_t count,
+                 const double* src) const;
+  void scatterTo(void* const* outputs,
+                 std::size_t outputCount,
+                 std::size_t first,
+                 std::size_t count,
+                 const float* src) const;
+
+  void gather(const reader::scripting::DataTable& table,
+              std::size_t first,
+              std::size_t count,
+              double* dst) const;
+  void gather(const reader::scripting::DataTable& table,
+              std::size_t first,
+              std::size_t count,
+              float* dst) const;
+  void scatter(const reader::scripting::DataTable& table,
+               std::size_t first,
+               std::size_t count,
+               const double* src) const;
+  void scatter(const reader::scripting::DataTable& table,
+               std::size_t first,
+               std::size_t count,
+               const float* src) const;
+
+  private:
+  void buildGroupRanges(const Program& program, const reader::scripting::DataTable& table);
+  void resolveContractions(const Program& program, const reader::scripting::DataTable& table);
+  void resolveStates(const Program& program, const reader::scripting::DataTable& table);
+
+  template <typename Tile>
+  void gatherStateImpl(void* const* bases,
+                       std::size_t baseCount,
+                       std::size_t first,
+                       std::size_t count,
+                       Tile* dst) const;
+  template <typename Tile>
+  void scatterStateImpl(void* const* bases,
+                        std::size_t baseCount,
+                        std::size_t first,
+                        std::size_t count,
+                        const Tile* src) const;
+
+  template <typename Tile>
+  void gatherFromImpl(const void* const* inputs,
+                      std::size_t inputCount,
+                      std::size_t first,
+                      std::size_t count,
+                      Tile* dst) const;
+  template <typename Tile>
+  void scatterToImpl(void* const* outputs,
+                     std::size_t outputCount,
+                     std::size_t first,
+                     std::size_t count,
+                     const Tile* src) const;
+
+  std::vector<ColumnBinding> inputs_;
+  std::vector<ColumnBinding> outputs_;
+  std::vector<reader::scripting::BlockInput> blocks_;
+  std::vector<reader::scripting::MatrixInput> matrices_;
+  std::vector<GroupRange> groupRanges_;
+  std::vector<std::size_t> permutation_;
+  std::size_t numPoints_{0};
+  bool addressable_{false};
+  bool hostAddressable_{false};
+  std::vector<std::byte> persistent_;
+  std::int32_t persistentSlotCount_{0};
+  bool persistentAllocated_{false};
+  std::vector<reader::scripting::StateInput> states_;
+  std::vector<bool> stateKept_;
+  // The states the table does not keep, slot-major over the point set. Mutable like a table's
+  // storage: a const Binding still evaluates, and evaluating writes the state.
+  mutable std::vector<std::byte> ownState_;
+  ComputeType computeType_{ComputeType::F64};
+};
+
+} // namespace seissol::expr
+
+#endif // SEISSOL_SRC_EXPR_BINDING_H_

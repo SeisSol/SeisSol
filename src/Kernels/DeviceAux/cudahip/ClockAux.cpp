@@ -7,6 +7,10 @@
 
 #include "Kernels/DeviceAux/ClockAux.h"
 
+#include "Kernels/DeviceAux/TimePointsAux.h"
+
+#include <cstddef>
+
 #ifdef __HIP__
 #include "hip/hip_runtime.h"
 using StreamT = hipStream_t;
@@ -41,3 +45,23 @@ void advance(double* device, double* host, double timeStepSize, void* stream) {
 }
 
 } // namespace seissol::kernels::device::aux::clock
+
+namespace seissol::kernels::timepoints {
+
+namespace {
+__global__ void timePointsKernel(const double* clock, TimeOffsets offsets, double* times) {
+  const auto i = static_cast<std::size_t>(threadIdx.x);
+  if (i < offsets.count) {
+    times[i] = *clock + offsets.values[i];
+  }
+}
+} // namespace
+
+void timePoints(const double* clock, const TimeOffsets& offsets, double* times, void* stream) {
+  if (offsets.count > 0) {
+    timePointsKernel<<<1, MaxTimeOffsets, 0, reinterpret_cast<StreamT>(stream)>>>(
+        clock, offsets, times);
+  }
+}
+
+} // namespace seissol::kernels::timepoints
