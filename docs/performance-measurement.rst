@@ -41,7 +41,7 @@ output (``OutputFile`` is the prefix):
   replaced by ``{}``, which is the same for every message of a kind; its ``arguments``, the values in the order of the
   ``{}``; ``fields``, the values the code gives a name; and the ``source`` in the code (``file``, ``line``,
   ``function``). The messages from before the file is opened, those on the parameters among them, come first; a fatal
-  error is the last line.
+  error or a crash is the last line.
 
 An epoch ends at every synchronization point, i.e. wherever an output is due. A run without outputs, such as a
 benchmark, has a single epoch, and reports how fast it goes at its end only. ``EpochInterval`` in the ``output``
@@ -52,11 +52,16 @@ host in GPU builds, so that it should not come more often than needed.
 
 Rank 0 writes the summary when the run starts, at every stage of the initialization, every ten seconds or so during
 the simulation, and at its end, each time replacing the file at once, so that a reader always finds a complete file.
-``status`` is ``completed`` once the run has ended as planned, and ``failed`` once a fatal error on rank 0 has ended it:
-then ``error`` gives the ``message`` of the error, its ``source`` in the code (``file``, ``line``, ``function``) and its
-``time``. A run that ended early otherwise, by an error on another rank or by the time limit of its job, leaves
+``status`` is ``completed`` once the run has ended as planned, and ``failed`` once a fatal error or a crash on rank 0
+has ended it: then ``error`` gives the ``message`` and the ``time``, for an error its ``source`` in the code
+(``file``, ``line``, ``function``), for a crash the ``signal`` (``SIGSEGV``, ``SIGBUS``, ``SIGFPE``, ``SIGILL`` or
+``SIGABRT``) and the ``address`` of the fault or the ``sender``, the process that sent the signal, if there is one. A
+run that ended early otherwise, by an error or a crash on another rank or by the time limit of its job, leaves
 ``running``. Either way, ``stage`` says how far it got (``init``, ``init.mesh``, ``init.layout``, ``init.model``,
 ``init.sideConditions``, ``init.io``, ``simulation``; ``finished`` at the end).
+
+A crash, i.e. one of these signals or an exception that nothing caught, is reported as a fatal error is: on the console
+of its rank, with the backtrace, and on rank 0 in the log; then it ends all ranks, as a fatal error does.
 
 Times are in seconds, timesteps and simulated times in simulated seconds. Where a value differs between the ranks, the
 summary gives its statistics over them, an object with ``min``, ``max``, ``mean``, ``median``, ``std`` and ``sum``. The

@@ -17,6 +17,7 @@
 #include "Initializer/Parameters/ParameterOverrides.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Monitoring/FailureReport.h"
 #include "Monitoring/RunSummary.h"
 
 #include <algorithm>
@@ -75,29 +76,28 @@ class Report {
   void problem(const std::string& text) {
     logWarning() << text.c_str();
     root_["problems"].push(text);
+    setFailure();
   }
 
-  //! @brief Starts the step @p name , which an error may stop.
-  void step(std::string_view name) { step_ = std::string(name); }
+  //! @brief Starts the step @p name , which an error or a crash may stop.
+  void step(std::string_view name) {
+    step_ = std::string(name);
+    setFailure();
+  }
 
   /**
    * @brief Writes the report of a check that the error of @p record stopped: the step it stopped,
    * and the message and the place of the error.
    */
   void stop(const utils::LogRecord& record) {
-    root_["status"] = "failed";
-    root_["stoppedAt"] = step_;
-    auto& error = root_["error"];
-    error["message"] = record.message();
-    auto& source = error["source"];
-    source["file"] = record.location.file;
-    source["line"] = record.location.line;
-    source["function"] = record.location.function;
-    write();
+    // with what the step has found so far
+    setFailure();
+    monitoring::writeFailureReport(monitoring::failureOf(record));
   }
 
   //! @brief Writes the report, if asked to, and returns the exit code.
   int finish() {
+    monitoring::clearFailureReport();
     const bool passed = root_["problems"].size() == 0;
     root_["status"] = passed ? "passed" : "failed";
     write();
@@ -115,6 +115,25 @@ class Report {
     if (!path_.empty() && !writeFileAtomically(path_, root_.dump() + "\n")) {
       logWarning() << "Could not write the report of the check to" << path_;
     }
+  }
+
+  /**
+   * @brief Sets what a failure writes: the report as it stands, as failed, with the step it stopped
+   * and the failure after the status.
+   */
+  void setFailure() {
+    if (path_.empty()) {
+      return;
+    }
+    auto failed = json::Value::object();
+    for (const auto& [key, value] : root_.asObject()) {
+      failed[key] = key == "status" ? json::Value("failed") : value;
+      if (key == "status") {
+        failed["stoppedAt"] = step_;
+        failed["error"] = monitoring::FailurePlaceholder;
+      }
+    }
+    monitoring::setFailureReport(path_, failed);
   }
 
   std::string path_;

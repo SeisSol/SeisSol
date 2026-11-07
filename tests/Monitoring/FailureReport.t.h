@@ -10,13 +10,17 @@
 #include "Monitoring/FailureReport.h"
 #include "Monitoring/RunSummary.h"
 
+#include <csignal>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <sstream>
 #include <string>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <utils/crash.h>
 #include <utils/logger.h>
 
 namespace seissol::unit_test {
@@ -113,6 +117,46 @@ TEST_CASE("A failure marks the run summary as failed" * doctest::test_suite("mon
     CHECK(text.find("\"error\"") == std::string::npos);
   }
 
+  std::filesystem::remove(path);
+  std::filesystem::remove(prefix + "-epochs.csv");
+}
+
+TEST_CASE("A crash marks the run summary as failed" * doctest::test_suite("monitoring")) {
+  const std::string prefix = "crash-summary-test";
+  const auto path = prefix + "-summary.json";
+
+  monitoring::RunSummary summary;
+  summary.start(prefix, "123e4567-e89b-42d3-a456-426614174000");
+  summary.setStage("simulation");
+  static_cast<void>(std::fflush(nullptr));
+  const pid_t child = fork();
+  if (child == 0) {
+    const rlimit noCore{.rlim_cur = 0, .rlim_max = 0};
+    setrlimit(RLIMIT_CORE, &noCore);
+    // doctest has handlers for these, which catchSignals() would keep
+    for (const int number : {SIGSEGV, SIGBUS, SIGFPE, SIGILL, SIGABRT}) {
+      static_cast<void>(std::signal(number, SIG_DFL));
+    }
+    utils::catchSignals(
+        [](const utils::LogSignal& signal) { monitoring::writeFailureReport(signal.json); });
+    volatile int* volatile pointer = nullptr;
+    *pointer = 1;
+    _exit(0);
+  }
+  int status = 0;
+  REQUIRE(waitpid(child, &status, 0) == child);
+  CHECK(WIFSIGNALED(status));
+  CHECK(WTERMSIG(status) == SIGSEGV);
+  const auto text = fileContent(path);
+  CHECK(text.find("\"status\": \"failed\"") != std::string::npos);
+  // (the cause in the message, such as "address not mapped", is the system's to tell)
+  CHECK(text.find(R"("stage": "simulation",)"
+                  "\n"
+                  R"(  "error": {"message":"The process received the signal SIGSEGV )") !=
+        std::string::npos);
+  CHECK(text.find(R"("signal":"SIGSEGV","address":"0x0","time":")") != std::string::npos);
+
+  summary.finish();
   std::filesystem::remove(path);
   std::filesystem::remove(prefix + "-epochs.csv");
 }

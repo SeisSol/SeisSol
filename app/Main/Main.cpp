@@ -30,7 +30,9 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <unistd.h>
 #include <utils/args.h>
+#include <utils/crash.h>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/timeutils.h>
@@ -53,6 +55,23 @@
 
 namespace {
 using namespace seissol;
+
+/**
+ * Ends the program after a fatal signal, which utils reported already: marks the run summary as
+ * failed (or the report of the check), and ends all ranks of the run. Runs in the signal handler.
+ */
+void endOnSignal(const utils::LogSignal& signal) {
+  seissol::monitoring::writeFailureReport(signal.json);
+  // MPI_Abort() is not async-signal-safe; should it hang, the alarm ends the process
+  alarm(10);
+  int initialized = 0;
+  int finalized = 0;
+  MPI_Initialized(&initialized);
+  MPI_Finalized(&finalized);
+  if (initialized != 0 && finalized == 0) {
+    MPI_Abort(seissol::Mpi::mpi.comm(), 128 + signal.number);
+  }
+}
 
 /**
  * The ID of this run: the one SEISSOL_RUN_ID gives, so that whoever started the run can find its
@@ -191,6 +210,9 @@ std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
 } // namespace
 
 int main(int argc, char* argv[]) {
+  // before MPI is initialized, which sets handlers of its own for the signals that have none
+  utils::catchSignals(&endOnSignal);
+  utils::catchUncaughtExceptions();
   try {
     // a check runs on its own, before anything of a run starts
     const auto checkReport = seissol::initializer::extractCheckOption(argc, argv);
