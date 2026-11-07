@@ -6,7 +6,9 @@
     "signal, those of the rupture and the dynamic stress time to the time",
     "itself; the state of aging and slip law is compared by its logarithm. On",
     "fault2d, the amplitude is the one up to the time to which the exact",
-    "solution holds at the receiver."
+    "solution holds at the receiver; on fault2d-periodic, the exact solution",
+    "is the one of the spectral method of antiplane.py at the receiver (see",
+    "run_case.compare_antiplane)."
   ],
   "entries": {
     "fault1d-anisotropic-imposed/anisotropic/o6/double": {
@@ -623,6 +625,24 @@
       "stress": 0.0061,
       "traction": 0.00021,
       "velocity": 0.0062
+    },
+    "fault2d-antiplane/anisotropic/o6/double": {
+      "direction": 0.00013,
+      "normal-stress": 0.00082,
+      "slip": 0.0047,
+      "slip-rate": 0.165
+    },
+    "fault2d-antiplane/elastic/o6/double": {
+      "direction": 0.00013,
+      "normal-stress": 0.00082,
+      "slip": 0.0047,
+      "slip-rate": 0.165
+    },
+    "fault2d-antiplane/elastic/o6/single": {
+      "direction": 0.00013,
+      "normal-stress": 0.00082,
+      "slip": 0.0047,
+      "slip-rate": 0.165
     },
     "fault2d-supershear/anisotropic/o6/double": {
       "direction": 0.0002,

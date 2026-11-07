@@ -192,6 +192,18 @@ PRESETS = {
         faults=(("x", None),),
         periodic=(False, True, True),
     ),
+    # periodic across the fault as well, for a spontaneous rupture: what the
+    # fault sends out comes back to it from the other side, as it does to the
+    # fault of the spectral boundary integral method of antiplane.py, where no
+    # outflow plane could take it without reflecting part of what arrives
+    # inclined
+    "fault2d-periodic": Spec(
+        name="fault2d-periodic",
+        cells=(8, 24, 3),
+        size=(800.0 / 3.0, 800.0, 100.0),
+        faults=(("x", None),),
+        periodic=(True, True, True),
+    ),
     # elongated and open on every side: energy has to decay monotonically.
     "open96": Spec(
         name="open96",

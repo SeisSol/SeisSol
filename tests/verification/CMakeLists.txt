@@ -121,8 +121,8 @@ function(seissol_add_minimesh)
   set_property(GLOBAL APPEND PROPERTY SEISSOL_MINIMESHES ${MM_NAME})
 endfunction()
 
-foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial fault2d mat48
-                periodicx72 periodic162 open96)
+foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial fault2d
+                fault2d-periodic mat48 periodicx72 periodic162 open96)
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 
@@ -149,6 +149,15 @@ add_test(NAME verification.fault1d.self-test
          COMMAND ${Python3_EXECUTABLE}
                  ${CMAKE_CURRENT_SOURCE_DIR}/fault1d.py self-test)
 set_tests_properties(verification.fault1d.self-test PROPERTIES
+                     LABELS "verification;smoke;dr")
+# the spectral boundary integral method of the antiplane rupture, against
+# closed forms, finite differences and the front of fault1d.py; it skips
+# without scipy
+add_test(NAME verification.antiplane.self-test
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/antiplane.py self-test)
+set_tests_properties(verification.antiplane.self-test PROPERTIES
+                     SKIP_RETURN_CODE 77
                      LABELS "verification;smoke;dr")
 
 # every receiver strictly inside a cell of every mesh; see minimesh.py locate
@@ -196,6 +205,15 @@ add_test(NAME verification.faultreceivers2d
                  ${SEISSOL_MINIMESH_DIR}/fault2d.puml.h5)
 set_tests_properties(verification.faultreceivers2d PROPERTIES
                      FIXTURES_REQUIRED minimesh.fault2d
+                     LABELS "verification;smoke;dr")
+# the receivers of the spontaneous rupture, on points of the spectral method
+add_test(NAME verification.faultreceivers2d-periodic
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate --fault
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/faultreceiver2d-periodic.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d-periodic.puml.h5)
+set_tests_properties(verification.faultreceivers2d-periodic PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d-periodic
                      LABELS "verification;smoke;dr")
 
 # ---------------------------------------------------------------------------
@@ -489,8 +507,10 @@ endfunction()
 #
 # A friction law on a fault1d mesh, held against the exact solution of the
 # ordinary differential equation that every point of a uniform fault solves
-# there (see fault1d.py), or on fault2d, against the one of a forced rupture
-# front (see fault1d.Front). The run is a case of its own, without a snapshot,
+# there (see fault1d.py), on fault2d, against the one of a forced rupture
+# front (see fault1d.Front), or on fault2d-periodic, against the antiplane
+# rupture of a spectral boundary integral method (see antiplane.py), which
+# needs scipy. The run is a case of its own, without a snapshot,
 # since the exact solution is the better reference; the comparison is a test of
 # its own, so that it can be repeated, and its thresholds recorded, without
 # running SeisSol again. Without MATERIAL, the case takes the material of its

@@ -589,6 +589,25 @@ math(EXPR SEISSOL_FAULT2D_TIMEOUT "4 * ${SEISSOL_MINITEST_TIMEOUT}")
 set_tests_properties(verification.fault2d-supershear${SEISSOL_VERIFICATION_SUFFIX}
                      PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
 
+# A spontaneous antiplane rupture with linear slip weakening on
+# fault2d-periodic, which runs out from a nucleation to both sides along y,
+# held against the spectral boundary integral method of antiplane.py. The mesh
+# is periodic across the fault as well, which the method takes into account:
+# from 77 ms on, what the fault sends out returns to it from the other side,
+# and from about 137 ms on, the fronts meet their periodic images at
+# y = +-400 m. The fault receivers lie on points of the method, from the
+# nucleation to where the front arrives some 40 ms before the end. The
+# comparison takes the slip rate, the normal stress and the direction of the
+# slip that they compute at their position, and the slip as the integral of
+# that slip rate (see run_case.compare_antiplane).
+seissol_add_fault1d(NAME fault2d-antiplane FL 16 FAULT fault2d-antiplane.yaml
+                    MESH fault2d-periodic STEPS 2560 FILES faultreceiver2d-periodic.dat
+                    SET "DynamicRupture.t_0=2.0e-02" "DynamicRupture.SlipRateOutputType=0"
+                        "Pickpoint.PPFileName='faultreceiver2d-periodic.dat'"
+                    LABELS convergence)
+set_tests_properties(verification.fault2d-antiplane${SEISSOL_VERIFICATION_SUFFIX}
+                     PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+
 # ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic
 # mesh, so this is the mesh the measurement runs on. 256 steps of 2^-14 s let

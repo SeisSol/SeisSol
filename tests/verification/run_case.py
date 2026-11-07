@@ -29,6 +29,7 @@ into the answer to "was every declared case executed by some build".
 import argparse
 import csv
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -1309,11 +1310,12 @@ def _command_snapshot(args):
 
 
 def _fault1d_groups(manifest):
-    """The material groups at x < 0 and at x > 0 of a fault1d mesh."""
+    """The material groups at x < 0 and at x > 0 of a fault1d mesh, which may
+    be periodic across the fault as well."""
     spec = manifest["spec"]
     if (
         [list(plane) for plane in spec["faults"]] != [["x", None]]
-        or list(spec["periodic"]) != [False, True, True]
+        or list(spec["periodic"])[1:] != [True, True]
         or spec["origin"] is not None
     ):
         raise SystemExit(
@@ -1543,10 +1545,130 @@ def compare_front(front, step, fault_receivers, volume_receivers):
     return deviations
 
 
+def _antiplane_point(solver, header):
+    """The index of the point of the spectral method on which a fault
+    receiver lies; between them, its Fourier series rings where the rupture
+    front is sharp."""
+    y = float(header["x2"][0])
+    spacing = solver.length / solver.count
+    point = (y - solver.y[0]) / spacing
+    if abs(point - round(point)) * spacing > 1e-6:
+        raise SystemExit(
+            f"the fault receiver at y = {y} lies between the points of the "
+            f"spectral method, which are {spacing} m apart from y = {solver.y[0]}"
+        )
+    return int(round(point)) % solver.count
+
+
+def compare_antiplane(solver, solution, frame, fault_receivers):
+    """The deviations of the fault receivers from the antiplane rupture that
+    antiplane.Antiplane computes, per quantity.
+
+    These are the quantities of _AT_RECEIVER the fault receivers record: the
+    slip rate, the normal stress and the direction of the slip, and the slip
+    as the integral of the slip rate along z over the samples, by the
+    trapezoidal rule, which holds at the receiver as well. The slip rate
+    rises steeply where the rupture front arrives, so that its deviation is
+    mostly that of the shape of the front, and that of the slip the one of the
+    time it arrives. The slip rate that the receivers compute from the jump of
+    the velocity rings, in all directions, ahead of a front that has entered
+    their cell, by up to a decimetre per second, which rules out its first
+    rise above fault1d.RUPTURE_SLIP_RATE as the time of the front; the
+    direction is judged where the slip rate exceeds a tenth of its largest
+    value. The receivers have to lie on points of the method along y (see
+    _antiplane_point).
+    """
+    import numpy as np
+
+    deviations = {}
+
+    def worst(name, value):
+        deviations[name] = max(deviations.get(name, 0.0), value)
+
+    step = solution["time"][1] - solution["time"][0]
+    for names, rows, header in fault_receivers:
+        index = _antiplane_point(solver, header)
+
+        def column(name, names=names, rows=rows):
+            if name not in names:
+                raise SystemExit(f"the fault receivers do not record {name}")
+            position = names.index(name)
+            return [row[position] for row in rows]
+
+        time = column("Time")
+        samples = [round(t / step) for t in time]
+        rate = solution["slip-rate"][samples, index]
+        slip = solution["slip"][samples, index]
+        shear = solution["traction"][samples, index]
+        normal = solution["normal-stress"][samples, index]
+
+        strike, dip = column("SRs"), column("SRd")
+        slip_rate = [math.hypot(s, d) for s, d in zip(strike, dip)]
+        worst("slip-rate", _deviation(slip_rate, np.abs(rate)))
+        scale = max(float(np.max(np.abs(normal))), float(np.max(np.abs(shear))))
+        worst("normal-stress", _deviation(column("Pn0"), normal, scale))
+        along_z = (frame.T @ np.array([strike, dip]))[1]
+        integral = np.concatenate(
+            ([0.0], np.cumsum(0.5 * np.diff(time) * (along_z[1:] + along_z[:-1])))
+        )
+        worst("slip", _deviation(integral, slip))
+
+        # the receivers state the initial traction of the load in the fault
+        # frame, before the slip rate of t = 0 takes its part of it
+        stated = np.array([float(header["T_s"][0]), float(header["T_d"][0])])
+        expected = frame @ np.array([0.0, shear[0] + solver.eta * rate[0]])
+        if np.linalg.norm(stated - expected) > 1e-6 * max(np.linalg.norm(stated), 1.0):
+            raise SystemExit(
+                f"the receivers state the initial traction {stated} in fault "
+                f"coordinates, where the documented frame gives {expected}"
+            )
+        limit = 0.1 * float(np.max(np.abs(rate)))
+        misalignment = 0.0
+        for s, d, length, along in zip(strike, dip, slip_rate, rate):
+            if abs(along) < limit or length == 0.0:
+                continue
+            direction = frame @ np.array([0.0, math.copysign(1.0, along)])
+            cosine = (s * direction[0] + d * direction[1]) / length
+            misalignment = max(misalignment, 1.0 - cosine)
+        worst("direction", misalignment)
+    return deviations
+
+
+def _compare_antiplane_case(
+    args, rupture, model, manifest, left, right, interval, fault_receivers
+):
+    """compare_antiplane for a case on a mesh that is periodic across the
+    fault, with the spectral method at args.points points along y and two
+    steps per sample: its cost grows with the square of the steps, and its
+    error is mostly that of the points (see antiplane.py). The method
+    computes the fault alone, so the volume receivers are not compared."""
+    import antiplane
+    import easimodel
+    import fault1d
+    import numpy as np
+
+    if left.rho != right.rho or not np.array_equal(left.stiffness, right.stiffness):
+        raise fault1d.Unsupported("the spectral method takes one medium on both sides")
+    width, length = manifest["spec"]["size"][:2]
+    try:
+        solver = antiplane.Antiplane(left, length, width, args.points)
+        fault = antiplane.fault_along(easimodel.load(model), rupture, solver.y)
+    except easimodel.Unsupported as reason:
+        raise fault1d.Unsupported(f"{model.name}: {reason}") from reason
+    for _, _, header in fault_receivers:
+        _antiplane_point(solver, header)
+    solution = solver.solve(
+        fault, max(row[0] for row in fault_receivers[0][1]), interval / 2
+    )
+    frame = fault1d.fault_frame(fault1d.Inputs(rupture, {}))
+    return compare_antiplane(solver, solution, frame, fault_receivers)
+
+
 def _command_exact(args):
     """Hold a rupture on a fault1d mesh against the exact solution of its 0D
-    problem, or a forced rupture front on fault2d against the one of the
-    problems along it."""
+    problem, a forced rupture front on fault2d against the one of the
+    problems along it, or a rupture on fault2d-periodic against the antiplane
+    rupture of the spectral boundary integral method."""
     import easimodel
     import fault1d
 
@@ -1587,6 +1709,12 @@ def _command_exact(args):
     )
     manifest = json.loads(Path(args.mesh_manifest).read_text(encoding="utf-8"))
     left, right = _fault1d_groups(manifest)
+    if manifest["spec"]["periodic"][0] and importlib.util.find_spec("scipy") is None:
+        result["status"] = "skipped"
+        result["reason"] = ["the spectral method needs scipy, which is not installed"]
+        record(args.result, result)
+        print(result["reason"][0])
+        return SKIP_RETURN_CODE
     left = fault1d.medium_of(materials, left)
     right = fault1d.medium_of(materials, right)
 
@@ -1621,7 +1749,15 @@ def _command_exact(args):
     # every sample is a point of the integration
     step = interval / args.substeps
     try:
-        if fault is None:
+        if manifest["spec"]["periodic"][0]:
+            # whatever the fault sends out returns to it; only the spectral
+            # method takes this into account
+            deviations = _compare_antiplane_case(
+                args, rupture, model, manifest, left, right, interval, fault_receivers
+            )
+            if volume_receivers:
+                print("the volume receivers are not compared on this mesh")
+        elif fault is None:
             width, length = manifest["spec"]["size"][:2]
             try:
                 front = fault1d.Front(
@@ -1853,7 +1989,7 @@ def main(argv=None):
 
     exact = commands.add_parser(
         "exact",
-        help="hold a rupture on fault1d, or a front on fault2d, against its exact solution",
+        help="hold a rupture on fault1d, or one on fault2d, against its exact solution",
     )
     exact.add_argument("--name", required=True)
     exact.add_argument("--case-result", required=True)
@@ -1865,7 +2001,15 @@ def main(argv=None):
         "--substeps",
         type=int,
         default=8,
-        help="steps of the exact integration per sample of the receivers",
+        help="steps of the exact integration per sample of the receivers; on a "
+        "mesh periodic across the fault, the spectral method takes two",
+    )
+    exact.add_argument(
+        "--points",
+        type=int,
+        default=1024,
+        help="points along y of the spectral method, on a mesh periodic across "
+        "the fault; the fault receivers have to lie on them",
     )
     exact.add_argument(
         "--record",

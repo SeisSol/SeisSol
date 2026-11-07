@@ -223,6 +223,37 @@ class Inputs:
         return float(default)
 
 
+def fault_frame(inputs):
+    """The map from the y and z components of a vector in the fault plane
+    x = 0 to the strike and dip components the fault receivers report.
+
+    As docs/dynamic-rupture.rst and docs/parameter-file.rst state it: the
+    normal n points from the side of the reference point (or, with
+    refPointMethod=1, against the reference direction) to the other side;
+    the strike is (n_y, -n_x, 0) / |.|, the dip
+    (-s_y n_z, s_x n_z, s_y n_x - n_y s_x) / |.|; the traction is sigma n,
+    and the slip rate the velocity on the side n points to minus that on
+    the other, which is the side of x > 0 for n = e_x.
+    """
+    reference = inputs.get("XRef", default=0.0)
+    if reference == 0.0:
+        raise Unsupported("the reference point does not tell the sides apart")
+    method = int(inputs.get("refPointMethod", default=0))
+    side = 1.0 if reference > 0.0 else -1.0
+    n_x = -side if method == 0 else side
+    normal = np.array((n_x, 0.0, 0.0))
+    strike = np.array((normal[1], -normal[0], 0.0)) / math.hypot(*normal[:2])
+    dip = np.array(
+        (
+            -strike[1] * normal[2],
+            strike[0] * normal[2],
+            strike[1] * normal[0] - normal[1] * strike[0],
+        )
+    )
+    dip /= np.linalg.norm(dip)
+    return n_x * np.array((strike[1:], dip[1:]))
+
+
 # --------------------------------------------------------------------------
 # loading
 # --------------------------------------------------------------------------
@@ -864,33 +895,9 @@ class Problem:
     @property
     def frame(self):
         """The map from the y and z components of a vector in the fault plane
-        to the strike and dip components the fault receivers report.
-
-        As docs/dynamic-rupture.rst and docs/parameter-file.rst state it: the
-        normal n points from the side of the reference point (or, with
-        refPointMethod=1, against the reference direction) to the other side;
-        the strike is (n_y, -n_x, 0) / |.|, the dip
-        (-s_y n_z, s_x n_z, s_y n_x - n_y s_x) / |.|; the traction is sigma n,
-        and the slip rate the velocity on the side n points to minus that on
-        the other, which is the side of x > 0 for n = e_x.
-        """
-        reference = self.inputs.get("XRef", default=0.0)
-        if reference == 0.0:
-            raise Unsupported("the reference point does not tell the sides apart")
-        method = int(self.inputs.get("refPointMethod", default=0))
-        side = 1.0 if reference > 0.0 else -1.0
-        n_x = -side if method == 0 else side
-        normal = np.array((n_x, 0.0, 0.0))
-        strike = np.array((normal[1], -normal[0], 0.0)) / math.hypot(*normal[:2])
-        dip = np.array(
-            (
-                -strike[1] * normal[2],
-                strike[0] * normal[2],
-                strike[1] * normal[0] - normal[1] * strike[0],
-            )
-        )
-        dip /= np.linalg.norm(dip)
-        return n_x * np.array((strike[1:], dip[1:]))
+        to the strike and dip components the fault receivers report; see
+        fault_frame."""
+        return fault_frame(self.inputs)
 
     @property
     def imposed(self):
