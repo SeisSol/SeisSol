@@ -1331,11 +1331,32 @@ def _fault1d_groups(manifest):
     raise SystemExit(f"{manifest['name']}: groups split elsewhere than at the fault")
 
 
+def _larger(first, second):
+    """The larger of two deviations, NaN where either is NaN: NaN compares
+    false with everything, so that max() keeps it only where it comes first,
+    and a deviation that could not be computed would pass for none."""
+    if math.isnan(first) or math.isnan(second):
+        return math.nan
+    return max(first, second)
+
+
+def _largest(values):
+    """The largest of the deviations `values`, NaN where any of them is (see
+    _larger); there has to be one."""
+    values = list(values)
+    if not values:
+        raise ValueError("there is no deviation to take the largest of")
+    largest = values[0]
+    for value in values[1:]:
+        largest = _larger(largest, value)
+    return largest
+
+
 def _deviation(measured, exact, scale=None):
     """The largest deviation, relative to the amplitude of the exact signal."""
     if scale is None:
         scale = max(abs(value) for value in exact)
-    largest = max(abs(a - b) for a, b in zip(measured, exact))
+    largest = _largest(abs(a - b) for a, b in zip(measured, exact))
     return largest / scale if scale > 0.0 else largest
 
 
@@ -1404,7 +1425,7 @@ def _gauss_point_deviations(column, exact, events, law, imposed, keep=None):
             found["state"] = _deviation(state, exact["state"])
         else:
             # the state of aging and slip law spans orders of magnitude
-            found["state"] = max(
+            found["state"] = _largest(
                 abs(math.log(a) - math.log(b)) if a > 0.0 else math.inf
                 for a, b in zip(state, exact["state"])
             )
@@ -1447,7 +1468,7 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
     deviations = {}
 
     def worst(name, value):
-        deviations[name] = max(deviations.get(name, 0.0), value)
+        deviations[name] = _larger(deviations.get(name, 0.0), value)
 
     for names, rows, header in fault_receivers:
 
@@ -1494,7 +1515,7 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
             if rate < limit or length == 0.0:
                 continue
             cosine = (s * direction[0] + d * direction[1]) / (length * rate)
-            misalignment = max(misalignment, 1.0 - cosine)
+            misalignment = _larger(misalignment, 1.0 - cosine)
         worst("direction", misalignment)
 
     step = series["time"][1] - series["time"][0]
@@ -1580,7 +1601,7 @@ def compare_front(front, step, fault_receivers, volume_receivers):
     def merge(found):
         for name in _AT_RECEIVER:
             if name in found:
-                deviations[name] = max(deviations.get(name, 0.0), found[name])
+                deviations[name] = _larger(deviations.get(name, 0.0), found[name])
 
     for names, rows, header in fault_receivers:
         point = [float(header[name][0]) for name in ("x1", "x2", "x3")]
@@ -1730,7 +1751,7 @@ def compare_antiplane(
     deviations = {}
 
     def worst(name, value):
-        deviations[name] = max(deviations.get(name, 0.0), value)
+        deviations[name] = _larger(deviations.get(name, 0.0), value)
 
     step = reference["time"][1] - reference["time"][0]
     # the column of the reference of each point of the method it holds
@@ -1825,7 +1846,7 @@ def compare_antiplane(
                 continue
             direction = frame @ (solver.direction * math.copysign(1.0, along))
             cosine = (s * direction[0] + d * direction[1]) / length
-            misalignment = max(misalignment, 1.0 - cosine)
+            misalignment = _larger(misalignment, 1.0 - cosine)
         worst("direction", misalignment)
 
     # the volume receivers are compared up to the time the fault first heals,
@@ -1961,7 +1982,7 @@ def _worst(found):
     deviations = {}
     for each in found:
         for name, value in each.items():
-            deviations[name] = max(deviations.get(name, 0.0), value)
+            deviations[name] = _larger(deviations.get(name, 0.0), value)
     return deviations
 
 

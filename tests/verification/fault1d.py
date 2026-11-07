@@ -281,6 +281,18 @@ def smooth_step_rate(t, rise):
     return value * (-2.0 * rise * rise * (t - rise) / (product * product))
 
 
+def largest(*values):
+    """The largest of the deviations `values`, NaN where any of them is NaN.
+
+    max() keeps a NaN only where it comes first, as NaN compares false with
+    everything, so that a deviation that could not be computed would pass for
+    none."""
+    values = [float(value) for value in values]
+    if any(math.isnan(value) for value in values):
+        return math.nan
+    return max(values)
+
+
 class Loading:
     """The traction on the welded fault: the initial stress and the nucleations.
 
@@ -1216,7 +1228,7 @@ def self_test():
         print(
             f"[{status}] {label}: deviation {deviation:.3g}, tolerance {tolerance:.3g}"
         )
-        if deviation > tolerance:
+        if not deviation <= tolerance:
             failures.append(label)
 
     # linear slip weakening under a constant overload Delta: until d_c, the
@@ -1406,7 +1418,7 @@ def self_test():
     check(
         "the waves of a tilted pair of media continue the traction, -H V",
         float(
-            max(
+            largest(
                 np.max(np.abs(traction - below_stress[:, _ALONG_X])),
                 np.max(np.abs(traction + slip_rate @ problem.impedance)),
             )
@@ -1431,7 +1443,7 @@ def self_test():
         check(
             f"the waves at x = {x} solve the wave equation",
             float(
-                max(
+                largest(
                     np.max(np.abs(momentum)) / np.max(np.abs(traction_gradient)),
                     np.max(np.abs(hooke)) / np.max(np.abs(rate)),
                 )
@@ -1477,7 +1489,7 @@ def self_test():
     check(
         "the traction of the tilted medium is the strength",
         float(
-            max(
+            largest(
                 np.max(np.abs(np.linalg.norm(left_traction, axis=1) - strength)),
                 np.max(np.abs(normal - series["normal-stress"][slipping])),
             )
@@ -1521,7 +1533,7 @@ def self_test():
     check(
         "the inclined waves continue the slip rate and the traction, -eta V",
         float(
-            max(
+            largest(
                 np.max(np.abs(above[:, 2] - below[:, 2] - pulse["slip-rate-z"])),
                 np.max(np.abs(traction - below_stress[:, along_xz]))
                 / problem.impedance[2, 2],
@@ -1548,7 +1560,7 @@ def self_test():
         check(
             f"the inclined wave at x = {x} solves the antiplane wave equation",
             float(
-                max(
+                largest(
                     np.max(np.abs(momentum[inner]))
                     / np.max(np.abs(solid.rho * wave_t)),
                     np.max(np.abs(hooke[inner])) / np.max(np.abs(xz_t)),

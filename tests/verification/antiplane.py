@@ -1814,7 +1814,7 @@ def self_test():
         print(
             f"[{status}] {label}: deviation {deviation:.3g}, tolerance {tolerance:.3g}"
         )
-        if deviation > tolerance:
+        if not deviation <= tolerance:
             failures.append(label)
 
     # a uniform slip under a constant friction across the faults x = n W: the
@@ -1861,7 +1861,7 @@ def self_test():
             exact_stress -= solver.eta * arrived
     check(
         "the plane waves of a uniform slip across periodic faults",
-        max(
+        fault1d.largest(
             float(np.max(np.abs(velocity[:, 2] - exact_velocity)))
             / float(np.max(np.abs(exact_velocity))),
             float(np.max(np.abs(stress[:, 4] - exact_stress)))
@@ -1998,9 +1998,11 @@ def self_test():
         check(
             f"the field of the mode k = {solver.k[mode]:.4g} / m at "
             f"({side * x:.4g}, {y:.4g}) {solid}",
-            max(
-                float(np.max(np.abs(computed - exact)) / np.max(np.abs(exact)))
-                for computed, exact in expected
+            fault1d.largest(
+                *(
+                    float(np.max(np.abs(computed - exact)) / np.max(np.abs(exact)))
+                    for computed, exact in expected
+                )
             ),
             1e-4,
         )
@@ -2059,9 +2061,11 @@ def self_test():
             check(
                 f"the in-plane field of the mode k = {k:.4g} / m at "
                 f"({side * probe:.4g}, {y:.4g}) across periodic faults",
-                max(
-                    float(np.max(np.abs(computed - exact)) / np.max(np.abs(exact)))
-                    for computed, exact in expected
+                fault1d.largest(
+                    *(
+                        float(np.max(np.abs(computed - exact)) / np.max(np.abs(exact)))
+                        for computed, exact in expected
+                    )
                 ),
                 1e-2 if mode == 40 else 3e-4,
             )
@@ -2114,7 +2118,7 @@ def self_test():
             epsrel=1e-10,
         )
         image = special.j0(a * math.sqrt(t * t - delay * delay)) + a * a * integral
-        deviation = max(
+        deviation = fault1d.largest(
             deviation, abs((periodic - alone)[index] * solver.speed / solver.mu + image)
         )
     check(
@@ -2181,7 +2185,7 @@ def self_test():
         check(f"a uniform slip under {label}", deviation.pop("slip-rate"), 1e-5)
         check(
             f"what the Gauss points report of a uniform slip under {label}",
-            max(deviation.values()),
+            fault1d.largest(*deviation.values()),
             3e-5,
         )
         # the times of the events, which both take between the steps of the
@@ -2202,7 +2206,11 @@ def self_test():
             if reference is None:
                 deviation = max(deviation, 0.0 if np.isnan(value) else math.inf)
             else:
-                deviation = max(deviation, abs(value - reference) / 3e-5)
+                # an event that only the reference has is infinitely far off
+                deviation = max(
+                    deviation,
+                    math.inf if np.isnan(value) else abs(value - reference) / 3e-5,
+                )
         check(
             f"the rupture and dynamic stress times of a uniform slip under {label}, "
             "in steps",
