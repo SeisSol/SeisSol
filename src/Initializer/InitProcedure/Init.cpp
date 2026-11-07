@@ -18,6 +18,7 @@
 #include "Initializer/InitProcedure/InitLayout.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/EnergyMeter.h"
 #include "Monitoring/Memory.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
@@ -221,8 +222,14 @@ void closeSeisSol(seissol::SeisSol& seissolInstance) {
 void seissolMain(seissol::SeisSol& seissolInstance) {
   createOutputDirectory(seissolInstance);
 
+  // the energy is counted from here on, for the whole run
+  auto& energyMeter = seissolInstance.energyMeter();
+  energyMeter.setup(seissolInstance.counters(), seissolInstance.env().get<bool>("ENERGY", true));
+
   auto& summary = seissolInstance.runSummary();
   summary["configurations"] = configurationNames(seissolInstance);
+  summary["energy"] = energyMeter.describe();
+  summary.setCounters(seissolInstance.counters());
   summary.start(seissolInstance.parameters().output.prefix, seissolInstance.runId());
 
   seissol::Stopwatch initWatch;
@@ -250,6 +257,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   logInfo() << "Simulation done.";
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
   summary["memory"]["atEnd"] = memorySection(summary, "AtEnd");
+  summary["energy"]["run"] = summary.writeStages();
   summary.writeRanks();
   summary.finish();
 

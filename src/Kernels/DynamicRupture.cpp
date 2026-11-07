@@ -190,9 +190,11 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
 template <typename Cfg>
 PerformanceEstimate DynamicRupture<Cfg>::metrics(const DRFaceInformation& faceInfo) const {
   if (isDeviceOn()) {
-    return PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR<Cfg>>(
-               faceInfo.plusSide, 0) +
-           PerformanceEstimate::fromKernel<dynamicRupture::kernel::projectToDR<Cfg>>(
+    return SEISSOL_KERNEL_ESTIMATE(dynamicRupture::kernel::projectToDR<Cfg>,
+                                   dynamicRupture::kernel::gpu_projectToDR<Cfg>)(faceInfo.plusSide,
+                                                                                 0) +
+           SEISSOL_KERNEL_ESTIMATE(dynamicRupture::kernel::projectToDR<Cfg>,
+                                   dynamicRupture::kernel::gpu_projectToDR<Cfg>)(
                faceInfo.minusSide, faceInfo.faceRelation);
   } else {
     auto estimate = timeKernel_.metrics();

@@ -32,8 +32,9 @@ output (``OutputFile`` is the prefix):
 * ``<prefix>-summary.json``, the run summary.
 * ``<prefix>-epochs.csv``, a row per simulation epoch, i.e. per stretch of simulated time between two synchronization
   points (the times outputs are written at): its simulated time span, its wall time (minimum, mean and maximum over the
-  ranks), its compute and blocking IO time (mean and maximum), and the FLOP/s and kernel bytes/s of the epoch,
-  summed over the ranks.
+  ranks), its compute and blocking IO time (mean and maximum), and then, for every counter of the run (see
+  :ref:`run-counters`), first its rate in the epoch (e.g. ``hardwareFlopPerSecond``), then what it counted in the epoch
+  (e.g. ``hardwareFlop``), both summed over the ranks; a counter that counted nothing in an epoch has ``nan`` there.
 * ``<prefix>-ranks.csv``, a row per rank, written at the end of the run: the values of the rank that the summary gives
   the statistics of over the ranks (see below).
 
@@ -99,7 +100,20 @@ members of the summary are:
        region its time per rank, iterations, samples and the regression of its time over the iterations
    * - ``performance``
      - hardware and non-zero FLOP and kernel bytes, in total, per second and per category, and the cell updates per
-       second (``cellUpdatesPerSecond``)
+       second (``cellUpdatesPerSecond``); where all nodes measure the energy, the energy of the epochs (``energy``),
+       which counter it is (``energyBasis``: ``nodeEnergy`` where the nodes count it, else ``deviceEnergy``, else
+       ``cpuEnergy``), and the cell updates and FLOP per joule (``cellUpdatesPerJoule``, ``hardwareFlopPerJoule``,
+       ``nonzeroFlopPerJoule``)
+   * - ``energy``
+     - whether the energy is measured (``enabled``), and for each part of a node that is (``parts``: ``node``,
+       ``cpu``, ``memory``, ``accelerators``, ``devices``) its counter, its sources, the number of nodes that measure
+       it and their sensors per node, and for the GPUs the sum of their power limits per node; the power cap of the
+       nodes (``nodePowerCap``); and what the energy counters counted over the whole run (``run``), see
+       :ref:`run-energy`
+   * - ``stages``
+     - per stage of the run (``init``, ``init.mesh``, ..., ``simulation``): its wall time on rank 0 (``wallTime``),
+       and the energy the nodes took in it and its mean power, under the names of the energy counters and of their
+       rates
    * - ``memory``
      - per rank, in bytes: the peak of the host memory (``hostPeak``) and, in GPU builds, the device memory occupied,
        the unified memory occupied and the device capacity (``device``); once after the initialization
@@ -111,7 +125,41 @@ order the run gets them: ``initMeshRead``, ``initMesh``, ``cells``, ``copyCells`
 ``hostMemoryAfterInit``, ``simulationInitialIo``, ``simulationTotal``, ``simulationCompute``, ``simulationIo``,
 ``kernels`` (the time in the compute kernels), ``outsideKernels``, ``cellUpdates``, ``duplicateCellUpdates``,
 ``dynamicRuptureFaceUpdates`` and ``hostMemoryAtEnd``; in GPU builds, ``deviceMemoryAfterInit`` and ``deviceMemoryAtEnd`` (the device memory occupied)
-as well. ``initMeshRead`` is there for PUML meshes only. The last column is ``runId``.
+as well; where the energy is measured, the energy counters (``nodeEnergy``, ...) over the whole run, on the first rank
+of each node, and ``nan`` on the others. ``initMeshRead`` is there for PUML meshes only. The last column is ``runId``.
+
+.. _run-counters:
+
+Counters
+--------
+
+The work a run does and what it costs, SeisSol counts in counters: quantities that only grow, read on every rank at
+the end of every epoch, and summed over the ranks. Their names are those of the columns of the epoch table:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Counter
+     - Rate
+     - Content
+   * - ``hardwareFlop``, ``nonzeroFlop``
+     - ``hardwareFlopPerSecond``, ``nonzeroFlopPerSecond``
+     - the FLOP of the kernels (see below)
+   * - ``kernelBytes``
+     - ``kernelBytesPerSecond``
+     - the bytes the kernels read and write (see below)
+   * - ``cellUpdates``, ``duplicateCellUpdates``, ``dynamicRuptureFaceUpdates``
+     - ``cellUpdatesPerSecond``, ``duplicateCellUpdatesPerSecond``, ``dynamicRuptureFaceUpdatesPerSecond``
+     - the updates of the cells, of the further copies of copy cells and of the dynamic rupture faces (see
+       :ref:`cell-updates`)
+   * - ``nodeEnergy``, ``cpuEnergy``, ``memoryEnergy``, ``acceleratorEnergy``, ``deviceEnergy``
+     - ``nodePower``, ``cpuPower``, ``memoryPower``, ``acceleratorPower``, ``devicePower``
+     - the energy of the nodes and of their parts, in joules, and its power, in watts, where the nodes measure it
+       (see :ref:`run-energy`)
+
+The rate of a counter is, on every rank, what it counted over the time it took the rank, summed over the ranks: the
+sum of what the ranks achieved at once. A counter of a node is read by one rank of the node, and is summed over the
+nodes.
 
 .. _cell-updates:
 
@@ -150,6 +198,8 @@ This is mostly due to two reasons:
 * Padding a matrix, e.g. to match the size of the underlying SIMD registers. The additional values are known to be zero; thus they are only included into the HW-FLOP, not the NZ-FLOP.
 
 From the latter point, it follows that only the HW-FLOP depend on the underlying hardware. To note, both the HW-FLOP and the NZ-FLOP depend on the scenario and the equation system to be solved.
+
+On a GPU, the HW-FLOP and the kernel bytes are those of the device kernels where the device code generator reports the arithmetic it emits, which TensorForge does. Gemmforge and chainforge report none, so a build with them counts those of the host kernels instead, which say nothing about what the GPU carries out. The run summary says which it counts in ``hardwareFlopOf`` of its ``performance`` section (``device-kernels`` or ``host-kernels``), as does the log at the end of a run with a device code generator that reports none. The NZ-FLOP are those of the host kernels in every build: the device kernels count them in the layout their code generator chose, and builds with different code generators would otherwise differ in how much useful work they did.
 
 During the simulation, we print both HW-FLOP/s and NZ-FLOP/s at synchronization points. After the simulation has finished, we print both the cumulative HW-GFLOP and the NZ-GFLOP, as well as
 HW-GLOP/s and NZ-GFLOP/s.
@@ -191,3 +241,65 @@ performance in "TFLOP/s per node" (formerly "GFLOP/s per node"). It comes in the
 You can compare these values with the publications in order to see if your performance is in line with what to expect.
 
 Note that, empirically, the "HW-TFLOP/s per node" performance metric is used more often; especially in relation to the peak hardware performance.
+
+Energy
+------
+
+.. _run-energy:
+
+Energy of a run
+~~~~~~~~~~~~~~~
+
+Where the nodes of a run have energy sensors that their users can read, SeisSol counts the energy of the run: the
+first rank of every node reads the sensors of the node, at every stage of the initialization and at the end of every
+epoch. The energy counters sum them per part of a node:
+
+* ``nodeEnergy``: the whole node, as the HPE Cray power management counters (``/sys/cray/pm_counters``) count it;
+* ``cpuEnergy`` and ``memoryEnergy``: its CPUs and their memory, from the same counters, else from RAPL;
+* ``acceleratorEnergy``: its accelerators, as the HPE Cray power management counters count them;
+* ``deviceEnergy``: its GPUs, as the management library of their vendor counts them (NVML, AMD SMI or ROCm SMI, Level
+  Zero, else the counters of the i915 and xe drivers), all GPUs of the node, whether the run uses them or not.
+
+The accelerators and the devices are two measurements of the same GPUs, and the parts are contained in the node: they
+are not to be added up. The libraries of the vendors are loaded when the run starts, if they are installed; a node
+without them, or whose sensors its users cannot read (RAPL on most kernels), measures what it can, and a run whose
+nodes measure nothing runs as before. ``SEISSOL_ENERGY=0`` turns the measurement off.
+
+The run summary says which part is measured from which sources, and on how many nodes (``energy``); it gives the
+energy and the mean power of every stage of the run (``stages``) and of the whole run (``energy.run``), and the cell
+updates and FLOP per joule of the epochs (``performance``). The epoch table has the energy and the power of every
+epoch, and the table of the ranks the energy of every node over the run. The log prints the energy of every epoch.
+
+The energy of a node counts what runs on the node, the run or not, so it only means something for nodes that the run
+has to itself. The network and the file system are not part of it. The sensors update at their own pace, the HPE Cray
+counters ten times a second, so that the energy of a short stage or epoch has an error of up to an update at each of
+its ends: let ``EpochInterval`` make the epochs some seconds long (see :ref:`energy-probe` for how often the sensors
+of a machine update). A part whose sensors share a clock, as those of the HPE Cray counters do, takes its power over
+that clock, the other parts over the time of the rank.
+
+The proxy measures the energy of the node during its timed run the same way, and prints it per part, with the power
+and the GFLOP per joule of the node, else of its GPUs, else of its CPUs (``energy-basis``, ``joules``, ``watts``,
+``gflopj-nz`` and ``gflopj-hw`` in its JSON output, which are ``none`` and zero where the node measures nothing, or
+where the run is too short for the sensors to update).
+
+.. _energy-probe:
+
+Energy sources of a machine
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+What a machine offers for measuring energy differs from machine to machine, and between the users of one machine:
+the nodes of HPE Cray EX systems count the energy of the node, of its CPUs, of its memory and of its accelerators in
+``/sys/cray/pm_counters``; GPUs count their own through the management library of their vendor (NVML, AMD SMI or ROCm
+SMI, Level Zero); RAPL (``/sys/class/powercap``) counts the CPU packages and their memory, which only root may read on
+most kernels. ``scripts/perf/energy_probe.py`` lists the sources a node offers, how often each updates, how long a
+read takes and the smallest step it counts in. With ``run -- <command>``, it measures the energy of the command with
+every source and holds them against each other: the node against the sum of its parts, the GPUs against the
+accelerator counters of the node, the energy counters against their power integrated over time, and all of it against
+the account of Slurm, where the job runs in a step. Run it once per kind of node, as the only job on the node and as
+the user who runs the simulations, for example:
+
+.. code-block:: bash
+
+   srun -N1 -n1 --exclusive python3 scripts/perf/energy_probe.py --json probe.json run -- <command>
+
+It needs nothing but Python 3.5 or later; the libraries of the GPU vendors are loaded if they are installed.

@@ -409,7 +409,8 @@ template <typename Cfg>
 PerformanceEstimate
     Local<Cfg>::metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const {
   PerformanceEstimate estimate;
-  estimate += PerformanceEstimate::fromKernel<seissol::kernel::volume<Cfg>>();
+  estimate +=
+      SEISSOL_KERNEL_ESTIMATE(seissol::kernel::volume<Cfg>, seissol::kernel::gpu_volume<Cfg>)();
 
 #if defined(ACL_DEVICE) && defined(SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
   constexpr bool CombineLocalFlux = true;
@@ -418,14 +419,16 @@ PerformanceEstimate
 #endif
 
   if constexpr (CombineLocalFlux) {
-    estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxAll<Cfg>>();
+    estimate += SEISSOL_KERNEL_ESTIMATE(seissol::kernel::localFluxAll<Cfg>,
+                                        seissol::kernel::gpu_localFluxAll<Cfg>)();
   }
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     // Local flux is executed for all faces that are not dynamic rupture.
     // For those cells, the flux is taken into account during the neighbor kernel.
     if (faceTypes[face] != FaceType::DynamicRupture && !CombineLocalFlux) {
-      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFlux<Cfg>>(face);
+      estimate += SEISSOL_KERNEL_ESTIMATE(seissol::kernel::localFlux<Cfg>,
+                                          seissol::kernel::gpu_localFlux<Cfg>)(face);
     }
 
     // Take boundary condition flops into account.
@@ -434,13 +437,16 @@ PerformanceEstimate
     // The (probably incorrect) assumption is that they are negligible.
     switch (faceTypes[face]) {
     case FaceType::FreeSurfaceGravity:
-      estimate += PerformanceEstimate::fromKernel<seissol::kernel::fsgFlux<Cfg>>(face);
+      estimate += SEISSOL_KERNEL_ESTIMATE(seissol::kernel::fsgFlux<Cfg>,
+                                          seissol::kernel::gpu_fsgFlux<Cfg>)(face);
       break;
     case FaceType::Dirichlet:
-      estimate += PerformanceEstimate::fromKernel<seissol::kernel::dirichletFlux<Cfg>>(face);
+      estimate += SEISSOL_KERNEL_ESTIMATE(seissol::kernel::dirichletFlux<Cfg>,
+                                          seissol::kernel::gpu_dirichletFlux<Cfg>)(face);
       break;
     case FaceType::Analytical:
-      estimate += PerformanceEstimate::fromKernel<seissol::kernel::localFluxNodal<Cfg>>(face);
+      estimate += SEISSOL_KERNEL_ESTIMATE(seissol::kernel::localFluxNodal<Cfg>,
+                                          seissol::kernel::gpu_localFluxNodal<Cfg>)(face);
       estimate += PerformanceEstimate::fromKernel<seissol::kernel::updateINodal<Cfg>>() *
                   Cfg::ConvergenceOrder;
       break;

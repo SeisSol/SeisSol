@@ -414,6 +414,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   logInfo() << "Setting up kernel clusters...";
   seissolInstance.timeManager().addClusters(
       clusterLayout, haloCommunication, seissolInstance.memoryManager(), settings);
+  seissolInstance.timeManager().registerCounters(seissolInstance.counters());
 
   seissolInstance.dofSync().setup(meshLayout, &ltsStorage);
 }

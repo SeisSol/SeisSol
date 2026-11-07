@@ -89,7 +89,13 @@ summary = {
         "cellUpdatesPerSecond": 50000 / total,
         "hardwareFlopPerSecond": 1e9,
         "nonzeroFlopPerSecond": 5e8,
+        "energyBasis": "nodeEnergy",
+        "energy": 400.0 * ranks * total,
+        "cellUpdatesPerJoule": 50000 / (400.0 * ranks * total),
+        "hardwareFlopPerJoule": 1e9 / (400.0 * ranks),
     },
+    "stages": {"simulation": {"wallTime": total, "nodePower": 400.0 * ranks}},
+    "energy": {"run": {"nodeEnergy": 400.0 * ranks * (total + 1.0)}},
     "memory": {"atEnd": {"hostPeak": {"max": 1.0e9 / ranks}}},
     "build": {"version": "fake", "commit": "0" * 40},
 }

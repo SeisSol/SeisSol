@@ -9,6 +9,7 @@
 
 #include "Common/Filesystem.h"
 #include "IO/Instance/Point/Csv.h"
+#include "Monitoring/Counters.h"
 #include "Monitoring/RunSummary.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
@@ -68,7 +69,14 @@ TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
   std::filesystem::remove(summaryPath);
   std::filesystem::remove(epochPath);
 
+  // a counter whose rate and amount the epoch table gets
+  monitoring::Counters counters;
+  double work = 0;
+  counters.add(monitoring::CounterInfo{.name = "work", .rateName = "workPerSecond"},
+               [&]() { return monitoring::CounterValue{work, {}}; });
+
   monitoring::RunSummary summary;
+  summary.setCounters(counters);
   summary["invocation"]["parameterFile"] = "parameters.par";
   CHECK_FALSE(summary.started());
   // nothing is written before the start
@@ -95,9 +103,14 @@ TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
   epoch.timeFrom = 0.0;
   epoch.timeTo = 0.5;
   epoch.wall = statistics::Summary(std::vector<double>{1.0, 3.0});
+  const auto first = counters.snapshot(0.0);
+  work = 4.0;
+  const auto second = counters.snapshot(2.0);
+  epoch.counters = counters.reduce(first, second);
   summary.addEpoch(epoch, 2.0);
   epoch.timeFrom = 0.5;
   epoch.timeTo = 1.0;
+  epoch.counters = {};
   summary.addEpoch(epoch, 2.0);
   CHECK(summary.content().find("simulation")->find("progress")->asDouble() == 0.5);
   CHECK(summary.content().find("simulation")->find("epochs")->asDouble() == 2);
@@ -113,9 +126,61 @@ TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
   CHECK(std::stod(table.rows[1][table.column("timeTo")]) == 1.0);
   CHECK(std::stod(table.rows[0][table.column("wallMax")]) == 3.0);
   CHECK(table.rows[0][table.column("runId")] == runId);
+  // the rate and the amount of the counter, summed over the ranks; none where it did not count
+  const auto ranks = static_cast<double>(seissol::Mpi::mpi.size());
+  CHECK(std::stod(table.rows[0][table.column("work")]) == 4.0 * ranks);
+  CHECK(std::stod(table.rows[0][table.column("workPerSecond")]) == 2.0 * ranks);
+  CHECK(table.column("workPerSecond") < table.column("work"));
+  CHECK(table.rows[1][table.column("work")] == "nan");
+  CHECK(table.header.back() == "runId");
 
   std::filesystem::remove(summaryPath);
   std::filesystem::remove(epochPath);
+}
+
+TEST_CASE("Run summary stages" * doctest::test_suite("monitoring")) {
+  const std::string prefix = "runsummary-stages-test";
+  const std::string runId = "123e4567-e89b-42d3-a456-426614174000";
+  const auto rankPath = prefix + "-ranks.csv";
+
+  // a counter given per stage, and one that is not
+  monitoring::Counters counters;
+  double energy = 0;
+  double work = 0;
+  counters.add(monitoring::CounterInfo{.name = "energy", .rateName = "power", .perStage = true},
+               [&]() { return monitoring::CounterValue{energy, {}}; });
+  counters.add(monitoring::CounterInfo{.name = "work", .rateName = "workPerSecond"},
+               [&]() { return monitoring::CounterValue{work, {}}; });
+
+  monitoring::RunSummary summary;
+  summary.setCounters(counters);
+  summary.start(prefix, runId);
+  energy = 2.0;
+  summary.setStage("init.mesh");
+  energy = 5.0;
+  work = 10.0;
+  summary.setStage("simulation");
+  energy = 9.0;
+  const auto run = summary.writeStages();
+  summary.writeRanks();
+
+  const auto ranks = static_cast<double>(seissol::Mpi::mpi.size());
+  const auto* stages = summary.content().find("stages");
+  REQUIRE(stages != nullptr);
+  CHECK(stages->find("init")->find("energy")->asDouble() == 2.0 * ranks);
+  CHECK(stages->find("init.mesh")->find("energy")->asDouble() == 3.0 * ranks);
+  CHECK(stages->find("simulation")->find("energy")->asDouble() == 4.0 * ranks);
+  CHECK(stages->find("simulation")->find("wallTime")->asDouble() >= 0.0);
+  CHECK(stages->find("simulation")->find("power") != nullptr);
+  // only what is given per stage
+  CHECK(stages->find("simulation")->find("work") == nullptr);
+  CHECK(run.find("energy")->asDouble() == 9.0 * ranks);
+
+  const auto table = io::instance::point::readCsv(rankPath);
+  CHECK(std::stod(table.rows[0][table.column("energy")]) == 9.0);
+
+  std::filesystem::remove(prefix + "-summary.json");
+  std::filesystem::remove(rankPath);
 }
 
 TEST_CASE("Run summary rank table" * doctest::test_suite("monitoring")) {

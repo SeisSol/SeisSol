@@ -49,6 +49,12 @@ To disable it, set ``SEISSOL_MINISEISSOL=0``.
 
 In a run with several configurations (see :ref:`several_configurations`), a cell costs according to its configuration. With multiple ranks, Mini SeisSol then also times the time, local and neighbor kernels of each configuration of the run on every rank, and takes the median of the ranks for the cost of a cell of each configuration relative to one of the configuration of the run. The partitioning and the LTS clustering weight each cell with it. Without the measurement (on a single rank, or with ``SEISSOL_MINISEISSOL=0``), the relative cost comes from the hardware FLOPs of the kernels, weighted with the size of a real (4 bytes in single precision, 8 in double precision); that estimate sees nothing of the machine.
 
+Energy
+------
+
+SeisSol counts the energy of the nodes of a run where they have sensors that can be read (see :ref:`run-energy`). With
+``SEISSOL_ENERGY=0``, it does not look for them, and loads none of the management libraries of the GPU vendors.
+
 Persistent MPI operations
 -------------------------
 

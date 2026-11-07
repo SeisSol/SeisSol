@@ -40,6 +40,10 @@ def test_a_local_campaign(campaign_file, capsys):
     assert len(runs) == 12
     assert {run["status"] for run in runs} == {"completed"}
     assert {run["cellsPerRank"] for run in runs if run["nodes"] == "4"} == {"250.0"}
+    assert {run["energyBasis"] for run in runs} == {"nodeEnergy"}
+    four_energy = {float(run["simulationPower"]) for run in runs if run["nodes"] == "4"}
+    assert four_energy == {1600.0}
+    assert all(float(run["runEnergy"]) > float(run["energy"]) for run in runs)
     scaling = rows(results / "scaling.csv")
     four = [
         entry for entry in scaling if entry["nodes"] == "4" and entry["variant"] == "a"
@@ -51,6 +55,8 @@ def test_a_local_campaign(campaign_file, capsys):
     assert len(rows(results / "epochs.csv")) == 12 * 4
     report = (results / "report.md").read_text()
     assert "## fake/a" in report
+    assert "cell updates/J" in report
+    assert float(four["cellUpdatesPerJoule"]) > 0
     summary = json.loads((results / "scaling.json").read_text())
     assert summary["checks"] == []
 

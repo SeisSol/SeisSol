@@ -14,6 +14,7 @@
 #include "Common/Json.h"
 #include "Common/RunId.h"
 #include "IO/Instance/Point/Csv.h"
+#include "Monitoring/Counters.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
@@ -190,6 +191,7 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   epochPath_ = prefix + "-epochs.csv";
   rankPath_ = prefix + "-ranks.csv";
   runId_ = runId;
+  origin_ = std::chrono::steady_clock::now();
 
   // the header first, so that a reader sees what the file is before anything else
   json::Value root;
@@ -207,6 +209,75 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   }
   root_ = std::move(root);
 
+  started_ = true;
+  beginStage("init");
+  flush();
+}
+
+void RunSummary::beginStage(std::string_view name) {
+  if (!started_ || counters_ == nullptr) {
+    return;
+  }
+  const auto time = std::chrono::duration<double>(std::chrono::steady_clock::now() - origin_);
+  stages_.push_back(Stage{std::string(name), counters_->snapshot(time.count())});
+}
+
+json::Value RunSummary::stageCounters(const Counters::Totals& totals, double wallTime) const {
+  json::Value result;
+  result["wallTime"] = wallTime;
+  for (std::size_t counter = 0; counter < counters_->size(); ++counter) {
+    const auto& info = counters_->info(counter);
+    if (info.perStage && totals.counted(counter)) {
+      result[info.name] = totals.amounts[counter];
+      result[info.rateName] = totals.rates[counter];
+    }
+  }
+  return result;
+}
+
+json::Value RunSummary::writeStages() {
+  if (stages_.empty()) {
+    return json::Value::object();
+  }
+  // the end of the last stage
+  const auto time = std::chrono::duration<double>(std::chrono::steady_clock::now() - origin_);
+  const auto end = counters_->snapshot(time.count());
+
+  // each stage, and then the whole run, at once
+  std::vector<std::pair<const Counters::Snapshot*, const Counters::Snapshot*>> stretches;
+  for (std::size_t stage = 0; stage < stages_.size(); ++stage) {
+    stretches.emplace_back(&stages_[stage].counters,
+                           stage + 1 < stages_.size() ? &stages_[stage + 1].counters : &end);
+  }
+  stretches.emplace_back(&stages_.front().counters, &end);
+  const auto totals = counters_->reduce(stretches);
+
+  auto& stages = root_["stages"] = json::Value::object();
+  for (std::size_t stage = 0; stage < stages_.size(); ++stage) {
+    stages[stages_[stage].name] =
+        stageCounters(totals[stage], stretches[stage].second->time - stretches[stage].first->time);
+  }
+
+  // the table of the ranks gets what each rank counted over the run, and nan where it counted none
+  const auto& first = stages_.front().counters;
+  for (std::size_t counter = 0; counter < counters_->size(); ++counter) {
+    if (!counters_->info(counter).perStage) {
+      continue;
+    }
+    double amount = std::numeric_limits<double>::quiet_NaN();
+    if (counter < first.values.size() && first.values[counter].has_value() &&
+        end.values[counter].has_value()) {
+      amount = end.values[counter].value().amount - first.values[counter].value().amount;
+    }
+    setRankValue(counters_->info(counter).name, amount);
+  }
+  flush();
+  return stageCounters(totals.back(), end.time - first.time);
+}
+
+void RunSummary::startEpochTable() {
+  epochCounters_ = counters_ == nullptr ? 0 : counters_->size();
+
   auto& epochs = epochs_.emplace("epochs");
   epochs.addColumn<std::uint64_t>("epoch");
   epochs.addColumn<double>("timeFrom");
@@ -218,17 +289,19 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   epochs.addColumn<double>("computeMax");
   epochs.addColumn<double>("ioMean");
   epochs.addColumn<double>("ioMax");
-  epochs.addColumn<double>("hardwareFlopPerSecond");
-  epochs.addColumn<double>("nonzeroFlopPerSecond");
-  epochs.addColumn<double>("kernelBytesPerSecond");
+  // the rates first, which tell how fast the epoch went, then the amounts
+  for (std::size_t counter = 0; counter < epochCounters_; ++counter) {
+    epochs.addColumn<double>(counters_->info(counter).rateName);
+  }
+  for (std::size_t counter = 0; counter < epochCounters_; ++counter) {
+    epochs.addColumn<double>(counters_->info(counter).name);
+  }
   epochs.addTextColumn("runId", RunIdLength);
-
-  started_ = true;
-  flush();
 }
 
 void RunSummary::setStage(std::string_view stage) {
   root_["stage"] = std::string(stage);
+  beginStage(stage);
   flush();
 }
 
@@ -316,6 +389,9 @@ void RunSummary::addEpoch(const EpochRecord& epoch, double endTime) {
   simulation["epochs"] = epochCount_;
 
   if (started_ && seissol::Mpi::mpi.rank() == 0) {
+    if (!epochs_.has_value()) {
+      startEpochTable();
+    }
     auto& epochs = epochs_.value();
     epochs.addCell<std::uint64_t>(epochCount_);
     epochs.addCell<double>(epoch.timeFrom);
@@ -327,9 +403,19 @@ void RunSummary::addEpoch(const EpochRecord& epoch, double endTime) {
     epochs.addCell<double>(epoch.compute.max);
     epochs.addCell<double>(epoch.io.mean);
     epochs.addCell<double>(epoch.io.max);
-    epochs.addCell<double>(epoch.hardwareFlopPerSecond);
-    epochs.addCell<double>(epoch.nonzeroFlopPerSecond);
-    epochs.addCell<double>(epoch.kernelBytesPerSecond);
+    // a counter that did not count in the epoch, or was registered after the table was laid out,
+    // has no value
+    const auto counted = [&](const std::vector<double>& values, std::size_t counter) {
+      return epoch.counters.counted(counter) && counter < values.size()
+                 ? values[counter]
+                 : std::numeric_limits<double>::quiet_NaN();
+    };
+    for (std::size_t counter = 0; counter < epochCounters_; ++counter) {
+      epochs.addCell<double>(counted(epoch.counters.rates, counter));
+    }
+    for (std::size_t counter = 0; counter < epochCounters_; ++counter) {
+      epochs.addCell<double>(counted(epoch.counters.amounts, counter));
+    }
     epochs.addText(runId_);
   }
 
@@ -351,7 +437,7 @@ void RunSummary::flush() {
   if (!started_ || seissol::Mpi::mpi.rank() != 0) {
     return;
   }
-  if (epochCount_ > 0) {
+  if (epochs_.has_value()) {
     epochs_.value().appendFile(epochPath_);
   }
   writeSummary();

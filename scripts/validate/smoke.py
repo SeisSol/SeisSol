@@ -61,6 +61,11 @@ PROXY_FIELDS: dict[str, str] = {
     "gflops-hw": "non-negative",
     "gibs": "non-negative",
     "gibs-kernel": "non-negative",
+    "energy-basis": "string",
+    "joules": "non-negative",
+    "watts": "non-negative",
+    "gflopj-nz": "non-negative",
+    "gflopj-hw": "non-negative",
 }
 
 # Relations between fields that follow from how the numbers are defined, not
@@ -78,6 +83,12 @@ PROXY_RELATIONS: list[tuple[str, str, str, str]] = [
 # Mirrors CycleSource in src/Proxy/Cycles.h. A value outside this set means the
 # two have drifted apart.
 CYCLE_SOURCES = frozenset({"tsc", "cntvct", "none"})
+
+# The parts of a node that the proxy puts its energy against (endEnergy in
+# src/Proxy/Runner.cpp); none where the node measures no energy, which leaves
+# the energy fields at zero.
+ENERGY_BASES = frozenset({"node", "devices", "cpu", "none"})
+ENERGY_FIELDS = ("joules", "watts", "gflopj-nz", "gflopj-hw")
 
 # The line a sanitizer (cmake/sanitizers.cmake) ends each of its reports with.
 # A run that wrote one fails, also where it was expected to fail: a refusal has
@@ -249,6 +260,16 @@ def check_proxy_fields(document: dict[str, Any], kernel: str) -> None:
         )
     elif source == "none" and document.get("cycles"):
         problems.append("cycle-source is 'none' but cycles is non-zero")
+
+    basis = document.get("energy-basis")
+    if basis not in ENERGY_BASES:
+        problems.append(
+            f"energy-basis: {basis!r} is not one of " + ", ".join(sorted(ENERGY_BASES))
+        )
+    elif basis == "none":
+        for field in ENERGY_FIELDS:
+            if document.get(field):
+                problems.append(f"energy-basis is 'none' but {field} is non-zero")
 
     combined = document.get("gflop-libxsmm-pspamm")
     parts = (document.get("gflop-libxsmm"), document.get("gflop-pspamm"))
