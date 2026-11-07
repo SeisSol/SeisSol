@@ -30,9 +30,7 @@ double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
   seissol::model::MaterialSetup<PoroElasticMaterial>::getTransposedCoefficientMatrix(*this, 0, at);
 #endif
 
-  // LAPACK where it is linked, as for every eigenvalue decomposition of this material
-  seissol::eigenvalues::computeEigenvalues<eigenvalues::LapackIfLinked>(atValues,
-                                                                        eigendecomposition);
+  seissol::eigenvalues::computeEigenvalues(atValues, eigendecomposition);
   double maxEv = std::numeric_limits<double>::lowest();
   for (std::size_t i = 0; i < NumQuantities; i++) {
     maxEv = eigendecomposition.values.at(i).real() > maxEv ? eigendecomposition.values.at(i).real()

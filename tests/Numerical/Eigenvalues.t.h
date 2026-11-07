@@ -55,14 +55,8 @@ TEST_CASE("Eigenvalues are correctly computed" * doctest::test_suite("numerical"
     }};
     for (auto& m : matrices) {
       seissol::eigenvalues::Eigenpair<std::complex<double>, Dim> eigenpair{};
-      seissol::eigenvalues::computeEigenvalues<seissol::eigenvalues::Backend::Eigen3>(m, eigenpair);
+      seissol::eigenvalues::computeEigenvalues(m, eigenpair);
       testResidual<Dim>(m, eigenpair);
-#ifdef USE_LAPACK
-      seissol::eigenvalues::Eigenpair<std::complex<double>, Dim> eigenpairLapack{};
-      seissol::eigenvalues::computeEigenvalues<seissol::eigenvalues::Backend::Lapack>(
-          m, eigenpairLapack);
-      testResidual<Dim>(m, eigenpairLapack);
-#endif
     }
   }
 }
@@ -73,7 +67,6 @@ TEST_CASE("Eigenvalues are correctly computed" * doctest::test_suite("numerical"
 /// of the stresses hold stiffnesses, its rows of the velocities the inverse of the density. Its
 /// eigenvalues are -k c, 0 three times and k c, with the speeds c of the Christoffel matrix of x,
 /// and the velocities of each wave lie in the eigenspace of that matrix that its speed belongs to.
-template <seissol::eigenvalues::Backend B>
 void testPlaneWaveOperator(const std::array<double, 21>& upper, double rho, double k) {
   constexpr std::size_t Dim = 9;
   std::array<std::array<double, 6>, 6> stiffness{};
@@ -111,7 +104,7 @@ void testPlaneWaveOperator(const std::array<double, 21>& upper, double rho, doub
   constexpr double Tolerance = 1e-12;
 
   seissol::eigenvalues::Eigenpair<std::complex<double>, Dim> eigenpair{};
-  seissol::eigenvalues::computeEigenvalues<B>(m, eigenpair);
+  seissol::eigenvalues::computeEigenvalues(m, eigenpair);
 
   // sorted by their real parts: the waves to -x from the fastest, the null space, the waves to +x
   // from the slowest
@@ -165,10 +158,7 @@ TEST_CASE("Eigenvalues of a badly scaled operator are correctly computed" *
   constexpr double Rho = 2700.0;
   constexpr double K = 2 * std::numbers::pi / 100;
   for (const auto& stiffness : {tilted, isotropic}) {
-    testPlaneWaveOperator<seissol::eigenvalues::Backend::Eigen3>(stiffness, Rho, K);
-#ifdef USE_LAPACK
-    testPlaneWaveOperator<seissol::eigenvalues::Backend::Lapack>(stiffness, Rho, K);
-#endif
+    testPlaneWaveOperator(stiffness, Rho, K);
   }
 }
 

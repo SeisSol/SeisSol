@@ -192,8 +192,7 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData, Co
     seissol::model::getPlaneWaveOperator<Cfg>(
         *dynamic_cast<MaterialT*>(materialData.local), kVec_.data(), planeWaveOperator.data());
     seissol::eigenvalues::Eigenpair<std::complex<double>, NumQuantities> eigendecomposition;
-    seissol::eigenvalues::computeEigenvalues<model::EigenvalueBackend<MaterialT>>(
-        planeWaveOperator, eigendecomposition);
+    seissol::eigenvalues::computeEigenvalues(planeWaveOperator, eigendecomposition);
     numQuantities_ = NumQuantities;
     lambdaA_.assign(eigendecomposition.values.begin(), eigendecomposition.values.end());
     eigenvectors_.assign(eigendecomposition.vectors.begin(), eigendecomposition.vectors.end());
