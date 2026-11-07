@@ -31,9 +31,10 @@ if (NOT _pytest_probe EQUAL 0)
     return()
 endif()
 
-# The codegen tests import from codegen/ and its submodules/yateto
-# submodule via the local symlink.
-# conftest.py adds the right paths to sys.path based on
+# The codegen tests import from codegen/ and from the submodules/yateto
+# submodule.
+# conftest.py adds the right paths to sys.path, and yateto to PYTHONPATH
+# for the tests that run generate.py, based on
 # REPO_ROOT = parents[3] (tests/python/codegen/conftest.py -> repo root).
 # That works when the test files live in-tree at tests/python/codegen/;
 # no extra environment setup needed.
@@ -66,16 +67,4 @@ foreach(_test_file IN LISTS _pytest_codegen_files)
         # is the slowest by ~30s; the rest are sub-second.
         TIMEOUT 300
     )
-
-    # (the following is currently not needed; but kept for completeness)
-
-    # The generate_goldenfile test shells out to generate.py, which imports
-    # yateto. If the build environment doesn't have yateto installed as a
-    # package, point PYTHONPATH at the in-tree submodule so the subprocess
-    # can find it — identical to the mechanism CMake itself uses to call
-    # generate.py at build time.
-
-    # set_tests_properties(pytest-codegen-${_test_name} PROPERTIES
-    #    ENVIRONMENT "PYTHONPATH=${CMAKE_SOURCE_DIR}/submodules/yateto"
-    # )
 endforeach()

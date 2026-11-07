@@ -71,9 +71,23 @@ string(APPEND SEISSOL_CONFIGS_JSON "\n]\n")
 file(CONFIGURE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/configs.json"
      CONTENT "${SEISSOL_CONFIGS_JSON}" @ONLY)
 
+# The code generators import yateto from its submodule, which PYTHONPATH gives them. They keep the
+# Python path of the environment that CMake configures in, behind it.
+set(CODEGEN_PYTHONPATH "${PROJECT_SOURCE_DIR}/submodules/yateto")
+if (NOT "$ENV{PYTHONPATH}" STREQUAL "")
+  if (CMAKE_HOST_WIN32)
+    # semicolons separate the paths there, which a CMake list keeps in one element only escaped
+    string(REPLACE ";" "\\;" ENVIRONMENT_PYTHONPATH "$ENV{PYTHONPATH}")
+    string(APPEND CODEGEN_PYTHONPATH "\\;${ENVIRONMENT_PYTHONPATH}")
+  else()
+    string(APPEND CODEGEN_PYTHONPATH ":$ENV{PYTHONPATH}")
+  endif()
+endif()
+
 # the arguments describe the first configuration; configs.json all of them
 list(GET SEISSOL_CONFIG_SOLVERS 0 FIRST_CONFIG_SOLVER)
-set(GENERATE_ARGS "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
+set(GENERATE_ARGS "${CMAKE_COMMAND}" -E env "PYTHONPATH=${CODEGEN_PYTHONPATH}"
+     "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate.py"
      "--equations" ${EQUATIONS}
      "--matricesDir" ${CMAKE_CURRENT_SOURCE_DIR}/matrices
      "--outputDir" ${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode
@@ -199,6 +213,8 @@ foreach(IDX RANGE ${STEPCOUNT})
           ${STEP_outputs}
       DEPFILE "${CMAKE_CURRENT_BINARY_DIR}/GeneratedCode/${STEP_TARGET}.d"
       COMMENT "${STEP_COMMENT}"
+      # (the arguments reach the step as they are, whatever the paths in PYTHONPATH hold)
+      VERBATIM
          )
   list(APPEND GENERATED_FILES_FOR_SEISSOL ${STEP_outputs})
 endforeach()
