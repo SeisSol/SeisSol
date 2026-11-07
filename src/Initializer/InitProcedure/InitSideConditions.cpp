@@ -10,7 +10,10 @@
 #include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
+#include "Common/Executor.h"
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
+#include "Expr/Program.h"
 #include "Expr/RtcGpuDriver.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -157,12 +160,18 @@ void initAnalyticalBoundary(seissol::SeisSol& seissolInstance) {
   auto& memoryManager = seissolInstance.memoryManager();
 
   std::vector<bool> present(builtConfigCount(), false);
+  // whether a cluster with such a face runs on the host, which the integral then needs a kernel
+  // for
+  std::vector<bool> onHost(builtConfigCount(), false);
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
     const auto* cellInformation = layer.var<LTS::CellInformation>();
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       for (const auto faceType : cellInformation[cell].faceTypes) {
         if (faceType == FaceType::Analytical) {
           present[layer.getIdentifier().config] = true;
+          if (seissolInstance.executionPlace(layer.size()) == Executor::Host) {
+            onHost[layer.getIdentifier().config] = true;
+          }
         }
       }
     }
@@ -179,12 +188,15 @@ void initAnalyticalBoundary(seissol::SeisSol& seissolInstance) {
       auto components = model::stateNames<model::MaterialOf<Cfg>>();
       components.resize(std::min<std::size_t>(
           components.size(), tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg> + 1]));
+      // per step, in the precision of the configuration
       auto state = physics::AnalyticalGhostState::fromFields(
           memoryManager.initialConditions(config),
           components,
           model::scriptParameterNames<model::MaterialOf<Cfg>>(),
           Cfg::NumSimulations,
-          Cfg::ConvergenceOrder);
+          Cfg::ConvergenceOrder,
+          expr::stepComputeType<Real<Cfg>>(),
+          onHost[config]);
       if constexpr (isDeviceOn()) {
         // a device build evaluates the boundary on the device, and nowhere else
         if (state == nullptr) {

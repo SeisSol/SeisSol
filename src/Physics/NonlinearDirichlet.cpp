@@ -77,7 +77,9 @@ NonlinearDirichlet::NonlinearDirichlet(const std::string& path,
                                        std::vector<std::string> parameters,
                                        std::size_t timePoints,
                                        const std::vector<std::string>& inputs,
-                                       const ProgramFilter& filter)
+                                       const ProgramFilter& filter,
+                                       expr::ComputeType computeType,
+                                       bool onHost)
     : name_(path), quantities_(std::move(quantities)), parameters_(std::move(parameters)) {
   // in sderiv, a quantity reads the inner state also next to the definition of its ghost value
   expr::SderivOptions options;
@@ -93,7 +95,7 @@ NonlinearDirichlet::NonlinearDirichlet(const std::string& path,
     return;
   }
   try {
-    setUp(filter ? filter(*program) : *program, timePoints);
+    setUp(filter ? filter(*program) : *program, timePoints, computeType, onHost);
   } catch (const std::invalid_argument& error) {
     logError() << "Nonlinear Dirichlet boundary:" << error.what();
   }
@@ -105,14 +107,19 @@ NonlinearDirichlet::NonlinearDirichlet(const expr::Program& program,
                                        const std::string& name,
                                        std::vector<std::string> quantities,
                                        std::vector<std::string> parameters,
-                                       std::size_t timePoints)
+                                       std::size_t timePoints,
+                                       expr::ComputeType computeType,
+                                       bool onHost)
     : name_(name), quantities_(std::move(quantities)), parameters_(std::move(parameters)) {
-  setUp(program, timePoints);
+  setUp(program, timePoints, computeType, onHost);
 }
 
 NonlinearDirichlet::~NonlinearDirichlet() = default;
 
-void NonlinearDirichlet::setUp(const expr::Program& program, std::size_t timePoints) {
+void NonlinearDirichlet::setUp(const expr::Program& program,
+                               std::size_t timePoints,
+                               expr::ComputeType computeType,
+                               bool onHost) {
   if (!program.state().empty()) {
     throw std::invalid_argument(name_ + " keeps state, which a boundary condition cannot");
   }
@@ -159,7 +166,9 @@ void NonlinearDirichlet::setUp(const expr::Program& program, std::size_t timePoi
                                                    quantities_,
                                                    parameters_,
                                                    GhostStateIntegral::Missing::Inner,
-                                                   timePoints);
+                                                   timePoints,
+                                                   computeType,
+                                                   onHost);
 #ifdef ACL_DEVICE
   deviceIntegral_ = std::make_unique<GhostStateIntegral>(ghost,
                                                          name_,
@@ -168,6 +177,7 @@ void NonlinearDirichlet::setUp(const expr::Program& program, std::size_t timePoi
                                                          parameters_,
                                                          GhostStateIntegral::Missing::Zero,
                                                          timePoints,
+                                                         computeType,
                                                          false);
 #endif
 }

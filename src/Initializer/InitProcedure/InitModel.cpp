@@ -11,9 +11,12 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Constants.h"
+#include "Common/Executor.h"
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h" // IWYU pragma: keep
 #include "Equations/EnergyBase.h"
+#include "Expr/Program.h"
 #include "Expr/RtcGpuDriver.h"
 #include "Expr/SderivFrontend.h"
 #include "GeneratedCode/init.h"
@@ -305,12 +308,16 @@ void initializeNonlinearDirichlet(seissol::SeisSol& seissolInstance) {
   auto& memoryManager = seissolInstance.memoryManager();
 
   std::vector<bool> present(builtConfigCount(), false);
+  std::vector<bool> onHost(builtConfigCount(), false);
   for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
     const auto* cellInformation = layer.var<LTS::CellInformation>();
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       for (const auto faceType : cellInformation[cell].faceTypes) {
         if (faceType == FaceType::NonlinearDirichlet) {
           present[layer.getIdentifier().config] = true;
+          if (seissolInstance.executionPlace(layer.size()) == Executor::Host) {
+            onHost[layer.getIdentifier().config] = true;
+          }
         }
       }
     }
@@ -352,6 +359,8 @@ void initializeNonlinearDirichlet(seissol::SeisSol& seissolInstance) {
     dispatchConfig(config, [&](auto cfg) {
       using Cfg = decltype(cfg);
       const auto& quantities = model::MaterialOf<Cfg>::Quantities;
+      // per step, in the precision of the configuration; on the host where a cluster with such a
+      // face runs there
       memoryManager.setNonlinearDirichlet(
           config,
           std::make_unique<physics::NonlinearDirichlet>(
@@ -360,7 +369,9 @@ void initializeNonlinearDirichlet(seissol::SeisSol& seissolInstance) {
               model::scriptParameterNames<model::MaterialOf<Cfg>>(),
               Cfg::ConvergenceOrder,
               innerState,
-              scope.filter(config, fileName)));
+              scope.filter(config, fileName),
+              expr::stepComputeType<Real<Cfg>>(),
+              onHost[config]));
     });
   }
 }

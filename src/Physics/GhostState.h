@@ -8,16 +8,14 @@
 #ifndef SEISSOL_SRC_PHYSICS_GHOSTSTATE_H_
 #define SEISSOL_SRC_PHYSICS_GHOSTSTATE_H_
 
+#include "Expr/Program.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
-
-namespace seissol::expr {
-class Program;
-} // namespace seissol::expr
 
 namespace seissol::physics {
 
@@ -47,8 +45,9 @@ class GhostStateIntegral {
   enum class Input : std::uint8_t { X, Y, Z, Time, Weight, Simulation, Parameter, Inner };
 
   /// Throws std::invalid_argument for a script that reads anything else or keeps state; `name`
-  /// names it in the message. Without `onHost`, evaluate() is not available, and the integral
-  /// serves as the program of a kernel bound elsewhere only (program()).
+  /// names it in the message. The program computes in `computeType` (expr::stepComputeType()).
+  /// Without `onHost`, evaluate() is not available, and the integral serves as the program of a
+  /// kernel bound elsewhere only (program()).
   GhostStateIntegral(const expr::Program& ghost,
                      const std::string& name,
                      std::vector<std::string> components,
@@ -56,6 +55,7 @@ class GhostStateIntegral {
                      const std::vector<std::string>& parameters,
                      Missing missing,
                      std::size_t timePoints,
+                     expr::ComputeType computeType = expr::ComputeType::F64,
                      bool onHost = true);
   ~GhostStateIntegral();
 
@@ -128,13 +128,16 @@ class AnalyticalGhostState {
   /// of `simulations`, as for the initial condition; `components` are the components the boundary
   /// takes, `parameters` the parameters of the material. Null unless all fields are scripts that
   /// compile (physics::ScriptField): the boundary then evaluates the fields at one time after the
-  /// other. A script that cannot serve as a field is an error.
+  /// other. A script that cannot serve as a field is an error. The integrals compute in
+  /// `computeType`; `onHost` as for GhostStateIntegral.
   static std::unique_ptr<AnalyticalGhostState>
       fromFields(const std::vector<std::unique_ptr<InitialField>>& fields,
                  const std::vector<std::string>& components,
                  const std::vector<std::string>& parameters,
                  std::size_t simulations,
-                 std::size_t timePoints);
+                 std::size_t timePoints,
+                 expr::ComputeType computeType = expr::ComputeType::F64,
+                 bool onHost = true);
 
   /// The integral of simulation `simulation`.
   [[nodiscard]] const GhostStateIntegral& integral(std::size_t simulation) const;

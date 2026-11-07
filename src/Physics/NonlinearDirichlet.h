@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_PHYSICS_NONLINEARDIRICHLET_H_
 #define SEISSOL_SRC_PHYSICS_NONLINEARDIRICHLET_H_
 
+#include "Expr/Program.h"
 #include "Physics/GhostState.h"
 #include "Physics/ScriptScope.h"
 
@@ -15,10 +16,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
-namespace seissol::expr {
-class Program;
-} // namespace seissol::expr
 
 namespace seissol::physics {
 
@@ -50,12 +47,17 @@ class NonlinearDirichlet {
   /// In a run of several configurations, `inputs` are the quantities of all of them, which an
   /// sderiv module reads as the inner state (expr::SderivOptions::inputs) -- the quantities if
   /// empty -- and `filter` restricts the program to the configuration at hand (see ScriptScope).
+  /// The integrals compute in `computeType` (expr::stepComputeType()); without `onHost`, the one
+  /// for the host is a program only (GhostStateIntegral), for a run that evaluates the boundary on
+  /// a device only.
   NonlinearDirichlet(const std::string& path,
                      std::vector<std::string> quantities,
                      std::vector<std::string> parameters,
                      std::size_t timePoints,
                      const std::vector<std::string>& inputs = {},
-                     const ProgramFilter& filter = {});
+                     const ProgramFilter& filter = {},
+                     expr::ComputeType computeType = expr::ComputeType::F64,
+                     bool onHost = true);
 
   /// The condition of a program, which `name` names in messages; from sderiv, it is compiled with
   /// the quantities as its inputs (expr::SderivOptions::inputs). Throws std::invalid_argument for a
@@ -64,7 +66,9 @@ class NonlinearDirichlet {
                      const std::string& name,
                      std::vector<std::string> quantities,
                      std::vector<std::string> parameters,
-                     std::size_t timePoints);
+                     std::size_t timePoints,
+                     expr::ComputeType computeType = expr::ComputeType::F64,
+                     bool onHost = true);
 
   ~NonlinearDirichlet();
 
@@ -89,7 +93,10 @@ class NonlinearDirichlet {
   [[nodiscard]] const GhostStateIntegral* deviceIntegral() const;
 
   private:
-  void setUp(const expr::Program& program, std::size_t timePoints);
+  void setUp(const expr::Program& program,
+             std::size_t timePoints,
+             expr::ComputeType computeType,
+             bool onHost);
 
   std::string name_;
   std::vector<std::string> quantities_;

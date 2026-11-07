@@ -1592,8 +1592,15 @@ std::shared_ptr<DerivedOutput> makeDerivedOutput(seissol::SeisSol& seissolInstan
     return std::make_shared<NamedOutputsOnly>(outputNames<Cfg>(program));
   }
   try {
+    // in the precision of the configuration, as the outputs it replaces were computed; a program
+    // with state keeps it in binary64 (DerivedStateLayout, and the checkpoints), and computes in
+    // binary64 then
+    auto inPrecision = program;
+    if (program.state().empty()) {
+      inPrecision.setComputeType(expr::stepComputeType<Real<Cfg>>());
+    }
     return std::make_shared<DerivedElementOutput<Cfg>>(
-        seissolInstance, writtenCount, std::move(written), points, program, faces);
+        seissolInstance, writtenCount, std::move(written), points, inPrecision, faces);
   } catch (const std::invalid_argument& error) {
     logError() << error.what();
   }

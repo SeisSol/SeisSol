@@ -11,7 +11,9 @@
 #include "utils/logger.h"
 
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -272,6 +274,30 @@ std::string Program::canonicalForm() const {
 }
 
 std::uint64_t Program::fingerprint() const { return fnv1a(canonicalForm()); }
+
+ComputeType stepComputeType(reader::scripting::DataType real) {
+  static const std::optional<ComputeType> Chosen = []() -> std::optional<ComputeType> {
+    const char* env = std::getenv("SEISSOL_EXPR_PRECISION");
+    if (env == nullptr || *env == '\0') {
+      return std::nullopt;
+    }
+    const std::string value(env);
+    if (value == "f64" || value == "double") {
+      return ComputeType::F64;
+    }
+    if (value == "f32" || value == "single" || value == "float") {
+      return ComputeType::F32;
+    }
+    logWarning() << "SEISSOL_EXPR_PRECISION is" << value
+                 << "; f32 or f64 choose the precision of the scripts per step, and leaving it "
+                    "unset follows each configuration.";
+    return std::nullopt;
+  }();
+  if (Chosen.has_value()) {
+    return *Chosen;
+  }
+  return real == reader::scripting::DataType::F32 ? ComputeType::F32 : ComputeType::F64;
+}
 
 void Program::addOutput(const std::string& name, reader::scripting::DataType type, NodeId root) {
   outputs_.push_back(VarSpec{name, type});

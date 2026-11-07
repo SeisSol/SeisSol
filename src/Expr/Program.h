@@ -44,6 +44,18 @@ namespace seissol::expr {
 // per-timestep GPU path, where fp64 throughput is 1/32–1/64 on most parts.
 enum class ComputeType : std::uint8_t { F32, F64 };
 
+// The compute type of a program that a consumer evaluates per time step (or per output) on data of
+// the type `real`, i.e. in the precision of a configuration: binary32 on binary32 data, binary64
+// otherwise. SEISSOL_EXPR_PRECISION=f64 (or f32) sets it for all of them instead, e.g. for a script
+// whose time has to be resolved finer than binary32 resolves it late in a run (1.9e-6 s at 20 s).
+// The consumers that evaluate once, at setup, compute in binary64.
+[[nodiscard]] ComputeType stepComputeType(reader::scripting::DataType real);
+
+template <typename RealT>
+[[nodiscard]] ComputeType stepComputeType() {
+  return stepComputeType(reader::scripting::DataTypeTraits<RealT>::Type);
+}
+
 struct VarSpec {
   std::string name;
   reader::scripting::DataType type{reader::scripting::DataType::F64};
@@ -196,7 +208,7 @@ void validate(const Program& program);
 
 // The names of the channels (inputs and states) the expressions under `roots` read.
 [[nodiscard]] std::set<std::string> channelsRead(const Program& program,
-                                                const std::vector<NodeId>& roots);
+                                                 const std::vector<NodeId>& roots);
 
 // True for kinds that carry state the scripting ABI has nowhere to put, and for
 // kinds that only mean something inside an element/output-cadence context.

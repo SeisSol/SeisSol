@@ -206,6 +206,8 @@ struct SlipRateEvaluator::Impl {
   };
 
   std::shared_ptr<const SlipRateScript> script;
+  /// the program of the script, in the compute type of this evaluator
+  expr::Program program;
   DataType slipRateType{DataType::F64};
   std::size_t timeSteps{0};
   std::size_t points{0};
@@ -229,7 +231,6 @@ struct SlipRateEvaluator::Impl {
   [[nodiscard]] std::unique_ptr<DataTable> makeTable(std::size_t numPoints,
                                                      const LayerData& data) const {
     auto table = std::make_unique<DataTable>(numPoints);
-    const auto& program = script->program();
     for (std::size_t i = 0; i < program.inputs().size(); ++i) {
       const auto& name = program.inputs()[i].name;
       if (inputKinds[i] == Input::Row) {
@@ -304,10 +305,9 @@ struct SlipRateEvaluator::Impl {
     for (std::size_t i = made; i < threads; ++i) {
       auto& kernel = hostKernels[i];
       kernel.table = makeTable(Capacity, host);
-      kernel.binding =
-          std::make_unique<expr::Binding>(expr::Binding::bind(script->program(), *kernel.table));
-      kernel.kernel = expr::makeKernel(
-          script->program(), *kernel.binding, reader::datafield::sharedGridStore(), options);
+      kernel.binding = std::make_unique<expr::Binding>(expr::Binding::bind(program, *kernel.table));
+      kernel.kernel =
+          expr::makeKernel(program, *kernel.binding, reader::datafield::sharedGridStore(), options);
       kernel.kernel->precompute(*kernel.table);
       kernel.inputs.resize(inputKinds.size());
       kernel.outputs.resize(2);
@@ -343,12 +343,12 @@ struct SlipRateEvaluator::Impl {
       return false;
     }
     auto table = makeTable(points, device);
-    auto binding = std::make_unique<expr::Binding>(expr::Binding::bind(script->program(), *table));
+    auto binding = std::make_unique<expr::Binding>(expr::Binding::bind(program, *table));
     expr::BackendOptions options;
     options.preferred = backend;
     options.deviceQueue = stream;
-    auto kernel = expr::makeKernel(
-        script->program(), *binding, reader::datafield::sharedGridStore(), options);
+    auto kernel =
+        expr::makeKernel(program, *binding, reader::datafield::sharedGridStore(), options);
     if (kernel->kind() != backend) {
       logWarning() << "imposed slip rates: the script" << script->path()
                    << "is evaluated on the host, and its slip rates are copied to the device.";
@@ -371,7 +371,13 @@ SlipRateEvaluator::SlipRateEvaluator(std::shared_ptr<const SlipRateScript> scrip
   impl_->script = std::move(script);
   impl_->slipRateType = slipRateType;
   impl_->timeSteps = timeSteps;
-  const auto& program = impl_->script->program();
+  // The rates of a script that gives them follow the precision of the slip rates of the friction
+  // law. The rates of one that gives the slip are differences of it over a sub-step, which binary32
+  // would cancel to a few bits: they are computed in binary64.
+  impl_->program = impl_->script->program();
+  impl_->program.setComputeType(impl_->script->cumulative() ? expr::ComputeType::F64
+                                                            : expr::stepComputeType(slipRateType));
+  const auto& program = impl_->program;
   const auto& rowNames = impl_->script->rowNames();
   for (const auto& input : program.inputs()) {
     const auto& name = input.name;

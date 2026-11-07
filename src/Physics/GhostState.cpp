@@ -131,6 +131,7 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
                                        const std::vector<std::string>& parameters,
                                        Missing missing,
                                        std::size_t timePoints,
+                                       expr::ComputeType computeType,
                                        bool onHost)
     : impl_(std::make_unique<Impl>()) {
   auto& impl = *impl_;
@@ -172,7 +173,7 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
 
   auto& program = impl.program;
   program.arena() = ghost.arena();
-  program.setComputeType(ghost.computeType());
+  program.setComputeType(computeType);
   for (const auto& grid : ghost.grids()) {
     program.internGrid(grid);
   }
@@ -453,7 +454,9 @@ std::unique_ptr<AnalyticalGhostState>
                                      const std::vector<std::string>& components,
                                      const std::vector<std::string>& parameters,
                                      std::size_t simulations,
-                                     std::size_t timePoints) {
+                                     std::size_t timePoints,
+                                     expr::ComputeType computeType,
+                                     bool onHost) {
   std::vector<const ScriptField*> scripts;
   for (const auto& field : fields) {
     const auto* script = dynamic_cast<const ScriptField*>(field.get());
@@ -492,7 +495,9 @@ std::unique_ptr<AnalyticalGhostState>
                                                std::vector<std::string>{},
                                                parameters,
                                                GhostStateIntegral::Missing::Zero,
-                                               timePoints));
+                                               timePoints,
+                                               computeType,
+                                               onHost));
     } catch (const std::invalid_argument& error) {
       logError() << "Analytical boundary:" << error.what();
     }
