@@ -23,6 +23,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Descriptor/Surface.h"
+#include "Memory/HostData.h"
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
@@ -144,6 +145,12 @@ class MemoryManager {
   void initializeFrictionLaw();
   void initFrictionData();
   void synchronizeTo(seissol::initializer::AllocationPlace place);
+
+  /**
+   * Copies the given variables to the host, and waits for that; all variables of all storages for
+   * everything.
+   */
+  void synchronizeToHost(const HostData& data);
 };
 } // namespace initializer
 } // namespace seissol

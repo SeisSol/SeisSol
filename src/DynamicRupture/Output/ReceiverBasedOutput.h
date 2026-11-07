@@ -22,6 +22,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <vector>
@@ -67,6 +68,12 @@ class ReceiverOutput {
                       double indt) = 0;
 
   /**
+   * Copies the data of the output points from the device to the host, in the order of the stream.
+   */
+  static void gatherFaultOutput(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                parallel::runtime::StreamRuntime& runtime);
+
+  /**
    * Copies only the friction state of the faces from the device to the host, in the order of the
    * stream.
    */
@@ -74,11 +81,34 @@ class ReceiverOutput {
                                parallel::runtime::StreamRuntime& runtime);
 
   /**
+   * For the host actor: gathers the derivatives (if asked for) and the variables of the faces, and
+   * the start of the step from the device clock if given, into a buffer of their own (see
+   * ReceiverOutputData::hostQueue) on the stream of the runtime.
+   */
+  static parallel::runtime::HostActor::Staging
+      gatherForHost(const std::shared_ptr<ReceiverOutputData>& outputData,
+                    parallel::runtime::StreamRuntime& runtime,
+                    bool withDerivatives = true,
+                    const double* deviceClock = nullptr);
+
+  /**
    * Keeps the friction state the faces have now as the one at the start of the next time step, for
    * the samples within that step; from the data the output reads (gathered from the device before,
    * or in the storage on the host).
    */
   void keepStepStart(const std::shared_ptr<ReceiverOutputData>& outputData) const;
+
+  /**
+   * Evaluates the output points right away, on the host, from data gathered before; for work that
+   * already runs in the order of the stream. The times are those of calcFaultOutput().
+   */
+  virtual void
+      evaluateFaultOutput(seissol::initializer::parameters::OutputType outputType,
+                          seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                          const std::shared_ptr<ReceiverOutputData>& outputData,
+                          double time,
+                          double dt,
+                          double indt) = 0;
 
   [[nodiscard]] virtual std::vector<std::size_t> getOutputVariables() const;
 
@@ -111,6 +141,13 @@ class ReceiverOutputImpl : public ReceiverOutput {
                        double time,
                        double dt,
                        double indt) override;
+
+  void evaluateFaultOutput(seissol::initializer::parameters::OutputType outputType,
+                           seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                           const std::shared_ptr<ReceiverOutputData>& outputData,
+                           double time,
+                           double dt,
+                           double indt) override;
 
   template <typename Cfg>
   struct LocalInfo {
@@ -182,9 +219,10 @@ class ReceiverOutputImpl : public ReceiverOutput {
   [[nodiscard]] const std::remove_extent_t<seissol::initializer::StorageType<StorageT, Cfg>>*
       getCellData(const LocalInfo<Cfg>& local) const {
     using ValueT = std::remove_extent_t<seissol::initializer::StorageType<StorageT, Cfg>>;
-    const auto devVar = local.state->deviceVariables.find(drStorage_->info<StorageT>().index);
-    if (devVar != local.state->deviceVariables.end()) {
-      return reinterpret_cast<const ValueT*>(devVar->second->get(local.faceId));
+    const auto devVar = local.state->deviceVariableSets.find(drStorage_->info<StorageT>().index);
+    if (devVar != local.state->deviceVariableSets.end()) {
+      return reinterpret_cast<const ValueT*>(
+          local.state->gatheredVariable(devVar->second, local.faceId));
     } else {
       return local.layer->template var<StorageT>(Cfg())[local.ltsId];
     }
@@ -304,15 +342,19 @@ class ReceiverOutputImpl : public ReceiverOutput {
   friend Derived;
   friend class RateAndStateImpl<Derived>;
 
+  /**
+   * The output of one point, for the faces in the configuration `Cfg`; the faces of other
+   * configurations are left to the handlers of theirs.
+   */
   template <typename Cfg>
-  void calcFaultOutputOfConfig(
-      seissol::initializer::parameters::OutputType outputType,
-      seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
-      const std::shared_ptr<ReceiverOutputData>& outputData,
-      parallel::runtime::StreamRuntime& runtime,
-      double time,
-      double dt,
-      double indt);
+  std::function<void(std::size_t)>
+      faultOutputHandler(seissol::initializer::parameters::OutputType outputType,
+                         seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+                         const std::shared_ptr<ReceiverOutputData>& outputData,
+                         std::size_t level,
+                         double time,
+                         double dt,
+                         double indt);
 
   Derived& derived() { return static_cast<Derived&>(*this); }
 };

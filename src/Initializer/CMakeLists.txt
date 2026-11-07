@@ -61,6 +61,7 @@ add_library(seissol-initializer OBJECT
     Clustering/LatticeDpSearch.cpp
     Clustering/TimestepHistogram.cpp
     Clustering/VertexWeights/VertexWeightModel.cpp
+    Clustering/VertexWeights/MeasuredWeights.cpp
     Clustering/VertexWeights/WeightsModels.cpp
 
     TimeStepping/ClusterLayout.cpp

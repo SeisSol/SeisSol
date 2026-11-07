@@ -160,12 +160,75 @@ if (OPENMP)
   find_package(OpenMP REQUIRED)
   target_link_libraries(seissol-common-properties INTERFACE OpenMP::OpenMP_CXX)
   target_compile_definitions(seissol-common-properties INTERFACE OMP OMPI_SKIP_MPICXX)
+
+  # What the task graph on the host takes (see Parallel/Runtime/HostRuntime.h): tasks with
+  # dependencies on a list of runtime length (iterators), detached tasks, taskloop and masked. The
+  # version that _OPENMP reports cannot tell: GCC reports 4.5 up to version 15, though it has them
+  # from 12 on, and NVHPC reports 5.1 without them.
+  include(CheckCXXSourceCompiles)
+  set(CMAKE_REQUIRED_LIBRARIES OpenMP::OpenMP_CXX)
+  check_cxx_source_compiles([=[
+#include <cstddef>
+#include <omp.h>
+struct Runtime {
+  char own{0};
+  char shared{0};
+  void action(const char* const* neighbors, std::size_t count) {
+#pragma omp task default(none) depend(iterator(std::size_t i = 0 : count), in : neighbors[i][0]) depend(inout : this->own, this->shared)
+    {
+    }
+  }
+};
+int main() {
+  Runtime runtime;
+  const char* neighbors[1] = {&runtime.shared};
+  int sum = 0;
+#pragma omp parallel default(none) shared(runtime, neighbors, sum)
+  {
+#pragma omp masked
+    {
+      runtime.action(neighbors, 1);
+      omp_event_handle_t event{};
+#pragma omp task detach(event) depend(in : runtime.shared)
+      {
+      }
+      omp_fulfill_event(event);
+#pragma omp taskloop default(none) shared(sum) grainsize(1)
+      for (int i = 0; i < 4; ++i) {
+#pragma omp atomic
+        sum += i;
+      }
+      const char* token = &runtime.own;
+#pragma omp taskwait depend(in : token[0])
+#pragma omp taskyield
+#pragma omp taskwait
+    }
+  }
+  return sum == 6 ? 0 : 1;
+}
+]=] SEISSOL_OPENMP_TASK_GRAPH)
+  unset(CMAKE_REQUIRED_LIBRARIES)
+  if (SEISSOL_OPENMP_TASK_GRAPH)
+    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_OPENMP_TASK_GRAPH)
+  endif()
 endif()
 
 if (MPI)
   find_package(MPI REQUIRED)
 
-  target_include_directories(seissol-common-properties SYSTEM INTERFACE ${MPI_CXX_INCLUDE_PATH})
+  # The headers of MPI, also for the compilers that do not go through the host compiler (hipcc for
+  # the device code, nvcc). With an MPI wrapper as the host compiler (e.g. CC of the Cray PE), MPI
+  # works implicitly and FindMPI reports no include directories, as the wrapper adds them itself;
+  # they are then among the include directories of the host compiler.
+  set(SEISSOL_MPI_INCLUDE_DIRS ${MPI_CXX_INCLUDE_DIRS})
+  if (NOT SEISSOL_MPI_INCLUDE_DIRS)
+    find_path(SEISSOL_MPI_INCLUDE_DIR mpi.h PATHS ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES}
+        NO_DEFAULT_PATH)
+    if (SEISSOL_MPI_INCLUDE_DIR)
+      set(SEISSOL_MPI_INCLUDE_DIRS ${SEISSOL_MPI_INCLUDE_DIR})
+    endif()
+  endif()
+  target_include_directories(seissol-common-properties SYSTEM INTERFACE ${SEISSOL_MPI_INCLUDE_DIRS})
   target_link_libraries(seissol-common-properties INTERFACE MPI::MPI_C)
 
   target_compile_definitions(seissol-common-properties INTERFACE USE_MPI PARALLEL)

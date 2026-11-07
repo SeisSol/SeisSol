@@ -8,6 +8,7 @@
 add_library(seissol-modules OBJECT
     Module.cpp
     Modules.cpp
+    OutputWorker.cpp
 )
 
 target_link_libraries(seissol-modules PUBLIC seissol-common-properties)

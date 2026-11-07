@@ -215,8 +215,8 @@ TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeig
                                                double maxTimestepWidth,
                                                double endTime,
                                                LtsParameters lts)
-    : vertexWeight(vertexWeight), cfl(cfl), maxTimestepWidth(maxTimestepWidth), endTime(endTime),
-      lts(std::move(lts)) {}
+    : vertexWeight(std::move(vertexWeight)), cfl(cfl), maxTimestepWidth(maxTimestepWidth),
+      endTime(endTime), lts(std::move(lts)) {}
 
 TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
                                                   const std::vector<ConfigId>& configs) {
@@ -227,6 +227,12 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
       static_cast<std::uint64_t>(reader->readWithDefault("vertexweightdynamicrupture", 100));
   const auto weightFreeSurfaceWithGravity = static_cast<std::uint64_t>(
       reader->readWithDefault("vertexweightfreesurfacewithgravity", 100));
+  const auto measuredCosts = reader->readWithDefault<std::string>("vertexweightfile", "");
+  const auto cycles = reader->readWithDefault<unsigned>("vertexweightcycles", 0);
+  const auto cycleSteps = reader->readWithDefault<unsigned>("vertexweightcyclesteps", 20);
+  if (cycles > 0 && cycleSteps == 0) {
+    logError() << "vertexweightcyclesteps has to be positive.";
+  }
   const double cfl = reader->readWithDefault("cfl", 0.5);
   double maxTimestepWidth = std::numeric_limits<double>::max();
 
@@ -271,7 +277,10 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
 
   return TimeSteppingParameters({.weightElement = weightElement,
                                  .weightDynamicRupture = weightDynamicRupture,
-                                 .weightFreeSurfaceWithGravity = weightFreeSurfaceWithGravity},
+                                 .weightFreeSurfaceWithGravity = weightFreeSurfaceWithGravity,
+                                 .measuredCosts = measuredCosts,
+                                 .cycles = cycles,
+                                 .cycleSteps = cycleSteps},
                                 cfl,
                                 maxTimestepWidth,
                                 endTime,

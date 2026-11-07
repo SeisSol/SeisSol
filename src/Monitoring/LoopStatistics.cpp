@@ -21,6 +21,7 @@
 #include <ctime>
 #include <iterator>
 #include <mpi.h>
+#include <mutex>
 #include <string>
 // clock_gettime is POSIX and only declared by the C header
 #include <time.h> // NOLINT(modernize-deprecated-headers)
@@ -45,35 +46,77 @@ unsigned LoopStatistics::getRegion(const std::string& name) const {
   return std::distance(first, it);
 }
 
-void LoopStatistics::begin(unsigned region) {
-  (void)clock_gettime(CLOCK_MONOTONIC, &regions_[region].begin);
+timespec LoopStatistics::begin() {
+  timespec beginTime{};
+  (void)clock_gettime(CLOCK_MONOTONIC, &beginTime);
+  return beginTime;
 }
 
-void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRegion) {
+void LoopStatistics::end(unsigned region,
+                         unsigned numIterations,
+                         unsigned subRegion,
+                         const timespec& begin) {
   timespec endTime{};
   (void)clock_gettime(CLOCK_MONOTONIC, &endTime);
-  addSample(region, numIterations, subRegion, regions_[region].begin, endTime);
+  addSample(region, numIterations, subRegion, begin, endTime);
 }
 
 void LoopStatistics::addSample(
-    unsigned region, unsigned numIterations, unsigned /*subRegion*/, timespec begin, timespec end) {
+    unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end) {
+  addTime(region, numIterations, subRegion, seconds(difftime(begin, end)));
+}
+
+void LoopStatistics::addTime(unsigned region,
+                             unsigned numIterations,
+                             unsigned subRegion,
+                             double time) {
   if (numIterations > 0) {
+    const std::scoped_lock lock(samplesMutex_);
     auto& vars = regions_[region].variables;
-    const auto time = seconds(difftime(begin, end));
     vars.x += numIterations;
     vars.x2 += static_cast<double>(numIterations) * static_cast<double>(numIterations);
     vars.xy += static_cast<double>(numIterations) * time;
     vars.y += time;
     vars.y2 += time * time;
     ++vars.n;
+
+    // only the kernels; the other regions, such as the actor states, overlap with them
+    if (recordLayers_ && regions_[region].includeInSummary) {
+      if (layers_.size() <= region) {
+        layers_.resize(region + 1);
+      }
+      auto& layers = layers_[region];
+      if (layers.size() <= subRegion) {
+        layers.resize(subRegion + 1);
+      }
+      auto& samples = layers[subRegion];
+      if (samples.times.size() < MaxLayerSamples) {
+        samples.times.push_back(time);
+      }
+      ++samples.loops;
+    }
   }
+}
+
+double LoopStatistics::layerTime(unsigned region, unsigned subRegion) const {
+  if (region >= layers_.size() || subRegion >= layers_[region].size()) {
+    return 0;
+  }
+  const auto& samples = layers_[region][subRegion];
+  if (samples.times.empty()) {
+    return 0;
+  }
+  auto times = samples.times;
+  const auto middle = times.begin() + static_cast<std::ptrdiff_t>(times.size() / 2);
+  std::nth_element(times.begin(), middle, times.end());
+  return *middle * static_cast<double>(samples.loops);
 }
 
 void LoopStatistics::reset() {
   for (auto& region : regions_) {
     region.variables = StatisticVariables();
-    // (region.begin is not reset)
   }
+  layers_.clear();
 }
 
 double LoopStatistics::kernelTime() const {
