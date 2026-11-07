@@ -157,28 +157,24 @@ jobs:
         setup:
           - cc: gcc-13
             cxx: g++-13
-            fc: gfortran-13
             container: seissol/gha-cpu:davschneller-gpu-image
             pythonbreak: true
             mpi: openmpi
             name: gcc-13
           - cc: clang-19
             cxx: clang++-19
-            fc: gfortran-13 # TODO?
             container: seissol/gha-cpu:davschneller-gpu-image
             pythonbreak: true
             mpi: openmpi
             name: clang-19
           - cc: icx
             cxx: icpx
-            fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             pythonbreak: false
             mpi: intel
             name: icx-2024
           #- cc: nvc
           #  cxx: nvc++
-          #  fc: nvfortran
           #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
           #  pythonbreak: true
           #  mpi: openmpi

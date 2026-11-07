@@ -6,15 +6,14 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-# Builds the libraries that SeisSol needs (Open MPI, zlib, HDF5, BLAS and LAPACK, yaml-cpp) for the
-# target of a GNU cross compiler, into a prefix:
+# Builds the libraries that SeisSol needs (Open MPI, zlib, HDF5, yaml-cpp) for the target of a GNU
+# cross compiler, into a prefix:
 #
 #   .ci/emulated/dependencies.sh <triplet> <prefix>
 #
-# with CC, CXX and FC the compilers, if they are not <triplet>-gcc, <triplet>-g++ and
-# <triplet>-gfortran. The sources are those of the archive of Ubuntu, the same for every target;
-# Ubuntu keeps the packages of most other architectures in an archive of its own, and has none for
-# LoongArch.
+# with CC and CXX the compilers, if they are not <triplet>-gcc and <triplet>-g++. The sources are
+# those of the archive of Ubuntu, the same for every target; Ubuntu keeps the packages of most other
+# architectures in an archive of its own, and has none for LoongArch.
 #
 # Their build systems run the test programs they compile: the target has to run on QEMU,
 # registered with binfmt_misc, and with the environment of .ci/emulated/environment.sh.
@@ -30,7 +29,6 @@ triplet=$1
 prefix=$2
 export CC=${CC:-${triplet}-gcc}
 export CXX=${CXX:-${triplet}-g++}
-export FC=${FC:-${triplet}-gfortran}
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pool=http://archive.ubuntu.com/ubuntu/pool
@@ -85,17 +83,6 @@ fetch "${pool}/universe/h/hdf5/hdf5_1.14.6+repack.orig.tar.gz" \
   make -j "$(nproc)"
   make install
 )
-
-# the reference BLAS and LAPACK, which SeisSol takes for poroelastic materials
-fetch "${pool}/main/l/lapack/lapack_3.12.0.orig.tar.gz" \
-  eac9570f8e0ad6f30ce4b963f4f033f0f643e7c3912fc9ee6cd99120675ad48b
-SEISSOL_CROSS_TRIPLET="${triplet}" SEISSOL_CROSS_PREFIX="${prefix}" \
-  cmake -S "${work}/lapack-3.12.0" -B "${work}/lapack-build" -GNinja \
-  -DCMAKE_TOOLCHAIN_FILE="${here}/toolchain.cmake" -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX="${prefix}" -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF \
-  -DCBLAS=OFF -DLAPACKE=OFF
-cmake --build "${work}/lapack-build"
-cmake --install "${work}/lapack-build"
 
 fetch "${pool}/main/y/yaml-cpp/yaml-cpp_0.8.0+dfsg.orig.tar.xz" \
   32c85a5f36633a9005b20261b35fccb0d8ec69e9ef16c67de7d5d007944e3709
