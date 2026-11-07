@@ -24,6 +24,7 @@
 #include <filesystem>
 #include <fty/fty.hpp>
 #include <memory>
+#include <mpi.h>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -215,6 +216,9 @@ int main(int argc, char* argv[]) {
     const int rank = seissol::Mpi::mpi.rank();
 
     utils::Logger::setRank(rank);
+    // a fatal error ends all ranks of the run, on the communicator SeisSol runs on
+    utils::Logger::setAbortHandler(
+        [](const utils::LogRecord& /*record*/) { MPI_Abort(seissol::Mpi::mpi.comm(), 134); });
 
     const auto runId = determineRunId(env);
 

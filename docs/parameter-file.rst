@@ -86,7 +86,8 @@ itself finds, it collects. The exit code is 0 if the run can start, 1 otherwise.
 ``--check=<file>`` writes a report as JSON, also when an error stops the check: its
 ``status`` is ``passed`` or ``failed``; ``problems`` lists what the check found;
 ``stoppedAt`` names the step an error stopped (``parameters``, ``files``, ``yaml``,
-``mesh``, ``checkpoint`` or ``output``), whose message is in the log; ``mesh`` has the
+``mesh``, ``checkpoint`` or ``output``), and ``error`` gives its ``message`` and its
+``source`` in the code (``file``, ``line``, ``function``); ``mesh`` has the
 ``cells`` and ``vertices`` of a PUML mesh; ``files`` lists the files the parameters name,
 whether they exist and whether the run opens them; ``output`` gives the output
 directory, whether it is ``writable``, and which outputs are ``enabled``; the report has

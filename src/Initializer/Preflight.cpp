@@ -21,15 +21,12 @@
 
 #include <algorithm>
 #include <cctype>
-#include <csignal>
 #include <cstddef>
+#include <cstdlib>
 #include <exception>
-#include <fcntl.h>
 #include <filesystem>
 #include <fty/fty.hpp>
 #include <optional>
-// SIGTRAP is POSIX and only declared by the C header
-#include <signal.h> // NOLINT(modernize-deprecated-headers)
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -49,33 +46,20 @@ namespace {
 
 constexpr std::string_view Schema = "seissol-check/1";
 
-// What an error that stops the check leaves behind: the report as it stood, and where it goes.
-// logError() raises SIGTRAP before it aborts; a signal handler can only write what is there
-// already, so the report is rendered ahead, at every step of the check.
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::string stoppedReport;
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::string stoppedReportPath;
+//! @brief Sets the abort handler of the logger for as long as it exists; then the one before again.
+class AbortHandlerScope {
+  public:
+  explicit AbortHandlerScope(utils::Logger::AbortHandler handler)
+      : previous_(utils::Logger::setAbortHandler(std::move(handler))) {}
+  ~AbortHandlerScope() { utils::Logger::setAbortHandler(std::move(previous_)); }
+  AbortHandlerScope(const AbortHandlerScope&) = delete;
+  AbortHandlerScope(AbortHandlerScope&&) = delete;
+  AbortHandlerScope& operator=(const AbortHandlerScope&) = delete;
+  AbortHandlerScope& operator=(AbortHandlerScope&&) = delete;
 
-void stopCheck(int /*signal*/) {
-  if (!stoppedReportPath.empty()) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    const int file = ::open(stoppedReportPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (file >= 0) {
-      std::size_t written = 0;
-      while (written < stoppedReport.size()) {
-        const auto result =
-            ::write(file, stoppedReport.data() + written, stoppedReport.size() - written);
-        if (result <= 0) {
-          break;
-        }
-        written += static_cast<std::size_t>(result);
-      }
-      ::close(file);
-    }
-  }
-  ::_exit(1);
-}
+  private:
+  utils::Logger::AbortHandler previous_;
+};
 
 class Report {
   public:
@@ -83,7 +67,6 @@ class Report {
     root_["schema"] = std::string(Schema);
     root_["status"] = "running";
     root_["problems"] = json::Value::array();
-    stoppedReportPath = path_;
   }
 
   json::Value& operator[](std::string_view key) { return root_[key]; }
@@ -95,20 +78,29 @@ class Report {
   }
 
   //! @brief Starts the step @p name , which an error may stop.
-  void step(std::string_view name) {
-    json::Value stopped = root_;
-    stopped["status"] = "failed";
-    stopped["stoppedAt"] = std::string(name);
-    stoppedReport = stopped.dump() + "\n";
+  void step(std::string_view name) { step_ = std::string(name); }
+
+  /**
+   * @brief Writes the report of a check that the error of @p record stopped: the step it stopped,
+   * and the message and the place of the error.
+   */
+  void stop(const utils::LogRecord& record) {
+    root_["status"] = "failed";
+    root_["stoppedAt"] = step_;
+    auto& error = root_["error"];
+    error["message"] = record.message();
+    auto& source = error["source"];
+    source["file"] = record.location.file;
+    source["line"] = record.location.line;
+    source["function"] = record.location.function;
+    write();
   }
 
   //! @brief Writes the report, if asked to, and returns the exit code.
   int finish() {
     const bool passed = root_["problems"].size() == 0;
     root_["status"] = passed ? "passed" : "failed";
-    if (!path_.empty() && !writeFileAtomically(path_, root_.dump() + "\n")) {
-      logWarning() << "Could not write the report of the check to" << path_;
-    }
+    write();
     const auto problems = root_["problems"].size();
     if (passed) {
       logInfo() << "The check passed.";
@@ -119,8 +111,15 @@ class Report {
   }
 
   private:
+  void write() {
+    if (!path_.empty() && !writeFileAtomically(path_, root_.dump() + "\n")) {
+      logWarning() << "Could not write the report of the check to" << path_;
+    }
+  }
+
   std::string path_;
   json::Value root_;
+  std::string step_;
 };
 
 std::string joined(const std::vector<std::string>& parts) {
@@ -320,9 +319,11 @@ int preflight(const std::string& parameterFile,
     invocation["checkpoint"] =
         checkpoint.has_value() ? json::Value(checkpoint.value()) : json::Value();
   }
-  // an error ends the check through the SIGTRAP of the logger; SIGTRAP can be caught, so that
-  // setting its handler cannot fail
-  static_cast<void>(std::signal(SIGTRAP, stopCheck));
+  // an error stops the check as it would stop a run; the report gives the step and the error
+  const AbortHandlerScope stopOnError([&report](const utils::LogRecord& record) {
+    report.stop(record);
+    std::_Exit(1);
+  });
 
   // what a run reads, read as a run reads it; an error stops the check here
   report.step("parameters");
@@ -416,7 +417,6 @@ int preflight(const std::string& parameterFile,
   report.step("output");
   report["output"] = outputSection(seissolParameters, report);
 
-  static_cast<void>(std::signal(SIGTRAP, SIG_DFL));
   return report.finish();
 }
 
