@@ -41,6 +41,15 @@ simulations, each simulation runs the case, and each is compared.
 hold the exact solutions themselves against what is known in closed form or
 computed otherwise, such as finite differences of a single mode.
 
+The spectral solution of a case on ``fault2d-periodic`` is the same in every
+configuration that runs it. Its comparisons keep it at the receivers in
+``tests/verification/solutions`` of the build, 1.4 to 3.1 MB per case, under a
+key of all that it is computed from: the inputs of the case, the versions of
+numpy and scipy, and the scripts. The first comparison of a case computes it,
+in one to three minutes, eight for the in-plane cases; the others, which run
+one after another, and every repeated comparison read it. Removing the
+directory makes the comparisons compute their solutions anew.
+
 The meshes
 ----------
 

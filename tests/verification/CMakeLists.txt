@@ -526,7 +526,15 @@ endfunction()
 # running SeisSol again. Without MATERIAL, the case takes the material of its
 # build, and without REQUIRE, it runs in elastic and anisotropic builds. FILES
 # are further inputs, such as receivers that SET names.
+#
+# The spectral solution at the receivers is the same in every configuration
+# that runs a case on fault2d-periodic; the comparisons keep it in
+# SEISSOL_SPECTRAL_DIR, under a key of all that it is computed from, so that
+# the first of them computes it and the others read it. RESOURCE_LOCK runs
+# them one after another.
 # ---------------------------------------------------------------------------
+
+set(SEISSOL_SPECTRAL_DIR ${CMAKE_CURRENT_BINARY_DIR}/solutions)
 
 function(seissol_add_fault1d)
   cmake_parse_arguments(F1D "" "NAME;FL;FAULT;MESH;STEPS;MATERIAL" "SET;LABELS;REQUIRE;FILES"
@@ -569,6 +577,7 @@ function(seissol_add_fault1d)
                    --mesh-manifest ${SEISSOL_MINIMESH_DIR}/${F1D_MESH}.json
                    --capabilities ${SEISSOL_VERIFICATION_DIR}/capabilities.json
                    --thresholds ${CMAKE_CURRENT_SOURCE_DIR}/cases/thresholds-fault1d.json
+                   --solutions ${SEISSOL_SPECTRAL_DIR}
                    --result ${SEISSOL_VERIFICATION_DIR}/results/exact-${F1D_NAME}.json)
   set_tests_properties(verification.exact.${F1D_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
       SKIP_RETURN_CODE 77
@@ -576,6 +585,10 @@ function(seissol_add_fault1d)
       "case.${SEISSOL_VERIFICATION_CONFIG}.${F1D_NAME};minimesh.${F1D_MESH};verification"
       TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
       LABELS "verification;dr;exact;${F1D_LABELS}")
+  if (F1D_MESH STREQUAL "fault2d-periodic")
+    set_tests_properties(verification.exact.${F1D_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
+        RESOURCE_LOCK verification.spectral.${F1D_NAME})
+  endif()
   set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
       "    {\"name\": \"exact-${F1D_NAME}\", \"mesh\": \"${F1D_MESH}\", \"requires\": []},\n")
 endfunction()

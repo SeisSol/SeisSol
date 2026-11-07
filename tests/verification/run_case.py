@@ -1700,11 +1700,12 @@ def _event_time(value):
 
 
 def compare_antiplane(
-    solver, solution, frame, fault_receivers, volume_receivers, law, gauss
+    solver, reference, frame, fault_receivers, volume_receivers, law, gauss
 ):
     """The deviations of the receivers from the antiplane rupture that
     antiplane.Antiplane computes, or from the in-plane rupture of
-    antiplane.Inplane, per quantity.
+    antiplane.Inplane, as `reference` holds it at the receivers (see
+    _antiplane_reference), per quantity.
 
     These are the quantities of _AT_RECEIVER: the slip rate, the normal
     stress and the direction of the slip that the fault receivers record,
@@ -1731,9 +1732,11 @@ def compare_antiplane(
     def worst(name, value):
         deviations[name] = max(deviations.get(name, 0.0), value)
 
-    step = solution["time"][1] - solution["time"][0]
+    step = reference["time"][1] - reference["time"][0]
+    # the column of the reference of each point of the method it holds
+    points = {int(point): column for column, point in enumerate(reference["points"])}
     for (names, rows, header), on_gauss_point in zip(fault_receivers, gauss):
-        index = _antiplane_point(solver, header)
+        point = points[_antiplane_point(solver, header)]
 
         def column(name, names=names, rows=rows):
             if name not in names:
@@ -1743,9 +1746,9 @@ def compare_antiplane(
 
         time = column("Time")
         samples = [round(t / step) for t in time]
-        rate = solution["slip-rate"][samples, index]
-        shear = solution["traction"][samples, index]
-        normal = solution["normal-stress"][samples, index]
+        rate = reference["slip-rate"][samples, point]
+        shear = reference["traction"][samples, point]
+        normal = reference["normal-stress"][samples, point]
 
         strike, dip = column("SRs"), column("SRd")
         slip_rate = [math.hypot(s, d) for s, d in zip(strike, dip)]
@@ -1756,7 +1759,7 @@ def compare_antiplane(
         # sample after the later are not compared
         keep = [True] * len(time)
         if on_gauss_point and law in (2, 6, 16, 1058):
-            expected = _first_rise(time, solution["friction"][samples, index])
+            expected = _first_rise(time, reference["friction"][samples, point])
             reported = _first_rise(time, column("Mud"))
             if expected is not None or reported is not None:
                 worst("healing-time", _event_deviation(reported or 0.0, expected))
@@ -1778,7 +1781,7 @@ def compare_antiplane(
         if on_gauss_point:
             exact = {
                 "traction": np.abs(shear),
-                "slip": np.abs(solution["slip"][samples, index]),
+                "slip": np.abs(reference["slip"][samples, point]),
             }
             for name in (
                 "accumulated-slip",
@@ -1788,20 +1791,20 @@ def compare_antiplane(
                 "pore-pressure",
                 "temperature",
             ):
-                if name in solution:
-                    exact[name] = solution[name][samples, index]
-            if "locked-traction" in solution:
+                if name in reference:
+                    exact[name] = reference[name][samples, point]
+            if "locked-traction" in reference:
                 exact["locked-traction"] = np.abs(
-                    solution["locked-traction"][samples, index]
+                    reference["locked-traction"][samples, point]
                 )
             events = {
-                name: _event_time(solution[name][index])
+                name: _event_time(reference[name][point])
                 for name in ("rupture-time", "dynamic-stress-time")
             }
-            if "temperature" in solution:
-                events["initial-temperature"] = solution["temperature"][0, index]
+            if "temperature" in reference:
+                events["initial-temperature"] = reference["temperature"][0, point]
             found = _gauss_point_deviations(
-                column, exact, events, law, "locked-traction" in solution, keep
+                column, exact, events, law, "locked-traction" in reference, keep
             )
             for name, value in found.items():
                 worst(name, value)
@@ -1825,20 +1828,106 @@ def compare_antiplane(
             misalignment = max(misalignment, 1.0 - cosine)
         worst("direction", misalignment)
 
-    # the jump of the slip rate where the fault heals runs along it faster
-    # than shear waves, and sends out a jump of the field, which the method
-    # resolves only over the time the healing takes through a cell, ahead of
-    # it as well; the volume receivers are compared up to the time the fault
-    # first heals
-    end = None
-    if law in (2, 6, 16, 1058):
-        end = _first_rise(solution["time"], solution["friction"])
+    # the volume receivers are compared up to the time the fault first heals,
+    # if it does (see _antiplane_reference)
+    healed = float(reference["healed"])
+    end = None if math.isnan(healed) else healed
     for position, (names, rows) in volume_receivers:
-        radiated = solver.radiated(solution, position[0], position[1])
+        radiated = _reference_field(reference, position)
         found = _volume_deviations(names, rows, step, radiated, end)
         for name, value in found.items():
             worst(name, value)
     return deviations
+
+
+def _antiplane_reference(solver, solution, points, positions, law):
+    """What compare_antiplane takes from the `solution` of the spectral
+    method `solver`: its series and events at the points of the method of
+    the indices `points` along y, the velocity and the stress it sends out to
+    the volume receivers at `positions`, and with slip weakening (FL=`law`),
+    the first time the fault heals anywhere, NaN where it does not.
+
+    The jump of the slip rate where the fault heals runs along it faster than
+    shear waves, and sends out a jump of the field, which the method resolves
+    only over the time the healing takes through a cell, ahead of it as
+    well; compare_antiplane compares the volume receivers up to that time."""
+    import numpy as np
+
+    reference = {"time": np.asarray(solution["time"]), "points": np.array(points)}
+    for name, value in solution.items():
+        value = np.asarray(value)
+        if name == "time":
+            continue
+        if value.ndim == 2:
+            reference[name] = value[:, points]
+        elif value.shape == (solver.y.size,):
+            reference[name] = value[points]
+    healed = None
+    if law in (2, 6, 16, 1058):
+        healed = _first_rise(solution["time"], solution["friction"])
+    reference["healed"] = np.array(math.nan if healed is None else healed)
+    fields = [solver.radiated(solution, x, y) for x, y, *_ in positions]
+    steps = reference["time"].size
+    reference["field-positions"] = np.array(
+        [position[:2] for position in positions], dtype=float
+    ).reshape(-1, 2)
+    reference["field-velocity"] = np.array(
+        [velocity for velocity, _ in fields], dtype=float
+    ).reshape(-1, steps, 3)
+    reference["field-stress"] = np.array(
+        [stress for _, stress in fields], dtype=float
+    ).reshape(-1, steps, 6)
+    return reference
+
+
+def _reference_field(reference, position):
+    """The velocity and the stress that `reference` holds for the volume
+    receiver at `position`."""
+    import numpy as np
+
+    found = np.nonzero(
+        np.all(reference["field-positions"] == np.array(position[:2]), axis=1)
+    )[0]
+    if found.size == 0:
+        raise SystemExit(f"the spectral solution holds no field at {position[:2]}")
+    return reference["field-velocity"][found[0]], reference["field-stress"][found[0]]
+
+
+def _reference_key(identity):
+    """A key of what a spectral solution at the receivers is computed from:
+    `identity`, the versions of numpy and scipy, and the scripts that compute
+    it."""
+    import numpy as np
+    import scipy
+
+    digest = hashlib.sha256(
+        json.dumps(
+            [identity, np.__version__, scipy.__version__], sort_keys=True
+        ).encode()
+    )
+    for script in ("antiplane.py", "fault1d.py", "easimodel.py", "run_case.py"):
+        digest.update(Path(__file__).with_name(script).read_bytes())
+    return digest.hexdigest()[:16]
+
+
+def _load_reference(path):
+    """The reference that _save_reference kept at `path`."""
+    import numpy as np
+
+    with np.load(path) as data:
+        return {name: data[name] for name in data.files}
+
+
+def _save_reference(path, reference):
+    """Keep `reference` at `path`, whole or not at all, for comparisons that
+    run at the same time."""
+    import numpy as np
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_name(f".{path.name}.{os.getpid()}")
+    with partial.open("wb") as handle:
+        np.savez_compressed(handle, **reference)
+    os.replace(partial, path)
 
 
 def _simulations(names, rows):
@@ -1884,7 +1973,13 @@ def _compare_antiplane_case(
     through the fault receivers, and two steps per sample: its cost grows
     with the square of the steps, and its error is mostly that of the points
     (see antiplane.py). `simulations` holds the fault and the volume
-    receivers of each fused simulation; the worst of them counts."""
+    receivers of each fused simulation; the worst of them counts.
+
+    The spectral solution at the receivers is the same in every
+    configuration that runs the case. With args.solutions, it is kept there
+    under a key of all that it is computed from, the scripts included (see
+    _reference_key), so that the configurations of a build compute it once,
+    and a repeated comparison not at all."""
     import antiplane
     import easimodel
     import fault1d
@@ -1904,8 +1999,9 @@ def _compare_antiplane_case(
         raise fault1d.Unsupported(f"{model.name}: {reason}") from reason
     if antiplane.in_plane(fault):
         solver = antiplane.Inplane(left, length, width, args.points, offset)
-    for _, _, header in fault_receivers:
-        _antiplane_point(solver, header)
+    points = sorted(
+        {_antiplane_point(solver, header) for _, _, header in fault_receivers}
+    )
     capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))
     positions = [
         [float(header[name][0]) for name in ("x1", "x2", "x3")]
@@ -1919,23 +2015,47 @@ def _compare_antiplane_case(
             "points of the fault of this build, whose quantities are not "
             "compared for them"
         )
-    solution = solver.solve(
-        fault, max(row[0] for row in fault_receivers[0][1]), interval / 2
-    )
-    frame = fault1d.fault_frame(fault1d.Inputs(rupture, {}))
+    end = max(row[0] for row in fault_receivers[0][1])
+    step = interval / 2
     law = int(fault[None].get("fl", 16))
-    # the field at a volume receiver, once for all simulations
-    fields = {}
-    radiated = solver.radiated
+    volume = [position for position, _ in simulations[0][1]]
 
-    def remembered(solution, x, y):
-        if (x, y) not in fields:
-            fields[(x, y)] = radiated(solution, x, y)
-        return fields[(x, y)]
-
-    solver.radiated = remembered
+    path = None
+    reference = None
+    if args.solutions:
+        key = _reference_key(
+            {
+                "case": args.name,
+                "method": type(solver).__name__,
+                "points": args.points,
+                "offset": offset,
+                "size": [length, width],
+                "medium": [float(left.rho), np.asarray(left.stiffness).tolist()],
+                "rupture": sorted(
+                    (name, str(value)) for name, value in rupture.items()
+                ),
+                "fault": model.read_text(encoding="utf-8"),
+                "end": end,
+                "step": step,
+                "receivers": points,
+                "volume": [position[:2] for position in volume],
+                "law": law,
+            }
+        )
+        path = Path(args.solutions) / f"{args.name}-{key}.npz"
+        if path.exists():
+            reference = _load_reference(path)
+            print(f"the spectral solution is the one kept in {path}")
+    if reference is None:
+        solution = solver.solve(fault, end, step)
+        reference = _antiplane_reference(solver, solution, points, volume, law)
+        del solution
+        if path is not None:
+            _save_reference(path, reference)
+            print(f"the spectral solution is kept in {path}")
+    frame = fault1d.fault_frame(fault1d.Inputs(rupture, {}))
     return _worst(
-        compare_antiplane(solver, solution, frame, faults, volumes, law, gauss)
+        compare_antiplane(solver, reference, frame, faults, volumes, law, gauss)
         for faults, volumes in simulations
     )
 
@@ -2304,6 +2424,12 @@ def main(argv=None):
         default=1024,
         help="points along y of the spectral method, on a mesh periodic across "
         "the fault; the fault receivers have to lie on them",
+    )
+    exact.add_argument(
+        "--solutions",
+        help="where to keep the spectral solutions at the receivers, which the "
+        "configurations of a build share; without it, each comparison computes "
+        "its own",
     )
     exact.add_argument(
         "--record",
