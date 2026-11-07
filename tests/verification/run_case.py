@@ -1349,7 +1349,7 @@ def _event_deviation(measured, exact):
     return abs(measured - exact) / exact if exact > 0.0 else abs(measured)
 
 
-def _gauss_point_deviations(column, exact, events, law, imposed):
+def _gauss_point_deviations(column, exact, events, law, imposed, keep=None):
     """The deviations of what a fault receiver takes from the Gauss point of
     the fault nearest to it, from the exact solution there, per quantity.
 
@@ -1363,22 +1363,34 @@ def _gauss_point_deviations(column, exact, events, law, imposed):
     for an imposed slip rate, so that the change the imposed slip causes
     elsewhere stays visible; with thermal pressurization, P_f is the pore
     pressure as a stress, negative where it pushes the faces apart (as
-    tp_iniPressure is given).
+    tp_iniPressure is given). The traction and the friction coefficient are
+    compared at the samples that `keep` marks, all by default.
     """
 
     def magnitude(first, second):
         return [math.hypot(a, b) for a, b in zip(column(first), column(second))]
 
+    def kept(values):
+        if keep is None:
+            return list(values)
+        return [value for value, chosen in zip(values, keep) if chosen]
+
     found = {}
     traction_scale = max(abs(value) for value in exact["traction"])
     reported = exact["locked-traction"] if imposed else exact["traction"]
-    found["traction"] = _deviation(magnitude("Ts0", "Td0"), reported, traction_scale)
+    found["traction"] = _deviation(
+        kept(magnitude("Ts0", "Td0")), kept(reported), traction_scale
+    )
     found["slip"] = _deviation(magnitude("Sls", "Sld"), exact["slip"])
     found["accumulated-slip"] = _deviation(column("ASl"), exact["accumulated-slip"])
     found["peak-slip-rate"] = _deviation(column("PSR"), exact["peak-slip-rate"])
     found["rupture-time"] = _event_deviation(column("RT")[-1], events["rupture-time"])
     if not imposed:
-        found["friction"] = _deviation(column("Mud"), exact["friction"])
+        found["friction"] = _deviation(
+            kept(column("Mud")),
+            kept(exact["friction"]),
+            max(abs(value) for value in exact["friction"]),
+        )
         # defined for slip weakening, and among the rate-and-state laws for
         # the one with a weakened friction mu_w only
         if law in (2, 6, 16, 1058, 103):
@@ -1495,14 +1507,17 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
     return deviations
 
 
-def _volume_deviations(names, rows, step, radiated):
+def _volume_deviations(names, rows, step, radiated, end=None):
     """The deviations of what a volume receiver records from the velocity
     and the stress of the exact solution, which `radiated` gives per step of
-    its integration, as vectors in global coordinates."""
+    its integration, as vectors in global coordinates; up to the time `end`,
+    if given."""
     import fault1d
     import numpy as np
 
     recorded = np.array(rows)
+    if end is not None:
+        recorded = recorded[recorded[:, names.index("Time")] <= end]
     # the volume receivers sample on their own, up to a step before the end
     samples = np.rint(recorded[:, names.index("Time")] / step).astype(int)
     velocity, stress = radiated
@@ -1660,6 +1675,24 @@ def _on_gauss_points(mesh, capabilities, positions):
     return found
 
 
+def _first_rise(time, values):
+    """The first time at which a series, or any column of an array of them,
+    rises by more than a thousandth, which the friction coefficient of slip
+    weakening does only where the fault heals; None where it does not. Ahead
+    of a front, the friction coefficient SeisSol reports rises by a millionth
+    or so, as the slip rate it accumulates, projected on the basis of the
+    face (resampleSlipRate), is negative there by a little."""
+    import numpy as np
+
+    values = np.asarray(values, dtype=float)
+    rises = values[1:] > values[:-1] + 1e-3 * np.abs(values[:-1])
+    if values.ndim > 1:
+        rises = rises.any(axis=1)
+    if not rises.any():
+        return None
+    return float(time[1 + int(np.argmax(rises))])
+
+
 def _event_time(value):
     """An event time of the spectral method, None for NaN, where the event
     does not happen."""
@@ -1715,7 +1748,30 @@ def compare_antiplane(
 
         strike, dip = column("SRs"), column("SRd")
         slip_rate = [math.hypot(s, d) for s, d in zip(strike, dip)]
-        worst("slip-rate", _deviation(slip_rate, np.abs(rate)))
+        # where slip weakening heals, the slip rate, the traction and the
+        # friction coefficient jump; the time it heals, the first at which
+        # the friction coefficient rises, is compared as an event, and those
+        # three from a sample before the earlier of the two times on to a
+        # sample after the later are not compared
+        keep = [True] * len(time)
+        if on_gauss_point and law in (2, 6, 16, 1058):
+            expected = _first_rise(time, solution["friction"][samples, index])
+            reported = _first_rise(time, column("Mud"))
+            if expected is not None or reported is not None:
+                worst("healing-time", _event_deviation(reported or 0.0, expected))
+            if expected is not None and reported is not None:
+                interval = time[1] - time[0]
+                low = min(expected, reported) - interval
+                high = max(expected, reported) + interval
+                keep = [not low <= t <= high for t in time]
+        worst(
+            "slip-rate",
+            _deviation(
+                [value for value, chosen in zip(slip_rate, keep) if chosen],
+                np.abs(rate)[keep],
+                float(np.max(np.abs(rate))),
+            ),
+        )
         scale = max(float(np.max(np.abs(normal))), float(np.max(np.abs(shear))))
         worst("normal-stress", _deviation(column("Pn0"), normal, scale))
         if on_gauss_point:
@@ -1723,14 +1779,29 @@ def compare_antiplane(
                 "traction": np.abs(shear),
                 "slip": np.abs(solution["slip"][samples, index]),
             }
-            for name in ("accumulated-slip", "peak-slip-rate", "friction", "state"):
+            for name in (
+                "accumulated-slip",
+                "peak-slip-rate",
+                "friction",
+                "state",
+                "pore-pressure",
+                "temperature",
+            ):
                 if name in solution:
                     exact[name] = solution[name][samples, index]
+            if "locked-traction" in solution:
+                exact["locked-traction"] = np.abs(
+                    solution["locked-traction"][samples, index]
+                )
             events = {
                 name: _event_time(solution[name][index])
                 for name in ("rupture-time", "dynamic-stress-time")
             }
-            found = _gauss_point_deviations(column, exact, events, law, False)
+            if "temperature" in solution:
+                events["initial-temperature"] = solution["temperature"][0, index]
+            found = _gauss_point_deviations(
+                column, exact, events, law, "locked-traction" in solution, keep
+            )
             for name, value in found.items():
                 worst(name, value)
 
@@ -1753,9 +1824,18 @@ def compare_antiplane(
             misalignment = max(misalignment, 1.0 - cosine)
         worst("direction", misalignment)
 
+    # the jump of the slip rate where the fault heals runs along it faster
+    # than shear waves, and sends out a jump of the field, which the method
+    # resolves only over the time the healing takes through a cell, ahead of
+    # it as well; the volume receivers are compared up to the time the fault
+    # first heals
+    end = None
+    if law in (2, 6, 16, 1058):
+        end = _first_rise(solution["time"], solution["friction"])
     for position, (names, rows) in volume_receivers:
         radiated = solver.radiated(solution, position[0], position[1])
-        for name, value in _volume_deviations(names, rows, step, radiated).items():
+        found = _volume_deviations(names, rows, step, radiated, end)
+        for name, value in found.items():
             worst(name, value)
     return deviations
 

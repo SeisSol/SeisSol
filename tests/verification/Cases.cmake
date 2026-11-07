@@ -641,6 +641,19 @@ foreach (law aging:3 slip:4 svw:7 fvw:103)
                        verification.exact.fault2d-antiplane-rs-${name}${SEISSOL_VERIFICATION_SUFFIX}
                        PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
 endforeach()
+# Fast velocity weakening with thermal pressurization, whose pore pressure
+# rises by up to a fifth of the normal stress (see
+# fault2d-antiplane-rs-fvw-tp.yaml); the fault receivers report it and the
+# temperature of their Gauss points.
+seissol_add_fault1d(NAME fault2d-antiplane-rs-fvw-tp FL 103
+                    FAULT fault2d-antiplane-rs-fvw-tp.yaml MESH fault2d-periodic STEPS 2560
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                        ${SEISSOL_ANTIPLANE}
+                    LABELS convergence)
+set_tests_properties(verification.fault2d-antiplane-rs-fvw-tp${SEISSOL_VERIFICATION_SUFFIX}
+                     verification.exact.fault2d-antiplane-rs-fvw-tp${SEISSOL_VERIFICATION_SUFFIX}
+                     PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
 # The Prakash-Clifton regularization of FL=6, which acts on its own here,
 # between two halves of the same solid: the strength the slip rate sees
 # follows that of linear slip weakening at the rate (|V| + v*) / L, which
@@ -656,9 +669,43 @@ seissol_add_fault1d(NAME fault2d-antiplane-lsw-tpapprox FL 1058
                     FAULT fault2d-antiplane-lsw-tpapprox.yaml MESH fault2d-periodic STEPS 2560
                     FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
                     SET ${SEISSOL_ANTIPLANE} LABELS convergence)
-foreach (name bimaterial tpapprox)
+# Instantaneous healing: once its slip rate has exceeded 1 m/s, the fault
+# regains mu_s where it slows down below that, which locks it 5 to 8 ms
+# before the stopping phases bring it to rest otherwise, with up to 5 % less
+# slip. The run ends at 145 ms, 3 ms before the fault heals at the outer
+# fault receivers, and 7 ms before the fronts that meet their images reload
+# the healed fault there to its static strength. The fault receivers report
+# the slip rate of the friction law (SlipRateOutputType=1), which the healed
+# fault holds at zero, where the jump of the velocity across it rings after
+# the sudden stop, by up to half a metre per second. The volume receivers are
+# compared up to 91 ms, when the fault first heals (see
+# run_case.compare_antiplane).
+seissol_add_fault1d(NAME fault2d-antiplane-lsw-healing FL 16 FAULT fault2d-antiplane.yaml
+                    MESH fault2d-periodic STEPS 2368
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET "DynamicRupture.lsw_healingThreshold=1.0" ${SEISSOL_ANTIPLANE}
+                        "DynamicRupture.SlipRateOutputType=1"
+                    LABELS convergence)
+foreach (name bimaterial tpapprox healing)
   set_tests_properties(verification.fault2d-antiplane-lsw-${name}${SEISSOL_VERIFICATION_SUFFIX}
                        verification.exact.fault2d-antiplane-lsw-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+endforeach()
+# An imposed slip, which sets in at y = 0 and runs out to both sides at
+# 2.5 km/s (see fault2d-antiplane-imposed.yaml), at the rates of FL=33 and
+# FL=34. FL=35 imposes all of the slip within the sub-step of the onset,
+# which leaves a slip rate, and a field sent out, that depend on the time
+# step and converge to no function, a delta in time; it has no comparison.
+foreach (law yoffe:33 gaussian:34)
+  string(REPLACE ":" ";" law ${law})
+  list(GET law 0 name)
+  list(GET law 1 number)
+  seissol_add_fault1d(NAME fault2d-antiplane-imposed-${name} FL ${number}
+                      FAULT fault2d-antiplane-imposed.yaml MESH fault2d-periodic STEPS 2560
+                      FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                      SET ${SEISSOL_ANTIPLANE} LABELS convergence)
+  set_tests_properties(verification.fault2d-antiplane-imposed-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       verification.exact.fault2d-antiplane-imposed-${name}${SEISSOL_VERIFICATION_SUFFIX}
                        PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
 endforeach()
 
