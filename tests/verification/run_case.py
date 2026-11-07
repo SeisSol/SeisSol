@@ -1366,7 +1366,6 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
     Pn0 is the effective normal stress, and P_f the pore pressure as a stress,
     negative where it pushes the faces apart (as tp_iniPressure is given).
     """
-    import fault1d
     import numpy as np
 
     exact = {key: value[indices] for key, value in series.items() if _is_series(value)}
@@ -1470,17 +1469,33 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
 
     step = series["time"][1] - series["time"][0]
     for position, (names, rows) in volume_receivers:
-        recorded = np.array(rows)
-        # the volume receivers sample on their own, up to a step before the end
-        samples = np.rint(recorded[:, names.index("Time")] / step).astype(int)
-        velocity, stress = problem.radiated(series, position[0])
-        velocity, stress = velocity[samples], stress[samples]
-        index = [names.index(name) for name in ("v1", "v2", "v3")]
-        error = np.linalg.norm(recorded[:, index] - velocity, axis=1)
-        worst("velocity", float(error.max() / np.linalg.norm(velocity, axis=1).max()))
-        index = [names.index(f"s_{name}") for name in fault1d.VOIGT]
-        error = np.linalg.norm(recorded[:, index] - stress, axis=1)
-        worst("stress", float(error.max() / np.linalg.norm(stress, axis=1).max()))
+        found = _volume_deviations(
+            names, rows, step, problem.radiated(series, position[0])
+        )
+        for name, value in found.items():
+            worst(name, value)
+    return deviations
+
+
+def _volume_deviations(names, rows, step, radiated):
+    """The deviations of what a volume receiver records from the velocity
+    and the stress of the exact solution, which `radiated` gives per step of
+    its integration, as vectors in global coordinates."""
+    import fault1d
+    import numpy as np
+
+    recorded = np.array(rows)
+    # the volume receivers sample on their own, up to a step before the end
+    samples = np.rint(recorded[:, names.index("Time")] / step).astype(int)
+    velocity, stress = radiated
+    velocity, stress = velocity[samples], stress[samples]
+    deviations = {}
+    index = [names.index(name) for name in ("v1", "v2", "v3")]
+    error = np.linalg.norm(recorded[:, index] - velocity, axis=1)
+    deviations["velocity"] = float(error.max() / np.linalg.norm(velocity, axis=1).max())
+    index = [names.index(f"s_{name}") for name in fault1d.VOIGT]
+    error = np.linalg.norm(recorded[:, index] - stress, axis=1)
+    deviations["stress"] = float(error.max() / np.linalg.norm(stress, axis=1).max())
     return deviations
 
 
@@ -1560,22 +1575,24 @@ def _antiplane_point(solver, header):
     return int(round(point)) % solver.count
 
 
-def compare_antiplane(solver, solution, frame, fault_receivers):
-    """The deviations of the fault receivers from the antiplane rupture that
+def compare_antiplane(solver, solution, frame, fault_receivers, volume_receivers):
+    """The deviations of the receivers from the antiplane rupture that
     antiplane.Antiplane computes, per quantity.
 
-    These are the quantities of _AT_RECEIVER the fault receivers record: the
-    slip rate, the normal stress and the direction of the slip, and the slip
-    as the integral of the slip rate along z over the samples, by the
-    trapezoidal rule, which holds at the receiver as well. The slip rate
-    rises steeply where the rupture front arrives, so that its deviation is
-    mostly that of the shape of the front, and that of the slip the one of the
-    time it arrives. The slip rate that the receivers compute from the jump of
-    the velocity rings, in all directions, ahead of a front that has entered
-    their cell, by up to a decimetre per second, which rules out its first
-    rise above fault1d.RUPTURE_SLIP_RATE as the time of the front; the
-    direction is judged where the slip rate exceeds a tenth of its largest
-    value. The receivers have to lie on points of the method along y (see
+    These are the quantities of _AT_RECEIVER: the slip rate, the normal
+    stress and the direction of the slip that the fault receivers record,
+    and the slip as the integral of the slip rate along z over the samples,
+    by the trapezoidal rule, which holds at the receiver as well; and the
+    velocity and the stress of the volume receivers, as compare_fault1d
+    takes them, from Antiplane.radiated. The slip rate rises steeply where
+    the rupture front arrives, so that its deviation is mostly that of the
+    shape of the front, and that of the slip the one of the time it arrives.
+    The slip rate that the receivers compute from the jump of the velocity
+    rings, in all directions, ahead of a front that has entered their cell,
+    by up to a decimetre per second, which rules out its first rise above
+    fault1d.RUPTURE_SLIP_RATE as the time of the front; the direction is
+    judged where the slip rate exceeds a tenth of its largest value. The
+    fault receivers have to lie on points of the method along y (see
     _antiplane_point).
     """
     import numpy as np
@@ -1631,17 +1648,29 @@ def compare_antiplane(solver, solution, frame, fault_receivers):
             cosine = (s * direction[0] + d * direction[1]) / length
             misalignment = max(misalignment, 1.0 - cosine)
         worst("direction", misalignment)
+
+    for position, (names, rows) in volume_receivers:
+        radiated = solver.radiated(solution, position[0], position[1])
+        for name, value in _volume_deviations(names, rows, step, radiated).items():
+            worst(name, value)
     return deviations
 
 
 def _compare_antiplane_case(
-    args, rupture, model, manifest, left, right, interval, fault_receivers
+    args,
+    rupture,
+    model,
+    manifest,
+    left,
+    right,
+    interval,
+    fault_receivers,
+    volume_receivers,
 ):
     """compare_antiplane for a case on a mesh that is periodic across the
     fault, with the spectral method at args.points points along y and two
     steps per sample: its cost grows with the square of the steps, and its
-    error is mostly that of the points (see antiplane.py). The method
-    computes the fault alone, so the volume receivers are not compared."""
+    error is mostly that of the points (see antiplane.py)."""
     import antiplane
     import easimodel
     import fault1d
@@ -1661,7 +1690,7 @@ def _compare_antiplane_case(
         fault, max(row[0] for row in fault_receivers[0][1]), interval / 2
     )
     frame = fault1d.fault_frame(fault1d.Inputs(rupture, {}))
-    return compare_antiplane(solver, solution, frame, fault_receivers)
+    return compare_antiplane(solver, solution, frame, fault_receivers, volume_receivers)
 
 
 def _command_exact(args):
@@ -1753,10 +1782,16 @@ def _command_exact(args):
             # whatever the fault sends out returns to it; only the spectral
             # method takes this into account
             deviations = _compare_antiplane_case(
-                args, rupture, model, manifest, left, right, interval, fault_receivers
+                args,
+                rupture,
+                model,
+                manifest,
+                left,
+                right,
+                interval,
+                fault_receivers,
+                volume_receivers,
             )
-            if volume_receivers:
-                print("the volume receivers are not compared on this mesh")
         elif fault is None:
             width, length = manifest["spec"]["size"][:2]
             try:

@@ -630,19 +630,25 @@
       "direction": 0.00013,
       "normal-stress": 0.00082,
       "slip": 0.0047,
-      "slip-rate": 0.165
+      "slip-rate": 0.165,
+      "stress": 0.026,
+      "velocity": 0.051
     },
     "fault2d-antiplane/elastic/o6/double": {
       "direction": 0.00013,
       "normal-stress": 0.00082,
       "slip": 0.0047,
-      "slip-rate": 0.165
+      "slip-rate": 0.165,
+      "stress": 0.026,
+      "velocity": 0.051
     },
     "fault2d-antiplane/elastic/o6/single": {
       "direction": 0.00013,
       "normal-stress": 0.00082,
       "slip": 0.0047,
-      "slip-rate": 0.165
+      "slip-rate": 0.165,
+      "stress": 0.026,
+      "velocity": 0.051
     },
     "fault2d-supershear/anisotropic/o6/double": {
       "direction": 0.0002,

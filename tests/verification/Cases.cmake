@@ -598,14 +598,21 @@ set_tests_properties(verification.fault2d-supershear${SEISSOL_VERIFICATION_SUFFI
 # y = +-400 m. The fault receivers lie on points of the method, from the
 # nucleation to where the front arrives some 40 ms before the end. The
 # comparison takes the slip rate, the normal stress and the direction of the
-# slip that they compute at their position, and the slip as the integral of
-# that slip rate (see run_case.compare_antiplane).
+# slip that they compute at their position, the slip as the integral of that
+# slip rate, and the velocity and the stress of the volume receivers, near
+# the nucleation and along the path of the fronts, up to a third of the way
+# to the next fault (see run_case.compare_antiplane).
+set(SEISSOL_ANTIPLANE
+    "DynamicRupture.t_0=2.0e-02" "DynamicRupture.SlipRateOutputType=0"
+    "Pickpoint.PPFileName='faultreceiver2d-periodic.dat'"
+    "Output.RFileName='receiver2d-periodic.dat'")
 seissol_add_fault1d(NAME fault2d-antiplane FL 16 FAULT fault2d-antiplane.yaml
-                    MESH fault2d-periodic STEPS 2560 FILES faultreceiver2d-periodic.dat
-                    SET "DynamicRupture.t_0=2.0e-02" "DynamicRupture.SlipRateOutputType=0"
-                        "Pickpoint.PPFileName='faultreceiver2d-periodic.dat'"
-                    LABELS convergence)
+                    MESH fault2d-periodic STEPS 2560
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET ${SEISSOL_ANTIPLANE} LABELS convergence)
+# the comparison takes minutes as well, for the field at the volume receivers
 set_tests_properties(verification.fault2d-antiplane${SEISSOL_VERIFICATION_SUFFIX}
+                     verification.exact.fault2d-antiplane${SEISSOL_VERIFICATION_SUFFIX}
                      PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
 
 # ---------------------------------------------------------------------------

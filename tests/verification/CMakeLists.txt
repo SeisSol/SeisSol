@@ -207,6 +207,15 @@ set_tests_properties(verification.faultreceivers2d PROPERTIES
                      FIXTURES_REQUIRED minimesh.fault2d
                      LABELS "verification;smoke;dr")
 # the receivers of the spontaneous rupture, on points of the spectral method
+# on the fault, and anywhere in the volume
+add_test(NAME verification.receivers2d-periodic
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/receiver2d-periodic.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d-periodic.puml.h5)
+set_tests_properties(verification.receivers2d-periodic PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d-periodic
+                     LABELS "verification;smoke;dr")
 add_test(NAME verification.faultreceivers2d-periodic
          COMMAND ${Python3_EXECUTABLE}
                  ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate --fault

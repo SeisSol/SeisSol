@@ -43,6 +43,20 @@ the step. A step solves the friction law together with the transfer, which
 depends on the slip rate of the step through delta_k(t) and the first
 weight of the convolution, by fixed-point iteration.
 
+Off the fault, at 0 < x < W, the displacement of a mode is
+
+    u_k = (delta_k / 2) sinh(gamma (W / 2 - x)) / sinh(gamma W / 2)
+        = (delta_k / 2) sum_n [exp(-gamma (x + n W)) - exp(-gamma ((n + 1) W - x))],
+
+what the fault and its images send out over the distances d = x + n W and
+(n + 1) W - x, n >= 0; where the solid extends to infinity along x, it is
+sign(x) (delta_k / 2) exp(-gamma |x|). exp(-gamma d) is the propagator
+P_d f = f(t - tau) - int_tau^t a tau J1(a R) / R f(t - t') dt' of the delay
+tau = d / c, R = sqrt(t'^2 - tau^2), and gamma exp(-gamma d) is 1 / c times
+the kernel of an image of that delay: the velocity is the sum of the
++-P_d V_k / 2, the stress mu du/dy is i k mu u_k, and mu du/dx is
+-(mu / 2 c) times the sum of the images of all distances.
+
 Where a rupture front arrives, the slip rate rises as the square root of the
 time since, and its largest deviation converges as the square root of the
 spacing of the points. For fault2d-antiplane, with the two steps per time
@@ -50,10 +64,10 @@ step of the case that the comparison takes, the slip rate with 1024 points
 along y deviates from the one with 2048 by up to 2.5e-2 of its largest
 value and the slip by up to 7e-5, while half the step changes them by 5e-4
 and 2e-6. The self-test holds the method against a uniform slip across
-periodic faults, the finite differences of a mode of a given slip, the
-quadrature of the images of a constant slip rate, the images of a mode that
-decays within a fraction of the period, and the forced rupture front of
-fault1d.Front.
+periodic faults, the finite differences of a mode of a given slip, on the
+fault and off it, the quadrature of the images of a constant slip rate, the
+images of a mode that decays within a fraction of the period, and the forced
+rupture front of fault1d.Front.
 
 The integration needs scipy, for the Bessel functions.
 """
@@ -78,28 +92,23 @@ def _transfer_kernel(argument):
     return 1.0 - integral + special.j1(argument)
 
 
-def _image_weights(a, delay, step, count):
-    """The weights of the image at the delay tau, per wave number (a = c |k|)
-    and node j step, j = 0 .. count - 1: those of the slip rate, from
-    G'(t') = -a J1(a R) t' / R, and those of the slip, from
-    a^2 G(t') = a^2 J0(a R), R = sqrt(t'^2 - tau^2), each the integral of the
-    kernel against the hat function of the node over t' >= tau, and each also
-    against the rising half of the hat alone, which the node at t' = t takes.
+def _delayed_weights(a, delay, step, count, kernels):
+    """The weights of kernels that start at the delay tau, per wave number
+    (a = c |k|) and node j step, j = 0 .. count - 1: the integral of each
+    kernel against the hat function of the node over t' >= tau, and against
+    the rising half of the hat alone, which the node at t' = t takes.
 
-    The integration runs over R, in which the kernels oscillate evenly, as
-    G'(t') dt' = -a J1(a R) dR and G(t') dt' = J0(a R) R / t' dR, on pieces
-    of at most a radian of the fastest mode: right after tau, a step of t'
-    spans many of them.
+    A kernel is a pair (f, measure): in R = sqrt(t'^2 - tau^2), in which the
+    kernels oscillate evenly, its integral is that of f(a, a R) over R, each
+    point R of the quadrature weighted by measure(weight, R, t'), or by its
+    weight where measure is None. The integration runs on pieces of at most
+    a radian of the fastest mode: right after tau, a step of t' spans many of
+    them.
     """
-    from scipy import special
-
-    rate_weights = np.zeros((a.size, count))
-    slip_weights = np.zeros((a.size, count))
-    rate_rising = np.zeros((a.size, count))
-    slip_rising = np.zeros((a.size, count))
+    weights = [(np.zeros((a.size, count)), np.zeros((a.size, count))) for _ in kernels]
     nodes = np.arange(int(math.floor(delay / step)), count - 1)
     if nodes.size == 0:
-        return rate_weights, slip_weights, rate_rising, slip_rising
+        return weights
     lower = nodes * step
     upper = lower + step
     radius_low = np.sqrt(np.maximum(np.maximum(lower, delay) ** 2 - delay**2, 0.0))
@@ -118,23 +127,67 @@ def _image_weights(a, delay, step, count):
     for chunk in range(0, owner.size, 256):
         part = slice(chunk, chunk + 256)
         x = a[:, None, None] * radius[None, part]
-        rate = -a[:, None, None] * special.j1(x) * weight[None, part]
-        slip = (a * a)[:, None, None] * special.j0(x)
-        slip = slip * (weight * radius / time)[None, part]
         columns = nodes[owner[part]]
-        for weights, halves, kernel in (
-            (rate_weights, rate_rising, rate),
-            (slip_weights, slip_rising, slip),
-        ):
+        for (full, halves), (function, measure) in zip(weights, kernels):
+            if measure is None:
+                kernel = function(a, x) * weight[None, part]
+            else:
+                kernel = function(a, x)
+                kernel = kernel * measure(weight, radius, time)[None, part]
             up = np.einsum("kpg,pg->kp", kernel, rising[part])
-            np.add.at(weights, (slice(None), columns + 1), up)
+            np.add.at(full, (slice(None), columns + 1), up)
             np.add.at(halves, (slice(None), columns + 1), up)
             np.add.at(
-                weights,
+                full,
                 (slice(None), columns),
                 np.einsum("kpg,pg->kp", kernel, falling[part]),
             )
+    return weights
+
+
+def _image_weights(a, delay, step, count):
+    """The weights of the image at the delay tau (see _delayed_weights):
+    those of the slip rate, from G'(t') = -a J1(a R) t' / R, and those of the
+    slip, from a^2 G(t') = a^2 J0(a R), with G'(t') dt' = -a J1(a R) dR and
+    G(t') dt' = J0(a R) R / t' dR; each as the weights of the whole hats and
+    of their rising halves."""
+    from scipy import special
+
+    (rate_weights, rate_rising), (slip_weights, slip_rising) = _delayed_weights(
+        a,
+        delay,
+        step,
+        count,
+        (
+            (lambda a, x: -a[:, None, None] * special.j1(x), None),
+            (
+                lambda a, x: (a * a)[:, None, None] * special.j0(x),
+                lambda weight, radius, time: weight * radius / time,
+            ),
+        ),
+    )
     return rate_weights, slip_weights, rate_rising, slip_rising
+
+
+def _propagator_weights(a, delay, step, count):
+    """The weights of a tau J1(a R) / R, the kernel of the propagator of the
+    delay tau (see _delayed_weights), with dt' = R / t' dR: those of the whole
+    hats and of their rising halves."""
+    from scipy import special
+
+    ((weights, rising),) = _delayed_weights(
+        a,
+        delay,
+        step,
+        count,
+        (
+            (
+                lambda a, x: (a * delay)[:, None, None] * special.j1(x),
+                lambda weight, radius, time: weight / time,
+            ),
+        ),
+    )
+    return weights, rising
 
 
 def _hat_halves(kernel, step, count):
@@ -154,6 +207,38 @@ def _hat_halves(kernel, step, count):
     up[..., 1:] = rising
     down[..., :-1] = falling
     return up, down
+
+
+def _convolve(weights, rising, values):
+    """sum_j w_j f(t - j step) per mode and node of time, with the node at
+    t' = t weighted by the rising half of its hat; f is zero before t = 0."""
+    from scipy import signal
+
+    count = values.shape[1]
+    result = np.empty(values.shape, dtype=complex)
+    # in chunks of modes, which bounds the memory of the transforms
+    for chunk in range(0, values.shape[0], 64):
+        part = slice(chunk, chunk + 64)
+        result[part] = signal.fftconvolve(weights[part], values[part], axes=1)[
+            :, :count
+        ]
+    return result + (rising - weights) * values[:, :1]
+
+
+def _delayed(values, delay, step):
+    """f(t - tau) per mode and node of time, linear between the nodes and
+    zero before t = 0."""
+    count = values.shape[1]
+    position = np.arange(count) - delay / step
+    lower = np.floor(position).astype(int)
+    fraction = position - lower
+    result = np.zeros(values.shape, dtype=complex)
+    inside = position >= 0.0
+    low = lower[inside]
+    high = np.minimum(low + 1, count - 1)
+    result[:, inside] = (1.0 - fraction[inside]) * values[:, low]
+    result[:, inside] += fraction[inside] * values[:, high]
+    return result
 
 
 def _smooth_step(t, rise):
@@ -338,6 +423,96 @@ class Antiplane:
             "normal-stress": normal_stress,
         }
 
+    def _sources(self, x, end):
+        """The distances from which the fault and its images reach the point
+        at x before `end`, each with the sign of the displacement it sends
+        there (see the description of the module)."""
+        if self.width is None:
+            if x == 0.0:
+                raise fault1d.Unsupported("the point lies on the fault")
+            return [(abs(x), math.copysign(1.0, x))]
+        offset = x % self.width
+        if min(offset, self.width - offset) <= 1e-9 * self.width:
+            raise fault1d.Unsupported("the point lies on the fault")
+        sources = []
+        n = 0
+        reach = self.speed * end
+        while min(offset, self.width - offset) + n * self.width < reach:
+            for distance, sign in (
+                (offset + n * self.width, 1.0),
+                ((n + 1) * self.width - offset, -1.0),
+            ):
+                if distance < reach:
+                    sources.append((distance, sign))
+            n += 1
+        return sources
+
+    def radiated(self, solution, x, y):
+        """The particle velocity (x, y, z) and the stress (ordered as
+        fault1d.VOIGT) that the slip of `solution` leaves at the point (x, y),
+        per time of the solution, as the receivers record them: without the
+        initial stress. Off the fault, the field is smooth along y, as the
+        modes of the front decay away from it, so that its Fourier series
+        holds at any y."""
+        time = solution["time"]
+        step = time[1] - time[0]
+        rate_k = np.fft.rfft(solution["slip-rate"], axis=1).T
+        slip_k = np.fft.rfft(solution["slip"], axis=1).T
+        a = self.speed * self.k
+        shape = rate_k.shape
+        propagator, propagator_end = np.zeros(shape), np.zeros(shape)
+        image_rate, image_rate_end = np.zeros(shape), np.zeros(shape)
+        image_slip, image_slip_end = np.zeros(shape), np.zeros(shape)
+        velocity_k = np.zeros(shape, dtype=complex)
+        displacement_k = np.zeros(shape, dtype=complex)
+        arrivals = np.zeros(shape, dtype=complex)
+        for distance, sign in self._sources(x, time[-1]):
+            delay = distance / self.speed
+            if not delay > step:
+                raise fault1d.Unsupported(
+                    "the point lies closer to the fault than a wave travels in a step"
+                )
+            weights, rising = _propagator_weights(a, delay, step, time.size)
+            propagator += sign * weights
+            propagator_end += sign * rising
+            rate_weights, slip_weights, rate_end, slip_end = _image_weights(
+                a, delay, step, time.size
+            )
+            image_rate += rate_weights
+            image_rate_end += rate_end
+            image_slip += slip_weights
+            image_slip_end += slip_end
+            arrived = _delayed(rate_k, delay, step)
+            velocity_k += 0.5 * sign * arrived
+            displacement_k += 0.5 * sign * _delayed(slip_k, delay, step)
+            arrivals += arrived
+        velocity_k -= 0.5 * _convolve(propagator, propagator_end, rate_k)
+        displacement_k -= 0.5 * _convolve(propagator, propagator_end, slip_k)
+        shear_k = -(0.5 * self.mu / self.speed) * (
+            arrivals
+            + _convolve(image_rate, image_rate_end, rate_k)
+            + _convolve(image_slip, image_slip_end, slip_k)
+        )
+
+        # the real Fourier series at y, of the modes of numpy.fft.rfft
+        factor = np.full(self.k.size, 2.0)
+        factor[0] = 1.0
+        if self.count % 2 == 0:
+            factor[-1] = 1.0
+        factor = factor * np.exp(1j * self.k * (y - self.y[0])) / self.count
+
+        def at_y(values):
+            return (factor @ values).real
+
+        velocity = np.zeros((time.size, 3))
+        velocity[:, 2] = at_y(velocity_k)
+        stress = np.zeros((time.size, 6))
+        stress[:, fault1d.VOIGT.index("yz")] = self.mu * at_y(
+            1j * self.k[:, None] * displacement_k
+        )
+        stress[:, fault1d.VOIGT.index("xz")] = at_y(shear_k)
+        return velocity, stress
+
 
 class _Loading:
     """The traction along z and the normal stress on the welded fault, per
@@ -430,22 +605,27 @@ class _SlipWeakening:
 # --------------------------------------------------------------------------
 
 
-def _klein_gordon_traction(medium, k, half_width, slip, end, step):
+def _klein_gordon(medium, k, half_width, slip, end, step, probe):
     """The traction mu dU/dx (0, t) of the mode U(x, t) cos(k y) of an
     antiplane slip slip(t) cos(k y) on the faults x = n W of a solid periodic
-    across them, from U_tt = c^2 (U_xx - k^2 U) on 0 < x < W / 2, with
+    across them, and U, dU/dt and dU/dx at the grid point nearest to
+    x = probe, from U_tt = c^2 (U_xx - k^2 U) on 0 < x < W / 2, with
     U = slip / 2 on the fault and U = 0 halfway to the next, by finite
     differences of the second order at `step`, and at the Courant number 1,
-    or just below, at which they carry the waves along x without error."""
+    or just below, at which they carry the waves along x without error.
+    Returns the traction, the position of the grid point and its U, dU/dt
+    and dU/dx, per step."""
     mu = float(medium.stiffness[3, 3])
     speed = math.sqrt(mu / medium.rho)
     points = int(math.floor(half_width / (speed * step)))
     spacing = half_width / points
     courant = (speed * step / spacing) ** 2
+    index = int(round(probe / spacing))
     previous = np.zeros(points + 1)
     current = np.zeros(points + 1)
     traction = [0.0]
-    for n in range(1, int(round(end / step)) + 1):
+    field = [(0.0, 0.0, 0.0)]
+    for n in range(1, int(round(end / step)) + 2):
         following = np.empty_like(current)
         following[1:-1] = (
             2.0 * current[1:-1]
@@ -455,11 +635,16 @@ def _klein_gordon_traction(medium, k, half_width, slip, end, step):
         )
         following[0] = 0.5 * slip(n * step)
         following[-1] = 0.0
+        # the rate of the previous step, centred
+        rate = (following[index] - previous[index]) / (2.0 * step)
+        field[-1] = (field[-1][0], rate, field[-1][2])
         previous, current = current, following
         traction.append(
             mu * (-3.0 * current[0] + 4.0 * current[1] - current[2]) / (2.0 * spacing)
         )
-    return np.array(traction)
+        gradient = (current[index + 1] - current[index - 1]) / (2.0 * spacing)
+        field.append((current[index], 0.0, gradient))
+    return np.array(traction[:-1]), index * spacing, np.array(field[:-1])
 
 
 def self_test():
@@ -510,9 +695,35 @@ def self_test():
         float(np.max(np.abs(series["slip-rate"][:, 0] - exact)) / np.max(exact)),
         3e-3,
     )
+    # the plane waves of that slip at x = 0.3 W: the waves of the fault, at
+    # x + n W, carry +V / 2, those of the next, at (n + 1) W - x, -V / 2, and
+    # all of them the stress -eta V
+    x = 0.3 * width
+    velocity, stress = solver.radiated(series, x, 0.0)
+    time = series["time"]
+    exact_velocity = np.zeros(time.size)
+    exact_stress = np.zeros(time.size)
+    for n in range(4):
+        for distance, sign in ((x + n * width, 1.0), ((n + 1) * width - x, -1.0)):
+            arrived = np.array([rate(t - distance / solver.speed) for t in time])
+            exact_velocity += 0.5 * sign * arrived
+            exact_stress -= solver.eta * arrived
+    check(
+        "the plane waves of a uniform slip across periodic faults",
+        max(
+            float(np.max(np.abs(velocity[:, 2] - exact_velocity)))
+            / float(np.max(np.abs(exact_velocity))),
+            float(np.max(np.abs(stress[:, 4] - exact_stress)))
+            / float(np.max(np.abs(exact_stress))),
+            float(np.max(np.abs(np.delete(velocity, 2, axis=1)))),
+            float(np.max(np.abs(np.delete(stress, (3, 4), axis=1)))),
+        ),
+        3e-3,
+    )
 
     # a mode of a prescribed slip, against the finite differences of its wave
-    # equation across the faults: the transfer kernel and the images
+    # equation across the faults: the transfer kernel and the images, and the
+    # propagators of the field off the fault
     duration = 0.01
 
     def slip(t):
@@ -536,12 +747,54 @@ def self_test():
     slip_k[mode] = [slip(t) for t in time]
     computed = solver.transfer(rate_k, slip_k, step)[mode].real
     computed = computed - solver.eta * rate_k[mode].real
-    exact = _klein_gordon_traction(medium, solver.k[mode], 0.5 * width, slip, end, step)
+    exact, probe, field = _klein_gordon(
+        medium, solver.k[mode], 0.5 * width, slip, end, step, 0.15 * width
+    )
     check(
         f"the traction of the mode k = {solver.k[mode]:.4g} / m across periodic faults",
         float(np.max(np.abs(computed - exact)) / np.max(np.abs(exact))),
         1e-4,
     )
+    # the same mode at the points, cos(k (y - y_0)) of the series of rfft, and
+    # its field off the fault, which is odd in x, but for mu du/dx; once
+    # across the periodic faults and once in a solid that extends to
+    # infinity, where the finite differences reach far enough that what their
+    # boundary reflects does not return to the point within the time
+    angle = solver.k[mode] * (solver.y - solver.y[0])
+    prescribed = {
+        "time": time,
+        "slip-rate": np.outer(rate_k[mode].real, np.cos(angle)),
+        "slip": np.outer(slip_k[mode].real, np.cos(angle)),
+    }
+    infinite = Antiplane(medium, 800.0, None, 16)
+    _, far, alone = _klein_gordon(
+        medium, solver.k[mode], 2.0 * solver.speed * end, slip, end, step, probe
+    )
+    for method, x, values, side, y in (
+        (solver, probe, field, 1.0, 30.0),
+        (solver, probe, field, -1.0, -110.0),
+        (infinite, far, alone, -1.0, 30.0),
+    ):
+        velocity, stress = method.radiated(prescribed, side * x, y)
+        phase = solver.k[mode] * (y - solver.y[0])
+        expected = (
+            (velocity[:, 2], side * values[:, 1] * math.cos(phase)),
+            (stress[:, 4], solver.mu * values[:, 2] * math.cos(phase)),
+            (
+                stress[:, 3],
+                -side * solver.mu * solver.k[mode] * values[:, 0] * math.sin(phase),
+            ),
+        )
+        solid = "across periodic faults" if method.width else "alone"
+        check(
+            f"the field of the mode k = {solver.k[mode]:.4g} / m at "
+            f"({side * x:.4g}, {y:.4g}) {solid}",
+            max(
+                float(np.max(np.abs(computed - exact)) / np.max(np.abs(exact)))
+                for computed, exact in expected
+            ),
+            1e-4,
+        )
 
     # a mode that decays within a fraction of the width does not reach the
     # next fault, but for the part of the slip faster than c |k|, which is
