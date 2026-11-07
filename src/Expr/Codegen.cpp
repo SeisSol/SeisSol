@@ -110,12 +110,28 @@ std::string substitute(const std::string& text,
     }
     const std::string token = text.substr(begin, i - begin);
 
-    if (token == "std" && style == MathStyle::Unqualified && text.compare(i, 2, "::") == 0) {
+    if (token == "std" && style != MathStyle::Namespaced && text.compare(i, 2, "::") == 0) {
       // Device code has the maths built-ins unqualified, and NVRTC has no
       // <cmath> to bring `std` into scope. Dropping the qualifier here rather
       // than keeping a second expression table is the entire point of routing
       // both backends through one substitution.
       i += 2;
+      if (style == MathStyle::CNames) {
+        // the function after the qualifier, by its C name for the compute type
+        std::size_t end = i;
+        while (end < text.size() && identifierChar(text[end])) {
+          ++end;
+        }
+        std::string function = text.substr(i, end - i);
+        if (function == "abs") {
+          function = "fabs";
+        }
+        if (computeType == "float") {
+          function += "f";
+        }
+        out += function;
+        i = end;
+      }
       continue;
     }
     if (token == "x") {

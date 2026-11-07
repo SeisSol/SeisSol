@@ -32,8 +32,14 @@ enum class MathStyle : std::uint8_t {
   /// `std::sqrt(...)`. Host C++ with <cmath>.
   Namespaced,
   /// `sqrt(...)`. Device code, where the built-ins are unqualified and NVRTC
-  /// has no <cmath> to pull `std` in from.
-  Unqualified
+  /// has no <cmath> to pull `std` in from. For OpenCL C, whose built-ins are
+  /// overloaded for float and double alike.
+  Unqualified,
+  /// The C names, which name their type: `sqrtf(...)` in binary32, `sqrt(...)` in binary64,
+  /// `fabsf`/`fabs` for `abs`. For CUDA and HIP, whose unqualified names reach the float overloads
+  /// only through the C++ headers of the toolchain at hand; where an older one lacks them, a call
+  /// in binary32 would silently compute in binary64.
+  CNames
 };
 
 /// How a target spells the operands of a contraction, and what it has to know

@@ -473,8 +473,10 @@ void emitStage(std::ostringstream& out,
   addressing.storePersistent = gpuStorePersistent;
   addressing.contract = &contract;
 
-  codegen::emitStageBody(
-      out, stage, operands, computeType, codegen::MathStyle::Unqualified, addressing, "  ");
+  // OpenCL C overloads its built-ins; CUDA and HIP get the names of the compute type
+  const auto style =
+      target == GpuTarget::OpenCl ? codegen::MathStyle::Unqualified : codegen::MathStyle::CNames;
+  codegen::emitStageBody(out, stage, operands, computeType, style, addressing, "  ");
   out << "}\n\n";
 
   out << "SEISSOL_EXPR_KERNEL void " << name << "(";
