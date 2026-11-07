@@ -206,8 +206,9 @@ add_test(NAME verification.faultreceivers2d
 set_tests_properties(verification.faultreceivers2d PROPERTIES
                      FIXTURES_REQUIRED minimesh.fault2d
                      LABELS "verification;smoke;dr")
-# the receivers of the spontaneous rupture, on points of the spectral method
-# on the fault, and anywhere in the volume
+# the receivers of the spontaneous rupture, on Gauss points of the fault,
+# through which the points of the spectral method run, and anywhere in the
+# volume
 add_test(NAME verification.receivers2d-periodic
          COMMAND ${Python3_EXECUTABLE}
                  ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate

@@ -46,7 +46,11 @@ accumulated slip of slip weakening, with FL=6 also the regularized strength,
 or psi of rate and state, in closed form at the mean slip rate of the step,
 as SeisSol does, and solves the friction law together with the transfer,
 which depends on the slip rate of the step through delta_k(t) and the first
-weight of the convolution, by fixed-point iteration.
+weight of the convolution, by fixed-point iteration. Besides the slip rate,
+the slip and the traction, the solution holds what the fault receivers take
+from their Gauss point: the friction coefficient, the accumulated slip, the
+largest slip rate so far and the state, and the times of the rupture and of
+the dynamic stress.
 
 Off the fault, at 0 < x < W, the displacement of a mode is
 
@@ -72,10 +76,10 @@ and 2e-6; with the other laws, 2048 points change the slip rate by 4.5e-3 to
 2.2e-2 and the slip by up to 2.8e-5, and half the step, with the aging law,
 by 1.6e-4 and 7e-7. The self-test holds the method against a uniform slip
 across periodic faults, the finite differences of a mode of a given slip, on
-the fault and off it, the quadrature of the images of a constant slip rate,
-the images of a mode that decays within a fraction of the period, the forced
-rupture front of fault1d.Front, and the uniform slip of every other law
-against fault1d.Problem.
+the fault and off it, the quadrature of the images of a constant slip rate, the images of a mode that
+decays within a fraction of the period, the forced rupture front of
+fault1d.Front, and the uniform slip of every other law against
+fault1d.Problem, with what the Gauss points report.
 
 The integration needs scipy, for the Bessel functions.
 """
@@ -261,6 +265,27 @@ def _smooth_step(t, rise):
     return np.where(inside, value, np.where(t >= rise, 1.0, 0.0))
 
 
+def _first_crossings(time, values, threshold):
+    """fault1d._first_crossing per column of `values`, against a threshold
+    per column or one for all, NaN where the values stay below it."""
+    threshold = np.broadcast_to(threshold, values.shape[1:])
+    above = values >= threshold
+    reached = above.any(axis=0)
+    index = np.argmax(above, axis=0)
+    columns = np.arange(values.shape[1])
+    before = values[np.maximum(index - 1, 0), columns]
+    after = values[index, columns]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        fraction = np.where(
+            after != before, (threshold - before) / (after - before), 1.0
+        )
+    previous = time[np.maximum(index - 1, 0)]
+    crossing = np.where(
+        index == 0, time[0], previous + fraction * (time[index] - previous)
+    )
+    return np.where(reached, crossing, np.nan)
+
+
 def fault_along(model, dynamic_rupture, y):
     """The parameters of the fault at the points (0, y, 0) as the solver
     takes them: per easi parameter an array along y, and the parameters of
@@ -281,17 +306,18 @@ class Antiplane:
 
     `medium` is the isotropic fault1d.Medium of both sides, `length` the
     period L along y, `width` the period W along x, or None for a solid that
-    extends to infinity along x, and `count` the number of points along y.
+    extends to infinity along x, and `count` the number of points along y,
+    which start at y = -L / 2 + `offset`.
     """
 
-    def __init__(self, medium, length, width=None, count=512):
+    def __init__(self, medium, length, width=None, count=512, offset=0.0):
         if not medium.is_isotropic():
             raise fault1d.Unsupported("the spectral method takes an isotropic solid")
         self.mu = float(medium.stiffness[3, 3])
         self.speed = math.sqrt(self.mu / medium.rho)
         self.eta = 0.5 * self.mu / self.speed
         self.length, self.width, self.count = length, width, count
-        self.y = -0.5 * length + np.arange(count) * (length / count)
+        self.y = -0.5 * length + offset + np.arange(count) * (length / count)
         self.k = 2.0 * math.pi / length * np.arange(count // 2 + 1)
 
     def _weights(self, step, steps):
@@ -370,8 +396,12 @@ class Antiplane:
         `fault` gives the parameters of the fault at the points along y, as
         fault_along does. Returns the times and, per time and point, the slip
         rate along z, the slip, the shear traction along z and the normal
-        stress, which an antiplane slip leaves as the loading gives it, and
-        with rate and state the state psi.
+        stress, which an antiplane slip leaves as the loading gives it, the
+        friction coefficient, the accumulated slip and the largest slip rate
+        so far, and with rate and state the state psi; and per point the
+        times the fault ruptures, where the slip rate first reaches
+        fault1d.RUPTURE_SLIP_RATE, and weakens (see the weakened method of
+        the law), NaN where it does not.
         """
         steps = int(round(end / step))
         self._weights(step, steps)
@@ -385,6 +415,7 @@ class Antiplane:
         slip = np.zeros((steps + 1, self.count))
         traction = np.zeros((steps + 1, self.count))
         normal_stress = np.zeros((steps + 1, self.count))
+        coefficient = np.zeros((steps + 1, self.count))
         # the state of rate and state, which the solution reports
         states = np.zeros((steps + 1, self.count))
         time = np.arange(steps + 1) * step
@@ -395,6 +426,7 @@ class Antiplane:
         rate_k[:, 0] = np.fft.rfft(rate[0])
         traction[0] = shear - self.eta * rate[0]
         normal_stress[0] = normal
+        coefficient[0] = friction.friction(state, rate[0], 0.0, normal)
         reported = isinstance(friction, _RateAndState)
         if reported:
             states[0] = state
@@ -430,17 +462,26 @@ class Antiplane:
             slip_k[:, n + 1] = np.fft.rfft(slip[n + 1])
             traction[n + 1] = shear + transfer - self.eta * rate[n + 1]
             normal_stress[n + 1] = normal
+            coefficient[n + 1] = friction.friction(state, rate[n + 1], t, normal)
             if reported:
                 states[n + 1] = state
+        speed = np.abs(rate)
+        accumulated = np.zeros(rate.shape)
+        accumulated[1:] = np.cumsum(0.5 * step * (speed[1:] + speed[:-1]), axis=0)
         solution = {
             "time": time,
             "slip-rate": rate,
             "slip": slip,
             "traction": traction,
             "normal-stress": normal_stress,
+            "friction": coefficient,
+            "accumulated-slip": accumulated,
+            "peak-slip-rate": np.maximum.accumulate(speed, axis=0),
+            "rupture-time": _first_crossings(time, speed, fault1d.RUPTURE_SLIP_RATE),
         }
         if reported:
             solution["state"] = states
+        solution["dynamic-stress-time"] = friction.weakened(solution)
         return solution
 
     def _sources(self, x, end):
@@ -642,13 +683,12 @@ class _SlipWeakening:
             self.v_star = float(_given(fault, "pc_vstar", "v_star"))
             self.length = float(_given(fault, "pc_prakashLength", "L"))
 
-    def strength(self, t, accumulated, normal):
-        """The strength of slip weakening."""
+    def _coefficient(self, t, accumulated):
+        """The friction coefficient of slip weakening."""
         if self.law == 1058:
-            friction = self.mu_d + (self.mu_s - self.mu_d) / (
+            return self.mu_d + (self.mu_s - self.mu_d) / (
                 1.0 + accumulated / self.d_c
             ) ** (self.exponent)
-            return -self.cohesion - np.minimum(normal, 0.0) * friction
         weakening = np.minimum(accumulated / self.d_c, 1.0)
         if self.forced is not None:
             onset, rise = self.forced
@@ -656,8 +696,23 @@ class _SlipWeakening:
                 weakening = np.maximum(weakening, np.clip((t - onset) / rise, 0.0, 1.0))
             else:
                 weakening = np.where(t >= onset, 1.0, weakening)
-        friction = self.mu_s - (self.mu_s - self.mu_d) * weakening
+        return self.mu_s - (self.mu_s - self.mu_d) * weakening
+
+    def strength(self, t, accumulated, normal):
+        """The strength of slip weakening."""
+        friction = self._coefficient(t, accumulated)
         return -self.cohesion - np.minimum(normal, 0.0) * friction
+
+    def friction(self, state, rate, t, normal):
+        """The friction coefficient that SeisSol reports at the time of the
+        state, which the strength of the next step takes."""
+        return self._coefficient(t, state if self.law != 6 else state[0])
+
+    def weakened(self, solution):
+        """When the accumulated slip reaches d_c, per point."""
+        return _first_crossings(
+            solution["time"], solution["accumulated-slip"], self.d_c
+        )
 
     def initial_state(self, shear, normal):
         accumulated = np.zeros(np.shape(shear))
@@ -839,6 +894,42 @@ class _RateAndState:
             return np.where(
                 mean > 0.0, state - (state - steady) * -np.expm1(-relaxation), state
             )
+
+    def friction(self, state, rate, t=None, normal=None):
+        """The friction coefficient of the slip rate under the state."""
+        speed = np.abs(rate)
+        if self.law == 7:
+            return (
+                self.f0
+                + self.a * speed / (speed + self.v0)
+                - self.b * state / (state + self.length)
+            )
+        big_psi = state
+        if self.law != 103:
+            big_psi = self.f0 + self.b * np.log(self.v0 * state / self.length)
+        with np.errstate(divide="ignore"):
+            log_z = big_psi / self.a - np.log(2.0 * self.v0) + np.log(speed)
+        return self.a * _arsinh_exp(log_z)
+
+    def weakened(self, solution):
+        """As fault1d.RateAndState.weakened, per point: when the friction
+        coefficient of FL=103 falls to mu_w + 0.05 (f_0 - mu_w), not before
+        the rupture time; NaN for the other laws."""
+        time = solution["time"]
+        weakened = np.full(solution["slip-rate"].shape[1], np.nan)
+        if self.law != 103:
+            return weakened
+        threshold = self.mu_w + 0.05 * (self.f0 - self.mu_w)
+        for point, start in enumerate(solution["rupture-time"]):
+            if np.isnan(start):
+                continue
+            after = time >= start
+            crossing = fault1d._first_crossing(
+                time[after], -solution["friction"][after, point], -threshold[point]
+            )
+            if crossing is not None:
+                weakened[point] = crossing
+        return weakened
 
     def _steady_state(self, rate):
         """The steady state of FL=103 at the slip rate."""
@@ -1148,7 +1239,57 @@ def self_test():
 
     # a uniform slip of every other law on a fault between two solids that
     # extend to infinity: the 0D problem of fault1d, which integrates its own
-    # way
+    # way, with what SeisSol reports from the Gauss points of the fault
+    def uniform(law, rupture, given):
+        problem = fault1d.Problem(rupture, given, medium, medium)
+        exact = problem.solve(0.06, 1e-5)
+        solver = Antiplane(medium, 800.0, None, 8)
+        fault = {name: np.full(8, value) for name, value in given.items()}
+        fault[None] = {key.lower(): value for key, value in rupture.items()}
+        computed = solver.solve(fault, 0.06, 3e-5)
+        deviation = {}
+        for name in ("slip-rate", "friction", "accumulated-slip", "peak-slip-rate"):
+            reference = exact[name][::3]
+            error = np.max(np.abs(computed[name][:, 0] - reference))
+            deviation[name] = float(error / np.max(np.abs(reference)))
+        if "state" in computed:
+            values, reference = computed["state"][:, 0], exact["state"][::3]
+            if law in (3, 4):
+                # psi of aging and slip law spans orders of magnitude
+                error = np.max(np.abs(np.log(values) - np.log(reference)))
+            else:
+                error = np.max(np.abs(values - reference)) / np.max(np.abs(reference))
+            deviation["state"] = float(error)
+        label = f"FL={law}"
+        check(f"a uniform slip under {label}", deviation.pop("slip-rate"), 1e-5)
+        check(
+            f"what the Gauss points report of a uniform slip under {label}",
+            max(deviation.values()),
+            3e-5,
+        )
+        # the times of the events, which both take between the steps of the
+        # method, where a slip rate that sets in with a kink, as that of FL=6
+        # and FL=7 does, crosses fault1d.RUPTURE_SLIP_RATE elsewhere than
+        # between the finer steps of fault1d
+        sampled = {name: value[::3] for name, value in exact.items() if np.ndim(value)}
+        sampled["rupture-time"] = fault1d._first_crossing(
+            sampled["time"], sampled["slip-rate"], fault1d.RUPTURE_SLIP_RATE
+        )
+        sampled["dynamic-stress-time"] = problem.friction.weakened(sampled)
+        deviation = 0.0
+        for name in ("rupture-time", "dynamic-stress-time"):
+            value, reference = computed[name][0], sampled[name]
+            if reference is None:
+                deviation = max(deviation, 0.0 if np.isnan(value) else math.inf)
+            else:
+                deviation = max(deviation, abs(value - reference) / 3e-5)
+        check(
+            f"the rupture and dynamic stress times of a uniform slip under {label}, "
+            "in steps",
+            deviation,
+            1e-2,
+        )
+
     for law, extra in (
         (6, {"pc_vstar": 0.1, "pc_prakashLength": 0.01}),
         (1058, {}),
@@ -1158,17 +1299,7 @@ def self_test():
         if law == 1058:
             given.update({"d_c": 0.01, "s_xz": 75.0e6})
         rupture = {"FL": law, "t_0": 0.02, "XRef": -1.0e5, **extra}
-        problem = fault1d.Problem(rupture, given, medium, medium)
-        exact = problem.solve(0.06, 1e-5)["slip-rate"][::3]
-        solver = Antiplane(medium, 800.0, None, 8)
-        fault = {name: np.full(8, value) for name, value in given.items()}
-        fault[None] = {key.lower(): value for key, value in rupture.items()}
-        computed = solver.solve(fault, 0.06, 3e-5)["slip-rate"][:, 0]
-        check(
-            f"a uniform slip under FL={law}",
-            float(np.max(np.abs(computed - exact)) / np.max(exact)),
-            1e-5,
-        )
+        uniform(law, rupture, given)
     parameters = {
         "rs_f0": 0.6,
         "rs_sr0": 1e-6,
@@ -1190,17 +1321,7 @@ def self_test():
         if law == 103:
             given["nuc_xz"] = 45.0e6
             rupture.update({"rs_b": 0.014, "rs_muW": 0.2})
-        problem = fault1d.Problem(rupture, given, medium, medium)
-        exact = problem.solve(0.06, 1e-5)["slip-rate"][::3]
-        solver = Antiplane(medium, 800.0, None, 8)
-        fault = {name: np.full(8, value) for name, value in given.items()}
-        fault[None] = {key.lower(): value for key, value in rupture.items()}
-        computed = solver.solve(fault, 0.06, 3e-5)["slip-rate"][:, 0]
-        check(
-            f"a uniform slip under FL={law}",
-            float(np.max(np.abs(computed - exact)) / np.max(exact)),
-            1e-5,
-        )
+        uniform(law, rupture, given)
     return failures
 
 

@@ -1349,6 +1349,67 @@ def _event_deviation(measured, exact):
     return abs(measured - exact) / exact if exact > 0.0 else abs(measured)
 
 
+def _gauss_point_deviations(column, exact, events, law, imposed):
+    """The deviations of what a fault receiver takes from the Gauss point of
+    the fault nearest to it, from the exact solution there, per quantity.
+
+    `column` gives a column of the receiver by its name, `exact` the series
+    of the exact solution at its samples and `events` the times of the
+    events, of the rupture and of the dynamic stress, and the initial
+    temperature with thermal pressurization. The traction, which the
+    receiver computes from the velocities at its position and the friction
+    coefficient and the initial stress of the Gauss point, is compared as a
+    magnitude, and as that of the Godunov state, i.e. of the welded fault,
+    for an imposed slip rate, so that the change the imposed slip causes
+    elsewhere stays visible; with thermal pressurization, P_f is the pore
+    pressure as a stress, negative where it pushes the faces apart (as
+    tp_iniPressure is given).
+    """
+
+    def magnitude(first, second):
+        return [math.hypot(a, b) for a, b in zip(column(first), column(second))]
+
+    found = {}
+    traction_scale = max(abs(value) for value in exact["traction"])
+    reported = exact["locked-traction"] if imposed else exact["traction"]
+    found["traction"] = _deviation(magnitude("Ts0", "Td0"), reported, traction_scale)
+    found["slip"] = _deviation(magnitude("Sls", "Sld"), exact["slip"])
+    found["accumulated-slip"] = _deviation(column("ASl"), exact["accumulated-slip"])
+    found["peak-slip-rate"] = _deviation(column("PSR"), exact["peak-slip-rate"])
+    found["rupture-time"] = _event_deviation(column("RT")[-1], events["rupture-time"])
+    if not imposed:
+        found["friction"] = _deviation(column("Mud"), exact["friction"])
+        # defined for slip weakening, and among the rate-and-state laws for
+        # the one with a weakened friction mu_w only
+        if law in (2, 6, 16, 1058, 103):
+            found["dynamic-stress-time"] = _event_deviation(
+                column("DS")[-1], events["dynamic-stress-time"]
+            )
+    if "state" in exact:
+        state = column("StV")
+        if law in (7, 103):
+            # a slip and a friction coefficient, respectively
+            found["state"] = _deviation(state, exact["state"])
+        else:
+            # the state of aging and slip law spans orders of magnitude
+            found["state"] = max(
+                abs(math.log(a) - math.log(b)) if a > 0.0 else math.inf
+                for a, b in zip(state, exact["state"])
+            )
+    if "pore-pressure" in exact:
+        # the change, which is small against an initial pore pressure
+        pore = exact["pore-pressure"]
+        change = max(abs(value - pore[0]) for value in pore)
+        found["pressure"] = _deviation(column("P_f"), pore, change)
+        # the change, which is small against the initial temperature
+        initial = events["initial-temperature"]
+        found["temperature"] = _deviation(
+            [value - initial for value in column("Tmp")],
+            exact["temperature"] - initial,
+        )
+    return found
+
+
 def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers):
     """The deviations of the receivers from the exact solution, per quantity.
 
@@ -1360,11 +1421,9 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
     velocity and the stress in global coordinates.
 
     Where the receivers report something else than the physical quantity, they
-    are held against what they report: the traction of an imposed slip rate is
-    that of the Godunov state, i.e. of the welded fault, so that the change the
-    imposed slip causes elsewhere stays visible; with thermal pressurization,
-    Pn0 is the effective normal stress, and P_f the pore pressure as a stress,
-    negative where it pushes the faces apart (as tp_iniPressure is given).
+    are held against what they report: with thermal pressurization, Pn0 is the
+    effective normal stress, and for the quantities of the Gauss points, see
+    _gauss_point_deviations.
     """
     import numpy as np
 
@@ -1392,61 +1451,20 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
         slip_rate = magnitude("SRs", "SRd")
         worst("slip-rate", _deviation(slip_rate, exact["slip-rate"]))
         traction_scale = max(abs(value) for value in shear_exact)
-        if problem.imposed:
-            worst(
-                "traction",
-                _deviation(
-                    magnitude("Ts0", "Td0"), exact["locked-traction"], traction_scale
-                ),
-            )
-        else:
-            worst("traction", _deviation(magnitude("Ts0", "Td0"), shear_exact))
         normal = exact["effective-normal-stress"]
         normal_scale = max(max(abs(value) for value in normal), traction_scale)
         worst("normal-stress", _deviation(column("Pn0"), normal, normal_scale))
-        worst("slip", _deviation(magnitude("Sls", "Sld"), exact["slip"]))
-        worst("accumulated-slip", _deviation(column("ASl"), exact["accumulated-slip"]))
-        worst("peak-slip-rate", _deviation(column("PSR"), exact["peak-slip-rate"]))
-        worst(
-            "rupture-time", _event_deviation(column("RT")[-1], series["rupture-time"])
+        events = {
+            "rupture-time": series["rupture-time"],
+            "dynamic-stress-time": series.get("dynamic-stress-time"),
+        }
+        if "temperature" in series:
+            events["initial-temperature"] = series["temperature"][0]
+        found = _gauss_point_deviations(
+            column, exact, events, problem.law, problem.imposed
         )
-        if not problem.imposed:
-            worst("friction", _deviation(column("Mud"), exact["friction"]))
-            # defined for slip weakening, and among the rate-and-state laws for
-            # the one with a weakened friction mu_w only
-            if problem.law in (2, 6, 16, 1058, 103):
-                worst(
-                    "dynamic-stress-time",
-                    _event_deviation(column("DS")[-1], series["dynamic-stress-time"]),
-                )
-        if "state" in exact:
-            state = column("StV")
-            if problem.law in (7, 103):
-                # a slip and a friction coefficient, respectively
-                worst("state", _deviation(state, exact["state"]))
-            else:
-                # the state of aging and slip law spans orders of magnitude
-                worst(
-                    "state",
-                    max(
-                        abs(math.log(a) - math.log(b)) if a > 0.0 else math.inf
-                        for a, b in zip(state, exact["state"])
-                    ),
-                )
-        if "pore-pressure" in exact:
-            # the change, which is small against an initial pore pressure
-            pore = exact["pore-pressure"]
-            change = max(abs(value - pore[0]) for value in pore)
-            worst("pressure", _deviation(column("P_f"), pore, change))
-            # the change, which is small against the initial temperature
-            initial = series["temperature"][0]
-            worst(
-                "temperature",
-                _deviation(
-                    [value - initial for value in column("Tmp")],
-                    exact["temperature"] - initial,
-                ),
-            )
+        for name, value in found.items():
+            worst(name, value)
 
         stated = np.array([float(header["T_s"][0]), float(header["T_d"][0])])
         expected = problem.frame @ initial_traction
@@ -1575,25 +1593,102 @@ def _antiplane_point(solver, header):
     return int(round(point)) % solver.count
 
 
-def compare_antiplane(solver, solution, frame, fault_receivers, volume_receivers):
+def _on_gauss_points(mesh, capabilities, positions):
+    """Whether each fault receiver at `positions` lies on a Gauss point of
+    the fault of `mesh`, where what it takes from the Gauss point nearest to
+    it holds at its own position. The points of a rule that is not fully
+    symmetric depend on the order in which SeisSol takes the vertices of a
+    face, which this does not follow; none of them counts."""
+    from itertools import permutations
+
+    import h5py
+    import minimesh
+    import numpy as np
+
+    rule = capabilities.get("dr-quad-rule")
+    order = capabilities.get("order")
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "codegen"
+        / "matrices"
+        / f"dr_{rule}_matrices_{order}.json"
+    )
+    if not path.exists():
+        return [False] * len(positions)
+    table = next(
+        entry
+        for entry in json.loads(path.read_text(encoding="utf-8"))
+        if entry["name"] == "quadpoints"
+    )
+    points = np.zeros((table["rows"], table["columns"]))
+    for row, column, value in table["entries"]:
+        points[row - 1, column - 1] = float(value)
+    barycentric = np.column_stack((1.0 - points.sum(axis=1), points))
+
+    def canonical(values):
+        return sorted(tuple(np.round(row, 12)) for row in values)
+
+    if any(
+        canonical(barycentric[:, list(order)]) != canonical(barycentric)
+        for order in permutations(range(3))
+    ):
+        return [False] * len(positions)
+    with h5py.File(mesh, "r") as handle:
+        coords = handle["geometry"][:]
+        connect = handle["connect"][:].astype(np.int64)
+        boundary_format, _, _ = minimesh.infer_formats(handle)
+        tags = minimesh.decode_boundary(handle["boundary"][:], boundary_format)
+    faces = [
+        coords[connect[cell, list(minimesh.FACE_VERTICES[slot])]]
+        for cell, slot in zip(
+            *np.nonzero(tags == minimesh.FACE_TYPES["dynamic-rupture"])
+        )
+    ]
+    found = []
+    for position in np.asarray(positions, dtype=float):
+        nearest = math.inf
+        for face in faces:
+            size = max(
+                np.linalg.norm(face[1] - face[0]), np.linalg.norm(face[2] - face[0])
+            )
+            nearest = min(
+                nearest,
+                float(np.min(np.linalg.norm(barycentric @ face - position, axis=1)))
+                / size,
+            )
+        found.append(bool(nearest <= 1e-6))
+    return found
+
+
+def _event_time(value):
+    """An event time of the spectral method, None for NaN, where the event
+    does not happen."""
+    return None if math.isnan(value) else float(value)
+
+
+def compare_antiplane(
+    solver, solution, frame, fault_receivers, volume_receivers, law, gauss
+):
     """The deviations of the receivers from the antiplane rupture that
     antiplane.Antiplane computes, per quantity.
 
     These are the quantities of _AT_RECEIVER: the slip rate, the normal
     stress and the direction of the slip that the fault receivers record,
-    and the slip as the integral of the slip rate along z over the samples,
-    by the trapezoidal rule, which holds at the receiver as well; and the
-    velocity and the stress of the volume receivers, as compare_fault1d
-    takes them, from Antiplane.radiated. The slip rate rises steeply where
+    and the velocity and the stress of the volume receivers, as
+    compare_fault1d takes them, from Antiplane.radiated; and of a fault
+    receiver on a Gauss point of the fault (`gauss`, per fault receiver),
+    what it takes from there, with the friction law FL=`law`, as
+    _gauss_point_deviations compares it. The slip rate rises steeply where
     the rupture front arrives, so that its deviation is mostly that of the
     shape of the front, and that of the slip the one of the time it arrives.
     The slip rate that the receivers compute from the jump of the velocity
     rings, in all directions, ahead of a front that has entered their cell,
     by up to a decimetre per second, which rules out its first rise above
-    fault1d.RUPTURE_SLIP_RATE as the time of the front; the direction is
-    judged where the slip rate exceeds a tenth of its largest value. The
-    fault receivers have to lie on points of the method along y (see
-    _antiplane_point).
+    fault1d.RUPTURE_SLIP_RATE as the time of the front, whereas the slip
+    rate of a Gauss point is that of the friction law, which the rupture
+    time takes; the direction is judged where the slip rate exceeds a tenth
+    of its largest value. The fault receivers have to lie on points of the
+    method along y (see _antiplane_point).
     """
     import numpy as np
 
@@ -1603,7 +1698,7 @@ def compare_antiplane(solver, solution, frame, fault_receivers, volume_receivers
         deviations[name] = max(deviations.get(name, 0.0), value)
 
     step = solution["time"][1] - solution["time"][0]
-    for names, rows, header in fault_receivers:
+    for (names, rows, header), on_gauss_point in zip(fault_receivers, gauss):
         index = _antiplane_point(solver, header)
 
         def column(name, names=names, rows=rows):
@@ -1615,7 +1710,6 @@ def compare_antiplane(solver, solution, frame, fault_receivers, volume_receivers
         time = column("Time")
         samples = [round(t / step) for t in time]
         rate = solution["slip-rate"][samples, index]
-        slip = solution["slip"][samples, index]
         shear = solution["traction"][samples, index]
         normal = solution["normal-stress"][samples, index]
 
@@ -1624,11 +1718,21 @@ def compare_antiplane(solver, solution, frame, fault_receivers, volume_receivers
         worst("slip-rate", _deviation(slip_rate, np.abs(rate)))
         scale = max(float(np.max(np.abs(normal))), float(np.max(np.abs(shear))))
         worst("normal-stress", _deviation(column("Pn0"), normal, scale))
-        along_z = (frame.T @ np.array([strike, dip]))[1]
-        integral = np.concatenate(
-            ([0.0], np.cumsum(0.5 * np.diff(time) * (along_z[1:] + along_z[:-1])))
-        )
-        worst("slip", _deviation(integral, slip))
+        if on_gauss_point:
+            exact = {
+                "traction": np.abs(shear),
+                "slip": np.abs(solution["slip"][samples, index]),
+            }
+            for name in ("accumulated-slip", "peak-slip-rate", "friction", "state"):
+                if name in solution:
+                    exact[name] = solution[name][samples, index]
+            events = {
+                name: _event_time(solution[name][index])
+                for name in ("rupture-time", "dynamic-stress-time")
+            }
+            found = _gauss_point_deviations(column, exact, events, law, False)
+            for name, value in found.items():
+                worst(name, value)
 
         # the receivers state the initial traction of the load in the fault
         # frame, before the slip rate of t = 0 takes its part of it
@@ -1695,11 +1799,11 @@ def _compare_antiplane_case(
     args, rupture, model, manifest, left, right, interval, simulations
 ):
     """compare_antiplane for a case on a mesh that is periodic across the
-    fault, with the spectral method at args.points points along y and two
-    steps per sample: its cost grows with the square of the steps, and its
-    error is mostly that of the points (see antiplane.py). `simulations`
-    holds the fault and the volume receivers of each fused simulation; the
-    worst of them counts."""
+    fault, with the spectral method at args.points points along y, which run
+    through the fault receivers, and two steps per sample: its cost grows
+    with the square of the steps, and its error is mostly that of the points
+    (see antiplane.py). `simulations` holds the fault and the volume
+    receivers of each fused simulation; the worst of them counts."""
     import antiplane
     import easimodel
     import fault1d
@@ -1709,17 +1813,34 @@ def _compare_antiplane_case(
         raise fault1d.Unsupported("the spectral method takes one medium on both sides")
     fault_receivers = simulations[0][0]
     width, length = manifest["spec"]["size"][:2]
+    # the points of the method run through the first fault receiver
+    spacing = length / args.points
+    offset = (float(fault_receivers[0][2]["x2"][0]) + 0.5 * length) % spacing
     try:
-        solver = antiplane.Antiplane(left, length, width, args.points)
+        solver = antiplane.Antiplane(left, length, width, args.points, offset)
         fault = antiplane.fault_along(easimodel.load(model), rupture, solver.y)
     except easimodel.Unsupported as reason:
         raise fault1d.Unsupported(f"{model.name}: {reason}") from reason
     for _, _, header in fault_receivers:
         _antiplane_point(solver, header)
+    capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))
+    positions = [
+        [float(header[name][0]) for name in ("x1", "x2", "x3")]
+        for _, _, header in fault_receivers
+    ]
+    mesh = Path(args.mesh_manifest).parent / manifest["file"]
+    gauss = _on_gauss_points(mesh, capabilities, positions)
+    if not all(gauss):
+        print(
+            f"{gauss.count(False)} of the fault receivers do not lie on Gauss "
+            "points of the fault of this build, whose quantities are not "
+            "compared for them"
+        )
     solution = solver.solve(
         fault, max(row[0] for row in fault_receivers[0][1]), interval / 2
     )
     frame = fault1d.fault_frame(fault1d.Inputs(rupture, {}))
+    law = int(fault[None].get("fl", 16))
     # the field at a volume receiver, once for all simulations
     fields = {}
     radiated = solver.radiated
@@ -1731,7 +1852,7 @@ def _compare_antiplane_case(
 
     solver.radiated = remembered
     return _worst(
-        compare_antiplane(solver, solution, frame, faults, volumes)
+        compare_antiplane(solver, solution, frame, faults, volumes, law, gauss)
         for faults, volumes in simulations
     )
 

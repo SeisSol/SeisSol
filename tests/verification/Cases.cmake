@@ -595,13 +595,16 @@ set_tests_properties(verification.fault2d-supershear${SEISSOL_VERIFICATION_SUFFI
 # is periodic across the fault as well, which the method takes into account:
 # from 77 ms on, what the fault sends out returns to it from the other side,
 # and from about 137 ms on, the fronts meet their periodic images at
-# y = +-400 m. The fault receivers lie on points of the method, from the
-# nucleation to where the front arrives some 40 ms before the end. The
-# comparison takes the slip rate, the normal stress and the direction of the
-# slip that they compute at their position, the slip as the integral of that
-# slip rate, and the velocity and the stress of the volume receivers, near
-# the nucleation and along the path of the fronts, up to a third of the way
-# to the next fault (see run_case.compare_antiplane).
+# y = +-400 m. The fault receivers lie on Gauss points of the fault, at the
+# same place in their triangles every 100 m along y, from the nucleation to
+# where the front arrives some 40 ms before the end, and the points of the
+# method run through them. The comparison takes the slip rate, the normal
+# stress and the direction of the slip that they compute at their position,
+# what they take from their Gauss point, where they lie on one with the
+# quadrature of the build (see run_case._on_gauss_points), and the velocity
+# and the stress of the volume receivers, near the nucleation and along the
+# path of the fronts, up to a third of the way to the next fault (see
+# run_case.compare_antiplane).
 set(SEISSOL_ANTIPLANE
     "DynamicRupture.t_0=2.0e-02" "DynamicRupture.SlipRateOutputType=0"
     "Pickpoint.PPFileName='faultreceiver2d-periodic.dat'"
