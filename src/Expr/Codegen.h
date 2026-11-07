@@ -151,6 +151,11 @@ void emitStageBody(std::ostringstream& out,
 /// The C name of an element type, for the types the binding may store data in.
 [[nodiscard]] const char* elementTypeName(reader::scripting::DataType type);
 
+/// Writes `text` to the file `name` in the directory SEISSOL_EXPR_DUMP names, if it names one: the
+/// sources the compiled backends generate, and what the device compilers make of them, for a
+/// developer to read. Does nothing otherwise.
+void dump(const std::string& name, const std::string& text);
+
 } // namespace seissol::expr::codegen
 
 #endif // SEISSOL_SRC_EXPR_CODEGEN_H_

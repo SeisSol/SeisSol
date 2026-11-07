@@ -8,6 +8,7 @@
 
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
+#include "Expr/Codegen.h"
 #include "Expr/Cost.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
@@ -20,6 +21,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -134,7 +136,8 @@ bool ensureContext() {
   return true;
 }
 
-DeviceFunction compileCuda(const std::string& source, const std::string& arch) {
+DeviceFunction
+    compileCuda(const std::string& source, const std::string& arch, const std::string& dumpName) {
   DeviceFunction loaded;
   if (!ensureContext()) {
     logWarning() << "expr: no usable CUDA context; not using the compiled device backend.";
@@ -175,6 +178,7 @@ DeviceFunction compileCuda(const std::string& source, const std::string& arch) {
   std::string ptx(ptxSize, '\0');
   nvrtcGetPTX(program, ptx.data());
   nvrtcDestroyProgram(&program);
+  codegen::dump(dumpName + ".ptx", ptx);
 
   CUmodule module = nullptr;
   if (cuModuleLoadData(&module, ptx.c_str()) != CUDA_SUCCESS) {
@@ -460,11 +464,15 @@ void freeOpenCl(void* pointer, void* queuePointer) {
 
 #endif // SEISSOL_EXPR_HAVE_SYCL
 
-DeviceFunction
-    compileFor(GpuTarget target, const std::string& source, const std::string& arch, void* queue) {
+DeviceFunction compileFor(GpuTarget target,
+                          const std::string& source,
+                          const std::string& arch,
+                          void* queue,
+                          const std::string& dumpName) {
+  codegen::dump(dumpName + (target == GpuTarget::OpenCl ? ".cl" : ".cu"), source);
 #if defined(SEISSOL_EXPR_HAVE_NVRTC)
   if (target == GpuTarget::Cuda) {
-    return compileCuda(source, arch);
+    return compileCuda(source, arch, dumpName);
   }
 #endif
 #if defined(SEISSOL_EXPR_HAVE_HIPRTC)
@@ -481,6 +489,7 @@ DeviceFunction
   static_cast<void>(source);
   static_cast<void>(arch);
   static_cast<void>(queue);
+  static_cast<void>(dumpName);
   return {};
 }
 
@@ -770,7 +779,13 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
     auto found = cache().find(key);
     if (found == cache().end()) {
       const std::string source = emitGpuSource(program, lowered, layout, target);
-      found = cache().emplace(key, compileFor(target, source, arch, options.deviceQueue)).first;
+      std::ostringstream dumpName;
+      dumpName << "expr-" << std::hex << program.fingerprint() << std::dec << "-"
+               << (program.computeType() == ComputeType::F32 ? "f32" : "f64") << "-" << arch;
+      found =
+          cache()
+              .emplace(key, compileFor(target, source, arch, options.deviceQueue, dumpName.str()))
+              .first;
     }
     function = found->second;
   }

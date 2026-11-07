@@ -531,6 +531,18 @@ bool cpuCompilable(const LoweredProgram& lowered) { return !codegen::containsLoo
 
 namespace {
 
+/// A file name for what is generated for `program`.
+std::string fingerprintName(const Program& program, const char* suffix) {
+  std::ostringstream name;
+  name << "expr-" << std::hex << program.fingerprint() << std::dec << "-"
+       << (program.computeType() == ComputeType::F32 ? "f32" : "f64") << "." << suffix;
+  return name.str();
+}
+
+} // namespace
+
+namespace {
+
 std::string emitCpuSourceFor(const Program& program,
                              const LoweredProgram& lowered,
                              const ContractLayout& layout) {
@@ -634,6 +646,7 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
     auto found = cache().find(key);
     if (found == cache().end()) {
       const std::string source = emitCpuSourceFor(program, lowered, layout);
+      codegen::dump(fingerprintName(program, "cpu.cpp"), source);
       found = cache().emplace(key, compileAndLoad(source, flags)).first;
     }
     artifact = found->second;

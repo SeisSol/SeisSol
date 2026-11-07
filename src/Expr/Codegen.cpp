@@ -10,11 +10,13 @@
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
 #include "Reader/Scripting/DataTable.h"
+#include "utils/logger.h"
 
 #include <array>
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -138,6 +140,21 @@ std::string substitute(const std::string& text,
 }
 
 std::string slotName(std::int32_t slot) { return "s" + std::to_string(slot); }
+
+void dump(const std::string& name, const std::string& text) {
+  static const char* directory = std::getenv("SEISSOL_EXPR_DUMP");
+  if (directory == nullptr || *directory == '\0') {
+    return;
+  }
+  const std::string path = std::string(directory) + "/" + name;
+  std::FILE* file = std::fopen(path.c_str(), "w");
+  if (file == nullptr) {
+    logWarning() << "expr: could not write" << path.c_str() << "(SEISSOL_EXPR_DUMP).";
+    return;
+  }
+  std::fwrite(text.data(), 1, text.size(), file);
+  std::fclose(file);
+}
 
 std::string literal(double value, const std::string& computeType) {
   std::array<char, 48> buffer{};
