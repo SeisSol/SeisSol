@@ -26,13 +26,16 @@
 #include <cstring>
 #include <dlfcn.h>
 #include <fcntl.h>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
+#include <system_error>
 #include <tuple>
 #include <unistd.h>
 #include <utility>
@@ -189,7 +192,34 @@ const char* compilerCommand() {
   return "c++";
 }
 
-// Compile `source` and return the loaded artifact, or an empty one.
+/// Loads the shared object in the memfd `object` (see Artifact::fd); takes the descriptor.
+Artifact loadArtifact(int object) {
+  Artifact artifact;
+  const std::string objectPath = "/proc/self/fd/" + std::to_string(object);
+  artifact.handle = dlopen(objectPath.c_str(), RTLD_NOW | RTLD_LOCAL);
+  artifact.fd = object; // see the note on Artifact::fd -- must outlive the dlopen
+  if (artifact.handle == nullptr) {
+    close(object);
+    artifact.fd = -1;
+    // Hardened kernels can make a memfd non-executable (vm.memfd_noexec), and
+    // /proc may not be mounted. Both are configuration, not programming errors,
+    // so this is a warning and the interpreter takes over.
+    logWarning() << "expr: could not load the compiled CPU kernel (" << dlerror()
+                 << "); falling back to the interpreter.";
+    return artifact;
+  }
+  artifact.precompute = dlsym(artifact.handle, "seissol_expr_precompute");
+  artifact.run = dlsym(artifact.handle, "seissol_expr_run");
+  if (artifact.run == nullptr) {
+    dlclose(artifact.handle);
+    close(artifact.fd);
+    artifact.handle = nullptr;
+    artifact.fd = -1;
+  }
+  return artifact;
+}
+
+// Compile `source` into a memfd and return its descriptor, or -1.
 //
 // The artifact lives in an anonymous memfd and is dlopen'd through
 // /proc/self/fd, so it never has a filesystem name. That removes three problems
@@ -197,26 +227,24 @@ const char* compilerCommand() {
 // no O_EXCL-and-rename dance, and no shared filesystem being hammered by every
 // rank at once. The compiler's own intermediates still go to TMPDIR; they are
 // per-process unique and short-lived, and TMPDIR=/dev/shm keeps even those in
-// RAM.
-Artifact compileAndLoad(const std::string& source, const std::string& flags) {
-  Artifact artifact;
-
+// RAM. (The cache across runs below keeps a copy under a name, written once.)
+int compile(const std::string& source, const std::string& flags) {
   const int object = memfd_create("seissol-expr-kernel", 0);
   if (object < 0) {
     logWarning() << "expr: memfd_create failed; not using the compiled CPU backend.";
-    return artifact;
+    return -1;
   }
-  std::string objectPath = "/proc/self/fd/" + std::to_string(object);
+  const std::string objectPath = "/proc/self/fd/" + std::to_string(object);
 
   const int input = memfd_create("seissol-expr-source", 0);
   if (input < 0) {
     close(object);
-    return artifact;
+    return -1;
   }
   if (write(input, source.data(), source.size()) != static_cast<ssize_t>(source.size())) {
     close(object);
     close(input);
-    return artifact;
+    return -1;
   }
 
   std::vector<std::string> argv{compilerCommand()};
@@ -240,7 +268,7 @@ Artifact compileAndLoad(const std::string& source, const std::string& flags) {
   if (pid < 0) {
     close(object);
     close(input);
-    return artifact;
+    return -1;
   }
   if (pid == 0) {
     lseek(input, 0, SEEK_SET);
@@ -257,28 +285,243 @@ Artifact compileAndLoad(const std::string& source, const std::string& flags) {
     logWarning() << "expr: the CPU kernel did not compile (" << compilerCommand() << " exited with"
                  << WEXITSTATUS(status) << "); falling back to the interpreter.";
     close(object);
-    return artifact;
+    return -1;
   }
+  return object;
+}
 
-  artifact.handle = dlopen(objectPath.c_str(), RTLD_NOW | RTLD_LOCAL);
-  artifact.fd = object; // see the note on Artifact::fd -- must outlive the dlopen
-  if (artifact.handle == nullptr) {
-    close(object);
-    artifact.fd = -1;
-    // Hardened kernels can make a memfd non-executable (vm.memfd_noexec), and
-    // /proc may not be mounted. Both are configuration, not programming errors,
-    // so this is a warning and the interpreter takes over.
-    logWarning() << "expr: could not load the compiled CPU kernel (" << dlerror()
-                 << "); falling back to the interpreter.";
-    return artifact;
+// --- cache across runs ------------------------------------------------------
+//
+// The host compiler takes 0.1 to 0.3 s per program and process, a run with a few programs a second
+// or more, in every rank. The compiled kernels are therefore kept in a directory across runs:
+// SEISSOL_EXPR_CACHE names it ("off" for none), by default seissol/expr in $XDG_CACHE_HOME or
+// ~/.cache. An entry is the shared object (<name>.so) and the text it was compiled from, with
+// everything else that shapes it (<name>.key): the flags, the compiler (its path, size and time of
+// modification), and for -march=native the processor. The name is a hash of that text, and a hit
+// compares the text in full, so a collision costs a compile and never a wrong kernel. Entries are
+// written to a temporary file and renamed, so that ranks that compile the same program at once
+// leave a whole entry behind; a reader that finds half of one compiles.
+
+/// The directory of the cache; empty without one.
+const std::string& cacheDirectory() {
+  static const std::string Directory = []() -> std::string {
+    std::string directory;
+    if (const char* env = std::getenv("SEISSOL_EXPR_CACHE"); env != nullptr) {
+      const std::string value(env);
+      if (value.empty() || value == "off" || value == "0" || value == "none") {
+        return {};
+      }
+      directory = value;
+    } else if (const char* xdg = std::getenv("XDG_CACHE_HOME"); xdg != nullptr && *xdg != '\0') {
+      directory = std::string(xdg) + "/seissol/expr";
+    } else if (const char* home = std::getenv("HOME"); home != nullptr && *home != '\0') {
+      directory = std::string(home) + "/.cache/seissol/expr";
+    } else {
+      return {};
+    }
+    std::error_code error;
+    std::filesystem::create_directories(directory, error);
+    if (error || !std::filesystem::is_directory(directory, error)) {
+      logWarning() << "expr: no cache of compiled kernels in" << directory << "(" << error.message()
+                   << "); every run compiles them.";
+      return {};
+    }
+    return directory;
+  }();
+  return Directory;
+}
+
+/// The compiler as the cache tells it apart: where it is, its size, and when it changed.
+const std::string& compilerIdentity() {
+  static const std::string Identity = [] {
+    std::string command = compilerCommand();
+    std::filesystem::path path;
+    if (command.find('/') != std::string::npos) {
+      path = command;
+    } else if (const char* env = std::getenv("PATH"); env != nullptr) {
+      std::istringstream directories(env);
+      for (std::string directory; std::getline(directories, directory, ':');) {
+        const auto candidate = std::filesystem::path(directory) / command;
+        std::error_code error;
+        if (std::filesystem::is_regular_file(candidate, error)) {
+          path = candidate;
+          break;
+        }
+      }
+    }
+    std::error_code error;
+    const auto resolved = std::filesystem::canonical(path, error);
+    if (error) {
+      return command;
+    }
+    struct stat info{};
+    if (stat(resolved.c_str(), &info) != 0) {
+      return resolved.string();
+    }
+    return resolved.string() + " " + std::to_string(info.st_size) + " " +
+           std::to_string(info.st_mtime);
+  }();
+  return Identity;
+}
+
+/// The processor, for code compiled with -march=native: vendor, model and flags.
+const std::string& processorIdentity() {
+  static const std::string Identity = [] {
+    std::string identity;
+    std::FILE* cpuinfo = std::fopen("/proc/cpuinfo", "r");
+    if (cpuinfo == nullptr) {
+      return identity;
+    }
+    std::array<char, 8192> line{};
+    while (std::fgets(line.data(), static_cast<int>(line.size()), cpuinfo) != nullptr) {
+      const std::string text(line.data());
+      if (text.starts_with("vendor_id") || text.starts_with("model name") ||
+          text.starts_with("flags")) {
+        identity += text;
+      }
+      if (text == "\n" && !identity.empty()) {
+        // the first processor is enough
+        break;
+      }
+    }
+    std::fclose(cpuinfo);
+    return identity;
+  }();
+  return Identity;
+}
+
+/// What a kernel is compiled from, with all that shapes it besides.
+std::string cacheKey(const std::string& source, const std::string& flags) {
+  std::string key =
+      "seissol-expr-cache 1\ncompiler " + compilerIdentity() + "\nflags " + flags + "\n";
+  if (flags.find("-march=native") != std::string::npos) {
+    key += "processor\n" + processorIdentity();
   }
-  artifact.precompute = dlsym(artifact.handle, "seissol_expr_precompute");
-  artifact.run = dlsym(artifact.handle, "seissol_expr_run");
-  if (artifact.run == nullptr) {
-    dlclose(artifact.handle);
-    close(artifact.fd);
-    artifact.handle = nullptr;
-    artifact.fd = -1;
+  key += "source\n" + source;
+  return key;
+}
+
+std::string cacheName(const std::string& key) {
+  // two independent 64-bit hashes; a hit compares the key in full anyway
+  std::uint64_t first = 0xcbf29ce484222325ULL;
+  std::uint64_t second = 0x84222325cbf29ce4ULL;
+  for (const unsigned char c : key) {
+    first = (first ^ c) * 0x100000001b3ULL;
+    second = (second ^ (c + 0x9eU)) * 0x100000001b3ULL;
+  }
+  std::array<char, 40> name{};
+  std::snprintf(name.data(),
+                name.size(),
+                "%016llx%016llx",
+                static_cast<unsigned long long>(first),
+                static_cast<unsigned long long>(second));
+  return name.data();
+}
+
+std::string readFile(const std::string& path) {
+  std::string content;
+  std::FILE* file = std::fopen(path.c_str(), "rb");
+  if (file == nullptr) {
+    return content;
+  }
+  std::array<char, 65536> buffer{};
+  std::size_t read = 0;
+  while ((read = std::fread(buffer.data(), 1, buffer.size(), file)) > 0) {
+    content.append(buffer.data(), read);
+  }
+  std::fclose(file);
+  return content;
+}
+
+/// Writes `content` to `path` through a temporary file and a rename.
+void writeFileAtomically(const std::string& path, const std::string& content) {
+  const std::string temporary =
+      path + ".tmp." + std::to_string(getpid()) + "." + std::to_string(std::rand());
+  std::FILE* file = std::fopen(temporary.c_str(), "wb");
+  if (file == nullptr) {
+    return;
+  }
+  const bool written = std::fwrite(content.data(), 1, content.size(), file) == content.size();
+  if (std::fclose(file) != 0 || !written) {
+    std::remove(temporary.c_str());
+    return;
+  }
+  if (std::rename(temporary.c_str(), path.c_str()) != 0) {
+    std::remove(temporary.c_str());
+  }
+}
+
+/// The contents of the memfd `object`.
+std::string contentsOf(int object) {
+  std::string content;
+  std::array<char, 65536> buffer{};
+  ssize_t read = 0;
+  off_t offset = 0;
+  while ((read = pread(object, buffer.data(), buffer.size(), offset)) > 0) {
+    content.append(buffer.data(), static_cast<std::size_t>(read));
+    offset += read;
+  }
+  return content;
+}
+
+/// The kernel of the entry of `key`, in a memfd; -1 if there is none.
+int fromCache(const std::string& key) {
+  const auto& directory = cacheDirectory();
+  if (directory.empty()) {
+    return -1;
+  }
+  const std::string base = directory + "/" + cacheName(key);
+  if (readFile(base + ".key") != key) {
+    return -1;
+  }
+  const std::string object = readFile(base + ".so");
+  if (object.empty()) {
+    return -1;
+  }
+  const int memfd = memfd_create("seissol-expr-kernel", 0);
+  if (memfd < 0) {
+    return -1;
+  }
+  if (write(memfd, object.data(), object.size()) != static_cast<ssize_t>(object.size())) {
+    close(memfd);
+    return -1;
+  }
+  return memfd;
+}
+
+void toCache(const std::string& key, int object) {
+  const auto& directory = cacheDirectory();
+  if (directory.empty()) {
+    return;
+  }
+  const std::string base = directory + "/" + cacheName(key);
+  // the key first: an entry without its object is a miss, as is one with another key
+  writeFileAtomically(base + ".key", key);
+  writeFileAtomically(base + ".so", contentsOf(object));
+}
+
+// Compile `source` and return the loaded artifact, or an empty one; from the cache across runs if
+// it has the kernel, which `cached` tells.
+Artifact compileAndLoad(const std::string& source, const std::string& flags, bool& cached) {
+  const std::string key = cacheKey(source, flags);
+  int object = fromCache(key);
+  cached = object >= 0;
+  if (object < 0) {
+    object = compile(source, flags);
+    if (object < 0) {
+      return {};
+    }
+    toCache(key, object);
+  }
+  auto artifact = loadArtifact(object);
+  if (artifact.handle == nullptr && cached) {
+    // a damaged entry: compile instead
+    cached = false;
+    object = compile(source, flags);
+    if (object >= 0) {
+      toCache(key, object);
+      artifact = loadArtifact(object);
+    }
   }
   return artifact;
 }
@@ -636,6 +879,8 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
                      flags};
 
   Artifact artifact;
+  // how the kernel came about: compiled, from the cache across runs, or made before in this run
+  const char* origin = "made before";
   {
     // Held across the compile on purpose. This runs from prepare(), i.e. at
     // init, where serialising a handful of 40 ms compiles costs nothing and
@@ -647,7 +892,9 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
     if (found == cache().end()) {
       const std::string source = emitCpuSourceFor(program, lowered, layout);
       codegen::dump(fingerprintName(program, "cpu.cpp"), source);
-      found = cache().emplace(key, compileAndLoad(source, flags)).first;
+      bool cached = false;
+      found = cache().emplace(key, compileAndLoad(source, flags, cached)).first;
+      origin = cached ? "from the cache" : "compiled";
     }
     artifact = found->second;
   }
@@ -665,7 +912,7 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
     logInfo()
         << "expr: compiled CPU kernel --" << lowered.summary().c_str() << "--"
         << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str()
-        << "-- with" << flags;
+        << "-- with" << flags << "(" << origin << ")";
   }
 
   if (program.computeType() == ComputeType::F32) {

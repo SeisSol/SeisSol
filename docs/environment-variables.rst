@@ -137,7 +137,11 @@ that cancels, such as ``1 - cos(x)`` for a small ``x`` (``2 * sin(x / 2) ** 2`` 
 output with state, and the slip rates of a script that gives the slip, compute in binary64 always.
 
 The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
-``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). With
+``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They
+are kept across runs in the directory ``SEISSOL_EXPR_CACHE`` names, by default ``seissol/expr`` in
+``$XDG_CACHE_HOME`` or ``~/.cache``; ``SEISSOL_EXPR_CACHE=off`` compiles them in every run. An entry
+is the kernel and all it was compiled from: the source, the flags, the compiler, and with
+``-march=native`` the processor, so that nodes of another kind compile their own. With
 ``SEISSOL_EXPR_DUMP`` naming a directory, SeisSol writes the sources it generates there, and for
 CUDA the PTX that NVRTC makes of them.
 
