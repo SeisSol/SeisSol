@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -379,6 +380,83 @@ out def b = y
 
     // without the option, the same module reads itself
     CHECK_THROWS_AS(static_cast<void>(compileSderivModule("out def v1 = -v1\n")), SderivError);
+  }
+
+  TEST_CASE("every definition is lowered once, however often it is read") {
+    // every definition reads the previous one three times: lowered again at every read, the chain
+    // would take 3^60 steps
+    std::string source = "def v0 = x\n";
+    for (int i = 1; i <= 60; ++i) {
+      const auto previous = "v" + std::to_string(i - 1);
+      source += "def v" + std::to_string(i) + " = " + previous + " * " + previous + " - " +
+                previous + "\n";
+    }
+    source += "out def u = v60\n";
+    const auto program = compileSderivModule(source);
+    REQUIRE(program.outputs().size() == 1);
+    // two operations per definition, the input and nothing else
+    CHECK(program.arena().size() <= 3 * 60 + 2);
+
+    // as does a function, per argument
+    std::string calls = "def f(p) = p * p + 1.0\ndef w0 = x\n";
+    for (int i = 1; i <= 40; ++i) {
+      const auto previous = "w" + std::to_string(i - 1);
+      calls += "def w" + std::to_string(i) + " = f(" + previous + ") + f(" + previous + ")\n";
+    }
+    calls += "out def u = w40\n";
+    CHECK_NOTHROW(static_cast<void>(compileSderivModule(calls)));
+  }
+
+  TEST_CASE("long chains of definitions and of terms take no stack") {
+    constexpr int Chain = 30000;
+    std::string chain = "def d0 = x\n";
+    for (int i = 1; i <= Chain; ++i) {
+      chain += "def d" + std::to_string(i) + " = d" + std::to_string(i - 1) + " + 1.0\n";
+    }
+    chain += "out def u = d" + std::to_string(Chain) + "\n";
+    std::string sum = "out def u = x";
+    for (int i = 0; i < 100000; ++i) {
+      sum += " + 1.0";
+    }
+    sum += "\n";
+    for (const auto& [source, expected] :
+         {std::pair{chain, Chain + 0.5}, std::pair{sum, 100000.5}}) {
+      const auto program = compileSderivModule(source);
+      const double x = 0.5;
+      double u = 0;
+      reader::scripting::DataTable table(1);
+      table.bindViewConst<double>("x", reader::scripting::Direction::In, &x);
+      table.bindView<double>("u", reader::scripting::Direction::Out, &u);
+      auto binding = Binding::bind(program, table);
+      reader::datafield::GridStore store;
+      const auto kernel = makeKernel(program, binding, store, BackendOptions{});
+      kernel->precompute(table);
+      kernel->run(table);
+      CHECK(u == expected);
+    }
+  }
+
+  TEST_CASE("an expression nested too deep is an error, not a crash") {
+    const auto nested = [](int depth) {
+      return "out def u = " + std::string(static_cast<std::size_t>(depth), '(') + "x" +
+             std::string(static_cast<std::size_t>(depth), ')') + "\n";
+    };
+    CHECK_NOTHROW(static_cast<void>(compileSderivModule(nested(256))));
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule(nested(100000))), SderivError);
+    CHECK_THROWS_AS(
+        static_cast<void>(compileSderivModule("out def u = " + std::string(100000, '-') + "x\n")),
+        SderivError);
+  }
+
+  TEST_CASE("the inputs are in the order the source reads them first") {
+    // a definition is read where it is named, before what follows
+    const auto program =
+        compileSderivModule("def v = y + t\nout def u = x + v * z\nout def w = gt(s, x)\n");
+    std::vector<std::string> inputs;
+    for (const auto& input : program.inputs()) {
+      inputs.push_back(input.name);
+    }
+    CHECK(inputs == std::vector<std::string>{"x", "y", "t", "z", "s"});
   }
 
   TEST_CASE("the two module forms stay separate") {

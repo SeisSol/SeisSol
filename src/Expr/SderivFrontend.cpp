@@ -420,7 +420,34 @@ class Parser {
     return arena_.add(std::move(node));
   }
 
+  /// How deep expressions may nest, in parentheses, arguments, lets and signs: deep enough for any
+  /// source written or generated (the specification asks for at least 256 levels), and shallow
+  /// enough that the parser, which recurses into them, cannot overflow its stack.
+  static constexpr int MaxNesting = 2048;
+
+  /// One more level of nesting while it lives.
+  class Nesting {
+public:
+    explicit Nesting(Parser& parser) : parser_(parser) {
+      if (++parser_.nesting_ > MaxNesting) {
+        throw SderivError("parse",
+                          "the expression is nested deeper than " + std::to_string(MaxNesting) +
+                              " levels",
+                          parser_.peek().position);
+      }
+    }
+    ~Nesting() { --parser_.nesting_; }
+    Nesting(const Nesting&) = delete;
+    Nesting& operator=(const Nesting&) = delete;
+    Nesting(Nesting&&) = delete;
+    Nesting& operator=(Nesting&&) = delete;
+
+private:
+    Parser& parser_;
+  };
+
   SurfaceId expression() {
+    const Nesting nesting(*this);
     if (peek().kind == TokenKind::Let) {
       SurfaceNode node;
       node.kind = SurfaceKind::Let;
@@ -465,6 +492,7 @@ class Parser {
   }
 
   SurfaceId unary() {
+    const Nesting nesting(*this);
     if (valueIs("-")) {
       SurfaceNode node;
       node.kind = SurfaceKind::Unary;
@@ -545,6 +573,7 @@ class Parser {
   const std::vector<Token>& tokens_;
   SurfaceArena& arena_;
   std::size_t index_{0};
+  int nesting_{0};
 };
 
 // ================================================= grid component functions =
@@ -642,13 +671,232 @@ class Lowering {
     return lower(id, empty);
   }
 
-  // Channels discovered along the way, in first-use order. Deterministic
-  // because the walk is, which matters: the signature order feeds the binding
-  // and, through it, the tile layout.
+  /// Lowers the definitions without parameters that the expressions `roots` read, directly or
+  /// through others, each once, and in an order in which a definition comes after those it reads;
+  /// the expressions themselves are lowered after, with lower(). So no definition is lowered again
+  /// where it is read once more, which was exponential in the depth of a chain of shared
+  /// definitions, and no definition is lowered inside another: the length of a chain of
+  /// definitions takes no stack. A definition that reads itself is an error, as before. It also
+  /// fixes the order of the channels, that of their first read in the source, from the first
+  /// expression on (channels()).
+  void prepare(const std::vector<SurfaceId>& roots) {
+    // the definitions the roots reach, and which each reads
+    std::map<std::string, std::vector<std::string>> reads;
+    std::vector<std::string> pending;
+    for (const SurfaceId root : roots) {
+      for (auto& name : definitionsRead(root, {})) {
+        pending.push_back(std::move(name));
+      }
+    }
+    while (!pending.empty()) {
+      const std::string name = std::move(pending.back());
+      pending.pop_back();
+      if (reads.count(name) != 0) {
+        continue;
+      }
+      const SurfaceNode& definition = surface_[defs_.at(name)];
+      auto read = definitionsRead(
+          definition.a, std::set<std::string>(definition.params.begin(), definition.params.end()));
+      pending.insert(pending.end(), read.begin(), read.end());
+      reads.emplace(name, std::move(read));
+    }
+
+    // a definition after those it reads: a depth-first walk, without recursion
+    enum class Mark : std::uint8_t { New, Open, Done };
+    std::map<std::string, Mark> marks;
+    std::vector<std::string> order;
+    for (const auto& [start, _] : reads) {
+      if (marks[start] != Mark::New) {
+        continue;
+      }
+      std::vector<std::pair<std::string, std::size_t>> stack{{start, 0}};
+      marks[start] = Mark::Open;
+      while (!stack.empty()) {
+        auto& [name, next] = stack.back();
+        const auto& read = reads.at(name);
+        if (next < read.size()) {
+          const std::string child = read[next++];
+          auto& mark = marks[child];
+          if (mark == Mark::Open) {
+            fail(surface_[defs_.at(child)], "`" + child + "` is defined in terms of itself");
+          }
+          if (mark == Mark::New) {
+            mark = Mark::Open;
+            stack.emplace_back(child, 0);
+          }
+          continue;
+        }
+        marks[name] = Mark::Done;
+        order.push_back(name);
+        stack.pop_back();
+      }
+    }
+    for (const auto& name : order) {
+      const SurfaceNode& definition = surface_[defs_.at(name)];
+      if (definition.params.empty() && lowered_.count(name) == 0) {
+        Environment empty;
+        lowered_.emplace(name, lower(definition.a, empty));
+      }
+    }
+
+    channels_ = channelsInOrder(roots);
+  }
+
+  // Channels the roots read, in the order of their first read in the source, from the first root
+  // on, as a walk that reads a definition where it is named meets them (see prepare()).
+  // Deterministic because the walk is, which matters: the signature order feeds the binding and,
+  // through it, the tile layout.
   [[nodiscard]] const std::vector<std::string>& channels() const { return channels_; }
 
   private:
   using Environment = std::map<std::string, NodeId>;
+
+  /// What a name resolves to where it is read, besides a binding of a let or a parameter (which
+  /// comes first): an input the consumer names, a state, a constant, a definition, or else (where
+  /// it is not called) a channel. The order is that of lower().
+  enum class Resolution : std::uint8_t { Input, State, Constant, Definition, Other };
+
+  [[nodiscard]] Resolution resolve(const std::string& name) const {
+    if (inputs_.count(name) != 0) {
+      return Resolution::Input;
+    }
+    if (states_.count(name) != 0) {
+      return Resolution::State;
+    }
+    if (Constants.count(name) != 0) {
+      return Resolution::Constant;
+    }
+    if (defs_.count(name) != 0) {
+      return Resolution::Definition;
+    }
+    return Resolution::Other;
+  }
+
+  /// The names of the definitions the expression `root` reads directly, where the names `bound`
+  /// are bound; without recursion.
+  [[nodiscard]] std::vector<std::string> definitionsRead(SurfaceId root,
+                                                         const std::set<std::string>& bound) const {
+    std::vector<std::string> found;
+    using Scope = std::shared_ptr<const std::set<std::string>>;
+    std::vector<std::pair<SurfaceId, Scope>> stack{
+        {root, std::make_shared<const std::set<std::string>>(bound)}};
+    while (!stack.empty()) {
+      const auto [id, scope] = stack.back();
+      stack.pop_back();
+      const SurfaceNode& node = surface_[id];
+      switch (node.kind) {
+      case SurfaceKind::Unary:
+        stack.emplace_back(node.a, scope);
+        break;
+      case SurfaceKind::Binary:
+        stack.emplace_back(node.a, scope);
+        stack.emplace_back(node.b, scope);
+        break;
+      case SurfaceKind::Let: {
+        stack.emplace_back(node.a, scope);
+        auto inner = std::make_shared<std::set<std::string>>(*scope);
+        inner->insert(node.text);
+        stack.emplace_back(node.b, std::move(inner));
+        break;
+      }
+      case SurfaceKind::Name:
+        if (scope->count(node.text) == 0 && resolve(node.text) == Resolution::Definition) {
+          found.push_back(node.text);
+        }
+        break;
+      case SurfaceKind::Call:
+        for (const SurfaceId arg : node.args) {
+          stack.emplace_back(arg, scope);
+        }
+        if (scope->count(node.text) == 0 && components_.count(node.text) == 0 &&
+            defs_.count(node.text) != 0) {
+          found.push_back(node.text);
+        }
+        break;
+      case SurfaceKind::Num:
+      case SurfaceKind::Def:
+        break;
+      }
+    }
+    return found;
+  }
+
+  /// The channels the roots read, as described at channels(): a walk in the order of the source,
+  /// which reads a definition where it is first named; without recursion.
+  [[nodiscard]] std::vector<std::string>
+      channelsInOrder(const std::vector<SurfaceId>& roots) const {
+    std::vector<std::string> channels;
+    std::set<std::string> seen;
+    std::set<std::string> expanded;
+    std::set<std::pair<std::string, std::vector<SurfaceId>>> calls;
+    using Scope = std::shared_ptr<const std::set<std::string>>;
+    const auto empty = std::make_shared<const std::set<std::string>>();
+    std::vector<std::pair<SurfaceId, Scope>> stack;
+    // the last root first, so that the first one is walked first
+    for (auto root = roots.rbegin(); root != roots.rend(); ++root) {
+      stack.emplace_back(*root, empty);
+    }
+    const auto add = [&](const std::string& name) {
+      if (seen.insert(name).second) {
+        channels.push_back(name);
+      }
+    };
+    while (!stack.empty()) {
+      const auto [id, scope] = stack.back();
+      stack.pop_back();
+      const SurfaceNode& node = surface_[id];
+      switch (node.kind) {
+      case SurfaceKind::Unary:
+        stack.emplace_back(node.a, scope);
+        break;
+      case SurfaceKind::Binary:
+        // the left operand first, so it is pushed last
+        stack.emplace_back(node.b, scope);
+        stack.emplace_back(node.a, scope);
+        break;
+      case SurfaceKind::Let: {
+        auto inner = std::make_shared<std::set<std::string>>(*scope);
+        inner->insert(node.text);
+        stack.emplace_back(node.b, std::move(inner));
+        stack.emplace_back(node.a, scope);
+        break;
+      }
+      case SurfaceKind::Name: {
+        if (scope->count(node.text) != 0) {
+          break;
+        }
+        const auto resolution = resolve(node.text);
+        if (resolution == Resolution::Input || resolution == Resolution::Other) {
+          add(node.text);
+        } else if (resolution == Resolution::Definition && expanded.insert(node.text).second) {
+          stack.emplace_back(surface_[defs_.at(node.text)].a, empty);
+        }
+        break;
+      }
+      case SurfaceKind::Call: {
+        const auto definition = defs_.find(node.text);
+        const bool callsDefinition = scope->count(node.text) == 0 &&
+                                     components_.count(node.text) == 0 && definition != defs_.end();
+        // the body of a definition after its arguments, which lower() binds first; the body of one
+        // with parameters once per call of other arguments
+        if (callsDefinition && calls.emplace(node.text, node.args).second) {
+          const SurfaceNode& callee = surface_[definition->second];
+          stack.emplace_back(callee.a,
+                             std::make_shared<const std::set<std::string>>(callee.params.begin(),
+                                                                           callee.params.end()));
+        }
+        for (auto arg = node.args.rbegin(); arg != node.args.rend(); ++arg) {
+          stack.emplace_back(*arg, scope);
+        }
+        break;
+      }
+      case SurfaceKind::Num:
+      case SurfaceKind::Def:
+        break;
+      }
+    }
+    return channels;
+  }
 
   [[noreturn]] void fail(const SurfaceNode& node, const std::string& message) const {
     throw SderivError("resolve", message, node.position);
@@ -674,12 +922,22 @@ private:
     Lowering& lowering_;
   };
 
-  NodeId channel(const SurfaceNode& node) {
-    const std::string& name = node.text;
-    if (std::find(channels_.begin(), channels_.end(), name) == channels_.end()) {
-      channels_.push_back(name);
+  NodeId channel(const SurfaceNode& node) { return program_.arena().field(node.text); }
+
+  static Fn binaryFn(const std::string& op) {
+    if (op == "+") {
+      return Fn::Add;
     }
-    return program_.arena().field(name);
+    if (op == "-") {
+      return Fn::Sub;
+    }
+    if (op == "*") {
+      return Fn::Mul;
+    }
+    if (op == "/") {
+      return Fn::Div;
+    }
+    return Fn::Pow;
   }
 
   NodeId lowerLookup(const SurfaceNode& node, const ComponentFunction& fn, Environment& env) {
@@ -706,21 +964,19 @@ private:
       return program_.arena().pw(Fn::Neg, lower(node.a, env));
 
     case SurfaceKind::Binary: {
-      const NodeId a = lower(node.a, env);
-      const NodeId b = lower(node.b, env);
-      if (node.text == "+") {
-        return program_.arena().pw(Fn::Add, a, b);
+      // A sum of many terms is a long chain of binary nodes along their left operands, as the
+      // parser builds it; it is walked without recursion, from its first term on.
+      std::vector<SurfaceId> spine{id};
+      while (surface_[surface_[spine.back()].a].kind == SurfaceKind::Binary) {
+        spine.push_back(surface_[spine.back()].a);
       }
-      if (node.text == "-") {
-        return program_.arena().pw(Fn::Sub, a, b);
+      NodeId value = lower(surface_[spine.back()].a, env);
+      for (auto link = spine.rbegin(); link != spine.rend(); ++link) {
+        const SurfaceNode& binary = surface_[*link];
+        const NodeId b = lower(binary.b, env);
+        value = program_.arena().pw(binaryFn(binary.text), value, b);
       }
-      if (node.text == "*") {
-        return program_.arena().pw(Fn::Mul, a, b);
-      }
-      if (node.text == "/") {
-        return program_.arena().pw(Fn::Div, a, b);
-      }
-      return program_.arena().pw(Fn::Pow, a, b);
+      return value;
     }
 
     case SurfaceKind::Let: {
@@ -758,9 +1014,15 @@ private:
                "`" + node.text + "` expects " + std::to_string(definition.params.size()) +
                    " arguments");
         }
+        // it reads no environment, so it has one value wherever it is read
+        if (const auto known = lowered_.find(node.text); known != lowered_.end()) {
+          return known->second;
+        }
         const Expansion expansion(*this, node);
         Environment inner;
-        return lower(definition.a, inner);
+        const NodeId value = lower(definition.a, inner);
+        lowered_.emplace(node.text, value);
+        return value;
       }
       if (components_.count(node.text) != 0) {
         fail(node, "`" + node.text + "` is a grid component and must be called with coordinates");
@@ -791,11 +1053,21 @@ private:
                    " arguments, got " + std::to_string(node.args.size()));
         }
         Environment inner;
+        std::vector<NodeId> arguments;
+        arguments.reserve(definition.params.size());
         for (std::size_t i = 0; i < definition.params.size(); ++i) {
-          inner[definition.params[i]] = lower(node.args[i], env);
+          arguments.push_back(lower(node.args[i], env));
+          inner[definition.params[i]] = arguments.back();
+        }
+        // the value of a call depends on its arguments alone
+        auto key = std::make_pair(node.text, std::move(arguments));
+        if (const auto known = calls_.find(key); known != calls_.end()) {
+          return known->second;
         }
         const Expansion expansion(*this, node);
-        return lower(definition.a, inner);
+        const NodeId value = lower(definition.a, inner);
+        calls_.emplace(std::move(key), value);
+        return value;
       }
 
       // `lnot` has no IR op on purpose: negating a 0/1 value is 1-c, and an op
@@ -817,8 +1089,11 @@ private:
           fail(node,
                "`" + node.text + "` takes 2 arguments, got " + std::to_string(node.args.size()));
         }
-        return program_.arena().pw(
-            swapped->second, lower(node.args[1], env), lower(node.args[0], env));
+        // in the order of the source, which the order of the evaluation of the arguments of a
+        // call would leave to the compiler
+        const NodeId left = lower(node.args[0], env);
+        const NodeId right = lower(node.args[1], env);
+        return program_.arena().pw(swapped->second, right, left);
       }
       // A condition is 0.0 or 1.0, so negation is 1 - c. Same rewrite the Lua
       // tracer performs, and it keeps conditions in the arithmetic domain
@@ -880,6 +1155,10 @@ private:
   std::map<std::string, SurfaceId> defs_;
   std::set<std::string> states_;
   std::vector<std::string> channels_;
+  /// the value of every definition without parameters lowered so far
+  std::map<std::string, NodeId> lowered_;
+  /// the value of every call of a definition with parameters so far, by its arguments
+  std::map<std::pair<std::string, std::vector<NodeId>>, NodeId> calls_;
   /// the definitions being lowered, innermost last
   std::vector<std::string> expanding_;
 };
@@ -1001,6 +1280,25 @@ void compileSource(const std::string& source,
   }
 
   Lowering lowering(surface, parsed, components, gridIds, options.inputs, program);
+
+  // the expressions of the outputs and of the next values of the states, whose definitions are
+  // lowered first
+  std::vector<SurfaceId> rootExpressions;
+  if (externalName != nullptr) {
+    rootExpressions.push_back(parsed.expression);
+  } else {
+    for (const SurfaceId id : parsed.exports) {
+      rootExpressions.push_back(surface[id].a);
+    }
+  }
+  for (const auto& state : parsed.states) {
+    for (const SurfaceId id : parsed.defs) {
+      if (surface[id].text == state.name) {
+        rootExpressions.push_back(surface[id].a);
+      }
+    }
+  }
+  lowering.prepare(rootExpressions);
 
   // Roots first, names after, so `channels()` has seen every output before the
   // channel order is folded in.
