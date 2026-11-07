@@ -12,6 +12,7 @@
 #include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <cstdint>
@@ -256,6 +257,132 @@ void emitStageBody(std::ostringstream& out,
           << ";\n";
     }
   }
+}
+
+void emitStageBodyTiled(std::ostringstream& out,
+                        const StageCode& stage,
+                        const std::vector<std::int32_t>& operands,
+                        const std::string& computeType,
+                        MathStyle style,
+                        const StageAddressing& addressing,
+                        std::size_t block,
+                        const char* indent) {
+  const std::string blockSize = std::to_string(block) + "ul";
+  const std::string inner = std::string(indent) + "  ";
+  const std::string lane = inner + "  ";
+  const auto slot = [](std::int32_t index) { return slotName(index) + "[j]"; };
+  // one instruction over the lanes of the block; `l` where the addressing reads the point
+  const auto laneLoop = [&](const std::string& statement, bool readsPoint) {
+    out << "#pragma omp simd\n" << inner << "for (unsigned long j = 0; j < n; ++j) {\n";
+    if (readsPoint) {
+      out << lane << "const unsigned long l = base + j;\n";
+    }
+    out << lane << statement << ";\n" << inner << "}\n";
+  };
+
+  out << indent << "for (unsigned long base = 0; base < count; base += " << blockSize << ") {\n"
+      << inner << "const unsigned long n = count - base < " << blockSize
+      << " ? count - base : " << blockSize << ";\n";
+  for (std::int32_t index = 0; index < stage.slotCount; ++index) {
+    out << inner << computeType << " " << slotName(index) << "[" << block << "];\n";
+  }
+
+  for (const Instruction& inst : stage.code) {
+    const std::string dst = slot(inst.dst);
+    switch (inst.op) {
+    case Opcode::Const:
+      laneLoop(dst + " = " + literal(inst.value, computeType), false);
+      break;
+    case Opcode::LoadInput:
+      laneLoop(dst + " = " + addressing.loadInput(inst.imm), true);
+      break;
+    case Opcode::LoadPersistent:
+      if (inst.imm < addressing.stateSlots) {
+        if (addressing.loadState == nullptr) {
+          throw std::invalid_argument(
+              "expr: a state reached a code generator that cannot address states");
+        }
+        laneLoop(dst + " = " + addressing.loadState(inst.imm), true);
+      } else {
+        laneLoop(dst + " = " + addressing.loadPersistent(inst.imm - addressing.stateSlots), true);
+      }
+      break;
+    case Opcode::Pw: {
+      const std::string a0 = slot(operands[inst.operandBegin]);
+      const std::string a1 = inst.operandCount > 1 ? slot(operands[inst.operandBegin + 1]) : a0;
+      const std::string a2 = inst.operandCount > 2 ? slot(operands[inst.operandBegin + 2]) : a0;
+      laneLoop(dst + " = " + substitute(expressionText(inst.fn), a0, a1, a2, computeType, style),
+               false);
+      break;
+    }
+    case Opcode::Lookup:
+      throw std::invalid_argument(
+          "expr: a grid lookup reached the code generator; gate on containsLookup() first");
+    case Opcode::Contract:
+      throw std::invalid_argument(
+          "expr: a contraction reached the tiled code generator; emit one point after the other");
+    }
+  }
+
+  for (const Store& store : stage.outputs) {
+    laneLoop(addressing.storeOutput(store.target, slot(store.source)), true);
+  }
+  for (const Store& store : stage.persistent) {
+    if (store.target < addressing.stateSlots) {
+      if (addressing.storeState == nullptr) {
+        throw std::invalid_argument(
+            "expr: a state reached a code generator that cannot address states");
+      }
+      laneLoop(addressing.storeState(store.target, slot(store.source)), true);
+    } else {
+      laneLoop(addressing.storePersistent(store.target - addressing.stateSlots, slot(store.source)),
+               true);
+    }
+  }
+  out << indent << "}\n";
+}
+
+bool callsLibrary(Fn fn) {
+  switch (fn) {
+  case Fn::Exp:
+  case Fn::Log:
+  case Fn::Log2:
+  case Fn::Log10:
+  case Fn::Sin:
+  case Fn::Cos:
+  case Fn::Tan:
+  case Fn::Asin:
+  case Fn::Acos:
+  case Fn::Atan:
+  case Fn::Sinh:
+  case Fn::Cosh:
+  case Fn::Tanh:
+  case Fn::Asinh:
+  case Fn::Acosh:
+  case Fn::Atanh:
+  case Fn::Erf:
+  case Fn::Pow:
+  case Fn::Atan2:
+  case Fn::Mod:
+    return true;
+  default:
+    return false;
+  }
+}
+
+std::int32_t criticalPath(const StageCode& stage, const std::vector<std::int32_t>& operands) {
+  // the depth of the value each transient holds as the instructions go
+  std::vector<std::int32_t> depth(static_cast<std::size_t>(std::max(stage.slotCount, 1)), 0);
+  std::int32_t longest = 0;
+  for (const Instruction& inst : stage.code) {
+    std::int32_t before = 0;
+    for (std::int32_t k = 0; k < inst.operandCount; ++k) {
+      before = std::max(before, depth[static_cast<std::size_t>(operands[inst.operandBegin + k])]);
+    }
+    depth[static_cast<std::size_t>(inst.dst)] = before + 1;
+    longest = std::max(longest, before + 1);
+  }
+  return longest;
 }
 
 bool containsLookup(const LoweredProgram& lowered) {

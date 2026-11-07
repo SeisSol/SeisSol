@@ -131,7 +131,8 @@ void emitStage(std::ostringstream& out,
                const std::vector<std::int32_t>& operands,
                std::int32_t stateSlots,
                const std::string& computeType,
-               const codegen::ContractAddressing& contract) {
+               const codegen::ContractAddressing& contract,
+               KernelShape shape) {
   out << "extern \"C\" void " << name << "(const " << computeType << "* __restrict inputTile,\n"
       << "                                 " << computeType << "* __restrict outputTile,\n"
       << "                                 " << computeType << "* __restrict stateTile,\n"
@@ -161,6 +162,14 @@ void emitStage(std::ostringstream& out,
   addressing.storePersistent = cpuStorePersistent;
   addressing.contract = &contract;
 
+  if (tiledStage(stage, operands, shape)) {
+    // a cache line of a transient per block, 64 bytes, times four
+    const std::size_t block = computeType == "float" ? 64 : 32;
+    codegen::emitStageBodyTiled(
+        out, stage, operands, computeType, codegen::MathStyle::Namespaced, addressing, block, "  ");
+    out << "}\n\n";
+    return;
+  }
   out << "  for (unsigned long l = 0; l < count; ++l) {\n";
   codegen::emitStageBody(
       out, stage, operands, computeType, codegen::MathStyle::Namespaced, addressing, "    ");
@@ -538,10 +547,16 @@ struct CacheKey {
   std::uint64_t contraction{0};
   ComputeType type{ComputeType::F64};
   std::string flags;
+  KernelShape shape{KernelShape::Auto};
 
   bool operator<(const CacheKey& other) const {
-    return std::tie(program, lowering, contraction, type, flags) <
-           std::tie(other.program, other.lowering, other.contraction, other.type, other.flags);
+    return std::tie(program, lowering, contraction, type, flags, shape) <
+           std::tie(other.program,
+                    other.lowering,
+                    other.contraction,
+                    other.type,
+                    other.flags,
+                    other.shape);
   }
 };
 
@@ -762,7 +777,8 @@ std::string defaultFlags(const BackendOptions& options) {
   // fuses a*b+c into an FMA, which rounds once where the interpreter rounds
   // twice; measured, that alone moves ordinary arithmetic by ~1e-6 and breaks
   // the acceptance criterion. It costs nothing measurable.
-  std::string flags = "-O3 -ffp-contract=off -fno-math-errno";
+  // -fopenmp-simd for the loops of a kernel in the shape of a tile; it needs no OpenMP runtime
+  std::string flags = "-O3 -ffp-contract=off -fno-math-errno -fopenmp-simd";
   flags += options.arch.empty() || options.arch == "native" ? " -march=native"
                                                             : " -march=" + options.arch;
   return flags;
@@ -788,7 +804,8 @@ namespace {
 
 std::string emitCpuSourceFor(const Program& program,
                              const LoweredProgram& lowered,
-                             const ContractLayout& layout) {
+                             const ContractLayout& layout,
+                             KernelShape shape) {
   const std::string computeType = program.computeType() == ComputeType::F32 ? "float" : "double";
 
   codegen::ContractAddressing contract;
@@ -827,32 +844,58 @@ std::string emitCpuSourceFor(const Program& program,
             lowered.operands(),
             lowered.stateSlotCount(),
             computeType,
-            contract);
+            contract,
+            shape);
   emitStage(out,
             "seissol_expr_run",
             lowered.run(),
             lowered.operands(),
             lowered.stateSlotCount(),
             computeType,
-            contract);
+            contract,
+            shape);
   return out.str();
 }
 
 } // namespace
 
-std::string emitCpuSource(const Program& program, const LoweredProgram& lowered) {
+bool tiledStage(const StageCode& stage,
+                const std::vector<std::int32_t>& operands,
+                KernelShape shape) {
+  if (shape == KernelShape::Point) {
+    return false;
+  }
+  const bool contracts = std::any_of(stage.code.begin(), stage.code.end(), [](const auto& inst) {
+    return inst.op == Opcode::Contract;
+  });
+  if (contracts || stage.code.empty()) {
+    return false;
+  }
+  if (shape == KernelShape::Tile) {
+    return true;
+  }
+  const bool calls = std::any_of(stage.code.begin(), stage.code.end(), [](const auto& inst) {
+    return inst.op == Opcode::Pw && codegen::callsLibrary(inst.fn);
+  });
+  return calls && codegen::criticalPath(stage, operands) >= TileDepth;
+}
+
+std::string
+    emitCpuSource(const Program& program, const LoweredProgram& lowered, KernelShape shape) {
   // Without a binding, the matrices and blocks are taken to be stored in the compute type.
   ContractLayout layout;
   const auto type = program.computeType() == ComputeType::F32 ? reader::scripting::DataType::F32
                                                               : reader::scripting::DataType::F64;
   layout.matrices.assign(program.matrices().size(), type);
   layout.blocks.assign(program.blocks().size(), type);
-  return emitCpuSourceFor(program, lowered, layout);
+  return emitCpuSourceFor(program, lowered, layout, shape);
 }
 
-std::string
-    emitCpuSource(const Program& program, const LoweredProgram& lowered, const Binding& binding) {
-  return emitCpuSourceFor(program, lowered, contractLayoutOf(binding));
+std::string emitCpuSource(const Program& program,
+                          const LoweredProgram& lowered,
+                          const Binding& binding,
+                          KernelShape shape) {
+  return emitCpuSourceFor(program, lowered, contractLayoutOf(binding), shape);
 }
 
 std::size_t rtcCpuCacheSize() {
@@ -876,7 +919,8 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
                      options.lowering.fingerprint(),
                      layout.fingerprint(),
                      program.computeType(),
-                     flags};
+                     flags,
+                     options.shape};
 
   Artifact artifact;
   // how the kernel came about: compiled, from the cache across runs, or made before in this run
@@ -890,7 +934,7 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
     const std::lock_guard<std::mutex> lock(cacheMutex());
     auto found = cache().find(key);
     if (found == cache().end()) {
-      const std::string source = emitCpuSourceFor(program, lowered, layout);
+      const std::string source = emitCpuSourceFor(program, lowered, layout, options.shape);
       codegen::dump(fingerprintName(program, "cpu.cpp"), source);
       bool cached = false;
       found = cache().emplace(key, compileAndLoad(source, flags, cached)).first;

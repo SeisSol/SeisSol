@@ -29,6 +29,21 @@
 // costs nothing (2.6 ns/point either way). Bitwise equality is therefore the
 // acceptance bar on CPU rather than a tolerance.
 //
+// THE SHAPE OF THE KERNEL. One point through the whole program after the other is right where the
+// compiler vectorizes the loop over the points by itself, i.e. where the program does arithmetic
+// only. A call to the maths library (exp, sin, asinh, pow, ...) keeps the loop from being
+// vectorized, as the vector maths library needs -ffast-math and changes the bits; a long chain of
+// dependent operations through such calls, such as an unrolled Newton iteration, is then bound by
+// the latency of every one of them. For a stage with such a call and a critical path of at least
+// TileDepth instructions, the kernel therefore takes one instruction over a block of points after
+// the other, each a loop with `#pragma omp simd` (codegen::emitStageBodyTiled): the calls of the
+// lanes overlap in the pipeline, and the arithmetic between them is vectorized. Both shapes
+// compute the same operations at every point, so the bits stay the same. Measured (GCC 16, Zen 5,
+// one thread): a Newton iteration through asinh takes 2 to 2.3 times less time per point in
+// binary64 and 2.6 to 5 times less in binary32; one of arithmetic only, and a short program with
+// calls, take a quarter to a half more as a tile, so they stay one point after the other. A stage
+// with a contraction keeps the first shape too.
+//
 // WHAT IT REFUSES. Programs containing Opcode::Lookup. A lookup is a batch call
 // into GridSampler, not a lane-local expression, and threading the sampler
 // through a compiled kernel is separate work. makeKernel falls back to the
@@ -42,15 +57,29 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace seissol::expr {
+
+/// The critical path from which a stage of a compiled CPU kernel with a call to the maths library
+/// takes the shape of a tile.
+inline constexpr std::int32_t TileDepth = 32;
 
 /// The C++ source for a lowered program. Exposed for tests and for a dump flag;
 /// nothing else needs it. Without a binding, the matrices and blocks of the
 /// contractions are taken to be stored in the compute type.
-[[nodiscard]] std::string emitCpuSource(const Program& program, const LoweredProgram& lowered);
-[[nodiscard]] std::string
-    emitCpuSource(const Program& program, const LoweredProgram& lowered, const Binding& binding);
+[[nodiscard]] std::string emitCpuSource(const Program& program,
+                                        const LoweredProgram& lowered,
+                                        KernelShape shape = KernelShape::Auto);
+[[nodiscard]] std::string emitCpuSource(const Program& program,
+                                        const LoweredProgram& lowered,
+                                        const Binding& binding,
+                                        KernelShape shape = KernelShape::Auto);
+
+/// Whether a stage of the kernel takes the shape of a tile, as `shape` asks.
+[[nodiscard]] bool tiledStage(const StageCode& stage,
+                              const std::vector<std::int32_t>& operands,
+                              KernelShape shape);
 
 /// True when this lowering can be compiled at all — today, when it contains no
 /// Opcode::Lookup.

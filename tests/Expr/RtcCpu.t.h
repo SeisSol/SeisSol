@@ -9,6 +9,7 @@
 
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
+#include "Expr/Codegen.h"
 #include "Expr/Lower.h"
 #include "Expr/RtcCpu.h"
 #include "Expr/SderivFrontend.h"
@@ -232,6 +233,71 @@ TEST_SUITE("ExprRtcCpu") {
     // waste, and the fingerprint exists to notice.
     CHECK(rtcCpuCacheSize() == afterFirst);
     CHECK(a->kind() == b->kind());
+  }
+
+  TEST_CASE("a deep program takes the shape of a tile, with the bits of the interpreter") {
+    // Newton iterations, unrolled: a chain of dependent operations, one of them through the maths
+    // library, which keeps the loop over the points from being vectorized
+    std::string source = "def v0 = 1.0 + x * x\ndef w0 = 0.5\n";
+    constexpr int Steps = 12;
+    for (int i = 1; i <= Steps; ++i) {
+      const auto previous = std::to_string(i - 1);
+      const auto current = std::to_string(i);
+      source += "def v" + current + " = v" + previous + " - (v" + previous + " * v" + previous +
+                " * v" + previous + " - 2.0 - y) / (3.0 * v" + previous + " * v" + previous +
+                " + 1.0)\n";
+      source += "def w" + current + " = w" + previous + " - (w" + previous + " + sinh(w" +
+                previous + ") - x) / (1.0 + cosh(w" + previous + "))\n";
+    }
+    source +=
+        "out def u = v" + std::to_string(Steps) + "\nout def w = w" + std::to_string(Steps) + "\n";
+    const Program program = compileSderivModule(source);
+    const auto lowered = lower(program);
+    REQUIRE(codegen::criticalPath(lowered.run(), lowered.operands()) >= TileDepth);
+    CHECK(emitCpuSource(program, lowered).find("#pragma omp simd") != std::string::npos);
+    const Program shallow = compileSderivModule("out def u = x * y + 1.0\n");
+    CHECK(emitCpuSource(shallow, lower(shallow)).find("#pragma omp simd") == std::string::npos);
+
+    // more points than a block, and not a multiple of one
+    constexpr std::size_t NumPoints = 1000;
+    std::vector<double> x(NumPoints);
+    std::vector<double> y(NumPoints);
+    for (std::size_t i = 0; i < NumPoints; ++i) {
+      x[i] = Ladder[i % Ladder.size()] * 1e-3 + 0.25 * static_cast<double>(i % 7);
+      y[i] = 0.1 * static_cast<double>(i % 13) - 0.5;
+    }
+    const auto evaluate = [&](BackendKind preferred, KernelShape shape, BackendKind& kind) {
+      std::vector<double> out(2 * NumPoints, -1.0);
+      DataTable table(NumPoints);
+      table.bindViewConst<double>("x", Direction::In, x.data());
+      table.bindViewConst<double>("y", Direction::In, y.data());
+      table.bindView<double>("u", Direction::Out, out.data());
+      table.bindView<double>("w", Direction::Out, out.data() + NumPoints);
+      Binding binding = Binding::bind(program, table);
+      df::GridStore store;
+      BackendOptions options;
+      options.preferred = preferred;
+      options.shape = shape;
+      const auto kernel = makeKernel(program, binding, store, options);
+      kernel->precompute(table);
+      kernel->run(table);
+      kind = kernel->kind();
+      return out;
+    };
+    BackendKind kind = BackendKind::Interpreter;
+    const auto interpreted = evaluate(BackendKind::Interpreter, KernelShape::Auto, kind);
+    const auto tiled = evaluate(BackendKind::RtcCpu, KernelShape::Tile, kind);
+    if (kind != BackendKind::RtcCpu) {
+      WARN_MESSAGE(false, "no usable host compiler; the shape of a tile was not compiled");
+      return;
+    }
+    const auto pointwise = evaluate(BackendKind::RtcCpu, KernelShape::Point, kind);
+    REQUIRE(kind == BackendKind::RtcCpu);
+    for (std::size_t i = 0; i < interpreted.size(); ++i) {
+      CAPTURE(i);
+      CHECK(std::memcmp(&tiled[i], &interpreted[i], sizeof(double)) == 0);
+      CHECK(std::memcmp(&pointwise[i], &interpreted[i], sizeof(double)) == 0);
+    }
   }
 
 } // TEST_SUITE

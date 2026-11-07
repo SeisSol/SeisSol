@@ -154,6 +154,11 @@ class Kernel {
   [[nodiscard]] virtual BackendKind kind() const = 0;
 };
 
+/// How a compiled CPU kernel takes the points of a tile: one point through the whole program after
+/// the other, or one instruction over a block of points after the other (see RtcCpu.h). Auto
+/// chooses by the depth of the program.
+enum class KernelShape : std::uint8_t { Auto, Point, Tile };
+
 struct BackendOptions {
   BackendKind preferred{BackendKind::Interpreter};
   bool allowFallback{true}; // fall back to Interpreter if `preferred` is unusable
@@ -188,6 +193,9 @@ struct BackendOptions {
   /// Skip the summary line a kernel logs when it is made: for the second and later kernels of
   /// one program, e.g. one per thread.
   bool quiet{false};
+
+  /// The shape of a compiled CPU kernel; for the RtcCpu backend only.
+  KernelShape shape{KernelShape::Auto};
 };
 
 // Chooses a backend, compiles if needed, and returns the prepared kernel.

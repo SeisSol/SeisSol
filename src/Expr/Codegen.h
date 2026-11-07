@@ -147,6 +147,32 @@ void emitStageBody(std::ostringstream& out,
                    const StageAddressing& addressing,
                    const char* indent);
 
+/// The same body in the shape of a tile: the lanes of a block of `block` points go through one
+/// instruction after the other, each a loop over the lanes with `#pragma omp simd`, the transients
+/// arrays of the block. The caller supplies the loop over the points `l < count` no longer: the
+/// body loops over the blocks of [0, count) itself, with `l` the lane in [0, count) where the
+/// addressing reads it. The lanes of a long chain of dependent operations then overlap in the
+/// vector units and in the pipeline, where one point after the other waits for each result; every
+/// lane computes the same operations as before, so the bits stay the same. Throws on a contraction,
+/// which reads a block per lane.
+void emitStageBodyTiled(std::ostringstream& out,
+                        const StageCode& stage,
+                        const std::vector<std::int32_t>& operands,
+                        const std::string& computeType,
+                        MathStyle style,
+                        const StageAddressing& addressing,
+                        std::size_t block,
+                        const char* indent);
+
+/// Whether `fn` is a call to the maths library in the emitted code, which a compiler does not
+/// vectorize without the vector maths library (and -ffast-math): exp, log, the trigonometric and
+/// hyperbolic functions, erf, pow, atan2 and fmod.
+[[nodiscard]] bool callsLibrary(Fn fn);
+
+/// The longest chain of dependent instructions of `stage`.
+[[nodiscard]] std::int32_t criticalPath(const StageCode& stage,
+                                        const std::vector<std::int32_t>& operands);
+
 /// True when either stage samples a grid. No compiled backend supports that
 /// yet: a lookup is a batch call into GridSampler, not a lane-local expression.
 [[nodiscard]] bool containsLookup(const LoweredProgram& lowered);
