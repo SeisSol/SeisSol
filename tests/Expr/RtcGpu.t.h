@@ -129,7 +129,7 @@ bool nvrtcAccepts(const std::string& source, bool& ran, std::string& log) {
   }
   ran = true;
   const std::vector<const char*> options = {
-      "--gpu-architecture=compute_70", "--std=c++17", "-default-device"};
+      "--gpu-architecture=compute_75", "--std=c++17", "-default-device"};
   const bool compiled = compile(program, static_cast<int>(options.size()), options.data()) == 0;
   std::size_t size = 0;
   logSize(program, &size);
