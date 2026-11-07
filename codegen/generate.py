@@ -262,6 +262,27 @@ def main():
             "Build them into executables of their own."
         )
 
+    # chainforge names a chain of GEMMs by its matrices and its scalars, not by its precision: the
+    # chain of a configuration in single precision and that of one in double precision would get
+    # the same name, and the build would stop where it merges the routines of the configurations
+    precisions = {
+        "f64" if args.precision in ["d", "f64"] else "f32" for args in configArgs
+    }
+    deviceCodegens = re.split(
+        r"[,;]", (cmdLineArgs.device_codegen or "").replace(" ", "")
+    )
+    if (
+        len(precisions) > 1
+        and "gpu" in targets
+        and "gemmforge-chainforge" in deviceCodegens
+        and cmdLineArgs.device_backend in ["cuda", "hip"]
+    ):
+        raise RuntimeError(
+            "gemmforge-chainforge cannot generate configurations of single and of double precision "
+            "for one executable: chainforge names its kernels without their precision. Build them "
+            "into executables of their own."
+        )
+
     fixArchitectureGlobal(arch)
 
     os.makedirs(cmdLineArgs.outputDir, exist_ok=True)
