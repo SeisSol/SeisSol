@@ -587,12 +587,11 @@ def main():
             for folder in folders + ["general"]
             if os.path.exists(os.path.join(cmdLineArgs.outputDir, folder, filename))
         ]
+        # (with forward slashes, which an include takes on every platform)
         kernels.output.write_if_changed(
             os.path.join(cmdLineArgs.outputDir, filename),
             "// IWYU pragma: begin_exports\n"
-            + "".join(
-                f'#include "{os.path.join(folder, filename)}"\n' for folder in present
-            )
+            + "".join(f'#include "{folder}/{filename}"\n' for folder in present)
             + "// IWYU pragma: end_exports\n",
         )
 
