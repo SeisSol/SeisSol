@@ -1090,7 +1090,17 @@ class _Loading:
             values = fault.get(name)
             return np.zeros(size) if values is None else values
 
-        tractions = ("T_n", "T_s", "T_d", "Tnuc_n", "Tnuc_s", "Tnuc_d")
+        tractions = (
+            "T_n",
+            "T_s",
+            "T_d",
+            "Pn0",
+            "Ts0",
+            "Td0",
+            "Tnuc_n",
+            "Tnuc_s",
+            "Tnuc_d",
+        )
         if any(name in fault for name in tractions):
             raise fault1d.Unsupported(
                 "tractions in fault coordinates are not supported"

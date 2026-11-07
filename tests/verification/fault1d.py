@@ -302,7 +302,9 @@ class Loading:
     """
 
     def __init__(self, inputs):
-        if inputs.has("T_n", "T_s", "T_d", "Tnuc_n", "Tnuc_s", "Tnuc_d"):
+        if inputs.has(
+            "T_n", "T_s", "T_d", "Pn0", "Ts0", "Td0", "Tnuc_n", "Tnuc_s", "Tnuc_d"
+        ):
             raise Unsupported("tractions in fault coordinates are not supported")
         self.initial = self._traction(inputs, "s_")
         self.sources = []
@@ -476,12 +478,12 @@ class RateAndState:
     def __init__(self, law, inputs, loading):
         self.law = law
         self.a = inputs.get("rs_a")
-        self.b = inputs.get("rs_b")
-        self.length = inputs.get("rs_sl0")
+        self.b = inputs.get("rs_b", "RS_b")
+        self.length = inputs.get("rs_sl0", "RS_sl0")
         self.v0 = inputs.get("rs_sr0")
-        self.f0 = inputs.get("rs_f0")
+        self.f0 = inputs.get("rs_f0", "RS_f0")
         if law == 103:
-            self.mu_w = inputs.get("rs_muW", "mu_w")
+            self.mu_w = inputs.get("rs_muw", "RS_muw", "mu_w")
             self.v_w = inputs.get("rs_srW")
         initial_rate = math.hypot(
             inputs.get("rs_iniSlipRate1"), inputs.get("rs_iniSlipRate2")
