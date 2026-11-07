@@ -614,6 +614,50 @@ seissol_add_fault1d(NAME fault2d-antiplane FL 16 FAULT fault2d-antiplane.yaml
 set_tests_properties(verification.fault2d-antiplane${SEISSOL_VERIFICATION_SUFFIX}
                      verification.exact.fault2d-antiplane${SEISSOL_VERIFICATION_SUFFIX}
                      PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+# The same with each of the rate-and-state laws, under SEISSOL_RS and
+# SEISSOL_RS_FVW, from their creep of 1e-16 m/s. Their fault files choose a
+# and L, and for severe velocity weakening b, so that the friction rises by
+# 9 to 18 MPa where the front arrives and weakens over a slip of centimetres,
+# as in fault2d-antiplane.yaml, and the mesh resolves the fronts alike (see
+# fault2d-antiplane-rs-aging.yaml).
+foreach (law aging:3 slip:4 svw:7 fvw:103)
+  string(REPLACE ":" ";" law ${law})
+  list(GET law 0 name)
+  list(GET law 1 number)
+  if (number EQUAL 103)
+    set(SEISSOL_ANTIPLANE_RS ${SEISSOL_RS_FVW})
+  else()
+    set(SEISSOL_ANTIPLANE_RS ${SEISSOL_RS})
+  endif()
+  seissol_add_fault1d(NAME fault2d-antiplane-rs-${name} FL ${number}
+                      FAULT fault2d-antiplane-rs-${name}.yaml
+                      MESH fault2d-periodic STEPS 2560
+                      FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                      SET ${SEISSOL_ANTIPLANE_RS} ${SEISSOL_ANTIPLANE} LABELS convergence)
+  set_tests_properties(verification.fault2d-antiplane-rs-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       verification.exact.fault2d-antiplane-rs-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+endforeach()
+# The Prakash-Clifton regularization of FL=6, which acts on its own here,
+# between two halves of the same solid: the strength the slip rate sees
+# follows that of linear slip weakening at the rate (|V| + v*) / L, which
+# with L = 4 mm delays the front by 6 ms over its way to y = 350 m. And the
+# proxy of thermal pressurization, with a fault file of its own.
+seissol_add_fault1d(NAME fault2d-antiplane-lsw-bimaterial FL 6 FAULT fault2d-antiplane.yaml
+                    MESH fault2d-periodic STEPS 2560
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET "DynamicRupture.pc_vstar=0.1" "DynamicRupture.pc_prakashLength=0.004"
+                        ${SEISSOL_ANTIPLANE}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault2d-antiplane-lsw-tpapprox FL 1058
+                    FAULT fault2d-antiplane-lsw-tpapprox.yaml MESH fault2d-periodic STEPS 2560
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET ${SEISSOL_ANTIPLANE} LABELS convergence)
+foreach (name bimaterial tpapprox)
+  set_tests_properties(verification.fault2d-antiplane-lsw-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       verification.exact.fault2d-antiplane-lsw-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+endforeach()
 
 # ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic

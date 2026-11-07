@@ -36,11 +36,16 @@ form of -(mu / c) (s^2 + a^2) times it, applied to delta_k.
 
 Every point of the fault then solves the problem of fault1d, with the
 traction tau_load + f and the images in place of tau_load, here with linear
-slip weakening. The slip rate is linear between the steps of the
-integration, and the slip its integral; the images take the slip as linear
-between the steps as well, which differs from that integral by the square of
-the step. A step solves the friction law together with the transfer, which
-depends on the slip rate of the step through delta_k(t) and the first
+slip weakening (FL=16, or FL=2), its proxy of thermal pressurization
+(FL=1058) and its Prakash-Clifton regularization (FL=6), or one of the
+rate-and-state laws FL=3, 4, 7 and 103. The slip rate is linear between the
+steps of the integration, and the slip its integral; the images take the
+slip as linear between the steps as well, which differs from that integral
+by the square of the step. A step advances the state of the law, the
+accumulated slip of slip weakening, with FL=6 also the regularized strength,
+or psi of rate and state, in closed form at the mean slip rate of the step,
+as SeisSol does, and solves the friction law together with the transfer,
+which depends on the slip rate of the step through delta_k(t) and the first
 weight of the convolution, by fixed-point iteration.
 
 Off the fault, at 0 < x < W, the displacement of a mode is
@@ -63,11 +68,14 @@ spacing of the points. For fault2d-antiplane, with the two steps per time
 step of the case that the comparison takes, the slip rate with 1024 points
 along y deviates from the one with 2048 by up to 2.5e-2 of its largest
 value and the slip by up to 7e-5, while half the step changes them by 5e-4
-and 2e-6. The self-test holds the method against a uniform slip across
-periodic faults, the finite differences of a mode of a given slip, on the
-fault and off it, the quadrature of the images of a constant slip rate, the
-images of a mode that decays within a fraction of the period, and the forced
-rupture front of fault1d.Front.
+and 2e-6; with the other laws, 2048 points change the slip rate by 4.5e-3 to
+2.2e-2 and the slip by up to 2.8e-5, and half the step, with the aging law,
+by 1.6e-4 and 7e-7. The self-test holds the method against a uniform slip
+across periodic faults, the finite differences of a mode of a given slip, on
+the fault and off it, the quadrature of the images of a constant slip rate,
+the images of a mode that decays within a fraction of the period, the forced
+rupture front of fault1d.Front, and the uniform slip of every other law
+against fault1d.Problem.
 
 The integration needs scipy, for the Bessel functions.
 """
@@ -362,11 +370,12 @@ class Antiplane:
         `fault` gives the parameters of the fault at the points along y, as
         fault_along does. Returns the times and, per time and point, the slip
         rate along z, the slip, the shear traction along z and the normal
-        stress, which an antiplane slip leaves as the loading gives it.
+        stress, which an antiplane slip leaves as the loading gives it, and
+        with rate and state the state psi.
         """
         steps = int(round(end / step))
         self._weights(step, steps)
-        friction = _SlipWeakening(fault)
+        friction = _friction_law(fault)
         loading = _Loading(fault)
 
         modes = self.k.size
@@ -376,52 +385,63 @@ class Antiplane:
         slip = np.zeros((steps + 1, self.count))
         traction = np.zeros((steps + 1, self.count))
         normal_stress = np.zeros((steps + 1, self.count))
-        accumulated = np.zeros(self.count)
+        # the state of rate and state, which the solution reports
+        states = np.zeros((steps + 1, self.count))
         time = np.arange(steps + 1) * step
 
         shear, normal = loading(0.0)
-        rate[0] = friction.rate(shear, normal, accumulated, 0.0, self.eta)
+        state = friction.initial_state(shear, normal)
+        rate[0] = friction.rate(shear, normal, state, 0.0, self.eta)
         rate_k[:, 0] = np.fft.rfft(rate[0])
         traction[0] = shear - self.eta * rate[0]
         normal_stress[0] = normal
+        reported = isinstance(friction, _RateAndState)
+        if reported:
+            states[0] = state
 
         for n in range(steps):
             t = time[n + 1]
             past, history = self._memory(rate_k, slip_k, n, step)
             shear, normal = loading(t)
+            # what rounding leaves of the traction, which the slip rate takes
+            # divided by eta, bounds how closely the iteration can settle
+            settled = 1e-12 * max(1.0, np.max(np.abs(shear)) / self.eta)
             guess = rate[n]
             for _ in range(iterations):
                 new_slip = slip[n] + 0.5 * step * (rate[n] + guess)
-                new_accumulated = accumulated + 0.5 * step * (
-                    np.abs(rate[n]) + np.abs(guess)
-                )
+                new_state = friction.advance(state, rate[n], guess, step, t, normal)
                 transfer_k = self._transfer(
                     np.fft.rfft(new_slip), np.fft.rfft(guess), past, history
                 )
                 transfer = np.fft.irfft(transfer_k, self.count)
                 update = friction.rate(
-                    shear + transfer, normal, new_accumulated, t, self.eta
+                    shear + transfer, normal, new_state, t, self.eta, guess
                 )
                 change = np.max(np.abs(update - guess))
                 guess = update
-                if change <= 1e-12 * max(1.0, np.max(np.abs(guess))):
+                if change <= max(settled, 1e-12 * np.max(np.abs(guess))):
                     break
             else:
                 raise fault1d.Unsupported(f"the step at t = {t:.6g} does not settle")
             rate[n + 1] = guess
             slip[n + 1] = slip[n] + 0.5 * step * (rate[n] + guess)
-            accumulated = accumulated + 0.5 * step * (np.abs(rate[n]) + np.abs(guess))
+            state = friction.advance(state, rate[n], guess, step, t, normal)
             rate_k[:, n + 1] = np.fft.rfft(rate[n + 1])
             slip_k[:, n + 1] = np.fft.rfft(slip[n + 1])
             traction[n + 1] = shear + transfer - self.eta * rate[n + 1]
             normal_stress[n + 1] = normal
-        return {
+            if reported:
+                states[n + 1] = state
+        solution = {
             "time": time,
             "slip-rate": rate,
             "slip": slip,
             "traction": traction,
             "normal-stress": normal_stress,
         }
+        if reported:
+            solution["state"] = states
+        return solution
 
     def _sources(self, x, end):
         """The distances from which the fault and its images reach the point
@@ -565,29 +585,70 @@ class _Loading:
         return shear, normal
 
 
+def _given(fault, *names, default=None):
+    """A parameter of the fault: per point where the easi model gives it,
+    otherwise the value of the parameter file, whose names are
+    case-insensitive."""
+    for name in names:
+        if name in fault:
+            return fault[name]
+    for name in names:
+        if name.lower() in fault[None]:
+            return float(fault[None][name.lower()])
+    if default is None:
+        raise fault1d.Unsupported(f"the case gives none of {', '.join(names)}")
+    return default
+
+
+def _friction_law(fault):
+    """The friction law of the parameter file, per point."""
+    law = int(fault[None].get("fl", 16))
+    if law in (2, 16, 6, 1058):
+        return _SlipWeakening(fault, 16 if law == 2 else law)
+    if law in (3, 4, 7, 103):
+        return _RateAndState(fault, law)
+    raise fault1d.Unsupported(
+        f"the spectral method takes slip weakening and rate and state, not FL={law}"
+    )
+
+
 class _SlipWeakening:
     """Linear slip weakening (FL=16, or FL=2), with or without a forced
-    rupture time, as fault1d.SlipWeakening, per point."""
+    rupture time, its proxy of thermal pressurization (FL=1058) and its
+    Prakash-Clifton regularization (FL=6), as fault1d.SlipWeakening, per
+    point. Its state is the accumulated slip; with FL=6, also the strength
+    that the slip rate sees, which relaxes towards the strength of slip
+    weakening at the rate (|V| + v*) / L, and that strength itself."""
 
-    def __init__(self, fault):
+    def __init__(self, fault, law):
+        self.law = law
         parameters = fault[None]
-        law = int(parameters.get("fl", 16))
-        if law not in (2, 16):
-            raise fault1d.Unsupported(
-                f"the spectral method takes linear slip weakening, not FL={law}"
-            )
         if float(parameters.get("lsw_healingthreshold", -1.0)) >= 0.0:
             raise fault1d.Unsupported("healing is not supported")
         self.mu_s, self.mu_d, self.d_c = fault["mu_s"], fault["mu_d"], fault["d_c"]
         self.cohesion = fault.get("cohesion", 0.0)
         self.forced = None
         if "forced_rupture_time" in fault:
+            if law == 1058:
+                raise fault1d.Unsupported(
+                    "a forced rupture time with FL=1058 is not supported"
+                )
             self.forced = (
                 fault["forced_rupture_time"],
                 float(parameters.get("t_0", 0.0)),
             )
+        self.exponent = float(_given(fault, "TpProxyExponent", default=1.0 / 3.0))
+        if law == 6:
+            self.v_star = float(_given(fault, "pc_vstar", "v_star"))
+            self.length = float(_given(fault, "pc_prakashLength", "L"))
 
-    def rate(self, shear, normal, accumulated, t, eta):
+    def strength(self, t, accumulated, normal):
+        """The strength of slip weakening."""
+        if self.law == 1058:
+            friction = self.mu_d + (self.mu_s - self.mu_d) / (
+                1.0 + accumulated / self.d_c
+            ) ** (self.exponent)
+            return -self.cohesion - np.minimum(normal, 0.0) * friction
         weakening = np.minimum(accumulated / self.d_c, 1.0)
         if self.forced is not None:
             onset, rise = self.forced
@@ -596,8 +657,222 @@ class _SlipWeakening:
             else:
                 weakening = np.where(t >= onset, 1.0, weakening)
         friction = self.mu_s - (self.mu_s - self.mu_d) * weakening
-        strength = -self.cohesion - np.minimum(normal, 0.0) * friction
+        return -self.cohesion - np.minimum(normal, 0.0) * friction
+
+    def initial_state(self, shear, normal):
+        accumulated = np.zeros(np.shape(shear))
+        if self.law != 6:
+            return accumulated
+        strength = self.strength(0.0, accumulated, normal)
+        return np.array([accumulated, strength, strength])
+
+    def advance(self, state, rate, guess, step, t, normal):
+        """The state at the end of a step, from that at its start, the slip
+        rates at both ends, and the time and the normal stress at its end.
+        With FL=6, the strength of slip weakening varies linearly over the
+        step, and the regularized one follows it as it does then."""
+        if self.law != 6:
+            return state + 0.5 * step * (np.abs(rate) + np.abs(guess))
+        accumulated = state[0] + 0.5 * step * (np.abs(rate) + np.abs(guess))
+        strength = self.strength(t, accumulated, normal)
+        mean = 0.5 * (np.abs(rate) + np.abs(guess))
+        relaxation = (mean + self.v_star) * step / self.length
+        weight = -np.expm1(-relaxation) / relaxation
+        regularized = strength - (strength - state[2]) * weight
+        regularized = regularized + (state[1] - state[2]) * np.exp(-relaxation)
+        return np.array([accumulated, regularized, strength])
+
+    def rate(self, shear, normal, state, t, eta, start=None):
+        """The slip rate that the traction of the welded fault leaves."""
+        if self.law == 6:
+            strength = state[1]
+        else:
+            strength = self.strength(t, state, normal)
         return np.sign(shear) * np.maximum(np.abs(shear) - strength, 0.0) / eta
+
+
+def _log_sinh(x):
+    """log(sinh(x)) for x > 0, without overflow."""
+    return x + np.log(-np.expm1(-2.0 * x) / 2.0)
+
+
+def _arsinh_exp(log_z):
+    """asinh(exp(log_z)), also where exp(log_z) overflows."""
+    large = log_z > 20.0
+    safe = np.where(large, 0.0, log_z)
+    return np.where(
+        large,
+        log_z + math.log(2.0) + np.exp(-2.0 * np.where(large, log_z, 20.0)) / 4.0,
+        np.arcsinh(np.exp(safe)),
+    )
+
+
+def _arsinh_exp_slope(log_z):
+    """The derivative of _arsinh_exp."""
+    return 1.0 / np.sqrt(1.0 + np.exp(-2.0 * np.clip(log_z, -350.0, 350.0)))
+
+
+def _solve_slip_rate(friction, shear, sigma, eta, start=None):
+    """The slip rate V >= 0 that solves shear - eta V = sigma f(V), per point
+    of shear >= 0, by Newton in u = ln V within a bracket, from `start` where
+    it lies inside; friction(u) gives f and df/du at V = exp(u). f grows with
+    V, so that there is at most one root, and none where sigma f(0) holds the
+    shear: the fault is locked there, and the slip rate 0."""
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+
+        def residual(u):
+            value, slope = friction(u)
+            rate = np.exp(u)
+            return sigma * value + eta * rate - shear, sigma * slope + eta * rate
+
+        rate = np.zeros(np.shape(shear))
+        moving = shear > 0.0
+        moving &= residual(np.full(rate.shape, -np.inf))[0] < 0.0
+        if not moving.any():
+            return rate
+        upper = np.where(moving, np.log(np.where(moving, shear, 1.0) / eta), 0.0)
+        lower = upper - 1.0
+        for _ in range(64):
+            high = moving & (residual(lower)[0] > 0.0)
+            if not high.any():
+                break
+            lower = np.where(high, lower - 2.0 * (upper - lower), lower)
+        u = 0.5 * (lower + upper)
+        if start is not None:
+            guess = np.log(np.abs(start))
+            u = np.where((lower < guess) & (guess < upper), guess, u)
+        for _ in range(200):
+            value, slope = residual(u)
+            upper = np.where(value > 0.0, u, upper)
+            lower = np.where(value < 0.0, u, lower)
+            candidate = np.where(value == 0.0, u, u - value / slope)
+            outside = (value != 0.0) & ~((lower < candidate) & (candidate < upper))
+            candidate = np.where(outside, 0.5 * (lower + upper), candidate)
+            change = np.abs(candidate - u)
+            u = candidate
+            if np.all(change[moving] <= 1e-15 * np.maximum(1.0, np.abs(u[moving]))):
+                break
+        else:
+            raise fault1d.Unsupported("the slip rate does not settle")
+        rate[moving] = np.exp(u[moving])
+    return rate
+
+
+class _RateAndState:
+    """The rate-and-state laws FL=3 (aging), FL=4 (slip), FL=7 (severe
+    velocity weakening) and FL=103 (fast velocity weakening), as
+    fault1d.RateAndState, per point. Its state is psi, which a step advances
+    in closed form at the mean slip rate V of the step: psi relaxes towards
+    L / V with aging law, ln(V psi / L) towards 0 with slip law, and psi
+    towards the steady state of V with FL=103, all at the rate V / L, and
+    with FL=7, psi towards V L / V_0 at the rate V_0 / L."""
+
+    def __init__(self, fault, law):
+        self.law = law
+        if int(fault[None].get("thermalpress", 0)):
+            raise fault1d.Unsupported("thermal pressurization is not supported")
+        size = np.shape(fault["s_xx"])
+
+        def field(*names):
+            return np.broadcast_to(np.asarray(_given(fault, *names), dtype=float), size)
+
+        # the names easi takes, of which the parameter file may give some
+        self.a = field("rs_a")
+        self.b = field("rs_b", "RS_b")
+        self.length = field("rs_sl0", "RS_sl0")
+        self.v0 = field("rs_sr0")
+        self.f0 = field("rs_f0", "RS_f0")
+        if law == 103:
+            self.mu_w = field("rs_muw", "RS_muw", "mu_w")
+            self.v_w = field("rs_srW")
+        self.initial_rate = math.hypot(
+            float(_given(fault, "rs_iniSlipRate1")),
+            float(_given(fault, "rs_iniSlipRate2")),
+        )
+
+    def initial_state(self, shear, normal):
+        """The state that holds the traction at the initial slip rate."""
+        friction = np.abs(shear) / -normal
+        rate = self.initial_rate
+        if self.law == 7:
+            weakening = (self.f0 + self.a * rate / (rate + self.v0) - friction) / self.b
+            slipping = weakening < 1.0
+            # where no state slips at the initial slip rate: locked, and healed
+            healed = self.length * rate / self.v0
+            safe = np.where(slipping, weakening, 0.0)
+            return np.where(slipping, self.length * safe / (1.0 - safe), healed)
+        psi = self.a * (
+            math.log(2.0) + _log_sinh(friction / self.a) - np.log(rate / self.v0)
+        )
+        if self.law == 103:
+            return psi
+        return self.length / self.v0 * np.exp((psi - self.f0) / self.b)
+
+    def advance(self, state, rate, guess, step, t=None, normal=None):
+        """The state at the end of a step, from that at its start and the
+        slip rates at both ends."""
+        mean = 0.5 * (np.abs(rate) + np.abs(guess))
+        if self.law == 7:
+            # the steady state is large where V_0 / L is small, and the
+            # relaxation towards it tiny: their product, and not their sum
+            steady = mean * self.length / self.v0
+            return state + (steady - state) * -np.expm1(-self.v0 / self.length * step)
+        relaxation = mean * step / self.length
+        with np.errstate(divide="ignore", invalid="ignore"):
+            if self.law == 3:
+                # psi e^-x + (L / V) (1 - e^-x), x = V t / L, and t where V = 0
+                weight = np.where(
+                    relaxation > 0.0,
+                    -np.expm1(-relaxation)
+                    / np.where(relaxation > 0.0, relaxation, 1.0),
+                    1.0,
+                )
+                return state * np.exp(-relaxation) + step * weight
+            if self.law == 4:
+                logarithm = np.log(mean * state / self.length)
+                return np.where(
+                    mean > 0.0,
+                    state * np.exp(np.expm1(-relaxation) * logarithm),
+                    state,
+                )
+            steady = self._steady_state(np.where(mean > 0.0, mean, 1.0))
+            return np.where(
+                mean > 0.0, state - (state - steady) * -np.expm1(-relaxation), state
+            )
+
+    def _steady_state(self, rate):
+        """The steady state of FL=103 at the slip rate."""
+        ratio = rate / self.v0
+        f_lv = self.f0 - (self.b - self.a) * np.log(ratio)
+        mu_ss = self.mu_w + (f_lv - self.mu_w) / (1.0 + (rate / self.v_w) ** 8) ** 0.125
+        return self.a * (math.log(2.0) - np.log(ratio) + _log_sinh(mu_ss / self.a))
+
+    def rate(self, shear, normal, state, t, eta, start=None):
+        """The slip rate that the traction of the welded fault leaves, under
+        the state."""
+        sigma = -normal
+        if np.any(sigma <= 0.0):
+            raise fault1d.Unsupported("the normal stress is not compressive")
+        if self.law == 7:
+            weakening = self.f0 - self.b * state / (state + self.length)
+
+            def friction(u):
+                rate = np.exp(u)
+                value = weakening + self.a * rate / (rate + self.v0)
+                return value, self.a * rate * self.v0 / (rate + self.v0) ** 2
+
+        else:
+            big_psi = state
+            if self.law != 103:
+                big_psi = self.f0 + self.b * np.log(self.v0 * state / self.length)
+            offset = big_psi / self.a - np.log(2.0 * self.v0)
+
+            def friction(u):
+                log_z = offset + u
+                return self.a * _arsinh_exp(log_z), self.a * _arsinh_exp_slope(log_z)
+
+        magnitude = _solve_slip_rate(friction, np.abs(shear), sigma, eta, start)
+        return np.sign(shear) * magnitude
 
 
 # --------------------------------------------------------------------------
@@ -869,6 +1144,62 @@ def self_test():
             f"the forced rupture front at y = {y}",
             float(np.max(np.abs(computed[held] - exact[held])) / np.max(exact[held])),
             3e-3,
+        )
+
+    # a uniform slip of every other law on a fault between two solids that
+    # extend to infinity: the 0D problem of fault1d, which integrates its own
+    # way
+    for law, extra in (
+        (6, {"pc_vstar": 0.1, "pc_prakashLength": 0.01}),
+        (1058, {}),
+    ):
+        given = {"s_xx": -120.0e6, "s_xz": 72.0e6, "nuc_xz": 14.0e6}
+        given.update({"mu_s": 0.677, "mu_d": 0.525, "d_c": 0.08})
+        if law == 1058:
+            given.update({"d_c": 0.01, "s_xz": 75.0e6})
+        rupture = {"FL": law, "t_0": 0.02, "XRef": -1.0e5, **extra}
+        problem = fault1d.Problem(rupture, given, medium, medium)
+        exact = problem.solve(0.06, 1e-5)["slip-rate"][::3]
+        solver = Antiplane(medium, 800.0, None, 8)
+        fault = {name: np.full(8, value) for name, value in given.items()}
+        fault[None] = {key.lower(): value for key, value in rupture.items()}
+        computed = solver.solve(fault, 0.06, 3e-5)["slip-rate"][:, 0]
+        check(
+            f"a uniform slip under FL={law}",
+            float(np.max(np.abs(computed - exact)) / np.max(exact)),
+            1e-5,
+        )
+    parameters = {
+        "rs_f0": 0.6,
+        "rs_sr0": 1e-6,
+        "rs_b": 0.012,
+        "rs_iniSlipRate1": 1e-16,
+        "rs_iniSlipRate2": 0.0,
+        "t_0": 0.02,
+        "XRef": -1.0e5,
+    }
+    loading = {"s_xx": -120.0e6, "s_xz": 75.0e6, "nuc_xz": 40.0e6}
+    for law, extra, changes in (
+        (3, {"rs_a": 0.008, "rs_sl0": 0.02}, {}),
+        (4, {"rs_a": 0.008, "rs_sl0": 0.1}, {}),
+        (7, {"rs_a": 0.008, "rs_sl0": 0.02}, {"s_xz": 70.8e6}),
+        (103, {"rs_a": 0.01, "rs_sl0": 0.2, "rs_srW": 0.1}, {"s_xz": 40.0e6}),
+    ):
+        given = {**loading, **changes, **extra}
+        rupture = {**parameters, "FL": law}
+        if law == 103:
+            given["nuc_xz"] = 45.0e6
+            rupture.update({"rs_b": 0.014, "rs_muW": 0.2})
+        problem = fault1d.Problem(rupture, given, medium, medium)
+        exact = problem.solve(0.06, 1e-5)["slip-rate"][::3]
+        solver = Antiplane(medium, 800.0, None, 8)
+        fault = {name: np.full(8, value) for name, value in given.items()}
+        fault[None] = {key.lower(): value for key, value in rupture.items()}
+        computed = solver.solve(fault, 0.06, 3e-5)["slip-rate"][:, 0]
+        check(
+            f"a uniform slip under FL={law}",
+            float(np.max(np.abs(computed - exact)) / np.max(exact)),
+            1e-5,
         )
     return failures
 

@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The spontaneous antiplane rupture of fault2d-antiplane.yaml with the proxy
+# of thermal pressurization, mu = mu_d + (mu_s - mu_d) / (1 + S / d_c)^(1/3)
+# of the accumulated slip S, which weakens at (mu_s - mu_d) sigma / (3 d_c)
+# = 300 MPa/m at first, with d_c = 2 cm, and keeps two fifths of mu_s - mu_d
+# at the 0.24 m of slip that the centre of the nucleation ends up with. The
+# shear traction of 77 MPa lies 4.2 MPa below the static strength. The
+# nucleation is that of fault2d-antiplane.yaml: the fault slips over
+# |y| < 120 m from 5 ms on, and the rupture runs on to both sides on its
+# own, at up to 2.8 km/s, as antiplane.py computes it.
+!Switch
+[s_xx, s_yy, s_zz, s_xy, s_yz, s_xz, nuc_xx, nuc_yy, nuc_zz, nuc_xy, nuc_yz, mu_s, mu_d, d_c, cohesion]: !ConstantMap
+  map:
+    s_xx:     -120.0e6
+    s_yy:     0.0
+    s_zz:     0.0
+    s_xy:     0.0
+    s_yz:     0.0
+    s_xz:     77.0e6
+    nuc_xx:   0.0
+    nuc_yy:   0.0
+    nuc_zz:   0.0
+    nuc_xy:   0.0
+    nuc_yz:   0.0
+    mu_s:     0.677
+    mu_d:     0.525
+    d_c:      0.02
+    cohesion: 0.0
+[nuc_xz]: !Any
+  components:
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-120.0, 120.0]
+        z: [-.inf, .inf]
+      components: !ConstantMap
+        map:
+          nuc_xz: 14.0e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [120.0, 220.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xz: [0.0, -1.4e5, 0.0]
+        translation:
+          nuc_xz: 30.8e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-220.0, -120.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xz: [0.0, 1.4e5, 0.0]
+        translation:
+          nuc_xz: 30.8e6
+    - !ConstantMap
+      map:
+        nuc_xz: 0.0

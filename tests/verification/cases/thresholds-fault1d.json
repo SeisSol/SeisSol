@@ -626,6 +626,150 @@
       "traction": 0.00021,
       "velocity": 0.0062
     },
+    "fault2d-antiplane-lsw-bimaterial/anisotropic/o6/double": {
+      "direction": 0.00015,
+      "normal-stress": 0.00088,
+      "slip": 0.0038,
+      "slip-rate": 0.17,
+      "stress": 0.021,
+      "velocity": 0.039
+    },
+    "fault2d-antiplane-lsw-bimaterial/elastic/o6/double": {
+      "direction": 0.00015,
+      "normal-stress": 0.00088,
+      "slip": 0.0038,
+      "slip-rate": 0.17,
+      "stress": 0.021,
+      "velocity": 0.039
+    },
+    "fault2d-antiplane-lsw-bimaterial/elastic/o6/single": {
+      "direction": 0.00015,
+      "normal-stress": 0.00088,
+      "slip": 0.0038,
+      "slip-rate": 0.17,
+      "stress": 0.021,
+      "velocity": 0.039
+    },
+    "fault2d-antiplane-lsw-tpapprox/anisotropic/o6/double": {
+      "direction": 9.8e-05,
+      "normal-stress": 0.00036,
+      "slip": 0.0024,
+      "slip-rate": 0.13,
+      "stress": 0.051,
+      "velocity": 0.11
+    },
+    "fault2d-antiplane-lsw-tpapprox/elastic/o6/double": {
+      "direction": 9.8e-05,
+      "normal-stress": 0.00036,
+      "slip": 0.0024,
+      "slip-rate": 0.13,
+      "stress": 0.051,
+      "velocity": 0.11
+    },
+    "fault2d-antiplane-lsw-tpapprox/elastic/o6/single": {
+      "direction": 9.8e-05,
+      "normal-stress": 0.00036,
+      "slip": 0.0024,
+      "slip-rate": 0.13,
+      "stress": 0.051,
+      "velocity": 0.11
+    },
+    "fault2d-antiplane-rs-aging/anisotropic/o6/double": {
+      "direction": 3.9e-05,
+      "normal-stress": 0.0015,
+      "slip": 0.0022,
+      "slip-rate": 0.13,
+      "stress": 0.011,
+      "velocity": 0.02
+    },
+    "fault2d-antiplane-rs-aging/elastic/o6/double": {
+      "direction": 3.9e-05,
+      "normal-stress": 0.0015,
+      "slip": 0.0022,
+      "slip-rate": 0.13,
+      "stress": 0.011,
+      "velocity": 0.02
+    },
+    "fault2d-antiplane-rs-aging/elastic/o6/single": {
+      "direction": 3.9e-05,
+      "normal-stress": 0.0015,
+      "slip": 0.0022,
+      "slip-rate": 0.13,
+      "stress": 0.011,
+      "velocity": 0.02
+    },
+    "fault2d-antiplane-rs-fvw/anisotropic/o6/double": {
+      "direction": 3.8e-05,
+      "normal-stress": 0.0018,
+      "slip": 0.0041,
+      "slip-rate": 0.18,
+      "stress": 0.0092,
+      "velocity": 0.031
+    },
+    "fault2d-antiplane-rs-fvw/elastic/o6/double": {
+      "direction": 3.8e-05,
+      "normal-stress": 0.0018,
+      "slip": 0.0041,
+      "slip-rate": 0.18,
+      "stress": 0.0092,
+      "velocity": 0.031
+    },
+    "fault2d-antiplane-rs-fvw/elastic/o6/single": {
+      "direction": 3.8e-05,
+      "normal-stress": 0.0018,
+      "slip": 0.0041,
+      "slip-rate": 0.18,
+      "stress": 0.0092,
+      "velocity": 0.031
+    },
+    "fault2d-antiplane-rs-slip/anisotropic/o6/double": {
+      "direction": 4e-05,
+      "normal-stress": 0.0014,
+      "slip": 0.0036,
+      "slip-rate": 0.17,
+      "stress": 0.0059,
+      "velocity": 0.019
+    },
+    "fault2d-antiplane-rs-slip/elastic/o6/double": {
+      "direction": 4e-05,
+      "normal-stress": 0.0014,
+      "slip": 0.0036,
+      "slip-rate": 0.17,
+      "stress": 0.0059,
+      "velocity": 0.019
+    },
+    "fault2d-antiplane-rs-slip/elastic/o6/single": {
+      "direction": 4e-05,
+      "normal-stress": 0.0014,
+      "slip": 0.0036,
+      "slip-rate": 0.17,
+      "stress": 0.0059,
+      "velocity": 0.019
+    },
+    "fault2d-antiplane-rs-svw/anisotropic/o6/double": {
+      "direction": 8.7e-05,
+      "normal-stress": 0.00092,
+      "slip": 0.0041,
+      "slip-rate": 0.2,
+      "stress": 0.023,
+      "velocity": 0.076
+    },
+    "fault2d-antiplane-rs-svw/elastic/o6/double": {
+      "direction": 8.7e-05,
+      "normal-stress": 0.00092,
+      "slip": 0.0041,
+      "slip-rate": 0.2,
+      "stress": 0.023,
+      "velocity": 0.076
+    },
+    "fault2d-antiplane-rs-svw/elastic/o6/single": {
+      "direction": 8.7e-05,
+      "normal-stress": 0.00092,
+      "slip": 0.0041,
+      "slip-rate": 0.2,
+      "stress": 0.023,
+      "velocity": 0.076
+    },
     "fault2d-antiplane/anisotropic/o6/double": {
       "direction": 0.00013,
       "normal-stress": 0.00082,
