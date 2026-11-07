@@ -152,11 +152,6 @@ option(BUILD_DOCS "Build the SeisSol Documentation" OFF)
 
 option(BUILD_DOXYGEN "Build the SeisSol Doxygen docs" OFF)
 
-# FIXME: currently unused
-#set(LOG_LEVEL "warning" CACHE STRING "Log level for the code")
-#set(LOG_LEVEL_OPTIONS "debug" "info" "warning" "error")
-#set_property(CACHE LOG_LEVEL PROPERTY STRINGS ${LOG_LEVEL_OPTIONS})
-
 set(LOG_LEVEL_MASTER "info" CACHE STRING "Log level for the code")
 set(LOG_LEVEL_MASTER_OPTIONS "debug" "info" "warning" "error")
 set_property(CACHE LOG_LEVEL_MASTER PROPERTY STRINGS ${LOG_LEVEL_MASTER_OPTIONS})
@@ -229,7 +224,6 @@ check_parameter("SOLVER" ${SOLVER} "${SOLVER_OPTIONS}")
 
 check_parameter("PRECISION" ${PRECISION} "${PRECISION_OPTIONS}")
 check_parameter("PLASTICITY_METHOD" ${PLASTICITY_METHOD} "${PLASTICITY_OPTIONS}")
-# check_parameter("LOG_LEVEL" ${LOG_LEVEL} "${LOG_LEVEL_OPTIONS}")
 check_parameter("LOG_LEVEL_MASTER" ${LOG_LEVEL_MASTER} "${LOG_LEVEL_MASTER_OPTIONS}")
 
 string(REPLACE "," ";" GEMM_TOOLS_LIST ${GEMM_TOOLS_LIST})
@@ -493,7 +487,6 @@ function(cast_log_level_to_int log_level_str log_level_int)
   endif()
 endfunction()
 
-# cast_log_level_to_int(LOG_LEVEL LOG_LEVEL)
 cast_log_level_to_int(LOG_LEVEL_MASTER LOG_LEVEL_MASTER)
 
 if (PROXY_PYBINDING)
