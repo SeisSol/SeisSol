@@ -15,6 +15,7 @@
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Preflight.h"
+#include "Monitoring/FailureReport.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
@@ -216,9 +217,12 @@ int main(int argc, char* argv[]) {
     const int rank = seissol::Mpi::mpi.rank();
 
     utils::Logger::setRank(rank);
-    // a fatal error ends all ranks of the run, on the communicator SeisSol runs on
-    utils::Logger::setAbortHandler(
-        [](const utils::LogRecord& /*record*/) { MPI_Abort(seissol::Mpi::mpi.comm(), 134); });
+    // a fatal error marks the run summary as failed, which rank 0 has once it is started, and ends
+    // all ranks of the run, on the communicator SeisSol runs on
+    utils::Logger::setAbortHandler([](const utils::LogRecord& record) {
+      seissol::monitoring::writeFailureReport(seissol::monitoring::failureOf(record));
+      MPI_Abort(seissol::Mpi::mpi.comm(), 134);
+    });
 
     const auto runId = determineRunId(env);
     // every message from now on carries the ID of the run, in the JSON lines of the log

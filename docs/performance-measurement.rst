@@ -52,9 +52,11 @@ host in GPU builds, so that it should not come more often than needed.
 
 Rank 0 writes the summary when the run starts, at every stage of the initialization, every ten seconds or so during
 the simulation, and at its end, each time replacing the file at once, so that a reader always finds a complete file.
-``status`` is ``completed`` once the run has ended as planned; a run that ended early, by an error or by the time limit
-of its job, leaves ``running``, and ``stage`` says how far it got (``init``, ``init.mesh``, ``init.layout``,
-``init.model``, ``init.sideConditions``, ``init.io``, ``simulation``; ``finished`` at the end).
+``status`` is ``completed`` once the run has ended as planned, and ``failed`` once a fatal error on rank 0 has ended it:
+then ``error`` gives the ``message`` of the error, its ``source`` in the code (``file``, ``line``, ``function``) and its
+``time``. A run that ended early otherwise, by an error on another rank or by the time limit of its job, leaves
+``running``. Either way, ``stage`` says how far it got (``init``, ``init.mesh``, ``init.layout``, ``init.model``,
+``init.sideConditions``, ``init.io``, ``simulation``; ``finished`` at the end).
 
 Times are in seconds, timesteps and simulated times in simulated seconds. Where a value differs between the ranks, the
 summary gives its statistics over them, an object with ``min``, ``max``, ``mean``, ``median``, ``std`` and ``sum``. The
@@ -69,6 +71,8 @@ members of the summary are:
      - the format, ``seissol-run-summary/1``
    * - ``runId``, ``status``, ``stage``, ``started``, ``updated``
      - the ID of the run (see :ref:`env_vars`), how far it got, and when (UTC)
+   * - ``error``
+     - what ended a failed run (see above)
    * - ``build``
      - version, commit, host and device architecture, compiler, build type and the configurations built
    * - ``parallel``

@@ -13,6 +13,7 @@
 #include "Common/Filesystem.h"
 #include "Common/Json.h"
 #include "Common/RunId.h"
+#include "FailureReport.h"
 #include "IO/Instance/Point/Csv.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
@@ -68,6 +69,21 @@ std::string mpiLibrary() {
     version.pop_back();
   }
   return version;
+}
+
+/**
+ * @brief Sets the failure report to the summary @p root as failed, with the failure in "error",
+ * after the stage.
+ */
+void setFailedSummary(const std::string& path, const json::Value& root) {
+  auto failed = json::Value::object();
+  for (const auto& [key, value] : root.asObject()) {
+    failed[key] = key == "status" ? json::Value("failed") : value;
+    if (key == "stage") {
+      failed["error"] = FailurePlaceholder;
+    }
+  }
+  setFailureReport(path, failed);
 }
 
 } // namespace
@@ -343,6 +359,8 @@ void RunSummary::addEpoch(const EpochRecord& epoch, double endTime) {
 void RunSummary::finish() {
   root_["status"] = "completed";
   root_["stage"] = "finished";
+  // a failure from now on, e.g. at the end of MPI, leaves the run completed
+  completed_ = true;
   flush();
 }
 
@@ -361,6 +379,11 @@ void RunSummary::writeSummary() {
   root_["updated"] = utcTimestamp();
   if (!writeFileAtomically(path_, root_.dump() + "\n")) {
     logWarning() << "Could not write the run summary" << path_;
+  }
+  if (completed_) {
+    clearFailureReport();
+  } else {
+    setFailedSummary(path_, root_);
   }
 }
 

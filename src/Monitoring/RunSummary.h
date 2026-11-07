@@ -41,9 +41,11 @@ struct EpochRecord {
  *
  * A JSON file next to the output, <prefix>-summary.json, which rank 0 writes. It is rewritten as
  * the run moves on: at every stage of the initialization, during the simulation and at the end,
- * each time replacing the file in one step, so that a reader always finds a complete file. A run
- * that ends early, by an error or by the time limit of its job, leaves the summary of the last
- * stage it reached: its status stays "running", and its stage says how far it got.
+ * each time replacing the file in one step, so that a reader always finds a complete file. A fatal
+ * error on rank 0 marks the run as "failed", with the error (see FailureReport.h). A run that ends
+ * early otherwise, by an error on another rank or by the time limit of its job, leaves the summary
+ * of the last stage it reached: its status stays "running"; in either case, its stage says how far
+ * it got.
  *
  * Next to it, <prefix>-epochs.csv holds a row per simulation epoch, which the summary only counts,
  * and <prefix>-ranks.csv a row per rank, with the values of which the summary gives the statistics.
@@ -124,6 +126,7 @@ class RunSummary {
   std::string runId_;
   json::Value root_;
   bool started_{false};
+  bool completed_{false};
   std::size_t epochCount_{0};
   std::optional<io::instance::point::Csv> epochs_;
   std::chrono::steady_clock::time_point lastFlush_;
