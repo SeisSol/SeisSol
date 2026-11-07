@@ -10,6 +10,7 @@
 
 #include <doctest.h>
 
+#include "Common/Environment.h"
 #include "Common/Filesystem.h"
 #include "Setup.h"
 
@@ -50,11 +51,9 @@ class ScopedEnvironment {
   private:
   void set(const std::optional<std::string>& value) const {
     if (value.has_value()) {
-      // NOLINTNEXTLINE(concurrency-mt-unsafe)
-      setenv(name_.c_str(), value->c_str(), 1);
+      setEnvironmentVariable(name_.c_str(), value->c_str());
     } else {
-      // NOLINTNEXTLINE(concurrency-mt-unsafe)
-      unsetenv(name_.c_str());
+      unsetEnvironmentVariable(name_.c_str());
     }
   }
 
