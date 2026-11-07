@@ -21,7 +21,8 @@ namespace seissol::monitoring::energy {
  * machine).
  *
  * The node, its CPUs, its memory and its accelerators as the HPE Cray power management counters
- * count them; the CPUs and their memory through RAPL where those counters are not there. The GPUs
+ * count them; the CPUs and their memory through RAPL where those counters are not there; the CPUs
+ * of NVIDIA Grace through the power meters of their sockets where neither counts them. The GPUs
  * of the node through the management library of their vendor, as found on the PCI bus: NVML for
  * NVIDIA, AMD SMI (else ROCm SMI) for AMD, Level Zero (else the hwmon counters of their driver) for
  * Intel; all of them, whether the run uses them or not. With @p devices false, no GPU library is

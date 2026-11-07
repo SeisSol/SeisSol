@@ -17,10 +17,13 @@
 #include "Parallel/MPI.h"
 
 #include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <string>
+#include <thread>
+#include <unistd.h>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -28,12 +31,14 @@ namespace seissol::unit_test {
 namespace {
 using monitoring::energy::Part;
 
-//! @brief A directory that stands in for the root of a machine, with a /sys of its own.
+//! @brief A directory that stands in for the root of a machine, with a /sys of its own: one per
+//! process, as the test cases may run at the same time (ctest -j)
 class FakeRoot {
   public:
   FakeRoot()
       : root_(std::filesystem::temp_directory_path() /
-              ("seissol-energy-test-" + std::to_string(seissol::Mpi::mpi.rank()))) {
+              ("seissol-energy-test-" + std::to_string(getpid()) + "-" +
+               std::to_string(seissol::Mpi::mpi.rank()))) {
     std::filesystem::remove_all(root_);
   }
   ~FakeRoot() { std::filesystem::remove_all(root_); }
@@ -263,6 +268,102 @@ TEST_CASE("The energy meter counts the nodes" * doctest::test_suite("monitoring"
     CHECK(parts->find("accelerators")->find("sensorsPerNode")->find("max")->asDouble() == 2.0);
     CHECK(parts->find("memory") == nullptr);
     CHECK(description.find("nodePowerCap")->find("max")->asDouble() == 2500.0);
+  }
+}
+
+TEST_CASE("Energy from the power meters of NVIDIA Grace" * doctest::test_suite("monitoring")) {
+  using Clock = std::chrono::steady_clock;
+  const auto seconds = [](Clock::duration duration) {
+    return std::chrono::duration<double>(duration).count();
+  };
+  const FakeRoot root;
+  const auto meter = [&](int index, const std::string& label, const std::string& microwatts) {
+    const std::string hwmon = "sys/class/hwmon/hwmon" + std::to_string(index) + "/";
+    root.write(hwmon + "name", "power_meter");
+    if (!label.empty()) {
+      root.write(hwmon + "power1_oem_info", label);
+    }
+    root.write(hwmon + "power1_average", microwatts);
+    root.write(hwmon + "power1_average_interval", "10");
+  };
+  meter(1, "Grace Power Socket 0", "100000000");
+  meter(2, "CPU Power Socket 0", "80000000");
+  meter(3, "SysIO Power Socket 0", "10000000");
+  meter(4, "Grace Power Socket 1", "50000000");
+  // the meter of a server, which says not what it measures
+  meter(5, "", "300000000");
+
+  SUBCASE("The meter of the whole CPU of each socket, integrated") {
+    const auto before = Clock::now();
+    auto sensors = monitoring::energy::gracePowerSensors(root.str());
+    const auto opened = Clock::now();
+    REQUIRE(sensors.size() == 2);
+    REQUIRE(find(sensors, "hwmon/hwmon1/power_meter/Grace Power Socket 0") != nullptr);
+    REQUIRE(find(sensors, "hwmon/hwmon4/power_meter/Grace Power Socket 1") != nullptr);
+    auto& socket = sensors[0]->name().ends_with("Socket 0") ? *sensors[0] : *sensors[1];
+    CHECK(socket.part() == Part::Cpu);
+    CHECK(socket.source() == "hwmon");
+
+    // 100 W since it was opened, up to the read
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    const auto start = Clock::now();
+    const auto first = socket.read();
+    const auto end = Clock::now();
+    REQUIRE(first.has_value());
+    CHECK(first.value().joules >= 100.0 * seconds(start - opened) * (1 - 1e-9));
+    CHECK(first.value().joules <= 100.0 * seconds(end - before) * (1 + 1e-9));
+
+    // the power read last over the time since: a timeout of 10 s for the thread to read 200 W
+    const auto file = std::filesystem::path(root.str()) / "sys/class/hwmon/hwmon1/power1_average";
+    std::ofstream(file.string() + ".new") << "200000000\n";
+    std::filesystem::rename(file.string() + ".new", file);
+    const auto rate = [&] {
+      const auto from = Clock::now();
+      const auto joulesFrom = socket.read().value().joules;
+      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      const auto to = Clock::now();
+      return (socket.read().value().joules - joulesFrom) / seconds(to - from);
+    };
+    const auto deadline = Clock::now() + std::chrono::seconds(10);
+    auto watts = rate();
+    while (watts < 150.0 && Clock::now() < deadline) {
+      watts = rate();
+    }
+    REQUIRE(watts >= 150.0);
+
+    // a read of the meter that fails keeps the power it read last
+    std::filesystem::remove(file);
+    const auto fromStart = Clock::now();
+    const auto from = socket.read().value().joules;
+    const auto fromEnd = Clock::now();
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    const auto toStart = Clock::now();
+    const auto to = socket.read().value().joules;
+    const auto toEnd = Clock::now();
+    CHECK(to - from >= 200.0 * seconds(toStart - fromEnd) * (1 - 1e-9));
+    CHECK(to - from <= 200.0 * seconds(toEnd - fromStart) * (1 + 1e-9));
+  }
+
+  SUBCASE("For the CPUs, where neither pm_counters nor RAPL count them") {
+    CHECK(monitoring::energy::nodeSensors(root.str(), false).size() == 2);
+    root.write("sys/class/powercap/intel-rapl:0/name", "package-0");
+    root.write("sys/class/powercap/intel-rapl:0/energy_uj", "1000");
+    const auto sensors = monitoring::energy::nodeSensors(root.str(), false);
+    REQUIRE(sensors.size() == 1);
+    CHECK(sensors[0]->source() == "powercap");
+  }
+
+  SUBCASE("The energy meter counts them as the energy of the CPUs") {
+    monitoring::Counters counters;
+    monitoring::EnergyMeter meter;
+    meter.setup(counters, true, root.str());
+    REQUIRE(counters.size() == 1);
+    CHECK(counters.info(0).name == "cpuEnergy");
+    const auto description = meter.describe();
+    const auto* cpu = description.find("parts")->find("cpu");
+    REQUIRE(cpu != nullptr);
+    CHECK(cpu->find("sources")->asArray().front().asString() == "hwmon");
+    CHECK(cpu->find("sensorsPerNode")->find("max")->asDouble() == 2.0);
   }
 }
 

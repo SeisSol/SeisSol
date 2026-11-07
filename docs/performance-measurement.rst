@@ -255,7 +255,8 @@ first rank of every node reads the sensors of the node, at every stage of the in
 epoch. The energy counters sum them per part of a node:
 
 * ``nodeEnergy``: the whole node, as the HPE Cray power management counters (``/sys/cray/pm_counters``) count it;
-* ``cpuEnergy`` and ``memoryEnergy``: its CPUs and their memory, from the same counters, else from RAPL;
+* ``cpuEnergy`` and ``memoryEnergy``: its CPUs and their memory, from the same counters, else from RAPL, else, for the
+  CPUs of NVIDIA Grace, from the power meters of their sockets (see below);
 * ``acceleratorEnergy``: its accelerators, as the HPE Cray power management counters count them;
 * ``deviceEnergy``: its GPUs, as the management library of their vendor counts them (NVML, AMD SMI or ROCm SMI, Level
   Zero, else the counters of the i915 and xe drivers), all GPUs of the node, whether the run uses them or not.
@@ -277,6 +278,13 @@ its ends: let ``EpochInterval`` make the epochs some seconds long (see :ref:`ene
 of a machine update). A part whose sensors share a clock, as those of the HPE Cray counters do, takes its power over
 that clock, the other parts over the time of the rank.
 
+The sockets of NVIDIA Grace have power meters, not energy counters: ACPI meters in ``/sys/class/hwmon``, which name
+themselves in ``power1_oem_info``. SeisSol takes the meter of the whole CPU of each socket (``Grace Power Socket <N>``),
+of which those of its cores and of its system I/O (``CPU Power Socket <N>``, ``SysIO Power Socket <N>``) are parts. A
+meter averages the power over an interval of its own (``power1_average_interval``, 50 ms on the GB200 nodes of TACC
+Horizon); a thread of the first rank of the node reads it once per interval and adds it up, so that its energy lags the
+power by up to an interval.
+
 The proxy measures the energy of the node during its timed run the same way, and prints it per part, with the power
 and the GFLOP per joule of the node, else of its GPUs, else of its CPUs (``energy-basis``, ``joules``, ``watts``,
 ``gflopj-nz`` and ``gflopj-hw`` in its JSON output, which are ``none`` and zero where the node measures nothing, or
@@ -291,12 +299,13 @@ What a machine offers for measuring energy differs from machine to machine, and 
 the nodes of HPE Cray EX systems count the energy of the node, of its CPUs, of its memory and of its accelerators in
 ``/sys/cray/pm_counters``; GPUs count their own through the management library of their vendor (NVML, AMD SMI or ROCm
 SMI, Level Zero); RAPL (``/sys/class/powercap``) counts the CPU packages and their memory, which only root may read on
-most kernels. ``scripts/perf/energy_probe.py`` lists the sources a node offers, how often each updates, how long a
-read takes and the smallest step it counts in. With ``run -- <command>``, it measures the energy of the command with
-every source and holds them against each other: the node against the sum of its parts, the GPUs against the
-accelerator counters of the node, the energy counters against their power integrated over time, and all of it against
-the account of Slurm, where the job runs in a step. Run it once per kind of node, as the only job on the node and as
-the user who runs the simulations, for example:
+most kernels; the sockets of NVIDIA Grace measure their power in ``/sys/class/hwmon``.
+``scripts/perf/energy_probe.py`` lists the sources a node offers, how often each updates, how long a read takes and the
+smallest step it counts in. With ``run -- <command>``, it measures the energy of the command with every source and
+holds them against each other: the node against the sum of its parts, the GPUs against the accelerator counters of the
+node, the energy counters against their power integrated over time, and all of it against the account of Slurm, where
+the job runs in a step. Run it once per kind of node, as the only job on the node and as the user who runs the
+simulations, for example:
 
 .. code-block:: bash
 

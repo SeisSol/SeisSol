@@ -11,15 +11,19 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -102,6 +106,103 @@ class MicrojouleSensor : public Sensor {
   std::filesystem::path path_;
   Accumulator accumulator_;
 };
+
+/**
+ * @brief A meter of power in microwatts, as the energy since it was opened: a thread reads it once
+ * per @p interval and adds up the power it read last times the time since.
+ *
+ * A read of the sensor counts the power read last up to the time of the read, so that the energy
+ * it gives never goes back.
+ */
+class PowerMeterSensor : public Sensor {
+  public:
+  PowerMeterSensor(std::string source,
+                   std::string name,
+                   Part part,
+                   std::filesystem::path path,
+                   std::chrono::milliseconds interval)
+      : Sensor(std::move(source), std::move(name), part), path_(std::move(path)),
+        interval_(interval), watts_(readWatts()), last_(Clock::now()) {
+    if (watts_.has_value()) {
+      thread_ = std::thread([this] { sample(); });
+    }
+  }
+
+  ~PowerMeterSensor() override {
+    {
+      const std::scoped_lock lock(mutex_);
+      stop_ = true;
+    }
+    wake_.notify_all();
+    if (thread_.joinable()) {
+      thread_.join();
+    }
+  }
+
+  PowerMeterSensor(const PowerMeterSensor&) = delete;
+  PowerMeterSensor(PowerMeterSensor&&) = delete;
+  auto operator=(const PowerMeterSensor&) = delete;
+  auto operator=(PowerMeterSensor&&) = delete;
+
+  std::optional<EnergyReading> read() override {
+    const std::scoped_lock lock(mutex_);
+    if (!watts_.has_value()) {
+      return {};
+    }
+    return EnergyReading{.joules = joules_ + watts_.value() * seconds(Clock::now() - last_),
+                         .seconds = std::nullopt};
+  }
+
+  private:
+  using Clock = std::chrono::steady_clock;
+
+  static double seconds(Clock::duration duration) {
+    return std::chrono::duration<double>(duration).count();
+  }
+
+  [[nodiscard]] std::optional<double> readWatts() const {
+    const auto text = readSysfsFile(path_.string());
+    if (!text.has_value()) {
+      return {};
+    }
+    const auto microwatts = parseNumber(text.value());
+    if (!microwatts.has_value()) {
+      return {};
+    }
+    return microwatts.value() * 1e-6;
+  }
+
+  void sample() {
+    std::unique_lock lock(mutex_);
+    while (!wake_.wait_for(lock, interval_, [this] { return stop_; })) {
+      lock.unlock();
+      const auto watts = readWatts();
+      lock.lock();
+      const auto now = Clock::now();
+      // the power read last, up to now; a read that fails keeps it
+      joules_ += watts_.value() * seconds(now - last_);
+      last_ = now;
+      if (watts.has_value()) {
+        watts_ = watts;
+      }
+    }
+  }
+
+  std::filesystem::path path_;
+  std::chrono::milliseconds interval_;
+  std::mutex mutex_;
+  std::condition_variable wake_;
+  bool stop_{false};
+  std::optional<double> watts_;
+  double joules_{0};
+  Clock::time_point last_;
+  std::thread thread_;
+};
+
+//! the interval of a power meter that does not give its own, and the bounds of one that does
+constexpr std::chrono::milliseconds PowerMeterInterval{100};
+constexpr std::chrono::milliseconds ShortestPowerMeterInterval{10};
+constexpr std::chrono::milliseconds LongestPowerMeterInterval{1000};
 
 } // namespace
 
@@ -275,6 +376,40 @@ std::vector<std::unique_ptr<Sensor>> hwmonGpuSensors(const std::string& root) {
                                                      Part::Devices,
                                                      hwmon / "energy1_input",
                                                      std::nullopt);
+    if (sensor->read().has_value()) {
+      sensors.push_back(std::move(sensor));
+    }
+  }
+  return sensors;
+}
+
+std::vector<std::unique_ptr<Sensor>> gracePowerSensors(const std::string& root) {
+  std::vector<std::unique_ptr<Sensor>> sensors;
+  for (const auto& hwmon : entries(below(root, "/sys/class/hwmon"))) {
+    const auto driver = readSysfsFile((hwmon / "name").string());
+    const auto label = readSysfsFile((hwmon / "power1_oem_info").string());
+    // the meter of the whole CPU of a socket; those of its cores and of its system I/O are parts
+    // of it
+    if (!driver.has_value() || driver.value() != "power_meter" || !label.has_value() ||
+        !label->starts_with("Grace Power Socket")) {
+      continue;
+    }
+    auto interval = PowerMeterInterval;
+    if (const auto text = readSysfsFile((hwmon / "power1_average_interval").string())) {
+      if (const auto milliseconds = parseNumber(text.value())) {
+        // bounded before it is converted, which a number out of the range of the type is not
+        const auto bounded = std::clamp(milliseconds.value(),
+                                        static_cast<double>(ShortestPowerMeterInterval.count()),
+                                        static_cast<double>(LongestPowerMeterInterval.count()));
+        interval = std::chrono::milliseconds(static_cast<std::chrono::milliseconds::rep>(bounded));
+      }
+    }
+    auto sensor = std::make_unique<PowerMeterSensor>("hwmon",
+                                                     "hwmon/" + hwmon.filename().string() + "/" +
+                                                         driver.value() + "/" + label.value(),
+                                                     Part::Cpu,
+                                                     hwmon / "power1_average",
+                                                     interval);
     if (sensor->read().has_value()) {
       sensors.push_back(std::move(sensor));
     }

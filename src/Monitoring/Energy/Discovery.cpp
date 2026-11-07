@@ -44,6 +44,10 @@ std::vector<std::unique_ptr<Sensor>> nodeSensors(const std::string& root, bool d
       sensors.push_back(std::move(sensor));
     }
   }
+  // the power meters of NVIDIA Grace for the CPUs, where neither counts them
+  if (!measures(sensors, Part::Cpu)) {
+    append(sensors, gracePowerSensors(root));
+  }
 
   if (!devices) {
     return sensors;

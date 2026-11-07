@@ -221,10 +221,14 @@ def hwmon_channels(root, notes):
             sensor = base.split("_")[0]
             quantity = "energy" if base.startswith("energy") else "power"
             label = sensor
-            try:
-                label = read_text(os.path.join(hwmon, sensor + "_label"))
-            except OSError:
-                pass
+            # the label of a sensor, or what an ACPI power meter says it measures (on NVIDIA
+            # Grace: Grace, CPU and SysIO Power Socket <N>, of which SeisSol counts the first)
+            for name in (sensor + "_label", sensor + "_oem_info"):
+                try:
+                    label = read_text(os.path.join(hwmon, name)) or label
+                    break
+                except OSError:
+                    pass
 
             def read(path=path):
                 # energy in microjoules, power in microwatts

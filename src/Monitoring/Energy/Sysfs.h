@@ -60,6 +60,17 @@ std::set<Vendor> gpuVendors(const std::string& root);
 //! @brief The energy counters that the drivers of Intel GPUs (i915, xe) give in hwmon.
 std::vector<std::unique_ptr<Sensor>> hwmonGpuSensors(const std::string& root);
 
+/**
+ * @brief The CPUs of NVIDIA Grace, from the ACPI power meter of each socket in hwmon that names
+ * itself 'Grace Power Socket <N>' (power1_oem_info): the meter of the whole CPU, of which those of
+ * its cores and of its system I/O ('CPU Power Socket <N>', 'SysIO Power Socket <N>') are parts.
+ *
+ * A meter gives the power, averaged over an interval of its own (power1_average_interval, in ms);
+ * its sensor reads it once per interval, in a thread of its own, and adds it up, so that the energy
+ * lags the power by up to an interval.
+ */
+std::vector<std::unique_ptr<Sensor>> gracePowerSensors(const std::string& root);
+
 //! @brief The content of the file at @p path, without the whitespace around it.
 std::optional<std::string> readSysfsFile(const std::string& path);
 
