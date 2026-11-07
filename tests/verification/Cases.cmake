@@ -45,6 +45,22 @@ seissol_add_minitest(
     ACTIVITY "v1:1e-12"
     LABELS "smoke;threads")
 
+# The task graph on the host with a single thread per rank, through two epochs (the receivers
+# write after 10 of the 20 steps): each epoch is a parallel region of one thread, whose halo
+# exchange runs in detached tasks. LLVM's OpenMP runtime fails at the second one before version 19;
+# SeisSol keeps the static schedule there.
+seissol_add_minitest(
+    NAME smoke-box48-taskgraph-mpi2
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    RANKS 2
+    SET "Output.ReceiverOutputInterval=0.0006103515625"
+    ENV "SEISSOL_HOST_TASK_GRAPH=1"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    LABELS "smoke;mpi;taskgraph")
+
 # plasticity is a runtime switch, so it needs no separate build; its
 # parameters come from the material file
 seissol_add_minitest(
@@ -162,6 +178,34 @@ seissol_add_comparison(
     TOLERANCE 0
     LABELS "bitwise;threads")
 
+seissol_add_comparison(
+    NAME bitwise-box48-taskgraph-mpi2
+    REFERENCE smoke-box48
+    CANDIDATE smoke-box48-taskgraph-mpi2
+    TOLERANCE 0
+    LABELS "bitwise;mpi;taskgraph")
+
+# Along the time stepping plan (SEISSOL_TIMESTEPPING_PLAN, see TimeManager::followPlan), with the
+# ghost clusters of two ranks, through two epochs: the same run, bit for bit.
+seissol_add_minitest(
+    NAME smoke-box48-plan-mpi2
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    RANKS 2
+    SET "Output.ReceiverOutputInterval=0.0006103515625"
+    ENV "SEISSOL_TIMESTEPPING_PLAN=1"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    LABELS "smoke;mpi;plan")
+
+seissol_add_comparison(
+    NAME bitwise-box48-plan-mpi2
+    REFERENCE smoke-box48
+    CANDIDATE smoke-box48-plan-mpi2
+    TOLERANCE 0
+    LABELS "bitwise;mpi;plan")
+
 # A welded fault is the absence of a fault: fault48 and box48 are the same
 # mesh apart from the tag on the plane x = 0, and the rupture quadrature is
 # exact for the polynomial degrees involved, so the two runs differ by
@@ -175,6 +219,131 @@ seissol_add_comparison(
     TOLERANCE 1e-6
     LABELS "identity;dr")
 
+
+# ---------------------------------------------------------------------------
+# Several configurations in one run. ConfigMap puts the cells beyond the split
+# plane of mat48 (group 2) into another configuration of the executable than
+# the cells before it, so that each face of the plane joins the two. The pairs
+# are those of the set ci-interaction (cmake/confignames.cmake): across their
+# faces, the time integrals of a neighbor change order and precision, within a
+# family (elastic, viscoelastic and anisotropic; acoustic and viscoacoustic) and
+# between the families (a solid, a fluid and a poroelastic solid). A case runs in
+# the configuration of the near half, in a build that holds both; the material
+# file has a medium for each half. Only a
+# pair in double precision keeps a snapshot reference: in another environment,
+# a run that is partly single precision deviates from its reference by more
+# than the snapshot tolerance of double precision allows.
+# ---------------------------------------------------------------------------
+
+foreach (pair
+    elastic-o6-f64:acoustic-o4-f64:solid-fluid
+    elastic-o6-f64:viscoelastic-m3-o5-f32:solid-solid
+    elastic-o6-f64:anisotropic-o6-f64:solid-uniform
+    anisotropic-o6-f64:viscoelastic-m3-o5-f32:solid-solid
+    acoustic-o4-f64:elastic-o6-f64:fluid-solid
+    acoustic-o4-f64:anisotropic-o6-f64:fluid-solid
+    elastic-o6-f64:poroelastic-o5-f64:solid-poro
+    poroelastic-o5-f64:acoustic-o4-f64:poro-fluid
+    viscoelastic-m3-o5-f32:viscoacoustic-m3-o4-f32:solid-fluid
+    acoustic-o4-f64:viscoacoustic-m3-o4-f32:fluid-fluid)
+  string(REPLACE ":" ";" pair ${pair})
+  list(GET pair 0 near)
+  list(GET pair 1 far)
+  list(GET pair 2 media)
+  set(snapshot "")
+  if (near MATCHES "-f32" OR far MATCHES "-f32")
+    set(snapshot NO_SNAPSHOT)
+  endif()
+  set(interaction
+      MESH mat48
+      PARAMETERS wave.par
+      MATERIAL material-interaction-${media}.yaml
+      STEPS 20
+      REQUIRE configuration=${near} configurations=${far}
+      # the relaxation frequencies are read where a configuration of the run is anelastic
+      SET "equations.ConfigMap='2:${far}'" "equations.FreqCentral=60.0" "equations.FreqRatio=100.0")
+  seissol_add_minitest(
+      NAME interaction-${near}-${far}
+      ${interaction}
+      ${snapshot}
+      ACTIVITY "v1:1e-12"
+      LABELS "smoke;interaction")
+  seissol_add_minitest(
+      NAME null-interaction-${near}-${far}
+      ${interaction}
+      SET ${SEISSOL_ZERO_STATE}
+      EXPECT_ZERO
+      LABELS "null;interaction")
+endforeach()
+
+# The solid of material-interaction-solid-uniform.yaml is isotropic, also as the stiffness tensor
+# that an anisotropic configuration reads: with the far half anisotropic, the run solves the same
+# problem as one with both halves elastic, apart from rounding, the Riemann problem at the plane
+# included, which it poses in the anisotropic material. (A planar wave is set up from one cell per
+# configuration, so that it is the same wave in both runs in a uniform medium only; the Riemann
+# problem between different solids is held against the isotropic one by a unit test.) Compared
+# sample by sample, the two runs differ by 1e-14 relative to the values, and by up to 2e-8 where a
+# small stress component crosses zero; an error in the conversion or the Riemann problem gives a
+# difference of order one.
+seissol_add_minitest(
+    NAME interaction-elastic-o6-f64-alone
+    MESH mat48
+    PARAMETERS wave.par
+    MATERIAL material-interaction-solid-uniform.yaml
+    STEPS 20
+    REQUIRE configuration=elastic-o6-f64 configurations=anisotropic-o6-f64
+    NO_SNAPSHOT
+    ACTIVITY "v1:1e-12"
+    LABELS "smoke;interaction")
+seissol_add_comparison(
+    NAME identity-interaction-anisotropic
+    REFERENCE interaction-elastic-o6-f64-alone
+    CANDIDATE interaction-elastic-o6-f64-anisotropic-o6-f64
+    TOLERANCE 1e-6
+    LABELS "identity;interaction")
+
+# Likewise, the solid of material-interaction-fluid-solid.yaml is isotropic as a stiffness tensor:
+# with the far half anisotropic, the run solves the same problem as with the far half elastic, the
+# face to the fluid included, whose Riemann problem takes the impedance of the anisotropic solid
+# from its Christoffel matrix.
+seissol_add_comparison(
+    NAME identity-interaction-anisotropic-fluid
+    REFERENCE interaction-acoustic-o4-f64-elastic-o6-f64
+    CANDIDATE interaction-acoustic-o4-f64-anisotropic-o6-f64
+    TOLERANCE 1e-6
+    LABELS "identity;interaction")
+
+# Two poroelastic sandstones in the halves of mat48, in one configuration: with the pore pressure
+# continuous across the boundary of their groups (open), with a skin at it (skin), and with a skin
+# of a conductance so large (nearly-open) that it solves the same problem as open apart from
+# rounding. The Riemann problem at a face with a skin is posed with the impedances of both sides,
+# the one of open faces with the eigenvectors of the poroelastic material.
+foreach (pores open nearly-open skin)
+  set(poroelastic
+      MESH mat48
+      PARAMETERS wave.par
+      MATERIAL material-interaction-poro-${pores}.yaml
+      STEPS 20
+      REQUIRE configuration=poroelastic-o5-f64)
+  seissol_add_minitest(
+      NAME interaction-poroelastic-o5-f64-${pores}
+      ${poroelastic}
+      NO_SNAPSHOT
+      ACTIVITY "v1:1e-12"
+      LABELS "smoke;interaction")
+  seissol_add_minitest(
+      NAME null-interaction-poroelastic-o5-f64-${pores}
+      ${poroelastic}
+      SET ${SEISSOL_ZERO_STATE}
+      EXPECT_ZERO
+      LABELS "null;interaction")
+endforeach()
+seissol_add_comparison(
+    NAME identity-interaction-poroelastic-skin
+    REFERENCE interaction-poroelastic-o5-f64-open
+    CANDIDATE interaction-poroelastic-o5-f64-nearly-open
+    TOLERANCE 1e-6
+    LABELS "identity;interaction")
 
 # ---------------------------------------------------------------------------
 # Friction laws (seissol_add_rupture).
@@ -270,6 +439,31 @@ seissol_add_comparison(
     CANDIDATE rupture-lsw-mpi4
     TOLERANCE 0
     LABELS "bitwise;mpi;dr")
+
+# The clusters take their steps along the time stepping plan (SEISSOL_TIMESTEPPING_PLAN, see
+# TimeManager::followPlan) instead of deciding them as actors: the same run, bit for bit, with the
+# faces of a fault and through two epochs (the receivers write after 32 of the 64 steps).
+seissol_add_rupture(NAME rupture-lsw-plan FL 16 FAULT fault-lsw.yaml NO_SNAPSHOT
+                    SET "Output.ReceiverOutputInterval=0.001953125"
+                    ENV "SEISSOL_TIMESTEPPING_PLAN=1"
+                    LABELS plan)
+seissol_add_comparison(
+    NAME bitwise-rupture-lsw-plan
+    REFERENCE rupture-lsw
+    CANDIDATE rupture-lsw-plan
+    TOLERANCE 0
+    LABELS "bitwise;dr;plan")
+# the faces of a layer are solved by the threads side by side, and a law that keeps the scratch of
+# a face in itself shares it among them: thermal pressurization prepares coefficients for a face
+# that the slip-rate solve reads afterwards
+seissol_add_rupture(NAME rupture-rs-fvw-tp-threads4 FL 103 FAULT fault-rs-fvw-tp.yaml
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} THREADS 4 LABELS threads)
+seissol_add_comparison(
+    NAME bitwise-rupture-rs-fvw-tp-threads4
+    REFERENCE rupture-rs-fvw-tp
+    CANDIDATE rupture-rs-fvw-tp-threads4
+    TOLERANCE 0
+    LABELS "bitwise;threads;dr")
 
 # a deprecated spelling of the same law has to give the same run
 seissol_add_comparison(

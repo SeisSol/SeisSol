@@ -43,6 +43,7 @@
 #include "Model/ScriptParameters.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
 #include "Parallel/Helper.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
@@ -50,7 +51,6 @@
 #include "Physics/ScriptScope.h"
 #include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
-#include "Solver/Estimator.h"
 
 #include <algorithm>
 #include <array>
@@ -61,16 +61,14 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
-#include <utils/env.h>
 #include <utils/logger.h>
-#include <utils/stringutils.h>
 #include <vector>
 
 namespace seissol::initializer::initprocedure {
 
 namespace {
 
-using Plasticity = seissol::model::Plasticity;
+using seissol::model::Plasticity;
 
 // The material of the cell at `position`, which holds it in its own configuration. A function of
 // its own rather than part of the body of the loop over the cells: with the lambda in an OpenMP
@@ -172,8 +170,8 @@ void initializeCellMaterialOfConfig(
       continue;
     }
 
-    auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* materialDataArray = layer.var<LTS::MaterialData>(Cfg());
 
     if (layer.getIdentifier().halo == HaloType::Ghost) {
@@ -184,8 +182,8 @@ void initializeCellMaterialOfConfig(
         const auto meshId = localSecondaryInformation.meshId;
         const auto& linear = meshReader.linearGhostlayer()[meshId];
 
-        // explicitly use polymorphic pointer arithmetic here
-        // NOLINTNEXTLINE
+        // the layer holds materials of exactly this type
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
         auto& materialData = materialDataArray[cell];
 
         const auto neighborRank = linear.rank;
@@ -208,8 +206,8 @@ void initializeCellMaterialOfConfig(
         const auto& localMaterial = materialsDB[position(meshId)];
         const auto& localCellInformation = cellInformation[cell];
 
-        // explicitly use polymorphic pointer arithmetic here
-        // NOLINTNEXTLINE
+        // the layer holds materials of exactly this type
+        // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
         auto& materialData = materialDataArray[cell];
         initAssign(materialData, localMaterial);
         material.local = &materialData;
@@ -408,7 +406,7 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                            seissolParams.model.plasticity,
                            seissolInstance.gravitationSetup().acceleration);
 
-  auto itmParameters = seissolInstance.parameters().model.itmParameters;
+  const auto itmParameters = seissolInstance.parameters().model.itmParameters;
 
   if (itmParameters.itmEnabled) {
     auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
@@ -433,36 +431,6 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   }
 }
 
-void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
-  if constexpr (isDeviceOn()) {
-    logInfo() << "Determine Host-Device switchpoint";
-
-    const auto hdswitch = seissolInstance.env().get<std::string>("DEVICE_HOST_SWITCH", "none");
-    bool hdenabled = false;
-    if (hdswitch == "none") {
-      hdenabled = false;
-      logInfo() << "No host-device switching. Everything runs on the GPU.";
-    } else if (hdswitch == "auto") {
-      hdenabled = true;
-      logInfo() << "Automatic host-device switchpoint detection.";
-      const auto hdswitchInt = solver::hostDeviceSwitch();
-      seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
-    } else {
-      hdenabled = true;
-      const auto hdswitchInt = utils::StringUtils::parse<int>(hdswitch);
-      logInfo() << "Manual host-device cutoff set to" << hdswitchInt << ".";
-      seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
-    }
-
-    const bool usmDefault = useUSM();
-
-    if (!usmDefault && hdenabled) {
-      logWarning() << "Using the host-device execution on non-USM systems is not fully supported "
-                      "yet. Expect incorrect results.";
-    }
-  }
-}
-
 void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
   // set up scratchpads for WP (i.e. mostly for boundary conditions).
@@ -474,7 +442,10 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
 
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForWp(
         seissolInstance.parameters().model.plasticity, ltsStorage);
-    ltsStorage.allocateScratchPads();
+    ltsStorage.allocateScratchPads(useScratchpadPerLayer(seissolInstance.env()) ||
+                                           useConcurrentClusters(seissolInstance.env())
+                                       ? initializer::ScratchpadSharing::PerLayer
+                                       : initializer::ScratchpadSharing::Shared);
   }
 
   auto& mm = seissolInstance.memoryManager();
@@ -495,7 +466,7 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Begin init model.";
 
   // Call the pre mesh initialization hook
-  seissol::Modules::callHook<ModuleHook::PreModel>();
+  seissolInstance.modules().callHook<ModuleHook::PreModel>();
 
   seissol::Stopwatch watch;
   watch.start();
@@ -535,8 +506,6 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Initialize cell material parameters.";
   initializeCellMaterial(seissolInstance);
 
-  hostDeviceCoexecution(seissolInstance);
-
   // init memory layout (needs cell material values to initialize e.g. displacements correctly)
   logInfo() << "Initialize Memory layout.";
   initializeMemoryLayout(seissolInstance);
@@ -545,11 +514,12 @@ void initModel(seissol::SeisSol& seissolInstance) {
   logInfo() << "Initialize cell-local matrices.";
   initializeCellMatrices(seissolInstance);
 
-  watch.pause();
-  watch.printTime("Model initialized in:");
+  auto& summary = seissolInstance.runSummary();
+  summary.setRankValue("initModel", watch.pause());
+  summary["time"]["init"]["model"] = monitoring::toJson(watch.printTime("Model initialized in:"));
 
   // Call the post mesh initialization hook
-  seissol::Modules::callHook<ModuleHook::PostModel>();
+  seissolInstance.modules().callHook<ModuleHook::PostModel>();
 
   logInfo() << "End init model.";
 }

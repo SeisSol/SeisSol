@@ -12,7 +12,7 @@
 
 #include <cmath>
 
-namespace seissol::gaussianNucleationFunction {
+namespace seissol::gaussian_nucleation_function {
 /**
  * Implementation of the gaussian nucleation function, which is widely used in the TPV benchmarks.
  */
@@ -97,6 +97,6 @@ SEISSOL_HOSTDEVICE inline T smoothStepIncrement(T currentTime, T dt, T t0) {
   return std::exp(previousExponent) * std::expm1(deltaExponent);
 }
 
-} // namespace seissol::gaussianNucleationFunction
+} // namespace seissol::gaussian_nucleation_function
 
 #endif // SEISSOL_SRC_NUMERICAL_GAUSSIANNUCLEATIONFUNCTION_H_

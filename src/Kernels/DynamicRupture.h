@@ -51,7 +51,6 @@ class DynamicRupture : public Kernel<Cfg> {
       const real* timeDerivativeMinusPrefetch,
       const real* coeffs);
 
-  // NOLINTNEXTLINE
   void batchedSpaceTimeInterpolation(recording::DrConditionalPointersToRealsTable& table,
                                      const real* coeffs,
                                      seissol::parallel::runtime::StreamRuntime& runtime);

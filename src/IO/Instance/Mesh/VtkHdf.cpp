@@ -7,7 +7,6 @@
 
 #include "VtkHdf.h"
 
-#include "Common/Filesystem.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
@@ -33,7 +32,7 @@
 #include <vector>
 
 namespace seissol::io::instance::mesh {
-VtkHdfWriter::VtkHdfWriter(const std::string& name,
+VtkHdfWriter::VtkHdfWriter(std::string name,
                            std::size_t localElementCount,
                            geometry::Shape shape,
                            std::size_t targetDegree,
@@ -41,7 +40,8 @@ VtkHdfWriter::VtkHdfWriter(const std::string& name,
                            std::int32_t compress,
                            bool constFile,
                            std::optional<VertexMap> vertexMap)
-    : name_(name), localElementCount_(localElementCount), globalElementCount_(localElementCount),
+    : name_(std::move(name)), localElementCount_(localElementCount),
+      globalElementCount_(localElementCount),
       pointsPerElement_(
           geometry::numPoints(std::max(targetDegree, static_cast<std::size_t>(1)), shape)),
       type_(geometry::vtkType(shape)), targetDegree_(targetDegree), constFile_(constFile),
@@ -335,7 +335,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
         // the .pvd and the links between the files name them relative to the directory they are
         // in, which is the one of the file that refers to them
         const auto inDirectory = [](const std::string& path) {
-          return seissol::filesystem::path(path).filename().string();
+          return std::filesystem::path(path).filename().string();
         };
         // a time series is one file holding every step; a snapshot is one file per step
         const auto suffix = self.temporal_ ? std::string() : "-" + std::to_string(counter);
@@ -378,8 +378,8 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> VtkHdfWri
         // A time series carries its own step list, and every step would enter the collection under
         // the same file name, so there is nothing for a pvd to say.
         if (!self.temporal_) {
-          writer.addInstructions(
-              pvu.add(filenamePvu, {metadata::makePvuDataset({filenameFile, time})}));
+          writer.addInstructions(pvu.add(
+              filenamePvu, {metadata::makePvuDataset({.file = filenameFile, .timestep = time})}));
         }
         return writer;
       };

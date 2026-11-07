@@ -16,7 +16,8 @@
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
-#include <stdlib.h>
+// posix_memalign is POSIX and only declared by the C header
+#include <stdlib.h> // NOLINT(modernize-deprecated-headers)
 #include <type_traits>
 #include <utils/logger.h>
 #include <vector>
@@ -191,8 +192,8 @@ void* hostToDevicePointer(void* host, enum Memkind memkind) {
 
 void printMemoryAlignment(const std::vector<std::vector<unsigned long long>>& memoryAlignment) {
   logDebug() << "Printing memory alignment per struct";
-  for (unsigned long long i = 0; i < memoryAlignment.size(); i++) {
-    logDebug() << memoryAlignment[i][0] << "," << memoryAlignment[i][1];
+  for (const auto& alignment : memoryAlignment) {
+    logDebug() << alignment[0] << "," << alignment[1];
   }
 }
 

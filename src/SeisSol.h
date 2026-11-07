@@ -11,9 +11,13 @@
 
 #include "Common/Executor.h"
 #include "IO/Manager.h"
+#include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
+#include "Modules/Modules.h"
+#include "Monitoring/EpochSynchronization.h"
 #include "Monitoring/FlopCounter.h"
+#include "Monitoring/RunSummary.h"
 #include "Parallel/Pin.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
@@ -32,6 +36,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
@@ -43,16 +48,44 @@ class MeshReader;
 } // namespace geometry
 
 /**
+ * Subobjects which every member of SeisSol relies on.
+ *
+ * Base class subobjects are initialized before any non-static data member and destroyed after
+ * all of them. Every member of SeisSol therefore finds these set up, while it is constructed as
+ * well as while it is destroyed, whatever order the members are declared in.
+ *
+ * Pinning has to be set up before the first OpenMP call: MPI sets the affinity mask for the
+ * process, and the OpenMP runtime replaces it with the pinning given by e.g. OMP_PLACES as soon
+ * as it starts up. That is why it comes first.
+ *
+ * The members read their settings from the environment, some of them already in their
+ * constructor.
+ *
+ * Modules holds non-owning pointers to the modules registered with it. All of those are members
+ * of SeisSol.
+ */
+class SeisSolCore {
+  protected:
+  explicit SeisSolCore(utils::Env env) : env_(std::move(env)) {}
+
+  parallel::Pinning pinning_;
+  utils::Env env_;
+  Modules modules_;
+};
+
+/**
  * @todo Initialize rank
  */
-class SeisSol {
+class SeisSol : private SeisSolCore {
   public:
   /**
    * Cleanup data structures
    */
-  virtual ~SeisSol() { delete meshReader_; }
+  virtual ~SeisSol();
 
   const parallel::Pinning& pinning() { return pinning_; }
+
+  Modules& modules() { return modules_; }
 
   /**
    * Initialize C++ part of the program
@@ -60,16 +93,38 @@ class SeisSol {
   bool init();
 
   /**
-   * Finalize SeisSol
+   * Finalize SeisSol; and MPI with it, unless another instance runs after this one (see
+   * discretization.vertexweightcycles).
    */
-  void finalize();
+  void finalize(bool finalizeMpi = true);
+
+  /**
+   * The costs of the cells measured in the run before (in this process), which partition the mesh
+   * of this run; none by default. They have to outlive the initialization.
+   */
+  void setMeasuredCosts(const initializer::MeasuredCellCosts* costs) { measuredCosts_ = costs; }
+  [[nodiscard]] const initializer::MeasuredCellCosts* measuredCosts() const {
+    return measuredCosts_;
+  }
+
+  /**
+   * Makes this run a short one that measures what the cells cost, for the partition of the next
+   * one: it runs `steps` time steps of the largest time cluster, and keeps the costs (cellCosts()).
+   */
+  void setMeasuringSteps(unsigned steps) { measuringSteps_ = steps; }
+  [[nodiscard]] std::optional<unsigned> measuringSteps() const { return measuringSteps_; }
+
+  //! what the cells cost in this run, where it measured that
+  std::optional<initializer::MeasuredCellCosts>& cellCosts() { return cellCosts_; }
 
   void loadCheckpoint(const std::string& file);
 
   Executor executionPlace(std::size_t clusterSize) {
     constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
     if (executionPlaceCutoff_.has_value()) {
-      if (executionPlaceCutoff_.value() <= clusterSize) {
+      // An empty cluster computes nothing anywhere. On the host, it would only make its neighbors
+      // exchange data with the host, and keep super-timesteps from getting recorded.
+      if (executionPlaceCutoff_.value() <= clusterSize || clusterSize == 0) {
         return DefaultDevice;
       } else {
         return Executor::Host;
@@ -83,7 +138,7 @@ class SeisSol {
 
   initializer::MemoryManager& memoryManager() { return *memoryManager_; }
 
-  time_stepping::TimeManager& timeManager() { return timeManager_; }
+  solver::TimeManager& timeManager() { return timeManager_; }
 
   Simulator& simulator() { return simulator_; }
 
@@ -119,7 +174,17 @@ class SeisSol {
   monitoring::FlopCounter& flopCounter() { return flopCounter_; }
 
   /**
-   * Get the mini SeisSol writer; it holds the measurement until the output directory exists
+   * Get the summary of the run, which it writes for programs to read
+   */
+  monitoring::RunSummary& runSummary() { return runSummary_; }
+
+  /**
+   * Get the synchronization points that end the simulation epochs of their own
+   */
+  monitoring::EpochSynchronization& epochSynchronization() { return epochSynchronization_; }
+
+  /**
+   * Get the mini SeisSol writer; it holds the measurement until the output is set up
    */
   writer::MiniSeisSolWriter& miniSeisSolWriter() { return miniSeisSolWriter_; }
 
@@ -134,13 +199,7 @@ class SeisSol {
   /**
    * Set the mesh reader
    */
-  void setMeshReader(seissol::geometry::MeshReader* meshReader) {
-    if (meshReader_ != nullptr) {
-      logError() << "Mesh reader already initialized";
-    }
-
-    meshReader_ = meshReader;
-  }
+  void setMeshReader(std::unique_ptr<seissol::geometry::MeshReader> meshReader);
 
   /**
    * Get the mesh reader
@@ -199,19 +258,21 @@ class SeisSol {
 
   utils::Env& env() { return env_; }
 
-  private:
-  // Note: This HAS to be the first member so that it is initialized before all others!
-  // Otherwise it will NOT work.
-  // The reason for this is simple yet weird:
-  // MPI sets the affinity mask for the process
-  // After the first OpenMP call, the OMP runtime sets the pining specified in e.g. OMP_PLACES
-  // => Initialize it first, to avoid this.
-  parallel::Pinning pinning_;
+  /**
+   * Sets the ID of this run (see Common/RunId.h); the same on every rank.
+   */
+  void setRunId(const std::string& runId) { runId_ = runId; }
 
+  /**
+   * The ID of this run, which every file of its output carries.
+   */
+  const std::string& runId() const { return runId_; }
+
+  private:
   seissol::io::OutputManager outputManager_;
 
   //! Collection of Parameters
-  const seissol::initializer::parameters::SeisSolParameters& seissolParameters_;
+  seissol::initializer::parameters::SeisSolParameters seissolParameters_;
 
   //! Gravitation setup for tsunami boundary condition
   GravitationSetup gravitationSetup_;
@@ -220,13 +281,13 @@ class SeisSol {
   io::AsyncIO asyncIO_;
 
   //! Mesh Reader
-  seissol::geometry::MeshReader* meshReader_{nullptr};
+  std::unique_ptr<seissol::geometry::MeshReader> meshReader_;
 
   //! Memory Manager
   std::unique_ptr<initializer::MemoryManager> memoryManager_{nullptr};
 
   //! Time Manager
-  time_stepping::TimeManager timeManager_;
+  solver::TimeManager timeManager_;
 
   //! Simulator
   Simulator simulator_;
@@ -252,6 +313,12 @@ class SeisSol {
   //! Flop Counter
   monitoring::FlopCounter flopCounter_;
 
+  //! Run summary
+  monitoring::RunSummary runSummary_;
+
+  //! Synchronization points that end the simulation epochs of their own
+  monitoring::EpochSynchronization epochSynchronization_;
+
   //! Mini SeisSol measurement, written with the rest of the output
   writer::MiniSeisSolWriter miniSeisSolWriter_;
 
@@ -263,18 +330,22 @@ class SeisSol {
 
   std::optional<std::string> checkpointLoadFile_;
 
+  const initializer::MeasuredCellCosts* measuredCosts_{nullptr};
+  std::optional<unsigned> measuringSteps_;
+  std::optional<initializer::MeasuredCellCosts> cellCosts_;
+
   std::optional<std::size_t> executionPlaceCutoff_;
 
-  utils::Env env_;
+  std::string runId_;
 
   double timestepScale_{1.0};
   std::vector<std::uint64_t> effectiveClusterRates_;
 
   public:
-  SeisSol(const initializer::parameters::SeisSolParameters& parameters, const utils::Env& env)
-      : outputManager_(*this), seissolParameters_(parameters),
-        memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
-        analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this), env_(env) {}
+  SeisSol(initializer::parameters::SeisSolParameters parameters, const utils::Env& env)
+      : SeisSolCore(env), outputManager_(*this), seissolParameters_(std::move(parameters)),
+        asyncIO_(env_), memoryManager_(std::make_unique<initializer::MemoryManager>(*this)),
+        timeManager_(*this), analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

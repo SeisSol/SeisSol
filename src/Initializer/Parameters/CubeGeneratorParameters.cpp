@@ -38,25 +38,25 @@ CubeGeneratorParameters readCubeGeneratorParameters(ParameterReader* baseReader)
   const double cubeTx = reader->readWithDefault("cubetx", 0.0);
   const double cubeTy = reader->readWithDefault("cubety", 0.0);
   const double cubeTz = reader->readWithDefault("cubetz", 0.0);
-  return CubeGeneratorParameters{cubeMinX,
-                                 cubeMaxX,
-                                 cubeMinY,
-                                 cubeMaxY,
-                                 cubeMinZ,
-                                 cubeMaxZ,
-                                 cubeX,
-                                 cubeY,
-                                 cubeZ,
-                                 cubePx,
-                                 cubePy,
-                                 cubePz,
-                                 cubeS,
-                                 cubeSx,
-                                 cubeSy,
-                                 cubeSz,
-                                 cubeTx,
-                                 cubeTy,
-                                 cubeTz};
+  return CubeGeneratorParameters{.cubeMinX = cubeMinX,
+                                 .cubeMaxX = cubeMaxX,
+                                 .cubeMinY = cubeMinY,
+                                 .cubeMaxY = cubeMaxY,
+                                 .cubeMinZ = cubeMinZ,
+                                 .cubeMaxZ = cubeMaxZ,
+                                 .cubeX = cubeX,
+                                 .cubeY = cubeY,
+                                 .cubeZ = cubeZ,
+                                 .cubePx = cubePx,
+                                 .cubePy = cubePy,
+                                 .cubePz = cubePz,
+                                 .cubeS = cubeS,
+                                 .cubeSx = cubeSx,
+                                 .cubeSy = cubeSy,
+                                 .cubeSz = cubeSz,
+                                 .cubeTx = cubeTx,
+                                 .cubeTy = cubeTy,
+                                 .cubeTz = cubeTz};
 }
 
 void discardCubeGeneratorParameters(ParameterReader* baseReader) {

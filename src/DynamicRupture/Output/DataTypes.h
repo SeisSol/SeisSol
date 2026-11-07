@@ -17,12 +17,14 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Backmap.h"
 #include "Parallel/DataCollector.h"
+#include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -111,29 +113,48 @@ using Var1D = VarT<1>;
 using Var2D = VarT<2>;
 using Var3D = VarT<3>;
 
-// Description is given in `enum VariableID`
+/// The variables of the fault output, in the order of the constants of VariableID.
 using DrVarsT =
     std::tuple<Var2D, Var3D, Var1D, Var2D, Var3D, Var2D, Var1D, Var1D, Var1D, Var1D, Var1D, Var2D>;
 
-enum DirectionID { Strike = 0, Dip = 1, Normal = 2 };
-enum TPID { Pressure = 0, Temperature = 1 };
-enum ParamID { FrictionCoefficient = 0, State = 1 };
-
-enum VariableID {
-  SlipRate = 0,
-  TransientTractions,
-  NormalVelocity,
-  FrictionAndState,
-  TotalTractions,
-  Slip,
-  RuptureVelocity,
-  AccumulatedSlip,
-  PeakSlipRate,
-  RuptureTime,
-  DynamicStressTime,
-  ThermalPressurizationVariables,
-  Size
+/// The components of the vector variables of the fault output.
+struct DirectionID {
+  static constexpr std::size_t Strike = 0;
+  static constexpr std::size_t Dip = 1;
+  static constexpr std::size_t Normal = 2;
 };
+
+/// The components of the thermal pressurization variable of the fault output.
+struct TPID {
+  static constexpr std::size_t Pressure = 0;
+  static constexpr std::size_t Temperature = 1;
+};
+
+/// The components of the friction and state variable of the fault output.
+struct ParamID {
+  static constexpr std::size_t FrictionCoefficient = 0;
+  static constexpr std::size_t State = 1;
+};
+
+/// The variables of the fault output, as indices into DrVarsT and VariableLabels.
+struct VariableID {
+  static constexpr std::size_t SlipRate = 0;
+  static constexpr std::size_t TransientTractions = 1;
+  static constexpr std::size_t NormalVelocity = 2;
+  static constexpr std::size_t FrictionAndState = 3;
+  static constexpr std::size_t TotalTractions = 4;
+  static constexpr std::size_t Slip = 5;
+  static constexpr std::size_t RuptureVelocity = 6;
+  static constexpr std::size_t AccumulatedSlip = 7;
+  static constexpr std::size_t PeakSlipRate = 8;
+  static constexpr std::size_t RuptureTime = 9;
+  static constexpr std::size_t DynamicStressTime = 10;
+  static constexpr std::size_t ThermalPressurizationVariables = 11;
+  static constexpr std::size_t Size = 12;
+};
+
+static_assert(std::tuple_size_v<DrVarsT> == VariableID::Size,
+              "DrVarsT holds one entry per variable of VariableID.");
 
 const inline std::vector<std::vector<std::string>> VariableLabels = {{"SRs", "SRd"},
                                                                      {"T_s", "T_d", "P_n"},
@@ -268,8 +289,49 @@ struct ReceiverOutputData {
   std::unique_ptr<parallel::DataCollectorUntyped> deviceDataCollector;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollectorUntyped>> deviceVariables;
+  /// the variables of the faces, all gathered by one kernel; null without any
+  std::unique_ptr<parallel::DataCollectorUntyped> deviceVariables;
+  /// the set of each variable (by its index in the storage) in deviceVariables
+  std::unordered_map<std::size_t, std::size_t> deviceVariableSets;
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
+
+  /// with the host actor (instead of the extra runtime): the samples, taken once the device has
+  /// gathered the data of a step into a buffer of its own: the start of the step (at run time), the
+  /// derivatives at dataOffset, the variables at variablesOffset
+  std::unique_ptr<parallel::runtime::HostActor::Queue> hostQueue;
+  std::size_t dataOffset{0};
+  std::size_t variablesOffset{0};
+  /// the buffer that the work of the host actor reads at the moment; null for the collectors
+  const void* gathered{nullptr};
+
+  /// block `index` of the gathered derivatives
+  [[nodiscard]] const void* gatheredData(std::size_t index) const {
+    if (gathered != nullptr) {
+      return deviceDataCollector->get(
+          0, index, static_cast<const std::uint8_t*>(gathered) + dataOffset);
+    }
+    return deviceDataCollector->get(index);
+  }
+
+  /// the gathered variable of set `set` of face `face`
+  [[nodiscard]] const void* gatheredVariable(std::size_t set, std::size_t face) const {
+    if (gathered != nullptr) {
+      return deviceVariables->get(
+          set, face, static_cast<const std::uint8_t*>(gathered) + variablesOffset);
+    }
+    return deviceVariables->get(set, face);
+  }
+
+  /// a variable of the friction state of all faces, one face after the other
+  struct FaceData {
+    std::vector<std::uint8_t> data;
+    std::size_t faceBytes{0};
+  };
+
+  /// The friction state of the faces at the start of the current time step, by variable (its index
+  /// in the storage); the samples within the step interpolate between it and the state at the end.
+  /// Empty before the first time step.
+  std::unordered_map<std::size_t, FaceData> stepStart;
 };
 } // namespace seissol::dr
 

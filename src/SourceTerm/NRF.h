@@ -17,11 +17,9 @@
 
 namespace seissol::sourceterm {
 
-// (NOTE: naming also used in rconv; hence avoid clang-tidy styleguiding here)
-
-// NOLINTBEGIN
-
-typedef struct Subfault_units {
+// named like the compound type of NRF files that rconv writes with it
+// NOLINTNEXTLINE(readability-identifier-naming)
+struct Subfault_units {
   char* tinit;
   char* timestep;
   char* mu;
@@ -29,9 +27,7 @@ typedef struct Subfault_units {
   char* tan1;
   char* tan2;
   char* normal;
-} Subfault_units;
-
-// NOLINTEND
+};
 
 using Subfault = struct Subfault {
   double tinit{};

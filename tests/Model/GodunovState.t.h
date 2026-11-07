@@ -17,7 +17,9 @@
 #include "TestHelper.h"
 #include "Values.h"
 
+#include <array>
 #include <cmath>
+#include <type_traits>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -201,4 +203,75 @@ TEST_CASE_TEMPLATE("Godunov state is correct" * doctest::test_suite("model"),
     testProjector(qgodNeighbor, Quantities, StructuralEpsilon);
   }
 }
+TEST_CASE_TEMPLATE("Between an anisotropic and an isotropic solid, the Godunov state is the "
+                   "isotropic one where the anisotropic solid is isotropic" *
+                       doctest::test_suite("model"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  using MaterialT = model::MaterialOf<Cfg>;
+  if constexpr (model::SameFamily<MaterialT, model::ElasticMaterial>) {
+    using real = Real<Cfg>;
+    constexpr double Epsilon = SolutionData<MaterialT>::template MatrixEpsilon<real>;
+    constexpr std::size_t Quantities = MaterialT::NumElasticQuantities;
+
+    // the face with the normal along x, whose coordinates are the global ones
+    std::array<double, 36> rotation{};
+    model::getBondMatrix({1, 0, 0}, {0, 1, 0}, {0, 0, 1}, rotation);
+
+    const model::ElasticMaterial elastic(SolutionData<model::ElasticMaterial>::MaterialVal1);
+    const model::ElasticMaterial neighbor(SolutionData<model::ElasticMaterial>::MaterialVal2);
+
+    real referenceLocalData[tensor::QgodLocal<Cfg>::size()]{};
+    real referenceNeighborData[tensor::QgodNeighbor<Cfg>::size()]{};
+    real localData[tensor::QgodLocal<Cfg>::size()]{};
+    real neighborData[tensor::QgodNeighbor<Cfg>::size()]{};
+    auto referenceLocal = init::QgodLocal<Cfg>::view::create(referenceLocalData);
+    auto referenceNeighbor = init::QgodNeighbor<Cfg>::view::create(referenceNeighborData);
+    auto qgodLocal = init::QgodLocal<Cfg>::view::create(localData);
+    auto qgodNeighbor = init::QgodNeighbor<Cfg>::view::create(neighborData);
+
+    const auto check = [&](auto& computed, auto& reference) {
+      double diffSquared = 0.0;
+      double referenceSquared = 0.0;
+      for (std::size_t i = 0; i < Quantities; ++i) {
+        for (std::size_t j = 0; j < Quantities; ++j) {
+          const auto diff = castReal(computed(i, j)) - castReal(reference(i, j));
+          diffSquared += diff * diff;
+          referenceSquared += castReal(reference(i, j)) * castReal(reference(i, j));
+        }
+      }
+      checkRelative(diffSquared, referenceSquared, Epsilon);
+    };
+
+    if constexpr (std::is_same_v<MaterialT, model::AnisotropicMaterial>) {
+      // an anisotropic cell with an isotropic neighbor
+      model::getTransposedGodunovState(
+          elastic, neighbor, FaceType::Regular, referenceLocal, referenceNeighbor);
+      model::getFaceGodunovState(rotation,
+                                 model::AnisotropicMaterial(elastic),
+                                 neighbor,
+                                 FaceType::Regular,
+                                 qgodLocal,
+                                 qgodNeighbor);
+    } else {
+      // a cell of an isotropic solid with an anisotropic neighbor; the Riemann problem of a
+      // viscoelastic solid is posed with its elastic part
+      const MaterialT local(SolutionData<MaterialT>::MaterialVal1);
+      model::getTransposedGodunovState(static_cast<const model::ElasticMaterial&>(local),
+                                       neighbor,
+                                       FaceType::Regular,
+                                       referenceLocal,
+                                       referenceNeighbor);
+      model::getFaceGodunovState(rotation,
+                                 local,
+                                 model::AnisotropicMaterial(neighbor),
+                                 FaceType::Regular,
+                                 qgodLocal,
+                                 qgodNeighbor);
+    }
+    check(qgodLocal, referenceLocal);
+    check(qgodNeighbor, referenceNeighbor);
+  }
+}
+
 } // namespace seissol::unit_test

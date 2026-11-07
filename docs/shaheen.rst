@@ -144,8 +144,8 @@ Here is an example job submission script for SeisSol on Shaheen (to be launched 
 
   export SEISSOL_CHECKPOINT_ALIGNMENT=8388608
   export SEISSOL_CHECKPOINT_DIRECT=1
-  export ASYNC_MODE=THREAD
-  export ASYNC_BUFFER_ALIGNMENT=8388608
+  export SEISSOL_ASYNC_MODE=THREAD
+  export SEISSOL_ASYNC_BUFFER_ALIGNMENT=8388608
 
   export MPICH_MAX_THREAD_SAFETY=multiple
   # update to output folder

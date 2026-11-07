@@ -14,7 +14,9 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Colormap.h"
 
+#include <algorithm>
 #include <bitset>
+#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <type_traits>
@@ -24,9 +26,9 @@
 
 // TODO: remove the following
 
-// NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
+// the bits of a layer mask, used unqualified throughout
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
 enum LayerType { Ghost = (1U << 0U), Copy = (1U << 1U), Interior = (1U << 2U), NumLayers = 3U };
-// NOLINTEND (-cppcoreguidelines-use-enum-class)
 
 namespace seissol::initializer {
 using LayerMask = std::bitset<NumLayers>;
@@ -49,6 +51,14 @@ enum class AllocationPlace { Host, Device };
 struct DualMemoryContainer {
   void* host{nullptr};
   void* device{nullptr};
+  /**
+   * A copy of the device part as of the last synchronization point (see takeSnapshot()), for the
+   * host to read while the device goes on, if the container keeps one (see allocateSnapshot()):
+   * with separate parts, memory on the device, which gets copied to the host part later (see
+   * snapshotToHost()); with unified memory, the host part itself, which is then apart from the
+   * device part.
+   */
+  void* snapshot{nullptr};
   AllocationMode allocationMode{AllocationMode::HostOnly};
   std::size_t allocationSize{};
   std::size_t allocationAlignment{};
@@ -119,12 +129,79 @@ struct DualMemoryContainer {
     allocationSize = size;
   }
 
+  /// Whether host and device keep separate memory, which synchronizeTo() copies between.
+  [[nodiscard]] bool separateParts() const {
+    return allocationMode == AllocationMode::HostDeviceSplit ||
+           allocationMode == AllocationMode::HostDeviceSplitPinned ||
+           allocationMode == AllocationMode::HostDeviceCompress ||
+           allocationMode == AllocationMode::HostDeviceCompressPinned || unifiedSnapshot();
+  }
+
+  /// Whether synchronizeTo(AllocationPlace::Host) copies the device part to the host part.
+  [[nodiscard]] bool copiesToHost() const { return separateParts() && !constant; }
+
+  /**
+   * Allocates a snapshot (see `snapshot`) for data that changes, where the device can copy to the
+   * host part without blocking: with separate parts, if the host part is pinned; with unified
+   * memory, as a host part of its own, which the host then reads instead of the device part.
+   */
+  void allocateSnapshot(seissol::memory::ManagedAllocator& allocator, std::size_t alignment) {
+    if (constant || allocationSize == 0 || snapshot != nullptr) {
+      return;
+    }
+    if (allocationMode == AllocationMode::HostDeviceSplitPinned ||
+        allocationMode == AllocationMode::HostDeviceCompressPinned) {
+      snapshot = allocator.allocateMemory(
+          allocationSize, alignment, seissol::memory::Memkind::DeviceGlobalMemory);
+    }
+    if (allocationMode == AllocationMode::HostDeviceUnified) {
+      host = allocator.allocateMemory(
+          allocationSize, alignment, seissol::memory::Memkind::DeviceUnifiedMemory);
+      snapshot = host;
+    }
+  }
+
+  /// Copies the device part to the snapshot, on the stream; nothing without one.
+  void takeSnapshot([[maybe_unused]] void* stream) const {
+#ifdef ACL_DEVICE
+    if (snapshot != nullptr) {
+      device::DeviceInstance::instance().api().copyBetweenAsync(
+          snapshot, device, allocationSize, stream);
+    }
+#endif
+  }
+
+  /// Whether the snapshot still has to be copied to the host part (see snapshotToHost()).
+  [[nodiscard]] bool snapshotApartFromHost() const {
+    return snapshot != nullptr && snapshot != host;
+  }
+
+  /// Copies the snapshot to the host part, on the stream, where they are apart.
+  void snapshotToHost([[maybe_unused]] void* stream) const {
+#ifdef ACL_DEVICE
+    if (snapshotApartFromHost()) {
+      device::DeviceInstance::instance().api().copyFromAsync(
+          host, snapshot, allocationSize, stream);
+    }
+#endif
+  }
+
   void synchronizeTo(AllocationPlace place, void* stream) const {
 #ifdef ACL_DEVICE
-    if (allocationMode == AllocationMode::HostDeviceSplit ||
-        allocationMode == AllocationMode::HostDeviceSplitPinned ||
-        allocationMode == AllocationMode::HostDeviceCompress ||
-        allocationMode == AllocationMode::HostDeviceCompressPinned) {
+    if (unifiedSnapshot()) {
+      // both parts are unified memory (see allocateSnapshot())
+      if (place == AllocationPlace::Host) {
+        if (!constant) {
+          device::DeviceInstance::instance().api().copyBetweenAsync(
+              host, device, allocationSize, stream);
+        }
+      } else {
+        device::DeviceInstance::instance().api().copyBetweenAsync(
+            device, host, allocationSize, stream);
+      }
+      return;
+    }
+    if (separateParts()) {
       if (place == AllocationPlace::Host) {
         // do not copy back constant data (we ignore the other direction for now)
         if (!constant) {
@@ -148,9 +225,41 @@ struct DualMemoryContainer {
 #endif
   }
 
+  /// Whether the device part is device memory of its own, which touchDevice() writes.
+  [[nodiscard]] bool ownDevicePart() const {
+    const bool deviceMemory = allocationMode == AllocationMode::HostDeviceSplit ||
+                              allocationMode == AllocationMode::HostDeviceSplitPinned ||
+                              allocationMode == AllocationMode::HostDeviceCompress ||
+                              allocationMode == AllocationMode::HostDeviceCompressPinned ||
+                              allocationMode == AllocationMode::DeviceOnly ||
+                              allocationMode == AllocationMode::DeviceOnlyCompress;
+    return deviceMemory && device != nullptr;
+  }
+
+  /**
+   * Writes zeros into the device part by copies, as touchVariables() writes the host part, so that
+   * the copy engines write it first (as compressible memory needs it on some devices, e.g. sm_80
+   * and sm_86). `zeros` is a host buffer of `zerosSize` zero bytes that the device can read.
+   */
+  void touchDevice(const void* zeros, std::size_t zerosSize, void* stream) const {
+#ifdef ACL_DEVICE
+    if (!ownDevicePart()) {
+      return;
+    }
+    for (std::size_t offset = 0; offset < allocationSize; offset += zerosSize) {
+      device::DeviceInstance::instance().api().copyToAsync(
+          static_cast<char*>(device) + offset,
+          zeros,
+          std::min(zerosSize, allocationSize - offset),
+          stream);
+    }
+#endif
+  }
+
   void offsetFrom(const DualMemoryContainer& container, std::size_t offset, std::size_t size) {
     host = nullptr;
     device = nullptr;
+    snapshot = nullptr;
 
     allocationMode = container.allocationMode;
     allocationSize = size;
@@ -160,6 +269,15 @@ struct DualMemoryContainer {
     if (container.device != nullptr) {
       device = reinterpret_cast<char*>(container.device) + offset;
     }
+    if (container.snapshot != nullptr) {
+      snapshot = reinterpret_cast<char*>(container.snapshot) + offset;
+    }
+  }
+
+  private:
+  /// Unified memory with a snapshot as a host part of its own (see allocateSnapshot()).
+  [[nodiscard]] bool unifiedSnapshot() const {
+    return allocationMode == AllocationMode::HostDeviceUnified && snapshot != nullptr;
   }
 };
 
@@ -183,18 +301,18 @@ struct ScratchpadDescriptor {
  */
 template <typename StorageT, typename Cfg, typename = void>
 struct StorageTypeOf {
-  using Type = typename StorageT::Type;
+  using Type = StorageT::Type;
 };
 
 template <typename StorageT, typename Cfg>
 struct StorageTypeOf<StorageT,
                      Cfg,
                      std::enable_if_t<std::is_same_v<typename StorageT::Type, void>>> {
-  using Type = typename StorageT::template VariantType<Cfg>;
+  using Type = StorageT::template VariantType<Cfg>;
 };
 
 template <typename StorageT, typename Cfg>
-using StorageType = typename StorageTypeOf<StorageT, Cfg>::Type;
+using StorageType = StorageTypeOf<StorageT, Cfg>::Type;
 
 template <typename T>
 struct Variable : public VariableDescriptor {
@@ -420,7 +538,7 @@ public:
 private:
     // the varmap of the layer: a GenericVarmap finds the variables by what it holds
     const VarmapT* varmap_;
-    typename VarmapT::PointerContainerT pointers_;
+    VarmapT::PointerContainerT pointers_;
   };
 
   template <typename Cfg>
@@ -429,7 +547,7 @@ private:
   }
 
   void synchronizeTo(AllocationPlace place, void* stream) {
-    for (auto& container : memoryContainer_) {
+    for (const auto& container : memoryContainer_) {
       container.synchronizeTo(place, stream);
     }
   }
@@ -441,36 +559,35 @@ private:
   }
 
   template <typename StorageT>
-  typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
+  StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   /// The values of a variable as the configuration `ConfigT` holds them.
-  template <typename StorageT,
-            typename ConfigT,
-            typename = std::enable_if_t<!std::is_same_v<ConfigT, AllocationPlace>>>
+  template <typename StorageT, typename ConfigT>
   StorageType<StorageT, ConfigT>* var(const ConfigT& /*config*/,
-                                      AllocationPlace place = AllocationPlace::Host) {
+                                      AllocationPlace place = AllocationPlace::Host)
+    requires(!std::is_same_v<ConfigT, AllocationPlace>)
+  {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageType<StorageT, ConfigT>*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
-  [[nodiscard]] const typename StorageT::Type*
-      var(AllocationPlace place = AllocationPlace::Host) const {
+  [[nodiscard]] const StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
-  template <typename StorageT,
-            typename ConfigT,
-            typename = std::enable_if_t<!std::is_same_v<ConfigT, AllocationPlace>>>
+  template <typename StorageT, typename ConfigT>
   [[nodiscard]] const StorageType<StorageT, ConfigT>*
-      var(const ConfigT& /*config*/, AllocationPlace place = AllocationPlace::Host) const {
+      var(const ConfigT& /*config*/, AllocationPlace place = AllocationPlace::Host) const
+    requires(!std::is_same_v<ConfigT, AllocationPlace>)
+  {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageType<StorageT, ConfigT>*>(memoryContainer_[index].get(place));
@@ -636,7 +753,7 @@ private:
 
 #ifdef ACL_DEVICE
   device::DeviceGraphHandle getDeviceComputeGraphHandle(GraphKey graphKey) {
-    if (computeGraphHandles_.find(graphKey) != computeGraphHandles_.end()) {
+    if (computeGraphHandles_.contains(graphKey)) {
       return computeGraphHandles_[graphKey];
     } else {
       return device::DeviceGraphHandle();
@@ -645,7 +762,7 @@ private:
 
   void updateDeviceComputeGraphHandle(GraphKey graphKey,
                                       const device::DeviceGraphHandle& graphHandle) {
-    assert(computeGraphHandles_.find(graphKey) == computeGraphHandles_.end() &&
+    assert(!computeGraphHandles_.contains(graphKey) &&
            "an entry of hash table must be empty on write");
     if (graphHandle.isInitialized()) {
       computeGraphHandles_[graphKey] = graphHandle;

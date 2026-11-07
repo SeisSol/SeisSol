@@ -5,6 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#ifndef SEISSOL_TESTS_GEOMETRY_VERTEXORDERINVARIANCE_T_H_
+#define SEISSOL_TESTS_GEOMETRY_VERTEXORDERINVARIANCE_T_H_
+
 // mesh-permuted.h5 is mesh.h5 with the vertices of every cell listed in another order (and the
 // boundary tags permuted along), as written by relabel_vertices.py --mode random of
 // precomputed-seissol; for ten of its cells, that also reverses the orientation. mesh-offgrid.h5
@@ -28,9 +31,9 @@
 
 #include <PUML/PUML.h>
 #include <PUML/PartitionGraph.h>
+#include <PUML/Types.h>
 #include <algorithm>
 #include <cstddef>
-#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -44,9 +47,8 @@ namespace vertexorderinvariancetest {
 // as PUMLReader reads a mesh without periodic identification
 inline void readPumlMesh(seissol::geometry::PumlMesh& mesh, const std::string& file) {
   mesh.setComm(seissol::Mpi::mpi.comm());
-  mesh.open((file + ":/connect").c_str(), (file + ":/geometry").c_str());
-  mesh.addData<int>((file + ":/group").c_str(), PUML::CELL, {});
-  mesh.addData<std::uint32_t>((file + ":/boundary").c_str(), PUML::CELL, {});
+  static_cast<void>(seissol::geometry::PUMLReader::read(
+      mesh, file, seissol::initializer::parameters::BoundaryFormat::I32));
   mesh.generateMesh();
 }
 
@@ -55,8 +57,12 @@ inline std::unique_ptr<seissol::geometry::PUMLReader> readMesh(const std::string
                                                                seissol::SeisSol& seissolInstance) {
   using namespace seissol::initializer;
   static const auto FaceMap = defaultFaceMap();
-  const ClusteringConfig config{
-      seissol::initializer::parameters::BoundaryFormat::I32, {2}, 1, 1, 1, &FaceMap, {}};
+  const ClusteringConfig config{.rate = {2},
+                                .vertexWeightElement = 1,
+                                .vertexWeightDynamicRupture = 1,
+                                .vertexWeightFreeSurfaceWithGravity = 1,
+                                .faceMap = &FaceMap,
+                                .configCostFactors = {}};
   Clustering clustering(config, seissolInstance);
   ExponentialWeights weightModel;
   return std::make_unique<seissol::geometry::PUMLReader>(
@@ -102,10 +108,11 @@ using namespace vertexorderinvariancetest;
 
 TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
           doctest::test_suite("geometry")) {
-  for (const auto& meshPair : MeshPairs) {
-    const auto& file = meshPair.first;
-    const auto& filePermuted = meshPair.second;
-    CAPTURE(file);
+  for (const auto& [file, filePermuted] : MeshPairs) {
+    // CAPTURE takes its argument into a lambda, which Clang 18 does not allow for a structured
+    // binding when OpenMP is enabled
+    const auto& meshFile = file;
+    CAPTURE(meshFile);
     seissol::geometry::PumlMesh mesh;
     seissol::geometry::PumlMesh meshPermuted;
     readPumlMesh(mesh, tpath(file));
@@ -136,17 +143,17 @@ TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
     CHECK(coordinatesFloat == coordinatesFloatPermuted);
 
     // the edge ids handed out while iterating over the faces address the (sorted) adjacency
-    std::vector<unsigned long> gids(mesh.cells().size());
+    std::vector<PUML::GlobalId> gids(mesh.cells().size());
     for (std::size_t i = 0; i < gids.size(); ++i) {
       gids[i] = mesh.cells()[i].gid();
     }
     std::vector<int> visits(graph.localEdgeCount(), 0);
-    graph.forEachLocalEdges<unsigned long>(
+    graph.forEachLocalEdges<PUML::GlobalId>(
         gids,
         [&](int /*fid*/,
             int lid,
-            const unsigned long& neighbor,
-            const unsigned long& self,
+            const PUML::GlobalId& neighbor,
+            const PUML::GlobalId& self,
             int eid) {
           // no REQUIRE: the faces are iterated collectively
           const bool inRange = eid >= 0 && static_cast<std::size_t>(eid) < visits.size();
@@ -155,12 +162,12 @@ TEST_CASE("The dual graph does not depend on the vertex order within a cell" *
             return;
           }
           ++visits[eid];
-          CHECK(graph.adjDisp()[lid] <= static_cast<unsigned long>(eid));
-          CHECK(static_cast<unsigned long>(eid) < graph.adjDisp()[lid + 1]);
+          CHECK(graph.adjDisp()[lid] <= static_cast<std::size_t>(eid));
+          CHECK(static_cast<std::size_t>(eid) < graph.adjDisp()[lid + 1]);
           CHECK(graph.adj()[eid] == neighbor);
           CHECK(self == gids[lid]);
         });
-    CHECK(std::all_of(visits.begin(), visits.end(), [](int count) { return count == 1; }));
+    CHECK(std::ranges::all_of(visits, [](int count) { return count == 1; }));
   }
 }
 
@@ -199,11 +206,11 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
     }
   }
   for (const auto& partitioningLib : partitioningLibs) {
-    for (const auto& meshPair : MeshPairs) {
-      const auto& file = meshPair.first;
-      const auto& filePermuted = meshPair.second;
+    for (const auto& [file, filePermuted] : MeshPairs) {
+      // as above, a structured binding cannot go into CAPTURE
+      const auto& meshFile = file;
       CAPTURE(partitioningLib);
-      CAPTURE(file);
+      CAPTURE(meshFile);
       std::cout.setstate(std::ios_base::failbit);
       const auto reader = readMesh(file, partitioningLib, seissolInstance);
       const auto readerPermuted = readMesh(filePermuted, partitioningLib, seissolInstance);
@@ -257,3 +264,5 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
 }
 
 } // namespace seissol::unit_test
+
+#endif // SEISSOL_TESTS_GEOMETRY_VERTEXORDERINVARIANCE_T_H_

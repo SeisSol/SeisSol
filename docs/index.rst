@@ -49,6 +49,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   build-dependencies
   build-seissol
   gpus
+  gpu-time-stepping
   build-run
   a-first-example
   build-parameters
@@ -124,6 +125,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
 
   computing-time-vs-order-of-accuracy
   performance-measurement
+  strong-scaling
   attenuation
   physical-models
   scaling

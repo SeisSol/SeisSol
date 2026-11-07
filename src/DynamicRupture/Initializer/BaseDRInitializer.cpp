@@ -193,11 +193,12 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
       std::unordered_map<std::string, void*> parameterToStorageMap;
 
       // read initial stress and nucleation stress
-      auto addStressesToStorageMap = [&parameterToStorageMap, &layer, this](
-                                         StressTensor<Cfg>& initialStress, int readNucleation) {
-        // return pointer to first element
-        auto getRawData = [](typename StressTensor<Cfg>::VectorOfArraysT& vectorOfArrays) {
-          return vectorOfArrays.data()->data();
+      const auto addStressesToStorageMap = [&parameterToStorageMap, &layer, this](
+                                               StressTensor<Cfg>& initialStress,
+                                               int readNucleation) {
+        // return pointer to first element, which a layer without faces does not have
+        const auto getRawData = [](StressTensor<Cfg>::VectorOfArraysT& vectorOfArrays) {
+          return vectorOfArrays.empty() ? nullptr : vectorOfArrays.front().data();
         };
         // fault can be either initialized by traction or by cartesian stress
         // this method reads either the nucleation stress or the initial stress
@@ -477,8 +478,7 @@ void BaseDRInitializer::initializeOtherVariables(DynamicRupture::Layer& layer) {
 }
 
 bool BaseDRInitializer::faultProvides(const std::string& parameter) {
-  // TODO: Use C++20 contains
-  return faultParameterNames_.count(parameter) > 0;
+  return faultParameterNames_.contains(parameter);
 }
 
 std::string BaseDRInitializer::onsetIdentifier(int readNucleation) {

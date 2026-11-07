@@ -35,7 +35,7 @@ class VertexWeightModel {
 
   /// Weights as the graph partitioner wants them: one block of `nWeightsPerVertex()` per cell.
   /// Unsigned and 64 bit wide because a weight is `cellCost * updateFactor`, which overflows a
-  /// 32-bit int for deep ladders; PUML widens whatever it is given to `unsigned long` anyway.
+  /// 32-bit int for deep ladders; PUML widens whatever it is given to `std::uint64_t` anyway.
   [[nodiscard]] const std::uint64_t* vertexWeights() const;
   [[nodiscard]] const double* imbalances() const;
   /// Kept signed because PUML's `setVertexWeights` takes an `int` count; everything on this

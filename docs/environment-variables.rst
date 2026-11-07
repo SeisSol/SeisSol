@@ -16,7 +16,18 @@ SeisSol can be tuned with several environment variables.
 Configuration
 -------------
 
-An executable can hold several configurations (see ``EXTRA_CONFIGS`` in the build parameters). ``SEISSOL_CONFIGURATION`` chooses the one a run computes in, by its name, e.g. ``SEISSOL_CONFIGURATION=elastic-linearck-o4-f32-stroud``, for a parameter file that does not name one with ``Configuration`` in its ``equations`` section; a configuration named there takes precedence. Without either, a run takes the first configuration built. So a parameter file written for an executable of a single configuration runs unchanged in an executable of several. The proxy takes the configuration of ``SEISSOL_CONFIGURATION`` as well, unless ``--config`` gives one.
+An executable can hold several configurations (see ``EXTRA_CONFIGS`` in the build parameters). ``SEISSOL_CONFIGURATION`` chooses the one a run computes in, by its name, e.g. ``SEISSOL_CONFIGURATION=elastic-o4-f32``, for a parameter file that does not name one with ``Configuration`` in its ``equations`` section; a configuration named there takes precedence. Without either, a run takes the first configuration built. So a parameter file written for an executable of a single configuration runs unchanged in an executable of several. The proxy takes the configuration of ``SEISSOL_CONFIGURATION`` as well, unless ``--config`` gives one.
+
+Run ID
+------
+
+Every run has an ID, a UUID, which the log prints at the start (``Run ID: ...``) and which every
+file the run writes carries: the CSV tables in a ``runId`` column, the HDF5 files as an attribute
+``runId`` of their root group, and the text files of the receivers and fault receivers in a line
+``# run-id`` of their header. By default, a run takes a new random one. ``SEISSOL_RUN_ID`` gives
+one instead, so that whoever starts a run, e.g. a script running a series of them, knows its ID
+beforehand; the value has to be a UUID in its canonical form, e.g.
+``SEISSOL_RUN_ID=123e4567-e89b-42d3-a456-426614174000``.
 
 Communication thread
 --------------------
@@ -26,12 +37,77 @@ For that, it is required to leave at least one thread vacant in your OpenMP thre
 
 If you do not want to use a communication thread, you may set ``SEISSOL_COMMTHREAD=0`` to make SeisSol poll the progress from time to time.
 
+Task graph on the host
+----------------------
+
+By default, every loop over the cells or faces of a cluster is a parallel region of its own, split
+among the OpenMP threads evenly; the clusters take their steps one after the other, and all threads
+wait at the end of each loop. With ``SEISSOL_HOST_TASK_GRAPH=1``, the main thread decides the steps
+of the clusters up to the next synchronization point instead, in one parallel region, and turns the
+work of each step into a task, which runs as soon as the work it depends on is done: so the steps of
+different clusters run at the same time, and the threads that are done with one loop go on with the
+next one. The loops become tasks of ``SEISSOL_HOST_TASK_SIZE`` cells or faces each (32 by default).
+The main thread stays at most ``SEISSOL_HOST_ACTION_LIMIT`` steps of the clusters ahead of their work
+(256 by default; 0 for no limit): meanwhile, it takes tasks itself. Without a limit, it would decide
+all steps up to the next synchronization point first, which costs memory and time with long
+intervals between synchronization points.
+The halo exchange becomes part of the task graph as well: a send starts once the copy layer is
+complete, and the work that reads the ghost layer waits for the data, without the main thread waiting
+for either. That pays off the more, the more threads a rank has and the more unevenly they are fast
+(e.g. on processors with cores of different kinds); with few threads per rank, it changes little.
+
+The task graph needs tasks with dependencies on lists of a length known at run time, detached tasks,
+``taskloop`` and ``masked`` (OpenMP 5.1), which the build tests the compiler for: e.g. GCC 13, Clang
+19 and ICX have them, NVHPC does not. It is not available in builds for a device. With it, a
+communication thread (see above) starts and tests the exchanges in the task graph; with
+``SEISSOL_COMMTHREAD=0``, the main thread does so between the tasks it takes, which may be faster
+where the communication thread shares its core or cache with the workers. That works with the OpenMP
+runtimes of LLVM and Intel only: others (e.g. that of GCC) may wait for a task of an exchange where
+the main thread creates it, so a thread of its own polls the exchanges there in any case. With a
+single thread per rank, the halo exchange in the task graph does not work with the OpenMP runtime of
+LLVM before version 19 (e.g. with Clang 18 of Ubuntu 24.04), which SeisSol recognizes and keeps the
+static schedule then. The times of the loops in the summary of the run overlap each other in a task
+graph. The watchdog (see below) also watches the work done of each cluster then, and at a stall
+reports the exchanges of the task graph in flight.
+
+Watchdog
+--------
+
+A thread of its own watches the progress of a run, also where the main thread cannot report any
+more, e.g. when it waits for the GPU while the GPU waits for work that never comes. If none of the clusters makes progress for
+``SEISSOL_WATCHDOG_TIMEOUT`` seconds while the run takes its steps (900 by default), it reports the
+phase of the run, the times of the clusters (also those the GPU has reached), and the clusters
+report their state from the threads they act on, the halo clusters with the messages in flight
+(with MPI, the rank, the tag and the size of each). Then the run aborts, unless
+``SEISSOL_WATCHDOG_ABORT=0``. If anything else takes that long, e.g. the outputs at a
+synchronization point (a large checkpoint, or the last writes at the end), it reports that as well,
+but the run goes on: writing much data may well take that long. The clusters themselves report after
+the same time without progress.
+``SEISSOL_WATCHDOG=0`` turns it off.
+
+Test of the halo exchange
+-------------------------
+
+Before the time stepping, SeisSol tests the halo exchange, through the transfer mode of the run
+(see ``SEISSOL_TRANSFER_MODE`` in :ref:`gpu-env`): each copy region gets values that tell the
+sending rank, the tag of the region and the position in it, one exchange in each direction moves
+them, and each ghost region then has to hold the values of its sender. If a ghost region received
+wrong data, each rank concerned names its first such region and position, and the run aborts. A
+crash in the library of the exchange, e.g. of an MPI that cannot read device memory, comes right
+after the line that announces the test, instead of somewhere in the time stepping. If the exchange
+does not complete within ``SEISSOL_WATCHDOG_TIMEOUT`` seconds (and the watchdog is on), the ranks
+report the messages still in flight, and the run aborts, unless ``SEISSOL_WATCHDOG_ABORT=0``.
+Afterwards, the halo regions are zero again, as before the test. The test costs about one exchange of
+the halo, on GPUs plus a few copies of it between the host and the device; ``SEISSOL_HALO_CHECK=0``
+turns it off.
+
 Load balancing
 --------------
 
 When running with multiple ranks, SeisSol will estimate the node-level performance, enabling better load balancing.
 For that, it runs the so-called "Mini SeisSol" benchmark. As its name already hints, it simulates a small test workload on each node;
 thus estimating the performance of all nodes relative to each other. The number of elements per node assigned during the partitioning will be resized according to these values.
+On GPUs, it runs the kernels for half a second before it times 100 steps of them: a GPU that has been idle raises its clocks only under load, within some hundred milliseconds, and a few steps measure how fast it does that rather than how fast it computes.
 
 As a result, the partitioning of runs may become non-deterministic, and the initialization procedure may take a little longer, especially when running only on a single node with multiple ranks.
 To disable it, set ``SEISSOL_MINISEISSOL=0``.
@@ -96,9 +172,40 @@ help is again a property of the file system.
 Asynchronous output
 ~~~~~~~~~~~~~~~~~~~
 
-In addition to the variables in SeisSol, the
-`ASYNC <https://github.com/TUM-I5/ASYNC>`__ library provides some tuning
-variables listed in the `wiki <https://github.com/TUM-I5/ASYNC/wiki>`__.
+The output is written by the `ASYNC <https://github.com/TUM-I5/ASYNC>`__
+library, which takes it off the path of the computation. Its settings are read
+with a ``SEISSOL_ASYNC_`` prefix; the plain ``ASYNC_`` names are still read as
+well, but deprecated. The log says at the start which mode a run uses.
+
+* ``SEISSOL_ASYNC_MODE``: how the output is written.
+
+  * ``SYNC`` (the default): right away, on the rank that computes.
+  * ``THREAD``: by a thread of every rank, on the CPUs its OpenMP workers leave
+    free.
+  * ``NODE``: by one rank of every node, which collects the output of all ranks
+    of its node and writes it for them. That rank computes as well; its threads
+    for the output go to the CPUs its OpenMP workers leave free. The ranks of a
+    node hand their output over in shared memory, so it costs them a single
+    copy, and the files see one writer per node rather than one per rank. The
+    ranks of a node have to be numbered one after another, which a block-wise
+    placement of the ranks does. ``MPI`` is accepted as a deprecated name for it.
+  * ``AUTO``: ``SYNC`` unless every rank leaves CPUs free for the threads of the
+    output, as it does for a communication thread; otherwise ``NODE`` where
+    several ranks share a node and are numbered one after another, and
+    ``THREAD`` where not.
+
+* ``SEISSOL_ASYNC_EXECUTORS_PER_NODE``: in ``NODE`` mode, how many ranks of a
+  node collect its output, each for a part of its ranks (default 1).
+* ``SEISSOL_ASYNC_GROUP_NODES``: in ``NODE`` mode, how many whole nodes share
+  the ranks that collect their output (default 1); the other nodes send it to
+  them, one rank each.
+* ``SEISSOL_ASYNC_MAX_GROUP_RANKS``: in ``NODE`` mode, the most ranks one rank
+  collects the output of (default: no limit).
+* ``SEISSOL_ASYNC_BUFFER_ALIGNMENT``: the alignment of the buffers the output is
+  collected in, in bytes, e.g. the stripe size of the file system.
+
+The `README <https://github.com/TUM-I5/ASYNC>`__ of ASYNC describes the rest of
+its settings.
 
 .. _optimal_environment_variables_on_supermuc_ng:
 
@@ -122,8 +229,8 @@ Here are some proposed environment variables to be added before invoking SeisSol
    export SEISSOL_CHECKPOINT_ALIGNMENT=8388608
    export SEISSOL_CHECKPOINT_DIRECT=1
 
-   export ASYNC_MODE=THREAD
-   export ASYNC_BUFFER_ALIGNMENT=8388608
+   export SEISSOL_ASYNC_MODE=THREAD
+   export SEISSOL_ASYNC_BUFFER_ALIGNMENT=8388608
 
 A complete batch script for SuperMUC-NG can be found in the chapter about :ref:`SuperMUC-NG <running_seissol_on_supermuc>`.
 

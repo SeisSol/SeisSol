@@ -15,6 +15,7 @@
 #include "Kernels/Interface.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/Common.h"
 
 #include <array>
 #include <cstddef>
@@ -35,7 +36,7 @@ class AbstractRecorder {
 
   protected:
   void checkKey(const ConditionalKey& key) {
-    if (currentTable_->find(key) != currentTable_->end()) {
+    if (currentTable_->contains(key)) {
       logError()
           << "Table key conflict detected. Problems with hashing in batch recording subsystem";
     }
@@ -58,7 +59,7 @@ template <typename VarmapT>
 class CompositeRecorder : public AbstractRecorder<VarmapT> {
   public:
   void record(initializer::Layer<VarmapT>& layer) override {
-    for (auto& recorder : concreteRecorders_) {
+    for (const auto& recorder : concreteRecorders_) {
       recorder->record(layer);
     }
   }
@@ -128,7 +129,7 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
     converted_ = {};
     fromCoupledCanonical_ = {};
     coupledConverted_ = {};
-    normalStress_ = {};
+    coupling_ = {};
     canonicalRegistry_.clear();
     convertedRegistry_.clear();
     configBoundaryScratchCounter_ = 0;
@@ -165,11 +166,14 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   // per side of the neighbors: the canonical forms, and their conversions
   std::array<std::vector<double*>, Cell::NumFaces> fromCanonical_;
   std::array<std::vector<real*>, Cell::NumFaces> converted_;
-  // the same for the neighbors of the coupled family, with the weights of the normal stress on the
-  // face if the cells are of a fluid
-  std::array<std::vector<double*>, Cell::NumFaces> fromCoupledCanonical_;
-  std::array<std::vector<real*>, Cell::NumFaces> coupledConverted_;
-  std::array<std::vector<real*>, Cell::NumFaces> normalStress_;
+  // the same per family of the neighbors of other families (see model::familyIndex), with the
+  // coupling matrices of the faces
+  template <typename T>
+  using PerFamilyAndSide =
+      std::array<std::array<std::vector<T>, Cell::NumFaces>, model::FamilyCount>;
+  PerFamilyAndSide<double*> fromCoupledCanonical_;
+  PerFamilyAndSide<real*> coupledConverted_;
+  PerFamilyAndSide<real*> coupling_;
   // the canonical form of each neighbor, and its conversion per side
   std::unordered_map<const void*, double*> canonicalRegistry_;
   std::map<std::pair<const void*, std::size_t>, real*> convertedRegistry_;

@@ -41,7 +41,8 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   const MeshParameters meshParameters = readMeshParameters(parameterReader);
   const ModelParameters modelParameters =
       readModelParameters(parameterReader, config, groupConfigs);
-  const OutputParameters outputParameters = readOutputParameters(parameterReader, config);
+  const OutputParameters outputParameters =
+      readOutputParameters(parameterReader, modelParameters.configs());
   const SourceParameters sourceParameters = readSourceParameters(parameterReader);
   const TimeSteppingParameters timeSteppingParameters =
       readTimeSteppingParameters(parameterReader, modelParameters.configs());
@@ -64,14 +65,14 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
 
   logInfo() << "SeisSol parameter file read successfully.";
 
-  return SeisSolParameters{cubeGeneratorParameters,
-                           datafieldParameters,
-                           drParameters,
-                           initializationParameters,
-                           meshParameters,
-                           modelParameters,
-                           outputParameters,
-                           sourceParameters,
-                           timeSteppingParameters};
+  return SeisSolParameters{.cubeGenerator = cubeGeneratorParameters,
+                           .datafield = datafieldParameters,
+                           .drParameters = drParameters,
+                           .initialization = initializationParameters,
+                           .mesh = meshParameters,
+                           .model = modelParameters,
+                           .output = outputParameters,
+                           .source = sourceParameters,
+                           .timeStepping = timeSteppingParameters};
 }
 } // namespace seissol::initializer::parameters

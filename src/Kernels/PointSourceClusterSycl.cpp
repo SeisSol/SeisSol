@@ -28,7 +28,8 @@ template <typename Cfg>
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                        sourceterm::PointSources<Cfg>& sources,
                        double from,
-                       double to,
+                       double timeStepSize,
+                       const double* clock,
                        seissol::parallel::runtime::StreamRuntime& runtime) {
   auto& mapping = clusterMapping.cellToSources;
   auto* __restrict mappingPtr = mapping.data();
@@ -42,21 +43,23 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
     const auto* __restrict sample = sources.sample.data();
     const auto* __restrict simulationIndex = sources.simulationIndex.data();
 
-    auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
+    auto& queue = *reinterpret_cast<sycl::queue*>(runtime.stream());
 
     const auto elements = mapping.size();
 
     sycl::nd_range<2> rng{{elements * SubBlock, PerBlock}, {SubBlock, PerBlock}};
-    queue->submit([&](sycl::handler& cgh) {
+    queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<2> item) {
         const auto block = item.get_group().get_group_id(0) * PerBlock + item.get_local_id(1);
         const auto thread = item.get_local_id(0);
 
         if (block < elements) {
+          const double start = clock == nullptr ? from : *clock;
+          const double end = start + timeStepSize;
           pointSourceKernelDevice<Cfg, SubBlock>(thread,
                                                  block,
-                                                 from,
-                                                 to,
+                                                 start,
+                                                 end,
                                                  mappingPtr,
                                                  mInvJInvPhisAtSources,
                                                  simulationIndex,
@@ -76,7 +79,8 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
   template void pointSourceKernel<Cfg>(sourceterm::ClusterMapping & clusterMapping,                \
                                        sourceterm::PointSources<Cfg> & sources,                    \
                                        double from,                                                \
-                                       double to,                                                  \
+                                       double timeStepSize,                                        \
+                                       const double* clock,                                        \
                                        seissol::parallel::runtime::StreamRuntime& runtime);
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE

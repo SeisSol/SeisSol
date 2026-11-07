@@ -87,7 +87,6 @@ void projectInitialFieldOnLayer(
     const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     const auto* material = layer.var<LTS::Material>();
     auto* dofs = layer.var<LTS::Dofs>(Cfg());
-    auto* dofsAne = layer.var<LTS::DofsAne>(Cfg());
 
 #if !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
@@ -107,7 +106,7 @@ void projectInitialFieldOnLayer(
 
       krnl.Q = runtime::init::Q::view(Variant, dofs[cell]);
       if constexpr (kernels::HasSize<tensor::Qane<Cfg>>::Value) {
-        set_Qane(krnl, yateto::viewOf(anelasticLayout, dofsAne[cell]));
+        set_Qane(krnl, yateto::viewOf(anelasticLayout, layer.var<LTS::DofsAne>(Cfg())[cell]));
       }
       krnl.execute(Variant);
     }
@@ -139,7 +138,6 @@ void projectScriptFieldsOnLayer(const std::vector<double>& data, LTS::Layer& lay
 
     const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     auto* dofs = layer.var<LTS::Dofs>(Cfg());
-    auto* dofsAne = layer.var<LTS::DofsAne>(Cfg());
 
 #if !NVHPC_AVOID_OMP
 #pragma omp for schedule(static)
@@ -163,7 +161,7 @@ void projectScriptFieldsOnLayer(const std::vector<double>& data, LTS::Layer& lay
 
       krnl.Q = runtime::init::Q::view(Variant, dofs[cell]);
       if constexpr (kernels::HasSize<tensor::Qane<Cfg>>::Value) {
-        set_Qane(krnl, yateto::viewOf(anelasticLayout, dofsAne[cell]));
+        set_Qane(krnl, yateto::viewOf(anelasticLayout, layer.var<LTS::DofsAne>(Cfg())[cell]));
       }
       krnl.execute(Variant);
     }

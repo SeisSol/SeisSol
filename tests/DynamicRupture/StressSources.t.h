@@ -43,14 +43,38 @@ struct RampSample {
  * within every sample, so that passing them the wrong way round is caught.
  */
 constexpr std::array<RampSample, 8> RampSamples{{
-    {0x1.6666666666666p-1, 0x1.0000000000000p+1, 0x1.0000000000000p-1, 0x1.cd4cf1c6c4d43p-7},
-    {0x1.8000000000000p+0, 0x1.0000000000000p+1, 0x1.0000000000000p-1, 0x1.6edd3122f2ea5p-1},
-    {0x1.0000000000000p+1, 0x1.0000000000000p+1, 0x1.0000000000000p-1, 0x1.defac583c7dd4p-1},
-    {0x1.0000000000000p-2, 0x1.0000000000000p+0, 0x0.0p+0, 0x1.1b1681e89d3a2p-2},
-    {0x1.3333333333333p-1, 0x1.0000000000000p+0, 0x0.0p+0, 0x1.a73395c533373p-1},
-    {0x1.ccccccccccccdp-1, 0x1.0000000000000p+0, 0x0.0p+0, 0x1.fadab461695ecp-1},
-    {0x1.8000000000000p+1, 0x1.0000000000000p+2, 0x1.0000000000000p+0, 0x1.6edd3122f2ea5p-1},
-    {0x1.2000000000000p+2, 0x1.0000000000000p+2, 0x1.0000000000000p+0, 0x1.f7efeac14b167p-1},
+    {.time = 0x1.6666666666666p-1,
+     .riseTime = 0x1.0000000000000p+1,
+     .onset = 0x1.0000000000000p-1,
+     .fraction = 0x1.cd4cf1c6c4d43p-7},
+    {.time = 0x1.8000000000000p+0,
+     .riseTime = 0x1.0000000000000p+1,
+     .onset = 0x1.0000000000000p-1,
+     .fraction = 0x1.6edd3122f2ea5p-1},
+    {.time = 0x1.0000000000000p+1,
+     .riseTime = 0x1.0000000000000p+1,
+     .onset = 0x1.0000000000000p-1,
+     .fraction = 0x1.defac583c7dd4p-1},
+    {.time = 0x1.0000000000000p-2,
+     .riseTime = 0x1.0000000000000p+0,
+     .onset = 0x0.0p+0,
+     .fraction = 0x1.1b1681e89d3a2p-2},
+    {.time = 0x1.3333333333333p-1,
+     .riseTime = 0x1.0000000000000p+0,
+     .onset = 0x0.0p+0,
+     .fraction = 0x1.a73395c533373p-1},
+    {.time = 0x1.ccccccccccccdp-1,
+     .riseTime = 0x1.0000000000000p+0,
+     .onset = 0x0.0p+0,
+     .fraction = 0x1.fadab461695ecp-1},
+    {.time = 0x1.8000000000000p+1,
+     .riseTime = 0x1.0000000000000p+2,
+     .onset = 0x1.0000000000000p+0,
+     .fraction = 0x1.6edd3122f2ea5p-1},
+    {.time = 0x1.2000000000000p+2,
+     .riseTime = 0x1.0000000000000p+2,
+     .onset = 0x1.0000000000000p+0,
+     .fraction = 0x1.f7efeac14b167p-1},
 }};
 
 /// a parameter set with the given rise times, the initial state appended as usual
@@ -231,22 +255,22 @@ TEST_CASE_TEMPLATE("Stress of a point does not depend on the order it is asked i
     }
   }
 
+  // Both orders call the same code: inlined into each of the loops, the function could be
+  // compiled differently for each, the multiplications and additions fused into one in one loop
+  // and not in the other, which changes the last bit (as GCC does on LoongArch).
+  auto* const volatile evaluate = &stressAtTime<Cfg>;
+
   constexpr std::size_t Steps = 64;
   std::array<std::array<real, 6>, Steps> forward{};
   for (std::size_t step = 0; step < Steps; ++step) {
     const auto time = static_cast<real>(6.0 * static_cast<double>(step) / Steps);
-    forward[step] =
-        stressAtTime<Cfg>(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
+    forward[step] = evaluate(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
   }
   for (std::size_t step = Steps; step-- > 0;) {
     const auto time = static_cast<real>(6.0 * static_cast<double>(step) / Steps);
-    const auto backward =
-        stressAtTime<Cfg>(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
-    // to a few ulp rather than bitwise: the two loops are separate call sites, and the compiler
-    // may contract a product and a sum into one FMA at one of them and not at the other
+    const auto backward = evaluate(sources, riseTimes, onsets, parameters.sourceCount, Point, time);
     for (std::size_t component = 0; component < 6; ++component) {
-      CHECK(backward[component] ==
-            AbsApprox(forward[step][component]).delta(4 * std::numeric_limits<real>::epsilon()));
+      CHECK(backward[component] == AbsApprox(forward[step][component]));
     }
   }
 }

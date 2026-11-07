@@ -133,9 +133,21 @@ constexpr bool descriptorsWellFormed(const std::array<EnergyDescriptor, N>& list
 // compose their descriptor list from these rather than repeating it.
 
 inline constexpr std::array MomentumEnergies{
-    EnergyDescriptor{"momentumX", EnergyUnit::Momentum, {}, {}, {}},
-    EnergyDescriptor{"momentumY", EnergyUnit::Momentum, {}, {}, {}},
-    EnergyDescriptor{"momentumZ", EnergyUnit::Momentum, {}, {}, {}},
+    EnergyDescriptor{.name = "momentumX",
+                     .unit = EnergyUnit::Momentum,
+                     .group = {},
+                     .groupLabel = {},
+                     .shortLabel = {}},
+    EnergyDescriptor{.name = "momentumY",
+                     .unit = EnergyUnit::Momentum,
+                     .group = {},
+                     .groupLabel = {},
+                     .shortLabel = {}},
+    EnergyDescriptor{.name = "momentumZ",
+                     .unit = EnergyUnit::Momentum,
+                     .group = {},
+                     .groupLabel = {},
+                     .shortLabel = {}},
 };
 
 /**
@@ -145,22 +157,30 @@ inline constexpr std::array MomentumEnergies{
  * of one group, and only their sum carries the plain name.
  */
 inline constexpr std::array AcousticEnergies{
-    EnergyDescriptor{"acoustic_kinetic_energy",
-                     EnergyUnit::Energy,
-                     "acoustic",
-                     "Acoustic mechanical energy:",
-                     "kinetic"},
-    EnergyDescriptor{"acoustic_potential_energy", EnergyUnit::Energy, "acoustic", {}, "potential"},
+    EnergyDescriptor{.name = "acoustic_kinetic_energy",
+                     .unit = EnergyUnit::Energy,
+                     .group = "acoustic",
+                     .groupLabel = "Acoustic mechanical energy:",
+                     .shortLabel = "kinetic"},
+    EnergyDescriptor{.name = "acoustic_potential_energy",
+                     .unit = EnergyUnit::Energy,
+                     .group = "acoustic",
+                     .groupLabel = {},
+                     .shortLabel = "potential"},
 };
 
 /// Kinetic plus strain energy, i.e. the mechanical energy of the solid.
 inline constexpr std::array ElasticEnergies{
-    EnergyDescriptor{"elastic_kinetic_energy",
-                     EnergyUnit::Energy,
-                     "elastic",
-                     "Elastic mechanical energy:",
-                     "kinetic"},
-    EnergyDescriptor{"elastic_strain_energy", EnergyUnit::Energy, "elastic", {}, "strain"},
+    EnergyDescriptor{.name = "elastic_kinetic_energy",
+                     .unit = EnergyUnit::Energy,
+                     .group = "elastic",
+                     .groupLabel = "Elastic mechanical energy:",
+                     .shortLabel = "kinetic"},
+    EnergyDescriptor{.name = "elastic_strain_energy",
+                     .unit = EnergyUnit::Energy,
+                     .group = "elastic",
+                     .groupLabel = {},
+                     .shortLabel = "strain"},
 };
 
 /**
@@ -169,7 +189,11 @@ inline constexpr std::array ElasticEnergies{
  * them would understate the stored share.
  */
 inline constexpr std::array ViscoelasticEnergies{
-    EnergyDescriptor{"anelastic_strain_energy", EnergyUnit::Energy, "elastic", {}, "anelastic"},
+    EnergyDescriptor{.name = "anelastic_strain_energy",
+                     .unit = EnergyUnit::Energy,
+                     .group = "elastic",
+                     .groupLabel = {},
+                     .shortLabel = "anelastic"},
 };
 
 /**
@@ -178,16 +202,20 @@ inline constexpr std::array ViscoelasticEnergies{
  * join the acoustic group instead.
  */
 inline constexpr std::array ViscoacousticEnergies{
-    EnergyDescriptor{"anelastic_potential_energy", EnergyUnit::Energy, "acoustic", {}, "anelastic"},
+    EnergyDescriptor{.name = "anelastic_potential_energy",
+                     .unit = EnergyUnit::Energy,
+                     .group = "acoustic",
+                     .groupLabel = {},
+                     .shortLabel = "anelastic"},
 };
 
 /// The power absorbed by the Maxwell branch dashpots, shared by both visco materials.
 inline constexpr std::array ViscoEnergies{
-    EnergyDescriptor{"viscous_dissipation_rate",
-                     EnergyUnit::Power,
-                     "viscous_dissipation",
-                     "Viscous dissipation rate:",
-                     {}},
+    EnergyDescriptor{.name = "viscous_dissipation_rate",
+                     .unit = EnergyUnit::Power,
+                     .group = "viscous_dissipation",
+                     .groupLabel = "Viscous dissipation rate:",
+                     .shortLabel = {}},
 };
 
 /**
@@ -196,20 +224,24 @@ inline constexpr std::array ViscoEnergies{
  * fluid, so neither coincides with the single-phase expression.
  */
 inline constexpr std::array PoroelasticEnergies{
-    EnergyDescriptor{"poroelastic_kinetic_energy",
-                     EnergyUnit::Energy,
-                     "poroelastic",
-                     "Poroelastic mechanical energy:",
-                     "kinetic"},
-    EnergyDescriptor{"poroelastic_strain_energy", EnergyUnit::Energy, "poroelastic", {}, "strain"},
+    EnergyDescriptor{.name = "poroelastic_kinetic_energy",
+                     .unit = EnergyUnit::Energy,
+                     .group = "poroelastic",
+                     .groupLabel = "Poroelastic mechanical energy:",
+                     .shortLabel = "kinetic"},
+    EnergyDescriptor{.name = "poroelastic_strain_energy",
+                     .unit = EnergyUnit::Energy,
+                     .group = "poroelastic",
+                     .groupLabel = {},
+                     .shortLabel = "strain"},
 };
 
 inline constexpr std::array DarcyEnergies{
-    EnergyDescriptor{"darcy_dissipation_rate",
-                     EnergyUnit::Power,
-                     "darcy_dissipation",
-                     "Darcy dissipation rate:",
-                     {}},
+    EnergyDescriptor{.name = "darcy_dissipation_rate",
+                     .unit = EnergyUnit::Power,
+                     .group = "darcy_dissipation",
+                     .groupLabel = "Darcy dissipation rate:",
+                     .shortLabel = {}},
 };
 
 /**

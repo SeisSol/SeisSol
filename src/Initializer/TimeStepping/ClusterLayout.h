@@ -11,6 +11,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace seissol::geometry {
@@ -31,6 +32,21 @@ struct ClusterLayout {
   /// Base timestep; the wiggle factor is already applied.
   double minimumTimestep;
   std::size_t globalClusterCount;
+
+  /// What fromMesh finds out about the clustering when it reports it, over all ranks.
+  struct Report {
+    /// the smallest cell timestep, before the wiggle factor is applied
+    double minimumCellTimestep{0};
+    double wiggleFactor{1};
+    /// how many times fewer cell updates elementwise and clustered LTS take than global time
+    /// stepping does
+    double elementwiseSpeedup{1};
+    double clusteredSpeedup{1};
+    /// cells and dynamic rupture faces per cluster
+    std::vector<std::uint64_t> cells;
+    std::vector<std::uint64_t> dynamicRuptureFaces;
+  };
+  std::optional<Report> report;
 
   ClusterLayout(const std::vector<std::uint64_t>& rates,
                 double minimumTimestep,

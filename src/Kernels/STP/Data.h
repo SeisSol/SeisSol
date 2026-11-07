@@ -22,11 +22,12 @@ struct STPLocalData {
   Real<Cfg> sourceMatrix[zeroGuard(kernels::size<tensor::ET<Cfg>>())]{};
 
   /// One entry per stiff source row, in the order the material declares them.
-  // NOLINTNEXTLINE
+  // named like the tensor of the generated kernels that it feeds
+  // NOLINTNEXTLINE(readability-identifier-naming)
   Real<Cfg> G[zeroGuard(model::MaterialOf<Cfg>::StiffSourceRows.size())]{};
 
-  // currently hard-coded to poroelasticity
-  // NOLINTNEXTLINE
+  // currently hard-coded to poroelasticity; named like the tensor it holds
+  // NOLINTNEXTLINE(readability-identifier-naming)
   Real<Cfg> Zinv[zeroGuard(kernels::familySize<tensor::Zinv<Cfg>>())]{};
 
   // preferrably double; will be compared closely against the "default" timestep width almost all

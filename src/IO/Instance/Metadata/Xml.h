@@ -42,7 +42,7 @@ inline std::string formatExact(double value) {
 
 class XmlInstructor {
   public:
-  explicit XmlInstructor(const std::string& file);
+  explicit XmlInstructor(std::string file);
 
   void addText(const std::string& text);
 
@@ -73,7 +73,7 @@ class XmlInstructor {
 
 class XmlAttribute {
   public:
-  explicit XmlAttribute(const std::string& name);
+  explicit XmlAttribute(std::string name);
 
   template <typename T>
   void setImmediate(const T& data) {
@@ -119,7 +119,7 @@ inline XmlAttribute XmlAttribute::create(const std::string& name, const std::str
 class XmlEntry {
   public:
   virtual ~XmlEntry() = default;
-  explicit XmlEntry(const std::string& name);
+  explicit XmlEntry(std::string name);
 
   XmlEntry& addAttribute(const XmlAttribute& attribute);
 

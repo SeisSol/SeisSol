@@ -64,7 +64,9 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
 
   std::vector<Candidate> best(numPoints);
 
+  // an index loop; OpenMP loop constructs take range-based loops only from OpenMP 5.0 on
 #pragma omp parallel for schedule(static)
+  // NOLINTNEXTLINE(modernize-loop-convert)
   for (std::size_t elem = 0; elem < elements.size(); ++elem) {
     auto planeEquations = std::array<std::array<double, Cell::Dim + 1>, Cell::Dim + 1>();
     auto normLengths = std::array<double, Cell::NumFaces>();
@@ -84,8 +86,7 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
     // The normals are not normalized, their length is twice the area of the face; hence the square
     // root of the largest one is about the edge length of the cell. What lies within a small
     // fraction of it from a face is on that face as far as round-off can tell.
-    const double onFace =
-        1e-8 * std::sqrt(*std::max_element(normLengths.begin(), normLengths.end()));
+    const double onFace = 1e-8 * std::sqrt(*std::ranges::max_element(normLengths));
 
     for (std::size_t point = 0; point < numPoints; ++point) {
       // geometric Interpretation (up to numerical errors, hence tolerance parameter):
@@ -96,9 +97,7 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
       // we look for the face, where resultFace is the largest; i.e. the face that will the best
       // "invalidate" our membership in the cell.
 
-      // NOLINTNEXTLINE
       double maxValue = -std::numeric_limits<double>::infinity();
-      // NOLINTNEXTLINE
       double maxDistance = -std::numeric_limits<double>::infinity();
 
 #pragma omp simd reduction(max : maxValue, maxDistance)
@@ -114,7 +113,8 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
 
       if (maxValue <= tolerance) {
         // meaning: we're below tolerance to consider the cell
-        const Candidate candidate{maxDistance <= onFace ? 0.0 : maxValue, elements[elem].globalId};
+        const Candidate candidate{.key = maxDistance <= onFace ? 0.0 : maxValue,
+                                  .globalId = elements[elem].globalId};
 
 #pragma omp critical
         {

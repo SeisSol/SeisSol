@@ -12,7 +12,6 @@
 #include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
-#include "Common/Typedefs.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
@@ -24,7 +23,6 @@
 #include "Initializer/BoundarySetup.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
-#include "Kernels/Common.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
@@ -55,7 +53,7 @@ void initializeBoundaryMappingsOfLayer(
 
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* boundary = layer.var<LTS::BoundaryMapping>(Cfg());
-  auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+  const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
   const auto* material = layer.var<LTS::Material>();
 
 #pragma omp for schedule(static)
@@ -142,16 +140,6 @@ void initializeBoundaryMappingsOfLayer(
             rotateKrnl.T = runtime::init::T::view(Variant, matTData);
             rotateKrnl.Tinv = runtime::init::Tinv::view(Variant, matTinvData);
             rotateKrnl.execute(Variant);
-          }
-
-          if constexpr (isDeviceOn() && Cfg::Solver == SolverType::LinearCKAnelastic) {
-            // the map is folded into the local flux solver of every solver; the offset has a flux
-            // of its own, which the device kernels of the anelastic solver do not apply yet
-            const auto* end = dirichletOffset + tensor::dirichletOffset<Cfg>::size();
-            if (std::any_of(dirichletOffset, end, [](real value) { return value != 0; })) {
-              logError() << "A Dirichlet face has a nonzero offset (const_* terms), which the "
-                            "device kernels of the anelastic solver do not apply yet.";
-            }
           }
         } else {
           logError() << "Dirichlet face found, but no boundary condition definition given.";

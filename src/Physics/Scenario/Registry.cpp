@@ -23,7 +23,8 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
-#include <math.h>
+// M_PI is POSIX and only declared by the C header
+#include <math.h> // NOLINT(modernize-deprecated-headers)
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -88,94 +89,116 @@ struct Entry {
 };
 
 constexpr std::array<Entry, 12> Registry = {{
-    {InitializationType::Zero,
-     "zero",
-     MaterialRequirement::None,
-     "",
-     true,
-     [](const Input& input) { return zeroField(input.config); }},
-    {InitializationType::Planarwave,
-     "planar wave",
-     MaterialRequirement::None,
-     "",
-     true,
+    {.type = InitializationType::Zero,
+     .name = "zero",
+     .requirement = MaterialRequirement::None,
+     .materialRequirement = "",
+     .timeDependent = true,
+     .build = [](const Input& input) { return zeroField(input.config); }},
+    {.type = InitializationType::Planarwave,
+     .name = "planar wave",
+     .requirement = MaterialRequirement::None,
+     .materialRequirement = "",
+     .timeDependent = true,
      // along kVec where the parameter file sets it, else along (pi, pi, pi); fused simulations
      // are offset against each other in phase, so that they do not all carry the same wave
-     [](const Input& input) {
-       return planarwave(input.materialData, input.config, input.parameters.initialization.kVec);
-     }},
-    {InitializationType::SuperimposedPlanarwave,
-     "super-imposed planar wave",
-     MaterialRequirement::None,
-     "",
-     true,
-     [](const Input& input) { return superimposedPlanarwave(input.materialData, input.config); }},
-    {InitializationType::Travelling,
-     "travelling wave",
-     MaterialRequirement::NotAnelastic,
-     "it is formulated for a material without anelastic mechanisms",
-     true,
-     [](const Input& input) {
-       return travellingWave(input.materialData, input.config, travellingWaveParameters(input));
-     }},
-    {InitializationType::AcousticTravellingWithITM,
-     "acoustic travelling wave with ITM",
-     MaterialRequirement::Fluid,
-     "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
-     true,
-     [](const Input& input) {
-       return acousticTravellingWaveITM(
-           input.materialData,
-           acousticTravellingWaveParameters(input.parameters.initialization,
-                                            input.parameters.model.itmParameters),
-           input.config);
-     }},
-    {InitializationType::Scholte,
-     "Scholte wave (elastic-acoustic)",
-     MaterialRequirement::SolidAndFluid,
-     "it couples a solid to a fluid, which only the elastic material holds both of",
-     true,
-     [](const Input& input) { return scholteWave(input.config); }},
-    {InitializationType::Snell,
-     "Snell's law (elastic-acoustic)",
-     MaterialRequirement::SolidAndFluid,
-     "it couples a solid to a fluid, which only the elastic material holds both of",
-     true,
-     [](const Input& input) { return snellsLaw(input.config); }},
-    {InitializationType::Ocean0,
-     "ocean, an uncoupled ocean test case for acoustic equations (mode 0)",
-     MaterialRequirement::Fluid,
-     "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
-     true,
-     [](const Input& input) { return ocean(0, input.gravitation.acceleration, input.config); }},
-    {InitializationType::Ocean1,
-     "ocean, an uncoupled ocean test case for acoustic equations (mode 1)",
-     MaterialRequirement::Fluid,
-     "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
-     true,
-     [](const Input& input) { return ocean(1, input.gravitation.acceleration, input.config); }},
-    {InitializationType::Ocean2,
-     "ocean, an uncoupled ocean test case for acoustic equations (mode 2)",
-     MaterialRequirement::Fluid,
-     "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
-     true,
-     [](const Input& input) { return ocean(2, input.gravitation.acceleration, input.config); }},
-    {InitializationType::PressureInjection,
-     "pressure injection",
-     MaterialRequirement::Poroelastic,
-     "it is formulated for a poroelastic material",
-     true,
-     [](const Input& input) {
-       return pressureInjection(input.parameters.initialization, input.config);
-     }},
+     .build =
+         [](const Input& input) {
+           return planarwave(
+               input.materialData, input.config, input.parameters.initialization.kVec);
+         }},
+    {.type = InitializationType::SuperimposedPlanarwave,
+     .name = "super-imposed planar wave",
+     .requirement = MaterialRequirement::None,
+     .materialRequirement = "",
+     .timeDependent = true,
+     .build =
+         [](const Input& input) {
+           return superimposedPlanarwave(input.materialData, input.config);
+         }},
+    {.type = InitializationType::Travelling,
+     .name = "travelling wave",
+     .requirement = MaterialRequirement::NotAnelastic,
+     .materialRequirement = "it is formulated for a material without anelastic mechanisms",
+     .timeDependent = true,
+     .build =
+         [](const Input& input) {
+           return travellingWave(input.materialData, input.config, travellingWaveParameters(input));
+         }},
+    {.type = InitializationType::AcousticTravellingWithITM,
+     .name = "acoustic travelling wave with ITM",
+     .requirement = MaterialRequirement::Fluid,
+     .materialRequirement =
+         "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
+     .timeDependent = true,
+     .build =
+         [](const Input& input) {
+           return acousticTravellingWaveITM(
+               input.materialData,
+               acousticTravellingWaveParameters(input.parameters.initialization,
+                                                input.parameters.model.itmParameters),
+               input.config);
+         }},
+    {.type = InitializationType::Scholte,
+     .name = "Scholte wave (elastic-acoustic)",
+     .requirement = MaterialRequirement::SolidAndFluid,
+     .materialRequirement =
+         "it couples a solid to a fluid, which only the elastic material holds both of",
+     .timeDependent = true,
+     .build = [](const Input& input) { return scholteWave(input.config); }},
+    {.type = InitializationType::Snell,
+     .name = "Snell's law (elastic-acoustic)",
+     .requirement = MaterialRequirement::SolidAndFluid,
+     .materialRequirement =
+         "it couples a solid to a fluid, which only the elastic material holds both of",
+     .timeDependent = true,
+     .build = [](const Input& input) { return snellsLaw(input.config); }},
+    {.type = InitializationType::Ocean0,
+     .name = "ocean, an uncoupled ocean test case for acoustic equations (mode 0)",
+     .requirement = MaterialRequirement::Fluid,
+     .materialRequirement =
+         "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
+     .timeDependent = true,
+     .build =
+         [](const Input& input) { return ocean(0, input.gravitation.acceleration, input.config); }},
+    {.type = InitializationType::Ocean1,
+     .name = "ocean, an uncoupled ocean test case for acoustic equations (mode 1)",
+     .requirement = MaterialRequirement::Fluid,
+     .materialRequirement =
+         "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
+     .timeDependent = true,
+     .build =
+         [](const Input& input) { return ocean(1, input.gravitation.acceleration, input.config); }},
+    {.type = InitializationType::Ocean2,
+     .name = "ocean, an uncoupled ocean test case for acoustic equations (mode 2)",
+     .requirement = MaterialRequirement::Fluid,
+     .materialRequirement =
+         "it is formulated for a fluid, i.e. the elastic material with mu = 0 or the acoustic one",
+     .timeDependent = true,
+     .build =
+         [](const Input& input) { return ocean(2, input.gravitation.acceleration, input.config); }},
+    {.type = InitializationType::PressureInjection,
+     .name = "pressure injection",
+     .requirement = MaterialRequirement::Poroelastic,
+     .materialRequirement = "it is formulated for a poroelastic material",
+     .timeDependent = true,
+     .build =
+         [](const Input& input) {
+           return pressureInjection(input.parameters.initialization, input.config);
+         }},
     // Read from a script, which may read the time t: physics::ScriptField evaluates it at any
     // point and time, as an analytical boundary condition asks.
-    {InitializationType::Script, "script", MaterialRequirement::None, {}, true, nullptr},
+    {.type = InitializationType::Script,
+     .name = "script",
+     .requirement = MaterialRequirement::None,
+     .materialRequirement = {},
+     .timeDependent = true,
+     .build = nullptr},
 }};
 
 const Entry* find(InitializationType type) {
-  const auto* entry = std::find_if(
-      Registry.begin(), Registry.end(), [type](const Entry& e) { return e.type == type; });
+  const auto* entry =
+      std::ranges::find_if(Registry, [type](const Entry& e) { return e.type == type; });
   return entry == Registry.end() ? nullptr : entry;
 }
 
@@ -189,10 +212,10 @@ std::string_view name(InitializationType type) {
 Availability availability(InitializationType type, ConfigId config) {
   const auto* entry = find(type);
   if (entry == nullptr) {
-    return {false, "it is not a known scenario"};
+    return {.available = false, .reason = "it is not a known scenario"};
   }
   if (!fulfills(configValue(config), entry->requirement)) {
-    return {false, entry->materialRequirement};
+    return {.available = false, .reason = entry->materialRequirement};
   }
   return {};
 }
@@ -204,7 +227,7 @@ Availability analyticalBoundaryAvailability(InitializationType type, ConfigId co
   }
   const auto* entry = find(type);
   if (!entry->timeDependent) {
-    return {false, "it supplies a state at t = 0 only"};
+    return {.available = false, .reason = "it supplies a state at t = 0 only"};
   }
   return {};
 }

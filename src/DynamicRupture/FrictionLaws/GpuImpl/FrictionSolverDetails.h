@@ -47,17 +47,18 @@ class FrictionSolverDetails : public FrictionSolverInterface<Cfg> {
     // other device memory, rather than travelling through the global
     // matrices. Per solver rather than per process: they live and die with
     // the device allocation they sit next to, and are rebuilt whenever it is.
+    // The grid has the tp_gridpoints the kernels loop over.
     const auto upload = [](const auto& source) {
-      auto& device = device::DeviceInstance::instance();
+      const auto& device = device::DeviceInstance::instance();
       const std::size_t bytes = source.data().size() * sizeof(real);
       auto* target = reinterpret_cast<real*>(device.api().allocGlobMem(bytes));
       device.api().copyTo(target, source.data().data(), bytes);
       return target;
     };
-    devTpGridPoints_ = upload(tp::GridPoints<misc::NumTpGridPoints, real>());
-    devTpInverseFourierCoefficients_ =
-        upload(tp::InverseFourierCoefficients<misc::NumTpGridPoints, real>());
-    devHeatSource_ = upload(tp::GaussianHeatSource<misc::NumTpGridPoints, real>());
+    const std::size_t tpGridPoints = this->drParameters_.tpGridPoints;
+    devTpGridPoints_ = upload(tp::GridPoints<real>(tpGridPoints));
+    devTpInverseFourierCoefficients_ = upload(tp::InverseFourierCoefficients<real>(tpGridPoints));
+    devHeatSource_ = upload(tp::GaussianHeatSource<real>(tpGridPoints));
 #endif
   }
 

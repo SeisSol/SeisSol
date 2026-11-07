@@ -29,8 +29,10 @@ inline auto allocationModeDR() {
   if constexpr (!isDeviceOn()) {
     return AllocationMode::HostOnly;
   } else {
-    const auto modeMaybeCompress = useDeviceL2Compress() ? AllocationMode::HostDeviceCompress
-                                                         : AllocationMode::HostDeviceSplit;
+    // pinned on the host, so that the copies of the data for the outputs do not block (see
+    // HostSnapshot)
+    const auto modeMaybeCompress = useDeviceL2Compress() ? AllocationMode::HostDeviceCompressPinned
+                                                         : AllocationMode::HostDeviceSplitPinned;
     return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
   }
 }
@@ -285,24 +287,32 @@ struct LTSRateAndStateFastVelocityWeakening : public LTSRateAndState {
 };
 
 struct LTSThermalPressurization {
+  public:
+  LTSThermalPressurization() = default;
+  explicit LTSThermalPressurization(const initializer::parameters::DRParameters* parameters)
+      : tpGridPointCount(parameters->tpGridPoints) {}
+
+  /// the wavenumber grid the pressurization is integrated on; see dr::misc::DefaultTpGridPoints
+  std::size_t tpGridPointCount{dr::misc::DefaultTpGridPoints};
+
   template <typename Cfg>
   using PointReals = DynamicRupture::PointReals<Cfg>;
-  template <typename Cfg>
-  using GridPointReals = Real<Cfg>[dr::misc::NumTpGridPoints][dr::misc::NumPaddedPoints<Cfg>];
 
   struct Temperature : public initializer::VariantVariable<PointReals> {};
   struct Pressure : public initializer::VariantVariable<PointReals> {};
-  struct Theta : public initializer::VariantVariable<GridPointReals> {};
-  struct Sigma : public initializer::VariantVariable<GridPointReals> {};
+  /// one spectral coefficient of a face, per point; the grid points share one array, indexed by
+  /// ltsFace * tpGridPointCount + tpGridPoint
+  struct Theta : public initializer::VariantVariable<PointReals> {};
+  struct Sigma : public initializer::VariantVariable<PointReals> {};
   struct HalfWidthShearZone : public initializer::VariantVariable<PointReals> {};
   struct HydraulicDiffusivity : public initializer::VariantVariable<PointReals> {};
 
-  void addTo(DynamicRupture::Storage& storage) {
+  void addTo(DynamicRupture::Storage& storage) const {
     const auto mask = initializer::LayerMask(Ghost);
     storage.add<Temperature>(mask, Alignment, allocationModeDR());
     storage.add<Pressure>(mask, Alignment, allocationModeDR());
-    storage.add<Theta>(mask, Alignment, allocationModeDR());
-    storage.add<Sigma>(mask, Alignment, allocationModeDR());
+    storage.add<Theta>(mask, Alignment, allocationModeDR(), false, tpGridPointCount);
+    storage.add<Sigma>(mask, Alignment, allocationModeDR(), false, tpGridPointCount);
     storage.add<HalfWidthShearZone>(mask, Alignment, allocationModeDR(), true);
     storage.add<HydraulicDiffusivity>(mask, Alignment, allocationModeDR(), true);
   }
@@ -320,7 +330,7 @@ struct LTSRateAndStateThermalPressurization : public LTSRateAndState,
                                               public LTSThermalPressurization {
   explicit LTSRateAndStateThermalPressurization(
       const initializer::parameters::DRParameters* parameters)
-      : LTSRateAndState(parameters) {}
+      : LTSRateAndState(parameters), LTSThermalPressurization(parameters) {}
 
   void addTo(Storage& storage) override {
     LTSRateAndState::addTo(storage);
@@ -339,7 +349,7 @@ struct LTSRateAndStateThermalPressurizationFastVelocityWeakening
       public LTSThermalPressurization {
   explicit LTSRateAndStateThermalPressurizationFastVelocityWeakening(
       const initializer::parameters::DRParameters* parameters)
-      : LTSRateAndStateFastVelocityWeakening(parameters) {}
+      : LTSRateAndStateFastVelocityWeakening(parameters), LTSThermalPressurization(parameters) {}
 
   void addTo(Storage& storage) override {
     LTSRateAndStateFastVelocityWeakening::addTo(storage);

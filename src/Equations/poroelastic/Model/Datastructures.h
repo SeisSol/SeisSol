@@ -16,7 +16,9 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <limits>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -56,8 +58,9 @@ struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr auto InverseRotationGroups = PrimaryGroups;
 
   /// The fluid velocities relax against the solid ones through Biot drag.
-  static constexpr std::array StiffSourceRows{
-      StiffSourceRow{10, 6}, StiffSourceRow{11, 7}, StiffSourceRow{12, 8}};
+  static constexpr std::array StiffSourceRows{StiffSourceRow{.quantity = 10, .target = 6},
+                                              StiffSourceRow{.quantity = 11, .target = 7},
+                                              StiffSourceRow{.quantity = 12, .target = 8}};
 
   /// Where the velocity components start. Everything reaching for them --
   /// energy output, point sources, initial fields -- goes through this.
@@ -86,10 +89,17 @@ struct PoroElasticMaterial : public ElasticMaterial {
   double bulkFluid{};
   double rhoFluid{};
   double viscosity{};
+  /// The hydraulic conductance [m / (Pa s)] of the boundary of the region of the mesh that the
+  /// cell is in, towards other regions: the normal filtration velocity through a face of the
+  /// boundary is the conductance times the jump of the pore pressure across it. Zero seals the
+  /// boundary; unbounded, the pore pressure is continuous across it (see sideConductance).
+  double interfaceConductance{std::numeric_limits<double>::infinity()};
 
   /// The parameters a material file gives, in the order scripts read them
   /// (model::scriptParameterNames).
   static const std::array<std::pair<std::string, double PoroElasticMaterial::*>, 10> ParameterList;
+  /// The parameters that a material file may leave out, at their defaults then.
+  static const std::unordered_map<std::string, double PoroElasticMaterial::*> OptionalParameterMap;
 
   PoroElasticMaterial() = default;
 
@@ -142,6 +152,11 @@ inline const std::array<std::pair<std::string, double PoroElasticMaterial::*>, 1
 inline void PoroElasticMaterial::scriptParameters(double* values) const {
   fillScriptParameters(*this, values);
 }
+
+inline const std::unordered_map<std::string, double PoroElasticMaterial::*>
+    PoroElasticMaterial::OptionalParameterMap{
+        {"interface_conductance", &PoroElasticMaterial::interfaceConductance},
+    };
 
 } // namespace seissol::model
 

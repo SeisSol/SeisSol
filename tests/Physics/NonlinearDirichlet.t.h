@@ -170,7 +170,7 @@ TEST_CASE("GhostStateIntegral: the script integrated over the time points of a s
 
   std::array<double, 3> quadPoints{};
   std::array<double, 3> quadWeights{};
-  quadrature::GaussLegendre(quadPoints.data(), quadWeights.data(), 3);
+  quadrature::gaussLegendre(quadPoints.data(), quadWeights.data(), 3);
   std::array<double, 3> times{};
   integral.timePoints(1.0, 0.5, times.data());
 

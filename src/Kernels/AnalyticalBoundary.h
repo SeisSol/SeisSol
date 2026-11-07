@@ -43,7 +43,7 @@ struct ApplyAnalyticalSolution {
 
   void operator()(const real* nodes,
                   double time,
-                  typename seissol::init::INodal<Cfg>::view::type& boundaryDofs) const {
+                  seissol::init::INodal<Cfg>::view::type& boundaryDofs) const {
     assert(initConditions_ != nullptr);
 
     constexpr auto NodeCount = seissol::tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>];
@@ -86,7 +86,7 @@ class AnalyticalBoundary {
   using real = Real<Cfg>;
 
   AnalyticalBoundary() {
-    quadrature::GaussLegendre(quadPoints_.data(), quadWeights_.data(), Cfg::ConvergenceOrder);
+    quadrature::gaussLegendre(quadPoints_.data(), quadWeights_.data(), Cfg::ConvergenceOrder);
   }
 
   template <typename Func>

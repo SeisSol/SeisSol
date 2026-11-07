@@ -264,19 +264,19 @@ void Plasticity<Cfg>::computePlasticityBatched(
   const ConditionalKey key(*KernelNames::Plasticity);
   auto* defaultStream = runtime.stream();
 
-  if (table.find(key) != table.end()) {
+  if (table.contains(key)) {
     const auto oneMinusIntegratingFactor = computeRelaxTime(tV, timeStepWidth);
 
     auto& entry = table[key];
-    const size_t numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
+    const size_t numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
 
     // Convert modal to nodal
-    real** modalStressTensors = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+    real** modalStressTensors = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
     real** nodalStressTensors =
-        (entry.get<real*>(inner_keys::Wp::Id::NodalStressTensor))->getDeviceDataPtr();
+        entry.get<real*>(inner_keys::Wp::Id::NodalStressTensor)->getDeviceDataPtr();
 
     static_assert(kernel::gpu_plConvertToNodal<Cfg>::TmpMaxMemRequiredInBytes == 0);
-    real** initLoad = (entry.get<real*>(inner_keys::Wp::Id::InitialLoad))->getDeviceDataPtr();
+    real** initLoad = entry.get<real*>(inner_keys::Wp::Id::InitialLoad)->getDeviceDataPtr();
     kernel::gpu_plConvertToNodal<Cfg> m2nKrnl;
     m2nKrnl.bindGlobals(*global);
     m2nKrnl.QStress = const_cast<const real**>(modalStressTensors);

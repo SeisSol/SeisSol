@@ -10,6 +10,7 @@
 #include "AsyncWriter.t.h"
 #include "BinaryFile.t.h"
 #include "BufferRegistry.t.h"
+#include "Contributions.t.h"
 #include "Csv.t.h"
 #include "Datatype.t.h"
 #include "Datatype/Datatype.t.h"

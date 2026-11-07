@@ -8,6 +8,8 @@
 
 #include "LoopStatistics.h"
 
+#include "Common/Json.h"
+#include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
 #include "Numerical/Statistics.h"
 #include "Unit.h"
@@ -19,132 +21,138 @@
 #include <ctime>
 #include <iterator>
 #include <mpi.h>
+#include <mutex>
 #include <string>
-#include <time.h>
+// clock_gettime is POSIX and only declared by the C header
+#include <time.h> // NOLINT(modernize-deprecated-headers)
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
-#ifdef USE_NETCDF
-#include <fstream>
-#include <netcdf.h>
-#include <netcdf_par.h>
-#include <ostream>
-#include <sstream>
-#endif // USE_NETCDF
-
-#ifdef USE_NETCDF
-namespace {
-
-void check_err(const int stat, const int line, const char* file) {
-  if (stat != NC_NOERR) {
-    logError() << "line" << line << "of" << file << ":" << nc_strerror(stat) << std::endl;
-  }
-}
-
-template <typename T>
-nc_type type2nc() {
-  if constexpr (std::is_signed_v<T>) {
-    static_assert(std::is_integral_v<T> && (sizeof(T) == 4 || sizeof(T) == 8),
-                  "type2nc supports 32 or 64 bit integral types only");
-    if constexpr (sizeof(T) == 4) {
-      return NC_INT;
-    } else {
-      return NC_INT64;
-    }
-  } else {
-    if constexpr (sizeof(T) == 4) {
-      return NC_UINT;
-    } else {
-      return NC_UINT64;
-    }
-  }
-}
-
-} // namespace
-#endif
-
 namespace seissol {
 
-void LoopStatistics::enableSampleOutput(bool enabled) { outputSamples_ = enabled; }
-
-LoopStatistics::Region::Region(const std::string& name, bool includeInSummary)
-    : name(name), includeInSummary(includeInSummary) {}
+LoopStatistics::Region::Region(std::string name, bool includeInSummary)
+    : name(std::move(name)), includeInSummary(includeInSummary) {}
 
 void LoopStatistics::addRegion(const std::string& name, bool includeInSummary) {
   regions_.emplace_back(name, includeInSummary);
 }
 
 unsigned LoopStatistics::getRegion(const std::string& name) const {
-  auto first = regions_.cbegin();
-  auto it =
+  const auto first = regions_.cbegin();
+  const auto it =
       std::find_if(first, regions_.cend(), [&name](const auto& elem) { return elem.name == name; });
   assert(it != regions_.end());
   return std::distance(first, it);
 }
 
-void LoopStatistics::begin(unsigned region) {
-  (void)clock_gettime(CLOCK_MONOTONIC, &regions_[region].begin);
+timespec LoopStatistics::begin() {
+  timespec beginTime{};
+  (void)clock_gettime(CLOCK_MONOTONIC, &beginTime);
+  return beginTime;
 }
 
-void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRegion) {
+void LoopStatistics::end(unsigned region,
+                         unsigned numIterations,
+                         unsigned subRegion,
+                         const timespec& begin) {
   timespec endTime{};
   (void)clock_gettime(CLOCK_MONOTONIC, &endTime);
-  addSample(region, numIterations, subRegion, regions_[region].begin, endTime);
+  addSample(region, numIterations, subRegion, begin, endTime);
 }
 
 void LoopStatistics::addSample(
     unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end) {
-  if (outputSamples_) {
-    Sample sample{};
-    sample.begin = begin;
-    sample.end = end;
-    sample.numIters = numIterations;
-    sample.subRegion = subRegion;
-    regions_[region].times.emplace_back(sample);
-  }
+  addTime(region, numIterations, subRegion, seconds(difftime(begin, end)));
+}
+
+void LoopStatistics::addTime(unsigned region,
+                             unsigned numIterations,
+                             unsigned subRegion,
+                             double time) {
   if (numIterations > 0) {
+    const std::scoped_lock lock(samplesMutex_);
     auto& vars = regions_[region].variables;
-    const auto time = seconds(difftime(begin, end));
     vars.x += numIterations;
     vars.x2 += static_cast<double>(numIterations) * static_cast<double>(numIterations);
     vars.xy += static_cast<double>(numIterations) * time;
     vars.y += time;
     vars.y2 += time * time;
     ++vars.n;
+
+    // only the kernels; the other regions, such as the actor states, overlap with them
+    if (recordLayers_ && regions_[region].includeInSummary) {
+      if (layers_.size() <= region) {
+        layers_.resize(region + 1);
+      }
+      auto& layers = layers_[region];
+      if (layers.size() <= subRegion) {
+        layers.resize(subRegion + 1);
+      }
+      auto& samples = layers[subRegion];
+      if (samples.times.size() < MaxLayerSamples) {
+        samples.times.push_back(time);
+      }
+      ++samples.loops;
+    }
   }
+}
+
+double LoopStatistics::layerTime(unsigned region, unsigned subRegion) const {
+  if (region >= layers_.size() || subRegion >= layers_[region].size()) {
+    return 0;
+  }
+  const auto& samples = layers_[region][subRegion];
+  if (samples.times.empty()) {
+    return 0;
+  }
+  auto times = samples.times;
+  const auto middle = times.begin() + static_cast<std::ptrdiff_t>(times.size() / 2);
+  std::nth_element(times.begin(), middle, times.end());
+  return *middle * static_cast<double>(samples.loops);
 }
 
 void LoopStatistics::reset() {
   for (auto& region : regions_) {
-    region.times.resize(0);
     region.variables = StatisticVariables();
-    // (region.begin is not reset)
   }
+  layers_.clear();
 }
 
-void LoopStatistics::printSummary(MPI_Comm comm) {
+double LoopStatistics::kernelTime() const {
+  double time = 0.0;
+  for (const auto& region : regions_) {
+    // the regions that are not, such as the actor states, overlap with the kernels
+    if (region.includeInSummary) {
+      time += region.variables.y;
+    }
+  }
+  return time;
+}
+
+json::Value LoopStatistics::printSummary(MPI_Comm comm) {
   const auto nRegions = regions_.size();
   constexpr int NumSumComponents = 6;
   auto sums = std::vector<double>(NumSumComponents * nRegions);
-  double totalTimePerRank = 0.0;
+  const double totalTimePerRank = kernelTime();
 
   // Helper functions to access sums
-  auto getNumIters = [&sums](std::size_t region) -> double& {
+  const auto getNumIters = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 0];
   };
-  auto getNumItersSquared = [&sums](std::size_t region) -> double& {
+  const auto getNumItersSquared = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 1];
   };
-  auto getTimeTimesNumIters = [&sums](std::size_t region) -> double& {
+  const auto getTimeTimesNumIters = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 2];
   };
-  auto getTime = [&sums](std::size_t region) -> double& {
+  const auto getTime = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 3];
   };
-  auto getTimeSquared = [&sums](std::size_t region) -> double& {
+  const auto getTimeSquared = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 4];
   };
-  auto getNumberOfSamples = [&sums](std::size_t region) -> double& {
+  const auto getNumberOfSamples = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 5];
   };
 
@@ -155,11 +163,6 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
     getTime(region) = regions_[region].variables.y;
     getTimeSquared(region) = regions_[region].variables.y2;
     getNumberOfSamples(region) = regions_[region].variables.n;
-
-    // Make sure that events that lead to duplicate accounting are ignored
-    if (regions_[region].includeInSummary) {
-      totalTimePerRank += regions_[region].variables.y;
-    }
   }
 
   int rank = 0;
@@ -171,6 +174,13 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
 
   const auto loadImbalance = 1.0 - summary.mean / summary.max;
   logInfo() << "Load imbalance:" << 100.0 * loadImbalance << "%";
+
+  // the time of every region per rank, which the sums below fold together
+  std::vector<seissol::statistics::Summary> regionTimes;
+  regionTimes.reserve(nRegions);
+  for (unsigned region = 0; region < nRegions; ++region) {
+    regionTimes.push_back(seissol::statistics::parallelSummary(regions_[region].variables.y));
+  }
 
   MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, comm);
 
@@ -236,123 +246,30 @@ void LoopStatistics::printSummary(MPI_Comm comm) {
     logInfo() << "Total time spent in compute kernels:" << totalTime
               << "s ( =" << UnitTime.formatTime(totalTime).c_str() << ")";
   }
-}
 
-void LoopStatistics::writeSamples([[maybe_unused]] const std::string& outputPrefix,
-                                  bool isLoopStatisticsNetcdfOutputOn) {
-  if (isLoopStatisticsNetcdfOutputOn) {
-#ifdef USE_NETCDF
-    const auto loopStatFile = outputPrefix + "-loopStat-";
-    const auto rank = Mpi::mpi.rank();
-    logInfo() << "Starting to write loop statistics samples to disk.";
-    const unsigned nRegions = regions_.size();
-    for (unsigned region = 0; region < nRegions; ++region) {
-      const std::ofstream file;
-      std::stringstream ss;
-      ss << loopStatFile << regions_[region].name << ".nc";
-      const std::string fileName = ss.str();
-
-      long nSamples = regions_[region].times.size();
-      long sampleOffset = 0;
-      MPI_Scan(&nSamples, &sampleOffset, 1, MPI_LONG, MPI_SUM, Mpi::mpi.comm());
-
-      int ncid = 0;
-      int stat = 0;
-      stat = nc_create_par(fileName.c_str(),
-                           NC_MPIIO | NC_CLOBBER | NC_NETCDF4,
-                           Mpi::mpi.comm(),
-                           MPI_INFO_NULL,
-                           &ncid);
-      check_err(stat, __LINE__, __FILE__);
-
-      int sampledim = 0;
-      int rankdim = 0;
-      int timespectyp = 0;
-      int sampletyp = 0;
-      int offsetid = 0;
-      int sampleid = 0;
-
-      stat = nc_def_dim(ncid, "rank", 1 + Mpi::mpi.size(), &rankdim);
-      check_err(stat, __LINE__, __FILE__);
-      stat = nc_def_dim(ncid, "sample", NC_UNLIMITED, &sampledim);
-      check_err(stat, __LINE__, __FILE__);
-
-      stat = nc_def_compound(ncid, sizeof(timespec), "timespec", &timespectyp);
-      check_err(stat, __LINE__, __FILE__);
-      {
-        stat = nc_insert_compound(ncid,
-                                  timespectyp,
-                                  "sec",
-                                  NC_COMPOUND_OFFSET(timespec, tv_sec),
-                                  type2nc<decltype(timespec::tv_sec)>());
-        check_err(stat, __LINE__, __FILE__);
-        stat = nc_insert_compound(ncid,
-                                  timespectyp,
-                                  "nsec",
-                                  NC_COMPOUND_OFFSET(timespec, tv_nsec),
-                                  type2nc<decltype(timespec::tv_nsec)>());
-        check_err(stat, __LINE__, __FILE__);
-      }
-
-      stat = nc_def_compound(ncid, sizeof(Sample), "Sample", &sampletyp);
-      check_err(stat, __LINE__, __FILE__);
-      {
-        stat = nc_insert_compound(
-            ncid, sampletyp, "begin", NC_COMPOUND_OFFSET(Sample, begin), timespectyp);
-        check_err(stat, __LINE__, __FILE__);
-        stat = nc_insert_compound(
-            ncid, sampletyp, "end", NC_COMPOUND_OFFSET(Sample, end), timespectyp);
-        check_err(stat, __LINE__, __FILE__);
-        stat = nc_insert_compound(
-            ncid, sampletyp, "loopLength", NC_COMPOUND_OFFSET(Sample, numIters), NC_UINT);
-        check_err(stat, __LINE__, __FILE__);
-        stat = nc_insert_compound(
-            ncid, sampletyp, "subRegion", NC_COMPOUND_OFFSET(Sample, subRegion), NC_UINT);
-        check_err(stat, __LINE__, __FILE__);
-      }
-
-      stat = nc_def_var(ncid, "offset", NC_INT64, 1, &rankdim, &offsetid);
-      check_err(stat, __LINE__, __FILE__);
-      stat = nc_def_var(ncid, "sample", sampletyp, 1, &sampledim, &sampleid);
-      check_err(stat, __LINE__, __FILE__);
-
-      stat = nc_enddef(ncid);
-      check_err(stat, __LINE__, __FILE__);
-
-      stat = nc_var_par_access(ncid, offsetid, NC_COLLECTIVE);
-      check_err(stat, __LINE__, __FILE__);
-      stat = nc_var_par_access(ncid, sampleid, NC_COLLECTIVE);
-      check_err(stat, __LINE__, __FILE__);
-
-      std::size_t start = 0;
-      std::size_t count = 0;
-      long offsetData[2];
-      if (rank == 0) {
-        start = 0;
-        count = 2;
-        offsetData[0] = 0;
-      } else {
-        start = 1 + rank;
-        count = 1;
-      }
-      offsetData[count - 1] = sampleOffset;
-
-      stat = nc_put_vara_long(ncid, offsetid, &start, &count, offsetData);
-      check_err(stat, __LINE__, __FILE__);
-
-      start = sampleOffset - nSamples;
-      count = nSamples;
-      stat = nc_put_vara(ncid, sampleid, &start, &count, regions_[region].times.data());
-      check_err(stat, __LINE__, __FILE__);
-
-      stat = nc_close(ncid);
-      check_err(stat, __LINE__, __FILE__);
+  json::Value result;
+  result["total"] = monitoring::toJson(summary);
+  result["loadImbalance"] = loadImbalance;
+  auto& regions = result["regions"] = json::Value::object();
+  for (unsigned region = 0; region < nRegions; ++region) {
+    const double x = getNumIters(region);
+    const double x2 = getNumItersSquared(region);
+    const double n = getNumberOfSamples(region);
+    const double xm = x / n;
+    const double xv = x2 - 2 * x * xm + xm * xm;
+    auto& entry = regions[regions_[region].name];
+    entry["includedInTotal"] = regions_[region].includeInSummary;
+    entry["time"] = monitoring::toJson(regionTimes[region]);
+    entry["iterations"] = x;
+    entry["samples"] = n;
+    // the regions outside of the total time count no elements, but states
+    if (regions_[region].includeInSummary) {
+      entry["regression"]["constant"] = regressionCoeffs[2 * region + 0];
+      entry["regression"]["perElement"] = regressionCoeffs[2 * region + 1];
+      entry["regression"]["standardError"] = std::sqrt((stderror[region] / (n - 2)) / xv);
     }
-    logInfo() << "Finished writing loop statistics samples.";
-#else
-    logWarning() << "Writing loop statistics requires NetCDF.";
-#endif
   }
+  return result;
 }
 
 } // namespace seissol

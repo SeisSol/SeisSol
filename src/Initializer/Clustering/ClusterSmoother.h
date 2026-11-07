@@ -12,7 +12,6 @@
 
 #include "Geometry/PUMLReader.h"
 #include "Initializer/BasicTypedefs.h"
-#include "Initializer/Parameters/MeshParameters.h"
 
 #include <cstddef>
 #include <mpi.h>
@@ -23,10 +22,9 @@
 namespace seissol::initializer {
 
 /// Decodes the boundary condition of a face into a FaceType.
-FaceType decodeFaceType(const void* boundaryCond,
+FaceType decodeFaceType(const geometry::BoundaryTagsView& boundaryTags,
                         std::size_t cell,
-                        std::uint8_t face,
-                        parameters::BoundaryFormat boundaryFormat,
+                        std::size_t face,
                         const FaceMap& faceMap);
 
 /// Which cluster id differences are admissible across a face.
@@ -55,8 +53,9 @@ struct SmoothingRule {
 /// re-entered for every wiggle factor candidate.
 class ClusterSmoother {
   public:
+  /// `arrays` are those PUMLReader::read read with the cells of `mesh`.
   ClusterSmoother(const geometry::PumlMesh& mesh,
-                  parameters::BoundaryFormat boundaryFormat,
+                  const geometry::PumlCellArrays& arrays,
                   const FaceMap& faceMap);
 
   /// One local sweep plus one halo exchange. Returns the number of demotions on this rank.
@@ -73,7 +72,7 @@ class ClusterSmoother {
 
   private:
   const geometry::PumlMesh* mesh_{nullptr};
-  parameters::BoundaryFormat boundaryFormat_;
+  geometry::PumlCellArrays arrays_;
   const FaceMap* faceMap_;
 
   std::vector<std::pair<int, std::vector<std::size_t>>> rankToSharedFaces_;

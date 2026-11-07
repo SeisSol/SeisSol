@@ -12,6 +12,10 @@
 
 #include <optional>
 
+namespace seissol {
+class Modules;
+} // namespace seissol
+
 namespace seissol::reader::datafield {
 
 /// Advances the resident window of every time-dependent grid so it still covers
@@ -33,18 +37,18 @@ class GridUpdateModule : public Module {
 
   void syncPoint(double currentTime) override;
 
-  /// Register for the two hooks and adopt `interval`. A member because
+  /// Register for the two hooks of `modules` and adopt `interval`. A member because
   /// Module::setSyncInterval is protected -- the framework's way of saying that
   /// a module's cadence is its own business and not something a registrar sets
   /// from outside.
-  void enable(double interval);
+  void enable(double interval, Modules& modules);
 
   private:
   GridStore* store_;
 };
 
-/// Register a GridUpdateModule for the shared store, if and only if some grid
-/// in it is time-dependent.
+/// Register a GridUpdateModule for the shared store with the modules of the
+/// SeisSol instance, if and only if some grid in it is time-dependent.
 ///
 /// ORDERING: call this AFTER every model has been loaded. The store is filled by
 /// makeKernel interning a program's grids, which happens when a CompiledReader
@@ -55,7 +59,7 @@ class GridUpdateModule : public Module {
 /// interval, which costs a global barrier for nothing.
 ///
 /// Idempotent: calling it twice registers one module.
-void registerGridUpdateModule();
+void registerGridUpdateModule(Modules& modules);
 
 } // namespace seissol::reader::datafield
 

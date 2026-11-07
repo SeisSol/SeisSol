@@ -13,6 +13,105 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The samples of the on-fault receivers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the on-fault receivers sample at fixed times within the time steps)
+
+The on-fault receivers sample at the multiples of the new parameter ``pickdt`` of the
+``Pickpoint`` section, or without it every ``printtimeinterval`` time steps of the finest time
+cluster with fault faces counted from time zero, and at the end of the simulation. A sample takes
+the wave field of its time from the time derivatives of the cells, and the friction state
+interpolated linearly within the time step. Before, the receivers sampled in the time steps of the
+finest cluster with fault faces, counted from the last synchronization point, with the wave field
+of the start of the step and the friction state of its end; a face of a coarser cluster repeated
+the state of its step. After a restart, the first sample carries the time of the checkpoint.
+
+The static frictional work
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the static frictional work takes the traction at the output time)
+
+The static frictional work of the energy output (``static_frictional_work``) takes the traction of
+the cells at the faults at the time of the output, as it takes the slip, and as the elementwise fault
+output does. It used to take the traction at the start of the last time step of each cell. For TPV5
+on a very coarse mesh (19 thousand cells), the values differ by up to 0.2 %.
+
+Unified memory on GPUs
+~~~~~~~~~~~~~~~~~~~~~~
+(since the outputs copy only what they read from the GPU)
+
+``SEISSOL_USM`` and ``SEISSOL_USM_MPI`` are off by default on all systems. They used to be on by
+default where the GPU shares its memory with the CPU (e.g. Grace Hopper, Grace Blackwell, MI300A,
+APUs). The host then keeps a copy of the data; on an APU, it takes memory from the same pool as the
+GPU. ``SEISSOL_USM=1`` brings back the former behavior, and running clusters on the host
+(``SEISSOL_DEVICE_HOST_SWITCH``) needs it.
+
+The files of a mesh output in VTKHDF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since a single time series is the default of VTKHDF)
+
+A mesh output written as VTKHDF (with a ``vtkorder``) that is given no grouping
+of its steps writes them all into one file, as a VTKHDF time series
+(``monolith``), instead of one file per step; see :ref:`io_infrastructure`. Setting
+``outputtimeseries = 'snapshot'`` in the ``output`` section brings back a file
+per step for all mesh outputs. An output written as Xdmf writes a file per step
+as before.
+
+The quadrature rule of the dynamic rupture faces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since Dunavant's rules are the default)
+
+``DR_QUAD_RULE`` defaults to ``dunavant`` instead of ``stroud``. The friction laws are solved at the
+points of Dunavant's rules, 33 instead of 49 per face at order 6, which changes the results of a
+run with dynamic rupture slightly. A build with ``-DDR_QUAD_RULE=stroud`` computes as before.
+
+The names of configurations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the scheme and the fault quadrature rule hold for the whole executable)
+
+A configuration is named ``<material>[-m<mechanisms>]-o<order>-<f32|f64>[-s<fused simulations>]``,
+e.g. ``elastic-o6-f64`` or ``viscoelastic-m3-o6-f64``, in ``Configuration`` and ``ConfigMap`` of
+the parameter file, in ``SEISSOL_CONFIGURATION``, in ``CONFIGS`` and ``EXTRA_CONFIGS``, and in the
+names of the executables of a single configuration. The scheme that advances a material
+(``SOLVER``) and the quadrature rule of the dynamic rupture faces (``DR_QUAD_RULE``) are chosen for
+the whole executable and are no part of a name any more: ``elastic-linearck-o6-f64-stroud`` is now
+``elastic-o6-f64``, ``viscoelastic-linearckanelastic-m3-o6-f64-stroud`` is
+``viscoelastic-m3-o6-f64``. An executable of a viscoelastic or viscoacoustic configuration is named
+with ``-m`` before its number of mechanisms, ``seissol-viscoelastic-m3-o6-f64`` instead of
+``seissol-viscoelastic-3-o6-f64``. An executable built with ``EXTRA_CONFIGS`` holds several
+configurations and is named ``seissol``, as one built with ``CONFIGS``.
+
+The theoretical speedup of local time stepping
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the machine-readable run summary)
+
+The line "Theoretical speedup to GTS:" of the log gives how many times fewer
+cell updates local time stepping takes than global time stepping (see
+:ref:`cell-updates`). It used to give the ratio of the sums of the cell
+timesteps, which is larger, and for clustered LTS took the wiggle factor into
+account twice. ``-clustering.csv`` has the columns ``timestep`` and
+``updateFactor`` after ``localRank``.
+
+The loop statistics in NetCDF
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since the machine-readable run summary)
+
+``LoopStatisticsNetcdfOutput`` in the ``output`` section has no effect any more,
+and a parameter file that sets it gets a warning. The NetCDF file it wrote, with
+every timing sample of every region and rank, is gone; the run summary has the
+time of every region per rank, with its statistics, instead (see
+:ref:`run-summary`).
+
+The run ID in the output
+~~~~~~~~~~~~~~~~~~~~~~~~
+(since the machine-readable run summary)
+
+Every table beside the output (``-clustering.csv``, ``-threadPinning.csv``,
+``-miniSeissol.csv``, ``-flops.csv``, ``-energy.csv`` and ``-analysis.csv``)
+ends in a column ``runId``, and the header of the text files of the receivers
+and fault receivers ends in a line ``# run-id``; see :ref:`env_vars`. A reader
+that takes the columns by name and skips the comment lines of a receiver file
+needs no change.
+
 The rupture and dynamic stress times
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the verification cases on mini meshes)

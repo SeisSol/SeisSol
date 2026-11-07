@@ -61,6 +61,7 @@
 // PUML.h needs to be included before Downward.h
 
 #include <PUML/Downward.h>
+#include <PUML/Types.h>
 #endif
 
 using namespace seissol::model;
@@ -175,9 +176,10 @@ std::unique_ptr<reader::scripting::DataReader> ParameterDB::loadModel(const std:
 }
 
 CellToVertexArray::CellToVertexArray(size_t size,
-                                     const CellToVertexFunction& elementCoordinates,
-                                     const CellToGroupFunction& elementGroups)
-    : size(size), elementCoordinates(elementCoordinates), elementGroups(elementGroups) {}
+                                     CellToVertexFunction elementCoordinates,
+                                     CellToGroupFunction elementGroups)
+    : size(size), elementCoordinates(std::move(elementCoordinates)),
+      elementGroups(std::move(elementGroups)) {}
 
 CellToVertexArray
     CellToVertexArray::fromMeshReader(const seissol::geometry::MeshReader& meshReader) {
@@ -189,7 +191,7 @@ CellToVertexArray
       [&](size_t index) {
         std::array<Eigen::Vector3d, 4> verts;
         for (size_t i = 0; i < Cell::NumVertices; ++i) {
-          auto vindex = elements[index].vertices[i];
+          const auto vindex = elements[index].vertices[i];
           const auto& vertex = vertices[vindex];
           verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
         }
@@ -201,8 +203,9 @@ CellToVertexArray
 #ifdef USE_HDF
 CellToVertexArray
     CellToVertexArray::fromPUML(const seissol::geometry::PumlMesh& mesh,
+                                const seissol::geometry::PumlCellArrays& arrays,
                                 const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
-  const int* groups = reinterpret_cast<const int*>(mesh.cellData(0));
+  const auto groups = mesh.data(arrays.group);
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
   assert(vertexOrders.size() == elements.size());
@@ -210,7 +213,7 @@ CellToVertexArray
       elements.size(),
       [&](size_t cell) {
         std::array<Eigen::Vector3d, 4> x;
-        unsigned vertLids[Cell::NumVertices]{};
+        PUML::LocalId vertLids[Cell::NumVertices]{};
         PUML::Downward::vertices(mesh, elements[cell], vertLids);
         const auto& order = vertexOrders[cell];
         for (std::size_t vtx = 0; vtx < Cell::NumVertices; ++vtx) {
@@ -301,9 +304,9 @@ reader::scripting::DataTable ElementBarycenterGenerator::generate() const {
   return table;
 }
 
-ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex,
+ElementAverageGenerator::ElementAverageGenerator(CellToVertexArray cellToVertex,
                                                  std::size_t convergenceOrder)
-    : cellToVertex_(cellToVertex) {
+    : cellToVertex_(std::move(cellToVertex)) {
   const auto [quadraturePoints, quadratureWeights] =
       seissol::quadrature::simplexRule<3>(convergenceOrder);
 
@@ -392,9 +395,9 @@ reader::scripting::DataTable FaultGPGenerator<Cfg>::generate() const {
       sideOrientation = seissol::geometry::FaceOrientation::Rotate0;
     }
     faces->push_back(
-        FaultFace{element,
-                  side,
-                  seissol::geometry::AffineFaceTransform(
+        FaultFace{.element = element,
+                  .side = side,
+                  .transform = seissol::geometry::AffineFaceTransform(
                       seissol::geometry::AffineTransform(cellToVertex.elementCoordinates(element)),
                       seissol::geometry::ReferenceFaceMap(side, sideOrientation))});
   }
@@ -626,7 +629,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
   // * if not (e.g. poroelastic or anisotropic with just elastic parameters), parse elastic or
   // acoustic first, then convert to the target material
 
-  const auto evaluateModel = [&]() {
+  const auto evaluateModel = [&] {
     auto table = queryGen.generate();
     const std::size_t numPoints = table.numPoints();
     // materials do not depend on the fused simulation
@@ -636,6 +639,15 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     for (const auto& [name, pointer] : T::ParameterList) {
       table.bindMemberView(
           name, reader::scripting::Direction::Out, materialsFromQuery.data(), pointer);
+    }
+    // a parameter the material file may leave out keeps its default where it does
+    if constexpr (requires { T::OptionalParameterMap; }) {
+      for (const auto& [name, pointer] : T::OptionalParameterMap) {
+        if (supplied.contains(name)) {
+          table.bindMemberView(
+              name, reader::scripting::Direction::Out, materialsFromQuery.data(), pointer);
+        }
+      }
     }
 
     evaluateSafe(*model, table, "volume material:" + T::Text);
@@ -694,7 +706,7 @@ void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
   auto table = queryGen.generate();
   table.bindConstant("sim", static_cast<std::int32_t>(simid_));
 
-  for (auto& kv : parameters_) {
+  for (const auto& kv : parameters_) {
     table.bindView(kv.first,
                    reader::scripting::Direction::Out,
                    kv.second.first,
@@ -731,7 +743,7 @@ OutputRegions::OutputRegions(const std::string& fileName) : fileName_(fileName) 
   }
 }
 
-bool OutputRegions::restricts(const std::string& name) const { return supplied_.count(name) > 0; }
+bool OutputRegions::restricts(const std::string& name) const { return supplied_.contains(name); }
 
 std::vector<bool> OutputRegions::select(const std::string& name,
                                         std::size_t count,
@@ -900,13 +912,13 @@ std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const
   std::unordered_set<std::string> known;
 
   known.insert("frame");
-  if (supplied.count("frame") > 0) {
+  if (supplied.contains("frame")) {
     table.bindView("frame", reader::scripting::Direction::Out, &query->frame);
   }
   for (std::size_t i = 0; i < count; ++i) {
     const auto termName = std::string{"const_"} + varNames[i];
     known.insert(termName);
-    if (supplied.count(termName) > 0) {
+    if (supplied.contains(termName)) {
       table.bindView(termName, reader::scripting::Direction::Out, &query->offset[i]);
     }
   }
@@ -914,10 +926,10 @@ std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const
     for (std::size_t j = 0; j < count; ++j) {
       auto termName = std::string{"map_"};
       termName += varNames[i];
-      termName += "_";
+      termName += '_';
       termName += varNames[j];
       known.insert(termName);
-      if (supplied.count(termName) > 0) {
+      if (supplied.contains(termName)) {
         table.bindView(termName, reader::scripting::Direction::Out, &query->map[i * count + j]);
       }
     }
@@ -925,7 +937,7 @@ std::unique_ptr<DirichletCondition::Query> DirichletCondition::makeQuery() const
 
   for (const auto& termName : supplied) {
     // a term of the material of another configuration of the run is that one's
-    if (known.count(termName) == 0 && scope.keepsOutput(configIdOf<Cfg>(), termName)) {
+    if (!known.contains(termName) && scope.keepsOutput(configIdOf<Cfg>(), termName)) {
       std::ostringstream valid;
       for (std::size_t i = 0; i < count; ++i) {
         valid << (i == 0 ? "" : ", ") << varNames[i];

@@ -14,7 +14,6 @@
 #include "Initializer/Clustering/ClusteringCost.h"
 #include "Initializer/Clustering/TimestepHistogram.h"
 #include "Initializer/FaceMap.h"
-#include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Parallel/MPI.h"
 
@@ -29,13 +28,13 @@
 namespace seissol::initializer {
 
 ClusteringEvaluator::ClusteringEvaluator(const geometry::PumlMesh& mesh,
-                                         parameters::BoundaryFormat boundaryFormat,
+                                         const geometry::PumlCellArrays& arrays,
                                          const FaceMap& faceMap,
                                          const GlobalTimestep& timesteps,
                                          const std::vector<std::uint64_t>& cellCosts,
                                          std::vector<std::uint64_t> rate,
                                          bool smoothDuringSearch)
-    : smoother_(mesh, boundaryFormat, faceMap), timesteps_(&timesteps), cellCosts_(&cellCosts),
+    : smoother_(mesh, arrays, faceMap), timesteps_(&timesteps), cellCosts_(&cellCosts),
       rate_(std::move(rate)), smoothDuringSearch_(smoothDuringSearch),
       cellCount_(mesh.cells().size()), clusterIds_(mesh.cells().size(), 0) {}
 
@@ -62,9 +61,9 @@ std::vector<std::size_t> ClusteringEvaluator::binCells(const ClusterLadder& ladd
 
 std::size_t ClusteringEvaluator::realize(double wiggleFactor) {
   std::size_t numberOfReductions = 0;
-  auto lb = cache_.lower_bound(wiggleFactor);
+  const auto lb = cache_.lower_bound(wiggleFactor);
 
-  if (lb != cache_.end() && !(cache_.key_comp()(wiggleFactor, lb->first))) {
+  if (lb != cache_.end() && !cache_.key_comp()(wiggleFactor, lb->first)) {
     clusterIds_ = lb->second;
   } else {
     // re-use best computed maxdiff enforcement available
@@ -121,8 +120,7 @@ std::size_t ClusteringEvaluator::smoothCurrent() {
 }
 
 std::size_t ClusteringEvaluator::globalMaxClusterId() const {
-  std::size_t maxClusterId =
-      clusterIds_.empty() ? 0 : *std::max_element(clusterIds_.begin(), clusterIds_.end());
+  std::size_t maxClusterId = clusterIds_.empty() ? 0 : *std::ranges::max_element(clusterIds_);
   MPI_Allreduce(
       MPI_IN_PLACE, &maxClusterId, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, Mpi::mpi.comm());
   return maxClusterId;

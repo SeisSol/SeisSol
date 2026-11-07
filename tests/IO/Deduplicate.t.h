@@ -71,7 +71,7 @@ TEST_CASE("IO/Deduplicate: coinciding corners become one point" * doctest::test_
 TEST_CASE("IO/Deduplicate: points that differ are kept apart" * doctest::test_suite("io")) {
   std::vector<double> points;
   // deterministic on purpose, so that a failure can be reproduced
-  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  // NOLINTNEXTLINE(bugprone-random-generator-seed)
   std::mt19937 generator(42);
   std::uniform_real_distribution<double> position(-1.0, 1.0);
   for (std::size_t point = 0; point < 500; ++point) {

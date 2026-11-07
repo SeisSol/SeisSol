@@ -29,7 +29,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
-#include <stdint.h>
 #include <utility>
 
 #ifdef ACL_DEVICE
@@ -132,8 +131,10 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
   dynamicRupture::kernel::gpu_nodalFlux<Cfg> drKrnl = deviceDrKrnlPrototype_;
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    // only the face relations with cells get a branch, and so a node in a graph
     runtime.envMany(
-        (*FaceRelations::PerFace) + (*DrFaceRelations::PerFace), [&](void* stream, size_t i) {
+        (*FaceRelations::PerFace) + (*DrFaceRelations::PerFace),
+        [&](void* stream, size_t i) {
           if (i < (*FaceRelations::PerFace)) {
             // regular and periodic
             const auto faceRelation = i + (*FaceRelations::PerFace) * face;
@@ -141,15 +142,15 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
             const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
 
-            if (table.find(key) != table.end()) {
+            if (table.contains(key)) {
               auto& entry = table[key];
 
-              const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
+              const auto numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
               neighFluxKrnl.numElements = numElements;
 
-              neighFluxKrnl.Q = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+              neighFluxKrnl.Q = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
               neighFluxKrnl.I = const_cast<const real**>(
-                  (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+                  entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   entry.get<real*>(inner_keys::Wp::Id::NeighborIntegrationData)
                       ->getDeviceDataPtr());
@@ -175,17 +176,17 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
             const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
 
-            if (table.find(key) != table.end()) {
+            if (table.contains(key)) {
               auto& entry = table[key];
 
-              const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
+              const auto numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
               drKrnl.numElements = numElements;
 
               drKrnl.fluxSolver = const_cast<const real**>(
-                  (entry.get<real*>(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+                  entry.get<real*>(inner_keys::Wp::Id::FluxSolver)->getDeviceDataPtr());
               drKrnl.QInterpolated = const_cast<const real**>(
-                  (entry.get<real*>(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
-              drKrnl.Q = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
+                  entry.get<real*>(inner_keys::Wp::Id::Godunov)->getDeviceDataPtr());
+              drKrnl.Q = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
 
               real* tmpMem = reinterpret_cast<real*>(device_.api().allocMemAsync(
                   seissol::dynamicRupture::kernel::gpu_nodalFlux<Cfg>::TmpMaxMemRequiredInBytes *
@@ -199,6 +200,18 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
               device_.api().freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);
             }
           }
+        },
+        [&](size_t i) {
+          // the face relations with cells; the side is the minor index of the dynamic rupture
+          // ones, cf. the NeighIntegrationRecorder
+          const bool regular = i < (*FaceRelations::PerFace);
+          const ConditionalKey key(*KernelNames::NeighborFlux,
+                                   regular ? *FaceKinds::Regular : *FaceKinds::DynamicRupture,
+                                   face,
+                                   regular
+                                       ? i + (*FaceRelations::PerFace) * face
+                                       : face + Cell::NumFaces * (i - (*FaceRelations::PerFace)));
+          return table.contains(key);
         });
   }
 #else

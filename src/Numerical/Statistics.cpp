@@ -20,9 +20,9 @@ seissol::statistics::Summary::Summary(double value)
 
 seissol::statistics::Summary::Summary(const std::vector<double>& values) {
   std::vector<double> sortedValues(values);
-  std::sort(sortedValues.begin(), sortedValues.end());
+  std::ranges::sort(sortedValues);
 
-  auto n = sortedValues.size();
+  const auto n = sortedValues.size();
 
   if (n % 2 == 1) {
     median = sortedValues[n / 2];
@@ -51,7 +51,7 @@ seissol::statistics::Summary::Summary(const std::vector<double>& values) {
 }
 
 auto seissol::statistics::parallelSummary(double value) -> Summary {
-  auto collect = seissol::Mpi::mpi.collect(value);
+  const auto collect = seissol::Mpi::mpi.collect(value);
   const int rank = seissol::Mpi::mpi.rank();
   if (rank == 0) {
     return Summary(collect);

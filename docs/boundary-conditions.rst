@@ -119,9 +119,6 @@ face to face but not within one. The file may also be a script (``sderiv:file`` 
 script also reads the parameters of the material of the cell (see
 :ref:`script_material_parameters`).
 
-In device builds with the anelastic solver (viscoelastic and viscoacoustic materials), the
-offset :math:`b` is not applied yet: a face with a nonzero offset is rejected at startup.
-
 Terms
 ~~~~~
 
@@ -231,9 +228,7 @@ In a device build, the program runs on the device, as one kernel for all faces o
 the cells of a layer, which reads the nodes of the faces and the parameters of the materials
 where they are. The initial condition then has to be a script that compiles: an easi file or
 a Lua model that does not trace is rejected at startup, as is a build without the runtime
-compiler of its device (NVRTC, HIPRTC, or the kernel compiler of SYCL). In device builds with
-the anelastic solver (viscoelastic and viscoacoustic materials), the analytical boundary is not
-available yet and rejected at startup.
+compiler of its device (NVRTC, HIPRTC, or the kernel compiler of SYCL).
 
 .. _nonlinear_dirichlet:
 

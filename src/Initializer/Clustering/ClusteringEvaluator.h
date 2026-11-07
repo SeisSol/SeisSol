@@ -13,7 +13,6 @@
 #include "Initializer/Clustering/ClusterLadder.h"
 #include "Initializer/Clustering/ClusterSmoother.h"
 #include "Initializer/Clustering/TimestepHistogram.h"
-#include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 
 #include <cstdint>
@@ -29,7 +28,7 @@ class ClusteringEvaluator {
   /// duplicating a per-cell array costs more setup memory than the class is worth. Both must
   /// outlive the evaluator.
   ClusteringEvaluator(const geometry::PumlMesh& mesh,
-                      parameters::BoundaryFormat boundaryFormat,
+                      const geometry::PumlCellArrays& arrays,
                       const FaceMap& faceMap,
                       const GlobalTimestep& timesteps,
                       const std::vector<std::uint64_t>& cellCosts,

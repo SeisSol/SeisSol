@@ -8,23 +8,38 @@
 
 #include "BuildInfo.h"
 #include "Common/ConfigRegistry.h"
+#include "Common/Json.h"
+#include "Common/RunId.h"
+#include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/InitProcedure/Init.h"
+#include "Initializer/Parameters/DRParameters.h"
+#include "Initializer/Parameters/OutputParameters.h"
+#include "Initializer/Parameters/ParameterOverrides.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Modules/Modules.h"
+#include "Initializer/Preflight.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
 
+#include <array>
+#include <async/Config.h>
+#include <cstdlib>
 #include <ctime>
 #include <exception>
+#include <filesystem>
 #include <fty/fty.hpp>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
 #include <utils/args.h>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/timeutils.h>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 #ifdef USE_ASAGI
@@ -37,11 +52,205 @@
 
 #if defined(__GNUC__) || defined(__linux__)
 #include <cfenv>
-#include <fenv.h>
+// feenableexcept is a glibc extension and only declared by the C header
+#include <fenv.h> // NOLINT(modernize-deprecated-headers)
 #endif
 
 namespace {
 using namespace seissol;
+
+/**
+ * The parameters of the run `cycle` (counted from zero) of those that measure what the cells cost
+ * before the actual run (discretization.vertexweightcycles): as the actual run, but without any
+ * output, and with the files of the run summary under a prefix of their own.
+ */
+seissol::initializer::parameters::SeisSolParameters
+    measuringRun(const seissol::initializer::parameters::SeisSolParameters& parameters,
+                 unsigned cycle) {
+  using namespace seissol::initializer::parameters;
+  auto measuring = parameters;
+  auto& output = measuring.output;
+  output.prefix += "-cycle" + std::to_string(cycle + 1);
+  output.format = OutputFormat::None;
+  output.waveFieldParameters.enabled = false;
+  output.freeSurfaceParameters.enabled = false;
+  output.receiverParameters.enabled = false;
+  output.energyParameters.enabled = false;
+  output.checkpointParameters.enabled = false;
+  measuring.drParameters.outputPointType = OutputType::None;
+  return measuring;
+}
+
+/**
+ * While it exists, the environment says what the runs that measure what the cells cost need,
+ * whatever it said before: the time clusters take their steps one after another, without the
+ * time-stepping plan and recorded super-timesteps. With concurrent clusters, the time of a loop on
+ * the device also counts the time its kernels share the device with those of other clusters, and
+ * recorded super-timesteps time nothing at all.
+ */
+class MeasuringSettings {
+  public:
+  MeasuringSettings() {
+    for (const auto* name : SequentialNames) {
+      set(name, "0");
+    }
+  }
+  // (the environment changes only before and after the runs, while no other thread reads it)
+  ~MeasuringSettings() {
+    for (const auto& [name, value] : saved_) {
+      if (value.has_value()) {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
+        setenv(name.c_str(), value->c_str(), 1);
+      } else {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
+        unsetenv(name.c_str());
+      }
+    }
+  }
+  MeasuringSettings(const MeasuringSettings&) = delete;
+  MeasuringSettings& operator=(const MeasuringSettings&) = delete;
+  MeasuringSettings(MeasuringSettings&&) = delete;
+  MeasuringSettings& operator=(MeasuringSettings&&) = delete;
+
+  private:
+  /// what makes the time clusters take their steps one after another
+  static constexpr std::array<const char*, 3> SequentialNames{
+      "SEISSOL_CONCURRENT_CLUSTERS", "SEISSOL_TIMESTEPPING_PLAN", "SEISSOL_SUPERSTEP_GRAPHS"};
+
+  void set(const char* name, const char* value) {
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
+    const char* before = std::getenv(name);
+    saved_.emplace_back(name,
+                        before != nullptr ? std::make_optional<std::string>(before) : std::nullopt);
+    // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
+    setenv(name, value, 1);
+  }
+
+  std::vector<std::pair<std::string, std::optional<std::string>>> saved_;
+};
+
+/**
+ * The ID of this run: the one SEISSOL_RUN_ID gives, so that whoever started the run can find its
+ * files again, or a new one. Collective; rank 0 decides it for everyone.
+ */
+std::string determineRunId(utils::Env& env) {
+  std::string runId;
+  if (seissol::Mpi::mpi.rank() == 0) {
+    const auto given = env.getOptional<std::string>("RUN_ID");
+    if (given.has_value()) {
+      const auto parsed = seissol::parseRunId(given.value());
+      if (!parsed.has_value()) {
+        logError() << "SEISSOL_RUN_ID is set to" << given.value()
+                   << ", which is not a UUID (e.g. 123e4567-e89b-42d3-a456-426614174000).";
+      }
+      runId = parsed.value_or(std::string{});
+    } else {
+      runId = seissol::newRunId();
+    }
+  }
+  seissol::Mpi::mpi.broadcastContainer(runId, 0);
+  return runId;
+}
+
+/**
+ * Takes the --set options out of the command line, in the order they were given.
+ *
+ * utils::Args keeps only the last value of an option given several times, and an override is
+ * meant to be repeated; what remains is left for utils::Args.
+ */
+std::vector<std::string> extractOverrides(int& argc, char** argv) {
+  constexpr std::string_view Option = "--set";
+  std::vector<std::string> overrides;
+  int kept = 1;
+  for (int i = 1; i < argc; ++i) {
+    const std::string_view argument(argv[i]);
+    if (argument == Option) {
+      if (i + 1 == argc) {
+        logError() << "--set needs a value: --set section.field=value";
+      }
+      overrides.emplace_back(argv[i + 1]);
+      ++i;
+    } else if (argument.substr(0, Option.size() + 1) == std::string(Option) + "=") {
+      overrides.emplace_back(argument.substr(Option.size() + 1));
+    } else {
+      argv[kept] = argv[i];
+      ++kept;
+    }
+  }
+  argc = kept;
+  argv[argc] = nullptr;
+  return overrides;
+}
+
+/**
+ * How the run was started, for its summary.
+ */
+json::Value invocation(const char* executable,
+                       const std::string& parameterFile,
+                       const std::vector<initializer::parameters::ParameterOverride>& overrides,
+                       const std::optional<std::string>& checkpoint) {
+  json::Value value;
+  std::error_code error;
+  // the executable as it is on disk, which argv[0] need not name
+  const auto self = std::filesystem::read_symlink("/proc/self/exe", error);
+  value["executable"] = error ? std::string(executable) : self.string();
+  const auto absolute = std::filesystem::absolute(parameterFile, error);
+  value["parameterFile"] = error ? parameterFile : absolute.string();
+  const auto workingDirectory = std::filesystem::current_path(error);
+  value["workingDirectory"] = error ? std::string() : workingDirectory.string();
+  auto& given = value["overrides"] = json::Value::object();
+  for (const auto& entry : overrides) {
+    given[entry.name()] = entry.value;
+  }
+  value["checkpoint"] = checkpoint.has_value() ? json::Value(checkpoint.value()) : json::Value();
+  return value;
+}
+
+//! @brief The command line of SeisSol, for parsing it and for its help.
+utils::Args commandLine() {
+  utils::Args args("SeisSol is a scientific software for the numerical simulation of seismic wave "
+                   "phenomena and earthquake dynamics. This version of SeisSol was built for the "
+                   "following configurations:\n" +
+                   describeBuiltConfigs());
+  args.addAdditionalOption("parameterfile", "The parameter file", false);
+  args.addOption(
+      "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Required, false);
+  // taken out of the command line before parsing it (see extractOverrides); here for the help
+  args.addOption("set",
+                 0,
+                 "Overrides a parameter of the parameter file, as section.field=value; may be "
+                 "given several times",
+                 utils::Args::Required,
+                 false);
+  // likewise taken out before (see extractCheckOption)
+  args.addOption("check",
+                 0,
+                 "Checks the run instead of running it: the parameters, the files they name, the "
+                 "mesh and the output directory, on one process; --check=<file> writes a report",
+                 utils::Args::Optional,
+                 false);
+  return args;
+}
+
+/**
+ * Checks the run that the command line describes, without starting it: on one process, without
+ * MPI and devices.
+ */
+int checkMain(int argc, char* argv[], const std::string& reportPath) {
+  logInfo() << "Checking a run of SeisSol" << BuildInfo::VersionString.c_str()
+            << "without running it.";
+  const auto overrides = extractOverrides(argc, argv);
+  auto args = commandLine();
+  if (args.parse(argc, argv) != utils::Args::Success) {
+    return 1;
+  }
+  const auto* parameterFile = args.getAdditionalArgument("parameterfile", "parameters.par");
+  const auto checkpoint =
+      args.isSet("checkpoint")
+          ? std::make_optional<std::string>(args.getArgument<const char*>("checkpoint"))
+          : std::nullopt;
+  return seissol::initializer::preflight(parameterFile, overrides, checkpoint, reportPath);
+}
 
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
   // Read parameter file input from file
@@ -58,6 +267,12 @@ std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
 
 int main(int argc, char* argv[]) {
   try {
+    // a check runs on its own, before anything of a run starts
+    const auto checkReport = seissol::initializer::extractCheckOption(argc, argv);
+    if (checkReport.has_value()) {
+      return checkMain(argc, argv, checkReport.value());
+    }
+
 #ifdef ACL_DEVICE
     seissol::Mpi::mpi.bindAcceleratorDevice();
     const device::DeviceInstance& device = device::DeviceInstance::instance();
@@ -68,16 +283,17 @@ int main(int argc, char* argv[]) {
 
 #ifdef USE_ASAGI
     // Construct an instance of AsagiModule, to initialize it.
-    // It needs to be done here, as it registers PRE_MPI hooks
+    // Its MPI mode is derived from the environment at construction time, i.e. before MPI
+    // is set up.
     seissol::asagi::AsagiModule::initInstance(env);
 #endif
-    // Call pre MPI hooks
-    seissol::Modules::callHook<ModuleHook::PreMPI>();
 
     seissol::Mpi::mpi.init(argc, argv);
     const int rank = seissol::Mpi::mpi.rank();
 
     utils::Logger::setRank(rank);
+
+    const auto runId = determineRunId(env);
 
     LIKWID_MARKER_INIT;
 #pragma omp parallel
@@ -112,26 +328,35 @@ int main(int argc, char* argv[]) {
     logInfo() << "Compiled with DEVICE_BACKEND =" << BuildInfo::SeisSolDeviceBackend.c_str();
     logInfo() << "Compiled with DEVICE_ARCH =" << BuildInfo::SeisSolDeviceArch.c_str();
 #endif
+    logInfo() << "Run ID:" << runId.c_str();
 
     if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
       // Check if on a GNU system (Linux) or other platform
 #if defined(__GNUC__) && defined(__linux__)
-      feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
-      logInfo() << "Enabling floating point exception handlers.";
+      // a CPU that cannot trap on floating-point exceptions refuses to (RISC-V, many ARM CPUs)
+      if (feenableexcept(FE_ALL_EXCEPT & ~FE_INEXACT) == -1) {
+        logWarning() << "Floating-point exception handling was requested, but the CPU does not "
+                        "trap on floating-point exceptions.";
+      } else {
+        logInfo() << "Enabling floating point exception handlers.";
+      }
 #else
       logInfo() << "Floating-point exception handling was requested, but is not supported on this "
                    "platform.";
 #endif
     }
 
-    utils::Args args(
-        "SeisSol is a scientific software for the numerical simulation of seismic wave "
-        "phenomena and earthquake dynamics. This version of SeisSol was built for the "
-        "following configurations:\n" +
-        describeBuiltConfigs());
-    args.addAdditionalOption("parameterfile", "The parameter file", false);
-    args.addOption(
-        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Required, false);
+    const auto overrideTexts = extractOverrides(argc, argv);
+    std::vector<seissol::initializer::parameters::ParameterOverride> overrides;
+    for (const auto& text : overrideTexts) {
+      const auto parsed = seissol::initializer::parameters::parseOverride(text);
+      if (!parsed.has_value()) {
+        logError() << "The override" << text << "is not of the form section.field=value.";
+      }
+      overrides.push_back(parsed.value_or(seissol::initializer::parameters::ParameterOverride{}));
+    }
+
+    auto args = commandLine();
     switch (args.parse(argc, argv)) {
     case utils::Args::Help: {
       [[fallthrough]];
@@ -148,9 +373,13 @@ int main(int argc, char* argv[]) {
     logInfo() << "Using the parameter file" << parameterFile;
     // read parameter file input
     const auto yamlParams = readYamlParams(parameterFile);
+    for (const auto& entry : overrides) {
+      logInfo() << "Overriding" << entry.name().c_str() << "with" << entry.value;
+    }
+    seissol::initializer::parameters::applyOverrides(*yamlParams, overrides);
     seissol::initializer::parameters::ParameterReader parameterReader(
         *yamlParams, parameterFile, false);
-    auto parameters = [&]() {
+    const auto parameters = [&] {
       try {
         return seissol::initializer::parameters::readSeisSolParameters(&parameterReader);
       } catch (const std::exception& error) {
@@ -160,18 +389,67 @@ int main(int argc, char* argv[]) {
       return initializer::parameters::SeisSolParameters();
     }();
     parameterReader.warnUnknown();
+    for (const auto& entry :
+         seissol::initializer::parameters::unknownOverrides(parameterReader, overrides)) {
+      logError() << "The override" << entry.name()
+                 << "names a parameter that SeisSol does not read; check its spelling.";
+    }
 
-    {
+    // Short runs first, each measuring what the cells cost for the partition of the next one; then
+    // the actual run, partitioned by the costs the last of them measured.
+    const auto cycles = parameters.timeStepping.vertexWeight.cycles;
+    std::optional<seissol::initializer::MeasuredCellCosts> measuredCosts;
+    for (unsigned cycle = 0; cycle <= cycles; ++cycle) {
+      const bool measuring = cycle < cycles;
+      if (measuring) {
+        logInfo() << "Partition cycle" << cycle + 1 << "of" << cycles
+                  << ": a short run that measures what the cells cost, with the time clusters one"
+                  << "after another.";
+      } else if (cycles > 0) {
+        logInfo() << "The actual run, partitioned by the costs the run before measured.";
+      }
+      const auto runParameters = measuring ? measuringRun(parameters, cycle) : parameters;
+      // (see MeasuringSettings; the variables get read anew for the measuring run)
+      std::optional<MeasuringSettings> measuringSettings;
+      if (measuring) {
+        measuringSettings.emplace();
+      }
+      const utils::Env measuringEnv("SEISSOL_");
+
       // Initialize SeisSol
-      seissol::SeisSol seissolInstance(parameters, env);
-
-      if (args.isSet("checkpoint")) {
+      seissol::SeisSol seissolInstance(runParameters, measuring ? measuringEnv : env);
+#ifdef USE_ASAGI
+      auto& asagiModule = seissol::asagi::AsagiModule::getInstance();
+      asagiModule.setPinning(seissolInstance.pinning());
+      asagiModule.registerHooks(seissolInstance.modules());
+#endif
+      seissolInstance.setRunId(runId);
+      seissolInstance.runSummary()["invocation"] = invocation(
+          argv[0],
+          parameterFile,
+          overrides,
+          args.isSet("checkpoint")
+              ? std::make_optional<std::string>(args.getArgument<const char*>("checkpoint"))
+              : std::nullopt);
+      if (measuredCosts.has_value()) {
+        seissolInstance.setMeasuredCosts(&measuredCosts.value());
+      }
+      if (measuring) {
+        seissolInstance.setMeasuringSteps(parameters.timeStepping.vertexWeight.cycleSteps);
+      } else if (args.isSet("checkpoint")) {
+        // (the runs that measure start from the beginning)
         const auto* checkpointFile = args.getArgument<const char*>("checkpoint");
         seissolInstance.loadCheckpoint(checkpointFile);
       }
 
       // run SeisSol
       const bool runSeisSol = seissolInstance.init();
+      if (cycles > 0 && seissolInstance.asyncIO().layout().mode == async::Mode::MPI) {
+        // its executors would have to take part in every run
+        logError() << "The runs that measure the costs of the cells (discretization."
+                      "vertexweightcycles) need the asynchronous output on threads, or none; not "
+                      "ASYNC_MODE=MPI.";
+      }
 
       const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
       seissolInstance.setBackupTimeStamp(stamp);
@@ -181,14 +459,23 @@ int main(int argc, char* argv[]) {
         seissol::initializer::initprocedure::seissolMain(seissolInstance);
       }
 
+      if (!measuring) {
 #pragma omp parallel
-      {
-        LIKWID_MARKER_STOP("SeisSol");
-      }
+        {
+          LIKWID_MARKER_STOP("SeisSol");
+        }
 
-      LIKWID_MARKER_CLOSE;
-      // Finalize SeisSol
-      seissolInstance.finalize();
+        LIKWID_MARKER_CLOSE;
+      }
+      if (measuring) {
+        // what this run measured partitions the next one (this one is done with the costs it was
+        // partitioned by, which they replace)
+        auto costs = std::move(seissolInstance.cellCosts());
+        seissolInstance.setMeasuredCosts(nullptr);
+        measuredCosts = std::move(costs);
+      }
+      // Finalize SeisSol; MPI only after the actual run
+      seissolInstance.finalize(!measuring);
     }
 
 #ifdef ACL_DEVICE

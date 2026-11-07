@@ -31,6 +31,7 @@
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/LuaTracer.h"
 #include "Solver/MultipleSimulations.h"
+#include "TestConfigs.h"
 #include "TestHelper.h"
 
 #include <algorithm>
@@ -53,7 +54,7 @@ namespace projection = seissol::numerical::projection;
 using reader::scripting::DataTable;
 using reader::scripting::Direction;
 
-using Cfg = Config0;
+using Cfg = FirstConfig;
 using RealT = Real<Cfg>;
 using MaterialT = model::MaterialOf<Cfg>;
 

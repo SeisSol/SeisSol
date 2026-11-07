@@ -159,7 +159,7 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
 
   impl.quadPoints.resize(timePoints);
   impl.quadWeights.resize(timePoints);
-  quadrature::GaussLegendre(
+  quadrature::gaussLegendre(
       impl.quadPoints.data(), impl.quadWeights.data(), static_cast<unsigned>(timePoints));
 
   auto& program = impl.program;

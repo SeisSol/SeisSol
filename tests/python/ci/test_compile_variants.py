@@ -43,6 +43,24 @@ def test_one_configuration(tmp_path):
     assert not any(arg.startswith("-DCONFIGS=") for arg in defines(variant))
 
 
+def test_one_configuration_with_mechanisms(tmp_path):
+    # named as SeisSol names the configuration: the mechanisms behind an m
+    (variant,) = variants(
+        tmp_path,
+        {
+            "variants": [
+                {
+                    "equations": "viscoelastic",
+                    "mechanisms": 3,
+                    "order": 6,
+                    "precision": "single",
+                }
+            ]
+        },
+    )
+    assert variant.binary_name == "seissol-viscoelastic-m3-o6-f32"
+
+
 def test_several_configurations(tmp_path):
     (variant,) = variants(tmp_path, {"variants": [{"configs": "ci-cpu"}]})
     # the executable of several configurations is named after none of them
@@ -59,8 +77,8 @@ def test_several_configurations_as_a_list(tmp_path):
             "variants": [
                 {
                     "configs": [
-                        "elastic-linearck-o4-f64-stroud",
-                        "elastic-linearck-o4-f32-stroud",
+                        "elastic-o4-f64",
+                        "elastic-o4-f32",
                     ],
                     "custom_suffix": "o4",
                 }
@@ -68,10 +86,7 @@ def test_several_configurations_as_a_list(tmp_path):
         },
     )
     assert variant.binary_name == "seissol-o4"
-    assert (
-        "-DCONFIGS=elastic-linearck-o4-f64-stroud;elastic-linearck-o4-f32-stroud"
-        in defines(variant)
-    )
+    assert "-DCONFIGS=elastic-o4-f64;elastic-o4-f32" in defines(variant)
 
 
 def test_suffix_keeps_executables_of_several_configurations_apart(tmp_path):
@@ -82,7 +97,7 @@ def test_suffix_keeps_executables_of_several_configurations_apart(tmp_path):
             "variants": [
                 {"configs": "ci-gpu", "device_codegen": "tensorforge"},
                 {
-                    "configs": "elastic-linearck-o6-f32-stroud",
+                    "configs": "elastic-o6-f32",
                     "device_codegen": "gemmforge-chainforge",
                     "custom_suffix": "gemmforge",
                 },

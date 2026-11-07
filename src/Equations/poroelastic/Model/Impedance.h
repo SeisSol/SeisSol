@@ -47,6 +47,19 @@ struct ImpedanceCompute<PoroElasticMaterial> {
            std::sqrt(matrix.trace() + 2 * determinant);
   }
 
+  /// Gamma of the interface variables (see impedance), rows and columns ordered as (n, s, d,
+  /// fluid).
+  static Matrix gamma(const PoroElasticMaterial& materialLocal) {
+    const auto params = getAdditionalParameters(materialLocal);
+    Matrix result;
+    result << params.cBar(0, 0), params.cBar(0, 5), params.cBar(0, 4), params.M * params.alpha(0),
+        params.cBar(5, 0), params.cBar(5, 5), params.cBar(5, 4), params.M * params.alpha(5),
+        params.cBar(4, 0), params.cBar(4, 5), params.cBar(4, 4), params.M * params.alpha(4),
+        params.M * params.alpha(0), params.M * params.alpha(5), params.M * params.alpha(4),
+        params.M;
+    return result;
+  }
+
   /**
    * Generalized wave impedance of a poroelastic half space, in closed form.
    *
@@ -69,46 +82,45 @@ struct ImpedanceCompute<PoroElasticMaterial> {
    * (v_n, q_n) plus two identical shear scalars -- so no eigensolver is needed at all.
    *
    * Wave speeds recovered from this: c_S = sqrt(mu / rho1), the two Biot P speeds from the 2x2
-   * block.
+   * block. The waves from a face into the half space carry the jump of T as Z times the one of U.
    */
-  static Matrix admittance(const PoroElasticMaterial& materialLocal,
-                           LateralMatrix* lateralStress = nullptr) {
+  static Matrix impedance(const PoroElasticMaterial& materialLocal) {
     const auto params = getAdditionalParameters(materialLocal);
-
-    // Gamma, rows/columns ordered as (n, s, d, fluid)
-    Matrix gamma;
-    gamma << params.cBar(0, 0), params.cBar(0, 5), params.cBar(0, 4), params.M * params.alpha(0),
-        params.cBar(5, 0), params.cBar(5, 5), params.cBar(5, 4), params.M * params.alpha(5),
-        params.cBar(4, 0), params.cBar(4, 5), params.cBar(4, 4), params.M * params.alpha(4),
-        params.M * params.alpha(0), params.M * params.alpha(5), params.M * params.alpha(4),
-        params.M;
+    const Matrix stiffness = gamma(materialLocal);
 
     // fast/slow P block on (v_n, q_n); the shear rows decouple for an isotropic frame
     Eigen::Matrix2d massP;
     massP << params.rhoBar, materialLocal.rhoFluid, materialLocal.rhoFluid, params.m;
     Eigen::Matrix2d gammaP;
-    gammaP << gamma(0, 0), gamma(0, 3), gamma(3, 0), gamma(3, 3);
+    gammaP << stiffness(0, 0), stiffness(0, 3), stiffness(3, 0), stiffness(3, 3);
     const Eigen::Matrix2d impedanceP = massP * matrixSqrt2x2(massP.inverse() * gammaP);
 
-    Matrix impedance = Matrix::Zero();
-    impedance(0, 0) = impedanceP(0, 0);
-    impedance(0, 3) = impedanceP(0, 1);
-    impedance(3, 0) = impedanceP(1, 0);
-    impedance(3, 3) = impedanceP(1, 1);
-    impedance(1, 1) = std::sqrt(params.rho1 * gamma(1, 1));
-    impedance(2, 2) = std::sqrt(params.rho1 * gamma(2, 2));
+    Matrix result = Matrix::Zero();
+    result(0, 0) = impedanceP(0, 0);
+    result(0, 3) = impedanceP(0, 1);
+    result(3, 0) = impedanceP(1, 0);
+    result(3, 3) = impedanceP(1, 1);
+    result(1, 1) = std::sqrt(params.rho1 * stiffness(1, 1));
+    result(2, 2) = std::sqrt(params.rho1 * stiffness(2, 2));
+    return result;
+  }
 
+  /// The admittance, Z^-1 in the sign convention of the stored traction (see signature), and the
+  /// lateral stress if `lateralStress` is given.
+  static Matrix admittance(const PoroElasticMaterial& materialLocal,
+                           LateralMatrix* lateralStress = nullptr) {
     if (lateralStress != nullptr) {
+      const auto params = getAdditionalParameters(materialLocal);
       // same construction as the anisotropic lateralStressFromChristoffel, with the pore pressure
       // as a fourth column
       LateralMatrix rest;
       rest << params.cBar(1, 0), params.cBar(1, 5), params.cBar(1, 4), params.M * params.alpha(1),
           params.cBar(2, 0), params.cBar(2, 5), params.cBar(2, 4), params.M * params.alpha(2),
           params.cBar(3, 0), params.cBar(3, 5), params.cBar(3, 4), params.M * params.alpha(3);
-      *lateralStress = rest * gamma.inverse() * signature();
+      *lateralStress = rest * gamma(materialLocal).inverse() * signature();
     }
 
-    return impedance.inverse() * signature();
+    return impedance(materialLocal).inverse() * signature();
   }
 };
 

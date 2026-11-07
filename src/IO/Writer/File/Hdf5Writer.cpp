@@ -23,6 +23,8 @@
 #include <async/ExecInfo.h>
 #include <cassert>
 #include <cstddef>
+#include <cstring>
+#include <filesystem>
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>
@@ -104,7 +106,7 @@ void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
     if (fresh && backUp) {
       backUpFile(name);
     } else if (!fresh) {
-      exists = seissol::directoryExists(seissol::filesystem::directory_entry(name)) ? 1 : 0;
+      exists = seissol::directoryExists(std::filesystem::directory_entry(name)) ? 1 : 0;
     }
   }
   MPI_Bcast(&exists, 1, MPI_INT, 0, comm_);
@@ -121,7 +123,7 @@ void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
 }
 void Hdf5File::openGroup(const std::string& name) {
   // cf. https://stackoverflow.com/a/18468735
-  auto existenceTest = _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT));
+  const auto existenceTest = _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT));
   hid_t handle = 0;
   if (existenceTest > 0) {
     handle = _eh(H5Gopen(handles_.top(), name.c_str(), H5P_DEFAULT));
@@ -187,6 +189,8 @@ struct DatasetLayout {
   std::vector<hsize_t> globalSizesMax;
   std::vector<hsize_t> chunkSizes;
 
+  //! The dimension the ranks share, if any.
+  std::optional<std::size_t> distributedDim;
   //! The dimension a write extends, if any.
   std::optional<std::size_t> appendedDim;
   //! Entries the dataset gains along that dimension with this write; the same on every rank.
@@ -243,6 +247,7 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
   }
 
   DatasetLayout layout;
+  layout.distributedDim = distributedDim;
   layout.starts.resize(dimensions.size(), 0);
   layout.blockSizes.resize(dimensions.size(), 0);
   layout.globalSizes.resize(dimensions.size(), 0);
@@ -291,9 +296,7 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
   // 0; the other ranks take part in the collective write with nothing. Otherwise every rank would
   // send its own copy of the same entries along -- for the few numbers a step of a time series adds
   // to its metadata, thousands of copies.
-  layout.empty = std::any_of(layout.blockSizes.begin(),
-                             layout.blockSizes.end(),
-                             [](hsize_t size) { return size == 0; }) ||
+  layout.empty = std::ranges::any_of(layout.blockSizes, [](hsize_t size) { return size == 0; }) ||
                  (!distributedDim.has_value() && rank != 0);
 
   // Rounds split the leading dimension: a block is contiguous along it in memory, so a round is
@@ -313,6 +316,62 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
   }
 
   return layout;
+}
+
+/**
+ * The block of @p layout, from the contributions the data of @p source is made of.
+ *
+ * The executor of ASYNC mode NODE holds the data of the ranks of its group one after another, the
+ * contribution of each a block of its own. Along the leading dimension, these blocks follow each
+ * other as the rows of one, and the data is the block already. Along any other dimension, the
+ * contributions are put together here, into @p block; the return value says whether they were.
+ */
+bool assembleBlock(const async::ExecInfo& info,
+                   const std::shared_ptr<DataSource>& source,
+                   const DatasetLayout& layout,
+                   const char* data,
+                   std::vector<char>& block) {
+  if (!layout.distributedDim.has_value() || layout.distributedDim.value() == 0 || layout.empty) {
+    return false;
+  }
+  const auto dim = layout.distributedDim.value();
+
+  // the entries of the dimensions in front of the distributed one, and the bytes of one entry
+  // along it
+  std::size_t leading = 1;
+  for (std::size_t i = 0; i < dim; ++i) {
+    leading *= layout.blockSizes[i];
+  }
+  std::size_t rowBytes = source->datatype()->size();
+  for (std::size_t i = dim + 1; i < layout.blockSizes.size(); ++i) {
+    rowBytes *= layout.blockSizes[i];
+  }
+
+  const auto parts = source->parts(info);
+  const auto contributing =
+      std::count_if(parts.begin(), parts.end(), [](std::size_t part) { return part > 0; });
+  if (leading <= 1 || contributing <= 1) {
+    return false;
+  }
+
+  const std::size_t rows = layout.blockSizes[dim];
+  block.resize(leading * rows * rowBytes);
+  std::size_t start = 0;
+  std::size_t row = 0;
+  for (const auto part : parts) {
+    const std::size_t bytes = part * source->datatype()->size();
+    const std::size_t partRows = bytes / (leading * rowBytes);
+    assert(partRows * leading * rowBytes == bytes);
+    for (std::size_t entry = 0; entry < leading; ++entry) {
+      std::memcpy(block.data() + (entry * rows + row) * rowBytes,
+                  data + start + entry * partRows * rowBytes,
+                  partRows * rowBytes);
+    }
+    start += bytes;
+    row += partRows;
+  }
+  assert(row == rows);
+  return true;
 }
 
 } // namespace
@@ -409,6 +468,13 @@ void Hdf5File::writeData(const async::ExecInfo& info,
     if (!layout.chunkSizes.empty() && chunked) {
       _eh(H5Pset_chunk(h5filter, layout.chunkSizes.size(), layout.chunkSizes.data()));
       if (compress > 0) {
+        // The shuffle filter groups the bytes of the values of a chunk by their significance, so
+        // that the bytes of sign and exponent, which change little from value to value, form runs
+        // for deflate. On the outputs of tpv5, it made the fields 2 % to 6 % smaller, and 16 % to
+        // 24 % in a run in single precision, whose values are written in double precision; the
+        // integers of the cells 11 % to 57 %. The connectivity and the points came out up to 11 %
+        // smaller, or up to 9 % larger.
+        _eh(H5Pset_shuffle(h5filter));
         const int deflateStrength = compress;
         _eh(H5Pset_deflate(h5filter, deflateStrength));
       }
@@ -445,6 +511,10 @@ void Hdf5File::writeData(const async::ExecInfo& info,
   const std::vector<hsize_t> nullstart(dimensionCount);
 
   const char* dataloc = reinterpret_cast<const char*>(source->getPointer(info));
+  std::vector<char> block;
+  if (assembleBlock(info, source, layout, dataloc, block)) {
+    dataloc = block.data();
+  }
 
   //! Bytes one entry of the leading dimension takes in the source buffer.
   std::size_t leadingStride = source->datatype()->size();
@@ -524,7 +594,7 @@ Hdf5Writer::Hdf5Writer(MPI_Comm comm, RunFiles* runFiles) : comm_(comm), runFile
 
 Hdf5File Hdf5Writer::file(const std::string& name) {
   written_.insert(name);
-  if (openFiles_.find(name) == openFiles_.end()) {
+  if (!openFiles_.contains(name)) {
     // a file this run has not written yet belongs to an earlier run, and is replaced; a run
     // resuming from a checkpoint keeps it as a backup, since it holds the output before that
     const bool fresh = runFiles_ != nullptr && runFiles_->firstWrite(name);
@@ -583,7 +653,7 @@ void Hdf5Writer::writeLinkExternal(const async::ExecInfo& /*info*/,
   if (write.location.dataset().has_value()) {
     file.closeDataset();
   }
-  for (auto _ [[maybe_unused]] : write.location.groups()) {
+  for (const auto& _ [[maybe_unused]] : write.location.groups()) {
     file.closeGroup();
   }
 }
@@ -591,7 +661,7 @@ void Hdf5Writer::writeLinkExternal(const async::ExecInfo& /*info*/,
 void Hdf5Writer::endWrite() {
   for (auto entry = openFiles_.begin(); entry != openFiles_.end();) {
     const auto& name = entry->first;
-    if (written_.count(name) > 0 && writtenBefore_.count(name) > 0) {
+    if (written_.contains(name) && writtenBefore_.contains(name)) {
       if (outputFlush()) {
         entry->second.flushFile();
       }

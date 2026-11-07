@@ -33,8 +33,8 @@ std::shared_ptr<datatype::Datatype> sampleDatatype(const std::vector<TableQuanti
   std::vector<datatype::StructDatatype::MemberInfo> members(quantities.size());
   std::size_t offset = 0;
   for (std::size_t i = 0; i < quantities.size(); ++i) {
-    members[i] =
-        datatype::StructDatatype::MemberInfo{quantities[i].name, offset, quantities[i].datatype};
+    members[i] = datatype::StructDatatype::MemberInfo{
+        .name = quantities[i].name, .offset = offset, .datatype = quantities[i].datatype};
     offset += quantities[i].datatype->size();
   }
   return std::make_shared<datatype::StructDatatype>(members);

@@ -930,9 +930,10 @@ bool derivedOutputsReadIntegrals(seissol::SeisSol& seissolInstance) {
   };
 
   const auto& waveField = output.waveFieldParameters;
-  const bool masked = std::any_of(waveField.integrationMask.begin(),
-                                  waveField.integrationMask.end(),
-                                  [](bool integrate) { return integrate; });
+  // one mask per configuration
+  const bool masked = std::ranges::any_of(waveField.integrationMask, [](const auto& mask) {
+    return std::ranges::find(mask, true) != mask.end();
+  });
   if (masked || waveField.computeStrain) {
     return true;
   }

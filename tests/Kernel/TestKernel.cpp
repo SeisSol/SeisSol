@@ -15,6 +15,10 @@
 #include "PointSourceCluster.t.h"
 #include "Receiver.t.h"
 
+#ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
+#include "AnelasticFold.t.h"
+#endif // SEISSOL_KERNELS_LINEARCKANELASTIC
+
 #ifdef SEISSOL_KERNELS_STP
 #include "STP.t.h"
 #endif // SEISSOL_KERNELS_STP

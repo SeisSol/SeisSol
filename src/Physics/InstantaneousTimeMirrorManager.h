@@ -19,9 +19,9 @@
 #include "Modules/Module.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
-#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
-#include "Solver/TimeStepping/AbstractTimeCluster.h"
-#include "Solver/TimeStepping/TimeCluster.h"
+#include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/Compute/CellCluster.h"
+#include "Solver/TimeStepping/Halo/GhostCluster.h"
 
 #include <algorithm>
 #include <array>
@@ -167,7 +167,7 @@ class InstantaneousTimeMirrorManager : public Module {
   LTS::Storage* ltsStorage_{nullptr};
   const initializer::ClusterLayout* clusterLayout_{nullptr};
 
-  std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters_;
+  std::vector<seissol::solver::AbstractTimeCluster*> clusters_;
 
   public:
   explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance);
@@ -186,7 +186,7 @@ class InstantaneousTimeMirrorManager : public Module {
             LTS::Storage& ltsStorage,
             const initializer::ClusterLayout* clusterLayout);
 
-  void setClusterVector(const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters);
+  void setClusterVector(const std::vector<seissol::solver::AbstractTimeCluster*>& clusters);
 
   void syncPoint(double currentTime) override;
 
@@ -208,7 +208,7 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   LTS::Storage& ltsStorage,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
-                                  seissol::SeisSol& seissolInstance,
+                                  const seissol::SeisSol& seissolInstance,
                                   const initializer::ClusterLayout* clusterLayout);
 } // namespace physics
 } // namespace seissol

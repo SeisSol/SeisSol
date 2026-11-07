@@ -49,8 +49,8 @@ struct CellToVertexArray {
   using CellToGroupFunction = std::function<int(size_t)>;
 
   CellToVertexArray(size_t size,
-                    const CellToVertexFunction& elementCoordinates,
-                    const CellToGroupFunction& elementGroups);
+                    CellToVertexFunction elementCoordinates,
+                    CellToGroupFunction elementGroups);
 
   size_t size;
   CellToVertexFunction elementCoordinates;
@@ -58,14 +58,16 @@ struct CellToVertexArray {
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF
-  /// The cells of a PUML mesh before PUMLReader::getMesh(), with their vertices in the given
-  /// (canonical) order rather than in the order of the mesh file. The array refers to
-  /// vertexOrders, which therefore has to outlive it.
+  /// The cells of a PUML mesh before PUMLReader::getMesh(), which PUMLReader::read read with
+  /// `arrays`, with their vertices in the given (canonical) order rather than in the order of the
+  /// mesh file. The array refers to vertexOrders, which therefore has to outlive it.
   static CellToVertexArray
       fromPUML(const seissol::geometry::PumlMesh& mesh,
+               const seissol::geometry::PumlCellArrays& arrays,
                const std::vector<seissol::geometry::VertexOrder>& vertexOrders);
   static CellToVertexArray
       fromPUML(const seissol::geometry::PumlMesh& mesh,
+               const seissol::geometry::PumlCellArrays& arrays,
                std::vector<seissol::geometry::VertexOrder>&& vertexOrders) = delete;
 #endif
   static CellToVertexArray
@@ -95,8 +97,8 @@ class QueryGenerator {
 
 class ElementBarycenterGenerator : public QueryGenerator {
   public:
-  explicit ElementBarycenterGenerator(const CellToVertexArray& cellToVertex)
-      : cellToVertex_(cellToVertex) {}
+  explicit ElementBarycenterGenerator(CellToVertexArray cellToVertex)
+      : cellToVertex_(std::move(cellToVertex)) {}
   [[nodiscard]] reader::scripting::DataTable generate() const override;
 
   private:
@@ -106,7 +108,7 @@ class ElementBarycenterGenerator : public QueryGenerator {
 /// Queries the points of the quadrature for the given convergence order in each cell.
 class ElementAverageGenerator : public QueryGenerator {
   public:
-  ElementAverageGenerator(const CellToVertexArray& cellToVertex, std::size_t convergenceOrder);
+  ElementAverageGenerator(CellToVertexArray cellToVertex, std::size_t convergenceOrder);
   [[nodiscard]] reader::scripting::DataTable generate() const override;
   [[nodiscard]] const std::vector<double>& getQuadratureWeights() const {
     return quadratureWeights_;
@@ -122,10 +124,10 @@ class ElementAverageGenerator : public QueryGenerator {
 /// coordinates, or only the barycenter if not pointwise.
 class PlasticityPointGenerator : public QueryGenerator {
   public:
-  PlasticityPointGenerator(const CellToVertexArray& cellToVertex,
+  PlasticityPointGenerator(CellToVertexArray cellToVertex,
                            std::vector<std::array<double, Cell::Dim>> nodes,
                            bool pointwise = true)
-      : cellToVertex_(cellToVertex), nodes_(std::move(nodes)), pointwise_(pointwise) {}
+      : cellToVertex_(std::move(cellToVertex)), nodes_(std::move(nodes)), pointwise_(pointwise) {}
   [[nodiscard]] reader::scripting::DataTable generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;
 

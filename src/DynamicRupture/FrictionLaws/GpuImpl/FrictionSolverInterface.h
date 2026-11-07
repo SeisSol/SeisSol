@@ -80,8 +80,9 @@ struct FrictionLawData {
   // TP
   real (*__restrict temperature)[misc::NumPaddedPoints<Cfg>]{};
   real (*__restrict pressure)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict theta)[misc::NumTpGridPoints][misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict sigma)[misc::NumTpGridPoints][misc::NumPaddedPoints<Cfg>]{};
+  /// the grid points of a face follow each other; see LTSThermalPressurization::Theta
+  real (*__restrict theta)[misc::NumPaddedPoints<Cfg>]{};
+  real (*__restrict sigma)[misc::NumPaddedPoints<Cfg>]{};
   const real (*__restrict halfWidthShearZone)[misc::NumPaddedPoints<Cfg>]{};
   const real (*__restrict hydraulicDiffusivity)[misc::NumPaddedPoints<Cfg>]{};
 
@@ -112,6 +113,8 @@ class FrictionSolverInterface : public FrictionSolverImpl<Cfg> {
   seissol::initializer::AllocationPlace allocationPlace() override {
     return seissol::initializer::AllocationPlace::Device;
   }
+
+  void setClock(const double* deviceClock) override { clock_ = deviceClock; }
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
     const seissol::initializer::AllocationPlace place =
@@ -148,6 +151,9 @@ class FrictionSolverInterface : public FrictionSolverImpl<Cfg> {
 
   protected:
   FrictionLawData<Cfg> dataHost_;
+
+  // the time at the start of each step on the device; null to take the time passed to evaluate()
+  const double* clock_{nullptr};
 };
 } // namespace seissol::dr::friction_law::gpu
 

@@ -13,6 +13,7 @@
 #include "Initializer/ParameterDB.h"
 #include "Model/ScriptParameters.h"
 #include "Solver/MultipleSimulations.h"
+#include "TestConfigs.h"
 
 #include <algorithm>
 #include <array>
@@ -47,7 +48,7 @@ class ModelFile {
 
 TEST_CASE("DirichletCondition: a script reads the group and the material of the cell" *
           doctest::test_suite("initializer")) {
-  using Cfg = Config0;
+  using Cfg = FirstConfig;
   using MaterialT = model::MaterialOf<Cfg>;
   const auto names = model::scriptParameterNames<MaterialT>();
   const std::string& first = names.front();

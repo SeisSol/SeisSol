@@ -80,13 +80,13 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
             toExtTriangle(seissol::geometry::AffineFaceTransform::fromMeshCell(
                 elementIdx.value(), faceSideIdx, *meshReader_));
 
-        faultRefiner->refineAndAccumulate({elementwiseParams_.refinement,
-                                           faceIdx,
-                                           faceSideIdx,
-                                           elementIdx.value(),
-                                           &fault,
-                                           order,
-                                           numSimulations_},
+        faultRefiner->refineAndAccumulate({.refinementLevel = elementwiseParams_.refinement,
+                                           .faultFaceIndex = faceIdx,
+                                           .localFaceSideId = faceSideIdx,
+                                           .elementId = elementIdx.value(),
+                                           .fault = &fault,
+                                           .order = order,
+                                           .simcount = numSimulations_},
                                           std::make_pair(globalFace, referenceTriangle));
       }
     }
@@ -96,7 +96,7 @@ class ElementWiseBuilder : public ReceiverBasedOutputBuilder {
     faultRefiner.reset(nullptr);
   }
 
-  inline const static size_t MaxAllowedCacheLevel = 1;
+  constexpr static size_t MaxAllowedCacheLevel = 1;
 
   private:
   seissol::initializer::parameters::ElementwiseFaultParameters elementwiseParams_;

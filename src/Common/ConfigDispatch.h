@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <functional>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -42,10 +43,28 @@ constexpr ConfigId configIdOf() {
   }
 }
 
-template <std::size_t... Indices>
-constexpr std::array<ConfigVariant, sizeof...(Indices)>
-    configVariants(std::index_sequence<Indices...> /*indices*/) {
-  return {ConfigVariant(std::in_place_index<Indices>)...};
+/// Calls `function` with an object of the configuration with id `Id`.
+template <typename Result, std::size_t Id, typename F>
+Result callWithConfig(F&& function) {
+  using ConfigT = std::variant_alternative_t<Id, ConfigVariant>;
+  // as std::visit did: the table would otherwise convert every result to that of the first
+  // configuration without a word, e.g. a Real<Cfg> of double precision to float
+  static_assert(std::is_same_v<std::invoke_result_t<F, const ConfigT&>, Result>,
+                "dispatchConfig takes a function whose result type is the same for every "
+                "configuration.");
+  static constexpr ConfigT Config{};
+  return std::invoke(std::forward<F>(function), Config);
+}
+
+/// Dispatches through a table with one `callWithConfig` per configuration, without std::visit,
+/// whose valueless case cannot occur here but would count as a possible exception for every caller.
+/// An id outside the table throws std::out_of_range.
+template <typename F, std::size_t... Ids>
+decltype(auto) dispatchConfigById(ConfigId id, F&& function, std::index_sequence<Ids...> /*ids*/) {
+  using Result = std::invoke_result_t<F, const std::variant_alternative_t<0, ConfigVariant>&>;
+  static constexpr std::array<Result (*)(F&&), sizeof...(Ids)> Callers{
+      &callWithConfig<Result, Ids, F>...};
+  return Callers.at(id)(std::forward<F>(function));
 }
 
 template <template <typename> typename T, typename Variant>
@@ -88,13 +107,15 @@ constexpr ConfigId configIdOf() {
  * @brief Calls `function` with the configuration type that `id` stands for.
  *
  * The configuration is passed as a value-initialized object of its type; `decltype` recovers the
- * type from it.
+ * type from it. `function` has to return the same type for every configuration. An id that no
+ * configuration of the build has throws std::out_of_range.
  */
 template <typename F>
 decltype(auto) dispatchConfig(ConfigId id, F&& function) {
-  static constexpr auto Variants =
-      internal::configVariants(std::make_index_sequence<std::variant_size_v<ConfigVariant>>());
-  return std::visit(std::forward<F>(function), Variants.at(id));
+  return internal::dispatchConfigById(
+      id,
+      std::forward<F>(function),
+      std::make_index_sequence<std::variant_size_v<ConfigVariant>>());
 }
 
 /// Calls `function` as `dispatchConfig` does, once for every configuration built into the
@@ -134,7 +155,7 @@ class PerConfig {
   }
 
   private:
-  typename internal::PerConfigValues<T, ConfigVariant>::Type values_;
+  internal::PerConfigValues<T, ConfigVariant>::Type values_;
 };
 
 /**
@@ -145,7 +166,7 @@ class PerConfig {
  * face.
  */
 template <template <typename> typename T>
-using ConfigVariantOf = typename internal::OfConfigVariant<T, ConfigVariant>::Type;
+using ConfigVariantOf = internal::OfConfigVariant<T, ConfigVariant>::Type;
 
 } // namespace seissol
 

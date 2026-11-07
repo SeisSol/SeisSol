@@ -58,9 +58,9 @@ struct Layer {
 
 /// Evaluates `script` on `layer` for a step starting at `start` with sub-steps `deltaT`.
 inline void evaluate(const std::shared_ptr<const SlipRateScript>& script,
-              Layer& layer,
-              double start,
-              const std::vector<double>& deltaT) {
+                     Layer& layer,
+                     double start,
+                     const std::vector<double>& deltaT) {
   SlipRateEvaluator evaluator(script, reader::scripting::DataType::F64, deltaT.size());
   SlipRateEvaluator::LayerData data;
   data.parameters = layer.rows.data();
@@ -198,7 +198,7 @@ TEST_CASE("The slip of a script adds up over the sub-steps, and agrees with FL 3
         // the slip rate FL 34 imposes, from the same time function
         const double builtIn =
             2.0 *
-            gaussianNucleationFunction::smoothStepIncrement(
+            gaussian_nucleation_function::smoothStepIncrement(
                 end - value(Row::Parameter, "rupture_onset", p), deltaT[step], riseTime) /
             deltaT[step];
         maxDifference = std::max(maxDifference, std::abs(layer.rate(step, 0, p) - builtIn));
@@ -211,7 +211,7 @@ TEST_CASE("The slip of a script adds up over the sub-steps, and agrees with FL 3
   for (std::size_t p = 0; p < Points; ++p) {
     const double onset = value(Row::Parameter, "rupture_onset", p);
     CHECK(slip[p] ==
-          doctest::Approx(2.0 * gaussianNucleationFunction::smoothStep(begin - onset, riseTime))
+          doctest::Approx(2.0 * gaussian_nucleation_function::smoothStep(begin - onset, riseTime))
               .epsilon(1e-13));
   }
   // rates of up to some 3 m/s, from differences of the slip over sub-steps of a hundredth of the

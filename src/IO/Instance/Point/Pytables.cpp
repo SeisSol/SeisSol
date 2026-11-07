@@ -34,7 +34,7 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> Pytables:
     const auto rowCount = this->rowCount_;
     this->resetStorage();
 
-    auto rowDatatype = getRowDatatype();
+    const auto rowDatatype = getRowDatatype();
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
         writer::instructions::Hdf5Location(filename, {}),
         "receiverdata",

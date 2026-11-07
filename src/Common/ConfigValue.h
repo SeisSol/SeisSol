@@ -28,7 +28,9 @@ namespace seissol {
  * configuration as a type.
  *
  * What the choices imply for the generated tensors (their sizes, the number of points on a face,
- * ...) is not part of the value: that depends on the target as well.
+ * ...) is not part of the value: that depends on the target as well. Neither are the choices an
+ * executable makes for all of its configurations alike, the solver of a material and the quadrature
+ * rule of the dynamic rupture faces (see `ConfigLayout` and `builtDRQuadRule`).
  *
  * A value-initialized `ConfigValue` names no configuration.
  */
@@ -37,8 +39,6 @@ struct ConfigValue {
   std::size_t relaxationMechanisms{};
   model::MaterialType materialType{};
   RealType precision{};
-  SolverType solver{};
-  DRQuadRuleType drQuadRule{};
   std::size_t numSimulations{};
 };
 
@@ -46,7 +46,6 @@ constexpr bool operator==(const ConfigValue& lhs, const ConfigValue& rhs) {
   return lhs.convergenceOrder == rhs.convergenceOrder &&
          lhs.relaxationMechanisms == rhs.relaxationMechanisms &&
          lhs.materialType == rhs.materialType && lhs.precision == rhs.precision &&
-         lhs.solver == rhs.solver && lhs.drQuadRule == rhs.drQuadRule &&
          lhs.numSimulations == rhs.numSimulations;
 }
 
@@ -55,10 +54,10 @@ constexpr bool operator!=(const ConfigValue& lhs, const ConfigValue& rhs) { retu
 /// The name of a material in a configuration name, e.g. `elastic`.
 std::string_view materialTypeName(model::MaterialType type);
 
-/// The name of a solver in a configuration name, e.g. `linearck`.
+/// The name of a solver, e.g. `linearck`.
 std::string_view solverTypeName(SolverType type);
 
-/// The name of a quadrature rule for dynamic rupture faces in a configuration name, e.g. `stroud`.
+/// The name of a quadrature rule for dynamic rupture faces, e.g. `stroud`.
 std::string_view drQuadRuleName(DRQuadRuleType rule);
 
 /**
@@ -66,11 +65,12 @@ std::string_view drQuadRuleName(DRQuadRuleType rule);
  *
  * It lists every field of the value in a fixed order, as
  *
- *     <material>-<solver>[-m<mechanisms>]-o<order>-<precision>-<quadrature rule>[-s<simulations>]
+ *     <material>[-m<mechanisms>]-o<order>-<precision>[-s<simulations>]
  *
- * e.g. `elastic-linearck-o6-f64-stroud`. The mechanisms are left out when there are none, the
- * simulations when there is only one. Distinct values have distinct names, so a name can stand
- * for a configuration outside the executable, e.g. in a file.
+ * e.g. `elastic-o6-f64` or `viscoelastic-m3-o4-f32-s8`. Every part after the material starts with a
+ * letter that says what it is. The mechanisms are left out when there are none, the simulations
+ * when there is only one. Distinct values have distinct names, so a name can stand for a
+ * configuration outside the executable, e.g. in a file.
  */
 std::string configName(const ConfigValue& value);
 
@@ -78,7 +78,8 @@ std::string configName(const ConfigValue& value);
  * @brief The value a canonical name stands for.
  *
  * Returns nothing for every string that `configName` does not produce, including other spellings
- * of a valid configuration (such as `o06` or an explicit `s1`).
+ * of a valid configuration (such as `o06`, an explicit `m0` or `s1`, or another order of the
+ * parts).
  */
 std::optional<ConfigValue> parseConfigName(std::string_view name);
 

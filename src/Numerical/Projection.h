@@ -176,7 +176,7 @@ constexpr std::size_t modalSize(std::size_t dim, std::size_t order) {
 //! @brief Number of points of the nodal point set @p set of convergence order @p order .
 constexpr std::size_t nodalSize(std::size_t dim, std::size_t order, NodalSet set) {
   if (set == NodalSet::Stroud) {
-    // cf. quadrature::TetrahedronQuadrature(order + 1); defined for dim == 3 only
+    // cf. quadrature::tetrahedronQuadrature(order + 1); defined for dim == 3 only
     return (order + 1) * (order + 1) * (order + 1);
   }
   if (set == NodalSet::Symmetric) {
@@ -191,7 +191,7 @@ constexpr std::size_t nodalSize(std::size_t dim, std::size_t order, NodalSet set
  *
  * The enumeration is by total degree; within one degree the last coordinate varies slowest and
  * the first coordinate takes up the remainder. This matches
- * basisFunction::SampledBasisFunctions (Dim == 3) and basisFunction::tri_dubiner (Dim == 2), and
+ * basis_function::SampledBasisFunctions (Dim == 3) and basis_function::tri_dubiner (Dim == 2), and
  * therefore also the modal index order of the generated V2mTo2n / MV2nTo2m / v / vInv matrices.
  */
 template <std::size_t Dim>
@@ -209,7 +209,7 @@ std::vector<std::array<double, 2>> nodalPoints2D(std::size_t order);
  * @brief The nodal points of the 3D volume basis (the generated @c vNodes ).
  *
  * NodalSet::Stroud gives the conical-product points, identical to
- * quadrature::TetrahedronQuadrature(order + 1); NodalSet::Symmetric the points of
+ * quadrature::tetrahedronQuadrature(order + 1); NodalSet::Symmetric the points of
  * quadrature::symmetricTetrahedronRule(2 * (order - 1)) in the order given there;
  * NodalSet::WarpBlend gives the Hesthaven/Warburton warp&blend points, enumerated over the
  * equidistant lattice with zeta slowest and xi fastest.

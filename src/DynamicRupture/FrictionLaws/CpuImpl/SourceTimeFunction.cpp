@@ -30,9 +30,9 @@ Real<Cfg> YoffeSTF<Cfg>::evaluate(real currentTime,
                                   [[maybe_unused]] real timeIncrement,
                                   size_t ltsFace,
                                   uint32_t pointIndex) {
-  return regularizedYoffe::regularizedYoffe(currentTime - onsetTime_[ltsFace][pointIndex],
-                                            tauS_[ltsFace][pointIndex],
-                                            tauR_[ltsFace][pointIndex]);
+  return regularized_yoffe::regularizedYoffe(currentTime - onsetTime_[ltsFace][pointIndex],
+                                             tauS_[ltsFace][pointIndex],
+                                             tauR_[ltsFace][pointIndex]);
 }
 
 template <typename Cfg>
@@ -46,7 +46,7 @@ Real<Cfg> GaussianSTF<Cfg>::evaluate(real currentTime,
                                      real timeIncrement,
                                      size_t ltsFace,
                                      uint32_t pointIndex) {
-  const real smoothStepIncrement = gaussianNucleationFunction::smoothStepIncrement(
+  const real smoothStepIncrement = gaussian_nucleation_function::smoothStepIncrement(
       currentTime - onsetTime_[ltsFace][pointIndex], timeIncrement, riseTime_[ltsFace][pointIndex]);
   return smoothStepIncrement / timeIncrement;
 }
@@ -62,7 +62,7 @@ Real<Cfg> DeltaSTF<Cfg>::evaluate(real currentTime,
                                   size_t ltsFace,
                                   uint32_t pointIndex) {
   // Currently, the delta pulse is normalized in time equivalent to FL33 and FL34
-  return deltaPulse::deltaPulse(currentTime - onsetTime_[ltsFace][pointIndex], timeIncrement);
+  return delta_pulse::deltaPulse(currentTime - onsetTime_[ltsFace][pointIndex], timeIncrement);
 }
 
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \

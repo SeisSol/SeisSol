@@ -41,17 +41,17 @@ namespace seissol::kernels {
 // the kernels of the solver of a configuration `Cfg`
 
 template <typename Cfg>
-using Time = typename SolverOf<Cfg>::TimeKernelT;
+using Time = SolverOf<Cfg>::TimeKernelT;
 template <typename Cfg>
-using Spacetime = typename SolverOf<Cfg>::SpacetimeKernelT;
+using Spacetime = SolverOf<Cfg>::SpacetimeKernelT;
 template <typename Cfg>
-using Local = typename SolverOf<Cfg>::LocalKernelT;
+using Local = SolverOf<Cfg>::LocalKernelT;
 template <typename Cfg>
-using Neighbor = typename SolverOf<Cfg>::NeighborKernelT;
+using Neighbor = SolverOf<Cfg>::NeighborKernelT;
 
 /// The time basis the solver of the configuration `Cfg` expands in.
 template <typename Cfg>
-using TimeBasis = typename SolverOf<Cfg>::template TimeBasis<Real<Cfg>>;
+using TimeBasis = SolverOf<Cfg>::template TimeBasis<Real<Cfg>>;
 
 template <typename Cfg>
 TimeBasis<Cfg> timeBasis() {

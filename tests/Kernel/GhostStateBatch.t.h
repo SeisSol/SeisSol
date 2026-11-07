@@ -19,6 +19,7 @@
 #include "Model/StateNames.h"
 #include "Physics/GhostState.h"
 #include "Solver/MultipleSimulations.h"
+#include "TestConfigs.h"
 
 #include <array>
 #include <cstddef>
@@ -28,7 +29,7 @@
 
 namespace seissol::unit_test::ghost_state_batch {
 
-using Cfg = Config0;
+using Cfg = FirstConfig;
 using RealT = Real<Cfg>;
 
 /// The kernel of a batch of three faces (of the cells 2, 0 and 3 of a layer of four), against the

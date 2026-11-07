@@ -10,7 +10,6 @@
 
 #include "Geometry/PUMLReader.h"
 #include "Initializer/FaceMap.h"
-#include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 
 #include <cstddef>
@@ -24,7 +23,6 @@ class SeisSol;
 namespace seissol::initializer {
 
 struct ClusteringConfig {
-  parameters::BoundaryFormat boundaryFormat;
   std::vector<std::uint64_t> rate;
   std::uint64_t vertexWeightElement{};
   std::uint64_t vertexWeightDynamicRupture{};
@@ -63,24 +61,27 @@ class Clustering {
   public:
   Clustering(const ClusteringConfig& config, seissol::SeisSol& seissolInstance);
 
-  /// vertexOrders is the canonical vertex order of every cell, the one the simulation uses
-  /// later (see geometry::canonicalVertexOrders); the time steps are computed in it.
+  /// The arrays are those PUMLReader::read read with the cells of either mesh. vertexOrders is the
+  /// canonical vertex order of every cell, the one the simulation uses later (see
+  /// geometry::canonicalVertexOrders); the time steps are computed in it.
   const ClusteringResult& compute(const geometry::PumlMesh& meshTopology,
+                                  const geometry::PumlCellArrays& topologyArrays,
                                   const geometry::PumlMesh& meshGeometry,
+                                  const geometry::PumlCellArrays& geometryArrays,
                                   const std::vector<geometry::VertexOrder>& vertexOrders);
 
   [[nodiscard]] const ClusteringResult& result() const { return result_; }
 
   private:
   [[nodiscard]] std::vector<std::uint64_t>
-      computeCostsPerTimestep(const geometry::PumlMesh& mesh) const;
+      computeCostsPerTimestep(const geometry::PumlMesh& mesh,
+                              const geometry::PumlCellArrays& arrays) const;
 
   seissol::SeisSol& seissolInstance_;
   std::vector<std::uint64_t> rate_;
   std::uint64_t vertexWeightElement_{};
   std::uint64_t vertexWeightDynamicRupture_{};
   std::uint64_t vertexWeightFreeSurfaceWithGravity_{};
-  parameters::BoundaryFormat boundaryFormat_;
   const FaceMap* faceMap_{nullptr};
   std::vector<double> configCostFactors_;
 

@@ -29,6 +29,13 @@ configure_file(
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/mesh-offgrid-permuted.h5
     COPYONLY
 )
+foreach(highOrderMesh cube2-o2-permuted.h5 cube2-o3.h5 cube2-o2-straight.h5)
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/Geometry/${highOrderMesh}
+        ${CMAKE_CURRENT_BINARY_DIR}/Testing/${highOrderMesh}
+        COPYONLY
+    )
+endforeach()
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/Initializer/Clustering/material.yaml
     ${CMAKE_CURRENT_BINARY_DIR}/Testing/material.yaml
@@ -218,6 +225,10 @@ if (TESTING_GENERATED)
     # fast as with -O3.
     set_source_files_properties(${SEISSOL_CODEGEN_TESTS} PROPERTIES
         COMPILE_OPTIONS "$<$<NOT:$<CONFIG:Debug>>:-O1>")
+    if (WARNINGS_AS_ERRORS)
+        # what the generated code looks like is up to yateto
+        set_property(SOURCE ${SEISSOL_CODEGEN_TESTS} APPEND PROPERTY COMPILE_OPTIONS -Wno-error)
+    endif()
 
     foreach(_TGT IN LISTS _GENERATED_KERNEL_TARGETS)
         if (WITH_GPU)

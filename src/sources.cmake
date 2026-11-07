@@ -74,6 +74,9 @@ if (WITH_GPU)
   if ("${DEVICE_BACKEND}" STREQUAL "cuda" OR "${DEVICE_BACKEND}" STREQUAL "hip")
     set(DEVICE_SRC ${DEVICE_SRC}
       ${SEISSOL_CODEGEN_DEVICE}
+      Kernels/DeviceAux/cudahip/ClockAux.cpp
+      Kernels/DeviceAux/cudahip/GatherAux.cpp
+      Kernels/DeviceAux/cudahip/HostCopyAux.cpp
       Kernels/DeviceAux/cudahip/PlasticityAux.cpp
       Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
       DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
@@ -81,6 +84,9 @@ if (WITH_GPU)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "acpp" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
     set(DEVICE_SRC ${DEVICE_SRC}
           ${SEISSOL_CODEGEN_DEVICE}
+          Kernels/DeviceAux/sycl/ClockAux.cpp
+          Kernels/DeviceAux/sycl/GatherAux.cpp
+          Kernels/DeviceAux/sycl/HostCopyAux.cpp
           Kernels/DeviceAux/sycl/PlasticityAux.cpp
           Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
           DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp
@@ -88,6 +94,12 @@ if (WITH_GPU)
   endif()
 
   make_device_lib(seissol-device-lib "${DEVICE_SRC}")
+
+  if (WARNINGS_AS_ERRORS)
+    # mostly generated code, compiled by the GPU toolchains
+    set_property(SOURCE ${DEVICE_SRC} APPEND PROPERTY COMPILE_OPTIONS
+      $<$<COMPILE_LANGUAGE:CXX>:-Wno-error>)
+  endif()
 
   target_link_libraries(seissol-device-lib PRIVATE seissol-common-properties)
 

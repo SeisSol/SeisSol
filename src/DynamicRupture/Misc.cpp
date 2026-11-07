@@ -11,7 +11,7 @@
 #include "Initializer/Parameters/DRParameters.h"
 
 #include <cmath>
-#include <string>
+#include <string_view>
 #include <utils/logger.h>
 
 namespace seissol::dr::misc {
@@ -32,7 +32,7 @@ void computeStrikeAndDipVectors(const CoordinateT& normal, CoordinateT& strike, 
   dip[2] *= dipInvLength;
 }
 
-std::string frictionLawName(seissol::dr::misc::FrictionLawType type) {
+std::string_view frictionLawName(seissol::dr::misc::FrictionLawType type) {
   switch (type) {
   case seissol::dr::misc::FrictionLawType::NoFault:
     return "nofault";
@@ -84,7 +84,7 @@ FrictionLawParameters<RealT>::FrictionLawParameters(
       terminatorSlipRateThreshold(parameters.terminatorSlipRateThreshold),
       etaDamp(parameters.etaDamp), etaDampEnd(parameters.etaDampEnd),
       forcedRuptureRiseTime(static_cast<RealT>(parameters.t0[0])),
-      sourceCount(stressSourceCount(parameters)),
+      sourceCount(stressSourceCount(parameters)), tpGridPoints(parameters.tpGridPoints),
       rsMaxNumberSlipRateUpdates(parameters.rsMaxNumberSlipRateUpdates),
       rsNumberStateVariableUpdates(parameters.rsNumberStateVariableUpdates),
       rsSlipRateTolerance(parameters.rsSlipRateTolerance),

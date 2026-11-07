@@ -31,12 +31,12 @@ namespace {
 /// of `cells` cells over a few steps.
 auto costProxyConfig(ConfigId config, unsigned cells) -> proxy::ProxyConfig {
   constexpr unsigned Timesteps = 5;
-  return proxy::ProxyConfig{cells,
-                            Timesteps,
-                            {proxy::Kernel::All},
-                            false,
-                            isDeviceOn() ? Executor::Device : Executor::Host,
-                            config};
+  return proxy::ProxyConfig{.cells = cells,
+                            .timesteps = Timesteps,
+                            .kernels = {proxy::Kernel::All},
+                            .verbose = false,
+                            .executor = isDeviceOn() ? Executor::Device : Executor::Host,
+                            .config = config};
 }
 
 /// The time the cost run of `config` takes, the best of a few runs against noise on the machine.
@@ -64,15 +64,27 @@ auto estimatedCost(ConfigId config) -> double {
 } // namespace
 
 auto miniSeisSol(ConfigId config) -> double {
-  const auto proxyConfig = proxy::ProxyConfig{50000,
-                                              10,
-                                              {seissol::proxy::Kernel::Local},
-                                              false,
-                                              isDeviceOn() ? Executor::Device : Executor::Host,
-                                              config};
+  // A device that has been idle raises its clocks within some hundred milliseconds under load; ten
+  // steps (~20 ms on a B200) measured how fast it did that, not how fast it computes: on Horizon
+  // (November 2026), some nodes came out 1.5 times as fast as the others, but were 3 % faster in
+  // 1000 steps, and their ranks got 1.5 times the cells. So the kernels run for a while first.
+  constexpr bool OnDevice = isDeviceOn();
+  auto proxyConfig = proxy::ProxyConfig{.cells = 50000,
+                                        .timesteps = OnDevice ? 100U : 10U,
+                                        .kernels = {seissol::proxy::Kernel::Local},
+                                        .verbose = false,
+                                        .executor = OnDevice ? Executor::Device : Executor::Host,
+                                        .config = config};
+  proxyConfig.warmup = OnDevice ? 0.5 : 0.0;
 
-  logInfo() << "Running MiniSeisSol with" << proxyConfig.cells << "cells and"
-            << proxyConfig.timesteps << "repetitions.";
+  if (OnDevice) {
+    logInfo() << "Running MiniSeisSol with" << proxyConfig.cells << "cells and"
+              << proxyConfig.timesteps << "repetitions, after" << proxyConfig.warmup
+              << "s of warm-up.";
+  } else {
+    logInfo() << "Running MiniSeisSol with" << proxyConfig.cells << "cells and"
+              << proxyConfig.timesteps << "repetitions.";
+  }
   const auto proxyResult = seissol::proxy::runProxy(proxyConfig);
 
   const auto summary = statistics::parallelSummary(proxyResult.time);
@@ -123,11 +135,12 @@ auto hostDeviceSwitch() -> int {
   bool found = false;
   logInfo() << "Running host-device switchpoint detection test";
   for (int i = 0; i < 20; ++i) {
-    auto config = proxy::ProxyConfig{clusterSize,
-                                     static_cast<unsigned int>(clusterSize < 100 ? 100 : 10),
-                                     {seissol::proxy::Kernel::Local},
-                                     false,
-                                     Executor::Host};
+    auto config =
+        proxy::ProxyConfig{.cells = clusterSize,
+                           .timesteps = static_cast<unsigned int>(clusterSize < 100 ? 100 : 10),
+                           .kernels = {seissol::proxy::Kernel::Local},
+                           .verbose = false,
+                           .executor = Executor::Host};
     const auto resultHost = proxy::runProxy(config);
     config.executor = Executor::Device;
     const auto resultDevice = proxy::runProxy(config);

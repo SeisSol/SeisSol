@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_READER_DATAFIELD_ASAGIMODULE_H_
 
 #include "Modules/Module.h"
+#include "Modules/Modules.h"
 #include "Parallel/Pin.h"
 
 #include <memory>
@@ -33,7 +34,11 @@ class AsagiModule : public Module {
   /** The total number of threads (including the communication thread */
   int totalThreads_;
 
-  parallel::Pinning* pinning_{};
+  /** Whether the MPI mode had to be downgraded, so that postMPIInit can say so */
+  bool warnDowngrade_{false};
+
+  /** The pinning of the SeisSol instance, for the CPU of the communication thread */
+  const parallel::Pinning* pinning_{nullptr};
 
   static std::shared_ptr<AsagiModule> instance;
 
@@ -47,7 +52,20 @@ class AsagiModule : public Module {
 
   utils::Env& getEnv();
 
-  void preMPI() override;
+  /**
+   * Set the pinning of the SeisSol instance; the communication thread runs on the first CPU it
+   * leaves free.
+   *
+   * Has to be called before the mesh is read.
+   */
+  void setPinning(const parallel::Pinning& pinning);
+
+  /**
+   * Register for the hooks this module needs, given the MPI mode determined at construction.
+   *
+   * Has to be called before the initialization phase reaches the earliest of those hooks.
+   */
+  void registerHooks(Modules& modules);
 
   /**
    * At the moment this function will only be registered when this warning/error
@@ -96,7 +114,7 @@ class AsagiModule : public Module {
   static int totalThreads();
 
   private:
-  static inline const std::string EnvMpiMode = "ASAGI_MPI_MODE";
+  static const inline std::string EnvMpiMode = "ASAGI_MPI_MODE";
 };
 
 } // namespace seissol::asagi

@@ -19,9 +19,9 @@
 #include <yaml-cpp/yaml.h>
 
 namespace {
-// (needs to stay non-const)
-// NOLINTNEXTLINE
-static std::unordered_map<std::string, MPI_Datatype> autocommitRegistry;
+// the datatypes committed so far, by their serialized description
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::unordered_map<std::string, MPI_Datatype> autocommitRegistry;
 } // namespace
 
 namespace {
@@ -90,11 +90,10 @@ MPI_Datatype convertToMPI(const std::shared_ptr<Datatype>& datatype, bool autoco
     }
     serialized = sstr.str();
   }
-  if (autocommit) {
-    if (autocommitRegistry.find(serialized) != autocommitRegistry.end()) {
-      return autocommitRegistry.at(serialized);
-    }
+  if (autocommit && autocommitRegistry.contains(serialized)) {
+    return autocommitRegistry.at(serialized);
   }
+
   MPI_Datatype type = MPI_DATATYPE_NULL;
   bool needsCommit = false;
   if (dynamic_cast<const ArrayDatatype*>(datatype.get()) != nullptr) {

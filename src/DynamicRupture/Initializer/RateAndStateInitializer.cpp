@@ -231,10 +231,11 @@ void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage& 
         for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
           temperature[ltsFace][pointIndex] = drParameters_->initialTemperature;
           pressure[ltsFace][pointIndex] = drParameters_->initialPressure;
-          for (std::size_t tpGridPointIndex = 0; tpGridPointIndex < misc::NumTpGridPoints;
+          for (std::size_t tpGridPointIndex = 0; tpGridPointIndex < drParameters_->tpGridPoints;
                ++tpGridPointIndex) {
-            theta[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
-            sigma[ltsFace][tpGridPointIndex][pointIndex] = 0.0;
+            const std::size_t gridIndex = ltsFace * drParameters_->tpGridPoints + tpGridPointIndex;
+            theta[gridIndex][pointIndex] = 0.0;
+            sigma[gridIndex][pointIndex] = 0.0;
           }
         }
       }
@@ -306,7 +307,7 @@ void RateAndStateFastVelocityThermalPressurizationInitializer::addAdditionalPara
 std::string ThermalPressurizationInitializer::faultNameAlternatives(
     const std::vector<std::string>& parameter) {
   for (const auto& name : parameter) {
-    if (faultParameterNames_.find(name) != faultParameterNames_.end()) {
+    if (faultParameterNames_.contains(name)) {
       if (name != parameter[0]) {
         logWarning() << "You are using the deprecated fault parameter name" << name << "for"
                      << parameter[0];

@@ -44,6 +44,11 @@ SKIP_RETURN_CODE = 77
 SECTION = re.compile(r"^\s*&(\w+)")
 ASSIGNMENT = re.compile(r"^(\s*)([A-Za-z_]\w*)(\s*=\s*)(.*)$")
 COMPARISON = re.compile(r"^([\w.-]+)\s*(>=|<=|!=|=)\s*(.*)$")
+# the line a sanitizer (cmake/sanitizers.cmake) ends each of its reports with; a run that wrote
+# one fails, also a refusal that was expected, and also where the sanitizer went on after it
+SANITIZER_REPORT = re.compile(
+    r"SUMMARY: (?:Address|Leak|Thread|Memory|UndefinedBehavior)Sanitizer\b.*"
+)
 
 
 # --------------------------------------------------------------------------
@@ -153,7 +158,9 @@ def apply_overrides(parameters, overrides):
 def unmet_requirements(capabilities, requirements):
     """Return the requirements this build does not satisfy.
 
-    A requirement is ``key=a|b``, ``key!=a``, ``key>=n`` or ``key<=n``. An
+    A requirement is ``key=a|b``, ``key!=a``, ``key>=n`` or ``key<=n``. A
+    capability that is a list, as ``configurations``, meets ``key=a|b`` if it
+    holds one of the alternatives, and ``key!=a`` if it holds none of them. An
     unknown key is a failure of the test declaration, not of the build, so it
     raises instead of quietly skipping: a typo that skips everything would
     leave the suite green and empty.
@@ -172,9 +179,13 @@ def unmet_requirements(capabilities, requirements):
         have = capabilities[key]
         if operator in ("=", "!="):
             alternatives = [item.strip().lower() for item in wanted.split("|")]
-            matched = str(have).lower() in alternatives
+            if isinstance(have, list):
+                matched = any(str(item).lower() in alternatives for item in have)
+            else:
+                matched = str(have).lower() in alternatives
             if matched != (operator == "="):
-                unmet.append(f"{key} is {have}, required {operator} {wanted}")
+                shown = ", ".join(map(str, have)) if isinstance(have, list) else have
+                unmet.append(f"{key} is {shown}, required {operator} {wanted}")
         else:
             try:
                 left, right = float(have), float(wanted)
@@ -192,6 +203,21 @@ def unmet_requirements(capabilities, requirements):
 # --------------------------------------------------------------------------
 # output checks
 # --------------------------------------------------------------------------
+
+# the ID that every run writes into its outputs: a header line of the
+# receivers, a column of the analysis
+RUN_ID = re.compile(
+    rb'^# run-id\b[^\n]*\n|,"(?:runId|[0-9a-f-]{36})"(?=\r?$)', re.MULTILINE
+)
+
+
+def output_bytes(path):
+    """Read an output file without the ID of the run that wrote it.
+
+    Two runs that compute the same write the same bytes then, and so do a run
+    and a reference stored before SeisSol wrote run IDs.
+    """
+    return RUN_ID.sub(b"", path.read_bytes())
 
 
 def read_receiver(path):
@@ -453,7 +479,7 @@ def compare_receivers(reference, candidate, prefix, tolerance, floor):
 
     identical = True
     for name in sorted(set(left) & set(right)):
-        if left[name].read_bytes() == right[name].read_bytes():
+        if output_bytes(left[name]) == output_bytes(right[name]):
             continue
         identical = False
         names, rows_left = read_receiver(left[name])
@@ -556,6 +582,26 @@ def available_cpus():
         return len(os.sched_getaffinity(0))
     except AttributeError:
         return os.cpu_count() or 1
+
+
+def available_cores():
+    """The number of cores this process may run on: an OpenMP thread at the place of a core takes
+    all of its CPUs (its hardware threads). Where the topology is unknown, the number of CPUs.
+    """
+    try:
+        cpus = os.sched_getaffinity(0)
+    except AttributeError:
+        return available_cpus()
+    cores = set()
+    for cpu in cpus:
+        topology = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
+        try:
+            package = (topology / "physical_package_id").read_text(encoding="utf-8")
+            core = (topology / "core_id").read_text(encoding="utf-8")
+        except OSError:
+            return len(cpus)
+        cores.add((package.strip(), core.strip()))
+    return len(cores)
 
 
 def record(path, payload):
@@ -689,22 +735,64 @@ def _command_run(args):
     # where the ranks and their threads take every CPU there is depends on how the MPI library and
     # the OpenMP runtime bind them (on the CI's runners of four, only the build with GCC found one),
     # so there the run polls instead, as the CI's runs of verify.py do; the environment can say
-    # otherwise.
-    cpus = available_cpus()
+    # otherwise. With the places of cores, a thread holds all CPUs of its core: the CI's runners
+    # have two cores of two CPUs each, which two ranks of one thread take completely.
+    if environment["OMP_PLACES"] == "cores":
+        units, unit = available_cores(), "cores"
+    else:
+        units, unit = available_cpus(), "CPUs"
     if (
         args.ranks > 1
-        and cpus <= args.ranks * args.threads
+        and units <= args.ranks * args.threads
         and "SEISSOL_COMMTHREAD" not in environment
     ):
         environment["SEISSOL_COMMTHREAD"] = "0"
         print(
             f"communication by polling: {args.ranks} ranks of {args.threads} threads on "
-            f"{cpus} CPUs leave none for a communication thread"
+            f"{units} {unit} leave none for a communication thread"
         )
     # Mini SeisSol times the ranks of a run on several, for node weights of the partitioning, which
     # the mini meshes do without (PartitioningLib 'none' keeps the cells where they were read); in
     # a build without optimization, as the one measuring the coverage, it takes minutes
     environment["SEISSOL_MINISEISSOL"] = "0"
+    # what the case sets in the environment of its run, e.g. a scheduling of its own
+    for entry in args.env:
+        name, _, value = entry.partition("=")
+        environment[name] = value
+
+    # the check of the run, which has to pass wherever the run is meant to; on one process, as it
+    # runs without MPI
+    check_problems = []
+    if args.expect_failure is None:
+        check_command = args.launcher + [
+            args.binary,
+            "--check=check.json",
+            "parameters.par",
+        ]
+        checked = subprocess.run(
+            check_command,
+            cwd=work,
+            env=environment,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        (work / "check.log").write_bytes(checked.stdout)
+        report_path = work / "check.json"
+        report = (
+            json.loads(report_path.read_text(encoding="utf-8"))
+            if report_path.exists()
+            else {}
+        )
+        if checked.returncode != 0 or report.get("status") != "passed":
+            check_problems.append(
+                f"the check of the run failed with exit code {checked.returncode} "
+                f"(see check.log): {report.get('problems', [])}"
+            )
+        elif not report.get("mesh", {}).get("cells"):
+            check_problems.append(
+                "the check of the run did not find the cells of the mesh"
+            )
 
     print("running:", " ".join(command))
     completed = subprocess.run(
@@ -723,6 +811,11 @@ def _command_run(args):
     result["command"] = command
     result["returncode"] = completed.returncode
     problems = []
+    reports = SANITIZER_REPORT.findall(log)
+    if reports:
+        problems.append(
+            f"{len(reports)} sanitizer report(s), the first: {reports[0].strip()}"
+        )
     if args.expect_failure is not None:
         # a configuration that SeisSol refuses on purpose has to be refused
         # cleanly, with the reason in the log, rather than crash or run
@@ -738,6 +831,7 @@ def _command_run(args):
         for problem in problems:
             print(f"error: {problem}", file=sys.stderr)
         return 1 if problems else 0
+    problems += check_problems
     if completed.returncode != 0:
         problems.append(f"exit code {completed.returncode}")
     else:
@@ -836,7 +930,7 @@ def _fingerprint_receiver(path):
     names, rows = read_receiver(path)
     count = len(rows)
     entry = {
-        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "sha256": hashlib.sha256(output_bytes(path)).hexdigest(),
         "samples": count,
         "end-time": rows[-1][0] if rows else None,
         "columns": {},
@@ -858,7 +952,7 @@ def _fingerprint_receiver(path):
 def _fingerprint_analysis(path):
     norms = read_analysis(path)
     return {
-        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "sha256": hashlib.sha256(output_bytes(path)).hexdigest(),
         "norms": {
             f"{norm}/{variable}": value
             for norm, values in norms.items()
@@ -890,6 +984,8 @@ def _relative(a, b, scale):
 _COMPONENTS = {
     **{name: "stress" for name in ("s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz")},
     **{name: "velocity" for name in ("v1", "v2", "v3")},
+    # the filtration velocity of a poroelastic material
+    **{name: "fluid velocity" for name in ("v1_f", "v2_f", "v3_f")},
     **{name: "traction" for name in ("T_s", "T_d", "P_n")},
     **{name: "initial traction" for name in ("Ts0", "Td0", "Pn0")},
     **{name: "slip" for name in ("Sls", "Sld")},
@@ -1253,6 +1349,7 @@ def main(argv=None):
     # what a run on a single rank is started under, a word each, e.g. mpirun -np 1
     run.add_argument("--launcher", action="append", default=[])
     run.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
+    run.add_argument("--env", action="append", default=[], metavar="NAME=VALUE")
     run.add_argument("--file", action="append", default=[], metavar="NAME")
     run.add_argument("--require", action="append", default=[], metavar="KEY=VALUE")
     run.add_argument(
