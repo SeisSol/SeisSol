@@ -10,6 +10,7 @@
 #include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredWeights.h"
 #include "Parallel/MPI.h"
+#include "TestHelper.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -17,7 +18,6 @@
 #include <filesystem>
 #include <mpi.h>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -71,15 +71,11 @@ TEST_CASE("Measured costs reach the ranks that read the cells" * doctest::test_s
 TEST_CASE("Measured costs go through a file" * doctest::test_suite("mpi")) {
   using namespace measuredcoststest;
 
-  std::vector<char> name(256, '\0');
+  std::string dir;
   if (Mpi::mpi.rank() == 0) {
-    std::string pattern = "/tmp/seissolcostsXXXXXX";
-    const char* created = mkdtemp(pattern.data());
-    REQUIRE(created != nullptr);
-    std::ranges::copy(pattern, name.begin());
+    dir = createTemporaryDirectory("seissolcosts");
   }
-  MPI_Bcast(name.data(), static_cast<int>(name.size()), MPI_CHAR, 0, Mpi::mpi.comm());
-  const std::string dir(name.data());
+  Mpi::mpi.broadcastContainer(dir, 0);
   const auto file = dir + "/costs.h5";
 
   const auto costs = scattered();

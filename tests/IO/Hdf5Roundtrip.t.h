@@ -10,16 +10,14 @@
 #include "IO/Datatype/Inference.h"
 #include "IO/Reader/File/Hdf5Reader.h"
 #include "Parallel/MPI.h"
+#include "TestHelper.h"
 
 #include <cstring>
 #include <filesystem>
 #include <hdf5.h>
 #include <mpi.h>
-#include <stdexcept>
-#include <stdlib.h>
 #include <string>
 #include <system_error>
-#include <unistd.h>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -29,16 +27,9 @@ using namespace seissol::io;
 struct TempHdf5File {
   std::string path;
   std::string dir;
-  TempHdf5File() {
-    // mkdtemp rewrites its argument, so it needs a fresh buffer on every call
-    std::string buffer = "/tmp/seissoltestXXXXXX";
-    const char* created = mkdtemp(buffer.data());
-    if (created == nullptr) {
-      throw std::runtime_error("could not create a temporary directory");
-    }
-    dir = created;
+  TempHdf5File() : dir(createTemporaryDirectory("seissoltest")) {
     // Create a unique temp file name per rank
-    path = std::filesystem::path(dir) / "testfile.h5";
+    path = (std::filesystem::path(dir) / "testfile.h5").string();
   }
   ~TempHdf5File() {
     std::error_code error;
