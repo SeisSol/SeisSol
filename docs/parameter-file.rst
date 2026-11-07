@@ -84,8 +84,9 @@ executable built for the compute nodes, provided that the login node can run it:
 An error in the parameters stops the check as it would stop the run; what the check
 itself finds, it collects. The exit code is 0 if the run can start, 1 otherwise.
 ``--check=<file>`` writes a report as JSON, also when an error or a crash stops the
-check: its ``status`` is ``passed`` or ``failed``; ``problems`` lists what the check
-found; ``stoppedAt`` names the step an error or a crash stopped (``parameters``,
+check: its ``status`` is ``passed`` or ``failed``, or ``terminated`` if a request to
+stop reached it (then ``terminatedBy`` gives the signal); ``problems`` lists what the
+check found; ``stoppedAt`` names the step an error or a crash stopped (``parameters``,
 ``files``, ``yaml``, ``mesh``, ``checkpoint`` or ``output``), and ``error`` gives its
 ``message`` and its ``time``, for an error its ``source`` in the code (``file``,
 ``line``, ``function``), for a crash the ``signal`` (see :ref:`run-summary`); ``mesh`` has the

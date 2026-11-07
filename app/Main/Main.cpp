@@ -57,10 +57,10 @@ namespace {
 using namespace seissol;
 
 /**
- * Ends the program after a fatal signal, which utils reported already: marks the run summary as
- * failed (or the report of the check), and ends all ranks of the run. Runs in the signal handler.
+ * Ends the program after a crash, which utils reported already: marks the run summary as failed (or
+ * the report of the check), and ends all ranks of the run. Runs in the signal handler.
  */
-void endOnSignal(const utils::LogSignal& signal) {
+void endOnCrash(const utils::LogSignal& signal) {
   seissol::monitoring::writeFailureReport(signal.json);
   // MPI_Abort() is not async-signal-safe; should it hang, the alarm ends the process
   alarm(10);
@@ -71,6 +71,15 @@ void endOnSignal(const utils::LogSignal& signal) {
   if (initialized != 0 && finalized == 0) {
     MPI_Abort(seissol::Mpi::mpi.comm(), 128 + signal.number);
   }
+}
+
+/**
+ * Marks the run summary (or the report of the check) as terminated after a request to stop, which
+ * utils reported already. It does not end the other ranks: the request reaches them too, from the
+ * scheduler or, when another rank ends the run through MPI, from that. Runs in the signal handler.
+ */
+void endOnTermination(const utils::LogSignal& signal) {
+  seissol::monitoring::writeTerminationReport(signal.json);
 }
 
 /**
@@ -211,7 +220,8 @@ std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
 
 int main(int argc, char* argv[]) {
   // before MPI is initialized, which sets handlers of its own for the signals that have none
-  utils::catchSignals(&endOnSignal);
+  utils::catchSignals(&endOnCrash);
+  utils::catchTerminationSignals(&endOnTermination);
   utils::catchUncaughtExceptions();
   try {
     // a check runs on its own, before anything of a run starts

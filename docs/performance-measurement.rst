@@ -55,13 +55,20 @@ the simulation, and at its end, each time replacing the file at once, so that a 
 ``status`` is ``completed`` once the run has ended as planned, and ``failed`` once a fatal error or a crash on rank 0
 has ended it: then ``error`` gives the ``message`` and the ``time``, for an error its ``source`` in the code
 (``file``, ``line``, ``function``), for a crash the ``signal`` (``SIGSEGV``, ``SIGBUS``, ``SIGFPE``, ``SIGILL`` or
-``SIGABRT``) and the ``address`` of the fault or the ``sender``, the process that sent the signal, if there is one. A
-run that ended early otherwise, by an error or a crash on another rank or by the time limit of its job, leaves
-``running``. Either way, ``stage`` says how far it got (``init``, ``init.mesh``, ``init.layout``, ``init.model``,
-``init.sideConditions``, ``init.io``, ``simulation``; ``finished`` at the end).
+``SIGABRT``) and the ``address`` of the fault or the ``sender``, the process that sent the signal, if there is one. It
+is ``terminated`` once a request to stop (``SIGTERM`` from a job scheduler at the time limit or on cancellation,
+``SIGINT`` on Ctrl-C, ``SIGHUP`` when the terminal closes) has reached rank 0: then ``terminatedBy`` gives the same,
+with the ``signal``. A run that ended without a signal that rank 0 can catch, e.g. by ``SIGKILL`` from the
+out-of-memory killer or by the loss of its node, leaves ``running``. In each case, ``stage`` says how far it got
+(``init``, ``init.mesh``, ``init.layout``, ``init.model``, ``init.sideConditions``, ``init.io``, ``simulation``;
+``finished`` at the end).
 
 A crash, i.e. one of these signals or an exception that nothing caught, is reported as a fatal error is: on the console
-of its rank, with the backtrace, and on rank 0 in the log; then it ends all ranks, as a fatal error does.
+of its rank, with the backtrace, and on rank 0 in the log; then it ends all ranks, as a fatal error does. A request to
+stop is reported as a warning, without a backtrace, on the console of rank 0 and in the log, and ends each rank it
+reaches. Note that with Open MPI's ``mpirun``, a rank that ends because another rank failed receives ``SIGTERM`` as
+well, the same as from a scheduler, so ``terminated`` on rank 0 can also stand for a failure on another rank; the exit
+code of the launcher tells the two apart.
 
 Times are in seconds, timesteps and simulated times in simulated seconds. Where a value differs between the ranks, the
 summary gives its statistics over them, an object with ``min``, ``max``, ``mean``, ``median``, ``std`` and ``sum``. The

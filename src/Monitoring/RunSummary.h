@@ -42,10 +42,11 @@ struct EpochRecord {
  * A JSON file next to the output, <prefix>-summary.json, which rank 0 writes. It is rewritten as
  * the run moves on: at every stage of the initialization, during the simulation and at the end,
  * each time replacing the file in one step, so that a reader always finds a complete file. A fatal
- * error on rank 0 marks the run as "failed", with the error (see FailureReport.h). A run that ends
- * early otherwise, by an error on another rank or by the time limit of its job, leaves the summary
- * of the last stage it reached: its status stays "running"; in either case, its stage says how far
- * it got.
+ * error or a crash on rank 0 marks the run as "failed", a request to stop (SIGTERM, SIGINT, SIGHUP)
+ * as "terminated" (see FailureReport.h); with Open MPI's mpirun, a failure on another rank reaches
+ * rank 0 as SIGTERM, too. A run that ends without a signal that rank 0 can catch, such as SIGKILL
+ * from the out-of-memory killer, leaves the summary of the last stage it reached: its status stays
+ * "running"; in each case, its stage says how far it got.
  *
  * Next to it, <prefix>-epochs.csv holds a row per simulation epoch, which the summary only counts,
  * and <prefix>-ranks.csv a row per rank, with the values of which the summary gives the statistics.

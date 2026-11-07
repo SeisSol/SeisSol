@@ -65,24 +65,59 @@ TEST_CASE("A fatal error as a failure" * doctest::test_suite("monitoring")) {
         R"("time":"2023-11-14T22:13:20.123456Z"})");
 }
 
-TEST_CASE("The failure report is written by the first failure" *
+inline json::Value reportTemplate(const char* status, const char* key) {
+  auto report = json::Value::object();
+  report["status"] = std::string(status);
+  report[key] = monitoring::FailurePlaceholder;
+  return report;
+}
+
+TEST_CASE("The report is written by the first failure or termination" *
           doctest::test_suite("monitoring")) {
   const std::string path = "failure-report-test.json";
   std::filesystem::remove(path);
 
-  SUBCASE("Set") {
+  SUBCASE("The first failure writes it, and no more") {
     inChild([&path] {
-      monitoring::setFailureReport(path, R"({"status": "failed", "error": )", "}\n");
+      monitoring::setFailureReport(path, reportTemplate("failed", "error"));
       monitoring::writeFailureReport(R"({"message":"first"})");
       monitoring::writeFailureReport(R"({"message":"second"})");
     });
-    CHECK(fileContent(path) == "{\"status\": \"failed\", \"error\": {\"message\":\"first\"}}\n");
+    CHECK(fileContent(path) ==
+          "{\n  \"status\": \"failed\",\n  \"error\": {\"message\":\"first\"}\n}\n");
     CHECK_FALSE(std::filesystem::exists(path + ".failure.partial"));
+  }
+  SUBCASE("A failure wins over a later termination") {
+    inChild([&path] {
+      monitoring::setFailureReport(path, reportTemplate("failed", "error"));
+      monitoring::setTerminationReport(path, reportTemplate("terminated", "terminatedBy"));
+      monitoring::writeFailureReport(R"({"message":"the error"})");
+      monitoring::writeTerminationReport(R"({"message":"the signal"})");
+    });
+    const auto text = fileContent(path);
+    CHECK(text.find("\"status\": \"failed\"") != std::string::npos);
+    CHECK(text.find("\"status\": \"terminated\"") == std::string::npos);
+  }
+  SUBCASE("A termination writes the terminated report") {
+    inChild([&path] {
+      monitoring::setTerminationReport(path, reportTemplate("terminated", "terminatedBy"));
+      monitoring::writeTerminationReport(R"({"signal":"SIGTERM"})");
+    });
+    const auto text = fileContent(path);
+    CHECK(text.find("\"status\": \"terminated\"") != std::string::npos);
+    CHECK(text.find("\"terminatedBy\": {\"signal\":\"SIGTERM\"}") != std::string::npos);
+  }
+  SUBCASE("A termination with no report set writes nothing") {
+    inChild([&path] {
+      monitoring::setFailureReport(path, reportTemplate("failed", "error"));
+      monitoring::writeTerminationReport(R"({"signal":"SIGTERM"})");
+    });
+    CHECK_FALSE(std::filesystem::exists(path));
   }
   SUBCASE("Cleared") {
     inChild([&path] {
-      monitoring::setFailureReport(path, "{", "}");
-      monitoring::clearFailureReport();
+      monitoring::setFailureReport(path, reportTemplate("failed", "error"));
+      monitoring::clearFailureReports();
       monitoring::writeFailureReport(R"({"message":"first"})");
     });
     CHECK_FALSE(std::filesystem::exists(path));
@@ -117,6 +152,29 @@ TEST_CASE("A failure marks the run summary as failed" * doctest::test_suite("mon
     CHECK(text.find("\"error\"") == std::string::npos);
   }
 
+  std::filesystem::remove(path);
+  std::filesystem::remove(prefix + "-epochs.csv");
+}
+
+TEST_CASE("A termination marks the run summary as terminated" * doctest::test_suite("monitoring")) {
+  const std::string prefix = "termination-summary-test";
+  const auto path = prefix + "-summary.json";
+
+  monitoring::RunSummary summary;
+  summary.start(prefix, "123e4567-e89b-42d3-a456-426614174000");
+  summary.setStage("simulation");
+  inChild([] {
+    monitoring::writeTerminationReport(R"({"message":"The process received the signal SIGTERM )"
+                                       R"((termination request).","signal":"SIGTERM"})");
+  });
+  const auto text = fileContent(path);
+  CHECK(text.find("\"status\": \"terminated\"") != std::string::npos);
+  CHECK(text.find("\"stage\": \"simulation\",\n  \"terminatedBy\": {\"message\":") !=
+        std::string::npos);
+  CHECK(text.find("\"signal\":\"SIGTERM\"") != std::string::npos);
+  CHECK(text.find("\"status\": \"failed\"") == std::string::npos);
+
+  summary.finish();
   std::filesystem::remove(path);
   std::filesystem::remove(prefix + "-epochs.csv");
 }

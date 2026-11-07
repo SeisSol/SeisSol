@@ -20,7 +20,6 @@
 #include <string>
 #include <string_view>
 #include <unistd.h>
-#include <utility>
 #include <utils/logger.h>
 
 namespace seissol::monitoring {
@@ -35,16 +34,18 @@ struct Report {
 };
 
 // (constant-initialized, so that a signal handler finds them in any case)
-// the report a failure writes; replaced rather than changed
+// the report a failure writes, and the one a termination writes; each replaced rather than changed
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::atomic<const Report*> current{nullptr};
-// whether a failure has written the report, or is writing it; it stays set
+std::atomic<const Report*> failureReport{nullptr};
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+std::atomic<const Report*> terminationReport{nullptr};
+// whether a failure or a termination has written a report, or is writing it; it stays set
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::atomic<bool> claimed{false};
 
-void replaceReport(const Report* report) {
-  const Report* previous = current.exchange(report);
-  // a failure that writes the report now may be reading the one before; then it is kept
+void replaceReport(std::atomic<const Report*>& slot, const Report* report) {
+  const Report* previous = slot.exchange(report);
+  // a signal handler that writes the report now may be reading the one before; then it is kept
   if (!claimed.load()) {
     delete previous;
   }
@@ -63,35 +64,33 @@ void writeAll(int file, std::string_view text) {
   }
 }
 
-} // namespace
-
-void setFailureReport(const std::string& path, std::string before, std::string after) {
-  // a name of its own, so that it does not meet the file of writeFileAtomically() for the path
-  replaceReport(new Report{.path = path,
-                           .temporary = path + ".failure.partial",
-                           .before = std::move(before),
-                           .after = std::move(after)});
-}
-
-void setFailureReport(const std::string& path, const json::Value& report) {
+//! @brief Splits @p report at the placeholder and puts it in @p slot .
+void setReport(std::atomic<const Report*>& slot,
+               const std::string& path,
+               const json::Value& report) {
   const auto text = report.dump() + "\n";
   const auto placeholder = json::quote(FailurePlaceholder);
   const auto at = text.find(placeholder);
   if (at == std::string::npos) {
-    clearFailureReport();
+    replaceReport(slot, nullptr);
     return;
   }
-  setFailureReport(path, text.substr(0, at), text.substr(at + placeholder.size()));
+  // a name of its own, so that it does not meet the file of writeFileAtomically() for the path
+  replaceReport(slot,
+                new Report{.path = path,
+                           .temporary = path + ".failure.partial",
+                           .before = text.substr(0, at),
+                           .after = text.substr(at + placeholder.size())});
 }
 
-void clearFailureReport() { replaceReport(nullptr); }
-
-void writeFailureReport(std::string_view failure) {
-  if (claimed.exchange(true)) {
+//! @brief Writes the report in @p slot with @p detail , if no report has been written yet.
+void writeReport(const std::atomic<const Report*>& slot, std::string_view detail) {
+  const Report* report = slot.load();
+  if (report == nullptr) {
     return;
   }
-  const Report* report = current.load();
-  if (report == nullptr) {
+  // the first failure or termination writes it, and no more
+  if (claimed.exchange(true)) {
     return;
   }
   // next to the report and renamed then, as writeFileAtomically() does, with what a signal
@@ -103,10 +102,31 @@ void writeFailureReport(std::string_view failure) {
     return;
   }
   writeAll(file, report->before);
-  writeAll(file, failure);
+  writeAll(file, detail);
   writeAll(file, report->after);
   ::close(file);
   static_cast<void>(std::rename(report->temporary.c_str(), report->path.c_str()));
+}
+
+} // namespace
+
+void setFailureReport(const std::string& path, const json::Value& report) {
+  setReport(failureReport, path, report);
+}
+
+void setTerminationReport(const std::string& path, const json::Value& report) {
+  setReport(terminationReport, path, report);
+}
+
+void clearFailureReports() {
+  replaceReport(failureReport, nullptr);
+  replaceReport(terminationReport, nullptr);
+}
+
+void writeFailureReport(std::string_view failure) { writeReport(failureReport, failure); }
+
+void writeTerminationReport(std::string_view termination) {
+  writeReport(terminationReport, termination);
 }
 
 std::string failureOf(const utils::LogRecord& record) {

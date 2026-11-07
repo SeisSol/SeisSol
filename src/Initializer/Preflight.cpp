@@ -97,7 +97,7 @@ class Report {
 
   //! @brief Writes the report, if asked to, and returns the exit code.
   int finish() {
-    monitoring::clearFailureReport();
+    monitoring::clearFailureReports();
     const bool passed = root_["problems"].size() == 0;
     root_["status"] = passed ? "passed" : "failed";
     write();
@@ -117,23 +117,29 @@ class Report {
     }
   }
 
+  //! @brief The report as it stands, with @p status and the placeholder in @p key after the step.
+  [[nodiscard]] json::Value with(const char* status, const char* key) const {
+    auto changed = json::Value::object();
+    for (const auto& [name, value] : root_.asObject()) {
+      changed[name] = name == "status" ? json::Value(status) : value;
+      if (name == "status") {
+        changed["stoppedAt"] = step_;
+        changed[key] = monitoring::FailurePlaceholder;
+      }
+    }
+    return changed;
+  }
+
   /**
-   * @brief Sets what a failure writes: the report as it stands, as failed, with the step it stopped
-   * and the failure after the status.
+   * @brief Sets what a failure and a request to stop write: the report as it stands, failed with
+   * the error, or terminated with the signal, each after the step it stopped.
    */
   void setFailure() {
     if (path_.empty()) {
       return;
     }
-    auto failed = json::Value::object();
-    for (const auto& [key, value] : root_.asObject()) {
-      failed[key] = key == "status" ? json::Value("failed") : value;
-      if (key == "status") {
-        failed["stoppedAt"] = step_;
-        failed["error"] = monitoring::FailurePlaceholder;
-      }
-    }
-    monitoring::setFailureReport(path_, failed);
+    monitoring::setFailureReport(path_, with("failed", "error"));
+    monitoring::setTerminationReport(path_, with("terminated", "terminatedBy"));
   }
 
   std::string path_;

@@ -72,18 +72,27 @@ std::string mpiLibrary() {
 }
 
 /**
- * @brief Sets the failure report to the summary @p root as failed, with the failure in "error",
+ * @brief The summary @p root with @p status instead of "running", and the placeholder in @p key
  * after the stage.
  */
-void setFailedSummary(const std::string& path, const json::Value& root) {
-  auto failed = json::Value::object();
-  for (const auto& [key, value] : root.asObject()) {
-    failed[key] = key == "status" ? json::Value("failed") : value;
-    if (key == "stage") {
-      failed["error"] = FailurePlaceholder;
+json::Value summaryWith(const json::Value& root, const char* status, const char* key) {
+  auto changed = json::Value::object();
+  for (const auto& [name, value] : root.asObject()) {
+    changed[name] = name == "status" ? json::Value(status) : value;
+    if (name == "stage") {
+      changed[key] = FailurePlaceholder;
     }
   }
-  setFailureReport(path, failed);
+  return changed;
+}
+
+/**
+ * @brief Sets the reports for the summary @p root : failed, with the error in "error", and
+ * terminated, with the signal in "terminatedBy", each after the stage.
+ */
+void setFailureSummaries(const std::string& path, const json::Value& root) {
+  setFailureReport(path, summaryWith(root, "failed", "error"));
+  setTerminationReport(path, summaryWith(root, "terminated", "terminatedBy"));
 }
 
 } // namespace
@@ -381,9 +390,9 @@ void RunSummary::writeSummary() {
     logWarning() << "Could not write the run summary" << path_;
   }
   if (completed_) {
-    clearFailureReport();
+    clearFailureReports();
   } else {
-    setFailedSummary(path_, root_);
+    setFailureSummaries(path_, root_);
   }
 }
 
