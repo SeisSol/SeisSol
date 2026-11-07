@@ -1656,21 +1656,50 @@ def compare_antiplane(solver, solution, frame, fault_receivers, volume_receivers
     return deviations
 
 
+def _simulations(names, rows):
+    """The columns and rows of each fused simulation of a receiver that
+    read_receiver joined, named as for a single simulation; the receiver
+    itself without fused simulations."""
+    found = sorted(
+        {
+            int(match.group(1))
+            for match in (re.fullmatch(r".*\[(\d+)\]", name) for name in names)
+            if match is not None
+        }
+    )
+    if not found:
+        return [(names, rows)]
+    simulations = []
+    for simulation in found:
+        suffix = f"[{simulation}]"
+        columns = [0] + [i for i, name in enumerate(names) if name.endswith(suffix)]
+        simulations.append(
+            (
+                [names[0]] + [names[i][: -len(suffix)] for i in columns[1:]],
+                [[row[i] for i in columns] for row in rows],
+            )
+        )
+    return simulations
+
+
+def _worst(found):
+    """The largest deviation per quantity over several comparisons."""
+    deviations = {}
+    for each in found:
+        for name, value in each.items():
+            deviations[name] = max(deviations.get(name, 0.0), value)
+    return deviations
+
+
 def _compare_antiplane_case(
-    args,
-    rupture,
-    model,
-    manifest,
-    left,
-    right,
-    interval,
-    fault_receivers,
-    volume_receivers,
+    args, rupture, model, manifest, left, right, interval, simulations
 ):
     """compare_antiplane for a case on a mesh that is periodic across the
     fault, with the spectral method at args.points points along y and two
     steps per sample: its cost grows with the square of the steps, and its
-    error is mostly that of the points (see antiplane.py)."""
+    error is mostly that of the points (see antiplane.py). `simulations`
+    holds the fault and the volume receivers of each fused simulation; the
+    worst of them counts."""
     import antiplane
     import easimodel
     import fault1d
@@ -1678,6 +1707,7 @@ def _compare_antiplane_case(
 
     if left.rho != right.rho or not np.array_equal(left.stiffness, right.stiffness):
         raise fault1d.Unsupported("the spectral method takes one medium on both sides")
+    fault_receivers = simulations[0][0]
     width, length = manifest["spec"]["size"][:2]
     try:
         solver = antiplane.Antiplane(left, length, width, args.points)
@@ -1690,7 +1720,20 @@ def _compare_antiplane_case(
         fault, max(row[0] for row in fault_receivers[0][1]), interval / 2
     )
     frame = fault1d.fault_frame(fault1d.Inputs(rupture, {}))
-    return compare_antiplane(solver, solution, frame, fault_receivers, volume_receivers)
+    # the field at a volume receiver, once for all simulations
+    fields = {}
+    radiated = solver.radiated
+
+    def remembered(solution, x, y):
+        if (x, y) not in fields:
+            fields[(x, y)] = radiated(solution, x, y)
+        return fields[(x, y)]
+
+    solver.radiated = remembered
+    return _worst(
+        compare_antiplane(solver, solution, frame, faults, volumes)
+        for faults, volumes in simulations
+    )
 
 
 def _command_exact(args):
@@ -1773,6 +1816,22 @@ def _command_exact(args):
     for number, position in enumerate(positions, start=1):
         path = directory / f"{prefix.name}-receiver-{number:05d}.dat"
         volume_receivers.append((position, read_receiver(path)))
+    # with fused simulations, each of them runs the case, and each is compared
+    faults = [_simulations(names, rows) for names, rows, _ in fault_receivers]
+    volumes = [_simulations(*receiver) for _, receiver in volume_receivers]
+    simulations = [
+        (
+            [
+                (*faults[i][simulation], header)
+                for i, (_, _, header) in enumerate(fault_receivers)
+            ],
+            [
+                (position, volumes[i][simulation])
+                for i, (position, _) in enumerate(volume_receivers)
+            ],
+        )
+        for simulation in range(len(faults[0]))
+    ]
 
     # the step of the integration divides the interval of the samples, so that
     # every sample is a point of the integration
@@ -1782,15 +1841,7 @@ def _command_exact(args):
             # whatever the fault sends out returns to it; only the spectral
             # method takes this into account
             deviations = _compare_antiplane_case(
-                args,
-                rupture,
-                model,
-                manifest,
-                left,
-                right,
-                interval,
-                fault_receivers,
-                volume_receivers,
+                args, rupture, model, manifest, left, right, interval, simulations
             )
         elif fault is None:
             width, length = manifest["spec"]["size"][:2]
@@ -1803,13 +1854,17 @@ def _command_exact(args):
                     f"{model.name} is neither uniform ({uniform}) nor a forced "
                     f"rupture front ({reason})"
                 ) from reason
-            deviations = compare_front(front, step, fault_receivers, volume_receivers)
+            deviations = _worst(
+                compare_front(front, step, faults, volumes)
+                for faults, volumes in simulations
+            )
         else:
             problem = fault1d.Problem(rupture, fault, left, right)
             series = problem.solve(times[-1], step)
             indices = [round(t / step) for t in times]
-            deviations = compare_fault1d(
-                problem, series, indices, fault_receivers, volume_receivers
+            deviations = _worst(
+                compare_fault1d(problem, series, indices, faults, volumes)
+                for faults, volumes in simulations
             )
     except fault1d.Unsupported as reason:
         raise SystemExit(f"the case has no exact solution here: {reason}") from reason
