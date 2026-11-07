@@ -26,7 +26,10 @@ class InitialField;
 /// The ghost state of a boundary given by a script, integrated over a time step: one compiled
 /// program that evaluates the script at the points of the Gauss-Legendre rule of the step and adds
 /// up the weighted values, as kernels::AnalyticalBoundary does with a function of the time. Only
-/// what depends on the time (and on the state inside) is computed per time point.
+/// what depends on the time (and on the state inside) is computed per time point. The program
+/// reads the times and the weights of the points of the rule, which the caller computes in binary64
+/// (timePoints(), weights()): the time enters the program once, rounded to its compute type, and on
+/// a device, the times can come from the clock of the step there.
 ///
 /// The script gives components of the state by the names `components`; what else it gives is not
 /// asked for. It reads x, y, z, t, sim, the parameters of the material by the names `parameters`
@@ -38,9 +41,10 @@ class GhostStateIntegral {
   public:
   enum class Missing : std::uint8_t { Zero, Inner };
 
-  /// What an input of program() reads: a coordinate of the point, the start or the width of the
-  /// step, what the script reads as `sim`, a parameter of the material, or the state inside.
-  enum class Input : std::uint8_t { X, Y, Z, Start, Width, Simulation, Parameter, Inner };
+  /// What an input of program() reads: a coordinate of the point, the time or the weight of a
+  /// point of the quadrature of the step (that of inputIndex()), what the script reads as `sim`, a
+  /// parameter of the material, or the state inside.
+  enum class Input : std::uint8_t { X, Y, Z, Time, Weight, Simulation, Parameter, Inner };
 
   /// Throws std::invalid_argument for a script that reads anything else or keeps state; `name`
   /// names it in the message. Without `onHost`, evaluate() is not available, and the integral
@@ -69,18 +73,27 @@ class GhostStateIntegral {
   /// `inner`, or none if the script does not read the state inside and leaves nothing to it).
   [[nodiscard]] std::size_t innerCount() const;
 
-  /// The times of the quadrature of the step [start, start + width], one per time point.
+  /// The times of the quadrature of the step [start, start + width], one per time point: the start
+  /// plus the offsets of timeOffsets(), in binary64.
   void timePoints(double start, double width, double* times) const;
 
-  /// The program of the integral, which reads $t0 and $dt as the start and the width of the step
-  /// and gives the integral of each component it computes.
+  /// The time points of the quadrature of a step of the width `width`, relative to its start.
+  void timeOffsets(double width, double* offsets) const;
+
+  /// The weights of the quadrature of a step of the width `width`, one per time point.
+  void weights(double width, double* weights) const;
+
+  /// The program of the integral, which reads the time and the weight of every point of the
+  /// quadrature of the step (Input::Time, Input::Weight) and gives the integral of each component
+  /// it computes.
   [[nodiscard]] const expr::Program& program() const;
 
   /// What input `i` of program() reads.
   [[nodiscard]] Input input(std::size_t i) const;
 
-  /// For a parameter of the material, its index among the parameters; for the state inside at time
-  /// point t, component k, the index t * innerCount() + k. Zero for the other inputs.
+  /// For a parameter of the material, its index among the parameters; for the time or the weight
+  /// of a point of the quadrature, the point; for the state inside at time point t, component k,
+  /// the index t * innerCount() + k. Zero for the other inputs.
   [[nodiscard]] std::size_t inputIndex(std::size_t i) const;
 
   /// The component of the ghost state that output `j` of program() gives.

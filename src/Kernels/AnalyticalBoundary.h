@@ -230,12 +230,13 @@ class GhostStateBoundary {
     thread_local std::vector<double> inner;
     inner.resize(Cfg::NumSimulations * innerSize);
     if (innerCount > 0) {
-      thread_local std::vector<double> times;
-      times.resize(timePoints);
-      integral.timePoints(start, width, times.data());
+      // the offsets of the time points into the step, as the device takes them
+      thread_local std::vector<double> offsets;
+      offsets.resize(timePoints);
+      integral.timeOffsets(width, offsets.data());
       for (std::size_t i = 0; i < timePoints; ++i) {
         alignas(Alignment) real state[tensor::I<Cfg>::size()];
-        stateAt(times[i] - start, state);
+        stateAt(offsets[i], state);
         if (faceAligned) {
           alignas(Alignment) real nodal[tensor::INodalAligned<Cfg>::size()];
           auto project = projectAligned_;

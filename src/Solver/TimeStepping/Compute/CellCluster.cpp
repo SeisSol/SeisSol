@@ -450,10 +450,11 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
       },
       isRecurringTimestep(timeStepWidth));
 
-  // depends on the current time, and therefore cannot be replayed from the graph above; it neither
-  // reads nor writes what the graph computes after the local integral
+  // reads the time of the step from the clock on the device, and so may be replayed in a graph of
+  // its own steps; it neither reads nor writes what the graph above computes after the local
+  // integral
   localKernel_.evaluateBatchedTimeDependentBc(
-      dataTable, indicesTable, *clusterData_, clock_.host(), timeStepWidth, streamRuntime_);
+      dataTable, indicesTable, *clusterData_, clock_.device(), timeStepWidth, streamRuntime_);
 
   deviceLoops_.end(loop,
                    streamRuntime_.stream(),
@@ -774,6 +775,23 @@ void CellCluster<Cfg>::correct() {
 template <typename Cfg>
 void CellCluster<Cfg>::timeSet(double time) {
   clock_.set(time, streamRuntime_);
+}
+
+template <typename Cfg>
+void CellCluster<Cfg>::reset() {
+  AbstractTimeCluster::reset();
+#ifdef ACL_DEVICE
+  // before the first step of the run, which a graph may record
+  if (!timeDependentBcPrepared_ && executor_ == Executor::Device && clusterData_->size() > 0) {
+    using namespace seissol::recording;
+    localKernel_.prepareBatchedTimeDependentBc(
+        clusterData_->getConditionalTable<inner_keys::Wp>(),
+        clusterData_->getConditionalTable<inner_keys::Indices>(),
+        *clusterData_,
+        streamRuntime_);
+  }
+  timeDependentBcPrepared_ = true;
+#endif
 }
 
 template <typename Cfg>

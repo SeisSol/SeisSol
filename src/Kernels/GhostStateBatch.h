@@ -66,6 +66,11 @@ class GhostStateBatch {
     /// inner + e * innerStride + t * TargetSize; read only where the script reads the state inside
     const real* inner{nullptr};
     std::size_t innerStride{0};
+    /// the times of the points of the quadrature of the step (physics::GhostStateIntegral::
+    /// timePoints()), one per point, in binary64 where the kernel runs: on a device, they are
+    /// written there before the kernel of a step runs (kernels::timepoints::timePoints); the
+    /// program rounds them to its compute type
+    const double* times{nullptr};
     /// the ghost state of face e, a tensor like the target, at ghost + e * ghostStride
     real* ghost{nullptr};
     std::size_t ghostStride{TargetSize};
@@ -112,8 +117,11 @@ class GhostStateBatch {
       case Input::Z:
         table.bindCellPointViewConst<real>(name, data.nodes, NodeCount, NodeCount * 3, 3, 2);
         break;
-      case Input::Start:
-      case Input::Width:
+      case Input::Time:
+        // the same at all points, and read where the kernel runs, when it runs
+        table.bindViewConst<double>(name, Direction::In, data.times + index, 0);
+        break;
+      case Input::Weight:
       case Input::Simulation:
         // the same at all points, and passed by value per call
         table.bindConstant<double>(name, 0.0);
@@ -161,26 +169,23 @@ class GhostStateBatch {
     kernel_->precompute(table);
   }
 
-  /// The integral over the step [start, start + width] for the simulation `simulation` of the
-  /// run, whose script reads `scriptSimulation` as `sim`, on `stream`.
-  void evaluate(
-      double start, double width, std::size_t simulation, double scriptSimulation, void* stream) {
+  /// The integral over a step of the width `width`, at the times Data::times holds, for the
+  /// simulation `simulation` of the run, whose script reads `scriptSimulation` as `sim`, on
+  /// `stream`.
+  void evaluate(double width, std::size_t simulation, double scriptSimulation, void* stream) {
     using Input = physics::GhostStateIntegral::Input;
     if (kernel_ == nullptr) {
       return;
     }
-    start_ = start;
-    width_ = width;
+    weights_.resize(integral_->timePointCount());
+    integral_->weights(width, weights_.data());
     simulation_ = scriptSimulation;
     const auto& program = integral_->program();
     const auto* shifts = shifts_.data() + simulation * columnCount();
     for (std::size_t i = 0; i < program.inputs().size(); ++i) {
       switch (integral_->input(i)) {
-      case Input::Start:
-        inputs_[i] = &start_;
-        break;
-      case Input::Width:
-        inputs_[i] = &width_;
+      case Input::Weight:
+        inputs_[i] = weights_.data() + integral_->inputIndex(i);
         break;
       case Input::Simulation:
         inputs_[i] = &simulation_;
@@ -260,8 +265,8 @@ class GhostStateBatch {
   std::vector<std::ptrdiff_t> shifts_;
   std::vector<const void*> inputs_;
   std::vector<void*> outputs_;
-  double start_{0};
-  double width_{0};
+  /// the weights of the quadrature of the step of the call, read when it is packed
+  std::vector<double> weights_;
   double simulation_{0};
 };
 

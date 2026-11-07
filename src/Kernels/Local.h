@@ -101,8 +101,19 @@ class LocalKernel : public Kernel<Cfg> {
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   /**
+   * Makes what the device kernels of the time-dependent boundary conditions of `layer` need: once,
+   * before the time stepping, where no graph is recorded.
+   */
+  virtual void
+      prepareBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& /*dataTable*/,
+                                    recording::ConditionalIndicesTable& /*indicesTable*/,
+                                    LTS::Layer& /*layer*/,
+                                    seissol::parallel::runtime::StreamRuntime& /*runtime*/) {}
+
+  /**
    * Evaluates the time-dependent boundary conditions. The time at the start of the step is read
-   * from `time` when the evaluation runs.
+   * from `time`, in device memory (the clock of the cluster, solver::ClusterClock::device()), when
+   * the evaluation runs on the stream: also when it is replayed from a graph.
    */
   virtual void
       evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,

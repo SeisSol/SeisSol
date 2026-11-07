@@ -44,10 +44,15 @@ using reader::scripting::Direction;
 /// Points a kernel is bound for; a call with more runs in pieces. A face has fewer nodes.
 constexpr std::size_t Capacity = 64;
 
-/// The inputs of the integral besides those of the script: the step, and the state inside per
-/// time point.
-constexpr const char* Start = "$t0";
-constexpr const char* Width = "$dt";
+/// The inputs of the integral besides those of the script: the time and the weight of every point
+/// of the quadrature of the step, and the state inside per time point.
+constexpr const char* TimePrefix = "$time";
+constexpr const char* WeightPrefix = "$weight";
+
+/// The input of the time or the weight of time point `point`.
+std::string pointName(const char* prefix, std::size_t point) {
+  return std::string(prefix).append(std::to_string(point));
+}
 
 using Input = GhostStateIntegral::Input;
 
@@ -103,6 +108,9 @@ struct GhostStateIntegral::Impl {
     std::unique_ptr<expr::Kernel> kernel;
     std::vector<const void*> inputBases;
     std::vector<void*> outputBases;
+    // the times and the weights of the quadrature of the step of the call
+    std::vector<double> times;
+    std::vector<double> weights;
   };
   std::vector<Thread> threads;
 
@@ -169,8 +177,6 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
     program.internGrid(grid);
   }
   auto& arena = program.arena();
-  const auto start = arena.field(Start);
-  const auto width = arena.field(Width);
   const auto timeChannel = arena.findChannel("t");
   const auto isInner = [&](const std::string& component) {
     return std::find(inner.begin(), inner.end(), component) != inner.end();
@@ -178,18 +184,9 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
 
   std::vector<expr::NodeId> integrals(names.size(), expr::NoNode);
   for (std::size_t point = 0; point < timePoints; ++point) {
-    // the time of the point and its weight, as kernels::AnalyticalBoundary computes them
-    const auto time = arena.pw(
-        expr::Fn::Div,
-        arena.pw(expr::Fn::Add,
-                 arena.pw(expr::Fn::Add,
-                          arena.pw(expr::Fn::Mul, width, arena.konst(impl.quadPoints[point])),
-                          arena.pw(expr::Fn::Mul, arena.konst(2.0), start)),
-                 width),
-        arena.konst(2.0));
-    const auto weight = arena.pw(expr::Fn::Mul,
-                                 arena.pw(expr::Fn::Mul, arena.konst(0.5), width),
-                                 arena.konst(impl.quadWeights[point]));
+    // the time of the point and its weight, which the caller computes (timePoints(), weights())
+    const auto time = arena.field(pointName(TimePrefix, point));
+    const auto weight = arena.field(pointName(WeightPrefix, point));
 
     // the script at that time, reading the state inside at that time
     std::unordered_map<int, expr::NodeId> replacements;
@@ -242,10 +239,15 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
   }
   for (const auto& channel : read) {
     std::optional<std::pair<Input, std::size_t>> meaning;
-    if (channel == Start) {
-      meaning = std::pair{Input::Start, std::size_t{0}};
-    } else if (channel == Width) {
-      meaning = std::pair{Input::Width, std::size_t{0}};
+    for (std::size_t point = 0; point < timePoints && !meaning.has_value(); ++point) {
+      if (channel == pointName(TimePrefix, point)) {
+        meaning = std::pair{Input::Time, point};
+      } else if (channel == pointName(WeightPrefix, point)) {
+        meaning = std::pair{Input::Weight, point};
+      }
+    }
+    if (meaning.has_value()) {
+      // a point of the quadrature
     } else if (const auto scriptInput = scriptInputOf(channel)) {
       meaning = std::pair{*scriptInput, std::size_t{0}};
     } else if (const auto parameter = model::parameterIndexOf(parameters, channel)) {
@@ -333,9 +335,22 @@ std::size_t GhostStateIntegral::componentCount() const { return impl_->component
 
 std::size_t GhostStateIntegral::innerCount() const { return impl_->inner.size(); }
 
-void GhostStateIntegral::timePoints(double start, double width, double* times) const {
+void GhostStateIntegral::timeOffsets(double width, double* offsets) const {
   for (std::size_t point = 0; point < impl_->quadPoints.size(); ++point) {
-    times[point] = (width * impl_->quadPoints[point] + 2 * start + width) / 2;
+    offsets[point] = (width * impl_->quadPoints[point] + width) / 2;
+  }
+}
+
+void GhostStateIntegral::timePoints(double start, double width, double* times) const {
+  timeOffsets(width, times);
+  for (std::size_t point = 0; point < impl_->quadPoints.size(); ++point) {
+    times[point] += start;
+  }
+}
+
+void GhostStateIntegral::weights(double width, double* weights) const {
+  for (std::size_t point = 0; point < impl_->quadWeights.size(); ++point) {
+    weights[point] = 0.5 * width * impl_->quadWeights[point];
   }
 }
 
@@ -367,6 +382,10 @@ void GhostStateIntegral::evaluate(double start,
   }
   auto& thread = impl_->thread();
   const auto simulationValue = static_cast<double>(simulation);
+  thread.times.resize(impl.quadPoints.size());
+  thread.weights.resize(impl.quadPoints.size());
+  timePoints(start, width, thread.times.data());
+  weights(width, thread.weights.data());
 
   for (std::size_t first = 0; first < count; first += Capacity) {
     const std::size_t pieceCount = std::min(Capacity, count - first);
@@ -378,11 +397,11 @@ void GhostStateIntegral::evaluate(double start,
         // the base of the array; the binding adds the offset of the coordinate
         thread.inputBases[i] = points[first].data();
         break;
-      case Input::Start:
-        thread.inputBases[i] = &start;
+      case Input::Time:
+        thread.inputBases[i] = thread.times.data() + impl.inputIndex[i];
         break;
-      case Input::Width:
-        thread.inputBases[i] = &width;
+      case Input::Weight:
+        thread.inputBases[i] = thread.weights.data() + impl.inputIndex[i];
         break;
       case Input::Simulation:
         thread.inputBases[i] = &simulationValue;

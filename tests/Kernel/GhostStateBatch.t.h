@@ -76,6 +76,12 @@ void checkAgainstHost(const std::string& source, bool readsInner) {
   }
   std::vector<RealT> ghost(Faces * Size, -7.0);
 
+  // the times of the step, as a device computes them from its clock
+  const double start = 0.5;
+  const double width = 0.25;
+  std::vector<double> times(TimePoints);
+  integral.timePoints(start, width, times.data());
+
   typename Batch::Data data;
   data.faces = Faces;
   data.nodes = nodes.data();
@@ -83,14 +89,13 @@ void checkAgainstHost(const std::string& source, bool readsInner) {
   data.cells = cells.data();
   data.inner = readsInner ? inner.data() : nullptr;
   data.innerStride = TimePoints * Size;
+  data.times = times.data();
   data.ghost = ghost.data();
   expr::BackendOptions backend;
   backend.preferred = expr::BackendKind::Interpreter;
   Batch batch(integral, data, backend);
 
-  const double start = 0.5;
-  const double width = 0.25;
-  batch.evaluate(start, width, 0, 1.0, nullptr);
+  batch.evaluate(width, 0, 1.0, nullptr);
 
   std::vector<bool> given(components.size(), false);
   for (std::size_t j = 0; j < integral.program().outputs().size(); ++j) {

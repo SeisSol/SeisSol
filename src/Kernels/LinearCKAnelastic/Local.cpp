@@ -467,6 +467,20 @@ void Local<Cfg>::computeBatchedIntegral(
 }
 
 template <typename Cfg>
+void Local<Cfg>::prepareBatchedTimeDependentBc(
+    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
+    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
+    SEISSOL_GPU_PARAM LTS::Layer& layer,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  // the device kernels of this solver give no Taylor series for the nonlinear Dirichlet boundary,
+  // which the setup refuses
+  deviceGhostStates_->prepare(
+      this->analyticalGhostState(), nullptr, dataTable, indicesTable, layer, runtime.stream());
+#endif
+}
+
+template <typename Cfg>
 void Local<Cfg>::evaluateBatchedTimeDependentBc(
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
     SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
@@ -477,6 +491,9 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
 
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
+
+  // the times of the step, from the clock on the device, for the boundaries of all faces
+  deviceGhostStates_->beginStep(time, timeStepWidth, runtime.stream());
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     const ConditionalKey analyticalKey(
@@ -490,7 +507,6 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
                                      indicesTable,
                                      layer,
                                      face,
-                                     *time,
                                      timeStepWidth,
                                      runtime.stream());
 

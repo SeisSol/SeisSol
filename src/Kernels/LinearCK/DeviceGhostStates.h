@@ -20,6 +20,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/Typedefs.h"
+#include "Kernels/DeviceAux/TimePointsAux.h"
 #include "Kernels/GhostStateBatch.h"
 #include "Kernels/NonlinearDirichletScratch.h"
 #include "Memory/Descriptor/LTS.h"
@@ -47,7 +48,14 @@ namespace seissol::kernels::solver::linearck {
 /// nonlinear Dirichlet boundary the kernels around it, which take the state inside from the time
 /// derivatives to the nodes of the faces and the ghost state back to global coordinates. Both
 /// write the ghost state of a face into its slot of LTS::AnalyticScratch, which the nodal flux
-/// takes. The kernels of a side are made at its first step.
+/// takes.
+///
+/// The kernels read the time of the step from the clock of the cluster on the device, through the
+/// times of the points of the quadrature that beginStep() computes there: the work of a step
+/// replayed from a graph (a super-timestep, say) then evaluates the boundaries at the time of the
+/// step it runs in. Everything else a kernel takes by value depends on the width of the step only.
+/// The kernels are made by prepare(), before the time stepping, so that no recording of a graph
+/// makes them.
 template <typename Cfg>
 class DeviceGhostStates {
   public:
@@ -57,14 +65,49 @@ class DeviceGhostStates {
 
   explicit DeviceGhostStates(const GlobalData<Cfg>* global) : global_(global) {}
 
+  /// Makes the kernels of the boundaries of `layer`: of the analytical one if `state` is given, of
+  /// the nonlinear Dirichlet one if `condition` is.
+  void prepare(const physics::AnalyticalGhostState* state,
+               const physics::NonlinearDirichlet* condition,
+               recording::ConditionalPointersToRealsTable& dataTable,
+               recording::ConditionalIndicesTable& indicesTable,
+               LTS::Layer& layer,
+               void* stream) {
+    using namespace seissol::recording;
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      const ConditionalKey analyticalKey(
+          *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
+      if (state != nullptr && indicesTable.contains(analyticalKey)) {
+        makeAnalytical(*state, indicesTable, layer, face, stream);
+      }
+      const ConditionalKey nonlinearKey(
+          *KernelNames::BoundaryConditions, *ComputationKind::NonlinearDirichlet, face);
+      if (condition != nullptr && indicesTable.contains(nonlinearKey)) {
+        makeNonlinearDirichlet(*condition, dataTable, indicesTable, layer, face, stream);
+      }
+    }
+  }
+
+  /// The times of the points of the quadrature of the step that starts at `*clock`, on the device
+  /// (solver::ClusterClock::device()), and of the width `timeStepWidth`, for the kernels that
+  /// follow on `stream`: once per step, before the boundaries of its faces.
+  void beginStep(const double* clock, double timeStepWidth, void* stream) {
+    if (timePointCount_ == 0) {
+      return;
+    }
+    kernels::timepoints::TimeOffsets offsets;
+    offsets.count = timePointCount_;
+    offsetsOf_->timeOffsets(timeStepWidth, offsets.values);
+    kernels::timepoints::timePoints(clock, offsets, times_.data(), stream);
+  }
+
   /// The ghost state of the analytical boundary at the faces `face` of the cells of `layer`,
-  /// integrated over the step [time, time + timeStepWidth]: per simulation, the integral of the
-  /// script of its field (`state`). What the scripts do not give is zero.
+  /// integrated over the step of the width `timeStepWidth` that beginStep() began: per simulation,
+  /// the integral of the script of its field (`state`). What the scripts do not give is zero.
   void analytical(const physics::AnalyticalGhostState& state,
                   recording::ConditionalIndicesTable& indicesTable,
                   LTS::Layer& layer,
                   std::size_t face,
-                  double time,
                   double timeStepWidth,
                   void* stream) {
     using namespace seissol::recording;
@@ -74,49 +117,27 @@ class DeviceGhostStates {
     auto* ghost = reinterpret_cast<real*>(
         layer.var<LTS::AnalyticScratch>(Cfg(), initializer::AllocationPlace::Device));
 
-    auto& side = analytical_[face];
-    if (!side.made) {
-      side.made = true;
-      side.nodes = nodesOf(layer, cells->getHostData(), face);
-      typename GlobalBatch::Data data = dataOf(layer, *cells, side.nodes);
-      data.ghost = ghost;
-      data.ghostStride = tensor::INodal<Cfg>::size();
-      // one kernel per program: fused simulations of one script share theirs
-      std::vector<const physics::GhostStateIntegral*> integrals;
-      for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
-        const auto* integral = &state.integral(s);
-        const auto found = std::find(integrals.begin(), integrals.end(), integral);
-        side.batchOf.push_back(static_cast<std::size_t>(found - integrals.begin()));
-        if (found == integrals.end()) {
-          integrals.push_back(integral);
-          side.batches.push_back(
-              std::make_unique<GlobalBatch>(*integral, data, optionsFor(stream, quiet_)));
-          checkKind(side.batches.back()->kind(), "the analytical boundary");
-          quiet_ = true;
-        }
-      }
-    }
+    auto& side = makeAnalytical(state, indicesTable, layer, face, stream);
 
     // what the scripts do not give is zero
     device::DeviceInstance::instance().algorithms().fillArray(
         ghost, static_cast<real>(0), faces * tensor::INodal<Cfg>::size(), stream);
     for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
       side.batches[side.batchOf[s]]->evaluate(
-          time, timeStepWidth, s, static_cast<double>(state.scriptSimulation(s)), stream);
+          timeStepWidth, s, static_cast<double>(state.scriptSimulation(s)), stream);
     }
   }
 
   /// The ghost state of the nonlinear Dirichlet boundary at the faces `face` of the cells of
-  /// `layer`, integrated over the step [time, time + timeStepWidth]: the integral of the state
-  /// inside (projected from the integrated state), and where the script gives a quantity, the
-  /// integral of the script (condition.deviceIntegral()), from the state inside at the time points
-  /// of the step if it reads it.
+  /// `layer`, integrated over the step of the width `timeStepWidth` that beginStep() began: the
+  /// integral of the state inside (projected from the integrated state), and where the script gives
+  /// a quantity, the integral of the script (condition.deviceIntegral()), from the state inside at
+  /// the time points of the step if it reads it.
   void nonlinearDirichlet(const physics::NonlinearDirichlet& condition,
                           recording::ConditionalPointersToRealsTable& dataTable,
                           recording::ConditionalIndicesTable& indicesTable,
                           LTS::Layer& layer,
                           std::size_t face,
-                          double time,
                           double timeStepWidth,
                           parallel::runtime::StreamRuntime& runtime) {
 #ifdef SEISSOL_KERNELS_LINEARCK
@@ -137,38 +158,8 @@ class DeviceGhostStates {
       void* stream = runtime.stream();
       auto* ghost = reinterpret_cast<real*>(
           layer.var<LTS::AnalyticScratch>(Cfg(), initializer::AllocationPlace::Device));
-      auto* scratch = reinterpret_cast<real*>(
-          layer.var<LTS::NonlinearDirichletScratch>(Cfg(), initializer::AllocationPlace::Device));
 
-      auto& side = nonlinear_[face];
-      if (!side.made) {
-        side.made = true;
-        side.nodes = nodesOf(layer, cells->getHostData(), face);
-        auto data = dataOf(layer, *cells, side.nodes);
-        data.inner = scratch + Scratch::Inner;
-        data.innerStride = Scratch::PerFace;
-        if (aligned) {
-          typename AlignedBatch::Data alignedData;
-          alignedData.faces = data.faces;
-          alignedData.nodes = data.nodes;
-          alignedData.parameters = data.parameters;
-          alignedData.cells = data.cells;
-          alignedData.inner = data.inner;
-          alignedData.innerStride = data.innerStride;
-          alignedData.ghost = scratch + Scratch::Aligned;
-          alignedData.ghostStride = Scratch::PerFace;
-          side.aligned =
-              std::make_unique<AlignedBatch>(*integral, alignedData, optionsFor(stream, quiet_));
-          checkKind(side.aligned->kind(), "the nonlinear Dirichlet boundary");
-        } else {
-          data.ghost = ghost;
-          data.ghostStride = tensor::INodal<Cfg>::size();
-          side.batches.push_back(
-              std::make_unique<GlobalBatch>(*integral, data, optionsFor(stream, quiet_)));
-          checkKind(side.batches.back()->kind(), "the nonlinear Dirichlet boundary");
-        }
-        quiet_ = true;
-      }
+      auto& side = makeNonlinearDirichlet(condition, dataTable, indicesTable, layer, face, stream);
 
       auto** integrated = entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
       auto** blocks =
@@ -198,10 +189,11 @@ class DeviceGhostStates {
         launch(project, faces, runtime, face);
       }
 
-      // the state inside at the time points of the step, where the script reads it
+      // the state inside at the time points of the step, where the script reads it: the Taylor
+      // series at the offsets of the points into the step, which depend on its width alone
       if (integral->innerCount() > 0) {
-        std::array<double, Cfg::ConvergenceOrder> times{};
-        integral->timePoints(time, timeStepWidth, times.data());
+        std::array<double, Cfg::ConvergenceOrder> offsets{};
+        integral->timeOffsets(timeStepWidth, offsets.data());
         if (aligned) {
           kernel::gpu_projectToFaceNodesAlignedAtTimes<Cfg> project;
           project.bindGlobals(*global_);
@@ -213,7 +205,7 @@ class DeviceGhostStates {
             checkTimePoint(offset - Scratch::Inner, c * tensor::INodalAligned<Cfg>::size());
             offset += tensor::INodalAlignedAt<Cfg>::size(c);
           }
-          stateAt(project, times, time, derivatives, blocks);
+          stateAt(project, offsets, derivatives, blocks);
           launch(project, faces, runtime, face);
         } else {
           kernel::gpu_projectToFaceNodesAtTimes<Cfg> project;
@@ -225,7 +217,7 @@ class DeviceGhostStates {
             checkTimePoint(offset - Scratch::Inner, c * tensor::INodal<Cfg>::size());
             offset += tensor::INodalAt<Cfg>::size(c);
           }
-          stateAt(project, times, time, derivatives, blocks);
+          stateAt(project, offsets, derivatives, blocks);
           launch(project, faces, runtime, face);
         }
       }
@@ -233,9 +225,9 @@ class DeviceGhostStates {
       // the script, where it gives a quantity
       for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
         if (aligned) {
-          side.aligned->evaluate(time, timeStepWidth, s, static_cast<double>(s), stream);
+          side.aligned->evaluate(timeStepWidth, s, static_cast<double>(s), stream);
         } else {
-          side.batches.front()->evaluate(time, timeStepWidth, s, static_cast<double>(s), stream);
+          side.batches.front()->evaluate(timeStepWidth, s, static_cast<double>(s), stream);
         }
       }
 
@@ -255,7 +247,6 @@ class DeviceGhostStates {
     static_cast<void>(indicesTable);
     static_cast<void>(layer);
     static_cast<void>(face);
-    static_cast<void>(time);
     static_cast<void>(timeStepWidth);
     static_cast<void>(runtime);
     logError() << "The nonlinear Dirichlet boundary needs the Taylor series of the state.";
@@ -265,6 +256,123 @@ class DeviceGhostStates {
   private:
   using GlobalBatch = kernels::GhostStateBatch<Cfg, false>;
   using AlignedBatch = kernels::GhostStateBatch<Cfg, true>;
+
+  struct Side;
+
+  /// The kernels of the analytical boundary at the faces `face`, made if they are not yet.
+  Side& makeAnalytical(const physics::AnalyticalGhostState& state,
+                       recording::ConditionalIndicesTable& indicesTable,
+                       LTS::Layer& layer,
+                       std::size_t face,
+                       void* stream) {
+    using namespace seissol::recording;
+    auto& side = analytical_[face];
+    if (side.made) {
+      return side;
+    }
+    side.made = true;
+    const ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
+    auto* cells = indicesTable[key].get<unsigned>(inner_keys::Indices::Id::Cells);
+    side.nodes = nodesOf(layer, cells->getHostData(), face);
+    typename GlobalBatch::Data data = dataOf(layer, *cells, side.nodes);
+    data.ghost = reinterpret_cast<real*>(
+        layer.var<LTS::AnalyticScratch>(Cfg(), initializer::AllocationPlace::Device));
+    data.ghostStride = tensor::INodal<Cfg>::size();
+    // one kernel per program: fused simulations of one script share theirs
+    std::vector<const physics::GhostStateIntegral*> integrals;
+    for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
+      const auto* integral = &state.integral(s);
+      const auto found = std::find(integrals.begin(), integrals.end(), integral);
+      side.batchOf.push_back(static_cast<std::size_t>(found - integrals.begin()));
+      if (found == integrals.end()) {
+        integrals.push_back(integral);
+        data.times = timesFor(*integral);
+        side.batches.push_back(
+            std::make_unique<GlobalBatch>(*integral, data, optionsFor(stream, quiet_)));
+        checkKind(side.batches.back()->kind(), "the analytical boundary");
+        quiet_ = true;
+      }
+    }
+    return side;
+  }
+
+  /// The kernels of the nonlinear Dirichlet boundary at the faces `face`, made if they are not
+  /// yet.
+  Side& makeNonlinearDirichlet(const physics::NonlinearDirichlet& condition,
+                               recording::ConditionalPointersToRealsTable& /*dataTable*/,
+                               recording::ConditionalIndicesTable& indicesTable,
+                               LTS::Layer& layer,
+                               std::size_t face,
+                               void* stream) {
+    using namespace seissol::recording;
+    using Scratch = kernels::NonlinearDirichletScratch<Cfg>;
+    auto& side = nonlinear_[face];
+    const auto* integral = condition.deviceIntegral();
+    if (side.made || integral == nullptr) {
+      return side;
+    }
+    side.made = true;
+    const ConditionalKey key(
+        *KernelNames::BoundaryConditions, *ComputationKind::NonlinearDirichlet, face);
+    auto* cells = indicesTable[key].get<unsigned>(inner_keys::Indices::Id::Cells);
+    auto* scratch = reinterpret_cast<real*>(
+        layer.var<LTS::NonlinearDirichletScratch>(Cfg(), initializer::AllocationPlace::Device));
+    side.nodes = nodesOf(layer, cells->getHostData(), face);
+    auto data = dataOf(layer, *cells, side.nodes);
+    data.inner = scratch + Scratch::Inner;
+    data.innerStride = Scratch::PerFace;
+    data.times = timesFor(*integral);
+    if (condition.faceAligned()) {
+      typename AlignedBatch::Data alignedData;
+      alignedData.faces = data.faces;
+      alignedData.nodes = data.nodes;
+      alignedData.parameters = data.parameters;
+      alignedData.cells = data.cells;
+      alignedData.inner = data.inner;
+      alignedData.innerStride = data.innerStride;
+      alignedData.times = data.times;
+      alignedData.ghost = scratch + Scratch::Aligned;
+      alignedData.ghostStride = Scratch::PerFace;
+      side.aligned =
+          std::make_unique<AlignedBatch>(*integral, alignedData, optionsFor(stream, quiet_));
+      checkKind(side.aligned->kind(), "the nonlinear Dirichlet boundary");
+    } else {
+      data.ghost = reinterpret_cast<real*>(
+          layer.var<LTS::AnalyticScratch>(Cfg(), initializer::AllocationPlace::Device));
+      data.ghostStride = tensor::INodal<Cfg>::size();
+      side.batches.push_back(
+          std::make_unique<GlobalBatch>(*integral, data, optionsFor(stream, quiet_)));
+      checkKind(side.batches.back()->kind(), "the nonlinear Dirichlet boundary");
+    }
+    quiet_ = true;
+    return side;
+  }
+
+  /// The times on the device that the kernels of `integral` read (see beginStep()). All integrals
+  /// of the boundaries of a layer integrate over the same points of the step, which they share.
+  const double* timesFor(const physics::GhostStateIntegral& integral) {
+    const std::size_t count = integral.timePointCount();
+    if (count > kernels::timepoints::MaxTimeOffsets) {
+      logError() << "The ghost state of a boundary integrates over" << count
+                 << "points of a step; the device takes at most"
+                 << kernels::timepoints::MaxTimeOffsets << ".";
+    }
+    if (timePointCount_ == 0) {
+      timePointCount_ = count;
+      offsetsOf_ = &integral;
+      times_ = memory::MemkindArray<double>(count, memory::Memkind::DeviceGlobalMemory);
+    } else {
+      std::array<double, kernels::timepoints::MaxTimeOffsets> mine{};
+      std::array<double, kernels::timepoints::MaxTimeOffsets> theirs{};
+      integral.timeOffsets(1.0, mine.data());
+      offsetsOf_->timeOffsets(1.0, theirs.data());
+      if (count != timePointCount_ || mine != theirs) {
+        logError() << "The ghost states of the boundaries of a layer integrate over other points "
+                      "of a step.";
+      }
+    }
+    return times_.data();
+  }
 
   static_assert(std::is_same_v<unsigned, std::uint32_t>,
                 "the cells of a batch are the cell index of a column of a program");
@@ -332,12 +440,11 @@ class DeviceGhostStates {
     }
   }
 
-  /// The Taylor series of the state of the cells of the batch at the times `times` of the step
-  /// that starts at `start`, as the host evaluates it (kernel::derivativeTaylorExpansion).
+  /// The Taylor series of the state of the cells of the batch at the offsets `offsets` into the
+  /// step, as the host evaluates it (kernel::derivativeTaylorExpansion).
   template <typename Kernel>
   static void stateAt(Kernel& project,
-                      const std::array<double, Cfg::ConvergenceOrder>& times,
-                      double start,
+                      const std::array<double, Cfg::ConvergenceOrder>& offsets,
                       real** derivatives,
                       real** blocks) {
     std::size_t offset = 0;
@@ -347,7 +454,7 @@ class DeviceGhostStates {
       offset += tensor::dQ<Cfg>::size(d);
     }
     for (std::size_t c = 0; c < Cfg::ConvergenceOrder; ++c) {
-      const double tau = times[c] - start;
+      const double tau = offsets[c];
       double power = 1;
       for (std::size_t d = 0; d < Cfg::ConvergenceOrder; ++d) {
         project.taylorCoefficient(c * Cfg::ConvergenceOrder + d) = static_cast<real>(power);
@@ -388,6 +495,11 @@ class DeviceGhostStates {
   std::array<Side, Cell::NumFaces> nonlinear_;
   /// whether a kernel was made already, which said how it went
   bool quiet_{false};
+  /// the times of the points of the quadrature of the current step, on the device (beginStep()),
+  /// and the integral whose points they are; none before a kernel is made
+  memory::MemkindArray<double> times_{memory::Memkind::DeviceGlobalMemory};
+  std::size_t timePointCount_{0};
+  const physics::GhostStateIntegral* offsetsOf_{nullptr};
 };
 
 } // namespace seissol::kernels::solver::linearck

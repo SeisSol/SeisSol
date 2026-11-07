@@ -7,6 +7,9 @@
 
 #include "Kernels/DeviceAux/ClockAux.h"
 
+#include "Kernels/DeviceAux/TimePointsAux.h"
+
+#include <cstddef>
 #include <sycl/sycl.hpp>
 
 namespace seissol::kernels::device::aux::clock {
@@ -29,3 +32,18 @@ void advance(double* device, double* host, double timeStepSize, void* stream) {
 }
 
 } // namespace seissol::kernels::device::aux::clock
+
+namespace seissol::kernels::timepoints {
+
+void timePoints(const double* clock, const TimeOffsets& offsets, double* times, void* stream) {
+  if (offsets.count > 0) {
+    auto* queue = reinterpret_cast<sycl::queue*>(stream);
+    queue->single_task([=] {
+      for (std::size_t i = 0; i < offsets.count; ++i) {
+        times[i] = *clock + offsets.values[i];
+      }
+    });
+  }
+}
+
+} // namespace seissol::kernels::timepoints

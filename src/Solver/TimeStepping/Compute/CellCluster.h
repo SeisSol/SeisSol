@@ -166,6 +166,9 @@ class CellCluster : public CellClusterInterface {
 
   std::size_t numPlasticCells_{0};
 
+  //! whether the device kernels of the time-dependent boundaries are made (see reset())
+  bool timeDependentBcPrepared_{false};
+
   /**
    * Writes the receiver output if applicable (receivers present, receivers have to be written),
    * with the sampling planned for the step.
@@ -290,6 +293,8 @@ class CellCluster : public CellClusterInterface {
   }
 
   void addCorrectionHook(const CorrectionHook& hook) override { correctionHooks_.push_back(hook); }
+
+  void reset() override;
 
   void finalize() override;
 
