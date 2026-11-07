@@ -85,13 +85,13 @@ std::map<CacheKey, DeviceFunction>& cache() {
 
 // --- launch geometry ---------------------------------------------------------
 
-constexpr unsigned DefaultBlockSize = 256;
+constexpr unsigned DefaultBlockSize = GpuBlockSize;
 
 /// The grid is capped rather than sized to the point count, because the emitted
 /// kernel is a grid-stride loop: a short range still uses every thread it is
 /// given, and a long one does not need a block per point. The cap keeps a
 /// per-face launch from asking for a grid of one block per node.
-constexpr unsigned MaxBlocks = 4096;
+constexpr unsigned MaxBlocks = 16384;
 
 unsigned blocksFor(std::size_t count) {
   if (count == 0) {

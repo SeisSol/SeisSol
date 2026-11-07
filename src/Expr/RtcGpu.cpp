@@ -161,14 +161,18 @@ void emitPrologue(std::ostringstream& out, GpuTarget target) {
       << "// the host by a test that defines these differently. That is how the\n"
       << "// arithmetic is checked against the interpreter without a device.\n"
       << "#ifndef SEISSOL_EXPR_TID\n";
+  // The bound of the block lets the compiler give a thread the registers it can have at that size,
+  // and is what the launch uses (GpuBlockSize).
   if (target == GpuTarget::OpenCl) {
     out << "#define SEISSOL_EXPR_TID get_global_id(0)\n"
         << "#define SEISSOL_EXPR_NTHREADS get_global_size(0)\n"
-        << "#define SEISSOL_EXPR_KERNEL __kernel\n";
+        << "#define SEISSOL_EXPR_KERNEL __kernel __attribute__((reqd_work_group_size("
+        << GpuBlockSize << ", 1, 1)))\n";
   } else {
     out << "#define SEISSOL_EXPR_TID (blockIdx.x * blockDim.x + threadIdx.x)\n"
         << "#define SEISSOL_EXPR_NTHREADS (gridDim.x * blockDim.x)\n"
-        << "#define SEISSOL_EXPR_KERNEL extern \"C\" __global__\n";
+        << "#define SEISSOL_EXPR_KERNEL extern \"C\" __global__ __launch_bounds__(" << GpuBlockSize
+        << ")\n";
   }
   out << "#endif\n\n";
 }

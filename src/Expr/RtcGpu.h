@@ -46,6 +46,12 @@
 
 namespace seissol::expr {
 
+/// The threads of a block (CUDA, HIP) or of a work-group (OpenCL) of every kernel: the bound its
+/// source declares (__launch_bounds__, reqd_work_group_size), which the launch uses. Small, so that
+/// the few hundred points of the faces of a boundary spread over several multiprocessors, and two
+/// warps of NVIDIA or one wavefront of AMD, so that a block is never a fraction of one.
+inline constexpr unsigned GpuBlockSize = 64;
+
 enum class GpuTarget : std::uint8_t {
   Cuda,
   Hip,
