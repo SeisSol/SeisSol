@@ -10,9 +10,12 @@
 
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
+#include <algorithm>
 #include <cmath>
+#include <complex>
 #include <numeric>
 #include <utils/logger.h>
+#include <vector>
 #include <yateto.h>
 
 namespace seissol::eigenvalues {
@@ -109,7 +112,12 @@ Scaling<MatrixT> balance(MatrixT& m) {
 
 /**
  * Computes the eigenvalue decomposition of a dim x dim matrix of type T
- * The eigenvalues are sorted by their real parts, and the eigenvectors have unit length
+ * The eigenvalues are sorted by their real parts, and those whose real parts agree to 1e-8 of the
+ * largest modulus by their imaginary parts: the eigenvalues of modes that decay or stay without
+ * travelling have no real part, and their order would otherwise be down to its rounding. The
+ * eigenvectors have unit length, and their largest component is real and positive, as LAPACK's
+ * xGEEV normalizes them: an eigensolver determines an eigenvector only up to a complex factor, and
+ * this one fixes it, so that the eigenvector of a simple real eigenvalue of a real matrix is real.
  * The decomposition is the one of the eigen3 library, of the balanced matrix (see balance)
  * @param M: Dense matrix of size dim x dim, stored in column-major format
  * @param output: Reference to an Eigenpair to store the eigenvalue decomposition
@@ -130,6 +138,25 @@ void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
   std::sort(sortedIndices.begin(), sortedIndices.end(), [&eigenvalues](size_t a, size_t b) {
     return eigenvalues[a].real() < eigenvalues[b].real();
   });
+  T largestModulus = 0;
+  for (size_t i = 0; i < Dim; ++i) {
+    largestModulus = std::max(largestModulus, std::abs(eigenvalues(i)));
+  }
+  const T tolerance = static_cast<T>(1e-8) * largestModulus;
+  for (size_t begin = 0; begin < Dim;) {
+    size_t end = begin + 1;
+    while (end < Dim &&
+           eigenvalues[sortedIndices[end]].real() - eigenvalues[sortedIndices[end - 1]].real() <=
+               tolerance) {
+      ++end;
+    }
+    std::stable_sort(sortedIndices.begin() + begin,
+                     sortedIndices.begin() + end,
+                     [&eigenvalues](size_t a, size_t b) {
+                       return eigenvalues[a].imag() < eigenvalues[b].imag();
+                     });
+    begin = end;
+  }
 
   for (size_t i = 0; i < Dim; ++i) {
     output.values[i] = eigenvalues(sortedIndices[i], 0);
@@ -137,7 +164,11 @@ void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
 
   Matrix eigenvectors = scale.template cast<std::complex<T>>().asDiagonal() * ces.eigenvectors();
   for (size_t j = 0; j < Dim; ++j) {
-    eigenvectors.col(j).normalize();
+    auto column = eigenvectors.col(j);
+    column.normalize();
+    Eigen::Index largest = 0;
+    column.cwiseAbs().maxCoeff(&largest);
+    column *= std::conj(column(largest)) / std::abs(column(largest));
   }
 
   auto r = yateto::DenseTensorView<2, std::complex<T>>(output.vectors.data(), {Dim, Dim});

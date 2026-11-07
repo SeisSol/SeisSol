@@ -159,6 +159,10 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
     // Poroelastic materials have the following wave modes:
     //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
     // Here we impose -S1, -Ps and P
+    // This order holds where the slow P wave travels, slower than the shear waves. Where it
+    // diffuses instead, as it does at long wavelengths, it has no real part, as the five N have,
+    // and the indices 3 to 9 hold these seven modes by their imaginary parts, the static ones
+    // first; index 3 then sets up a static mode (see eigenvalues::computeEigenvalues).
     varField_ = {2, 3, 12};
     ampField_ = {1.0, 1.0, 1.0};
   } else {

@@ -61,6 +61,49 @@ TEST_CASE("Eigenvalues are correctly computed" * doctest::test_suite("numerical"
   }
 }
 
+TEST_CASE("The eigenvectors have unit length and a real, positive largest component" *
+          doctest::test_suite("numerical")) {
+  constexpr std::size_t Dim = 3;
+  constexpr auto Epsilon = std::numeric_limits<double>::epsilon() * 1e2;
+
+  // a real matrix with the simple real eigenvalues -1, 3 and 5, whose eigenvectors are then real,
+  // and a complex one
+  std::array<std::array<std::complex<double>, Dim * Dim>, 2> matrices = {{
+      {2.0, -3.0, -3.0, -2.0, 1.0, -2.0, -1.0, 1.0, 4.0},
+      {std::complex<double>(1.0, 2.0),
+       std::complex<double>(0.5, -1.0),
+       std::complex<double>(0.0, 3.0),
+       std::complex<double>(2.0, 0.0),
+       std::complex<double>(-1.0, 1.0),
+       std::complex<double>(0.25, 0.5),
+       std::complex<double>(1.0, -2.0),
+       std::complex<double>(3.0, 1.0),
+       std::complex<double>(-2.0, 0.0)},
+  }};
+  for (std::size_t index = 0; index < matrices.size(); ++index) {
+    seissol::eigenvalues::Eigenpair<std::complex<double>, Dim> eigenpair{};
+    seissol::eigenvalues::computeEigenvalues(matrices[index], eigenpair);
+    testResidual<Dim>(matrices[index], eigenpair);
+    for (std::size_t j = 0; j < Dim; ++j) {
+      double norm = 0.0;
+      std::size_t largest = 0;
+      for (std::size_t i = 0; i < Dim; ++i) {
+        const auto& component = eigenpair.vectors[i + Dim * j];
+        norm += std::norm(component);
+        if (std::abs(component) > std::abs(eigenpair.vectors[largest + Dim * j])) {
+          largest = i;
+        }
+        if (index == 0) {
+          REQUIRE(component.imag() == AbsApprox(0.0).epsilon(Epsilon));
+        }
+      }
+      REQUIRE(std::sqrt(norm) == AbsApprox(1.0).epsilon(Epsilon));
+      REQUIRE(eigenpair.vectors[largest + Dim * j].imag() == 0.0);
+      REQUIRE(eigenpair.vectors[largest + Dim * j].real() > 0.0);
+    }
+  }
+}
+
 /// Checks the eigenpairs of k A, the operator of a planar wave along x with the wavenumber k in a
 /// solid of the density rho and the stiffness given as the upper triangle of its Voigt matrix
 /// (xx, yy, zz, yz, xz, xy), for the quantities (sxx, syy, szz, sxy, syz, sxz, u, v, w). Its rows
