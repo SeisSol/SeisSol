@@ -516,8 +516,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                    << "(and SEISSOL_DEVICE_GRAPH_NODES not set to 0).";
     } else {
       replay_ = true;
-      // (not by default with HIP: on MI300A, the recordings with concurrent branches computed other
-      // results than the runs without recordings, see the documentation)
+      // (not by default with HIP: with HIP 7.2 on MI300A, the recordings with concurrent branches
+      // computed other results than the runs without recordings, see the documentation)
       constexpr bool BranchesByDefault = Backend != DeviceBackend::Hip;
       const bool branches = useSuperStepBranches(seissolInstance_.env(), BranchesByDefault);
       recorder_ = std::make_unique<SuperStepRecorder>(branches);
@@ -528,9 +528,10 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                           : "(by default with HIP; SEISSOL_SUPERSTEP_BRANCHES=1 lets them"
                             " run concurrently).");
       } else if (!BranchesByDefault) {
-        logWarning() << "The branches of the work of a cluster run concurrently in the recordings"
-                     << "(SEISSOL_SUPERSTEP_BRANCHES=1); on MI300A, they computed other results"
-                     << "than the runs without recordings.";
+        logWarning()
+            << "The branches of the work of a cluster run concurrently in the recordings"
+            << "(SEISSOL_SUPERSTEP_BRANCHES=1); on some HIP installations, they computed other"
+            << "results than the runs without recordings.";
       }
       if (DeviceTimeline::active()) {
         superStepTimer_ = std::make_unique<DeviceTimer>(
