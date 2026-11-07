@@ -84,6 +84,9 @@ and the 3 last digits the displacement components (displacement_x, displacement_
 Note that this output is associated with the prefix-low.xdmf file, and can only output
 the cell average quantities.
 
+The time integrals are those of the predictor over the time steps of each cell, added up in double
+precision (also in a single-precision build).
+
 
 OutputRegionBounds
 ------------------

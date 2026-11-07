@@ -77,6 +77,7 @@ if (WITH_GPU)
       Kernels/DeviceAux/cudahip/ClockAux.cpp
       Kernels/DeviceAux/cudahip/GatherAux.cpp
       Kernels/DeviceAux/cudahip/HostCopyAux.cpp
+      Kernels/DeviceAux/cudahip/IntegralAux.cpp
       Kernels/DeviceAux/cudahip/PlasticityAux.cpp
       Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
       DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
@@ -87,6 +88,7 @@ if (WITH_GPU)
           Kernels/DeviceAux/sycl/ClockAux.cpp
           Kernels/DeviceAux/sycl/GatherAux.cpp
           Kernels/DeviceAux/sycl/HostCopyAux.cpp
+          Kernels/DeviceAux/sycl/IntegralAux.cpp
           Kernels/DeviceAux/sycl/PlasticityAux.cpp
           Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
           DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp

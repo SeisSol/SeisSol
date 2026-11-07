@@ -211,7 +211,7 @@ class CellCluster : public CellClusterInterface {
 
   void computeLocalIntegrationFlops();
 
-  template <bool UsePlasticity, bool IntegrateOutput>
+  template <bool UsePlasticity>
   void computeNeighboringIntegrationImplementation(const StepParams& params);
 
   PerformanceEstimate computeLocalIntegrationFlops(std::size_t numberOfCells,

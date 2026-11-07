@@ -186,7 +186,13 @@ struct LTS {
   // canonical form, and converted (see kernels::ConfigBoundary); in bytes, as they mix reals
   struct ConfigBoundaryScratch : public initializer::Scratchpad<std::uint8_t> {};
 
-  struct Integrals : public initializer::VariantVariable<DofsArray> {};
+  // The time integrals of the unknowns since the start, which the outputs read: in binary64 in
+  // every configuration, as the sum of the time integrals of the predictor over all steps so far.
+  // In binary32, the integral of a step falls below the rounding of a sum that has grown over many
+  // steps (e.g. the displacement after the rupture, by the seismic waves that follow).
+  template <typename Cfg>
+  using IntegralsArray = double[tensor::Q<Cfg>::size()];
+  struct Integrals : public initializer::VariantVariable<IntegralsArray> {};
 
   /// The state of the derived outputs of the wave field, SimulationSettings::derivedState values
   /// per cell (cf. initializer::DerivedStateLayout).

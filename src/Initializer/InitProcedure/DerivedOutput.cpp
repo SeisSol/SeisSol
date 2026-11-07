@@ -1106,7 +1106,7 @@ class DerivedElementOutput final : public DerivedOutput {
   static std::vector<DerivedSource>
       sourcesOf(bool plasticity, bool faces, std::vector<SourceLocation>& locations);
 
-  /// The reals from one cell (or face) to the next in the array of `storage`.
+  /// The values from one cell (or face) to the next in the array of `storage`.
   static std::size_t cellStride(Storage storage);
 
   const void* blockBase(const SourceLocation& location, std::size_t color, std::size_t simulation);
@@ -1273,9 +1273,12 @@ const void* DerivedElementOutput<Cfg>::blockBase(const SourceLocation& location,
   case Storage::Dofs:
     base = reinterpret_cast<const RealT*>(layer.template var<LTS::Dofs>(Cfg()));
     break;
-  case Storage::Integrals:
-    base = reinterpret_cast<const RealT*>(layer.template var<LTS::Integrals>(Cfg()));
-    break;
+  case Storage::Integrals: {
+    // in binary64 in every configuration
+    const auto* integrals =
+        reinterpret_cast<const double*>(layer.template var<LTS::Integrals>(Cfg()));
+    return integrals == nullptr ? nullptr : integrals + location.offset + simulation;
+  }
   case Storage::PlasticStrain:
     base = reinterpret_cast<const RealT*>(layer.template var<LTS::PStrain>(Cfg()));
     break;
@@ -1459,13 +1462,18 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
       const auto& location = locations_[sources[b]];
       reader::scripting::BlockInput block;
       block.base = runs_.front().blocks[sim][b];
-      block.cellStride = cellStride(location.storage) * sizeof(RealT);
+      // the time integrals are in binary64 (see LTS::Integrals), all else in the reals of the
+      // configuration
+      const bool binary64 = location.storage == Storage::Integrals;
+      const std::size_t valueSize = binary64 ? sizeof(double) : sizeof(RealT);
+      block.type = binary64 ? reader::scripting::DataType::F64
+                            : reader::scripting::DataTypeTraits<RealT>::Type;
+      block.cellStride = cellStride(location.storage) * valueSize;
       // a parameter of the material is one value, the same in all simulations
       block.modeStride =
-          (location.storage == Storage::MaterialParameters ? 1 : Simulations) * sizeof(RealT);
+          (location.storage == Storage::MaterialParameters ? 1 : Simulations) * valueSize;
       block.cellIndex =
           location.storage == Storage::FaceDisplacement ? faceIndex_.data() : cellIndex_.data();
-      block.type = reader::scripting::DataTypeTraits<RealT>::Type;
       block.length = derived_.program().blocks()[b].length;
       table.bindBlock(derived_.program().blocks()[b].name, block);
     }

@@ -70,7 +70,8 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
   const auto size = currentLayer_->size();
   if (size > 0) {
     std::vector<real*> dofsPtrs(size, nullptr);
-    std::vector<real*> integralsPtrs(size, nullptr);
+    // in binary64 (see LTS::Integrals)
+    std::vector<double*> integralsPtrs(size, nullptr);
     std::vector<real*> localPtrs(size, nullptr);
     std::vector<real*> idofsPtrs;
     std::vector<real*> ltsBuffers;
@@ -97,7 +98,7 @@ void LocalIntegrationRecorder<Cfg>::recordTimeAndVolumeIntegrals() {
 
       // dofs
       dofsPtrs[cell] = static_cast<real*>(data.template get<LTS::Dofs>());
-      integralsPtrs[cell] = static_cast<real*>(data.template get<LTS::Integrals>());
+      integralsPtrs[cell] = static_cast<double*>(data.template get<LTS::Integrals>());
 
       // idofs
       real* nextIdofPtr = &integratedDofsScratch[integratedDofsAddressCounter_];

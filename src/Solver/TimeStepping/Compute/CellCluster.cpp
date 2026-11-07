@@ -66,6 +66,7 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/DeviceGraph.h"
+#include "Kernels/DeviceAux/IntegralAux.h"
 
 #include <Device/AbstractAPI.h>
 #endif
@@ -80,6 +81,16 @@ bool hasNonlinearDirichletFace(const CellLocalInformation& cellInformation) {
   return std::ranges::any_of(cellInformation.faceTypes, [](FaceType faceType) {
     return faceType == FaceType::NonlinearDirichlet;
   });
+}
+
+/// Adds the time integral of the predictor over a step to the time integral since the start, in
+/// binary64 (see LTS::Integrals).
+template <std::size_t Size, typename RealT>
+void addStepIntegral(double* __restrict integral, const RealT* __restrict stepIntegral) {
+#pragma omp simd
+  for (std::size_t i = 0; i < Size; ++i) {
+    integral[i] += static_cast<double>(stepIntegral[i]);
+  }
 }
 
 } // namespace
@@ -271,6 +282,9 @@ void CellCluster<Cfg>::computeLocalIntegration(const StepParams& params) {
   const auto resetBuffers = params.resetBuffers;
   const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
+  const bool integrate = settings_.integrate;
+  static_assert(kernels::SolverOf<Cfg>::IntegralsSize == tensor::Q<Cfg>::size(),
+                "the time integral of a step is laid out as the unknowns");
 
   const parallel::runtime::HostRuntime::LoopName loopName(traceLocalIntegration_);
   parallel::runtime::HostRuntime::forRange(
@@ -321,6 +335,13 @@ void CellCluster<Cfg>::computeLocalIntegration(const StepParams& params) {
                                        bufferPointer,
                                        cellDerivatives,
                                        true);
+
+          // the outputs read the time integral since the start: that of the predictor over each
+          // step, added up
+          if (integrate) {
+            addStepIntegral<tensor::Q<Cfg>::size()>(data.template get<LTS::Integrals>(),
+                                                    bufferPointer);
+          }
 
           // Compute local integrals (including local boundary conditions)
           localKernel_.computeIntegral(bufferPointer, data, rangeTmp, startTime, timeStepWidth);
@@ -424,6 +445,20 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
           }
         }
 
+        // as on the host: the time integral of the predictor over the step, added up
+        if (settings_.integrate) {
+          const ConditionalKey integralKey(KernelNames::Time || KernelNames::Volume);
+          if (dataTable.contains(integralKey)) {
+            auto& entry = dataTable[integralKey];
+            kernels::device::aux::integral::accumulate(
+                entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr(),
+                entry.get<double*>(inner_keys::Wp::Id::Integrals)->getDeviceDataPtr(),
+                tensor::Q<Cfg>::size(),
+                entry.get<real*>(inner_keys::Wp::Id::Idofs)->getSize(),
+                streamRuntime.stream());
+          }
+        }
+
         const ConditionalKey key =
             ConditionalKey(*KernelNames::Time, *ComputationKind::WithLtsBuffers);
         if (dataTable.contains(key)) {
@@ -469,18 +504,10 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
 
 template <typename Cfg>
 void CellCluster<Cfg>::computeNeighboringIntegration(const StepParams& params) {
-  if (settings_.integrate) {
-    if (settings_.plasticity) {
-      computeNeighboringIntegrationImplementation<true, true>(params);
-    } else {
-      computeNeighboringIntegrationImplementation<false, true>(params);
-    }
+  if (settings_.plasticity) {
+    computeNeighboringIntegrationImplementation<true>(params);
   } else {
-    if (settings_.plasticity) {
-      computeNeighboringIntegrationImplementation<true, false>(params);
-    } else {
-      computeNeighboringIntegrationImplementation<false, false>(params);
-    }
+    computeNeighboringIntegrationImplementation<false>(params);
   }
 }
 
@@ -545,23 +572,6 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
               streamRuntime);
         },
         isRecurringTimestep(timeStepWidth));
-  }
-
-  if (settings_.integrate) {
-    const ConditionalKey key = ConditionalKey(*KernelNames::Time);
-    if (table.contains(key)) {
-      auto entry = table.at(key);
-      // as on the host: the state at the end of the step times the width of the step
-      kernel::gpu_integrateOutput<Cfg> integrateKrnl;
-      integrateKrnl.Q =
-          const_cast<const real**>(entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr());
-      integrateKrnl.QIntegral = entry.get<real*>(inner_keys::Wp::Id::Integrals)->getDeviceDataPtr();
-      integrateKrnl.dt = timeStepWidth;
-      // Note: this kernel doesn't require tmp. memory
-      integrateKrnl.numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
-      integrateKrnl.streamPtr = streamRuntime_.stream();
-      integrateKrnl.execute();
-    }
   }
 
   device_.api().popLastProfilingMark();
@@ -872,7 +882,7 @@ void CellCluster<Cfg>::finalize() {
 }
 
 template <typename Cfg>
-template <bool UsePlasticity, bool IntegrateOutput>
+template <bool UsePlasticity>
 void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepParams& params) {
   const auto clusterSize = clusterData_->size();
   if (clusterSize == 0) {
@@ -978,16 +988,6 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
                                                                    &plasticity[cell],
                                                                    data.template get<LTS::Dofs>(),
                                                                    pstrain[cell]);
-        }
-      }
-      if constexpr (IntegrateOutput) {
-        auto* __restrict integral = data.template get<LTS::Integrals>();
-        const auto* __restrict dofs = data.template get<LTS::Dofs>();
-
-// only first-order time integration for the output here
-#pragma omp simd
-        for (std::size_t dof = 0; dof < tensor::Q<Cfg>::size(); ++dof) {
-          integral[dof] += timestep * dofs[dof];
         }
       }
     }

@@ -685,9 +685,11 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance,
   io::writer::ScheduledWriter schedWriter;
   schedWriter.name = "surface";
   schedWriter.interval = parameters.interval;
-  // the unknowns of the cells at the surface, and its displacements
+  // the unknowns of the cells at the surface and their time integrals (which a script may read),
+  // and its displacements
   schedWriter.hostData = {};
   schedWriter.hostData.add<LTS::Dofs>(memoryManager.ltsStorage())
+      .add<LTS::Integrals>(memoryManager.ltsStorage())
       .add<SurfaceLTS::DisplacementDofs>(memoryManager.surfaceStorage());
   const auto* surfaceMeshIds = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::MeshId>();
   const auto* surfaceMeshSides = freeSurfaceIntegrator->surfaceStorage->var<SurfaceLTS::Side>();
