@@ -66,7 +66,7 @@ using Scaling = Eigen::Matrix<typename Eigen::NumTraits<typename MatrixT::Scalar
  */
 template <typename MatrixT>
 Scaling<MatrixT> balance(MatrixT& m) {
-  using RealT = typename Eigen::NumTraits<typename MatrixT::Scalar>::Real;
+  using RealT = Eigen::NumTraits<typename MatrixT::Scalar>::Real;
   constexpr RealT Radix = 2;
   constexpr RealT Sufficient = 0.95;
 

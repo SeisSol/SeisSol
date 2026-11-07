@@ -110,7 +110,7 @@ TEST_CASE("The eigenvectors have unit length and a real, positive largest compon
 /// of the stresses hold stiffnesses, its rows of the velocities the inverse of the density. Its
 /// eigenvalues are -k c, 0 three times and k c, with the speeds c of the Christoffel matrix of x,
 /// and the velocities of each wave lie in the eigenspace of that matrix that its speed belongs to.
-void testPlaneWaveOperator(const std::array<double, 21>& upper, double rho, double k) {
+inline void testPlaneWaveOperator(const std::array<double, 21>& upper, double rho, double k) {
   constexpr std::size_t Dim = 9;
   std::array<std::array<double, 6>, 6> stiffness{};
   std::size_t next = 0;

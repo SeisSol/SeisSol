@@ -159,7 +159,7 @@ void replaceDegenerateEigenvectors(const std::array<T, Dim * Dim>& matrix,
                                    seissol::eigenvalues::Eigenpair<T, Dim>& eigenpair,
                                    double zeroThreshold) {
   constexpr auto Size = static_cast<Eigen::Index>(Dim);
-  using RealT = typename T::value_type;
+  using RealT = T::value_type;
   using RMatrix = Eigen::Matrix<RealT, Size, Eigen::Dynamic>;
   using RSquare = Eigen::Matrix<RealT, Size, Size>;
 
