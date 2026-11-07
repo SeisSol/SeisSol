@@ -42,6 +42,12 @@ output (``OutputFile`` is the prefix):
   ``{}``; ``fields``, the values the code gives a name; and the ``source`` in the code (``file``, ``line``,
   ``function``). The messages from before the file is opened, those on the parameters among them, come first; a fatal
   error or a crash is the last line.
+* ``<prefix>-rank<N>-failure.json``, written only by a rank other than 0 that a fatal error or a crash ends, since such
+  a rank does not reach the summary: its ``schema`` (``seissol-rank-failure/1``), ``rank``, the ``runId``, the
+  ``stage`` and the ``error``, as in the summary. A request to stop writes none: it reaches every rank, at the time
+  limit of a job as after a failure on another rank (with Open MPI's ``mpirun``), so the files name only the ranks
+  where a failure started. Rank 0 writes none either; its failure is in the summary. A reader matches the ``runId``
+  against the summary's, as a file from an earlier run of the same prefix is not removed.
 
 An epoch ends at every synchronization point, i.e. wherever an output is due. A run without outputs, such as a
 benchmark, has a single epoch, and reports how fast it goes at its end only. ``EpochInterval`` in the ``output``

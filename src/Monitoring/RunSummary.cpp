@@ -214,6 +214,7 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   path_ = prefix + "-summary.json";
   epochPath_ = prefix + "-epochs.csv";
   rankPath_ = prefix + "-ranks.csv";
+  rankFailurePath_ = prefix + "-rank" + std::to_string(seissol::Mpi::mpi.rank()) + "-failure.json";
   runId_ = runId;
 
   // the header first, so that a reader sees what the file is before anything else
@@ -375,13 +376,37 @@ void RunSummary::finish() {
 
 void RunSummary::flush() {
   lastFlush_ = std::chrono::steady_clock::now();
-  if (!started_ || seissol::Mpi::mpi.rank() != 0) {
+  if (!started_) {
+    return;
+  }
+  if (seissol::Mpi::mpi.rank() != 0) {
+    // the other ranks do not write the summary, but keep a failure report of their own, so that a
+    // failure that starts on one of them leaves a record
+    updateRankFailureReport();
     return;
   }
   if (epochCount_ > 0) {
     epochs_.value().appendFile(epochPath_);
   }
   writeSummary();
+}
+
+void RunSummary::updateRankFailureReport() {
+  if (completed_) {
+    clearFailureReports();
+    return;
+  }
+  // in the order of the summary, so that summaryWith() can set the status and add the detail
+  json::Value record;
+  record["schema"] = std::string(RankFailureSchema);
+  record["rank"] = seissol::Mpi::mpi.rank();
+  record["runId"] = runId_;
+  record["status"] = "running";
+  const auto* stage = root_.find("stage");
+  record["stage"] = stage != nullptr ? *stage : json::Value(nullptr);
+  // only for a failure: a request to stop reaches every rank, and a record of each would bury the
+  // one of the rank where a failure started
+  setFailureReport(rankFailurePath_, summaryWith(record, "failed", "error"));
 }
 
 void RunSummary::writeSummary() {

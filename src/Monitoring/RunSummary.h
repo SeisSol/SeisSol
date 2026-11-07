@@ -48,7 +48,13 @@ struct EpochRecord {
  * from the out-of-memory killer, leaves the summary of the last stage it reached: its status stays
  * "running"; in each case, its stage says how far it got.
  *
- * Next to it, <prefix>-epochs.csv holds a row per simulation epoch, which the summary only counts,
+ * A failure on a rank other than 0 does not reach the summary (rank 0 does not learn of it before
+ * MPI ends the run), so a fatal error or a crash there leaves a small record of that rank,
+ * <prefix>-rank<N>-failure.json, with its rank, the run ID, the stage and the error, as in the
+ * summary. A request to stop leaves none, as it reaches every rank. Rank 0 leaves none either; its
+ * failure is in the summary.
+ *
+ * Next to the summary, <prefix>-epochs.csv holds a row per simulation epoch, which it only counts,
  * and <prefix>-ranks.csv a row per rank, with the values of which the summary gives the statistics.
  *
  * Every rank may fill in content; only rank 0's is written. What the statistics over the ranks
@@ -58,6 +64,8 @@ class RunSummary {
   public:
   //! @brief The name and version of the format, which a reader checks first.
   static constexpr std::string_view Schema = "seissol-run-summary/1";
+  //! @brief The format of a <prefix>-rank<N>-failure.json file.
+  static constexpr std::string_view RankFailureSchema = "seissol-rank-failure/1";
 
   /**
    * @brief Starts the summary, in the files next to the output with @p prefix , and writes it.
@@ -120,10 +128,13 @@ class RunSummary {
 
   private:
   void writeSummary();
+  //! @brief Keeps the per-rank failure report of a rank that does not write the summary current.
+  void updateRankFailureReport();
 
   std::string path_;
   std::string epochPath_;
   std::string rankPath_;
+  std::string rankFailurePath_;
   std::string runId_;
   json::Value root_;
   bool started_{false};
