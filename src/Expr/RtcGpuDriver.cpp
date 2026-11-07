@@ -93,7 +93,7 @@ constexpr unsigned DefaultBlockSize = GpuBlockSize;
 /// per-face launch from asking for a grid of one block per node.
 constexpr unsigned MaxBlocks = 16384;
 
-unsigned blocksFor(std::size_t count) {
+[[maybe_unused]] unsigned blocksFor(std::size_t count) {
   if (count == 0) {
     return 0;
   }
