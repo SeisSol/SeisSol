@@ -150,8 +150,8 @@ add_test(NAME verification.fault1d.self-test
                  ${CMAKE_CURRENT_SOURCE_DIR}/fault1d.py self-test)
 set_tests_properties(verification.fault1d.self-test PROPERTIES
                      LABELS "verification;smoke;dr")
-# the spectral boundary integral method of the antiplane rupture, against
-# closed forms, finite differences and the front of fault1d.py; it skips
+# the spectral boundary integral method of the antiplane and the in-plane
+# ruptures, against closed forms, finite differences and fault1d.py; it skips
 # without scipy
 add_test(NAME verification.antiplane.self-test
          COMMAND ${Python3_EXECUTABLE}

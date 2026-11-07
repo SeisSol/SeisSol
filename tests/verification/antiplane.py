@@ -5,7 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-"""Antiplane ruptures by a spectral boundary integral method.
+"""Antiplane and in-plane ruptures by a spectral boundary integral method.
 
 This is the exact solution of the ruptures on fault2d-periodic. The fault is
 the plane x = 0 between two halves of the same isotropic solid, of the shear
@@ -70,6 +70,47 @@ the kernel of an image of that delay: the velocity is the sum of the
 +-P_d V_k / 2, the stress mu du/dy is i k mu u_k, and mu du/dx is
 -(mu / 2 c) times the sum of the images of all distances.
 
+An in-plane rupture (Inplane) slips along y, and sends out P waves, of the
+speed c_p = r c, as well as S waves. With the potentials of the two, a slip
+of the mode leaves at the distance d of the fault (Geubelle and Rice, 1995)
+
+    sigma_xy = -(mu / 2) (c^2 / s^2) [(k^2 + beta^2)^2 / beta e^(-beta d)
+                                      - 4 k^2 alpha e^(-alpha d)] delta_k,
+
+beta = sqrt(s^2 / c^2 + k^2) and alpha = sqrt(s^2 / c_p^2 + k^2), whereas in
+a solid of one medium, the slip leaves the normal stress on the fault as it
+is. On the fault, d = 0, this is the radiation damping and
+
+    f_k(t) = -mu |k| kappa [delta_k(t) - int_0^t C_II(|k| c t') V_k(t - t') dt'],
+
+kappa = 1 - 1 / r^2, with the kernel C_II of _inplane_transfer_kernel, whose
+static part is the stiffness mu |k| / (2 (1 - nu)) of mode II. Taken apart
+into the waves of each speed, the factor c^2 / s^2 leaves parts that grow
+with t^2 and cancel only together; as a sum over the speeds c' between c and
+c_p instead, the difference of the two waves is a near field, which acts
+between their arrivals only and is bounded:
+
+    sigma_xy = -(mu / 2) [(s / c^2) e^(-beta d) / beta V_k
+                          + 4 k^2 c^2 L(Q_d) delta_k],
+
+L(Q_d) = (beta e^(-beta d) - alpha e^(-alpha d)) / s^2, the Laplace transform
+of Q_d(t) = t [F(w_P) - F(w_S)] - t / d while only the P wave has arrived,
+with F' = [w J0(|k| w) + |k| d^2 J1(|k| w)] / (w^2 + d^2)^(3/2), w_P =
+sqrt(c_p^2 t^2 - d^2), and w_S = sqrt(c^2 t^2 - d^2) once the S wave has
+arrived, 0 before. An image adds the first term as an antiplane image does,
+of the S waves, and 4 k^2 c^3 Q_d in place of a^2 G_n, from the arrival of
+its P wave on. Off the fault, the velocity along y is the sum of the
++-P_d V_k / 2 of the S waves and of k^2 c^2 E_d V_k, with E_d the near field
+of (e^(-beta d) - e^(-alpha d)) / s^2, -d t [F(w_P) - F(w_S)] with
+F' = w J0(|k| w) / (w^2 + d^2)^(3/2), and the displacement accordingly; the
+velocity along x is i k [c^2 Q_d V_k - (c / 2) G_d V_k], with G_d the G_n of
+the distance d, the same from both sides; the divergence is
+i k (c^2 / c_p^2) P'_d delta_k, with the propagator P' of the P waves;
+sigma_xy is the sum of the images of all distances, without their factor 2;
+and sigma_zz = lambda div u, sigma_yy = sigma_zz + 2 mu i k u_y and
+sigma_xx = 2 (lambda + mu) div u - sigma_yy. What is odd in x, u_y and the
+normal stresses, takes the sign of the side.
+
 Where a rupture front arrives, the slip rate rises as the square root of the
 time since, and its largest deviation converges as the square root of the
 spacing of the points. For fault2d-antiplane, with the two steps per time
@@ -80,8 +121,8 @@ and 2e-6; with the other laws, 2048 points change the slip rate by 4.5e-3 to
 2.2e-2 and the slip by up to 2.8e-5, and half the step, with the aging law,
 by 1.6e-4 and 7e-7. The self-test holds the method against a uniform slip
 across periodic faults, with healing and without, the finite differences of
-a mode of a given slip, on the fault and off it, the quadrature of the images
-of a constant slip rate, the images of a mode that
+a mode of a given slip, on the fault and off it, antiplane and in plane, the
+quadrature of the images of a constant slip rate, the images of a mode that
 decays within a fraction of the period, the forced rupture front of
 fault1d.Front, and the uniform slip of every other law against
 fault1d.Problem, with what the Gauss points report.
@@ -90,6 +131,7 @@ The integration needs scipy, for the Bessel functions.
 """
 
 import math
+import re
 from pathlib import Path
 
 import fault1d
@@ -368,11 +410,17 @@ class Antiplane:
     which start at y = -L / 2 + `offset`.
     """
 
+    # the direction of the slip, in its y and z components
+    axis = "z"
+    direction = np.array((0.0, 1.0))
+
     def __init__(self, medium, length, width=None, count=512, offset=0.0):
         if not medium.is_isotropic():
             raise fault1d.Unsupported("the spectral method takes an isotropic solid")
         self.mu = float(medium.stiffness[3, 3])
         self.speed = math.sqrt(self.mu / medium.rho)
+        # the fastest wave, which reaches farthest
+        self.fastest = self.speed
         self.eta = 0.5 * self.mu / self.speed
         self.length, self.width, self.count = length, width, count
         self.y = -0.5 * length + offset + np.arange(count) * (length / count)
@@ -453,8 +501,9 @@ class Antiplane:
 
         `fault` gives the parameters of the fault at the points along y, as
         fault_along does. Returns the times and, per time and point, the slip
-        rate along z, the slip, the shear traction along z and the normal
-        stress, which an antiplane slip leaves as the loading gives it, the
+        rate along the axis of the slip, z here, the slip, the shear traction
+        along it and the normal stress, which the slip leaves as the loading
+        gives it, the
         friction coefficient, the accumulated slip and the largest slip rate
         so far, and with rate and state the state psi; with thermal
         pressurization, the normal stress is the effective one, and the pore
@@ -465,8 +514,8 @@ class Antiplane:
         """
         steps = int(round(end / step))
         self._weights(step, steps)
-        friction = _friction_law(fault)
-        loading = _Loading(fault)
+        friction = _friction_law(fault, self.axis)
+        loading = _Loading(fault, self.axis)
         thermal = None
         if int(fault[None].get("thermalpress", 0)):
             if not isinstance(friction, _RateAndState):
@@ -598,7 +647,7 @@ class Antiplane:
             raise fault1d.Unsupported("the point lies on the fault")
         sources = []
         n = 0
-        reach = self.speed * end
+        reach = self.fastest * end
         while min(offset, self.width - offset) + n * self.width < reach:
             for distance, sign in (
                 (offset + n * self.width, 1.0),
@@ -676,15 +725,366 @@ class Antiplane:
         return velocity, stress
 
 
-class _Loading:
-    """The traction along z and the normal stress on the welded fault, per
-    point: the initial stress and the nucleations, as fault1d.Loading."""
+def _inplane_transfer_kernel(argument, ratio):
+    """C_II(T), the transfer kernel of an in-plane slip in T = c_s |k| t, at
+    the ratio r = c_p / c_s of the wave speeds, from C_II(0) = 1 to 0:
 
-    def __init__(self, fault):
+        1 + J1(T) / (2 kappa) - [Ji0(T) - Ji0(r T) / r^2 + T J0(T)
+                                 - T J0(r T) / r - T^2 (C(T) - C(r T))] / kappa,
+
+    kappa = 1 - 1 / r^2 and Ji0 the integral of J0 from 0, with the antiplane
+    kernel C, whose Laplace transform in p = s / (c_s |k|) is
+    (1 / p) [1 - Q(p) / (2 kappa)],
+    Q(p) = (2 + p^2)^2 / (p^2 sqrt(p^2 + 1)) - (4 / r) sqrt(p^2 + r^2) / p^2 - p.
+    The terms in T and T^2 cancel to an oscillation of the order sqrt(T)."""
+    from scipy import special
+
+    integral, _ = special.itj0y0(argument)
+    integral_p, _ = special.itj0y0(ratio * argument)
+    bracket = (
+        integral
+        - integral_p / (ratio * ratio)
+        + argument * special.j0(argument)
+        - argument * special.j0(ratio * argument) / ratio
+        - argument
+        * argument
+        * (_transfer_kernel(argument) - _transfer_kernel(ratio * argument))
+    )
+    kappa = 1.0 - 1.0 / (ratio * ratio)
+    return 1.0 + special.j1(argument) / (2.0 * kappa) - bracket / kappa
+
+
+def _near_field_weights(k, speeds, distance, step, count, kinds, chunk=48):
+    """The weights of the near fields of an in-plane slip at `distance`
+    against the hat functions of the nodes j step, j = 0 .. count - 1, whole
+    and their rising halves, per wave number k >= 0, with the wave speeds
+    (c_s, c_p), by kind, for the `kinds` among "Q" and "E": from the arrival
+    of the P wave on, of
+
+        Q_d(t') = t' [F(w_P) - F(w_S)] - t' / d before the S wave arrives,
+        F' = [w J0(k w) + k d^2 J1(k w)] / (w^2 + d^2)^(3/2),
+
+    the kernel of (beta e^(-beta d) - alpha e^(-alpha d)) / s^2, for "Q",
+    and of E_d(t') = -d t' [F(w_P) - F(w_S)], F' = w J0(k w) /
+    (w^2 + d^2)^(3/2), the kernel of (e^(-beta d) - e^(-alpha d)) / s^2, for
+    "E" (see the description of the module); w_P = sqrt(c_p^2 t'^2 - d^2),
+    and w_S = sqrt(c_s^2 t'^2 - d^2) once the S wave has arrived, 0 before.
+    Between the arrivals, the integration runs in R = sqrt(t'^2 - tau_P^2),
+    after them in R = sqrt(t'^2 - tau_S^2), on pieces of at most a radian of
+    the fastest mode; F between the values of w the pieces take, in order,
+    which lie within a fifth of a radian of that mode of each other, where
+    three points integrate F' as six do, to 1e-13.
+    """
+    from scipy import sparse, special
+
+    c_s, c_p = speeds
+    tau_p, tau_s = distance / c_p, distance / c_s
+    weights = {
+        kind: (np.zeros((k.size, count)), np.zeros((k.size, count))) for kind in kinds
+    }
+    first = int(math.floor(tau_p / step))
+    if first >= count - 1:
+        return weights
+    fastest = max(float(np.max(k)) * c_p, 1.0 / step)
+    pieces = []
+    for window, (start, stop, delay) in enumerate(
+        ((tau_p, tau_s, tau_p), (tau_s, math.inf, tau_s))
+    ):
+        nodes = np.arange(max(first, int(math.floor(start / step))), count - 1)
+        lower = np.maximum(nodes * step, start)
+        upper = np.minimum((nodes + 1) * step, stop)
+        inside = upper > lower
+        nodes, lower, upper = nodes[inside], lower[inside], upper[inside]
+        if nodes.size == 0:
+            continue
+        radius_low = np.sqrt(np.maximum(lower**2 - delay**2, 0.0))
+        radius_high = np.sqrt(upper**2 - delay**2)
+        parts = np.maximum(np.ceil(fastest * (radius_high - radius_low)), 1).astype(int)
+        owner = np.repeat(np.arange(nodes.size), parts)
+        within = np.arange(owner.size) - np.repeat(np.cumsum(parts) - parts, parts)
+        width = ((radius_high - radius_low) / parts)[owner]
+        radius = (
+            (radius_low[owner] + within * width)[:, None] + _NODES * width[:, None]
+        ).ravel()
+        weight = (_WEIGHTS * width[:, None]).ravel()
+        time = np.sqrt(radius * radius + delay * delay)
+        if window == 0:
+            w_p, w_s = c_p * radius, np.zeros_like(radius)
+        else:
+            w_p = c_p * np.sqrt(np.maximum(time * time - tau_p * tau_p, 0.0))
+            w_s = c_s * radius
+        pieces.append(
+            (
+                np.repeat(nodes[owner], _NODES.size),
+                time,
+                weight * radius / time,
+                w_p,
+                w_s,
+                np.full(radius.size, window == 0),
+            )
+        )
+    node, time, measure, w_p, w_s, between = (
+        np.concatenate(part) for part in zip(*pieces)
+    )
+    # the sums of a kernel at the points of the pieces into the weights of
+    # their nodes, the whole hats and their rising halves
+    rising = measure * (time - node * step) / step
+    falling = measure * ((node + 1) * step - time) / step
+    point = np.arange(node.size)
+    whole = sparse.csr_matrix(
+        (
+            np.concatenate((rising, falling)),
+            (np.concatenate((node + 1, node)), np.concatenate((point, point))),
+        ),
+        shape=(count, node.size),
+    )
+    rise = sparse.csr_matrix((rising, (node + 1, point)), shape=(count, node.size))
+    # F at every w the pieces take, from w = 0 on
+    values = np.unique(np.concatenate((w_p, w_s, [0.0])))
+    half = 0.5 * np.diff(values)
+    abscissae, rule = np.polynomial.legendre.leggauss(3)
+    u = (0.5 * (values[1:] + values[:-1]))[:, None] + half[:, None] * abscissae
+    rule = half[:, None] * rule
+    index_p = np.searchsorted(values, w_p)
+    index_s = np.searchsorted(values, w_s)
+    square = distance * distance
+    scale = rule / (u * u + square) ** 1.5
+    for part in range(0, k.size, chunk):
+        modes = k[part : part + chunk][:, None, None]
+        x = modes * u[None]
+        bessel = u * special.j0(x)
+        for kind in kinds:
+            slope = bessel + modes * square * special.j1(x) if kind == "Q" else bessel
+            primitive = np.zeros((modes.shape[0], values.size))
+            primitive[:, 1:] = np.cumsum(np.einsum("kgn,gn->kg", slope, scale), axis=1)
+            difference = primitive[:, index_p] - primitive[:, index_s]
+            if kind == "Q":
+                kernel = time * difference - np.where(between, time / distance, 0.0)
+            else:
+                kernel = -distance * time * difference
+            full, halves = weights[kind]
+            full[part : part + chunk] += (whole @ kernel.T).T
+            halves[part : part + chunk] += (rise @ kernel.T).T
+    return weights
+
+
+class Inplane(Antiplane):
+    """The spectral boundary integral method of an in-plane rupture on the
+    plane x = 0, which slips along y (see the description of the module), in
+    the arguments of Antiplane."""
+
+    axis = "y"
+    direction = np.array((1.0, 0.0))
+
+    def __init__(self, medium, length, width=None, count=512, offset=0.0):
+        super().__init__(medium, length, width, count, offset)
+        self.lam = float(medium.stiffness[0, 1])
+        self.fastest = math.sqrt((self.lam + 2.0 * self.mu) / medium.rho)
+        self.ratio = self.fastest / self.speed
+        self.kappa = 1.0 - 1.0 / (self.ratio * self.ratio)
+
+    def _weights(self, step, steps):
+        from scipy import special
+
+        a = self.speed * self.k[:, None]
+        rising, falling = _hat_halves(
+            lambda t: _inplane_transfer_kernel(a * t[None, :], self.ratio),
+            step,
+            steps + 1,
+        )
+        self.direct, self.direct_end = rising + falling, rising
+        self.images = []
+        if self.width is None:
+            return
+        if not self.width / self.fastest > step:
+            raise fault1d.Unsupported(
+                "the step is not shorter than the time a wave takes across the period"
+            )
+        speeds = (self.speed, self.fastest)
+        factor = (4.0 * self.k * self.k * self.speed**3)[:, None]
+        n = 1
+        while n * self.width / self.fastest < steps * step:
+            distance = n * self.width
+            delay = distance / self.speed
+            ((rate_weights, rate_end),) = _delayed_weights(
+                a[:, 0],
+                delay,
+                step,
+                steps + 1,
+                ((lambda a, x: -a[:, None, None] * special.j1(x), None),),
+            )
+            slip_weights, slip_end = _near_field_weights(
+                self.k, speeds, distance, step, steps + 1, ("Q",)
+            )["Q"]
+            self.images.append(
+                (
+                    delay,
+                    distance / self.fastest,
+                    rate_weights,
+                    factor * slip_weights,
+                    rate_end,
+                    factor * slip_end,
+                )
+            )
+            n += 1
+
+    def _memory(self, rate_k, slip_k, n, step):
+        """As Antiplane._memory; the slip of an image transfers from the
+        arrival of its P wave on, its slip rate from that of its S wave."""
+        t = (n + 1) * step
+        past = np.einsum("km,km->k", self.direct[:, 1 : n + 1], rate_k[:, n:0:-1])
+        past = past + self.direct_end[:, n + 1] * rate_k[:, 0]
+        history = np.zeros(self.k.size, dtype=complex)
+        for delay, early, rate_weights, slip_weights, rate_end, slip_end in self.images:
+            if early >= t:
+                break
+            convolution = (
+                np.einsum("km,km->k", slip_weights[:, 1 : n + 1], slip_k[:, n:0:-1])
+                + slip_end[:, n + 1] * slip_k[:, 0]
+            )
+            if delay < t:
+                # V at t - delay, linear between the steps
+                position = (t - delay) / step
+                lower = min(int(math.floor(position)), n)
+                fraction = position - lower
+                upper = min(lower + 1, n)
+                convolution = convolution + (1.0 - fraction) * rate_k[:, lower]
+                convolution = convolution + fraction * rate_k[:, upper]
+                convolution = convolution + (
+                    np.einsum("km,km->k", rate_weights[:, 1 : n + 1], rate_k[:, n:0:-1])
+                    + rate_end[:, n + 1] * rate_k[:, 0]
+                )
+            history = history - (self.mu / self.speed) * convolution
+        return past, history
+
+    def _transfer(self, slip_k, rate_k, past, history):
+        damping = self.mu * self.kappa * self.k
+        return -damping * (slip_k - (self.direct[:, 0] * rate_k + past)) + history
+
+    def radiated(self, solution, x, y):
+        """The particle velocity (x, y, z) and the stress (ordered as
+        fault1d.VOIGT) that the slip of `solution` leaves at the point (x, y),
+        per time of the solution, as the receivers record them: without the
+        initial stress (see the description of the module)."""
+        from scipy import special
+
+        time = solution["time"]
+        step = time[1] - time[0]
+        count = time.size
+        rate_k = np.fft.rfft(solution["slip-rate"], axis=1).T
+        slip_k = np.fft.rfft(solution["slip"], axis=1).T
+        k = self.k[:, None]
+        c_s, c_p, mu, lam = self.speed, self.fastest, self.mu, self.lam
+        a, b = c_s * self.k, c_p * self.k
+        shape = rate_k.shape
+
+        def zero():
+            return [np.zeros(shape), np.zeros(shape)]
+
+        # the weights of all the faults sum up, with the sign of what is odd in x
+        shear_wave, pressure_wave, near_e, near_q, bessel, slope = (
+            zero() for _ in range(6)
+        )
+        velocity_y = np.zeros(shape, dtype=complex)
+        displacement_y = np.zeros(shape, dtype=complex)
+        divergence = np.zeros(shape, dtype=complex)
+        shear = np.zeros(shape, dtype=complex)
+
+        def add(target, weights, sign=1.0):
+            target[0] += sign * weights[0]
+            target[1] += sign * weights[1]
+
+        for distance, sign in self._sources(x, time[-1]):
+            delay, early = distance / c_s, distance / c_p
+            if not early > step:
+                raise fault1d.Unsupported(
+                    "the point lies closer to the fault than a wave travels in a step"
+                )
+            add(shear_wave, _propagator_weights(a, delay, step, count), sign)
+            add(pressure_wave, _propagator_weights(b, early, step, count), sign)
+            near_field = _near_field_weights(
+                self.k, (c_s, c_p), distance, step, count, ("E", "Q")
+            )
+            add(near_e, near_field["E"], sign)
+            add(near_q, near_field["Q"])
+            kernels = (
+                (
+                    lambda a, x: special.j0(x),
+                    lambda weight, radius, t: weight * radius / t,
+                ),
+                (lambda a, x: -a[:, None, None] * special.j1(x), None),
+            )
+            for target, weights in zip(
+                (bessel, slope), _delayed_weights(a, delay, step, count, kernels)
+            ):
+                add(target, weights)
+            arrived = _delayed(rate_k, delay, step)
+            velocity_y += 0.5 * sign * arrived
+            displacement_y += 0.5 * sign * _delayed(slip_k, delay, step)
+            divergence += sign * _delayed(slip_k, early, step)
+            shear += arrived
+        near = k * k * c_s * c_s
+        velocity_y += near * _convolve(*near_e, rate_k) - 0.5 * _convolve(
+            *shear_wave, rate_k
+        )
+        displacement_y += near * _convolve(*near_e, slip_k) - 0.5 * _convolve(
+            *shear_wave, slip_k
+        )
+        velocity_x = (
+            1j
+            * k
+            * (
+                c_s * c_s * _convolve(*near_q, rate_k)
+                - 0.5 * c_s * _convolve(*bessel, rate_k)
+            )
+        )
+        divergence = (1j * k * c_s * c_s / (c_p * c_p)) * (
+            divergence - _convolve(*pressure_wave, slip_k)
+        )
+        shear = (
+            -0.5
+            * mu
+            * (
+                (shear + _convolve(*slope, rate_k)) / c_s
+                + 4.0 * near * _convolve(*near_q, slip_k)
+            )
+        )
+
+        # the real Fourier series at y, of the modes of numpy.fft.rfft
+        factor = np.full(self.k.size, 2.0)
+        factor[0] = 1.0
+        if self.count % 2 == 0:
+            factor[-1] = 1.0
+        factor = factor * np.exp(1j * self.k * (y - self.y[0])) / self.count
+
+        def at_y(values):
+            return (factor @ values).real
+
+        velocity = np.zeros((count, 3))
+        velocity[:, 0] = at_y(velocity_x)
+        velocity[:, 1] = at_y(velocity_y)
+        normal_y = lam * divergence + 2.0 * mu * 1j * k * displacement_y
+        stress = np.zeros((count, 6))
+        stress[:, fault1d.VOIGT.index("xx")] = at_y(
+            2.0 * (lam + mu) * divergence - normal_y
+        )
+        stress[:, fault1d.VOIGT.index("yy")] = at_y(normal_y)
+        stress[:, fault1d.VOIGT.index("zz")] = at_y(lam * divergence)
+        stress[:, fault1d.VOIGT.index("xy")] = at_y(shear)
+        return velocity, stress
+
+
+class _Loading:
+    """The shear traction along `axis`, z for an antiplane and y for an
+    in-plane rupture, and the normal stress on the welded fault, per point:
+    the initial stress and the nucleations, as fault1d.Loading."""
+
+    def __init__(self, fault, axis="z"):
         parameters = fault[None]
         size = np.shape(
             next(value for name, value in fault.items() if name is not None)
         )
+        other = "y" if axis == "z" else "z"
 
         def field(name):
             values = fault.get(name)
@@ -695,10 +1095,10 @@ class _Loading:
             raise fault1d.Unsupported(
                 "tractions in fault coordinates are not supported"
             )
-        if np.any(field("s_xy") != 0.0):
-            raise fault1d.Unsupported("an antiplane rupture takes no traction along y")
+        if np.any(field(f"s_x{other}") != 0.0):
+            raise fault1d.Unsupported(f"the rupture takes no traction along {other}")
         self.normal = field("s_xx")
-        self.shear = field("s_xz")
+        self.shear = field(f"s_x{axis}")
         self.sources = []
         count = int(parameters.get("nucleationcount", 1))
         for index in range(count):
@@ -706,9 +1106,9 @@ class _Loading:
             prefix = f"nuc{suffix}_"
             if not any(f"{prefix}{c}" in fault for c in ("xx", "xy", "xz")):
                 continue
-            if np.any(field(f"{prefix}xy") != 0.0):
+            if np.any(field(f"{prefix}x{other}") != 0.0):
                 raise fault1d.Unsupported(
-                    "an antiplane rupture takes no traction along y"
+                    f"the rupture takes no traction along {other}"
                 )
             rise = fault.get(f"nuc{suffix}_rise_time")
             if rise is None:
@@ -717,7 +1117,7 @@ class _Loading:
             if onset is None:
                 onset = float(parameters.get(f"s{suffix}_0", 0.0))
             self.sources.append(
-                (field(f"{prefix}xx"), field(f"{prefix}xz"), onset, rise)
+                (field(f"{prefix}xx"), field(f"{prefix}x{axis}"), onset, rise)
             )
 
     def __call__(self, t):
@@ -833,15 +1233,37 @@ class _ThermalPressurization:
         self.recorded += 1
 
 
-def _friction_law(fault):
-    """The friction law of the parameter file, per point."""
+def imposed_slip(fault):
+    """The y and z components of the slip that an imposed slip rate gives,
+    per point, from (strike_slip, dip_slip) in the fault frame."""
+    frame = fault1d.fault_frame(fault1d.Inputs(fault[None], {}))
+    return frame.T @ np.array((fault["strike_slip"], fault["dip_slip"]))
+
+
+def in_plane(fault):
+    """Whether the fault slips along y, as an in-plane rupture, rather than
+    along z: where its shear traction, or the slip it imposes, lies along y."""
+    law = int(fault[None].get("fl", 16))
+    if law in (33, 34):
+        along_y, along_z = imposed_slip(fault)
+        return bool(np.max(np.abs(along_y)) > np.max(np.abs(along_z)))
+    names = [name for name in fault if isinstance(name, str)]
+    along_y = [
+        name for name in names if name == "s_xy" or re.fullmatch(r"nuc\d*_xy", name)
+    ]
+    return any(np.any(fault[name] != 0.0) for name in along_y)
+
+
+def _friction_law(fault, axis="z"):
+    """The friction law of the parameter file, per point; an imposed slip
+    rate slips along `axis`."""
     law = int(fault[None].get("fl", 16))
     if law in (2, 16, 6, 1058):
         return _SlipWeakening(fault, 16 if law == 2 else law)
     if law in (3, 4, 7, 103):
         return _RateAndState(fault, law)
     if law in (33, 34):
-        return _ImposedSlipRate(fault, law)
+        return _ImposedSlipRate(fault, law, axis)
     raise fault1d.Unsupported(
         "the spectral method takes slip weakening, rate and state and imposed "
         f"slip rates, not FL={law}"
@@ -851,16 +1273,16 @@ def _friction_law(fault):
 class _ImposedSlipRate:
     """The imposed slip rates FL=33 (regularized Yoffe) and FL=34 (Gaussian),
     as fault1d.ImposedSlipRate, per point: the slip (strike_slip, dip_slip)
-    at the rate of the time since rupture_onset, whatever the traction. It
-    has no state, and no friction coefficient."""
+    at the rate of the time since rupture_onset, whatever the traction, along
+    `axis`. It has no state, and no friction coefficient."""
 
-    def __init__(self, fault, law):
+    def __init__(self, fault, law, axis="z"):
         self.law = law
-        frame = fault1d.fault_frame(fault1d.Inputs(fault[None], {}))
-        along_y, along_z = frame.T @ np.array((fault["strike_slip"], fault["dip_slip"]))
-        if np.any(np.abs(along_y) > 1e-12 * np.max(np.abs(along_z))):
-            raise fault1d.Unsupported("an antiplane rupture slips along z only")
-        self.slip = along_z
+        along = dict(zip("yz", imposed_slip(fault)))
+        other = "y" if axis == "z" else "z"
+        if np.any(np.abs(along[other]) > 1e-12 * np.max(np.abs(along[axis]))):
+            raise fault1d.Unsupported(f"the rupture slips along {axis} only")
+        self.slip = along[axis]
         self.onset = fault["rupture_onset"]
         if law == 33:
             self.tau_s = fault["tau_S"]
@@ -1293,6 +1715,89 @@ def _klein_gordon(medium, k, half_width, slip, end, step, probe):
     return np.array(traction[:-1]), index * spacing, np.array(field[:-1])
 
 
+def _plane_strain(medium, k, half_width, slip, end, step, probe, spacing):
+    """The in-plane mode u_y = U(x, t) cos(k y), u_x = X(x, t) sin(k y) of
+    a slip slip(t) cos(k y) on the faults x = n W of a solid periodic across
+    them, from
+
+        rho U_tt = mu U_xx - (lambda + 2 mu) k^2 U + (lambda + mu) k X_x,
+        rho X_tt = (lambda + 2 mu) X_xx - mu k^2 X - (lambda + mu) k U_x,
+
+    on 0 < x < W / 2, with U = slip / 2 and sigma_xx = 0, i.e.
+    (lambda + 2 mu) X_x = lambda k U, on the fault, and U = 0 and X_x = 0
+    halfway to the next, by finite differences of the second order on the
+    grid of `spacing`, at the Courant number 1/2 of the P wave. Returns, per
+    step, the traction mu (k X + U_x)(0, t) and, at the grid point nearest
+    to x = probe, U, X, U_t, X_t, U_x and X_x; and the position of the
+    point."""
+    mu = float(medium.stiffness[3, 3])
+    lam = float(medium.stiffness[0, 1])
+    modulus = lam + 2.0 * mu
+    points = int(round(half_width / spacing))
+    h = half_width / points
+    index = int(round(probe / h))
+    substeps = int(math.ceil(step / (0.5 * h / math.sqrt(modulus / medium.rho))))
+    dt = step / substeps
+    along = [np.zeros(points + 1) for _ in range(2)]
+    across = [np.zeros(points + 1) for _ in range(2)]
+    traction = [0.0]
+    field = [np.zeros(6)]
+    total = int(round(end / step))
+    # one substep beyond the end, for the rates of the last sample
+    for n in range(1, total * substeps + 2):
+        previous_u, u = along
+        previous_x, x = across
+        # sigma_xx = 0 on the fault; X_x = 0, and U odd, halfway to the next
+        x_out = np.concatenate(
+            ([x[1] - 2.0 * h * lam * k * u[0] / modulus], x, [x[-2]])
+        )
+        u_out = np.concatenate(([0.0], u, [-u[-2]]))
+        slope_u = (u_out[2:] - u_out[:-2]) / (2.0 * h)
+        slope_u[0] = (-3.0 * u[0] + 4.0 * u[1] - u[2]) / (2.0 * h)
+        slope_x = (x_out[2:] - x_out[:-2]) / (2.0 * h)
+        curvature_u = (u_out[2:] - 2.0 * u + u_out[:-2]) / (h * h)
+        curvature_x = (x_out[2:] - 2.0 * x + x_out[:-2]) / (h * h)
+        next_u = (
+            2.0 * u
+            - previous_u
+            + dt
+            * dt
+            / medium.rho
+            * (mu * curvature_u - modulus * k * k * u + (lam + mu) * k * slope_x)
+        )
+        next_x = (
+            2.0 * x
+            - previous_x
+            + dt
+            * dt
+            / medium.rho
+            * (modulus * curvature_x - mu * k * k * x - (lam + mu) * k * slope_u)
+        )
+        next_u[0] = 0.5 * slip(n * dt)
+        next_u[-1] = 0.0
+        if (n - 1) % substeps == 0:
+            # the rates of the sample of the step before, centred
+            field[-1][2] = (next_u[index] - previous_u[index]) / (2.0 * dt)
+            field[-1][3] = (next_x[index] - previous_x[index]) / (2.0 * dt)
+        along, across = [u, next_u], [x, next_x]
+        if n % substeps == 0:
+            slope = (-3.0 * next_u[0] + 4.0 * next_u[1] - next_u[2]) / (2.0 * h)
+            traction.append(mu * (k * next_x[0] + slope))
+            field.append(
+                np.array(
+                    (
+                        next_u[index],
+                        next_x[index],
+                        0.0,
+                        0.0,
+                        (next_u[index + 1] - next_u[index - 1]) / (2.0 * h),
+                        (next_x[index + 1] - next_x[index - 1]) / (2.0 * h),
+                    )
+                )
+            )
+    return np.array(traction[: total + 1]), np.array(field[: total + 1]), index * h
+
+
 def self_test():
     """Hold the method against what is known in closed form or computed
     otherwise.
@@ -1500,6 +2005,67 @@ def self_test():
             1e-4,
         )
 
+    # the in-plane slip of the same mode and of a mode of eight times the
+    # wave number, whose P waves reach the next fault before the S waves, and
+    # its field off the fault, against the finite differences of the plane
+    # strain of the mode on a grid of 2.5 cm, to whose error the deviations
+    # converge
+    lam, mu = float(medium.stiffness[0, 1]), float(medium.stiffness[3, 3])
+    short = 0.06
+    inplane_time = time[time <= short + 0.5 * step]
+    for mode, probe_y in ((5, 30.0), (40, 33.0)):
+        inplane = Inplane(medium, 800.0, width, 2 * mode + 2)
+        k = inplane.k[mode]
+        rate_k = np.zeros((inplane.k.size, inplane_time.size), dtype=complex)
+        slip_k = np.zeros_like(rate_k)
+        rate_k[mode] = [slip_rate(t) for t in inplane_time]
+        slip_k[mode] = [slip(t) for t in inplane_time]
+        computed = inplane.transfer(rate_k, slip_k, step)[mode].real
+        computed = computed - inplane.eta * rate_k[mode].real
+        exact, values, probe = _plane_strain(
+            medium, k, 0.5 * width, slip, short, step, 0.15 * width, 0.025
+        )
+        check(
+            f"the traction of the in-plane mode k = {k:.4g} / m across periodic faults",
+            float(np.max(np.abs(computed - exact)) / np.max(np.abs(exact))),
+            2e-4,
+        )
+        angle = k * (inplane.y - inplane.y[0])
+        prescribed = {
+            "time": inplane_time,
+            "slip-rate": np.outer(rate_k[mode].real, np.cos(angle)),
+            "slip": np.outer(slip_k[mode].real, np.cos(angle)),
+        }
+        u, x, rate_u, rate_x, slope_u, slope_x = values.T
+        for side, y in ((1.0, probe_y), (-1.0, probe_y - 140.0)):
+            velocity, stress = inplane.radiated(prescribed, side * probe, y)
+            phase = k * (y - inplane.y[0])
+            cosine, sine = math.cos(phase), math.sin(phase)
+            # u_y is odd in x and u_x even
+            expected = (
+                (velocity[:, 0], rate_x * sine),
+                (velocity[:, 1], side * rate_u * cosine),
+                (stress[:, 5], mu * (k * x + slope_u) * cosine),
+                (
+                    stress[:, 0],
+                    side * ((lam + 2.0 * mu) * slope_x - lam * k * u) * sine,
+                ),
+                (
+                    stress[:, 1],
+                    side * (lam * slope_x - (lam + 2.0 * mu) * k * u) * sine,
+                ),
+                (stress[:, 2], side * lam * (slope_x - k * u) * sine),
+            )
+            check(
+                f"the in-plane field of the mode k = {k:.4g} / m at "
+                f"({side * probe:.4g}, {y:.4g}) across periodic faults",
+                max(
+                    float(np.max(np.abs(computed - exact)) / np.max(np.abs(exact)))
+                    for computed, exact in expected
+                ),
+                1e-2 if mode == 40 else 3e-4,
+            )
+
     # a mode that decays within a fraction of the width does not reach the
     # next fault, but for the part of the slip faster than c |k|, which is
     # tiny here: its images transfer next to nothing, however fast their
@@ -1578,10 +2144,10 @@ def self_test():
     # a uniform slip of every other law on a fault between two solids that
     # extend to infinity: the 0D problem of fault1d, which integrates its own
     # way, with what SeisSol reports from the Gauss points of the fault
-    def uniform(law, rupture, given):
+    def uniform(law, rupture, given, method=Antiplane):
         problem = fault1d.Problem(rupture, given, medium, medium)
         exact = problem.solve(0.06, 1e-5)
-        solver = Antiplane(medium, 800.0, None, 8)
+        solver = method(medium, 800.0, None, 8)
         fault = {name: np.full(8, value) for name, value in given.items()}
         fault[None] = {key.lower(): value for key, value in rupture.items()}
         computed = solver.solve(fault, 0.06, 3e-5)
@@ -1610,6 +2176,8 @@ def self_test():
         label = f"FL={law}"
         if int(rupture.get("thermalPress", 0)):
             label += " with thermal pressurization"
+        if method is Inplane:
+            label += " in plane"
         check(f"a uniform slip under {label}", deviation.pop("slip-rate"), 1e-5)
         check(
             f"what the Gauss points report of a uniform slip under {label}",
@@ -1647,6 +2215,16 @@ def self_test():
     imposed.update({"tau_S": 1.5625e-2, "tau_R": 6.25e-2, "rupture_rise_time": 6.25e-2})
     for law in (33, 34):
         uniform(law, {"FL": law, "XRef": -1.0e5}, imposed)
+    # in plane, along y, where the uniform slip transfers nothing either
+    uniform(
+        33,
+        {"FL": 33, "XRef": -1.0e5},
+        {**imposed, "strike_slip": -1.0, "dip_slip": 0.0},
+        Inplane,
+    )
+    given = {"s_xx": -120.0e6, "s_xy": 72.0e6, "nuc_xy": 14.0e6}
+    given.update({"mu_s": 0.677, "mu_d": 0.525, "d_c": 0.08})
+    uniform(16, {"FL": 16, "t_0": 0.02, "XRef": -1.0e5}, given, Inplane)
     for law, extra in (
         (6, {"pc_vstar": 0.1, "pc_prakashLength": 0.01}),
         (1058, {}),

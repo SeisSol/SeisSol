@@ -1703,7 +1703,8 @@ def compare_antiplane(
     solver, solution, frame, fault_receivers, volume_receivers, law, gauss
 ):
     """The deviations of the receivers from the antiplane rupture that
-    antiplane.Antiplane computes, per quantity.
+    antiplane.Antiplane computes, or from the in-plane rupture of
+    antiplane.Inplane, per quantity.
 
     These are the quantities of _AT_RECEIVER: the slip rate, the normal
     stress and the direction of the slip that the fault receivers record,
@@ -1808,7 +1809,7 @@ def compare_antiplane(
         # the receivers state the initial traction of the load in the fault
         # frame, before the slip rate of t = 0 takes its part of it
         stated = np.array([float(header["T_s"][0]), float(header["T_d"][0])])
-        expected = frame @ np.array([0.0, shear[0] + solver.eta * rate[0]])
+        expected = frame @ (solver.direction * (shear[0] + solver.eta * rate[0]))
         if np.linalg.norm(stated - expected) > 1e-6 * max(np.linalg.norm(stated), 1.0):
             raise SystemExit(
                 f"the receivers state the initial traction {stated} in fault "
@@ -1819,7 +1820,7 @@ def compare_antiplane(
         for s, d, length, along in zip(strike, dip, slip_rate, rate):
             if abs(along) < limit or length == 0.0:
                 continue
-            direction = frame @ np.array([0.0, math.copysign(1.0, along)])
+            direction = frame @ (solver.direction * math.copysign(1.0, along))
             cosine = (s * direction[0] + d * direction[1]) / length
             misalignment = max(misalignment, 1.0 - cosine)
         worst("direction", misalignment)
@@ -1901,6 +1902,8 @@ def _compare_antiplane_case(
         fault = antiplane.fault_along(easimodel.load(model), rupture, solver.y)
     except easimodel.Unsupported as reason:
         raise fault1d.Unsupported(f"{model.name}: {reason}") from reason
+    if antiplane.in_plane(fault):
+        solver = antiplane.Inplane(left, length, width, args.points, offset)
     for _, _, header in fault_receivers:
         _antiplane_point(solver, header)
     capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))

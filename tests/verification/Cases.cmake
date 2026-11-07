@@ -708,6 +708,22 @@ foreach (law yoffe:33 gaussian:34)
                        verification.exact.fault2d-antiplane-imposed-${name}${SEISSOL_VERIFICATION_SUFFIX}
                        PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
 endforeach()
+# Spontaneous in-plane ruptures, of mode II, which slip along y, held against
+# the in-plane spectral method of antiplane.py (antiplane.Inplane), whose P
+# waves return across the period from 44 ms on: one that runs out below the
+# shear wave speed and turns faster only where its fronts near their periodic
+# images, and one that turns faster than the shear waves some 240 m from the
+# nucleation (see fault2d-inplane.yaml and fault2d-inplane-supershear.yaml).
+# The receivers are those of the antiplane cases.
+foreach (name inplane inplane-supershear)
+  seissol_add_fault1d(NAME fault2d-${name} FL 16 FAULT fault2d-${name}.yaml
+                      MESH fault2d-periodic STEPS 2560
+                      FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                      SET ${SEISSOL_ANTIPLANE} LABELS convergence)
+  set_tests_properties(verification.fault2d-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       verification.exact.fault2d-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+endforeach()
 
 # ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic
