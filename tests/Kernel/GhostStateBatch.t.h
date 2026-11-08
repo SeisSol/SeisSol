@@ -34,9 +34,9 @@ using RealT = Real<Cfg>;
 
 /// The kernel of a batch of three faces (of the cells 2, 0 and 3 of a layer of four), against the
 /// integral of the host evaluated face by face: the same values where the program gives a
-/// component, and the tensor untouched where it does not.
+/// component, and the tensor untouched where it does not -- or zero, with `zeroOthers`.
 template <bool Aligned>
-void checkAgainstHost(const std::string& source, bool readsInner) {
+void checkAgainstHost(const std::string& source, bool readsInner, bool zeroOthers = false) {
   using Batch = kernels::GhostStateBatch<Cfg, Aligned>;
   constexpr std::size_t Faces = 3;
   constexpr std::size_t Nodes = Batch::NodeCount;
@@ -91,6 +91,7 @@ void checkAgainstHost(const std::string& source, bool readsInner) {
   data.innerStride = TimePoints * Size;
   data.times = times.data();
   data.ghost = ghost.data();
+  data.zeroOthers = zeroOthers;
   expr::BackendOptions backend;
   backend.preferred = expr::BackendKind::Interpreter;
   Batch batch(integral, data, backend);
@@ -144,7 +145,7 @@ void checkAgainstHost(const std::string& source, bool readsInner) {
           CHECK(slice(p, k) ==
                 doctest::Approx(static_cast<RealT>(expected[k * Nodes + p])).epsilon(1e-6));
         } else {
-          CHECK(slice(p, k) == -7.0);
+          CHECK(slice(p, k) == (zeroOthers ? 0.0 : -7.0));
         }
       }
     }
@@ -161,6 +162,9 @@ TEST_CASE("GhostStateBatch: the faces of a batch in one kernel, as the host does
     checkAgainstHost<false>("out def " + last + " = x * t + rho + sim\nout def " + first +
                                 " = y * y - z * t * t\n",
                             false);
+  }
+  SUBCASE("the analytical boundary, which writes zero where the script gives nothing") {
+    checkAgainstHost<false>("out def " + last + " = x * t + rho + sim\n", false, true);
   }
   SUBCASE("the nonlinear Dirichlet boundary: the state inside at the time points") {
     checkAgainstHost<false>("out def " + first + " = -2.0 * " + first + " + x * t\nout def " +

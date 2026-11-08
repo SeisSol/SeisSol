@@ -425,18 +425,22 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
   // the times of the step, from the clock on the device, for the boundaries of all faces
   deviceGhostStates_->beginStep(time, timeStepWidth, runtime.stream());
 
+  // the ghost states of the analytical faces of all sides, with one kernel
+  if (this->analyticalGhostState() != nullptr) {
+    deviceGhostStates_->analytical(*this->analyticalGhostState(),
+                                   dataTable,
+                                   indicesTable,
+                                   layer,
+                                   timeStepWidth,
+                                   runtime.stream());
+  }
+
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.contains(analyticalKey)) {
       // the setup refuses an initial condition that is no script that compiles in a device build
       assert(this->analyticalGhostState() != nullptr);
-      deviceGhostStates_->analytical(*this->analyticalGhostState(),
-                                     indicesTable,
-                                     layer,
-                                     face,
-                                     timeStepWidth,
-                                     runtime.stream());
       nodalFlux(analyticalKey, face);
     }
 

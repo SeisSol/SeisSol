@@ -43,12 +43,13 @@
 namespace seissol::kernels::solver::linearck {
 
 /// The ghost states of the boundaries a script gives -- the analytical one and the nonlinear
-/// Dirichlet one -- for the faces of the cells of one layer, on the device: per side of the cells,
-/// one kernel of the script for all faces of the side (kernels::GhostStateBatch), and for the
-/// nonlinear Dirichlet boundary the kernels around it, which take the state inside from the time
-/// derivatives to the nodes of the faces and the ghost state back to global coordinates. Both
-/// write the ghost state of a face into its slot of LTS::AnalyticScratch, which the nodal flux
-/// takes.
+/// Dirichlet one -- for the faces of the cells of one layer, on the device: for the analytical
+/// boundary, one kernel of the script for the faces of all sides of the cells
+/// (kernels::GhostStateBatch); for the nonlinear Dirichlet boundary, one per side, and the kernels
+/// around it, which take the state inside from the time derivatives to the nodes of the faces and
+/// the ghost state back to global coordinates. Both write the ghost state of a face into its slot
+/// of LTS::AnalyticScratch, which the nodal flux of its side takes: the recorder gives every face
+/// a slot of its own, the analytical faces of all sides first, side by side.
 ///
 /// The kernels read the time of the step from the clock of the cluster on the device, through the
 /// times of the points of the quadrature that beginStep() computes there: the work of a step
@@ -74,12 +75,10 @@ class DeviceGhostStates {
                LTS::Layer& layer,
                void* stream) {
     using namespace seissol::recording;
+    if (state != nullptr) {
+      makeAnalytical(*state, dataTable, indicesTable, layer, stream);
+    }
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      const ConditionalKey analyticalKey(
-          *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
-      if (state != nullptr && indicesTable.contains(analyticalKey)) {
-        makeAnalytical(*state, indicesTable, layer, face, stream);
-      }
       const ConditionalKey nonlinearKey(
           *KernelNames::BoundaryConditions, *ComputationKind::NonlinearDirichlet, face);
       if (condition != nullptr && indicesTable.contains(nonlinearKey)) {
@@ -101,29 +100,22 @@ class DeviceGhostStates {
     kernels::timepoints::timePoints(clock, offsets, times_.data(), stream);
   }
 
-  /// The ghost state of the analytical boundary at the faces `face` of the cells of `layer`,
-  /// integrated over the step of the width `timeStepWidth` that beginStep() began: per simulation,
-  /// the integral of the script of its field (`state`). What the scripts do not give is zero.
+  /// The ghost state of the analytical boundary at the faces of all sides of the cells of
+  /// `layer`, integrated over the step of the width `timeStepWidth` that beginStep() began: per
+  /// simulation, the integral of the script of its field (`state`), with one kernel per program.
+  /// What the scripts do not give is zero, which the kernels write as well.
   void analytical(const physics::AnalyticalGhostState& state,
+                  recording::ConditionalPointersToRealsTable& dataTable,
                   recording::ConditionalIndicesTable& indicesTable,
                   LTS::Layer& layer,
-                  std::size_t face,
                   double timeStepWidth,
                   void* stream) {
-    using namespace seissol::recording;
-    const ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
-    auto* cells = indicesTable[key].get<unsigned>(inner_keys::Indices::Id::Cells);
-    const std::size_t faces = cells->getSize();
-    auto* ghost = reinterpret_cast<real*>(
-        layer.var<LTS::AnalyticScratch>(Cfg(), initializer::AllocationPlace::Device));
-
-    auto& side = makeAnalytical(state, indicesTable, layer, face, stream);
-
-    // what the scripts do not give is zero
-    device::DeviceInstance::instance().algorithms().fillArray(
-        ghost, static_cast<real>(0), faces * tensor::INodal<Cfg>::size(), stream);
+    auto& all = makeAnalytical(state, dataTable, indicesTable, layer, stream);
+    if (all.faces == 0) {
+      return;
+    }
     for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
-      side.batches[side.batchOf[s]]->evaluate(
+      all.batches[all.batchOf[s]]->evaluate(
           timeStepWidth, s, static_cast<double>(state.scriptSimulation(s)), stream);
     }
   }
@@ -156,10 +148,10 @@ class DeviceGhostStates {
       }
       const bool aligned = condition.faceAligned();
       void* stream = runtime.stream();
-      auto* ghost = reinterpret_cast<real*>(
-          layer.var<LTS::AnalyticScratch>(Cfg(), initializer::AllocationPlace::Device));
 
       auto& side = makeNonlinearDirichlet(condition, dataTable, indicesTable, layer, face, stream);
+      // the slots of the side
+      auto* ghost = side.ghost;
 
       auto** integrated = entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr();
       auto** blocks =
@@ -259,47 +251,83 @@ class DeviceGhostStates {
 
   struct Side;
 
-  /// The kernels of the analytical boundary at the faces `face`, made if they are not yet.
-  Side& makeAnalytical(const physics::AnalyticalGhostState& state,
-                       recording::ConditionalIndicesTable& indicesTable,
-                       LTS::Layer& layer,
-                       std::size_t face,
-                       void* stream) {
+  struct Analytical;
+
+  /// The kernels of the analytical boundary at the faces of all sides, made if they are not yet.
+  Analytical& makeAnalytical(const physics::AnalyticalGhostState& state,
+                             recording::ConditionalPointersToRealsTable& dataTable,
+                             recording::ConditionalIndicesTable& indicesTable,
+                             LTS::Layer& layer,
+                             void* stream) {
     using namespace seissol::recording;
-    auto& side = analytical_[face];
-    if (side.made) {
-      return side;
+    auto& all = analytical_;
+    if (all.made) {
+      return all;
     }
-    side.made = true;
-    const ConditionalKey key(*KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
-    auto* cells = indicesTable[key].get<unsigned>(inner_keys::Indices::Id::Cells);
-    side.nodes = nodesOf(layer, cells->getHostData(), face);
-    typename GlobalBatch::Data data = dataOf(layer, *cells, side.nodes);
-    data.ghost = reinterpret_cast<real*>(
+    all.made = true;
+    auto* ghost = reinterpret_cast<real*>(
         layer.var<LTS::AnalyticScratch>(Cfg(), initializer::AllocationPlace::Device));
+    // the faces of all sides, side by side, in the slots the recorder gave them
+    std::vector<unsigned> cells;
+    std::vector<real> nodes;
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      const ConditionalKey key(
+          *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
+      if (!indicesTable.contains(key)) {
+        continue;
+      }
+      const auto& sideCells =
+          indicesTable[key].get<unsigned>(inner_keys::Indices::Id::Cells)->getHostData();
+      const auto& slots = dataTable[key].get<real*>(inner_keys::Wp::Id::Analytical)->getHostData();
+      for (std::size_t e = 0; e < sideCells.size(); ++e) {
+        if (slots[e] != ghost + (cells.size() + e) * tensor::INodal<Cfg>::size()) {
+          logError() << "The ghost state of an analytical face does not lie in the slot that "
+                        "follows the one of the face before it.";
+        }
+      }
+      const auto sideNodes = hostNodesOf(layer, sideCells, face);
+      cells.insert(cells.end(), sideCells.begin(), sideCells.end());
+      nodes.insert(nodes.end(), sideNodes.begin(), sideNodes.end());
+    }
+    all.faces = cells.size();
+    if (all.faces == 0) {
+      return all;
+    }
+    all.nodes = memory::MemkindArray<real>(nodes, memory::Memkind::DeviceGlobalMemory);
+    all.cells = memory::MemkindArray<unsigned>(cells, memory::Memkind::DeviceGlobalMemory);
+
+    typename GlobalBatch::Data data;
+    data.faces = all.faces;
+    data.nodes = all.nodes.data();
+    data.parameters = reinterpret_cast<const real*>(
+        layer.var<LTS::MaterialParameters>(Cfg(), initializer::AllocationPlace::Device));
+    data.cells = all.cells.data();
+    data.ghost = ghost;
     data.ghostStride = tensor::INodal<Cfg>::size();
+    // what the scripts do not give is zero
+    data.zeroOthers = true;
     // one kernel per program: fused simulations of one script share theirs
     std::vector<const physics::GhostStateIntegral*> integrals;
     for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
       const auto* integral = &state.integral(s);
       const auto found = std::find(integrals.begin(), integrals.end(), integral);
-      side.batchOf.push_back(static_cast<std::size_t>(found - integrals.begin()));
+      all.batchOf.push_back(static_cast<std::size_t>(found - integrals.begin()));
       if (found == integrals.end()) {
         integrals.push_back(integral);
         data.times = timesFor(*integral);
-        side.batches.push_back(
+        all.batches.push_back(
             std::make_unique<GlobalBatch>(*integral, data, optionsFor(stream, quiet_)));
-        checkKind(side.batches.back()->kind(), "the analytical boundary");
+        checkKind(all.batches.back()->kind(), "the analytical boundary");
         quiet_ = true;
       }
     }
-    return side;
+    return all;
   }
 
   /// The kernels of the nonlinear Dirichlet boundary at the faces `face`, made if they are not
   /// yet.
   Side& makeNonlinearDirichlet(const physics::NonlinearDirichlet& condition,
-                               recording::ConditionalPointersToRealsTable& /*dataTable*/,
+                               recording::ConditionalPointersToRealsTable& dataTable,
                                recording::ConditionalIndicesTable& indicesTable,
                                LTS::Layer& layer,
                                std::size_t face,
@@ -315,6 +343,8 @@ class DeviceGhostStates {
     const ConditionalKey key(
         *KernelNames::BoundaryConditions, *ComputationKind::NonlinearDirichlet, face);
     auto* cells = indicesTable[key].get<unsigned>(inner_keys::Indices::Id::Cells);
+    // the slots of the ghost states of the side, which the recorder gave them one after the other
+    side.ghost = dataTable[key].get<real*>(inner_keys::Wp::Id::Analytical)->getHostData().front();
     auto* scratch = reinterpret_cast<real*>(
         layer.var<LTS::NonlinearDirichletScratch>(Cfg(), initializer::AllocationPlace::Device));
     side.nodes = nodesOf(layer, cells->getHostData(), face);
@@ -337,8 +367,7 @@ class DeviceGhostStates {
           std::make_unique<AlignedBatch>(*integral, alignedData, optionsFor(stream, quiet_));
       checkKind(side.aligned->kind(), "the nonlinear Dirichlet boundary");
     } else {
-      data.ghost = reinterpret_cast<real*>(
-          layer.var<LTS::AnalyticScratch>(Cfg(), initializer::AllocationPlace::Device));
+      data.ghost = side.ghost;
       data.ghostStride = tensor::INodal<Cfg>::size();
       side.batches.push_back(
           std::make_unique<GlobalBatch>(*integral, data, optionsFor(stream, quiet_)));
@@ -377,29 +406,51 @@ class DeviceGhostStates {
   static_assert(std::is_same_v<unsigned, std::uint32_t>,
                 "the cells of a batch are the cell index of a column of a program");
 
-  /// The kernels of the faces of one side of the cells of the layer.
-  struct Side {
+  /// The kernels of the analytical boundary, for the faces of all sides of the cells of the layer.
+  struct Analytical {
     bool made{false};
-    /// the nodes of the faces, on the device (GhostStateBatch::Data::nodes)
+    std::size_t faces{0};
+    /// the nodes of the faces and the cells they belong to, on the device
+    /// (GhostStateBatch::Data::nodes and cells)
     memory::MemkindArray<real> nodes{memory::Memkind::DeviceGlobalMemory};
-    /// in global coordinates: one per program (the analytical boundary: of the fields)
+    memory::MemkindArray<unsigned> cells{memory::Memkind::DeviceGlobalMemory};
+    /// one per program, of the fields
     std::vector<std::unique_ptr<GlobalBatch>> batches;
     /// per simulation, its program
     std::vector<std::size_t> batchOf;
-    /// in the face-aligned basis (the nonlinear Dirichlet boundary)
+  };
+
+  /// The kernels of the nonlinear Dirichlet boundary at the faces of one side of the cells of the
+  /// layer.
+  struct Side {
+    bool made{false};
+    /// the first slot of the ghost states of the faces (LTS::AnalyticScratch)
+    real* ghost{nullptr};
+    /// the nodes of the faces, on the device (GhostStateBatch::Data::nodes)
+    memory::MemkindArray<real> nodes{memory::Memkind::DeviceGlobalMemory};
+    /// in global coordinates
+    std::vector<std::unique_ptr<GlobalBatch>> batches;
+    /// in the face-aligned basis
     std::unique_ptr<AlignedBatch> aligned;
   };
 
-  /// The nodes of the faces `face` of the cells `cells` of `layer`, on the device.
-  static memory::MemkindArray<real>
-      nodesOf(LTS::Layer& layer, const std::vector<unsigned>& cells, std::size_t face) {
+  /// The nodes of the faces `face` of the cells `cells` of `layer`, on the host.
+  static std::vector<real>
+      hostNodesOf(LTS::Layer& layer, const std::vector<unsigned>& cells, std::size_t face) {
     const auto* mappings = layer.var<LTS::BoundaryMapping>(Cfg());
     std::vector<real> nodes(cells.size() * NodeCount * 3);
     for (std::size_t e = 0; e < cells.size(); ++e) {
       const auto* source = mappings[cells[e]][face].nodes;
       std::copy_n(source, NodeCount * 3, nodes.data() + e * NodeCount * 3);
     }
-    return memory::MemkindArray<real>(nodes, memory::Memkind::DeviceGlobalMemory);
+    return nodes;
+  }
+
+  /// The same, on the device.
+  static memory::MemkindArray<real>
+      nodesOf(LTS::Layer& layer, const std::vector<unsigned>& cells, std::size_t face) {
+    return memory::MemkindArray<real>(hostNodesOf(layer, cells, face),
+                                      memory::Memkind::DeviceGlobalMemory);
   }
 
   /// What a batch of the faces of `cells` reads, besides the state inside.
@@ -494,7 +545,7 @@ class DeviceGhostStates {
   }
 
   const GlobalData<Cfg>* global_;
-  std::array<Side, Cell::NumFaces> analytical_;
+  Analytical analytical_;
   std::array<Side, Cell::NumFaces> nonlinear_;
   /// whether a kernel was made already, which said how it went
   bool quiet_{false};

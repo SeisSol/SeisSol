@@ -43,6 +43,40 @@ Real<Cfg>* dofsExtOf(LTS::Layer& layer, std::size_t cell) {
   auto* dofsExt = layer.var<LTS::DofsExtScratch>(Cfg(), initializer::AllocationPlace::Device);
   return static_cast<Real<Cfg>*>(dofsExt) + kernels::size<tensor::Qext<Cfg>>() * cell;
 }
+
+/// The first slot of LTS::AnalyticScratch of the faces of each side of the cells of `layer` whose
+/// type is `type`: the faces of the analytical boundary of all sides lie first, side by side, so
+/// that one kernel evaluates their ghost states (kernels::solver::linearck::DeviceGhostStates),
+/// and those of the nonlinear Dirichlet boundary after them, so that the two never share a slot.
+std::array<std::size_t, Cell::NumFaces> ghostSlotBegins(LTS::Layer& layer, FaceType type) {
+  std::array<std::size_t, Cell::NumFaces> analytical{};
+  std::array<std::size_t, Cell::NumFaces> nonlinear{};
+  const auto* cellInformation = layer.var<LTS::CellInformation>();
+  for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+      if (cellInformation[cell].faceTypes[face] == FaceType::Analytical) {
+        ++analytical[face];
+      } else if (cellInformation[cell].faceTypes[face] == FaceType::NonlinearDirichlet) {
+        ++nonlinear[face];
+      }
+    }
+  }
+  std::array<std::size_t, Cell::NumFaces> begins{};
+  std::size_t begin = 0;
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    if (type == FaceType::Analytical) {
+      begins[face] = begin;
+    }
+    begin += analytical[face];
+  }
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    if (type == FaceType::NonlinearDirichlet) {
+      begins[face] = begin;
+    }
+    begin += nonlinear[face];
+  }
+  return begins;
+}
 } // namespace
 } // namespace seissol::recording
 
@@ -440,6 +474,7 @@ void LocalIntegrationRecorder<Cfg>::recordAnalyticalBc(LTS::Layer& layer) {
 
     real* analyticScratch =
         reinterpret_cast<real*>(layer.var<LTS::AnalyticScratch>(Cfg(), AllocationPlace::Device));
+    const auto slotBegins = ghostSlotBegins(layer, FaceType::Analytical);
 
     for (std::size_t cell = 0; cell < size; ++cell) {
       auto data = currentLayer_->cellRef<Cfg>(cell, AllocationPlace::Device);
@@ -458,9 +493,11 @@ void LocalIntegrationRecorder<Cfg>::recordAnalyticalBc(LTS::Layer& layer) {
             localPtrs[face].push_back(
                 reinterpret_cast<real*>(&data.template get<LTS::LocalIntegration>()));
           }
-          // the boundary evaluation writes the values of the n-th face of a batch to the n-th entry
+          // the boundary evaluation writes the values of the n-th face of a side to the n-th slot
+          // of the side
           analytical[face].push_back(analyticScratch +
-                                     analytical[face].size() * tensor::INodal<Cfg>::size());
+                                     (slotBegins[face] + analytical[face].size()) *
+                                         tensor::INodal<Cfg>::size());
         }
       }
     }
@@ -506,6 +543,7 @@ void LocalIntegrationRecorder<Cfg>::recordNonlinearDirichletBc(LTS::Layer& layer
       reinterpret_cast<real*>(layer.var<LTS::AnalyticScratch>(Cfg(), AllocationPlace::Device));
   real* scratch = reinterpret_cast<real*>(
       layer.var<LTS::NonlinearDirichletScratch>(Cfg(), AllocationPlace::Device));
+  const auto slotBegins = ghostSlotBegins(layer, FaceType::NonlinearDirichlet);
 
   for (std::size_t cell = 0; cell < size; ++cell) {
     auto data = currentLayer_->cellRef<Cfg>(cell, AllocationPlace::Device);
@@ -515,9 +553,11 @@ void LocalIntegrationRecorder<Cfg>::recordNonlinearDirichletBc(LTS::Layer& layer
       if (dataHost.template get<LTS::CellInformation>().faceTypes[face] ==
           FaceType::NonlinearDirichlet) {
         // as for the analytical boundary, by the position of the cell in the list of the face,
-        // which the faces use one after the other
+        // in the slots of the side; the scratch of the evaluation, by the position alone, as the
+        // sides use it one after the other
         const auto index = cellIndices[face].size();
-        ghostPtrs[face].push_back(analyticScratch + index * tensor::INodal<Cfg>::size());
+        ghostPtrs[face].push_back(analyticScratch +
+                                  (slotBegins[face] + index) * tensor::INodal<Cfg>::size());
         scratchPtrs[face].push_back(scratch +
                                     index * kernels::NonlinearDirichletScratch<Cfg>::PerFace);
         cellIndices[face].push_back(cell);

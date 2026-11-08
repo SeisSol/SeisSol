@@ -12,6 +12,7 @@
 #include "Equations/Datastructures.h"
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
+#include "Expr/Program.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/ScriptParameters.h"
@@ -20,10 +21,12 @@
 #include "Reader/Scripting/DataTable.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <utils/logger.h>
 #include <vector>
@@ -31,13 +34,13 @@
 namespace seissol::kernels {
 
 /// The ghost state of a boundary whose script is integrated over a time step at once
-/// (physics::GhostStateIntegral), for all faces of a batch in one kernel -- the faces of one side
-/// of the cells of a layer, as the recorder batches them for a device. The kernel reads the nodes
-/// of the faces, the parameters of the materials of their cells and, where the script reads it,
-/// the state inside at the time points of the step, all where they are; it writes the integral of
-/// each component the program gives into the tensor of the face, shaped like INodal (or, with
+/// (physics::GhostStateIntegral), for all faces of a batch in one kernel -- e.g. the faces of all
+/// sides of the cells of a layer, as the recorder lays them out for a device. The kernel reads the
+/// nodes of the faces, the parameters of the materials of their cells and, where the script reads
+/// it, the state inside at the time points of the step, all where they are; it writes the integral
+/// of each component the program gives into the tensor of the face, shaped like INodal (or, with
 /// `Aligned`, like INodalAligned, in the face-aligned basis). What the program does not give, it
-/// leaves as it is.
+/// leaves as it is, or writes zero into (Data::zeroOthers).
 ///
 /// The points of the kernel are the nodes of the faces, face by face. A simulation of a fused run
 /// is one call, which moves the bases of the state inside and of the ghost state to its slice.
@@ -74,6 +77,9 @@ class GhostStateBatch {
     /// the ghost state of face e, a tensor like the target, at ghost + e * ghostStride
     real* ghost{nullptr};
     std::size_t ghostStride{TargetSize};
+    /// whether the kernel writes zero into the components the program does not give, so that the
+    /// ghost state needs no fill before: for a boundary whose ghost state is zero there
+    bool zeroOthers{false};
   };
 
   /// The kernel of `integral` for the faces of `data`, on the backend `options` asks for; it falls
@@ -82,10 +88,25 @@ class GhostStateBatch {
                   const Data& data,
                   const expr::BackendOptions& options)
       : integral_(&integral), data_(data), preferred_(options.preferred),
-        table_(std::make_unique<reader::scripting::DataTable>(data.faces * NodeCount)) {
+        table_(std::make_unique<reader::scripting::DataTable>(data.faces * NodeCount)),
+        program_(integral.program()) {
     using reader::scripting::Direction;
     using Input = physics::GhostStateIntegral::Input;
-    const auto& program = integral.program();
+    for (std::size_t j = 0; j < program_.outputs().size(); ++j) {
+      components_.push_back(integral.outputComponent(j));
+    }
+    if (data.zeroOthers) {
+      // the components the program does not give, as outputs of their own that are zero
+      for (std::size_t component = 0; component < Columns; ++component) {
+        if (std::find(components_.begin(), components_.end(), component) == components_.end()) {
+          program_.addOutput("$zero" + std::to_string(component),
+                             reader::scripting::DataTypeTraits<real>::Type,
+                             program_.arena().konst(0.0));
+          components_.push_back(component);
+        }
+      }
+    }
+    const auto& program = program_;
     const std::size_t innerCount = integral.innerCount();
     if (innerCount > 0 && data.innerStride < integral.timePointCount() * TargetSize) {
       logError() << "The state inside of a face at the time points of a step needs"
@@ -146,7 +167,7 @@ class GhostStateBatch {
       }
     }
     for (std::size_t j = 0; j < program.outputs().size(); ++j) {
-      const auto component = integral.outputComponent(j);
+      const auto component = components_[j];
       checkColumn(component);
       table.bindCellPointView<real>(program.outputs()[j].name,
                                     Direction::Out,
@@ -180,7 +201,7 @@ class GhostStateBatch {
     weights_.resize(integral_->timePointCount());
     integral_->weights(width, weights_.data());
     simulation_ = scriptSimulation;
-    const auto& program = integral_->program();
+    const auto& program = program_;
     const auto* shifts = shifts_.data() + simulation * columnCount();
     for (std::size_t i = 0; i < program.inputs().size(); ++i) {
       switch (integral_->input(i)) {
@@ -220,7 +241,7 @@ class GhostStateBatch {
 
   private:
   [[nodiscard]] std::size_t columnCount() const {
-    return integral_->program().inputs().size() + integral_->program().outputs().size();
+    return program_.inputs().size() + program_.outputs().size();
   }
 
   /// The element of node `node`, component `component` and simulation `simulation` in a tensor
@@ -259,6 +280,10 @@ class GhostStateBatch {
   Data data_;
   expr::BackendKind preferred_;
   std::unique_ptr<reader::scripting::DataTable> table_;
+  /// the program of the integral, with the outputs of zero (Data::zeroOthers), and per output the
+  /// component of the target it gives
+  expr::Program program_;
+  std::vector<std::size_t> components_;
   std::unique_ptr<expr::Binding> binding_;
   std::unique_ptr<expr::Kernel> kernel_;
   /// per simulation and column (the inputs, then the outputs), how far its base moves, in reals
