@@ -461,9 +461,12 @@ class DeviceGhostStates {
         power *= tau / static_cast<double>(d + 1);
       }
     }
-    project.faceStateI = blocks;
-    project.extraOffset_faceStateI =
-        static_cast<int>(kernels::NonlinearDirichletScratch<Cfg>::State);
+    // the state at each time point, in a tensor of its own
+    for (std::size_t c = 0; c < Cfg::ConvergenceOrder; ++c) {
+      project.faceStateI(c) = blocks;
+      project.extraOffset_faceStateI(c) = static_cast<int>(
+          kernels::NonlinearDirichletScratch<Cfg>::State + c * tensor::faceStateI<Cfg>::size(c));
+    }
   }
 
   template <typename Kernel>

@@ -234,12 +234,13 @@ def addKernels(
         (aderdg.num2DBasisFunctions(), nr),
         alignStride=True,
     )
-    project_to_face_nodes_aligned = (
-        lambda f: aderdg.INodalAligned["ka"]
-        <= aderdg.db.V3mTo2nFace[f][aderdg.t("kl")]
-        * aderdg.I["lm"].subslice("m", 0, nr)
-        * aderdg.Tinv["am"].subslice("a", 0, nr).subslice("m", 0, nr)
-    )
+
+    def project_to_face_nodes_aligned(f):
+        projection = aderdg.db.V3mTo2nFace[f][aderdg.t("kl")]
+        riemann_state = aderdg.I["lm"].subslice("m", 0, nr)
+        rotation = aderdg.Tinv["am"].subslice("a", 0, nr).subslice("m", 0, nr)
+        return aderdg.INodalAligned["ka"] <= projection * riemann_state * rotation
+
     generator.addFamily(
         "projectToFaceNodesAligned",
         simpleParameterSpace(4),
@@ -261,7 +262,8 @@ def addDeviceNonlinearDirichlet(generator, aderdg, project_to_face_nodes, nr):
     """The nonlinear Dirichlet boundary on a device, for all faces of one side of a batch at once:
     the time integral of the state inside at the nodes of a face (from the integrated state), the
     state inside at the times of the quadrature of a step (from the time derivatives), and the ghost
-    state back in global coordinates. Only for a solver with the Taylor series of the state."""
+    state back in global coordinates. Only for a solver with the Taylor series of the state.
+    """
     from kernels.aderdg.linearck import LinearCK
     from kernels.aderdg.stp import STP
 
@@ -279,16 +281,20 @@ def addDeviceNonlinearDirichlet(generator, aderdg, project_to_face_nodes, nr):
     order = aderdg.order
     columns = aderdg.INodal.shape()[-1]
 
-    # the state of the cell at one time point, which the device kernels need as a tensor of its
-    # own between the Taylor series and the projection
-    state = OptionalDimTensor(
-        "faceStateI",
-        aderdg.I.optName(),
-        aderdg.I.optSize(),
-        aderdg.I.optPos(),
-        (aderdg.num3DBasisFunctions(), nq),
-        alignStride=True,
-    )
+    # the state of the cell at each time point, which the device kernels need as a tensor of its
+    # own between the Taylor series and the projection: one per time point, so that the
+    # projection of one time point never reads what the Taylor series of the next one writes
+    state = [
+        OptionalDimTensor(
+            f"faceStateI({c})",
+            aderdg.I.optName(),
+            aderdg.I.optSize(),
+            aderdg.I.optPos(),
+            (aderdg.num3DBasisFunctions(), nq),
+            alignStride=True,
+        )
+        for c in range(order)
+    ]
     taylor = [
         [Scalar(f"taylorCoefficient({c * order + d})") for d in range(order)]
         for c in range(order)
@@ -298,7 +304,7 @@ def addDeviceNonlinearDirichlet(generator, aderdg, project_to_face_nodes, nr):
         series = Accumulate(ops.Add())
         for d in range(order):
             series = series + taylor[c][d] * aderdg.dQs[d]["lq"]
-        return state["lq"] <= series
+        return state[c]["lq"] <= series
 
     def nodalAt(name, quantities):
         return [
@@ -323,7 +329,7 @@ def addDeviceNonlinearDirichlet(generator, aderdg, project_to_face_nodes, nr):
             for expression in [
                 stateAt(c),
                 inodalAt[c]["kq"]
-                <= aderdg.db.V3mTo2nFace[f][aderdg.t("kl")] * state["lq"],
+                <= aderdg.db.V3mTo2nFace[f][aderdg.t("kl")] * state[c]["lq"],
             ]
         ],
         target="gpu",
@@ -365,7 +371,7 @@ def addDeviceNonlinearDirichlet(generator, aderdg, project_to_face_nodes, nr):
                 stateAt(c),
                 inodalAlignedAt[c]["ka"]
                 <= aderdg.db.V3mTo2nFace[f][aderdg.t("kl")]
-                * riemann(state["lm"], "m")
+                * riemann(state[c]["lm"], "m")
                 * riemann(aderdg.Tinv["am"], "a", "m"),
             ]
         ],

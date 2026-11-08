@@ -341,6 +341,8 @@ void NeighIntegrationRecorder<Cfg>::recordNeighborFluxIntegrals() {
         [[fallthrough]];
       case FaceType::Analytical:
         [[fallthrough]];
+      case FaceType::NonlinearDirichlet:
+        [[fallthrough]];
       case FaceType::FreeSurfaceGravity:
         [[fallthrough]];
       case FaceType::Dirichlet: {
