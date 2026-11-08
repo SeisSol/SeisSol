@@ -934,7 +934,8 @@ bool derivedOutputsReadIntegrals(seissol::SeisSol& seissolInstance) {
   const bool masked = std::ranges::any_of(waveField.integrationMask, [](const auto& mask) {
     return std::ranges::find(mask, true) != mask.end();
   });
-  if (masked || waveField.computeStrain) {
+  // what the wave field output writes, only if it does
+  if (waveField.enabled && (masked || waveField.computeStrain)) {
     return true;
   }
   if (waveField.enabled && !waveField.script.empty() && scriptReadsIntegrals(waveField.script)) {
