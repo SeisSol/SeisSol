@@ -12,15 +12,26 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <cerrno>
 #include <cstddef>
-#include <cstdio>
 #include <ctime>
-#include <fcntl.h>
 #include <string>
 #include <string_view>
-#include <unistd.h>
 #include <utils/logger.h>
+
+// A report is written with what a signal handler may call, which are functions of POSIX. Windows
+// has no signals that utils catches (see utils/crash.h); there, the report is written with the
+// files of the C++ library.
+#ifdef _WIN32
+#include <filesystem>
+#include <fstream>
+#include <ios>
+#include <system_error>
+#else
+#include <cerrno>
+#include <cstdio>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 
 namespace seissol::monitoring {
 
@@ -51,6 +62,7 @@ void replaceReport(std::atomic<const Report*>& slot, const Report* report) {
   }
 }
 
+#ifndef _WIN32
 void writeAll(int file, std::string_view text) {
   while (!text.empty()) {
     const auto written = ::write(file, text.data(), text.size());
@@ -63,6 +75,7 @@ void writeAll(int file, std::string_view text) {
     text.remove_prefix(static_cast<std::size_t>(written));
   }
 }
+#endif
 
 //! @brief Splits @p report at the placeholder and puts it in @p slot .
 void setReport(std::atomic<const Report*>& slot,
@@ -93,8 +106,20 @@ void writeReport(const std::atomic<const Report*>& slot, std::string_view detail
   if (claimed.exchange(true)) {
     return;
   }
-  // next to the report and renamed then, as writeFileAtomically() does, with what a signal
-  // handler may call
+  // next to the report and renamed then, as writeFileAtomically() does
+#ifdef _WIN32
+  {
+    std::ofstream stream(report->temporary, std::ios::out | std::ios::trunc | std::ios::binary);
+    stream << report->before << detail << report->after;
+    if (!stream.good()) {
+      return;
+    }
+  }
+  // (std::rename() does not replace a file on Windows)
+  std::error_code error;
+  std::filesystem::rename(report->temporary, report->path, error);
+#else
+  // with what a signal handler may call
   constexpr auto Flags = O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC;
   // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
   const int file = ::open(report->temporary.c_str(), Flags, 0644);
@@ -106,6 +131,7 @@ void writeReport(const std::atomic<const Report*>& slot, std::string_view detail
   writeAll(file, report->after);
   ::close(file);
   static_cast<void>(std::rename(report->temporary.c_str(), report->path.c_str()));
+#endif
 }
 
 } // namespace

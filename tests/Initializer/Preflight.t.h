@@ -16,9 +16,13 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
+
+// an error ends the process that checks, so that the check runs in a child; Windows has no fork()
+#ifndef _WIN32
 #include <sys/wait.h>
 #include <unistd.h>
-#include <vector>
+#endif
 
 namespace seissol::unit_test {
 
@@ -93,6 +97,7 @@ TEST_CASE("The check of a run finds the files it misses" * doctest::test_suite("
   std::filesystem::remove_all(directory);
 }
 
+#ifndef _WIN32
 TEST_CASE("An error stops the check, and its report says which and where" *
           doctest::test_suite("initializer")) {
   const std::string directory = "preflight-error-test";
@@ -132,5 +137,6 @@ TEST_CASE("An error stops the check, and its report says which and where" *
 
   std::filesystem::remove_all(directory);
 }
+#endif
 
 } // namespace seissol::unit_test

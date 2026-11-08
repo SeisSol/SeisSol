@@ -84,7 +84,9 @@ of its rank, with the backtrace, and on rank 0 in the log; then it ends all rank
 stop is reported as a warning, without a backtrace, on the console of rank 0 and in the log, and ends each rank it
 reaches. Note that with Open MPI's ``mpirun``, a rank that ends because another rank failed receives ``SIGTERM`` as
 well, the same as from a scheduler, so ``terminated`` on rank 0 can also stand for a failure on another rank; the exit
-code of the launcher tells the two apart.
+code of the launcher tells the two apart. On Windows, SeisSol catches none of these signals: there, a crash or a request
+to stop leaves ``running``, while a fatal error and an exception that nothing caught end the run as ``failed``, as
+elsewhere.
 
 Times are in seconds, timesteps and simulated times in simulated seconds. Where a value differs between the ranks, the
 summary gives its statistics over them, an object with ``min``, ``max``, ``mean``, ``median``, ``std`` and ``sum``. The

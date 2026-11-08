@@ -37,7 +37,6 @@
 #include <string>
 #include <string_view>
 #include <system_error>
-#include <unistd.h>
 #include <utility>
 #include <utils/args.h>
 #include <utils/crash.h>
@@ -61,6 +60,11 @@
 #include <fenv.h> // NOLINT(modernize-deprecated-headers)
 #endif
 
+// alarm() is POSIX; Windows has no signals that utils catches, so that endOnCrash() does not run
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 namespace {
 using namespace seissol;
 
@@ -70,8 +74,10 @@ using namespace seissol;
  */
 void endOnCrash(const utils::LogSignal& signal) {
   seissol::monitoring::writeFailureReport(signal.json);
+#ifndef _WIN32
   // MPI_Abort() is not async-signal-safe; should it hang, the alarm ends the process
   alarm(10);
+#endif
   int initialized = 0;
   int finalized = 0;
   MPI_Initialized(&initialized);

@@ -17,11 +17,16 @@
 #include <initializer_list>
 #include <sstream>
 #include <string>
+#include <utils/crash.h>
+#include <utils/logger.h>
+
+// a report is written once per process, so that the tests that write one run it in a child; Windows
+// has no fork()
+#ifndef _WIN32
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <utils/crash.h>
-#include <utils/logger.h>
+#endif
 
 namespace seissol::unit_test {
 
@@ -41,6 +46,13 @@ inline utils::LogRecord fatalError() {
   return record;
 }
 
+TEST_CASE("A fatal error as a failure" * doctest::test_suite("monitoring")) {
+  CHECK(monitoring::failureOf(fatalError()) ==
+        R"({"message":"The error.","source":{"file":"Init.cpp","line":12,"function":"initMesh"},)"
+        R"("time":"2023-11-14T22:13:20.123456Z"})");
+}
+
+#ifndef _WIN32
 /**
  * @brief Runs @p function in a child process, which ends after it, and waits for it: a failure is
  * written once per process.
@@ -57,12 +69,6 @@ void inChild(F function) {
   int status = 0;
   REQUIRE(waitpid(child, &status, 0) == child);
   CHECK(WIFEXITED(status));
-}
-
-TEST_CASE("A fatal error as a failure" * doctest::test_suite("monitoring")) {
-  CHECK(monitoring::failureOf(fatalError()) ==
-        R"({"message":"The error.","source":{"file":"Init.cpp","line":12,"function":"initMesh"},)"
-        R"("time":"2023-11-14T22:13:20.123456Z"})");
 }
 
 inline json::Value reportTemplate(const char* status, const char* key) {
@@ -218,5 +224,6 @@ TEST_CASE("A crash marks the run summary as failed" * doctest::test_suite("monit
   std::filesystem::remove(path);
   std::filesystem::remove(prefix + "-epochs.csv");
 }
+#endif
 
 } // namespace seissol::unit_test
