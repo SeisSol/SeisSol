@@ -9,6 +9,7 @@
 
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
+#include "Expr/Cost.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Expr/Rewrite.h"
@@ -90,6 +91,8 @@ struct GhostStateIntegral::Impl {
   std::vector<double> quadWeights;
 
   expr::Program program;
+  // its floating-point operations per point, once counted (flopsPerPoint())
+  std::optional<std::uint64_t> flops;
   std::vector<Input> inputs;
   // per input: for an inner one, its index in the inner state, i * inner.size() + k; for a
   // parameter of the material, its index among them
@@ -356,6 +359,14 @@ void GhostStateIntegral::weights(double width, double* weights) const {
 }
 
 const expr::Program& GhostStateIntegral::program() const { return impl_->program; }
+
+std::uint64_t GhostStateIntegral::flopsPerPoint() const {
+  // counted once: the lowering is cheap, but not free, and the count never changes
+  if (!impl_->flops.has_value()) {
+    impl_->flops = expr::flopsPerPoint(impl_->program);
+  }
+  return *impl_->flops;
+}
 
 GhostStateIntegral::Input GhostStateIntegral::input(std::size_t i) const {
   return impl_->inputs.at(i);

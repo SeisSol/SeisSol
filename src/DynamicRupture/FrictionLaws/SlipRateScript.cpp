@@ -9,6 +9,7 @@
 
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
+#include "Expr/Cost.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Expr/Rewrite.h"
@@ -428,6 +429,10 @@ void SlipRateEvaluator::setLayer(std::size_t points,
   impl_->hostKernels.clear();
   impl_->deviceKernel = Impl::Kernel{};
   impl_->deviceTried = false;
+}
+
+std::uint64_t SlipRateEvaluator::flopsPerPoint() const {
+  return expr::flopsPerPoint(impl_->program);
 }
 
 bool SlipRateEvaluator::prepareDevice(void* stream) {

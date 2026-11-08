@@ -88,6 +88,10 @@ class GhostStateIntegral {
   /// it computes.
   [[nodiscard]] const expr::Program& program() const;
 
+  /// The floating-point operations of program() per point (expr::flopsPerPoint()): of the script
+  /// at all time points of the step, and of their sum.
+  [[nodiscard]] std::uint64_t flopsPerPoint() const;
+
   /// What input `i` of program() reads.
   [[nodiscard]] Input input(std::size_t i) const;
 

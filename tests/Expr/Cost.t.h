@@ -30,6 +30,20 @@ TEST_SUITE("ExprCost") {
     CHECK(two.run.weighted() > two.run.operations());
   }
 
+  TEST_CASE("the floating-point operations count every operation once, a multiply-add twice") {
+    // as SeisSol counts the operations of its generated kernels: x * y, + and sin; the loads,
+    // the stores and the literals are none
+    const Program program = compileSderivModule("out def u = x * y + sin(x)\n");
+    CHECK(flopsPerPoint(program) == 3);
+    // x is loaded in binary64 (no operation), * 2.0, the conversion back, + y
+    const Program converted = compileSderivModule("out def u = real(f64(x) * 2.0) + y\n");
+    CHECK(flopsPerPoint(converted) == 3);
+    StageCost contraction;
+    contraction.fma = 20;
+    contraction.additive = 1;
+    CHECK(contraction.flops() == 41);
+  }
+
   TEST_CASE("a Select costs both arms") {
     // Interp.h evaluates both, so the count has to as well.
     const Program program = compileSderivModule("out def u = select(lt(x,y), sqrt(x), sqrt(y))\n");

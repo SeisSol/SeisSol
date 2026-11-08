@@ -45,6 +45,8 @@
 #include "Monitoring/Metric.h"
 #include "Monitoring/Trace.h"
 #include "Parallel/Runtime/HostRuntime.h"
+#include "Physics/GhostState.h"
+#include "Physics/NonlinearDirichlet.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
@@ -793,8 +795,50 @@ void CellCluster<Cfg>::timeSet(double time) {
 }
 
 template <typename Cfg>
+void CellCluster<Cfg>::countScriptFlops() {
+  constexpr std::uint64_t Nodes = tensor::INodal<Cfg>::Shape[multisim::BasisDim<Cfg>];
+  // per node and step, for all simulations
+  std::uint64_t analytical = 0;
+  if (const auto* state = localKernel_.analyticalGhostState(); state != nullptr) {
+    for (std::size_t s = 0; s < Cfg::NumSimulations; ++s) {
+      analytical += state->integral(s).flopsPerPoint();
+    }
+  }
+  std::uint64_t nonlinear = 0;
+  if (const auto* condition = localKernel_.nonlinearDirichlet(); condition != nullptr) {
+    // the program of the device gives what the script gives alone; the rest is projected
+    const auto* integral = executor_ == Executor::Device && condition->deviceIntegral() != nullptr
+                               ? condition->deviceIntegral()
+                               : &condition->integral();
+    nonlinear = integral->flopsPerPoint() * Cfg::NumSimulations;
+  }
+  if (analytical == 0 && nonlinear == 0) {
+    return;
+  }
+  std::uint64_t flops = 0;
+  const auto* cellInformation = clusterData_->var<LTS::CellInformation>();
+  for (std::size_t cell = 0; cell < clusterData_->size(); ++cell) {
+    for (const auto faceType : cellInformation[cell].faceTypes) {
+      if (faceType == FaceType::Analytical) {
+        flops += analytical * Nodes;
+      } else if (faceType == FaceType::NonlinearDirichlet) {
+        flops += nonlinear * Nodes;
+      }
+    }
+  }
+  // no padding: every operation counted is needed
+  auto& estimate = estimate_[static_cast<int>(ComputePart::Local)];
+  estimate.hardwareFlop += flops;
+  estimate.nonzeroFlop += flops;
+}
+
+template <typename Cfg>
 void CellCluster<Cfg>::reset() {
   AbstractTimeCluster::reset();
+  if (!scriptFlopsCounted_) {
+    countScriptFlops();
+    scriptFlopsCounted_ = true;
+  }
 #ifdef ACL_DEVICE
   // before the first step of the run, which a graph may record
   if (!timeDependentBcPrepared_ && executor_ == Executor::Device && clusterData_->size() > 0) {

@@ -169,6 +169,17 @@ class CellCluster : public CellClusterInterface {
   //! whether the device kernels of the time-dependent boundaries are made (see reset())
   bool timeDependentBcPrepared_{false};
 
+  //! whether the operations of the scripts of the boundaries are in the estimate (see reset())
+  bool scriptFlopsCounted_{false};
+
+  /**
+   * Adds the floating-point operations of the scripts of the boundaries (the analytical and the
+   * nonlinear Dirichlet one) to the estimate of the local integration: at every node of their
+   * faces, for every simulation, per step. They exist from the setup of the side conditions on,
+   * which follows that of the clusters, so once before the first step.
+   */
+  void countScriptFlops();
+
   /**
    * Writes the receiver output if applicable (receivers present, receivers have to be written),
    * with the sampling planned for the step.

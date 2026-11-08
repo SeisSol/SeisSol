@@ -57,6 +57,13 @@ class ScriptedSlipRates : public ImposedSlipRates<Cfg, ScriptedSTF<Cfg>> {
     Base::evaluate(fullUpdateTime, frictionTime, timeWeights, runtime);
   }
 
+  /// the script at every point of a face and every sub-step of the step
+  [[nodiscard]] std::uint64_t scriptFlopsPerFace(bool padded) const override {
+    const std::uint64_t points = padded ? misc::NumPaddedPoints<Cfg>
+                                        : misc::NumBoundaryGaussPoints<Cfg> * Cfg::NumSimulations;
+    return evaluator_.flopsPerPoint() * points * misc::TimeSteps<Cfg>;
+  }
+
   private:
   SlipRateEvaluator evaluator_;
 };

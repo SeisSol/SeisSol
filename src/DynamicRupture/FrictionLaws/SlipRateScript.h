@@ -126,6 +126,9 @@ class SlipRateEvaluator {
   /// law runs there; it is not used otherwise.
   void setLayer(std::size_t points, const LayerData& host, const LayerData& device);
 
+  /// The floating-point operations of the program per point and sub-step (expr::flopsPerPoint()).
+  [[nodiscard]] std::uint64_t flopsPerPoint() const;
+
   /// Makes the kernel of the device, if it runs there (as evaluate() would at its first call):
   /// before the time stepping, so that no recording of the work of a step makes it. Whether it
   /// runs there.

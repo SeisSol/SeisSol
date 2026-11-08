@@ -290,6 +290,14 @@ PerformanceEstimate DynamicRuptureCluster<Cfg>::computeFlops() {
     estimate += dynamicRuptureKernel_.metrics(faceInformation[face]);
   }
 
+  // what a script of the friction law computes (FL 36), on the points it computes, of which only
+  // the Gauss points are needed
+  const auto& solver = executor_ == Executor::Device && frictionSolverDevice_ != nullptr
+                           ? *frictionSolverDevice_
+                           : *frictionSolver_;
+  estimate.hardwareFlop += layerData.size() * solver.scriptFlopsPerFace(true);
+  estimate.nonzeroFlop += layerData.size() * solver.scriptFlopsPerFace(false);
+
   return estimate;
 }
 

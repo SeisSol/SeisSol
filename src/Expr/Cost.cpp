@@ -170,4 +170,8 @@ ProgramCost cost(const Program& program, const LoweredProgram& lowered, ComputeT
   return costs;
 }
 
+std::uint64_t flopsPerPoint(const Program& program) {
+  return countStage(program, lower(program).run()).flops();
+}
+
 } // namespace seissol::expr

@@ -65,6 +65,13 @@ struct StageCost {
     return additive + multiplicative + divisions + transcendentals + fma;
   }
 
+  /// The floating-point operations, as SeisSol counts them (monitoring::FlopCounter): an operation
+  /// one, also one of the maths library, and a multiply-add of a contraction two, as the
+  /// generated kernels count theirs. Not a measure of time (see weighted()).
+  [[nodiscard]] std::uint64_t flops() const {
+    return additive + multiplicative + divisions + transcendentals + 2 * fma;
+  }
+
   /// Operations with the expensive ones weighted, for a single comparable
   /// number. The multipliers are stated rather than tuned: a divide counts as
   /// `DivisionWeight` and a transcendental as `TranscendentalWeight`, both
@@ -101,6 +108,10 @@ struct ProgramCost {
 /// the matrices a contraction runs over.
 [[nodiscard]] ProgramCost
     cost(const Program& program, const LoweredProgram& lowered, ComputeType type);
+
+/// The floating-point operations of `program` per point and call (StageCost::flops()), as the
+/// backends lower it: those of the run stage; the precompute stage runs once.
+[[nodiscard]] std::uint64_t flopsPerPoint(const Program& program);
 
 } // namespace seissol::expr
 

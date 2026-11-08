@@ -19,6 +19,7 @@
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -54,6 +55,13 @@ class FrictionSolver {
    * the time passed to evaluate().
    */
   virtual void setClock(const double* /*deviceClock*/) {}
+
+  /**
+   * The floating-point operations a script of the law computes per face and step (FL 36), at the
+   * points of a face as computed (`padded`) or as needed; zero for a law without one. The laws
+   * themselves count none.
+   */
+  [[nodiscard]] virtual std::uint64_t scriptFlopsPerFace(bool /*padded*/) const { return 0; }
 
   /**
    * compute the DeltaT from the current timePoints of the configuration `Cfg`; call this function
