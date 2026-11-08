@@ -403,7 +403,13 @@ class GridStore {
   // defaultTimeSpacing() where that is not usable. Absent for static grids.
   [[nodiscard]] std::optional<double> timeSpacing(std::size_t id) const;
 
-  // Opens every interned grid. Collective over the rank's communicator.
+  // Opens every interned grid that is not open yet, and sizes the window of every time-dependent
+  // grid whose resident slices changed (residentSlicesFor()). Collective over the rank's
+  // communicator wherever it opens or sizes anything, and only there: a call that finds nothing to
+  // do -- the call of every kernel made after the grids it samples were loaded -- touches neither
+  // the files nor the communicator. That is what lets a kernel be made on some ranks only (those
+  // with a face of a boundary, say) once every rank has interned and loaded the grids of all
+  // scripts in the same order, which the initialization does as it loads the scripts.
   void load();
 
   /// Installs a backend directly, bypassing load(). Exists so that the store's
@@ -422,6 +428,11 @@ class GridStore {
   // to also configure an interval would only create a second, independent way
   // to get it wrong.
   void update(double time);
+
+  /// The end of the run: the grids close their files and release their memory, which a store that
+  /// lives until the process ends could not do later. Collective. The grids sample nothing
+  /// afterwards.
+  void finish();
 
   // Largest synchronisation interval at which update() is still guaranteed to
   // run before any resident window expires.
@@ -454,6 +465,8 @@ class GridStore {
   private:
   std::vector<GridDesc> descs_;
   std::vector<std::unique_ptr<Grid>> grids_;
+  /// The resident slices each time-dependent grid was sized to by load(); zero before.
+  std::vector<std::size_t> windowSlices_;
   std::optional<std::size_t> residentSlicesOverride_;
   std::size_t windowMemoryBudget_{DefaultWindowMemoryBudget};
   double defaultTimeSpacing_{0.0};

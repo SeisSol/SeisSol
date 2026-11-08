@@ -121,9 +121,10 @@ class AsagiLiteGrid final : public Grid {
   /// No-op for a static grid, which open() already loaded.
   Error resizeWindow(std::size_t residentSlices);
 
-  /// Slides the window so that `time` is servable at the full accuracy of the
-  /// configured scheme. Collective. Returns without touching the file when the
-  /// current window already serves it, which is the common case.
+  /// Slides the window so that `time` falls on the first slot the configured
+  /// scheme can use at full accuracy (placeTimeWindow()), which leaves the whole
+  /// remaining window for the times until the next update. Collective. Reads the
+  /// slices that come in only, and nothing where `time` stayed in its cell.
   Error advanceTo(double time);
 
   [[nodiscard]] TimeWindow window() const noexcept { return window_; }

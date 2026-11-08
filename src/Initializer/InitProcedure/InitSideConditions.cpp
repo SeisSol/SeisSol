@@ -13,6 +13,7 @@
 #include "Common/Executor.h"
 #include "Common/Real.h"
 #include "Equations/Datastructures.h"
+#include "Expr/Backend.h"
 #include "Expr/Program.h"
 #include "Expr/RtcGpuDriver.h"
 #include "GeneratedCode/tensor.h"
@@ -33,6 +34,7 @@
 #include "Physics/Scenario/Registry.h"
 #include "Physics/ScriptField.h"
 #include "Physics/ScriptScope.h"
+#include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
@@ -173,6 +175,19 @@ void initAnalyticalBoundary(seissol::SeisSol& seissolInstance) {
             onHost[layer.getIdentifier().config] = true;
           }
         }
+      }
+    }
+  }
+
+  // the grids the scripts of the initial condition sample, on all ranks, whether one has a face of
+  // the boundary or not: loading them is collective (expr::internGrids()), and the kernels of the
+  // boundary are made on the ranks with faces only
+  for (const auto config : seissolInstance.parameters().model.configs()) {
+    for (const auto& field : memoryManager.initialConditions(config)) {
+      const auto* script = dynamic_cast<const physics::ScriptField*>(field.get());
+      if (script != nullptr && script->compiled() && script->program() != nullptr) {
+        static_cast<void>(
+            expr::internGrids(*script->program(), reader::datafield::sharedGridStore()));
       }
     }
   }

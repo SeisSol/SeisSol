@@ -416,6 +416,8 @@ SlipRateEvaluator::SlipRateEvaluator(std::shared_ptr<const SlipRateScript> scrip
   impl_->ends.resize(timeSteps);
   impl_->lengths.resize(timeSteps);
   impl_->starts.resize(timeSteps);
+  // on every rank, as all scripts are loaded (see the class)
+  static_cast<void>(expr::internGrids(program, reader::datafield::sharedGridStore()));
 }
 
 SlipRateEvaluator::~SlipRateEvaluator() = default;
@@ -433,6 +435,12 @@ void SlipRateEvaluator::setLayer(std::size_t points,
 
 std::uint64_t SlipRateEvaluator::flopsPerPoint() const {
   return expr::flopsPerPoint(impl_->program);
+}
+
+void SlipRateEvaluator::prepareHost() {
+  if (impl_->points > 0) {
+    impl_->prepareHost();
+  }
 }
 
 bool SlipRateEvaluator::prepareDevice(void* stream) {

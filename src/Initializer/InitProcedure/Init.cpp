@@ -26,6 +26,7 @@
 #include "Numerical/Statistics.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
+#include "Reader/Datafield/Grid.h"
 #include "Reader/Datafield/GridUpdateModule.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
@@ -33,6 +34,7 @@
 #include <algorithm>
 #include <async/Config.h>
 #include <cstddef>
+#include <stdexcept>
 #include <string>
 #include <utils/logger.h>
 
@@ -100,6 +102,18 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
 
   // set g
   seissolInstance.gravitationSetup().acceleration = seissolParams.model.gravitationalAcceleration;
+
+  // how the data grids keep their time windows (&datafield), before a script loads a grid
+  auto& grids = seissol::reader::datafield::sharedGridStore();
+  grids.setWindowMemoryBudget(seissolParams.datafield.windowMemory);
+  try {
+    grids.setResidentSlices(seissolParams.datafield.residentSlices);
+  } catch (const std::invalid_argument& error) {
+    logError() << "residentslices:" << error.what();
+  }
+  if (seissolParams.datafield.defaultTimeSpacing > 0.0) {
+    grids.setDefaultTimeSpacing(seissolParams.datafield.defaultTimeSpacing);
+  }
 
   // the stages that do not time themselves are timed here; the summary gets all of them
   const auto timed = [&](const char* name, const char* column, const char* message, auto&& stage) {

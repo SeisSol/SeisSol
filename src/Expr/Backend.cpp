@@ -295,23 +295,6 @@ float* InterpreterKernel<float>::persistent() {
   return binding_->persistentF32();
 }
 
-// --- grid interning ---------------------------------------------------------
-
-std::vector<std::size_t> internGrids(const Program& program, GridStore& store) {
-  std::vector<std::size_t> ids;
-  ids.reserve(program.grids().size());
-  for (const auto& desc : program.grids()) {
-    ids.push_back(store.intern(desc));
-  }
-  if (!ids.empty()) {
-    // Idempotent for opening, but the window sizing re-runs, so a caller
-    // building several kernels over one store should intern every program
-    // before the first makeKernel rather than interleaving the two.
-    store.load();
-  }
-  return ids;
-}
-
 std::size_t maxComponents(const std::vector<std::size_t>& ids, GridStore& store) {
   std::size_t most = 1;
   for (const std::size_t id : ids) {
@@ -358,6 +341,19 @@ std::unique_ptr<Kernel> makeInterpreter(const Program& program,
 }
 
 } // namespace
+
+std::vector<std::size_t> internGrids(const Program& program, GridStore& grids) {
+  std::vector<std::size_t> ids;
+  ids.reserve(program.grids().size());
+  for (const auto& desc : program.grids()) {
+    ids.push_back(grids.intern(desc));
+  }
+  if (!ids.empty()) {
+    // a no-op for grids that are open and sized already (GridStore::load())
+    grids.load();
+  }
+  return ids;
+}
 
 const char* name(BackendKind kind) {
   switch (kind) {

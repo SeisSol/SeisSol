@@ -277,6 +277,12 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
     impl.inputIndex.push_back(meaning->second);
   }
 
+  // The grids it samples, loaded now, with the scripts: before the update of the time-dependent
+  // grids is set up for the run, which a device kernel of it made later (before the first step)
+  // would miss. Where they are open already -- the scripts load their grids on all ranks before,
+  // as loading is collective -- this is a lookup in the store.
+  static_cast<void>(expr::internGrids(program, reader::datafield::sharedGridStore()));
+
   // one kernel per thread, bound to storage of its own; a call moves the bases
   if (!onHost) {
     return;

@@ -16,6 +16,7 @@
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h" // IWYU pragma: keep
 #include "Equations/EnergyBase.h"
+#include "Expr/Backend.h"
 #include "Expr/Program.h"
 #include "Expr/RtcGpuDriver.h"
 #include "Expr/SderivFrontend.h"
@@ -52,6 +53,7 @@
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "Physics/NonlinearDirichlet.h"
 #include "Physics/ScriptScope.h"
+#include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/ReaderBuilder.h"
 #include "SeisSol.h"
 
@@ -336,12 +338,18 @@ void initializeNonlinearDirichlet(seissol::SeisSol& seissolInstance) {
       }
     }
   }
-  if (std::any_of(present.begin(), present.end(), [](bool face) { return face; }) &&
-      !fileName.empty()) {
+  const bool anyFace = std::any_of(present.begin(), present.end(), [](bool face) { return face; });
+  if (!fileName.empty()) {
     expr::SderivOptions options;
     options.inputs.insert(innerState.begin(), innerState.end());
     if (const auto program = reader::scripting::buildProgram(fileName, nullptr, options)) {
-      scope.checkKept(*program, fileName);
+      if (anyFace) {
+        scope.checkKept(*program, fileName);
+      }
+      // the grids it samples, on all ranks, whether one has a face of the boundary or not: loading
+      // them is collective (expr::internGrids()), and the kernels of the boundary are made on the
+      // ranks with faces only
+      static_cast<void>(expr::internGrids(*program, reader::datafield::sharedGridStore()));
     }
   }
   for (const auto config : configs) {

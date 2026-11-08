@@ -546,10 +546,13 @@ AsagiLiteGrid::Error AsagiLiteGrid::advanceTo(double time) {
     }
   }
 
+  // Placed anew whenever `time` moved past the first slot the scheme can use, not only where the
+  // window no longer serves `time` itself: the window has to serve every time until the next
+  // update, which comes up to GridStore::suggestedSyncInterval() later, (W - w) cells -- exactly
+  // the span ahead of a window placed so (placeTimeWindow()). A window kept while it still serves
+  // `time` may serve only a cell more, and the samples after it would be clamped onto its last
+  // slice.
   const StencilKernel kernel = kernelOf(interp_);
-  if (windowServes(window_, base, kernel, numTimeSlices_)) {
-    return Error::Success;
-  }
   const TimeWindow target = placeTimeWindow(base, kernel, window_.count, numTimeSlices_);
   if (target == window_) {
     return Error::Success;

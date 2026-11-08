@@ -25,6 +25,8 @@ void GridUpdateModule::simulationStart(std::optional<double> checkpointTime) {
 
 void GridUpdateModule::syncPoint(double currentTime) { store_->update(currentTime); }
 
+void GridUpdateModule::simulationEnd() { store_->finish(); }
+
 void GridUpdateModule::enable(double interval, Modules& modules) {
   modules.registerHook(*this, ModuleHook::SimulationStart);
   modules.registerHook(*this, ModuleHook::SynchronizationPoint);
@@ -37,6 +39,14 @@ void GridUpdateModule::enable(double interval, Modules& modules) {
 void registerGridUpdateModule(Modules& modules) {
   static GridUpdateModule module(sharedGridStore());
   static bool registered = false;
+  static bool ending = false;
+  if (!ending) {
+    // whether or not a grid is time-dependent: the copies of the grids report at the end of the run
+    // (GridStore::finish()), e.g. a lookup on a device outside the volume of a grid that fails
+    // there
+    modules.registerHook(module, ModuleHook::SimulationEnd);
+    ending = true;
+  }
   if (registered) {
     return;
   }

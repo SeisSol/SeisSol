@@ -105,6 +105,10 @@ class SlipRateScript {
 /// On the host, one kernel per thread evaluates a range of points per call; on a device, one
 /// kernel evaluates the whole layer per sub-step, on the stream of the friction law. A build
 /// without a runtime compiler for its device evaluates on the host and says so.
+///
+/// The grids the script samples are loaded when the evaluator is made, on every rank, whether a
+/// layer of it has faces or not: loading them is collective (expr::internGrids()), and is then
+/// done before the update of time-dependent grids is set up for the run.
 class SlipRateEvaluator {
   public:
   struct LayerData {
@@ -128,6 +132,10 @@ class SlipRateEvaluator {
 
   /// The floating-point operations of the program per point and sub-step (expr::flopsPerPoint()).
   [[nodiscard]] std::uint64_t flopsPerPoint() const;
+
+  /// Makes the kernels of the host (as evaluate() would at its first call): before the time
+  /// stepping, so that compiling them is no part of the first step.
+  void prepareHost();
 
   /// Makes the kernel of the device, if it runs there (as evaluate() would at its first call):
   /// before the time stepping, so that no recording of the work of a step makes it. Whether it

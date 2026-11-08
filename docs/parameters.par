@@ -275,6 +275,14 @@ VertexWeightOutput = 0 ! (optional) 1: measures what each cell costs in the run 
 ! It needs timed loops: not within recorded super-timesteps.
 /
 
+&datafield
+! The data grids the scripts sample (grid declarations in sderiv). A grid with a time axis keeps a
+! window of its slices in memory, which slides as the simulation advances.
+windowmemory = 1024                  ! MiB for the windows of all grids with a time axis (per rank)
+residentslices = 0                   ! slices per window instead; 0 derives them from windowmemory
+defaulttimespacing = 0.0             ! time between slices for a file that does not state it
+/
+
 &AbortCriteria
 EndTime = 15.0
 terminatorMaxTimePostRupture = 5.0   ! Stops SeisSol x sec after slip rate everywhere on the fault or seismic moment rate is below

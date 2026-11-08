@@ -37,6 +37,9 @@ class GridUpdateModule : public Module {
 
   void syncPoint(double currentTime) override;
 
+  /// What the copies of the grids have to report at the end (GridStore::finish()).
+  void simulationEnd() override;
+
   /// Register for the two hooks of `modules` and adopt `interval`. A member because
   /// Module::setSyncInterval is protected -- the framework's way of saying that
   /// a module's cadence is its own business and not something a registrar sets
@@ -48,7 +51,8 @@ class GridUpdateModule : public Module {
 };
 
 /// Register a GridUpdateModule for the shared store with the modules of the
-/// SeisSol instance, if and only if some grid in it is time-dependent.
+/// SeisSol instance: for the synchronisation points if and only if some grid in
+/// it is time-dependent, and for the end of the simulation in any case.
 ///
 /// ORDERING: call this AFTER every model has been loaded. The store is filled by
 /// makeKernel interning a program's grids, which happens when a CompiledReader

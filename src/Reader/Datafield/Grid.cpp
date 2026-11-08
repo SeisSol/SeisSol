@@ -113,6 +113,7 @@ std::size_t GridStore::intern(const GridDesc& desc) {
   }
   descs_.push_back(desc);
   grids_.emplace_back();
+  windowSlices_.push_back(0);
   return descs_.size() - 1;
 }
 
@@ -235,6 +236,12 @@ void GridStore::load() {
   // there are and what one costs — and the geometry is only known once the file
   // is open. So makeGrid() opens and reads metadata, and only then can the
   // budget be turned into a slice count and the window actually allocated.
+  //
+  // Both phases skip what is done already: opening and sizing are collective, and
+  // a call that finds nothing to do must not reach the communicator, or a kernel
+  // made on some ranks only would wait for the others forever (see Grid.h). A
+  // window is sized again where its share of the budget changed, i.e. where a
+  // time-dependent grid was added -- on all ranks alike, as the scripts are.
   for (std::size_t i = 0; i < descs_.size(); ++i) {
     if (grids_[i] == nullptr) {
       grids_[i] = makeGrid(descs_[i]);
@@ -242,7 +249,11 @@ void GridStore::load() {
   }
   for (std::size_t i = 0; i < descs_.size(); ++i) {
     if (descs_[i].timeDependent()) {
-      resizeWindow(*grids_[i], residentSlicesFor(i));
+      const std::size_t slices = residentSlicesFor(i);
+      if (windowSlices_[i] != slices) {
+        resizeWindow(*grids_[i], slices);
+        windowSlices_[i] = slices;
+      }
     }
   }
 }
@@ -256,6 +267,17 @@ void GridStore::update(double time) {
     if (descs_[i].timeDependent() && grids_[i] != nullptr) {
       advanceWindow(*grids_[i], time);
     }
+  }
+}
+
+void GridStore::finish() {
+  for (std::size_t i = 0; i < grids_.size(); ++i) {
+    if (grids_[i] == nullptr) {
+      continue;
+    }
+    // the file and the memory of the grid now, while HDF5 and MPI are there: the store may live
+    // until the process ends
+    closeGrid(*grids_[i]);
   }
 }
 

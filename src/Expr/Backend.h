@@ -16,8 +16,10 @@
 #include "Expr/Program.h"
 #include "Reader/Datafield/Grid.h"
 
+#include <cstddef>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace seissol::expr {
 
@@ -213,13 +215,21 @@ struct BackendOptions {
 //
 // The program's grids are interned into `grids` and the store is loaded here,
 // so that a Lookup's dimension and component can be checked against the real
-// file once, loudly, instead of being discovered per tile. A caller building
-// several kernels over one store should intern all programs first: load() is
-// idempotent for opening a file but re-runs the window sizing each time.
+// file once, loudly, instead of being discovered per tile. A caller that makes
+// its kernels on some ranks only interns the grids of its program on all ranks
+// before (internGrids()): loading is collective where it opens or sizes a grid
+// (GridStore::load()).
 std::unique_ptr<Kernel> makeKernel(const Program& program,
                                    Binding& binding,
                                    reader::datafield::GridStore& grids,
                                    const BackendOptions& options);
+
+/// Interns the grids of `program` into `grids` and loads them; their indices in the store, by
+/// GridId. Collective where it opens or sizes a grid (GridStore::load()): a script whose kernels
+/// are made on some ranks only -- where a cluster has a face of its boundary, say -- calls this
+/// on all ranks when it is loaded, so that the store opens the same grids in the same order on
+/// all of them, and making a kernel later finds them open.
+std::vector<std::size_t> internGrids(const Program& program, reader::datafield::GridStore& grids);
 
 // --- deferred backends -------------------------------------------------------
 // Present as declarations so the decision is recorded in the interface rather

@@ -14,6 +14,7 @@
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/SlipRateScript.h"
 #include "DynamicRupture/Misc.h"
+#include "Kernels/Common.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Reader/Scripting/DataTable.h"
@@ -47,6 +48,11 @@ class ScriptedSlipRates : public ImposedSlipRates<Cfg, ScriptedSTF<Cfg>> {
         layerData.var<LTSImposedSlipRatesScript::ScriptParameters>(Cfg()));
     data.slipRates = layerData.var<LTSImposedSlipRatesScript::ScriptSlipRates>(Cfg());
     evaluator_.setLayer(layerData.size() * misc::NumPaddedPoints<Cfg>, data, data);
+    if constexpr (!seissol::isDeviceOn()) {
+      // before the time stepping, so that compiling the kernels is no part of the first step; a
+      // device build makes them where a layer runs on the host, which most do not
+      evaluator_.prepareHost();
+    }
   }
 
   void evaluate(double fullUpdateTime,
