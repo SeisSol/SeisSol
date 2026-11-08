@@ -515,8 +515,9 @@ class DeviceGhostStates {
     // the state at each time point, in a tensor of its own
     for (std::size_t c = 0; c < Cfg::ConvergenceOrder; ++c) {
       project.faceStateI(c) = blocks;
+      // shaped like I, which every configuration has (not only those with this kernel)
       project.extraOffset_faceStateI(c) = static_cast<int>(
-          kernels::NonlinearDirichletScratch<Cfg>::State + c * tensor::faceStateI<Cfg>::size(c));
+          kernels::NonlinearDirichletScratch<Cfg>::State + c * tensor::I<Cfg>::size());
     }
   }
 
