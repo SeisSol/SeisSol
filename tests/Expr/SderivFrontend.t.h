@@ -135,6 +135,52 @@ TEST_SUITE("SderivFrontend") {
     CHECK(lookups == 2);
   }
 
+  TEST_CASE("a grid declared with attributes states its boundary and its time axis") {
+    const auto program = mustCompile(
+        "grid m (kind = \"asagi\", path = \"model.nc\", variable = \"data\",\n"
+        "        components = (\"rho\", \"mu\"), interpolation = \"cubic\", boundary = \"fail\",\n"
+        "        time = 3)\n"
+        "m_mu(x, y, z, t)");
+    REQUIRE(program.grids().size() == 1);
+    const auto& desc = program.grids()[0];
+    CHECK(desc.path == "model.nc");
+    CHECK(desc.variable == "data");
+    CHECK(desc.interpolation == reader::datafield::Interpolation::Cubic);
+    CHECK(desc.boundary == reader::datafield::BoundaryMode::Fail);
+    REQUIRE(desc.timeAxis.has_value());
+    CHECK(*desc.timeAxis == 3);
+    bool sampled = false;
+    for (std::size_t i = 0; i < program.arena().size(); ++i) {
+      const auto& node = program.arena()[static_cast<NodeId>(i)];
+      sampled = sampled || (node.kind == Kind::Lookup && node.comp == 1 && node.argCount == 4);
+    }
+    CHECK(sampled);
+
+    // the short form clamps and has no time axis
+    const auto plain = mustCompile(GridAndDef);
+    CHECK(plain.grids()[0].boundary == reader::datafield::BoundaryMode::Clamp);
+    CHECK_FALSE(plain.grids()[0].timeAxis.has_value());
+
+    // one component may stand alone; the time axis is optional
+    const auto single = mustCompile(
+        "grid g (kind = \"asagi\", path = \"g.nc\", variable = \"z\", components = \"v\",\n"
+        "        interpolation = \"linear\", boundary = \"clamp\")\ng_v(x, y)");
+    CHECK_FALSE(single.grids()[0].timeAxis.has_value());
+  }
+
+  TEST_CASE("a grid declared with attributes gives all of them, once, and only those") {
+    const std::string head = "grid m (kind = \"asagi\", path = \"m.nc\", variable = \"z\", "
+                             "components = (\"rho\"), interpolation = \"linear\"";
+    mustReject(head + ")\nm_rho(x, y, z)", "gives no boundary");
+    mustReject(head + ", boundary = \"wrap\")\nm_rho(x, y, z)", "unknown boundary \"wrap\"");
+    mustReject(head + ", boundary = \"clamp\", colour = \"red\")\nm_rho(x, y, z)",
+               "unknown attribute `colour`");
+    mustReject(head + ", boundary = \"clamp\", boundary = \"fail\")\nm_rho(x, y, z)",
+               "`boundary` is given twice");
+    mustReject(head + ", boundary = \"clamp\", time = 1.5)\nm_rho(x, y, z)", "the time is an axis");
+    mustReject(head + ", boundary = \"clamp\", time = 3)\nm_rho(x, y, z)", "axis 3 is the time");
+  }
+
   TEST_CASE("the input signature is inferred with no declaration at all") {
     // Every unresolved name that is not a const, builtin, def, let or grid
     // component is an input channel. Unlike the Lua path this needs no

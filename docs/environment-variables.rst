@@ -152,6 +152,40 @@ phase late in a run in binary64, and the rest in the precision of the configurat
    def phase = 2.0 * pi * frequency * f64(t)
    out def v1 = amplitude * real(sin(phase))
 
+A script may sample a data grid: an array on a uniform Cartesian grid in a NetCDF file, read as
+ASAGI reads it (axis 0 is the dimension that varies fastest in the file). In an sderiv module,
+``grid m = "asagi", "model.nc", "linear", "rho", "mu"`` declares the grid ``m`` of the variable
+``z`` of the file, with the components ``rho`` and ``mu``, and ``m_rho(x, y, z)`` samples it;
+``grid m = "asagi", "model.nc", "data", "linear", "rho", "mu"`` reads the variable ``data``. The
+same with its attributes stated, as the core format of sderiv has them:
+
+.. code-block:: text
+
+   grid m (kind = "asagi", path = "model.nc", variable = "z", components = ("rho", "mu"),
+           interpolation = "linear", boundary = "clamp")
+
+``interpolation`` is ``"nearest"``, ``"linear"`` or ``"cubic"``; with ``boundary = "clamp"`` a
+coordinate beyond the grid samples its boundary, with ``"fail"`` it is an error. ``time = k`` makes
+axis ``k`` time, which must be the slowest dimension of the file, i.e. the last axis: the script
+passes the time as that coordinate, and SeisSol keeps a window of slices along it in memory, which
+it moves at synchronization points as the simulation advances. For example, the velocity of a wall
+(the nonlinear Dirichlet boundary) from a time series ``v(t)``:
+
+.. code-block:: text
+
+   grid w (kind = "asagi", path = "wall.nc", variable = "v", components = ("v1"),
+           interpolation = "linear", boundary = "clamp", time = 0)
+   out def v1 = w_v1(t)
+
+How long the windows are is set in the ``&datafield`` block of the parameter file:
+``windowmemory`` (MiB for all of them per rank, by default 1024) or ``residentslices`` (slices
+per window); the time between synchronization points follows from them and from the time step of
+the file. The grid computes its indices and its samples in binary64, as easi's ASAGI component
+does. On a GPU, a kernel samples a copy of the grid on the device, which SeisSol makes when it
+prepares the kernel and updates where the window moves; the samples are the same bits as on the
+host. A compiled CPU kernel does not sample grids yet: a script that does runs in the interpreter
+on the host.
+
 The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
 ``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They
 are kept across runs in the directory ``SEISSOL_EXPR_CACHE`` names, by default ``seissol/expr`` in

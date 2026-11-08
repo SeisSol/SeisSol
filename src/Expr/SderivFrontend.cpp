@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -223,6 +224,10 @@ struct GridDeclaration {
   std::string variable;
   std::string interpolation;
   std::vector<std::string> components;
+  /// what a sample beyond the volume does (GridDesc::boundary), and the axis that is time, if any
+  /// (GridDesc::timeAxis): only the form with attributes states them
+  std::string boundary{"clamp"};
+  std::optional<int> timeAxis;
   int position{0};
 };
 
@@ -362,11 +367,19 @@ class Parser {
     return next();
   }
 
+  // 'grid' NAME '=' KIND ',' FILE ',' [VARIABLE ','] INTERPOLATION {',' COMPONENT}, which clamps
+  // and has no time axis; or, as in the core format (the sderiv spec), 'grid' NAME '(' ATTRIBUTE
+  // {',' ATTRIBUTE} ')', with ATTRIBUTE = NAME '=' (STRING | INTEGER | '(' STRING {',' STRING}
+  // ')').
   GridDeclaration gridDeclaration() {
     GridDeclaration grid;
     grid.position = peek().position;
     eat(TokenKind::Grid);
     grid.name = eat(TokenKind::Name).value;
+    if (peek().kind == TokenKind::Op && valueIs("(")) {
+      gridAttributes(grid);
+      return grid;
+    }
     eat(TokenKind::Op, "=");
     grid.kind = eat(TokenKind::Str).value;
     eat(TokenKind::Op, ",");
@@ -386,6 +399,82 @@ class Parser {
       grid.components.push_back(eat(TokenKind::Str).value);
     }
     return grid;
+  }
+
+  // The attributes of a grid, of which the core format requires all but `time`: it has no
+  // defaults, so a declaration says what it means; the short form above is the one with them.
+  void gridAttributes(GridDeclaration& grid) {
+    const std::vector<std::string> names = {
+        "kind", "path", "variable", "components", "interpolation", "boundary", "time"};
+    std::set<std::string> given;
+    eat(TokenKind::Op, "(");
+    while (true) {
+      const Token& key = eat(TokenKind::Name);
+      if (std::find(names.begin(), names.end(), key.value) == names.end()) {
+        throw SderivError("grid",
+                          "grid `" + grid.name + "`: unknown attribute `" + key.value +
+                              "`; a grid has kind, path, variable, components, interpolation, "
+                              "boundary and time",
+                          key.position);
+      }
+      if (!given.insert(key.value).second) {
+        throw SderivError("grid",
+                          "grid `" + grid.name + "`: the attribute `" + key.value +
+                              "` is given twice",
+                          key.position);
+      }
+      eat(TokenKind::Op, "=");
+      if (key.value == "components") {
+        if (peek().kind == TokenKind::Op && valueIs("(")) {
+          eat(TokenKind::Op, "(");
+          grid.components.push_back(eat(TokenKind::Str).value);
+          while (valueIs(",")) {
+            eat(TokenKind::Op, ",");
+            grid.components.push_back(eat(TokenKind::Str).value);
+          }
+          eat(TokenKind::Op, ")");
+        } else {
+          grid.components.push_back(eat(TokenKind::Str).value);
+        }
+      } else if (key.value == "time") {
+        const Token& axis = eat(TokenKind::Num);
+        if (axis.value.find_first_not_of("0123456789") != std::string::npos ||
+            axis.value.size() > 2 || std::stoi(axis.value) >= MaxLookupDimension) {
+          throw SderivError("grid",
+                            "grid `" + grid.name + "`: the time is an axis, 0 to " +
+                                std::to_string(MaxLookupDimension - 1) + ", not " + axis.value,
+                            axis.position);
+        }
+        grid.timeAxis = std::stoi(axis.value);
+      } else {
+        const std::string value = eat(TokenKind::Str).value;
+        if (key.value == "kind") {
+          grid.kind = value;
+        } else if (key.value == "path") {
+          grid.file = value;
+        } else if (key.value == "variable") {
+          grid.variable = value;
+        } else if (key.value == "interpolation") {
+          grid.interpolation = value;
+        } else {
+          grid.boundary = value;
+        }
+      }
+      if (!valueIs(",")) {
+        break;
+      }
+      eat(TokenKind::Op, ",");
+    }
+    eat(TokenKind::Op, ")");
+    for (const auto& name : names) {
+      if (name != "time" && given.count(name) == 0) {
+        throw SderivError("grid",
+                          "grid `" + grid.name + "` gives no " + name +
+                              "; a grid with attributes gives kind, path, variable, components, "
+                              "interpolation and boundary, and may give time",
+                          grid.position);
+      }
+    }
   }
 
   // 'state' [TYPE] NAME '=' ['-'] NUM -- the initial value is a literal: it is set before any
@@ -630,6 +719,12 @@ ComponentTable checkGrids(const std::vector<GridDeclaration>& grids,
       throw SderivError("grid",
                         "grid `" + grid.name + "`: unknown interpolation \"" + grid.interpolation +
                             "\"; did the file and the interpolation get swapped?",
+                        grid.position);
+    }
+    if (!reader::datafield::parseBoundaryMode(grid.boundary).has_value()) {
+      throw SderivError("grid",
+                        "grid `" + grid.name + "`: unknown boundary \"" + grid.boundary +
+                            "\"; it is \"clamp\" or \"fail\"",
                         grid.position);
     }
     if (grid.components.empty()) {
@@ -972,6 +1067,12 @@ private:
            "`" + node.text + "`: sampled with " + std::to_string(node.args.size()) +
                " coordinates, the IR allows 1..6");
     }
+    const auto& timeAxis = parsed_.grids[fn.grid].timeAxis;
+    if (timeAxis.has_value() && static_cast<std::size_t>(*timeAxis) >= node.args.size()) {
+      fail(node,
+           "`" + node.text + "`: sampled with " + std::to_string(node.args.size()) +
+               " coordinates, but axis " + std::to_string(*timeAxis) + " is the time");
+    }
     std::vector<NodeId> coords;
     coords.reserve(node.args.size());
     for (const SurfaceId arg : node.args) {
@@ -1301,14 +1402,14 @@ void compileSource(const std::string& source,
     // this frontend exists to remove. The names stay in ComponentTable, which
     // is frontend-local and already built above.
     //
-    // NOT YET EXPRESSIBLE in the surface syntax: GridDesc::boundary and
-    // GridDesc::timeAxis, both left at their defaults (Clamp, static). A
-    // time-dependent grid therefore cannot be declared from sderiv yet; that
-    // is a grammar addition and it belongs with the GridUpdateModule work.
+    // GridDesc::boundary and GridDesc::timeAxis come from the form with attributes; the short
+    // form clamps and has no time axis.
     desc.kind = *reader::datafield::parseGridKind(grid.kind);
     desc.path = grid.file;
     desc.variable = grid.variable;
     desc.interpolation = *reader::datafield::parseInterpolation(grid.interpolation);
+    desc.boundary = *reader::datafield::parseBoundaryMode(grid.boundary);
+    desc.timeAxis = grid.timeAxis;
     // internGrid dedupes, so two outputs naming the same grid share a GridId
     // and the backend loads the file once.
     gridIds.push_back(program.internGrid(desc));

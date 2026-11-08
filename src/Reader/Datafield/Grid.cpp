@@ -87,6 +87,16 @@ std::optional<Interpolation> parseInterpolation(const std::string& text) {
   return std::nullopt;
 }
 
+std::optional<BoundaryMode> parseBoundaryMode(const std::string& text) {
+  if (text == "clamp") {
+    return BoundaryMode::Clamp;
+  }
+  if (text == "fail") {
+    return BoundaryMode::Fail;
+  }
+  return std::nullopt;
+}
+
 std::string GridDesc::canonicalKey() const {
   // The time axis is part of the key because it changes the sampling arity the
   // kernel emits, not merely which slices are resident.

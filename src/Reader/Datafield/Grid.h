@@ -200,6 +200,8 @@ inline constexpr std::size_t DefaultWindowMemoryBudget = 1ULL << 30; // 1 GiB
 // neither diagnostic can be produced from in here.
 [[nodiscard]] std::optional<GridKind> parseGridKind(const std::string& text);
 [[nodiscard]] std::optional<Interpolation> parseInterpolation(const std::string& text);
+/// "clamp" or "fail".
+[[nodiscard]] std::optional<BoundaryMode> parseBoundaryMode(const std::string& text);
 
 // The dataset inside the file when a frontend does not name one. Matches
 // AsagiLiteGrid::open's own default; stated once so the two frontends cannot
