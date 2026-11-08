@@ -12,6 +12,7 @@
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Expr/Rewrite.h"
+#include "Memory/MemoryAllocator.h"
 #include "Parallel/OpenMP.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
@@ -28,6 +29,10 @@
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
+
+#ifdef ACL_DEVICE
+#include "Kernels/DeviceAux/TimePointsAux.h"
+#endif
 
 namespace seissol::dr::friction_law {
 
@@ -226,16 +231,24 @@ struct SlipRateEvaluator::Impl {
   Kernel deviceKernel;
   bool deviceTried{false};
 
+  /// The starts of the sub-steps of the current step on the device, and then their ends, which
+  /// the device kernel reads (see evaluate()).
+  memory::MemkindArray<double> deviceTimes{memory::Memkind::DeviceGlobalMemory};
+
   /// A table of `numPoints` points over the arrays of `data`, through which a kernel is bound;
-  /// a call moves the bases.
-  [[nodiscard]] std::unique_ptr<DataTable> makeTable(std::size_t numPoints,
-                                                     const LayerData& data) const {
+  /// a call moves the bases. With `times`, the kernel reads the start and the end of a sub-step
+  /// from there, where it runs; otherwise, they are passed by value.
+  [[nodiscard]] std::unique_ptr<DataTable>
+      makeTable(std::size_t numPoints, const LayerData& data, const double* times = nullptr) const {
     auto table = std::make_unique<DataTable>(numPoints);
     for (std::size_t i = 0; i < program.inputs().size(); ++i) {
       const auto& name = program.inputs()[i].name;
       if (inputKinds[i] == Input::Row) {
         table->bindViewConst<double>(
             name, Direction::In, data.parameters + inputRows[i] * points, 1);
+      } else if (times != nullptr && inputKinds[i] != Input::Length) {
+        // the same at all points
+        table->bindViewConst<double>(name, Direction::In, times, 0);
       } else {
         table->bindConstant<double>(name, 0.0);
       }
@@ -253,21 +266,26 @@ struct SlipRateEvaluator::Impl {
     return table;
   }
 
-  /// The bases of the call for sub-step `step` over the points [first, first + count) of `data`.
-  void setBases(Kernel& kernel, const LayerData& data, std::size_t step, std::size_t first) const {
+  /// The bases of the call for sub-step `step` over the points [first, first + count) of `data`;
+  /// with `times`, the start and the end of the sub-step are read from there (see makeTable()).
+  void setBases(Kernel& kernel,
+                const LayerData& data,
+                std::size_t step,
+                std::size_t first,
+                const double* times = nullptr) const {
     for (std::size_t i = 0; i < inputKinds.size(); ++i) {
       switch (inputKinds[i]) {
       case Input::Row:
         kernel.inputs[i] = data.parameters + inputRows[i] * points + first;
         break;
       case Input::End:
-        kernel.inputs[i] = &ends[step];
+        kernel.inputs[i] = times != nullptr ? times + timeSteps + step : &ends[step];
         break;
       case Input::Length:
         kernel.inputs[i] = &lengths[step];
         break;
       case Input::Start:
-        kernel.inputs[i] = &starts[step];
+        kernel.inputs[i] = times != nullptr ? times + step : &starts[step];
         break;
       }
     }
@@ -342,7 +360,8 @@ struct SlipRateEvaluator::Impl {
     if (backend == expr::BackendKind::RtcCpu) {
       return false;
     }
-    auto table = makeTable(points, device);
+    deviceTimes = memory::MemkindArray<double>(2 * timeSteps, memory::Memkind::DeviceGlobalMemory);
+    auto table = makeTable(points, device, deviceTimes.data());
     auto binding = std::make_unique<expr::Binding>(expr::Binding::bind(program, *table));
     expr::BackendOptions options;
     options.preferred = backend;
@@ -411,10 +430,15 @@ void SlipRateEvaluator::setLayer(std::size_t points,
   impl_->deviceTried = false;
 }
 
+bool SlipRateEvaluator::prepareDevice(void* stream) {
+  return impl_->points == 0 || impl_->prepareDevice(stream);
+}
+
 bool SlipRateEvaluator::evaluate(double startTime,
                                  const std::vector<double>& deltaT,
                                  void* stream,
-                                 bool onDevice) {
+                                 bool onDevice,
+                                 const double* clock) {
   auto& impl = *impl_;
   if (impl.points == 0) {
     return true;
@@ -434,8 +458,35 @@ bool SlipRateEvaluator::evaluate(double startTime,
   }
 
   if (onDevice && impl.prepareDevice(stream)) {
+    // the starts and the ends of the sub-steps, where the kernels read them: from the clock on the
+    // device if there is one, so that a replay of the work of a step evaluates the script at the
+    // time of the step it runs in; the offsets into the step depend on its width alone
+    double* times = impl.deviceTimes.data();
+#ifdef ACL_DEVICE
+    if (clock != nullptr) {
+      if (2 * impl.timeSteps > kernels::timepoints::MaxTimeOffsets) {
+        logError() << "imposed slip rates: a step of" << impl.timeSteps
+                   << "sub-steps has more times than the device computes from its clock.";
+      }
+      kernels::timepoints::TimeOffsets offsets;
+      offsets.count = 2 * impl.timeSteps;
+      double offset = 0;
+      for (std::size_t step = 0; step < impl.timeSteps; ++step) {
+        offsets.values[step] = offset;
+        offset += deltaT[step];
+        offsets.values[impl.timeSteps + step] = offset;
+      }
+      kernels::timepoints::timePoints(clock, offsets, times, stream);
+    } else
+#endif
+    {
+      // without a clock, from the host (which a replay of a recorded step does not see)
+      std::vector<double> hostTimes(impl.starts);
+      hostTimes.insert(hostTimes.end(), impl.ends.begin(), impl.ends.end());
+      impl.deviceTimes.copyFrom(hostTimes);
+    }
     for (std::size_t step = 0; step < impl.timeSteps; ++step) {
-      impl.setBases(impl.deviceKernel, impl.device, step, 0);
+      impl.setBases(impl.deviceKernel, impl.device, step, 0, times);
       impl.run(impl.deviceKernel, impl.points, stream);
     }
     return true;

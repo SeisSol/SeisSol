@@ -24,9 +24,10 @@ namespace seissol::dr::friction_law {
 /// The script reads the time `t`, the point `x`, `y`, `z`, the simulation `sim`, and any other
 /// name as a parameter of the fault, read from the fault parameter file (as FL 33 reads
 /// `strike_slip`), or as `<p>_plus` and `<p>_minus` the parameter p of the material on that side
-/// of the fault (both Row::Parameter here; the initializer tells them apart). It gives either the slip at `t`, `slip_strike` and `slip_dip`, or the slip rate
-/// at `t`, `slip_rate_strike` and `slip_rate_dip`: along strike and dip, with the signs of FL 33.
-/// A script of the rate may also read `dt`, the length of the sub-step that ends at `t`.
+/// of the fault (both Row::Parameter here; the initializer tells them apart). It gives either the
+/// slip at `t`, `slip_strike` and `slip_dip`, or the slip rate at `t`, `slip_rate_strike` and
+/// `slip_rate_dip`: along strike and dip, with the signs of FL 33. A script of the rate may also
+/// read `dt`, the length of the sub-step that ends at `t`.
 ///
 /// The rate of a sub-step is taken from the slip as its increment over the sub-step divided by
 /// the length of the sub-step, so the slip SeisSol accumulates is that of the script at every end
@@ -125,10 +126,22 @@ class SlipRateEvaluator {
   /// law runs there; it is not used otherwise.
   void setLayer(std::size_t points, const LayerData& host, const LayerData& device);
 
+  /// Makes the kernel of the device, if it runs there (as evaluate() would at its first call):
+  /// before the time stepping, so that no recording of the work of a step makes it. Whether it
+  /// runs there.
+  bool prepareDevice(void* stream);
+
   /// The slip rates of the sub-steps of the step that starts at `startTime`, with the sub-steps
   /// `deltaT` long. With `onDevice`, they are written on the device on `stream` if it can, which
-  /// it returns; false means they were written on the host, and the caller copies them.
-  bool evaluate(double startTime, const std::vector<double>& deltaT, void* stream, bool onDevice);
+  /// it returns; false means they were written on the host, and the caller copies them. On the
+  /// device, the kernels read the start of the step from `clock` there (solver::ClusterClock::
+  /// device()) if it is given, so that a replay of the recorded work of a step evaluates the script
+  /// at the time of the step it runs in; otherwise, the start is `startTime`.
+  bool evaluate(double startTime,
+                const std::vector<double>& deltaT,
+                void* stream,
+                bool onDevice,
+                const double* clock = nullptr);
 
   private:
   struct Impl;
