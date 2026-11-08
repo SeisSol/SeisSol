@@ -205,6 +205,22 @@ class CanonicalWalk {
     case Kind::Sample:
       appendOperands(id);
       break;
+    case Kind::GridParam:
+      text_ += ' ';
+      appendInt(text_, n.grid);
+      text_ += ':';
+      appendInt(text_, n.comp);
+      text_ += ':';
+      appendInt(text_, n.axis);
+      break;
+    case Kind::GridLoad:
+      text_ += ' ';
+      appendInt(text_, n.grid);
+      appendOperands(id);
+      break;
+    }
+    if (n.strict) {
+      text_ += " strict";
     }
     text_ += '\n';
   }

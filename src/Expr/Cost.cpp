@@ -90,8 +90,11 @@ StageCost countStage(const Program& program, const StageCode& stage) {
     case Opcode::LoadPersistent:
       ++costs.loads;
       break;
-    case Opcode::Lookup:
-      ++costs.lookups;
+    case Opcode::GridLoad:
+      ++costs.gridLoads;
+      break;
+    case Opcode::GridParam:
+      // a field of a descriptor, the same at all points
       break;
     case Opcode::Convert:
       // a conversion between the floating-point types costs about an addition
@@ -148,13 +151,13 @@ std::string ProgramCost::summary(ComputeType type) const {
     if (costs.fma > 0) {
       out << ", " << costs.fma << " fma";
     }
-    if (costs.lookups > 0) {
-      out << ", " << costs.lookups << " lookups";
+    if (costs.gridLoads > 0) {
+      out << ", " << costs.gridLoads << " grid loads";
     }
     out << "), weighted " << costs.weighted() << ", " << costs.bytes(type) << " B/point, "
         << costs.intensity(type) << " ops/B";
   };
-  if (precompute.operations() > 0 || precompute.lookups > 0) {
+  if (precompute.operations() > 0 || precompute.gridLoads > 0) {
     line("precompute", precompute);
     out << "; ";
   }

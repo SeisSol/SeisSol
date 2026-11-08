@@ -72,6 +72,10 @@ const char* name(Kind kind) {
     return "fold";
   case Kind::Sample:
     return "sample";
+  case Kind::GridParam:
+    return "gridparam";
+  case Kind::GridLoad:
+    return "gridload";
   }
   return "?";
 }
@@ -86,7 +90,7 @@ bool NodeEq::operator()(const Node& x, const Node& y) const {
   case Kind::Field:
     return x.ch == y.ch;
   case Kind::PW: {
-    if (x.fn != y.fn) {
+    if (x.fn != y.fn || x.strict != y.strict) {
       return false;
     }
     const int n = arity(x.fn);
@@ -116,6 +120,10 @@ bool NodeEq::operator()(const Node& x, const Node& y) const {
     return x.a == y.a;
   case Kind::Fold:
     return x.red == y.red && x.a == y.a;
+  case Kind::GridParam:
+    return x.grid == y.grid && x.comp == y.comp && x.axis == y.axis;
+  case Kind::GridLoad:
+    return x.grid == y.grid && x.a == y.a;
   }
   return false;
 }
@@ -133,7 +141,7 @@ std::size_t NodeHash::operator()(const Node& n) const {
     h = mix(h, static_cast<std::size_t>(n.ch));
     break;
   case Kind::PW: {
-    h = mix(h, static_cast<std::size_t>(n.fn));
+    h = mix(h, static_cast<std::size_t>(n.fn) + (n.strict ? 0x1000 : 0));
     const int a = arity(n.fn);
     h = mix(h, static_cast<std::size_t>(n.a));
     if (a >= 2) {
@@ -171,6 +179,15 @@ std::size_t NodeHash::operator()(const Node& n) const {
     break;
   case Kind::Fold:
     h = mix(h, static_cast<std::size_t>(n.red));
+    h = mix(h, static_cast<std::size_t>(n.a));
+    break;
+  case Kind::GridParam:
+    h = mix(h, static_cast<std::size_t>(n.grid));
+    h = mix(h, static_cast<std::size_t>(n.comp));
+    h = mix(h, static_cast<std::size_t>(n.axis));
+    break;
+  case Kind::GridLoad:
+    h = mix(h, static_cast<std::size_t>(n.grid));
     h = mix(h, static_cast<std::size_t>(n.a));
     break;
   }
@@ -321,6 +338,40 @@ NodeId Arena::pw(Fn f, NodeId x, NodeId y, NodeId z, ValueType type) {
   return intern(n);
 }
 
+NodeId Arena::strictPw(Fn f, NodeId x, NodeId y, ValueType type) {
+  if (arity(f) != 2) {
+    logError() << "expr: arity mismatch for" << name(f) << "— expected" << arity(f)
+               << "arguments, got 2";
+  }
+  Node n;
+  n.kind = Kind::PW;
+  n.type = type;
+  n.fn = f;
+  n.a = x;
+  n.b = y;
+  n.strict = true;
+  return intern(n);
+}
+
+NodeId Arena::gridParam(GridId grid, GridField field, std::int32_t axis) {
+  Node n;
+  n.kind = Kind::GridParam;
+  n.type = ValueType::F64;
+  n.grid = grid;
+  n.comp = static_cast<std::int32_t>(field);
+  n.axis = axis;
+  return intern(n);
+}
+
+NodeId Arena::gridLoad(GridId grid, NodeId offset) {
+  Node n;
+  n.kind = Kind::GridLoad;
+  n.type = ValueType::F64;
+  n.grid = grid;
+  n.a = offset;
+  return intern(n);
+}
+
 // The coordinate span has to be visible to the hasher *before* the pool lookup,
 // so the arguments are appended first and rolled back on a hit. Without that,
 // two structurally equal Lookups would hash differently and interning would
@@ -401,6 +452,7 @@ void Arena::children(NodeId id, std::vector<NodeId>& out) const {
   case Kind::Const:
   case Kind::Field:
   case Kind::Contract:
+  case Kind::GridParam:
     return;
   case Kind::PW: {
     const int a = arity(n.fn);
@@ -423,6 +475,7 @@ void Arena::children(NodeId id, std::vector<NodeId>& out) const {
   case Kind::Cumint:
   case Kind::Fold:
   case Kind::Sample:
+  case Kind::GridLoad:
     out.push_back(n.a);
     return;
   }

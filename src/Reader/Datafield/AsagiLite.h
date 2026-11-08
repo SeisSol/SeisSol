@@ -201,7 +201,7 @@ class AsagiLiteGrid final : public Grid {
   ElementType elemType_ = ElementType::Float;
   Owner owner_ = Owner::None;
 
-  // ---------- grid-order view handed to the sampler ----------
+  // ---------- grid-order view of the array, which the samples read ----------
   ArrayView view_;
   /// Counts the changes of view_ and of the array behind it (Grid::revision()).
   std::uint64_t revision_ = 0;

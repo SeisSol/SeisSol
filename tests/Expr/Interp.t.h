@@ -22,9 +22,13 @@
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Reader/Datafield/Grid.h"
+#include "Reader/Datafield/Interpolation.h"
 #include "TestHelper.h"
 
 #include <array>
+#include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <random>
@@ -43,51 +47,56 @@ bool sameBits(T a, T b) {
   return std::memcmp(&a, &b, sizeof(T)) == 0;
 }
 
-// A pure elementwise sampler: whatever it computes, it must compute the same
-// thing for count = 1 and count = 256, so the batched and scalar paths agree.
-//
-// It accumulates one dimension at a time, over the destination buffer, because
-// that is how a separable interpolation stencil is written and it is what makes
-// `dst` aliasing a coordinate array unsafe. The interpreter therefore must not
-// give a Lookup a destination slot recycled from one of its own coordinate
-// operands; this sampler is what turns that rule into a failing test rather than
-// a comment.
-class ToySampler : public GridSampler {
+// Two grids with arrays of their own: one in two dimensions, sampled linearly, one in one
+// dimension, sampled with the cubic stencil, two components each, values that no scheme reproduces
+// exactly. The reference samples them with datafield::sampleBatch(), the interpreter with the
+// instructions of the written-out lookups: the two have to agree bit for bit.
+class TestGrids final : public GridArrays {
   public:
-  void sampleBatch(GridId grid,
-                   std::int32_t component,
-                   const double* const* coords,
-                   std::int32_t dimension,
-                   std::size_t count,
-                   double* dst) const override {
-    apply(grid, component, coords, dimension, count, dst);
+  TestGrids() {
+    build(0, {9, 7}, -2.0, 0.5);
+    build(1, {11}, -2.5, 0.375);
   }
-  void sampleBatch(GridId grid,
-                   std::int32_t component,
-                   const float* const* coords,
-                   std::int32_t dimension,
-                   std::size_t count,
-                   float* dst) const override {
-    apply(grid, component, coords, dimension, count, dst);
+
+  [[nodiscard]] const reader::datafield::ArrayView& array(GridId grid) const override {
+    return views_.at(static_cast<std::size_t>(grid));
+  }
+  void outside(GridId /*grid*/) const override { FAIL("no grid here fails beyond its volume"); }
+
+  static reader::datafield::GridDesc desc(GridId grid) {
+    reader::datafield::GridDesc desc;
+    desc.path = grid == 0 ? "a.nc" : "b.nc";
+    desc.interpolation = grid == 0 ? reader::datafield::Interpolation::Linear
+                                   : reader::datafield::Interpolation::Cubic;
+    return desc;
   }
 
   private:
-  template <typename T>
-  static void apply(GridId grid,
-                    std::int32_t component,
-                    const T* const* coords,
-                    std::int32_t dimension,
-                    std::size_t count,
-                    T* dst) {
-    for (std::size_t l = 0; l < count; ++l) {
-      dst[l] = static_cast<T>(grid) * T(0.25) + static_cast<T>(component) * T(0.125) + coords[0][l];
+  void build(std::size_t grid, const std::vector<unsigned>& num, double min, double delta) {
+    auto& view = views_[grid];
+    auto& data = data_[grid];
+    view.type = reader::datafield::ElementType::Double;
+    view.dimensions = static_cast<unsigned>(num.size());
+    view.components = 2;
+    view.componentStride = 1;
+    std::size_t stride = 2;
+    for (std::size_t d = 0; d < num.size(); ++d) {
+      view.min[d] = min + 0.25 * static_cast<double>(d);
+      view.deltaInv[d] = 1.0 / (delta + 0.125 * static_cast<double>(d));
+      view.num[d] = num[d];
+      view.stride[d] = stride;
+      stride *= num[d];
     }
-    for (std::int32_t d = 1; d < dimension; ++d) {
-      for (std::size_t l = 0; l < count; ++l) {
-        dst[l] = dst[l] + coords[d][l] * static_cast<T>(d + 1);
-      }
+    data.resize(stride);
+    for (std::size_t i = 0; i < stride; ++i) {
+      data[i] = std::cos(0.61 * static_cast<double>(i) + static_cast<double>(grid)) * 3.0 +
+                0.07 * static_cast<double>(i % 5);
     }
+    view.data = data.data();
   }
+
+  std::array<reader::datafield::ArrayView, 2> views_{};
+  std::array<std::vector<double>, 2> data_{};
 };
 
 // Plain SoA arrays behind the Binding::gather / Binding::scatter contract, and the states
@@ -148,7 +157,7 @@ template <typename T>
 std::vector<T> referenceEvaluate(const Program& program,
                                  const std::vector<T>& inputs,
                                  std::size_t numPoints,
-                                 const GridSampler* sampler,
+                                 const TestGrids* grids,
                                  std::vector<T>* state) {
   const Arena& arena = program.arena();
   std::vector<T> outputs(program.outputs().size() * numPoints, T(0));
@@ -199,18 +208,27 @@ std::vector<T> referenceEvaluate(const Program& program,
         break;
       }
       case Kind::Lookup: {
-        REQUIRE(sampler != nullptr);
+        REQUIRE(grids != nullptr);
         arena.children(id, kids);
-        std::array<T, MaxLookupDimension> scalars{};
-        std::array<const T*, MaxLookupDimension> pointers{};
+        // the coordinates in binary64, the sample of the component, as Grid.h has it
+        std::array<double, MaxLookupDimension> scalars{};
+        std::array<const double*, MaxLookupDimension> pointers{};
         for (std::size_t k = 0; k < kids.size(); ++k) {
-          scalars[k] = value[kids[k]];
+          scalars[k] = static_cast<double>(value[kids[k]]);
           pointers[k] = &scalars[k];
         }
-        T out = T(0);
-        sampler->sampleBatch(
-            node.grid, node.comp, pointers.data(), static_cast<std::int32_t>(kids.size()), 1, &out);
-        value[id] = out;
+        std::array<double, 2> samples{};
+        std::array<double*, 2> outs{};
+        outs[static_cast<std::size_t>(node.comp)] = &samples[static_cast<std::size_t>(node.comp)];
+        reader::datafield::SampleScratch scratch;
+        reader::datafield::sampleBatch(
+            grids->array(node.grid),
+            program.grids()[static_cast<std::size_t>(node.grid)].interpolation,
+            pointers.data(),
+            1,
+            outs.data(),
+            scratch);
+        value[id] = static_cast<T>(samples[static_cast<std::size_t>(node.comp)]);
         break;
       }
       default:
@@ -259,7 +277,8 @@ Program randomProgram(std::mt19937& rng, int depth, bool withLookup, int outputC
     program.addInput(n, DT::F64);
   }
   Arena& arena = program.arena();
-  const GridId grid = withLookup ? program.internGrid(reader::datafield::GridDesc{}) : NoGrid;
+  const GridId plane = withLookup ? program.internGrid(TestGrids::desc(0)) : NoGrid;
+  const GridId line = withLookup ? program.internGrid(TestGrids::desc(1)) : NoGrid;
 
   std::vector<NodeId> leaves{arena.field("x"),
                              arena.field("y"),
@@ -269,8 +288,8 @@ Program randomProgram(std::mt19937& rng, int depth, bool withLookup, int outputC
                              arena.konst(-1.25),
                              arena.konst(2.0)};
   if (withLookup) {
-    leaves.push_back(arena.lookup(grid, 0, {arena.field("x"), arena.field("y")}));
-    leaves.push_back(arena.lookup(grid, 1, {arena.field("z")}));
+    leaves.push_back(arena.lookup(plane, 0, {arena.field("x"), arena.field("y")}));
+    leaves.push_back(arena.lookup(line, 1, {arena.field("z")}));
   }
 
   const auto build = [&](auto&& self, int d) -> NodeId {
@@ -347,7 +366,8 @@ TEST_SUITE("Expr::Interp") {
   }
 
   TEST_CASE("matches the scalar reference bit for bit") {
-    ToySampler sampler;
+    // with lookups: their instructions against datafield::sampleBatch()
+    TestGrids grids;
     std::mt19937 rng(20260821);
 
     for (int trial = 0; trial < 40; ++trial) {
@@ -363,7 +383,7 @@ TEST_SUITE("Expr::Interp") {
         const std::vector<double> inputs =
             randomInputs<double>(rng, program.inputs().size(), numPoints);
         const std::vector<double> expected =
-            referenceEvaluate<double>(program, inputs, numPoints, &sampler, nullptr);
+            referenceEvaluate<double>(program, inputs, numPoints, &grids, nullptr);
 
         for (const std::size_t tile :
              {std::size_t{1}, std::size_t{3}, std::size_t{8}, std::size_t{64}}) {
@@ -373,7 +393,7 @@ TEST_SUITE("Expr::Interp") {
               inputs, outputs, numPoints, program.inputs().size(), program.outputs().size());
           InterpreterOptions options;
           options.tileSize = tile;
-          TileInterpreter<double> interp(program, lowered, &sampler, options);
+          TileInterpreter<double> interp(program, lowered, &grids, options);
           std::vector<double> persistent(
               static_cast<std::size_t>(lowered.persistentSlotCount()) * numPoints, 0.0);
           interp.precompute(io, numPoints, persistent.data());
@@ -391,7 +411,7 @@ TEST_SUITE("Expr::Interp") {
   // Hoisting must be a pure scheduling change. If it is not, the difference
   // shows up here as a bit mismatch rather than as a plausible-looking number.
   TEST_CASE("hoisting does not change results") {
-    ToySampler sampler;
+    TestGrids grids;
     std::mt19937 rng(987654321);
 
     for (int trial = 0; trial < 30; ++trial) {
@@ -401,11 +421,11 @@ TEST_SUITE("Expr::Interp") {
       const std::vector<double> inputs =
           randomInputs<double>(rng, program.inputs().size(), numPoints);
       const std::vector<double> expected =
-          referenceEvaluate<double>(program, inputs, numPoints, &sampler, nullptr);
+          referenceEvaluate<double>(program, inputs, numPoints, &grids, nullptr);
 
       LowerOptions options;
       options.invariantInputs = {"x", "y", "z"};
-      options.invariantGrids = {0};
+      options.invariantGrids = {0, 1};
       const LoweredProgram lowered = lower(program, options);
       REQUIRE(lowered.hasPrecompute());
 
@@ -414,7 +434,7 @@ TEST_SUITE("Expr::Interp") {
           inputs, outputs, numPoints, program.inputs().size(), program.outputs().size());
       InterpreterOptions interpOptions;
       interpOptions.tileSize = 24;
-      TileInterpreter<double> interp(program, lowered, &sampler, interpOptions);
+      TileInterpreter<double> interp(program, lowered, &grids, interpOptions);
       std::vector<double> persistent(
           static_cast<std::size_t>(lowered.persistentSlotCount()) * numPoints, 0.0);
       interp.precompute(io, numPoints, persistent.data());
@@ -482,7 +502,7 @@ TEST_SUITE("Expr::Interp") {
   }
 
   TEST_CASE("tiling never crosses a partition boundary") {
-    ToySampler sampler;
+    TestGrids grids;
     std::mt19937 rng(13579);
     const Program program = randomProgram(rng, 3, true, 1);
     validate(program);
@@ -491,14 +511,14 @@ TEST_SUITE("Expr::Interp") {
     const std::vector<double> inputs =
         randomInputs<double>(rng, program.inputs().size(), numPoints);
     const std::vector<double> expected =
-        referenceEvaluate<double>(program, inputs, numPoints, &sampler, nullptr);
+        referenceEvaluate<double>(program, inputs, numPoints, &grids, nullptr);
 
     const LoweredProgram lowered = lower(program);
     std::vector<double> outputs(numPoints, 0.0);
     ArrayTileIo<double> io(inputs, outputs, numPoints, program.inputs().size(), 1);
     InterpreterOptions options;
     options.tileSize = 16;
-    TileInterpreter<double> interp(program, lowered, &sampler, options);
+    TileInterpreter<double> interp(program, lowered, &grids, options);
     std::vector<double> persistent(
         static_cast<std::size_t>(lowered.persistentSlotCount()) * numPoints, 0.0);
 
@@ -533,7 +553,7 @@ TEST_SUITE("Expr::Interp") {
     CHECK_FALSE(firstDifference(expected, outputs).any);
   }
 
-  TEST_CASE("a program with a lookup but no sampler is rejected, not ignored") {
+  TEST_CASE("a program with a lookup but no grid arrays is rejected, not ignored") {
     Program program;
     program.addInput("x", DT::F64);
     Arena& arena = program.arena();

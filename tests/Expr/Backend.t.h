@@ -95,6 +95,9 @@ class LinearRampGrid final : public df::Grid {
     df::sampleBatch(view_, df::Interpolation::Linear, x, count, out, scratch_);
   }
 
+  // the array a written-out lookup reads
+  [[nodiscard]] const df::ArrayView* arrayView() const override { return &view_; }
+
   private:
   std::vector<double> data_;
   df::ArrayView view_;

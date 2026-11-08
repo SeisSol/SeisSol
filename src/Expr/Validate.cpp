@@ -144,6 +144,10 @@ void checkNode(const Program& program, NodeId id, const std::unordered_set<int>&
   case Kind::Fold:
   case Kind::Sample:
     break; // already rejected above
+  case Kind::GridParam:
+  case Kind::GridLoad:
+    fail(std::string("node kind '") + name(n.kind) +
+         "' is the lowering's (a written-out lookup), not a frontend's");
   }
 }
 

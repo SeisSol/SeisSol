@@ -708,9 +708,9 @@ bool (*accessibilityCheck(GpuTarget target))(const void*) {
 // --- grids on the device -----------------------------------------------------
 
 /// The copy of a grid on the device that the kernels sample (a GridStore::Mirror, refreshed where
-/// the grid changes): its array, and its descriptor (GpuGridDescriptor) at an address that stays
-/// the same, through which a kernel reads the array -- also one recorded in a graph, which then
-/// samples the window of a time-dependent grid that is resident when it runs.
+/// the grid changes): its array, and its descriptor (codegen::GridDescriptor) at an address that
+/// stays the same, through which a kernel reads the array -- also one recorded in a graph, which
+/// then samples the window of a time-dependent grid that is resident when it runs.
 ///
 /// A refresh copies the whole array, after the work on the device is done: the store refreshes
 /// at a synchronization point only, where the window of a time-dependent grid has moved.
@@ -760,7 +760,7 @@ class DeviceGridMirror final : public df::GridStore::Mirror {
       report();
     }
     valid_ = false;
-    const std::size_t bytes = gridBytes(*view);
+    const std::size_t bytes = codegen::gridBytes(*view);
     if (bytes != bytes_) {
       freeFor(target_, data_, queue_);
       data_ = allocFor(target_, bytes, queue_);
@@ -773,9 +773,9 @@ class DeviceGridMirror final : public df::GridStore::Mirror {
       return;
     }
     if (descriptor_ == nullptr) {
-      descriptor_ = allocFor(target_, sizeof(GpuGridDescriptor), queue_);
+      descriptor_ = allocFor(target_, sizeof(codegen::GridDescriptor), queue_);
     }
-    const GpuGridDescriptor image = gpuGridDescriptor(*view, data_);
+    const codegen::GridDescriptor image = codegen::gridDescriptor(*view, data_);
     if (descriptor_ == nullptr ||
         !copyToDeviceFor(target_, descriptor_, &image, sizeof(image), queue_)) {
       logWarning() << "expr: could not copy the descriptor of the grid" << path_
@@ -807,14 +807,14 @@ class DeviceGridMirror final : public df::GridStore::Mirror {
 
   private:
   /// A lookup outside the volume, of a grid whose boundary mode fails there: an error, as on the
-  /// host, which a kernel cannot raise itself (GpuGridDescriptor::outside).
+  /// host, which a kernel cannot raise itself (codegen::GridDescriptor::outside).
   void report() const {
     if (!fails_ || !valid_) {
       return;
     }
     std::uint64_t outside = 0;
     const auto* field =
-        static_cast<const char*>(descriptor_) + offsetof(GpuGridDescriptor, outside);
+        static_cast<const char*>(descriptor_) + offsetof(codegen::GridDescriptor, outside);
     if (copyFromDeviceFor(target_, &outside, field, sizeof(outside), queue_) && outside != 0) {
       logError() << "A kernel on the device sampled the grid" << path_
                  << "outside its volume, where its boundary mode is to fail.";
@@ -846,18 +846,12 @@ bool deviceGrids(const Program& program,
                  GpuLayout& layout,
                  std::vector<void*>& pointers) {
   const std::size_t count = program.grids().size();
-  // the coordinates and the largest component each grid is looked up with
+  // the coordinates and the components each grid is sampled with
   std::vector<std::int32_t> dimensions(count, 0);
   std::vector<std::int32_t> components(count, 0);
-  for (const auto* stage : {&lowered.precompute(), &lowered.run()}) {
-    for (const Instruction& inst : stage->code) {
-      if (inst.op == Opcode::Lookup && inst.grid >= 0 &&
-          static_cast<std::size_t>(inst.grid) < count) {
-        const auto grid = static_cast<std::size_t>(inst.grid);
-        dimensions[grid] = inst.operandCount;
-        components[grid] = std::max(components[grid], inst.comp + 1);
-      }
-    }
+  for (std::size_t grid = 0; grid < count && grid < lowered.gridUses().size(); ++grid) {
+    dimensions[grid] = lowered.gridUses()[grid].dimensions;
+    components[grid] = lowered.gridUses()[grid].components;
   }
   layout.grids.assign(count, df::ElementType::Double);
   pointers.assign(count, nullptr);
@@ -1100,7 +1094,7 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
   GpuLayout layout = gpuLayoutOf(binding);
   // the grids it samples, on the device
   std::vector<void*> gridPointers;
-  if (codegen::containsLookup(lowered) &&
+  if (lowered.usesGrids() &&
       !deviceGrids(
           program, lowered, target, options.deviceQueue, grids, gridIds, layout, gridPointers)) {
     return nullptr;

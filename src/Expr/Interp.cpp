@@ -7,9 +7,11 @@
 
 #include "Expr/Interp.h"
 
+#include "Expr/Expand.h"
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Reader/Datafield/Interpolation.h"
 #include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
 
@@ -220,14 +222,26 @@ void convertLanes(const V* __restrict src, U* __restrict dst, std::size_t count)
   }
 }
 
+/// dst[l] = the element of the array `data` at offsets[l], a whole number.
+template <typename U, typename E>
+void gatherLanes(const void* data,
+                 const U* __restrict offsets,
+                 U* __restrict dst,
+                 std::size_t count) {
+  const auto* elements = static_cast<const E*>(data);
+  for (std::size_t l = 0; l < count; ++l) {
+    dst[l] = static_cast<U>(static_cast<double>(elements[static_cast<std::size_t>(offsets[l])]));
+  }
+}
+
 } // namespace
 
 template <typename T>
 TileInterpreter<T>::TileInterpreter(const Program& program,
                                     const LoweredProgram& lowered,
-                                    const GridSampler* sampler,
+                                    const GridArrays* grids,
                                     const InterpreterOptions& options)
-    : lowered_(&lowered), sampler_(sampler),
+    : lowered_(&lowered), grids_(grids),
       numInputs_(static_cast<std::int32_t>(program.inputs().size())),
       numOutputs_(static_cast<std::int32_t>(program.outputs().size())),
       stateSlots_(lowered.stateSlotCount()) {
@@ -289,6 +303,13 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
     }
   };
 
+  const auto arrayOf = [&](GridId grid) -> const reader::datafield::ArrayView& {
+    if (grids_ == nullptr) {
+      fail("program samples a grid, but no grid arrays were supplied");
+    }
+    return grids_->array(grid);
+  };
+
   const auto execute = [&](const Instruction& inst, auto tag) {
     using U = decltype(tag);
     U* const __restrict dst = reinterpret_cast<U*>(bytesOf(inst.dst));
@@ -316,15 +337,23 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
                    dst,
                    count);
       break;
-    case Opcode::Lookup: {
-      if (sampler_ == nullptr) {
-        fail("program contains a grid lookup but no GridSampler was supplied");
+    case Opcode::GridParam: {
+      // read when the stage runs: the window of a time-dependent grid moves it between calls
+      const U value = static_cast<U>(
+          gridField(arrayOf(inst.grid), static_cast<GridField>(inst.comp), inst.imm));
+#pragma omp simd
+      for (std::size_t l = 0; l < count; ++l) {
+        dst[l] = value;
       }
-      std::array<const U*, MaxLookupDimension> coords{};
-      for (std::int32_t k = 0; k < inst.operandCount; ++k) {
-        coords[static_cast<std::size_t>(k)] = operand(k);
+      break;
+    }
+    case Opcode::GridLoad: {
+      const reader::datafield::ArrayView& view = arrayOf(inst.grid);
+      if (view.type == reader::datafield::ElementType::Float) {
+        gatherLanes<U, float>(view.data, operand(0), dst, count);
+      } else {
+        gatherLanes<U, double>(view.data, operand(0), dst, count);
       }
-      sampler_->sampleBatch(inst.grid, inst.comp, coords.data(), inst.operandCount, count, dst);
       break;
     }
     case Opcode::Contract:
@@ -355,6 +384,24 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
       execute(inst, 0.0F);
     } else {
       execute(inst, 0.0);
+    }
+  }
+
+  // A point that sampled a grid beyond its volume, where its boundary mode is to fail.
+  for (const Store& st : stage.checks) {
+    const auto anyOf = [&](const auto* values) {
+      for (std::size_t l = 0; l < count; ++l) {
+        if (values[l] != 0) {
+          return true;
+        }
+      }
+      return false;
+    };
+    const bool outside = typeOf(st.source) == ComputeType::F32
+                             ? anyOf(reinterpret_cast<const float*>(bytesOf(st.source)))
+                             : anyOf(reinterpret_cast<const double*>(bytesOf(st.source)));
+    if (outside && grids_ != nullptr) {
+      grids_->outside(st.target);
     }
   }
 

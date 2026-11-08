@@ -66,15 +66,17 @@ TEST_SUITE("ExprCost") {
     CHECK(hoisted.run.weighted() < plain.run.weighted());
   }
 
-  TEST_CASE("a lookup is counted, not costed") {
-    // Its cost is a stencil gather and a tensor-product reduction, not an
-    // instruction; a number that pretended otherwise would be worse than none.
+  TEST_CASE("a lookup is counted as what it computes") {
+    // written out: the weights and the tensor product as operations, and the elements of the
+    // stencil -- 2^3 for a linear one in three dimensions -- as the random accesses they are
     const Program program =
         compileSderivModule("grid m = \"asagi\", \"model.nc\", \"linear\", \"rho\"\n"
                             "out def u = m_rho(x, y, z)\n");
     const auto costs = cost(program, lower(program), program.computeType());
-    CHECK(costs.run.lookups == 1);
-    CHECK(costs.run.weighted() == 0);
+    CHECK(costs.run.gridLoads == 8);
+    // a sum of eight products, and per axis two weights from the coordinate
+    CHECK(costs.run.multiplicative >= 8 + 3);
+    CHECK(costs.run.additive >= 8 + 3 * 3);
   }
 }
 } // namespace seissol::expr::test

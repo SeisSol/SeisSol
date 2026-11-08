@@ -44,16 +44,20 @@
 // calls, take a quarter to a half more as a tile, so they stay one point after the other. A stage
 // with a contraction keeps the first shape too.
 //
-// WHAT IT REFUSES. Programs containing Opcode::Lookup. A lookup is a batch call
-// into GridSampler, not a lane-local expression, and threading the sampler
-// through a compiled kernel is separate work. makeKernel falls back to the
-// interpreter, loudly, so a model with a data field still runs.
+// GRIDS. A lookup arrives written out (expandLookups()): the kernel reads the
+// geometry and the elements of a grid through a descriptor per grid
+// (codegen::GridDescriptor), which the kernel fills from the grid before every
+// call -- where its window currently lies -- and computes the sample with the
+// interpreter's operations, so the bits are the same.
 
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Reader/Datafield/Grid.h"
+#include "Reader/Datafield/Interpolation.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -67,31 +71,35 @@ inline constexpr std::int32_t TileDepth = 32;
 
 /// The C++ source for a lowered program. Exposed for tests and for a dump flag;
 /// nothing else needs it. Without a binding, the matrices and blocks of the
-/// contractions are taken to be stored in the compute type.
+/// contractions are taken to be stored in the compute type; without element types of
+/// the grids, the arrays in binary64.
 [[nodiscard]] std::string emitCpuSource(const Program& program,
                                         const LoweredProgram& lowered,
                                         KernelShape shape = KernelShape::Auto);
-[[nodiscard]] std::string emitCpuSource(const Program& program,
-                                        const LoweredProgram& lowered,
-                                        const Binding& binding,
-                                        KernelShape shape = KernelShape::Auto);
+[[nodiscard]] std::string
+    emitCpuSource(const Program& program,
+                  const LoweredProgram& lowered,
+                  const Binding& binding,
+                  KernelShape shape = KernelShape::Auto,
+                  const std::vector<reader::datafield::ElementType>& gridElements = {});
 
 /// Whether a stage of the kernel takes the shape of a tile, as `shape` asks.
 [[nodiscard]] bool tiledStage(const StageCode& stage,
                               const std::vector<std::int32_t>& operands,
                               KernelShape shape);
 
-/// True when this lowering can be compiled at all — today, when it contains no
-/// Opcode::Lookup.
-[[nodiscard]] bool cpuCompilable(const LoweredProgram& lowered);
-
-/// Compile and return a kernel, or nullptr if the program is not compilable or
-/// the toolchain is unusable. Never throws for a compile failure: the caller
-/// falls back to the interpreter, which is a warning and not an error.
-[[nodiscard]] std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
-                                                       Binding& binding,
-                                                       LoweredProgram lowered,
-                                                       const BackendOptions& options);
+/// Compile and return a kernel, or nullptr if the toolchain is unusable. Never
+/// throws for a compile failure: the caller falls back to the interpreter, which
+/// is a warning and not an error. The grids of the program are those of `grids`
+/// at `gridIds` (by GridId, as internGrids() gives them); a program that samples
+/// none needs neither.
+[[nodiscard]] std::unique_ptr<Kernel>
+    makeRtcCpuKernel(const Program& program,
+                     Binding& binding,
+                     LoweredProgram lowered,
+                     const BackendOptions& options,
+                     reader::datafield::GridStore* grids = nullptr,
+                     const std::vector<std::size_t>& gridIds = {});
 
 /// Number of distinct kernels currently held. For tests and for a status line —
 /// a cache that never hits is a configuration bug worth seeing.

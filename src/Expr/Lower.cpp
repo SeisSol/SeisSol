@@ -7,6 +7,7 @@
 
 #include "Expr/Lower.h"
 
+#include "Expr/Expand.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Expr/Types.h"
@@ -35,18 +36,19 @@ constexpr std::int32_t NoSlot = -1;
 [[noreturn]] void fail(const std::string& what) { throw std::invalid_argument("expr: " + what); }
 
 // Rough relative cost of recomputing one node. The absolute scale is meaningless
-// and only the ratios against LowerOptions::hoistThreshold matter. A Lookup is
-// weighted heavily on purpose: it is a width^d random-access gather, which is
-// the single most expensive thing this IR can do per point. A contraction costs
-// one multiply-add per coefficient.
+// and only the ratios against LowerOptions::hoistThreshold matter. An element of a
+// grid is weighted as a random access, which a written-out lookup has width^d of,
+// the most expensive thing this IR can do per point. A contraction costs one
+// multiply-add per coefficient.
 std::int64_t weight(const Program& program, const Node& n) {
   switch (n.kind) {
   case Kind::Const:
     return 0;
   case Kind::Field:
+  case Kind::GridParam:
     return 1;
-  case Kind::Lookup:
-    return 32;
+  case Kind::GridLoad:
+    return 4;
   case Kind::Contract:
     return static_cast<std::int64_t>(program.matrices()[n.matrix].shape.cols);
   case Kind::PW:
@@ -127,7 +129,10 @@ struct Analysis {
   std::vector<Space> space;
 };
 
-Analysis analyse(const Program& program, const LowerOptions& options, const ChannelMap& channels) {
+Analysis analyse(const Program& program,
+                 const LowerOptions& options,
+                 const ChannelMap& channels,
+                 const std::vector<GridCheck>& checks) {
   const Arena& arena = program.arena();
   const std::size_t n = arena.size();
   Analysis an;
@@ -153,6 +158,9 @@ Analysis analyse(const Program& program, const LowerOptions& options, const Chan
   }
   for (const StateSpec& s : program.state()) {
     push(s.root);
+  }
+  for (const GridCheck& check : checks) {
+    push(check.root);
   }
   while (!stack.empty()) {
     const NodeId id = stack.back();
@@ -203,9 +211,13 @@ Analysis analyse(const Program& program, const LowerOptions& options, const Chan
       }
       break;
     }
-    case Kind::Lookup:
+    case Kind::GridParam:
+      // the geometry of a grid the store does not update stays
+      inv = invariantGrids.count(node.grid) != 0;
+      sp = Space::Uniform;
+      break;
+    case Kind::GridLoad:
       inv = inv && invariantGrids.count(node.grid) != 0;
-      sp = Space::Point;
       break;
     case Kind::Cast:
       break;
@@ -340,11 +352,17 @@ class Emitter {
         case Kind::PW:
           inst.op = Opcode::Pw;
           inst.fn = node.fn;
+          inst.strict = node.strict;
           break;
-        case Kind::Lookup:
-          inst.op = Opcode::Lookup;
+        case Kind::GridParam:
+          inst.op = Opcode::GridParam;
           inst.grid = node.grid;
           inst.comp = node.comp;
+          inst.imm = node.axis;
+          break;
+        case Kind::GridLoad:
+          inst.op = Opcode::GridLoad;
+          inst.grid = node.grid;
           break;
         case Kind::Contract:
           inst.op = Opcode::Contract;
@@ -359,7 +377,7 @@ class Emitter {
         }
       }
 
-      if (inst.op == Opcode::Pw || inst.op == Opcode::Lookup || inst.op == Opcode::Convert) {
+      if (inst.op == Opcode::Pw || inst.op == Opcode::GridLoad || inst.op == Opcode::Convert) {
         arena.children(id, kids);
         inst.operandBegin = static_cast<std::int32_t>(operands_.size());
         inst.operandCount = static_cast<std::int32_t>(kids.size());
@@ -374,10 +392,9 @@ class Emitter {
       }
 
       // Freeing dead operands before allocating the destination lets an op write
-      // over an operand it just consumed. Safe for the elementwise kinds — one
-      // lane reads and writes the same index — but not for Lookup, whose gather
-      // reads its coordinates in an order the destination write does not track.
-      const bool inPlaceSafe = inst.op != Opcode::Lookup;
+      // over an operand it just consumed: every instruction is elementwise -- one
+      // lane reads and writes the same index -- now that a lookup is written out.
+      const bool inPlaceSafe = true;
       if (inPlaceSafe) {
         releaseDead(alloc, id, lastUse, i);
       }
@@ -458,8 +475,10 @@ const char* name(Opcode op) {
     return "loadp";
   case Opcode::Pw:
     return "pw";
-  case Opcode::Lookup:
-    return "lookup";
+  case Opcode::GridParam:
+    return "gridparam";
+  case Opcode::GridLoad:
+    return "gridload";
   case Opcode::Contract:
     return "contract";
   case Opcode::Convert:
@@ -539,8 +558,15 @@ std::string LoweredProgram::dump() const {
       if (i.op == Opcode::LoadInput || i.op == Opcode::LoadPersistent) {
         out += " #" + std::to_string(i.imm);
       }
-      if (i.op == Opcode::Lookup) {
-        out += " g" + std::to_string(i.grid) + ":" + std::to_string(i.comp);
+      if (i.op == Opcode::GridParam) {
+        out += " g" + std::to_string(i.grid) + "." + std::to_string(i.comp) + "[" +
+               std::to_string(i.imm) + "]";
+      }
+      if (i.op == Opcode::GridLoad) {
+        out += " g" + std::to_string(i.grid);
+      }
+      if (i.strict) {
+        out += " strict";
       }
       if (i.op == Opcode::Contract) {
         out += " m" + std::to_string(i.matrix) + " b" + std::to_string(i.block);
@@ -556,18 +582,43 @@ std::string LoweredProgram::dump() const {
     for (const Store& st : s.persistent) {
       out += "  p[" + std::to_string(st.target) + "] <- t" + std::to_string(st.source) + "\n";
     }
+    for (const Store& st : s.checks) {
+      out += "  check g" + std::to_string(st.target) + " <- t" + std::to_string(st.source) + "\n";
+    }
   };
   stage("precompute", precompute_);
   stage("run", run_);
   return out;
 }
 
+bool LoweredProgram::usesGrids() const {
+  return std::any_of(
+      gridUses_.begin(), gridUses_.end(), [](const GridUse& use) { return use.dimensions > 0; });
+}
+
+bool LoweredProgram::hasStrict() const {
+  for (const StageCode* stage : {&precompute_, &run_}) {
+    for (const Instruction& inst : stage->code) {
+      if (inst.strict) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
-  // every value with its type, every literal once per type it is used in
-  const Program program = typed(untyped);
+  // every value with its type, every literal once per type it is used in, and the lookups written
+  // out
+  const ExpandedProgram expanded = expandLookups(typed(untyped));
+  const Program& program = expanded.program;
   const Arena& arena = program.arena();
   const ChannelMap channels(program);
-  const Analysis an = analyse(program, options, channels);
+  const Analysis an = analyse(program, options, channels, expanded.checks);
+  // The type the hoisted values are kept in: a value in binary64 is hoisted only where the data
+  // moves in binary64, so that keeping it loses nothing -- e.g. the weights of a lookup, which
+  // are in binary64 also in a program of binary32.
+  const ComputeType data = dataType(untyped);
 
   // Backward sweep from the stores. A value that is invariant and expensive
   // enough becomes a stage boundary and is not descended into; everything else
@@ -588,8 +639,10 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
     // materialising one would spend numPoints * sizeof(ComputeType) of
     // persistent memory to cache a number; the right treatment for a
     // constant-only subtree is constant folding at the frontend, not hoisting.
+    const bool keepable = data == ComputeType::F64 ||
+                          resolve(arena[id].type, program.computeType()) == ComputeType::F32;
     if (an.invariant[id] != 0 && an.space[id] == Space::Point &&
-        an.cost[id] >= options.hoistThreshold) {
+        an.cost[id] >= options.hoistThreshold && keepable) {
       hoisted[id] = 1;
       return;
     }
@@ -604,6 +657,9 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
   }
   for (const StateSpec& s : program.state()) {
     require(s.root);
+  }
+  for (const GridCheck& check : expanded.checks) {
+    require(check.root);
   }
   while (!stack.empty()) {
     const NodeId id = stack.back();
@@ -640,7 +696,8 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
   LoweredProgram out;
   out.stateSlotCount_ = static_cast<std::int32_t>(program.state().size());
   out.computeType_ = program.computeType();
-  out.dataType_ = dataType(untyped);
+  out.dataType_ = data;
+  out.gridUses_ = expanded.uses;
 
   // Persistent slot layout: declared state first, so Binding can initialise
   // [0, stateSlotCount) straight from StateSpec::initial, then hoisted values in
@@ -687,6 +744,9 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
     for (const StateSpec& s : program.state()) {
       liveOut.push_back(s.root);
     }
+    for (const GridCheck& check : expanded.checks) {
+      liveOut.push_back(check.root);
+    }
     emitter.setBoundary(persistentSlot);
     emitter.emit(values, liveOut, out.run_);
 
@@ -699,6 +759,10 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
       const NodeId r = program.state()[i].root;
       out.run_.persistent.push_back(
           Store{static_cast<std::int32_t>(i), emitter.liveOutSlot(r), an.space[r]});
+    }
+    for (const GridCheck& check : expanded.checks) {
+      out.run_.checks.push_back(
+          Store{check.grid, emitter.liveOutSlot(check.root), an.space[check.root]});
     }
   }
 

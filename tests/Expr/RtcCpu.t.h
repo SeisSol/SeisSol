@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -121,11 +122,62 @@ TEST_SUITE("ExprRtcCpu") {
     CHECK(source.find("0.12345678901234568") != std::string::npos);
   }
 
-  TEST_CASE("a program with a grid lookup is refused rather than mis-emitted") {
-    const Program program =
-        compileSderivModule("grid m = \"asagi\", \"model.nc\", \"linear\", \"rho\"\n"
-                            "out def u = m_rho(x, y, z)\n");
-    CHECK_FALSE(cpuCompilable(lower(program)));
+  TEST_CASE("a program with a grid lookup compiles and samples as the interpreter does") {
+    // written out (expandLookups()): the compiled kernel reads the grid through its descriptor, in
+    // both shapes, at points inside the grid and far beyond it
+    const Program program = compileSderivModule(
+        "grid m = \"asagi\", \"ramp.nc\", \"linear\", \"a\", \"b\"\n"
+        "out def u = m_b(x, y, z) * 0.5 + m_a(z, x, y)\nout def v = m_a(x, y, z)\n");
+    std::vector<double> x;
+    std::vector<double> y;
+    std::vector<double> z;
+    for (std::size_t i = 0; i < Ladder.size(); ++i) {
+      x.push_back(Ladder[i]);
+      y.push_back(3.25 + 0.37 * static_cast<double>(i));
+      z.push_back(7.0 - 0.61 * static_cast<double>(i));
+    }
+    const std::size_t numPoints = x.size();
+    const auto evaluate = [&](BackendKind backend, KernelShape shape, std::vector<double>& out) {
+      out.assign(2 * numPoints, -1.0);
+      DataTable table(numPoints);
+      table.bindViewConst<double>("x", Direction::In, x.data());
+      table.bindViewConst<double>("y", Direction::In, y.data());
+      table.bindViewConst<double>("z", Direction::In, z.data());
+      table.bindView<double>("u", Direction::Out, out.data());
+      table.bindView<double>("v", Direction::Out, out.data() + numPoints);
+      Binding binding = Binding::bind(program, table);
+      df::GridStore store;
+      const std::size_t id = store.intern(program.grids()[0]);
+      store.injectForTesting(id, std::make_unique<LinearRampGrid>());
+      BackendOptions options;
+      options.preferred = backend;
+      options.shape = shape;
+      options.quiet = true;
+      const auto kernel = makeKernel(program, binding, store, options);
+      kernel->precompute(table);
+      kernel->run(table);
+      return kernel->kind();
+    };
+    std::vector<double> interpreted;
+    evaluate(BackendKind::Interpreter, KernelShape::Auto, interpreted);
+    for (std::size_t p = 0; p < numPoints; ++p) {
+      // a ramp, which linear interpolation reproduces where the point is inside
+      const auto inside = [](double c) { return c >= 0.0 && c <= 7.0; };
+      if (inside(x[p]) && inside(y[p]) && inside(z[p])) {
+        CHECK(interpreted[numPoints + p] ==
+              doctest::Approx(LinearRampGrid::value_(x[p], y[p], z[p])).epsilon(1e-12));
+      }
+    }
+    for (const auto shape : {KernelShape::Point, KernelShape::Tile}) {
+      CAPTURE(static_cast<int>(shape));
+      std::vector<double> compiled;
+      if (evaluate(BackendKind::RtcCpu, shape, compiled) != BackendKind::RtcCpu) {
+        WARN_MESSAGE(false, "no usable C++ compiler; the RTC backend fell back");
+        return;
+      }
+      CHECK(std::memcmp(interpreted.data(), compiled.data(), interpreted.size() * sizeof(double)) ==
+            0);
+    }
   }
 
   // These need a working C++ compiler. Where there is none the backend falls

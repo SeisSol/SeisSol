@@ -139,6 +139,10 @@ void substituteChannels(Program& program, const std::map<std::string, ChannelBui
     case Kind::Sample:
       map[id] = arena.sample(map[node.a]);
       break;
+    case Kind::GridParam:
+    case Kind::GridLoad:
+      throw std::invalid_argument(
+          "expr: a written-out lookup reached a rewrite of the program of a frontend");
     }
   }
 

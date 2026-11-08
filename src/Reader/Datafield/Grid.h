@@ -282,29 +282,23 @@ class Grid {
   // contiguous run of `count`: x[axis][lane], out[comp][lane]. `out` has
   // components() entries; a null entry skips that component entirely.
   //
-  // Pointer arrays rather than flat blocks, because the caller this interface
-  // exists for -- the Lookup lowering -- holds each coordinate in its own
-  // transient slot and wants each result in its own, so flat blocks would cost a
-  // copy of dimension * count values in and components * count out on every
-  // tile, purely to satisfy the signature. With pointer arrays a Lookup is
-  // zero-copy end to end in the f64 path.
+  // A lookup of a program does not come here: the lowering writes it out
+  // (Expr/Expand.h) into the arithmetic below, on the array of arrayView(), so
+  // that every backend computes it with its own instructions -- and two lookups
+  // of one grid at the same coordinates share the cells and the weights. This is
+  // the reference that arithmetic is checked against bit for bit, and what the
+  // other consumers of a grid call.
   //
-  // The null-skip is the other half of the same decision. A Lookup node names
-  // ONE component, so the alternative -- returning every component and letting
-  // the caller pick -- pays the full tensor-product reduction for values nobody
-  // reads: 4^3 weighted adds per point per component for Cubic in 3-D. Skipping
-  // in the GATHER is a smaller win and skipping there is not the point; because
-  // componentStride is 1, the random-access address arithmetic is shared across
-  // components, which is exactly why this is one call and not one call per
-  // component.
+  // Pointer arrays rather than flat blocks, because a caller typically holds each
+  // coordinate in its own run and wants each result in its own, so flat blocks
+  // would cost a copy of dimension * count values in and components * count out,
+  // purely to satisfy the signature.
   //
-  // NOT SOLVED HERE, and worth knowing: two Lookups on the same grid and the
-  // same coordinates but different components are two nodes, hence two calls,
-  // hence two gathers. A material query reading rho, vp and vs therefore pays
-  // the stencil gather three times. Fixing that is a fusion in the lowering
-  // (one instruction, several destinations), and this signature is already the
-  // shape such a fused instruction would call -- several non-null entries in
-  // `out`. It is additive; it is not done.
+  // The null-skip is the other half of the same decision: a caller that wants one
+  // component would otherwise pay the full tensor-product reduction for values
+  // nobody reads, 4^3 weighted adds per point per component for Cubic in 3-D.
+  // Because componentStride is 1, the random-access address arithmetic is shared
+  // across components, which is why this is one call and not one per component.
   //
   // ALIASING: out[comp] may alias x[axis], because the slot allocator can reuse
   // a coordinate slot that dies at the Lookup as its destination. Implementations

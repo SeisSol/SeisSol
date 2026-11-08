@@ -127,13 +127,31 @@ std::string gpuModeStride(std::int32_t block) {
 std::string gpuCellIndex(std::int32_t block) {
   return "a->cellIndex_block" + std::to_string(block);
 }
-std::string gpuLookup(const Instruction& inst, const std::vector<std::string>& coordinates) {
-  const std::string grid = std::to_string(inst.grid);
-  std::string call = "seissol_expr_sample" + grid + "(a->grid" + grid;
-  for (const auto& coordinate : coordinates) {
-    call += ", " + coordinate;
+std::string gpuGridParam(GridId grid, GridField field, std::int32_t axis) {
+  const std::string g = "a->grid" + std::to_string(grid) + "->";
+  const std::string at = "[" + std::to_string(axis) + "]";
+  switch (field) {
+  case GridField::Min:
+    return g + "min" + at;
+  case GridField::DeltaInv:
+    return g + "deltaInv" + at;
+  case GridField::Num:
+    return "(double)" + g + "num" + at;
+  case GridField::Stride:
+    return "(double)" + g + "stride" + at;
+  case GridField::ComponentStride:
+    return "(double)" + g + "componentStride";
   }
-  return call + ", (SeissolU64)" + std::to_string(inst.comp) + ")";
+  return "0.0";
+}
+std::string gpuGridLoad(GridId grid, const std::string& offset) {
+  const std::string g = std::to_string(grid);
+  return "seissol_expr_load" + g + "(a->grid" + g + ", " + offset + ")";
+}
+std::string gpuStoreCheck(GridId grid, const std::string& value) {
+  // a store of the same value from every thread that finds one; whoever keeps the descriptor
+  // reports
+  return "if ((" + value + ") != 0) { a->grid" + std::to_string(grid) + "->outside = 1; }";
 }
 
 /// OpenCL C needs an address space on every pointer that reaches global
@@ -214,271 +232,43 @@ void emitDisplacement(std::ostringstream& out, bool perCell) {
 
 // --- grid sampling -------------------------------------------------------------
 //
-// A lookup samples the array of its grid itself, by the arithmetic of Interpolation.cpp, operation
-// by operation: in binary64, each product and each sum rounded on its own (SEISSOL_EXPR_DMUL and
-// SEISSOL_EXPR_DADD, which no compiler contracts into a fused multiply-add), the sums of the
-// tensor product in the order the interpreter forms them. The interpreter is compiled without
-// contraction for that reason, so the samples are the same bits on the host and on a device.
-//
-// Per thread one point, so the reduction runs depth-first: the sum over the last axis innermost,
-// with one accumulator per axis rather than the width^d values the interpreter gathers for a tile
-// of points. Each sum adds the same terms in the same order either way.
-//
-// The kernel reads the geometry and the address of the array through a descriptor
-// (GpuGridDescriptor), whose address stays the same: a kernel recorded in a graph then samples the
-// window of a time-dependent grid that is resident when it runs.
+// A lookup arrives written out (expandLookups()): the kernel reads the geometry and the elements of
+// a grid through its descriptor (codegen::GridDescriptor), whose address stays the same, so that a
+// kernel recorded in a graph samples the window that is resident when it runs; and computes the
+// sample with the instructions of any other value. Its arithmetic is computed as written
+// (Instruction::strict): with __dmul_rn and __dadd_rn on CUDA and HIP, which no compiler contracts
+// into a fused multiply-add, and without contraction at all in OpenCL C, where FP_CONTRACT is off
+// in a program that samples a grid. The samples are the same bits as on the host.
 
-const char* locateName(df::Interpolation interpolation) {
-  switch (interpolation) {
-  case df::Interpolation::Nearest:
-    return "seissol_expr_locate_nearest";
-  case df::Interpolation::Linear:
-    return "seissol_expr_locate_linear";
-  case df::Interpolation::Cubic:
-    return "seissol_expr_locate_cubic";
-  }
-  return "seissol_expr_locate_linear";
-}
-
-/// The base index and the weights of the stencil of `interpolation` on an axis, as locateAxis in
-/// Interpolation.cpp; returns whether the coordinate was clamped onto the volume.
-void emitLocate(std::ostringstream& out, df::Interpolation interpolation, GpuTarget target) {
-  const std::string global = globalQualifier(target);
-  const df::StencilKernel kernel = df::kernelOf(interpolation);
-  const std::string width = std::to_string(kernel.width);
-  out << deviceFunction(target) << " int " << locateName(interpolation) << "(" << global
-      << "const SeissolExprGrid* g, int axis, double x,\n"
-      << "    SeissolI64* start, double* w) {\n";
-  if (target == GpuTarget::OpenCl) {
-    out << "#pragma OPENCL FP_CONTRACT OFF\n";
-  }
-  out << "  const SeissolI64 num = (SeissolI64)g->num[axis];\n"
-      << "  const double top = (double)(num - 1);\n"
-      << "  double raw = SEISSOL_EXPR_DMUL(SEISSOL_EXPR_DSUB(x, g->min[axis]), "
-         "g->deltaInv[axis]);\n"
-      << "  int clamped = 0;\n"
-      << "  // not `raw < 0.0`: NaN takes this branch rather than reaching the conversion to an "
-         "index\n"
-      << "  if (!(raw > 0.0)) {\n"
-      << "    clamped = raw < 0.0 || raw != raw;\n"
-      << "    raw = 0.0;\n"
-      << "  } else if (raw > top) {\n"
-      << "    clamped = 1;\n"
-      << "    raw = top;\n"
-      << "  }\n";
-  if (kernel.roundToNearest) {
-    // half away from zero, as std::lround
-    out << "  *start = (SeissolI64)" << (target == GpuTarget::OpenCl ? "round" : "llround")
-        << "(raw);\n"
-        << "  w[0] = 1.0;\n"
-        << "  return clamped;\n"
-        << "}\n\n";
-    return;
-  }
-  out << "  const SeissolI64 maxBase = num >= 2 ? num - 2 : 0;\n"
-      << "  const double lower = floor(raw);\n"
-      << "  SeissolI64 index = (SeissolI64)lower;\n"
-      << "  double s = 0.0;\n"
-      << "  if (index > maxBase) {\n"
-      << "    index = maxBase;\n"
-      << "    s = num >= 2 ? 1.0 : 0.0;\n"
-      << "  } else {\n"
-      << "    s = SEISSOL_EXPR_DSUB(raw, lower);\n"
-      << "  }\n";
-  if (kernel.width <= 2) {
-    out << "  *start = index;\n"
-        << "  w[0] = SEISSOL_EXPR_DSUB(1.0, s);\n"
-        << "  w[1] = s;\n";
-  } else {
-    if (interpolation != df::Interpolation::Cubic) {
-      throw std::invalid_argument("expr: no weights of a stencil wider than two but the cubic one");
-    }
-    const std::string offset = std::to_string(kernel.offset);
-    out << "  const SeissolI64 maxStart = num - " << width << ";\n"
-        << "  SeissolI64 first = num >= " << width << " ? index + (" << offset << ") : 0;\n"
-        << "  if (first < 0) {\n"
-        << "    first = 0;\n"
-        << "  } else if (first > maxStart) {\n"
-        << "    first = maxStart > 0 ? maxStart : 0;\n"
-        << "  }\n"
-        << "  *start = first;\n"
-        << "  const SeissolI64 slot = index - first;\n"
-        << "  if (num >= " << width << " && slot == " << -kernel.offset
-        << ") {\n"
-        // Keys' cubic convolution in the factored form of interpolationWeights()
-        << "    const double s2 = SEISSOL_EXPR_DMUL(s, s);\n"
-        << "    const double s3 = SEISSOL_EXPR_DMUL(s2, s);\n"
-        << "    w[0] = SEISSOL_EXPR_DMUL(0.5, SEISSOL_EXPR_DSUB(SEISSOL_EXPR_DADD(-s3, "
-           "SEISSOL_EXPR_DMUL(2.0, s2)), s));\n"
-        << "    w[1] = SEISSOL_EXPR_DMUL(0.5, SEISSOL_EXPR_DADD(SEISSOL_EXPR_DSUB("
-           "SEISSOL_EXPR_DMUL(3.0, s3), SEISSOL_EXPR_DMUL(5.0, s2)), 2.0));\n"
-        << "    w[2] = SEISSOL_EXPR_DMUL(0.5, SEISSOL_EXPR_DADD(SEISSOL_EXPR_DADD("
-           "SEISSOL_EXPR_DMUL(-3.0, s3), SEISSOL_EXPR_DMUL(4.0, s2)), s));\n"
-        << "    w[3] = SEISSOL_EXPR_DMUL(0.5, SEISSOL_EXPR_DSUB(s3, s2));\n"
-        << "  } else {\n"
-        // linearFallbackWeights(): linear between the base and its neighbour, near an edge
-        << "    for (int j = 0; j < " << width << "; ++j) {\n"
-        << "      w[j] = 0.0;\n"
-        << "    }\n"
-        << "    w[slot] = SEISSOL_EXPR_DSUB(1.0, s);\n"
-        << "    if (slot + 1 < " << width << ") {\n"
-        << "      w[slot + 1] = s;\n"
-        << "    }\n"
-        << "  }\n";
-  }
-  out << "  return clamped;\n"
-      << "}\n\n";
-}
-
-/// The sample of a component of grid `grid` at a point of `dimensions` coordinates.
-void emitSample(std::ostringstream& out,
-                std::int32_t grid,
-                std::int32_t dimensions,
-                const df::GridDesc& desc,
-                df::ElementType element,
-                GpuTarget target) {
-  const std::string global = globalQualifier(target);
-  const unsigned width = df::kernelOf(desc.interpolation).width;
-  const char* type = element == df::ElementType::Float ? "float" : "double";
-  out << deviceFunction(target) << " double seissol_expr_sample" << grid << "(" << global
-      << "SeissolExprGrid* g";
-  for (std::int32_t d = 0; d < dimensions; ++d) {
-    out << ", double x" << d;
-  }
-  out << ",\n    SeissolU64 component) {\n";
-  if (target == GpuTarget::OpenCl) {
-    out << "#pragma OPENCL FP_CONTRACT OFF\n";
-  }
-  out << "  SeissolI64 start[" << dimensions << "];\n"
-      << "  double w[" << dimensions << "][" << width << "];\n"
-      << "  int outside = 0;\n";
-  for (std::int32_t d = 0; d < dimensions; ++d) {
-    out << "  outside |= " << locateName(desc.interpolation) << "(g, " << d << ", x" << d
-        << ", &start[" << d << "], w[" << d << "]);\n";
-  }
-  out << "  " << global << "const " << type << "* data = (" << global << "const " << type
-      << "*)g->data;\n"
-      << "  const SeissolU64 o = component * g->componentStride;\n";
-  std::string indent = "  ";
-  for (std::int32_t d = 0; d < dimensions; ++d) {
-    const std::string n = std::to_string(d);
-    const std::string outer = d == 0 ? std::string("o") : "o" + std::to_string(d - 1);
-    out << indent << "double acc" << n << " = 0.0;\n"
-        << indent << "for (int i" << n << " = 0; i" << n << " < " << width << "; ++i" << n
-        << ") {\n";
-    indent += "  ";
-    // only the upper end needs a clamp: the start is not negative
-    out << indent << "SeissolI64 n" << n << " = start[" << n << "] + i" << n << ";\n"
-        << indent << "if (n" << n << " > (SeissolI64)g->num[" << n << "] - 1) {\n"
-        << indent << "  n" << n << " = (SeissolI64)g->num[" << n << "] - 1;\n"
-        << indent << "}\n"
-        << indent << "const SeissolU64 o" << n << " = " << outer << " + (SeissolU64)n" << n
-        << " * g->stride[" << n << "];\n";
-  }
-  const std::string last = std::to_string(dimensions - 1);
-  out << indent << "acc" << last << " = SEISSOL_EXPR_DADD(acc" << last << ", SEISSOL_EXPR_DMUL(w["
-      << last << "][i" << last << "], (double)data[o" << last << "]));\n";
-  for (std::int32_t d = dimensions - 1; d >= 0; --d) {
-    indent.resize(indent.size() - 2);
-    out << indent << "}\n";
-    if (d > 0) {
-      const std::string n = std::to_string(d);
-      const std::string outer = std::to_string(d - 1);
-      out << indent << "acc" << outer << " = SEISSOL_EXPR_DADD(acc" << outer
-          << ", SEISSOL_EXPR_DMUL(w[" << outer << "][i" << outer << "], acc" << n << "));\n";
-    }
-  }
-  if (desc.boundary == df::BoundaryMode::Fail) {
-    // the copy of the grid reports it, which a kernel cannot (GpuGridDescriptor::outside)
-    out << "  if (outside != 0) {\n"
-        << "    g->outside = 1;\n"
-        << "  }\n";
-  } else {
-    out << "  (void)outside;\n";
-  }
-  out << "  return acc0;\n"
-      << "}\n\n";
-}
-
-/// The descriptor of a grid, and the functions that sample the grids `program` looks up. Nothing
-/// for a program without grids, whose source stays as it was.
+/// The descriptor of a grid and the loads of the grids `lowered` samples. Nothing for a program
+/// without grids, whose source stays as it was.
 void emitGridSampling(std::ostringstream& out,
-                      const Program& program,
                       const LoweredProgram& lowered,
                       const GpuLayout& layout,
                       GpuTarget target) {
-  // the coordinates of the lookups of each grid, which are the same for all of them
-  std::vector<std::int32_t> dimensions(program.grids().size(), 0);
-  for (const auto* stage : {&lowered.precompute(), &lowered.run()}) {
-    for (const Instruction& inst : stage->code) {
-      if (inst.op != Opcode::Lookup) {
-        continue;
-      }
-      const auto grid = static_cast<std::size_t>(inst.grid);
-      if (inst.grid < 0 || grid >= dimensions.size() || grid >= layout.grids.size()) {
-        throw std::invalid_argument("expr: a lookup of grid " + std::to_string(inst.grid) +
-                                    ", of which the layout of the kernel knows no array");
-      }
-      if (dimensions[grid] != 0 && dimensions[grid] != inst.operandCount) {
-        throw std::invalid_argument("expr: the lookups of grid " + std::to_string(inst.grid) +
-                                    " have different numbers of coordinates");
-      }
-      dimensions[grid] = inst.operandCount;
+  if (layout.grids.empty()) {
+    return;
+  }
+  for (std::size_t grid = 0; grid < lowered.gridUses().size(); ++grid) {
+    if (lowered.gridUses()[grid].dimensions > 0 && grid >= layout.grids.size()) {
+      throw std::invalid_argument("expr: a lookup of grid " + std::to_string(grid) +
+                                  ", of which the layout of the kernel knows no array");
     }
   }
-  bool any = false;
-  for (const auto count : dimensions) {
-    any = any || count > 0;
-  }
-  if (!any && layout.grids.empty()) {
+  codegen::emitGridDescriptor(out,
+                              layout.grids,
+                              lowered.gridUses(),
+                              "SeissolU64",
+                              deviceFunction(target),
+                              globalQualifier(target));
+  if (!lowered.hasStrict()) {
     return;
   }
-  out << "typedef " << (target == GpuTarget::OpenCl ? "long" : "long long") << " SeissolI64;\n\n"
-      << "// the byte image of GpuGridDescriptor\n"
-      << "typedef struct {\n"
-      << "  SeissolU64 data;\n"
-      << "  double min[" << df::MaxGridDimensions << "];\n"
-      << "  double deltaInv[" << df::MaxGridDimensions << "];\n"
-      << "  SeissolU64 num[" << df::MaxGridDimensions << "];\n"
-      << "  SeissolU64 stride[" << df::MaxGridDimensions << "];\n"
-      << "  SeissolU64 componentStride;\n"
-      << "  SeissolU64 outside;\n"
-      << "} SeissolExprGrid;\n\n";
-  if (!any) {
-    return;
-  }
-  out << "// each operation rounded on its own, never contracted\n"
-      << "#ifndef SEISSOL_EXPR_DADD\n";
   if (target == GpuTarget::OpenCl) {
-    // with FP_CONTRACT OFF in the functions that use them
-    out << "#define SEISSOL_EXPR_DADD(x, y) ((x) + (y))\n"
-        << "#define SEISSOL_EXPR_DSUB(x, y) ((x) - (y))\n"
-        << "#define SEISSOL_EXPR_DMUL(x, y) ((x) * (y))\n";
+    out << "#pragma OPENCL FP_CONTRACT OFF\n";
+    codegen::emitStrictMacros(out, "((x) + (y))", "((x) - (y))", "((x) * (y))");
   } else {
-    out << "#define SEISSOL_EXPR_DADD(x, y) __dadd_rn(x, y)\n"
-        << "#define SEISSOL_EXPR_DSUB(x, y) __dsub_rn(x, y)\n"
-        << "#define SEISSOL_EXPR_DMUL(x, y) __dmul_rn(x, y)\n";
-  }
-  out << "#endif\n\n";
-  // the schemes the lookups use, once each
-  std::vector<bool> located(3, false);
-  for (std::size_t grid = 0; grid < dimensions.size(); ++grid) {
-    const auto interpolation = program.grids()[grid].interpolation;
-    const auto scheme = static_cast<std::size_t>(interpolation);
-    if (dimensions[grid] > 0 && scheme < located.size() && !located[scheme]) {
-      emitLocate(out, interpolation, target);
-      located[scheme] = true;
-    }
-  }
-  for (std::size_t grid = 0; grid < dimensions.size(); ++grid) {
-    if (dimensions[grid] > 0) {
-      emitSample(out,
-                 static_cast<std::int32_t>(grid),
-                 dimensions[grid],
-                 program.grids()[grid],
-                 layout.grids[grid],
-                 target);
-    }
+    codegen::emitStrictMacros(out, "__dadd_rn(x, y)", "__dsub_rn(x, y)", "__dmul_rn(x, y)");
   }
 }
 
@@ -768,7 +558,9 @@ void emitStage(std::ostringstream& out,
   addressing.storeState = gpuStoreState;
   addressing.storePersistent = gpuStorePersistent;
   addressing.contract = &contract;
-  addressing.lookup = gpuLookup;
+  addressing.gridParam = gpuGridParam;
+  addressing.gridLoad = gpuGridLoad;
+  addressing.storeCheck = gpuStoreCheck;
 
   // OpenCL C overloads its built-ins; CUDA and HIP get the names of the compute type
   const auto style =
@@ -1173,32 +965,6 @@ void GpuArguments::append(const void* value, std::size_t bytes) {
   image_.insert(image_.end(), source, source + bytes);
 }
 
-GpuGridDescriptor gpuGridDescriptor(const df::ArrayView& view, const void* data) {
-  GpuGridDescriptor descriptor;
-  descriptor.data = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(data));
-  for (unsigned d = 0; d < view.dimensions && d < df::MaxGridDimensions; ++d) {
-    descriptor.min[d] = view.min[d];
-    descriptor.deltaInv[d] = view.deltaInv[d];
-    descriptor.num[d] = view.num[d];
-    descriptor.stride[d] = view.stride[d];
-  }
-  descriptor.componentStride = view.componentStride;
-  return descriptor;
-}
-
-std::size_t gridBytes(const df::ArrayView& view) {
-  // up to the last element: the far corner of the last component
-  std::size_t last = (view.components > 0 ? view.components - 1 : 0) * view.componentStride;
-  for (unsigned d = 0; d < view.dimensions && d < df::MaxGridDimensions; ++d) {
-    if (view.num[d] == 0) {
-      return 0;
-    }
-    last += static_cast<std::size_t>(view.num[d] - 1) * view.stride[d];
-  }
-  const std::size_t element = view.type == df::ElementType::Float ? sizeof(float) : sizeof(double);
-  return (last + 1) * element;
-}
-
 std::string emitGpuSource(const Program& program,
                           const LoweredProgram& lowered,
                           const GpuLayout& layout,
@@ -1231,7 +997,7 @@ std::string emitGpuSource(const Program& program,
   std::ostringstream out;
   emitPrologue(out, target);
   emitAccessors(out, layout, computeType, target);
-  emitGridSampling(out, program, lowered, layout, target);
+  emitGridSampling(out, lowered, layout, target);
   emitArgumentStruct(out, layout, computeType, target);
   if (lowered.hasPrecompute()) {
     emitStage(out,

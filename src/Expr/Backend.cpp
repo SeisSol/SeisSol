@@ -8,6 +8,7 @@
 
 #include "Expr/Binding.h"
 #include "Expr/Cost.h"
+#include "Expr/Expand.h"
 #include "Expr/Interp.h"
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
@@ -37,94 +38,36 @@ using reader::scripting::DataTable;
 
 // --- grid sampling seam -----------------------------------------------------
 
-// Interp.h's GridSampler over a GridStore. Grid::sampleBatch takes pointer
-// arrays with a null-skip, so this is an adapter and not a staging buffer: the
-// coordinate pointers go straight through and the one requested component
-// points straight at the destination slot.
-//
-// The f32 path is the exception, and deliberately so. Grid.h fixes coordinates
-// at f64 because index arithmetic in f32 loses exactness long before the value
-// does, so a float tile's coordinates are converted here. That is a type
-// conversion the design asks for, not a copy the signature forces.
-class StoreSampler final : public GridSampler {
+/// Interp.h's GridArrays over a GridStore: the array of each grid of a program (by GridId), read
+/// where the instructions of a written-out lookup ask for it, which is where its window currently
+/// lies.
+class StoreArrays final : public GridArrays {
   public:
-  StoreSampler(std::vector<std::size_t> storeIds, GridStore& store, std::size_t maxComponents)
-      : store_(&store), storeIds_(std::move(storeIds)), outF64_(maxComponents, nullptr),
-        outF32_(maxComponents, nullptr) {}
+  StoreArrays(const Program& program, std::vector<std::size_t> storeIds, GridStore& store)
+      : program_(&program), store_(&store), storeIds_(std::move(storeIds)) {}
 
-  void sampleBatch(GridId grid,
-                   std::int32_t component,
-                   const double* const* coords,
-                   std::int32_t dimension,
-                   std::size_t count,
-                   double* dst) const override {
-    const Grid& target = resolve(grid, component, dimension);
-    fill(outF64_, target.components(), component, dst);
-    target.sampleBatch(coords, count, outF64_.data());
+  [[nodiscard]] const reader::datafield::ArrayView& array(GridId grid) const override {
+    const reader::datafield::ArrayView* view =
+        store_->get(storeIds_.at(static_cast<std::size_t>(grid))).arrayView();
+    if (view == nullptr) {
+      logError() << "expr: the grid" << pathOf(grid) << "keeps no array to sample.";
+    }
+    return *view;
   }
 
-  void sampleBatch(GridId grid,
-                   std::int32_t component,
-                   const float* const* coords,
-                   std::int32_t dimension,
-                   std::size_t count,
-                   float* dst) const override {
-    const Grid& target = resolve(grid, component, dimension);
-
-    const auto dim = static_cast<std::size_t>(dimension);
-    if (coordScratch_.size() < dim * count) {
-      coordScratch_.resize(dim * count);
-    }
-    for (std::size_t d = 0; d < dim; ++d) {
-      double* const row = coordScratch_.data() + d * count;
-      for (std::size_t lane = 0; lane < count; ++lane) {
-        row[lane] = static_cast<double>(coords[d][lane]);
-      }
-      coordRows_[d] = row;
-    }
-
-    fill(outF32_, target.components(), component, dst);
-    target.sampleBatch(coordRows_.data(), count, outF32_.data());
+  void outside(GridId grid) const override {
+    logError() << "expr: a point sampled the grid" << pathOf(grid)
+               << "beyond its volume, where its boundary mode is to fail.";
   }
 
   private:
-  const Grid& resolve(GridId grid, std::int32_t component, std::int32_t dimension) const {
-    const auto id = static_cast<std::size_t>(grid);
-    if (grid == NoGrid || id >= storeIds_.size()) {
-      logError() << "expr: a lookup references grid" << static_cast<int>(grid)
-                 << "which the program does not declare.";
-    }
-    const Grid& target = store_->get(storeIds_[id]);
-    // Checked per call rather than once, because it costs two compares next to
-    // a width^d gather and it is the difference between a diagnostic and an
-    // out-of-bounds read of the grid array.
-    if (static_cast<std::size_t>(dimension) != target.dimensions()) {
-      logError() << "expr: a lookup on grid" << static_cast<int>(grid) << "passes" << dimension
-                 << "coordinates, but the grid has" << target.dimensions() << "dimensions.";
-    }
-    if (component < 0 || static_cast<std::size_t>(component) >= target.components()) {
-      logError() << "expr: a lookup on grid" << static_cast<int>(grid) << "requests component"
-                 << component << "of" << target.components() << ".";
-    }
-    return target;
+  [[nodiscard]] std::string pathOf(GridId grid) const {
+    return program_->grids().at(static_cast<std::size_t>(grid)).path;
   }
 
-  // Every entry null but the one the Lookup names. The nulls are what stop the
-  // reduction from running for components nobody reads; see Interpolation.h.
-  template <typename T>
-  static void fill(std::vector<T*>& out, std::size_t components, std::int32_t component, T* dst) {
-    std::fill(out.begin(), out.begin() + static_cast<std::ptrdiff_t>(components), nullptr);
-    out[static_cast<std::size_t>(component)] = dst;
-  }
-
+  const Program* program_;
   GridStore* store_;
   std::vector<std::size_t> storeIds_; // GridId -> GridStore index
-  // Mutable because sampleBatch is const on the GridSampler interface and the
-  // interpreter is single-threaded per Kernel (see the note on Kernel::run).
-  mutable std::vector<double*> outF64_;
-  mutable std::vector<float*> outF32_;
-  mutable std::vector<double> coordScratch_;
-  mutable std::array<const double*, MaxLookupDimension> coordRows_{};
 };
 
 // --- table seam -------------------------------------------------------------
@@ -226,11 +169,11 @@ class InterpreterKernel final : public Kernel {
   InterpreterKernel(const Program& program,
                     Binding& binding,
                     LoweredProgram lowered,
-                    std::unique_ptr<StoreSampler> sampler,
+                    std::unique_ptr<StoreArrays> grids,
                     const InterpreterOptions& options)
-      : binding_(&binding), lowered_(std::move(lowered)), sampler_(std::move(sampler)),
-        interpreter_(program, lowered_, sampler_.get(), options),
-        partitions_(toPointRanges(binding)), needsPrecompute_(lowered_.hasPrecompute()) {}
+      : binding_(&binding), lowered_(std::move(lowered)), grids_(std::move(grids)),
+        interpreter_(program, lowered_, grids_.get(), options), partitions_(toPointRanges(binding)),
+        needsPrecompute_(lowered_.hasPrecompute()) {}
 
   void precompute(const DataTable& table) override {
     if (!needsPrecompute_) {
@@ -279,7 +222,7 @@ class InterpreterKernel final : public Kernel {
 
   Binding* binding_;
   LoweredProgram lowered_;
-  std::unique_ptr<StoreSampler> sampler_;
+  std::unique_ptr<StoreArrays> grids_;
   TileInterpreter<T> interpreter_;
   std::vector<PointRange> partitions_;
   bool needsPrecompute_{false};
@@ -295,12 +238,32 @@ float* InterpreterKernel<float>::persistent() {
   return binding_->persistentF32();
 }
 
-std::size_t maxComponents(const std::vector<std::size_t>& ids, GridStore& store) {
-  std::size_t most = 1;
-  for (const std::size_t id : ids) {
-    most = std::max(most, store.get(id).components());
+/// The grids of `store` at `ids` (by GridId) checked against how `program` samples them
+/// (gridUses()): an array each, with the dimensions and the components its lookups have. A
+/// written-out lookup reads the elements its offsets name, so a mismatch is an error before the
+/// first sample, and the configuration's: the script and the file do not agree.
+void checkGrids(const Program& program, GridStore& store, const std::vector<std::size_t>& ids) {
+  const std::vector<GridUse> uses = gridUses(program);
+  for (std::size_t grid = 0; grid < uses.size(); ++grid) {
+    const GridUse& use = uses[grid];
+    if (use.dimensions == 0) {
+      continue;
+    }
+    const std::string& path = program.grids()[grid].path;
+    const reader::datafield::ArrayView* view = store.get(ids.at(grid)).arrayView();
+    if (view == nullptr) {
+      logError() << "expr: the grid" << path << "keeps no array to sample.";
+      continue;
+    }
+    if (static_cast<std::int32_t>(view->dimensions) != use.dimensions) {
+      logError() << "expr: a lookup on the grid" << path << "passes" << use.dimensions
+                 << "coordinates, but the grid has" << view->dimensions << "dimensions.";
+    }
+    if (use.components > static_cast<std::int32_t>(view->components)) {
+      logError() << "expr: a lookup on the grid" << path << "requests component"
+                 << use.components - 1 << "of" << view->components << ".";
+    }
   }
-  return most;
 }
 
 /// The same options with the architecture dropped, for handing to a DIFFERENT
@@ -314,6 +277,7 @@ BackendOptions forFallback(const BackendOptions& options) {
 std::unique_ptr<Kernel> makeInterpreter(const Program& program,
                                         Binding& binding,
                                         GridStore& grids,
+                                        const std::vector<std::size_t>& ids,
                                         const BackendOptions& options) {
   LoweredProgram lowered = lower(program, options.lowering);
   if (!options.quiet) {
@@ -323,10 +287,7 @@ std::unique_ptr<Kernel> makeInterpreter(const Program& program,
   }
 
   binding.allocatePersistent(program, lowered.persistentSlotCount());
-
-  auto ids = internGrids(program, grids);
-  auto sampler =
-      ids.empty() ? nullptr : std::make_unique<StoreSampler>(ids, grids, maxComponents(ids, grids));
+  auto arrays = ids.empty() ? nullptr : std::make_unique<StoreArrays>(program, ids, grids);
 
   InterpreterOptions interpreterOptions;
   interpreterOptions.tileSize = options.tileSize;
@@ -334,10 +295,10 @@ std::unique_ptr<Kernel> makeInterpreter(const Program& program,
   // in the type the data moves in, which the instructions compute from in theirs
   if (lowered.dataType() == ComputeType::F32) {
     return std::make_unique<InterpreterKernel<float>>(
-        program, binding, std::move(lowered), std::move(sampler), interpreterOptions);
+        program, binding, std::move(lowered), std::move(arrays), interpreterOptions);
   }
   return std::make_unique<InterpreterKernel<double>>(
-      program, binding, std::move(lowered), std::move(sampler), interpreterOptions);
+      program, binding, std::move(lowered), std::move(arrays), interpreterOptions);
 }
 
 } // namespace
@@ -379,31 +340,31 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
                                    Binding& binding,
                                    GridStore& grids,
                                    const BackendOptions& options) {
+  // The grids before any kernel: every backend samples them as they lie in the store, the device
+  // backends from copies they make of them, and all check them against the program first.
+  const auto ids = internGrids(program, grids);
+  if (!ids.empty()) {
+    checkGrids(program, grids, ids);
+  }
   switch (options.preferred) {
   case BackendKind::Interpreter:
-    return makeInterpreter(program, binding, grids, options);
+    return makeInterpreter(program, binding, grids, ids, options);
   case BackendKind::RtcCpu: {
-    // The grids have to be interned before the kernel exists either way, and a
-    // compiled program that turns out to sample one falls through to the
-    // interpreter below rather than failing.
     LoweredProgram lowered = lower(program, options.lowering);
-    auto kernel = makeRtcCpuKernel(program, binding, std::move(lowered), options);
+    auto kernel = makeRtcCpuKernel(program, binding, std::move(lowered), options, &grids, ids);
     if (kernel != nullptr) {
-      internGrids(program, grids);
       return kernel;
     }
     if (!options.allowFallback) {
       logError() << "expr: the compiled CPU backend is unusable and fallback was disabled.";
       return nullptr;
     }
-    return makeInterpreter(program, binding, grids, options);
+    return makeInterpreter(program, binding, grids, ids, options);
   }
   case BackendKind::RtcCuda:
   case BackendKind::RtcHip:
   case BackendKind::RtcOpenCl: {
     LoweredProgram lowered = lower(program, options.lowering);
-    // before the kernel: it samples copies of the grids, which it makes of those in the store
-    const auto ids = internGrids(program, grids);
     auto kernel = makeRtcGpuKernel(program,
                                    binding,
                                    std::move(lowered),
@@ -426,11 +387,12 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
     // makeRtcGpuKernel has already named which. Trying the compiled CPU kernel
     // before the interpreter, because most of those reasons do not apply to it.
     LoweredProgram cpuLowering = lower(program, options.lowering);
-    auto cpu = makeRtcCpuKernel(program, binding, std::move(cpuLowering), forFallback(options));
+    auto cpu = makeRtcCpuKernel(
+        program, binding, std::move(cpuLowering), forFallback(options), &grids, ids);
     if (cpu != nullptr) {
       return cpu;
     }
-    return makeInterpreter(program, binding, grids, forFallback(options));
+    return makeInterpreter(program, binding, grids, ids, forFallback(options));
   }
   case BackendKind::Texture:
     return makeTextureKernel(program, binding, grids);

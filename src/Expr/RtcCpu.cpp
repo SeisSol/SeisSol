@@ -11,8 +11,11 @@
 #include "Expr/Codegen.h"
 #include "Expr/Cost.h"
 #include "Expr/Interp.h"
+#include "Expr/Ir.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Reader/Datafield/Grid.h"
+#include "Reader/Datafield/Interpolation.h"
 #include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
 
@@ -81,6 +84,41 @@ std::string cpuModeStride(std::int32_t block) {
 std::string cpuCellIndex(std::int32_t block) {
   return "blocks[" + std::to_string(block) + "].cellIndex";
 }
+std::string cpuGridParam(GridId grid, GridField field, std::int32_t axis) {
+  const std::string g = "grids[" + std::to_string(grid) + "].";
+  const std::string a = "[" + std::to_string(axis) + "]";
+  switch (field) {
+  case GridField::Min:
+    return g + "min" + a;
+  case GridField::DeltaInv:
+    return g + "deltaInv" + a;
+  case GridField::Num:
+    return "(double)" + g + "num" + a;
+  case GridField::Stride:
+    return "(double)" + g + "stride" + a;
+  case GridField::ComponentStride:
+    return "(double)" + g + "componentStride";
+  }
+  return "0.0";
+}
+std::string cpuGridLoad(GridId grid, const std::string& offset) {
+  const std::string g = std::to_string(grid);
+  return "seissol_expr_load" + g + "(&grids[" + g + "], " + offset + ")";
+}
+std::string cpuStoreCheck(GridId grid, const std::string& value) {
+  return "if ((" + value + ") != 0) { grids[" + std::to_string(grid) + "].outside = 1; }";
+}
+
+/// The element types of the arrays of the grids, by GridId: baked into the source, hence part of
+/// the cache key.
+std::uint64_t gridFingerprint(const std::vector<reader::datafield::ElementType>& elements) {
+  std::uint64_t hash = 0xcbf29ce484222325ULL;
+  for (const auto type : elements) {
+    hash ^= static_cast<std::uint64_t>(type) + 1;
+    hash *= 0x100000001b3ULL;
+  }
+  return hash;
+}
 
 /// The host-side image of the emitted SeissolExprBlock; the two have to agree field by field.
 struct BlockDescriptor {
@@ -144,9 +182,11 @@ void emitStage(std::ostringstream& out,
       << "                                 unsigned long count,\n"
       << "                                 const void* const* matrices,\n"
       << "                                 const SeissolExprBlock* blocks,\n"
-      << "                                 const unsigned long* pointIndex) {\n"
-      << "  (void)matrices; (void)blocks; (void)pointIndex; (void)stateTile;\n";
-  if (stage.code.empty() && stage.outputs.empty() && stage.persistent.empty()) {
+      << "                                 const unsigned long* pointIndex,\n"
+      << "                                 SeissolExprGrid* grids) {\n"
+      << "  (void)matrices; (void)blocks; (void)pointIndex; (void)stateTile; (void)grids;\n";
+  if (stage.code.empty() && stage.outputs.empty() && stage.persistent.empty() &&
+      stage.checks.empty()) {
     out << "  (void)inputTile; (void)outputTile; (void)persistent;\n"
         << "  (void)numPoints; (void)first; (void)count;\n}\n\n";
     return;
@@ -163,6 +203,9 @@ void emitStage(std::ostringstream& out,
   addressing.storeState = cpuStoreState;
   addressing.storePersistent = cpuStorePersistent;
   addressing.contract = &contract;
+  addressing.gridParam = cpuGridParam;
+  addressing.gridLoad = cpuGridLoad;
+  addressing.storeCheck = cpuStoreCheck;
 
   if (tiledStage(stage, operands, shape)) {
     // four cache lines of a transient per block: 64 lanes in binary32, 32 where one is in binary64
@@ -550,15 +593,17 @@ struct CacheKey {
   std::uint64_t program{0};
   std::uint64_t lowering{0};
   std::uint64_t contraction{0};
+  std::uint64_t grids{0};
   ComputeType type{ComputeType::F64};
   std::string flags;
   KernelShape shape{KernelShape::Auto};
 
   bool operator<(const CacheKey& other) const {
-    return std::tie(program, lowering, contraction, type, flags, shape) <
+    return std::tie(program, lowering, contraction, grids, type, flags, shape) <
            std::tie(other.program,
                     other.lowering,
                     other.contraction,
+                    other.grids,
                     other.type,
                     other.flags,
                     other.shape);
@@ -587,7 +632,8 @@ using StageFn = void (*)(const T*,
                          unsigned long,
                          const void* const*,
                          const BlockDescriptor*,
-                         const unsigned long*);
+                         const unsigned long*,
+                         codegen::GridDescriptor*);
 
 template <typename T>
 class RtcCpuKernel final : public Kernel {
@@ -595,8 +641,11 @@ class RtcCpuKernel final : public Kernel {
   RtcCpuKernel(Binding& binding,
                LoweredProgram lowered,
                const Artifact& artifact,
-               std::size_t tileSize)
-      : binding_(&binding), lowered_(std::move(lowered)),
+               std::size_t tileSize,
+               std::vector<const reader::datafield::Grid*> grids,
+               std::vector<std::string> gridPaths)
+      : binding_(&binding), lowered_(std::move(lowered)), grids_(std::move(grids)),
+        gridPaths_(std::move(gridPaths)), descriptors_(grids_.size()),
         precompute_(reinterpret_cast<StageFn<T>>(artifact.precompute)),
         run_(reinterpret_cast<StageFn<T>>(artifact.run)), tileSize_(tileSize),
         inputTile_(static_cast<std::size_t>(std::max<std::size_t>(1, binding.inputs().size())) *
@@ -725,6 +774,16 @@ class RtcCpuKernel final : public Kernel {
     const auto& permutation = binding_->permutation();
     // only the run stage reads and writes the states
     const bool stateful = fn == run_ && !binding_->states().empty();
+    // the grids where their windows lie now
+    for (std::size_t g = 0; g < grids_.size(); ++g) {
+      if (grids_[g] != nullptr) {
+        const reader::datafield::ArrayView* view = grids_[g]->arrayView();
+        if (view == nullptr) {
+          logError() << "expr: the grid" << gridPaths_[g] << "keeps no array to sample.";
+        }
+        descriptors_[g] = codegen::gridDescriptor(*view, view->data);
+      }
+    }
 
     for (std::size_t first = begin; first < end; first += tileSize_) {
       const std::size_t count = std::min(tileSize_, end - first);
@@ -741,10 +800,17 @@ class RtcCpuKernel final : public Kernel {
          count,
          matrixBases_.data(),
          blockDescriptors_.data(),
-         permutation.empty() ? nullptr : permutation.data() + first);
+         permutation.empty() ? nullptr : permutation.data() + first,
+         descriptors_.data());
       io.scatter(first, count, outputTile_.data());
       if (stateful) {
         io.scatterState(first, count, stateTile_.data());
+      }
+    }
+    for (std::size_t g = 0; g < grids_.size(); ++g) {
+      if (descriptors_[g].outside != 0) {
+        logError() << "expr: a point sampled the grid" << gridPaths_[g]
+                   << "beyond its volume, where its boundary mode is to fail.";
       }
     }
   }
@@ -753,6 +819,11 @@ class RtcCpuKernel final : public Kernel {
 
   Binding* binding_;
   LoweredProgram lowered_;
+  /// the grids it samples (by GridId; null for one it does not), their paths for the messages, and
+  /// their descriptors, filled before every call
+  std::vector<const reader::datafield::Grid*> grids_;
+  std::vector<std::string> gridPaths_;
+  std::vector<codegen::GridDescriptor> descriptors_;
   StageFn<T> precompute_{nullptr};
   StageFn<T> run_{nullptr};
   std::size_t tileSize_{0};
@@ -791,8 +862,6 @@ std::string defaultFlags(const BackendOptions& options) {
 
 } // namespace
 
-bool cpuCompilable(const LoweredProgram& lowered) { return !codegen::containsLookup(lowered); }
-
 namespace {
 
 /// A file name for what is generated for `program`.
@@ -810,6 +879,7 @@ namespace {
 std::string emitCpuSourceFor(const Program& program,
                              const LoweredProgram& lowered,
                              const ContractLayout& layout,
+                             const std::vector<reader::datafield::ElementType>& gridElements,
                              KernelShape shape) {
   codegen::ContractAddressing contract;
   for (const auto& matrix : program.matrices()) {
@@ -841,6 +911,15 @@ std::string emitCpuSourceFor(const Program& program,
       << "  unsigned long modeStride;\n"
       << "  const unsigned int* cellIndex;\n"
       << "};\n\n";
+  // the grids, read through their descriptors; the arithmetic of their samples is compiled without
+  // contraction of floating-point expressions anyway (-ffp-contract=off)
+  std::vector<reader::datafield::ElementType> elements = gridElements;
+  elements.resize(program.grids().size(), reader::datafield::ElementType::Double);
+  codegen::emitGridDescriptor(
+      out, elements, lowered.gridUses(), "unsigned long long", "static inline", "");
+  if (lowered.hasStrict()) {
+    codegen::emitStrictMacros(out, "((x) + (y))", "((x) - (y))", "((x) * (y))");
+  }
   emitStage(out,
             "seissol_expr_precompute",
             lowered.precompute(),
@@ -891,14 +970,15 @@ std::string
                                                               : reader::scripting::DataType::F64;
   layout.matrices.assign(program.matrices().size(), type);
   layout.blocks.assign(program.blocks().size(), type);
-  return emitCpuSourceFor(program, lowered, layout, shape);
+  return emitCpuSourceFor(program, lowered, layout, {}, shape);
 }
 
 std::string emitCpuSource(const Program& program,
                           const LoweredProgram& lowered,
                           const Binding& binding,
-                          KernelShape shape) {
-  return emitCpuSourceFor(program, lowered, contractLayoutOf(binding), shape);
+                          KernelShape shape,
+                          const std::vector<reader::datafield::ElementType>& gridElements) {
+  return emitCpuSourceFor(program, lowered, contractLayoutOf(binding), gridElements, shape);
 }
 
 std::size_t rtcCpuCacheSize() {
@@ -909,11 +989,32 @@ std::size_t rtcCpuCacheSize() {
 std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
                                          Binding& binding,
                                          LoweredProgram lowered,
-                                         const BackendOptions& options) {
-  if (!cpuCompilable(lowered)) {
-    logWarning() << "expr: this program samples a data grid, which the compiled CPU backend does "
-                    "not support yet; using the interpreter.";
-    return nullptr;
+                                         const BackendOptions& options,
+                                         reader::datafield::GridStore* grids,
+                                         const std::vector<std::size_t>& gridIds) {
+  // the grids it samples, and the types of their elements, which the source bakes in
+  std::vector<const reader::datafield::Grid*> sampled(program.grids().size(), nullptr);
+  std::vector<std::string> paths(program.grids().size());
+  std::vector<reader::datafield::ElementType> elements(program.grids().size(),
+                                                       reader::datafield::ElementType::Double);
+  for (std::size_t g = 0; g < lowered.gridUses().size(); ++g) {
+    if (lowered.gridUses()[g].dimensions == 0) {
+      continue;
+    }
+    paths[g] = program.grids()[g].path;
+    if (grids == nullptr || g >= gridIds.size()) {
+      logWarning() << "expr: the compiled CPU kernel of a program that samples the grid" << paths[g]
+                   << "has no store to read it from; using the interpreter.";
+      return nullptr;
+    }
+    sampled[g] = &grids->get(gridIds[g]);
+    const reader::datafield::ArrayView* view = sampled[g]->arrayView();
+    if (view == nullptr) {
+      logWarning() << "expr: the grid" << paths[g]
+                   << "keeps no array for a compiled kernel to read; using the interpreter.";
+      return nullptr;
+    }
+    elements[g] = view->type;
   }
 
   const std::string flags = defaultFlags(options);
@@ -921,6 +1022,7 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
   const CacheKey key{program.fingerprint(),
                      options.lowering.fingerprint(),
                      layout.fingerprint(),
+                     gridFingerprint(elements),
                      program.computeType(),
                      flags,
                      options.shape};
@@ -937,7 +1039,8 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
     const std::lock_guard<std::mutex> lock(cacheMutex());
     auto found = cache().find(key);
     if (found == cache().end()) {
-      const std::string source = emitCpuSourceFor(program, lowered, layout, options.shape);
+      const std::string source =
+          emitCpuSourceFor(program, lowered, layout, elements, options.shape);
       codegen::dump(fingerprintName(program, "cpu.cpp"), source);
       bool cached = false;
       found = cache().emplace(key, compileAndLoad(source, flags, cached)).first;
@@ -964,9 +1067,11 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
 
   // in the type the data moves in
   if (lowered.dataType() == ComputeType::F32) {
-    return std::make_unique<RtcCpuKernel<float>>(binding, std::move(lowered), artifact, tileSize);
+    return std::make_unique<RtcCpuKernel<float>>(
+        binding, std::move(lowered), artifact, tileSize, std::move(sampled), std::move(paths));
   }
-  return std::make_unique<RtcCpuKernel<double>>(binding, std::move(lowered), artifact, tileSize);
+  return std::make_unique<RtcCpuKernel<double>>(
+      binding, std::move(lowered), artifact, tileSize, std::move(sampled), std::move(paths));
 }
 
 } // namespace seissol::expr

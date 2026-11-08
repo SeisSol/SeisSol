@@ -9,12 +9,15 @@
 #include "Expr/Interp.h"
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
+#include "Reader/Datafield/Grid.h"
+#include "Reader/Datafield/Interpolation.h"
 #include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
 
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -42,6 +45,41 @@ ComputeType slotType(const StageCode& stage, std::int32_t slot) {
 /// program in one type gets the same source as before there were types.
 std::string converted(const std::string& value, ComputeType from, ComputeType to) {
   return from == to ? value : "(" + std::string(typeName(to)) + ")(" + value + ")";
+}
+
+/// The text of a pointwise operation: that of the interpreter's table, or, computed as written
+/// (Instruction::strict), the macro of its operation (emitStrictMacros()).
+std::string pwText(const Instruction& inst,
+                   const std::string& a0,
+                   const std::string& a1,
+                   const std::string& a2,
+                   const std::string& type,
+                   MathStyle style) {
+  if (inst.strict && inst.type == ComputeType::F64) {
+    const char* macro = inst.fn == Fn::Add   ? "SEISSOL_EXPR_DADD"
+                        : inst.fn == Fn::Sub ? "SEISSOL_EXPR_DSUB"
+                        : inst.fn == Fn::Mul ? "SEISSOL_EXPR_DMUL"
+                                             : nullptr;
+    if (macro != nullptr) {
+      return std::string(macro) + "(" + a0 + ", " + a1 + ")";
+    }
+  }
+  return substitute(expressionText(inst.fn), a0, a1, a2, type, style);
+}
+
+/// The value of a GridParam or GridLoad instruction, in binary64, with `operand` the text of the
+/// operand of a GridLoad.
+std::string gridText(const Instruction& inst,
+                     const StageAddressing& addressing,
+                     const std::string& operand) {
+  if (addressing.gridParam == nullptr || addressing.gridLoad == nullptr) {
+    throw std::invalid_argument(
+        "expr: a grid lookup reached a code generator that does not sample grids");
+  }
+  if (inst.op == Opcode::GridParam) {
+    return addressing.gridParam(inst.grid, static_cast<GridField>(inst.comp), inst.imm);
+  }
+  return addressing.gridLoad(inst.grid, operand);
 }
 
 void emitContraction(std::ostringstream& out,
@@ -242,8 +280,7 @@ void emitStageBody(std::ostringstream& out,
       // every arity without a special case per arity.
       const std::string a1 = inst.operandCount > 1 ? slotName(operands[inst.operandBegin + 1]) : a0;
       const std::string a2 = inst.operandCount > 2 ? slotName(operands[inst.operandBegin + 2]) : a0;
-      out << indent << dst << " = " << substitute(expressionText(inst.fn), a0, a1, a2, type, style)
-          << ";\n";
+      out << indent << dst << " = " << pwText(inst, a0, a1, a2, type, style) << ";\n";
       break;
     }
     case Opcode::Convert: {
@@ -252,20 +289,15 @@ void emitStageBody(std::ostringstream& out,
           << converted(slotName(source), slotType(stage, source), inst.type) << ";\n";
       break;
     }
-    case Opcode::Lookup: {
-      if (addressing.lookup == nullptr) {
-        throw std::invalid_argument(
-            "expr: a grid lookup reached the code generator; gate on containsLookup() first");
-      }
-      // the coordinates in binary64, as the interpreter converts them (Grid.h)
-      std::vector<std::string> coordinates;
-      for (std::int32_t k = 0; k < inst.operandCount; ++k) {
-        const std::int32_t source = operands[inst.operandBegin + k];
-        coordinates.push_back(
-            converted(slotName(source), slotType(stage, source), ComputeType::F64));
+    case Opcode::GridParam:
+    case Opcode::GridLoad: {
+      std::string operand;
+      if (inst.op == Opcode::GridLoad) {
+        const std::int32_t source = operands[inst.operandBegin];
+        operand = converted(slotName(source), slotType(stage, source), ComputeType::F64);
       }
       out << indent << dst << " = "
-          << converted(addressing.lookup(inst, coordinates), ComputeType::F64, inst.type) << ";\n";
+          << converted(gridText(inst, addressing, operand), ComputeType::F64, inst.type) << ";\n";
       break;
     }
     case Opcode::Contract:
@@ -296,6 +328,13 @@ void emitStageBody(std::ostringstream& out,
           << addressing.storePersistent(store.target - addressing.stateSlots, value(store))
           << ";\n";
     }
+  }
+  for (const Store& store : stage.checks) {
+    if (addressing.storeCheck == nullptr) {
+      throw std::invalid_argument(
+          "expr: a grid lookup reached a code generator that does not sample grids");
+    }
+    out << indent << addressing.storeCheck(store.target, slotName(store.source)) << ";\n";
   }
 }
 
@@ -358,7 +397,7 @@ void emitStageBodyTiled(std::ostringstream& out,
       const std::string a0 = slot(operands[inst.operandBegin]);
       const std::string a1 = inst.operandCount > 1 ? slot(operands[inst.operandBegin + 1]) : a0;
       const std::string a2 = inst.operandCount > 2 ? slot(operands[inst.operandBegin + 2]) : a0;
-      laneLoop(dst + " = " + substitute(expressionText(inst.fn), a0, a1, a2, type, style), false);
+      laneLoop(dst + " = " + pwText(inst, a0, a1, a2, type, style), false);
       break;
     }
     case Opcode::Convert: {
@@ -366,9 +405,18 @@ void emitStageBodyTiled(std::ostringstream& out,
       laneLoop(dst + " = " + converted(slot(source), slotType(stage, source), inst.type), false);
       break;
     }
-    case Opcode::Lookup:
-      throw std::invalid_argument(
-          "expr: a grid lookup reached the code generator; gate on containsLookup() first");
+    case Opcode::GridParam:
+    case Opcode::GridLoad: {
+      std::string operand;
+      if (inst.op == Opcode::GridLoad) {
+        const std::int32_t source = operands[inst.operandBegin];
+        operand = converted(slot(source), slotType(stage, source), ComputeType::F64);
+      }
+      laneLoop(dst + " = " +
+                   converted(gridText(inst, addressing, operand), ComputeType::F64, inst.type),
+               false);
+      break;
+    }
     case Opcode::Contract:
       throw std::invalid_argument(
           "expr: a contraction reached the tiled code generator; emit one point after the other");
@@ -392,6 +440,13 @@ void emitStageBodyTiled(std::ostringstream& out,
       laneLoop(addressing.storePersistent(store.target - addressing.stateSlots, value(store)),
                true);
     }
+  }
+  for (const Store& store : stage.checks) {
+    if (addressing.storeCheck == nullptr) {
+      throw std::invalid_argument(
+          "expr: a grid lookup reached a code generator that does not sample grids");
+    }
+    laneLoop(addressing.storeCheck(store.target, slot(store.source)), false);
   }
   out << indent << "}\n";
 }
@@ -439,15 +494,73 @@ std::int32_t criticalPath(const StageCode& stage, const std::vector<std::int32_t
   return longest;
 }
 
-bool containsLookup(const LoweredProgram& lowered) {
-  for (const auto* stage : {&lowered.precompute(), &lowered.run()}) {
-    for (const Instruction& inst : stage->code) {
-      if (inst.op == Opcode::Lookup) {
-        return true;
-      }
-    }
+GridDescriptor gridDescriptor(const reader::datafield::ArrayView& view, const void* data) {
+  GridDescriptor descriptor;
+  descriptor.data = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(data));
+  for (unsigned d = 0; d < view.dimensions && d < reader::datafield::MaxGridDimensions; ++d) {
+    descriptor.min[d] = view.min[d];
+    descriptor.deltaInv[d] = view.deltaInv[d];
+    descriptor.num[d] = view.num[d];
+    descriptor.stride[d] = view.stride[d];
   }
-  return false;
+  descriptor.componentStride = view.componentStride;
+  return descriptor;
+}
+
+std::size_t gridBytes(const reader::datafield::ArrayView& view) {
+  // up to the last element: the far corner of the last component
+  std::size_t last = (view.components > 0 ? view.components - 1 : 0) * view.componentStride;
+  for (unsigned d = 0; d < view.dimensions && d < reader::datafield::MaxGridDimensions; ++d) {
+    if (view.num[d] == 0) {
+      return 0;
+    }
+    last += static_cast<std::size_t>(view.num[d] - 1) * view.stride[d];
+  }
+  const std::size_t element =
+      view.type == reader::datafield::ElementType::Float ? sizeof(float) : sizeof(double);
+  return (last + 1) * element;
+}
+
+void emitGridDescriptor(std::ostringstream& out,
+                        const std::vector<reader::datafield::ElementType>& elements,
+                        const std::vector<GridUse>& uses,
+                        const std::string& u64,
+                        const std::string& qualifier,
+                        const std::string& global) {
+  constexpr auto Axes = reader::datafield::MaxGridDimensions;
+  out << "// the byte image of codegen::GridDescriptor\n"
+      << "typedef struct {\n"
+      << "  " << u64 << " data;\n"
+      << "  double min[" << Axes << "];\n"
+      << "  double deltaInv[" << Axes << "];\n"
+      << "  " << u64 << " num[" << Axes << "];\n"
+      << "  " << u64 << " stride[" << Axes << "];\n"
+      << "  " << u64 << " componentStride;\n"
+      << "  " << u64 << " outside;\n"
+      << "} SeissolExprGrid;\n\n";
+  for (std::size_t grid = 0; grid < uses.size() && grid < elements.size(); ++grid) {
+    if (uses[grid].dimensions == 0) {
+      continue;
+    }
+    const char* type = elements[grid] == reader::datafield::ElementType::Float ? "float" : "double";
+    out << qualifier << " double seissol_expr_load" << grid << "(" << global
+        << "const SeissolExprGrid* g, double offset) {\n"
+        << "  return (double)((" << global << "const " << type << "*)(g->data))[(" << u64
+        << ")offset];\n"
+        << "}\n\n";
+  }
+}
+
+void emitStrictMacros(std::ostringstream& out,
+                      const std::string& add,
+                      const std::string& sub,
+                      const std::string& mul) {
+  out << "// each operation rounded on its own, never contracted (Instruction::strict)\n"
+      << "#ifndef SEISSOL_EXPR_DADD\n"
+      << "#define SEISSOL_EXPR_DADD(x, y) " << add << "\n"
+      << "#define SEISSOL_EXPR_DSUB(x, y) " << sub << "\n"
+      << "#define SEISSOL_EXPR_DMUL(x, y) " << mul << "\n"
+      << "#endif\n\n";
 }
 
 bool containsContraction(const LoweredProgram& lowered) {

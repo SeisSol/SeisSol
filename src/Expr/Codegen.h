@@ -93,12 +93,61 @@ struct StageAddressing {
   std::string (*storePersistent)(std::int32_t slot, const std::string& value){nullptr};
   /// Null for a target that cannot read blocks; a contraction then throws.
   const ContractAddressing* contract{nullptr};
-  /// The expression of a lookup (Opcode::Lookup) at the coordinates `coordinates`, expressions in
-  /// binary64: a sample in binary64, which the body converts into the type of the instruction.
-  /// Null for a target that cannot sample a grid; a lookup then throws.
-  std::string (*lookup)(const Instruction& inst,
-                        const std::vector<std::string>& coordinates){nullptr};
+  /// The parts of a written-out lookup (expandLookups()), each an expression in binary64: a field
+  /// of the geometry of grid `grid` (Opcode::GridParam), the element of its array at `offset`, an
+  /// expression in binary64 holding a whole number (Opcode::GridLoad); and the statement that
+  /// reports a sample beyond the grid where `value` is not zero (StageCode::checks). Null for a
+  /// target that samples no grids; a lookup then throws.
+  std::string (*gridParam)(GridId grid, GridField field, std::int32_t axis){nullptr};
+  std::string (*gridLoad)(GridId grid, const std::string& offset){nullptr};
+  std::string (*storeCheck)(GridId grid, const std::string& value){nullptr};
 };
+
+/// The descriptor of the array of a grid, through which a compiled kernel reads it: the byte image
+/// of `SeissolExprGrid` in the source of the kernel (emitGridDescriptor()). The CPU kernel reads
+/// one in host memory, a device kernel one on the device, at an address that stays the same, so
+/// that one recorded in a graph reads the window that is resident when it runs. Every field is
+/// eight bytes wide, so the image has no padding to agree on.
+struct GridDescriptor {
+  /// The address of the first element, where the kernel runs.
+  std::uint64_t data{0};
+  double min[reader::datafield::MaxGridDimensions]{};
+  double deltaInv[reader::datafield::MaxGridDimensions]{};
+  std::uint64_t num[reader::datafield::MaxGridDimensions]{};
+  std::uint64_t stride[reader::datafield::MaxGridDimensions]{};
+  std::uint64_t componentStride{1};
+  /// Set by a point that sampled a grid that fails beyond its volume beyond it, which a kernel
+  /// cannot report itself; whoever keeps the descriptor reads it and does.
+  std::uint64_t outside{0};
+};
+
+/// The descriptor of the array `view`, with its elements at `data` -- where the kernel runs: on the
+/// host, view.data.
+[[nodiscard]] GridDescriptor gridDescriptor(const reader::datafield::ArrayView& view,
+                                            const void* data);
+
+/// The bytes of the array of `view` a kernel may read: up to its last element.
+[[nodiscard]] std::size_t gridBytes(const reader::datafield::ArrayView& view);
+
+/// The definition of `SeissolExprGrid` (GridDescriptor), with `u64` the dialect's unsigned 64-bit
+/// integer type; and per grid `g` that `uses` samples (by GridId) the function
+/// `seissol_expr_load<g>(grid, offset)`, which reads the element at `offset` of its array, of the
+/// type in `elements`, as binary64. `qualifier` comes before a function (`__device__ inline`, say),
+/// `global` before a pointer into global memory (`__global ` in OpenCL C).
+void emitGridDescriptor(std::ostringstream& out,
+                        const std::vector<reader::datafield::ElementType>& elements,
+                        const std::vector<GridUse>& uses,
+                        const std::string& u64,
+                        const std::string& qualifier,
+                        const std::string& global);
+
+/// The macros of the arithmetic that is computed as written (Instruction::strict), with the
+/// definitions of a target, unless defined before: SEISSOL_EXPR_DADD, SEISSOL_EXPR_DSUB and
+/// SEISSOL_EXPR_DMUL, each of two operands in binary64.
+void emitStrictMacros(std::ostringstream& out,
+                      const std::string& add,
+                      const std::string& sub,
+                      const std::string& mul);
 
 /// The expression text for `fn`, straight out of the interpreter's table, with
 /// `x`, `y`, `z` still as placeholders.
@@ -143,7 +192,7 @@ struct StageAddressing {
 ///
 /// A lookup samples through the addressing (StageAddressing::lookup), at its coordinates converted
 /// to binary64, as the interpreter does; it throws std::invalid_argument for a target without one
-/// -- callers gate on containsLookup() first, and reaching here with one is a programming error
+/// -- written-out lookups reach a target that does not sample grids only by a programming error
 /// rather than an unsupported model.
 ///
 /// Each instruction computes in its type (Instruction::type), each transient is a local of the
@@ -182,11 +231,6 @@ void emitStageBodyTiled(std::ostringstream& out,
 /// The longest chain of dependent instructions of `stage`.
 [[nodiscard]] std::int32_t criticalPath(const StageCode& stage,
                                         const std::vector<std::int32_t>& operands);
-
-/// True when either stage samples a grid. The device backends sample it themselves
-/// (StageAddressing::lookup); the CPU backend does not yet, for which a lookup is a batch call
-/// into GridSampler, as in the interpreter.
-[[nodiscard]] bool containsLookup(const LoweredProgram& lowered);
 
 /// True when either stage contracts a block.
 [[nodiscard]] bool containsContraction(const LoweredProgram& lowered);

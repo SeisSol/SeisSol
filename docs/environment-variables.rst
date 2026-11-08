@@ -181,10 +181,13 @@ How long the windows are is set in the ``&datafield`` block of the parameter fil
 ``windowmemory`` (MiB for all of them per rank, by default 1024) or ``residentslices`` (slices
 per window); the time between synchronization points follows from them and from the time step of
 the file. The grid computes its indices and its samples in binary64, as easi's ASAGI component
-does. On a GPU, a kernel samples a copy of the grid on the device, which SeisSol makes when it
-prepares the kernel and updates where the window moves; the samples are the same bits as on the
-host. A compiled CPU kernel does not sample grids yet: a script that does runs in the interpreter
-on the host.
+does, whatever the precision of the script: the coordinates are converted to binary64, and the
+sample back to the precision of the script. SeisSol writes a sample out as the operations it
+consists of -- the cells and the weights of the stencil, the elements and their products -- so the
+compiled CPU kernels, the kernels on a GPU and the interpreter all compute it the same way, to the
+same bits, and two samples of one grid at the same point (``m_rho`` and ``m_mu``, say) share the
+cells and the weights. On a GPU, the kernel reads a copy of the grid on the device, which SeisSol
+makes when it prepares the kernel and updates where the window moves.
 
 The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
 ``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They

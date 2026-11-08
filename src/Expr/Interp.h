@@ -17,8 +17,9 @@
 // already split into stages.
 //
 // SEAMS. Two things enter through a narrow interface rather than a #include:
-//   * GridSampler is Kind::Lookup's landing site, adapted onto
-//     datafield::Grid::sampleBatch by the backend.
+//   * GridArrays gives the arrays of the grids a written-out lookup reads
+//     (Opcode::GridParam, Opcode::GridLoad), adapted onto datafield::Grid by the
+//     backend.
 //   * TileIo is exactly Binding::gather / Binding::scatter, including the
 //     dst[channel * count + lane] layout, adapted by a (Binding, DataTable)
 //     pair.
@@ -26,6 +27,7 @@
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Reader/Datafield/Interpolation.h"
 
 #include <cmath>
 #include <cstddef>
@@ -135,30 +137,22 @@ T applyPw(Fn f, const T* args) {
 
 // --- seams -------------------------------------------------------------------
 
-// Kind::Lookup lowers onto this. Coordinates and results are SoA in both
-// directions, matching the Grid.h contract: `coords[d]` is a contiguous run of
-// `count` values for dimension d.
-class GridSampler {
+// The arrays of the grids a program samples, by GridId: what a written-out lookup reads the
+// geometry (Opcode::GridParam) and the elements (Opcode::GridLoad) of, when it runs -- the window
+// of a time-dependent grid moves both. And where a sample beyond a grid that fails there is
+// reported.
+class GridArrays {
   public:
-  GridSampler() = default;
-  virtual ~GridSampler() = default;
-  GridSampler(const GridSampler&) = delete;
-  GridSampler& operator=(const GridSampler&) = delete;
-  GridSampler(GridSampler&&) = delete;
-  GridSampler& operator=(GridSampler&&) = delete;
+  GridArrays() = default;
+  virtual ~GridArrays() = default;
+  GridArrays(const GridArrays&) = delete;
+  GridArrays& operator=(const GridArrays&) = delete;
+  GridArrays(GridArrays&&) = delete;
+  GridArrays& operator=(GridArrays&&) = delete;
 
-  virtual void sampleBatch(GridId grid,
-                           std::int32_t component,
-                           const double* const* coords,
-                           std::int32_t dimension,
-                           std::size_t count,
-                           double* dst) const = 0;
-  virtual void sampleBatch(GridId grid,
-                           std::int32_t component,
-                           const float* const* coords,
-                           std::int32_t dimension,
-                           std::size_t count,
-                           float* dst) const = 0;
+  [[nodiscard]] virtual const reader::datafield::ArrayView& array(GridId grid) const = 0;
+  /// A point sampled `grid`, whose boundary mode fails beyond its volume, beyond it.
+  virtual void outside(GridId grid) const = 0;
 };
 
 // Everything one contraction reads, resolved for one call: the matrix and the block with their
@@ -261,7 +255,7 @@ class TileInterpreter {
   // the instruction stream. Both must outlive the interpreter.
   TileInterpreter(const Program& program,
                   const LoweredProgram& lowered,
-                  const GridSampler* sampler,
+                  const GridArrays* grids,
                   const InterpreterOptions& options);
 
   [[nodiscard]] std::size_t tileSize() const { return tileSize_; }
@@ -298,7 +292,7 @@ class TileInterpreter {
                 std::size_t count);
 
   const LoweredProgram* lowered_;
-  const GridSampler* sampler_;
+  const GridArrays* grids_;
   std::size_t tileSize_{0};
   // the transients of a tile, each in its type (StageCode::slotTypes), at their offsets in bytes
   std::vector<double> scratch_;

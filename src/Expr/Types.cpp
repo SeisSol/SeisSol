@@ -163,6 +163,11 @@ class Typer {
       case Kind::Contract:
         types_[index] = ValueType::Real;
         break;
+      case Kind::GridParam:
+      case Kind::GridLoad:
+        // the parts of a written-out lookup are in binary64
+        types_[index] = ValueType::F64;
+        break;
       default: {
         // one type for all operands
         arena_.children(id, kids);
@@ -256,6 +261,9 @@ class Typer {
     }
     case Kind::PW: {
       const int count = arity(node.fn);
+      if (node.strict) {
+        return arena.strictPw(node.fn, operand(node.a, type), operand(node.b, type), type);
+      }
       if (count == 1) {
         return arena.pw(node.fn, operand(node.a, type), type);
       }
@@ -283,6 +291,10 @@ class Typer {
       return arena.fold(node.red, operand(node.a, type));
     case Kind::Sample:
       return arena.sample(operand(node.a, type));
+    case Kind::GridParam:
+      return arena.gridParam(node.grid, static_cast<GridField>(node.comp), node.axis);
+    case Kind::GridLoad:
+      return arena.gridLoad(node.grid, operand(node.a, ValueType::F64));
     }
     fail(std::string("node kind '") + name(node.kind) + "' has no type");
   }

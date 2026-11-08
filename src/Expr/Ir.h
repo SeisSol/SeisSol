@@ -74,8 +74,20 @@ enum class Kind : std::uint8_t {
   Dx,     // physical-space derivative                       [derived-output]
   Cumint, // cumulative time integral                        [derived-output]
   Fold,   // temporal reducer                                [derived-output]
-  Sample  // materialize at output cadence                   [derived-output]
+  Sample, // materialize at output cadence                   [derived-output]
+  // The parts of a lookup once the lowering has written it out (expandLookups()), never in the
+  // program of a frontend: a field of the geometry of a grid (Node::comp holds the GridField,
+  // Node::axis the axis), the same at all points, read where and when the kernel runs; and the
+  // element of the array of a grid at the offset Node::a, a whole number in binary64. Both are in
+  // binary64.
+  GridParam,
+  GridLoad
 };
+
+/// What a Kind::GridParam reads of the geometry of a grid (reader::datafield::ArrayView), in
+/// binary64 -- the whole numbers exactly, as every array SeisSol reads has fewer than 2^53
+/// elements.
+enum class GridField : std::uint8_t { Min, DeltaInv, Num, Stride, ComponentStride };
 
 const char* name(Kind kind);
 
@@ -185,6 +197,10 @@ struct Node {
   NodeId c{NoNode};          // PW arg2 (Select only)
   std::int32_t argBegin{0};  // Lookup: coordinate children, span into Arena::args_
   std::int32_t argCount{0};
+  // PW: computed as written, each operation rounded on its own: a backend that contracts a*b + c
+  // into a fused multiply-add elsewhere does not here. The arithmetic of a written-out lookup,
+  // whose samples are the same bits on every backend (expandLookups()).
+  bool strict{false};
 };
 
 class Arena;
@@ -241,6 +257,12 @@ class Arena {
   NodeId pw(Fn f, NodeId x, ValueType type = ValueType::Real);
   NodeId pw(Fn f, NodeId x, NodeId y, ValueType type = ValueType::Real);
   NodeId pw(Fn f, NodeId x, NodeId y, NodeId z, ValueType type = ValueType::Real);
+  // A binary operation computed as written, without contraction (Node::strict).
+  NodeId strictPw(Fn f, NodeId x, NodeId y, ValueType type);
+  // A field of the geometry of a grid, and the element of its array at `offset` (Kind::GridParam,
+  // Kind::GridLoad), in binary64.
+  NodeId gridParam(GridId grid, GridField field, std::int32_t axis);
+  NodeId gridLoad(GridId grid, NodeId offset);
   NodeId lookup(GridId grid,
                 std::int32_t component,
                 const std::vector<NodeId>& coords,

@@ -50,9 +50,10 @@ struct StageCost {
   std::uint64_t divisions{0};
   /// sqrt, exp, log, the trigonometric and hyperbolic family, erf, pow.
   std::uint64_t transcendentals{0};
-  /// Grid samples. Counted separately because their cost is a stencil gather
-  /// and a tensor-product reduction, not an instruction -- see Interpolation.h.
-  std::uint64_t lookups{0};
+  /// The elements of grids read, width^d per sample: a random access each, counted apart from the
+  /// loads of the tile. The arithmetic of a sample is written out (expandLookups()) and counted
+  /// with the operations above.
+  std::uint64_t gridLoads{0};
   /// The multiply-adds of the contractions, one per coefficient. A contraction
   /// also loads one matrix entry and one block coefficient per multiply-add,
   /// which are counted under `loads`.

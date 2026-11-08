@@ -29,6 +29,7 @@
 // failure mode of getting this wrong is a stale value, not a crash, so the
 // default has to be the safe one.
 
+#include "Expr/Expand.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 
@@ -65,7 +66,8 @@ enum class Opcode : std::uint8_t {
   LoadInput,      // imm = input index in the gathered tile
   LoadPersistent, // imm = persistent slot (state slot or hoisted value)
   Pw,             // fn, arity(fn) operands
-  Lookup,         // grid, comp, argCount coordinate operands
+  GridParam,      // grid, comp = GridField, imm = axis; no operands (Kind::GridParam)
+  GridLoad,       // grid; one operand, the offset (Kind::GridLoad)
   Contract,       // matrix, block; no operands
   Convert         // one operand, converted from the type of its slot to the type of the instruction
 };
@@ -97,6 +99,8 @@ struct Instruction {
   std::int32_t operandCount{0};
   std::int32_t dst{0}; // transient slot
   NodeId node{NoNode}; // provenance, for diagnostics and codegen comments
+  // Pw: computed as written, without contraction (Node::strict)
+  bool strict{false};
 };
 
 struct Store {
@@ -109,7 +113,10 @@ struct StageCode {
   std::vector<Instruction> code;
   std::vector<Store> outputs;    // Run only: scatter targets, by output index
   std::vector<Store> persistent; // Precompute: hoisted values. Run: state writeback.
-  std::int32_t slotCount{0};     // transient slots this stage needs
+  // Run only: the checks of the grids that fail beyond their volume (GridCheck), with the GridId
+  // as the target: a value that is nonzero at a point that sampled the grid beyond it.
+  std::vector<Store> checks;
+  std::int32_t slotCount{0}; // transient slots this stage needs
   // The type of each transient slot: a slot only ever holds values of one type. A store converts
   // from it into the type the data is moved in.
   std::vector<ComputeType> slotTypes;
@@ -166,6 +173,14 @@ class LoweredProgram {
   [[nodiscard]] std::string summary() const;
   [[nodiscard]] std::string dump() const;
 
+  /// How the program samples each of its grids (by GridId), and whether it samples any: the
+  /// lookups are written out (expandLookups()), so this is what a backend checks the grids it is
+  /// bound to against.
+  [[nodiscard]] const std::vector<GridUse>& gridUses() const { return gridUses_; }
+  [[nodiscard]] bool usesGrids() const;
+  /// Whether an instruction is computed without contraction (Instruction::strict).
+  [[nodiscard]] bool hasStrict() const;
+
   private:
   friend LoweredProgram lower(const Program&, const LowerOptions&);
   StageCode precompute_;
@@ -175,11 +190,13 @@ class LoweredProgram {
   std::int32_t persistentSlotCount_{0};
   ComputeType computeType_{ComputeType::F64};
   ComputeType dataType_{ComputeType::F64};
+  std::vector<GridUse> gridUses_;
 };
 
 // Throws std::invalid_argument on a program that validate() would reject and on
 // an operand space mismatch. Call validate() first; this does not repeat it. The program is lowered
-// with the type of every value resolved (typed()); its inputs, outputs and states stay in order.
+// with the type of every value resolved (typed()) and its lookups written out (expandLookups());
+// its inputs, outputs and states stay in order.
 LoweredProgram lower(const Program& program, const LowerOptions& options = {});
 
 } // namespace seissol::expr

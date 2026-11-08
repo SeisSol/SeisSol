@@ -421,7 +421,8 @@ TEST_SUITE("Expr::Lower") {
     const LoweredProgram lowered = lower(p);
     CHECK_FALSE(lowered.hasPrecompute());
     CHECK(lowered.persistentSlotCount() == 0);
-    CHECK(countOpcode(lowered.run(), Opcode::Lookup) == 1);
+    // written out: the two elements of a linear stencil on one axis
+    CHECK(countOpcode(lowered.run(), Opcode::GridLoad) == 2);
   }
 
   // The analytic boundary condition: x is fixed for the run, t is not, so the
@@ -442,9 +443,11 @@ TEST_SUITE("Expr::Lower") {
     const LoweredProgram lowered = lower(p, options);
 
     CHECK(lowered.hasPrecompute());
+    // the sample, not the parts it is computed from
     CHECK(lowered.persistentSlotCount() == 1);
-    CHECK(countOpcode(lowered.precompute(), Opcode::Lookup) == 1);
-    CHECK(countOpcode(lowered.run(), Opcode::Lookup) == 0);
+    CHECK(countOpcode(lowered.precompute(), Opcode::GridLoad) == 2);
+    CHECK(countOpcode(lowered.run(), Opcode::GridLoad) == 0);
+    CHECK(countOpcode(lowered.run(), Opcode::GridParam) == 0);
     CHECK(countOpcode(lowered.run(), Opcode::LoadPersistent) == 1);
     CHECK(lowered.precompute().persistent.size() == 1);
   }
@@ -461,7 +464,7 @@ TEST_SUITE("Expr::Lower") {
     options.invariantInputs = {"x"}; // but invariantGrids stays empty
     const LoweredProgram lowered = lower(p, options);
     CHECK_FALSE(lowered.hasPrecompute());
-    CHECK(countOpcode(lowered.run(), Opcode::Lookup) == 1);
+    CHECK(countOpcode(lowered.run(), Opcode::GridLoad) == 2);
   }
 
   TEST_CASE("cheap invariants are recomputed rather than materialised") {
