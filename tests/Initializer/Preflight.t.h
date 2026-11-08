@@ -72,9 +72,12 @@ TEST_CASE("The check of a run finds the files it misses" * doctest::test_suite("
       directory + "/parameters.par", {"abortcriteria.endtime=2.0"}, std::nullopt, reportPath);
   CHECK(code == 1);
 
-  const std::ifstream stream(reportPath);
   std::stringstream content;
-  content << stream.rdbuf();
+  {
+    // (closed again before the file is removed; Windows cannot remove an open file)
+    const std::ifstream stream(reportPath);
+    content << stream.rdbuf();
+  }
   const auto report = content.str();
   CHECK(report.find("\"schema\": \"seissol-check/1\"") != std::string::npos);
   CHECK(report.find("\"status\": \"failed\"") != std::string::npos);

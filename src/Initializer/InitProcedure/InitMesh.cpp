@@ -32,6 +32,7 @@
 
 #include <hdf5.h>
 #endif // defined(USE_HDF)
+#include "Initializer/Clustering/VertexWeights/MeasuredWeights.h"
 #include "Initializer/Clustering/VertexWeights/WeightsFactory.h"
 #include "Initializer/FaceMap.h"
 #include "Modules/Modules.h"
@@ -118,7 +119,14 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   double nodeWeight = 1.0;
 
   const bool miniSeisSolEnabled = seissolInstance.env().get<bool>("MINISEISSOL", true);
-  if (miniSeisSolEnabled) {
+  // Costs measured in a run before hold the speed of the ranks they were measured on already; the
+  // speed of the ranks would count twice.
+  const bool byMeasuredCosts = seissolInstance.measuredCosts() != nullptr ||
+                               !seissolParams.timeStepping.vertexWeight.measuredCosts.empty();
+  if (miniSeisSolEnabled && byMeasuredCosts) {
+    logInfo() << "Skipping mini SeisSol for the node weights (the partition goes by the costs "
+                 "measured in a run before).";
+  } else if (miniSeisSolEnabled) {
     if (seissol::Mpi::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
       const auto elapsedTime = seissol::solver::miniSeisSol(seissolParams.model.config);
@@ -310,8 +318,19 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       .configCostFactors = std::move(configCostFactors)};
 
   seissol::initializer::Clustering clustering(config, seissolInstance);
-  const auto weightModel = seissol::initializer::getVertexWeightModel(
-      seissolParams.timeStepping.lts.getLtsWeightsType());
+  // the costs measured in a run before, if there are any, in place of the model: those of the run
+  // before in this process, or else those of a file
+  const auto& measuredCosts = seissolParams.timeStepping.vertexWeight.measuredCosts;
+  std::unique_ptr<seissol::initializer::VertexWeightModel> weightModel;
+  if (seissolInstance.measuredCosts() != nullptr) {
+    weightModel =
+        std::make_unique<seissol::initializer::MeasuredWeights>(*seissolInstance.measuredCosts());
+  } else if (!measuredCosts.empty()) {
+    weightModel = std::make_unique<seissol::initializer::MeasuredWeights>(measuredCosts);
+  } else {
+    weightModel = seissol::initializer::getVertexWeightModel(
+        seissolParams.timeStepping.lts.getLtsWeightsType());
+  }
   auto meshReader =
       std::make_unique<seissol::geometry::PUMLReader>(seissolParams.mesh.meshFileName,
                                                       seissolParams.mesh.partitioningLib,

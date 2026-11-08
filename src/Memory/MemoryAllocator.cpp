@@ -14,6 +14,7 @@
 #include "Kernels/Common.h"
 
 #include <cassert>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 // posix_memalign is POSIX and only declared by the C header
@@ -26,6 +27,10 @@
 #include <Device/device.h>
 #endif
 
+#ifdef _WIN32
+#include <malloc.h>
+#endif
+
 // TODO: add Device/#48; then refactor away most ifdefs in this file
 
 namespace {
@@ -34,6 +39,35 @@ constexpr bool HasHBM = true;
 #else
 constexpr bool HasHBM = false;
 #endif
+
+// Windows has no posix_memalign; there, memory with an alignment needs to come from _aligned_malloc
+// and be returned via _aligned_free. Hence, all standard allocations go through the latter there
+// (also those which do not need an alignment) to keep the deallocation uniform.
+void* allocateStandard(size_t size, size_t alignment) {
+#ifdef _WIN32
+  const size_t windowsAlignment =
+      (alignment % sizeof(void*) != 0) ? alignof(std::max_align_t) : alignment;
+  return _aligned_malloc(size, windowsAlignment);
+#else
+  if (alignment % (sizeof(void*)) != 0) {
+    return malloc(size);
+  } else {
+    void* ptrBuffer{nullptr};
+    if (posix_memalign(&ptrBuffer, alignment, size) != 0) {
+      return nullptr;
+    }
+    return ptrBuffer;
+  }
+#endif
+}
+
+void freeStandard(void* pointer) {
+#ifdef _WIN32
+  _aligned_free(pointer);
+#else
+  ::free(pointer);
+#endif
+}
 } // namespace
 
 namespace seissol::memory {
@@ -60,12 +94,8 @@ void* allocate(size_t size, size_t alignment, Memkind memkind) {
   }
 
   if (memkind == Memkind::Standard) {
-    if (alignment % (sizeof(void*)) != 0) {
-      ptrBuffer = malloc(size);
-      error = (ptrBuffer == nullptr);
-    } else {
-      error = (posix_memalign(&ptrBuffer, alignment, size) != 0);
-    }
+    ptrBuffer = allocateStandard(size, alignment);
+    error = (ptrBuffer == nullptr);
   } else if (memkind == Memkind::HighBandwidth) {
 #ifdef USE_MEMKIND
     if (alignment % (sizeof(void*)) != 0) {
@@ -114,7 +144,7 @@ void free(void* pointer, Memkind memkind) {
   }
 
   if (memkind == Memkind::Standard) {
-    ::free(pointer);
+    freeStandard(pointer);
   } else if (memkind == Memkind::HighBandwidth) {
 #ifdef USE_MEMKIND
     hbw_free(pointer);

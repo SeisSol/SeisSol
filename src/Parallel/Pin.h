@@ -14,7 +14,6 @@
 #include <async/as/Pin.h>
 #include <deque>
 #include <optional>
-#include <sched.h>
 #include <string>
 
 namespace seissol::parallel {

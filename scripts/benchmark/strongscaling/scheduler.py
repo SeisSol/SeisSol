@@ -16,12 +16,27 @@ from __future__ import annotations
 
 import itertools
 import os
+import re
 import shutil
 import subprocess  # nosec B404
 from dataclasses import dataclass
 from pathlib import Path
 
 from .config import Machine, format_duration, partition_for
+
+
+def parsable_job_id(output: str) -> str:
+    """The job ID in what `sbatch --parsable` printed, or nothing.
+
+    That is the last line, `<job>[;<cluster>]`. Some sites put a wrapper around
+    sbatch that writes lines of its own to the same output before it, such as
+    TACC's checks of the account and the queue.
+    """
+    for line in reversed(output.splitlines()):
+        job_id = line.strip().split(";")[0]
+        if re.fullmatch(r"\d+(_\d+)?", job_id):
+            return job_id
+    return ""
 
 
 class SchedulerError(Exception):
@@ -159,9 +174,11 @@ class SlurmScheduler(Scheduler):
             raise SchedulerError(
                 f"sbatch refused {script}: {(result.stderr or result.stdout).strip()}"
             )
-        job_id = result.stdout.strip().split(";")[0]
+        job_id = parsable_job_id(result.stdout)
         if not job_id:
-            raise SchedulerError(f"sbatch gave no job ID for {script}")
+            raise SchedulerError(
+                f"sbatch gave no job ID for {script}: {result.stdout.strip()}"
+            )
         return job_id
 
     def states(self, job_ids: list[str]) -> dict[str, str]:

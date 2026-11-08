@@ -31,11 +31,18 @@
 #include <string>
 #include <string_view>
 #include <system_error>
-#include <unistd.h>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
 #include <yaml-cpp/yaml.h>
+
+// whether a directory is writable: POSIX has access(); Windows tries to create a file there
+#ifdef _WIN32
+#include <fstream>
+#include <random>
+#else
+#include <unistd.h>
+#endif
 
 #ifdef USE_HDF
 #include <hdf5.h>
@@ -250,6 +257,26 @@ json::Value meshSection(const parameters::MeshParameters& mesh, Report& report) 
   return section;
 }
 
+//! @brief Whether files can be created in the directory @p path .
+bool directoryWritable(const std::filesystem::path& path) {
+#ifdef _WIN32
+  // access does not know the permissions of Windows (access control lists), and its read-only
+  // attribute does not keep anyone from creating files in a directory; so try it
+  std::random_device seed;
+  const auto probe = path / ("seissol-check-" + std::to_string(seed()));
+  bool created = false;
+  {
+    const std::ofstream stream(probe);
+    created = stream.good();
+  }
+  std::error_code error;
+  std::filesystem::remove(probe, error);
+  return created;
+#else
+  return ::access(path.string().c_str(), W_OK | X_OK) == 0;
+#endif
+}
+
 json::Value outputSection(const parameters::SeisSolParameters& parameters, Report& report) {
   json::Value section;
   const auto& output = parameters.output;
@@ -266,8 +293,8 @@ json::Value outputSection(const parameters::SeisSolParameters& parameters, Repor
          !std::filesystem::exists(existing, error)) {
     existing = existing.parent_path();
   }
-  const bool writable = std::filesystem::is_directory(existing, error) &&
-                        ::access(existing.string().c_str(), W_OK | X_OK) == 0;
+  const bool writable =
+      std::filesystem::is_directory(existing, error) && directoryWritable(existing);
   section["writable"] = writable;
   if (!writable) {
     report.problem(exists ? "The output directory " + directory.string() + " is not writable."

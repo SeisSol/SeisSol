@@ -584,6 +584,26 @@ def available_cpus():
         return os.cpu_count() or 1
 
 
+def available_cores():
+    """The number of cores this process may run on: an OpenMP thread at the place of a core takes
+    all of its CPUs (its hardware threads). Where the topology is unknown, the number of CPUs.
+    """
+    try:
+        cpus = os.sched_getaffinity(0)
+    except AttributeError:
+        return available_cpus()
+    cores = set()
+    for cpu in cpus:
+        topology = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
+        try:
+            package = (topology / "physical_package_id").read_text(encoding="utf-8")
+            core = (topology / "core_id").read_text(encoding="utf-8")
+        except OSError:
+            return len(cpus)
+        cores.add((package.strip(), core.strip()))
+    return len(cores)
+
+
 def record(path, payload):
     if path is None:
         return
@@ -715,22 +735,30 @@ def _command_run(args):
     # where the ranks and their threads take every CPU there is depends on how the MPI library and
     # the OpenMP runtime bind them (on the CI's runners of four, only the build with GCC found one),
     # so there the run polls instead, as the CI's runs of verify.py do; the environment can say
-    # otherwise.
-    cpus = available_cpus()
+    # otherwise. With the places of cores, a thread holds all CPUs of its core: the CI's runners
+    # have two cores of two CPUs each, which two ranks of one thread take completely.
+    if environment["OMP_PLACES"] == "cores":
+        units, unit = available_cores(), "cores"
+    else:
+        units, unit = available_cpus(), "CPUs"
     if (
         args.ranks > 1
-        and cpus <= args.ranks * args.threads
+        and units <= args.ranks * args.threads
         and "SEISSOL_COMMTHREAD" not in environment
     ):
         environment["SEISSOL_COMMTHREAD"] = "0"
         print(
             f"communication by polling: {args.ranks} ranks of {args.threads} threads on "
-            f"{cpus} CPUs leave none for a communication thread"
+            f"{units} {unit} leave none for a communication thread"
         )
     # Mini SeisSol times the ranks of a run on several, for node weights of the partitioning, which
     # the mini meshes do without (PartitioningLib 'none' keeps the cells where they were read); in
     # a build without optimization, as the one measuring the coverage, it takes minutes
     environment["SEISSOL_MINISEISSOL"] = "0"
+    # what the case sets in the environment of its run, e.g. a scheduling of its own
+    for entry in args.env:
+        name, _, value = entry.partition("=")
+        environment[name] = value
 
     # the check of the run, which has to pass wherever the run is meant to; on one process, as it
     # runs without MPI
@@ -1321,6 +1349,7 @@ def main(argv=None):
     # what a run on a single rank is started under, a word each, e.g. mpirun -np 1
     run.add_argument("--launcher", action="append", default=[])
     run.add_argument("--set", action="append", default=[], metavar="SECTION.KEY=VALUE")
+    run.add_argument("--env", action="append", default=[], metavar="NAME=VALUE")
     run.add_argument("--file", action="append", default=[], metavar="NAME")
     run.add_argument("--require", action="append", default=[], metavar="KEY=VALUE")
     run.add_argument(

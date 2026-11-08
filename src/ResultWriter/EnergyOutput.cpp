@@ -25,11 +25,13 @@
 #include "IO/Writer/File/RunFiles.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Modules/Modules.h"
@@ -657,6 +659,15 @@ void EnergyOutput::init(
   meshReader_ = &newMeshReader;
   ltsStorage_ = &newStorage;
 
+  // the unknowns of the cells, the friction energies, and the displacements of the free surfaces
+  // with gravity
+  auto& memoryManager = seissolInstance_.memoryManager();
+  hostData_.add<LTS::Dofs>(memoryManager.ltsStorage())
+      .add<LTS::DofsAne>(memoryManager.ltsStorage())
+      .add<LTS::PStrain>(memoryManager.ltsStorage())
+      .add<DynamicRupture::DREnergyOutputVar>(memoryManager.drStorage())
+      .add<SurfaceLTS::DisplacementDofs>(memoryManager.surfaceStorage());
+
   isPlasticityEnabled_ = newIsPlasticityEnabled;
 
   seissolInstance_.modules().registerHook(*this, ModuleHook::SimulationStart);
@@ -696,7 +707,7 @@ void EnergyOutput::init(
   }
 }
 
-void EnergyOutput::syncPoint(double time) {
+void EnergyOutput::processSyncPoint(double time) {
   assert(isEnabled_);
   const auto rank = Mpi::mpi.rank();
   logInfo() << "Writing energy output at time" << time;
@@ -957,8 +968,7 @@ void EnergyOutput::checkAbortCriterion(const std::vector<double>& timeSinceThres
   }
 
   bool abort = (decidableCount > 0) and (abortCount == decidableCount);
-  const auto& comm = Mpi::mpi.comm();
-  MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
+  Mpi::mpi.broadcast(&abort, 0);
   if (abort) {
     seissolInstance_.simulator().abort();
   }
