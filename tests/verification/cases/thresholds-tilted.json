@@ -11,6 +11,10 @@
     "anisotropic/o6/double": {
       "L2_rel": 0.00053,
       "LInf_rel": 0.007
+    },
+    "anisotropic/o6/single": {
+      "L2_rel": 0.00053,
+      "LInf_rel": 0.0071
     }
   }
 }
