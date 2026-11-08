@@ -29,9 +29,12 @@
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
 #include "Expr/RtcGpu.h"
+#include "Reader/Datafield/Grid.h"
 
+#include <cstddef>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace seissol::expr {
 
@@ -49,11 +52,17 @@ namespace seissol::expr {
 /// for makeKernel to fall back on. The one thing it does NOT do is fall back
 /// silently -- an unexplained drop to the interpreter is a log line nobody
 /// acts on.
+///
+/// The grids of the program are those of `grids` at `gridIds` (by GridId, as internGrids() gives
+/// them), loaded. The kernel samples copies of their arrays on the device, which the store keeps
+/// current (GridStore::Mirror) and makes where it has none yet.
 [[nodiscard]] std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
                                                        Binding& binding,
                                                        LoweredProgram lowered,
                                                        const BackendOptions& options,
-                                                       GpuTarget target);
+                                                       GpuTarget target,
+                                                       reader::datafield::GridStore& grids,
+                                                       const std::vector<std::size_t>& gridIds);
 
 /// Number of distinct device kernels currently held.
 [[nodiscard]] std::size_t rtcGpuCacheSize();

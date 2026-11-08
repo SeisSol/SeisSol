@@ -402,15 +402,18 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
   case BackendKind::RtcHip:
   case BackendKind::RtcOpenCl: {
     LoweredProgram lowered = lower(program, options.lowering);
+    // before the kernel: it samples copies of the grids, which it makes of those in the store
+    const auto ids = internGrids(program, grids);
     auto kernel = makeRtcGpuKernel(program,
                                    binding,
                                    std::move(lowered),
                                    options,
                                    options.preferred == BackendKind::RtcCuda  ? GpuTarget::Cuda
                                    : options.preferred == BackendKind::RtcHip ? GpuTarget::Hip
-                                                                              : GpuTarget::OpenCl);
+                                                                              : GpuTarget::OpenCl,
+                                   grids,
+                                   ids);
     if (kernel != nullptr) {
-      internGrids(program, grids);
       return kernel;
     }
     if (!options.allowFallback) {
@@ -419,13 +422,12 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
       return nullptr;
     }
     // The device path declines for reasons the model author can act on -- a
-    // grid lookup, a computed column, a host pointer -- and makeRtcGpuKernel
-    // has already named which. Trying the compiled CPU kernel before the
-    // interpreter, because none of those reasons apply to it.
+    // grid without an array, a computed column, a host pointer -- and
+    // makeRtcGpuKernel has already named which. Trying the compiled CPU kernel
+    // before the interpreter, because most of those reasons do not apply to it.
     LoweredProgram cpuLowering = lower(program, options.lowering);
     auto cpu = makeRtcCpuKernel(program, binding, std::move(cpuLowering), forFallback(options));
     if (cpu != nullptr) {
-      internGrids(program, grids);
       return cpu;
     }
     return makeInterpreter(program, binding, grids, forFallback(options));

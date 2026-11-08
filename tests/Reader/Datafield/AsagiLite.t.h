@@ -11,6 +11,7 @@
 #include "Reader/Datafield/Grid.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <netcdf.h>
 #include <string>
@@ -80,12 +81,19 @@ TEST_CASE("Datafield AsagiLite: a sliding window serves the times until the next
   REQUIRE(grid.open(file.path(), "z", df::Interpolation::Linear, df::BoundaryMode::Clamp, 1) ==
           df::AsagiLiteGrid::Error::Success);
   REQUIRE(grid.resizeWindow(Resident) == df::AsagiLiteGrid::Error::Success);
+  REQUIRE(grid.arrayView() != nullptr);
 
   const double interval = static_cast<double>(Resident - 2);
+  std::uint64_t revision = grid.revision();
   for (double update = 0.0; update + interval <= static_cast<double>(Slices - 1);
        update += interval) {
     CAPTURE(update);
     REQUIRE(grid.advanceTo(update) == df::AsagiLiteGrid::Error::Success);
+    if (update > 0.0) {
+      // a window that moved is a new array for a copy of it
+      CHECK(grid.revision() != revision);
+    }
+    revision = grid.revision();
     for (double time = update; time <= update + interval; time += 0.25) {
       CAPTURE(time);
       const double point[2] = {0.5, time};
@@ -94,6 +102,11 @@ TEST_CASE("Datafield AsagiLite: a sliding window serves the times until the next
       CHECK(value == time + 5.0);
     }
   }
+  // an update that stays in its cell reads nothing, and the copies stay current
+  REQUIRE(grid.advanceTo(2.0) == df::AsagiLiteGrid::Error::Success);
+  revision = grid.revision();
+  REQUIRE(grid.advanceTo(2.5) == df::AsagiLiteGrid::Error::Success);
+  CHECK(grid.revision() == revision);
 }
 
 } // namespace seissol::unit_test

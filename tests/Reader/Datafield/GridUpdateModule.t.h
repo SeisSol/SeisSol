@@ -83,9 +83,48 @@ df::GridDesc timeDesc(int axis, df::Interpolation interp) {
   return desc;
 }
 
+/// Counts what the store asks of it, and the revision of the grid it last saw.
+class CountingMirror final : public df::GridStore::Mirror {
+  public:
+  void refresh(const df::Grid& /*grid*/) override { ++refreshes; }
+  void finish(const df::Grid& /*grid*/) override { ++finishes; }
+
+  int refreshes{0};
+  int finishes{0};
+};
+
 } // namespace
 
 TEST_SUITE("GridUpdateModule") {
+
+  TEST_CASE("the mirrors of a grid follow the store, and report at the end") {
+    df::GridStore store;
+    store.setResidentSlices(8);
+    store.setDefaultTimeSpacing(0.25);
+    const std::size_t id = store.intern(timeDesc(3, df::Interpolation::Linear));
+    store.injectForTesting(id, std::make_unique<RecordingGrid>(4, 0.25));
+
+    auto& mirror = dynamic_cast<CountingMirror&>(
+        store.attachMirror(id, 1, std::make_unique<CountingMirror>()));
+    CHECK(store.mirror(id, 1) == &mirror);
+    CHECK(store.mirror(id, 2) == nullptr);
+
+    // every place a grid can change refreshes the copies, which compare the revision themselves
+    store.load();
+    CHECK(mirror.refreshes == 1);
+    df::GridUpdateModule module(store);
+    module.simulationStart(std::nullopt);
+    module.syncPoint(1.0);
+    CHECK(mirror.refreshes == 3);
+    CHECK(mirror.finishes == 0);
+    module.simulationEnd();
+    CHECK(mirror.finishes == 1);
+
+    // a mirror of the same kind replaces the one there
+    auto& other = dynamic_cast<CountingMirror&>(
+        store.attachMirror(id, 1, std::make_unique<CountingMirror>()));
+    CHECK(store.mirror(id, 1) == &other);
+  }
 
   TEST_CASE("a store with no time-dependent grid suggests no interval") {
     df::GridStore store;

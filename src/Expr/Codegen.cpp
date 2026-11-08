@@ -252,9 +252,22 @@ void emitStageBody(std::ostringstream& out,
           << converted(slotName(source), slotType(stage, source), inst.type) << ";\n";
       break;
     }
-    case Opcode::Lookup:
-      throw std::invalid_argument(
-          "expr: a grid lookup reached the code generator; gate on containsLookup() first");
+    case Opcode::Lookup: {
+      if (addressing.lookup == nullptr) {
+        throw std::invalid_argument(
+            "expr: a grid lookup reached the code generator; gate on containsLookup() first");
+      }
+      // the coordinates in binary64, as the interpreter converts them (Grid.h)
+      std::vector<std::string> coordinates;
+      for (std::int32_t k = 0; k < inst.operandCount; ++k) {
+        const std::int32_t source = operands[inst.operandBegin + k];
+        coordinates.push_back(
+            converted(slotName(source), slotType(stage, source), ComputeType::F64));
+      }
+      out << indent << dst << " = "
+          << converted(addressing.lookup(inst, coordinates), ComputeType::F64, inst.type) << ";\n";
+      break;
+    }
     case Opcode::Contract:
       if (addressing.contract == nullptr) {
         throw std::invalid_argument(

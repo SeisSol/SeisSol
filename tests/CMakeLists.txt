@@ -188,6 +188,12 @@ seissol_add_test_module(sourceterm      SourceTerm/TestSourceTerm.cpp)
 
 if (NETCDF)
     seissol_add_test_module(reader      Reader/ReaderTest.cpp)
+    # Without contraction of floating-point expressions, as the interpolation it compares bit for
+    # bit with a transcription of easi's (src/Reader/CMakeLists.txt): the same operations.
+    if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
+        set_source_files_properties(Reader/ReaderTest.cpp PROPERTIES COMPILE_OPTIONS
+            "-ffp-contract=off")
+    endif()
 endif()
 
 # =============================================================================

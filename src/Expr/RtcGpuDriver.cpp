@@ -13,9 +13,12 @@
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
 #include "Expr/RtcGpu.h"
+#include "Reader/Datafield/Grid.h"
+#include "Reader/Datafield/Interpolation.h"
 #include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -45,6 +48,7 @@ namespace seissol::expr {
 
 namespace {
 
+namespace df = reader::datafield;
 using reader::scripting::DataTable;
 
 /// A loaded kernel, in whichever driver's terms. Held as an opaque pair so the
@@ -240,6 +244,19 @@ bool launchCuda(void* entry, GpuArguments& args, std::size_t count, void* stream
   return result == CUDA_SUCCESS;
 }
 
+bool copyToCuda(void* target, const void* source, std::size_t bytes) {
+  return ensureContext() &&
+         cuMemcpyHtoD(reinterpret_cast<CUdeviceptr>(target), source, bytes) == CUDA_SUCCESS;
+}
+
+bool copyFromCuda(void* target, const void* source, std::size_t bytes) {
+  return ensureContext() &&
+         cuMemcpyDtoH(target, reinterpret_cast<CUdeviceptr>(source), bytes) == CUDA_SUCCESS;
+}
+
+/// The work of all streams of the device, which those of SeisSol are, done.
+bool synchronizeCuda() { return ensureContext() && cuCtxSynchronize() == CUDA_SUCCESS; }
+
 bool deviceAccessibleCuda(const void* pointer) {
   // Checked rather than declared. A consumer that got this wrong would not get
   // a diagnostic but a fault inside the kernel, and the pointer is the one
@@ -344,6 +361,16 @@ bool launchHip(void* entry, GpuArguments& args, std::size_t count, void* stream)
                                args.data(),
                                nullptr) == hipSuccess;
 }
+
+bool copyToHip(void* target, const void* source, std::size_t bytes) {
+  return hipMemcpy(target, source, bytes, hipMemcpyHostToDevice) == hipSuccess;
+}
+
+bool copyFromHip(void* target, const void* source, std::size_t bytes) {
+  return hipMemcpy(target, source, bytes, hipMemcpyDeviceToHost) == hipSuccess;
+}
+
+bool synchronizeHip() { return hipDeviceSynchronize() == hipSuccess; }
 
 bool deviceAccessibleHip(const void* pointer) {
   hipPointerAttribute_t attributes{};
@@ -462,6 +489,32 @@ void freeOpenCl(void* pointer, void* queuePointer) {
   }
 }
 
+bool copyOpenCl(void* target, const void* source, std::size_t bytes, void* queuePointer) {
+  if (queuePointer == nullptr) {
+    return false;
+  }
+  try {
+    static_cast<sycl::queue*>(queuePointer)->memcpy(target, source, bytes).wait();
+  } catch (const sycl::exception& error) {
+    logWarning() << "expr: a copy to or from the device failed:" << error.what();
+    return false;
+  }
+  return true;
+}
+
+bool synchronizeOpenCl(void* queuePointer) {
+  if (queuePointer == nullptr) {
+    return false;
+  }
+  try {
+    static_cast<sycl::queue*>(queuePointer)->wait();
+  } catch (const sycl::exception& error) {
+    logWarning() << "expr: waiting for the device failed:" << error.what();
+    return false;
+  }
+  return true;
+}
+
 #endif // SEISSOL_EXPR_HAVE_SYCL
 
 DeviceFunction compileFor(GpuTarget target,
@@ -558,6 +611,85 @@ void freeFor(GpuTarget target, void* pointer, void* queue) {
   static_cast<void>(pointer);
 }
 
+/// A copy of `bytes` from the host to the device; done when it returns.
+bool copyToDeviceFor(
+    GpuTarget target, void* device, const void* host, std::size_t bytes, void* queue) {
+#if defined(SEISSOL_EXPR_HAVE_SYCL)
+  if (target == GpuTarget::OpenCl) {
+    return copyOpenCl(device, host, bytes, queue);
+  }
+#endif
+  static_cast<void>(queue);
+#if defined(SEISSOL_EXPR_HAVE_NVRTC)
+  if (target == GpuTarget::Cuda) {
+    return copyToCuda(device, host, bytes);
+  }
+#endif
+#if defined(SEISSOL_EXPR_HAVE_HIPRTC)
+  if (target == GpuTarget::Hip) {
+    return copyToHip(device, host, bytes);
+  }
+#endif
+  static_cast<void>(target);
+  static_cast<void>(device);
+  static_cast<void>(host);
+  static_cast<void>(bytes);
+  return false;
+}
+
+/// A copy of `bytes` from the device to the host; done when it returns.
+bool copyFromDeviceFor(
+    GpuTarget target, void* host, const void* device, std::size_t bytes, void* queue) {
+#if defined(SEISSOL_EXPR_HAVE_SYCL)
+  if (target == GpuTarget::OpenCl) {
+    return copyOpenCl(host, device, bytes, queue);
+  }
+#endif
+  static_cast<void>(queue);
+#if defined(SEISSOL_EXPR_HAVE_NVRTC)
+  if (target == GpuTarget::Cuda) {
+    return copyFromCuda(host, device, bytes);
+  }
+#endif
+#if defined(SEISSOL_EXPR_HAVE_HIPRTC)
+  if (target == GpuTarget::Hip) {
+    return copyFromHip(host, device, bytes);
+  }
+#endif
+  static_cast<void>(target);
+  static_cast<void>(device);
+  static_cast<void>(host);
+  static_cast<void>(bytes);
+  return false;
+}
+
+/// The work done that was submitted before: on the whole device for CUDA and HIP, on `queues` for
+/// OpenCL, whose kernels each run on the queue they were built for.
+bool synchronizeFor(GpuTarget target, const std::vector<void*>& queues) {
+#if defined(SEISSOL_EXPR_HAVE_SYCL)
+  if (target == GpuTarget::OpenCl) {
+    bool done = true;
+    for (void* queue : queues) {
+      done = synchronizeOpenCl(queue) && done;
+    }
+    return done;
+  }
+#endif
+  static_cast<void>(queues);
+#if defined(SEISSOL_EXPR_HAVE_NVRTC)
+  if (target == GpuTarget::Cuda) {
+    return synchronizeCuda();
+  }
+#endif
+#if defined(SEISSOL_EXPR_HAVE_HIPRTC)
+  if (target == GpuTarget::Hip) {
+    return synchronizeHip();
+  }
+#endif
+  static_cast<void>(target);
+  return false;
+}
+
 bool (*accessibilityCheck(GpuTarget target))(const void*) {
 #if defined(SEISSOL_EXPR_HAVE_NVRTC)
   if (target == GpuTarget::Cuda) {
@@ -573,6 +705,210 @@ bool (*accessibilityCheck(GpuTarget target))(const void*) {
   return nullptr;
 }
 
+// --- grids on the device -----------------------------------------------------
+
+/// The copy of a grid on the device that the kernels sample (a GridStore::Mirror, refreshed where
+/// the grid changes): its array, and its descriptor (GpuGridDescriptor) at an address that stays
+/// the same, through which a kernel reads the array -- also one recorded in a graph, which then
+/// samples the window of a time-dependent grid that is resident when it runs.
+///
+/// A refresh copies the whole array, after the work on the device is done: the store refreshes
+/// at a synchronization point only, where the window of a time-dependent grid has moved.
+class DeviceGridMirror final : public df::GridStore::Mirror {
+  public:
+  /// The kind of copy in the store (GridStore::mirror()), one per target.
+  static int keyOf(GpuTarget target) { return 0x45585000 + static_cast<int>(target); }
+
+  DeviceGridMirror(GpuTarget target, void* queue, const df::GridDesc& desc)
+      : target_(target), queue_(queue), path_(desc.path),
+        fails_(desc.boundary == df::BoundaryMode::Fail) {
+    addQueue(queue);
+  }
+
+  // Frees nothing: the store that owns it may live until the process ends, past the runtime of the
+  // device. finish() frees the memory, at the end of the run.
+  ~DeviceGridMirror() override = default;
+
+  DeviceGridMirror(const DeviceGridMirror&) = delete;
+  DeviceGridMirror& operator=(const DeviceGridMirror&) = delete;
+  DeviceGridMirror(DeviceGridMirror&&) = delete;
+  DeviceGridMirror& operator=(DeviceGridMirror&&) = delete;
+
+  /// The descriptor on the device, or null where the copy failed.
+  [[nodiscard]] void* descriptor() const { return valid_ ? descriptor_ : nullptr; }
+  [[nodiscard]] std::size_t bytes() const { return bytes_; }
+
+  /// A queue a kernel that samples the copy runs on, which a refresh waits for (OpenCL).
+  void addQueue(void* queue) {
+    if (std::find(queues_.begin(), queues_.end(), queue) == queues_.end()) {
+      queues_.push_back(queue);
+    }
+  }
+
+  void refresh(const df::Grid& grid) override {
+    if (finished_ || (descriptor_ != nullptr && revision_ == grid.revision())) {
+      return;
+    }
+    const df::ArrayView* view = grid.arrayView();
+    if (view == nullptr) {
+      logError() << "expr: the grid" << path_ << "on the device no longer keeps an array.";
+      return;
+    }
+    if (descriptor_ != nullptr) {
+      // the kernels that read the copy are done with it; and what they found is reported
+      synchronizeFor(target_, queues_);
+      report();
+    }
+    valid_ = false;
+    const std::size_t bytes = gridBytes(*view);
+    if (bytes != bytes_) {
+      freeFor(target_, data_, queue_);
+      data_ = allocFor(target_, bytes, queue_);
+      bytes_ = data_ != nullptr ? bytes : 0;
+    }
+    if (bytes > 0 &&
+        (data_ == nullptr || !copyToDeviceFor(target_, data_, view->data, bytes, queue_))) {
+      logWarning() << "expr: could not copy the" << bytes << "bytes of the grid" << path_
+                   << "to the device.";
+      return;
+    }
+    if (descriptor_ == nullptr) {
+      descriptor_ = allocFor(target_, sizeof(GpuGridDescriptor), queue_);
+    }
+    const GpuGridDescriptor image = gpuGridDescriptor(*view, data_);
+    if (descriptor_ == nullptr ||
+        !copyToDeviceFor(target_, descriptor_, &image, sizeof(image), queue_)) {
+      logWarning() << "expr: could not copy the descriptor of the grid" << path_
+                   << "to the device.";
+      return;
+    }
+    // done for a kernel on any stream that follows
+    synchronizeFor(target_, queues_);
+    revision_ = grid.revision();
+    valid_ = true;
+  }
+
+  void finish(const df::Grid& /*grid*/) override {
+    if (finished_) {
+      return;
+    }
+    finished_ = true;
+    if (descriptor_ == nullptr) {
+      return;
+    }
+    synchronizeFor(target_, queues_);
+    report();
+    freeFor(target_, data_, queue_);
+    freeFor(target_, descriptor_, queue_);
+    data_ = nullptr;
+    descriptor_ = nullptr;
+    valid_ = false;
+  }
+
+  private:
+  /// A lookup outside the volume, of a grid whose boundary mode fails there: an error, as on the
+  /// host, which a kernel cannot raise itself (GpuGridDescriptor::outside).
+  void report() const {
+    if (!fails_ || !valid_) {
+      return;
+    }
+    std::uint64_t outside = 0;
+    const auto* field =
+        static_cast<const char*>(descriptor_) + offsetof(GpuGridDescriptor, outside);
+    if (copyFromDeviceFor(target_, &outside, field, sizeof(outside), queue_) && outside != 0) {
+      logError() << "A kernel on the device sampled the grid" << path_
+                 << "outside its volume, where its boundary mode is to fail.";
+    }
+  }
+
+  GpuTarget target_;
+  void* queue_;
+  std::vector<void*> queues_;
+  std::string path_;
+  bool fails_;
+  void* data_{nullptr};
+  std::size_t bytes_{0};
+  void* descriptor_{nullptr};
+  std::uint64_t revision_{0};
+  bool valid_{false};
+  bool finished_{false};
+};
+
+/// The descriptors on the device of the grids `program` looks up, by GridId (null for one it does
+/// not look up), with the types of their elements in `layout`; copies a grid to the device where
+/// none is there yet. False where a grid cannot go there, which warns.
+bool deviceGrids(const Program& program,
+                 const LoweredProgram& lowered,
+                 GpuTarget target,
+                 void* queue,
+                 df::GridStore& grids,
+                 const std::vector<std::size_t>& gridIds,
+                 GpuLayout& layout,
+                 std::vector<void*>& pointers) {
+  const std::size_t count = program.grids().size();
+  // the coordinates and the largest component each grid is looked up with
+  std::vector<std::int32_t> dimensions(count, 0);
+  std::vector<std::int32_t> components(count, 0);
+  for (const auto* stage : {&lowered.precompute(), &lowered.run()}) {
+    for (const Instruction& inst : stage->code) {
+      if (inst.op == Opcode::Lookup && inst.grid >= 0 &&
+          static_cast<std::size_t>(inst.grid) < count) {
+        const auto grid = static_cast<std::size_t>(inst.grid);
+        dimensions[grid] = inst.operandCount;
+        components[grid] = std::max(components[grid], inst.comp + 1);
+      }
+    }
+  }
+  layout.grids.assign(count, df::ElementType::Double);
+  pointers.assign(count, nullptr);
+  for (std::size_t grid = 0; grid < count; ++grid) {
+    if (dimensions[grid] == 0) {
+      continue;
+    }
+    const auto& desc = program.grids()[grid];
+    const auto reject = [&](const char* why) {
+      logWarning() << "expr: this program cannot run on a device because"
+                   << describe(GpuRejection::Lookup) << "-- the grid" << desc.path << why
+                   << "-- using another backend.";
+      return false;
+    };
+    if (grid >= gridIds.size()) {
+      return reject("is not in the store");
+    }
+    const std::size_t id = gridIds[grid];
+    const df::Grid& source = grids.get(id);
+    const df::ArrayView* view = source.arrayView();
+    if (view == nullptr) {
+      return reject("keeps no array");
+    }
+    if (static_cast<std::int32_t>(view->dimensions) != dimensions[grid] ||
+        components[grid] > static_cast<std::int32_t>(view->components) ||
+        view->dimensions > df::MaxGridDimensions) {
+      return reject("has other dimensions or fewer components than the lookups");
+    }
+    layout.grids[grid] = view->type;
+    auto* mirror =
+        dynamic_cast<DeviceGridMirror*>(grids.mirror(id, DeviceGridMirror::keyOf(target)));
+    if (mirror == nullptr) {
+      mirror = &dynamic_cast<DeviceGridMirror&>(
+          grids.attachMirror(id,
+                             DeviceGridMirror::keyOf(target),
+                             std::make_unique<DeviceGridMirror>(target, queue, desc)));
+      mirror->refresh(source);
+      if (mirror->descriptor() != nullptr) {
+        logInfo() << "expr: the grid" << desc.path << "is copied to the device (" << mirror->bytes()
+                  << "bytes).";
+      }
+    }
+    mirror->addQueue(queue);
+    if (mirror->descriptor() == nullptr) {
+      return reject("could not be copied to the device");
+    }
+    pointers[grid] = mirror->descriptor();
+  }
+  return true;
+}
+
 // --- kernel ------------------------------------------------------------------
 
 class RtcGpuKernel final : public Kernel {
@@ -582,9 +918,10 @@ class RtcGpuKernel final : public Kernel {
                DeviceFunction function,
                GpuTarget target,
                std::size_t elementWidth,
-               void* queue)
+               void* queue,
+               std::vector<void*> grids)
       : binding_(&binding), lowered_(std::move(lowered)), function_(function), target_(target),
-        queue_(queue) {
+        queue_(queue), grids_(std::move(grids)) {
     // The hoisted values, and the states the table does not keep; both zeroed by allocFor, which
     // is all a zero-initialised state needs (gpuRejection refuses the others).
     const auto stateSlots = static_cast<std::size_t>(lowered_.stateSlotCount());
@@ -621,7 +958,7 @@ class RtcGpuKernel final : public Kernel {
     KernelArgs args{};
     args.first = 0;
     args.count = binding_->numPoints();
-    GpuArguments packed(*binding_, args, persistent_, ownState_);
+    GpuArguments packed(*binding_, args, persistent_, ownState_, grids_);
     if (!launchFor(target_, function_.precompute, packed, args.count, streamFor(args))) {
       logError() << "expr: launching the device precompute stage failed.";
     }
@@ -646,7 +983,7 @@ class RtcGpuKernel final : public Kernel {
       logError() << "expr: the kernel has a precompute stage that was never run; call "
                     "Kernel::precompute() from prepare().";
     }
-    GpuArguments packed(*binding_, args, persistent_, ownState_);
+    GpuArguments packed(*binding_, args, persistent_, ownState_, grids_);
     if (!launchFor(target_, function_.function, packed, args.count, streamFor(args))) {
       logError() << "expr: launching the compiled device kernel failed.";
     }
@@ -693,6 +1030,8 @@ class RtcGpuKernel final : public Kernel {
   DeviceFunction function_;
   GpuTarget target_;
   void* queue_{nullptr};
+  /// the descriptors of the grids it samples, on the device (deviceGrids())
+  std::vector<void*> grids_;
   void* persistent_{nullptr};
   void* ownState_{nullptr};
   bool precomputed_{false};
@@ -742,7 +1081,9 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
                                          Binding& binding,
                                          LoweredProgram lowered,
                                          const BackendOptions& options,
-                                         GpuTarget target) {
+                                         GpuTarget target,
+                                         df::GridStore& grids,
+                                         const std::vector<std::size_t>& gridIds) {
   if (!gpuRuntimeAvailable(target)) {
     logWarning() << "expr: this build has no runtime compiler for the requested device backend.";
     return nullptr;
@@ -756,7 +1097,14 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
     return nullptr;
   }
 
-  const GpuLayout layout = gpuLayoutOf(binding);
+  GpuLayout layout = gpuLayoutOf(binding);
+  // the grids it samples, on the device
+  std::vector<void*> gridPointers;
+  if (codegen::containsLookup(lowered) &&
+      !deviceGrids(
+          program, lowered, target, options.deviceQueue, grids, gridIds, layout, gridPointers)) {
+    return nullptr;
+  }
   // PTX for compute_75 runs on every later device, by JIT; a HIP code object has to be for the
   // device itself, which HIPRTC compiles for when it is given none.
   std::string arch = options.arch;
@@ -801,8 +1149,13 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
   }
   // the hoisted values and the states the kernel keeps, in the type the data moves in
   const std::size_t width = lowered.dataType() == ComputeType::F32 ? 4 : 8;
-  return std::make_unique<RtcGpuKernel>(
-      binding, std::move(lowered), function, target, width, options.deviceQueue);
+  return std::make_unique<RtcGpuKernel>(binding,
+                                        std::move(lowered),
+                                        function,
+                                        target,
+                                        width,
+                                        options.deviceQueue,
+                                        std::move(gridPointers));
 }
 
 } // namespace seissol::expr

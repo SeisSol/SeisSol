@@ -23,5 +23,13 @@ add_library(seissol-reader OBJECT
     Scripting/ReaderBuilder.cpp
 )
 
+# The samples of a grid are the reference a compiled kernel that samples it itself (Expr/RtcGpu.cpp)
+# is checked against bit for bit: the same operations in the same order, without contraction of
+# floating-point expressions, as the interpreter of src/Expr.
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
+    set_source_files_properties(Datafield/Interpolation.cpp PROPERTIES COMPILE_OPTIONS
+        "-ffp-contract=off")
+endif()
+
 target_link_libraries(seissol-reader PUBLIC seissol-common-properties)
 target_link_libraries(seissol-lib PUBLIC seissol-reader)

@@ -9,18 +9,23 @@
 
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
+#include "Expr/Codegen.h"
 #include "Expr/Lower.h"
 #include "Expr/Rewrite.h"
 #include "Expr/RtcGpu.h"
 #include "Expr/SderivFrontend.h"
 #include "Reader/Datafield/Grid.h"
+#include "Reader/Datafield/Interpolation.h"
 #include "Reader/Scripting/DataTable.h"
 #include "TestHelper.h"
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <dlfcn.h>
+#include <limits>
+#include <memory>
 #include <string>
 #include <sys/mman.h>
 #include <sys/wait.h>
@@ -47,6 +52,9 @@ constexpr auto HostShim = R"(
 #define SEISSOL_EXPR_NTHREADS 1ul
 #define SEISSOL_EXPR_KERNEL extern "C"
 #define __device__
+#define SEISSOL_EXPR_DADD(x, y) ((x) + (y))
+#define SEISSOL_EXPR_DSUB(x, y) ((x) - (y))
+#define SEISSOL_EXPR_DMUL(x, y) ((x) * (y))
 #include <cmath>
 using namespace std;
 )";
@@ -139,6 +147,195 @@ bool nvrtcAccepts(const std::string& source, bool& ran, std::string& log) {
   return compiled;
 }
 
+/// A grid over an array of its own, sampled by the arithmetic of Interpolation.h, which it exposes
+/// as the array a device kernel copies (Grid::arrayView()). Values that no scheme reproduces
+/// exactly, so that every weight and every rounding shows in the samples.
+class ArrayGrid final : public df::Grid {
+  public:
+  static constexpr unsigned Components = 2;
+
+  ArrayGrid(const std::vector<unsigned>& num, df::ElementType type, df::Interpolation interpolation)
+      : interpolation_(interpolation) {
+    view_.type = type;
+    view_.dimensions = static_cast<unsigned>(num.size());
+    view_.components = Components;
+    view_.componentStride = 1;
+    std::size_t stride = Components;
+    for (std::size_t d = 0; d < num.size(); ++d) {
+      view_.min[d] = -1.0 + 0.3 * static_cast<double>(d);
+      delta_[d] = 0.5 + 0.25 * static_cast<double>(d);
+      view_.deltaInv[d] = 1.0 / delta_[d];
+      view_.num[d] = num[d];
+      view_.stride[d] = stride;
+      stride *= num[d];
+    }
+    values_.resize(stride);
+    for (std::size_t i = 0; i < stride; ++i) {
+      values_[i] = std::sin(0.37 * static_cast<double>(i) + 0.11) * 10.0 +
+                   0.013 * static_cast<double>(i % 7);
+    }
+    if (type == df::ElementType::Float) {
+      floats_.assign(values_.begin(), values_.end());
+      view_.data = floats_.data();
+    } else {
+      view_.data = values_.data();
+    }
+  }
+
+  [[nodiscard]] std::size_t dimensions() const override { return view_.dimensions; }
+  [[nodiscard]] std::size_t components() const override { return Components; }
+
+  void geometry(df::GridGeometry& out) const override {
+    out.dimensions = view_.dimensions;
+    for (unsigned d = 0; d < view_.dimensions; ++d) {
+      out.min[d] = view_.min[d];
+      out.delta[d] = delta_[d];
+      out.num[d] = view_.num[d];
+    }
+  }
+
+  void sample(const double* x, double* out) const override {
+    df::sample(view_, interpolation_, x, out);
+  }
+  void sampleBatch(const double* const* x, std::size_t count, double* const* out) const override {
+    df::sampleBatch(view_, interpolation_, x, count, out, scratch_);
+  }
+  void sampleBatch(const double* const* x, std::size_t count, float* const* out) const override {
+    df::sampleBatch(view_, interpolation_, x, count, out, scratch_);
+  }
+  [[nodiscard]] const df::ArrayView* arrayView() const override { return &view_; }
+
+  private:
+  df::Interpolation interpolation_;
+  df::ArrayView view_;
+  double delta_[df::MaxGridDimensions]{};
+  std::vector<double> values_;
+  std::vector<float> floats_;
+  mutable df::SampleScratch scratch_;
+};
+
+/// The program that samples both components of a grid `desc` of `dimensions` axes at coordinates
+/// computed from the inputs x and y, in the compute type `type`, and gives the samples and a value
+/// computed from one; and its grid.
+Program lookupProgram(const df::GridDesc& desc, unsigned dimensions, ComputeType type) {
+  Program program;
+  program.setComputeType(type);
+  const GridId grid = program.internGrid(desc);
+  program.addInput("x", reader::scripting::DataType::F64);
+  program.addInput("y", reader::scripting::DataType::F64);
+  auto& arena = program.arena();
+  const NodeId x = arena.field("x");
+  const NodeId y = arena.field("y");
+  // the coordinates, each its own expression: x, y, and mixes of both beyond
+  std::vector<NodeId> coordinates = {x, y};
+  coordinates.push_back(arena.pw(Fn::Add, arena.pw(Fn::Mul, x, arena.konst(0.5)), y));
+  coordinates.push_back(arena.pw(Fn::Sub, y, arena.pw(Fn::Mul, x, arena.konst(0.25))));
+  coordinates.resize(dimensions);
+  const NodeId first = arena.lookup(grid, 0, coordinates);
+  const NodeId second = arena.lookup(grid, 1, coordinates);
+  program.addOutput("u", reader::scripting::DataType::F64, first);
+  program.addOutput("v", reader::scripting::DataType::F64, second);
+  program.addOutput("w", reader::scripting::DataType::F64, arena.pw(Fn::Mul, first, x));
+  return program;
+}
+
+/// The samples of a grid by the interpreter and by the emitted device kernel compiled for the
+/// host, at points inside, on the edges and outside of the grid (and NaN and infinities); whether
+/// they are the same bits. `ran` is false when no compiler was available; `outside` is what the
+/// kernel left in GpuGridDescriptor::outside.
+bool lookupsAgree(df::Interpolation interpolation,
+                  df::BoundaryMode boundary,
+                  const std::vector<unsigned>& num,
+                  df::ElementType element,
+                  ComputeType type,
+                  const std::vector<double>& x,
+                  const std::vector<double>& y,
+                  bool& ran,
+                  std::uint64_t& outside) {
+  ran = false;
+  df::GridDesc desc;
+  desc.path = "grid.nc";
+  desc.variable = "z";
+  desc.interpolation = interpolation;
+  desc.boundary = boundary;
+  const auto dimensions = static_cast<unsigned>(num.size());
+  const Program program = lookupProgram(desc, dimensions, type);
+
+  const std::size_t numPoints = x.size();
+  const std::size_t outputs = program.outputs().size();
+  std::vector<double> interpreted(outputs * numPoints, -1.0);
+  std::vector<double> emitted(outputs * numPoints, -1.0);
+  DataTable table(numPoints);
+  table.bindViewConst<double>("x", Direction::In, x.data());
+  table.bindViewConst<double>("y", Direction::In, y.data());
+  for (std::size_t i = 0; i < outputs; ++i) {
+    table.bindView<double>(program.outputs()[i].name, Direction::Out, &interpreted[i * numPoints]);
+  }
+  Binding binding = Binding::bind(program, table);
+  REQUIRE(gpuRejection(program, lower(program), binding, nullptr) == GpuRejection::None);
+
+  df::GridStore store;
+  const std::size_t id = store.intern(desc);
+  store.injectForTesting(id, std::make_unique<ArrayGrid>(num, element, interpolation));
+  const auto kernel = makeKernel(program, binding, store, {});
+  kernel->precompute(table);
+  kernel->run(table);
+
+  GpuLayout layout = gpuLayoutOf(binding);
+  layout.grids = {element};
+  const LoweredProgram lowered = lower(program);
+  const std::string generated =
+      std::string(HostShim) + emitGpuSource(program, lowered, layout, GpuTarget::Cuda) +
+      emitGpuHostTrampoline(layout, codegen::typeName(lowered.dataType()));
+  void* handle = compileForHost(generated);
+  if (handle == nullptr) {
+    return true;
+  }
+  auto* invoke = reinterpret_cast<void (*)(void**)>(dlsym(handle, "seissol_expr_invoke"));
+  if (invoke == nullptr) {
+    return false;
+  }
+  ran = true;
+
+  const df::ArrayView* view = store.get(id).arrayView();
+  GpuGridDescriptor descriptor = gpuGridDescriptor(*view, view->data);
+  KernelArgs args{};
+  std::vector<void*> bases(outputs);
+  for (std::size_t i = 0; i < outputs; ++i) {
+    bases[i] = &emitted[i * numPoints];
+  }
+  args.outputs = bases.data();
+  args.outputCount = outputs;
+  args.first = 0;
+  args.count = numPoints;
+  GpuArguments packed(binding, args, nullptr, nullptr, {&descriptor});
+  invoke(packed.data());
+  outside = descriptor.outside;
+  return unit_test::bitwiseEqual(interpreted.data(), emitted.data(), interpreted.size());
+}
+
+/// Points around a grid of the geometry of ArrayGrid: inside, on its nodes and edges, beyond them,
+/// and NaN and the infinities.
+void lookupPoints(std::vector<double>& x, std::vector<double>& y) {
+  constexpr double Nan = std::numeric_limits<double>::quiet_NaN();
+  constexpr double Inf = std::numeric_limits<double>::infinity();
+  x = {-1.0, -0.75, -0.3, 0.0,  0.123, 0.5, 0.77, 1.0, 1.25, 1.5,  2.0,
+       2.2,  2.999, 3.0,  -5.0, 10.0,  0.4, 1.9,  Nan, Inf,  -Inf, 0.6};
+  y.resize(x.size());
+  for (std::size_t i = 0; i < x.size(); ++i) {
+    y[i] = -0.7 + 0.29 * static_cast<double>(i);
+  }
+  y[3] = Nan;
+  y[5] = Inf;
+  y[7] = -0.7;
+}
+
+/// Points inside a grid of the geometry of ArrayGrid in two dimensions.
+void insidePoints(std::vector<double>& x, std::vector<double>& y) {
+  x = {-0.9, -0.2, 0.0, 0.5, 1.1};
+  y = {-0.6, 0.0, 0.3, 0.9, 1.4};
+}
+
 /// Evaluate `source` on the interpreter and through the emitted device kernel
 /// compiled for the host, and report whether every output is bitwise equal.
 /// `ran` is false when no compiler was available.
@@ -208,6 +405,124 @@ bool deviceCodeAgrees(const std::string& source, bool& ran) {
 
 TEST_SUITE("ExprRtcGpu") {
 
+  TEST_CASE("the emitted device kernel samples a grid bit for bit as the interpreter does") {
+    // Every scheme in one to four dimensions, of binary32 and binary64 elements, in programs of
+    // either compute type: the locate branches (the edges, the fallback of the cubic stencil near
+    // them and on axes shorter than it, the clamp of NaN and the infinities), the gather and the
+    // order of the sums of the tensor product. Called through GpuArguments, which covers the
+    // descriptor of the grid in the argument block.
+    std::vector<double> x;
+    std::vector<double> y;
+    lookupPoints(x, y);
+    const std::vector<std::vector<unsigned>> shapes = {
+        {7}, {7, 5}, {7, 3, 6}, {6, 5, 2, 4}, {1, 9}, {2, 3}};
+    for (const auto interpolation :
+         {df::Interpolation::Nearest, df::Interpolation::Linear, df::Interpolation::Cubic}) {
+      for (const auto& shape : shapes) {
+        for (const auto element : {df::ElementType::Double, df::ElementType::Float}) {
+          for (const auto type : {ComputeType::F64, ComputeType::F32}) {
+            CAPTURE(static_cast<int>(interpolation));
+            CAPTURE(shape.size());
+            CAPTURE(shape[0]);
+            CAPTURE(static_cast<int>(element));
+            CAPTURE(static_cast<int>(type));
+            bool ran = false;
+            std::uint64_t outside = 0;
+            const bool same = lookupsAgree(
+                interpolation, df::BoundaryMode::Clamp, shape, element, type, x, y, ran, outside);
+            if (!ran) {
+              WARN_MESSAGE(ran, "no usable C++ compiler; the device code generator was not run");
+              return;
+            }
+            CHECK(same);
+            // clamping is no error for a grid that clamps
+            CHECK(outside == 0);
+          }
+        }
+      }
+    }
+  }
+
+  TEST_CASE("the emitted device kernel marks a lookup outside a grid that fails there") {
+    for (const bool beyond : {false, true}) {
+      CAPTURE(beyond);
+      std::vector<double> x;
+      std::vector<double> y;
+      insidePoints(x, y);
+      if (beyond) {
+        x.push_back(4.0);
+        y.push_back(0.0);
+      }
+      bool ran = false;
+      std::uint64_t outside = 0;
+      const bool same = lookupsAgree(df::Interpolation::Linear,
+                                     df::BoundaryMode::Fail,
+                                     {7, 5},
+                                     df::ElementType::Double,
+                                     ComputeType::F64,
+                                     x,
+                                     y,
+                                     ran,
+                                     outside);
+      if (!ran) {
+        WARN_MESSAGE(ran, "no usable C++ compiler; the device code generator was not run");
+        return;
+      }
+      CHECK(same);
+      CHECK(outside == (beyond ? 1U : 0U));
+    }
+  }
+
+  TEST_CASE("the device source of a lookup is valid for every target") {
+    df::GridDesc desc;
+    desc.path = "grid.nc";
+    desc.interpolation = df::Interpolation::Cubic;
+    const Program program = lookupProgram(desc, 3, ComputeType::F32);
+    std::vector<double> x(2);
+    std::vector<double> y(2);
+    std::vector<double> out(2);
+    DataTable table(2);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindViewConst<double>("y", Direction::In, y.data());
+    for (const auto& output : program.outputs()) {
+      table.bindView<double>(output.name, Direction::Out, out.data());
+    }
+    const Binding binding = Binding::bind(program, table);
+    GpuLayout layout = gpuLayoutOf(binding);
+    layout.grids = {df::ElementType::Float};
+    const LoweredProgram lowered = lower(program);
+
+    // each product and sum rounded on its own, on every target
+    const std::string cuda = emitGpuSource(program, lowered, layout, GpuTarget::Cuda);
+    CHECK(cuda.find("__dmul_rn") != std::string::npos);
+    CHECK(cuda.find("SeissolExprGrid* grid0;") != std::string::npos);
+    CHECK(cuda.find("(const float*)g->data") != std::string::npos);
+    const std::string opencl = emitGpuSource(program, lowered, layout, GpuTarget::OpenCl);
+    CHECK(opencl.find("#pragma OPENCL FP_CONTRACT OFF") != std::string::npos);
+    CHECK(opencl.find("__global SeissolExprGrid* grid0,") != std::string::npos);
+    CHECK(opencl.find("llround") == std::string::npos);
+
+    // the element type of the array is part of the kernel
+    GpuLayout wide = layout;
+    wide.grids = {df::ElementType::Double};
+    CHECK(wide.fingerprint() != layout.fingerprint());
+
+    // a program without grids keeps its source
+    const Program plain = compileSderivModule("out def u = x * y\n");
+    DataTable plainTable(2);
+    plainTable.bindViewConst<double>("x", Direction::In, x.data());
+    plainTable.bindViewConst<double>("y", Direction::In, y.data());
+    plainTable.bindView<double>("u", Direction::Out, out.data());
+    const Binding plainBinding = Binding::bind(plain, plainTable);
+    CHECK(emitGpuSource(plain, lower(plain), gpuLayoutOf(plainBinding), GpuTarget::Cuda)
+              .find("SeissolExprGrid") == std::string::npos);
+
+    // where the toolkit is there, its compiler takes the source as the driver gives it
+    bool ran = false;
+    std::string log;
+    CHECK_MESSAGE(nvrtcAccepts(cuda, ran, log), log);
+  }
+
   TEST_CASE("device code drops the std:: qualification") {
     // NVRTC has no <cmath>, so `std::sqrt` would not resolve. The maths
     // built-ins are unqualified in device code, and the substitution knows it --
@@ -276,7 +591,7 @@ TEST_SUITE("ExprRtcGpu") {
     std::vector<double> x = {1.0, 2.0};
     std::vector<double> u(2, 0.0);
 
-    SUBCASE("a grid lookup") {
+    SUBCASE("a grid lookup is none: the kernel samples the grid itself") {
       const Program program =
           compileSderivModule("grid m = \"asagi\", \"model.nc\", \"linear\", \"rho\"\n"
                               "out def u = m_rho(x, y, z)\n");
@@ -288,7 +603,7 @@ TEST_SUITE("ExprRtcGpu") {
       table.bindViewConst<double>("z", Direction::In, z.data());
       table.bindView<double>("u", Direction::Out, u.data());
       const Binding binding = Binding::bind(program, table);
-      CHECK(gpuRejection(program, lower(program), binding, nullptr) == GpuRejection::Lookup);
+      CHECK(gpuRejection(program, lower(program), binding, nullptr) == GpuRejection::None);
     }
 
     SUBCASE("a computed column") {

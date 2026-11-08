@@ -270,6 +270,7 @@ void AsagiLiteGrid::resetMetadata() noexcept {
   sliceBytes_ = 0;
   timeOrigin_ = 0.0;
   view_ = ArrayView{};
+  ++revision_;
 }
 
 void AsagiLiteGrid::close() noexcept {
@@ -602,6 +603,7 @@ AsagiLiteGrid::Error AsagiLiteGrid::advanceTo(double time) {
   }
   // view_.min on the time axis tracks the window, not the file.
   view_.min[axis] = timeOrigin_ + static_cast<double>(target.start) * delta_[0];
+  ++revision_;
   return Error::Success;
 }
 
@@ -663,6 +665,7 @@ AsagiLiteGrid::Error
 // never appears as a spatial axis.
 void AsagiLiteGrid::buildView() noexcept {
   const std::size_t nspatial = ndims_ - (hasComponentAxis_ ? 1 : 0);
+  ++revision_;
 
   view_ = ArrayView{};
   view_.data = data_;

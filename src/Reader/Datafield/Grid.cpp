@@ -114,6 +114,7 @@ std::size_t GridStore::intern(const GridDesc& desc) {
   descs_.push_back(desc);
   grids_.emplace_back();
   windowSlices_.push_back(0);
+  mirrors_.emplace_back();
   return descs_.size() - 1;
 }
 
@@ -256,6 +257,7 @@ void GridStore::load() {
       }
     }
   }
+  refreshMirrors();
 }
 
 void GridStore::injectForTesting(std::size_t id, std::unique_ptr<Grid> grid) {
@@ -268,12 +270,49 @@ void GridStore::update(double time) {
       advanceWindow(*grids_[i], time);
     }
   }
+  refreshMirrors();
+}
+
+GridStore::Mirror* GridStore::mirror(std::size_t id, int key) const {
+  for (const auto& [kind, mirror] : mirrors_.at(id)) {
+    if (kind == key) {
+      return mirror.get();
+    }
+  }
+  return nullptr;
+}
+
+GridStore::Mirror&
+    GridStore::attachMirror(std::size_t id, int key, std::unique_ptr<Mirror> mirror) {
+  auto& mirrors = mirrors_.at(id);
+  for (auto& [kind, attached] : mirrors) {
+    if (kind == key) {
+      attached = std::move(mirror);
+      return *attached;
+    }
+  }
+  mirrors.emplace_back(key, std::move(mirror));
+  return *mirrors.back().second;
+}
+
+void GridStore::refreshMirrors() {
+  for (std::size_t i = 0; i < grids_.size(); ++i) {
+    if (grids_[i] == nullptr) {
+      continue;
+    }
+    for (auto& [kind, mirror] : mirrors_[i]) {
+      mirror->refresh(*grids_[i]);
+    }
+  }
 }
 
 void GridStore::finish() {
   for (std::size_t i = 0; i < grids_.size(); ++i) {
     if (grids_[i] == nullptr) {
       continue;
+    }
+    for (auto& [kind, mirror] : mirrors_[i]) {
+      mirror->finish(*grids_[i]);
     }
     // the file and the memory of the grid now, while HDF5 and MPI are there: the store may live
     // until the process ends

@@ -93,6 +93,11 @@ struct StageAddressing {
   std::string (*storePersistent)(std::int32_t slot, const std::string& value){nullptr};
   /// Null for a target that cannot read blocks; a contraction then throws.
   const ContractAddressing* contract{nullptr};
+  /// The expression of a lookup (Opcode::Lookup) at the coordinates `coordinates`, expressions in
+  /// binary64: a sample in binary64, which the body converts into the type of the instruction.
+  /// Null for a target that cannot sample a grid; a lookup then throws.
+  std::string (*lookup)(const Instruction& inst,
+                        const std::vector<std::string>& coordinates){nullptr};
 };
 
 /// The expression text for `fn`, straight out of the interpreter's table, with
@@ -136,8 +141,9 @@ struct StageAddressing {
 /// compiles without contraction of floating-point expressions agrees with the
 /// interpreter bit for bit.
 ///
-/// Throws std::invalid_argument on Opcode::Lookup -- callers gate on
-/// containsLookup() first, and reaching here with one is a programming error
+/// A lookup samples through the addressing (StageAddressing::lookup), at its coordinates converted
+/// to binary64, as the interpreter does; it throws std::invalid_argument for a target without one
+/// -- callers gate on containsLookup() first, and reaching here with one is a programming error
 /// rather than an unsupported model.
 ///
 /// Each instruction computes in its type (Instruction::type), each transient is a local of the
@@ -177,8 +183,9 @@ void emitStageBodyTiled(std::ostringstream& out,
 [[nodiscard]] std::int32_t criticalPath(const StageCode& stage,
                                         const std::vector<std::int32_t>& operands);
 
-/// True when either stage samples a grid. No compiled backend supports that
-/// yet: a lookup is a batch call into GridSampler, not a lane-local expression.
+/// True when either stage samples a grid. The device backends sample it themselves
+/// (StageAddressing::lookup); the CPU backend does not yet, for which a lookup is a batch call
+/// into GridSampler, as in the interpreter.
 [[nodiscard]] bool containsLookup(const LoweredProgram& lowered);
 
 /// True when either stage contracts a block.

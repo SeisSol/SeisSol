@@ -151,6 +151,10 @@ class AsagiLiteGrid final : public Grid {
   public:
   [[nodiscard]] std::size_t bytesPerTimeSlice() const override { return sliceBytes_; }
   [[nodiscard]] std::optional<std::pair<double, double>> timeWindow() const override;
+  [[nodiscard]] const ArrayView* arrayView() const override {
+    return data_ != nullptr ? &view_ : nullptr;
+  }
+  [[nodiscard]] std::uint64_t revision() const override { return revision_; }
 
   private:
   Error allocateLocal(std::size_t bytes);
@@ -199,6 +203,8 @@ class AsagiLiteGrid final : public Grid {
 
   // ---------- grid-order view handed to the sampler ----------
   ArrayView view_;
+  /// Counts the changes of view_ and of the array behind it (Grid::revision()).
+  std::uint64_t revision_ = 0;
   /// Batch working memory, reused across calls. Mutable because sampleBatch()
   /// is const on the Grid interface and must stay so -- the scratch is not part
   /// of the observable state.

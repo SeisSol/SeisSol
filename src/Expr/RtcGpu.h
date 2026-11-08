@@ -38,8 +38,11 @@
 #include "Expr/Binding.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Reader/Datafield/Grid.h"
+#include "Reader/Datafield/Interpolation.h"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -85,8 +88,9 @@ enum class GpuTarget : std::uint8_t {
 /// the kind of log line nobody acts on.
 enum class GpuRejection : std::uint8_t {
   None,
-  /// Samples a data grid. A lookup is a batch call into GridSampler, not a
-  /// lane-local expression; the device sampler is separate work.
+  /// Samples a data grid whose backend keeps no array in memory (Grid::arrayView()), so there is
+  /// nothing to copy to the device; or looks one up with other coordinates or components than it
+  /// has. Decided where the grids are known (makeRtcGpuKernel), not by gpuRejection().
   Lookup,
   /// A column was bound with bindComputed, so there is no address arithmetic
   /// behind it and the kernel has nothing to read.
@@ -134,6 +138,31 @@ enum class GpuRejection : std::uint8_t {
                                         const Binding& binding,
                                         bool (*deviceAccessible)(const void*));
 
+/// The array of a grid as a kernel that samples it reads it: the byte image of SeissolExprGrid in
+/// the emitted source, which a kernel reads through a pointer, so that one recorded in a graph
+/// samples the window of a time-dependent grid that is resident when it runs. Every field is eight
+/// bytes wide, so the image has no padding to agree on.
+struct GpuGridDescriptor {
+  /// The address of the first element, where the kernel runs.
+  std::uint64_t data{0};
+  double min[reader::datafield::MaxGridDimensions]{};
+  double deltaInv[reader::datafield::MaxGridDimensions]{};
+  std::uint64_t num[reader::datafield::MaxGridDimensions]{};
+  std::uint64_t stride[reader::datafield::MaxGridDimensions]{};
+  std::uint64_t componentStride{1};
+  /// Set by a lookup outside the volume of a grid whose boundary mode is BoundaryMode::Fail, which
+  /// a kernel cannot report itself; whoever keeps the copy reads it and does.
+  std::uint64_t outside{0};
+};
+
+/// The descriptor of the array `view`, with its elements at `data` -- where the kernel runs: on
+/// the host, view.data.
+[[nodiscard]] GpuGridDescriptor gpuGridDescriptor(const reader::datafield::ArrayView& view,
+                                                  const void* data);
+
+/// The bytes of the array of `view` a kernel may read: up to its last element.
+[[nodiscard]] std::size_t gridBytes(const reader::datafield::ArrayView& view);
+
 /// One column's element type and role, in Binding slot order, and the element
 /// types of the matrices and blocks of the contractions. Part of the kernel cache
 /// key: the types are baked into the emitted source.
@@ -153,6 +182,11 @@ struct GpuLayout {
   /// The declared states, each read and written through its base, its cell and point strides,
   /// its points per cell and its cell index -- in the compute type.
   std::size_t states{0};
+  /// Per grid of the program (by GridId), the type of the elements of its array; the kernel reads
+  /// it through a GpuGridDescriptor. Its scheme, boundary mode and dimensions are those of the
+  /// program. Empty for a program that samples none; gpuLayoutOf() leaves it so, since a binding
+  /// does not know the grids -- whoever resolves them in the store fills it in.
+  std::vector<reader::datafield::ElementType> grids;
 
   [[nodiscard]] std::uint64_t fingerprint() const;
 };
@@ -174,11 +208,14 @@ struct GpuLayout {
 class GpuArguments {
   public:
   /// `persistent` holds the hoisted values and `ownState` the states the table does not keep,
-  /// slot-major over the point set; either may be null when there is nothing in it.
+  /// slot-major over the point set; either may be null when there is nothing in it. `grids` are
+  /// the descriptors of the grids of the program (GpuGridDescriptor, by GridId; one per entry of
+  /// GpuLayout::grids), where the kernel runs.
   GpuArguments(const Binding& binding,
                const KernelArgs& args,
                void* persistent,
-               void* ownState = nullptr);
+               void* ownState = nullptr,
+               const std::vector<void*>& grids = {});
 
   /// The cuLaunchKernel view: one entry, pointing at the argument struct.
   [[nodiscard]] void** data() { return pointers_.data(); }

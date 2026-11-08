@@ -16,8 +16,10 @@
 // concept is "grid" throughout.
 //
 // SCOPE: fully replicated, host memory, one copy per rank (or per node via the
-// shared-memory tier in AsagiLiteGrid). No device mirroring, no sharding, no texture
-// objects. Time-dependent grids hold a sliding window of slices.
+// shared-memory tier in AsagiLiteGrid). No sharding, no texture objects.
+// Time-dependent grids hold a sliding window of slices. A copy elsewhere -- the
+// one a device kernel samples -- is a GridStore::Mirror of the array a grid
+// exposes (Grid::arrayView()), which the store keeps current as the window moves.
 //
 // The interpolation model is the one from easi's InterpolationKernel.h
 // (davschneller/precommit): every scheme is separable, so the d-dimensional
@@ -204,6 +206,9 @@ inline constexpr std::size_t DefaultWindowMemoryBudget = 1ULL << 30; // 1 GiB
 // disagree about what an omitted variable means.
 inline constexpr const char* DefaultGridVariable = "z";
 
+// The array of a grid, which a compiled kernel samples (Interpolation.h).
+struct ArrayView;
+
 struct GridGeometry {
   unsigned dimensions{0};
   double min[MaxGridDimensions]{};
@@ -340,6 +345,16 @@ class Grid {
   [[nodiscard]] virtual std::optional<std::pair<double, double>> timeWindow() const {
     return std::nullopt;
   }
+
+  // The array the samples come from, where the backend keeps one in memory: what a compiled kernel
+  // samples itself, by the arithmetic of Interpolation.h, and what a device copies. Null where the
+  // backend keeps none. The address stays the same for the lifetime of the grid; what it holds
+  // changes where revision() does.
+  [[nodiscard]] virtual const ArrayView* arrayView() const { return nullptr; }
+
+  // Changes whenever the array of arrayView() or its geometry does: a window that slides or is
+  // resized. A copy of the array is current as long as this has not changed since it was taken.
+  [[nodiscard]] virtual std::uint64_t revision() const { return 0; }
 };
 
 // Owns every grid a set of Programs references, deduplicated by GridDesc.
@@ -427,11 +442,36 @@ class GridStore {
   // spacing, and the window stays valid until `time` leaves it. Asking the user
   // to also configure an interval would only create a second, independent way
   // to get it wrong.
+  //
+  // The mirrors follow the grids that changed (Mirror::refresh()).
   void update(double time);
 
-  /// The end of the run: the grids close their files and release their memory, which a store that
-  /// lives until the process ends could not do later. Collective. The grids sample nothing
-  /// afterwards.
+  // A copy of a grid elsewhere -- in the memory of a device, say -- that has to follow the grid as
+  // its window moves. The store owns it, and refreshes it after every load() and update(), which
+  // are the only places a grid changes.
+  class Mirror {
+public:
+    Mirror() = default;
+    virtual ~Mirror() = default;
+    Mirror(const Mirror&) = delete;
+    Mirror& operator=(const Mirror&) = delete;
+    Mirror(Mirror&&) = delete;
+    Mirror& operator=(Mirror&&) = delete;
+
+    /// The grid may have changed: compare Grid::revision() with that of the copy.
+    virtual void refresh(const Grid& grid) = 0;
+    /// The end of the run (finish()): what the copy has to report.
+    virtual void finish(const Grid& /*grid*/) {}
+  };
+
+  /// The mirror of grid `id` of the kind `key` (an own number per kind of copy), or null.
+  [[nodiscard]] Mirror* mirror(std::size_t id, int key) const;
+  /// Attaches `mirror` to grid `id` as its copy of the kind `key`, in place of one there.
+  Mirror& attachMirror(std::size_t id, int key, std::unique_ptr<Mirror> mirror);
+
+  /// The end of the run: every mirror reports what it has to (Mirror::finish()), and the grids
+  /// close their files and release their memory, which a store that lives until the process ends
+  /// could not do later. Collective. The grids sample nothing afterwards.
   void finish();
 
   // Largest synchronisation interval at which update() is still guaranteed to
@@ -463,10 +503,14 @@ class GridStore {
   [[nodiscard]] std::optional<double> suggestedSyncInterval() const;
 
   private:
+  void refreshMirrors();
+
   std::vector<GridDesc> descs_;
   std::vector<std::unique_ptr<Grid>> grids_;
   /// The resident slices each time-dependent grid was sized to by load(); zero before.
   std::vector<std::size_t> windowSlices_;
+  /// Per grid, its mirrors and their kinds. After grids_, so that they go first.
+  std::vector<std::vector<std::pair<int, std::unique_ptr<Mirror>>>> mirrors_;
   std::optional<std::size_t> residentSlicesOverride_;
   std::size_t windowMemoryBudget_{DefaultWindowMemoryBudget};
   double defaultTimeSpacing_{0.0};
