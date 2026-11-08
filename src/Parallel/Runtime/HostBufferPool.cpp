@@ -10,11 +10,12 @@
 #include <algorithm>
 #include <cstddef>
 #include <mutex>
-#include <new>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
+#else
+#include <new>
 #endif
 
 namespace seissol::parallel::runtime {
