@@ -163,12 +163,13 @@ The results
     A row per run, of its latest attempt that completed: its setting, its state (``completed``, ``failed``,
     ``check-failed``, ``incomplete``, ``killed``, ``not-run``, ``queued``, ...), and from its run summary its times
     (initialization, simulation, compute, IO, kernels and outside of them), load imbalance, cell updates and duplicate
-    cell updates, FLOP/s and peak memory; where its nodes measure energy (:ref:`run-energy`), the counter the work is
-    put against (``energyBasis``), the energy of the epochs (``energy``) and of the whole run (``runEnergy``), the mean
-    power of the simulation (``simulationPower``), and the cell updates and hardware FLOP per joule; the ``steady``
-    time of the epochs after the warm-up; and the problems of its
-    pinning, as its thread pinning table shows them: ranks of a node that share CPUs, communication threads that
-    share CPUs with workers, ranks with fewer CPUs than workers, or workers spread over NUMA domains.
+    cell updates, FLOP/s and peak memory; where its nodes measure energy (:ref:`run-energy`), the counter or the sum of
+    counters the work is put against (``energyBasis``, such as ``nodeEnergy`` or ``cpuEnergy+deviceEnergy``), the
+    energy of the epochs (``energy``) and of the whole run (``runEnergy``), the mean power of the simulation
+    (``simulationPower``), both summed over those counters, and the cell updates and hardware FLOP per joule; the
+    ``steady`` time of the epochs after the warm-up; and the problems of its pinning, as its thread pinning table
+    shows them: ranks of a node that share CPUs, communication threads that share CPUs with workers, ranks with fewer
+    CPUs than workers, or workers spread over NUMA domains.
 ``ranks.csv`` and ``epochs.csv``
     The tables of the ranks and of the epochs of every run that completed (:ref:`run-summary`).
 

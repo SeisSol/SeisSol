@@ -92,6 +92,40 @@ TEST_CASE("Energy accumulator" * doctest::test_suite("monitoring")) {
   }
 }
 
+TEST_CASE("The parts the work is put against" * doctest::test_suite("monitoring")) {
+  // the names of the parts of the basis, for the parts measured
+  const auto basis = [](const std::vector<Part>& measured) {
+    const auto parts = monitoring::energy::basisParts(
+        [&](Part part) { return std::ranges::find(measured, part) != measured.end(); });
+    std::string names;
+    for (const auto part : parts) {
+      names += (names.empty() ? "" : "+") + std::string(monitoring::energy::partName(part));
+    }
+    return names;
+  };
+  SUBCASE("The node, where it is measured") {
+    CHECK(basis({Part::Node, Part::Cpu, Part::Memory, Part::Accelerators, Part::Devices}) ==
+          "node");
+  }
+  SUBCASE("Else the sum of the CPUs, the memory and the GPUs") {
+    // NVIDIA Grace: its sockets and the GPUs
+    CHECK(basis({Part::Cpu, Part::Devices}) == "cpu+devices");
+    // RAPL
+    CHECK(basis({Part::Memory, Part::Cpu}) == "cpu+memory");
+    CHECK(basis({Part::Devices}) == "devices");
+  }
+  SUBCASE("The GPUs once: as their library counts them, else as the node does") {
+    CHECK(basis({Part::Cpu, Part::Accelerators, Part::Devices}) == "cpu+devices");
+    CHECK(basis({Part::Cpu, Part::Accelerators}) == "cpu+accelerators");
+  }
+  SUBCASE("None, where nothing is measured") { CHECK(basis({}).empty()); }
+  SUBCASE("The names of the counters of the parts") {
+    CHECK(std::string(monitoring::EnergyMeter::counterName(Part::Node)) == "nodeEnergy");
+    CHECK(std::string(monitoring::EnergyMeter::counterName(Part::Cpu)) == "cpuEnergy");
+    CHECK(std::string(monitoring::EnergyMeter::counterName(Part::Devices)) == "deviceEnergy");
+  }
+}
+
 TEST_CASE("Energy from the files of HPE Cray power management" *
           doctest::test_suite("monitoring")) {
   REQUIRE(monitoring::energy::parseCrayPm("2416218307 J 1675950829406375 us").has_value());

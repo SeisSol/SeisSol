@@ -9,6 +9,7 @@
 
 #include "Common/Json.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -125,8 +126,11 @@ void Aux::writeOutput(std::ostream& stream,
              << joules << '\n';
     }
     if (output.energyBasis != "none") {
+      // the basis may be a sum of parts, e.g. cpu+devices
+      const auto padding = std::max<std::size_t>(24, output.energyBasis.size() + 1);
       stream << "power (" << output.energyBasis << ") [W]"
-             << std::string(24 - output.energyBasis.size(), ' ') << ": " << output.watts << '\n';
+             << std::string(padding - output.energyBasis.size(), ' ') << ": " << output.watts
+             << '\n';
       stream << "GFLOP/J (non-zero)                  : " << output.nonZeroGFlopPerJoule << '\n';
       stream << "GFLOP/J (hardware)                  : " << output.hardwareGFlopPerJoule << '\n';
     }
@@ -163,6 +167,11 @@ void Aux::writeOutput(std::ostream& stream,
     document["watts"] = finite(output.watts);
     document["gflopj-nz"] = finite(output.nonZeroGFlopPerJoule);
     document["gflopj-hw"] = finite(output.hardwareGFlopPerJoule);
+    // the energy of every part of the node that it measures: the basis is the node or a sum of them
+    auto& parts = document["energy-parts"] = json::Value::object();
+    for (const auto& [part, joules] : output.partJoules) {
+      parts[part] = finite(joules);
+    }
     stream << document.dump(-1) << '\n';
   }
 }

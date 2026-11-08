@@ -17,6 +17,25 @@ def test_cpu_sets():
     assert collect.cpu_set("no-info") is None
 
 
+def test_basis_total():
+    summary = {
+        "energy": {
+            "run": {"nodeEnergy": 900.0, "cpuEnergy": 100.0, "deviceEnergy": 300.0}
+        },
+        "stages": {"simulation": {"cpuPower": 50.0, "devicePower": 150.0}},
+    }
+    assert collect.basis_total(summary, "nodeEnergy", "energy.run") == 900.0
+    # where the nodes count no energy of their own: the sum of the parts
+    assert collect.basis_total(summary, "cpuEnergy+deviceEnergy", "energy.run") == 400.0
+    assert (
+        collect.basis_total(summary, "cpuPower+devicePower", "stages.simulation")
+        == 200.0
+    )
+    # a counter that the summary lacks
+    assert collect.basis_total(summary, "cpuEnergy+memoryEnergy", "energy.run") is None
+    assert collect.basis_total({}, "nodeEnergy", "energy.run") is None
+
+
 def pinning_row(host, rank, workers, comm="no-info", numa="0"):
     return {
         "hostname": host,

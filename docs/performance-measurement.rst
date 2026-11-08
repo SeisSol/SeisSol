@@ -101,9 +101,9 @@ members of the summary are:
    * - ``performance``
      - hardware and non-zero FLOP and kernel bytes, in total, per second and per category, and the cell updates per
        second (``cellUpdatesPerSecond``); where all nodes measure the energy, the energy of the epochs (``energy``),
-       which counter it is (``energyBasis``: ``nodeEnergy`` where the nodes count it, else ``deviceEnergy``, else
-       ``cpuEnergy``), and the cell updates and FLOP per joule (``cellUpdatesPerJoule``, ``hardwareFlopPerJoule``,
-       ``nonzeroFlopPerJoule``)
+       which counters it is (``energyBasis``: ``nodeEnergy`` where all nodes count it, else the sum of what all of
+       them count of their CPUs, memory and GPUs, such as ``cpuEnergy+deviceEnergy``, see :ref:`run-energy`), and the
+       cell updates and FLOP per joule (``cellUpdatesPerJoule``, ``hardwareFlopPerJoule``, ``nonzeroFlopPerJoule``)
    * - ``energy``
      - whether the energy is measured (``enabled``), and for each part of a node that is (``parts``: ``node``,
        ``cpu``, ``memory``, ``accelerators``, ``devices``) its counter, its sources, the number of nodes that measure
@@ -261,10 +261,16 @@ epoch. The energy counters sum them per part of a node:
 * ``deviceEnergy``: its GPUs, as the management library of their vendor counts them (NVML, AMD SMI or ROCm SMI, Level
   Zero, else the counters of the i915 and xe drivers), all GPUs of the node, whether the run uses them or not.
 
-The accelerators and the devices are two measurements of the same GPUs, and the parts are contained in the node: they
-are not to be added up. The libraries of the vendors are loaded when the run starts, if they are installed; a node
-without them, or whose sensors its users cannot read (RAPL on most kernels), measures what it can, and a run whose
-nodes measure nothing runs as before. ``SEISSOL_ENERGY=0`` turns the measurement off.
+The accelerators and the devices are two measurements of the same GPUs, and the parts are contained in the node: the
+node is not to be added to its parts, nor the accelerators to the devices. The libraries of the vendors are loaded
+when the run starts, if they are installed; a node without them, or whose sensors its users cannot read (RAPL on most
+kernels), measures what it can, and a run whose nodes measure nothing runs as before. ``SEISSOL_ENERGY=0`` turns the
+measurement off.
+
+The work of a run is put against the energy of its nodes where all of them count it (``nodeEnergy``); else against
+the sum of what all of them count of their CPUs, their memory and their GPUs (as the devices, else as the
+accelerators), such as ``cpuEnergy+deviceEnergy`` on the GB200 nodes of TACC Horizon. That sum lacks what only the
+node counts, such as its network cards, its fans and the losses of its power supplies.
 
 The run summary says which part is measured from which sources, and on how many nodes (``energy``); it gives the
 energy and the mean power of every stage of the run (``stages``) and of the whole run (``energy.run``), and the cell
@@ -286,9 +292,10 @@ Horizon); a thread of the first rank of the node reads it once per interval and 
 power by up to an interval.
 
 The proxy measures the energy of the node during its timed run the same way, and prints it per part, with the power
-and the GFLOP per joule of the node, else of its GPUs, else of its CPUs (``energy-basis``, ``joules``, ``watts``,
-``gflopj-nz`` and ``gflopj-hw`` in its JSON output, which are ``none`` and zero where the node measures nothing, or
-where the run is too short for the sensors to update).
+and the GFLOP per joule of the same basis: the node, else the sum of its CPUs, memory and GPUs that it measures
+(``energy-basis``, such as ``node`` or ``cpu+devices``, ``joules``, ``watts``, ``gflopj-nz`` and ``gflopj-hw`` in its
+JSON output, which are ``none`` and zero where the node measures nothing, or where the run is too short for the
+sensors to update); ``energy-parts`` has the energy of every part that it measures.
 
 .. _energy-probe:
 

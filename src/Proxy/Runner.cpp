@@ -18,6 +18,7 @@
 #include "Proxy/Cycles.h"
 #include "Proxy/Kernel.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -119,23 +120,35 @@ void endEnergy(EnergyMeasurement& measurement,
                                      joules[part].value());
     }
   }
-  // the basis: the whole node, else its GPUs, else its CPUs, as in the run summary
-  for (const auto basis : {Part::Node, Part::Devices, Part::Cpu}) {
-    for (std::size_t part = 0; part < Parts.size(); ++part) {
-      if (Parts[part] != basis || !counted[part] || joules[part].value() <= 0.0) {
-        continue;
-      }
-      const double value = joules[part].value();
-      const bool clocked = shared[part] && seconds[part].has_value();
-      output.energyBasis = monitoring::energy::partName(basis);
-      output.joules = value;
-      const double span = clocked ? seconds[part].value() : time;
-      output.watts = span > 0.0 ? value / span : 0.0;
-      output.nonZeroGFlopPerJoule = nonzeroFlops * 1.e-9 / value;
-      output.hardwareGFlopPerJoule = hardwareFlops * 1.e-9 / value;
-      return;
-    }
+  // the basis, as in the run summary: the whole node, else the sum of its CPUs, memory and GPUs
+  // (energy::basisParts), with the sum of their powers
+  const auto index = [&](Part part) {
+    return static_cast<std::size_t>(std::ranges::find(Parts, part) - Parts.begin());
+  };
+  const auto parts = monitoring::energy::basisParts([&](Part part) {
+    const auto i = index(part);
+    return counted[i] && joules[i].value() > 0.0;
+  });
+  if (parts.empty()) {
+    return;
   }
+  std::string basis;
+  double total = 0.0;
+  double watts = 0.0;
+  for (const auto part : parts) {
+    const auto i = index(part);
+    const double value = joules[i].value();
+    const bool clocked = shared[i] && seconds[i].has_value();
+    const double span = clocked ? seconds[i].value() : time;
+    basis += (basis.empty() ? "" : "+") + std::string(monitoring::energy::partName(part));
+    total += value;
+    watts += span > 0.0 ? value / span : 0.0;
+  }
+  output.energyBasis = basis;
+  output.joules = total;
+  output.watts = watts;
+  output.nonZeroGFlopPerJoule = nonzeroFlops * 1.e-9 / total;
+  output.hardwareGFlopPerJoule = hardwareFlops * 1.e-9 / total;
 }
 
 void testKernel(const std::shared_ptr<ProxyData>& data,

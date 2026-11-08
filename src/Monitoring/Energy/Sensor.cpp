@@ -7,9 +7,29 @@
 
 #include "Sensor.h"
 
+#include <functional>
 #include <string_view>
+#include <vector>
 
 namespace seissol::monitoring::energy {
+
+std::vector<Part> basisParts(const std::function<bool(Part)>& measured) {
+  if (measured(Part::Node)) {
+    return {Part::Node};
+  }
+  std::vector<Part> parts;
+  for (const auto part : {Part::Cpu, Part::Memory}) {
+    if (measured(part)) {
+      parts.push_back(part);
+    }
+  }
+  if (measured(Part::Devices)) {
+    parts.push_back(Part::Devices);
+  } else if (measured(Part::Accelerators)) {
+    parts.push_back(Part::Accelerators);
+  }
+  return parts;
+}
 
 std::string_view partName(Part part) {
   switch (part) {

@@ -89,6 +89,18 @@ def get(data: Any, path: str, default: Any = None) -> Any:
     return value
 
 
+def basis_total(summary: Any, basis: str, path: str) -> Any:
+    """Sum the counters of @p basis that the summary has below the dotted @p path.
+
+    A basis is a counter, or a sum of counters, such as cpuEnergy+deviceEnergy; None
+    if the summary lacks any of them.
+    """
+    values = [get(summary, f"{path}.{counter}") for counter in basis.split("+")]
+    if not all(isinstance(value, (int, float)) for value in values):
+        return None
+    return sum(values)
+
+
 def read_csv(path: Path) -> list[dict[str, str]]:
     try:
         with path.open(newline="", encoding="utf-8") as stream:
@@ -278,8 +290,9 @@ def run_row(
             # generator reports them, or of the host kernels
             "hardwareFlopOf": get(summary, "performance.hardwareFlopOf"),
             "nonzeroFlopPerSecond": get(summary, "performance.nonzeroFlopPerSecond"),
-            # the energy of the epochs, of the counter that the summary puts the work
-            # against, where the nodes measure it
+            # the energy of the epochs, of the counter or the sum of counters that the
+            # summary puts the work against (e.g. nodeEnergy, cpuEnergy+deviceEnergy),
+            # where the nodes measure it
             "energyBasis": get(summary, "performance.energyBasis"),
             "energy": get(summary, "performance.energy"),
             "cellUpdatesPerJoule": get(summary, "performance.cellUpdatesPerJoule"),
@@ -294,9 +307,9 @@ def run_row(
     basis = row["energyBasis"]
     if basis:
         # the whole run, the initialization included, and the mean power of the simulation
-        row["runEnergy"] = get(summary, f"energy.run.{basis}")
+        row["runEnergy"] = basis_total(summary, basis, "energy.run")
         power = basis.replace("Energy", "Power")
-        row["simulationPower"] = get(summary, f"stages.simulation.{power}")
+        row["simulationPower"] = basis_total(summary, power, "stages.simulation")
     ranks_reported = get(summary, "parallel.ranks")
     if ranks_reported is not None and ranks_reported != run.ranks:
         problems.append(f"it ran on {ranks_reported} ranks, not {run.ranks}")

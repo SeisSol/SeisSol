@@ -12,7 +12,6 @@
 #include "Monitoring/Counters.h"
 #include "Monitoring/Energy/Sensor.h"
 
-#include <array>
 #include <memory>
 #include <optional>
 #include <string>
@@ -48,8 +47,8 @@ class EnergyMeter {
    */
   [[nodiscard]] json::Value describe() const;
 
-  //! @brief The names of the counters of the energy, in the order the parts are given in.
-  static const std::array<const char*, 5>& counterNames();
+  //! @brief The name of the counter of the energy of @p part, e.g. cpuEnergy.
+  static const char* counterName(energy::Part part);
 
   private:
   struct Sensor {

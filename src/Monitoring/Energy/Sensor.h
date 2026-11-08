@@ -8,10 +8,12 @@
 #ifndef SEISSOL_SRC_MONITORING_ENERGY_SENSOR_H_
 #define SEISSOL_SRC_MONITORING_ENERGY_SENSOR_H_
 
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace seissol::monitoring::energy {
 
@@ -31,6 +33,17 @@ enum class Part {
 
 //! @brief The name of @p part in the summary: node, cpu, memory, accelerators or devices.
 std::string_view partName(Part part);
+
+/**
+ * @brief The parts whose energy the work of a run is put against, of those that @p measured says
+ * are measured: the whole node; else the sum of its CPUs, its memory and its GPUs, of each that is
+ * measured, the GPUs as their management library counts them, else as the node does (two counts of
+ * the same GPUs). None if none of them is measured.
+ *
+ * The sum lacks what only the node counts, such as its network cards, its fans and the losses of
+ * its power supplies.
+ */
+std::vector<Part> basisParts(const std::function<bool(Part)>& measured);
 
 //! @brief A value of a sensor: the energy it counted since it was opened, in joules, and the time
 //! of the value on the clock of the sensor, in seconds, if it has one.

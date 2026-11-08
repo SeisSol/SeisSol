@@ -71,7 +71,14 @@ json::Value overHolders(std::optional<double> value) {
 
 } // namespace
 
-const std::array<const char*, 5>& EnergyMeter::counterNames() { return CounterNames; }
+const char* EnergyMeter::counterName(energy::Part part) {
+  for (std::size_t i = 0; i < Parts.size(); ++i) {
+    if (Parts[i] == part) {
+      return CounterNames[i];
+    }
+  }
+  return "";
+}
 
 void EnergyMeter::setup(Counters& counters, bool enabled, const std::string& root) {
   enabled_ = enabled;

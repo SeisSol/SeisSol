@@ -12,6 +12,8 @@
 #include "Memory/Tree/Layer.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Counters.h"
+#include "Monitoring/Energy/Sensor.h"
+#include "Monitoring/EnergyMeter.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
@@ -266,30 +268,40 @@ void Simulator::simulate(SeisSol& seissolInstance) {
             << "per second); duplicate updates of copy cells:" << duplicateUpdates;
 
   // the work per energy, over the epochs: on the energy of the nodes where all of them count it,
-  // else of their GPUs, else of their CPUs
+  // else on the sum of what all of them count of their CPUs, memory and GPUs (energy::basisParts)
   const auto simulated = counters.reduce(firstCounters, lastCounters);
   int nodes = Mpi::mpi.sharedMemMpiRank() == 0 ? 1 : 0;
   MPI_Allreduce(MPI_IN_PLACE, &nodes, 1, MPI_INT, MPI_SUM, Mpi::mpi.comm());
-  for (const auto* basis : {"nodeEnergy", "deviceEnergy", "cpuEnergy"}) {
-    const auto energy = counters.find(basis);
+  const auto everywhere = [&](monitoring::energy::Part part) -> std::optional<double> {
+    const auto energy = counters.find(monitoring::EnergyMeter::counterName(part));
     if (!energy.has_value() || simulated.contributors[energy.value()] != nodes ||
         simulated.amounts[energy.value()] <= 0) {
-      continue;
+      return {};
     }
-    const double joules = simulated.amounts[energy.value()];
-    auto& performance = summary["performance"];
-    performance["energyBasis"] = basis;
-    performance["energy"] = joules;
-    for (const auto* work : {"cellUpdates", "hardwareFlop", "nonzeroFlop"}) {
-      if (const auto counter = counters.find(work); counter.has_value()) {
-        performance[std::string(work) + "PerJoule"] = simulated.amounts[counter.value()] / joules;
-      }
-    }
-    logInfo() << "Energy of the simulation (" << basis
-              << "):" << UnitEnergy.formatPrefix(joules).c_str()
-              << "; cell updates per joule:" << cellUpdates / joules;
-    break;
+    return simulated.amounts[energy.value()];
+  };
+  const auto parts = monitoring::energy::basisParts(
+      [&](monitoring::energy::Part part) { return everywhere(part).has_value(); });
+  std::string basis;
+  double joules = 0;
+  for (const auto part : parts) {
+    basis += (basis.empty() ? "" : "+") + std::string(monitoring::EnergyMeter::counterName(part));
+    joules += everywhere(part).value();
   }
+  if (basis.empty()) {
+    return;
+  }
+  auto& performance = summary["performance"];
+  performance["energyBasis"] = basis;
+  performance["energy"] = joules;
+  for (const auto* work : {"cellUpdates", "hardwareFlop", "nonzeroFlop"}) {
+    if (const auto counter = counters.find(work); counter.has_value()) {
+      performance[std::string(work) + "PerJoule"] = simulated.amounts[counter.value()] / joules;
+    }
+  }
+  logInfo() << "Energy of the simulation (" << basis
+            << "):" << UnitEnergy.formatPrefix(joules).c_str()
+            << "; cell updates per joule:" << cellUpdates / joules;
 }
 
 } // namespace seissol

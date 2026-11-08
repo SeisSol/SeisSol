@@ -66,6 +66,8 @@ PROXY_FIELDS: dict[str, str] = {
     "watts": "non-negative",
     "gflopj-nz": "non-negative",
     "gflopj-hw": "non-negative",
+    # the energy of every part of the node that it measures, by the part
+    "energy-parts": "energies",
 }
 
 # Relations between fields that follow from how the numbers are defined, not
@@ -84,10 +86,22 @@ PROXY_RELATIONS: list[tuple[str, str, str, str]] = [
 # two have drifted apart.
 CYCLE_SOURCES = frozenset({"tsc", "cntvct", "none"})
 
-# The parts of a node that the proxy puts its energy against (endEnergy in
-# src/Proxy/Runner.cpp); none where the node measures no energy, which leaves
-# the energy fields at zero.
-ENERGY_BASES = frozenset({"node", "devices", "cpu", "none"})
+# The parts of a node that the proxy measures (partName in
+# src/Monitoring/Energy/Sensor.cpp), and those it puts its energy against
+# (basisParts there): the node, else the sum of its CPUs, memory and GPUs
+# that it measures, in this order and the GPUs once (the devices, else the
+# accelerators), such as cpu+devices; none where the node measures no energy,
+# which leaves the energy fields at zero.
+ENERGY_PARTS = frozenset({"node", "cpu", "memory", "accelerators", "devices"})
+ENERGY_BASES = frozenset(
+    {"node", "none"}
+    | {
+        "+".join(part for part in (cpu, memory, gpus) if part)
+        for cpu in ("", "cpu")
+        for memory in ("", "memory")
+        for gpus in ("", "devices", "accelerators")
+    }
+) - {""}
 ENERGY_FIELDS = ("joules", "watts", "gflopj-nz", "gflopj-hw")
 
 # The line a sanitizer (cmake/sanitizers.cmake) ends each of its reports with.
@@ -223,6 +237,16 @@ def parse_proxy_json(text: str) -> dict[str, Any]:
     return document
 
 
+def is_energy(value: Any) -> bool:
+    """Whether @p value is an energy: a finite number of joules, not below zero."""
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and value >= 0
+    )
+
+
 def check_proxy_fields(document: dict[str, Any], kernel: str) -> None:
     missing = sorted(set(PROXY_FIELDS) - set(document))
     unexpected = sorted(set(document) - set(PROXY_FIELDS))
@@ -237,6 +261,16 @@ def check_proxy_fields(document: dict[str, Any], kernel: str) -> None:
         if constraint == "string":
             if not isinstance(value, str):
                 problems.append(f"{name}: expected a string, got {value!r}")
+            continue
+        if constraint == "energies":
+            if not isinstance(value, dict) or not all(
+                part in ENERGY_PARTS and is_energy(joules)
+                for part, joules in value.items()
+            ):
+                problems.append(
+                    f"{name}: expected the energy of parts of the node "
+                    f"({', '.join(sorted(ENERGY_PARTS))}), got {value!r}"
+                )
             continue
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             problems.append(f"{name}: expected a number, got {value!r}")
@@ -270,6 +304,23 @@ def check_proxy_fields(document: dict[str, Any], kernel: str) -> None:
         for field in ENERGY_FIELDS:
             if document.get(field):
                 problems.append(f"energy-basis is 'none' but {field} is non-zero")
+    elif isinstance(document.get("energy-parts"), dict):
+        # the energy is that of the parts of its basis
+        parts = document["energy-parts"]
+        missing = [part for part in basis.split("+") if part not in parts]
+        joules = document.get("joules")
+        if missing:
+            problems.append(
+                f"energy-parts lacks {', '.join(missing)} of energy-basis {basis!r}"
+            )
+        elif is_energy(joules) and all(
+            is_energy(parts[part]) for part in basis.split("+")
+        ):
+            total = sum(parts[part] for part in basis.split("+"))
+            if not math.isclose(joules, total, rel_tol=1e-9, abs_tol=1e-9):
+                problems.append(
+                    f"joules ({joules}) is not the energy-parts of {basis!r} ({total})"
+                )
 
     combined = document.get("gflop-libxsmm-pspamm")
     parts = (document.get("gflop-libxsmm"), document.get("gflop-pspamm"))
