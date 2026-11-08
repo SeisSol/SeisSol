@@ -761,6 +761,11 @@ void CellCluster<Cfg>::correct() {
   const auto params = stepParams();
   deviceLoops_.collect();
 
+  // as for the prediction; also the clock, which only the work of the layer reads
+  if (clusterData_->size() == 0) {
+    return;
+  }
+
   if (executor_ == Executor::Device) {
     computeNeighboringIntegrationDevice(params);
   } else {

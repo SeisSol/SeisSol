@@ -425,8 +425,8 @@ StepWork DynamicRuptureCluster<Cfg>::prepare(ActorAction action) {
 template <typename Cfg>
 void DynamicRuptureCluster<Cfg>::interact(const StepParams& params) {
   deviceLoops_.collect();
+  // nothing to do; also not for the clock, which only the work of the layer reads
   if (layerData_->size() == 0) {
-    clock_.advance(params.timeStepSize, streamRuntime_);
     return;
   }
 
