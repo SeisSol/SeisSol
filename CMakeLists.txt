@@ -81,6 +81,23 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
 # before any target is defined, so that every C and C++ translation unit of the build is instrumented
 include(cmake/sanitizers.cmake)
 
+# before any target is defined as well: the installed executables find the shared libraries that
+# SeisSol installs (see install(TARGETS ... LIBRARY), next to bin), wherever the installation is;
+# a build may give an RPATH of its own (as Spack does)
+if (NOT DEFINED CMAKE_INSTALL_RPATH)
+  set(SEISSOL_INSTALL_LIBDIR lib)
+  if (DEFINED CMAKE_INSTALL_LIBDIR)
+    set(SEISSOL_INSTALL_LIBDIR "${CMAKE_INSTALL_LIBDIR}")
+  endif()
+  if (IS_ABSOLUTE "${SEISSOL_INSTALL_LIBDIR}")
+    set(CMAKE_INSTALL_RPATH "${SEISSOL_INSTALL_LIBDIR}")
+  elseif (APPLE)
+    set(CMAKE_INSTALL_RPATH "@loader_path/../${SEISSOL_INSTALL_LIBDIR}")
+  else()
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/../${SEISSOL_INSTALL_LIBDIR}")
+  endif()
+endif()
+
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 else()
@@ -88,6 +105,11 @@ else()
 endif()
 
 find_package(GemmTools REQUIRED)
+
+# that the compiler targets what the host kernels need, before the code generation, which takes a
+# while
+include(cmake/cpu_arch_flags.cmake)
+check_host_compiler()
 
 add_subdirectory(codegen)
 
@@ -135,8 +157,7 @@ endif()
 
 # Find appropriate compiler flags based on the target computer architecture
 # and the target compiler
-# 'get_arch_specific_flags' returns: CPU_ARCH_FLAGS
-include(cmake/cpu_arch_flags.cmake)
+# 'get_arch_specific_flags' returns: CPU_ARCH_FLAGS (cmake/cpu_arch_flags.cmake, included above)
 get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 
 # set hardware/compiler specific definitions and flags
