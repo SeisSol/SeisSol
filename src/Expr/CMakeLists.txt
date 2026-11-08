@@ -20,6 +20,7 @@ add_library(seissol-expr OBJECT
     Interp.cpp
     Rewrite.cpp
     SderivFrontend.cpp
+    Types.cpp
 )
 
 target_link_libraries(seissol-expr PUBLIC seissol-common-properties)

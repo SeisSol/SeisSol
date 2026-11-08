@@ -126,104 +126,56 @@ std::size_t chooseTileSize(std::int32_t peakSlots, ComputeType type, std::size_t
   return std::clamp(lanes, MinTileSize, MaxTileSize);
 }
 
-template <typename T>
-TileInterpreter<T>::TileInterpreter(const Program& program,
-                                    const LoweredProgram& lowered,
-                                    const GridSampler* sampler,
-                                    const InterpreterOptions& options)
-    : lowered_(&lowered), sampler_(sampler),
-      numInputs_(static_cast<std::int32_t>(program.inputs().size())),
-      numOutputs_(static_cast<std::int32_t>(program.outputs().size())),
-      stateSlots_(lowered.stateSlotCount()) {
-  const bool wantsF32 = program.computeType() == ComputeType::F32;
-  if (wantsF32 != std::is_same_v<T, float>) {
-    fail("interpreter instantiated for the wrong compute type");
-  }
-  tileSize_ =
-      options.tileSize != 0
-          ? options.tileSize
-          : chooseTileSize(lowered.peakSlotCount(), program.computeType(), options.budgetBytes);
-  scratch_.assign(static_cast<std::size_t>(std::max(lowered.peakSlotCount(), 1)) * tileSize_, T(0));
-  inputTile_.assign(static_cast<std::size_t>(std::max(numInputs_, 1)) * tileSize_, T(0));
-  outputTile_.assign(static_cast<std::size_t>(std::max(numOutputs_, 1)) * tileSize_, T(0));
-  stateTile_.assign(static_cast<std::size_t>(std::max(stateSlots_, 1)) * tileSize_, T(0));
+namespace {
+
+/// The bytes of a transient of `type` per lane.
+std::size_t widthOf(ComputeType type) {
+  return type == ComputeType::F32 ? sizeof(float) : sizeof(double);
 }
 
-// One switch per instruction, amortised over `count` lanes. The lane loops are
-// left in the plainest possible shape — unit stride, no aliasing, no branches
-// except the ones inside a Select's arithmetic — so the vectorizer can take
-// them.
-template <typename T>
-void TileInterpreter<T>::runStage(const StageCode& stage,
-                                  const TileIo<T>& io,
-                                  const T* inputTile,
-                                  T* outputTile,
-                                  T* stateTile,
-                                  T* persistent,
-                                  std::size_t numPoints,
-                                  std::size_t first,
-                                  std::size_t count) {
-  const std::vector<std::int32_t>& operands = lowered_->operands();
-  T* const scratchBase = scratch_.data();
-  const std::size_t stride = tileSize_;
+/// The offsets of the transients of `stage` in the scratch of a tile of `lanes` lanes, in bytes,
+/// each slot on a cache line of its own, whatever the type of the one before; and their end.
+std::size_t slotOffsets(const StageCode& stage, std::size_t lanes, std::vector<std::size_t>& out) {
+  constexpr std::size_t Line = 64;
+  out.clear();
+  std::size_t offset = 0;
+  for (std::int32_t slot = 0; slot < stage.slotCount; ++slot) {
+    out.push_back(offset);
+    const auto type = static_cast<std::size_t>(slot) < stage.slotTypes.size()
+                          ? stage.slotTypes[static_cast<std::size_t>(slot)]
+                          : ComputeType::F64;
+    offset += (widthOf(type) * lanes + Line - 1) / Line * Line;
+  }
+  return offset;
+}
 
-  const auto slotPtr = [&](std::int32_t slot) { return scratchBase + slot * stride; };
+/// The transients of the larger stage in slots of the compute type: what the tile size follows.
+std::int32_t peakSlotsIn(const LoweredProgram& lowered, ComputeType computeType) {
+  std::size_t bytes = 0;
+  for (const StageCode* stage : {&lowered.precompute(), &lowered.run()}) {
+    std::size_t perLane = 0;
+    for (std::int32_t slot = 0; slot < stage->slotCount; ++slot) {
+      const auto type = static_cast<std::size_t>(slot) < stage->slotTypes.size()
+                            ? stage->slotTypes[static_cast<std::size_t>(slot)]
+                            : ComputeType::F64;
+      perLane += widthOf(type);
+    }
+    bytes = std::max(bytes, perLane);
+  }
+  const std::size_t width = widthOf(computeType);
+  return static_cast<std::int32_t>((bytes + width - 1) / width);
+}
 
-  for (const Instruction& inst : stage.code) {
-    T* const __restrict dst = slotPtr(inst.dst);
-
-    switch (inst.op) {
-    case Opcode::Const: {
-      const T value = static_cast<T>(inst.value);
-#pragma omp simd
-      for (std::size_t l = 0; l < count; ++l) {
-        dst[l] = value;
-      }
-      break;
-    }
-    case Opcode::LoadInput: {
-      const T* const __restrict src = inputTile + static_cast<std::size_t>(inst.imm) * count;
-#pragma omp simd
-      for (std::size_t l = 0; l < count; ++l) {
-        dst[l] = src[l];
-      }
-      break;
-    }
-    case Opcode::LoadPersistent: {
-      // a declared state from the tile, a hoisted value from the persistent buffer
-      const T* const __restrict src =
-          inst.imm < stateSlots_
-              ? stateTile + static_cast<std::size_t>(inst.imm) * count
-              : persistent + static_cast<std::size_t>(inst.imm - stateSlots_) * numPoints + first;
-#pragma omp simd
-      for (std::size_t l = 0; l < count; ++l) {
-        dst[l] = src[l];
-      }
-      break;
-    }
-    case Opcode::Lookup: {
-      if (sampler_ == nullptr) {
-        fail("program contains a grid lookup but no GridSampler was supplied");
-      }
-      std::array<const T*, MaxLookupDimension> coords{};
-      for (std::int32_t k = 0; k < inst.operandCount; ++k) {
-        coords[static_cast<std::size_t>(k)] = slotPtr(operands[inst.operandBegin + k]);
-      }
-      sampler_->sampleBatch(inst.grid, inst.comp, coords.data(), inst.operandCount, count, dst);
-      break;
-    }
-    case Opcode::Contract: {
-      contractLanes<T>(
-          io.contraction(inst.matrix, inst.block), io.points(first), first, count, dst);
-      break;
-    }
-    case Opcode::Pw: {
-      const T* const __restrict a0 = slotPtr(operands[inst.operandBegin]);
-      const T* const __restrict a1 =
-          inst.operandCount > 1 ? slotPtr(operands[inst.operandBegin + 1]) : a0;
-      const T* const __restrict a2 =
-          inst.operandCount > 2 ? slotPtr(operands[inst.operandBegin + 2]) : a0;
-      switch (inst.fn) {
+/// The lanes of a pointwise operation in the type U.
+template <typename U>
+void pwLanes(Fn fn,
+             const U* __restrict a0,
+             const U* __restrict a1,
+             const U* __restrict a2,
+             U* __restrict dst,
+             std::size_t count) {
+  using T = U;
+  switch (fn) {
 #define SEISSOL_EXPR_PW_LOOP_UNARY(NAME, EXPR)                                                     \
   case Fn::NAME: {                                                                                 \
     _Pragma("omp simd") for (std::size_t l = 0; l < count; ++l) {                                  \
@@ -251,35 +203,171 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
     }                                                                                              \
     break;                                                                                         \
   }
-        SEISSOL_EXPR_PW_LIST(
-            SEISSOL_EXPR_PW_LOOP_UNARY, SEISSOL_EXPR_PW_LOOP_BINARY, SEISSOL_EXPR_PW_LOOP_TERNARY)
+    SEISSOL_EXPR_PW_LIST(
+        SEISSOL_EXPR_PW_LOOP_UNARY, SEISSOL_EXPR_PW_LOOP_BINARY, SEISSOL_EXPR_PW_LOOP_TERNARY)
 #undef SEISSOL_EXPR_PW_LOOP_UNARY
 #undef SEISSOL_EXPR_PW_LOOP_BINARY
 #undef SEISSOL_EXPR_PW_LOOP_TERNARY
+  }
+}
+
+/// dst[l] = U(src[l]) for the lanes, from data of type V.
+template <typename U, typename V>
+void convertLanes(const V* __restrict src, U* __restrict dst, std::size_t count) {
+#pragma omp simd
+  for (std::size_t l = 0; l < count; ++l) {
+    dst[l] = static_cast<U>(src[l]);
+  }
+}
+
+} // namespace
+
+template <typename T>
+TileInterpreter<T>::TileInterpreter(const Program& program,
+                                    const LoweredProgram& lowered,
+                                    const GridSampler* sampler,
+                                    const InterpreterOptions& options)
+    : lowered_(&lowered), sampler_(sampler),
+      numInputs_(static_cast<std::int32_t>(program.inputs().size())),
+      numOutputs_(static_cast<std::int32_t>(program.outputs().size())),
+      stateSlots_(lowered.stateSlotCount()) {
+  // the data moves in its type; the operations compute in theirs
+  const bool wantsF32 = lowered.dataType() == ComputeType::F32;
+  if (wantsF32 != std::is_same_v<T, float>) {
+    fail("interpreter instantiated for another type than the program moves its data in");
+  }
+  tileSize_ = options.tileSize != 0 ? options.tileSize
+                                    : chooseTileSize(peakSlotsIn(lowered, program.computeType()),
+                                                     program.computeType(),
+                                                     options.budgetBytes);
+  const std::size_t precomputeBytes =
+      slotOffsets(lowered.precompute(), tileSize_, precomputeOffsets_);
+  const std::size_t runBytes = slotOffsets(lowered.run(), tileSize_, runOffsets_);
+  scratch_.assign(std::max<std::size_t>(std::max(precomputeBytes, runBytes), sizeof(double)) /
+                          sizeof(double) +
+                      1,
+                  0.0);
+  inputTile_.assign(static_cast<std::size_t>(std::max(numInputs_, 1)) * tileSize_, T(0));
+  outputTile_.assign(static_cast<std::size_t>(std::max(numOutputs_, 1)) * tileSize_, T(0));
+  stateTile_.assign(static_cast<std::size_t>(std::max(stateSlots_, 1)) * tileSize_, T(0));
+}
+
+// One switch per instruction, amortised over `count` lanes. The lane loops are
+// left in the plainest possible shape — unit stride, no aliasing, no branches
+// except the ones inside a Select's arithmetic — so the vectorizer can take
+// them. Each instruction computes in its type, its operands in theirs; the data
+// arrives and leaves in T.
+template <typename T>
+void TileInterpreter<T>::runStage(const StageCode& stage,
+                                  const TileIo<T>& io,
+                                  const T* inputTile,
+                                  T* outputTile,
+                                  T* stateTile,
+                                  T* persistent,
+                                  std::size_t numPoints,
+                                  std::size_t first,
+                                  std::size_t count) {
+  const std::vector<std::int32_t>& operands = lowered_->operands();
+  auto* const scratchBase = reinterpret_cast<unsigned char*>(scratch_.data());
+  const std::vector<std::size_t>& offsets =
+      &stage == &lowered_->precompute() ? precomputeOffsets_ : runOffsets_;
+  const auto typeOf = [&](std::int32_t slot) {
+    return static_cast<std::size_t>(slot) < stage.slotTypes.size()
+               ? stage.slotTypes[static_cast<std::size_t>(slot)]
+               : ComputeType::F64;
+  };
+  const auto bytesOf = [&](std::int32_t slot) {
+    return scratchBase + offsets[static_cast<std::size_t>(slot)];
+  };
+
+  // the slot `slot` into the data of type T at `dst`
+  const auto store = [&](std::int32_t slot, T* dst) {
+    if (typeOf(slot) == ComputeType::F32) {
+      convertLanes(reinterpret_cast<const float*>(bytesOf(slot)), dst, count);
+    } else {
+      convertLanes(reinterpret_cast<const double*>(bytesOf(slot)), dst, count);
+    }
+  };
+
+  const auto execute = [&](const Instruction& inst, auto tag) {
+    using U = decltype(tag);
+    U* const __restrict dst = reinterpret_cast<U*>(bytesOf(inst.dst));
+    const auto operand = [&](std::int32_t k) {
+      return reinterpret_cast<const U*>(bytesOf(operands[inst.operandBegin + k]));
+    };
+    switch (inst.op) {
+    case Opcode::Const: {
+      const U value = static_cast<U>(inst.value);
+#pragma omp simd
+      for (std::size_t l = 0; l < count; ++l) {
+        dst[l] = value;
       }
       break;
     }
+    case Opcode::LoadInput:
+      convertLanes(inputTile + static_cast<std::size_t>(inst.imm) * count, dst, count);
+      break;
+    case Opcode::LoadPersistent:
+      // a declared state from the tile, a hoisted value from the persistent buffer
+      convertLanes(inst.imm < stateSlots_
+                       ? stateTile + static_cast<std::size_t>(inst.imm) * count
+                       : persistent + static_cast<std::size_t>(inst.imm - stateSlots_) * numPoints +
+                             first,
+                   dst,
+                   count);
+      break;
+    case Opcode::Lookup: {
+      if (sampler_ == nullptr) {
+        fail("program contains a grid lookup but no GridSampler was supplied");
+      }
+      std::array<const U*, MaxLookupDimension> coords{};
+      for (std::int32_t k = 0; k < inst.operandCount; ++k) {
+        coords[static_cast<std::size_t>(k)] = operand(k);
+      }
+      sampler_->sampleBatch(inst.grid, inst.comp, coords.data(), inst.operandCount, count, dst);
+      break;
+    }
+    case Opcode::Contract:
+      contractLanes<U>(
+          io.contraction(inst.matrix, inst.block), io.points(first), first, count, dst);
+      break;
+    case Opcode::Pw: {
+      const U* const a0 = operand(0);
+      const U* const a1 = inst.operandCount > 1 ? operand(1) : a0;
+      const U* const a2 = inst.operandCount > 2 ? operand(2) : a0;
+      pwLanes<U>(inst.fn, a0, a1, a2, dst, count);
+      break;
+    }
+    case Opcode::Convert: {
+      const std::int32_t source = operands[inst.operandBegin];
+      if (typeOf(source) == ComputeType::F32) {
+        convertLanes(reinterpret_cast<const float*>(bytesOf(source)), dst, count);
+      } else {
+        convertLanes(reinterpret_cast<const double*>(bytesOf(source)), dst, count);
+      }
+      break;
+    }
+    }
+  };
+
+  for (const Instruction& inst : stage.code) {
+    if (inst.type == ComputeType::F32) {
+      execute(inst, 0.0F);
+    } else {
+      execute(inst, 0.0);
     }
   }
 
   // Stores run after every instruction, which is what makes state updates a
   // parallel assignment rather than a sequential one.
-  for (const Store& store : stage.outputs) {
-    const T* const __restrict src = slotPtr(store.source);
-    T* const __restrict out = outputTile + static_cast<std::size_t>(store.target) * count;
-    for (std::size_t l = 0; l < count; ++l) {
-      out[l] = src[l];
-    }
+  for (const Store& st : stage.outputs) {
+    store(st.source, outputTile + static_cast<std::size_t>(st.target) * count);
   }
-  for (const Store& store : stage.persistent) {
-    const T* const __restrict src = slotPtr(store.source);
-    T* const __restrict out =
-        store.target < stateSlots_
-            ? stateTile + static_cast<std::size_t>(store.target) * count
-            : persistent + static_cast<std::size_t>(store.target - stateSlots_) * numPoints + first;
-    for (std::size_t l = 0; l < count; ++l) {
-      out[l] = src[l];
-    }
+  for (const Store& st : stage.persistent) {
+    store(st.source,
+          st.target < stateSlots_
+              ? stateTile + static_cast<std::size_t>(st.target) * count
+              : persistent + static_cast<std::size_t>(st.target - stateSlots_) * numPoints + first);
   }
 }
 

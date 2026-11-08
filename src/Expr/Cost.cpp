@@ -93,6 +93,10 @@ StageCost countStage(const Program& program, const StageCode& stage) {
     case Opcode::Lookup:
       ++costs.lookups;
       break;
+    case Opcode::Convert:
+      // a conversion between the floating-point types costs about an addition
+      ++costs.additive;
+      break;
     case Opcode::Contract: {
       const auto cols = program.matrices()[inst.matrix].shape.cols;
       costs.fma += cols;

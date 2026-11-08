@@ -480,7 +480,13 @@ void emitStage(std::ostringstream& out,
   // OpenCL C overloads its built-ins; CUDA and HIP get the names of the compute type
   const auto style =
       target == GpuTarget::OpenCl ? codegen::MathStyle::Unqualified : codegen::MathStyle::CNames;
-  codegen::emitStageBody(out, stage, operands, computeType, style, addressing, "  ");
+  codegen::emitStageBody(out,
+                         stage,
+                         operands,
+                         computeType == "float" ? ComputeType::F32 : ComputeType::F64,
+                         style,
+                         addressing,
+                         "  ");
   out << "}\n\n";
 
   out << "SEISSOL_EXPR_KERNEL void " << name << "(";
@@ -781,7 +787,7 @@ GpuArguments::GpuArguments(const Binding& binding,
       // to the eight bytes of a field (the struct declares the padding).
       const double value =
           readAsDouble(static_cast<const char*>(base) + column.view->byteOffset, column.tableType);
-      if (binding.computeType() == ComputeType::F32) {
+      if (binding.dataType() == ComputeType::F32) {
         const auto narrowed = static_cast<float>(value);
         append(&narrowed, sizeof(narrowed));
         image_.insert(image_.end(), sizeof(std::uint64_t) - sizeof(narrowed), 0);
@@ -865,7 +871,9 @@ std::string emitGpuSource(const Program& program,
                           const LoweredProgram& lowered,
                           const GpuLayout& layout,
                           GpuTarget target) {
-  const std::string computeType = program.computeType() == ComputeType::F32 ? "float" : "double";
+  // the type the data moves in: the accessors, the uniform values, the states and the hoisted
+  // values; the instructions compute in theirs
+  const std::string computeType = codegen::typeName(lowered.dataType());
 
   // Every thread computes one point, so the lanes of one cell read the same block coefficient in
   // the same step: a broadcast rather than a gather, with no shared memory involved.

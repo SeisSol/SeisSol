@@ -348,7 +348,8 @@ std::unique_ptr<Kernel> makeInterpreter(const Program& program,
   InterpreterOptions interpreterOptions;
   interpreterOptions.tileSize = options.tileSize;
 
-  if (program.computeType() == ComputeType::F32) {
+  // in the type the data moves in, which the instructions compute from in theirs
+  if (lowered.dataType() == ComputeType::F32) {
     return std::make_unique<InterpreterKernel<float>>(
         program, binding, std::move(lowered), std::move(sampler), interpreterOptions);
   }

@@ -330,6 +330,9 @@ TEST_SUITE("ExprRtcGpu") {
          "out def u = select(land(lt(x,y), ge(y,x)), x, y) + select(lnot(eq(x,y)),1.0,2.0)\n"},
         {"several outputs", "def a = x*y\nout def u = a\nout def v = a - x\n"},
         {"a shared subexpression", "def a = sqrt(abs(x))\nout def u = a+a*a+a*a*a\n"},
+        {"binary32 in a program of binary64",
+         "def a = f32(x) * f32(y) - sqrt(abs(f32(x))) + sin(f32(y)) + exp(f32(x) / 1e3)\n"
+         "out def u = real(a) + x\nout def v = f32(y) * 2.0\n"},
     };
 
     bool ran = false;

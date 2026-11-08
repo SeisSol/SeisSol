@@ -38,6 +38,18 @@ std::uint64_t bits(double v) {
 
 } // namespace
 
+const char* name(ValueType type) {
+  switch (type) {
+  case ValueType::Real:
+    return "real";
+  case ValueType::F32:
+    return "f32";
+  case ValueType::F64:
+    return "f64";
+  }
+  return "?";
+}
+
 const char* name(Kind kind) {
   switch (kind) {
   case Kind::Const:
@@ -50,6 +62,8 @@ const char* name(Kind kind) {
     return "lookup";
   case Kind::Contract:
     return "contract";
+  case Kind::Cast:
+    return "cast";
   case Kind::Dx:
     return "dx";
   case Kind::Cumint:
@@ -63,7 +77,7 @@ const char* name(Kind kind) {
 }
 
 bool NodeEq::operator()(const Node& x, const Node& y) const {
-  if (x.kind != y.kind) {
+  if (x.kind != y.kind || x.type != y.type) {
     return false;
   }
   switch (x.kind) {
@@ -93,6 +107,8 @@ bool NodeEq::operator()(const Node& x, const Node& y) const {
   }
   case Kind::Contract:
     return x.matrix == y.matrix && x.block == y.block;
+  case Kind::Cast:
+    return x.a == y.a;
   case Kind::Dx:
     return x.axis == y.axis && x.a == y.a;
   case Kind::Cumint:
@@ -106,6 +122,9 @@ bool NodeEq::operator()(const Node& x, const Node& y) const {
 
 std::size_t NodeHash::operator()(const Node& n) const {
   std::size_t h = static_cast<std::size_t>(n.kind) + 1;
+  if (n.type != ValueType::Real) {
+    h = mix(h, static_cast<std::size_t>(n.type) + 0x100);
+  }
   switch (n.kind) {
   case Kind::Const:
     h = mix(h, static_cast<std::size_t>(bits(n.value)));
@@ -138,6 +157,9 @@ std::size_t NodeHash::operator()(const Node& n) const {
   case Kind::Contract:
     h = mix(h, static_cast<std::size_t>(n.matrix));
     h = mix(h, static_cast<std::size_t>(n.block));
+    break;
+  case Kind::Cast:
+    h = mix(h, static_cast<std::size_t>(n.a));
     break;
   case Kind::Dx:
     h = mix(h, static_cast<std::size_t>(n.axis));
@@ -233,52 +255,65 @@ NodeId Arena::intern(const Node& n) {
   return id;
 }
 
-NodeId Arena::konst(double v) {
+NodeId Arena::konst(double v, ValueType type) {
   Node n;
   n.kind = Kind::Const;
+  n.type = type;
   n.value = v;
   return intern(n);
 }
 
-NodeId Arena::field(int ch) {
+NodeId Arena::field(int ch, ValueType type) {
   Node n;
   n.kind = Kind::Field;
+  n.type = type;
   n.ch = ch;
   return intern(n);
 }
 
-NodeId Arena::pw(Fn f, NodeId x) {
+NodeId Arena::cast(ValueType type, NodeId x) {
+  Node n;
+  n.kind = Kind::Cast;
+  n.type = type;
+  n.a = x;
+  return intern(n);
+}
+
+NodeId Arena::pw(Fn f, NodeId x, ValueType type) {
   if (arity(f) != 1) {
     logError() << "expr: arity mismatch for" << name(f) << "— expected" << arity(f)
                << "arguments, got 1";
   }
   Node n;
   n.kind = Kind::PW;
+  n.type = type;
   n.fn = f;
   n.a = x;
   return intern(n);
 }
 
-NodeId Arena::pw(Fn f, NodeId x, NodeId y) {
+NodeId Arena::pw(Fn f, NodeId x, NodeId y, ValueType type) {
   if (arity(f) != 2) {
     logError() << "expr: arity mismatch for" << name(f) << "— expected" << arity(f)
                << "arguments, got 2";
   }
   Node n;
   n.kind = Kind::PW;
+  n.type = type;
   n.fn = f;
   n.a = x;
   n.b = y;
   return intern(n);
 }
 
-NodeId Arena::pw(Fn f, NodeId x, NodeId y, NodeId z) {
+NodeId Arena::pw(Fn f, NodeId x, NodeId y, NodeId z, ValueType type) {
   if (arity(f) != 3) {
     logError() << "expr: arity mismatch for" << name(f) << "— expected" << arity(f)
                << "arguments, got 3";
   }
   Node n;
   n.kind = Kind::PW;
+  n.type = type;
   n.fn = f;
   n.a = x;
   n.b = y;
@@ -290,7 +325,10 @@ NodeId Arena::pw(Fn f, NodeId x, NodeId y, NodeId z) {
 // so the arguments are appended first and rolled back on a hit. Without that,
 // two structurally equal Lookups would hash differently and interning would
 // silently stop working for exactly the node kind where it matters most.
-NodeId Arena::lookup(GridId grid, std::int32_t component, const std::vector<NodeId>& coords) {
+NodeId Arena::lookup(GridId grid,
+                     std::int32_t component,
+                     const std::vector<NodeId>& coords,
+                     ValueType type) {
   if (coords.empty() || coords.size() > static_cast<std::size_t>(MaxLookupDimension)) {
     logError() << "expr: lookup needs 1 .." << MaxLookupDimension << "coordinates, got"
                << coords.size();
@@ -300,6 +338,7 @@ NodeId Arena::lookup(GridId grid, std::int32_t component, const std::vector<Node
 
   Node n;
   n.kind = Kind::Lookup;
+  n.type = type;
   n.grid = grid;
   n.comp = component;
   n.argBegin = static_cast<std::int32_t>(mark);
@@ -316,9 +355,10 @@ NodeId Arena::lookup(GridId grid, std::int32_t component, const std::vector<Node
   return id;
 }
 
-NodeId Arena::contract(MatrixId matrix, BlockId block) {
+NodeId Arena::contract(MatrixId matrix, BlockId block, ValueType type) {
   Node n;
   n.kind = Kind::Contract;
+  n.type = type;
   n.matrix = matrix;
   n.block = block;
   return intern(n);
@@ -378,6 +418,7 @@ void Arena::children(NodeId id, std::vector<NodeId>& out) const {
     out.insert(out.end(), a, a + n.argCount);
     return;
   }
+  case Kind::Cast:
   case Kind::Dx:
   case Kind::Cumint:
   case Kind::Fold:

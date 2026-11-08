@@ -130,13 +130,15 @@ void emitStage(std::ostringstream& out,
                const StageCode& stage,
                const std::vector<std::int32_t>& operands,
                std::int32_t stateSlots,
-               const std::string& computeType,
+               ComputeType dataType,
                const codegen::ContractAddressing& contract,
                KernelShape shape) {
-  out << "extern \"C\" void " << name << "(const " << computeType << "* __restrict inputTile,\n"
-      << "                                 " << computeType << "* __restrict outputTile,\n"
-      << "                                 " << computeType << "* __restrict stateTile,\n"
-      << "                                 " << computeType << "* __restrict persistent,\n"
+  // the tiles in the type the data moves in; the instructions compute in theirs
+  const std::string data = codegen::typeName(dataType);
+  out << "extern \"C\" void " << name << "(const " << data << "* __restrict inputTile,\n"
+      << "                                 " << data << "* __restrict outputTile,\n"
+      << "                                 " << data << "* __restrict stateTile,\n"
+      << "                                 " << data << "* __restrict persistent,\n"
       << "                                 unsigned long numPoints,\n"
       << "                                 unsigned long first,\n"
       << "                                 unsigned long count,\n"
@@ -163,16 +165,19 @@ void emitStage(std::ostringstream& out,
   addressing.contract = &contract;
 
   if (tiledStage(stage, operands, shape)) {
-    // a cache line of a transient per block, 64 bytes, times four
-    const std::size_t block = computeType == "float" ? 64 : 32;
+    // four cache lines of a transient per block: 64 lanes in binary32, 32 where one is in binary64
+    const bool narrow = std::all_of(stage.slotTypes.begin(),
+                                    stage.slotTypes.end(),
+                                    [](ComputeType type) { return type == ComputeType::F32; });
+    const std::size_t block = narrow ? 64 : 32;
     codegen::emitStageBodyTiled(
-        out, stage, operands, computeType, codegen::MathStyle::Namespaced, addressing, block, "  ");
+        out, stage, operands, dataType, codegen::MathStyle::Namespaced, addressing, block, "  ");
     out << "}\n\n";
     return;
   }
   out << "  for (unsigned long l = 0; l < count; ++l) {\n";
   codegen::emitStageBody(
-      out, stage, operands, computeType, codegen::MathStyle::Namespaced, addressing, "    ");
+      out, stage, operands, dataType, codegen::MathStyle::Namespaced, addressing, "    ");
   out << "  }\n}\n\n";
 }
 
@@ -806,8 +811,6 @@ std::string emitCpuSourceFor(const Program& program,
                              const LoweredProgram& lowered,
                              const ContractLayout& layout,
                              KernelShape shape) {
-  const std::string computeType = program.computeType() == ComputeType::F32 ? "float" : "double";
-
   codegen::ContractAddressing contract;
   for (const auto& matrix : program.matrices()) {
     contract.shapes.push_back(matrix.shape);
@@ -843,7 +846,7 @@ std::string emitCpuSourceFor(const Program& program,
             lowered.precompute(),
             lowered.operands(),
             lowered.stateSlotCount(),
-            computeType,
+            lowered.dataType(),
             contract,
             shape);
   emitStage(out,
@@ -851,7 +854,7 @@ std::string emitCpuSourceFor(const Program& program,
             lowered.run(),
             lowered.operands(),
             lowered.stateSlotCount(),
-            computeType,
+            lowered.dataType(),
             contract,
             shape);
   return out.str();
@@ -959,7 +962,8 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
         << "-- with" << flags << "(" << origin << ")";
   }
 
-  if (program.computeType() == ComputeType::F32) {
+  // in the type the data moves in
+  if (lowered.dataType() == ComputeType::F32) {
     return std::make_unique<RtcCpuKernel<float>>(binding, std::move(lowered), artifact, tileSize);
   }
   return std::make_unique<RtcCpuKernel<double>>(binding, std::move(lowered), artifact, tileSize);

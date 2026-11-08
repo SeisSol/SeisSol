@@ -86,8 +86,9 @@ class Binding {
   [[nodiscard]] const std::vector<ColumnBinding>& inputs() const { return inputs_; }
   [[nodiscard]] const std::vector<ColumnBinding>& outputs() const { return outputs_; }
   [[nodiscard]] std::size_t numPoints() const { return numPoints_; }
-  /// The type the program computes in, which the device kernels take their uniform inputs in.
-  [[nodiscard]] ComputeType computeType() const { return computeType_; }
+  /// The type the program moves its data in (expr::dataType()): its states and hoisted values are
+  /// kept in it, and the device kernels take their uniform inputs in it.
+  [[nodiscard]] ComputeType dataType() const { return dataType_; }
 
   // The blocks and matrices contractions read, in Program::blocks() and Program::matrices()
   // order, as the table binds them.
@@ -277,7 +278,7 @@ class Binding {
   // The states the table does not keep, slot-major over the point set. Mutable like a table's
   // storage: a const Binding still evaluates, and evaluating writes the state.
   mutable std::vector<std::byte> ownState_;
-  ComputeType computeType_{ComputeType::F64};
+  ComputeType dataType_{ComputeType::F64};
 };
 
 } // namespace seissol::expr

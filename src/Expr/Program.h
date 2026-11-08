@@ -17,16 +17,16 @@
 // a name to the wrong column. Here the frontend reports what the DAG actually
 // reads and writes, and Binding checks it against the table once.
 //
-// TYPING: there is deliberately no per-node type. Everything inside a Program is
-// computed in ONE type, chosen per Program; conversion happens only at the
-// DataTable boundary (getValueAs/setValueAs). The reason not to build a real
-// type system is that the only mixed-type inputs in practice are `real` columns
-// (f32 in single-precision builds) and the integer `group`/`sim` columns, and
-// both are handled correctly by a single compute type plus exact conversion at
-// the edges. The one caveat is worth writing down rather than solving: with
-// ComputeType::F32, integer channels above 2^24 lose exactness. Group and fault
-// tag ids are far below that; if that ever stops being true, this is the
-// assumption that breaks, not something subtler.
+// TYPING: a Program computes in ONE type, chosen per Program (its compute type), except where the
+// script converts a value to another floating-point type (Kind::Cast, a typed state; see
+// ValueType): then that value and what is computed from it have that type, until the script
+// converts it back. There is no implicit conversion, so a script is valid in every compute type or
+// in none; typed() resolves the type of every value and rejects mixed operands. Conversion from and
+// to the columns happens at the DataTable boundary, in the type the backends move the data in
+// (dataType(): the compute type, or binary64 where a value is in binary64). The integer
+// `group`/`sim` columns are read in a floating-point type as well: with binary32, integer channels
+// above 2^24 lose exactness. Group and fault tag ids are far below that; if that ever stops being
+// true, this is the assumption that breaks, not something subtler.
 
 #include "Expr/Ir.h"
 #include "Reader/Datafield/Grid.h"
@@ -82,6 +82,8 @@ struct StateSpec {
   std::string name;    // the Field channel name the DAG reads it back through
   double initial{0.0}; // value on the first call, and after every rebind
   NodeId root{NoNode}; // DAG root producing the value for the next call
+  // the type of the value (see ValueType); its root has the same type
+  ValueType type{ValueType::Real};
 };
 
 // The form of a matrix a Kind::Contract node contracts against: `rows` points per cell (the row is
@@ -168,7 +170,10 @@ class Program {
   // --- construction (frontends only) ---
   void addOutput(const std::string& name, reader::scripting::DataType type, NodeId root);
   void addInput(const std::string& name, reader::scripting::DataType type);
-  void addState(const std::string& name, double initial, NodeId root);
+  void addState(const std::string& name,
+                double initial,
+                NodeId root,
+                ValueType type = ValueType::Real);
   GridId internGrid(const reader::datafield::GridDesc& desc);
 
   // Returns the id of the matrix or block of that name, declaring it first if needed. Throws

@@ -232,6 +232,8 @@ struct StateDeclaration {
   std::string name;
   double initial{0.0};
   int position{0};
+  // `state f64 name = ...`: the type of the state (see ValueType)
+  ValueType type{ValueType::Real};
 };
 
 struct ParsedProgram {
@@ -261,6 +263,18 @@ const std::unordered_map<std::string, Fn> Builtins = {
     {"pow", Fn::Pow},     {"atan2", Fn::Atan2},  {"mod", Fn::Mod},     {"lt", Fn::Lt},
     {"le", Fn::Le},       {"eq", Fn::Eq},        {"land", Fn::And},    {"lor", Fn::Or},
     {"atan", Fn::Atan},   {"select", Fn::Select}};
+
+// The conversions between the types of values (see ValueType): `f64(x)` and `f32(x)` give x in
+// binary64 and binary32, `real(x)` in the compute type of the program. The same names give the
+// type of a state: `state f64 sum = 0.0`.
+const std::unordered_map<std::string, ValueType> Conversions = {
+    {"f64", ValueType::F64}, {"f32", ValueType::F32}, {"real", ValueType::Real}};
+
+/// Whether `name` is a function: a definition, a state or an input of that name would be read as
+/// the function instead.
+bool isFunction(const std::string& name) {
+  return Builtins.count(name) != 0 || Conversions.count(name) != 0;
+}
 
 // The names are spelled exactly as the Lua-side ssol.* ones, so a model
 // transliterates. `gt`, `ge` and `lnot` are rewrites, as in the Lua tracer: the
@@ -374,13 +388,25 @@ class Parser {
     return grid;
   }
 
-  // 'state' NAME '=' ['-'] NUM -- the initial value is a literal: it is set before any point has
-  // been seen, so there is nothing for an expression to read.
+  // 'state' [TYPE] NAME '=' ['-'] NUM -- the initial value is a literal: it is set before any
+  // point has been seen, so there is nothing for an expression to read. TYPE is f64, f32 or real.
   StateDeclaration stateDeclaration() {
     StateDeclaration state;
     state.position = peek().position;
     eat(TokenKind::State);
     state.name = eat(TokenKind::Name).value;
+    if (peek().kind == TokenKind::Name) {
+      const auto type = Conversions.find(state.name);
+      if (type == Conversions.end()) {
+        throw SderivError("parse",
+                          "`" + state.name +
+                              "` is no type of a state; the types are f64, f32 "
+                              "and real",
+                          state.position);
+      }
+      state.type = type->second;
+      state.name = eat(TokenKind::Name).value;
+    }
     eat(TokenKind::Op, "=");
     const bool negative = valueIs("-");
     if (negative) {
@@ -621,7 +647,7 @@ ComponentTable checkGrids(const std::vector<GridDeclaration>& grids,
       // Collisions are errors rather than shadowing: silently overriding a
       // builtin or a def is the exact failure mode this frontend exists to
       // remove from the reader path.
-      if (Constants.count(generated) != 0 || Builtins.count(generated) != 0 ||
+      if (Constants.count(generated) != 0 || isFunction(generated) ||
           defNames.count(generated) != 0 || table.count(generated) != 0) {
         throw SderivError("grid",
                           "grid `" + grid.name + "`: the generated name `" + generated +
@@ -1027,7 +1053,7 @@ private:
       if (components_.count(node.text) != 0) {
         fail(node, "`" + node.text + "` is a grid component and must be called with coordinates");
       }
-      if (Builtins.count(node.text) != 0) {
+      if (isFunction(node.text)) {
         fail(node, "`" + node.text + "` is a function and must be called");
       }
       // Everything left is an input channel. No declaration, no catalogue.
@@ -1103,6 +1129,16 @@ private:
           fail(node, "`lnot` takes 1 argument, got " + std::to_string(node.args.size()));
         }
         return program_.arena().pw(Fn::Sub, program_.arena().konst(1.0), lower(node.args[0], env));
+      }
+
+      // a conversion to another type: f64(x), f32(x), real(x)
+      const auto conversion = Conversions.find(node.text);
+      if (conversion != Conversions.end()) {
+        if (node.args.size() != 1) {
+          fail(node,
+               "`" + node.text + "` takes 1 argument, got " + std::to_string(node.args.size()));
+        }
+        return program_.arena().cast(conversion->second, lower(node.args[0], env));
       }
 
       const auto builtin = Builtins.find(node.text);
@@ -1212,8 +1248,7 @@ void compileSource(const std::string& source,
         std::any_of(parsed.states.begin(), parsed.states.end(), [&](const auto& state) {
           return state.name == surface[id].text;
         });
-    if (!ofState &&
-        (Constants.count(surface[id].text) != 0 || Builtins.count(surface[id].text) != 0)) {
+    if (!ofState && (Constants.count(surface[id].text) != 0 || isFunction(surface[id].text))) {
       throw SderivError("parse",
                         "the definition `" + surface[id].text +
                             "` has the name of a constant or function",
@@ -1229,7 +1264,7 @@ void compileSource(const std::string& source,
     if (!stateNames.insert(state.name).second) {
       throw SderivError("state", "duplicate state `" + state.name + "`", state.position);
     }
-    if (Constants.count(state.name) != 0 || Builtins.count(state.name) != 0 ||
+    if (Constants.count(state.name) != 0 || isFunction(state.name) ||
         components.count(state.name) != 0) {
       throw SderivError("state",
                         "the state `" + state.name +
@@ -1334,7 +1369,8 @@ void compileSource(const std::string& source,
     program.addOutput(name, type, root);
   }
   for (std::size_t i = 0; i < parsed.states.size(); ++i) {
-    program.addState(parsed.states[i].name, parsed.states[i].initial, stateRoots[i]);
+    program.addState(
+        parsed.states[i].name, parsed.states[i].initial, stateRoots[i], parsed.states[i].type);
   }
 }
 

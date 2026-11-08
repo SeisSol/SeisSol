@@ -136,6 +136,22 @@ configuration of ``f32``: a time late in a run, which binary32 resolves to about
 that cancels, such as ``1 - cos(x)`` for a small ``x`` (``2 * sin(x / 2) ** 2`` does not). A derived
 output with state, and the slip rates of a script that gives the slip, compute in binary64 always.
 
+A script may also compute a part in binary64 itself, and leave the rest in the precision of the
+configuration: in an sderiv module, ``f64(x)`` is ``x`` in binary64 (an input such as ``t`` read as
+binary64 from the start), ``real(x)`` in the precision of the configuration, and ``f32(x)`` in
+binary32; ``state f64 sum = 0.0`` declares a state in binary64. The operands of an operation have one
+type (a number takes the type of the others), with no conversion the script does not write:
+``f64(t) - t0`` is an error, ``f64(t) - f64(t0)`` a difference in binary64, and
+``real(f64(t) - f64(t0))`` that difference in the precision of the configuration. For example, a
+phase late in a run in binary64, and the rest in the precision of the configuration:
+
+.. code-block:: text
+
+   def amplitude = 0.12
+   def frequency = 1.0
+   def phase = 2.0 * pi * frequency * f64(t)
+   out def v1 = amplitude * real(sin(phase))
+
 The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
 ``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They
 are kept across runs in the directory ``SEISSOL_EXPR_CACHE`` names, by default ``seissol/expr`` in

@@ -9,6 +9,7 @@
 #include "Expr/Interp.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
+#include "Expr/Types.h"
 #include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
 
@@ -190,7 +191,8 @@ std::int32_t readGroup(const DataEntry& entry, std::size_t index) {
 Binding Binding::bind(const Program& program, const DataTable& table) {
   Binding binding;
   binding.numPoints_ = table.numPoints();
-  binding.computeType_ = program.computeType();
+  // the data moves in the type of the program's widest values (see dataType())
+  binding.dataType_ = expr::dataType(program);
 
   if (binding.numPoints_ == 0) {
     throw std::invalid_argument("expr: cannot bind a program to an empty point set");
@@ -466,7 +468,7 @@ void Binding::allocatePersistent(const Program& program, std::int32_t slotCount)
   persistentAllocated_ = true;
   persistentSlotCount_ = slotCount;
 
-  const std::size_t width = computeType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
+  const std::size_t width = dataType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
   const std::size_t stateSlots = program.state().size();
   const std::size_t slots = slotCount > 0 ? static_cast<std::size_t>(slotCount) : 0;
   // Only the states have a defined initial value; the hoisted values are written by the
@@ -479,7 +481,7 @@ void Binding::allocatePersistent(const Program& program, std::int32_t slotCount)
       std::any_of(stateKept_.begin(), stateKept_.end(), [](bool kept) { return !kept; });
   ownState_.assign(ownsState ? stateSlots * numPoints_ * width : 0, std::byte{0});
   if (ownsState) {
-    if (computeType_ == ComputeType::F32) {
+    if (dataType_ == ComputeType::F32) {
       initialiseState<float>(program, reinterpret_cast<float*>(ownState_.data()), numPoints_);
     } else {
       initialiseState<double>(program, reinterpret_cast<double*>(ownState_.data()), numPoints_);
@@ -488,8 +490,8 @@ void Binding::allocatePersistent(const Program& program, std::int32_t slotCount)
 }
 
 void Binding::resolveStates(const Program& program, const DataTable& table) {
-  const auto computeData = computeType_ == ComputeType::F32 ? DataType::F32 : DataType::F64;
-  const std::size_t width = computeType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
+  const auto computeData = dataType_ == ComputeType::F32 ? DataType::F32 : DataType::F64;
+  const std::size_t width = dataType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
   states_.clear();
   stateKept_.clear();
   for (const auto& spec : program.state()) {
@@ -515,7 +517,7 @@ void Binding::resolveStates(const Program& program, const DataTable& table) {
     const auto& input = found->input;
     if (input.type != computeData) {
       throw std::invalid_argument("expr: the data table keeps the state '" + spec.name + "' as " +
-                                  name(input.type) + ", but the program computes in " +
+                                  name(input.type) + ", but the program moves its data in " +
                                   name(computeData));
     }
     if (input.base == nullptr) {
@@ -541,7 +543,7 @@ void* Binding::stateBase(std::size_t state, void* moved) const {
   if (stateKept_[state]) {
     return moved != nullptr ? moved : states_[state].base;
   }
-  const std::size_t width = computeType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
+  const std::size_t width = dataType_ == ComputeType::F32 ? sizeof(float) : sizeof(double);
   return ownState_.empty() ? nullptr : ownState_.data() + state * numPoints_ * width;
 }
 
@@ -612,15 +614,15 @@ void Binding::scatterState(void* const* bases,
 }
 
 double* Binding::persistentF64() {
-  if (computeType_ != ComputeType::F64) {
-    logError() << "expr: the program computes in f32; asked for the f64 persistent buffer.";
+  if (dataType_ != ComputeType::F64) {
+    logError() << "expr: the program moves its data in f32; asked for the f64 persistent buffer.";
   }
   return persistent_.empty() ? nullptr : reinterpret_cast<double*>(persistent_.data());
 }
 
 float* Binding::persistentF32() {
-  if (computeType_ != ComputeType::F32) {
-    logError() << "expr: the program computes in f64; asked for the f32 persistent buffer.";
+  if (dataType_ != ComputeType::F32) {
+    logError() << "expr: the program moves its data in f64; asked for the f32 persistent buffer.";
   }
   return persistent_.empty() ? nullptr : reinterpret_cast<float*>(persistent_.data());
 }

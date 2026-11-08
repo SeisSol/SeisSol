@@ -49,6 +49,16 @@ inline constexpr BlockId NoBlock = -1;
 // supports. Bounded so a Lookup's argument span always fits a small stack array.
 inline constexpr std::int32_t MaxLookupDimension = 6;
 
+// The type of a value. A program computes in its compute type (Program::computeType(), which the
+// consumer chooses, e.g. binary32 in a single-precision build): that is Real. Where a script
+// converts a value to binary64 (or binary32), that value has this type, and so has everything
+// computed from it, until it is converted back (to Real). There is no implicit conversion: the
+// operands of an operation have one type, apart from literals, which take the type of the others
+// (see typed()). So a script is valid or not independently of the compute type it runs in.
+enum class ValueType : std::uint8_t { Real, F32, F64 };
+
+const char* name(ValueType type);
+
 enum class Kind : std::uint8_t {
   Const,  // literal
   Field,  // named input channel (vx, x, t, group, …) — resolved via Binding
@@ -60,6 +70,7 @@ enum class Kind : std::uint8_t {
   // both operands are bound inputs, not DAG values. Every point computes its own dot product,
   // so points stay independent of each other.
   Contract,
+  Cast,   // the value of `a`, converted to Node::type
   Dx,     // physical-space derivative                       [derived-output]
   Cumint, // cumulative time integral                        [derived-output]
   Fold,   // temporal reducer                                [derived-output]
@@ -157,6 +168,9 @@ enum class Red : std::uint8_t { Max, Min, Int, Sum, Mean, Rms, ArgMax, ArgMin, L
 
 struct Node {
   Kind kind{};
+  // The type of the value (see ValueType): the target of a Cast. A frontend leaves it Real
+  // elsewhere; typed() gives every node of the program its type.
+  ValueType type{ValueType::Real};
   Fn fn{};                   // PW
   Red red{};                 // Fold
   std::int32_t axis{};       // Dx
@@ -219,14 +233,21 @@ class Arena {
   [[nodiscard]] const std::string& channelName(int id) const { return channelNames_[id]; }
   [[nodiscard]] std::size_t channelCount() const { return channelNames_.size(); }
 
-  NodeId konst(double v);
-  NodeId field(int ch);
+  // The node constructors. `type` is the type of the value (Node::type), which only typed()
+  // gives; a frontend leaves it Real, and converts with cast().
+  NodeId konst(double v, ValueType type = ValueType::Real);
+  NodeId field(int ch, ValueType type = ValueType::Real);
   NodeId field(const std::string& name) { return field(channel(name)); }
-  NodeId pw(Fn f, NodeId x);
-  NodeId pw(Fn f, NodeId x, NodeId y);
-  NodeId pw(Fn f, NodeId x, NodeId y, NodeId z);
-  NodeId lookup(GridId grid, std::int32_t component, const std::vector<NodeId>& coords);
-  NodeId contract(MatrixId matrix, BlockId block);
+  NodeId pw(Fn f, NodeId x, ValueType type = ValueType::Real);
+  NodeId pw(Fn f, NodeId x, NodeId y, ValueType type = ValueType::Real);
+  NodeId pw(Fn f, NodeId x, NodeId y, NodeId z, ValueType type = ValueType::Real);
+  NodeId lookup(GridId grid,
+                std::int32_t component,
+                const std::vector<NodeId>& coords,
+                ValueType type = ValueType::Real);
+  NodeId contract(MatrixId matrix, BlockId block, ValueType type = ValueType::Real);
+  // The value of `x`, converted to `type`.
+  NodeId cast(ValueType type, NodeId x);
   NodeId dx(int axis, NodeId x);
   NodeId cumint(NodeId x);
   NodeId fold(Red r, NodeId x);

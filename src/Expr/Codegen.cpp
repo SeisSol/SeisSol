@@ -31,6 +31,19 @@ bool identifierChar(char c) {
   return (std::isalnum(static_cast<unsigned char>(c)) != 0) || c == '_';
 }
 
+/// The type of transient `slot` of `stage`.
+ComputeType slotType(const StageCode& stage, std::int32_t slot) {
+  return static_cast<std::size_t>(slot) < stage.slotTypes.size()
+             ? stage.slotTypes[static_cast<std::size_t>(slot)]
+             : ComputeType::F64;
+}
+
+/// `value`, of type `from`, as an expression of type `to`: itself where the two agree, so that a
+/// program in one type gets the same source as before there were types.
+std::string converted(const std::string& value, ComputeType from, ComputeType to) {
+  return from == to ? value : "(" + std::string(typeName(to)) + ")(" + value + ")";
+}
+
 void emitContraction(std::ostringstream& out,
                      const Instruction& inst,
                      const std::string& dst,
@@ -182,12 +195,13 @@ std::string literal(double value, const std::string& computeType) {
 void emitStageBody(std::ostringstream& out,
                    const StageCode& stage,
                    const std::vector<std::int32_t>& operands,
-                   const std::string& computeType,
+                   ComputeType dataType,
                    MathStyle style,
                    const StageAddressing& addressing,
                    const char* indent) {
   for (std::int32_t slot = 0; slot < stage.slotCount; ++slot) {
-    out << indent << computeType << " " << slotName(slot) << " = (" << computeType << ")0;\n";
+    const char* type = typeName(slotType(stage, slot));
+    out << indent << type << " " << slotName(slot) << " = (" << type << ")0;\n";
   }
   if (stage.slotCount > 0) {
     // Silences the unused-variable warning for a slot that is written but never
@@ -197,12 +211,14 @@ void emitStageBody(std::ostringstream& out,
 
   for (const Instruction& inst : stage.code) {
     const std::string dst = slotName(inst.dst);
+    const std::string type = typeName(inst.type);
     switch (inst.op) {
     case Opcode::Const:
-      out << indent << dst << " = " << literal(inst.value, computeType) << ";\n";
+      out << indent << dst << " = " << literal(inst.value, type) << ";\n";
       break;
     case Opcode::LoadInput:
-      out << indent << dst << " = " << addressing.loadInput(inst.imm) << ";\n";
+      out << indent << dst << " = "
+          << converted(addressing.loadInput(inst.imm), dataType, inst.type) << ";\n";
       break;
     case Opcode::LoadPersistent:
       if (inst.imm < addressing.stateSlots) {
@@ -210,9 +226,12 @@ void emitStageBody(std::ostringstream& out,
           throw std::invalid_argument(
               "expr: a state reached a code generator that cannot address states");
         }
-        out << indent << dst << " = " << addressing.loadState(inst.imm) << ";\n";
+        out << indent << dst << " = "
+            << converted(addressing.loadState(inst.imm), dataType, inst.type) << ";\n";
       } else {
-        out << indent << dst << " = " << addressing.loadPersistent(inst.imm - addressing.stateSlots)
+        out << indent << dst << " = "
+            << converted(
+                   addressing.loadPersistent(inst.imm - addressing.stateSlots), dataType, inst.type)
             << ";\n";
       }
       break;
@@ -223,8 +242,14 @@ void emitStageBody(std::ostringstream& out,
       // every arity without a special case per arity.
       const std::string a1 = inst.operandCount > 1 ? slotName(operands[inst.operandBegin + 1]) : a0;
       const std::string a2 = inst.operandCount > 2 ? slotName(operands[inst.operandBegin + 2]) : a0;
+      out << indent << dst << " = " << substitute(expressionText(inst.fn), a0, a1, a2, type, style)
+          << ";\n";
+      break;
+    }
+    case Opcode::Convert: {
+      const std::int32_t source = operands[inst.operandBegin];
       out << indent << dst << " = "
-          << substitute(expressionText(inst.fn), a0, a1, a2, computeType, style) << ";\n";
+          << converted(slotName(source), slotType(stage, source), inst.type) << ";\n";
       break;
     }
     case Opcode::Lookup:
@@ -235,13 +260,16 @@ void emitStageBody(std::ostringstream& out,
         throw std::invalid_argument(
             "expr: a contraction reached a code generator that cannot address blocks");
       }
-      emitContraction(out, inst, dst, computeType, *addressing.contract, indent);
+      emitContraction(out, inst, dst, type, *addressing.contract, indent);
       break;
     }
   }
 
+  const auto value = [&](const Store& store) {
+    return converted(slotName(store.source), slotType(stage, store.source), dataType);
+  };
   for (const Store& store : stage.outputs) {
-    out << indent << addressing.storeOutput(store.target, slotName(store.source)) << ";\n";
+    out << indent << addressing.storeOutput(store.target, value(store)) << ";\n";
   }
   for (const Store& store : stage.persistent) {
     if (store.target < addressing.stateSlots) {
@@ -249,11 +277,10 @@ void emitStageBody(std::ostringstream& out,
         throw std::invalid_argument(
             "expr: a state reached a code generator that cannot address states");
       }
-      out << indent << addressing.storeState(store.target, slotName(store.source)) << ";\n";
+      out << indent << addressing.storeState(store.target, value(store)) << ";\n";
     } else {
       out << indent
-          << addressing.storePersistent(store.target - addressing.stateSlots,
-                                        slotName(store.source))
+          << addressing.storePersistent(store.target - addressing.stateSlots, value(store))
           << ";\n";
     }
   }
@@ -262,7 +289,7 @@ void emitStageBody(std::ostringstream& out,
 void emitStageBodyTiled(std::ostringstream& out,
                         const StageCode& stage,
                         const std::vector<std::int32_t>& operands,
-                        const std::string& computeType,
+                        ComputeType dataType,
                         MathStyle style,
                         const StageAddressing& addressing,
                         std::size_t block,
@@ -284,17 +311,19 @@ void emitStageBodyTiled(std::ostringstream& out,
       << inner << "const unsigned long n = count - base < " << blockSize
       << " ? count - base : " << blockSize << ";\n";
   for (std::int32_t index = 0; index < stage.slotCount; ++index) {
-    out << inner << computeType << " " << slotName(index) << "[" << block << "];\n";
+    out << inner << typeName(slotType(stage, index)) << " " << slotName(index) << "[" << block
+        << "];\n";
   }
 
   for (const Instruction& inst : stage.code) {
     const std::string dst = slot(inst.dst);
+    const std::string type = typeName(inst.type);
     switch (inst.op) {
     case Opcode::Const:
-      laneLoop(dst + " = " + literal(inst.value, computeType), false);
+      laneLoop(dst + " = " + literal(inst.value, type), false);
       break;
     case Opcode::LoadInput:
-      laneLoop(dst + " = " + addressing.loadInput(inst.imm), true);
+      laneLoop(dst + " = " + converted(addressing.loadInput(inst.imm), dataType, inst.type), true);
       break;
     case Opcode::LoadPersistent:
       if (inst.imm < addressing.stateSlots) {
@@ -302,17 +331,26 @@ void emitStageBodyTiled(std::ostringstream& out,
           throw std::invalid_argument(
               "expr: a state reached a code generator that cannot address states");
         }
-        laneLoop(dst + " = " + addressing.loadState(inst.imm), true);
+        laneLoop(dst + " = " + converted(addressing.loadState(inst.imm), dataType, inst.type),
+                 true);
       } else {
-        laneLoop(dst + " = " + addressing.loadPersistent(inst.imm - addressing.stateSlots), true);
+        laneLoop(dst + " = " +
+                     converted(addressing.loadPersistent(inst.imm - addressing.stateSlots),
+                               dataType,
+                               inst.type),
+                 true);
       }
       break;
     case Opcode::Pw: {
       const std::string a0 = slot(operands[inst.operandBegin]);
       const std::string a1 = inst.operandCount > 1 ? slot(operands[inst.operandBegin + 1]) : a0;
       const std::string a2 = inst.operandCount > 2 ? slot(operands[inst.operandBegin + 2]) : a0;
-      laneLoop(dst + " = " + substitute(expressionText(inst.fn), a0, a1, a2, computeType, style),
-               false);
+      laneLoop(dst + " = " + substitute(expressionText(inst.fn), a0, a1, a2, type, style), false);
+      break;
+    }
+    case Opcode::Convert: {
+      const std::int32_t source = operands[inst.operandBegin];
+      laneLoop(dst + " = " + converted(slot(source), slotType(stage, source), inst.type), false);
       break;
     }
     case Opcode::Lookup:
@@ -324,8 +362,11 @@ void emitStageBodyTiled(std::ostringstream& out,
     }
   }
 
+  const auto value = [&](const Store& store) {
+    return converted(slot(store.source), slotType(stage, store.source), dataType);
+  };
   for (const Store& store : stage.outputs) {
-    laneLoop(addressing.storeOutput(store.target, slot(store.source)), true);
+    laneLoop(addressing.storeOutput(store.target, value(store)), true);
   }
   for (const Store& store : stage.persistent) {
     if (store.target < addressing.stateSlots) {
@@ -333,9 +374,9 @@ void emitStageBodyTiled(std::ostringstream& out,
         throw std::invalid_argument(
             "expr: a state reached a code generator that cannot address states");
       }
-      laneLoop(addressing.storeState(store.target, slot(store.source)), true);
+      laneLoop(addressing.storeState(store.target, value(store)), true);
     } else {
-      laneLoop(addressing.storePersistent(store.target - addressing.stateSlots, slot(store.source)),
+      laneLoop(addressing.storePersistent(store.target - addressing.stateSlots, value(store)),
                true);
     }
   }
@@ -406,6 +447,8 @@ bool containsContraction(const LoweredProgram& lowered) {
   }
   return false;
 }
+
+const char* typeName(ComputeType type) { return type == ComputeType::F32 ? "float" : "double"; }
 
 const char* elementTypeName(reader::scripting::DataType type) {
   switch (type) {

@@ -9,6 +9,7 @@
 
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
+#include "Expr/Types.h"
 
 #include <algorithm>
 #include <array>
@@ -206,6 +207,8 @@ Analysis analyse(const Program& program, const LowerOptions& options, const Chan
       inv = inv && invariantGrids.count(node.grid) != 0;
       sp = Space::Point;
       break;
+    case Kind::Cast:
+      break;
     case Kind::Contract:
       // the blocks are the evolving state of the solver, never invariant across calls
       inv = false;
@@ -228,6 +231,7 @@ Analysis analyse(const Program& program, const LowerOptions& options, const Chan
 // Straight-line liveness. Everything is in one basic block per stage, so a
 // value's live range is [definition, last use] and slot assignment is a linear
 // scan over a free list — no interval tree, no interference graph.
+// A slot holds values of one type only; the free slots are kept per type.
 class SlotAllocator {
   public:
   explicit SlotAllocator(std::size_t arenaSize) : slotOf_(arenaSize, NoSlot) {}
@@ -237,29 +241,34 @@ class SlotAllocator {
   void release(NodeId id) {
     const std::int32_t s = slotOf_[id];
     if (s != NoSlot) {
-      free_.push_back(s);
+      free_[index(types_[s])].push_back(s);
       slotOf_[id] = NoSlot;
     }
   }
 
-  std::int32_t allocate(NodeId id) {
+  std::int32_t allocate(NodeId id, ComputeType type) {
+    auto& free = free_[index(type)];
     std::int32_t s = 0;
-    if (free_.empty()) {
-      s = high_++;
+    if (free.empty()) {
+      s = static_cast<std::int32_t>(types_.size());
+      types_.push_back(type);
     } else {
-      s = free_.back();
-      free_.pop_back();
+      s = free.back();
+      free.pop_back();
     }
     slotOf_[id] = s;
     return s;
   }
 
-  [[nodiscard]] std::int32_t high() const { return high_; }
+  [[nodiscard]] std::int32_t high() const { return static_cast<std::int32_t>(types_.size()); }
+  [[nodiscard]] const std::vector<ComputeType>& types() const { return types_; }
 
   private:
+  static std::size_t index(ComputeType type) { return type == ComputeType::F32 ? 0 : 1; }
+
   std::vector<std::int32_t> slotOf_;
-  std::vector<std::int32_t> free_;
-  std::int32_t high_{0};
+  std::array<std::vector<std::int32_t>, 2> free_;
+  std::vector<ComputeType> types_;
 };
 
 class Emitter {
@@ -304,6 +313,7 @@ class Emitter {
       Instruction inst;
       inst.node = id;
       inst.space = analysis_.space[id];
+      inst.type = resolve(node.type, program_.computeType());
 
       const std::int32_t boundary = boundarySlot(id);
       if (boundary >= 0) {
@@ -341,12 +351,15 @@ class Emitter {
           inst.matrix = node.matrix;
           inst.block = node.block;
           break;
+        case Kind::Cast:
+          inst.op = Opcode::Convert;
+          break;
         default:
           fail(std::string("node kind '") + name(node.kind) + "' reached the emitter");
         }
       }
 
-      if (inst.op == Opcode::Pw || inst.op == Opcode::Lookup) {
+      if (inst.op == Opcode::Pw || inst.op == Opcode::Lookup || inst.op == Opcode::Convert) {
         arena.children(id, kids);
         inst.operandBegin = static_cast<std::int32_t>(operands_.size());
         inst.operandCount = static_cast<std::int32_t>(kids.size());
@@ -368,7 +381,7 @@ class Emitter {
       if (inPlaceSafe) {
         releaseDead(alloc, id, lastUse, i);
       }
-      inst.dst = alloc.allocate(id);
+      inst.dst = alloc.allocate(id, inst.type);
       if (!inPlaceSafe) {
         releaseDead(alloc, id, lastUse, i);
       }
@@ -377,6 +390,7 @@ class Emitter {
     }
 
     stage.slotCount = alloc.high();
+    stage.slotTypes = alloc.types();
     slotOfLiveOut_.clear();
     for (const NodeId id : liveOut) {
       slotOfLiveOut_.emplace(id, alloc.slotOf(id));
@@ -448,6 +462,8 @@ const char* name(Opcode op) {
     return "lookup";
   case Opcode::Contract:
     return "contract";
+  case Opcode::Convert:
+    return "convert";
   }
   return "?";
 }
@@ -482,6 +498,17 @@ std::int32_t LoweredProgram::peakSlotCount() const {
   return std::max(precompute_.slotCount, run_.slotCount);
 }
 
+bool LoweredProgram::mixesTypes() const {
+  for (const StageCode* stage : {&precompute_, &run_}) {
+    for (const Instruction& inst : stage->code) {
+      if (inst.type != computeType_) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 std::string LoweredProgram::summary() const {
   const std::size_t hoisted = persistentSlotCount_ >= stateSlotCount_
                                   ? static_cast<std::size_t>(persistentSlotCount_ - stateSlotCount_)
@@ -498,7 +525,8 @@ std::string LoweredProgram::dump() const {
     out += title;
     out += " (slots=" + std::to_string(s.slotCount) + ")\n";
     for (const Instruction& i : s.code) {
-      out += "  t" + std::to_string(i.dst) + " = " + name(i.op);
+      out += "  t" + std::to_string(i.dst) + (i.type == ComputeType::F32 ? ":f32" : ":f64") +
+             " = " + name(i.op);
       if (i.op == Opcode::Pw) {
         out += std::string(" ") + name(i.fn);
       }
@@ -534,7 +562,9 @@ std::string LoweredProgram::dump() const {
   return out;
 }
 
-LoweredProgram lower(const Program& program, const LowerOptions& options) {
+LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
+  // every value with its type, every literal once per type it is used in
+  const Program program = typed(untyped);
   const Arena& arena = program.arena();
   const ChannelMap channels(program);
   const Analysis an = analyse(program, options, channels);
@@ -609,6 +639,8 @@ LoweredProgram lower(const Program& program, const LowerOptions& options) {
 
   LoweredProgram out;
   out.stateSlotCount_ = static_cast<std::int32_t>(program.state().size());
+  out.computeType_ = program.computeType();
+  out.dataType_ = dataType(untyped);
 
   // Persistent slot layout: declared state first, so Binding can initialise
   // [0, stateSlotCount) straight from StateSpec::initial, then hoisted values in

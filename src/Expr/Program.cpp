@@ -149,6 +149,12 @@ class CanonicalWalk {
     appendInt(text_, slot);
     text_ += '=';
     text_ += name(n.kind);
+    // the type where it is not the compute type, so that the form of a program without other
+    // types stays what it was
+    if (n.type != ValueType::Real) {
+      text_ += ':';
+      text_ += name(n.type);
+    }
     switch (n.kind) {
     case Kind::Const:
       text_ += ' ';
@@ -194,6 +200,7 @@ class CanonicalWalk {
       text_ += name(n.red);
       appendOperands(id);
       break;
+    case Kind::Cast:
     case Kind::Cumint:
     case Kind::Sample:
       appendOperands(id);
@@ -267,6 +274,10 @@ std::string Program::canonicalForm() const {
     appendInt(tail, walk.visit(s.root));
     tail += ' ';
     appendHex(tail, bits(s.initial));
+    if (s.type != ValueType::Real) {
+      tail += ' ';
+      tail += name(s.type);
+    }
     tail += '\n';
   }
 
@@ -308,8 +319,8 @@ void Program::addInput(const std::string& name, reader::scripting::DataType type
   inputs_.push_back(VarSpec{name, type});
 }
 
-void Program::addState(const std::string& name, double initial, NodeId root) {
-  state_.push_back(StateSpec{name, initial, root});
+void Program::addState(const std::string& name, double initial, NodeId root, ValueType type) {
+  state_.push_back(StateSpec{name, initial, root, type});
 }
 
 MatrixId Program::internMatrix(const std::string& name, const MatrixShape& shape) {

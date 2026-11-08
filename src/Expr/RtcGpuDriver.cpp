@@ -799,7 +799,8 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
         << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str()
         << "-- for" << arch;
   }
-  const std::size_t width = program.computeType() == ComputeType::F32 ? 4 : 8;
+  // the hoisted values and the states the kernel keeps, in the type the data moves in
+  const std::size_t width = lowered.dataType() == ComputeType::F32 ? 4 : 8;
   return std::make_unique<RtcGpuKernel>(
       binding, std::move(lowered), function, target, width, options.deviceQueue);
 }

@@ -7,6 +7,7 @@
 
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
+#include "Expr/Types.h"
 
 #include <cstddef>
 #include <stdexcept>
@@ -133,6 +134,11 @@ void checkNode(const Program& program, NodeId id, const std::unordered_set<int>&
     }
     break;
   }
+  case Kind::Cast:
+    if (n.a == NoNode) {
+      fail("a conversion has no operand");
+    }
+    break;
   case Kind::Dx:
   case Kind::Cumint:
   case Kind::Fold:
@@ -198,6 +204,9 @@ void validate(const Program& program) {
   if (program.roots().empty() && program.state().empty()) {
     fail("program has neither an output nor a state slot");
   }
+
+  // the operands of every operation of one type, and the states of theirs
+  static_cast<void>(typed(program));
 }
 
 } // namespace seissol::expr

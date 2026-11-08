@@ -66,7 +66,8 @@ enum class Opcode : std::uint8_t {
   LoadPersistent, // imm = persistent slot (state slot or hoisted value)
   Pw,             // fn, arity(fn) operands
   Lookup,         // grid, comp, argCount coordinate operands
-  Contract        // matrix, block; no operands
+  Contract,       // matrix, block; no operands
+  Convert         // one operand, converted from the type of its slot to the type of the instruction
 };
 
 const char* name(Opcode op);
@@ -79,6 +80,11 @@ const char* name(Opcode op);
 // a liveness problem that stays straight-line.
 struct Instruction {
   Opcode op{Opcode::Const};
+  // The type the instruction computes in, and its destination holds. A load converts into it from
+  // the type the backend moves the data in (LoweredProgram::dataType()); the operands of a Pw, a
+  // Lookup and a Contract have it as well (typed() sees to it), the operand of a Convert has
+  // another.
+  ComputeType type{ComputeType::F64};
   Fn fn{Fn::Neg};
   Space space{Space::Point};
   std::int32_t imm{0};
@@ -104,6 +110,9 @@ struct StageCode {
   std::vector<Store> outputs;    // Run only: scatter targets, by output index
   std::vector<Store> persistent; // Precompute: hoisted values. Run: state writeback.
   std::int32_t slotCount{0};     // transient slots this stage needs
+  // The type of each transient slot: a slot only ever holds values of one type. A store converts
+  // from it into the type the data is moved in.
+  std::vector<ComputeType> slotTypes;
 };
 
 inline constexpr std::int32_t DefaultHoistThreshold = 4;
@@ -137,6 +146,14 @@ class LoweredProgram {
   // order, and are the ones Binding initialises from StateSpec::initial. The
   // remainder are hoisted values, which precompute() writes before any run().
   [[nodiscard]] std::int32_t stateSlotCount() const { return stateSlotCount_; }
+
+  /// The compute type of the program, and the type the backends move its data in: the inputs and
+  /// outputs, the states and the hoisted values (see dataType()).
+  [[nodiscard]] ComputeType computeType() const { return computeType_; }
+  [[nodiscard]] ComputeType dataType() const { return dataType_; }
+
+  /// Whether an instruction computes in another type than the compute type.
+  [[nodiscard]] bool mixesTypes() const;
   [[nodiscard]] std::int32_t persistentSlotCount() const { return persistentSlotCount_; }
   [[nodiscard]] bool hasPrecompute() const { return !precompute_.code.empty(); }
 
@@ -156,10 +173,13 @@ class LoweredProgram {
   std::vector<std::int32_t> operands_;
   std::int32_t stateSlotCount_{0};
   std::int32_t persistentSlotCount_{0};
+  ComputeType computeType_{ComputeType::F64};
+  ComputeType dataType_{ComputeType::F64};
 };
 
 // Throws std::invalid_argument on a program that validate() would reject and on
-// an operand space mismatch. Call validate() first; this does not repeat it.
+// an operand space mismatch. Call validate() first; this does not repeat it. The program is lowered
+// with the type of every value resolved (typed()); its inputs, outputs and states stay in order.
 LoweredProgram lower(const Program& program, const LowerOptions& options = {});
 
 } // namespace seissol::expr

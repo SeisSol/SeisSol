@@ -300,7 +300,10 @@ class TileInterpreter {
   const LoweredProgram* lowered_;
   const GridSampler* sampler_;
   std::size_t tileSize_{0};
-  std::vector<T> scratch_;
+  // the transients of a tile, each in its type (StageCode::slotTypes), at their offsets in bytes
+  std::vector<double> scratch_;
+  std::vector<std::size_t> precomputeOffsets_;
+  std::vector<std::size_t> runOffsets_;
   std::vector<T> inputTile_;
   std::vector<T> outputTile_;
   std::vector<T> stateTile_;

@@ -89,25 +89,29 @@ void substituteChannels(Program& program, const std::map<std::string, ChannelBui
     const Node& node = old[id];
     switch (node.kind) {
     case Kind::Const:
-      map[id] = arena.konst(node.value);
+      map[id] = arena.konst(node.value, node.type);
       break;
     case Kind::Field: {
       const std::string& name = old.channelName(node.ch);
       const auto builder = builders.find(name);
-      map[id] = (builder != builders.end() && inputs.count(name) != 0) ? builder->second(arena)
-                                                                       : arena.field(name);
+      map[id] = (builder != builders.end() && inputs.count(name) != 0)
+                    ? builder->second(arena)
+                    : arena.field(arena.channel(name), node.type);
       break;
     }
+    case Kind::Cast:
+      map[id] = arena.cast(node.type, map[node.a]);
+      break;
     case Kind::PW:
       switch (arity(node.fn)) {
       case 1:
-        map[id] = arena.pw(node.fn, map[node.a]);
+        map[id] = arena.pw(node.fn, map[node.a], node.type);
         break;
       case 2:
-        map[id] = arena.pw(node.fn, map[node.a], map[node.b]);
+        map[id] = arena.pw(node.fn, map[node.a], map[node.b], node.type);
         break;
       default:
-        map[id] = arena.pw(node.fn, map[node.a], map[node.b], map[node.c]);
+        map[id] = arena.pw(node.fn, map[node.a], map[node.b], map[node.c], node.type);
         break;
       }
       break;
@@ -117,11 +121,11 @@ void substituteChannels(Program& program, const std::map<std::string, ChannelBui
       for (std::int32_t i = 0; i < node.argCount; ++i) {
         coordinates.push_back(map[args[i]]);
       }
-      map[id] = arena.lookup(node.grid, node.comp, coordinates);
+      map[id] = arena.lookup(node.grid, node.comp, coordinates, node.type);
       break;
     }
     case Kind::Contract:
-      map[id] = arena.contract(node.matrix, node.block);
+      map[id] = arena.contract(node.matrix, node.block, node.type);
       break;
     case Kind::Dx:
       map[id] = arena.dx(node.axis, map[node.a]);
@@ -156,7 +160,7 @@ void substituteChannels(Program& program, const std::map<std::string, ChannelBui
     }
   }
   for (const auto& state : program.state()) {
-    rebuilt.addState(state.name, state.initial, map[state.root]);
+    rebuilt.addState(state.name, state.initial, map[state.root], state.type);
   }
   for (std::size_t i = 0; i < program.outputs().size(); ++i) {
     rebuilt.addOutput(
@@ -214,12 +218,19 @@ NodeId replaceChannels(Arena& arena,
     const NodeId c = count > 2 ? replaceChannels(arena, node.c, replacements, memo) : NoNode;
     if (a != node.a || b != node.b || c != node.c) {
       if (count == 1) {
-        result = arena.pw(node.fn, a);
+        result = arena.pw(node.fn, a, node.type);
       } else if (count == 2) {
-        result = arena.pw(node.fn, a, b);
+        result = arena.pw(node.fn, a, b, node.type);
       } else {
-        result = arena.pw(node.fn, a, b, c);
+        result = arena.pw(node.fn, a, b, c, node.type);
       }
+    }
+    break;
+  }
+  case Kind::Cast: {
+    const NodeId a = replaceChannels(arena, node.a, replacements, memo);
+    if (a != node.a) {
+      result = arena.cast(node.type, a);
     }
     break;
   }
@@ -232,7 +243,7 @@ NodeId replaceChannels(Arena& arena,
       coordinate = replaced;
     }
     if (changed) {
-      result = arena.lookup(node.grid, node.comp, coordinates);
+      result = arena.lookup(node.grid, node.comp, coordinates, node.type);
     }
     break;
   }
@@ -302,10 +313,13 @@ NodeId importNode(Program& target, NodeId root, Imports& imports) {
   NodeId result = NoNode;
   switch (node.kind) {
   case Kind::Const:
-    result = target.arena().konst(node.value);
+    result = target.arena().konst(node.value, node.type);
     break;
   case Kind::Field:
-    result = target.arena().field(source.channelName(node.ch));
+    result = target.arena().field(target.arena().channel(source.channelName(node.ch)), node.type);
+    break;
+  case Kind::Cast:
+    result = target.arena().cast(node.type, importNode(target, node.a, imports));
     break;
   case Kind::PW: {
     const int count = arity(node.fn);
@@ -313,11 +327,11 @@ NodeId importNode(Program& target, NodeId root, Imports& imports) {
     const NodeId b = count > 1 ? importNode(target, node.b, imports) : NoNode;
     const NodeId c = count > 2 ? importNode(target, node.c, imports) : NoNode;
     if (count == 1) {
-      result = target.arena().pw(node.fn, a);
+      result = target.arena().pw(node.fn, a, node.type);
     } else if (count == 2) {
-      result = target.arena().pw(node.fn, a, b);
+      result = target.arena().pw(node.fn, a, b, node.type);
     } else {
-      result = target.arena().pw(node.fn, a, b, c);
+      result = target.arena().pw(node.fn, a, b, c, node.type);
     }
     break;
   }
@@ -327,13 +341,13 @@ NodeId importNode(Program& target, NodeId root, Imports& imports) {
       coordinate = importNode(target, coordinate, imports);
     }
     const auto grid = imports.grid(target, node.grid);
-    result = target.arena().lookup(grid, node.comp, coordinates);
+    result = target.arena().lookup(grid, node.comp, coordinates, node.type);
     break;
   }
   case Kind::Contract: {
     const auto matrix = imports.matrix(target, node.matrix);
     const auto block = imports.block(target, node.block);
-    result = target.arena().contract(matrix, block);
+    result = target.arena().contract(matrix, block, node.type);
     break;
   }
   default:
@@ -408,7 +422,7 @@ Program mergePrograms(const Program& first, const Program& second) {
     merged.addOutput(output.name, output.type, importNode(merged, second.roots()[i], imports));
   }
   for (const auto& state : second.state()) {
-    merged.addState(state.name, state.initial, importNode(merged, state.root, imports));
+    merged.addState(state.name, state.initial, importNode(merged, state.root, imports), state.type);
   }
   validate(merged);
   return merged;
@@ -534,7 +548,8 @@ Program restrictProgram(const Program& program,
   }
   for (const auto& state : states) {
     if (needed.count(state.name) > 0) {
-      restricted.addState(state.name, state.initial, importNode(restricted, state.root, imports));
+      restricted.addState(
+          state.name, state.initial, importNode(restricted, state.root, imports), state.type);
     }
   }
   // nothing left is a program that computes nothing, which its consumer skips

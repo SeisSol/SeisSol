@@ -139,10 +139,14 @@ struct StageAddressing {
 /// Throws std::invalid_argument on Opcode::Lookup -- callers gate on
 /// containsLookup() first, and reaching here with one is a programming error
 /// rather than an unsupported model.
+///
+/// Each instruction computes in its type (Instruction::type), each transient is a local of the
+/// type of its slot; the addressing reads and writes the data in `dataType`
+/// (LoweredProgram::dataType()), and the body converts between the two where they differ.
 void emitStageBody(std::ostringstream& out,
                    const StageCode& stage,
                    const std::vector<std::int32_t>& operands,
-                   const std::string& computeType,
+                   ComputeType dataType,
                    MathStyle style,
                    const StageAddressing& addressing,
                    const char* indent);
@@ -158,7 +162,7 @@ void emitStageBody(std::ostringstream& out,
 void emitStageBodyTiled(std::ostringstream& out,
                         const StageCode& stage,
                         const std::vector<std::int32_t>& operands,
-                        const std::string& computeType,
+                        ComputeType dataType,
                         MathStyle style,
                         const StageAddressing& addressing,
                         std::size_t block,
@@ -182,6 +186,9 @@ void emitStageBodyTiled(std::ostringstream& out,
 
 /// The C name of an element type, for the types the binding may store data in.
 [[nodiscard]] const char* elementTypeName(reader::scripting::DataType type);
+
+/// The C name of a compute type: float or double.
+[[nodiscard]] const char* typeName(ComputeType type);
 
 /// Writes `text` to the file `name` in the directory SEISSOL_EXPR_DUMP names, if it names one: the
 /// sources the compiled backends generate, and what the device compilers make of them, for a

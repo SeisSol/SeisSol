@@ -105,7 +105,7 @@ expr::Program withOutputsOf(const expr::Program& program, const DataTable& table
     }
   }
   for (const auto& state : program.state()) {
-    pruned.addState(state.name, state.initial, state.root);
+    pruned.addState(state.name, state.initial, state.root, state.type);
   }
   for (std::size_t i = 0; i < program.outputs().size(); ++i) {
     const auto& output = program.outputs()[i];
