@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Common/Environment.h"
 #include "Common/Filesystem.h"
 #include "IO/Instance/Point/Csv.h"
 #include "Monitoring/RunSummary.h"
@@ -44,21 +45,19 @@ TEST_CASE("Run summary timestamps" * doctest::test_suite("monitoring")) {
   CHECK(std::regex_match(monitoring::utcTimestamp(), iso8601));
 }
 
-// NOLINTBEGIN(concurrency-mt-unsafe)
 TEST_CASE("Run summary environment" * doctest::test_suite("monitoring")) {
-  setenv("SEISSOL_SUMMARY_TEST_VARIABLE", "value", 1);
-  setenv("OMPI_MCA_orte_summary_test", "internal", 1);
-  setenv("UNRELATED_SUMMARY_TEST_VARIABLE", "value", 1);
+  setEnvironmentVariable("SEISSOL_SUMMARY_TEST_VARIABLE", "value");
+  setEnvironmentVariable("OMPI_MCA_orte_summary_test", "internal");
+  setEnvironmentVariable("UNRELATED_SUMMARY_TEST_VARIABLE", "value");
   const auto environment = monitoring::relevantEnvironment();
   REQUIRE(environment.find("SEISSOL_SUMMARY_TEST_VARIABLE") != nullptr);
   CHECK(environment.find("SEISSOL_SUMMARY_TEST_VARIABLE")->asString() == "value");
   CHECK(environment.find("OMPI_MCA_orte_summary_test") == nullptr);
   CHECK(environment.find("UNRELATED_SUMMARY_TEST_VARIABLE") == nullptr);
-  unsetenv("SEISSOL_SUMMARY_TEST_VARIABLE");
-  unsetenv("OMPI_MCA_orte_summary_test");
-  unsetenv("UNRELATED_SUMMARY_TEST_VARIABLE");
+  unsetEnvironmentVariable("SEISSOL_SUMMARY_TEST_VARIABLE");
+  unsetEnvironmentVariable("OMPI_MCA_orte_summary_test");
+  unsetEnvironmentVariable("UNRELATED_SUMMARY_TEST_VARIABLE");
 }
-// NOLINTEND(concurrency-mt-unsafe)
 
 TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
   const std::string prefix = "runsummary-test";

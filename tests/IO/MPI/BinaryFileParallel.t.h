@@ -9,15 +9,14 @@
 
 #include "IO/Writer/File/BinaryWriter.h"
 #include "Parallel/MPI.h"
+#include "TestHelper.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <mpi.h>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -43,15 +42,11 @@ TEST_CASE("IO/BinaryFile: ranks with different numbers of pieces write in rounds
           doctest::test_suite("io")) {
   using namespace binaryfileparalleltest;
 
-  std::vector<char> name(256, '\0');
+  std::string dir;
   if (Mpi::mpi.rank() == 0) {
-    std::string pattern = "/tmp/seissolbinaryXXXXXX";
-    const char* created = mkdtemp(pattern.data());
-    REQUIRE(created != nullptr);
-    std::ranges::copy(pattern, name.begin());
+    dir = createTemporaryDirectory("seissolbinary");
   }
-  MPI_Bcast(name.data(), static_cast<int>(name.size()), MPI_CHAR, 0, Mpi::mpi.comm());
-  const std::string dir(name.data());
+  Mpi::mpi.broadcastContainer(dir, 0);
   const auto file = dir + "/rounds.bin";
 
   {

@@ -24,20 +24,27 @@
 #include <csignal>
 #include <cstddef>
 #include <exception>
-#include <fcntl.h>
 #include <filesystem>
 #include <fty/fty.hpp>
 #include <optional>
-// SIGTRAP is POSIX and only declared by the C header
-#include <signal.h> // NOLINT(modernize-deprecated-headers)
 #include <string>
 #include <string_view>
 #include <system_error>
-#include <unistd.h>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
 #include <yaml-cpp/yaml.h>
+
+// the handler of SIGTRAP and the permissions of a directory are POSIX; Windows has neither
+#ifdef _WIN32
+#include <fstream>
+#include <random>
+#else
+#include <fcntl.h>
+// SIGTRAP is POSIX and only declared by the C header
+#include <signal.h> // NOLINT(modernize-deprecated-headers)
+#include <unistd.h>
+#endif
 
 #ifdef USE_HDF
 #include <hdf5.h>
@@ -57,6 +64,7 @@ std::string stoppedReport;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::string stoppedReportPath;
 
+#ifndef _WIN32
 void stopCheck(int /*signal*/) {
   if (!stoppedReportPath.empty()) {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
@@ -76,6 +84,7 @@ void stopCheck(int /*signal*/) {
   }
   ::_exit(1);
 }
+#endif
 
 class Report {
   public:
@@ -226,6 +235,26 @@ json::Value meshSection(const parameters::MeshParameters& mesh, Report& report) 
   return section;
 }
 
+//! @brief Whether files can be created in the directory @p path .
+bool directoryWritable(const std::filesystem::path& path) {
+#ifdef _WIN32
+  // access does not know the permissions of Windows (access control lists), and its read-only
+  // attribute does not keep anyone from creating files in a directory; so try it
+  std::random_device seed;
+  const auto probe = path / ("seissol-check-" + std::to_string(seed()));
+  bool created = false;
+  {
+    const std::ofstream stream(probe);
+    created = stream.good();
+  }
+  std::error_code error;
+  std::filesystem::remove(probe, error);
+  return created;
+#else
+  return ::access(path.string().c_str(), W_OK | X_OK) == 0;
+#endif
+}
+
 json::Value outputSection(const parameters::SeisSolParameters& parameters, Report& report) {
   json::Value section;
   const auto& output = parameters.output;
@@ -242,8 +271,8 @@ json::Value outputSection(const parameters::SeisSolParameters& parameters, Repor
          !std::filesystem::exists(existing, error)) {
     existing = existing.parent_path();
   }
-  const bool writable = std::filesystem::is_directory(existing, error) &&
-                        ::access(existing.string().c_str(), W_OK | X_OK) == 0;
+  const bool writable =
+      std::filesystem::is_directory(existing, error) && directoryWritable(existing);
   section["writable"] = writable;
   if (!writable) {
     report.problem(exists ? "The output directory " + directory.string() + " is not writable."
@@ -320,9 +349,11 @@ int preflight(const std::string& parameterFile,
     invocation["checkpoint"] =
         checkpoint.has_value() ? json::Value(checkpoint.value()) : json::Value();
   }
+#ifndef _WIN32
   // an error ends the check through the SIGTRAP of the logger; SIGTRAP can be caught, so that
-  // setting its handler cannot fail
+  // setting its handler cannot fail. (On Windows, an error ends the check without a report.)
   static_cast<void>(std::signal(SIGTRAP, stopCheck));
+#endif
 
   // what a run reads, read as a run reads it; an error stops the check here
   report.step("parameters");
@@ -416,7 +447,9 @@ int preflight(const std::string& parameterFile,
   report.step("output");
   report["output"] = outputSection(seissolParameters, report);
 
+#ifndef _WIN32
   static_cast<void>(std::signal(SIGTRAP, SIG_DFL));
+#endif
   return report.finish();
 }
 

@@ -15,11 +15,15 @@
 #include <mpi.h>
 #include <mutex>
 #include <pthread.h>
-#include <sched.h>
 #include <utility>
 
 #ifdef _OPENMP
 #include <omp.h>
+#endif
+
+// the CPU masks (cf. async::as::CpuMask) are only available on Linux
+#ifdef __linux__
+#include <sched.h>
 #endif
 
 namespace seissol {
@@ -45,7 +49,7 @@ void OutputWorker::enqueue(std::function<void()> task) {
 }
 
 int OutputWorker::cpuCount(const async::as::CpuMask& cpus) {
-#ifndef __APPLE__
+#ifdef __linux__
   return CPU_COUNT(&cpus.set);
 #else
   return 1;

@@ -14,10 +14,8 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <unistd.h>
 #include <utils/env.h>
 #include <utils/logger.h>
-#include <utils/stringutils.h>
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
@@ -35,12 +33,12 @@ void seissol::Mpi::init(int& argc, char**& argv) {
 
   setComm(MPI_COMM_WORLD);
 
-  std::string hostName(256, ' ');
-  if (gethostname(hostName.data(), 256) != 0) {
+  std::string hostName(MPI_MAX_PROCESSOR_NAME, '\0');
+  int hostNameLength = 0;
+  if (MPI_Get_processor_name(hostName.data(), &hostNameLength) != MPI_SUCCESS) {
     hostName = "unknown-host";
   } else {
-    utils::StringUtils::rtrim(hostName);
-    hostName.pop_back();
+    hostName.resize(hostNameLength);
   }
   hostNames_ = collectContainer(hostName);
 

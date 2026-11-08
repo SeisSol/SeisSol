@@ -19,9 +19,12 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
-#include <sys/resource.h>
 #include <utility>
 #include <utils/logger.h>
+
+#ifndef _WIN32
+#include <sys/resource.h>
+#endif
 
 namespace seissol {
 
@@ -87,8 +90,10 @@ bool SeisSol::init() {
     }
   }
 
+#ifndef _WIN32
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.
+  // (on Windows, there is no such limit; the stack size is fixed when linking the executable)
   rlimit rlim{};
   if (getrlimit(RLIMIT_STACK, &rlim) == 0) {
     const auto rlimInKb = rlim.rlim_cur / 1024;
@@ -113,6 +118,7 @@ bool SeisSol::init() {
   } else {
     logError() << "Stack size cannot be determined because getrlimit syscall failed!";
   }
+#endif
 
   // Call post MPI initialization hooks
   modules_.callHook<ModuleHook::PostMPIInit>();
