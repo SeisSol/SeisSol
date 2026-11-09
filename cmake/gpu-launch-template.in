@@ -19,6 +19,10 @@ if [[ ! -z "${OMPI_COMM_WORLD_LOCAL_RANK}" ]]; then
 elif [[ ! -z "${MV2_COMM_WORLD_LOCAL_RANK}" ]]; then
   LOCAL="${MV2_COMM_WORLD_LOCAL_RANK}"
 
+elif [[ ! -z "${MPI_LOCALRANKID}" ]]; then
+  # Intel MPI (its Hydra starts the ranks of a node from one task of Slurm, i.e. SLURM_LOCALID 0)
+  LOCAL="${MPI_LOCALRANKID}"
+
 elif [[ ! -z "${PMI_LOCAL_RANK}" ]]; then
   LOCAL="${PMI_LOCAL_RANK}"
 
