@@ -65,10 +65,10 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
    * - ``SEISSOL_OUTPUT_THREAD=1``
      - Experimental. Process the outputs of a synchronization point on a thread of their own, while the GPU
        goes on with the next epoch (see below).
-   * - ``SEISSOL_HOST_ACTOR=1``
-     - Experimental, GPU builds only. Take the samples of the receivers and the fault receivers on the host once
-       the GPU is done with what they read, instead of in host functions on streams; also for recorded
-       super-timesteps (see below).
+   * - ``SEISSOL_HOST_ACTOR=0``
+     - GPU builds only. Take the samples of the receivers and the fault receivers in host functions on streams,
+       instead of on the host once the GPU is done with what they read (the host actor, on by default; also for
+       recorded super-timesteps, see below).
    * - ``SEISSOL_OUTPUT_SNAPSHOT=0``
      - With ``SEISSOL_OUTPUT_THREAD=1``: keep no snapshots of the data, and copy the data for the outputs to the host
        before the next epoch, instead of from the snapshots while the GPU goes on (see below).
@@ -190,11 +190,11 @@ Work on the host for the GPU
 
 Some work on the host reads what the GPU computes during an epoch: the samples of the receivers
 read the unknowns of their cells, and those of the fault receivers the derivatives next to the faults
-and the friction state, which the GPU gathers into host memory. By default, a host
+and the friction state, which the GPU gathers into host memory. With ``SEISSOL_HOST_ACTOR=0``, a host
 function on a stream takes them, which the device runtime calls on a thread of its own once the
 gather is done. Such a call is not cheap, and the stream it is on waits for it.
 
-With ``SEISSOL_HOST_ACTOR=1``, the GPU gathers what the work reads into a buffer of host memory of
+By default, the host actor takes them instead: the GPU gathers what the work reads into a buffer of host memory of
 its own for each step, and an event after the gather stands for it. The thread that enqueues the
 work of the GPU checks the events while it goes along (as it does for the halo exchange), and runs
 the work of the steps that are done, in their order: by itself, with its OpenMP threads in the loops;

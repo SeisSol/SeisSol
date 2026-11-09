@@ -21,6 +21,15 @@
 #endif
 
 namespace seissol {
+
+/// whether this is a build for a device, whose time stepping has defaults of its own (see
+/// docs/gpu-time-stepping.rst)
+#ifdef ACL_DEVICE
+inline constexpr bool DeviceBuild = true;
+#else
+inline constexpr bool DeviceBuild = false;
+#endif
+
 template <typename T>
 void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
   const bool useThread = env.get<bool>("COMMTHREAD", true);
@@ -67,9 +76,10 @@ inline bool useSuperStepGraphs(utils::Env& env) { return env.get<bool>("SUPERSTE
  * Whether the work on the host that reads what the device has written (the samples of the
  * receivers and fault receivers) runs on the thread that enqueues the work of the device once the
  * device is done with it (see parallel::runtime::HostActor), instead of in host functions on
- * streams; also for recorded super-timesteps, after each of their replays.
+ * streams; also for recorded super-timesteps, after each of their replays. On by default in builds
+ * for a device, where a host function holds up the stream it is on while it runs.
  */
-inline bool useHostActor(utils::Env& env) { return env.get<bool>("HOST_ACTOR", false); }
+inline bool useHostActor(utils::Env& env) { return env.get<bool>("HOST_ACTOR", bool{DeviceBuild}); }
 
 /**
  * Whether the independent branches of the work of a cluster (e.g. the neighbor fluxes of the face
