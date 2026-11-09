@@ -30,9 +30,20 @@ inline constexpr bool DeviceBuild = true;
 inline constexpr bool DeviceBuild = false;
 #endif
 
+inline bool useHostActor(utils::Env& env);
+
+/**
+ * Whether a communication thread advances MPI (SEISSOL_COMMTHREAD). By default, it does, unless the
+ * host actor takes the work on the host for a device: the thread that enqueues the work of the
+ * device then tests the exchanges as it goes along, which was faster than the thread on GPUs.
+ */
+inline bool commThreadRequested(utils::Env& env) {
+  return env.get<bool>("COMMTHREAD", !(DeviceBuild && useHostActor(env)));
+}
+
 template <typename T>
 void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
-  const bool useThread = env.get<bool>("COMMTHREAD", true);
+  const bool useThread = commThreadRequested(env);
   if (mpiBasic.isSingleProcess()) {
     logInfo() << "Using polling for advancing MPI communication, due to having only "
                  "one MPI rank running.";
@@ -45,7 +56,7 @@ void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
 
 template <typename T>
 bool useCommThread(const T& mpiBasic, utils::Env& env) {
-  const bool useThread = env.get<bool>("COMMTHREAD", true);
+  const bool useThread = commThreadRequested(env);
   return useThread && !mpiBasic.isSingleProcess();
 }
 
