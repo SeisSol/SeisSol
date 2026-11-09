@@ -34,4 +34,4 @@ else
 fi
 
 export @RUN_GPU_TIME_SELECTOR@="${LOCAL}"
-exec $*
+exec "$@"
