@@ -64,10 +64,11 @@ inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSIS
 
 /**
  * Whether the clusters on the device only enqueue their work and wait for each other on the device,
- * instead of waiting for the completion of each of their steps. Implies scratchpads per layer.
+ * instead of waiting for the completion of each of their steps. Implies scratchpads per layer. On
+ * by default in builds for a device.
  */
 inline bool useConcurrentClusters(utils::Env& env) {
-  return env.get<bool>("CONCURRENT_CLUSTERS", false);
+  return env.get<bool>("CONCURRENT_CLUSTERS", bool{DeviceBuild});
 }
 
 /**

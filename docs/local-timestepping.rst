@@ -290,7 +290,8 @@ Partitioned by costs measured with concurrent clusters, the actual run can be sl
 some ranks can get so many cells that they fail to set up.
 
 A run with :code:`VertexWeightOutput = 1` measures with the settings it runs with; for the same reasons, it should take
-the time clusters one after another.
+the time clusters one after another: on GPUs, with ``SEISSOL_CONCURRENT_CLUSTERS=0`` and ``SEISSOL_TIMESTEPPING_PLAN=0``
+(the log warns otherwise).
 
 With concurrent clusters, balancing what the ranks cost in all is not enough: each cluster of a rank waits for those
 of its neighbors in every step, and a rank overlaps these waits only with the work of its other clusters.

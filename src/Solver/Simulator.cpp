@@ -209,6 +209,17 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   if (vertexWeightOutput) {
     seissolInstance.timeManager().loopStatistics().recordLayers();
   }
+  // (the measuring runs before the actual one take the steps one after another anyway)
+  if (seissolInstance.parameters().output.vertexWeightOutput &&
+      !seissolInstance.measuringSteps().has_value() && isDeviceOn() &&
+      useConcurrentClusters(seissolInstance.env())) {
+    logWarning()
+        << "The costs of the cells for output.vertexweightoutput get measured with "
+           "concurrent clusters, whose loops also count the time they share the device "
+           "with those of other clusters; a later run partitioned by them can be slower. "
+           "Measure with SEISSOL_CONCURRENT_CLUSTERS=0 and SEISSOL_TIMESTEPPING_PLAN=0, or "
+           "with discretization.vertexweightcycles.";
+  }
 
   Stopwatch simulationStopwatch;
   if (checkpoint_) {
