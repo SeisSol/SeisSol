@@ -90,6 +90,30 @@ def test_submissions(fake_slurm, tmp_path):
     assert submissions[1] == f"--parsable --dependency=afterany:1001:77 {script}"
 
 
+def fake_sbatch(tmp_path, monkeypatch, output):
+    folder = tmp_path / "bin"
+    folder.mkdir()
+    (folder / "sbatch").write_text(f"#!/bin/bash\nprintf '%b' '{output}'\n")
+    (folder / "sbatch").chmod(0o755)
+    monkeypatch.setenv("PATH", str(folder))
+
+
+def test_submission_after_a_banner(tmp_path, monkeypatch):
+    # the sbatch of TACC prints a banner and its checks before the job ID
+    banner = (
+        "-----\\n  Welcome to the Horizon Supercomputer\\n-----\\n\\n"
+        "No reservation for this job\\n--> Verifying valid submit host (login3)...OK\\n"
+    )
+    fake_sbatch(tmp_path, monkeypatch, banner + "86234;horizon\\n")
+    assert SlurmScheduler(machine()).submit(tmp_path / "job.sh", after=[]) == "86234"
+
+
+def test_submission_without_a_job_id(tmp_path, monkeypatch):
+    fake_sbatch(tmp_path, monkeypatch, "Welcome\\n")
+    with pytest.raises(SchedulerError, match="no job ID"):
+        SlurmScheduler(machine()).submit(tmp_path / "job.sh", after=[])
+
+
 def test_refused_submission(tmp_path, monkeypatch):
     folder = tmp_path / "bin"
     folder.mkdir()

@@ -159,9 +159,14 @@ class SlurmScheduler(Scheduler):
             raise SchedulerError(
                 f"sbatch refused {script}: {(result.stderr or result.stdout).strip()}"
             )
-        job_id = result.stdout.strip().split(";")[0]
-        if not job_id:
-            raise SchedulerError(f"sbatch gave no job ID for {script}")
+        # the last line, as "jobid[;cluster]": a site may print more before it, as the sbatch of
+        # TACC prints its banner and checks
+        lines = result.stdout.strip().splitlines()
+        job_id = lines[-1].strip().split(";")[0] if lines else ""
+        if not job_id.isdigit():
+            raise SchedulerError(
+                f"sbatch gave no job ID for {script}: {result.stdout.strip()!r}"
+            )
         return job_id
 
     def states(self, job_ids: list[str]) -> dict[str, str]:
