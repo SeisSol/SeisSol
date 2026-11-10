@@ -176,11 +176,21 @@ template <class T>
 class MaterialParameterDB : public ParameterDB {
   public:
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
+  //! @brief As evaluateModel, with the easi model @p model , loaded already.
+  void evaluate(easi::Component& model, const QueryGenerator& queryGen);
   void setMaterialVector(std::vector<T>* materials) { materials_ = materials; }
 
   private:
   std::vector<T>* materials_{};
 };
+
+/**
+ * @brief The parameters that a model which supplies @p supplied lacks for materials of the type
+ * @p T , as MaterialParameterDB evaluates it: none if it supplies those of T, or those of an
+ * elastic or acoustic material that T can be made of; else the ones of T it does not supply.
+ */
+template <class T>
+std::vector<std::string> missingMaterialParameters(const std::set<std::string>& supplied);
 
 /**
  * The parameters of the fault faces of the simulation `simulation` of `numSimulations` fused ones,
