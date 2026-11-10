@@ -20,6 +20,7 @@
 #include "ReceiverBasedOutputBuilder.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -163,7 +164,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         const auto insideQuantifier = isInsideFace(point, face, faultItem.normal);
 
         if (insideQuantifier > -1e-12) {
-          const auto distance = getDistanceFromPointToFace(point, face, faultItem.normal);
+          // (the distance has the sign of the side of the face the point is on)
+          const auto distance = std::abs(getDistanceFromPointToFace(point, face, faultItem.normal));
           if (minDistance > distance) {
             minDistance = distance;
             closest = faceIdx;
