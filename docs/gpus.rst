@@ -138,7 +138,8 @@ Disabled by default, and currently requires ``SEISSOL_USM=0`` and ``SEISSOL_USM_
 ``SEISSOL_DEVICE_LOOP_STATISTICS`` decides whether the work enqueued on the GPU gets timed: the loops of the clusters
 for the loop statistics of the run summary (see :ref:`run-summary`), and the replays of super-timesteps, all for
 the activity of the device (see :ref:`activity`). A pair of events goes around each piece of work on its stream (with
-CUDA and HIP; with SYCL, where the Device library is built with ``ENABLE_PROFILING_MARKERS=ON`` or the device has
+CUDA and HIP; with SYCL, by global timestamps of the device where SYCL runs on Level Zero and the Device library has
+found Level Zero at build time, else where it is built with ``ENABLE_PROFILING_MARKERS=ON`` or the device has
 profiling tags, as Intel GPUs with oneAPI; otherwise, the time of the kernels is not known, and the summary says so).
 On by default; each timed loop costs two records of events.
 ``SEISSOL_DEVICE_LOOP_STATISTICS=0`` leaves the work on the GPU out of the statistics.
