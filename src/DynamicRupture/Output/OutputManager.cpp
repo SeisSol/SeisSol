@@ -448,10 +448,6 @@ void OutputManager::initPickpointOutput() {
     return;
   }
 
-  if (seissolParameters.output.pickpointParameters.collectiveio) {
-    logError() << "Collective IO for the on-fault receiver output is still under construction.";
-  }
-
   for (auto& [id, outputData] : ppOutputData_) {
     // A file holds one receiver. With fused simulations, a sample takes a row per simulation, in
     // the order of their index, which a column of its own names -- the layout of the HDF5 table.

@@ -847,6 +847,11 @@ int preflight(const std::string& parameterFile,
     if (!std::filesystem::is_regular_file(checkpoint.value(), error)) {
       report.problem("The checkpoint " + checkpoint.value() + " does not exist.");
     }
+    // (see setupCheckpointing)
+    if (seissolParameters.model.configs().size() > 1) {
+      report.problem("A run whose cells compute in several configurations cannot restart from a "
+                     "checkpoint yet.");
+    }
   }
 
   report.step("output");

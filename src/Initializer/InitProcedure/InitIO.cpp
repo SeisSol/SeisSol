@@ -143,9 +143,8 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   // configuration only
   const auto& model = seissolInstance.parameters().model;
   const auto config = model.config;
-  if (model.configs().size() > 1 &&
-      (seissolInstance.parameters().output.checkpointParameters.enabled ||
-       seissolInstance.checkpointLoadFile().has_value())) {
+  // (writing them is rejected with the parameters already)
+  if (model.configs().size() > 1 && seissolInstance.checkpointLoadFile().has_value()) {
     logError() << "Checkpoints are not supported yet for runs whose cells compute in several "
                   "configurations.";
   }
