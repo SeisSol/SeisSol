@@ -73,28 +73,70 @@ for hours:
 * that the output directory can be written, or created;
 * that the checkpoint given with ``-c`` exists.
 
-It runs on one process, without MPI and without devices, e.g. on a login node with the
-executable built for the compute nodes, provided that the login node can run it:
+Then it reads the whole mesh once, cell by cell, and checks what the run would check
+only after reading and partitioning it:
+
+* that the receivers lie in cells of the mesh, the point sources as well, and that the
+  on-fault receivers lie on the fault, i.e. across a fault face along its normal; it
+  takes the points with the same tests as the run. For a point that lies in no cell, it
+  tells whether the point lies above the free surface, and by how much, or outside of
+  the mesh. It warns of an on-fault receiver that the run moves onto the fault from
+  farther away than the fault face is large;
+* that the face map (``facemapfile``, or the default one) knows the boundary condition
+  tags of all faces, and that the build supports the boundary conditions that the cells
+  of each configuration have;
+* that the cells are oriented as the run requires, which a cell without volume, or a
+  scaling of the mesh that mirrors it, is not.
+
+It warns, too, if dynamic rupture is on but the mesh has no fault faces, if the
+free-surface output is on but the mesh has no faces of the free surface, and if the
+configuration map names a group that no cell of the mesh has.
+
+It runs on one process, without MPI and without devices, with the threads of OpenMP,
+e.g. on a login node with the executable built for the compute nodes:
 
 .. code-block:: bash
 
     ./SeisSol_YOUR_CONFIGURATION --check=check.json parameters.par \
         --set output.outputfile=runs/strong-16/data
 
+Reading the whole mesh holds its vertices in memory, 24 bytes each, and a chunk of its
+cells; for a mesh of 10 million cells, it took 2 s on two cores. ``--check-depth=files``
+leaves it out, ``--check-depth=mesh`` is the default; ``--check-depth`` alone implies
+``--check``.
+
+The login node has to be able to start the executable. One built with CUDA starts
+without the NVIDIA driver as well; where an executable does not start, ``ldd`` names the
+libraries the node lacks, e.g. those that a GPU-aware MPI library needs. An executable
+built for the instructions of the CPUs of the compute nodes may stop on a login node
+with other CPUs.
+
 An error in the parameters stops the check as it would stop the run; what the check
-itself finds, it collects. The exit code is 0 if the run can start, 1 otherwise.
+itself finds, it collects: as problems, which keep the run from starting or from going
+as intended, and as warnings. The exit code is 0 if the run can start, 1 otherwise.
 ``--check=<file>`` writes a report as JSON, also when an error or a crash stops the
 check: its ``status`` is ``passed`` or ``failed``, or ``terminated`` if a request to
-stop reached it (then ``terminatedBy`` gives the signal); ``problems`` lists what the
-check found; ``stoppedAt`` names the step an error or a crash stopped (``parameters``,
-``files``, ``yaml``, ``mesh``, ``checkpoint`` or ``output``), and ``error`` gives its
-``message`` and its ``time``, for an error its ``source`` in the code (``file``,
-``line``, ``function``), for a crash the ``signal`` (see :ref:`run-summary`); ``mesh`` has the
-``cells`` and ``vertices`` of a PUML mesh; ``files`` lists the files the parameters name,
-whether they exist and whether the run opens them; ``output`` gives the output
-directory, whether it is ``writable``, and which outputs are ``enabled``; the report has
-the ``build``, the ``invocation``, the ``configurations``, the ``endTime`` and the
-``unknownFields`` of the parameter file as well.
+stop reached it (then ``terminatedBy`` gives the signal); ``problems`` and ``warnings``
+list what the check found; ``stoppedAt`` names the step an error or a crash stopped
+(``parameters``, ``files``, ``yaml``, ``mesh``, ``checkpoint``, ``output``, ``points``
+or ``meshScan``), and ``error`` gives its ``message`` and its ``time``, for an error its
+``source`` in the code (``file``, ``line``, ``function``), for a crash the ``signal``
+(see :ref:`run-summary`); ``depth`` is the depth of the check; ``mesh`` has the
+``cells`` and ``vertices`` of a PUML mesh, and with the whole mesh read, ``scan``: its
+bounding box (``min``, ``max``), the faces by their boundary condition tag (``tags``)
+and face type (``faceTypes``), the cells by their group (``groups``), the number of
+fault faces (``faultFaces``), the radii of the inspheres of the smallest and the largest
+cell (``smallestInsphere`` of the cell ``smallestCell`` of the file, and
+``largestInsphere``), and how long reading it took (``seconds``) with how much memory
+(``bytes``); ``points`` has the ``receivers``, ``faultReceivers`` and ``sources``, each
+with the ``file``, the ``count`` of points, how many were ``found``, and the ``missing``
+ones (their ``index``, counted from zero as the run counts them, the ``point``, the
+height of the free surface above or below it, ``surface``, and a ``hint``), and for the
+on-fault receivers the ones ``moved`` farther than their face is large; ``files`` lists
+the files the parameters name, whether they exist and whether the run opens them;
+``output`` gives the output directory, whether it is ``writable``, and which outputs are
+``enabled``; the report has the ``build``, the ``invocation``, the ``configurations``,
+the ``endTime`` and the ``unknownFields`` of the parameter file as well.
 
 Commented parameter file
 ------------------------

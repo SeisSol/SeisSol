@@ -11,23 +11,36 @@
 #include "Common/ConfigValue.h"
 #include "Common/Filesystem.h"
 #include "Common/Json.h"
+#include "DynamicRupture/Output/OutputAux.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/FaceMap.h"
+#include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/ParameterOverrides.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SourceParameters.h"
+#include "Initializer/PointMapper.h"
+#include "Initializer/PreflightMesh.h"
 #include "Monitoring/FailureReport.h"
 #include "Monitoring/RunSummary.h"
+#include "ResultWriter/ReceiverWriter.h"
+#include "SourceTerm/FSRMReader.h"
 
+#include <Eigen/Core>
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <charconv>
 #include <cstddef>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fty/fty.hpp>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -46,6 +59,11 @@
 
 #ifdef USE_HDF
 #include <hdf5.h>
+#endif
+
+#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
+#include "SourceTerm/NRF.h"
+#include "SourceTerm/NRFReader.h"
 #endif
 
 namespace seissol::initializer {
@@ -75,6 +93,7 @@ class Report {
     root_["schema"] = std::string(Schema);
     root_["status"] = "running";
     root_["problems"] = json::Value::array();
+    root_["warnings"] = json::Value::array();
   }
 
   json::Value& operator[](std::string_view key) { return root_[key]; }
@@ -83,6 +102,13 @@ class Report {
   void problem(const std::string& text) {
     logWarning() << text.c_str();
     root_["problems"].push(text);
+    setFailure();
+  }
+
+  //! @brief Something that does not keep the run from starting, but may not be as intended.
+  void warning(const std::string& text) {
+    logWarning() << text.c_str();
+    root_["warnings"].push(text);
     setFailure();
   }
 
@@ -109,7 +135,11 @@ class Report {
     root_["status"] = passed ? "passed" : "failed";
     write();
     const auto problems = root_["problems"].size();
-    if (passed) {
+    const auto warnings = root_["warnings"].size();
+    if (passed && warnings > 0) {
+      logInfo() << "The check passed, with" << warnings
+                << (warnings == 1 ? "warning." : "warnings.");
+    } else if (passed) {
       logInfo() << "The check passed.";
     } else {
       logInfo() << "The check failed:" << problems << (problems == 1 ? "problem." : "problems.");
@@ -332,18 +362,370 @@ json::Value outputSection(const parameters::SeisSolParameters& parameters, Repor
   return section;
 }
 
+//! @brief The number @p value as text, as short as it can be to read back the same.
+std::string shortest(double value) {
+  std::array<char, 32> buffer{};
+  const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
+  return {buffer.data(), result.ptr};
+}
+
+//! @brief The point @p point as text, (x, y, z).
+std::string formatted(const Eigen::Vector3d& point) {
+  return "(" + shortest(point(0)) + ", " + shortest(point(1)) + ", " + shortest(point(2)) + ")";
+}
+
+json::Value pointValue(const Eigen::Vector3d& point) {
+  auto value = json::Value::array();
+  for (int d = 0; d < 3; ++d) {
+    value.push(point(d));
+  }
+  return value;
+}
+
+//! @brief What the scan tells of why the point @p point lies in no cell; empty if nothing.
+std::string missHint(const Eigen::Vector3d& point,
+                     const meshscan::CellPoints::Found& found,
+                     const meshscan::MeshScan& scan) {
+  std::ostringstream text;
+  if (found.surface.has_value() && point(2) > found.surface.value()) {
+    text << ": it lies " << shortest(point(2) - found.surface.value())
+         << " above the free surface, which is at z = " << shortest(found.surface.value())
+         << " there";
+    return text.str();
+  }
+  constexpr std::array<char, 3> Axes{'x', 'y', 'z'};
+  bool outside = false;
+  for (int d = 0; d < 3; ++d) {
+    if (point(d) < scan.min(d) || point(d) > scan.max(d)) {
+      text << (outside ? ", " : ": it lies outside the mesh, ") << Axes[d] << " = "
+           << shortest(point(d)) << " not in [" << shortest(scan.min(d)) << ", "
+           << shortest(scan.max(d)) << "]";
+      outside = true;
+    }
+  }
+  return text.str();
+}
+
+//! the points a problem names one by one at most; the report lists all of them
+constexpr std::size_t NamedPoints = 20;
+
+/**
+ * @brief Reports the points of @p points that lie in no cell, as the run locates them (see
+ * findUniqueMeshIds), which stops the run.
+ */
+json::Value cellPointsSection(const char* what,
+                              const std::string& file,
+                              const meshscan::CellPoints& points,
+                              const meshscan::MeshScan& scan,
+                              Report& report) {
+  json::Value section;
+  section["file"] = file;
+  section["count"] = points.points.size();
+  auto& missing = section["missing"] = json::Value::array();
+  for (std::size_t i = 0; i < points.points.size(); ++i) {
+    const auto& found = points.found[i];
+    if (found.cell.has_value()) {
+      continue;
+    }
+    const auto hint = missHint(points.points[i], found, scan);
+    auto& entry = missing.push(json::Value::object());
+    entry["index"] = i;
+    entry["point"] = pointValue(points.points[i]);
+    entry["surface"] =
+        found.surface.has_value() ? json::Value(found.surface.value()) : json::Value();
+    entry["hint"] = hint;
+    if (missing.size() <= NamedPoints) {
+      std::ostringstream text;
+      text << "The " << what << " " << i << " at " << formatted(points.points[i]) << " of " << file
+           << " lies in no cell of the mesh" << hint << ".";
+      report.problem(text.str());
+    }
+  }
+  if (missing.size() > NamedPoints) {
+    report.problem("Another " + std::to_string(missing.size() - NamedPoints) + " " + what +
+                   "s of " + file + " lie in no cell of the mesh (see the report).");
+  }
+  section["found"] = points.points.size() - missing.size();
+  return section;
+}
+
+/**
+ * @brief Reports the on-fault receivers that lie on no fault face, which stops the run, and those
+ * that the run moves farther onto the fault than the face is large.
+ */
+json::Value faultPointsSection(const std::string& file,
+                               const meshscan::FaultPoints& points,
+                               const meshscan::MeshScan& scan,
+                               Report& report) {
+  json::Value section;
+  section["file"] = file;
+  section["count"] = points.points.size();
+  // (both members first: adding one may move the other)
+  section["missing"] = json::Value::array();
+  section["moved"] = json::Value::array();
+  auto& missing = section["missing"];
+  auto& moved = section["moved"];
+  for (std::size_t i = 0; i < points.points.size(); ++i) {
+    const Eigen::Vector3d point(points.points[i][0], points.points[i][1], points.points[i][2]);
+    const auto& found = points.found[i];
+    if (!found.has_value()) {
+      auto& entry = missing.push(json::Value::object());
+      entry["index"] = i;
+      entry["point"] = pointValue(point);
+      if (missing.size() <= NamedPoints) {
+        report.problem("The on-fault receiver " + std::to_string(i) + " at " + formatted(point) +
+                       " of " + file + " lies on no fault face" +
+                       (scan.faultFaces == 0
+                            ? std::string(": the mesh has no fault faces")
+                            : std::string(": no face of the fault lies across it, along "
+                                          "its normal; it lies beyond the fault")) +
+                       ".");
+      }
+    } else if (found->distance > found->faceSize) {
+      auto& entry = moved.push(json::Value::object());
+      entry["index"] = i;
+      entry["point"] = pointValue(point);
+      entry["distance"] = found->distance;
+      if (moved.size() <= NamedPoints) {
+        std::ostringstream text;
+        text << "The on-fault receiver " << i << " at " << formatted(point) << " of " << file
+             << " lies " << shortest(found->distance)
+             << " away from the fault, farther than the fault face is large; the run moves it "
+                "onto that face.";
+        report.warning(text.str());
+      }
+    }
+  }
+  if (missing.size() > NamedPoints) {
+    report.problem("Another " + std::to_string(missing.size() - NamedPoints) +
+                   " on-fault receivers of " + file + " lie on no fault face (see the report).");
+  }
+  if (moved.size() > NamedPoints) {
+    report.warning("Another " + std::to_string(moved.size() - NamedPoints) +
+                   " on-fault receivers of " + file +
+                   " lie farther from the fault than its faces are large (see the report).");
+  }
+  section["found"] = points.points.size() - missing.size();
+  return section;
+}
+
+/**
+ * @brief Reports what the scan of the whole mesh found about its faces and cells, and adds it to
+ * the @p section of the mesh.
+ */
+void checkScannedMesh(const parameters::SeisSolParameters& parameters,
+                      const meshscan::MeshScan& scan,
+                      json::Value& section,
+                      Report& report) {
+  auto& scanned = section["scan"];
+  scanned["seconds"] = scan.seconds;
+  scanned["bytes"] = scan.bytes;
+  scanned["cells"] = scan.cells;
+  scanned["vertices"] = scan.vertices;
+  scanned["min"] = pointValue(scan.min);
+  scanned["max"] = pointValue(scan.max);
+  scanned["smallestInsphere"] = scan.smallestInsphere;
+  scanned["smallestCell"] = scan.smallestCell;
+  scanned["largestInsphere"] = scan.largestInsphere;
+  scanned["faultFaces"] = scan.faultFaces;
+  auto& tags = scanned["tags"] = json::Value::object();
+  for (const auto& [tag, faces] : scan.tags) {
+    tags[std::to_string(tag)] = faces;
+  }
+  auto& faceTypes = scanned["faceTypes"] = json::Value::object();
+  for (const auto& [type, faces] : scan.faceTypes) {
+    faceTypes[faceTypeName(type)] = faces;
+  }
+  auto& groups = scanned["groups"] = json::Value::object();
+  for (const auto& [group, cells] : scan.groups) {
+    groups[std::to_string(group)] = cells;
+  }
+  {
+    std::ostringstream text;
+    text << "The mesh spans " << formatted(scan.min) << " to " << formatted(scan.max)
+         << "; the radii of the inspheres of its cells range from " << scan.smallestInsphere
+         << " (the cell " << scan.smallestCell << " of the file) to " << scan.largestInsphere
+         << ".";
+    logInfo() << text.str().c_str();
+  }
+
+  if (scan.invalidCells > 0) {
+    report.problem("The mesh has " + std::to_string(scan.invalidCells) +
+                   " cells with vertices that its file does not have.");
+  }
+  if (scan.misorientedCells > 0) {
+    report.problem("The mesh has " + std::to_string(scan.misorientedCells) +
+                   " cells that the run rejects for their orientation, e.g. the cell " +
+                   std::to_string(scan.firstMisorientedCell.value_or(0)) +
+                   " of the file: cells without volume, or all cells if the scaling of the mesh "
+                   "(meshnml.scalingmatrixx, y, z) mirrors it.");
+  }
+
+  for (const auto& [tag, faces] : scan.unknownTags) {
+    report.problem(
+        "The mesh has " + std::to_string(faces) + " faces with the boundary condition tag " +
+        std::to_string(tag) + ", which the face map does not know" +
+        (parameters.mesh.faceMapFile.has_value() ? " (" + parameters.mesh.faceMapFile.value() + ")"
+                                                 : std::string(" (the default one)")) +
+        "; the run stops at them.");
+  }
+
+  // what the cells of each configuration have to support
+  std::vector<internal::FaceTypeCensus> census(builtConfigCount());
+  for (const auto& [group, types] : scan.groupFaceTypes) {
+    census[parameters.model.configOfGroup(group)].present |= types;
+  }
+  for (const auto& problem : internal::faceTypeProblems(census, parameters.initialization.type)) {
+    report.problem(
+        "The boundary conditions of the mesh need what this build cannot do: " + problem + ".");
+  }
+
+  for (const auto& [group, config] : parameters.model.groupConfigs) {
+    if (!scan.groups.contains(group)) {
+      report.warning("The configuration map (equations.configmap) gives the group " +
+                     std::to_string(group) + " a configuration, but no cell of the mesh has it.");
+    }
+  }
+  if (parameters.drParameters.isDynamicRuptureEnabled && scan.faultFaces == 0) {
+    report.warning("Dynamic rupture is on, but the mesh has no fault faces.");
+  }
+  const auto freeSurfaces = [&] {
+    std::size_t faces = 0;
+    for (const auto type : {FaceType::FreeSurface, FaceType::FreeSurfaceGravity}) {
+      const auto found = scan.faceTypes.find(type);
+      faces += found == scan.faceTypes.end() ? 0 : found->second;
+    }
+    return faces;
+  }();
+  if (parameters.output.freeSurfaceParameters.enabled && freeSurfaces == 0) {
+    report.warning("The free-surface output is on, but the mesh has no faces of the free surface.");
+  }
+}
+
+/**
+ * @brief Reads the whole mesh, and checks its faces and cells and where the points of the run lie
+ * in it (see meshscan::scanMesh).
+ */
+void checkMeshContent(const parameters::SeisSolParameters& parameters, Report& report) {
+  const auto& output = parameters.output;
+  const auto& rupture = parameters.drParameters;
+  std::error_code error;
+
+  // the points the run locates in the mesh, read as the run reads them
+  report.step("points");
+  meshscan::CellPoints receivers;
+  receivers.tolerance = ReceiverTolerance;
+  meshscan::CellPoints sources;
+  sources.tolerance = SourceTolerance;
+  meshscan::FaultPoints faultReceivers;
+  const auto& receiverFile = output.receiverParameters.fileName;
+  const bool withReceivers =
+      output.receiverParameters.enabled && std::filesystem::is_regular_file(receiverFile, error);
+  if (withReceivers) {
+    try {
+      receivers.points = writer::parseReceiverFile(receiverFile);
+    } catch (const std::exception& exception) {
+      report.problem("The receiver file " + receiverFile + " does not parse: " + exception.what());
+    }
+  }
+  const auto pickpointFile = output.pickpointParameters.pickpointFileName.value_or("");
+  const bool withFaultReceivers =
+      rupture.isDynamicRuptureEnabled &&
+      (rupture.outputPointType == parameters::OutputType::AtPickpoint ||
+       rupture.outputPointType == parameters::OutputType::AtPickpointAndElementwise) &&
+      std::filesystem::is_regular_file(pickpointFile, error);
+  if (withFaultReceivers) {
+    try {
+      faultReceivers.points = dr::readPickpoints(pickpointFile);
+    } catch (const std::exception& exception) {
+      report.problem("The on-fault receiver file " + pickpointFile +
+                     " does not parse: " + exception.what());
+    }
+  }
+  const auto& sourceFile = parameters.source.fileName;
+  const bool withSources = parameters.source.type != parameters::PointSourceType::None &&
+                           std::filesystem::is_regular_file(sourceFile, error);
+  if (withSources && parameters.source.type == parameters::PointSourceType::FsrmSource) {
+    try {
+      sourceterm::FSRMSource fsrm;
+      fsrm.read(sourceFile);
+      sources.points = fsrm.centers;
+    } catch (const std::exception& exception) {
+      report.problem("The point source file " + sourceFile +
+                     " does not parse: " + exception.what());
+    }
+  }
+#if defined(USE_NETCDF) && !defined(NETCDF_PASSIVE)
+  if (withSources && parameters.source.type == parameters::PointSourceType::NrfSource) {
+    sourceterm::NRF nrf;
+    sourceterm::readNRF(sourceFile.c_str(), nrf);
+    sources.points = nrf.centres;
+  }
+#endif
+
+  report.step("meshScan");
+  auto& mesh = report["mesh"];
+  const auto* cells = mesh.find("cells");
+  const auto* vertices = mesh.find("vertices");
+  if (parameters.mesh.meshFormat != parameters::MeshFormat::PUML || cells == nullptr ||
+      cells->isNull() || vertices == nullptr || vertices->isNull()) {
+    // where the mesh cannot be read, the check of its head reported why already
+    return;
+  }
+  meshscan::MeshScanSettings settings;
+  settings.file = parameters.mesh.meshFileName;
+  settings.boundaryFormat = parameters.mesh.pumlBoundaryFormat;
+  settings.displacement = parameters.mesh.displacement;
+  settings.scaling = parameters.mesh.scaling;
+  settings.faceMap = parameters.mesh.faceMapFile.has_value()
+                         ? readFaceMap(parameters.mesh.faceMapFile.value())
+                         : defaultFaceMap();
+  settings.dynamicRupture = rupture.isDynamicRuptureEnabled;
+  settings.referencePoint = rupture.referencePoint;
+  settings.refPointMethod = rupture.refPointMethod;
+  logInfo() << "Reading the whole mesh, with" << receivers.points.size() << "receivers,"
+            << faultReceivers.points.size() << "on-fault receivers and" << sources.points.size()
+            << "point sources.";
+  const auto scan = meshscan::scanMesh(settings, receivers, sources, faultReceivers);
+  logInfo() << "Read the whole mesh in" << scan.seconds << "seconds.";
+
+  checkScannedMesh(parameters, scan, mesh, report);
+  auto& points = report["points"] = json::Value::object();
+  if (withReceivers) {
+    points["receivers"] = cellPointsSection("receiver", receiverFile, receivers, scan, report);
+  }
+  if (withFaultReceivers) {
+    points["faultReceivers"] = faultPointsSection(pickpointFile, faultReceivers, scan, report);
+  }
+  if (withSources) {
+    points["sources"] = cellPointsSection("point source", sourceFile, sources, scan, report);
+  }
+}
+
 } // namespace
 
-std::optional<std::string> extractCheckOption(int& argc, char** argv) {
+std::optional<CheckOptions> extractCheckOptions(int& argc, char** argv) {
   constexpr std::string_view Option = "--check";
-  std::optional<std::string> report;
+  constexpr std::string_view DepthOption = "--check-depth=";
+  std::optional<CheckOptions> options;
   int kept = 1;
   for (int i = 1; i < argc; ++i) {
     const std::string_view argument(argv[i]);
     if (argument == Option) {
-      report = std::string();
+      options = options.value_or(CheckOptions{});
     } else if (argument.substr(0, Option.size() + 1) == std::string(Option) + "=") {
-      report = std::string(argument.substr(Option.size() + 1));
+      options = options.value_or(CheckOptions{});
+      options->reportPath = std::string(argument.substr(Option.size() + 1));
+    } else if (argument.starts_with(DepthOption)) {
+      options = options.value_or(CheckOptions{});
+      const auto depth = argument.substr(DepthOption.size());
+      if (depth == "files") {
+        options->depth = CheckDepth::Files;
+      } else if (depth == "mesh") {
+        options->depth = CheckDepth::Mesh;
+      } else {
+        logError() << "--check-depth is files or mesh, not" << std::string(depth);
+      }
     } else {
       argv[kept] = argv[i];
       ++kept;
@@ -351,14 +733,15 @@ std::optional<std::string> extractCheckOption(int& argc, char** argv) {
   }
   argc = kept;
   argv[argc] = nullptr;
-  return report;
+  return options;
 }
 
 int preflight(const std::string& parameterFile,
               const std::vector<std::string>& overrides,
               const std::optional<std::string>& checkpoint,
-              const std::string& reportPath) {
-  Report report(reportPath);
+              const CheckOptions& options) {
+  Report report(options.reportPath);
+  report["depth"] = options.depth == CheckDepth::Mesh ? "mesh" : "files";
   report["build"] = monitoring::buildInformation();
   {
     auto& invocation = report["invocation"];
@@ -468,6 +851,10 @@ int preflight(const std::string& parameterFile,
 
   report.step("output");
   report["output"] = outputSection(seissolParameters, report);
+
+  if (options.depth == CheckDepth::Mesh) {
+    checkMeshContent(seissolParameters, report);
+  }
 
   return report.finish();
 }

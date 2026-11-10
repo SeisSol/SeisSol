@@ -261,12 +261,19 @@ utils::Args commandLine() {
                  "given several times",
                  utils::Args::Required,
                  false);
-  // likewise taken out before (see extractCheckOption)
+  // likewise taken out before (see extractCheckOptions)
   args.addOption("check",
                  0,
                  "Checks the run instead of running it: the parameters, the files they name, the "
-                 "mesh and the output directory, on one process; --check=<file> writes a report",
+                 "output directory, and the whole mesh with the receivers and sources in it, on "
+                 "one process; --check=<file> writes a report",
                  utils::Args::Optional,
+                 false);
+  args.addOption("check-depth",
+                 0,
+                 "How far --check goes: files (no more than the head of the mesh) or mesh (the "
+                 "default)",
+                 utils::Args::Required,
                  false);
   return args;
 }
@@ -275,7 +282,7 @@ utils::Args commandLine() {
  * Checks the run that the command line describes, without starting it: on one process, without
  * MPI and devices.
  */
-int checkMain(int argc, char* argv[], const std::string& reportPath) {
+int checkMain(int argc, char* argv[], const seissol::initializer::CheckOptions& options) {
   logInfo() << "Checking a run of SeisSol" << BuildInfo::VersionString.c_str()
             << "without running it.";
   const auto overrides = extractOverrides(argc, argv);
@@ -288,7 +295,7 @@ int checkMain(int argc, char* argv[], const std::string& reportPath) {
       args.isSet("checkpoint")
           ? std::make_optional<std::string>(args.getArgument<const char*>("checkpoint"))
           : std::nullopt;
-  return seissol::initializer::preflight(parameterFile, overrides, checkpoint, reportPath);
+  return seissol::initializer::preflight(parameterFile, overrides, checkpoint, options);
 }
 
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
@@ -311,9 +318,9 @@ int main(int argc, char* argv[]) {
   utils::catchUncaughtExceptions();
   try {
     // a check runs on its own, before anything of a run starts
-    const auto checkReport = seissol::initializer::extractCheckOption(argc, argv);
-    if (checkReport.has_value()) {
-      return checkMain(argc, argv, checkReport.value());
+    const auto checkOptions = seissol::initializer::extractCheckOptions(argc, argv);
+    if (checkOptions.has_value()) {
+      return checkMain(argc, argv, checkOptions.value());
     }
 
 #ifdef ACL_DEVICE

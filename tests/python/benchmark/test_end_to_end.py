@@ -80,6 +80,13 @@ def test_a_failing_check_submits_nothing(campaign_file, monkeypatch, capsys):
     assert not (path.parent / "fake" / "runs").exists()
 
 
+def test_the_warnings_of_the_check_are_relayed(campaign_file, monkeypatch, capsys):
+    path = campaign_file()
+    monkeypatch.setenv("FAKE_CHECK_WARNS", "1")
+    assert cli.main(["check", str(path)]) == 0
+    assert "the mesh has no fault faces" in capsys.readouterr().out
+
+
 def test_a_slurm_campaign(campaign_file, fake_slurm, capsys):
     path = campaign_file(
         machine={
