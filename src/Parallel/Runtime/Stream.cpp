@@ -6,6 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Stream.h"
 
+#include <cstddef>
+#include <optional>
 #include <utility>
 
 #ifdef ACL_DEVICE
@@ -22,9 +24,54 @@ namespace seissol::parallel::runtime {
 
 #ifdef ACL_DEVICE
 ManagedStream::ManagedStream() : streamPtr_(dev().api().createStream()) {}
+
+ManagedStream::ManagedStream(double priority) : streamPtr_(dev().api().createStream(priority)) {}
+
+ManagedStream::ManagedStream(OnHsaQueue queue)
+    : streamPtr_(dev().api().createStreamOnHardwareQueue(queue.queue, queue.priority)) {}
 #else
 ManagedStream::ManagedStream() = default;
+
+ManagedStream::ManagedStream(double /*priority*/) {}
+
+ManagedStream::ManagedStream(OnHsaQueue /*queue*/) {}
 #endif
+
+int hsaQueueOf(const initializer::LayerIdentifier& identifier, bool faces) {
+  if (hsaQueueCount() <= 0) {
+    return SharedHsaQueue;
+  }
+  const bool copy = identifier.halo == HaloType::Copy;
+  if (faces && hsaFaceQueueCount() > 0) {
+    const auto layer = identifier.lts * 2 + (copy ? 1 : 0);
+    return FirstFaceHsaQueue -
+           static_cast<int>(layer % static_cast<std::size_t>(hsaFaceQueueCount()));
+  }
+  if (hsaQueueLayout() == HsaQueueLayout::Halo) {
+    return hsaQueueCount() > 1 && !copy ? 2 : 1;
+  }
+  const auto layer = identifier.lts * 2 + (copy ? 1 : 0);
+  return 1 + static_cast<int>(layer % static_cast<std::size_t>(hsaQueueCount()));
+}
+
+std::optional<double> hsaQueuePriorityOf(const initializer::LayerIdentifier& identifier,
+                                         bool faces) {
+  if (hsaQueueCount() <= 0) {
+    return std::nullopt;
+  }
+  if (faces && hsaFaceQueueCount() > 0) {
+    return hsaQueuePriorities().faces ? std::optional<double>(1.0) : std::nullopt;
+  }
+  // (the queues of the layers hold either copy or interior layers: with an even number of them in
+  // the layers layout, or with the halo layout)
+  const bool byLayer = hsaQueueLayout() == HsaQueueLayout::Halo
+                           ? hsaQueueCount() > 1
+                           : hsaQueuePriorities().copy && hsaQueueCount() % 2 == 0;
+  if (!byLayer) {
+    return std::nullopt;
+  }
+  return identifier.halo == HaloType::Copy ? 1.0 : 0.0;
+}
 
 auto ManagedStream::operator=(ManagedStream&& old) noexcept -> ManagedStream& {
   if (this != &old) {

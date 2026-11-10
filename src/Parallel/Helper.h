@@ -15,6 +15,7 @@
 #include <string>
 #include <utils/env.h>
 #include <utils/logger.h>
+#include <vector>
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
@@ -61,6 +62,31 @@ bool useCommThread(const T& mpiBasic, utils::Env& env) {
 }
 
 inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
+
+/**
+ * The settings of the HSA queues (see device::AbstractAPI::enableHardwareQueues(); HIP only):
+ * SEISSOL_HSA_QUEUES and SEISSOL_HSA_QUEUE_*, or the deprecated SEISSOL_OWN_QUEUES and
+ * SEISSOL_OWN_QUEUE_* of before (with a warning).
+ */
+inline utils::Env& hsaQueueEnv() {
+  static utils::Env env(std::vector<std::string>{"SEISSOL_HSA_", "SEISSOL_OWN_"});
+  return env;
+}
+
+/**
+ * On how many HSA queues the clusters run their work on the device, 0 for none (see
+ * hsaQueueEnv()): the other stream runtimes share one more.
+ */
+inline int hsaQueueCount() { return std::max(hsaQueueEnv().get<int>("QUEUES", 0), 0); }
+
+/// the HSA queues of the branches of the stream runtimes (see
+/// parallel::runtime::hsaBranchQueueCount())
+inline int hsaBranchQueueCount() {
+  return std::max(hsaQueueEnv().get<int>("QUEUE_BRANCHES", 0), 0);
+}
+
+/// the HSA queues of the dynamic rupture clusters (see parallel::runtime::hsaFaceQueueCount())
+inline int hsaFaceQueueCount() { return std::max(hsaQueueEnv().get<int>("QUEUES_FACES", 0), 0); }
 
 /**
  * Whether the clusters on the device only enqueue their work and wait for each other on the device,
@@ -244,6 +270,9 @@ inline void printDeviceOptionInfo(utils::Env& env) {
   }
   if (useScratchpadPerLayer(env)) {
     logWarning() << "SEISSOL_SCRATCHPAD_PER_LAYER has no effect without a device.";
+  }
+  if (hsaQueueCount() > 0) {
+    logWarning() << "SEISSOL_HSA_QUEUES has no effect without a device.";
   }
 #endif
 }
