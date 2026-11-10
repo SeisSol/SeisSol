@@ -20,7 +20,9 @@ enum class CheckDepth {
   Files,
   //! also the whole mesh: its boundary conditions, groups and cells, and where the receivers, the
   //! on-fault receivers and the point sources lie in it
-  Mesh
+  Mesh,
+  //! also the material model, evaluated for every cell as the run does it for the time steps
+  Model
 };
 
 //! @brief The options of `SeisSol --check`.
@@ -40,7 +42,9 @@ struct CheckOptions {
  * of the mesh as well. With CheckDepth::Mesh, it reads the whole mesh once (see
  * meshscan::scanMesh): it checks the boundary conditions of the faces against the face map and
  * what this build supports, the cells as the run checks them, and that the receivers, the on-fault
- * receivers and the point sources lie where the run can put them.
+ * receivers and the point sources lie where the run can put them. With CheckDepth::Model, it
+ * evaluates the material model for every cell as well, as the run does for the time steps, and
+ * reports their range.
  *
  * Runs on one process, without MPI and devices, so that it can run where a job is prepared, e.g.
  * on a login node; it uses the threads of OpenMP.
@@ -58,8 +62,8 @@ int preflight(const std::string& parameterFile,
               const CheckOptions& options);
 
 /**
- * @brief Takes --check, or --check=<report>, and --check-depth=<files|mesh> out of the command
- * line; --check-depth alone asks for the check as well.
+ * @brief Takes --check, or --check=<report>, and --check-depth=<files|mesh|model> out of the
+ * command line; --check-depth alone asks for the check as well.
  *
  * @return Nothing if neither is there; otherwise the options of the check.
  */

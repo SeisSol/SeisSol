@@ -7,14 +7,17 @@
 
 #include "Preflight.h"
 
+#include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Filesystem.h"
 #include "Common/Json.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/FaceMap.h"
 #include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
+#include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
@@ -24,6 +27,8 @@
 #include "Initializer/Parameters/SourceParameters.h"
 #include "Initializer/PointMapper.h"
 #include "Initializer/PreflightMesh.h"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
+#include "Model/CommonDatastructures.h"
 #include "Monitoring/FailureReport.h"
 #include "Monitoring/RunSummary.h"
 #include "ResultWriter/ReceiverWriter.h"
@@ -34,12 +39,18 @@
 #include <array>
 #include <cctype>
 #include <charconv>
+#include <cmath>
 #include <cstddef>
 #include <cstdlib>
+#include <easi/Component.h>
+#include <easi/YAMLParser.h>
 #include <exception>
 #include <filesystem>
 #include <fty/fty.hpp>
+#include <limits>
+#include <memory>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -362,6 +373,253 @@ json::Value outputSection(const parameters::SeisSolParameters& parameters, Repor
   return section;
 }
 
+//! @brief Whether the parameter @p name names an easi model, which the run reads with easi.
+bool isEasiModel(const std::string& name) {
+  return name == "equations.materialfilename" || name.starts_with("equations.plasticityfilename") ||
+         name == "equations.boundaryfilename" || name.starts_with("dynamicrupture.modelfilename") ||
+         name == "inicondition.filename";
+}
+
+/**
+ * @brief Where easi looks for the file @p entry that the model file @p model names: beside the
+ * model file, if it is there, or else as it is given (see YAMLParser::parse, getFileName).
+ */
+std::filesystem::path easiPath(const std::string& entry, const std::filesystem::path& model) {
+  std::filesystem::path path(entry);
+  if (path.is_relative()) {
+    const auto beside = model.parent_path() / path;
+    std::error_code error;
+    if (std::filesystem::exists(beside, error)) {
+      return beside;
+    }
+  }
+  return path;
+}
+
+//! @brief What the files of an easi model refer to.
+struct EasiReferences {
+  //! whether a component reads a file with ASAGI
+  bool asagi{false};
+  //! the files of the model, the one named by the parameter and those it includes
+  std::set<std::string> files;
+};
+
+/**
+ * @brief Checks that the files the node @p node of the model file @p file refers to exist: those it
+ * includes (!Include), whose nodes it checks as well, and those that its components read (!ASAGI,
+ * !SCECFile). @p model is the file the parameter names.
+ */
+void checkEasiReferences(const YAML::Node& node,
+                         const std::filesystem::path& file,
+                         const std::string& model,
+                         EasiReferences& references,
+                         Report& report) {
+  std::error_code error;
+  const auto& tag = node.Tag();
+  if (tag == "!Include" && node.IsScalar()) {
+    const auto included = easiPath(node.as<std::string>(), file);
+    if (!std::filesystem::is_regular_file(included, error)) {
+      report.problem("The easi model " + model + " includes " + node.as<std::string>() + " (in " +
+                     file.string() + "), which does not exist.");
+      return;
+    }
+    const auto canonical = std::filesystem::weakly_canonical(included, error).string();
+    if (references.files.insert(canonical).second) {
+      try {
+        checkEasiReferences(YAML::LoadFile(included.string()), included, model, references, report);
+      } catch (const std::exception& exception) {
+        report.problem("The file " + included.string() + " that the easi model " + model +
+                       " includes does not parse: " + exception.what());
+      }
+    }
+    return;
+  }
+  if ((tag == "!ASAGI" || tag == "!SCECFile") && node.IsMap() && node["file"] &&
+      node["file"].IsScalar()) {
+    references.asagi = references.asagi || tag == "!ASAGI";
+    const auto entry = node["file"].as<std::string>();
+    if (!std::filesystem::is_regular_file(easiPath(entry, file), error)) {
+      report.problem("The easi model " + model + " reads " + entry + " (with " + tag + ", in " +
+                     file.string() + "), which does not exist.");
+    }
+  }
+  if (node.IsMap()) {
+    for (const auto& entry : node) {
+      checkEasiReferences(entry.second, file, model, references, report);
+    }
+  } else if (node.IsSequence()) {
+    for (const auto& entry : node) {
+      checkEasiReferences(entry, file, model, references, report);
+    }
+  }
+}
+
+/**
+ * @brief Parses the easi model @p model as the run does, if it can be without MPI, and checks that
+ * a material file supplies the parameters of the materials of the run.
+ */
+json::Value checkEasiModel(const std::string& parameter,
+                           const std::string& modelFile,
+                           const parameters::SeisSolParameters& parameters,
+                           Report& report,
+                           std::unique_ptr<easi::Component>* parsed) {
+  json::Value section;
+  section["parameter"] = parameter;
+  section["file"] = modelFile;
+  EasiReferences references;
+  std::error_code error;
+  references.files.insert(std::filesystem::weakly_canonical(modelFile, error).string());
+  try {
+    checkEasiReferences(YAML::LoadFile(modelFile), modelFile, modelFile, references, report);
+  } catch (const std::exception& /*exception*/) {
+    // which the check of the YAML files reported already
+    section["parsed"] = false;
+    return section;
+  }
+  section["asagi"] = references.asagi;
+  if (references.asagi) {
+    // ASAGI reads its files with MPI, which the check does not have
+    section["parsed"] = false;
+    return section;
+  }
+
+  const bool timeDependent =
+      parameter == "inicondition.filename" && parameters.initialization.hasTime;
+  std::unique_ptr<easi::Component> component;
+  try {
+#if defined(EASI_VERSION_MAJOR) && (EASI_VERSION_MINOR >= 5 || EASI_VERSION_MAJOR > 1)
+    easi::YAMLParser parser(timeDependent ? std::set<std::string>{"t", "x", "y", "z"}
+                                          : std::set<std::string>{"x", "y", "z"});
+#else
+    // (an easi too old for time-dependent conditions stops the run, see EasiLoader)
+    easi::YAMLParser parser(3);
+#endif
+    component.reset(parser.parse(modelFile));
+  } catch (const std::exception& exception) {
+    report.problem("The easi model " + modelFile + " that " + parameter +
+                   " names does not parse: " + exception.what());
+    section["parsed"] = false;
+    return section;
+  }
+  section["parsed"] = true;
+  const auto supplied = component->suppliedParameters();
+  section["supplied"] =
+      json::Value::arrayOf(std::vector<std::string>(supplied.begin(), supplied.end()));
+
+  // the parameters the materials of the configurations of the run need
+  const auto needs = [&](const std::vector<std::string>& missing, const std::string& what) {
+    if (missing.empty()) {
+      return;
+    }
+    std::string list;
+    for (const auto& name : missing) {
+      list += (list.empty() ? "" : ", ") + name;
+    }
+    report.problem("The easi model " + modelFile + " that " + parameter +
+                   " names does not supply " + list + ", which " + what + " needs.");
+  };
+  const bool material = parameter == "equations.materialfilename";
+  const bool plasticity = parameter.starts_with("equations.plasticityfilename") ||
+                          (material && parameters.model.plasticity &&
+                           std::ranges::find(parameters.model.plasticityFileNames, modelFile) !=
+                               parameters.model.plasticityFileNames.end());
+  for (const auto config : parameters.model.configs()) {
+    dispatchConfig(config, [&](auto cfg) {
+      using MaterialT = model::MaterialOf<decltype(cfg)>;
+      const auto name = configName(configValue(config));
+      if (material) {
+        needs(missingMaterialParameters<MaterialT>(supplied),
+              "the material " + std::string(MaterialT::Text) + " of the configuration " + name);
+      }
+      if (plasticity && parameters.model.plasticity && MaterialT::SupportsPlasticity) {
+        needs(missingMaterialParameters<model::Plasticity>(supplied),
+              "the plasticity of the configuration " + name);
+      }
+    });
+  }
+  if (parsed != nullptr) {
+    *parsed = std::move(component);
+  }
+  return section;
+}
+
+//! @brief What the evaluation of the material model for the cells found.
+struct ModelEvaluation {
+  std::size_t cells{0};
+  std::size_t invalidCells{0};
+  std::optional<std::size_t> firstInvalidCell;
+  double minTimestep{std::numeric_limits<double>::infinity()};
+  std::size_t minTimestepCell{0};
+  double maxTimestep{0};
+};
+
+/**
+ * @brief Evaluates the material model @p material for the cells of @p chunk , as the run does for
+ * their time steps (see computeTimesteps), and takes the time steps and the cells without a wave
+ * speed into @p evaluation .
+ */
+void evaluateMaterial(const meshscan::CellChunk& chunk,
+                      easi::Component& material,
+                      const parameters::SeisSolParameters& parameters,
+                      ModelEvaluation& evaluation) {
+  std::vector<std::size_t> valid;
+  for (std::size_t i = 0; i < chunk.vertices.size(); ++i) {
+    if (chunk.valid[i] != 0) {
+      valid.push_back(i);
+    }
+  }
+  const auto all = CellToVertexArray::fromVectors(chunk.vertices, chunk.groups);
+  const auto& model = parameters.model;
+  const auto configs = model.configs();
+  for (const auto config : configs) {
+    std::vector<std::size_t> cells;
+    for (const auto cell : valid) {
+      if (configs.size() == 1 || model.configOfGroup(chunk.groups[cell]) == config) {
+        cells.push_back(cell);
+      }
+    }
+    if (cells.empty()) {
+      continue;
+    }
+    const auto cellsOfConfig = CellToVertexArray::subset(all, cells);
+    dispatchConfig(config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using MaterialT = model::MaterialOf<Cfg>;
+      const auto queryGen = getBestQueryGenerator<MaterialT>(
+          model.useCellHomogenizedMaterial, cellsOfConfig, Cfg::ConvergenceOrder);
+      std::vector<MaterialT> materials(cellsOfConfig.size);
+      MaterialParameterDB<MaterialT> database;
+      database.setMaterialVector(&materials);
+      database.evaluate(material, *queryGen);
+
+      for (std::size_t i = 0; i < cellsOfConfig.size; ++i) {
+        const auto cell = chunk.first + cells[i];
+        const double speed = materials[i].getMaxWaveSpeed();
+        ++evaluation.cells;
+        if (!(speed > 0) || !std::isfinite(speed)) {
+          ++evaluation.invalidCells;
+          if (!evaluation.firstInvalidCell.has_value()) {
+            evaluation.firstInvalidCell = cell;
+          }
+          continue;
+        }
+        const auto cellMaxTimestep =
+            std::min(materials[i].maximumTimestep(), parameters.timeStepping.maxTimestepWidth);
+        const double timestep = computeCellTimestep(cellsOfConfig.elementCoordinates(i),
+                                                    speed,
+                                                    parameters.timeStepping.cfl,
+                                                    cellMaxTimestep,
+                                                    Cfg::ConvergenceOrder);
+        if (timestep < evaluation.minTimestep) {
+          evaluation.minTimestep = timestep;
+          evaluation.minTimestepCell = cell;
+        }
+        evaluation.maxTimestep = std::max(evaluation.maxTimestep, timestep);
+      }
+    });
+  }
+}
+
 //! @brief The number @p value as text, as short as it can be to read back the same.
 std::string shortest(double value) {
   std::array<char, 32> buffer{};
@@ -606,7 +864,10 @@ void checkScannedMesh(const parameters::SeisSolParameters& parameters,
  * @brief Reads the whole mesh, and checks its faces and cells and where the points of the run lie
  * in it (see meshscan::scanMesh).
  */
-void checkMeshContent(const parameters::SeisSolParameters& parameters, Report& report) {
+void checkMeshContent(const parameters::SeisSolParameters& parameters,
+                      CheckDepth depth,
+                      easi::Component* material,
+                      Report& report) {
   const auto& output = parameters.output;
   const auto& rupture = parameters.drParameters;
   std::error_code error;
@@ -683,9 +944,19 @@ void checkMeshContent(const parameters::SeisSolParameters& parameters, Report& r
   settings.dynamicRupture = rupture.isDynamicRuptureEnabled;
   settings.referencePoint = rupture.referencePoint;
   settings.refPointMethod = rupture.refPointMethod;
+  ModelEvaluation evaluation;
+  const bool evaluate = depth == CheckDepth::Model && material != nullptr;
+  if (evaluate) {
+    // the material at the points of the cells, which the run homogenizes the material over, takes
+    // about 3 KB per cell
+    settings.chunk = std::size_t{1} << 16;
+    settings.visitCells = [&](const meshscan::CellChunk& chunk) {
+      evaluateMaterial(chunk, *material, parameters, evaluation);
+    };
+  }
   logInfo() << "Reading the whole mesh, with" << receivers.points.size() << "receivers,"
             << faultReceivers.points.size() << "on-fault receivers and" << sources.points.size()
-            << "point sources.";
+            << "point sources" << (evaluate ? "; evaluating the material model." : ".");
   const auto scan = meshscan::scanMesh(settings, receivers, sources, faultReceivers);
   logInfo() << "Read the whole mesh in" << scan.seconds << "seconds.";
 
@@ -700,6 +971,51 @@ void checkMeshContent(const parameters::SeisSolParameters& parameters, Report& r
   if (withSources) {
     points["sources"] = cellPointsSection("point source", sourceFile, sources, scan, report);
   }
+
+  if (depth == CheckDepth::Model) {
+    auto& section = report["model"];
+    section["file"] = parameters.model.materialFileName;
+    section["evaluated"] = evaluate;
+    if (!evaluate) {
+      report.warning("The check does not evaluate the material model " +
+                     parameters.model.materialFileName +
+                     ": it reads files with ASAGI, which needs MPI, or it does not parse.");
+      return;
+    }
+    section["cells"] = evaluation.cells;
+    section["invalidCells"] = evaluation.invalidCells;
+    if (evaluation.invalidCells > 0) {
+      report.problem("The material model " + parameters.model.materialFileName + " gives " +
+                     std::to_string(evaluation.invalidCells) +
+                     " cells no positive and finite wave speed, e.g. the cell " +
+                     std::to_string(evaluation.firstInvalidCell.value_or(0)) + " of the file.");
+    }
+    if (evaluation.minTimestep < std::numeric_limits<double>::infinity()) {
+      section["minTimestep"] = evaluation.minTimestep;
+      section["minTimestepCell"] = evaluation.minTimestepCell;
+      section["maxTimestep"] = evaluation.maxTimestep;
+      const double steps = parameters.timeStepping.endTime / evaluation.minTimestep;
+      section["steps"] = steps;
+      std::ostringstream text;
+      text << "The time steps of the cells range from " << evaluation.minTimestep << " (the cell "
+           << evaluation.minTimestepCell << " of the file) to " << evaluation.maxTimestep
+           << "; up to the end time, the cells with the smallest one take " << std::ceil(steps)
+           << " steps.";
+      logInfo() << text.str().c_str();
+    }
+  }
+}
+
+std::string depthName(CheckDepth depth) {
+  switch (depth) {
+  case CheckDepth::Files:
+    return "files";
+  case CheckDepth::Mesh:
+    return "mesh";
+  case CheckDepth::Model:
+    return "model";
+  }
+  return "unknown";
 }
 
 } // namespace
@@ -723,8 +1039,10 @@ std::optional<CheckOptions> extractCheckOptions(int& argc, char** argv) {
         options->depth = CheckDepth::Files;
       } else if (depth == "mesh") {
         options->depth = CheckDepth::Mesh;
+      } else if (depth == "model") {
+        options->depth = CheckDepth::Model;
       } else {
-        logError() << "--check-depth is files or mesh, not" << std::string(depth);
+        logError() << "--check-depth is files, mesh or model, not" << std::string(depth);
       }
     } else {
       argv[kept] = argv[i];
@@ -741,7 +1059,7 @@ int preflight(const std::string& parameterFile,
               const std::optional<std::string>& checkpoint,
               const CheckOptions& options) {
   Report report(options.reportPath);
-  report["depth"] = options.depth == CheckDepth::Mesh ? "mesh" : "files";
+  report["depth"] = depthName(options.depth);
   report["build"] = monitoring::buildInformation();
   {
     auto& invocation = report["invocation"];
@@ -838,6 +1156,24 @@ int preflight(const std::string& parameterFile,
     }
   }
 
+  // the easi models: the files they refer to, whether they parse, and what they supply
+  report.step("easi");
+  auto& easiModels = report["easi"] = json::Value::array();
+  std::unique_ptr<easi::Component> material;
+  for (const auto& entry : paths) {
+    std::error_code error;
+    const auto name = joined(entry.field);
+    if (entry.path.empty() || !isEasiModel(name) || !runOpens(entry.field, seissolParameters) ||
+        !std::filesystem::is_regular_file(entry.path, error)) {
+      continue;
+    }
+    easiModels.push(checkEasiModel(name,
+                                   entry.path,
+                                   seissolParameters,
+                                   report,
+                                   name == "equations.materialfilename" ? &material : nullptr));
+  }
+
   report.step("mesh");
   report["mesh"] = meshSection(seissolParameters.mesh, report);
 
@@ -857,8 +1193,8 @@ int preflight(const std::string& parameterFile,
   report.step("output");
   report["output"] = outputSection(seissolParameters, report);
 
-  if (options.depth == CheckDepth::Mesh) {
-    checkMeshContent(seissolParameters, report);
+  if (options.depth != CheckDepth::Files) {
+    checkMeshContent(seissolParameters, options.depth, material.get(), report);
   }
 
   return report.finish();

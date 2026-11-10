@@ -69,6 +69,14 @@ TEST_CASE("The check options are taken out of the command line" *
     REQUIRE(argc == 2);
     CHECK(std::string(argv[1]) == "parameters.par");
   }
+  SUBCASE("The depth of the material model") {
+    std::array<std::string, 3> words{"seissol", "--check-depth=model", "parameters.par"};
+    std::array<char*, 4> argv{words[0].data(), words[1].data(), words[2].data(), nullptr};
+    int argc = 3;
+    const auto options = initializer::extractCheckOptions(argc, argv.data());
+    REQUIRE(options.has_value());
+    CHECK(options->depth == initializer::CheckDepth::Model);
+  }
   SUBCASE("A depth alone asks for the check") {
     std::array<std::string, 3> words{"seissol", "--check-depth=mesh", "parameters.par"};
     std::array<char*, 4> argv{words[0].data(), words[1].data(), words[2].data(), nullptr};
@@ -227,6 +235,42 @@ TEST_CASE("The check of a run finds the receivers that lie in no cell" *
     }
     CHECK(content.str().find("The mesh has 24 faces with the boundary condition tag 5, which the "
                              "face map does not know") != std::string::npos);
+  }
+  SUBCASE("With the material model") {
+    const int code =
+        initializer::preflight(directory + "/parameters.par",
+                               {"output.receiveroutput=0"},
+                               std::nullopt,
+                               {.reportPath = reportPath, .depth = initializer::CheckDepth::Model});
+    CHECK(code == 0);
+    std::stringstream content;
+    {
+      const std::ifstream stream(reportPath);
+      content << stream.rdbuf();
+    }
+    const auto report = content.str();
+    CHECK(report.find("\"evaluated\": true") != std::string::npos);
+    CHECK(report.find("\"cells\": 24") != std::string::npos);
+    CHECK(report.find("\"minTimestep\"") != std::string::npos);
+    CHECK(report.find("\"supplied\": [") != std::string::npos);
+  }
+  SUBCASE("With a material model that misses a parameter") {
+    {
+      std::ofstream file(directory + "/material.yaml");
+      file << "!ConstantMap\nmap:\n  rho: 1\n  mu: 1\n  lamda: 1\n";
+    }
+    const int code = initializer::preflight(directory + "/parameters.par",
+                                            {"output.receiveroutput=0"},
+                                            std::nullopt,
+                                            {.reportPath = reportPath});
+    CHECK(code == 1);
+    std::stringstream content;
+    {
+      const std::ifstream stream(reportPath);
+      content << stream.rdbuf();
+    }
+    CHECK(content.str().find("names does not supply lambda, which the material") !=
+          std::string::npos);
   }
   SUBCASE("Without reading the whole mesh") {
     const int code =

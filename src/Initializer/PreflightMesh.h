@@ -18,6 +18,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
@@ -66,6 +67,18 @@ struct FaultPoints {
   std::vector<std::optional<Found>> found;
 };
 
+//! @brief The cells of a chunk of the mesh file, as the run takes them.
+struct CellChunk {
+  //! the index of the first of them in the file
+  std::size_t first{0};
+  //! their vertices, displaced and scaled, in the order the run puts them in (zero for a cell
+  //! with vertices the file does not have)
+  std::vector<std::array<std::array<double, 3>, 4>> vertices;
+  std::vector<int> groups;
+  //! whether the file has the vertices of the cell
+  std::vector<std::uint8_t> valid;
+};
+
 //! @brief What the scan needs to know of the run.
 struct MeshScanSettings {
   std::string file;
@@ -82,6 +95,8 @@ struct MeshScanSettings {
   parameters::RefPointMethod refPointMethod{parameters::RefPointMethod::Point};
   //! the number of cells read at once
   std::size_t chunk{std::size_t{1} << 20};
+  //! called with every chunk of cells, one after the other, if given
+  std::function<void(const CellChunk&)> visitCells;
 };
 
 //! @brief What the scan finds out about the mesh as a whole.

@@ -67,8 +67,12 @@ for hours:
 
 * that the files the parameters name exist, those that the run opens (the receiver
   file, e.g., only if the receiver output is on);
-* that the YAML files among them, i.e. the easi models, parse, though not what they
-  hold, nor the files they refer to in turn;
+* that the YAML files among them parse, and that the easi models among them parse as
+  easi models, that the files they include or read (``!Include``, ``!ASAGI``,
+  ``!SCECFile``) exist, and that the material file supplies the parameters of the
+  materials of the configurations of the run, as a whole (for each cell, see
+  ``--check-depth=model`` below); a model that reads a file with ASAGI it does not parse,
+  since ASAGI needs MPI;
 * that the mesh opens, and how many cells and vertices it has;
 * that the output directory can be written, or created;
 * that the checkpoint given with ``-c`` exists.
@@ -105,6 +109,14 @@ cells; for a mesh of 10 million cells, it took 2 s on two cores. ``--check-depth
 leaves it out, ``--check-depth=mesh`` is the default; ``--check-depth`` alone implies
 ``--check``.
 
+``--check-depth=model`` evaluates the material model for every cell as well, as the run
+does for the time steps of the cells: an error of easi, e.g. a parameter that a part of
+the model does not supply, stops the check as it would stop the run, and the check
+reports the cells without a positive and finite wave speed and the range of the time
+steps of the cells, with the number of steps the smallest one takes up to the end time.
+It evaluates the model on one thread, as each rank of a run does; for the mesh of 10
+million cells, it took 16 s. A model that reads files with ASAGI it does not evaluate.
+
 The login node has to be able to start the executable. One built with CUDA starts
 without the NVIDIA driver as well; where an executable does not start, ``ldd`` names the
 libraries the node lacks, e.g. those that a GPU-aware MPI library needs. An executable
@@ -118,22 +130,28 @@ as intended, and as warnings. The exit code is 0 if the run can start, 1 otherwi
 check: its ``status`` is ``passed`` or ``failed``, or ``terminated`` if a request to
 stop reached it (then ``terminatedBy`` gives the signal); ``problems`` and ``warnings``
 list what the check found; ``stoppedAt`` names the step an error or a crash stopped
-(``parameters``, ``files``, ``yaml``, ``mesh``, ``checkpoint``, ``output``, ``points``
-or ``meshScan``), and ``error`` gives its ``message`` and its ``time``, for an error its
-``source`` in the code (``file``, ``line``, ``function``), for a crash the ``signal``
-(see :ref:`run-summary`); ``depth`` is the depth of the check; ``mesh`` has the
-``cells`` and ``vertices`` of a PUML mesh, and with the whole mesh read, ``scan``: its
-bounding box (``min``, ``max``), the faces by their boundary condition tag (``tags``)
-and face type (``faceTypes``), the cells by their group (``groups``), the number of
-fault faces (``faultFaces``), the radii of the inspheres of the smallest and the largest
-cell (``smallestInsphere`` of the cell ``smallestCell`` of the file, and
+(``parameters``, ``files``, ``yaml``, ``easi``, ``mesh``, ``checkpoint``, ``output``,
+``points`` or ``meshScan``), and ``error`` gives its ``message`` and its ``time``, for
+an error its ``source`` in the code (``file``, ``line``, ``function``), for a crash the
+``signal`` (see :ref:`run-summary`); ``depth`` is the depth of the check; ``mesh`` has
+the ``cells`` and ``vertices`` of a PUML mesh, and with the whole mesh read, ``scan``:
+its bounding box (``min``, ``max``), the faces by their boundary condition tag
+(``tags``) and face type (``faceTypes``), the cells by their group (``groups``), the
+number of fault faces (``faultFaces``), the radii of the inspheres of the smallest and
+the largest cell (``smallestInsphere`` of the cell ``smallestCell`` of the file, and
 ``largestInsphere``), and how long reading it took (``seconds``) with how much memory
 (``bytes``); ``points`` has the ``receivers``, ``faultReceivers`` and ``sources``, each
 with the ``file``, the ``count`` of points, how many were ``found``, and the ``missing``
 ones (their ``index``, counted from zero as the run counts them, the ``point``, the
 height of the free surface above or below it, ``surface``, and a ``hint``), and for the
-on-fault receivers the ones ``moved`` farther than their face is large; ``files`` lists
-the files the parameters name, whether they exist and whether the run opens them;
+on-fault receivers the ones ``moved`` farther than their face is large; ``easi`` lists
+the easi models, each with its ``file``, the ``parameter`` that names it, whether it
+reads files with ASAGI (``asagi``), whether the check ``parsed`` it, and the parameters
+it ``supplied``; with ``--check-depth=model``, ``model`` gives whether the material
+model was ``evaluated``, for how many ``cells``, the ``invalidCells`` without a wave
+speed, and the smallest and the largest time step of a cell (``minTimestep`` of the cell
+``minTimestepCell``, ``maxTimestep``) with the ``steps`` up to the end time; ``files``
+lists the files the parameters name, whether they exist and whether the run opens them;
 ``output`` gives the output directory, whether it is ``writable``, and which outputs are
 ``enabled``; the report has the ``build``, the ``invocation``, the ``configurations``,
 the ``endTime`` and the ``unknownFields`` of the parameter file as well.

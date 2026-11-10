@@ -271,8 +271,8 @@ utils::Args commandLine() {
                  false);
   args.addOption("check-depth",
                  0,
-                 "How far --check goes: files (no more than the head of the mesh) or mesh (the "
-                 "default)",
+                 "How far --check goes: files (no more than the head of the mesh), mesh (the "
+                 "default), or model (also the material model, for every cell)",
                  utils::Args::Required,
                  false);
   return args;

@@ -519,8 +519,14 @@ MeshScan scanMesh(const MeshScanSettings& settings,
   std::vector<std::uint64_t> cells;
   std::vector<int> groups;
   std::vector<std::uint64_t> boundaries;
+  CellChunk visited;
   for (std::size_t first = 0; first < scan.cells; first += chunk) {
     const auto count = std::min(chunk, scan.cells - first);
+    if (settings.visitCells) {
+      visited.first = first;
+      visited.vertices.assign(count, {});
+      visited.valid.assign(count, 0);
+    }
     cells.resize(Cell::NumVertices * count);
     connect.read(first, count, H5T_NATIVE_UINT64, cells.data());
     groups.assign(count, 0);
@@ -559,6 +565,10 @@ MeshScan scanMesh(const MeshScanSettings& settings,
       for (std::size_t k = 0; k < Cell::NumVertices; ++k) {
         vertices[k] = transformed(fileCoords[order[k]], settings);
         vertexIds[k] = ids[order[k]];
+      }
+      if (settings.visitCells) {
+        visited.vertices[local] = vertices;
+        visited.valid[local] = 1;
       }
 
       // as MeshReader::verifyMeshOrientation
@@ -712,6 +722,10 @@ MeshScan scanMesh(const MeshScanSettings& settings,
           }
         }
       }
+    }
+    if (settings.visitCells) {
+      visited.groups.assign(groups.begin(), groups.begin() + static_cast<std::ptrdiff_t>(count));
+      settings.visitCells(visited);
     }
   }
   H5Fclose(file);
