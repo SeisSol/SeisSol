@@ -32,10 +32,13 @@ beforehand; the value has to be a UUID in its canonical form, e.g.
 Communication thread
 --------------------
 
-By default, any SeisSol run with more than one MPI rank will use a communication thread to advance the MPI progress engine.
-For that, it is required to leave at least one thread vacant in your OpenMP thread placing map, cf. the SuperMUC-NG example below.
+By default, any SeisSol run with more than one MPI rank will use a communication thread to advance the MPI progress engine,
+except in builds for GPUs with the host actor (on by default, see :ref:`gpu-time-stepping`): there, the thread that enqueues
+the work of the GPU tests the exchanges as it goes along, which was faster.
+For the communication thread, it is required to leave at least one thread vacant in your OpenMP thread placing map, cf. the SuperMUC-NG example below.
 
-If you do not want to use a communication thread, you may set ``SEISSOL_COMMTHREAD=0`` to make SeisSol poll the progress from time to time.
+If you do not want to use a communication thread, you may set ``SEISSOL_COMMTHREAD=0`` to make SeisSol poll the progress from time to time;
+``SEISSOL_COMMTHREAD=1`` starts one also in builds for GPUs with the host actor.
 
 Task graph on the host
 ----------------------
