@@ -798,6 +798,20 @@ MeshScan scanMesh(const MeshScanSettings& settings,
     const auto keyB = b.key();
     return std::tie(keyA, b.plus, a.cell) < std::tie(keyB, a.plus, b.cell);
   });
+  // a fault face has a cell on either side, of which the reference point tells one to be the plus
+  // side; where it lies in the plane of the face, neither is
+  for (std::size_t first = 0; first < faultFaces.size();) {
+    std::size_t next = first + 1;
+    while (next < faultFaces.size() && faultFaces[next].key() == faultFaces[first].key()) {
+      ++next;
+    }
+    if (next - first == 1) {
+      ++scan.oneSidedFaultFaces;
+    } else if (!faultFaces[first].plus) {
+      ++scan.faultFacesWithoutPlusSide;
+    }
+    first = next;
+  }
   const auto [last, end] = std::ranges::unique(
       faultFaces, [](const FaultFace& a, const FaultFace& b) { return a.key() == b.key(); });
   faultFaces.erase(last, end);

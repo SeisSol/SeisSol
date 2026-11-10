@@ -121,6 +121,11 @@ struct MeshScan {
   std::map<int, std::uint32_t> groupFaceTypes;
   //! the faces of dynamic rupture, each counted once
   std::size_t faultFaces{0};
+  //! those of them that one cell only has as such, e.g. on the boundary of the mesh, where the run
+  //! rejects them as broken faces
+  std::size_t oneSidedFaultFaces{0};
+  //! those of them that neither of their cells is the plus side of, by the reference point
+  std::size_t faultFacesWithoutPlusSide{0};
 
   //! the cells whose vertices index beyond the vertices of the file
   std::size_t invalidCells{0};

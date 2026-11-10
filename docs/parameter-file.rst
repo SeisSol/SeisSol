@@ -90,11 +90,15 @@ only after reading and partitioning it:
   tags of all faces, and that the build supports the boundary conditions that the cells
   of each configuration have;
 * that the cells are oriented as the run requires, which a cell without volume, or a
-  scaling of the mesh that mirrors it, is not.
+  scaling of the mesh that mirrors it, is not;
+* that both cells of every fault face have it as a fault face, which a fault face on the
+  boundary of the mesh cannot.
 
 It warns, too, if dynamic rupture is on but the mesh has no fault faces, if the
-free-surface output is on but the mesh has no faces of the free surface, and if the
-configuration map names a group that no cell of the mesh has.
+reference point of the fault tells neither side of a fault face to be the plus side (as
+it does where it lies in the plane of the face), if the free-surface output is on but
+the mesh has no faces of the free surface, and if the configuration map names a group
+that no cell of the mesh has.
 
 It runs on one process, without MPI and without devices, with the threads of OpenMP,
 e.g. on a login node with the executable built for the compute nodes:
@@ -137,24 +141,26 @@ an error its ``source`` in the code (``file``, ``line``, ``function``), for a cr
 the ``cells`` and ``vertices`` of a PUML mesh, and with the whole mesh read, ``scan``:
 its bounding box (``min``, ``max``), the faces by their boundary condition tag
 (``tags``) and face type (``faceTypes``), the cells by their group (``groups``), the
-number of fault faces (``faultFaces``), the radii of the inspheres of the smallest and
-the largest cell (``smallestInsphere`` of the cell ``smallestCell`` of the file, and
-``largestInsphere``), and how long reading it took (``seconds``) with how much memory
-(``bytes``); ``points`` has the ``receivers``, ``faultReceivers`` and ``sources``, each
-with the ``file``, the ``count`` of points, how many were ``found``, and the ``missing``
-ones (their ``index``, counted from zero as the run counts them, the ``point``, the
-height of the free surface above or below it, ``surface``, and a ``hint``), and for the
-on-fault receivers the ones ``moved`` farther than their face is large; ``easi`` lists
-the easi models, each with its ``file``, the ``parameter`` that names it, whether it
-reads files with ASAGI (``asagi``), whether the check ``parsed`` it, and the parameters
-it ``supplied``; with ``--check-depth=model``, ``model`` gives whether the material
-model was ``evaluated``, for how many ``cells``, the ``invalidCells`` without a wave
-speed, and the smallest and the largest time step of a cell (``minTimestep`` of the cell
-``minTimestepCell``, ``maxTimestep``) with the ``steps`` up to the end time; ``files``
-lists the files the parameters name, whether they exist and whether the run opens them;
-``output`` gives the output directory, whether it is ``writable``, and which outputs are
-``enabled``; the report has the ``build``, the ``invocation``, the ``configurations``,
-the ``endTime`` and the ``unknownFields`` of the parameter file as well.
+number of fault faces (``faultFaces``), of those that one cell only has
+(``oneSidedFaultFaces``) and without a plus side (``faultFacesWithoutPlusSide``), the
+radii of the inspheres of the smallest and the largest cell (``smallestInsphere`` of the
+cell ``smallestCell`` of the file, and ``largestInsphere``), and how long reading it
+took (``seconds``) with how much memory (``bytes``); ``points`` has the ``receivers``,
+``faultReceivers`` and ``sources``, each with the ``file``, the ``count`` of points, how
+many were ``found``, and the ``missing`` ones (their ``index``, counted from zero as the
+run counts them, the ``point``, the height of the free surface above or below it,
+``surface``, and a ``hint``), and for the on-fault receivers the ones ``moved`` farther
+than their face is large; ``easi`` lists the easi models, each with its ``file``, the
+``parameter`` that names it, whether it reads files with ASAGI (``asagi``), whether the
+check ``parsed`` it, and the parameters it ``supplied``; with ``--check-depth=model``,
+``model`` gives whether the material model was ``evaluated``, for how many ``cells``,
+the ``invalidCells`` without a wave speed, and the smallest and the largest time step of
+a cell (``minTimestep`` of the cell ``minTimestepCell``, ``maxTimestep``) with the
+``steps`` up to the end time; ``files`` lists the files the parameters name, whether
+they exist and whether the run opens them; ``output`` gives the output directory,
+whether it is ``writable``, and which outputs are ``enabled``; the report has the
+``build``, the ``invocation``, the ``configurations``, the ``endTime`` and the
+``unknownFields`` of the parameter file as well.
 
 Commented parameter file
 ------------------------

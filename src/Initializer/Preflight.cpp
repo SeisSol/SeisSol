@@ -786,6 +786,8 @@ void checkScannedMesh(const parameters::SeisSolParameters& parameters,
   scanned["smallestCell"] = scan.smallestCell;
   scanned["largestInsphere"] = scan.largestInsphere;
   scanned["faultFaces"] = scan.faultFaces;
+  scanned["oneSidedFaultFaces"] = scan.oneSidedFaultFaces;
+  scanned["faultFacesWithoutPlusSide"] = scan.faultFacesWithoutPlusSide;
   auto& tags = scanned["tags"] = json::Value::object();
   for (const auto& [tag, faces] : scan.tags) {
     tags[std::to_string(tag)] = faces;
@@ -846,6 +848,18 @@ void checkScannedMesh(const parameters::SeisSolParameters& parameters,
   }
   if (parameters.drParameters.isDynamicRuptureEnabled && scan.faultFaces == 0) {
     report.warning("Dynamic rupture is on, but the mesh has no fault faces.");
+  }
+  if (scan.oneSidedFaultFaces > 0) {
+    report.problem("The mesh has " + std::to_string(scan.oneSidedFaultFaces) +
+                   " fault faces that only one of their cells has as such: on the boundary of the "
+                   "mesh, where the run stops at them as at broken faces, or where the other cell "
+                   "gives the face another boundary condition tag.");
+  }
+  if (scan.faultFacesWithoutPlusSide > 0) {
+    report.warning("For " + std::to_string(scan.faultFacesWithoutPlusSide) +
+                   " fault faces, the reference point (dynamicrupture.xref, yref, zref) tells "
+                   "neither side to be the plus side: it lies in their plane, or is normal to "
+                   "them with refpointmethod = 1. Which side is which is arbitrary there.");
   }
   const auto freeSurfaces = [&] {
     std::size_t faces = 0;
