@@ -30,6 +30,30 @@
 
 namespace seissol::initializer {
 
+CellPlanes::CellPlanes(const std::array<const CoordinateT*, Cell::NumVertices>& vertices) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    // as MeshTools::normal and MeshTools::pointOnPlane give them for a cell of a MeshReader
+    const auto& first = *vertices[MeshTools::FACE2NODES[face][0]];
+    CoordinateT ab{};
+    CoordinateT ac{};
+    MeshTools::sub(*vertices[MeshTools::FACE2NODES[face][1]], first, ab);
+    MeshTools::sub(*vertices[MeshTools::FACE2NODES[face][2]], first, ac);
+    CoordinateT n{};
+    MeshTools::cross(ab, ac, n);
+
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
+      equations_[i][face] = n[i];
+    }
+    equations_[Cell::Dim][face] = -MeshTools::dot(n, first);
+    normLengths_[face] = std::sqrt(MeshTools::dot(n, n));
+  }
+
+  // The normals are not normalized, their length is twice the area of the face; hence the square
+  // root of the largest one is about the edge length of the cell. What lies within a small
+  // fraction of it from a face is on that face as far as round-off can tell.
+  onFace_ = 1e-8 * std::sqrt(*std::ranges::max_element(normLengths_));
+}
+
 std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
                                     const seissol::geometry::MeshReader& mesh,
                                     std::size_t numPoints,
@@ -39,12 +63,9 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
   const auto& vertices = mesh.getVertices();
   const auto& elements = mesh.getElements();
 
-  auto points1 = std::vector<std::array<double, Cell::Dim + 1>>(numPoints);
+  auto points1 = std::vector<CellPlanes::Point>(numPoints);
   for (std::size_t point = 0; point < numPoints; ++point) {
-    for (std::size_t c = 0; c < Cell::Dim; ++c) {
-      points1[point][c] = points[point](c);
-    }
-    points1[point][Cell::Dim] = 1.0;
+    points1[point] = CellPlanes::homogeneous(points[point]);
   }
 
   // A point may lie in more than one cell: on a face or an edge the cells meet at, or within the
@@ -68,59 +89,24 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
 #pragma omp parallel for schedule(static)
   // NOLINTNEXTLINE(modernize-loop-convert)
   for (std::size_t elem = 0; elem < elements.size(); ++elem) {
-    auto planeEquations = std::array<std::array<double, Cell::Dim + 1>, Cell::Dim + 1>();
-    auto normLengths = std::array<double, Cell::NumFaces>();
-    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      CoordinateT n{};
-      CoordinateT p{};
-      MeshTools::pointOnPlane(elements[elem], face, vertices, p);
-      MeshTools::normal(elements[elem], face, vertices, n);
-
-      for (std::size_t i = 0; i < Cell::Dim; ++i) {
-        planeEquations[i][face] = n[i];
-      }
-      planeEquations[Cell::Dim][face] = -MeshTools::dot(n, p);
-      normLengths[face] = std::sqrt(MeshTools::dot(n, n));
-    }
-
-    // The normals are not normalized, their length is twice the area of the face; hence the square
-    // root of the largest one is about the edge length of the cell. What lies within a small
-    // fraction of it from a face is on that face as far as round-off can tell.
-    const double onFace = 1e-8 * std::sqrt(*std::ranges::max_element(normLengths));
+    const auto& element = elements[elem];
+    const CellPlanes planes({&vertices[element.vertices[0]].coords,
+                             &vertices[element.vertices[1]].coords,
+                             &vertices[element.vertices[2]].coords,
+                             &vertices[element.vertices[3]].coords});
 
     for (std::size_t point = 0; point < numPoints; ++point) {
-      // geometric Interpretation (up to numerical errors, hence tolerance parameter):
-      // resultFace < 0: The point is inside the face (half-space).
-      // resultFace = 0: The point is exactly on the face.
-      // resultFace > 0: The point is outside the face.
+      const auto fit = planes.fit(points1[point]);
 
-      // we look for the face, where resultFace is the largest; i.e. the face that will the best
-      // "invalidate" our membership in the cell.
-
-      double maxValue = -std::numeric_limits<double>::infinity();
-      double maxDistance = -std::numeric_limits<double>::infinity();
-
-#pragma omp simd reduction(max : maxValue, maxDistance)
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-
-        double resultFace = 0;
-        for (std::size_t dim = 0; dim < Cell::Dim + 1; ++dim) {
-          resultFace += planeEquations[dim][face] * points1[point][dim];
-        }
-        maxValue = std::max(maxValue, resultFace);
-        maxDistance = std::max(maxDistance, resultFace / normLengths[face]);
-      }
-
-      if (maxValue <= tolerance) {
+      if (fit.value <= tolerance) {
         // meaning: we're below tolerance to consider the cell
-        const Candidate candidate{.key = maxDistance <= onFace ? 0.0 : maxValue,
-                                  .globalId = elements[elem].globalId};
+        const Candidate candidate{.key = planes.key(fit), .globalId = element.globalId};
 
 #pragma omp critical
         {
           if (better(candidate, best[point])) {
             best[point] = candidate;
-            meshIds[point] = elements[elem].localId;
+            meshIds[point] = element.localId;
           }
         }
       }

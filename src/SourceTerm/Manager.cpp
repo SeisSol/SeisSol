@@ -417,8 +417,8 @@ auto loadSourceFile(const char* fileName,
 
   auto meshIds = std::vector<std::size_t>(points.size());
 
-  const auto contained =
-      initializer::findUniqueMeshIds(points.data(), mesh, points.size(), meshIds.data());
+  const auto contained = initializer::findUniqueMeshIds(
+      points.data(), mesh, points.size(), meshIds.data(), initializer::SourceTolerance);
 
   auto originalIndex = std::vector<std::size_t>(points.size());
   std::size_t numSources = 0;
