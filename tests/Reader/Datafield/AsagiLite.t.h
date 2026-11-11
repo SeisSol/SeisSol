@@ -109,4 +109,27 @@ TEST_CASE("Datafield AsagiLite: a sliding window serves the times until the next
   CHECK(grid.revision() == revision);
 }
 
+TEST_CASE("Datafield AsagiLite: the grids of a store sample on after the end of the run") {
+  // The end of the simulation closes the files (GridStore::finish()); what samples the grids after
+  // it -- the analysis of the initial condition evaluates its script -- still finds them, and
+  // loading again finds nothing to do.
+  const LinearInTime file(12);
+  df::GridStore store;
+  store.setResidentSlices(4);
+  df::GridDesc desc;
+  desc.path = file.path();
+  desc.variable = "z";
+  desc.interpolation = df::Interpolation::Linear;
+  desc.timeAxis = 1;
+  const std::size_t id = store.intern(desc);
+  store.load();
+  store.update(2.0);
+  store.finish();
+  CHECK_NOTHROW(store.load());
+  const double point[2] = {1.0, 2.5};
+  double value = 0;
+  store.get(id).sample(point, &value);
+  CHECK(value == 2.5 + 10.0);
+}
+
 } // namespace seissol::unit_test

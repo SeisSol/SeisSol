@@ -275,6 +275,11 @@ void AsagiLiteGrid::resetMetadata() noexcept {
 
 void AsagiLiteGrid::close() noexcept {
   freeBuffer();
+  closeFile();
+  resetMetadata();
+}
+
+void AsagiLiteGrid::closeFile() noexcept {
   if (dsetId_ >= 0) {
     H5Dclose(dsetId_);
     dsetId_ = -1;
@@ -283,16 +288,24 @@ void AsagiLiteGrid::close() noexcept {
     H5Fclose(fileId_);
     fileId_ = -1;
   }
-  resetMetadata();
 }
 
 void AsagiLiteGrid::freeBuffer() noexcept {
+  int finalized = 0;
+  MPI_Finalized(&finalized);
   switch (owner_) {
   case Owner::Malloc:
     std::free(data_);
     break;
   case Owner::Shmem:
-    // All collective on the corresponding communicator.
+    // All collective on the corresponding communicator; after MPI_Finalize -- a grid of a store
+    // that lives until the process ends -- the end of the process frees them.
+    if (finalized != 0) {
+      win_ = MPI_WIN_NULL;
+      leaderComm_ = MPI_COMM_NULL;
+      nodeComm_ = MPI_COMM_NULL;
+      break;
+    }
     if (win_ != MPI_WIN_NULL) {
       MPI_Win_free(&win_);
       win_ = MPI_WIN_NULL;

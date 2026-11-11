@@ -81,10 +81,10 @@ void resizeWindow(Grid& grid, std::size_t residentSlices) {
   }
 }
 
-void closeGrid(Grid& grid) {
+void closeGridFile(Grid& grid) {
   auto* backend = asAsagiLite(grid);
   if (backend != nullptr) {
-    backend->close();
+    backend->closeFile();
   }
 }
 

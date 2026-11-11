@@ -34,11 +34,12 @@ void resizeWindow(Grid& grid, std::size_t residentSlices);
 /// since it is called at every synchronisation point.
 void advanceWindow(Grid& grid, double time);
 
-/// Closes the file of the grid and releases its memory, while the libraries both
-/// need are still there: at the end of the run (GridStore::finish()), since the
-/// store may live until the process ends, past HDF5 and MPI. Collective. The grid
-/// samples nothing afterwards.
-void closeGrid(Grid& grid);
+/// Closes the file of the grid while HDF5 is still there -- at the end of the run
+/// (GridStore::finish()), since the store may live until the process ends, past
+/// HDF5. The grid keeps its array and samples on: a script evaluated after the end
+/// of the simulation (the analysis of the initial condition, say) reads it. Its
+/// window does not move any more.
+void closeGridFile(Grid& grid);
 
 } // namespace seissol::reader::datafield
 

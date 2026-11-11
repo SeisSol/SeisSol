@@ -324,9 +324,9 @@ void GridStore::finish() {
     for (auto& [kind, mirror] : mirrors_[i]) {
       mirror->finish(*grids_[i]);
     }
-    // the file and the memory of the grid now, while HDF5 and MPI are there: the store may live
-    // until the process ends
-    closeGrid(*grids_[i]);
+    // the file of the grid now, while HDF5 is there: the store may live until the process ends;
+    // the array stays, for what samples it after the end of the simulation
+    closeGridFile(*grids_[i]);
   }
 }
 

@@ -466,8 +466,9 @@ public:
   Mirror& attachMirror(std::size_t id, int key, std::unique_ptr<Mirror> mirror);
 
   /// The end of the run: every mirror reports what it has to (Mirror::finish()), and the grids
-  /// close their files and release their memory, which a store that lives until the process ends
-  /// could not do later. Collective. The grids sample nothing afterwards.
+  /// close their files, which a store that lives until the process ends could not do later, past
+  /// HDF5. They keep their arrays and sample on -- the analysis of the initial condition after the
+  /// end of the simulation evaluates its script, say -- but their windows do not move any more.
   void finish();
 
   // Largest synchronisation interval at which update() is still guaranteed to

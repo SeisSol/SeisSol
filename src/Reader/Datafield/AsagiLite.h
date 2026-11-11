@@ -129,6 +129,9 @@ class AsagiLiteGrid final : public Grid {
 
   [[nodiscard]] TimeWindow window() const noexcept { return window_; }
   void close() noexcept;
+  /// Closes the file and keeps the array: the grid samples on, and its window stays where it is.
+  /// For the end of a run, while HDF5 is still there (GridStore::finish()).
+  void closeFile() noexcept;
   [[nodiscard]] bool isOpen() const noexcept { return data_ != nullptr; }
 
   [[nodiscard]] Owner owner() const noexcept { return owner_; }
