@@ -78,7 +78,9 @@ std::unique_ptr<DataReader> buildLua(const std::string& path) {
 /// load-bearing rather than a convenience.
 std::unique_ptr<DataReader> buildSderiv(const std::string& path) {
   const std::string source = readFile(stripPrefix(path));
-  auto program = expr::compileSderivModule(source);
+  expr::SderivOptions options;
+  options.file = stripPrefix(path);
+  auto program = expr::compileSderivModule(source, options);
   logInfo() << "Compiled the sderiv module" << path << "with" << program.outputs().size()
             << "outputs.";
   return std::make_unique<CompiledReader>(std::move(program), nullptr);
@@ -130,11 +132,18 @@ std::optional<expr::Program> buildProgram(const std::string& path,
   const auto kind = kindOf(path);
   if (kind == "sderiv") {
     const std::string source = readFile(fileOf(path));
+    expr::SderivOptions options = sderivOptions;
+    options.file = fileOf(path);
     try {
-      return expr::compileSderivModule(source, sderivOptions);
+      return expr::compileSderivModule(source, options);
     } catch (const expr::SderivError& error) {
-      logError() << "The sderiv module" << path << "does not compile at byte" << error.position()
-                 << ":" << error.what();
+      // an error of the core format names its line and column itself
+      if (error.position() >= 0) {
+        logError() << "The sderiv module" << path << "does not compile at byte" << error.position()
+                   << ":" << error.what();
+      } else {
+        logError() << "The sderiv module" << path << "does not compile:" << error.what();
+      }
     }
   }
   if (kind == "lua") {

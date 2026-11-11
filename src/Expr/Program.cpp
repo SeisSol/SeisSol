@@ -380,6 +380,20 @@ GridId Program::internGrid(const reader::datafield::GridDesc& desc) {
   return static_cast<GridId>(grids_.size() - 1);
 }
 
+void Program::nameGrid(GridId grid, GridNames names) {
+  if (grid < 0 || static_cast<std::size_t>(grid) >= grids_.size()) {
+    throw std::invalid_argument("expr: a name for grid id " + std::to_string(grid) +
+                                ", but the program declares " + std::to_string(grids_.size()));
+  }
+  if (gridNames_.size() <= static_cast<std::size_t>(grid)) {
+    gridNames_.resize(static_cast<std::size_t>(grid) + 1);
+  }
+  // the first name a grid is given stays: two declarations of the same grid are one grid
+  if (gridNames_[static_cast<std::size_t>(grid)].name.empty()) {
+    gridNames_[static_cast<std::size_t>(grid)] = std::move(names);
+  }
+}
+
 std::set<std::string> channelsRead(const Program& program, const std::vector<NodeId>& roots) {
   std::set<std::string> read;
   std::vector<bool> seen(program.arena().size(), false);

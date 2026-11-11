@@ -193,6 +193,14 @@ synchronization point to the next, and a sample checks that it holds those its t
 that samples the grid at other times (``w_v1(t + 0.5)``, say) stops the run with an error, unless
 ``residentslices`` keeps all slices of the file in memory.
 
+A module that starts with the line ``#!sderiv 1`` is read in the core format of sderiv, the
+explicit form that tools and other frontends write: every input is declared (``in x, y, z``), every
+value is a definition (``def t0 = x * y``), an output reads ``out u = t0``, a state is declared with
+its initial value (``state s = 0``) and given its value for the next call (``next s = t0``), and a
+grid states all of its attributes, as above, and is sampled as ``m.rho(x, y, z)``. There are no
+implicit inputs and no constants such as ``pi``; a relative grid path is relative to the file, and
+an error names its line and column.
+
 The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
 ``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They
 are kept across runs in the directory ``SEISSOL_EXPR_CACHE`` names, by default ``seissol/expr`` in

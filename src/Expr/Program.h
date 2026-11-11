@@ -36,6 +36,7 @@
 #include <cstdint>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace seissol::expr {
@@ -121,6 +122,25 @@ struct BlockSpec {
   std::size_t length{0};
 };
 
+/// The names a frontend gave a grid and its components, which the core format prints: a
+/// Kind::Lookup holds the component as its index in the file, and a GridDesc no names.
+struct GridNames {
+  std::string name;
+  std::vector<std::string> components;
+};
+
+/// A line of provenance (`meta` in the core format): a key and its values, strings or whole
+/// numbers (`quoted` false). It does not change what the program computes, so neither the
+/// canonical form nor the fingerprint has it.
+struct MetaValue {
+  std::string text;
+  bool quoted{true};
+};
+struct MetaEntry {
+  std::string key;
+  std::vector<MetaValue> values;
+};
+
 class Program {
   public:
   [[nodiscard]] const Arena& arena() const { return arena_; }
@@ -135,6 +155,15 @@ class Program {
 
   // Every external grid the DAG references, in GridId order.
   [[nodiscard]] const std::vector<reader::datafield::GridDesc>& grids() const { return grids_; }
+
+  // The names of the grids and their components, by GridId, where a frontend gave them; shorter
+  // than grids() where it gave none.
+  [[nodiscard]] const std::vector<GridNames>& gridNames() const { return gridNames_; }
+  void nameGrid(GridId grid, GridNames names);
+
+  // The provenance of the program, in the order it was given.
+  [[nodiscard]] const std::vector<MetaEntry>& meta() const { return meta_; }
+  void addMeta(MetaEntry entry) { meta_.push_back(std::move(entry)); }
 
   // The matrices and blocks contractions read, in MatrixId and BlockId order.
   [[nodiscard]] const std::vector<MatrixSpec>& matrices() const { return matrices_; }
@@ -193,6 +222,8 @@ class Program {
   std::vector<StateSpec> state_;
   std::vector<NodeId> roots_;
   std::vector<reader::datafield::GridDesc> grids_;
+  std::vector<GridNames> gridNames_;
+  std::vector<MetaEntry> meta_;
   std::vector<MatrixSpec> matrices_;
   std::vector<BlockSpec> blocks_;
   ComputeType computeType_{ComputeType::F64};

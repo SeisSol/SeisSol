@@ -7,6 +7,7 @@
 
 #include "Expr/SderivFrontend.h"
 
+#include "Expr/Core.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Reader/Datafield/Grid.h"
@@ -1411,8 +1412,9 @@ void compileSource(const std::string& source,
     desc.boundary = *reader::datafield::parseBoundaryMode(grid.boundary);
     desc.timeAxis = grid.timeAxis;
     // internGrid dedupes, so two outputs naming the same grid share a GridId
-    // and the backend loads the file once.
+    // and the backend loads the file once. The names are what the core format prints.
     gridIds.push_back(program.internGrid(desc));
+    program.nameGrid(gridIds.back(), GridNames{grid.name, grid.components});
   }
 
   Lowering lowering(surface, parsed, components, gridIds, options.inputs, program);
@@ -1499,6 +1501,9 @@ Program compileSderivModule(const std::string& source) {
 }
 
 Program compileSderivModule(const std::string& source, const SderivOptions& options) {
+  if (isCoreText(source)) {
+    return loadCore(source, options.file);
+  }
   Program program;
   std::vector<std::string> channelOrder;
   compileSource(source, nullptr, reader::scripting::DataType::F64, options, program, channelOrder);

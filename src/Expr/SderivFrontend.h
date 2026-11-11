@@ -163,9 +163,13 @@ struct SderivOutput {
 struct SderivOptions {
   /// Names that read the input of that name wherever they are referenced (see above).
   std::set<std::string> inputs;
+  /// The file the source comes from, if any: a source in the core format (Core.h) names it in its
+  /// errors, and its relative grid paths are relative to its directory.
+  std::string file;
 };
 
-/// The same, with `options`.
+/// The same, with `options`. A source that starts with the header `#!sderiv` is in the core format
+/// (Core.h), which declares its inputs itself; `options.inputs` does not apply to it.
 [[nodiscard]] Program compileSderivModule(const std::string& source, const SderivOptions& options);
 
 // Convenience for the single-output case and for tests.
