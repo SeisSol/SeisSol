@@ -39,6 +39,22 @@ import subprocess
 import sys
 from pathlib import Path
 
+# The comparisons compute with numpy in one thread each. CTest runs them side by side, with each
+# other and with the cases, and a BLAS that threads its products starts a thread per CPU in every
+# one of them: with the OpenBLAS that the wheels of numpy bring along, as the job of aarch64
+# installs them, four comparisons of fault1d-rs-fvw-tp side by side on four CPUs took 350 to
+# 430 s each instead of 2 s, its exact solution taking two products of vectors as long as its
+# history at every stage of every step. A BLAS reads these variables when numpy loads it, which
+# none of the imports above does: OpenBLAS, MKL, OpenBLAS built with OpenMP, and Accelerate, which
+# the wheels for macOS take; a run of SeisSol takes its OMP_NUM_THREADS from --threads.
+for _variable in (
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OMP_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+):
+    os.environ[_variable] = "1"
+
 # the return code CTest is told to read as "skipped"
 SKIP_RETURN_CODE = 77
 
