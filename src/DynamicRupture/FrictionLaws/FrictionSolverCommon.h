@@ -1060,16 +1060,22 @@ struct SlipRateSolution {
  *
  * Every projection is a no-op for an isotropic impedance, where n is the direction of tau0 and the
  * result reduces to V = (|tau0| - strength) / eta.
+ *
+ * The solution goes out through a reference, not as the return value: NVHPC (24.9 and 26.9 alike)
+ * does not inline this function into the `omp simd` loop of the CPU friction law, and in such a
+ * loop, it compiles a call that returns a struct with default member initializers in memory as if
+ * the call never wrote the struct -- it drops the call, and what the loop computes from the struct
+ * comes out as zero or NaN.
  */
 template <typename Cfg>
-SEISSOL_HOSTDEVICE inline SlipRateSolution<Cfg>
-    solveSlipRate(const ImpedancesAndEta<Cfg>& impAndEta,
-                  const ImpedanceMatrices<Cfg>& impedanceMatrices,
-                  Real<Cfg> traction1,
-                  Real<Cfg> traction2,
-                  Real<Cfg> tractionMagnitude,
-                  Real<Cfg> strength,
-                  Real<Cfg> strengthSlope) {
+SEISSOL_HOSTDEVICE inline void solveSlipRate(const ImpedancesAndEta<Cfg>& impAndEta,
+                                             const ImpedanceMatrices<Cfg>& impedanceMatrices,
+                                             Real<Cfg> traction1,
+                                             Real<Cfg> traction2,
+                                             Real<Cfg> tractionMagnitude,
+                                             Real<Cfg> strength,
+                                             Real<Cfg> strengthSlope,
+                                             SlipRateSolution<Cfg>& solution) {
   const Real<Cfg> invAbsolute = (tractionMagnitude > 0)
                                     ? static_cast<Real<Cfg>>(1.0) / tractionMagnitude
                                     : static_cast<Real<Cfg>>(0.0);
@@ -1113,7 +1119,7 @@ SEISSOL_HOSTDEVICE inline SlipRateSolution<Cfg>
     etaNormal = projectEtaNormal(impAndEta, impedanceMatrices, n1, n2, static_cast<Real<Cfg>>(1.0));
   }
 
-  return {slipRate, n1, n2, projectedTraction, etaEff};
+  solution = {slipRate, n1, n2, projectedTraction, etaEff};
 }
 
 } // namespace seissol::dr::friction_law::common

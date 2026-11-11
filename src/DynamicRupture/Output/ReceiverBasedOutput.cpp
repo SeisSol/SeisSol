@@ -752,8 +752,15 @@ void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local,
     const auto& impedanceMatrices =
         local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
 
-    const auto solution = friction_law::common::solveSlipRate<Cfg>(
-        impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
+    friction_law::common::SlipRateSolution<Cfg> solution{};
+    friction_law::common::solveSlipRate<Cfg>(impAndEta,
+                                             impedanceMatrices,
+                                             component1,
+                                             component2,
+                                             tracEla,
+                                             strength,
+                                             strengthSlope,
+                                             solution);
 
     applySlipRate(
         local, solution.slipRate * solution.direction1, solution.slipRate * solution.direction2);
