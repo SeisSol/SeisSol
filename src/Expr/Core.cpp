@@ -125,7 +125,7 @@ bool overflows(const std::string& body, bool hex) {
 
 /// The value of the spelling of a number, with correct rounding; beyond the range of binary64, an
 /// infinity or zero, as the specification has it.
-double numberOf(const std::string& body, bool hex) {
+double convert(const std::string& body, bool hex) {
   double value = 0.0;
   const auto result = std::from_chars(body.data(),
                                       body.data() + body.size(),
@@ -449,7 +449,7 @@ class Lexer {
             token.line, token.column, "a hexadecimal number has a binary exponent, as in 0x1.8p+1");
       }
       exponent(token);
-      token.number = numberOf(text_.substr(body, pos_ - body), true);
+      token.number = convert(text_.substr(body, pos_ - body), true);
     } else {
       token.whole = true;
       digits(false);
@@ -462,7 +462,7 @@ class Lexer {
         token.whole = false;
         exponent(token);
       }
-      token.number = numberOf(text_.substr(start, pos_ - start), false);
+      token.number = convert(text_.substr(start, pos_ - start), false);
     }
     token.text = text_.substr(start, pos_ - start);
     if (nameStart(peek()) || peek() == '`' || peek() == '.') {
@@ -1351,6 +1351,46 @@ CoreError::CoreError(const CorePosition& position, const std::string& what)
     : SderivError(located(position), what, -1), where_(position) {}
 
 bool isCoreText(const std::string& text) { return text.compare(0, 8, "#!sderiv") == 0; }
+
+double numberOf(const std::string& spelling) {
+  const bool hex =
+      spelling.size() > 2 && spelling[0] == '0' && (spelling[1] == 'x' || spelling[1] == 'X');
+  const std::string body = hex ? spelling.substr(2) : spelling;
+  // what the lexers let through, and nothing else: digits, a point, an exponent
+  const bool valid = !body.empty() && std::all_of(body.begin(), body.end(), [hex](char c) {
+    return (hex ? hexDigit(c) : asciiDigit(c)) || c == '.' || c == '+' || c == '-' ||
+           (hex ? (c == 'p' || c == 'P') : (c == 'e' || c == 'E'));
+  });
+  double value = 0.0;
+  if (valid) {
+    const auto result = std::from_chars(body.data(),
+                                        body.data() + body.size(),
+                                        value,
+                                        hex ? std::chars_format::hex : std::chars_format::general);
+    if (result.ptr == body.data() + body.size()) {
+      if (result.ec == std::errc()) {
+        return value;
+      }
+      if (result.ec == std::errc::result_out_of_range) {
+        return overflows(body, hex) ? std::numeric_limits<double>::infinity() : 0.0;
+      }
+    }
+  }
+  throw std::invalid_argument("expr: `" + spelling + "` is no number");
+}
+
+CorePosition positionOf(const std::string& text, std::size_t offset, const std::string& file) {
+  CorePosition position{file, 1, 1};
+  for (std::size_t i = 0; i < offset && i < text.size(); ++i) {
+    if (text[i] == '\n') {
+      ++position.line;
+      position.column = 1;
+    } else if ((static_cast<unsigned char>(text[i]) & 0xC0U) != 0x80U) {
+      ++position.column;
+    }
+  }
+  return position;
+}
 
 Program loadCore(const std::string& text, const std::string& file) {
   Lexer lexer(text, file);

@@ -422,6 +422,50 @@ out rho = t4
     CHECK(u[1] == 2.0);
   }
 
+  TEST_CASE("the full language reads numbers, rcp and lnot as the specification has them") {
+    const auto valueOf = [](const std::string& number) {
+      const Program program = compileSderivModule("out def u = " + number + "\n");
+      return program.arena()[program.roots()[0]].value;
+    };
+    CHECK(valueOf(".5") == 0.5);
+    CHECK(valueOf("2.") == 2.0);
+    CHECK(valueOf("0x1.8p+1") == 3.0);
+    CHECK(valueOf("1e999") == std::numeric_limits<double>::infinity());
+    CHECK(valueOf("1e-999") == 0.0);
+    CHECK(std::isinf(valueOf("inf")));
+    CHECK(std::isnan(valueOf("nan")));
+
+    const Program program = compileSderivModule("out def u = rcp(x)\nout def v = lnot(x)\n");
+    const auto& arena = program.arena();
+    CHECK(arena[program.roots()[0]].fn == Fn::Rcp);
+    // eq(x, 0): true where x is false, also for values other than 0 and 1
+    CHECK(arena[program.roots()[1]].fn == Fn::Eq);
+    const auto values = evaluateAt(program, {{"x", 2.0}});
+    CHECK(values[0] == 0.5);
+    CHECK(values[1] == 0.0);
+    CHECK(evaluateAt(program, {{"x", 0.0}})[1] == 1.0);
+  }
+
+  TEST_CASE("an error of the full language names the line and the column") {
+    SderivOptions options;
+    options.file = "model.sderiv";
+    try {
+      static_cast<void>(compileSderivModule("def a = 1\nout def u = a +\n  * x\n", options));
+      FAIL("the module compiled");
+    } catch (const CoreError& error) {
+      CHECK(error.where().line == 3);
+      CHECK(error.where().column == 3);
+      CHECK(std::string(error.what()).rfind("model.sderiv:3:3:", 0) == 0);
+    }
+    // and a relative grid path is relative to the file
+    options.file = "/data/run/model.sderiv";
+    const Program program =
+        compileSderivModule("grid m = \"asagi\", \"vmodel.nc\", \"linear\", \"rho\"\n"
+                            "out def u = m_rho(x)\n",
+                            options);
+    CHECK(program.grids()[0].path == "/data/run/vmodel.nc");
+  }
+
   TEST_CASE("a module in the core format reads through the sderiv entry point") {
     SderivOptions options;
     options.file = "/data/model.sderiv";

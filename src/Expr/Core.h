@@ -35,6 +35,7 @@
 #include "Expr/Program.h"
 #include "Expr/SderivFrontend.h"
 
+#include <cstddef>
 #include <string>
 
 namespace seissol::expr {
@@ -59,6 +60,15 @@ class CoreError : public SderivError {
   private:
   CorePosition where_;
 };
+
+/// The value of the spelling of a number of sderiv: decimal (`2`, `2.5`, `.5`, `2.`, `1e-3`) or
+/// hexadecimal floating point (`0x1.8p+1`), with correct rounding and without the locale; beyond
+/// the range of binary64 an infinity or zero. Throws std::invalid_argument for anything else.
+[[nodiscard]] double numberOf(const std::string& spelling);
+
+/// The position of the byte `offset` of `text`: its line and its column in characters.
+[[nodiscard]] CorePosition
+    positionOf(const std::string& text, std::size_t offset, const std::string& file);
 
 /// Whether `text` is core text, i.e. starts with the header `#!sderiv`. A file without it is read
 /// as the full language.

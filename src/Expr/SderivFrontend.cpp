@@ -17,6 +17,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -121,14 +123,39 @@ std::vector<Token> tokenize(const std::string& source) {
       continue;
     }
 
-    if (std::isdigit(c) != 0) {
-      while (i < n && std::isdigit(static_cast<unsigned char>(source[i])) != 0) {
+    const auto digit = [&](std::size_t at) {
+      return at < n && std::isdigit(static_cast<unsigned char>(source[at])) != 0;
+    };
+    if (c == '0' && i + 1 < n && (source[i + 1] == 'x' || source[i + 1] == 'X')) {
+      // hexadecimal floating point, as in C: 0x1.8p+1
+      i += 2;
+      while (i < n &&
+             (std::isxdigit(static_cast<unsigned char>(source[i])) != 0 || source[i] == '.')) {
         ++i;
       }
-      if (i + 1 < n && source[i] == '.' &&
-          std::isdigit(static_cast<unsigned char>(source[i + 1])) != 0) {
+      if (i < n && (source[i] == 'p' || source[i] == 'P')) {
         ++i;
-        while (i < n && std::isdigit(static_cast<unsigned char>(source[i])) != 0) {
+        if (i < n && (source[i] == '+' || source[i] == '-')) {
+          ++i;
+        }
+        while (digit(i)) {
+          ++i;
+        }
+      }
+      tokens.push_back({TokenKind::Num, source.substr(start, i - start), static_cast<int>(start)});
+      continue;
+    }
+    if (std::isdigit(c) != 0 || (c == '.' && digit(i + 1))) {
+      while (digit(i)) {
+        ++i;
+      }
+      // `2.5`, `.5` and `2.`, but not the point of `2.x`
+      if (i < n && source[i] == '.' &&
+          (digit(i + 1) || i + 1 >= n ||
+           std::isalpha(static_cast<unsigned char>(source[i + 1])) == 0 || source[i + 1] == 'e' ||
+           source[i + 1] == 'E')) {
+        ++i;
+        while (digit(i)) {
           ++i;
         }
       }
@@ -166,7 +193,9 @@ std::vector<Token> tokenize(const std::string& source) {
       }
       std::string value = source.substr(start, i - start);
       TokenKind kind = TokenKind::Name;
-      if (value == "let") {
+      if (value == "inf" || value == "nan") {
+        kind = TokenKind::Num;
+      } else if (value == "let") {
         kind = TokenKind::Let;
       } else if (value == "in") {
         kind = TokenKind::In;
@@ -265,15 +294,15 @@ const std::unordered_map<std::string, double> Constants = {{"pi", M_PI}, {"g", 9
 
 // Spelled exactly as the Lua-side ssol.* names, so a model transliterates.
 const std::unordered_map<std::string, Fn> Builtins = {
-    {"sqrt", Fn::Sqrt},   {"abs", Fn::Abs},      {"exp", Fn::Exp},     {"log", Fn::Log},
-    {"log2", Fn::Log2},   {"log10", Fn::Log10},  {"sign", Fn::Sign},   {"floor", Fn::Floor},
-    {"ceil", Fn::Ceil},   {"round", Fn::Round},  {"sin", Fn::Sin},     {"cos", Fn::Cos},
-    {"tan", Fn::Tan},     {"asin", Fn::Asin},    {"acos", Fn::Acos},   {"sinh", Fn::Sinh},
-    {"cosh", Fn::Cosh},   {"tanh", Fn::Tanh},    {"asinh", Fn::Asinh}, {"acosh", Fn::Acosh},
-    {"atanh", Fn::Atanh}, {"erf", Fn::Erf},      {"min", Fn::Min},     {"max", Fn::Max},
-    {"pow", Fn::Pow},     {"atan2", Fn::Atan2},  {"mod", Fn::Mod},     {"lt", Fn::Lt},
-    {"le", Fn::Le},       {"eq", Fn::Eq},        {"land", Fn::And},    {"lor", Fn::Or},
-    {"atan", Fn::Atan},   {"select", Fn::Select}};
+    {"sqrt", Fn::Sqrt},   {"abs", Fn::Abs},       {"exp", Fn::Exp},     {"log", Fn::Log},
+    {"log2", Fn::Log2},   {"log10", Fn::Log10},   {"sign", Fn::Sign},   {"floor", Fn::Floor},
+    {"ceil", Fn::Ceil},   {"round", Fn::Round},   {"sin", Fn::Sin},     {"cos", Fn::Cos},
+    {"tan", Fn::Tan},     {"asin", Fn::Asin},     {"acos", Fn::Acos},   {"sinh", Fn::Sinh},
+    {"cosh", Fn::Cosh},   {"tanh", Fn::Tanh},     {"asinh", Fn::Asinh}, {"acosh", Fn::Acosh},
+    {"atanh", Fn::Atanh}, {"erf", Fn::Erf},       {"min", Fn::Min},     {"max", Fn::Max},
+    {"pow", Fn::Pow},     {"atan2", Fn::Atan2},   {"mod", Fn::Mod},     {"lt", Fn::Lt},
+    {"le", Fn::Le},       {"eq", Fn::Eq},         {"land", Fn::And},    {"lor", Fn::Or},
+    {"atan", Fn::Atan},   {"select", Fn::Select}, {"rcp", Fn::Rcp}};
 
 // The conversions between the types of values (see ValueType): `f64(x)` and `f32(x)` give x in
 // binary64 and binary32, `real(x)` in the compute type of the program. The same names give the
@@ -369,6 +398,22 @@ class Parser {
   private:
   const Token& peek() const { return tokens_[index_]; }
   const Token& next() { return tokens_[index_++]; }
+
+  /// The value of a number, with correct rounding (Core.h); an infinity or zero beyond the range of
+  /// binary64.
+  static double numberAt(const Token& token) {
+    if (token.value == "inf") {
+      return std::numeric_limits<double>::infinity();
+    }
+    if (token.value == "nan") {
+      return std::numeric_limits<double>::quiet_NaN();
+    }
+    try {
+      return numberOf(token.value);
+    } catch (const std::invalid_argument&) {
+      throw SderivError("lex", "`" + token.value + "` is no number", token.position);
+    }
+  }
   bool valueIs(const char* v) const { return peek().value == v; }
 
   const Token& eat(TokenKind kind, const char* value = nullptr) {
@@ -516,7 +561,7 @@ class Parser {
     if (negative) {
       eat(TokenKind::Op, "-");
     }
-    const double magnitude = std::stod(eat(TokenKind::Num).value);
+    const double magnitude = numberAt(eat(TokenKind::Num));
     state.initial = negative ? -magnitude : magnitude;
     return state;
   }
@@ -657,7 +702,7 @@ private:
       SurfaceNode node;
       node.kind = SurfaceKind::Num;
       node.position = token.position;
-      node.number = std::stod(token.value);
+      node.number = numberAt(token);
       return arena_.add(std::move(node));
     }
     // The whole point of confining strings: no case here, and the message says
@@ -1212,15 +1257,14 @@ private:
         return value;
       }
 
-      // `lnot` has no IR op on purpose: negating a 0/1 value is 1-c, and an op
-      // for it would be an op every backend has to implement. The rewrite lives
-      // here so that promise is kept in exactly one place.
+      // `lnot` has no operation of its own: it is eq(x, 0), true where x is false, as the
+      // specification has it -- also for values other than 0 and 1, and for a NaN, which is true
+      // and so not false.
       if (node.text == "lnot") {
         if (node.args.size() != 1) {
           fail(node, "`lnot` takes 1 argument, got " + std::to_string(node.args.size()));
         }
-        const NodeId one = program_.arena().konst(1.0);
-        return program_.arena().pw(Fn::Sub, one, lower(node.args[0], env));
+        return program_.arena().pw(Fn::Eq, lower(node.args[0], env), program_.arena().konst(0.0));
       }
 
       // a > b is b < a. Rewritten here rather than given its own Fn, so every
@@ -1236,15 +1280,6 @@ private:
         const NodeId left = lower(node.args[0], env);
         const NodeId right = lower(node.args[1], env);
         return program_.arena().pw(swapped->second, right, left);
-      }
-      // A condition is 0.0 or 1.0, so negation is 1 - c. Same rewrite the Lua
-      // tracer performs, and it keeps conditions in the arithmetic domain
-      // rather than introducing a boolean one.
-      if (node.text == "lnot") {
-        if (node.args.size() != 1) {
-          fail(node, "`lnot` takes 1 argument, got " + std::to_string(node.args.size()));
-        }
-        return program_.arena().pw(Fn::Sub, program_.arena().konst(1.0), lower(node.args[0], env));
       }
 
       // a conversion to another type: f64(x), f32(x), real(x)
@@ -1420,7 +1455,12 @@ void compileSource(const std::string& source,
     // GridDesc::boundary and GridDesc::timeAxis come from the form with attributes; the short
     // form clamps and has no time axis.
     desc.kind = *reader::datafield::parseGridKind(grid.kind);
-    desc.path = grid.file;
+    // relative to the directory of the file of the module, as easi and the parameter file have it
+    std::filesystem::path path(grid.file);
+    if (path.is_relative() && !options.file.empty()) {
+      path = (std::filesystem::path(options.file).parent_path() / path).lexically_normal();
+    }
+    desc.path = path.string();
     desc.variable = grid.variable;
     desc.interpolation = *reader::datafield::parseInterpolation(grid.interpolation);
     desc.boundary = *reader::datafield::parseBoundaryMode(grid.boundary);
@@ -1504,11 +1544,29 @@ void compileSource(const std::string& source,
 
 } // namespace
 
+/// `compile`, with the byte offset of an error turned into its line and column in `source`.
+template <typename F>
+void positioned(const std::string& source, const std::string& file, F&& compile) {
+  try {
+    compile();
+  } catch (const CoreError&) {
+    throw;
+  } catch (const SderivError& error) {
+    if (error.position() < 0) {
+      throw;
+    }
+    throw CoreError(positionOf(source, static_cast<std::size_t>(error.position()), file),
+                    error.what());
+  }
+}
+
 Program compileSderiv(const std::vector<SderivOutput>& outputs) {
   Program program;
   std::vector<std::string> channelOrder;
   for (const auto& output : outputs) {
-    compileSource(output.source, &output.name, output.type, {}, program, channelOrder);
+    positioned(output.source, "", [&] {
+      compileSource(output.source, &output.name, output.type, {}, program, channelOrder);
+    });
   }
   for (const auto& name : channelOrder) {
     program.addInput(name, reader::scripting::DataType::F64);
@@ -1531,7 +1589,10 @@ Program compileSderivModule(const std::string& source, const SderivOptions& opti
   }
   Program program;
   std::vector<std::string> channelOrder;
-  compileSource(source, nullptr, reader::scripting::DataType::F64, options, program, channelOrder);
+  positioned(source, options.file, [&] {
+    compileSource(
+        source, nullptr, reader::scripting::DataType::F64, options, program, channelOrder);
+  });
   for (const auto& name : channelOrder) {
     program.addInput(name, reader::scripting::DataType::F64);
   }
