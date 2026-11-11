@@ -73,10 +73,19 @@ void setFluidStress(yateto::DenseTensorView<2, RealT, unsigned>& dofs,
 /// equal ones) is projected onto that rest, and the projection, of unit length, is the next
 /// eigenvector; its coordinate on that axis is real and positive.
 ///
-/// The eigenvector of values[j] is the column j of vectors.
-void canonicalizeEigenvectors(const std::vector<std::complex<double>>& values,
+/// The eigenspace of a repeated eigenvalue is the null space of the operator minus the eigenvalue,
+/// taken from its singular value decomposition, balanced as eigenvalues::computeEigenvalues
+/// balances the operator: the vectors a general eigensolver returns for it may be nearly
+/// dependent, and then span a space that depends on the rounding of the build (by 4e-5 for the
+/// five static modes of a poroelastic planar wave, of which one is set up).
+///
+/// The eigenvector of values[j] is the column j of vectors, and `operatorMatrix` the plane-wave
+/// operator, column by column.
+void canonicalizeEigenvectors(const std::vector<std::complex<double>>& operatorMatrix,
+                              const std::vector<std::complex<double>>& values,
                               std::vector<std::complex<double>>& vectors) {
   const auto count = values.size();
+  const auto size = static_cast<Eigen::Index>(count);
   auto columns = yateto::DenseTensorView<2, std::complex<double>, unsigned>(
       vectors.data(), {static_cast<unsigned>(count), static_cast<unsigned>(count)});
 
@@ -101,17 +110,31 @@ void canonicalizeEigenvectors(const std::vector<std::complex<double>>& values,
       }
     }
 
-    Eigen::MatrixXcd basis(count, space.size());
-    for (std::size_t k = 0; k < space.size(); ++k) {
+    const auto width = static_cast<Eigen::Index>(space.size());
+    Eigen::MatrixXcd basis(size, width);
+    if (space.size() > 1) {
+      std::complex<double> eigenvalue = 0;
+      for (const auto j : space) {
+        eigenvalue += values[j];
+      }
+      eigenvalue /= static_cast<double>(space.size());
+      Eigen::MatrixXcd shifted =
+          Eigen::Map<const Eigen::MatrixXcd>(operatorMatrix.data(), size, size) -
+          eigenvalue * Eigen::MatrixXcd::Identity(size, size);
+      const auto balancing = seissol::eigenvalues::balance(shifted);
+      // the singular values come in decreasing order
+      const Eigen::JacobiSVD<Eigen::MatrixXcd> svd(shifted, Eigen::ComputeFullV);
+      basis = balancing.cast<std::complex<double>>().asDiagonal() * svd.matrixV().rightCols(width);
+    } else {
       for (std::size_t i = 0; i < count; ++i) {
-        basis(i, k) = columns(i, space[k]);
+        basis(static_cast<Eigen::Index>(i), 0) = columns(i, space[0]);
       }
     }
     // the orthogonal projector onto the eigenspace, which does not depend on the basis it is
     // computed from
     const Eigen::MatrixXcd orthonormal =
         Eigen::HouseholderQR<Eigen::MatrixXcd>(basis).householderQ() *
-        Eigen::MatrixXcd::Identity(count, space.size());
+        Eigen::MatrixXcd::Identity(size, width);
     Eigen::MatrixXcd projector = orthonormal * orthonormal.adjoint();
 
     for (const auto column : space) {
@@ -187,6 +210,7 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
 void seissol::physics::Planarwave::init(const CellMaterialData& materialData, ConfigId config) {
   assert(varField_.size() == ampField_.size());
 
+  std::vector<std::complex<double>> operatorMatrix;
   dispatchConfig(config, [&](auto cfg) {
     using Cfg = decltype(cfg);
     using MaterialT = model::MaterialOf<Cfg>;
@@ -195,13 +219,14 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData, Co
     std::array<std::complex<double>, NumQuantities * NumQuantities> planeWaveOperator{};
     seissol::model::getPlaneWaveOperator<Cfg>(
         *dynamic_cast<MaterialT*>(materialData.local), kVec_.data(), planeWaveOperator.data());
+    operatorMatrix.assign(planeWaveOperator.begin(), planeWaveOperator.end());
     seissol::eigenvalues::Eigenpair<std::complex<double>, NumQuantities> eigendecomposition;
     seissol::eigenvalues::computeEigenvalues(planeWaveOperator, eigendecomposition);
     numQuantities_ = NumQuantities;
     lambdaA_.assign(eigendecomposition.values.begin(), eigendecomposition.values.end());
     eigenvectors_.assign(eigendecomposition.vectors.begin(), eigendecomposition.vectors.end());
   });
-  canonicalizeEigenvectors(lambdaA_, eigenvectors_);
+  canonicalizeEigenvectors(operatorMatrix, lambdaA_, eigenvectors_);
 }
 
 template <typename RealT>
