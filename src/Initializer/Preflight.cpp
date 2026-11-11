@@ -491,7 +491,14 @@ json::Value checkEasiModel(const std::string& parameter,
     easi::YAMLParser parser(timeDependent ? std::set<std::string>{"t", "x", "y", "z"}
                                           : std::set<std::string>{"x", "y", "z"});
 #else
-    // (an easi too old for time-dependent conditions stops the run, see EasiLoader)
+    // an easi too old for time-dependent conditions stops the run (see EasiLoader)
+    if (timeDependent) {
+      report.problem("The easi model " + modelFile + " that " + parameter +
+                     " names depends on the time, which needs easi 1.5.0 or later; this build "
+                     "of SeisSol has an older one.");
+      section["parsed"] = false;
+      return section;
+    }
     easi::YAMLParser parser(3);
 #endif
     component.reset(parser.parse(modelFile));

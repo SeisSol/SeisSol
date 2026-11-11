@@ -76,7 +76,6 @@ class Dataset {
 
   [[nodiscard]] bool valid() const { return dataset_ >= 0 && !dims_.empty(); }
   [[nodiscard]] std::size_t rows() const { return dims_.empty() ? 0 : dims_[0]; }
-  [[nodiscard]] std::size_t rank() const { return dims_.size(); }
   [[nodiscard]] std::size_t columns() const {
     std::size_t columns = 1;
     for (std::size_t i = 1; i < dims_.size(); ++i) {
