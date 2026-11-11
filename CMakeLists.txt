@@ -577,14 +577,21 @@ if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 if (WITH_GPU)
-  string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
-
-  if ("${BACKEND_UPPER_CASE}" STREQUAL "HIP")
+  # the variable that leaves each process the GPU of its local rank (SeisSol takes the first GPU it
+  # sees): one of the runtime underneath, which the vendor decides, not the backend (e.g. there is
+  # no ONEAPI_VISIBLE_DEVICES)
+  if (DEVICE_VENDOR STREQUAL "intel")
+    # Level Zero; with ZE_FLAT_DEVICE_HIERARCHY=FLAT, each stack of a GPU is a device of its own
+    set(RUN_GPU_TIME_SELECTOR "ZE_AFFINITY_MASK")
+  elseif (DEVICE_VENDOR STREQUAL "amd")
     # ROCR needed for proper chiplet selection in TPX/CPX mode
-    set(BACKEND_UPPER_CASE "ROCR")
+    set(RUN_GPU_TIME_SELECTOR "ROCR_VISIBLE_DEVICES")
+  elseif (DEVICE_VENDOR STREQUAL "nvidia")
+    set(RUN_GPU_TIME_SELECTOR "CUDA_VISIBLE_DEVICES")
+  else()
+    string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
+    set(RUN_GPU_TIME_SELECTOR "${BACKEND_UPPER_CASE}_VISIBLE_DEVICES")
   endif()
-
-  set(RUN_GPU_TIME_SELECTOR "${BACKEND_UPPER_CASE}_VISIBLE_DEVICES")
   configure_file(${PROJECT_SOURCE_DIR}/cmake/gpu-launch-template.in
                  ${PROJECT_BINARY_DIR}/seissol-launch
                  @ONLY)

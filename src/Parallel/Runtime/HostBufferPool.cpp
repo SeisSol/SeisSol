@@ -9,12 +9,13 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <cstdlib>
 #include <mutex>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
+#else
+#include <new>
 #endif
 
 namespace seissol::parallel::runtime {
@@ -36,7 +37,7 @@ HostBufferPool::~HostBufferPool() {
 #ifdef ACL_DEVICE
     device::DeviceInstance::instance().api().freePinnedMem(buffer.host);
 #else
-    std::free(buffer.host);
+    ::operator delete(buffer.host, std::align_val_t(PageSize));
 #endif
   }
 }
@@ -58,7 +59,7 @@ HostBufferPool::Buffer HostBufferPool::take() {
   buffer.device = api.devicePointer(buffer.host);
 #else
   // aligned like pinned memory, for what the buffers hold (e.g. DOFs read by vector loads)
-  buffer.host = std::aligned_alloc(PageSize, (bytes_ + PageSize - 1) / PageSize * PageSize);
+  buffer.host = ::operator new(bytes_, std::align_val_t(PageSize));
   buffer.device = buffer.host;
 #endif
   all_.push_back(buffer);

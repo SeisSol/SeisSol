@@ -43,12 +43,12 @@ std::optional<std::string> ParameterReader::readPath(const std::string& field) {
     }();
     // try to get the full file name (if that works)
     if (std::filesystem::exists(loadFileName)) {
-      return std::filesystem::canonical(loadFileName);
+      return std::filesystem::canonical(loadFileName).string();
     } else if (std::filesystem::exists(nextPath)) {
-      return std::filesystem::canonical(nextPath);
+      return std::filesystem::canonical(nextPath).string();
     } else {
       // otherwise, just return the string (TODO: or should be fail here then?)
-      return nextPath;
+      return nextPath.string();
     }
   }();
   paths_.emplace_back(field, resolved);

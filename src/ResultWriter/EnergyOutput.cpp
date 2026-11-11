@@ -968,8 +968,7 @@ void EnergyOutput::checkAbortCriterion(const std::vector<double>& timeSinceThres
   }
 
   bool abort = (decidableCount > 0) and (abortCount == decidableCount);
-  const auto& comm = Mpi::mpi.comm();
-  MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
+  Mpi::mpi.broadcast(&abort, 0);
   if (abort) {
     seissolInstance_.simulator().abort();
   }

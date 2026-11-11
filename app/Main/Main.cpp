@@ -8,6 +8,7 @@
 
 #include "BuildInfo.h"
 #include "Common/ConfigRegistry.h"
+#include "Common/Environment.h"
 #include "Common/Json.h"
 #include "Common/RunId.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
@@ -99,11 +100,9 @@ class MeasuringSettings {
   ~MeasuringSettings() {
     for (const auto& [name, value] : saved_) {
       if (value.has_value()) {
-        // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
-        setenv(name.c_str(), value->c_str(), 1);
+        setEnvironmentVariable(name.c_str(), value->c_str());
       } else {
-        // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
-        unsetenv(name.c_str());
+        unsetEnvironmentVariable(name.c_str());
       }
     }
   }
@@ -122,8 +121,7 @@ class MeasuringSettings {
     const char* before = std::getenv(name);
     saved_.emplace_back(name,
                         before != nullptr ? std::make_optional<std::string>(before) : std::nullopt);
-    // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
-    setenv(name, value, 1);
+    setEnvironmentVariable(name, value);
   }
 
   std::vector<std::pair<std::string, std::optional<std::string>>> saved_;

@@ -10,15 +10,20 @@
 
 #include <doctest.h>
 
+#include "Common/Environment.h"
 #include "Common/Filesystem.h"
 #include "Setup.h"
 
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <limits>
 #include <optional>
 #include <ostream>
+#include <random>
+#include <stdexcept>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -46,11 +51,9 @@ class ScopedEnvironment {
   private:
   void set(const std::optional<std::string>& value) const {
     if (value.has_value()) {
-      // NOLINTNEXTLINE(concurrency-mt-unsafe)
-      setenv(name_.c_str(), value->c_str(), 1);
+      setEnvironmentVariable(name_.c_str(), value->c_str());
     } else {
-      // NOLINTNEXTLINE(concurrency-mt-unsafe)
-      unsetenv(name_.c_str());
+      unsetEnvironmentVariable(name_.c_str());
     }
   }
 
@@ -156,7 +159,26 @@ inline doctest::String toString(const AbsApprox& in) {
 inline std::string tpath(const std::string& subpath) {
   const auto base = std::filesystem::path(TestSetup::Path);
   const auto addend = std::filesystem::path(subpath);
-  return std::string(base / addend);
+  return (base / addend).string();
+}
+
+/**
+ * Creates a new, empty directory in the temporary directory of the system (e.g. /tmp on Linux,
+ * or %TEMP% on Windows), its name starting with @p prefix , and returns its path.
+ */
+inline std::string createTemporaryDirectory(const std::string& prefix) {
+  const auto base = std::filesystem::temp_directory_path();
+  std::random_device seed;
+  std::mt19937_64 generator(seed());
+  for (int attempt = 0; attempt < 100; ++attempt) {
+    const auto candidate = base / (prefix + std::to_string(generator()));
+    std::error_code error;
+    // create_directory only returns true if the directory did not exist before
+    if (std::filesystem::create_directory(candidate, error)) {
+      return candidate.string();
+    }
+  }
+  throw std::runtime_error("could not create a temporary directory");
 }
 
 } // namespace seissol::unit_test

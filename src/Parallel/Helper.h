@@ -21,9 +21,29 @@
 #endif
 
 namespace seissol {
+
+/// whether this is a build for a device, whose time stepping has defaults of its own (see
+/// docs/gpu-time-stepping.rst)
+#ifdef ACL_DEVICE
+inline constexpr bool DeviceBuild = true;
+#else
+inline constexpr bool DeviceBuild = false;
+#endif
+
+inline bool useHostActor(utils::Env& env);
+
+/**
+ * Whether a communication thread advances MPI (SEISSOL_COMMTHREAD). By default, it does, unless the
+ * host actor takes the work on the host for a device: the thread that enqueues the work of the
+ * device then tests the exchanges as it goes along, which was faster than the thread on GPUs.
+ */
+inline bool commThreadRequested(utils::Env& env) {
+  return env.get<bool>("COMMTHREAD", !(DeviceBuild && useHostActor(env)));
+}
+
 template <typename T>
 void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
-  const bool useThread = env.get<bool>("COMMTHREAD", true);
+  const bool useThread = commThreadRequested(env);
   if (mpiBasic.isSingleProcess()) {
     logInfo() << "Using polling for advancing MPI communication, due to having only "
                  "one MPI rank running.";
@@ -36,7 +56,7 @@ void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
 
 template <typename T>
 bool useCommThread(const T& mpiBasic, utils::Env& env) {
-  const bool useThread = env.get<bool>("COMMTHREAD", true);
+  const bool useThread = commThreadRequested(env);
   return useThread && !mpiBasic.isSingleProcess();
 }
 
@@ -44,10 +64,11 @@ inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSIS
 
 /**
  * Whether the clusters on the device only enqueue their work and wait for each other on the device,
- * instead of waiting for the completion of each of their steps. Implies scratchpads per layer.
+ * instead of waiting for the completion of each of their steps. Implies scratchpads per layer. On
+ * by default in builds for a device.
  */
 inline bool useConcurrentClusters(utils::Env& env) {
-  return env.get<bool>("CONCURRENT_CLUSTERS", false);
+  return env.get<bool>("CONCURRENT_CLUSTERS", bool{DeviceBuild});
 }
 
 /**
@@ -67,9 +88,10 @@ inline bool useSuperStepGraphs(utils::Env& env) { return env.get<bool>("SUPERSTE
  * Whether the work on the host that reads what the device has written (the samples of the
  * receivers and fault receivers) runs on the thread that enqueues the work of the device once the
  * device is done with it (see parallel::runtime::HostActor), instead of in host functions on
- * streams; also for recorded super-timesteps, after each of their replays.
+ * streams; also for recorded super-timesteps, after each of their replays. On by default in builds
+ * for a device, where a host function holds up the stream it is on while it runs.
  */
-inline bool useHostActor(utils::Env& env) { return env.get<bool>("HOST_ACTOR", false); }
+inline bool useHostActor(utils::Env& env) { return env.get<bool>("HOST_ACTOR", bool{DeviceBuild}); }
 
 /**
  * Whether the independent branches of the work of a cluster (e.g. the neighbor fluxes of the face

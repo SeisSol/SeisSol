@@ -11,11 +11,11 @@
 Time stepping and halo exchange on GPUs
 =======================================
 
-By default, SeisSol advances its time clusters whenever they are ready,
-waits for the GPU after each step of a cluster,
+By default, SeisSol advances its time clusters on GPUs whenever they are ready,
+lets the clusters only enqueue their GPU work and wait for each other on the GPU (concurrent clusters),
 and exchanges the halo data between processes with (GPU-aware) MPI.
 The options on this page change how the steps get ordered, and how the GPU work of the clusters gets enqueued.
-All of them are experimental; the results are meant to stay bitwise identical to the default.
+The results are meant to stay bitwise identical whatever they are set to.
 
 Concepts
 ~~~~~~~~
@@ -53,22 +53,23 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - Take the steps in a fixed order: by logical time (corrections at the end of their step,
        everything else at its start), corrections before predictions before face work.
        A cluster can then only wait for the halo exchange.
-   * - ``SEISSOL_CONCURRENT_CLUSTERS=1``
-     - GPU builds only. The clusters only enqueue their GPU work and wait for each other on the GPU (via events),
-       instead of waiting for each of their steps. Needs separate scratchpads per layer, which it enables.
+   * - ``SEISSOL_CONCURRENT_CLUSTERS=0``
+     - GPU builds only. The clusters wait for each of their steps, instead of only enqueueing their GPU work and
+       waiting for each other on the GPU (via events; on by default). Concurrent clusters need separate scratchpads
+       per layer, which they enable: the log shows the memory that takes.
    * - ``SEISSOL_ACCESS_EVENTS=0``
      - With concurrent clusters, wait for the latest action of each neighbor, instead of only for what the work depends
        on (see below; on by default).
    * - ``SEISSOL_SUPERSTEP_GRAPHS=1``
      - Record the GPU work of a super-timestep into a graph, and replay it for all further super-timesteps of the same kind
-       (see below). Needs ``SEISSOL_TIMESTEPPING_PLAN=1`` and ``SEISSOL_CONCURRENT_CLUSTERS=1``.
+       (see below). Needs ``SEISSOL_TIMESTEPPING_PLAN=1`` and concurrent clusters.
    * - ``SEISSOL_OUTPUT_THREAD=1``
      - Experimental. Process the outputs of a synchronization point on a thread of their own, while the GPU
        goes on with the next epoch (see below).
-   * - ``SEISSOL_HOST_ACTOR=1``
-     - Experimental, GPU builds only. Take the samples of the receivers and the fault receivers on the host once
-       the GPU is done with what they read, instead of in host functions on streams; also for recorded
-       super-timesteps (see below).
+   * - ``SEISSOL_HOST_ACTOR=0``
+     - GPU builds only. Take the samples of the receivers and the fault receivers in host functions on streams,
+       instead of on the host once the GPU is done with what they read (the host actor, on by default; also for
+       recorded super-timesteps, see below).
    * - ``SEISSOL_OUTPUT_SNAPSHOT=0``
      - With ``SEISSOL_OUTPUT_THREAD=1``: keep no snapshots of the data, and copy the data for the outputs to the host
        before the next epoch, instead of from the snapshots while the GPU goes on (see below).
@@ -190,11 +191,11 @@ Work on the host for the GPU
 
 Some work on the host reads what the GPU computes during an epoch: the samples of the receivers
 read the unknowns of their cells, and those of the fault receivers the derivatives next to the faults
-and the friction state, which the GPU gathers into host memory. By default, a host
+and the friction state, which the GPU gathers into host memory. With ``SEISSOL_HOST_ACTOR=0``, a host
 function on a stream takes them, which the device runtime calls on a thread of its own once the
 gather is done. Such a call is not cheap, and the stream it is on waits for it.
 
-With ``SEISSOL_HOST_ACTOR=1``, the GPU gathers what the work reads into a buffer of host memory of
+By default, the host actor takes them instead: the GPU gathers what the work reads into a buffer of host memory of
 its own for each step, and an event after the gather stands for it. The thread that enqueues the
 work of the GPU checks the events while it goes along (as it does for the halo exchange), and runs
 the work of the steps that are done, in their order: by itself, with its OpenMP threads in the loops;
@@ -234,12 +235,13 @@ Status
 The ordering and the decisions of the options above are checked by unit tests,
 including simulations of devices and networks that run the enqueued work in any admissible order.
 On GPUs, the verification cases pass with all of them.
-Scenarios with local time stepping came out bitwise the same as with the default (apart from the energy output,
+Scenarios with local time stepping came out bitwise the same as with the clusters one after another
+(``SEISSOL_CONCURRENT_CLUSTERS=0`` and ``SEISSOL_HOST_ACTOR=0``; apart from the energy output,
 whose sums vary from run to run anyway), with one process and all options, recorded super-timesteps included,
 and with several processes for ``direct`` and ``host``; with SYCL (AdaptiveCpp), with one and two processes and
 concurrent clusters. With ``direct``, the time-stepping plan with concurrent clusters and the host actor has run on
 several nodes of Horizon (B200) and of LUMI (MI250X).
-Compare the results of a run bitwise to the default before relying on these options on another system.
+On another system, compare the results of a run bitwise to one with these two off before relying on the defaults.
 
 On HIP, graphs need Device d2fe2de or newer, which works around two bugs of HIP 7.2:
 graph roots that do not wait for the work before the launch, and captures that do not end

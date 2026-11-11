@@ -16,14 +16,13 @@
 #include "IO/Reader/File/Hdf5Reader.h"
 #include "IO/WriterHarness.t.h"
 #include "Parallel/MPI.h"
+#include "TestHelper.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <mpi.h>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -38,15 +37,10 @@ struct SharedTempDir {
   std::string path;
 
   SharedTempDir() {
-    std::vector<char> buffer(256, '\0');
     if (Mpi::mpi.rank() == 0) {
-      std::string name = "/tmp/seissoliompitestXXXXXX";
-      const char* created = mkdtemp(name.data());
-      REQUIRE(created != nullptr);
-      std::ranges::copy(name, buffer.begin());
+      path = createTemporaryDirectory("seissoliompitest");
     }
-    MPI_Bcast(buffer.data(), static_cast<int>(buffer.size()), MPI_CHAR, 0, Mpi::mpi.comm());
-    path = std::string(buffer.data());
+    Mpi::mpi.broadcastContainer(path, 0);
     // the ranks may not share a file system view instantly; make sure the directory is there
     // everywhere before anyone opens a file in it collectively
     std::error_code error;

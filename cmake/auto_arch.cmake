@@ -27,7 +27,15 @@ function(determine_host_arch arch)
     endforeach()
     list(JOIN native_flags " " CMAKE_REQUIRED_FLAGS)
 
-    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    # Windows calls the processors AMD64 and ARM64, macOS arm64
+    string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" processor)
+    if (processor STREQUAL "amd64")
+        set(processor "x86_64")
+    elseif (processor STREQUAL "arm64")
+        set(processor "aarch64")
+    endif()
+
+    if (processor STREQUAL "x86_64")
         check_source_runs(CXX
             "
             int main() {
@@ -73,7 +81,7 @@ function(determine_host_arch arch)
             set(myarch "snb")
         endif()
     endif()
-    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    if (processor STREQUAL "aarch64")
         set(myarch "neon")
 
         check_source_runs(CXX
@@ -130,7 +138,7 @@ function(determine_host_arch arch)
             set(myarch "sve128")
         endif()
     endif()
-    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+    if (processor STREQUAL "riscv64")
         check_source_runs(CXX
             "
             #ifdef __riscv_vector
@@ -185,7 +193,7 @@ function(determine_host_arch arch)
             set(myarch "rvv128")
         endif()
     endif()
-    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "loongarch64")
+    if (processor STREQUAL "loongarch64")
         check_source_runs(CXX
             "
             int main() {
