@@ -440,7 +440,7 @@ std::optional<std::string> stringAttributeOf(hid_t object, const char* name) {
     std::vector<char> data(H5Tget_size(type));
     if (H5Aread(attribute, type, data.data()) >= 0) {
       // up to the first null, if there is one
-      value = std::string(data.begin(), std::find(data.begin(), data.end(), '\0'));
+      value = std::string(data.begin(), std::ranges::find(data, '\0'));
     }
   }
   H5Tclose(type);

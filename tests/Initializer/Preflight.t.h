@@ -42,8 +42,8 @@ TEST_CASE("The check options are taken out of the command line" *
     int argc = 3;
     const auto options = initializer::extractCheckOptions(argc, argv.data());
     REQUIRE(options.has_value());
-    CHECK(options->reportPath.empty());
-    CHECK(options->depth == initializer::CheckDepth::Mesh);
+    CHECK(options.value().reportPath.empty());
+    CHECK(options.value().depth == initializer::CheckDepth::Mesh);
     REQUIRE(argc == 2);
     CHECK(std::string(argv[1]) == "parameters.par");
   }
@@ -53,7 +53,7 @@ TEST_CASE("The check options are taken out of the command line" *
     int argc = 3;
     const auto options = initializer::extractCheckOptions(argc, argv.data());
     REQUIRE(options.has_value());
-    CHECK(options->reportPath == "report.json");
+    CHECK(options.value().reportPath == "report.json");
     CHECK(argc == 2);
   }
   SUBCASE("With a depth") {
@@ -64,8 +64,8 @@ TEST_CASE("The check options are taken out of the command line" *
     int argc = 4;
     const auto options = initializer::extractCheckOptions(argc, argv.data());
     REQUIRE(options.has_value());
-    CHECK(options->reportPath == "report.json");
-    CHECK(options->depth == initializer::CheckDepth::Files);
+    CHECK(options.value().reportPath == "report.json");
+    CHECK(options.value().depth == initializer::CheckDepth::Files);
     REQUIRE(argc == 2);
     CHECK(std::string(argv[1]) == "parameters.par");
   }
@@ -75,7 +75,7 @@ TEST_CASE("The check options are taken out of the command line" *
     int argc = 3;
     const auto options = initializer::extractCheckOptions(argc, argv.data());
     REQUIRE(options.has_value());
-    CHECK(options->depth == initializer::CheckDepth::Model);
+    CHECK(options.value().depth == initializer::CheckDepth::Model);
   }
   SUBCASE("A depth alone asks for the check") {
     std::array<std::string, 3> words{"seissol", "--check-depth=mesh", "parameters.par"};
@@ -83,7 +83,7 @@ TEST_CASE("The check options are taken out of the command line" *
     int argc = 3;
     const auto options = initializer::extractCheckOptions(argc, argv.data());
     REQUIRE(options.has_value());
-    CHECK(options->depth == initializer::CheckDepth::Mesh);
+    CHECK(options.value().depth == initializer::CheckDepth::Mesh);
     CHECK(argc == 2);
   }
 }

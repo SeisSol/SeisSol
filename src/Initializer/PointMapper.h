@@ -70,7 +70,7 @@ class CellPlanes {
       maxValue = std::max(maxValue, resultFace);
       maxDistance = std::max(maxDistance, resultFace / normLengths_[face]);
     }
-    return {maxValue, maxDistance};
+    return {.value = maxValue, .distance = maxDistance};
   }
 
   /**

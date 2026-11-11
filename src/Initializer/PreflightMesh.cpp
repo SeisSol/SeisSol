@@ -171,7 +171,7 @@ class PointGrid {
 
   //! @brief Calls @p visit with the index of every point in a grid cell that the box [a, b] meets.
   template <typename F>
-  void forEachNear(const Eigen::Vector3d& a, const Eigen::Vector3d& b, F&& visit) const {
+  void forEachNear(const Eigen::Vector3d& a, const Eigen::Vector3d& b, const F& visit) const {
     if (order_.empty()) {
       return;
     }
@@ -187,7 +187,7 @@ class PointGrid {
         for (std::size_t z = from[2]; z <= to[2]; ++z) {
           const auto cell = flat(x, y, z);
           for (auto k = start_[cell]; k < start_[cell + 1]; ++k) {
-            std::forward<F>(visit)(order_[k]);
+            visit(order_[k]);
           }
         }
       }
@@ -505,6 +505,8 @@ MeshScan scanMesh(const MeshScanSettings& settings,
   std::vector<Candidate> sourceBest(sources.points.size());
   std::vector<CellPlanes::Point> receivers1;
   std::vector<CellPlanes::Point> sources1;
+  receivers1.reserve(receivers.points.size());
+  sources1.reserve(sources.points.size());
   for (const auto& point : receivers.points) {
     receivers1.push_back(CellPlanes::homogeneous(point));
   }

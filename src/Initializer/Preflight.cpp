@@ -1027,7 +1027,7 @@ void checkMeshContent(const parameters::SeisSolParameters& parameters,
   }
 }
 
-std::string depthName(CheckDepth depth) {
+std::string_view depthName(CheckDepth depth) {
   switch (depth) {
   case CheckDepth::Files:
     return "files";
