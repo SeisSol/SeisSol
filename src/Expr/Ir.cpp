@@ -279,6 +279,11 @@ NodeId Arena::pw(Fn f, NodeId x, ValueType type) {
     logError() << "expr: arity mismatch for" << name(f) << "— expected" << arity(f)
                << "arguments, got 1";
   }
+  // a number negated is a number, since negation is exact: one program, whichever frontend wrote
+  // it, and the one the core format reads back (Core.h)
+  if (f == Fn::Neg && nodes_[x].kind == Kind::Const && nodes_[x].type == type) {
+    return konst(-nodes_[x].value, type);
+  }
   Node n;
   n.kind = Kind::PW;
   n.type = type;

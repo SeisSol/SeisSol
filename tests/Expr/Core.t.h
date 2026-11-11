@@ -221,7 +221,8 @@ out def w = exp(-x) / two
     REQUIRE(program.inputs().size() == 4);
     CHECK(program.inputs()[0].name == "in");
     const std::string text = printCore(program);
-    CHECK(text.find("in `a b`, `in`, max, `next`\n") != std::string::npos);
+    // in the order of the program
+    CHECK(text.find("in `in`, `next`, max, `a b`\n") != std::string::npos);
     CHECK(text.find("def t0 = max(max, `in`)\n") != std::string::npos);
     CHECK(text.find("out `out` = `next`\n") != std::string::npos);
     CHECK(printCore(loadCore(text, "")) == text);
@@ -230,6 +231,23 @@ out def w = exp(-x) / two
     full.addInput("let", reader::scripting::DataType::F64);
     full.addOutput("u", reader::scripting::DataType::F64, full.arena().field("let"));
     CHECK(printCore(full).find("in `let`") != std::string::npos);
+  }
+
+  TEST_CASE("a program read back from its normal form keeps its fingerprint") {
+    // inputs and outputs in an order other than that of their names; a number negated in the full
+    // language, which the core format reads as a number
+    for (const Program& program :
+         {loadCore("#!sderiv 1\nin x, group\nout u = select(lt(x, 0.5), x, 2 * x)\n"
+                   "out g = group * 1\n",
+                   ""),
+          compileSderivModule("out def u = -5.4 * t - 3.14 * x\nout def a = -(2 * t)\n",
+                              SderivOptions{})}) {
+      const Program again = loadCore(printCore(program), "");
+      CAPTURE(printCore(program));
+      CAPTURE(program.canonicalForm());
+      CAPTURE(again.canonicalForm());
+      CHECK(again.fingerprint() == program.fingerprint());
+    }
   }
 
   TEST_CASE("every operation of the program has a spelling, and reads back") {

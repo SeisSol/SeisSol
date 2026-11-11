@@ -78,8 +78,9 @@ class CoreError : public SderivError {
 /// relative to its directory. Throws CoreError.
 [[nodiscard]] Program loadCore(const std::string& text, const std::string& file = "");
 
-/// `program` in the normal form of the core format: one text per program, which loadCore() reads
-/// back into the same program. Throws std::invalid_argument for a program the format cannot
+/// `program` in the normal form of the core format: one text per program, its inputs, grids, states
+/// and outputs in the order of the program, which loadCore() reads back into the same program, of
+/// the same fingerprint. Throws std::invalid_argument for a program the format cannot
 /// express: one with contractions, which a consumer introduces when it binds a program, or one
 /// the lowering has made (written-out lookups, whole numbers, truth values).
 [[nodiscard]] std::string printCore(const Program& program);

@@ -1120,11 +1120,12 @@ class Printer {
 
     std::string out;
 
+    // in the order of the program, which is that of the arguments of its kernels: a program of
+    // another order is another program, with another fingerprint
     std::vector<std::string> inputs;
     for (const auto& input : program_.inputs()) {
       inputs.push_back(input.name);
     }
-    std::sort(inputs.begin(), inputs.end());
     if (!inputs.empty()) {
       out += "in ";
       for (std::size_t i = 0; i < inputs.size(); ++i) {
@@ -1133,14 +1134,7 @@ class Printer {
       out += "\n";
     }
 
-    std::vector<std::size_t> grids(program_.grids().size());
-    for (std::size_t g = 0; g < grids.size(); ++g) {
-      grids[g] = g;
-    }
-    std::sort(grids.begin(), grids.end(), [&](std::size_t a, std::size_t b) {
-      return gridNames_[a].name < gridNames_[b].name;
-    });
-    for (const std::size_t g : grids) {
+    for (std::size_t g = 0; g < program_.grids().size(); ++g) {
       printGrid(out, g);
     }
 
@@ -1148,9 +1142,6 @@ class Printer {
     for (std::size_t s = 0; s < states.size(); ++s) {
       states[s] = s;
     }
-    std::sort(states.begin(), states.end(), [&](std::size_t a, std::size_t b) {
-      return program_.state()[a].name < program_.state()[b].name;
-    });
     for (const std::size_t s : states) {
       const StateSpec& state = program_.state()[s];
       out += "state ";
@@ -1164,9 +1155,6 @@ class Printer {
     for (std::size_t o = 0; o < outputs.size(); ++o) {
       outputs[o] = o;
     }
-    std::sort(outputs.begin(), outputs.end(), [&](std::size_t a, std::size_t b) {
-      return program_.outputs()[a].name < program_.outputs()[b].name;
-    });
 
     // the definitions, in the order a depth-first walk needs them: from the outputs, then from
     // the next values
