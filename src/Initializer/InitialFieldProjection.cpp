@@ -290,6 +290,11 @@ std::vector<double> projectScriptFields(const std::string& path,
 
   for (std::size_t simulation = 0; simulation < Simulations; ++simulation) {
     reader::scripting::DataTable table(numPoints);
+    // a point is the quadrature point of its element, whichever rank evaluates it
+    table.setIdentity([&elements](std::size_t point) {
+      return static_cast<std::uint64_t>(elements[point / NumQuadPoints].globalId) * NumQuadPoints +
+             point % NumQuadPoints;
+    });
     table.bindViewConst("x", reader::scripting::Direction::In, points.data()->data(), Cell::Dim, 0);
     table.bindViewConst("y", reader::scripting::Direction::In, points.data()->data(), Cell::Dim, 1);
     table.bindViewConst("z", reader::scripting::Direction::In, points.data()->data(), Cell::Dim, 2);

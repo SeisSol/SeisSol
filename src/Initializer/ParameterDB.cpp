@@ -186,7 +186,7 @@ CellToVertexArray
   const auto& elements = meshReader.getElements();
   const auto& vertices = meshReader.getVertices();
 
-  return CellToVertexArray(
+  auto array = CellToVertexArray(
       elements.size(),
       [&](size_t index) {
         std::array<Eigen::Vector3d, 4> verts;
@@ -198,6 +198,10 @@ CellToVertexArray
         return verts;
       },
       [&](size_t index) { return elements[index].group; });
+  array.elementIds = [&](size_t index) {
+    return static_cast<std::uint64_t>(elements[index].globalId);
+  };
+  return array;
 }
 
 #ifdef USE_HDF
@@ -209,7 +213,7 @@ CellToVertexArray
   const auto& elements = mesh.cells();
   const auto& vertices = mesh.vertices();
   assert(vertexOrders.size() == elements.size());
-  return CellToVertexArray(
+  auto array = CellToVertexArray(
       elements.size(),
       [&](size_t cell) {
         std::array<Eigen::Vector3d, 4> x;
@@ -224,6 +228,8 @@ CellToVertexArray
         return x;
       },
       [groups](size_t cell) { return groups[cell]; });
+  array.elementIds = [&](size_t cell) { return static_cast<std::uint64_t>(elements[cell].gid()); };
+  return array;
 }
 #endif
 
@@ -253,7 +259,7 @@ CellToVertexArray CellToVertexArray::join(std::vector<CellToVertexArray> arrays)
     totalSize += arrays[i].size;
     sizes[i] = totalSize;
   }
-  return CellToVertexArray(
+  auto result = CellToVertexArray(
       totalSize,
       [=](size_t idx) {
         for (std::size_t i = 0; i < sizes.size(); ++i) {
@@ -271,19 +277,56 @@ CellToVertexArray CellToVertexArray::join(std::vector<CellToVertexArray> arrays)
         }
         throw std::out_of_range(std::to_string(idx) + " vs " + std::to_string(totalSize));
       });
+  // the cells are identified only if the cells of every part are
+  const bool identified = std::all_of(arrays.begin(), arrays.end(), [](const auto& array) {
+    return static_cast<bool>(array.elementIds);
+  });
+  if (identified) {
+    result.elementIds = [=](size_t idx) {
+      for (std::size_t i = 0; i < sizes.size(); ++i) {
+        if (idx < sizes[i]) {
+          return arrays[i].elementIds(idx - offsets[i]);
+        }
+      }
+      throw std::out_of_range(std::to_string(idx) + " vs " + std::to_string(totalSize));
+    };
+  }
+  return result;
 }
 
 CellToVertexArray CellToVertexArray::subset(const CellToVertexArray& array,
                                             std::vector<std::size_t> indices) {
   const auto shared = std::make_shared<const std::vector<std::size_t>>(std::move(indices));
-  return CellToVertexArray(
+  auto result = CellToVertexArray(
       shared->size(),
       [array, shared](size_t idx) { return array.elementCoordinates((*shared)[idx]); },
       [array, shared](size_t idx) { return array.elementGroups((*shared)[idx]); });
+  if (array.elementIds) {
+    result.elementIds = [array, shared](size_t idx) { return array.elementIds((*shared)[idx]); };
+  }
+  return result;
 }
+
+namespace {
+
+/// The identity of the points of `table`, `pointsPerCell` of them per cell of `cells` in order:
+/// the global id of the cell and the index of the point in it.
+void identify(reader::scripting::DataTable& table,
+              const CellToVertexArray& cells,
+              std::size_t pointsPerCell) {
+  if (!cells.elementIds) {
+    return;
+  }
+  table.setIdentity([ids = cells.elementIds, pointsPerCell](std::size_t point) {
+    return ids(point / pointsPerCell) * pointsPerCell + point % pointsPerCell;
+  });
+}
+
+} // namespace
 
 reader::scripting::DataTable ElementBarycenterGenerator::generate() const {
   reader::scripting::DataTable table(cellToVertex_.size);
+  identify(table, cellToVertex_, 1);
   bindPointSet(
       table,
       [this](std::size_t first, std::size_t count, double* xyz) {
@@ -324,6 +367,7 @@ reader::scripting::DataTable ElementAverageGenerator::generate() const {
 
   // the quadrature points of every element
   reader::scripting::DataTable table(cellToVertex_.size * numQuadpoints);
+  identify(table, cellToVertex_, numQuadpoints);
   bindPointSet(
       table,
       [this](std::size_t first, std::size_t count, double* xyz) {
@@ -349,6 +393,7 @@ reader::scripting::DataTable PlasticityPointGenerator::generate() const {
       pointwise_ ? nodes_ : std::vector<std::array<double, Cell::Dim>>{{1 / 4., 1 / 4., 1 / 4.}};
 
   reader::scripting::DataTable table(cellToVertex_.size * pointsPerCell);
+  identify(table, cellToVertex_, pointsPerCell);
   bindPointSet(
       table,
       [this, referencePoints = std::move(referencePoints)](
@@ -373,6 +418,8 @@ reader::scripting::DataTable FaultGPGenerator<Cfg>::generate() const {
     std::size_t element{0};
     std::int8_t side{0};
     seissol::geometry::AffineFaceTransform transform;
+    /// the face by its plus element and side, as every rank that has it names it
+    std::uint64_t identity{0};
   };
   const std::vector<Fault>& fault = meshReader_.getFault();
   const auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
@@ -399,10 +446,15 @@ reader::scripting::DataTable FaultGPGenerator<Cfg>::generate() const {
                   .side = side,
                   .transform = seissol::geometry::AffineFaceTransform(
                       seissol::geometry::AffineTransform(cellToVertex.elementCoordinates(element)),
-                      seissol::geometry::ReferenceFaceMap(side, sideOrientation))});
+                      seissol::geometry::ReferenceFaceMap(side, sideOrientation)),
+                  .identity = static_cast<std::uint64_t>(f.globalId) * Cell::NumFaces +
+                              static_cast<std::uint64_t>(f.side)});
   }
 
   reader::scripting::DataTable table(NumPoints * faceIDs_.size());
+  table.setIdentity([faces](std::size_t point) {
+    return (*faces)[point / NumPoints].identity * NumPoints + point % NumPoints;
+  });
   bindPointSet(
       table,
       [faces](std::size_t first, std::size_t count, double* xyz) {

@@ -61,6 +61,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <optional>
@@ -259,6 +260,7 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // requires an vector there)
   std::vector<std::array<std::array<double, Cell::Dim>, Cell::NumVertices>> ghostVertices;
   std::vector<int> ghostGroups;
+  std::vector<std::uint64_t> ghostIds;
   std::unordered_map<int, std::vector<unsigned>> ghostIdxMap;
   for (const auto& neighbor : meshReader.getGhostlayerMetadata()) {
     ghostIdxMap[neighbor.first].reserve(neighbor.second.size());
@@ -271,13 +273,14 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
         }
       }
       ghostGroups.push_back(metadata.group);
+      ghostIds.push_back(metadata.globalId);
     }
   }
 
   // material retrieval for copy+interior layers
   const auto ctvInner = seissol::initializer::CellToVertexArray::fromMeshReader(meshReader);
-  const auto ctvGhost =
-      seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups);
+  auto ctvGhost = seissol::initializer::CellToVertexArray::fromVectors(ghostVertices, ghostGroups);
+  ctvGhost.elementIds = [&](size_t cell) { return ghostIds[cell]; };
   const auto ctv = seissol::initializer::CellToVertexArray::join({ctvInner, ctvGhost});
   const auto ghostOffset = ctvInner.size;
 

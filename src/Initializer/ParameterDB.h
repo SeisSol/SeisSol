@@ -55,6 +55,9 @@ struct CellToVertexArray {
   size_t size;
   CellToVertexFunction elementCoordinates;
   CellToGroupFunction elementGroups;
+  /// The global id of each cell, where the mesh gives it: what the points evaluated in a cell are
+  /// identified by across the partition (DataTable::setIdentity()).
+  std::function<std::uint64_t(size_t)> elementIds;
 
   static CellToVertexArray fromMeshReader(const seissol::geometry::MeshReader& meshReader);
 #ifdef USE_HDF
