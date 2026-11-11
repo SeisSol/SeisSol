@@ -30,11 +30,13 @@ runs ``verification.fault2d-antiplane<elastic-o6-f64>`` and then
 ``verification.exact.fault2d-antiplane<elastic-o6-f64>``. All of them carry the
 label ``convergence``; ``ctest -L convergence`` runs them, ``ctest -LE
 convergence`` leaves them out. The meshes need ``h5py``, the spectral method
-of the cases on ``fault2d-periodic`` needs ``scipy``; without it, their
-comparisons are skipped. The cases run in the configurations of the elastic
-and the anisotropic equations, the latter with an anisotropic material that is
-isotropic in effect, and with media with tilted axes of their own. With fused
-simulations, each simulation runs the case, and each is compared.
+of the cases on ``fault2d-periodic`` needs ``scipy``; without it, these cases
+are skipped, their runs as well as their comparisons. The cases run in the
+configurations of the elastic and the anisotropic equations, the latter with an
+anisotropic material that is isotropic in effect, and with media with tilted
+axes of their own. With fused simulations, each simulation runs the case, and
+each is compared. The cases on ``fault2d-periodic``, which take minutes each,
+run in double precision without fused simulations only.
 
 ``fault1d.py self-test`` and ``antiplane.py self-test``
 (``verification.fault1d.self-test`` and ``verification.antiplane.self-test``)
@@ -181,8 +183,10 @@ largest deviation over the configurations of the key, rounded up to two digits,
 and no less than a millionth for the direction and the peak slip rate, which
 may deviate by no more than the rounding: they catch a change of the numerics,
 not only a gross error. On ``fault2d-periodic``, the four builds of order 6,
-elastic and anisotropic, in double and in single precision, deviate alike, to a
-few per cent where the deviations exceed the rounding, and share the thresholds
-of the largest deviation among them. The comparison prints its deviations in
-the form of the table with ``--record``, or with ``SEISSOL_RECORD_THRESHOLDS``
-set; a change that moves them has to say so in the thresholds.
+elastic and anisotropic, in double and in single precision, deviated alike when
+the thresholds were taken, to a few per cent where the deviations exceed the
+rounding; the two builds in double precision, which run these cases, share the
+thresholds of the largest deviation among the four. The comparison prints its
+deviations in the form of the table with ``--record``, or with
+``SEISSOL_RECORD_THRESHOLDS`` set; a change that moves them has to say so in
+the thresholds.

@@ -27,6 +27,18 @@ if (NOT SEISSOL_MINIMESH_MODULES EQUAL 0)
                   "Without them, no mini mesh can be generated and none of the cases runs.")
 endif()
 
+# The spectral method that the cases on fault2d-periodic are held against needs scipy as well.
+# Without it, there is nothing to compare those runs with, which take minutes each; they are skipped
+# then, as their comparisons are, by the capability scipy of capabilities.json.
+execute_process(COMMAND ${Python3_EXECUTABLE} -c "import scipy"
+                RESULT_VARIABLE SEISSOL_SCIPY_MODULE
+                OUTPUT_QUIET ERROR_QUIET)
+if (SEISSOL_SCIPY_MODULE EQUAL 0)
+  set(SEISSOL_CAP_SCIPY "true")
+else()
+  set(SEISSOL_CAP_SCIPY "false")
+endif()
+
 set(SEISSOL_MINITEST_TIMEOUT 300 CACHE STRING
     "Timeout in seconds for a single verification case")
 set(SEISSOL_MINITEST_MPIEXEC_FLAGS "" CACHE STRING
@@ -527,6 +539,13 @@ endfunction()
 # build, and without REQUIRE, it runs in elastic and anisotropic builds. FILES
 # are further inputs, such as receivers that SET names.
 #
+# A case on fault2d-periodic takes minutes, many times what the others take,
+# in every configuration it runs in. It runs where scipy is there to compare it
+# with, and in double precision without fused simulations only: in single
+# precision, these cases deviate from the spectral method as in double, and
+# with fused simulations, of order 3, they have no thresholds to be judged by.
+# The cases on fault1d hold the friction laws in those configurations.
+#
 # The spectral solution at the receivers is the same in every configuration
 # that runs a case on fault2d-periodic; the comparisons keep it in
 # SEISSOL_SPECTRAL_DIR, under a key of all that it is computed from, so that
@@ -549,6 +568,9 @@ function(seissol_add_fault1d)
   # build runs the isotropic cases with the material of material-anisotropic.yaml
   if (NOT F1D_REQUIRE)
     set(F1D_REQUIRE "equations=elastic|anisotropic")
+  endif()
+  if (F1D_MESH STREQUAL "fault2d-periodic")
+    list(APPEND F1D_REQUIRE "scipy=true" "precision=double" "fused=1")
   endif()
   if (F1D_MATERIAL)
     set(F1D_MATERIAL MATERIAL ${F1D_MATERIAL})
