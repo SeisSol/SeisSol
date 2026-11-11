@@ -404,7 +404,7 @@ TimeWindow placeTimeWindow(std::int64_t base,
     return {0, numSlices};
   }
   const std::int64_t maxStart = static_cast<std::int64_t>(numSlices - count);
-  std::int64_t start = base + kernel.offset;
+  std::int64_t start = base + kernel.offset - static_cast<std::int64_t>(TimeWindowSlack);
   if (start < 0) {
     start = 0;
   } else if (start > maxStart) {

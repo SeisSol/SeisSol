@@ -165,7 +165,8 @@ TEST_CASE("Datafield GridStore") {
     // The floor wins over the budget: a window narrower than the stencil could
     // not be sampled at all, so exceeding the budget is the lesser evil — and
     // it is reported rather than done quietly.
-    REQUIRE(tiny.residentSlicesFor(tid) == kernelOf(Interpolation::Cubic).width + 1);
+    REQUIRE(tiny.residentSlicesFor(tid) == narrowestWindow(kernelOf(Interpolation::Cubic)));
+    REQUIRE(narrowestWindow(kernelOf(Interpolation::Cubic)) == 4 + 1 + 2);
   }
 
   SUBCASE("an explicit slice count overrides the budget") {
@@ -179,17 +180,17 @@ TEST_CASE("Datafield GridStore") {
     REQUIRE(store.residentSlicesFor(id) == 64);
   }
 
-  SUBCASE("sync interval is (W - w) * dt and scales with the budget") {
+  SUBCASE("sync interval is (W - w - 2) * dt and scales with the budget") {
     GridStore store;
     const auto id = store.intern(makeDesc());
     store.injectForTesting(id, std::make_unique<StubGrid>(0.25, 400, 1ULL << 20));
     store.setWindowMemoryBudget(64ULL << 20); // -> 64 slices, cubic w = 4
     const auto interval = store.suggestedSyncInterval();
     REQUIRE(interval.has_value());
-    REQUIRE(*interval == doctest::Approx((64 - 4) * 0.25));
+    REQUIRE(*interval == doctest::Approx((64 - 4 - 2) * 0.25));
 
     store.setWindowMemoryBudget(32ULL << 20);
-    REQUIRE(*store.suggestedSyncInterval() == doctest::Approx((32 - 4) * 0.25));
+    REQUIRE(*store.suggestedSyncInterval() == doctest::Approx((32 - 4 - 2) * 0.25));
   }
 
   SUBCASE("a cheaper scheme buys a longer interval at the same memory") {
@@ -215,7 +216,7 @@ TEST_CASE("Datafield GridStore") {
     store.injectForTesting(slow, std::make_unique<StubGrid>(10.0, 400, 1ULL << 20));
     store.injectForTesting(fast, std::make_unique<StubGrid>(0.01, 400, 1ULL << 20));
     store.setWindowMemoryBudget(64ULL << 20); // 32 slices each
-    REQUIRE(*store.suggestedSyncInterval() == doctest::Approx((32 - 4) * 0.01));
+    REQUIRE(*store.suggestedSyncInterval() == doctest::Approx((32 - 4 - 2) * 0.01));
   }
 
   SUBCASE("a static grid has neither spacing nor interval") {

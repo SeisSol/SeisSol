@@ -27,34 +27,38 @@ TEST_CASE("Datafield time window placement") {
     }
   }
 
-  SUBCASE("the query lands on the first usable slot, headroom ahead") {
-    // Cubic needs slot -offset == 1, so the window starts one slice early.
-    const auto w = placeTimeWindow(10, cubic, 5, 100);
-    REQUIRE(w.start == 9);
-    REQUIRE(w.count == 5);
+  SUBCASE("the query lands a slice after the first usable slot, headroom ahead") {
+    // Cubic needs slot -offset == 1, and the window keeps a slice to spare
+    // before it: it starts two slices early.
+    const auto w = placeTimeWindow(10, cubic, 7, 100);
+    REQUIRE(w.start == 8);
+    REQUIRE(w.count == 7);
     REQUIRE(windowServes(w, 10, cubic, 100));
-    // Usable span is count - width == 1 cell forward, which is exactly what
-    // suggestedSyncInterval() promises.
+    // The span promised is count - width - 2 * slack == 1 cell forward, which is
+    // exactly what suggestedSyncInterval() promises; a slice to spare beyond it.
     REQUIRE(windowServes(w, 11, cubic, 100));
-    REQUIRE_FALSE(windowServes(w, 12, cubic, 100));
-    REQUIRE_FALSE(windowServes(w, 9, cubic, 100));
+    REQUIRE(windowServes(w, 12, cubic, 100));
+    REQUIRE_FALSE(windowServes(w, 13, cubic, 100));
+    // and one to spare before it
+    REQUIRE(windowServes(w, 9, cubic, 100));
+    REQUIRE_FALSE(windowServes(w, 8, cubic, 100));
   }
 
   SUBCASE("a wider window buys proportionally more headroom") {
     const auto w = placeTimeWindow(10, cubic, 12, 100);
-    REQUIRE(w.start == 9);
-    for (std::int64_t base = 10; base <= 10 + (12 - 4); ++base) {
+    REQUIRE(w.start == 8);
+    for (std::int64_t base = 9; base <= 10 + (12 - 4 - 1); ++base) {
       REQUIRE(windowServes(w, base, cubic, 100));
     }
-    REQUIRE_FALSE(windowServes(w, 10 + (12 - 4) + 1, cubic, 100));
+    REQUIRE_FALSE(windowServes(w, 10 + (12 - 4 - 1) + 1, cubic, 100));
   }
 
-  SUBCASE("linear needs no lead-in") {
+  SUBCASE("linear needs no lead-in but the slice to spare") {
     const auto w = placeTimeWindow(10, linear, 5, 100);
-    REQUIRE(w.start == 10);
-    REQUIRE(windowServes(w, 10, linear, 100));
-    REQUIRE(windowServes(w, 13, linear, 100));
-    REQUIRE_FALSE(windowServes(w, 14, linear, 100));
+    REQUIRE(w.start == 9);
+    REQUIRE(windowServes(w, 9, linear, 100));
+    REQUIRE(windowServes(w, 12, linear, 100));
+    REQUIRE_FALSE(windowServes(w, 13, linear, 100));
   }
 
   SUBCASE("placement is clamped to the file, and the ends do not thrash") {
@@ -89,12 +93,13 @@ TEST_CASE("Datafield time window placement") {
         REQUIRE(windowServes(w, base, cubic, slices));
       }
     }
-    // A freshly placed window serves the query cell plus (count - width) more,
-    // so it covers (count - width + 1) cells before it has to move again. The
-    // sync interval is quoted as (count - width) * dt, i.e. one cell of slack —
-    // deliberately, so the reload happens before expiry rather than exactly at
-    // it.
-    const std::size_t span = count - cubic.width + 1;
+    // A freshly placed window serves the query cell plus (count - width - 1)
+    // more, the slice to spare before it included, so it covers (count - width)
+    // cells before it has to move again. The sync interval is quoted as
+    // (count - width - 2) * dt, which keeps a slice to spare at the end as well
+    // and one cell of slack -- deliberately, so the reload happens before expiry
+    // rather than exactly at it.
+    const std::size_t span = count - cubic.width;
     REQUIRE(reloads <= 150 / span + 1);
     REQUIRE(reloads >= 150 / span - 1);
   }

@@ -32,11 +32,6 @@ constexpr ValueType F64 = ValueType::F64;
 constexpr ValueType I64 = ValueType::I64;
 constexpr ValueType Bool = ValueType::Bool;
 
-/// How far, in cells, the stencil of a time may reach beyond the resident window of a
-/// time-dependent grid before the window counts as not serving it: rounding of the times, never a
-/// slice it lacks.
-constexpr double WindowTolerance = 1e-3;
-
 [[noreturn]] void fail(const std::string& what) { throw std::invalid_argument("expr: " + what); }
 
 /// One axis of a lookup, located: the first node of the stencil, the weights of its nodes, the last
@@ -203,23 +198,37 @@ class Expander {
       axes.push_back(locate(grid, d, wide ? coordinate : real(coordinate), desc, fails));
     }
 
-    // the offsets of the elements without the component, so that the lookups of several
-    // components at one point share them
-    const NodeId sample = reduce(grid, node.comp, axes, 0, n(0));
-
+    // the checks before the sample, so that their parts end before it
     if (fails) {
       NodeId outside = axes.front().clamped;
       for (std::size_t d = 1; d < axes.size(); ++d) {
         outside = either(outside, axes[d].clamped);
       }
-      result_.checks.push_back(GridCheck{grid, CheckKind::Outside, outside});
+      addCheck(grid, CheckKind::Outside, outside);
     }
     for (const Axis& axis : axes) {
       if (axis.stale != NoNode) {
-        result_.checks.push_back(GridCheck{grid, CheckKind::Window, axis.stale});
+        addCheck(grid, CheckKind::Window, axis.stale);
       }
     }
+
+    // the offsets of the elements without the component, so that the lookups of several
+    // components at one point share them
+    const NodeId sample = reduce(grid, node.comp, axes, 0, n(0));
     return wide ? sample : a.cast(node.type, sample);
+  }
+
+  /// Adds `root` to the check of `grid` and `kind`: one truth value per grid and kind for the whole
+  /// program, the `or` of those of its lookups, made as each lookup is made -- so that a kernel
+  /// keeps one value per check alive to its end, not one per lookup.
+  void addCheck(GridId grid, CheckKind kind, NodeId root) {
+    for (GridCheck& check : result_.checks) {
+      if (check.grid == grid && check.kind == kind) {
+        check.root = either(check.root, root);
+        return;
+      }
+    }
+    result_.checks.push_back(GridCheck{grid, kind, root});
   }
 
   /// The stencil of the scheme on axis `d` at the coordinate `x`: locateAxis in Interpolation.cpp.
@@ -233,8 +242,9 @@ class Expander {
     const NodeId raw = smul(ssub(x, a.gridParam(grid, GridField::Min, d)),
                             a.gridParam(grid, GridField::DeltaInv, d));
     // `raw > 0`, not `raw >= 0`: NaN clamps onto the lower end
+    const NodeId positive = lt(k(0), raw);
     const NodeId above = lt(top, raw);
-    const NodeId clampedRaw = choose(lt(k(0), raw), choose(above, top, raw, F64), k(0), F64);
+    const NodeId clampedRaw = choose(positive, choose(above, top, raw, F64), k(0), F64);
 
     // beyond the volume: below or above it, or NaN. On the time axis of a grid with a window, the
     // volume is that of the file, whose slices beyond the window it knows; a time beyond the window
@@ -242,33 +252,37 @@ class Expander {
     const NodeId below = lt(raw, k(0));
     const NodeId undefined = eq(eq(raw, raw), truth(false));
     const bool windowed = desc.timeAxis.has_value() && *desc.timeAxis == d;
+    NodeId someBefore = NoNode;
+    NodeId someAfter = NoNode;
     if (windowed) {
-      const NodeId noneBefore = eq(a.gridParam(grid, GridField::Before, d), n(0));
-      const NodeId noneAfter = eq(a.gridParam(grid, GridField::After, d), n(0));
+      someBefore = lt(n(0), a.gridParam(grid, GridField::Before, d));
+      someAfter = lt(n(0), a.gridParam(grid, GridField::After, d));
       if (fails) {
-        axis.clamped = either(undefined, either(both(below, noneBefore), both(above, noneAfter)));
+        axis.clamped = either(undefined,
+                              either(both(below, eq(someBefore, truth(false))),
+                                     both(above, eq(someAfter, truth(false)))));
       }
-      // The window serves a time where it holds the stencil that the file gives it
-      // (placeTimeWindow() places it so up to the next update): the nodes [base + offset, base +
-      // offset + width - 1] from the base cell, or the nearest node. In the cells of the window,
-      // from the node the stencil reaches back from to the one it reaches on to, up to rounding.
-      const df::StencilKernel kernel = df::kernelOf(desc.interpolation);
-      const double reachBack = kernel.roundToNearest ? -0.5 : -static_cast<double>(kernel.offset);
-      const double reachOn = kernel.roundToNearest ? -0.5
-                                                   : static_cast<double>(kernel.width) - 2.0 +
-                                                         static_cast<double>(kernel.offset);
-      const NodeId early = lt(raw, k(reachBack - WindowTolerance));
-      const NodeId late = lt(a.pw(Fn::Add, top, k(WindowTolerance - reachOn), F64), raw);
-      axis.stale = either(both(early, eq(noneBefore, truth(false))),
-                          both(late, eq(noneAfter, truth(false))));
     } else if (fails) {
       axis.clamped = either(either(below, undefined), above);
     }
+    // Whether the window does not hold the stencil the file gives the time, where the file goes on:
+    // `early` where the stencil reaches before the window, `late` where it reaches beyond it. The
+    // window keeps a slice to spare on either side of the times it is placed for (TimeWindowSlack),
+    // so the predicates need not be exact at its ends -- they also hold in its first cell, or on
+    // the last node but one for the cubic stencil, which those times never reach -- and are those
+    // the stencil computes anyway, in whole numbers where they are new: no binary64 operation (a
+    // negated comparison would be one again on a device), and no tolerance.
+    const auto stale = [&](NodeId early, NodeId late) {
+      if (windowed) {
+        axis.stale = either(both(early, someBefore), both(late, someAfter));
+      }
+    };
 
     if (desc.interpolation == df::Interpolation::Nearest) {
       // half away from zero, as std::lround
       axis.start = whole(a.pw(Fn::Round, clampedRaw, F64));
       axis.weights = {k(1)};
+      stale(eq(axis.start, n(0)), above);
       return axis;
     }
 
@@ -287,6 +301,7 @@ class Expander {
     if (desc.interpolation == df::Interpolation::Linear) {
       axis.start = index;
       axis.weights = {oneMinusS, s};
+      stale(eq(lower, n(0)), above);
       return axis;
     }
 
@@ -304,6 +319,10 @@ class Expander {
         I64);
     const NodeId slot = isub(index, start);
     const NodeId full = both(fourNodes, eq(slot, n(-kernel.offset)));
+    // the stencil moved inside the window, at its start or at its end, or a window too short for it
+    const NodeId cramped = eq(fourNodes, truth(false));
+    stale(either(cramped, lt(slot, n(-kernel.offset))),
+          either(cramped, lt(n(-kernel.offset), slot)));
 
     // Keys' cubic convolution in the factored form of interpolationWeights()
     const NodeId s2 = smul(s, s);

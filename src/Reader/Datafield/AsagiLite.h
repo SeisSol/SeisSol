@@ -153,6 +153,7 @@ class AsagiLiteGrid final : public Grid {
 
   public:
   [[nodiscard]] std::size_t bytesPerTimeSlice() const override { return sliceBytes_; }
+  [[nodiscard]] std::size_t timeSlices() const override { return numTimeSlices_; }
   [[nodiscard]] std::optional<std::pair<double, double>> timeWindow() const override;
   [[nodiscard]] const ArrayView* arrayView() const override {
     return data_ != nullptr ? &view_ : nullptr;

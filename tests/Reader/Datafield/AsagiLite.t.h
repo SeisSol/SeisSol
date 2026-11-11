@@ -10,6 +10,7 @@
 #include "Reader/Datafield/AsagiLite.h"
 #include "Reader/Datafield/Grid.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -71,11 +72,11 @@ class LinearInTime {
 } // namespace
 
 TEST_CASE("Datafield AsagiLite: a sliding window serves the times until the next update") {
-  // The update module advances the window at most (W - w) cells apart
+  // The update module advances the window at most (W - w - 2) cells apart
   // (GridStore::suggestedSyncInterval()); every time up to the next update samples at full
   // accuracy, and never a slice clamped onto the end of the window.
   constexpr std::size_t Slices = 40;
-  constexpr std::size_t Resident = 4;
+  constexpr std::size_t Resident = 6;
   const LinearInTime file(Slices);
   df::AsagiLiteGrid grid;
   REQUIRE(grid.open(file.path(), "z", df::Interpolation::Linear, df::BoundaryMode::Clamp, 1) ==
@@ -83,7 +84,7 @@ TEST_CASE("Datafield AsagiLite: a sliding window serves the times until the next
   REQUIRE(grid.resizeWindow(Resident) == df::AsagiLiteGrid::Error::Success);
   REQUIRE(grid.arrayView() != nullptr);
 
-  const double interval = static_cast<double>(Resident - 2);
+  const double interval = static_cast<double>(Resident - 2 - 2);
   std::uint64_t revision = grid.revision();
   for (double update = 0.0; update + interval <= static_cast<double>(Slices - 1);
        update += interval) {
@@ -115,6 +116,36 @@ TEST_CASE("Datafield AsagiLite: a sliding window serves the times until the next
   revision = grid.revision();
   REQUIRE(grid.advanceTo(2.5) == df::AsagiLiteGrid::Error::Success);
   CHECK(grid.revision() == revision);
+}
+
+TEST_CASE("Datafield AsagiLite: a store moves the window of a file it holds in part") {
+  // The geometry of the grid is that of its window; the store sizes the window, and asks for
+  // synchronization points, by the slices of the file (Grid::timeSlices()).
+  const LinearInTime file(12);
+  df::GridDesc desc;
+  desc.path = file.path();
+  desc.variable = "z";
+  desc.interpolation = df::Interpolation::Linear;
+  desc.timeAxis = 1;
+  for (const std::size_t resident : {6, 12, 20}) {
+    CAPTURE(resident);
+    df::GridStore store;
+    store.setResidentSlices(resident);
+    const std::size_t id = store.intern(desc);
+    store.load();
+    CHECK(store.timeSlicesOf(id) == 12);
+    CHECK(store.residentSlicesFor(id) == std::min<std::size_t>(resident, 12));
+    const auto interval = store.suggestedSyncInterval();
+    if (resident < 12) {
+      // (W - w - 2) cells of the file's time step of 1
+      REQUIRE(interval.has_value());
+      CHECK(*interval == doctest::Approx(static_cast<double>(resident - 2 - 2)));
+    } else {
+      // the whole file is resident, and the window never moves
+      CHECK_FALSE(interval.has_value());
+    }
+    store.finish();
+  }
 }
 
 TEST_CASE("Datafield AsagiLite: the grids of a store sample on after the end of the run") {

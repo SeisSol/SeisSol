@@ -80,6 +80,21 @@ constexpr StencilKernel kernelOf(Interpolation interp) {
 
 inline constexpr unsigned MaxStencilWidth = 4;
 
+// Slices a window of a time-dependent grid keeps to spare on either side of the stencils of the
+// times it is placed for, those up to the next update (placeTimeWindow(),
+// GridStore::suggestedSyncInterval()). Those times never come near the ends of the window, so a
+// written-out lookup checks that the window holds its time with the predicates its stencil
+// computes anyway, which are not exact at the ends (expr::CheckKind::Window): no binary64
+// operation for the check, and no tolerance.
+inline constexpr unsigned TimeWindowSlack = 1;
+
+// The narrowest window of a time-dependent grid with the stencil `kernel`: the stencil, the slices
+// to spare on either side, and one cell to move on, so the window is reloaded at every update but
+// never too late.
+constexpr std::size_t narrowestWindow(StencilKernel kernel) {
+  return std::size_t{kernel.width} + 1 + 2 * std::size_t{TimeWindowSlack};
+}
+
 // Matches easi's Grid<Derived>::MaxDimensions. Do not raise one without the
 // other; the two paths are compared value-for-value (see the tolerance note).
 inline constexpr unsigned MaxGridDimensions = 6;
@@ -336,6 +351,11 @@ class Grid {
   // window the scheme allows.
   [[nodiscard]] virtual std::size_t bytesPerTimeSlice() const { return 0; }
 
+  // The slices of the file along the time axis, of which the window holds some
+  // (geometry() describes the window). Zero where the backend cannot say, in
+  // which case the store takes the geometry for the whole file.
+  [[nodiscard]] virtual std::size_t timeSlices() const { return 0; }
+
   // Time window currently resident, as [first, last] sample times. Absent for
   // static grids.
   [[nodiscard]] virtual std::optional<std::pair<double, double>> timeWindow() const {
@@ -381,7 +401,7 @@ class GridStore {
   // By default this is DERIVED from a memory budget rather than configured: the
   // budget is split evenly over the time-dependent grids and each one takes as
   // many slices as its share buys, floored at the narrowest window its scheme
-  // admits (width + 1) and capped at its own number of slices. That turns a
+  // admits (narrowestWindow()) and capped at its own number of slices. That turns a
   // magic constant into a physical quantity — the user has an opinion about how
   // much memory a velocity model may occupy, not about how many slices that is.
   //
@@ -399,8 +419,11 @@ class GridStore {
     return residentSlicesOverride_;
   }
   /// Slices grid `id` keeps resident: the override if set, else the budget
-  /// derivation. Requires load() to have run, since it reads the geometry.
+  /// derivation; never more than its file has. Requires load() to have run, since
+  /// it reads the geometry.
   [[nodiscard]] std::size_t residentSlicesFor(std::size_t id) const;
+  /// The slices of the file of grid `id` along its time axis (1 for a grid without one).
+  [[nodiscard]] std::size_t timeSlicesOf(std::size_t id) const;
 
   // Fallback used when a grid's time axis carries no usable spacing -- no
   // coordinate variable, a single slice, or a non-finite delta. Suboptimal by
@@ -476,11 +499,13 @@ public:
   //
   // With W resident slices and a stencil {w, o}, a query whose base index is b
   // (relative to the window start) is servable exactly when
-  //     b + o >= 0   and   b + o + w - 1 <= W - 1,
-  // i.e. for b in [-o, W - w - o] — that is W - w + 1 cells, spanning
-  // (W - w + 1) * dtFile of simulated time. One cell of headroom is kept so the
-  // reload happens strictly before expiry rather than exactly at it, giving
-  //     min over time-dependent grids of (W - w) * dtFile.
+  //     b + o >= 0   and   b + o + w - 1 <= W - 1.
+  // A window keeps s = TimeWindowSlack slices to spare on either side, so the
+  // queries until the next update have b in [s - o, W - w - o - s] -- that is
+  // W - w - 2s + 1 cells, spanning (W - w - 2s + 1) * dtFile of simulated time.
+  // One cell of headroom is kept so the reload happens strictly before expiry
+  // rather than exactly at it, giving
+  //     min over time-dependent grids of (W - w - 2s) * dtFile.
   //
   // Both inputs come from what is already here: dtFile is timeSpacing(id), and
   // w is kernelOf(descs_[id].interpolation).width -- the interpolation scheme is
@@ -494,9 +519,11 @@ public:
   // scheduling requires — this number is an upper bound on a safe interval, not
   // a request.
   //
-  // Returns nullopt when no grid is time-dependent — in which case the caller
-  // should not register the update module at all. Throws std::invalid_argument
-  // if W <= w for any grid, since then no interval would be safe.
+  // A grid whose window holds its whole file never moves and asks for no
+  // interval. Returns nullopt when no grid is time-dependent, or none moves —
+  // in which case the caller should not register the update module at all.
+  // Throws std::invalid_argument if W <= w + 2s for any grid, since then no
+  // interval would be safe.
   [[nodiscard]] std::optional<double> suggestedSyncInterval() const;
 
   private:

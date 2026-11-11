@@ -700,7 +700,8 @@ TEST_SUITE("ExprRtcGpu") {
       const df::ArrayView* view = grid.arrayView();
       const std::uint64_t fails = boundary == df::BoundaryMode::Fail ? 1 : 0;
       const std::vector<Case> cases = {{0.4, 2, 2, 0, 0},
-                                       {2.3 + 1e-5, 2, 2, 0, 0},
+                                       {2.2, 2, 2, 0, 0},
+                                       {2.3 + 1e-9, 2, 2, 1, 0},
                                        {2.5, 2, 2, 1, 0},
                                        {-1.0, 2, 2, 1, 0},
                                        {-1.0, 2, 0, 1, 0},

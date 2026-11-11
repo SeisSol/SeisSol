@@ -138,8 +138,9 @@ TEST_SUITE("GridUpdateModule") {
   }
 
   TEST_CASE("the interval leaves a stencil's worth of headroom") {
-    // Grid.h derives (W - w) * dtFile: W resident slices, stencil width w, one
-    // cell of headroom so the reload lands strictly before expiry.
+    // Grid.h derives (W - w - 2s) * dtFile: W resident slices, stencil width w,
+    // s = TimeWindowSlack slices to spare on either side, one cell of headroom so
+    // the reload lands strictly before expiry.
     constexpr double Dt = 0.25;
     constexpr std::size_t Resident = 8;
 
@@ -152,7 +153,7 @@ TEST_SUITE("GridUpdateModule") {
 
       const auto interval = store.suggestedSyncInterval();
       REQUIRE(interval.has_value());
-      CHECK(*interval == doctest::Approx(static_cast<double>(Resident - 2) * Dt));
+      CHECK(*interval == doctest::Approx(static_cast<double>(Resident - 2 - 2) * Dt));
     }
 
     SUBCASE("a wider stencil buys a shorter interval") {
@@ -164,10 +165,10 @@ TEST_SUITE("GridUpdateModule") {
 
       const auto interval = store.suggestedSyncInterval();
       REQUIRE(interval.has_value());
-      CHECK(*interval == doctest::Approx(static_cast<double>(Resident - 4) * Dt));
+      CHECK(*interval == doctest::Approx(static_cast<double>(Resident - 4 - 2) * Dt));
       // The point of the case: cubic must NOT get the linear interval, or the
       // window expires two slices before anyone reloads it.
-      CHECK(*interval < static_cast<double>(Resident - 2) * Dt);
+      CHECK(*interval < static_cast<double>(Resident - 2 - 2) * Dt);
     }
   }
 
@@ -181,6 +182,11 @@ TEST_SUITE("GridUpdateModule") {
     // No interval is safe here, so returning a small one would be a lie that
     // shows up as a silently wrong sample rather than as an error.
     CHECK_THROWS_AS(static_cast<void>(store.suggestedSyncInterval()), std::invalid_argument);
+    // nor where the stencil fits, but not the slices to spare beside it
+    store.setResidentSlices(6);
+    CHECK_THROWS_AS(static_cast<void>(store.suggestedSyncInterval()), std::invalid_argument);
+    store.setResidentSlices(7);
+    CHECK_NOTHROW(static_cast<void>(store.suggestedSyncInterval()));
   }
 
   TEST_CASE("the module advances the store at the times it is given") {
@@ -217,7 +223,7 @@ TEST_SUITE("GridUpdateModule") {
     REQUIRE(interval.has_value());
     // The minimum, not the first or the last: one grid expiring early is enough
     // to make every later sample wrong.
-    CHECK(*interval == doctest::Approx(static_cast<double>(8 - 4) * 0.25));
+    CHECK(*interval == doctest::Approx(static_cast<double>(8 - 4 - 2) * 0.25));
   }
 
 } // TEST_SUITE

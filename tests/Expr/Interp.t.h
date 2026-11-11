@@ -640,18 +640,25 @@ TEST_SUITE("Expr::Interp") {
       // within the window: the sample, linear in time between the slices 1 and 2 at x = 1
       CHECK(sample(boundary, 2, 2, 10.75, reports) == 0.5 * 4.0 + 0.5 * 7.0);
       CHECK(reports.empty());
-      // on its end, and within a thousandth of a step beyond it
+      // on its last node; however little beyond it, where the file goes on, it is reported
       CHECK(sample(boundary, 2, 2, 11.5, reports) == 10.0);
       CHECK(reports.empty());
-      sample(boundary, 2, 2, 11.5 + 1e-5, reports);
-      CHECK(reports.empty());
-      // beyond it, where the file goes on
+      sample(boundary, 2, 2, 11.5 + 1e-9, reports);
+      CHECK(reported({CheckKind::Window}));
       sample(boundary, 2, 2, 11.75, reports);
       CHECK(reported({CheckKind::Window}));
       sample(boundary, 2, 2, 9.75, reports);
       CHECK(reported({CheckKind::Window}));
       sample(boundary, 0, 2, 11.75, reports);
       CHECK(reported({CheckKind::Window}));
+      // in its first cell as well, which the times a window is placed for never reach: it keeps a
+      // slice to spare before them (TimeWindowSlack), and the check costs no binary64 operation
+      sample(boundary, 2, 2, 10.0, reports);
+      CHECK(reported({CheckKind::Window}));
+      sample(boundary, 2, 2, 10.25, reports);
+      CHECK(reported({CheckKind::Window}));
+      CHECK(sample(boundary, 2, 2, 10.5, reports) == 4.0);
+      CHECK(reports.empty());
       // beyond the file: clamped, or outside a grid that fails there
       const std::vector<CheckKind> beyond =
           fails ? std::vector<CheckKind>{CheckKind::Outside} : std::vector<CheckKind>{};
@@ -660,13 +667,16 @@ TEST_SUITE("Expr::Interp") {
       CHECK(sample(boundary, 0, 2, 9.75, reports) == 1.0);
       CHECK(reported(beyond));
 
-      // the cubic stencil reaches a node back and one on: the window serves the cells between its
-      // second and its third node (10.5 to 11), and from its ends on where the file ends there
+      // the cubic stencil reaches a node back and one on: the window serves the cell between its
+      // second and its third node (10.5 to 11, the third itself reported as well), and from its
+      // ends on where the file ends there
       const auto cubic = reader::datafield::Interpolation::Cubic;
+      sample(boundary, 2, 2, 10.5, reports, cubic);
+      CHECK(reports.empty());
       sample(boundary, 2, 2, 10.75, reports, cubic);
       CHECK(reports.empty());
       sample(boundary, 2, 2, 11.0, reports, cubic);
-      CHECK(reports.empty());
+      CHECK(reported({CheckKind::Window}));
       sample(boundary, 2, 2, 11.25, reports, cubic);
       CHECK(reported({CheckKind::Window}));
       sample(boundary, 2, 2, 10.25, reports, cubic);
@@ -675,11 +685,11 @@ TEST_SUITE("Expr::Interp") {
       CHECK(reports.empty());
       sample(boundary, 0, 0, 11.25, reports, cubic);
       CHECK(reports.empty());
-      // the nearest node: up to half a cell beyond either end
+      // the nearest node: up to the last node of the window, not half a cell beyond it
       const auto nearest = reader::datafield::Interpolation::Nearest;
-      CHECK(sample(boundary, 2, 2, 11.7, reports, nearest) == 10.0);
+      CHECK(sample(boundary, 2, 2, 11.5, reports, nearest) == 10.0);
       CHECK(reports.empty());
-      sample(boundary, 2, 2, 11.8, reports, nearest);
+      sample(boundary, 2, 2, 11.6, reports, nearest);
       CHECK(reported({CheckKind::Window}));
     }
   }

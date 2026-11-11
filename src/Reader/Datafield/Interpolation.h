@@ -166,11 +166,12 @@ bool windowServes(const TimeWindow& window,
 
 /// Where the window has to sit to serve `base`.
 ///
-/// The window is placed so that `base` lands on the FIRST slot the scheme can
-/// use, putting the whole remaining width ahead of the query. Simulated time
-/// only ever moves forward, so a centred window would throw away half its
-/// headroom and reload twice as often. The usable span is `count - width` cells,
-/// which is where suggestedSyncInterval()'s (W - w) * dt comes from.
+/// The window is placed so that `base` lands TimeWindowSlack slots after the
+/// first slot the scheme can use, putting the remaining width ahead of the
+/// query. Simulated time only ever moves forward, so a centred window would
+/// throw away half its headroom and reload twice as often. With as many slices
+/// to spare at its end, the usable span is `count - width - 2 * TimeWindowSlack`
+/// cells, which is where suggestedSyncInterval()'s (W - w - 2s) * dt comes from.
 TimeWindow placeTimeWindow(std::int64_t base,
                            StencilKernel kernel,
                            std::size_t resident,

@@ -150,25 +150,20 @@ void GridStore::setWindowMemoryBudget(std::size_t bytes) { windowMemoryBudget_ =
 
 std::size_t GridStore::residentSlicesFor(std::size_t id) const {
   const GridDesc& desc = descs_.at(id);
-  const std::size_t width = kernelOf(desc.interpolation).width;
-  // One more than the stencil width is the narrowest useful window: it leaves
-  // exactly one cell of forward headroom, so the window is reloaded on every
-  // step but is never invalid.
-  const std::size_t floorSlices = width + 1;
+  // The narrowest useful window leaves exactly one cell of forward headroom, so
+  // the window is reloaded on every step but is never invalid.
+  const std::size_t floorSlices = narrowestWindow(kernelOf(desc.interpolation));
 
   if (!desc.timeDependent()) {
     return 1;
   }
 
   const Grid& grid = get(id);
-  GridGeometry geom;
-  grid.geometry(geom);
-  const int axis = *desc.timeAxis;
-  const std::size_t numSlices =
-      (axis >= 0 && static_cast<unsigned>(axis) < geom.dimensions) ? geom.num[axis] : 1;
+  // never more than the file: a window that holds all of it never moves (suggestedSyncInterval())
+  const std::size_t numSlices = timeSlicesOf(id);
 
   if (residentSlicesOverride_.has_value()) {
-    return std::min(*residentSlicesOverride_, std::max(numSlices, floorSlices));
+    return std::min(*residentSlicesOverride_, numSlices);
   }
 
   std::size_t timeDependent = 0;
@@ -180,7 +175,7 @@ std::size_t GridStore::residentSlicesFor(std::size_t id) const {
     // Backend cannot price a slice: take the narrowest correct window rather
     // than guessing at a number that would be wrong in whichever direction the
     // guess happens to fall.
-    return std::min(std::max(floorSlices, std::size_t{1}), std::max(numSlices, floorSlices));
+    return std::min(floorSlices, numSlices);
   }
 
   const std::size_t share = windowMemoryBudget_ / timeDependent;
@@ -193,7 +188,23 @@ std::size_t GridStore::residentSlicesFor(std::size_t id) const {
                  << "windowmemory or use a cheaper scheme.";
     slices = floorSlices;
   }
-  return std::min(slices, std::max(numSlices, floorSlices));
+  return std::min(slices, numSlices);
+}
+
+std::size_t GridStore::timeSlicesOf(std::size_t id) const {
+  const GridDesc& desc = descs_.at(id);
+  if (!desc.timeDependent()) {
+    return 1;
+  }
+  // the file, not the window that geometry() describes
+  const std::size_t slices = get(id).timeSlices();
+  if (slices != 0) {
+    return slices;
+  }
+  GridGeometry geom;
+  get(id).geometry(geom);
+  const int axis = *desc.timeAxis;
+  return (axis >= 0 && static_cast<unsigned>(axis) < geom.dimensions) ? geom.num[axis] : 1;
 }
 
 void GridStore::setDefaultTimeSpacing(double dt) {
@@ -340,15 +351,20 @@ std::optional<double> GridStore::suggestedSyncInterval() const {
     if (!dtFile.has_value()) {
       continue;
     }
-    const std::size_t width = kernelOf(descs_[i].interpolation).width;
     const std::size_t resident = residentSlicesFor(i);
-    if (resident <= width) {
+    if (resident >= timeSlicesOf(i)) {
+      // the window holds the whole file and never moves: any interval is safe
+      continue;
+    }
+    // the stencil and the slices to spare on either side of it
+    const std::size_t span = kernelOf(descs_[i].interpolation).width + 2 * TimeWindowSlack;
+    if (resident <= span) {
       throw std::invalid_argument("datafield: " + descs_[i].path + " needs more than " +
-                                  std::to_string(width) +
+                                  std::to_string(span) +
                                   " resident slices for its interpolation scheme, but only " +
                                   std::to_string(resident) + " are available");
     }
-    const double candidate = static_cast<double>(resident - width) * *dtFile;
+    const double candidate = static_cast<double>(resident - span) * *dtFile;
     interval = interval.has_value() ? std::min(*interval, candidate) : candidate;
   }
   return interval;

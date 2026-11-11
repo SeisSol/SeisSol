@@ -64,7 +64,7 @@ void registerGridUpdateModule(Modules& modules) {
   }
 
   if (!interval.has_value()) {
-    logInfo() << "No time-dependent data grids; not registering the grid update module.";
+    logInfo() << "No data grid whose window moves in time; not registering the grid update module.";
     return;
   }
 
