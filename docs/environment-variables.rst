@@ -225,13 +225,17 @@ library by four, and a point where one of them decides a ``select`` otherwise co
 kernel that deviates stops the run with the point and both values (``SEISSOL_EXPR_CHECK=warn`` lets
 it go on with a warning, ``off`` skips the check).
 
-The first rank writes an evaluation record of every program a kernel evaluates into the directory
-``<prefix>-records`` next to the outputs, one file per program and backend, named after the
+Every rank writes an evaluation record of every program a kernel evaluates into the directory
+``<prefix>-records`` next to the outputs, one file per program, backend and rank, named after the
 fingerprint of the program: the program in the normal form of the core format, the build (version
 and commit of SeisSol, compiler, maths library), the backend and the compute type, what the check of
-a compiled kernel found, and the points of its first call it compared, with their inputs and the
+a compiled kernel found, and a sample of the points of its first call, with their inputs and the
 outputs of the interpreter and of the kernel (and their tolerance on a GPU), in hexadecimal. The
-points are those of the first rank, chosen by their position in the call.
+kernel is checked at the pool of the call, its 4096 points (1024 on a GPU) of the smallest hash of
+their identity across the partition, and the sample is chosen from it: the 64 points of the smallest
+hash, in every group the two of the smallest, per output the points of its smallest and its largest
+value, per ``select`` a point where it takes either branch, and the points where the kernel
+deviates most. Chosen by these hashes, the samples of all ranks hold that of the whole run.
 
 The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
 ``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They

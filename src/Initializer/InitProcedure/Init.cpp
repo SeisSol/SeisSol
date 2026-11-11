@@ -257,16 +257,18 @@ void closeSeisSol(seissol::SeisSol& seissolInstance) {
 void seissolMain(seissol::SeisSol& seissolInstance) {
   createOutputDirectory(seissolInstance);
 
-  // the evaluation record of every program a kernel evaluates, next to the outputs; written by the
-  // first rank, from what it evaluates
-  if (seissol::Mpi::mpi.rank() == 0) {
+  // the evaluation record of every program a kernel evaluates, next to the outputs: every rank
+  // writes those of what it evaluates, whose samples a tool merges into that of the whole run
+  {
     std::vector<std::string> build = {"seissol = " + BuildInfo::VersionString,
                                       "commit = " + BuildInfo::CommitHash,
-                                      std::string("compiler = ") + __VERSION__};
+                                      std::string("compiler = ") + __VERSION__,
+                                      "ranks = " + std::to_string(seissol::Mpi::mpi.size())};
 #if defined(__GLIBC__)
     build.push_back(std::string("libm = glibc ") + gnu_get_libc_version());
 #endif
-    expr::setRecordDirectory(seissolInstance.parameters().output.prefix + "-records", build);
+    expr::setRecordDirectory(
+        seissolInstance.parameters().output.prefix + "-records", build, seissol::Mpi::mpi.rank());
   }
 
   auto& summary = seissolInstance.runSummary();

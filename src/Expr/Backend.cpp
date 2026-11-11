@@ -582,9 +582,46 @@ std::string hexOf(double x) {
   return buffer.data();
 }
 
-/// The interpreter's outputs at the points of the sample into `outputs`, [output][point], in the
-/// type the program moves its data in, through the TileIo `makeIo` makes for them; perturbed and
-/// with the signatures of the decisions of the selects as `options` asks.
+/// The size of the pool of a call, from which the sample of the record is chosen and on which
+/// the backend is checked: on the host, and on a device, from which every value is copied apart.
+constexpr std::size_t PoolSize = 4096;
+constexpr std::size_t DevicePoolSize = 1024;
+/// The points of the smallest hash in the sample.
+constexpr std::size_t SmallestHashes = 64;
+
+/// The points of a call of `count` points from `first` with the `size` smallest hashes of their
+/// identity (all of them, for fewer), in the order of the call; with their identities.
+std::pair<std::vector<std::size_t>, std::vector<std::uint64_t>>
+    poolOf(std::size_t first,
+           std::size_t count,
+           std::size_t size,
+           const std::function<std::uint64_t(std::size_t)>& identity) {
+  std::vector<std::pair<std::uint64_t, std::size_t>> hashed;
+  hashed.reserve(count);
+  for (std::size_t point = first; point < first + count; ++point) {
+    hashed.emplace_back(splitMix64(identity(point)), point);
+  }
+  if (hashed.size() > size) {
+    std::nth_element(
+        hashed.begin(), hashed.begin() + static_cast<std::ptrdiff_t>(size), hashed.end());
+    hashed.resize(size);
+  }
+  std::sort(hashed.begin(), hashed.end(), [](const auto& a, const auto& b) {
+    return a.second < b.second;
+  });
+  std::vector<std::size_t> points;
+  std::vector<std::uint64_t> identities;
+  for (const auto& [hash, point] : hashed) {
+    static_cast<void>(hash);
+    points.push_back(point);
+    identities.push_back(identity(point));
+  }
+  return {points, identities};
+}
+
+/// The interpreter's outputs at the points of the pool into `outputs`, [output][point], in the
+/// type the program moves its data in, through the TileIo `makeIo` makes for them; perturbed, and
+/// with the decisions of the selects, as `options` asks.
 template <typename T, typename MakeIo>
 void interpretAt(const Program& program,
                  const LoweredProgram& lowered,
@@ -600,68 +637,119 @@ void interpretAt(const Program& program,
   interpreter.run(*io, points, persistent.data());
 }
 
-/// The reference at the sample: the interpreter's outputs; and, for `perturbed`, R = 8 perturbed
-/// evaluations, which give the tolerance of each value and the unstable points.
+/// What the interpreter gives at the pool: its outputs, the branches of its selects, and, for
+/// `perturbed`, from R = 8 perturbed evaluations, the tolerance of each value and the unstable
+/// points.
+struct PoolReference {
+  std::vector<double> outputs;
+  std::map<std::size_t, std::vector<std::uint8_t>> branches;
+  std::vector<double> tolerance;
+  std::vector<bool> unstable;
+};
+
 template <typename T, typename MakeIo>
-void interpret(const Program& program,
-               const GridArrays* arrays,
-               const MakeIo& makeIo,
-               bool perturbed,
-               BackendComparison& comparison) {
+PoolReference interpret(const Program& program,
+                        const GridArrays* arrays,
+                        std::size_t points,
+                        const MakeIo& makeIo,
+                        bool perturbed) {
   constexpr int Runs = 8;
   constexpr double Spread = 2.0;
   const LoweredProgram lowered = lower(program, LowerOptions{});
-  const std::size_t count = comparison.points.size();
-  std::vector<std::uint64_t> decisions(count, 0);
+  PoolReference reference;
+  std::vector<std::uint64_t> decisions(points, 0);
   InterpreterOptions options;
   options.decisions = &decisions;
-  interpretAt<T>(program, lowered, arrays, count, options, makeIo, comparison.interpreter);
+  options.branches = &reference.branches;
+  interpretAt<T>(program, lowered, arrays, points, options, makeIo, reference.outputs);
+  reference.unstable.assign(points, false);
   if (!perturbed) {
-    return;
+    return reference;
   }
-  comparison.perturbed = true;
-  comparison.tolerance.assign(comparison.interpreter.size(), 0.0);
-  std::vector<bool> unstable(count, false);
+  reference.tolerance.assign(reference.outputs.size(), 0.0);
   std::vector<double> values;
   for (int run = 0; run < Runs; ++run) {
-    std::vector<std::uint64_t> moved(count, 0);
+    std::vector<std::uint64_t> moved(points, 0);
     InterpreterOptions perturbation;
     perturbation.decisions = &moved;
     perturbation.perturbation.on = true;
     perturbation.perturbation.seed = splitMix64(static_cast<std::uint64_t>(run) + 1);
-    interpretAt<T>(program, lowered, arrays, count, perturbation, makeIo, values);
+    interpretAt<T>(program, lowered, arrays, points, perturbation, makeIo, values);
     for (std::size_t v = 0; v < values.size(); ++v) {
-      const double deviation = std::fabs(values[v] - comparison.interpreter[v]);
+      const double deviation = std::fabs(values[v] - reference.outputs[v]);
       if (!std::isnan(deviation)) {
-        comparison.tolerance[v] = std::max(comparison.tolerance[v], Spread * deviation);
+        reference.tolerance[v] = std::max(reference.tolerance[v], Spread * deviation);
       }
     }
-    for (std::size_t k = 0; k < count; ++k) {
-      unstable[k] = unstable[k] || moved[k] != decisions[k];
+    for (std::size_t k = 0; k < points; ++k) {
+      reference.unstable[k] = reference.unstable[k] || moved[k] != decisions[k];
     }
   }
-  for (std::size_t k = 0; k < count; ++k) {
-    if (unstable[k]) {
-      comparison.unstable.push_back(comparison.points[k]);
-    }
-  }
+  return reference;
 }
 
-/// Where the backend deviates: in its bits, or beyond the tolerance of the perturbed reference.
-void judge(const Program& program, BackendComparison& comparison) {
-  const std::size_t sample = comparison.points.size();
+/// The comparison of the backend with the reference at the pool `points` (with `identities`, the
+/// inputs and the backend's outputs there), judged at every point of the pool, and the sample of
+/// the record chosen from it (the specification's "Evaluation record"): the 64 points of the
+/// smallest hash; in every group the two of the smallest; per output the points of its smallest and
+/// its largest value; per select the point of the smallest hash where it takes its first branch
+/// and the one where it does not; per output the point where the backend deviates most; and up to
+/// 64 of the unstable points.
+template <typename MakeFloat, typename MakeDouble>
+BackendComparison compareAt(const Program& program,
+                            GridStore& grids,
+                            const std::vector<std::size_t>& points,
+                            const std::vector<std::uint64_t>& identities,
+                            const std::vector<double>& inputs,
+                            const std::vector<double>& backend,
+                            const MakeFloat& makeFloat,
+                            const MakeDouble& makeDouble,
+                            bool perturbed) {
+  const std::size_t pool = points.size();
+  const std::size_t outputs = program.outputs().size();
+  const auto ids = internGrids(program, grids);
+  const StoreArrays arrays(program, ids, grids);
+  const GridArrays* sampled = ids.empty() ? nullptr : &arrays;
+  const PoolReference reference =
+      lower(program, LowerOptions{}).dataType() == ComputeType::F32
+          ? interpret<float>(program, sampled, pool, makeFloat, perturbed)
+          : interpret<double>(program, sampled, pool, makeDouble, perturbed);
+
+  BackendComparison comparison;
+  comparison.perturbed = perturbed;
+  comparison.compared = pool;
+  std::vector<std::uint64_t> hashes(pool);
+  for (std::size_t k = 0; k < pool; ++k) {
+    hashes[k] = splitMix64(identities[k]);
+  }
+  // the pool, in the order of the hashes of the identities
+  std::vector<std::size_t> byHash(pool);
+  for (std::size_t k = 0; k < pool; ++k) {
+    byHash[k] = k;
+  }
+  std::sort(byHash.begin(), byHash.end(), [&](std::size_t a, std::size_t b) {
+    return hashes[a] < hashes[b];
+  });
+
+  // judged at every point of the pool
+  std::vector<bool> chosen(pool, false);
+  std::vector<double> worstOfOutput(outputs, 0.0);
+  std::vector<std::size_t> worstPoint(outputs, pool);
   double worstUlps = 0.0;
-  for (std::size_t o = 0; o < program.outputs().size(); ++o) {
-    for (std::size_t k = 0; k < sample; ++k) {
-      const double a = comparison.backend[o * sample + k];
-      const double r = comparison.interpreter[o * sample + k];
+  for (std::size_t o = 0; o < outputs; ++o) {
+    for (std::size_t k = 0; k < pool; ++k) {
+      const double a = backend[o * pool + k];
+      const double r = reference.outputs[o * pool + k];
       if (std::memcmp(&a, &r, sizeof(double)) == 0 || (std::isnan(a) && std::isnan(r))) {
         continue;
       }
-      if (comparison.perturbed) {
-        // within the tolerance of the value, which the perturbed evaluations set
-        const double deviation = std::fabs(a - r);
-        const double tolerance = comparison.tolerance[o * sample + k];
+      const double deviation = std::fabs(a - r);
+      if (!(deviation <= worstOfOutput[o])) {
+        worstOfOutput[o] = deviation;
+        worstPoint[o] = k;
+      }
+      if (perturbed) {
+        const double tolerance = reference.tolerance[o * pool + k];
         const double ratio =
             tolerance > 0.0 ? deviation / tolerance : std::numeric_limits<double>::infinity();
         comparison.worstRatio = std::max(comparison.worstRatio, ratio);
@@ -670,15 +758,107 @@ void judge(const Program& program, BackendComparison& comparison) {
         }
       }
       ++comparison.deviating;
-      const double ulps = std::fabs(a - r) / std::max(ulpOf(r), ulpOf(a));
+      const double ulps = deviation / std::max(ulpOf(r), ulpOf(a));
       if (comparison.worst.empty() || ulps > worstUlps || std::isnan(ulps)) {
         worstUlps = ulps;
         comparison.worst = "`" + program.outputs()[o].name + "` at point " +
-                           std::to_string(comparison.points[k]) + " is " + hexOf(a) +
-                           ", the interpreter's " + hexOf(r);
+                           std::to_string(points[k]) + " is " + hexOf(a) + ", the interpreter's " +
+                           hexOf(r);
       }
     }
   }
+
+  // the sample
+  for (std::size_t i = 0; i < std::min(SmallestHashes, pool); ++i) {
+    chosen[byHash[i]] = true;
+  }
+  const auto group = std::find_if(program.inputs().begin(),
+                                  program.inputs().end(),
+                                  [](const VarSpec& input) { return input.name == "group"; });
+  if (group != program.inputs().end()) {
+    const auto column = static_cast<std::size_t>(group - program.inputs().begin());
+    std::map<double, int> taken;
+    for (const std::size_t k : byHash) {
+      if (taken[inputs[column * pool + k]]++ < 2) {
+        chosen[k] = true;
+      }
+    }
+  }
+  for (std::size_t o = 0; o < outputs; ++o) {
+    std::size_t smallest = pool;
+    std::size_t largest = pool;
+    for (const std::size_t k : byHash) {
+      const double value = reference.outputs[o * pool + k];
+      if (std::isnan(value)) {
+        continue;
+      }
+      if (smallest == pool || value < reference.outputs[o * pool + smallest]) {
+        smallest = k;
+      }
+      if (largest == pool || value > reference.outputs[o * pool + largest]) {
+        largest = k;
+      }
+    }
+    for (const std::size_t k : {smallest, largest, worstPoint[o]}) {
+      if (k < pool) {
+        chosen[k] = true;
+      }
+    }
+  }
+  for (const auto& [select, taken] : reference.branches) {
+    static_cast<void>(select);
+    for (const std::uint8_t branch : {std::uint8_t{1}, std::uint8_t{0}}) {
+      for (const std::size_t k : byHash) {
+        if (k < taken.size() && taken[k] == branch) {
+          chosen[k] = true;
+          break;
+        }
+      }
+    }
+  }
+  std::size_t unstable = 0;
+  for (const std::size_t k : byHash) {
+    if (reference.unstable[k]) {
+      comparison.unstable.push_back(points[k]);
+      if (unstable++ < SmallestHashes) {
+        chosen[k] = true;
+      }
+    }
+  }
+
+  // and their values, in the order of the call
+  std::vector<std::size_t> sample;
+  for (std::size_t k = 0; k < pool; ++k) {
+    if (chosen[k]) {
+      sample.push_back(k);
+    }
+  }
+  const std::size_t inputCount = pool == 0 ? 0 : inputs.size() / pool;
+  const std::size_t n = sample.size();
+  comparison.points.resize(n);
+  comparison.identities.resize(n);
+  comparison.inputs.assign(inputCount * n, 0.0);
+  comparison.interpreter.assign(outputs * n, 0.0);
+  comparison.backend.assign(outputs * n, 0.0);
+  if (perturbed) {
+    comparison.tolerance.assign(outputs * n, 0.0);
+  }
+  for (std::size_t j = 0; j < n; ++j) {
+    const std::size_t k = sample[j];
+    comparison.points[j] = points[k];
+    comparison.identities[j] = identities[k];
+    for (std::size_t i = 0; i < inputCount; ++i) {
+      comparison.inputs[i * n + j] = inputs[i * pool + k];
+    }
+    for (std::size_t o = 0; o < outputs; ++o) {
+      comparison.interpreter[o * n + j] = reference.outputs[o * pool + k];
+      comparison.backend[o * n + j] = backend[o * pool + k];
+      if (perturbed) {
+        comparison.tolerance[o * n + j] = reference.tolerance[o * pool + k];
+      }
+    }
+  }
+  return comparison;
 }
 
 std::string fingerprintOf(const Program& program) {
@@ -704,6 +884,7 @@ struct Records {
   std::mutex mutex;
   std::string directory;
   std::vector<std::string> build;
+  int rank{0};
   std::set<std::string> written;
 };
 
@@ -735,6 +916,8 @@ void writeRecord(const Program& program, BackendKind kind, const BackendComparis
          "written by SeisSol at the first call of its kernel.\n";
   out << "fingerprint = " << fingerprint << "\n";
   out << "backend = " << backend << "\n";
+  out << "rank = " << state.rank << "\n";
+  out << "compared = " << found.compared << " points\n";
   out << "compute = " << (program.computeType() == ComputeType::F32 ? "f32" : "f64") << "\n";
   for (const auto& line : state.build) {
     out << line << "\n";
@@ -767,7 +950,7 @@ void writeRecord(const Program& program, BackendKind kind, const BackendComparis
   out << "\n# the sample: per point its inputs, and per output the interpreter's value, the "
          "backend's"
       << (found.perturbed ? " and its tolerance" : "") << ", in hexadecimal\n";
-  out << "point";
+  out << "point identity";
   for (const auto& input : program.inputs()) {
     out << " " << input.name;
   }
@@ -782,7 +965,8 @@ void writeRecord(const Program& program, BackendKind kind, const BackendComparis
   }
   out << "\n";
   for (std::size_t k = 0; k < sample; ++k) {
-    out << found.points[k];
+    out << found.points[k] << " "
+        << (k < found.identities.size() ? found.identities[k] : found.points[k]);
     for (std::size_t i = 0; i < program.inputs().size() && i * sample + k < found.inputs.size();
          ++i) {
       out << " " << hexOf(found.inputs[i * sample + k]);
@@ -805,7 +989,8 @@ void writeRecord(const Program& program, BackendKind kind, const BackendComparis
     }
   }
   const std::filesystem::path path =
-      std::filesystem::path(state.directory) / (fingerprint + "-" + backend + ".txt");
+      std::filesystem::path(state.directory) /
+      (fingerprint + "-" + backend + "-r" + std::to_string(state.rank) + ".txt");
   std::ofstream file(path);
   file << out.str();
   if (!file) {
@@ -815,11 +1000,14 @@ void writeRecord(const Program& program, BackendKind kind, const BackendComparis
 
 } // namespace
 
-void setRecordDirectory(const std::string& directory, const std::vector<std::string>& build) {
+void setRecordDirectory(const std::string& directory,
+                        const std::vector<std::string>& build,
+                        int rank) {
   auto& state = records();
   const std::lock_guard<std::mutex> lock(state.mutex);
   state.directory = directory;
   state.build = build;
+  state.rank = rank;
   if (!directory.empty()) {
     std::error_code error;
     std::filesystem::create_directories(directory, error);
@@ -877,62 +1065,59 @@ std::optional<BackendComparison> compareWithInterpreter(const Program& program,
   if (!program.state().empty() || count == 0) {
     return std::nullopt;
   }
-  BackendComparison comparison;
-  comparison.points = spreadPoints(first, count);
+  // the identities of the points: the call's, where it gives them, else the table's
+  const std::function<std::uint64_t(std::size_t)> identity =
+      args != nullptr && args->identity != nullptr
+          ? std::function<std::uint64_t(std::size_t)>(
+                [args](std::size_t point) { return args->identity(args->identityContext, point); })
+          : std::function<std::uint64_t(std::size_t)>(
+                [&binding](std::size_t point) { return binding.identity(point); });
+  const auto [points, identities] = poolOf(first, count, PoolSize, identity);
+  const std::size_t pool = points.size();
   const std::size_t outputs = program.outputs().size();
-  const std::size_t sample = comparison.points.size();
 
-  // what the backend wrote, and the inputs, for the record
-  comparison.backend.assign(outputs * sample, 0.0);
-  comparison.inputs.assign(binding.inputs().size() * sample, 0.0);
+  // what the backend wrote at the pool, and the inputs there
+  std::vector<double> backend(outputs * pool, 0.0);
+  std::vector<double> inputs(binding.inputs().size() * pool, 0.0);
   std::vector<double> value(std::max(outputs, binding.inputs().size()));
-  for (std::size_t k = 0; k < sample; ++k) {
-    const bool read =
-        table != nullptr
-            ? binding.gatherOutputs(*table, comparison.points[k], 1, value.data())
-            : binding.gatherOutputsFrom(
-                  args->outputs, args->outputCount, comparison.points[k], 1, value.data());
+  for (std::size_t k = 0; k < pool; ++k) {
+    const bool read = table != nullptr
+                          ? binding.gatherOutputs(*table, points[k], 1, value.data())
+                          : binding.gatherOutputsFrom(
+                                args->outputs, args->outputCount, points[k], 1, value.data());
     if (!read) {
       return std::nullopt;
     }
     for (std::size_t o = 0; o < outputs; ++o) {
-      comparison.backend[o * sample + k] = value[o];
+      backend[o * pool + k] = value[o];
     }
     if (table != nullptr) {
-      binding.gather(*table, comparison.points[k], 1, value.data());
+      binding.gather(*table, points[k], 1, value.data());
     } else {
-      binding.gatherFrom(args->inputs, args->inputCount, comparison.points[k], 1, value.data());
+      binding.gatherFrom(args->inputs, args->inputCount, points[k], 1, value.data());
     }
     for (std::size_t i = 0; i < binding.inputs().size(); ++i) {
-      comparison.inputs[i * sample + k] = value[i];
+      inputs[i * pool + k] = value[i];
     }
   }
 
-  // what the program gives, by the interpreter: the binding reads the inputs, as for the call
+  // the interpreter reads the inputs as the call did, through the binding
   const auto makeIo = [&](auto tag) {
     using T = decltype(tag);
     return [&](std::vector<double>& results) -> std::unique_ptr<TileIo<T>> {
-      return std::make_unique<SampleTileIo<T>>(
-          binding, table, args, comparison.points, results, outputs);
+      return std::make_unique<SampleTileIo<T>>(binding, table, args, points, results, outputs);
     };
   };
   const auto makeFloat = makeIo(0.0F);
   const auto makeDouble = makeIo(0.0);
-  const auto ids = internGrids(program, grids);
-  const StoreArrays arrays(program, ids, grids);
-  const GridArrays* sampled = ids.empty() ? nullptr : &arrays;
-  if (lower(program, LowerOptions{}).dataType() == ComputeType::F32) {
-    interpret<float>(program, sampled, makeFloat, perturbed, comparison);
-  } else {
-    interpret<double>(program, sampled, makeDouble, perturbed, comparison);
-  }
-  judge(program, comparison);
-  return comparison;
+  return compareAt(
+      program, grids, points, identities, inputs, backend, makeFloat, makeDouble, perturbed);
 }
 
 std::optional<BackendComparison> compareValues(const Program& program,
                                                GridStore& grids,
                                                const std::vector<std::size_t>& points,
+                                               const std::vector<std::uint64_t>& identities,
                                                const std::vector<double>& inputs,
                                                const std::vector<double>& backend,
                                                bool perturbed) {
@@ -940,31 +1125,27 @@ std::optional<BackendComparison> compareValues(const Program& program,
       points.empty()) {
     return std::nullopt;
   }
-  BackendComparison comparison;
-  comparison.points = points;
-  comparison.inputs = inputs;
-  comparison.backend = backend;
   const std::size_t inputCount = program.inputs().size();
   const std::size_t outputs = program.outputs().size();
   const auto makeIo = [&](auto tag) {
     using T = decltype(tag);
     return [&](std::vector<double>& results) -> std::unique_ptr<TileIo<T>> {
-      return std::make_unique<ValuesTileIo<T>>(
-          comparison.inputs, inputCount, points.size(), results, outputs);
+      return std::make_unique<ValuesTileIo<T>>(inputs, inputCount, points.size(), results, outputs);
     };
   };
   const auto makeFloat = makeIo(0.0F);
   const auto makeDouble = makeIo(0.0);
-  const auto ids = internGrids(program, grids);
-  const StoreArrays arrays(program, ids, grids);
-  const GridArrays* sampled = ids.empty() ? nullptr : &arrays;
-  if (lower(program, LowerOptions{}).dataType() == ComputeType::F32) {
-    interpret<float>(program, sampled, makeFloat, perturbed, comparison);
-  } else {
-    interpret<double>(program, sampled, makeDouble, perturbed, comparison);
-  }
-  judge(program, comparison);
-  return comparison;
+  return compareAt(
+      program, grids, points, identities, inputs, backend, makeFloat, makeDouble, perturbed);
+}
+
+std::vector<std::size_t> devicePool(std::size_t first,
+                                    std::size_t count,
+                                    const std::function<std::uint64_t(std::size_t)>& identity,
+                                    std::vector<std::uint64_t>& identities) {
+  auto [points, ids] = poolOf(first, count, DevicePoolSize, identity);
+  identities = std::move(ids);
+  return points;
 }
 
 std::vector<std::size_t> internGrids(const Program& program, GridStore& grids) {

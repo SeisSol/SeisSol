@@ -342,7 +342,8 @@ TileInterpreter<T>::TileInterpreter(const Program& program,
                                     const GridArrays* grids,
                                     const InterpreterOptions& options)
     : lowered_(&lowered), grids_(grids), perturbation_(options.perturbation),
-      decisions_(options.decisions), numInputs_(static_cast<std::int32_t>(program.inputs().size())),
+      decisions_(options.decisions), branches_(options.branches),
+      numInputs_(static_cast<std::int32_t>(program.inputs().size())),
       numOutputs_(static_cast<std::int32_t>(program.outputs().size())),
       stateSlots_(lowered.stateSlotCount()) {
   // the data moves in its type; the operations compute in theirs
@@ -423,13 +424,19 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
 
   // the signature of the decisions of the selects of each point, where asked for
   const auto decide = [&](const Instruction& inst, const auto& taken) {
-    if (decisions_ == nullptr) {
-      return;
-    }
     const auto index = static_cast<std::uint64_t>(&inst - stage.code.data());
-    for (std::size_t l = 0; l < count; ++l) {
-      auto& signature = (*decisions_)[first + l];
-      signature = splitMix64(signature ^ ((index << 1U) | (taken(l) ? 1U : 0U)));
+    if (decisions_ != nullptr) {
+      for (std::size_t l = 0; l < count; ++l) {
+        auto& signature = (*decisions_)[first + l];
+        signature = splitMix64(signature ^ ((index << 1U) | (taken(l) ? 1U : 0U)));
+      }
+    }
+    if (branches_ != nullptr && &stage == &lowered_->run()) {
+      auto& branch = (*branches_)[static_cast<std::size_t>(index)];
+      branch.resize(numPoints, 0);
+      for (std::size_t l = 0; l < count; ++l) {
+        branch[first + l] = taken(l) ? 1 : 0;
+      }
     }
   };
 

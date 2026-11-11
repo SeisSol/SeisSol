@@ -29,6 +29,8 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <map>
+#include <set>
 #include <string>
 #include <unistd.h>
 #include <utility>
@@ -534,7 +536,7 @@ out rho = t4
                   fingerprint.size(),
                   "%016llx",
                   static_cast<unsigned long long>(once.fingerprint()));
-    const std::string path = directory + "/" + fingerprint.data() + "-interpreter.txt";
+    const std::string path = directory + "/" + fingerprint.data() + "-interpreter-r0.txt";
     std::ifstream file(path);
     REQUIRE(file.good());
     const std::string record((std::istreambuf_iterator<char>(file)),
@@ -545,9 +547,82 @@ out rho = t4
     CHECK(record.find("build = the test\n") != std::string::npos);
     // the program in the normal form, and the sample in hexadecimal
     CHECK(record.find(printCore(once)) != std::string::npos);
-    CHECK(record.find("point v1 v2 speed:interpreter\n0 0x1.8p+1 0x1p+2 0x1.4p+2\n") !=
+    // the point, its identity -- its index, where the table gives none -- and its values
+    CHECK(record.find("point identity v1 v2 speed:interpreter\n0 0 0x1.8p+1 0x1p+2 0x1.4p+2\n") !=
           std::string::npos);
     std::filesystem::remove_all(directory);
+  }
+
+  TEST_CASE("the sample of a call: hashes of identities, branches, groups, extremes") {
+    const Program program = loadCore("#!sderiv 1\nin x, group\nout u = select(lt(x, 0.5), x, 2 * "
+                                     "x)\nout g = group * 1\n",
+                                     "");
+    constexpr std::size_t Points = 10000;
+    // the points of a run, in some order: their identity, x and group
+    const auto sampleOf = [&](bool reversed) {
+      std::vector<double> x(Points);
+      std::vector<double> group(Points);
+      std::vector<std::uint64_t> identity(Points);
+      for (std::size_t i = 0; i < Points; ++i) {
+        const std::size_t point = reversed ? Points - 1 - i : i;
+        identity[i] = 1000003ULL * point + 7;
+        x[i] = std::fmod(0.6180339887 * static_cast<double>(point), 1.0);
+        group[i] = static_cast<double>(point % 5);
+      }
+      std::vector<double> u(Points);
+      std::vector<double> g(Points);
+      reader::scripting::DataTable table(Points);
+      table.bindViewConst<double>("x", reader::scripting::Direction::In, x.data());
+      table.bindViewConst<double>("group", reader::scripting::Direction::In, group.data());
+      table.bindView<double>("u", reader::scripting::Direction::Out, u.data());
+      table.bindView<double>("g", reader::scripting::Direction::Out, g.data());
+      table.setIdentity([&identity](std::size_t p) { return identity[p]; });
+      auto binding = Binding::bind(program, table);
+      reader::datafield::GridStore store;
+      BackendOptions options;
+      options.quiet = true;
+      const auto kernel = makeKernel(program, binding, store, options);
+      kernel->precompute(table);
+      kernel->run(table);
+      auto comparison = compareWithInterpreter(program, binding, store, &table, nullptr);
+      REQUIRE(comparison.has_value());
+      return *comparison;
+    };
+    const BackendComparison forward = sampleOf(false);
+    CHECK(forward.compared == 4096);
+    CHECK(forward.deviating == 0);
+    const std::set<std::uint64_t> chosen(forward.identities.begin(), forward.identities.end());
+    // the 64 smallest hashes of all points
+    std::vector<std::pair<std::uint64_t, std::uint64_t>> hashes;
+    for (std::size_t point = 0; point < Points; ++point) {
+      const std::uint64_t identity = 1000003ULL * point + 7;
+      hashes.emplace_back(splitMix64(identity), identity);
+    }
+    std::sort(hashes.begin(), hashes.end());
+    for (std::size_t i = 0; i < 64; ++i) {
+      CHECK(chosen.count(hashes[i].second) == 1);
+    }
+    // both branches of the select, every group twice
+    const std::size_t n = forward.points.size();
+    bool below = false;
+    bool above = false;
+    std::map<double, int> groups;
+    for (std::size_t k = 0; k < n; ++k) {
+      below = below || forward.inputs[k] < 0.5;
+      above = above || forward.inputs[k] >= 0.5;
+      ++groups[forward.inputs[n + k]];
+    }
+    CHECK(below);
+    CHECK(above);
+    REQUIRE(groups.size() == 5);
+    for (const auto& [value, count] : groups) {
+      CAPTURE(value);
+      CHECK(count >= 2);
+    }
+    // whatever the order of the points: the same sample
+    const BackendComparison backward = sampleOf(true);
+    const std::set<std::uint64_t> again(backward.identities.begin(), backward.identities.end());
+    CHECK(again == chosen);
   }
 
   TEST_CASE("a module in the core format reads through the sderiv entry point") {

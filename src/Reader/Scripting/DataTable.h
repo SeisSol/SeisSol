@@ -432,7 +432,7 @@ class DataTable {
 
   // View-on-existing-struct
   template <typename S, typename T>
-  void bindMemberView(std::string name, Direction dir, S* base, T S::*member) {
+  void bindMemberView(std::string name, Direction dir, S* base, T S::* member) {
     const auto accessor = [=](std::size_t idx, void* out) {
       auto* outC = reinterpret_cast<T*>(out);
       *outC = base[idx].*member;
@@ -453,7 +453,7 @@ class DataTable {
 
   // View-on-existing-struct
   template <typename S, typename T>
-  void bindMemberViewConst(std::string name, Direction dir, const S* base, T S::*member) {
+  void bindMemberViewConst(std::string name, Direction dir, const S* base, T S::* member) {
     const auto accessor = [=](std::size_t idx, void* out) {
       auto* outC = reinterpret_cast<T*>(out);
       *outC = base[idx].*member;
@@ -558,6 +558,17 @@ class DataTable {
 
   [[nodiscard]] std::size_t numPoints() const { return numPoints_; }
 
+  /// The identity of each point across the partition: the global id of its cell, face or fault face
+  /// and its index in it, folded into one number (the specification's evaluation record chooses
+  /// its sample by a hash of it, so that two runs on the same mesh choose the same points whatever
+  /// the partition). Unset, a point is its index in the table, which is only that.
+  void setIdentity(std::function<std::uint64_t(std::size_t)> identity) {
+    identity_ = std::move(identity);
+  }
+  [[nodiscard]] const std::function<std::uint64_t(std::size_t)>& identity() const {
+    return identity_;
+  }
+
   [[nodiscard]] const std::vector<DataEntry>& dataEntries() const { return dataEntries_; }
   /// Keeps the state `name` of a program at `base` (cf. StateInput); strides in elements of T.
   template <typename T>
@@ -617,7 +628,7 @@ class DataTable {
   /// rather than offsetof because the member is a pointer-to-member, and this
   /// is well defined for the standard-layout structs the ABI is used with.
   template <typename S, typename T>
-  static StridedView makeMemberView(S* base, T S::*member, bool writable) {
+  static StridedView makeMemberView(S* base, T S::* member, bool writable) {
     const auto* null = static_cast<const S*>(nullptr);
     StridedView view;
     view.base = const_cast<void*>(static_cast<const void*>(base));
@@ -630,6 +641,7 @@ class DataTable {
 
   std::vector<std::shared_ptr<void>> constants_;
   std::size_t numPoints_;
+  std::function<std::uint64_t(std::size_t)> identity_;
   std::vector<DataEntry> dataEntries_;
   std::vector<BlockEntry> blockEntries_;
   std::vector<MatrixEntry> matrixEntries_;

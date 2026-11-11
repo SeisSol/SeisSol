@@ -191,6 +191,7 @@ std::int32_t readGroup(const DataEntry& entry, std::size_t index) {
 Binding Binding::bind(const Program& program, const DataTable& table) {
   Binding binding;
   binding.numPoints_ = table.numPoints();
+  binding.identity_ = table.identity();
   // the data moves in the type of the program's widest values (see dataType())
   binding.dataType_ = expr::dataType(program);
 

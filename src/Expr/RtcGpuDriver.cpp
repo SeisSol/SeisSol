@@ -1032,7 +1032,16 @@ class RtcGpuKernel final : public Kernel {
       queues.front() = queue_;
     }
     synchronizeFor(target_, queues);
-    const std::vector<std::size_t> points = samplePoints(args.first, args.count);
+    // the pool: the points of the smallest hash of their identity
+    const std::function<std::uint64_t(std::size_t)> identity =
+        args.identity != nullptr
+            ? std::function<std::uint64_t(std::size_t)>(
+                  [&args](std::size_t point) { return args.identity(args.identityContext, point); })
+            : std::function<std::uint64_t(std::size_t)>(
+                  [this](std::size_t point) { return binding_->identity(point); });
+    std::vector<std::uint64_t> identities;
+    const std::vector<std::size_t> points =
+        devicePool(args.first, args.count, identity, identities);
     const std::size_t inputs = binding_->inputs().size();
     const std::size_t outputs = binding_->outputs().size();
     std::vector<double> inputValues(inputs * points.size());
@@ -1058,7 +1067,7 @@ class RtcGpuKernel final : public Kernel {
       }
     }
     const auto comparison =
-        compareValues(program_, *store_, points, inputValues, outputValues, true);
+        compareValues(program_, *store_, points, identities, inputValues, outputValues, true);
     if (comparison.has_value()) {
       reportComparison(program_, kind(), *comparison);
     }

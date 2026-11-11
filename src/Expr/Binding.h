@@ -86,6 +86,13 @@ class Binding {
   [[nodiscard]] const std::vector<ColumnBinding>& inputs() const { return inputs_; }
   [[nodiscard]] const std::vector<ColumnBinding>& outputs() const { return outputs_; }
   [[nodiscard]] std::size_t numPoints() const { return numPoints_; }
+  /// The identity across the partition (DataTable::setIdentity()) of point `point`, in the index
+  /// space of the binding -- past its permutation, the point of the table -- or that point where
+  /// the table gives none.
+  [[nodiscard]] std::uint64_t identity(std::size_t point) const {
+    const std::size_t row = permutation_.empty() ? point : permutation_[point];
+    return identity_ ? identity_(row) : static_cast<std::uint64_t>(row);
+  }
   /// The type the program moves its data in (expr::dataType()): its states and hoisted values are
   /// kept in it, and the device kernels take their uniform inputs in it.
   [[nodiscard]] ComputeType dataType() const { return dataType_; }
@@ -282,6 +289,7 @@ class Binding {
   std::vector<GroupRange> groupRanges_;
   std::vector<std::size_t> permutation_;
   std::size_t numPoints_{0};
+  std::function<std::uint64_t(std::size_t)> identity_;
   bool addressable_{false};
   bool hostAddressable_{false};
   std::vector<std::byte> persistent_;

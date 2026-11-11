@@ -17,6 +17,8 @@
 #include "Reader/Datafield/Grid.h"
 
 #include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -88,6 +90,13 @@ struct KernelArgs {
   /// (Layer::synchronizeTo and friends). Null means synchronous on the host.
   /// Ignored by the interpreter and by RtcCpu.
   void* stream{nullptr};
+
+  /// The identity of a point of the call across the partition, where the consumer knows it and
+  /// the binding's table cannot (it moves the bases per call, a face after the other):
+  /// identity(identityContext, point) for the points of [first, first + count). Null keeps the
+  /// identity of the table (DataTable::setIdentity()). Read once, for the sample of the first call.
+  std::uint64_t (*identity)(const void* context, std::size_t point){nullptr};
+  const void* identityContext{nullptr};
 
   /// Whether the backend may open a parallel region.
   ///
@@ -162,7 +171,11 @@ class Kernel {
 /// order of the binding's inputs), the outputs the interpreter gives and those the backend wrote
 /// ([output][point]), how many outputs deviate in their bits, and the largest deviation.
 struct BackendComparison {
+  /// the points of the sample of the record (see compareWithInterpreter()), and their identities
   std::vector<std::size_t> points;
+  std::vector<std::uint64_t> identities;
+  /// at how many points the backend was judged: the pool of the call
+  std::size_t compared{0};
   std::vector<double> inputs;
   std::vector<double> interpreter;
   std::vector<double> backend;
@@ -198,19 +211,35 @@ struct BackendComparison {
 /// The same, from the inputs and outputs of the points of a sample read back by whoever can
 /// (a backend on a device): inputs[input * points.size() + k] in the order of Program::inputs(),
 /// backend[output * points.size() + k]. Nothing for a program with state or contractions.
-[[nodiscard]] std::optional<BackendComparison> compareValues(const Program& program,
-                                                             reader::datafield::GridStore& grids,
-                                                             const std::vector<std::size_t>& points,
-                                                             const std::vector<double>& inputs,
-                                                             const std::vector<double>& backend,
-                                                             bool perturbed);
+[[nodiscard]] std::optional<BackendComparison>
+    compareValues(const Program& program,
+                  reader::datafield::GridStore& grids,
+                  const std::vector<std::size_t>& points,
+                  const std::vector<std::uint64_t>& identities,
+                  const std::vector<double>& inputs,
+                  const std::vector<double>& backend,
+                  bool perturbed);
+
+/// The pool of a call on a device, whose values are copied one by one: its 1024 points of the
+/// smallest hash of their identity, and their identities.
+[[nodiscard]] std::vector<std::size_t>
+    devicePool(std::size_t first,
+               std::size_t count,
+               const std::function<std::uint64_t(std::size_t)>& identity,
+               std::vector<std::uint64_t>& identities);
 
 /// Where the evaluation records of the programs go (the specification's "Evaluation record"): one
 /// file per program and backend, written at the first call of its kernel, with the program in the
 /// normal form and its fingerprint, the build (`build`, lines as they are), the backend and the
 /// compute type, what the check of the backend found, and the sample of points with their inputs
 /// and the outputs of the interpreter and of the backend, in hexadecimal. Empty writes none.
-void setRecordDirectory(const std::string& directory, const std::vector<std::string>& build = {});
+///
+/// Every rank writes the records of what it evaluates, named with `rank`: the sample of each is
+/// chosen by the hashes of the identities of the points, so that the union over the ranks holds
+/// the sample of the whole point set, which a tool chooses from them.
+void setRecordDirectory(const std::string& directory,
+                        const std::vector<std::string>& build = {},
+                        int rank = 0);
 
 /// Whether the compiled kernels are checked at their first call (SEISSOL_EXPR_CHECK is not off).
 [[nodiscard]] bool backendChecks();

@@ -32,6 +32,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -276,6 +277,10 @@ struct InterpreterOptions {
   /// selects in order and whether each took its first branch): two evaluations decide every
   /// select of a point alike where its signatures agree. Sized by the caller, to the points.
   std::vector<std::uint64_t>* decisions{nullptr};
+  /// Where non-null, per select (by its instruction in the run stage) whether it took its first
+  /// branch, per point: what the evaluation record chooses points by, both branches of every
+  /// select.
+  std::map<std::size_t, std::vector<std::uint8_t>>* branches{nullptr};
 };
 
 /// The mix of SplitMix64.
@@ -336,6 +341,7 @@ class TileInterpreter {
   std::size_t tileSize_{0};
   Perturbation perturbation_;
   std::vector<std::uint64_t>* decisions_{nullptr};
+  std::map<std::size_t, std::vector<std::uint8_t>>* branches_{nullptr};
   // the transients of a tile, each in its type (StageCode::slotTypes), at their offsets in bytes
   std::vector<double> scratch_;
   std::vector<std::size_t> precomputeOffsets_;
