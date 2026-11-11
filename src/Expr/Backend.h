@@ -19,6 +19,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -166,6 +167,37 @@ class Kernel {
   [[nodiscard]] virtual BackendKind kind() const = 0;
 };
 
+/// What the pool of a call covers, from which the sample of its record is chosen; what a tool needs
+/// to know to choose the sample of all points from the records of the ranks (the specification's
+/// "Evaluation record").
+struct PoolScope {
+  /// the points of the call
+  std::size_t callPoints{0};
+  /// whether the consumer gave the identities of the points (the global ids of their cells or
+  /// faces, DataTable::setIdentity(), KernelArgs::identity); else they are the indices of the
+  /// points in the call, which a partition changes
+  bool globalIdentities{false};
+  /// The closed part of the pool: every point of the call, or every point of a hash of its identity
+  /// up to `bound` -- the points of the smallest hashes. The rules of the smallest hash, and those
+  /// of the selects, choose from it.
+  bool closedAll{true};
+  std::uint64_t bound{0};
+  /// the points of the closed part
+  std::size_t closed{0};
+  /// whether the groups and the extreme values were chosen from all points of the call (by what
+  /// the backend wrote), or from the pool
+  bool scanned{false};
+};
+
+/// The pool of a call: the points the check of a backend judges and the sample of the record is
+/// chosen from, in the order of the call, with their identities: its closed part, and the points
+/// the rules over all points choose beyond it (PoolScope).
+struct CallPool {
+  std::vector<std::size_t> points;
+  std::vector<std::uint64_t> identities;
+  PoolScope scope;
+};
+
 /// What the check of a compiled backend found at the first call of its kernel (the specification's
 /// check of a backend): the points of the call it compared, their inputs ([input][point], in the
 /// order of the binding's inputs), the outputs the interpreter gives and those the backend wrote
@@ -176,6 +208,7 @@ struct BackendComparison {
   std::vector<std::uint64_t> identities;
   /// at how many points the backend was judged: the pool of the call
   std::size_t compared{0};
+  PoolScope scope;
   std::vector<double> inputs;
   std::vector<double> interpreter;
   std::vector<double> backend;
@@ -188,6 +221,7 @@ struct BackendComparison {
   bool perturbed{false};
   std::vector<double> tolerance;
   std::vector<std::size_t> unstable;
+  std::vector<std::uint64_t> unstableIdentities;
   double worstRatio{0.0};
 };
 
@@ -208,25 +242,35 @@ struct BackendComparison {
                            const KernelArgs* args,
                            bool perturbed = false);
 
-/// The same, from the inputs and outputs of the points of a sample read back by whoever can
-/// (a backend on a device): inputs[input * points.size() + k] in the order of Program::inputs(),
-/// backend[output * points.size() + k]. Nothing for a program with state or contractions.
-[[nodiscard]] std::optional<BackendComparison>
-    compareValues(const Program& program,
-                  reader::datafield::GridStore& grids,
-                  const std::vector<std::size_t>& points,
-                  const std::vector<std::uint64_t>& identities,
-                  const std::vector<double>& inputs,
-                  const std::vector<double>& backend,
-                  bool perturbed);
+/// The same, from the inputs and outputs of the points of a pool read back by whoever can (a
+/// backend on a device): inputs[input * points + k] in the order of Program::inputs(),
+/// backend[output * points + k]. Nothing for a program with state or contractions.
+[[nodiscard]] std::optional<BackendComparison> compareValues(const Program& program,
+                                                             reader::datafield::GridStore& grids,
+                                                             const CallPool& pool,
+                                                             const std::vector<double>& inputs,
+                                                             const std::vector<double>& backend,
+                                                             bool perturbed);
+
+/// What the interpreter gives for `program` -- as written, in its compute type -- at `points`
+/// points of the inputs `inputs` ([input][point], in the order of Program::inputs()), with the
+/// grids of `grids`: [output][point]. Where `branches` is not null, per select (by its instruction)
+/// the branch each point takes, 1 for the first. For a program without state or contractions, of
+/// which the inputs of a point are all it reads: what a record holds of a point.
+[[nodiscard]] std::vector<double>
+    interpretValues(const Program& program,
+                    reader::datafield::GridStore& grids,
+                    const std::vector<double>& inputs,
+                    std::size_t points,
+                    std::map<std::size_t, std::vector<std::uint8_t>>* branches = nullptr);
 
 /// The pool of a call on a device, whose values are copied one by one: its 1024 points of the
-/// smallest hash of their identity, and their identities.
-[[nodiscard]] std::vector<std::size_t>
-    devicePool(std::size_t first,
-               std::size_t count,
-               const std::function<std::uint64_t(std::size_t)>& identity,
-               std::vector<std::uint64_t>& identities);
+/// smallest hash of their identity, and their identities; the groups and the extreme values are
+/// chosen from it.
+[[nodiscard]] CallPool devicePool(std::size_t first,
+                                  std::size_t count,
+                                  const std::function<std::uint64_t(std::size_t)>& identity,
+                                  bool globalIdentities);
 
 /// Where the evaluation records of the programs go (the specification's "Evaluation record"): one
 /// file per program and backend, written at the first call of its kernel, with the program in the
@@ -234,9 +278,11 @@ struct BackendComparison {
 /// compute type, what the check of the backend found, and the sample of points with their inputs
 /// and the outputs of the interpreter and of the backend, in hexadecimal. Empty writes none.
 ///
-/// Every rank writes the records of what it evaluates, named with `rank`: the sample of each is
-/// chosen by the hashes of the identities of the points, so that the union over the ranks holds
-/// the sample of the whole point set, which a tool chooses from them.
+/// Every rank writes the records of what it evaluates, named with `rank`. The sample of each is
+/// chosen by the hashes of the identities of the points and over all points of the call, so that
+/// the union over the ranks holds the sample of the whole point set, which a tool chooses from them
+/// (mergeRecords(), Record.h): exactly for the rules of the smallest hash, the groups and the
+/// extreme values; for the selects where the closed pools of the ranks reach far enough.
 void setRecordDirectory(const std::string& directory,
                         const std::vector<std::string>& build = {},
                         int rank = 0);

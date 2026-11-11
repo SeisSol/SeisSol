@@ -14,6 +14,7 @@
 #include "Cost.t.h"
 #include "Expr.t.h"
 #include "Interp.t.h"
+#include "Record.t.h"
 #include "RtcCpu.t.h"
 #include "RtcGpu.t.h"
 #include "SderivFrontend.t.h"

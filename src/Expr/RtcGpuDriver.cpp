@@ -1033,15 +1033,16 @@ class RtcGpuKernel final : public Kernel {
     }
     synchronizeFor(target_, queues);
     // the pool: the points of the smallest hash of their identity
+    const bool given = args.identity != nullptr;
     const std::function<std::uint64_t(std::size_t)> identity =
-        args.identity != nullptr
-            ? std::function<std::uint64_t(std::size_t)>(
-                  [&args](std::size_t point) { return args.identity(args.identityContext, point); })
-            : std::function<std::uint64_t(std::size_t)>(
-                  [this](std::size_t point) { return binding_->identity(point); });
-    std::vector<std::uint64_t> identities;
-    const std::vector<std::size_t> points =
-        devicePool(args.first, args.count, identity, identities);
+        given ? std::function<std::uint64_t(std::size_t)>([&args](std::size_t point) {
+          return args.identity(args.identityContext, point);
+        })
+              : std::function<std::uint64_t(std::size_t)>(
+                    [this](std::size_t point) { return binding_->identity(point); });
+    const CallPool pool =
+        devicePool(args.first, args.count, identity, given || binding_->identified());
+    const std::vector<std::size_t>& points = pool.points;
     const std::size_t inputs = binding_->inputs().size();
     const std::size_t outputs = binding_->outputs().size();
     std::vector<double> inputValues(inputs * points.size());
@@ -1066,8 +1067,7 @@ class RtcGpuKernel final : public Kernel {
         outputValues[o * points.size() + k] = *value;
       }
     }
-    const auto comparison =
-        compareValues(program_, *store_, points, identities, inputValues, outputValues, true);
+    const auto comparison = compareValues(program_, *store_, pool, inputValues, outputValues, true);
     if (comparison.has_value()) {
       reportComparison(program_, kind(), *comparison);
     }

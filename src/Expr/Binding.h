@@ -93,6 +93,8 @@ class Binding {
     const std::size_t row = permutation_.empty() ? point : permutation_[point];
     return identity_ ? identity_(row) : static_cast<std::uint64_t>(row);
   }
+  /// Whether the table gives the identities of its points.
+  [[nodiscard]] bool identified() const { return static_cast<bool>(identity_); }
   /// The type the program moves its data in (expr::dataType()): its states and hoisted values are
   /// kept in it, and the device kernels take their uniform inputs in it.
   [[nodiscard]] ComputeType dataType() const { return dataType_; }
