@@ -1,0 +1,13 @@
+#!sderiv 1
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#
+# A layered density: 2600 above 2000 m depth, 2700 below.
+in z
+def t0 = lt(z, -2000)
+def t1 = select(t0, 2700, 2600)
+out rho = t1

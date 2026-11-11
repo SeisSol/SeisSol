@@ -7,3 +7,4 @@
 
 add_subdirectory(Main)
 add_subdirectory(Proxy)
+add_subdirectory(Sderiv)

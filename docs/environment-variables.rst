@@ -230,12 +230,24 @@ Every rank writes an evaluation record of every program a kernel evaluates into 
 fingerprint of the program: the program in the normal form of the core format, the build (version
 and commit of SeisSol, compiler, maths library), the backend and the compute type, what the check of
 a compiled kernel found, and a sample of the points of its first call, with their inputs and the
-outputs of the interpreter and of the kernel (and their tolerance on a GPU), in hexadecimal. The
-kernel is checked at the pool of the call, its 4096 points (1024 on a GPU) of the smallest hash of
-their identity across the partition, and the sample is chosen from it: the 64 points of the smallest
-hash, in every group the two of the smallest, per output the points of its smallest and its largest
-value, per ``select`` a point where it takes either branch, and the points where the kernel
-deviates most. Chosen by these hashes, the samples of all ranks hold that of the whole run.
+outputs of the interpreter and of the kernel (and their tolerance on a GPU), in hexadecimal. A
+point is identified by the global id of its cell or fault face and its index in it, where the
+consumer gives one (the material, plasticity, fault parameters and the scripted initial condition
+do), else by its index in the call. The kernel is checked at the pool of the call: its 4096 points
+(1024 on a GPU) of the smallest hash of their identity, and the points that the rules over all
+points of the call choose. The sample is chosen from it: the 64 points of the smallest hash, in
+every group the two of the smallest, per output the points of its smallest and its largest value
+(over all points of the call, by what the kernel wrote), per ``select`` the point of the smallest
+hash where it takes either branch, and the points where the kernel deviates most. Chosen so, the
+samples of all ranks hold that of the whole run, whatever its partition.
+
+The command line tool ``sderiv``, built and installed next to SeisSol, reads these records:
+``sderiv replay <records>`` evaluates the sample of each again with the interpreter of its build
+and compares bit for bit, ``sderiv merge -o <directory> <records>`` merges the records of the ranks
+into the sample of the whole run, and ``sderiv diff`` compares two records of one program, of two
+runs, at the points they share. It also checks a program (``sderiv check``), prints it in the
+normal form of the core format (``sderiv print``), evaluates it at points (``sderiv eval``) and
+compares two programs (``sderiv compare``).
 
 The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
 ``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They
