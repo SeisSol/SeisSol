@@ -289,6 +289,18 @@ std::unique_ptr<Kernel> makeInterpreter(const Program& program,
                                         GridStore& grids,
                                         const std::vector<std::size_t>& ids,
                                         const BackendOptions& options) {
+  // once, at its first use: the reference has to compute as IEEE 754 says
+  static const bool Checked = [] {
+    const std::string fault = interpreterFault();
+    if (!fault.empty()) {
+      logError() << "expr: the interpreter of the scripts is built with optimizations that change "
+                    "values ("
+                 << fault.c_str()
+                 << "); build src/Expr without -ffast-math, with -fp-model=precise for icpx.";
+    }
+    return true;
+  }();
+  static_cast<void>(Checked);
   LoweredProgram lowered = lower(program, options.lowering);
   if (!options.quiet) {
     logInfo()

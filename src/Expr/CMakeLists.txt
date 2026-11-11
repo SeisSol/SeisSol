@@ -33,6 +33,12 @@ target_link_libraries(seissol-expr PUBLIC seissol-common-properties)
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
     target_compile_options(seissol-expr PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-ffp-contract=off>)
 endif()
+# icpx compiles with -fp-model=fast from -O2 on, i.e. -ffast-math with all its flags (no NaN, no
+# infinities, no signed zero, reciprocals, contraction, approximate functions, reassociation): the
+# reference would not be IEEE. The interpreter checks this at its first use (checkInterpreter()).
+if (CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+    target_compile_options(seissol-expr PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-fp-model=precise>)
+endif()
 
 # The compiled CPU backend loads its artifact with dlopen. It degrades to the
 # interpreter at run time when the toolchain is unusable, so this is the only

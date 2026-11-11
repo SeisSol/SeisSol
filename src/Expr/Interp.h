@@ -32,6 +32,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace seissol::expr {
@@ -224,6 +225,14 @@ class TileIo {
 
 extern template class TileIo<double>;
 extern template class TileIo<float>;
+
+/// What is wrong with the arithmetic of this build of the interpreter, or nothing: whether it is
+/// built without value-changing optimizations, which a compiler whose default is -ffast-math
+/// applies (icpx from -O2 on). It evaluates operations whose result such an optimization changes --
+/// a NaN compared with itself, fmax with a NaN, a division against the multiplication by the
+/// reciprocal, a product and a sum against their contraction, an infinity minus itself, the sign
+/// of zero -- and compares the bits.
+[[nodiscard]] std::string interpreterFault();
 
 // A contiguous run of points the tiling must not cross, from
 // Binding::groupRanges(); a program without a group input gets one range.

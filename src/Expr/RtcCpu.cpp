@@ -867,6 +867,12 @@ std::string defaultFlags(const BackendOptions& options) {
   // the acceptance criterion. It costs nothing measurable.
   // -fopenmp-simd for the loops of a kernel in the shape of a tile; it needs no OpenMP runtime
   std::string flags = "-O3 -ffp-contract=off -fno-math-errno -fopenmp-simd";
+  // icpx compiles with -fp-model=fast from -O2 on, i.e. -ffast-math: no NaN, no signed zero,
+  // reciprocals for divisions, reassociation; precise keeps the arithmetic of the interpreter
+  const std::string compiler = compilerCommand();
+  if (compiler.find("icpx") != std::string::npos || compiler.find("icx") != std::string::npos) {
+    flags += " -fp-model=precise";
+  }
   flags += options.arch.empty() || options.arch == "native" ? " -march=native"
                                                             : " -march=" + options.arch;
   return flags;

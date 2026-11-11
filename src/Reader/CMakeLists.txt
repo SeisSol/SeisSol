@@ -26,7 +26,11 @@ add_library(seissol-reader OBJECT
 # The samples of a grid are the reference a compiled kernel that samples it itself (Expr/RtcGpu.cpp)
 # is checked against bit for bit: the same operations in the same order, without contraction of
 # floating-point expressions, as the interpreter of src/Expr.
-if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
+if (CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+    # -fp-model=fast, icpx's default from -O2 on, is -ffast-math
+    set_source_files_properties(Datafield/Interpolation.cpp PROPERTIES COMPILE_OPTIONS
+        "-ffp-contract=off;-fp-model=precise")
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     set_source_files_properties(Datafield/Interpolation.cpp PROPERTIES COMPILE_OPTIONS
         "-ffp-contract=off")
 endif()

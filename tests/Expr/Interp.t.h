@@ -758,6 +758,11 @@ TEST_SUITE("Expr::Interp") {
     CHECK(reporter.failures[3].point == 4);
   }
 
+  TEST_CASE("the interpreter computes as IEEE 754 says") {
+    // no -ffast-math: NaN, fmax, division, contraction, infinities, signed zero
+    CHECK(interpreterFault().empty());
+  }
+
   TEST_CASE("a program with a lookup but no grid arrays is rejected, not ignored") {
     Program program;
     program.addInput("x", DT::F64);

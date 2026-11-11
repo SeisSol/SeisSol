@@ -17,9 +17,11 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -742,6 +744,74 @@ void initialiseState(const Program& program, T* persistent, std::size_t numPoint
       slot[p] = value;
     }
   }
+}
+
+namespace {
+
+/// The outputs of a tile of one point, and no inputs.
+class OutputsOnly final : public TileIo<double> {
+  public:
+  explicit OutputsOnly(std::vector<double>& outputs) : outputs_(outputs) {}
+  void gather(std::size_t /*first*/, std::size_t /*count*/, double* /*dst*/) const override {}
+  void scatter(std::size_t /*first*/, std::size_t count, const double* src) override {
+    for (std::size_t o = 0; o < outputs_.size(); ++o) {
+      outputs_[o] = src[o * count];
+    }
+  }
+
+  private:
+  std::vector<double>& outputs_;
+};
+
+} // namespace
+
+std::string interpreterFault() {
+  constexpr double Nan = std::numeric_limits<double>::quiet_NaN();
+  constexpr double Inf = std::numeric_limits<double>::infinity();
+  Program program;
+  Arena& arena = program.arena();
+  struct Case {
+    const char* what;
+    NodeId value;
+    double expected;
+  };
+  // 1 + 2^-27 and 1 - 2^-27: their product, 1 - 2^-54, rounds to 1, contracted with - 1 it is not 0
+  const NodeId above = arena.konst(1.0 + std::ldexp(1.0, -27));
+  const NodeId below = arena.konst(1.0 - std::ldexp(1.0, -27));
+  const std::vector<Case> cases = {
+      {"a NaN equals itself", arena.pw(Fn::Eq, arena.konst(Nan), arena.konst(Nan)), 0.0},
+      {"a NaN is less than 1", arena.pw(Fn::Lt, arena.konst(Nan), arena.konst(1.0)), 0.0},
+      {"fmax(NaN, 1) is not 1", arena.pw(Fn::Max, arena.konst(Nan), arena.konst(1.0)), 1.0},
+      {"0.3 / 0.1 is computed as 0.3 * (1 / 0.1)",
+       arena.pw(Fn::Div, arena.konst(0.3), arena.konst(0.1)),
+       std::bit_cast<double>(std::uint64_t{0x4007FFFFFFFFFFFFULL})}, // 2.9999999999999996
+      {"a product and a sum are contracted into a fused multiply-add",
+       arena.pw(Fn::Add, arena.pw(Fn::Mul, above, below), arena.konst(-1.0)),
+       0.0},
+      {"an infinity minus itself is not NaN",
+       arena.pw(Fn::Sub, arena.konst(Inf), arena.konst(Inf)),
+       Nan},
+      {"the sign of zero is lost", arena.pw(Fn::Mul, arena.konst(0.0), arena.konst(-1.0)), -0.0}};
+  for (std::size_t i = 0; i < cases.size(); ++i) {
+    program.addOutput("u" + std::to_string(i), reader::scripting::DataType::F64, cases[i].value);
+  }
+  const LoweredProgram lowered = lower(program);
+  std::vector<double> outputs(cases.size(), 0.5);
+  OutputsOnly io(outputs);
+  TileInterpreter<double> interpreter(program, lowered, nullptr, InterpreterOptions{});
+  std::vector<double> persistent(1, 0.0);
+  interpreter.run(io, 1, persistent.data());
+  for (std::size_t i = 0; i < cases.size(); ++i) {
+    std::uint64_t got = 0;
+    std::uint64_t expected = 0;
+    std::memcpy(&got, &outputs[i], sizeof(got));
+    std::memcpy(&expected, &cases[i].expected, sizeof(expected));
+    const bool nan = std::isnan(cases[i].expected);
+    if (nan ? !std::isnan(outputs[i]) : got != expected) {
+      return cases[i].what;
+    }
+  }
+  return {};
 }
 
 void GridArrays::failed(std::int32_t check,
