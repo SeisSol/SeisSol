@@ -98,6 +98,10 @@ expr::Program withOutputsOf(const expr::Program& program, const DataTable& table
   for (const auto& state : program.state()) {
     roots.push_back(state.root);
   }
+  // every check, whatever the table asks for: the points have to meet them all
+  for (const auto& check : program.checks()) {
+    roots.push_back(check.root);
+  }
   const auto read = expr::channelsRead(program, roots);
   for (const auto& input : program.inputs()) {
     if (read.count(input.name) != 0) {
@@ -113,6 +117,7 @@ expr::Program withOutputsOf(const expr::Program& program, const DataTable& table
       pruned.addOutput(output.name, output.type, program.roots()[i]);
     }
   }
+  pruned.addChecksOf(program);
   return pruned;
 }
 

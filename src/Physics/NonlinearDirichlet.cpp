@@ -123,6 +123,10 @@ void NonlinearDirichlet::setUp(const expr::Program& program,
   if (!program.state().empty()) {
     throw std::invalid_argument(name_ + " keeps state, which a boundary condition cannot");
   }
+  if (!program.checks().empty()) {
+    throw std::invalid_argument(name_ + " checks its points (`check`), which a boundary condition "
+                                        "does not evaluate yet");
+  }
 
   // the ghost values and the frame
   expr::Program ghost;

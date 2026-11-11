@@ -111,6 +111,9 @@ enum class GpuRejection : std::uint8_t {
   StatefulProgram,
   /// At least one base pointer is not device-accessible.
   HostPointer,
+  /// Checks its points (Program::checks()), whose failure the interpreter reports with the point
+  /// and its inputs.
+  Check,
   /// A column's stride or offset is not a whole number of its own elements.
   ///
   /// The device kernel loads through a typed pointer, which is undefined on a

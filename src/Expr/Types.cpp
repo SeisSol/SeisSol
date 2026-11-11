@@ -102,6 +102,11 @@ class Typer {
                     built_.at(keyOf(state.root, typeIn(state.root, state.type))),
                     state.type);
     }
+    // a condition in the type it has
+    for (const CheckSpec& check : in_.checks()) {
+      out_.addCheck(built_.at(keyOf(check.root, typeIn(check.root, ValueType::Real))),
+                    check.message);
+    }
     return std::move(out_);
   }
 
@@ -114,6 +119,9 @@ class Typer {
     }
     for (const StateSpec& state : in_.state()) {
       stack.push_back(state.root);
+    }
+    for (const CheckSpec& check : in_.checks()) {
+      stack.push_back(check.root);
     }
     while (!stack.empty()) {
       const NodeId id = stack.back();
@@ -302,6 +310,9 @@ class Typer {
     }
     for (const StateSpec& state : in_.state()) {
       stack.emplace_back(state.root, typeIn(state.root, state.type));
+    }
+    for (const CheckSpec& check : in_.checks()) {
+      stack.emplace_back(check.root, typeIn(check.root, ValueType::Real));
     }
     std::vector<std::pair<NodeId, ValueType>> operands;
     while (!stack.empty()) {

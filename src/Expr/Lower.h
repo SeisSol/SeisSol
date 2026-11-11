@@ -113,6 +113,7 @@ struct CheckStore {
   GridId grid{NoGrid};
   CheckKind kind{CheckKind::Outside};
   std::int32_t source{0}; // transient slot
+  std::int32_t index{-1}; // of kind User: the check of the program
 };
 
 struct StageCode {

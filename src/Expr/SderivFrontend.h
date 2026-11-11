@@ -29,11 +29,12 @@
 //
 // GRAMMAR (deltas against the derived-output frontend marked +):
 //
-//   + program    := { definition | griddecl | statedecl } ( expr | ) EOF
+//   + program    := { definition | griddecl | statedecl | check } ( expr | ) EOF
 //   + definition := [ 'out' ] 'def' NAME [ '(' NAME { ',' NAME } ')' ] '=' expr
 //   + griddecl   := 'grid' NAME '=' STR ',' STR [ ',' STR ] ',' STR { ',' STR }
 //                    //     name     kind  file  [variable]  interp  components...
 //   + statedecl  := 'state' NAME '=' [ '-' ] NUM
+//   + check      := 'check' expr ',' STR    // a condition every point meets (Program::checks())
 //   + comment    := '#' { any } NEWLINE
 //
 //     expr       := 'let' NAME '=' expr 'in' expr | add

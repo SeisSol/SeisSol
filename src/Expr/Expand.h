@@ -56,14 +56,18 @@ enum class CheckKind : std::uint8_t {
   /// a sample at a time beyond the resident window of a time-dependent grid, where the file goes
   /// on: a script that samples the grid at other times than those from one synchronization point
   /// to the next, for which the window is placed, or an update of the window that did not run
-  Window
+  Window,
+  /// a point that does not meet a check of the program (Program::checks()): its condition is zero
+  User
 };
 
-/// A truth value (Bool) that is true where a lookup of `grid` finds what `kind` says.
+/// A truth value (Bool) that is true where a lookup of `grid` finds what `kind` says, or, of kind
+/// User, where a point does not meet the check `index` of the program.
 struct GridCheck {
   GridId grid{NoGrid};
   CheckKind kind{CheckKind::Outside};
   NodeId root{NoNode};
+  std::int32_t index{-1};
 };
 
 /// How a program samples a grid: with how many coordinates (0 for a grid it does not sample), and

@@ -365,6 +365,63 @@ out u = t2
     CHECK_THROWS_AS(static_cast<void>(printCore(program)), std::invalid_argument);
   }
 
+  TEST_CASE("checks: in the order given, after the next values, before the outputs") {
+    // the material of the specification with its check
+    const std::string text = R"(#!sderiv 1
+in x, y, z
+grid m (kind = "asagi", path = "vmodel.nc", variable = "data", components = ("rho", "mu", "lambda"), interpolation = "linear", boundary = "clamp")
+state s = 0
+def t0 = lt(z, -2000)
+def t1 = m.rho(x, y, z)
+def t2 = -0.5 * z
+def t3 = 2600 + t2
+def t4 = select(t0, t1, t3)
+def t5 = s + 1
+def t6 = le(z, 0)
+next s = t5
+check t6, "no material above the surface"
+check x, "x is \"zero\""
+out rho = t4
+)";
+    const Program program = loadCore(text, "");
+    REQUIRE(program.checks().size() == 2);
+    CHECK(program.checks()[0].message == "no material above the surface");
+    CHECK(program.checks()[1].message == "x is \"zero\"");
+    CHECK(printCore(program) == text);
+    // a check is part of what the kernel computes
+    const Program without = loadCore("#!sderiv 1\nin x\nout u = x\n", "");
+    const Program with = loadCore("#!sderiv 1\nin x\ncheck x, \"a\"\nout u = x\n", "");
+    CHECK(without.fingerprint() != with.fingerprint());
+
+    // the full language has them as well
+    const Program full = compileSderivModule("check lt(x, 2), \"x below 2\"\nout def u = x\n");
+    REQUIRE(full.checks().size() == 1);
+    CHECK(printCore(full).find("def t0 = lt(x, 2)\ncheck t0, \"x below 2\"\n") !=
+          std::string::npos);
+  }
+
+  TEST_CASE("a program with checks runs in the interpreter, whichever backend is asked for") {
+    const Program program =
+        loadCore("#!sderiv 1\nin x\ncheck le(x, 1), \"x at most 1\"\nout u = 2 * x\n", "");
+    std::vector<double> x = {0.5, 1.0};
+    std::vector<double> u(2, 0.0);
+    reader::scripting::DataTable table(2);
+    table.bindViewConst<double>("x", reader::scripting::Direction::In, x.data());
+    table.bindView<double>("u", reader::scripting::Direction::Out, u.data());
+    auto binding = Binding::bind(program, table);
+    reader::datafield::GridStore store;
+    BackendOptions options;
+    options.quiet = true;
+    options.preferred = BackendKind::RtcCpu;
+    const auto kernel = makeKernel(program, binding, store, options);
+    CHECK(kernel->kind() == BackendKind::Interpreter);
+    kernel->precompute(table);
+    kernel->run(table);
+    // every point meets the check
+    CHECK(u[0] == 1.0);
+    CHECK(u[1] == 2.0);
+  }
+
   TEST_CASE("a module in the core format reads through the sderiv entry point") {
     SderivOptions options;
     options.file = "/data/model.sderiv";

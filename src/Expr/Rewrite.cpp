@@ -40,6 +40,9 @@ std::vector<char> reachable(const Program& program) {
   for (const auto& state : program.state()) {
     stack.push_back(state.root);
   }
+  for (const auto& check : program.checks()) {
+    stack.push_back(check.root);
+  }
   while (!stack.empty()) {
     const NodeId id = stack.back();
     stack.pop_back();
@@ -157,6 +160,9 @@ void substituteChannels(Program& program, const std::map<std::string, ChannelBui
   for (std::size_t i = 0; i < program.outputs().size(); ++i) {
     rebuilt.addOutput(
         program.outputs()[i].name, program.outputs()[i].type, map[program.roots()[i]]);
+  }
+  for (const auto& check : program.checks()) {
+    rebuilt.addCheck(map[check.root], check.message);
   }
 
   validate(rebuilt);
@@ -416,6 +422,9 @@ Program mergePrograms(const Program& first, const Program& second) {
   for (const auto& state : second.state()) {
     merged.addState(state.name, state.initial, importNode(merged, state.root, imports), state.type);
   }
+  for (const auto& check : second.checks()) {
+    merged.addCheck(importNode(merged, check.root, imports), check.message);
+  }
   validate(merged);
   return merged;
 }
@@ -499,6 +508,22 @@ Program restrictProgram(const Program& program,
       }
     }
   }
+  // the checks that can be evaluated, which read only what is there: the others go with the outputs
+  // of another configuration, as the outputs that read what is not there
+  std::vector<std::size_t> keptChecks;
+  std::vector<std::set<std::string>> checkReads;
+  for (std::size_t c = 0; c < program.checks().size(); ++c) {
+    checkReads.push_back(channelsRead(program, {program.checks()[c].root}));
+    if (!lackingOf(checkReads[c]).empty()) {
+      continue;
+    }
+    keptChecks.push_back(c);
+    for (const auto& read : checkReads[c]) {
+      if (isState(read) && needed.insert(read).second) {
+        pending.push_back(read);
+      }
+    }
+  }
   while (!pending.empty()) {
     const auto name = pending.back();
     pending.pop_back();
@@ -518,6 +543,9 @@ Program restrictProgram(const Program& program,
   std::set<std::string> read;
   for (const auto i : kept) {
     read.insert(outputReads[i].begin(), outputReads[i].end());
+  }
+  for (const auto c : keptChecks) {
+    read.insert(checkReads[c].begin(), checkReads[c].end());
   }
   for (std::size_t s = 0; s < states.size(); ++s) {
     if (needed.count(states[s].name) > 0) {
@@ -543,6 +571,10 @@ Program restrictProgram(const Program& program,
       restricted.addState(
           state.name, state.initial, importNode(restricted, state.root, imports), state.type);
     }
+  }
+  for (const auto c : keptChecks) {
+    restricted.addCheck(importNode(restricted, program.checks()[c].root, imports),
+                        program.checks()[c].message);
   }
   // nothing left is a program that computes nothing, which its consumer skips
   if (!restricted.outputs().empty() || !restricted.state().empty()) {

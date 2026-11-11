@@ -631,11 +631,24 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
       fail("a check of a lookup is no truth value");
     }
     const auto* values = reinterpret_cast<const std::uint8_t*>(bytesOf(check.source));
-    bool found = false;
-    for (std::size_t l = 0; l < count && !found; ++l) {
-      found = values[l] != 0;
+    std::size_t lane = 0;
+    while (lane < count && values[lane] == 0) {
+      ++lane;
     }
-    if (found && grids_ != nullptr) {
+    if (lane == count) {
+      continue;
+    }
+    if (grids_ == nullptr) {
+      fail("a check found a point, but nobody receives it");
+    }
+    if (check.kind == CheckKind::User) {
+      // the first point of the tile that does not meet it, with its inputs
+      std::vector<double> inputs(static_cast<std::size_t>(numInputs_));
+      for (std::size_t i = 0; i < inputs.size(); ++i) {
+        inputs[i] = static_cast<double>(inputTile[i * count + lane]);
+      }
+      grids_->failed(check.index, first + lane, inputs);
+    } else {
       grids_->report(check.grid, check.kind);
     }
   }
@@ -729,6 +742,13 @@ void initialiseState(const Program& program, T* persistent, std::size_t numPoint
       slot[p] = value;
     }
   }
+}
+
+void GridArrays::failed(std::int32_t check,
+                        std::size_t point,
+                        const std::vector<double>& /*inputs*/) const {
+  throw std::runtime_error("expr: point " + std::to_string(point) + " does not meet check " +
+                           std::to_string(check) + " of the program");
 }
 
 template class TileIo<double>;

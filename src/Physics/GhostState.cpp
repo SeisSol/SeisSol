@@ -145,6 +145,10 @@ GhostStateIntegral::GhostStateIntegral(const expr::Program& ghost,
   if (!ghost.state().empty()) {
     throw std::invalid_argument(name + " keeps state, which a boundary condition cannot");
   }
+  if (!ghost.checks().empty()) {
+    throw std::invalid_argument(name + " checks its points (`check`), which a boundary condition "
+                                       "does not evaluate yet");
+  }
   for (const auto& input : ghost.inputs()) {
     if (input.name != "t" && !scriptInputOf(input.name).has_value() &&
         std::find(inner.begin(), inner.end(), input.name) == inner.end() &&

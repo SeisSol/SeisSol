@@ -122,6 +122,15 @@ struct BlockSpec {
   std::size_t length{0};
 };
 
+/// A condition every point of a call has to meet (`check c, "message"` in the core format): true
+/// where `root` is not zero, a NaN included. Where it is not, the call fails, and the consumer
+/// reports the message with the point and its inputs. It carries easi's "could not find a model
+/// for the point" into the program, where a chain of selects would give its last branch instead.
+struct CheckSpec {
+  NodeId root{NoNode};
+  std::string message;
+};
+
 /// The names a frontend gave a grid and its components, which the core format prints: a
 /// Kind::Lookup holds the component as its index in the file, and a GridDesc no names.
 struct GridNames {
@@ -152,6 +161,9 @@ class Program {
 
   // roots()[i] is the DAG root producing outputs()[i].
   [[nodiscard]] const std::vector<NodeId>& roots() const { return roots_; }
+
+  // The conditions every point has to meet, in the order they are checked.
+  [[nodiscard]] const std::vector<CheckSpec>& checks() const { return checks_; }
 
   // Every external grid the DAG references, in GridId order.
   [[nodiscard]] const std::vector<reader::datafield::GridDesc>& grids() const { return grids_; }
@@ -208,6 +220,12 @@ class Program {
                 NodeId root,
                 ValueType type = ValueType::Real);
   GridId internGrid(const reader::datafield::GridDesc& desc);
+  void addCheck(NodeId root, std::string message) {
+    checks_.push_back(CheckSpec{root, std::move(message)});
+  }
+  // The checks of `other`, with their roots mapped by `map` (by NodeId of `other`; the same ids
+  // where it is empty): what a frontend program carries along when it is rebuilt.
+  void addChecksOf(const Program& other, const std::vector<NodeId>& map = {});
 
   // Returns the id of the matrix or block of that name, declaring it first if needed. Throws
   // std::invalid_argument if the name is known with another shape or length, and for a matrix whose
@@ -221,6 +239,7 @@ class Program {
   std::vector<VarSpec> outputs_;
   std::vector<StateSpec> state_;
   std::vector<NodeId> roots_;
+  std::vector<CheckSpec> checks_;
   std::vector<reader::datafield::GridDesc> grids_;
   std::vector<GridNames> gridNames_;
   std::vector<MetaEntry> meta_;

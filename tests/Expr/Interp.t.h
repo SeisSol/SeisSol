@@ -694,6 +694,70 @@ TEST_SUITE("Expr::Interp") {
     }
   }
 
+  TEST_CASE("a point that does not meet a check is reported, with its inputs") {
+    // where its condition is zero; a NaN is true, as every value other than zero
+    class Reporter final : public GridArrays {
+  public:
+      [[nodiscard]] const reader::datafield::ArrayView& array(GridId /*grid*/) const override {
+        throw std::logic_error("no grid here");
+      }
+      void report(GridId /*grid*/, CheckKind /*kind*/) const override {
+        FAIL("no grid here is checked");
+      }
+      void failed(std::int32_t check,
+                  std::size_t point,
+                  const std::vector<double>& inputs) const override {
+        failures.push_back({check, point, inputs});
+      }
+      struct Failure {
+        std::int32_t check;
+        std::size_t point;
+        std::vector<double> inputs;
+      };
+      mutable std::vector<Failure> failures;
+    };
+
+    Program program;
+    program.addInput("x", DT::F64);
+    program.addInput("y", DT::F64);
+    Arena& arena = program.arena();
+    const NodeId x = arena.field("x");
+    const NodeId y = arena.field("y");
+    program.addOutput("u", DT::F64, arena.pw(Fn::Add, x, y));
+    program.addCheck(arena.pw(Fn::Le, x, arena.konst(1.0)), "x at most 1");
+    program.addCheck(arena.pw(Fn::Sub, y, arena.konst(3.0)), "y not 3");
+    validate(program);
+
+    constexpr double Nan = std::numeric_limits<double>::quiet_NaN();
+    const std::size_t numPoints = 5;
+    // input-major: x of every point, then y
+    const std::vector<double> inputs = {0.5, 2.0, 0.7, 1.0, Nan, 1.0, 3.0, 3.0, Nan, 2.0};
+    std::vector<double> outputs(numPoints, 0.0);
+    ArrayTileIo<double> io(inputs, outputs, numPoints, 2, 1);
+    const LoweredProgram lowered = lower(program);
+    const Reporter reporter;
+    InterpreterOptions options;
+    options.tileSize = 2;
+    TileInterpreter<double> interp(program, lowered, &reporter, options);
+    std::vector<double> persistent(1, 0.0);
+    interp.run(io, numPoints, persistent.data());
+
+    // per tile and check, the first point that fails it: in the tile of points 0 and 1, point 1
+    // fails both (x = 2, y = 3); in that of points 2 and 3, point 2 the second (y = 3), while
+    // y - 3 = NaN at point 3 is true; and point 4 the first, le(NaN, 1) being 0
+    REQUIRE(reporter.failures.size() == 4);
+    CHECK(reporter.failures[0].check == 0);
+    CHECK(reporter.failures[0].point == 1);
+    CHECK(reporter.failures[0].inputs == std::vector<double>{2.0, 3.0});
+    CHECK(reporter.failures[1].check == 1);
+    CHECK(reporter.failures[1].point == 1);
+    CHECK(reporter.failures[2].check == 1);
+    CHECK(reporter.failures[2].point == 2);
+    CHECK(reporter.failures[2].inputs == std::vector<double>{0.7, 3.0});
+    CHECK(reporter.failures[3].check == 0);
+    CHECK(reporter.failures[3].point == 4);
+  }
+
   TEST_CASE("a program with a lookup but no grid arrays is rejected, not ignored") {
     Program program;
     program.addInput("x", DT::F64);

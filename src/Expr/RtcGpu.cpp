@@ -155,6 +155,9 @@ std::string gpuGridLoad(GridId grid, std::int32_t component, const std::string& 
          std::to_string(component) + ")";
 }
 std::string gpuStoreCheck(GridId grid, CheckKind kind, const std::string& value) {
+  if (kind == CheckKind::User) {
+    throw std::invalid_argument("expr: a check of the program reached a device kernel");
+  }
   // a store of the same value from every thread that finds one; whoever keeps the descriptor
   // reports
   return "if (" + value + ") { a->grid" + std::to_string(grid) + "->" +
@@ -627,6 +630,8 @@ const char* describe(GpuRejection rejection) {
     return "at least one bound pointer is not reachable from the device";
   case GpuRejection::Misaligned:
     return "a column's stride or offset is not a whole number of its elements";
+  case GpuRejection::Check:
+    return "it checks its points, which the interpreter reports with the point and its inputs";
   }
   return "";
 }
@@ -640,6 +645,9 @@ GpuRejection gpuRejection(const Program& program,
   static_cast<void>(lowered);
   if (!binding.addressable()) {
     return GpuRejection::ComputedColumn;
+  }
+  if (!program.checks().empty()) {
+    return GpuRejection::Check;
   }
   if (!binding.permutation().empty()) {
     return GpuRejection::Permuted;

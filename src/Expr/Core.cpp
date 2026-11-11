@@ -532,7 +532,7 @@ class Loader {
       } else if (at.text == "out") {
         output();
       } else {
-        fail(at, "`check` is not implemented yet");
+        check();
       }
     }
     for (const auto& state : states_) {
@@ -545,6 +545,9 @@ class Loader {
     }
     for (const auto& [name, root] : outputs_) {
       program_.addOutput(name, reader::scripting::DataType::F64, root);
+    }
+    for (auto& [root, message] : checks_) {
+      program_.addCheck(root, std::move(message));
     }
     try {
       validate(program_);
@@ -804,6 +807,13 @@ class Loader {
     outputs_.emplace_back(outputName, expression(0));
   }
 
+  void check() {
+    next();
+    const NodeId condition = expression(0);
+    expect(Tok::Comma, "`,` and the message of the check, a string");
+    checks_.emplace_back(condition, expect(Tok::String, "the message of the check, a string").text);
+  }
+
   // ------------------------------------------------------------ expressions
 
   void nest(const Token& at, int depth) const {
@@ -974,6 +984,7 @@ class Loader {
   std::vector<StateDeclaration> states_;
   std::vector<GridDeclaration> grids_;
   std::vector<std::pair<std::string, NodeId>> outputs_;
+  std::vector<std::pair<NodeId, std::string>> checks_;
 };
 
 // ============================================================== printer =====
@@ -1051,9 +1062,15 @@ class Printer {
     for (const std::size_t s : states) {
       define(out, program_.state()[s].root);
     }
+    for (const auto& check : program_.checks()) {
+      define(out, check.root);
+    }
     for (const std::size_t s : states) {
       out += "next " + spellName(program_.state()[s].name) + " = " +
              operand(program_.state()[s].root) + "\n";
+    }
+    for (const auto& check : program_.checks()) {
+      out += "check " + operand(check.root) + ", " + spellString(check.message) + "\n";
     }
     for (const std::size_t o : outputs) {
       out += "out " + spellName(program_.outputs()[o].name) + " = " + operand(program_.roots()[o]) +

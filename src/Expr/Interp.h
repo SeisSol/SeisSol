@@ -154,6 +154,10 @@ class GridArrays {
   /// A check of a lookup of `grid` found what `kind` says (CheckKind): a sample beyond the volume
   /// of a grid that fails there, or a time the window of a time-dependent grid did not serve.
   virtual void report(GridId grid, CheckKind kind) const = 0;
+  /// The point `point` (of the call) does not meet the check `check` of the program; `inputs` are
+  /// its inputs, in the order of Program::inputs(). Throws std::runtime_error unless overridden.
+  virtual void
+      failed(std::int32_t check, std::size_t point, const std::vector<double>& inputs) const;
 };
 
 // Everything one contraction reads, resolved for one call: the matrix and the block with their

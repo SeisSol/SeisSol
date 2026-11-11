@@ -185,6 +185,9 @@ void validate(const Program& program) {
   for (std::size_t i = 0; i < program.state().size(); ++i) {
     walk(program, program.state()[i].root, seen, bound, "state", i);
   }
+  for (std::size_t i = 0; i < program.checks().size(); ++i) {
+    walk(program, program.checks()[i].root, seen, bound, "check", i);
+  }
 
   // Grids that nothing reads are not an error — a frontend may intern a grid and
   // then constant-fold the only reference away — but they are worth a note,

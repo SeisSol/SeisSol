@@ -112,6 +112,9 @@ std::string cpuGridLoad(GridId grid, std::int32_t component, const std::string& 
          std::to_string(component) + ")";
 }
 std::string cpuStoreCheck(GridId grid, CheckKind kind, const std::string& value) {
+  if (kind == CheckKind::User) {
+    throw std::invalid_argument("expr: a check of the program reached the compiled CPU kernel");
+  }
   return "if (" + value + ") { grids[" + std::to_string(grid) + "]." +
          (kind == CheckKind::Window ? "stale" : "outside") + " = 1; }";
 }
@@ -1002,6 +1005,12 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
                                          const BackendOptions& options,
                                          reader::datafield::GridStore* grids,
                                          const std::vector<std::size_t>& gridIds) {
+  // the checks of a program report the point that fails them with its inputs, which the
+  // interpreter has at hand
+  if (!program.checks().empty()) {
+    logInfo() << "expr: a program with checks runs in the interpreter.";
+    return nullptr;
+  }
   // the grids it samples, and the types of their elements, which the source bakes in
   std::vector<const reader::datafield::Grid*> sampled(program.grids().size(), nullptr);
   std::vector<std::string> paths(program.grids().size());

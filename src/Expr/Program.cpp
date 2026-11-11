@@ -284,6 +284,12 @@ std::string Program::canonicalForm() const {
     }
     tail += '\n';
   }
+  // the checks by their conditions; their messages reach the report, not the kernel
+  for (const CheckSpec& check : checks_) {
+    tail += "check ";
+    appendInt(tail, walk.visit(check.root));
+    tail += '\n';
+  }
 
   return header + walk.text() + tail;
 }
@@ -378,6 +384,12 @@ GridId Program::internGrid(const reader::datafield::GridDesc& desc) {
   }
   grids_.push_back(desc);
   return static_cast<GridId>(grids_.size() - 1);
+}
+
+void Program::addChecksOf(const Program& other, const std::vector<NodeId>& map) {
+  for (const CheckSpec& check : other.checks()) {
+    addCheck(map.empty() ? check.root : map[static_cast<std::size_t>(check.root)], check.message);
+  }
 }
 
 void Program::nameGrid(GridId grid, GridNames names) {

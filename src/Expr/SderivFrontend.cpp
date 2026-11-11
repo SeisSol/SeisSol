@@ -43,6 +43,7 @@ enum class TokenKind : std::uint8_t {
   Out,
   Grid,
   State,
+  Check,
   Eof
 };
 
@@ -177,6 +178,8 @@ std::vector<Token> tokenize(const std::string& source) {
         kind = TokenKind::Grid;
       } else if (value == "state") {
         kind = TokenKind::State;
+      } else if (value == "check") {
+        kind = TokenKind::Check;
       }
       tokens.push_back({kind, std::move(value), static_cast<int>(start)});
       continue;
@@ -252,6 +255,8 @@ struct ParsedProgram {
   // coincidence rather than a property.
   std::vector<SurfaceId> exports;
   std::vector<GridDeclaration> grids;
+  // `check c, "message"`: the conditions every point has to meet (Program::checks())
+  std::vector<std::pair<SurfaceId, std::string>> checks;
   SurfaceId expression{-1}; // -1 when the module declares its outputs itself
 };
 
@@ -321,9 +326,18 @@ class Parser {
     // def already needed none: each starts with its own token kind, so the
     // greedy expression in a def body stops cleanly at the next declaration.
     while (peek().kind == TokenKind::Def || peek().kind == TokenKind::Grid ||
-           peek().kind == TokenKind::Out || peek().kind == TokenKind::State) {
+           peek().kind == TokenKind::Out || peek().kind == TokenKind::State ||
+           peek().kind == TokenKind::Check) {
       if (peek().kind == TokenKind::Grid) {
         parsed.grids.push_back(gridDeclaration());
+        continue;
+      }
+      if (peek().kind == TokenKind::Check) {
+        eat(TokenKind::Check);
+        const SurfaceId condition = expression();
+        eat(TokenKind::Op, ",");
+        const Token& message = eat(TokenKind::Str);
+        parsed.checks.emplace_back(condition, message.value);
         continue;
       }
       if (peek().kind == TokenKind::State) {
@@ -1436,6 +1450,9 @@ void compileSource(const std::string& source,
       }
     }
   }
+  for (const auto& check : parsed.checks) {
+    rootExpressions.push_back(check.first);
+  }
   lowering.prepare(rootExpressions);
 
   // Roots first, names after, so `channels()` has seen every output before the
@@ -1462,6 +1479,11 @@ void compileSource(const std::string& source,
       }
     }
   }
+  // and those of the checks
+  std::vector<NodeId> checkRoots;
+  for (const auto& check : parsed.checks) {
+    checkRoots.push_back(lowering.lower(check.first));
+  }
 
   for (const auto& name : lowering.channels()) {
     if (std::find(channelOrder.begin(), channelOrder.end(), name) == channelOrder.end()) {
@@ -1474,6 +1496,9 @@ void compileSource(const std::string& source,
   for (std::size_t i = 0; i < parsed.states.size(); ++i) {
     program.addState(
         parsed.states[i].name, parsed.states[i].initial, stateRoots[i], parsed.states[i].type);
+  }
+  for (std::size_t i = 0; i < parsed.checks.size(); ++i) {
+    program.addCheck(checkRoots[i], parsed.checks[i].second);
   }
 }
 

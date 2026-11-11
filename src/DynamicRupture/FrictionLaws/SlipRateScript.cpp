@@ -123,6 +123,11 @@ SlipRateScript::SlipRateScript(const expr::Program& script, const std::string& p
     throw std::invalid_argument("the script " + path +
                                 " keeps state, which the slip at a point and time cannot");
   }
+  if (!script.checks().empty()) {
+    throw std::invalid_argument("the script " + path +
+                                " checks its points (`check`), which the slip of a fault does not "
+                                "evaluate yet");
+  }
   if (!script.matrices().empty() || !script.blocks().empty()) {
     throw std::invalid_argument("the script " + path + " reads contractions");
   }

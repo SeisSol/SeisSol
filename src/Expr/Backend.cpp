@@ -57,6 +57,19 @@ class StoreArrays final : public GridArrays {
 
   void report(GridId grid, CheckKind kind) const override { reportCheck(kind, pathOf(grid)); }
 
+  void failed(std::int32_t check,
+              std::size_t point,
+              const std::vector<double>& inputs) const override {
+    std::string where;
+    for (std::size_t i = 0; i < inputs.size() && i < program_->inputs().size(); ++i) {
+      where +=
+          (i == 0 ? "" : ", ") + program_->inputs()[i].name + " = " + std::to_string(inputs[i]);
+    }
+    logError() << "expr:" << program_->checks().at(static_cast<std::size_t>(check)).message
+               << "-- point" << point << "of the call does not meet the check of the program"
+               << (where.empty() ? std::string() : "(" + where + ")");
+  }
+
   private:
   [[nodiscard]] std::string pathOf(GridId grid) const {
     return program_->grids().at(static_cast<std::size_t>(grid)).path;
@@ -284,7 +297,10 @@ std::unique_ptr<Kernel> makeInterpreter(const Program& program,
   }
 
   binding.allocatePersistent(program, lowered.persistentSlotCount());
-  auto arrays = ids.empty() ? nullptr : std::make_unique<StoreArrays>(program, ids, grids);
+  // the arrays of the grids, and who receives what the checks find
+  auto arrays = ids.empty() && program.checks().empty()
+                    ? nullptr
+                    : std::make_unique<StoreArrays>(program, ids, grids);
 
   InterpreterOptions interpreterOptions;
   interpreterOptions.tileSize = options.tileSize;

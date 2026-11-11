@@ -74,6 +74,9 @@ class Expander {
     for (const auto& state : in_.state()) {
       stack.push_back(state.root);
     }
+    for (const auto& check : in_.checks()) {
+      stack.push_back(check.root);
+    }
     std::vector<NodeId> kids;
     while (!stack.empty()) {
       const NodeId id = stack.back();
@@ -97,6 +100,16 @@ class Expander {
     }
     for (const auto& state : in_.state()) {
       out.addState(state.name, state.initial, mapped(state.root), state.type);
+    }
+    // a point fails a check where its condition is zero; a NaN is true, as every value but zero
+    for (std::size_t i = 0; i < in_.checks().size(); ++i) {
+      const NodeId condition = mapped(in_.checks()[i].root);
+      const ValueType type = arena()[condition].type;
+      out.addCheck(condition, in_.checks()[i].message);
+      result_.checks.push_back(GridCheck{NoGrid,
+                                         CheckKind::User,
+                                         eq(condition, arena().konst(0.0, type)),
+                                         static_cast<std::int32_t>(i)});
     }
     return std::move(result_);
   }
@@ -429,6 +442,9 @@ void reportCheck(CheckKind kind, const std::string& path) {
   case CheckKind::Outside:
     logError() << "expr: a point sampled the grid" << path
                << "beyond its volume, where its boundary mode is to fail.";
+    return;
+  case CheckKind::User:
+    logError() << "expr: a point does not meet a check of the program on the grid" << path;
     return;
   case CheckKind::Window:
     logError() << "expr: a point sampled the time-dependent grid" << path

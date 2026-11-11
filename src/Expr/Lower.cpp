@@ -585,9 +585,11 @@ std::string LoweredProgram::dump() const {
       out += "  p[" + std::to_string(st.target) + "] <- t" + std::to_string(st.source) + "\n";
     }
     for (const CheckStore& st : s.checks) {
-      out += "  check g" + std::to_string(st.grid) +
-             (st.kind == CheckKind::Window ? " window" : " outside") + " <- t" +
-             std::to_string(st.source) + "\n";
+      out += st.kind == CheckKind::User
+                 ? "  check " + std::to_string(st.index)
+                 : "  check g" + std::to_string(st.grid) +
+                       (st.kind == CheckKind::Window ? " window" : " outside");
+      out += " <- t" + std::to_string(st.source) + "\n";
     }
   };
   stage("precompute", precompute_);
@@ -767,7 +769,7 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
     }
     for (const GridCheck& check : expanded.checks) {
       out.run_.checks.push_back(
-          CheckStore{check.grid, check.kind, emitter.liveOutSlot(check.root)});
+          CheckStore{check.grid, check.kind, emitter.liveOutSlot(check.root), check.index});
     }
   }
 

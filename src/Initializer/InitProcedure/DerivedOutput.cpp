@@ -917,6 +917,10 @@ expr::Program loadDerivedProgram(const std::string& path) {
     logError() << "derived output: the program" << path << "cannot be used --" << reason
                << "; a derived output is an sderiv module or a Lua model that traces.";
   }
+  if (!program->checks().empty()) {
+    logError() << "derived output: the program" << path
+               << "checks its points (`check`), which a derived output does not evaluate yet.";
+  }
   return std::move(*program);
 }
 
