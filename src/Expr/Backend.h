@@ -195,6 +195,27 @@ struct BackendComparison {
                            const KernelArgs* args,
                            bool perturbed = false);
 
+/// The same, from the inputs and outputs of the points of a sample read back by whoever can
+/// (a backend on a device): inputs[input * points.size() + k] in the order of Program::inputs(),
+/// backend[output * points.size() + k]. Nothing for a program with state or contractions.
+[[nodiscard]] std::optional<BackendComparison> compareValues(const Program& program,
+                                                             reader::datafield::GridStore& grids,
+                                                             const std::vector<std::size_t>& points,
+                                                             const std::vector<double>& inputs,
+                                                             const std::vector<double>& backend,
+                                                             bool perturbed);
+
+/// Whether the compiled kernels are checked at their first call (SEISSOL_EXPR_CHECK is not off).
+[[nodiscard]] bool backendChecks();
+
+/// Logs what the check of the first call of the `kind` kernel of `program` found, and stops the
+/// run where it deviates, unless SEISSOL_EXPR_CHECK=warn.
+void reportComparison(const Program& program, BackendKind kind, const BackendComparison& found);
+
+/// The points of a call of `count` points from `first` the check compares: all of them up to 64,
+/// else 64 spread evenly over the call, its first and its last among them.
+[[nodiscard]] std::vector<std::size_t> samplePoints(std::size_t first, std::size_t count);
+
 /// How a compiled CPU kernel takes the points of a tile: one point through the whole program after
 /// the other, or one instruction over a block of points after the other (see RtcCpu.h). Auto
 /// chooses by the depth of the program.

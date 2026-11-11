@@ -355,9 +355,7 @@ CheckPolicy checkPolicy() {
   return CheckPolicy::Error;
 }
 
-/// The points of a call the check compares: all of them up to `Sample`, else `Sample` of them
-/// spread evenly over the call, its first and its last among them.
-std::vector<std::size_t> samplePoints(std::size_t first, std::size_t count) {
+std::vector<std::size_t> spreadPoints(std::size_t first, std::size_t count) {
   constexpr std::size_t Sample = 64;
   std::vector<std::size_t> points;
   if (count <= Sample) {
@@ -441,6 +439,43 @@ class SampleTileIo final : public TileIo<T> {
   mutable std::vector<T> inputs_;
 };
 
+/// Interp.h's TileIo over the values of the points of a sample: their inputs, given, and their
+/// outputs, kept -- for what a backend on a device read back.
+template <typename T>
+class ValuesTileIo final : public TileIo<T> {
+  public:
+  ValuesTileIo(const std::vector<double>& inputs,
+               std::size_t inputCount,
+               std::size_t points,
+               std::vector<double>& outputs,
+               std::size_t outputCount)
+      : inputs_(&inputs), inputCount_(inputCount), points_(points), outputs_(&outputs),
+        outputCount_(outputCount) {}
+
+  void gather(std::size_t first, std::size_t count, T* dst) const override {
+    for (std::size_t i = 0; i < inputCount_; ++i) {
+      for (std::size_t lane = 0; lane < count; ++lane) {
+        dst[i * count + lane] = static_cast<T>((*inputs_)[i * points_ + first + lane]);
+      }
+    }
+  }
+
+  void scatter(std::size_t first, std::size_t count, const T* src) override {
+    for (std::size_t o = 0; o < outputCount_; ++o) {
+      for (std::size_t lane = 0; lane < count; ++lane) {
+        (*outputs_)[o * points_ + first + lane] = static_cast<double>(src[o * count + lane]);
+      }
+    }
+  }
+
+  private:
+  const std::vector<double>* inputs_;
+  std::size_t inputCount_;
+  std::size_t points_;
+  std::vector<double>* outputs_;
+  std::size_t outputCount_;
+};
+
 /// A compiled kernel, checked at its first call (the specification's check of a backend): at a
 /// sample of the points of the call, the interpreter evaluates the program as written -- nothing
 /// hoisted, so that a hoisted value is checked as well -- from the inputs the call read, and the
@@ -480,35 +515,9 @@ class CheckedKernel final : public Kernel {
   private:
   void compare(const DataTable* table, const KernelArgs* args) {
     const auto comparison = compareWithInterpreter(program_, *binding_, *grids_, table, args);
-    if (!comparison.has_value()) {
-      return;
+    if (comparison.has_value()) {
+      reportComparison(program_, inner_->kind(), *comparison);
     }
-    const std::string name = seissol::expr::name(inner_->kind());
-    if (comparison->deviating == 0) {
-      logInfo() << "expr: the" << name.c_str() << "kernel of program"
-                << fingerprintOf(program_).c_str() << "gives the bits of the interpreter at"
-                << comparison->points.size() << "points of its first call.";
-      return;
-    }
-    const std::string what = "the " + name + " kernel of program " + fingerprintOf(program_) +
-                             " deviates from the interpreter at " +
-                             std::to_string(comparison->deviating) +
-                             " values of its first call; the largest, " + comparison->worst;
-    if (checkPolicy() == CheckPolicy::Error) {
-      logError() << "expr:" << what.c_str()
-                 << ". SEISSOL_EXPR_CHECK=warn lets the run go on with the compiled kernel.";
-    } else {
-      logWarning() << "expr:" << what.c_str();
-    }
-  }
-
-  static std::string fingerprintOf(const Program& program) {
-    std::array<char, 32> buffer{};
-    std::snprintf(buffer.data(),
-                  buffer.size(),
-                  "%016llx",
-                  static_cast<unsigned long long>(program.fingerprint()));
-    return buffer.data();
   }
 
   std::unique_ptr<Kernel> inner_;
@@ -552,34 +561,29 @@ std::string hexOf(double x) {
 }
 
 /// The interpreter's outputs at the points of the sample into `outputs`, [output][point], in the
-/// type the program moves its data in; perturbed and with the signatures of the decisions of the
-/// selects as `options` asks.
-template <typename T>
+/// type the program moves its data in, through the TileIo `makeIo` makes for them; perturbed and
+/// with the signatures of the decisions of the selects as `options` asks.
+template <typename T, typename MakeIo>
 void interpretAt(const Program& program,
                  const LoweredProgram& lowered,
-                 const Binding& binding,
                  const GridArrays* arrays,
-                 const DataTable* table,
-                 const KernelArgs* args,
-                 const std::vector<std::size_t>& points,
+                 std::size_t points,
                  const InterpreterOptions& options,
+                 const MakeIo& makeIo,
                  std::vector<double>& outputs) {
-  outputs.assign(program.outputs().size() * points.size(), 0.0);
-  SampleTileIo<T> io(binding, table, args, points, outputs, program.outputs().size());
+  outputs.assign(program.outputs().size() * points, 0.0);
+  const auto io = makeIo(outputs);
   TileInterpreter<T> interpreter(program, lowered, arrays, options);
   std::vector<T> persistent(1, T(0));
-  interpreter.run(io, points.size(), persistent.data());
+  interpreter.run(*io, points, persistent.data());
 }
 
-/// The reference at the sample: the interpreter's outputs, and the inputs, for the record; and,
-/// for `perturbed`, R = 8 perturbed evaluations, which give the tolerance of each value and the
-/// unstable points.
-template <typename T>
+/// The reference at the sample: the interpreter's outputs; and, for `perturbed`, R = 8 perturbed
+/// evaluations, which give the tolerance of each value and the unstable points.
+template <typename T, typename MakeIo>
 void interpret(const Program& program,
-               const Binding& binding,
                const GridArrays* arrays,
-               const DataTable* table,
-               const KernelArgs* args,
+               const MakeIo& makeIo,
                bool perturbed,
                BackendComparison& comparison) {
   constexpr int Runs = 8;
@@ -589,60 +593,118 @@ void interpret(const Program& program,
   std::vector<std::uint64_t> decisions(count, 0);
   InterpreterOptions options;
   options.decisions = &decisions;
-  interpretAt<T>(program,
-                 lowered,
-                 binding,
-                 arrays,
-                 table,
-                 args,
-                 comparison.points,
-                 options,
-                 comparison.interpreter);
-  if (perturbed) {
-    comparison.perturbed = true;
-    comparison.tolerance.assign(comparison.interpreter.size(), 0.0);
-    std::vector<bool> unstable(count, false);
-    std::vector<double> values;
-    for (int run = 0; run < Runs; ++run) {
-      std::vector<std::uint64_t> moved(count, 0);
-      InterpreterOptions perturbation;
-      perturbation.decisions = &moved;
-      perturbation.perturbation.on = true;
-      perturbation.perturbation.seed = splitMix64(static_cast<std::uint64_t>(run) + 1);
-      interpretAt<T>(
-          program, lowered, binding, arrays, table, args, comparison.points, perturbation, values);
-      for (std::size_t v = 0; v < values.size(); ++v) {
-        const double deviation = std::fabs(values[v] - comparison.interpreter[v]);
-        if (!std::isnan(deviation)) {
-          comparison.tolerance[v] = std::max(comparison.tolerance[v], Spread * deviation);
-        }
-      }
-      for (std::size_t k = 0; k < count; ++k) {
-        unstable[k] = unstable[k] || moved[k] != decisions[k];
+  interpretAt<T>(program, lowered, arrays, count, options, makeIo, comparison.interpreter);
+  if (!perturbed) {
+    return;
+  }
+  comparison.perturbed = true;
+  comparison.tolerance.assign(comparison.interpreter.size(), 0.0);
+  std::vector<bool> unstable(count, false);
+  std::vector<double> values;
+  for (int run = 0; run < Runs; ++run) {
+    std::vector<std::uint64_t> moved(count, 0);
+    InterpreterOptions perturbation;
+    perturbation.decisions = &moved;
+    perturbation.perturbation.on = true;
+    perturbation.perturbation.seed = splitMix64(static_cast<std::uint64_t>(run) + 1);
+    interpretAt<T>(program, lowered, arrays, count, perturbation, makeIo, values);
+    for (std::size_t v = 0; v < values.size(); ++v) {
+      const double deviation = std::fabs(values[v] - comparison.interpreter[v]);
+      if (!std::isnan(deviation)) {
+        comparison.tolerance[v] = std::max(comparison.tolerance[v], Spread * deviation);
       }
     }
     for (std::size_t k = 0; k < count; ++k) {
-      if (unstable[k]) {
-        comparison.unstable.push_back(comparison.points[k]);
-      }
+      unstable[k] = unstable[k] || moved[k] != decisions[k];
     }
   }
-  // and the inputs, for the record
-  comparison.inputs.assign(binding.inputs().size() * count, 0.0);
-  std::vector<double> values(binding.inputs().size());
   for (std::size_t k = 0; k < count; ++k) {
-    if (table != nullptr) {
-      binding.gather(*table, comparison.points[k], 1, values.data());
-    } else {
-      binding.gatherFrom(args->inputs, args->inputCount, comparison.points[k], 1, values.data());
-    }
-    for (std::size_t i = 0; i < values.size(); ++i) {
-      comparison.inputs[i * count + k] = values[i];
+    if (unstable[k]) {
+      comparison.unstable.push_back(comparison.points[k]);
     }
   }
 }
 
+/// Where the backend deviates: in its bits, or beyond the tolerance of the perturbed reference.
+void judge(const Program& program, BackendComparison& comparison) {
+  const std::size_t sample = comparison.points.size();
+  double worstUlps = 0.0;
+  for (std::size_t o = 0; o < program.outputs().size(); ++o) {
+    for (std::size_t k = 0; k < sample; ++k) {
+      const double a = comparison.backend[o * sample + k];
+      const double r = comparison.interpreter[o * sample + k];
+      if (std::memcmp(&a, &r, sizeof(double)) == 0 || (std::isnan(a) && std::isnan(r))) {
+        continue;
+      }
+      if (comparison.perturbed) {
+        // within the tolerance of the value, which the perturbed evaluations set
+        const double deviation = std::fabs(a - r);
+        const double tolerance = comparison.tolerance[o * sample + k];
+        const double ratio =
+            tolerance > 0.0 ? deviation / tolerance : std::numeric_limits<double>::infinity();
+        comparison.worstRatio = std::max(comparison.worstRatio, ratio);
+        if (deviation <= tolerance) {
+          continue;
+        }
+      }
+      ++comparison.deviating;
+      const double ulps = std::fabs(a - r) / std::max(ulpOf(r), ulpOf(a));
+      if (comparison.worst.empty() || ulps > worstUlps || std::isnan(ulps)) {
+        worstUlps = ulps;
+        comparison.worst = "`" + program.outputs()[o].name + "` at point " +
+                           std::to_string(comparison.points[k]) + " is " + hexOf(a) +
+                           ", the interpreter's " + hexOf(r);
+      }
+    }
+  }
+}
+
+std::string fingerprintOf(const Program& program) {
+  std::array<char, 32> buffer{};
+  std::snprintf(buffer.data(),
+                buffer.size(),
+                "%016llx",
+                static_cast<unsigned long long>(program.fingerprint()));
+  return buffer.data();
+}
+
 } // namespace
+
+std::vector<std::size_t> samplePoints(std::size_t first, std::size_t count) {
+  return spreadPoints(first, count);
+}
+
+bool backendChecks() { return checkPolicy() != CheckPolicy::Off; }
+
+void reportComparison(const Program& program, BackendKind kind, const BackendComparison& found) {
+  const std::string name = seissol::expr::name(kind);
+  const std::string unstable =
+      found.unstable.empty()
+          ? std::string()
+          : "; " + std::to_string(found.unstable.size()) +
+                " of them unstable, where a perturbed evaluation decides a select otherwise";
+  if (found.deviating == 0) {
+    std::string how = found.perturbed && found.worstRatio > 0.0
+                          ? "is within the tolerance of the interpreter, at most " +
+                                std::to_string(found.worstRatio) + " of it,"
+                          : "gives the bits of the interpreter";
+    logInfo() << "expr: the" << name.c_str() << "kernel of program"
+              << fingerprintOf(program).c_str() << how.c_str() << "at" << found.points.size()
+              << ("points of its first call" + unstable + ".").c_str();
+    return;
+  }
+  const std::string what = "the " + name + " kernel of program " + fingerprintOf(program) +
+                           " deviates from the interpreter" +
+                           (found.perturbed ? " beyond its tolerance" : "") + " at " +
+                           std::to_string(found.deviating) + " values of its first call" +
+                           unstable + "; the largest, " + found.worst;
+  if (checkPolicy() == CheckPolicy::Error) {
+    logError() << "expr:" << what.c_str()
+               << ". SEISSOL_EXPR_CHECK=warn lets the run go on with the compiled kernel.";
+  } else {
+    logWarning() << "expr:" << what.c_str();
+  }
+}
 
 std::optional<BackendComparison> compareWithInterpreter(const Program& program,
                                                         const Binding& binding,
@@ -656,13 +718,14 @@ std::optional<BackendComparison> compareWithInterpreter(const Program& program,
     return std::nullopt;
   }
   BackendComparison comparison;
-  comparison.points = samplePoints(first, count);
+  comparison.points = spreadPoints(first, count);
   const std::size_t outputs = program.outputs().size();
   const std::size_t sample = comparison.points.size();
 
-  // what the backend wrote
+  // what the backend wrote, and the inputs, for the record
   comparison.backend.assign(outputs * sample, 0.0);
-  std::vector<double> value(outputs);
+  comparison.inputs.assign(binding.inputs().size() * sample, 0.0);
+  std::vector<double> value(std::max(outputs, binding.inputs().size()));
   for (std::size_t k = 0; k < sample; ++k) {
     const bool read =
         table != nullptr
@@ -675,48 +738,72 @@ std::optional<BackendComparison> compareWithInterpreter(const Program& program,
     for (std::size_t o = 0; o < outputs; ++o) {
       comparison.backend[o * sample + k] = value[o];
     }
+    if (table != nullptr) {
+      binding.gather(*table, comparison.points[k], 1, value.data());
+    } else {
+      binding.gatherFrom(args->inputs, args->inputCount, comparison.points[k], 1, value.data());
+    }
+    for (std::size_t i = 0; i < binding.inputs().size(); ++i) {
+      comparison.inputs[i * sample + k] = value[i];
+    }
   }
 
-  // what the program gives, by the interpreter, on the same grids
+  // what the program gives, by the interpreter: the binding reads the inputs, as for the call
+  const auto makeIo = [&](auto tag) {
+    using T = decltype(tag);
+    return [&](std::vector<double>& results) -> std::unique_ptr<TileIo<T>> {
+      return std::make_unique<SampleTileIo<T>>(
+          binding, table, args, comparison.points, results, outputs);
+    };
+  };
+  const auto makeFloat = makeIo(0.0F);
+  const auto makeDouble = makeIo(0.0);
   const auto ids = internGrids(program, grids);
   const StoreArrays arrays(program, ids, grids);
   const GridArrays* sampled = ids.empty() ? nullptr : &arrays;
   if (lower(program, LowerOptions{}).dataType() == ComputeType::F32) {
-    interpret<float>(program, binding, sampled, table, args, perturbed, comparison);
+    interpret<float>(program, sampled, makeFloat, perturbed, comparison);
   } else {
-    interpret<double>(program, binding, sampled, table, args, perturbed, comparison);
+    interpret<double>(program, sampled, makeDouble, perturbed, comparison);
   }
+  judge(program, comparison);
+  return comparison;
+}
 
-  double worstUlps = 0.0;
-  for (std::size_t o = 0; o < outputs; ++o) {
-    for (std::size_t k = 0; k < sample; ++k) {
-      const double a = comparison.backend[o * sample + k];
-      const double r = comparison.interpreter[o * sample + k];
-      if (std::memcmp(&a, &r, sizeof(double)) == 0 || (std::isnan(a) && std::isnan(r))) {
-        continue;
-      }
-      if (perturbed) {
-        // within the tolerance of the value, which the perturbed evaluations set
-        const double deviation = std::fabs(a - r);
-        const double tolerance = comparison.tolerance[o * sample + k];
-        if (deviation <= tolerance) {
-          comparison.worstRatio = std::max(comparison.worstRatio, deviation / tolerance);
-          continue;
-        }
-        comparison.worstRatio = std::max(comparison.worstRatio,
-                                         tolerance > 0.0 ? deviation / tolerance
-                                                         : std::numeric_limits<double>::infinity());
-      }
-      ++comparison.deviating;
-      const double ulps = std::fabs(a - r) / std::max(ulpOf(r), ulpOf(a));
-      if (comparison.worst.empty() || ulps > worstUlps || std::isnan(ulps)) {
-        worstUlps = ulps;
-        comparison.worst = "`" + program.outputs()[o].name + "` at point " +
-                           std::to_string(comparison.points[k]) + " is " + hexOf(a) +
-                           ", the interpreter's " + hexOf(r);
-      }
-    }
+std::optional<BackendComparison> compareValues(const Program& program,
+                                               GridStore& grids,
+                                               const std::vector<std::size_t>& points,
+                                               const std::vector<double>& inputs,
+                                               const std::vector<double>& backend,
+                                               bool perturbed) {
+  if (!program.state().empty() || !program.matrices().empty() || !program.blocks().empty() ||
+      points.empty()) {
+    return std::nullopt;
   }
+  BackendComparison comparison;
+  comparison.points = points;
+  comparison.inputs = inputs;
+  comparison.backend = backend;
+  const std::size_t inputCount = program.inputs().size();
+  const std::size_t outputs = program.outputs().size();
+  const auto makeIo = [&](auto tag) {
+    using T = decltype(tag);
+    return [&](std::vector<double>& results) -> std::unique_ptr<TileIo<T>> {
+      return std::make_unique<ValuesTileIo<T>>(
+          comparison.inputs, inputCount, points.size(), results, outputs);
+    };
+  };
+  const auto makeFloat = makeIo(0.0F);
+  const auto makeDouble = makeIo(0.0);
+  const auto ids = internGrids(program, grids);
+  const StoreArrays arrays(program, ids, grids);
+  const GridArrays* sampled = ids.empty() ? nullptr : &arrays;
+  if (lower(program, LowerOptions{}).dataType() == ComputeType::F32) {
+    interpret<float>(program, sampled, makeFloat, perturbed, comparison);
+  } else {
+    interpret<double>(program, sampled, makeDouble, perturbed, comparison);
+  }
+  judge(program, comparison);
   return comparison;
 }
 

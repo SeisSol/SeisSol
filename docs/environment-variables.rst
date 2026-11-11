@@ -218,8 +218,12 @@ a check for now.
 
 At its first call, a compiled kernel is compared with the interpreter, which evaluates the script
 as written at up to 64 points of the call; the log says whether the two agree. On the CPU they give
-the same bits, and a kernel that does not stops the run with the point and both values
-(``SEISSOL_EXPR_CHECK=warn`` lets it go on with a warning, ``off`` skips the check).
+the same bits. On a GPU, which may contract a product and a sum into a fused multiply-add and has a
+maths library of its own, each value has a tolerance: twice the largest deviation of eight
+evaluations by the interpreter with every product moved by an ulp and every function of the maths
+library by four, and a point where one of them decides a ``select`` otherwise counts as unstable. A
+kernel that deviates stops the run with the point and both values (``SEISSOL_EXPR_CHECK=warn`` lets
+it go on with a warning, ``off`` skips the check).
 
 The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
 ``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They

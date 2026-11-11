@@ -23,9 +23,11 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -920,15 +922,17 @@ bool deviceGrids(const Program& program,
 
 class RtcGpuKernel final : public Kernel {
   public:
-  RtcGpuKernel(Binding& binding,
+  RtcGpuKernel(const Program& program,
+               Binding& binding,
                LoweredProgram lowered,
                DeviceFunction function,
                GpuTarget target,
                std::size_t elementWidth,
                void* queue,
-               std::vector<void*> grids)
-      : binding_(&binding), lowered_(std::move(lowered)), function_(function), target_(target),
-        queue_(queue), grids_(std::move(grids)) {
+               std::vector<void*> grids,
+               df::GridStore& store)
+      : program_(program), binding_(&binding), lowered_(std::move(lowered)), function_(function),
+        target_(target), queue_(queue), grids_(std::move(grids)), store_(&store) {
     // The hoisted values, and the states the table does not keep; both zeroed by allocFor, which
     // is all a zero-initialised state needs (gpuRejection refuses the others).
     const auto stateSlots = static_cast<std::size_t>(lowered_.stateSlotCount());
@@ -994,6 +998,10 @@ class RtcGpuKernel final : public Kernel {
     if (!launchFor(target_, function_.function, packed, args.count, streamFor(args))) {
       logError() << "expr: launching the compiled device kernel failed.";
     }
+    if (!checked_) {
+      checked_ = true;
+      check(args);
+    }
   }
 
   [[nodiscard]] BackendKind kind() const override {
@@ -1009,6 +1017,101 @@ class RtcGpuKernel final : public Kernel {
   }
 
   private:
+  /// The check of the first call (Backend.h, compareValues()): the inputs and outputs of a sample
+  /// of its points, read back from the device, against the perturbed reference of the interpreter.
+  /// A program with state or contractions is not compared, nor one whose columns cannot be read
+  /// back.
+  void check(const KernelArgs& args) {
+    if (!backendChecks() || !program_.state().empty() || !program_.matrices().empty() ||
+        !program_.blocks().empty() || args.count == 0) {
+      return;
+    }
+    // done with the call
+    std::vector<void*> queues{streamFor(args)};
+    if (queues.front() == nullptr) {
+      queues.front() = queue_;
+    }
+    synchronizeFor(target_, queues);
+    const std::vector<std::size_t> points = samplePoints(args.first, args.count);
+    const std::size_t inputs = binding_->inputs().size();
+    const std::size_t outputs = binding_->outputs().size();
+    std::vector<double> inputValues(inputs * points.size());
+    std::vector<double> outputValues(outputs * points.size());
+    for (std::size_t k = 0; k < points.size(); ++k) {
+      for (std::size_t i = 0; i < inputs; ++i) {
+        const void* moved =
+            i < args.inputCount && args.inputs != nullptr ? args.inputs[i] : nullptr;
+        const auto value = readBack(binding_->inputs()[i], moved, points[k]);
+        if (!value.has_value()) {
+          return;
+        }
+        inputValues[i * points.size() + k] = *value;
+      }
+      for (std::size_t o = 0; o < outputs; ++o) {
+        const void* moved =
+            o < args.outputCount && args.outputs != nullptr ? args.outputs[o] : nullptr;
+        const auto value = readBack(binding_->outputs()[o], moved, points[k]);
+        if (!value.has_value()) {
+          return;
+        }
+        outputValues[o * points.size() + k] = *value;
+      }
+    }
+    const auto comparison =
+        compareValues(program_, *store_, points, inputValues, outputValues, true);
+    if (comparison.has_value()) {
+      reportComparison(program_, kind(), *comparison);
+    }
+  }
+
+  /// `bytes` at `source`, on the device or on the host.
+  [[nodiscard]] bool read(void* destination, const void* source, std::size_t bytes) const {
+    const auto accessible = accessibilityCheck(target_);
+    if (accessible != nullptr && accessible(source)) {
+      return copyFromDeviceFor(target_, destination, source, bytes, queue_);
+    }
+    std::memcpy(destination, source, bytes);
+    return true;
+  }
+
+  /// The value of `column` at `point`, through the base of the call (`moved`, where non-null) or
+  /// the bound one, its offset and strides, and its index of cells, wherever they lie.
+  [[nodiscard]] std::optional<double>
+      readBack(const ColumnBinding& column, const void* moved, std::size_t point) const {
+    if (!column.view.has_value()) {
+      return std::nullopt;
+    }
+    const auto& view = *column.view;
+    std::size_t element = point / view.divisor;
+    if (view.index != nullptr) {
+      std::uint32_t entry = 0;
+      if (!read(&entry, view.index + element, sizeof(entry))) {
+        return std::nullopt;
+      }
+      element = entry;
+    }
+    const char* base = static_cast<const char*>(moved != nullptr ? moved : view.base);
+    const char* address = base + view.byteOffset + element * view.byteStride +
+                          (point % view.divisor) * view.pointStride;
+    const auto fetch = [&](auto value) -> std::optional<double> {
+      if (!read(&value, address, sizeof(value))) {
+        return std::nullopt;
+      }
+      return static_cast<double>(value);
+    };
+    switch (column.tableType) {
+    case reader::scripting::DataType::F32:
+      return fetch(0.0F);
+    case reader::scripting::DataType::F64:
+      return fetch(0.0);
+    case reader::scripting::DataType::I32:
+      return fetch(std::int32_t{0});
+    case reader::scripting::DataType::I64:
+      return fetch(std::int64_t{0});
+    }
+    return std::nullopt;
+  }
+
   [[nodiscard]] void* allocate(std::size_t bytes, const char* what) const {
     if (bytes == 0) {
       return nullptr;
@@ -1032,6 +1135,7 @@ class RtcGpuKernel final : public Kernel {
     return args.stream;
   }
 
+  Program program_;
   Binding* binding_;
   LoweredProgram lowered_;
   DeviceFunction function_;
@@ -1039,9 +1143,11 @@ class RtcGpuKernel final : public Kernel {
   void* queue_{nullptr};
   /// the descriptors of the grids it samples, on the device (deviceGrids())
   std::vector<void*> grids_;
+  df::GridStore* store_;
   void* persistent_{nullptr};
   void* ownState_{nullptr};
   bool precomputed_{false};
+  bool checked_{false};
 };
 
 } // namespace
@@ -1156,13 +1262,15 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
   }
   // the hoisted values and the states the kernel keeps, in the type the data moves in
   const std::size_t width = lowered.dataType() == ComputeType::F32 ? 4 : 8;
-  return std::make_unique<RtcGpuKernel>(binding,
+  return std::make_unique<RtcGpuKernel>(program,
+                                        binding,
                                         std::move(lowered),
                                         function,
                                         target,
                                         width,
                                         options.deviceQueue,
-                                        std::move(gridPointers));
+                                        std::move(gridPointers),
+                                        grids);
 }
 
 } // namespace seissol::expr

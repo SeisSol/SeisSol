@@ -194,6 +194,30 @@ TEST_SUITE("ExprRtcCpu") {
     CHECK(beyond->worstRatio > 1.0);
   }
 
+  TEST_CASE("values read back from a device are compared with the perturbed reference") {
+    // a GPU contracts x * y + z: within the tolerance; a value further off is not
+    const Program program = compileSderivModule("out def u = x * y + z\n");
+    const std::vector<std::size_t> points = {3, 7};
+    // x of both points, then y, then z
+    const std::vector<double> inputs = {
+        1.0 + std::ldexp(1.0, -27), 2.0, 1.0 - std::ldexp(1.0, -27), 3.0, -1.0, 1.0};
+    df::GridStore store;
+    const auto contracted =
+        compareValues(program, store, points, inputs, {-std::ldexp(1.0, -54), 7.0}, true);
+    REQUIRE(contracted.has_value());
+    CHECK(contracted->deviating == 0);
+    CHECK(contracted->interpreter == std::vector<double>{0.0, 7.0});
+    const auto off = compareValues(program, store, points, inputs, {0.0, 7.5}, true);
+    REQUIRE(off.has_value());
+    CHECK(off->deviating == 1);
+    CHECK(off->worst.find("`u` at point 7") != std::string::npos);
+    // bit for bit, the contraction deviates
+    const auto exact =
+        compareValues(program, store, points, inputs, {-std::ldexp(1.0, -54), 7.0}, false);
+    REQUIRE(exact.has_value());
+    CHECK(exact->deviating == 1);
+  }
+
   TEST_CASE("a program with a grid lookup compiles and samples as the interpreter does") {
     // written out (expandLookups()): the compiled kernel reads the grid through its descriptor, in
     // both shapes, at points inside the grid and far beyond it
