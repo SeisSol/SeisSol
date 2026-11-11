@@ -11,6 +11,7 @@
 #include "Monitoring/RunSummary.h"
 
 #include <csignal>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -187,6 +188,7 @@ TEST_CASE("A termination marks the run summary as terminated" * doctest::test_su
 
 TEST_CASE("A crash marks the run summary as failed" * doctest::test_suite("monitoring")) {
   const std::string prefix = "crash-summary-test";
+  constexpr std::uintptr_t FaultAddress = 16;
   const auto path = prefix + "-summary.json";
 
   monitoring::RunSummary summary;
@@ -203,7 +205,10 @@ TEST_CASE("A crash marks the run summary as failed" * doctest::test_suite("monit
     }
     utils::catchSignals(
         [](const utils::LogSignal& signal) { monitoring::writeFailureReport(signal.json); });
-    volatile int* volatile pointer = nullptr;
+    // a store into the lowest page, which is never mapped; a store to the null pointer would be
+    // stopped by the sanitizer of undefined behavior before it faults
+    // NOLINTNEXTLINE(performance-no-int-to-ptr)
+    volatile int* volatile pointer = reinterpret_cast<volatile int*>(FaultAddress);
     *pointer = 1;
     _exit(0);
   }
@@ -218,7 +223,7 @@ TEST_CASE("A crash marks the run summary as failed" * doctest::test_suite("monit
                   "\n"
                   R"(  "error": {"message":"The process received the signal SIGSEGV )") !=
         std::string::npos);
-  CHECK(text.find(R"("signal":"SIGSEGV","address":"0x0","time":")") != std::string::npos);
+  CHECK(text.find(R"("signal":"SIGSEGV","address":"0x10","time":")") != std::string::npos);
 
   summary.finish();
   std::filesystem::remove(path);
