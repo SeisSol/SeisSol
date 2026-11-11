@@ -18,8 +18,9 @@
 
 namespace seissol::reader::scripting {
 
-/// The reader of the script `path`: `easi:` or no prefix for an easi file, `lua:` for a Lua model
-/// (compiled if it traces), `sderiv:` for an sderiv module.
+/// The reader of the script `path`, by its prefix or else its extension: `lua:` or a .lua file for
+/// a Lua model (compiled if it traces), `sderiv:` or a .sderiv file for an sderiv module, `easi:`
+/// or any other file for an easi file.
 std::unique_ptr<DataReader> buildReader(const std::string& path,
                                         const std::vector<std::string>& defaultInArgs);
 

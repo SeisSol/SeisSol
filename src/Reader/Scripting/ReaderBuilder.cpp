@@ -50,7 +50,7 @@ std::string readFile(const std::string& path) {
 /// reader is handed in as both oracle and fallback, so a program that traces
 /// but disagrees with it at run time still lands on the path that works.
 std::unique_ptr<DataReader> buildLua(const std::string& path) {
-  const std::string code = readFile(stripPrefix(path));
+  const std::string code = readFile(path);
 
   TraceFailure failure;
   const TraceOptions options;
@@ -77,9 +77,9 @@ std::unique_ptr<DataReader> buildLua(const std::string& path) {
 /// configuration error, which is what makes the frontend's parse diagnostics
 /// load-bearing rather than a convenience.
 std::unique_ptr<DataReader> buildSderiv(const std::string& path) {
-  const std::string source = readFile(stripPrefix(path));
+  const std::string source = readFile(path);
   expr::SderivOptions options;
-  options.file = stripPrefix(path);
+  options.file = path;
   auto program = expr::compileSderivModule(source, options);
   logInfo() << "Compiled the sderiv module" << path << "with" << program.outputs().size()
             << "outputs.";
@@ -165,26 +165,18 @@ std::unique_ptr<DataReader> buildReader(const std::string& path,
 
   logInfo() << "Reading script" << path << "with default args" << defaultInArgs;
 
-  const auto parts = utils::StringUtils::split(path, ':');
-  if (parts.size() == 1) {
-    return std::make_unique<EasiReader>(path, defaultInArgs);
+  // by its prefix, else by its extension, as buildProgram() reads it
+  const auto kind = kindOf(path);
+  if (kind == "lua") {
+    return buildLua(fileOf(path));
   }
-  if (parts[0] == "easi") {
-    // The easi walker is not built yet, so this stays interpreted. When it
-    // lands it takes the same shape as buildLua: walk, and on refusal fall back
-    // to EasiReader with a warning naming why.
-    return std::make_unique<EasiReader>(stripPrefix(path), defaultInArgs);
+  if (kind == "sderiv") {
+    return buildSderiv(fileOf(path));
   }
-  if (parts[0] == "lua") {
-    return buildLua(path);
-  }
-  if (parts[0] == "sderiv") {
-    return buildSderiv(path);
-  }
-
-  logError() << "The script" << path << "does not have a built-in reader.";
-
-  return nullptr;
+  // The easi walker is not built yet, so this stays interpreted. When it
+  // lands it takes the same shape as buildLua: walk, and on refusal fall back
+  // to EasiReader with a warning naming why.
+  return std::make_unique<EasiReader>(fileOf(path), defaultInArgs);
 }
 
 } // namespace seissol::reader::scripting
