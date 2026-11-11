@@ -6,13 +6,11 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#include "Alignment.h"
 #include "BuildInfo.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/Environment.h"
 #include "Common/Json.h"
 #include "Common/RunId.h"
-#include "Common/Typedefs.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -22,9 +20,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Preflight.h"
 #include "Monitoring/Instrumentation.h"
-#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
-#include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 
 #include <array>
@@ -52,6 +48,11 @@
 #endif
 
 #ifdef ACL_DEVICE
+#include "Alignment.h"
+#include "Common/Typedefs.h"
+#include "Parallel/Helper.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <Device/device.h>
 #endif
 
@@ -307,8 +308,8 @@ int main(int argc, char* argv[]) {
       seissol::parallel::runtime::hsaBranchQueueCount() = seissol::hsaBranchQueueCount();
       const auto priorities = seissol::hsaQueueEnv().get<std::string>("QUEUE_PRIORITIES", "");
       seissol::parallel::runtime::hsaQueuePriorities() = {
-          priorities.find("copy") != std::string::npos,
-          priorities.find("faces") != std::string::npos};
+          .copy = priorities.find("copy") != std::string::npos,
+          .faces = priorities.find("faces") != std::string::npos};
       if (seissol::hsaQueueEnv().get<std::string>("QUEUE_LAYOUT", "layers") == "halo") {
         seissol::parallel::runtime::hsaQueueLayout() =
             seissol::parallel::runtime::HsaQueueLayout::Halo;

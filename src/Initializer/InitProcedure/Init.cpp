@@ -19,7 +19,6 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/DeviceTimeline.h"
-#include "Monitoring/DeviceTimer.h"
 #include "Monitoring/Memory.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
@@ -38,6 +37,8 @@
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
+#include "Monitoring/DeviceTimer.h"
+
 #include <Device/device.h>
 #include <sstream>
 #endif

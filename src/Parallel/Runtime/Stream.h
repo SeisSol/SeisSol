@@ -211,7 +211,8 @@ class StreamRuntime {
                          int hsaQueue = SharedHsaQueue)
       : ringbufferSize_(ringbufferSize), disposed_(false) {
     if (hsaQueueCount() > 0 && hsaQueue != NoHsaQueue) {
-      streamPtr_.emplace(ManagedStream::OnHsaQueue{hsaQueue, priority.value_or(NAN)});
+      streamPtr_.emplace(
+          ManagedStream::OnHsaQueue{.queue = hsaQueue, .priority = priority.value_or(NAN)});
     } else if (priority.has_value()) {
       streamPtr_.emplace(priority.value());
     } else {
@@ -221,8 +222,9 @@ class StreamRuntime {
       ringbufferPtr_.reserve(ringbufferSize);
       for (size_t i = 0; i < ringbufferSize; ++i) {
         ringbufferPtr_.emplace_back(ManagedStream::OnHsaQueue{
-            FirstBranchHsaQueue - static_cast<int>(i % static_cast<size_t>(hsaBranchQueueCount())),
-            NAN});
+            .queue = FirstBranchHsaQueue -
+                     static_cast<int>(i % static_cast<size_t>(hsaBranchQueueCount())),
+            .priority = NAN});
       }
     } else {
       ringbufferPtr_.resize(ringbufferSize);

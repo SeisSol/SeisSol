@@ -6,6 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Stream.h"
 
+#include "Initializer/BasicTypedefs.h"
+#include "Memory/Tree/Colormap.h"
+
 #include <cstddef>
 #include <optional>
 #include <utility>

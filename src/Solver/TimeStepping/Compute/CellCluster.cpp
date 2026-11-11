@@ -44,6 +44,7 @@
 #include "Monitoring/Metric.h"
 #include "Monitoring/Trace.h"
 #include "Parallel/Runtime/HostRuntime.h"
+#include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"

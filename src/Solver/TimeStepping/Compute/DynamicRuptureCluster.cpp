@@ -30,6 +30,7 @@
 #include "Monitoring/Trace.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/Runtime/HostRuntime.h"
+#include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"

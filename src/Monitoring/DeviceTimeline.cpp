@@ -9,24 +9,25 @@
 
 #include "Monitoring/DeviceTimer.h"
 #include "Monitoring/Trace.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <algorithm>
-#include <array>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
+#include <vector>
+
+#ifdef ACL_DEVICE
+#include "Parallel/Runtime/Stream.h"
+
+#include <Device/AbstractAPI.h>
+#include <Device/device.h>
+#include <array>
+#include <chrono>
 #include <map>
 #include <memory>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <utils/logger.h>
-#include <vector>
-
-#ifdef ACL_DEVICE
-#include <Device/AbstractAPI.h>
-#include <Device/device.h>
 #endif
 
 namespace seissol {
@@ -36,6 +37,7 @@ namespace {
 device::AbstractAPI& api() { return device::DeviceInstance::instance().api(); }
 
 // whether the device puts its kernels into the trace
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 bool kernelTrace = false;
 #endif
 } // namespace
@@ -50,7 +52,7 @@ void DeviceTimeline::startKernelTrace([[maybe_unused]] bool requested) {
     return;
   }
   // (from one thread of the device library: the tracks need no lock)
-  auto tracks = std::make_shared<std::map<int, std::uint32_t>>();
+  const auto tracks = std::make_shared<std::map<int, std::uint32_t>>();
   const bool tracing = api().traceDevice([tracks](std::string_view name,
                                                   int queue,
                                                   std::chrono::steady_clock::time_point begin,
