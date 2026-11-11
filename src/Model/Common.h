@@ -162,6 +162,9 @@ void replaceDegenerateEigenvectors(const std::array<T, Dim * Dim>& matrix,
   using RealT = T::value_type;
   using RMatrix = Eigen::Matrix<RealT, Size, Eigen::Dynamic>;
   using RSquare = Eigen::Matrix<RealT, Size, Size>;
+  // the decompositions take their matrices with sizes known at run time only, as the eigensolver of
+  // computeEigenvalues does, so that they are compiled once rather than once for each size
+  using RDynamic = Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic>;
 
   const auto signClass = [zeroThreshold](const T& value) -> int {
     if (value.real() < -zeroThreshold) {
@@ -202,10 +205,10 @@ void replaceDegenerateEigenvectors(const std::array<T, Dim * Dim>& matrix,
       RSquare shifted = realMatrix - lambda * RSquare::Identity();
       const auto scale = seissol::eigenvalues::balance(shifted);
       // the singular values come in decreasing order
-      const Eigen::JacobiSVD<RSquare> svd(shifted, Eigen::ComputeFullV);
-      const RMatrix spanning = scale.asDiagonal() * svd.matrixV().rightCols(width);
-      const Eigen::HouseholderQR<RMatrix> qr(spanning);
-      const RMatrix basis = qr.householderQ() * RMatrix::Identity(Size, width);
+      const Eigen::JacobiSVD<RDynamic> svd(RDynamic(shifted), Eigen::ComputeFullV);
+      const RDynamic spanning = scale.asDiagonal() * svd.matrixV().rightCols(width);
+      const Eigen::HouseholderQR<RDynamic> qr(spanning);
+      const RMatrix basis = qr.householderQ() * RDynamic::Identity(Size, width);
       vectors.middleCols(first, width) = basis.template cast<T>();
     }
     begin = end + 1;

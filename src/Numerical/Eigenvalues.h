@@ -126,10 +126,15 @@ template <typename T, size_t Dim>
 void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
                         Eigenpair<std::complex<T>, Dim>& output) {
   using Matrix = Eigen::Matrix<std::complex<T>, Dim, Dim, Eigen::ColMajor>;
+  // The solver takes the matrix with its size known at run time only, and is so compiled once for
+  // each T, rather than once for each size a translation unit decomposes. It computes the same, up
+  // to rounding, and about as fast; compiled for each size of the materials, it took NVHPC more
+  // memory than a runner of the CI has, in the translation units that set up or test the materials.
+  using DynamicMatrix = Eigen::Matrix<std::complex<T>, Eigen::Dynamic, Eigen::Dynamic>;
   Matrix op(m.data());
   const auto scale = balance(op);
-  Eigen::ComplexEigenSolver<Matrix> ces;
-  ces.compute(op);
+  Eigen::ComplexEigenSolver<DynamicMatrix> ces;
+  ces.compute(DynamicMatrix(op));
 
   // sort eigenvalues so that we know which eigenvalue corresponds to which mode
   auto eigenvalues = ces.eigenvalues();
