@@ -657,7 +657,8 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   assert(evNeg == ExpectedEv);
   assert(evPos == ExpectedEv);
 
-  // check whether eigensolver is good enough
+  // check whether eigensolver is good enough: the eigenvectors have unit length, so that the
+  // residual scales with the Jacobian, whose rows of the stresses hold moduli of ~1e10 in SI units
   const CMatrix coeff(dataA.data());
   const CMatrix matrixMult = coeff * eigenvectors;
   CMatrix eigenvalueMatrix = CMatrix::Zero();
@@ -666,11 +667,11 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   }
   const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;
   const CMatrix diff = matrixMult - vectorMult;
-  const double norm = diff.norm();
+  const double norm = diff.norm() / coeff.norm();
 
   std::stringstream messageStream;
-  messageStream << "Residual " << norm << " is larger than " << zeroThreshold
-                << ": Eigensolver is not accurate enough";
+  messageStream << "Residual " << norm << " relative to the Jacobian is larger than "
+                << zeroThreshold << ": Eigensolver is not accurate enough";
   assert(norm < zeroThreshold && messageStream.str().c_str());
 #endif
   return eigenpair;
