@@ -255,10 +255,36 @@ inline constexpr std::size_t MaxTileSize = 2048;
 // the default is half of it rather than all of it.
 std::size_t chooseTileSize(std::int32_t peakSlots, ComputeType type, std::size_t budgetBytes);
 
+/// A perturbed evaluation, the reference against which a backend on a GPU is checked (the
+/// specification's "Checking a GPU backend"): every product moved by `productUlps` ulp, which
+/// covers its contraction into a fused multiply-add, and every operation of the maths library by
+/// `boundedUlps`, the distance of another one; up or down as SplitMix64 of `seed`, the point and
+/// the operation decides. The other operations, and the strict ones of a written-out lookup, which
+/// a GPU computes as the interpreter does, stay as they are.
+struct Perturbation {
+  bool on{false};
+  std::uint64_t seed{0};
+  int productUlps{1};
+  int boundedUlps{4};
+};
+
 struct InterpreterOptions {
   std::size_t tileSize{0}; // 0 -> chooseTileSize
   std::size_t budgetBytes{DefaultTileBudgetBytes};
+  Perturbation perturbation;
+  /// Where non-null, one signature per point of the decisions of its selects (SplitMix64 over the
+  /// selects in order and whether each took its first branch): two evaluations decide every
+  /// select of a point alike where its signatures agree. Sized by the caller, to the points.
+  std::vector<std::uint64_t>* decisions{nullptr};
 };
+
+/// The mix of SplitMix64.
+[[nodiscard]] constexpr std::uint64_t splitMix64(std::uint64_t x) {
+  x += 0x9e3779b97f4a7c15ULL;
+  x = (x ^ (x >> 30U)) * 0xbf58476d1ce4e5b9ULL;
+  x = (x ^ (x >> 27U)) * 0x94d049bb133111ebULL;
+  return x ^ (x >> 31U);
+}
 
 // --- interpreter -------------------------------------------------------------
 
@@ -308,6 +334,8 @@ class TileInterpreter {
   const LoweredProgram* lowered_;
   const GridArrays* grids_;
   std::size_t tileSize_{0};
+  Perturbation perturbation_;
+  std::vector<std::uint64_t>* decisions_{nullptr};
   // the transients of a tile, each in its type (StageCode::slotTypes), at their offsets in bytes
   std::vector<double> scratch_;
   std::vector<std::size_t> precomputeOffsets_;

@@ -551,22 +551,82 @@ std::string hexOf(double x) {
   return buffer.data();
 }
 
-/// The interpreter's outputs at the sample, in the type the program moves its data in.
+/// The interpreter's outputs at the points of the sample into `outputs`, [output][point], in the
+/// type the program moves its data in; perturbed and with the signatures of the decisions of the
+/// selects as `options` asks.
+template <typename T>
+void interpretAt(const Program& program,
+                 const LoweredProgram& lowered,
+                 const Binding& binding,
+                 const GridArrays* arrays,
+                 const DataTable* table,
+                 const KernelArgs* args,
+                 const std::vector<std::size_t>& points,
+                 const InterpreterOptions& options,
+                 std::vector<double>& outputs) {
+  outputs.assign(program.outputs().size() * points.size(), 0.0);
+  SampleTileIo<T> io(binding, table, args, points, outputs, program.outputs().size());
+  TileInterpreter<T> interpreter(program, lowered, arrays, options);
+  std::vector<T> persistent(1, T(0));
+  interpreter.run(io, points.size(), persistent.data());
+}
+
+/// The reference at the sample: the interpreter's outputs, and the inputs, for the record; and,
+/// for `perturbed`, R = 8 perturbed evaluations, which give the tolerance of each value and the
+/// unstable points.
 template <typename T>
 void interpret(const Program& program,
                const Binding& binding,
                const GridArrays* arrays,
                const DataTable* table,
                const KernelArgs* args,
+               bool perturbed,
                BackendComparison& comparison) {
+  constexpr int Runs = 8;
+  constexpr double Spread = 2.0;
   const LoweredProgram lowered = lower(program, LowerOptions{});
   const std::size_t count = comparison.points.size();
-  comparison.interpreter.assign(program.outputs().size() * count, 0.0);
-  SampleTileIo<T> io(
-      binding, table, args, comparison.points, comparison.interpreter, program.outputs().size());
-  TileInterpreter<T> interpreter(program, lowered, arrays, {});
-  std::vector<T> persistent(1, T(0));
-  interpreter.run(io, count, persistent.data());
+  std::vector<std::uint64_t> decisions(count, 0);
+  InterpreterOptions options;
+  options.decisions = &decisions;
+  interpretAt<T>(program,
+                 lowered,
+                 binding,
+                 arrays,
+                 table,
+                 args,
+                 comparison.points,
+                 options,
+                 comparison.interpreter);
+  if (perturbed) {
+    comparison.perturbed = true;
+    comparison.tolerance.assign(comparison.interpreter.size(), 0.0);
+    std::vector<bool> unstable(count, false);
+    std::vector<double> values;
+    for (int run = 0; run < Runs; ++run) {
+      std::vector<std::uint64_t> moved(count, 0);
+      InterpreterOptions perturbation;
+      perturbation.decisions = &moved;
+      perturbation.perturbation.on = true;
+      perturbation.perturbation.seed = splitMix64(static_cast<std::uint64_t>(run) + 1);
+      interpretAt<T>(
+          program, lowered, binding, arrays, table, args, comparison.points, perturbation, values);
+      for (std::size_t v = 0; v < values.size(); ++v) {
+        const double deviation = std::fabs(values[v] - comparison.interpreter[v]);
+        if (!std::isnan(deviation)) {
+          comparison.tolerance[v] = std::max(comparison.tolerance[v], Spread * deviation);
+        }
+      }
+      for (std::size_t k = 0; k < count; ++k) {
+        unstable[k] = unstable[k] || moved[k] != decisions[k];
+      }
+    }
+    for (std::size_t k = 0; k < count; ++k) {
+      if (unstable[k]) {
+        comparison.unstable.push_back(comparison.points[k]);
+      }
+    }
+  }
   // and the inputs, for the record
   comparison.inputs.assign(binding.inputs().size() * count, 0.0);
   std::vector<double> values(binding.inputs().size());
@@ -588,7 +648,8 @@ std::optional<BackendComparison> compareWithInterpreter(const Program& program,
                                                         const Binding& binding,
                                                         GridStore& grids,
                                                         const DataTable* table,
-                                                        const KernelArgs* args) {
+                                                        const KernelArgs* args,
+                                                        bool perturbed) {
   const std::size_t first = table != nullptr ? 0 : args->first;
   const std::size_t count = table != nullptr ? binding.numPoints() : args->count;
   if (!program.state().empty() || count == 0) {
@@ -621,9 +682,9 @@ std::optional<BackendComparison> compareWithInterpreter(const Program& program,
   const StoreArrays arrays(program, ids, grids);
   const GridArrays* sampled = ids.empty() ? nullptr : &arrays;
   if (lower(program, LowerOptions{}).dataType() == ComputeType::F32) {
-    interpret<float>(program, binding, sampled, table, args, comparison);
+    interpret<float>(program, binding, sampled, table, args, perturbed, comparison);
   } else {
-    interpret<double>(program, binding, sampled, table, args, comparison);
+    interpret<double>(program, binding, sampled, table, args, perturbed, comparison);
   }
 
   double worstUlps = 0.0;
@@ -633,6 +694,18 @@ std::optional<BackendComparison> compareWithInterpreter(const Program& program,
       const double r = comparison.interpreter[o * sample + k];
       if (std::memcmp(&a, &r, sizeof(double)) == 0 || (std::isnan(a) && std::isnan(r))) {
         continue;
+      }
+      if (perturbed) {
+        // within the tolerance of the value, which the perturbed evaluations set
+        const double deviation = std::fabs(a - r);
+        const double tolerance = comparison.tolerance[o * sample + k];
+        if (deviation <= tolerance) {
+          comparison.worstRatio = std::max(comparison.worstRatio, deviation / tolerance);
+          continue;
+        }
+        comparison.worstRatio = std::max(comparison.worstRatio,
+                                         tolerance > 0.0 ? deviation / tolerance
+                                                         : std::numeric_limits<double>::infinity());
       }
       ++comparison.deviating;
       const double ulps = std::fabs(a - r) / std::max(ulpOf(r), ulpOf(a));

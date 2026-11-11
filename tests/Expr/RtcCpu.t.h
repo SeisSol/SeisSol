@@ -177,6 +177,21 @@ TEST_SUITE("ExprRtcCpu") {
     }
     CHECK(comparison->deviating == 1);
     CHECK(comparison->worst.find("`u` at point 0") != std::string::npos);
+
+    // against the perturbed reference, as a GPU is checked, the contraction is within the spread
+    // of products moved by an ulp; a value beyond it is not
+    const auto tolerant = compareWithInterpreter(program, binding, store, &table, nullptr, true);
+    REQUIRE(tolerant.has_value());
+    CHECK(tolerant->perturbed);
+    CHECK(tolerant->deviating == 0);
+    CHECK(tolerant->tolerance[0] >= std::ldexp(1.0, -52));
+    CHECK(tolerant->worstRatio <= 1.0);
+    CHECK(tolerant->unstable.empty());
+    u[0] = 1e-10;
+    const auto beyond = compareWithInterpreter(program, binding, store, &table, nullptr, true);
+    REQUIRE(beyond.has_value());
+    CHECK(beyond->deviating == 1);
+    CHECK(beyond->worstRatio > 1.0);
   }
 
   TEST_CASE("a program with a grid lookup compiles and samples as the interpreter does") {

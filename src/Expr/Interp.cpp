@@ -341,8 +341,8 @@ TileInterpreter<T>::TileInterpreter(const Program& program,
                                     const LoweredProgram& lowered,
                                     const GridArrays* grids,
                                     const InterpreterOptions& options)
-    : lowered_(&lowered), grids_(grids),
-      numInputs_(static_cast<std::int32_t>(program.inputs().size())),
+    : lowered_(&lowered), grids_(grids), perturbation_(options.perturbation),
+      decisions_(options.decisions), numInputs_(static_cast<std::int32_t>(program.inputs().size())),
       numOutputs_(static_cast<std::int32_t>(program.outputs().size())),
       stateSlots_(lowered.stateSlotCount()) {
   // the data moves in its type; the operations compute in theirs
@@ -421,6 +421,65 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
     return grids_->array(grid);
   };
 
+  // the signature of the decisions of the selects of each point, where asked for
+  const auto decide = [&](const Instruction& inst, const auto& taken) {
+    if (decisions_ == nullptr) {
+      return;
+    }
+    const auto index = static_cast<std::uint64_t>(&inst - stage.code.data());
+    for (std::size_t l = 0; l < count; ++l) {
+      auto& signature = (*decisions_)[first + l];
+      signature = splitMix64(signature ^ ((index << 1U) | (taken(l) ? 1U : 0U)));
+    }
+  };
+
+  // a product, or an operation of the maths library, moved by its ulps up or down per point
+  const auto perturb = [&](const Instruction& inst, auto* dst) {
+    using U = std::remove_pointer_t<decltype(dst)>;
+    int ulps = 0;
+    switch (inst.fn) {
+    case Fn::Mul:
+      ulps = inst.strict ? 0 : perturbation_.productUlps;
+      break;
+    case Fn::Exp:
+    case Fn::Log:
+    case Fn::Log2:
+    case Fn::Log10:
+    case Fn::Sin:
+    case Fn::Cos:
+    case Fn::Tan:
+    case Fn::Asin:
+    case Fn::Acos:
+    case Fn::Atan:
+    case Fn::Atan2:
+    case Fn::Sinh:
+    case Fn::Cosh:
+    case Fn::Tanh:
+    case Fn::Asinh:
+    case Fn::Acosh:
+    case Fn::Atanh:
+    case Fn::Erf:
+    case Fn::Pow:
+      ulps = perturbation_.boundedUlps;
+      break;
+    default:
+      break;
+    }
+    if (ulps == 0) {
+      return;
+    }
+    const auto index = static_cast<std::uint64_t>(&inst - stage.code.data());
+    for (std::size_t l = 0; l < count; ++l) {
+      const std::uint64_t draw =
+          splitMix64(perturbation_.seed ^ splitMix64(((first + l) << 20U) ^ index));
+      const U toward = (draw & 1U) != 0 ? std::numeric_limits<U>::infinity()
+                                        : -std::numeric_limits<U>::infinity();
+      for (int step = 0; step < ulps; ++step) {
+        dst[l] = std::nextafter(dst[l], toward);
+      }
+    }
+  };
+
   const auto execute = [&](const Instruction& inst, auto tag) {
     using U = decltype(tag);
     U* const __restrict dst = reinterpret_cast<U*>(bytesOf(inst.dst));
@@ -493,6 +552,7 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
         for (std::size_t l = 0; l < count; ++l) {
           dst[l] = condition[l] != 0 ? a1[l] : a2[l];
         }
+        decide(inst, [&](std::size_t l) { return condition[l] != 0; });
         break;
       }
       const U* const a0 = operand(0);
@@ -502,6 +562,12 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
         wholeLanes(inst.fn, a0, a1, dst, count);
       } else {
         pwLanes<U>(inst.fn, a0, a1, a2, dst, count);
+        if (inst.fn == Fn::Select) {
+          decide(inst, [&](std::size_t l) { return a0[l] != U(0); });
+        }
+        if (perturbation_.on) {
+          perturb(inst, dst);
+        }
       }
       break;
     }
@@ -596,6 +662,7 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
         for (std::size_t l = 0; l < count; ++l) {
           dst[l] = condition[l] != 0 ? x[l] : y[l];
         }
+        decide(inst, [&](std::size_t l) { return condition[l] != 0; });
         return;
       }
       default:

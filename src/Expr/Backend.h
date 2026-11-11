@@ -168,6 +168,14 @@ struct BackendComparison {
   std::vector<double> backend;
   std::size_t deviating{0};
   std::string worst;
+  /// Compared against the perturbed reference (a backend on a GPU): the tolerance of each value,
+  /// [output][point], c = 2 times the largest deviation of R = 8 perturbed evaluations from the
+  /// reference; the points where one of them decides a select otherwise than the reference
+  /// (unstable); and the largest ratio of a deviation of the backend to its tolerance.
+  bool perturbed{false};
+  std::vector<double> tolerance;
+  std::vector<std::size_t> unstable;
+  double worstRatio{0.0};
 };
 
 /// Compares what a kernel wrote for `program` in the call of `table` (or of `args`, with `table`
@@ -176,12 +184,16 @@ struct BackendComparison {
 /// advance, or for outputs that cannot be read back. makeKernel() checks every compiled kernel so
 /// at its first call; SEISSOL_EXPR_CHECK=error (the default) stops a run where it deviates, `warn`
 /// warns, `off` checks nothing.
+///
+/// `perturbed` compares as for a backend on a GPU (the specification's "Checking a GPU backend"):
+/// against the tolerance of each value from perturbed evaluations, rather than bit for bit.
 [[nodiscard]] std::optional<BackendComparison>
     compareWithInterpreter(const Program& program,
                            const Binding& binding,
                            reader::datafield::GridStore& grids,
                            const reader::scripting::DataTable* table,
-                           const KernelArgs* args);
+                           const KernelArgs* args,
+                           bool perturbed = false);
 
 /// How a compiled CPU kernel takes the points of a tile: one point through the whole program after
 /// the other, or one instruction over a block of points after the other (see RtcCpu.h). Auto

@@ -758,6 +758,59 @@ TEST_SUITE("Expr::Interp") {
     CHECK(reporter.failures[3].point == 4);
   }
 
+  TEST_CASE("a perturbed evaluation moves products, and marks the points whose selects flip") {
+    // u = select(lt(x * y, 1), 1, 2): at x = 1 + 2^-27, y = 1 - 2^-27 the product rounds to 1, a
+    // product moved down by an ulp is below it; at x = 2, y = 3 no ulp decides
+    Program program;
+    program.addInput("x", DT::F64);
+    program.addInput("y", DT::F64);
+    Arena& arena = program.arena();
+    const NodeId product = arena.pw(Fn::Mul, arena.field("x"), arena.field("y"));
+    program.addOutput("u",
+                      DT::F64,
+                      arena.pw(Fn::Select,
+                               arena.pw(Fn::Lt, product, arena.konst(1.0)),
+                               arena.konst(1.0),
+                               arena.konst(2.0)));
+    program.addOutput("p", DT::F64, product);
+    validate(program);
+    const std::vector<double> inputs = {
+        1.0 + std::ldexp(1.0, -27), 2.0, 1.0 - std::ldexp(1.0, -27), 3.0};
+    const LoweredProgram lowered = lower(program);
+    const auto evaluate = [&](const Perturbation& perturbation,
+                              std::vector<std::uint64_t>& decisions) {
+      std::vector<double> outputs(4, 0.0);
+      ArrayTileIo<double> io(inputs, outputs, 2, 2, 2);
+      InterpreterOptions options;
+      options.perturbation = perturbation;
+      options.decisions = &decisions;
+      TileInterpreter<double> interp(program, lowered, nullptr, options);
+      std::vector<double> persistent(1, 0.0);
+      interp.run(io, 2, persistent.data());
+      return outputs;
+    };
+    std::vector<std::uint64_t> reference(2, 0);
+    const auto exact = evaluate(Perturbation{}, reference);
+    CHECK(exact[0] == 2.0);
+    CHECK(exact[2] == 1.0);
+    bool flipped = false;
+    for (std::uint64_t seed = 1; seed <= 8; ++seed) {
+      std::vector<std::uint64_t> decisions(2, 0);
+      const auto moved = evaluate(Perturbation{true, seed, 1, 4}, decisions);
+      // the product, an ulp off, the same way for the same seed
+      CHECK(std::fabs(moved[2] - 1.0) <= std::ldexp(1.0, -52));
+      CHECK(moved[2] != 1.0);
+      CHECK(std::fabs(moved[3] - 6.0) <= std::ldexp(1.0, -50));
+      std::vector<std::uint64_t> again(2, 0);
+      CHECK(evaluate(Perturbation{true, seed, 1, 4}, again)[2] == moved[2]);
+      // the select of the second point never flips; that of the first where the product is below 1
+      CHECK(decisions[1] == reference[1]);
+      CHECK((decisions[0] != reference[0]) == (moved[2] < 1.0));
+      flipped = flipped || decisions[0] != reference[0];
+    }
+    CHECK(flipped);
+  }
+
   TEST_CASE("the interpreter computes as IEEE 754 says") {
     // no -ffast-math: NaN, fmax, division, contraction, infinities, signed zero
     CHECK(interpreterFault().empty());
