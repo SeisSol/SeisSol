@@ -16,12 +16,15 @@
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Expr/SderivFrontend.h"
+#include "Expr/Sha256.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <limits>
 #include <string>
 #include <utility>
@@ -80,7 +83,7 @@ Failure failureOf(const std::string& text) {
 /// printer writes it.
 constexpr auto Material = R"(#!sderiv 1
 meta generator = "easi 1.8.0"
-meta source = "material.yaml", "sha256:9f86d08188"
+meta source = "material.yaml", "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
 in x, y, z
 grid m (kind = "asagi", path = "vmodel.nc", variable = "data", components = ("rho", "mu", "lambda"), interpolation = "linear", boundary = "clamp")
 def t0 = lt(z, -2000)
@@ -123,7 +126,8 @@ TEST_SUITE("ExprCore") {
     CHECK(material.grids()[0].path == "/data/run/vmodel.nc");
     CHECK(material.grids()[0].variable == "data");
     REQUIRE(material.meta().size() == 2);
-    CHECK(material.meta()[1].values[1].text == "sha256:9f86d08188");
+    CHECK(material.meta()[1].values[1].text ==
+          "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08");
   }
 
   TEST_CASE("a program prints, loads back the same, and prints the same again") {
@@ -464,6 +468,50 @@ out rho = t4
                             "out def u = m_rho(x)\n",
                             options);
     CHECK(program.grids()[0].path == "/data/run/vmodel.nc");
+  }
+
+  TEST_CASE("SHA-256 gives the digests of FIPS 180-4") {
+    CHECK(sha256("") == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    CHECK(sha256("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    CHECK(sha256("abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq") ==
+          "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1");
+    CHECK(sha256(std::string(1000000, 'a')) ==
+          "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0");
+  }
+
+  TEST_CASE("provenance: a stale source is an error that names the command, the body its hash") {
+    const std::string source = "seissol-test-core-source.txt";
+    {
+      std::ofstream file(source);
+      file << "the model, version 1\n";
+    }
+    const std::string text = "#!sderiv 1\nmeta source = \"" + source +
+                             "\", \"sha256:" + sha256("the model, version 1\n") +
+                             "\"\nmeta command = \"python -m model -o m.sderiv\"\nin x\nout u "
+                             "= x\n";
+    CHECK_NOTHROW(static_cast<void>(loadCore(text, "")));
+    {
+      std::ofstream file(source);
+      file << "the model, version 2\n";
+    }
+    const Failure stale = failureOf(text);
+    CHECK(stale.line == 2);
+    CHECK(stale.message.find("changed since") != std::string::npos);
+    CHECK(stale.message.find("python -m model -o m.sderiv") != std::string::npos);
+    std::remove(source.c_str());
+    // a source that is not there is no error: a generated file may travel without it
+    CHECK_NOTHROW(static_cast<void>(loadCore(text, "")));
+    // a hash that is not one is
+    CHECK(failureOf("#!sderiv 1\nmeta source = \"a.py\", \"sha256:abc\"\nin x\nout u = x\n")
+              .message.find("64 hexadecimal digits") != std::string::npos);
+
+    // the printer records the hash of the body it writes, where the program records one
+    Program program = loadCore("#!sderiv 1\nin x\nout u = x * x\n", "");
+    program.addMeta(MetaEntry{"body", {MetaValue{"sha256:" + std::string(64, '0'), true}}});
+    const std::string printed = printCore(program);
+    const std::string body = "in x\ndef t0 = x * x\nout u = t0\n";
+    CHECK(printed == "#!sderiv 1\nmeta body = \"sha256:" + sha256(body) + "\"\n" + body);
+    CHECK(printCore(loadCore(printed, "")) == printed);
   }
 
   TEST_CASE("a module in the core format reads through the sderiv entry point") {

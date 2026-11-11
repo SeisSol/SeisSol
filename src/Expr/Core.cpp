@@ -10,8 +10,10 @@
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Expr/SderivFrontend.h"
+#include "Expr/Sha256.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
+#include "utils/logger.h"
 
 #include <algorithm>
 #include <array>
@@ -19,7 +21,10 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <optional>
@@ -210,6 +215,46 @@ const char* spellInterpolation(reader::datafield::Interpolation interpolation) {
 
 const char* spellBoundary(reader::datafield::BoundaryMode boundary) {
   return boundary == reader::datafield::BoundaryMode::Fail ? "fail" : "clamp";
+}
+
+/// The body of core text, whose hash `meta body` records: every line but the header and the meta
+/// lines, each ended by LF.
+std::string bodyOf(const std::string& text) {
+  std::string body;
+  std::size_t start = 0;
+  bool header = true;
+  while (start < text.size()) {
+    std::size_t end = text.find('\n', start);
+    if (end == std::string::npos) {
+      end = text.size();
+    }
+    std::string line = text.substr(start, end - start);
+    start = end + 1;
+    if (!line.empty() && line.back() == '\r') {
+      line.pop_back();
+    }
+    if (header) {
+      header = false;
+      continue;
+    }
+    const auto word = line.find_first_not_of(" \t");
+    const bool meta = word != std::string::npos && line.compare(word, 4, "meta") == 0 &&
+                      (word + 4 == line.size() || !nameContinues(line[word + 4]));
+    if (!meta) {
+      body += line;
+      body += '\n';
+    }
+  }
+  return body;
+}
+
+/// Whether `value` is a hash as `meta` records them: "sha256:" and 64 hexadecimal digits.
+bool isHash(const std::string& value) {
+  const std::string prefix = "sha256:";
+  return value.size() == prefix.size() + 64 && value.compare(0, prefix.size(), prefix) == 0 &&
+         std::all_of(value.begin() + static_cast<std::ptrdiff_t>(prefix.size()),
+                     value.end(),
+                     [](char c) { return asciiDigit(c) || (c >= 'a' && c <= 'f'); });
 }
 
 // ================================================================ lexer =====
@@ -501,8 +546,8 @@ class Lexer {
 
 class Loader {
   public:
-  Loader(std::vector<Token> tokens, std::string file)
-      : tokens_(std::move(tokens)), file_(std::move(file)) {}
+  Loader(std::vector<Token> tokens, std::string file, const std::string& text)
+      : tokens_(std::move(tokens)), file_(std::move(file)), text_(text) {}
 
   Program run() {
     bool metaAllowed = true;
@@ -517,6 +562,9 @@ class Loader {
         }
         meta();
         continue;
+      }
+      if (metaAllowed) {
+        provenance();
       }
       metaAllowed = false;
       if (at.text == "in") {
@@ -548,6 +596,9 @@ class Loader {
     }
     for (auto& [root, message] : checks_) {
       program_.addCheck(root, std::move(message));
+    }
+    if (metaAllowed) {
+      provenance();
     }
     try {
       validate(program_);
@@ -619,8 +670,71 @@ class Loader {
     names_.emplace(name, entry);
   }
 
+  /// The checks of the provenance of the file (the specification's "Provenance"): a source or a
+  /// dependency it was generated from that has another hash now is an error that gives the command
+  /// which regenerates the file (a warning with SEISSOL_SDERIV_STALE=warn); one that is not there
+  /// is a note, since a generated file may be copied without its sources; a body with another
+  /// hash, a file edited after it was generated, a warning.
+  void provenance() {
+    std::string command;
+    for (const auto& entry : program_.meta()) {
+      if (entry.key == "command" && !entry.values.empty()) {
+        command = entry.values.front().text;
+      }
+    }
+    const char* stale = std::getenv("SEISSOL_SDERIV_STALE");
+    const bool warn = stale != nullptr && std::string(stale) == "warn";
+    const std::string where = file_.empty() ? std::string("the core file") : file_;
+    for (std::size_t i = 0; i < program_.meta().size(); ++i) {
+      const MetaEntry& entry = program_.meta()[i];
+      const Token& at = metaAt_[i];
+      if (entry.key == "body") {
+        if (entry.values.size() != 1 || !isHash(entry.values[0].text)) {
+          fail(at, "`meta body` is the hash of the body, \"sha256:\" and 64 hexadecimal digits");
+        }
+        if (entry.values[0].text != "sha256:" + sha256(bodyOf(text_))) {
+          logWarning() << "sderiv:" << where
+                       << "was edited after it was generated: its body has another hash than its "
+                          "`meta body` records.";
+        }
+        continue;
+      }
+      if (entry.key != "source" && entry.key != "depends") {
+        continue;
+      }
+      if (entry.values.size() != 2 || !isHash(entry.values[1].text)) {
+        fail(at,
+             "`meta " + entry.key +
+                 "` names a file and its hash, \"sha256:\" and 64 hexadecimal digits");
+      }
+      std::filesystem::path path(entry.values[0].text);
+      if (path.is_relative() && !file_.empty()) {
+        path = (std::filesystem::path(file_).parent_path() / path).lexically_normal();
+      }
+      std::ifstream stream(path, std::ios::binary);
+      if (!stream) {
+        logInfo() << "sderiv: the" << entry.key.c_str() << path.string() << "of" << where
+                  << "is not there to compare with its hash.";
+        continue;
+      }
+      const std::string content((std::istreambuf_iterator<char>(stream)),
+                                std::istreambuf_iterator<char>());
+      if ("sha256:" + sha256(content) != entry.values[1].text) {
+        const std::string what =
+            "the " + entry.key + " " + path.string() + " changed since " + where +
+            " was generated from it" +
+            (command.empty() ? std::string() : "; regenerate it with: " + command);
+        if (warn) {
+          logWarning() << "sderiv:" << what;
+        } else {
+          fail(at, what);
+        }
+      }
+    }
+  }
+
   void meta() {
-    next();
+    metaAt_.push_back(next());
     MetaEntry entry;
     entry.key = name("the key of the meta line");
     expect(Tok::Equals, "`=` and the values of the meta line");
@@ -985,6 +1099,8 @@ class Loader {
   std::vector<GridDeclaration> grids_;
   std::vector<std::pair<std::string, NodeId>> outputs_;
   std::vector<std::pair<NodeId, std::string>> checks_;
+  const std::string& text_;
+  std::vector<Token> metaAt_;
 };
 
 // ============================================================== printer =====
@@ -1002,8 +1118,7 @@ class Printer {
     }
     nameGrids();
 
-    std::string out = "#!sderiv " + std::to_string(CoreVersion) + "\n";
-    printMeta(out);
+    std::string out;
 
     std::vector<std::string> inputs;
     for (const auto& input : program_.inputs()) {
@@ -1076,7 +1191,10 @@ class Printer {
       out += "out " + spellName(program_.outputs()[o].name) + " = " + operand(program_.roots()[o]) +
              "\n";
     }
-    return out;
+    // the header and the meta lines, with the hash of this body where the program records one
+    std::string text = "#!sderiv " + std::to_string(CoreVersion) + "\n";
+    printMeta(text, "sha256:" + sha256(out));
+    return text + out;
   }
 
   private:
@@ -1090,7 +1208,7 @@ class Printer {
                                 name(type));
   }
 
-  void printMeta(std::string& out) const {
+  void printMeta(std::string& out, const std::string& body) const {
     // generator, source, depends (by path), command, body, line (by name, then position), then
     // keys the specification does not know, by key
     const std::vector<std::string> order = {
@@ -1123,7 +1241,10 @@ class Printer {
       }
       return false;
     });
-    for (const auto& entry : entries) {
+    for (auto& entry : entries) {
+      if (entry.key == "body") {
+        entry.values = {MetaValue{body, true}};
+      }
       out += "meta " + spellName(entry.key) + " = ";
       for (std::size_t i = 0; i < entry.values.size(); ++i) {
         out += (i == 0 ? "" : ", ") +
@@ -1395,7 +1516,7 @@ CorePosition positionOf(const std::string& text, std::size_t offset, const std::
 Program loadCore(const std::string& text, const std::string& file) {
   Lexer lexer(text, file);
   static_cast<void>(lexer.header());
-  Loader loader(lexer.tokens(), file);
+  Loader loader(lexer.tokens(), file, text);
   return loader.run();
 }
 

@@ -201,6 +201,14 @@ grid states all of its attributes, as above, and is sampled as ``m.rho(x, y, z)`
 implicit inputs and no constants such as ``pi``; a relative grid path is relative to the file, and
 an error names its line and column.
 
+A core file that a tool generated may record what it was generated from, with the SHA-256 of each
+file: ``meta source = "model.py", "sha256:..."``, ``meta depends = "layers.csv", "sha256:..."``
+(paths relative to the core file), the ``meta command`` that generates it again, and the hash of
+its own body, ``meta body = "sha256:..."``. SeisSol compares them when it reads the file: a source
+or a dependency that has changed since is an error that names the command
+(``SEISSOL_SDERIV_STALE=warn`` makes it a warning), one that is not there a note, and a body that
+was edited after it was generated a warning.
+
 A module may check its points: ``check le(z, 0), "no material above the surface"`` (in either
 form) stops the run at the first point where the condition is zero, with the message, the point and
 its inputs. A NaN counts as true, as every value other than zero. The scripts evaluated at setup

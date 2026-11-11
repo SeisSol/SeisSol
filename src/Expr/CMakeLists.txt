@@ -22,6 +22,7 @@ add_library(seissol-expr OBJECT
     Interp.cpp
     Rewrite.cpp
     SderivFrontend.cpp
+    Sha256.cpp
     Types.cpp
 )
 
