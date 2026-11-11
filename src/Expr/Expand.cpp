@@ -160,14 +160,6 @@ class Expander {
       return a.gridParam(node.grid, static_cast<GridField>(node.comp), node.axis);
     case Kind::GridLoad:
       return a.gridLoad(node.grid, node.comp, mapped(node.a));
-    case Kind::Dx:
-      return a.dx(node.axis, mapped(node.a));
-    case Kind::Cumint:
-      return a.cumint(mapped(node.a));
-    case Kind::Fold:
-      return a.fold(node.red, mapped(node.a));
-    case Kind::Sample:
-      return a.sample(mapped(node.a));
     }
     fail(std::string("a node of the kind ") + name(node.kind) + " cannot be written out");
   }

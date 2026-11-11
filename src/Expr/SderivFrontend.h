@@ -107,10 +107,6 @@
 // a plain call does. The price of flattening with an underscore is that a grid
 // named `m_rho` alongside a grid `m` with a component `rho` is unreadable even
 // though it is not formally ambiguous, so that combination is rejected.
-//
-// NOT SUPPORTED HERE, on purpose: dx, the temporal reducers and Sample. Those
-// are derived-output nodes and Program::validate rejects them on the scripting
-// path anyway; the catalogs below simply do not contain them.
 
 #include "Expr/Program.h"
 

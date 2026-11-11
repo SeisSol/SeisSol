@@ -175,13 +175,6 @@ class Typer {
         for (const NodeId kid : kids) {
           type = unify(type, types_[kid], node);
         }
-        const bool derived = node.kind == Kind::Dx || node.kind == Kind::Cumint ||
-                             node.kind == Kind::Fold || node.kind == Kind::Sample;
-        if (derived && type.has_value() && *type != ValueType::Real) {
-          fail(operationName(node) +
-               " computes in the compute type of the program; its operand is " + name(*type) +
-               ", convert it with real()");
-        }
         types_[index] = type;
         break;
       }
@@ -283,14 +276,6 @@ class Typer {
     }
     case Kind::Contract:
       return arena.contract(node.matrix, node.block, ValueType::Real);
-    case Kind::Dx:
-      return arena.dx(node.axis, operand(node.a, type));
-    case Kind::Cumint:
-      return arena.cumint(operand(node.a, type));
-    case Kind::Fold:
-      return arena.fold(node.red, operand(node.a, type));
-    case Kind::Sample:
-      return arena.sample(operand(node.a, type));
     case Kind::GridParam:
       return arena.gridParam(node.grid, static_cast<GridField>(node.comp), node.axis);
     case Kind::GridLoad:

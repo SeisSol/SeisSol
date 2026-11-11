@@ -127,18 +127,6 @@ void substituteChannels(Program& program, const std::map<std::string, ChannelBui
     case Kind::Contract:
       map[id] = arena.contract(node.matrix, node.block, node.type);
       break;
-    case Kind::Dx:
-      map[id] = arena.dx(node.axis, map[node.a]);
-      break;
-    case Kind::Cumint:
-      map[id] = arena.cumint(map[node.a]);
-      break;
-    case Kind::Fold:
-      map[id] = arena.fold(node.red, map[node.a]);
-      break;
-    case Kind::Sample:
-      map[id] = arena.sample(map[node.a]);
-      break;
     case Kind::GridParam:
     case Kind::GridLoad:
       throw std::invalid_argument(

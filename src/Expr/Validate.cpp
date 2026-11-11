@@ -73,17 +73,6 @@ void checkNode(const Program& program, NodeId id, const std::unordered_set<int>&
   const Arena& arena = program.arena();
   const Node& n = arena[id];
 
-  if (requiresImplicitState(n.kind)) {
-    fail(std::string("node kind '") + name(n.kind) +
-         "' needs per-point state and a timestep the scripting ABI does not carry; declare a "
-         "Program state slot instead");
-  }
-  if (requiresElementContext(n.kind)) {
-    fail(std::string("node kind '") + name(n.kind) +
-         "' only means something inside an element / output-cadence context, which a pointwise "
-         "program does not have");
-  }
-
   switch (n.kind) {
   case Kind::Const:
     break;
@@ -139,11 +128,6 @@ void checkNode(const Program& program, NodeId id, const std::unordered_set<int>&
       fail("a conversion has no operand");
     }
     break;
-  case Kind::Dx:
-  case Kind::Cumint:
-  case Kind::Fold:
-  case Kind::Sample:
-    break; // already rejected above
   case Kind::GridParam:
   case Kind::GridLoad:
     fail(std::string("node kind '") + name(n.kind) +

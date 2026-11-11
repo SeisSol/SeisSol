@@ -172,12 +172,6 @@ TEST_SUITE("Expr::Ir") {
       REQUIRE(fnFromName(name(f), back));
       CHECK(back == f);
     }
-    for (int i = 0; i <= static_cast<int>(Red::Last); ++i) {
-      const auto r = static_cast<Red>(i);
-      Red back{};
-      REQUIRE(redFromName(name(r), back));
-      CHECK(back == r);
-    }
     Fn unknown{};
     CHECK_FALSE(fnFromName("definitely-not-an-op", unknown));
   }
@@ -192,37 +186,6 @@ TEST_SUITE("Expr::Validate") {
     Arena& a = p.arena();
     p.addOutput("u", DT::F64, a.pw(Fn::Mul, a.field("x"), a.pw(Fn::Sin, a.field("t"))));
     CHECK_NOTHROW(validate(p));
-  }
-
-  TEST_CASE("stateful and element-context kinds are rejected") {
-    SUBCASE("cumint") {
-      Program p;
-      p.addInput("x", DT::F64);
-      Arena& a = p.arena();
-      p.addOutput("u", DT::F64, a.cumint(a.field("x")));
-      CHECK_THROWS_AS(validate(p), std::invalid_argument);
-    }
-    SUBCASE("fold") {
-      Program p;
-      p.addInput("x", DT::F64);
-      Arena& a = p.arena();
-      p.addOutput("u", DT::F64, a.fold(Red::Max, a.field("x")));
-      CHECK_THROWS_AS(validate(p), std::invalid_argument);
-    }
-    SUBCASE("dx") {
-      Program p;
-      p.addInput("x", DT::F64);
-      Arena& a = p.arena();
-      p.addOutput("u", DT::F64, a.dx(0, a.field("x")));
-      CHECK_THROWS_AS(validate(p), std::invalid_argument);
-    }
-    SUBCASE("sample") {
-      Program p;
-      p.addInput("x", DT::F64);
-      Arena& a = p.arena();
-      p.addOutput("u", DT::F64, a.sample(a.field("x")));
-      CHECK_THROWS_AS(validate(p), std::invalid_argument);
-    }
   }
 
   TEST_CASE("an undeclared channel is rejected") {

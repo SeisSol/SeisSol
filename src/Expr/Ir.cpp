@@ -68,14 +68,6 @@ const char* name(Kind kind) {
     return "contract";
   case Kind::Cast:
     return "cast";
-  case Kind::Dx:
-    return "dx";
-  case Kind::Cumint:
-    return "cumint";
-  case Kind::Fold:
-    return "fold";
-  case Kind::Sample:
-    return "sample";
   case Kind::GridParam:
     return "gridparam";
   case Kind::GridLoad:
@@ -117,13 +109,6 @@ bool NodeEq::operator()(const Node& x, const Node& y) const {
     return x.matrix == y.matrix && x.block == y.block;
   case Kind::Cast:
     return x.a == y.a;
-  case Kind::Dx:
-    return x.axis == y.axis && x.a == y.a;
-  case Kind::Cumint:
-  case Kind::Sample:
-    return x.a == y.a;
-  case Kind::Fold:
-    return x.red == y.red && x.a == y.a;
   case Kind::GridParam:
     return x.grid == y.grid && x.comp == y.comp && x.axis == y.axis;
   case Kind::GridLoad:
@@ -171,18 +156,6 @@ std::size_t NodeHash::operator()(const Node& n) const {
     h = mix(h, static_cast<std::size_t>(n.block));
     break;
   case Kind::Cast:
-    h = mix(h, static_cast<std::size_t>(n.a));
-    break;
-  case Kind::Dx:
-    h = mix(h, static_cast<std::size_t>(n.axis));
-    h = mix(h, static_cast<std::size_t>(n.a));
-    break;
-  case Kind::Cumint:
-  case Kind::Sample:
-    h = mix(h, static_cast<std::size_t>(n.a));
-    break;
-  case Kind::Fold:
-    h = mix(h, static_cast<std::size_t>(n.red));
     h = mix(h, static_cast<std::size_t>(n.a));
     break;
   case Kind::GridParam:
@@ -422,36 +395,6 @@ NodeId Arena::contract(MatrixId matrix, BlockId block, ValueType type) {
   return intern(n);
 }
 
-NodeId Arena::dx(int axis, NodeId x) {
-  Node n;
-  n.kind = Kind::Dx;
-  n.axis = axis;
-  n.a = x;
-  return intern(n);
-}
-
-NodeId Arena::cumint(NodeId x) {
-  Node n;
-  n.kind = Kind::Cumint;
-  n.a = x;
-  return intern(n);
-}
-
-NodeId Arena::fold(Red r, NodeId x) {
-  Node n;
-  n.kind = Kind::Fold;
-  n.red = r;
-  n.a = x;
-  return intern(n);
-}
-
-NodeId Arena::sample(NodeId x) {
-  Node n;
-  n.kind = Kind::Sample;
-  n.a = x;
-  return intern(n);
-}
-
 void Arena::children(NodeId id, std::vector<NodeId>& out) const {
   out.clear();
   const Node& n = nodes_[id];
@@ -478,10 +421,6 @@ void Arena::children(NodeId id, std::vector<NodeId>& out) const {
     return;
   }
   case Kind::Cast:
-  case Kind::Dx:
-  case Kind::Cumint:
-  case Kind::Fold:
-  case Kind::Sample:
   case Kind::GridLoad:
     out.push_back(n.a);
     return;
@@ -580,30 +519,6 @@ const char* name(Fn f) {
   return "?";
 }
 
-const char* name(Red r) {
-  switch (r) {
-  case Red::Max:
-    return "max";
-  case Red::Min:
-    return "min";
-  case Red::Int:
-    return "int";
-  case Red::Sum:
-    return "sum";
-  case Red::Mean:
-    return "mean";
-  case Red::Rms:
-    return "rms";
-  case Red::ArgMax:
-    return "argmax";
-  case Red::ArgMin:
-    return "argmin";
-  case Red::Last:
-    return "last";
-  }
-  return "?";
-}
-
 namespace {
 
 // Driven off name(Fn) so the two tables cannot drift apart. The Fn enum is dense
@@ -623,7 +538,5 @@ bool fromNameImpl(const std::string& s, Enum& out) {
 } // namespace
 
 bool fnFromName(const std::string& s, Fn& out) { return fromNameImpl<Fn, Fn::Select>(s, out); }
-
-bool redFromName(const std::string& s, Red& out) { return fromNameImpl<Red, Red::Last>(s, out); }
 
 } // namespace seissol::expr

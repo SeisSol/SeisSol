@@ -190,19 +190,7 @@ class CanonicalWalk {
       text_ += ':';
       appendInt(text_, n.block);
       break;
-    case Kind::Dx:
-      text_ += ' ';
-      appendInt(text_, n.axis);
-      appendOperands(id);
-      break;
-    case Kind::Fold:
-      text_ += ' ';
-      text_ += name(n.red);
-      appendOperands(id);
-      break;
     case Kind::Cast:
-    case Kind::Cumint:
-    case Kind::Sample:
       appendOperands(id);
       break;
     case Kind::GridParam:

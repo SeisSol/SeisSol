@@ -7,19 +7,18 @@
 #ifndef SEISSOL_SRC_EXPR_IR_H_
 #define SEISSOL_SRC_EXPR_IR_H_
 
-// Shared expression IR: a hash-consed Arena of Nodes, with pointwise ops (Fn)
-// and the derived-output temporal reducers (Red).
+// Shared expression IR: a hash-consed Arena of Nodes, with pointwise ops (Fn).
 //
 //   * `arity(Fn)` is a table: Select is ternary, and the comparison ops sit
 //     between the unary and the binary ones, so the enum order carries no
 //     meaning.
 //   * `Node` has a third fixed child `c` (Select) and an (argBegin,argCount)
 //     span for variable-arity nodes (Lookup coordinates, d = 1..6).
-//   * `Kind::Lookup` samples an external data grid. This is NOT the same thing
-//     as `Kind::Sample`, which materializes at the output cadence. The names are
-//     close enough to be dangerous — hence the split of the *word* "field": in
-//     this IR `Kind::Field` is a named input channel, and an ASAGI-style data
-//     grid is a "grid" everywhere.
+//   * `Kind::Lookup` samples an external data grid. In this IR `Kind::Field` is a
+//     named input channel, and an ASAGI-style data grid is a "grid" everywhere.
+//   * There are no kinds for time integrals, temporal reductions, derivatives or
+//     the output cadence: a state, the inputs `int_q` and `dx_q` of derived
+//     outputs and the cadence of the consumer express them.
 //   * Const interning keys on the bit pattern, not on `==` (see NodeEq).
 
 #include <cstddef>
@@ -78,11 +77,7 @@ enum class Kind : std::uint8_t {
   // both operands are bound inputs, not DAG values. Every point computes its own dot product,
   // so points stay independent of each other.
   Contract,
-  Cast,   // the value of `a`, converted to Node::type
-  Dx,     // physical-space derivative                       [derived-output]
-  Cumint, // cumulative time integral                        [derived-output]
-  Fold,   // temporal reducer                                [derived-output]
-  Sample, // materialize at output cadence                   [derived-output]
+  Cast, // the value of `a`, converted to Node::type
   // The parts of a lookup once the lowering has written it out (expandLookups()), never in the
   // program of a frontend: a field of the geometry of a grid (Node::comp holds the GridField,
   // Node::axis the axis), the same at all points, read where and when the kernel runs; and the
@@ -183,24 +178,20 @@ constexpr int arity(Fn f) {
   }
 }
 
-// Temporal reducers — unchanged from sderiv, unused by the scripting path.
-enum class Red : std::uint8_t { Max, Min, Int, Sum, Mean, Rms, ArgMax, ArgMin, Last };
-
 struct Node {
   Kind kind{};
   // The type of the value (see ValueType): the target of a Cast. A frontend leaves it Real
   // elsewhere; typed() gives every node of the program its type.
   ValueType type{ValueType::Real};
   Fn fn{};                   // PW
-  Red red{};                 // Fold
-  std::int32_t axis{};       // Dx
+  std::int32_t axis{};       // GridParam
   std::int32_t ch{};         // Field: interned channel id
   GridId grid{NoGrid};       // Lookup
   std::int32_t comp{};       // Lookup: component within the grid
   MatrixId matrix{NoMatrix}; // Contract
   BlockId block{NoBlock};    // Contract
   double value{};            // Const
-  NodeId a{NoNode};          // PW arg0 / Dx.x / Cumint.x / Fold.x / Sample.x
+  NodeId a{NoNode};          // PW arg0 / Cast.x / GridLoad offset
   NodeId b{NoNode};          // PW arg1
   NodeId c{NoNode};          // PW arg2 (Select only)
   std::int32_t argBegin{0};  // Lookup: coordinate children, span into Arena::args_
@@ -279,10 +270,6 @@ class Arena {
   NodeId contract(MatrixId matrix, BlockId block, ValueType type = ValueType::Real);
   // The value of `x`, converted to `type`.
   NodeId cast(ValueType type, NodeId x);
-  NodeId dx(int axis, NodeId x);
-  NodeId cumint(NodeId x);
-  NodeId fold(Red r, NodeId x);
-  NodeId sample(NodeId x);
 
   // Ordered children, uniform across kinds. Returns {} for leaves.
   [[nodiscard]] std::vector<NodeId> children(NodeId id) const;
@@ -303,9 +290,7 @@ class Arena {
 };
 
 const char* name(Fn f);
-const char* name(Red r);
 bool fnFromName(const std::string& s, Fn& out);
-bool redFromName(const std::string& s, Red& out);
 
 } // namespace seissol::expr
 

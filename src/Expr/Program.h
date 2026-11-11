@@ -72,7 +72,7 @@ struct VarSpec {
 // input with no matching column". That would break exactly the property this
 // header is built around — the signature being inferred rather than declared.
 //
-// This is NOT Kind::Cumint by another name. The IR stays pure: the state is read
+// The IR stays pure: the state is read
 // as an ordinary Field channel and written by an ordinary DAG root. What is
 // stateful is the storage, which lives in Binding, next to the point set whose
 // identity it depends on, and next to the permutation that reorders it.
@@ -201,16 +201,8 @@ class Program {
 // Structural checks that do not need a DataTable: every Field channel is
 // declared as an input or a state, every root is in range, no Lookup references
 // an out-of-range GridId, every contraction names a declared matrix and block of
-// matching length, arities match, and the program does not require state or an
-// element context that the scripting path cannot supply.
-//
-// The last clause is expressed through two predicates over Kind —
-// requiresImplicitState() and requiresElementContext() — rather than as a list
-// of forbidden kinds, so that a new node kind is classified once, at the enum,
-// instead of at every site that happens to enumerate the forbidden set. Cumint and Fold are
-// rejected because they need per-point state and a dt that does not exist at a boundary node under
-// LTS; Dx and Sample because they need modal DOFs and an output cadence respectively. Declared
-// state (Program::state()) is the supported way to keep a value across calls.
+// matching length, and arities match. Declared state (Program::state()) is the
+// way to keep a value across calls.
 //
 // Throws std::invalid_argument; the caller turns that into logError.
 void validate(const Program& program);
@@ -218,15 +210,6 @@ void validate(const Program& program);
 // The names of the channels (inputs and states) the expressions under `roots` read.
 [[nodiscard]] std::set<std::string> channelsRead(const Program& program,
                                                  const std::vector<NodeId>& roots);
-
-// True for kinds that carry state the scripting ABI has nowhere to put, and for
-// kinds that only mean something inside an element/output-cadence context.
-[[nodiscard]] constexpr bool requiresImplicitState(Kind kind) {
-  return kind == Kind::Cumint || kind == Kind::Fold;
-}
-[[nodiscard]] constexpr bool requiresElementContext(Kind kind) {
-  return kind == Kind::Dx || kind == Kind::Sample;
-}
 
 } // namespace seissol::expr
 
