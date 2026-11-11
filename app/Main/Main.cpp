@@ -303,17 +303,16 @@ int main(int argc, char* argv[]) {
     const device::DeviceInstance& device = device::DeviceInstance::instance();
     device.api().initialize();
     if (hsaQueues > 0 && device.api().enableHardwareQueues()) {
-      seissol::parallel::runtime::hsaQueueCount() = hsaQueues;
-      seissol::parallel::runtime::hsaFaceQueueCount() = seissol::hsaFaceQueueCount();
-      seissol::parallel::runtime::hsaBranchQueueCount() = seissol::hsaBranchQueueCount();
+      using seissol::parallel::runtime::HsaQueueLayout;
       const auto priorities = seissol::hsaQueueEnv().get<std::string>("QUEUE_PRIORITIES", "");
-      seissol::parallel::runtime::hsaQueuePriorities() = {
-          .copy = priorities.find("copy") != std::string::npos,
-          .faces = priorities.find("faces") != std::string::npos};
-      if (seissol::hsaQueueEnv().get<std::string>("QUEUE_LAYOUT", "layers") == "halo") {
-        seissol::parallel::runtime::hsaQueueLayout() =
-            seissol::parallel::runtime::HsaQueueLayout::Halo;
-      }
+      const bool halo = seissol::hsaQueueEnv().get<std::string>("QUEUE_LAYOUT", "layers") == "halo";
+      seissol::parallel::runtime::useHsaQueues(
+          {.count = hsaQueues,
+           .faceCount = seissol::hsaFaceQueueCount(),
+           .branchCount = seissol::hsaBranchQueueCount(),
+           .layout = halo ? HsaQueueLayout::Halo : HsaQueueLayout::Layers,
+           .priorities = {.copy = priorities.find("copy") != std::string::npos,
+                          .faces = priorities.find("faces") != std::string::npos}});
     }
 #endif // ACL_DEVICE
 
@@ -331,17 +330,16 @@ int main(int argc, char* argv[]) {
 
     utils::Logger::setRank(rank);
 #ifdef ACL_DEVICE
-    if (seissol::parallel::runtime::hsaQueueCount() > 0) {
-      logInfo() << "The clusters run their work on" << seissol::parallel::runtime::hsaQueueCount()
+    if (const auto& queues = seissol::parallel::runtime::hsaQueues(); queues.count > 0) {
+      logInfo() << "The clusters run their work on" << queues.count
                 << "HSA queues, the other stream runtimes on one more"
                 << "(SEISSOL_HSA_QUEUES).";
-      if (seissol::parallel::runtime::hsaBranchQueueCount() > 0) {
-        logInfo() << "The branches of the work run on"
-                  << seissol::parallel::runtime::hsaBranchQueueCount()
+      if (queues.branchCount > 0) {
+        logInfo() << "The branches of the work run on" << queues.branchCount
                   << "more (SEISSOL_HSA_QUEUE_BRANCHES).";
       }
-      if (seissol::parallel::runtime::hsaFaceQueueCount() > 0) {
-        logInfo() << "The face work runs on" << seissol::parallel::runtime::hsaFaceQueueCount()
+      if (queues.faceCount > 0) {
+        logInfo() << "The face work runs on" << queues.faceCount
                   << "more (SEISSOL_HSA_QUEUES_FACES).";
       }
       if (seissol::useSuperStepGraphs(env)) {

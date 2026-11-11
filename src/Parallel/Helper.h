@@ -80,12 +80,12 @@ inline utils::Env& hsaQueueEnv() {
 inline int hsaQueueCount() { return std::max(hsaQueueEnv().get<int>("QUEUES", 0), 0); }
 
 /// the HSA queues of the branches of the stream runtimes (see
-/// parallel::runtime::hsaBranchQueueCount())
+/// parallel::runtime::HsaQueues::branchCount)
 inline int hsaBranchQueueCount() {
   return std::max(hsaQueueEnv().get<int>("QUEUE_BRANCHES", 0), 0);
 }
 
-/// the HSA queues of the dynamic rupture clusters (see parallel::runtime::hsaFaceQueueCount())
+/// the HSA queues of the dynamic rupture clusters (see parallel::runtime::HsaQueues::faceCount)
 inline int hsaFaceQueueCount() { return std::max(hsaQueueEnv().get<int>("QUEUES_FACES", 0), 0); }
 
 /**

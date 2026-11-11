@@ -103,7 +103,7 @@ void DeviceTimeline::beginEpoch() {
     // a stream of its own, idle whenever an event gets recorded on it: the event completes right
     // away; with HSA queues, on one of them as the events that it gets compared with (the device
     // times events of only one kind against each other)
-    stream_ = parallel::runtime::hsaQueueCount() > 0
+    stream_ = parallel::runtime::hsaQueues().count > 0
                   ? api().createStreamOnHardwareQueue(parallel::runtime::TimelineHsaQueue)
                   : api().createStream();
     reference_ = api().createEvent(true);
