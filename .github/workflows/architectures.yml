@@ -21,7 +21,7 @@ permissions:
 jobs:
   # ---------------------------------------------------------------------------
   # Build SeisSol on Linux on 64-bit ARM, with GCC and the kernels of PSpaMM, in the configurations
-  # of the set ci-cpu, and run all its tests:
+  # of the set ci-cpu, and run all its tests but those of the label spectral:
   #
   # - sve128, for SVE with vectors of 128 bits, as the Neoverse N2 of the runner has them, and as
   #   Neoverse V2 has them (Grace, Graviton4);
@@ -121,8 +121,11 @@ jobs:
           export PRTE_MCA_rmaps_base_oversubscribe=1
           export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
 
+          # all but the cases of dynamic rupture on fault2d-periodic, which take minutes each and hold
+          # the friction laws against a spectral method: with them, the job takes longer than its
+          # 150 minutes on the four cores of the runner. The CPU CI runs them.
           cd build
-          ctest -j "$(nproc)" --output-on-failure --output-junit junit.xml
+          ctest -j "$(nproc)" -LE spectral --output-on-failure --output-junit junit.xml
 
       - name: upload-test-logs
         uses: actions/upload-artifact@v7

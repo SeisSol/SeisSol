@@ -36,7 +36,8 @@ configurations of the elastic and the anisotropic equations, the latter with an
 anisotropic material that is isotropic in effect, and with media with tilted
 axes of their own. With fused simulations, each simulation runs the case, and
 each is compared. The cases on ``fault2d-periodic``, which take minutes each,
-run in double precision without fused simulations only.
+run in double precision without fused simulations only, and carry the label
+``spectral`` as well; ``ctest -LE spectral`` leaves them out.
 
 ``fault1d.py self-test`` and ``antiplane.py self-test``
 (``verification.fault1d.self-test`` and ``verification.antiplane.self-test``)
