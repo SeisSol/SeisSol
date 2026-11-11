@@ -85,8 +85,8 @@ void EnergyMeter::setup(Counters& counters, bool enabled, const std::string& roo
   const bool leader = seissol::Mpi::mpi.sharedMemMpiRank() == 0;
   if (enabled && leader) {
     for (auto& sensor : energy::nodeSensors(root)) {
-      auto first = sensor->read();
-      sensors_.push_back(Sensor{std::move(sensor), first});
+      const auto first = sensor->read();
+      sensors_.push_back(Sensor{.sensor = std::move(sensor), .last = first});
     }
     nodePowerCap_ = energy::crayPmPowerCap(root);
   }
@@ -118,7 +118,7 @@ void EnergyMeter::setup(Counters& counters, bool enabled, const std::string& roo
                              .rateUnit = &UnitPower,
                              .scope = CounterScope::Node,
                              .perStage = true},
-                 [this, part]() { return read(part); });
+                 [this, part] { return read(part); });
     names += std::string(names.empty() ? "" : ", ") + CounterNames[i];
   }
 
@@ -150,7 +150,7 @@ std::optional<CounterValue> EnergyMeter::read(energy::Part part) {
       continue;
     }
     // a read that fails takes the last value, which the next read catches up on
-    if (auto reading = entry.sensor->read(); reading.has_value()) {
+    if (const auto reading = entry.sensor->read(); reading.has_value()) {
       entry.last = reading;
     }
     if (!entry.last.has_value()) {

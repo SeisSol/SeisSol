@@ -343,7 +343,7 @@ void TimeManager::registerCounters(monitoring::Counters& counters) const {
       for (const auto value : updates().*member) {
         sum += value;
       }
-      return monitoring::CounterValue{sum, {}};
+      return monitoring::CounterValue{.amount = sum, .time = {}};
     };
   };
   counters.add(monitoring::CounterInfo{.name = "cellUpdates",

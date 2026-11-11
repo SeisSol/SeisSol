@@ -20,7 +20,7 @@
 namespace seissol::monitoring {
 
 std::size_t Counters::add(CounterInfo info, Reader reader) {
-  counters_.push_back(Counter{std::move(info), std::move(reader)});
+  counters_.push_back(Counter{.info = std::move(info), .reader = std::move(reader)});
   return counters_.size() - 1;
 }
 

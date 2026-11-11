@@ -219,7 +219,8 @@ void RunSummary::beginStage(std::string_view name) {
     return;
   }
   const auto time = std::chrono::duration<double>(std::chrono::steady_clock::now() - origin_);
-  stages_.push_back(Stage{std::string(name), counters_->snapshot(time.count())});
+  stages_.push_back(
+      Stage{.name = std::string(name), .counters = counters_->snapshot(time.count())});
 }
 
 json::Value RunSummary::stageCounters(const Counters::Totals& totals, double wallTime) const {
@@ -245,6 +246,7 @@ json::Value RunSummary::writeStages() {
 
   // each stage, and then the whole run, at once
   std::vector<std::pair<const Counters::Snapshot*, const Counters::Snapshot*>> stretches;
+  stretches.reserve(stages_.size() + 1);
   for (std::size_t stage = 0; stage < stages_.size(); ++stage) {
     stretches.emplace_back(&stages_[stage].counters,
                            stage + 1 < stages_.size() ? &stages_[stage + 1].counters : &end);

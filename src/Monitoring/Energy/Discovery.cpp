@@ -28,8 +28,7 @@ void append(std::vector<std::unique_ptr<Sensor>>& sensors,
 }
 
 bool measures(const std::vector<std::unique_ptr<Sensor>>& sensors, Part part) {
-  return std::any_of(
-      sensors.begin(), sensors.end(), [&](const auto& sensor) { return sensor->part() == part; });
+  return std::ranges::any_of(sensors, [&](const auto& sensor) { return sensor->part() == part; });
 }
 } // namespace
 

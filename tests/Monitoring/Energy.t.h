@@ -28,7 +28,7 @@
 
 namespace seissol::unit_test {
 
-namespace {
+namespace energytest {
 using monitoring::energy::Part;
 
 //! @brief A directory that stands in for the root of a machine, with a /sys of its own: one per
@@ -60,14 +60,16 @@ class FakeRoot {
   std::filesystem::path root_;
 };
 
-const monitoring::energy::Sensor*
+inline const monitoring::energy::Sensor*
     find(const std::vector<std::unique_ptr<monitoring::energy::Sensor>>& sensors,
          const std::string& name) {
-  const auto it = std::find_if(
-      sensors.begin(), sensors.end(), [&](const auto& sensor) { return sensor->name() == name; });
+  const auto it =
+      std::ranges::find_if(sensors, [&](const auto& sensor) { return sensor->name() == name; });
   return it == sensors.end() ? nullptr : it->get();
 }
-} // namespace
+} // namespace energytest
+
+using namespace energytest;
 
 TEST_CASE("Energy accumulator" * doctest::test_suite("monitoring")) {
   SUBCASE("Counts from the first value") {

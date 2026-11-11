@@ -42,7 +42,7 @@ std::vector<std::filesystem::path> entries(const std::filesystem::path& director
   for (const auto& entry : std::filesystem::directory_iterator(directory, error)) {
     result.push_back(entry.path());
   }
-  std::sort(result.begin(), result.end());
+  std::ranges::sort(result);
   return result;
 }
 
@@ -69,7 +69,7 @@ class CrayPmSensor : public Sensor {
     if (!value.has_value() || value->unit != "J") {
       return {};
     }
-    return EnergyReading{accumulator_.update(value->value), value->seconds};
+    return EnergyReading{.joules = accumulator_.update(value->value), .seconds = value->seconds};
   }
 
   private:
@@ -99,7 +99,7 @@ class MicrojouleSensor : public Sensor {
     if (!microjoules.has_value()) {
       return {};
     }
-    return EnergyReading{accumulator_.update(microjoules.value() * 1e-6), {}};
+    return EnergyReading{.joules = accumulator_.update(microjoules.value() * 1e-6), .seconds = {}};
   }
 
   private:
@@ -216,7 +216,7 @@ std::optional<std::string> readSysfsFile(const std::string& path) {
   if (stream.bad()) {
     return {};
   }
-  auto text = content.str();
+  const auto text = content.str();
   const auto begin = text.find_first_not_of(" \t\r\n");
   if (begin == std::string::npos) {
     return std::string{};
@@ -346,9 +346,8 @@ std::set<Vendor> gpuVendors(const std::string& root) {
     if (!cls.has_value() || !vendor.has_value()) {
       continue;
     }
-    const bool gpu = std::any_of(GpuClasses.begin(),
-                                 GpuClasses.end(),
-                                 [&](std::string_view prefix) { return cls->starts_with(prefix); });
+    const bool gpu = std::ranges::any_of(
+        GpuClasses, [&](std::string_view prefix) { return cls->starts_with(prefix); });
     if (!gpu) {
       continue;
     }

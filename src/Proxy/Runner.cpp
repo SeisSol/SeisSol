@@ -50,8 +50,8 @@ namespace {
 
 //! @brief The sensors of the node, and what they read at the start of the run.
 struct EnergyMeasurement {
-  std::vector<std::unique_ptr<monitoring::energy::Sensor>> sensors{};
-  std::vector<std::optional<monitoring::energy::EnergyReading>> start{};
+  std::vector<std::unique_ptr<monitoring::energy::Sensor>> sensors;
+  std::vector<std::optional<monitoring::energy::EnergyReading>> start;
 };
 
 EnergyMeasurement startEnergy() {
@@ -114,7 +114,7 @@ void endEnergy(EnergyMeasurement& measurement,
   std::array<bool, Parts.size()> counted{};
   for (std::size_t part = 0; part < Parts.size(); ++part) {
     const bool clocked = shared[part] && seconds[part].has_value();
-    counted[part] = joules[part].has_value() && !(clocked && seconds[part].value() <= 0.0);
+    counted[part] = joules[part].has_value() && (!clocked || seconds[part].value() > 0.0);
     if (counted[part]) {
       output.partJoules.emplace_back(monitoring::energy::partName(Parts[part]),
                                      joules[part].value());

@@ -21,9 +21,12 @@
 #include <vector>
 
 // NOLINTBEGIN(readability-identifier-naming,modernize-avoid-c-arrays)
-// the declarations of the libraries, with C linkage, as their headers have them
+// the declarations of the libraries, with C linkage, as their headers have them; this file alone
+// uses them
+namespace seissol::monitoring::energy {
+namespace {
 extern "C" {
-namespace seissol::monitoring::energy::nvml {
+namespace nvml {
 using Return = int;
 using Device = void*;
 struct PciInfo {
@@ -41,9 +44,9 @@ using DeviceGetHandleByIndex = Return(unsigned int, Device*);
 using DeviceGetTotalEnergyConsumption = Return(Device, unsigned long long*);
 using DeviceGetEnforcedPowerLimit = Return(Device, unsigned int*);
 using DeviceGetPciInfo = Return(Device, PciInfo*);
-} // namespace seissol::monitoring::energy::nvml
+} // namespace nvml
 
-namespace seissol::monitoring::energy::amdsmi {
+namespace amdsmi {
 using Status = int;
 using Handle = void*;
 struct PowerCapInfo {
@@ -61,18 +64,18 @@ using GetProcessorHandles = Status(Handle, std::uint32_t*, Handle*);
 using GetGpuDeviceBdf = Status(Handle, std::uint64_t*);
 using GetEnergyCount = Status(Handle, std::uint64_t*, float*, std::uint64_t*);
 using GetPowerCapInfo = Status(Handle, std::uint32_t, PowerCapInfo*);
-} // namespace seissol::monitoring::energy::amdsmi
+} // namespace amdsmi
 
-namespace seissol::monitoring::energy::rsmi {
+namespace rsmi {
 using Status = int;
 using Init = Status(std::uint64_t);
 using NumMonitorDevices = Status(std::uint32_t*);
 using DevPciIdGet = Status(std::uint32_t, std::uint64_t*);
 using DevEnergyCountGet = Status(std::uint32_t, std::uint64_t*, float*, std::uint64_t*);
 using DevPowerCapGet = Status(std::uint32_t, std::uint32_t, std::uint64_t*);
-} // namespace seissol::monitoring::energy::rsmi
+} // namespace rsmi
 
-namespace seissol::monitoring::energy::zes {
+namespace zes {
 using Result = int;
 using Handle = void*;
 struct PciAddress {
@@ -118,8 +121,10 @@ using DeviceGetCardPowerDomain = Result(Handle, Handle*);
 using DeviceEnumPowerDomains = Result(Handle, std::uint32_t*, Handle*);
 using PowerGetProperties = Result(Handle, PowerProperties*);
 using PowerGetEnergyCounter = Result(Handle, EnergyCounter*);
-} // namespace seissol::monitoring::energy::zes
+} // namespace zes
 }
+} // namespace
+} // namespace seissol::monitoring::energy
 // NOLINTEND(readability-identifier-naming,modernize-avoid-c-arrays)
 
 namespace seissol::monitoring::energy {
@@ -156,7 +161,8 @@ class NvmlSensor : public Sensor {
     if (energy_(device_, &millijoules) != Success) {
       return {};
     }
-    return EnergyReading{accumulator_.update(static_cast<double>(millijoules) * 1e-3), {}};
+    return EnergyReading{.joules = accumulator_.update(static_cast<double>(millijoules) * 1e-3),
+                         .seconds = {}};
   }
 
   [[nodiscard]] std::optional<double> powerLimit() const override { return limit_; }
@@ -185,7 +191,8 @@ class AmdSmiSensor : public Sensor {
       return {};
     }
     const double joules = static_cast<double>(accumulator) * static_cast<double>(resolution) * 1e-6;
-    return EnergyReading{accumulator_.update(joules), static_cast<double>(timestamp) * 1e-9};
+    return EnergyReading{.joules = accumulator_.update(joules),
+                         .seconds = static_cast<double>(timestamp) * 1e-9};
   }
 
   [[nodiscard]] std::optional<double> powerLimit() const override { return limit_; }
@@ -214,7 +221,8 @@ class RocmSmiSensor : public Sensor {
       return {};
     }
     const double joules = static_cast<double>(accumulator) * static_cast<double>(resolution) * 1e-6;
-    return EnergyReading{accumulator_.update(joules), static_cast<double>(timestamp) * 1e-9};
+    return EnergyReading{.joules = accumulator_.update(joules),
+                         .seconds = static_cast<double>(timestamp) * 1e-9};
   }
 
   [[nodiscard]] std::optional<double> powerLimit() const override { return limit_; }
@@ -236,8 +244,8 @@ class LevelZeroSensor : public Sensor {
     if (energy_(domain_, &counter) != Success) {
       return {};
     }
-    return EnergyReading{accumulator_.update(static_cast<double>(counter.energy) * 1e-6),
-                         static_cast<double>(counter.timestamp) * 1e-6};
+    return EnergyReading{.joules = accumulator_.update(static_cast<double>(counter.energy) * 1e-6),
+                         .seconds = static_cast<double>(counter.timestamp) * 1e-6};
   }
 
   private:

@@ -18,13 +18,15 @@
 
 namespace seissol::unit_test {
 
-namespace {
-int nodeCount() {
+namespace counterstest {
+inline int nodeCount() {
   int leader = seissol::Mpi::mpi.sharedMemMpiRank() == 0 ? 1 : 0;
   MPI_Allreduce(MPI_IN_PLACE, &leader, 1, MPI_INT, MPI_SUM, seissol::Mpi::mpi.comm());
   return leader;
 }
-} // namespace
+} // namespace counterstest
+
+using namespace counterstest;
 
 TEST_CASE("Counters over a stretch of the run" * doctest::test_suite("monitoring")) {
   const auto ranks = seissol::Mpi::mpi.size();
@@ -33,7 +35,7 @@ TEST_CASE("Counters over a stretch of the run" * doctest::test_suite("monitoring
   double work = 1.0;
   const auto workCounter =
       counters.add(monitoring::CounterInfo{.name = "work", .rateName = "workPerSecond"},
-                   [&]() { return monitoring::CounterValue{work, {}}; });
+                   [&] { return monitoring::CounterValue{.amount = work, .time = {}}; });
 
   // a counter of the nodes, with a clock of its own, which the first rank of each node reads
   double energy = 100.0;
@@ -45,7 +47,7 @@ TEST_CASE("Counters over a stretch of the run" * doctest::test_suite("monitoring
         if (seissol::Mpi::mpi.sharedMemMpiRank() != 0) {
           return {};
         }
-        return monitoring::CounterValue{energy, clock};
+        return monitoring::CounterValue{.amount = energy, .time = clock};
       });
 
   CHECK(counters.size() == 2);
@@ -60,7 +62,7 @@ TEST_CASE("Counters over a stretch of the run" * doctest::test_suite("monitoring
   double late = 5.0;
   const auto lateCounter =
       counters.add(monitoring::CounterInfo{.name = "late", .rateName = "latePerSecond"},
-                   [&]() { return monitoring::CounterValue{late, {}}; });
+                   [&] { return monitoring::CounterValue{.amount = late, .time = {}}; });
 
   work = 7.0;
   energy = 160.0;

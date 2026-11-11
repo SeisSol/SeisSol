@@ -67,7 +67,7 @@ void FlopCounter::registerCounters(Counters& counters) {
       for (const auto& metric : metrics_) {
         sum += metric.estimate.*member;
       }
-      return CounterValue{static_cast<double>(sum), {}};
+      return CounterValue{.amount = static_cast<double>(sum), .time = {}};
     };
   };
   counters.add(CounterInfo{.name = "hardwareFlop",

@@ -73,7 +73,7 @@ TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
   monitoring::Counters counters;
   double work = 0;
   counters.add(monitoring::CounterInfo{.name = "work", .rateName = "workPerSecond"},
-               [&]() { return monitoring::CounterValue{work, {}}; });
+               [&] { return monitoring::CounterValue{.amount = work, .time = {}}; });
 
   monitoring::RunSummary summary;
   summary.setCounters(counters);
@@ -148,9 +148,9 @@ TEST_CASE("Run summary stages" * doctest::test_suite("monitoring")) {
   double energy = 0;
   double work = 0;
   counters.add(monitoring::CounterInfo{.name = "energy", .rateName = "power", .perStage = true},
-               [&]() { return monitoring::CounterValue{energy, {}}; });
+               [&] { return monitoring::CounterValue{.amount = energy, .time = {}}; });
   counters.add(monitoring::CounterInfo{.name = "work", .rateName = "workPerSecond"},
-               [&]() { return monitoring::CounterValue{work, {}}; });
+               [&] { return monitoring::CounterValue{.amount = work, .time = {}}; });
 
   monitoring::RunSummary summary;
   summary.setCounters(counters);
