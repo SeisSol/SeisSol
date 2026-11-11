@@ -216,6 +216,11 @@ check their points (materials, the initial condition, the output regions, the ma
 mirror); the boundaries, the slip rates of ``FL = 36`` and the derived outputs reject a module with
 a check for now.
 
+At its first call, a compiled kernel is compared with the interpreter, which evaluates the script
+as written at up to 64 points of the call; the log says whether the two agree. On the CPU they give
+the same bits, and a kernel that does not stops the run with the point and both values
+(``SEISSOL_EXPR_CHECK=warn`` lets it go on with a warning, ``off`` skips the check).
+
 The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
 ``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They
 are kept across runs in the directory ``SEISSOL_EXPR_CACHE`` names, by default ``seissol/expr`` in

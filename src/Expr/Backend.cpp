@@ -21,8 +21,13 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -326,7 +331,321 @@ std::unique_ptr<Kernel> makeInterpreter(const Program& program,
       program, binding, std::move(lowered), std::move(arrays), interpreterOptions);
 }
 
+// --- the check of a compiled backend -----------------------------------------
+
+/// What the check of the first call of a compiled backend does where it deviates from the
+/// interpreter: SEISSOL_EXPR_CHECK=error (the default) stops the run, `warn` warns, `off` skips the
+/// check.
+enum class CheckPolicy : std::uint8_t { Off, Warn, Error };
+
+CheckPolicy checkPolicy() {
+  const char* env = std::getenv("SEISSOL_EXPR_CHECK");
+  const std::string value = env != nullptr ? env : "";
+  if (value == "off") {
+    return CheckPolicy::Off;
+  }
+  if (value == "warn") {
+    return CheckPolicy::Warn;
+  }
+  if (!value.empty() && value != "error") {
+    logWarning() << "SEISSOL_EXPR_CHECK is" << value
+                 << "; error, warn or off decide what a compiled kernel that deviates from the "
+                    "interpreter at its first call does.";
+  }
+  return CheckPolicy::Error;
+}
+
+/// The points of a call the check compares: all of them up to `Sample`, else `Sample` of them
+/// spread evenly over the call, its first and its last among them.
+std::vector<std::size_t> samplePoints(std::size_t first, std::size_t count) {
+  constexpr std::size_t Sample = 64;
+  std::vector<std::size_t> points;
+  if (count <= Sample) {
+    for (std::size_t i = 0; i < count; ++i) {
+      points.push_back(first + i);
+    }
+    return points;
+  }
+  for (std::size_t k = 0; k < Sample; ++k) {
+    points.push_back(first + k * (count - 1) / (Sample - 1));
+  }
+  return points;
+}
+
+/// Interp.h's TileIo over the points of a sample: the inputs each point reads, as the binding reads
+/// them for the call (from its table or from the bases of its arguments), and the outputs, kept.
+template <typename T>
+class SampleTileIo final : public TileIo<T> {
+  public:
+  SampleTileIo(const Binding& binding,
+               const DataTable* table,
+               const KernelArgs* args,
+               const std::vector<std::size_t>& points,
+               std::vector<double>& outputs,
+               std::size_t outputCount)
+      : binding_(&binding), table_(table), args_(args), points_(points), outputs_(&outputs),
+        outputCount_(outputCount), inputs_(binding.inputs().size()) {
+    // the point each lane is, past the permutation, as a contraction reads it
+    for (const std::size_t point : points) {
+      permuted_.push_back(binding.permutation().empty() ? point : binding.permutation()[point]);
+    }
+  }
+
+  void gather(std::size_t first, std::size_t count, T* dst) const override {
+    for (std::size_t lane = 0; lane < count; ++lane) {
+      const std::size_t point = points_[first + lane];
+      if (table_ != nullptr) {
+        binding_->gather(*table_, point, 1, inputs_.data());
+      } else {
+        binding_->gatherFrom(args_->inputs, args_->inputCount, point, 1, inputs_.data());
+      }
+      for (std::size_t i = 0; i < inputs_.size(); ++i) {
+        dst[i * count + lane] = inputs_[i];
+      }
+    }
+  }
+
+  void scatter(std::size_t first, std::size_t count, const T* src) override {
+    for (std::size_t o = 0; o < outputCount_; ++o) {
+      for (std::size_t lane = 0; lane < count; ++lane) {
+        (*outputs_)[o * points_.size() + first + lane] = static_cast<double>(src[o * count + lane]);
+      }
+    }
+  }
+
+  [[nodiscard]] ContractOperands contraction(MatrixId matrix, BlockId block) const override {
+    if (args_ == nullptr) {
+      return binding_->contraction(matrix, block);
+    }
+    const auto m = static_cast<std::size_t>(matrix);
+    const auto b = static_cast<std::size_t>(block);
+    return binding_->contraction(
+        matrix,
+        block,
+        m < args_->matrixCount && args_->matrices != nullptr ? args_->matrices[m] : nullptr,
+        b < args_->blockCount && args_->blocks != nullptr ? args_->blocks[b] : nullptr);
+  }
+
+  [[nodiscard]] const std::size_t* points(std::size_t first) const override {
+    return permuted_.data() + first;
+  }
+
+  private:
+  const Binding* binding_;
+  const DataTable* table_;
+  const KernelArgs* args_;
+  const std::vector<std::size_t>& points_;
+  std::vector<std::size_t> permuted_;
+  std::vector<double>* outputs_;
+  std::size_t outputCount_;
+  mutable std::vector<T> inputs_;
+};
+
+/// A compiled kernel, checked at its first call (the specification's check of a backend): at a
+/// sample of the points of the call, the interpreter evaluates the program as written -- nothing
+/// hoisted, so that a hoisted value is checked as well -- from the inputs the call read, and the
+/// backend has to give the same bits, as the compiled CPU kernels do. The largest deviation per
+/// output goes to the log; a deviation is an error (SEISSOL_EXPR_CHECK).
+///
+/// Not checked: a program with state, which the evaluation would advance twice; and a call whose
+/// outputs cannot be read back (a computed column).
+class CheckedKernel final : public Kernel {
+  public:
+  CheckedKernel(std::unique_ptr<Kernel> inner,
+                const Program& program,
+                Binding& binding,
+                GridStore& grids)
+      : inner_(std::move(inner)), program_(program), binding_(&binding), grids_(&grids) {}
+
+  void precompute(const DataTable& table) override { inner_->precompute(table); }
+
+  void run(const DataTable& table) override {
+    inner_->run(table);
+    if (!checked_) {
+      checked_ = true;
+      compare(&table, nullptr);
+    }
+  }
+
+  void run(const KernelArgs& args) override {
+    inner_->run(args);
+    if (!checked_) {
+      checked_ = true;
+      compare(nullptr, &args);
+    }
+  }
+
+  [[nodiscard]] BackendKind kind() const override { return inner_->kind(); }
+
+  private:
+  void compare(const DataTable* table, const KernelArgs* args) {
+    const auto comparison = compareWithInterpreter(program_, *binding_, *grids_, table, args);
+    if (!comparison.has_value()) {
+      return;
+    }
+    const std::string name = seissol::expr::name(inner_->kind());
+    if (comparison->deviating == 0) {
+      logInfo() << "expr: the" << name.c_str() << "kernel of program"
+                << fingerprintOf(program_).c_str() << "gives the bits of the interpreter at"
+                << comparison->points.size() << "points of its first call.";
+      return;
+    }
+    const std::string what = "the " + name + " kernel of program " + fingerprintOf(program_) +
+                             " deviates from the interpreter at " +
+                             std::to_string(comparison->deviating) +
+                             " values of its first call; the largest, " + comparison->worst;
+    if (checkPolicy() == CheckPolicy::Error) {
+      logError() << "expr:" << what.c_str()
+                 << ". SEISSOL_EXPR_CHECK=warn lets the run go on with the compiled kernel.";
+    } else {
+      logWarning() << "expr:" << what.c_str();
+    }
+  }
+
+  static std::string fingerprintOf(const Program& program) {
+    std::array<char, 32> buffer{};
+    std::snprintf(buffer.data(),
+                  buffer.size(),
+                  "%016llx",
+                  static_cast<unsigned long long>(program.fingerprint()));
+    return buffer.data();
+  }
+
+  std::unique_ptr<Kernel> inner_;
+  Program program_;
+  Binding* binding_;
+  GridStore* grids_;
+  bool checked_{false};
+};
+
+/// `kernel`, checked at its first call where SEISSOL_EXPR_CHECK allows.
+std::unique_ptr<Kernel> checked(std::unique_ptr<Kernel> kernel,
+                                const Program& program,
+                                Binding& binding,
+                                GridStore& grids,
+                                const std::vector<std::size_t>& ids,
+                                ComputeType dataType) {
+  if (kernel == nullptr || checkPolicy() == CheckPolicy::Off || !binding.hostAddressable()) {
+    return kernel;
+  }
+  static_cast<void>(ids);
+  static_cast<void>(dataType);
+  return std::make_unique<CheckedKernel>(std::move(kernel), program, binding, grids);
+}
+
 } // namespace
+
+namespace {
+
+double ulpOf(double x) {
+  const double magnitude = std::fabs(x);
+  if (!std::isfinite(magnitude)) {
+    return std::numeric_limits<double>::infinity();
+  }
+  return std::nextafter(magnitude, std::numeric_limits<double>::infinity()) - magnitude;
+}
+
+std::string hexOf(double x) {
+  std::array<char, 64> buffer{};
+  std::snprintf(buffer.data(), buffer.size(), "%a", x);
+  return buffer.data();
+}
+
+/// The interpreter's outputs at the sample, in the type the program moves its data in.
+template <typename T>
+void interpret(const Program& program,
+               const Binding& binding,
+               const GridArrays* arrays,
+               const DataTable* table,
+               const KernelArgs* args,
+               BackendComparison& comparison) {
+  const LoweredProgram lowered = lower(program, LowerOptions{});
+  const std::size_t count = comparison.points.size();
+  comparison.interpreter.assign(program.outputs().size() * count, 0.0);
+  SampleTileIo<T> io(
+      binding, table, args, comparison.points, comparison.interpreter, program.outputs().size());
+  TileInterpreter<T> interpreter(program, lowered, arrays, {});
+  std::vector<T> persistent(1, T(0));
+  interpreter.run(io, count, persistent.data());
+  // and the inputs, for the record
+  comparison.inputs.assign(binding.inputs().size() * count, 0.0);
+  std::vector<double> values(binding.inputs().size());
+  for (std::size_t k = 0; k < count; ++k) {
+    if (table != nullptr) {
+      binding.gather(*table, comparison.points[k], 1, values.data());
+    } else {
+      binding.gatherFrom(args->inputs, args->inputCount, comparison.points[k], 1, values.data());
+    }
+    for (std::size_t i = 0; i < values.size(); ++i) {
+      comparison.inputs[i * count + k] = values[i];
+    }
+  }
+}
+
+} // namespace
+
+std::optional<BackendComparison> compareWithInterpreter(const Program& program,
+                                                        const Binding& binding,
+                                                        GridStore& grids,
+                                                        const DataTable* table,
+                                                        const KernelArgs* args) {
+  const std::size_t first = table != nullptr ? 0 : args->first;
+  const std::size_t count = table != nullptr ? binding.numPoints() : args->count;
+  if (!program.state().empty() || count == 0) {
+    return std::nullopt;
+  }
+  BackendComparison comparison;
+  comparison.points = samplePoints(first, count);
+  const std::size_t outputs = program.outputs().size();
+  const std::size_t sample = comparison.points.size();
+
+  // what the backend wrote
+  comparison.backend.assign(outputs * sample, 0.0);
+  std::vector<double> value(outputs);
+  for (std::size_t k = 0; k < sample; ++k) {
+    const bool read =
+        table != nullptr
+            ? binding.gatherOutputs(*table, comparison.points[k], 1, value.data())
+            : binding.gatherOutputsFrom(
+                  args->outputs, args->outputCount, comparison.points[k], 1, value.data());
+    if (!read) {
+      return std::nullopt;
+    }
+    for (std::size_t o = 0; o < outputs; ++o) {
+      comparison.backend[o * sample + k] = value[o];
+    }
+  }
+
+  // what the program gives, by the interpreter, on the same grids
+  const auto ids = internGrids(program, grids);
+  const StoreArrays arrays(program, ids, grids);
+  const GridArrays* sampled = ids.empty() ? nullptr : &arrays;
+  if (lower(program, LowerOptions{}).dataType() == ComputeType::F32) {
+    interpret<float>(program, binding, sampled, table, args, comparison);
+  } else {
+    interpret<double>(program, binding, sampled, table, args, comparison);
+  }
+
+  double worstUlps = 0.0;
+  for (std::size_t o = 0; o < outputs; ++o) {
+    for (std::size_t k = 0; k < sample; ++k) {
+      const double a = comparison.backend[o * sample + k];
+      const double r = comparison.interpreter[o * sample + k];
+      if (std::memcmp(&a, &r, sizeof(double)) == 0 || (std::isnan(a) && std::isnan(r))) {
+        continue;
+      }
+      ++comparison.deviating;
+      const double ulps = std::fabs(a - r) / std::max(ulpOf(r), ulpOf(a));
+      if (comparison.worst.empty() || ulps > worstUlps || std::isnan(ulps)) {
+        worstUlps = ulps;
+        comparison.worst = "`" + program.outputs()[o].name + "` at point " +
+                           std::to_string(comparison.points[k]) + " is " + hexOf(a) +
+                           ", the interpreter's " + hexOf(r);
+      }
+    }
+  }
+  return comparison;
+}
 
 std::vector<std::size_t> internGrids(const Program& program, GridStore& grids) {
   std::vector<std::size_t> ids;
@@ -376,9 +695,10 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
     return makeInterpreter(program, binding, grids, ids, options);
   case BackendKind::RtcCpu: {
     LoweredProgram lowered = lower(program, options.lowering);
+    const ComputeType dataType = lowered.dataType();
     auto kernel = makeRtcCpuKernel(program, binding, std::move(lowered), options, &grids, ids);
     if (kernel != nullptr) {
-      return kernel;
+      return checked(std::move(kernel), program, binding, grids, ids, dataType);
     }
     if (!options.allowFallback) {
       logError() << "expr: the compiled CPU backend is unusable and fallback was disabled.";
@@ -412,10 +732,11 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
     // makeRtcGpuKernel has already named which. Trying the compiled CPU kernel
     // before the interpreter, because most of those reasons do not apply to it.
     LoweredProgram cpuLowering = lower(program, options.lowering);
+    const ComputeType dataType = cpuLowering.dataType();
     auto cpu = makeRtcCpuKernel(
         program, binding, std::move(cpuLowering), forFallback(options), &grids, ids);
     if (cpu != nullptr) {
-      return cpu;
+      return checked(std::move(cpu), program, binding, grids, ids, dataType);
     }
     return makeInterpreter(program, binding, grids, ids, forFallback(options));
   }

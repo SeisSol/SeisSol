@@ -190,6 +190,20 @@ class Binding {
   /// without the table, i.e. what run(KernelArgs) on the host requires.
   [[nodiscard]] bool hostAddressable() const { return hostAddressable_; }
 
+  /// What the output columns hold at `count` points from `first`, dst[output * count + lane]: what
+  /// a backend wrote, read back to compare it with the interpreter -- from the table, or from the
+  /// bases of a call (null entries keep the bound base). False where an output column has no
+  /// address (a computed one), which cannot be read back.
+  bool gatherOutputs(const reader::scripting::DataTable& table,
+                     std::size_t first,
+                     std::size_t count,
+                     double* dst) const;
+  bool gatherOutputsFrom(void* const* outputs,
+                         std::size_t outputCount,
+                         std::size_t first,
+                         std::size_t count,
+                         double* dst) const;
+
   /// Gather from bases supplied per call rather than from the bound table.
   /// `inputs[i]` may be null to keep the bound base for that slot.
   void gatherFrom(const void* const* inputs,

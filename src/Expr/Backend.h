@@ -18,6 +18,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -155,6 +156,32 @@ class Kernel {
 
   [[nodiscard]] virtual BackendKind kind() const = 0;
 };
+
+/// What the check of a compiled backend found at the first call of its kernel (the specification's
+/// check of a backend): the points of the call it compared, their inputs ([input][point], in the
+/// order of the binding's inputs), the outputs the interpreter gives and those the backend wrote
+/// ([output][point]), how many outputs deviate in their bits, and the largest deviation.
+struct BackendComparison {
+  std::vector<std::size_t> points;
+  std::vector<double> inputs;
+  std::vector<double> interpreter;
+  std::vector<double> backend;
+  std::size_t deviating{0};
+  std::string worst;
+};
+
+/// Compares what a kernel wrote for `program` in the call of `table` (or of `args`, with `table`
+/// null) with what the interpreter gives -- the program as written, nothing hoisted -- at a sample
+/// of the points of the call. Nothing for a program with state, which the evaluation would
+/// advance, or for outputs that cannot be read back. makeKernel() checks every compiled kernel so
+/// at its first call; SEISSOL_EXPR_CHECK=error (the default) stops a run where it deviates, `warn`
+/// warns, `off` checks nothing.
+[[nodiscard]] std::optional<BackendComparison>
+    compareWithInterpreter(const Program& program,
+                           const Binding& binding,
+                           reader::datafield::GridStore& grids,
+                           const reader::scripting::DataTable* table,
+                           const KernelArgs* args);
 
 /// How a compiled CPU kernel takes the points of a tile: one point through the whole program after
 /// the other, or one instruction over a block of points after the other (see RtcCpu.h). Auto

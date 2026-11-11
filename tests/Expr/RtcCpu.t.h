@@ -16,7 +16,9 @@
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -120,6 +122,61 @@ TEST_SUITE("ExprRtcCpu") {
     const Program program = compileSderivModule("out def u = x * 0.1234567890123456789\n");
     const std::string source = emitCpuSource(program, lower(program));
     CHECK(source.find("0.12345678901234568") != std::string::npos);
+  }
+
+  TEST_CASE("the first call of a compiled kernel is compared with the interpreter") {
+    // x * y + z, at x = 1 + 2^-27, y = 1 - 2^-27, z = -1: rounded on its own, the product is 1 and
+    // the sum 0; contracted into a fused multiply-add, the sum is -2^-54
+    const Program program = compileSderivModule("out def u = x * y + z\n");
+    std::vector<double> x = {1.0 + std::ldexp(1.0, -27), 2.0};
+    std::vector<double> y = {1.0 - std::ldexp(1.0, -27), 3.0};
+    std::vector<double> z = {-1.0, 1.0};
+    std::vector<double> u(2, 0.0);
+    reader::scripting::DataTable table(2);
+    table.bindViewConst<double>("x", reader::scripting::Direction::In, x.data());
+    table.bindViewConst<double>("y", reader::scripting::Direction::In, y.data());
+    table.bindViewConst<double>("z", reader::scripting::Direction::In, z.data());
+    table.bindView<double>("u", reader::scripting::Direction::Out, u.data());
+    auto binding = Binding::bind(program, table);
+    df::GridStore store;
+    BackendOptions options;
+    options.quiet = true;
+    options.preferred = BackendKind::RtcCpu;
+
+    // with the flags of SeisSol, the same bits, which the check finds at its first call
+    {
+      const auto kernel = makeKernel(program, binding, store, options);
+      if (kernel->kind() != BackendKind::RtcCpu) {
+        WARN_MESSAGE(false, "no usable C++ compiler; the compiled CPU backend was not run");
+        return;
+      }
+      kernel->precompute(table);
+      kernel->run(table);
+      const auto comparison = compareWithInterpreter(program, binding, store, &table, nullptr);
+      REQUIRE(comparison.has_value());
+      CHECK(comparison->points.size() == 2);
+      CHECK(comparison->deviating == 0);
+      CHECK(u[0] == 0.0);
+      REQUIRE(comparison->inputs.size() == 6);
+      CHECK(comparison->interpreter[1] == 7.0);
+    }
+
+    // a kernel compiled with contraction deviates, and the check says where
+    setenv("SEISSOL_EXPR_CXXFLAGS", "-O2 -ffp-contract=fast -march=native", 1);
+    setenv("SEISSOL_EXPR_CHECK", "warn", 1);
+    const auto contracted = makeKernel(program, binding, store, options);
+    contracted->precompute(table);
+    contracted->run(table);
+    unsetenv("SEISSOL_EXPR_CXXFLAGS");
+    unsetenv("SEISSOL_EXPR_CHECK");
+    const auto comparison = compareWithInterpreter(program, binding, store, &table, nullptr);
+    REQUIRE(comparison.has_value());
+    if (u[0] == 0.0) {
+      WARN_MESSAGE(false, "the compiler did not contract; the check had nothing to find");
+      return;
+    }
+    CHECK(comparison->deviating == 1);
+    CHECK(comparison->worst.find("`u` at point 0") != std::string::npos);
   }
 
   TEST_CASE("a program with a grid lookup compiles and samples as the interpreter does") {

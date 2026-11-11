@@ -823,6 +823,37 @@ void Binding::gather(const DataTable& table,
   }
 }
 
+bool Binding::gatherOutputs(const DataTable& table,
+                            std::size_t first,
+                            std::size_t count,
+                            double* dst) const {
+  for (const auto& column : outputs_) {
+    gatherOne<double>(column,
+                      table,
+                      permutation_,
+                      first,
+                      count,
+                      dst + static_cast<std::size_t>(column.slot) * count);
+  }
+  return true;
+}
+
+bool Binding::gatherOutputsFrom(void* const* outputs,
+                                std::size_t outputCount,
+                                std::size_t first,
+                                std::size_t count,
+                                double* dst) const {
+  for (std::size_t i = 0; i < outputs_.size(); ++i) {
+    const ColumnBinding& column = outputs_[i];
+    if (!column.view.has_value()) {
+      return false;
+    }
+    const void* base = (i < outputCount && outputs[i] != nullptr) ? outputs[i] : column.view->base;
+    gatherViewDispatch<double>(column, base, permutation_, first, count, dst + i * count);
+  }
+  return true;
+}
+
 void Binding::scatter(const DataTable& table,
                       std::size_t first,
                       std::size_t count,
