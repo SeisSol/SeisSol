@@ -203,6 +203,9 @@ TEST_CASE("A crash marks the run summary as failed" * doctest::test_suite("monit
     for (const int number : {SIGSEGV, SIGBUS, SIGFPE, SIGILL, SIGABRT}) {
       static_cast<void>(std::signal(number, SIG_DFL));
     }
+    // without a backtrace, which unwinds through the frame of the signal; QEMU's LoongArch
+    // (emulated<lasx>) breaks off there, before the report is written
+    utils::Logger::setBacktraceDepth(0);
     utils::catchSignals(
         [](const utils::LogSignal& signal) { monitoring::writeFailureReport(signal.json); });
     // a store into the lowest page, which is never mapped; a store to the null pointer would be
