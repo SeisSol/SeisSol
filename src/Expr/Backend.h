@@ -205,6 +205,13 @@ struct BackendComparison {
                                                              const std::vector<double>& backend,
                                                              bool perturbed);
 
+/// Where the evaluation records of the programs go (the specification's "Evaluation record"): one
+/// file per program and backend, written at the first call of its kernel, with the program in the
+/// normal form and its fingerprint, the build (`build`, lines as they are), the backend and the
+/// compute type, what the check of the backend found, and the sample of points with their inputs
+/// and the outputs of the interpreter and of the backend, in hexadecimal. Empty writes none.
+void setRecordDirectory(const std::string& directory, const std::vector<std::string>& build = {});
+
 /// Whether the compiled kernels are checked at their first call (SEISSOL_EXPR_CHECK is not off).
 [[nodiscard]] bool backendChecks();
 

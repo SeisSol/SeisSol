@@ -20,13 +20,17 @@
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <limits>
 #include <string>
+#include <unistd.h>
 #include <utility>
 #include <vector>
 
@@ -512,6 +516,38 @@ out rho = t4
     const std::string body = "in x\ndef t0 = x * x\nout u = t0\n";
     CHECK(printed == "#!sderiv 1\nmeta body = \"sha256:" + sha256(body) + "\"\n" + body);
     CHECK(printCore(loadCore(printed, "")) == printed);
+  }
+
+  TEST_CASE("the evaluation record of a program, written at the first call of its kernel") {
+    const std::string directory =
+        "seissol-test-records-" + std::to_string(static_cast<long long>(::getpid()));
+    setRecordDirectory(directory, {"build = the test"});
+    // a program without state, which the sample would advance
+    const Program once =
+        loadCore("#!sderiv 1\nin v1, v2\nout speed = sqrt(v1 * v1 + v2 * v2)\n", "");
+    const auto values = evaluateAt(once, {{"v1", 3.0}, {"v2", 4.0}});
+    CHECK(values[0] == 5.0);
+    setRecordDirectory("");
+
+    std::array<char, 32> fingerprint{};
+    std::snprintf(fingerprint.data(),
+                  fingerprint.size(),
+                  "%016llx",
+                  static_cast<unsigned long long>(once.fingerprint()));
+    const std::string path = directory + "/" + fingerprint.data() + "-interpreter.txt";
+    std::ifstream file(path);
+    REQUIRE(file.good());
+    const std::string record((std::istreambuf_iterator<char>(file)),
+                             std::istreambuf_iterator<char>());
+    CAPTURE(record);
+    CHECK(record.find(std::string("fingerprint = ") + fingerprint.data()) != std::string::npos);
+    CHECK(record.find("backend = interpreter\n") != std::string::npos);
+    CHECK(record.find("build = the test\n") != std::string::npos);
+    // the program in the normal form, and the sample in hexadecimal
+    CHECK(record.find(printCore(once)) != std::string::npos);
+    CHECK(record.find("point v1 v2 speed:interpreter\n0 0x1.8p+1 0x1p+2 0x1.4p+2\n") !=
+          std::string::npos);
+    std::filesystem::remove_all(directory);
   }
 
   TEST_CASE("a module in the core format reads through the sderiv entry point") {

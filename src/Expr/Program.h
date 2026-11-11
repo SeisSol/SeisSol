@@ -168,9 +168,9 @@ class Program {
   // Every external grid the DAG references, in GridId order.
   [[nodiscard]] const std::vector<reader::datafield::GridDesc>& grids() const { return grids_; }
 
-  // The names of the grids and their components, by GridId, where a frontend gave them; shorter
-  // than grids() where it gave none.
-  [[nodiscard]] const std::vector<GridNames>& gridNames() const { return gridNames_; }
+  // The names of the grids and their components, by GridId, where a frontend gave them (empty
+  // otherwise). They travel with the grids (GridDesc::name), through every rebuild of a program.
+  [[nodiscard]] std::vector<GridNames> gridNames() const;
   void nameGrid(GridId grid, GridNames names);
 
   // The provenance of the program, in the order it was given.
@@ -241,7 +241,6 @@ class Program {
   std::vector<NodeId> roots_;
   std::vector<CheckSpec> checks_;
   std::vector<reader::datafield::GridDesc> grids_;
-  std::vector<GridNames> gridNames_;
   std::vector<MetaEntry> meta_;
   std::vector<MatrixSpec> matrices_;
   std::vector<BlockSpec> blocks_;

@@ -244,6 +244,12 @@ struct GridDesc {
   // Absent = static grid, loaded once.
   std::optional<int> timeAxis;
 
+  // The names a script gave the grid and its components, which the core format of sderiv prints
+  // (Program::gridNames()). Descriptive only: neither the comparison of two grids nor the key of a
+  // kernel has them, so that they travel with every copy of the grid without changing what it is.
+  std::string name;
+  std::vector<std::string> componentNames;
+
   [[nodiscard]] bool timeDependent() const { return timeAxis.has_value(); }
   [[nodiscard]] bool operator==(const GridDesc& other) const;
 

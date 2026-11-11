@@ -397,13 +397,21 @@ void Program::nameGrid(GridId grid, GridNames names) {
     throw std::invalid_argument("expr: a name for grid id " + std::to_string(grid) +
                                 ", but the program declares " + std::to_string(grids_.size()));
   }
-  if (gridNames_.size() <= static_cast<std::size_t>(grid)) {
-    gridNames_.resize(static_cast<std::size_t>(grid) + 1);
-  }
   // the first name a grid is given stays: two declarations of the same grid are one grid
-  if (gridNames_[static_cast<std::size_t>(grid)].name.empty()) {
-    gridNames_[static_cast<std::size_t>(grid)] = std::move(names);
+  auto& desc = grids_[static_cast<std::size_t>(grid)];
+  if (desc.name.empty()) {
+    desc.name = std::move(names.name);
+    desc.componentNames = std::move(names.components);
   }
+}
+
+std::vector<GridNames> Program::gridNames() const {
+  std::vector<GridNames> names;
+  names.reserve(grids_.size());
+  for (const auto& desc : grids_) {
+    names.push_back(GridNames{desc.name, desc.componentNames});
+  }
+  return names;
 }
 
 std::set<std::string> channelsRead(const Program& program, const std::vector<NodeId>& roots) {

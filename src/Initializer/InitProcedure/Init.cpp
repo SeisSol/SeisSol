@@ -7,9 +7,11 @@
 
 #include "Init.h"
 
+#include "BuildInfo.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Json.h"
+#include "Expr/Backend.h"
 #include "Geometry/MeshReader.h"
 #include "InitIO.h"
 #include "InitMesh.h"
@@ -37,6 +39,10 @@
 #include <stdexcept>
 #include <string>
 #include <utils/logger.h>
+#include <vector>
+#if defined(__GLIBC__)
+#include <gnu/libc-version.h>
+#endif
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
@@ -250,6 +256,18 @@ void closeSeisSol(seissol::SeisSol& seissolInstance) {
 
 void seissolMain(seissol::SeisSol& seissolInstance) {
   createOutputDirectory(seissolInstance);
+
+  // the evaluation record of every program a kernel evaluates, next to the outputs; written by the
+  // first rank, from what it evaluates
+  if (seissol::Mpi::mpi.rank() == 0) {
+    std::vector<std::string> build = {"seissol = " + BuildInfo::VersionString,
+                                      "commit = " + BuildInfo::CommitHash,
+                                      std::string("compiler = ") + __VERSION__};
+#if defined(__GLIBC__)
+    build.push_back(std::string("libm = glibc ") + gnu_get_libc_version());
+#endif
+    expr::setRecordDirectory(seissolInstance.parameters().output.prefix + "-records", build);
+  }
 
   auto& summary = seissolInstance.runSummary();
   summary["configurations"] = configurationNames(seissolInstance);

@@ -1258,6 +1258,7 @@ class Printer {
   /// c0, c1, ... up to the last component it samples.
   void nameGrids() {
     const std::size_t count = program_.grids().size();
+    const std::vector<GridNames> given = program_.gridNames();
     gridNames_.assign(count, GridNames{});
     std::vector<std::int32_t> components(count, 0);
     for (std::size_t id = 0; id < arena_.size(); ++id) {
@@ -1269,8 +1270,8 @@ class Printer {
       }
     }
     for (std::size_t g = 0; g < count; ++g) {
-      if (g < program_.gridNames().size() && !program_.gridNames()[g].name.empty()) {
-        gridNames_[g] = program_.gridNames()[g];
+      if (!given[g].name.empty()) {
+        gridNames_[g] = given[g];
       } else {
         std::string name = "g" + std::to_string(g);
         while (taken_.count(name) != 0) {

@@ -7,6 +7,7 @@
 #include "Expr/Backend.h"
 
 #include "Expr/Binding.h"
+#include "Expr/Core.h"
 #include "Expr/Cost.h"
 #include "Expr/Expand.h"
 #include "Expr/Interp.h"
@@ -27,8 +28,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <limits>
 #include <memory>
+#include <mutex>
+#include <set>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -323,12 +329,15 @@ std::unique_ptr<Kernel> makeInterpreter(const Program& program,
   interpreterOptions.tileSize = options.tileSize;
 
   // in the type the data moves in, which the instructions compute from in theirs
+  std::unique_ptr<Kernel> kernel;
   if (lowered.dataType() == ComputeType::F32) {
-    return std::make_unique<InterpreterKernel<float>>(
+    kernel = std::make_unique<InterpreterKernel<float>>(
+        program, binding, std::move(lowered), std::move(arrays), interpreterOptions);
+  } else {
+    kernel = std::make_unique<InterpreterKernel<double>>(
         program, binding, std::move(lowered), std::move(arrays), interpreterOptions);
   }
-  return std::make_unique<InterpreterKernel<double>>(
-      program, binding, std::move(lowered), std::move(arrays), interpreterOptions);
+  return kernel;
 }
 
 // --- the check of a compiled backend -----------------------------------------
@@ -527,6 +536,19 @@ class CheckedKernel final : public Kernel {
   bool checked_{false};
 };
 
+bool recording();
+
+/// An interpreter kernel with a sample of its first call taken, for the evaluation record.
+std::unique_ptr<Kernel> recorded(std::unique_ptr<Kernel> kernel,
+                                 const Program& program,
+                                 Binding& binding,
+                                 GridStore& grids) {
+  if (kernel == nullptr || !recording() || !binding.hostAddressable()) {
+    return kernel;
+  }
+  return std::make_unique<CheckedKernel>(std::move(kernel), program, binding, grids);
+}
+
 /// `kernel`, checked at its first call where SEISSOL_EXPR_CHECK allows.
 std::unique_ptr<Kernel> checked(std::unique_ptr<Kernel> kernel,
                                 const Program& program,
@@ -676,7 +698,145 @@ std::vector<std::size_t> samplePoints(std::size_t first, std::size_t count) {
 
 bool backendChecks() { return checkPolicy() != CheckPolicy::Off; }
 
+namespace {
+
+struct Records {
+  std::mutex mutex;
+  std::string directory;
+  std::vector<std::string> build;
+  std::set<std::string> written;
+};
+
+Records& records() {
+  static Records Instance;
+  return Instance;
+}
+
+bool recording() {
+  auto& state = records();
+  const std::lock_guard<std::mutex> lock(state.mutex);
+  return !state.directory.empty();
+}
+
+/// The evaluation record of `program` on the `kind` backend, once per program and backend.
+void writeRecord(const Program& program, BackendKind kind, const BackendComparison& found) {
+  auto& state = records();
+  const std::lock_guard<std::mutex> lock(state.mutex);
+  if (state.directory.empty()) {
+    return;
+  }
+  const std::string fingerprint = fingerprintOf(program);
+  const std::string backend = seissol::expr::name(kind);
+  if (!state.written.insert(fingerprint + "-" + backend).second) {
+    return;
+  }
+  std::ostringstream out;
+  out << "# The evaluation record of a program (docs/sderiv-spec.rst, \"Evaluation record\"), "
+         "written by SeisSol at the first call of its kernel.\n";
+  out << "fingerprint = " << fingerprint << "\n";
+  out << "backend = " << backend << "\n";
+  out << "compute = " << (program.computeType() == ComputeType::F32 ? "f32" : "f64") << "\n";
+  for (const auto& line : state.build) {
+    out << line << "\n";
+  }
+  if (kind != BackendKind::Interpreter) {
+    out << "check = "
+        << (found.deviating == 0
+                ? (found.perturbed && found.worstRatio > 0.0 ? "within the tolerance"
+                                                             : "the same bits")
+                : "deviates at " + std::to_string(found.deviating) + " values");
+    if (found.perturbed && (found.worstRatio > 0.0 || !found.unstable.empty())) {
+      out << ", at most " << found.worstRatio << " of the tolerance, " << found.unstable.size()
+          << " unstable points";
+    }
+    if (!found.worst.empty()) {
+      out << "; the largest: " << found.worst;
+    }
+    out << "\n";
+  }
+  out << "\n# the program, in the normal form of the core format\n";
+  try {
+    out << printCore(program);
+  } catch (const std::invalid_argument& error) {
+    out << "# not in the core format: " << error.what() << "\n";
+  }
+
+  // the sample: per point, its inputs and, per output, the value of the interpreter and of the
+  // backend (and its tolerance, against the perturbed reference)
+  const std::size_t sample = found.points.size();
+  out << "\n# the sample: per point its inputs, and per output the interpreter's value, the "
+         "backend's"
+      << (found.perturbed ? " and its tolerance" : "") << ", in hexadecimal\n";
+  out << "point";
+  for (const auto& input : program.inputs()) {
+    out << " " << input.name;
+  }
+  for (const auto& output : program.outputs()) {
+    out << " " << output.name << ":interpreter";
+    if (kind != BackendKind::Interpreter) {
+      out << " " << output.name << ":backend";
+      if (found.perturbed) {
+        out << " " << output.name << ":tolerance";
+      }
+    }
+  }
+  out << "\n";
+  for (std::size_t k = 0; k < sample; ++k) {
+    out << found.points[k];
+    for (std::size_t i = 0; i < program.inputs().size() && i * sample + k < found.inputs.size();
+         ++i) {
+      out << " " << hexOf(found.inputs[i * sample + k]);
+    }
+    for (std::size_t o = 0; o < program.outputs().size(); ++o) {
+      out << " " << hexOf(found.interpreter[o * sample + k]);
+      if (kind != BackendKind::Interpreter) {
+        out << " " << hexOf(found.backend[o * sample + k]);
+        if (found.perturbed) {
+          out << " " << hexOf(found.tolerance[o * sample + k]);
+        }
+      }
+    }
+    out << "\n";
+  }
+  if (!found.unstable.empty()) {
+    out << "\n# unstable points, where a perturbed evaluation decides a select otherwise\n";
+    for (const std::size_t point : found.unstable) {
+      out << point << "\n";
+    }
+  }
+  const std::filesystem::path path =
+      std::filesystem::path(state.directory) / (fingerprint + "-" + backend + ".txt");
+  std::ofstream file(path);
+  file << out.str();
+  if (!file) {
+    logWarning() << "expr: could not write the evaluation record" << path.string();
+  }
+}
+
+} // namespace
+
+void setRecordDirectory(const std::string& directory, const std::vector<std::string>& build) {
+  auto& state = records();
+  const std::lock_guard<std::mutex> lock(state.mutex);
+  state.directory = directory;
+  state.build = build;
+  if (!directory.empty()) {
+    std::error_code error;
+    std::filesystem::create_directories(directory, error);
+    if (error) {
+      logWarning() << "expr: could not create the directory of the evaluation records" << directory
+                   << ":" << error.message();
+      state.directory.clear();
+    }
+  }
+}
+
 void reportComparison(const Program& program, BackendKind kind, const BackendComparison& found) {
+  writeRecord(program, kind, found);
+  if (kind == BackendKind::Interpreter) {
+    // compared with itself: only for its record
+    return;
+  }
   const std::string name = seissol::expr::name(kind);
   const std::string unstable =
       found.unstable.empty()
@@ -852,7 +1012,8 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
   }
   switch (options.preferred) {
   case BackendKind::Interpreter:
-    return makeInterpreter(program, binding, grids, ids, options);
+    return recorded(
+        makeInterpreter(program, binding, grids, ids, options), program, binding, grids);
   case BackendKind::RtcCpu: {
     LoweredProgram lowered = lower(program, options.lowering);
     const ComputeType dataType = lowered.dataType();
@@ -864,7 +1025,8 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
       logError() << "expr: the compiled CPU backend is unusable and fallback was disabled.";
       return nullptr;
     }
-    return makeInterpreter(program, binding, grids, ids, options);
+    return recorded(
+        makeInterpreter(program, binding, grids, ids, options), program, binding, grids);
   }
   case BackendKind::RtcCuda:
   case BackendKind::RtcHip:
@@ -898,7 +1060,10 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
     if (cpu != nullptr) {
       return checked(std::move(cpu), program, binding, grids, ids, dataType);
     }
-    return makeInterpreter(program, binding, grids, ids, forFallback(options));
+    return recorded(makeInterpreter(program, binding, grids, ids, forFallback(options)),
+                    program,
+                    binding,
+                    grids);
   }
   case BackendKind::Texture:
     return makeTextureKernel(program, binding, grids);
