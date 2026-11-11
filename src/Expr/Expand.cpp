@@ -12,6 +12,7 @@
 #include "Expr/Types.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Datafield/Interpolation.h"
+#include "utils/logger.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -28,17 +29,27 @@ namespace {
 namespace df = reader::datafield;
 
 constexpr ValueType F64 = ValueType::F64;
+constexpr ValueType I64 = ValueType::I64;
+constexpr ValueType Bool = ValueType::Bool;
+
+/// How far, in cells, the stencil of a time may reach beyond the resident window of a
+/// time-dependent grid before the window counts as not serving it: rounding of the times, never a
+/// slice it lacks.
+constexpr double WindowTolerance = 1e-3;
 
 [[noreturn]] void fail(const std::string& what) { throw std::invalid_argument("expr: " + what); }
 
 /// One axis of a lookup, located: the first node of the stencil, the weights of its nodes, the last
-/// node of the axis and the elements between two nodes; and whether the coordinate was clamped.
+/// node of the axis and the elements between two nodes (whole numbers); whether the coordinate lies
+/// beyond the volume (Bool); and, on the time axis of a time-dependent grid, whether it lies beyond
+/// the resident window where the file goes on (Bool).
 struct Axis {
   NodeId start{NoNode};
   std::vector<NodeId> weights;
   NodeId top{NoNode};
   NodeId stride{NoNode};
   NodeId clamped{NoNode};
+  NodeId stale{NoNode};
 };
 
 class Expander {
@@ -99,23 +110,29 @@ class Expander {
   [[nodiscard]] Arena& arena() { return result_.program.arena(); }
   [[nodiscard]] NodeId mapped(NodeId id) const { return mapped_[static_cast<std::size_t>(id)]; }
 
-  // the whole numbers, which are exact in binary64: their order and contraction do not matter
+  // the numbers of the samples, and their arithmetic, each operation rounded on its own
   NodeId k(double value) { return arena().konst(value, F64); }
-  NodeId add(NodeId x, NodeId y) { return arena().pw(Fn::Add, x, y, F64); }
-  NodeId sub(NodeId x, NodeId y) { return arena().pw(Fn::Sub, x, y, F64); }
-  NodeId mul(NodeId x, NodeId y) { return arena().pw(Fn::Mul, x, y, F64); }
-  // the arithmetic of the samples, each operation rounded on its own
   NodeId sadd(NodeId x, NodeId y) { return arena().strictPw(Fn::Add, x, y, F64); }
   NodeId ssub(NodeId x, NodeId y) { return arena().strictPw(Fn::Sub, x, y, F64); }
   NodeId smul(NodeId x, NodeId y) { return arena().strictPw(Fn::Mul, x, y, F64); }
-  // comparisons, which give 1 or 0, and the choices between two values
-  NodeId lt(NodeId x, NodeId y) { return arena().pw(Fn::Lt, x, y, F64); }
-  NodeId le(NodeId x, NodeId y) { return arena().pw(Fn::Le, x, y, F64); }
-  NodeId eq(NodeId x, NodeId y) { return arena().pw(Fn::Eq, x, y, F64); }
-  NodeId both(NodeId x, NodeId y) { return arena().pw(Fn::And, x, y, F64); }
-  NodeId either(NodeId x, NodeId y) { return arena().pw(Fn::Or, x, y, F64); }
-  NodeId choose(NodeId condition, NodeId x, NodeId y) {
-    return arena().pw(Fn::Select, condition, x, y, F64);
+  // the whole numbers: indices, node counts, offsets
+  NodeId n(std::int64_t value) { return arena().konst(static_cast<double>(value), I64); }
+  NodeId iadd(NodeId x, NodeId y) { return arena().pw(Fn::Add, x, y, I64); }
+  NodeId isub(NodeId x, NodeId y) { return arena().pw(Fn::Sub, x, y, I64); }
+  NodeId imul(NodeId x, NodeId y) { return arena().pw(Fn::Mul, x, y, I64); }
+  NodeId imin(NodeId x, NodeId y) { return arena().pw(Fn::Min, x, y, I64); }
+  NodeId whole(NodeId x) { return arena().cast(I64, x); }
+  NodeId real(NodeId x) { return arena().cast(F64, x); }
+  // truth values: comparisons of numbers of either kind, and what combines them
+  NodeId truth(bool value) { return arena().konst(value ? 1.0 : 0.0, Bool); }
+  NodeId lt(NodeId x, NodeId y) { return arena().pw(Fn::Lt, x, y, Bool); }
+  NodeId le(NodeId x, NodeId y) { return arena().pw(Fn::Le, x, y, Bool); }
+  NodeId eq(NodeId x, NodeId y) { return arena().pw(Fn::Eq, x, y, Bool); }
+  NodeId both(NodeId x, NodeId y) { return arena().pw(Fn::And, x, y, Bool); }
+  NodeId either(NodeId x, NodeId y) { return arena().pw(Fn::Or, x, y, Bool); }
+  /// `x` where `condition` (Bool), else `y`, in the type `type` of both
+  NodeId choose(NodeId condition, NodeId x, NodeId y, ValueType type) {
+    return arena().pw(Fn::Select, condition, x, y, type);
   }
 
   NodeId make(NodeId id) {
@@ -147,7 +164,7 @@ class Expander {
     case Kind::GridParam:
       return a.gridParam(node.grid, static_cast<GridField>(node.comp), node.axis);
     case Kind::GridLoad:
-      return a.gridLoad(node.grid, mapped(node.a));
+      return a.gridLoad(node.grid, node.comp, mapped(node.a));
     case Kind::Dx:
       return a.dx(node.axis, mapped(node.a));
     case Kind::Cumint:
@@ -183,18 +200,24 @@ class Expander {
     std::vector<Axis> axes;
     for (std::int32_t d = 0; d < dimensions; ++d) {
       const NodeId coordinate = mapped(args[d]);
-      axes.push_back(locate(grid, d, wide ? coordinate : a.cast(F64, coordinate), desc, fails));
+      axes.push_back(locate(grid, d, wide ? coordinate : real(coordinate), desc, fails));
     }
 
-    const NodeId base = mul(k(node.comp), a.gridParam(grid, GridField::ComponentStride, 0));
-    const NodeId sample = reduce(grid, axes, 0, base);
+    // the offsets of the elements without the component, so that the lookups of several
+    // components at one point share them
+    const NodeId sample = reduce(grid, node.comp, axes, 0, n(0));
 
     if (fails) {
       NodeId outside = axes.front().clamped;
       for (std::size_t d = 1; d < axes.size(); ++d) {
         outside = either(outside, axes[d].clamped);
       }
-      result_.checks.push_back(GridCheck{grid, outside});
+      result_.checks.push_back(GridCheck{grid, CheckKind::Outside, outside});
+    }
+    for (const Axis& axis : axes) {
+      if (axis.stale != NoNode) {
+        result_.checks.push_back(GridCheck{grid, CheckKind::Window, axis.stale});
+      }
     }
     return wide ? sample : a.cast(node.type, sample);
   }
@@ -204,32 +227,61 @@ class Expander {
     Arena& a = arena();
     Axis axis;
     const NodeId num = a.gridParam(grid, GridField::Num, d);
-    axis.top = sub(num, k(1));
+    axis.top = isub(num, n(1));
     axis.stride = a.gridParam(grid, GridField::Stride, d);
+    const NodeId top = real(axis.top);
     const NodeId raw = smul(ssub(x, a.gridParam(grid, GridField::Min, d)),
                             a.gridParam(grid, GridField::DeltaInv, d));
     // `raw > 0`, not `raw >= 0`: NaN clamps onto the lower end
-    const NodeId above = lt(axis.top, raw);
-    const NodeId clampedRaw = choose(lt(k(0), raw), choose(above, axis.top, raw), k(0));
-    if (fails) {
-      axis.clamped = either(either(lt(raw, k(0)), eq(eq(raw, raw), k(0))), above);
+    const NodeId above = lt(top, raw);
+    const NodeId clampedRaw = choose(lt(k(0), raw), choose(above, top, raw, F64), k(0), F64);
+
+    // beyond the volume: below or above it, or NaN. On the time axis of a grid with a window, the
+    // volume is that of the file, whose slices beyond the window it knows; a time beyond the window
+    // where the file goes on is no sample beyond the volume, but one the window should have served.
+    const NodeId below = lt(raw, k(0));
+    const NodeId undefined = eq(eq(raw, raw), truth(false));
+    const bool windowed = desc.timeAxis.has_value() && *desc.timeAxis == d;
+    if (windowed) {
+      const NodeId noneBefore = eq(a.gridParam(grid, GridField::Before, d), n(0));
+      const NodeId noneAfter = eq(a.gridParam(grid, GridField::After, d), n(0));
+      if (fails) {
+        axis.clamped = either(undefined, either(both(below, noneBefore), both(above, noneAfter)));
+      }
+      // The window serves a time where it holds the stencil that the file gives it
+      // (placeTimeWindow() places it so up to the next update): the nodes [base + offset, base +
+      // offset + width - 1] from the base cell, or the nearest node. In the cells of the window,
+      // from the node the stencil reaches back from to the one it reaches on to, up to rounding.
+      const df::StencilKernel kernel = df::kernelOf(desc.interpolation);
+      const double reachBack = kernel.roundToNearest ? -0.5 : -static_cast<double>(kernel.offset);
+      const double reachOn = kernel.roundToNearest ? -0.5
+                                                   : static_cast<double>(kernel.width) - 2.0 +
+                                                         static_cast<double>(kernel.offset);
+      const NodeId early = lt(raw, k(reachBack - WindowTolerance));
+      const NodeId late = lt(a.pw(Fn::Add, top, k(WindowTolerance - reachOn), F64), raw);
+      axis.stale = either(both(early, eq(noneBefore, truth(false))),
+                          both(late, eq(noneAfter, truth(false))));
+    } else if (fails) {
+      axis.clamped = either(either(below, undefined), above);
     }
 
     if (desc.interpolation == df::Interpolation::Nearest) {
       // half away from zero, as std::lround
-      axis.start = a.pw(Fn::Round, clampedRaw, F64);
+      axis.start = whole(a.pw(Fn::Round, clampedRaw, F64));
       axis.weights = {k(1)};
       return axis;
     }
 
     // the base cell is the last one with a right neighbour: a coordinate on the last node is s = 1
     // in the cell before
-    const NodeId twoNodes = le(k(2), num);
-    const NodeId maxBase = choose(twoNodes, sub(num, k(2)), k(0));
-    const NodeId lower = a.pw(Fn::Floor, clampedRaw, F64);
+    const NodeId twoNodes = le(n(2), num);
+    const NodeId maxBase = choose(twoNodes, isub(num, n(2)), n(0), I64);
+    const NodeId lowerReal = a.pw(Fn::Floor, clampedRaw, F64);
+    const NodeId lower = whole(lowerReal);
     const NodeId past = lt(maxBase, lower);
-    const NodeId index = choose(past, maxBase, lower);
-    const NodeId s = choose(past, choose(twoNodes, k(1), k(0)), ssub(clampedRaw, lower));
+    const NodeId index = choose(past, maxBase, lower, I64);
+    const NodeId s =
+        choose(past, choose(twoNodes, k(1), k(0), F64), ssub(clampedRaw, lowerReal), F64);
     const NodeId oneMinusS = ssub(k(1), s);
 
     if (desc.interpolation == df::Interpolation::Linear) {
@@ -241,16 +293,17 @@ class Expander {
     // cubic: four nodes from the one before the base cell, moved inside the axis at its ends,
     // where the weights fall back to linear ones between the base and its neighbour
     const df::StencilKernel kernel = df::kernelOf(desc.interpolation);
-    const auto width = static_cast<double>(kernel.width);
-    const NodeId fourNodes = le(k(width), num);
-    const NodeId maxStart = sub(num, k(width));
-    const NodeId first = choose(fourNodes, add(index, k(static_cast<double>(kernel.offset))), k(0));
-    const NodeId start =
-        choose(lt(first, k(0)),
-               k(0),
-               choose(lt(maxStart, first), choose(lt(k(0), maxStart), maxStart, k(0)), first));
-    const NodeId slot = sub(index, start);
-    const NodeId full = both(fourNodes, eq(slot, k(static_cast<double>(-kernel.offset))));
+    const auto width = static_cast<std::int64_t>(kernel.width);
+    const NodeId fourNodes = le(n(width), num);
+    const NodeId maxStart = isub(num, n(width));
+    const NodeId first = choose(fourNodes, iadd(index, n(kernel.offset)), n(0), I64);
+    const NodeId start = choose(
+        lt(first, n(0)),
+        n(0),
+        choose(lt(maxStart, first), choose(lt(n(0), maxStart), maxStart, n(0), I64), first, I64),
+        I64);
+    const NodeId slot = isub(index, start);
+    const NodeId full = both(fourNodes, eq(slot, n(-kernel.offset)));
 
     // Keys' cubic convolution in the factored form of interpolationWeights()
     const NodeId s2 = smul(s, s);
@@ -263,28 +316,33 @@ class Expander {
     axis.start = start;
     for (std::size_t j = 0; j < cubic.size(); ++j) {
       // linearFallbackWeights(): 1 - s at the base, s at its neighbour
-      const NodeId fallback = choose(eq(slot, k(static_cast<double>(j))),
-                                     oneMinusS,
-                                     choose(eq(slot, k(static_cast<double>(j) - 1)), s, k(0)));
-      axis.weights.push_back(choose(full, cubic[j], fallback));
+      const auto node = static_cast<std::int64_t>(j);
+      const NodeId fallback =
+          choose(eq(slot, n(node)), oneMinusS, choose(eq(slot, n(node - 1)), s, k(0), F64), F64);
+      axis.weights.push_back(choose(full, cubic[j], fallback, F64));
     }
     return axis;
   }
 
-  /// The tensor product over the axes from `d` on, of the elements from `offset` on: the sum over
-  /// the last axis innermost, each sum from zero in the order of its nodes, as the reduction of
-  /// sampleBatch() forms them.
-  NodeId reduce(GridId grid, const std::vector<Axis>& axes, std::size_t d, NodeId offset) {
+  /// The tensor product over the axes from `d` on, of the elements of component `component` from
+  /// `offset` on: the sum over the last axis innermost, each sum from zero in the order of its
+  /// nodes, as the reduction of sampleBatch() forms them.
+  NodeId reduce(GridId grid,
+                std::int32_t component,
+                const std::vector<Axis>& axes,
+                std::size_t d,
+                NodeId offset) {
     Arena& a = arena();
     const Axis& axis = axes[d];
     NodeId sum = k(0);
     for (std::size_t i = 0; i < axis.weights.size(); ++i) {
       // only the upper end needs a clamp: the start is not negative
-      const NodeId shifted = i == 0 ? axis.start : add(axis.start, k(static_cast<double>(i)));
-      const NodeId node = a.pw(Fn::Min, shifted, axis.top, F64);
-      const NodeId at = add(offset, mul(node, axis.stride));
-      const NodeId value =
-          d + 1 == axes.size() ? a.gridLoad(grid, at) : reduce(grid, axes, d + 1, at);
+      const NodeId shifted =
+          i == 0 ? axis.start : iadd(axis.start, n(static_cast<std::int64_t>(i)));
+      const NodeId along = imul(imin(shifted, axis.top), axis.stride);
+      const NodeId at = d == 0 ? along : iadd(offset, along);
+      const NodeId value = d + 1 == axes.size() ? a.gridLoad(grid, component, at)
+                                                : reduce(grid, component, axes, d + 1, at);
       sum = sadd(sum, smul(axis.weights[i], value));
     }
     return sum;
@@ -347,8 +405,29 @@ double gridField(const df::ArrayView& view, GridField field, std::int32_t axis) 
     return static_cast<double>(view.stride[d]);
   case GridField::ComponentStride:
     return static_cast<double>(view.componentStride);
+  case GridField::Before:
+    return static_cast<double>(view.before[d]);
+  case GridField::After:
+    return static_cast<double>(view.after[d]);
   }
   return 0.0;
+}
+
+void reportCheck(CheckKind kind, const std::string& path) {
+  switch (kind) {
+  case CheckKind::Outside:
+    logError() << "expr: a point sampled the grid" << path
+               << "beyond its volume, where its boundary mode is to fail.";
+    return;
+  case CheckKind::Window:
+    logError() << "expr: a point sampled the time-dependent grid" << path
+               << "at a time its window does not hold, where the file goes on. The window holds"
+               << "the slices of the times from one synchronization point to the next: a script"
+               << "that samples the grid at other times (t + 1, say) needs all slices of the file"
+               << "resident (residentslices in &datafield); otherwise, SeisSol did not move the"
+               << "window in time.";
+    return;
+  }
 }
 
 } // namespace seissol::expr

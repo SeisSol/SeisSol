@@ -55,10 +55,7 @@ class StoreArrays final : public GridArrays {
     return *view;
   }
 
-  void outside(GridId grid) const override {
-    logError() << "expr: a point sampled the grid" << pathOf(grid)
-               << "beyond its volume, where its boundary mode is to fail.";
-  }
+  void report(GridId grid, CheckKind kind) const override { reportCheck(kind, pathOf(grid)); }
 
   private:
   [[nodiscard]] std::string pathOf(GridId grid) const {

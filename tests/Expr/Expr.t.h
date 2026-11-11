@@ -452,6 +452,56 @@ TEST_SUITE("Expr::Lower") {
     CHECK(lowered.precompute().persistent.size() == 1);
   }
 
+  TEST_CASE("the indices of a lookup are whole numbers and its conditions truth values") {
+    // the cells, the clamps and the offsets of a written-out lookup compute in I64 and Bool, the
+    // weights and the sums in binary64; the element loads take whole offsets
+    Program p;
+    p.addInput("x", DT::F64);
+    p.addInput("y", DT::F64);
+    Arena& a = p.arena();
+    reader::datafield::GridDesc desc;
+    desc.interpolation = reader::datafield::Interpolation::Cubic;
+    const GridId g = p.internGrid(desc);
+    const std::vector<NodeId> at = {a.field("x"), a.field("y")};
+    p.addOutput("u", DT::F64, a.lookup(g, 0, at));
+    validate(p);
+    const LoweredProgram lowered = lower(p);
+    const auto typed = [&](ComputeType type) {
+      return std::count_if(lowered.run().code.begin(),
+                           lowered.run().code.end(),
+                           [type](const Instruction& i) { return i.type == type; });
+    };
+    CHECK(typed(ComputeType::I64) > 0);
+    CHECK(typed(ComputeType::Bool) > 0);
+    for (const Instruction& inst : lowered.run().code) {
+      if (inst.op == Opcode::GridLoad) {
+        const std::int32_t offset = lowered.operands()[inst.operandBegin];
+        CHECK(lowered.run().slotTypes[static_cast<std::size_t>(offset)] == ComputeType::I64);
+      }
+    }
+
+    // a second component at the same coordinates loads its elements at the same offsets, shifted
+    // by the load: none of the arithmetic of the stencil is repeated
+    Program q;
+    q.addInput("x", DT::F64);
+    q.addInput("y", DT::F64);
+    Arena& b = q.arena();
+    const GridId h = q.internGrid(desc);
+    const std::vector<NodeId> bt = {b.field("x"), b.field("y")};
+    q.addOutput("u", DT::F64, b.lookup(h, 0, bt));
+    q.addOutput("v", DT::F64, b.lookup(h, 1, bt));
+    validate(q);
+    const LoweredProgram both = lower(q);
+    CHECK(countOpcode(both.run(), Opcode::GridLoad) ==
+          2 * countOpcode(lowered.run(), Opcode::GridLoad));
+    const auto wholeOps = [](const LoweredProgram& l) {
+      return std::count_if(l.run().code.begin(), l.run().code.end(), [](const Instruction& i) {
+        return i.type == ComputeType::I64 || i.type == ComputeType::Bool;
+      });
+    };
+    CHECK(wholeOps(both) == wholeOps(lowered));
+  }
+
   TEST_CASE("an updating grid is not hoisted even when its coordinates are") {
     Program p;
     p.addInput("x", DT::F64);

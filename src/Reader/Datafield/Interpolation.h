@@ -63,6 +63,11 @@ struct ArrayView {
   unsigned num[MaxGridDimensions]{};
   /// Element stride along each grid axis.
   std::size_t stride[MaxGridDimensions]{};
+  /// Slices of the file along each axis that lie before and after the resident ones: none but on
+  /// the time axis of a grid with a window. A written-out lookup checks with them that the window
+  /// serves its time (expandLookups()); the sampling here does not read them.
+  std::size_t before[MaxGridDimensions]{};
+  std::size_t after[MaxGridDimensions]{};
   /// Element stride between consecutive components of one grid point.
   std::size_t componentStride{1};
 };

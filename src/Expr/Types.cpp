@@ -165,8 +165,8 @@ class Typer {
         break;
       case Kind::GridParam:
       case Kind::GridLoad:
-        // the parts of a written-out lookup are in binary64
-        types_[index] = ValueType::F64;
+        // the parts of a written-out lookup have the types they were made with
+        types_[index] = node.type;
         break;
       default: {
         // one type for all operands
@@ -190,7 +190,7 @@ class Typer {
   }
 
   [[nodiscard]] static std::uint64_t keyOf(NodeId id, ValueType type) {
-    return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(id)) << 2U) |
+    return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(id)) << 3U) |
            static_cast<std::uint64_t>(type);
   }
 
@@ -294,7 +294,7 @@ class Typer {
     case Kind::GridParam:
       return arena.gridParam(node.grid, static_cast<GridField>(node.comp), node.axis);
     case Kind::GridLoad:
-      return arena.gridLoad(node.grid, operand(node.a, ValueType::F64));
+      return arena.gridLoad(node.grid, node.comp, operand(node.a, ValueType::I64));
     }
     fail(std::string("node kind '") + name(node.kind) + "' has no type");
   }
@@ -359,6 +359,10 @@ ComputeType resolve(ValueType type, ComputeType computeType) {
     return ComputeType::F32;
   case ValueType::F64:
     return ComputeType::F64;
+  case ValueType::I64:
+    return ComputeType::I64;
+  case ValueType::Bool:
+    return ComputeType::Bool;
   }
   return computeType;
 }

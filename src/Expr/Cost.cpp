@@ -10,9 +10,11 @@
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace seissol::expr {
 
@@ -78,9 +80,32 @@ Class classify(Fn fn) {
   return Class::Additive;
 }
 
-StageCost countStage(const Program& program, const StageCode& stage) {
+bool whole(ComputeType type) { return type == ComputeType::I64 || type == ComputeType::Bool; }
+
+StageCost countStage(const Program& program,
+                     const StageCode& stage,
+                     const std::vector<std::int32_t>& operands) {
   StageCost costs;
+  const auto typeOf = [&](std::int32_t slot) {
+    return static_cast<std::size_t>(slot) < stage.slotTypes.size()
+               ? stage.slotTypes[static_cast<std::size_t>(slot)]
+               : ComputeType::F64;
+  };
   for (const Instruction& inst : stage.code) {
+    // an operation on whole numbers or truth values, or a conversion from or into them: an integer
+    // instruction; a comparison of floating-point numbers into a truth value is none, nor is the
+    // choice between floating-point numbers by one
+    bool integer = false;
+    if (inst.op == Opcode::Convert) {
+      integer = whole(inst.type) || whole(typeOf(operands[inst.operandBegin]));
+    } else if (inst.op == Opcode::Pw) {
+      integer = inst.type == ComputeType::I64 ||
+                (inst.type == ComputeType::Bool && whole(typeOf(operands[inst.operandBegin])));
+    }
+    if (integer) {
+      ++costs.integer;
+      continue;
+    }
     switch (inst.op) {
     case Opcode::Const:
       // Materialised into an immediate by every backend, and by the interpreter
@@ -151,6 +176,9 @@ std::string ProgramCost::summary(ComputeType type) const {
     if (costs.fma > 0) {
       out << ", " << costs.fma << " fma";
     }
+    if (costs.integer > 0) {
+      out << ", " << costs.integer << " int";
+    }
     if (costs.gridLoads > 0) {
       out << ", " << costs.gridLoads << " grid loads";
     }
@@ -168,13 +196,14 @@ std::string ProgramCost::summary(ComputeType type) const {
 
 ProgramCost cost(const Program& program, const LoweredProgram& lowered, ComputeType /*type*/) {
   ProgramCost costs;
-  costs.precompute = countStage(program, lowered.precompute());
-  costs.run = countStage(program, lowered.run());
+  costs.precompute = countStage(program, lowered.precompute(), lowered.operands());
+  costs.run = countStage(program, lowered.run(), lowered.operands());
   return costs;
 }
 
 std::uint64_t flopsPerPoint(const Program& program) {
-  return countStage(program, lower(program).run()).flops();
+  const LoweredProgram lowered = lower(program);
+  return countStage(program, lowered.run(), lowered.operands()).flops();
 }
 
 } // namespace seissol::expr

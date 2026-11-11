@@ -10,6 +10,7 @@
 #include "Expr/Binding.h"
 #include "Expr/Codegen.h"
 #include "Expr/Cost.h"
+#include "Expr/Expand.h"
 #include "Expr/Interp.h"
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
@@ -93,20 +94,26 @@ std::string cpuGridParam(GridId grid, GridField field, std::int32_t axis) {
   case GridField::DeltaInv:
     return g + "deltaInv" + a;
   case GridField::Num:
-    return "(double)" + g + "num" + a;
+    return g + "num" + a;
   case GridField::Stride:
-    return "(double)" + g + "stride" + a;
+    return g + "stride" + a;
   case GridField::ComponentStride:
-    return "(double)" + g + "componentStride";
+    return g + "componentStride";
+  case GridField::Before:
+    return g + "before" + a;
+  case GridField::After:
+    return g + "after" + a;
   }
-  return "0.0";
+  return "0";
 }
-std::string cpuGridLoad(GridId grid, const std::string& offset) {
+std::string cpuGridLoad(GridId grid, std::int32_t component, const std::string& offset) {
   const std::string g = std::to_string(grid);
-  return "seissol_expr_load" + g + "(&grids[" + g + "], " + offset + ")";
+  return "seissol_expr_load" + g + "(&grids[" + g + "], " + offset + ", " +
+         std::to_string(component) + ")";
 }
-std::string cpuStoreCheck(GridId grid, const std::string& value) {
-  return "if ((" + value + ") != 0) { grids[" + std::to_string(grid) + "].outside = 1; }";
+std::string cpuStoreCheck(GridId grid, CheckKind kind, const std::string& value) {
+  return "if (" + value + ") { grids[" + std::to_string(grid) + "]." +
+         (kind == CheckKind::Window ? "stale" : "outside") + " = 1; }";
 }
 
 /// The element types of the arrays of the grids, by GridId: baked into the source, hence part of
@@ -808,9 +815,11 @@ class RtcCpuKernel final : public Kernel {
       }
     }
     for (std::size_t g = 0; g < grids_.size(); ++g) {
+      if (descriptors_[g].stale != 0) {
+        reportCheck(CheckKind::Window, gridPaths_[g]);
+      }
       if (descriptors_[g].outside != 0) {
-        logError() << "expr: a point sampled the grid" << gridPaths_[g]
-                   << "beyond its volume, where its boundary mode is to fail.";
+        reportCheck(CheckKind::Outside, gridPaths_[g]);
       }
     }
   }
@@ -915,6 +924,7 @@ std::string emitCpuSourceFor(const Program& program,
   // contraction of floating-point expressions anyway (-ffp-contract=off)
   std::vector<reader::datafield::ElementType> elements = gridElements;
   elements.resize(program.grids().size(), reader::datafield::ElementType::Double);
+  codegen::emitIntegerType(out, false);
   codegen::emitGridDescriptor(
       out, elements, lowered.gridUses(), "unsigned long long", "static inline", "");
   if (lowered.hasStrict()) {

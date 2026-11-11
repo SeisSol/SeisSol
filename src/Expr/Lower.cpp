@@ -253,13 +253,13 @@ class SlotAllocator {
   void release(NodeId id) {
     const std::int32_t s = slotOf_[id];
     if (s != NoSlot) {
-      free_[index(types_[s])].push_back(s);
+      free_.at(index(types_[s])).push_back(s);
       slotOf_[id] = NoSlot;
     }
   }
 
   std::int32_t allocate(NodeId id, ComputeType type) {
-    auto& free = free_[index(type)];
+    auto& free = free_.at(index(type));
     std::int32_t s = 0;
     if (free.empty()) {
       s = static_cast<std::int32_t>(types_.size());
@@ -276,10 +276,10 @@ class SlotAllocator {
   [[nodiscard]] const std::vector<ComputeType>& types() const { return types_; }
 
   private:
-  static std::size_t index(ComputeType type) { return type == ComputeType::F32 ? 0 : 1; }
+  static std::size_t index(ComputeType type) { return static_cast<std::size_t>(type); }
 
   std::vector<std::int32_t> slotOf_;
-  std::array<std::vector<std::int32_t>, 2> free_;
+  std::array<std::vector<std::int32_t>, 4> free_;
   std::vector<ComputeType> types_;
 };
 
@@ -363,6 +363,7 @@ class Emitter {
         case Kind::GridLoad:
           inst.op = Opcode::GridLoad;
           inst.grid = node.grid;
+          inst.comp = node.comp;
           break;
         case Kind::Contract:
           inst.op = Opcode::Contract;
@@ -544,8 +545,9 @@ std::string LoweredProgram::dump() const {
     out += title;
     out += " (slots=" + std::to_string(s.slotCount) + ")\n";
     for (const Instruction& i : s.code) {
-      out += "  t" + std::to_string(i.dst) + (i.type == ComputeType::F32 ? ":f32" : ":f64") +
-             " = " + name(i.op);
+      const char* types[] = {":f32", ":f64", ":i64", ":bool"};
+      out += "  t" + std::to_string(i.dst) + types[static_cast<std::size_t>(i.type)] + " = " +
+             name(i.op);
       if (i.op == Opcode::Pw) {
         out += std::string(" ") + name(i.fn);
       }
@@ -563,7 +565,7 @@ std::string LoweredProgram::dump() const {
                std::to_string(i.imm) + "]";
       }
       if (i.op == Opcode::GridLoad) {
-        out += " g" + std::to_string(i.grid);
+        out += " g" + std::to_string(i.grid) + ":" + std::to_string(i.comp);
       }
       if (i.strict) {
         out += " strict";
@@ -582,8 +584,10 @@ std::string LoweredProgram::dump() const {
     for (const Store& st : s.persistent) {
       out += "  p[" + std::to_string(st.target) + "] <- t" + std::to_string(st.source) + "\n";
     }
-    for (const Store& st : s.checks) {
-      out += "  check g" + std::to_string(st.target) + " <- t" + std::to_string(st.source) + "\n";
+    for (const CheckStore& st : s.checks) {
+      out += "  check g" + std::to_string(st.grid) +
+             (st.kind == CheckKind::Window ? " window" : " outside") + " <- t" +
+             std::to_string(st.source) + "\n";
     }
   };
   stage("precompute", precompute_);
@@ -615,9 +619,9 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
   const Arena& arena = program.arena();
   const ChannelMap channels(program);
   const Analysis an = analyse(program, options, channels, expanded.checks);
-  // The type the hoisted values are kept in: a value in binary64 is hoisted only where the data
-  // moves in binary64, so that keeping it loses nothing -- e.g. the weights of a lookup, which
-  // are in binary64 also in a program of binary32.
+  // The type the hoisted values are kept in: a value in binary64 or a whole number is hoisted only
+  // where the data moves in binary64, so that keeping it loses nothing -- e.g. the weights and the
+  // offsets of a lookup, which are so also in a program of binary32.
   const ComputeType data = dataType(untyped);
 
   // Backward sweep from the stores. A value that is invariant and expensive
@@ -639,8 +643,9 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
     // materialising one would spend numPoints * sizeof(ComputeType) of
     // persistent memory to cache a number; the right treatment for a
     // constant-only subtree is constant folding at the frontend, not hoisting.
-    const bool keepable = data == ComputeType::F64 ||
-                          resolve(arena[id].type, program.computeType()) == ComputeType::F32;
+    const ComputeType type = resolve(arena[id].type, program.computeType());
+    const bool keepable =
+        data == ComputeType::F64 || type == ComputeType::F32 || type == ComputeType::Bool;
     if (an.invariant[id] != 0 && an.space[id] == Space::Point &&
         an.cost[id] >= options.hoistThreshold && keepable) {
       hoisted[id] = 1;
@@ -762,7 +767,7 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
     }
     for (const GridCheck& check : expanded.checks) {
       out.run_.checks.push_back(
-          Store{check.grid, emitter.liveOutSlot(check.root), an.space[check.root]});
+          CheckStore{check.grid, check.kind, emitter.liveOutSlot(check.root)});
     }
   }
 

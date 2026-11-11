@@ -180,14 +180,18 @@ it moves at synchronization points as the simulation advances. For example, the 
 How long the windows are is set in the ``&datafield`` block of the parameter file:
 ``windowmemory`` (MiB for all of them per rank, by default 1024) or ``residentslices`` (slices
 per window); the time between synchronization points follows from them and from the time step of
-the file. The grid computes its indices and its samples in binary64, as easi's ASAGI component
-does, whatever the precision of the script: the coordinates are converted to binary64, and the
-sample back to the precision of the script. SeisSol writes a sample out as the operations it
-consists of -- the cells and the weights of the stencil, the elements and their products -- so the
-compiled CPU kernels, the kernels on a GPU and the interpreter all compute it the same way, to the
-same bits, and two samples of one grid at the same point (``m_rho`` and ``m_mu``, say) share the
-cells and the weights. On a GPU, the kernel reads a copy of the grid on the device, which SeisSol
-makes when it prepares the kernel and updates where the window moves.
+the file. The grid computes its samples in binary64, as easi's ASAGI component does, whatever the
+precision of the script: the coordinates are converted to binary64, and the sample back to the
+precision of the script; the cells and the positions of the elements it reads are whole numbers.
+SeisSol writes a sample out as the operations it consists of -- the cells and the weights of the
+stencil, the elements and their products -- so the compiled CPU kernels, the kernels on a GPU and
+the interpreter all compute it the same way, to the same bits, and two samples of one grid at the
+same point (``m_rho`` and ``m_mu``, say) share the cells, the weights and the positions. On a GPU,
+the kernel reads a copy of the grid on the device, which SeisSol makes when it prepares the kernel
+and updates where the window moves. The window holds the slices of the times from one
+synchronization point to the next, and a sample checks that it holds those its time needs: a script
+that samples the grid at other times (``w_v1(t + 0.5)``, say) stops the run with an error, unless
+``residentslices`` keeps all slices of the file in memory.
 
 The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
 ``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They

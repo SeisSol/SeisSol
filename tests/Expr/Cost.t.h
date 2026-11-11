@@ -77,6 +77,15 @@ TEST_SUITE("ExprCost") {
     // a sum of eight products, and per axis two weights from the coordinate
     CHECK(costs.run.multiplicative >= 8 + 3);
     CHECK(costs.run.additive >= 8 + 3 * 3);
+    // the cells, the clamps and the offsets in whole numbers and truth values: operations, but no
+    // floating-point ones
+    CHECK(costs.run.integer > 0);
+    CHECK(costs.run.operations() == costs.run.additive + costs.run.multiplicative +
+                                        costs.run.divisions + costs.run.transcendentals +
+                                        costs.run.fma + costs.run.integer);
+    CHECK(flopsPerPoint(program) == costs.run.additive + costs.run.multiplicative +
+                                        costs.run.divisions + costs.run.transcendentals +
+                                        2 * costs.run.fma);
   }
 }
 } // namespace seissol::expr::test

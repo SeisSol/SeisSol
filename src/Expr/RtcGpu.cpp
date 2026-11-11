@@ -9,6 +9,7 @@
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
 #include "Expr/Codegen.h"
+#include "Expr/Expand.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
 #include "Reader/Datafield/Grid.h"
@@ -136,22 +137,28 @@ std::string gpuGridParam(GridId grid, GridField field, std::int32_t axis) {
   case GridField::DeltaInv:
     return g + "deltaInv" + at;
   case GridField::Num:
-    return "(double)" + g + "num" + at;
+    return g + "num" + at;
   case GridField::Stride:
-    return "(double)" + g + "stride" + at;
+    return g + "stride" + at;
   case GridField::ComponentStride:
-    return "(double)" + g + "componentStride";
+    return g + "componentStride";
+  case GridField::Before:
+    return g + "before" + at;
+  case GridField::After:
+    return g + "after" + at;
   }
-  return "0.0";
+  return "0";
 }
-std::string gpuGridLoad(GridId grid, const std::string& offset) {
+std::string gpuGridLoad(GridId grid, std::int32_t component, const std::string& offset) {
   const std::string g = std::to_string(grid);
-  return "seissol_expr_load" + g + "(a->grid" + g + ", " + offset + ")";
+  return "seissol_expr_load" + g + "(a->grid" + g + ", " + offset + ", " +
+         std::to_string(component) + ")";
 }
-std::string gpuStoreCheck(GridId grid, const std::string& value) {
+std::string gpuStoreCheck(GridId grid, CheckKind kind, const std::string& value) {
   // a store of the same value from every thread that finds one; whoever keeps the descriptor
   // reports
-  return "if ((" + value + ") != 0) { a->grid" + std::to_string(grid) + "->outside = 1; }";
+  return "if (" + value + ") { a->grid" + std::to_string(grid) + "->" +
+         (kind == CheckKind::Window ? "stale" : "outside") + " = 1; }";
 }
 
 /// OpenCL C needs an address space on every pointer that reaches global
@@ -187,6 +194,8 @@ void emitPrologue(std::ostringstream& out, GpuTarget target) {
   // 32-bit on a Windows host and is not an OpenCL C type at all.
   out << "typedef " << (target == GpuTarget::OpenCl ? "ulong" : "unsigned long long")
       << " SeissolU64;\n\n";
+  // and one for the whole numbers a program computes with (ComputeType::I64)
+  codegen::emitIntegerType(out, target == GpuTarget::OpenCl);
 
   out << "// Lane indexing, factored out so the same source can be compiled and RUN on\n"
       << "// the host by a test that defines these differently. That is how the\n"

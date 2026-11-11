@@ -18,6 +18,7 @@
 
 #include <doctest.h>
 
+#include "Expr/Expand.h"
 #include "Expr/Interp.h"
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
@@ -26,6 +27,7 @@
 #include "Reader/Datafield/Interpolation.h"
 #include "TestHelper.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -61,7 +63,10 @@ class TestGrids final : public GridArrays {
   [[nodiscard]] const reader::datafield::ArrayView& array(GridId grid) const override {
     return views_.at(static_cast<std::size_t>(grid));
   }
-  void outside(GridId /*grid*/) const override { FAIL("no grid here fails beyond its volume"); }
+  void report(GridId /*grid*/, CheckKind kind) const override {
+    FAIL((kind == CheckKind::Window ? "no grid here has a window"
+                                    : "no grid here fails beyond its volume"));
+  }
 
   static reader::datafield::GridDesc desc(GridId grid) {
     reader::datafield::GridDesc desc;
@@ -551,6 +556,132 @@ TEST_SUITE("Expr::Interp") {
         static_cast<std::size_t>(lowered.persistentSlotCount()) * numPoints, 0.0F);
     interp.run(io, numPoints, persistent.data());
     CHECK_FALSE(firstDifference(expected, outputs).any);
+  }
+
+  TEST_CASE("a lookup at a time the window of a grid does not hold is reported") {
+    // A grid over x and the time (axis 1) whose resident window holds four slices of its file, at
+    // the times 10 to 11.5, with `before` slices of the file before it and `after` after it. A time
+    // beyond the window where the file goes on is an error of the update (CheckKind::Window); one
+    // beyond the file is clamped onto it, or, where the grid fails there, outside it.
+    class WindowGrid final : public GridArrays {
+  public:
+      WindowGrid(std::size_t before, std::size_t after) {
+        view_.type = reader::datafield::ElementType::Double;
+        view_.dimensions = 2;
+        view_.components = 1;
+        view_.componentStride = 1;
+        view_.min[0] = 0.0;
+        view_.deltaInv[0] = 1.0;
+        view_.num[0] = 3;
+        view_.stride[0] = 1;
+        view_.min[1] = 10.0;
+        view_.deltaInv[1] = 2.0;
+        view_.num[1] = 4;
+        view_.stride[1] = 3;
+        view_.before[1] = before;
+        view_.after[1] = after;
+        for (std::size_t i = 0; i < data_.size(); ++i) {
+          data_[i] = static_cast<double>(i);
+        }
+        view_.data = data_.data();
+      }
+      [[nodiscard]] const reader::datafield::ArrayView& array(GridId /*grid*/) const override {
+        return view_;
+      }
+      void report(GridId /*grid*/, CheckKind kind) const override { reports.push_back(kind); }
+
+      mutable std::vector<CheckKind> reports;
+
+  private:
+      reader::datafield::ArrayView view_{};
+      std::array<double, 12> data_{};
+    };
+
+    const auto sample = [](reader::datafield::BoundaryMode boundary,
+                           std::size_t before,
+                           std::size_t after,
+                           double time,
+                           std::vector<CheckKind>& reports,
+                           reader::datafield::Interpolation interpolation =
+                               reader::datafield::Interpolation::Linear) {
+      Program program;
+      program.addInput("x", DT::F64);
+      program.addInput("t", DT::F64);
+      Arena& arena = program.arena();
+      reader::datafield::GridDesc desc;
+      desc.path = "paddle.nc";
+      desc.interpolation = interpolation;
+      desc.boundary = boundary;
+      desc.timeAxis = 1;
+      const GridId grid = program.internGrid(desc);
+      program.addOutput("u", DT::F64, arena.lookup(grid, 0, {arena.field("x"), arena.field("t")}));
+      validate(program);
+
+      const WindowGrid grids(before, after);
+      const std::vector<double> inputs = {1.0, time};
+      std::vector<double> outputs(1, 0.0);
+      ArrayTileIo<double> io(inputs, outputs, 1, 2, 1);
+      const LoweredProgram lowered = lower(program);
+      TileInterpreter<double> interp(program, lowered, &grids, InterpreterOptions{});
+      std::vector<double> persistent(
+          std::max<std::size_t>(static_cast<std::size_t>(lowered.persistentSlotCount()), 1), 0.0);
+      interp.run(io, 1, persistent.data());
+      reports = grids.reports;
+      return outputs[0];
+    };
+
+    using reader::datafield::BoundaryMode;
+    std::vector<CheckKind> reports;
+    // whether the checks reported just `kinds`
+    const auto reported = [&reports](std::vector<CheckKind> kinds) { return reports == kinds; };
+    for (const auto boundary : {BoundaryMode::Clamp, BoundaryMode::Fail}) {
+      CAPTURE(static_cast<int>(boundary));
+      const bool fails = boundary == BoundaryMode::Fail;
+      // within the window: the sample, linear in time between the slices 1 and 2 at x = 1
+      CHECK(sample(boundary, 2, 2, 10.75, reports) == 0.5 * 4.0 + 0.5 * 7.0);
+      CHECK(reports.empty());
+      // on its end, and within a thousandth of a step beyond it
+      CHECK(sample(boundary, 2, 2, 11.5, reports) == 10.0);
+      CHECK(reports.empty());
+      sample(boundary, 2, 2, 11.5 + 1e-5, reports);
+      CHECK(reports.empty());
+      // beyond it, where the file goes on
+      sample(boundary, 2, 2, 11.75, reports);
+      CHECK(reported({CheckKind::Window}));
+      sample(boundary, 2, 2, 9.75, reports);
+      CHECK(reported({CheckKind::Window}));
+      sample(boundary, 0, 2, 11.75, reports);
+      CHECK(reported({CheckKind::Window}));
+      // beyond the file: clamped, or outside a grid that fails there
+      const std::vector<CheckKind> beyond =
+          fails ? std::vector<CheckKind>{CheckKind::Outside} : std::vector<CheckKind>{};
+      CHECK(sample(boundary, 2, 0, 11.75, reports) == 10.0);
+      CHECK(reported(beyond));
+      CHECK(sample(boundary, 0, 2, 9.75, reports) == 1.0);
+      CHECK(reported(beyond));
+
+      // the cubic stencil reaches a node back and one on: the window serves the cells between its
+      // second and its third node (10.5 to 11), and from its ends on where the file ends there
+      const auto cubic = reader::datafield::Interpolation::Cubic;
+      sample(boundary, 2, 2, 10.75, reports, cubic);
+      CHECK(reports.empty());
+      sample(boundary, 2, 2, 11.0, reports, cubic);
+      CHECK(reports.empty());
+      sample(boundary, 2, 2, 11.25, reports, cubic);
+      CHECK(reported({CheckKind::Window}));
+      sample(boundary, 2, 2, 10.25, reports, cubic);
+      CHECK(reported({CheckKind::Window}));
+      sample(boundary, 0, 0, 10.25, reports, cubic);
+      CHECK(reports.empty());
+      sample(boundary, 0, 0, 11.25, reports, cubic);
+      CHECK(reports.empty());
+      // the nearest node: up to half a cell beyond either end
+      const auto nearest = reader::datafield::Interpolation::Nearest;
+      CHECK(sample(boundary, 2, 2, 11.7, reports, nearest) == 10.0);
+      CHECK(reports.empty());
+      sample(boundary, 2, 2, 11.8, reports, nearest);
+      CHECK(reported({CheckKind::Window}));
+    }
   }
 
   TEST_CASE("a program with a lookup but no grid arrays is rejected, not ignored") {

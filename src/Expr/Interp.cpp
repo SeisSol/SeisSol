@@ -130,9 +130,19 @@ std::size_t chooseTileSize(std::int32_t peakSlots, ComputeType type, std::size_t
 
 namespace {
 
-/// The bytes of a transient of `type` per lane.
+/// The bytes of a transient of `type` per lane: a truth value takes one (0 or 1).
 std::size_t widthOf(ComputeType type) {
-  return type == ComputeType::F32 ? sizeof(float) : sizeof(double);
+  switch (type) {
+  case ComputeType::F32:
+    return sizeof(float);
+  case ComputeType::F64:
+    return sizeof(double);
+  case ComputeType::I64:
+    return sizeof(std::int64_t);
+  case ComputeType::Bool:
+    return sizeof(std::uint8_t);
+  }
+  return sizeof(double);
 }
 
 /// The offsets of the transients of `stage` in the scratch of a tile of `lanes` lanes, in bytes,
@@ -213,24 +223,112 @@ void pwLanes(Fn fn,
   }
 }
 
-/// dst[l] = U(src[l]) for the lanes, from data of type V.
-template <typename U, typename V>
-void convertLanes(const V* __restrict src, U* __restrict dst, std::size_t count) {
+/// The lanes of a pointwise operation on whole numbers: those the written-out lookups compute (the
+/// minimum compares whole numbers, where the table's fmin would compute in binary64).
+void wholeLanes(Fn fn,
+                const std::int64_t* __restrict a0,
+                const std::int64_t* __restrict a1,
+                std::int64_t* __restrict dst,
+                std::size_t count) {
+  switch (fn) {
+  case Fn::Neg:
 #pragma omp simd
-  for (std::size_t l = 0; l < count; ++l) {
-    dst[l] = static_cast<U>(src[l]);
+    for (std::size_t l = 0; l < count; ++l) {
+      dst[l] = -a0[l];
+    }
+    return;
+  case Fn::Add:
+#pragma omp simd
+    for (std::size_t l = 0; l < count; ++l) {
+      dst[l] = a0[l] + a1[l];
+    }
+    return;
+  case Fn::Sub:
+#pragma omp simd
+    for (std::size_t l = 0; l < count; ++l) {
+      dst[l] = a0[l] - a1[l];
+    }
+    return;
+  case Fn::Mul:
+#pragma omp simd
+    for (std::size_t l = 0; l < count; ++l) {
+      dst[l] = a0[l] * a1[l];
+    }
+    return;
+  case Fn::Min:
+#pragma omp simd
+    for (std::size_t l = 0; l < count; ++l) {
+      dst[l] = a1[l] < a0[l] ? a1[l] : a0[l];
+    }
+    return;
+  case Fn::Max:
+#pragma omp simd
+    for (std::size_t l = 0; l < count; ++l) {
+      dst[l] = a0[l] < a1[l] ? a1[l] : a0[l];
+    }
+    return;
+  default:
+    fail(std::string("`") + name(fn) + "` does not compute on whole numbers");
   }
 }
 
-/// dst[l] = the element of the array `data` at offsets[l], a whole number.
+/// dst[l] = U(src[l]) for the lanes, from data of type V; into a truth value, whether it is not 0.
+template <typename U, typename V>
+void convertLanes(const V* __restrict src, U* __restrict dst, std::size_t count) {
+  if constexpr (std::is_same_v<U, std::uint8_t>) {
+#pragma omp simd
+    for (std::size_t l = 0; l < count; ++l) {
+      dst[l] = src[l] != V(0) ? 1 : 0;
+    }
+  } else {
+#pragma omp simd
+    for (std::size_t l = 0; l < count; ++l) {
+      dst[l] = static_cast<U>(src[l]);
+    }
+  }
+}
+
+/// dst[l] = the element of the array `data` at offsets[l] + shift.
 template <typename U, typename E>
 void gatherLanes(const void* data,
-                 const U* __restrict offsets,
+                 const std::int64_t* __restrict offsets,
+                 std::int64_t shift,
                  U* __restrict dst,
                  std::size_t count) {
   const auto* elements = static_cast<const E*>(data);
   for (std::size_t l = 0; l < count; ++l) {
-    dst[l] = static_cast<U>(static_cast<double>(elements[static_cast<std::size_t>(offsets[l])]));
+    dst[l] = static_cast<U>(static_cast<double>(elements[offsets[l] + shift]));
+  }
+}
+
+/// The truth of `fn` (Lt, Le, Eq) for the lanes of two operands of type V.
+template <typename V>
+void compareLanes(Fn fn,
+                  const V* __restrict a,
+                  const V* __restrict b,
+                  std::uint8_t* __restrict dst,
+                  std::size_t count) {
+  switch (fn) {
+  case Fn::Lt:
+#pragma omp simd
+    for (std::size_t l = 0; l < count; ++l) {
+      dst[l] = a[l] < b[l] ? 1 : 0;
+    }
+    return;
+  case Fn::Le:
+#pragma omp simd
+    for (std::size_t l = 0; l < count; ++l) {
+      dst[l] = a[l] <= b[l] ? 1 : 0;
+    }
+    return;
+  case Fn::Eq:
+#pragma omp simd
+    for (std::size_t l = 0; l < count; ++l) {
+      dst[l] = a[l] == b[l] ? 1 : 0;
+    }
+    return;
+  default:
+    fail(std::string("`") + name(fn) + "` gives no truth value");
   }
 }
 
@@ -294,14 +392,25 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
     return scratchBase + offsets[static_cast<std::size_t>(slot)];
   };
 
-  // the slot `slot` into the data of type T at `dst`
-  const auto store = [&](std::int32_t slot, T* dst) {
-    if (typeOf(slot) == ComputeType::F32) {
+  // the lanes of the slot `slot`, in its type, converted into `dst`
+  const auto convertSlot = [&](std::int32_t slot, auto* dst) {
+    switch (typeOf(slot)) {
+    case ComputeType::F32:
       convertLanes(reinterpret_cast<const float*>(bytesOf(slot)), dst, count);
-    } else {
+      return;
+    case ComputeType::F64:
       convertLanes(reinterpret_cast<const double*>(bytesOf(slot)), dst, count);
+      return;
+    case ComputeType::I64:
+      convertLanes(reinterpret_cast<const std::int64_t*>(bytesOf(slot)), dst, count);
+      return;
+    case ComputeType::Bool:
+      convertLanes(reinterpret_cast<const std::uint8_t*>(bytesOf(slot)), dst, count);
+      return;
     }
   };
+  // the slot `slot` into the data of type T at `dst`
+  const auto store = [&](std::int32_t slot, T* dst) { convertSlot(slot, dst); };
 
   const auto arrayOf = [&](GridId grid) -> const reader::datafield::ArrayView& {
     if (grids_ == nullptr) {
@@ -349,59 +458,185 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
     }
     case Opcode::GridLoad: {
       const reader::datafield::ArrayView& view = arrayOf(inst.grid);
+      const std::int32_t source = operands[inst.operandBegin];
+      if (typeOf(source) != ComputeType::I64) {
+        fail("the offset of an element of a grid is no whole number");
+      }
+      const auto* offsets = reinterpret_cast<const std::int64_t*>(bytesOf(source));
+      const auto shift =
+          static_cast<std::int64_t>(inst.comp) * static_cast<std::int64_t>(view.componentStride);
       if (view.type == reader::datafield::ElementType::Float) {
-        gatherLanes<U, float>(view.data, operand(0), dst, count);
+        gatherLanes<U, float>(view.data, offsets, shift, dst, count);
       } else {
-        gatherLanes<U, double>(view.data, operand(0), dst, count);
+        gatherLanes<U, double>(view.data, offsets, shift, dst, count);
       }
       break;
     }
     case Opcode::Contract:
-      contractLanes<U>(
-          io.contraction(inst.matrix, inst.block), io.points(first), first, count, dst);
+      if constexpr (std::is_integral_v<U>) {
+        fail("a contraction computes on whole numbers");
+      } else {
+        contractLanes<U>(
+            io.contraction(inst.matrix, inst.block), io.points(first), first, count, dst);
+      }
       break;
     case Opcode::Pw: {
+      if (inst.fn == Fn::Select && typeOf(operands[inst.operandBegin]) == ComputeType::Bool) {
+        // a truth value chooses between operands of the type of the instruction
+        const auto* condition =
+            reinterpret_cast<const std::uint8_t*>(bytesOf(operands[inst.operandBegin]));
+        const U* const a1 = operand(1);
+        const U* const a2 = operand(2);
+#pragma omp simd
+        for (std::size_t l = 0; l < count; ++l) {
+          dst[l] = condition[l] != 0 ? a1[l] : a2[l];
+        }
+        break;
+      }
       const U* const a0 = operand(0);
       const U* const a1 = inst.operandCount > 1 ? operand(1) : a0;
       const U* const a2 = inst.operandCount > 2 ? operand(2) : a0;
-      pwLanes<U>(inst.fn, a0, a1, a2, dst, count);
-      break;
-    }
-    case Opcode::Convert: {
-      const std::int32_t source = operands[inst.operandBegin];
-      if (typeOf(source) == ComputeType::F32) {
-        convertLanes(reinterpret_cast<const float*>(bytesOf(source)), dst, count);
+      if constexpr (std::is_integral_v<U>) {
+        wholeLanes(inst.fn, a0, a1, dst, count);
       } else {
-        convertLanes(reinterpret_cast<const double*>(bytesOf(source)), dst, count);
+        pwLanes<U>(inst.fn, a0, a1, a2, dst, count);
       }
       break;
     }
+    case Opcode::Convert:
+      convertSlot(operands[inst.operandBegin], dst);
+      break;
     }
   };
 
+  // An instruction of type Bool: a comparison of operands in their own type, `and` and `or` of
+  // truth values, or a truth value chosen, converted, loaded or constant.
+  const auto executeBool = [&](const Instruction& inst) {
+    auto* const __restrict dst = reinterpret_cast<std::uint8_t*>(bytesOf(inst.dst));
+    const auto lanes = [&](std::int32_t k) { return bytesOf(operands[inst.operandBegin + k]); };
+    switch (inst.op) {
+    case Opcode::Const: {
+      const std::uint8_t value = inst.value != 0.0 ? 1 : 0;
+      for (std::size_t l = 0; l < count; ++l) {
+        dst[l] = value;
+      }
+      return;
+    }
+    case Opcode::LoadPersistent:
+      convertLanes(inst.imm < stateSlots_
+                       ? stateTile + static_cast<std::size_t>(inst.imm) * count
+                       : persistent + static_cast<std::size_t>(inst.imm - stateSlots_) * numPoints +
+                             first,
+                   dst,
+                   count);
+      return;
+    case Opcode::Convert:
+      convertSlot(operands[inst.operandBegin], dst);
+      return;
+    case Opcode::Pw:
+      switch (inst.fn) {
+      case Fn::Lt:
+      case Fn::Le:
+      case Fn::Eq:
+        switch (typeOf(operands[inst.operandBegin])) {
+        case ComputeType::F32:
+          compareLanes(inst.fn,
+                       reinterpret_cast<const float*>(lanes(0)),
+                       reinterpret_cast<const float*>(lanes(1)),
+                       dst,
+                       count);
+          return;
+        case ComputeType::F64:
+          compareLanes(inst.fn,
+                       reinterpret_cast<const double*>(lanes(0)),
+                       reinterpret_cast<const double*>(lanes(1)),
+                       dst,
+                       count);
+          return;
+        case ComputeType::I64:
+          compareLanes(inst.fn,
+                       reinterpret_cast<const std::int64_t*>(lanes(0)),
+                       reinterpret_cast<const std::int64_t*>(lanes(1)),
+                       dst,
+                       count);
+          return;
+        case ComputeType::Bool:
+          compareLanes(inst.fn,
+                       reinterpret_cast<const std::uint8_t*>(lanes(0)),
+                       reinterpret_cast<const std::uint8_t*>(lanes(1)),
+                       dst,
+                       count);
+          return;
+        }
+        return;
+      case Fn::And:
+      case Fn::Or: {
+        const auto* x = reinterpret_cast<const std::uint8_t*>(lanes(0));
+        const auto* y = reinterpret_cast<const std::uint8_t*>(lanes(1));
+        if (inst.fn == Fn::And) {
+#pragma omp simd
+          for (std::size_t l = 0; l < count; ++l) {
+            dst[l] = (x[l] != 0 && y[l] != 0) ? 1 : 0;
+          }
+        } else {
+#pragma omp simd
+          for (std::size_t l = 0; l < count; ++l) {
+            dst[l] = (x[l] != 0 || y[l] != 0) ? 1 : 0;
+          }
+        }
+        return;
+      }
+      case Fn::Select: {
+        const auto* condition = reinterpret_cast<const std::uint8_t*>(lanes(0));
+        const auto* x = reinterpret_cast<const std::uint8_t*>(lanes(1));
+        const auto* y = reinterpret_cast<const std::uint8_t*>(lanes(2));
+#pragma omp simd
+        for (std::size_t l = 0; l < count; ++l) {
+          dst[l] = condition[l] != 0 ? x[l] : y[l];
+        }
+        return;
+      }
+      default:
+        break;
+      }
+      break;
+    default:
+      break;
+    }
+    fail(std::string("an instruction of type bool computes `") + name(inst.op) + "`" +
+         (inst.op == Opcode::Pw ? std::string(" ") + name(inst.fn) : std::string()));
+  };
+
   for (const Instruction& inst : stage.code) {
-    if (inst.type == ComputeType::F32) {
+    switch (inst.type) {
+    case ComputeType::F32:
       execute(inst, 0.0F);
-    } else {
+      break;
+    case ComputeType::F64:
       execute(inst, 0.0);
+      break;
+    case ComputeType::I64:
+      execute(inst, std::int64_t{0});
+      break;
+    case ComputeType::Bool:
+      executeBool(inst);
+      break;
     }
   }
 
-  // A point that sampled a grid beyond its volume, where its boundary mode is to fail.
-  for (const Store& st : stage.checks) {
-    const auto anyOf = [&](const auto* values) {
-      for (std::size_t l = 0; l < count; ++l) {
-        if (values[l] != 0) {
-          return true;
-        }
-      }
-      return false;
-    };
-    const bool outside = typeOf(st.source) == ComputeType::F32
-                             ? anyOf(reinterpret_cast<const float*>(bytesOf(st.source)))
-                             : anyOf(reinterpret_cast<const double*>(bytesOf(st.source)));
-    if (outside && grids_ != nullptr) {
-      grids_->outside(st.target);
+  // A check of a lookup that found what its kind says at a point of the tile: a sample beyond a
+  // grid that fails there, or a time the window of a grid did not serve.
+  for (const CheckStore& check : stage.checks) {
+    if (typeOf(check.source) != ComputeType::Bool) {
+      fail("a check of a lookup is no truth value");
+    }
+    const auto* values = reinterpret_cast<const std::uint8_t*>(bytesOf(check.source));
+    bool found = false;
+    for (std::size_t l = 0; l < count && !found; ++l) {
+      found = values[l] != 0;
+    }
+    if (found && grids_ != nullptr) {
+      grids_->report(check.grid, check.kind);
     }
   }
 

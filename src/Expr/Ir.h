@@ -55,7 +55,15 @@ inline constexpr std::int32_t MaxLookupDimension = 6;
 // computed from it, until it is converted back (to Real). There is no implicit conversion: the
 // operands of an operation have one type, apart from literals, which take the type of the others
 // (see typed()). So a script is valid or not independently of the compute type it runs in.
-enum class ValueType : std::uint8_t { Real, F32, F64 };
+//
+// I64 and Bool are the lowering's, never a script's: a whole number (the indices and offsets of a
+// written-out lookup, exact as 64-bit integers where binary64 would cost a device with little
+// binary64 throughput dearly), and the truth value of a comparison, which a select takes as its
+// condition and `and` and `or` combine. A comparison of type Bool compares its operands in their
+// own type; a select with a Bool condition chooses between operands of its own type. Elsewhere the
+// operands of an operation have its type, as above; a comparison in a script stays 0 or 1 in the
+// type of its operands.
+enum class ValueType : std::uint8_t { Real, F32, F64, I64, Bool };
 
 const char* name(ValueType type);
 
@@ -78,16 +86,16 @@ enum class Kind : std::uint8_t {
   // The parts of a lookup once the lowering has written it out (expandLookups()), never in the
   // program of a frontend: a field of the geometry of a grid (Node::comp holds the GridField,
   // Node::axis the axis), the same at all points, read where and when the kernel runs; and the
-  // element of the array of a grid at the offset Node::a, a whole number in binary64. Both are in
+  // element of component Node::comp of the array of a grid at the offset Node::a (I64), in
   // binary64.
   GridParam,
   GridLoad
 };
 
-/// What a Kind::GridParam reads of the geometry of a grid (reader::datafield::ArrayView), in
-/// binary64 -- the whole numbers exactly, as every array SeisSol reads has fewer than 2^53
-/// elements.
-enum class GridField : std::uint8_t { Min, DeltaInv, Num, Stride, ComponentStride };
+/// What a Kind::GridParam reads of the geometry of a grid (reader::datafield::ArrayView): Min and
+/// DeltaInv in binary64, the others whole numbers (I64). Before and After are the slices of the
+/// file along an axis that are not resident: none but on the time axis of a grid with a window.
+enum class GridField : std::uint8_t { Min, DeltaInv, Num, Stride, ComponentStride, Before, After };
 
 const char* name(Kind kind);
 
@@ -259,10 +267,11 @@ class Arena {
   NodeId pw(Fn f, NodeId x, NodeId y, NodeId z, ValueType type = ValueType::Real);
   // A binary operation computed as written, without contraction (Node::strict).
   NodeId strictPw(Fn f, NodeId x, NodeId y, ValueType type);
-  // A field of the geometry of a grid, and the element of its array at `offset` (Kind::GridParam,
-  // Kind::GridLoad), in binary64.
+  // A field of the geometry of a grid, in its type (GridField), and the element of component
+  // `component` of its array at the whole number `offset`, in binary64 (Kind::GridParam,
+  // Kind::GridLoad).
   NodeId gridParam(GridId grid, GridField field, std::int32_t axis);
-  NodeId gridLoad(GridId grid, NodeId offset);
+  NodeId gridLoad(GridId grid, std::int32_t component, NodeId offset);
   NodeId lookup(GridId grid,
                 std::int32_t component,
                 const std::vector<NodeId>& coords,

@@ -151,8 +151,9 @@ class GridArrays {
   GridArrays& operator=(GridArrays&&) = delete;
 
   [[nodiscard]] virtual const reader::datafield::ArrayView& array(GridId grid) const = 0;
-  /// A point sampled `grid`, whose boundary mode fails beyond its volume, beyond it.
-  virtual void outside(GridId grid) const = 0;
+  /// A check of a lookup of `grid` found what `kind` says (CheckKind): a sample beyond the volume
+  /// of a grid that fails there, or a time the window of a time-dependent grid did not serve.
+  virtual void report(GridId grid, CheckKind kind) const = 0;
 };
 
 // Everything one contraction reads, resolved for one call: the matrix and the block with their

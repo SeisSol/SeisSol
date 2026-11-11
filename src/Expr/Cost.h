@@ -54,6 +54,10 @@ struct StageCost {
   /// loads of the tile. The arithmetic of a sample is written out (expandLookups()) and counted
   /// with the operations above.
   std::uint64_t gridLoads{0};
+  /// The operations on whole numbers and truth values (ComputeType::I64 and Bool): the indices,
+  /// offsets and conditions of the written-out lookups, and their conversions. Integer
+  /// instructions, counted with the operations, but not as floating-point operations.
+  std::uint64_t integer{0};
   /// The multiply-adds of the contractions, one per coefficient. A contraction
   /// also loads one matrix entry and one block coefficient per multiply-add,
   /// which are counted under `loads`.
@@ -63,7 +67,7 @@ struct StageCost {
   std::uint64_t stores{0};
 
   [[nodiscard]] std::uint64_t operations() const {
-    return additive + multiplicative + divisions + transcendentals + fma;
+    return additive + multiplicative + divisions + transcendentals + fma + integer;
   }
 
   /// The floating-point operations, as SeisSol counts them (monitoring::FlopCounter): an operation
@@ -81,7 +85,7 @@ struct StageCost {
   static constexpr std::uint64_t TranscendentalWeight = 20;
 
   [[nodiscard]] std::uint64_t weighted() const {
-    return additive + multiplicative + fma + DivisionWeight * divisions +
+    return additive + multiplicative + fma + integer + DivisionWeight * divisions +
            TranscendentalWeight * transcendentals;
   }
 

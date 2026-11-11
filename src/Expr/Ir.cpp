@@ -46,6 +46,10 @@ const char* name(ValueType type) {
     return "f32";
   case ValueType::F64:
     return "f64";
+  case ValueType::I64:
+    return "i64";
+  case ValueType::Bool:
+    return "bool";
   }
   return "?";
 }
@@ -123,7 +127,7 @@ bool NodeEq::operator()(const Node& x, const Node& y) const {
   case Kind::GridParam:
     return x.grid == y.grid && x.comp == y.comp && x.axis == y.axis;
   case Kind::GridLoad:
-    return x.grid == y.grid && x.a == y.a;
+    return x.grid == y.grid && x.comp == y.comp && x.a == y.a;
   }
   return false;
 }
@@ -188,6 +192,7 @@ std::size_t NodeHash::operator()(const Node& n) const {
     break;
   case Kind::GridLoad:
     h = mix(h, static_cast<std::size_t>(n.grid));
+    h = mix(h, static_cast<std::size_t>(n.comp));
     h = mix(h, static_cast<std::size_t>(n.a));
     break;
   }
@@ -356,18 +361,20 @@ NodeId Arena::strictPw(Fn f, NodeId x, NodeId y, ValueType type) {
 NodeId Arena::gridParam(GridId grid, GridField field, std::int32_t axis) {
   Node n;
   n.kind = Kind::GridParam;
-  n.type = ValueType::F64;
+  n.type =
+      field == GridField::Min || field == GridField::DeltaInv ? ValueType::F64 : ValueType::I64;
   n.grid = grid;
   n.comp = static_cast<std::int32_t>(field);
   n.axis = axis;
   return intern(n);
 }
 
-NodeId Arena::gridLoad(GridId grid, NodeId offset) {
+NodeId Arena::gridLoad(GridId grid, std::int32_t component, NodeId offset) {
   Node n;
   n.kind = Kind::GridLoad;
   n.type = ValueType::F64;
   n.grid = grid;
+  n.comp = component;
   n.a = offset;
   return intern(n);
 }

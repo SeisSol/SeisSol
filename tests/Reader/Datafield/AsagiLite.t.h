@@ -94,6 +94,14 @@ TEST_CASE("Datafield AsagiLite: a sliding window serves the times until the next
       CHECK(grid.revision() != revision);
     }
     revision = grid.revision();
+    // the view counts the slices of the file around the window (at t = 0, 1, ...), against which a
+    // written-out lookup checks that the window serves a time; the other axes are all resident
+    const df::ArrayView* view = grid.arrayView();
+    REQUIRE(view != nullptr);
+    CHECK(static_cast<double>(view->before[1]) == view->min[1]);
+    CHECK(view->before[1] + view->num[1] + view->after[1] == Slices);
+    CHECK(view->before[0] == 0);
+    CHECK(view->after[0] == 0);
     for (double time = update; time <= update + interval; time += 0.25) {
       CAPTURE(time);
       const double point[2] = {0.5, time};

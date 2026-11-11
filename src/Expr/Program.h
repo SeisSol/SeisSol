@@ -42,7 +42,11 @@ namespace seissol::expr {
 
 // The type every intermediate value is computed in. F32 exists for the
 // per-timestep GPU path, where fp64 throughput is 1/32–1/64 on most parts.
-enum class ComputeType : std::uint8_t { F32, F64 };
+//
+// I64 and Bool are the types of instructions and transients the lowering
+// introduces (ValueType::I64, ValueType::Bool), never the compute type of a
+// program, nor the type its data moves in.
+enum class ComputeType : std::uint8_t { F32, F64, I64, Bool };
 
 // The compute type of a program that a consumer evaluates per time step (or per output) on data of
 // the type `real`, i.e. in the precision of a configuration: binary32 on binary32 data, binary64

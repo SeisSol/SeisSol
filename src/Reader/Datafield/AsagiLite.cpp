@@ -616,6 +616,8 @@ AsagiLiteGrid::Error AsagiLiteGrid::advanceTo(double time) {
   }
   // view_.min on the time axis tracks the window, not the file.
   view_.min[axis] = timeOrigin_ + static_cast<double>(target.start) * delta_[0];
+  view_.before[axis] = target.start;
+  view_.after[axis] = numTimeSlices_ - target.start - target.count;
   ++revision_;
   return Error::Success;
 }
@@ -703,6 +705,8 @@ void AsagiLiteGrid::buildView() noexcept {
     if (axis < nspatial) {
       view_.num[axis] = static_cast<unsigned>(window_.count);
       view_.min[axis] = timeOrigin_ + static_cast<double>(window_.start) * delta_[0];
+      view_.before[axis] = window_.start;
+      view_.after[axis] = numTimeSlices_ - window_.start - window_.count;
     }
   }
 }

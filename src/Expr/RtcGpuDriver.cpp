@@ -10,6 +10,7 @@
 #include "Expr/Binding.h"
 #include "Expr/Codegen.h"
 #include "Expr/Cost.h"
+#include "Expr/Expand.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
 #include "Expr/RtcGpu.h"
@@ -19,6 +20,7 @@
 #include "utils/logger.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <map>
@@ -721,7 +723,7 @@ class DeviceGridMirror final : public df::GridStore::Mirror {
 
   DeviceGridMirror(GpuTarget target, void* queue, const df::GridDesc& desc)
       : target_(target), queue_(queue), path_(desc.path),
-        fails_(desc.boundary == df::BoundaryMode::Fail) {
+        fails_(desc.boundary == df::BoundaryMode::Fail), timeDependent_(desc.timeDependent()) {
     addQueue(queue);
   }
 
@@ -806,18 +808,28 @@ class DeviceGridMirror final : public df::GridStore::Mirror {
   }
 
   private:
-  /// A lookup outside the volume, of a grid whose boundary mode fails there: an error, as on the
-  /// host, which a kernel cannot raise itself (codegen::GridDescriptor::outside).
+  /// What the checks of the lookups found, which a kernel cannot raise itself: a sample outside the
+  /// volume of a grid whose boundary mode fails there (codegen::GridDescriptor::outside), or at a
+  /// time the window of a time-dependent grid did not serve (codegen::GridDescriptor::stale). An
+  /// error, as on the host.
   void report() const {
-    if (!fails_ || !valid_) {
+    if (!valid_ || (!fails_ && !timeDependent_)) {
       return;
     }
-    std::uint64_t outside = 0;
+    static_assert(offsetof(codegen::GridDescriptor, stale) ==
+                      offsetof(codegen::GridDescriptor, outside) + sizeof(std::uint64_t),
+                  "the flags of a descriptor are read in one copy");
+    std::array<std::uint64_t, 2> found{};
     const auto* field =
         static_cast<const char*>(descriptor_) + offsetof(codegen::GridDescriptor, outside);
-    if (copyFromDeviceFor(target_, &outside, field, sizeof(outside), queue_) && outside != 0) {
-      logError() << "A kernel on the device sampled the grid" << path_
-                 << "outside its volume, where its boundary mode is to fail.";
+    if (!copyFromDeviceFor(target_, found.data(), field, sizeof(found), queue_)) {
+      return;
+    }
+    if (found[1] != 0) {
+      reportCheck(CheckKind::Window, path_);
+    }
+    if (found[0] != 0) {
+      reportCheck(CheckKind::Outside, path_);
     }
   }
 
@@ -826,6 +838,7 @@ class DeviceGridMirror final : public df::GridStore::Mirror {
   std::vector<void*> queues_;
   std::string path_;
   bool fails_;
+  bool timeDependent_;
   void* data_{nullptr};
   std::size_t bytes_{0};
   void* descriptor_{nullptr};

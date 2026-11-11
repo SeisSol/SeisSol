@@ -109,13 +109,19 @@ struct Store {
   Space space{Space::Point};
 };
 
+struct CheckStore {
+  GridId grid{NoGrid};
+  CheckKind kind{CheckKind::Outside};
+  std::int32_t source{0}; // transient slot
+};
+
 struct StageCode {
   std::vector<Instruction> code;
   std::vector<Store> outputs;    // Run only: scatter targets, by output index
   std::vector<Store> persistent; // Precompute: hoisted values. Run: state writeback.
-  // Run only: the checks of the grids that fail beyond their volume (GridCheck), with the GridId
-  // as the target: a value that is nonzero at a point that sampled the grid beyond it.
-  std::vector<Store> checks;
+  // Run only: the checks of the written-out lookups (GridCheck), each of a grid and a kind, read
+  // from a transient of type Bool that is true where the check finds what its kind says.
+  std::vector<CheckStore> checks;
   std::int32_t slotCount{0}; // transient slots this stage needs
   // The type of each transient slot: a slot only ever holds values of one type. A store converts
   // from it into the type the data is moved in.

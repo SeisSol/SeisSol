@@ -93,14 +93,14 @@ struct StageAddressing {
   std::string (*storePersistent)(std::int32_t slot, const std::string& value){nullptr};
   /// Null for a target that cannot read blocks; a contraction then throws.
   const ContractAddressing* contract{nullptr};
-  /// The parts of a written-out lookup (expandLookups()), each an expression in binary64: a field
-  /// of the geometry of grid `grid` (Opcode::GridParam), the element of its array at `offset`, an
-  /// expression in binary64 holding a whole number (Opcode::GridLoad); and the statement that
-  /// reports a sample beyond the grid where `value` is not zero (StageCode::checks). Null for a
-  /// target that samples no grids; a lookup then throws.
+  /// The parts of a written-out lookup (expandLookups()): a field of the geometry of grid `grid`
+  /// as the descriptor holds it (Opcode::GridParam); the element of component `component` of its
+  /// array at `offset`, an expression of type I64, in binary64 (Opcode::GridLoad); and the
+  /// statement that reports a check of the kind `kind` where `value` is true (StageCode::checks).
+  /// Null for a target that samples no grids; a lookup then throws.
   std::string (*gridParam)(GridId grid, GridField field, std::int32_t axis){nullptr};
-  std::string (*gridLoad)(GridId grid, const std::string& offset){nullptr};
-  std::string (*storeCheck)(GridId grid, const std::string& value){nullptr};
+  std::string (*gridLoad)(GridId grid, std::int32_t component, const std::string& offset){nullptr};
+  std::string (*storeCheck)(GridId grid, CheckKind kind, const std::string& value){nullptr};
 };
 
 /// The descriptor of the array of a grid, through which a compiled kernel reads it: the byte image
@@ -115,10 +115,15 @@ struct GridDescriptor {
   double deltaInv[reader::datafield::MaxGridDimensions]{};
   std::uint64_t num[reader::datafield::MaxGridDimensions]{};
   std::uint64_t stride[reader::datafield::MaxGridDimensions]{};
+  std::uint64_t before[reader::datafield::MaxGridDimensions]{};
+  std::uint64_t after[reader::datafield::MaxGridDimensions]{};
   std::uint64_t componentStride{1};
-  /// Set by a point that sampled a grid that fails beyond its volume beyond it, which a kernel
-  /// cannot report itself; whoever keeps the descriptor reads it and does.
+  /// Set by a point that sampled a grid that fails beyond its volume beyond it
+  /// (CheckKind::Outside), and by one whose time the window of a time-dependent grid did not serve
+  /// (CheckKind::Window), which a kernel cannot report itself; whoever keeps the descriptor reads
+  /// them and does.
   std::uint64_t outside{0};
+  std::uint64_t stale{0};
 };
 
 /// The descriptor of the array `view`, with its elements at `data` -- where the kernel runs: on the
@@ -238,8 +243,12 @@ void emitStageBodyTiled(std::ostringstream& out,
 /// The C name of an element type, for the types the binding may store data in.
 [[nodiscard]] const char* elementTypeName(reader::scripting::DataType type);
 
-/// The C name of a compute type: float or double.
+/// The C name of a compute type: float, double, SeissolI64 (emitIntegerType()) or bool.
 [[nodiscard]] const char* typeName(ComputeType type);
+
+/// The definition of SeissolI64, the whole numbers of the lowering (ComputeType::I64): `long long`,
+/// or `long` in OpenCL C.
+void emitIntegerType(std::ostringstream& out, bool openCl);
 
 /// Writes `text` to the file `name` in the directory SEISSOL_EXPR_DUMP names, if it names one: the
 /// sources the compiled backends generate, and what the device compilers make of them, for a

@@ -48,13 +48,41 @@ std::string converted(const std::string& value, ComputeType from, ComputeType to
 }
 
 /// The text of a pointwise operation: that of the interpreter's table, or, computed as written
-/// (Instruction::strict), the macro of its operation (emitStrictMacros()).
+/// (Instruction::strict), the macro of its operation (emitStrictMacros()); with the operand `a0`
+/// of type `first`. The operations of the lowering's types are spelled out: a comparison of type
+/// Bool as the predicate of its operands, `and` and `or` of Bools, a select with a Bool condition,
+/// and the minimum and maximum of whole numbers, which the table spells as fmin and fmax -- in
+/// binary64.
 std::string pwText(const Instruction& inst,
                    const std::string& a0,
                    const std::string& a1,
                    const std::string& a2,
                    const std::string& type,
+                   ComputeType first,
                    MathStyle style) {
+  if (inst.type == ComputeType::Bool) {
+    switch (inst.fn) {
+    case Fn::Lt:
+      return "(" + a0 + " < " + a1 + ")";
+    case Fn::Le:
+      return "(" + a0 + " <= " + a1 + ")";
+    case Fn::Eq:
+      return "(" + a0 + " == " + a1 + ")";
+    case Fn::And:
+      return "(" + a0 + " && " + a1 + ")";
+    case Fn::Or:
+      return "(" + a0 + " || " + a1 + ")";
+    default:
+      break;
+    }
+  }
+  if (inst.fn == Fn::Select && first == ComputeType::Bool) {
+    return "(" + a0 + " ? " + a1 + " : " + a2 + ")";
+  }
+  if (inst.type == ComputeType::I64 && (inst.fn == Fn::Min || inst.fn == Fn::Max)) {
+    const char* compare = inst.fn == Fn::Min ? " < " : " > ";
+    return "(" + a0 + compare + a1 + " ? " + a0 + " : " + a1 + ")";
+  }
   if (inst.strict && inst.type == ComputeType::F64) {
     const char* macro = inst.fn == Fn::Add   ? "SEISSOL_EXPR_DADD"
                         : inst.fn == Fn::Sub ? "SEISSOL_EXPR_DSUB"
@@ -67,8 +95,8 @@ std::string pwText(const Instruction& inst,
   return substitute(expressionText(inst.fn), a0, a1, a2, type, style);
 }
 
-/// The value of a GridParam or GridLoad instruction, in binary64, with `operand` the text of the
-/// operand of a GridLoad.
+/// The value of a GridParam or GridLoad instruction, in the type of the instruction, with `operand`
+/// the text of the operand of a GridLoad.
 std::string gridText(const Instruction& inst,
                      const StageAddressing& addressing,
                      const std::string& operand) {
@@ -77,9 +105,11 @@ std::string gridText(const Instruction& inst,
         "expr: a grid lookup reached a code generator that does not sample grids");
   }
   if (inst.op == Opcode::GridParam) {
-    return addressing.gridParam(inst.grid, static_cast<GridField>(inst.comp), inst.imm);
+    // the field as the descriptor holds it, in the type of the instruction
+    return "(" + std::string(typeName(inst.type)) + ")(" +
+           addressing.gridParam(inst.grid, static_cast<GridField>(inst.comp), inst.imm) + ")";
   }
-  return addressing.gridLoad(inst.grid, operand);
+  return converted(addressing.gridLoad(inst.grid, inst.comp, operand), ComputeType::F64, inst.type);
 }
 
 void emitContraction(std::ostringstream& out,
@@ -280,7 +310,9 @@ void emitStageBody(std::ostringstream& out,
       // every arity without a special case per arity.
       const std::string a1 = inst.operandCount > 1 ? slotName(operands[inst.operandBegin + 1]) : a0;
       const std::string a2 = inst.operandCount > 2 ? slotName(operands[inst.operandBegin + 2]) : a0;
-      out << indent << dst << " = " << pwText(inst, a0, a1, a2, type, style) << ";\n";
+      out << indent << dst << " = "
+          << pwText(inst, a0, a1, a2, type, slotType(stage, operands[inst.operandBegin]), style)
+          << ";\n";
       break;
     }
     case Opcode::Convert: {
@@ -294,10 +326,9 @@ void emitStageBody(std::ostringstream& out,
       std::string operand;
       if (inst.op == Opcode::GridLoad) {
         const std::int32_t source = operands[inst.operandBegin];
-        operand = converted(slotName(source), slotType(stage, source), ComputeType::F64);
+        operand = converted(slotName(source), slotType(stage, source), ComputeType::I64);
       }
-      out << indent << dst << " = "
-          << converted(gridText(inst, addressing, operand), ComputeType::F64, inst.type) << ";\n";
+      out << indent << dst << " = " << gridText(inst, addressing, operand) << ";\n";
       break;
     }
     case Opcode::Contract:
@@ -329,12 +360,12 @@ void emitStageBody(std::ostringstream& out,
           << ";\n";
     }
   }
-  for (const Store& store : stage.checks) {
+  for (const CheckStore& store : stage.checks) {
     if (addressing.storeCheck == nullptr) {
       throw std::invalid_argument(
           "expr: a grid lookup reached a code generator that does not sample grids");
     }
-    out << indent << addressing.storeCheck(store.target, slotName(store.source)) << ";\n";
+    out << indent << addressing.storeCheck(store.grid, store.kind, slotName(store.source)) << ";\n";
   }
 }
 
@@ -397,7 +428,10 @@ void emitStageBodyTiled(std::ostringstream& out,
       const std::string a0 = slot(operands[inst.operandBegin]);
       const std::string a1 = inst.operandCount > 1 ? slot(operands[inst.operandBegin + 1]) : a0;
       const std::string a2 = inst.operandCount > 2 ? slot(operands[inst.operandBegin + 2]) : a0;
-      laneLoop(dst + " = " + pwText(inst, a0, a1, a2, type, style), false);
+      laneLoop(
+          dst + " = " +
+              pwText(inst, a0, a1, a2, type, slotType(stage, operands[inst.operandBegin]), style),
+          false);
       break;
     }
     case Opcode::Convert: {
@@ -410,11 +444,9 @@ void emitStageBodyTiled(std::ostringstream& out,
       std::string operand;
       if (inst.op == Opcode::GridLoad) {
         const std::int32_t source = operands[inst.operandBegin];
-        operand = converted(slot(source), slotType(stage, source), ComputeType::F64);
+        operand = converted(slot(source), slotType(stage, source), ComputeType::I64);
       }
-      laneLoop(dst + " = " +
-                   converted(gridText(inst, addressing, operand), ComputeType::F64, inst.type),
-               false);
+      laneLoop(dst + " = " + gridText(inst, addressing, operand), false);
       break;
     }
     case Opcode::Contract:
@@ -441,12 +473,12 @@ void emitStageBodyTiled(std::ostringstream& out,
                true);
     }
   }
-  for (const Store& store : stage.checks) {
+  for (const CheckStore& store : stage.checks) {
     if (addressing.storeCheck == nullptr) {
       throw std::invalid_argument(
           "expr: a grid lookup reached a code generator that does not sample grids");
     }
-    laneLoop(addressing.storeCheck(store.target, slot(store.source)), false);
+    laneLoop(addressing.storeCheck(store.grid, store.kind, slot(store.source)), false);
   }
   out << indent << "}\n";
 }
@@ -502,6 +534,8 @@ GridDescriptor gridDescriptor(const reader::datafield::ArrayView& view, const vo
     descriptor.deltaInv[d] = view.deltaInv[d];
     descriptor.num[d] = view.num[d];
     descriptor.stride[d] = view.stride[d];
+    descriptor.before[d] = view.before[d];
+    descriptor.after[d] = view.after[d];
   }
   descriptor.componentStride = view.componentStride;
   return descriptor;
@@ -535,8 +569,11 @@ void emitGridDescriptor(std::ostringstream& out,
       << "  double deltaInv[" << Axes << "];\n"
       << "  " << u64 << " num[" << Axes << "];\n"
       << "  " << u64 << " stride[" << Axes << "];\n"
+      << "  " << u64 << " before[" << Axes << "];\n"
+      << "  " << u64 << " after[" << Axes << "];\n"
       << "  " << u64 << " componentStride;\n"
       << "  " << u64 << " outside;\n"
+      << "  " << u64 << " stale;\n"
       << "} SeissolExprGrid;\n\n";
   for (std::size_t grid = 0; grid < uses.size() && grid < elements.size(); ++grid) {
     if (uses[grid].dimensions == 0) {
@@ -544,9 +581,10 @@ void emitGridDescriptor(std::ostringstream& out,
     }
     const char* type = elements[grid] == reader::datafield::ElementType::Float ? "float" : "double";
     out << qualifier << " double seissol_expr_load" << grid << "(" << global
-        << "const SeissolExprGrid* g, double offset) {\n"
-        << "  return (double)((" << global << "const " << type << "*)(g->data))[(" << u64
-        << ")offset];\n"
+        << "const SeissolExprGrid* g, SeissolI64 offset, SeissolI64 component) {\n"
+        << "  return (double)((" << global << "const " << type
+        << "*)(g->data))[offset + component * ("
+        << "SeissolI64)g->componentStride];\n"
         << "}\n\n";
   }
 }
@@ -574,7 +612,27 @@ bool containsContraction(const LoweredProgram& lowered) {
   return false;
 }
 
-const char* typeName(ComputeType type) { return type == ComputeType::F32 ? "float" : "double"; }
+const char* typeName(ComputeType type) {
+  switch (type) {
+  case ComputeType::F32:
+    return "float";
+  case ComputeType::F64:
+    return "double";
+  case ComputeType::I64:
+    // defined by every source: `long long` in C++, `long` in OpenCL C (emitIntegerType())
+    return "SeissolI64";
+  case ComputeType::Bool:
+    return "bool";
+  }
+  return "double";
+}
+
+void emitIntegerType(std::ostringstream& out, bool openCl) {
+  out << "#ifndef SEISSOL_EXPR_I64\n"
+      << "#define SEISSOL_EXPR_I64\n"
+      << "typedef " << (openCl ? "long" : "long long") << " SeissolI64;\n"
+      << "#endif\n\n";
+}
 
 const char* elementTypeName(reader::scripting::DataType type) {
   switch (type) {

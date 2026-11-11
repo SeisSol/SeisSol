@@ -652,6 +652,81 @@ TEST_SUITE("ExprRtcGpu") {
     }
   }
 
+  TEST_CASE("the emitted device kernel marks a lookup at a time the window does not hold") {
+    // a grid over x and the time (axis 1) of which the window holds the five slices of ArrayGrid,
+    // at the times -0.7 to 2.3, with `before` slices of the file before it and `after` after it
+    struct Case {
+      double time;
+      std::size_t before;
+      std::size_t after;
+      std::uint64_t stale;
+      std::uint64_t outside;
+    };
+    for (const auto boundary : {df::BoundaryMode::Clamp, df::BoundaryMode::Fail}) {
+      CAPTURE(static_cast<int>(boundary));
+      df::GridDesc desc;
+      desc.path = "grid.nc";
+      desc.variable = "z";
+      desc.interpolation = df::Interpolation::Linear;
+      desc.boundary = boundary;
+      desc.timeAxis = 1;
+      const Program program = lookupProgram(desc, 2, ComputeType::F64);
+      const std::vector<double> x = {0.5};
+      std::vector<double> t = {0.0};
+      std::vector<double> out(program.outputs().size(), 0.0);
+      DataTable table(1);
+      table.bindViewConst<double>("x", Direction::In, x.data());
+      table.bindViewConst<double>("y", Direction::In, t.data());
+      std::vector<void*> bases;
+      for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+        table.bindView<double>(program.outputs()[i].name, Direction::Out, &out[i]);
+        bases.push_back(&out[i]);
+      }
+      Binding binding = Binding::bind(program, table);
+      GpuLayout layout = gpuLayoutOf(binding);
+      layout.grids = {df::ElementType::Double};
+      const std::string generated =
+          std::string(HostShim) + emitGpuSource(program, lower(program), layout, GpuTarget::Cuda) +
+          emitGpuHostTrampoline(layout, "double");
+      void* handle = compileForHost(generated);
+      if (handle == nullptr) {
+        WARN_MESSAGE(false, "no usable C++ compiler; the device code generator was not run");
+        return;
+      }
+      auto* invoke = reinterpret_cast<void (*)(void**)>(dlsym(handle, "seissol_expr_invoke"));
+      REQUIRE(invoke != nullptr);
+
+      const ArrayGrid grid({7, 5}, df::ElementType::Double, df::Interpolation::Linear);
+      const df::ArrayView* view = grid.arrayView();
+      const std::uint64_t fails = boundary == df::BoundaryMode::Fail ? 1 : 0;
+      const std::vector<Case> cases = {{0.4, 2, 2, 0, 0},
+                                       {2.3 + 1e-5, 2, 2, 0, 0},
+                                       {2.5, 2, 2, 1, 0},
+                                       {-1.0, 2, 2, 1, 0},
+                                       {-1.0, 2, 0, 1, 0},
+                                       {2.5, 2, 0, 0, fails},
+                                       {-1.0, 0, 2, 0, fails}};
+      for (const Case& c : cases) {
+        CAPTURE(c.time);
+        CAPTURE(c.before);
+        CAPTURE(c.after);
+        t[0] = c.time;
+        codegen::GridDescriptor descriptor = codegen::gridDescriptor(*view, view->data);
+        descriptor.before[1] = c.before;
+        descriptor.after[1] = c.after;
+        KernelArgs args{};
+        args.outputs = bases.data();
+        args.outputCount = bases.size();
+        args.first = 0;
+        args.count = 1;
+        GpuArguments packed(binding, args, nullptr, nullptr, {&descriptor});
+        invoke(packed.data());
+        CHECK(descriptor.stale == c.stale);
+        CHECK(descriptor.outside == c.outside);
+      }
+    }
+  }
+
   TEST_CASE("the device source of a lookup is valid for every target") {
     df::GridDesc desc;
     desc.path = "grid.nc";
