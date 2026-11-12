@@ -21,7 +21,10 @@
 //     generic `for` over a table whose keys it fixes;
 //   - a function is inlined at its call; its closures, varargs and multiple results are Lua's;
 //   - a number is an integer or a float of Lua, as the script makes it: `7 // 2` is 3, and the
-//     zero of an integer has no sign.
+//     zero of an integer has no sign. An integer that depends on the point is computed in
+//     binary64, which is Lua's integer below 2^53 (beyond, Lua's wraps around, the program's
+//     rounds); `pairs` visits the keys in their order (numbers, then strings), where Lua's order
+//     depends on its hash, which it seeds anew in every process.
 // Refused, with the line: a loop whose end depends on the point, `goto`, recursion, a table index
 // that depends on the point, a string that depends on the point, metatables, and the libraries
 // beyond math (print and io.write do nothing). An error of Lua at some points becomes a check of
