@@ -41,6 +41,10 @@
 #include <utility>
 #include <vector>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 namespace seissol::expr {
 
 namespace {
@@ -194,9 +198,10 @@ class InterpreterKernel final : public Kernel {
                     LoweredProgram lowered,
                     std::unique_ptr<StoreArrays> grids,
                     const InterpreterOptions& options)
-      : binding_(&binding), lowered_(std::move(lowered)), grids_(std::move(grids)),
-        interpreter_(program, lowered_, grids_.get(), options), partitions_(toPointRanges(binding)),
-        needsPrecompute_(lowered_.hasPrecompute()) {}
+      : program_(program), binding_(&binding), lowered_(std::move(lowered)),
+        grids_(std::move(grids)), options_(options),
+        interpreter_(program_, lowered_, grids_.get(), options),
+        partitions_(toPointRanges(binding)), needsPrecompute_(lowered_.hasPrecompute()) {}
 
   void precompute(const DataTable& table) override {
     if (!needsPrecompute_) {
@@ -225,7 +230,36 @@ class InterpreterKernel final : public Kernel {
   void run(const DataTable& table) override {
     guardPrecompute();
     BoundTileIo<T> io(*binding_, table);
-    interpreter_.run(io, binding_->numPoints(), persistent(), partitions_);
+    // the tiles of the partitions, spread over the threads where the call is not made by one
+    std::vector<PointRange> tiles;
+    const std::size_t numPoints = binding_->numPoints();
+    for (const auto& range :
+         partitions_.empty() ? std::vector<PointRange>{{0, numPoints}} : partitions_) {
+      for (std::size_t first = range.begin; first < range.end; first += interpreter_.tileSize()) {
+        tiles.push_back(PointRange{first, std::min(range.end, first + interpreter_.tileSize())});
+      }
+    }
+    if (!spreadOverThreads(tiles.size())) {
+      interpreter_.run(io, numPoints, persistent(), partitions_);
+      return;
+    }
+#ifdef _OPENMP
+    // one interpreter per thread, whose tiles are its own
+    threads_.resize(static_cast<std::size_t>(omp_get_max_threads()));
+#pragma omp parallel
+    {
+      auto& mine = threads_[static_cast<std::size_t>(omp_get_thread_num())];
+      if (mine == nullptr) {
+        mine = std::make_unique<TileInterpreter<T>>(program_, lowered_, grids_.get(), options_);
+      }
+      std::vector<PointRange> one(1);
+#pragma omp for schedule(static)
+      for (std::size_t t = 0; t < tiles.size(); ++t) {
+        one[0] = tiles[t];
+        mine->run(io, numPoints, persistent(), one);
+      }
+    }
+#endif
   }
 
   [[nodiscard]] BackendKind kind() const override { return BackendKind::Interpreter; }
@@ -243,10 +277,14 @@ class InterpreterKernel final : public Kernel {
 
   T* persistent();
 
+  /// kept for the interpreters of the threads, which read it as the first does
+  Program program_;
   Binding* binding_;
   LoweredProgram lowered_;
   std::unique_ptr<StoreArrays> grids_;
+  InterpreterOptions options_;
   TileInterpreter<T> interpreter_;
+  std::vector<std::unique_ptr<TileInterpreter<T>>> threads_;
   std::vector<PointRange> partitions_;
   bool needsPrecompute_{false};
   bool precomputed_{false};
@@ -857,6 +895,31 @@ constexpr std::size_t DevicePoolSize = 1024;
 /// The points of the smallest hash in the sample.
 constexpr std::size_t SmallestHashes = 64;
 
+/// The threads a scan of `count` points of the first call spreads over: as many as OpenMP has where
+/// the call is not made inside a parallel region and has enough points; one otherwise.
+std::size_t threadsFor(std::size_t count) {
+#ifdef _OPENMP
+  constexpr std::size_t PointsPerThread = std::size_t{1} << 16;
+  if (omp_in_parallel() == 0 && count >= 2 * PointsPerThread) {
+    return std::max<std::size_t>(
+        1,
+        std::min<std::size_t>(static_cast<std::size_t>(omp_get_max_threads()),
+                              count / PointsPerThread));
+  }
+#else
+  static_cast<void>(count);
+#endif
+  return 1;
+}
+
+std::size_t threadIndex() {
+#ifdef _OPENMP
+  return static_cast<std::size_t>(omp_get_thread_num());
+#else
+  return 0;
+#endif
+}
+
 /// The closed pool of a call of `count` points from `first`: its `size` points of the smallest
 /// hashes of their identity (all of them, for fewer), in the order of the call, with their
 /// identities.
@@ -864,24 +927,43 @@ CallPool poolOf(std::size_t first,
                 std::size_t count,
                 std::size_t size,
                 const std::function<std::uint64_t(std::size_t)>& identity) {
-  // the `size` smallest hashes, the largest of them on top
-  std::priority_queue<std::pair<std::uint64_t, std::size_t>> smallest;
-  for (std::size_t point = first; point < first + count; ++point) {
-    const std::uint64_t hash = splitMix64(identity(point));
-    if (smallest.size() < size) {
-      smallest.emplace(hash, point);
-    } else if (hash < smallest.top().first) {
-      smallest.pop();
-      smallest.emplace(hash, point);
+  // per thread the `size` smallest hashes of its points, the largest of them on top; then those of
+  // all threads
+  using Hashed = std::pair<std::uint64_t, std::size_t>;
+  const std::size_t threads = threadsFor(count);
+  std::vector<std::vector<Hashed>> heaps(threads);
+#pragma omp parallel num_threads(static_cast<int>(threads)) if (threads > 1)
+  {
+    auto& heap = heaps[threadIndex()];
+#pragma omp for schedule(static)
+    for (std::size_t point = first; point < first + count; ++point) {
+      const std::uint64_t hash = splitMix64(identity(point));
+      if (heap.size() < size) {
+        heap.emplace_back(hash, point);
+        std::push_heap(heap.begin(), heap.end());
+      } else if (hash < heap.front().first) {
+        std::pop_heap(heap.begin(), heap.end());
+        heap.back() = Hashed{hash, point};
+        std::push_heap(heap.begin(), heap.end());
+      }
     }
+  }
+  std::vector<Hashed> smallest;
+  for (auto& heap : heaps) {
+    smallest.insert(smallest.end(), heap.begin(), heap.end());
+  }
+  if (smallest.size() > size) {
+    std::nth_element(
+        smallest.begin(), smallest.begin() + static_cast<std::ptrdiff_t>(size - 1), smallest.end());
+    smallest.resize(size);
   }
   CallPool pool;
   pool.scope.callPoints = count;
   pool.scope.closedAll = count <= size;
-  pool.scope.bound = smallest.empty() ? 0 : smallest.top().first;
-  while (!smallest.empty()) {
-    pool.points.push_back(smallest.top().second);
-    smallest.pop();
+  pool.scope.bound = 0;
+  for (const auto& [hash, point] : smallest) {
+    pool.scope.bound = std::max(pool.scope.bound, hash);
+    pool.points.push_back(point);
   }
   std::sort(pool.points.begin(), pool.points.end());
   for (const std::size_t point : pool.points) {
@@ -921,49 +1003,94 @@ void scanCall(const Program& program,
   const bool grouped = group != program.inputs().end();
   const auto groupColumn = static_cast<std::size_t>(group - program.inputs().begin());
 
-  std::vector<Candidate> smallest(outputs);
-  std::vector<Candidate> largest(outputs);
-  // per group, the two of the smallest hash, the smaller first
-  std::map<double, std::array<Candidate, 2>> groups;
-  std::vector<double> values(outputs * Chunk);
-  std::vector<double> read(grouped ? inputs * Chunk : 0);
-  for (std::size_t from = first; from < first + count; from += Chunk) {
-    const std::size_t n = std::min(Chunk, first + count - from);
-    if (!readOutputs(from, n, values.data())) {
-      return;
+  // what a thread finds over its chunks: per output the points of the smallest and the largest
+  // value, per group the two of the smallest hash, the smaller first
+  struct Found {
+    std::vector<Candidate> smallest;
+    std::vector<Candidate> largest;
+    std::map<double, std::array<Candidate, 2>> groups;
+    bool unreadable{false};
+  };
+  const auto lower = [](const Candidate& a, const Candidate& b) {
+    return b.point == None || a.value < b.value || (a.value == b.value && a.hash < b.hash);
+  };
+  const auto higher = [](const Candidate& a, const Candidate& b) {
+    return b.point == None || a.value > b.value || (a.value == b.value && a.hash < b.hash);
+  };
+  const auto keepTwo = [](std::array<Candidate, 2>& two, const Candidate& candidate) {
+    if (two[0].point == None || candidate.hash < two[0].hash) {
+      two[1] = two[0];
+      two[0] = candidate;
+    } else if (two[1].point == None || candidate.hash < two[1].hash) {
+      two[1] = candidate;
     }
-    if (grouped) {
-      readInputs(from, n, read.data());
-    }
-    for (std::size_t lane = 0; lane < n; ++lane) {
-      const std::size_t point = from + lane;
-      const std::uint64_t hash = splitMix64(identity(point));
-      for (std::size_t o = 0; o < outputs; ++o) {
-        const double value = values[o * n + lane];
-        if (std::isnan(value)) {
-          continue;
-        }
-        auto& low = smallest[o];
-        if (low.point == None || value < low.value || (value == low.value && hash < low.hash)) {
-          low = Candidate{hash, point, value};
-        }
-        auto& high = largest[o];
-        if (high.point == None || value > high.value || (value == high.value && hash < high.hash)) {
-          high = Candidate{hash, point, value};
-        }
+  };
+  const std::size_t chunks = (count + Chunk - 1) / Chunk;
+  const std::size_t threads = threadsFor(count);
+  std::vector<Found> founds(threads);
+#pragma omp parallel num_threads(static_cast<int>(threads)) if (threads > 1)
+  {
+    Found& found = founds[threadIndex()];
+    found.smallest.assign(outputs, Candidate{});
+    found.largest.assign(outputs, Candidate{});
+    std::vector<double> values(outputs * Chunk);
+    std::vector<double> read(grouped ? inputs * Chunk : 0);
+#pragma omp for schedule(static)
+    for (std::size_t c = 0; c < chunks; ++c) {
+      const std::size_t from = first + c * Chunk;
+      const std::size_t n = std::min(Chunk, first + count - from);
+      if (found.unreadable || !readOutputs(from, n, values.data())) {
+        found.unreadable = true;
+        continue;
       }
       if (grouped) {
-        const double key = read[groupColumn * n + lane];
-        if (std::isnan(key)) {
-          continue;
+        readInputs(from, n, read.data());
+      }
+      for (std::size_t lane = 0; lane < n; ++lane) {
+        const std::size_t point = from + lane;
+        const std::uint64_t hash = splitMix64(identity(point));
+        for (std::size_t o = 0; o < outputs; ++o) {
+          const double value = values[o * n + lane];
+          if (std::isnan(value)) {
+            continue;
+          }
+          const Candidate candidate{hash, point, value};
+          if (lower(candidate, found.smallest[o])) {
+            found.smallest[o] = candidate;
+          }
+          if (higher(candidate, found.largest[o])) {
+            found.largest[o] = candidate;
+          }
         }
-        auto& two = groups[key];
-        const Candidate candidate{hash, point, key};
-        if (two[0].point == None || hash < two[0].hash) {
-          two[1] = two[0];
-          two[0] = candidate;
-        } else if (two[1].point == None || hash < two[1].hash) {
-          two[1] = candidate;
+        if (grouped) {
+          const double key = read[groupColumn * n + lane];
+          if (!std::isnan(key)) {
+            keepTwo(found.groups[key], Candidate{hash, point, key});
+          }
+        }
+      }
+    }
+  }
+  // the threads together
+  std::vector<Candidate> smallest(outputs);
+  std::vector<Candidate> largest(outputs);
+  std::map<double, std::array<Candidate, 2>> groups;
+  for (const auto& found : founds) {
+    if (found.unreadable) {
+      return;
+    }
+    for (std::size_t o = 0; o < outputs && o < found.smallest.size(); ++o) {
+      if (found.smallest[o].point != None && lower(found.smallest[o], smallest[o])) {
+        smallest[o] = found.smallest[o];
+      }
+      if (found.largest[o].point != None && higher(found.largest[o], largest[o])) {
+        largest[o] = found.largest[o];
+      }
+    }
+    for (const auto& [key, two] : found.groups) {
+      for (const auto& candidate : two) {
+        if (candidate.point != None) {
+          keepTwo(groups[key], candidate);
         }
       }
     }
@@ -1340,6 +1467,16 @@ std::vector<std::size_t> samplePoints(std::size_t first, std::size_t count) {
 }
 
 bool backendChecks() { return checkPolicy() != CheckPolicy::Off; }
+
+bool spreadOverThreads(std::size_t tiles) {
+#ifdef _OPENMP
+  return omp_in_parallel() == 0 && omp_get_max_threads() > 1 &&
+         tiles >= 4 * static_cast<std::size_t>(omp_get_max_threads());
+#else
+  static_cast<void>(tiles);
+  return false;
+#endif
+}
 
 namespace {
 

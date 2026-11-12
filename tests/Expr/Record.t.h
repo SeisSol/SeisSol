@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -29,6 +30,10 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 namespace seissol::unit_test {
 
@@ -100,6 +105,62 @@ std::vector<std::size_t> shuffled(std::size_t first, std::size_t last) {
 } // namespace
 
 TEST_SUITE("expr records") {
+  TEST_CASE("a call spreads over the threads, and its sample is that of one thread") {
+    const expr::Program program = expr::loadCore(RecordProgram, "");
+    constexpr std::size_t Points = 400000;
+    std::vector<std::size_t> points(Points);
+    for (std::size_t i = 0; i < Points; ++i) {
+      points[i] = i;
+    }
+    const auto evaluate = [&](int threads, std::vector<double>& u) {
+#ifdef _OPENMP
+      const int before = omp_get_max_threads();
+      omp_set_num_threads(threads);
+#else
+      static_cast<void>(threads);
+#endif
+      std::vector<double> x(Points);
+      std::vector<double> group(Points);
+      std::vector<std::uint64_t> identity(Points);
+      for (std::size_t i = 0; i < Points; ++i) {
+        identity[i] = identityOf(i);
+        x[i] = std::fmod(0.6180339887 * static_cast<double>(i), 1.0);
+        group[i] = static_cast<double>(i % 5);
+      }
+      u.assign(Points, 0.0);
+      std::vector<double> g(Points);
+      reader::scripting::DataTable table(Points);
+      table.bindViewConst<double>("x", reader::scripting::Direction::In, x.data());
+      table.bindViewConst<double>("group", reader::scripting::Direction::In, group.data());
+      table.bindView<double>("u", reader::scripting::Direction::Out, u.data());
+      table.bindView<double>("g", reader::scripting::Direction::Out, g.data());
+      table.setIdentity([&identity](std::size_t p) { return identity[p]; });
+      auto binding = expr::Binding::bind(program, table);
+      reader::datafield::GridStore store;
+      expr::BackendOptions options;
+      options.quiet = true;
+      const auto kernel = expr::makeKernel(program, binding, store, options);
+      kernel->precompute(table);
+      kernel->run(table);
+      const auto comparison =
+          expr::compareWithInterpreter(program, binding, store, &table, nullptr);
+#ifdef _OPENMP
+      omp_set_num_threads(before);
+#endif
+      REQUIRE(comparison.has_value());
+      return *comparison;
+    };
+    std::vector<double> many;
+    std::vector<double> one;
+    const expr::BackendComparison spread = evaluate(4, many);
+    const expr::BackendComparison single = evaluate(1, one);
+    CHECK(std::memcmp(many.data(), one.data(), Points * sizeof(double)) == 0);
+    CHECK(spread.identities == single.identities);
+    CHECK(spread.scope.bound == single.scope.bound);
+    CHECK(spread.compared == single.compared);
+    CHECK(spread.interpreter == single.interpreter);
+  }
+
   TEST_CASE("a record prints, reads back and evaluates again to its bits") {
     const expr::Program program = expr::loadCore(RecordProgram, "");
     const expr::Record record = recordOfRank(program, shuffled(0, 300), 3);

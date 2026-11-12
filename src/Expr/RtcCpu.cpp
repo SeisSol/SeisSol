@@ -674,15 +674,15 @@ class RtcCpuKernel final : public Kernel {
       return;
     }
     const BoundIo io(*binding_, &table, nullptr);
-    sweep(precompute_, io, nullptr, 0, binding_->numPoints());
+    sweep(precompute_, io, nullptr, 0, binding_->numPoints(), true);
     precomputed_ = true;
   }
 
   void run(const DataTable& table) override {
     guard();
     const BoundIo io(*binding_, &table, nullptr);
-    // The dense path may thread; the element-wise one below may not.
-    sweep(run_, io, nullptr, 0, binding_->numPoints());
+    // a call of the table spreads over the threads, where it is not made by one of them
+    sweep(run_, io, nullptr, 0, binding_->numPoints(), true);
   }
 
   void run(const KernelArgs& args) override {
@@ -693,7 +693,7 @@ class RtcCpuKernel final : public Kernel {
     }
     guard();
     const BoundIo io(*binding_, nullptr, &args);
-    sweep(run_, io, &args, args.first, args.first + args.count);
+    sweep(run_, io, &args, args.first, args.first + args.count, args.allowThreads);
   }
 
   [[nodiscard]] BackendKind kind() const override { return BackendKind::RtcCpu; }
@@ -761,7 +761,8 @@ class RtcCpuKernel final : public Kernel {
              const BoundIo& io,
              const KernelArgs* args,
              std::size_t begin,
-             std::size_t end) {
+             std::size_t end,
+             bool threads) {
     if (fn == nullptr) {
       return;
     }
@@ -798,15 +799,21 @@ class RtcCpuKernel final : public Kernel {
       }
     }
 
-    for (std::size_t first = begin; first < end; first += tileSize_) {
+    // a tile after the other; with `threads`, spread over the threads where the call is not made
+    // by one of them, each with tiles and descriptors of its own (whose flags are gathered after)
+    const auto tile = [&](std::size_t first,
+                          T* input,
+                          T* output,
+                          T* state,
+                          codegen::GridDescriptor* descriptors) {
       const std::size_t count = std::min(tileSize_, end - first);
-      io.gather(first, count, inputTile_.data());
+      io.gather(first, count, input);
       if (stateful) {
-        io.gatherState(first, count, stateTile_.data());
+        io.gatherState(first, count, state);
       }
-      fn(inputTile_.data(),
-         outputTile_.data(),
-         stateTile_.data(),
+      fn(input,
+         output,
+         state,
          persistent(),
          binding_->numPoints(),
          first,
@@ -814,11 +821,37 @@ class RtcCpuKernel final : public Kernel {
          matrixBases_.data(),
          blockDescriptors_.data(),
          permutation.empty() ? nullptr : permutation.data() + first,
-         descriptors_.data());
-      io.scatter(first, count, outputTile_.data());
+         descriptors);
+      io.scatter(first, count, output);
       if (stateful) {
-        io.scatterState(first, count, stateTile_.data());
+        io.scatterState(first, count, state);
       }
+    };
+    const std::size_t tiles = end > begin ? (end - begin + tileSize_ - 1) / tileSize_ : 0;
+    if (!threads || !spreadOverThreads(tiles)) {
+      for (std::size_t first = begin; first < end; first += tileSize_) {
+        tile(first, inputTile_.data(), outputTile_.data(), stateTile_.data(), descriptors_.data());
+      }
+    } else {
+      std::vector<codegen::GridDescriptor> flagged = descriptors_;
+#pragma omp parallel
+      {
+        std::vector<T> input(inputTile_.size());
+        std::vector<T> output(outputTile_.size());
+        std::vector<T> state(stateTile_.size());
+        std::vector<codegen::GridDescriptor> descriptors = descriptors_;
+#pragma omp for schedule(static)
+        for (std::size_t t = 0; t < tiles; ++t) {
+          tile(
+              begin + t * tileSize_, input.data(), output.data(), state.data(), descriptors.data());
+        }
+#pragma omp critical(seissol_expr_rtccpu_flags)
+        for (std::size_t g = 0; g < descriptors.size(); ++g) {
+          flagged[g].outside |= descriptors[g].outside;
+          flagged[g].stale |= descriptors[g].stale;
+        }
+      }
+      descriptors_ = std::move(flagged);
     }
     for (std::size_t g = 0; g < grids_.size(); ++g) {
       if (descriptors_[g].stale != 0) {

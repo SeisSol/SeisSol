@@ -373,6 +373,12 @@ void setRecordDirectory(const std::string& directory,
                         const std::vector<std::string>& build = {},
                         int rank = 0);
 
+/// Whether a call of `tiles` tiles of a kernel spreads over the threads: where OpenMP runs, the
+/// call is not made inside a parallel region (a consumer that gives every thread a kernel of its
+/// own), and it has a few tiles per thread. What a call of a table does, and one of KernelArgs that
+/// allows it (KernelArgs::allowThreads).
+[[nodiscard]] bool spreadOverThreads(std::size_t tiles);
+
 /// Whether the compiled kernels are checked at their first call (SEISSOL_EXPR_CHECK is not off).
 [[nodiscard]] bool backendChecks();
 
