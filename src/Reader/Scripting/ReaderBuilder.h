@@ -19,8 +19,8 @@
 namespace seissol::reader::scripting {
 
 /// The reader of the script `path`, by its prefix or else its extension: `lua:` or a .lua file for
-/// a Lua model (compiled if it traces), `sderiv:` or a .sderiv file for an sderiv module, `easi:`
-/// or any other file for an easi file.
+/// a Lua model (compiled where the Lua frontend translates it), `sderiv:` or a .sderiv file for an
+/// sderiv module, `easi:` or any other file for an easi file.
 std::unique_ptr<DataReader> buildReader(const std::string& path,
                                         const std::vector<std::string>& defaultInArgs);
 
@@ -31,10 +31,10 @@ std::unique_ptr<DataReader> buildInterpretedReader(const std::string& path,
                                                    const std::vector<std::string>& defaultInArgs);
 
 /// The program of the script `path`, if it compiles to one: an sderiv module (`sderiv:` or a
-/// .sderiv file), or a Lua model that traces (`lua:` or a .lua file). Nothing for an easi file, or
-/// for a Lua model that does not trace, in which case `reason` (if given) says why. An sderiv
-/// module that does not compile is a configuration error. `sderivOptions` are passed on to the
-/// sderiv compiler.
+/// .sderiv file), or a Lua model the Lua frontend translates (`lua:` or a .lua file). Nothing for
+/// an easi file, or for a Lua model the frontend does not translate, in which case `reason` (if
+/// given) says why. An sderiv module that does not compile is a configuration error.
+/// `sderivOptions` are passed on to the sderiv compiler.
 std::optional<expr::Program> buildProgram(const std::string& path,
                                           std::string* reason = nullptr,
                                           const expr::SderivOptions& sderivOptions = {});

@@ -20,7 +20,9 @@ add_library(seissol-reader OBJECT
     Scripting/DataTable.cpp
     Scripting/EasiReader.cpp
     Scripting/EasiWalker.cpp
+    Scripting/LuaFrontend.cpp
     Scripting/LuaReader.cpp
+    Scripting/LuaSyntax.cpp
     Scripting/LuaTracer.cpp
     Scripting/ReaderBuilder.cpp
 )

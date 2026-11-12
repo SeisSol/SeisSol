@@ -11,8 +11,8 @@
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/EasiReader.h"
 #include "Reader/Scripting/EasiWalker.h"
+#include "Reader/Scripting/LuaFrontend.h"
 #include "Reader/Scripting/LuaReader.h"
-#include "Reader/Scripting/LuaTracer.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -48,26 +48,32 @@ std::string readFile(const std::string& path) {
   return code.str();
 }
 
-/// Try to trace, and say clearly what happened either way. The interpreted
-/// reader is handed in as both oracle and fallback, so a program that traces
-/// but disagrees with it at run time still lands on the path that works.
+/// A Lua model: translated into a program by the Lua frontend (LuaFrontend.h), with the
+/// interpreted reader as the oracle and the fallback of the compiled one; where the frontend does
+/// not translate it, evaluated by Lua, with a warning that says why.
 std::unique_ptr<DataReader> buildLua(const std::string& path) {
   const std::string code = readFile(path);
-
-  TraceFailure failure;
-  const TraceOptions options;
-  auto program = traceLuaModule(code, options, failure);
-  if (!program.has_value()) {
-    // TraceFailure::reason is documented as already formatted for a log line
-    // and as carrying the position, so it is not decorated further here.
-    logWarning() << "The Lua model" << path
-                 << "could not be traced, and is evaluated through the interpreter instead:"
-                 << failure.reason;
+  const lua::LuaOrigin origin{path, 1, ':'};
+  try {
+    auto program = lua::translateLuaModule(code, origin);
+    logInfo() << "The Lua model" << path << "is translated into a program (the Lua frontend).";
+#ifdef USE_LUA
+    return std::make_unique<CompiledReader>(std::move(program), std::make_unique<LuaReader>(code));
+#else
+    return std::make_unique<CompiledReader>(std::move(program), nullptr);
+#endif
+  } catch (const lua::LuaError& error) {
+    const std::string where = error.line() > 0 ? origin.at(error.line()) + ": " : std::string();
+#ifdef USE_LUA
+    logWarning() << "The Lua model" << path << "is not translated, and is evaluated by Lua instead:"
+                 << where + error.message();
     return std::make_unique<LuaReader>(code);
+#else
+    logError() << "The Lua model" << path
+               << "is not translated, and SeisSol is built without Lua:" << where + error.message();
+    return nullptr;
+#endif
   }
-
-  logInfo() << "Traced the Lua model" << path << "into a compiled program.";
-  return std::make_unique<CompiledReader>(std::move(*program), std::make_unique<LuaReader>(code));
 }
 
 /// A .sderiv module names its own outputs, so nothing is passed in and nothing
@@ -158,7 +164,11 @@ std::unique_ptr<DataReader> buildInterpretedReader(const std::string& path,
                                                    const std::vector<std::string>& defaultInArgs) {
   const auto kind = kindOf(path);
   if (kind == "lua") {
+#ifdef USE_LUA
     return std::make_unique<LuaReader>(readFile(fileOf(path)));
+#else
+    return nullptr;
+#endif
   }
   if (kind == "easi") {
     return std::make_unique<EasiReader>(fileOf(path), defaultInArgs);
@@ -187,12 +197,17 @@ std::optional<expr::Program> buildProgram(const std::string& path,
     }
   }
   if (kind == "lua") {
-    TraceFailure failure;
-    auto program = traceLuaModule(readFile(fileOf(path)), {}, failure);
-    if (!program.has_value() && reason != nullptr) {
-      *reason = failure.reason;
+    const std::string file = fileOf(path);
+    const lua::LuaOrigin origin{file, 1, ':'};
+    try {
+      return lua::translateLuaModule(readFile(file), origin);
+    } catch (const lua::LuaError& error) {
+      if (reason != nullptr) {
+        *reason =
+            (error.line() > 0 ? origin.at(error.line()) + ": " : std::string()) + error.message();
+      }
+      return std::nullopt;
     }
-    return program;
   }
   if (reason != nullptr) {
     *reason = "an easi file does not compile to a program";
