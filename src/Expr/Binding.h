@@ -12,7 +12,7 @@
 // backends work from.
 //
 // This is the layer that removes the per-point cost of the current readers. In
-// EasiReader/LuaReader the name lookup, the direction check and the datatype
+// EasiReader the name lookup, the direction check and the datatype
 // dispatch all happen inside the point loop, behind a std::function. Here the
 // lookup happens once, the datatype dispatch collapses into a converter chosen
 // once per column, and the backend only ever sees contiguous SoA tiles.

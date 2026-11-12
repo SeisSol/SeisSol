@@ -33,8 +33,8 @@ struct CompiledReaderOptions {
 
   /// Relative deviation above which the compiled kernel is distrusted.
   ///
-  /// Not bit equality, even though LuaTracer.t.h uses that bar for the same
-  /// comparison. That test pins one libm on one machine; this is a RUNTIME gate,
+  /// Not bit equality, even though the tests of the frontends use that bar for
+  /// the same comparison. A test pins one libm on one machine; this is a RUNTIME gate,
   /// and making a production run fall back to the slow path because a vendor
   /// libm rounds pow() one ulp differently would be a performance cliff nobody
   /// could diagnose from a log. The worst observed deviation is logged either

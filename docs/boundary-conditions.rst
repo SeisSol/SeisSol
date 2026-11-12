@@ -221,13 +221,13 @@ compiles (an sderiv module, or a Lua model the Lua frontend translates) becomes 
 evaluates it at all times of the quadrature of a timestep and integrates it, so that
 what does not depend on the time is computed once per face. Fused simulations of the
 same script share that program, with ``sim`` as its input. The scenarios SeisSol has
-built in are such scripts as well; only an easi file, or a Lua model the frontend does not
-translate, is evaluated at one time after the other.
+built in are such scripts as well; only an easi file is evaluated at one time after the
+other.
 
 In a device build, the program runs on the device, as one kernel for all faces of a side of
 the cells of a layer, which reads the nodes of the faces and the parameters of the materials
-where they are. The initial condition then has to be a script that compiles: an easi file or
-a Lua model the frontend does not translate is rejected at startup, as is a build without the runtime
+where they are. The initial condition then has to be a script that compiles: an easi file is
+rejected at startup, as is a build without the runtime
 compiler of its device (NVRTC, HIPRTC, or the kernel compiler of SYCL).
 
 .. _nonlinear_dirichlet:

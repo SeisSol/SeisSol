@@ -21,7 +21,7 @@
 #include "TestHelper.h"
 
 #ifdef USE_LUA
-#include "Reader/Scripting/LuaReader.h"
+#include "LuaOracle.h"
 #endif
 
 #include <cmath>
@@ -123,6 +123,14 @@ private:
   return evaluation;
 }
 
+inline std::vector<std::string> names(const std::vector<expr::VarSpec>& specs) {
+  std::vector<std::string> out;
+  for (const auto& spec : specs) {
+    out.push_back(spec.name);
+  }
+  return out;
+}
+
 /// The values of a ladder that crosses the thresholds of the corpus, both zeros, and some others.
 inline std::vector<double> ladder() {
   return {-1e6, -4500.0, -1000.0, -999.5, -2.5, -1.0, -0.0, 0.0, 1e-3, 0.75,
@@ -178,7 +186,7 @@ inline std::string disagreement(const std::string& code, int calls = 1) {
   options.backend.preferred = expr::BackendKind::Interpreter;
   options.differentialSamples = 0;
   sc::CompiledReader reader(program, nullptr, options);
-  sc::LuaReader lua(code);
+  LuaOracle lua(code);
   reader.prepare(compiledTable);
   lua.prepare(referenceTable);
   for (int call = 0; call < calls; ++call) {
@@ -201,6 +209,79 @@ inline std::string disagreement(const std::string& code, int calls = 1) {
   }
   return "";
 }
+
+/// The program of a module and Lua, bound to the same inputs, for calls one after the other --
+/// which is what a state needs to be compared.
+struct Agreement {
+  expr::Program program;
+  std::size_t numPoints;
+  std::vector<std::vector<double>> inputs;
+  std::vector<std::vector<double>> compiled;
+  std::vector<std::vector<double>> expected;
+  sc::DataTable compiledTable;
+  sc::DataTable referenceTable;
+  std::unique_ptr<sc::CompiledReader> reader;
+  LuaOracle lua;
+
+  Agreement(const std::string& code, std::size_t numPoints)
+      : program(translated(code)), numPoints(numPoints),
+        inputs(program.inputs().size(), std::vector<double>(numPoints, 0.0)),
+        compiled(program.outputs().size(), std::vector<double>(numPoints, 0.0)),
+        expected(program.outputs().size(), std::vector<double>(numPoints, 0.0)),
+        compiledTable(numPoints), referenceTable(numPoints), lua(code) {
+    for (std::size_t i = 0; i < program.inputs().size(); ++i) {
+      compiledTable.bindViewConst<double>(
+          program.inputs()[i].name, sc::Direction::In, inputs[i].data());
+      referenceTable.bindViewConst<double>(
+          program.inputs()[i].name, sc::Direction::In, inputs[i].data());
+    }
+    for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+      compiledTable.bindView<double>(
+          program.outputs()[i].name, sc::Direction::Out, compiled[i].data());
+      referenceTable.bindView<double>(
+          program.outputs()[i].name, sc::Direction::Out, expected[i].data());
+    }
+    sc::CompiledReaderOptions options;
+    options.backend.preferred = expr::BackendKind::Interpreter;
+    options.differentialSamples = 0;
+    reader = std::make_unique<sc::CompiledReader>(program, nullptr, options);
+    reader->prepare(compiledTable);
+    lua.prepare(referenceTable);
+  }
+
+  [[nodiscard]] std::size_t input(const std::string& name) const {
+    for (std::size_t i = 0; i < program.inputs().size(); ++i) {
+      if (program.inputs()[i].name == name) {
+        return i;
+      }
+    }
+    FAIL("no input " << name);
+    return 0;
+  }
+
+  [[nodiscard]] std::size_t output(const std::string& name) const {
+    for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+      if (program.outputs()[i].name == name) {
+        return i;
+      }
+    }
+    FAIL("no output " << name);
+    return 0;
+  }
+
+  /// Runs both, and checks that they agree bit for bit.
+  void call() {
+    reader->call(compiledTable);
+    lua.call(referenceTable);
+    for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+      for (std::size_t point = 0; point < numPoints; ++point) {
+        CAPTURE(program.outputs()[i].name);
+        CAPTURE(point);
+        CHECK(sameValue(compiled[i][point], expected[i][point]));
+      }
+    }
+  }
+};
 
 /// That the program of `code` gives Lua's bits.
 inline void agreesWithLua(const std::string& code, int calls = 1) {
@@ -771,6 +852,259 @@ end
 return M
 )lua";
 
+// the corpus of the earlier tracer
+constexpr auto PlanarWave = R"lua(
+local M = {}
+M.output_parameters = {"u", "v", "w"}
+-- declared: the inputs are these, in their order, whatever the parameters are named
+M.input_parameters = {"x", "y", "z", "t"}
+
+local kx, ky, kz = 1.0, 0.5, -0.25
+local omega = 2.0
+
+function M.evaluate(fields, x, y, z, t)
+  local phase = kx*x + ky*y + kz*z - omega*t
+  local a = math.sin(phase)
+  local b = math.cos(phase)
+  local amp = 0.0
+  for i = 1, 3 do
+    amp = amp + 1.0 / i
+  end
+  return amp*a, amp*b, amp*(a + b)
+end
+
+return M
+)lua";
+
+constexpr auto LayeredSelect = R"lua(
+local M = {}
+M.output_parameters = {"rho"}
+M.input_parameters = {"x", "y", "z"}
+
+function M.evaluate(fields, x, y, z)
+  local shallow = ssol.gt(z, -1000.0)
+  return ssol.select(shallow, 2200.0 + 0.1*z, 2700.0)
+end
+
+return M
+)lua";
+
+constexpr auto GridSample = R"lua(
+local M = {}
+M.output_parameters = {"rho", "mu", "lambda"}
+M.field_specs = {
+  { name = "field_0001", kind = "asagi", file = "model.nc",
+    interpolation = "linear", parameters = {"rho", "vp", "vs"} },
+}
+
+function M.evaluate(fields, x, y, z)
+  local rho, vp, vs = fields.field_0001:sample(x, y, z)
+  local mu = rho * vs * vs
+  return rho, mu, rho*vp*vp - 2.0*mu
+end
+
+return M
+)lua";
+
+constexpr auto SharedSubexpression = R"lua(
+local M = {}
+M.output_parameters = {"a", "b"}
+M.input_parameters = {"x", "y"}
+
+function M.evaluate(fields, x, y)
+  local r = math.sqrt(x*x + y*y)
+  return r + 1.0, r * 2.0
+end
+
+return M
+)lua";
+
+constexpr auto RawIfGreater = R"lua(
+local M = {}
+M.output_parameters = {"rho"}
+
+function M.evaluate(fields, x, y, z)
+  if z > -1000.0 then
+    return 2200.0
+  else
+    return 2700.0
+  end
+end
+
+return M
+)lua";
+
+constexpr auto RawIfEqual = R"lua(
+local M = {}
+M.output_parameters = {"rho"}
+
+function M.evaluate(fields, x, y, z)
+  if z == 0.0 then
+    return 1000.0
+  end
+  return 2700.0 + 0.0*z
+end
+
+return M
+)lua";
+
+constexpr auto ConditionInRawIf = R"lua(
+local M = {}
+M.output_parameters = {"rho"}
+
+function M.evaluate(fields, x, y, z)
+  local shallow = ssol.gt(z, -1000.0)
+  if shallow then
+    return 2200.0 + 0.0*z
+  end
+  return 2700.0 + 0.0*z
+end
+
+return M
+)lua";
+
+constexpr auto MutatesModuleState = R"lua(
+local M = {}
+M.output_parameters = {"n"}
+
+local counter = 0
+
+function M.evaluate(fields, x)
+  counter = counter + 1
+  return x + counter
+end
+
+return M
+)lua";
+
+constexpr auto VariadicEvaluate = R"lua(
+local M = {}
+M.output_parameters = {"a"}
+function M.evaluate(...)
+  local fields, x = ...
+  return x + 1.0
+end
+return M
+)lua";
+
+constexpr auto MethodSyntaxEvaluate = R"lua(
+local M = {}
+M.output_parameters = {"a"}
+function M:evaluate(fields, x)
+  return x + 1.0
+end
+return M
+)lua";
+
+constexpr auto OutputCountMismatch = R"lua(
+local M = {}
+M.output_parameters = {"a", "b"}
+function M.evaluate(fields, x)
+  return x
+end
+return M
+)lua";
+
+constexpr auto TableIterationOrder = R"lua(
+local M = {}
+M.output_parameters = {"s"}
+local coeffs = { a = 1.0, b = 2.0, c = 3.0, d = 4.0, e = 5.0, f = 6.0 }
+function M.evaluate(fields, x)
+  local s = 0.0
+  for k, v in pairs(coeffs) do s = s + v * x end
+  return s
+end
+return M
+)lua";
+
+constexpr auto UntraceableMathFmod = R"lua(
+local M = {}
+M.output_parameters = {"m"}
+function M.evaluate(fields, x)
+  return math.fmod(x, 3.0)
+end
+return M
+)lua";
+
+constexpr auto LuaFloorMod = R"lua(
+local M = {}
+M.output_parameters = {"m"}
+function M.evaluate(fields, x)
+  return x % 3.0
+end
+return M
+)lua";
+
+constexpr auto TooManyCoordinates = R"lua(
+local M = {}
+M.output_parameters = {"a"}
+M.field_specs = {
+  { name = "g", kind = "asagi", file = "f.nc", interpolation = "linear", parameters = {"a"} },
+}
+function M.evaluate(fields, x, y, z, t, u, v, w)
+  return fields.g:sample(x, y, z, t, u, v, w)
+end
+return M
+)lua";
+
+constexpr auto NamedOutputs = R"lua(
+local M = {}
+function M.evaluate(fields, x, y)
+  return { sum = x + y, diff = x - y }
+end
+return M
+)lua";
+
+constexpr auto PeakByMax = R"lua(
+local M = {}
+M.state = { peak = 0.0 }
+function M.evaluate(fields, v, peak)
+  return { peak = math.max(peak, math.abs(v)) }
+end
+return M
+)lua";
+
+// the window example of the state declaration: the peak restarts whenever the window advances, and
+// the window it belongs to is kept, but not written
+constexpr auto WindowedPeak = R"lua(
+local M = {}
+M.state = { last = -1.0, peak = 0.0 }
+M.output_parameters = { "peak" }
+function M.evaluate(fields, v, window, last, peak)
+  local fresh = ssol.lt(last, window)
+  return { peak = ssol.select(fresh, v, math.max(peak, v)), last = window }
+end
+return M
+)lua";
+
+constexpr auto SderivBuiltins = R"lua(
+local M = {}
+M.output_parameters = { "sign", "mod", "atan2", "pow", "g" }
+function M.evaluate(fields, x)
+  return ssol.sign(x), ssol.mod(x, 3.0), ssol.atan2(x, -2.0), ssol.pow(1.5, ssol.mod(x, 2.0)),
+         ssol.g * x + ssol.pi
+end
+return M
+)lua";
+
+constexpr auto StateWithoutNextValue = R"lua(
+local M = {}
+M.state = { acc = 0.0 }
+function M.evaluate(fields, x, acc)
+  return { other = x + acc }
+end
+return M
+)lua";
+
+constexpr auto UndeclaredResult = R"lua(
+local M = {}
+M.output_parameters = { "a" }
+function M.evaluate(fields, x)
+  return { a = x, b = 2.0 * x }
+end
+return M
+)lua";
+
 } // namespace luafrontendtest
 
 using namespace luafrontendtest;
@@ -1051,6 +1385,236 @@ return M
   } catch (const lua::LuaError& error) {
     CHECK(error.line() == 6);
     CHECK(error.message().find("attempt to index a nil value") != std::string::npos);
+  }
+}
+
+TEST_CASE("lua frontend: the program of the earlier tracer's corpus" *
+          doctest::test_suite("reader")) {
+  // the inputs of M.input_parameters, in their order
+  const auto wave = translated(PlanarWave);
+  CHECK(names(wave.inputs()) == std::vector<std::string>{"x", "y", "z", "t"});
+  CHECK(names(wave.outputs()) == std::vector<std::string>{"u", "v", "w"});
+  // a loop the script fixes is computed: 1 + 1/2 + 1/3
+  bool folded = false;
+  for (std::size_t i = 0; i < wave.arena().size(); ++i) {
+    const auto& node = wave.arena()[static_cast<expr::NodeId>(i)];
+    folded =
+        folded || (node.kind == expr::Kind::Const && node.value == 1.0 + 1.0 / 2.0 + 1.0 / 3.0);
+  }
+  CHECK(folded);
+  // a value used twice is one node
+  const auto shared = translated(SharedSubexpression);
+  int roots = 0;
+  for (std::size_t i = 0; i < shared.arena().size(); ++i) {
+    const auto& node = shared.arena()[static_cast<expr::NodeId>(i)];
+    roots += node.kind == expr::Kind::PW && node.fn == expr::Fn::Sqrt ? 1 : 0;
+  }
+  CHECK(roots == 1);
+  // ssol.select is a select of a comparison, ssol.gt(a, b) Lt(b, a)
+  const auto layered = translated(LayeredSelect);
+  const auto& root = layered.arena()[layered.roots().at(0)];
+  REQUIRE(root.kind == expr::Kind::PW);
+  REQUIRE(root.fn == expr::Fn::Select);
+  CHECK(layered.arena()[root.a].fn == expr::Fn::Lt);
+  // `%` is Fn::Mod
+  const auto mod = translated(LuaFloorMod);
+  CHECK(mod.arena()[mod.roots().at(0)].fn == expr::Fn::Mod);
+  // a grid sample is one lookup per component
+  const auto grid = translated(GridSample);
+  REQUIRE(grid.grids().size() == 1);
+  std::vector<bool> seen(3, false);
+  for (std::size_t i = 0; i < grid.arena().size(); ++i) {
+    const auto& node = grid.arena()[static_cast<expr::NodeId>(i)];
+    if (node.kind == expr::Kind::Lookup) {
+      REQUIRE(node.argCount == 3);
+      seen.at(static_cast<std::size_t>(node.comp)) = true;
+    }
+  }
+  CHECK(seen == std::vector<bool>{true, true, true});
+  // pairs has one order: one fingerprint
+  CHECK(translated(TableIterationOrder).fingerprint() ==
+        translated(TableIterationOrder).fingerprint());
+  CHECK(translated(PlanarWave).fingerprint() != translated(SharedSubexpression).fingerprint());
+  // a returned table names the outputs, in the order of their names
+  const auto named = translated(NamedOutputs);
+  CHECK(names(named.inputs()) == std::vector<std::string>{"x", "y"});
+  CHECK(names(named.outputs()) == std::vector<std::string>{"diff", "sum"});
+  // states, and one that is kept but not written
+  const auto windowed = translated(WindowedPeak);
+  CHECK(names(windowed.outputs()) == std::vector<std::string>{"peak"});
+  REQUIRE(windowed.state().size() == 2);
+  CHECK(windowed.state()[0].name == "last");
+  CHECK(windowed.state()[1].name == "peak");
+}
+
+TEST_CASE("lua frontend: what the earlier tracer refused or failed" *
+          doctest::test_suite("reader")) {
+  // f keeps a value from one point to the next in an upvalue
+  CHECK(refusalOf(MutatesModuleState).message().find("counter") != std::string::npos);
+  CHECK(refusalOf(VariadicEvaluate).message().find("variadic") != std::string::npos);
+  CHECK(refusalOf(MethodSyntaxEvaluate).message().find("method") != std::string::npos);
+  CHECK(refusalOf(UntraceableMathFmod).message().find("fmod") != std::string::npos);
+  CHECK(refusalOf(TooManyCoordinates).message().find("coordinates") != std::string::npos);
+  CHECK(refusalOf(StateWithoutNextValue).message().find("next value") != std::string::npos);
+  CHECK(refusalOf(UndeclaredResult).message().find("neither") != std::string::npos);
+  CHECK_THROWS_AS(static_cast<void>(translated(OutputCountMismatch)), lua::LuaError);
+  // a loop of absurd length stops at the budget
+  lua::LuaOptions options;
+  options.stepBudget = 1000;
+  CHECK_THROWS_AS(static_cast<void>(translated(R"lua(
+local M = {}
+M.output_parameters = {"s"}
+function M.evaluate(fields, x)
+  local s = x
+  for i = 1, 1000000 do s = s + 1.0 end
+  return s
+end
+return M
+)lua",
+                                               options)),
+                  lua::LuaUnsupported);
+}
+
+#ifdef USE_LUA
+TEST_CASE("lua frontend: an if on the point, which the earlier tracer refused, gives Lua's bits" *
+          doctest::test_suite("reader")) {
+  for (const auto* code : {RawIfGreater,
+                           RawIfEqual,
+                           ConditionInRawIf,
+                           PlanarWave,
+                           LayeredSelect,
+                           SharedSubexpression,
+                           LuaFloorMod,
+                           NamedOutputs,
+                           SderivBuiltins}) {
+    CAPTURE(code);
+    agreesWithLua(code);
+  }
+}
+
+TEST_CASE("lua frontend: states carry over calls as in Lua" * doctest::test_suite("reader")) {
+  Agreement peak(PeakByMax, 4);
+  const std::vector<std::vector<double>> calls{
+      {1.0, -2.0, 0.5, 0.0}, {-3.0, 1.0, 0.25, 2.0}, {2.0, 1.5, -4.0, 1.0}};
+  std::vector<double> reference(4, 0.0);
+  for (const auto& values : calls) {
+    peak.inputs[peak.input("v")] = values;
+    peak.call();
+    for (std::size_t point = 0; point < 4; ++point) {
+      reference[point] = std::max(reference[point], std::abs(values[point]));
+      CHECK(peak.compiled[0][point] == reference[point]);
+    }
+  }
+  // window 0 sees 3, 7, 2 and keeps 7; window 1 sees 1, 4 and keeps 4, not 7
+  Agreement windowed(WindowedPeak, 1);
+  const std::vector<std::pair<double, double>> windows{
+      {3.0, 0.0}, {7.0, 0.0}, {2.0, 0.0}, {1.0, 1.0}, {4.0, 1.0}};
+  const std::vector<double> peaks{3.0, 7.0, 7.0, 1.0, 4.0};
+  for (std::size_t i = 0; i < windows.size(); ++i) {
+    windowed.inputs[windowed.input("v")][0] = windows[i].first;
+    windowed.inputs[windowed.input("window")][0] = windows[i].second;
+    windowed.call();
+    CHECK(windowed.compiled[0][0] == peaks[i]);
+  }
+}
+#endif
+
+TEST_CASE("lua frontend: a compiled reader evaluates an empty table to nothing" *
+          doctest::test_suite("reader")) {
+  // the faces of a layer without any, say: there is nothing to evaluate, and no point to bind to
+  sc::CompiledReader compiled(translated(PlanarWave), nullptr);
+  const sc::DataTable empty(0);
+  CHECK_NOTHROW(compiled.call(empty));
+}
+
+TEST_CASE("lua frontend: a compiled reader computes the outputs a table asks for, and no others" *
+          doctest::test_suite("reader")) {
+  // as an easi file may give more parameters than a friction law reads
+  sc::CompiledReader compiled(translated(PlanarWave), nullptr);
+  constexpr std::size_t NumPoints = 3;
+  std::vector<double> x = {0.0, 0.5, 1.0};
+  std::vector<double> u(NumPoints, -1.0);
+  sc::DataTable table(NumPoints);
+  table.bindViewConst<double>("x", sc::Direction::In, x.data());
+  table.bindViewConst<double>("y", sc::Direction::In, x.data());
+  table.bindViewConst<double>("z", sc::Direction::In, x.data());
+  table.bindConstant<double>("t", 0.25);
+  table.bindView<double>("u", sc::Direction::Out, u.data());
+  CHECK_NOTHROW(compiled.call(table));
+  CHECK(compiled.outputVars().size() == 3);
+  for (const double value : u) {
+    CHECK(value != -1.0);
+  }
+}
+
+TEST_CASE("lua frontend: a compiled reader reads only what the outputs a table asks for read" *
+          doctest::test_suite("reader")) {
+  // an output nobody asks for may read an input the table does not give, here the time
+  constexpr auto TwoParts = R"lua(
+local M = {}
+M.output_parameters = {"near", "late"}
+M.input_parameters = {"x", "t"}
+
+function M.evaluate(fields, x, t)
+return 2.0 * x, 3.0 * t
+end
+
+return M
+)lua";
+  sc::CompiledReader compiled(translated(TwoParts), nullptr);
+  std::vector<double> x = {0.0, 0.5, 1.0};
+  std::vector<double> near(x.size(), -1.0);
+  sc::DataTable table(x.size());
+  table.bindViewConst<double>("x", sc::Direction::In, x.data());
+  table.bindView<double>("near", sc::Direction::Out, near.data());
+  CHECK_NOTHROW(compiled.call(table));
+  for (std::size_t i = 0; i < x.size(); ++i) {
+    CHECK(near[i] == 2.0 * x[i]);
+  }
+}
+
+TEST_CASE("lua frontend: a compiled reader binds a table made in the place of another anew" *
+          doctest::test_suite("reader")) {
+  // as a table made per face may take the address of the last one, with other columns -- those
+  // of another material, say
+  sc::CompiledReader compiled(translated(PlanarWave), nullptr);
+  std::optional<sc::DataTable> table;
+  std::vector<double> first = {0.0, 0.5};
+  std::vector<double> second = {1.0, 1.5};
+  std::vector<double> firstU(2, -1.0);
+  std::vector<double> secondU(2, -1.0);
+
+  table.emplace(first.size());
+  table->bindViewConst<double>("x", sc::Direction::In, first.data());
+  table->bindViewConst<double>("y", sc::Direction::In, first.data());
+  table->bindViewConst<double>("z", sc::Direction::In, first.data());
+  table->bindConstant<double>("t", 0.25);
+  table->bindView<double>("u", sc::Direction::Out, firstU.data());
+  compiled.call(*table);
+  const auto firstRevision = table->revision();
+
+  // the same columns elsewhere, in another order
+  table.emplace(second.size());
+  table->bindConstant<double>("t", 0.25);
+  table->bindViewConst<double>("z", sc::Direction::In, second.data());
+  table->bindViewConst<double>("y", sc::Direction::In, second.data());
+  table->bindViewConst<double>("x", sc::Direction::In, second.data());
+  table->bindView<double>("u", sc::Direction::Out, secondU.data());
+  CHECK(table->revision() != firstRevision);
+  compiled.call(*table);
+
+  // what a reader that never saw the first table gives
+  sc::CompiledReader fresh(translated(PlanarWave), nullptr);
+  std::vector<double> expected(second.size(), -1.0);
+  sc::DataTable reference(second.size());
+  reference.bindViewConst<double>("x", sc::Direction::In, second.data());
+  reference.bindViewConst<double>("y", sc::Direction::In, second.data());
+  reference.bindViewConst<double>("z", sc::Direction::In, second.data());
+  reference.bindConstant<double>("t", 0.25);
+  reference.bindView<double>("u", sc::Direction::Out, expected.data());
+  fresh.call(reference);
+  for (std::size_t i = 0; i < second.size(); ++i) {
+    CHECK(secondU[i] == expected[i]);
   }
 }
 

@@ -119,14 +119,17 @@ ScriptField::ScriptField(const std::string& path,
   std::string reason;
   impl_->program = reader::scripting::buildProgram(path, &reason);
   if (!impl_->program.has_value()) {
+    const auto dimensions = hasTime ? std::vector<std::string>{"t", "x", "y", "z"}
+                                    : std::vector<std::string>{"x", "y", "z"};
+    for (auto& thread : impl_->threads) {
+      thread.reader = reader::scripting::buildInterpretedReader(path, dimensions);
+      if (thread.reader == nullptr) {
+        // a Lua model the frontend does not translate: there is no interpreter of Lua
+        logError() << "The scripted field" << path << "is not translated:" << reason;
+      }
+    }
     logInfo() << "The scripted field" << path
               << "is evaluated through its interpreted reader, which is slow --" << reason;
-    for (auto& thread : impl_->threads) {
-      thread.reader = reader::scripting::buildInterpretedReader(
-          path,
-          hasTime ? std::vector<std::string>{"t", "x", "y", "z"}
-                  : std::vector<std::string>{"x", "y", "z"});
-    }
     return;
   }
   if (filter) {

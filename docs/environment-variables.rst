@@ -161,7 +161,7 @@ index or a string that depends on the point, metatables, the libraries other tha
 next in a global or an upvalue, which easi and SeisSol leave to the order of the points. Where Lua
 fails at some points (``error``, ``assert``, arithmetic on ``nil``), a check of the program fails
 there; where it fails at every point, the translation does. A Lua model the frontend does not
-translate is evaluated by Lua, with a warning that says why.
+translate stops the run with the line and why; an ``!LuaMap`` it does not translate easi evaluates.
 
 The scripts that a run evaluates per time step or per output (the analytical and the nonlinear
 Dirichlet boundary, the slip rates of ``FL = 36``, the derived outputs) compute in the precision of

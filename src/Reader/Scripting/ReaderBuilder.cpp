@@ -12,7 +12,6 @@
 #include "Reader/Scripting/EasiReader.h"
 #include "Reader/Scripting/EasiWalker.h"
 #include "Reader/Scripting/LuaFrontend.h"
-#include "Reader/Scripting/LuaReader.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -48,32 +47,21 @@ std::string readFile(const std::string& path) {
   return code.str();
 }
 
-/// A Lua model: translated into a program by the Lua frontend (LuaFrontend.h), with the
-/// interpreted reader as the oracle and the fallback of the compiled one; where the frontend does
-/// not translate it, evaluated by Lua, with a warning that says why.
+/// A Lua model: translated into a program by the Lua frontend (LuaFrontend.h). There is no
+/// interpreter of Lua to compare with or to fall back to, as for an sderiv module: a model the
+/// frontend does not translate is a configuration error, which names the line and why.
 std::unique_ptr<DataReader> buildLua(const std::string& path) {
   const std::string code = readFile(path);
   const lua::LuaOrigin origin{path, 1, ':'};
   try {
     auto program = lua::translateLuaModule(code, origin);
     logInfo() << "The Lua model" << path << "is translated into a program (the Lua frontend).";
-#ifdef USE_LUA
-    return std::make_unique<CompiledReader>(std::move(program), std::make_unique<LuaReader>(code));
-#else
     return std::make_unique<CompiledReader>(std::move(program), nullptr);
-#endif
   } catch (const lua::LuaError& error) {
     const std::string where = error.line() > 0 ? origin.at(error.line()) + ": " : std::string();
-#ifdef USE_LUA
-    logWarning() << "The Lua model" << path << "is not translated, and is evaluated by Lua instead:"
-                 << where + error.message();
-    return std::make_unique<LuaReader>(code);
-#else
-    logError() << "The Lua model" << path
-               << "is not translated, and SeisSol is built without Lua:" << where + error.message();
-    return nullptr;
-#endif
+    logError() << "The Lua model" << path << "is not translated:" << where + error.message();
   }
+  return nullptr;
 }
 
 /// A .sderiv module names its own outputs, so nothing is passed in and nothing
@@ -163,13 +151,6 @@ std::string fileOf(const std::string& path) {
 std::unique_ptr<DataReader> buildInterpretedReader(const std::string& path,
                                                    const std::vector<std::string>& defaultInArgs) {
   const auto kind = kindOf(path);
-  if (kind == "lua") {
-#ifdef USE_LUA
-    return std::make_unique<LuaReader>(readFile(fileOf(path)));
-#else
-    return nullptr;
-#endif
-  }
   if (kind == "easi") {
     return std::make_unique<EasiReader>(fileOf(path), defaultInArgs);
   }

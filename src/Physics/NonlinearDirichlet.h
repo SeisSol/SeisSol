@@ -22,7 +22,7 @@ namespace seissol::physics {
 /// The condition of a nonlinear Dirichlet boundary (FaceType::NonlinearDirichlet): the state
 /// beyond a face, the ghost state, as a function of the state inside.
 ///
-/// A script gives it, an sderiv module or a Lua model that traces. It reads the inner state by the
+/// A script gives it, an sderiv module or a Lua model. It reads the inner state by the
 /// names of the quantities of the material (`s_xx`, ..., `v1`, `v2`, `v3` for an elastic one), x,
 /// y, z, t, sim, and the parameters of the material (model::scriptParameterNames); it gives the
 /// ghost state by the same names. A quantity it does not give is that of the inside. In an sderiv

@@ -21,9 +21,7 @@ add_library(seissol-reader OBJECT
     Scripting/EasiReader.cpp
     Scripting/EasiWalker.cpp
     Scripting/LuaFrontend.cpp
-    Scripting/LuaReader.cpp
     Scripting/LuaSyntax.cpp
-    Scripting/LuaTracer.cpp
     Scripting/ReaderBuilder.cpp
 )
 
@@ -39,6 +37,5 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         "-ffp-contract=off")
 endif()
 
-# seissol-external: lmathx, which the Lua reader loads as easi does (SEISSOL_LUA_LMATHX)
-target_link_libraries(seissol-reader PUBLIC seissol-common-properties seissol-external)
+target_link_libraries(seissol-reader PUBLIC seissol-common-properties)
 target_link_libraries(seissol-lib PUBLIC seissol-reader)

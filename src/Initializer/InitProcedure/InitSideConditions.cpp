@@ -306,8 +306,7 @@ void initAnalyticalBoundary(seissol::SeisSol& seissolInstance) {
         if (state == nullptr) {
           logError() << "The analytical boundary of a device build evaluates the initial "
                         "condition on the device, as a script that compiles: an sderiv module, a "
-                        "Lua model that traces, or a scenario of SeisSol. An easi file or a Lua "
-                        "model that does not trace is none.";
+                        "Lua model, or a scenario of SeisSol. An easi file is none.";
         }
         if (!expr::deviceRuntimeAvailable()) {
           logError() << "The analytical boundary of a device build needs the runtime compiler of "

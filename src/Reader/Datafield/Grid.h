@@ -229,12 +229,11 @@ inline constexpr std::size_t DefaultWindowMemoryBudget = 1ULL << 30; // 1 GiB
 // place for a backend to get it wrong.
 // Surface-syntax names for the two closed vocabularies above. Both frontends
 // (sderiv grid declarations, Lua field_specs) spell these as strings; a mapping
-// in each would let "linear" and Interpolation drift apart between the traced
-// and the interpreted path. One mapping, here, next to the enums it maps onto.
+// in each would let "linear" and Interpolation drift apart between them. One
+// mapping, here, next to the enums it maps onto.
 //
-// std::nullopt rather than a default on an unknown name: the sderiv frontend
-// reports it with a source position, the Lua tracer as a TraceFailure, and
-// neither diagnostic can be produced from in here.
+// std::nullopt rather than a default on an unknown name: each frontend reports
+// it with its source position, which cannot be produced from in here.
 [[nodiscard]] std::optional<GridKind> parseGridKind(const std::string& text);
 [[nodiscard]] std::optional<Interpolation> parseInterpolation(const std::string& text);
 /// "clamp" or "fail".

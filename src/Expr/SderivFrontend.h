@@ -55,8 +55,8 @@
 //
 // The alternative -- a separate `export rho, mu` list -- was rejected because it
 // is a hand-maintained parallel list to the definitions, which is the same
-// defect class as Lua's M.output_parameters against the actual return values,
-// and the reason the tracer exists. A marker on the definition cannot drift.
+// defect class as Lua's M.output_parameters against the actual return values.
+// A marker on the definition cannot drift.
 //
 // `out def NAME(params)` is refused: an output is a value per point, not a
 // function, and there is no call site for it to take arguments from.

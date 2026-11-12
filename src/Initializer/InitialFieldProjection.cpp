@@ -221,7 +221,7 @@ std::vector<double> projectScriptFields(const std::string& path,
                                 : std::vector<std::string>{"x", "y", "z"};
 
   // a script that compiles runs compiled, with what it computes in this configuration of the run;
-  // easi, and Lua that does not trace, interpreted
+  // easi interpreted (a Lua model the frontend does not translate stops the run there)
   std::unique_ptr<reader::scripting::DataReader> reader;
   if (auto program = reader::scripting::buildProgram(path)) {
     reader::scripting::CompiledReaderOptions options;

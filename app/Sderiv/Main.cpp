@@ -50,7 +50,7 @@ using seissol::expr::Record;
 
 constexpr const char* Usage = R"(usage: sderiv <command> [arguments]
 
-Programs (sderiv in the full language or the core format, or a Lua model that traces):
+Programs (sderiv in the full language or the core format, or a Lua model):
   check FILE                  load and validate a program, and describe it
   print FILE                  the program in the normal form of the core format
   eval FILE [NAME=VALUE...] [--points POINTS] [--hex]
@@ -127,7 +127,7 @@ Program loadProgram(const std::string& path) {
     std::string reason;
     auto program = seissol::reader::scripting::buildProgram(path, &reason);
     if (!program.has_value()) {
-      fail(path + ": the Lua model does not trace to a program: " + reason);
+      fail(path + ": the Lua model is not translated into a program: " + reason);
     }
     return *program;
   }

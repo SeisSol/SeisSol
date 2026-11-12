@@ -212,7 +212,7 @@ seissol_add_test_module(solver          Solver/TestSolver.cpp)
 seissol_add_test_module(sourceterm      SourceTerm/TestSourceTerm.cpp)
 
 if (NETCDF)
-    seissol_add_test_module(reader      Reader/ReaderTest.cpp)
+    seissol_add_test_module(reader      Reader/ReaderTest.cpp Reader/LuaOracle.cpp)
     # Without contraction of floating-point expressions, as the interpolation it compares bit for
     # bit with a transcription of easi's (src/Reader/CMakeLists.txt): the same operations.
     if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")

@@ -29,7 +29,7 @@
 #include "Numerical/Projection.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
-#include "Reader/Scripting/LuaTracer.h"
+#include "Reader/Scripting/LuaFrontend.h"
 #include "Solver/MultipleSimulations.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
@@ -812,10 +812,8 @@ TEST_CASE("DerivedOutput: a Lua program computes what its sderiv counterpart doe
                              "out def divv = dx_" +
                              v1 + " + dy_" + v2 + " + dz_" + v3 + "\n";
 
-  reader::scripting::TraceFailure failure;
-  auto traced = reader::scripting::traceLuaModule(lua, {}, failure);
-  REQUIRE_MESSAGE(traced.has_value(), failure.reason);
-  const DerivedProgram fromLua(std::move(*traced), sources(), geometry);
+  auto translated = reader::scripting::lua::translateLuaModule(lua, {"derived.lua", 1, ':'});
+  const DerivedProgram fromLua(std::move(translated), sources(), geometry);
   const DerivedProgram fromSderiv(expr::compileSderivModule(sderiv), sources(), geometry);
 
   Evaluation first(fromLua, cells);

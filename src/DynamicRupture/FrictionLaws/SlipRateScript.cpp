@@ -70,7 +70,7 @@ SlipRateScript::SlipRateScript(const std::string& path) : path_(path) {
   auto script = reader::scripting::buildProgram(path, &reason);
   if (!script.has_value()) {
     logError() << "imposed slip rates: the script" << path << "cannot be used --" << reason
-               << "; it is an sderiv module or a Lua model that traces.";
+               << "; it is an sderiv module or a Lua model.";
   }
   try {
     *this = SlipRateScript(*script, path);

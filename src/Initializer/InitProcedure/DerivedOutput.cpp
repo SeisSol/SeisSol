@@ -916,7 +916,7 @@ expr::Program loadDerivedProgram(const std::string& path) {
   if (!program.has_value()) {
     // there is no interpreted fallback for a program that reads contractions
     logError() << "derived output: the program" << path << "cannot be used --" << reason
-               << "; a derived output is an sderiv module or a Lua model that traces.";
+               << "; a derived output is an sderiv module or a Lua model.";
   }
   if (!program->checks().empty()) {
     logError() << "derived output: the program" << path

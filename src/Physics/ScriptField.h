@@ -33,7 +33,7 @@ namespace seissol::physics {
 /// `t`, the simulation `sim`, and the parameters of the material of the cell by the names
 /// `parameters` (model::scriptParameterNames). A quantity it does not give is zero.
 ///
-/// A script that compiles to a program (an sderiv module, or a Lua model that traces) is evaluated
+/// A script that compiles to a program (an sderiv module, or a Lua model) is evaluated
 /// by one kernel per thread, made here, with the points and values of a call passed as bases --
 /// the boundary condition asks for a few points per face and time step, which is far too often to
 /// bind a table each time. Any other script (easi) is evaluated by one reader per thread, which is

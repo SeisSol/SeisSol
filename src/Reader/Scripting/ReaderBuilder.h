@@ -26,7 +26,7 @@ std::unique_ptr<DataReader> buildReader(const std::string& path,
 
 /// A reader of the script `path` that evaluates it point by point rather than through a compiled
 /// program, and hence can be made once per thread and called with a new table every time: an
-/// easi file or a Lua model; null for an sderiv module, which has no such reader.
+/// easi file; null for an sderiv module or a Lua model, which have no such reader.
 std::unique_ptr<DataReader> buildInterpretedReader(const std::string& path,
                                                    const std::vector<std::string>& defaultInArgs);
 

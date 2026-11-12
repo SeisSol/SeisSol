@@ -119,7 +119,7 @@ OutputRegionFileName
 --------------------
 
 A region of any shape is given by a model, a script (an sderiv module, ``sderiv:file`` or a
-``.sderiv`` file, or a Lua model that traces, ``lua:file`` or a ``.lua`` file) or an
+``.sderiv`` file, or a Lua model, ``lua:file`` or a ``.lua`` file) or an
 :doc:`easi` file, named by ``OutputRegionFileName``. The model gives ``wavefield``, a function of
 the position ``x``, ``y``, ``z``, of the ``group`` of a cell and of the parameters of its material
 (see :ref:`script_material_parameters`; an easi file reads the position and the group only); a

@@ -9,8 +9,7 @@
 
 // The Lua frontend: a script of Lua 5.4 (LuaSyntax.h), evaluated once for all points at once into
 // a program (expr::Program), without a Lua VM. The program computes what Lua computes, bit for bit,
-// with the math library easi and SeisSol's Lua reader load (Lua's own, with lmathx's functions
-// over it).
+// with the math library easi loads (Lua's own, with lmathx's functions over it).
 //
 // A value that depends on the point is a node of the program; everything else -- numbers the
 // script fixes, strings, tables, functions -- the frontend computes itself, as Lua does. So:

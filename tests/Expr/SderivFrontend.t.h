@@ -5,15 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-// Same shape as LuaTracer.t.h: sources inline, positive / negative /
-// differential.
+// Sources inline, positive / negative / differential.
 //
-// The negative half is shorter than the Lua one and that is the headline
-// property of this frontend rather than an omission. sderiv has no control
-// flow, so there is no `if` to detect, no probe ladder, no truthiness, no
-// iteration order and no side effects -- the whole four-net apparatus in
-// LuaTracer.h has nothing to do here. What remains to test is a grammar and a
-// set of name checks.
+// The negative half is short, and that is a property of this frontend rather
+// than an omission: sderiv has no control flow, so there is no `if`, no
+// truthiness, no iteration order and no side effects to translate (compare
+// LuaFrontend.h). What remains to test is a grammar and a set of name checks.
 
 #include <doctest.h>
 

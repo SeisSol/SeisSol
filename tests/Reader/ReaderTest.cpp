@@ -24,4 +24,3 @@
 #include "Datafield/Interpolation.t.h"
 #include "Datafield/TimeWindow.t.h"
 #include "LuaFrontend.t.h"
-#include "LuaTracer.t.h"

@@ -5,17 +5,19 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Reader/Scripting/LuaReader.h"
-
-#include "Reader/Scripting/LuaTracer.h"
+#include "LuaOracle.h"
 
 #ifdef USE_LUA
 
+#include "Expr/Interp.h"
+#include "Expr/Ir.h"
 #include "Parallel/OpenMP.h"
 #include "Reader/Scripting/DataTable.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -68,9 +70,92 @@ std::string loadCodeLmathX() { return ""; }
 } // namespace
 #endif
 
-namespace seissol::reader::scripting {
+namespace seissol::unit_test {
+
+using namespace seissol::reader::scripting;
 
 namespace {
+
+// The vocabulary of the earlier tracer, `ssol`, computing: lt, le, gt, ge, eq and the logic on
+// booleans and numbers (a number other than zero is true), select, and the builtins of sderiv.
+bool truthy(lua_State* luaState, int index) {
+  if (lua_isboolean(luaState, index)) {
+    return lua_toboolean(luaState, index) != 0;
+  }
+  return lua_tonumber(luaState, index) != 0.0;
+}
+int ssolLt(lua_State* l) {
+  lua_pushboolean(l, static_cast<int>(lua_tonumber(l, 1) < lua_tonumber(l, 2)));
+  return 1;
+}
+int ssolLe(lua_State* l) {
+  lua_pushboolean(l, static_cast<int>(lua_tonumber(l, 1) <= lua_tonumber(l, 2)));
+  return 1;
+}
+int ssolGt(lua_State* l) {
+  lua_pushboolean(l, static_cast<int>(lua_tonumber(l, 1) > lua_tonumber(l, 2)));
+  return 1;
+}
+int ssolGe(lua_State* l) {
+  lua_pushboolean(l, static_cast<int>(lua_tonumber(l, 1) >= lua_tonumber(l, 2)));
+  return 1;
+}
+int ssolEq(lua_State* l) {
+  lua_pushboolean(l, static_cast<int>(lua_tonumber(l, 1) == lua_tonumber(l, 2)));
+  return 1;
+}
+int ssolAnd(lua_State* l) {
+  lua_pushboolean(l, static_cast<int>(truthy(l, 1) && truthy(l, 2)));
+  return 1;
+}
+int ssolOr(lua_State* l) {
+  lua_pushboolean(l, static_cast<int>(truthy(l, 1) || truthy(l, 2)));
+  return 1;
+}
+int ssolNot(lua_State* l) {
+  lua_pushboolean(l, static_cast<int>(!truthy(l, 1)));
+  return 1;
+}
+int ssolSelect(lua_State* l) {
+  lua_pushvalue(l, truthy(l, 1) ? 2 : 3);
+  return 1;
+}
+template <expr::Fn F>
+int ssolArithmetic(lua_State* l) {
+  std::array<double, 2> args{};
+  for (int i = 0; i < expr::arity(F); ++i) {
+    args[static_cast<std::size_t>(i)] = luaL_checknumber(l, i + 1);
+  }
+  lua_pushnumber(l, expr::applyPw<double>(F, args.data()));
+  return 1;
+}
+
+void registerSsol(lua_State* luaState) {
+  lua_newtable(luaState);
+  const std::array<std::pair<const char*, lua_CFunction>, 13> functions{
+      {{"lt", ssolLt},
+       {"le", ssolLe},
+       {"gt", ssolGt},
+       {"ge", ssolGe},
+       {"eq", ssolEq},
+       {"land", ssolAnd},
+       {"lor", ssolOr},
+       {"lnot", ssolNot},
+       {"select", ssolSelect},
+       {"sign", ssolArithmetic<expr::Fn::Sign>},
+       {"mod", ssolArithmetic<expr::Fn::Mod>},
+       {"atan2", ssolArithmetic<expr::Fn::Atan2>},
+       {"pow", ssolArithmetic<expr::Fn::Pow>}}};
+  for (const auto& [name, function] : functions) {
+    lua_pushcfunction(luaState, function);
+    lua_setfield(luaState, -2, name);
+  }
+  lua_pushnumber(luaState, M_PI);
+  lua_setfield(luaState, -2, "pi");
+  lua_pushnumber(luaState, 9.80665);
+  lua_setfield(luaState, -2, "g");
+  lua_setglobal(luaState, "ssol");
+}
 
 [[noreturn]] void throwLuaError(lua_State* luaState, const std::string& context) {
   std::string msg = context + ": ";
@@ -95,11 +180,7 @@ LuaStateState loadScript(const std::string& code) {
 
   loadLmathx(luaState);
 
-  // The branch-free vocabulary the tracer defines. Installed here too, because
-  // ReaderBuilder falls back to this reader when a trace fails, and a script
-  // written for the tracer uses ssol.select instead of `if` -- without this it
-  // would fail on every point and silently write nothing.
-  registerConcreteSsol(luaState);
+  registerSsol(luaState);
 
   const auto modCode = loadCodeLmathX() + code;
 
@@ -127,7 +208,7 @@ LuaStateState loadScript(const std::string& code) {
   }
   state.refEvaluate = luaL_ref(luaState, LUA_REGISTRYINDEX); // [M]
 
-  // Build an empty fields table; bindField populates it.
+  // An empty fields table: the oracle has no grids.
   lua_newtable(luaState);                                  // [M, fields]
   state.refFields = luaL_ref(luaState, LUA_REGISTRYINDEX); // [M]
 
@@ -163,106 +244,15 @@ std::vector<std::string> readStringArray(lua_State* luaState) {
   return out;
 }
 
-/// Read M.field_specs (table at top of stack) into a vector<FieldSpec>.
-std::vector<FieldSpec> readFieldSpecs(lua_State* luaState) {
-  std::vector<FieldSpec> out;
-  if (!lua_istable(luaState, -1)) {
-    lua_pop(luaState, 1);
-    return out;
-  }
-  const lua_Integer n = luaL_len(luaState, -1);
-  out.reserve(static_cast<std::size_t>(n));
-  for (lua_Integer i = 1; i <= n; ++i) {
-    lua_geti(luaState, -1, i); // field_specs[i]
-    if (!lua_istable(luaState, -1)) {
-      lua_pop(luaState, 1);
-      continue;
-    }
-    FieldSpec fs;
-    lua_getfield(luaState, -1, "name");
-    if (lua_type(luaState, -1) == LUA_TSTRING) {
-      fs.name = lua_tostring(luaState, -1);
-    }
-    lua_pop(luaState, 1);
-    lua_getfield(luaState, -1, "kind");
-    if (lua_type(luaState, -1) == LUA_TSTRING) {
-      fs.kind = lua_tostring(luaState, -1);
-    }
-    lua_pop(luaState, 1);
-    lua_getfield(luaState, -1, "file");
-    if (lua_type(luaState, -1) == LUA_TSTRING) {
-      fs.file = lua_tostring(luaState, -1);
-    }
-    lua_pop(luaState, 1);
-    lua_getfield(luaState, -1, "variable");
-    if (lua_type(luaState, -1) == LUA_TSTRING) {
-      fs.variable = lua_tostring(luaState, -1);
-    }
-    lua_pop(luaState, 1);
-    lua_getfield(luaState, -1, "interpolation");
-    if (lua_type(luaState, -1) == LUA_TSTRING) {
-      fs.interpolation = lua_tostring(luaState, -1);
-    }
-    lua_pop(luaState, 1);
-    lua_getfield(luaState, -1, "parameters");
-    if (lua_istable(luaState, -1)) {
-      fs.parameters = readStringArray(luaState); // pops the table
-    } else {
-      lua_pop(luaState, 1);
-    }
-    out.push_back(std::move(fs));
-    lua_pop(luaState, 1); // pop field_specs[i]
-  }
-  lua_pop(luaState, 1); // pop the field_specs table
-  return out;
-}
-
-extern "C" {
-
-// launcher for field samplers (e.g. ASAGI); is called from Lua code
-int fieldSampleTrampoline(lua_State* luaState) {
-  // Stack: [self_table, coord_1, coord_2, ...]
-  auto* closure =
-      static_cast<LuaReader::FieldClosure*>(lua_touserdata(luaState, lua_upvalueindex(1)));
-  if (closure == nullptr || !closure->sampler) {
-    return luaL_error(luaState, "field sampler not bound");
-  }
-  const int nArgs = lua_gettop(luaState) - 1; // everything after self
-  if (nArgs > 16) {
-    return luaL_error(luaState, "field sampler: too many coords (%d > 16)", nArgs);
-  }
-  double coords[16];
-  for (int i = 0; i < nArgs; ++i) {
-    coords[i] = lua_tonumber(luaState, 2 + i);
-  }
-  if (closure->nOutputs > 16) {
-    return luaL_error(luaState, "field sampler: too many outputs (%zu > 16)", closure->nOutputs);
-  }
-  double results[16] = {0};
-  try {
-    closure->sampler(results, coords);
-  } catch (const std::exception& e) {
-    return luaL_error(luaState, "field sampler threw: %s", e.what());
-  } catch (...) {
-    return luaL_error(luaState, "field sampler threw: unknown exception");
-  }
-  for (std::size_t i = 0; i < closure->nOutputs; ++i) {
-    lua_pushnumber(luaState, results[i]);
-  }
-  return static_cast<int>(closure->nOutputs);
-}
-
-} // extern "C"
-
 } // namespace
 
-LuaReader::~LuaReader() {
+LuaOracle::~LuaOracle() {
   for (auto& state : luaStates_) {
     lua_close(state.luaState);
   }
 }
 
-LuaReader::LuaReader(const std::string& code) : code_(code) {
+LuaOracle::LuaOracle(const std::string& code) : code_(code) {
 
   const auto luaState = loadScript(code_);
 
@@ -305,7 +295,7 @@ std::vector<std::string> sortedKeys(lua_State* luaState, int index) {
 
 } // namespace
 
-void LuaReader::readMetadata(const LuaStateState& state) {
+void LuaOracle::readMetadata(const LuaStateState& state) {
   lua_rawgeti(state.luaState, LUA_REGISTRYINDEX, state.refModule); // [M]
 
   lua_getfield(state.luaState, -1, "version");
@@ -327,9 +317,6 @@ void LuaReader::readMetadata(const LuaStateState& state) {
   lua_getfield(state.luaState, -1, "output_parameters");
   const bool declaresOutputs = !lua_isnil(state.luaState, -1);
   outputs_ = readStringArray(state.luaState);
-
-  lua_getfield(state.luaState, -1, "field_specs");
-  fieldSpecs_ = readFieldSpecs(state.luaState);
 
   lua_getfield(state.luaState, -1, "state"); // [M, state]
   if (lua_istable(state.luaState, -1)) {
@@ -385,41 +372,7 @@ void LuaReader::readMetadata(const LuaStateState& state) {
   lua_pop(state.luaState, 1); // pop M
 }
 
-void LuaReader::bindField(const std::string& name, FieldSampler sampler) {
-  // Find the matching field spec to know how many outputs to expect.
-  const FieldSpec& spec = [&]() {
-    for (const auto& s : fieldSpecs_) {
-      if (s.name == name) {
-        return s;
-      }
-    }
-    // nothing found; fail
-    logError() << "bindField: no field '" + name + "' declared in module";
-    throw;
-  }();
-  auto closure = std::make_unique<FieldClosure>();
-  closure->owner = this;
-  closure->sampler = std::move(sampler);
-  closure->nOutputs = spec.parameters.size();
-
-  fieldClosures_[name] = std::move(closure);
-}
-
-void LuaReader::registerFields(const LuaStateState& state) {
-  for (const auto& [name, cls] : fieldClosures_) {
-    // Build a Lua field object: a table with a `:sample(...)` method, where
-    // `sample` is a C-closure capturing the closure pointer as its upvalue.
-    lua_rawgeti(state.luaState, LUA_REGISTRYINDEX, state.refFields); // [fields]
-    lua_newtable(state.luaState);                                    // [fields, fobj]
-    lua_pushlightuserdata(state.luaState, cls.get());                // [fields, fobj, ud]
-    lua_pushcclosure(state.luaState, &fieldSampleTrampoline, 1);     // [fields, fobj, csample]
-    lua_setfield(state.luaState, -2, "sample");                      // [fields, fobj]
-    lua_setfield(state.luaState, -2, name.c_str());                  // [fields]
-    lua_pop(state.luaState, 1);                                      // []
-  }
-}
-
-void LuaReader::call(const scripting::DataTable& table) {
+void LuaOracle::call(const reader::scripting::DataTable& table) {
 
   const auto& entries = table.dataEntries();
 
@@ -463,7 +416,6 @@ void LuaReader::call(const scripting::DataTable& table) {
   {
     if (luaStates_[OpenMP::threadId()].luaState == nullptr) {
       luaStates_[OpenMP::threadId()] = loadScript(code_);
-      registerFields(luaStates_[OpenMP::threadId()]);
     }
 
     const auto& luaStateState = luaStates_[OpenMP::threadId()];
@@ -606,6 +558,6 @@ void LuaReader::call(const scripting::DataTable& table) {
   }
 }
 
-} // namespace seissol::reader::scripting
+} // namespace seissol::unit_test
 
 #endif
