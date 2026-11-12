@@ -269,6 +269,9 @@ struct BackendComparison {
   /// at how many points the backend was judged: the pool of the call
   std::size_t compared{0};
   PoolScope scope;
+  /// the first point of the call: of the first calls of the kernels of one binding (the threads of
+  /// a consumer), the record keeps the one that starts first, whichever finishes first
+  std::size_t callFirst{0};
   std::vector<double> inputs;
   std::vector<double> interpreter;
   std::vector<double> backend;
@@ -374,8 +377,19 @@ void setRecordDirectory(const std::string& directory,
 [[nodiscard]] bool backendChecks();
 
 /// Logs what the check of the first call of the `kind` kernel of `program` found, and stops the
-/// run where it deviates, unless SEISSOL_EXPR_CHECK=warn.
-void reportComparison(const Program& program, BackendKind kind, const BackendComparison& found);
+/// run where it deviates, unless SEISSOL_EXPR_CHECK=warn. With `binding`, of which the points of
+/// the sample are, the record follows the later calls of the kernels of that binding.
+void reportComparison(const Program& program,
+                      BackendKind kind,
+                      const BackendComparison& found,
+                      const Binding* binding = nullptr,
+                      reader::datafield::GridStore* grids = nullptr);
+
+/// Completes the evaluation records at the end of a run: per record, the last call that reached
+/// the points of its sample (the specification's last call of a consumer that calls a program
+/// repeatedly), with what they read before it -- their states included -- and what the kernel
+/// gave, evaluated again by the interpreter where all a point reads is in the record.
+void finishRecords();
 
 /// The points of a call of `count` points from `first` the check compares: all of them up to 64,
 /// else 64 spread evenly over the call, its first and its last among them.

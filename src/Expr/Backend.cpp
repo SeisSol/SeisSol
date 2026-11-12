@@ -556,6 +556,36 @@ void gatherStates(const Binding& binding,
   }
 }
 
+/// What the record of a program keeps of the later calls of its kernels (the specification's last
+/// call): at the points of its sample, in the point space of the binding of the call that chose
+/// them, the inputs and the states before the last call that reached them, and what the kernel gave
+/// there. Every checked kernel of the same binding updates it -- those of the other threads, which
+/// share it, as well.
+struct Tracker {
+  std::mutex mutex;
+  Program program;
+  BackendKind kind{BackendKind::Interpreter};
+  const Binding* binding{nullptr};
+  GridStore* grids{nullptr};
+  Record record;
+  std::filesystem::path path;
+  /// the points of the sample in the binding, sorted, and their index in record.sample
+  std::vector<std::size_t> points;
+  std::vector<std::size_t> sample;
+  /// per point: the inputs, then the states before; the outputs, then the next states
+  std::vector<std::vector<double>> inputs;
+  std::vector<std::vector<double>> values;
+  /// the calls after the first that reached a point of the sample
+  std::size_t calls{0};
+  /// the first point of the call the sample is of, and whether a kernel follows the sample already
+  std::size_t callFirst{0};
+  bool followed{false};
+};
+
+/// The tracker of the record of `program` on `kind`, where the binding of its sample is `binding`.
+std::shared_ptr<Tracker>
+    trackerOf(const Program& program, BackendKind kind, const Binding* binding);
+
 /// A compiled kernel, checked at its first call (the specification's check of a backend): at a
 /// sample of the points of the call, the interpreter evaluates the program as written -- nothing
 /// hoisted, so that a hoisted value is checked as well -- from the inputs the call read, and the
@@ -575,21 +605,25 @@ class CheckedKernel final : public Kernel {
   void precompute(const DataTable& table) override { inner_->precompute(table); }
 
   void run(const DataTable& table) override {
-    const auto states = checked_ ? std::vector<double>() : statesBefore(nullptr);
-    inner_->run(table);
-    if (!checked_) {
-      checked_ = true;
-      compare(&table, nullptr, states);
+    if (checked_) {
+      runTracked(&table, nullptr);
+      return;
     }
+    const auto states = statesBefore(nullptr);
+    inner_->run(table);
+    checked_ = true;
+    compare(&table, nullptr, states);
   }
 
   void run(const KernelArgs& args) override {
-    const auto states = checked_ ? std::vector<double>() : statesBefore(&args);
-    inner_->run(args);
-    if (!checked_) {
-      checked_ = true;
-      compare(nullptr, &args, states);
+    if (checked_) {
+      runTracked(nullptr, &args);
+      return;
     }
+    const auto states = statesBefore(&args);
+    inner_->run(args);
+    checked_ = true;
+    compare(nullptr, &args, states);
   }
 
   [[nodiscard]] BackendKind kind() const override { return inner_->kind(); }
@@ -619,8 +653,117 @@ class CheckedKernel final : public Kernel {
     const auto comparison =
         compareWithInterpreter(program_, *binding_, *grids_, table, args, false, &states);
     if (comparison.has_value()) {
-      reportComparison(program_, inner_->kind(), *comparison);
+      reportComparison(program_, inner_->kind(), *comparison, binding_, grids_);
     }
+  }
+
+  /// A call after the first: where it reaches points of the sample of the record, what they read
+  /// before it and what the kernel gave there.
+  void runTracked(const DataTable* table, const KernelArgs* args) {
+    if (!looked_) {
+      looked_ = true;
+      tracker_ = trackerOf(program_, inner_->kind(), binding_);
+    }
+    const std::size_t first = table != nullptr ? 0 : args->first;
+    const std::size_t count = table != nullptr ? binding_->numPoints() : args->count;
+    const auto run = [&]() {
+      if (table != nullptr) {
+        inner_->run(*table);
+      } else {
+        inner_->run(*args);
+      }
+    };
+    if (tracker_ == nullptr) {
+      run();
+      return;
+    }
+    const auto& points = tracker_->points;
+    const auto lower = std::lower_bound(points.begin(), points.end(), first);
+    const auto upper = std::lower_bound(lower, points.end(), first + count);
+    if (lower == upper ||
+        !samePoints(args,
+                    tracker_->record
+                        .sample[tracker_->sample[static_cast<std::size_t>(lower - points.begin())]]
+                        .identity,
+                    *lower)) {
+      run();
+      return;
+    }
+    const std::size_t inputCount = binding_->inputs().size();
+    const std::size_t stateCount = program_.state().size();
+    const std::size_t outputCount = program_.outputs().size();
+    void* const* stateBases = args != nullptr ? args->states : nullptr;
+    const std::size_t stateBaseCount = args != nullptr ? args->stateCount : 0;
+    std::vector<double> value(std::max({inputCount, stateCount, outputCount, std::size_t{1}}));
+    std::vector<std::vector<double>> before;
+    for (auto point = lower; point != upper; ++point) {
+      auto& read = before.emplace_back();
+      if (table != nullptr) {
+        binding_->gather(*table, *point, 1, value.data());
+      } else {
+        binding_->gatherFrom(args->inputs, args->inputCount, *point, 1, value.data());
+      }
+      read.assign(value.begin(), value.begin() + static_cast<std::ptrdiff_t>(inputCount));
+      if (stateCount > 0) {
+        gatherStates(*binding_, stateBases, stateBaseCount, *point, 1, value.data());
+        read.insert(
+            read.end(), value.begin(), value.begin() + static_cast<std::ptrdiff_t>(stateCount));
+      }
+    }
+    run();
+    std::vector<std::vector<double>> after;
+    for (auto point = lower; point != upper; ++point) {
+      auto& gave = after.emplace_back();
+      const bool read = table != nullptr
+                            ? binding_->gatherOutputs(*table, *point, 1, value.data())
+                            : binding_->gatherOutputsFrom(
+                                  args->outputs, args->outputCount, *point, 1, value.data());
+      if (!read) {
+        return;
+      }
+      gave.assign(value.begin(), value.begin() + static_cast<std::ptrdiff_t>(outputCount));
+      if (stateCount > 0) {
+        gatherStates(*binding_, stateBases, stateBaseCount, *point, 1, value.data());
+        gave.insert(
+            gave.end(), value.begin(), value.begin() + static_cast<std::ptrdiff_t>(stateCount));
+      }
+    }
+    const std::lock_guard<std::mutex> lock(tracker_->mutex);
+    const auto offset = static_cast<std::size_t>(lower - points.begin());
+    for (std::size_t j = 0; j < before.size(); ++j) {
+      tracker_->inputs[offset + j] = std::move(before[j]);
+      tracker_->values[offset + j] = std::move(after[j]);
+    }
+    ++tracker_->calls;
+  }
+
+  /// Whether the points of a call are those of the sample, of which `point` has `identity`: where
+  /// the call names its points, by that name; else, where it moves no base of values per point
+  /// (a per-call base of the coordinates of a face, say, makes the same index another point).
+  [[nodiscard]] bool
+      samePoints(const KernelArgs* args, std::uint64_t identity, std::size_t point) const {
+    if (args == nullptr) {
+      return true;
+    }
+    if (args->identity != nullptr) {
+      return args->identity(args->identityContext, point) == identity;
+    }
+    for (std::size_t i = 0; i < args->inputCount && i < binding_->inputs().size(); ++i) {
+      const auto& view = binding_->inputs()[i].view;
+      // one value for all points moves no point
+      const bool single =
+          view.has_value() && (view->uniform || (view->byteStride == 0 && view->index == nullptr &&
+                                                 view->pointStride == 0));
+      if (args->inputs != nullptr && args->inputs[i] != nullptr && !single) {
+        return false;
+      }
+    }
+    for (std::size_t o = 0; o < args->outputCount; ++o) {
+      if (args->outputs != nullptr && args->outputs[o] != nullptr) {
+        return false;
+      }
+    }
+    return true;
   }
 
   std::unique_ptr<Kernel> inner_;
@@ -628,6 +771,8 @@ class CheckedKernel final : public Kernel {
   Binding* binding_;
   GridStore* grids_;
   bool checked_{false};
+  bool looked_{false};
+  std::shared_ptr<Tracker> tracker_;
 };
 
 bool recording();
@@ -1140,6 +1285,8 @@ struct Records {
   std::vector<std::string> build;
   int rank{0};
   std::set<std::string> written;
+  /// by program and backend, what the records keep of later calls
+  std::map<std::string, std::shared_ptr<Tracker>> trackers;
 };
 
 Records& records() {
@@ -1153,22 +1300,7 @@ bool recording() {
   return !state.directory.empty();
 }
 
-/// The evaluation record of `program` on the `kind` backend, once per program and backend.
-void writeRecord(const Program& program, BackendKind kind, const BackendComparison& found) {
-  auto& state = records();
-  const std::lock_guard<std::mutex> lock(state.mutex);
-  if (state.directory.empty()) {
-    return;
-  }
-  const std::string fingerprint = fingerprintOf(program);
-  const std::string backend = seissol::expr::name(kind);
-  if (!state.written.insert(fingerprint + "-" + backend).second) {
-    return;
-  }
-  const std::string text = printRecord(recordOf(program, backend, found, state.build, state.rank));
-  const std::filesystem::path path =
-      std::filesystem::path(state.directory) /
-      (fingerprint + "-" + backend + "-r" + std::to_string(state.rank) + ".txt");
+void writeText(const std::filesystem::path& path, const std::string& text) {
   std::ofstream file(path);
   file << text;
   if (!file) {
@@ -1176,7 +1308,155 @@ void writeRecord(const Program& program, BackendKind kind, const BackendComparis
   }
 }
 
+/// The evaluation record of `program` on the `kind` backend, once per program and backend; with
+/// `binding`, which the points of its sample are of, a tracker of its later calls.
+void writeRecord(const Program& program,
+                 BackendKind kind,
+                 const BackendComparison& found,
+                 const Binding* binding,
+                 GridStore* grids) {
+  auto& state = records();
+  const std::lock_guard<std::mutex> lock(state.mutex);
+  if (state.directory.empty()) {
+    return;
+  }
+  const std::string fingerprint = fingerprintOf(program);
+  const std::string backend = seissol::expr::name(kind);
+  const std::string key = fingerprint + "-" + backend;
+  if (!state.written.insert(key).second) {
+    // of the first calls of the kernels of one binding, that of the first points, so that the
+    // sample does not depend on which finishes first -- while no kernel follows it yet
+    const auto tracked = state.trackers.find(key);
+    if (tracked == state.trackers.end() || tracked->second->binding != binding ||
+        tracked->second->followed || found.callFirst >= tracked->second->callFirst) {
+      return;
+    }
+    state.trackers.erase(tracked);
+  }
+  Record record = recordOf(program, backend, found, state.build, state.rank);
+  const std::filesystem::path path =
+      std::filesystem::path(state.directory) / (key + "-r" + std::to_string(state.rank) + ".txt");
+  writeText(path, printRecord(record));
+  if (binding == nullptr || grids == nullptr) {
+    return;
+  }
+  auto tracker = std::make_shared<Tracker>();
+  tracker->program = program;
+  tracker->kind = kind;
+  tracker->binding = binding;
+  tracker->grids = grids;
+  tracker->path = path;
+  std::vector<std::pair<std::size_t, std::size_t>> points;
+  for (std::size_t k = 0; k < record.sample.size(); ++k) {
+    points.emplace_back(record.sample[k].point, k);
+  }
+  std::sort(points.begin(), points.end());
+  for (const auto& [point, k] : points) {
+    tracker->points.push_back(point);
+    tracker->sample.push_back(k);
+  }
+  tracker->inputs.resize(points.size());
+  tracker->values.resize(points.size());
+  tracker->callFirst = found.callFirst;
+  tracker->record = std::move(record);
+  state.trackers.emplace(key, std::move(tracker));
+}
+
+std::shared_ptr<Tracker>
+    trackerOf(const Program& program, BackendKind kind, const Binding* binding) {
+  auto& state = records();
+  const std::lock_guard<std::mutex> lock(state.mutex);
+  const auto found = state.trackers.find(fingerprintOf(program) + "-" + seissol::expr::name(kind));
+  if (found == state.trackers.end() || found->second->binding != binding) {
+    return nullptr;
+  }
+  found->second->followed = true;
+  return found->second;
+}
+
 } // namespace
+
+void finishRecords() {
+  auto& state = records();
+  const std::lock_guard<std::mutex> lock(state.mutex);
+  for (auto& [key, tracker] : state.trackers) {
+    static_cast<void>(key);
+    const std::lock_guard<std::mutex> trackerLock(tracker->mutex);
+    if (tracker->calls == 0) {
+      continue;
+    }
+    Record& record = tracker->record;
+    const Program& program = tracker->program;
+    const std::size_t inputCount = record.inputs.size();
+    const std::size_t stateCount = record.states.size();
+    const std::size_t rows = record.rows();
+    // the points the later calls reached, with what they read and what the kernel gave
+    record.lastCall.clear();
+    for (std::size_t j = 0; j < tracker->points.size(); ++j) {
+      if (tracker->inputs[j].size() != inputCount + stateCount ||
+          tracker->values[j].size() != rows) {
+        continue;
+      }
+      Record::Point point = record.sample[tracker->sample[j]];
+      point.inputs = tracker->inputs[j];
+      point.interpreter = tracker->values[j];
+      point.backend = record.backendValues ? tracker->values[j] : std::vector<double>();
+      point.tolerance.clear();
+      record.lastCall.push_back(std::move(point));
+    }
+    const std::size_t n = record.lastCall.size();
+    std::string outcome;
+    // evaluated again by the interpreter, where all a point reads is in the record
+    if (tracker->kind != BackendKind::Interpreter && program.matrices().empty() &&
+        program.blocks().empty() && n > 0) {
+      std::vector<double> inputs(inputCount * n);
+      std::vector<double> states(stateCount * n);
+      for (std::size_t k = 0; k < n; ++k) {
+        for (std::size_t i = 0; i < inputCount; ++i) {
+          inputs[i * n + k] = record.lastCall[k].inputs[i];
+        }
+        for (std::size_t q = 0; q < stateCount; ++q) {
+          states[q * n + k] = record.lastCall[k].inputs[inputCount + q];
+        }
+      }
+      const auto values = interpretValues(
+          program, *tracker->grids, inputs, n, nullptr, states.empty() ? nullptr : &states);
+      std::size_t deviating = 0;
+      for (std::size_t k = 0; k < n; ++k) {
+        for (std::size_t o = 0; o < rows; ++o) {
+          const double interpreted = values[o * n + k];
+          const double gave = record.lastCall[k].backend[o];
+          if (std::memcmp(&interpreted, &gave, sizeof(double)) != 0 &&
+              !(std::isnan(interpreted) && std::isnan(gave))) {
+            ++deviating;
+          }
+          record.lastCall[k].interpreter[o] = interpreted;
+        }
+      }
+      outcome =
+          deviating == 0 ? "the same bits" : "deviates at " + std::to_string(deviating) + " values";
+      if (deviating > 0) {
+        logWarning() << "expr: the" << seissol::expr::name(tracker->kind) << "kernel of program"
+                     << fingerprintOf(program).c_str() << "deviates from the interpreter at"
+                     << deviating
+                     << "values of the last call that reached the points of its record.";
+      }
+    } else if (tracker->kind != BackendKind::Interpreter) {
+      outcome = "not evaluated again, the program reads contractions";
+    } else {
+      outcome = "the interpreter";
+    }
+    auto& head = record.head;
+    head.erase(std::remove_if(head.begin(),
+                              head.end(),
+                              [](const auto& line) { return line.first == "last call"; }),
+               head.end());
+    head.emplace_back("last call",
+                      std::to_string(n) + " points, after " + std::to_string(tracker->calls) +
+                          " calls: " + outcome);
+    writeText(tracker->path, printRecord(record));
+  }
+}
 
 void setRecordDirectory(const std::string& directory,
                         const std::vector<std::string>& build,
@@ -1197,8 +1477,12 @@ void setRecordDirectory(const std::string& directory,
   }
 }
 
-void reportComparison(const Program& program, BackendKind kind, const BackendComparison& found) {
-  writeRecord(program, kind, found);
+void reportComparison(const Program& program,
+                      BackendKind kind,
+                      const BackendComparison& found,
+                      const Binding* binding,
+                      GridStore* grids) {
+  writeRecord(program, kind, found, binding, grids);
   if (kind == BackendKind::Interpreter) {
     // compared with itself: only for its record
     return;
@@ -1325,7 +1609,10 @@ std::optional<BackendComparison> compareWithInterpreter(const Program& program,
   };
   const auto makeFloat = makeIo(0.0F);
   const auto makeDouble = makeIo(0.0);
-  return compareAt(program, grids, callPool, inputs, backend, makeFloat, makeDouble, perturbed);
+  auto comparison =
+      compareAt(program, grids, callPool, inputs, backend, makeFloat, makeDouble, perturbed);
+  comparison.callFirst = first;
+  return comparison;
 }
 
 std::optional<BackendComparison> compareValues(const Program& program,

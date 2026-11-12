@@ -20,6 +20,10 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <random>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -193,6 +197,64 @@ TEST_SUITE("expr records") {
     const expr::Replay again = expr::replayRecord(changed, store);
     REQUIRE(again.differing == 1);
     CHECK(again.differences[0].find("`next(s)`") == 0);
+  }
+
+  TEST_CASE("the record of a program called repeatedly ends with its last call") {
+    const std::filesystem::path directory =
+        std::filesystem::temp_directory_path() /
+        ("seissol-test-last-call-" + std::to_string(std::random_device{}()));
+    expr::setRecordDirectory(directory.string(), {"build = the test"});
+    const expr::Program program = expr::loadCore(
+        "#!sderiv 1\nin x\nstate s = 0.75\ndef t0 = s + x\nnext s = t0\ndef t1 = 3 * s\n"
+        "out u = t1\n",
+        "");
+    constexpr std::size_t Points = 40;
+    std::vector<double> x(Points);
+    std::vector<double> u(Points);
+    for (std::size_t i = 0; i < Points; ++i) {
+      x[i] = 0.5 * static_cast<double>(i);
+    }
+    reader::scripting::DataTable table(Points);
+    table.bindViewConst<double>("x", reader::scripting::Direction::In, x.data());
+    table.bindView<double>("u", reader::scripting::Direction::Out, u.data());
+    auto binding = expr::Binding::bind(program, table);
+    reader::datafield::GridStore store;
+    expr::BackendOptions options;
+    options.quiet = true;
+    const auto kernel = expr::makeKernel(program, binding, store, options);
+    kernel->precompute(table);
+    for (int call = 0; call < 3; ++call) {
+      kernel->run(table);
+    }
+    expr::finishRecords();
+    expr::setRecordDirectory("");
+
+    std::vector<expr::Record> records;
+    for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+      std::ifstream file(entry.path());
+      records.push_back(expr::parseRecord(
+          std::string(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()),
+          entry.path().string()));
+    }
+    std::filesystem::remove_all(directory);
+    REQUIRE(records.size() == 1);
+    const expr::Record& record = records[0];
+    REQUIRE(record.lastCall.size() == record.sample.size());
+    // the third call: from the state the second left, s = 0.75 + 2 x
+    for (const auto& point : record.lastCall) {
+      const double xValue = point.inputs[0];
+      CHECK(point.inputs[1] == 0.75 + 2.0 * xValue);
+      CHECK(point.interpreter[0] == 3.0 * (0.75 + 2.0 * xValue));
+      CHECK(point.interpreter[1] == 0.75 + 3.0 * xValue);
+    }
+    bool told = false;
+    for (const auto& [key, value] : record.head) {
+      told = told || (key == "last call" && value.find("after 2 calls") != std::string::npos);
+    }
+    CHECK(told);
+    const expr::Replay replay = expr::replayRecord(record, store);
+    CHECK(replay.points == 2 * record.sample.size());
+    CHECK(replay.differing == 0);
   }
 
   TEST_CASE(

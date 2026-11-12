@@ -663,11 +663,15 @@ int diff(const std::vector<std::string>& args) {
     }
   }
 
-  std::map<std::uint64_t, std::size_t> others;
-  for (std::size_t k = 0; k < second.sample.size(); ++k) {
-    others.emplace(second.sample[k].identity, k);
-  }
-  // the columns of the second by those of the first, by name
+  // the columns of the second by those of the first, by name: the inputs and the states before,
+  // the outputs and the next states
+  const auto columnsOf = [](const Record& record, bool values) {
+    std::vector<std::string> names = values ? record.outputs : record.inputs;
+    for (const auto& state : record.states) {
+      names.push_back(values ? "next(" + state + ")" : state + ":state");
+    }
+    return names;
+  };
   const auto mapOf = [](const std::vector<std::string>& from, const std::vector<std::string>& to) {
     std::vector<std::optional<std::size_t>> map;
     for (const auto& name : from) {
@@ -678,60 +682,75 @@ int diff(const std::vector<std::string>& args) {
     }
     return map;
   };
-  const auto inputMap = mapOf(first.inputs, second.inputs);
-  const auto outputMap = mapOf(first.outputs, second.outputs);
+  const auto inputNames = columnsOf(first, false);
+  const auto rowNames = columnsOf(first, true);
+  const auto inputMap = mapOf(inputNames, columnsOf(second, false));
+  const auto rowMap = mapOf(rowNames, columnsOf(second, true));
 
-  std::size_t shared = 0;
-  std::array<std::size_t, 3> differing{};
-  std::array<std::string, 3> firstDifference;
-  const std::array<const char*, 3> layers = {
-      "the inputs", "the interpreter's values", "the backend's values"};
-  const auto note = [&](std::size_t layer, const std::string& what) {
-    if (differing[layer]++ == 0) {
-      firstDifference[layer] = what;
+  // a call of both, layer by layer
+  const auto compareCall = [&](const std::vector<Record::Point>& ours,
+                               const std::vector<Record::Point>& theirs,
+                               const std::string& call) {
+    std::map<std::uint64_t, std::size_t> others;
+    for (std::size_t k = 0; k < theirs.size(); ++k) {
+      others.emplace(theirs[k].identity, k);
     }
-  };
-  for (const auto& point : first.sample) {
-    const auto found = others.find(point.identity);
-    if (found == others.end()) {
-      continue;
-    }
-    ++shared;
-    const auto& other = second.sample[found->second];
-    const std::string at = " at the point of identity " + std::to_string(point.identity) + ": ";
-    for (std::size_t i = 0; i < inputMap.size(); ++i) {
-      if (inputMap[i].has_value() && !sameBits(point.inputs[i], other.inputs[*inputMap[i]])) {
-        note(0,
-             "`" + first.inputs[i] + "`" + at + valueText(point.inputs[i], true) + " and " +
-                 valueText(other.inputs[*inputMap[i]], true));
+    std::size_t shared = 0;
+    std::array<std::size_t, 3> differing{};
+    std::array<std::string, 3> firstDifference;
+    const std::array<const char*, 3> layers = {
+        "the inputs", "the interpreter's values", "the backend's values"};
+    const auto note = [&](std::size_t layer, const std::string& what) {
+      if (differing[layer]++ == 0) {
+        firstDifference[layer] = what;
       }
-    }
-    for (std::size_t o = 0; o < outputMap.size(); ++o) {
-      if (!outputMap[o].has_value()) {
+    };
+    for (const auto& point : ours) {
+      const auto found = others.find(point.identity);
+      if (found == others.end()) {
         continue;
       }
-      const std::size_t p = *outputMap[o];
-      if (!sameBits(point.interpreter[o], other.interpreter[p])) {
-        note(1,
-             "`" + first.outputs[o] + "`" + at + valueText(point.interpreter[o], true) + " and " +
-                 valueText(other.interpreter[p], true));
+      ++shared;
+      const auto& other = theirs[found->second];
+      const std::string at = " at the point of identity " + std::to_string(point.identity) + ": ";
+      for (std::size_t i = 0; i < inputMap.size(); ++i) {
+        if (inputMap[i].has_value() && !sameBits(point.inputs[i], other.inputs[*inputMap[i]])) {
+          note(0,
+               "`" + inputNames[i] + "`" + at + valueText(point.inputs[i], true) + " and " +
+                   valueText(other.inputs[*inputMap[i]], true));
+        }
       }
-      if (first.backendValues && second.backendValues &&
-          !sameBits(point.backend[o], other.backend[p])) {
-        note(2,
-             "`" + first.outputs[o] + "`" + at + valueText(point.backend[o], true) + " and " +
-                 valueText(other.backend[p], true));
+      for (std::size_t o = 0; o < rowMap.size(); ++o) {
+        if (!rowMap[o].has_value()) {
+          continue;
+        }
+        const std::size_t p = *rowMap[o];
+        if (!sameBits(point.interpreter[o], other.interpreter[p])) {
+          note(1,
+               "`" + rowNames[o] + "`" + at + valueText(point.interpreter[o], true) + " and " +
+                   valueText(other.interpreter[p], true));
+        }
+        if (first.backendValues && second.backendValues &&
+            !sameBits(point.backend[o], other.backend[p])) {
+          note(2,
+               "`" + rowNames[o] + "`" + at + valueText(point.backend[o], true) + " and " +
+                   valueText(other.backend[p], true));
+        }
       }
     }
-  }
-  std::cout << shared << " points in both, " << first.sample.size() - shared
-            << " only in the first, " << second.sample.size() - shared << " only in the second\n";
-  for (std::size_t layer = 0; layer < layers.size(); ++layer) {
-    if (differing[layer] > 0) {
-      std::cout << layers[layer] << " differ at " << differing[layer] << " values; the first, "
-                << firstDifference[layer] << "\n";
-      status = 1;
+    std::cout << call << shared << " points in both, " << ours.size() - shared
+              << " only in the first, " << theirs.size() - shared << " only in the second\n";
+    for (std::size_t layer = 0; layer < layers.size(); ++layer) {
+      if (differing[layer] > 0) {
+        std::cout << call << layers[layer] << " differ at " << differing[layer]
+                  << " values; the first, " << firstDifference[layer] << "\n";
+        status = 1;
+      }
     }
+  };
+  compareCall(first.sample, second.sample, "");
+  if (!first.lastCall.empty() || !second.lastCall.empty()) {
+    compareCall(first.lastCall, second.lastCall, "the last call: ");
   }
   if (status == 0) {
     std::cout << "the same bits at the points in both\n";

@@ -299,6 +299,8 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   // make sure everyone is really done
   logInfo() << "Simulation done.";
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  // the last calls of the programs evaluated every step, in their records
+  expr::finishRecords();
   monitoring::Trace::write(seissolInstance.parameters().output.prefix + "-trace.json",
                            seissol::Mpi::mpi.comm());
   summary["memory"]["atEnd"] = memorySection(summary, "AtEnd");

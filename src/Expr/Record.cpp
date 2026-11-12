@@ -44,6 +44,7 @@ constexpr const char* ProgramMarker = "# the program, in the normal form of the 
 constexpr const char* NotCorePrefix = "# not in the core format: ";
 constexpr const char* SamplePrefix = "# the sample";
 constexpr const char* UnstablePrefix = "# unstable points";
+constexpr const char* LastCallPrefix = "# the last call";
 constexpr const char* GridComment =
     "# per grid its file, the SHA-256 of the file, its variable and components; per axis its "
     "dimension in the file with the attributes it has there, and the geometry as derived: the "
@@ -532,45 +533,60 @@ std::string printRecord(const Record& record) {
       << SamplePrefix
       << ": per point its inputs, and per output the interpreter's value, the backend's"
       << (record.tolerances ? " and its tolerance" : "") << ", in hexadecimal\n";
-  out << (record.rank.has_value() ? "" : "rank ") << "point identity";
+  std::ostringstream header;
+  header << (record.rank.has_value() ? "" : "rank ") << "point identity";
   for (const auto& input : record.inputs) {
-    out << " " << input;
+    header << " " << input;
   }
   for (const auto& state : record.states) {
-    out << " " << state << ":state";
+    header << " " << state << ":state";
   }
   std::vector<std::string> rows = record.outputs;
   for (const auto& state : record.states) {
     rows.push_back("next(" + state + ")");
   }
   for (const auto& output : rows) {
-    out << " " << output << ":interpreter";
+    header << " " << output << ":interpreter";
     if (record.backendValues) {
-      out << " " << output << ":backend";
+      header << " " << output << ":backend";
       if (record.tolerances) {
-        out << " " << output << ":tolerance";
+        header << " " << output << ":tolerance";
       }
     }
   }
-  out << "\n";
-  for (const auto& point : record.sample) {
-    if (!record.rank.has_value()) {
-      out << point.rank << " ";
-    }
-    out << point.point << " " << point.identity;
-    for (const double value : point.inputs) {
-      out << " " << hexOf(value);
-    }
-    for (std::size_t o = 0; o < record.rows(); ++o) {
-      out << " " << hexOf(point.interpreter[o]);
-      if (record.backendValues) {
-        out << " " << hexOf(point.backend[o]);
-        if (record.tolerances) {
-          out << " " << hexOf(point.tolerance[o]);
+  header << "\n";
+  const auto printPoints = [&](const std::vector<Record::Point>& points) {
+    out << header.str();
+    for (const auto& point : points) {
+      if (!record.rank.has_value()) {
+        out << point.rank << " ";
+      }
+      out << point.point << " " << point.identity;
+      for (const double value : point.inputs) {
+        out << " " << hexOf(value);
+      }
+      const auto at = [](const std::vector<double>& values, std::size_t o) {
+        return o < values.size() ? values[o] : std::numeric_limits<double>::quiet_NaN();
+      };
+      for (std::size_t o = 0; o < record.rows(); ++o) {
+        out << " " << hexOf(at(point.interpreter, o));
+        if (record.backendValues) {
+          out << " " << hexOf(at(point.backend, o));
+          if (record.tolerances) {
+            out << " " << hexOf(at(point.tolerance, o));
+          }
         }
       }
+      out << "\n";
     }
-    out << "\n";
+  };
+  printPoints(record.sample);
+  if (!record.lastCall.empty()) {
+    out << "\n"
+        << LastCallPrefix
+        << " that reached the points of the sample: per point its inputs and its states before "
+           "it, and per output what the kernel gave and the interpreter gives from them\n";
+    printPoints(record.lastCall);
   }
   if (!record.unstable.empty()) {
     out << "\n"
@@ -748,53 +764,60 @@ Record parseRecord(const std::string& text, const std::string& file) {
   }
 
   // the points
-  while (!reader.done() && !reader.peek().empty() && !startsWith(reader.peek(), "#")) {
-    const auto words = wordsOf(reader.take());
-    if (words.size() != columns.size()) {
-      reader.fail("expected " + std::to_string(columns.size()) + " values, not " +
-                  std::to_string(words.size()));
-    }
-    Record::Point point;
-    try {
-      std::size_t w = 0;
-      if (merged) {
-        point.rank = std::stoi(words[w++]);
-      } else {
-        point.rank = *record.rank;
-      }
-      point.point = static_cast<std::size_t>(std::stoull(words[w++]));
-      point.identity = std::stoull(words[w++]);
-      for (std::size_t i = 0; i < record.inputs.size() + record.states.size(); ++i) {
-        point.inputs.push_back(valueOf(words[w++]));
-      }
-      for (std::size_t o = 0; o < record.rows(); ++o) {
-        point.interpreter.push_back(valueOf(words[w++]));
-        if (record.backendValues) {
-          point.backend.push_back(valueOf(words[w++]));
-        }
-        if (record.tolerances) {
-          point.tolerance.push_back(valueOf(words[w++]));
-        }
-      }
-    } catch (const std::exception& error) {
-      reader.fail(std::string("a value of the sample does not read: ") + error.what());
-    }
-    record.sample.push_back(std::move(point));
-  }
-
-  // the unstable points
-  while (!reader.done() && !startsWith(reader.peek(), UnstablePrefix)) {
-    reader.take();
-  }
-  if (!reader.done()) {
-    reader.take();
-    while (!reader.done() && !reader.peek().empty()) {
+  const auto readPoints = [&](std::vector<Record::Point>& into) {
+    while (!reader.done() && !reader.peek().empty() && !startsWith(reader.peek(), "#")) {
       const auto words = wordsOf(reader.take());
-      if (words.empty() || words.size() > 2) {
-        reader.fail("expected a point and its identity");
+      if (words.size() != columns.size()) {
+        reader.fail("expected " + std::to_string(columns.size()) + " values, not " +
+                    std::to_string(words.size()));
       }
-      const auto point = static_cast<std::size_t>(std::stoull(words[0]));
-      record.unstable.emplace_back(point, words.size() == 2 ? std::stoull(words[1]) : point);
+      Record::Point point;
+      try {
+        std::size_t w = 0;
+        if (merged) {
+          point.rank = std::stoi(words[w++]);
+        } else {
+          point.rank = *record.rank;
+        }
+        point.point = static_cast<std::size_t>(std::stoull(words[w++]));
+        point.identity = std::stoull(words[w++]);
+        for (std::size_t i = 0; i < record.inputs.size() + record.states.size(); ++i) {
+          point.inputs.push_back(valueOf(words[w++]));
+        }
+        for (std::size_t o = 0; o < record.rows(); ++o) {
+          point.interpreter.push_back(valueOf(words[w++]));
+          if (record.backendValues) {
+            point.backend.push_back(valueOf(words[w++]));
+          }
+          if (record.tolerances) {
+            point.tolerance.push_back(valueOf(words[w++]));
+          }
+        }
+      } catch (const std::exception& error) {
+        reader.fail(std::string("a value of the sample does not read: ") + error.what());
+      }
+      into.push_back(std::move(point));
+    }
+  };
+  readPoints(record.sample);
+
+  // the last call and the unstable points
+  while (!reader.done()) {
+    const std::string& line = reader.take();
+    if (startsWith(line, LastCallPrefix)) {
+      if (reader.done() || wordsOf(reader.take()) != columns) {
+        reader.fail("the last call has other columns than the sample");
+      }
+      readPoints(record.lastCall);
+    } else if (startsWith(line, UnstablePrefix)) {
+      while (!reader.done() && !reader.peek().empty()) {
+        const auto words = wordsOf(reader.take());
+        if (words.empty() || words.size() > 2) {
+          reader.fail("expected a point and its identity");
+        }
+        const auto point = static_cast<std::size_t>(std::stoull(words[0]));
+        record.unstable.emplace_back(point, words.size() == 2 ? std::stoull(words[1]) : point);
+      }
     }
   }
   return record;
@@ -1101,6 +1124,22 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
   std::sort(merged.sample.begin(), merged.sample.end(), [](const auto& a, const auto& b) {
     return std::make_pair(a.rank, a.point) < std::make_pair(b.rank, b.point);
   });
+  // the last calls, at the points of the sample, a point once
+  std::set<std::uint64_t> sampled;
+  for (const auto& point : merged.sample) {
+    sampled.insert(point.identity);
+  }
+  std::set<std::uint64_t> lastTaken;
+  for (const auto& record : records) {
+    for (const auto& point : record.lastCall) {
+      if (sampled.count(point.identity) != 0 && lastTaken.insert(point.identity).second) {
+        merged.lastCall.push_back(point);
+      }
+    }
+  }
+  std::sort(merged.lastCall.begin(), merged.lastCall.end(), [](const auto& a, const auto& b) {
+    return std::make_pair(a.rank, a.point) < std::make_pair(b.rank, b.point);
+  });
   for (const auto& record : records) {
     for (const auto& entry : record.unstable) {
       if (std::none_of(merged.unstable.begin(), merged.unstable.end(), [&](const auto& kept) {
@@ -1161,32 +1200,36 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
 
 Replay replayRecord(const Record& record, reader::datafield::GridStore& grids) {
   const Program program = programOf(record);
-  const std::size_t n = record.sample.size();
-  std::vector<double> inputs;
-  std::vector<double> states;
-  splitColumns(record, record.sample, inputs, states);
   Replay replay;
-  replay.points = n;
-  if (n == 0) {
-    return replay;
-  }
-  const auto values =
-      interpretValues(program, grids, inputs, n, nullptr, states.empty() ? nullptr : &states);
   constexpr std::size_t Described = 8;
-  for (std::size_t k = 0; k < n; ++k) {
-    for (std::size_t o = 0; o < record.rows(); ++o) {
-      const double now = values[o * n + k];
-      const double then = record.sample[k].interpreter[o];
-      if (sameBits(now, then)) {
-        continue;
-      }
-      if (replay.differing++ < Described) {
-        const std::string name = o < record.outputs.size()
-                                     ? record.outputs[o]
-                                     : "next(" + record.states[o - record.outputs.size()] + ")";
-        replay.differences.push_back("`" + name + "` at the point of identity " +
-                                     std::to_string(record.sample[k].identity) + ": " + hexOf(now) +
-                                     ", recorded " + hexOf(then));
+  // the sample of the first call, and the last call where the record has one
+  for (const auto* points : {&record.sample, &record.lastCall}) {
+    const std::size_t n = points->size();
+    if (n == 0) {
+      continue;
+    }
+    std::vector<double> inputs;
+    std::vector<double> states;
+    splitColumns(record, *points, inputs, states);
+    replay.points += n;
+    const auto values =
+        interpretValues(program, grids, inputs, n, nullptr, states.empty() ? nullptr : &states);
+    for (std::size_t k = 0; k < n; ++k) {
+      for (std::size_t o = 0; o < record.rows(); ++o) {
+        const double now = values[o * n + k];
+        const double then = (*points)[k].interpreter[o];
+        if (sameBits(now, then)) {
+          continue;
+        }
+        if (replay.differing++ < Described) {
+          const std::string name = o < record.outputs.size()
+                                       ? record.outputs[o]
+                                       : "next(" + record.states[o - record.outputs.size()] + ")";
+          replay.differences.push_back("`" + name + "` at the point of identity " +
+                                       std::to_string((*points)[k].identity) +
+                                       (points == &record.lastCall ? " in the last call" : "") +
+                                       ": " + hexOf(now) + ", recorded " + hexOf(then));
+        }
       }
     }
   }

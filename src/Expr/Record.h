@@ -100,6 +100,9 @@ struct Record {
     std::vector<double> tolerance;
   };
   std::vector<Point> sample;
+  /// for a program called repeatedly, the last call that reached the points of the sample: what
+  /// they read before it, their states included, and what the kernel gave (finishRecords())
+  std::vector<Point> lastCall;
   /// where a perturbed evaluation decides a select otherwise: the point and its identity
   std::vector<std::pair<std::size_t, std::uint64_t>> unstable;
 

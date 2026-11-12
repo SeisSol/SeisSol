@@ -1389,6 +1389,14 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
   location_.assign(writtenCount, std::numeric_limits<std::size_t>::max());
   cellIndex_.reserve(written.size());
   faceIndex_.reserve(written.size());
+  // the elements across the partition, which the evaluation record names the points by: the global
+  // id of the cell, and for a face its side
+  const auto& elements = seissolInstance.meshReader().getElements();
+  auto identities = std::make_shared<std::vector<std::uint64_t>>(written.size());
+  for (std::size_t i = 0; i < written.size(); ++i) {
+    const auto global = static_cast<std::uint64_t>(elements[written[i].meshId].globalId);
+    (*identities)[i] = faces ? global * Cell::NumFaces + written[i].variant : global;
+  }
   for (std::size_t i = 0; i < written.size(); ++i) {
     location_.at(written[i].index) = i;
     cellIndex_.push_back(static_cast<std::uint32_t>(written[i].cell));
@@ -1461,6 +1469,9 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
     simulation.values.assign(outputCount_ * numPoints_, 0.0);
     simulation.table = std::make_unique<DataTable>(numPoints_);
     DataTable& table = *simulation.table;
+    table.setIdentity([identities, pointsPerElement](std::size_t point) {
+      return (*identities)[point / pointsPerElement] * pointsPerElement + point % pointsPerElement;
+    });
 
     derived_.bindMatrices(table);
     for (std::size_t b = 0; b < sources.size(); ++b) {
