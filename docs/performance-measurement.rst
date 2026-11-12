@@ -291,6 +291,13 @@ meter averages the power over an interval of its own (``power1_average_interval`
 Horizon); a thread of the first rank of the node reads it once per interval and adds it up, so that its energy lags the
 power by up to an interval.
 
+An AMD MI250X counts its energy in AMD SMI and ROCm SMI on its first GCD and none on its second, so that the GCDs of a
+node add up to its modules (on LUMI, 95 % of what the HPE Cray counters give for its accelerators). Intel GPUs count
+theirs in Level Zero, but the SYCL runtime of oneAPI turns on the Sysman of the core API of Level Zero
+(``ZES_ENABLE_SYSMAN=1``) as it starts, after which ``zesInit`` fails; as SeisSol starts its device before MPI, it then
+counts the GPUs through the hwmon files of their driver (``i915``, ``xe``), which give the same energy as the cards in
+Level Zero (on SuperMUC-NG Phase 2).
+
 The proxy measures the energy of the node during its timed run the same way, and prints it per part, with the power
 and the GFLOP per joule of the same basis: the node, else the sum of its CPUs, memory and GPUs that it measures
 (``energy-basis``, such as ``node`` or ``cpu+devices``, ``joules``, ``watts``, ``gflopj-nz`` and ``gflopj-hw`` in its

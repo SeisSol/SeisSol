@@ -31,6 +31,12 @@ std::vector<std::unique_ptr<Sensor>> rocmSmiSensors();
 /**
  * @brief Intel GPUs, through the Sysman API of Level Zero (zesInit): the energy of the whole card
  * where the driver gives it, else of the package.
+ *
+ * None in a process whose SYCL runtime of oneAPI started before: it sets ZES_ENABLE_SYSMAN=1 as it
+ * initializes Level Zero, after which zesInit fails (ZE_RESULT_ERROR_UNINITIALIZED; oneAPI 2025.0
+ * on SuperMUC-NG Phase 2), unless Level Zero was initialized before it, as by Intel MPI with
+ * I_MPI_OFFLOAD=1. SeisSol starts its device before MPI, so that it counts Intel GPUs through the
+ * hwmon files of their driver then (see hwmonGpuSensors), which count the same.
  */
 std::vector<std::unique_ptr<Sensor>> levelZeroSensors();
 
