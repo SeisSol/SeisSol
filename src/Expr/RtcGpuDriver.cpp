@@ -724,8 +724,8 @@ class DeviceGridMirror final : public df::GridStore::Mirror {
   static int keyOf(GpuTarget target) { return 0x45585000 + static_cast<int>(target); }
 
   DeviceGridMirror(GpuTarget target, void* queue, const df::GridDesc& desc)
-      : target_(target), queue_(queue), path_(desc.path),
-        fails_(desc.boundary == df::BoundaryMode::Fail), timeDependent_(desc.timeDependent()) {
+      : target_(target), queue_(queue), path_(desc.label()), fails_(desc.failsAnywhere()),
+        timeDependent_(desc.timeDependent()) {
     addQueue(queue);
   }
 
@@ -740,7 +740,8 @@ class DeviceGridMirror final : public df::GridStore::Mirror {
 
   /// The descriptor on the device, or null where the copy failed.
   [[nodiscard]] void* descriptor() const { return valid_ ? descriptor_ : nullptr; }
-  [[nodiscard]] std::size_t bytes() const { return bytes_; }
+  /// the bytes on the device: the values, and the knots of the axes of knots
+  [[nodiscard]] std::size_t bytes() const { return bytes_ + knotBytes_; }
 
   /// A queue a kernel that samples the copy runs on, which a refresh waits for (OpenCL).
   void addQueue(void* queue) {
@@ -776,10 +777,42 @@ class DeviceGridMirror final : public df::GridStore::Mirror {
                    << "to the device.";
       return;
     }
+    // the knots of the axes of knots and the reciprocals of their spacings, in one copy
+    std::vector<double> staged;
+    std::array<std::size_t, df::MaxGridDimensions> knotsAt{};
+    std::array<std::size_t, df::MaxGridDimensions> spacingsAt{};
+    for (unsigned d = 0; d < view->dimensions && d < df::MaxGridDimensions; ++d) {
+      if (view->knots[d] == nullptr) {
+        continue;
+      }
+      knotsAt[d] = staged.size();
+      staged.insert(staged.end(), view->knots[d], view->knots[d] + view->num[d]);
+      spacingsAt[d] = staged.size();
+      const std::size_t spacings =
+          std::max<std::size_t>(1, view->num[d] > 0 ? view->num[d] - 1 : 0);
+      staged.insert(staged.end(), view->inverseSpacings[d], view->inverseSpacings[d] + spacings);
+    }
+    const std::size_t knotBytes = staged.size() * sizeof(double);
+    if (knotBytes != knotBytes_) {
+      freeFor(target_, knots_, queue_);
+      knots_ = knotBytes > 0 ? allocFor(target_, knotBytes, queue_) : nullptr;
+      knotBytes_ = knots_ != nullptr ? knotBytes : 0;
+    }
+    if (knotBytes > 0 && (knots_ == nullptr ||
+                          !copyToDeviceFor(target_, knots_, staged.data(), knotBytes, queue_))) {
+      logWarning() << "expr: could not copy the knots of the grid" << path_ << "to the device.";
+      return;
+    }
     if (descriptor_ == nullptr) {
       descriptor_ = allocFor(target_, sizeof(codegen::GridDescriptor), queue_);
     }
-    const codegen::GridDescriptor image = codegen::gridDescriptor(*view, data_);
+    codegen::GridDescriptor image = codegen::gridDescriptor(*view, data_);
+    const auto base = static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(knots_));
+    for (unsigned d = 0; d < view->dimensions && d < df::MaxGridDimensions; ++d) {
+      const bool knotted = view->knots[d] != nullptr;
+      image.knots[d] = knotted ? base + knotsAt[d] * sizeof(double) : 0;
+      image.inverseSpacings[d] = knotted ? base + spacingsAt[d] * sizeof(double) : 0;
+    }
     if (descriptor_ == nullptr ||
         !copyToDeviceFor(target_, descriptor_, &image, sizeof(image), queue_)) {
       logWarning() << "expr: could not copy the descriptor of the grid" << path_
@@ -803,8 +836,10 @@ class DeviceGridMirror final : public df::GridStore::Mirror {
     synchronizeFor(target_, queues_);
     report();
     freeFor(target_, data_, queue_);
+    freeFor(target_, knots_, queue_);
     freeFor(target_, descriptor_, queue_);
     data_ = nullptr;
+    knots_ = nullptr;
     descriptor_ = nullptr;
     valid_ = false;
   }
@@ -843,6 +878,8 @@ class DeviceGridMirror final : public df::GridStore::Mirror {
   bool timeDependent_;
   void* data_{nullptr};
   std::size_t bytes_{0};
+  void* knots_{nullptr};
+  std::size_t knotBytes_{0};
   void* descriptor_{nullptr};
   std::uint64_t revision_{0};
   bool valid_{false};
@@ -905,8 +942,8 @@ bool deviceGrids(const Program& program,
                              std::make_unique<DeviceGridMirror>(target, queue, desc)));
       mirror->refresh(source);
       if (mirror->descriptor() != nullptr) {
-        logInfo() << "expr: the grid" << desc.path << "is copied to the device (" << mirror->bytes()
-                  << "bytes).";
+        logInfo() << "expr: the grid" << desc.label() << "is copied to the device ("
+                  << mirror->bytes() << "bytes).";
       }
     }
     mirror->addQueue(queue);

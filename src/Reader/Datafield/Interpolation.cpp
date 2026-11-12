@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -20,6 +21,8 @@ namespace seissol::reader::datafield {
 void interpolationWeights(Interpolation type, double s, double* weights) {
   switch (type) {
   case Interpolation::Nearest:
+  case Interpolation::Previous:
+  case Interpolation::Next:
     weights[0] = 1.0;
     return;
   case Interpolation::Linear:
@@ -311,8 +314,12 @@ std::size_t dispatchInterp(const ArrayView& view,
     return dispatchType<Interpolation::Linear, Out>(view, x, count, out, scratch);
   case Interpolation::Cubic:
     return dispatchType<Interpolation::Cubic, Out>(view, x, count, out, scratch);
+  case Interpolation::Previous:
+  case Interpolation::Next:
+    break;
   }
-  return 0;
+  throw std::invalid_argument(
+      "datafield: the steps previous and next are sampled through the written-out lookup only");
 }
 
 } // namespace

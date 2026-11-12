@@ -135,6 +135,44 @@ TEST_SUITE("SderivFrontend") {
     CHECK(lookups == 2);
   }
 
+  TEST_CASE("a grid of layers gives its knots and values, and a file its axes") {
+    const auto program = mustCompile(
+        "grid layers (kind = \"inline\", components = (\"rho\", \"mu\"),\n"
+        "             knots = ((-3000, -2000, -1000)), values = (3000, 40, 2700, 20, 2600, 10),\n"
+        "             interpolation = \"next\", boundary = \"clamp\")\n"
+        "grid m (kind = \"asagi\", path = \"model.nc\", variable = \"data\", components = "
+        "(\"vs\"),\n"
+        "        axes = (\"uniform\", \"knots\"), interpolation = (\"cubic\", \"previous\"),\n"
+        "        boundary = (\"clamp\", \"fail\"))\n"
+        "layers_rho(z) + layers_mu(z) + m_vs(x, z)");
+    REQUIRE(program.grids().size() == 2);
+    const auto& layers = program.grids()[0];
+    CHECK(layers.kind == reader::datafield::GridKind::Inline);
+    REQUIRE(layers.data != nullptr);
+    REQUIRE(layers.data->knots.size() == 1);
+    CHECK(layers.data->knots[0] == std::vector<double>{-3000, -2000, -1000});
+    CHECK(layers.data->values == std::vector<double>{3000, 40, 2700, 20, 2600, 10});
+    CHECK(layers.interpolationOf(0) == reader::datafield::Interpolation::Next);
+    CHECK(layers.axisOf(0) == reader::datafield::AxisKind::Knots);
+    const auto& m = program.grids()[1];
+    CHECK(m.axisOf(0) == reader::datafield::AxisKind::Uniform);
+    CHECK(m.axisOf(1) == reader::datafield::AxisKind::Knots);
+    CHECK(m.interpolationOf(0) == reader::datafield::Interpolation::Cubic);
+    CHECK(m.interpolationOf(1) == reader::datafield::Interpolation::Previous);
+    CHECK(m.boundaryOf(0) == reader::datafield::BoundaryMode::Clamp);
+    CHECK(m.boundaryOf(1) == reader::datafield::BoundaryMode::Fail);
+
+    // an axis of knots is not cubic; a file reads its knots, and an inline grid has no path
+    mustReject("grid m (kind = \"asagi\", path = \"model.nc\", variable = \"data\", components = "
+               "(\"vs\"), axes = (\"knots\"), interpolation = \"cubic\", boundary = \"clamp\")\n"
+               "m_vs(z)",
+               "not cubic");
+    mustReject("grid m (kind = \"asagi\", path = \"model.nc\", variable = \"data\", components = "
+               "(\"vs\"), knots = ((1, 2)), interpolation = \"linear\", boundary = \"clamp\")\n"
+               "m_vs(z)",
+               "reads its knots and values from the file");
+  }
+
   TEST_CASE("a grid declared with attributes states its boundary and its time axis") {
     const auto program = mustCompile(
         "grid m (kind = \"asagi\", path = \"model.nc\", variable = \"data\",\n"

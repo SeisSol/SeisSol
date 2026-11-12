@@ -359,7 +359,7 @@ out u = t2
          "(\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\n",
          2,
          6,
-         "\"asagi\" or \"scec\""},
+         "\"asagi\", \"scec\" or \"inline\""},
         {"#!sderiv 1\nin x\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
          "components "
          "= (\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\nout u = m.vp(x)\n",

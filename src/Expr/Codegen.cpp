@@ -536,6 +536,10 @@ GridDescriptor gridDescriptor(const reader::datafield::ArrayView& view, const vo
     descriptor.stride[d] = view.stride[d];
     descriptor.before[d] = view.before[d];
     descriptor.after[d] = view.after[d];
+    descriptor.knots[d] =
+        static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(view.knots[d]));
+    descriptor.inverseSpacings[d] =
+        static_cast<std::uint64_t>(reinterpret_cast<std::uintptr_t>(view.inverseSpacings[d]));
   }
   descriptor.componentStride = view.componentStride;
   return descriptor;
@@ -572,6 +576,8 @@ void emitGridDescriptor(std::ostringstream& out,
       << "  " << u64 << " before[" << Axes << "];\n"
       << "  " << u64 << " after[" << Axes << "];\n"
       << "  " << u64 << " componentStride;\n"
+      << "  " << u64 << " knots[" << Axes << "];\n"
+      << "  " << u64 << " inverseSpacings[" << Axes << "];\n"
       << "  " << u64 << " outside;\n"
       << "  " << u64 << " stale;\n"
       << "} SeissolExprGrid;\n\n";
@@ -585,6 +591,12 @@ void emitGridDescriptor(std::ostringstream& out,
         << "  return (double)((" << global << "const " << type
         << "*)(g->data))[offset + component * ("
         << "SeissolI64)g->componentStride];\n"
+        << "}\n\n";
+    // a knot, or the reciprocal of a spacing, of an axis of knots (expr::knotsOf())
+    out << qualifier << " double seissol_expr_knot" << grid << "(" << global
+        << "const SeissolExprGrid* g, SeissolI64 offset, SeissolI64 axis, SeissolI64 spacing) {\n"
+        << "  return ((" << global << "const double*)(spacing ? g->inverseSpacings[axis] : "
+        << "g->knots[axis]))[offset];\n"
         << "}\n\n";
   }
 }

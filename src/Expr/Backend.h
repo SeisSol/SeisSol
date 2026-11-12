@@ -209,14 +209,21 @@ struct ClampCount {
 struct GridRecord {
   /// the grid, by its name in the program, else its path
   std::string grid;
+  /// the file, or none for a grid whose knots and values its program gives (`inlined`)
   std::string path;
+  bool inlined{false};
   std::string sha256;
   std::string variable;
   std::vector<std::string> components;
   struct Axis {
     reader::datafield::GridAxisInfo file;
     double min{0.0};
+    /// the spacing of a uniform axis
     double spacing{0.0};
+    /// whether the axis is knots, and its last knot then (the knots themselves are in the file,
+    /// or in the program)
+    bool knots{false};
+    double max{0.0};
     std::size_t nodes{0};
     /// the slices of the file, on the time axis of a grid that changes in time; else 0
     std::size_t slices{0};

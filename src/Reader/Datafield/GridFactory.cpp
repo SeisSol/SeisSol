@@ -9,6 +9,7 @@
 #include "AsagiLite.h"
 #include "Expr/Sha256.h"
 #include "Grid.h"
+#include "InlineGrid.h"
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
 
@@ -17,6 +18,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 namespace seissol::reader::datafield {
@@ -35,6 +37,8 @@ const char* describe(AsagiLiteGrid::Error error) {
     return "the variable is not 32- or 64-bit floating point";
   case AsagiLiteGrid::Error::AllocationFailed:
     return "memory for the resident window could not be allocated";
+  case AsagiLiteGrid::Error::BadKnots:
+    return "its axes are not as declared (see the warning before)";
   }
   return "an unknown error occurred";
 }
@@ -54,13 +58,43 @@ std::unique_ptr<Grid> makeGrid(const GridDesc& desc) {
   case GridKind::AsagiLite: {
     auto grid = std::make_unique<AsagiLiteGrid>();
     grid->setComm(seissol::Mpi::mpi.comm());
-    const auto error =
-        grid->open(desc.path, desc.variable, desc.interpolation, desc.boundary, desc.timeAxis);
+    grid->setLookupsOnly(!desc.interpolations.empty() || !desc.boundaries.empty());
+    // the window moves by the stencil of the time axis
+    const Interpolation interpolation =
+        desc.timeAxis.has_value() ? desc.interpolationOf(static_cast<std::size_t>(*desc.timeAxis))
+                                  : desc.interpolation;
+    const auto error = grid->open(
+        desc.path, desc.variable, interpolation, desc.boundary, desc.timeAxis, desc.axes);
     if (error != AsagiLiteGrid::Error::Success) {
       logError() << "datafield: could not open" << desc.variable << "in" << desc.path << "--"
                  << describe(error) << ".";
     }
+    // an interpolation or a boundary per axis: one per axis of the file
+    const auto perAxis = [&](std::size_t given, const char* what) {
+      if (given > 1 && given != grid->dimensions()) {
+        logError() << "datafield: the grid of" << desc.variable << "in" << desc.path << "gives"
+                   << given << what << "for" << grid->dimensions() << "axes.";
+      }
+    };
+    perAxis(desc.interpolations.size(), "interpolations");
+    perAxis(desc.boundaries.size(), "boundaries");
     return grid;
+  }
+  case GridKind::Inline: {
+    if (desc.data == nullptr || desc.data->knots.empty()) {
+      logError() << "datafield: an inline grid without data.";
+      return nullptr;
+    }
+    std::size_t nodes = 1;
+    for (const auto& knots : desc.data->knots) {
+      nodes *= std::max<std::size_t>(1, knots.size());
+    }
+    try {
+      return std::make_unique<InlineGrid>(desc.data, desc.data->values.size() / nodes);
+    } catch (const std::invalid_argument& error) {
+      logError() << error.what();
+    }
+    return nullptr;
   }
   case GridKind::Scec:
     logError() << "datafield: the SCEC backend is not implemented; requested for" << desc.path

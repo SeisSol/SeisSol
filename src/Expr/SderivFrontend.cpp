@@ -261,7 +261,31 @@ struct GridDeclaration {
   /// (GridDesc::timeAxis): only the form with attributes states them
   std::string boundary{"clamp"};
   std::optional<int> timeAxis;
+  /// of the form with attributes: an interpolation and a boundary per axis (where there is more
+  /// than one), the kinds of the axes of a file, and the knots and values of an inline grid
+  std::vector<std::string> interpolations;
+  std::vector<std::string> boundaries;
+  std::vector<std::string> axes;
+  std::vector<std::vector<double>> knots;
+  std::vector<double> values;
   int position{0};
+
+  /// What GridDesc reads, before it is checked (datafield::gridDescOf()).
+  [[nodiscard]] reader::datafield::GridSpec spec() const {
+    reader::datafield::GridSpec spec;
+    spec.kind = kind;
+    spec.path = file;
+    spec.variable = variable;
+    spec.components = components;
+    spec.interpolation =
+        interpolations.empty() ? std::vector<std::string>{interpolation} : interpolations;
+    spec.boundary = boundaries.empty() ? std::vector<std::string>{boundary} : boundaries;
+    spec.axes = axes;
+    spec.knots = knots;
+    spec.values = values;
+    spec.timeAxis = timeAxis;
+    return spec;
+  }
 };
 
 // A value kept per point across calls. Its next value is the definition of the same name, and
@@ -463,9 +487,54 @@ class Parser {
 
   // The attributes of a grid, of which the core format requires all but `time`: it has no
   // defaults, so a declaration says what it means; the short form above is the one with them.
+  /// A string, or strings in parentheses.
+  std::vector<std::string> stringsHere() {
+    std::vector<std::string> values;
+    if (peek().kind == TokenKind::Op && valueIs("(")) {
+      eat(TokenKind::Op, "(");
+      values.push_back(eat(TokenKind::Str).value);
+      while (valueIs(",")) {
+        eat(TokenKind::Op, ",");
+        values.push_back(eat(TokenKind::Str).value);
+      }
+      eat(TokenKind::Op, ")");
+    } else {
+      values.push_back(eat(TokenKind::Str).value);
+    }
+    return values;
+  }
+
+  /// Numbers in parentheses, each with its sign.
+  std::vector<double> numbersHere() {
+    std::vector<double> values;
+    eat(TokenKind::Op, "(");
+    while (true) {
+      const bool negative = peek().kind == TokenKind::Op && valueIs("-");
+      if (negative) {
+        eat(TokenKind::Op, "-");
+      }
+      const double value = numberAt(eat(TokenKind::Num));
+      values.push_back(negative ? -value : value);
+      if (!valueIs(",")) {
+        break;
+      }
+      eat(TokenKind::Op, ",");
+    }
+    eat(TokenKind::Op, ")");
+    return values;
+  }
+
   void gridAttributes(GridDeclaration& grid) {
-    const std::vector<std::string> names = {
-        "kind", "path", "variable", "components", "interpolation", "boundary", "time"};
+    const std::vector<std::string> names = {"kind",
+                                            "path",
+                                            "variable",
+                                            "components",
+                                            "axes",
+                                            "knots",
+                                            "values",
+                                            "interpolation",
+                                            "boundary",
+                                            "time"};
     std::set<std::string> given;
     eat(TokenKind::Op, "(");
     while (true) {
@@ -473,8 +542,8 @@ class Parser {
       if (std::find(names.begin(), names.end(), key.value) == names.end()) {
         throw SderivError("grid",
                           "grid `" + grid.name + "`: unknown attribute `" + key.value +
-                              "`; a grid has kind, path, variable, components, interpolation, "
-                              "boundary and time",
+                              "`; a grid has kind, path, variable, components, axes, knots, "
+                              "values, interpolation, boundary and time",
                           key.position);
       }
       if (!given.insert(key.value).second) {
@@ -485,17 +554,27 @@ class Parser {
       }
       eat(TokenKind::Op, "=");
       if (key.value == "components") {
-        if (peek().kind == TokenKind::Op && valueIs("(")) {
-          eat(TokenKind::Op, "(");
-          grid.components.push_back(eat(TokenKind::Str).value);
-          while (valueIs(",")) {
-            eat(TokenKind::Op, ",");
-            grid.components.push_back(eat(TokenKind::Str).value);
+        grid.components = stringsHere();
+      } else if (key.value == "interpolation") {
+        grid.interpolations = stringsHere();
+        grid.interpolation = grid.interpolations.front();
+      } else if (key.value == "boundary") {
+        grid.boundaries = stringsHere();
+        grid.boundary = grid.boundaries.front();
+      } else if (key.value == "axes") {
+        grid.axes = stringsHere();
+      } else if (key.value == "knots") {
+        eat(TokenKind::Op, "(");
+        while (true) {
+          grid.knots.push_back(numbersHere());
+          if (!valueIs(",")) {
+            break;
           }
-          eat(TokenKind::Op, ")");
-        } else {
-          grid.components.push_back(eat(TokenKind::Str).value);
+          eat(TokenKind::Op, ",");
         }
+        eat(TokenKind::Op, ")");
+      } else if (key.value == "values") {
+        grid.values = numbersHere();
       } else if (key.value == "time") {
         const Token& axis = eat(TokenKind::Num);
         if (axis.value.find_first_not_of("0123456789") != std::string::npos ||
@@ -526,12 +605,20 @@ class Parser {
       eat(TokenKind::Op, ",");
     }
     eat(TokenKind::Op, ")");
-    for (const auto& name : names) {
-      if (name != "time" && given.count(name) == 0) {
+    // a file has its path and variable, an inline grid its knots and values
+    const bool inlined = grid.kind == "inline";
+    std::vector<std::string> required = {"kind", "components", "interpolation", "boundary"};
+    for (const char* each : inlined ? std::vector<const char*>{"knots", "values"}
+                                    : std::vector<const char*>{"path", "variable"}) {
+      required.emplace_back(each);
+    }
+    for (const auto& name : required) {
+      if (given.count(name) == 0) {
         throw SderivError("grid",
                           "grid `" + grid.name + "` gives no " + name +
-                              "; a grid with attributes gives kind, path, variable, components, "
-                              "interpolation and boundary, and may give time",
+                              "; a grid with attributes gives kind, components, interpolation and "
+                              "boundary, a file its path and variable, an inline grid its knots "
+                              "and values",
                           grid.position);
       }
     }
@@ -789,6 +876,12 @@ ComponentTable checkGrids(const std::vector<GridDeclaration>& grids,
     }
     if (grid.components.empty()) {
       throw SderivError("grid", "grid `" + grid.name + "` declares no components", grid.position);
+    }
+    // and all a grid has to be, the data of an inline one included
+    try {
+      static_cast<void>(reader::datafield::gridDescOf(grid.spec()));
+    } catch (const std::invalid_argument& error) {
+      throw SderivError("grid", "grid `" + grid.name + "`: " + error.what(), grid.position);
     }
     std::set<std::string> seen;
     for (std::size_t c = 0; c < grid.components.size(); ++c) {
@@ -1454,17 +1547,16 @@ void compileSource(const std::string& source,
     //
     // GridDesc::boundary and GridDesc::timeAxis come from the form with attributes; the short
     // form clamps and has no time axis.
-    desc.kind = *reader::datafield::parseGridKind(grid.kind);
+    auto spec = grid.spec();
     // relative to the directory of the file of the module, as easi and the parameter file have it
-    std::filesystem::path path(grid.file);
-    if (path.is_relative() && !options.file.empty()) {
-      path = (std::filesystem::path(options.file).parent_path() / path).lexically_normal();
+    if (spec.kind != "inline") {
+      std::filesystem::path path(grid.file);
+      if (path.is_relative() && !options.file.empty()) {
+        path = (std::filesystem::path(options.file).parent_path() / path).lexically_normal();
+      }
+      spec.path = path.string();
     }
-    desc.path = path.string();
-    desc.variable = grid.variable;
-    desc.interpolation = *reader::datafield::parseInterpolation(grid.interpolation);
-    desc.boundary = *reader::datafield::parseBoundaryMode(grid.boundary);
-    desc.timeAxis = grid.timeAxis;
+    desc = reader::datafield::gridDescOf(spec);
     // internGrid dedupes, so two outputs naming the same grid share a GridId
     // and the backend loads the file once. The names are what the core format prints.
     gridIds.push_back(program.internGrid(desc));

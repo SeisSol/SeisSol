@@ -7,11 +7,13 @@
 #include "Grid.h"
 
 #include "GridFactory.h"
+#include "InlineGrid.h"
 #include "utils/logger.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -20,10 +22,34 @@
 
 namespace seissol::reader::datafield {
 
+bool GridData::operator==(const GridData& other) const {
+  const auto same = [](const std::vector<double>& a, const std::vector<double>& b) {
+    return a.size() == b.size() &&
+           (a.empty() || std::memcmp(a.data(), b.data(), a.size() * sizeof(double)) == 0);
+  };
+  if (knots.size() != other.knots.size() || !same(values, other.values)) {
+    return false;
+  }
+  for (std::size_t d = 0; d < knots.size(); ++d) {
+    if (!same(knots[d], other.knots[d])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool GridDesc::operator==(const GridDesc& other) const {
+  const bool sameData =
+      data == other.data || (data != nullptr && other.data != nullptr && *data == *other.data);
   return path == other.path && variable == other.variable && kind == other.kind &&
          interpolation == other.interpolation && boundary == other.boundary &&
-         timeAxis == other.timeAxis;
+         interpolations == other.interpolations && boundaries == other.boundaries &&
+         axes == other.axes && sameData && timeAxis == other.timeAxis;
+}
+
+bool GridDesc::failsAnywhere() const {
+  return boundary == BoundaryMode::Fail ||
+         std::find(boundaries.begin(), boundaries.end(), BoundaryMode::Fail) != boundaries.end();
 }
 
 namespace {
@@ -36,23 +62,48 @@ const char* token(GridKind kind) {
     return "scec";
   case GridKind::Distributed:
     return "distributed";
+  case GridKind::Inline:
+    return "inline";
   }
   return "unknown";
 }
 
-const char* token(Interpolation interp) {
-  switch (interp) {
+const char* token(Interpolation interp) { return spelling(interp); }
+const char* token(BoundaryMode boundary) { return spelling(boundary); }
+
+/// FNV-1a over the bits of `values`.
+void hashInto(std::uint64_t& hash, const std::vector<double>& values) {
+  for (const double value : values) {
+    std::uint64_t bits = 0;
+    std::memcpy(&bits, &value, sizeof(bits));
+    for (int byte = 0; byte < 8; ++byte) {
+      hash ^= (bits >> (8 * byte)) & 0xffU;
+      hash *= 0x100000001b3ULL;
+    }
+  }
+}
+
+} // namespace
+
+const char* spelling(GridKind kind) { return kind == GridKind::AsagiLite ? "asagi" : token(kind); }
+
+const char* spelling(Interpolation interpolation) {
+  switch (interpolation) {
   case Interpolation::Nearest:
     return "nearest";
   case Interpolation::Linear:
     return "linear";
   case Interpolation::Cubic:
     return "cubic";
+  case Interpolation::Previous:
+    return "previous";
+  case Interpolation::Next:
+    return "next";
   }
   return "unknown";
 }
 
-const char* token(BoundaryMode boundary) {
+const char* spelling(BoundaryMode boundary) {
   switch (boundary) {
   case BoundaryMode::Clamp:
     return "clamp";
@@ -62,7 +113,7 @@ const char* token(BoundaryMode boundary) {
   return "unknown";
 }
 
-} // namespace
+const char* spelling(AxisKind axis) { return axis == AxisKind::Knots ? "knots" : "uniform"; }
 
 std::optional<GridKind> parseGridKind(const std::string& text) {
   if (text == "asagi" || text == "asagilite") {
@@ -71,18 +122,21 @@ std::optional<GridKind> parseGridKind(const std::string& text) {
   if (text == "scec") {
     return GridKind::Scec;
   }
+  if (text == "inline") {
+    return GridKind::Inline;
+  }
   return std::nullopt;
 }
 
 std::optional<Interpolation> parseInterpolation(const std::string& text) {
-  if (text == "nearest") {
-    return Interpolation::Nearest;
-  }
-  if (text == "linear") {
-    return Interpolation::Linear;
-  }
-  if (text == "cubic") {
-    return Interpolation::Cubic;
+  for (const auto interpolation : {Interpolation::Nearest,
+                                   Interpolation::Linear,
+                                   Interpolation::Cubic,
+                                   Interpolation::Previous,
+                                   Interpolation::Next}) {
+    if (text == spelling(interpolation)) {
+      return interpolation;
+    }
   }
   return std::nullopt;
 }
@@ -97,12 +151,139 @@ std::optional<BoundaryMode> parseBoundaryMode(const std::string& text) {
   return std::nullopt;
 }
 
+std::optional<AxisKind> parseAxisKind(const std::string& text) {
+  if (text == "uniform") {
+    return AxisKind::Uniform;
+  }
+  if (text == "knots") {
+    return AxisKind::Knots;
+  }
+  return std::nullopt;
+}
+
+GridDesc gridDescOf(const GridSpec& spec) {
+  const auto fail = [](const std::string& what) { throw std::invalid_argument(what); };
+  GridDesc desc;
+  const auto kind = parseGridKind(spec.kind);
+  if (!kind.has_value()) {
+    fail("the kind of a grid is \"asagi\", \"scec\" or \"inline\", not \"" + spec.kind + "\"");
+  }
+  desc.kind = *kind;
+  if (spec.components.empty()) {
+    fail("a grid names its components");
+  }
+  desc.componentNames = spec.components;
+  const bool inlined = desc.kind == GridKind::Inline;
+  // an inline grid has its data, a file its path, and none both
+  if (inlined) {
+    if (!spec.path.empty() || !spec.variable.empty()) {
+      fail("an inline grid has its knots and values, and no path or variable");
+    }
+    if (!spec.axes.empty()) {
+      fail("every axis of an inline grid is knots; it gives no axes");
+    }
+    if (spec.timeAxis.has_value()) {
+      fail("an inline grid has no time axis");
+    }
+    auto data = std::make_shared<GridData>();
+    data->knots = spec.knots;
+    data->values = spec.values;
+    if (const auto problem = InlineGrid::problemOf(*data, spec.components.size());
+        !problem.empty()) {
+      fail("the data of the inline grid: " + problem);
+    }
+    desc.data = std::move(data);
+  } else {
+    if (!spec.knots.empty() || !spec.values.empty()) {
+      fail("a grid of a file reads its knots and values from the file");
+    }
+    desc.path = spec.path;
+    desc.variable = spec.variable;
+    desc.timeAxis = spec.timeAxis;
+    for (const auto& axis : spec.axes) {
+      const auto parsed = parseAxisKind(axis);
+      if (!parsed.has_value()) {
+        fail("an axis is \"uniform\" or \"knots\", not \"" + axis + "\"");
+      }
+      desc.axes.push_back(*parsed);
+    }
+    if (spec.timeAxis.has_value() && static_cast<std::size_t>(*spec.timeAxis) < desc.axes.size() &&
+        desc.axes[static_cast<std::size_t>(*spec.timeAxis)] == AxisKind::Knots) {
+      fail("the time axis of a grid is uniform");
+    }
+  }
+  // one for all axes, or one per axis, of those it gives (a file says how many it has)
+  const std::size_t axes = inlined ? spec.knots.size() : spec.axes.size();
+  const auto perAxis = [&](const std::vector<std::string>& given, const char* what) {
+    if (given.empty()) {
+      fail(std::string("a grid gives its ") + what);
+    }
+    if (given.size() > 1 && axes > 0 && given.size() != axes) {
+      fail(std::string("a grid of ") + std::to_string(axes) + " axes gives " +
+           std::to_string(given.size()) + " " + what + "s");
+    }
+  };
+  perAxis(spec.interpolation, "interpolation");
+  perAxis(spec.boundary, "boundary");
+  for (const auto& text : spec.interpolation) {
+    const auto parsed = parseInterpolation(text);
+    if (!parsed.has_value()) {
+      fail("the interpolation of a grid is \"nearest\", \"linear\", \"cubic\", \"previous\" or "
+           "\"next\", not \"" +
+           text + "\"");
+    }
+    desc.interpolations.push_back(*parsed);
+  }
+  for (const auto& text : spec.boundary) {
+    const auto parsed = parseBoundaryMode(text);
+    if (!parsed.has_value()) {
+      fail("the boundary of a grid is \"clamp\" or \"fail\", not \"" + text + "\"");
+    }
+    desc.boundaries.push_back(*parsed);
+  }
+  desc.interpolation = desc.interpolations.front();
+  desc.boundary = desc.boundaries.front();
+  if (desc.interpolations.size() == 1) {
+    desc.interpolations.clear();
+  }
+  if (desc.boundaries.size() == 1) {
+    desc.boundaries.clear();
+  }
+  for (std::size_t d = 0; d < axes || d < desc.axes.size(); ++d) {
+    if (desc.axisOf(d) == AxisKind::Knots && desc.interpolationOf(d) == Interpolation::Cubic) {
+      fail("an axis of knots interpolates nearest, linear, previous or next, not cubic");
+    }
+  }
+  return desc;
+}
+
 std::string GridDesc::canonicalKey() const {
   // The time axis is part of the key because it changes the sampling arity the
   // kernel emits, not merely which slices are resident.
   std::string key =
       std::string(token(kind)) + '\x1f' + token(interpolation) + '\x1f' + token(boundary) + '\x1f';
   key += timeAxis.has_value() ? ('t' + std::to_string(*timeAxis)) : std::string("static");
+  // per axis, where it is said per axis
+  for (const auto each : interpolations) {
+    key += '\x1f' + std::string("i:") + token(each);
+  }
+  for (const auto each : boundaries) {
+    key += '\x1f' + std::string("b:") + token(each);
+  }
+  for (const auto each : axes) {
+    key += '\x1f' + std::string("a:") + spelling(each);
+  }
+  if (data != nullptr) {
+    std::uint64_t hash = 0xcbf29ce484222325ULL;
+    for (const auto& knots : data->knots) {
+      hashInto(hash, knots);
+      hash ^= 0xff;
+      hash *= 0x100000001b3ULL;
+    }
+    hashInto(hash, data->values);
+    key += '\x1f' + std::string("data:") + std::to_string(data->knots.size()) + ':' +
+           std::to_string(data->values.size()) + ':' + std::to_string(hash);
+  }
   return key;
 }
 
@@ -153,7 +334,8 @@ std::size_t GridStore::residentSlicesFor(std::size_t id) const {
   const GridDesc& desc = descs_.at(id);
   // The narrowest useful window leaves exactly one cell of forward headroom, so
   // the window is reloaded on every step but is never invalid.
-  const std::size_t floorSlices = narrowestWindow(kernelOf(desc.interpolation));
+  const std::size_t floorSlices = narrowestWindow(
+      kernelOf(desc.interpolationOf(static_cast<std::size_t>(desc.timeAxis.value_or(0)))));
 
   if (!desc.timeDependent()) {
     return 1;
@@ -268,8 +450,10 @@ void GridStore::load() {
   for (std::size_t i = 0; i < descs_.size(); ++i) {
     if (grids_[i] == nullptr) {
       grids_[i] = makeGrid(descs_[i]);
-      // what the evaluation records name the file by
-      hashes_[i] = fileHashOf(descs_[i].path);
+      // what the evaluation records name the file by; an inline grid is in its program
+      if (descs_[i].kind != GridKind::Inline) {
+        hashes_[i] = fileHashOf(descs_[i].path);
+      }
     }
   }
   for (std::size_t i = 0; i < descs_.size(); ++i) {
@@ -360,7 +544,9 @@ std::optional<double> GridStore::suggestedSyncInterval() const {
       continue;
     }
     // the stencil and the slices to spare on either side of it
-    const std::size_t span = kernelOf(descs_[i].interpolation).width + 2 * TimeWindowSlack;
+    const std::size_t span =
+        kernelOf(descs_[i].interpolationOf(static_cast<std::size_t>(*descs_[i].timeAxis))).width +
+        2 * TimeWindowSlack;
     if (resident <= span) {
       throw std::invalid_argument("datafield: " + descs_[i].path + " needs more than " +
                                   std::to_string(span) +

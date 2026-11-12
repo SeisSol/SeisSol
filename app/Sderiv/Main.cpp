@@ -643,8 +643,10 @@ int diff(const std::vector<std::string>& args) {
             return "none";
           }
           const auto& axis = axes[d];
-          return "`" + axis.file.dimension + "` from " + valueText(axis.min, false) + " by " +
-                 valueText(axis.spacing, false) + " over " + std::to_string(axis.nodes) + " nodes" +
+          const std::string extent = axis.knots ? " to " + valueText(axis.max, false) + " in knots"
+                                                : " by " + valueText(axis.spacing, false);
+          return "`" + axis.file.dimension + "` from " + valueText(axis.min, false) + extent +
+                 " over " + std::to_string(axis.nodes) + " nodes" +
                  (axis.file.units.empty() ? "" : ", in " + axis.file.units) +
                  (axis.file.positive.empty() ? "" : ", positive " + axis.file.positive);
         };

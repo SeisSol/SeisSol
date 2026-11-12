@@ -531,6 +531,17 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
         fail("the offset of an element of a grid is no whole number");
       }
       const auto* offsets = reinterpret_cast<const std::int64_t*>(bytesOf(source));
+      if (inst.comp < 0) {
+        // a knot, or the reciprocal of a spacing, of an axis of knots (knotsOf())
+        const auto axis = static_cast<std::size_t>((-1 - inst.comp) / 2);
+        const bool knots = (-1 - inst.comp) % 2 == 0;
+        const double* array = knots ? view.knots[axis] : view.inverseSpacings[axis];
+        if (array == nullptr) {
+          fail("an axis of a grid has no knots");
+        }
+        gatherLanes<U, double>(array, offsets, 0, dst, count);
+        break;
+      }
       const auto shift =
           static_cast<std::int64_t>(inst.comp) * static_cast<std::int64_t>(view.componentStride);
       if (view.type == reader::datafield::ElementType::Float) {

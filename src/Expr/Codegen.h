@@ -118,6 +118,10 @@ struct GridDescriptor {
   std::uint64_t before[reader::datafield::MaxGridDimensions]{};
   std::uint64_t after[reader::datafield::MaxGridDimensions]{};
   std::uint64_t componentStride{1};
+  /// Of an axis of knots, the addresses of its knots and of the reciprocals of their spacings,
+  /// where the kernel runs (ArrayView::knots, ArrayView::inverseSpacings); zero for a uniform axis.
+  std::uint64_t knots[reader::datafield::MaxGridDimensions]{};
+  std::uint64_t inverseSpacings[reader::datafield::MaxGridDimensions]{};
   /// Set by a point that sampled a grid that fails beyond its volume beyond it
   /// (CheckKind::Outside), and by one whose time the window of a time-dependent grid did not serve
   /// (CheckKind::Window), which a kernel cannot report itself; whoever keeps the descriptor reads

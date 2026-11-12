@@ -48,9 +48,10 @@ constexpr const char* UnstablePrefix = "# unstable points";
 constexpr const char* LastCallPrefix = "# the last call";
 constexpr const char* ConsumerPrefix = "# what the consumer made of the values: ";
 constexpr const char* GridComment =
-    "# per grid its file, the SHA-256 of the file, its variable and components; per axis its "
-    "dimension in the file with the attributes it has there, and the geometry as derived: the "
-    "first node, the spacing, the nodes (of the window, with the slices of the file)";
+    "# per grid its file, the SHA-256 of the file, its variable and components (or inline, its "
+    "data in the program); per axis its dimension in the file with the attributes it has there, "
+    "and the geometry as derived: the first node, the spacing, the nodes (of the window, with the "
+    "slices of the file), or of knots the first and the last knot";
 constexpr const char* ClampComment =
     "# per grid and axis, the points of the closed pool beyond its volume: below, above, NaN";
 /// The points of the smallest hash in a sample (as Backend.cpp chooses them).
@@ -240,7 +241,9 @@ GridRecord readGrid(Reader& reader, const std::string& name, const std::string& 
     }
     const std::string& key = item[0];
     const std::string single = item.size() > 1 ? item[1] : std::string();
-    if (key == "path") {
+    if (key == "inline" && item.size() == 1) {
+      grid.inlined = true;
+    } else if (key == "path") {
       grid.path = single;
     } else if (key == "sha256") {
       grid.sha256 = single;
@@ -255,13 +258,18 @@ GridRecord readGrid(Reader& reader, const std::string& name, const std::string& 
   return grid;
 }
 
-/// `grid m axis 0 = dimension "x", units "m", min -1000, spacing 100, nodes 21`, into `grid`.
+/// `grid m axis 0 = dimension "x", units "m", min -1000, spacing 100, nodes 21`, or of an axis
+/// of knots `grid m axis 0 = knots, min 1000, max 3000, nodes 3`, into `grid`.
 void readAxis(Reader& reader, GridRecord& grid, std::size_t d, const std::string& value) {
   if (grid.axes.size() <= d) {
     grid.axes.resize(d + 1);
   }
   auto& axis = grid.axes[d];
   for (const auto& item : itemsOf(reader, value)) {
+    if (item.size() == 1 && item[0] == "knots") {
+      axis.knots = true;
+      continue;
+    }
     if (item.size() < 2) {
       continue;
     }
@@ -278,6 +286,8 @@ void readAxis(Reader& reader, GridRecord& grid, std::size_t d, const std::string
       axis.min = doubleOf(reader, item[1]);
     } else if (key == "spacing") {
       axis.spacing = doubleOf(reader, item[1]);
+    } else if (key == "max") {
+      axis.max = doubleOf(reader, item[1]);
     } else if (key == "nodes") {
       axis.nodes = static_cast<std::size_t>(doubleOf(reader, item[1]));
     } else if (key == "slices") {
@@ -498,7 +508,12 @@ std::string printRecord(const Record& record) {
     out << GridComment << "\n";
   }
   for (const auto& grid : record.grids) {
-    out << "grid " << grid.grid << " = path " << quoted(grid.path);
+    out << "grid " << grid.grid << " = ";
+    if (grid.inlined) {
+      out << "inline";
+    } else {
+      out << "path " << quoted(grid.path);
+    }
     if (!grid.sha256.empty()) {
       out << ", sha256 " << quoted(grid.sha256);
     }
@@ -524,8 +539,13 @@ std::string printRecord(const Record& record) {
       attribute("units", axis.file.units);
       attribute("positive", axis.file.positive);
       attribute("standard_name", axis.file.standardName);
-      out << " min " << numberText(axis.min) << ", spacing " << numberText(axis.spacing)
-          << ", nodes " << axis.nodes;
+      if (axis.knots) {
+        out << " knots, min " << numberText(axis.min) << ", max " << numberText(axis.max)
+            << ", nodes " << axis.nodes;
+      } else {
+        out << " min " << numberText(axis.min) << ", spacing " << numberText(axis.spacing)
+            << ", nodes " << axis.nodes;
+      }
       if (axis.slices > 0) {
         out << ", slices " << axis.slices;
       }

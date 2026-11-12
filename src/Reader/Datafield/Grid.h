@@ -39,7 +39,9 @@
 
 namespace seissol::reader::datafield {
 
-enum class GridKind : std::uint8_t { AsagiLite, Scec, Distributed /* not implemented */ };
+// Inline: a grid whose values and knots the program gives itself (GridData), e.g. the layers of a
+// layered model.
+enum class GridKind : std::uint8_t { AsagiLite, Scec, Distributed /* not implemented */, Inline };
 
 // Nearest: O(h), reproduces constants.
 // Linear:  O(h^2), C^0, reproduces degree-1 polynomials.
@@ -53,7 +55,21 @@ enum class GridKind : std::uint8_t { AsagiLite, Scec, Distributed /* not impleme
 // nonsensical wave speed or a diverging time step. Use Linear or Nearest
 // wherever the interpolated values must stay within the sampled range, and
 // treat Cubic as opt-in per grid rather than as a global default.
-enum class Interpolation : std::uint8_t { Nearest, Linear, Cubic };
+//
+// Previous and Next: the steps of a layered model (easi's `lower` and `upper`), the value of the
+// last node below the coordinate, or of the first node at or above it -- a coordinate on a node
+// belongs to the cell below it, as in easi. Beyond the axis the nearest end. Only the written-out
+// lookup (expr::expandLookups()) samples them, as it samples an axis of knots.
+enum class Interpolation : std::uint8_t { Nearest, Linear, Cubic, Previous, Next };
+
+// The nodes of an axis: uniform (its first node, its spacing and their number), or knots, a list
+// of strictly increasing, finite coordinates -- a layered model, a file of non-uniform coordinates.
+// A lookup locates a coordinate among knots by a binary search.
+enum class AxisKind : std::uint8_t { Uniform, Knots };
+
+// The most knots an axis of knots of a file can have: what the binary search of a written-out
+// lookup covers, whose steps are fixed when the program is lowered, before the file is read.
+inline constexpr std::size_t MaxKnotsOfFile = std::size_t{1} << 24;
 
 // Geometry of a one-dimensional stencil. With
 //   base = floor((x - min) / delta)
@@ -74,6 +90,9 @@ constexpr StencilKernel kernelOf(Interpolation interp) {
     return {2, 0, false};
   case Interpolation::Cubic:
     return {4, -1, false};
+  case Interpolation::Previous:
+  case Interpolation::Next:
+    return {1, 0, true};
   }
   return {2, 0, false};
 }
@@ -217,6 +236,13 @@ inline constexpr std::size_t DefaultWindowMemoryBudget = 1ULL << 30; // 1 GiB
 [[nodiscard]] std::optional<Interpolation> parseInterpolation(const std::string& text);
 /// "clamp" or "fail".
 [[nodiscard]] std::optional<BoundaryMode> parseBoundaryMode(const std::string& text);
+/// "uniform" or "knots".
+[[nodiscard]] std::optional<AxisKind> parseAxisKind(const std::string& text);
+/// The spellings of the vocabularies: what the parsers above read.
+[[nodiscard]] const char* spelling(GridKind kind);
+[[nodiscard]] const char* spelling(Interpolation interpolation);
+[[nodiscard]] const char* spelling(BoundaryMode boundary);
+[[nodiscard]] const char* spelling(AxisKind axis);
 
 // The dataset inside the file when a frontend does not name one. Matches
 // AsagiLiteGrid::open's own default; stated once so the two frontends cannot
@@ -242,12 +268,47 @@ struct GridAxisInfo {
   std::string standardName;
 };
 
+/// The values and the knots of a grid that a program gives itself (GridKind::Inline).
+struct GridData {
+  /// per axis of the grid its knots, strictly increasing and finite
+  std::vector<std::vector<double>> knots;
+  /// the values at the nodes: the components of a node together, the nodes in the order of the
+  /// axes, the first fastest
+  std::vector<double> values;
+  [[nodiscard]] bool operator==(const GridData& other) const;
+};
+
 struct GridDesc {
   std::string path;
   std::string variable;
   GridKind kind{GridKind::AsagiLite};
+  /// how every axis interpolates and what a sample beyond it does, unless `interpolations` and
+  /// `boundaries` say so per axis
   Interpolation interpolation{Interpolation::Linear};
   BoundaryMode boundary{BoundaryMode::Clamp};
+  /// per axis, as many as the grid has axes, or none: the same for all
+  std::vector<Interpolation> interpolations;
+  std::vector<BoundaryMode> boundaries;
+  /// per axis whether it is uniform or knots (of a file: from its coordinate variable); none for
+  /// all uniform. Every axis of an inline grid is knots.
+  std::vector<AxisKind> axes;
+  /// the values and the knots of an inline grid
+  std::shared_ptr<const GridData> data;
+
+  [[nodiscard]] Interpolation interpolationOf(std::size_t axis) const {
+    return axis < interpolations.size() ? interpolations[axis] : interpolation;
+  }
+  [[nodiscard]] BoundaryMode boundaryOf(std::size_t axis) const {
+    return axis < boundaries.size() ? boundaries[axis] : boundary;
+  }
+  [[nodiscard]] AxisKind axisOf(std::size_t axis) const {
+    if (kind == GridKind::Inline) {
+      return AxisKind::Knots;
+    }
+    return axis < axes.size() ? axes[axis] : AxisKind::Uniform;
+  }
+  /// Whether a sample beyond the volume fails on some axis.
+  [[nodiscard]] bool failsAnywhere() const;
 
   // Which GRID axis is time, if any -- grid numbering, not file numbering.
   // Absent = static grid, loaded once.
@@ -261,6 +322,8 @@ struct GridDesc {
 
   [[nodiscard]] bool timeDependent() const { return timeAxis.has_value(); }
   [[nodiscard]] bool operator==(const GridDesc& other) const;
+  /// What a message calls the grid: its file, or the name of an inline grid, which has none.
+  [[nodiscard]] std::string label() const { return path.empty() ? name : path; }
 
   // Everything about this grid that reaches the EMITTED KERNEL, and nothing
   // else. Program::canonicalForm() folds this in so that two programs sampling
@@ -275,8 +338,32 @@ struct GridDesc {
   // Stable across runs and builds: fixed-width tokens, no enum values written
   // as integers (a reordered enum must not silently alias two schemes), no
   // locale-dependent formatting.
+  //
+  // The values and the knots of an inline grid are in it: they are the program, as its constants
+  // are, and two tables of other values are two programs.
   [[nodiscard]] std::string canonicalKey() const;
 };
+
+/// A grid as a frontend declares it, before it is checked: the strings and the numbers of its
+/// attributes (the sderiv specification, `grid`). The interpolation and the boundary are one for
+/// all axes or one per axis; `axes` gives the kind of each axis of a file; `knots` and `values`
+/// are the data of an inline grid.
+struct GridSpec {
+  std::string kind;
+  std::string path;
+  std::string variable;
+  std::vector<std::string> components;
+  std::vector<std::string> interpolation;
+  std::vector<std::string> boundary;
+  std::vector<std::string> axes;
+  std::vector<std::vector<double>> knots;
+  std::vector<double> values;
+  std::optional<int> timeAxis;
+};
+
+/// The GridDesc of `spec`, its components named as it names them. Throws std::invalid_argument,
+/// with what is wrong, for a spec that does not describe a grid.
+[[nodiscard]] GridDesc gridDescOf(const GridSpec& spec);
 
 // NOT PROVIDED, deliberately: a component-name to component-index mapping.
 // easi carries one (ASAGI::permutation) because its component names come from

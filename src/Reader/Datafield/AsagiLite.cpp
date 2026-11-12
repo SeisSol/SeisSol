@@ -13,16 +13,21 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <hdf5.h>
 #include <hdf5_hl.h>
 #include <mpi.h>
+#include <new>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <sys/types.h>
 #include <unistd.h> // sysconf
+#include <utility>
+#include <vector>
 
 namespace seissol::reader::datafield {
 namespace {
@@ -201,6 +206,29 @@ bool readCoordScalar(hid_t cdset, hsize_t idx, double& out) noexcept {
   return H5Dread(cdset, H5T_NATIVE_DOUBLE, mspace.id(), fspace.id(), H5P_DEFAULT, &out) >= 0;
 }
 
+/// The whole coordinate variable `cdset` of `count` values, or nothing where it has another
+/// number of values or cannot be read.
+std::optional<std::vector<double>> readCoordinates(hid_t cdset, std::size_t count) noexcept {
+  const SpaceGuard fspace{H5Dget_space(cdset)};
+  if (!fspace.ok() || H5Sget_simple_extent_ndims(fspace.id()) != 1) {
+    return std::nullopt;
+  }
+  hsize_t extent = 0;
+  H5Sget_simple_extent_dims(fspace.id(), &extent, nullptr);
+  if (static_cast<std::size_t>(extent) != count) {
+    return std::nullopt;
+  }
+  try {
+    std::vector<double> values(count);
+    if (H5Dread(cdset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, values.data()) < 0) {
+      return std::nullopt;
+    }
+    return values;
+  } catch (const std::bad_alloc&) {
+    return std::nullopt;
+  }
+}
+
 // ---------- Read distribution ----------
 
 struct DistributeReadCtx {
@@ -304,6 +332,12 @@ void AsagiLiteGrid::resetMetadata() noexcept {
   sliceElems_ = 0;
   sliceBytes_ = 0;
   timeOrigin_ = 0.0;
+  for (auto& knots : knots_) {
+    knots.clear();
+  }
+  for (auto& spacings : inverseSpacings_) {
+    spacings.clear();
+  }
   view_ = ArrayView{};
   ++revision_;
 }
@@ -368,12 +402,14 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
                                          const std::string& varname,
                                          Interpolation interp,
                                          BoundaryMode boundary,
-                                         std::optional<int> timeAxis) {
+                                         std::optional<int> timeAxis,
+                                         const std::vector<AxisKind>& axes) {
   interp_ = interp;
   boundary_ = boundary;
   timeAxis_ = timeAxis;
   path_ = filename;
   close();
+  axes_ = axes;
 
   // The handles stay open: a sliding window reads again on every advance.
   fileId_ = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
@@ -433,12 +469,17 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
   // lands up to a full cell away, i.e. reads the wrong material. See the
   // geometry-derivation note in Grid.h.
   fileAxes_.assign(ndims_, GridAxisInfo{});
+  // per file dimension its coordinate variable, and the extent its first spacing implies where
+  // that is not the extent of the file
+  std::vector<std::string> scales(ndims_);
+  std::vector<std::optional<long>> nonUniform(ndims_);
   for (std::size_t i = 0; i < ndims_; ++i) {
     ScaleNameSink sink;
     H5DSiterate_scales(dsetRaw, static_cast<unsigned>(i), nullptr, collectFirstScale, &sink);
     if (sink.found) {
       fileAxes_[i].dimension =
           sink.name.size() > 1 && sink.name[0] == '/' ? sink.name.substr(1) : sink.name;
+      scales[i] = sink.name;
     }
 
     // A trailing dimension with no dimension scale is the component axis of a
@@ -503,12 +544,76 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
     if (readCoordScalar(coord.id(), size_[i] - 1, vN)) {
       const long reconstructed = std::lround((vN - v0) / delta_[i]) + 1;
       if (reconstructed != static_cast<long>(size_[i])) {
-        logWarning() << "AsagiLite:" << filename << "axis" << i << "of" << varname
-                     << "is not uniform: extent is" << size_[i]
-                     << "points but the first spacing implies" << reconstructed
-                     << ". Sampling will use the first spacing and the true extent.";
+        nonUniform[i] = reconstructed;
       }
     }
+  }
+
+  // -------- Axes of knots --------
+  //
+  // An axis declared knots reads its coordinate variable whole: a lookup searches it. The others
+  // stay uniform, from the first spacing; one that is not is worth a warning.
+  const std::size_t nspatial = ndims_ - (hasComponentAxis_ ? 1 : 0);
+  if (!axes_.empty() && axes_.size() != nspatial) {
+    logWarning() << "AsagiLite:" << filename << "declares" << axes_.size() << "axes of" << varname
+                 << ", which has" << nspatial << ".";
+    close();
+    return Error::BadKnots;
+  }
+  for (std::size_t d = 0; d < nspatial; ++d) {
+    const std::size_t f = nspatial - 1 - d;
+    if (d >= axes_.size() || axes_[d] != AxisKind::Knots) {
+      if (nonUniform[f].has_value()) {
+        logWarning() << "AsagiLite:" << filename << "axis" << f << "of" << varname
+                     << "is not uniform: extent is" << size_[f]
+                     << "points but the first spacing implies" << *nonUniform[f]
+                     << ". Sampling will use the first spacing and the true extent; an axis of"
+                     << "knots (axes in its declaration) samples it as it is.";
+      }
+      continue;
+    }
+    const auto problem = [&](const std::string& what) {
+      logWarning() << "AsagiLite:" << filename << "declares axis" << d << "of" << varname
+                   << "knots, but" << what << ".";
+      close();
+      return Error::BadKnots;
+    };
+    if (timeAxis_.has_value() && static_cast<std::size_t>(*timeAxis_) == d) {
+      return problem("it is the time axis, which is uniform");
+    }
+    if (size_[f] > MaxKnotsOfFile) {
+      return problem("it has " + std::to_string(size_[f]) + " knots, more than " +
+                     std::to_string(MaxKnotsOfFile));
+    }
+    if (scales[f].empty()) {
+      return problem("the file has no coordinate variable for it");
+    }
+    const DsetGuard coord{H5Dopen2(fidRaw, scales[f].c_str(), H5P_DEFAULT)};
+    std::optional<std::vector<double>> knots;
+    if (coord.ok()) {
+      knots = readCoordinates(coord.id(), size_[f]);
+    }
+    if (!knots.has_value()) {
+      return problem("its coordinate variable " + scales[f] + " cannot be read as " +
+                     std::to_string(size_[f]) + " values");
+    }
+    for (std::size_t k = 0; k < knots->size(); ++k) {
+      if (!std::isfinite((*knots)[k])) {
+        return problem("its knot " + std::to_string(k) + " is not finite");
+      }
+      if (k > 0 && !((*knots)[k - 1] < (*knots)[k])) {
+        return problem("its knots do not increase strictly, at knot " + std::to_string(k));
+      }
+    }
+    inverseSpacings_[d].clear();
+    for (std::size_t k = 0; k + 1 < knots->size(); ++k) {
+      inverseSpacings_[d].push_back(1.0 / ((*knots)[k + 1] - (*knots)[k]));
+    }
+    // a lookup reads the spacing of its cell, the first of a single knot as well
+    if (inverseSpacings_[d].empty()) {
+      inverseSpacings_[d].push_back(0.0);
+    }
+    knots_[d] = std::move(*knots);
   }
 
   buildView();
@@ -518,7 +623,6 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
   // A window is only a contiguous hyperslab if time is the slowest file
   // dimension. Anything else would turn every slide into a strided gather, so
   // it is rejected rather than silently paid for.
-  const std::size_t nspatial = view_.dimensions;
   const std::size_t elemSize = (elemType_ == ElementType::Float) ? 4 : 8;
   std::size_t nelem = 1;
   for (std::size_t i = 0; i < ndims_; ++i) {
@@ -738,6 +842,11 @@ void AsagiLiteGrid::buildView() noexcept {
     view_.deltaInv[d] = deltaInv_[f];
     view_.num[d] = static_cast<unsigned>(size_[f]);
     view_.stride[d] = stride_[f];
+    if (d < knots_.size() && !knots_[d].empty()) {
+      view_.min[d] = knots_[d].front();
+      view_.knots[d] = knots_[d].data();
+      view_.inverseSpacings[d] = inverseSpacings_[d].data();
+    }
   }
   // On the time axis the view sees only the resident window, and its origin is
   // the window's first slice rather than the file's. Everything downstream —
@@ -772,10 +881,26 @@ void AsagiLiteGrid::geometry(GridGeometry& out) const {
     out.min[d] = view_.min[d];
     out.delta[d] = delta_[nspatial - 1 - d];
     out.num[d] = view_.num[d];
+    // knots have no one spacing: the mean, which spans the axis as the knots do
+    if (d < knots_.size() && knots_[d].size() > 1) {
+      out.delta[d] =
+          (knots_[d].back() - knots_[d].front()) / static_cast<double>(knots_[d].size() - 1);
+    }
   }
 }
 
+bool AsagiLiteGrid::lookupsOnly() const noexcept {
+  return lookupsOnly_ || std::any_of(knots_.begin(), knots_.end(), [](const auto& knots) {
+           return !knots.empty();
+         });
+}
+
 void AsagiLiteGrid::sample(const double* x, double* out) const {
+  if (lookupsOnly()) {
+    throw std::invalid_argument(
+        "datafield: a grid with axes of knots, or an interpolation or a "
+        "boundary per axis, is sampled through the written-out lookup only");
+  }
   const std::size_t clamped = datafield::sample(view_, interp_, x, out);
   if (clamped != 0 && boundary_ == BoundaryMode::Fail) {
     logError() << "AsagiLite:" << path_ << "queried outside its volume.";
@@ -785,6 +910,11 @@ void AsagiLiteGrid::sample(const double* x, double* out) const {
 void AsagiLiteGrid::sampleBatch(const double* const* x,
                                 std::size_t count,
                                 double* const* out) const {
+  if (lookupsOnly()) {
+    throw std::invalid_argument(
+        "datafield: a grid with axes of knots, or an interpolation or a "
+        "boundary per axis, is sampled through the written-out lookup only");
+  }
   const std::size_t clamped = datafield::sampleBatch(view_, interp_, x, count, out, scratch_);
   reportClamped(clamped, count);
 }
@@ -792,6 +922,11 @@ void AsagiLiteGrid::sampleBatch(const double* const* x,
 void AsagiLiteGrid::sampleBatch(const double* const* x,
                                 std::size_t count,
                                 float* const* out) const {
+  if (lookupsOnly()) {
+    throw std::invalid_argument(
+        "datafield: a grid with axes of knots, or an interpolation or a "
+        "boundary per axis, is sampled through the written-out lookup only");
+  }
   const std::size_t clamped = datafield::sampleBatch(view_, interp_, x, count, out, scratch_);
   reportClamped(clamped, count);
 }

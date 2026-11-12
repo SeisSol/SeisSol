@@ -151,6 +151,11 @@ std::string gpuGridParam(GridId grid, GridField field, std::int32_t axis) {
 }
 std::string gpuGridLoad(GridId grid, std::int32_t component, const std::string& offset) {
   const std::string g = std::to_string(grid);
+  if (component < 0) {
+    // a knot, or the reciprocal of a spacing, of an axis of knots (knotsOf())
+    return "seissol_expr_knot" + g + "(a->grid" + g + ", " + offset + ", " +
+           std::to_string((-1 - component) / 2) + ", " + std::to_string((-1 - component) % 2) + ")";
+  }
   return "seissol_expr_load" + g + "(a->grid" + g + ", " + offset + ", " +
          std::to_string(component) + ")";
 }

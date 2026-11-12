@@ -89,7 +89,7 @@ class StoreArrays final : public GridArrays {
 
   private:
   [[nodiscard]] std::string pathOf(GridId grid) const {
-    return program_->grids().at(static_cast<std::size_t>(grid)).path;
+    return program_->grids().at(static_cast<std::size_t>(grid)).label();
   }
 
   const Program* program_;
@@ -1989,12 +1989,14 @@ bool GridRecord::Axis::operator==(const Axis& other) const {
   return file.dimension == other.file.dimension && file.units == other.file.units &&
          file.positive == other.file.positive && file.standardName == other.file.standardName &&
          bits(min) == bits(other.min) && bits(spacing) == bits(other.spacing) &&
-         nodes == other.nodes && slices == other.slices;
+         knots == other.knots && bits(max) == bits(other.max) && nodes == other.nodes &&
+         slices == other.slices;
 }
 
 bool GridRecord::operator==(const GridRecord& other) const {
-  return grid == other.grid && path == other.path && sha256 == other.sha256 &&
-         variable == other.variable && components == other.components && axes == other.axes;
+  return grid == other.grid && path == other.path && inlined == other.inlined &&
+         sha256 == other.sha256 && variable == other.variable && components == other.components &&
+         axes == other.axes;
 }
 
 std::vector<GridRecord> gridRecordsOf(const Program& program, GridStore& grids) {
@@ -2006,6 +2008,7 @@ std::vector<GridRecord> gridRecordsOf(const Program& program, GridStore& grids) 
     GridRecord record;
     record.grid = desc.name.empty() ? desc.path : desc.name;
     record.path = desc.path;
+    record.inlined = desc.kind == reader::datafield::GridKind::Inline;
     record.sha256 = grids.fileHash(ids[g]);
     record.variable = desc.variable;
     record.components = desc.componentNames;
@@ -2020,6 +2023,14 @@ std::vector<GridRecord> gridRecordsOf(const Program& program, GridStore& grids) 
       axis.min = geometry.min[d];
       axis.spacing = geometry.delta[d];
       axis.nodes = geometry.num[d];
+      if (desc.axisOf(d) == reader::datafield::AxisKind::Knots) {
+        const auto* view = grid.arrayView();
+        axis.knots = true;
+        axis.spacing = 0.0;
+        if (view != nullptr && view->knots[d] != nullptr && view->num[d] > 0) {
+          axis.max = view->knots[d][view->num[d] - 1];
+        }
+      }
       if (desc.timeAxis.has_value() && static_cast<std::size_t>(*desc.timeAxis) == d) {
         axis.slices = grids.timeSlicesOf(ids[g]);
       }
@@ -2116,8 +2127,21 @@ std::vector<GridClamps> clampsAt(const Program& program,
       }
       const auto axis = static_cast<std::size_t>(d);
       const double top = static_cast<double>(view->num[axis]) - 1.0;
+      const double* knots = view->knots[axis];
       for (std::size_t k = 0; k < points; ++k) {
-        const double raw = (values[c * points + k] - view->min[axis]) * view->deltaInv[axis];
+        const double x = values[c * points + k];
+        if (knots != nullptr) {
+          // an axis of knots: beyond its first and its last knot
+          if (std::isnan(x)) {
+            sides[k] |= GridClamps::Undefined;
+          } else if (x < knots[0]) {
+            sides[k] |= GridClamps::Below;
+          } else if (view->num[axis] > 0 && x > knots[view->num[axis] - 1]) {
+            sides[k] |= GridClamps::Above;
+          }
+          continue;
+        }
+        const double raw = (x - view->min[axis]) * view->deltaInv[axis];
         if (std::isnan(raw)) {
           sides[k] |= GridClamps::Undefined;
         } else if (raw < 0.0 && view->before[axis] == 0) {

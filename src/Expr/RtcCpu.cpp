@@ -108,6 +108,11 @@ std::string cpuGridParam(GridId grid, GridField field, std::int32_t axis) {
 }
 std::string cpuGridLoad(GridId grid, std::int32_t component, const std::string& offset) {
   const std::string g = std::to_string(grid);
+  if (component < 0) {
+    // a knot, or the reciprocal of a spacing, of an axis of knots (knotsOf())
+    return "seissol_expr_knot" + g + "(&grids[" + g + "], " + offset + ", " +
+           std::to_string((-1 - component) / 2) + ", " + std::to_string((-1 - component) % 2) + ")";
+  }
   return "seissol_expr_load" + g + "(&grids[" + g + "], " + offset + ", " +
          std::to_string(component) + ")";
 }
@@ -1062,7 +1067,7 @@ std::unique_ptr<Kernel> makeRtcCpuKernel(const Program& program,
     if (lowered.gridUses()[g].dimensions == 0) {
       continue;
     }
-    paths[g] = program.grids()[g].path;
+    paths[g] = program.grids()[g].label();
     if (grids == nullptr || g >= gridIds.size()) {
       logWarning() << "expr: the compiled CPU kernel of a program that samples the grid" << paths[g]
                    << "has no store to read it from; using the interpreter.";

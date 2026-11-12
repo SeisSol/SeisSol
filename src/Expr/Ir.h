@@ -82,10 +82,16 @@ enum class Kind : std::uint8_t {
   // program of a frontend: a field of the geometry of a grid (Node::comp holds the GridField,
   // Node::axis the axis), the same at all points, read where and when the kernel runs; and the
   // element of component Node::comp of the array of a grid at the offset Node::a (I64), in
-  // binary64.
+  // binary64 -- or, for a component below zero, the knot of axis a at that offset (-1 - 2 a), or
+  // the reciprocal of the spacing after it (-2 - 2 a), of an axis of knots (knotsOf(), ArrayView).
   GridParam,
   GridLoad
 };
+
+/// The component of a Kind::GridLoad that reads the knots of axis `axis`, and the one that reads
+/// the reciprocals of their spacings.
+[[nodiscard]] constexpr std::int32_t knotsOf(std::int32_t axis) { return -1 - 2 * axis; }
+[[nodiscard]] constexpr std::int32_t inverseSpacingsOf(std::int32_t axis) { return -2 - 2 * axis; }
 
 /// What a Kind::GridParam reads of the geometry of a grid (reader::datafield::ArrayView): Min and
 /// DeltaInv in binary64, the others whole numbers (I64). Before and After are the slices of the

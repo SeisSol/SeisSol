@@ -164,8 +164,33 @@ same with its attributes stated, as the core format of sderiv has them:
    grid m (kind = "asagi", path = "model.nc", variable = "z", components = ("rho", "mu"),
            interpolation = "linear", boundary = "clamp")
 
-``interpolation`` is ``"nearest"``, ``"linear"`` or ``"cubic"``; with ``boundary = "clamp"`` a
-coordinate beyond the grid samples its boundary, with ``"fail"`` it is an error. ``time = k`` makes
+``interpolation`` is ``"nearest"``, ``"linear"``, ``"cubic"``, ``"previous"`` or ``"next"``; with
+``boundary = "clamp"`` a coordinate beyond the grid samples its boundary, with ``"fail"`` it is an
+error. ``"previous"`` takes the value of the last node below the coordinate, ``"next"`` that of the
+first node at or above it: a coordinate on a node belongs to the cell below it, as in easi's
+``!LayeredModel`` (``lower`` and ``upper``). Both may be given per axis, as a tuple of one per axis
+(``interpolation = ("linear", "previous")``).
+
+An axis need not be uniform. ``axes = ("uniform", "knots")`` declares the second axis of a file as
+knots: SeisSol reads its coordinate variable whole -- finite and strictly increasing, at most
+2^24 values -- and a sample finds its cell by a binary search of a fixed number of steps; a
+coordinate variable that is not uniform without that declaration is sampled with its first spacing,
+with a warning. A grid may also give its data itself, a table of layers, say:
+
+.. code-block:: text
+
+   grid layers (kind = "inline", components = ("rho", "mu"),
+                knots = ((-3000, -2000, -1000)), values = (3000, 40, 2700, 20, 2600, 10),
+                interpolation = "previous", boundary = "clamp")
+
+``knots`` has a tuple of knots per axis, ``values`` the values at the nodes, the components of a node
+together and the first axis fastest. The data is part of the program (its fingerprint and its normal
+form), as its constants are. Every axis of an inline grid is knots. An axis of knots interpolates
+nearest, linear, previous or next, not cubic, and a time axis is uniform. The linear interpolation
+of a grid is ``(1 - s) v0 + s v1`` on every axis, of knots or uniform, which differs from easi's
+layered model (slope and intercept per layer) by a few ulp; the steps give the same values.
+
+``time = k`` makes
 axis ``k`` time, which must be the slowest dimension of the file, i.e. the last axis: the script
 passes the time as that coordinate, and SeisSol keeps a window of slices along it in memory, which
 it moves at synchronization points as the simulation advances. For example, the velocity of a wall
@@ -242,9 +267,10 @@ hash where it takes either branch, and the points where the kernel deviates most
 samples of all ranks hold that of the whole run, whatever its partition.
 
 A record describes the grids of its program as well: per grid its file, the SHA-256 of the file,
-the variable and the components, and per axis the name of its dimension in the file, the attributes
-``units``, ``positive`` and ``standard_name`` where the file has them, and the geometry as SeisSol
-derives it; and how many points of the pool lie beyond the volume of the grid, per axis and side,
+the variable and the components (an inline grid is in the program), and per axis the name of its
+dimension in the file, the attributes ``units``, ``positive`` and ``standard_name`` where the file
+has them, and the geometry as SeisSol derives it (of an axis of knots, the first and the last knot);
+and how many points of the pool lie beyond the volume of the grid, per axis and side,
 which shows a grid in another coordinate system, or with depth for height. The first rank hashes a
 file as it loads it, and keeps the hash in the cache of ``SEISSOL_EXPR_CACHE`` by the path, the size
 and the time of modification of the file, so that a run reads a large file once more only where it

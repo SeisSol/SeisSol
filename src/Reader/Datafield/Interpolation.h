@@ -70,6 +70,11 @@ struct ArrayView {
   std::size_t after[MaxGridDimensions]{};
   /// Element stride between consecutive components of one grid point.
   std::size_t componentStride{1};
+  /// Of an axis of knots (AxisKind::Knots), its knots, num of them, and the reciprocals of the
+  /// num - 1 spacings between them; null for a uniform axis. Only the written-out lookup reads
+  /// them.
+  const double* knots[MaxGridDimensions]{};
+  const double* inverseSpacings[MaxGridDimensions]{};
 };
 
 /// Per-batch working memory. Owned by the caller so that a sampling loop does

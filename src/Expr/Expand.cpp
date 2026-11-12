@@ -129,6 +129,7 @@ class Expander {
   NodeId isub(NodeId x, NodeId y) { return arena().pw(Fn::Sub, x, y, I64); }
   NodeId imul(NodeId x, NodeId y) { return arena().pw(Fn::Mul, x, y, I64); }
   NodeId imin(NodeId x, NodeId y) { return arena().pw(Fn::Min, x, y, I64); }
+  NodeId imax(NodeId x, NodeId y) { return arena().pw(Fn::Max, x, y, I64); }
   NodeId whole(NodeId x) { return arena().cast(I64, x); }
   NodeId real(NodeId x) { return arena().cast(F64, x); }
   // truth values: comparisons of numbers of either kind, and what combines them
@@ -187,7 +188,7 @@ class Expander {
     const std::int32_t dimensions = node.argCount;
     GridUse& use = result_.uses[static_cast<std::size_t>(grid)];
     if (use.dimensions != 0 && use.dimensions != dimensions) {
-      fail("the grid " + desc.path + " is sampled with " + std::to_string(use.dimensions) +
+      fail("the grid " + desc.label() + " is sampled with " + std::to_string(use.dimensions) +
            " and with " + std::to_string(dimensions) + " coordinates");
     }
     use.dimensions = dimensions;
@@ -195,20 +196,21 @@ class Expander {
 
     // the coordinates in binary64, which typed() gave the type of the lookup
     const bool wide = resolve(node.type, in_.computeType()) == ComputeType::F64;
-    const bool fails = desc.boundary == df::BoundaryMode::Fail;
     const NodeId* args = from_.args(node);
     std::vector<Axis> axes;
     for (std::int32_t d = 0; d < dimensions; ++d) {
       const NodeId coordinate = mapped(args[d]);
-      axes.push_back(locate(grid, d, wide ? coordinate : real(coordinate), desc, fails));
+      axes.push_back(locate(grid, d, wide ? coordinate : real(coordinate), desc));
     }
 
-    // the checks before the sample, so that their parts end before it
-    if (fails) {
-      NodeId outside = axes.front().clamped;
-      for (std::size_t d = 1; d < axes.size(); ++d) {
-        outside = either(outside, axes[d].clamped);
+    // the checks before the sample, so that their parts end before it: beyond the axes that fail
+    NodeId outside = NoNode;
+    for (const Axis& axis : axes) {
+      if (axis.clamped != NoNode) {
+        outside = outside == NoNode ? axis.clamped : either(outside, axis.clamped);
       }
+    }
+    if (outside != NoNode) {
       addCheck(grid, CheckKind::Outside, outside);
     }
     for (const Axis& axis : axes) {
@@ -236,8 +238,15 @@ class Expander {
     result_.checks.push_back(GridCheck{grid, kind, root});
   }
 
-  /// The stencil of the scheme on axis `d` at the coordinate `x`: locateAxis in Interpolation.cpp.
-  Axis locate(GridId grid, std::int32_t d, NodeId x, const df::GridDesc& desc, bool fails) {
+  /// The stencil of the scheme of axis `d` at the coordinate `x`: locateAxis in Interpolation.cpp
+  /// for a uniform axis, locateKnots() for one of knots.
+  Axis locate(GridId grid, std::int32_t d, NodeId x, const df::GridDesc& desc) {
+    const auto axisIndex = static_cast<std::size_t>(d);
+    const df::Interpolation interpolation = desc.interpolationOf(axisIndex);
+    const bool fails = desc.boundaryOf(axisIndex) == df::BoundaryMode::Fail;
+    if (desc.axisOf(axisIndex) == df::AxisKind::Knots) {
+      return locateKnots(grid, d, x, desc, interpolation, fails);
+    }
     Arena& a = arena();
     Axis axis;
     const NodeId num = a.gridParam(grid, GridField::Num, d);
@@ -283,9 +292,18 @@ class Expander {
       }
     };
 
-    if (desc.interpolation == df::Interpolation::Nearest) {
+    if (interpolation == df::Interpolation::Nearest) {
       // half away from zero, as std::lround
       axis.start = whole(a.pw(Fn::Round, clampedRaw, F64));
+      axis.weights = {k(1)};
+      stale(eq(axis.start, n(0)), above);
+      return axis;
+    }
+    if (interpolation == df::Interpolation::Previous || interpolation == df::Interpolation::Next) {
+      // the nodes below the coordinate: those of an index below raw, all beyond the axis
+      const NodeId below = choose(above, num, whole(a.pw(Fn::Ceil, clampedRaw, F64)), I64);
+      axis.start = interpolation == df::Interpolation::Previous ? imax(isub(below, n(1)), n(0))
+                                                                : imin(below, axis.top);
       axis.weights = {k(1)};
       stale(eq(axis.start, n(0)), above);
       return axis;
@@ -303,7 +321,7 @@ class Expander {
         choose(past, choose(twoNodes, k(1), k(0), F64), ssub(clampedRaw, lowerReal), F64);
     const NodeId oneMinusS = ssub(k(1), s);
 
-    if (desc.interpolation == df::Interpolation::Linear) {
+    if (interpolation == df::Interpolation::Linear) {
       axis.start = index;
       axis.weights = {oneMinusS, s};
       stale(eq(lower, n(0)), above);
@@ -312,7 +330,7 @@ class Expander {
 
     // cubic: four nodes from the one before the base cell, moved inside the axis at its ends,
     // where the weights fall back to linear ones between the base and its neighbour
-    const df::StencilKernel kernel = df::kernelOf(desc.interpolation);
+    const df::StencilKernel kernel = df::kernelOf(interpolation);
     const auto width = static_cast<std::int64_t>(kernel.width);
     const NodeId fourNodes = le(n(width), num);
     const NodeId maxStart = isub(num, n(width));
@@ -345,6 +363,83 @@ class Expander {
           choose(eq(slot, n(node)), oneMinusS, choose(eq(slot, n(node - 1)), s, k(0), F64), F64);
       axis.weights.push_back(choose(full, cubic[j], fallback, F64));
     }
+    return axis;
+  }
+
+  /// The stencil of the scheme of axis `d`, an axis of knots, at the coordinate `x`. The knots
+  /// below the coordinate (or at it) are counted by a binary search of a fixed number of steps, as
+  /// many as a grid of the most knots the axis can have needs, which a NaN leaves at none. Linear
+  /// and nearest interpolate in the cell from the last knot at or below the coordinate (a
+  /// coordinate on a knot has s = 0 there, and the value of the knot), previous and next take the
+  /// value of the last knot below it, or of the first at or above it (a coordinate on a knot
+  /// belongs to the cell below it, as in easi's layered model). Beyond the knots the value at the
+  /// nearest end.
+  Axis locateKnots(GridId grid,
+                   std::int32_t d,
+                   NodeId x,
+                   const df::GridDesc& desc,
+                   df::Interpolation interpolation,
+                   bool fails) {
+    Arena& a = arena();
+    if (desc.timeAxis.has_value() && *desc.timeAxis == d) {
+      fail("the time axis of the grid " + desc.label() + " has knots; a time axis is uniform");
+    }
+    if (interpolation == df::Interpolation::Cubic) {
+      fail("an axis of knots interpolates nearest, linear, previous or next, not cubic");
+    }
+    Axis axis;
+    const NodeId num = a.gridParam(grid, GridField::Num, d);
+    axis.top = isub(num, n(1));
+    axis.stride = a.gridParam(grid, GridField::Stride, d);
+    const auto knot = [&](NodeId at) { return a.gridLoad(grid, knotsOf(d), at); };
+    // the steps of the search: down from the largest power of two not above the most knots
+    const auto axisIndex = static_cast<std::size_t>(d);
+    const std::size_t most = desc.data != nullptr && axisIndex < desc.data->knots.size()
+                                 ? std::max<std::size_t>(1, desc.data->knots[axisIndex].size())
+                                 : df::MaxKnotsOfFile;
+    std::int64_t highest = 1;
+    while (static_cast<std::size_t>(highest) * 2 <= most) {
+      highest *= 2;
+    }
+    const auto counted = [&](bool orAt) {
+      NodeId found = n(0);
+      for (std::int64_t step = highest; step >= 1; step /= 2) {
+        const NodeId candidate = iadd(found, n(step));
+        const NodeId probe = knot(isub(imin(candidate, num), n(1)));
+        const NodeId taken = orAt ? le(probe, x) : lt(probe, x);
+        found = choose(both(le(candidate, num), taken), candidate, found, I64);
+      }
+      return found;
+    };
+    if (fails) {
+      const NodeId undefined = eq(eq(x, x), truth(false));
+      axis.clamped = either(either(lt(x, knot(n(0))), undefined), lt(knot(axis.top), x));
+    }
+
+    if (interpolation == df::Interpolation::Previous || interpolation == df::Interpolation::Next) {
+      const NodeId below = counted(false);
+      axis.start = interpolation == df::Interpolation::Previous ? imax(isub(below, n(1)), n(0))
+                                                                : imin(below, axis.top);
+      axis.weights = {k(1)};
+      return axis;
+    }
+
+    // the cell from the last knot at or below the coordinate, the first cell below the first knot
+    // and the last one beyond the last knot; one knot is a cell of its own
+    const NodeId atOrBelow = counted(true);
+    const NodeId index = imax(imin(isub(atOrBelow, n(1)), isub(num, n(2))), n(0));
+    const NodeId raw = smul(ssub(x, knot(index)), a.gridLoad(grid, inverseSpacingsOf(d), index));
+    // in [0, 1], a NaN at 0, and 1 from the last knot on, where the product need not be one
+    const NodeId within = choose(le(k(0), raw), choose(lt(k(1), raw), k(1), raw, F64), k(0), F64);
+    const NodeId s = choose(eq(atOrBelow, num), k(1), within, F64);
+    if (interpolation == df::Interpolation::Nearest) {
+      // half up, as the nearest node of a uniform axis
+      axis.start = imin(choose(le(k(0.5), s), iadd(index, n(1)), index, I64), axis.top);
+      axis.weights = {k(1)};
+      return axis;
+    }
+    axis.start = index;
+    axis.weights = {ssub(k(1), s), s};
     return axis;
   }
 
@@ -403,7 +498,7 @@ std::vector<GridUse> gridUses(const Program& program) {
         static_cast<std::size_t>(node.grid) < uses.size()) {
       GridUse& use = uses[static_cast<std::size_t>(node.grid)];
       if (use.dimensions != 0 && use.dimensions != node.argCount) {
-        fail("the grid " + program.grids()[static_cast<std::size_t>(node.grid)].path +
+        fail("the grid " + program.grids()[static_cast<std::size_t>(node.grid)].label() +
              " is sampled with " + std::to_string(use.dimensions) + " and with " +
              std::to_string(node.argCount) + " coordinates");
       }

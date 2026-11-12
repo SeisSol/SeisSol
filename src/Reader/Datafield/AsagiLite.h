@@ -91,6 +91,9 @@ class AsagiLiteGrid final : public Grid {
     BadRank,
     BadElementType,
     AllocationFailed,
+    /// an axis declared knots without a coordinate variable of finite, strictly increasing values,
+    /// or declarations of another number of axes than the file has
+    BadKnots,
   };
 
   AsagiLiteGrid() noexcept = default;
@@ -106,17 +109,24 @@ class AsagiLiteGrid final : public Grid {
   /// `MPI_COMM_WORLD` before calling `open()`.
   void setComm(MPI_Comm comm) noexcept { comm_ = comm; }
 
+  /// Whether only the written-out lookup samples the grid as declared: an interpolation or a
+  /// boundary per axis, which sample() and sampleBatch() do not have; they throw then.
+  void setLookupsOnly(bool lookupsOnly) noexcept { lookupsOnly_ = lookupsOnly; }
+
   /// `interp` and `boundary` come from the GridDesc and are fixed for the
   /// lifetime of the grid; sampleBatch() has no way to take them per call and
   /// should not, since the scheme is a property of the model, not of the query.
   /// Opens the file and reads its metadata. A static grid is fully loaded here.
   /// A time-dependent one is not: call resizeWindow() once the window size is
   /// known, which is what GridStore::load() does after applying its budget.
+  /// `axes` (grid order) declares which axes are knots: those read their coordinate variable
+  /// whole, and a lookup searches it (ArrayView::knots); none declares every axis uniform.
   Error open(const std::string& filename,
              const std::string& varname = "z",
              Interpolation interp = Interpolation::Linear,
              BoundaryMode boundary = BoundaryMode::Clamp,
-             std::optional<int> timeAxis = std::nullopt);
+             std::optional<int> timeAxis = std::nullopt,
+             const std::vector<AxisKind>& axes = {});
 
   /// Allocates the resident window and loads its initial slices. Collective.
   /// No-op for a static grid, which open() already loaded.
@@ -151,6 +161,9 @@ class AsagiLiteGrid final : public Grid {
   /// Shared by both sampleBatch overloads: the BoundaryMode::Fail diagnostic is
   /// about the query, not about the result type.
   void reportClamped(std::size_t clamped, std::size_t count) const;
+  /// Whether sample() and sampleBatch() cannot serve the grid: an axis of knots (they interpolate
+  /// on uniform axes only), or setLookupsOnly().
+  [[nodiscard]] bool lookupsOnly() const noexcept;
 
   public:
   [[nodiscard]] std::size_t bytesPerTimeSlice() const override { return sliceBytes_; }
@@ -193,6 +206,12 @@ class AsagiLiteGrid final : public Grid {
   std::size_t ndims_ = 0;
   /// what the file says about its dimensions, in its order
   std::vector<GridAxisInfo> fileAxes_;
+  /// the axes declared knots (grid order), and per grid axis of knots its coordinates and the
+  /// reciprocals of their spacings, which `view_` points to
+  std::vector<AxisKind> axes_;
+  bool lookupsOnly_ = false;
+  std::array<std::vector<double>, MaxGridDimensions> knots_{};
+  std::array<std::vector<double>, MaxGridDimensions> inverseSpacings_{};
   /// Kept open for the lifetime of the grid: a sliding window has to read again.
   hid_t fileId_ = -1;
   hid_t dsetId_ = -1;
