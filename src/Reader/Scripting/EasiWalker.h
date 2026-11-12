@@ -12,10 +12,11 @@
 // the includes and the paths of data files resolved as easi resolves them -- and computes what
 // easi computes, in the order easi computes it, so that the bits are easi's: an affine map as
 // easi's matrix product (from zero, in the order of the dimensions, the translation last), a
-// polynomial by Horner's scheme as easi has it, a grid of ASAGI through the grid store, a special
-// component by easi's formulas (EasiSpecial.h). A layered
-// model becomes a grid of its nodes (Grid.h): its steps are easi's, its linear interpolation
-// differs from easi's slope and intercept by a few units in the last place.
+// polynomial by Horner's scheme as easi has it, a grid of ASAGI through the grid store (whose
+// interpolation is that of easi 1.7; an earlier easi interpolates within a few units in the last
+// place of it), a special component by easi's formulas (EasiSpecial.h). A layered model becomes a
+// grid of its nodes (Grid.h), whose step finds the layer of a depth: the value of a node, or the
+// slope and the intercept easi computes for the layer.
 //
 // easi hands a point to the first component of a composite that accepts it, and fails where none
 // does; a component in a list is translated as a select between the components, and the points

@@ -651,14 +651,15 @@ class Walker {
     if (infinite) {
       return layerSteps(node, knots, data, parameters, interpolation, along, wanted, reach);
     }
+    if (interpolation == "linear") {
+      return layerLines(node, knots, data, parameters, along, wanted, reach);
+    }
     datafield::GridSpec spec;
     spec.kind = "inline";
     spec.components = parameters;
     spec.knots = {knots};
     spec.values = data;
-    spec.interpolation = {interpolation == "lower"   ? "previous"
-                          : interpolation == "upper" ? "next"
-                                                     : "linear"};
+    spec.interpolation = {interpolation == "lower" ? "previous" : "next"};
     spec.boundary = {"clamp"};
     datafield::GridDesc desc;
     try {
@@ -679,6 +680,95 @@ class Walker {
       out[parameter] = Value{
           arena().lookup(id, static_cast<std::int32_t>(found - parameters.begin()), {along.node}),
           {positionOf(node)}};
+    }
+    if (!missing.empty()) {
+      require(reach,
+              konst(0.0),
+              where(node) + ": Component does not supply all required parameters. Missing: {" +
+                  listOf(missing) + "}.");
+    }
+    return out;
+  }
+
+  /// A layered model that interpolates linearly, as easi builds it: a layer between two nodes is a
+  /// polynomial of the slope and the intercept easi computes from them, which it evaluates as
+  /// easi evaluates a polynomial, the intercept plus the slope times the depth; up to the first
+  /// node a depth has the values of the first, beyond the last those of the last, and on a node
+  /// those of the layer below it. The slopes and the intercepts are a grid of the nodes, each with
+  /// those of the layer up to it, whose step `next` finds the layer of a depth.
+  Values layerLines(const YAML::Node& node,
+                    const std::vector<double>& knots,
+                    const std::vector<double>& data,
+                    const std::vector<std::string>& parameters,
+                    const Value& along,
+                    const std::set<std::string>& wanted,
+                    NodeId reach) {
+    const std::size_t count = parameters.size();
+    const std::size_t nodes = knots.size();
+    // per node and parameter the slope and the intercept of the layer up to it, as easi's
+    // LayeredModelBuilder computes them; the first node has those of the first layer, which no
+    // depth reads there
+    std::vector<double> coefficients(2 * count * nodes, 0.0);
+    for (std::size_t k = 1; k < nodes; ++k) {
+      const double lower = knots[k - 1];
+      const double upper = knots[k];
+      for (std::size_t p = 0; p < count; ++p) {
+        const double below = data[(k - 1) * count + p];
+        const double above = data[k * count + p];
+        coefficients[2 * (k * count + p)] = (below - above) / (lower - upper);
+        coefficients[2 * (k * count + p) + 1] = (-upper * below + lower * above) / (lower - upper);
+      }
+    }
+    if (nodes > 1) {
+      std::copy_n(coefficients.begin() + 2 * count, 2 * count, coefficients.begin());
+    }
+    std::vector<std::string> names;
+    for (const auto& parameter : parameters) {
+      names.push_back(parameter + "_slope");
+      names.push_back(parameter + "_intercept");
+    }
+    expr::GridId id = expr::NoGrid;
+    if (nodes > 1) {
+      datafield::GridSpec spec;
+      spec.kind = "inline";
+      spec.components = names;
+      spec.knots = {knots};
+      spec.values = coefficients;
+      spec.interpolation = {"next"};
+      spec.boundary = {"clamp"};
+      datafield::GridDesc desc;
+      try {
+        desc = datafield::gridDescOf(spec);
+      } catch (const std::invalid_argument& error) {
+        fail(node, error.what());
+      }
+      id = program_.internGrid(desc);
+      program_.nameGrid(id, expr::GridNames{"layers" + std::to_string(id), names});
+    }
+    const NodeId d = along.node;
+    Values out;
+    std::set<std::string> missing;
+    for (const auto& parameter : wanted) {
+      const auto found = std::find(parameters.begin(), parameters.end(), parameter);
+      if (found == parameters.end()) {
+        missing.insert(parameter);
+        continue;
+      }
+      const auto p = static_cast<std::size_t>(found - parameters.begin());
+      const NodeId first = konst(data[p]);
+      if (nodes == 1) {
+        out[parameter] = Value{first, {positionOf(node)}};
+        continue;
+      }
+      const NodeId slope = arena().lookup(id, static_cast<std::int32_t>(2 * p), {d});
+      const NodeId intercept = arena().lookup(id, static_cast<std::int32_t>(2 * p + 1), {d});
+      const NodeId line = pw(Fn::Add, intercept, pw(Fn::Mul, slope, d));
+      const NodeId last = konst(data[(nodes - 1) * count + p]);
+      out[parameter] = Value{pw(Fn::Select,
+                                pw(Fn::Le, d, konst(knots.front())),
+                                first,
+                                pw(Fn::Select, pw(Fn::Lt, konst(knots.back()), d), last, line)),
+                             {positionOf(node)}};
     }
     if (!missing.empty()) {
       require(reach,

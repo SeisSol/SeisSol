@@ -134,15 +134,16 @@ Scripts
 
 An easi file is translated into a program, the same as an sderiv module (the easi walker): SeisSol
 reads its components and computes what easi computes, in the order easi computes it, so that the
-values are easi's to the bit -- the linear interpolation of a ``!LayeredModel`` and of an
-``!ASAGI`` grid within a few units in the last place. A point that no component accepts stops the
-run, as in easi, through a check of the program. The walker translates the structural components
-(``!Switch``, ``!Any``, ``!IdentityMap``, the filters, ``!Include``), ``!ConstantMap``,
-``!AffineMap``, ``!PolynomialMap``, ``!EvalModel``, ``!LayeredModel``, ``!ASAGI``, the special
-components (``!STRESS_STR_DIP_SLIP_AM``, ``!OptimalStress``, ``!AndersonianStress``, by easi's
-formulas), the Impala of ``!FunctionMap`` and the Lua of ``!LuaMap`` (with the Lua frontend, below);
-a file with another component (``!SCECFile``), or with Lua outside the subset of the frontend, easi
-evaluates, which the log says, naming the component and the line. The Impala of a
+values are easi's to the bit -- those of a grid (``!ASAGI``) the bits of easi 1.7 and later, whose
+interpolation an earlier easi's differs from by a few units in the last place. A point that no
+component accepts stops the run, as in easi, through a check of the program. The walker translates
+the structural components (``!Switch``, ``!Any``, ``!IdentityMap``, the filters, ``!Include``),
+``!ConstantMap``, ``!AffineMap``, ``!PolynomialMap``, ``!EvalModel``, ``!LayeredModel``,
+``!ASAGI``, the special components (``!STRESS_STR_DIP_SLIP_AM``, ``!OptimalStress``,
+``!AndersonianStress``, by easi's formulas), the Impala of ``!FunctionMap`` and the Lua of
+``!LuaMap`` (with the Lua frontend, below); a file with another component (``!SCECFile``), or with
+Lua outside the subset of the frontend, easi evaluates, which the log says, naming the component
+and the line. The Impala of a
 ``!FunctionMap`` is read as easi 1.5 and later read it: the walker converts it into the Lua easi
 makes of it, and translates that as the Lua of an ``!LuaMap``. easi groups a chain to the right,
 ``a - b + c`` as ``a - (b + c)`` and ``a / b * c`` as ``a / (b * c)``, unlike the earlier easi and

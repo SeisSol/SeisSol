@@ -56,6 +56,18 @@ namespace easiwalkertest {
 
 namespace sc = reader::scripting;
 
+/// Whether easi samples a grid as the walker does: easi 1.7 and later (InterpolationKernel.h, which
+/// Reader/Datafield/Interpolation.h ports), with cubic interpolation. An earlier easi interpolates
+/// linearly within a few ulp of it.
+#if defined(EASI_VERSION_MAJOR) && defined(EASI_VERSION_MINOR) &&                                  \
+    (EASI_VERSION_MAJOR > 1 || (EASI_VERSION_MAJOR == 1 && EASI_VERSION_MINOR >= 7))
+constexpr bool EasiKernel = true;
+#else
+constexpr bool EasiKernel = false;
+#endif
+/// The ulp the linear interpolation of a grid is from easi's.
+constexpr double GridUlps = EasiKernel ? 0.0 : 4.0;
+
 /// A directory of easi files for one test, removed at the end of the scope.
 class Files {
   public:
@@ -450,8 +462,7 @@ TEST_CASE("easi walker: the files of SEISSOL_EASI_EXAMPLES agree with easi where
       continue;
     }
     if (points.size() > 0) {
-      // the linear interpolation of layers and of grids within a few ulp of easi's
-      sameAsEasi(path, parameters, points, 8.0);
+      sameAsEasi(path, parameters, points, GridUlps);
     }
   }
   std::string summary;
@@ -525,7 +536,7 @@ TEST_CASE("easi walker: maps, filters and switches give easi's bits" *
         std::vector<std::string>{"lambda", "mu", "rho"});
 }
 
-TEST_CASE("easi walker: a layered model steps as easi, and interpolates within a few ulp" *
+TEST_CASE("easi walker: a layered model steps and interpolates as easi" *
           doctest::test_suite("reader")) {
   const Files files;
   for (const std::string interpolation : {"lower", "upper", "linear"}) {
@@ -546,8 +557,8 @@ TEST_CASE("easi walker: a layered model steps as easi, and interpolates within a
                                              "  0.5: [2600.0, 2.0e10, 2.5e10]\n"
                                              "  1.75: [2700.0, 3.0e10, 3.5e10]\n"
                                              "  2.0: [3000.0, 3.3e10, 3.6e10]\n");
-    const auto points = pointsIn(-3.0, 3.0, {1.0, -0.5, -1.75, -2.0, 0.0}, 2000);
-    sameAsEasi(path, {"rho", "mu", "lambda"}, points, interpolation == "linear" ? 8.0 : 0.0);
+    const auto points = pointsIn(-3.0, 3.0, {1.0, -0.5, -1.75, -2.0, 0.0, -0.0}, 2000);
+    sameAsEasi(path, {"rho", "mu", "lambda"}, points);
   }
 }
 
@@ -586,7 +597,10 @@ TEST_CASE("easi walker: a grid of ASAGI samples as easi's" * doctest::test_suite
   asagiModule();
   const Files files;
   writeAsagi(files.path("grid.nc"));
-  for (const std::string interpolation : {"nearest", "linear"}) {
+  for (const std::string interpolation : {"nearest", "linear", "cubic"}) {
+    if (interpolation == "cubic" && !EasiKernel) {
+      continue;
+    }
     CAPTURE(interpolation);
     const std::string path = files.write("asagi-" + interpolation + ".yaml",
                                          "!AffineMap\n"
@@ -609,12 +623,11 @@ TEST_CASE("easi walker: a grid of ASAGI samples as easi's" * doctest::test_suite
                                              "      rho: 1.0\n"
                                              "      mu: 2.0\n");
     // within the grid, beyond it (where the next component takes the point), and on its nodes
-    // and its bounds. The nearest node is easi's; the linear interpolation sums the stencil in
-    // another order than easi does, within a few ulp (the cross-path tolerance of Grid.h).
+    // and its bounds
     sameAsEasi(path,
                {"rho", "mu"},
                pointsIn(-0.5, 3.5, {0.0, 0.1, 0.3, 0.8, 1.0, 3.0, static_cast<double>(0.8F)}, 2000),
-               interpolation == "linear" ? 4.0 : 0.0);
+               interpolation == "nearest" ? 0.0 : GridUlps);
   }
 }
 
