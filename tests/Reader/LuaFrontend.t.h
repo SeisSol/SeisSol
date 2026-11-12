@@ -14,6 +14,7 @@
 #include "Expr/Interp.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/LuaFrontend.h"
@@ -1445,6 +1446,85 @@ TEST_CASE("lua frontend: the program of the earlier tracer's corpus" *
   REQUIRE(windowed.state().size() == 2);
   CHECK(windowed.state()[0].name == "last");
   CHECK(windowed.state()[1].name == "peak");
+}
+
+TEST_CASE("lua frontend: a field spec has the attributes of a grid of sderiv" *
+          doctest::test_suite("reader")) {
+  namespace df = reader::datafield;
+  const auto program = translated(R"lua(
+local M = {}
+M.output_parameters = {"rho", "v", "w"}
+M.field_specs = {
+  { name = "layers", kind = "inline", parameters = {"rho", "mu"},
+    knots = {{-3000, -2000, -1000}}, values = {{3000, 40}, {2700, 20}, {2600, 10}},
+    interpolation = "previous", boundary = "fail" },
+  { name = "profile", kind = "table", file = "profile.csv", coordinates = {"depth"},
+    parameters = {"vs"} },
+  { name = "wall", kind = "asagi", file = "wall.nc", variable = "v", parameters = {"v1"},
+    axes = {"uniform", "knots"}, interpolation = {"linear", "nearest"}, time = 0 },
+}
+function M.evaluate(fields, x, z, t)
+  local rho, mu = fields.layers:sample(z)
+  return rho, fields.profile:sample(z), fields.wall:sample(t, x)
+end
+return M
+)lua");
+  REQUIRE(program.grids().size() == 3);
+  const auto& layers = program.grids()[0];
+  CHECK(layers.kind == df::GridKind::Inline);
+  REQUIRE(layers.data != nullptr);
+  CHECK(layers.data->knots == std::vector<std::vector<double>>{{-3000, -2000, -1000}});
+  CHECK(layers.data->values == std::vector<double>{3000, 40, 2700, 20, 2600, 10});
+  CHECK(layers.interpolation == df::Interpolation::Previous);
+  CHECK(layers.boundary == df::BoundaryMode::Fail);
+  // the grid sderiv declares of the same attributes
+  df::GridSpec spec;
+  spec.kind = "inline";
+  spec.components = {"rho", "mu"};
+  spec.knots = {{-3000, -2000, -1000}};
+  spec.values = {3000, 40, 2700, 20, 2600, 10};
+  spec.interpolation = {"previous"};
+  spec.boundary = {"fail"};
+  CHECK(df::gridDescOf(spec) == layers);
+  const auto& profile = program.grids()[1];
+  CHECK(profile.kind == df::GridKind::Table);
+  CHECK(profile.coordinates == std::vector<std::string>{"depth"});
+  CHECK(profile.columns == std::vector<std::string>{"vs"});
+  CHECK(profile.variable.empty());
+  const auto& wall = program.grids()[2];
+  CHECK(wall.variable == "v");
+  CHECK(wall.axisOf(1) == df::AxisKind::Knots);
+  CHECK(wall.interpolationOf(1) == df::Interpolation::Nearest);
+  REQUIRE(wall.timeAxis.has_value());
+  CHECK(*wall.timeAxis == 0);
+
+  const auto messageOf = [](const std::string& specs) {
+    try {
+      static_cast<void>(translated("local M = {}\nM.output_parameters = {\"a\"}\nM.field_specs = "
+                                   "{ " +
+                                   specs +
+                                   " }\nfunction M.evaluate(fields, z)\n  return "
+                                   "fields.g:sample(z)\nend\nreturn M\n"));
+    } catch (const lua::LuaError& error) {
+      return std::string(error.what());
+    }
+    return std::string();
+  };
+  CHECK(messageOf("{ name = \"g\", kind = \"asagi\", file = \"g.nc\", parameters = {\"a\"}, "
+                  "boundry = \"fail\" }")
+            .find("field `g` has no attribute `boundry`") != std::string::npos);
+  CHECK(messageOf("{ name = \"g\", kind = \"inline\", parameters = {\"a\"}, knots = {{1, 2}}, "
+                  "values = {1, 2} }")
+            .find("field `g`: the values: expected a tuple of the 1 components of a node (a)") !=
+        std::string::npos);
+  CHECK(messageOf("{ name = \"g\", kind = \"scec\", file = \"f.txt\", parameters = {\"a\"} }")
+            .find("field `g`: a SCEC file has no component \"a\"") != std::string::npos);
+  CHECK(messageOf("{ name = \"g\", kind = \"asagi\", file = \"g.nc\", parameters = {\"a\"}, "
+                  "time = 1.5 }")
+            .find("the time is an axis") != std::string::npos);
+  CHECK(messageOf("{ name = \"g\", kind = \"asagi\", file = \"g.nc\", parameters = {\"a\"}, "
+                  "interpolation = {\"linear\", 2} }")
+            .find("the interpolation is a string or a table of strings") != std::string::npos);
 }
 
 TEST_CASE("lua frontend: what the earlier tracer refused or failed" *

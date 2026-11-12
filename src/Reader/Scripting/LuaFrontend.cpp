@@ -2873,19 +2873,98 @@ class Evaluator {
     }
   }
 
-  /// The grid of a field spec, and its object in `fields`.
+  /// The value `v` of the attribute `what` of the field spec of the field `field`, as a grid of
+  /// sderiv spells it: a number the script fixes, or a sequence of such values.
+  datafield::SpelledValue
+      spelledOf(const Value& v, const std::string& field, const std::string& what, int depth = 0) {
+    // deeper than the axes of any grid and its components
+    if (depth > static_cast<int>(datafield::MaxGridDimensions) + 1) {
+      throw LuaError(0, "field `" + field + "`: the " + what + " nest too deep");
+    }
+    datafield::SpelledValue spelled;
+    if (v.is(Type::Number) && v.only().number.known) {
+      spelled.number = v.only().number.k.asFloat();
+      return spelled;
+    }
+    if (!v.is(Type::Table)) {
+      throw LuaError(
+          0,
+          "field `" + field + "`: the " + what +
+              " are numbers the script fixes, or tables of them, not " +
+              (v.single() ? typeName(v.only().type) : std::string("a value of the point")));
+    }
+    spelled.tuple = true;
+    const auto count = border(v.only().id, 0);
+    for (std::int64_t i = 1; i <= count; ++i) {
+      spelled.items.push_back(
+          spelledOf(readField(v.only().id, Key::integer(i)), field, what, depth + 1));
+    }
+    return spelled;
+  }
+
+  /// The strings of the attribute `what` of a field spec: a string, or a sequence of strings; none
+  /// where it is nil.
+  std::vector<std::string> stringsOf(const Value& v, const std::string& field, const char* what) {
+    if (definitelyNil(v)) {
+      return {};
+    }
+    if (v.is(Type::String)) {
+      return {v.only().text};
+    }
+    if (v.is(Type::Table)) {
+      std::vector<std::string> strings;
+      const auto count = border(v.only().id, 0);
+      for (std::int64_t i = 1; i <= count; ++i) {
+        const Value entry = readField(v.only().id, Key::integer(i));
+        if (!entry.is(Type::String)) {
+          throw LuaError(
+              0, "field `" + field + "`: the " + what + " is a string or a table of strings");
+        }
+        strings.push_back(entry.only().text);
+      }
+      return strings;
+    }
+    throw LuaError(0, "field `" + field + "`: the " + what + " is a string or a table of strings");
+  }
+
+  /// The grid of a field spec, and its object in `fields`. A field spec has the attributes of a
+  /// grid of sderiv, of which the file is `file` and the components `parameters`; the
+  /// interpolation is linear, the boundary clamps and the variable of an ASAGI file is "z" where
+  /// it gives none.
   void gridOf(const Value& spec, int fields) {
     if (!spec.is(Type::Table)) {
       return;
     }
     const int id = spec.only().id;
+    const auto attribute = [&](const char* name) { return readField(id, Key::string(name)); };
     const auto text = [&](const char* name) {
-      const Value v = readField(id, Key::string(name));
+      const Value v = attribute(name);
       return v.is(Type::String) ? v.only().text : std::string();
     };
     const std::string name = text("name");
+    // the attributes of a field spec, and no others
+    static const std::set<std::string> Attributes = {"name",
+                                                     "kind",
+                                                     "file",
+                                                     "variable",
+                                                     "parameters",
+                                                     "coordinates",
+                                                     "axes",
+                                                     "knots",
+                                                     "values",
+                                                     "interpolation",
+                                                     "boundary",
+                                                     "time"};
+    for (const auto& [key, value] : tableAt(id).fields) {
+      if (key.kind == Key::Kind::String && Attributes.count(key.text) == 0) {
+        throw LuaError(0,
+                       "field `" + name + "` has no attribute `" + key.text +
+                           "`; a field spec has name, kind, file, variable, parameters, "
+                           "coordinates, axes, knots, values, interpolation, boundary and time");
+      }
+    }
     const std::string kindName = text("kind");
-    const auto parameters = stringList(readField(id, Key::string("parameters")));
+    const auto parameters = stringList(attribute("parameters"));
     if (parameters.empty()) {
       throw LuaError(
           0, "field `" + name + "` declares no parameters; they give the number of its components");
@@ -2893,13 +2972,6 @@ class Evaluator {
     const auto kind = datafield::parseGridKind(kindName);
     if (!kind.has_value()) {
       throw LuaError(0, "field `" + name + "` declares the unknown kind \"" + kindName + "\"");
-    }
-    const std::string interpolationName =
-        text("interpolation").empty() ? std::string("linear") : text("interpolation");
-    if (!datafield::parseInterpolation(interpolationName).has_value()) {
-      throw LuaError(0,
-                     "field `" + name + "` declares the unknown interpolation \"" +
-                         interpolationName + "\"");
     }
     // the grid as sderiv declares it, with the defaults of a field spec: the variable of an ASAGI
     // file, the interpolation, and the boundary
@@ -2911,8 +2983,62 @@ class Evaluator {
       declared.variable = datafield::DefaultGridVariable;
     }
     declared.components = parameters;
-    declared.interpolation = {interpolationName};
-    declared.boundary = {"clamp"};
+    declared.coordinates = stringsOf(attribute("coordinates"), name, "coordinates");
+    declared.axes = stringsOf(attribute("axes"), name, "axes");
+    declared.interpolation = stringsOf(attribute("interpolation"), name, "interpolation");
+    if (declared.interpolation.empty()) {
+      declared.interpolation = {"linear"};
+    }
+    for (const auto& interpolation : declared.interpolation) {
+      if (!datafield::parseInterpolation(interpolation).has_value()) {
+        throw LuaError(
+            0, "field `" + name + "` declares the unknown interpolation \"" + interpolation + "\"");
+      }
+    }
+    declared.boundary = stringsOf(attribute("boundary"), name, "boundary");
+    if (declared.boundary.empty()) {
+      declared.boundary = {"clamp"};
+    }
+    if (const Value time = attribute("time"); !definitelyNil(time)) {
+      const bool whole =
+          time.is(Type::Number) && time.only().number.known && time.only().number.k.isInt &&
+          time.only().number.k.i >= 0 &&
+          time.only().number.k.i < static_cast<std::int64_t>(datafield::MaxGridDimensions);
+      if (!whole) {
+        throw LuaError(0,
+                       "field `" + name + "`: the time is an axis, an integer from 0 to " +
+                           std::to_string(datafield::MaxGridDimensions - 1));
+      }
+      declared.timeAxis = static_cast<int>(time.only().number.k.i);
+    }
+    // the knots per axis, and the values nested as the axes
+    if (const Value knots = attribute("knots"); !definitelyNil(knots)) {
+      const auto spelled = spelledOf(knots, name, "knots");
+      if (!spelled.tuple) {
+        throw LuaError(0, "field `" + name + "`: the knots are a table of a table per axis");
+      }
+      for (const auto& axis : spelled.items) {
+        std::vector<double> numbers;
+        for (const auto& knot : axis.items) {
+          if (knot.tuple) {
+            throw LuaError(0, "field `" + name + "`: the knots are a table of a table per axis");
+          }
+          numbers.push_back(knot.number);
+        }
+        if (!axis.tuple) {
+          throw LuaError(0, "field `" + name + "`: the knots are a table of a table per axis");
+        }
+        declared.knots.push_back(std::move(numbers));
+      }
+    }
+    if (const Value values = attribute("values"); !definitelyNil(values)) {
+      if (const auto problem = datafield::flattenGridValues(spelledOf(values, name, "values"),
+                                                            declared.knots,
+                                                            declared.components,
+                                                            declared.values)) {
+        throw LuaError(0, "field `" + name + "`: the values: " + problem->what);
+      }
+    }
     datafield::GridDesc desc;
     try {
       desc = datafield::gridDescOf(declared);

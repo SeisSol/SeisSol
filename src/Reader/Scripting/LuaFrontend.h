@@ -37,10 +37,13 @@
 // table that names them (all its names, or those of M.output_parameters). M.state = {name =
 // initial, ...} declares what the program keeps from one call to the next: a parameter of the name
 // of a state reads its value of the previous call, the returned value of that name is its next
-// one. M.field_specs declares grids, {name, kind, file, variable, interpolation, parameters}, which
-// `fields.<name>:sample(<coordinates>)` samples, one value per parameter. `ssol` holds the
-// vocabulary of the earlier tracer (lt, le, gt, ge, eq, land, lor, lnot, select) and the builtins
-// of sderiv that Lua spells differently (sign, mod, atan2, pow, pi, g).
+// one. M.field_specs declares grids, each a table of the attributes of a grid of sderiv --
+// {name, kind, file, variable, parameters, coordinates, axes, knots, values, interpolation,
+// boundary, time}, `file` its path and `parameters` its components, the values nested in tables as
+// sderiv nests them -- which `fields.<name>:sample(<coordinates>)` samples, one value per
+// parameter. `ssol` holds the vocabulary of the earlier tracer (lt, le, gt, ge, eq, land, lor,
+// lnot, select) and the builtins of sderiv that Lua spells differently (sign, mod, atan2, pow, pi,
+// g).
 
 #include "Expr/Program.h"
 #include "Reader/Scripting/LuaSyntax.h"

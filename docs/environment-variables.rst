@@ -277,6 +277,26 @@ and the dynamic coefficient of friction), ``d_c`` (the critical slip distance), 
 ``forced_rupture_time``. Every node is given once. Rank 0 reads the file, and gives it to the other
 ranks.
 
+A Lua model declares its grids in ``M.field_specs``, a table of field specs, each a table of the
+attributes of a grid of sderiv: ``file`` is its path and ``parameters`` its components, and the
+knots and the values of an inline grid are nested tables, as sderiv nests them. Where a field spec
+gives none, the interpolation is linear, the boundary clamps, and the variable of an ASAGI file is
+``z``. ``fields.<name>:sample(...)`` gives one value per parameter:
+
+.. code-block:: lua
+
+   M.field_specs = {
+     { name = "m", kind = "asagi", file = "model.nc", variable = "data",
+       parameters = {"rho", "vp", "vs"} },
+     { name = "layers", kind = "inline", parameters = {"qp", "qs"},
+       knots = {{-3000, -1000}}, values = {{120, 60}, {80, 40}}, interpolation = "previous" },
+   }
+   function M.evaluate(fields, x, y, z)
+     local rho, vp, vs = fields.m:sample(x, y, z)
+     local qp, qs = fields.layers:sample(z)
+     ...
+   end
+
 ``time = k`` makes
 axis ``k`` time, which must be the slowest dimension of the file, i.e. the last axis: the script
 passes the time as that coordinate, and SeisSol keeps a window of slices along it in memory, which
