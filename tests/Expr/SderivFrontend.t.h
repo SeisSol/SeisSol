@@ -21,6 +21,7 @@
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <cmath>
 #include <cstddef>
 #include <set>
 #include <string>
@@ -395,6 +396,115 @@ TEST_SUITE("SderivFrontend") {
       }
     }
     CHECK(sqrtCount == 1);
+  }
+
+  // ------------------------------------------------- records and arrays ---
+
+  TEST_CASE("a record holds named values, which operations take field by field") {
+    // the fields of shallow in another order: matched by name, in the order of deep
+    const auto records = compileSderivModule("def deep = {rho = 2700, mu = 3e10}\n"
+                                             "def shallow = {mu = 1e10 + z, rho = 2600 - 0.5 * z}\n"
+                                             "out select(lt(z, -2000), deep, shallow)\n");
+    const auto numbers =
+        compileSderivModule("out def rho = select(lt(z, -2000), 2700, 2600 - 0.5 * z)\n"
+                            "out def mu = select(lt(z, -2000), 3e10, 1e10 + z)\n");
+    REQUIRE(records.outputs().size() == 2);
+    CHECK(records.outputs()[0].name == "rho");
+    CHECK(records.outputs()[1].name == "mu");
+    CHECK(records.fingerprint() == numbers.fingerprint());
+    // a number with every field, and a field of a record
+    const auto scaled = compileSderivModule("def p = {a = x, b = 2 * x}\n"
+                                            "out 0.5 * p + {b = 1, a = 2}\n"
+                                            "out def c = p.b\n");
+    reader::datafield::GridStore store;
+    const auto values = interpretValues(scaled, store, {3.0}, 1);
+    CHECK(values == std::vector<double>{3.5, 4.0, 6.0});
+  }
+
+  TEST_CASE("a function takes and gives records, and a grid samples all of its components") {
+    const auto records = compileSderivModule(
+        "grid m (kind = \"asagi\", path = \"model.nc\", components = (\"rho\", \"vp\", \"vs\"),\n"
+        "        interpolation = \"linear\")\n"
+        "def lame(p) = {rho = p.rho, mu = p.rho * p.vs ** 2,\n"
+        "               lambda = p.rho * (p.vp ** 2 - 2 * p.vs ** 2)}\n"
+        "out lame(m(x, y, z))\n");
+    const auto numbers = compileSderivModule(
+        "grid m (kind = \"asagi\", path = \"model.nc\", components = (\"rho\", \"vp\", \"vs\"),\n"
+        "        interpolation = \"linear\")\n"
+        "out def rho = m.rho(x, y, z)\n"
+        "out def mu = m.rho(x, y, z) * m.vs(x, y, z) ** 2\n"
+        "out def lambda = m.rho(x, y, z) * (m.vp(x, y, z) ** 2 - 2 * m.vs(x, y, z) ** 2)\n");
+    CHECK(records.fingerprint() == numbers.fingerprint());
+    int lookups = 0;
+    for (std::size_t i = 0; i < records.arena().size(); ++i) {
+      lookups += records.arena()[static_cast<NodeId>(i)].kind == Kind::Lookup ? 1 : 0;
+    }
+    CHECK(lookups == 3);
+  }
+
+  TEST_CASE("arrays and matrices, their elements and the intrinsics of them") {
+    const auto program = compileSderivModule(
+        "def n = [x, y, z]\n"
+        "def s = [[1, 2, 3], [2, 4, 5], [3, 5, 6]]\n"
+        "out def a = dot(matmul(s, n), n)\n"
+        "out def b = norm(cross(n, [0, 0, 1]))\n"
+        "out def c = det(s) + trace(s)\n"
+        "out def d = transpose(s)[0][2] + s[2][0] + len(n) + sum(range(4)) + max([x, y, z]) +\n"
+        "            min(n)\n"
+        "out def e = matmul(n, s)[1]\n"
+        "out def f = matmul(eye(3), n)[3 - 1] + (n * 2)[0]\n"
+        "def twice(v) = 2 * v\n"
+        "out def h = sum(twice(range(3)))\n");
+    reader::datafield::GridStore store;
+    const auto values = interpretValues(program, store, {1.0, 2.0, 3.0}, 1);
+    REQUIRE(values.size() == 7);
+    CHECK(values[0] == 157.0);
+    CHECK(values[1] == std::sqrt(5.0));
+    CHECK(values[2] == 10.0);
+    CHECK(values[3] == 19.0);
+    CHECK(values[4] == 25.0);
+    CHECK(values[5] == 5.0);
+    CHECK(values[6] == 6.0);
+    // a definition may take the name of an intrinsic, which it hides
+    const auto hidden = compileSderivModule("def sum(a, b) = a - b\nout def r = sum(x, 1)\n");
+    CHECK(interpretValues(hidden, store, {5.0}, 1) == std::vector<double>{4.0});
+  }
+
+  TEST_CASE("records and arrays that do not fit, and what is not a number, are errors") {
+    const auto reject = [](const std::string& source, const std::string& fragment) {
+      bool thrown = false;
+      try {
+        static_cast<void>(compileSderivModule(source));
+      } catch (const SderivError& error) {
+        thrown = true;
+        const std::string message = error.what();
+        CAPTURE(message);
+        CAPTURE(fragment);
+        CHECK(message.find(fragment) != std::string::npos);
+      }
+      CAPTURE(source);
+      CHECK(thrown);
+    };
+    reject("out {a = 1} + {b = 2}\n",
+           "the operands of `+` do not fit: a record of a and a record of b");
+    reject("out def r = sum([1, 2] + [1, 2, 3])\n",
+           "the operands of `+` do not fit: an array of 2 and an array of 3");
+    reject("out def r = x.rho\n", "`.rho` is a field of a record, not of a number");
+    reject("out def r = {a = 1}.b\n", "a record of a has no field `b`");
+    reject("out def r = [1, 2][2]\n", "the index is a whole number from 0 to 1, not 2");
+    reject("out def r = [1, 2][x]\n", "the index is a whole number the program fixes");
+    reject("out def r = {a = 1}\n", "the output `r` is a number, not a record of a");
+    reject("out [1, 2]\n", "`out` of an expression gives the fields of a record as outputs");
+    reject("out {a = [1, 2]}\n", "the output `a` is a number, not an array of 2");
+    reject("out def r = {a = 1, a = 2}.a\n", "the record has the field `a` twice");
+    reject("out def r = matmul([1, 2], [3, 4])\n", "their product is dot(a, b)");
+    reject("out def r = det([[1, 2], [3, 4], [5, 6]])\n", "takes a square matrix, not 3 by 2");
+    reject("out def r = det(eye(4))\n", "takes a matrix of 1 by 1 to 3 by 3");
+    reject("out def r = cross([1, 2], [3, 4])\n", "takes two vectors of 3");
+    reject("out def r = sum(x)\n", "`sum` takes an array, not a number");
+    reject("out def r = len(range(x))[0]\n", "a whole number the program fixes");
+    reject("check {a = 1}, \"never\"\nout def r = x\n",
+           "the condition of a check is a number, not a record of a");
   }
 
   // ------------------------------------------------------------ negative ---

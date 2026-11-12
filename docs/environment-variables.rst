@@ -193,6 +193,40 @@ phase late in a run in binary64, and the rest in the precision of the configurat
    def phase = 2.0 * pi * frequency * f64(t)
    out def v1 = amplitude * real(sin(phase))
 
+In an sderiv module, a value may also be a record of named values, ``{rho = 2600, mu = 1e10}``, or
+an array, ``[x, y, z]``; a matrix is an array of arrays. ``p.rho`` is a field, ``a[0]`` an element,
+whose index the script fixes. Operators and functions take them number by number: a number with
+every number of a record or an array, two records field by field, two arrays element by element.
+So a function written for numbers takes them as well, and ``select`` of two records chooses every
+field. ``m(x, y, z)`` samples every component of the grid ``m`` (below), a record of their names,
+and ``out p`` gives every field of the record ``p`` as an output of its name -- a material from a
+grid below 2 km and from formulas above, say:
+
+.. code-block:: text
+
+   grid m (kind = "asagi", path = "model.nc", components = ("rho", "vp", "vs"),
+           interpolation = "linear")
+   def lame(p) = {rho = p.rho, mu = p.rho * p.vs ** 2,
+                  lambda = p.rho * (p.vp ** 2 - 2 * p.vs ** 2)}
+   def shallow = {rho = 2600 - 0.5 * z, mu = 1e10, lambda = 2e10}
+   out select(lt(z, -2000), lame(m(x, y, z)), shallow)
+
+For arrays there are ``sum``, ``min`` and ``max`` of one array; ``dot``, ``norm`` and ``cross`` of
+vectors; ``matmul`` of matrices and vectors, and ``transpose``, ``trace`` and ``det`` (up to 3 by 3)
+of matrices; ``eye(n)``, ``len(a)`` and ``range(n)``. A definition may take the name of one of them,
+which it then hides. The traction on a plane, as a derived output:
+
+.. code-block:: text
+
+   def n = [0.6, 0, 0.8]
+   def s = [[s_xx, s_xy, s_xz], [s_xy, s_yy, s_yz], [s_xz, s_yz, s_zz]]
+   def t = matmul(s, n)
+   out def normal_stress = dot(t, n)
+   out def shear_stress = norm(t - dot(t, n) * n)
+
+Records and arrays are resolved when the module is read: the program computes the numbers a module
+written number by number computes, in the same order, to the same bits.
+
 A script may sample a data grid: an array on a uniform Cartesian grid in a NetCDF file, read as
 ASAGI reads it (axis 0 is the dimension that varies fastest in the file). In an sderiv module,
 

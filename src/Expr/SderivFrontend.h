@@ -29,8 +29,9 @@
 //
 // GRAMMAR (deltas against the derived-output frontend marked +):
 //
-//   + program    := { definition | griddecl | statedecl | check } ( expr | ) EOF
+//   + program    := { definition | spread | griddecl | statedecl | check } ( expr | ) EOF
 //   + definition := [ 'out' ] 'def' NAME [ '(' NAME { ',' NAME } ')' ] '=' expr
+//   + spread     := 'out' expr          // the fields of a record, an output each
 //   + griddecl   := 'grid' NAME '(' attribute { ',' attribute } ')'
 //   + attribute  := NAME '=' ( STR | NUM | '(' value { ',' value } ')' )
 //                    // those of the core format; an ASAGI file's variable and the boundary have
@@ -43,8 +44,24 @@
 //     add        := mul { ('+'|'-') mul }
 //     mul        := unary { ('*'|'/') unary }
 //     unary      := '-' unary | power
-//     power      := primary [ '**' unary ]           // right-associative
+//     power      := postfix [ '**' unary ]           // right-associative
+//   + postfix    := primary { '.' NAME | '[' expr ']' }
 //     primary    := NUM | NAME [ '(' args ')' ] | NAME '.' NAME '(' args ')' | '(' expr ')'
+//                 | '{' NAME '=' expr { ',' NAME '=' expr } '}' | '[' expr { ',' expr } ']'
+//
+// RECORDS AND ARRAYS. A value is a number, a record of named values ({rho = 2600, mu = 1e10}),
+// or an array of values ([x, y, z]); a matrix is an array of arrays. `p.rho` is a field, `a[0]` an
+// element, its index a whole number the program fixes. They exist only here: the program has
+// their numbers, each its own, so the core format and the backends see numbers only. Operators,
+// the builtins and the conversions take them leaf by leaf: a number with every number of a
+// record or an array, records of the same fields field by field (by name, in the order of the
+// first), arrays of one length element by element -- so select(c, deep, shallow) of two records
+// of a material selects every parameter, and a definition with parameters takes any of them, as
+// its body is substituted at the call. `m(x, y, z)` samples every component of the grid m, a
+// record of their names. `out e` gives the fields of the record e as outputs of their names. The
+// intrinsics of arrays (Intrinsics): sum, min and max of one array; dot, norm and cross of
+// vectors; matmul of matrices and vectors, transpose, trace and det (to 3 by 3) of matrices;
+// eye(n), len(a) and range(n). A definition may take the name of an intrinsic, which it hides.
 //
 // `out` IS A MODIFIER ON def, not a sibling keyword, and the grammar says so
 // with one production rather than two that happen to look alike. An exported

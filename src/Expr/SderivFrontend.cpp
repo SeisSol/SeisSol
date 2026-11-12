@@ -13,16 +13,20 @@
 #include "Reader/Datafield/Grid.h"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <limits>
 #include <map>
 #include <optional>
 #include <set>
 #include <string>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -180,7 +184,7 @@ std::vector<Token> tokenize(const std::string& source) {
       continue;
     }
     if (c == '+' || c == '-' || c == '*' || c == '/' || c == '(' || c == ')' || c == ',' ||
-        c == '=' || c == '.') {
+        c == '=' || c == '.' || c == '{' || c == '}' || c == '[' || c == ']') {
       tokens.push_back(
           {TokenKind::Op, std::string(1, static_cast<char>(c)), static_cast<int>(start)});
       ++i;
@@ -223,7 +227,21 @@ std::vector<Token> tokenize(const std::string& source) {
 
 // ========================================================== surface AST =====
 using SurfaceId = int;
-enum class SurfaceKind : std::uint8_t { Num, Name, Call, Binary, Unary, Let, Def };
+// Record: the fields `params` of the values `args`; Array: the elements `args`; Field: the field
+// `text` of `a`; Index: the element `b` of `a`.
+enum class SurfaceKind : std::uint8_t {
+  Num,
+  Name,
+  Call,
+  Binary,
+  Unary,
+  Let,
+  Def,
+  Record,
+  Array,
+  Field,
+  Index
+};
 
 struct SurfaceNode {
   SurfaceKind kind{};
@@ -310,6 +328,11 @@ struct ParsedProgram {
   // earlier one by name. Keeping them in two containers would have made that a
   // coincidence rather than a property.
   std::vector<SurfaceId> exports;
+  // `out e`: expressions whose records give an output per field
+  std::vector<SurfaceId> spreads;
+  // the outputs in the order of the source: an `out def` (an index of `exports`) or an `out e`
+  // (one of `spreads`)
+  std::vector<std::pair<bool, std::size_t>> outputOrder;
   std::vector<GridDeclaration> grids;
   // `check c, "message"`: the conditions every point has to meet (Program::checks())
   std::vector<std::pair<SurfaceId, std::string>> checks;
@@ -392,10 +415,17 @@ class Parser {
       const bool exported = peek().kind == TokenKind::Out;
       if (exported) {
         eat(TokenKind::Out);
+        // `out e`: the fields of a record, each an output of its name
+        if (peek().kind != TokenKind::Def) {
+          parsed.outputOrder.emplace_back(true, parsed.spreads.size());
+          parsed.spreads.push_back(expression());
+          continue;
+        }
       }
       const SurfaceId id = definition(exported);
       parsed.defs.push_back(id);
       if (exported) {
+        parsed.outputOrder.emplace_back(false, parsed.exports.size());
         parsed.exports.push_back(id);
       }
     }
@@ -404,7 +434,7 @@ class Parser {
     // OR a set of `out def`s that name themselves. Allowing both would leave it
     // open which one is "the" output, and a file that grew an `out def` while
     // keeping its trailing expression would silently gain a second one.
-    if (parsed.exports.empty()) {
+    if (parsed.exports.empty() && parsed.spreads.empty()) {
       parsed.expression = expression();
     }
     eat(TokenKind::Eof);
@@ -829,7 +859,7 @@ private:
   }
 
   SurfaceId power() {
-    SurfaceId base = primary();
+    SurfaceId base = postfix();
     if (peek().kind == TokenKind::Pow) {
       SurfaceNode node;
       node.kind = SurfaceKind::Binary;
@@ -841,6 +871,34 @@ private:
       return arena_.add(std::move(node));
     }
     return base;
+  }
+
+  /// A primary and what selects from it: `p.rho`, `a[0]`, `f(x).rho`, `m[1][2]`.
+  SurfaceId postfix() {
+    SurfaceId value = primary();
+    while (peek().kind == TokenKind::Op && (valueIs(".") || valueIs("["))) {
+      const Nesting nesting(*this);
+      SurfaceNode node;
+      node.position = peek().position;
+      node.a = value;
+      if (valueIs(".")) {
+        eat(TokenKind::Op, ".");
+        node.kind = SurfaceKind::Field;
+        node.text = eat(TokenKind::Name).value;
+      } else {
+        eat(TokenKind::Op, "[");
+        node.kind = SurfaceKind::Index;
+        node.b = expression();
+        eat(TokenKind::Op, "]");
+      }
+      value = arena_.add(std::move(node));
+    }
+    return value;
+  }
+
+  /// The token `ahead` tokens after the next one, or the end.
+  [[nodiscard]] const Token& peekAt(std::size_t ahead) const {
+    return tokens_[std::min(index_ + ahead, tokens_.size() - 1)];
   }
 
   SurfaceId primary() {
@@ -863,16 +921,11 @@ private:
       const int position = token.position;
       std::string name = next().value;
       // `m.rho(x, y, z)`, a sample of the component rho of the grid m: a call of `m.rho`, a name no
-      // declaration can have
-      if (peek().kind == TokenKind::Op && valueIs(".")) {
+      // declaration can have; without the call, `p.rho` is the field of a record (postfix())
+      if (peek().kind == TokenKind::Op && valueIs(".") && peekAt(1).kind == TokenKind::Name &&
+          peekAt(2).kind == TokenKind::Op && peekAt(2).value == "(") {
         eat(TokenKind::Op, ".");
         name += "." + eat(TokenKind::Name).value;
-        if (!valueIs("(")) {
-          throw SderivError("parse",
-                            "`" + name + "` is a component of a grid, sampled with coordinates: " +
-                                name + "(x, y, z)",
-                            position);
-        }
       }
       if (valueIs("(")) {
         eat(TokenKind::Op, "(");
@@ -896,11 +949,52 @@ private:
       node.text = std::move(name);
       return arena_.add(std::move(node));
     }
-    if (token.value == "(") {
+    if (token.kind == TokenKind::Op && token.value == "(") {
       eat(TokenKind::Op, "(");
       SurfaceId inner = expression();
       eat(TokenKind::Op, ")");
       return inner;
+    }
+    // a record, {rho = 2600, mu = 1e10}, its fields in their order, each once
+    if (token.kind == TokenKind::Op && token.value == "{") {
+      const Nesting nesting(*this);
+      SurfaceNode node;
+      node.kind = SurfaceKind::Record;
+      node.position = token.position;
+      eat(TokenKind::Op, "{");
+      while (true) {
+        const Token& field = eat(TokenKind::Name);
+        if (std::find(node.params.begin(), node.params.end(), field.value) != node.params.end()) {
+          throw SderivError(
+              "parse", "the record has the field `" + field.value + "` twice", field.position);
+        }
+        node.params.push_back(field.value);
+        eat(TokenKind::Op, "=");
+        node.args.push_back(expression());
+        if (!valueIs(",")) {
+          break;
+        }
+        eat(TokenKind::Op, ",");
+      }
+      eat(TokenKind::Op, "}");
+      return arena_.add(std::move(node));
+    }
+    // an array, [1, 2, 3]; a matrix is an array of arrays
+    if (token.kind == TokenKind::Op && token.value == "[") {
+      const Nesting nesting(*this);
+      SurfaceNode node;
+      node.kind = SurfaceKind::Array;
+      node.position = token.position;
+      eat(TokenKind::Op, "[");
+      while (true) {
+        node.args.push_back(expression());
+        if (!valueIs(",")) {
+          break;
+        }
+        eat(TokenKind::Op, ",");
+      }
+      eat(TokenKind::Op, "]");
+      return arena_.add(std::move(node));
     }
     throw SderivError("parse", "unexpected '" + token.value + "'", token.position);
   }
@@ -975,6 +1069,85 @@ ComponentTable checkGrids(const std::vector<GridDeclaration>& grids,
 }
 
 // ============================================================== lowering ====
+
+// A value of the full language: a number, which is a node of the program, a record of named values,
+// or an array of values (a matrix is an array of arrays). Records and arrays exist only here: the
+// program has the numbers they hold, each its own, and an operation on them is one per number.
+struct Value {
+  enum class Shape : std::uint8_t { Number, Record, Array };
+  Shape shape{Shape::Number};
+  NodeId node{NoNode};
+  /// the names of the fields of a record, in their order
+  std::vector<std::string> names;
+  /// the fields of a record, or the elements of an array
+  std::vector<Value> items;
+
+  static Value number(NodeId node) {
+    Value value;
+    value.node = node;
+    return value;
+  }
+  static Value array(std::vector<Value> items) {
+    Value value;
+    value.shape = Shape::Array;
+    value.items = std::move(items);
+    return value;
+  }
+  [[nodiscard]] bool isNumber() const { return shape == Shape::Number; }
+  /// The field `name` of a record, or null.
+  [[nodiscard]] const Value* field(const std::string& name) const {
+    for (std::size_t i = 0; i < names.size(); ++i) {
+      if (names[i] == name) {
+        return &items[i];
+      }
+    }
+    return nullptr;
+  }
+};
+
+/// `value` as briefly as it reads back.
+std::string shortest(double value) {
+  std::array<char, 32> text{};
+  const auto result = std::to_chars(text.data(), text.data() + text.size(), value);
+  return {text.data(), result.ptr};
+}
+
+/// What `value` is, for a message: "a number", "a record of rho, mu", "an array of 3".
+std::string described(const Value& value) {
+  switch (value.shape) {
+  case Value::Shape::Number:
+    return "a number";
+  case Value::Shape::Record: {
+    std::string text = "a record of ";
+    for (std::size_t i = 0; i < value.names.size(); ++i) {
+      text += (i == 0 ? "" : ", ") + value.names[i];
+    }
+    return text;
+  }
+  case Value::Shape::Array:
+    break;
+  }
+  return "an array of " + std::to_string(value.items.size());
+}
+
+// The intrinsics of arrays, of their numbers of arguments. Unlike a builtin, a definition may take
+// the name of one, which it then hides: `sum` and `norm` are names a script may well have.
+const std::map<std::string, std::size_t> Intrinsics = {{"sum", 1},
+                                                       {"dot", 2},
+                                                       {"norm", 1},
+                                                       {"cross", 2},
+                                                       {"matmul", 2},
+                                                       {"transpose", 1},
+                                                       {"trace", 1},
+                                                       {"det", 1},
+                                                       {"eye", 1},
+                                                       {"len", 1},
+                                                       {"range", 1}};
+
+/// The most elements `range(n)` makes, and the largest matrix of `eye(n)`: arrays are unrolled.
+constexpr std::size_t MostRange = std::size_t{1} << 16U;
+constexpr std::size_t MostEye = 64;
+
 class Lowering {
   public:
   Lowering(const SurfaceArena& surface,
@@ -993,7 +1166,14 @@ class Lowering {
     }
   }
 
-  NodeId lower(SurfaceId id) {
+  /// The number `id` is, `what` for a message: an output, a next value, a condition.
+  NodeId lower(SurfaceId id, const std::string& what) {
+    Environment empty;
+    return numberOf(surface_[id], lower(id, empty), what);
+  }
+
+  /// The value `id` is: a number, a record or an array.
+  Value lowerValue(SurfaceId id) {
     Environment empty;
     return lower(id, empty);
   }
@@ -1076,7 +1256,7 @@ class Lowering {
   [[nodiscard]] const std::vector<std::string>& channels() const { return channels_; }
 
   private:
-  using Environment = std::map<std::string, NodeId>;
+  using Environment = std::map<std::string, Value>;
 
   /// What a name resolves to where it is read, besides a binding of a let or a parameter (which
   /// comes first): an input the consumer names, a state, a constant, a definition, or else (where
@@ -1139,6 +1319,19 @@ class Lowering {
             defs_.count(node.text) != 0) {
           found.push_back(node.text);
         }
+        break;
+      case SurfaceKind::Record:
+      case SurfaceKind::Array:
+        for (const SurfaceId arg : node.args) {
+          stack.emplace_back(arg, scope);
+        }
+        break;
+      case SurfaceKind::Field:
+        stack.emplace_back(node.a, scope);
+        break;
+      case SurfaceKind::Index:
+        stack.emplace_back(node.a, scope);
+        stack.emplace_back(node.b, scope);
         break;
       case SurfaceKind::Num:
       case SurfaceKind::Def:
@@ -1217,6 +1410,20 @@ class Lowering {
         }
         break;
       }
+      case SurfaceKind::Record:
+      case SurfaceKind::Array:
+        // the first field first, so it is pushed last
+        for (auto arg = node.args.rbegin(); arg != node.args.rend(); ++arg) {
+          stack.emplace_back(*arg, scope);
+        }
+        break;
+      case SurfaceKind::Field:
+        stack.emplace_back(node.a, scope);
+        break;
+      case SurfaceKind::Index:
+        stack.emplace_back(node.b, scope);
+        stack.emplace_back(node.a, scope);
+        break;
       case SurfaceKind::Num:
       case SurfaceKind::Def:
         break;
@@ -1267,13 +1474,15 @@ private:
     return Fn::Pow;
   }
 
-  NodeId lowerLookup(const SurfaceNode& node, const ComponentFunction& fn, Environment& env) {
+  /// The coordinates of a sample of the grid `grid` (an index of the declarations): as many as the
+  /// IR allows, and its time axis among them.
+  std::vector<NodeId> coordinatesOf(const SurfaceNode& node, std::size_t grid, Environment& env) {
     if (node.args.empty() || node.args.size() > 6) {
       fail(node,
            "`" + node.text + "`: sampled with " + std::to_string(node.args.size()) +
                " coordinates, the IR allows 1..6");
     }
-    const auto& timeAxis = parsed_.grids[fn.grid].timeAxis;
+    const auto& timeAxis = parsed_.grids[grid].timeAxis;
     if (timeAxis.has_value() && static_cast<std::size_t>(*timeAxis) >= node.args.size()) {
       fail(node,
            "`" + node.text + "`: sampled with " + std::to_string(node.args.size()) +
@@ -1282,19 +1491,409 @@ private:
     std::vector<NodeId> coords;
     coords.reserve(node.args.size());
     for (const SurfaceId arg : node.args) {
-      coords.push_back(lower(arg, env));
+      coords.push_back(number(arg, env, "a coordinate of a sample"));
     }
-    return program_.arena().lookup(gridIds_[fn.grid], fn.component, coords);
+    return coords;
   }
 
-  NodeId lower(SurfaceId id, Environment& env) {
+  /// The number `value` is, of `at`; `what` is it, for a message.
+  NodeId numberOf(const SurfaceNode& at, const Value& value, const std::string& what) const {
+    if (!value.isNumber()) {
+      fail(at, what + " is a number, not " + described(value));
+    }
+    return value.node;
+  }
+
+  NodeId number(SurfaceId id, Environment& env, const std::string& what) {
+    return numberOf(surface_[id], lower(id, env), what);
+  }
+
+  /// `op` of the numbers of `args`, leaf by leaf: a number with every number of a record or an
+  /// array, records field by field (those of the same names, in the order of the first), arrays
+  /// element by element (those of the same length). `what` names the operation for a message.
+  Value leafwise(const SurfaceNode& at,
+                 const std::string& what,
+                 const std::vector<Value>& args,
+                 const std::function<NodeId(const std::vector<NodeId>&)>& op) {
+    const Value* form = nullptr;
+    for (const auto& arg : args) {
+      if (!arg.isNumber()) {
+        form = &arg;
+        break;
+      }
+    }
+    if (form == nullptr) {
+      std::vector<NodeId> nodes;
+      nodes.reserve(args.size());
+      for (const auto& arg : args) {
+        nodes.push_back(arg.node);
+      }
+      return Value::number(op(nodes));
+    }
+    Value out;
+    out.shape = form->shape;
+    out.names = form->names;
+    out.items.reserve(form->items.size());
+    for (std::size_t i = 0; i < form->items.size(); ++i) {
+      std::vector<Value> parts;
+      parts.reserve(args.size());
+      for (const auto& arg : args) {
+        if (arg.isNumber()) {
+          parts.push_back(arg);
+          continue;
+        }
+        const Value* part = nullptr;
+        if (arg.shape == form->shape && arg.items.size() == form->items.size()) {
+          part = arg.shape == Value::Shape::Array ? &arg.items[i] : arg.field(form->names[i]);
+        }
+        if (part == nullptr) {
+          fail(at,
+               "the operands of " + what + " do not fit: " + described(*form) + " and " +
+                   described(arg));
+        }
+        parts.push_back(*part);
+      }
+      out.items.push_back(leafwise(at, what, parts, op));
+    }
+    return out;
+  }
+
+  /// The operation `fn` of `args`, leaf by leaf.
+  Value pointwise(const SurfaceNode& at, const std::string& what, Fn fn, std::vector<Value> args) {
+    return leafwise(at, what, args, [&](const std::vector<NodeId>& n) {
+      auto& arena = program_.arena();
+      return n.size() == 1   ? arena.pw(fn, n[0])
+             : n.size() == 2 ? arena.pw(fn, n[0], n[1])
+                             : arena.pw(fn, n[0], n[1], n[2]);
+    });
+  }
+
+  /// The value of `node` where the program fixes it -- a number, or operations of such -- or
+  /// nothing where it depends on the point.
+  [[nodiscard]] std::optional<double> fixedValueOf(NodeId node) const {
+    const Node& n = program_.arena()[node];
+    if (n.kind == Kind::Const) {
+      return n.value;
+    }
+    if (n.kind != Kind::PW || n.a == NoNode) {
+      return std::nullopt;
+    }
+    const auto a = fixedValueOf(n.a);
+    if (!a.has_value()) {
+      return std::nullopt;
+    }
+    switch (n.fn) {
+    case Fn::Neg:
+      return -*a;
+    case Fn::Floor:
+      return std::floor(*a);
+    case Fn::Ceil:
+      return std::ceil(*a);
+    default:
+      break;
+    }
+    const auto b = n.b == NoNode ? std::nullopt : fixedValueOf(n.b);
+    if (!b.has_value()) {
+      return std::nullopt;
+    }
+    switch (n.fn) {
+    case Fn::Add:
+      return *a + *b;
+    case Fn::Sub:
+      return *a - *b;
+    case Fn::Mul:
+      return *a * *b;
+    case Fn::Min:
+      return std::min(*a, *b);
+    case Fn::Max:
+      return std::max(*a, *b);
+    default:
+      return std::nullopt;
+    }
+  }
+
+  /// The whole number from `least` to `limit` - 1 that `value` of `at` is, which the program
+  /// fixes; `what` is it, for a message.
+  std::size_t wholeNumberOf(const SurfaceNode& at,
+                            const Value& value,
+                            std::size_t least,
+                            std::size_t limit,
+                            const std::string& what) const {
+    const auto fixed = fixedValueOf(numberOf(at, value, what));
+    if (!fixed.has_value()) {
+      fail(at, what + " is a whole number the program fixes, not one of the point");
+    }
+    if (!(*fixed >= static_cast<double>(least) && *fixed < static_cast<double>(limit)) ||
+        std::floor(*fixed) != *fixed) {
+      fail(at,
+           what + " is a whole number from " + std::to_string(least) + " to " +
+               std::to_string(limit - 1) + ", not " + shortest(*fixed));
+    }
+    return static_cast<std::size_t>(*fixed);
+  }
+
+  /// The numbers of the vector `value`, an array of numbers; `what` takes it.
+  std::vector<NodeId>
+      vectorOf(const SurfaceNode& at, const std::string& what, const Value& value) const {
+    std::vector<NodeId> numbers;
+    if (value.shape == Value::Shape::Array) {
+      for (const auto& item : value.items) {
+        if (!item.isNumber()) {
+          numbers.clear();
+          break;
+        }
+        numbers.push_back(item.node);
+      }
+    }
+    if (numbers.empty()) {
+      fail(at, what + " takes a vector, an array of numbers, not " + described(value));
+    }
+    return numbers;
+  }
+
+  /// The rows of the matrix `value`, an array of vectors of one length; `what` takes it.
+  std::vector<std::vector<NodeId>>
+      matrixOf(const SurfaceNode& at, const std::string& what, const Value& value) const {
+    const auto refused = [&]() {
+      fail(at,
+           what + " takes a matrix, an array of arrays of numbers of one length, not " +
+               described(value));
+    };
+    if (value.shape != Value::Shape::Array) {
+      refused();
+    }
+    std::vector<std::vector<NodeId>> rows;
+    for (const auto& item : value.items) {
+      if (item.shape != Value::Shape::Array) {
+        refused();
+      }
+      rows.push_back(vectorOf(at, what, item));
+      if (rows.back().size() != rows.front().size()) {
+        refused();
+      }
+    }
+    return rows;
+  }
+
+  static Value vectorValue(const std::vector<NodeId>& numbers) {
+    std::vector<Value> items;
+    items.reserve(numbers.size());
+    for (const NodeId number : numbers) {
+      items.push_back(Value::number(number));
+    }
+    return Value::array(std::move(items));
+  }
+
+  static Value matrixValue(const std::vector<std::vector<NodeId>>& rows) {
+    std::vector<Value> items;
+    items.reserve(rows.size());
+    for (const auto& row : rows) {
+      items.push_back(vectorValue(row));
+    }
+    return Value::array(std::move(items));
+  }
+
+  /// a[0] b[0] + a[1] b[1] + ..., summed in that order.
+  NodeId dotOf(const std::vector<NodeId>& a, const std::vector<NodeId>& b) {
+    auto& arena = program_.arena();
+    NodeId sum = arena.pw(Fn::Mul, a[0], b[0]);
+    for (std::size_t i = 1; i < a.size(); ++i) {
+      sum = arena.pw(Fn::Add, sum, arena.pw(Fn::Mul, a[i], b[i]));
+    }
+    return sum;
+  }
+
+  /// The elements of the array `array` folded by `fn` from the first on, leaf by leaf.
+  Value folded(const SurfaceNode& at, const std::string& what, const Value& array, Fn fn) {
+    if (array.shape != Value::Shape::Array) {
+      fail(at, what + " takes an array, not " + described(array));
+    }
+    Value acc = array.items.front();
+    for (std::size_t i = 1; i < array.items.size(); ++i) {
+      acc = pointwise(at, what, fn, {acc, array.items[i]});
+    }
+    return acc;
+  }
+
+  /// The intrinsic of arrays `node` calls (Intrinsics), of the values `args`.
+  Value intrinsic(const SurfaceNode& node, const std::vector<Value>& args) {
+    auto& arena = program_.arena();
+    const std::string& name = node.text;
+    const std::string what = "`" + name + "`";
+    if (name == "sum") {
+      return folded(node, what, args[0], Fn::Add);
+    }
+    if (name == "len") {
+      if (args[0].shape != Value::Shape::Array) {
+        fail(node, what + " takes an array, not " + described(args[0]));
+      }
+      return Value::number(arena.konst(static_cast<double>(args[0].items.size())));
+    }
+    if (name == "range" || name == "eye") {
+      const std::size_t n = wholeNumberOf(
+          node, args[0], 1, (name == "range" ? MostRange : MostEye) + 1, "the argument of " + what);
+      if (name == "range") {
+        std::vector<Value> items;
+        for (std::size_t i = 0; i < n; ++i) {
+          items.push_back(Value::number(arena.konst(static_cast<double>(i))));
+        }
+        return Value::array(std::move(items));
+      }
+      std::vector<std::vector<NodeId>> rows(n, std::vector<NodeId>(n, arena.konst(0.0)));
+      for (std::size_t i = 0; i < n; ++i) {
+        rows[i][i] = arena.konst(1.0);
+      }
+      return matrixValue(rows);
+    }
+    if (name == "dot" || name == "cross") {
+      const auto a = vectorOf(node, what, args[0]);
+      const auto b = vectorOf(node, what, args[1]);
+      if (a.size() != b.size() || (name == "cross" && a.size() != 3)) {
+        fail(node,
+             what + " takes two vectors of " + (name == "cross" ? "3" : "one length") + ", not " +
+                 described(args[0]) + " and " + described(args[1]));
+      }
+      if (name == "dot") {
+        return Value::number(dotOf(a, b));
+      }
+      const auto term = [&](std::size_t i, std::size_t j) {
+        return arena.pw(Fn::Sub, arena.pw(Fn::Mul, a[i], b[j]), arena.pw(Fn::Mul, a[j], b[i]));
+      };
+      return vectorValue({term(1, 2), term(2, 0), term(0, 1)});
+    }
+    if (name == "norm") {
+      const auto a = vectorOf(node, what, args[0]);
+      return Value::number(arena.pw(Fn::Sqrt, dotOf(a, a)));
+    }
+    if (name == "matmul") {
+      // a matrix or a vector on either side: a vector on the left is a row, on the right a column
+      const auto isMatrix = [](const Value& value) {
+        return value.shape == Value::Shape::Array && !value.items.empty() &&
+               value.items.front().shape == Value::Shape::Array;
+      };
+      const bool leftMatrix = isMatrix(args[0]);
+      const bool rightMatrix = isMatrix(args[1]);
+      if (!leftMatrix && !rightMatrix) {
+        fail(node, what + " of two vectors: their product is dot(a, b)");
+      }
+      const auto left = leftMatrix
+                            ? matrixOf(node, what, args[0])
+                            : std::vector<std::vector<NodeId>>{vectorOf(node, what, args[0])};
+      std::vector<std::vector<NodeId>> right;
+      if (rightMatrix) {
+        right = matrixOf(node, what, args[1]);
+      } else {
+        for (const NodeId element : vectorOf(node, what, args[1])) {
+          right.push_back({element});
+        }
+      }
+      if (left.front().size() != right.size()) {
+        fail(node,
+             what + " of a " + std::to_string(left.size()) + " by " +
+                 std::to_string(left.front().size()) + " and a " + std::to_string(right.size()) +
+                 " by " + std::to_string(right.front().size()) + " operand");
+      }
+      std::vector<std::vector<NodeId>> product(left.size());
+      for (std::size_t i = 0; i < left.size(); ++i) {
+        for (std::size_t j = 0; j < right.front().size(); ++j) {
+          std::vector<NodeId> column;
+          for (const auto& row : right) {
+            column.push_back(row[j]);
+          }
+          product[i].push_back(dotOf(left[i], column));
+        }
+      }
+      if (!rightMatrix) {
+        std::vector<NodeId> vector;
+        for (const auto& row : product) {
+          vector.push_back(row.front());
+        }
+        return vectorValue(vector);
+      }
+      return leftMatrix ? matrixValue(product) : vectorValue(product.front());
+    }
+    // the intrinsics of a matrix
+    const auto rows = matrixOf(node, what, args[0]);
+    if (name == "transpose") {
+      std::vector<std::vector<NodeId>> transposed(rows.front().size());
+      for (const auto& row : rows) {
+        for (std::size_t j = 0; j < row.size(); ++j) {
+          transposed[j].push_back(row[j]);
+        }
+      }
+      return matrixValue(transposed);
+    }
+    if (rows.size() != rows.front().size()) {
+      fail(node,
+           what + " takes a square matrix, not " + std::to_string(rows.size()) + " by " +
+               std::to_string(rows.front().size()));
+    }
+    if (name == "trace") {
+      NodeId sum = rows[0][0];
+      for (std::size_t i = 1; i < rows.size(); ++i) {
+        sum = arena.pw(Fn::Add, sum, rows[i][i]);
+      }
+      return Value::number(sum);
+    }
+    // det: of 1 by 1 to 3 by 3, by the first row
+    const auto mul = [&](NodeId a, NodeId b) { return arena.pw(Fn::Mul, a, b); };
+    const auto sub = [&](NodeId a, NodeId b) { return arena.pw(Fn::Sub, a, b); };
+    const auto& m = rows;
+    switch (rows.size()) {
+    case 1:
+      return Value::number(m[0][0]);
+    case 2:
+      return Value::number(sub(mul(m[0][0], m[1][1]), mul(m[0][1], m[1][0])));
+    case 3: {
+      const NodeId minor0 = sub(mul(m[1][1], m[2][2]), mul(m[1][2], m[2][1]));
+      const NodeId minor1 = sub(mul(m[1][0], m[2][2]), mul(m[1][2], m[2][0]));
+      const NodeId minor2 = sub(mul(m[1][0], m[2][1]), mul(m[1][1], m[2][0]));
+      return Value::number(
+          arena.pw(Fn::Add, sub(mul(m[0][0], minor0), mul(m[0][1], minor1)), mul(m[0][2], minor2)));
+    }
+    default:
+      fail(node,
+           what + " takes a matrix of 1 by 1 to 3 by 3, not " + std::to_string(rows.size()) +
+               " by " + std::to_string(rows.size()));
+    }
+  }
+
+  /// The numbers of a value, in its order, and its form ("n", "{rho:n}", "[n,n]"): what a call
+  /// of a definition depends on.
+  static void keyOf(const Value& value, std::vector<NodeId>& leaves, std::string& form) {
+    switch (value.shape) {
+    case Value::Shape::Number:
+      leaves.push_back(value.node);
+      form += 'n';
+      return;
+    case Value::Shape::Record:
+      form += '{';
+      for (std::size_t i = 0; i < value.items.size(); ++i) {
+        form += value.names[i] + ':';
+        keyOf(value.items[i], leaves, form);
+        form += ',';
+      }
+      form += '}';
+      return;
+    case Value::Shape::Array:
+      form += '[';
+      for (const auto& item : value.items) {
+        keyOf(item, leaves, form);
+        form += ',';
+      }
+      form += ']';
+      return;
+    }
+  }
+
+  Value lower(SurfaceId id, Environment& env) {
     const SurfaceNode& node = surface_[id];
     switch (node.kind) {
     case SurfaceKind::Num:
-      return program_.arena().konst(node.number);
+      return Value::number(program_.arena().konst(node.number));
 
     case SurfaceKind::Unary:
-      return program_.arena().pw(Fn::Neg, lower(node.a, env));
+      return pointwise(node, "`-`", Fn::Neg, {lower(node.a, env)});
 
     case SurfaceKind::Binary: {
       // A sum of many terms is a long chain of binary nodes along their left operands, as the
@@ -1303,22 +1902,75 @@ private:
       while (surface_[surface_[spine.back()].a].kind == SurfaceKind::Binary) {
         spine.push_back(surface_[spine.back()].a);
       }
-      NodeId value = lower(surface_[spine.back()].a, env);
+      Value value = lower(surface_[spine.back()].a, env);
       for (auto link = spine.rbegin(); link != spine.rend(); ++link) {
         const SurfaceNode& binary = surface_[*link];
-        const NodeId b = lower(binary.b, env);
-        value = program_.arena().pw(binaryFn(binary.text), value, b);
+        Value b = lower(binary.b, env);
+        value = pointwise(binary,
+                          "`" + std::string(binary.text == "pow" ? "**" : binary.text) + "`",
+                          binaryFn(binary.text),
+                          {std::move(value), std::move(b)});
       }
       return value;
     }
 
     case SurfaceKind::Let: {
-      const NodeId value = lower(node.a, env);
+      Value value = lower(node.a, env);
       Environment inner = env;
-      inner[node.text] = value;
+      inner[node.text] = std::move(value);
       // Sharing rather than duplication falls out of interning: the bound id is
       // substituted, so both uses reach the same node without a CSE pass.
       return lower(node.b, inner);
+    }
+
+    case SurfaceKind::Record: {
+      Value record;
+      record.shape = Value::Shape::Record;
+      record.names = node.params;
+      for (const SurfaceId arg : node.args) {
+        record.items.push_back(lower(arg, env));
+      }
+      return record;
+    }
+
+    case SurfaceKind::Array: {
+      std::vector<Value> items;
+      items.reserve(node.args.size());
+      for (const SurfaceId arg : node.args) {
+        items.push_back(lower(arg, env));
+      }
+      return Value::array(std::move(items));
+    }
+
+    case SurfaceKind::Field: {
+      // `m.rho` of a grid m, without its coordinates
+      if (const SurfaceNode& base = surface_[node.a]; base.kind == SurfaceKind::Name &&
+                                                      env.count(base.text) == 0 &&
+                                                      gridNamed(base.text) != nullptr) {
+        const std::string sample = base.text + "." + node.text;
+        fail(node,
+             "`" + sample + "` is a component of a grid, sampled with coordinates: " + sample +
+                 "(x, y, z)");
+      }
+      const Value record = lower(node.a, env);
+      if (record.shape != Value::Shape::Record) {
+        fail(node, "`." + node.text + "` is a field of a record, not of " + described(record));
+      }
+      const Value* field = record.field(node.text);
+      if (field == nullptr) {
+        fail(node, described(record) + " has no field `" + node.text + "`");
+      }
+      return *field;
+    }
+
+    case SurfaceKind::Index: {
+      const Value array = lower(node.a, env);
+      if (array.shape != Value::Shape::Array) {
+        fail(node, "an index selects an element of an array, not of " + described(array));
+      }
+      const std::size_t index =
+          wholeNumberOf(node, lower(node.b, env), 0, array.items.size(), "the index");
+      return array.items[index];
     }
 
     case SurfaceKind::Name: {
@@ -1328,16 +1980,16 @@ private:
       }
       // An input the consumer names reads the input, as a state reads its previous value.
       if (inputs_.count(node.text) != 0) {
-        return channel(node);
+        return Value::number(channel(node));
       }
       // A state reads its value from the previous call -- also where the definition of the same
       // name, its next value, is in scope. That is what makes the update a parallel assignment.
       if (states_.count(node.text) != 0) {
-        return program_.arena().field(node.text);
+        return Value::number(program_.arena().field(node.text));
       }
       const auto constant = Constants.find(node.text);
       if (constant != Constants.end()) {
-        return program_.arena().konst(constant->second);
+        return Value::number(program_.arena().konst(constant->second));
       }
       const auto def = defs_.find(node.text);
       if (def != defs_.end()) {
@@ -1353,20 +2005,21 @@ private:
         }
         const Expansion expansion(*this, node);
         Environment inner;
-        const NodeId value = lower(definition.a, inner);
+        Value value = lower(definition.a, inner);
         lowered_.emplace(node.text, value);
         return value;
       }
       if (gridNamed(node.text) != nullptr) {
         fail(node,
              "`" + node.text + "` is a grid; a component of it is sampled as " + node.text +
-                 ".c(x, y, z)");
+                 ".c(x, y, z), all of them as " + node.text + "(x, y, z)");
       }
+      // (the name of an intrinsic of arrays is a name like any other where it is not called)
       if (isFunction(node.text)) {
         fail(node, "`" + node.text + "` is a function and must be called");
       }
       // Everything left is an input channel. No declaration, no catalogue.
-      return channel(node);
+      return Value::number(channel(node));
     }
 
     case SurfaceKind::Call: {
@@ -1376,7 +2029,9 @@ private:
 
       const auto component = components_.find(node.text);
       if (component != components_.end()) {
-        return lowerLookup(node, component->second, env);
+        const auto coords = coordinatesOf(node, component->second.grid, env);
+        return Value::number(program_.arena().lookup(
+            gridIds_[component->second.grid], component->second.component, coords));
       }
       if (const auto dot = node.text.find('.'); dot != std::string::npos) {
         const std::string gridName = node.text.substr(0, dot);
@@ -1402,56 +2057,84 @@ private:
                    " arguments, got " + std::to_string(node.args.size()));
         }
         Environment inner;
-        std::vector<NodeId> arguments;
-        arguments.reserve(definition.params.size());
+        std::vector<NodeId> leaves;
+        std::string form;
         for (std::size_t i = 0; i < definition.params.size(); ++i) {
-          arguments.push_back(lower(node.args[i], env));
-          inner[definition.params[i]] = arguments.back();
+          Value argument = lower(node.args[i], env);
+          keyOf(argument, leaves, form);
+          form += ';';
+          inner[definition.params[i]] = std::move(argument);
         }
         // the value of a call depends on its arguments alone
-        auto key = std::make_pair(node.text, std::move(arguments));
+        auto key = std::make_tuple(node.text, std::move(form), std::move(leaves));
         if (const auto known = calls_.find(key); known != calls_.end()) {
           return known->second;
         }
         const Expansion expansion(*this, node);
-        const NodeId value = lower(definition.a, inner);
+        Value value = lower(definition.a, inner);
         calls_.emplace(std::move(key), value);
         return value;
       }
+
+      // m(x, y, z): every component of the grid m, a record of their names
+      if (const GridDeclaration* grid = gridNamed(node.text); grid != nullptr) {
+        const auto g = static_cast<std::size_t>(grid - parsed_.grids.data());
+        const auto coords = coordinatesOf(node, g, env);
+        Value record;
+        record.shape = Value::Shape::Record;
+        for (std::size_t c = 0; c < grid->components.size(); ++c) {
+          record.names.push_back(grid->components[c]);
+          record.items.push_back(Value::number(
+              program_.arena().lookup(gridIds_[g], static_cast<std::int32_t>(c), coords)));
+        }
+        return record;
+      }
+
+      // the arguments, in the order of the source, which the order of the evaluation of the
+      // arguments of a call would leave to the compiler
+      std::vector<Value> args;
+      args.reserve(node.args.size());
+      for (const SurfaceId arg : node.args) {
+        args.push_back(lower(arg, env));
+      }
+      const auto arguments = [&](std::size_t wanted) {
+        if (args.size() != wanted) {
+          fail(node,
+               "`" + node.text + "` takes " + std::to_string(wanted) + " argument" +
+                   (wanted == 1 ? "" : "s") + ", got " + std::to_string(args.size()));
+        }
+      };
+      const std::string what = "`" + node.text + "`";
 
       // `lnot` has no operation of its own: it is eq(x, 0), true where x is false, as the
       // specification has it -- also for values other than 0 and 1, and for a NaN, which is true
       // and so not false.
       if (node.text == "lnot") {
-        if (node.args.size() != 1) {
-          fail(node, "`lnot` takes 1 argument, got " + std::to_string(node.args.size()));
-        }
-        return program_.arena().pw(Fn::Eq, lower(node.args[0], env), program_.arena().konst(0.0));
+        arguments(1);
+        return pointwise(node, what, Fn::Eq, {args[0], Value::number(program_.arena().konst(0.0))});
       }
 
       // a > b is b < a. Rewritten here rather than given its own Fn, so every
       // consumer of the IR keeps one comparison shape to handle.
       if (const auto swapped = SwappedComparisons.find(node.text);
           swapped != SwappedComparisons.end()) {
-        if (node.args.size() != 2) {
-          fail(node,
-               "`" + node.text + "` takes 2 arguments, got " + std::to_string(node.args.size()));
-        }
-        // in the order of the source, which the order of the evaluation of the arguments of a
-        // call would leave to the compiler
-        const NodeId left = lower(node.args[0], env);
-        const NodeId right = lower(node.args[1], env);
-        return program_.arena().pw(swapped->second, right, left);
+        arguments(2);
+        return pointwise(node, what, swapped->second, {args[1], args[0]});
       }
 
       // a conversion to another type: f64(x), f32(x), real(x)
       const auto conversion = Conversions.find(node.text);
       if (conversion != Conversions.end()) {
-        if (node.args.size() != 1) {
-          fail(node,
-               "`" + node.text + "` takes 1 argument, got " + std::to_string(node.args.size()));
-        }
-        return program_.arena().cast(conversion->second, lower(node.args[0], env));
+        arguments(1);
+        return leafwise(node, what, args, [&](const std::vector<NodeId>& n) {
+          return program_.arena().cast(conversion->second, n[0]);
+        });
+      }
+
+      if (const auto intrinsicArity = Intrinsics.find(node.text);
+          intrinsicArity != Intrinsics.end()) {
+        arguments(intrinsicArity->second);
+        return intrinsic(node, args);
       }
 
       const auto builtin = Builtins.find(node.text);
@@ -1459,34 +2142,24 @@ private:
         fail(node, "unknown function `" + node.text + "`");
       }
       const Fn fn = builtin->second;
-      const int wanted = arity(fn);
 
       // min and max are variadic in every language a model author is likely to
-      // come from, so fold rather than reject; the IR op stays binary.
-      if ((fn == Fn::Min || fn == Fn::Max) && node.args.size() > 2) {
-        NodeId acc = lower(node.args[0], env);
-        for (std::size_t i = 1; i < node.args.size(); ++i) {
-          acc = program_.arena().pw(fn, acc, lower(node.args[i], env));
+      // come from, so fold rather than reject; the IR op stays binary. Of one array, they are
+      // its least and its largest element.
+      if (fn == Fn::Min || fn == Fn::Max) {
+        if (args.size() == 1) {
+          return folded(node, what, args[0], fn);
         }
-        return acc;
+        if (args.size() > 2) {
+          Value acc = args[0];
+          for (std::size_t i = 1; i < args.size(); ++i) {
+            acc = pointwise(node, what, fn, {acc, args[i]});
+          }
+          return acc;
+        }
       }
-      if (static_cast<int>(node.args.size()) != wanted) {
-        fail(node,
-             "`" + node.text + "` takes " + std::to_string(wanted) + " arguments, got " +
-                 std::to_string(node.args.size()));
-      }
-      if (wanted == 1) {
-        return program_.arena().pw(fn, lower(node.args[0], env));
-      }
-      if (wanted == 2) {
-        const NodeId a = lower(node.args[0], env);
-        const NodeId b = lower(node.args[1], env);
-        return program_.arena().pw(fn, a, b);
-      }
-      const NodeId a = lower(node.args[0], env);
-      const NodeId b = lower(node.args[1], env);
-      const NodeId c = lower(node.args[2], env);
-      return program_.arena().pw(fn, a, b, c);
+      arguments(static_cast<std::size_t>(arity(fn)));
+      return pointwise(node, what, fn, args);
     }
 
     case SurfaceKind::Def:
@@ -1515,18 +2188,22 @@ private:
   std::set<std::string> states_;
   std::vector<std::string> channels_;
   /// the value of every definition without parameters lowered so far
-  std::map<std::string, NodeId> lowered_;
+  std::map<std::string, Value> lowered_;
 
   public:
   /// The node of the definition `name` without parameters, where it was lowered.
   [[nodiscard]] std::optional<NodeId> definition(const std::string& name) const {
     const auto found = lowered_.find(name);
-    return found == lowered_.end() ? std::nullopt : std::make_optional(found->second);
+    if (found == lowered_.end() || !found->second.isNumber()) {
+      return std::nullopt;
+    }
+    return found->second.node;
   }
 
   private:
-  /// the value of every call of a definition with parameters so far, by its arguments
-  std::map<std::pair<std::string, std::vector<NodeId>>, NodeId> calls_;
+  /// the value of every call of a definition with parameters so far, by its arguments: their form
+  /// and their numbers
+  std::map<std::tuple<std::string, std::string, std::vector<NodeId>>, Value> calls_;
   /// the definitions being lowered, innermost last
   std::vector<std::string> expanding_;
 };
@@ -1559,7 +2236,7 @@ void compileSource(const std::string& source,
                           "`, but this module declares its own outputs with `out def`",
                       0);
   }
-  if (externalName == nullptr && parsed.exports.empty()) {
+  if (externalName == nullptr && parsed.exports.empty() && parsed.spreads.empty()) {
     throw SderivError(
         "parse", "the module declares no outputs; mark at least one definition `out def`", 0);
   }
@@ -1662,6 +2339,9 @@ void compileSource(const std::string& source,
     for (const SurfaceId id : parsed.exports) {
       rootExpressions.push_back(surface[id].a);
     }
+    for (const SurfaceId id : parsed.spreads) {
+      rootExpressions.push_back(id);
+    }
   }
   for (const auto& state : parsed.states) {
     for (const SurfaceId id : parsed.defs) {
@@ -1678,14 +2358,43 @@ void compileSource(const std::string& source,
   // Roots first, names after, so `channels()` has seen every output before the
   // channel order is folded in.
   std::vector<std::pair<std::string, NodeId>> roots;
+  // and where they are, for their `meta line`
+  std::vector<int> rootPositions;
   if (externalName != nullptr) {
-    roots.emplace_back(*externalName, lowering.lower(parsed.expression));
+    roots.emplace_back(*externalName,
+                       lowering.lower(parsed.expression, "the expression of the module"));
   } else {
-    for (const SurfaceId id : parsed.exports) {
-      // Lowered through the ordinary Name path, so an `out def` reads exactly
-      // like any other definition -- including from a later output that names
-      // it. Interning makes the shared subexpression one node either way.
-      roots.emplace_back(surface[id].text, lowering.lower(surface[id].a));
+    for (const auto& [spread, index] : parsed.outputOrder) {
+      if (!spread) {
+        // Lowered through the ordinary Name path, so an `out def` reads exactly
+        // like any other definition -- including from a later output that names
+        // it. Interning makes the shared subexpression one node either way.
+        const SurfaceId id = parsed.exports[index];
+        roots.emplace_back(surface[id].text,
+                           lowering.lower(surface[id].a, "the output `" + surface[id].text + "`"));
+        rootPositions.push_back(surface[id].position);
+        continue;
+      }
+      // `out e`: a field of the record e is an output of its name
+      const SurfaceId id = parsed.spreads[index];
+      const Value record = lowering.lowerValue(id);
+      if (record.shape != Value::Shape::Record) {
+        throw SderivError("resolve",
+                          "`out` of an expression gives the fields of a record as outputs, and "
+                          "this is " +
+                              described(record) + "; `out def v = e` gives one output",
+                          surface[id].position);
+      }
+      for (std::size_t i = 0; i < record.items.size(); ++i) {
+        if (!record.items[i].isNumber()) {
+          throw SderivError("resolve",
+                            "the output `" + record.names[i] + "` is a number, not " +
+                                described(record.items[i]),
+                            surface[id].position);
+        }
+        roots.emplace_back(record.names[i], record.items[i].node);
+        rootPositions.push_back(surface[id].position);
+      }
     }
   }
 
@@ -1695,14 +2404,15 @@ void compileSource(const std::string& source,
   for (const auto& state : parsed.states) {
     for (const SurfaceId id : parsed.defs) {
       if (surface[id].text == state.name) {
-        stateRoots.push_back(lowering.lower(surface[id].a));
+        stateRoots.push_back(
+            lowering.lower(surface[id].a, "the next value of the state `" + state.name + "`"));
       }
     }
   }
   // and those of the checks
   std::vector<NodeId> checkRoots;
   for (const auto& check : parsed.checks) {
-    checkRoots.push_back(lowering.lower(check.first));
+    checkRoots.push_back(lowering.lower(check.first, "the condition of a check"));
   }
 
   for (const auto& name : lowering.channels()) {
@@ -1738,9 +2448,9 @@ void compileSource(const std::string& source,
     }
   }
   if (externalName == nullptr) {
-    for (const SurfaceId id : parsed.exports) {
+    for (std::size_t i = 0; i < roots.size(); ++i) {
       program.addSource(
-          SourceOf{SourceOf::What::Output, NoNode, surface[id].text, at(surface[id].position)});
+          SourceOf{SourceOf::What::Output, NoNode, roots[i].first, at(rootPositions[i])});
     }
   }
   for (const auto& state : parsed.states) {
