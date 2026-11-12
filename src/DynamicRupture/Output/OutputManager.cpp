@@ -529,6 +529,9 @@ void OutputManager::initPickpointOutput() {
         file << '\n';
       }
       file << "# run-id\t" << seissolInstance_.runId() << '\n';
+      for (const auto& [key, value] : seissolInstance_.provenance()) {
+        file << "# " << key << '\t' << value << '\n';
+      }
     }
   }
 }

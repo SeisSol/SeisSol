@@ -29,6 +29,13 @@ one instead, so that whoever starts a run, e.g. a script running a series of the
 beforehand; the value has to be a UUID in its canonical form, e.g.
 ``SEISSOL_RUN_ID=123e4567-e89b-42d3-a456-426614174000``.
 
+The HDF5 files of the output say what the run was, beside its ID, as attributes of their root
+group, and the text files of the receivers and fault receivers as lines ``# <name> <value>`` after
+``# run-id``: ``seissolVersion`` (the version and the commit of SeisSol), ``parameterFile`` (its
+absolute path), ``parameterFileSha256`` (the SHA-256 of its bytes), ``parameterOverrides`` (the
+parameters ``--set`` gave, where there are any) and ``evaluationRecords`` (the directory of the
+evaluation records of the run, see below).
+
 Communication thread
 --------------------
 
@@ -265,6 +272,15 @@ every group the two of the smallest, per output the points of its smallest and i
 (over all points of the call, by what the kernel wrote), per ``select`` the point of the smallest
 hash where it takes either branch, and the points where the kernel deviates most. Chosen so, the
 samples of all ranks hold that of the whole run, whatever its partition.
+
+An output that a program computes says so: in the wave field and the free surface output (VTKHDF,
+or XDMF with HDF5), the dataset of every variable has the attribute ``sderivFingerprint``, the
+fingerprint of the program as it was written, and ``sderivDefinitions``, the normal form of what
+computes the variable -- the definitions, inputs, grids and states it reads, with a contraction
+read as an input ``matrix.block`` (with several configurations, one per configuration where they
+differ). The built-in variables are computed by a program too. The record of the program a kernel
+evaluates for an output, which SeisSol rewrites for the data of the output first, names the program
+as written in its head, ``source = program <fingerprint> of the wave field output``.
 
 A record describes the grids of its program as well: per grid its file, the SHA-256 of the file,
 the variable and the components (an inline grid is in the program), and per axis the name of its

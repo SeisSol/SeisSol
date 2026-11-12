@@ -9,6 +9,7 @@
 
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
+#include "Expr/Core.h"
 #include "Expr/Cost.h"
 #include "Expr/Interp.h"
 #include "Expr/Ir.h"
@@ -21,6 +22,7 @@
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -624,6 +626,32 @@ TEST_SUITE("ExprContract") {
     CHECK(ofFull[1] == ofProgram[2]);
     CHECK(ofFull[2] == ofProgram[3]);
     CHECK(ofFull[3] == ofProgram[4]);
+  }
+
+  TEST_CASE("the definitions of an output: what computes it, its contractions read as inputs") {
+    const Program program = contracted();
+    const std::string u = definitionsOf(program, "u");
+    CAPTURE(u);
+    const Program part = loadCore(u, "");
+    REQUIRE(part.outputs().size() == 1);
+    CHECK(part.outputs()[0].name == "u");
+    // the contractions as the record names them, and t
+    std::vector<std::string> inputs;
+    for (const auto& input : part.inputs()) {
+      inputs.push_back(input.name);
+    }
+    CHECK(std::find(inputs.begin(), inputs.end(), "proj.v") != inputs.end());
+    CHECK(std::find(inputs.begin(), inputs.end(), "proj.w") != inputs.end());
+    CHECK(std::find(inputs.begin(), inputs.end(), "t") != inputs.end());
+    CHECK(definitionsOf(program, "r").find("select(") != std::string::npos);
+    CHECK_THROWS_AS(static_cast<void>(definitionsOf(program, "nothere")), std::invalid_argument);
+
+    // a state belongs to the definitions of what reads it, and only there
+    const Program kept = compileSderivModule("state s = 0.0\nout def s = max(s, abs(v))\n"
+                                             "out def w = 2.0 * v\n");
+    CHECK(definitionsOf(kept, "s").find("state ") != std::string::npos);
+    CHECK(definitionsOf(kept, "w").find("state ") == std::string::npos);
+    CHECK(loadCore(definitionsOf(kept, "s"), "").state().size() == 1);
   }
 
 } // TEST_SUITE

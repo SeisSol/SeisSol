@@ -141,6 +141,9 @@ void ReceiverWriter::writeHeader(std::size_t pointId,
     }
     file << "# cell-global-id " << globalId << '\n';
     file << "# run-id " << seissolInstance_.runId() << '\n';
+    for (const auto& [key, value] : seissolInstance_.provenance()) {
+      file << "# " << key << ' ' << value << '\n';
+    }
     file.close();
   }
 }

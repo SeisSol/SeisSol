@@ -1488,6 +1488,8 @@ struct Records {
   std::set<std::string> written;
   /// by program and backend, what the records keep of later calls
   std::map<std::string, std::shared_ptr<Tracker>> trackers;
+  /// by program, what a consumer evaluates it for (recordSource())
+  std::map<std::string, std::string> sources;
 };
 
 Records& records() {
@@ -1535,6 +1537,9 @@ void writeRecord(const Program& program,
     state.trackers.erase(tracked);
   }
   Record record = recordOf(program, backend, found, state.build, state.rank);
+  if (const auto source = state.sources.find(fingerprint); source != state.sources.end()) {
+    record.head.emplace_back("source", source->second);
+  }
   const std::filesystem::path path =
       std::filesystem::path(state.directory) / (key + "-r" + std::to_string(state.rank) + ".txt");
   writeText(path, printRecord(record));
@@ -1590,6 +1595,12 @@ std::vector<std::shared_ptr<Tracker>> trackersOf(Records& state, const Program& 
 }
 
 } // namespace
+
+void recordSource(const Program& program, const std::string& source) {
+  auto& state = records();
+  const std::lock_guard<std::mutex> lock(state.mutex);
+  state.sources[fingerprintOf(program)] = source;
+}
 
 std::vector<std::uint64_t> recordedIdentities(const Program& program) {
   auto& state = records();

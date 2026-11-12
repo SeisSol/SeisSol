@@ -128,13 +128,17 @@ void WriterModule::processSyncPoint(double time) {
   // request the write plan
   auto writer = settings_.planWrite(prefix_, writeCount_, time);
 
-  // every HDF5 file of the output says which run wrote to it last
-  if (!seissolInstance_.runId().empty()) {
-    for (const auto& file : writer.hdf5Files()) {
+  // every HDF5 file of the output says which run wrote to it last, and what that run was
+  for (const auto& file : writer.hdf5Files()) {
+    if (!seissolInstance_.runId().empty()) {
       writer.addInstruction(std::make_shared<instructions::Hdf5AttributeWrite>(
           instructions::Hdf5Location(file, {}),
           "runId",
           WriteInline::createString(seissolInstance_.runId())));
+    }
+    for (const auto& [key, value] : seissolInstance_.provenance()) {
+      writer.addInstruction(std::make_shared<instructions::Hdf5AttributeWrite>(
+          instructions::Hdf5Location(file, {}), key, WriteInline::createString(value)));
     }
   }
   const auto planned = std::chrono::steady_clock::now();

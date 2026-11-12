@@ -13,6 +13,7 @@
 #include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Expr/Program.h"
+#include "Expr/Record.h"
 #include "Expr/Rewrite.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
@@ -196,8 +197,61 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
 /// of the cell (or face) among the ones written, and the subcell.
 using PointOutput = std::function<void(double*, std::size_t, std::size_t)>;
 
-/// The outputs of the cells of one configuration, with their names, in the order of writing.
-using NamedOutputs = std::vector<std::pair<std::string, PointOutput>>;
+/// An output of the cells of one configuration, with its name; where a program computes it, with
+/// the fingerprint of the program (that of its evaluation record) and the normal form of the
+/// definitions of the output, which the file keeps with it.
+struct NamedOutput {
+  std::string name;
+  PointOutput output;
+  std::string fingerprint;
+  std::string definitions;
+};
+
+/// The outputs of the cells of one configuration, in the order of writing.
+using NamedOutputs = std::vector<NamedOutput>;
+
+/// What the file says of the output `name` that the programs of the configurations compute
+/// (`outputs`, of each configuration the one of that name, or none): the fingerprint of the program
+/// and the normal form of the definitions of the output, one for every configuration where they
+/// differ, as `config <id>: ...`.
+void addOutputAttributes(io::instance::geometry::GeometryWriter& writer,
+                         const std::string& name,
+                         const std::vector<std::pair<ConfigId, const NamedOutput*>>& outputs) {
+  std::vector<std::pair<ConfigId, const NamedOutput*>> computed;
+  for (const auto& entry : outputs) {
+    if (entry.second != nullptr && !entry.second->fingerprint.empty()) {
+      computed.push_back(entry);
+    }
+  }
+  if (computed.empty()) {
+    return;
+  }
+  const bool alike = std::all_of(computed.begin(), computed.end(), [&](const auto& entry) {
+    return entry.second->fingerprint == computed.front().second->fingerprint &&
+           entry.second->definitions == computed.front().second->definitions;
+  });
+  std::string fingerprints;
+  std::string definitions;
+  for (const auto& [config, output] : computed) {
+    if (alike) {
+      fingerprints = output->fingerprint;
+      definitions = output->definitions;
+      break;
+    }
+    fingerprints += "config " + std::to_string(config) + ": " + output->fingerprint + "\n";
+    definitions += "# config " + std::to_string(config) + "\n" + output->definitions;
+  }
+  writer.addOutputAttribute(name, "sderivFingerprint", fingerprints);
+  // an attribute of HDF5 is kept in the header of its dataset, of at most 64 KiB there
+  constexpr std::size_t MaxDefinitions = 60000;
+  if (definitions.size() > MaxDefinitions) {
+    definitions = "# the normal form takes " + std::to_string(definitions.size()) +
+                  " bytes; the evaluation records of the program have it\n";
+  }
+  if (!definitions.empty()) {
+    writer.addOutputAttribute(name, "sderivDefinitions", definitions);
+  }
+}
 
 /**
  * Adds the outputs of the configurations `configs` of the run to `writer`, one per name. The names
@@ -211,8 +265,9 @@ void addOutputsByName(io::instance::geometry::GeometryWriter& writer,
                       const std::shared_ptr<const std::vector<ConfigId>>& configOf,
                       std::size_t pointsPerSubcell) {
   if (configs.size() == 1) {
-    for (const auto& [name, output] : outputsOfConfigs.at(configs[0])) {
-      writer.addGeometryOutput<double>(name, {}, false, output);
+    for (const auto& named : outputsOfConfigs.at(configs[0])) {
+      writer.addGeometryOutput<double>(named.name, {}, false, named.output);
+      addOutputAttributes(writer, named.name, {{configs[0], &named}});
     }
     return;
   }
@@ -220,15 +275,19 @@ void addOutputsByName(io::instance::geometry::GeometryWriter& writer,
   std::vector<std::string> names;
   // by name, then by configuration
   std::vector<std::vector<PointOutput>> outputs;
+  std::vector<std::vector<std::pair<ConfigId, const NamedOutput*>>> computed;
   for (const auto config : configs) {
-    for (const auto& [name, output] : outputsOfConfigs.at(config)) {
-      auto found = std::ranges::find(names, name);
+    for (const auto& named : outputsOfConfigs.at(config)) {
+      auto found = std::ranges::find(names, named.name);
       if (found == names.end()) {
-        names.push_back(name);
+        names.push_back(named.name);
         outputs.emplace_back(builtConfigCount());
+        computed.emplace_back();
         found = std::prev(names.end());
       }
-      outputs[std::distance(names.begin(), found)][config] = output;
+      const auto index = std::distance(names.begin(), found);
+      outputs[index][config] = named.output;
+      computed[index].emplace_back(config, &named);
     }
   }
 
@@ -246,6 +305,7 @@ void addOutputsByName(io::instance::geometry::GeometryWriter& writer,
             std::fill_n(target, pointsPerSubcell, std::numeric_limits<double>::quiet_NaN());
           }
         });
+    addOutputAttributes(writer, names[i], computed[i]);
   }
 }
 
@@ -288,15 +348,28 @@ struct WaveFieldOutputSetup {
 /// itself to `derived`.
 void collectDerived(NamedOutputs& outputs,
                     std::vector<std::shared_ptr<initializer::DerivedOutput>>& derived,
-                    std::shared_ptr<initializer::DerivedOutput> output) {
+                    std::shared_ptr<initializer::DerivedOutput> output,
+                    const expr::Program& program) {
   if (output == nullptr) {
     return;
   }
+  const std::string fingerprint = expr::fingerprintText(program);
   for (std::size_t i = 0; i < output->names().size(); ++i) {
-    outputs.emplace_back(output->names()[i],
-                         [output, i](double* target, std::size_t index, std::size_t subcell) {
-                           output->copy(i, target, index, subcell);
-                         });
+    // the names of fused simulations repeat those of the outputs of the program
+    const auto& computed = program.outputs()[i % program.outputs().size()].name;
+    std::string definitions;
+    try {
+      definitions = expr::definitionsOf(program, computed);
+    } catch (const std::invalid_argument& error) {
+      definitions = "# not in the core format: " + std::string(error.what()) + "\n";
+    }
+    outputs.push_back(
+        NamedOutput{output->names()[i],
+                    [output, i](double* target, std::size_t index, std::size_t subcell) {
+                      output->copy(i, target, index, subcell);
+                    },
+                    fingerprint,
+                    definitions});
   }
   derived.push_back(std::move(output));
 }
@@ -408,7 +481,8 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
       collectDerived(outputs,
                      derived,
                      initializer::makeDerivedVolumeOutput<Cfg>(
-                         seissolInstance, setup.cells, geometry, program));
+                         seissolInstance, setup.cells, geometry, program),
+                     program);
     }
   }
   return outputs;
@@ -662,7 +736,8 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance,
       collectDerived(outputs,
                      derived,
                      initializer::makeDerivedSurfaceOutput<Cfg>(
-                         seissolInstance, setup.faces, geometry, program));
+                         seissolInstance, setup.faces, geometry, program),
+                     program);
     }
   }
   return outputs;

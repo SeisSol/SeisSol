@@ -238,6 +238,13 @@ class GeometryWriter {
         underlying_);
   }
 
+  /// The attribute `key` of the output `name` (addGeometryOutput()), a text.
+  void
+      addOutputAttribute(const std::string& name, const std::string& key, const std::string& text) {
+    const bool cells = config_.order == 0;
+    std::visit([&](auto& writer) { writer.addDataAttribute(cells, name, key, text); }, underlying_);
+  }
+
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter() {
     return std::visit([&](auto& writer) { return writer.makeWriter(); }, underlying_);
   }

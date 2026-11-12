@@ -17,6 +17,7 @@
 #include "Expr/Binding.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
+#include "Expr/Record.h"
 #include "Expr/Rewrite.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
@@ -1024,12 +1025,14 @@ class DerivedElementOutput final : public DerivedOutput {
   using RealT = Real<Cfg>;
 
   /// `faces`: the elements are faces of the free surface, which also offer their displacement.
+  /// `source` names the program as written (expr::recordSource()).
   DerivedElementOutput(seissol::SeisSol& seissolInstance,
                        std::size_t writtenCount,
                        std::vector<WrittenElement> written,
                        const DerivedPoints& points,
                        const expr::Program& program,
-                       bool faces);
+                       bool faces,
+                       std::string source);
 
   [[nodiscard]] const std::vector<std::string>& names() const override { return names_; }
 
@@ -1130,6 +1133,7 @@ class DerivedElementOutput final : public DerivedOutput {
   seissol::SeisSol& seissolInstance_;
   std::vector<SourceLocation> locations_;
   DerivedProgram derived_;
+  std::string source_;
   std::vector<std::string> names_;
   std::size_t outputCount_{0};
   std::size_t numPoints_{0};
@@ -1366,7 +1370,8 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
                                                 std::vector<WrittenElement> written,
                                                 const DerivedPoints& points,
                                                 const expr::Program& program,
-                                                bool faces)
+                                                bool faces,
+                                                std::string source)
     : seissolInstance_(seissolInstance),
       derived_(program,
                sourcesOf(seissolInstance.parameters().model.plasticity &&
@@ -1374,7 +1379,7 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
                          faces,
                          locations_),
                points),
-      names_(outputNames<Cfg>(derived_.program())),
+      source_(std::move(source)), names_(outputNames<Cfg>(derived_.program())),
       outputCount_(derived_.program().outputs().size()) {
   constexpr std::size_t Simulations = Cfg::NumSimulations;
   const std::size_t pointsPerElement = derived_.pointsPerElement();
@@ -1529,7 +1534,9 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
         std::make_unique<expr::Binding>(expr::Binding::bind(derived_.program(), table));
 
     // The first kernel says which backend it got and how it went; the others, made for the same
-    // program, follow it quietly.
+    // program, follow it quietly. Its record names the program as written, as the files of the
+    // output do.
+    expr::recordSource(derived_.program(), source_);
     expr::BackendOptions options;
     options.preferred = expr::BackendKind::RtcCpu;
     for (std::size_t thread = 0; thread < threads; ++thread) {
@@ -1623,8 +1630,11 @@ std::shared_ptr<DerivedOutput> makeDerivedOutput(seissol::SeisSol& seissolInstan
     if (program.state().empty()) {
       inPrecision.setComputeType(expr::stepComputeType<Real<Cfg>>());
     }
+    // the program as written, by the fingerprint the files of the output name it with
+    const std::string source = "program " + expr::fingerprintText(program) + " of the " +
+                               (faces ? "free surface" : "wave field") + " output";
     return std::make_shared<DerivedElementOutput<Cfg>>(
-        seissolInstance, writtenCount, std::move(written), points, inPrecision, faces);
+        seissolInstance, writtenCount, std::move(written), points, inPrecision, faces, source);
   } catch (const std::invalid_argument& error) {
     logError() << error.what();
   }

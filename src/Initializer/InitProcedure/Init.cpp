@@ -36,8 +36,10 @@
 #include <algorithm>
 #include <async/Config.h>
 #include <cstddef>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <utils/logger.h>
 #include <vector>
 #if defined(__GLIBC__)
@@ -267,8 +269,12 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 #if defined(__GLIBC__)
     build.push_back(std::string("libm = glibc ") + gnu_get_libc_version());
 #endif
-    expr::setRecordDirectory(
-        seissolInstance.parameters().output.prefix + "-records", build, seissol::Mpi::mpi.rank());
+    const std::string records = seissolInstance.parameters().output.prefix + "-records";
+    expr::setRecordDirectory(records, build, seissol::Mpi::mpi.rank());
+    // which every file of the output names
+    std::error_code error;
+    const auto absolute = std::filesystem::absolute(records, error);
+    seissolInstance.addProvenance("evaluationRecords", error ? records : absolute.string());
   }
 
   auto& summary = seissolInstance.runSummary();

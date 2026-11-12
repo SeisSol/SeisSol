@@ -398,6 +398,12 @@ void reportComparison(const Program& program,
                       const Binding* binding = nullptr,
                       reader::datafield::GridStore* grids = nullptr);
 
+/// What a consumer evaluates `program` for, which the records of `program` name in their head as
+/// `source`: the program as it was written, before the consumer rewrote it for its data (its
+/// contractions, its compute type), by the fingerprint that the output files name, say. Given
+/// before the first call of a kernel of `program`.
+void recordSource(const Program& program, const std::string& source);
+
 /// The identities of the points of the samples of the records of `program` on this rank, where it
 /// is recorded; empty otherwise. Where a consumer gives what it made of the values of the program
 /// (recordConsumer()).

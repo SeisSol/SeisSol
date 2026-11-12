@@ -268,6 +268,26 @@ class SeisSol : private SeisSolCore {
    */
   const std::string& runId() const { return runId_; }
 
+  /**
+   * Adds `value` to what every file of the output says of the run, as `key`: the version of
+   * SeisSol, the parameter file and its hash, the directory of the evaluation records. An HDF5
+   * file has it as attributes of its root, a text file as lines `# key value`.
+   */
+  void addProvenance(const std::string& key, const std::string& value) {
+    for (auto& entry : provenance_) {
+      if (entry.first == key) {
+        entry.second = value;
+        return;
+      }
+    }
+    provenance_.emplace_back(key, value);
+  }
+
+  /**
+   * What every file of the output says of the run (addProvenance()), in the order given.
+   */
+  const std::vector<std::pair<std::string, std::string>>& provenance() const { return provenance_; }
+
   private:
   seissol::io::OutputManager outputManager_;
 
@@ -337,6 +357,7 @@ class SeisSol : private SeisSolCore {
   std::optional<std::size_t> executionPlaceCutoff_;
 
   std::string runId_;
+  std::vector<std::pair<std::string, std::string>> provenance_;
 
   double timestepScale_{1.0};
   std::vector<std::uint64_t> effectiveClusterRates_;

@@ -69,15 +69,6 @@ std::string hashText(std::uint64_t hash) {
   return buffer.data();
 }
 
-std::string fingerprintText(const Program& program) {
-  std::array<char, 32> buffer{};
-  std::snprintf(buffer.data(),
-                buffer.size(),
-                "%016llx",
-                static_cast<unsigned long long>(program.fingerprint()));
-  return buffer.data();
-}
-
 /// The value of the spelling `%a` gives: hexadecimal floating point, `inf` and `nan`, signed.
 double valueOf(const std::string& spelling) {
   const bool negative = !spelling.empty() && spelling[0] == '-';
@@ -365,6 +356,15 @@ void splitColumns(const Record& record,
 }
 
 } // namespace
+
+std::string fingerprintText(const Program& program) {
+  std::array<char, 32> buffer{};
+  std::snprintf(buffer.data(),
+                buffer.size(),
+                "%016llx",
+                static_cast<unsigned long long>(program.fingerprint()));
+  return buffer.data();
+}
 
 Record recordOf(const Program& program,
                 const std::string& backend,
@@ -1296,6 +1296,22 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
                                  firstInconsistency);
   }
   return merged;
+}
+
+std::string definitionsOf(const Program& program, const std::string& output) {
+  const auto found =
+      std::find_if(program.outputs().begin(),
+                   program.outputs().end(),
+                   [&](const VarSpec& candidate) { return candidate.name == output; });
+  if (found == program.outputs().end()) {
+    throw std::invalid_argument("expr: the program computes no output `" + output + "`");
+  }
+  const Program part = restrictProgram(
+      program,
+      [](const std::string& /*channel*/) { return true; },
+      [&](const std::string& name) { return name == output; });
+  const Contractions contractions = contractionsOf(part);
+  return printCore(contractions.nodes.empty() ? part : contractionsAsInputs(part, contractions));
 }
 
 Replay replayRecord(const Record& record, reader::datafield::GridStore& grids) {

@@ -14,6 +14,7 @@
 #include "IO/Writer/Writer.h"
 
 #include <functional>
+#include <map>
 #include <memory>
 namespace seissol::io::instance::mesh {
 
@@ -104,6 +105,13 @@ class XdmfWriter {
     addData(name, "AttributeCell", isConst, localElementCount_, data);
   }
 
+  /// The attribute `key` of the data `name`, a text: an HDF5 attribute of its dataset, written
+  /// after the data at every step; nothing where the data is written as binary.
+  void addDataAttribute(bool cells,
+                        const std::string& name,
+                        const std::string& key,
+                        const std::string& text);
+
   void addHook(const std::function<void(std::size_t, double)>& hook);
 
   std::function<writer::Writer(const std::string&, std::size_t, double)> makeWriter();
@@ -124,9 +132,15 @@ class XdmfWriter {
   std::size_t pointSourceCount_{0};
   std::size_t pointsPerSource_{0};
   std::size_t datasetCount_{0};
+  /// the dataset of each data, by its name
+  std::map<std::string, std::size_t> datasetOf_;
   std::vector<std::function<void(std::size_t, double)>> hooks_;
   std::vector<std::function<WriteResult(const std::string&, std::size_t)>> instructionsConst_;
   std::vector<std::function<WriteResult(const std::string&, std::size_t)>> instructions_;
+  /// the attributes of the datasets, written after them
+  std::vector<
+      std::function<std::shared_ptr<writer::instructions::WriteInstruction>(const std::string&)>>
+      attributes_;
 };
 
 } // namespace seissol::io::instance::mesh

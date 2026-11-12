@@ -305,6 +305,7 @@ void XdmfWriter::addData(const std::string& name,
 
   const auto datasetId = datasetCount_;
   ++datasetCount_;
+  datasetOf_[name] = datasetId;
 
   const auto binary{this->binary_};
   const auto compress{this->compress_};
@@ -370,6 +371,23 @@ void XdmfWriter::addData(const std::string& name,
   });
 }
 
+void XdmfWriter::addDataAttribute(bool /*cells*/,
+                                  const std::string& name,
+                                  const std::string& key,
+                                  const std::string& text) {
+  const auto dataset = datasetOf_.find(name);
+  if (binary_ || dataset == datasetOf_.end()) {
+    return;
+  }
+  const std::string datasetName = "dataset" + std::to_string(dataset->second);
+  attributes_.emplace_back([=](const std::string& preFilename) {
+    return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(preFilename + ".h5", {}, datasetName),
+        key,
+        writer::WriteInline::createString(text));
+  });
+}
+
 void XdmfWriter::addHook(const std::function<void(std::size_t, double)>& hook) {
   hooks_.push_back(hook);
 }
@@ -413,6 +431,9 @@ std::function<writer::Writer(const std::string&, std::size_t, double)> XdmfWrite
           const auto invoked = instruction(foldernameData, step);
           writer.addInstruction(invoked.instruction);
           grid.datasets.emplace_back(invoked);
+        }
+        for (const auto& attribute : self.attributes_) {
+          writer.addInstruction(attribute(foldernameData));
         }
 
         writer.addInstructions(file.add(filenameMeta, {meta.grid(grid)}));

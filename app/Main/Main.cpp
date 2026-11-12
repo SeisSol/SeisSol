@@ -10,6 +10,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Json.h"
 #include "Common/RunId.h"
+#include "Expr/Sha256.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -204,6 +205,31 @@ json::Value invocation(const char* executable,
   }
   value["checkpoint"] = checkpoint.has_value() ? json::Value(checkpoint.value()) : json::Value();
   return value;
+}
+
+/**
+ * What every file of the output says of the run (SeisSol::addProvenance()): the version of SeisSol,
+ * the parameter file, the SHA-256 of its bytes, and the overrides given on the command line.
+ */
+void addProvenance(seissol::SeisSol& seissolInstance,
+                   const std::string& parameterFile,
+                   const std::vector<initializer::parameters::ParameterOverride>& overrides) {
+  seissolInstance.addProvenance("seissolVersion",
+                                BuildInfo::VersionString + " (" + BuildInfo::CommitHash + ")");
+  std::error_code error;
+  const auto absolute = std::filesystem::absolute(parameterFile, error);
+  seissolInstance.addProvenance("parameterFile", error ? parameterFile : absolute.string());
+  const auto hash = expr::sha256OfFile(parameterFile);
+  if (!hash.empty()) {
+    seissolInstance.addProvenance("parameterFileSha256", hash);
+  }
+  if (!overrides.empty()) {
+    std::string given;
+    for (const auto& entry : overrides) {
+      given += (given.empty() ? "" : "; ") + entry.name() + " = " + entry.value;
+    }
+    seissolInstance.addProvenance("parameterOverrides", given);
+  }
 }
 
 //! @brief The command line of SeisSol, for parsing it and for its help.
@@ -424,6 +450,7 @@ int main(int argc, char* argv[]) {
       asagiModule.registerHooks(seissolInstance.modules());
 #endif
       seissolInstance.setRunId(runId);
+      addProvenance(seissolInstance, parameterFile, overrides);
       seissolInstance.runSummary()["invocation"] = invocation(
           argv[0],
           parameterFile,

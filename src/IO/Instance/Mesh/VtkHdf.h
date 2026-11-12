@@ -116,6 +116,22 @@ class VtkHdfWriter {
     }
   }
 
+  /// The attribute `key` of the data `name` of the cells, or else of the points: a text, written
+  /// after the data at every step (where a program computes it, say, what the program is).
+  void addDataAttribute(bool cells,
+                        const std::string& name,
+                        const std::string& key,
+                        const std::string& text) {
+    const std::vector<std::string> groups{GroupName, cells ? CellDataName : PointDataName};
+    instructions_.emplace_back(
+        [=](const std::string& filename, std::size_t /*counter*/, double /*time*/) {
+          return std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+              writer::instructions::Hdf5Location(filename, groups, name),
+              key,
+              writer::WriteInline::createString(text));
+        });
+  }
+
   template <typename T>
   void addFieldData(const std::string& name,
                     const std::vector<std::size_t>& dimensions,

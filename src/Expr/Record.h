@@ -160,6 +160,16 @@ struct Record {
 [[nodiscard]] Record mergeRecords(const std::vector<Record>& records,
                                   reader::datafield::GridStore& grids);
 
+/// The fingerprint of `program` as a record names it: 16 hexadecimal digits.
+[[nodiscard]] std::string fingerprintText(const Program& program);
+
+/// The normal form of what computes the output `output` of `program`: its definitions, and the
+/// inputs, grids and states they read, with a contraction read as an input `matrix.block`, as a
+/// record has it -- what an output file says of a variable a program computes. Throws
+/// std::invalid_argument where `program` has no such output, or where the core format cannot
+/// express it; the reason then.
+[[nodiscard]] std::string definitionsOf(const Program& program, const std::string& output);
+
 /// What the interpreter of this build gives at the points of a sample, against what the record
 /// says the interpreter gave there.
 struct Replay {
