@@ -18,6 +18,7 @@
 
 #include <doctest.h>
 
+#include "Expr/Core.h"
 #include "Expr/Expand.h"
 #include "Expr/Interp.h"
 #include "Expr/Ir.h"
@@ -33,6 +34,7 @@
 #include <cstddef>
 #include <cstring>
 #include <limits>
+#include <map>
 #include <random>
 #include <stdexcept>
 #include <string>
@@ -807,6 +809,49 @@ TEST_SUITE("Expr::Interp") {
       CHECK(decisions[1] == reference[1]);
       CHECK((decisions[0] != reference[0]) == (moved[2] < 1.0));
       flipped = flipped || decisions[0] != reference[0];
+    }
+    CHECK(flipped);
+  }
+
+  TEST_CASE("a select whose value takes the slot of its condition records what it decided") {
+    // w = select(lt(x * y, 1), v, u): the value of the select takes the slot of its condition, and
+    // the decision is the condition's, not the value's (which is not zero either way). At x = 1 +
+    // 2^-27, y = 1 - 2^-27 the product rounds to 1; a product moved down by an ulp is below it.
+    const Program program = loadCore("#!sderiv 1\nin x, y, z\ndef p = x * y\ndef u = p + z\n"
+                                     "def s = sin(x)\ndef v = s * y\ndef c = lt(p, 1)\n"
+                                     "def w = select(c, v, u)\nout u = u\nout v = v\nout w = w\n",
+                                     "");
+    const std::vector<double> inputs = {
+        1.0 + std::ldexp(1.0, -27), 1.0 - std::ldexp(1.0, -27), 0.25};
+    const LoweredProgram lowered = lower(program);
+    REQUIRE(lowered.dump().find("t0:f64 = pw select t0") != std::string::npos);
+    const auto evaluate = [&](const Perturbation& perturbation,
+                              std::vector<std::uint64_t>& decisions,
+                              std::map<std::size_t, std::vector<std::uint8_t>>* branches) {
+      std::vector<double> outputs(3, 0.0);
+      ArrayTileIo<double> io(inputs, outputs, 1, 3, 3);
+      InterpreterOptions options;
+      options.perturbation = perturbation;
+      options.decisions = &decisions;
+      options.branches = branches;
+      TileInterpreter<double> interp(program, lowered, nullptr, options);
+      std::vector<double> persistent(1, 0.0);
+      interp.run(io, 1, persistent.data());
+      return outputs;
+    };
+    std::vector<std::uint64_t> reference(1, 0);
+    std::map<std::size_t, std::vector<std::uint8_t>> branches;
+    const auto exact = evaluate(Perturbation{}, reference, &branches);
+    CHECK(exact[2] == exact[0]);
+    REQUIRE(branches.size() == 1);
+    CHECK(branches.begin()->second == std::vector<std::uint8_t>{0});
+    bool flipped = false;
+    for (std::uint64_t run = 1; run <= 8; ++run) {
+      std::vector<std::uint64_t> decisions(1, 0);
+      const auto moved = evaluate(Perturbation{true, splitMix64(run), 1, 4}, decisions, nullptr);
+      const bool other = moved[2] != moved[0];
+      CHECK(other == (decisions[0] != reference[0]));
+      flipped = flipped || other;
     }
     CHECK(flipped);
   }

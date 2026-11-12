@@ -566,11 +566,12 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
             reinterpret_cast<const std::uint8_t*>(bytesOf(operands[inst.operandBegin]));
         const U* const a1 = operand(1);
         const U* const a2 = operand(2);
+        // the decisions before the values: the result may take the slot of the condition
+        decide(inst, [&](std::size_t l) { return condition[l] != 0; });
 #pragma omp simd
         for (std::size_t l = 0; l < count; ++l) {
           dst[l] = condition[l] != 0 ? a1[l] : a2[l];
         }
-        decide(inst, [&](std::size_t l) { return condition[l] != 0; });
         break;
       }
       const U* const a0 = operand(0);
@@ -579,10 +580,11 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
       if constexpr (std::is_integral_v<U>) {
         wholeLanes(inst.fn, a0, a1, dst, count);
       } else {
-        pwLanes<U>(inst.fn, a0, a1, a2, dst, count);
+        // the decisions before the values: the result may take the slot of the condition
         if (inst.fn == Fn::Select) {
           decide(inst, [&](std::size_t l) { return a0[l] != U(0); });
         }
+        pwLanes<U>(inst.fn, a0, a1, a2, dst, count);
         if (perturbation_.on) {
           perturb(inst, dst);
         }
@@ -676,11 +678,12 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
         const auto* condition = reinterpret_cast<const std::uint8_t*>(lanes(0));
         const auto* x = reinterpret_cast<const std::uint8_t*>(lanes(1));
         const auto* y = reinterpret_cast<const std::uint8_t*>(lanes(2));
+        // the decisions before the values: the result may take the slot of the condition
+        decide(inst, [&](std::size_t l) { return condition[l] != 0; });
 #pragma omp simd
         for (std::size_t l = 0; l < count; ++l) {
           dst[l] = condition[l] != 0 ? x[l] : y[l];
         }
-        decide(inst, [&](std::size_t l) { return condition[l] != 0; });
         return;
       }
       default:
