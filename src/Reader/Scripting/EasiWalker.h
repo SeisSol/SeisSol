@@ -23,9 +23,11 @@
 // easi. A parameter that a component does not supply fails the same way, for the points that
 // reach it.
 //
-// What the walker does not translate yet -- the Lua of !LuaMap and !FunctionMap, !SCECFile and
-// the special components -- it refuses with EasiUnsupported, naming the component; the caller
-// evaluates the file with easi then (buildReader()).
+// The Lua of an !LuaMap, and the Lua easi makes of the Impala of a !FunctionMap (ImpalaToLua.h),
+// the Lua frontend translates (LuaFrontend.h), as easi runs them. What the walker does not
+// translate -- !SCECFile, the special components, and Lua beyond the subset of the frontend -- it
+// refuses with EasiUnsupported, naming the component; the caller evaluates the file with easi then
+// (buildReader()).
 
 #include "Expr/Program.h"
 #include "Reader/Scripting/DataReader.h"

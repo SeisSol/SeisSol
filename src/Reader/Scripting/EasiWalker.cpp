@@ -14,6 +14,7 @@
 #include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
+#include "Reader/Scripting/ImpalaToLua.h"
 #include "Reader/Scripting/LuaFrontend.h"
 
 #include <algorithm>
@@ -28,7 +29,6 @@
 #include <map>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -326,12 +326,7 @@ class Walker {
       return grid(node, in);
     }
     if (tag == "!FunctionMap") {
-      Values out;
-      for (const auto& [name, code] : as<std::map<std::string, std::string>>(node, "map")) {
-        ImpalaFunction function(*this, node, in, name);
-        out[name] = Value{function.translate("{" + code + "}", reach), {positionOf(node)}};
-      }
-      return out;
+      return impalaMapped(node, in, reach);
     }
     if (tag == "!LuaMap") {
       return luaMapped(node, in, reach);
@@ -342,20 +337,57 @@ class Walker {
     unsupported(node);
   }
 
-  /// The line of the file the first line of the text of `scalar` is on: for a block scalar (`|`,
-  /// `>`), the line after its indicator.
-  [[nodiscard]] int firstLineOf(const YAML::Node& scalar) const {
+  /// The indicator of the block scalar `scalar` (`|` or `>`), or 0 for another scalar.
+  [[nodiscard]] char blockIndicatorOf(const YAML::Node& scalar) {
     const auto mark = scalar.Mark();
-    std::ifstream stream(file());
-    const std::string text((std::istreambuf_iterator<char>(stream)),
-                           std::istreambuf_iterator<char>());
-    const bool block = mark.pos >= 0 && static_cast<std::size_t>(mark.pos) < text.size() &&
-                       (text[mark.pos] == '|' || text[mark.pos] == '>');
-    return mark.line + (block ? 2 : 1);
+    auto text = texts_.find(file());
+    if (text == texts_.end()) {
+      std::ifstream stream(file());
+      text = texts_
+                 .emplace(file(),
+                          std::string((std::istreambuf_iterator<char>(stream)),
+                                      std::istreambuf_iterator<char>()))
+                 .first;
+    }
+    const bool block = mark.pos >= 0 && static_cast<std::size_t>(mark.pos) < text->second.size() &&
+                       (text->second[mark.pos] == '|' || text->second[mark.pos] == '>');
+    return block ? text->second[mark.pos] : '\0';
   }
 
-  /// The values of an !LuaMap at `in`: its function `f`, translated by the Lua frontend as easi
-  /// runs it (Lua 5.4 with lmathx, the chunk once and `f` at every point).
+  /// The line of the file the first line of the text of `scalar` is on: for a block scalar (`|`,
+  /// `>`), the line after its indicator.
+  [[nodiscard]] int firstLineOf(const YAML::Node& scalar) {
+    return scalar.Mark().line + (blockIndicatorOf(scalar) != '\0' ? 2 : 1);
+  }
+
+  /// The Lua `code` of a component, at `origin`, translated by the Lua frontend as easi runs the
+  /// Lua of an !LuaMap (Lua 5.4 with lmathx, the chunk once and `f` at every point): the values
+  /// `returns` of `f` at `in`. `what` names the Lua where the frontend refuses it.
+  lua::LuaMapTranslation translatedLua(const std::string& code,
+                                       const lua::LuaOrigin& origin,
+                                       const Values& in,
+                                       const std::set<std::string>& returns,
+                                       NodeId reach,
+                                       const std::string& what) {
+    std::vector<std::pair<std::string, NodeId>> inputs;
+    for (const auto& [name, value] : in) {
+      inputs.emplace_back(name, value.node);
+    }
+    try {
+      auto translation = lua::translateLuaMap(program_, code, inputs, returns, reach, origin);
+      for (auto& check : translation.checks) {
+        checks_.emplace_back(check.holds, std::move(check.message));
+      }
+      return translation;
+    } catch (const lua::LuaUnsupported& error) {
+      throw EasiUnsupported(origin.at(error.line()) + ": the walker does not translate " + what +
+                            ": " + error.message() + "; easi evaluates the file");
+    } catch (const lua::LuaError& error) {
+      throw EasiModelError(origin.at(error.line()) + ": " + error.message());
+    }
+  }
+
+  /// The values of an !LuaMap at `in`: its function `f`.
   Values luaMapped(const YAML::Node& node, const Values& in, NodeId reach) {
     std::set<std::string> returns;
     const YAML::Node given = node["returns"];
@@ -373,32 +405,85 @@ class Walker {
       fail(given, std::string("`returns` is not of the form easi reads: ") + error.what());
     }
     const auto code = as<std::string>(node, "function");
-    std::vector<std::pair<std::string, NodeId>> inputs;
-    for (const auto& [name, value] : in) {
-      inputs.emplace_back(name, value.node);
-    }
     const lua::LuaOrigin origin{file(), firstLineOf(node["function"]), '@'};
-    try {
-      auto translation = lua::translateLuaMap(program_, code, inputs, returns, reach, origin);
-      for (auto& check : translation.checks) {
-        checks_.emplace_back(check.holds, std::move(check.message));
-      }
-      std::vector<expr::SourcePosition> from{positionOf(node)};
-      for (const int line : translation.lines) {
-        from.push_back(expr::SourcePosition{file(), origin.firstLine + line - 1, 1});
-      }
-      Values out;
-      for (const auto& [name, value] : translation.values) {
-        out[name] = Value{value, from};
-      }
-      return out;
-    } catch (const lua::LuaUnsupported& error) {
-      throw EasiUnsupported(origin.at(error.line()) +
-                            ": the walker does not translate the Lua of this !LuaMap: " +
-                            error.message() + "; easi evaluates the file");
-    } catch (const lua::LuaError& error) {
-      throw EasiModelError(origin.at(error.line()) + ": " + error.message());
+    const auto translation =
+        translatedLua(code, origin, in, returns, reach, "the Lua of this !LuaMap");
+    std::vector<expr::SourcePosition> from{positionOf(node)};
+    for (const int line : translation.lines) {
+      from.push_back(expr::SourcePosition{file(), origin.firstLine + line - 1, 1});
     }
+    Values out;
+    for (const auto& [name, value] : translation.values) {
+      out[name] = Value{value, from};
+    }
+    return out;
+  }
+
+  /// The values of a !FunctionMap at `in`: the Lua easi makes of its Impala (ImpalaToLua.h),
+  /// translated as that of an !LuaMap, with a warning where easi's grouping changes what a chain
+  /// means.
+  Values impalaMapped(const YAML::Node& node, const Values& in, NodeId reach) {
+    const YAML::Node map = node["map"];
+    if (!map) {
+      fail(node, "the component has no `map`");
+    }
+    if (!map.IsMap()) {
+      fail(map, "`map` is not of the form easi reads: the code of every parameter");
+    }
+    std::vector<ImpalaEntry> entries;
+    std::map<std::string, expr::SourcePosition> positions;
+    for (const auto& entry : map) {
+      ImpalaEntry impala;
+      try {
+        impala.name = entry.first.as<std::string>();
+        impala.code = entry.second.as<std::string>();
+      } catch (const YAML::Exception& error) {
+        fail(entry.first, std::string("`map` is not of the form easi reads: ") + error.what());
+      }
+      impala.line = firstLineOf(entry.second);
+      impala.literal = blockIndicatorOf(entry.second) == '|';
+      positions.insert_or_assign(impala.name, positionOf(entry.second));
+      entries.push_back(std::move(impala));
+    }
+    ImpalaLua lua;
+    try {
+      lua = impalaToLua(entries, keysOf(in));
+    } catch (const ImpalaError& error) {
+      throw EasiModelError(file() + "@" + std::to_string(error.line()) + ": " + error.what());
+    }
+    for (const auto& chain : lua.chains) {
+      warnGrouping(chain);
+    }
+    std::set<std::string> returns;
+    for (const auto& [name, position] : positions) {
+      returns.insert(name);
+    }
+    const auto translation = translatedLua(lua.code,
+                                           lua::LuaOrigin{file(), lua.firstLine, '@'},
+                                           in,
+                                           returns,
+                                           reach,
+                                           "the Lua easi makes of the Impala of this !FunctionMap");
+    Values out;
+    for (const auto& [name, value] : translation.values) {
+      out[name] = Value{value, {positionOf(node), positions.at(name)}};
+    }
+    return out;
+  }
+
+  /// A warning where easi's grouping changes what a chain of Impala means, once per chain and run.
+  void warnGrouping(const ImpalaChain& chain) const {
+    static std::mutex mutex;
+    static std::set<std::string> warned;
+    const std::string at = file() + "@" + std::to_string(chain.line);
+    const std::lock_guard<std::mutex> lock(mutex);
+    if (!warned.insert(at + "/" + chain.name + "/" + chain.op).second) {
+      return;
+    }
+    logWarning() << "easi:" << at << ": the Impala of" << chain.name << "has a chain where"
+                 << chain.op << "is followed by" << chain.following
+                 << "; easi's conversion into Lua groups it to the right (a - b + c as a - (b + "
+                    "c)), and the walker computes what easi computes.";
   }
 
   /// The file and the variable of an !ASAGI, and the axes ASAGI reads there, as many as `in` has
@@ -422,597 +507,6 @@ class Walker {
     }
     return *axes;
   }
-
-  /// The Impala of a !FunctionMap, translated as easi reads it: easi >= 1.5 converts it into Lua
-  /// (convertImpalaToLua()) and runs that with Lua 5.4 and lmathx. Its grammar is easi's, the
-  /// grouping of its chains included: easi reads `a - b + c` as `a - (b + c)` and `a / b * c` as
-  /// `a / (b * c)`, which the walker computes as well, with a warning that names the chain. A
-  /// number without a point is an integer of Lua, whose zero has no sign; a function is that of
-  /// Lua's math (with lmathx) of its name. A variable is Lua's, global: read where no assignment
-  /// before gives it a value, it has that of an earlier point, which the walker refuses; a point
-  /// where the code returns nothing stops easi, which a check of the program does here.
-  class ImpalaFunction {
-public:
-    ImpalaFunction(Walker& walker, const YAML::Node& node, const Values& in, std::string name)
-        : walker_(walker), node_(node), in_(in), name_(std::move(name)) {}
-
-    NodeId translate(const std::string& code, NodeId reach) {
-      tokens_ = tokenize(code);
-      position_ = 0;
-      done_ = no();
-      value_ = walker_.konst(std::numeric_limits<double>::quiet_NaN());
-      body(yes());
-      // a point that returns nothing: easi stops there, the field not being a number
-      if (!isConst(done_, 1.0)) {
-        walker_.require(reach,
-                        done_,
-                        walker_.where(node_) + ": Tried key " + name_ +
-                            " but it did not return a number.");
-      }
-      return value_;
-    }
-
-private:
-    enum class Tok : std::uint8_t {
-      Variable,
-      Constant,
-      Comma,
-      Assign,
-      If,
-      Else,
-      Return,
-      Add,
-      Sub,
-      Mul,
-      Div,
-      Or,
-      And,
-      Eq,
-      Ne,
-      Lt,
-      Le,
-      Gt,
-      Ge,
-      Open,
-      Close,
-      BracketOpen,
-      BracketClose,
-      Semicolon,
-      End
-    };
-    struct Token {
-      Tok kind;
-      std::string text;
-    };
-    /// A value of the code: its node, whether it is an integer of Lua, and the level of its
-    /// outermost operation (1 a sum or a difference, 2 a product or a quotient, 0 another)
-    struct Term {
-      NodeId node;
-      bool integer;
-      int level;
-    };
-
-    /// easi's tokenizer: the words and operators first, longest first, by prefix -- `iffy` is
-    /// `if` and `fy` --, then numbers without an exponent, names, and space.
-    std::vector<Token> tokenize(const std::string& code) const {
-      static const std::vector<std::pair<std::string, Tok>> Words = {
-          {"return", Tok::Return}, {"else", Tok::Else},      {"if", Tok::If},
-          {"==", Tok::Eq},         {"!=", Tok::Ne},          {"<=", Tok::Le},
-          {">=", Tok::Ge},         {"&&", Tok::And},         {"||", Tok::Or},
-          {"<", Tok::Lt},          {">", Tok::Gt},           {"+", Tok::Add},
-          {"-", Tok::Sub},         {"*", Tok::Mul},          {"/", Tok::Div},
-          {",", Tok::Comma},       {"=", Tok::Assign},       {";", Tok::Semicolon},
-          {"(", Tok::BracketOpen}, {")", Tok::BracketClose}, {"{", Tok::Open},
-          {"}", Tok::Close}};
-      std::vector<Token> tokens;
-      std::size_t at = 0;
-      const auto digit = [&](std::size_t i) {
-        return i < code.size() && std::isdigit(static_cast<unsigned char>(code[i])) != 0;
-      };
-      while (at < code.size()) {
-        bool found = false;
-        for (const auto& [word, kind] : Words) {
-          if (code.compare(at, word.size(), word) == 0) {
-            tokens.push_back(Token{kind, word});
-            at += word.size();
-            found = true;
-            break;
-          }
-        }
-        if (found) {
-          continue;
-        }
-        const auto c = static_cast<unsigned char>(code[at]);
-        if (digit(at)) {
-          std::size_t end = at;
-          while (digit(end)) {
-            ++end;
-          }
-          if (end < code.size() && code[end] == '.') {
-            ++end;
-            while (digit(end)) {
-              ++end;
-            }
-          }
-          tokens.push_back(Token{Tok::Constant, code.substr(at, end - at)});
-          at = end;
-        } else if (std::isalpha(c) != 0) {
-          std::size_t end = at + 1;
-          while (end < code.size() &&
-                 (std::isalnum(static_cast<unsigned char>(code[end])) != 0 || code[end] == '_')) {
-            ++end;
-          }
-          tokens.push_back(Token{Tok::Variable, code.substr(at, end - at)});
-          at = end;
-        } else if (std::isspace(c) != 0) {
-          ++at;
-        } else {
-          walker_.fail(node_, "Tokenization error: " + code.substr(at));
-        }
-      }
-      tokens.push_back(Token{Tok::End, ""});
-      return tokens;
-    }
-
-    [[nodiscard]] const Token& peek(std::size_t ahead = 0) const {
-      return tokens_[std::min(position_ + ahead, tokens_.size() - 1)];
-    }
-    bool accept(Tok kind) {
-      if (peek().kind == kind) {
-        ++position_;
-        return true;
-      }
-      return false;
-    }
-    std::string expect(Tok kind) {
-      if (peek().kind != kind) {
-        walker_.fail(node_,
-                     "the Impala of `" + name_ + "` has `" + peek().text +
-                         "` where easi's conversion expects another token");
-      }
-      return tokens_[position_++].text;
-    }
-
-    // truth values, folded where known
-    NodeId yes() { return walker_.konst(1.0); }
-    NodeId no() { return walker_.konst(0.0); }
-    [[nodiscard]] bool isConst(NodeId id, double value) const {
-      const auto& node = walker_.program_.arena()[id];
-      return node.kind == expr::Kind::Const && node.value == value;
-    }
-    NodeId conjunction(NodeId a, NodeId b) {
-      if (isConst(a, 0.0) || isConst(b, 0.0)) {
-        return no();
-      }
-      if (isConst(a, 1.0)) {
-        return b;
-      }
-      if (isConst(b, 1.0)) {
-        return a;
-      }
-      return walker_.pw(Fn::And, a, b);
-    }
-    NodeId disjunction(NodeId a, NodeId b) {
-      if (isConst(a, 1.0) || isConst(b, 1.0)) {
-        return yes();
-      }
-      if (isConst(a, 0.0)) {
-        return b;
-      }
-      if (isConst(b, 0.0)) {
-        return a;
-      }
-      return walker_.pw(Fn::Or, a, b);
-    }
-    NodeId complement(NodeId a) {
-      if (isConst(a, 0.0)) {
-        return yes();
-      }
-      if (isConst(a, 1.0)) {
-        return no();
-      }
-      return walker_.negation(a);
-    }
-    NodeId choice(NodeId condition, NodeId a, NodeId b) {
-      if (isConst(condition, 1.0) || a == b) {
-        return a;
-      }
-      if (isConst(condition, 0.0)) {
-        return b;
-      }
-      return walker_.pw(Fn::Select, condition, a, b);
-    }
-    /// An integer of Lua has no negative zero: where an operation of integers gives one, zero.
-    NodeId integral(NodeId node) { return walker_.pw(Fn::Add, node, walker_.konst(0.0)); }
-
-    /// The value of the node `id` where Lua's compiler computes it: a numeral, and a sum,
-    /// difference or product of such.
-    std::optional<double> constantOf(NodeId id) const {
-      const auto& node = walker_.arena()[id];
-      if (node.kind == expr::Kind::Const) {
-        return node.value;
-      }
-      if (node.kind != expr::Kind::PW ||
-          (node.fn != Fn::Add && node.fn != Fn::Sub && node.fn != Fn::Mul)) {
-        return std::nullopt;
-      }
-      const auto a = constantOf(node.a);
-      const auto b = constantOf(node.b);
-      if (!a.has_value() || !b.has_value()) {
-        return std::nullopt;
-      }
-      return node.fn == Fn::Add ? *a + *b : (node.fn == Fn::Sub ? *a - *b : *a * *b);
-    }
-
-    /// The value of `term` where it is an integer constant of Lua from -127 to 127.
-    std::optional<double> smallInteger(const Term& term) const {
-      if (!term.integer) {
-        return std::nullopt;
-      }
-      const auto value = constantOf(term.node);
-      if (!value.has_value() || !(std::fabs(*value) <= 127.0)) {
-        return std::nullopt;
-      }
-      return *value + 0.0;
-    }
-
-    /// `{ statements }` under `guard`. Whether every path through it returns.
-    bool body(NodeId guard) {
-      expect(Tok::Open);
-      bool returns = false;
-      while (!accept(Tok::Close)) {
-        if (peek().kind == Tok::End) {
-          expect(Tok::Close);
-        }
-        // statements after a return are never reached
-        const NodeId active = returns ? no() : guard;
-        if (peek().kind == Tok::If) {
-          returns = ifStatement(active) || returns;
-        } else if (accept(Tok::Return)) {
-          const Term term = expression();
-          expect(Tok::Semicolon);
-          const NodeId taking = conjunction(active, complement(done_));
-          value_ = choice(taking, term.node, value_);
-          done_ = disjunction(done_, active);
-          returns = true;
-        } else if (peek().kind == Tok::Variable && peek(1).kind == Tok::Assign) {
-          const std::string variable = expect(Tok::Variable);
-          expect(Tok::Assign);
-          const Term term = expression();
-          expect(Tok::Semicolon);
-          declared_.insert(variable);
-          const NodeId taking = conjunction(active, complement(done_));
-          const auto old = variables_.find(variable);
-          if (old == variables_.end()) {
-            variables_[variable] = Term{
-                choice(taking, term.node, walker_.konst(std::numeric_limits<double>::quiet_NaN())),
-                term.integer,
-                0};
-          } else {
-            old->second = Term{choice(taking, term.node, old->second.node),
-                               term.integer && old->second.integer,
-                               0};
-          }
-          if (!returns) {
-            assigned_.insert(variable);
-          }
-        } else {
-          walker_.fail(node_,
-                       "the Impala of `" + name_ +
-                           "` has an expression for a statement, which the Lua easi makes of it "
-                           "does not read");
-        }
-      }
-      return returns;
-    }
-
-    /// `if (condition) { ... } else { ... }`. Whether both branches return.
-    bool ifStatement(NodeId guard) {
-      expect(Tok::If);
-      const NodeId condition = boolean();
-      const auto before = assigned_;
-      const bool thenReturns = body(conjunction(guard, condition));
-      auto afterThen = assigned_;
-      assigned_ = before;
-      bool elseReturns = false;
-      if (accept(Tok::Else)) {
-        elseReturns = body(conjunction(guard, complement(condition)));
-      }
-      // assigned after it: in both branches, or in the one that does not return
-      if (thenReturns && !elseReturns) {
-        // assigned_ is that of the else branch
-      } else if (elseReturns && !thenReturns) {
-        assigned_ = afterThen;
-      } else {
-        std::set<std::string> both;
-        std::set_intersection(afterThen.begin(),
-                              afterThen.end(),
-                              assigned_.begin(),
-                              assigned_.end(),
-                              std::inserter(both, both.end()));
-        assigned_ = std::move(both);
-      }
-      return thenReturns && elseReturns;
-    }
-
-    Term expression() { return sum(); }
-
-    /// easi's chains group to the right: `a - b + c` is `a - (b + c)`.
-    Term sum() {
-      const Term left = product();
-      for (const auto [kind, fn] : {std::pair{Tok::Add, Fn::Add}, std::pair{Tok::Sub, Fn::Sub}}) {
-        if (accept(kind)) {
-          const Term right = sum();
-          if (kind == Tok::Sub && right.level == 1) {
-            warnGrouping("-", "+ or -");
-          }
-          // Lua's code generator computes `a - k`, for an integer constant k from -127 to 127, as
-          // `a + -k` (OP_ADDI): the same, but at k = 0, where -0.0 - 0 is -0.0, -0.0 + 0 is 0.0
-          if (const auto k = smallInteger(right); kind == Tok::Sub && k.has_value()) {
-            return Term{walker_.pw(Fn::Add, left.node, walker_.konst(-*k + 0.0)), left.integer, 1};
-          }
-          return Term{walker_.pw(fn, left.node, right.node), left.integer && right.integer, 1};
-        }
-      }
-      return left;
-    }
-
-    Term product() {
-      const Term left = unary();
-      if (accept(Tok::Mul)) {
-        const Term right = product();
-        const bool integer = left.integer && right.integer;
-        const NodeId node = walker_.pw(Fn::Mul, left.node, right.node);
-        return Term{integer ? integral(node) : node, integer, 2};
-      }
-      if (accept(Tok::Div)) {
-        const Term right = product();
-        if (right.level == 2) {
-          warnGrouping("/", "* or /");
-        }
-        return Term{walker_.pw(Fn::Div, left.node, right.node), false, 2};
-      }
-      return left;
-    }
-
-    Term unary() {
-      if (accept(Tok::Add)) {
-        walker_.fail(node_,
-                     "the Impala of `" + name_ +
-                         "` has a unary +, which the Lua easi makes of it does not read");
-      }
-      const bool negative = accept(Tok::Sub);
-      const Term operand = atom();
-      if (!negative) {
-        return operand;
-      }
-      const NodeId node = walker_.arena().pw(Fn::Neg, operand.node);
-      return Term{operand.integer ? integral(node) : node, operand.integer, 0};
-    }
-
-    Term atom() {
-      if (accept(Tok::BracketOpen)) {
-        const Term inner = expression();
-        expect(Tok::BracketClose);
-        return Term{inner.node, inner.integer, 0};
-      }
-      if (peek().kind == Tok::Variable && peek(1).kind == Tok::BracketOpen) {
-        return call();
-      }
-      if (peek().kind == Tok::Variable) {
-        const std::string name = expect(Tok::Variable);
-        // an input first, as easi's conversion reads a name, whatever is assigned to it
-        const auto input = in_.find(name);
-        if (input != in_.end()) {
-          return Term{input->second.node, false, 0};
-        }
-        if (declared_.count(name) == 0) {
-          walker_.fail(node_, "Unknown variable: " + name);
-        }
-        if (assigned_.count(name) == 0) {
-          throw EasiUnsupported(walker_.where(node_) + ": the Impala of `" + name_ + "` reads `" +
-                                name +
-                                "` where no assignment before gives it a value, where easi "
-                                "takes that of an earlier point");
-        }
-        const Term& value = variables_.at(name);
-        return Term{value.node, value.integer, 0};
-      }
-      if (peek().kind == Tok::Constant) {
-        const std::string text = expect(Tok::Constant);
-        double value = 0.0;
-        try {
-          value = expr::numberOf(text);
-        } catch (const std::invalid_argument& error) {
-          walker_.fail(node_, error.what());
-        }
-        return Term{walker_.konst(value), text.find('.') == std::string::npos, 0};
-      }
-      walker_.fail(node_, "Unexpected token when parsing expression: " + peek().text);
-    }
-
-    /// A function of Lua's math, with lmathx.
-    Term call() {
-      const std::string function = expect(Tok::Variable);
-      std::vector<Term> args;
-      expect(Tok::BracketOpen);
-      if (!accept(Tok::BracketClose)) {
-        args.push_back(expression());
-        while (!accept(Tok::BracketClose)) {
-          expect(Tok::Comma);
-          args.push_back(expression());
-        }
-      }
-      const auto arity = [&](std::size_t low, std::size_t high) {
-        if (args.size() < low || args.size() > high) {
-          throw EasiUnsupported(walker_.where(node_) + ": the Impala of `" + name_ + "` calls " +
-                                function + " with " + std::to_string(args.size()) + " arguments");
-        }
-      };
-      const auto unaryOp = [&](Fn fn) {
-        arity(1, 1);
-        return Term{walker_.arena().pw(fn, args[0].node), false, 0};
-      };
-      static const std::map<std::string, Fn> Unary = {
-          {"sqrt", Fn::Sqrt},   {"exp", Fn::Exp},     {"log10", Fn::Log10}, {"log2", Fn::Log2},
-          {"sin", Fn::Sin},     {"cos", Fn::Cos},     {"tan", Fn::Tan},     {"asin", Fn::Asin},
-          {"acos", Fn::Acos},   {"sinh", Fn::Sinh},   {"cosh", Fn::Cosh},   {"tanh", Fn::Tanh},
-          {"asinh", Fn::Asinh}, {"acosh", Fn::Acosh}, {"atanh", Fn::Atanh}, {"erf", Fn::Erf},
-          {"floor", Fn::Floor}, {"ceil", Fn::Ceil},   {"round", Fn::Round}, {"fabs", Fn::Abs}};
-      if (const auto found = Unary.find(function); found != Unary.end()) {
-        return unaryOp(found->second);
-      }
-      if (function == "abs") {
-        // Lua's own: of an integer an integer
-        arity(1, 1);
-        return Term{walker_.arena().pw(Fn::Abs, args[0].node), args[0].integer, 0};
-      }
-      if (function == "log") {
-        arity(1, 2);
-        if (args.size() == 1) {
-          return unaryOp(Fn::Log);
-        }
-        // lmathx: of the base 10 log10, of 2 log2, else the quotient of the logarithms
-        const NodeId x = args[0].node;
-        const NodeId base = args[1].node;
-        const NodeId other =
-            walker_.pw(Fn::Div, walker_.arena().pw(Fn::Log, x), walker_.arena().pw(Fn::Log, base));
-        return Term{choice(walker_.pw(Fn::Eq, base, walker_.konst(10.0)),
-                           walker_.arena().pw(Fn::Log10, x),
-                           choice(walker_.pw(Fn::Eq, base, walker_.konst(2.0)),
-                                  walker_.arena().pw(Fn::Log2, x),
-                                  other)),
-                    false,
-                    0};
-      }
-      if (function == "atan") {
-        arity(1, 2);
-        if (args.size() == 1) {
-          return unaryOp(Fn::Atan);
-        }
-        return Term{walker_.pw(Fn::Atan2, args[0].node, args[1].node), false, 0};
-      }
-      if (function == "atan2" || function == "pow") {
-        arity(2, 2);
-        return Term{walker_.pw(function == "pow" ? Fn::Pow : Fn::Atan2, args[0].node, args[1].node),
-                    false,
-                    0};
-      }
-      if (function == "trunc") {
-        arity(1, 1);
-        const NodeId x = args[0].node;
-        return Term{choice(walker_.pw(Fn::Lt, x, walker_.konst(0.0)),
-                           walker_.arena().pw(Fn::Ceil, x),
-                           walker_.arena().pw(Fn::Floor, x)),
-                    false,
-                    0};
-      }
-      if (function == "fmin" || function == "fmax") {
-        arity(1, std::numeric_limits<std::size_t>::max());
-        NodeId m = args[0].node;
-        for (std::size_t i = 1; i < args.size(); ++i) {
-          m = walker_.pw(function == "fmin" ? Fn::Min : Fn::Max, m, args[i].node);
-        }
-        return Term{m, false, 0};
-      }
-      if (function == "min" || function == "max") {
-        // Lua's own: the first argument that no later one is below (above)
-        arity(1, std::numeric_limits<std::size_t>::max());
-        Term m = args[0];
-        for (std::size_t i = 1; i < args.size(); ++i) {
-          const NodeId better = function == "min" ? walker_.pw(Fn::Lt, args[i].node, m.node)
-                                                  : walker_.pw(Fn::Lt, m.node, args[i].node);
-          m = Term{choice(better, args[i].node, m.node), m.integer && args[i].integer, 0};
-        }
-        return m;
-      }
-      if (function == "deg" || function == "rad") {
-        arity(1, 1);
-        constexpr double Pi = 3.141592653589793238462643383279502884;
-        return Term{walker_.pw(Fn::Mul,
-                               args[0].node,
-                               walker_.konst(function == "deg" ? 180.0 / Pi : Pi / 180.0)),
-                    false,
-                    0};
-      }
-      throw EasiUnsupported(walker_.where(node_) + ": the Impala of `" + name_ + "` calls " +
-                            function + ", which the walker does not translate");
-    }
-
-    /// `( boolean )`, a comparison, and their `&&` and `||`, grouped to the right.
-    NodeId boolean() {
-      const NodeId left = conjunctionOfAtoms();
-      if (accept(Tok::Or)) {
-        return disjunction(left, boolean());
-      }
-      return left;
-    }
-    NodeId conjunctionOfAtoms() {
-      const NodeId left = comparison();
-      if (accept(Tok::And)) {
-        return conjunction(left, conjunctionOfAtoms());
-      }
-      return left;
-    }
-    NodeId comparison() {
-      if (accept(Tok::BracketOpen)) {
-        const NodeId inner = boolean();
-        expect(Tok::BracketClose);
-        return inner;
-      }
-      const Term left = expression();
-      const Tok op = peek().kind;
-      if (op != Tok::Eq && op != Tok::Ne && op != Tok::Lt && op != Tok::Le && op != Tok::Gt &&
-          op != Tok::Ge) {
-        walker_.fail(node_, "No comparison operator given");
-      }
-      ++position_;
-      const Term right = expression();
-      switch (op) {
-      case Tok::Eq:
-        return walker_.pw(Fn::Eq, left.node, right.node);
-      case Tok::Ne:
-        return complement(walker_.pw(Fn::Eq, left.node, right.node));
-      case Tok::Lt:
-        return walker_.pw(Fn::Lt, left.node, right.node);
-      case Tok::Le:
-        return walker_.pw(Fn::Le, left.node, right.node);
-      case Tok::Gt:
-        return walker_.pw(Fn::Lt, right.node, left.node);
-      default:
-        return walker_.pw(Fn::Le, right.node, left.node);
-      }
-    }
-
-    /// A warning where easi's grouping changes what a chain means, once per chain and run.
-    void warnGrouping(const char* op, const char* following) const {
-      static std::mutex mutex;
-      static std::set<std::string> warned;
-      const std::lock_guard<std::mutex> lock(mutex);
-      if (!warned.insert(walker_.where(node_) + "/" + name_ + "/" + op).second) {
-        return;
-      }
-      logWarning() << "easi:" << walker_.where(node_) << ": the Impala of" << name_
-                   << "has a chain where" << op << "is followed by" << following
-                   << "; easi's conversion into Lua groups it to the right (a - b + c as a - (b + "
-                      "c)), and the walker computes what easi computes.";
-    }
-
-    Walker& walker_;
-    const YAML::Node& node_;
-    const Values& in_;
-    std::string name_;
-    std::vector<Token> tokens_;
-    std::size_t position_{0};
-    /// whether a return happened, and its value where it did
-    NodeId done_{NoNode};
-    NodeId value_{NoNode};
-    /// the variables, as easi's conversion knows them (by an assignment before, in the text), as
-    /// assigned on every path to here, and their values
-    std::set<std::string> declared_;
-    std::set<std::string> assigned_;
-    std::map<std::string, Term> variables_;
-  };
 
   /// A grid of ASAGI, sampled at the dimensions of `in` in their order, as easi samples it.
   Values grid(const YAML::Node& node, const Values& in) {
@@ -1571,6 +1065,8 @@ private:
   expr::Program program_;
   std::vector<std::string> files_;
   std::vector<std::pair<NodeId, std::string>> checks_;
+  /// the text of the files read, by path: where a scalar is a block scalar
+  std::map<std::string, std::string> texts_;
   bool groupDeclared_{false};
 };
 

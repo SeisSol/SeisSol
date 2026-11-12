@@ -142,10 +142,11 @@ run, as in easi, through a check of the program. The walker translates the struc
 ``!FunctionMap`` and the Lua of ``!LuaMap`` (with the Lua frontend, below); a file with another
 component (``!SCECFile``, the special components), or with Lua outside the subset of the frontend,
 easi evaluates, which the log says, naming the component and the line. The Impala of a
-``!FunctionMap`` is read as easi 1.5 and later read it, which converts it into Lua: easi groups a
-chain to the right, ``a - b + c`` as ``a - (b + c)`` and ``a / b * c`` as ``a / (b * c)``, unlike the
-earlier easi and unlike C; the walker computes what easi computes, and warns where a chain means
-something else so (put the parentheses that are meant). ``SEISSOL_EASI=easi`` evaluates every easi file
+``!FunctionMap`` is read as easi 1.5 and later read it: the walker converts it into the Lua easi
+makes of it, and translates that as the Lua of an ``!LuaMap``. easi groups a chain to the right,
+``a - b + c`` as ``a - (b + c)`` and ``a / b * c`` as ``a / (b * c)``, unlike the earlier easi and
+unlike C; the walker computes what easi computes, and warns where a chain means something else so
+(put the parentheses that are meant). ``SEISSOL_EASI=easi`` evaluates every easi file
 by easi; ``SEISSOL_EASI=check`` compares the program with easi at its first call, and falls back to
 easi where they differ.
 

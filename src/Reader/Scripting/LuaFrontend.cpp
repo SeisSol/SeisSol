@@ -365,7 +365,7 @@ struct Alternative {
   Number number;
   /// String: the text; Builtin: its name; Stale: what it is
   std::string text;
-  /// Table: its location; Function: the closure; Builtin: its datum
+  /// Table: its location; Function: the closure; Builtin: its datum; Stale: the line that read it
   int id{-1};
   std::shared_ptr<const Closure> closure;
 
@@ -1199,7 +1199,7 @@ class Evaluator {
   }
 
   [[noreturn]] void refuseStale(const Alternative& alternative, int line) const {
-    throw LuaUnsupported(line,
+    throw LuaUnsupported(alternative.id > 0 ? alternative.id : line,
                          alternative.text +
                              " keeps its value from one point to the next: the function writes it, "
                              "and reads it before it writes it at some points");
@@ -1896,9 +1896,21 @@ class Evaluator {
 
   Value readName(const std::string& name, const ScopePtr& scope, int line) {
     if (const auto local = lookup(scope.get(), name)) {
-      return readCell(local->first);
+      return readAt(readCell(local->first), line);
     }
-    return index(readName("_ENV", scope, line), string(name), line, " (global '" + name + "')");
+    return readAt(
+        index(readName("_ENV", scope, line), string(name), line, " (global '" + name + "')"), line);
+  }
+
+  /// `v`, what of it is of an earlier point marked as read at `line`, where it was not read
+  /// before: a refusal names the line that reads it, rather than the one that uses it.
+  static Value readAt(Value v, int line) {
+    for (auto& alternative : v.alternatives) {
+      if (alternative.type == Type::Stale && alternative.id < 0) {
+        alternative.id = line;
+      }
+    }
+    return v;
   }
 
   void assignName(const std::string& name, const Value& value, const ScopePtr& scope, int line) {
@@ -2357,7 +2369,7 @@ class Evaluator {
     case ExprKind::Index: {
       const Value t = eval(*e.a, scope);
       const Value k = eval(*e.b, scope);
-      return index(t, k, e.line, variableOf(*e.a, scope));
+      return readAt(index(t, k, e.line, variableOf(*e.a, scope)), e.line);
     }
     case ExprKind::Call:
     case ExprKind::Method: {
