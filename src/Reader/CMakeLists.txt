@@ -13,6 +13,7 @@ add_library(seissol-reader OBJECT
     Datafield/GridFactory.cpp
     Datafield/GridUpdateModule.cpp
     Datafield/InlineGrid.cpp
+    Datafield/ScecGrid.cpp
     Datafield/Interpolation.cpp
 
     Scripting/CompiledReader.cpp

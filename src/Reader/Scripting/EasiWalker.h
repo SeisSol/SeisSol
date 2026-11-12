@@ -12,11 +12,11 @@
 // the includes and the paths of data files resolved as easi resolves them -- and computes what
 // easi computes, in the order easi computes it, so that the bits are easi's: an affine map as
 // easi's matrix product (from zero, in the order of the dimensions, the translation last), a
-// polynomial by Horner's scheme as easi has it, a grid of ASAGI through the grid store (whose
-// interpolation is that of easi 1.7; an earlier easi interpolates within a few units in the last
-// place of it), a special component by easi's formulas (EasiSpecial.h). A layered model becomes a
-// grid of its nodes (Grid.h), whose step finds the layer of a depth: the value of a node, or the
-// slope and the intercept easi computes for the layer.
+// polynomial by Horner's scheme as easi has it, a grid of ASAGI or of a SCEC file (ScecGrid.h)
+// through the grid store (whose interpolation is that of easi 1.7; an earlier easi interpolates
+// within a few units in the last place of it), a special component by easi's formulas
+// (EasiSpecial.h). A layered model becomes a grid of its nodes (Grid.h), whose step finds the layer
+// of a depth: the value of a node, or the slope and the intercept easi computes for the layer.
 //
 // easi hands a point to the first component of a composite that accepts it, and fails where none
 // does; a component in a list is translated as a select between the components, and the points
@@ -26,10 +26,10 @@
 // reach it.
 //
 // The Lua of an !LuaMap, and the Lua easi makes of the Impala of a !FunctionMap (ImpalaToLua.h),
-// the Lua frontend translates (LuaFrontend.h), as easi runs them. What the walker does not
-// translate -- !SCECFile, and Lua beyond the subset of the frontend -- it refuses with
-// EasiUnsupported, naming the component; the caller evaluates the file with easi then
-// (buildReader()).
+// the Lua frontend translates (LuaFrontend.h), as easi runs them. Every component of easi 1.7 is
+// translated; what the walker does not translate -- Lua beyond the subset of the frontend, a grid
+// of ASAGI whose coordinates decrease -- it refuses with EasiUnsupported, naming the component and
+// the line; the caller evaluates the file with easi then (buildReader()).
 
 #include "Expr/Program.h"
 #include "Reader/Scripting/DataReader.h"
@@ -43,7 +43,7 @@ namespace seissol::reader::scripting {
 
 class CompiledReader;
 
-/// A component of an easi file that the walker does not translate (yet), with where it is.
+/// A component of an easi file that the walker does not translate, with where it is.
 class EasiUnsupported : public std::runtime_error {
   public:
   using std::runtime_error::runtime_error;

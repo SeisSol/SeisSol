@@ -137,13 +137,13 @@ reads its components and computes what easi computes, in the order easi computes
 values are easi's to the bit -- those of a grid (``!ASAGI``) the bits of easi 1.7 and later, whose
 interpolation an earlier easi's differs from by a few units in the last place. A point that no
 component accepts stops the run, as in easi, through a check of the program. The walker translates
-the structural components (``!Switch``, ``!Any``, ``!IdentityMap``, the filters, ``!Include``),
-``!ConstantMap``, ``!AffineMap``, ``!PolynomialMap``, ``!EvalModel``, ``!LayeredModel``,
-``!ASAGI``, the special components (``!STRESS_STR_DIP_SLIP_AM``, ``!OptimalStress``,
-``!AndersonianStress``, by easi's formulas), the Impala of ``!FunctionMap`` and the Lua of
-``!LuaMap`` (with the Lua frontend, below); a file with another component (``!SCECFile``), or with
-Lua outside the subset of the frontend, easi evaluates, which the log says, naming the component
-and the line. The Impala of a
+every component of easi 1.7: the structural ones (``!Switch``, ``!Any``, ``!IdentityMap``, the
+filters, ``!Include``), ``!ConstantMap``, ``!AffineMap``, ``!PolynomialMap``, ``!EvalModel``,
+``!LayeredModel``, the grids (``!ASAGI``, ``!SCECFile``), the special components
+(``!STRESS_STR_DIP_SLIP_AM``, ``!OptimalStress``, ``!AndersonianStress``, by easi's formulas), the
+Impala of ``!FunctionMap`` and the Lua of ``!LuaMap`` (with the Lua frontend, below). A file with
+Lua outside the subset of the frontend, or with a grid of ASAGI whose coordinates decrease, easi
+evaluates, which the log says, naming the component and the line. The Impala of a
 ``!FunctionMap`` is read as easi 1.5 and later read it: the walker converts it into the Lua easi
 makes of it, and translates that as the Lua of an ``!LuaMap``. easi groups a chain to the right,
 ``a - b + c`` as ``a - (b + c)`` and ``a / b * c`` as ``a / (b * c)``, unlike the earlier easi and
@@ -230,6 +230,16 @@ form), as its constants are. Every axis of an inline grid is knots. An axis of k
 nearest, linear, previous or next, not cubic, and a time axis is uniform. The linear interpolation
 of a grid is ``(1 - s) v0 + s v1`` on every axis, of knots or uniform, which differs from easi's
 layered model (slope and intercept per layer) by a few ulp; the steps give the same values.
+
+A SCEC file of fault parameters, the input file of the SCEC benchmarks TPV16 and TPV17 as easi's
+``!SCECFile`` reads it, is a grid of the kind ``"scec"``: ``grid f = "scec", "tpv16_input_file.txt",
+"linear", ...`` with ten components, ``f_mu_s(x, z)`` say. Its nodes lie where their indices put
+them, on a uniform grid from 0 to the lengths of the header, axis 0 along strike; the coordinates
+of a line are not read. The components are the ten values of a line, in this order: the normal
+stress, the shear stresses along strike and along dip, their ratios to the normal stress, the
+static and the dynamic coefficient of friction, the critical slip distance, the cohesion, and the
+time of forced rupture. Every node is given once. Rank 0 reads the file, and gives it to the other
+ranks.
 
 ``time = k`` makes
 axis ``k`` time, which must be the slowest dimension of the file, i.e. the last axis: the script

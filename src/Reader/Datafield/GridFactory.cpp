@@ -11,6 +11,7 @@
 #include "Grid.h"
 #include "InlineGrid.h"
 #include "Parallel/MPI.h"
+#include "ScecGrid.h"
 #include "utils/logger.h"
 
 #include <algorithm>
@@ -18,8 +19,10 @@
 #include <cstddef>
 #include <cstdlib>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 namespace seissol::reader::datafield {
 
@@ -41,6 +44,46 @@ const char* describe(AsagiLiteGrid::Error error) {
     return "its axes are not as declared (see the warning before)";
   }
   return "an unknown error occurred";
+}
+
+/// The SCEC file `path`, as rank 0 of the rank's communicator reads it, given to every rank (where
+/// MPI runs); nothing, with an error, where it cannot be read.
+std::optional<ScecData> scecDataOf(const std::string& path) {
+  int running = 0;
+  MPI_Initialized(&running);
+  const bool reads = running == 0 || seissol::Mpi::mpi.rank() == 0;
+  ScecData data;
+  std::string problem;
+  if (reads) {
+    try {
+      data = readScecFile(path);
+    } catch (const std::exception& error) {
+      problem = error.what();
+    }
+  }
+  if (running != 0) {
+    const MPI_Comm comm = seissol::Mpi::mpi.comm();
+    int length = static_cast<int>(problem.size());
+    MPI_Bcast(&length, 1, MPI_INT, 0, comm);
+    problem.resize(static_cast<std::size_t>(length));
+    MPI_Bcast(problem.data(), length, MPI_CHAR, 0, comm);
+    if (problem.empty()) {
+      MPI_Bcast(data.nodes.data(), 2, MPI_UNSIGNED, 0, comm);
+      MPI_Bcast(data.lengths.data(), 2, MPI_DOUBLE, 0, comm);
+      data.values.resize(std::size_t{data.nodes[0]} * data.nodes[1] * ScecData::Components);
+      // in pieces an int counts
+      constexpr std::size_t Piece = std::size_t{1} << 28U;
+      for (std::size_t at = 0; at < data.values.size(); at += Piece) {
+        const auto count = static_cast<int>(std::min(Piece, data.values.size() - at));
+        MPI_Bcast(data.values.data() + at, count, MPI_DOUBLE, 0, comm);
+      }
+    }
+  }
+  if (!problem.empty()) {
+    logError() << "datafield:" << problem;
+    return std::nullopt;
+  }
+  return data;
 }
 
 /// The backend with a time window, or null. Window management is inherently
@@ -96,10 +139,15 @@ std::unique_ptr<Grid> makeGrid(const GridDesc& desc) {
     }
     return nullptr;
   }
-  case GridKind::Scec:
-    logError() << "datafield: the SCEC backend is not implemented; requested for" << desc.path
-               << ".";
-    return nullptr;
+  case GridKind::Scec: {
+    // rank 0 reads the file, and gives it to the others
+    auto data = scecDataOf(desc.path);
+    if (!data.has_value()) {
+      return nullptr;
+    }
+    return std::make_unique<ScecGrid>(
+        std::move(*data), desc.path, desc.interpolation, desc.boundary);
+  }
   case GridKind::Distributed:
     logError() << "datafield: the distributed backend is not implemented; requested for"
                << desc.path << ".";

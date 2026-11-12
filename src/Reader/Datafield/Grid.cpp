@@ -211,6 +211,17 @@ GridDesc gridDescOf(const GridSpec& spec) {
         desc.axes[static_cast<std::size_t>(*spec.timeAxis)] == AxisKind::Knots) {
       fail("the time axis of a grid is uniform");
     }
+    // a SCEC file has a uniform grid of the fault, and no time
+    if (desc.kind == GridKind::Scec) {
+      if (spec.timeAxis.has_value()) {
+        fail("a SCEC file has no time axis");
+      }
+      for (const auto axis : desc.axes) {
+        if (axis == AxisKind::Knots) {
+          fail("the axes of a SCEC file are uniform");
+        }
+      }
+    }
   }
   // one for all axes, or one per axis, of those it gives (a file says how many it has)
   const std::size_t axes = inlined ? spec.knots.size() : spec.axes.size();

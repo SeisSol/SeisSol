@@ -14,6 +14,7 @@
 #include "Reader/Datafield/AsagiModule.h"
 #include "Reader/Datafield/AsagiReader.h"
 #include "Reader/Datafield/Grid.h"
+#include "Reader/Datafield/ScecGrid.h"
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/EasiReader.h"
 #include "Reader/Scripting/EasiWalker.h"
@@ -37,6 +38,7 @@
 #include <memory>
 #include <netcdf.h>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <unistd.h>
@@ -449,6 +451,29 @@ TEST_CASE("easi walker: the files of SEISSOL_EASI_EXAMPLES agree with easi where
       all.group.insert(all.group.end(), some.group.begin(), some.group.end());
     }
     reader::datafield::GridStore store;
+    // the parameters easi evaluates somewhere: of those easi says the file supplies, a !Switch
+    // gives those its branches name only, where a branch supplies more (an !IdentityMap: all it
+    // is given), and fails for the others everywhere
+    std::vector<std::string> evaluated;
+    for (const auto& parameter : parameters) {
+      sc::EasiQuery query;
+      query.dimensions = {"x", "y", "z"};
+      query.parameters = {parameter};
+      if (!acceptedBy(sc::easiProgram(path, query), store, all).empty()) {
+        evaluated.push_back(parameter);
+      }
+    }
+    if (evaluated.empty()) {
+      MESSAGE(path << ": easi evaluates no parameter at these points");
+      continue;
+    }
+    if (evaluated.size() != parameters.size()) {
+      parameters = evaluated;
+      sc::EasiQuery query;
+      query.dimensions = {"x", "y", "z"};
+      query.parameters = parameters;
+      program = sc::easiProgram(path, query);
+    }
     Points points;
     for (const auto k : acceptedBy(program, store, all)) {
       points.x.push_back(all.x[k]);
@@ -456,7 +481,8 @@ TEST_CASE("easi walker: the files of SEISSOL_EASI_EXAMPLES agree with easi where
       points.z.push_back(all.z[k]);
       points.group.push_back(all.group[k]);
     }
-    MESSAGE(path << ": " << points.size() << " of " << all.size() << " points evaluated");
+    MESSAGE(path << ": " << points.size() << " of " << all.size() << " points evaluated, of "
+                 << parameters.size() << " parameters");
     if (!easiReads(path)) {
       MESSAGE(path << ": the easi of this build does not read it; not compared");
       continue;
@@ -795,6 +821,137 @@ TEST_CASE("easi walker: a message about Impala names the line of the file" *
   CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(calls, query)), sc::EasiModelError);
   CHECK(messageOf(earlier).find("earlier.yaml@6: ") != std::string::npos);
   CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(earlier, query)), sc::EasiUnsupported);
+}
+
+/// A SCEC file of 4 by 3 cells over 300 by 100, its nodes in reverse order: every value another.
+inline std::string scecFile() {
+  std::ostringstream text;
+  text.precision(17);
+  text << "200 3\n4 3 3.000000E+02 1.000000E+02\n2 1 1.5E+02 5.0E+01 1.0 1.0\n";
+  for (int j = 3; j >= 0; --j) {
+    for (int i = 4; i >= 0; --i) {
+      text << i << " " << j << " " << 75.0 * i << " " << 100.0 / 3.0 * j;
+      for (int c = 0; c < 10; ++c) {
+        text << " " << (c + 1) * 1000.0 + 13.7 * i - 7.3 * j + 0.123 * i * j;
+      }
+      text << "\n";
+    }
+  }
+  return text.str();
+}
+
+TEST_CASE("easi walker: a SCEC file samples as easi's" * doctest::test_suite("reader")) {
+  const Files files;
+  files.write("fault.txt", scecFile());
+  const std::vector<std::string> parameters{
+      "cohesion", "d_c", "forced_rupture_time", "mu_d", "mu_s", "s_dip", "s_normal", "s_strike"};
+  for (const std::string interpolation : {"nearest", "linear", "cubic"}) {
+    if (interpolation == "cubic" && !EasiKernel) {
+      continue;
+    }
+    CAPTURE(interpolation);
+    const std::string path = files.write("scec-" + interpolation + ".yaml",
+                                         "!AffineMap\n"
+                                         "matrix:\n"
+                                         "  x: [1.0, 0.0, 0.0]\n"
+                                         "  z: [0.0, 0.3, 0.0]\n"
+                                         "translation:\n"
+                                         "  x: 0.0\n"
+                                         "  z: 0.0\n"
+                                         "components: !SCECFile\n"
+                                         "  file: fault.txt\n"
+                                         "  interpolation: " +
+                                             interpolation + "\n");
+    // within the fault, beyond it, and on its nodes
+    sameAsEasi(path,
+               parameters,
+               pointsIn(-50.0, 350.0, {0.0, 75.0, 150.0, 300.0, 100.0, 1000.0 / 9.0}, 2000),
+               interpolation == "nearest" ? 0.0 : GridUlps);
+  }
+  // as easi's example of TPV16 has it: stresses and friction from the file, rotated into the
+  // fault, by a switch of a constant, a function and the identity
+  const std::string tpv16 =
+      files.write("tpv16.yaml",
+                  "!Switch\n"
+                  "[s_xx, s_zz, s_xz, s_yy, s_xy, s_yz, cohesion, mu_s, mu_d, "
+                  "d_c, forced_rupture_time]: !AffineMap\n"
+                  "  matrix:\n"
+                  "    x: [1.0, 0.0,  0.0]\n"
+                  "    z: [0.0, 0.0, -1.0]\n"
+                  "  translation:\n"
+                  "    x: 0.0\n"
+                  "    z: 0.0\n"
+                  "  components: !SCECFile\n"
+                  "    file: fault.txt\n"
+                  "    components: !Switch\n"
+                  "      [s_xx, s_zz, s_xz]: !ConstantMap\n"
+                  "        map:\n"
+                  "          s_xx: 0.0\n"
+                  "          s_zz: 0.0\n"
+                  "          s_xz: 0.0\n"
+                  "      [s_yy, s_xy, s_yz, cohesion]: !FunctionMap\n"
+                  "        map:\n"
+                  "          s_yy: return -s_normal;\n"
+                  "          cohesion: return -cohesion;\n"
+                  "          s_xy: return s_strike;\n"
+                  "          s_yz: return s_dip;\n"
+                  "      [mu_s, mu_d, d_c, forced_rupture_time]: !IdentityMap {}\n");
+  sameAsEasi(tpv16,
+             {"s_xx",
+              "s_zz",
+              "s_xz",
+              "s_yy",
+              "s_xy",
+              "s_yz",
+              "cohesion",
+              "mu_s",
+              "mu_d",
+              "d_c",
+              "forced_rupture_time"},
+             pointsIn(-150.0, 350.0, {0.0, 75.0, 300.0, -100.0}, 2000),
+             GridUlps);
+
+  // easi's errors: three dimensions, no file, an interpolation easi does not know
+  sc::EasiQuery query;
+  query.dimensions = {"x", "y", "z"};
+  query.parameters = parameters;
+  const auto fails = [&](const std::string& name, const std::string& text) {
+    CAPTURE(name);
+    CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(files.write(name, text), query)),
+                    sc::EasiModelError);
+  };
+  fails("three.yaml", "!SCECFile\nfile: fault.txt\n");
+  fails("missing.yaml",
+        "!AffineMap\nmatrix:\n  x: [1.0, 0.0, 0.0]\n  z: [0.0, 0.0, 1.0]\ntranslation:\n  x: 0.0\n"
+        "  z: 0.0\ncomponents: !SCECFile\n  file: nofault.txt\n");
+  fails("next.yaml",
+        "!AffineMap\nmatrix:\n  x: [1.0, 0.0, 0.0]\n  z: [0.0, 0.0, 1.0]\ntranslation:\n  x: 0.0\n"
+        "  z: 0.0\ncomponents: !SCECFile\n  file: fault.txt\n  interpolation: next\n");
+
+  // the file: its nodes by their indices, and every node once
+  const auto data = reader::datafield::readScecFile(files.path("fault.txt"));
+  CHECK(data.nodes == std::array<unsigned, 2>{5, 4});
+  CHECK(data.spacing(0) == 75.0);
+  CHECK(data.spacing(1) == 100.0 / 3.0);
+  CHECK(data.values[(2 + 3 * 5) * 10 + 4] == 5 * 1000.0 + 13.7 * 2 - 7.3 * 3 + 0.123 * 2 * 3);
+  const auto problem = [&](const std::string& text) {
+    try {
+      static_cast<void>(reader::datafield::readScecFile(files.write("bad.txt", text)));
+    } catch (const std::runtime_error& error) {
+      return std::string(error.what());
+    }
+    return std::string();
+  };
+  const std::string head = "1 2\n1 1 10.0 10.0\n0 0 0.0 0.0 0.0 0.0\n";
+  const std::string values = " 0 0 1 2 3 4 5 6 7 8 9 10\n";
+  CHECK(problem(head + "0 0" + values + "1 0" + values + "0 1" + values + "0 1" + values)
+            .find("bad.txt:7: the node (0, 1) is given twice") != std::string::npos);
+  CHECK(problem(head + "0 0" + values + "2 0" + values).find("bad.txt:5: the index along strike") !=
+        std::string::npos);
+  CHECK(problem(head + "0 0" + values + "1 0" + values + "0 1" + values).find("the file ends") !=
+        std::string::npos);
+  CHECK(problem("1 2\n1 1 -10.0 10.0\n0 0 0.0 0.0 0.0 0.0\n")
+            .find("Degenerate grid in dimension 0") != std::string::npos);
 }
 
 TEST_CASE("easi walker: the special components give easi's bits" * doctest::test_suite("reader")) {

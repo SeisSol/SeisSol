@@ -11,6 +11,7 @@
 #include "Expr/Program.h"
 #include "Reader/Datafield/AsagiLite.h"
 #include "Reader/Datafield/Grid.h"
+#include "Reader/Datafield/ScecGrid.h"
 #include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
@@ -236,12 +237,6 @@ class Walker {
     return children;
   }
 
-  /// The tags the walker does not translate yet.
-  [[noreturn]] void unsupported(const YAML::Node& node) const {
-    throw EasiUnsupported(where(node) + ": the walker does not translate " + node.Tag() +
-                          " (yet); easi evaluates the file");
-  }
-
   /// The root of the file an !Include names, and the file.
   std::pair<YAML::Node, std::string> included(const YAML::Node& node) {
     const std::string path = loadPath(node.as<std::string>(), file());
@@ -326,6 +321,9 @@ class Walker {
     if (tag == "!ASAGI") {
       return grid(node, in);
     }
+    if (tag == "!SCECFile") {
+      return scecGrid(node, in);
+    }
     if (tag == "!FunctionMap") {
       return impalaMapped(node, in, reach);
     }
@@ -338,7 +336,7 @@ class Walker {
     if (tag == "!Include") {
       fail(node, "an !Include is no map");
     }
-    unsupported(node);
+    fail(node, "Unknown tag " + tag);
   }
 
   /// A special component (EasiSpecial.h): its inputs from its constants, the others from `in`,
@@ -550,12 +548,7 @@ class Walker {
   Values grid(const YAML::Node& node, const Values& in) {
     static_cast<void>(asagiAxes(node, in));
     const auto parameters = as<std::vector<std::string>>(node, "parameters");
-    std::string interpolation =
-        node["interpolation"] ? as<std::string>(node, "interpolation") : std::string("linear");
-    std::transform(interpolation.begin(),
-                   interpolation.end(),
-                   interpolation.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    const std::string interpolation = gridInterpolation(node);
     datafield::GridSpec spec;
     spec.kind = "asagi";
     spec.path = dataPath(as<std::string>(node, "file"));
@@ -579,6 +572,77 @@ class Walker {
     for (std::size_t p = 0; p < parameters.size(); ++p) {
       out[parameters[p]] =
           Value{arena().lookup(id, static_cast<std::int32_t>(p), coordinates), {positionOf(node)}};
+    }
+    return out;
+  }
+
+  /// The interpolation of a grid of easi (`interpolation`, by default linear): nearest, linear or
+  /// cubic, as easi 1.7 reads it.
+  std::string gridInterpolation(const YAML::Node& node) const {
+    if (!node["interpolation"]) {
+      return "linear";
+    }
+    const auto given = as<std::string>(node, "interpolation");
+    std::string interpolation = given;
+    std::transform(interpolation.begin(),
+                   interpolation.end(),
+                   interpolation.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (interpolation != "nearest" && interpolation != "linear" && interpolation != "cubic") {
+      fail(node,
+           "Invalid interpolation type " + given + " (expected one of nearest, linear, cubic).");
+    }
+    return interpolation;
+  }
+
+  /// The parameters of an !SCECFile, by easi's names, and the columns of the file they are.
+  static const std::map<std::string, std::int32_t>& scecParameters() {
+    static const std::map<std::string, std::int32_t> Parameters = {{"cohesion", 8},
+                                                                   {"d_c", 7},
+                                                                   {"forced_rupture_time", 9},
+                                                                   {"mu_d", 6},
+                                                                   {"mu_s", 5},
+                                                                   {"s_dip", 2},
+                                                                   {"s_normal", 0},
+                                                                   {"s_strike", 1}};
+    return Parameters;
+  }
+
+  /// An !SCECFile: the grid of its file (ScecGrid.h), sampled at the two dimensions of `in` in
+  /// their order, as easi samples it -- the first along strike. Its parameters are eight of the
+  /// ten values of a node, by easi's names; the file is read when the grid is loaded, its header
+  /// here.
+  Values scecGrid(const YAML::Node& node, const Values& in) {
+    if (in.size() != 2) {
+      fail(node, "SCECFile requires 2D input (got " + listOf(keysOf(in)) + ").");
+    }
+    const std::string path = dataPath(as<std::string>(node, "file"));
+    try {
+      static_cast<void>(datafield::readScecHeader(path));
+    } catch (const std::runtime_error& error) {
+      fail(node, error.what());
+    }
+    datafield::GridSpec spec;
+    spec.kind = "scec";
+    spec.path = path;
+    spec.components = datafield::scecComponentNames();
+    spec.interpolation = {gridInterpolation(node)};
+    spec.boundary = {"clamp"};
+    datafield::GridDesc desc;
+    try {
+      desc = datafield::gridDescOf(spec);
+    } catch (const std::invalid_argument& error) {
+      fail(node, error.what());
+    }
+    const auto id = program_.internGrid(desc);
+    program_.nameGrid(id, expr::GridNames{"scec" + std::to_string(id), spec.components});
+    std::vector<NodeId> coordinates;
+    for (const auto& [dimension, value] : in) {
+      coordinates.push_back(value.node);
+    }
+    Values out;
+    for (const auto& [name, column] : scecParameters()) {
+      out[name] = Value{arena().lookup(id, column, coordinates), {positionOf(node)}};
     }
     return out;
   }
@@ -975,12 +1039,9 @@ class Walker {
       return composite(node, in, wanted, reach);
     }
     if (tag == "!ConstantMap" || tag == "!AffineMap" || tag == "!PolynomialMap" ||
-        tag == "!EvalModel" || tag == "!ASAGI" || tag == "!FunctionMap" || tag == "!LuaMap" ||
-        easiSpecialOf(tag) != nullptr) {
+        tag == "!EvalModel" || tag == "!ASAGI" || tag == "!SCECFile" || tag == "!FunctionMap" ||
+        tag == "!LuaMap" || easiSpecialOf(tag) != nullptr) {
       return composite(node, mapped(node, in, reach), wanted, reach);
-    }
-    if (tag == "!SCECFile") {
-      unsupported(node);
     }
     fail(node, "Unknown tag " + tag);
   }
@@ -1175,8 +1236,12 @@ class Walker {
       }
     } else if (const auto* special = easiSpecialOf(tag); special != nullptr) {
       own.insert(special->out.begin(), special->out.end());
+    } else if (tag == "!SCECFile") {
+      for (const auto& [name, column] : scecParameters()) {
+        own.insert(name);
+      }
     } else {
-      unsupported(node);
+      fail(node, "Unknown tag " + tag);
     }
     const auto children = childrenOf(node);
     if (children.empty()) {
