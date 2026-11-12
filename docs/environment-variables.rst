@@ -250,6 +250,12 @@ file as it loads it, and keeps the hash in the cache of ``SEISSOL_EXPR_CACHE`` b
 and the time of modification of the file, so that a run reads a large file once more only where it
 changed; ``SEISSOL_EXPR_GRID_HASH=off`` hashes none.
 
+For a program with state, a point has its states before the call and the next states as well.
+A program called repeatedly (every time step, say) ends its record with the last call that reached
+the points of its sample, which SeisSol evaluates again with the interpreter at the end of the run.
+Where a consumer makes something of the values of a program -- the material of a cell, averaged
+over its points --, the record has that too, at the points of the sample.
+
 The command line tool ``sderiv``, built and installed next to SeisSol, reads these records:
 ``sderiv replay <records>`` evaluates the sample of each again with the interpreter of its build
 and compares bit for bit, ``sderiv merge -o <directory> <records>`` merges the records of the ranks

@@ -81,6 +81,9 @@ class CompiledReader : public DataReader {
   [[nodiscard]] bool usingFallback() const { return fallback_; }
 
   [[nodiscard]] const expr::Program& program() const { return program_; }
+  /// The program the kernel evaluates for the table prepared last: with the outputs it asks for,
+  /// as the evaluation record names it.
+  [[nodiscard]] const expr::Program& boundProgram() const { return bound_; }
 
   private:
   /// Runs the reference reader, then the kernel, and compares a sample.

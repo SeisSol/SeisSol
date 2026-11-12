@@ -20,6 +20,7 @@
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Equations/viscoacoustic/Model/Datastructures.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
+#include "Expr/Backend.h"
 #include "GeneratedCode/init.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
@@ -46,6 +47,7 @@
 #include <exception>
 #include <functional>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -117,6 +119,40 @@ void evaluateSafe(reader::scripting::DataReader& model,
     logError() << "Error while evaluating a model for" << hint.c_str() << ":"
                << std::string(error.what());
   }
+}
+
+/// Adds to the evaluation record of the program of `model` the material of the cells at the points
+/// of its sample: what averaging made of the values of the program (the third layer of the
+/// record); `pointsPerCell` points of `table` per material of `materials`.
+template <typename T>
+void recordMaterial(reader::scripting::DataReader& model,
+                    const reader::scripting::DataTable& table,
+                    const std::vector<T>& materials,
+                    std::size_t pointsPerCell) {
+  const auto* compiled = dynamic_cast<const reader::scripting::CompiledReader*>(&model);
+  if (compiled == nullptr || pointsPerCell == 0) {
+    return;
+  }
+  const auto& program = compiled->boundProgram();
+  const auto identities = expr::recordedIdentities(program);
+  if (identities.empty()) {
+    return;
+  }
+  const std::set<std::uint64_t> wanted(identities.begin(), identities.end());
+  const auto names = model::scriptParameterNames<T>();
+  std::map<std::uint64_t, std::vector<double>> rows;
+  const auto& identity = table.identity();
+  for (std::size_t point = 0; point < table.numPoints(); ++point) {
+    const std::uint64_t id = identity ? identity(point) : static_cast<std::uint64_t>(point);
+    const std::size_t cell = point / pointsPerCell;
+    if (wanted.count(id) == 0 || cell >= materials.size()) {
+      continue;
+    }
+    std::vector<double> values(names.size());
+    model::fillScriptParameters(materials[cell], values.data());
+    rows.emplace(id, std::move(values));
+  }
+  expr::recordConsumer(program, "material", names, rows);
 }
 
 std::set<std::string> suppliedParameters(reader::scripting::DataReader& model) {
@@ -681,7 +717,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
   // * if not (e.g. poroelastic or anisotropic with just elastic parameters), parse elastic or
   // acoustic first, then convert to the target material
 
-  const auto evaluateModel = [&] {
+  const auto evaluateModel = [&](reader::scripting::DataTable* kept = nullptr) {
     auto table = queryGen.generate();
     const std::size_t numPoints = table.numPoints();
     // materials do not depend on the fused simulation
@@ -703,12 +739,16 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     }
 
     evaluateSafe(*model, table, "volume material:" + T::Text);
+    if (kept != nullptr) {
+      *kept = std::move(table);
+    }
 
     return materialsFromQuery;
   };
 
   if (canEvaluateFor<T>(supplied)) {
-    const auto materialsFromQuery = evaluateModel();
+    reader::scripting::DataTable table(0);
+    const auto materialsFromQuery = evaluateModel(&table);
     const std::size_t numPoints = materialsFromQuery.size();
 
     // Only use homogenization when ElementAverageGenerator has been supplied
@@ -738,6 +778,9 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
         materials_->at(i) = T(materialsFromQuery[i]);
       }
     }
+    // what the material of a cell is, at the points of the record of the program
+    recordMaterial(
+        *model, table, *materials_, numPoints / std::max<std::size_t>(1, materials_->size()));
   } else {
     // hard-code tests for elastic or acoustic material here (only if a conversion constructor
     // exists)

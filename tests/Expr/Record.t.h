@@ -23,6 +23,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <map>
 #include <random>
 #include <set>
 #include <stdexcept>
@@ -255,6 +256,72 @@ TEST_SUITE("expr records") {
     const expr::Replay replay = expr::replayRecord(record, store);
     CHECK(replay.points == 2 * record.sample.size());
     CHECK(replay.differing == 0);
+  }
+
+  TEST_CASE("a consumer adds what it made of the values at the points of the sample") {
+    const std::filesystem::path directory =
+        std::filesystem::temp_directory_path() /
+        ("seissol-test-consumer-" + std::to_string(std::random_device{}()));
+    expr::setRecordDirectory(directory.string(), {"build = the test"});
+    const expr::Program program =
+        expr::loadCore("#!sderiv 1\nin x\ndef t0 = 7 * x\nout rho = t0\n", "");
+    constexpr std::size_t Points = 30;
+    std::vector<double> x(Points);
+    std::vector<double> rho(Points);
+    for (std::size_t i = 0; i < Points; ++i) {
+      x[i] = static_cast<double>(i);
+    }
+    reader::scripting::DataTable table(Points);
+    table.bindViewConst<double>("x", reader::scripting::Direction::In, x.data());
+    table.bindView<double>("rho", reader::scripting::Direction::Out, rho.data());
+    table.setIdentity([](std::size_t point) { return 100 + point; });
+    auto binding = expr::Binding::bind(program, table);
+    reader::datafield::GridStore store;
+    expr::BackendOptions options;
+    options.quiet = true;
+    const auto kernel = expr::makeKernel(program, binding, store, options);
+    kernel->precompute(table);
+    kernel->run(table);
+
+    // twice the value, in two parts, the second replacing the first where both have a point
+    const auto identities = expr::recordedIdentities(program);
+    REQUIRE(identities.size() == Points);
+    std::map<std::uint64_t, std::vector<double>> first;
+    std::map<std::uint64_t, std::vector<double>> second;
+    for (const auto identity : identities) {
+      const double value = 14.0 * static_cast<double>(identity - 100);
+      (identity < 110 ? first : second)[identity] = {value};
+      if (identity == 105) {
+        first[identity] = {-1.0};
+        second[identity] = {value};
+      }
+    }
+    expr::recordConsumer(program, "doubled", {"twice"}, first);
+    expr::recordConsumer(program, "doubled", {"twice"}, second);
+    expr::setRecordDirectory("");
+
+    std::vector<expr::Record> records;
+    std::string text;
+    for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+      std::ifstream file(entry.path());
+      text.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+      records.push_back(expr::parseRecord(text, entry.path().string()));
+    }
+    std::filesystem::remove_all(directory);
+    REQUIRE(records.size() == 1);
+    REQUIRE(records[0].consumers.size() == 1);
+    const auto& layer = records[0].consumers[0];
+    CHECK(layer.title == "doubled");
+    CHECK(layer.names == std::vector<std::string>{"twice"});
+    REQUIRE(layer.rows.size() == Points);
+    for (const auto& [identity, values] : layer.rows) {
+      CHECK(values == std::vector<double>{14.0 * static_cast<double>(identity - 100)});
+    }
+    CHECK(expr::printRecord(records[0]) == text);
+    // a merge keeps the layer at the points of its sample
+    const expr::Record merged = expr::mergeRecords(records, store);
+    REQUIRE(merged.consumers.size() == 1);
+    CHECK(merged.consumers[0].rows.size() == merged.sample.size());
   }
 
   TEST_CASE(

@@ -385,6 +385,21 @@ void reportComparison(const Program& program,
                       const Binding* binding = nullptr,
                       reader::datafield::GridStore* grids = nullptr);
 
+/// The identities of the points of the samples of the records of `program` on this rank, where it
+/// is recorded; empty otherwise. Where a consumer gives what it made of the values of the program
+/// (recordConsumer()).
+[[nodiscard]] std::vector<std::uint64_t> recordedIdentities(const Program& program);
+
+/// Adds to the records of `program` what its consumer made of the values of the program at the
+/// points of their samples (the specification's third layer): under `title`, per identity of a
+/// point the values named `names` -- the material of a cell after averaging, say. Rewrites the
+/// records. A layer of the same title and names gains the rows, a later one of a point replacing
+/// the earlier; one of other names replaces it.
+void recordConsumer(const Program& program,
+                    const std::string& title,
+                    const std::vector<std::string>& names,
+                    const std::map<std::uint64_t, std::vector<double>>& rows);
+
 /// Completes the evaluation records at the end of a run: per record, the last call that reached
 /// the points of its sample (the specification's last call of a consumer that calls a program
 /// repeatedly), with what they read before it -- their states included -- and what the kernel

@@ -69,7 +69,8 @@ Evaluation records (written into <prefix>-records by every rank of a run):
                               per program and backend
   diff RECORD RECORD          two records of one program, of two runs: their grids (the files, by
                               their hashes, and the geometry), and the points they share, layer by
-                              layer (inputs, the interpreter's values, the backend's)
+                              layer (inputs, the interpreter's values, the backend's, what the
+                              consumer made of them), in the first and in the last call
 
 The exit status is 0 where everything agrees, 1 where something differs or fails.
 )";
@@ -751,6 +752,44 @@ int diff(const std::vector<std::string>& args) {
   compareCall(first.sample, second.sample, "");
   if (!first.lastCall.empty() || !second.lastCall.empty()) {
     compareCall(first.lastCall, second.lastCall, "the last call: ");
+  }
+  // what the consumers made of the values, layer by layer, at the points in both
+  for (const auto& layer : first.consumers) {
+    const auto other =
+        std::find_if(second.consumers.begin(), second.consumers.end(), [&](const auto& candidate) {
+          return candidate.title == layer.title;
+        });
+    if (other == second.consumers.end()) {
+      std::cout << "the consumer's " << layer.title << " only in the first\n";
+      status = 1;
+      continue;
+    }
+    const auto map = mapOf(layer.names, other->names);
+    std::size_t shared = 0;
+    std::size_t differing = 0;
+    std::string firstDifference;
+    for (const auto& [identity, values] : layer.rows) {
+      const auto found = other->rows.find(identity);
+      if (found == other->rows.end()) {
+        continue;
+      }
+      ++shared;
+      for (std::size_t c = 0; c < map.size(); ++c) {
+        if (map[c].has_value() && !sameBits(values[c], found->second[*map[c]])) {
+          if (differing++ == 0) {
+            firstDifference = "`" + layer.names[c] + "` at the point of identity " +
+                              std::to_string(identity) + ": " + valueText(values[c], true) +
+                              " and " + valueText(found->second[*map[c]], true);
+          }
+        }
+      }
+    }
+    std::cout << "the consumer's " << layer.title << ": " << shared << " points in both\n";
+    if (differing > 0) {
+      std::cout << "the consumer's " << layer.title << " differs at " << differing
+                << " values; the first, " << firstDifference << "\n";
+      status = 1;
+    }
   }
   if (status == 0) {
     std::cout << "the same bits at the points in both\n";

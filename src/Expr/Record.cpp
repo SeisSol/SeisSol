@@ -45,6 +45,7 @@ constexpr const char* NotCorePrefix = "# not in the core format: ";
 constexpr const char* SamplePrefix = "# the sample";
 constexpr const char* UnstablePrefix = "# unstable points";
 constexpr const char* LastCallPrefix = "# the last call";
+constexpr const char* ConsumerPrefix = "# what the consumer made of the values: ";
 constexpr const char* GridComment =
     "# per grid its file, the SHA-256 of the file, its variable and components; per axis its "
     "dimension in the file with the attributes it has there, and the geometry as derived: the "
@@ -581,6 +582,20 @@ std::string printRecord(const Record& record) {
     }
   };
   printPoints(record.sample);
+  for (const auto& layer : record.consumers) {
+    out << "\n" << ConsumerPrefix << layer.title << "\nidentity";
+    for (const auto& name : layer.names) {
+      out << " " << name;
+    }
+    out << "\n";
+    for (const auto& [identity, values] : layer.rows) {
+      out << identity;
+      for (const double value : values) {
+        out << " " << hexOf(value);
+      }
+      out << "\n";
+    }
+  }
   if (!record.lastCall.empty()) {
     out << "\n"
         << LastCallPrefix
@@ -804,7 +819,35 @@ Record parseRecord(const std::string& text, const std::string& file) {
   // the last call and the unstable points
   while (!reader.done()) {
     const std::string& line = reader.take();
-    if (startsWith(line, LastCallPrefix)) {
+    if (startsWith(line, ConsumerPrefix)) {
+      Record::Layer layer;
+      layer.title = line.substr(std::string(ConsumerPrefix).size());
+      if (reader.done()) {
+        reader.fail("the layer of a consumer has no columns");
+      }
+      const auto names = wordsOf(reader.take());
+      if (names.empty() || names[0] != "identity") {
+        reader.fail("the columns of the layer of a consumer start with `identity`");
+      }
+      layer.names.assign(names.begin() + 1, names.end());
+      while (!reader.done() && !reader.peek().empty() && !startsWith(reader.peek(), "#")) {
+        const auto words = wordsOf(reader.take());
+        if (words.size() != names.size()) {
+          reader.fail("expected " + std::to_string(names.size()) + " values, not " +
+                      std::to_string(words.size()));
+        }
+        std::vector<double> values;
+        try {
+          for (std::size_t w = 1; w < words.size(); ++w) {
+            values.push_back(valueOf(words[w]));
+          }
+          layer.rows[std::stoull(words[0])] = std::move(values);
+        } catch (const std::exception& error) {
+          reader.fail(std::string("a value of a consumer does not read: ") + error.what());
+        }
+      }
+      record.consumers.push_back(std::move(layer));
+    } else if (startsWith(line, LastCallPrefix)) {
       if (reader.done() || wordsOf(reader.take()) != columns) {
         reader.fail("the last call has other columns than the sample");
       }
@@ -1140,6 +1183,27 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
   std::sort(merged.lastCall.begin(), merged.lastCall.end(), [](const auto& a, const auto& b) {
     return std::make_pair(a.rank, a.point) < std::make_pair(b.rank, b.point);
   });
+  // what the consumers made of the values, at the points of the sample
+  for (const auto& record : records) {
+    for (const auto& layer : record.consumers) {
+      auto found =
+          std::find_if(merged.consumers.begin(),
+                       merged.consumers.end(),
+                       [&](const Record::Layer& kept) { return kept.title == layer.title; });
+      if (found == merged.consumers.end()) {
+        merged.consumers.push_back(Record::Layer{layer.title, layer.names, {}});
+        found = merged.consumers.end() - 1;
+      }
+      if (found->names != layer.names) {
+        continue;
+      }
+      for (const auto& [identity, values] : layer.rows) {
+        if (sampled.count(identity) != 0) {
+          found->rows.emplace(identity, values);
+        }
+      }
+    }
+  }
   for (const auto& record : records) {
     for (const auto& entry : record.unstable) {
       if (std::none_of(merged.unstable.begin(), merged.unstable.end(), [&](const auto& kept) {

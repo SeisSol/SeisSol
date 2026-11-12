@@ -1337,9 +1337,7 @@ void writeRecord(const Program& program,
   const std::filesystem::path path =
       std::filesystem::path(state.directory) / (key + "-r" + std::to_string(state.rank) + ".txt");
   writeText(path, printRecord(record));
-  if (binding == nullptr || grids == nullptr) {
-    return;
-  }
+  // kept, for what the later calls and the consumers add to the record
   auto tracker = std::make_shared<Tracker>();
   tracker->program = program;
   tracker->kind = kind;
@@ -1367,14 +1365,73 @@ std::shared_ptr<Tracker>
   auto& state = records();
   const std::lock_guard<std::mutex> lock(state.mutex);
   const auto found = state.trackers.find(fingerprintOf(program) + "-" + seissol::expr::name(kind));
-  if (found == state.trackers.end() || found->second->binding != binding) {
+  if (found == state.trackers.end() || binding == nullptr || found->second->binding != binding) {
     return nullptr;
   }
   found->second->followed = true;
   return found->second;
 }
 
+/// The trackers of the records of `program`, of every backend.
+std::vector<std::shared_ptr<Tracker>> trackersOf(Records& state, const Program& program) {
+  const std::string prefix = fingerprintOf(program) + "-";
+  std::vector<std::shared_ptr<Tracker>> found;
+  for (const auto& [key, tracker] : state.trackers) {
+    if (key.compare(0, prefix.size(), prefix) == 0) {
+      found.push_back(tracker);
+    }
+  }
+  return found;
+}
+
 } // namespace
+
+std::vector<std::uint64_t> recordedIdentities(const Program& program) {
+  auto& state = records();
+  const std::lock_guard<std::mutex> lock(state.mutex);
+  std::set<std::uint64_t> identities;
+  for (const auto& tracker : trackersOf(state, program)) {
+    const std::lock_guard<std::mutex> trackerLock(tracker->mutex);
+    for (const auto& point : tracker->record.sample) {
+      identities.insert(point.identity);
+    }
+  }
+  return {identities.begin(), identities.end()};
+}
+
+void recordConsumer(const Program& program,
+                    const std::string& title,
+                    const std::vector<std::string>& names,
+                    const std::map<std::uint64_t, std::vector<double>>& rows) {
+  auto& state = records();
+  const std::lock_guard<std::mutex> lock(state.mutex);
+  for (const auto& tracker : trackersOf(state, program)) {
+    const std::lock_guard<std::mutex> trackerLock(tracker->mutex);
+    Record& record = tracker->record;
+    Record::Layer layer{title, names, {}};
+    for (const auto& point : record.sample) {
+      const auto found = rows.find(point.identity);
+      if (found != rows.end() && found->second.size() == names.size()) {
+        layer.rows.emplace(point.identity, found->second);
+      }
+    }
+    const auto kept =
+        std::find_if(record.consumers.begin(),
+                     record.consumers.end(),
+                     [&](const Record::Layer& other) { return other.title == title; });
+    if (kept == record.consumers.end()) {
+      record.consumers.push_back(std::move(layer));
+    } else if (kept->names != names) {
+      *kept = std::move(layer);
+    } else {
+      // a consumer that evaluates the program for some of the points at a time: the points of each
+      for (auto& [identity, values] : layer.rows) {
+        kept->rows.insert_or_assign(identity, std::move(values));
+      }
+    }
+    writeText(tracker->path, printRecord(record));
+  }
+}
 
 void finishRecords() {
   auto& state = records();

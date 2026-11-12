@@ -49,6 +49,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
 #include <utility>
@@ -105,6 +106,16 @@ struct Record {
   std::vector<Point> lastCall;
   /// where a perturbed evaluation decides a select otherwise: the point and its identity
   std::vector<std::pair<std::size_t, std::uint64_t>> unstable;
+
+  /// What a consumer made of the values of the program at the points of the sample (the third
+  /// layer of the specification): under a title, values of its names per identity of a point --
+  /// the material of a cell after averaging, say.
+  struct Layer {
+    std::string title;
+    std::vector<std::string> names;
+    std::map<std::uint64_t, std::vector<double>> rows;
+  };
+  std::vector<Layer> consumers;
 
   /// The values per point after the outputs: the outputs, then the next states.
   [[nodiscard]] std::size_t rows() const { return outputs.size() + states.size(); }
