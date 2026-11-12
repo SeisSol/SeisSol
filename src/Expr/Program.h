@@ -227,6 +227,22 @@ class Program {
   // where it is empty): what a frontend program carries along when it is rebuilt.
   void addChecksOf(const Program& other, const std::vector<NodeId>& map = {});
 
+  // The same program -- its arena, inputs, grids, matrices and blocks -- that computes `roots` as
+  // the outputs `names`, F64, and has no state and no check: what evaluates a part of a program
+  // with the binding of the program, the operands of its contractions included.
+  [[nodiscard]] Program withRoots(const std::vector<std::string>& names,
+                                  const std::vector<NodeId>& roots) const {
+    Program part = *this;
+    part.outputs_.clear();
+    part.roots_.clear();
+    part.state_.clear();
+    part.checks_.clear();
+    for (std::size_t i = 0; i < roots.size() && i < names.size(); ++i) {
+      part.addOutput(names[i], reader::scripting::DataType::F64, roots[i]);
+    }
+    return part;
+  }
+
   // Returns the id of the matrix or block of that name, declaring it first if needed. Throws
   // std::invalid_argument if the name is known with another shape or length, and for a matrix whose
   // row count differs from the ones already declared: the point set has one cell structure.

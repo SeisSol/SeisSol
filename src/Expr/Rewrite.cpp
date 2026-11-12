@@ -11,6 +11,7 @@
 #include "Expr/Program.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -377,6 +378,72 @@ std::vector<NodeId>
     imported.push_back(importNode(target, root, imports));
   }
   return imported;
+}
+
+Contractions contractionsOf(const Program& program) {
+  const Arena& arena = program.arena();
+  std::vector<NodeId> roots = program.roots();
+  for (const auto& state : program.state()) {
+    roots.push_back(state.root);
+  }
+  for (const auto& check : program.checks()) {
+    roots.push_back(check.root);
+  }
+  std::vector<char> seen(arena.size(), 0);
+  std::vector<NodeId> stack(roots.begin(), roots.end());
+  std::vector<NodeId> kids;
+  Contractions contractions;
+  while (!stack.empty()) {
+    const NodeId id = stack.back();
+    stack.pop_back();
+    if (id == NoNode || seen[static_cast<std::size_t>(id)] != 0) {
+      continue;
+    }
+    seen[static_cast<std::size_t>(id)] = 1;
+    if (arena[id].kind == Kind::Contract) {
+      contractions.nodes.push_back(id);
+    }
+    arena.children(id, kids);
+    stack.insert(stack.end(), kids.begin(), kids.end());
+  }
+  std::sort(contractions.nodes.begin(), contractions.nodes.end());
+  for (const NodeId id : contractions.nodes) {
+    const Node& node = arena[id];
+    contractions.names.push_back(program.matrices().at(static_cast<std::size_t>(node.matrix)).name +
+                                 "." +
+                                 program.blocks().at(static_cast<std::size_t>(node.block)).name);
+  }
+  return contractions;
+}
+
+Program contractionsAsInputs(const Program& program, const Contractions& contractions) {
+  Program result;
+  result.setComputeType(program.computeType());
+  for (const auto& input : program.inputs()) {
+    result.addInput(input.name, input.type);
+  }
+  Imports imports(program);
+  for (std::size_t c = 0; c < contractions.nodes.size(); ++c) {
+    result.addInput(contractions.names[c], reader::scripting::DataType::F64);
+    imports.nodes.emplace(contractions.nodes[c],
+                          result.arena().field(result.arena().channel(contractions.names[c]),
+                                               program.arena()[contractions.nodes[c]].type));
+  }
+  for (const auto& state : program.state()) {
+    result.addState(state.name, state.initial, importNode(result, state.root, imports), state.type);
+  }
+  for (std::size_t o = 0; o < program.outputs().size(); ++o) {
+    result.addOutput(program.outputs()[o].name,
+                     program.outputs()[o].type,
+                     importNode(result, program.roots()[o], imports));
+  }
+  for (const auto& check : program.checks()) {
+    result.addCheck(importNode(result, check.root, imports), check.message);
+  }
+  for (const auto& entry : program.meta()) {
+    result.addMeta(entry);
+  }
+  return result;
 }
 
 Program mergePrograms(const Program& first, const Program& second) {

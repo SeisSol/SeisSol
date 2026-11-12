@@ -12,6 +12,7 @@
 #include "Expr/Interp.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
+#include "Expr/Rewrite.h"
 #include "Reader/Datafield/Grid.h"
 
 #include <algorithm>
@@ -390,12 +391,19 @@ Record recordOf(const Program& program,
     }
     record.head.emplace_back("check", check);
   }
+  // a program with contractions as the record replays it: with their values as inputs
+  const Contractions contractions = contractionsOf(program);
+  const Program core =
+      contractions.nodes.empty() ? program : contractionsAsInputs(program, contractions);
+  if (!contractions.nodes.empty()) {
+    record.coreFingerprint = fingerprintText(core);
+  }
   try {
-    record.program = printCore(program);
+    record.program = printCore(core);
     // what the tool checks by the fingerprint: the normal form reads back into the program
     Program again = loadCore(record.program, "");
-    again.setComputeType(program.computeType());
-    if (again.fingerprint() != program.fingerprint()) {
+    again.setComputeType(core.computeType());
+    if (again.fingerprint() != core.fingerprint()) {
       record.head.emplace_back("normal form",
                                "reads back as program " + fingerprintText(again) +
                                    ", which the fingerprint of the record does not check");
@@ -406,6 +414,7 @@ Record recordOf(const Program& program,
   for (const auto& input : program.inputs()) {
     record.inputs.push_back(input.name);
   }
+  record.inputs.insert(record.inputs.end(), contractions.names.begin(), contractions.names.end());
   for (const auto& output : program.outputs()) {
     record.outputs.push_back(output.name);
   }
@@ -452,6 +461,9 @@ std::string printRecord(const Record& record) {
   out << Title << "\n";
   out << "record = " << RecordVersion << "\n";
   out << "fingerprint = " << record.fingerprint << "\n";
+  if (!record.coreFingerprint.empty()) {
+    out << "core fingerprint = " << record.coreFingerprint << "\n";
+  }
   out << "backend = " << record.backend << "\n";
   if (record.rank.has_value()) {
     out << "rank = " << *record.rank << "\n";
@@ -643,6 +655,8 @@ Record parseRecord(const std::string& text, const std::string& file) {
     } else if (key == "fingerprint") {
       record.fingerprint = value;
       seenFingerprint = true;
+    } else if (key == "core fingerprint") {
+      record.coreFingerprint = value;
     } else if (startsWith(key, "clamped ")) {
       record.clamps.push_back(readClamps(reader, key.substr(8), value));
     } else if (startsWith(key, "grid ")) {
@@ -875,9 +889,11 @@ Program programOf(const Record& record) {
   Program program = loadCore(record.program, "");
   program.setComputeType(record.compute == "f32" ? ComputeType::F32 : ComputeType::F64);
   const std::string fingerprint = fingerprintText(program);
-  if (fingerprint != record.fingerprint) {
+  const std::string& expected =
+      record.coreFingerprint.empty() ? record.fingerprint : record.coreFingerprint;
+  if (fingerprint != expected) {
     throw std::runtime_error("the program of the record has the fingerprint " + fingerprint +
-                             ", not " + record.fingerprint +
+                             ", not " + expected +
                              " as recorded: the core format does not read it back as it was");
   }
   return program;

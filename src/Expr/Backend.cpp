@@ -564,6 +564,10 @@ void gatherStates(const Binding& binding,
 struct Tracker {
   std::mutex mutex;
   Program program;
+  /// the contractions of the program, and the program with them as inputs, which evaluates the last
+  /// call again
+  Contractions contractions;
+  Program core;
   BackendKind kind{BackendKind::Interpreter};
   const Binding* binding{nullptr};
   GridStore* grids{nullptr};
@@ -581,6 +585,15 @@ struct Tracker {
   std::size_t callFirst{0};
   bool followed{false};
 };
+
+/// The values of contractions at points of a call, [contraction][point] (defined below).
+std::vector<double> contractionValues(const Program& program,
+                                      const Contractions& contractions,
+                                      const Binding& binding,
+                                      const DataTable* table,
+                                      const KernelArgs* args,
+                                      const std::vector<std::size_t>& points,
+                                      GridStore& grids);
 
 /// The tracker of the record of `program` on `kind`, where the binding of its sample is `binding`.
 std::shared_ptr<Tracker>
@@ -711,6 +724,22 @@ class CheckedKernel final : public Kernel {
       }
     }
     run();
+    // the values of the contractions, between the inputs and the states before
+    if (!tracker_->contractions.nodes.empty()) {
+      const std::vector<std::size_t> reached(lower, upper);
+      const auto values = contractionValues(
+          program_, tracker_->contractions, *binding_, table, args, reached, *grids_);
+      const std::size_t contractionCount = tracker_->contractions.nodes.size();
+      for (std::size_t j = 0; j < reached.size(); ++j) {
+        std::vector<double> formed(contractionCount);
+        for (std::size_t c = 0; c < contractionCount; ++c) {
+          formed[c] = values[c * reached.size() + j];
+        }
+        before[j].insert(before[j].begin() + static_cast<std::ptrdiff_t>(inputCount),
+                         formed.begin(),
+                         formed.end());
+      }
+    }
     std::vector<std::vector<double>> after;
     for (auto point = lower; point != upper; ++point) {
       auto& gave = after.emplace_back();
@@ -980,6 +1009,41 @@ void interpretAt(const Program& program,
   TileInterpreter<T> interpreter(program, lowered, arrays, options);
   std::vector<T> persistent(1, T(0));
   interpreter.run(*io, points, persistent.data());
+}
+
+/// The values of the contractions `contractions` of `program` at `points` of a call, [contraction]
+/// [point], as the interpreter forms them from the operands the binding gives for the call: what a
+/// record keeps of a program with contractions, which it replays with them as inputs.
+std::vector<double> contractionValues(const Program& program,
+                                      const Contractions& contractions,
+                                      const Binding& binding,
+                                      const DataTable* table,
+                                      const KernelArgs* args,
+                                      const std::vector<std::size_t>& points,
+                                      GridStore& grids) {
+  std::vector<double> values;
+  if (contractions.nodes.empty() || points.empty()) {
+    return values;
+  }
+  const Program part = program.withRoots(contractions.names, contractions.nodes);
+  const LoweredProgram lowered = lower(part, LowerOptions{});
+  const auto ids = internGrids(part, grids);
+  const StoreArrays arrays(part, ids, grids);
+  const GridArrays* sampled = ids.empty() ? nullptr : &arrays;
+  const auto run = [&](auto tag) {
+    using T = decltype(tag);
+    const auto makeIo = [&](std::vector<double>& results) {
+      return std::make_unique<SampleTileIo<T>>(
+          binding, table, args, points, results, contractions.nodes.size());
+    };
+    interpretAt<T>(part, lowered, sampled, points.size(), InterpreterOptions{}, makeIo, values);
+  };
+  if (lowered.dataType() == ComputeType::F32) {
+    run(0.0F);
+  } else {
+    run(0.0);
+  }
+  return values;
 }
 
 /// What the interpreter gives at the pool: its outputs, the branches of its selects, and, for
@@ -1340,6 +1404,10 @@ void writeRecord(const Program& program,
   // kept, for what the later calls and the consumers add to the record
   auto tracker = std::make_shared<Tracker>();
   tracker->program = program;
+  tracker->contractions = contractionsOf(program);
+  tracker->core = tracker->contractions.nodes.empty()
+                      ? program
+                      : contractionsAsInputs(program, tracker->contractions);
   tracker->kind = kind;
   tracker->binding = binding;
   tracker->grids = grids;
@@ -1463,9 +1531,8 @@ void finishRecords() {
     }
     const std::size_t n = record.lastCall.size();
     std::string outcome;
-    // evaluated again by the interpreter, where all a point reads is in the record
-    if (tracker->kind != BackendKind::Interpreter && program.matrices().empty() &&
-        program.blocks().empty() && n > 0) {
+    // evaluated again by the interpreter, with the contractions as inputs
+    if (tracker->kind != BackendKind::Interpreter && n > 0) {
       std::vector<double> inputs(inputCount * n);
       std::vector<double> states(stateCount * n);
       for (std::size_t k = 0; k < n; ++k) {
@@ -1477,7 +1544,7 @@ void finishRecords() {
         }
       }
       const auto values = interpretValues(
-          program, *tracker->grids, inputs, n, nullptr, states.empty() ? nullptr : &states);
+          tracker->core, *tracker->grids, inputs, n, nullptr, states.empty() ? nullptr : &states);
       std::size_t deviating = 0;
       for (std::size_t k = 0; k < n; ++k) {
         for (std::size_t o = 0; o < rows; ++o) {
@@ -1499,7 +1566,7 @@ void finishRecords() {
                      << "values of the last call that reached the points of its record.";
       }
     } else if (tracker->kind != BackendKind::Interpreter) {
-      outcome = "not evaluated again, the program reads contractions";
+      outcome = "no point";
     } else {
       outcome = "the interpreter";
     }
@@ -1653,6 +1720,17 @@ std::optional<BackendComparison> compareWithInterpreter(const Program& program,
     for (std::size_t i = 0; i < inputCount; ++i) {
       inputs[i * pool + k] = value[i];
     }
+  }
+
+  // the values of the contractions, which a record replays as inputs, between the inputs and the
+  // states
+  const Contractions contractions = contractionsOf(program);
+  if (!contractions.nodes.empty()) {
+    const auto values =
+        contractionValues(program, contractions, binding, table, args, points, grids);
+    inputs.insert(inputs.begin() + static_cast<std::ptrdiff_t>(inputCount * pool),
+                  values.begin(),
+                  values.end());
   }
 
   // the interpreter reads the inputs as the call did, through the binding, and the states as they

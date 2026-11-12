@@ -88,6 +88,20 @@ NodeId replaceChannels(Arena& arena,
 [[nodiscard]] std::vector<NodeId>
     importNodes(Program& target, const Program& source, const std::vector<NodeId>& roots);
 
+/// The contractions of `program` (Kind::Contract) that its outputs, states and checks read, by
+/// NodeId in ascending order, and a name for each: `<matrix>.<block>`.
+struct Contractions {
+  std::vector<NodeId> nodes;
+  std::vector<std::string> names;
+};
+[[nodiscard]] Contractions contractionsOf(const Program& program);
+
+/// `program` with every contraction of `contractions` read as an input of its name, F64, after the
+/// inputs of the program: the program as a record replays it, whose contractions it cannot form
+/// (the core format has none), from their values at the points of its sample.
+[[nodiscard]] Program contractionsAsInputs(const Program& program,
+                                           const Contractions& contractions);
+
 /// What restrictProgram leaves out of a program, by name.
 struct Restriction {
   /// the outputs that are not wanted

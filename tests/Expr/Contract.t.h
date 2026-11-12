@@ -14,6 +14,7 @@
 #include "Expr/Ir.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Expr/Record.h"
 #include "Expr/Rewrite.h"
 #include "Expr/RtcCpu.h"
 #include "Expr/SderivFrontend.h"
@@ -275,6 +276,43 @@ TEST_SUITE("ExprContract") {
       return;
     }
     CHECK(sameBits(interpreted, compiled));
+  }
+
+  TEST_CASE("a record replays a program with contractions from their values") {
+    const Fixture fixture;
+    const Program program = contracted();
+    const std::size_t outputs = program.outputs().size();
+    std::vector<double> out(outputs * NumPoints, -1.0);
+    DataTable table(NumPoints);
+    table.bindViewConst<double>("t", Direction::In, fixture.t.data());
+    fixture.bindBlocks(table);
+    for (std::size_t i = 0; i < outputs; ++i) {
+      table.bindView<double>(program.outputs()[i].name, Direction::Out, &out[i * NumPoints]);
+    }
+    Binding binding = Binding::bind(program, table);
+    df::GridStore store;
+    const auto kernel = makeKernel(program, binding, store, {});
+    kernel->precompute(table);
+    kernel->run(table);
+    const auto comparison = compareWithInterpreter(program, binding, store, &table, nullptr);
+    REQUIRE(comparison.has_value());
+
+    // the contractions as inputs after those of the program, of their values at the points
+    const Record record = recordOf(program, "interpreter", *comparison, {}, 0);
+    CHECK(record.inputs == std::vector<std::string>{"t", "proj.v", "proj.w"});
+    CHECK_FALSE(record.coreFingerprint.empty());
+    CHECK(record.coreFingerprint != record.fingerprint);
+    const auto v = fixture.projected(0, fixture.matrix.data());
+    for (const auto& point : record.sample) {
+      CHECK(point.inputs[1] == v[point.point]);
+    }
+    const std::string text = printRecord(record);
+    CAPTURE(text);
+    const Record read = parseRecord(text, "");
+    CHECK(printRecord(read) == text);
+    const Replay replay = replayRecord(read, store);
+    CHECK(replay.points == read.sample.size());
+    CHECK(replay.differing == 0);
   }
 
   TEST_CASE("only the matrix base moves between the subcells") {

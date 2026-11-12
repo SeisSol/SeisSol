@@ -77,9 +77,12 @@ struct Record {
   /// the grids of the program: files, hashes, geometry
   std::vector<GridRecord> grids;
   /// the program in the normal form of the core format; empty for one the format cannot express,
-  /// with the reason in `notCore`
+  /// with the reason in `notCore`. For a program with contractions, which the format has none of,
+  /// the program with their values as inputs (contractionsAsInputs()), of the fingerprint
+  /// `coreFingerprint`.
   std::string program;
   std::string notCore;
+  std::string coreFingerprint;
 
   std::vector<std::string> inputs;
   std::vector<std::string> outputs;
