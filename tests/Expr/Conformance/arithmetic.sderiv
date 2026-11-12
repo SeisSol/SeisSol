@@ -1,0 +1,31 @@
+#!sderiv 1
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#
+# The IEEE class: correctly rounded, the same bits on every backend. A product into a sum is not
+# contracted on the CPU (`fused`); a GPU may contract it.
+in x, y,z
+def sum = x + y
+def difference = x - y
+def product = x * y
+def quotient = x / y
+def root = sqrt(x)
+def reciprocal = rcp(y)
+def negated = -x
+def fused = x * y + z
+def remainder = mod(x, y)
+def nested = (x + y) * (x - y) / (z * z + 1e-3)
+out sum = sum
+out difference = difference
+out product = product
+out quotient = quotient
+out root = root
+out reciprocal = reciprocal
+out negated = negated
+out fused = fused
+out remainder = remainder
+out nested = nested

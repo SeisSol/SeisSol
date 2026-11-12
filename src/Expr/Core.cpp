@@ -1029,6 +1029,11 @@ class Loader {
           return spelling.first == at.text;
         });
     if (operation == operations.end() && conversion == conversions.end()) {
+      const auto found = names_.find(at.text);
+      if (found != names_.end() && found->second.what == What::Grid) {
+        fail(at,
+             "the grid `" + at.text + "` is sampled with a component, as `" + at.text + ".c(x)`");
+      }
       fail(at,
            "there is no operation `" + at.text +
                "`; a definition with parameters exists only in the full language");

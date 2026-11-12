@@ -1,0 +1,23 @@
+#!sderiv 1
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#
+# Grids whose data the program gives: layers in steps and linear between their knots, and a table
+# of two axes, sampled in binary64 whatever the compute type.
+in x, y
+grid steps (kind = "inline", components = ("rho", "mu"), knots = ((-2, -1, 0.5, 3)),
+            values = (2600, 10, 2700, 20, 3000, 40, 3300, 50), interpolation = "previous",
+            boundary = "clamp")
+grid ramp (kind = "inline", components = ("v"), knots = ((-1, 0, 2), (-3, 1)),
+           values = (0.1, 0.2, 0.7, 1.1, 1.3, 1.9), interpolation = ("linear", "nearest"),
+           boundary = "clamp")
+def rho = steps.rho(x)
+def mu = steps.mu(y)
+def v = ramp.v(x, y)
+out rho = rho
+out mu = mu
+out v = v

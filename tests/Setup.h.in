@@ -18,6 +18,8 @@ namespace seissol::unit_test {
 // contains test-specific variables
 struct TestSetup {
     static const inline std::string Path = "@CMAKE_CURRENT_BINARY_DIR@";
+    // the sources of the tests: data they read where it is kept, golden files
+    static const inline std::string SourcePath = "@CMAKE_CURRENT_SOURCE_DIR@";
 };
 
 } // namespace seissol::unit_test

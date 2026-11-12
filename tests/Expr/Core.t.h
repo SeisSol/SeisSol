@@ -368,6 +368,67 @@ out u = t2
          "no component `vp`"},
         {"#!sderiv 1\nin x\nout u = x\nout u = x\n", 4, 5, "given twice"},
         {"#!sderiv 1\nin x\n# ä comment\nout u = ä\n", 4, 9, "unexpected character"},
+        // every other error of the loader
+        {"#!sderiv 1.5\n", 1, 10, "as a whole number"},
+        {"#!sderiv 0\n", 1, 10, "no version 0"},
+        {"#!sderiv 1\nin `x\n", 2, 4, "ends with ` on its line"},
+        {"#!sderiv 1\nin ``\n", 2, 4, "is not empty"},
+        {"#!sderiv 1\nin x\nout u = 1e\n", 3, 9, "the exponent of a number has digits"},
+        {"#!sderiv 1\nin x\nout u = 0x\n", 3, 9, "a hexadecimal number has digits"},
+        {"#!sderiv 1\nin x\nfoo x\n", 3, 1, "a declaration starts with"},
+        {"#!sderiv 1\nin\n", 3, 1, "expected"},
+        {"#!sderiv 1\nmeta body = \"x\"\nin x\nout u = x\n", 2, 1, "the hash of the body"},
+        {"#!sderiv 1\nmeta source = \"a.py\"\nin x\nout u = x\n", 2, 1, "a file and its hash"},
+        {"#!sderiv 1\nmeta a = b\n", 2, 10, "a string or a whole number"},
+        {"#!sderiv 1\ngrid m (kind = \"asagi\", kind = \"asagi\")\n", 2, 25, "given twice"},
+        {"#!sderiv 1\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", components = "
+         "(\"rho\"), interpolation = \"linear\", boundary = \"clamp\", time = 1.5)\n",
+         2,
+         131,
+         "a whole number"},
+        {"#!sderiv 1\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", components = "
+         "(\"rho\"), interpolation = \"linear\", boundary = \"clamp\", time = 9)\n",
+         2,
+         131,
+         "at most 6 axes"},
+        {"#!sderiv 1\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", components = "
+         "(\"rho\", \"rho\"), interpolation = \"linear\", boundary = \"clamp\")\n",
+         2,
+         6,
+         "names a component twice"},
+        {"#!sderiv 1\ngrid m (kind = \"inline\", components = (\"a\"), knots = ((2, 1)), values = "
+         "(0, 1), interpolation = \"linear\", boundary = \"clamp\")\n",
+         2,
+         6,
+         "do not increase strictly"},
+        {"#!sderiv 1\nstate f16 s = 0\n", 2, 7, "f64, f32 or real"},
+        {"#!sderiv 1\nin x\nstate s = 0\nnext s = x\nnext s = x\n",
+         5,
+         6,
+         "has its next value already"},
+        {"#!sderiv 1\nin x\nout u = `sin`(x)\n", 3, 9, "an escaped name is no operation"},
+        {"#!sderiv 1\nin x\nout u = )\n", 3, 9, "expected a value"},
+        {"#!sderiv 1\nin x\nout u = x.rho(x)\n", 3, 9, "is no grid"},
+        {"#!sderiv 1\nin x\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
+         "components = (\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\nout u = "
+         "m.rho()\n",
+         4,
+         9,
+         "a sample takes 1 to"},
+        {"#!sderiv 1\nin x\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
+         "components = (\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\nout u = "
+         "m(x)\n",
+         4,
+         9,
+         "is sampled with a component"},
+        {"#!sderiv 1\nin x\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
+         "components = (\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\nout u = m + "
+         "x\n",
+         4,
+         9,
+         "is sampled with a component"},
+        {"#!sderiv 2x\n", 1, 10, "as a whole number"},
+        {"#!sderiv 1\nin x\nout u = 0x1p\n", 3, 9, "the exponent of a number has digits"},
     };
     for (const auto& c : cases) {
       CAPTURE(c.text);

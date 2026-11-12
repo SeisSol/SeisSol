@@ -1,0 +1,40 @@
+#!sderiv 1
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#
+# The exact class: no rounding at all. NaN is true as a condition, and false in a comparison.
+in x, y, z
+def a = abs(x)
+def f = floor(x)
+def c = ceil(x)
+def r = round(x)
+def s = sign(x)
+def lo = min(x, y)
+def hi = max(x, y)
+def less = lt(x, y)
+def atMost = le(x, y)
+def equal = eq(x, y)
+def both = land(x, z)
+def either = lor(x, z)
+def chosen = select(z, x, y)
+def notX = eq(x, 0)
+def greater = lt(y, x)
+out a = a
+out f = f
+out c = c
+out r = r
+out s = s
+out lo = lo
+out hi = hi
+out less = less
+out atMost = atMost
+out equal = equal
+out both = both
+out either = either
+out chosen = chosen
+out notX = notX
+out greater = greater

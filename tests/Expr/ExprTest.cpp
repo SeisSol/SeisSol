@@ -9,6 +9,7 @@
 
 #include "Backend.t.h"
 #include "Binding.t.h"
+#include "Conformance.t.h"
 #include "Contract.t.h"
 #include "Core.t.h"
 #include "Cost.t.h"

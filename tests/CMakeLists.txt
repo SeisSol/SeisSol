@@ -171,6 +171,31 @@ seissol_add_test_module(common          Common/TestCommon.cpp)
 seissol_add_test_module(dynamicrupture  DynamicRupture/TestDynamicRupture.cpp)
 seissol_add_test_module(equations       Equations/TestEquations.cpp)
 seissol_add_test_module(expr            Expr/ExprTest.cpp)
+# The accuracy of the bounded operations against a reference of high precision (the specification
+# of sderiv, "Conformance"), where MPFR is there; without it, those cases are left out.
+find_path(MPFR_INCLUDE_DIR mpfr.h)
+find_library(MPFR_LIBRARY mpfr)
+find_library(GMP_LIBRARY gmp)
+if (MPFR_INCLUDE_DIR AND MPFR_LIBRARY AND GMP_LIBRARY)
+    target_include_directories(seissol-test-expr PRIVATE ${MPFR_INCLUDE_DIR})
+    target_link_libraries(seissol-test-expr PRIVATE ${MPFR_LIBRARY} ${GMP_LIBRARY})
+    target_compile_definitions(seissol-test-expr PRIVATE SEISSOL_TEST_MPFR)
+else()
+    message(STATUS "MPFR not found: the accuracy of the bounded operations of sderiv is not tested")
+endif()
+# The interpreter, built with -ffast-math, must find so in its self-test at its first use: a
+# reference that is not IEEE 754 must not judge the compiled backends.
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|IntelLLVM")
+    add_executable(seissol-test-expr-fastmath Expr/FastMath.cpp ${PROJECT_SOURCE_DIR}/src/Expr/Interp.cpp)
+    target_link_libraries(seissol-test-expr-fastmath PRIVATE seissol-test-base)
+    set_source_files_properties(${PROJECT_SOURCE_DIR}/src/Expr/Interp.cpp
+        TARGET_DIRECTORY seissol-test-expr-fastmath
+        PROPERTIES COMPILE_OPTIONS "-ffast-math")
+    if (NOT TESTING_BUILD_ONLY)
+        add_test(NAME "expr/the self-test of the interpreter rejects a build with -ffast-math"
+                 COMMAND seissol-test-expr-fastmath)
+    endif()
+endif()
 seissol_add_test_module(geometry        Geometry/TestGeometry.cpp)
 seissol_add_test_module(initializer     Initializer/TestInitializer.cpp)
 seissol_add_test_module(io              IO/TestIO.cpp)

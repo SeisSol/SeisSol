@@ -1,0 +1,27 @@
+#!sderiv 1
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#
+# Values of a type of their own in a program of either compute type, constants that binary32 does
+# not hold, and a state of binary64 that adds up in binary64.
+in x, y
+state f64 total = 0.1
+def narrow = f32(x) * f32(y)
+def wide = f64(x) * f64(y)
+def back = real(narrow) + real(wide)
+def tenth = x * 0.1
+def third = f64(y) / 3
+def big = x * 1e300
+def tiny = y * 4.9406564584124654e-324
+def grown = total + f64(x)
+next total = grown
+out back = back
+out tenth = tenth
+out third = third
+out big = big
+out tiny = tiny
+out sum = grown
