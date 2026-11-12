@@ -413,17 +413,20 @@ out def b = y
   TEST_CASE("out def is refused where it would not mean anything") {
     // A function has no call site to take arguments from, so an exported one
     // cannot be evaluated per point.
-    CHECK_THROWS_AS(compileSderivModule("out def f(a) = a * 2.0\n"), SderivError);
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("out def f(a) = a * 2.0\n")),
+                    SderivError);
 
     // No outputs at all: the module produces nothing, which is a configuration
     // error rather than an empty program.
-    CHECK_THROWS_AS(compileSderivModule("def a = x\n"), SderivError);
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("def a = x\n")), SderivError);
 
     // Both forms at once would leave it open which one is "the" output.
-    CHECK_THROWS_AS(compileSderivModule("out def a = x\nx + 1.0\n"), SderivError);
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("out def a = x\nx + 1.0\n")),
+                    SderivError);
 
     // A duplicate plain def is an error, not last-wins.
-    CHECK_THROWS_AS(compileSderivModule("def a = x\ndef a = y\nout def b = a\n"), SderivError);
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("def a = x\ndef a = y\nout def b = a\n")),
+                    SderivError);
   }
 
   TEST_CASE("a definition may not take the name of a constant or function") {
@@ -581,7 +584,7 @@ out def b = y
 
     // Naming an output from outside a module that names its own is a mismatch,
     // not something to resolve silently in either direction.
-    CHECK_THROWS_AS(compileSderiv("out def rho = x\n", "sigma"), SderivError);
+    CHECK_THROWS_AS(static_cast<void>(compileSderiv("out def rho = x\n", "sigma")), SderivError);
   }
 }
 

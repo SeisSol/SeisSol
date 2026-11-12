@@ -364,7 +364,7 @@ inline std::optional<std::vector<std::vector<double>>> outputsAt(
     bases.push_back(narrow[s] ? static_cast<void*>(narrowStates[s].data())
                               : static_cast<void*>(wideStates[s].data()));
   }
-  const auto bytesOf = [&](std::size_t base) {
+  [[maybe_unused]] const auto bytesOf = [&](std::size_t base) {
     const bool state = base >= columns.size();
     return count * (state && narrow[base - columns.size()] ? sizeof(float) : sizeof(double));
   };
