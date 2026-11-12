@@ -642,6 +642,21 @@ TEST_CASE("easi walker: Impala as easi reads it, the grouping of its chains incl
   points.group.push_back(1.0);
   sameAsEasi(path, {"a", "b", "c", "d"}, points);
 
+  // `a - k` with a small integer constant k, which Lua computes as `a + -k`: at -0.0, 0.0
+  const std::string zero = files.write("zero.yaml",
+                                       "!FunctionMap\n"
+                                       "map:\n"
+                                       "  a: return x - 0;\n"
+                                       "  b: return y - 0.0;\n"
+                                       "  c: return z - -3;\n"
+                                       "  d: return x - 1 - 1;\n");
+  Points zeros;
+  zeros.x = {-0.0, 0.0, 1.0};
+  zeros.y = {-0.0, 0.0, -1.0};
+  zeros.z = {-0.0, -3.0, 2.0};
+  zeros.group = {1.0, 1.0, 1.0};
+  sameAsEasi(zero, {"a", "b", "c", "d"}, zeros);
+
   // a variable read where it may have no value, which easi takes from an earlier point
   const std::string earlier = files.write("earlier.yaml",
                                           "!FunctionMap\n"

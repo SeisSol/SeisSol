@@ -25,6 +25,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -559,6 +560,37 @@ private:
     /// An integer of Lua has no negative zero: where an operation of integers gives one, zero.
     NodeId integral(NodeId node) { return walker_.pw(Fn::Add, node, walker_.konst(0.0)); }
 
+    /// The value of the node `id` where Lua's compiler computes it: a numeral, and a sum,
+    /// difference or product of such.
+    std::optional<double> constantOf(NodeId id) const {
+      const auto& node = walker_.arena()[id];
+      if (node.kind == expr::Kind::Const) {
+        return node.value;
+      }
+      if (node.kind != expr::Kind::PW ||
+          (node.fn != Fn::Add && node.fn != Fn::Sub && node.fn != Fn::Mul)) {
+        return std::nullopt;
+      }
+      const auto a = constantOf(node.a);
+      const auto b = constantOf(node.b);
+      if (!a.has_value() || !b.has_value()) {
+        return std::nullopt;
+      }
+      return node.fn == Fn::Add ? *a + *b : (node.fn == Fn::Sub ? *a - *b : *a * *b);
+    }
+
+    /// The value of `term` where it is an integer constant of Lua from -127 to 127.
+    std::optional<double> smallInteger(const Term& term) const {
+      if (!term.integer) {
+        return std::nullopt;
+      }
+      const auto value = constantOf(term.node);
+      if (!value.has_value() || !(std::fabs(*value) <= 127.0)) {
+        return std::nullopt;
+      }
+      return *value + 0.0;
+    }
+
     /// `{ statements }` under `guard`. Whether every path through it returns.
     bool body(NodeId guard) {
       expect(Tok::Open);
@@ -648,6 +680,11 @@ private:
           const Term right = sum();
           if (kind == Tok::Sub && right.level == 1) {
             warnGrouping("-", "+ or -");
+          }
+          // Lua's code generator computes `a - k`, for an integer constant k from -127 to 127, as
+          // `a + -k` (OP_ADDI): the same, but at k = 0, where -0.0 - 0 is -0.0, -0.0 + 0 is 0.0
+          if (const auto k = smallInteger(right); kind == Tok::Sub && k.has_value()) {
+            return Term{walker_.pw(Fn::Add, left.node, walker_.konst(-*k + 0.0)), left.integer, 1};
           }
           return Term{walker_.pw(fn, left.node, right.node), left.integer && right.integer, 1};
         }
