@@ -30,6 +30,7 @@
 #include "Monitoring/Trace.h"
 #include "Numerical/Quadrature.h"
 #include "Parallel/Runtime/HostRuntime.h"
+#include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
@@ -88,8 +89,12 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
     DeviceTimeline* deviceTimeline,
     ActorStateStatistics* actorStateStatistics)
     : DynamicRuptureClusterInterface(maxTimeStepSize, timeStepRate, executor),
-      seissolInstance_(seissolInstance), streamRuntime_(4), globalData_(globalData),
-      layerData_(layerData),
+      seissolInstance_(seissolInstance),
+      streamRuntime_(
+          4,
+          parallel::runtime::hsaQueuePriorityOf(layerData->getIdentifier(), /*faces=*/true),
+          parallel::runtime::hsaQueueOf(layerData->getIdentifier(), /*faces=*/true)),
+      globalData_(globalData), layerData_(layerData),
       frictionSolver_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
       frictionSolverDevice_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),
       faultOutputManager_(faultOutputManager), pickpointSampling_(pickpointSampling),

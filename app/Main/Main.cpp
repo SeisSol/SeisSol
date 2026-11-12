@@ -51,6 +51,11 @@
 #endif
 
 #ifdef ACL_DEVICE
+#include "Alignment.h"
+#include "Common/Typedefs.h"
+#include "Parallel/Helper.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <Device/device.h>
 #endif
 
@@ -312,9 +317,43 @@ int main(int argc, char* argv[]) {
     }
 
 #ifdef ACL_DEVICE
+    // HSA queues for the stream runtimes
+    const auto hsaQueues = seissol::hsaQueueCount();
+    // whether SeisSol leaves HIP one hardware queue per priority, for the HSA queues
+    bool hipQueuesLimited = false;
+    if (hsaQueues > 0 && seissol::Backend == seissol::DeviceBackend::Hip) {
+      // the streams of HIP then only record graphs and hold allocations: one hardware queue each
+      // leaves the others of the device to the HSA queues
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
+      hipQueuesLimited = std::getenv("GPU_MAX_HW_QUEUES") == nullptr;
+      // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
+      setenv("GPU_MAX_HW_QUEUES", "1", 0);
+      // the queue of the other stream runtimes and that of the device timeline are idle most of
+      // the time: they may share a pipe of the command processor with a queue of the clusters
+      // (the others get pipes of their own as long as there are, see the Device library)
+      const auto light = "0," + std::to_string(seissol::parallel::runtime::TimelineHsaQueue);
+      // (unless set already, also under its deprecated name)
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
+      if (std::getenv("DEVICE_OWN_QUEUE_LIGHT") == nullptr) {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
+        setenv("DEVICE_HSA_QUEUE_LIGHT", light.c_str(), 0);
+      }
+    }
     seissol::Mpi::mpi.bindAcceleratorDevice();
     const device::DeviceInstance& device = device::DeviceInstance::instance();
     device.api().initialize();
+    if (hsaQueues > 0 && device.api().enableHardwareQueues()) {
+      using seissol::parallel::runtime::HsaQueueLayout;
+      const auto priorities = seissol::hsaQueueEnv().get<std::string>("QUEUE_PRIORITIES", "");
+      const bool halo = seissol::hsaQueueEnv().get<std::string>("QUEUE_LAYOUT", "layers") == "halo";
+      seissol::parallel::runtime::useHsaQueues(
+          {.count = hsaQueues,
+           .faceCount = seissol::hsaFaceQueueCount(),
+           .branchCount = seissol::hsaBranchQueueCount(),
+           .layout = halo ? HsaQueueLayout::Halo : HsaQueueLayout::Layers,
+           .priorities = {.copy = priorities.find("copy") != std::string::npos,
+                          .faces = priorities.find("faces") != std::string::npos}});
+    }
 #endif // ACL_DEVICE
 
     utils::Env env("SEISSOL_");
@@ -330,12 +369,44 @@ int main(int argc, char* argv[]) {
     const int rank = seissol::Mpi::mpi.rank();
 
     utils::Logger::setRank(rank);
+
     // a fatal error marks the run summary as failed, which rank 0 has once it is started, and ends
     // all ranks of the run, on the communicator SeisSol runs on
     utils::Logger::setAbortHandler([](const utils::LogRecord& record) {
       seissol::monitoring::writeFailureReport(seissol::monitoring::failureOf(record));
       MPI_Abort(seissol::Mpi::mpi.comm(), 134);
     });
+
+#ifdef ACL_DEVICE
+    if (const auto& queues = seissol::parallel::runtime::hsaQueues(); queues.count > 0) {
+      logInfo() << "The clusters run their work on" << queues.count
+                << "HSA queues, the other stream runtimes on one more"
+                << "(SEISSOL_HSA_QUEUES).";
+      if (queues.branchCount > 0) {
+        logInfo() << "The branches of the work run on" << queues.branchCount
+                  << "more (SEISSOL_HSA_QUEUE_BRANCHES).";
+      }
+      if (queues.faceCount > 0) {
+        logInfo() << "The face work runs on" << queues.faceCount
+                  << "more (SEISSOL_HSA_QUEUES_FACES).";
+      }
+      if (seissol::useSuperStepGraphs(env)) {
+        logWarning() << "A recorded super-timestep runs on the one HSA queue it gets launched on,"
+                     << "which was slower in tests than without recordings"
+                     << "(DEVICE_HSA_QUEUE_GRAPH_ORIGIN=1 puts its work back on the queues of its"
+                     << "streams, experimental).";
+      }
+    } else if (hsaQueues > 0) {
+      logWarning() << "HSA queues (SEISSOL_HSA_QUEUES) are not available: they need HIP, and an AMD"
+                   << "GPU where programs have run with them (see the warnings of the Device"
+                   << "library).";
+      if (hipQueuesLimited) {
+        logWarning() << "The streams of HIP share one hardware queue per priority now"
+                     << "(GPU_MAX_HW_QUEUES=1, set for the HSA queues), which makes them slower:"
+                     << "run without SEISSOL_HSA_QUEUES, or set GPU_MAX_HW_QUEUES.";
+      }
+    }
+#endif
 
     const auto runId = determineRunId(env);
     // every message from now on carries the ID of the run, in the JSON lines of the log

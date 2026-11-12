@@ -15,6 +15,7 @@
 #include "Parallel/Runtime/HostRuntime.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -22,6 +23,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -49,9 +51,101 @@ enum class GraphMode { Capture, Nodes };
 template <typename T>
 class StreamMemoryHandle;
 
+/// the HSA queue that the stream runtimes share which have none of their own
+constexpr int SharedHsaQueue = 0;
+
+/// a stream runtime that hands its stream to libraries, which need streams of the device
+constexpr int NoHsaQueue = -1;
+
+/// the HSA queue of the device timeline (see monitoring::DeviceTimeline), which nothing else uses
+constexpr int TimelineHsaQueue = -2;
+
+/// the first HSA queue of the face work (see HsaQueues::faceCount), the further ones downwards
+constexpr int FirstFaceHsaQueue = -10;
+
+/// the first HSA queue of the branches (see HsaQueues::branchCount), the further ones downwards
+constexpr int FirstBranchHsaQueue = -20;
+
+/**
+ * How the layers get distributed over the HSA queues (SEISSOL_HSA_QUEUE_LAYOUT): `layers` gives the
+ * copy and the interior layer of each time cluster queues of their own, as long as there are
+ * enough; `halo` puts all copy layers on one queue of a high priority, whose work the halo exchange
+ * waits for, and all interior layers on one of a low priority.
+ */
+enum class HsaQueueLayout { Layers, Halo };
+
+/**
+ * Which HSA queues get a high priority (SEISSOL_HSA_QUEUE_PRIORITIES): those of the copy layers
+ * (and those of the interior layers a low one), as with the halo layout, and those of the face work
+ * (see HsaQueues::faceCount).
+ */
+struct HsaQueuePriorities {
+  bool copy{false};
+  bool faces{false};
+};
+
+/**
+ * The HSA queues of the stream runtimes (see device::AbstractAPI::enableHardwareQueues()), as
+ * SEISSOL_HSA_QUEUES and SEISSOL_HSA_QUEUE_* ask for them.
+ */
+struct HsaQueues {
+  /// the queues the clusters run their work on (SEISSOL_HSA_QUEUES, see hsaQueueOf()); the other
+  /// stream runtimes share one more (SharedHsaQueue); 0 if there are none
+  int count{0};
+
+  /// the queues of the face work of the dynamic rupture clusters (SEISSOL_HSA_QUEUES_FACES): 0 puts
+  /// the face work of a layer on the queue of its cells; otherwise, it goes to queues of its own
+  /// (from FirstFaceHsaQueue on), next to the work of the cells
+  int faceCount{0};
+
+  /**
+   * The queues of the branches of the stream runtimes (SEISSOL_HSA_QUEUE_BRANCHES, see
+   * StreamRuntime::envMany(); experimental): the further streams of the runtimes, shared by all of
+   * them (from FirstBranchHsaQueue on), and the work runs without graphs of single actions. A queue
+   * runs its kernels one after the other, also those without a barrier (MI250X, ROCm 6.3), so
+   * independent kernels only run at the same time on queues of their own. 0 (the default) keeps
+   * the branches on the stream of the runtime.
+   */
+  int branchCount{0};
+
+  HsaQueueLayout layout{HsaQueueLayout::Layers};
+
+  HsaQueuePriorities priorities;
+};
+
+/**
+ * The HSA queues the stream runtimes take: none, unless useHsaQueues() has set them up. Nothing
+ * else changes them, so that all stream runtimes take the same ones.
+ */
+const HsaQueues& hsaQueues();
+
+/// sets up the HSA queues the stream runtimes take, once the device has enabled them (see
+/// device::AbstractAPI::enableHardwareQueues()) and before any stream runtime exists
+void useHsaQueues(const HsaQueues& queues);
+
+/// whether the branches of the stream runtimes go to HSA queues of their own
+inline bool branchesOnHsaQueues() { return hsaQueues().count > 0 && hsaQueues().branchCount > 0; }
+
+/// the HSA queue of the work of a layer: of its cell cluster, or of its dynamic rupture cluster
+int hsaQueueOf(const initializer::LayerIdentifier& identifier, bool faces = false);
+
+/// the priority of the HSA queue of a layer (see HsaQueues::layout), or none
+std::optional<double> hsaQueuePriorityOf(const initializer::LayerIdentifier& identifier,
+                                         bool faces = false);
+
 class ManagedStream {
   public:
   ManagedStream();
+
+  /// a stream of the given priority, from 0 for the lowest to 1 for the highest the device offers
+  explicit ManagedStream(double priority);
+
+  /// a stream on an HSA queue (see hsaQueues()), which gets the priority unless that is NAN
+  struct OnHsaQueue {
+    int queue;
+    double priority;
+  };
+  explicit ManagedStream(OnHsaQueue queue);
 
   ManagedStream(const ManagedStream&) = delete;
   auto operator=(const ManagedStream&) = delete;
@@ -108,11 +202,35 @@ class StreamRuntime {
   public:
   StreamRuntime() : StreamRuntime(0) {}
 
-  /// with `ringbufferSize` further streams for independent branches (see envMany())
-  explicit StreamRuntime(size_t ringbufferSize)
+  /**
+   * With `ringbufferSize` further streams for independent branches (see envMany()); the stream of
+   * the runtime has the given priority (see ManagedStream), or the default one of the device. With
+   * HSA queues (see hsaQueues()), the stream is on the HSA queue `hsaQueue` instead (the
+   * further ones stay streams of the device: HIP only records on them), unless that is NoHsaQueue.
+   */
+  explicit StreamRuntime(size_t ringbufferSize,
+                         std::optional<double> priority = std::nullopt,
+                         int hsaQueue = SharedHsaQueue)
       : ringbufferSize_(ringbufferSize), disposed_(false) {
-    streamPtr_.emplace();
-    ringbufferPtr_.resize(ringbufferSize);
+    if (hsaQueues().count > 0 && hsaQueue != NoHsaQueue) {
+      streamPtr_.emplace(
+          ManagedStream::OnHsaQueue{.queue = hsaQueue, .priority = priority.value_or(NAN)});
+    } else if (priority.has_value()) {
+      streamPtr_.emplace(priority.value());
+    } else {
+      streamPtr_.emplace();
+    }
+    if (branchesOnHsaQueues() && hsaQueue != NoHsaQueue) {
+      ringbufferPtr_.reserve(ringbufferSize);
+      for (size_t i = 0; i < ringbufferSize; ++i) {
+        ringbufferPtr_.emplace_back(ManagedStream::OnHsaQueue{
+            .queue = FirstBranchHsaQueue -
+                     static_cast<int>(i % static_cast<size_t>(hsaQueues().branchCount)),
+            .priority = NAN});
+      }
+    } else {
+      ringbufferPtr_.resize(ringbufferSize);
+    }
 
     allStreams_.resize(ringbufferSize + 1);
     allStreams_[0] = streamPtr_->get();
@@ -128,6 +246,14 @@ class StreamRuntime {
       ringbufferPtr_.clear();
       events_.dispose();
       disposed_ = true;
+    }
+  }
+
+  /// names the streams for the logs of the device (e.g. the DAG log of HSA queues)
+  void nameStreams(const std::string& name) {
+    device().api().nameStream(allStreams_[0], name);
+    for (std::size_t i = 1; i < allStreams_.size(); ++i) {
+      device().api().nameStream(allStreams_[i], name + " branch " + std::to_string(i - 1));
     }
   }
 
@@ -233,8 +359,9 @@ class StreamRuntime {
     }
 
     void* stream = building() ? this->stream() : mainStream();
-    // (not with HIP: its waits for events cost too much)
-    if (!building() && Backend != DeviceBackend::Hip && ringbufferSize_ > 0) {
+    // (HIP branches only on HSA queues of their own: its waits for events cost too much)
+    if (!building() && (Backend != DeviceBackend::Hip || branchesOnHsaQueues()) &&
+        ringbufferSize_ > 0) {
       const auto forkEvent = nextEvent();
       device().api().recordEventOnStream(forkEvent.get(), stream);
       for (size_t i = 0; i < std::min(count, ringbufferPtr_.size()); ++i) {
@@ -358,7 +485,9 @@ class StreamRuntime {
                 F&& handler,
                 bool cacheable = true,
                 GraphMode mode = GraphMode::Nodes) {
-    if (!cacheable) {
+    // (with branches on HSA queues, the work runs directly, so that its branches go there: a graph
+    // would run on the queue of the runtime alone)
+    if (!cacheable || branchesOnHsaQueues()) {
       std::invoke(std::forward<F>(handler), *this);
       return;
     }
@@ -648,7 +777,11 @@ class StreamRuntime {
   public:
   StreamRuntime() : StreamRuntime(0) {}
 
-  explicit StreamRuntime(std::size_t ringbufferSize) {}
+  explicit StreamRuntime(std::size_t ringbufferSize,
+                         std::optional<double> /*priority*/ = std::nullopt,
+                         int /*hsaQueue*/ = SharedHsaQueue) {}
+
+  void nameStreams(const std::string& /*name*/) {}
 
   template <typename F>
   void enqueueLoop(std::size_t elemCount,

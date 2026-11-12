@@ -17,8 +17,17 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
+#include "Parallel/Runtime/Stream.h"
+
 #include <Device/AbstractAPI.h>
 #include <Device/device.h>
+#include <array>
+#include <chrono>
+#include <map>
+#include <memory>
+#include <string>
+#include <string_view>
+#include <utils/logger.h>
 #endif
 
 namespace seissol {
@@ -26,12 +35,61 @@ namespace seissol {
 namespace {
 #ifdef ACL_DEVICE
 device::AbstractAPI& api() { return device::DeviceInstance::instance().api(); }
+
+// whether the device puts its kernels into the trace
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+bool kernelTrace = false;
 #endif
 } // namespace
 
 DeviceTimeline::~DeviceTimeline() { release(); }
 
 bool DeviceTimeline::active() { return DeviceTimer::available() && DeviceTimer::enabled(); }
+
+void DeviceTimeline::startKernelTrace([[maybe_unused]] bool requested) {
+#ifdef ACL_DEVICE
+  if (!requested || !monitoring::Trace::recording()) {
+    return;
+  }
+  // (from one thread of the device library: the tracks need no lock)
+  const auto tracks = std::make_shared<std::map<int, std::uint32_t>>();
+  const bool tracing = api().traceDevice([tracks](std::string_view name,
+                                                  int queue,
+                                                  std::chrono::steady_clock::time_point begin,
+                                                  std::chrono::steady_clock::time_point end) {
+    auto track = tracks->find(queue);
+    if (track == tracks->end()) {
+      // a key for each queue number that nothing else takes
+      static std::array<char, 256> keys{};
+      track = tracks
+                  ->emplace(queue,
+                            monitoring::Trace::track(&keys[static_cast<std::uint8_t>(queue)],
+                                                     "device queue " + std::to_string(queue)))
+                  .first;
+    }
+    monitoring::Trace::span(monitoring::Trace::name(name),
+                            track->second,
+                            monitoring::Trace::time(begin),
+                            monitoring::Trace::time(end));
+  });
+  kernelTrace = tracing;
+  if (tracing) {
+    logInfo() << "The trace takes each kernel and wait of the device.";
+  } else {
+    logWarning() << "The device cannot trace its kernels (SEISSOL_TRACE_KERNELS needs HIP with "
+                    "HSA queues).";
+  }
+#endif
+}
+
+void DeviceTimeline::stopKernelTrace() {
+#ifdef ACL_DEVICE
+  if (kernelTrace) {
+    api().traceDevice({});
+    kernelTrace = false;
+  }
+#endif
+}
 
 void DeviceTimeline::beginEpoch() {
   for (auto& intervals : intervals_) {
@@ -43,8 +101,11 @@ void DeviceTimeline::beginEpoch() {
 #ifdef ACL_DEVICE
   if (stream_ == nullptr) {
     // a stream of its own, idle whenever an event gets recorded on it: the event completes right
-    // away
-    stream_ = api().createStream();
+    // away; with HSA queues, on one of them as the events that it gets compared with (the device
+    // times events of only one kind against each other)
+    stream_ = parallel::runtime::hsaQueues().count > 0
+                  ? api().createStreamOnHardwareQueue(parallel::runtime::TimelineHsaQueue)
+                  : api().createStream();
     reference_ = api().createEvent(true);
     end_ = api().createEvent(true);
   }

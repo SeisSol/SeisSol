@@ -18,6 +18,7 @@
 #include "Initializer/InitProcedure/InitLayout.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/DeviceTimeline.h"
 #include "Monitoring/Memory.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
@@ -36,6 +37,8 @@
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
+#include "Monitoring/DeviceTimer.h"
+
 #include <Device/device.h>
 #include <sstream>
 #endif
@@ -142,6 +145,13 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
     sim.setFinalTime(std::min(seissolParams.timeStepping.endTime, length));
     logInfo() << "This run measures what the cells cost, over" << steps.value()
               << "time steps of the largest cluster (" << length << "s).";
+#ifdef ACL_DEVICE
+    // (rather now than after the run)
+    if (!DeviceTimer::canTimeEvents()) {
+      logError() << "This run cannot measure what the cells cost, as the device does not time its"
+                 << "work (HSA queues do with DEVICE_HSA_QUEUE_TIMING=1).";
+    }
+#endif
   }
 }
 
@@ -260,6 +270,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   // make sure everyone is really done
   logInfo() << "Simulation done.";
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  DeviceTimeline::stopKernelTrace();
   monitoring::Trace::write(seissolInstance.parameters().output.prefix + "-trace.json",
                            seissol::Mpi::mpi.comm());
   summary["memory"]["atEnd"] = memorySection(summary, "AtEnd");
