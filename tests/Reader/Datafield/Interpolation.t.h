@@ -245,6 +245,10 @@ const char* nameOf(Interpolation t) {
     return "linear";
   case Interpolation::Cubic:
     return "cubic";
+  case Interpolation::Previous:
+    return "previous";
+  case Interpolation::Next:
+    return "next";
   }
   return "?";
 }
