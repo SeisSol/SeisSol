@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -107,7 +108,9 @@ class GhostStateIntegral {
   /// the simulation `simulation`, beyond a cell whose material has the parameters `parameters` (in
   /// the order of the names given): component j at point p into ghost[j * count + p]. The state
   /// inside, if read, is inner component k at point p at time point i in
-  /// inner[(i * innerCount() + k) * count + p]. Only for an integral made `onHost`.
+  /// inner[(i * innerCount() + k) * count + p]. Only for an integral made `onHost`. `face`, where
+  /// given, identifies the face across the partition (the global id of its cell, times the faces of
+  /// a cell, plus its side): the evaluation record names point p of it face * count + p.
   void evaluate(double start,
                 double width,
                 std::size_t simulation,
@@ -115,7 +118,8 @@ class GhostStateIntegral {
                 std::size_t count,
                 const double* parameters,
                 const double* inner,
-                double* ghost) const;
+                double* ghost,
+                std::optional<std::uint64_t> face = std::nullopt) const;
 
   private:
   struct Impl;

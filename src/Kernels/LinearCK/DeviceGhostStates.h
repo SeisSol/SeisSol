@@ -36,6 +36,7 @@
 #include <cstdint>
 #include <memory>
 #include <type_traits>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 #include <yateto.h>
@@ -270,6 +271,7 @@ class DeviceGhostStates {
     // the faces of all sides, side by side, in the slots the recorder gave them
     std::vector<unsigned> cells;
     std::vector<real> nodes;
+    std::vector<std::uint64_t> identities;
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
       const ConditionalKey key(
           *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
@@ -286,8 +288,10 @@ class DeviceGhostStates {
         }
       }
       const auto sideNodes = hostNodesOf(layer, sideCells, face);
+      const auto sideIdentities = identitiesOf(layer, sideCells, face);
       cells.insert(cells.end(), sideCells.begin(), sideCells.end());
       nodes.insert(nodes.end(), sideNodes.begin(), sideNodes.end());
+      identities.insert(identities.end(), sideIdentities.begin(), sideIdentities.end());
     }
     all.faces = cells.size();
     if (all.faces == 0) {
@@ -302,6 +306,7 @@ class DeviceGhostStates {
     data.parameters = reinterpret_cast<const real*>(
         layer.var<LTS::MaterialParameters>(Cfg(), initializer::AllocationPlace::Device));
     data.cells = all.cells.data();
+    data.identities = std::move(identities);
     data.ghost = ghost;
     data.ghostStride = tensor::INodal<Cfg>::size();
     // what the scripts do not give is zero
@@ -349,6 +354,7 @@ class DeviceGhostStates {
         layer.var<LTS::NonlinearDirichletScratch>(Cfg(), initializer::AllocationPlace::Device));
     side.nodes = nodesOf(layer, cells->getHostData(), face);
     auto data = dataOf(layer, *cells, side.nodes);
+    data.identities = identitiesOf(layer, cells->getHostData(), face);
     data.inner = scratch + Scratch::Inner;
     data.innerStride = Scratch::PerFace;
     data.times = timesFor(*integral);
@@ -361,6 +367,7 @@ class DeviceGhostStates {
       alignedData.inner = data.inner;
       alignedData.innerStride = data.innerStride;
       alignedData.times = data.times;
+      alignedData.identities = data.identities;
       alignedData.ghost = scratch + Scratch::Aligned;
       alignedData.ghostStride = Scratch::PerFace;
       side.aligned =
@@ -444,6 +451,19 @@ class DeviceGhostStates {
       std::copy_n(source, NodeCount * 3, nodes.data() + e * NodeCount * 3);
     }
     return nodes;
+  }
+
+  /// The faces `face` of `cells` across the partition: the global id of the cell, times the faces
+  /// of a cell, plus the side.
+  static std::vector<std::uint64_t>
+      identitiesOf(LTS::Layer& layer, const std::vector<unsigned>& cells, std::size_t face) {
+    const auto* information = layer.var<LTS::SecondaryInformation>();
+    std::vector<std::uint64_t> identities(cells.size());
+    for (std::size_t e = 0; e < cells.size(); ++e) {
+      identities[e] =
+          static_cast<std::uint64_t>(information[cells[e]].globalId) * Cell::NumFaces + face;
+    }
+    return identities;
   }
 
   /// The same, on the device.

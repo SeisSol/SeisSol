@@ -80,6 +80,10 @@ class GhostStateBatch {
     /// whether the kernel writes zero into the components the program does not give, so that the
     /// ghost state needs no fill before: for a boundary whose ghost state is zero there
     bool zeroOthers{false};
+    /// face e across the partition, on the host (the global id of its cell, times the faces of a
+    /// cell, plus its side), which the evaluation record names node p of it by (e.g.
+    /// identities[e] * NodeCount + p); none where empty
+    std::vector<std::uint64_t> identities;
   };
 
   /// The kernel of `integral` for the faces of `data`, on the backend `options` asks for; it falls
@@ -125,6 +129,11 @@ class GhostStateBatch {
     };
 
     auto& table = *table_;
+    if (data.identities.size() == data.faces) {
+      table.setIdentity([identities = data.identities](std::size_t point) {
+        return identities[point / NodeCount] * NodeCount + point % NodeCount;
+      });
+    }
     for (std::size_t i = 0; i < program.inputs().size(); ++i) {
       const auto& name = program.inputs()[i].name;
       const auto index = integral.inputIndex(i);

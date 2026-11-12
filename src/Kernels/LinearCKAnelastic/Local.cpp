@@ -166,14 +166,18 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
         taylorKrnl.execute();
       };
       alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal<Cfg>::size()];
-      ghostStateBoundary_.nonlinearDirichlet(*this->nonlinearDirichlet(),
-                                             stateAt,
-                                             face,
-                                             cellBoundaryMapping[face],
-                                             data.template get<LTS::MaterialParameters>(),
-                                             time,
-                                             timeStepWidth,
-                                             dofsFaceBoundaryNodal);
+      ghostStateBoundary_.nonlinearDirichlet(
+          *this->nonlinearDirichlet(),
+          stateAt,
+          face,
+          static_cast<std::uint64_t>(data.template get<LTS::SecondaryInformation>().globalId) *
+                  Cell::NumFaces +
+              face,
+          cellBoundaryMapping[face],
+          data.template get<LTS::MaterialParameters>(),
+          time,
+          timeStepWidth,
+          dofsFaceBoundaryNodal);
 
       auto nodalLfKrnl = nodalLfKrnlPrototype_;
       nodalLfKrnl.Qext = qext;

@@ -5,6 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Expr/Backend.h"
+#include "Expr/Record.h"
 #include "Expr/SderivFrontend.h"
 #include "Numerical/Quadrature.h"
 #include "Physics/GhostState.h"
@@ -14,10 +16,13 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <random>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -195,6 +200,41 @@ TEST_CASE("GhostStateIntegral: the script integrated over the time points of a s
   CHECK(ghost[3] == doctest::Approx(-expected));
   CHECK(ghost[4] == 0.0);
   CHECK(ghost[5] == 0.0);
+}
+
+TEST_CASE("GhostStateIntegral: the record of its first call names the points by their face" *
+          doctest::test_suite("physics")) {
+  const std::filesystem::path directory =
+      std::filesystem::temp_directory_path() /
+      ("seissol-test-ghost-records-" + std::to_string(std::random_device{}()));
+  expr::setRecordDirectory(directory.string(), {"build = the test"});
+  const auto program = expr::compileSderivModule("out def v1 = t * x + 0.25\n", {});
+  const physics::GhostStateIntegral integral(
+      program, "test", {"v1"}, {}, Parameters, physics::GhostStateIntegral::Missing::Zero, 2);
+  const std::array<double, 3> parameters{1.0, 1.0, 1.0};
+  const std::vector<std::array<double, 3>> points = {{2.0, 0.0, 0.0}, {-1.0, 0.0, 0.0}};
+  std::vector<double> ghost(points.size(), 0.0);
+  // the face of side 2 of the cell of global id 7
+  constexpr std::uint64_t Face = 7 * 4 + 2;
+  integral.evaluate(
+      1.0, 0.5, 0, points.data(), points.size(), parameters.data(), nullptr, ghost.data(), Face);
+  expr::setRecordDirectory("");
+
+  std::vector<expr::Record> records;
+  for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+    std::ifstream file(entry.path());
+    const std::string text((std::istreambuf_iterator<char>(file)),
+                           std::istreambuf_iterator<char>());
+    records.push_back(expr::parseRecord(text, entry.path().string()));
+  }
+  std::filesystem::remove_all(directory);
+  REQUIRE(records.size() == 1);
+  CHECK(records[0].scope.globalIdentities);
+  std::set<std::uint64_t> identities;
+  for (const auto& point : records[0].sample) {
+    identities.insert(point.identity);
+  }
+  CHECK(identities == std::set<std::uint64_t>{Face * 2, Face * 2 + 1});
 }
 
 TEST_CASE("GhostStateIntegral: a quantity the script does not give is the integral of the state "

@@ -395,8 +395,16 @@ void GhostStateIntegral::evaluate(double start,
                                   std::size_t count,
                                   const double* parameters,
                                   const double* inner,
-                                  double* ghost) const {
+                                  double* ghost,
+                                  std::optional<std::uint64_t> face) const {
   const auto& impl = *impl_;
+  // the identities of the points of the face, which the record of the first call names them by
+  struct FaceIdentity {
+    std::uint64_t face{0};
+    std::size_t count{0};
+    std::size_t first{0};
+  };
+  FaceIdentity identity{face.value_or(0), count, 0};
   // what the integral does not give is zero
   std::fill_n(ghost, impl.components.size() * count, 0.0);
   if (impl.outputComponent.empty()) {
@@ -446,6 +454,14 @@ void GhostStateIntegral::evaluate(double start,
     args.outputCount = thread.outputBases.size();
     args.first = 0;
     args.count = pieceCount;
+    if (face.has_value()) {
+      identity.first = first;
+      args.identity = [](const void* context, std::size_t point) -> std::uint64_t {
+        const auto* of = static_cast<const FaceIdentity*>(context);
+        return of->face * of->count + of->first + point;
+      };
+      args.identityContext = &identity;
+    }
     thread.kernel->run(args);
   }
 }

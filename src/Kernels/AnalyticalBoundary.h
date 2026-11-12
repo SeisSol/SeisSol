@@ -25,6 +25,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -182,6 +183,10 @@ class GhostStateBoundary {
 
     const auto points = pointsOf(boundaryMapping);
     const auto parameters = parametersOf(data.template get<LTS::MaterialParameters>());
+    const std::uint64_t identity =
+        static_cast<std::uint64_t>(data.template get<LTS::SecondaryInformation>().globalId) *
+            Cell::NumFaces +
+        face;
     auto ghostView = init::INodal<Cfg>::view::create(ghostNodal);
     ghostView.setZero();
     std::array<double, ColumnCount * NodeCount> ghost{};
@@ -195,7 +200,8 @@ class GhostStateBoundary {
                         NodeCount,
                         parameters.data(),
                         nullptr,
-                        ghost.data());
+                        ghost.data(),
+                        identity);
       auto ghostOfSimulation = multisim::simtensor<Cfg>(ghostView, s);
       store(ghost.data(), integral.componentCount(), ghostOfSimulation);
     }
@@ -205,11 +211,13 @@ class GhostStateBoundary {
   /// `parameters` (LTS::MaterialParameters): the state inside at the time points of the step, from
   /// `stateAt(tau, state)`, which writes the modal state `tau` into the step to `state` (shaped
   /// like I), taken to the nodes of the face and into the basis of the condition; the integral of
-  /// the ghost state taken back into global coordinates.
+  /// the ghost state taken back into global coordinates. `identity` identifies the face across the
+  /// partition (physics::GhostStateIntegral::evaluate()).
   template <typename StateAt>
   void nonlinearDirichlet(const physics::NonlinearDirichlet& condition,
                           const StateAt& stateAt,
                           std::size_t face,
+                          std::uint64_t identity,
                           const CellBoundaryMapping<Cfg>& boundaryMapping,
                           const real* parameters,
                           double start,
@@ -270,7 +278,8 @@ class GhostStateBoundary {
                         NodeCount,
                         parameterValues.data(),
                         inner.data() + s * innerSize,
-                        ghost.data());
+                        ghost.data(),
+                        identity);
       if (faceAligned) {
         auto alignedOfSimulation = multisim::simtensor<Cfg>(alignedView, s);
         store(ghost.data(), integral.componentCount(), alignedOfSimulation);
