@@ -14,6 +14,7 @@
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
 #include "Expr/Record.h"
+#include "Expr/Rewrite.h"
 #include "Expr/RtcCpu.h"
 #include "Expr/RtcGpuDriver.h"
 #include "Reader/Datafield/Grid.h"
@@ -932,6 +933,37 @@ BackendComparison compareAt(const Program& program,
       }
     }
   }
+  // per grid, the points of the closed pool beyond its volume, and the two of the smallest hash
+  const auto clamps = clampsAt(program, grids, inputs, pool);
+  for (std::size_t g = 0; g < clamps.size(); ++g) {
+    if (clamps[g].axes.empty()) {
+      continue;
+    }
+    const auto& desc = program.grids()[g];
+    ClampCount count;
+    count.grid = desc.name.empty() ? desc.path : desc.name;
+    count.axes.assign(clamps[g].axes.size(), {0, 0, 0});
+    int taken = 0;
+    for (const std::size_t k : byHash) {
+      if (!closed(k)) {
+        break;
+      }
+      ++count.of;
+      bool beyond = false;
+      for (std::size_t d = 0; d < clamps[g].axes.size(); ++d) {
+        const std::uint8_t sides = clamps[g].axes[d][k];
+        count.axes[d][0] += (sides & GridClamps::Below) != 0 ? 1 : 0;
+        count.axes[d][1] += (sides & GridClamps::Above) != 0 ? 1 : 0;
+        count.axes[d][2] += (sides & GridClamps::Undefined) != 0 ? 1 : 0;
+        beyond = beyond || sides != 0;
+      }
+      if (beyond && taken < 2) {
+        chosen[k] = true;
+        ++taken;
+      }
+    }
+    comparison.clamps.push_back(std::move(count));
+  }
   std::size_t unstable = 0;
   for (const std::size_t k : byHash) {
     if (reference.unstable[k]) {
@@ -1227,6 +1259,95 @@ std::vector<double> interpretValues(const Program& program,
     run(0.0);
   }
   return results;
+}
+
+std::vector<GridClamps> clampsAt(const Program& program,
+                                 GridStore& grids,
+                                 const std::vector<double>& inputs,
+                                 std::size_t points) {
+  // the lookups the program evaluates, and whether a coordinate reads a contraction
+  const Arena& arena = program.arena();
+  std::vector<NodeId> roots = program.roots();
+  for (const auto& state : program.state()) {
+    roots.push_back(state.root);
+  }
+  for (const auto& check : program.checks()) {
+    roots.push_back(check.root);
+  }
+  std::vector<char> seen(arena.size(), 0);
+  std::vector<NodeId> lookups;
+  bool contracts = false;
+  std::vector<NodeId> stack(roots.begin(), roots.end());
+  std::vector<NodeId> kids;
+  while (!stack.empty()) {
+    const NodeId id = stack.back();
+    stack.pop_back();
+    if (id == NoNode || seen[static_cast<std::size_t>(id)] != 0) {
+      continue;
+    }
+    seen[static_cast<std::size_t>(id)] = 1;
+    const Node& node = arena[id];
+    if (node.kind == Kind::Lookup) {
+      lookups.push_back(id);
+    }
+    contracts = contracts || node.kind == Kind::Contract;
+    arena.children(id, kids);
+    stack.insert(stack.end(), kids.begin(), kids.end());
+  }
+  if (lookups.empty() || contracts || points == 0) {
+    return {};
+  }
+  std::sort(lookups.begin(), lookups.end());
+
+  // a program of the coordinates of every lookup, on the inputs of the program
+  Program probe;
+  probe.setComputeType(program.computeType());
+  for (const auto& input : program.inputs()) {
+    probe.addInput(input.name, input.type);
+  }
+  std::vector<NodeId> coordinates;
+  for (const NodeId lookup : lookups) {
+    const Node& node = arena[lookup];
+    const NodeId* args = arena.args(node);
+    coordinates.insert(coordinates.end(), args, args + node.argCount);
+  }
+  const auto imported = importNodes(probe, program, coordinates);
+  for (std::size_t c = 0; c < imported.size(); ++c) {
+    probe.addOutput("c" + std::to_string(c), reader::scripting::DataType::F64, imported[c]);
+  }
+  const auto values = interpretValues(probe, grids, inputs, points);
+
+  // their sides, by the geometry of the arrays the kernels sample, as Expand.cpp locates them
+  const auto ids = internGrids(program, grids);
+  std::vector<GridClamps> clamps(program.grids().size());
+  std::size_t c = 0;
+  for (const NodeId lookup : lookups) {
+    const Node& node = arena[lookup];
+    const auto grid = static_cast<std::size_t>(node.grid);
+    const reader::datafield::ArrayView* view = grids.get(ids.at(grid)).arrayView();
+    auto& axes = clamps[grid].axes;
+    axes.resize(std::max<std::size_t>(axes.size(), node.argCount));
+    for (std::int32_t d = 0; d < node.argCount; ++d, ++c) {
+      auto& sides = axes[static_cast<std::size_t>(d)];
+      sides.resize(points, 0);
+      if (view == nullptr) {
+        continue;
+      }
+      const auto axis = static_cast<std::size_t>(d);
+      const double top = static_cast<double>(view->num[axis]) - 1.0;
+      for (std::size_t k = 0; k < points; ++k) {
+        const double raw = (values[c * points + k] - view->min[axis]) * view->deltaInv[axis];
+        if (std::isnan(raw)) {
+          sides[k] |= GridClamps::Undefined;
+        } else if (raw < 0.0 && view->before[axis] == 0) {
+          sides[k] |= GridClamps::Below;
+        } else if (raw > top && view->after[axis] == 0) {
+          sides[k] |= GridClamps::Above;
+        }
+      }
+    }
+  }
+  return clamps;
 }
 
 CallPool devicePool(std::size_t first,

@@ -13,6 +13,7 @@
 // evaluates again.
 //
 //   # The evaluation record of a program ...
+//   record = 1
 //   fingerprint = 3c351edd263b9464
 //   backend = rtc-cpu
 //   rank = 0
@@ -24,6 +25,7 @@
 //   compute = f64
 //   ...                                  the build, as SeisSol gives it
 //   check = the same bits
+//   clamped m = 0 12 0, 0 0 0, 31 0 0 of 4096 points
 //
 //   # the program, in the normal form of the core format
 //   #!sderiv 1
@@ -52,6 +54,9 @@
 
 namespace seissol::expr {
 
+/// The newest version of the record that this build writes and reads; it reads every older one.
+inline constexpr int RecordVersion = 1;
+
 struct Record {
   std::string fingerprint;
   std::string backend;
@@ -64,6 +69,8 @@ struct Record {
   std::string compute{"f64"};
   /// the other lines of the head, in their order: the build, the check, what a merge found
   std::vector<std::pair<std::string, std::string>> head;
+  /// per grid, the points of the closed pool it samples beyond its volume
+  std::vector<ClampCount> clamps;
   /// the program in the normal form of the core format; empty for one the format cannot express,
   /// with the reason in `notCore`
   std::string program;

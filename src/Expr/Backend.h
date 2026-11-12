@@ -16,6 +16,7 @@
 #include "Expr/Program.h"
 #include "Reader/Datafield/Grid.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -189,6 +190,36 @@ struct PoolScope {
   bool scanned{false};
 };
 
+/// How many points of the closed pool of a call a grid samples beyond its volume (the
+/// specification's "Evaluation record"), per axis: below its first node, above its last, and at a
+/// coordinate that is NaN -- many of them show a grid in another coordinate system, or with depth
+/// for height. On the time axis of a grid with a window, the volume is that of the file.
+struct ClampCount {
+  /// the grid, by its name in the program, else its path
+  std::string grid;
+  std::vector<std::array<std::size_t, 3>> axes;
+  /// the points counted
+  std::size_t of{0};
+};
+
+/// Where the lookups of a grid lie beyond its volume, at some points: per axis, per point an `or`
+/// of the sides (Below, Above, Undefined), over all lookups of the grid.
+struct GridClamps {
+  static constexpr std::uint8_t Below = 1;
+  static constexpr std::uint8_t Above = 2;
+  static constexpr std::uint8_t Undefined = 4;
+  std::vector<std::vector<std::uint8_t>> axes;
+};
+
+/// GridClamps of every grid of `program` (by GridId), at `points` points of the inputs `inputs`
+/// ([input][point], in the order of Program::inputs()), with the grids of `grids`: the interpreter
+/// evaluates the coordinates of every lookup there. Nothing for a program without lookups, or one
+/// whose coordinates read a contraction.
+[[nodiscard]] std::vector<GridClamps> clampsAt(const Program& program,
+                                               reader::datafield::GridStore& grids,
+                                               const std::vector<double>& inputs,
+                                               std::size_t points);
+
 /// The pool of a call: the points the check of a backend judges and the sample of the record is
 /// chosen from, in the order of the call, with their identities: its closed part, and the points
 /// the rules over all points choose beyond it (PoolScope).
@@ -223,6 +254,8 @@ struct BackendComparison {
   std::vector<std::size_t> unstable;
   std::vector<std::uint64_t> unstableIdentities;
   double worstRatio{0.0};
+  /// per grid, the points of the closed pool it samples beyond its volume
+  std::vector<ClampCount> clamps;
 };
 
 /// Compares what a kernel wrote for `program` in the call of `table` (or of `args`, with `table`

@@ -368,6 +368,17 @@ const Spec* findByName(const std::vector<Spec>& specs, const std::string& name) 
 
 } // namespace
 
+std::vector<NodeId>
+    importNodes(Program& target, const Program& source, const std::vector<NodeId>& roots) {
+  Imports imports(source);
+  std::vector<NodeId> imported;
+  imported.reserve(roots.size());
+  for (const NodeId root : roots) {
+    imported.push_back(importNode(target, root, imports));
+  }
+  return imported;
+}
+
 Program mergePrograms(const Program& first, const Program& second) {
   for (const auto& output : second.outputs()) {
     if (findByName(first.outputs(), output.name) != nullptr) {

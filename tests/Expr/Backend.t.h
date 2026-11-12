@@ -10,16 +10,20 @@
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
 #include "Expr/Program.h"
+#include "Expr/Record.h"
 #include "Expr/SderivFrontend.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Datafield/Interpolation.h"
 #include "Reader/Scripting/DataTable.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace seissol::expr::test {
@@ -205,6 +209,67 @@ TEST_SUITE("ExprBackend") {
     for (std::size_t i = 0; i < NumPoints; ++i) {
       CHECK(out[i] == doctest::Approx(LinearRampGrid::value_(x[i], y[i], z[i])).epsilon(1e-6));
     }
+  }
+
+  TEST_CASE("a record counts where a grid is sampled beyond its volume, and samples two") {
+    const Program program = compileSderivModule(
+        "grid m = \"asagi\", \"ramp.nc\", \"linear\", \"a\", \"b\"\nout def v = m_a(x, y, z)\n",
+        SderivOptions{});
+    constexpr std::size_t NumPoints = 100;
+    // x from -2 to 9 over a volume from 0 to 7, and one z that is NaN
+    std::vector<double> x(NumPoints);
+    std::vector<double> y(NumPoints, 3.0);
+    std::vector<double> z(NumPoints, 3.0);
+    std::vector<double> out(NumPoints, 0.0);
+    std::size_t below = 0;
+    std::size_t above = 0;
+    for (std::size_t i = 0; i < NumPoints; ++i) {
+      x[i] = -2.0 + 11.0 * static_cast<double>(i) / 99.0;
+      below += x[i] < 0.0 ? 1 : 0;
+      above += x[i] > 7.0 ? 1 : 0;
+    }
+    z[50] = std::numeric_limits<double>::quiet_NaN();
+
+    DataTable table(NumPoints);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindViewConst<double>("y", Direction::In, y.data());
+    table.bindViewConst<double>("z", Direction::In, z.data());
+    table.bindView<double>("v", Direction::Out, out.data());
+    Binding binding = Binding::bind(program, table);
+    df::GridStore store;
+    const std::size_t id = store.intern(program.grids()[0]);
+    store.injectForTesting(id, std::make_unique<LinearRampGrid>());
+    const auto kernel = makeKernel(program, binding, store, {});
+    kernel->precompute(table);
+    kernel->run(table);
+
+    const auto comparison = compareWithInterpreter(program, binding, store, &table, nullptr);
+    REQUIRE(comparison.has_value());
+    REQUIRE(comparison->clamps.size() == 1);
+    const ClampCount& count = comparison->clamps[0];
+    CHECK(count.grid == "m");
+    CHECK(count.of == NumPoints);
+    REQUIRE(count.axes.size() == 3);
+    CHECK(count.axes[0][0] == below);
+    CHECK(count.axes[0][1] == above);
+    CHECK(count.axes[0][2] == 0);
+    CHECK(count.axes[1] == std::array<std::size_t, 3>{0, 0, 0});
+    CHECK(count.axes[2] == std::array<std::size_t, 3>{0, 0, 1});
+    std::size_t beyond = 0;
+    for (const std::size_t point : comparison->points) {
+      beyond += x[point] < 0.0 || x[point] > 7.0 || std::isnan(z[point]) ? 1 : 0;
+    }
+    CHECK(beyond >= 2);
+
+    // the record keeps the counts, and reads them back
+    const std::string text = printRecord(recordOf(program, "interpreter", *comparison, {}, 0));
+    CAPTURE(text);
+    CHECK(text.find("clamped m = " + std::to_string(below) + " " + std::to_string(above) +
+                    " 0, 0 0 0, 0 0 1 of 100 points\n") != std::string::npos);
+    const Record read = parseRecord(text);
+    REQUIRE(read.clamps.size() == 1);
+    CHECK(read.clamps[0].axes == count.axes);
+    CHECK(printRecord(read) == text);
   }
 
   TEST_CASE("a partitioned point set lands back on the right points") {

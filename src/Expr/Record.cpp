@@ -42,6 +42,8 @@ constexpr const char* ProgramMarker = "# the program, in the normal form of the 
 constexpr const char* NotCorePrefix = "# not in the core format: ";
 constexpr const char* SamplePrefix = "# the sample";
 constexpr const char* UnstablePrefix = "# unstable points";
+constexpr const char* ClampComment =
+    "# per grid and axis, the points of the closed pool beyond its volume: below, above, NaN";
 /// The points of the smallest hash in a sample (as Backend.cpp chooses them).
 constexpr std::size_t SmallestHashes = 64;
 
@@ -158,6 +160,35 @@ void readPool(Reader& reader, const std::string& value, PoolScope& scope) {
   }
 }
 
+/// `0 12 0, 0 0 0, 31 0 0 of 4096 points`, the clamps of the grid `grid`.
+ClampCount readClamps(Reader& reader, const std::string& grid, const std::string& value) {
+  ClampCount count;
+  count.grid = grid;
+  const auto of = value.rfind(" of ");
+  if (of == std::string::npos) {
+    reader.fail("expected `<below> <above> <nan>, ... of <number> points`, not `" + value + "`");
+  }
+  count.of = countOf(reader, value.substr(of + 4), "points");
+  std::istringstream axes(value.substr(0, of));
+  std::string axis;
+  while (std::getline(axes, axis, ',')) {
+    const auto words = wordsOf(axis);
+    if (words.size() != 3) {
+      reader.fail("expected three counts per axis, not `" + axis + "`");
+    }
+    std::array<std::size_t, 3> sides{};
+    try {
+      for (std::size_t i = 0; i < 3; ++i) {
+        sides[i] = static_cast<std::size_t>(std::stoull(words[i]));
+      }
+    } catch (const std::exception&) {
+      reader.fail("expected three counts per axis, not `" + axis + "`");
+    }
+    count.axes.push_back(sides);
+  }
+  return count;
+}
+
 std::string poolText(const PoolScope& scope) {
   if (scope.closedAll) {
     return "all points";
@@ -233,6 +264,7 @@ Record recordOf(const Program& program,
   }
   record.backendValues = compiled;
   record.tolerances = compiled && found.perturbed;
+  record.clamps = found.clamps;
 
   const std::size_t n = found.points.size();
   const std::size_t inputs = record.inputs.size();
@@ -267,6 +299,7 @@ Record recordOf(const Program& program,
 std::string printRecord(const Record& record) {
   std::ostringstream out;
   out << Title << "\n";
+  out << "record = " << RecordVersion << "\n";
   out << "fingerprint = " << record.fingerprint << "\n";
   out << "backend = " << record.backend << "\n";
   if (record.rank.has_value()) {
@@ -286,6 +319,17 @@ std::string printRecord(const Record& record) {
   out << "compute = " << record.compute << "\n";
   for (const auto& [key, value] : record.head) {
     out << key << (value.empty() ? "" : " = " + value) << "\n";
+  }
+  if (!record.clamps.empty()) {
+    out << ClampComment << "\n";
+  }
+  for (const auto& count : record.clamps) {
+    out << "clamped " << count.grid << " =";
+    for (std::size_t d = 0; d < count.axes.size(); ++d) {
+      out << (d == 0 ? " " : ", ") << count.axes[d][0] << " " << count.axes[d][1] << " "
+          << count.axes[d][2];
+    }
+    out << " of " << count.of << " points\n";
   }
 
   out << "\n" << ProgramMarker << "\n";
@@ -360,9 +404,22 @@ Record parseRecord(const std::string& text, const std::string& file) {
     const auto equals = line.find(" = ");
     const std::string key = equals == std::string::npos ? line : line.substr(0, equals);
     const std::string value = equals == std::string::npos ? "" : line.substr(equals + 3);
-    if (key == "fingerprint") {
+    if (key == "record") {
+      int version = 0;
+      try {
+        version = std::stoi(value);
+      } catch (const std::exception&) {
+        reader.fail("expected the version of the record, not `" + value + "`");
+      }
+      if (version > RecordVersion) {
+        reader.fail("a record of version " + value + ", which this build reads only up to " +
+                    std::to_string(RecordVersion));
+      }
+    } else if (key == "fingerprint") {
       record.fingerprint = value;
       seenFingerprint = true;
+    } else if (startsWith(key, "clamped ")) {
+      record.clamps.push_back(readClamps(reader, key.substr(8), value));
     } else if (key == "backend") {
       record.backend = value;
     } else if (key == "rank") {
@@ -600,10 +657,31 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
     merged.scope.bound = 0;
   }
 
+  // the clamps of every grid, summed
+  for (const auto& record : records) {
+    for (const auto& count : record.clamps) {
+      auto found = std::find_if(merged.clamps.begin(),
+                                merged.clamps.end(),
+                                [&](const ClampCount& kept) { return kept.grid == count.grid; });
+      if (found == merged.clamps.end()) {
+        merged.clamps.push_back(ClampCount{count.grid, {}, 0});
+        found = merged.clamps.end() - 1;
+      }
+      found->axes.resize(std::max(found->axes.size(), count.axes.size()), {0, 0, 0});
+      for (std::size_t d = 0; d < count.axes.size(); ++d) {
+        for (std::size_t i = 0; i < 3; ++i) {
+          found->axes[d][i] += count.axes[d][i];
+        }
+      }
+      found->of += count.of;
+    }
+  }
+
   // the head: the build as the first record has it, the checks of all
   std::vector<std::string> checks;
   for (const auto& [key, value] : first.head) {
-    if (key != "check" && key != "selects" && key != "duplicates" && key != "inconsistent") {
+    if (key != "check" && key != "selects" && key != "duplicates" && key != "inconsistent" &&
+        key != "clamped points" && key != "groups and extremes") {
       merged.head.emplace_back(key, value);
     }
   }
@@ -718,8 +796,16 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
     }
   }
 
-  // the selects, from the points of the closed pools, by the branches the interpreter takes
+  // the selects, and the grids beyond their volume, from the points of the closed pools, as the
+  // interpreter evaluates them: exact where every point of a smaller hash lies in the closed pool
+  // of its rank; a branch no closed pool takes may be taken nowhere, or beyond them
   std::size_t uncertain = 0;
+  std::size_t branchCount = 0;
+  std::size_t untaken = 0;
+  std::size_t uncertainClamps = 0;
+  const auto exact = [&](std::size_t found) {
+    return merged.scope.closedAll || hashes[found] <= merged.scope.bound;
+  };
   if (n > 0) {
     std::vector<double> inputs(merged.inputs.size() * n);
     for (std::size_t k = 0; k < n; ++k) {
@@ -732,6 +818,7 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
     for (const auto& [select, taken] : branches) {
       static_cast<void>(select);
       for (const std::uint8_t branch : {std::uint8_t{1}, std::uint8_t{0}}) {
+        ++branchCount;
         std::size_t found = n;
         for (const std::size_t k : byHash) {
           if (closed[k] && k < taken.size() && taken[k] == branch) {
@@ -739,14 +826,26 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
             break;
           }
         }
-        if (found < n) {
+        if (found == n) {
+          ++untaken;
+        } else {
           chosen[found] = true;
+          uncertain += exact(found) ? 0 : 1;
         }
-        // exact where every point of a smaller hash lies in the closed pool of its rank
-        const bool exact =
-            merged.scope.closedAll || (found < n && hashes[found] <= merged.scope.bound);
-        if (!exact) {
-          ++uncertain;
+      }
+    }
+    const auto clamps = clampsAt(program, grids, inputs, n);
+    for (const auto& grid : clamps) {
+      int taken = 0;
+      for (const std::size_t k : byHash) {
+        bool beyond = false;
+        for (const auto& axis : grid.axes) {
+          beyond = beyond || (k < axis.size() && axis[k] != 0);
+        }
+        if (closed[k] && beyond && taken < 2) {
+          chosen[k] = true;
+          ++taken;
+          uncertainClamps += exact(k) ? 0 : 1;
         }
       }
     }
@@ -791,11 +890,20 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
       }
     }
   }
-  merged.head.emplace_back("selects",
-                           uncertain == 0
-                               ? std::string("exact")
-                               : std::to_string(uncertain) +
-                                     " branches uncertain, beyond the closed pool of a rank");
+  std::string selects =
+      uncertain == 0
+          ? std::string("exact")
+          : std::to_string(uncertain) + " branches uncertain, beyond the closed pool of a rank";
+  if (untaken > 0) {
+    selects += "; " + std::to_string(untaken) + " of " + std::to_string(branchCount) +
+               " branches taken in no closed pool";
+  }
+  merged.head.emplace_back("selects", selects);
+  if (uncertainClamps > 0) {
+    merged.head.emplace_back("clamped points",
+                             std::to_string(uncertainClamps) +
+                                 " uncertain, beyond the closed pool of a rank");
+  }
   if (!merged.scope.scanned) {
     merged.head.emplace_back("groups and extremes", "uncertain, a rank chose them from its pool");
   }

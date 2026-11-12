@@ -79,6 +79,15 @@ NodeId replaceChannels(Arena& arena,
 /// other reads as an input, and for an input both read with different types.
 [[nodiscard]] Program mergePrograms(const Program& first, const Program& second);
 
+/// The nodes `roots` of `source`, built in `target`: a channel is the channel of the same name in
+/// `target`, and a grid, matrix or block is declared in `target` where it is first used. A node of
+/// `source` is one node of `target`, across all roots.
+///
+/// Throws std::invalid_argument for a node of a kind it does not rebuild (those of a written-out
+/// lookup).
+[[nodiscard]] std::vector<NodeId>
+    importNodes(Program& target, const Program& source, const std::vector<NodeId>& roots);
+
 /// What restrictProgram leaves out of a program, by name.
 struct Restriction {
   /// the outputs that are not wanted
