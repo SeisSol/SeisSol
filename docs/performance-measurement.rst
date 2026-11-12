@@ -46,6 +46,18 @@ output (``OutputFile`` is the prefix):
   (``deviceExchangesMean``) and was idle (``deviceIdleMean``, ``deviceIdleMax``); ``nan`` without times of the device.
 * ``<prefix>-ranks.csv``, a row per rank, written at the end of the run: the values of the rank that the summary gives
   the statistics of over the ranks (see below).
+* ``<prefix>-log.jsonl``, the log of rank 0 as JSON Lines, an object per message, appended to: its ``time`` (ISO 8601,
+  UTC), ``level``, ``rank`` and the ``run`` ID; the ``message``; its ``template``, the message with each value
+  replaced by ``{}``, which is the same for every message of a kind; its ``arguments``, the values in the order of the
+  ``{}``; ``fields``, the values the code gives a name; and the ``source`` in the code (``file``, ``line``,
+  ``function``). The messages from before the file is opened, those on the parameters among them, come first; a fatal
+  error or a crash is the last line.
+* ``<prefix>-rank<N>-failure.json``, written only by a rank other than 0 that a fatal error or a crash ends, since such
+  a rank does not reach the summary: its ``schema`` (``seissol-rank-failure/1``), ``rank``, the ``runId``, the
+  ``stage`` and the ``error``, as in the summary. A request to stop writes none: it reaches every rank, at the time
+  limit of a job as after a failure on another rank (with Open MPI's ``mpirun``), so the files name only the ranks
+  where a failure started. Rank 0 writes none either; its failure is in the summary. A reader matches the ``runId``
+  against the summary's, as a file from an earlier run of the same prefix is not removed.
 * ``<prefix>-trace.json``, with ``SEISSOL_TRACE=1``: a timeline of the time stepping (see :ref:`trace`).
 
 An epoch ends at every synchronization point, i.e. wherever an output is due. A run without outputs, such as a
@@ -57,9 +69,25 @@ host in GPU builds, so that it should not come more often than needed.
 
 Rank 0 writes the summary when the run starts, at every stage of the initialization, every ten seconds or so during
 the simulation, and at its end, each time replacing the file at once, so that a reader always finds a complete file.
-``status`` is ``completed`` once the run has ended as planned; a run that ended early, by an error or by the time limit
-of its job, leaves ``running``, and ``stage`` says how far it got (``init``, ``init.mesh``, ``init.layout``,
-``init.model``, ``init.sideConditions``, ``init.io``, ``simulation``; ``finished`` at the end).
+``status`` is ``completed`` once the run has ended as planned, and ``failed`` once a fatal error or a crash on rank 0
+has ended it: then ``error`` gives the ``message`` and the ``time``, for an error its ``source`` in the code
+(``file``, ``line``, ``function``), for a crash the ``signal`` (``SIGSEGV``, ``SIGBUS``, ``SIGFPE``, ``SIGILL`` or
+``SIGABRT``) and the ``address`` of the fault or the ``sender``, the process that sent the signal, if there is one. It
+is ``terminated`` once a request to stop (``SIGTERM`` from a job scheduler at the time limit or on cancellation,
+``SIGINT`` on Ctrl-C, ``SIGHUP`` when the terminal closes) has reached rank 0: then ``terminatedBy`` gives the same,
+with the ``signal``. A run that ended without a signal that rank 0 can catch, e.g. by ``SIGKILL`` from the
+out-of-memory killer or by the loss of its node, leaves ``running``. In each case, ``stage`` says how far it got
+(``init``, ``init.mesh``, ``init.layout``, ``init.model``, ``init.sideConditions``, ``init.io``, ``simulation``;
+``finished`` at the end).
+
+A crash, i.e. one of these signals or an exception that nothing caught, is reported as a fatal error is: on the console
+of its rank, with the backtrace, and on rank 0 in the log; then it ends all ranks, as a fatal error does. A request to
+stop is reported as a warning, without a backtrace, on the console of rank 0 and in the log, and ends each rank it
+reaches. Note that with Open MPI's ``mpirun``, a rank that ends because another rank failed receives ``SIGTERM`` as
+well, the same as from a scheduler, so ``terminated`` on rank 0 can also stand for a failure on another rank; the exit
+code of the launcher tells the two apart. On Windows, SeisSol catches none of these signals: there, a crash or a request
+to stop leaves ``running``, while a fatal error and an exception that nothing caught end the run as ``failed``, as
+elsewhere.
 
 Times are in seconds, timesteps and simulated times in simulated seconds. Where a value differs between the ranks, the
 summary gives its statistics over them, an object with ``min``, ``max``, ``mean``, ``median``, ``std`` and ``sum``. The
@@ -74,6 +102,8 @@ members of the summary are:
      - the format, ``seissol-run-summary/1``
    * - ``runId``, ``status``, ``stage``, ``started``, ``updated``
      - the ID of the run (see :ref:`env_vars`), how far it got, and when (UTC)
+   * - ``error``
+     - what ended a failed run (see above)
    * - ``build``
      - version, commit, host and device architecture, compiler, build type and the configurations built
    * - ``parallel``

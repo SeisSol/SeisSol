@@ -52,7 +52,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #                     PRECISION, DYNAMIC_RUPTURE_METHOD,
 #                     NUMBER_OF_FUSED_SIMULATIONS,
 #                     MEMORY_LAYOUT,
-#                     LOG_LEVEL, LOG_LEVEL_MASTER,
+#                     LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
 #
@@ -142,9 +142,7 @@ get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 # set hardware/compiler specific definitions and flags
 target_compile_options(seissol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
 
-target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
-target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
-                                                     LOGLEVEL0=${LOG_LEVEL_MASTER})
+target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER})
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
