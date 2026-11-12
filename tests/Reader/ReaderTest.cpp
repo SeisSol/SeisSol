@@ -15,6 +15,7 @@
 
 #ifdef USE_EASI
 #include "EasiReader.t.h"
+#include "EasiWalker.t.h"
 #endif
 
 #include "Datafield/AsagiLite.t.h"

@@ -10,9 +10,11 @@
 #include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/EasiReader.h"
+#include "Reader/Scripting/EasiWalker.h"
 #include "Reader/Scripting/LuaReader.h"
 #include "Reader/Scripting/LuaTracer.h"
 
+#include <cstdlib>
 #include <fstream>
 #include <memory>
 #include <optional>
@@ -84,6 +86,44 @@ std::unique_ptr<DataReader> buildSderiv(const std::string& path) {
   logInfo() << "Compiled the sderiv module" << path << "with" << program.outputs().size()
             << "outputs.";
   return std::make_unique<CompiledReader>(std::move(program), nullptr);
+}
+
+std::unique_ptr<DataReader> makeEasiReader(const std::string& path,
+                                           const std::vector<std::string>& dimensions) {
+  return std::make_unique<EasiReader>(path, dimensions);
+}
+
+/// An easi file: translated into a program by the easi walker where it translates the file, else
+/// evaluated by easi, with a note that names the component it does not translate.
+/// SEISSOL_EASI=easi evaluates every file by easi; SEISSOL_EASI=check compares the program with
+/// easi at its first call, and falls back to easi where they differ.
+std::unique_ptr<DataReader> buildEasi(const std::string& path,
+                                      const std::vector<std::string>& dimensions) {
+  const char* given = std::getenv("SEISSOL_EASI");
+  const std::string mode = given == nullptr ? std::string("walker") : std::string(given);
+  if (mode == "easi") {
+    return makeEasiReader(path, dimensions);
+  }
+  if (mode != "walker" && mode != "check") {
+    logError() << "SEISSOL_EASI is easi, walker or check, not" << mode;
+  }
+  try {
+    // the whole model once, so that what the walker does not translate shows now, not at a call
+    EasiQuery query;
+    query.dimensions = dimensions;
+    query.parameters = easiParameters(path, dimensions);
+    static_cast<void>(easiProgram(path, query));
+    auto reader = std::make_unique<EasiProgramReader>(
+        path, dimensions, mode == "check" ? &makeEasiReader : nullptr);
+    logInfo() << "The easi file" << path << "is translated into a program (the easi walker).";
+    return reader;
+  } catch (const EasiUnsupported& error) {
+    logInfo() << "easi evaluates the file" << path << ":" << std::string(error.what());
+  } catch (const EasiModelError& error) {
+    logWarning() << "The easi walker does not read the file" << path << ":"
+                 << std::string(error.what()) << "; easi evaluates it.";
+  }
+  return makeEasiReader(path, dimensions);
 }
 
 bool endsWith(const std::string& text, const std::string& suffix) {
@@ -173,10 +213,7 @@ std::unique_ptr<DataReader> buildReader(const std::string& path,
   if (kind == "sderiv") {
     return buildSderiv(fileOf(path));
   }
-  // The easi walker is not built yet, so this stays interpreted. When it
-  // lands it takes the same shape as buildLua: walk, and on refusal fall back
-  // to EasiReader with a warning naming why.
-  return std::make_unique<EasiReader>(fileOf(path), defaultInArgs);
+  return buildEasi(fileOf(path), defaultInArgs);
 }
 
 } // namespace seissol::reader::scripting

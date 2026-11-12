@@ -132,6 +132,18 @@ To disable persistent communication, set ``SEISSOL_MPI_PERSISTENT=0``. Then, Sei
 Scripts
 -------
 
+An easi file is translated into a program, the same as an sderiv module (the easi walker): SeisSol
+reads its components and computes what easi computes, in the order easi computes it, so that the
+values are easi's to the bit -- the linear interpolation of a ``!LayeredModel`` and of an
+``!ASAGI`` grid within a few units in the last place. A point that no component accepts stops the
+run, as in easi, through a check of the program. The walker translates the structural components
+(``!Switch``, ``!Any``, ``!IdentityMap``, the filters, ``!Include``), ``!ConstantMap``,
+``!AffineMap``, ``!PolynomialMap``, ``!EvalModel``, ``!LayeredModel`` and ``!ASAGI``; a file with
+another component (``!LuaMap``, ``!FunctionMap``, ``!SCECFile``, the special components) easi
+evaluates, which the log says, naming the component. ``SEISSOL_EASI=easi`` evaluates every easi file
+by easi; ``SEISSOL_EASI=check`` compares the program with easi at its first call, and falls back to
+easi where they differ.
+
 The scripts that a run evaluates per time step or per output (the analytical and the nonlinear
 Dirichlet boundary, the slip rates of ``FL = 36``, the derived outputs) compute in the precision of
 the configuration: in binary32 in a configuration of ``f32``, and in binary64 in one of ``f64``. The
