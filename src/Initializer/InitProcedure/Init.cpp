@@ -233,6 +233,8 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   auto& summary = seissolInstance.runSummary();
   summary["configurations"] = configurationNames(seissolInstance);
   summary.start(seissolInstance.parameters().output.prefix, seissolInstance.runId());
+  // the log as JSON Lines next to the summary, from rank 0, with the messages from before as well
+  utils::Logger::enableJsonLines(seissolInstance.parameters().output.prefix + "-log.jsonl");
 
   seissol::Stopwatch initWatch;
   initWatch.start();

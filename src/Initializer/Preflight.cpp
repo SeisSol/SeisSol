@@ -17,12 +17,13 @@
 #include "Initializer/Parameters/ParameterOverrides.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Monitoring/FailureReport.h"
 #include "Monitoring/RunSummary.h"
 
 #include <algorithm>
 #include <cctype>
-#include <csignal>
 #include <cstddef>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fty/fty.hpp>
@@ -35,14 +36,11 @@
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
-// the handler of SIGTRAP and the permissions of a directory are POSIX; Windows has neither
+// whether a directory is writable: POSIX has access(); Windows tries to create a file there
 #ifdef _WIN32
 #include <fstream>
 #include <random>
 #else
-#include <fcntl.h>
-// SIGTRAP is POSIX and only declared by the C header
-#include <signal.h> // NOLINT(modernize-deprecated-headers)
 #include <unistd.h>
 #endif
 
@@ -56,35 +54,20 @@ namespace {
 
 constexpr std::string_view Schema = "seissol-check/1";
 
-// What an error that stops the check leaves behind: the report as it stood, and where it goes.
-// logError() raises SIGTRAP before it aborts; a signal handler can only write what is there
-// already, so the report is rendered ahead, at every step of the check.
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::string stoppedReport;
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::string stoppedReportPath;
+//! @brief Sets the abort handler of the logger for as long as it exists; then the one before again.
+class AbortHandlerScope {
+  public:
+  explicit AbortHandlerScope(utils::Logger::AbortHandler handler)
+      : previous_(utils::Logger::setAbortHandler(std::move(handler))) {}
+  ~AbortHandlerScope() { utils::Logger::setAbortHandler(std::move(previous_)); }
+  AbortHandlerScope(const AbortHandlerScope&) = delete;
+  AbortHandlerScope(AbortHandlerScope&&) = delete;
+  AbortHandlerScope& operator=(const AbortHandlerScope&) = delete;
+  AbortHandlerScope& operator=(AbortHandlerScope&&) = delete;
 
-#ifndef _WIN32
-void stopCheck(int /*signal*/) {
-  if (!stoppedReportPath.empty()) {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    const int file = ::open(stoppedReportPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (file >= 0) {
-      std::size_t written = 0;
-      while (written < stoppedReport.size()) {
-        const auto result =
-            ::write(file, stoppedReport.data() + written, stoppedReport.size() - written);
-        if (result <= 0) {
-          break;
-        }
-        written += static_cast<std::size_t>(result);
-      }
-      ::close(file);
-    }
-  }
-  ::_exit(1);
-}
-#endif
+  private:
+  utils::Logger::AbortHandler previous_;
+};
 
 class Report {
   public:
@@ -92,7 +75,6 @@ class Report {
     root_["schema"] = std::string(Schema);
     root_["status"] = "running";
     root_["problems"] = json::Value::array();
-    stoppedReportPath = path_;
   }
 
   json::Value& operator[](std::string_view key) { return root_[key]; }
@@ -101,23 +83,31 @@ class Report {
   void problem(const std::string& text) {
     logWarning() << text.c_str();
     root_["problems"].push(text);
+    setFailure();
   }
 
-  //! @brief Starts the step @p name , which an error may stop.
+  //! @brief Starts the step @p name , which an error or a crash may stop.
   void step(std::string_view name) {
-    json::Value stopped = root_;
-    stopped["status"] = "failed";
-    stopped["stoppedAt"] = std::string(name);
-    stoppedReport = stopped.dump() + "\n";
+    step_ = std::string(name);
+    setFailure();
+  }
+
+  /**
+   * @brief Writes the report of a check that the error of @p record stopped: the step it stopped,
+   * and the message and the place of the error.
+   */
+  void stop(const utils::LogRecord& record) {
+    // with what the step has found so far
+    setFailure();
+    monitoring::writeFailureReport(monitoring::failureOf(record));
   }
 
   //! @brief Writes the report, if asked to, and returns the exit code.
   int finish() {
+    monitoring::clearFailureReports();
     const bool passed = root_["problems"].size() == 0;
     root_["status"] = passed ? "passed" : "failed";
-    if (!path_.empty() && !writeFileAtomically(path_, root_.dump() + "\n")) {
-      logWarning() << "Could not write the report of the check to" << path_;
-    }
+    write();
     const auto problems = root_["problems"].size();
     if (passed) {
       logInfo() << "The check passed.";
@@ -128,8 +118,40 @@ class Report {
   }
 
   private:
+  void write() {
+    if (!path_.empty() && !writeFileAtomically(path_, root_.dump() + "\n")) {
+      logWarning() << "Could not write the report of the check to" << path_;
+    }
+  }
+
+  //! @brief The report as it stands, with @p status and the placeholder in @p key after the step.
+  [[nodiscard]] json::Value with(const char* status, const char* key) const {
+    auto changed = json::Value::object();
+    for (const auto& [name, value] : root_.asObject()) {
+      changed[name] = name == "status" ? json::Value(status) : value;
+      if (name == "status") {
+        changed["stoppedAt"] = step_;
+        changed[key] = monitoring::FailurePlaceholder;
+      }
+    }
+    return changed;
+  }
+
+  /**
+   * @brief Sets what a failure and a request to stop write: the report as it stands, failed with
+   * the error, or terminated with the signal, each after the step it stopped.
+   */
+  void setFailure() {
+    if (path_.empty()) {
+      return;
+    }
+    monitoring::setFailureReport(path_, with("failed", "error"));
+    monitoring::setTerminationReport(path_, with("terminated", "terminatedBy"));
+  }
+
   std::string path_;
   json::Value root_;
+  std::string step_;
 };
 
 std::string joined(const std::vector<std::string>& parts) {
@@ -349,11 +371,11 @@ int preflight(const std::string& parameterFile,
     invocation["checkpoint"] =
         checkpoint.has_value() ? json::Value(checkpoint.value()) : json::Value();
   }
-#ifndef _WIN32
-  // an error ends the check through the SIGTRAP of the logger; SIGTRAP can be caught, so that
-  // setting its handler cannot fail. (On Windows, an error ends the check without a report.)
-  static_cast<void>(std::signal(SIGTRAP, stopCheck));
-#endif
+  // an error stops the check as it would stop a run; the report gives the step and the error
+  const AbortHandlerScope stopOnError([&report](const utils::LogRecord& record) {
+    report.stop(record);
+    std::_Exit(1);
+  });
 
   // what a run reads, read as a run reads it; an error stops the check here
   report.step("parameters");
@@ -447,9 +469,6 @@ int preflight(const std::string& parameterFile,
   report.step("output");
   report["output"] = outputSection(seissolParameters, report);
 
-#ifndef _WIN32
-  static_cast<void>(std::signal(SIGTRAP, SIG_DFL));
-#endif
   return report.finish();
 }
 

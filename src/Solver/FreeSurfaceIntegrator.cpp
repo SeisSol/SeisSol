@@ -22,7 +22,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <utils/logger.h>
 #include <vector>
 
@@ -55,8 +54,6 @@ FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
     return LocationFlag::FreeSurfaceWithGravity;
   } else {
     logError() << "Internal error in free surface integrator. Called for invalid cell.";
-    std::abort(); // logError aborts, but this hides the compiler warning about missing return
-                  // statement
   }
 }
 

@@ -9,7 +9,6 @@
 
 #include <array>
 #include <cstddef>
-#include <cstdlib>
 #include <limits>
 #include <optional>
 #include <utility>
@@ -73,7 +72,6 @@ class StorageBackmap {
     const auto position = getDup(id, 0);
     if (!position.has_value()) {
       logError() << "Backmap has no position stored for" << id << ".";
-      std::abort(); // not reached: logError() ends the run
     }
     return *position;
   }
@@ -118,7 +116,6 @@ class StorageBackmap {
     }
     logError() << "Backmap has stored more than" << MaxDuplicates << "duplicates for" << cell
                << ". Out of capacity.";
-    std::abort();
   }
 };
 
