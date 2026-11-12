@@ -507,6 +507,118 @@ TEST_SUITE("SderivFrontend") {
            "the condition of a check is a number, not a record of a");
   }
 
+  TEST_CASE("a type names the form of a value, which a value of it takes") {
+    registerRecordType("elastic", {"rho", "mu", "lambda"});
+    // a record with more fields is of the type, as its fields of the type
+    const auto typed = compileSderivModule(
+        "type velocities = {rho, vp, vs}\n"
+        "def lame(p : velocities) : elastic =\n"
+        "  {rho = p.rho, mu = p.rho * p.vs ** 2, lambda = p.rho * (p.vp ** 2 - 2 * p.vs ** 2)}\n"
+        "def v = {qp = 100, rho = 2700 + x, vp = 6000, vs = 3464}\n"
+        "out lame(v) : elastic\n");
+    REQUIRE(typed.outputs().size() == 3);
+    CHECK(typed.outputs()[0].name == "rho");
+    CHECK(typed.outputs()[1].name == "mu");
+    CHECK(typed.outputs()[2].name == "lambda");
+    const auto untyped =
+        compileSderivModule("out def rho = 2700 + x\n"
+                            "out def mu = (2700 + x) * 3464 ** 2\n"
+                            "out def lambda = (2700 + x) * (6000 ** 2 - 2 * 3464 ** 2)\n");
+    CHECK(typed.fingerprint() == untyped.fingerprint());
+    // the material of the point: material.rho reads the input rho, material : t those of t
+    const auto material = compileSderivModule("type shear = {rho, mu}\n"
+                                              "def m = material : shear\n"
+                                              "out def vs = sqrt(m.mu / m.rho)\n"
+                                              "out def r = material.rho * 2\n");
+    std::set<std::string> inputs;
+    for (const auto& input : material.inputs()) {
+      inputs.insert(input.name);
+    }
+    CHECK(inputs == std::set<std::string>{"rho", "mu"});
+    // arrays of a length, and records of records
+    const auto nested = compileSderivModule("type side = {material : elastic, normal : number[3]}\n"
+                                            "def s : side = {normal = [x, 0, 1], material =\n"
+                                            "  {lambda = 2, mu = 1, rho = 3}, extra = 5}\n"
+                                            "out def a = s.material.mu + s.normal[0]\n");
+    reader::datafield::GridStore store;
+    CHECK(interpretValues(nested, store, {4.0}, 1) == std::vector<double>{5.0});
+  }
+
+  TEST_CASE("a value that is no value of its type, and a type that is none, are errors") {
+    registerRecordType("elastic", {"rho", "mu", "lambda"});
+    const auto reject = [](const std::string& source, const std::string& fragment) {
+      bool thrown = false;
+      try {
+        static_cast<void>(compileSderivModule(source));
+      } catch (const SderivError& error) {
+        thrown = true;
+        const std::string message = error.what();
+        CAPTURE(message);
+        CAPTURE(fragment);
+        CHECK(message.find(fragment) != std::string::npos);
+      }
+      CAPTURE(source);
+      CHECK(thrown);
+    };
+    reject("out {rho = 1, mu = 2} : elastic\n",
+           "the value is no `elastic`: it has no field `lambda`");
+    reject("def f(p : elastic) = p.rho\nout def r = f({rho = 1})\n",
+           "the argument p of f is no `elastic`: it has no field `mu`");
+    reject("def f(a) : number = [a]\nout def r = f(1)\n",
+           "the value of f is no `number`: it is an array of 1");
+    reject("out def r = sum([1, 2] : number[3])\n", "is no `number[3]`: it is an array of 2");
+    reject("type t = {a, b}\nout def r = ({a = 1, b = [2]} : t).a\n",
+           "the value, field b, is no `number`: it is an array of 1");
+    reject("out def r = (x : vector)[0]\n", "unknown type `vector`");
+    reject("type elastic = {rho}\nout def r = x\n", "the type `elastic` is one of SeisSol");
+    reject("type t = {a}\ntype t = {b}\nout def r = x\n", "duplicate type `t`");
+    reject("type a = {b : c}\ntype c = {d : a}\nout def r = x\n", "is defined in terms of itself");
+    reject("type t = {a, a}\nout def r = x\n", "the type has the field `a` twice");
+    reject("out def r = material\n", "`material` is the material of the point");
+    reject("out def r = (material : number[3])[0]\n", "`material` is a record of the parameters");
+  }
+
+  TEST_CASE("@, comprehensions, and states of arrays and records") {
+    const auto program = compileSderivModule(
+        "def m = [[1, 2], [3, 4]]\n"
+        "def v = [x, y]\n"
+        "out def a = (m @ v)[1] + (v @ m)[0]\n"
+        "out def b = sum([i * i for i in range(4)])\n"
+        "out def c = [[r[j] for r in m] for j in range(2)][1][0]\n"
+        "state peak = {v = [0, 0], n = 0}\n"
+        "def peak = {v = [max(peak.v[0], x), max(peak.v[1], y)], n = peak.n + 1}\n"
+        "out def p = peak.v[1] + peak.n\n");
+    std::vector<std::string> states;
+    for (const auto& state : program.state()) {
+      states.push_back(state.name);
+    }
+    CHECK(states == std::vector<std::string>{"peak.v[0]", "peak.v[1]", "peak.n"});
+    reader::datafield::GridStore store;
+    const std::vector<double> stateValues = {5.0, 6.0, 2.0};
+    const auto values = interpretValues(program, store, {1.0, 2.0}, 1, nullptr, &stateValues);
+    // m @ v = [5, 11], v @ m = [7, 10]; 0 + 1 + 4 + 9; the transpose of m, [[1, 3], [2, 4]]; and
+    // the states of the previous call; then the next states
+    REQUIRE(values.size() == 7);
+    CHECK(values[0] == 18.0);
+    CHECK(values[1] == 14.0);
+    CHECK(values[2] == 2.0);
+    CHECK(values[3] == 8.0);
+    CHECK(values[4] == 5.0);
+    CHECK(values[5] == 6.0);
+    CHECK(values[6] == 3.0);
+    // the next value has the shape of the initial one
+    bool thrown = false;
+    try {
+      static_cast<void>(compileSderivModule("state s = [0, 0]\ndef s = [x]\nout def r = s[0]\n"));
+    } catch (const SderivError& error) {
+      thrown = true;
+      CHECK(std::string(error.what())
+                .find("the next value of the state `s` has the shape of "
+                      "its initial value") != std::string::npos);
+    }
+    CHECK(thrown);
+  }
+
   // ------------------------------------------------------------ negative ---
 
   TEST_CASE("strings are confined to grid declarations") {

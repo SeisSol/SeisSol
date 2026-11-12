@@ -7,6 +7,7 @@
 
 add_library(seissol-model OBJECT
     Common.cpp
+    ScriptTypes.cpp
 )
 
 target_link_libraries(seissol-model PUBLIC seissol-common-properties)

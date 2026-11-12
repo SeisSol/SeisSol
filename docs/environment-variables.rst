@@ -212,17 +212,41 @@ grid below 2 km and from formulas above, say:
    out select(lt(z, -2000), lame(m(x, y, z)), shallow)
 
 For arrays there are ``sum``, ``min`` and ``max`` of one array; ``dot``, ``norm`` and ``cross`` of
-vectors; ``matmul`` of matrices and vectors, and ``transpose``, ``trace`` and ``det`` (up to 3 by 3)
-of matrices; ``eye(n)``, ``len(a)`` and ``range(n)``. A definition may take the name of one of them,
-which it then hides. The traction on a plane, as a derived output:
+vectors; ``matmul`` of matrices and vectors (also ``a @ b``), and ``transpose``, ``trace`` and
+``det`` (up to 3 by 3) of matrices; ``eye(n)``, ``len(a)`` and ``range(n)``; and
+``[f(v) for v in a]`` is an array of an element per element of ``a``. A definition may take the name
+of one of these functions, which it then hides. The traction on a plane, as a derived output:
 
 .. code-block:: text
 
    def n = [0.6, 0, 0.8]
    def s = [[s_xx, s_xy, s_xz], [s_xy, s_yy, s_yz], [s_xz, s_yz, s_zz]]
-   def t = matmul(s, n)
+   def t = s @ n
    out def normal_stress = dot(t, n)
    out def shear_stress = norm(t - dot(t, n) * n)
+
+A state may be an array or a record, ``state peak = [0, 0, 0]``, whose next value has its shape:
+SeisSol keeps a state per number, ``peak[0]`` to ``peak[2]``.
+
+A type names the form of a value: ``type velocities = {rho, vp, vs}`` is a record of three numbers,
+``number[3]`` an array of three, and a field may have a type, ``{material : elastic, normal :
+number[3]}``. The materials of SeisSol are types of their parameters -- ``elastic``, ``acoustic``,
+``viscoelastic``, ``viscoacoustic``, ``anisotropic``, ``poroelastic`` and ``plasticity``, in the
+order of their material files. ``e : t`` is ``e`` as a value of ``t``: SeisSol checks that it has
+the fields of ``t``, and keeps only those, in the order of ``t``. A definition, its parameters and
+an output may give a type; ``out e : elastic`` gives the parameters of an elastic material, and a
+missing one is an error that names it:
+
+.. code-block:: text
+
+   type velocities = {rho, vp, vs}
+   def lame(p : velocities) : elastic =
+     {rho = p.rho, mu = p.rho * p.vs ** 2, lambda = p.rho * (p.vp ** 2 - 2 * p.vs ** 2)}
+   out lame(m(x, y, z)) : elastic
+
+``material`` is the material of the point, where a consumer supplies its parameters (the boundary
+conditions and the derived outputs, say): ``material.rho`` reads the input ``rho``, and
+``material : elastic`` gives the record of ``rho``, ``mu`` and ``lambda``.
 
 Records and arrays are resolved when the module is read: the program computes the numbers a module
 written number by number computes, in the same order, to the same bits.

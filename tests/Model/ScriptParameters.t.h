@@ -11,9 +11,11 @@
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/viscoacoustic/Model/Datastructures.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
+#include "Expr/SderivFrontend.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/ScriptParameters.h"
+#include "Model/ScriptTypes.h"
 
 #include <cstddef>
 #include <string>
@@ -141,6 +143,24 @@ TEST_CASE("ScriptParameters: the parameters of a material in order, as the mater
     CHECK(model::scriptParameterIndex<model::ElasticMaterial>("lambda") == 2);
     CHECK(!model::scriptParameterIndex<model::ElasticMaterial>("porosity").has_value());
   }
+}
+
+TEST_CASE("ScriptTypes: the materials are types of the scripts, of their parameters" *
+          doctest::test_suite("model")) {
+  using Names = std::vector<std::string>;
+  model::registerScriptTypes();
+  const auto types = expr::recordTypes();
+  CHECK(types.at("elastic") == Names{"rho", "mu", "lambda"});
+  CHECK(types.at("acoustic") == Names{"rho", "lambda"});
+  CHECK(types.at("viscoelastic") == Names{"rho", "mu", "lambda", "Qp", "Qs"});
+  CHECK(types.at("viscoacoustic") == Names{"rho", "lambda", "Qp"});
+  CHECK(types.at("anisotropic").size() == 22);
+  CHECK(types.at("poroelastic").size() == 10);
+  CHECK(types.at("plasticity").front() == "bulkFriction");
+  CHECK(model::scriptTypeName("viscoelastic-3") == "viscoelastic");
+  // a script of the full language knows them
+  const auto program = expr::compileSderivModule("out {rho = 1, mu = 2, lambda = 3} : elastic\n");
+  CHECK(program.outputs().size() == 3);
 }
 
 } // namespace seissol::unit_test::script_parameters

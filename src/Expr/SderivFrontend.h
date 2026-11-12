@@ -29,25 +29,33 @@
 //
 // GRAMMAR (deltas against the derived-output frontend marked +):
 //
-//   + program    := { definition | spread | griddecl | statedecl | check } ( expr | ) EOF
-//   + definition := [ 'out' ] 'def' NAME [ '(' NAME { ',' NAME } ')' ] '=' expr
+//   + program    := { definition | spread | typedecl | griddecl | statedecl | check } ( expr | )
+//   EOF
+//   + definition := [ 'out' ] 'def' NAME [ '(' param { ',' param } ')' ] [ ':' type ] '=' expr
+//   + param      := NAME [ ':' type ]
 //   + spread     := 'out' expr          // the fields of a record, an output each
+//   + typedecl   := 'type' NAME '=' type
+//   + type       := ( 'number' | NAME | '{' NAME [ ':' type ] { ',' NAME [ ':' type ] } '}' )
+//                   { '[' NUM ']' }     // number[3][3]: 3 arrays of 3 numbers
 //   + griddecl   := 'grid' NAME '(' attribute { ',' attribute } ')'
 //   + attribute  := NAME '=' ( STR | NUM | '(' value { ',' value } ')' )
 //                    // those of the core format; an ASAGI file's variable and the boundary have
 //                    // defaults ("z", "clamp")
-//   + statedecl  := 'state' NAME '=' [ '-' ] NUM
+//   + statedecl  := 'state' [ TYPE ] NAME '=' initial
+//   + initial    := [ '-' ] NUM | '[' initial { ',' initial } ']'
+//                 | '{' NAME '=' initial { ',' NAME '=' initial } '}'
 //   + check      := 'check' expr ',' STR    // a condition every point meets (Program::checks())
 //   + comment    := '#' { any } NEWLINE
 //
-//     expr       := 'let' NAME '=' expr 'in' expr | add
+//     expr       := 'let' NAME '=' expr 'in' expr | add [ ':' type ]
 //     add        := mul { ('+'|'-') mul }
-//     mul        := unary { ('*'|'/') unary }
+//     mul        := unary { ('*'|'/'|'@') unary }
 //     unary      := '-' unary | power
 //     power      := postfix [ '**' unary ]           // right-associative
 //   + postfix    := primary { '.' NAME | '[' expr ']' }
 //     primary    := NUM | NAME [ '(' args ')' ] | NAME '.' NAME '(' args ')' | '(' expr ')'
 //                 | '{' NAME '=' expr { ',' NAME '=' expr } '}' | '[' expr { ',' expr } ']'
+//                 | '[' expr 'for' NAME 'in' expr ']'
 //
 // RECORDS AND ARRAYS. A value is a number, a record of named values ({rho = 2600, mu = 1e10}),
 // or an array of values ([x, y, z]); a matrix is an array of arrays. `p.rho` is a field, `a[0]` an
@@ -61,7 +69,18 @@
 // record of their names. `out e` gives the fields of the record e as outputs of their names. The
 // intrinsics of arrays (Intrinsics): sum, min and max of one array; dot, norm and cross of
 // vectors; matmul of matrices and vectors, transpose, trace and det (to 3 by 3) of matrices;
-// eye(n), len(a) and range(n). A definition may take the name of an intrinsic, which it hides.
+// eye(n), len(a) and range(n); `a @ b` is matmul(a, b), and [f(v) for v in a] an element per
+// element of the array a. A definition may take the name of an intrinsic, which it hides. A state
+// may be an array or a record: a state of the program per number, `s[0]`, `s.v`.
+//
+// TYPES. `type elastic = {rho, mu, lambda}` names the form of a value, structurally: a record of
+// those fields (a field without a type is a number), `number[3]` an array of 3 numbers. The
+// materials of SeisSol are types of their parameters (registerRecordType()). `e : t` is e as a
+// value of t: checked, and of the fields of t, in its order -- a record may have more, which it
+// leaves out. A definition, its parameters and an output (`out e : elastic`) may give a type.
+// `material` is the material of the point: `material.rho` reads the input rho, `material : t` the
+// inputs of the fields of t -- the names the consumer supplies the parameters of its material by.
+// None of it reaches the program: types are checked and resolved here.
 //
 // `out` IS A MODIFIER ON def, not a sibling keyword, and the grammar says so
 // with one production rather than two that happen to look alike. An exported
@@ -129,6 +148,7 @@
 
 #include "Expr/Program.h"
 
+#include <map>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -186,6 +206,14 @@ struct SderivOptions {
   /// errors, and its relative grid paths are relative to its directory.
   std::string file;
 };
+
+/// Registers the record type `name` of the fields `fields`, numbers, in their order: a type every
+/// module of the full language knows by its name, as SeisSol registers its materials
+/// (model::registerScriptTypes()). A module may not declare a type of the name of one.
+void registerRecordType(const std::string& name, const std::vector<std::string>& fields);
+
+/// The record types registered so far, by name.
+[[nodiscard]] std::map<std::string, std::vector<std::string>> recordTypes();
 
 /// The same, with `options`. A source that starts with the header `#!sderiv` is in the core format
 /// (Core.h), which declares its inputs itself; `options.inputs` does not apply to it.

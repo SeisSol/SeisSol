@@ -15,6 +15,7 @@
 #include "Expr/Program.h"
 #include "Expr/Record.h"
 #include "Expr/SderivFrontend.h"
+#include "Model/ScriptTypes.h"
 #include "Parallel/MPI.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Datafield/TableGrid.h"
@@ -786,6 +787,8 @@ int diff(const std::vector<std::string>& args) {
 } // namespace
 
 int main(int argc, char* argv[]) {
+  // the materials as types of the full language, as a run of SeisSol has them
+  seissol::model::registerScriptTypes();
   const std::vector<std::string> all(argv + 1, argv + argc);
   if (all.empty() || all[0] == "-h" || all[0] == "--help" || all[0] == "help") {
     std::cout << Usage;

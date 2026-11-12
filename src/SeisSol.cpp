@@ -9,6 +9,7 @@
 #include "SeisSol.h"
 
 #include "Geometry/MeshReader.h"
+#include "Model/ScriptTypes.h"
 #include "Modules/Modules.h"
 #include "Monitoring/Unit.h"
 #include "Parallel/Helper.h"
@@ -29,6 +30,9 @@ SeisSol::~SeisSol() = default;
 
 bool SeisSol::init() {
   const auto rank = seissol::Mpi::mpi.rank();
+
+  // the materials as types of the scripts, before any script is read
+  model::registerScriptTypes();
 
   if (rank == 0) {
     const auto& hostNames = seissol::Mpi::mpi.getHostNames();
