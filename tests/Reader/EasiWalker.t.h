@@ -784,6 +784,100 @@ TEST_CASE("easi walker: a message about Impala names the line of the file" *
   CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(earlier, query)), sc::EasiUnsupported);
 }
 
+TEST_CASE("easi walker: the special components give easi's bits" * doctest::test_suite("reader")) {
+  const Files files;
+  const std::vector<std::string> stress{"b_xx", "b_yy", "b_zz", "b_xy", "b_yz", "b_xz"};
+  // the stress from strike and dip of Aochi and Madariaga, of strike slip, of dip slip, and of a
+  // kind that depends on the point (below epsilon strike slip)
+  for (const std::string faulting : {"0.0", "1.0", "y"}) {
+    CAPTURE(faulting);
+    const std::string path =
+        files.write("am-" + std::to_string(faulting.size()) + faulting.substr(0, 1) + ".yaml",
+                    "!FunctionMap\n"
+                    "map:\n"
+                    "  strike: return 300.0 + 10.0 * x;\n"
+                    "  DipSlipFaulting: return " +
+                        faulting +
+                        ";\n"
+                        "components: !STRESS_STR_DIP_SLIP_AM\n"
+                        "  constants:\n"
+                        "    mu_d:     0.25\n"
+                        "    mu_s:     0.3\n"
+                        "    dip:      8\n"
+                        "    s_zz:     555562000\n"
+                        "    cohesion: 0.4e6\n"
+                        "    R:        0.7\n"
+                        "    s2ratio:  0.5\n");
+    sameAsEasi(path, stress, pointsIn(-3.0, 3.0, {0.0, 1.0e-17, -1.0e-17, 1.0}, 2000));
+  }
+  // the optimal stress of Ulrich et al., strike, dip and rake of the point
+  const std::string optimal = files.write("optimal.yaml",
+                                          "!AffineMap\n"
+                                          "matrix:\n"
+                                          "  strike: [10.0, 0.0, 0.0]\n"
+                                          "  dip: [0.0, 5.0, 0.0]\n"
+                                          "  rake: [0.0, 0.0, 20.0]\n"
+                                          "translation:\n"
+                                          "  strike: 30.0\n"
+                                          "  dip: 60.0\n"
+                                          "  rake: -90.0\n"
+                                          "components: !OptimalStress\n"
+                                          "  constants:\n"
+                                          "    mu_d: 0.1\n"
+                                          "    mu_s: 0.6\n"
+                                          "    effectiveConfiningStress: -1.0e8\n"
+                                          "    cohesion: 0.0\n"
+                                          "    R: 0.7\n"
+                                          "    s2ratio: 0.5\n");
+  sameAsEasi(optimal, stress, pointsIn(-3.0, 3.0, {0.0}, 2000));
+  // the Andersonian stress, with the vertical principal stress of the point: 1, 2 or 3
+  const std::string andersonian = files.write("andersonian.yaml",
+                                              "!FunctionMap\n"
+                                              "map:\n"
+                                              "  SH_max: return 10.0 * y + 30.0;\n"
+                                              "  S_v: |\n"
+                                              "    if (x < -1) { return 1; }\n"
+                                              "    if (x < 1) { return 2; }\n"
+                                              "    return 3;\n"
+                                              "  sig_zz: return -100000000.0 + 1000000.0 * z;\n"
+                                              "components: !AndersonianStress\n"
+                                              "  constants:\n"
+                                              "    mu_d: 0.2\n"
+                                              "    mu_s: 0.6\n"
+                                              "    cohesion: 1.0e6\n"
+                                              "    S: 0.5\n"
+                                              "    s2ratio: 0.3\n");
+  sameAsEasi(andersonian, stress, pointsIn(-3.0, 3.0, {-1.0, 1.0}, 2000));
+  // every input a constant: the stress is a number
+  const std::string constant = files.write("constant.yaml",
+                                           "!OptimalStress\n"
+                                           "constants:\n"
+                                           "  mu_d: 0.1\n"
+                                           "  mu_s: 0.6\n"
+                                           "  strike: 30.0\n"
+                                           "  dip: 60.0\n"
+                                           "  rake: -90.0\n"
+                                           "  effectiveConfiningStress: -1.0e8\n"
+                                           "  cohesion: 0.0\n"
+                                           "  R: 0.7\n"
+                                           "  s2ratio: 0.5\n");
+  // easi requires the inputs of a component to be the dimensions: none of x, y and z
+  sc::EasiQuery query;
+  query.dimensions = {"x", "y", "z"};
+  query.parameters = stress;
+  CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(constant, query)), sc::EasiModelError);
+  const std::string unknown = files.write("unknown.yaml",
+                                          "!AffineMap\n"
+                                          "matrix:\n"
+                                          "  strike: [10.0, 0.0, 0.0]\n"
+                                          "translation:\n"
+                                          "  strike: 30.0\n"
+                                          "components: !OptimalStress\n"
+                                          "  constants:\n"
+                                          "    friction: 0.1\n");
+  CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(unknown, query)), sc::EasiModelError);
+}
+
 TEST_CASE("easi walker: a point no component accepts fails a check, as easi fails there" *
           doctest::test_suite("reader")) {
   const Files files;

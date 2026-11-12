@@ -12,7 +12,8 @@
 // the includes and the paths of data files resolved as easi resolves them -- and computes what
 // easi computes, in the order easi computes it, so that the bits are easi's: an affine map as
 // easi's matrix product (from zero, in the order of the dimensions, the translation last), a
-// polynomial by Horner's scheme as easi has it, a grid of ASAGI through the grid store. A layered
+// polynomial by Horner's scheme as easi has it, a grid of ASAGI through the grid store, a special
+// component by easi's formulas (EasiSpecial.h). A layered
 // model becomes a grid of its nodes (Grid.h): its steps are easi's, its linear interpolation
 // differs from easi's slope and intercept by a few units in the last place.
 //
@@ -25,8 +26,8 @@
 //
 // The Lua of an !LuaMap, and the Lua easi makes of the Impala of a !FunctionMap (ImpalaToLua.h),
 // the Lua frontend translates (LuaFrontend.h), as easi runs them. What the walker does not
-// translate -- !SCECFile, the special components, and Lua beyond the subset of the frontend -- it
-// refuses with EasiUnsupported, naming the component; the caller evaluates the file with easi then
+// translate -- !SCECFile, and Lua beyond the subset of the frontend -- it refuses with
+// EasiUnsupported, naming the component; the caller evaluates the file with easi then
 // (buildReader()).
 
 #include "Expr/Program.h"

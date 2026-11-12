@@ -14,6 +14,7 @@
 #include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
+#include "Reader/Scripting/EasiSpecial.h"
 #include "Reader/Scripting/ImpalaToLua.h"
 #include "Reader/Scripting/LuaFrontend.h"
 
@@ -331,10 +332,47 @@ class Walker {
     if (tag == "!LuaMap") {
       return luaMapped(node, in, reach);
     }
+    if (const auto* special = easiSpecialOf(tag); special != nullptr) {
+      return specialMapped(node, *special, in);
+    }
     if (tag == "!Include") {
       fail(node, "an !Include is no map");
     }
     unsupported(node);
+  }
+
+  /// A special component (EasiSpecial.h): its inputs from its constants, the others from `in`,
+  /// which are to be exactly those, as easi has it.
+  Values specialMapped(const YAML::Node& node, const EasiSpecial& special, const Values& in) {
+    std::map<std::string, double> constants;
+    if (node["constants"]) {
+      if (!node["constants"].IsMap()) {
+        fail(node["constants"], "`constants` is not of the form easi reads: a map");
+      }
+      constants = as<std::map<std::string, double>>(node, "constants");
+    }
+    std::set<std::string> rest(special.in.begin(), special.in.end());
+    std::map<std::string, NodeId> inputs;
+    for (const auto& [name, value] : constants) {
+      if (rest.erase(name) == 0) {
+        fail(node, "Unknown constant " + name + ".");
+      }
+      inputs[name] = konst(value);
+    }
+    if (rest != keysOf(in)) {
+      fail(node,
+           "The input parameters of a component ({" + listOf(rest) +
+               "}) added to a composite are incompatible (should be {" + listOf(keysOf(in)) +
+               "}).");
+    }
+    for (const auto& name : rest) {
+      inputs[name] = in.at(name).node;
+    }
+    Values out;
+    for (const auto& [name, value] : easiSpecialValues(arena(), special, inputs)) {
+      out[name] = Value{value, {positionOf(node)}};
+    }
+    return out;
   }
 
   /// The indicator of the block scalar `scalar` (`|` or `>`), or 0 for another scalar.
@@ -847,11 +885,11 @@ class Walker {
       return composite(node, in, wanted, reach);
     }
     if (tag == "!ConstantMap" || tag == "!AffineMap" || tag == "!PolynomialMap" ||
-        tag == "!EvalModel" || tag == "!ASAGI" || tag == "!FunctionMap" || tag == "!LuaMap") {
+        tag == "!EvalModel" || tag == "!ASAGI" || tag == "!FunctionMap" || tag == "!LuaMap" ||
+        easiSpecialOf(tag) != nullptr) {
       return composite(node, mapped(node, in, reach), wanted, reach);
     }
-    if (tag == "!SCECFile" || tag == "!STRESS_STR_DIP_SLIP_AM" || tag == "!OptimalStress" ||
-        tag == "!AndersonianStress") {
+    if (tag == "!SCECFile") {
       unsupported(node);
     }
     fail(node, "Unknown tag " + tag);
@@ -1045,6 +1083,8 @@ class Walker {
         const auto names = returns.as<std::vector<std::string>>();
         own.insert(names.begin(), names.end());
       }
+    } else if (const auto* special = easiSpecialOf(tag); special != nullptr) {
+      own.insert(special->out.begin(), special->out.end());
     } else {
       unsupported(node);
     }
