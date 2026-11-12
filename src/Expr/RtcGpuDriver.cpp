@@ -1040,8 +1040,35 @@ class RtcGpuKernel final : public Kernel {
         })
               : std::function<std::uint64_t(std::size_t)>(
                     [this](std::size_t point) { return binding_->identity(point); });
-    const CallPool pool =
-        devicePool(args.first, args.count, identity, given || binding_->identified());
+    CallPool pool = devicePool(args.first, args.count, identity, given || binding_->identified());
+    // the groups and the extreme values over all points of the call, from its columns copied back
+    // in one piece each, where it is not too large to
+    constexpr std::size_t ScanLimit = std::size_t{1} << 22;
+    if (args.count <= ScanLimit) {
+      const auto movedOf = [](void* const* bases, std::size_t count, std::size_t i) {
+        return i < count && bases != nullptr ? static_cast<const void*>(bases[i]) : nullptr;
+      };
+      bool readable = true;
+      std::vector<std::vector<double>> written(binding_->outputs().size());
+      for (std::size_t o = 0; o < written.size() && readable; ++o) {
+        readable = readColumn(binding_->outputs()[o],
+                              movedOf(args.outputs, args.outputCount, o),
+                              args.first,
+                              args.count,
+                              written[o]);
+      }
+      std::vector<double> groups;
+      for (std::size_t i = 0; i < program_.inputs().size() && readable; ++i) {
+        if (program_.inputs()[i].name == "group") {
+          const void* moved =
+              i < args.inputCount && args.inputs != nullptr ? args.inputs[i] : nullptr;
+          readable = readColumn(binding_->inputs()[i], moved, args.first, args.count, groups);
+        }
+      }
+      if (readable) {
+        scanValues(program_, args.first, args.count, identity, written, groups, pool);
+      }
+    }
     const std::vector<std::size_t>& points = pool.points;
     const std::size_t inputs = binding_->inputs().size();
     const std::size_t outputs = binding_->outputs().size();
@@ -1080,6 +1107,84 @@ class RtcGpuKernel final : public Kernel {
       return copyFromDeviceFor(target_, destination, source, bytes, queue_);
     }
     std::memcpy(destination, source, bytes);
+    return true;
+  }
+
+  /// The values of `column` at the points [first, first + count), [point - first]: the index of
+  /// its cells and the bytes the points reach, copied in one piece each. False where it has no
+  /// view, or where the points reach more than 256 MiB.
+  [[nodiscard]] bool readColumn(const ColumnBinding& column,
+                                const void* moved,
+                                std::size_t first,
+                                std::size_t count,
+                                std::vector<double>& out) const {
+    constexpr std::size_t MaxBytes = std::size_t{1} << 28;
+    if (!column.view.has_value() || count == 0) {
+      return false;
+    }
+    const auto& view = *column.view;
+    const std::size_t firstElement = first / view.divisor;
+    const std::size_t elementCount = (first + count - 1) / view.divisor - firstElement + 1;
+    std::vector<std::size_t> elements(elementCount);
+    if (view.index != nullptr) {
+      std::vector<std::uint32_t> index(elementCount);
+      if (!read(index.data(), view.index + firstElement, elementCount * sizeof(std::uint32_t))) {
+        return false;
+      }
+      std::copy(index.begin(), index.end(), elements.begin());
+    } else {
+      for (std::size_t e = 0; e < elementCount; ++e) {
+        elements[e] = firstElement + e;
+      }
+    }
+    std::size_t width = 0;
+    switch (column.tableType) {
+    case reader::scripting::DataType::F32:
+    case reader::scripting::DataType::I32:
+      width = 4;
+      break;
+    case reader::scripting::DataType::F64:
+    case reader::scripting::DataType::I64:
+      width = 8;
+      break;
+    }
+    const auto [lowest, highest] = std::minmax_element(elements.begin(), elements.end());
+    const std::size_t from = view.byteOffset + *lowest * view.byteStride;
+    const std::size_t to = view.byteOffset + *highest * view.byteStride +
+                           (view.divisor - 1) * view.pointStride + width;
+    if (to - from > MaxBytes) {
+      return false;
+    }
+    std::vector<char> bytes(to - from);
+    const char* base = static_cast<const char*>(moved != nullptr ? moved : view.base);
+    if (!read(bytes.data(), base + from, bytes.size())) {
+      return false;
+    }
+    out.resize(count);
+    for (std::size_t k = 0; k < count; ++k) {
+      const std::size_t point = first + k;
+      const std::size_t element = elements[point / view.divisor - firstElement];
+      const char* at = bytes.data() + view.byteOffset + element * view.byteStride +
+                       (point % view.divisor) * view.pointStride - from;
+      const auto fetch = [&](auto value) {
+        std::memcpy(&value, at, sizeof(value));
+        return static_cast<double>(value);
+      };
+      switch (column.tableType) {
+      case reader::scripting::DataType::F32:
+        out[k] = fetch(0.0F);
+        break;
+      case reader::scripting::DataType::F64:
+        out[k] = fetch(0.0);
+        break;
+      case reader::scripting::DataType::I32:
+        out[k] = fetch(std::int32_t{0});
+        break;
+      case reader::scripting::DataType::I64:
+        out[k] = fetch(std::int64_t{0});
+        break;
+      }
+    }
     return true;
   }
 

@@ -285,6 +285,19 @@ struct BackendComparison {
                                                              const std::vector<double>& backend,
                                                              bool perturbed);
 
+/// Adds to `pool` the points that the rules over all points of a call of `count` points from
+/// `first` choose, from what a backend wrote there (`outputs`, [output][point - first]) and the
+/// group of each point (`groups`, [point - first], empty for a program without the input `group`):
+/// per group the two points of the smallest hash of their identity, per output those of its
+/// smallest and its largest value -- for a backend whose values are read back in one piece.
+void scanValues(const Program& program,
+                std::size_t first,
+                std::size_t count,
+                const std::function<std::uint64_t(std::size_t)>& identity,
+                const std::vector<std::vector<double>>& outputs,
+                const std::vector<double>& groups,
+                CallPool& pool);
+
 /// What the interpreter gives for `program` -- as written, in its compute type -- at `points`
 /// points of the inputs `inputs` ([input][point], in the order of Program::inputs()), with the
 /// grids of `grids`: [output][point]. Where `branches` is not null, per select (by its instruction)

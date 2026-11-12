@@ -1261,6 +1261,45 @@ std::vector<double> interpretValues(const Program& program,
   return results;
 }
 
+void scanValues(const Program& program,
+                std::size_t first,
+                std::size_t count,
+                const std::function<std::uint64_t(std::size_t)>& identity,
+                const std::vector<std::vector<double>>& outputs,
+                const std::vector<double>& groups,
+                CallPool& pool) {
+  const auto group = std::find_if(program.inputs().begin(),
+                                  program.inputs().end(),
+                                  [](const VarSpec& input) { return input.name == "group"; });
+  const auto groupColumn = static_cast<std::size_t>(group - program.inputs().begin());
+  if (outputs.size() != program.outputs().size() ||
+      (group != program.inputs().end() && groups.size() < count)) {
+    return;
+  }
+  scanCall(
+      program,
+      first,
+      count,
+      identity,
+      [&](std::size_t from, std::size_t n, double* dst) {
+        for (std::size_t o = 0; o < outputs.size(); ++o) {
+          if (outputs[o].size() < count) {
+            return false;
+          }
+          std::copy_n(
+              outputs[o].begin() + static_cast<std::ptrdiff_t>(from - first), n, dst + o * n);
+        }
+        return true;
+      },
+      [&](std::size_t from, std::size_t n, double* dst) {
+        if (group != program.inputs().end()) {
+          std::copy_n(
+              groups.begin() + static_cast<std::ptrdiff_t>(from - first), n, dst + groupColumn * n);
+        }
+      },
+      pool);
+}
+
 std::vector<GridClamps> clampsAt(const Program& program,
                                  GridStore& grids,
                                  const std::vector<double>& inputs,
