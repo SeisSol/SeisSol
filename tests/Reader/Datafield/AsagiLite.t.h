@@ -286,11 +286,11 @@ TEST_CASE("Datafield AsagiLite: an axis declared knots reads its coordinates who
     CHECK_THROWS_AS(grid.sample(point, &out), std::invalid_argument);
   }
   {
-    // undeclared, the axis is uniform from its first spacing
+    // undeclared, the axis is uniform, by the mean spacing between its ends (as ASAGI has it)
     df::AsagiLiteGrid grid;
     REQUIRE(open(grid, "rho", {}) == df::AsagiLiteGrid::Error::Success);
     CHECK(grid.arrayView()->knots[1] == nullptr);
-    CHECK(grid.arrayView()->deltaInv[1] == 1.0 / 100.0);
+    CHECK(grid.arrayView()->deltaInv[1] == 1.0 / 500.0);
   }
   {
     // declarations of another number of axes than the file has, and knots that decrease

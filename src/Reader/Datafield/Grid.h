@@ -161,8 +161,8 @@ enum class BoundaryMode : std::uint8_t { Clamp, Fail };
 // `delta` is not stored in a NetCDF file; it is derived from the coordinate
 // variable, and the two obvious derivations do not agree:
 //
-//   first spacing      delta = v[1] - v[0]                  (easi / ASAGI)
-//   endpoint average   delta = (v[n-1] - v[0]) / (n - 1)    (AsagiLite today)
+//   first spacing      delta = v[1] - v[0]
+//   endpoint average   delta = (v[n-1] - v[0]) / (n - 1)    (ASAGI, and so easi)
 //
 // Coordinate variables are routinely stored as float32, and on such an axis the
 // two differ by far more than a rounding. Measured on the nominal node
@@ -174,10 +174,13 @@ enum class BoundaryMode : std::uint8_t { Clamp, Fail };
 //   depth 0, 0.1 km, 5001 pts          : max offset 7.4e-5 cells, 1380/5001
 //   x -300 km, 250 m, 4001 pts         : exact in binary, 0/4001
 //
-// A whole-cell offset means reading the wrong material. DECIDED: the easi form
-// wins. `delta` is the first spacing and the reciprocal is formed once as
-// `1.0 / delta`, not as `(n - 1) / span` -- the latter differs from the former
-// by one ulp on about a quarter of all inputs.
+// A whole-cell offset means reading the wrong material. DECIDED: the form easi
+// samples with wins. easi takes the spacing of ASAGI (NetCdfReader::getScaling(),
+// (last - first) / (size - 1)) and of its own regular grid ((max - min) / (num -
+// 1)): the endpoint average, which is also the one whose error does not grow
+// along the axis. The reciprocal is formed once as `1.0 / delta`, not as
+// `(n - 1) / span` -- the latter differs from the former by one ulp on about a
+// quarter of all inputs.
 //
 // `num` stays the HDF5 extent rather than easi's `lround((max-min)/delta) + 1`,
 // because the extent is known exactly here and the reconstruction is not. Where

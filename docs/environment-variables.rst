@@ -181,8 +181,8 @@ first node at or above it: a coordinate on a node belongs to the cell below it, 
 An axis need not be uniform. ``axes = ("uniform", "knots")`` declares the second axis of a file as
 knots: SeisSol reads its coordinate variable whole -- finite and strictly increasing, at most
 2^24 values -- and a sample finds its cell by a binary search of a fixed number of steps; a
-coordinate variable that is not uniform without that declaration is sampled with its first spacing,
-with a warning. A grid may also give its data itself, a table of layers, say:
+coordinate variable that is not uniform without that declaration is sampled with the mean spacing
+between its ends, as ASAGI and easi sample it, with a warning. A grid may also give its data itself, a table of layers, say:
 
 .. code-block:: text
 

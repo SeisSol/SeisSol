@@ -50,6 +50,8 @@ namespace seissol::reader::datafield {
 /// Supported file layouts (HDF5/NetCDF dimension order, slowest first):
 ///   - Scalar grid: shape `[d_0, ..., d_{N-1}]`, M = 1
 ///   - Vector grid: shape `[d_0, ..., d_{N-1}, M]`
+///   - Compound grid: shape `[d_0, ..., d_{N-1}]` of a compound of M floating-point members of
+///     one size, ASAGI's form; the members are the components, in their order
 ///
 /// AXIS ORDER: the file order above is the reverse of the grid axis order this
 /// class exposes through Grid (see Grid.h). The reversal happens exactly once,
@@ -73,6 +75,20 @@ namespace seissol::reader::datafield {
 /// ring buffer, would avoid the memmove but put modular arithmetic on the time
 /// axis into the innermost sampling loop, which is a bad trade for a window of
 /// a handful of slices.
+/// An axis of the grid of a file as ASAGI sees it: the first and the last value of its coordinate
+/// variable (0 and nodes - 1 without one), and its nodes.
+struct AsagiAxis {
+  double first{0.0};
+  double last{0.0};
+  std::size_t nodes{1};
+};
+
+/// The axes of the grid of `variable` in `file`, in grid order (the fastest dimension of the file
+/// first, without a component axis), as ASAGI reads them; nothing where the file or the variable
+/// cannot be read.
+[[nodiscard]] std::optional<std::vector<AsagiAxis>> asagiAxesOf(const std::string& file,
+                                                                const std::string& variable);
+
 class AsagiLiteGrid final : public Grid {
   public:
   /// Up to 3 spatial dimensions plus one component dimension.
@@ -195,13 +211,18 @@ class AsagiLiteGrid final : public Grid {
   std::array<std::size_t, MaxFileDimensions> size_{{1, 1, 1, 1}};
   std::array<std::size_t, MaxFileDimensions> stride_{{0, 0, 0, 0}};
   std::array<double, MaxFileDimensions> offset_{{0.0, 0.0, 0.0, 0.0}};
-  /// Reciprocal of the first spacing, formed as 1.0 / (v[1] - v[0]). See the
+  /// Reciprocal of the mean spacing between the ends, formed as 1.0 / ((v[n-1] - v[0]) / (n - 1)),
+  /// as ASAGI derives it. See the
   /// geometry-derivation note in Grid.h for why it is not (n-1)/(v[n-1]-v[0]).
   std::array<double, MaxFileDimensions> deltaInv_{{1.0, 1.0, 1.0, 1.0}};
   std::array<double, MaxFileDimensions> delta_{{1.0, 1.0, 1.0, 1.0}};
   /// Set when the last file dimension carries no HDF5 dimension scale, which is
   /// how a vector grid is told apart from an N+1-dimensional scalar grid.
   bool hasComponentAxis_ = false;
+  /// The members of a compound element, the components then; 0 for floating point elements.
+  std::size_t members_ = 0;
+  /// The type a compound element is read as: its members side by side, native.
+  hid_t memType_ = -1;
 
   std::size_t ndims_ = 0;
   /// what the file says about its dimensions, in its order

@@ -311,6 +311,48 @@ bool distributeRead(const DistributeReadCtx& c) noexcept {
 
 } // anonymous namespace
 
+std::optional<std::vector<AsagiAxis>> asagiAxesOf(const std::string& file,
+                                                  const std::string& variable) {
+  const FileGuard handle{H5Fopen(file.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT)};
+  if (!handle.ok()) {
+    return std::nullopt;
+  }
+  const DsetGuard dataset{H5Dopen2(handle.id(), variable.c_str(), H5P_DEFAULT)};
+  if (!dataset.ok()) {
+    return std::nullopt;
+  }
+  const SpaceGuard space{H5Dget_space(dataset.id())};
+  const int ndims = H5Sget_simple_extent_ndims(space.id());
+  if (ndims < 1 || static_cast<std::size_t>(ndims) > AsagiLiteGrid::MaxFileDimensions) {
+    return std::nullopt;
+  }
+  hsize_t dims[AsagiLiteGrid::MaxFileDimensions]{};
+  H5Sget_simple_extent_dims(space.id(), dims, nullptr);
+  const TypeGuard type{H5Dget_type(dataset.id())};
+  const bool compound = H5Tget_class(type.id()) == H5T_COMPOUND;
+  std::vector<AsagiAxis> axes;
+  for (int i = 0; i < ndims; ++i) {
+    ScaleNameSink sink;
+    H5DSiterate_scales(dataset.id(), static_cast<unsigned>(i), nullptr, collectFirstScale, &sink);
+    const auto nodes = static_cast<std::size_t>(dims[i]);
+    // the component axis of a vector grid, as open() tells it
+    if (!sink.found && i + 1 == ndims && ndims > 1 && !compound) {
+      continue;
+    }
+    AsagiAxis axis{0.0, static_cast<double>(nodes) - 1.0, nodes};
+    if (sink.found) {
+      const DsetGuard coordinate{H5Dopen2(handle.id(), sink.name.c_str(), H5P_DEFAULT)};
+      if (coordinate.ok()) {
+        readCoordScalar(coordinate.id(), 0, axis.first);
+        readCoordScalar(coordinate.id(), nodes - 1, axis.last);
+      }
+    }
+    axes.push_back(axis);
+  }
+  std::reverse(axes.begin(), axes.end());
+  return axes;
+}
+
 // ============================ Lifecycle ============================
 
 AsagiLiteGrid::~AsagiLiteGrid() noexcept { close(); }
@@ -327,6 +369,7 @@ void AsagiLiteGrid::resetMetadata() noexcept {
   deltaInv_ = {{1.0, 1.0, 1.0, 1.0}};
   delta_ = {{1.0, 1.0, 1.0, 1.0}};
   hasComponentAxis_ = false;
+  members_ = 0;
   window_ = TimeWindow{};
   numTimeSlices_ = 1;
   sliceElems_ = 0;
@@ -349,14 +392,17 @@ void AsagiLiteGrid::close() noexcept {
 }
 
 void AsagiLiteGrid::closeFile() noexcept {
-  if (dsetId_ >= 0) {
-    H5Dclose(dsetId_);
-    dsetId_ = -1;
-  }
-  if (fileId_ >= 0) {
-    H5Fclose(fileId_);
-    fileId_ = -1;
-  }
+  // a grid of a store that lives until the process ends outlives HDF5, which closes every handle
+  // when it terminates: then there is nothing left to close
+  const auto close = [](hid_t& handle, herr_t (*closer)(hid_t)) {
+    if (handle >= 0 && H5Iis_valid(handle) > 0) {
+      closer(handle);
+    }
+    handle = -1;
+  };
+  close(memType_, H5Tclose);
+  close(dsetId_, H5Dclose);
+  close(fileId_, H5Fclose);
 }
 
 void AsagiLiteGrid::freeBuffer() noexcept {
@@ -439,19 +485,33 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
     }
   }
 
-  // -------- Strides (row-major) --------
-  stride_[ndims_ - 1] = 1;
-  for (std::size_t i = ndims_ - 1; i > 0; --i) {
-    stride_[i - 1] = stride_[i] * size_[i];
-  }
-
   // -------- Element type --------
+  //
+  // Floating point of 32 or 64 bits; or a compound of such members, all of one size -- the form
+  // of ASAGI's files (`compound material { float rho; float mu; } data(y, x)`) -- whose members
+  // are the components, in their order, read side by side as a trailing component axis would be.
   {
     const TypeGuard dtype{H5Dget_type(dsetRaw)};
-    if (H5Tget_class(dtype.id()) != H5T_FLOAT) {
+    std::size_t tsize = 0;
+    if (H5Tget_class(dtype.id()) == H5T_COMPOUND) {
+      const int members = H5Tget_nmembers(dtype.id());
+      if (members < 1) {
+        return Error::BadElementType;
+      }
+      for (int m = 0; m < members; ++m) {
+        const TypeGuard member{H5Tget_member_type(dtype.id(), static_cast<unsigned>(m))};
+        const std::size_t size = H5Tget_size(member.id());
+        if (H5Tget_class(member.id()) != H5T_FLOAT || (tsize != 0 && size != tsize)) {
+          return Error::BadElementType;
+        }
+        tsize = size;
+      }
+      members_ = static_cast<std::size_t>(members);
+    } else if (H5Tget_class(dtype.id()) == H5T_FLOAT) {
+      tsize = H5Tget_size(dtype.id());
+    } else {
       return Error::BadElementType;
     }
-    const std::size_t tsize = H5Tget_size(dtype.id());
     if (tsize == 4) {
       elemType_ = ElementType::Float;
     } else if (tsize == 8) {
@@ -459,15 +519,32 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
     } else {
       return Error::BadElementType;
     }
+    if (members_ > 0) {
+      // the members side by side, of the native type, matched by name
+      memType_ = H5Tcreate(H5T_COMPOUND, members_ * tsize);
+      for (std::size_t m = 0; m < members_; ++m) {
+        char* member = H5Tget_member_name(dtype.id(), static_cast<unsigned>(m));
+        H5Tinsert(memType_,
+                  member,
+                  m * tsize,
+                  elemType_ == ElementType::Float ? H5T_NATIVE_FLOAT : H5T_NATIVE_DOUBLE);
+        H5free_memory(member);
+      }
+    }
+  }
+
+  // -------- Strides (row-major), in values: the members of a compound side by side --------
+  stride_[ndims_ - 1] = std::max<std::size_t>(members_, 1);
+  for (std::size_t i = ndims_ - 1; i > 0; --i) {
+    stride_[i - 1] = stride_[i] * size_[i];
   }
 
   // -------- Coordinate variables -> offset/delta --------
   //
-  // `delta` is the FIRST SPACING, v[1] - v[0], and the reciprocal is formed as
-  // 1.0 / delta. This is easi's derivation, and matching it is the whole point:
-  // on a float32 coordinate axis the endpoint average (v[n-1]-v[0])/(n-1)
-  // lands up to a full cell away, i.e. reads the wrong material. See the
-  // geometry-derivation note in Grid.h.
+  // `delta` is the mean spacing between the ends, (v[n-1] - v[0]) / (n - 1), and the
+  // reciprocal is formed as 1.0 / delta: ASAGI's derivation (NetCdfReader::getScaling()), with
+  // which easi samples the file, and matching it is the whole point. See the geometry-derivation
+  // note in Grid.h.
   fileAxes_.assign(ndims_, GridAxisInfo{});
   // per file dimension its coordinate variable, and the extent its first spacing implies where
   // that is not the extent of the file
@@ -486,7 +563,7 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
     // vector grid -- there is no coordinate to interpolate along it. This is the
     // only signal in the file that tells [d_0..d_{N-1}, M] apart from an
     // (N+1)-dimensional scalar grid.
-    if (!sink.found && i + 1 == ndims_ && ndims_ > 1) {
+    if (!sink.found && i + 1 == ndims_ && ndims_ > 1 && members_ == 0) {
       hasComponentAxis_ = true;
       offset_[i] = 0.0;
       delta_[i] = 1.0;
@@ -527,22 +604,22 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
       degenerate(v0);
       continue;
     }
-    if (!readCoordScalar(coord.id(), 1, v1) || !(std::isfinite(v1 - v0)) || v1 == v0) {
+    double vN = 0.0;
+    if (!readCoordScalar(coord.id(), size_[i] - 1, vN) || !(std::isfinite(vN - v0)) || vN == v0) {
       degenerate(v0);
       continue;
     }
+    // ASAGI's scaling, with which easi samples the file: the mean spacing between the ends
     offset_[i] = v0;
-    delta_[i] = v1 - v0;
+    delta_[i] = (vN - v0) / static_cast<double>(size_[i] - 1);
     deltaInv_[i] = 1.0 / delta_[i];
 
-    // Cross-check the uniformity assumption against the far end. If the extent
-    // reconstructed from the first spacing misses the actual extent, the axis is
-    // not uniform to within half a spacing and the uniform-grid model does not
-    // hold for this file. Keep the HDF5 extent -- it is known exactly -- and say
-    // so, rather than silently interpolating on a geometry that is not there.
-    double vN = 0.0;
-    if (readCoordScalar(coord.id(), size_[i] - 1, vN)) {
-      const long reconstructed = std::lround((vN - v0) / delta_[i]) + 1;
+    // Cross-check the uniformity assumption: if the first spacing does not reach the far end
+    // within half a spacing, the axis is not uniform and the uniform-grid model does not hold for
+    // this file. Keep the HDF5 extent -- it is known exactly -- and say so, rather than silently
+    // interpolating on a geometry that is not there.
+    if (readCoordScalar(coord.id(), 1, v1) && std::isfinite(v1 - v0) && v1 != v0) {
+      const long reconstructed = std::lround((vN - v0) / (v1 - v0)) + 1;
       if (reconstructed != static_cast<long>(size_[i])) {
         nonUniform[i] = reconstructed;
       }
@@ -552,7 +629,7 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
   // -------- Axes of knots --------
   //
   // An axis declared knots reads its coordinate variable whole: a lookup searches it. The others
-  // stay uniform, from the first spacing; one that is not is worth a warning.
+  // stay uniform, from the mean spacing between their ends; one that is not is worth a warning.
   const std::size_t nspatial = ndims_ - (hasComponentAxis_ ? 1 : 0);
   if (!axes_.empty() && axes_.size() != nspatial) {
     logWarning() << "AsagiLite:" << filename << "declares" << axes_.size() << "axes of" << varname
@@ -567,8 +644,8 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
         logWarning() << "AsagiLite:" << filename << "axis" << f << "of" << varname
                      << "is not uniform: extent is" << size_[f]
                      << "points but the first spacing implies" << *nonUniform[f]
-                     << ". Sampling will use the first spacing and the true extent; an axis of"
-                     << "knots (axes in its declaration) samples it as it is.";
+                     << ". Sampling will use the mean spacing between its ends and the true"
+                     << "extent; an axis of knots (axes in its declaration) samples it as it is.";
       }
       continue;
     }
@@ -624,7 +701,7 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
   // dimension. Anything else would turn every slide into a strided gather, so
   // it is rejected rather than silently paid for.
   const std::size_t elemSize = (elemType_ == ElementType::Float) ? 4 : 8;
-  std::size_t nelem = 1;
+  std::size_t nelem = std::max<std::size_t>(members_, 1);
   for (std::size_t i = 0; i < ndims_; ++i) {
     nelem *= size_[i];
   }
@@ -776,7 +853,9 @@ AsagiLiteGrid::Error
   }
   const std::size_t elemSize = (elemType_ == ElementType::Float) ? 4 : 8;
   void* dest = static_cast<char*>(data_) + sliceOffset(destSlot) * elemSize;
-  const hid_t memType = (elemType_ == ElementType::Float) ? H5T_NATIVE_FLOAT : H5T_NATIVE_DOUBLE;
+  const hid_t memType = members_ > 0                        ? memType_
+                        : (elemType_ == ElementType::Float) ? H5T_NATIVE_FLOAT
+                                                            : H5T_NATIVE_DOUBLE;
 
   hid_t fileSpace = H5S_ALL;
   hid_t memSpace = H5S_ALL;
@@ -833,7 +912,9 @@ void AsagiLiteGrid::buildView() noexcept {
   view_.data = data_;
   view_.type = elemType_;
   view_.dimensions = static_cast<unsigned>(nspatial);
-  view_.components = hasComponentAxis_ ? static_cast<unsigned>(size_[ndims_ - 1]) : 1U;
+  view_.components = members_ > 0        ? static_cast<unsigned>(members_)
+                     : hasComponentAxis_ ? static_cast<unsigned>(size_[ndims_ - 1])
+                                         : 1U;
   view_.componentStride = hasComponentAxis_ ? stride_[ndims_ - 1] : 1;
 
   for (std::size_t d = 0; d < nspatial; ++d) {
