@@ -59,6 +59,13 @@ Availability analyticalBoundaryAvailability(initializer::parameters::Initializat
                                             ConfigId config);
 
 /**
+ * Whether the scenario sets its waves up from the material of one cell, which it then needs to be
+ * the same in every cell of the material: in another material, the waves would be those of
+ * whichever cell a rank holds first, and differ between partitions.
+ */
+bool fromMaterial(initializer::parameters::InitializationType type);
+
+/**
  * The acoustic travelling wave with ITM as the parameter file sets it up. The wave passes the
  * mirror only if ITM is enabled; otherwise, it travels on unchanged, whatever the mirror settings.
  */

@@ -29,6 +29,7 @@
 #include "Memory/Tree/Layer.h"
 #include "Model/ScriptParameters.h"
 #include "Model/StateNames.h"
+#include "Parallel/MPI.h"
 #include "Physics/GhostState.h"
 #include "Physics/InitialField.h"
 #include "Physics/Scenario/Registry.h"
@@ -41,9 +42,12 @@
 #include "SourceTerm/Manager.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <utils/logger.h>
@@ -74,6 +78,73 @@ std::vector<std::unique_ptr<physics::InitialField>> buildInitialConditionList(
                                .materialData = materialData,
                                .gravitation = seissolInstance.gravitationSetup(),
                                .config = config});
+}
+
+/// Stops the run where the scenario of the initial condition sets its waves up from the material of
+/// one cell (physics::scenario::fromMaterial()) and the material of the configurations `group`,
+/// which share that cell, is not the same in every cell of the run: the waves would be those of
+/// whichever cell a rank holds first, and differ between partitions. Collective. Up to rounding,
+/// since configurations may average the material of a cell differently.
+void checkUniformMaterial(seissol::SeisSol& seissolInstance, const std::vector<ConfigId>& group) {
+  constexpr double Tolerance = 1e-10;
+  auto& memoryManager = seissolInstance.memoryManager();
+  auto& storage = memoryManager.ltsStorage();
+  const auto& backmap = memoryManager.backmap();
+  const auto cellCount = seissolInstance.meshReader().getElements().size();
+  std::vector<std::string> names;
+  dispatchConfig(group.front(), [&](auto cfg) {
+    using Cfg = decltype(cfg);
+    for (const auto& name : model::scriptParameterNames<model::MaterialOf<Cfg>>()) {
+      names.emplace_back(name);
+    }
+  });
+
+  // the smallest and the largest value of every parameter, over the cells of all ranks
+  std::vector<double> smallest(names.size(), std::numeric_limits<double>::infinity());
+  std::vector<double> largest(names.size(), -std::numeric_limits<double>::infinity());
+  std::vector<double> values(names.size());
+  for (std::size_t cell = 0; cell < cellCount; ++cell) {
+    const auto position = backmap.get(cell);
+    const auto config = storage.lookup<LTS::SecondaryInformation>(position).configId;
+    if (std::find(group.begin(), group.end(), config) == group.end()) {
+      continue;
+    }
+    storage.lookup<LTS::Material>(position).local->scriptParameters(values.data());
+    for (std::size_t k = 0; k < names.size(); ++k) {
+      if (!std::isnan(values[k])) {
+        smallest[k] = std::min(smallest[k], values[k]);
+        largest[k] = std::max(largest[k], values[k]);
+      }
+    }
+  }
+  MPI_Allreduce(MPI_IN_PLACE,
+                smallest.data(),
+                static_cast<int>(smallest.size()),
+                MPI_DOUBLE,
+                MPI_MIN,
+                seissol::Mpi::mpi.comm());
+  MPI_Allreduce(MPI_IN_PLACE,
+                largest.data(),
+                static_cast<int>(largest.size()),
+                MPI_DOUBLE,
+                MPI_MAX,
+                seissol::Mpi::mpi.comm());
+
+  for (std::size_t k = 0; k < names.size(); ++k) {
+    const double scale = std::max(std::fabs(smallest[k]), std::fabs(largest[k]));
+    if (smallest[k] <= largest[k] && largest[k] - smallest[k] > Tolerance * scale) {
+      std::ostringstream range;
+      range << names[k] << " ranges from " << smallest[k] << " to " << largest[k];
+      logError() << "The initial condition"
+                 << physics::scenario::name(seissolInstance.parameters().initialization.type).data()
+                 << "sets its waves up from the material of one cell, but the material"
+                 << materialTypeName(configValue(group.front()).materialType).data()
+                 << "is not the same in every cell:" << range.str().c_str()
+                 << "-- the waves would be those of whichever cell a rank holds first, and "
+                    "differ between partitions. Give a uniform material, or the initial "
+                    "condition as a script (cICType = 'script').";
+    }
+  }
 }
 
 void initInitialCondition(seissol::SeisSol& seissolInstance) {
@@ -134,6 +205,24 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
              configValue(first).relaxationMechanisms == configValue(second).relaxationMechanisms;
     };
     const auto configs = seissolInstance.parameters().model.configs();
+    if (physics::scenario::fromMaterial(initConditionParams.type)) {
+      // per material, the configurations that share the cell the scenario is set up from, in the
+      // same order on every rank
+      std::vector<bool> checked(configs.size(), false);
+      for (std::size_t c = 0; c < configs.size(); ++c) {
+        if (checked[c]) {
+          continue;
+        }
+        std::vector<ConfigId> group;
+        for (std::size_t d = c; d < configs.size(); ++d) {
+          if (sameMaterial(configs[c], configs[d])) {
+            group.push_back(configs[d]);
+            checked[d] = true;
+          }
+        }
+        checkUniformMaterial(seissolInstance, group);
+      }
+    }
     for (const auto config : configs) {
       for (const auto reference : configs) {
         if (sameMaterial(reference, config) && firstCell[reference].has_value()) {

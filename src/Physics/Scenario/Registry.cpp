@@ -86,6 +86,8 @@ struct Entry {
   // condition needs.
   bool timeDependent;
   FieldList (*build)(const Input&);
+  // Whether it sets its waves up from the material of one cell (fromMaterial()).
+  bool fromMaterial{false};
 };
 
 constexpr std::array<Entry, 12> Registry = {{
@@ -106,7 +108,8 @@ constexpr std::array<Entry, 12> Registry = {{
          [](const Input& input) {
            return planarwave(
                input.materialData, input.config, input.parameters.initialization.kVec);
-         }},
+         },
+     .fromMaterial = true},
     {.type = InitializationType::SuperimposedPlanarwave,
      .name = "super-imposed planar wave",
      .requirement = MaterialRequirement::None,
@@ -115,7 +118,8 @@ constexpr std::array<Entry, 12> Registry = {{
      .build =
          [](const Input& input) {
            return superimposedPlanarwave(input.materialData, input.config);
-         }},
+         },
+     .fromMaterial = true},
     {.type = InitializationType::Travelling,
      .name = "travelling wave",
      .requirement = MaterialRequirement::NotAnelastic,
@@ -124,7 +128,8 @@ constexpr std::array<Entry, 12> Registry = {{
      .build =
          [](const Input& input) {
            return travellingWave(input.materialData, input.config, travellingWaveParameters(input));
-         }},
+         },
+     .fromMaterial = true},
     {.type = InitializationType::AcousticTravellingWithITM,
      .name = "acoustic travelling wave with ITM",
      .requirement = MaterialRequirement::Fluid,
@@ -138,7 +143,8 @@ constexpr std::array<Entry, 12> Registry = {{
                acousticTravellingWaveParameters(input.parameters.initialization,
                                                 input.parameters.model.itmParameters),
                input.config);
-         }},
+         },
+     .fromMaterial = true},
     {.type = InitializationType::Scholte,
      .name = "Scholte wave (elastic-acoustic)",
      .requirement = MaterialRequirement::SolidAndFluid,
@@ -218,6 +224,11 @@ Availability availability(InitializationType type, ConfigId config) {
     return {.available = false, .reason = entry->materialRequirement};
   }
   return {};
+}
+
+bool fromMaterial(InitializationType type) {
+  const auto* entry = find(type);
+  return entry != nullptr && entry->fromMaterial;
 }
 
 Availability analyticalBoundaryAvailability(InitializationType type, ConfigId config) {

@@ -131,6 +131,11 @@ material, in real arithmetic -- and compiles like a script of its own. The proje
 and the analytical boundary therefore all run the same program; the boundary integrates it over a
 time step in one call per face.
 
+The planar waves, the superimposed planar waves and the travelling waves (also the acoustic one
+with ITM) are set up from the material of one cell, per material of the run. They need that material
+to be the same in every cell, up to rounding; SeisSol stops otherwise, since the waves would be
+those of whichever cell a rank holds first. A wave in a varying material is given as a script.
+
 Zero (``Zero``)
 ---------------
 
