@@ -14,6 +14,7 @@
 #include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
+#include "Reader/Scripting/LuaFrontend.h"
 
 #include <algorithm>
 #include <cctype>
@@ -21,6 +22,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
@@ -330,10 +333,72 @@ class Walker {
       }
       return out;
     }
+    if (tag == "!LuaMap") {
+      return luaMapped(node, in, reach);
+    }
     if (tag == "!Include") {
       fail(node, "an !Include is no map");
     }
     unsupported(node);
+  }
+
+  /// The line of the file the first line of the text of `scalar` is on: for a block scalar (`|`,
+  /// `>`), the line after its indicator.
+  [[nodiscard]] int firstLineOf(const YAML::Node& scalar) const {
+    const auto mark = scalar.Mark();
+    std::ifstream stream(file());
+    const std::string text((std::istreambuf_iterator<char>(stream)),
+                           std::istreambuf_iterator<char>());
+    const bool block = mark.pos >= 0 && static_cast<std::size_t>(mark.pos) < text.size() &&
+                       (text[mark.pos] == '|' || text[mark.pos] == '>');
+    return mark.line + (block ? 2 : 1);
+  }
+
+  /// The values of an !LuaMap at `in`: its function `f`, translated by the Lua frontend as easi
+  /// runs it (Lua 5.4 with lmathx, the chunk once and `f` at every point).
+  Values luaMapped(const YAML::Node& node, const Values& in, NodeId reach) {
+    std::set<std::string> returns;
+    const YAML::Node given = node["returns"];
+    if (!given) {
+      fail(node, "the component has no `returns`");
+    }
+    try {
+      if (given.IsScalar()) {
+        returns.insert(given.as<std::string>());
+      } else {
+        const auto names = given.as<std::vector<std::string>>();
+        returns.insert(names.begin(), names.end());
+      }
+    } catch (const YAML::Exception& error) {
+      fail(given, std::string("`returns` is not of the form easi reads: ") + error.what());
+    }
+    const auto code = as<std::string>(node, "function");
+    std::vector<std::pair<std::string, NodeId>> inputs;
+    for (const auto& [name, value] : in) {
+      inputs.emplace_back(name, value.node);
+    }
+    const lua::LuaOrigin origin{file(), firstLineOf(node["function"]), '@'};
+    try {
+      auto translation = lua::translateLuaMap(program_, code, inputs, returns, reach, origin);
+      for (auto& check : translation.checks) {
+        checks_.emplace_back(check.holds, std::move(check.message));
+      }
+      std::vector<expr::SourcePosition> from{positionOf(node)};
+      for (const int line : translation.lines) {
+        from.push_back(expr::SourcePosition{file(), origin.firstLine + line - 1, 1});
+      }
+      Values out;
+      for (const auto& [name, value] : translation.values) {
+        out[name] = Value{value, from};
+      }
+      return out;
+    } catch (const lua::LuaUnsupported& error) {
+      throw EasiUnsupported(origin.at(error.line()) +
+                            ": the walker does not translate the Lua of this !LuaMap: " +
+                            error.message() + "; easi evaluates the file");
+    } catch (const lua::LuaError& error) {
+      throw EasiModelError(origin.at(error.line()) + ": " + error.message());
+    }
   }
 
   /// The file and the variable of an !ASAGI, and the axes ASAGI reads there, as many as `in` has
@@ -1288,11 +1353,11 @@ private:
       return composite(node, in, wanted, reach);
     }
     if (tag == "!ConstantMap" || tag == "!AffineMap" || tag == "!PolynomialMap" ||
-        tag == "!EvalModel" || tag == "!ASAGI" || tag == "!FunctionMap") {
+        tag == "!EvalModel" || tag == "!ASAGI" || tag == "!FunctionMap" || tag == "!LuaMap") {
       return composite(node, mapped(node, in, reach), wanted, reach);
     }
-    if (tag == "!LuaMap" || tag == "!SCECFile" || tag == "!STRESS_STR_DIP_SLIP_AM" ||
-        tag == "!OptimalStress" || tag == "!AndersonianStress") {
+    if (tag == "!SCECFile" || tag == "!STRESS_STR_DIP_SLIP_AM" || tag == "!OptimalStress" ||
+        tag == "!AndersonianStress") {
       unsupported(node);
     }
     fail(node, "Unknown tag " + tag);

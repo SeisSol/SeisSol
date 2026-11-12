@@ -138,15 +138,30 @@ values are easi's to the bit -- the linear interpolation of a ``!LayeredModel`` 
 ``!ASAGI`` grid within a few units in the last place. A point that no component accepts stops the
 run, as in easi, through a check of the program. The walker translates the structural components
 (``!Switch``, ``!Any``, ``!IdentityMap``, the filters, ``!Include``), ``!ConstantMap``,
-``!AffineMap``, ``!PolynomialMap``, ``!EvalModel``, ``!LayeredModel``, ``!ASAGI`` and the Impala of
-``!FunctionMap``; a file with another component (``!LuaMap``, ``!SCECFile``, the special
-components) easi evaluates, which the log says, naming the component. The Impala of a
+``!AffineMap``, ``!PolynomialMap``, ``!EvalModel``, ``!LayeredModel``, ``!ASAGI``, the Impala of
+``!FunctionMap`` and the Lua of ``!LuaMap`` (with the Lua frontend, below); a file with another
+component (``!SCECFile``, the special components), or with Lua outside the subset of the frontend,
+easi evaluates, which the log says, naming the component and the line. The Impala of a
 ``!FunctionMap`` is read as easi 1.5 and later read it, which converts it into Lua: easi groups a
 chain to the right, ``a - b + c`` as ``a - (b + c)`` and ``a / b * c`` as ``a / (b * c)``, unlike the
 earlier easi and unlike C; the walker computes what easi computes, and warns where a chain means
 something else so (put the parentheses that are meant). ``SEISSOL_EASI=easi`` evaluates every easi file
 by easi; ``SEISSOL_EASI=check`` compares the program with easi at its first call, and falls back to
 easi where they differ.
+
+Lua, the ``!LuaMap`` of an easi file and a Lua model (``lua:file`` or a ``.lua`` file), is
+translated into a program as well (the Lua frontend), without a Lua VM: the program computes what
+Lua 5.4 computes with lmathx, as easi and SeisSol run it, to the bit. An ``if`` on a value of the
+point runs both branches and merges them with a select, an early ``return`` or ``break`` becomes a
+chain of selects, ``c and x or y`` a select; a loop whose bounds the script fixes is unrolled, a
+function is inlined; integers and floats are Lua's (``7 // 2`` is 3, the zero of an integer has no
+sign). Refused, with the line: a loop whose end depends on the point, ``goto``, recursion, a table
+index or a string that depends on the point, metatables, the libraries other than ``math``
+(``print`` and ``io.write`` do nothing), and a function that keeps a value from one point to the
+next in a global or an upvalue, which easi and SeisSol leave to the order of the points. Where Lua
+fails at some points (``error``, ``assert``, arithmetic on ``nil``), a check of the program fails
+there; where it fails at every point, the translation does. A Lua model the frontend does not
+translate is evaluated by Lua, with a warning that says why.
 
 The scripts that a run evaluates per time step or per output (the analytical and the nonlinear
 Dirichlet boundary, the slip rates of ``FL = 36``, the derived outputs) compute in the precision of

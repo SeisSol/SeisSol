@@ -716,6 +716,89 @@ TEST_CASE("easi walker: a point no component accepts fails a check, as easi fail
   CHECK(failing == std::vector<std::size_t>{1, 3});
 }
 
+TEST_CASE("easi walker: a !LuaMap gives easi's bits" * doctest::test_suite("reader")) {
+  const Files files;
+  // a layer search with a break, branches on the point, `c and x or y`, Lua's max with an integer,
+  // lmathx's floor and fmax, `%`, `^`; x[i], x.name and x["name"]
+  const std::string path =
+      files.write("luamap.yaml",
+                  "!LuaMap\n"
+                  "returns: [rho, mu, lambda, layer]\n"
+                  "function: |\n"
+                  "  local tops = {1.0, 0.0, -1.0, -2.0}\n"
+                  "  function f(x)\n"
+                  "    local z = x[\"z\"]\n"
+                  "    local layer = #tops + 1\n"
+                  "    for i, top in ipairs(tops) do\n"
+                  "      if z > top then\n"
+                  "        layer = i\n"
+                  "        break\n"
+                  "      end\n"
+                  "    end\n"
+                  "    local rho = 2600 + 10 * layer\n"
+                  "    if x.x > 0 and x[2] < 1 then rho = rho + math.floor(x.x * 3) end\n"
+                  "    local vs = x.y > 0 and 3000 or math.max(x.y, -1) * 100\n"
+                  "    return {rho = rho, mu = rho * vs ^ 2, lambda = math.fmax(x.x, z) % 2,\n"
+                  "            layer = layer}\n"
+                  "  end\n");
+  sameAsEasi(
+      path, {"rho", "mu", "lambda", "layer"}, pointsIn(-3.0, 3.0, {0.0, 1.0, -1.0, -2.0}, 2000));
+
+  // after a map, whose outputs are its dimensions, in easi's order: x[1] is eta
+  const std::string mapped = files.write("mapped.yaml",
+                                         "!AffineMap\n"
+                                         "matrix:\n"
+                                         "  xi: [1.0, 0.0, 0.0]\n"
+                                         "  eta: [0.0, 1.0, 1.0]\n"
+                                         "translation:\n"
+                                         "  xi: 0.5\n"
+                                         "  eta: -1.0\n"
+                                         "components: !LuaMap\n"
+                                         "  returns: [rho, mu]\n"
+                                         "  function: |\n"
+                                         "    function f(x)\n"
+                                         "      return {rho = x.xi * 2 + x[2], mu = x[1] - x.eta}\n"
+                                         "    end\n");
+  sameAsEasi(mapped, {"rho", "mu"}, pointsIn(-3.0, 3.0, {}, 500));
+
+  // where Lua fails at some points, a check fails there, with the line in the file
+  const std::string failing = files.write("failing.yaml",
+                                          "!LuaMap\n"
+                                          "returns: [rho]\n"
+                                          "function: |\n"
+                                          "  function f(x)\n"
+                                          "    if x.z < -2.5 then\n"
+                                          "      error('too deep')\n"
+                                          "    end\n"
+                                          "    return {rho = 2600}\n"
+                                          "  end\n");
+  sc::EasiQuery query;
+  query.dimensions = {"x", "y", "z"};
+  query.parameters = {"rho"};
+  const auto program = sc::easiProgram(failing, query);
+  REQUIRE(program.checks().size() == 1);
+  CHECK(program.checks().front().message.find("failing.yaml@6: too deep") != std::string::npos);
+  Points points;
+  points.x = {0.0, 0.0, 0.0};
+  points.y = {0.0, 0.0, 0.0};
+  points.z = {-3.0, -2.5, 0.0};
+  points.group = {1.0, 1.0, 1.0};
+  const auto failures = failuresOf(program, points);
+  REQUIRE(failures.size() == 1);
+  CHECK(failures.front().second == 0);
+
+  // f keeps a value from one point to the next, which the walker refuses
+  const std::string counting = files.write("counting.yaml",
+                                           "!LuaMap\n"
+                                           "returns: [rho]\n"
+                                           "function: |\n"
+                                           "  function f(x)\n"
+                                           "    n = (n or 0) + 1\n"
+                                           "    return {rho = n}\n"
+                                           "  end\n");
+  CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(counting, query)), sc::EasiUnsupported);
+}
+
 TEST_CASE("easi walker: what it does not translate, easi evaluates" *
           doctest::test_suite("reader")) {
   const Files files;
@@ -724,7 +807,7 @@ TEST_CASE("easi walker: what it does not translate, easi evaluates" *
                                       "returns: [rho]\n"
                                       "function: |\n"
                                       "  function f(x)\n"
-                                      "    return {rho = 2600.0}\n"
+                                      "    return {rho = 2600.0 + math.random()}\n"
                                       "  end\n");
   sc::EasiQuery query;
   query.dimensions = {"x", "y", "z"};
