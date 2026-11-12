@@ -101,6 +101,11 @@ inline constexpr std::int32_t TileDepth = 32;
                      reader::datafield::GridStore* grids = nullptr,
                      const std::vector<std::size_t>& gridIds = {});
 
+/// The directory SeisSol keeps what it derives across runs in (the compiled kernels, the hashes of
+/// grid files): SEISSOL_EXPR_CACHE ("off" for none), by default seissol/expr in $XDG_CACHE_HOME or
+/// ~/.cache; created where it is not. Empty without one.
+[[nodiscard]] const std::string& cacheDirectory();
+
 /// Number of distinct kernels currently held. For tests and for a status line —
 /// a cache that never hits is a configuration bug worth seeing.
 [[nodiscard]] std::size_t rtcCpuCacheSize();

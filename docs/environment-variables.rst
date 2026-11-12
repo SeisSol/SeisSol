@@ -241,6 +241,15 @@ every group the two of the smallest, per output the points of its smallest and i
 hash where it takes either branch, and the points where the kernel deviates most. Chosen so, the
 samples of all ranks hold that of the whole run, whatever its partition.
 
+A record describes the grids of its program as well: per grid its file, the SHA-256 of the file,
+the variable and the components, and per axis the name of its dimension in the file, the attributes
+``units``, ``positive`` and ``standard_name`` where the file has them, and the geometry as SeisSol
+derives it; and how many points of the pool lie beyond the volume of the grid, per axis and side,
+which shows a grid in another coordinate system, or with depth for height. The first rank hashes a
+file as it loads it, and keeps the hash in the cache of ``SEISSOL_EXPR_CACHE`` by the path, the size
+and the time of modification of the file, so that a run reads a large file once more only where it
+changed; ``SEISSOL_EXPR_GRID_HASH=off`` hashes none.
+
 The command line tool ``sderiv``, built and installed next to SeisSol, reads these records:
 ``sderiv replay <records>`` evaluates the sample of each again with the interpreter of its build
 and compares bit for bit, ``sderiv merge -o <directory> <records>`` merges the records of the ranks

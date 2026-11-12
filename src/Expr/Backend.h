@@ -202,6 +202,34 @@ struct ClampCount {
   std::size_t of{0};
 };
 
+/// A grid of a program as the evaluation record describes it: its file, the SHA-256 of the file
+/// (as GridStore::load() read it), its variable and the names of its components; per axis what the
+/// file says about it, and the geometry as derived -- the first node, the spacing and the nodes, on
+/// the time axis of a grid with a window those of the window, with the slices of the file.
+struct GridRecord {
+  /// the grid, by its name in the program, else its path
+  std::string grid;
+  std::string path;
+  std::string sha256;
+  std::string variable;
+  std::vector<std::string> components;
+  struct Axis {
+    reader::datafield::GridAxisInfo file;
+    double min{0.0};
+    double spacing{0.0};
+    std::size_t nodes{0};
+    /// the slices of the file, on the time axis of a grid that changes in time; else 0
+    std::size_t slices{0};
+    [[nodiscard]] bool operator==(const Axis& other) const;
+  };
+  std::vector<Axis> axes;
+  [[nodiscard]] bool operator==(const GridRecord& other) const;
+};
+
+/// The GridRecord of every grid of `program`, from `grids`, where they are loaded.
+[[nodiscard]] std::vector<GridRecord> gridRecordsOf(const Program& program,
+                                                    reader::datafield::GridStore& grids);
+
 /// Where the lookups of a grid lie beyond its volume, at some points: per axis, per point an `or`
 /// of the sides (Below, Above, Undefined), over all lookups of the grid.
 struct GridClamps {
@@ -256,6 +284,8 @@ struct BackendComparison {
   double worstRatio{0.0};
   /// per grid, the points of the closed pool it samples beyond its volume
   std::vector<ClampCount> clamps;
+  /// the grids of the program
+  std::vector<GridRecord> grids;
 };
 
 /// Compares what a kernel wrote for `program` in the call of `table` (or of `args`, with `table`

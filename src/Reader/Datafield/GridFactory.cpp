@@ -7,12 +7,17 @@
 #include "GridFactory.h"
 
 #include "AsagiLite.h"
+#include "Expr/Sha256.h"
 #include "Grid.h"
 #include "Parallel/MPI.h"
 #include "utils/logger.h"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
+#include <cstdlib>
 #include <memory>
+#include <string>
 
 namespace seissol::reader::datafield {
 
@@ -68,6 +73,28 @@ std::unique_ptr<Grid> makeGrid(const GridDesc& desc) {
   }
   logError() << "datafield: unknown grid backend requested for" << desc.path << ".";
   return nullptr;
+}
+
+std::string fileHashOf(const std::string& path) {
+  if (const char* env = std::getenv("SEISSOL_EXPR_GRID_HASH"); env != nullptr) {
+    const std::string value(env);
+    if (value == "off" || value == "0" || value == "none") {
+      return {};
+    }
+  }
+  int running = 0;
+  MPI_Initialized(&running);
+  if (running == 0) {
+    return expr::sha256OfFile(path);
+  }
+  // 64 digits and the end, or nothing
+  std::array<char, 65> hash{};
+  if (seissol::Mpi::mpi.rank() == 0) {
+    const std::string hex = expr::sha256OfFile(path);
+    std::copy_n(hex.c_str(), std::min<std::size_t>(hex.size(), 64), hash.data());
+  }
+  MPI_Bcast(hash.data(), static_cast<int>(hash.size()), MPI_CHAR, 0, seissol::Mpi::mpi.comm());
+  return hash.data();
 }
 
 void resizeWindow(Grid& grid, std::size_t residentSlices) {

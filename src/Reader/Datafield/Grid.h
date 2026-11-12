@@ -233,6 +233,15 @@ struct GridGeometry {
   unsigned num[MaxGridDimensions]{};
 };
 
+/// What the file of a grid says about one of its axes, where the backend reads one: the name of
+/// its dimension, and the attributes units, positive and standard_name -- empty where absent.
+struct GridAxisInfo {
+  std::string dimension;
+  std::string units;
+  std::string positive;
+  std::string standardName;
+};
+
 struct GridDesc {
   std::string path;
   std::string variable;
@@ -357,6 +366,10 @@ class Grid {
   // window the scheme allows.
   [[nodiscard]] virtual std::size_t bytesPerTimeSlice() const { return 0; }
 
+  // What the file says about the axes of the grid, in grid axis order; empty where the backend
+  // reads no file.
+  [[nodiscard]] virtual std::vector<GridAxisInfo> axisInfo() const { return {}; }
+
   // The slices of the file along the time axis, of which the window holds some
   // (geometry() describes the window). Zero where the backend cannot say, in
   // which case the store takes the geometry for the whole file.
@@ -400,6 +413,9 @@ class GridStore {
   // Returns a stable index; opening the file is deferred to load().
   [[nodiscard]] std::size_t intern(const GridDesc& desc);
   [[nodiscard]] const Grid& get(std::size_t id) const;
+  /// The SHA-256 of the file of grid `id`, as load() read it on the first rank (fileHashOf());
+  /// empty before, for a grid without a file, and where hashing is off.
+  [[nodiscard]] const std::string& fileHash(std::size_t id) const { return hashes_.at(id); }
   [[nodiscard]] std::size_t size() const { return grids_.size(); }
 
   // How many time slices each time-dependent grid keeps resident.
@@ -537,6 +553,7 @@ public:
 
   std::vector<GridDesc> descs_;
   std::vector<std::unique_ptr<Grid>> grids_;
+  std::vector<std::string> hashes_;
   /// The resident slices each time-dependent grid was sized to by load(); zero before.
   std::vector<std::size_t> windowSlices_;
   /// Per grid, its mirrors and their kinds. After grids_, so that they go first.

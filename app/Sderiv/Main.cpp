@@ -67,8 +67,9 @@ Evaluation records (written into <prefix>-records by every rank of a run):
   merge [-o DIRECTORY] RECORD...
                               the record of the sample of all points, from the records of the ranks,
                               per program and backend
-  diff RECORD RECORD          two records of one program, of two runs: the points they share, layer
-                              by layer (inputs, the interpreter's values, the backend's)
+  diff RECORD RECORD          two records of one program, of two runs: their grids (the files, by
+                              their hashes, and the geometry), and the points they share, layer by
+                              layer (inputs, the interpreter's values, the backend's)
 
 The exit status is 0 where everything agrees, 1 where something differs or fails.
 )";
@@ -610,6 +611,58 @@ int diff(const std::vector<std::string>& args) {
     std::cout << "the points of a record are identified by their index in the call, which another "
                  "run need not keep\n";
   }
+  // the grids first: what the program samples
+  for (const auto& grid : first.grids) {
+    const auto other =
+        std::find_if(second.grids.begin(), second.grids.end(), [&](const auto& candidate) {
+          return candidate.grid == grid.grid;
+        });
+    if (other == second.grids.end()) {
+      std::cout << "the grid " << grid.grid << " only in the first\n";
+      status = 1;
+      continue;
+    }
+    if (grid.sha256 != other->sha256) {
+      std::cout << "the file of the grid " << grid.grid
+                << " differs: " << (grid.sha256.empty() ? std::string("no hash") : grid.sha256)
+                << " (" << grid.path << ") and "
+                << (other->sha256.empty() ? std::string("no hash") : other->sha256) << " ("
+                << other->path << ")\n";
+      status = 1;
+    }
+    if (grid.variable != other->variable || grid.components != other->components) {
+      std::cout << "the grid " << grid.grid << " reads other variables or components\n";
+      status = 1;
+    }
+    for (std::size_t d = 0; d < std::max(grid.axes.size(), other->axes.size()); ++d) {
+      if (d >= grid.axes.size() || d >= other->axes.size() || !(grid.axes[d] == other->axes[d])) {
+        const auto describe = [](const std::vector<seissol::expr::GridRecord::Axis>& axes,
+                                 std::size_t d) -> std::string {
+          if (d >= axes.size()) {
+            return "none";
+          }
+          const auto& axis = axes[d];
+          return "`" + axis.file.dimension + "` from " + valueText(axis.min, false) + " by " +
+                 valueText(axis.spacing, false) + " over " + std::to_string(axis.nodes) + " nodes" +
+                 (axis.file.units.empty() ? "" : ", in " + axis.file.units) +
+                 (axis.file.positive.empty() ? "" : ", positive " + axis.file.positive);
+        };
+        std::cout << "axis " << d << " of the grid " << grid.grid
+                  << " differs: " << describe(grid.axes, d) << ", and " << describe(other->axes, d)
+                  << "\n";
+        status = 1;
+      }
+    }
+  }
+  for (const auto& grid : second.grids) {
+    if (std::none_of(first.grids.begin(), first.grids.end(), [&](const auto& candidate) {
+          return candidate.grid == grid.grid;
+        })) {
+      std::cout << "the grid " << grid.grid << " only in the second\n";
+      status = 1;
+    }
+  }
+
   std::map<std::uint64_t, std::size_t> others;
   for (std::size_t k = 0; k < second.sample.size(); ++k) {
     others.emplace(second.sample[k].identity, k);

@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -28,6 +29,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -42,6 +44,10 @@ constexpr const char* ProgramMarker = "# the program, in the normal form of the 
 constexpr const char* NotCorePrefix = "# not in the core format: ";
 constexpr const char* SamplePrefix = "# the sample";
 constexpr const char* UnstablePrefix = "# unstable points";
+constexpr const char* GridComment =
+    "# per grid its file, the SHA-256 of the file, its variable and components; per axis its "
+    "dimension in the file with the attributes it has there, and the geometry as derived: the "
+    "first node, the spacing, the nodes (of the window, with the slices of the file)";
 constexpr const char* ClampComment =
     "# per grid and axis, the points of the closed pool beyond its volume: below, above, NaN";
 /// The points of the smallest hash in a sample (as Backend.cpp chooses them).
@@ -160,6 +166,125 @@ void readPool(Reader& reader, const std::string& value, PoolScope& scope) {
   }
 }
 
+std::string quoted(const std::string& text) {
+  std::string out = "\"";
+  for (const char c : text) {
+    if (c == '"' || c == '\\') {
+      out.push_back('\\');
+    }
+    out.push_back(c);
+  }
+  return out + "\"";
+}
+
+/// The shortest decimal spelling that reads back as `value`.
+std::string numberText(double value) {
+  std::array<char, 64> buffer{};
+  const auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
+  return std::string(buffer.data(), result.ptr);
+}
+
+/// The items of `a 1, b "x y" "z", c`: per item its words, quoted strings unquoted.
+std::vector<std::vector<std::string>> itemsOf(Reader& reader, const std::string& value) {
+  std::vector<std::vector<std::string>> items(1);
+  std::size_t i = 0;
+  while (i < value.size()) {
+    const char c = value[i];
+    if (c == ' ') {
+      ++i;
+    } else if (c == ',') {
+      items.emplace_back();
+      ++i;
+    } else if (c == '"') {
+      std::string word;
+      ++i;
+      while (i < value.size() && value[i] != '"') {
+        if (value[i] == '\\' && i + 1 < value.size()) {
+          ++i;
+        }
+        word.push_back(value[i++]);
+      }
+      if (i == value.size()) {
+        reader.fail("a string without its end: `" + value + "`");
+      }
+      ++i;
+      items.back().push_back(word);
+    } else {
+      const auto end = value.find_first_of(" ,", i);
+      items.back().push_back(value.substr(i, end == std::string::npos ? end : end - i));
+      i = end == std::string::npos ? value.size() : end;
+    }
+  }
+  return items;
+}
+
+double doubleOf(Reader& reader, const std::string& text) {
+  double value = 0.0;
+  const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+  if (result.ec != std::errc() || result.ptr != text.data() + text.size()) {
+    reader.fail("expected a number, not `" + text + "`");
+  }
+  return value;
+}
+
+/// `grid m = path "…", sha256 "…", variable "data", components "rho" "mu"`, the grid `name`.
+GridRecord readGrid(Reader& reader, const std::string& name, const std::string& value) {
+  GridRecord grid;
+  grid.grid = name;
+  for (const auto& item : itemsOf(reader, value)) {
+    if (item.empty()) {
+      continue;
+    }
+    const std::string& key = item[0];
+    const std::string single = item.size() > 1 ? item[1] : std::string();
+    if (key == "path") {
+      grid.path = single;
+    } else if (key == "sha256") {
+      grid.sha256 = single;
+    } else if (key == "variable") {
+      grid.variable = single;
+    } else if (key == "components") {
+      grid.components.assign(item.begin() + 1, item.end());
+    } else {
+      reader.fail("unknown property `" + key + "` of a grid");
+    }
+  }
+  return grid;
+}
+
+/// `grid m axis 0 = dimension "x", units "m", min -1000, spacing 100, nodes 21`, into `grid`.
+void readAxis(Reader& reader, GridRecord& grid, std::size_t d, const std::string& value) {
+  if (grid.axes.size() <= d) {
+    grid.axes.resize(d + 1);
+  }
+  auto& axis = grid.axes[d];
+  for (const auto& item : itemsOf(reader, value)) {
+    if (item.size() < 2) {
+      continue;
+    }
+    const std::string& key = item[0];
+    if (key == "dimension") {
+      axis.file.dimension = item[1];
+    } else if (key == "units") {
+      axis.file.units = item[1];
+    } else if (key == "positive") {
+      axis.file.positive = item[1];
+    } else if (key == "standard_name") {
+      axis.file.standardName = item[1];
+    } else if (key == "min") {
+      axis.min = doubleOf(reader, item[1]);
+    } else if (key == "spacing") {
+      axis.spacing = doubleOf(reader, item[1]);
+    } else if (key == "nodes") {
+      axis.nodes = static_cast<std::size_t>(doubleOf(reader, item[1]));
+    } else if (key == "slices") {
+      axis.slices = static_cast<std::size_t>(doubleOf(reader, item[1]));
+    } else {
+      reader.fail("unknown property `" + key + "` of an axis");
+    }
+  }
+}
+
 /// `0 12 0, 0 0 0, 31 0 0 of 4096 points`, the clamps of the grid `grid`.
 ClampCount readClamps(Reader& reader, const std::string& grid, const std::string& value) {
   ClampCount count;
@@ -265,6 +390,7 @@ Record recordOf(const Program& program,
   record.backendValues = compiled;
   record.tolerances = compiled && found.perturbed;
   record.clamps = found.clamps;
+  record.grids = found.grids;
 
   const std::size_t n = found.points.size();
   const std::size_t inputs = record.inputs.size();
@@ -330,6 +456,44 @@ std::string printRecord(const Record& record) {
           << count.axes[d][2];
     }
     out << " of " << count.of << " points\n";
+  }
+  if (!record.grids.empty()) {
+    out << GridComment << "\n";
+  }
+  for (const auto& grid : record.grids) {
+    out << "grid " << grid.grid << " = path " << quoted(grid.path);
+    if (!grid.sha256.empty()) {
+      out << ", sha256 " << quoted(grid.sha256);
+    }
+    if (!grid.variable.empty()) {
+      out << ", variable " << quoted(grid.variable);
+    }
+    if (!grid.components.empty()) {
+      out << ", components";
+      for (const auto& component : grid.components) {
+        out << " " << quoted(component);
+      }
+    }
+    out << "\n";
+    for (std::size_t d = 0; d < grid.axes.size(); ++d) {
+      const auto& axis = grid.axes[d];
+      out << "grid " << grid.grid << " axis " << d << " =";
+      const auto attribute = [&](const char* key, const std::string& value) {
+        if (!value.empty()) {
+          out << " " << key << " " << quoted(value) << ",";
+        }
+      };
+      attribute("dimension", axis.file.dimension);
+      attribute("units", axis.file.units);
+      attribute("positive", axis.file.positive);
+      attribute("standard_name", axis.file.standardName);
+      out << " min " << numberText(axis.min) << ", spacing " << numberText(axis.spacing)
+          << ", nodes " << axis.nodes;
+      if (axis.slices > 0) {
+        out << ", slices " << axis.slices;
+      }
+      out << "\n";
+    }
   }
 
   out << "\n" << ProgramMarker << "\n";
@@ -420,6 +584,21 @@ Record parseRecord(const std::string& text, const std::string& file) {
       seenFingerprint = true;
     } else if (startsWith(key, "clamped ")) {
       record.clamps.push_back(readClamps(reader, key.substr(8), value));
+    } else if (startsWith(key, "grid ")) {
+      const std::string rest = key.substr(5);
+      const auto axis = rest.rfind(" axis ");
+      if (axis == std::string::npos) {
+        record.grids.push_back(readGrid(reader, rest, value));
+      } else {
+        const std::string name = rest.substr(0, axis);
+        if (record.grids.empty() || record.grids.back().grid != name) {
+          reader.fail("an axis of the grid `" + name + "` before the grid");
+        }
+        readAxis(reader,
+                 record.grids.back(),
+                 static_cast<std::size_t>(doubleOf(reader, rest.substr(axis + 6))),
+                 value);
+      }
     } else if (key == "backend") {
       record.backend = value;
     } else if (key == "rank") {
@@ -677,11 +856,20 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
     }
   }
 
+  // the grids, as every rank has them
+  merged.grids = first.grids;
+  std::string otherGrids;
+  for (const auto& record : records) {
+    if (!(record.grids == first.grids) && otherGrids.empty()) {
+      otherGrids = rankName(record);
+    }
+  }
+
   // the head: the build as the first record has it, the checks of all
   std::vector<std::string> checks;
   for (const auto& [key, value] : first.head) {
     if (key != "check" && key != "selects" && key != "duplicates" && key != "inconsistent" &&
-        key != "clamped points" && key != "groups and extremes") {
+        key != "clamped points" && key != "groups and extremes" && key != "grids") {
       merged.head.emplace_back(key, value);
     }
   }
@@ -906,6 +1094,9 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
   }
   if (!merged.scope.scanned) {
     merged.head.emplace_back("groups and extremes", "uncertain, a rank chose them from its pool");
+  }
+  if (!otherGrids.empty()) {
+    merged.head.emplace_back("grids", "differ between the ranks, first on " + otherGrids);
   }
   if (duplicates > 0) {
     merged.head.emplace_back("duplicates",

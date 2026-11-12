@@ -123,6 +123,7 @@ std::size_t GridStore::intern(const GridDesc& desc) {
   }
   descs_.push_back(desc);
   grids_.emplace_back();
+  hashes_.emplace_back();
   windowSlices_.push_back(0);
   mirrors_.emplace_back();
   return descs_.size() - 1;
@@ -267,6 +268,8 @@ void GridStore::load() {
   for (std::size_t i = 0; i < descs_.size(); ++i) {
     if (grids_[i] == nullptr) {
       grids_[i] = makeGrid(descs_[i]);
+      // what the evaluation records name the file by
+      hashes_[i] = fileHashOf(descs_[i].path);
     }
   }
   for (std::size_t i = 0; i < descs_.size(); ++i) {

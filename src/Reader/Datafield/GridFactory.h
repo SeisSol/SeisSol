@@ -15,6 +15,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <string>
 
 namespace seissol::reader::datafield {
 
@@ -23,6 +24,11 @@ namespace seissol::reader::datafield {
 /// is not, because how much of it to load is a question only answerable once the
 /// geometry is known — see resizeWindow().
 std::unique_ptr<Grid> makeGrid(const GridDesc& desc);
+
+/// The SHA-256 of the file at `path` (expr::sha256OfFile()), as rank 0 of the rank's communicator
+/// reads it, given to every rank. Collective where MPI runs. Empty where the file cannot be read,
+/// or where SEISSOL_EXPR_GRID_HASH is off.
+[[nodiscard]] std::string fileHashOf(const std::string& path);
 
 /// Allocates and fills the resident time window. Collective. Called by
 /// GridStore::load() after the budget has been turned into a slice count. A no-op

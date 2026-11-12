@@ -26,6 +26,8 @@
 //   ...                                  the build, as SeisSol gives it
 //   check = the same bits
 //   clamped m = 0 12 0, 0 0 0, 31 0 0 of 4096 points
+//   grid m = path "vmodel.nc", sha256 "5a1c...", variable "data", components "rho" "mu"
+//   grid m axis 0 = dimension "x", units "m", min -1000, spacing 100, nodes 21
 //
 //   # the program, in the normal form of the core format
 //   #!sderiv 1
@@ -71,6 +73,8 @@ struct Record {
   std::vector<std::pair<std::string, std::string>> head;
   /// per grid, the points of the closed pool it samples beyond its volume
   std::vector<ClampCount> clamps;
+  /// the grids of the program: files, hashes, geometry
+  std::vector<GridRecord> grids;
   /// the program in the normal form of the core format; empty for one the format cannot express,
   /// with the reason in `notCore`
   std::string program;

@@ -933,6 +933,7 @@ BackendComparison compareAt(const Program& program,
       }
     }
   }
+  comparison.grids = gridRecordsOf(program, grids);
   // per grid, the points of the closed pool beyond its volume, and the two of the smallest hash
   const auto clamps = clampsAt(program, grids, inputs, pool);
   for (std::size_t g = 0; g < clamps.size(); ++g) {
@@ -1298,6 +1299,56 @@ void scanValues(const Program& program,
         }
       },
       pool);
+}
+
+bool GridRecord::Axis::operator==(const Axis& other) const {
+  const auto bits = [](double value) {
+    std::uint64_t word = 0;
+    std::memcpy(&word, &value, sizeof(word));
+    return word;
+  };
+  return file.dimension == other.file.dimension && file.units == other.file.units &&
+         file.positive == other.file.positive && file.standardName == other.file.standardName &&
+         bits(min) == bits(other.min) && bits(spacing) == bits(other.spacing) &&
+         nodes == other.nodes && slices == other.slices;
+}
+
+bool GridRecord::operator==(const GridRecord& other) const {
+  return grid == other.grid && path == other.path && sha256 == other.sha256 &&
+         variable == other.variable && components == other.components && axes == other.axes;
+}
+
+std::vector<GridRecord> gridRecordsOf(const Program& program, GridStore& grids) {
+  std::vector<GridRecord> records;
+  const auto ids = internGrids(program, grids);
+  for (std::size_t g = 0; g < program.grids().size(); ++g) {
+    const auto& desc = program.grids()[g];
+    const reader::datafield::Grid& grid = grids.get(ids[g]);
+    GridRecord record;
+    record.grid = desc.name.empty() ? desc.path : desc.name;
+    record.path = desc.path;
+    record.sha256 = grids.fileHash(ids[g]);
+    record.variable = desc.variable;
+    record.components = desc.componentNames;
+    reader::datafield::GridGeometry geometry;
+    grid.geometry(geometry);
+    const auto files = grid.axisInfo();
+    for (std::size_t d = 0; d < geometry.dimensions; ++d) {
+      GridRecord::Axis axis;
+      if (d < files.size()) {
+        axis.file = files[d];
+      }
+      axis.min = geometry.min[d];
+      axis.spacing = geometry.delta[d];
+      axis.nodes = geometry.num[d];
+      if (desc.timeAxis.has_value() && static_cast<std::size_t>(*desc.timeAxis) == d) {
+        axis.slices = grids.timeSlicesOf(ids[g]);
+      }
+      record.axes.push_back(axis);
+    }
+    records.push_back(std::move(record));
+  }
+  return records;
 }
 
 std::vector<GridClamps> clampsAt(const Program& program,

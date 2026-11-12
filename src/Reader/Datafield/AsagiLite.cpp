@@ -150,6 +150,41 @@ herr_t collectFirstScale(hid_t /*did*/, unsigned /*dim*/, hid_t scaleId, void* o
   return 0;
 }
 
+/// The string attribute `name` of `object`, of fixed or variable length; empty where it has none.
+std::string stringAttribute(hid_t object, const char* name) {
+  if (H5Aexists(object, name) <= 0) {
+    return {};
+  }
+  const hid_t attribute = H5Aopen(object, name, H5P_DEFAULT);
+  if (attribute < 0) {
+    return {};
+  }
+  std::string value;
+  const TypeGuard type{H5Aget_type(attribute)};
+  if (type.ok() && H5Tget_class(type.id()) == H5T_STRING) {
+    // in the character set of the file, since HDF5 converts between none
+    const TypeGuard memory{H5Tcopy(H5T_C_S1)};
+    H5Tset_cset(memory.id(), H5Tget_cset(type.id()));
+    if (H5Tis_variable_str(type.id()) > 0) {
+      char* data = nullptr;
+      H5Tset_size(memory.id(), H5T_VARIABLE);
+      if (H5Aread(attribute, memory.id(), static_cast<void*>(&data)) >= 0 && data != nullptr) {
+        value = data;
+        H5free_memory(data);
+      }
+    } else {
+      const std::size_t size = H5Tget_size(type.id());
+      std::string buffer(size + 1, '\0');
+      H5Tset_size(memory.id(), size + 1);
+      if (H5Aread(attribute, memory.id(), buffer.data()) >= 0) {
+        value = buffer.c_str();
+      }
+    }
+  }
+  H5Aclose(attribute);
+  return value;
+}
+
 bool readCoordScalar(hid_t cdset, hsize_t idx, double& out) noexcept {
   const SpaceGuard fspace{H5Dget_space(cdset)};
   if (!fspace.ok()) {
@@ -397,9 +432,14 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
   // on a float32 coordinate axis the endpoint average (v[n-1]-v[0])/(n-1)
   // lands up to a full cell away, i.e. reads the wrong material. See the
   // geometry-derivation note in Grid.h.
+  fileAxes_.assign(ndims_, GridAxisInfo{});
   for (std::size_t i = 0; i < ndims_; ++i) {
     ScaleNameSink sink;
     H5DSiterate_scales(dsetRaw, static_cast<unsigned>(i), nullptr, collectFirstScale, &sink);
+    if (sink.found) {
+      fileAxes_[i].dimension =
+          sink.name.size() > 1 && sink.name[0] == '/' ? sink.name.substr(1) : sink.name;
+    }
 
     // A trailing dimension with no dimension scale is the component axis of a
     // vector grid -- there is no coordinate to interpolate along it. This is the
@@ -433,6 +473,9 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
       unitless();
       continue;
     }
+    fileAxes_[i].units = stringAttribute(coord.id(), "units");
+    fileAxes_[i].positive = stringAttribute(coord.id(), "positive");
+    fileAxes_[i].standardName = stringAttribute(coord.id(), "standard_name");
     double v0 = 0.0;
     double v1 = 0.0;
     if (!readCoordScalar(coord.id(), 0, v0)) {
@@ -709,6 +752,16 @@ void AsagiLiteGrid::buildView() noexcept {
       view_.after[axis] = numTimeSlices_ - window_.start - window_.count;
     }
   }
+}
+
+std::vector<GridAxisInfo> AsagiLiteGrid::axisInfo() const {
+  // the grid axes are the spatial dimensions of the file, in the opposite order
+  const std::size_t nspatial = view_.dimensions;
+  std::vector<GridAxisInfo> axes(nspatial);
+  for (std::size_t d = 0; d < nspatial && nspatial - 1 - d < fileAxes_.size(); ++d) {
+    axes[d] = fileAxes_[nspatial - 1 - d];
+  }
+  return axes;
 }
 
 void AsagiLiteGrid::geometry(GridGeometry& out) const {

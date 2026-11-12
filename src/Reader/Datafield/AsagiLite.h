@@ -20,6 +20,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace seissol::reader::datafield {
 
@@ -154,6 +155,7 @@ class AsagiLiteGrid final : public Grid {
   public:
   [[nodiscard]] std::size_t bytesPerTimeSlice() const override { return sliceBytes_; }
   [[nodiscard]] std::size_t timeSlices() const override { return numTimeSlices_; }
+  [[nodiscard]] std::vector<GridAxisInfo> axisInfo() const override;
   [[nodiscard]] std::optional<std::pair<double, double>> timeWindow() const override;
   [[nodiscard]] const ArrayView* arrayView() const override {
     return data_ != nullptr ? &view_ : nullptr;
@@ -189,6 +191,8 @@ class AsagiLiteGrid final : public Grid {
   bool hasComponentAxis_ = false;
 
   std::size_t ndims_ = 0;
+  /// what the file says about its dimensions, in its order
+  std::vector<GridAxisInfo> fileAxes_;
   /// Kept open for the lifetime of the grid: a sliding window has to read again.
   hid_t fileId_ = -1;
   hid_t dsetId_ = -1;

@@ -369,7 +369,8 @@ int compile(const std::string& source, const std::string& flags) {
 // written to a temporary file and renamed, so that ranks that compile the same program at once
 // leave a whole entry behind; a reader that finds half of one compiles.
 
-/// The directory of the cache; empty without one.
+} // namespace
+
 const std::string& cacheDirectory() {
   static const std::string Directory = []() -> std::string {
     std::string directory;
@@ -397,6 +398,8 @@ const std::string& cacheDirectory() {
   }();
   return Directory;
 }
+
+namespace {
 
 /// The compiler as the cache tells it apart: where it is, its size, and when it changed.
 const std::string& compilerIdentity() {

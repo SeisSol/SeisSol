@@ -270,6 +270,14 @@ TEST_SUITE("ExprBackend") {
     REQUIRE(read.clamps.size() == 1);
     CHECK(read.clamps[0].axes == count.axes);
     CHECK(printRecord(read) == text);
+    // and the grid as it is: a ramp from 0 by 1 over 8 nodes on every axis
+    REQUIRE(read.grids.size() == 1);
+    CHECK(read.grids[0] == comparison->grids.at(0));
+    CHECK(read.grids[0].path == "ramp.nc");
+    REQUIRE(read.grids[0].axes.size() == 3);
+    CHECK(read.grids[0].axes[2].nodes == 8);
+    CHECK(read.grids[0].axes[2].spacing == 1.0);
+    CHECK(text.find("grid m axis 1 = min 0, spacing 1, nodes 8\n") != std::string::npos);
   }
 
   TEST_CASE("a partitioned point set lands back on the right points") {

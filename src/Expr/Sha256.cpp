@@ -7,10 +7,18 @@
 
 #include "Expr/Sha256.h"
 
+#include "Expr/RtcCpu.h"
+
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <random>
 #include <string>
+#include <system_error>
+#include <vector>
 
 namespace seissol::expr {
 
@@ -65,41 +73,111 @@ void compress(std::array<std::uint32_t, 8>& state, const unsigned char* block) {
 
 } // namespace
 
-std::string sha256(const std::string& data) {
-  std::array<std::uint32_t, 8> state = {0x6a09e667U,
-                                        0xbb67ae85U,
-                                        0x3c6ef372U,
-                                        0xa54ff53aU,
-                                        0x510e527fU,
-                                        0x9b05688cU,
-                                        0x1f83d9abU,
-                                        0x5be0cd19U};
-  const auto* bytes = reinterpret_cast<const unsigned char*>(data.data());
-  const std::size_t full = data.size() / 64 * 64;
-  for (std::size_t offset = 0; offset < full; offset += 64) {
-    compress(state, bytes + offset);
+void Sha256::update(const void* data, std::size_t size) {
+  const auto* bytes = static_cast<const unsigned char*>(data);
+  length_ += size;
+  while (size > 0) {
+    if (filled_ == 0 && size >= 64) {
+      compress(state_, bytes);
+      bytes += 64;
+      size -= 64;
+      continue;
+    }
+    const std::size_t take = std::min<std::size_t>(64 - filled_, size);
+    std::copy_n(bytes, take, block_.data() + filled_);
+    filled_ += take;
+    bytes += take;
+    size -= take;
+    if (filled_ == 64) {
+      compress(state_, block_.data());
+      filled_ = 0;
+    }
   }
+}
+
+std::string Sha256::finish() {
   // the rest, a one bit, zeros, and the length in bits
+  const std::uint64_t bits = length_ * 8U;
   std::array<unsigned char, 128> tail{};
-  const std::size_t rest = data.size() - full;
-  for (std::size_t i = 0; i < rest; ++i) {
-    tail[i] = bytes[full + i];
-  }
-  tail[rest] = 0x80U;
-  const std::size_t blocks = rest + 1 + 8 > 64 ? 2 : 1;
-  const std::uint64_t bits = static_cast<std::uint64_t>(data.size()) * 8U;
+  std::copy_n(block_.data(), filled_, tail.data());
+  tail[filled_] = 0x80U;
+  const std::size_t blocks = filled_ + 1 + 8 > 64 ? 2 : 1;
   for (std::size_t i = 0; i < 8; ++i) {
     tail[blocks * 64 - 1 - i] = static_cast<unsigned char>(bits >> (8U * i));
   }
   for (std::size_t b = 0; b < blocks; ++b) {
-    compress(state, tail.data() + 64 * b);
+    compress(state_, tail.data() + 64 * b);
   }
   static constexpr char Digits[] = "0123456789abcdef";
   std::string hex;
   hex.reserve(64);
-  for (const std::uint32_t word : state) {
+  for (const std::uint32_t word : state_) {
     for (int shift = 28; shift >= 0; shift -= 4) {
       hex.push_back(Digits[(word >> static_cast<unsigned>(shift)) & 0xFU]);
+    }
+  }
+  return hex;
+}
+
+std::string sha256(const std::string& data) {
+  Sha256 hash;
+  hash.update(data.data(), data.size());
+  return hash.finish();
+}
+
+std::string sha256OfFile(const std::string& path) {
+  std::error_code error;
+  const auto absolute = std::filesystem::absolute(path, error).lexically_normal().string();
+  const auto size = std::filesystem::file_size(path, error);
+  if (error) {
+    return {};
+  }
+  const auto changed = std::filesystem::last_write_time(path, error).time_since_epoch().count();
+  if (error) {
+    return {};
+  }
+  // the entry of the cache: the size, the time of change and the hash, then the path
+  const std::string identity = std::to_string(size) + " " + std::to_string(changed);
+  const std::string& directory = cacheDirectory();
+  const std::filesystem::path entry =
+      directory.empty() ? std::filesystem::path()
+                        : std::filesystem::path(directory) / (sha256(absolute) + ".file-hash");
+  if (!directory.empty()) {
+    std::ifstream cached(entry);
+    std::string line;
+    std::string cachedPath;
+    if (std::getline(cached, line) && std::getline(cached, cachedPath) && cachedPath == absolute &&
+        line.size() > 65 && line.compare(0, identity.size() + 1, identity + " ") == 0) {
+      return line.substr(identity.size() + 1);
+    }
+  }
+
+  std::ifstream file(path, std::ios::binary);
+  if (!file) {
+    return {};
+  }
+  Sha256 hash;
+  std::vector<char> buffer(std::size_t{4} << 20);
+  while (file) {
+    file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+    hash.update(buffer.data(), static_cast<std::size_t>(file.gcount()));
+  }
+  if (file.bad()) {
+    return {};
+  }
+  const std::string hex = hash.finish();
+
+  if (!directory.empty()) {
+    // to a file of its own, renamed into place, so that a reader finds a whole entry
+    const std::filesystem::path temporary =
+        entry.string() + ".tmp" + std::to_string(std::random_device{}());
+    {
+      std::ofstream out(temporary);
+      out << identity << " " << hex << "\n" << absolute << "\n";
+    }
+    std::filesystem::rename(temporary, entry, error);
+    if (error) {
+      std::filesystem::remove(temporary, error);
     }
   }
   return hex;

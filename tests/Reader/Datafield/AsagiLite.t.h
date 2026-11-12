@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <netcdf.h>
+#include <optional>
 #include <string>
 #include <unistd.h>
 #include <vector>
@@ -169,6 +170,52 @@ TEST_CASE("Datafield AsagiLite: the grids of a store sample on after the end of 
   double value = 0;
   store.get(id).sample(point, &value);
   CHECK(value == 2.5 + 10.0);
+}
+
+TEST_CASE("Datafield AsagiLite: the dimensions of the file and the attributes of their axes") {
+  const std::string path = "seissol-test-asagilite-axes-" + std::to_string(::getpid()) + ".nc";
+  int file = 0;
+  REQUIRE(nc_create(path.c_str(), NC_NETCDF4 | NC_CLOBBER, &file) == NC_NOERR);
+  int dims[2] = {};
+  REQUIRE(nc_def_dim(file, "depth", 3, &dims[0]) == NC_NOERR);
+  REQUIRE(nc_def_dim(file, "x", 2, &dims[1]) == NC_NOERR);
+  int depth = 0;
+  int x = 0;
+  int values = 0;
+  REQUIRE(nc_def_var(file, "depth", NC_DOUBLE, 1, &dims[0], &depth) == NC_NOERR);
+  REQUIRE(nc_def_var(file, "x", NC_DOUBLE, 1, &dims[1], &x) == NC_NOERR);
+  REQUIRE(nc_def_var(file, "rho", NC_DOUBLE, 2, dims, &values) == NC_NOERR);
+  // text of a fixed length, and a string of a variable length
+  REQUIRE(nc_put_att_text(file, x, "units", 1, "m") == NC_NOERR);
+  REQUIRE(nc_put_att_text(file, x, "standard_name", 23, "projection_x_coordinate") == NC_NOERR);
+  REQUIRE(nc_put_att_text(file, depth, "units", 2, "km") == NC_NOERR);
+  const char* positive = "down";
+  REQUIRE(nc_put_att_string(file, depth, "positive", 1, &positive) == NC_NOERR);
+  REQUIRE(nc_enddef(file) == NC_NOERR);
+  const std::vector<double> depths = {0.0, 1.0, 2.0};
+  const std::vector<double> xs = {0.0, 1.0};
+  const std::vector<double> rho(6, 2.0);
+  REQUIRE(nc_put_var_double(file, depth, depths.data()) == NC_NOERR);
+  REQUIRE(nc_put_var_double(file, x, xs.data()) == NC_NOERR);
+  REQUIRE(nc_put_var_double(file, values, rho.data()) == NC_NOERR);
+  REQUIRE(nc_close(file) == NC_NOERR);
+
+  df::AsagiLiteGrid grid;
+  REQUIRE(
+      grid.open(path, "rho", df::Interpolation::Linear, df::BoundaryMode::Clamp, std::nullopt) ==
+      df::AsagiLiteGrid::Error::Success);
+  // in the order of the axes of the grid, the opposite of the dimensions of the file
+  const auto axes = grid.axisInfo();
+  std::remove(path.c_str());
+  REQUIRE(axes.size() == 2);
+  CHECK(axes[0].dimension == "x");
+  CHECK(axes[0].units == "m");
+  CHECK(axes[0].standardName == "projection_x_coordinate");
+  CHECK(axes[0].positive.empty());
+  CHECK(axes[1].dimension == "depth");
+  CHECK(axes[1].units == "km");
+  CHECK(axes[1].positive == "down");
+  CHECK(axes[1].standardName.empty());
 }
 
 } // namespace seissol::unit_test

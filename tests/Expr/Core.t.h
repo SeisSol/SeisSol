@@ -233,6 +233,34 @@ out def w = exp(-x) / two
     CHECK(printCore(full).find("in `let`") != std::string::npos);
   }
 
+  TEST_CASE("SHA-256 in pieces, and of a file") {
+    std::string data;
+    for (int i = 0; i < 1000; ++i) {
+      data.push_back(static_cast<char>(i * 37 % 251));
+    }
+    // pieces that end inside a block, on its end, and beyond it
+    Sha256 pieces;
+    std::size_t at = 0;
+    for (const std::size_t size : {1, 63, 64, 65, 7, 800}) {
+      pieces.update(data.data() + at, size);
+      at += size;
+    }
+    CHECK(at == data.size());
+    CHECK(pieces.finish() == sha256(data));
+    CHECK(sha256("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+
+    const std::string path = "seissol-test-sha256-" + std::to_string(::getpid()) + ".bin";
+    {
+      std::ofstream file(path, std::ios::binary);
+      file << data;
+    }
+    CHECK(sha256OfFile(path) == sha256(data));
+    // again, from the cache where there is one
+    CHECK(sha256OfFile(path) == sha256(data));
+    std::filesystem::remove(path);
+    CHECK(sha256OfFile(path).empty());
+  }
+
   TEST_CASE("a program read back from its normal form keeps its fingerprint") {
     // inputs and outputs in an order other than that of their names; a number negated in the full
     // language, which the core format reads as a number
