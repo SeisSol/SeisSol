@@ -37,5 +37,6 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         "-ffp-contract=off")
 endif()
 
-target_link_libraries(seissol-reader PUBLIC seissol-common-properties)
+# seissol-external: lmathx, which the Lua reader loads as easi does (SEISSOL_LUA_LMATHX)
+target_link_libraries(seissol-reader PUBLIC seissol-common-properties seissol-external)
 target_link_libraries(seissol-lib PUBLIC seissol-reader)
