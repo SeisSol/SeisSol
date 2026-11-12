@@ -251,6 +251,9 @@ and the time of modification of the file, so that a run reads a large file once 
 changed; ``SEISSOL_EXPR_GRID_HASH=off`` hashes none.
 
 For a program with state, a point has its states before the call and the next states as well.
+The contractions of a program that a consumer binds to the coefficients of the cells (a derived
+output) are kept as inputs, with their values at the points, so that the program replays without
+the coefficients.
 A program called repeatedly (every time step, say) ends its record with the last call that reached
 the points of its sample, which SeisSol evaluates again with the interpreter at the end of the run.
 Where a consumer makes something of the values of a program -- the material of a cell, averaged
