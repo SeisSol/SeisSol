@@ -1437,6 +1437,15 @@ private:
   std::vector<std::string> channels_;
   /// the value of every definition without parameters lowered so far
   std::map<std::string, NodeId> lowered_;
+
+  public:
+  /// The node of the definition `name` without parameters, where it was lowered.
+  [[nodiscard]] std::optional<NodeId> definition(const std::string& name) const {
+    const auto found = lowered_.find(name);
+    return found == lowered_.end() ? std::nullopt : std::make_optional(found->second);
+  }
+
+  private:
   /// the value of every call of a definition with parameters so far, by its arguments
   std::map<std::pair<std::string, std::vector<NodeId>>, NodeId> calls_;
   /// the definitions being lowered, innermost last
@@ -1631,6 +1640,38 @@ void compileSource(const std::string& source,
   }
   for (std::size_t i = 0; i < parsed.checks.size(); ++i) {
     program.addCheck(checkRoots[i], parsed.checks[i].second);
+  }
+
+  // where they come from (`meta line` of the core format): the definitions, the states, the
+  // outputs and the conditions of the checks
+  const auto at = [&](int offset) {
+    const CorePosition position =
+        positionOf(source, static_cast<std::size_t>(std::max(offset, 0)), options.file);
+    return SourcePosition{position.file, position.line, position.column};
+  };
+  for (const SurfaceId id : parsed.defs) {
+    if (!surface[id].params.empty()) {
+      continue;
+    }
+    if (const auto node = lowering.definition(surface[id].text); node.has_value()) {
+      program.addSource(
+          SourceOf{SourceOf::What::Node, *node, std::string(), at(surface[id].position)});
+    }
+  }
+  if (externalName == nullptr) {
+    for (const SurfaceId id : parsed.exports) {
+      program.addSource(
+          SourceOf{SourceOf::What::Output, NoNode, surface[id].text, at(surface[id].position)});
+    }
+  }
+  for (const auto& state : parsed.states) {
+    program.addSource(SourceOf{SourceOf::What::State, NoNode, state.name, at(state.position)});
+  }
+  for (std::size_t i = 0; i < parsed.checks.size(); ++i) {
+    program.addSource(SourceOf{SourceOf::What::Node,
+                               checkRoots[i],
+                               std::string(),
+                               at(surface[parsed.checks[i].first].position)});
   }
 }
 

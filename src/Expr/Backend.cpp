@@ -82,8 +82,11 @@ class StoreArrays final : public GridArrays {
       where +=
           (i == 0 ? "" : ", ") + program_->inputs()[i].name + " = " + std::to_string(inputs[i]);
     }
-    logError() << "expr:" << program_->checks().at(static_cast<std::size_t>(check)).message
-               << "-- point" << point << "of the call does not meet the check of the program"
+    const auto& spec = program_->checks().at(static_cast<std::size_t>(check));
+    logError() << "expr:" << spec.message << "-- point" << point
+               << ("of the call does not meet the check of the program" +
+                   fromText(program_->sourcesOfNode(spec.root)))
+                      .c_str()
                << (where.empty() ? std::string() : "(" + where + ")");
   }
 
@@ -1250,6 +1253,20 @@ BackendComparison compareAt(const Program& program,
     return o < outputs ? program.outputs()[o].name
                        : "next(" + program.state()[o - outputs].name + ")";
   };
+  // where an output, or a next value, comes from
+  const auto sourcesOfRow = [&](std::size_t o) {
+    if (o < outputs) {
+      return program.sourcesOfOutput(o);
+    }
+    const auto& state = program.state()[o - outputs];
+    std::vector<SourcePosition> positions = program.sourcesOfNode(state.root);
+    for (const auto& source : program.sources()) {
+      if (source.what == SourceOf::What::State && source.name == state.name) {
+        positions.push_back(source.position);
+      }
+    }
+    return positions;
+  };
   const auto ids = internGrids(program, grids);
   const StoreArrays arrays(program, ids, grids);
   const GridArrays* sampled = ids.empty() ? nullptr : &arrays;
@@ -1306,7 +1323,7 @@ BackendComparison compareAt(const Program& program,
       if (comparison.worst.empty() || ulps > worstUlps || std::isnan(ulps)) {
         worstUlps = ulps;
         comparison.worst = "`" + rowName(o) + "` at point " + std::to_string(points[k]) + " is " +
-                           hexOf(a) + ", the interpreter's " + hexOf(r);
+                           hexOf(a) + ", the interpreter's " + hexOf(r) + fromText(sourcesOfRow(o));
       }
     }
   }

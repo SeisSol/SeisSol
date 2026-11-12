@@ -150,6 +150,32 @@ struct MetaEntry {
   std::vector<MetaValue> values;
 };
 
+/// Where in the source a frontend translated: the file, and the line and the column there, counted
+/// from 1 (`meta line` of the core format).
+struct SourcePosition {
+  std::string file;
+  int line{0};
+  int column{0};
+  [[nodiscard]] bool operator==(const SourcePosition& other) const = default;
+  /// `file:line:column`, or `line:column` without a file
+  [[nodiscard]] std::string text() const;
+};
+
+/// ` (from a:1:2, b:3:4)` for `positions`, nothing for none: what a message appends to a construct.
+[[nodiscard]] std::string fromText(const std::vector<SourcePosition>& positions);
+
+/// What a construct of a program was translated from: a definition by its node, a state or an
+/// output by its name, at `position`. Like the names, it does not change what the program computes,
+/// so neither the canonical form nor the fingerprint has it.
+struct SourceOf {
+  enum class What : std::uint8_t { Node, State, Output };
+  What what{What::Node};
+  NodeId node{NoNode};
+  std::string name;
+  SourcePosition position;
+  [[nodiscard]] bool operator==(const SourceOf& other) const = default;
+};
+
 class Program {
   public:
   [[nodiscard]] const Arena& arena() const { return arena_; }
@@ -176,6 +202,16 @@ class Program {
   // The provenance of the program, in the order it was given.
   [[nodiscard]] const std::vector<MetaEntry>& meta() const { return meta_; }
   void addMeta(MetaEntry entry) { meta_.push_back(std::move(entry)); }
+
+  // Where its definitions, states and outputs come from in the source a frontend translated, in
+  // the order given; a construct may have several (equal expressions are one definition), and the
+  // same twice where it was given twice (the printer writes it once).
+  [[nodiscard]] const std::vector<SourceOf>& sources() const { return sources_; }
+  void addSource(SourceOf source) { sources_.push_back(std::move(source)); }
+  // The positions of output `o`: its own, then those of the definition that computes it.
+  [[nodiscard]] std::vector<SourcePosition> sourcesOfOutput(std::size_t o) const;
+  // The positions of the definition `node`.
+  [[nodiscard]] std::vector<SourcePosition> sourcesOfNode(NodeId node) const;
 
   // The matrices and blocks contractions read, in MatrixId and BlockId order.
   [[nodiscard]] const std::vector<MatrixSpec>& matrices() const { return matrices_; }
@@ -258,6 +294,7 @@ class Program {
   std::vector<CheckSpec> checks_;
   std::vector<reader::datafield::GridDesc> grids_;
   std::vector<MetaEntry> meta_;
+  std::vector<SourceOf> sources_;
   std::vector<MatrixSpec> matrices_;
   std::vector<BlockSpec> blocks_;
   ComputeType computeType_{ComputeType::F64};

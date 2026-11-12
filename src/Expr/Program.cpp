@@ -10,6 +10,7 @@
 #include "Expr/Ir.h"
 #include "utils/logger.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -230,6 +231,46 @@ class CanonicalWalk {
 };
 
 } // namespace
+
+std::string SourcePosition::text() const {
+  const std::string at = std::to_string(line) + ":" + std::to_string(column);
+  return file.empty() ? at : file + ":" + at;
+}
+
+std::string fromText(const std::vector<SourcePosition>& positions) {
+  std::string text;
+  for (const auto& position : positions) {
+    text += (text.empty() ? " (from " : ", ") + position.text();
+  }
+  return text.empty() ? text : text + ")";
+}
+
+std::vector<SourcePosition> Program::sourcesOfOutput(std::size_t o) const {
+  std::vector<SourcePosition> positions;
+  for (const auto& source : sources_) {
+    if (source.what == SourceOf::What::Output && source.name == outputs_.at(o).name &&
+        std::find(positions.begin(), positions.end(), source.position) == positions.end()) {
+      positions.push_back(source.position);
+    }
+  }
+  for (const auto& position : sourcesOfNode(roots_.at(o))) {
+    if (std::find(positions.begin(), positions.end(), position) == positions.end()) {
+      positions.push_back(position);
+    }
+  }
+  return positions;
+}
+
+std::vector<SourcePosition> Program::sourcesOfNode(NodeId node) const {
+  std::vector<SourcePosition> positions;
+  for (const auto& source : sources_) {
+    if (source.what == SourceOf::What::Node && source.node == node &&
+        std::find(positions.begin(), positions.end(), source.position) == positions.end()) {
+      positions.push_back(source.position);
+    }
+  }
+  return positions;
+}
 
 std::string Program::canonicalForm() const {
   const ChannelResolver resolver(*this);

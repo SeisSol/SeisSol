@@ -579,6 +579,7 @@ class Loader {
     if (metaAllowed) {
       provenance();
     }
+    sources();
     try {
       validate(program_);
     } catch (const std::invalid_argument& error) {
@@ -593,6 +594,12 @@ class Loader {
     What what{What::Input};
     NodeId node{NoNode};
     std::size_t index{0}; // of a grid or a state
+  };
+  /// A `meta line`: what it names, and where that comes from.
+  struct LineDeclaration {
+    Token at;
+    std::string name;
+    SourcePosition position;
   };
   struct StateDeclaration {
     std::string name;
@@ -713,7 +720,7 @@ class Loader {
   }
 
   void meta() {
-    metaAt_.push_back(next());
+    const Token at = next();
     MetaEntry entry;
     entry.key = name("the key of the meta line");
     expect(Tok::Equals, "`=` and the values of the meta line");
@@ -727,7 +734,50 @@ class Loader {
         fail(value, "the value of a meta line is a string or a whole number");
       }
     } while (accept(Tok::Comma));
+    if (entry.key == "line") {
+      // where a definition, state or output comes from, resolved once all are declared
+      const auto& values = entry.values;
+      if (values.size() != 4 || !values[0].quoted || !values[1].quoted || values[2].quoted ||
+          values[3].quoted) {
+        fail(at,
+             "`meta line` names a definition, state or output, then the file, the line and the "
+             "column it comes from: `meta line = \"t4\", \"model.sderiv\", 12, 9`");
+      }
+      lines_.push_back(LineDeclaration{
+          at,
+          values[0].text,
+          SourcePosition{values[1].text, std::stoi(values[2].text), std::stoi(values[3].text)}});
+      return;
+    }
+    metaAt_.push_back(at);
     program_.addMeta(std::move(entry));
+  }
+
+  /// The positions of the `meta line`s, now that every name is declared: of a definition or a
+  /// state of that name, else of the output.
+  void sources() {
+    for (const auto& line : lines_) {
+      SourceOf source;
+      source.position = line.position;
+      const auto found = names_.find(line.name);
+      if (found != names_.end() && found->second.what == What::Definition) {
+        source.what = SourceOf::What::Node;
+        source.node = found->second.node;
+      } else if (found != names_.end() && found->second.what == What::State) {
+        source.what = SourceOf::What::State;
+        source.name = line.name;
+      } else if (std::any_of(outputs_.begin(), outputs_.end(), [&](const auto& output) {
+                   return output.first == line.name;
+                 })) {
+        source.what = SourceOf::What::Output;
+        source.name = line.name;
+      } else {
+        fail(line.at,
+             "`meta line` names `" + line.name +
+                 "`, which is no definition, state or output of the file");
+      }
+      program_.addSource(std::move(source));
+    }
   }
 
   void input() {
@@ -1106,6 +1156,7 @@ class Loader {
   std::vector<StateDeclaration> states_;
   std::vector<GridDeclaration> grids_;
   std::vector<std::pair<std::string, NodeId>> outputs_;
+  std::vector<LineDeclaration> lines_;
   std::vector<std::pair<NodeId, std::string>> checks_;
   const std::string& text_;
   std::vector<Token> metaAt_;
@@ -1210,6 +1261,34 @@ class Printer {
     const std::vector<std::string> order = {
         "generator", "source", "depends", "command", "body", "line"};
     std::vector<MetaEntry> entries = program_.meta();
+    // where the definitions, states and outputs come from, by the names they have here
+    for (const auto& source : program_.sources()) {
+      std::string named;
+      if (source.what == SourceOf::What::Node) {
+        if (source.node == NoNode || static_cast<std::size_t>(source.node) >= names_.size()) {
+          continue;
+        }
+        named = names_[static_cast<std::size_t>(source.node)];
+      } else if (source.what == SourceOf::What::State) {
+        if (std::any_of(program_.state().begin(),
+                        program_.state().end(),
+                        [&](const StateSpec& state) { return state.name == source.name; })) {
+          named = source.name;
+        }
+      } else if (std::any_of(program_.outputs().begin(),
+                             program_.outputs().end(),
+                             [&](const VarSpec& output) { return output.name == source.name; })) {
+        named = source.name;
+      }
+      if (named.empty()) {
+        continue;
+      }
+      entries.push_back(MetaEntry{"line",
+                                  {MetaValue{named, true},
+                                   MetaValue{source.position.file, true},
+                                   MetaValue{std::to_string(source.position.line), false},
+                                   MetaValue{std::to_string(source.position.column), false}}});
+    }
     const auto rank = [&](const std::string& key) {
       const auto found = std::find(order.begin(), order.end(), key);
       return static_cast<std::size_t>(found - order.begin());
@@ -1237,6 +1316,13 @@ class Printer {
       }
       return false;
     });
+    // a position given twice is written once
+    entries.erase(std::unique(entries.begin(),
+                              entries.end(),
+                              [&](const MetaEntry& a, const MetaEntry& b) {
+                                return a.key == "line" && b.key == "line" && values(a) == values(b);
+                              }),
+                  entries.end());
     for (auto& entry : entries) {
       if (entry.key == "body") {
         entry.values = {MetaValue{body, true}};

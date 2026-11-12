@@ -165,6 +165,20 @@ void substituteChannels(Program& program, const std::map<std::string, ChannelBui
   for (const auto& check : program.checks()) {
     rebuilt.addCheck(map[check.root], check.message);
   }
+  for (const auto& entry : program.meta()) {
+    rebuilt.addMeta(entry);
+  }
+  for (const auto& source : program.sources()) {
+    SourceOf carried = source;
+    if (source.what == SourceOf::What::Node) {
+      if (source.node == NoNode || static_cast<std::size_t>(source.node) >= map.size() ||
+          map[static_cast<std::size_t>(source.node)] == NoNode) {
+        continue;
+      }
+      carried.node = map[static_cast<std::size_t>(source.node)];
+    }
+    rebuilt.addSource(std::move(carried));
+  }
 
   validate(rebuilt);
   program = std::move(rebuilt);
@@ -357,6 +371,32 @@ NodeId importNode(Program& target, NodeId root, Imports& imports) {
   return result;
 }
 
+/// The sources of `from` (Program::sources()) for what `to` keeps of it: a definition where
+/// `imports` built its node, a state or an output where `to` has one of its name.
+void carrySources(const Program& from, Program& to, const Imports& imports) {
+  for (const auto& source : from.sources()) {
+    SourceOf carried = source;
+    if (source.what == SourceOf::What::Node) {
+      const auto found = imports.nodes.find(source.node);
+      if (found == imports.nodes.end()) {
+        continue;
+      }
+      carried.node = found->second;
+    } else if (source.what == SourceOf::What::State) {
+      if (std::none_of(to.state().begin(), to.state().end(), [&](const StateSpec& state) {
+            return state.name == source.name;
+          })) {
+        continue;
+      }
+    } else if (std::none_of(to.outputs().begin(), to.outputs().end(), [&](const VarSpec& output) {
+                 return output.name == source.name;
+               })) {
+      continue;
+    }
+    to.addSource(std::move(carried));
+  }
+}
+
 template <typename Spec>
 const Spec* findByName(const std::vector<Spec>& specs, const std::string& name) {
   for (const auto& spec : specs) {
@@ -443,6 +483,7 @@ Program contractionsAsInputs(const Program& program, const Contractions& contrac
   for (const auto& entry : program.meta()) {
     result.addMeta(entry);
   }
+  carrySources(program, result, imports);
   return result;
 }
 
@@ -503,6 +544,7 @@ Program mergePrograms(const Program& first, const Program& second) {
   for (const auto& check : second.checks()) {
     merged.addCheck(importNode(merged, check.root, imports), check.message);
   }
+  carrySources(second, merged, imports);
   validate(merged);
   return merged;
 }
@@ -654,6 +696,10 @@ Program restrictProgram(const Program& program,
     restricted.addCheck(importNode(restricted, program.checks()[c].root, imports),
                         program.checks()[c].message);
   }
+  for (const auto& entry : program.meta()) {
+    restricted.addMeta(entry);
+  }
+  carrySources(program, restricted, imports);
   // nothing left is a program that computes nothing, which its consumer skips
   if (!restricted.outputs().empty() || !restricted.state().empty()) {
     validate(restricted);

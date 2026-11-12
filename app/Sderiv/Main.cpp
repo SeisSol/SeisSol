@@ -317,6 +317,12 @@ int check(const std::vector<std::string>& args) {
             << "\n";
   std::cout << "  outputs: "
             << list(program.outputs(), [](const auto& output) { return output.name; }) << "\n";
+  for (std::size_t o = 0; o < program.outputs().size(); ++o) {
+    const auto from = seissol::expr::fromText(program.sourcesOfOutput(o));
+    if (!from.empty()) {
+      std::cout << "    " << program.outputs()[o].name << from << "\n";
+    }
+  }
   if (!program.state().empty()) {
     std::cout << "  states:  " << list(program.state(), [](const auto& state) {
       return state.name + " = " + valueText(state.initial, false);
@@ -479,9 +485,9 @@ int compare(const std::vector<std::string>& args) {
     for (std::size_t k = 0; k < n; ++k) {
       if (!sameBits(a[o * n + k], b[p * n + k])) {
         if (here++ == 0) {
-          std::cout << "  `" << name << "` differs, first at point " << k << ": "
-                    << valueText(a[o * n + k], true) << " and " << valueText(b[p * n + k], true)
-                    << "\n";
+          std::cout << "  `" << name << "`" << seissol::expr::fromText(first.sourcesOfOutput(o))
+                    << " differs, first at point " << k << ": " << valueText(a[o * n + k], true)
+                    << " and " << valueText(b[p * n + k], true) << "\n";
         }
       }
     }
@@ -689,6 +695,18 @@ int diff(const std::vector<std::string>& args) {
   const auto rowNames = columnsOf(first, true);
   const auto inputMap = mapOf(inputNames, columnsOf(second, false));
   const auto rowMap = mapOf(rowNames, columnsOf(second, true));
+  // where the outputs come from, as the program of the first record says (its `meta line`s)
+  std::vector<std::string> rowFrom(rowNames.size());
+  if (!first.program.empty()) {
+    try {
+      const Program program = seissol::expr::loadCore(first.program, "");
+      for (std::size_t o = 0; o < program.outputs().size() && o < rowFrom.size(); ++o) {
+        rowFrom[o] = seissol::expr::fromText(program.sourcesOfOutput(o));
+      }
+    } catch (const std::exception& /*error*/) {
+      // the program is not read here; the records say so elsewhere
+    }
+  }
 
   // a call of both, layer by layer
   const auto compareCall = [&](const std::vector<Record::Point>& ours,
@@ -730,14 +748,14 @@ int diff(const std::vector<std::string>& args) {
         const std::size_t p = *rowMap[o];
         if (!sameBits(point.interpreter[o], other.interpreter[p])) {
           note(1,
-               "`" + rowNames[o] + "`" + at + valueText(point.interpreter[o], true) + " and " +
-                   valueText(other.interpreter[p], true));
+               "`" + rowNames[o] + "`" + rowFrom[o] + at + valueText(point.interpreter[o], true) +
+                   " and " + valueText(other.interpreter[p], true));
         }
         if (first.backendValues && second.backendValues &&
             !sameBits(point.backend[o], other.backend[p])) {
           note(2,
-               "`" + rowNames[o] + "`" + at + valueText(point.backend[o], true) + " and " +
-                   valueText(other.backend[p], true));
+               "`" + rowNames[o] + "`" + rowFrom[o] + at + valueText(point.backend[o], true) +
+                   " and " + valueText(other.backend[p], true));
         }
       }
     }

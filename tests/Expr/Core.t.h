@@ -15,11 +15,13 @@
 #include "Expr/Core.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
+#include "Expr/Record.h"
 #include "Expr/SderivFrontend.h"
 #include "Expr/Sha256.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -439,6 +441,86 @@ out u = t2
       CHECK(failure.message.find(c.fragment) != std::string::npos);
       CHECK(failure.message.rfind("model.sderiv:" + std::to_string(c.line) + ":", 0) == 0);
     }
+  }
+
+  TEST_CASE("meta line: where a construct comes from, kept through the normal form") {
+    // the definitions take the names of the normal form, and their positions with them
+    const std::string text = "#!sderiv 1\n"
+                             "meta line = \"a\", \"model.sderiv\", 2, 5\n"
+                             "meta line = \"b\", \"model.sderiv\", 3, 5\n"
+                             "meta line = \"b\", \"other.sderiv\", 7, 1\n"
+                             "meta line = \"s\", \"model.sderiv\", 1, 7\n"
+                             "meta line = \"u\", \"model.sderiv\", 4, 9\n"
+                             "in x\n"
+                             "state s = 0\n"
+                             "def b = x * 2\n"
+                             "def a = b + s\n"
+                             "next s = a\n"
+                             "out u = a\n";
+    const Program program = loadCore(text, "");
+    REQUIRE(program.sources().size() == 5);
+    const std::string printed = printCore(program);
+    CAPTURE(printed);
+    CHECK(printed == "#!sderiv 1\n"
+                     "meta line = \"s\", \"model.sderiv\", 1, 7\n"
+                     "meta line = \"t0\", \"model.sderiv\", 3, 5\n"
+                     "meta line = \"t0\", \"other.sderiv\", 7, 1\n"
+                     "meta line = \"t1\", \"model.sderiv\", 2, 5\n"
+                     "meta line = \"u\", \"model.sderiv\", 4, 9\n"
+                     "in x\n"
+                     "state s = 0\n"
+                     "def t0 = x * 2\n"
+                     "def t1 = t0 + s\n"
+                     "next s = t1\n"
+                     "out u = t1\n");
+    // the same program, and the normal form prints as itself
+    const Program again = loadCore(printed, "");
+    CHECK(again.fingerprint() == program.fingerprint());
+    CHECK(printCore(again) == printed);
+    // the positions of the output: its own, then those of its definition
+    REQUIRE(again.sourcesOfOutput(0).size() == 2);
+    CHECK(again.sourcesOfOutput(0)[0].text() == "model.sderiv:4:9");
+    CHECK(again.sourcesOfOutput(0)[1].text() == "model.sderiv:2:5");
+    CHECK(fromText(again.sourcesOfOutput(0)) == " (from model.sderiv:4:9, model.sderiv:2:5)");
+    // positions are no part of the program: without them, the same fingerprint
+    CHECK(loadCore("#!sderiv 1\nin x\nstate s = 0\ndef b = x * 2\ndef a = b + s\nnext s = a\n"
+                   "out u = a\n",
+                   "")
+              .fingerprint() == program.fingerprint());
+    // what a rewrite keeps of the program keeps its positions
+    CHECK(definitionsOf(program, "u").find("meta line = \"u\", \"model.sderiv\", 4, 9") !=
+          std::string::npos);
+
+    // a position per definition costs no more than the definition: 100000 of them, given twice
+    constexpr int Chain = 100000;
+    std::string head = "#!sderiv 1\n";
+    std::string body = "in x\ndef t0 = x + 1\n";
+    for (int i = 0; i < Chain; ++i) {
+      for (int twice = 0; twice < 2; ++twice) {
+        head += "meta line = \"t" + std::to_string(i) + "\", \"chain.sderiv\", " +
+                std::to_string(i + 1) + ", 1\n";
+      }
+      if (i > 0) {
+        body += "def t" + std::to_string(i) + " = t" + std::to_string(i - 1) + " + 1\n";
+      }
+    }
+    body += "out u = t" + std::to_string(Chain - 1) + "\n";
+    const Program chain = loadCore(head + body, "");
+    CHECK(chain.sources().size() == 2 * static_cast<std::size_t>(Chain));
+    const std::string chainPrinted = printCore(chain);
+    CHECK(chainPrinted.find("meta line = \"t99999\", \"chain.sderiv\", 100000, 1\n") !=
+          std::string::npos);
+    // once each
+    CHECK(static_cast<std::size_t>(std::count(chainPrinted.begin(), chainPrinted.end(), '\n')) ==
+          1 + static_cast<std::size_t>(Chain) + 1 + static_cast<std::size_t>(Chain) + 1);
+
+    // a meta line of another form, or of a name the file does not declare, is an error
+    CHECK(failureOf("#!sderiv 1\nmeta line = \"u\", \"m.sderiv\", 1\nin x\nout u = x\n")
+              .message.find("names a definition, state or output") != std::string::npos);
+    CHECK(failureOf("#!sderiv 1\nmeta line = \"v\", \"m.sderiv\", 1, 1\nin x\nout u = x\n")
+              .message.find("which is no definition, state or output") != std::string::npos);
+    CHECK(failureOf("#!sderiv 1\nmeta line = \"x\", \"m.sderiv\", 1, 1\nin x\nout u = x\n")
+              .message.find("which is no definition, state or output") != std::string::npos);
   }
 
   TEST_CASE("deep nesting is an error, and long chains take no stack") {

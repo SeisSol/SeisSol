@@ -135,6 +135,36 @@ TEST_SUITE("SderivFrontend") {
     CHECK(lookups == 2);
   }
 
+  TEST_CASE("the full language writes where its definitions, states and outputs come from") {
+    SderivOptions options;
+    options.file = "model.sderiv";
+    const auto program = compileSderivModule("def a = v * v\n"
+                                             "state peak = 0.0\n"
+                                             "out def peak = max(peak, a)\n"
+                                             "check le(0, v), \"v is not negative\"\n"
+                                             "out def b = sqrt(a) + 1\n",
+                                             options);
+    const std::string printed = printCore(program);
+    CAPTURE(printed);
+    // the definition of a, the state, the outputs and the condition of the check, each where its
+    // construct starts: at `def`, `state`, the `def` of `out def`, and the condition
+    CHECK(printed.find("meta line = \"t0\", \"model.sderiv\", 1, 1\n") != std::string::npos);
+    CHECK(printed.find("meta line = \"peak\", \"model.sderiv\", 2, 1\n") != std::string::npos);
+    CHECK(printed.find("meta line = \"peak\", \"model.sderiv\", 3, 5\n") != std::string::npos);
+    CHECK(printed.find("meta line = \"b\", \"model.sderiv\", 5, 5\n") != std::string::npos);
+    CHECK(printed.find("\"model.sderiv\", 4, 7\n") != std::string::npos);
+    const auto b = std::find_if(program.outputs().begin(),
+                                program.outputs().end(),
+                                [](const auto& output) { return output.name == "b"; });
+    REQUIRE(b != program.outputs().end());
+    const auto positions =
+        program.sourcesOfOutput(static_cast<std::size_t>(b - program.outputs().begin()));
+    REQUIRE(!positions.empty());
+    CHECK(positions.front().text() == "model.sderiv:5:5");
+    // the normal form keeps them
+    CHECK(printCore(loadCore(printed, "")) == printed);
+  }
+
   TEST_CASE("a grid of layers gives its knots and values, and a file its axes") {
     const auto program = mustCompile(
         "grid layers (kind = \"inline\", components = (\"rho\", \"mu\"),\n"

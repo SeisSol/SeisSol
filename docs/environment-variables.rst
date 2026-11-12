@@ -233,6 +233,15 @@ grid states all of its attributes, as above, and is sampled as ``m.rho(x, y, z)`
 implicit inputs and no constants such as ``pi``; a relative grid path is relative to the file, and
 an error names its line and column.
 
+A program keeps where its definitions, states and outputs come from. The full language writes it
+into the normal form as ``meta line = "t4", "model.sderiv", 12, 9``: the name of a definition,
+state or output (that of a definition being its name in the normal form), the file, and the line
+and column where the construct starts that it was translated from; a name may have several, since
+equal expressions are one definition. A core file keeps its ``meta line``\ s through the normal
+form, and the program through its rewrites; they are no part of its fingerprint. A point that does
+not meet a check, the check of a backend, the evaluation records and the command line tool name
+them: ``... does not meet the check of the program (from model.sderiv:4:7)``.
+
 A core file that a tool generated may record what it was generated from, with the SHA-256 of each
 file: ``meta source = "model.py", "sha256:..."``, ``meta depends = "layers.csv", "sha256:..."``
 (paths relative to the core file), the ``meta command`` that generates it again, and the hash of
