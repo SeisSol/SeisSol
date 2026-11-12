@@ -40,11 +40,12 @@ namespace seissol::kernels {
  * configurations whose materials pose the Riemann problem in the same quantities, and that fuse the
  * same number of simulations): toCanonical of the neighbor pads its time integral to the largest
  * order of the family in the build, selects the quantities of the Riemann problem and widens it to
- * double precision; fromCanonical of the cell, for the side of the neighbor on the shared face,
- * projects the trace on that face to the face basis of the cell and lifts it into the volume basis
- * of the cell, and narrows it to the precision of the cell. Quantities of the cell outside the
- * canonical form, such as memory variables, are zero. The code generator generates both kernels
- * for the configurations of a family that has more than one configuration in the build.
+ * the precision of the canonical forms (CanonicalReal); fromCanonical of the cell, for the side of
+ * the neighbor on the shared face, projects the trace on that face to the face basis of the cell
+ * and lifts it into the volume basis of the cell, and narrows it to the precision of the cell.
+ * Quantities of the cell outside the canonical form, such as memory variables, are zero. The code
+ * generator generates both kernels for the configurations of a family that has more than one
+ * configuration in the build.
  *
  * Configurations of different families pose the Riemann problem in different quantities, but
  * their families are coupled: fromCoupledCanonical of the cell converts from the canonical form of
@@ -76,6 +77,11 @@ constexpr bool CoupledConvertible =
 template <typename Cfg, typename NeighborCfg>
 constexpr bool Convertible =
     FamilyConvertible<Cfg, NeighborCfg> || CoupledConvertible<Cfg, NeighborCfg>;
+
+/// The precision of the canonical forms of all families: double if a configuration of the build
+/// computes in double precision, single otherwise.
+template <typename Cfg>
+using CanonicalReal = typename generated::ConfigBoundaryKernels<Cfg>::CanonicalReal;
 
 /// Whether the conversion of Convertible exists on the device as well.
 template <typename Cfg, typename NeighborCfg>

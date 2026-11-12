@@ -11,6 +11,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
+#include "GeneratedCode/configboundary.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Kernels/Interface.h"
 #include "Memory/Descriptor/DynamicRupture.h"
@@ -152,6 +153,9 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   std::unordered_map<real*, real*> idofsAddressRegistry_;
   size_t integratedDofsAddressCounter_{0};
 
+  // the canonical forms, in the same precision for all configurations
+  using Canonical = typename generated::ConfigBoundaryKernels<Cfg>::CanonicalReal;
+
   // per configuration of the neighbors
   struct ConfigBoundaryBatches {
     // the derivatives of the neighbors and their time integrals, with the GTS and the LTS relation
@@ -159,22 +163,22 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
     std::array<std::vector<void*>, 2> integrals;
     // the time integrals of the neighbors to convert, and their canonical forms
     std::vector<void*> toCanonical;
-    std::vector<double*> canonical;
+    std::vector<Canonical*> canonical;
   };
   std::vector<ConfigBoundaryBatches> configBoundaryBatches_;
   // per side of the neighbors: the canonical forms, and their conversions
-  std::array<std::vector<double*>, Cell::NumFaces> fromCanonical_;
+  std::array<std::vector<Canonical*>, Cell::NumFaces> fromCanonical_;
   std::array<std::vector<real*>, Cell::NumFaces> converted_;
   // the same per family of the neighbors of other families (see model::familyIndex), with the
   // coupling matrices of the faces
   template <typename T>
   using PerFamilyAndSide =
       std::array<std::array<std::vector<T>, Cell::NumFaces>, model::FamilyCount>;
-  PerFamilyAndSide<double*> fromCoupledCanonical_;
+  PerFamilyAndSide<Canonical*> fromCoupledCanonical_;
   PerFamilyAndSide<real*> coupledConverted_;
   PerFamilyAndSide<real*> coupling_;
   // the canonical form of each neighbor, and its conversion per side
-  std::unordered_map<const void*, double*> canonicalRegistry_;
+  std::unordered_map<const void*, Canonical*> canonicalRegistry_;
   std::map<std::pair<const void*, std::size_t>, real*> convertedRegistry_;
   std::size_t configBoundaryScratchCounter_{0};
 };
