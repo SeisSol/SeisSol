@@ -138,9 +138,13 @@ values are easi's to the bit -- the linear interpolation of a ``!LayeredModel`` 
 ``!ASAGI`` grid within a few units in the last place. A point that no component accepts stops the
 run, as in easi, through a check of the program. The walker translates the structural components
 (``!Switch``, ``!Any``, ``!IdentityMap``, the filters, ``!Include``), ``!ConstantMap``,
-``!AffineMap``, ``!PolynomialMap``, ``!EvalModel``, ``!LayeredModel`` and ``!ASAGI``; a file with
-another component (``!LuaMap``, ``!FunctionMap``, ``!SCECFile``, the special components) easi
-evaluates, which the log says, naming the component. ``SEISSOL_EASI=easi`` evaluates every easi file
+``!AffineMap``, ``!PolynomialMap``, ``!EvalModel``, ``!LayeredModel``, ``!ASAGI`` and the Impala of
+``!FunctionMap``; a file with another component (``!LuaMap``, ``!SCECFile``, the special
+components) easi evaluates, which the log says, naming the component. The Impala of a
+``!FunctionMap`` is read as easi 1.5 and later read it, which converts it into Lua: easi groups a
+chain to the right, ``a - b + c`` as ``a - (b + c)`` and ``a / b * c`` as ``a / (b * c)``, unlike the
+earlier easi and unlike C; the walker computes what easi computes, and warns where a chain means
+something else so (put the parentheses that are meant). ``SEISSOL_EASI=easi`` evaluates every easi file
 by easi; ``SEISSOL_EASI=check`` compares the program with easi at its first call, and falls back to
 easi where they differ.
 

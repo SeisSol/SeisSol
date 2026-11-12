@@ -610,6 +610,51 @@ TEST_CASE("easi walker: a grid of ASAGI samples as easi's" * doctest::test_suite
   }
 }
 
+TEST_CASE("easi walker: Impala as easi reads it, the grouping of its chains included" *
+          doctest::test_suite("reader")) {
+  const Files files;
+  // chains that easi groups to the right; branches and early returns; variables; the functions of
+  // Lua's math with lmathx; integers of Lua, whose zero has no sign; NaN in comparisons
+  const std::string path =
+      files.write("impala.yaml",
+                  "!FunctionMap\n"
+                  "map:\n"
+                  "  a: return x - y + z - 1.5 * x / y * 2;\n"
+                  "  b: |\n"
+                  "    if (x > 0 && y <= 1 || z == 2) {\n"
+                  "      r = sqrt(x * x + 1) - log(y * y + 2, 10);\n"
+                  "      if (z != 0) { return r * pow(2.0, x); }\n"
+                  "      r = r + exp(0.5 * z);\n"
+                  "    } else {\n"
+                  "      r = atan(x, y) + min(x, y) - max(y, z, x) + fmin(x, z);\n"
+                  "    }\n"
+                  "    return r - floor(z) + ceil(0 - 0.5) + abs(0 - 3) * 0;\n"
+                  "  c: return 0 * (0 - 1) + deg(x) + rad(y) + trunc(z) + log(x * x + 1, 2) + "
+                  "log(y * y + 1, 3);\n"
+                  "  d: |\n"
+                  "    if (x < y) { return 1; } else { if (x == y) { return 2; } }\n"
+                  "    return 3 + tanh(z) + erf(y) + asinh(x) + cosh(0.1 * z) + round(x);\n");
+  auto points = pointsIn(-3.0, 3.0, {0.0, 1.0, 2.0, -1.0}, 2000);
+  // and NaN, which no comparison holds
+  points.x.push_back(std::numeric_limits<double>::quiet_NaN());
+  points.y.push_back(1.0);
+  points.z.push_back(2.0);
+  points.group.push_back(1.0);
+  sameAsEasi(path, {"a", "b", "c", "d"}, points);
+
+  // a variable read where it may have no value, which easi takes from an earlier point
+  const std::string earlier = files.write("earlier.yaml",
+                                          "!FunctionMap\n"
+                                          "map:\n"
+                                          "  a: |\n"
+                                          "    if (x > 0) { v = 1; }\n"
+                                          "    return v;\n");
+  sc::EasiQuery query;
+  query.dimensions = {"x", "y", "z"};
+  query.parameters = {"a"};
+  CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(earlier, query)), sc::EasiUnsupported);
+}
+
 TEST_CASE("easi walker: a point no component accepts fails a check, as easi fails there" *
           doctest::test_suite("reader")) {
   const Files files;
