@@ -17,6 +17,7 @@
 #include "Expr/SderivFrontend.h"
 #include "Parallel/MPI.h"
 #include "Reader/Datafield/Grid.h"
+#include "Reader/Datafield/TableGrid.h"
 #include "Reader/Scripting/ReaderBuilder.h"
 
 #include <algorithm>
@@ -202,49 +203,14 @@ struct Points {
   }
 };
 
-std::vector<std::string> fieldsOf(const std::string& line) {
-  std::string spaced = line;
-  std::replace(spaced.begin(), spaced.end(), ',', ' ');
-  std::istringstream stream(spaced);
-  std::vector<std::string> fields;
-  std::string field;
-  while (stream >> field) {
-    fields.push_back(field);
-  }
-  return fields;
-}
-
+/// The points of the file `path`: a table (reader::datafield::readTextTable()).
 Points readPoints(const std::string& path) {
-  std::istringstream lines(readFile(path));
-  Points points;
-  std::string line;
-  std::size_t number = 0;
-  while (std::getline(lines, line)) {
-    ++number;
-    const auto hash = line.find('#');
-    const auto fields = fieldsOf(hash == std::string::npos ? line : line.substr(0, hash));
-    if (fields.empty()) {
-      continue;
-    }
-    if (points.names.empty()) {
-      points.names = fields;
-      points.columns.resize(fields.size());
-      continue;
-    }
-    if (fields.size() != points.names.size()) {
-      fail(path + ":" + std::to_string(number) + ": " + std::to_string(fields.size()) +
-           " values for " + std::to_string(points.names.size()) + " columns");
-    }
-    for (std::size_t c = 0; c < fields.size(); ++c) {
-      try {
-        points.columns[c].push_back(numberOf(fields[c]));
-      } catch (const std::exception&) {
-        fail(path + ":" + std::to_string(number) + ": `" + fields[c] + "` is no number");
-      }
-    }
-    ++points.count;
+  try {
+    auto table = seissol::reader::datafield::readTextTable(path);
+    return Points{std::move(table.names), std::move(table.columns), table.rows()};
+  } catch (const std::exception& error) {
+    fail(error.what());
   }
-  return points;
 }
 
 /// The points of the sample of a record.

@@ -2896,17 +2896,29 @@ class Evaluator {
     }
     const std::string interpolationName =
         text("interpolation").empty() ? std::string("linear") : text("interpolation");
-    const auto interpolation = datafield::parseInterpolation(interpolationName);
-    if (!interpolation.has_value()) {
+    if (!datafield::parseInterpolation(interpolationName).has_value()) {
       throw LuaError(0,
                      "field `" + name + "` declares the unknown interpolation \"" +
                          interpolationName + "\"");
     }
+    // the grid as sderiv declares it, with the defaults of a field spec: the variable of an ASAGI
+    // file, the interpolation, and the boundary
+    datafield::GridSpec declared;
+    declared.kind = kindName;
+    declared.path = text("file");
+    declared.variable = text("variable");
+    if (*kind == datafield::GridKind::AsagiLite && declared.variable.empty()) {
+      declared.variable = datafield::DefaultGridVariable;
+    }
+    declared.components = parameters;
+    declared.interpolation = {interpolationName};
+    declared.boundary = {"clamp"};
     datafield::GridDesc desc;
-    desc.kind = *kind;
-    desc.path = text("file");
-    desc.variable = text("variable").empty() ? datafield::DefaultGridVariable : text("variable");
-    desc.interpolation = *interpolation;
+    try {
+      desc = datafield::gridDescOf(declared);
+    } catch (const std::invalid_argument& error) {
+      throw LuaError(0, "field `" + name + "`: " + error.what());
+    }
     const int slot = static_cast<int>(grids_.size());
     grids_.push_back(Grid{program_.internGrid(desc), static_cast<int>(parameters.size()), name});
     const int object = newTable();

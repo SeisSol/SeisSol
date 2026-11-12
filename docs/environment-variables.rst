@@ -195,15 +195,19 @@ phase late in a run in binary64, and the rest in the precision of the configurat
 
 A script may sample a data grid: an array on a uniform Cartesian grid in a NetCDF file, read as
 ASAGI reads it (axis 0 is the dimension that varies fastest in the file). In an sderiv module,
-``grid m = "asagi", "model.nc", "linear", "rho", "mu"`` declares the grid ``m`` of the variable
-``z`` of the file, with the components ``rho`` and ``mu``, and ``m_rho(x, y, z)`` samples it;
-``grid m = "asagi", "model.nc", "data", "linear", "rho", "mu"`` reads the variable ``data``. The
-same with its attributes stated, as the core format of sderiv has them:
 
 .. code-block:: text
 
-   grid m (kind = "asagi", path = "model.nc", variable = "z", components = ("rho", "mu"),
-           interpolation = "linear", boundary = "clamp")
+   grid m (kind = "asagi", path = "model.nc", components = ("rho", "mu"),
+           interpolation = "linear")
+
+declares the grid ``m`` of the variable ``z`` of the file, with the components ``rho`` and ``mu``,
+and ``m.rho(x, y, z)`` samples it; ``variable = "data"`` reads the variable ``data``. The core
+format of sderiv states every attribute, ``variable`` and ``boundary`` too; an sderiv module may
+leave out those two, whose defaults are ``"z"`` and ``"clamp"``. A grid gives the attributes of its
+kind and no others: an ASAGI file its ``path`` and ``variable`` (and maybe ``axes`` and ``time``),
+a SCEC file its ``path``, a table its ``path`` and ``coordinates``, an inline grid its ``knots``
+and ``values``.
 
 ``interpolation`` is ``"nearest"``, ``"linear"``, ``"cubic"``, ``"previous"`` or ``"next"``; with
 ``boundary = "clamp"`` a coordinate beyond the grid samples its boundary, with ``"fail"`` it is an
@@ -216,29 +220,55 @@ An axis need not be uniform. ``axes = ("uniform", "knots")`` declares the second
 knots: SeisSol reads its coordinate variable whole -- finite and strictly increasing, at most
 2^24 values -- and a sample finds its cell by a binary search of a fixed number of steps; a
 coordinate variable that is not uniform without that declaration is sampled with the mean spacing
-between its ends, as ASAGI and easi sample it, with a warning. A grid may also give its data itself, a table of layers, say:
+between its ends, as ASAGI and easi sample it, with a warning. A grid may also give its data itself,
+a table of layers, say:
 
 .. code-block:: text
 
    grid layers (kind = "inline", components = ("rho", "mu"),
-                knots = ((-3000, -2000, -1000)), values = (3000, 40, 2700, 20, 2600, 10),
+                knots = ((-3000, -2000, -1000)),
+                values = ((3000, 40),
+                          (2700, 20),
+                          (2600, 10)),
                 interpolation = "previous", boundary = "clamp")
 
-``knots`` has a tuple of knots per axis, ``values`` the values at the nodes, the components of a node
-together and the first axis fastest. The data is part of the program (its fingerprint and its normal
-form), as its constants are. Every axis of an inline grid is knots. An axis of knots interpolates
-nearest, linear, previous or next, not cubic, and a time axis is uniform. The linear interpolation
-of a grid is ``(1 - s) v0 + s v1`` on every axis, of knots or uniform, which differs from easi's
-layered model (slope and intercept per layer) by a few ulp; the steps give the same values.
+``knots`` has a tuple of knots per axis, ``values`` the values at the nodes, nested as the axes: a
+tuple of the nodes along the last axis, each a tuple along the axis before, and so on to axis 0,
+each node a tuple of its components -- the order of a NetCDF file. Of two axes, ``x`` with the
+knots ``(0, 1, 2)`` and ``z`` with ``(10, 20)``, the values are a row per knot of ``z``:
+``(((1, 2), (3, 4), (5, 6)), ((7, 8), (9, 10), (11, 12)))`` for two components. The data is part of
+the program (its fingerprint and its normal form), as its constants are. Every axis of an inline
+grid is knots. An axis of knots interpolates nearest, linear, previous or next, not cubic, and a
+time axis is uniform. The linear interpolation of a grid is ``(1 - s) v0 + s v1`` on every axis, of
+knots or uniform, which differs from easi's layered model (slope and intercept per layer) by a few
+ulp; the steps give the same values.
+
+A table in a text file is a grid as well:
+
+.. code-block:: text
+
+   grid profile (kind = "table", path = "profile.csv", coordinates = ("depth"),
+                 components = ("rho", "vs"), interpolation = "linear")
+
+A first line names the columns, then a row per line, the fields separated by spaces or commas;
+``#`` starts a comment. The numbers are those of sderiv, decimal or hexadecimal (``0x1.8p+1``),
+read with correct rounding. The columns of ``coordinates`` are the axes, axis 0 first: the knots of
+an axis are the distinct values of its column. Every row is a node, and every node of the grid the
+knots span is given once, in any order; a table that is no grid is an error that names the node.
+``components`` names the columns that are the components, in the order of the grid; other columns
+are not read. Every axis of a table is knots. Rank 0 reads the file, and gives the grid to the other
+ranks. The points of ``sderiv eval --points`` are a file of the same kind.
 
 A SCEC file of fault parameters, the input file of the SCEC benchmarks TPV16 and TPV17 as easi's
-``!SCECFile`` reads it, is a grid of the kind ``"scec"``: ``grid f = "scec", "tpv16_input_file.txt",
-"linear", ...`` with ten components, ``f_mu_s(x, z)`` say. Its nodes lie where their indices put
-them, on a uniform grid from 0 to the lengths of the header, axis 0 along strike; the coordinates
-of a line are not read. The components are the ten values of a line, in this order: the normal
-stress, the shear stresses along strike and along dip, their ratios to the normal stress, the
-static and the dynamic coefficient of friction, the critical slip distance, the cohesion, and the
-time of forced rupture. Every node is given once. Rank 0 reads the file, and gives it to the other
+``!SCECFile`` reads it, is a grid of the kind ``"scec"``: ``grid f (kind = "scec", path =
+"tpv16_input_file.txt", components = ("mu_s", "mu_d"), interpolation = "linear")``, sampled as
+``f.mu_s(x, z)``. Its nodes lie where their indices put them, on a uniform grid from 0 to the lengths
+of the header, axis 0 along strike; the coordinates of a line are not read. A line has ten values,
+and ``components`` names those the grid reads, in any order: ``s_normal``, ``s_strike``, ``s_dip``
+(the normal stress and the shear stresses along strike and along dip), ``s_strike_over_s_normal``
+and ``s_dip_over_s_normal`` (their ratios to the normal stress), ``mu_s`` and ``mu_d`` (the static
+and the dynamic coefficient of friction), ``d_c`` (the critical slip distance), ``cohesion``, and
+``forced_rupture_time``. Every node is given once. Rank 0 reads the file, and gives it to the other
 ranks.
 
 ``time = k`` makes
@@ -250,8 +280,8 @@ it moves at synchronization points as the simulation advances. For example, the 
 .. code-block:: text
 
    grid w (kind = "asagi", path = "wall.nc", variable = "v", components = ("v1"),
-           interpolation = "linear", boundary = "clamp", time = 0)
-   out def v1 = w_v1(t)
+           interpolation = "linear", time = 0)
+   out def v1 = w.v1(t)
 
 How long the windows are is set in the ``&datafield`` block of the parameter file:
 ``windowmemory`` (MiB for all of them per rank, by default 1024) or ``residentslices`` (slices
@@ -262,18 +292,18 @@ precision of the script; the cells and the positions of the elements it reads ar
 SeisSol writes a sample out as the operations it consists of -- the cells and the weights of the
 stencil, the elements and their products -- so the compiled CPU kernels, the kernels on a GPU and
 the interpreter all compute it the same way, to the same bits, and two samples of one grid at the
-same point (``m_rho`` and ``m_mu``, say) share the cells, the weights and the positions. On a GPU,
+same point (``m.rho`` and ``m.mu``, say) share the cells, the weights and the positions. On a GPU,
 the kernel reads a copy of the grid on the device, which SeisSol makes when it prepares the kernel
 and updates where the window moves. The window holds the slices of the times from one
 synchronization point to the next, and a sample checks that it holds those its time needs: a script
-that samples the grid at other times (``w_v1(t + 0.5)``, say) stops the run with an error, unless
+that samples the grid at other times (``w.v1(t + 0.5)``, say) stops the run with an error, unless
 ``residentslices`` keeps all slices of the file in memory.
 
 A module that starts with the line ``#!sderiv 1`` is read in the core format of sderiv, the
 explicit form that tools and other frontends write: every input is declared (``in x, y, z``), every
 value is a definition (``def t0 = x * y``), an output reads ``out u = t0``, a state is declared with
 its initial value (``state s = 0``) and given its value for the next call (``next s = t0``), and a
-grid states all of its attributes, as above, and is sampled as ``m.rho(x, y, z)``. There are no
+grid states all of its attributes, as above. There are no
 implicit inputs and no constants such as ``pi``; a relative grid path is relative to the file, and
 an error names its line and column.
 

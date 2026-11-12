@@ -8,17 +8,20 @@
 
 #include "GridFactory.h"
 #include "InlineGrid.h"
+#include "ScecGrid.h"
 #include "utils/logger.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace seissol::reader::datafield {
 
@@ -44,7 +47,8 @@ bool GridDesc::operator==(const GridDesc& other) const {
   return path == other.path && variable == other.variable && kind == other.kind &&
          interpolation == other.interpolation && boundary == other.boundary &&
          interpolations == other.interpolations && boundaries == other.boundaries &&
-         axes == other.axes && sameData && timeAxis == other.timeAxis;
+         axes == other.axes && sameData && columns == other.columns &&
+         coordinates == other.coordinates && timeAxis == other.timeAxis;
 }
 
 bool GridDesc::failsAnywhere() const {
@@ -64,6 +68,8 @@ const char* token(GridKind kind) {
     return "distributed";
   case GridKind::Inline:
     return "inline";
+  case GridKind::Table:
+    return "table";
   }
   return "unknown";
 }
@@ -125,6 +131,9 @@ std::optional<GridKind> parseGridKind(const std::string& text) {
   if (text == "inline") {
     return GridKind::Inline;
   }
+  if (text == "table") {
+    return GridKind::Table;
+  }
   return std::nullopt;
 }
 
@@ -166,25 +175,50 @@ GridDesc gridDescOf(const GridSpec& spec) {
   GridDesc desc;
   const auto kind = parseGridKind(spec.kind);
   if (!kind.has_value()) {
-    fail("the kind of a grid is \"asagi\", \"scec\" or \"inline\", not \"" + spec.kind + "\"");
+    fail("the kind of a grid is \"asagi\", \"scec\", \"table\" or \"inline\", not \"" + spec.kind +
+         "\"");
   }
   desc.kind = *kind;
+  const std::string kindName = std::string("\"") + spelling(desc.kind) + "\"";
+  // the attributes of its kind, and none of another
+  const GridAttributes& attributes = gridAttributesOf(desc.kind);
+  const std::map<std::string, bool> given = {{"path", !spec.path.empty()},
+                                             {"variable", !spec.variable.empty()},
+                                             {"coordinates", !spec.coordinates.empty()},
+                                             {"axes", !spec.axes.empty()},
+                                             {"knots", !spec.knots.empty()},
+                                             {"values", !spec.values.empty()},
+                                             {"time", spec.timeAxis.has_value()}};
+  for (const auto& [name, present] : given) {
+    if (present && !attributes.has(name)) {
+      fail("a grid of the kind " + kindName + " has no " + name);
+    }
+  }
+  for (const auto& name : attributes.required) {
+    if (!given.at(name)) {
+      fail("a grid of the kind " + kindName + " gives its " + name);
+    }
+  }
   if (spec.components.empty()) {
     fail("a grid names its components");
   }
+  const auto distinct = [&](const std::vector<std::string>& names, const char* what) {
+    for (std::size_t i = 0; i < names.size(); ++i) {
+      if (std::find(names.begin(), names.begin() + static_cast<std::ptrdiff_t>(i), names[i]) !=
+          names.begin() + static_cast<std::ptrdiff_t>(i)) {
+        fail(std::string("a grid names the ") + what + " \"" + names[i] + "\" twice");
+      }
+    }
+  };
+  distinct(spec.components, "component");
   desc.componentNames = spec.components;
-  const bool inlined = desc.kind == GridKind::Inline;
-  // an inline grid has its data, a file its path, and none both
-  if (inlined) {
-    if (!spec.path.empty() || !spec.variable.empty()) {
-      fail("an inline grid has its knots and values, and no path or variable");
-    }
-    if (!spec.axes.empty()) {
-      fail("every axis of an inline grid is knots; it gives no axes");
-    }
-    if (spec.timeAxis.has_value()) {
-      fail("an inline grid has no time axis");
-    }
+  desc.path = spec.path;
+  desc.variable = spec.variable;
+  desc.timeAxis = spec.timeAxis;
+  // how many axes the declaration says the grid has; none where only the file says
+  std::size_t axes = spec.axes.size();
+  switch (desc.kind) {
+  case GridKind::Inline: {
     auto data = std::make_shared<GridData>();
     data->knots = spec.knots;
     data->values = spec.values;
@@ -193,13 +227,44 @@ GridDesc gridDescOf(const GridSpec& spec) {
       fail("the data of the inline grid: " + problem);
     }
     desc.data = std::move(data);
-  } else {
-    if (!spec.knots.empty() || !spec.values.empty()) {
-      fail("a grid of a file reads its knots and values from the file");
+    axes = spec.knots.size();
+    break;
+  }
+  case GridKind::Scec: {
+    // the components by name, among the ten of the layout
+    const auto& names = scecComponentNames();
+    for (const auto& component : spec.components) {
+      if (std::find(names.begin(), names.end(), component) == names.end()) {
+        std::string list;
+        for (const auto& name : names) {
+          list += (list.empty() ? "" : ", ") + name;
+        }
+        fail("a SCEC file has no component \"" + component + "\"; it has " + list);
+      }
     }
-    desc.path = spec.path;
-    desc.variable = spec.variable;
-    desc.timeAxis = spec.timeAxis;
+    desc.columns = spec.components;
+    axes = 2;
+    break;
+  }
+  case GridKind::Table: {
+    distinct(spec.coordinates, "coordinate");
+    if (spec.coordinates.size() > MaxGridDimensions) {
+      fail("a grid has at most " + std::to_string(MaxGridDimensions) + " axes, not " +
+           std::to_string(spec.coordinates.size()));
+    }
+    for (const auto& component : spec.components) {
+      if (std::find(spec.coordinates.begin(), spec.coordinates.end(), component) !=
+          spec.coordinates.end()) {
+        fail("the column \"" + component + "\" of a table is a coordinate and a component");
+      }
+    }
+    desc.columns = spec.components;
+    desc.coordinates = spec.coordinates;
+    axes = spec.coordinates.size();
+    break;
+  }
+  case GridKind::AsagiLite:
+  case GridKind::Distributed: {
     for (const auto& axis : spec.axes) {
       const auto parsed = parseAxisKind(axis);
       if (!parsed.has_value()) {
@@ -211,20 +276,10 @@ GridDesc gridDescOf(const GridSpec& spec) {
         desc.axes[static_cast<std::size_t>(*spec.timeAxis)] == AxisKind::Knots) {
       fail("the time axis of a grid is uniform");
     }
-    // a SCEC file has a uniform grid of the fault, and no time
-    if (desc.kind == GridKind::Scec) {
-      if (spec.timeAxis.has_value()) {
-        fail("a SCEC file has no time axis");
-      }
-      for (const auto axis : desc.axes) {
-        if (axis == AxisKind::Knots) {
-          fail("the axes of a SCEC file are uniform");
-        }
-      }
-    }
+    break;
+  }
   }
   // one for all axes, or one per axis, of those it gives (a file says how many it has)
-  const std::size_t axes = inlined ? spec.knots.size() : spec.axes.size();
   const auto perAxis = [&](const std::vector<std::string>& given, const char* what) {
     if (given.empty()) {
       fail(std::string("a grid gives its ") + what);
@@ -266,6 +321,102 @@ GridDesc gridDescOf(const GridSpec& spec) {
     }
   }
   return desc;
+}
+
+std::string GridDesc::sourceKey() const {
+  std::string key = path + '\x1f' + variable;
+  for (const auto* names : {&columns, &coordinates}) {
+    key += '\x1e';
+    for (const auto& name : *names) {
+      key += name + '\x1f';
+    }
+  }
+  return key;
+}
+
+bool GridAttributes::has(const std::string& name) const {
+  return std::find(required.begin(), required.end(), name) != required.end() ||
+         std::find(optional.begin(), optional.end(), name) != optional.end();
+}
+
+const GridAttributes& gridAttributesOf(GridKind kind) {
+  static const GridAttributes Asagi{{"path", "variable"}, {"axes", "time"}};
+  static const GridAttributes Scec{{"path"}, {}};
+  static const GridAttributes Table{{"path", "coordinates"}, {}};
+  static const GridAttributes Inline{{"knots", "values"}, {}};
+  switch (kind) {
+  case GridKind::Scec:
+    return Scec;
+  case GridKind::Table:
+    return Table;
+  case GridKind::Inline:
+    return Inline;
+  case GridKind::AsagiLite:
+  case GridKind::Distributed:
+    break;
+  }
+  return Asagi;
+}
+
+const std::vector<std::string>& commonGridAttributes() {
+  static const std::vector<std::string> Names = {"kind", "components", "interpolation", "boundary"};
+  return Names;
+}
+
+namespace {
+
+/// The values of the nested tuple `value` of the level `level` of `shape` (the lengths of the
+/// levels, outermost first) into `flat`, depth first; a problem, where it has another shape.
+std::optional<SpelledProblem> flattenLevel(const SpelledValue& value,
+                                           const std::vector<std::size_t>& shape,
+                                           const std::vector<std::string>& what,
+                                           std::size_t level,
+                                           std::vector<double>& flat) {
+  if (level == shape.size()) {
+    if (value.tuple) {
+      return SpelledProblem{value.mark, "a value of a node is a number, not a tuple"};
+    }
+    flat.push_back(value.number);
+    return std::nullopt;
+  }
+  if (!value.tuple) {
+    return SpelledProblem{value.mark, "expected a tuple of " + what[level] + ", as `(...)`"};
+  }
+  if (value.items.size() != shape[level]) {
+    return SpelledProblem{
+        value.mark, "expected " + what[level] + ", not " + std::to_string(value.items.size())};
+  }
+  for (const auto& item : value.items) {
+    if (auto problem = flattenLevel(item, shape, what, level + 1, flat)) {
+      return problem;
+    }
+  }
+  return std::nullopt;
+}
+
+} // namespace
+
+std::optional<SpelledProblem> flattenGridValues(const SpelledValue& values,
+                                                const std::vector<std::vector<double>>& knots,
+                                                const std::vector<std::string>& components,
+                                                std::vector<double>& flat) {
+  // the levels: the last axis outermost, axis 0, the components of a node innermost
+  std::vector<std::size_t> shape;
+  std::vector<std::string> what;
+  for (std::size_t d = knots.size(); d-- > 0;) {
+    shape.push_back(knots[d].size());
+    what.push_back("the " + std::to_string(knots[d].size()) + " nodes along axis " +
+                   std::to_string(d));
+  }
+  std::string names;
+  for (const auto& component : components) {
+    names += (names.empty() ? "" : ", ") + component;
+  }
+  shape.push_back(components.size());
+  what.push_back("the " + std::to_string(components.size()) + " components of a node (" + names +
+                 ")");
+  flat.clear();
+  return flattenLevel(values, shape, what, 0, flat);
 }
 
 std::string GridDesc::canonicalKey() const {

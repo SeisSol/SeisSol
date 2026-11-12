@@ -40,8 +40,15 @@
 namespace seissol::reader::datafield {
 
 // Inline: a grid whose values and knots the program gives itself (GridData), e.g. the layers of a
-// layered model.
-enum class GridKind : std::uint8_t { AsagiLite, Scec, Distributed /* not implemented */, Inline };
+// layered model. Table: a text file of columns, a node per line, whose coordinate columns give the
+// knots of the axes (TableGrid.h).
+enum class GridKind : std::uint8_t {
+  AsagiLite,
+  Scec,
+  Distributed /* not implemented */,
+  Inline,
+  Table
+};
 
 // Nearest: O(h), reproduces constants.
 // Linear:  O(h^2), C^0, reproduces degree-1 polynomials.
@@ -292,10 +299,16 @@ struct GridDesc {
   std::vector<Interpolation> interpolations;
   std::vector<BoundaryMode> boundaries;
   /// per axis whether it is uniform or knots (of a file: from its coordinate variable); none for
-  /// all uniform. Every axis of an inline grid is knots.
+  /// all uniform. Every axis of an inline grid and of a table is knots.
   std::vector<AxisKind> axes;
   /// the values and the knots of an inline grid
   std::shared_ptr<const GridData> data;
+  /// Of a layout that names its columns (a SCEC file, a table): the columns that are the
+  /// components, by name, in the order of the components. They select what the store reads, as
+  /// the path does.
+  std::vector<std::string> columns;
+  /// Of a table: the columns that are the axes, axis 0 first.
+  std::vector<std::string> coordinates;
 
   [[nodiscard]] Interpolation interpolationOf(std::size_t axis) const {
     return axis < interpolations.size() ? interpolations[axis] : interpolation;
@@ -304,7 +317,7 @@ struct GridDesc {
     return axis < boundaries.size() ? boundaries[axis] : boundary;
   }
   [[nodiscard]] AxisKind axisOf(std::size_t axis) const {
-    if (kind == GridKind::Inline) {
+    if (kind == GridKind::Inline || kind == GridKind::Table) {
       return AxisKind::Knots;
     }
     return axis < axes.size() ? axes[axis] : AxisKind::Uniform;
@@ -332,10 +345,11 @@ struct GridDesc {
   // different files through the same scheme share a compiled kernel, while two
   // sampling the same file through Linear and Cubic do not.
   //
-  // path and variable are deliberately absent: they select which bytes the
-  // GridStore loads, not which code the backend emits. Program::internGrid()
-  // therefore dedupes on canonicalKey() PLUS path PLUS variable, and the cache
-  // key on canonicalKey() alone -- two different questions, two different keys.
+  // path, variable and the columns are deliberately absent: they select which
+  // bytes the GridStore loads, not which code the backend emits.
+  // Program::internGrid() therefore dedupes on canonicalKey() PLUS sourceKey(),
+  // and the cache key on canonicalKey() alone -- two different questions, two
+  // different keys.
   //
   // Stable across runs and builds: fixed-width tokens, no enum values written
   // as integers (a reordered enum must not silently alias two schemes), no
@@ -344,17 +358,22 @@ struct GridDesc {
   // The values and the knots of an inline grid are in it: they are the program, as its constants
   // are, and two tables of other values are two programs.
   [[nodiscard]] std::string canonicalKey() const;
+  /// What selects the bytes the store loads, and is not in canonicalKey(): the path, the variable,
+  /// the columns and the coordinates.
+  [[nodiscard]] std::string sourceKey() const;
 };
 
 /// A grid as a frontend declares it, before it is checked: the strings and the numbers of its
 /// attributes (the sderiv specification, `grid`). The interpolation and the boundary are one for
 /// all axes or one per axis; `axes` gives the kind of each axis of a file; `knots` and `values`
-/// are the data of an inline grid.
+/// are the data of an inline grid (`values` flat, as GridData has them); `coordinates` names the
+/// columns of a table that are its axes. An empty string or list is an attribute not given.
 struct GridSpec {
   std::string kind;
   std::string path;
   std::string variable;
   std::vector<std::string> components;
+  std::vector<std::string> coordinates;
   std::vector<std::string> interpolation;
   std::vector<std::string> boundary;
   std::vector<std::string> axes;
@@ -367,6 +386,50 @@ struct GridSpec {
 /// with what is wrong, for a spec that does not describe a grid.
 [[nodiscard]] GridDesc gridDescOf(const GridSpec& spec);
 
+/// The attributes of a grid of a kind, as a declaration spells them, besides those every grid
+/// gives (kind, components, interpolation and boundary): those it gives, and those it may give.
+struct GridAttributes {
+  std::vector<std::string> required;
+  std::vector<std::string> optional;
+  /// Whether a grid of the kind has the attribute `name` at all.
+  [[nodiscard]] bool has(const std::string& name) const;
+};
+
+/// The attributes of a grid of the kind `kind`: an ASAGI file its path and variable, and maybe its
+/// axes and time; a SCEC file its path; a table its path and coordinates; an inline grid its knots
+/// and values.
+[[nodiscard]] const GridAttributes& gridAttributesOf(GridKind kind);
+
+/// The attributes every grid gives.
+[[nodiscard]] const std::vector<std::string>& commonGridAttributes();
+
+/// A value as a declaration spells it: a number, or a tuple of values in parentheses. `mark` is the
+/// source's own note of where the value stands (the index of a token, say), which a problem with
+/// it gives back.
+struct SpelledValue {
+  std::size_t mark{0};
+  bool tuple{false};
+  double number{0.0};
+  std::vector<SpelledValue> items;
+};
+
+/// What is wrong with a spelled value, and the mark of the value it is wrong at.
+struct SpelledProblem {
+  std::size_t mark{0};
+  std::string what;
+};
+
+/// The values of an inline grid of the knots `knots` and the components `components`, as
+/// `values` nests them: a tuple of the nodes along the last axis, each a tuple of the nodes along
+/// the axis before, and so on to axis 0, each node a tuple of its components -- the order of the
+/// file of a grid, axis 0 innermost. Into `flat` as GridData has them: the components of a node
+/// together, axis 0 fastest. A problem, where `values` has another shape.
+[[nodiscard]] std::optional<SpelledProblem>
+    flattenGridValues(const SpelledValue& values,
+                      const std::vector<std::vector<double>>& knots,
+                      const std::vector<std::string>& components,
+                      std::vector<double>& flat);
+
 // NOT PROVIDED, deliberately: a component-name to component-index mapping.
 // easi carries one (ASAGI::permutation) because its component names come from
 // the model file. Here `Kind::Lookup` already carries a resolved integer
@@ -375,6 +438,10 @@ struct GridSpec {
 // second, independent name-resolution path here is exactly the class of
 // "the name silently resolved to the wrong column" defect that Program.h
 // documents as the reason the signature is inferred rather than declared.
+// A layout that names its columns (a SCEC file, a table) is read once by the
+// names of the declaration (GridDesc::columns), so that the components of the
+// grid are those of the declaration, in its order, and the integer of a lookup
+// is a position among them.
 
 // One replicated grid. Coordinates are always f64 at this interface regardless
 // of the program's compute type; the conversion happens in the Lookup lowering,

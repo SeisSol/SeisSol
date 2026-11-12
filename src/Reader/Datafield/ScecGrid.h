@@ -12,10 +12,10 @@
 // separated by space: a header of three lines -- two integers (a seed); the numbers of cells along
 // strike and along dip, and the lengths of the fault along them; the hypocenter, two integers and
 // four numbers -- then a line per node: its indices along strike and along dip, its coordinates,
-// and ten values. The components of the grid are those ten values, in the order of the file: the
-// normal stress, the shear stresses along strike and along dip, their ratios to the normal stress,
-// the static and the dynamic coefficient of friction, the critical slip distance, the cohesion,
-// and the time of forced rupture.
+// and ten values: the normal stress, the shear stresses along strike and along dip, their ratios
+// to the normal stress, the static and the dynamic coefficient of friction, the critical slip
+// distance, the cohesion, and the time of forced rupture (scecComponentNames()). The components of
+// the grid are those of the ten a declaration names, in its order.
 //
 // As in easi, a node is where its indices put it -- its coordinates are not read -- on a uniform
 // grid from 0 to the lengths, with a node more than cells along each axis, whose spacing is the
@@ -61,12 +61,16 @@ struct ScecData {
 
 class ScecGrid final : public Grid {
   public:
-  /// The grid of `data`, read from `path`, which sample() and sampleBatch() interpolate with
-  /// `interpolation`.
-  ScecGrid(ScecData data, std::string path, Interpolation interpolation, BoundaryMode boundary);
+  /// The grid of the values `columns` of `data` (positions among the ten of a node), read from
+  /// `path`, which sample() and sampleBatch() interpolate with `interpolation`.
+  ScecGrid(ScecData data,
+           std::vector<std::size_t> columns,
+           std::string path,
+           Interpolation interpolation,
+           BoundaryMode boundary);
 
   [[nodiscard]] std::size_t dimensions() const override { return 2; }
-  [[nodiscard]] std::size_t components() const override { return ScecData::Components; }
+  [[nodiscard]] std::size_t components() const override { return columns_.size(); }
   void geometry(GridGeometry& out) const override;
   void sample(const double* x, double* out) const override;
   void sampleBatch(const double* const* x, std::size_t count, double* const* out) const override;
@@ -76,7 +80,11 @@ class ScecGrid final : public Grid {
   private:
   void reportClamped(std::size_t clamped, std::size_t count) const;
 
+  /// the header of the file, without its values
   ScecData data_;
+  std::vector<std::size_t> columns_;
+  /// the values of the components of a node together, the nodes along strike first
+  std::vector<double> values_;
   std::string path_;
   Interpolation interpolation_;
   BoundaryMode boundary_;

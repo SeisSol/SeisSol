@@ -186,23 +186,42 @@ ScecData readScecFile(const std::string& path) {
 }
 
 ScecGrid::ScecGrid(ScecData data,
+                   std::vector<std::size_t> columns,
                    std::string path,
                    Interpolation interpolation,
                    BoundaryMode boundary)
-    : data_(std::move(data)), path_(std::move(path)), interpolation_(interpolation),
-      boundary_(boundary) {
+    : data_(std::move(data)), columns_(std::move(columns)), path_(std::move(path)),
+      interpolation_(interpolation), boundary_(boundary) {
   const std::size_t nodes = std::size_t{data_.nodes[0]} * data_.nodes[1];
   if (data_.values.size() != nodes * ScecData::Components) {
     throw std::invalid_argument("datafield: " + std::to_string(data_.values.size()) +
                                 " values for the " + std::to_string(nodes) +
                                 " nodes of the SCEC file " + path_);
   }
-  view_.data = data_.values.data();
+  if (columns_.empty()) {
+    throw std::invalid_argument("datafield: no component of the SCEC file " + path_);
+  }
+  for (const auto column : columns_) {
+    if (column >= ScecData::Components) {
+      throw std::invalid_argument("datafield: a SCEC file has " +
+                                  std::to_string(ScecData::Components) + " values per node, not " +
+                                  std::to_string(column + 1));
+    }
+  }
+  // the components the grid has, of every node
+  values_.resize(nodes * columns_.size());
+  for (std::size_t node = 0; node < nodes; ++node) {
+    for (std::size_t c = 0; c < columns_.size(); ++c) {
+      values_[node * columns_.size() + c] = data_.values[node * ScecData::Components + columns_[c]];
+    }
+  }
+  data_.values = std::vector<double>();
+  view_.data = values_.data();
   view_.type = ElementType::Double;
   view_.dimensions = 2;
-  view_.components = static_cast<unsigned>(ScecData::Components);
+  view_.components = static_cast<unsigned>(columns_.size());
   view_.componentStride = 1;
-  std::size_t stride = ScecData::Components;
+  std::size_t stride = columns_.size();
   for (std::size_t d = 0; d < 2; ++d) {
     view_.min[d] = 0.0;
     view_.deltaInv[d] = 1.0 / data_.spacing(d);

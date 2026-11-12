@@ -31,8 +31,10 @@
 //
 //   + program    := { definition | griddecl | statedecl | check } ( expr | ) EOF
 //   + definition := [ 'out' ] 'def' NAME [ '(' NAME { ',' NAME } ')' ] '=' expr
-//   + griddecl   := 'grid' NAME '=' STR ',' STR [ ',' STR ] ',' STR { ',' STR }
-//                    //     name     kind  file  [variable]  interp  components...
+//   + griddecl   := 'grid' NAME '(' attribute { ',' attribute } ')'
+//   + attribute  := NAME '=' ( STR | NUM | '(' value { ',' value } ')' )
+//                    // those of the core format; an ASAGI file's variable and the boundary have
+//                    // defaults ("z", "clamp")
 //   + statedecl  := 'state' NAME '=' [ '-' ] NUM
 //   + check      := 'check' expr ',' STR    // a condition every point meets (Program::checks())
 //   + comment    := '#' { any } NEWLINE
@@ -42,15 +44,15 @@
 //     mul        := unary { ('*'|'/') unary }
 //     unary      := '-' unary | power
 //     power      := primary [ '**' unary ]           // right-associative
-//     primary    := NUM | NAME [ '(' args ')' ] | '(' expr ')'
+//     primary    := NUM | NAME [ '(' args ')' ] | NAME '.' NAME '(' args ')' | '(' expr ')'
 //
 // `out` IS A MODIFIER ON def, not a sibling keyword, and the grammar says so
 // with one production rather than two that happen to look alike. An exported
 // definition binds exactly like an ordinary one -- same symbol table, same
 // visibility, same reuse -- so a later output can read an earlier one by name:
 //
-//     def vs     = m_vs(x, y, z)          # internal
-//     out def rho    = m_rho(x, y, z)
+//     def vs     = m.vs(x, y, z)          # internal
+//     out def rho    = m.rho(x, y, z)
 //     out def mu     = rho * vs * vs      # reads the output above
 //
 // The alternative -- a separate `export rho, mu` list -- was rejected because it
@@ -100,14 +102,13 @@
 // restriction. That is what keeps `asagi`, `linear` and the component names out
 // of the keyword set: `grid` and `out` are the only words this frontend adds.
 //
-// GRID COMPONENTS ARE ORDINARY FUNCTIONS. `grid m = "asagi", "model.nc",
-// "linear", "rho", "vp", "vs"` registers m_rho, m_vp and m_vs, each callable
-// with one to six coordinates and each lowering to one Kind::Lookup. There is
-// deliberately no `sample(field, ...)` special form: a special form would not
-// compose -- no `let g = m in sample(g, ...)`, no grid through a def -- whereas
-// a plain call does. The price of flattening with an underscore is that a grid
-// named `m_rho` alongside a grid `m` with a component `rho` is unreadable even
-// though it is not formally ambiguous, so that combination is rejected.
+// A GRID COMPONENT IS SAMPLED AS A CALL. `grid m (kind = "asagi", path = "model.nc", components =
+// ("rho", "vp", "vs"), interpolation = "linear")` makes m.rho, m.vp and m.vs callable with one to
+// six coordinates, each call one Kind::Lookup, as in the core format. There is deliberately no
+// `sample(field, ...)` special form: a special form would not compose -- no `let g = m in
+// sample(g, ...)`, no grid through a def -- whereas a plain call does. A dotted name is no name a
+// declaration can have, so a component collides with nothing; the grid itself shares the namespace
+// of the definitions.
 
 #include "Expr/Program.h"
 

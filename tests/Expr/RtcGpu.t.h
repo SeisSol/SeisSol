@@ -848,8 +848,9 @@ TEST_SUITE("ExprRtcGpu") {
 
     SUBCASE("a grid lookup is none: the kernel samples the grid itself") {
       const Program program =
-          compileSderivModule("grid m = \"asagi\", \"model.nc\", \"linear\", \"rho\"\n"
-                              "out def u = m_rho(x, y, z)\n");
+          compileSderivModule("grid m (kind = \"asagi\", path = \"model.nc\", components = "
+                              "(\"rho\"), interpolation = \"linear\")\n"
+                              "out def u = m.rho(x, y, z)\n");
       std::vector<double> y(2);
       std::vector<double> z(2);
       DataTable table(2);

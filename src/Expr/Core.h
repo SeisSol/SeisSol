@@ -26,6 +26,17 @@
 // Beyond the draft of the specification, the format has the types of values of the program
 // (ValueType), without which a program that converts a value would not print: the conversions
 // f64(x), f32(x) and real(x) as operations, and `state f64 s = 0` for a state of a type of its own.
+// And its grids are of the kinds of the reader (reader::datafield::gridAttributesOf()): besides
+// ASAGI and SCEC files a table (`coordinates = ("x", "z")`) and an inline grid, whose values nest
+// as its axes, the last outermost, down to the components of a node:
+//
+//   grid layers (kind = "inline",
+//                components = ("rho", "mu"),
+//                knots = ((-3000, -2000, -1000)),
+//                values = ((3000, 40),
+//                          (2700, 20),
+//                          (2600, 10)),
+//                interpolation = "previous", boundary = "clamp")
 //
 // A loader declares every name before it is used, and once: inputs, states, definitions and grids
 // share one namespace, outputs have their own. There are no implicit inputs and no constants; a

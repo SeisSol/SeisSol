@@ -180,7 +180,7 @@ std::vector<Token> tokenize(const std::string& source) {
       continue;
     }
     if (c == '+' || c == '-' || c == '*' || c == '/' || c == '(' || c == ')' || c == ',' ||
-        c == '=') {
+        c == '=' || c == '.') {
       tokens.push_back(
           {TokenKind::Op, std::string(1, static_cast<char>(c)), static_cast<int>(start)});
       ++i;
@@ -257,12 +257,14 @@ struct GridDeclaration {
   std::string variable;
   std::string interpolation;
   std::vector<std::string> components;
+  /// the columns of a table that are its axes
+  std::vector<std::string> coordinates;
   /// what a sample beyond the volume does (GridDesc::boundary), and the axis that is time, if any
-  /// (GridDesc::timeAxis): only the form with attributes states them
+  /// (GridDesc::timeAxis)
   std::string boundary{"clamp"};
   std::optional<int> timeAxis;
-  /// of the form with attributes: an interpolation and a boundary per axis (where there is more
-  /// than one), the kinds of the axes of a file, and the knots and values of an inline grid
+  /// an interpolation and a boundary per axis (where there is more than one), the kinds of the axes
+  /// of a file, and the knots and values of an inline grid (flat, as GridData has them)
   std::vector<std::string> interpolations;
   std::vector<std::string> boundaries;
   std::vector<std::string> axes;
@@ -277,6 +279,7 @@ struct GridDeclaration {
     spec.path = file;
     spec.variable = variable;
     spec.components = components;
+    spec.coordinates = coordinates;
     spec.interpolation =
         interpolations.empty() ? std::vector<std::string>{interpolation} : interpolations;
     spec.boundary = boundaries.empty() ? std::vector<std::string>{boundary} : boundaries;
@@ -352,20 +355,9 @@ const std::unordered_map<std::string, Fn> SwappedComparisons = {{"gt", Fn::Lt}, 
 // vocabulary, and a scheme added to Grid.h becomes available to this frontend
 // without a second edit that someone can forget.
 
-// The dataset inside the file. Optional, and it is the closed interpolation
-// vocabulary above that makes the slot unambiguous: in
-//   "asagi", FILE, X, ...
-// X is the interpolation if it names one and the variable otherwise. The
-// default matches AsagiLiteGrid::open's own default rather than restating a
-// convention in a second place.
-//
-// The alternative -- a required slot -- was rejected because the Lua field_spec
-// table has to gain the same field, and there it MUST be optional: field_specs
-// is a pre-existing ABI with scripts already written against it. Two spellings
-// of the same option in the two frontends is exactly the divergence the shared
-// Program is supposed to remove.
-// Variable default and the two vocabulary parsers now live in Grid.h, so the
-// Lua path cannot disagree with this one about what "linear" means.
+// The dataset inside an ASAGI file where a declaration names none, and the boundary where it gives
+// none: the defaults of the full language, which the core format does not have. The variable is
+// AsagiLiteGrid::open's own default (and that of a Lua field_spec), stated once in Grid.h.
 using reader::datafield::DefaultGridVariable;
 
 // ============================================================== parser ======
@@ -451,42 +443,26 @@ class Parser {
     return next();
   }
 
-  // 'grid' NAME '=' KIND ',' FILE ',' [VARIABLE ','] INTERPOLATION {',' COMPONENT}, which clamps
-  // and has no time axis; or, as in the core format (the sderiv spec), 'grid' NAME '(' ATTRIBUTE
-  // {',' ATTRIBUTE} ')', with ATTRIBUTE = NAME '=' (STRING | INTEGER | '(' STRING {',' STRING}
-  // ')').
+  // 'grid' NAME '(' ATTRIBUTE {',' ATTRIBUTE} ')', with ATTRIBUTE = NAME '=' (STRING | NUMBER |
+  // TUPLE): the attributes of the core format (the sderiv spec), of which the variable of an ASAGI
+  // file and the boundary have defaults here.
   GridDeclaration gridDeclaration() {
     GridDeclaration grid;
     grid.position = peek().position;
     eat(TokenKind::Grid);
     grid.name = eat(TokenKind::Name).value;
-    if (peek().kind == TokenKind::Op && valueIs("(")) {
-      gridAttributes(grid);
-      return grid;
+    if (!valueIs("(")) {
+      throw SderivError("grid",
+                        "grid `" + grid.name + "`: its attributes follow in parentheses, as grid " +
+                            grid.name +
+                            " (kind = \"asagi\", path = \"model.nc\", components = (\"rho\"), "
+                            "interpolation = \"linear\")",
+                        peek().position);
     }
-    eat(TokenKind::Op, "=");
-    grid.kind = eat(TokenKind::Str).value;
-    eat(TokenKind::Op, ",");
-    grid.file = eat(TokenKind::Str).value;
-    eat(TokenKind::Op, ",");
-    const Token& slot = eat(TokenKind::Str);
-    if (reader::datafield::parseInterpolation(slot.value).has_value()) {
-      grid.variable = DefaultGridVariable;
-      grid.interpolation = slot.value;
-    } else {
-      grid.variable = slot.value;
-      eat(TokenKind::Op, ",");
-      grid.interpolation = eat(TokenKind::Str).value;
-    }
-    while (valueIs(",")) {
-      eat(TokenKind::Op, ",");
-      grid.components.push_back(eat(TokenKind::Str).value);
-    }
+    gridAttributes(grid);
     return grid;
   }
 
-  // The attributes of a grid, of which the core format requires all but `time`: it has no
-  // defaults, so a declaration says what it means; the short form above is the one with them.
   /// A string, or strings in parentheses.
   std::vector<std::string> stringsHere() {
     std::vector<std::string> values;
@@ -524,10 +500,44 @@ class Parser {
     return values;
   }
 
+  /// A number with its sign, or a tuple of values: `-2.5`, `(1, (2, 3))`. Its mark is its
+  /// position in the source.
+  reader::datafield::SpelledValue spelledValue(int depth = 0) {
+    if (depth > MaxNesting) {
+      throw SderivError("parse",
+                        "the values are nested deeper than " + std::to_string(MaxNesting) +
+                            " levels",
+                        peek().position);
+    }
+    reader::datafield::SpelledValue value;
+    value.mark = static_cast<std::size_t>(peek().position);
+    if (valueIs("(")) {
+      eat(TokenKind::Op, "(");
+      value.tuple = true;
+      while (true) {
+        value.items.push_back(spelledValue(depth + 1));
+        if (!valueIs(",")) {
+          break;
+        }
+        eat(TokenKind::Op, ",");
+      }
+      eat(TokenKind::Op, ")");
+      return value;
+    }
+    const bool negative = peek().kind == TokenKind::Op && valueIs("-");
+    if (negative) {
+      eat(TokenKind::Op, "-");
+    }
+    const double magnitude = numberAt(eat(TokenKind::Num));
+    value.number = negative ? -magnitude : magnitude;
+    return value;
+  }
+
   void gridAttributes(GridDeclaration& grid) {
     const std::vector<std::string> names = {"kind",
                                             "path",
                                             "variable",
+                                            "coordinates",
                                             "components",
                                             "axes",
                                             "knots",
@@ -535,18 +545,20 @@ class Parser {
                                             "interpolation",
                                             "boundary",
                                             "time"};
-    std::set<std::string> given;
+    // the attributes given, where they are
+    std::map<std::string, int> given;
+    std::optional<reader::datafield::SpelledValue> values;
     eat(TokenKind::Op, "(");
     while (true) {
       const Token& key = eat(TokenKind::Name);
       if (std::find(names.begin(), names.end(), key.value) == names.end()) {
         throw SderivError("grid",
                           "grid `" + grid.name + "`: unknown attribute `" + key.value +
-                              "`; a grid has kind, path, variable, components, axes, knots, "
-                              "values, interpolation, boundary and time",
+                              "`; a grid has kind, path, variable, coordinates, components, axes, "
+                              "knots, values, interpolation, boundary and time",
                           key.position);
       }
-      if (!given.insert(key.value).second) {
+      if (!given.emplace(key.value, key.position).second) {
         throw SderivError("grid",
                           "grid `" + grid.name + "`: the attribute `" + key.value +
                               "` is given twice",
@@ -555,6 +567,8 @@ class Parser {
       eat(TokenKind::Op, "=");
       if (key.value == "components") {
         grid.components = stringsHere();
+      } else if (key.value == "coordinates") {
+        grid.coordinates = stringsHere();
       } else if (key.value == "interpolation") {
         grid.interpolations = stringsHere();
         grid.interpolation = grid.interpolations.front();
@@ -574,7 +588,13 @@ class Parser {
         }
         eat(TokenKind::Op, ")");
       } else if (key.value == "values") {
-        grid.values = numbersHere();
+        // nested as the knots and the components say, which may come after
+        if (!valueIs("(")) {
+          throw SderivError("grid",
+                            "grid `" + grid.name + "`: expected `(` and the values at the nodes",
+                            peek().position);
+        }
+        values = spelledValue();
       } else if (key.value == "time") {
         const Token& axis = eat(TokenKind::Num);
         if (axis.value.find_first_not_of("0123456789") != std::string::npos ||
@@ -591,12 +611,8 @@ class Parser {
           grid.kind = value;
         } else if (key.value == "path") {
           grid.file = value;
-        } else if (key.value == "variable") {
-          grid.variable = value;
-        } else if (key.value == "interpolation") {
-          grid.interpolation = value;
         } else {
-          grid.boundary = value;
+          grid.variable = value;
         }
       }
       if (!valueIs(",")) {
@@ -605,23 +621,68 @@ class Parser {
       eat(TokenKind::Op, ",");
     }
     eat(TokenKind::Op, ")");
-    // a file has its path and variable, an inline grid its knots and values
-    const bool inlined = grid.kind == "inline";
-    std::vector<std::string> required = {"kind", "components", "interpolation", "boundary"};
-    for (const char* each : inlined ? std::vector<const char*>{"knots", "values"}
-                                    : std::vector<const char*>{"path", "variable"}) {
-      required.emplace_back(each);
+
+    // every grid gives its kind, components and interpolation, and what its kind gives; the
+    // variable of an ASAGI file and the boundary have defaults
+    if (given.count("kind") == 0) {
+      throw SderivError("grid", "grid `" + grid.name + "` gives no kind", grid.position);
     }
+    const auto kind = reader::datafield::parseGridKind(grid.kind);
+    if (!kind.has_value()) {
+      throw SderivError("grid",
+                        "grid `" + grid.name + "`: unknown kind \"" + grid.kind +
+                            "\"; a grid is \"asagi\", \"scec\", \"table\" or \"inline\"",
+                        given.at("kind"));
+    }
+    const auto& attributes = reader::datafield::gridAttributesOf(*kind);
+    const auto& common = reader::datafield::commonGridAttributes();
+    for (const auto& [attribute, position] : given) {
+      if (std::find(common.begin(), common.end(), attribute) == common.end() &&
+          !attributes.has(attribute)) {
+        throw SderivError("grid",
+                          "grid `" + grid.name + "`: a grid of the kind \"" + grid.kind +
+                              "\" has no attribute `" + attribute + "`",
+                          position);
+      }
+    }
+    if (*kind == reader::datafield::GridKind::AsagiLite && given.count("variable") == 0) {
+      grid.variable = DefaultGridVariable;
+      given.emplace("variable", grid.position);
+    }
+    given.emplace("boundary", grid.position);
+    std::vector<std::string> required = common;
+    required.insert(required.end(), attributes.required.begin(), attributes.required.end());
     for (const auto& name : required) {
       if (given.count(name) == 0) {
         throw SderivError("grid",
-                          "grid `" + grid.name + "` gives no " + name +
-                              "; a grid with attributes gives kind, components, interpolation and "
-                              "boundary, a file its path and variable, an inline grid its knots "
-                              "and values",
+                          "grid `" + grid.name + "` gives no " + name + "; a grid of the kind \"" +
+                              grid.kind + "\" gives " + requiredList(*kind),
                           grid.position);
       }
     }
+    if (values.has_value()) {
+      if (const auto problem = reader::datafield::flattenGridValues(
+              *values, grid.knots, grid.components, grid.values)) {
+        throw SderivError("grid",
+                          "grid `" + grid.name + "`: the values: " + problem->what,
+                          static_cast<int>(problem->mark));
+      }
+    }
+  }
+
+  /// What a grid of the kind `kind` gives, but the defaults, as a list for a message.
+  static std::string requiredList(reader::datafield::GridKind kind) {
+    std::vector<std::string> names = {"kind", "components", "interpolation"};
+    for (const auto& name : reader::datafield::gridAttributesOf(kind).required) {
+      if (!(kind == reader::datafield::GridKind::AsagiLite && name == "variable")) {
+        names.push_back(name);
+      }
+    }
+    std::string list;
+    for (std::size_t i = 0; i < names.size(); ++i) {
+      list += (i == 0 ? "" : i + 1 == names.size() ? " and " : ", ") + names[i];
+    }
+    return list;
   }
 
   // 'state' [TYPE] NAME '=' ['-'] NUM -- the initial value is a literal: it is set before any
@@ -801,6 +862,18 @@ private:
     if (token.kind == TokenKind::Name) {
       const int position = token.position;
       std::string name = next().value;
+      // `m.rho(x, y, z)`, a sample of the component rho of the grid m: a call of `m.rho`, a name no
+      // declaration can have
+      if (peek().kind == TokenKind::Op && valueIs(".")) {
+        eat(TokenKind::Op, ".");
+        name += "." + eat(TokenKind::Name).value;
+        if (!valueIs("(")) {
+          throw SderivError("parse",
+                            "`" + name + "` is a component of a grid, sampled with coordinates: " +
+                                name + "(x, y, z)",
+                            position);
+        }
+      }
       if (valueIs("(")) {
         eat(TokenKind::Op, "(");
         SurfaceNode node;
@@ -858,14 +931,16 @@ ComponentTable checkGrids(const std::vector<GridDeclaration>& grids,
     if (!gridNames.insert(grid.name).second) {
       throw SderivError("grid", "duplicate grid `" + grid.name + "`", grid.position);
     }
-    if (!reader::datafield::parseGridKind(grid.kind).has_value()) {
+    // one namespace for grids and definitions, as in the core format; a bare name of a grid is
+    // none of an input either (Lowering)
+    if (defNames.count(grid.name) != 0) {
       throw SderivError(
-          "grid", "grid `" + grid.name + "`: unknown kind \"" + grid.kind + "\"", grid.position);
+          "grid", "grid `" + grid.name + "` has the name of a definition", grid.position);
     }
     if (!reader::datafield::parseInterpolation(grid.interpolation).has_value()) {
       throw SderivError("grid",
                         "grid `" + grid.name + "`: unknown interpolation \"" + grid.interpolation +
-                            "\"; did the file and the interpolation get swapped?",
+                            "\"",
                         grid.position);
     }
     if (!reader::datafield::parseBoundaryMode(grid.boundary).has_value()) {
@@ -877,45 +952,23 @@ ComponentTable checkGrids(const std::vector<GridDeclaration>& grids,
     if (grid.components.empty()) {
       throw SderivError("grid", "grid `" + grid.name + "` declares no components", grid.position);
     }
+    std::set<std::string> seen;
+    for (const auto& component : grid.components) {
+      if (!seen.insert(component).second) {
+        throw SderivError("grid",
+                          "grid `" + grid.name + "`: duplicate component \"" + component + "\"",
+                          grid.position);
+      }
+    }
     // and all a grid has to be, the data of an inline one included
     try {
       static_cast<void>(reader::datafield::gridDescOf(grid.spec()));
     } catch (const std::invalid_argument& error) {
       throw SderivError("grid", "grid `" + grid.name + "`: " + error.what(), grid.position);
     }
-    std::set<std::string> seen;
+    // `m.rho`, which no other declaration can be called
     for (std::size_t c = 0; c < grid.components.size(); ++c) {
-      const std::string& component = grid.components[c];
-      if (!seen.insert(component).second) {
-        throw SderivError("grid",
-                          "grid `" + grid.name + "`: duplicate component \"" + component + "\"",
-                          grid.position);
-      }
-      const std::string generated = grid.name + "_" + component;
-      // Collisions are errors rather than shadowing: silently overriding a
-      // builtin or a def is the exact failure mode this frontend exists to
-      // remove from the reader path.
-      if (Constants.count(generated) != 0 || isFunction(generated) ||
-          defNames.count(generated) != 0 || table.count(generated) != 0) {
-        throw SderivError("grid",
-                          "grid `" + grid.name + "`: the generated name `" + generated +
-                              "` collides with an existing name",
-                          grid.position);
-      }
-      table[generated] = {g, static_cast<std::int32_t>(c)};
-    }
-  }
-
-  // A grid name is never itself an expression, so this is not formally
-  // ambiguous -- but nobody can read `m_rho(...)` and tell which declaration it
-  // came from. This check is what underscore flattening costs, and the reason
-  // it is still cheaper than adding a `.` token to the language.
-  for (const auto& grid : grids) {
-    if (table.count(grid.name) != 0) {
-      throw SderivError("grid",
-                        "grid `" + grid.name +
-                            "` has the same name as a component function generated by another grid",
-                        grid.position);
+      table[grid.name + "." + grid.components[c]] = {g, static_cast<std::int32_t>(c)};
     }
   }
   return table;
@@ -1304,8 +1357,10 @@ private:
         lowered_.emplace(node.text, value);
         return value;
       }
-      if (components_.count(node.text) != 0) {
-        fail(node, "`" + node.text + "` is a grid component and must be called with coordinates");
+      if (gridNamed(node.text) != nullptr) {
+        fail(node,
+             "`" + node.text + "` is a grid; a component of it is sampled as " + node.text +
+                 ".c(x, y, z)");
       }
       if (isFunction(node.text)) {
         fail(node, "`" + node.text + "` is a function and must be called");
@@ -1322,6 +1377,20 @@ private:
       const auto component = components_.find(node.text);
       if (component != components_.end()) {
         return lowerLookup(node, component->second, env);
+      }
+      if (const auto dot = node.text.find('.'); dot != std::string::npos) {
+        const std::string gridName = node.text.substr(0, dot);
+        const GridDeclaration* grid = gridNamed(gridName);
+        if (grid == nullptr) {
+          fail(node, "`" + gridName + "` is no grid, so `" + node.text + "` samples nothing");
+        }
+        std::string list;
+        for (const auto& each : grid->components) {
+          list += (list.empty() ? "" : ", ") + each;
+        }
+        fail(node,
+             "the grid `" + gridName + "` has no component `" + node.text.substr(dot + 1) +
+                 "`; it has " + list);
       }
 
       const auto def = defs_.find(node.text);
@@ -1424,6 +1493,16 @@ private:
       break;
     }
     fail(node, "cannot lower this node");
+  }
+
+  /// The grid of the name `name`, or null.
+  [[nodiscard]] const GridDeclaration* gridNamed(const std::string& name) const {
+    for (const auto& grid : parsed_.grids) {
+      if (grid.name == name) {
+        return &grid;
+      }
+    }
+    return nullptr;
   }
 
   const SurfaceArena& surface_;

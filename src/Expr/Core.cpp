@@ -817,23 +817,49 @@ class Loader {
     return values;
   }
 
+  /// A number with its sign, or a tuple of values, as an attribute of a grid spells it: `-2.5`,
+  /// `(1, (2, 3))`. Its mark is the index of its token in `marks`.
+  reader::datafield::SpelledValue spelledValue(std::vector<Token>& marks, int depth = 0) {
+    nest(peek(), depth);
+    reader::datafield::SpelledValue value;
+    value.mark = marks.size();
+    marks.push_back(peek());
+    if (accept(Tok::Open)) {
+      value.tuple = true;
+      do {
+        value.items.push_back(spelledValue(marks, depth + 1));
+      } while (accept(Tok::Comma));
+      expect(Tok::Close, "`)` after the values");
+      return value;
+    }
+    const bool negative = accept(Tok::Minus);
+    const double magnitude = expect(Tok::Number, "a number, or values in parentheses").number;
+    value.number = negative ? -magnitude : magnitude;
+    return value;
+  }
+
   void grid() {
     next();
     const Token at = peek();
     const std::string gridName = name("the name of the grid");
     expect(Tok::Open, "`(` and the attributes of the grid");
     reader::datafield::GridSpec spec;
-    std::set<std::string> given;
+    // the attributes given, where they are
+    std::map<std::string, Token> given;
+    std::vector<Token> marks;
+    std::optional<reader::datafield::SpelledValue> values;
     do {
       const Token key = peek();
       const std::string attribute = name("an attribute of the grid");
-      if (!given.insert(attribute).second) {
+      if (!given.emplace(attribute, key).second) {
         fail(key, "the attribute `" + attribute + "` is given twice");
       }
       expect(Tok::Equals, "`=` and the value of the attribute");
       const Token value = peek();
       if (attribute == "components") {
         spec.components = strings("the names of the components, as (\"a\", \"b\")");
+      } else if (attribute == "coordinates") {
+        spec.coordinates = strings("the names of the coordinates, as (\"x\", \"z\")");
       } else if (attribute == "interpolation") {
         spec.interpolation = strings("an interpolation, or one per axis");
       } else if (attribute == "boundary") {
@@ -848,7 +874,11 @@ class Loader {
         } while (accept(Tok::Comma));
         expect(Tok::Close, "`)` after the knots of the axes");
       } else if (attribute == "values") {
-        spec.values = numbers("`(` and the values at the nodes");
+        // nested as the knots and the components say, which may come after
+        if (peek().kind != Tok::Open) {
+          fail(peek(), "expected `(` and the values at the nodes");
+        }
+        values = spelledValue(marks);
       } else if (attribute == "time") {
         if (value.kind != Tok::Number || !value.whole) {
           fail(value, "the time axis of a grid is a whole number");
@@ -866,31 +896,50 @@ class Loader {
       } else {
         fail(key,
              "a grid has no attribute `" + attribute +
-                 "`; it has kind, path, variable, components, axes, knots, values, "
+                 "`; it has kind, path, variable, coordinates, components, axes, knots, values, "
                  "interpolation, boundary and time");
       }
     } while (accept(Tok::Comma));
     expect(Tok::Close, "`)` after the attributes of the grid");
 
-    // no defaults: a file has its path and variable, an inline grid its knots and values
-    const bool inlined = spec.kind == "inline";
-    std::vector<const char*> required = {"kind", "components", "interpolation", "boundary"};
-    for (const char* each : inlined ? std::vector<const char*>{"knots", "values"}
-                                    : std::vector<const char*>{"path", "variable"}) {
-      required.push_back(each);
+    // no defaults: every grid gives what all grids give, and what its kind gives
+    if (given.count("kind") == 0) {
+      fail(at, "the grid `" + gridName + "` gives no kind; the core format has no defaults");
     }
-    for (const char* each : required) {
+    const auto kind = reader::datafield::parseGridKind(spec.kind);
+    if (!kind.has_value()) {
+      fail(given.at("kind"),
+           "the kind of a grid is \"asagi\", \"scec\", \"table\" or \"inline\", not \"" +
+               spec.kind + "\"");
+    }
+    const auto& attributes = reader::datafield::gridAttributesOf(*kind);
+    const auto& common = reader::datafield::commonGridAttributes();
+    for (const auto& [attribute, key] : given) {
+      if (std::find(common.begin(), common.end(), attribute) == common.end() &&
+          !attributes.has(attribute)) {
+        fail(key, "a grid of the kind \"" + spec.kind + "\" has no attribute `" + attribute + "`");
+      }
+    }
+    std::vector<std::string> required = common;
+    required.insert(required.end(), attributes.required.begin(), attributes.required.end());
+    for (const auto& each : required) {
       if (given.count(each) == 0) {
         fail(at,
-             std::string("the grid `") + gridName + "` gives no " + each +
-                 "; the core format has no defaults");
+             "the grid `" + gridName + "` gives no " + each + "; the core format has no defaults");
       }
     }
     std::set<std::string> distinct(spec.components.begin(), spec.components.end());
     if (distinct.size() != spec.components.size()) {
       fail(at, "the grid `" + gridName + "` names a component twice");
     }
-    if (!inlined) {
+    if (values.has_value()) {
+      if (const auto problem = reader::datafield::flattenGridValues(
+              *values, spec.knots, spec.components, spec.values)) {
+        fail(marks.at(problem->mark),
+             "the values of the grid `" + gridName + "`: " + problem->what);
+      }
+    }
+    if (!spec.path.empty()) {
       // relative to the directory of the core file
       std::filesystem::path path(spec.path);
       if (path.is_relative() && !file_.empty()) {
@@ -1361,6 +1410,10 @@ class Printer {
         }
         gridNames_[g].name = name;
       }
+      // a grid that reads its columns by name has their names
+      if (!program_.grids()[g].columns.empty()) {
+        gridNames_[g].components = program_.grids()[g].columns;
+      }
       for (auto c = static_cast<std::int32_t>(gridNames_[g].components.size()); c < components[g];
            ++c) {
         gridNames_[g].components.push_back("c" + std::to_string(c));
@@ -1373,6 +1426,35 @@ class Printer {
                                     "` has the name of another grid, an input or a state");
       }
     }
+  }
+
+  /// The values `flat` of a grid as the core format nests them (the levels of `shape`, outermost
+  /// first; reader::datafield::flattenGridValues()), from the tuple of the level `level` whose
+  /// first value is `flat[first]` and whose `(` stands in the column `column`. The tuples of a
+  /// level below `broken` stand on lines of their own.
+  void nestedValues(std::string& out,
+                    const std::vector<double>& flat,
+                    const std::vector<std::size_t>& shape,
+                    std::size_t level,
+                    std::size_t first,
+                    std::size_t column,
+                    std::size_t broken) const {
+    std::size_t stride = 1;
+    for (std::size_t l = level + 1; l < shape.size(); ++l) {
+      stride *= shape[l];
+    }
+    out += '(';
+    for (std::size_t i = 0; i < shape[level]; ++i) {
+      if (i > 0) {
+        out += level < broken ? ",\n" + std::string(column + 1, ' ') : std::string(", ");
+      }
+      if (level + 1 == shape.size()) {
+        out += spellNumber(flat[first + i]);
+      } else {
+        nestedValues(out, flat, shape, level + 1, first + i * stride, column + 1, broken);
+      }
+    }
+    out += ')';
   }
 
   void printGrid(std::string& out, std::size_t g) const {
@@ -1393,37 +1475,62 @@ class Printer {
       }
       return tuple(spelled);
     };
-    out += "grid " + spellName(names.name) + " (kind = " + spellString(spellKind(desc.kind));
-    if (desc.kind != df::GridKind::Inline) {
-      out += ", path = " + spellString(desc.path) + ", variable = " + spellString(desc.variable);
+    const auto strings = [&](const std::vector<std::string>& values) {
+      std::vector<std::string> spelled;
+      for (const auto& value : values) {
+        spelled.push_back(spellString(value));
+      }
+      return tuple(spelled);
+    };
+    // the attributes of the kind on the first line, the others on lines of their own below them
+    const std::string head = "grid " + spellName(names.name) + " (";
+    const std::string indent(head.size(), ' ');
+    const auto& attributes = df::gridAttributesOf(desc.kind);
+    out += head + "kind = " + spellString(spellKind(desc.kind));
+    if (attributes.has("path")) {
+      out += ", path = " + spellString(desc.path);
     }
-    std::vector<std::string> components;
-    for (const auto& component : names.components) {
-      components.push_back(spellString(component));
+    if (attributes.has("variable")) {
+      out += ", variable = " + spellString(desc.variable);
     }
-    out += ", components = " + tuple(components);
+    out += ",\n" + indent + "components = " + strings(names.components);
+    if (!desc.coordinates.empty()) {
+      out += ",\n" + indent + "coordinates = " + strings(desc.coordinates);
+    }
     if (!desc.axes.empty()) {
       std::vector<std::string> axes;
       for (const auto axis : desc.axes) {
-        axes.push_back(spellString(df::spelling(axis)));
+        axes.push_back(df::spelling(axis));
       }
-      out += ", axes = " + tuple(axes);
+      out += ",\n" + indent + "axes = " + strings(axes);
     }
     if (desc.data != nullptr) {
       std::vector<std::string> knots;
+      std::vector<std::size_t> shape;
       for (const auto& axis : desc.data->knots) {
         knots.push_back(numbers(axis));
+        shape.insert(shape.begin(), axis.size());
       }
-      out += ", knots = " + tuple(knots) + ", values = " + numbers(desc.data->values);
+      const std::size_t nodes = std::max<std::size_t>(1, desc.data->values.size());
+      std::size_t count = 1;
+      for (const auto each : shape) {
+        count *= each;
+      }
+      shape.push_back(count == 0 ? 0 : nodes / count);
+      out += ",\n" + indent + "knots = " + tuple(knots);
+      out += ",\n" + indent + "values = ";
+      // a line per node of one axis, else per row along axis 0
+      const std::size_t broken = shape.size() == 2 ? 1 : shape.size() - 2;
+      nestedValues(out, desc.data->values, shape, 0, 0, indent.size() + 9, broken);
     }
     // one for all axes, or one per axis
     std::vector<std::string> interpolations;
     for (const auto each : desc.interpolations) {
       interpolations.push_back(spellString(df::spelling(each)));
     }
-    out += ", interpolation = " + (interpolations.empty()
-                                       ? spellString(df::spelling(desc.interpolation))
-                                       : tuple(interpolations));
+    out += ",\n" + indent + "interpolation = " +
+           (interpolations.empty() ? spellString(df::spelling(desc.interpolation))
+                                   : tuple(interpolations));
     std::vector<std::string> boundaries;
     for (const auto each : desc.boundaries) {
       boundaries.push_back(spellString(df::spelling(each)));

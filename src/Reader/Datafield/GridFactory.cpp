@@ -12,6 +12,7 @@
 #include "InlineGrid.h"
 #include "Parallel/MPI.h"
 #include "ScecGrid.h"
+#include "TableGrid.h"
 #include "utils/logger.h"
 
 #include <algorithm>
@@ -23,6 +24,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace seissol::reader::datafield {
 
@@ -86,6 +88,54 @@ std::optional<ScecData> scecDataOf(const std::string& path) {
   return data;
 }
 
+/// The numbers `values` of rank 0, given to every rank of `comm`, in pieces an int counts.
+void broadcastNumbers(std::vector<double>& values, MPI_Comm comm) {
+  auto size = static_cast<unsigned long long>(values.size());
+  MPI_Bcast(&size, 1, MPI_UNSIGNED_LONG_LONG, 0, comm);
+  values.resize(static_cast<std::size_t>(size));
+  constexpr std::size_t Piece = std::size_t{1} << 28U;
+  for (std::size_t at = 0; at < values.size(); at += Piece) {
+    const auto count = static_cast<int>(std::min(Piece, values.size() - at));
+    MPI_Bcast(values.data() + at, count, MPI_DOUBLE, 0, comm);
+  }
+}
+
+/// The data of the table of `desc`, as rank 0 of the rank's communicator reads it, given to every
+/// rank (where MPI runs); nothing, with an error, where it cannot be read or is no grid.
+std::optional<GridData> tableDataOf(const GridDesc& desc) {
+  int running = 0;
+  MPI_Initialized(&running);
+  const bool reads = running == 0 || seissol::Mpi::mpi.rank() == 0;
+  GridData data;
+  std::string problem;
+  if (reads) {
+    try {
+      data = tableGridData(readTextTable(desc.path), desc.coordinates, desc.columns, desc.path);
+    } catch (const std::exception& error) {
+      problem = error.what();
+    }
+  }
+  if (running != 0) {
+    const MPI_Comm comm = seissol::Mpi::mpi.comm();
+    int length = static_cast<int>(problem.size());
+    MPI_Bcast(&length, 1, MPI_INT, 0, comm);
+    problem.resize(static_cast<std::size_t>(length));
+    MPI_Bcast(problem.data(), length, MPI_CHAR, 0, comm);
+    if (problem.empty()) {
+      data.knots.resize(desc.coordinates.size());
+      for (auto& knots : data.knots) {
+        broadcastNumbers(knots, comm);
+      }
+      broadcastNumbers(data.values, comm);
+    }
+  }
+  if (!problem.empty()) {
+    logError() << "datafield:" << problem;
+    return std::nullopt;
+  }
+  return data;
+}
+
 /// The backend with a time window, or null. Window management is inherently
 /// backend specific -- a distributed or texture-backed grid would slide
 /// differently -- while the sampling interface is not, and putting
@@ -140,13 +190,43 @@ std::unique_ptr<Grid> makeGrid(const GridDesc& desc) {
     return nullptr;
   }
   case GridKind::Scec: {
+    // the components by name, among the ten of a node
+    const auto& names = scecComponentNames();
+    std::vector<std::size_t> columns;
+    for (const auto& column : desc.columns) {
+      const auto found = std::find(names.begin(), names.end(), column);
+      if (found == names.end()) {
+        logError() << "datafield: a SCEC file has no component" << column << ".";
+        return nullptr;
+      }
+      columns.push_back(static_cast<std::size_t>(found - names.begin()));
+    }
     // rank 0 reads the file, and gives it to the others
     auto data = scecDataOf(desc.path);
     if (!data.has_value()) {
       return nullptr;
     }
-    return std::make_unique<ScecGrid>(
-        std::move(*data), desc.path, desc.interpolation, desc.boundary);
+    try {
+      return std::make_unique<ScecGrid>(
+          std::move(*data), std::move(columns), desc.path, desc.interpolation, desc.boundary);
+    } catch (const std::invalid_argument& error) {
+      logError() << error.what();
+    }
+    return nullptr;
+  }
+  case GridKind::Table: {
+    // rank 0 reads the table, and gives its grid to the others
+    auto data = tableDataOf(desc);
+    if (!data.has_value()) {
+      return nullptr;
+    }
+    try {
+      return std::make_unique<InlineGrid>(std::make_shared<const GridData>(std::move(*data)),
+                                          desc.columns.size());
+    } catch (const std::invalid_argument& error) {
+      logError() << "datafield: the table" << desc.path << "--" << error.what();
+    }
+    return nullptr;
   }
   case GridKind::Distributed:
     logError() << "datafield: the distributed backend is not implemented; requested for"

@@ -144,8 +144,9 @@ TEST_SUITE("ExprBackend") {
 
   TEST_CASE("a grid lookup reaches the sampler and skips the other components") {
     const Program program =
-        compileSderiv("grid m = \"asagi\", \"ramp.nc\", \"linear\", \"a\", \"b\"\n"
-                      "m_b(x, y, z)",
+        compileSderiv("grid m (kind = \"asagi\", path = \"ramp.nc\", components = (\"a\", \"b\"), "
+                      "interpolation = \"linear\")\n"
+                      "m.b(x, y, z)",
                       "out");
     REQUIRE(program.grids().size() == 1);
     constexpr std::size_t NumPoints = 5;
@@ -178,8 +179,9 @@ TEST_SUITE("ExprBackend") {
   }
 
   TEST_CASE("a grid lookup works from the f32 compute path") {
-    Program program = compileSderiv("grid m = \"asagi\", \"ramp.nc\", \"linear\", \"a\", \"b\"\n"
-                                    "m_a(x, y, z)",
+    Program program = compileSderiv("grid m (kind = \"asagi\", path = \"ramp.nc\", components = "
+                                    "(\"a\", \"b\"), interpolation = \"linear\")\n"
+                                    "m.a(x, y, z)",
                                     "out");
     program.setComputeType(ComputeType::F32);
     constexpr std::size_t NumPoints = 4;
@@ -212,9 +214,10 @@ TEST_SUITE("ExprBackend") {
   }
 
   TEST_CASE("a record counts where a grid is sampled beyond its volume, and samples two") {
-    const Program program = compileSderivModule(
-        "grid m = \"asagi\", \"ramp.nc\", \"linear\", \"a\", \"b\"\nout def v = m_a(x, y, z)\n",
-        SderivOptions{});
+    const Program program =
+        compileSderivModule("grid m (kind = \"asagi\", path = \"ramp.nc\", components = (\"a\", "
+                            "\"b\"), interpolation = \"linear\")\nout def v = m.a(x, y, z)\n",
+                            SderivOptions{});
     constexpr std::size_t NumPoints = 100;
     // x from -2 to 9 over a volume from 0 to 7, and one z that is NaN
     std::vector<double> x(NumPoints);

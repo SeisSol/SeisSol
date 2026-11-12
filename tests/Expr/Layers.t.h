@@ -40,14 +40,16 @@ namespace {
 const char* const LayeredModel =
     "#!sderiv 1\nin z\n"
     "grid m (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
-    "values = (2600, 10, 2700, 20, 3000, 40), interpolation = \"linear\", boundary = \"clamp\")\n"
+    "values = ((2600, 10), (2700, 20), (3000, 40)), interpolation = \"linear\", boundary = "
+    "\"clamp\")\n"
     "grid p (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
-    "values = (2600, 10, 2700, 20, 3000, 40), interpolation = \"previous\", boundary = "
+    "values = ((2600, 10), (2700, 20), (3000, 40)), interpolation = \"previous\", boundary = "
     "\"clamp\")\n"
     "grid n (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
-    "values = (2600, 10, 2700, 20, 3000, 40), interpolation = \"next\", boundary = \"clamp\")\n"
+    "values = ((2600, 10), (2700, 20), (3000, 40)), interpolation = \"next\", boundary = "
+    "\"clamp\")\n"
     "grid q (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
-    "values = (2600, 10, 2700, 20, 3000, 40), interpolation = \"nearest\", boundary = "
+    "values = ((2600, 10), (2700, 20), (3000, 40)), interpolation = \"nearest\", boundary = "
     "\"clamp\")\n"
     "def t0 = m.rho(z)\ndef t1 = p.rho(z)\ndef t2 = n.rho(z)\ndef t3 = q.rho(z)\ndef t4 = m.mu(z)\n"
     "out linear = t0\nout lower = t1\nout upper = t2\nout nearest = t3\nout mu = t4\n";
@@ -161,7 +163,8 @@ TEST_SUITE("expr layers") {
     const Program program = loadCore(
         "#!sderiv 1\nin x, z\n"
         "grid g (kind = \"inline\", components = (\"v\"), knots = ((0, 1, 3), (10, 20)), values = "
-        "(0, 1, 3, 100, 101, 103), interpolation = (\"linear\", \"previous\"), boundary = "
+        "(((0), (1), (3)), ((100), (101), (103))), interpolation = (\"linear\", \"previous\"), "
+        "boundary = "
         "\"clamp\")\n"
         "def t0 = g.v(x, z)\nout v = t0\n",
         "");
@@ -192,9 +195,14 @@ TEST_SUITE("expr layers") {
     const Program program = loadCore(LayeredModel, "");
     const std::string printed = printCore(program);
     CAPTURE(printed);
-    CHECK(printed.find("kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, "
-                       "3000)), values = (2600, 10, 2700, 20, 3000, 40), interpolation = "
-                       "\"previous\"") != std::string::npos);
+    CHECK(printed.find("grid p (kind = \"inline\",\n"
+                       "        components = (\"rho\", \"mu\"),\n"
+                       "        knots = ((1000, 2000, 3000)),\n"
+                       "        values = ((2600, 10),\n"
+                       "                  (2700, 20),\n"
+                       "                  (3000, 40)),\n"
+                       "        interpolation = \"previous\", boundary = \"clamp\")\n") !=
+          std::string::npos);
     const Program again = loadCore(printed, "");
     CHECK(again.fingerprint() == program.fingerprint());
     CHECK(printCore(again) == printed);
@@ -215,20 +223,21 @@ TEST_SUITE("expr layers") {
       return std::string();
     };
     CHECK(failure("grid m (kind = \"inline\", components = (\"a\"), knots = ((2, 1)), values = "
-                  "(0, 1), interpolation = \"linear\", boundary = \"clamp\")")
+                  "((0), (1)), interpolation = \"linear\", boundary = \"clamp\")")
               .find("do not increase strictly") != std::string::npos);
     CHECK(failure("grid m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), values = "
-                  "(0, 1, 2), interpolation = \"linear\", boundary = \"clamp\")")
-              .find("3 values for 2 nodes") != std::string::npos);
+                  "((0), (1), (2)), interpolation = \"linear\", boundary = \"clamp\")")
+              .find("expected the 2 nodes along axis 0, not 3") != std::string::npos);
     CHECK(failure("grid m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), values = "
-                  "(0, 1), interpolation = \"cubic\", boundary = \"clamp\")")
+                  "((0), (1)), interpolation = \"cubic\", boundary = \"clamp\")")
               .find("not cubic") != std::string::npos);
     CHECK(failure("grid m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), values = "
-                  "(0, 1), interpolation = (\"linear\", \"next\"), boundary = \"clamp\")")
+                  "((0), (1)), interpolation = (\"linear\", \"next\"), boundary = \"clamp\")")
               .find("2 interpolations") != std::string::npos);
     CHECK(failure("grid m (kind = \"inline\", path = \"a.nc\", components = (\"a\"), knots = "
-                  "((1, 2)), values = (0, 1), interpolation = \"linear\", boundary = \"clamp\")")
-              .find("no path or variable") != std::string::npos);
+                  "((1, 2)), values = ((0), (1)), interpolation = \"linear\", boundary = "
+                  "\"clamp\")")
+              .find("a grid of the kind \"inline\" has no attribute `path`") != std::string::npos);
   }
 
   TEST_CASE("layers step at the knots as easi's layered model does") {
@@ -341,7 +350,7 @@ TEST_SUITE("expr layers") {
     // the grid axes in the opposite order of the dimensions of the file: x, then depth
     const Program inlined = loadCore(
         "#!sderiv 1\nin x, z\ngrid m (kind = \"inline\", components = (\"rho\"), knots = ((0, 1), "
-        "(0, 100, 1000)), values = (2000, 2100, 2500, 2650, 2900, 3300), " +
+        "(0, 100, 1000)), values = (((2000), (2100)), ((2500), (2650)), ((2900), (3300))), " +
             schemes + "def t0 = m.rho(x, z)\nout rho = t0\n",
         "");
     const double nan = std::numeric_limits<double>::quiet_NaN();
@@ -363,14 +372,63 @@ TEST_SUITE("expr layers") {
     std::remove(path.c_str());
   }
 
-  TEST_CASE("a record names an inline grid, and its axes of knots, and replays it") {
-    const Program program = loadCore(
-        "#!sderiv 1\nin z\n"
-        "grid m (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, "
-        "3000)), values = (2600, 10, 2700, 20, 3000, 40), interpolation = \"linear\", boundary = "
-        "\"clamp\")\n"
-        "def t0 = m.rho(z)\nout rho = t0\n",
+  TEST_CASE("a table samples as the inline grid of its rows") {
+    // rho(x, depth) over x = 0 and 1 and the depths 0, 100 and 1000, its rows in another order
+    const std::string path = "seissol-test-layers-" + std::to_string(::getpid()) + ".csv";
+    std::ofstream(path) << "# rho over x and depth\n"
+                           "depth, x, rho, note\n"
+                           "1000, 1, 3300, 6\n"
+                           "0, 0, 2000, 1\n"
+                           "100, 1, 2650, 4\n"
+                           "0, 1, 2100, 2\n"
+                           "1000, 0, 2900, 5\n"
+                           "100, 0, 2500, 3\n";
+    const std::string schemes =
+        "interpolation = (\"linear\", \"previous\"), boundary = \"clamp\")\n";
+    const Program table =
+        loadCore("#!sderiv 1\nin x, z\ngrid m (kind = \"table\", path = \"" + path +
+                     "\", components = (\"rho\"), coordinates = (\"x\", \"depth\"), " + schemes +
+                     "def t0 = m.rho(x, z)\nout rho = t0\n",
+                 "");
+    const Program inlined = loadCore(
+        "#!sderiv 1\nin x, z\ngrid m (kind = \"inline\", components = (\"rho\"), knots = ((0, 1), "
+        "(0, 100, 1000)), values = (((2000), (2100)), ((2500), (2650)), ((2900), (3300))), " +
+            schemes + "def t0 = m.rho(x, z)\nout rho = t0\n",
         "");
+    // the data of an inline grid is part of its program, that of a table is not
+    CHECK(table.fingerprint() != inlined.fingerprint());
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const std::vector<double> x = {0.5, 0.25, 0.0, 1.0, 0.75, -1.0, 2.0, nan, 0.5};
+    const std::vector<double> z = {50.0, 100.0, 550.0, 1000.0, 2000.0, -5.0, 100.5, 0.0, nan};
+    const auto expected = evaluateAt(inlined, {x, z});
+    CHECK(expected[0] == 2050.0);
+    const auto interpreted = evaluateAt(table, {x, z});
+    CHECK(bitwiseEqual(interpreted, expected));
+    BackendKind used = BackendKind::Interpreter;
+    const auto compiled = evaluateAt(table, {x, z}, BackendKind::RtcCpu, &used);
+    if (used == BackendKind::RtcCpu) {
+      CHECK(bitwiseEqual(compiled, expected));
+    }
+    // the normal form of a table: its coordinates after its components
+    const std::string printed = printCore(table);
+    CAPTURE(printed);
+    CHECK(printed.find("grid m (kind = \"table\", path = \"" + path +
+                       "\",\n        components = (\"rho\"),\n        coordinates = (\"x\", "
+                       "\"depth\"),\n        interpolation = (\"linear\", \"previous\"), "
+                       "boundary = \"clamp\")\n") != std::string::npos);
+    CHECK(printCore(loadCore(printed, "")) == printed);
+    std::remove(path.c_str());
+  }
+
+  TEST_CASE("a record names an inline grid, and its axes of knots, and replays it") {
+    const Program program =
+        loadCore("#!sderiv 1\nin z\n"
+                 "grid m (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, "
+                 "3000)), values = ((2600, 10), (2700, 20), (3000, 40)), interpolation = "
+                 "\"linear\", boundary = "
+                 "\"clamp\")\n"
+                 "def t0 = m.rho(z)\nout rho = t0\n",
+                 "");
     const double nan = std::numeric_limits<double>::quiet_NaN();
     const std::vector<double> z = {500, 1000, 1500, 2000, 2500, 3000, 3500, nan};
     std::vector<double> rho(z.size(), 0.0);
@@ -411,7 +469,8 @@ TEST_SUITE("expr layers") {
     const Program program = loadCore(
         "#!sderiv 1\nin x, z\n"
         "grid g (kind = \"inline\", components = (\"v\"), knots = ((0, 1, 3), (10, 20)), values = "
-        "(0, 1, 3, 100, 101, 103), interpolation = (\"linear\", \"next\"), boundary = "
+        "(((0), (1), (3)), ((100), (101), (103))), interpolation = (\"linear\", \"next\"), "
+        "boundary = "
         "(\"clamp\", \"fail\"))\n"
         "def t0 = g.v(x, z)\nout v = t0\n",
         "");

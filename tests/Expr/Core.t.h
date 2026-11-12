@@ -87,13 +87,14 @@ Failure failureOf(const std::string& text) {
   return {};
 }
 
-/// The material of the specification, without its check, and with its grid on one line, as the
-/// printer writes it.
+/// The material of the specification, without its check and with the whole hash.
 constexpr auto Material = R"(#!sderiv 1
 meta generator = "easi 1.8.0"
 meta source = "material.yaml", "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
 in x, y, z
-grid m (kind = "asagi", path = "vmodel.nc", variable = "data", components = ("rho", "mu", "lambda"), interpolation = "linear", boundary = "clamp")
+grid m (kind = "asagi", path = "vmodel.nc", variable = "data",
+        components = ("rho", "mu", "lambda"),
+        interpolation = "linear", boundary = "clamp")
 def t0 = lt(z, -2000)
 def t1 = m.rho(x, y, z)
 def t2 = -0.5 * z
@@ -146,17 +147,18 @@ grid m (kind = "asagi", path = "/data/vmodel.nc", variable = "data",
 def f(p) = p * p + 1.5
 def two = 2
 state f64 sum = 0.0
-def sum = f64(m_rho(x, y, t) * f(z)) + sum
-out def u = real(sum) - pi * select(lt(x, y), m_vs(x, y, t), -0.25)
+def sum = f64(m.rho(x, y, t) * f(z)) + sum
+out def u = real(sum) - pi * select(lt(x, y), m.vs(x, y, t), -0.25)
 out def w = exp(-x) / two
 )");
     const std::string text = printCore(program);
     CAPTURE(text);
     const Program loaded = loadCore(text, "");
     CHECK(printCore(loaded) == text);
-    CHECK(text.find("grid m (kind = \"asagi\", path = \"/data/vmodel.nc\", variable = \"data\", "
-                    "components = (\"rho\", \"vs\"), interpolation = \"cubic\", boundary = "
-                    "\"fail\", time = 2)\n") != std::string::npos);
+    CHECK(text.find("grid m (kind = \"asagi\", path = \"/data/vmodel.nc\", variable = \"data\",\n"
+                    "        components = (\"rho\", \"vs\"),\n"
+                    "        interpolation = \"cubic\", boundary = \"fail\", time = 2)\n") !=
+          std::string::npos);
     CHECK(text.find("state f64 sum = 0\n") != std::string::npos);
 
     // and computes the same bits
@@ -360,8 +362,29 @@ out u = t2
         {"#!sderiv 1\ngrid m (kind = \"netcdf\", path = \"a.nc\", variable = \"z\", components = "
          "(\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\n",
          2,
+         9,
+         "\"asagi\", \"scec\", \"table\" or \"inline\""},
+        // the attributes of the kind, and the values of an inline grid as its axes nest them
+        {"#!sderiv 1\ngrid f (kind = \"scec\", path = \"f.txt\", variable = \"z\", components = "
+         "(\"mu_s\"), interpolation = \"linear\", boundary = \"clamp\")\n",
+         2,
+         40,
+         "a grid of the kind \"scec\" has no attribute `variable`"},
+        {"#!sderiv 1\ngrid t (kind = \"table\", path = \"t.csv\", components = (\"v\"), "
+         "interpolation = \"linear\", boundary = \"clamp\")\n",
+         2,
          6,
-         "\"asagi\", \"scec\" or \"inline\""},
+         "gives no coordinates"},
+        {"#!sderiv 1\ngrid m (kind = \"inline\", components = (\"a\", \"b\"), knots = ((1, 2)), "
+         "values = ((0, 1), (2)), interpolation = \"linear\", boundary = \"clamp\")\n",
+         2,
+         87,
+         "expected the 2 components of a node (a, b), not 1"},
+        {"#!sderiv 1\ngrid m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), "
+         "values = (0, 1), interpolation = \"linear\", boundary = \"clamp\")\n",
+         2,
+         74,
+         "expected a tuple of the 1 components of a node (a)"},
         {"#!sderiv 1\nin x\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
          "components "
          "= (\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\nout u = m.vp(x)\n",
@@ -399,7 +422,7 @@ out u = t2
          6,
          "names a component twice"},
         {"#!sderiv 1\ngrid m (kind = \"inline\", components = (\"a\"), knots = ((2, 1)), values = "
-         "(0, 1), interpolation = \"linear\", boundary = \"clamp\")\n",
+         "((0), (1)), interpolation = \"linear\", boundary = \"clamp\")\n",
          2,
          6,
          "do not increase strictly"},
@@ -568,7 +591,9 @@ out u = t2
     // the material of the specification with its check
     const std::string text = R"(#!sderiv 1
 in x, y, z
-grid m (kind = "asagi", path = "vmodel.nc", variable = "data", components = ("rho", "mu", "lambda"), interpolation = "linear", boundary = "clamp")
+grid m (kind = "asagi", path = "vmodel.nc", variable = "data",
+        components = ("rho", "mu", "lambda"),
+        interpolation = "linear", boundary = "clamp")
 state s = 0
 def t0 = lt(z, -2000)
 def t1 = m.rho(x, y, z)
@@ -659,8 +684,9 @@ out rho = t4
     // and a relative grid path is relative to the file
     options.file = "/data/run/model.sderiv";
     const Program program =
-        compileSderivModule("grid m = \"asagi\", \"vmodel.nc\", \"linear\", \"rho\"\n"
-                            "out def u = m_rho(x)\n",
+        compileSderivModule("grid m (kind = \"asagi\", path = \"vmodel.nc\", components = "
+                            "(\"rho\"), interpolation = \"linear\")\n"
+                            "out def u = m.rho(x)\n",
                             options);
     CHECK(program.grids()[0].path == "/data/run/vmodel.nc");
   }

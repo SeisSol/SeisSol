@@ -415,10 +415,9 @@ BlockId Program::internBlock(const std::string& name, std::size_t length) {
 }
 
 GridId Program::internGrid(const reader::datafield::GridDesc& desc) {
-  const std::string key = desc.canonicalKey() + '\x1f' + desc.path + '\x1f' + desc.variable;
+  const std::string key = desc.canonicalKey() + '\x1d' + desc.sourceKey();
   for (std::size_t i = 0; i < grids_.size(); ++i) {
-    const std::string other =
-        grids_[i].canonicalKey() + '\x1f' + grids_[i].path + '\x1f' + grids_[i].variable;
+    const std::string other = grids_[i].canonicalKey() + '\x1d' + grids_[i].sourceKey();
     if (other == key) {
       return static_cast<GridId>(i);
     }

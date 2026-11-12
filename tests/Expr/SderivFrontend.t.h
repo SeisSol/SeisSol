@@ -35,63 +35,86 @@ namespace {
 
 constexpr auto GridAndDef = R"(
 # density and Lame parameters from a velocity model
-grid m = "asagi", "model.nc", "linear", "rho", "vp", "vs"
+grid m (kind = "asagi", path = "model.nc", components = ("rho", "vp", "vs"),
+        interpolation = "linear")
 
-def mu(px, py, pz) = m_rho(px, py, pz) * m_vs(px, py, pz) ** 2
+def mu(px, py, pz) = m.rho(px, py, pz) * m.vs(px, py, pz) ** 2
 
 mu(x, y, z)
 )";
 
 constexpr auto TwoGridsInterleaved = R"(
-grid vel = "asagi", "vel.nc", "linear", "vp", "vs"
+grid vel (kind = "asagi", path = "vel.nc", components = ("vp", "vs"), interpolation = "linear")
 def half(a) = a / 2
-grid topo = "scec", "topo.bin", "nearest", "elevation"
-half(vel_vp(x, y, z)) + topo_elevation(x, y)
+grid fault (kind = "scec", path = "fault.txt", components = ("mu_s"), interpolation = "nearest")
+half(vel.vp(x, y, z)) + fault.mu_s(x, y)
 )";
 
 constexpr auto SelectOverLookup = R"(
-grid m = "asagi", "model.nc", "linear", "rho"
-select(lt(z, -1000), m_rho(x, y, z), 2700)
+grid m (kind = "asagi", path = "model.nc", components = ("rho"), interpolation = "linear")
+select(lt(z, -1000), m.rho(x, y, z), 2700)
 )";
 
-constexpr auto EscapedPath = R"(grid m = "asagi", "C:\\models\\a\"b.nc", "linear", "rho"
-m_rho(x, y, z))";
+constexpr auto EscapedPath =
+    R"(grid m (kind = "asagi", path = "C:\\models\\a\"b.nc", components = ("rho"), interpolation = "linear")
+m.rho(x, y, z))";
 
 constexpr auto SharedSubexpression = R"(
 let r = sqrt(x*x + y*y) in r + r * 2
 )";
 
-constexpr auto StringInExpression = R"(grid m = "asagi", "model.nc", "linear", "rho"
-m_rho(x, y, z) + "oops")";
+constexpr auto StringInExpression =
+    R"(grid m (kind = "asagi", path = "model.nc", components = ("rho"), interpolation = "linear")
+m.rho(x, y, z) + "oops")";
 
-constexpr auto UnknownKind = R"(grid m = "hdf5", "m.nc", "linear", "rho"
-m_rho(x, y, z))";
+constexpr auto UnknownKind =
+    R"(grid m (kind = "hdf5", path = "m.nc", components = ("rho"), interpolation = "linear")
+m.rho(x, y, z))";
 
-constexpr auto SwappedFileAndInterpolation = R"(grid m = "asagi", "linear", "model.nc", "rho"
-m_rho(x, y, z))";
+constexpr auto UnknownInterpolation =
+    R"(grid m (kind = "asagi", path = "model.nc", components = ("rho"), interpolation = "model.nc")
+m.rho(x, y, z))";
 
-constexpr auto NoComponents = R"(grid m = "asagi", "model.nc", "linear"
+constexpr auto NoComponents =
+    R"(grid m (kind = "asagi", path = "model.nc", interpolation = "linear")
 x)";
 
-constexpr auto DuplicateComponent = R"(grid m = "asagi", "model.nc", "linear", "rho", "rho"
-m_rho(x, y, z))";
+constexpr auto DuplicateComponent =
+    R"(grid m (kind = "asagi", path = "model.nc", components = ("rho", "rho"), interpolation = "linear")
+m.rho(x, y, z))";
 
-constexpr auto CollidesWithDef = R"(grid m = "asagi", "model.nc", "linear", "rho"
-def m_rho(a) = a
-m_rho(x))";
+constexpr auto GridNamedLikeDefinition =
+    R"(grid m (kind = "asagi", path = "model.nc", components = ("rho"), interpolation = "linear")
+def m(a) = a
+m(x))";
 
-constexpr auto GridNameCollidesWithComponent = R"(grid m = "asagi", "a.nc", "linear", "rho"
-grid m_rho = "asagi", "b.nc", "linear", "q"
+constexpr auto NoSuchComponent =
+    R"(grid m (kind = "asagi", path = "model.nc", components = ("rho"), interpolation = "linear")
+m.vp(x, y, z))";
+
+constexpr auto NoSuchGrid = R"(n.rho(x, y, z))";
+
+constexpr auto GridAsValue =
+    R"(grid m (kind = "asagi", path = "model.nc", components = ("rho"), interpolation = "linear")
+m + 1)";
+
+constexpr auto ComponentWithoutCoordinates =
+    R"(grid m (kind = "asagi", path = "model.nc", components = ("rho"), interpolation = "linear")
+m.rho + 1)";
+
+constexpr auto UnterminatedString = R"(grid m (kind = "asagi", path = "model.nc)
 x)";
 
-constexpr auto UnterminatedString = R"(grid m = "asagi", "model.nc, "linear", "rho"
-x)";
+constexpr auto BareNameForString =
+    R"(grid m (kind = asagi, path = "model.nc", components = ("rho"), interpolation = "linear")
+m.rho(x, y, z))";
 
-constexpr auto BareNameForString = R"(grid m = asagi, "model.nc", "linear", "rho"
-m_rho(x, y, z))";
+constexpr auto WrongCoordinateCount =
+    R"(grid m (kind = "asagi", path = "model.nc", components = ("rho"), interpolation = "linear")
+m.rho(x, y, z, t, x, y, z))";
 
-constexpr auto WrongCoordinateCount = R"(grid m = "asagi", "model.nc", "linear", "rho"
-m_rho(x, y, z, t, x, y, z))";
+constexpr auto PositionalGrid = R"(grid m = "asagi", "model.nc", "linear", "rho"
+m.rho(x, y, z))";
 
 Program mustCompile(const std::string& source) {
   return compileSderiv(source, /*outputName=*/"out");
@@ -128,7 +151,7 @@ TEST_SUITE("SderivFrontend") {
         ++lookups;
       }
     }
-    // m_rho and m_vs are read; m_vp is declared but unused and must not appear.
+    // m.rho and m.vs are read; m.vp is declared but unused and must not appear.
     CHECK(lookups == 2);
   }
 
@@ -165,13 +188,14 @@ TEST_SUITE("SderivFrontend") {
   TEST_CASE("a grid of layers gives its knots and values, and a file its axes") {
     const auto program = mustCompile(
         "grid layers (kind = \"inline\", components = (\"rho\", \"mu\"),\n"
-        "             knots = ((-3000, -2000, -1000)), values = (3000, 40, 2700, 20, 2600, 10),\n"
+        "             knots = ((-3000, -2000, -1000)),\n"
+        "             values = ((3000, 40), (2700, 20), (2600, 10)),\n"
         "             interpolation = \"next\", boundary = \"clamp\")\n"
         "grid m (kind = \"asagi\", path = \"model.nc\", variable = \"data\", components = "
         "(\"vs\"),\n"
         "        axes = (\"uniform\", \"knots\"), interpolation = (\"cubic\", \"previous\"),\n"
         "        boundary = (\"clamp\", \"fail\"))\n"
-        "layers_rho(z) + layers_mu(z) + m_vs(x, z)");
+        "layers.rho(z) + layers.mu(z) + m.vs(x, z)");
     REQUIRE(program.grids().size() == 2);
     const auto& layers = program.grids()[0];
     CHECK(layers.kind == reader::datafield::GridKind::Inline);
@@ -189,15 +213,83 @@ TEST_SUITE("SderivFrontend") {
     CHECK(m.boundaryOf(0) == reader::datafield::BoundaryMode::Clamp);
     CHECK(m.boundaryOf(1) == reader::datafield::BoundaryMode::Fail);
 
-    // an axis of knots is not cubic; a file reads its knots, and an inline grid has no path
+    // an axis of knots is not cubic; a file reads its knots
     mustReject("grid m (kind = \"asagi\", path = \"model.nc\", variable = \"data\", components = "
                "(\"vs\"), axes = (\"knots\"), interpolation = \"cubic\", boundary = \"clamp\")\n"
-               "m_vs(z)",
+               "m.vs(z)",
                "not cubic");
     mustReject("grid m (kind = \"asagi\", path = \"model.nc\", variable = \"data\", components = "
                "(\"vs\"), knots = ((1, 2)), interpolation = \"linear\", boundary = \"clamp\")\n"
-               "m_vs(z)",
-               "reads its knots and values from the file");
+               "m.vs(z)",
+               "a grid of the kind \"asagi\" has no attribute `knots`");
+  }
+
+  TEST_CASE("the values of an inline grid nest as its axes and components") {
+    // two axes: a row per knot of axis 1, a node per knot of axis 0, the components of a node
+    const auto program = mustCompile("grid t (kind = \"inline\", components = (\"a\", \"b\"),\n"
+                                     "        knots = ((0, 1, 2), (10, 20)),\n"
+                                     "        values = (((1, 2), (3, 4), (5, 6)),\n"
+                                     "                  ((7, 8), (9, 10), (11, 12))),\n"
+                                     "        interpolation = \"linear\")\n"
+                                     "t.a(x, z) + t.b(x, z)");
+    REQUIRE(program.grids().size() == 1);
+    REQUIRE(program.grids()[0].data != nullptr);
+    CHECK(program.grids()[0].data->values ==
+          std::vector<double>{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12});
+
+    const std::string head = "grid t (kind = \"inline\", components = (\"a\", \"b\"), knots = "
+                             "((0, 1, 2), (10, 20)), interpolation = \"linear\", values = ";
+    // the flat form of before, a row too short, a node without its second component, a number
+    // where a node is, and a tuple where a number is
+    mustReject(head + "(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\nt.a(x, z)",
+               "expected the 2 nodes along axis 1, not 12");
+    mustReject(head + "(((1, 2), (3, 4)), ((7, 8), (9, 10), (11, 12))))\nt.a(x, z)",
+               "expected the 3 nodes along axis 0, not 2");
+    mustReject(head + "(((1, 2), (3, 4), (5)), ((7, 8), (9, 10), (11, 12))))\nt.a(x, z)",
+               "expected the 2 components of a node (a, b), not 1");
+    mustReject(head + "(((1, 2), (3, 4), 5), ((7, 8), (9, 10), (11, 12))))\nt.a(x, z)",
+               "expected a tuple of the 2 components of a node (a, b)");
+    mustReject(head + "(((1, 2), (3, 4), (5, (6))), ((7, 8), (9, 10), (11, 12))))\nt.a(x, z)",
+               "a value of a node is a number, not a tuple");
+  }
+
+  TEST_CASE("a grid gives the attributes of its kind, and the defaults fill the rest") {
+    // an ASAGI file reads the variable z where it names none, and every grid clamps by default
+    const auto plain = mustCompile(GridAndDef);
+    CHECK(plain.grids()[0].variable == "z");
+    CHECK(plain.grids()[0].boundary == reader::datafield::BoundaryMode::Clamp);
+    // a SCEC file and a table have no variable, and a table its coordinates
+    const auto fault = mustCompile(TwoGridsInterleaved);
+    CHECK(fault.grids()[1].kind == reader::datafield::GridKind::Scec);
+    CHECK(fault.grids()[1].variable.empty());
+    CHECK(fault.grids()[1].columns == std::vector<std::string>{"mu_s"});
+    const auto table =
+        mustCompile("grid t (kind = \"table\", path = \"profile.csv\", coordinates = (\"depth\"),\n"
+                    "        components = (\"rho\", \"vs\"), interpolation = \"linear\")\n"
+                    "t.vs(z)");
+    CHECK(table.grids()[0].kind == reader::datafield::GridKind::Table);
+    CHECK(table.grids()[0].coordinates == std::vector<std::string>{"depth"});
+    CHECK(table.grids()[0].columns == std::vector<std::string>{"rho", "vs"});
+    CHECK(table.grids()[0].axisOf(0) == reader::datafield::AxisKind::Knots);
+
+    mustReject("grid f (kind = \"scec\", path = \"f.txt\", variable = \"z\", components = "
+               "(\"mu_s\"), interpolation = \"linear\")\nf.mu_s(x, z)",
+               "a grid of the kind \"scec\" has no attribute `variable`");
+    mustReject("grid f (kind = \"scec\", path = \"f.txt\", components = (\"friction\"), "
+               "interpolation = \"linear\")\nf.friction(x, z)",
+               "a SCEC file has no component \"friction\"; it has s_normal, s_strike");
+    mustReject("grid t (kind = \"table\", path = \"t.csv\", components = (\"v\"), interpolation "
+               "= \"linear\")\nt.v(z)",
+               "gives no coordinates");
+    mustReject("grid t (kind = \"table\", path = \"t.csv\", coordinates = (\"z\"), components = "
+               "(\"z\"), interpolation = \"linear\")\nt.z(z)",
+               "the column \"z\" of a table is a coordinate and a component");
+    mustReject("grid t (kind = \"table\", path = \"t.csv\", coordinates = (\"z\"), components = "
+               "(\"v\"), interpolation = \"cubic\")\nt.v(z)",
+               "not cubic");
+    mustReject("grid l (kind = \"inline\", path = \"l.txt\", components = (\"v\"), knots = ((1, "
+               "2)), values = ((1), (2)), interpolation = \"linear\")\nl.v(z)",
+               "a grid of the kind \"inline\" has no attribute `path`");
   }
 
   TEST_CASE("a grid declared with attributes states its boundary and its time axis") {
@@ -205,7 +297,7 @@ TEST_SUITE("SderivFrontend") {
         "grid m (kind = \"asagi\", path = \"model.nc\", variable = \"data\",\n"
         "        components = (\"rho\", \"mu\"), interpolation = \"cubic\", boundary = \"fail\",\n"
         "        time = 3)\n"
-        "m_mu(x, y, z, t)");
+        "m.mu(x, y, z, t)");
     REQUIRE(program.grids().size() == 1);
     const auto& desc = program.grids()[0];
     CHECK(desc.path == "model.nc");
@@ -221,7 +313,7 @@ TEST_SUITE("SderivFrontend") {
     }
     CHECK(sampled);
 
-    // the short form clamps and has no time axis
+    // without them, it clamps and has no time axis
     const auto plain = mustCompile(GridAndDef);
     CHECK(plain.grids()[0].boundary == reader::datafield::BoundaryMode::Clamp);
     CHECK_FALSE(plain.grids()[0].timeAxis.has_value());
@@ -229,21 +321,25 @@ TEST_SUITE("SderivFrontend") {
     // one component may stand alone; the time axis is optional
     const auto single = mustCompile(
         "grid g (kind = \"asagi\", path = \"g.nc\", variable = \"z\", components = \"v\",\n"
-        "        interpolation = \"linear\", boundary = \"clamp\")\ng_v(x, y)");
+        "        interpolation = \"linear\", boundary = \"clamp\")\ng.v(x, y)");
     CHECK_FALSE(single.grids()[0].timeAxis.has_value());
   }
 
   TEST_CASE("a grid declared with attributes gives all of them, once, and only those") {
     const std::string head = "grid m (kind = \"asagi\", path = \"m.nc\", variable = \"z\", "
-                             "components = (\"rho\"), interpolation = \"linear\"";
-    mustReject(head + ")\nm_rho(x, y, z)", "gives no boundary");
-    mustReject(head + ", boundary = \"wrap\")\nm_rho(x, y, z)", "unknown boundary \"wrap\"");
-    mustReject(head + ", boundary = \"clamp\", colour = \"red\")\nm_rho(x, y, z)",
+                             "components = (\"rho\")";
+    mustReject(head + ")\nm.rho(x, y, z)", "gives no interpolation");
+    mustReject(head + ", interpolation = \"linear\", boundary = \"wrap\")\nm.rho(x, y, z)",
+               "unknown boundary \"wrap\"");
+    mustReject(head + ", interpolation = \"linear\", colour = \"red\")\nm.rho(x, y, z)",
                "unknown attribute `colour`");
-    mustReject(head + ", boundary = \"clamp\", boundary = \"fail\")\nm_rho(x, y, z)",
+    mustReject(head + ", interpolation = \"linear\", boundary = \"clamp\", boundary = "
+                      "\"fail\")\nm.rho(x, y, z)",
                "`boundary` is given twice");
-    mustReject(head + ", boundary = \"clamp\", time = 1.5)\nm_rho(x, y, z)", "the time is an axis");
-    mustReject(head + ", boundary = \"clamp\", time = 3)\nm_rho(x, y, z)", "axis 3 is the time");
+    mustReject(head + ", interpolation = \"linear\", time = 1.5)\nm.rho(x, y, z)",
+               "the time is an axis");
+    mustReject(head + ", interpolation = \"linear\", time = 3)\nm.rho(x, y, z)",
+               "axis 3 is the time");
   }
 
   TEST_CASE("the input signature is inferred with no declaration at all") {
@@ -317,29 +413,31 @@ TEST_SUITE("SderivFrontend") {
     mustReject(UnknownKind, "unknown kind");
   }
 
-  TEST_CASE("swapping the file and the interpolation is caught before load") {
-    // Both slots are strings, so only the closed vocabulary of the
-    // interpolation slot makes this detectable without touching the disk.
-    mustReject(SwappedFileAndInterpolation, "swapped");
+  TEST_CASE("an interpolation outside the vocabulary is caught before load") {
+    mustReject(UnknownInterpolation, "unknown interpolation \"model.nc\"");
   }
 
   TEST_CASE("a grid must declare at least one component") {
-    mustReject(NoComponents, "no components");
+    mustReject(NoComponents, "gives no components");
   }
 
   TEST_CASE("a duplicate component is rejected") {
     mustReject(DuplicateComponent, "duplicate component");
   }
 
-  TEST_CASE("a generated component name may not collide with a def") {
-    mustReject(CollidesWithDef, "collides");
+  TEST_CASE("a grid shares the namespace of the definitions") {
+    mustReject(GridNamedLikeDefinition, "has the name of a definition");
   }
 
-  TEST_CASE("a grid may not be named like another grid's component function") {
-    // Not formally ambiguous, since a grid name is never an expression -- but
-    // `m_rho(...)` would be unreadable. This is what underscore flattening
-    // costs, and the price of not adding a `.` token.
-    mustReject(GridNameCollidesWithComponent, "same name as a component function");
+  TEST_CASE("a sample names a grid and one of its components, and has coordinates") {
+    mustReject(NoSuchComponent, "the grid `m` has no component `vp`; it has rho");
+    mustReject(NoSuchGrid, "`n` is no grid");
+    mustReject(GridAsValue, "`m` is a grid; a component of it is sampled as m.c(x, y, z)");
+    mustReject(ComponentWithoutCoordinates, "sampled with coordinates: m.rho(x, y, z)");
+  }
+
+  TEST_CASE("a grid gives its attributes in parentheses") {
+    mustReject(PositionalGrid, "its attributes follow in parentheses");
   }
 
   TEST_CASE("an unterminated string points at its opening quote") {
@@ -357,8 +455,9 @@ TEST_SUITE("SderivFrontend") {
     // fails it is a lowering difference between the frontends, not a modelling
     // difference, because both sources are written to be the same expression.
     const auto sderiv = mustCompile(R"(
-grid m = "asagi", "model.nc", "linear", "rho"
-select(lt(z, -1000), m_rho(x, y, z), 2700)
+grid m (kind = "asagi", path = "model.nc", variable = "z", components = ("rho"),
+        interpolation = "linear", boundary = "clamp")
+select(lt(z, -1000), m.rho(x, y, z), 2700)
 )");
     const auto lua = mustCompile(SelectOverLookup);
     CHECK(sderiv.fingerprint() == lua.fingerprint());
@@ -369,13 +468,14 @@ select(lt(z, -1000), m_rho(x, y, z), 2700)
   TEST_CASE("a module names its own outputs and they can read each other") {
     const auto program = compileSderivModule(R"SD(
 # a small material model
-grid m = "asagi", "model.nc", "data", "linear", "rho", "vp", "vs"
+grid m (kind = "asagi", path = "model.nc", variable = "data", components = ("rho", "vp", "vs"),
+        interpolation = "linear")
 
-def vs = m_vs(x, y, z)
+def vs = m.vs(x, y, z)
 
-out def rho    = m_rho(x, y, z)
+out def rho    = m.rho(x, y, z)
 out def mu     = rho * vs * vs
-out def lambda = rho * m_vp(x, y, z)**2.0 - 2.0 * mu
+out def lambda = rho * m.vp(x, y, z)**2.0 - 2.0 * mu
 )SD");
 
     REQUIRE(program.outputs().size() == 3);

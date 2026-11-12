@@ -224,8 +224,9 @@ TEST_SUITE("ExprRtcCpu") {
     // written out (expandLookups()): the compiled kernel reads the grid through its descriptor, in
     // both shapes, at points inside the grid and far beyond it
     const Program program = compileSderivModule(
-        "grid m = \"asagi\", \"ramp.nc\", \"linear\", \"a\", \"b\"\n"
-        "out def u = m_b(x, y, z) * 0.5 + m_a(z, x, y)\nout def v = m_a(x, y, z)\n");
+        "grid m (kind = \"asagi\", path = \"ramp.nc\", components = (\"a\", \"b\"), interpolation "
+        "= \"linear\")\n"
+        "out def u = m.b(x, y, z) * 0.5 + m.a(z, x, y)\nout def v = m.a(x, y, z)\n");
     std::vector<double> x;
     std::vector<double> y;
     std::vector<double> z;
