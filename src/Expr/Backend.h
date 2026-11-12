@@ -240,9 +240,10 @@ struct GridClamps {
 };
 
 /// GridClamps of every grid of `program` (by GridId), at `points` points of the inputs `inputs`
-/// ([input][point], in the order of Program::inputs()), with the grids of `grids`: the interpreter
-/// evaluates the coordinates of every lookup there. Nothing for a program without lookups, or one
-/// whose coordinates read a contraction.
+/// ([input][point], in the order of Program::inputs(), and for a program with state its states
+/// before after them), with the grids of `grids`: the interpreter evaluates the coordinates of
+/// every lookup there. Nothing for a program without lookups, or one whose coordinates read a
+/// contraction.
 [[nodiscard]] std::vector<GridClamps> clampsAt(const Program& program,
                                                reader::datafield::GridStore& grids,
                                                const std::vector<double>& inputs,
@@ -290,10 +291,12 @@ struct BackendComparison {
 
 /// Compares what a kernel wrote for `program` in the call of `table` (or of `args`, with `table`
 /// null) with what the interpreter gives -- the program as written, nothing hoisted -- at a sample
-/// of the points of the call. Nothing for a program with state, which the evaluation would
-/// advance, or for outputs that cannot be read back. makeKernel() checks every compiled kernel so
-/// at its first call; SEISSOL_EXPR_CHECK=error (the default) stops a run where it deviates, `warn`
-/// warns, `off` checks nothing.
+/// of the points of the call. For a program with state, `states` are the states of the points of
+/// the call before it ([state][point - first]), which the interpreter starts from, and the next
+/// states are compared as well, following the outputs; nothing without them. Nothing for outputs
+/// that cannot be read back. makeKernel() checks every compiled kernel so at its first call;
+/// SEISSOL_EXPR_CHECK=error (the default) stops a run where it deviates, `warn` warns, `off` checks
+/// nothing.
 ///
 /// `perturbed` compares as for a backend on a GPU (the specification's "Checking a GPU backend"):
 /// against the tolerance of each value from perturbed evaluations, rather than bit for bit.
@@ -303,7 +306,8 @@ struct BackendComparison {
                            reader::datafield::GridStore& grids,
                            const reader::scripting::DataTable* table,
                            const KernelArgs* args,
-                           bool perturbed = false);
+                           bool perturbed = false,
+                           const std::vector<double>* states = nullptr);
 
 /// The same, from the inputs and outputs of the points of a pool read back by whoever can (a
 /// backend on a device): inputs[input * points + k] in the order of Program::inputs(),
@@ -331,14 +335,17 @@ void scanValues(const Program& program,
 /// What the interpreter gives for `program` -- as written, in its compute type -- at `points`
 /// points of the inputs `inputs` ([input][point], in the order of Program::inputs()), with the
 /// grids of `grids`: [output][point]. Where `branches` is not null, per select (by its instruction)
-/// the branch each point takes, 1 for the first. For a program without state or contractions, of
-/// which the inputs of a point are all it reads: what a record holds of a point.
+/// the branch each point takes, 1 for the first. For a program with state, from the states
+/// `states` ([state][point]), with the next states after the outputs. For a program without
+/// contractions, of which the inputs and the states of a point are all it reads: what a record
+/// holds of a point.
 [[nodiscard]] std::vector<double>
     interpretValues(const Program& program,
                     reader::datafield::GridStore& grids,
                     const std::vector<double>& inputs,
                     std::size_t points,
-                    std::map<std::size_t, std::vector<std::uint8_t>>* branches = nullptr);
+                    std::map<std::size_t, std::vector<std::uint8_t>>* branches = nullptr,
+                    const std::vector<double>* states = nullptr);
 
 /// The pool of a call on a device, whose values are copied one by one: its 1024 points of the
 /// smallest hash of their identity, and their identities; the groups and the extreme values are

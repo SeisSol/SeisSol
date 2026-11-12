@@ -331,6 +331,26 @@ std::optional<std::size_t> groupColumn(const Record& record) {
   return static_cast<std::size_t>(found - record.inputs.begin());
 }
 
+/// The inputs ([input][point]) and the states before ([state][point]) of `points` of `record`.
+void splitColumns(const Record& record,
+                  const std::vector<Record::Point>& points,
+                  std::vector<double>& inputs,
+                  std::vector<double>& states) {
+  const std::size_t n = points.size();
+  const std::size_t inputCount = record.inputs.size();
+  const std::size_t stateCount = record.states.size();
+  inputs.assign(inputCount * n, 0.0);
+  states.assign(stateCount * n, 0.0);
+  for (std::size_t k = 0; k < n; ++k) {
+    for (std::size_t i = 0; i < inputCount; ++i) {
+      inputs[i * n + k] = points[k].inputs[i];
+    }
+    for (std::size_t s = 0; s < stateCount; ++s) {
+      states[s * n + k] = points[k].inputs[inputCount + s];
+    }
+  }
+}
+
 } // namespace
 
 Record recordOf(const Program& program,
@@ -387,14 +407,17 @@ Record recordOf(const Program& program,
   for (const auto& output : program.outputs()) {
     record.outputs.push_back(output.name);
   }
+  for (const auto& state : program.state()) {
+    record.states.push_back(state.name);
+  }
   record.backendValues = compiled;
   record.tolerances = compiled && found.perturbed;
   record.clamps = found.clamps;
   record.grids = found.grids;
 
   const std::size_t n = found.points.size();
-  const std::size_t inputs = record.inputs.size();
-  const std::size_t outputs = record.outputs.size();
+  const std::size_t inputs = record.inputs.size() + record.states.size();
+  const std::size_t outputs = record.rows();
   for (std::size_t k = 0; k < n; ++k) {
     Record::Point point;
     point.rank = rank;
@@ -513,7 +536,14 @@ std::string printRecord(const Record& record) {
   for (const auto& input : record.inputs) {
     out << " " << input;
   }
-  for (const auto& output : record.outputs) {
+  for (const auto& state : record.states) {
+    out << " " << state << ":state";
+  }
+  std::vector<std::string> rows = record.outputs;
+  for (const auto& state : record.states) {
+    rows.push_back("next(" + state + ")");
+  }
+  for (const auto& output : rows) {
     out << " " << output << ":interpreter";
     if (record.backendValues) {
       out << " " << output << ":backend";
@@ -531,7 +561,7 @@ std::string printRecord(const Record& record) {
     for (const double value : point.inputs) {
       out << " " << hexOf(value);
     }
-    for (std::size_t o = 0; o < record.outputs.size(); ++o) {
+    for (std::size_t o = 0; o < record.rows(); ++o) {
       out << " " << hexOf(point.interpreter[o]);
       if (record.backendValues) {
         out << " " << hexOf(point.backend[o]);
@@ -683,12 +713,25 @@ Record parseRecord(const std::string& text, const std::string& file) {
   for (; c < columns.size() && columns[c].find(':') == std::string::npos; ++c) {
     record.inputs.push_back(columns[c]);
   }
+  for (; c < columns.size() && columns[c].size() > 6 &&
+         columns[c].compare(columns[c].size() - 6, 6, ":state") == 0;
+       ++c) {
+    record.states.push_back(columns[c].substr(0, columns[c].size() - 6));
+  }
+  std::size_t nextStates = 0;
   for (; c < columns.size(); ++c) {
     const auto colon = columns[c].rfind(':');
     const std::string name = columns[c].substr(0, colon);
     const std::string kind = columns[c].substr(colon + 1);
     if (kind == "interpreter") {
-      record.outputs.push_back(name);
+      if (startsWith(name, "next(") && nextStates < record.states.size() &&
+          name == "next(" + record.states[nextStates] + ")") {
+        ++nextStates;
+      } else if (nextStates > 0) {
+        reader.fail("an output after the next states: `" + columns[c] + "`");
+      } else {
+        record.outputs.push_back(name);
+      }
     } else if (kind == "backend") {
       record.backendValues = true;
     } else if (kind == "tolerance") {
@@ -698,8 +741,10 @@ Record parseRecord(const std::string& text, const std::string& file) {
     }
   }
   const std::size_t perOutput = 1 + (record.backendValues ? 1 : 0) + (record.tolerances ? 1 : 0);
-  if (columns.size() != lead + record.inputs.size() + perOutput * record.outputs.size()) {
-    reader.fail("the columns of the outputs are not complete");
+  if (nextStates != record.states.size() || columns.size() != lead + record.inputs.size() +
+                                                                  record.states.size() +
+                                                                  perOutput * record.rows()) {
+    reader.fail("the columns of the outputs and the states are not complete");
   }
 
   // the points
@@ -719,10 +764,10 @@ Record parseRecord(const std::string& text, const std::string& file) {
       }
       point.point = static_cast<std::size_t>(std::stoull(words[w++]));
       point.identity = std::stoull(words[w++]);
-      for (std::size_t i = 0; i < record.inputs.size(); ++i) {
+      for (std::size_t i = 0; i < record.inputs.size() + record.states.size(); ++i) {
         point.inputs.push_back(valueOf(words[w++]));
       }
-      for (std::size_t o = 0; o < record.outputs.size(); ++o) {
+      for (std::size_t o = 0; o < record.rows(); ++o) {
         point.interpreter.push_back(valueOf(words[w++]));
         if (record.backendValues) {
           point.backend.push_back(valueOf(words[w++]));
@@ -788,7 +833,8 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
           first.backend + ", " + record.fingerprint + " on " + record.backend);
     }
     if (record.inputs != first.inputs || record.outputs != first.outputs ||
-        record.backendValues != first.backendValues || record.compute != first.compute) {
+        record.states != first.states || record.backendValues != first.backendValues ||
+        record.compute != first.compute) {
       throw std::runtime_error("the records of program " + first.fingerprint +
                                " do not have the same columns or compute type");
     }
@@ -809,6 +855,7 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
   merged.program = first.program;
   merged.inputs = first.inputs;
   merged.outputs = first.outputs;
+  merged.states = first.states;
   merged.backendValues = first.backendValues;
   merged.tolerances = std::all_of(
       records.begin(), records.end(), [](const Record& record) { return record.tolerances; });
@@ -995,14 +1042,12 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
     return merged.scope.closedAll || hashes[found] <= merged.scope.bound;
   };
   if (n > 0) {
-    std::vector<double> inputs(merged.inputs.size() * n);
-    for (std::size_t k = 0; k < n; ++k) {
-      for (std::size_t i = 0; i < merged.inputs.size(); ++i) {
-        inputs[i * n + k] = points[k].inputs[i];
-      }
-    }
+    std::vector<double> inputs;
+    std::vector<double> states;
+    splitColumns(merged, points, inputs, states);
     std::map<std::size_t, std::vector<std::uint8_t>> branches;
-    static_cast<void>(interpretValues(program, grids, inputs, n, &branches));
+    static_cast<void>(
+        interpretValues(program, grids, inputs, n, &branches, states.empty() ? nullptr : &states));
     for (const auto& [select, taken] : branches) {
       static_cast<void>(select);
       for (const std::uint8_t branch : {std::uint8_t{1}, std::uint8_t{0}}) {
@@ -1022,7 +1067,9 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
         }
       }
     }
-    const auto clamps = clampsAt(program, grids, inputs, n);
+    std::vector<double> combined = inputs;
+    combined.insert(combined.end(), states.begin(), states.end());
+    const auto clamps = clampsAt(program, grids, combined, n);
     for (const auto& grid : clamps) {
       int taken = 0;
       for (const std::size_t k : byHash) {
@@ -1115,29 +1162,29 @@ Record mergeRecords(const std::vector<Record>& records, reader::datafield::GridS
 Replay replayRecord(const Record& record, reader::datafield::GridStore& grids) {
   const Program program = programOf(record);
   const std::size_t n = record.sample.size();
-  const std::size_t inputCount = record.inputs.size();
-  std::vector<double> inputs(inputCount * n);
-  for (std::size_t k = 0; k < n; ++k) {
-    for (std::size_t i = 0; i < inputCount; ++i) {
-      inputs[i * n + k] = record.sample[k].inputs[i];
-    }
-  }
+  std::vector<double> inputs;
+  std::vector<double> states;
+  splitColumns(record, record.sample, inputs, states);
   Replay replay;
   replay.points = n;
   if (n == 0) {
     return replay;
   }
-  const auto values = interpretValues(program, grids, inputs, n);
+  const auto values =
+      interpretValues(program, grids, inputs, n, nullptr, states.empty() ? nullptr : &states);
   constexpr std::size_t Described = 8;
   for (std::size_t k = 0; k < n; ++k) {
-    for (std::size_t o = 0; o < record.outputs.size(); ++o) {
+    for (std::size_t o = 0; o < record.rows(); ++o) {
       const double now = values[o * n + k];
       const double then = record.sample[k].interpreter[o];
       if (sameBits(now, then)) {
         continue;
       }
       if (replay.differing++ < Described) {
-        replay.differences.push_back("`" + record.outputs[o] + "` at the point of identity " +
+        const std::string name = o < record.outputs.size()
+                                     ? record.outputs[o]
+                                     : "next(" + record.states[o - record.outputs.size()] + ")";
+        replay.differences.push_back("`" + name + "` at the point of identity " +
                                      std::to_string(record.sample[k].identity) + ": " + hexOf(now) +
                                      ", recorded " + hexOf(then));
       }

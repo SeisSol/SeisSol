@@ -133,6 +133,68 @@ TEST_SUITE("expr records") {
     CHECK_THROWS_AS(static_cast<void>(expr::parseRecord("backend = x\n", "")), std::runtime_error);
   }
 
+  TEST_CASE("a program with state is compared and recorded from its states before the call") {
+    const expr::Program program = expr::loadCore(
+        "#!sderiv 1\nin x\nstate s = 0.5\ndef t0 = s + x\nnext s = t0\ndef t1 = 2 * s\n"
+        "out u = t1\n",
+        "");
+    constexpr std::size_t Points = 50;
+    std::vector<double> x(Points);
+    std::vector<double> u(Points);
+    for (std::size_t i = 0; i < Points; ++i) {
+      x[i] = 0.25 * static_cast<double>(i);
+    }
+    reader::scripting::DataTable table(Points);
+    table.bindViewConst<double>("x", reader::scripting::Direction::In, x.data());
+    table.bindView<double>("u", reader::scripting::Direction::Out, u.data());
+    auto binding = expr::Binding::bind(program, table);
+    reader::datafield::GridStore store;
+    expr::BackendOptions options;
+    options.quiet = true;
+    const auto kernel = expr::makeKernel(program, binding, store, options);
+    kernel->precompute(table);
+    // the second call, from the states the first one left
+    kernel->run(table);
+    std::vector<double> before(Points);
+    for (std::size_t i = 0; i < Points; ++i) {
+      before[i] = 0.5 + x[i];
+    }
+    kernel->run(table);
+    const auto comparison =
+        expr::compareWithInterpreter(program, binding, store, &table, nullptr, false, &before);
+    REQUIRE(comparison.has_value());
+    CHECK(comparison->deviating == 0);
+    // without the states before, nothing
+    CHECK_FALSE(expr::compareWithInterpreter(program, binding, store, &table, nullptr).has_value());
+
+    const expr::Record record =
+        expr::recordOf(program, "interpreter", *comparison, {"build = the test"}, 0);
+    CHECK(record.states == std::vector<std::string>{"s"});
+    const std::string text = expr::printRecord(record);
+    CAPTURE(text);
+    CHECK(text.find("point identity x s:state u:interpreter next(s):interpreter\n") !=
+          std::string::npos);
+    const expr::Record read = expr::parseRecord(text, "");
+    CHECK(expr::printRecord(read) == text);
+    // the output from the state before, the next state after it: u = 2 s, next s = s + x
+    for (const auto& point : read.sample) {
+      const double xValue = point.inputs[0];
+      const double state = point.inputs[1];
+      CHECK(state == 0.5 + xValue);
+      CHECK(point.interpreter[0] == 2.0 * state);
+      CHECK(point.interpreter[1] == state + xValue);
+    }
+    const expr::Replay replay = expr::replayRecord(read, store);
+    CHECK(replay.points == read.sample.size());
+    CHECK(replay.differing == 0);
+    // a next state the interpreter does not give
+    expr::Record changed = read;
+    changed.sample[0].interpreter[1] += 1.0;
+    const expr::Replay again = expr::replayRecord(changed, store);
+    REQUIRE(again.differing == 1);
+    CHECK(again.differences[0].find("`next(s)`") == 0);
+  }
+
   TEST_CASE(
       "the samples of the ranks merge into the sample of all points, whatever the partition") {
     const expr::Program program = expr::loadCore(RecordProgram, "");

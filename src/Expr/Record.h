@@ -82,6 +82,9 @@ struct Record {
 
   std::vector<std::string> inputs;
   std::vector<std::string> outputs;
+  /// the states of a program with state: a point has their values before the call after its inputs
+  /// (columns `s:state`), and the next ones after its outputs (columns `next(s):...`)
+  std::vector<std::string> states;
   /// whether the sample has the backend's values (for a compiled backend), and their tolerances
   /// (against the perturbed reference)
   bool backendValues{false};
@@ -99,6 +102,9 @@ struct Record {
   std::vector<Point> sample;
   /// where a perturbed evaluation decides a select otherwise: the point and its identity
   std::vector<std::pair<std::size_t, std::uint64_t>> unstable;
+
+  /// The values per point after the outputs: the outputs, then the next states.
+  [[nodiscard]] std::size_t rows() const { return outputs.size() + states.size(); }
 
   /// What the backend wrote at the point `k` of the sample for output `o`: the interpreter's value
   /// for the interpreter.

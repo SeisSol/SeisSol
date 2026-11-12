@@ -386,14 +386,20 @@ std::vector<std::size_t> spreadPoints(std::size_t first, std::size_t count) {
 template <typename T>
 class SampleTileIo final : public TileIo<T> {
   public:
+  /// `states`, for a program with state: the states of the points of the call from `first` before
+  /// it, [state][point - first], which the next states follow the outputs in `outputs`.
   SampleTileIo(const Binding& binding,
                const DataTable* table,
                const KernelArgs* args,
                const std::vector<std::size_t>& points,
                std::vector<double>& outputs,
-               std::size_t outputCount)
+               std::size_t outputCount,
+               const std::vector<double>* states = nullptr,
+               std::size_t first = 0,
+               std::size_t count = 0)
       : binding_(&binding), table_(table), args_(args), points_(points), outputs_(&outputs),
-        outputCount_(outputCount), inputs_(binding.inputs().size()) {
+        outputCount_(outputCount), inputs_(binding.inputs().size()), states_(states), first_(first),
+        count_(count) {
     // the point each lane is, past the permutation, as a contraction reads it
     for (const std::size_t point : points) {
       permuted_.push_back(binding.permutation().empty() ? point : binding.permutation()[point]);
@@ -439,6 +445,26 @@ class SampleTileIo final : public TileIo<T> {
     return permuted_.data() + first;
   }
 
+  void gatherState(std::size_t first, std::size_t count, T* dst) const override {
+    const std::size_t states = states_ == nullptr || count_ == 0 ? 0 : states_->size() / count_;
+    for (std::size_t s = 0; s < states; ++s) {
+      for (std::size_t lane = 0; lane < count; ++lane) {
+        dst[s * count + lane] =
+            static_cast<T>((*states_)[s * count_ + points_[first + lane] - first_]);
+      }
+    }
+  }
+
+  void scatterState(std::size_t first, std::size_t count, const T* src) override {
+    const std::size_t states = states_ == nullptr || count_ == 0 ? 0 : states_->size() / count_;
+    for (std::size_t s = 0; s < states; ++s) {
+      for (std::size_t lane = 0; lane < count; ++lane) {
+        (*outputs_)[(outputCount_ + s) * points_.size() + first + lane] =
+            static_cast<double>(src[s * count + lane]);
+      }
+    }
+  }
+
   private:
   const Binding* binding_;
   const DataTable* table_;
@@ -448,6 +474,9 @@ class SampleTileIo final : public TileIo<T> {
   std::vector<double>* outputs_;
   std::size_t outputCount_;
   mutable std::vector<T> inputs_;
+  const std::vector<double>* states_;
+  std::size_t first_;
+  std::size_t count_;
 };
 
 /// Interp.h's TileIo over the values of the points of a sample: their inputs, given, and their
@@ -455,13 +484,35 @@ class SampleTileIo final : public TileIo<T> {
 template <typename T>
 class ValuesTileIo final : public TileIo<T> {
   public:
+  /// `states`, for a program with state: its states before, [state][point], which the next states
+  /// follow the outputs in `outputs`.
   ValuesTileIo(const std::vector<double>& inputs,
                std::size_t inputCount,
                std::size_t points,
                std::vector<double>& outputs,
-               std::size_t outputCount)
+               std::size_t outputCount,
+               const std::vector<double>* states = nullptr)
       : inputs_(&inputs), inputCount_(inputCount), points_(points), outputs_(&outputs),
-        outputCount_(outputCount) {}
+        outputCount_(outputCount), states_(states) {}
+
+  void gatherState(std::size_t first, std::size_t count, T* dst) const override {
+    const std::size_t states = states_ == nullptr || points_ == 0 ? 0 : states_->size() / points_;
+    for (std::size_t s = 0; s < states; ++s) {
+      for (std::size_t lane = 0; lane < count; ++lane) {
+        dst[s * count + lane] = static_cast<T>((*states_)[s * points_ + first + lane]);
+      }
+    }
+  }
+
+  void scatterState(std::size_t first, std::size_t count, const T* src) override {
+    const std::size_t states = states_ == nullptr || points_ == 0 ? 0 : states_->size() / points_;
+    for (std::size_t s = 0; s < states; ++s) {
+      for (std::size_t lane = 0; lane < count; ++lane) {
+        (*outputs_)[(outputCount_ + s) * points_ + first + lane] =
+            static_cast<double>(src[s * count + lane]);
+      }
+    }
+  }
 
   void gather(std::size_t first, std::size_t count, T* dst) const override {
     for (std::size_t i = 0; i < inputCount_; ++i) {
@@ -485,7 +536,25 @@ class ValuesTileIo final : public TileIo<T> {
   std::size_t points_;
   std::vector<double>* outputs_;
   std::size_t outputCount_;
+  const std::vector<double>* states_;
 };
+
+/// The states of `count` points from `first`, [state][point], read as the kernels keep them: in
+/// the type the program moves its data in (Binding::dataType()).
+void gatherStates(const Binding& binding,
+                  void* const* bases,
+                  std::size_t baseCount,
+                  std::size_t first,
+                  std::size_t count,
+                  double* dst) {
+  if (binding.dataType() == ComputeType::F32) {
+    std::vector<float> values(binding.states().size() * count);
+    binding.gatherState(bases, baseCount, first, count, values.data());
+    std::copy(values.begin(), values.end(), dst);
+  } else {
+    binding.gatherState(bases, baseCount, first, count, dst);
+  }
+}
 
 /// A compiled kernel, checked at its first call (the specification's check of a backend): at a
 /// sample of the points of the call, the interpreter evaluates the program as written -- nothing
@@ -506,26 +575,49 @@ class CheckedKernel final : public Kernel {
   void precompute(const DataTable& table) override { inner_->precompute(table); }
 
   void run(const DataTable& table) override {
+    const auto states = checked_ ? std::vector<double>() : statesBefore(nullptr);
     inner_->run(table);
     if (!checked_) {
       checked_ = true;
-      compare(&table, nullptr);
+      compare(&table, nullptr, states);
     }
   }
 
   void run(const KernelArgs& args) override {
+    const auto states = checked_ ? std::vector<double>() : statesBefore(&args);
     inner_->run(args);
     if (!checked_) {
       checked_ = true;
-      compare(nullptr, &args);
+      compare(nullptr, &args, states);
     }
   }
 
   [[nodiscard]] BackendKind kind() const override { return inner_->kind(); }
 
   private:
-  void compare(const DataTable* table, const KernelArgs* args) {
-    const auto comparison = compareWithInterpreter(program_, *binding_, *grids_, table, args);
+  /// For a program with state, the states of the points of the call before it, [state][point -
+  /// first], which the interpreter starts from; empty for a call too large to keep them.
+  [[nodiscard]] std::vector<double> statesBefore(const KernelArgs* args) const {
+    constexpr std::size_t MaxValues = std::size_t{1} << 24;
+    const std::size_t states = program_.state().size();
+    const std::size_t first = args != nullptr ? args->first : 0;
+    const std::size_t count = args != nullptr ? args->count : binding_->numPoints();
+    if (states == 0 || states * count > MaxValues) {
+      return {};
+    }
+    std::vector<double> values(states * count);
+    gatherStates(*binding_,
+                 args != nullptr ? args->states : nullptr,
+                 args != nullptr ? args->stateCount : 0,
+                 first,
+                 count,
+                 values.data());
+    return values;
+  }
+
+  void compare(const DataTable* table, const KernelArgs* args, const std::vector<double>& states) {
+    const auto comparison =
+        compareWithInterpreter(program_, *binding_, *grids_, table, args, false, &states);
     if (comparison.has_value()) {
       reportComparison(program_, inner_->kind(), *comparison);
     }
@@ -737,7 +829,8 @@ void interpretAt(const Program& program,
                  const InterpreterOptions& options,
                  const MakeIo& makeIo,
                  std::vector<double>& outputs) {
-  outputs.assign(program.outputs().size() * points, 0.0);
+  // the outputs, then the next states
+  outputs.assign((program.outputs().size() + program.state().size()) * points, 0.0);
   const auto io = makeIo(outputs);
   TileInterpreter<T> interpreter(program, lowered, arrays, options);
   std::vector<T> persistent(1, T(0));
@@ -815,6 +908,12 @@ BackendComparison compareAt(const Program& program,
   const auto& identities = callPool.identities;
   const std::size_t pool = points.size();
   const std::size_t outputs = program.outputs().size();
+  // the values judged: the outputs, then the next states
+  const std::size_t rows = outputs + program.state().size();
+  const auto rowName = [&](std::size_t o) {
+    return o < outputs ? program.outputs()[o].name
+                       : "next(" + program.state()[o - outputs].name + ")";
+  };
   const auto ids = internGrids(program, grids);
   const StoreArrays arrays(program, ids, grids);
   const GridArrays* sampled = ids.empty() ? nullptr : &arrays;
@@ -842,10 +941,10 @@ BackendComparison compareAt(const Program& program,
 
   // judged at every point of the pool
   std::vector<bool> chosen(pool, false);
-  std::vector<double> worstOfOutput(outputs, 0.0);
-  std::vector<std::size_t> worstPoint(outputs, pool);
+  std::vector<double> worstOfOutput(rows, 0.0);
+  std::vector<std::size_t> worstPoint(rows, pool);
   double worstUlps = 0.0;
-  for (std::size_t o = 0; o < outputs; ++o) {
+  for (std::size_t o = 0; o < rows; ++o) {
     for (std::size_t k = 0; k < pool; ++k) {
       const double a = backend[o * pool + k];
       const double r = reference.outputs[o * pool + k];
@@ -870,9 +969,8 @@ BackendComparison compareAt(const Program& program,
       const double ulps = deviation / std::max(ulpOf(r), ulpOf(a));
       if (comparison.worst.empty() || ulps > worstUlps || std::isnan(ulps)) {
         worstUlps = ulps;
-        comparison.worst = "`" + program.outputs()[o].name + "` at point " +
-                           std::to_string(points[k]) + " is " + hexOf(a) + ", the interpreter's " +
-                           hexOf(r);
+        comparison.worst = "`" + rowName(o) + "` at point " + std::to_string(points[k]) + " is " +
+                           hexOf(a) + ", the interpreter's " + hexOf(r);
       }
     }
   }
@@ -913,6 +1011,12 @@ BackendComparison compareAt(const Program& program,
       if (k < pool) {
         chosen[k] = true;
       }
+    }
+  }
+  // and where the next state deviates most
+  for (std::size_t o = outputs; o < rows; ++o) {
+    if (worstPoint[o] < pool) {
+      chosen[worstPoint[o]] = true;
     }
   }
   // from the closed pool: the points of the smallest hashes, which come first
@@ -988,10 +1092,10 @@ BackendComparison compareAt(const Program& program,
   comparison.points.resize(n);
   comparison.identities.resize(n);
   comparison.inputs.assign(inputCount * n, 0.0);
-  comparison.interpreter.assign(outputs * n, 0.0);
-  comparison.backend.assign(outputs * n, 0.0);
+  comparison.interpreter.assign(rows * n, 0.0);
+  comparison.backend.assign(rows * n, 0.0);
   if (perturbed) {
-    comparison.tolerance.assign(outputs * n, 0.0);
+    comparison.tolerance.assign(rows * n, 0.0);
   }
   for (std::size_t j = 0; j < n; ++j) {
     const std::size_t k = sample[j];
@@ -1000,7 +1104,7 @@ BackendComparison compareAt(const Program& program,
     for (std::size_t i = 0; i < inputCount; ++i) {
       comparison.inputs[i * n + j] = inputs[i * pool + k];
     }
-    for (std::size_t o = 0; o < outputs; ++o) {
+    for (std::size_t o = 0; o < rows; ++o) {
       comparison.interpreter[o * n + j] = reference.outputs[o * pool + k];
       comparison.backend[o * n + j] = backend[o * pool + k];
       if (perturbed) {
@@ -1133,10 +1237,13 @@ std::optional<BackendComparison> compareWithInterpreter(const Program& program,
                                                         GridStore& grids,
                                                         const DataTable* table,
                                                         const KernelArgs* args,
-                                                        bool perturbed) {
+                                                        bool perturbed,
+                                                        const std::vector<double>* states) {
   const std::size_t first = table != nullptr ? 0 : args->first;
   const std::size_t count = table != nullptr ? binding.numPoints() : args->count;
-  if (!program.state().empty() || count == 0) {
+  const std::size_t stateCount = program.state().size();
+  if (count == 0 ||
+      (stateCount > 0 && (states == nullptr || states->size() != stateCount * count))) {
     return std::nullopt;
   }
   // the identities of the points: the call's, where it gives them, else the table's
@@ -1171,12 +1278,22 @@ std::optional<BackendComparison> compareWithInterpreter(const Program& program,
   const auto& points = callPool.points;
   const std::size_t pool = points.size();
   const std::size_t outputs = program.outputs().size();
+  const std::size_t inputCount = binding.inputs().size();
 
-  // what the backend wrote at the pool, and the inputs there
-  std::vector<double> backend(outputs * pool, 0.0);
-  std::vector<double> inputs(binding.inputs().size() * pool, 0.0);
-  std::vector<double> value(std::max(outputs, binding.inputs().size()));
+  // what the backend wrote at the pool and the next states, and the inputs and the states before
+  std::vector<double> backend((outputs + stateCount) * pool, 0.0);
+  std::vector<double> inputs((inputCount + stateCount) * pool, 0.0);
+  std::vector<double> value(std::max({outputs, inputCount, stateCount}));
+  void* const* stateBases = args != nullptr ? args->states : nullptr;
+  const std::size_t stateBaseCount = args != nullptr ? args->stateCount : 0;
   for (std::size_t k = 0; k < pool; ++k) {
+    if (stateCount > 0) {
+      gatherStates(binding, stateBases, stateBaseCount, points[k], 1, value.data());
+      for (std::size_t s = 0; s < stateCount; ++s) {
+        backend[(outputs + s) * pool + k] = value[s];
+        inputs[(inputCount + s) * pool + k] = (*states)[s * count + points[k] - first];
+      }
+    }
     const bool read = table != nullptr
                           ? binding.gatherOutputs(*table, points[k], 1, value.data())
                           : binding.gatherOutputsFrom(
@@ -1192,16 +1309,18 @@ std::optional<BackendComparison> compareWithInterpreter(const Program& program,
     } else {
       binding.gatherFrom(args->inputs, args->inputCount, points[k], 1, value.data());
     }
-    for (std::size_t i = 0; i < binding.inputs().size(); ++i) {
+    for (std::size_t i = 0; i < inputCount; ++i) {
       inputs[i * pool + k] = value[i];
     }
   }
 
-  // the interpreter reads the inputs as the call did, through the binding
+  // the interpreter reads the inputs as the call did, through the binding, and the states as they
+  // were before it
   const auto makeIo = [&](auto tag) {
     using T = decltype(tag);
     return [&](std::vector<double>& results) -> std::unique_ptr<TileIo<T>> {
-      return std::make_unique<SampleTileIo<T>>(binding, table, args, points, results, outputs);
+      return std::make_unique<SampleTileIo<T>>(
+          binding, table, args, points, results, outputs, states, first, count);
     };
   };
   const auto makeFloat = makeIo(0.0F);
@@ -1237,7 +1356,8 @@ std::vector<double> interpretValues(const Program& program,
                                     GridStore& grids,
                                     const std::vector<double>& inputs,
                                     std::size_t points,
-                                    std::map<std::size_t, std::vector<std::uint8_t>>* branches) {
+                                    std::map<std::size_t, std::vector<std::uint8_t>>* branches,
+                                    const std::vector<double>* states) {
   const std::size_t outputs = program.outputs().size();
   const auto ids = internGrids(program, grids);
   const StoreArrays arrays(program, ids, grids);
@@ -1250,7 +1370,7 @@ std::vector<double> interpretValues(const Program& program,
     using T = decltype(tag);
     const auto makeIo = [&](std::vector<double>& values) {
       return std::make_unique<ValuesTileIo<T>>(
-          inputs, program.inputs().size(), points, values, outputs);
+          inputs, program.inputs().size(), points, values, outputs, states);
     };
     interpretAt<T>(program, lowered, sampled, points, options, makeIo, results);
   };
@@ -1389,11 +1509,23 @@ std::vector<GridClamps> clampsAt(const Program& program,
   }
   std::sort(lookups.begin(), lookups.end());
 
-  // a program of the coordinates of every lookup, on the inputs of the program
+  // a program of the coordinates of every lookup, on the inputs of the program, and on its states
+  // where `inputs` has them after the inputs
+  const bool withStates =
+      !program.state().empty() &&
+      inputs.size() == (program.inputs().size() + program.state().size()) * points;
+  if (!program.state().empty() && !withStates) {
+    return {};
+  }
   Program probe;
   probe.setComputeType(program.computeType());
   for (const auto& input : program.inputs()) {
     probe.addInput(input.name, input.type);
+  }
+  if (withStates) {
+    for (const auto& state : program.state()) {
+      probe.addInput(state.name, reader::scripting::DataType::F64);
+    }
   }
   std::vector<NodeId> coordinates;
   for (const NodeId lookup : lookups) {
