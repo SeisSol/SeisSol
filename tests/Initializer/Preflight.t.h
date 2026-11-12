@@ -9,6 +9,7 @@
 
 #include "Common/Filesystem.h"
 #include "Initializer/Preflight.h"
+#include "TestHelper.h"
 
 #include <array>
 #include <cstdio>
@@ -26,22 +27,23 @@
 
 namespace seissol::unit_test {
 
-TEST_CASE("The check option is taken out of the command line" *
+TEST_CASE("The check options are taken out of the command line" *
           doctest::test_suite("initializer")) {
   SUBCASE("Not given") {
     std::array<std::string, 2> words{"seissol", "parameters.par"};
     std::array<char*, 3> argv{words[0].data(), words[1].data(), nullptr};
     int argc = 2;
-    CHECK_FALSE(initializer::extractCheckOption(argc, argv.data()).has_value());
+    CHECK_FALSE(initializer::extractCheckOptions(argc, argv.data()).has_value());
     CHECK(argc == 2);
   }
   SUBCASE("Without a report") {
     std::array<std::string, 3> words{"seissol", "--check", "parameters.par"};
     std::array<char*, 4> argv{words[0].data(), words[1].data(), words[2].data(), nullptr};
     int argc = 3;
-    const auto report = initializer::extractCheckOption(argc, argv.data());
-    REQUIRE(report.has_value());
-    CHECK(report.value().empty());
+    const auto options = initializer::extractCheckOptions(argc, argv.data());
+    REQUIRE(options.has_value());
+    CHECK(options.value().reportPath.empty());
+    CHECK(options.value().depth == initializer::CheckDepth::Mesh);
     REQUIRE(argc == 2);
     CHECK(std::string(argv[1]) == "parameters.par");
   }
@@ -49,9 +51,39 @@ TEST_CASE("The check option is taken out of the command line" *
     std::array<std::string, 3> words{"seissol", "parameters.par", "--check=report.json"};
     std::array<char*, 4> argv{words[0].data(), words[1].data(), words[2].data(), nullptr};
     int argc = 3;
-    const auto report = initializer::extractCheckOption(argc, argv.data());
-    REQUIRE(report.has_value());
-    CHECK(report.value() == "report.json");
+    const auto options = initializer::extractCheckOptions(argc, argv.data());
+    REQUIRE(options.has_value());
+    CHECK(options.value().reportPath == "report.json");
+    CHECK(argc == 2);
+  }
+  SUBCASE("With a depth") {
+    std::array<std::string, 4> words{
+        "seissol", "--check-depth=files", "parameters.par", "--check=report.json"};
+    std::array<char*, 5> argv{
+        words[0].data(), words[1].data(), words[2].data(), words[3].data(), nullptr};
+    int argc = 4;
+    const auto options = initializer::extractCheckOptions(argc, argv.data());
+    REQUIRE(options.has_value());
+    CHECK(options.value().reportPath == "report.json");
+    CHECK(options.value().depth == initializer::CheckDepth::Files);
+    REQUIRE(argc == 2);
+    CHECK(std::string(argv[1]) == "parameters.par");
+  }
+  SUBCASE("The depth of the material model") {
+    std::array<std::string, 3> words{"seissol", "--check-depth=model", "parameters.par"};
+    std::array<char*, 4> argv{words[0].data(), words[1].data(), words[2].data(), nullptr};
+    int argc = 3;
+    const auto options = initializer::extractCheckOptions(argc, argv.data());
+    REQUIRE(options.has_value());
+    CHECK(options.value().depth == initializer::CheckDepth::Model);
+  }
+  SUBCASE("A depth alone asks for the check") {
+    std::array<std::string, 3> words{"seissol", "--check-depth=mesh", "parameters.par"};
+    std::array<char*, 4> argv{words[0].data(), words[1].data(), words[2].data(), nullptr};
+    int argc = 3;
+    const auto options = initializer::extractCheckOptions(argc, argv.data());
+    REQUIRE(options.has_value());
+    CHECK(options.value().depth == initializer::CheckDepth::Mesh);
     CHECK(argc == 2);
   }
 }
@@ -72,8 +104,10 @@ TEST_CASE("The check of a run finds the files it misses" * doctest::test_suite("
     file << "!ConstantMap\nmap:\n  rho: [1\n";
   }
   const auto reportPath = directory + "/report.json";
-  const int code = initializer::preflight(
-      directory + "/parameters.par", {"abortcriteria.endtime=2.0"}, std::nullopt, reportPath);
+  const int code = initializer::preflight(directory + "/parameters.par",
+                                          {"abortcriteria.endtime=2.0"},
+                                          std::nullopt,
+                                          {.reportPath = reportPath});
   CHECK(code == 1);
 
   std::stringstream content;
@@ -117,8 +151,10 @@ TEST_CASE("An error stops the check, and its report says which and where" *
   static_cast<void>(std::fflush(nullptr));
   const pid_t child = fork();
   if (child == 0) {
-    static_cast<void>(initializer::preflight(
-        directory + "/parameters.par", {"nosuchsection.field=1"}, std::nullopt, reportPath));
+    static_cast<void>(initializer::preflight(directory + "/parameters.par",
+                                             {"nosuchsection.field=1"},
+                                             std::nullopt,
+                                             {.reportPath = reportPath}));
     std::_Exit(0);
   }
   int status = 0;
@@ -138,5 +174,114 @@ TEST_CASE("An error stops the check, and its report says which and where" *
   std::filesystem::remove_all(directory);
 }
 #endif
+
+TEST_CASE("The check of a run finds the receivers that lie in no cell" *
+          doctest::test_suite("initializer")) {
+  const std::string directory = "preflight-mesh-test";
+  std::filesystem::create_directories(directory);
+  // the mesh is the unit cube, with absorbing faces all around
+  {
+    std::ofstream file(directory + "/parameters.par");
+    file << "&equations\nMaterialFileName = 'material.yaml'\n/\n"
+         << "&MeshNml\nMeshFile = '" << std::filesystem::absolute(tpath("Testing/mesh.h5")).string()
+         << "'\nmeshgenerator = 'PUML'\n/\n"
+         << "&Output\nOutputFile = 'output/data'\nReceiverOutput = 1\n"
+         << "RFileName = 'receivers.dat'\npickdt = 0.01\n"
+         << "iOutputMask = 1 1 1 1 1 1 1 1 1\n/\n"
+         << "&AbortCriteria\nEndTime = 1.0\n/\n";
+  }
+  {
+    std::ofstream file(directory + "/material.yaml");
+    file << "!ConstantMap\nmap:\n  rho: 1\n  mu: 1\n  lambda: 1\n";
+  }
+  {
+    // inside, on the boundary (which the tolerance of the receivers takes), and beyond it
+    std::ofstream file(directory + "/receivers.dat");
+    file << "0.5 0.5 0.5\n\n1.0 0.25 0.75\n0.5 0.5 1.25\n";
+  }
+  const auto reportPath = directory + "/report.json";
+
+  SUBCASE("With the whole mesh") {
+    const int code = initializer::preflight(
+        directory + "/parameters.par", {}, std::nullopt, {.reportPath = reportPath});
+    CHECK(code == 1);
+    std::stringstream content;
+    {
+      const std::ifstream stream(reportPath);
+      content << stream.rdbuf();
+    }
+    const auto report = content.str();
+    CHECK(report.find("\"depth\": \"mesh\"") != std::string::npos);
+    CHECK(report.find("The receiver 2 at (0.5, 0.5, 1.25)") != std::string::npos);
+    CHECK(report.find("lies in no cell of the mesh: it lies outside the mesh, z = 1.25 not in "
+                      "[0, 1]") != std::string::npos);
+    CHECK(report.find("\"found\": 2") != std::string::npos);
+    CHECK(report.find("\"5\": 24") != std::string::npos);
+  }
+  SUBCASE("With a face map that does not know a tag of the mesh") {
+    {
+      std::ofstream file(directory + "/facemap.yaml");
+      file << "regular: \"0\"\nfreeSurface: \"1\"\n";
+    }
+    const int code = initializer::preflight(directory + "/parameters.par",
+                                            {"meshnml.facemapfile=facemap.yaml"},
+                                            std::nullopt,
+                                            {.reportPath = reportPath});
+    CHECK(code == 1);
+    std::stringstream content;
+    {
+      const std::ifstream stream(reportPath);
+      content << stream.rdbuf();
+    }
+    CHECK(content.str().find("The mesh has 24 faces with the boundary condition tag 5, which the "
+                             "face map does not know") != std::string::npos);
+  }
+  SUBCASE("With the material model") {
+    const int code =
+        initializer::preflight(directory + "/parameters.par",
+                               {"output.receiveroutput=0"},
+                               std::nullopt,
+                               {.reportPath = reportPath, .depth = initializer::CheckDepth::Model});
+    CHECK(code == 0);
+    std::stringstream content;
+    {
+      const std::ifstream stream(reportPath);
+      content << stream.rdbuf();
+    }
+    const auto report = content.str();
+    CHECK(report.find("\"evaluated\": true") != std::string::npos);
+    CHECK(report.find("\"cells\": 24") != std::string::npos);
+    CHECK(report.find("\"minTimestep\"") != std::string::npos);
+    CHECK(report.find("\"supplied\": [") != std::string::npos);
+  }
+  SUBCASE("With a material model that misses a parameter") {
+    {
+      std::ofstream file(directory + "/material.yaml");
+      file << "!ConstantMap\nmap:\n  rho: 1\n  mu: 1\n  lamda: 1\n";
+    }
+    const int code = initializer::preflight(directory + "/parameters.par",
+                                            {"output.receiveroutput=0"},
+                                            std::nullopt,
+                                            {.reportPath = reportPath});
+    CHECK(code == 1);
+    std::stringstream content;
+    {
+      const std::ifstream stream(reportPath);
+      content << stream.rdbuf();
+    }
+    CHECK(content.str().find("names does not supply lambda, which the material") !=
+          std::string::npos);
+  }
+  SUBCASE("Without reading the whole mesh") {
+    const int code =
+        initializer::preflight(directory + "/parameters.par",
+                               {},
+                               std::nullopt,
+                               {.reportPath = reportPath, .depth = initializer::CheckDepth::Files});
+    CHECK(code == 0);
+  }
+
+  std::filesystem::remove_all(directory);
+}
 
 } // namespace seissol::unit_test

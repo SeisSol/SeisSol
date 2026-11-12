@@ -21,6 +21,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <hdf5.h>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -66,6 +68,26 @@ struct PumlCellArrays {
 };
 
 /**
+ * The boundary condition tag of the face @p face of a cell, the face counted as PUML counts them,
+ * where the values of the cell in the format @p format start at @p values : one value that packs
+ * the tags of the four faces, eight bits each in I32 and 16 in I64, or one value per face in I32x4.
+ * The values are 64-bit integers with the bits of the file (see PUMLReader::read).
+ */
+inline auto boundaryTag(const std::uint64_t* values,
+                        std::size_t face,
+                        seissol::initializer::parameters::BoundaryFormat format) -> std::uint32_t {
+  using seissol::initializer::parameters::BoundaryFormat;
+  if (format == BoundaryFormat::I32) {
+    return static_cast<std::uint32_t>((values[0] >> (8 * face)) & 0xff);
+  }
+  if (format == BoundaryFormat::I64) {
+    return static_cast<std::uint32_t>((values[0] >> (16 * face)) & 0xffff);
+  }
+  // I32x4, since PUMLReader::read takes no other format
+  return static_cast<std::uint32_t>(values[face]);
+}
+
+/**
  * The boundary condition tags of the faces of the cells, as a mesh file gives them: one value per
  * cell that packs the tags of its four faces, eight bits each in I32 and 16 in I64, or one value
  * per face in I32x4. Every value is read as a 64-bit integer whose bits are those of the file, so
@@ -79,14 +101,8 @@ struct BoundaryTagsView {
   /// the tag of a face of a local cell, the face counted as PUML counts them
   [[nodiscard]] auto tag(std::size_t cell, std::size_t face) const -> std::uint32_t {
     using seissol::initializer::parameters::BoundaryFormat;
-    if (format == BoundaryFormat::I32) {
-      return static_cast<std::uint32_t>((values[cell] >> (8 * face)) & 0xff);
-    }
-    if (format == BoundaryFormat::I64) {
-      return static_cast<std::uint32_t>((values[cell] >> (16 * face)) & 0xffff);
-    }
-    // I32x4, since PUMLReader::read takes no other format
-    return static_cast<std::uint32_t>(values[cell * Cell::NumFaces + face]);
+    const auto first = format == BoundaryFormat::I32x4 ? cell * Cell::NumFaces : cell;
+    return boundaryTag(&values[first], face, format);
   }
 };
 
@@ -106,6 +122,36 @@ struct HighOrderArrays {
 /// The local vertex order of a cell: entry k is the slot, in the vertex list of the cell as the
 /// mesh file gives it, of the vertex that SeisSol uses as local vertex k.
 using VertexOrder = std::array<std::uint8_t, Cell::NumVertices>;
+
+/**
+ * The canonical local vertex order of a cell with the global topological vertex ids @p topoVertices
+ * and the vertex coordinates @p coords , both in the vertex order of the file: the vertices sorted
+ * by their ids, and oriented negatively, as MeshReader::verifyMeshOrientation requires.
+ */
+VertexOrder canonicalVertexOrder(const std::array<PUML::GlobalId, Cell::NumVertices>& topoVertices,
+                                 const std::array<const double*, Cell::NumVertices>& coords);
+
+/// PUML face index -> SeisSol face index for the canonical vertex order @p order .
+std::array<std::uint8_t, Cell::NumFaces> canonicalFaceMap(const VertexOrder& order);
+
+/**
+ * The string attribute @p name of the HDF5 object @p object , if it has one. Needs no MPI, unlike
+ * the rest of the reader.
+ */
+std::optional<std::string> stringAttributeOf(hid_t object, const char* name);
+
+/**
+ * The boundary format of the open mesh file @p file : the one its attribute boundary-format names,
+ * or else the one the rank of /boundary implies (I32 for one dimension, I32x4 for two). Needs no
+ * MPI.
+ */
+auto boundaryFormatOf(hid_t file) -> seissol::initializer::parameters::BoundaryFormat;
+
+/**
+ * The topology format of the open mesh file @p file : the one its attribute topology-format names,
+ * or else the one the attributes identify or topology imply. Needs no MPI.
+ */
+auto topologyFormatOf(hid_t file) -> seissol::initializer::parameters::TopologyFormat;
 
 /**
  * The canonical local vertex order of every local cell of the two meshes, which have to

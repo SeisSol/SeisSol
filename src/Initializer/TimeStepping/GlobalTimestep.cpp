@@ -23,7 +23,7 @@
 #include <mpi.h>
 #include <vector>
 
-namespace {
+namespace seissol::initializer {
 
 double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
                            double pWaveVel,
@@ -47,10 +47,6 @@ double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
   return std::fmin(maximumAllowedTimeStep,
                    cfl * 2.0 * insphere / (pWaveVel * (2 * convergenceOrder - 1)));
 }
-
-} // namespace
-
-namespace seissol::initializer {
 
 GlobalTimestep
     computeTimesteps(const seissol::initializer::CellToVertexArray& cellToVertex,

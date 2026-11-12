@@ -78,7 +78,7 @@ bool canEvaluateFor(const std::set<std::string>& parameters) {
 }
 
 template <typename MaterialT, typename SurrogateMaterialT, typename... SurrogatesT>
-bool surrogateEvaluate(const std::string& fileName,
+bool surrogateEvaluate(easi::Component& model,
                        const QueryGenerator& queryGen,
                        std::vector<MaterialT>* materials,
                        const std::set<std::string>& parameters) {
@@ -87,7 +87,7 @@ bool surrogateEvaluate(const std::string& fileName,
       MaterialParameterDB<SurrogateMaterialT> edb;
       std::vector<SurrogateMaterialT> preMaterials;
       edb.setMaterialVector(&preMaterials);
-      edb.evaluateModel(fileName, queryGen);
+      edb.evaluate(model, queryGen);
 
       // the surrogate database sizes its own vector; callers that pre-size the target expect one
       // material per query, so a mismatch here means query and evaluation disagree
@@ -101,7 +101,7 @@ bool surrogateEvaluate(const std::string& fileName,
     }
   }
   if constexpr (sizeof...(SurrogatesT) > 0) {
-    return surrogateEvaluate<MaterialT, SurrogatesT...>(fileName, queryGen, materials, parameters);
+    return surrogateEvaluate<MaterialT, SurrogatesT...>(model, queryGen, materials, parameters);
   } else {
     return false;
   }
@@ -610,12 +610,45 @@ struct MaterialAverager<ViscoAcousticMaterial<Mechanisms>> {
 };
 } // namespace
 
+template <typename T>
+std::vector<std::string> missingMaterialParameters(const std::set<std::string>& supplied) {
+  // as MaterialParameterDB::evaluateModel takes the model: for the parameters of T, or else for
+  // those of an elastic or acoustic material that T can be made of
+  if (canEvaluateFor<T>(supplied)) {
+    return {};
+  }
+  if constexpr (std::is_constructible_v<T, ElasticMaterial>) {
+    if (canEvaluateFor<ElasticMaterial>(supplied)) {
+      return {};
+    }
+  }
+  if constexpr (std::is_constructible_v<T, AcousticMaterial>) {
+    if (canEvaluateFor<AcousticMaterial>(supplied)) {
+      return {};
+    }
+  }
+  std::vector<std::string> missing;
+  for (const auto& [name, pointer] : T::ParameterMap) {
+    if (!supplied.contains(name)) {
+      missing.push_back(name);
+    }
+  }
+  std::ranges::sort(missing);
+  return missing;
+}
+
 template <class T>
 void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
   // NOLINTNEXTLINE(misc-const-correctness)
   easi::Component* const model = loadEasiModel(fileName);
-  const auto suppliedParameters = model->suppliedParameters();
+  evaluate(*model, queryGen);
+  delete model;
+}
+
+template <class T>
+void MaterialParameterDB<T>::evaluate(easi::Component& model, const QueryGenerator& queryGen) {
+  const auto suppliedParameters = model.suppliedParameters();
 
   // the following code does:
   // * try to evaluate the model just normally
@@ -639,7 +672,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
       }
     }
 
-    easiEvalSafe(model, query, adapter, "volume material:" + T::Text);
+    easiEvalSafe(&model, query, adapter, "volume material:" + T::Text);
 
     return materialsFromQuery;
   };
@@ -679,14 +712,13 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     // hard-code tests for elastic or acoustic material here (only if a conversion constructor
     // exists)
     if (!surrogateEvaluate<T, ElasticMaterial, AcousticMaterial>(
-            fileName, queryGen, materials_, suppliedParameters)) {
+            model, queryGen, materials_, suppliedParameters)) {
 
       // no surrogate worked
       // fail gracefully by just trying to evaluate the original model and fail there
       (void)evaluateModel();
     }
   }
-  delete model;
 }
 
 template <typename T>
@@ -866,10 +898,14 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMat
 #define SEISSOL_MATERIAL_INSTANTIATE(Cfg)                                                          \
   template std::shared_ptr<QueryGenerator> getBestQueryGenerator<seissol::model::MaterialOf<Cfg>>( \
       bool, const CellToVertexArray&, std::size_t);                                                \
-  template class MaterialParameterDB<seissol::model::MaterialOf<Cfg>>;
+  template class MaterialParameterDB<seissol::model::MaterialOf<Cfg>>;                             \
+  template std::vector<std::string> missingMaterialParameters<seissol::model::MaterialOf<Cfg>>(    \
+      const std::set<std::string>&);
 // NOLINTEND(bugprone-macro-parentheses)
 SEISSOL_FOR_EACH_MATERIAL(SEISSOL_MATERIAL_INSTANTIATE)
 #undef SEISSOL_MATERIAL_INSTANTIATE
 template class MaterialParameterDB<seissol::model::Plasticity>;
+template std::vector<std::string>
+    missingMaterialParameters<seissol::model::Plasticity>(const std::set<std::string>&);
 
 } // namespace seissol::initializer

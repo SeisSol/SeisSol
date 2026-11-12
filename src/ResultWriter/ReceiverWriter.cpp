@@ -185,8 +185,8 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   std::vector<std::size_t> meshIds(numberOfPoints);
 
   logInfo() << "Finding meshIds for receivers...";
-  const auto contained =
-      initializer::findUniqueMeshIds(points.data(), mesh, numberOfPoints, meshIds.data(), 1e-3);
+  const auto contained = initializer::findUniqueMeshIds(
+      points.data(), mesh, numberOfPoints, meshIds.data(), initializer::ReceiverTolerance);
 
   std::vector<short> globalContained(contained.size());
   for (std::size_t i = 0; i < contained.size(); ++i) {

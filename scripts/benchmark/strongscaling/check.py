@@ -200,6 +200,8 @@ def seissol_check(
             )
         if not report.get("problems") and not report.get("stoppedAt"):
             result.add("error", f"{where} failed; see {log_path}")
+    for warning in report.get("warnings", []):
+        result.add("warning", f"{where}: {warning}")
     for unknown in report.get("unknownFields", []):
         result.add(
             "warning",

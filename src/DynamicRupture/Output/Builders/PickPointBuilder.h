@@ -10,16 +10,17 @@
 
 #include "Common/Iterator.h"
 #include "DynamicRupture/Output/DataTypes.h"
+#include "DynamicRupture/Output/OutputAux.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
-#include "Initializer/InputAux.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
 #include "Parallel/Runtime/Stream.h"
 #include "ReceiverBasedOutputBuilder.h"
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -66,22 +67,11 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
   protected:
   void readCoordsFromFile() {
-    using seissol::initializer::convertStringToMask;
-    using seissol::initializer::FileProcessor;
-
     if (!pickpointParams_.pickpointFileName.has_value()) {
       logError() << "Pickpoint/on-fault receiver file requested, but not given in the parameters.";
     }
 
-    auto content = FileProcessor::getFileAsStrings(pickpointParams_.pickpointFileName.value(),
-                                                   "pickpoint/on-fault receiver file");
-    FileProcessor::removeEmptyLines(content);
-
-    // iterate line by line and initialize DrRecordPoints
-    for (const auto& line : content) {
-      std::array<double, 3> coords{};
-      convertStringToMask(line, coords);
-
+    for (const auto& coords : readPickpoints(pickpointParams_.pickpointFileName.value())) {
       Receiver point{};
       for (std::size_t i = 0; i < coords.size(); ++i) {
         point.global[i] = coords[i];
@@ -174,7 +164,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
         const auto insideQuantifier = isInsideFace(point, face, faultItem.normal);
 
         if (insideQuantifier > -1e-12) {
-          const auto distance = getDistanceFromPointToFace(point, face, faultItem.normal);
+          // (the distance has the sign of the side of the face the point is on)
+          const auto distance = std::abs(getDistanceFromPointToFace(point, face, faultItem.normal));
           if (minDistance > distance) {
             minDistance = distance;
             closest = faceIdx;

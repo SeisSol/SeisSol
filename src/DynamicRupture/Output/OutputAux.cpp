@@ -8,7 +8,6 @@
 #include "OutputAux.h"
 
 #include "Common/Constants.h"
-#include "Common/Iterator.h"
 #include "Common/Real.h"
 #include "Config.h"
 #include "DynamicRupture/Output/DataTypes.h"
@@ -19,6 +18,7 @@
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
+#include "Initializer/InputAux.h"
 #include "Numerical/BasisFunction.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -28,6 +28,7 @@
 #include <array>
 #include <cstddef>
 #include <limits>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -188,6 +189,23 @@ void projectPointToFace(CoordinateT& point,
   }
 }
 
+std::vector<CoordinateT> readPickpoints(const std::string& fileName) {
+  using seissol::initializer::convertStringToMask;
+  using seissol::initializer::FileProcessor;
+
+  auto content = FileProcessor::getFileAsStrings(fileName, "pickpoint/on-fault receiver file");
+  FileProcessor::removeEmptyLines(content);
+
+  std::vector<CoordinateT> points;
+  points.reserve(content.size());
+  for (const auto& line : content) {
+    CoordinateT coords{};
+    convertStringToMask(line, coords);
+    points.push_back(coords);
+  }
+  return points;
+}
+
 double getDistanceFromPointToFace(const CoordinateT& point,
                                   const ExtTriangle& face,
                                   const CoordinateT& faceNormal) {
@@ -208,7 +226,10 @@ double
   // view the triangle as an intersection of hyperplanes
 
   double sidemin = std::numeric_limits<double>::max();
-  for (auto [i1, i2] : seissol::common::zip(std::vector{0, 1, 2}, std::vector{1, 2, 0})) {
+  // (the sides from point i1 to point i2; an index loop, since it runs for every fault face for
+  // every on-fault receiver)
+  for (std::size_t i1 = 0; i1 < ExtTriangle::size(); ++i1) {
+    const auto i2 = (i1 + 1) % ExtTriangle::size();
     const auto& p1 = face.point(i1);
     const auto& p2 = face.point(i2);
     CoordinateT sidevec{0.0, 0.0, 0.0};

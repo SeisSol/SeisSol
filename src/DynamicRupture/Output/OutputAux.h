@@ -18,6 +18,8 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace seissol {
 template <int N, typename T>
@@ -64,6 +66,20 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
                                            std::size_t numFacePoints);
 
+/**
+ * @brief The points of the on-fault receiver file @p fileName : the three coordinates on each line
+ * that is not empty.
+ */
+std::vector<CoordinateT> readPickpoints(const std::string& fileName);
+
+/**
+ * @brief Whether the projection of @p point along @p faceNormal onto the plane of @p face lies in
+ * the face: positive inside, negative outside.
+ *
+ * The value is the smallest one over the sides of the face; it scales with the length of the side
+ * and of the normal, so that only its sign tells much. It does not depend on the orientation of the
+ * points of the face, as long as the normal is the one they give, (p1 - p0) x (p2 - p0) scaled.
+ */
 double
     isInsideFace(const CoordinateT& point, const ExtTriangle& face, const CoordinateT& faceNormal);
 

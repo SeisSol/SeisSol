@@ -62,6 +62,9 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
        FrictionLawType::ImposedSlipRatesDelta,
        FrictionLawType::RateAndStateSevereVelocityWeakening,
        FrictionLawType::RateAndStateAgingNucleation});
+  if (frictionLawType == FrictionLawType::RateAndStateAgingNucleation) {
+    logError() << "friction law 101 currently disabled";
+  }
   if (frictionLawType == FrictionLawType::LinearSlipWeakeningLegacy) {
     logWarning() << "Using FL=2 for the linear slip weakening friction law is deprecated; consider "
                     "switching it to FL=16";

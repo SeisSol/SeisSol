@@ -148,11 +148,11 @@ variant, ``OMP_NUM_THREADS`` after its layout, and its output in ``output/`` of 
 ``started``, ``check.json`` and ``check.log``, ``seissol.log``, ``exitcode`` (and ``check-failed`` if its check
 failed), and the output of SeisSol, its run summary among it.
 
-``check``, and ``submit`` before it submits, checks what it can before a job waits in a queue: whether the layouts
-fit a node, whether the scheduler and the partitions take the jobs, and, with ``SeisSol --check`` of every build and
-variant, whether the parameters, the files they name, the mesh and the output directories are fine. That check also
-finds the size of the mesh, which the guards of ``scaling`` need. An executable built for the compute nodes may not
-run on a login node; then this check is left to the jobs.
+``check``, and ``submit`` before it submits, checks what it can before a job waits in a queue: whether the layouts fit
+a node, whether the scheduler and the partitions take the jobs, and, with ``SeisSol --check`` of every build and
+variant, whether the parameters, the files they name, the mesh with the receivers and sources in it, and the output
+directories are fine. That check also finds the size of the mesh, which the guards of ``scaling`` need. An executable
+built for the compute nodes may not run on a login node; then this check is left to the jobs.
 
 The results
 -----------
