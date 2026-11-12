@@ -27,16 +27,18 @@ add_library(seissol-reader OBJECT
     Scripting/ReaderBuilder.cpp
 )
 
-# The samples of a grid are the reference a compiled kernel that samples it itself (Expr/RtcGpu.cpp)
-# is checked against bit for bit: the same operations in the same order, without contraction of
-# floating-point expressions, as the interpreter of src/Expr.
+# Without contraction of floating-point expressions, and IEEE: what the reader computes is the bits
+# of another implementation. The samples of a grid are the reference a compiled kernel that samples
+# it itself (Expr/RtcGpu.cpp) is checked against bit for bit, as is the interpreter of src/Expr; the
+# Lua frontend computes what the program does not as Lua does, and the easi walker what it computes
+# itself (the coefficients of a layered model, the constants of a special component) as easi does.
+# A contraction a*b + c would be a fused multiply-add here and not there.
 if (CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
     # -fp-model=fast, icpx's default from -O2 on, is -ffast-math
-    set_source_files_properties(Datafield/Interpolation.cpp PROPERTIES COMPILE_OPTIONS
-        "-ffp-contract=off;-fp-model=precise")
+    target_compile_options(seissol-reader PRIVATE
+        $<$<COMPILE_LANGUAGE:CXX>:-ffp-contract=off> $<$<COMPILE_LANGUAGE:CXX>:-fp-model=precise>)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    set_source_files_properties(Datafield/Interpolation.cpp PROPERTIES COMPILE_OPTIONS
-        "-ffp-contract=off")
+    target_compile_options(seissol-reader PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-ffp-contract=off>)
 endif()
 
 target_link_libraries(seissol-reader PUBLIC seissol-common-properties)
