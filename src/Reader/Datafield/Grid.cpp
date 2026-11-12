@@ -334,6 +334,36 @@ std::string GridDesc::sourceKey() const {
   return key;
 }
 
+std::string componentNamesWarning(const std::vector<std::string>& declared,
+                                  const std::vector<std::string>& inFile) {
+  if (inFile.empty() || declared == inFile) {
+    return {};
+  }
+  const auto listed = [](const std::vector<std::string>& names) {
+    std::string list = "(";
+    for (std::size_t i = 0; i < names.size(); ++i) {
+      list += (i == 0 ? "" : ", ") + names[i];
+    }
+    return list + ")";
+  };
+  // the prefix of the file's names is what a declaration of fewer components reads
+  if (declared.size() < inFile.size() &&
+      std::equal(declared.begin(), declared.end(), inFile.begin())) {
+    return "the program reads the first " + std::to_string(declared.size()) +
+           " of the components " + listed(inFile) + " of the file";
+  }
+  std::string text = "the program reads the components of the file by position, as " +
+                     listed(declared) + ", which the file names " + listed(inFile);
+  auto sortedDeclared = declared;
+  auto sortedInFile = inFile;
+  std::sort(sortedDeclared.begin(), sortedDeclared.end());
+  std::sort(sortedInFile.begin(), sortedInFile.end());
+  if (sortedDeclared == sortedInFile) {
+    text += ": the same names in another order";
+  }
+  return text;
+}
+
 bool GridAttributes::has(const std::string& name) const {
   return std::find(required.begin(), required.end(), name) != required.end() ||
          std::find(optional.begin(), optional.end(), name) != optional.end();

@@ -2202,6 +2202,24 @@ std::vector<std::size_t> internGrids(const Program& program, GridStore& grids) {
     // a no-op for grids that are open and sized already (GridStore::load())
     grids.load();
   }
+  // a file that names its components otherwise than the program, which reads them by position:
+  // once per grid and names
+  static std::mutex mutex;
+  static std::set<std::string> warned;
+  for (std::size_t grid = 0; grid < ids.size(); ++grid) {
+    const auto& desc = program.grids()[grid];
+    const std::string warning = reader::datafield::componentNamesWarning(
+        desc.componentNames, grids.get(ids[grid]).componentNamesInFile());
+    if (warning.empty()) {
+      continue;
+    }
+    const std::lock_guard lock(mutex);
+    if (warned.insert(desc.sourceKey() + '\x1d' + warning).second) {
+      const std::string message = "expr: the grid of the variable " + desc.variable + " in " +
+                                  desc.path + " -- " + warning + ". Is that what the file holds?";
+      logWarning() << message.c_str();
+    }
+  }
   return ids;
 }
 

@@ -522,12 +522,14 @@ AsagiLiteGrid::Error AsagiLiteGrid::open(const std::string& filename,
     if (members_ > 0) {
       // the members side by side, of the native type, matched by name
       memType_ = H5Tcreate(H5T_COMPOUND, members_ * tsize);
+      memberNames_.clear();
       for (std::size_t m = 0; m < members_; ++m) {
         char* member = H5Tget_member_name(dtype.id(), static_cast<unsigned>(m));
         H5Tinsert(memType_,
                   member,
                   m * tsize,
                   elemType_ == ElementType::Float ? H5T_NATIVE_FLOAT : H5T_NATIVE_DOUBLE);
+        memberNames_.emplace_back(member);
         H5free_memory(member);
       }
     }

@@ -216,6 +216,12 @@ first node at or above it: a coordinate on a node belongs to the cell below it, 
 ``!LayeredModel`` (``lower`` and ``upper``). Both may be given per axis, as a tuple of one per axis
 (``interpolation = ("linear", "previous")``).
 
+The components of an ASAGI file are read by position, as easi reads them: the first component the
+script names is the first member of the compound of the file, and so on. Where the file names its
+members otherwise -- in another order, by other names, or more of them -- SeisSol warns, once per
+grid: ``components = ("rho", "lambda", "mu")`` of a file of ``rho``, ``mu`` and ``lambda`` reads
+the file's ``mu`` as ``lambda``.
+
 An axis need not be uniform. ``axes = ("uniform", "knots")`` declares the second axis of a file as
 knots: SeisSol reads its coordinate variable whole -- finite and strictly increasing, at most
 2^24 values -- and a sample finds its cell by a binary search of a fixed number of steps; a

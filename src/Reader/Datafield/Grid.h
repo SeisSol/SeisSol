@@ -386,6 +386,12 @@ struct GridSpec {
 /// with what is wrong, for a spec that does not describe a grid.
 [[nodiscard]] GridDesc gridDescOf(const GridSpec& spec);
 
+/// What to warn of where a declaration reads the components of a file by position and names them
+/// otherwise than the file does (`declared` against `inFile`, which may be empty): another
+/// order, other names, or fewer of them. Empty where they agree, or the file names none.
+[[nodiscard]] std::string componentNamesWarning(const std::vector<std::string>& declared,
+                                                const std::vector<std::string>& inFile);
+
 /// The attributes of a grid of a kind, as a declaration spells them, besides those every grid
 /// gives (kind, components, interpolation and boundary): those it gives, and those it may give.
 struct GridAttributes {
@@ -525,6 +531,10 @@ class Grid {
   // What the file says about the axes of the grid, in grid axis order; empty where the backend
   // reads no file.
   [[nodiscard]] virtual std::vector<GridAxisInfo> axisInfo() const { return {}; }
+
+  // The names the file gives the components it holds, in their order (the members of the compound
+  // of an ASAGI file); empty where it names none. A declaration reads such a file by position.
+  [[nodiscard]] virtual std::vector<std::string> componentNamesInFile() const { return {}; }
 
   // The slices of the file along the time axis, of which the window holds some
   // (geometry() describes the window). Zero where the backend cannot say, in

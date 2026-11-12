@@ -219,6 +219,57 @@ TEST_CASE("Datafield AsagiLite: the dimensions of the file and the attributes of
   CHECK(axes[1].standardName.empty());
 }
 
+TEST_CASE("Datafield AsagiLite: a compound names its components, which a declaration reads by "
+          "position") {
+  const std::string path = "seissol-test-asagilite-members-" + std::to_string(::getpid()) + ".nc";
+  struct Material {
+    float rho;
+    float mu;
+    float lambda;
+  };
+  int file = 0;
+  REQUIRE(nc_create(path.c_str(), NC_NETCDF4 | NC_CLOBBER, &file) == NC_NOERR);
+  int material = 0;
+  REQUIRE(nc_def_compound(file, sizeof(Material), "material", &material) == NC_NOERR);
+  REQUIRE(nc_insert_compound(file, material, "rho", offsetof(Material, rho), NC_FLOAT) == NC_NOERR);
+  REQUIRE(nc_insert_compound(file, material, "mu", offsetof(Material, mu), NC_FLOAT) == NC_NOERR);
+  REQUIRE(nc_insert_compound(file, material, "lambda", offsetof(Material, lambda), NC_FLOAT) ==
+          NC_NOERR);
+  int dim = 0;
+  REQUIRE(nc_def_dim(file, "x", 2, &dim) == NC_NOERR);
+  int x = 0;
+  int data = 0;
+  REQUIRE(nc_def_var(file, "x", NC_FLOAT, 1, &dim, &x) == NC_NOERR);
+  REQUIRE(nc_def_var(file, "data", material, 1, &dim, &data) == NC_NOERR);
+  REQUIRE(nc_enddef(file) == NC_NOERR);
+  const std::vector<float> xs = {0.0F, 1.0F};
+  const std::vector<Material> values = {{2600.0F, 1.0F, 2.0F}, {2700.0F, 3.0F, 4.0F}};
+  REQUIRE(nc_put_var_float(file, x, xs.data()) == NC_NOERR);
+  REQUIRE(nc_put_var(file, data, values.data()) == NC_NOERR);
+  REQUIRE(nc_close(file) == NC_NOERR);
+
+  df::AsagiLiteGrid grid;
+  REQUIRE(
+      grid.open(path, "data", df::Interpolation::Linear, df::BoundaryMode::Clamp, std::nullopt) ==
+      df::AsagiLiteGrid::Error::Success);
+  std::remove(path.c_str());
+  const auto names = grid.componentNamesInFile();
+  REQUIRE(names == std::vector<std::string>{"rho", "mu", "lambda"});
+
+  // the same names: nothing to warn of; another order, other names, fewer of them: a warning
+  CHECK(df::componentNamesWarning({"rho", "mu", "lambda"}, names).empty());
+  CHECK(df::componentNamesWarning({"rho", "lambda", "mu"}, names) ==
+        "the program reads the components of the file by position, as (rho, lambda, mu), which "
+        "the file names (rho, mu, lambda): the same names in another order");
+  CHECK(df::componentNamesWarning({"density", "shear", "lame"}, names) ==
+        "the program reads the components of the file by position, as (density, shear, lame), "
+        "which the file names (rho, mu, lambda)");
+  CHECK(df::componentNamesWarning({"rho", "mu"}, names) ==
+        "the program reads the first 2 of the components (rho, mu, lambda) of the file");
+  // a file of numbers names none
+  CHECK(df::componentNamesWarning({"rho"}, {}).empty());
+}
+
 TEST_CASE("Datafield AsagiLite: an axis declared knots reads its coordinates whole") {
   // rho(depth, x) over the depths 0, 100 and 1000, which are not uniform, and x = 0 and 1; and
   // up(down, x) over an axis that decreases

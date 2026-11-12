@@ -185,6 +185,9 @@ class AsagiLiteGrid final : public Grid {
   [[nodiscard]] std::size_t bytesPerTimeSlice() const override { return sliceBytes_; }
   [[nodiscard]] std::size_t timeSlices() const override { return numTimeSlices_; }
   [[nodiscard]] std::vector<GridAxisInfo> axisInfo() const override;
+  [[nodiscard]] std::vector<std::string> componentNamesInFile() const override {
+    return memberNames_;
+  }
   [[nodiscard]] std::optional<std::pair<double, double>> timeWindow() const override;
   [[nodiscard]] const ArrayView* arrayView() const override {
     return data_ != nullptr ? &view_ : nullptr;
@@ -221,6 +224,8 @@ class AsagiLiteGrid final : public Grid {
   bool hasComponentAxis_ = false;
   /// The members of a compound element, the components then; 0 for floating point elements.
   std::size_t members_ = 0;
+  /// their names, in their order
+  std::vector<std::string> memberNames_;
   /// The type a compound element is read as: its members side by side, native.
   hid_t memType_ = -1;
 
