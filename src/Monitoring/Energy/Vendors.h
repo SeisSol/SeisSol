@@ -22,7 +22,8 @@ namespace seissol::monitoring::energy {
 //! @brief NVIDIA GPUs, through NVML: the energy since the driver was loaded, in millijoules.
 std::vector<std::unique_ptr<Sensor>> nvmlSensors();
 
-//! @brief AMD GPUs, through AMD SMI: an accumulator of a resolution given in microjoules.
+//! @brief AMD GPUs, through AMD SMI: an accumulator of a resolution given in microjoules; on an
+//! MI300A, of the whole APU, its CPU cores and its memory included.
 std::vector<std::unique_ptr<Sensor>> amdSmiSensors();
 
 //! @brief AMD GPUs, through ROCm SMI, which ROCm installations before AMD SMI have.

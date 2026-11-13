@@ -292,11 +292,16 @@ Horizon); a thread of the first rank of the node reads it once per interval and 
 power by up to an interval.
 
 An AMD MI250X counts its energy in AMD SMI and ROCm SMI on its first GCD and none on its second, so that the GCDs of a
-node add up to its modules (on LUMI, 95 % of what the HPE Cray counters give for its accelerators). Intel GPUs count
-theirs in Level Zero, but the SYCL runtime of oneAPI turns on the Sysman of the core API of Level Zero
-(``ZES_ENABLE_SYSMAN=1``) as it starts, after which ``zesInit`` fails; as SeisSol starts its device before MPI, it then
-counts the GPUs through the hwmon files of their driver (``i915``, ``xe``), which give the same energy as the cards in
-Level Zero (on SuperMUC-NG Phase 2).
+node add up to its modules (on LUMI, 95 % of what the HPE Cray counters give for its accelerators). An AMD MI300A counts
+in AMD SMI the energy of its whole APU, its CPU cores and its memory with its GPU (on aac7 at AMD, its power rose by
+125 W while only its CPU cores worked), so that SeisSol leaves RAPL out where AMD SMI or ROCm SMI count the APUs. There,
+ROCm SMI counts none for it, nor does the AMD SMI of ROCm 7.0.3 (both find the data unexpected), while that of ROCm 7.13
+does. For the GPUs of other AMD APUs, such as the gfx1150 of a Ryzen AI 9 HX 370, neither AMD SMI nor ROCm SMI counts
+any energy, although the power of the GPU in its hwmon files is also that of the whole APU. Intel GPUs count theirs in
+Level Zero, but the SYCL runtime of oneAPI turns on the Sysman of the core API of Level Zero (``ZES_ENABLE_SYSMAN=1``)
+as it starts, after which ``zesInit`` fails; as SeisSol starts its device before MPI, it then counts the GPUs through
+the hwmon files of their driver (``i915``, ``xe``), which give the same energy as the cards in Level Zero (on
+SuperMUC-NG Phase 2).
 
 The proxy measures the energy of the node during its timed run the same way, and prints it per part, with the power
 and the GFLOP per joule of the same basis: the node, else the sum of its CPUs, memory and GPUs that it measures

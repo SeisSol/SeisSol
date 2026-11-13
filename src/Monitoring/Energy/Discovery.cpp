@@ -68,7 +68,18 @@ std::vector<std::unique_ptr<Sensor>> nodeSensors(const std::string& root, bool d
     }
     }
   }
+  leaveOutCountedApuCpus(sensors, root);
   return sensors;
+}
+
+void leaveOutCountedApuCpus(std::vector<std::unique_ptr<Sensor>>& sensors,
+                            const std::string& root) {
+  const bool apusCounted = std::ranges::any_of(sensors, [](const auto& sensor) {
+    return sensor->source() == "amdsmi" || sensor->source() == "rocmsmi";
+  });
+  if (apusCounted && amdInstinctApus(root)) {
+    std::erase_if(sensors, [](const auto& sensor) { return sensor->source() == "powercap"; });
+  }
 }
 
 } // namespace seissol::monitoring::energy

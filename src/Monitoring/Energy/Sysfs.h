@@ -71,6 +71,13 @@ std::vector<std::unique_ptr<Sensor>> hwmonGpuSensors(const std::string& root);
  */
 std::vector<std::unique_ptr<Sensor>> gracePowerSensors(const std::string& root);
 
+/**
+ * @brief Whether the CPUs of the node are those of AMD Instinct APUs (the MI300A), as
+ * /proc/cpuinfo names them: AMD SMI and ROCm SMI count the energy of such an APU as a whole, its
+ * CPU cores and its memory with its GPU.
+ */
+bool amdInstinctApus(const std::string& root);
+
 //! @brief The content of the file at @p path, without the whitespace around it.
 std::optional<std::string> readSysfsFile(const std::string& path);
 

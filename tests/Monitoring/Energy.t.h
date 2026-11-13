@@ -21,6 +21,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unistd.h>
@@ -67,6 +68,16 @@ inline const monitoring::energy::Sensor*
       std::ranges::find_if(sensors, [&](const auto& sensor) { return sensor->name() == name; });
   return it == sensors.end() ? nullptr : it->get();
 }
+
+//! @brief A sensor of a GPU library, which the tests do not load
+class LibrarySensor : public monitoring::energy::Sensor {
+  public:
+  LibrarySensor(const std::string& source, const std::string& name)
+      : Sensor(source, name, Part::Devices) {}
+  std::optional<monitoring::energy::EnergyReading> read() override {
+    return monitoring::energy::EnergyReading{};
+  }
+};
 } // namespace energytest
 
 using namespace energytest;
@@ -400,6 +411,42 @@ TEST_CASE("Energy from the power meters of NVIDIA Grace" * doctest::test_suite("
     REQUIRE(cpu != nullptr);
     CHECK(cpu->find("sources")->asArray().front().asString() == "hwmon");
     CHECK(cpu->find("sensorsPerNode")->find("max")->asDouble() == 2.0);
+  }
+}
+
+TEST_CASE("The CPUs of AMD Instinct APUs" * doctest::test_suite("monitoring")) {
+  const FakeRoot root;
+  root.write("sys/class/powercap/intel-rapl:0/name", "package-0");
+  root.write("sys/class/powercap/intel-rapl:0/energy_uj", "1000");
+  root.write("proc/cpuinfo",
+             "processor\t: 0\nvendor_id\t: AuthenticAMD\nmodel name\t: AMD Instinct MI300A "
+             "Accelerator\nflags\t\t: fpu");
+  auto sensors = monitoring::energy::powercapSensors(root.str());
+  REQUIRE(sensors.size() == 1);
+
+  SUBCASE("As /proc/cpuinfo names them") {
+    CHECK(monitoring::energy::amdInstinctApus(root.str()));
+    root.write("proc/cpuinfo", "processor\t: 0\nmodel name\t: AMD EPYC 9654 96-Core Processor");
+    CHECK_FALSE(monitoring::energy::amdInstinctApus(root.str()));
+  }
+
+  SUBCASE("RAPL counts nothing where AMD SMI counts the APUs") {
+    sensors.push_back(std::make_unique<LibrarySensor>("amdsmi", "amdsmi/0000:02:00.0"));
+    monitoring::energy::leaveOutCountedApuCpus(sensors, root.str());
+    REQUIRE(sensors.size() == 1);
+    CHECK(sensors[0]->source() == "amdsmi");
+  }
+
+  SUBCASE("RAPL counts the CPUs where no GPU library counts the APUs") {
+    monitoring::energy::leaveOutCountedApuCpus(sensors, root.str());
+    CHECK(sensors.size() == 1);
+  }
+
+  SUBCASE("RAPL counts the CPUs of nodes with AMD GPUs of their own") {
+    root.write("proc/cpuinfo", "processor\t: 0\nmodel name\t: AMD EPYC 7A53 64-Core Processor");
+    sensors.push_back(std::make_unique<LibrarySensor>("amdsmi", "amdsmi/0000:c1:00.0"));
+    monitoring::energy::leaveOutCountedApuCpus(sensors, root.str());
+    CHECK(sensors.size() == 2);
   }
 }
 

@@ -416,4 +416,17 @@ std::vector<std::unique_ptr<Sensor>> gracePowerSensors(const std::string& root) 
   return sensors;
 }
 
+bool amdInstinctApus(const std::string& root) {
+  // the CPUs of a node are all of one model; an MI300A names itself
+  // 'AMD Instinct MI300A Accelerator'
+  std::ifstream cpuinfo(below(root, "/proc/cpuinfo"));
+  std::string line;
+  while (std::getline(cpuinfo, line)) {
+    if (line.starts_with("model name")) {
+      return line.find("AMD Instinct") != std::string::npos;
+    }
+  }
+  return false;
+}
+
 } // namespace seissol::monitoring::energy
