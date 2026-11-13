@@ -336,6 +336,27 @@ class TestSimulationRows:
         assert list(receivers[1].columns) == ["Time", "v1"]
         assert receivers[1]["v1"].tolist() == [1.0, 2.0]
 
+    def test_hdf5_first_layout(self, tmp_path):
+        # the off-fault receivers from April to September 2026: one array over time,
+        # receiver and quantity, a receiver at its index among the points of the
+        # input; the rows a receiver did not fill keep the fill value 0
+        h5py = pytest.importorskip("h5py")
+        data = np.zeros((3, 2, 2))
+        data[:, 0, 0] = data[:, 1, 0] = [0.0, 0.1, 0.2]
+        data[:, 0, 1] = [0.0, 0.5, 0.6]
+        data[:, 1, 1] = [0.0, 0.7, 0.0]
+        data[2, 1, 0] = 0.0
+        with h5py.File(tmp_path / "tpv-receivers.h5", "w") as handle:
+            handle["Coordinates"] = np.zeros((2, 3))
+            handle["ReceiverData"] = data
+            handle["ReceiverData"].attrs["VariableNames"] = np.array([b"Time", b"v1"])
+        receivers = cr.load_receivers(str(tmp_path), "tpv", "receiver")
+        assert sorted(receivers) == [1, 2]
+        assert list(receivers[1].columns) == ["Time", "v1"]
+        assert receivers[1]["v1"].tolist() == [0.0, 0.5, 0.6]
+        assert receivers[2]["Time"].tolist() == [0.0, 0.1]
+        assert receivers[2]["v1"].tolist() == [0.0, 0.7]
+
     def test_hdf5_against_text_references(self, tmp_path):
         # what CI does: a run writing HDF5 held against references in wide text files
         (tmp_path / "ref").mkdir()
