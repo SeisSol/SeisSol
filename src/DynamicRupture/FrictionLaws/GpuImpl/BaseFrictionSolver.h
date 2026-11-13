@@ -182,6 +182,30 @@ SEISSOL_DEVICE inline Real<Cfg> resampleVariable(FrictionLawContext<Cfg>& __rest
   return result;
 }
 
+/**
+ * The average of a value over the quadrature points of the face, weighted with the quadrature
+ * weights; separately for every fused simulation.
+ */
+template <typename Cfg>
+SEISSOL_DEVICE inline Real<Cfg> faceAverage(FrictionLawContext<Cfg>& __restrict ctx,
+                                            Real<Cfg> value) {
+  ctx.sharedMemory[ctx.pointIndex] = value;
+  deviceBarrier(ctx);
+
+  const auto simId = ctx.pointIndex % Cfg::NumSimulations;
+
+  Real<Cfg> sum{0};
+  Real<Cfg> weightSum{0};
+  for (uint32_t i = 0; i < misc::NumBoundaryGaussPoints<Cfg>; ++i) {
+    const auto weight = ctx.args->spaceWeights[i];
+    sum += weight * ctx.sharedMemory[i * Cfg::NumSimulations + simId];
+    weightSum += weight;
+  }
+  deviceBarrier(ctx);
+
+  return sum / weightSum;
+}
+
 template <typename Cfg, typename Derived>
 class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
   private:

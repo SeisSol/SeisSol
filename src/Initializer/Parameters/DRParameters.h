@@ -47,6 +47,8 @@ struct DRParameters {
   SlipRateOutputType slipRateOutputType{1};
   seissol::dr::misc::FrictionLawType frictionLawType{0};
   double healingThreshold{-1.0};
+  /// linear slip weakening: whether the strength uses the face average of the dynamic normal stress
+  bool lswAverageNormalStress{false};
   std::array<double, seissol::dr::MaxNucleations> t0{};
   std::array<double, seissol::dr::MaxNucleations> s0{};
   double tpProxyExponent{0.0};

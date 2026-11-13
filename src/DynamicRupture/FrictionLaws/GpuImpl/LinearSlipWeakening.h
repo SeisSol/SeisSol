@@ -208,6 +208,27 @@ class LinearSlipWeakeningLaw
     SpecializationT::copyStorageToLocal(data, layerData);
   }
 
+  /**
+   * Whether the strength uses the face average of the dynamic normal stress
+   * (lsw_averageNormalStress) instead of its value at the point.
+   *
+   * On a fault in an unstructured mesh, the normal stress of the DG traces has a spurious part on
+   * the scale of the faces: the cells on the two sides of a face differ, so their polynomials
+   * represent the near field of a slip variation differently, and the normal stress at the fault
+   * plane does not cancel as it does in the continuum. A strength proportional to the pointwise
+   * normal stress feeds that part back into the slip; above a loop gain of about one, a static
+   * pattern on the scale of the faces grows with the slip and lowers the mean friction. Averaging
+   * over the face cuts the loop. Anisotropic materials keep the pointwise value, as their
+   * normal/shear coupling is handled through the slope of the strength.
+   */
+  SEISSOL_DEVICE static bool averageDynamicNormalStress(FrictionLawContext<Cfg>& __restrict ctx) {
+    if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
+      return false;
+    } else {
+      return ctx.data->drParameters.lswAverageNormalStress;
+    }
+  }
+
   SEISSOL_DEVICE static void calcStrengthHook(FrictionLawContext<Cfg>& __restrict ctx,
                                               uint32_t timeIndex) {
 
@@ -221,9 +242,16 @@ class LinearSlipWeakeningLaw
     // The anisotropic normal/shear coupling is deliberately not applied here: the strength is
     // affine in the normal stress, so it is handled exactly through the divisor in
     // calcSlipRateAndTraction, using the slope filled in below.
-    const real totalNormalStress = ctx.initialStress.normalStress + ctx.faultStresses.normalStress +
-                                   ctx.initialStress.fluidPressure +
-                                   ctx.faultStresses.fluidPressure;
+    real totalNormalStress{};
+    if (averageDynamicNormalStress(ctx)) {
+      // the dynamic part as its face average; see averageDynamicNormalStress
+      totalNormalStress =
+          ctx.initialStress.normalStress + ctx.initialStress.fluidPressure +
+          faceAverage(ctx, ctx.faultStresses.normalStress + ctx.faultStresses.fluidPressure);
+    } else {
+      totalNormalStress = ctx.initialStress.normalStress + ctx.faultStresses.normalStress +
+                          ctx.initialStress.fluidPressure + ctx.faultStresses.fluidPressure;
+    }
     strength = -ctx.data->cohesion[ctx.ltsFace][ctx.pointIndex] -
                ctx.data->mu[ctx.ltsFace][ctx.pointIndex] *
                    std::min(totalNormalStress, static_cast<real>(0.0));

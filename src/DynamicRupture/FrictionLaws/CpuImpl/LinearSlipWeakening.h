@@ -229,6 +229,27 @@ class LinearSlipWeakeningLaw
                         std::array<real, misc::NumPaddedPoints<Cfg>>& strengthSlope,
                         uint32_t timeIndex,
                         std::size_t ltsFace) {
+    // the face average of the dynamic normal stress, per fused simulation; see
+    // gpu::LinearSlipWeakeningLaw::averageDynamicNormalStress for why
+    constexpr bool CanAverage = model::MaterialOf<Cfg>::Type != model::MaterialType::Anisotropic;
+    const bool average = CanAverage && this->drParameters_.lswAverageNormalStress;
+    std::array<real, Cfg::NumSimulations> averageDynamicNormalStress{};
+    if (average) {
+      real weightSum{0};
+      for (std::uint32_t point = 0; point < misc::NumBoundaryGaussPoints<Cfg>; ++point) {
+        const auto weight = this->spaceWeights_[point];
+        weightSum += weight;
+        for (std::uint32_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
+          const auto index = point * Cfg::NumSimulations + sim;
+          averageDynamicNormalStress[sim] +=
+              weight * (faultStresses.normalStress[index] + faultStresses.fluidPressure[index]);
+        }
+      }
+      for (auto& value : averageDynamicNormalStress) {
+        value /= weightSum;
+      }
+    }
+
 #pragma omp simd
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
       // calculate fault strength (Uphoff eq 2.44) with addition cohesion term.
@@ -236,8 +257,12 @@ class LinearSlipWeakeningLaw
       // strength is affine in the normal stress, it is handled exactly through the divisor in
       // calcSlipRateAndTraction, using the slope filled in below.
       const real totalNormalStress =
-          initialStress.normalStress[pointIndex] + faultStresses.normalStress[pointIndex] +
-          initialStress.fluidPressure[pointIndex] + faultStresses.fluidPressure[pointIndex];
+          average
+              ? initialStress.normalStress[pointIndex] + initialStress.fluidPressure[pointIndex] +
+                    averageDynamicNormalStress[pointIndex % Cfg::NumSimulations]
+              : initialStress.normalStress[pointIndex] + faultStresses.normalStress[pointIndex] +
+                    initialStress.fluidPressure[pointIndex] +
+                    faultStresses.fluidPressure[pointIndex];
 
       strength[pointIndex] =
           -cohesion_[ltsFace][pointIndex] -

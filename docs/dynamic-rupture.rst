@@ -146,6 +146,23 @@ SeisSol mitigates such artifacts by projecting the state variable (e.g. cumulati
 This implementation lowers the required h-refinement across the fault in comparison to earlier implementations (cf. Pelties et al. , JGR 2012; GMD 2014)
 
 
+Averaging the dynamic normal stress (linear slip weakening)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On a fault in an unstructured mesh, the cells on the two sides of a fault face are not mirror images of each other.
+The normal stress at the fault therefore carries a spurious part on the scale of the faces: the polynomials on both sides represent the near field of a slip variation differently, and the normal stress at the fault plane does not cancel as it does in the continuum (for example, slip on a planar fault in a homogeneous medium does not change the normal stress at all).
+With linear slip weakening, the strength is proportional to the normal stress at each point, and it feeds this spurious part back into the slip.
+Above a loop gain of about one, which typical friction coefficients reach, a static pattern on the scale of the faces grows with the slip.
+It lowers the mean friction, so the fault keeps sliding during the long sliding phase of crack-like ruptures, and it shows up as a checkerboard-like pattern in the final slip.
+The effect does not vanish under mesh refinement, and its size depends on the order of accuracy.
+
+Setting :code:`lsw_averageNormalStress = 1` in the :code:`DynamicRupture` namelist cuts this loop: the linear slip-weakening friction laws (:code:`FL=6`, :code:`FL=16`, :code:`FL=1058`) then compute the strength from the initial normal stress at the point plus the average of the dynamic normal stress (and pore pressure) over the face.
+Normal stress changes that vary within a single face then no longer change the strength within it; the friction still resolves the initial stress and the slip weakening point by point.
+This matters where the normal stress changes physically on the scale of a face, as at the rupture front of a bimaterial interface (:code:`FL=6`) on a coarse mesh.
+By default (:code:`lsw_averageNormalStress = 0`), the strength uses the pointwise normal stress.
+Anisotropic materials always use the pointwise normal stress.
+
+
 Visualization: SlipRateOutputType (default =1)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -171,23 +188,25 @@ where :math:`S(t) = \int_0^t |V(s)| ds` is the accumulated fault slip, and the o
 
 Friction parameters:
 
-+------------------+----------------------------------------+-------------------------------+
-| symbol           | quantity                               | SeisSol name                  |
-+==================+========================================+===============================+
-| :math:`\mu_s(x)` | static friction coefficient            | :code:`mu_s`                  |
-+------------------+----------------------------------------+-------------------------------+
-| :math:`\mu_d(x)` | dynamic friction coefficient           | :code:`mu_d`                  |
-+------------------+----------------------------------------+-------------------------------+
-| :math:`d_c(x)`   | slip-weakening critical distance       | :code:`d_c`                   |
-+------------------+----------------------------------------+-------------------------------+
-| :math:`C(x)`     | cohesion                               | :code:`cohesion`              |
-+------------------+----------------------------------------+-------------------------------+
-| :math:`T(x)`     | forced rupture time                    | :code:`forced_rupture_time`   |
-+------------------+----------------------------------------+-------------------------------+
-| :math:`t_0`      | characteristic nucleation time         | :code:`t_0`                   |
-+------------------+----------------------------------------+-------------------------------+
-| :math:`v_0`      | threshold velocity                     | :code:`lsw_healingThreshold`  |
-+------------------+----------------------------------------+-------------------------------+
++------------------+----------------------------------------+---------------------------------+
+| symbol           | quantity                               | SeisSol name                    |
++==================+========================================+=================================+
+| :math:`\mu_s(x)` | static friction coefficient            | :code:`mu_s`                    |
++------------------+----------------------------------------+---------------------------------+
+| :math:`\mu_d(x)` | dynamic friction coefficient           | :code:`mu_d`                    |
++------------------+----------------------------------------+---------------------------------+
+| :math:`d_c(x)`   | slip-weakening critical distance       | :code:`d_c`                     |
++------------------+----------------------------------------+---------------------------------+
+| :math:`C(x)`     | cohesion                               | :code:`cohesion`                |
++------------------+----------------------------------------+---------------------------------+
+| :math:`T(x)`     | forced rupture time                    | :code:`forced_rupture_time`     |
++------------------+----------------------------------------+---------------------------------+
+| :math:`t_0`      | characteristic nucleation time         | :code:`t_0`                     |
++------------------+----------------------------------------+---------------------------------+
+| :math:`v_0`      | threshold velocity                     | :code:`lsw_healingThreshold`    |
++------------------+----------------------------------------+---------------------------------+
+|                  | face-averaged dynamic normal stress    | :code:`lsw_averageNormalStress` |
++------------------+----------------------------------------+---------------------------------+
 
 Friction law :code:`16` implements linear slip-weakening with a forced rupture time.
 If you are only interested in linear slip weakening friction without forced rupture time, do not supply the parameter :code:`forced_rupture_time` in the fault `yaml` file.

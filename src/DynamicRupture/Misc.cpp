@@ -89,7 +89,8 @@ FrictionLawParameters<RealT>::FrictionLawParameters(
       rsStateTolerance(parameters.rsStateTolerance),
       isFrictionEnergyRequired(parameters.isFrictionEnergyRequired),
       isCheckAbortCriteraEnabled(parameters.isCheckAbortCriteraEnabled),
-      energiesFromAcrossFaultVelocities(parameters.energiesFromAcrossFaultVelocities) {}
+      energiesFromAcrossFaultVelocities(parameters.energiesFromAcrossFaultVelocities),
+      lswAverageNormalStress(parameters.lswAverageNormalStress) {}
 
 template struct FrictionLawParameters<float>;
 template struct FrictionLawParameters<double>;

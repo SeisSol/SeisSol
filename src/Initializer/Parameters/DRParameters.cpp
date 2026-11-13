@@ -85,6 +85,10 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
   const auto healingThreshold =
       static_cast<double>(reader->readWithDefault("lsw_healingthreshold", -1.0));
+  // the normal stress the DG traces show on a fault in an unstructured mesh carries a spurious part
+  // on the scale of the faces, which a strength proportional to it feeds back into the slip; see
+  // the documentation of the linear slip weakening friction laws
+  const auto lswAverageNormalStress = reader->readWithDefault("lsw_averagenormalstress", false);
   const auto nucleationCount = reader->readWithDefault("nucleationcount", 1U);
   if (nucleationCount > MaxNucleations) {
     logError() << "You requested more nucleations than supported by this build of SeisSol. Either "
@@ -221,6 +225,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
                       .slipRateOutputType = slipRateOutputType,
                       .frictionLawType = frictionLawType,
                       .healingThreshold = healingThreshold,
+                      .lswAverageNormalStress = lswAverageNormalStress,
                       .t0 = t0,
                       .s0 = s0,
                       .tpProxyExponent = tpProxyExponent,

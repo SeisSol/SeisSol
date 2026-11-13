@@ -332,6 +332,8 @@ struct FrictionLawParameters {
   bool isFrictionEnergyRequired{false};
   bool isCheckAbortCriteraEnabled{false};
   bool energiesFromAcrossFaultVelocities{false};
+  /// linear slip weakening: the strength uses the face average of the dynamic normal stress
+  bool lswAverageNormalStress{false};
 
   FrictionLawParameters() = default;
   explicit FrictionLawParameters(const seissol::initializer::parameters::DRParameters& parameters);
