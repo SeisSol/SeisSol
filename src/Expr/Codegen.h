@@ -207,6 +207,10 @@ void emitStrictMacros(std::ostringstream& out,
 /// Each instruction computes in its type (Instruction::type), each transient is a local of the
 /// type of its slot; the addressing reads and writes the data in `dataType`
 /// (LoweredProgram::dataType()), and the body converts between the two where they differ.
+///
+/// A branch of the stage (StageCode::branches) is an `if` around its instructions, and the two
+/// sides of a condition that follow each other an `if` and its `else`: a CPU runs it where the
+/// point takes it, the threads of a GPU warp that do not take it wait at it.
 void emitStageBody(std::ostringstream& out,
                    const StageCode& stage,
                    const std::vector<std::int32_t>& operands,
@@ -222,7 +226,9 @@ void emitStageBody(std::ostringstream& out,
 /// addressing reads it. The lanes of a long chain of dependent operations then overlap in the
 /// vector units and in the pipeline, where one point after the other waits for each result; every
 /// lane computes the same operations as before, so the bits stay the same. Throws on a contraction,
-/// which reads a block per lane.
+/// which reads a block per lane. A branch of the stage runs for a block where a lane of it takes
+/// it; the transients are then arrays of the call, so that a lane a select does not choose holds a
+/// value of its type where the block skipped the branch.
 void emitStageBodyTiled(std::ostringstream& out,
                         const StageCode& stage,
                         const std::vector<std::int32_t>& operands,

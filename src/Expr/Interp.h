@@ -280,6 +280,10 @@ struct InterpreterOptions {
   /// Where non-null, per select (by its instruction in the run stage) whether it took its first
   /// branch, per point: what the evaluation record chooses points by, both branches of every
   /// select.
+  ///
+  /// Where either of the two is given, the interpreter skips no part of the code that no point of
+  /// a tile needs (StageCode::branches): every select decides at every point, as the signatures
+  /// of two evaluations compare them.
   std::map<std::size_t, std::vector<std::uint8_t>>* branches{nullptr};
 };
 

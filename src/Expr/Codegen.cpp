@@ -79,6 +79,11 @@ std::string pwText(const Instruction& inst,
   if (inst.fn == Fn::Select && first == ComputeType::Bool) {
     return "(" + a0 + " ? " + a1 + " : " + a2 + ")";
   }
+  if (inst.fn == Fn::Select && inst.type == ComputeType::Bool) {
+    // truth values chosen by a condition of another type: where the check of a lookup counts
+    // (Branches.h)
+    return "((" + a0 + " != 0) ? " + a1 + " : " + a2 + ")";
+  }
   if (inst.type == ComputeType::I64 && (inst.fn == Fn::Min || inst.fn == Fn::Max)) {
     const char* compare = inst.fn == Fn::Min ? " < " : " > ";
     return "(" + a0 + compare + a1 + " ? " + a0 + " : " + a1 + ")";
@@ -110,6 +115,12 @@ std::string gridText(const Instruction& inst,
            addressing.gridParam(inst.grid, static_cast<GridField>(inst.comp), inst.imm) + ")";
   }
   return converted(addressing.gridLoad(inst.grid, inst.comp, operand), ComputeType::F64, inst.type);
+}
+
+/// Whether the condition of `branch` takes it, of the slot `slot` (a lane of it, in the tiled
+/// code): a condition holds where it is not zero, a NaN included.
+std::string takes(const Branch& branch, const std::string& slot) {
+  return "(" + slot + (branch.side ? " != 0" : " == 0") + ")";
 }
 
 void emitContraction(std::ostringstream& out,
@@ -277,16 +288,35 @@ void emitStageBody(std::ostringstream& out,
     out << indent << "(void)" << slotName(0) << ";\n";
   }
 
-  for (const Instruction& inst : stage.code) {
+  // A branch is an `if` around its part of the code: the points of a GPU warp that do not take it
+  // wait, those that do run it, and a CPU skips it where the point does not take it. Two parts of
+  // the same condition, one for either side, become an `if` and its `else`.
+  std::string current = indent;
+  std::vector<Branch> open;
+  std::size_t nextBranch = 0;
+  const auto& branches = stage.branches;
+  for (std::size_t index = 0; index < stage.code.size(); ++index) {
+    while (nextBranch < branches.size() &&
+           branches[nextBranch].begin == static_cast<std::int32_t>(index)) {
+      const Branch& branch = branches[nextBranch++];
+      if (branch.begin == branch.end) {
+        continue;
+      }
+      out << current << "if " << takes(branch, slotName(branch.condition)) << " {\n";
+      current += "  ";
+      open.push_back(branch);
+    }
+    const Instruction& inst = stage.code[index];
+    const char* const pad = current.c_str();
     const std::string dst = slotName(inst.dst);
     const std::string type = typeName(inst.type);
     switch (inst.op) {
     case Opcode::Const:
-      out << indent << dst << " = " << literal(inst.value, type) << ";\n";
+      out << pad << dst << " = " << literal(inst.value, type) << ";\n";
       break;
     case Opcode::LoadInput:
-      out << indent << dst << " = "
-          << converted(addressing.loadInput(inst.imm), dataType, inst.type) << ";\n";
+      out << pad << dst << " = " << converted(addressing.loadInput(inst.imm), dataType, inst.type)
+          << ";\n";
       break;
     case Opcode::LoadPersistent:
       if (inst.imm < addressing.stateSlots) {
@@ -294,10 +324,10 @@ void emitStageBody(std::ostringstream& out,
           throw std::invalid_argument(
               "expr: a state reached a code generator that cannot address states");
         }
-        out << indent << dst << " = "
-            << converted(addressing.loadState(inst.imm), dataType, inst.type) << ";\n";
+        out << pad << dst << " = " << converted(addressing.loadState(inst.imm), dataType, inst.type)
+            << ";\n";
       } else {
-        out << indent << dst << " = "
+        out << pad << dst << " = "
             << converted(
                    addressing.loadPersistent(inst.imm - addressing.stateSlots), dataType, inst.type)
             << ";\n";
@@ -310,15 +340,15 @@ void emitStageBody(std::ostringstream& out,
       // every arity without a special case per arity.
       const std::string a1 = inst.operandCount > 1 ? slotName(operands[inst.operandBegin + 1]) : a0;
       const std::string a2 = inst.operandCount > 2 ? slotName(operands[inst.operandBegin + 2]) : a0;
-      out << indent << dst << " = "
+      out << pad << dst << " = "
           << pwText(inst, a0, a1, a2, type, slotType(stage, operands[inst.operandBegin]), style)
           << ";\n";
       break;
     }
     case Opcode::Convert: {
       const std::int32_t source = operands[inst.operandBegin];
-      out << indent << dst << " = "
-          << converted(slotName(source), slotType(stage, source), inst.type) << ";\n";
+      out << pad << dst << " = " << converted(slotName(source), slotType(stage, source), inst.type)
+          << ";\n";
       break;
     }
     case Opcode::GridParam:
@@ -328,7 +358,7 @@ void emitStageBody(std::ostringstream& out,
         const std::int32_t source = operands[inst.operandBegin];
         operand = converted(slotName(source), slotType(stage, source), ComputeType::I64);
       }
-      out << indent << dst << " = " << gridText(inst, addressing, operand) << ";\n";
+      out << pad << dst << " = " << gridText(inst, addressing, operand) << ";\n";
       break;
     }
     case Opcode::Contract:
@@ -336,8 +366,25 @@ void emitStageBody(std::ostringstream& out,
         throw std::invalid_argument(
             "expr: a contraction reached a code generator that cannot address blocks");
       }
-      emitContraction(out, inst, dst, type, *addressing.contract, indent);
+      emitContraction(out, inst, dst, type, *addressing.contract, pad);
       break;
+    }
+    const auto after = static_cast<std::int32_t>(index) + 1;
+    while (!open.empty() && open.back().end == after) {
+      const Branch closed = open.back();
+      open.pop_back();
+      current.resize(current.size() - 2);
+      // the other side of the same condition next, at the same depth: its `else`
+      const bool outermost = open.empty() || open.back().end != after;
+      if (outermost && nextBranch < branches.size() && branches[nextBranch].begin == after &&
+          branches[nextBranch].end > after && branches[nextBranch].condition == closed.condition &&
+          branches[nextBranch].side != closed.side) {
+        out << current << "} else {\n";
+        current += "  ";
+        open.push_back(branches[nextBranch++]);
+        break;
+      }
+      out << current << "}\n";
     }
   }
 
@@ -379,26 +426,59 @@ void emitStageBodyTiled(std::ostringstream& out,
                         const char* indent) {
   const std::string blockSize = std::to_string(block) + "ul";
   const std::string inner = std::string(indent) + "  ";
-  const std::string lane = inner + "  ";
+  std::string current = inner;
   const auto slot = [](std::int32_t index) { return slotName(index) + "[j]"; };
   // one instruction over the lanes of the block; `l` where the addressing reads the point
   const auto laneLoop = [&](const std::string& statement, bool readsPoint) {
-    out << "#pragma omp simd\n" << inner << "for (unsigned long j = 0; j < n; ++j) {\n";
+    const std::string lane = current + "  ";
+    out << "#pragma omp simd\n" << current << "for (unsigned long j = 0; j < n; ++j) {\n";
     if (readsPoint) {
       out << lane << "const unsigned long l = base + j;\n";
     }
-    out << lane << statement << ";\n" << inner << "}\n";
+    out << lane << statement << ";\n" << current << "}\n";
   };
 
+  // With branches, the transients outlive a block: a select reads the lanes of the operand it does
+  // not choose also where the block skipped the branch that computes it, which then hold the
+  // values of an earlier block, or zero.
+  const auto& branches = stage.branches;
+  if (!branches.empty()) {
+    for (std::int32_t index = 0; index < stage.slotCount; ++index) {
+      out << indent << typeName(slotType(stage, index)) << " " << slotName(index) << "[" << block
+          << "] = {0};\n";
+    }
+  }
   out << indent << "for (unsigned long base = 0; base < count; base += " << blockSize << ") {\n"
       << inner << "const unsigned long n = count - base < " << blockSize
       << " ? count - base : " << blockSize << ";\n";
-  for (std::int32_t index = 0; index < stage.slotCount; ++index) {
-    out << inner << typeName(slotType(stage, index)) << " " << slotName(index) << "[" << block
-        << "];\n";
+  if (branches.empty()) {
+    for (std::int32_t index = 0; index < stage.slotCount; ++index) {
+      out << inner << typeName(slotType(stage, index)) << " " << slotName(index) << "[" << block
+          << "];\n";
+    }
   }
 
-  for (const Instruction& inst : stage.code) {
+  // A branch runs for the block where a lane of it takes the branch.
+  std::vector<std::int32_t> ends;
+  std::size_t nextBranch = 0;
+  for (std::size_t index = 0; index < stage.code.size(); ++index) {
+    while (nextBranch < branches.size() &&
+           branches[nextBranch].begin == static_cast<std::int32_t>(index)) {
+      const std::string flag = "b" + std::to_string(nextBranch);
+      const Branch& branch = branches[nextBranch++];
+      if (branch.begin == branch.end) {
+        continue;
+      }
+      out << current << "int " << flag << " = 0;\n"
+          << "#pragma omp simd reduction(|:" << flag << ")\n"
+          << current << "for (unsigned long j = 0; j < n; ++j) {\n"
+          << current << "  " << flag << " |= " << takes(branch, slot(branch.condition)) << ";\n"
+          << current << "}\n"
+          << current << "if (" << flag << " != 0) {\n";
+      current += "  ";
+      ends.push_back(branch.end);
+    }
+    const Instruction& inst = stage.code[index];
     const std::string dst = slot(inst.dst);
     const std::string type = typeName(inst.type);
     switch (inst.op) {
@@ -452,6 +532,11 @@ void emitStageBodyTiled(std::ostringstream& out,
     case Opcode::Contract:
       throw std::invalid_argument(
           "expr: a contraction reached the tiled code generator; emit one point after the other");
+    }
+    while (!ends.empty() && ends.back() == static_cast<std::int32_t>(index) + 1) {
+      ends.pop_back();
+      current.resize(current.size() - 2);
+      out << current << "}\n";
     }
   }
 

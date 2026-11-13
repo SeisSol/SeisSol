@@ -28,6 +28,13 @@
 // caller *knows* to be constant, and an empty option set hoists nothing. The
 // failure mode of getting this wrong is a stale value, not a crash, so the
 // default has to be the safe one.
+//
+// BRANCHES. The values that only the points taking one branch of a select need
+// come together in a part of the code a backend may skip where no point of its
+// tile, warp or own takes the branch (StageCode::branches, Branches.h). The code
+// stays straight-line and valid as it is: a backend that runs every part
+// computes the same values, and a select reads the operand it does not choose
+// from a slot that holds some value of its type.
 
 #include "Expr/Expand.h"
 #include "Expr/Ir.h"
@@ -109,6 +116,18 @@ struct Store {
   Space space{Space::Point};
 };
 
+/// A part of the code of a stage that only the points where the condition is `side` need: the
+/// instructions [begin, end), the values of the branch of a select (Branches.h). A backend runs it
+/// for a set of points where one of them needs it, and may skip it where none does; it reads the
+/// condition before the part. The parts nest: one that starts where another does, or in it, ends
+/// in it.
+struct Branch {
+  std::int32_t condition{0}; // transient slot, of any type: true where not zero, a NaN included
+  bool side{true};
+  std::int32_t begin{0};
+  std::int32_t end{0};
+};
+
 struct CheckStore {
   GridId grid{NoGrid};
   CheckKind kind{CheckKind::Outside};
@@ -123,6 +142,8 @@ struct StageCode {
   // Run only: the checks of the written-out lookups (GridCheck), each of a grid and a kind, read
   // from a transient of type Bool that is true where the check finds what its kind says.
   std::vector<CheckStore> checks;
+  // By `begin`; of two that start at one instruction, the one that holds the other first.
+  std::vector<Branch> branches;
   std::int32_t slotCount{0}; // transient slots this stage needs
   // The type of each transient slot: a slot only ever holds values of one type. A store converts
   // from it into the type the data is moved in.
@@ -130,6 +151,10 @@ struct StageCode {
 };
 
 inline constexpr std::int32_t DefaultHoistThreshold = 4;
+// About four elements of a grid, or two operations of the maths library: what a branch skipped
+// for a whole tile or warp saves, against the test of its condition, and a GPU warp whose points
+// diverge, which runs both.
+inline constexpr std::int32_t DefaultBranchThreshold = 16;
 
 struct LowerOptions {
   // Inputs whose value is identical on every run() call for one Binding.
@@ -143,6 +168,10 @@ struct LowerOptions {
   // of persistent memory and a streaming read per call, so recomputation wins
   // for cheap nodes. The weights behind this are a placeholder for a measurement.
   std::int32_t hoistThreshold{DefaultHoistThreshold};
+  // Minimum weight, by the same estimate, of the values that only one branch of a select needs,
+  // before they become a branch of the code (StageCode::branches). A larger value than any program
+  // weighs makes no branches, which gives the same values.
+  std::int32_t branchThreshold{DefaultBranchThreshold};
 
   // Identity of the lowering configuration. NOT part of Program::fingerprint():
   // options shape the kernel but not the program, so the kernel cache mixes this

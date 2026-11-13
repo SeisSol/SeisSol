@@ -7,6 +7,7 @@
 
 #include "Expr/Lower.h"
 
+#include "Expr/Branches.h"
 #include "Expr/Expand.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
@@ -291,35 +292,64 @@ class Emitter {
           std::vector<std::int32_t>& operands)
       : program_(program), analysis_(analysis), channels_(channels), operands_(operands) {}
 
-  // `values` must be in ascending NodeId order (a valid topological order) and
-  // closed under operands, except at the imported-value boundary.
-  void emit(const std::vector<NodeId>& values,
-            const std::vector<NodeId>& liveOut,
-            StageCode& stage) {
+  // `steps` must give the values in a topological order (branchedOrder()), closed under operands,
+  // except at the imported-value boundary. The values of a branch come between its If and EndIf;
+  // the liveness is that of the straight-line order, which holds for any part skipped as well: a
+  // value is only read where the part that computes it ran, or by a select that does not choose it.
+  void emit(const std::vector<Step>& steps, const std::vector<NodeId>& liveOut, StageCode& stage) {
     const Arena& arena = program_.arena();
     SlotAllocator alloc(arena.size());
 
     // Last use of each value inside this stage. Imported values contribute no
     // uses — their operands belong to the stage that produced them. Anything in
     // liveOut survives to the stores at the end and must not be recycled before.
+    // A branch reads its condition before its first instruction.
     std::unordered_map<NodeId, std::size_t> lastUse;
     std::vector<NodeId> kids;
-    for (std::size_t i = 0; i < values.size(); ++i) {
-      const NodeId id = values[i];
-      if (isImported(id)) {
+    std::size_t position = 0;
+    for (const Step& step : steps) {
+      if (step.kind == Step::Kind::If) {
+        auto& last = lastUse[step.node];
+        last = std::max(last, position);
         continue;
       }
-      arena.children(id, kids);
-      for (const NodeId k : kids) {
-        lastUse[k] = i;
+      if (step.kind != Step::Kind::Value) {
+        continue;
       }
+      if (!isImported(step.node)) {
+        arena.children(step.node, kids);
+        for (const NodeId k : kids) {
+          lastUse[k] = position;
+        }
+      }
+      ++position;
     }
     for (const NodeId id : liveOut) {
       lastUse[id] = std::numeric_limits<std::size_t>::max();
     }
 
-    for (std::size_t i = 0; i < values.size(); ++i) {
-      const NodeId id = values[i];
+    std::vector<Branch> open;
+    std::size_t i = 0;
+    for (const Step& step : steps) {
+      if (step.kind == Step::Kind::If) {
+        const std::int32_t slot = alloc.slotOf(step.node);
+        if (slot == NoSlot) {
+          fail("the condition " + std::to_string(step.node) + " of a branch has no live slot");
+        }
+        open.push_back(Branch{slot, step.side, static_cast<std::int32_t>(stage.code.size()), 0});
+        continue;
+      }
+      if (step.kind == Step::Kind::EndIf) {
+        if (open.empty()) {
+          fail("a branch ends that does not start");
+        }
+        Branch branch = open.back();
+        open.pop_back();
+        branch.end = static_cast<std::int32_t>(stage.code.size());
+        stage.branches.push_back(branch);
+        continue;
+      }
+      const NodeId id = step.node;
       const Node& node = arena[id];
 
       Instruction inst;
@@ -405,7 +435,14 @@ class Emitter {
       }
 
       stage.code.push_back(inst);
+      ++i;
     }
+    if (!open.empty()) {
+      fail("a branch does not end");
+    }
+    std::sort(stage.branches.begin(), stage.branches.end(), [](const Branch& x, const Branch& y) {
+      return x.begin != y.begin ? x.begin < y.begin : x.end > y.end;
+    });
 
     stage.slotCount = alloc.high();
     stage.slotTypes = alloc.types();
@@ -489,7 +526,7 @@ const char* name(Opcode op) {
 }
 
 std::uint64_t LowerOptions::fingerprint() const {
-  std::string s = "lo1;";
+  std::string s = "lo2;";
   std::vector<std::string> names = invariantInputs;
   std::sort(names.begin(), names.end());
   for (const std::string& n : names) {
@@ -505,6 +542,8 @@ std::uint64_t LowerOptions::fingerprint() const {
   }
   s += ';';
   s += std::to_string(hoistThreshold);
+  s += ';';
+  s += std::to_string(branchThreshold);
 
   std::uint64_t h = FnvOffset;
   for (const char c : s) {
@@ -544,10 +583,21 @@ std::string LoweredProgram::dump() const {
   const auto stage = [&](const char* title, const StageCode& s) {
     out += title;
     out += " (slots=" + std::to_string(s.slotCount) + ")\n";
-    for (const Instruction& i : s.code) {
+    std::string indent = "  ";
+    std::vector<std::int32_t> ends;
+    for (std::size_t index = 0; index < s.code.size(); ++index) {
+      const Instruction& i = s.code[index];
+      for (const Branch& b : s.branches) {
+        if (b.begin == static_cast<std::int32_t>(index)) {
+          out +=
+              indent + "if t" + std::to_string(b.condition) + (b.side ? " != 0" : " == 0") + " {\n";
+          indent += "  ";
+          ends.push_back(b.end);
+        }
+      }
       const char* types[] = {":f32", ":f64", ":i64", ":bool"};
-      out += "  t" + std::to_string(i.dst) + types[static_cast<std::size_t>(i.type)] + " = " +
-             name(i.op);
+      out += indent + "t" + std::to_string(i.dst) + types[static_cast<std::size_t>(i.type)] +
+             " = " + name(i.op);
       if (i.op == Opcode::Pw) {
         out += std::string(" ") + name(i.fn);
       }
@@ -577,6 +627,11 @@ std::string LoweredProgram::dump() const {
         out += " t" + std::to_string(operands_[i.operandBegin + k]);
       }
       out += "  ; node " + std::to_string(i.node) + " " + name(i.space) + "\n";
+      while (!ends.empty() && ends.back() == static_cast<std::int32_t>(index) + 1) {
+        ends.pop_back();
+        indent.resize(indent.size() - 2);
+        out += indent + "}\n";
+      }
     }
     for (const Store& st : s.outputs) {
       out += "  out[" + std::to_string(st.target) + "] <- t" + std::to_string(st.source) + "\n";
@@ -722,6 +777,13 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
 
   Emitter emitter(program, an, channels, out.operands_);
 
+  // the weight of a value for the branches: one load for one the stage imports
+  const auto weightIn = [&](const std::vector<char>& leaves) {
+    return [&](NodeId id) -> std::int64_t {
+      return leaves[static_cast<std::size_t>(id)] != 0 ? 1 : weight(program, arena[id]);
+    };
+  };
+
   if (!hoistedOrder.empty()) {
     std::vector<NodeId> values;
     for (NodeId id = 0; id < static_cast<NodeId>(arena.size()); ++id) {
@@ -729,8 +791,12 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
         values.push_back(id);
       }
     }
+    const std::vector<char> none(arena.size(), 0);
     emitter.setBoundary({});
-    emitter.emit(values, hoistedOrder, out.precompute_);
+    emitter.emit(
+        branchedOrder(arena, values, hoistedOrder, none, weightIn(none), options.branchThreshold),
+        hoistedOrder,
+        out.precompute_);
     for (const NodeId id : hoistedOrder) {
       out.precompute_.persistent.push_back(
           Store{persistentSlot.at(id), emitter.liveOutSlot(id), an.space[id]});
@@ -755,7 +821,10 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
       liveOut.push_back(check.root);
     }
     emitter.setBoundary(persistentSlot);
-    emitter.emit(values, liveOut, out.run_);
+    emitter.emit(
+        branchedOrder(arena, values, liveOut, hoisted, weightIn(hoisted), options.branchThreshold),
+        liveOut,
+        out.run_);
 
     for (std::size_t i = 0; i < program.roots().size(); ++i) {
       const NodeId r = program.roots()[i];

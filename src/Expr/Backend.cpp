@@ -7,6 +7,7 @@
 #include "Expr/Backend.h"
 
 #include "Expr/Binding.h"
+#include "Expr/Branches.h"
 #include "Expr/Cost.h"
 #include "Expr/Expand.h"
 #include "Expr/Interp.h"
@@ -38,6 +39,7 @@
 #include <queue>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -2131,9 +2133,33 @@ std::vector<GridClamps> clampsAt(const Program& program,
     const NodeId* args = arena.args(node);
     coordinates.insert(coordinates.end(), args, args + node.argCount);
   }
-  const auto imported = importNodes(probe, program, coordinates);
-  for (std::size_t c = 0; c < imported.size(); ++c) {
+  // and where the program uses each sample: one beyond the volume counts only there (Branches.h)
+  std::vector<NodeId> conditions;
+  for (std::size_t id = 0; id < seen.size(); ++id) {
+    const Node& node = arena[static_cast<NodeId>(id)];
+    if (seen[id] != 0 && node.kind == Kind::PW && node.fn == Fn::Select) {
+      conditions.push_back(node.a);
+    }
+  }
+  std::vector<NodeId> wanted = coordinates;
+  wanted.insert(wanted.end(), conditions.begin(), conditions.end());
+  const auto imported = importNodes(probe, program, wanted);
+  for (std::size_t c = 0; c < coordinates.size(); ++c) {
     probe.addOutput("c" + std::to_string(c), reader::scripting::DataType::F64, imported[c]);
+  }
+  std::unordered_map<NodeId, NodeId> conditionIn;
+  for (std::size_t c = 0; c < conditions.size(); ++c) {
+    conditionIn.emplace(conditions[c], imported[coordinates.size() + c]);
+  }
+  Reach reach(
+      program,
+      probe.arena(),
+      [&](NodeId condition) { return conditionIn.at(condition); },
+      ValueType::Real);
+  for (std::size_t l = 0; l < lookups.size(); ++l) {
+    const NodeId used =
+        reach.masked(lookups[l], probe.arena().konst(1.0), probe.arena().konst(0.0));
+    probe.addOutput("u" + std::to_string(l), reader::scripting::DataType::F64, used);
   }
   const auto values = interpretValues(probe, grids, inputs, points);
 
@@ -2141,7 +2167,9 @@ std::vector<GridClamps> clampsAt(const Program& program,
   const auto ids = internGrids(program, grids);
   std::vector<GridClamps> clamps(program.grids().size());
   std::size_t c = 0;
-  for (const NodeId lookup : lookups) {
+  for (std::size_t l = 0; l < lookups.size(); ++l) {
+    const NodeId lookup = lookups[l];
+    const double* used = values.data() + (coordinates.size() + l) * points;
     const Node& node = arena[lookup];
     const auto grid = static_cast<std::size_t>(node.grid);
     const reader::datafield::ArrayView* view = grids.get(ids.at(grid)).arrayView();
@@ -2158,6 +2186,9 @@ std::vector<GridClamps> clampsAt(const Program& program,
       const double* knots = view->knots[axis];
       for (std::size_t k = 0; k < points; ++k) {
         const double x = values[c * points + k];
+        if (used[k] == 0.0) {
+          continue;
+        }
         if (knots != nullptr) {
           // an axis of knots: beyond its first and its last knot
           if (std::isnan(x)) {

@@ -7,6 +7,7 @@
 
 #include "Expr/Expand.h"
 
+#include "Expr/Branches.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Expr/Types.h"
@@ -17,6 +18,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -94,6 +96,11 @@ class Expander {
         mapped_[index] = make(static_cast<NodeId>(index));
       }
     }
+    // the checks of the samples the program uses at some points only, now that the conditions of
+    // the selects after them are made
+    for (const Pending& check : pending_) {
+      addCheck(check.grid, check.kind, reach_->masked(check.lookup, check.root, truth(false)));
+    }
 
     for (std::size_t i = 0; i < in_.outputs().size(); ++i) {
       out.addOutput(in_.outputs()[i].name, in_.outputs()[i].type, mapped(in_.roots()[i]));
@@ -169,7 +176,7 @@ class Expander {
     case Kind::Contract:
       return a.contract(node.matrix, node.block, node.type);
     case Kind::Lookup:
-      return lookup(node);
+      return lookup(id, node);
     case Kind::GridParam:
       return a.gridParam(node.grid, static_cast<GridField>(node.comp), node.axis);
     case Kind::GridLoad:
@@ -178,7 +185,7 @@ class Expander {
     fail(std::string("a node of the kind ") + name(node.kind) + " cannot be written out");
   }
 
-  NodeId lookup(const Node& node) {
+  NodeId lookup(NodeId id, const Node& node) {
     Arena& a = arena();
     const GridId grid = node.grid;
     if (grid < 0 || static_cast<std::size_t>(grid) >= in_.grids().size()) {
@@ -211,11 +218,11 @@ class Expander {
       }
     }
     if (outside != NoNode) {
-      addCheck(grid, CheckKind::Outside, outside);
+      check(id, grid, CheckKind::Outside, outside);
     }
     for (const Axis& axis : axes) {
       if (axis.stale != NoNode) {
-        addCheck(grid, CheckKind::Window, axis.stale);
+        check(id, grid, CheckKind::Window, axis.stale);
       }
     }
 
@@ -225,9 +232,24 @@ class Expander {
     return wide ? sample : a.cast(node.type, sample);
   }
 
+  /// The check `root` of the lookup `lookup` of `in_`, of `grid` and `kind`, where the program uses
+  /// the sample: now where it uses it everywhere, else once the conditions of the selects around it
+  /// are made.
+  void check(NodeId lookup, GridId grid, CheckKind kind, NodeId root) {
+    if (!reach_.has_value()) {
+      reach_.emplace(in_, arena(), [this](NodeId condition) { return mapped(condition); }, Bool);
+    }
+    if (reach_->everywhere(lookup)) {
+      addCheck(grid, kind, root);
+    } else {
+      pending_.push_back(Pending{lookup, grid, kind, root});
+    }
+  }
+
   /// Adds `root` to the check of `grid` and `kind`: one truth value per grid and kind for the whole
-  /// program, the `or` of those of its lookups, made as each lookup is made -- so that a kernel
-  /// keeps one value per check alive to its end, not one per lookup.
+  /// program, the `or` of those of its lookups, made as each lookup is made where the program uses
+  /// it everywhere -- so that a kernel keeps one value per check alive to its end, not one per
+  /// lookup.
   void addCheck(GridId grid, CheckKind kind, NodeId root) {
     for (GridCheck& check : result_.checks) {
       if (check.grid == grid && check.kind == kind) {
@@ -467,10 +489,20 @@ class Expander {
     return sum;
   }
 
+  /// The check of a lookup of `in_` (its NodeId) that the program uses at some points only.
+  struct Pending {
+    NodeId lookup{NoNode};
+    GridId grid{NoGrid};
+    CheckKind kind{CheckKind::Outside};
+    NodeId root{NoNode};
+  };
+
   const Program& in_;
   const Arena& from_;
   ExpandedProgram result_;
   std::vector<NodeId> mapped_;
+  std::optional<Reach> reach_;
+  std::vector<Pending> pending_;
 };
 
 } // namespace

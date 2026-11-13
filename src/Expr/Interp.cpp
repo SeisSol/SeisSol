@@ -675,14 +675,31 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
         return;
       }
       case Fn::Select: {
-        const auto* condition = reinterpret_cast<const std::uint8_t*>(lanes(0));
+        // a condition of any type: where the check of a lookup counts, the conditions of the
+        // selects of the program choose between truth values (Branches.h)
         const auto* x = reinterpret_cast<const std::uint8_t*>(lanes(1));
         const auto* y = reinterpret_cast<const std::uint8_t*>(lanes(2));
-        // the decisions before the values: the result may take the slot of the condition
-        decide(inst, [&](std::size_t l) { return condition[l] != 0; });
+        const auto choose = [&](const auto* condition) {
+          // the decisions before the values: the result may take the slot of the condition
+          decide(inst, [&](std::size_t l) { return condition[l] != 0; });
 #pragma omp simd
-        for (std::size_t l = 0; l < count; ++l) {
-          dst[l] = condition[l] != 0 ? x[l] : y[l];
+          for (std::size_t l = 0; l < count; ++l) {
+            dst[l] = condition[l] != 0 ? x[l] : y[l];
+          }
+        };
+        switch (typeOf(operands[inst.operandBegin])) {
+        case ComputeType::Bool:
+          choose(reinterpret_cast<const std::uint8_t*>(lanes(0)));
+          return;
+        case ComputeType::F32:
+          choose(reinterpret_cast<const float*>(lanes(0)));
+          return;
+        case ComputeType::F64:
+          choose(reinterpret_cast<const double*>(lanes(0)));
+          return;
+        case ComputeType::I64:
+          choose(reinterpret_cast<const std::int64_t*>(lanes(0)));
+          return;
         }
         return;
       }
@@ -697,7 +714,7 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
          (inst.op == Opcode::Pw ? std::string(" ") + name(inst.fn) : std::string()));
   };
 
-  for (const Instruction& inst : stage.code) {
+  const auto executeOne = [&](const Instruction& inst) {
     switch (inst.type) {
     case ComputeType::F32:
       execute(inst, 0.0F);
@@ -712,6 +729,52 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
       executeBool(inst);
       break;
     }
+  };
+
+  // whether a point of the tile takes `branch`: its condition is `side` there, true where it is
+  // not zero, a NaN included
+  const auto taken = [&](const Branch& branch) {
+    const auto any = [&](const auto* condition) {
+      for (std::size_t l = 0; l < count; ++l) {
+        if ((condition[l] != 0) == branch.side) {
+          return true;
+        }
+      }
+      return false;
+    };
+    switch (typeOf(branch.condition)) {
+    case ComputeType::Bool:
+      return any(reinterpret_cast<const std::uint8_t*>(bytesOf(branch.condition)));
+    case ComputeType::F32:
+      return any(reinterpret_cast<const float*>(bytesOf(branch.condition)));
+    case ComputeType::F64:
+      return any(reinterpret_cast<const double*>(bytesOf(branch.condition)));
+    case ComputeType::I64:
+      return any(reinterpret_cast<const std::int64_t*>(bytesOf(branch.condition)));
+    }
+    return true;
+  };
+
+  // A branch that no point of the tile takes is skipped, with the branches in it; one that some
+  // take runs for all. Where the decisions of the selects are recorded, every select decides at
+  // every point, as without branches.
+  const auto& branches = stage.branches;
+  const bool skips = !branches.empty() && decisions_ == nullptr && branches_ == nullptr;
+  std::size_t next = 0;
+  for (std::size_t i = 0; i < stage.code.size();) {
+    if (skips && next < branches.size() && branches[next].begin == static_cast<std::int32_t>(i)) {
+      const Branch& branch = branches[next];
+      ++next;
+      if (!taken(branch)) {
+        while (next < branches.size() && branches[next].begin < branch.end) {
+          ++next;
+        }
+        i = static_cast<std::size_t>(branch.end);
+      }
+      continue;
+    }
+    executeOne(stage.code[i]);
+    ++i;
   }
 
   // A check of a lookup that found what its kind says at a point of the tile: a sample beyond a

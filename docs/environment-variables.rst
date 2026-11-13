@@ -155,8 +155,8 @@ easi where they differ.
 Lua, the ``!LuaMap`` of an easi file and a Lua model (``lua:file`` or a ``.lua`` file), is
 translated into a program as well (the Lua frontend), without a Lua VM: the program computes what
 Lua 5.4 computes with lmathx, as easi and SeisSol run it, to the bit. An ``if`` on a value of the
-point runs both branches and merges them with a select, an early ``return`` or ``break`` becomes a
-chain of selects, ``c and x or y`` a select; a loop whose bounds the script fixes is unrolled, a
+point becomes a select of what its branches assign, an early ``return`` or ``break`` a chain of
+selects, ``c and x or y`` a select; a loop whose bounds the script fixes is unrolled, a
 function is inlined; integers and floats are Lua's (``7 // 2`` is 3, the zero of an integer has no
 sign). Refused, with the line: a loop whose end depends on the point, ``goto``, recursion, a table
 index or a string that depends on the point, metatables, the libraries other than ``math``
@@ -296,10 +296,14 @@ and ``values``.
 
 ``interpolation`` is ``"nearest"``, ``"linear"``, ``"cubic"``, ``"previous"`` or ``"next"``; with
 ``boundary = "clamp"`` a coordinate beyond the grid samples its boundary, with ``"fail"`` it is an
-error. ``"previous"`` takes the value of the last node below the coordinate, ``"next"`` that of the
-first node at or above it: a coordinate on a node belongs to the cell below it, as in easi's
-``!LayeredModel`` (``lower`` and ``upper``). Both may be given per axis, as a tuple of one per axis
-(``interpolation = ("linear", "previous")``).
+error where the sample is used. A sample in a branch of a select that a point does not take (in a
+layer it is not in, say) neither fails there nor counts as beyond the grid in the evaluation
+record; and a backend computes what a branch alone uses only for the points that take it, where it
+weighs enough to be worth a branch of the code: a model with a grid per layer samples at a point
+the grid of its layer. ``"previous"`` takes the value of the last node below the coordinate,
+``"next"`` that of the first node at or above it: a coordinate on a node belongs to the cell below
+it, as in easi's ``!LayeredModel`` (``lower`` and ``upper``). Both may be given per axis, as a
+tuple of one per axis (``interpolation = ("linear", "previous")``).
 
 The components of an ASAGI file are read by position, as easi reads them: the first component the
 script names is the first member of the compound of the file, and so on. Where the file names its

@@ -1,0 +1,25 @@
+#!sderiv 1
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#
+# Branches: values that one branch of a select alone uses, which a backend computes only for the
+# points that take it -- samples of a grid in nested branches, both sides of one condition, and
+# divisions and roots on the other side of another -- the same bits as computing everything.
+in x, y
+grid g (kind = "inline", components = ("v", "w"), knots = ((-1, 0, 2), (-3, 1)),
+        values = (((0.1, 5), (0.2, 6), (0.7, 7)),
+                  ((1.1, 8), (1.3, 9), (1.9, 10))),
+        interpolation = "linear", boundary = "clamp")
+def c = lt(x, 0.5)
+def d = lt(y, 0)
+def s = g.v(x, y)
+def t = g.w(x, y)
+def q = sqrt(abs(x) + 1) / (abs(y) + 2) - sqrt(abs(y) + 3) / (abs(x) + 4)
+def r = sqrt(abs(x * y) + 5) / (abs(x) + abs(y) + 6) + sqrt(abs(x) + 7) / (abs(y) + 8)
+out u = select(c, select(d, s, t), q)
+out v = select(c, s, x)
+out w = select(lt(y, 0.25), x, r)

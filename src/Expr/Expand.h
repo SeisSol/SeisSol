@@ -37,7 +37,10 @@
 // A grid whose boundary mode fails beyond its volume gets a check per lookup (GridCheck): true
 // where a coordinate was clamped onto the volume, which every backend reports. A time-dependent
 // grid gets one on its time axis: true where the window does not hold the stencil of the time,
-// where the file goes on beyond it -- a time the window was not placed for.
+// where the file goes on beyond it -- a time the window was not placed for. A check counts only
+// where the sample is used, where the selects between it and an output take its branch: it is
+// written as selects over their conditions (Reach, Branches.h), so that it lies in the branch of
+// the sample, and is computed where the sample is.
 
 #include "Expr/Ir.h"
 #include "Expr/Program.h"

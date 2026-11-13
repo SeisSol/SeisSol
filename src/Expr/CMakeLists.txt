@@ -18,6 +18,7 @@ add_library(seissol-expr OBJECT
     RtcGpuDriver.cpp
     Validate.cpp
     Lower.cpp
+    Branches.cpp
     Expand.cpp
     Interp.cpp
     Record.cpp

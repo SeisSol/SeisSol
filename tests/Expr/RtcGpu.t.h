@@ -19,6 +19,7 @@
 #include "Reader/Scripting/DataTable.h"
 #include "TestHelper.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -728,6 +729,96 @@ TEST_SUITE("ExprRtcGpu") {
     }
   }
 
+  TEST_CASE("the emitted device kernel marks a sample beyond its grid only where it is used") {
+    // a grid that fails beyond its volume, sampled in a branch of a select: a point that does not
+    // take it does not sample it, however far beyond the grid its coordinates lie
+    df::GridDesc desc;
+    desc.path = "grid.nc";
+    desc.variable = "z";
+    desc.interpolation = df::Interpolation::Linear;
+    desc.boundary = df::BoundaryMode::Fail;
+    Program program;
+    const GridId grid = program.internGrid(desc);
+    program.addInput("x", reader::scripting::DataType::F64);
+    program.addInput("y", reader::scripting::DataType::F64);
+    auto& arena = program.arena();
+    const NodeId x = arena.field("x");
+    const NodeId y = arena.field("y");
+    const NodeId sample = arena.lookup(grid, 0, {x, y});
+    const NodeId taken = arena.pw(Fn::Mul, sample, arena.pw(Fn::Exp, y));
+    program.addOutput("u",
+                      reader::scripting::DataType::F64,
+                      arena.pw(Fn::Select, arena.pw(Fn::Lt, x, arena.konst(0.5)), taken, y));
+    validate(program);
+    const LoweredProgram lowered = lower(program);
+    REQUIRE_FALSE(lowered.run().branches.empty());
+
+    std::vector<double> xs = {0.0, 0.0};
+    std::vector<double> ys = {0.0, 0.0};
+    std::vector<double> out(2, 0.0);
+    DataTable table(2);
+    table.bindViewConst<double>("x", Direction::In, xs.data());
+    table.bindViewConst<double>("y", Direction::In, ys.data());
+    table.bindView<double>("u", Direction::Out, out.data());
+    Binding binding = Binding::bind(program, table);
+    GpuLayout layout = gpuLayoutOf(binding);
+    layout.grids = {df::ElementType::Double};
+    const std::string source = emitGpuSource(program, lowered, layout, GpuTarget::Cuda);
+    CHECK(source.find("if (s") != std::string::npos);
+    void* handle =
+        compileForHost(std::string(HostShim) + source + emitGpuHostTrampoline(layout, "double"));
+    if (handle == nullptr) {
+      WARN_MESSAGE(false, "no usable C++ compiler; the device code generator was not run");
+      return;
+    }
+    auto* invoke = reinterpret_cast<void (*)(void**)>(dlsym(handle, "seissol_expr_invoke"));
+    REQUIRE(invoke != nullptr);
+
+    const ArrayGrid arrays({7, 5}, df::ElementType::Double, df::Interpolation::Linear);
+    const df::ArrayView* view = arrays.arrayView();
+    constexpr double Nan = std::numeric_limits<double>::quiet_NaN();
+    struct Case {
+      std::vector<double> x;
+      std::vector<double> y;
+      std::uint64_t outside;
+    };
+    const std::vector<Case> cases = {{{0.0}, {0.0}, 0},
+                                     {{4.0}, {0.0}, 0},
+                                     {{0.2}, {10.0}, 1},
+                                     {{Nan}, {10.0}, 0},
+                                     {{4.0, 0.0}, {10.0, 0.0}, 0},
+                                     {{4.0, 0.2}, {0.0, -3.0}, 1}};
+    for (const Case& c : cases) {
+      CAPTURE(c.x[0]);
+      CAPTURE(c.y[0]);
+      std::copy(c.x.begin(), c.x.end(), xs.begin());
+      std::copy(c.y.begin(), c.y.end(), ys.begin());
+      codegen::GridDescriptor descriptor = codegen::gridDescriptor(*view, view->data);
+      std::vector<void*> bases = {out.data()};
+      KernelArgs args{};
+      args.outputs = bases.data();
+      args.outputCount = 1;
+      args.first = 0;
+      args.count = c.x.size();
+      GpuArguments packed(binding, args, nullptr, nullptr, {&descriptor});
+      invoke(packed.data());
+      CHECK(descriptor.outside == c.outside);
+      // the point that does not take the branch
+      if (c.x[0] == 4.0) {
+        CHECK(out[0] == c.y[0]);
+      }
+    }
+
+    // and NVRTC, where there is one, compiles the branches
+    bool ran = false;
+    std::string log;
+    const bool accepted = nvrtcAccepts(source, ran, log);
+    if (ran) {
+      INFO(log);
+      CHECK(accepted);
+    }
+  }
+
   TEST_CASE("the device source of a lookup is valid for every target") {
     df::GridDesc desc;
     desc.path = "grid.nc";
@@ -904,6 +995,11 @@ TEST_SUITE("ExprRtcGpu") {
         {"binary32 in a program of binary64",
          "def a = f32(x) * f32(y) - sqrt(abs(f32(x))) + sin(f32(y)) + exp(f32(x) / 1e3)\n"
          "out def u = real(a) + x\nout def v = f32(y) * 2.0\n"},
+        {"branches of selects, nested, and an else",
+         "def c = lt(x, 0.0)\n"
+         "def a = exp(x / 1e6) * sin(y) + log(abs(y) + 1.0) * cos(x)\n"
+         "def b = select(lt(y, 1.0), sqrt(abs(y)) * exp(y / 1e6) + atan(x), x * y)\n"
+         "out def u = select(c, a, b)\nout def v = select(c, a * a, x - y)\n"},
     };
 
     bool ran = false;
