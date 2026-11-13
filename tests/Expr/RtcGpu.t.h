@@ -148,6 +148,45 @@ bool nvrtcAccepts(const std::string& source, bool& ran, std::string& log) {
   return compiled;
 }
 
+/// Whether HIPRTC, if this machine has it, compiles `source` as the driver does, for `arch` (set
+/// `ran` accordingly; `log` gets its diagnostics): as nvrtcAccepts() for the HIP dialect.
+bool hiprtcAccepts(const std::string& source, const char* arch, bool& ran, std::string& log) {
+  ran = false;
+  void* library = dlopen("libhiprtc.so", RTLD_NOW | RTLD_LOCAL);
+  if (library == nullptr) {
+    return true;
+  }
+  using Create =
+      int (*)(void**, const char*, const char*, int, const char* const*, const char* const*);
+  using Compile = int (*)(void*, int, const char* const*);
+  using LogSize = int (*)(void*, std::size_t*);
+  using Log = int (*)(void*, char*);
+  using Destroy = int (*)(void**);
+  auto* create = reinterpret_cast<Create>(dlsym(library, "hiprtcCreateProgram"));
+  auto* compile = reinterpret_cast<Compile>(dlsym(library, "hiprtcCompileProgram"));
+  auto* logSize = reinterpret_cast<LogSize>(dlsym(library, "hiprtcGetProgramLogSize"));
+  auto* getLog = reinterpret_cast<Log>(dlsym(library, "hiprtcGetProgramLog"));
+  auto* destroy = reinterpret_cast<Destroy>(dlsym(library, "hiprtcDestroyProgram"));
+  if (create == nullptr || compile == nullptr || logSize == nullptr || getLog == nullptr ||
+      destroy == nullptr) {
+    return true;
+  }
+  void* program = nullptr;
+  if (create(&program, source.c_str(), "seissol_expr.hip", 0, nullptr, nullptr) != 0) {
+    return true;
+  }
+  ran = true;
+  const std::string archOption = std::string("--offload-arch=") + arch;
+  const std::vector<const char*> options = {"--std=c++17", archOption.c_str()};
+  const bool compiled = compile(program, static_cast<int>(options.size()), options.data()) == 0;
+  std::size_t size = 0;
+  logSize(program, &size);
+  log.assign(size, '\0');
+  getLog(program, log.data());
+  destroy(&program);
+  return compiled;
+}
+
 /// A grid over an array of its own, sampled by the arithmetic of Interpolation.h, which it exposes
 /// as the array a device kernel copies (Grid::arrayView()). Values that no scheme reproduces
 /// exactly, so that every weight and every rounding shows in the samples.
@@ -809,13 +848,25 @@ TEST_SUITE("ExprRtcGpu") {
       }
     }
 
-    // and NVRTC, where there is one, compiles the branches
+    // and NVRTC and HIPRTC, where there are, compile the branches; for HIP with the arithmetic of
+    // the lookup in functions without contraction, and the runtime that HIPRTC brings itself
     bool ran = false;
     std::string log;
     const bool accepted = nvrtcAccepts(source, ran, log);
     if (ran) {
       INFO(log);
       CHECK(accepted);
+    }
+    const std::string hip = emitGpuSource(program, lowered, layout, GpuTarget::Hip);
+    CHECK(hip.find("#pragma clang fp contract(off)") != std::string::npos);
+    CHECK(hip.find("#ifndef __HIPCC_RTC__") != std::string::npos);
+    for (const char* arch : {"gfx90a", "gfx1100"}) {
+      CAPTURE(arch);
+      const bool compiled = hiprtcAccepts(hip, arch, ran, log);
+      if (ran) {
+        INFO(log);
+        CHECK(compiled);
+      }
     }
   }
 
