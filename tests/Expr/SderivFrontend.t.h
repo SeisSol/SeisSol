@@ -23,8 +23,11 @@
 
 #include <cmath>
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
 #include <set>
 #include <string>
+#include <unistd.h>
 #include <utility>
 #include <vector>
 
@@ -617,6 +620,121 @@ TEST_SUITE("SderivFrontend") {
                       "its initial value") != std::string::npos);
     }
     CHECK(thrown);
+  }
+
+  TEST_CASE("a module imports modules of the library and files, by qualified names") {
+    registerRecordType("elastic", {"rho", "mu", "lambda"});
+    const auto directory = std::filesystem::temp_directory_path() /
+                           ("seissol-test-import-" + std::to_string(::getpid()));
+    std::filesystem::create_directories(directory / "sub");
+    const auto write = [&](const std::string& name, const std::string& text) {
+      std::ofstream(directory / name) << text;
+    };
+    // a file, which imports another, relative to itself; its own names unqualified
+    write("lib.sderiv",
+          "import \"sub/base.sderiv\" as base\n"
+          "type pair = {a, b}\n"
+          "def half = 0.5\n"
+          "def mean(p : pair) = (p.a + p.b) * half\n"
+          "def scaled(p : pair) : pair = {a = base.twice(p.a), b = p.b}\n");
+    write("sub/base.sderiv", "def twice(v) = 2 * v\n");
+    SderivOptions options;
+    options.file = (directory / "model.sderiv").string();
+    const auto program =
+        compileSderivModule("import \"lib.sderiv\" as lib\n"
+                            "import motion\n"
+                            "def p : lib.pair = {a = x, b = 3, c = 4}\n"
+                            "out def m = lib.mean(lib.scaled(p))\n"
+                            "out def h = lib.half\n"
+                            "out def r = max(motion.rotated(x, 0, motion.angles(4)))\n",
+                            options);
+    reader::datafield::GridStore store;
+    // mean of 2 x and 3, at x = 2.5; and |2.5 cos t| at 0, 45, 90 and 135 degrees
+    CHECK(interpretValues(program, store, {2.5}, 1) == std::vector<double>{4.0, 0.5, 2.5});
+
+    const auto reject =
+        [&](const std::string& library, const std::string& source, const std::string& fragment) {
+          write("bad.sderiv", library);
+          bool thrown = false;
+          try {
+            static_cast<void>(compileSderivModule(source, options));
+          } catch (const SderivError& error) {
+            thrown = true;
+            const std::string message = error.what();
+            CAPTURE(message);
+            CAPTURE(fragment);
+            CHECK(message.find(fragment) != std::string::npos);
+          }
+          CAPTURE(source);
+          CHECK(thrown);
+        };
+    const std::string uses = "import \"bad.sderiv\" as bad\nout def r = bad.f(1)\n";
+    reject("def f(v) = v\nout def g = 1\n",
+           uses,
+           "a library declares definitions, types and imports, not `out`");
+    // an error in a module names its file and its line
+    reject("def f(v) = v + z\n",
+           uses,
+           "bad.sderiv:1:16: resolve: a definition of a library reads its parameters, the "
+           "definitions of its module and constants, and `z` is none of them");
+    reject("import \"bad.sderiv\" as again\ndef f(v) = v\n", uses, "imports itself");
+    reject(
+        "def f(v) = v\n", "import tensors\nout def r = 1\n", "the library has no module `tensors`");
+    reject("def f(v) = v\n",
+           "import \"bad.sderiv\" as bad\nimport motion as bad\nout def r = bad.f(1)\n",
+           "the module is imported as `bad` twice");
+    reject("def f(v) = v\n",
+           "import \"bad.sderiv\" as bad\nimport motion\ndef motion = 1\nout def r = bad.f(1)\n",
+           "the module is imported as `motion`, the name of a definition");
+    reject("def f(v) = v\n",
+           "import \"bad.sderiv\" as bad\nout def r = bad.g(1)\n",
+           "the module `bad` has no definition `g`");
+    reject(
+        "def f(v) = v\n", "import \"bad.sderiv\" as bad\nout def r = bad\n", "`bad` is a module");
+    std::filesystem::remove_all(directory);
+  }
+
+  TEST_CASE("the library: rocks, rotations, and the motion along every angle") {
+    registerRecordType("elastic", {"rho", "mu", "lambda"});
+    // Gassmann: lambda + alpha^2 M, the density of solid and fluid
+    const auto rock = compileSderivModule(
+        "import rock\n"
+        "out rock.gassmann({bulk_solid = 3.6e10, bulk_fluid = 2.2e9, porosity = phi, rho = 2650,\n"
+        "                   rho_fluid = 1000, mu = 1e10, lambda = 5e9}) : elastic\n");
+    reader::datafield::GridStore store;
+    const double phi = 0.2;
+    const double matrix = 5e9 + 2.0 / 3.0 * 1e10;
+    const double alpha = (1.0 - matrix / 3.6e10) * (1.0 - matrix / 3.6e10);
+    const double inverse = phi / 2.2e9 + (1.0 - phi) / 3.6e10 - matrix / (3.6e10 * 3.6e10);
+    const auto rocks = interpretValues(rock, store, {phi}, 1);
+    REQUIRE(rocks.size() == 3);
+    CHECK(rocks[0] == doctest::Approx(phi * 1000 + (1 - phi) * 2650).epsilon(1e-15));
+    CHECK(rocks[1] == 1e10);
+    CHECK(rocks[2] == doctest::Approx(5e9 + alpha / inverse).epsilon(1e-15));
+    // the rotation of a point source: by strike 90, dip 90 and rake 0 the axes are permuted, and
+    // a rotated tensor keeps its trace
+    const auto rotation = compileSderivModule(
+        "import rotation\n"
+        "def r = rotation.matrix(90, 90, 0)\n"
+        "def m = rotation.rotate([[1, 0, 0], [0, 2, 0], [0, 0, 3]], rotation.matrix(s, 40, 10))\n"
+        "out def r20 = r[2][0]\n"
+        "out def tr = trace(m)\n");
+    const auto rotated = interpretValues(rotation, store, {25.0}, 1);
+    CHECK(rotated[0] == 1.0);
+    CHECK(rotated[1] == doctest::Approx(6.0).epsilon(1e-14));
+    // RotD100 over two calls, its state an array of a state per angle
+    const auto motion = compileSderivModule("import motion as m\n"
+                                            "def angles = m.angles(180)\n"
+                                            "state peak = [0 for t in angles]\n"
+                                            "def now = max(peak, m.rotated(v1, v2, angles))\n"
+                                            "def peak = now\n"
+                                            "out def rotd100 = max(now)\n");
+    CHECK(motion.state().size() == 180);
+    std::vector<double> states(180, 0.0);
+    const auto first = interpretValues(motion, store, {3.0, 4.0}, 1, nullptr, &states);
+    // |3 cos t + 4 sin t| is largest, 5, at t = atan(4 / 3) = 53.13 degrees: the angle 53
+    CHECK(first[0] == doctest::Approx(5.0).epsilon(1e-3));
+    CHECK(first[0] <= 5.0);
   }
 
   // ------------------------------------------------------------ negative ---

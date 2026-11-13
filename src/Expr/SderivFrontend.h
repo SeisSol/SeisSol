@@ -29,8 +29,9 @@
 //
 // GRAMMAR (deltas against the derived-output frontend marked +):
 //
-//   + program    := { definition | spread | typedecl | griddecl | statedecl | check } ( expr | )
-//   EOF
+//   + program    := { definition | spread | typedecl | importdecl | griddecl | statedecl |
+//                     check } ( expr | ) EOF
+//   + importdecl := 'import' NAME [ 'as' NAME ] | 'import' STR 'as' NAME
 //   + definition := [ 'out' ] 'def' NAME [ '(' param { ',' param } ')' ] [ ':' type ] '=' expr
 //   + param      := NAME [ ':' type ]
 //   + spread     := 'out' expr          // the fields of a record, an output each
@@ -41,9 +42,7 @@
 //   + attribute  := NAME '=' ( STR | NUM | '(' value { ',' value } ')' )
 //                    // those of the core format; an ASAGI file's variable and the boundary have
 //                    // defaults ("z", "clamp")
-//   + statedecl  := 'state' [ TYPE ] NAME '=' initial
-//   + initial    := [ '-' ] NUM | '[' initial { ',' initial } ']'
-//                 | '{' NAME '=' initial { ',' NAME '=' initial } '}'
+//   + statedecl  := 'state' [ TYPE ] NAME '=' expr    // numbers the program fixes
 //   + check      := 'check' expr ',' STR    // a condition every point meets (Program::checks())
 //   + comment    := '#' { any } NEWLINE
 //
@@ -81,6 +80,13 @@
 // `material` is the material of the point: `material.rho` reads the input rho, `material : t` the
 // inputs of the fields of t -- the names the consumer supplies the parameters of its material by.
 // None of it reaches the program: types are checked and resolved here.
+//
+// IMPORT. `import stress` imports a module of the library (SderivLibrary.h), `import "lib.sderiv"
+// as lib` a file, relative to the importing one; its definitions and types are read qualified,
+// `stress.andersonian(...)`, `lib.v`, `stress.normalized`. A module imported is a library: it
+// declares definitions, types and imports only, and a definition of it reads its parameters, the
+// definitions of its module, the modules it imports and constants -- no input, state or grid. Every
+// module is loaded once; an error in one names its file, line and column.
 //
 // `out` IS A MODIFIER ON def, not a sibling keyword, and the grammar says so
 // with one production rather than two that happen to look alike. An exported

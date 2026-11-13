@@ -226,7 +226,8 @@ of one of these functions, which it then hides. The traction on a plane, as a de
    out def shear_stress = norm(t - dot(t, n) * n)
 
 A state may be an array or a record, ``state peak = [0, 0, 0]``, whose next value has its shape:
-SeisSol keeps a state per number, ``peak[0]`` to ``peak[2]``.
+SeisSol keeps a state per number, ``peak[0]`` to ``peak[2]``. Its initial value is any expression
+of numbers the module fixes, ``[0 for t in range(180)]`` say.
 
 A type names the form of a value: ``type velocities = {rho, vp, vs}`` is a record of three numbers,
 ``number[3]`` an array of three, and a field may have a type, ``{material : elastic, normal :
@@ -243,6 +244,32 @@ missing one is an error that names it:
    def lame(p : velocities) : elastic =
      {rho = p.rho, mu = p.rho * p.vs ** 2, lambda = p.rho * (p.vp ** 2 - 2 * p.vs ** 2)}
    out lame(m(x, y, z)) : elastic
+
+A module may import others: ``import stress`` a module of the library of SeisSol, and
+``import "lib.sderiv" as lib`` a file, relative to the module importing it, whose definitions and
+types it reads as ``lib.f(x)``, ``lib.v`` and ``lib.t``. A module imported declares only
+definitions, types and imports; its definitions read their parameters, the definitions of their
+module and constants, not the inputs of the point. The library has:
+
+- ``stress``: ``str_dip_slip_am``, ``optimal`` and ``andersonian``, the stress of easi's special
+  components ``!STRESS_STR_DIP_SLIP_AM``, ``!OptimalStress`` and ``!AndersonianStress``, to easi's
+  bits, as records of the type ``stress.normalized`` (``b_xx`` to ``b_xz``); their arguments are
+  records of easi's parameters;
+- ``rock``: ``gassmann``, the elastic material of a poroelastic one with the fluid locked in its
+  pores (the undrained moduli of Biot and Gassmann);
+- ``rotation``: ``matrix(strike, dip, rake)``, in degrees, the rotation of SeisSol's point sources,
+  and ``rotate(m, r)``, the tensor ``m`` of the fault in x, y and z;
+- ``motion``: ``angles(n)`` and ``rotated(a1, a2, angles)``, the horizontal motion along each angle;
+  RotD100 of the velocity, say, as a derived output with a state per angle:
+
+.. code-block:: text
+
+   import motion
+   def angles = motion.angles(180)
+   state peak = [0 for t in angles]
+   def now = max(peak, motion.rotated(v1, v2, angles))
+   def peak = now
+   out def rotd100 = max(now)
 
 ``material`` is the material of the point, where a consumer supplies its parameters (the boundary
 conditions and the derived outputs, say): ``material.rho`` reads the input ``rho``, and

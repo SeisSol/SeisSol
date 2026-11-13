@@ -10,6 +10,7 @@
 #include "Expr/Core.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
+#include "Expr/SderivLibrary.h"
 #include "Reader/Datafield/Grid.h"
 
 #include <algorithm>
@@ -20,7 +21,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <functional>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <mutex>
@@ -53,6 +56,7 @@ enum class TokenKind : std::uint8_t {
   Check,
   Type,
   For,
+  Import,
   Eof
 };
 
@@ -221,6 +225,8 @@ std::vector<Token> tokenize(const std::string& source) {
         kind = TokenKind::Type;
       } else if (value == "for") {
         kind = TokenKind::For;
+      } else if (value == "import") {
+        kind = TokenKind::Import;
       }
       tokens.push_back({kind, std::move(value), static_cast<int>(start)});
       continue;
@@ -269,6 +275,8 @@ struct SurfaceNode {
   /// of an Ascription its type; of a Def the type of its value, and of its parameters
   TypeId type{NoType};
   std::vector<TypeId> paramTypes;
+  /// the module the node is of: 0 the module compiled, else one it imports (Lowering)
+  int module{0};
 };
 
 // A type as a module spells it (`type t = ...`, `e : t`): a number, the type of a name, a record of
@@ -282,16 +290,21 @@ struct TypeExpression {
   std::vector<TypeId> items;
   std::size_t length{0};
   int position{0};
+  int module{0};
 };
 
 class SurfaceArena {
   public:
   SurfaceId add(SurfaceNode&& node) {
+    node.module = module_;
     nodes_.push_back(std::move(node));
     return static_cast<SurfaceId>(nodes_.size()) - 1;
   }
+  /// The module the nodes and types added from now on are of.
+  void setModule(int module) { module_ = module; }
   const SurfaceNode& operator[](SurfaceId id) const { return nodes_[id]; }
   TypeId addType(TypeExpression&& type) {
+    type.module = module_;
     types_.push_back(std::move(type));
     return static_cast<TypeId>(types_.size()) - 1;
   }
@@ -302,6 +315,18 @@ class SurfaceArena {
   private:
   std::vector<SurfaceNode> nodes_;
   std::vector<TypeExpression> types_;
+  int module_{0};
+};
+
+// `import stress` (a module of the library of SeisSol) or `import "file.sderiv" as name` (a file,
+// relative to the importing one): the definitions and types of the module, as name.f, name.t.
+struct ImportDeclaration {
+  /// the name it is imported as
+  std::string name;
+  /// the file, or the module of the library
+  std::string path;
+  bool file{false};
+  int position{0};
 };
 
 // `type NAME = ...`: a name for a type, which stands for it wherever it is named.
@@ -368,7 +393,8 @@ struct InitialValue {
 
 struct StateDeclaration {
   std::string name;
-  InitialValue initial;
+  /// its initial value, an expression of numbers the program fixes (Lowering::initializeStates())
+  SurfaceId initial{-1};
   int position{0};
   // `state f64 name = ...`: the type of the state (see ValueType)
   ValueType type{ValueType::Real};
@@ -390,6 +416,7 @@ struct ParsedProgram {
   std::vector<std::pair<bool, std::size_t>> outputOrder;
   std::vector<GridDeclaration> grids;
   std::vector<TypeDeclaration> types;
+  std::vector<ImportDeclaration> imports;
   // `check c, "message"`: the conditions every point has to meet (Program::checks())
   std::vector<std::pair<SurfaceId, std::string>> checks;
   SurfaceId expression{-1}; // -1 when the module declares its outputs itself
@@ -444,6 +471,11 @@ class Parser {
   public:
   Parser(const std::vector<Token>& tokens, SurfaceArena& arena) : tokens_(tokens), arena_(arena) {}
 
+  /// A parser of a module imported as `qualifier`: a library, of definitions, types and imports
+  /// only, whose definitions and types are named `qualifier.name`.
+  Parser(const std::vector<Token>& tokens, SurfaceArena& arena, std::string qualifier)
+      : tokens_(tokens), arena_(arena), qualifier_(std::move(qualifier)) {}
+
   ParsedProgram program() {
     ParsedProgram parsed;
     // def and grid interleave freely and need no separator, for the same reason
@@ -451,7 +483,43 @@ class Parser {
     // greedy expression in a def body stops cleanly at the next declaration.
     while (peek().kind == TokenKind::Def || peek().kind == TokenKind::Grid ||
            peek().kind == TokenKind::Out || peek().kind == TokenKind::State ||
-           peek().kind == TokenKind::Check || peek().kind == TokenKind::Type) {
+           peek().kind == TokenKind::Check || peek().kind == TokenKind::Type ||
+           peek().kind == TokenKind::Import) {
+      if (!qualifier_.empty() && peek().kind != TokenKind::Def && peek().kind != TokenKind::Type &&
+          peek().kind != TokenKind::Import) {
+        throw SderivError("parse",
+                          "a library declares definitions, types and imports, not `" +
+                              peek().value + "`",
+                          peek().position);
+      }
+      if (peek().kind == TokenKind::Import) {
+        // `import stress`, `import "lib.sderiv" as lib`
+        ImportDeclaration declaration;
+        declaration.position = peek().position;
+        eat(TokenKind::Import);
+        if (peek().kind == TokenKind::Str) {
+          declaration.file = true;
+          declaration.path = eat(TokenKind::Str).value;
+          const Token& as = eat(TokenKind::Name);
+          if (as.value != "as") {
+            throw SderivError("parse",
+                              "a file is imported as a name: import \"" + declaration.path +
+                                  "\" as lib",
+                              as.position);
+          }
+          declaration.name = eat(TokenKind::Name).value;
+        } else {
+          // `import stress`, or `import stress as s`
+          declaration.path = eat(TokenKind::Name).value;
+          declaration.name = declaration.path;
+          if (peek().kind == TokenKind::Name && valueIs("as")) {
+            next();
+            declaration.name = eat(TokenKind::Name).value;
+          }
+        }
+        parsed.imports.push_back(std::move(declaration));
+        continue;
+      }
       if (peek().kind == TokenKind::Grid) {
         parsed.grids.push_back(gridDeclaration());
         continue;
@@ -461,7 +529,7 @@ class Parser {
         TypeDeclaration declaration;
         declaration.position = peek().position;
         eat(TokenKind::Type);
-        declaration.name = eat(TokenKind::Name).value;
+        declaration.name = qualified(eat(TokenKind::Name).value);
         eat(TokenKind::Op, "=");
         declaration.type = typeExpression();
         parsed.types.push_back(std::move(declaration));
@@ -501,8 +569,12 @@ class Parser {
     // OR a set of `out def`s that name themselves. Allowing both would leave it
     // open which one is "the" output, and a file that grew an `out def` while
     // keeping its trailing expression would silently gain a second one.
-    if (parsed.exports.empty() && parsed.spreads.empty()) {
+    if (parsed.exports.empty() && parsed.spreads.empty() && qualifier_.empty()) {
       parsed.expression = expression();
+    }
+    if (!qualifier_.empty() && peek().kind != TokenKind::Eof) {
+      throw SderivError(
+          "parse", "a library declares definitions, types and imports only", peek().position);
     }
     eat(TokenKind::Eof);
     return parsed;
@@ -802,58 +874,8 @@ class Parser {
       state.name = eat(TokenKind::Name).value;
     }
     eat(TokenKind::Op, "=");
-    state.initial = initialValue(0);
+    state.initial = expression();
     return state;
-  }
-
-  /// The initial value of a state, which the program fixes: a number with its sign, an array
-  /// `[0, 0]` or a record `{v = 0, t = -1}` of such.
-  InitialValue initialValue(int depth) {
-    if (depth > MaxNesting) {
-      throw SderivError("parse", "the initial value nests too deep", peek().position);
-    }
-    InitialValue value;
-    if (peek().kind == TokenKind::Op && valueIs("[")) {
-      eat(TokenKind::Op, "[");
-      value.shape = InitialValue::Shape::Array;
-      while (true) {
-        value.items.push_back(initialValue(depth + 1));
-        if (!valueIs(",")) {
-          break;
-        }
-        eat(TokenKind::Op, ",");
-      }
-      eat(TokenKind::Op, "]");
-      return value;
-    }
-    if (peek().kind == TokenKind::Op && valueIs("{")) {
-      eat(TokenKind::Op, "{");
-      value.shape = InitialValue::Shape::Record;
-      while (true) {
-        const Token& field = eat(TokenKind::Name);
-        if (std::find(value.names.begin(), value.names.end(), field.value) != value.names.end()) {
-          throw SderivError("parse",
-                            "the initial value has the field `" + field.value + "` twice",
-                            field.position);
-        }
-        value.names.push_back(field.value);
-        eat(TokenKind::Op, "=");
-        value.items.push_back(initialValue(depth + 1));
-        if (!valueIs(",")) {
-          break;
-        }
-        eat(TokenKind::Op, ",");
-      }
-      eat(TokenKind::Op, "}");
-      return value;
-    }
-    const bool negative = valueIs("-");
-    if (negative) {
-      eat(TokenKind::Op, "-");
-    }
-    const double magnitude = numberAt(eat(TokenKind::Num));
-    value.number = negative ? -magnitude : magnitude;
-    return value;
   }
 
   SurfaceId definition(bool exported) {
@@ -862,7 +884,7 @@ class Parser {
     SurfaceNode node;
     node.kind = SurfaceKind::Def;
     node.position = position;
-    node.text = eat(TokenKind::Name).value;
+    node.text = qualified(eat(TokenKind::Name).value);
     if (valueIs("(")) {
       eat(TokenKind::Op, "(");
       // a parameter, and its type: `p : velocities`
@@ -940,10 +962,15 @@ class Parser {
                               name.value + "'",
                           name.position);
       }
-      next();
-      if (name.value != "number") {
+      const std::string spelled = next().value;
+      if (spelled != "number") {
         type.kind = TypeExpression::Kind::Name;
-        type.name = name.value;
+        type.name = spelled;
+        // `stress.normalized`, a type of a module imported as stress
+        if (peek().kind == TokenKind::Op && valueIs(".") && peekAt(1).kind == TokenKind::Name) {
+          eat(TokenKind::Op, ".");
+          type.name += "." + eat(TokenKind::Name).value;
+        }
       }
     }
     TypeId id = arena_.addType(std::move(type));
@@ -1220,8 +1247,14 @@ private:
     throw SderivError("parse", "unexpected '" + token.value + "'", token.position);
   }
 
+  /// The name a declaration of the module declares, qualified where the module is imported.
+  [[nodiscard]] std::string qualified(const std::string& name) const {
+    return qualifier_.empty() ? name : qualifier_ + "." + name;
+  }
+
   const std::vector<Token>& tokens_;
   SurfaceArena& arena_;
+  std::string qualifier_;
   std::size_t index_{0};
   int nesting_{0};
 };
@@ -1415,6 +1448,13 @@ constexpr const char* MaterialName = "material";
 constexpr std::size_t MostRange = std::size_t{1} << 16U;
 constexpr std::size_t MostEye = 64;
 
+// A module of a compilation: the qualifier of the names of its declarations (empty for the module
+// compiled), and the modules it imports, by the names it imports them as.
+struct ModuleInfo {
+  std::string qualifier;
+  std::map<std::string, int> imports;
+};
+
 class Lowering {
   public:
   Lowering(const SurfaceArena& surface,
@@ -1422,15 +1462,15 @@ class Lowering {
            const ComponentTable& components,
            const std::vector<GridId>& gridIds,
            const std::set<std::string>& inputs,
+           const std::vector<ModuleInfo>& modules,
            Program& program)
       : surface_(surface), parsed_(parsed), components_(components), gridIds_(gridIds),
-        inputs_(inputs), program_(program) {
+        inputs_(inputs), modules_(modules), program_(program) {
     for (const SurfaceId id : parsed_.defs) {
       defs_[surface_[id].text] = id;
     }
     for (const auto& state : parsed_.states) {
       states_.insert(state.name);
-      stateShapes_.emplace(state.name, &state.initial);
     }
     builtinTypes_ = recordTypes();
   }
@@ -1439,6 +1479,24 @@ class Lowering {
   NodeId lower(SurfaceId id, const std::string& what) {
     Environment empty;
     return numberOf(surface_[id], lower(id, empty), what);
+  }
+
+  /// Evaluates the initial values of the states, numbers or records or arrays of numbers the
+  /// program fixes; they give the shapes of the states.
+  void initializeStates() {
+    for (const auto& state : parsed_.states) {
+      Environment empty;
+      const SurfaceNode& at = surface_[state.initial];
+      stateShapes_.emplace(state.name,
+                           initialOf(at,
+                                     lower(state.initial, empty),
+                                     "the initial value of the state `" + state.name + "`"));
+    }
+  }
+
+  /// The initial value of the state `name` (initializeStates()).
+  [[nodiscard]] const InitialValue& initialOfState(const std::string& name) const {
+    return stateShapes_.at(name);
   }
 
   /// Resolves the types the module declares, so that one that names no type is an error also where
@@ -1558,6 +1616,52 @@ class Lowering {
   /// it is not called) a channel. The order is that of lower().
   enum class Resolution : std::uint8_t { Input, State, Constant, Definition, Other };
 
+  /// The name the name `text` of a node of the module `module` reads, as definitions and types are
+  /// registered: in a library its own names qualified (`stress.phi`), `b.f` of a module it imports
+  /// as b the definition f of that module.
+  [[nodiscard]] std::string qualifiedName(int module, const std::string& text) const {
+    const ModuleInfo& info = modules_[static_cast<std::size_t>(module)];
+    if (const auto dot = text.find('.'); dot != std::string::npos) {
+      const auto imported = info.imports.find(text.substr(0, dot));
+      if (imported != info.imports.end()) {
+        return modules_[static_cast<std::size_t>(imported->second)].qualifier + "." +
+               text.substr(dot + 1);
+      }
+      return text;
+    }
+    if (!info.qualifier.empty()) {
+      std::string own = info.qualifier + "." + text;
+      if (defs_.count(own) != 0 || declaresType(own)) {
+        return own;
+      }
+    }
+    return text;
+  }
+
+  /// Whether a module declares the type `name` (qualified).
+  [[nodiscard]] bool declaresType(const std::string& name) const {
+    return std::any_of(parsed_.types.begin(), parsed_.types.end(), [&](const auto& declaration) {
+      return declaration.name == name;
+    });
+  }
+
+  /// Whether `name` is the name a node of the module `module` imports a module as.
+  [[nodiscard]] bool importsAs(int module, const std::string& name) const {
+    return modules_[static_cast<std::size_t>(module)].imports.count(name) != 0;
+  }
+
+  /// The definition `alias.field` of a Field node of a Name `alias` a module is imported as, or
+  /// empty.
+  [[nodiscard]] std::string importedValue(const SurfaceNode& field,
+                                          const std::set<std::string>& bound) const {
+    const SurfaceNode& base = surface_[field.a];
+    if (base.kind != SurfaceKind::Name || bound.count(base.text) != 0 ||
+        !importsAs(base.module, base.text)) {
+      return {};
+    }
+    return qualifiedName(base.module, base.text + "." + field.text);
+  }
+
   [[nodiscard]] Resolution resolve(const std::string& name) const {
     if (inputs_.count(name) != 0) {
       return Resolution::Input;
@@ -1601,20 +1705,24 @@ class Lowering {
         stack.emplace_back(node.b, std::move(inner));
         break;
       }
-      case SurfaceKind::Name:
-        if (scope->count(node.text) == 0 && resolve(node.text) == Resolution::Definition) {
-          found.push_back(node.text);
+      case SurfaceKind::Name: {
+        const std::string name = qualifiedName(node.module, node.text);
+        if (scope->count(node.text) == 0 && resolve(name) == Resolution::Definition) {
+          found.push_back(name);
         }
         break;
-      case SurfaceKind::Call:
+      }
+      case SurfaceKind::Call: {
         for (const SurfaceId arg : node.args) {
           stack.emplace_back(arg, scope);
         }
+        const std::string name = qualifiedName(node.module, node.text);
         if (scope->count(node.text) == 0 && components_.count(node.text) == 0 &&
-            defs_.count(node.text) != 0) {
-          found.push_back(node.text);
+            defs_.count(name) != 0) {
+          found.push_back(name);
         }
         break;
+      }
       case SurfaceKind::Record:
       case SurfaceKind::Array:
         for (const SurfaceId arg : node.args) {
@@ -1622,6 +1730,14 @@ class Lowering {
         }
         break;
       case SurfaceKind::Field:
+        // `lib.v`, a value of a module imported as lib
+        if (const auto value = importedValue(node, *scope);
+            !value.empty() && defs_.count(value) != 0) {
+          found.push_back(value);
+          break;
+        }
+        stack.emplace_back(node.a, scope);
+        break;
       case SurfaceKind::Ascription:
         stack.emplace_back(node.a, scope);
         break;
@@ -1708,21 +1824,24 @@ class Lowering {
         if (scope->count(node.text) != 0 || isMaterial(node, bound(scope))) {
           break;
         }
-        const auto resolution = resolve(node.text);
-        if (resolution == Resolution::Input || resolution == Resolution::Other) {
+        const std::string name = qualifiedName(node.module, node.text);
+        const auto resolution = resolve(name);
+        if ((resolution == Resolution::Input || resolution == Resolution::Other) &&
+            node.module == 0) {
           add(node.text);
-        } else if (resolution == Resolution::Definition && expanded.insert(node.text).second) {
-          walkBody(surface_[defs_.at(node.text)], empty);
+        } else if (resolution == Resolution::Definition && expanded.insert(name).second) {
+          walkBody(surface_[defs_.at(name)], empty);
         }
         break;
       }
       case SurfaceKind::Call: {
-        const auto definition = defs_.find(node.text);
+        const std::string name = qualifiedName(node.module, node.text);
+        const auto definition = defs_.find(name);
         const bool callsDefinition = scope->count(node.text) == 0 &&
                                      components_.count(node.text) == 0 && definition != defs_.end();
         // the body of a definition after its arguments, which lower() binds first; the body of one
         // with parameters once per call of other arguments
-        if (callsDefinition && calls.emplace(node.text, node.args).second) {
+        if (callsDefinition && calls.emplace(name, node.args).second) {
           const SurfaceNode& callee = surface_[definition->second];
           walkBody(callee,
                    std::make_shared<const std::set<std::string>>(callee.params.begin(),
@@ -1751,6 +1870,14 @@ class Lowering {
         // `material.rho`: the input `rho`
         if (isMaterial(surface_[node.a], bound(scope))) {
           add(node.text);
+          break;
+        }
+        // `lib.v`, a value of a module imported as lib
+        if (const auto value = importedValue(node, *scope);
+            !value.empty() && defs_.count(value) != 0) {
+          if (expanded.insert(value).second) {
+            walkBody(surface_[defs_.at(value)], empty);
+          }
           break;
         }
         stack.emplace_back(node.a, scope);
@@ -1793,12 +1920,13 @@ class Lowering {
   /// The definition of `node` while it is being lowered: one that is reached again reads itself.
   class Expansion {
 public:
-    Expansion(Lowering& lowering, const SurfaceNode& node) : lowering_(lowering) {
+    Expansion(Lowering& lowering, const SurfaceNode& node, const std::string& name)
+        : lowering_(lowering) {
       auto& expanding = lowering_.expanding_;
-      if (std::find(expanding.begin(), expanding.end(), node.text) != expanding.end()) {
+      if (std::find(expanding.begin(), expanding.end(), name) != expanding.end()) {
         lowering_.fail(node, "`" + node.text + "` is defined in terms of itself");
       }
-      expanding.push_back(node.text);
+      expanding.push_back(name);
     }
     ~Expansion() { lowering_.expanding_.pop_back(); }
     Expansion(const Expansion&) = delete;
@@ -1957,6 +2085,8 @@ private:
       return *a - *b;
     case Fn::Mul:
       return *a * *b;
+    case Fn::Div:
+      return *a / *b;
     case Fn::Min:
       return std::min(*a, *b);
     case Fn::Max:
@@ -2217,6 +2347,25 @@ private:
     }
   }
 
+  /// The value of the definition `name` without parameters, which `node` reads: the same wherever
+  /// it is read, since it reads no environment.
+  Value definitionNamed(const SurfaceNode& node, const std::string& name) {
+    const SurfaceNode& definition = surface_[defs_.at(name)];
+    if (!definition.params.empty()) {
+      fail(node,
+           "`" + node.text + "` expects " + std::to_string(definition.params.size()) +
+               " arguments");
+    }
+    if (const auto known = lowered_.find(name); known != lowered_.end()) {
+      return known->second;
+    }
+    const Expansion expansion(*this, node, name);
+    Environment inner;
+    Value value = definitionValue(definition, inner);
+    lowered_.emplace(name, value);
+    return value;
+  }
+
   /// The numbers of a value, in its order, and its form ("n", "{rho:n}", "[n,n]"): what a call
   /// of a definition depends on.
   static void keyOf(const Value& value, std::vector<NodeId>& leaves, std::string& form) {
@@ -2281,9 +2430,10 @@ private:
     case TypeExpression::Kind::Name:
       break;
     }
-    // a type the module declares, else one of SeisSol
+    // a type a module declares, else one of SeisSol
+    const std::string qualified = qualifiedName(expression.module, expression.name);
     for (const auto& declaration : parsed_.types) {
-      if (declaration.name != expression.name) {
+      if (declaration.name != qualified) {
         continue;
       }
       if (std::find(resolving.begin(), resolving.end(), declaration.name) != resolving.end()) {
@@ -2364,8 +2514,9 @@ private:
   /// or a parameter binds.
   template <typename Bound>
   [[nodiscard]] bool isMaterial(const SurfaceNode& node, const Bound& bound) const {
-    return node.kind == SurfaceKind::Name && node.text == MaterialName && !bound(node.text) &&
-           resolve(node.text) == Resolution::Other && gridNamed(node.text) == nullptr;
+    return node.kind == SurfaceKind::Name && node.module == 0 && node.text == MaterialName &&
+           !bound(node.text) && resolve(node.text) == Resolution::Other &&
+           gridNamed(node.text) == nullptr;
   }
 
   /// `material` as a value of `type`, a record of numbers: the inputs of the names of its fields.
@@ -2451,6 +2602,33 @@ private:
       }
       return;
     }
+  }
+
+  /// `value`, of `at`, as an initial value: a number the program fixes, or a record or an array of
+  /// such. `what` it is, for a message.
+  InitialValue initialOf(const SurfaceNode& at, const Value& value, const std::string& what) const {
+    InitialValue initial;
+    switch (value.shape) {
+    case Value::Shape::Number: {
+      const auto fixed = fixedValueOf(value.node);
+      if (!fixed.has_value()) {
+        fail(at, what + " is a number the program fixes, not one of the point");
+      }
+      initial.number = *fixed;
+      return initial;
+    }
+    case Value::Shape::Record:
+      initial.shape = InitialValue::Shape::Record;
+      initial.names = value.names;
+      break;
+    case Value::Shape::Array:
+      initial.shape = InitialValue::Shape::Array;
+      break;
+    }
+    for (const auto& item : value.items) {
+      initial.items.push_back(initialOf(at, item, what));
+    }
+    return initial;
   }
 
   /// The value of the state `name` of the shape `shape`: its value of the previous call, a state of
@@ -2572,6 +2750,21 @@ private:
                      [&](const std::string& name) { return env.count(name) != 0; })) {
         return Value::number(program_.arena().field(node.text));
       }
+      // `lib.v`: the value v of a module imported as lib
+      {
+        std::set<std::string> bound;
+        for (const auto& [name, value] : env) {
+          bound.insert(name);
+        }
+        if (const auto value = importedValue(node, bound); !value.empty()) {
+          if (defs_.count(value) == 0) {
+            fail(node,
+                 "the module `" + surface_[node.a].text + "` has no definition `" + node.text +
+                     "`");
+          }
+          return definitionNamed(node, value);
+        }
+      }
       const Value record = lower(node.a, env);
       if (record.shape != Value::Shape::Record) {
         fail(node, "`." + node.text + "` is a field of a record, not of " + described(record));
@@ -2598,6 +2791,21 @@ private:
       if (bound != env.end()) {
         return bound->second;
       }
+      // a library reads its parameters, the definitions of its module and constants only
+      if (node.module != 0) {
+        const auto constant = Constants.find(node.text);
+        if (constant != Constants.end()) {
+          return Value::number(program_.arena().konst(constant->second));
+        }
+        const std::string name = qualifiedName(node.module, node.text);
+        if (defs_.count(name) != 0) {
+          return definitionNamed(node, name);
+        }
+        fail(node,
+             "a definition of a library reads its parameters, the definitions of its module and "
+             "constants, and `" +
+                 node.text + "` is none of them");
+      }
       // An input the consumer names reads the input, as a state reads its previous value.
       if (inputs_.count(node.text) != 0) {
         return Value::number(channel(node));
@@ -2605,29 +2813,22 @@ private:
       // A state reads its value from the previous call -- also where the definition of the same
       // name, its next value, is in scope. That is what makes the update a parallel assignment.
       if (states_.count(node.text) != 0) {
-        return stateValue(*stateShapes_.at(node.text), node.text);
+        const auto shape = stateShapes_.find(node.text);
+        if (shape == stateShapes_.end()) {
+          fail(node, "the initial value of a state reads no state");
+        }
+        return stateValue(shape->second, node.text);
       }
       const auto constant = Constants.find(node.text);
       if (constant != Constants.end()) {
         return Value::number(program_.arena().konst(constant->second));
       }
-      const auto def = defs_.find(node.text);
-      if (def != defs_.end()) {
-        const SurfaceNode& definition = surface_[def->second];
-        if (!definition.params.empty()) {
-          fail(node,
-               "`" + node.text + "` expects " + std::to_string(definition.params.size()) +
-                   " arguments");
-        }
-        // it reads no environment, so it has one value wherever it is read
-        if (const auto known = lowered_.find(node.text); known != lowered_.end()) {
-          return known->second;
-        }
-        const Expansion expansion(*this, node);
-        Environment inner;
-        Value value = definitionValue(definition, inner);
-        lowered_.emplace(node.text, value);
-        return value;
+      if (defs_.count(node.text) != 0) {
+        return definitionNamed(node, node.text);
+      }
+      if (importsAs(node.module, node.text)) {
+        fail(node,
+             "`" + node.text + "` is a module; its definitions are read as " + node.text + ".name");
       }
       if (gridNamed(node.text) != nullptr) {
         fail(node,
@@ -2652,14 +2853,22 @@ private:
         fail(node, "`" + node.text + "` is not callable");
       }
 
-      const auto component = components_.find(node.text);
+      // the grids are those of the module compiled
+      const auto component = node.module == 0 ? components_.find(node.text) : components_.end();
       if (component != components_.end()) {
         const auto coords = coordinatesOf(node, component->second.grid, env);
         return Value::number(program_.arena().lookup(
             gridIds_[component->second.grid], component->second.component, coords));
       }
-      if (const auto dot = node.text.find('.'); dot != std::string::npos) {
+      const std::string name = qualifiedName(node.module, node.text);
+      if (const auto dot = node.text.find('.');
+          dot != std::string::npos && defs_.count(name) == 0) {
         const std::string gridName = node.text.substr(0, dot);
+        if (importsAs(node.module, gridName)) {
+          fail(node,
+               "the module `" + gridName + "` has no definition `" + node.text.substr(dot + 1) +
+                   "`");
+        }
         const GridDeclaration* grid = gridNamed(gridName);
         if (grid == nullptr) {
           fail(node, "`" + gridName + "` is no grid, so `" + node.text + "` samples nothing");
@@ -2673,7 +2882,7 @@ private:
                  "`; it has " + list);
       }
 
-      const auto def = defs_.find(node.text);
+      const auto def = defs_.find(name);
       if (def != defs_.end()) {
         const SurfaceNode& definition = surface_[def->second];
         if (node.args.size() != definition.params.size()) {
@@ -2699,18 +2908,19 @@ private:
           inner[definition.params[i]] = std::move(argument);
         }
         // the value of a call depends on its arguments alone
-        auto key = std::make_tuple(node.text, std::move(form), std::move(leaves));
+        auto key = std::make_tuple(name, std::move(form), std::move(leaves));
         if (const auto known = calls_.find(key); known != calls_.end()) {
           return known->second;
         }
-        const Expansion expansion(*this, node);
+        const Expansion expansion(*this, node, name);
         Value value = definitionValue(definition, inner);
         calls_.emplace(std::move(key), value);
         return value;
       }
 
       // m(x, y, z): every component of the grid m, a record of their names
-      if (const GridDeclaration* grid = gridNamed(node.text); grid != nullptr) {
+      if (const GridDeclaration* grid = node.module == 0 ? gridNamed(node.text) : nullptr;
+          grid != nullptr) {
         const auto g = static_cast<std::size_t>(grid - parsed_.grids.data());
         const auto coords = coordinatesOf(node, g, env);
         Value record;
@@ -2816,11 +3026,12 @@ private:
   const ComponentTable& components_;
   const std::vector<GridId>& gridIds_;
   const std::set<std::string>& inputs_;
+  const std::vector<ModuleInfo>& modules_;
   Program& program_;
   std::map<std::string, SurfaceId> defs_;
   std::set<std::string> states_;
-  /// the initial value of every state, which gives its shape
-  std::map<std::string, const InitialValue*> stateShapes_;
+  /// the initial value of every state, which gives its shape (initializeStates())
+  std::map<std::string, InitialValue> stateShapes_;
   /// the types SeisSol offers by name (recordTypes())
   std::map<std::string, std::vector<std::string>> builtinTypes_;
   std::vector<std::string> channels_;
@@ -2856,16 +3067,151 @@ namespace {
 // Shared by both entry points rather than duplicated, because everything from
 // the grid interning down is identical and the only difference is where the
 // output names come from.
-void compileSource(const std::string& source,
-                   const std::string* externalName,
-                   reader::scripting::DataType type,
-                   const SderivOptions& options,
-                   Program& program,
-                   std::vector<std::string>& channelOrder) {
+// The text of a module of a compilation: its file, and the offset of its first character among
+// the positions of all modules -- the module compiled first, at 0, and then those it imports.
+struct ModuleSource {
+  std::string file;
+  std::string text;
+  int base{0};
+};
+
+/// The module of the position `position`.
+const ModuleSource& moduleAt(const std::vector<ModuleSource>& sources, int position) {
+  for (auto source = sources.rbegin(); source != sources.rend(); ++source) {
+    if (position >= source->base) {
+      return *source;
+    }
+  }
+  return sources.front();
+}
+
+/// The tokens of the module `text`, their positions past `base`.
+std::vector<Token> tokensAt(const std::string& text, int base) {
+  std::vector<Token> tokens;
+  try {
+    tokens = tokenize(text);
+  } catch (const SderivError& error) {
+    throw SderivError("lex", std::string(error.what()).substr(5), error.position() + base);
+  }
+  for (auto& token : tokens) {
+    token.position += base;
+  }
+  return tokens;
+}
+
+/// Loads the modules `parsed` imports, and those they import, into `surface`: every module once,
+/// its definitions and types added to `parsed` under their qualified names, and its imports
+/// recorded in `modules`. A module of the library is `std:name`; a file is relative to the
+/// directory of the file importing it.
+void loadImports(ParsedProgram& parsed,
+                 SurfaceArena& surface,
+                 std::vector<ModuleInfo>& modules,
+                 std::vector<ModuleSource>& sources) {
+  std::map<std::string, int> loaded;
+  std::vector<std::string> loading;
+  // the module `importer` imports by `declaration`, from the directory `directory`
+  const std::function<int(int, const ImportDeclaration&, const std::string&)> load =
+      [&](int importer, const ImportDeclaration& declaration, const std::string& directory) {
+        if (modules[static_cast<std::size_t>(importer)].imports.count(declaration.name) != 0) {
+          throw SderivError("import",
+                            "the module is imported as `" + declaration.name + "` twice",
+                            declaration.position);
+        }
+        std::string key;
+        std::string file;
+        std::string text;
+        if (declaration.file) {
+          std::filesystem::path path(declaration.path);
+          if (path.is_relative() && !directory.empty()) {
+            path = std::filesystem::path(directory) / path;
+          }
+          file = path.lexically_normal().string();
+          key = file;
+          std::ifstream stream(file, std::ios::binary);
+          if (!stream) {
+            throw SderivError(
+                "import", "cannot read the module `" + file + "`", declaration.position);
+          }
+          text.assign(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>());
+        } else {
+          const auto& library = libraryModules();
+          const auto found = library.find(declaration.path);
+          if (found == library.end()) {
+            std::string names;
+            for (const auto& [name, module] : library) {
+              names += (names.empty() ? "" : ", ") + name;
+            }
+            throw SderivError("import",
+                              "the library has no module `" + declaration.path + "`; it has " +
+                                  names,
+                              declaration.position);
+          }
+          key = "std:" + declaration.path;
+          file = key;
+          text = found->second;
+        }
+        // a module that imports one that imports it, directly or not
+        if (std::find(loading.begin(), loading.end(), key) != loading.end()) {
+          throw SderivError(
+              "import", "the module `" + file + "` imports itself", declaration.position);
+        }
+        if (const auto known = loaded.find(key); known != loaded.end()) {
+          return known->second;
+        }
+        // the qualifier of its names: the name it is imported as, unique among the modules
+        std::string qualifier = declaration.name;
+        for (int n = 2;
+             std::any_of(modules.begin(),
+                         modules.end(),
+                         [&](const auto& module) { return module.qualifier == qualifier; });
+             ++n) {
+          qualifier = declaration.name + "~" + std::to_string(n);
+        }
+        const int index = static_cast<int>(modules.size());
+        modules.push_back(ModuleInfo{qualifier, {}});
+        loaded.emplace(key, index);
+        const int base = sources.back().base + static_cast<int>(sources.back().text.size()) + 1;
+        sources.push_back(ModuleSource{file, text, base});
+        loading.push_back(key);
+        const auto tokens = tokensAt(text, base);
+        surface.setModule(index);
+        ParsedProgram module = Parser(tokens, surface, qualifier).program();
+        surface.setModule(0);
+        const std::string own =
+            declaration.file ? std::filesystem::path(file).parent_path().string() : std::string();
+        for (const auto& nested : module.imports) {
+          modules[static_cast<std::size_t>(index)].imports.emplace(nested.name,
+                                                                   load(index, nested, own));
+        }
+        loading.pop_back();
+        parsed.defs.insert(parsed.defs.end(), module.defs.begin(), module.defs.end());
+        parsed.types.insert(parsed.types.end(), module.types.begin(), module.types.end());
+        return index;
+      };
+  const std::string directory =
+      sources.front().file.empty()
+          ? std::string()
+          : std::filesystem::path(sources.front().file).parent_path().string();
+  for (const auto& declaration : parsed.imports) {
+    const int index = load(0, declaration, directory);
+    modules.front().imports.emplace(declaration.name, index);
+  }
+}
+
+void compileModules(const std::string& source,
+                    const std::string* externalName,
+                    reader::scripting::DataType type,
+                    const SderivOptions& options,
+                    Program& program,
+                    std::vector<std::string>& channelOrder,
+                    std::vector<ModuleSource>& sources) {
   SurfaceArena surface;
   const auto tokens = tokenize(source);
   Parser parser(tokens, surface);
-  const ParsedProgram parsed = parser.program();
+  ParsedProgram parsed = parser.program();
+  // the modules it imports, whose definitions and types join its own
+  std::vector<ModuleInfo> modules(1);
+  loadImports(parsed, surface, modules, sources);
 
   if (externalName != nullptr && parsed.expression < 0) {
     throw SderivError("parse",
@@ -2983,8 +3329,24 @@ void compileSource(const std::string& source,
     program.nameGrid(gridIds.back(), GridNames{grid.name, grid.components});
   }
 
-  Lowering lowering(surface, parsed, components, gridIds, options.inputs, program);
+  // the names modules are imported as are no other names of the module
+  for (const auto& declaration : parsed.imports) {
+    const bool taken = defNames.count(declaration.name) != 0 ||
+                       stateNames.count(declaration.name) != 0 ||
+                       std::any_of(parsed.grids.begin(), parsed.grids.end(), [&](const auto& grid) {
+                         return grid.name == declaration.name;
+                       });
+    if (taken) {
+      throw SderivError("import",
+                        "the module is imported as `" + declaration.name +
+                            "`, the name of a definition, a state or a grid",
+                        declaration.position);
+    }
+  }
+
+  Lowering lowering(surface, parsed, components, gridIds, options.inputs, modules, program);
   lowering.resolveTypes();
+  lowering.initializeStates();
 
   // the expressions of the outputs and of the next values of the states, whose definitions are
   // lowered first
@@ -3072,15 +3434,16 @@ void compileSource(const std::string& source,
         continue;
       }
       const std::string what = "the next value of the state `" + state.name + "`";
+      const InitialValue& initial = lowering.initialOfState(state.name);
       std::vector<std::string> names;
-      leafNames(state.initial, state.name, names);
+      leafNames(initial, state.name, names);
       std::vector<double> initials;
-      leafNumbers(state.initial, initials);
+      leafNumbers(initial, initials);
       std::vector<NodeId> nexts;
-      if (state.initial.shape == InitialValue::Shape::Number) {
+      if (initial.shape == InitialValue::Shape::Number) {
         nexts.push_back(lowering.lowerDefinition(id, what));
       } else {
-        nexts = lowering.leavesOfShape(id, state.initial, what);
+        nexts = lowering.leavesOfShape(id, initial, what);
       }
       for (std::size_t i = 0; i < names.size(); ++i) {
         stateLeaves.push_back(
@@ -3112,8 +3475,11 @@ void compileSource(const std::string& source,
   // where they come from (`meta line` of the core format): the definitions, the states, the
   // outputs and the conditions of the checks
   const auto at = [&](int offset) {
+    const ModuleSource& module = moduleAt(sources, std::max(offset, 0));
     const CorePosition position =
-        positionOf(source, static_cast<std::size_t>(std::max(offset, 0)), options.file);
+        positionOf(module.text,
+                   static_cast<std::size_t>(std::max(offset, 0) - module.base),
+                   module.base == 0 ? options.file : module.file);
     return SourcePosition{position.file, position.line, position.column};
   };
   for (const SurfaceId id : parsed.defs) {
@@ -3139,6 +3505,34 @@ void compileSource(const std::string& source,
                                checkRoots[i],
                                std::string(),
                                at(surface[parsed.checks[i].first].position)});
+  }
+}
+
+} // namespace
+
+namespace {
+
+void compileSource(const std::string& source,
+                   const std::string* externalName,
+                   reader::scripting::DataType type,
+                   const SderivOptions& options,
+                   Program& program,
+                   std::vector<std::string>& channelOrder) {
+  std::vector<ModuleSource> sources{ModuleSource{options.file, source, 0}};
+  try {
+    compileModules(source, externalName, type, options, program, channelOrder, sources);
+  } catch (const CoreError&) {
+    throw;
+  } catch (const SderivError& error) {
+    // an error in a module it imports, at its line and column there
+    const ModuleSource& module = moduleAt(sources, std::max(error.position(), 0));
+    if (error.position() < 0 || module.base == 0) {
+      throw;
+    }
+    throw CoreError(positionOf(module.text,
+                               static_cast<std::size_t>(error.position() - module.base),
+                               module.file),
+                    error.what());
   }
 }
 

@@ -11,12 +11,14 @@
 #include "Expr/Interp.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Expr/SderivFrontend.h"
 #include "Reader/Datafield/AsagiModule.h"
 #include "Reader/Datafield/AsagiReader.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Datafield/ScecGrid.h"
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/EasiReader.h"
+#include "Reader/Scripting/EasiSpecial.h"
 #include "Reader/Scripting/EasiWalker.h"
 #include "Reader/Scripting/ImpalaToLua.h"
 #include "Reader/Scripting/ReaderBuilder.h"
@@ -37,6 +39,7 @@
 #include <map>
 #include <memory>
 #include <netcdf.h>
+#include <random>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -952,6 +955,86 @@ TEST_CASE("easi walker: a SCEC file samples as easi's" * doctest::test_suite("re
         std::string::npos);
   CHECK(problem("1 2\n1 1 -10.0 10.0\n0 0 0.0 0.0 0.0 0.0\n")
             .find("Degenerate grid in dimension 0") != std::string::npos);
+}
+
+TEST_CASE("easi walker: the module stress of the library gives the bits of the special components" *
+          doctest::test_suite("reader")) {
+  // the inputs of every component, at points of every branch: strike or dip slip, the vertical
+  // principal stress 1, 2 or 3
+  std::mt19937_64 random(20261113);
+  const auto uniform = [&](double low, double high) {
+    return std::uniform_real_distribution<double>(low, high)(random);
+  };
+  constexpr std::size_t Count = 512;
+  std::map<std::string, std::vector<double>> columns;
+  for (std::size_t i = 0; i < Count; ++i) {
+    columns["mu_d"].push_back(uniform(0.1, 0.4));
+    columns["mu_s"].push_back(uniform(0.5, 0.8));
+    columns["strike"].push_back(uniform(0.0, 360.0));
+    columns["dip"].push_back(uniform(5.0, 90.0));
+    columns["rake"].push_back(uniform(-180.0, 180.0));
+    columns["s_zz"].push_back(uniform(-2.0e8, -1.0e6));
+    columns["sig_zz"].push_back(uniform(-2.0e8, -1.0e6));
+    columns["effectiveConfiningStress"].push_back(uniform(-2.0e8, -1.0e6));
+    columns["cohesion"].push_back(uniform(0.0, 2.0e6));
+    columns["R"].push_back(uniform(0.3, 1.0));
+    columns["S"].push_back(uniform(0.1, 2.0));
+    columns["s2ratio"].push_back(uniform(0.0, 1.0));
+    columns["SH_max"].push_back(uniform(0.0, 180.0));
+    columns["DipSlipFaulting"].push_back(static_cast<double>(i % 2));
+    columns["S_v"].push_back(static_cast<double>(1 + i % 3));
+  }
+  // what the program `program` gives at the points, [output][point], its inputs by name
+  const auto valuesOf = [&](const expr::Program& program) {
+    std::vector<double> inputs;
+    for (const auto& input : program.inputs()) {
+      const auto& column = columns.at(input.name);
+      inputs.insert(inputs.end(), column.begin(), column.end());
+    }
+    reader::datafield::GridStore store;
+    return expr::interpretValues(program, store, inputs, Count);
+  };
+  const std::map<std::string, std::string> functions = {
+      {"!STRESS_STR_DIP_SLIP_AM", "str_dip_slip_am"},
+      {"!OptimalStress", "optimal"},
+      {"!AndersonianStress", "andersonian"}};
+  for (const auto& [tag, function] : functions) {
+    CAPTURE(tag);
+    // the walker's translation of the component
+    const sc::EasiSpecial* special = sc::easiSpecialOf(tag);
+    REQUIRE(special != nullptr);
+    expr::Program walker;
+    std::map<std::string, expr::NodeId> in;
+    for (const auto& name : special->in) {
+      in[name] = walker.arena().field(name);
+      walker.addInput(name, sc::DataType::F64);
+    }
+    const auto out = sc::easiSpecialValues(walker.arena(), *special, in);
+    for (const auto& name : special->out) {
+      walker.addOutput(name, sc::DataType::F64, out.at(name));
+    }
+    // the library's
+    std::string record;
+    for (const auto& name : special->in) {
+      record += (record.empty() ? "" : ", ") + name + " = " + name;
+    }
+    const auto library = expr::compileSderivModule("import stress\nout stress." + function + "({" +
+                                                   record + "}) : stress.normalized\n");
+    REQUIRE(library.outputs().size() == special->out.size());
+    const auto expected = valuesOf(walker);
+    const auto actual = valuesOf(library);
+    for (std::size_t o = 0; o < special->out.size(); ++o) {
+      CAPTURE(special->out[o]);
+      CHECK(library.outputs()[o].name == special->out[o]);
+      std::size_t differing = 0;
+      for (std::size_t i = 0; i < Count; ++i) {
+        const double a = expected[o * Count + i];
+        const double b = actual[o * Count + i];
+        differing += std::memcmp(&a, &b, sizeof(double)) == 0 ? 0 : 1;
+      }
+      CHECK(differing == 0);
+    }
+  }
 }
 
 TEST_CASE("easi walker: the special components give easi's bits" * doctest::test_suite("reader")) {

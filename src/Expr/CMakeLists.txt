@@ -23,6 +23,7 @@ add_library(seissol-expr OBJECT
     Record.cpp
     Rewrite.cpp
     SderivFrontend.cpp
+    SderivLibrary.cpp
     Sha256.cpp
     Types.cpp
 )
