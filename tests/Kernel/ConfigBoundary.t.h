@@ -295,8 +295,9 @@ void checkBatchedConversion() {
 
   auto* deviceIntegral =
       static_cast<NeighborReal*>(device.api().allocGlobMem(NeighborSize * sizeof(NeighborReal)));
+  using Canonical = kernels::CanonicalReal<NeighborCfg>;
   auto* deviceCanonical =
-      static_cast<double*>(device.api().allocGlobMem(CanonicalSize * sizeof(double)));
+      static_cast<Canonical*>(device.api().allocGlobMem(CanonicalSize * sizeof(Canonical)));
   auto* deviceConverted =
       static_cast<RealT*>(device.api().allocGlobMem(Cell::NumFaces * Size * sizeof(RealT)));
   device.api().copyTo(deviceIntegral, integral.data(), NeighborSize * sizeof(NeighborReal));
@@ -313,7 +314,7 @@ void checkBatchedConversion() {
   {
     recording::ConditionalPointersToRealsTable table;
     std::vector<NeighborReal*> integrals{deviceIntegral};
-    std::vector<double*> canonical{deviceCanonical};
+    std::vector<Canonical*> canonical{deviceCanonical};
     auto& toCanonical = table[kernels::configboundary::toCanonicalKey(configIdOf<NeighborCfg>())];
     toCanonical.set(recording::inner_keys::Wp::Id::Idofs, integrals);
     toCanonical.set(recording::inner_keys::Wp::Id::CanonicalIdofs, canonical);
@@ -371,6 +372,19 @@ TEST_CASE("The canonical form of a family has the quantities of its Riemann prob
         CHECK(Material::Quantities[quantity] == RiemannQuantities::Quantities[quantity]);
       }
     }
+  });
+}
+
+TEST_CASE("The canonical forms are in double precision if and only if a configuration is") {
+  bool anyDouble = false;
+  forEachConfig([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    anyDouble = anyDouble || std::is_same_v<Real<Cfg>, double>;
+  });
+  forEachConfig([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    CAPTURE(configName(configValue(configIdOf<Cfg>())));
+    CHECK(std::is_same_v<kernels::CanonicalReal<Cfg>, double> == anyDouble);
   });
 }
 

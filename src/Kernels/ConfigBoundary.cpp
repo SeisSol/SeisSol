@@ -69,7 +69,8 @@ void convertNeighborIntegral(const Real<NeighborCfg>* integral,
   static const auto NeighborPool = seissol::Pool<NeighborCfg>::host();
   static const auto CellPool = seissol::Pool<Cfg>::host();
 
-  alignas(Alignment) double canonical[tensor::canonicalI<NeighborCfg>::size()];
+  static_assert(std::is_same_v<CanonicalReal<Cfg>, CanonicalReal<NeighborCfg>>);
+  alignas(Alignment) CanonicalReal<NeighborCfg> canonical[tensor::canonicalI<NeighborCfg>::size()];
 
   kernel::toCanonical<NeighborCfg> toCanonical;
   toCanonical.bindGlobals(NeighborPool);
@@ -303,7 +304,8 @@ std::size_t ConfigBoundary<Cfg>::scratchBytes(ConfigId neighbor) {
     if constexpr (DeviceConvertible<Cfg, NeighborCfg>) {
       using configboundary::alignScratch;
       return alignScratch(SolverOf<NeighborCfg>::IntegralsSize * sizeof(Real<NeighborCfg>)) +
-             alignScratch(tensor::canonicalI<NeighborCfg>::size() * sizeof(double)) +
+             alignScratch(tensor::canonicalI<NeighborCfg>::size() *
+                          sizeof(CanonicalReal<NeighborCfg>)) +
              alignScratch(SolverOf<Cfg>::IntegralsSize * sizeof(real));
     } else {
       return 0;
@@ -337,12 +339,12 @@ void ConfigBoundary<Cfg>::computeBatchedIntegrals(
       const auto key = configboundary::fromCanonicalKey(side);
       if (table.contains(key)) {
         auto& entry = table.at(key);
-        auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
+        auto* canonical = entry.get<CanonicalReal<Cfg>*>(inner_keys::Wp::Id::CanonicalIdofs);
         auto* integrals = entry.get<real*>(inner_keys::Wp::Id::Idofs);
         assert(pool != nullptr);
         kernel::gpu_fromCanonical<Cfg> krnl;
         krnl.bindGlobals(*pool);
-        krnl.canonicalI = const_cast<const double**>(canonical->getDeviceDataPtr());
+        krnl.canonicalI = const_cast<const CanonicalReal<Cfg>**>(canonical->getDeviceDataPtr());
         krnl.I = integrals->getDeviceDataPtr();
         executeWithTemporaries(krnl, integrals->getSize(), runtime, [&] { krnl.execute(side); });
       }
@@ -360,14 +362,14 @@ void ConfigBoundary<Cfg>::computeBatchedIntegrals(
         const auto key = configboundary::fromCoupledCanonicalKey(family, side);
         if (table.contains(key)) {
           auto& entry = table.at(key);
-          auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
+          auto* canonical = entry.get<CanonicalReal<Cfg>*>(inner_keys::Wp::Id::CanonicalIdofs);
           auto* integrals = entry.get<real*>(inner_keys::Wp::Id::Idofs);
           auto* coupling = entry.get<real*>(inner_keys::Wp::Id::Coupling);
           assert(pool != nullptr);
           kernel::gpu_fromCoupledCanonical<Cfg> krnl;
           krnl.bindGlobals(*pool);
           krnl.coupledCanonicalI(family) =
-              const_cast<const double**>(canonical->getDeviceDataPtr());
+              const_cast<const CanonicalReal<Cfg>**>(canonical->getDeviceDataPtr());
           krnl.coupling(family) = const_cast<const real**>(coupling->getDeviceDataPtr());
           krnl.I = integrals->getDeviceDataPtr();
           executeWithTemporaries(
@@ -417,7 +419,7 @@ void ConfigBoundary<Cfg>::computeBatchedCanonical(
   if (table.contains(key)) {
     auto& entry = table.at(key);
     auto* integrals = entry.get<NeighborReal*>(inner_keys::Wp::Id::Idofs);
-    auto* canonical = entry.get<double*>(inner_keys::Wp::Id::CanonicalIdofs);
+    auto* canonical = entry.get<CanonicalReal<NeighborCfg>*>(inner_keys::Wp::Id::CanonicalIdofs);
     const auto* pool =
         static_cast<const GlobalData<NeighborCfg>*>(devicePools_.at(configIdOf<NeighborCfg>()));
     assert(pool != nullptr);

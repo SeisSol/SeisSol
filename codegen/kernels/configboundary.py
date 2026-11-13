@@ -20,17 +20,22 @@ two steps, each one generated for a single configuration:
 
 - toCanonical: from the configuration into the canonical form of its family:
   the largest order of the family in the build, the quantities of the Riemann
-  problem, double precision. The modal basis is hierarchical, so a lower order
-  is padded with zeros.
+  problem, and double precision if a configuration of the build computes in
+  double precision, single precision otherwise. The modal basis is
+  hierarchical, so a lower order is padded with zeros. A configuration in
+  single precision pads and selects in single precision and widens last: both
+  only copy values, which is exact in any precision, and products in double
+  precision run at a fraction of the rate on many GPUs.
 - fromCanonical(side): from the canonical form into the configuration, for a
   neighbor that touches the cell with its side `side`. For a configuration of a
   lower order than the canonical one, the trace on that side is projected to the
   face basis of the configuration and lifted back into its volume basis, with
   the least norm; the result agrees with the neighbor on that face only. The
   quantities outside the canonical form, i.e. memory variables, are zero. For a
-  configuration in single precision, the canonical form is narrowed first, and
-  lifted and selected in single precision: TensorForge computes a kernel in the
-  precision of its result, intermediate results included.
+  configuration in single precision and a canonical form in double precision,
+  the canonical form is narrowed first, and lifted and selected in single
+  precision: TensorForge computes a kernel in the precision of its result,
+  intermediate results included.
 
 Hence the number of kernels grows linearly with the number of configurations,
 and the kernels of a configuration only depend on the canonical form of its
@@ -125,6 +130,10 @@ class Plan(NamedTuple):
     #: the order of the canonical form of the family, which toCanonical
     #: converts to; None if toCanonical is not generated
     canonical_order: Optional[int]
+    #: whether the canonical forms are in double precision: if a configuration
+    #: of the build computes in double precision (the same for all families, so
+    #: that the C++ side has one type for them)
+    canonical_double: bool
     #: whether fromCanonical, from the canonical form of the family, is
     #: generated
     from_family: bool
@@ -133,12 +142,19 @@ class Plan(NamedTuple):
     coupled: Dict[str, int]
 
 
+def is_double(args):
+    """Whether the configuration of `args` computes in double precision."""
+    return args.precision in ["d", "f64"]
+
+
 def plans(config_args):
     """Per configuration: its Plan. The canonical form of a family has the
-    largest order of the family in the build. toCanonical and fromCanonical
-    exist for the configurations of a family with more than one configuration in
-    the build; toCanonical and fromCoupledCanonical for those of a family that
+    largest order of the family in the build, and double precision if any
+    configuration of the build has it. toCanonical and fromCanonical exist for
+    the configurations of a family with more than one configuration in the
+    build; toCanonical and fromCoupledCanonical for those of a family that
     another family in the build is coupled to, for each of them."""
+    canonical_double = any(is_double(args) for args in config_args)
     orders = {}
     counts = {}
     for args in config_args:
@@ -160,6 +176,7 @@ def plans(config_args):
                 canonical_order=(
                     orders[(material, simulations)] if with_family or coupled else None
                 ),
+                canonical_double=canonical_double,
                 from_family=with_family,
                 coupled=coupled,
             )
@@ -213,9 +230,8 @@ def canonical_quantities(aderdg):
     return total_extent(layout(aderdg.primaryGroups()))
 
 
-def _fused(integral, name, shape, datatype=Datatype.F64, **kwargs):
-    """A tensor with the fused simulations of `integral`, in double precision
-    unless `datatype` says otherwise."""
+def _fused(integral, name, shape, datatype, **kwargs):
+    """A tensor with the fused simulations of `integral`, of `datatype`."""
     return OptionalDimTensor(
         name,
         integral.optName(),
@@ -238,6 +254,7 @@ def add_kernels(generator, aderdg, matrices_dir, plan, material, precision, targ
             matrices_dir,
             plan.canonical_order,
             plan.from_family,
+            canonical_type(plan),
             precision,
             targets,
         )
@@ -248,18 +265,31 @@ def add_kernels(generator, aderdg, matrices_dir, plan, material, precision, targ
             matrices_dir,
             plan.coupled,
             material,
+            canonical_type(plan),
             precision,
             targets,
         )
 
 
+def canonical_type(plan):
+    """The datatype of the canonical forms (see Plan)."""
+    return Datatype.F64 if plan.canonical_double else Datatype.F32
+
+
 def _add_family_kernels(
-    generator, aderdg, matrices_dir, canonical_order, from_family, precision, targets
+    generator,
+    aderdg,
+    matrices_dir,
+    canonical_order,
+    from_family,
+    wide,
+    precision,
+    targets,
 ):
     """Adds toCanonical and, if `from_family`, the family fromCanonical (over
-    the side of the neighbor)."""
+    the side of the neighbor), with the canonical form of datatype `wide`."""
     real = Datatype.F64 if precision == "double" else Datatype.F32
-    f64 = Datatype.F64
+    assert real == wide or wide == Datatype.F64
 
     integral = aderdg.I
     bases = aderdg.num3DBasisFunctions()
@@ -272,23 +302,24 @@ def _add_family_kernels(
         return _fused(integral, name, shape, **kwargs)
 
     # unpadded, so that all configurations of a family lay it out alike
-    canonical = fused("canonicalI", (canonical_bases, canonical_count))
+    canonical = fused("canonicalI", (canonical_bases, canonical_count), datatype=wide)
 
     padded = bases < canonical_bases
     selected = canonical_count < quantities
 
+    # in the precision of the configuration, as toCanonical and fromCanonical
+    # compute
     embed = Tensor(
         "canonicalEmbed",
         (canonical_bases, bases),
         np.eye(canonical_bases, bases),
         CSCMemoryLayout,
-        datatype=f64,
+        datatype=real,
     )
     select = np.eye(quantities, canonical_count)
     selectTo = Tensor(
-        "canonicalSelect", select.shape, select, CSCMemoryLayout, datatype=f64
+        "canonicalSelect", select.shape, select, CSCMemoryLayout, datatype=real
     )
-    # in the precision of the configuration, as fromCanonical computes
     selectFrom = Tensor(
         "canonicalSelectT", select.T.shape, select.T, CSCMemoryLayout, datatype=real
     )
@@ -309,34 +340,42 @@ def _add_family_kernels(
     for target in targets:
         prefix = generate_kernel_name_prefix(target)
 
-        # to the canonical form: widen first, then pad and select
+        # to the canonical form: pad and select first, then widen
         if not padded and not selected:
             source = integral["kq"]
             toCanonical = canonical["kq"] <= (
-                cast(source, f64) if real != f64 else source
+                cast(source, wide) if real != wide else source
             )
         else:
-            if real != f64:
-                wide = fused(f"{prefix}wideI", (bases, quantities), temporary=True)
-                widen = [wide["kp"] <= cast(integral["kp"], f64)]
-            else:
-                wide = integral
-                widen = []
             if padded and selected:
-                product = embed["kl"] * wide["lp"] * selectTo["pq"]
+                product = embed["kl"] * integral["lp"] * selectTo["pq"]
             elif padded:
-                product = embed["kl"] * wide["lq"]
+                product = embed["kl"] * integral["lq"]
             else:
-                product = wide["kp"] * selectTo["pq"]
-            toCanonical = widen + [canonical["kq"] <= product]
+                product = integral["kp"] * selectTo["pq"]
+            if real != wide:
+                narrow = fused(
+                    f"{prefix}narrowCanonicalI",
+                    (canonical_bases, canonical_count),
+                    datatype=real,
+                    temporary=True,
+                )
+                toCanonical = [
+                    narrow["kq"] <= product,
+                    canonical["kq"] <= cast(narrow["kq"], wide),
+                ]
+            else:
+                toCanonical = canonical["kq"] <= product
         generator.add(f"{prefix}toCanonical", toCanonical, target=target)
 
         # from the canonical form: narrow first, then lift and select
         def fromCanonical(side):
             if not padded and not selected:
                 source = canonical["kp"]
-                return integral["kp"] <= (cast(source, real) if real != f64 else source)
-            if real != f64:
+                return integral["kp"] <= (
+                    cast(source, real) if real != wide else source
+                )
+            if real != wide:
                 narrow = fused(
                     f"{prefix}narrowCanonicalI",
                     (canonical_bases, canonical_count),
@@ -365,14 +404,14 @@ def _add_family_kernels(
 
 
 def _add_coupled_kernels(
-    generator, aderdg, matrices_dir, coupled, material, precision, targets
+    generator, aderdg, matrices_dir, coupled, material, wide, precision, targets
 ):
     """Adds the family fromCoupledCanonical, over the index of the coupled family
     of the neighbor (see FAMILIES) and the side of the neighbor, for the coupled
-    families in `coupled` (see Plan). Its tensors are groups over the index of
-    the coupled family."""
+    families in `coupled` (see Plan), whose canonical forms are of datatype
+    `wide`. Its tensors are groups over the index of the coupled family."""
     real = Datatype.F64 if precision == "double" else Datatype.F32
-    f64 = Datatype.F64
+    assert real == wide or wide == Datatype.F64
 
     integral = aderdg.I
     order = aderdg.order
@@ -391,7 +430,9 @@ def _add_coupled_kernels(
         coupled_bases = num_bases(coupled_order)
 
         shape[index] = (coupled_bases, coupled_count)
-        canonical[index] = _fused(integral, f"coupledCanonicalI({index})", shape[index])
+        canonical[index] = _fused(
+            integral, f"coupledCanonicalI({index})", shape[index], datatype=wide
+        )
 
         # per face: the quantities of the neighbor into the contribution of the
         # neighbor to the Godunov state, in the quantities of the cell and in the
@@ -429,7 +470,7 @@ def _add_coupled_kernels(
 
         def fromCoupledCanonical(index, side):
             source = canonical[index]
-            if real != f64:
+            if real != wide:
                 narrow = _fused(
                     integral,
                     f"{prefix}narrowCoupledCanonicalI({index})",
@@ -498,7 +539,8 @@ def emit_header(aderdg, output_dir, key, plan, targets):
         "struct ConfigBoundaryKernels;",
         "",
         "/// Which kernels of the faces towards other configurations exist on the host and on the device,",
-        "/// and the canonical forms they convert to and from: their order and their number of quantities.",
+        "/// and the canonical forms they convert to and from: their order, their number of quantities",
+        "/// and their precision.",
         "template <>",
         f"struct ConfigBoundaryKernels<{key}> {{",
         "  // toCanonical and fromCanonical, into and from the canonical form of the family",
@@ -508,6 +550,9 @@ def emit_header(aderdg, output_dir, key, plan, targets):
         f"  static constexpr bool ToCanonicalHost = {boolean(to_canonical and 'cpu' in targets)};",
         f"  static constexpr bool ToCanonicalDevice = {boolean(to_canonical and 'gpu' in targets)};",
         f"  static constexpr std::size_t CanonicalOrder = {plan.canonical_order or 0};",
+        "  // the precision of the canonical forms, of all families: double if a configuration of the",
+        "  // build computes in double precision",
+        f"  using CanonicalReal = {'double' if plan.canonical_double else 'float'};",
         f"  static constexpr std::size_t CanonicalQuantities = {count};",
         "  // fromCoupledCanonical, by the family of the neighbor (the solids, the fluids, the",
         "  // poroelastic solids): whether it converts from the canonical form of that family, and the",
