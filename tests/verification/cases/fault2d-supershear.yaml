@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# A forced rupture front on fault2d: the fault weakens over t_0 from the
+# forced rupture time t_r = |y| / 5200 m/s on, which starts a front at y = 0
+# that runs to both sides at 1.5 times the shear wave speed of 3464 m/s. The
+# slip is antiplane, along z, so that the steady solution is a plane wave
+# inclined at the angle of the Mach cone; see fault1d.Front. The fault slips
+# once its strength falls below the 75 MPa of shear, some 7 ms after t_r, and
+# from t_r + t_0 on at (75 - 63) MPa / eta_III = 3.4 m/s, where the impedance
+# of the inclined wave makes eta_III = 0.75 eta; d_c is long enough for the
+# time alone to weaken the fault.
+!Switch
+[s_xx, s_yy, s_zz, s_xy, s_yz, s_xz, nuc_xx, nuc_yy, nuc_zz, nuc_xy, nuc_yz, nuc_xz, mu_s, mu_d, d_c, cohesion]: !ConstantMap
+  map:
+    s_xx:     -120.0e6
+    s_yy:     0.0
+    s_zz:     0.0
+    s_xy:     0.0
+    s_yz:     0.0
+    s_xz:     75.0e6
+    nuc_xx:   0.0
+    nuc_yy:   0.0
+    nuc_zz:   0.0
+    nuc_xy:   0.0
+    nuc_yz:   0.0
+    nuc_xz:   0.0
+    mu_s:     0.677
+    mu_d:     0.525
+    d_c:      1.0
+    cohesion: 0.0
+[forced_rupture_time]: !Any
+  components:
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [0.0, .inf]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          forced_rupture_time: [0.0, 0.0001923076923076923, 0.0]
+        translation:
+          forced_rupture_time: 0.0
+    - !AffineMap
+      matrix:
+        forced_rupture_time: [0.0, -0.0001923076923076923, 0.0]
+      translation:
+        forced_rupture_time: 0.0

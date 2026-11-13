@@ -113,13 +113,15 @@ class LinearSlipWeakeningLaw
       real slipRateMagnitude{};
 
       if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
-        const auto solution = common::solveSlipRate<Cfg>(this->impAndEta_[ltsFace],
-                                                         this->impedanceMatrices_[ltsFace],
-                                                         totalTraction1,
-                                                         totalTraction2,
-                                                         absoluteTraction,
-                                                         strength[pointIndex],
-                                                         strengthSlope[pointIndex]);
+        common::SlipRateSolution<Cfg> solution{};
+        common::solveSlipRate<Cfg>(this->impAndEta_[ltsFace],
+                                   this->impedanceMatrices_[ltsFace],
+                                   totalTraction1,
+                                   totalTraction2,
+                                   absoluteTraction,
+                                   strength[pointIndex],
+                                   strengthSlope[pointIndex],
+                                   solution);
         slipRateMagnitude = solution.slipRate;
         etaEff = solution.etaEff;
 

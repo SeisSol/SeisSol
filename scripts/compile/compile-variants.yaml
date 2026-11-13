@@ -62,9 +62,11 @@ toolchains:
     env: { CC: nvc, CXX: nvc++, FC: nvfortran }
     # The NVHPC runtime needs an MPI launcher even for a single rank, both for
     # CTest's discovery pass and for running the tests themselves. As on master,
-    # without the generated kernel tests, which NVHPC still miscompiles.
+    # without the generated kernel tests, which NVHPC still miscompiles. Open
+    # MPI binds the rank of a job of one to a core, the first one in every job,
+    # so the tests that CTest runs side by side would all share that core.
     defines:
-      TESTING_COMMAND: "mpirun -np 1 --oversubscribe --allow-run-as-root"
+      TESTING_COMMAND: "mpirun -np 1 --oversubscribe --allow-run-as-root --bind-to none"
       TESTING_GENERATED: "OFF"
 
 presets:

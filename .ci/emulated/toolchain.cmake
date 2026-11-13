@@ -8,7 +8,7 @@
 # Cross-compiles with the GNU compilers of a target, named by its triplet in the environment
 # variable SEISSOL_CROSS_TRIPLET (e.g. riscv64-linux-gnu), against the libraries that
 # .ci/emulated/dependencies.sh builds into the prefix in SEISSOL_CROSS_PREFIX. The compilers are
-# <triplet>-gcc, <triplet>-g++ and <triplet>-gfortran, unless CC, CXX and FC name others.
+# <triplet>-gcc and <triplet>-g++, unless CC and CXX name others.
 #
 # CMake reads this file again for each of its checks, which see the same environment.
 
@@ -34,11 +34,6 @@ if (NOT "$ENV{CXX}" STREQUAL "")
   set(CMAKE_CXX_COMPILER "$ENV{CXX}")
 else()
   set(CMAKE_CXX_COMPILER "${_triplet}-g++")
-endif()
-if (NOT "$ENV{FC}" STREQUAL "")
-  set(CMAKE_Fortran_COMPILER "$ENV{FC}")
-else()
-  set(CMAKE_Fortran_COMPILER "${_triplet}-gfortran")
 endif()
 
 # Libraries, headers and packages come from the prefix and from the libraries of the cross

@@ -10,6 +10,7 @@
 
 #include "Common/Real.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::output {
 class ImposedSlipRates : public ReceiverOutputImpl<ImposedSlipRates> {
@@ -17,6 +18,17 @@ class ImposedSlipRates : public ReceiverOutputImpl<ImposedSlipRates> {
   template <typename Cfg>
   Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& /*local*/) {
     return 0.0;
+  }
+
+  /// The tractions that the imposed slip rate leaves, which no strength sets. Where the impedance
+  /// couples the normal and the shear directions, they include the fault-normal traction.
+  template <typename Cfg>
+  void updateLocalTractions(LocalInfo<Cfg>& local,
+                            Real<Cfg> /*strength*/,
+                            Real<Cfg> /*strengthSlope*/) {
+    applySlipRate(local,
+                  stateAt<DynamicRupture::SlipRate1>(local, local.gpIndex),
+                  stateAt<DynamicRupture::SlipRate2>(local, local.gpIndex));
   }
 
   template <typename Cfg>

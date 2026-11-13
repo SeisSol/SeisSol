@@ -27,6 +27,18 @@ if (NOT SEISSOL_MINIMESH_MODULES EQUAL 0)
                   "Without them, no mini mesh can be generated and none of the cases runs.")
 endif()
 
+# The spectral method that the cases on fault2d-periodic are held against needs scipy as well.
+# Without it, there is nothing to compare those runs with, which take minutes each; they are skipped
+# then, as their comparisons are, by the capability scipy of capabilities.json.
+execute_process(COMMAND ${Python3_EXECUTABLE} -c "import scipy"
+                RESULT_VARIABLE SEISSOL_SCIPY_MODULE
+                OUTPUT_QUIET ERROR_QUIET)
+if (SEISSOL_SCIPY_MODULE EQUAL 0)
+  set(SEISSOL_CAP_SCIPY "true")
+else()
+  set(SEISSOL_CAP_SCIPY "false")
+endif()
+
 set(SEISSOL_MINITEST_TIMEOUT 300 CACHE STRING
     "Timeout in seconds for a single verification case")
 set(SEISSOL_MINITEST_MPIEXEC_FLAGS "" CACHE STRING
@@ -121,7 +133,8 @@ function(seissol_add_minimesh)
   set_property(GLOBAL APPEND PROPERTY SEISSOL_MINIMESHES ${MM_NAME})
 endfunction()
 
-foreach (preset box6 box48 skew48 fault48 faultskew48 mat48 periodicx72 periodic162 open96)
+foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial fault2d
+                fault2d-periodic mat48 periodicx72 periodic162 open96)
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 
@@ -142,6 +155,22 @@ add_test(NAME verification.minimesh.self-test
                  ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py self-test)
 set_tests_properties(verification.minimesh.self-test PROPERTIES
                      LABELS "verification;smoke")
+
+# the exact solution of the fault1d cases, against what is known in closed form
+add_test(NAME verification.fault1d.self-test
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/fault1d.py self-test)
+set_tests_properties(verification.fault1d.self-test PROPERTIES
+                     LABELS "verification;smoke;dr")
+# the spectral boundary integral method of the antiplane and the in-plane
+# ruptures, against closed forms, finite differences and fault1d.py; it skips
+# without scipy
+add_test(NAME verification.antiplane.self-test
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/antiplane.py self-test)
+set_tests_properties(verification.antiplane.self-test PROPERTIES
+                     SKIP_RETURN_CODE 77
+                     LABELS "verification;smoke;dr")
 
 # every receiver strictly inside a cell of every mesh; see minimesh.py locate
 get_property(meshes GLOBAL PROPERTY SEISSOL_MINIMESHES)
@@ -164,9 +193,49 @@ add_test(NAME verification.faultreceivers
                  ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate --fault
                  ${CMAKE_CURRENT_SOURCE_DIR}/cases/faultreceiver.dat
                  ${SEISSOL_MINIMESH_DIR}/fault48.puml.h5
-                 ${SEISSOL_MINIMESH_DIR}/faultskew48.puml.h5)
+                 ${SEISSOL_MINIMESH_DIR}/faultskew48.puml.h5
+                 ${SEISSOL_MINIMESH_DIR}/fault1d.puml.h5
+                 ${SEISSOL_MINIMESH_DIR}/fault1d-bimaterial.puml.h5)
 set_tests_properties(verification.faultreceivers PROPERTIES
-                     FIXTURES_REQUIRED "minimesh.fault48;minimesh.faultskew48"
+                     FIXTURES_REQUIRED
+                     "minimesh.fault48;minimesh.faultskew48;minimesh.fault1d;minimesh.fault1d-bimaterial"
+                     LABELS "verification;smoke;dr")
+
+# the receivers of the rupture front along y, spread out along it
+add_test(NAME verification.receivers2d
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/receiver2d.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d.puml.h5)
+set_tests_properties(verification.receivers2d PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d
+                     LABELS "verification;smoke;dr")
+add_test(NAME verification.faultreceivers2d
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate --fault
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/faultreceiver2d.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d.puml.h5)
+set_tests_properties(verification.faultreceivers2d PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d
+                     LABELS "verification;smoke;dr")
+# the receivers of the spontaneous rupture, on Gauss points of the fault,
+# through which the points of the spectral method run, and anywhere in the
+# volume
+add_test(NAME verification.receivers2d-periodic
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/receiver2d-periodic.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d-periodic.puml.h5)
+set_tests_properties(verification.receivers2d-periodic PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d-periodic
+                     LABELS "verification;smoke;dr")
+add_test(NAME verification.faultreceivers2d-periodic
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate --fault
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/faultreceiver2d-periodic.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d-periodic.puml.h5)
+set_tests_properties(verification.faultreceivers2d-periodic PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d-periodic
                      LABELS "verification;smoke;dr")
 
 # ---------------------------------------------------------------------------
@@ -451,6 +520,102 @@ function(seissol_add_rupture)
           ${RUP_SET}
       ${options}
       LABELS "dr;${RUP_LABELS}")
+endfunction()
+
+# ---------------------------------------------------------------------------
+# seissol_add_fault1d(NAME <name> FL <law> FAULT <file> [MESH mesh] [STEPS n]
+#                     [MATERIAL file] [REQUIRE capability ...]
+#                     [FILES file ...] [SET ...] [LABELS label ...])
+#
+# A friction law on a fault1d mesh, held against the exact solution of the
+# ordinary differential equation that every point of a uniform fault solves
+# there (see fault1d.py), on fault2d, against the one of a forced rupture
+# front (see fault1d.Front), or on fault2d-periodic, against the antiplane
+# rupture of a spectral boundary integral method (see antiplane.py), which
+# needs scipy. The run is a case of its own, without a snapshot,
+# since the exact solution is the better reference; the comparison is a test of
+# its own, so that it can be repeated, and its thresholds recorded, without
+# running SeisSol again. Without MATERIAL, the case takes the material of its
+# build, and without REQUIRE, it runs in elastic and anisotropic builds. FILES
+# are further inputs, such as receivers that SET names.
+#
+# A case on fault2d-periodic takes minutes, many times what the others take,
+# in every configuration it runs in. It runs where scipy is there to compare it
+# with, and in double precision without fused simulations only: in single
+# precision, these cases deviate from the spectral method as in double, and
+# with fused simulations, of order 3, they have no thresholds to be judged by.
+# The cases on fault1d hold the friction laws in those configurations. They
+# carry the label spectral, so that a job without the time for them can leave
+# them out.
+#
+# The spectral solution at the receivers is the same in every configuration
+# that runs a case on fault2d-periodic; the comparisons keep it in
+# SEISSOL_SPECTRAL_DIR, under a key of all that it is computed from, so that
+# the first of them computes it and the others read it. RESOURCE_LOCK runs
+# them one after another.
+# ---------------------------------------------------------------------------
+
+set(SEISSOL_SPECTRAL_DIR ${CMAKE_CURRENT_BINARY_DIR}/solutions)
+
+function(seissol_add_fault1d)
+  cmake_parse_arguments(F1D "" "NAME;FL;FAULT;MESH;STEPS;MATERIAL" "SET;LABELS;REQUIRE;FILES"
+                        ${ARGN})
+  if (NOT F1D_MESH)
+    set(F1D_MESH fault1d)
+  endif()
+  if (NOT F1D_STEPS)
+    set(F1D_STEPS 1536)
+  endif()
+  # the exact solution holds for elastic media, isotropic or not; an anisotropic
+  # build runs the isotropic cases with the material of material-anisotropic.yaml
+  if (NOT F1D_REQUIRE)
+    set(F1D_REQUIRE "equations=elastic|anisotropic")
+  endif()
+  if (F1D_MESH STREQUAL "fault2d-periodic")
+    list(APPEND F1D_REQUIRE "scipy=true" "precision=double" "fused=1")
+    list(APPEND F1D_LABELS spectral)
+  endif()
+  if (F1D_MATERIAL)
+    set(F1D_MATERIAL MATERIAL ${F1D_MATERIAL})
+  endif()
+  seissol_add_minitest(
+      NAME ${F1D_NAME}
+      MESH ${F1D_MESH}
+      PARAMETERS rupture1d.par
+      ${F1D_MATERIAL}
+      FILES ${F1D_FAULT} faultreceiver.dat ${F1D_FILES}
+      STEPS ${F1D_STEPS}
+      REQUIRE ${F1D_REQUIRE}
+      SET "DynamicRupture.FL=${F1D_FL}"
+          "DynamicRupture.ModelFileName='${F1D_FAULT}'"
+          ${F1D_SET}
+      NO_SNAPSHOT
+      ACTIVITY "SRs|SRd:1e-3"
+      LABELS "dr;exact;${F1D_LABELS}")
+
+  add_test(NAME verification.exact.${F1D_NAME}${SEISSOL_VERIFICATION_SUFFIX}
+           COMMAND ${Python3_EXECUTABLE}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py exact
+                   --name ${F1D_NAME}
+                   --case-result ${SEISSOL_VERIFICATION_DIR}/results/${F1D_NAME}.json
+                   --work ${SEISSOL_VERIFICATION_DIR}/work/${F1D_NAME}
+                   --mesh-manifest ${SEISSOL_MINIMESH_DIR}/${F1D_MESH}.json
+                   --capabilities ${SEISSOL_VERIFICATION_DIR}/capabilities.json
+                   --thresholds ${CMAKE_CURRENT_SOURCE_DIR}/cases/thresholds-fault1d.json
+                   --solutions ${SEISSOL_SPECTRAL_DIR}
+                   --result ${SEISSOL_VERIFICATION_DIR}/results/exact-${F1D_NAME}.json)
+  set_tests_properties(verification.exact.${F1D_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
+      SKIP_RETURN_CODE 77
+      FIXTURES_REQUIRED
+      "case.${SEISSOL_VERIFICATION_CONFIG}.${F1D_NAME};minimesh.${F1D_MESH};verification"
+      TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
+      LABELS "verification;dr;exact;${F1D_LABELS}")
+  if (F1D_MESH STREQUAL "fault2d-periodic")
+    set_tests_properties(verification.exact.${F1D_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
+        RESOURCE_LOCK verification.spectral.${F1D_NAME})
+  endif()
+  set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
+      "    {\"name\": \"exact-${F1D_NAME}\", \"mesh\": \"${F1D_MESH}\", \"requires\": []},\n")
 endfunction()
 
 # ---------------------------------------------------------------------------

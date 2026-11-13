@@ -556,12 +556,13 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
   } else if (allTractionParametersSupplied && !anyCartesianParametersSupplied) {
     return {tractionNames, Parametrization::Traction};
   } else {
-    logError() << "Please specify a correct parametrization of the "
-               << (readNucleation > 0
-                       ? "nucleation stress " + std::to_string(readNucleation + 1) + "."
-                       : "initial stress.")
-               << "You have either not specified all parameters or an uncommom mixture of "
-                  "parameters. Give either all of "
+    // readNucleation numbers the nucleations as the documentation does: 1 for nuc_*, 2 for nuc2_*
+    const std::string stress = readNucleation > 0
+                                   ? "nucleation stress " + std::to_string(readNucleation) + "."
+                                   : std::string("initial stress.");
+    logError() << "Please specify a correct parametrization of the" << stress.c_str()
+               << "You have either not specified all parameters or an uncommon mixture of "
+                  "parameters. Give either all of"
                << cartesianNames << "or all of" << tractionNames << ", but not a mixture of them.";
     return {};
   }

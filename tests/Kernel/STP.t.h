@@ -163,7 +163,8 @@ class SpaceTimePredictorTestFixture {
   }
 
   void solveWithKernel(Real<Cfg> stp[], const Real<Cfg>* qData) {
-    Real<Cfg> timeIntegrated[seissol::tensor::I<Cfg>::size()];
+    // The kernel stores the time integral with aligned vector instructions.
+    alignas(PagesizeStack) Real<Cfg> timeIntegrated[seissol::tensor::I<Cfg>::size()];
 
     seissol::kernel::spaceTimePredictor<Cfg> krnl;
     prepareKernel(krnl);

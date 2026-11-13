@@ -344,23 +344,6 @@ if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
   message(FATAL_ERROR "Your installed Eigen version is too old. Needed: at least 3.4 .")
 endif()
 
-# needed because Eigen (also 5.0) still incorrectly computes some values and fails some unit tests
-if("poroelastic" IN_LIST SEISSOL_CONFIG_MATERIALS)
-  include(CheckLanguage)
-  check_language(Fortran)
-  if(CMAKE_Fortran_COMPILER)
-    enable_language(Fortran)
-    include(FortranCInterface)
-    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
-    find_package(LAPACK REQUIRED)
-    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
-    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
-  else()
-    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
-  endif()
-endif()
-
 find_package(yaml-cpp REQUIRED)
 
 if ("${yaml-cpp_VERSION}" VERSION_GREATER_EQUAL "0.8")

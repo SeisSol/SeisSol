@@ -112,6 +112,7 @@ TEST_CASE_TEMPLATE_DEFINE("Anisotropic slip rate solve" * doctest::test_suite("d
   using namespace anisotropicsliprate;
   using real = Real<Cfg>;
 
+  using seissol::dr::friction_law::common::SlipRateSolution;
   using seissol::dr::friction_law::common::solveSlipRate;
 
   const ImpedancesAndEta<Cfg> impAndEta{};
@@ -130,8 +131,15 @@ TEST_CASE_TEMPLATE_DEFINE("Anisotropic slip rate solve" * doctest::test_suite("d
         const real traction1 = magnitude * std::cos(angle);
         const real traction2 = magnitude * std::sin(angle);
 
-        const auto solution = solveSlipRate<Cfg>(
-            impAndEta, impedanceMatrices, traction1, traction2, magnitude, Strength, Slope);
+        SlipRateSolution<Cfg> solution{};
+        solveSlipRate<Cfg>(impAndEta,
+                           impedanceMatrices,
+                           traction1,
+                           traction2,
+                           magnitude,
+                           Strength,
+                           Slope,
+                           solution);
 
         REQUIRE(solution.slipRate > 0);
         CHECK(std::abs(std::sqrt(solution.direction1 * solution.direction1 +
@@ -150,8 +158,15 @@ TEST_CASE_TEMPLATE_DEFINE("Anisotropic slip rate solve" * doctest::test_suite("d
     const real traction1 = Strength * 1.5 * std::cos(0.7);
     const real traction2 = Strength * 1.5 * std::sin(0.7);
 
-    const auto uncoupled = solveSlipRate<Cfg>(
-        impAndEta, impedanceMatrices, traction1, traction2, Strength * 1.5, Strength, 0.0);
+    SlipRateSolution<Cfg> uncoupled{};
+    solveSlipRate<Cfg>(impAndEta,
+                       impedanceMatrices,
+                       traction1,
+                       traction2,
+                       Strength * 1.5,
+                       Strength,
+                       0.0,
+                       uncoupled);
 
     CHECK(slipRateResidual(impedanceMatrices, uncoupled, traction1, traction2, Strength, Slope) >
           10 * ResidualBar);
@@ -167,8 +182,9 @@ TEST_CASE_TEMPLATE_DEFINE("Anisotropic slip rate solve" * doctest::test_suite("d
     const real traction1 = magnitude * std::cos(angle);
     const real traction2 = magnitude * std::sin(angle);
 
-    const auto solution = solveSlipRate<Cfg>(
-        impAndEta, impedanceMatrices, traction1, traction2, magnitude, Strength, Slope);
+    SlipRateSolution<Cfg> solution{};
+    solveSlipRate<Cfg>(
+        impAndEta, impedanceMatrices, traction1, traction2, magnitude, Strength, Slope, solution);
 
     CHECK(solution.slipRate == doctest::Approx((magnitude - Strength) / EtaS).epsilon(1e-5));
     CHECK(solution.direction1 == doctest::Approx(std::cos(angle)).epsilon(1e-6));
@@ -180,13 +196,15 @@ TEST_CASE_TEMPLATE_DEFINE("Anisotropic slip rate solve" * doctest::test_suite("d
     const auto impedanceMatrices = testImpedance<Cfg>();
     const real magnitude = Strength * 0.5;
 
-    const auto solution = solveSlipRate<Cfg>(impAndEta,
-                                             impedanceMatrices,
-                                             magnitude * std::cos(0.7),
-                                             magnitude * std::sin(0.7),
-                                             magnitude,
-                                             Strength,
-                                             Slope);
+    SlipRateSolution<Cfg> solution{};
+    solveSlipRate<Cfg>(impAndEta,
+                       impedanceMatrices,
+                       magnitude * std::cos(0.7),
+                       magnitude * std::sin(0.7),
+                       magnitude,
+                       Strength,
+                       Slope,
+                       solution);
 
     CHECK(solution.slipRate == static_cast<real>(0.0));
   }
@@ -194,8 +212,8 @@ TEST_CASE_TEMPLATE_DEFINE("Anisotropic slip rate solve" * doctest::test_suite("d
   SUBCASE("vanishing trial traction") {
     const auto impedanceMatrices = testImpedance<Cfg>();
 
-    const auto solution =
-        solveSlipRate<Cfg>(impAndEta, impedanceMatrices, 0.0, 0.0, 0.0, Strength, Slope);
+    SlipRateSolution<Cfg> solution{};
+    solveSlipRate<Cfg>(impAndEta, impedanceMatrices, 0.0, 0.0, 0.0, Strength, Slope, solution);
 
     CHECK(solution.slipRate == static_cast<real>(0.0));
     CHECK(std::isfinite(solution.direction1));

@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The spontaneous antiplane rupture of fault2d-antiplane.yaml with severe
+# velocity weakening, f = f_0 + a V / (V + V_0) - b psi / (psi + L), under
+# f_0 = 0.6 and V_0 = 1e-6 m/s of the parameter file and b = 0.15 of this
+# file. The state, a slip that is forgotten at the rate V_0 / L, holds the
+# shear traction of 75 MPa along z at the creep of 1e-16 m/s; a slip rate
+# well above V_0 raises the friction to f_0 + a = 0.675, and the slip
+# weakens it towards f_0 + a - b = 0.525 over a few L = 4 cm: the static and
+# the dynamic friction of fault2d-antiplane.yaml, 81 MPa and 63 MPa, with a
+# hyperbolic weakening instead of a linear one, at b sigma / L = 450 MPa/m
+# at first. The nucleation is that of fault2d-antiplane.yaml: the fault
+# slips over |y| < 120 m from 9 ms on, and the rupture runs on to both sides
+# on its own, at up to 2.9 km/s, as antiplane.py computes it.
+!Switch
+[s_xx, s_yy, s_zz, s_xy, s_yz, s_xz, nuc_xx, nuc_yy, nuc_zz, nuc_xy, nuc_yz, rs_a, rs_b, rs_sl0]: !ConstantMap
+  map:
+    s_xx:   -120.0e6
+    s_yy:   0.0
+    s_zz:   0.0
+    s_xy:   0.0
+    s_yz:   0.0
+    s_xz:   75.0e6
+    nuc_xx: 0.0
+    nuc_yy: 0.0
+    nuc_zz: 0.0
+    nuc_xy: 0.0
+    nuc_yz: 0.0
+    rs_a:   0.075
+    rs_b:   0.15
+    rs_sl0: 0.04
+[nuc_xz]: !Any
+  components:
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-120.0, 120.0]
+        z: [-.inf, .inf]
+      components: !ConstantMap
+        map:
+          nuc_xz: 14.0e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [120.0, 220.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xz: [0.0, -1.4e5, 0.0]
+        translation:
+          nuc_xz: 30.8e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-220.0, -120.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xz: [0.0, 1.4e5, 0.0]
+        translation:
+          nuc_xz: 30.8e6
+    - !ConstantMap
+      map:
+        nuc_xz: 0.0

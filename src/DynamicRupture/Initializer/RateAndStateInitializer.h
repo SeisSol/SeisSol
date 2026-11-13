@@ -109,6 +109,50 @@ class RateAndStateFastVelocityInitializer : public RateAndStateInitializer {
 };
 
 /**
+ * Derived initializer class for the severe velocity weakening friction law
+ */
+class RateAndStateSevereVelocityInitializer : public RateAndStateInitializer {
+  public:
+  using RateAndStateInitializer::RateAndStateInitializer;
+
+  protected:
+  /**
+   * Computes the initial stateVariable and frictionCoefficient of the law
+   * \f[ \mu = f_0 + a \frac{V}{V + sr_0} - b \frac{\psi}{\psi + sl_0}, \f]
+   * such that the fault slips at the initial slip rate under the initial traction:
+   * \f[ \mathbf{\tau} = \sqrt{\tau_{XY}^2 + \tau_{XZ}^2}, \quad
+   * q = \frac{1}{b} \left( f_0 + a \frac{sr_{ini}}{sr_{ini} + sr_0} -
+   * \left|\frac{\mathbf{\tau}}{p}\right| \right), \quad
+   * \psi = sl_0 \frac{q}{1 - q}, \quad \mu = \left|\frac{\mathbf{\tau}}{p}\right|. \f]
+   * A traction above the friction of the healed fault, q < 0, needs a negative state. A traction
+   * at or below the friction of the fully weakened fault, q >= 1, cannot slip at the initial slip
+   * rate in any state: the fault is locked there, and it starts healed, in the steady state of the
+   * initial slip rate,
+   * \f[ \psi = sl_0 \frac{sr_{ini}}{sr_0}, \quad
+   * \mu = f_0 + (a - b) \frac{sr_{ini}}{sr_{ini} + sr_0}. \f]
+   * @param traction1 \f$ \tau_{XY} \f$
+   * @param traction2 \f$ \tau_{XZ} \f$
+   * @param pressure \f$ p \f$
+   * @param rs_a \f$ a \f$
+   * @param rs_b \f$ b \f$
+   * @param rs_sl0 \f$ sl_0 \f$
+   * @param rs_sr0 \f$ sr_0 \f$
+   * @param rs_f0 \f$ f_0 \f$
+   * @param initialSlipRate \f$ sr_{ini} \f$
+   * @return \f$ \left( \psi, \mu \right) \f$
+   */
+  StateAndFriction computeInitialStateAndFriction(double traction1,
+                                                  double traction2,
+                                                  double pressure,
+                                                  double rsA,
+                                                  double rsB,
+                                                  double rsSl0,
+                                                  double rsSr0,
+                                                  double rsF0,
+                                                  double initialSlipRate) override;
+};
+
+/**
  * Derived initializer class for FastVelocityWeakening friction law with additional thermal
  * pressurization
  */
@@ -145,8 +189,7 @@ class ThermalPressurizationInitializer {
 };
 
 /**
- * Derived initializer class for RateAndState (slow, severe) friction law with additional thermal
- * pressurization
+ * Derived initializer class for the aging and the slip law with additional thermal pressurization
  */
 class RateAndStateThermalPressurizationInitializer : public RateAndStateInitializer,
                                                      public ThermalPressurizationInitializer {
@@ -177,6 +220,31 @@ class RateAndStateFastVelocityThermalPressurizationInitializer
       public ThermalPressurizationInitializer {
   public:
   RateAndStateFastVelocityThermalPressurizationInitializer(
+      const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
+      SeisSol& instance);
+
+  /**
+   * Intializes temperature and pressure and sets compute grid to 0
+   */
+  void initializeFault(DynamicRupture::Storage& drStorage) override;
+
+  protected:
+  /**
+   * Adds the additional parameters halfWidthShearZone and hydraulicDiffusivity
+   */
+  void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
+                               DynamicRupture::Layer& layer) override;
+};
+
+/**
+ * Derived initializer class for the severe velocity weakening friction law with additional thermal
+ * pressurization
+ */
+class RateAndStateSevereVelocityThermalPressurizationInitializer
+    : public RateAndStateSevereVelocityInitializer,
+      public ThermalPressurizationInitializer {
+  public:
+  RateAndStateSevereVelocityThermalPressurizationInitializer(
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
       SeisSol& instance);
 

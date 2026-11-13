@@ -1,0 +1,68 @@
+&equations
+MaterialFileName = 'material-elastic.yaml'           ! replaced per build by the runner
+Plasticity = 0
+/
+
+&IniCondition
+cICType = 'Zero'
+/
+
+&DynamicRupture
+FL = 16                                        ! replaced per friction law
+ModelFileName = 'fault1d-lsw.yaml'             ! replaced per friction law
+! The fault is the plane x = 0. SeisSol takes the plus side of a fault face to
+! be the side the reference point is on; a reference point in the fault plane
+! puts both cells of every fault face on the minus side.
+XRef = -1.0e5
+YRef = 0.0
+ZRef = 0.0
+OutputPointType = 3
+! The nucleation ramps over 1024 steps, so that the slip rate changes over tens
+! of milliseconds, while a shear wave crosses a cell of fault1d in ten: the
+! wave the fault sends out is resolved, and the exact solution of fault1d.py
+! applies to the run rather than to a limit it does not reach. A forced
+! rupture weakens the fault over the same time.
+t_0 = 6.25e-02
+/
+
+&Pickpoint
+printtimeinterval = 1
+PPFileName = 'faultreceiver.dat'
+! everything but the rupture velocity, which derives from how the rupture time
+! varies along the fault, and is undefined where it does not; the pore pressure
+! and the temperature are switched on where thermal pressurization is
+OutputMask = 1 1 1 1 1 1 0 1 1 1 1 0
+/
+
+&MeshNml
+MeshFile = 'mesh.puml.h5'
+meshgenerator = 'PUML'
+PartitioningLib = 'none'
+/
+
+&Discretization
+CFL = 0.5
+FixTimeStep = 6.103515625e-05                  ! set by the runner
+ClusteredLTS = 1                               ! GTS; LTS makes rank counts incomparable
+/
+
+&Output
+OutputFile = 'output/mini'
+wavefieldoutput = 0
+iOutputMask = 1 1 1 1 1 1 1 1 1                ! required even without wavefield output
+SurfaceOutput = 0
+ReceiverOutput = 1
+pickdt = 6.103515625e-05                       ! set by the runner
+RFileName = 'receiver.dat'
+xdmfWriterBackend = 'posix'
+/
+
+&AbortCriteria
+EndTime = 9.375e-02                            ! set by the runner
+/
+
+&Analysis
+/
+
+&Debugging
+/

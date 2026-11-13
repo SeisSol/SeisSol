@@ -29,6 +29,7 @@ into the answer to "was every declared case executed by some build".
 import argparse
 import csv
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -37,6 +38,22 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+# The comparisons compute with numpy in one thread each. CTest runs them side by side, with each
+# other and with the cases, and a BLAS that threads its products starts a thread per CPU in every
+# one of them: with the OpenBLAS that the wheels of numpy bring along, as the job of aarch64
+# installs them, four comparisons of fault1d-rs-fvw-tp side by side on four CPUs took 350 to
+# 430 s each instead of 2 s, its exact solution taking two products of vectors as long as its
+# history at every stage of every step. A BLAS reads these variables when numpy loads it, which
+# none of the imports above does: OpenBLAS, MKL, OpenBLAS built with OpenMP, and Accelerate, which
+# the wheels for macOS take; a run of SeisSol takes its OMP_NUM_THREADS from --threads.
+for _variable in (
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OMP_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+):
+    os.environ[_variable] = "1"
 
 # the return code CTest is told to read as "skipped"
 SKIP_RETURN_CODE = 77
@@ -124,6 +141,23 @@ class ParameterFile:
                         value = value[:position]
                     return value.strip().strip("'\"")
         return None
+
+    def values(self, section):
+        """All assignments of a section, with the names in lower case."""
+        found = {}
+        for name, lines in self.sections:
+            if name.lower() != section.lower():
+                continue
+            for line in lines:
+                match = ASSIGNMENT.match(line)
+                if match is None:
+                    continue
+                value = match.group(4)
+                position = value.find("!")
+                if position >= 0:
+                    value = value[:position]
+                found[match.group(2).lower()] = value.strip().strip("'\"")
+        return found
 
     def render(self):
         parts = []
@@ -272,6 +306,21 @@ def _join_simulations(names, rows):
         f"{name}[{simulation}]" for simulation in simulations for name in quantities
     ]
     return [names[0]] + header, joined
+
+
+def read_receiver_header(path):
+    """Read the ``# name value`` lines of a receiver file's header."""
+    header = {}
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("#"):
+            if stripped and not stripped.upper().startswith(("TITLE", "VARIABLES")):
+                break
+            continue
+        parts = stripped[1:].split()
+        if len(parts) >= 2:
+            header[parts[0]] = parts[1:]
+    return header
 
 
 def receiver_columns(name, simulations):
@@ -728,29 +777,33 @@ def _command_run(args):
     else:
         environment.pop("SEISSOL_CONFIGURATION", None)
     environment["OMP_NUM_THREADS"] = str(args.threads)
-    environment.setdefault("OMP_PLACES", "cores")
-    environment.setdefault("OMP_PROC_BIND", "close")
     # A run of several ranks advances its communication in a thread of its own, on a CPU that no
-    # OpenMP worker of the node holds, and SeisSol does not start without one. Whether one is left
-    # where the ranks and their threads take every CPU there is depends on how the MPI library and
-    # the OpenMP runtime bind them (on the CI's runners of four, only the build with GCC found one),
-    # so there the run polls instead, as the CI's runs of verify.py do; the environment can say
-    # otherwise. With the places of cores, a thread holds all CPUs of its core: the CI's runners
-    # have two cores of two CPUs each, which two ranks of one thread take completely.
-    if environment["OMP_PLACES"] == "cores":
-        units, unit = available_cores(), "cores"
-    else:
-        units, unit = available_cpus(), "CPUs"
-    if (
-        args.ranks > 1
-        and units <= args.ranks * args.threads
-        and "SEISSOL_COMMTHREAD" not in environment
-    ):
-        environment["SEISSOL_COMMTHREAD"] = "0"
-        print(
-            f"communication by polling: {args.ranks} ranks of {args.threads} threads on "
-            f"{units} {unit} leave none for a communication thread"
-        )
+    # OpenMP worker of the node holds, and SeisSol does not start without one: its OpenMP threads are
+    # bound for that. Whether one is left where the ranks and their threads take every CPU there is
+    # depends on how the MPI library and the OpenMP runtime bind them (on the CI's runners of four,
+    # only the build with GCC found one), so there the run polls instead, as the CI's runs of
+    # verify.py do; the environment can say otherwise. With the places of cores, a thread holds all
+    # CPUs of its core: the CI's runners have two cores of two CPUs each, which two ranks of one
+    # thread take completely.
+    # A run of one rank has no communication thread, and its threads stay unbound: bound, every such
+    # run would take the first core, to whose place the OpenMP runtimes bind the initial thread, and
+    # the runs that CTest starts side by side would all share that core, while the others idle.
+    if args.ranks > 1:
+        environment.setdefault("OMP_PLACES", "cores")
+        environment.setdefault("OMP_PROC_BIND", "close")
+        if environment["OMP_PLACES"] == "cores":
+            units, unit = available_cores(), "cores"
+        else:
+            units, unit = available_cpus(), "CPUs"
+        if (
+            units <= args.ranks * args.threads
+            and "SEISSOL_COMMTHREAD" not in environment
+        ):
+            environment["SEISSOL_COMMTHREAD"] = "0"
+            print(
+                f"communication by polling: {args.ranks} ranks of {args.threads} threads on "
+                f"{units} {unit} leave none for a communication thread"
+            )
     # Mini SeisSol times the ranks of a run on several, for node weights of the partitioning, which
     # the mini meshes do without (PartitioningLib 'none' keeps the cells where they were read); in
     # a build without optimization, as the one measuring the coverage, it takes minutes
@@ -1271,6 +1324,969 @@ def _command_snapshot(args):
     return 1 if problems else 0
 
 
+# --------------------------------------------------------------------------
+# exact solutions
+# --------------------------------------------------------------------------
+
+
+def _fault1d_groups(manifest):
+    """The material groups at x < 0 and at x > 0 of a fault1d mesh, which may
+    be periodic across the fault as well."""
+    spec = manifest["spec"]
+    if (
+        [list(plane) for plane in spec["faults"]] != [["x", None]]
+        or list(spec["periodic"])[1:] != [True, True]
+        or spec["origin"] is not None
+    ):
+        raise SystemExit(
+            f"{manifest['name']} is no fault1d mesh: the exact solution needs the fault "
+            "x = 0 in the middle of a column that is periodic along y and z"
+        )
+    splits = [list(plane) for plane in spec["group_splits"]]
+    base = spec["group_base"]
+    if not splits:
+        return base, base
+    if splits == [["x", None]]:
+        return base, base + 1
+    raise SystemExit(f"{manifest['name']}: groups split elsewhere than at the fault")
+
+
+def _larger(first, second):
+    """The larger of two deviations, NaN where either is NaN: NaN compares
+    false with everything, so that max() keeps it only where it comes first,
+    and a deviation that could not be computed would pass for none."""
+    if math.isnan(first) or math.isnan(second):
+        return math.nan
+    return max(first, second)
+
+
+def _largest(values):
+    """The largest of the deviations `values`, NaN where any of them is (see
+    _larger); there has to be one."""
+    values = list(values)
+    if not values:
+        raise ValueError("there is no deviation to take the largest of")
+    largest = values[0]
+    for value in values[1:]:
+        largest = _larger(largest, value)
+    return largest
+
+
+def _deviation(measured, exact, scale=None):
+    """The largest deviation, relative to the amplitude of the exact signal."""
+    if scale is None:
+        scale = max(abs(value) for value in exact)
+    largest = _largest(abs(a - b) for a, b in zip(measured, exact))
+    return largest / scale if scale > 0.0 else largest
+
+
+def _event_deviation(measured, exact):
+    """The deviation of the time of an event; an event that happened in only
+    one of the two is infinitely far off, one that happened in neither is not."""
+    if exact is None:
+        return 0.0 if measured == 0.0 else math.inf
+    if measured == 0.0 and exact > 0.0:
+        return math.inf
+    return abs(measured - exact) / exact if exact > 0.0 else abs(measured)
+
+
+def _gauss_point_deviations(column, exact, events, law, imposed, keep=None):
+    """The deviations of what a fault receiver takes from the Gauss point of
+    the fault nearest to it, from the exact solution there, per quantity.
+
+    `column` gives a column of the receiver by its name, `exact` the series
+    of the exact solution at its samples and `events` the times of the
+    events, of the rupture and of the dynamic stress, and the initial
+    temperature with thermal pressurization. The traction, which the
+    receiver computes from the velocities at its position and the friction
+    coefficient and the initial stress of the Gauss point, is compared as a
+    magnitude, and as that of the Godunov state, i.e. of the welded fault,
+    for an imposed slip rate, so that the change the imposed slip causes
+    elsewhere stays visible; with thermal pressurization, P_f is the pore
+    pressure as a stress, negative where it pushes the faces apart (as
+    tp_iniPressure is given). The traction and the friction coefficient are
+    compared at the samples that `keep` marks, all by default.
+    """
+
+    def magnitude(first, second):
+        return [math.hypot(a, b) for a, b in zip(column(first), column(second))]
+
+    def kept(values):
+        if keep is None:
+            return list(values)
+        return [value for value, chosen in zip(values, keep) if chosen]
+
+    found = {}
+    traction_scale = max(abs(value) for value in exact["traction"])
+    reported = exact["locked-traction"] if imposed else exact["traction"]
+    found["traction"] = _deviation(
+        kept(magnitude("Ts0", "Td0")), kept(reported), traction_scale
+    )
+    found["slip"] = _deviation(magnitude("Sls", "Sld"), exact["slip"])
+    found["accumulated-slip"] = _deviation(column("ASl"), exact["accumulated-slip"])
+    found["peak-slip-rate"] = _deviation(column("PSR"), exact["peak-slip-rate"])
+    found["rupture-time"] = _event_deviation(column("RT")[-1], events["rupture-time"])
+    if not imposed:
+        found["friction"] = _deviation(
+            kept(column("Mud")),
+            kept(exact["friction"]),
+            max(abs(value) for value in exact["friction"]),
+        )
+        # defined for slip weakening, and among the rate-and-state laws for
+        # the one with a weakened friction mu_w only
+        if law in (2, 6, 16, 1058, 103):
+            found["dynamic-stress-time"] = _event_deviation(
+                column("DS")[-1], events["dynamic-stress-time"]
+            )
+    if "state" in exact:
+        state = column("StV")
+        if law in (7, 103):
+            # a slip and a friction coefficient, respectively
+            found["state"] = _deviation(state, exact["state"])
+        else:
+            # the state of aging and slip law spans orders of magnitude
+            found["state"] = _largest(
+                abs(math.log(a) - math.log(b)) if a > 0.0 else math.inf
+                for a, b in zip(state, exact["state"])
+            )
+    if "pore-pressure" in exact:
+        # the change, which is small against an initial pore pressure
+        pore = exact["pore-pressure"]
+        change = max(abs(value - pore[0]) for value in pore)
+        found["pressure"] = _deviation(column("P_f"), pore, change)
+        # the change, which is small against the initial temperature
+        initial = events["initial-temperature"]
+        found["temperature"] = _deviation(
+            [value - initial for value in column("Tmp")],
+            exact["temperature"] - initial,
+        )
+    return found
+
+
+def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers):
+    """The deviations of the receivers from the exact solution, per quantity.
+
+    The fault receivers are compared as magnitudes, of the slip rate, the
+    traction and the slip, and the direction of the slip separately, in the
+    strike and dip of the documented fault frame; that the receivers use this
+    frame is checked against the initial traction their header states. The
+    volume receivers are compared component by component, as vectors of the
+    velocity and the stress in global coordinates.
+
+    Where the receivers report something else than the physical quantity, they
+    are held against what they report: with thermal pressurization, Pn0 is the
+    effective normal stress, and for the quantities of the Gauss points, see
+    _gauss_point_deviations.
+    """
+    import numpy as np
+
+    exact = {key: value[indices] for key, value in series.items() if _is_series(value)}
+    shear_exact = exact["traction"]
+    # the direction of the slip, in the strike and dip of the fault receivers
+    along = np.array([exact["slip-rate-y"], exact["slip-rate-z"]]).T @ problem.frame.T
+    initial_traction = np.array(problem.loading(0.0)[1:])
+    deviations = {}
+
+    def worst(name, value):
+        deviations[name] = _larger(deviations.get(name, 0.0), value)
+
+    for names, rows, header in fault_receivers:
+
+        def column(name, names=names, rows=rows):
+            if name not in names:
+                raise SystemExit(f"the fault receivers do not record {name}")
+            index = names.index(name)
+            return [row[index] for row in rows]
+
+        def magnitude(first, second):
+            return [math.hypot(a, b) for a, b in zip(column(first), column(second))]
+
+        slip_rate = magnitude("SRs", "SRd")
+        worst("slip-rate", _deviation(slip_rate, exact["slip-rate"]))
+        traction_scale = max(abs(value) for value in shear_exact)
+        normal = exact["effective-normal-stress"]
+        normal_scale = max(max(abs(value) for value in normal), traction_scale)
+        worst("normal-stress", _deviation(column("Pn0"), normal, normal_scale))
+        events = {
+            "rupture-time": series["rupture-time"],
+            "dynamic-stress-time": series.get("dynamic-stress-time"),
+        }
+        if "temperature" in series:
+            events["initial-temperature"] = series["temperature"][0]
+        found = _gauss_point_deviations(
+            column, exact, events, problem.law, problem.imposed
+        )
+        for name, value in found.items():
+            worst(name, value)
+
+        stated = np.array([float(header["T_s"][0]), float(header["T_d"][0])])
+        expected = problem.frame @ initial_traction
+        if np.linalg.norm(stated - expected) > 1e-6 * max(np.linalg.norm(stated), 1.0):
+            raise SystemExit(
+                f"the receivers state the initial traction {stated} in fault "
+                f"coordinates, where the documented frame gives {expected}"
+            )
+        limit = 1e-3 * max(exact["slip-rate"])
+        misalignment = 0.0
+        for s, d, rate, direction in zip(
+            column("SRs"), column("SRd"), exact["slip-rate"], along
+        ):
+            length = math.hypot(s, d)
+            if rate < limit or length == 0.0:
+                continue
+            cosine = (s * direction[0] + d * direction[1]) / (length * rate)
+            misalignment = _larger(misalignment, 1.0 - cosine)
+        worst("direction", misalignment)
+
+    step = series["time"][1] - series["time"][0]
+    for position, (names, rows) in volume_receivers:
+        found = _volume_deviations(
+            names, rows, step, problem.radiated(series, position[0])
+        )
+        for name, value in found.items():
+            worst(name, value)
+    return deviations
+
+
+def _volume_deviations(names, rows, step, radiated, end=None):
+    """The deviations of what a volume receiver records from the velocity
+    and the stress of the exact solution, which `radiated` gives per step of
+    its integration, as vectors in global coordinates; up to the time `end`,
+    if given."""
+    import fault1d
+    import numpy as np
+
+    recorded = np.array(rows)
+    if end is not None:
+        recorded = recorded[recorded[:, names.index("Time")] <= end]
+    # the volume receivers sample on their own, up to a step before the end
+    samples = np.rint(recorded[:, names.index("Time")] / step).astype(int)
+    velocity, stress = radiated
+    velocity, stress = velocity[samples], stress[samples]
+    deviations = {}
+    index = [names.index(name) for name in ("v1", "v2", "v3")]
+    error = np.linalg.norm(recorded[:, index] - velocity, axis=1)
+    deviations["velocity"] = float(error.max() / np.linalg.norm(velocity, axis=1).max())
+    index = [names.index(f"s_{name}") for name in fault1d.VOIGT]
+    error = np.linalg.norm(recorded[:, index] - stress, axis=1)
+    deviations["stress"] = float(error.max() / np.linalg.norm(stress, axis=1).max())
+    return deviations
+
+
+def _is_series(value):
+    return hasattr(value, "shape") and value.shape != ()
+
+
+# what the fault receivers compute at their own position, from the jump of the
+# velocity across the fault, and what the volume receivers record; the other
+# quantities of the fault receivers come from the Gauss point of the fault
+# nearest to them
+_AT_RECEIVER = ("slip-rate", "normal-stress", "direction", "velocity", "stress")
+
+
+def compare_front(front, step, fault_receivers, volume_receivers):
+    """The deviations of the receivers from the exact solution of a forced
+    rupture front, per quantity, as compare_fault1d takes them for the problem
+    at the position of each receiver, up to the time to which it holds there
+    (see fault1d.Front.window). Only the quantities of _AT_RECEIVER are
+    compared: a front reaches the Gauss point next to a receiver at another
+    time than the receiver."""
+    import fault1d
+    import numpy as np
+
+    deviations = {}
+
+    def solve(point, rows, time):
+        """The problem at the point, its solution, and the rows up to the
+        time to which it holds."""
+        problem = front.problem_at(point)
+        series = problem.solve(rows[-1][time], step)
+        rate = series["slip-rate"]
+        slipping = np.flatnonzero(rate > 0.0)
+        # the time from the rupture time on to the first slip, before which
+        # nothing leaves the fault
+        onset = 0.0
+        if slipping.size and slipping[0] > 0:
+            onset = series["time"][slipping[0] - 1] - front.rupture_time(point)
+        end = front.window(point, max(onset, 0.0))
+        rows = [row for row in rows if row[time] <= end]
+        held = rate[: int(np.searchsorted(series["time"], end, side="right"))]
+        if len(rows) < 2 or not held.max() >= fault1d.RUPTURE_SLIP_RATE:
+            raise SystemExit(
+                f"the fault at {point} does not slip in the {end:.4g} s for "
+                "which the exact solution holds there"
+            )
+        return problem, series, rows
+
+    def merge(found):
+        for name in _AT_RECEIVER:
+            if name in found:
+                deviations[name] = _larger(deviations.get(name, 0.0), found[name])
+
+    for names, rows, header in fault_receivers:
+        point = [float(header[name][0]) for name in ("x1", "x2", "x3")]
+        problem, series, rows = solve(point, rows, 0)
+        indices = [round(row[0] / step) for row in rows]
+        merge(compare_fault1d(problem, series, indices, [(names, rows, header)], []))
+    for position, (names, rows) in volume_receivers:
+        problem, series, rows = solve(position, rows, names.index("Time"))
+        merge(compare_fault1d(problem, series, [], [], [(position, (names, rows))]))
+    return deviations
+
+
+def _antiplane_point(solver, header):
+    """The index of the point of the spectral method on which a fault
+    receiver lies; between them, its Fourier series rings where the rupture
+    front is sharp."""
+    y = float(header["x2"][0])
+    spacing = solver.length / solver.count
+    point = (y - solver.y[0]) / spacing
+    if abs(point - round(point)) * spacing > 1e-6:
+        raise SystemExit(
+            f"the fault receiver at y = {y} lies between the points of the "
+            f"spectral method, which are {spacing} m apart from y = {solver.y[0]}"
+        )
+    return int(round(point)) % solver.count
+
+
+def _on_gauss_points(mesh, capabilities, positions):
+    """Whether each fault receiver at `positions` lies on a Gauss point of
+    the fault of `mesh`, where what it takes from the Gauss point nearest to
+    it holds at its own position. The points of a rule that is not fully
+    symmetric depend on the order in which SeisSol takes the vertices of a
+    face, which this does not follow; none of them counts."""
+    from itertools import permutations
+
+    import h5py
+    import minimesh
+    import numpy as np
+
+    rule = capabilities.get("dr-quad-rule")
+    order = capabilities.get("order")
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "codegen"
+        / "matrices"
+        / f"dr_{rule}_matrices_{order}.json"
+    )
+    if not path.exists():
+        return [False] * len(positions)
+    table = next(
+        entry
+        for entry in json.loads(path.read_text(encoding="utf-8"))
+        if entry["name"] == "quadpoints"
+    )
+    points = np.zeros((table["rows"], table["columns"]))
+    for row, column, value in table["entries"]:
+        points[row - 1, column - 1] = float(value)
+    barycentric = np.column_stack((1.0 - points.sum(axis=1), points))
+
+    def canonical(values):
+        return sorted(tuple(np.round(row, 12)) for row in values)
+
+    if any(
+        canonical(barycentric[:, list(order)]) != canonical(barycentric)
+        for order in permutations(range(3))
+    ):
+        return [False] * len(positions)
+    with h5py.File(mesh, "r") as handle:
+        coords = handle["geometry"][:]
+        connect = handle["connect"][:].astype(np.int64)
+        boundary_format, _, _ = minimesh.infer_formats(handle)
+        tags = minimesh.decode_boundary(handle["boundary"][:], boundary_format)
+    faces = [
+        coords[connect[cell, list(minimesh.FACE_VERTICES[slot])]]
+        for cell, slot in zip(
+            *np.nonzero(tags == minimesh.FACE_TYPES["dynamic-rupture"])
+        )
+    ]
+    found = []
+    for position in np.asarray(positions, dtype=float):
+        nearest = math.inf
+        for face in faces:
+            size = max(
+                np.linalg.norm(face[1] - face[0]), np.linalg.norm(face[2] - face[0])
+            )
+            nearest = min(
+                nearest,
+                float(np.min(np.linalg.norm(barycentric @ face - position, axis=1)))
+                / size,
+            )
+        found.append(bool(nearest <= 1e-6))
+    return found
+
+
+def _first_rise(time, values):
+    """The first time at which a series, or any column of an array of them,
+    rises by more than a thousandth, which the friction coefficient of slip
+    weakening does only where the fault heals; None where it does not. Ahead
+    of a front, the friction coefficient SeisSol reports rises by a millionth
+    or so, as the slip rate it accumulates, projected on the basis of the
+    face (resampleSlipRate), is negative there by a little."""
+    import numpy as np
+
+    values = np.asarray(values, dtype=float)
+    rises = values[1:] > values[:-1] + 1e-3 * np.abs(values[:-1])
+    if values.ndim > 1:
+        rises = rises.any(axis=1)
+    if not rises.any():
+        return None
+    return float(time[1 + int(np.argmax(rises))])
+
+
+def _event_time(value):
+    """An event time of the spectral method, None for NaN, where the event
+    does not happen."""
+    return None if math.isnan(value) else float(value)
+
+
+def compare_antiplane(
+    solver, reference, frame, fault_receivers, volume_receivers, law, gauss
+):
+    """The deviations of the receivers from the antiplane rupture that
+    antiplane.Antiplane computes, or from the in-plane rupture of
+    antiplane.Inplane, as `reference` holds it at the receivers (see
+    _antiplane_reference), per quantity.
+
+    These are the quantities of _AT_RECEIVER: the slip rate, the normal
+    stress and the direction of the slip that the fault receivers record,
+    and the velocity and the stress of the volume receivers, as
+    compare_fault1d takes them, from Antiplane.radiated; and of a fault
+    receiver on a Gauss point of the fault (`gauss`, per fault receiver),
+    what it takes from there, with the friction law FL=`law`, as
+    _gauss_point_deviations compares it. The slip rate rises steeply where
+    the rupture front arrives, so that its deviation is mostly that of the
+    shape of the front, and that of the slip the one of the time it arrives.
+    The slip rate that the receivers compute from the jump of the velocity
+    rings, in all directions, ahead of a front that has entered their cell,
+    by up to a decimetre per second, which rules out its first rise above
+    fault1d.RUPTURE_SLIP_RATE as the time of the front, whereas the slip
+    rate of a Gauss point is that of the friction law, which the rupture
+    time takes; the direction is judged where the slip rate exceeds a tenth
+    of its largest value. The fault receivers have to lie on points of the
+    method along y (see _antiplane_point).
+    """
+    import numpy as np
+
+    deviations = {}
+
+    def worst(name, value):
+        deviations[name] = _larger(deviations.get(name, 0.0), value)
+
+    step = reference["time"][1] - reference["time"][0]
+    # the column of the reference of each point of the method it holds
+    points = {int(point): column for column, point in enumerate(reference["points"])}
+    for (names, rows, header), on_gauss_point in zip(fault_receivers, gauss):
+        point = points[_antiplane_point(solver, header)]
+
+        def column(name, names=names, rows=rows):
+            if name not in names:
+                raise SystemExit(f"the fault receivers do not record {name}")
+            position = names.index(name)
+            return [row[position] for row in rows]
+
+        time = column("Time")
+        samples = [round(t / step) for t in time]
+        rate = reference["slip-rate"][samples, point]
+        shear = reference["traction"][samples, point]
+        normal = reference["normal-stress"][samples, point]
+
+        strike, dip = column("SRs"), column("SRd")
+        slip_rate = [math.hypot(s, d) for s, d in zip(strike, dip)]
+        # where slip weakening heals, the slip rate, the traction and the
+        # friction coefficient jump; the time it heals, the first at which
+        # the friction coefficient rises, is compared as an event, and those
+        # three from a sample before the earlier of the two times on to a
+        # sample after the later are not compared
+        keep = [True] * len(time)
+        if on_gauss_point and law in (2, 6, 16, 1058):
+            expected = _first_rise(time, reference["friction"][samples, point])
+            reported = _first_rise(time, column("Mud"))
+            if expected is not None or reported is not None:
+                worst("healing-time", _event_deviation(reported or 0.0, expected))
+            if expected is not None and reported is not None:
+                interval = time[1] - time[0]
+                low = min(expected, reported) - interval
+                high = max(expected, reported) + interval
+                keep = [not low <= t <= high for t in time]
+        worst(
+            "slip-rate",
+            _deviation(
+                [value for value, chosen in zip(slip_rate, keep) if chosen],
+                np.abs(rate)[keep],
+                float(np.max(np.abs(rate))),
+            ),
+        )
+        scale = max(float(np.max(np.abs(normal))), float(np.max(np.abs(shear))))
+        worst("normal-stress", _deviation(column("Pn0"), normal, scale))
+        if on_gauss_point:
+            exact = {
+                "traction": np.abs(shear),
+                "slip": np.abs(reference["slip"][samples, point]),
+            }
+            for name in (
+                "accumulated-slip",
+                "peak-slip-rate",
+                "friction",
+                "state",
+                "pore-pressure",
+                "temperature",
+            ):
+                if name in reference:
+                    exact[name] = reference[name][samples, point]
+            if "locked-traction" in reference:
+                exact["locked-traction"] = np.abs(
+                    reference["locked-traction"][samples, point]
+                )
+            events = {
+                name: _event_time(reference[name][point])
+                for name in ("rupture-time", "dynamic-stress-time")
+            }
+            if "temperature" in reference:
+                events["initial-temperature"] = reference["temperature"][0, point]
+            found = _gauss_point_deviations(
+                column, exact, events, law, "locked-traction" in reference, keep
+            )
+            for name, value in found.items():
+                worst(name, value)
+
+        # the receivers state the initial traction of the load in the fault
+        # frame, before the slip rate of t = 0 takes its part of it
+        stated = np.array([float(header["T_s"][0]), float(header["T_d"][0])])
+        expected = frame @ (solver.direction * (shear[0] + solver.eta * rate[0]))
+        if np.linalg.norm(stated - expected) > 1e-6 * max(np.linalg.norm(stated), 1.0):
+            raise SystemExit(
+                f"the receivers state the initial traction {stated} in fault "
+                f"coordinates, where the documented frame gives {expected}"
+            )
+        limit = 0.1 * float(np.max(np.abs(rate)))
+        misalignment = 0.0
+        for s, d, length, along in zip(strike, dip, slip_rate, rate):
+            if abs(along) < limit or length == 0.0:
+                continue
+            direction = frame @ (solver.direction * math.copysign(1.0, along))
+            cosine = (s * direction[0] + d * direction[1]) / length
+            misalignment = _larger(misalignment, 1.0 - cosine)
+        worst("direction", misalignment)
+
+    # the volume receivers are compared up to the time the fault first heals,
+    # if it does (see _antiplane_reference)
+    healed = float(reference["healed"])
+    end = None if math.isnan(healed) else healed
+    for position, (names, rows) in volume_receivers:
+        radiated = _reference_field(reference, position)
+        found = _volume_deviations(names, rows, step, radiated, end)
+        for name, value in found.items():
+            worst(name, value)
+    return deviations
+
+
+def _antiplane_reference(solver, solution, points, positions, law):
+    """What compare_antiplane takes from the `solution` of the spectral
+    method `solver`: its series and events at the points of the method of
+    the indices `points` along y, the velocity and the stress it sends out to
+    the volume receivers at `positions`, and with slip weakening (FL=`law`),
+    the first time the fault heals anywhere, NaN where it does not.
+
+    The jump of the slip rate where the fault heals runs along it faster than
+    shear waves, and sends out a jump of the field, which the method resolves
+    only over the time the healing takes through a cell, ahead of it as
+    well; compare_antiplane compares the volume receivers up to that time."""
+    import numpy as np
+
+    reference = {"time": np.asarray(solution["time"]), "points": np.array(points)}
+    for name, value in solution.items():
+        value = np.asarray(value)
+        if name == "time":
+            continue
+        if value.ndim == 2:
+            reference[name] = value[:, points]
+        elif value.shape == (solver.y.size,):
+            reference[name] = value[points]
+    healed = None
+    if law in (2, 6, 16, 1058):
+        healed = _first_rise(solution["time"], solution["friction"])
+    reference["healed"] = np.array(math.nan if healed is None else healed)
+    fields = [solver.radiated(solution, x, y) for x, y, *_ in positions]
+    steps = reference["time"].size
+    reference["field-positions"] = np.array(
+        [position[:2] for position in positions], dtype=float
+    ).reshape(-1, 2)
+    reference["field-velocity"] = np.array(
+        [velocity for velocity, _ in fields], dtype=float
+    ).reshape(-1, steps, 3)
+    reference["field-stress"] = np.array(
+        [stress for _, stress in fields], dtype=float
+    ).reshape(-1, steps, 6)
+    return reference
+
+
+def _reference_field(reference, position):
+    """The velocity and the stress that `reference` holds for the volume
+    receiver at `position`."""
+    import numpy as np
+
+    found = np.nonzero(
+        np.all(reference["field-positions"] == np.array(position[:2]), axis=1)
+    )[0]
+    if found.size == 0:
+        raise SystemExit(f"the spectral solution holds no field at {position[:2]}")
+    return reference["field-velocity"][found[0]], reference["field-stress"][found[0]]
+
+
+def _reference_key(identity):
+    """A key of what a spectral solution at the receivers is computed from:
+    `identity`, the versions of numpy and scipy, and the scripts that compute
+    it."""
+    import numpy as np
+    import scipy
+
+    digest = hashlib.sha256(
+        json.dumps(
+            [identity, np.__version__, scipy.__version__], sort_keys=True
+        ).encode()
+    )
+    for script in ("antiplane.py", "fault1d.py", "easimodel.py", "run_case.py"):
+        digest.update(Path(__file__).with_name(script).read_bytes())
+    return digest.hexdigest()[:16]
+
+
+def _load_reference(path):
+    """The reference that _save_reference kept at `path`."""
+    import numpy as np
+
+    with np.load(path) as data:
+        return {name: data[name] for name in data.files}
+
+
+def _save_reference(path, reference):
+    """Keep `reference` at `path`, whole or not at all, for comparisons that
+    run at the same time."""
+    import numpy as np
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_name(f".{path.name}.{os.getpid()}")
+    with partial.open("wb") as handle:
+        np.savez_compressed(handle, **reference)
+    os.replace(partial, path)
+
+
+def _simulations(names, rows):
+    """The columns and rows of each fused simulation of a receiver that
+    read_receiver joined, named as for a single simulation; the receiver
+    itself without fused simulations."""
+    found = sorted(
+        {
+            int(match.group(1))
+            for match in (re.fullmatch(r".*\[(\d+)\]", name) for name in names)
+            if match is not None
+        }
+    )
+    if not found:
+        return [(names, rows)]
+    simulations = []
+    for simulation in found:
+        suffix = f"[{simulation}]"
+        columns = [0] + [i for i, name in enumerate(names) if name.endswith(suffix)]
+        simulations.append(
+            (
+                [names[0]] + [names[i][: -len(suffix)] for i in columns[1:]],
+                [[row[i] for i in columns] for row in rows],
+            )
+        )
+    return simulations
+
+
+def _worst(found):
+    """The largest deviation per quantity over several comparisons."""
+    deviations = {}
+    for each in found:
+        for name, value in each.items():
+            deviations[name] = _larger(deviations.get(name, 0.0), value)
+    return deviations
+
+
+def _compare_antiplane_case(
+    args, rupture, model, manifest, left, right, interval, simulations
+):
+    """compare_antiplane for a case on a mesh that is periodic across the
+    fault, with the spectral method at args.points points along y, which run
+    through the fault receivers, and two steps per sample: its cost grows
+    with the square of the steps, and its error is mostly that of the points
+    (see antiplane.py). `simulations` holds the fault and the volume
+    receivers of each fused simulation; the worst of them counts.
+
+    The spectral solution at the receivers is the same in every
+    configuration that runs the case. With args.solutions, it is kept there
+    under a key of all that it is computed from, the scripts included (see
+    _reference_key), so that the configurations of a build compute it once,
+    and a repeated comparison not at all."""
+    import antiplane
+    import easimodel
+    import fault1d
+    import numpy as np
+
+    if left.rho != right.rho or not np.array_equal(left.stiffness, right.stiffness):
+        raise fault1d.Unsupported("the spectral method takes one medium on both sides")
+    fault_receivers = simulations[0][0]
+    width, length = manifest["spec"]["size"][:2]
+    # the points of the method run through the first fault receiver
+    spacing = length / args.points
+    offset = (float(fault_receivers[0][2]["x2"][0]) + 0.5 * length) % spacing
+    try:
+        solver = antiplane.Antiplane(left, length, width, args.points, offset)
+        fault = antiplane.fault_along(easimodel.load(model), rupture, solver.y)
+    except easimodel.Unsupported as reason:
+        raise fault1d.Unsupported(f"{model.name}: {reason}") from reason
+    if antiplane.in_plane(fault):
+        solver = antiplane.Inplane(left, length, width, args.points, offset)
+    points = sorted(
+        {_antiplane_point(solver, header) for _, _, header in fault_receivers}
+    )
+    capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))
+    positions = [
+        [float(header[name][0]) for name in ("x1", "x2", "x3")]
+        for _, _, header in fault_receivers
+    ]
+    mesh = Path(args.mesh_manifest).parent / manifest["file"]
+    gauss = _on_gauss_points(mesh, capabilities, positions)
+    if not all(gauss):
+        print(
+            f"{gauss.count(False)} of the fault receivers do not lie on Gauss "
+            "points of the fault of this build, whose quantities are not "
+            "compared for them"
+        )
+    end = max(row[0] for row in fault_receivers[0][1])
+    step = interval / 2
+    law = int(fault[None].get("fl", 16))
+    volume = [position for position, _ in simulations[0][1]]
+
+    path = None
+    reference = None
+    if args.solutions:
+        key = _reference_key(
+            {
+                "case": args.name,
+                "method": type(solver).__name__,
+                "points": args.points,
+                "offset": offset,
+                "size": [length, width],
+                "medium": [float(left.rho), np.asarray(left.stiffness).tolist()],
+                "rupture": sorted(
+                    (name, str(value)) for name, value in rupture.items()
+                ),
+                "fault": model.read_text(encoding="utf-8"),
+                "end": end,
+                "step": step,
+                "receivers": points,
+                "volume": [position[:2] for position in volume],
+                "law": law,
+            }
+        )
+        path = Path(args.solutions) / f"{args.name}-{key}.npz"
+        if path.exists():
+            reference = _load_reference(path)
+            print(f"the spectral solution is the one kept in {path}")
+    if reference is None:
+        solution = solver.solve(fault, end, step)
+        reference = _antiplane_reference(solver, solution, points, volume, law)
+        del solution
+        if path is not None:
+            _save_reference(path, reference)
+            print(f"the spectral solution is kept in {path}")
+    frame = fault1d.fault_frame(fault1d.Inputs(rupture, {}))
+    deviations = _worst(
+        compare_antiplane(solver, reference, frame, faults, volumes, law, gauss)
+        for faults, volumes in simulations
+    )
+    unavailable = None
+    if not any(gauss):
+        unavailable = (
+            "no fault receiver lies on a Gauss point of the fault of this build"
+        )
+    return deviations, unavailable
+
+
+def _command_exact(args):
+    """Hold a rupture on a fault1d mesh against the exact solution of its 0D
+    problem, a forced rupture front on fault2d against the one of the
+    problems along it, or a rupture on fault2d-periodic against the antiplane
+    rupture of the spectral boundary integral method."""
+    import easimodel
+    import fault1d
+
+    result = {"name": f"exact-{args.name}"}
+    case_path = Path(args.case_result)
+    if not case_path.exists():
+        result["status"] = "skipped"
+        result["reason"] = ["the case left no result behind"]
+        record(args.result, result)
+        print("skipped: the case did not report")
+        return SKIP_RETURN_CODE
+    case = json.loads(case_path.read_text(encoding="utf-8"))
+    if case["status"] != "run":
+        result["status"] = "skipped"
+        result["reason"] = [f"the case was skipped: {'; '.join(case['reason'])}"]
+        record(args.result, result)
+        print(result["reason"][0])
+        return SKIP_RETURN_CODE
+    if case.get("problems"):
+        print(
+            "error: the case itself failed; there is nothing to compare",
+            file=sys.stderr,
+        )
+        return 1
+
+    work = Path(args.work)
+    parameters = ParameterFile((work / "parameters.par").read_text(encoding="utf-8"))
+    rupture = parameters.values("DynamicRupture")
+    model = work / rupture["modelfilename"]
+    try:
+        fault = fault1d.read_constant_maps(model).get(None, {})
+        uniform = None
+    except fault1d.Unsupported as reason:
+        # a fault that varies along it, which is held against a front
+        fault, uniform = None, reason
+    materials = fault1d.read_constant_maps(
+        work / parameters.get("equations", "MaterialFileName")
+    )
+    manifest = json.loads(Path(args.mesh_manifest).read_text(encoding="utf-8"))
+    left, right = _fault1d_groups(manifest)
+    if manifest["spec"]["periodic"][0] and importlib.util.find_spec("scipy") is None:
+        result["status"] = "skipped"
+        result["reason"] = ["the spectral method needs scipy, which is not installed"]
+        record(args.result, result)
+        print(result["reason"][0])
+        return SKIP_RETURN_CODE
+    left = fault1d.medium_of(materials, left)
+    right = fault1d.medium_of(materials, right)
+
+    prefix = Path(parameters.get("Output", "OutputFile") or "output/out")
+    directory = work / prefix.parent
+    fault_receivers = []
+    for path in sorted(directory.glob(f"{prefix.name}-faultreceiver-*.dat")):
+        names, rows = read_receiver(path)
+        fault_receivers.append((names, rows, read_receiver_header(path)))
+    if not fault_receivers:
+        raise SystemExit("the case wrote no fault receivers")
+    times = [row[0] for row in fault_receivers[0][1]]
+    interval = times[1] - times[0]
+    if any(abs(t - k * interval) > 1e-9 * interval for k, t in enumerate(times)):
+        raise SystemExit(
+            "the fault receivers do not sample at a fixed interval from zero"
+        )
+
+    positions = [
+        [float(value) for value in line.split()]
+        for line in (work / parameters.get("Output", "RFileName"))
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip()
+    ]
+    volume_receivers = []
+    for number, position in enumerate(positions, start=1):
+        path = directory / f"{prefix.name}-receiver-{number:05d}.dat"
+        volume_receivers.append((position, read_receiver(path)))
+    # with fused simulations, each of them runs the case, and each is compared
+    faults = [_simulations(names, rows) for names, rows, _ in fault_receivers]
+    volumes = [_simulations(*receiver) for _, receiver in volume_receivers]
+    simulations = [
+        (
+            [
+                (*faults[i][simulation], header)
+                for i, (_, _, header) in enumerate(fault_receivers)
+            ],
+            [
+                (position, volumes[i][simulation])
+                for i, (position, _) in enumerate(volume_receivers)
+            ],
+        )
+        for simulation in range(len(faults[0]))
+    ]
+
+    # the step of the integration divides the interval of the samples, so that
+    # every sample is a point of the integration
+    step = interval / args.substeps
+    # why the quantities of the Gauss points were not compared, if they were not
+    unavailable = None
+    try:
+        if manifest["spec"]["periodic"][0]:
+            # whatever the fault sends out returns to it; only the spectral
+            # method takes this into account
+            deviations, unavailable = _compare_antiplane_case(
+                args, rupture, model, manifest, left, right, interval, simulations
+            )
+        elif fault is None:
+            width, length = manifest["spec"]["size"][:2]
+            try:
+                front = fault1d.Front(
+                    rupture, easimodel.load(model), left, right, length, width
+                )
+            except (fault1d.Unsupported, easimodel.Unsupported) as reason:
+                raise SystemExit(
+                    f"{model.name} is neither uniform ({uniform}) nor a forced "
+                    f"rupture front ({reason})"
+                ) from reason
+            deviations = _worst(
+                compare_front(front, step, faults, volumes)
+                for faults, volumes in simulations
+            )
+        else:
+            problem = fault1d.Problem(rupture, fault, left, right)
+            series = problem.solve(times[-1], step)
+            indices = [round(t / step) for t in times]
+            deviations = _worst(
+                compare_fault1d(problem, series, indices, faults, volumes)
+                for faults, volumes in simulations
+            )
+    except fault1d.Unsupported as reason:
+        raise SystemExit(f"the case has no exact solution here: {reason}") from reason
+
+    capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))
+    key = "{}/{}/o{}/{}".format(
+        args.name,
+        capabilities["equations"],
+        capabilities["order"],
+        capabilities["precision"],
+    )
+    table = json.loads(Path(args.thresholds).read_text(encoding="utf-8"))
+    wanted = table.get("entries", {}).get(key)
+    problems = []
+    print(
+        "deviations from the exact solution: "
+        + ", ".join(f"{name}={value:.3g}" for name, value in sorted(deviations.items()))
+    )
+    if wanted is None:
+        print(f"no thresholds for {key}")
+    else:
+        for name, limit in sorted(wanted.items()):
+            seen = deviations.get(name)
+            if seen is None and unavailable is not None and name not in _AT_RECEIVER:
+                print(f"{name} is not compared: {unavailable}")
+            elif seen is None:
+                problems.append(f"{name} has a threshold but was not compared")
+            elif limit is None:
+                print(f"{key} {name} = {seen:.6g} (no threshold set)")
+            elif not seen <= limit:
+                problems.append(
+                    f"{name} is {seen:.6g}, above the threshold {limit:.6g}"
+                )
+        unjudged = sorted(set(deviations) - set(wanted))
+        if unjudged:
+            problems.append(f"no threshold for {', '.join(unjudged)}")
+    if args.record:
+        print("record:", json.dumps({key: deviations}))
+
+    result["status"] = "run"
+    result["configuration"] = key
+    result["deviations"] = deviations
+    result["problems"] = problems
+    record(args.result, result)
+    for problem_text in problems:
+        print(f"error: {problem_text}", file=sys.stderr)
+    return 1 if problems else 0
+
+
 def _command_coverage(args):
     """Check that every declared case was run somewhere, not just skipped."""
     declared = json.loads(Path(args.declared).read_text(encoding="utf-8"))
@@ -1435,6 +2451,45 @@ def main(argv=None):
     )
     snapshot.add_argument("--result")
     snapshot.set_defaults(func=_command_snapshot)
+
+    exact = commands.add_parser(
+        "exact",
+        help="hold a rupture on fault1d, or one on fault2d, against its exact solution",
+    )
+    exact.add_argument("--name", required=True)
+    exact.add_argument("--case-result", required=True)
+    exact.add_argument("--work", required=True)
+    exact.add_argument("--mesh-manifest", required=True)
+    exact.add_argument("--capabilities", required=True)
+    exact.add_argument("--thresholds", required=True)
+    exact.add_argument(
+        "--substeps",
+        type=int,
+        default=8,
+        help="steps of the exact integration per sample of the receivers; on a "
+        "mesh periodic across the fault, the spectral method takes two",
+    )
+    exact.add_argument(
+        "--points",
+        type=int,
+        default=1024,
+        help="points along y of the spectral method, on a mesh periodic across "
+        "the fault; the fault receivers have to lie on them",
+    )
+    exact.add_argument(
+        "--solutions",
+        help="where to keep the spectral solutions at the receivers, which the "
+        "configurations of a build share; without it, each comparison computes "
+        "its own",
+    )
+    exact.add_argument(
+        "--record",
+        action="store_true",
+        default=bool(os.environ.get("SEISSOL_RECORD_THRESHOLDS")),
+        help="print the deviations in a form that can be pasted into the table",
+    )
+    exact.add_argument("--result")
+    exact.set_defaults(func=_command_exact)
 
     coverage = commands.add_parser(
         "coverage", help="account for declared versus run cases"

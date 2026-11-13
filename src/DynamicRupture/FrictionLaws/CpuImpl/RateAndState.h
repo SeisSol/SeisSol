@@ -375,7 +375,6 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
                                                    localStateVariable,
                                                    stateVarReference,
                                                    this->deltaT_[timeIndex],
-                                                   normalStress,
                                                    normalStressStick,
                                                    etaNormal,
                                                    absoluteShearStress,
@@ -594,7 +593,6 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
       const std::array<real, misc::NumPaddedPoints<Cfg>>& localStateVariable,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& stateVarReference,
       real timeIncrement,
-      const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStressStick,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& etaNormal,
       const std::array<real, misc::NumPaddedPoints<Cfg>>& absoluteShearStress,
@@ -646,8 +644,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
       // directly, because it is the one root rtsafe cannot approach: a root on the bracket
       // boundary leaves the Newton step the same size as the previous one, so the guard falls
       // back to bisection on every iteration and the solve spends its whole budget halving.
-      const bool openAtLimit = stickAt(normalStress,
-                                       normalStressStick,
+      const bool openAtLimit = stickAt(normalStressStick,
                                        etaNormal,
                                        TPMethod::fluidPressureOffset(tpStep, pointIndex),
                                        hi,
@@ -691,8 +688,7 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
         // into this Newton. The dual carries d|sigma|/dV of the whole composition, including the
         // part that reaches through mu.
         const Dual<real> sigma =
-            rs::effectiveNormalStress(stickAt(normalStress,
-                                              normalStressStick,
+            rs::effectiveNormalStress(stickAt(normalStressStick,
                                               etaNormal,
                                               TPMethod::fluidPressureOffset(tpStep, pointIndex),
                                               trial,
@@ -849,26 +845,20 @@ class RateAndStateBase : public BaseFrictionLaw<Cfg, RateAndStateBase<Cfg, Deriv
   }
 
   /**
-   * The effective normal stress a trial slip rate belongs to.
-   *
-   * Without the anisotropic normal coupling this is the value updateNormalStress left behind and
-   * the solve is the one every other material runs. With it, sigma follows the slip rate, and
-   * evaluating it inside the Newton moves the coupling out of the outer fixed point, which
-   * resolves it at a linear rate, into the quadratic one.
+   * The normal stress a trial slip rate belongs to, before the pressurization of this step: the
+   * stick, less the pore pressure the step reaches without shear heating (pressureOffset), and less
+   * the normal traction the slip moves through the anisotropic coupling, which vanishes for every
+   * other material. rs::effectiveNormalStress adds the pressurization by the shear heating of the
+   * trial slip rate. The effective normal stress of updateNormalStress is no stick here: it already
+   * holds the pressure of the shear heating of the previous iterate.
    */
   template <typename S>
-  static S stickAt(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
-                   const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStressStick,
+  static S stickAt(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStressStick,
                    const std::array<real, misc::NumPaddedPoints<Cfg>>& etaNormal,
                    real pressureOffset,
                    S slipRate,
                    std::uint32_t pointIndex) {
-    if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
-      return S(normalStressStick[pointIndex] - pressureOffset) -
-             slipRate * S(etaNormal[pointIndex]);
-    } else {
-      return S(normalStress[pointIndex]);
-    }
+    return S(normalStressStick[pointIndex] - pressureOffset) - slipRate * S(etaNormal[pointIndex]);
   }
 
   protected:

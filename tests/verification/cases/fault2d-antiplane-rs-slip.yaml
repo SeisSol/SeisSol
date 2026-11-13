@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The spontaneous antiplane rupture of fault2d-antiplane-rs-aging.yaml with
+# the slip law. Its state weakens the friction at b sigma ln(V psi / L) / L,
+# which the logarithm makes 25 times as fast as the aging law at the same L:
+# at 5 m/s from the creep, at 360 MPa/m at first with L = 0.1 m. The fault
+# slips over |y| < 120 m from 8 ms on, and the rupture runs on to both sides
+# on its own, at up to 2.4 km/s, as antiplane.py computes it.
+!Switch
+[s_xx, s_yy, s_zz, s_xy, s_yz, s_xz, nuc_xx, nuc_yy, nuc_zz, nuc_xy, nuc_yz, rs_a, rs_sl0]: !ConstantMap
+  map:
+    s_xx:   -120.0e6
+    s_yy:   0.0
+    s_zz:   0.0
+    s_xy:   0.0
+    s_yz:   0.0
+    s_xz:   75.0e6
+    nuc_xx: 0.0
+    nuc_yy: 0.0
+    nuc_zz: 0.0
+    nuc_xy: 0.0
+    nuc_yz: 0.0
+    rs_a:   0.004
+    rs_sl0: 0.1
+[nuc_xz]: !Any
+  components:
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-120.0, 120.0]
+        z: [-.inf, .inf]
+      components: !ConstantMap
+        map:
+          nuc_xz: 25.0e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [120.0, 220.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xz: [0.0, -2.5e5, 0.0]
+        translation:
+          nuc_xz: 55.0e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-220.0, -120.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xz: [0.0, 2.5e5, 0.0]
+        translation:
+          nuc_xz: 55.0e6
+    - !ConstantMap
+      map:
+        nuc_xz: 0.0

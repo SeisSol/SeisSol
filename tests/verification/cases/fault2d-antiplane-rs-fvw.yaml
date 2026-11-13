@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The spontaneous antiplane rupture of fault2d-antiplane-rs-aging.yaml with
+# fast velocity weakening, under f_0 = 0.6, V_0 = 1e-6 m/s, b = 0.014 and
+# mu_w = 0.2 of the parameter file, from a shear traction of 40 MPa. Above
+# V_w = 0.1 m/s, the steady state falls towards mu_w, 24 MPa, which the
+# state approaches over a slip of L = 0.05 m: the rupture drops 16 MPa of
+# stress, where fault2d-antiplane.yaml drops 9 MPa, and the direct effect
+# rises by 18 MPa at 5 m/s, as with the aging law. The fault slips over
+# |y| < 120 m from 8 ms on, and the rupture runs on to both sides on its
+# own, at up to 3 km/s, as antiplane.py computes it; behind it, the fault
+# locks again, near the nucleation under a traction that falls to -8 MPa.
+!Switch
+[s_xx, s_yy, s_zz, s_xy, s_yz, s_xz, nuc_xx, nuc_yy, nuc_zz, nuc_xy, nuc_yz, rs_a, rs_sl0, rs_srW]: !ConstantMap
+  map:
+    s_xx:   -120.0e6
+    s_yy:   0.0
+    s_zz:   0.0
+    s_xy:   0.0
+    s_yz:   0.0
+    s_xz:   40.0e6
+    nuc_xx: 0.0
+    nuc_yy: 0.0
+    nuc_zz: 0.0
+    nuc_xy: 0.0
+    nuc_yz: 0.0
+    rs_a:   0.004
+    rs_sl0: 0.05
+    rs_srW: 0.1
+[nuc_xz]: !Any
+  components:
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-120.0, 120.0]
+        z: [-.inf, .inf]
+      components: !ConstantMap
+        map:
+          nuc_xz: 25.0e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [120.0, 220.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xz: [0.0, -2.5e5, 0.0]
+        translation:
+          nuc_xz: 55.0e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-220.0, -120.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xz: [0.0, 2.5e5, 0.0]
+        translation:
+          nuc_xz: 55.0e6
+    - !ConstantMap
+      map:
+        nuc_xz: 0.0

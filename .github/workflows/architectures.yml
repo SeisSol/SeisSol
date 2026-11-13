@@ -21,7 +21,7 @@ permissions:
 jobs:
   # ---------------------------------------------------------------------------
   # Build SeisSol on Linux on 64-bit ARM, with GCC and the kernels of PSpaMM, in the configurations
-  # of the set ci-cpu, and run all its tests:
+  # of the set ci-cpu, and run all its tests but those of the label spectral:
   #
   # - sve128, for SVE with vectors of 128 bits, as the Neoverse N2 of the runner has them, and as
   #   Neoverse V2 has them (Grace, Graviton4);
@@ -56,8 +56,7 @@ jobs:
       - name: apt-get
         run: |
           sudo apt-get update
-          # Fortran and LAPACK for the poroelastic configurations
-          sudo apt-get install ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libnuma-dev libopenmpi-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip gfortran libblas-dev liblapack-dev
+          sudo apt-get install ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libnuma-dev libopenmpi-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip
 
           # h5py for the verification tests, which write their meshes with it
           sudo pip3 install setuptools numpy h5py --break-system-packages
@@ -122,8 +121,11 @@ jobs:
           export PRTE_MCA_rmaps_base_oversubscribe=1
           export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
 
+          # all but the cases of dynamic rupture on fault2d-periodic, which take minutes each and hold
+          # the friction laws against a spectral method: with them, the job takes longer than its
+          # 150 minutes on the four cores of the runner. The CPU CI runs them.
           cd build
-          ctest -j "$(nproc)" --output-on-failure --output-junit junit.xml
+          ctest -j "$(nproc)" -LE spectral --output-on-failure --output-junit junit.xml
 
       - name: upload-test-logs
         uses: actions/upload-artifact@v7
@@ -166,7 +168,7 @@ jobs:
         target:
           - host-arch: rvv128
             triplet: riscv64-linux-gnu
-            compilers: g++-riscv64-linux-gnu gfortran-riscv64-linux-gnu
+            compilers: g++-riscv64-linux-gnu
             # zicbop for the prefetches of the kernels
             flags: -march=rv64gcv_zvl128b_zicbop
             qemu-cpu: rv64,v=true,vlen=128,vext_spec=v1.0
@@ -174,21 +176,21 @@ jobs:
             configs: ci-cpu
           - host-arch: rvv256
             triplet: riscv64-linux-gnu
-            compilers: g++-riscv64-linux-gnu gfortran-riscv64-linux-gnu
+            compilers: g++-riscv64-linux-gnu
             flags: -march=rv64gcv_zvl256b_zicbop
             qemu-cpu: rv64,v=true,vlen=256,vext_spec=v1.0
             gemm-tools: PSpaMM
             configs: ci-cpu
           - host-arch: sve256
             triplet: aarch64-linux-gnu
-            compilers: g++-aarch64-linux-gnu gfortran-aarch64-linux-gnu
+            compilers: g++-aarch64-linux-gnu
             flags: -mcpu=neoverse-v1
             qemu-cpu: neoverse-v1
             gemm-tools: PSpaMM
             configs: ci-cpu
           - host-arch: a64fx
             triplet: aarch64-linux-gnu
-            compilers: g++-aarch64-linux-gnu gfortran-aarch64-linux-gnu
+            compilers: g++-aarch64-linux-gnu
             # HOST_ARCH=a64fx sets -mcpu=a64fx itself
             flags: ''
             qemu-cpu: a64fx
@@ -198,26 +200,24 @@ jobs:
             configs: ci-sanitize
           - host-arch: lasx
             triplet: loongarch64-linux-gnu
-            compilers: g++-14-loongarch64-linux-gnu gfortran-14-loongarch64-linux-gnu
+            compilers: g++-14-loongarch64-linux-gnu
             cc: loongarch64-linux-gnu-gcc-14
             cxx: loongarch64-linux-gnu-g++-14
-            fc: loongarch64-linux-gnu-gfortran-14
             flags: -march=la464
             qemu-cpu: la464
             gemm-tools: PSpaMM
             configs: ci-cpu
           - host-arch: power10
             triplet: powerpc64le-linux-gnu
-            compilers: g++-powerpc64le-linux-gnu gfortran-powerpc64le-linux-gnu
+            compilers: g++-powerpc64le-linux-gnu
             flags: -mcpu=power10
             qemu-cpu: power10
             gemm-tools: Eigen
             configs: ci-cpu
     env:
-      # the compilers, where they are not <triplet>-gcc, <triplet>-g++ and <triplet>-gfortran
+      # the compilers, where they are not <triplet>-gcc and <triplet>-g++
       CC: ${{ matrix.target.cc }}
       CXX: ${{ matrix.target.cxx }}
-      FC: ${{ matrix.target.fc }}
       CROSS_PREFIX: /opt/cross/${{ matrix.target.triplet }}
     steps:
       - name: apt-get

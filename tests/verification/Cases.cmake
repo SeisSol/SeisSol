@@ -394,7 +394,7 @@ seissol_add_rupture(NAME rupture-lsw-tpapprox FL 1058 FAULT fault-lsw.yaml)
 # FL=16 is tested directly, so it needs no snapshot of its own
 seissol_add_rupture(NAME rupture-lsw-legacy FL 2 FAULT fault-lsw.yaml NO_SNAPSHOT)
 
-foreach (law aging:3 slip:4 svw:7)
+foreach (law aging:3 slip:4)
   string(REPLACE ":" ";" law ${law})
   list(GET law 0 name)
   list(GET law 1 number)
@@ -403,6 +403,12 @@ foreach (law aging:3 slip:4 svw:7)
   seissol_add_rupture(NAME rupture-rs-${name}-tp FL ${number} FAULT fault-rs-tp.yaml
                       SET ${SEISSOL_RS} ${SEISSOL_TP})
 endforeach()
+# a friction of 0.625 is beyond what this law holds at the initial slip rate in
+# a non-negative state; see its fault files
+seissol_add_rupture(NAME rupture-rs-svw FL 7 FAULT fault-rs-svw.yaml
+                    SET ${SEISSOL_RS})
+seissol_add_rupture(NAME rupture-rs-svw-tp FL 7 FAULT fault-rs-svw-tp.yaml
+                    SET ${SEISSOL_RS} ${SEISSOL_TP})
 seissol_add_rupture(NAME rupture-rs-fvw FL 103 FAULT fault-rs-fvw.yaml
                     SET ${SEISSOL_RS_FVW})
 seissol_add_rupture(NAME rupture-rs-fvw-tp FL 103 FAULT fault-rs-fvw-tp.yaml
@@ -474,6 +480,252 @@ seissol_add_comparison(
     LABELS "identity;dr")
 
 # ---------------------------------------------------------------------------
+# Stage 2: friction laws against an exact solution (seissol_add_fault1d).
+#
+# On fault1d, a uniform fault stays uniform: nothing is transferred along it,
+# each side radiates a plane shear wave, and every point of the fault solves the
+# same ordinary differential equation, which fault1d.py integrates to far below
+# the error of the case. The fault receivers are compared with it, and so are
+# the receivers in the volume, which the wave reaches. What this cannot see is
+# a rupture front: there is none on a fault that breaks everywhere at once.
+#
+# The inputs are those of the cases on fault48, slowed down where the friction
+# law would change the slip rate within a few steps: a shear wave takes ten
+# milliseconds through a cell of fault1d, and a slip rate that changes faster
+# sends out a wave the mesh does not resolve. Like the convergence cases, these
+# run for long, so they carry that label too.
+#
+# An anisotropic build runs them all with material-anisotropic.yaml, which is
+# isotropic in effect, and adds media with tilted axes: there the radiation
+# damping depends on the direction of the slip, which then leaves the direction
+# of the traction, and the slip changes the normal stress.
+# ---------------------------------------------------------------------------
+
+set(SEISSOL_FAULT1D_TP_OUTPUT "Pickpoint.OutputMask=1 1 1 1 1 1 0 1 1 1 1 1")
+
+seissol_add_fault1d(NAME fault1d-lsw FL 16 FAULT fault1d-lsw.yaml LABELS convergence)
+# the forced rupture weakens the fault over t_0
+seissol_add_fault1d(NAME fault1d-lsw-forced FL 16 FAULT fault1d-lsw-forced.yaml
+                    SET ${SEISSOL_NO_NUCLEATION} "DynamicRupture.t_0=3.125e-02"
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-lsw-tpapprox FL 1058 FAULT fault1d-lsw.yaml
+                    LABELS convergence)
+# the radiation damping of two media; across a fault that slips uniformly, the
+# normal stress does not change, so the Prakash-Clifton regularization holds it
+seissol_add_fault1d(NAME fault1d-lsw-bimaterial FL 6 FAULT fault1d-lsw.yaml
+                    MESH fault1d-bimaterial
+                    SET "DynamicRupture.pc_vstar=0.1" "DynamicRupture.pc_prakashLength=0.1"
+                    LABELS convergence)
+foreach (law aging:3 slip:4 svw:7)
+  string(REPLACE ":" ";" law ${law})
+  list(GET law 0 name)
+  list(GET law 1 number)
+  seissol_add_fault1d(NAME fault1d-rs-${name} FL ${number} FAULT fault1d-rs-${name}.yaml
+                      STEPS 2048 SET ${SEISSOL_RS} LABELS convergence)
+endforeach()
+seissol_add_fault1d(NAME fault1d-rs-svw-tp FL 7 FAULT fault1d-rs-svw-tp.yaml
+                    STEPS 2048 SET ${SEISSOL_RS} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-rs-fvw FL 103 FAULT fault1d-rs-fvw.yaml
+                    STEPS 2048 SET ${SEISSOL_RS_FVW} LABELS convergence)
+seissol_add_fault1d(NAME fault1d-rs-fvw-tp FL 103 FAULT fault1d-rs-fvw-tp.yaml
+                    STEPS 2048 SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS convergence)
+# the initial pore pressure lowers the effective normal stress the initial state
+# has to hold the traction under
+seissol_add_fault1d(NAME fault1d-rs-fvw-tp-pressurized FL 103
+                    FAULT fault1d-rs-fvw-tp-pressurized.yaml STEPS 2048
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} "DynamicRupture.tp_iniPressure=-80.0e6"
+                        ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS convergence)
+foreach (law yoffe:33 gaussian:34)
+  string(REPLACE ":" ";" law ${law})
+  list(GET law 0 name)
+  list(GET law 1 number)
+  seissol_add_fault1d(NAME fault1d-imposed-${name} FL ${number} FAULT fault1d-imposed.yaml
+                      STEPS 2048 SET "DynamicRupture.SlipRateOutputType=0"
+                      LABELS convergence)
+endforeach()
+seissol_add_fault1d(NAME fault1d-anisotropic-lsw FL 16 FAULT fault1d-lsw-oblique.yaml
+                    MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-anisotropic-lsw-bimaterial FL 16
+                    FAULT fault1d-lsw-oblique.yaml MESH fault1d-bimaterial
+                    MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-anisotropic-rs-aging FL 3 FAULT fault1d-rs-aging-oblique.yaml
+                    STEPS 2048 SET ${SEISSOL_RS}
+                    MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
+                    LABELS convergence)
+# the receivers report the normal stress the imposed slip leaves; the shear
+# tractions are those of the Godunov state, see docs/fault-output.rst
+seissol_add_fault1d(NAME fault1d-anisotropic-imposed FL 33 FAULT fault1d-imposed-oblique.yaml
+                    STEPS 2048 SET "DynamicRupture.SlipRateOutputType=0"
+                    MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
+                    LABELS convergence)
+
+# A forced rupture front along y on fault2d, at 1.5 times the shear wave
+# speed. A front that outruns the shear waves outruns all it sends out, and
+# behind it, every point of the fault solves the 0D problem of fault1d,
+# shifted to its rupture time, with the radiation damping of the antiplane
+# plane waves inclined at the angle of the Mach cone (see fault1d.Front).
+# This holds at a receiver until the waves of where the front starts or meets
+# itself arrive, or the part of the inclined waves that the boundaries
+# x = +-W/2 reflect; the comparison ends there. It takes the slip rate, the
+# normal stress and the direction of the slip that the fault receivers
+# compute at their position, from the jump of the velocity, and the volume
+# receivers. The other quantities of the fault receivers come from the Gauss
+# point of the fault nearest to them, a few metres away along the front,
+# which reaches it up to 0.4 ms earlier or later.
+seissol_add_fault1d(NAME fault2d-supershear FL 16 FAULT fault2d-supershear.yaml
+                    MESH fault2d STEPS 2048 FILES faultreceiver2d.dat receiver2d.dat
+                    SET "DynamicRupture.t_0=2.0e-02" "DynamicRupture.SlipRateOutputType=0"
+                        "Pickpoint.PPFileName='faultreceiver2d.dat'"
+                        "Output.RFileName='receiver2d.dat'"
+                    LABELS convergence)
+# with twelve times the cells of fault1d, the case runs for a few minutes;
+# it gets four times the time the others get
+math(EXPR SEISSOL_FAULT2D_TIMEOUT "4 * ${SEISSOL_MINITEST_TIMEOUT}")
+set_tests_properties(verification.fault2d-supershear${SEISSOL_VERIFICATION_SUFFIX}
+                     PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+
+# A spontaneous antiplane rupture with linear slip weakening on
+# fault2d-periodic, which runs out from a nucleation to both sides along y,
+# held against the spectral boundary integral method of antiplane.py. The mesh
+# is periodic across the fault as well, which the method takes into account:
+# from 77 ms on, what the fault sends out returns to it from the other side,
+# and from about 137 ms on, the fronts meet their periodic images at
+# y = +-400 m. The fault receivers lie on Gauss points of the fault, at the
+# same place in their triangles every 100 m along y, from the nucleation to
+# where the front arrives some 40 ms before the end, and the points of the
+# method run through them. The comparison takes the slip rate, the normal
+# stress and the direction of the slip that they compute at their position,
+# what they take from their Gauss point, where they lie on one with the
+# quadrature of the build (see run_case._on_gauss_points), and the velocity
+# and the stress of the volume receivers, near the nucleation and along the
+# path of the fronts, up to a third of the way to the next fault (see
+# run_case.compare_antiplane).
+set(SEISSOL_ANTIPLANE
+    "DynamicRupture.t_0=2.0e-02" "DynamicRupture.SlipRateOutputType=0"
+    "Pickpoint.PPFileName='faultreceiver2d-periodic.dat'"
+    "Output.RFileName='receiver2d-periodic.dat'")
+seissol_add_fault1d(NAME fault2d-antiplane FL 16 FAULT fault2d-antiplane.yaml
+                    MESH fault2d-periodic STEPS 2560
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET ${SEISSOL_ANTIPLANE} LABELS convergence)
+# the comparison takes minutes as well, for the field at the volume receivers
+set_tests_properties(verification.fault2d-antiplane${SEISSOL_VERIFICATION_SUFFIX}
+                     verification.exact.fault2d-antiplane${SEISSOL_VERIFICATION_SUFFIX}
+                     PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+# The same with each of the rate-and-state laws, under SEISSOL_RS and
+# SEISSOL_RS_FVW, from their creep of 1e-16 m/s. Their fault files choose a
+# and L, and for severe velocity weakening b, so that the friction rises by
+# 9 to 18 MPa where the front arrives and weakens over a slip of centimetres,
+# as in fault2d-antiplane.yaml, and the mesh resolves the fronts alike (see
+# fault2d-antiplane-rs-aging.yaml).
+foreach (law aging:3 slip:4 svw:7 fvw:103)
+  string(REPLACE ":" ";" law ${law})
+  list(GET law 0 name)
+  list(GET law 1 number)
+  if (number EQUAL 103)
+    set(SEISSOL_ANTIPLANE_RS ${SEISSOL_RS_FVW})
+  else()
+    set(SEISSOL_ANTIPLANE_RS ${SEISSOL_RS})
+  endif()
+  seissol_add_fault1d(NAME fault2d-antiplane-rs-${name} FL ${number}
+                      FAULT fault2d-antiplane-rs-${name}.yaml
+                      MESH fault2d-periodic STEPS 2560
+                      FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                      SET ${SEISSOL_ANTIPLANE_RS} ${SEISSOL_ANTIPLANE} LABELS convergence)
+  set_tests_properties(verification.fault2d-antiplane-rs-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       verification.exact.fault2d-antiplane-rs-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+endforeach()
+# Fast velocity weakening with thermal pressurization, whose pore pressure
+# rises by up to a fifth of the normal stress (see
+# fault2d-antiplane-rs-fvw-tp.yaml); the fault receivers report it and the
+# temperature of their Gauss points.
+seissol_add_fault1d(NAME fault2d-antiplane-rs-fvw-tp FL 103
+                    FAULT fault2d-antiplane-rs-fvw-tp.yaml MESH fault2d-periodic STEPS 2560
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                        ${SEISSOL_ANTIPLANE}
+                    LABELS convergence)
+set_tests_properties(verification.fault2d-antiplane-rs-fvw-tp${SEISSOL_VERIFICATION_SUFFIX}
+                     verification.exact.fault2d-antiplane-rs-fvw-tp${SEISSOL_VERIFICATION_SUFFIX}
+                     PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+# The Prakash-Clifton regularization of FL=6, which acts on its own here,
+# between two halves of the same solid: the strength the slip rate sees
+# follows that of linear slip weakening at the rate (|V| + v*) / L, which
+# with L = 4 mm delays the front by 6 ms over its way to y = 350 m. And the
+# proxy of thermal pressurization, with a fault file of its own.
+seissol_add_fault1d(NAME fault2d-antiplane-lsw-bimaterial FL 6 FAULT fault2d-antiplane.yaml
+                    MESH fault2d-periodic STEPS 2560
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET "DynamicRupture.pc_vstar=0.1" "DynamicRupture.pc_prakashLength=0.004"
+                        ${SEISSOL_ANTIPLANE}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault2d-antiplane-lsw-tpapprox FL 1058
+                    FAULT fault2d-antiplane-lsw-tpapprox.yaml MESH fault2d-periodic STEPS 2560
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET ${SEISSOL_ANTIPLANE} LABELS convergence)
+# Instantaneous healing: once its slip rate has exceeded 1 m/s, the fault
+# regains mu_s where it slows down below that, which locks it 5 to 8 ms
+# before the stopping phases bring it to rest otherwise, with up to 5 % less
+# slip. The run ends at 145 ms, 3 ms before the fault heals at the outer
+# fault receivers, and 7 ms before the fronts that meet their images reload
+# the healed fault there to its static strength. The fault receivers report
+# the slip rate of the friction law (SlipRateOutputType=1), which the healed
+# fault holds at zero, where the jump of the velocity across it rings after
+# the sudden stop, by up to half a metre per second. The volume receivers are
+# compared up to 91 ms, when the fault first heals (see
+# run_case.compare_antiplane).
+seissol_add_fault1d(NAME fault2d-antiplane-lsw-healing FL 16 FAULT fault2d-antiplane.yaml
+                    MESH fault2d-periodic STEPS 2368
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET "DynamicRupture.lsw_healingThreshold=1.0" ${SEISSOL_ANTIPLANE}
+                        "DynamicRupture.SlipRateOutputType=1"
+                    LABELS convergence)
+foreach (name bimaterial tpapprox healing)
+  set_tests_properties(verification.fault2d-antiplane-lsw-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       verification.exact.fault2d-antiplane-lsw-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+endforeach()
+# An imposed slip, which sets in at y = 0 and runs out to both sides at
+# 2.5 km/s (see fault2d-antiplane-imposed.yaml), at the rates of FL=33 and
+# FL=34. FL=35 imposes all of the slip within the sub-step of the onset,
+# which leaves a slip rate, and a field sent out, that depend on the time
+# step and converge to no function, a delta in time; it has no comparison.
+foreach (law yoffe:33 gaussian:34)
+  string(REPLACE ":" ";" law ${law})
+  list(GET law 0 name)
+  list(GET law 1 number)
+  seissol_add_fault1d(NAME fault2d-antiplane-imposed-${name} FL ${number}
+                      FAULT fault2d-antiplane-imposed.yaml MESH fault2d-periodic STEPS 2560
+                      FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                      SET ${SEISSOL_ANTIPLANE} LABELS convergence)
+  set_tests_properties(verification.fault2d-antiplane-imposed-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       verification.exact.fault2d-antiplane-imposed-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+endforeach()
+# Spontaneous in-plane ruptures, of mode II, which slip along y, held against
+# the in-plane spectral method of antiplane.py (antiplane.Inplane), whose P
+# waves return across the period from 44 ms on: one that runs out below the
+# shear wave speed and turns faster only where its fronts near their periodic
+# images, and one that turns faster than the shear waves some 240 m from the
+# nucleation (see fault2d-inplane.yaml and fault2d-inplane-supershear.yaml).
+# The receivers are those of the antiplane cases.
+foreach (name inplane inplane-supershear)
+  seissol_add_fault1d(NAME fault2d-${name} FL 16 FAULT fault2d-${name}.yaml
+                      MESH fault2d-periodic STEPS 2560
+                      FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                      SET ${SEISSOL_ANTIPLANE} LABELS convergence)
+  set_tests_properties(verification.fault2d-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       verification.exact.fault2d-${name}${SEISSOL_VERIFICATION_SUFFIX}
+                       PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+endforeach()
+
+# ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic
 # mesh, so this is the mesh the measurement runs on. 256 steps of 2^-14 s let
 # the P wave cross about one wavelength. The thresholds are deliberately
@@ -496,5 +748,26 @@ seissol_add_minitest(
     PARAMETERS wave.par
     STEPS 256
     REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    LABELS convergence)
+
+# The planar wave in the tilted medium of the anisotropic fault1d cases, in
+# which each of the three waves along x moves all components of the velocity.
+# The analytical solution is an eigenvector of the Jacobian of the medium,
+# whose rows of the stresses and of the velocities differ in scale by some
+# thirteen orders of magnitude. Where the waves couple all components, it is
+# accurate only if the eigensolver balances them; in the media of the cases
+# above, they decouple. Its own thresholds, cases/thresholds-tilted.json,
+# take the largest relative error over the quantities, which the small stress
+# sigma_yz sets.
+seissol_add_minitest(
+    NAME convergence-periodic162-tilted
+    MESH periodic162
+    PARAMETERS wave.par
+    MATERIAL material-fault1d-anisotropic.yaml
+    STEPS 256
+    THRESHOLDS thresholds-tilted.json
+    REQUIRE equations=anisotropic
+    NO_SNAPSHOT
     ACTIVITY "v1:1e-12"
     LABELS convergence)
