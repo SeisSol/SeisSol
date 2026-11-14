@@ -501,6 +501,32 @@ TEST_CASE("easi walker: the files of SEISSOL_EASI_EXAMPLES agree with easi where
   MESSAGE(translated << " of " << paths.size() << " files translated; the others:" << summary);
 }
 
+TEST_CASE("easi walker: a table without points evaluates nothing, also the first" *
+          doctest::test_suite("reader")) {
+  // the parameters of a fault are evaluated layer by layer, and a layer may have no faces of the
+  // fault: the first table the reader sees may be empty
+  const Files files;
+  const std::string path = files.write("fault.yaml",
+                                       "!ConstantMap\n"
+                                       "map:\n"
+                                       "  mu_s: 0.677\n"
+                                       "  d_c: 0.4\n");
+  sc::EasiProgramReader walker(path, {"x", "y", "z"}, nullptr);
+  std::vector<double> none;
+  sc::DataTable empty(0);
+  empty.bindViewConst<double>("x", sc::Direction::In, none.data());
+  empty.bindViewConst<double>("y", sc::Direction::In, none.data());
+  empty.bindViewConst<double>("z", sc::Direction::In, none.data());
+  empty.bindView<double>("mu_s", sc::Direction::Out, none.data());
+  CHECK_NOTHROW(walker.prepare(empty));
+  CHECK_NOTHROW(walker.call(empty));
+  const auto values = valuesOf(walker, pointsIn(-1.0, 1.0, {}, 4), {"mu_s", "d_c"});
+  for (std::size_t k = 0; k < 4; ++k) {
+    CHECK(values[0][k] == 0.677);
+    CHECK(values[1][k] == 0.4);
+  }
+}
+
 TEST_CASE("easi walker: maps, filters and switches give easi's bits" *
           doctest::test_suite("reader")) {
   const Files files;

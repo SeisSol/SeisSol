@@ -1292,6 +1292,10 @@ EasiProgramReader::EasiProgramReader(std::string path,
 EasiProgramReader::~EasiProgramReader() = default;
 
 void EasiProgramReader::prepare(const DataTable& table) {
+  if (table.numPoints() == 0) {
+    // nothing to bind to -- the faces of a layer without any, say; a later table prepares
+    return;
+  }
   std::vector<std::string> wanted;
   bool group = false;
   for (const auto& entry : table.dataEntries()) {
@@ -1316,6 +1320,10 @@ void EasiProgramReader::prepare(const DataTable& table) {
 }
 
 void EasiProgramReader::call(const DataTable& table) {
+  if (table.numPoints() == 0) {
+    // nothing to evaluate, and nothing to bind to (see prepare())
+    return;
+  }
   if (compiled_ == nullptr) {
     prepare(table);
   }

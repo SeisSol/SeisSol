@@ -124,7 +124,8 @@ expr::Program withOutputsOf(const expr::Program& program, const DataTable& table
 } // namespace
 
 void CompiledReader::prepare(const DataTable& table) {
-  if (preparedFor_ == table.revision()) {
+  if (preparedFor_ == table.revision() || table.numPoints() == 0) {
+    // an empty table has nothing to bind to (see call())
     return;
   }
   if (preparedFor_.has_value() && !program_.state().empty()) {
