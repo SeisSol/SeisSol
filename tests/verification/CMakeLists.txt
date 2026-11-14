@@ -350,18 +350,22 @@ endfunction()
 
 # ---------------------------------------------------------------------------
 # seissol_add_comparison(NAME <name> REFERENCE <case> CANDIDATE <case>
-#                        [TOLERANCE r] [PREFIX p] [LABELS label ...])
+#                        [TOLERANCE r] [PREFIX p] [SIMULATIONS r:c ...]
+#                        [LABELS label ...])
 #
 # Holds two runs against each other. A tolerance of zero demands identical
-# output. The runner propagates a skip: if either input was skipped because
-# this build lacks the configuration, so is the comparison.
+# output. With SIMULATIONS, only the simulations given as pairs are compared:
+# r:c holds the simulation c of the candidate against the simulation r of the
+# reference, counted from zero, so that runs of different numbers of
+# simulations can be compared. The runner propagates a skip: if either input
+# was skipped because this build lacks the configuration, so is the comparison.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_comparison)
   cmake_parse_arguments(CMP
       ""
       "NAME;REFERENCE;CANDIDATE;TOLERANCE;PREFIX"
-      "LABELS"
+      "SIMULATIONS;LABELS"
       ${ARGN})
   if (NOT CMP_TOLERANCE)
     set(CMP_TOLERANCE 0)
@@ -369,6 +373,11 @@ function(seissol_add_comparison)
   if (NOT CMP_PREFIX)
     set(CMP_PREFIX output/mini)
   endif()
+
+  set(simulations "")
+  foreach (pair ${CMP_SIMULATIONS})
+    list(APPEND simulations --simulations ${pair})
+  endforeach()
 
   set(directory ${SEISSOL_VERIFICATION_DIR})
   add_test(NAME verification.${CMP_NAME}${SEISSOL_VERIFICATION_SUFFIX}
@@ -381,7 +390,8 @@ function(seissol_add_comparison)
                    --candidate-result ${directory}/results/${CMP_CANDIDATE}.json
                    --result ${directory}/results/${CMP_NAME}.json
                    --prefix ${CMP_PREFIX}
-                   --tolerance ${CMP_TOLERANCE})
+                   --tolerance ${CMP_TOLERANCE}
+                   ${simulations})
   set(fixtures
       case.${SEISSOL_VERIFICATION_CONFIG}.${CMP_REFERENCE}
       case.${SEISSOL_VERIFICATION_CONFIG}.${CMP_CANDIDATE}

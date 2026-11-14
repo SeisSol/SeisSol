@@ -224,6 +224,25 @@ seissol_add_comparison(
     TOLERANCE 0
     LABELS "bitwise;mpi;copies")
 
+# The copies hold their simulations as the fused simulations of a cell hold
+# theirs. The waves of a run are offset in phase by 2 pi s / S for its S
+# simulations, so the simulation 2s of the run of the copies carries the wave
+# of the simulation s of the run of the fused ones only, whichever copy and
+# which fused simulation of it holds it.
+set(SEISSOL_COPIES_OF_FUSED "")
+math(EXPR _copies_last "${SEISSOL_CAP_SIMULATIONS} - 1")
+foreach (_copies_simulation RANGE ${_copies_last})
+  math(EXPR _copies_candidate "2 * ${_copies_simulation}")
+  list(APPEND SEISSOL_COPIES_OF_FUSED "${_copies_simulation}:${_copies_candidate}")
+endforeach()
+seissol_add_comparison(
+    NAME bitwise-box48-copies-fused
+    REFERENCE smoke-box48
+    CANDIDATE smoke-box48-copies
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_OF_FUSED}
+    LABELS "bitwise;copies")
+
 
 # ---------------------------------------------------------------------------
 # Friction laws (seissol_add_rupture).

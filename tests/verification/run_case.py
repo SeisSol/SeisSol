@@ -427,6 +427,17 @@ def check_analysis(work, prefix, thresholds_file, key, record):
     return problems, observed
 
 
+def receiver_files(root, prefix):
+    """The volume and on-fault receiver files of a run, by file name."""
+    directory = root / Path(prefix).parent
+    name = Path(prefix).name
+    found = {}
+    for kind in ("receiver", "faultreceiver"):
+        for path in directory.glob(f"{name}-{kind}-*.dat"):
+            found[path.name] = path
+    return found
+
+
 def compare_receivers(reference, candidate, prefix, tolerance, floor):
     """Compare two runs' receiver output.
 
@@ -438,16 +449,8 @@ def compare_receivers(reference, candidate, prefix, tolerance, floor):
     problems = []
     worst = {}
 
-    def receivers(root):
-        directory = root / Path(prefix).parent
-        name = Path(prefix).name
-        found = {}
-        for kind in ("receiver", "faultreceiver"):
-            for path in directory.glob(f"{name}-{kind}-*.dat"):
-                found[path.name] = path
-        return found
-
-    left, right = receivers(reference), receivers(candidate)
+    left = receiver_files(reference, prefix)
+    right = receiver_files(candidate, prefix)
     if not left:
         return ["the reference run wrote no receiver output"], worst
     missing = sorted(set(left) - set(right))
@@ -492,6 +495,105 @@ def compare_receivers(reference, candidate, prefix, tolerance, floor):
                 )
             )
     return problems, worst
+
+
+def simulation_columns(names, rows, simulation):
+    """The time and the quantities of one simulation of a receiver file.
+
+    read_receiver names the quantities of a run of several simulations after
+    them, e.g. ``v1[3]``; those of a run of a single one keep their plain names,
+    and are its simulation 0. The quantities are returned under their plain
+    names, so that the simulations of two runs line up whatever their number.
+    """
+    suffix = f"[{simulation}]"
+    several = any(name.endswith("]") for name in names[1:])
+    columns = [
+        (index, name.removesuffix(suffix) if several else name)
+        for index, name in enumerate(names)
+        if index > 0 and (name.endswith(suffix) if several else simulation == 0)
+    ]
+    if not columns:
+        raise ValueError(f"there is no simulation {simulation}")
+    labels = [names[0]] + [label for _, label in columns]
+    return labels, [[row[0]] + [row[index] for index, _ in columns] for row in rows]
+
+
+def compare_simulations(reference, candidate, prefix, pairs, tolerance, floor):
+    """Compare single simulations of two runs.
+
+    A pair ``(r, c)`` holds the simulation ``c`` of the candidate against the
+    simulation ``r`` of the reference, in every receiver file. The two runs may
+    compute different numbers of simulations, and lay them out differently in
+    the cells, so their files are not comparable byte for byte; a tolerance of
+    zero demands identical values instead.
+    """
+    problems = []
+    worst = {}
+    left = receiver_files(reference, prefix)
+    right = receiver_files(candidate, prefix)
+    if not left:
+        return ["the reference run wrote no receiver output"], worst
+    missing = sorted(set(left) - set(right))
+    extra = sorted(set(right) - set(left))
+    if missing:
+        problems.append(f"missing in the candidate: {', '.join(missing)}")
+    if extra:
+        problems.append(f"only in the candidate: {', '.join(extra)}")
+
+    for name in sorted(set(left) & set(right)):
+        names_left, rows_left = read_receiver(left[name])
+        names_right, rows_right = read_receiver(right[name])
+        for simulation_left, simulation_right in pairs:
+            which = f"{name}, simulation {simulation_right} against {simulation_left}"
+            try:
+                labels, values_left = simulation_columns(
+                    names_left, rows_left, simulation_left
+                )
+                labels_right, values_right = simulation_columns(
+                    names_right, rows_right, simulation_right
+                )
+            except ValueError as error:
+                problems.append(f"{which}: {error}")
+                continue
+            if labels != labels_right:
+                problems.append(f"{which}: the columns differ")
+                continue
+            if len(values_left) != len(values_right):
+                problems.append(
+                    f"{which}: {len(values_left)} samples against {len(values_right)}"
+                )
+                continue
+            for row_left, row_right in zip(values_left, values_right):
+                for label, a, b in zip(labels, row_left, row_right):
+                    relative = abs(a - b) / max(abs(a), abs(b), floor)
+                    worst[label] = max(worst.get(label, 0.0), relative)
+
+    if not any(worst.values()):
+        print("the simulations are identical")
+    else:
+        summary = ", ".join(
+            f"{label}={value:.3g}" for label, value in sorted(worst.items())
+        )
+        print(f"largest relative differences: {summary}")
+    exceeded = {label: value for label, value in worst.items() if value > tolerance}
+    if exceeded:
+        problems.append(
+            f"relative difference above the tolerance {tolerance:.3g}: "
+            + ", ".join(
+                f"{label}={value:.3g}" for label, value in sorted(exceeded.items())
+            )
+        )
+    return problems, worst
+
+
+def simulation_pair(text):
+    """Parse ``r:c``, a simulation of the reference and one of the candidate."""
+    reference, separator, candidate = text.partition(":")
+    if not separator:
+        raise argparse.ArgumentTypeError(
+            f"{text!r} is not a pair REFERENCE:CANDIDATE of simulations"
+        )
+    return int(reference), int(candidate)
 
 
 # --------------------------------------------------------------------------
@@ -845,13 +947,24 @@ def _command_compare(args):
         print("skipped: " + "; ".join(reason))
         return SKIP_RETURN_CODE
 
-    problems, worst = compare_receivers(
-        Path(args.reference),
-        Path(args.candidate),
-        args.prefix,
-        args.tolerance,
-        args.floor,
-    )
+    if args.simulations:
+        problems, worst = compare_simulations(
+            Path(args.reference),
+            Path(args.candidate),
+            args.prefix,
+            args.simulations,
+            args.tolerance,
+            args.floor,
+        )
+        result["simulations"] = [list(pair) for pair in args.simulations]
+    else:
+        problems, worst = compare_receivers(
+            Path(args.reference),
+            Path(args.candidate),
+            args.prefix,
+            args.tolerance,
+            args.floor,
+        )
     result["status"] = "run"
     result["tolerance"] = args.tolerance
     result["worst-relative"] = worst
@@ -1347,6 +1460,14 @@ def main(argv=None):
         type=float,
         default=1e-30,
         help="denominator floor, so that two near-zero values do not look far apart",
+    )
+    compare.add_argument(
+        "--simulations",
+        action="append",
+        default=[],
+        type=simulation_pair,
+        metavar="REFERENCE:CANDIDATE",
+        help="compare these simulations only, counted from zero; repeatable",
     )
     compare.add_argument("--result")
     compare.set_defaults(func=_command_compare)
