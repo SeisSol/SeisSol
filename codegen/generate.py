@@ -24,6 +24,7 @@ import kernels.general
 import kernels.memlayout
 import kernels.nodalbc
 import kernels.output
+import kernels.outputintegral
 import kernels.plasticity
 import kernels.point
 import kernels.quantities
@@ -379,8 +380,8 @@ def main():
 
     # the kernels of the faces between configurations, per configuration
     boundaryPlans = kernels.configboundary.plans(configArgs)
-    # the conversion casts between precisions, which only TensorForge generates on GPUs
-    boundaryTargets = [
+    # the kernels with conversions between precisions, which only TensorForge generates on GPUs
+    castTargets = [
         target for target in targets if target == "cpu" or not isOldGpuInterface
     ]
 
@@ -496,15 +497,17 @@ def main():
             boundaryPlan,
             riemannMaterial,
             precision,
-            boundaryTargets,
+            castTargets,
         )
+
+        kernels.outputintegral.addKernels(generator, adg, precision, castTargets)
 
         trueOutputDir = os.path.join(args.outputDir, folder)
         os.makedirs(trueOutputDir, exist_ok=True)
 
         kernels.quantities.emit_header(adg, trueOutputDir, key)
         kernels.configboundary.emit_header(
-            adg, trueOutputDir, key, boundaryPlan, boundaryTargets
+            adg, trueOutputDir, key, boundaryPlan, castTargets
         )
 
         return generator, include_tensors
@@ -611,7 +614,8 @@ def main():
             namespace="seissol",
             includes=["Config.h"],
             declarationsTensors=optionalTensors,
-            # only some configurations have them (see kernels.configboundary.plans)
+            # only some configurations have them (see kernels.configboundary.plans), or no
+            # configuration of a build (those of castTargets on GPUs)
             declarationsKernels=[
                 "toCanonical",
                 "fromCanonical",
@@ -619,7 +623,8 @@ def main():
                 "gpu_toCanonical",
                 "gpu_fromCanonical",
                 "gpu_fromCoupledCanonical",
-            ],
+            ]
+            + kernels.outputintegral.KERNELS,
             precompiled=[exchange["summary"] for exchange in exchanges],
         )
 

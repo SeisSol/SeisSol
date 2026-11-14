@@ -60,6 +60,7 @@
 #include <cstddef>
 #include <cstring>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
@@ -83,16 +84,6 @@ bool hasNonlinearDirichletFace(const CellLocalInformation& cellInformation) {
   return std::ranges::any_of(cellInformation.faceTypes, [](FaceType faceType) {
     return faceType == FaceType::NonlinearDirichlet;
   });
-}
-
-/// Adds the time integral of the predictor over a step to the time integral since the start, in
-/// binary64 (see LTS::Integrals).
-template <std::size_t Size, typename RealT>
-void addStepIntegral(double* __restrict integral, const RealT* __restrict stepIntegral) {
-#pragma omp simd
-  for (std::size_t i = 0; i < Size; ++i) {
-    integral[i] += static_cast<double>(stepIntegral[i]);
-  }
 }
 
 } // namespace
@@ -287,6 +278,9 @@ void CellCluster<Cfg>::computeLocalIntegration(const StepParams& params) {
   const bool integrate = settings_.integrate;
   static_assert(kernels::SolverOf<Cfg>::IntegralsSize == tensor::Q<Cfg>::size(),
                 "the time integral of a step is laid out as the unknowns");
+  static_assert(
+      tensor::QIntegral<Cfg>::size() == tensor::Q<Cfg>::size(),
+      "the time integral since the start is laid out as the unknowns (see LTS::Integrals)");
 
   const parallel::runtime::HostRuntime::LoopName loopName(traceLocalIntegration_);
   parallel::runtime::HostRuntime::forRange(
@@ -339,10 +333,12 @@ void CellCluster<Cfg>::computeLocalIntegration(const StepParams& params) {
                                        true);
 
           // the outputs read the time integral since the start: that of the predictor over each
-          // step, added up
+          // step, added up in binary64 (see LTS::Integrals)
           if (integrate) {
-            addStepIntegral<tensor::Q<Cfg>::size()>(data.template get<LTS::Integrals>(),
-                                                    bufferPointer);
+            kernel::integrateOutput<Cfg> integrateKrnl;
+            integrateKrnl.I = bufferPointer;
+            integrateKrnl.QIntegral = data.template get<LTS::Integrals>();
+            integrateKrnl.execute();
           }
 
           // Compute local integrals (including local boundary conditions)
@@ -452,12 +448,25 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
           const ConditionalKey integralKey(KernelNames::Time || KernelNames::Volume);
           if (dataTable.contains(integralKey)) {
             auto& entry = dataTable[integralKey];
-            kernels::device::aux::integral::accumulate(
-                entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr(),
-                entry.get<double*>(inner_keys::Wp::Id::Integrals)->getDeviceDataPtr(),
-                tensor::Q<Cfg>::size(),
-                entry.get<real*>(inner_keys::Wp::Id::Idofs)->getSize(),
-                streamRuntime.stream());
+            auto* steps = entry.get<real*>(inner_keys::Wp::Id::Idofs);
+            auto* integrals = entry.get<double*>(inner_keys::Wp::Id::Integrals);
+            if constexpr (!std::is_void_v<kernel::gpu_integrateOutput<Cfg>>) {
+              static_assert(kernel::gpu_integrateOutput<Cfg>::TmpMaxMemRequiredInBytes == 0);
+              kernel::gpu_integrateOutput<Cfg> integrateKrnl;
+              integrateKrnl.numElements = steps->getSize();
+              integrateKrnl.I = const_cast<const real**>(steps->getDeviceDataPtr());
+              integrateKrnl.QIntegral = integrals->getDeviceDataPtr();
+              integrateKrnl.streamPtr = streamRuntime.stream();
+              integrateKrnl.execute();
+            } else {
+              // the older device code generators do not convert between precisions (see
+              // codegen/kernels/outputintegral.py)
+              kernels::device::aux::integral::accumulate(steps->getDeviceDataPtr(),
+                                                         integrals->getDeviceDataPtr(),
+                                                         tensor::Q<Cfg>::size(),
+                                                         steps->getSize(),
+                                                         streamRuntime.stream());
+            }
           }
         }
 
