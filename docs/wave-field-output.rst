@@ -85,7 +85,8 @@ Note that this output is associated with the prefix-low.xdmf file, and can only 
 the cell average quantities.
 
 The time integrals are those of the predictor over the time steps of each cell, added up in double
-precision (also in a single-precision build).
+precision (also in a single-precision build): the integrals the scheme advances the solution with,
+so that, e.g., the strain of the time integral of the velocity is the total strain of the scheme.
 
 
 OutputRegionBounds
@@ -234,10 +235,17 @@ maximum over time does not miss what happens between two outputs:
    # pgv.sderiv
    state pgv = 0.0
    out def pgv = max(pgv, sqrt(v1*v1 + v2*v2 + v3*v3))
-   # the displacement, integrated over the time steps
+   # the displacement, summed over the time steps
    state u1 = 0.0
    out def u1 = u1 + v1 * dt
+   # the displacement, from the time integral of the solver
+   out def u1int = int_v1
    out def divv = dx_v1 + dy_v2 + dz_v3
+
+A time integral can be taken either way. A state sums a value per time step, ``u1 + v1 * dt``: of
+first order in time, but of any expression, such as the energy ``(v1*v1 + v2*v2 + v3*v3) * dt``.
+``int_q`` is the time integral of a quantity that the solver adds up (see ``IntegrationMask``): as
+accurate as the scheme, also on a GPU, and with its derivatives in space (``dx_int_v1``).
 
 The same in Lua; a returned table names the outputs, and ``M.state`` declares the state:
 
