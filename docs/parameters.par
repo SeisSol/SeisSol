@@ -25,7 +25,7 @@ Plasticity=0
 !comma-separated list of groups for which plasticity is disabled, even if we enable it globally
 plasticitydisabledgroups=''
 Tv=0.05
-!yaml file defining spatial dependance of properties necessary for plasticity. MaterialFileName is taken for plasticity if this is not provided; PlasticityFileName<i> for the simulation i of the run, whose material file is taken if not given
+!yaml file defining spatial dependance of properties necessary for plasticity. MaterialFileName is taken for plasticity if this is not provided; PlasticityFileName<i> for the simulation i >= 1 of the run (counted from 0), which takes PlasticityFileName if not given, and its material file if neither is
 PlasticityFileName = ''
 !yaml file defining the Dirichlet boundary condition, needed if the mesh has Dirichlet faces; BoundaryFileName<i> for the simulation i >= 1 of the run (counted from 0), which takes BoundaryFileName if not given; the simulations fused into a cell can differ in the constant terms of their conditions only
 !BoundaryFileName = 'boundary.yaml'

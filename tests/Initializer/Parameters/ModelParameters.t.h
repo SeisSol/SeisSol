@@ -259,7 +259,27 @@ TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initiali
     CHECK(params.simulationCount == 3);
     REQUIRE(params.plasticityFileNames.size() == 3);
     CHECK(params.plasticityFileNames[0] == "plasticity.yaml");
-    // the material file stands in for a missing plasticity file
+    // a simulation without a plasticity file of its own takes the one of the first simulation
+    CHECK(params.plasticityFileNames[1] == "plasticity.yaml");
+    CHECK(params.plasticityFileNames[2] == "plasticity-2.yaml");
+  }
+
+  SUBCASE("the material file stands in for a missing plasticity file") {
+    // as an empty name does
+    const YAML::Node node = YAML::Load(R"(
+      equations:
+        materialfilename: mat.yaml
+        plasticityfilename: ''
+        plasticityfilename2: plasticity-2.yaml
+        simcount: 3
+        freqcentral: 1
+        freqratio: 1
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readModelParameters(&reader, defaultConfig(), {});
+
+    REQUIRE(params.plasticityFileNames.size() == 3);
+    CHECK(params.plasticityFileNames[0] == "mat.yaml");
     CHECK(params.plasticityFileNames[1] == "mat.yaml");
     CHECK(params.plasticityFileNames[2] == "plasticity-2.yaml");
   }

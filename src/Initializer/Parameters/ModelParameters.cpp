@@ -178,10 +178,12 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
         reader->readPath("boundaryfilename" + std::to_string(i)).value_or(boundaryFileNames[0]);
   }
 
-  // the material of every simulation, the one of the first if not given; a simulation takes its
-  // plasticity from its material file unless it is given a plasticity file of its own
+  // The material of every simulation, the one of the first if not given. The plasticity of every
+  // simulation likewise, the one of the first if not given, and else its own material file. An
+  // empty file name counts as none.
   std::vector<std::string> materialFileNames(simulationCount);
   std::vector<std::string> plasticityFileNames(simulationCount);
+  const auto plasticityFileName = reader->readPath("plasticityfilename").value_or("");
   for (std::size_t i = 0; i < simulationCount; ++i) {
     if (i == 0) {
       materialFileNames[i] = reader->readPathOrFail("materialfilename", "No material file given.");
@@ -189,9 +191,15 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
       materialFileNames[i] =
           reader->readPath("materialfilename" + std::to_string(i)).value_or(materialFileNames[0]);
     }
-    const auto plasticityField =
-        "plasticityfilename" + (i == 0 ? std::string{} : std::to_string(i));
-    plasticityFileNames[i] = reader->readPath(plasticityField).value_or(materialFileNames[i]);
+    plasticityFileNames[i] =
+        i == 0 ? plasticityFileName
+               : reader->readPath("plasticityfilename" + std::to_string(i)).value_or("");
+    if (plasticityFileNames[i].empty()) {
+      plasticityFileNames[i] = plasticityFileName;
+    }
+    if (plasticityFileNames[i].empty()) {
+      plasticityFileNames[i] = materialFileNames[i];
+    }
   }
 
   // The simulations fused into a cell share its material, and so have to name the same file.

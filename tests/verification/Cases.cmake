@@ -512,14 +512,10 @@ seissol_add_minitest(
     ACTIVITY "v1:1e-12"
     NO_SNAPSHOT
     LABELS "plasticity;copies")
-# a simulation without a plasticity file of its own takes its material file
+# a simulation without a plasticity file of its own takes the one of the first simulation
 set(SEISSOL_COPIES_WEAK ${SEISSOL_COPIES_PLASTICITY}
     "equations.PlasticityFileName='plasticity-weak.yaml'")
 math(EXPR _copies_last "${SEISSOL_COPIES_SIMULATIONS} - 1")
-foreach (_copies_simulation RANGE 1 ${_copies_last})
-  list(APPEND SEISSOL_COPIES_WEAK
-       "equations.PlasticityFileName${_copies_simulation}='plasticity-weak.yaml'")
-endforeach()
 seissol_add_minitest(
     NAME plasticity-skew48-copies-weak
     MESH skew48
