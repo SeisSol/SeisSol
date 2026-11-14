@@ -46,8 +46,8 @@ struct CheckpointVariable {
   /// accepts what it says of its values -- the values of the same attributes there, in the same
   /// order, empty where it lacks one --, which it does the same way on all ranks; else the
   /// variable keeps what it holds, as without the dataset.
-  std::vector<std::pair<std::string, std::string>> meaning;
-  std::function<bool(const std::vector<std::string>&)> admit;
+  std::vector<std::pair<std::string, std::string>> meaning{};
+  std::function<bool(const std::vector<std::string>&)> admit{};
 };
 
 struct CheckpointTree {
