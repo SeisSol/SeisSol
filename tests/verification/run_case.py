@@ -427,18 +427,28 @@ def check_analysis(work, prefix, thresholds_file, key, record):
     return problems, observed
 
 
-def receiver_files(root, prefix):
-    """The volume and on-fault receiver files of a run, by file name."""
+# the receivers a comparison may be restricted to, by the kinds of their files
+RECEIVER_KINDS = {
+    "all": ("receiver", "faultreceiver"),
+    "volume": ("receiver",),
+    "fault": ("faultreceiver",),
+}
+
+
+def receiver_files(root, prefix, kinds=RECEIVER_KINDS["all"]):
+    """The receiver files of a run of the kinds ``kinds``, by file name."""
     directory = root / Path(prefix).parent
     name = Path(prefix).name
     found = {}
-    for kind in ("receiver", "faultreceiver"):
+    for kind in kinds:
         for path in directory.glob(f"{name}-{kind}-*.dat"):
             found[path.name] = path
     return found
 
 
-def compare_receivers(reference, candidate, prefix, tolerance, floor):
+def compare_receivers(
+    reference, candidate, prefix, tolerance, floor, kinds=RECEIVER_KINDS["all"]
+):
     """Compare two runs' receiver output.
 
     With a tolerance of zero the files are compared byte for byte, which is the
@@ -449,8 +459,8 @@ def compare_receivers(reference, candidate, prefix, tolerance, floor):
     problems = []
     worst = {}
 
-    left = receiver_files(reference, prefix)
-    right = receiver_files(candidate, prefix)
+    left = receiver_files(reference, prefix, kinds)
+    right = receiver_files(candidate, prefix, kinds)
     if not left:
         return ["the reference run wrote no receiver output"], worst
     missing = sorted(set(left) - set(right))
@@ -518,7 +528,9 @@ def simulation_columns(names, rows, simulation):
     return labels, [[row[0]] + [row[index] for index, _ in columns] for row in rows]
 
 
-def compare_simulations(reference, candidate, prefix, pairs, tolerance, floor):
+def compare_simulations(
+    reference, candidate, prefix, pairs, tolerance, floor, kinds=RECEIVER_KINDS["all"]
+):
     """Compare single simulations of two runs.
 
     A pair ``(r, c)`` holds the simulation ``c`` of the candidate against the
@@ -529,8 +541,8 @@ def compare_simulations(reference, candidate, prefix, pairs, tolerance, floor):
     """
     problems = []
     worst = {}
-    left = receiver_files(reference, prefix)
-    right = receiver_files(candidate, prefix)
+    left = receiver_files(reference, prefix, kinds)
+    right = receiver_files(candidate, prefix, kinds)
     if not left:
         return ["the reference run wrote no receiver output"], worst
     missing = sorted(set(left) - set(right))
@@ -706,6 +718,7 @@ def _command_run(args):
     substitutions = {key: str(value) for key, value in capabilities.items()}
     files = [name.format(**substitutions) for name in args.file]
     overrides = [entry.format(**substitutions) for entry in args.set]
+    restart_overrides = [entry.format(**substitutions) for entry in args.restart_set]
     missing = [name for name in files if not (case_dir / name).exists()]
     if missing:
         result["status"] = "skipped"
@@ -732,6 +745,8 @@ def _command_run(args):
         "timestep": args.timestep,
         "steps": args.steps,
     }
+    if args.restart is not None:
+        inputs["restart"] = {"steps": args.restart, "overrides": restart_overrides}
     result["inputs-id"] = hashlib.sha256(
         json.dumps(inputs, sort_keys=True).encode("utf-8")
     ).hexdigest()[:16]
@@ -767,19 +782,41 @@ def _command_run(args):
 
     prefix = parameters.get("Output", "OutputFile") or "output/out"
     (work / Path(prefix).parent).mkdir(parents=True, exist_ok=True)
+
+    # A case with a restart runs up to the restart first, which writes a
+    # checkpoint at its end; the run of the case restarts from it, with the
+    # overrides of the restart on top of those of the case.
+    if args.restart is not None:
+        if args.timestep is None or args.steps is None:
+            raise SystemExit("a restart needs the time step and the number of steps")
+        if not 0 < args.restart < args.steps:
+            raise SystemExit(
+                f"the restart at step {args.restart} does not lie within the "
+                f"{args.steps} steps of the case"
+            )
+        restart_time = repr(args.restart * args.timestep)
+        before = ParameterFile(parameters.render())
+        before.set("AbortCriteria", "EndTime", restart_time)
+        before.set("Output", "checkpoint", "1")
+        before.set("Output", "checkpointinterval", restart_time)
+        (work / "parameters-before-restart.par").write_text(
+            before.render(), encoding="utf-8"
+        )
+        parameters.set("Output", "checkpoint", "0")
+        apply_overrides(parameters, restart_overrides)
     (work / "parameters.par").write_text(parameters.render(), encoding="utf-8")
 
-    command = []
+    launch = []
     if args.ranks > 1:
         if not args.mpiexec:
             raise SystemExit(
                 "more than one rank requested but no launcher was configured"
             )
-        command += [args.mpiexec, args.numproc_flag, str(args.ranks)]
-        command += args.mpiexec_flags
+        launch += [args.mpiexec, args.numproc_flag, str(args.ranks)]
+        launch += args.mpiexec_flags
     else:
-        command += args.launcher
-    command += [args.binary, "parameters.par"]
+        launch += args.launcher
+    command = launch + [args.binary, "parameters.par"]
 
     environment = dict(os.environ)
     # the run computes in the configuration the case and its snapshot key describe: the one named,
@@ -814,6 +851,38 @@ def _command_run(args):
     # a build without optimization, as the one measuring the coverage, it takes minutes
     environment["SEISSOL_MINISEISSOL"] = "0"
 
+    restart_arguments = []
+    if args.restart is not None:
+        before_command = launch + [args.binary, "parameters-before-restart.par"]
+        print("running up to the restart:", " ".join(before_command))
+        before_run = subprocess.run(
+            before_command,
+            cwd=work,
+            env=environment,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        (work / "seissol-before-restart.log").write_bytes(before_run.stdout)
+        # the checkpoints are counted from the one at the start of the run on
+        directory = work / Path(prefix).parent
+        checkpoints = sorted(
+            directory.glob(f"{Path(prefix).name}-checkpoint-*.h5"),
+            key=lambda path: int(path.stem.rpartition("-")[2]),
+        )
+        if before_run.returncode != 0 or not checkpoints:
+            result["status"] = "run"
+            result["problems"] = [
+                f"the run up to the restart failed with exit code {before_run.returncode} "
+                f"or wrote no checkpoint (see seissol-before-restart.log)"
+            ]
+            record(args.result, result)
+            print(f"error: {result['problems'][0]}", file=sys.stderr)
+            return 1
+        checkpoint = checkpoints[-1].relative_to(work)
+        restart_arguments = ["-c", str(checkpoint)]
+        command = launch + [args.binary] + restart_arguments + ["parameters.par"]
+
     # the check of the run, which has to pass wherever the run is meant to; on one process, as it
     # runs without MPI
     check_problems = []
@@ -821,6 +890,7 @@ def _command_run(args):
         check_command = args.launcher + [
             args.binary,
             "--check=check.json",
+            *restart_arguments,
             "parameters.par",
         ]
         checked = subprocess.run(
@@ -947,6 +1017,7 @@ def _command_compare(args):
         print("skipped: " + "; ".join(reason))
         return SKIP_RETURN_CODE
 
+    kinds = RECEIVER_KINDS[args.receivers]
     if args.simulations:
         problems, worst = compare_simulations(
             Path(args.reference),
@@ -955,6 +1026,7 @@ def _command_compare(args):
             args.simulations,
             args.tolerance,
             args.floor,
+            kinds,
         )
         result["simulations"] = [list(pair) for pair in args.simulations]
     else:
@@ -964,7 +1036,9 @@ def _command_compare(args):
             args.prefix,
             args.tolerance,
             args.floor,
+            kinds,
         )
+    result["receivers"] = args.receivers
     result["status"] = "run"
     result["tolerance"] = args.tolerance
     result["worst-relative"] = worst
@@ -1435,6 +1509,19 @@ def main(argv=None):
         action="store_true",
         help="require every recorded value to be exactly zero",
     )
+    run.add_argument(
+        "--restart",
+        type=int,
+        metavar="STEP",
+        help="run up to this step first, and restart from its checkpoint",
+    )
+    run.add_argument(
+        "--restart-set",
+        action="append",
+        default=[],
+        metavar="SECTION.KEY=VALUE",
+        help="an override for the restart only",
+    )
     run.add_argument("--no-finite-check", dest="require_finite", action="store_false")
     run.set_defaults(require_finite=True, func=_command_run)
 
@@ -1468,6 +1555,12 @@ def main(argv=None):
         type=simulation_pair,
         metavar="REFERENCE:CANDIDATE",
         help="compare these simulations only, counted from zero; repeatable",
+    )
+    compare.add_argument(
+        "--receivers",
+        choices=sorted(RECEIVER_KINDS),
+        default="all",
+        help="compare the receivers of this kind only",
     )
     compare.add_argument("--result")
     compare.set_defaults(func=_command_compare)

@@ -365,6 +365,24 @@ seissol_add_comparison(
     LABELS "identity;dr")
 
 # ---------------------------------------------------------------------------
+# Stage 1: restart from a checkpoint. A restart in the middle of a rupture has
+# to go on as the run does without one: the state of the fault and of the
+# cells comes from the checkpoint. A restart continues the files of the volume
+# receivers but starts those of the on-fault receivers anew, so the volume
+# receivers, which see the rupture radiate, are compared.
+# ---------------------------------------------------------------------------
+
+seissol_add_rupture(NAME rupture-lsw-restart FL 16 FAULT fault-lsw.yaml RESTART 32
+                    LABELS restart)
+seissol_add_comparison(
+    NAME bitwise-rupture-lsw-restart
+    REFERENCE rupture-lsw
+    CANDIDATE rupture-lsw-restart
+    TOLERANCE 0
+    RECEIVERS volume
+    LABELS "bitwise;restart;dr")
+
+# ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic
 # mesh, so this is the mesh the measurement runs on. 256 steps of 2^-14 s let
 # the P wave cross about one wavelength. The thresholds are deliberately
