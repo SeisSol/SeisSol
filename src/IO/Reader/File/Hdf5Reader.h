@@ -13,6 +13,7 @@
 
 #include <hdf5.h>
 #include <memory>
+#include <optional>
 #include <stack>
 #include <string>
 #include <vector>
@@ -41,6 +42,10 @@ class Hdf5Reader {
     return attr;
   }
   std::size_t attributeCount(const std::string& name);
+  //! @brief The string attribute `name` of `object` -- a dataset or a group in the open group, or
+  //! "." for the open group itself --, if it has one.
+  std::optional<std::string> readStringAttribute(const std::string& name,
+                                                 const std::string& object = ".");
   void readAttributeRaw(void* data,
                         const std::string& name,
                         const std::shared_ptr<datatype::Datatype>& type);

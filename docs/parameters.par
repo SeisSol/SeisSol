@@ -240,6 +240,9 @@ surfacetimeseries = 'snapshot' ! overrides outputtimeseries for the free-surface
 Checkpoint = 1                       ! enable/disable checkpointing; on by default where
 ! checkPointInterval is given
 checkPointInterval = 6
+! acceptderivedstate = 0 ! (optional) whether a restart continues the state of a derived output
+! (wavefieldscript, surfacescript) that a checkpoint holds from another program, or from calls at
+! another cadence; by default, such a state starts from its initial values, with a warning
 
 xdmfWriterBackend = 'posix' ! (optional) The backend used in fault, wavefield,
 ! and free-surface output. The HDF5 backend is only supported when SeisSol is compiled with

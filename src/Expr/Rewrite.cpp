@@ -707,4 +707,31 @@ Program restrictProgram(const Program& program,
   return restricted;
 }
 
+Program stateOf(const Program& program) {
+  std::set<std::string> read;
+  for (const auto& state : program.state()) {
+    const auto reads = channelsRead(program, {state.root});
+    read.insert(reads.begin(), reads.end());
+  }
+  Program part;
+  part.setComputeType(program.computeType());
+  for (const auto& input : program.inputs()) {
+    if (read.count(input.name) > 0) {
+      part.addInput(input.name, input.type);
+    }
+  }
+  Imports imports(program);
+  for (const auto& state : program.state()) {
+    part.addState(state.name, state.initial, importNode(part, state.root, imports), state.type);
+  }
+  for (const auto& entry : program.meta()) {
+    part.addMeta(entry);
+  }
+  carrySources(program, part, imports);
+  if (!part.state().empty()) {
+    validate(part);
+  }
+  return part;
+}
+
 } // namespace seissol::expr

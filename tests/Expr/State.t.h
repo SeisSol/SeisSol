@@ -9,7 +9,10 @@
 
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
+#include "Expr/Core.h"
 #include "Expr/Program.h"
+#include "Expr/Record.h"
+#include "Expr/Rewrite.h"
 #include "Expr/SderivFrontend.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
@@ -329,6 +332,41 @@ TEST_SUITE("ExprState") {
     // a state the program does not declare is not an error, like an extra column
     CHECK_NOTHROW(
         bind([&](DataTable& table) { table.bindState<double>("other", storage.data(), 2, 2, 1); }));
+  }
+
+  TEST_CASE("the fingerprint of a state: its updates and what they read, by name, nothing else") {
+    const auto of = [](const std::string& text) {
+      return stateFingerprintText(compileSderivModule(text));
+    };
+    const std::string base = of("state u = 0.0\nout def u = u + v1 * dt\nout def w = 2.0 * v2\n");
+    CHECK(base.size() == 16);
+    // another output, inputs in another order, comments: the same state
+    CHECK(of("state u = 0.0\nout def w = 3.0 * v3 + v2\nout def u = u + v1 * dt\n") == base);
+    CHECK(of("# the displacement\n\nstate u = 0.0\n# summed\nout def u = u + v1 * dt\n") == base);
+    // another quantity, initial value, update or name: another state
+    CHECK(of("state u = 0.0\nout def u = u + v2 * dt\n") != base);
+    CHECK(of("state u = 1.0\nout def u = u + v1 * dt\n") != base);
+    CHECK(of("state u = 0.0\nout def u = u + 2.0 * v1 * dt\n") != base);
+    CHECK(of("state s = 0.0\nout def s = s + v1 * dt\n") != base);
+    // a state that another one reads belongs to it
+    const std::string two = of("state a = 0.0\nstate b = 0.0\nout def a = a + b\ndef b = v1\n");
+    CHECK(two != of("state a = 0.0\nstate b = 0.0\nout def a = a + b\ndef b = v2\n"));
+    CHECK(of("out def w = 2.0 * v2\n").empty());
+  }
+
+  TEST_CASE("what a state depends on, as a program and in the normal form") {
+    const Program program = compileSderivModule(
+        "state pgv = 0.0\nout def pgv = max(pgv, abs(v1))\nout def w = 2.0 * v2\n");
+    const Program part = stateOf(program);
+    CHECK(part.outputs().empty());
+    REQUIRE(part.state().size() == 1);
+    CHECK(part.state()[0].name == "pgv");
+    CHECK(hasInput(part, "v1"));
+    CHECK_FALSE(hasInput(part, "v2"));
+    const Program read = loadCore(stateDefinitionsOf(program), "");
+    CHECK(read.outputs().empty());
+    REQUIRE(read.state().size() == 1);
+    CHECK(stateFingerprintText(read) == stateFingerprintText(program));
   }
 
 } // TEST_SUITE

@@ -17,9 +17,12 @@
 #include "Memory/Tree/Layer.h"
 
 #include <cstddef>
+#include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -38,6 +41,13 @@ struct CheckpointVariable {
   std::optional<std::function<void(void*, const void*)>> unpack;
   /// A checkpoint may lack it; it then keeps what it holds.
   bool optional{false};
+  /// What the values mean beyond their type, a fingerprint say: string attributes of the dataset,
+  /// by name (an empty one is left out). A checkpoint is read into the variable only where `admit`
+  /// accepts what it says of its values -- the values of the same attributes there, in the same
+  /// order, empty where it lacks one --, which it does the same way on all ranks; else the
+  /// variable keeps what it holds, as without the dataset.
+  std::vector<std::pair<std::string, std::string>> meaning;
+  std::function<bool(const std::vector<std::string>&)> admit;
 };
 
 struct CheckpointTree {
@@ -80,17 +90,19 @@ class CheckpointManager {
   }
 
   /// `count` values of type T per cell at `data`, laid out as the cells of `storage`, in a dataset
-  /// that a checkpoint may lack -- for data whose layout is decided at run time, under a name that
-  /// changes with it.
+  /// that a checkpoint may lack -- for data whose layout is decided at run time --, with what the
+  /// values mean and whether those of a checkpoint are read (see CheckpointVariable::meaning).
   template <typename T, typename VarmapT>
   void registerOptionalArray(const std::string& name,
                              initializer::Storage<VarmapT>& storage,
                              T* data,
-                             std::size_t count) {
+                             std::size_t count,
+                             std::vector<std::pair<std::string, std::string>> meaning = {},
+                             std::function<bool(const std::vector<std::string>&)> admit = {}) {
     const auto type = std::make_shared<datatype::ArrayDatatype>(datatype::inferDatatype<T>(),
                                                                 std::vector<std::size_t>{count});
-    dataRegistry_[&storage].variables.emplace_back(
-        CheckpointVariable{name, data, type, type, {}, {}, true});
+    dataRegistry_[&storage].variables.emplace_back(CheckpointVariable{
+        name, data, type, type, {}, {}, true, std::move(meaning), std::move(admit)});
   }
 
   template <typename S, typename T, typename VarmapT>

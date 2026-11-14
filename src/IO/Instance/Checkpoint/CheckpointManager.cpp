@@ -102,6 +102,17 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
             variable.name,
             dataSource,
             variable.datatype));
+        for (const auto& [key, value] : variable.meaning) {
+          // HDF5 has no string of no characters; the loader reads a missing one as empty
+          if (value.empty()) {
+            continue;
+          }
+          writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+              writer::instructions::Hdf5Location(
+                  filename, {"checkpoint", ckpTree.name}, variable.name),
+              key,
+              writer::WriteInline::createString(value)));
+        }
       }
     }
     writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
@@ -146,12 +157,28 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
                      << "; it keeps its initial values.";
         continue;
       }
+      if (variable.admit) {
+        std::vector<std::string> stored;
+        stored.reserve(variable.meaning.size());
+        for (const auto& [key, _] : variable.meaning) {
+          stored.push_back(reader.readStringAttribute(key, variable.name).value_or(""));
+        }
+        if (!std::invoke(variable.admit, stored)) {
+          continue;
+        }
+      }
       logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
       // the shape of a value includes how many values a cell holds (see perCellDatatype), e.g.
       // the number of grid points of the thermal pressurization: a checkpoint of another one
       // describes another state, and is not to be read into this one
       const auto storedShape = reader.dataValueShape(variable.name);
       const auto expectedShape = valueShape(variable.datatype);
+      if (storedShape != expectedShape && variable.optional) {
+        logWarning() << "The checkpoint holds" << ckpTree.name << "/" << variable.name
+                     << "with values of the shape" << storedShape << ", but this run needs"
+                     << expectedShape << "; it keeps its initial values.";
+        continue;
+      }
       if (storedShape != expectedShape) {
         logError() << "The checkpoint holds" << ckpTree.name << "/" << variable.name
                    << "with values of the shape" << storedShape << ", but this run needs"

@@ -51,8 +51,10 @@
 // STATE. The state of the configured program lives with the elements, in the storage of the
 // cells (LTS::DerivedState) or of the faces (SurfaceLTS::DerivedState): per element, a value per
 // declared state, output point and fused simulation. It is set to the initial values before a
-// checkpoint is loaded, and written to the checkpoints under a name that changes with its layout,
-// so that a restart continues it when the layout is the same and starts it over otherwise.
+// checkpoint is loaded, and written to the checkpoints with what its values mean: the fingerprint
+// of what the states depend on (their updates and what these read), the output points and the
+// cadence of the calls. A restart continues it where all of them are those of the run, and starts
+// it over otherwise (see registerDerivedStateCheckpoints).
 
 #include "Common/ConfigRegistry.h"
 #include "Expr/Program.h"
@@ -311,9 +313,11 @@ struct DerivedStateLayout {
   std::size_t pointsPerElement{0};
   /// The most fused simulations of a configuration of the run.
   std::size_t simulations{0};
-  /// Changes with whatever changes the meaning of a value: the states, the output points, the
+  /// What the values mean, which a checkpoint keeps with them: the fingerprint of what the states
+  /// depend on (expr::stateFingerprintText()), and where the points of an element lie, with the
   /// simulations.
-  std::uint64_t fingerprint{0};
+  std::string program;
+  std::string points;
 
   /// Values per element; 0 without state.
   [[nodiscard]] std::size_t size() const { return states.size() * pointsPerElement * simulations; }
@@ -321,8 +325,6 @@ struct DerivedStateLayout {
       offset(std::size_t state, std::size_t point, std::size_t simulation) const {
     return (state * pointsPerElement + point) * simulations + simulation;
   }
-  /// The name of the dataset in the checkpoints.
-  [[nodiscard]] std::string checkpointName() const;
 };
 
 /// The state layout of the configured program of output `kind`; empty if the output is off or its
@@ -335,7 +337,10 @@ struct DerivedStateLayout {
 void initializeDerivedState(seissol::SeisSol& seissolInstance);
 
 /// Registers the state of the derived outputs with the checkpoints, after the trees of the cells
-/// and of the faces. A checkpoint without it (or with another layout) leaves the initial values.
+/// and of the faces, with what its values mean: the fingerprint of what the states depend on, the
+/// points and the cadence of the calls. A checkpoint without it, or one whose state means something
+/// else, leaves the initial values, the latter with a warning; one written by another program or
+/// at another cadence (not at other points) is read where `acceptderivedstate` says so. Collective.
 void registerDerivedStateCheckpoints(io::instance::checkpoint::CheckpointManager& checkpoint,
                                      seissol::SeisSol& seissolInstance);
 

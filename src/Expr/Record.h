@@ -170,6 +170,18 @@ struct Record {
 /// express it; the reason then.
 [[nodiscard]] std::string definitionsOf(const Program& program, const std::string& output);
 
+/// The fingerprint of what the state of `program` depends on (stateOf()), as 16 hexadecimal
+/// digits: what a checkpoint keeps with the values of a state, which another program continues
+/// only where it updates them alike. Unlike the fingerprint of a program, it has what the binding
+/// resolves -- the names of the inputs and of the states, where the grids and the contractions
+/// read from --, and nothing of an output, a check or the provenance. Empty without state.
+[[nodiscard]] std::string stateFingerprintText(const Program& program);
+
+/// The normal form of what the state of `program` depends on (stateOf()), as definitionsOf() has
+/// that of an output. Throws std::invalid_argument where the core format cannot express it; the
+/// reason then.
+[[nodiscard]] std::string stateDefinitionsOf(const Program& program);
+
 /// What the interpreter of this build gives at the points of a sample, against what the record
 /// says the interpreter gave there.
 struct Replay {

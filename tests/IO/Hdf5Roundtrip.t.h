@@ -98,6 +98,56 @@ TEST_CASE("HDF5 roundtrip scalar attribute" * doctest::test_suite("io")) {
 }
 
 // ---------------------------------------------------------------------------
+// Roundtrip: string attributes of a group and of a dataset, fixed and variable length
+// ---------------------------------------------------------------------------
+
+TEST_CASE("HDF5 roundtrip string attributes" * doctest::test_suite("io")) {
+  const TempHdf5File tmp;
+  const std::string fixed = "kind=cells subcells=1";
+  const std::string variable = "host=step";
+
+  {
+    hid_t file = createParallelFile(tmp.path, MPI_COMM_WORLD);
+    REQUIRE(file >= 0);
+    const hid_t scalar = H5Screate(H5S_SCALAR);
+    // a fixed-length string as the writer of SeisSol writes it, without a terminating null
+    const hid_t fixedType = H5Tcopy(H5T_C_S1);
+    H5Tset_size(fixedType, fixed.size());
+    const hid_t groupAttr = H5Acreate(file, "points", fixedType, scalar, H5P_DEFAULT, H5P_DEFAULT);
+    H5Awrite(groupAttr, fixedType, fixed.data());
+    H5Aclose(groupAttr);
+
+    const hsize_t count = 3;
+    const hid_t space = H5Screate_simple(1, &count, nullptr);
+    const hid_t dataset =
+        H5Dcreate(file, "state", H5T_NATIVE_DOUBLE, space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    const hid_t variableType = H5Tcopy(H5T_C_S1);
+    H5Tset_size(variableType, H5T_VARIABLE);
+    const char* text = variable.c_str();
+    const hid_t datasetAttr =
+        H5Acreate(dataset, "cadence", variableType, scalar, H5P_DEFAULT, H5P_DEFAULT);
+    H5Awrite(datasetAttr, variableType, static_cast<const void*>(&text));
+    H5Aclose(datasetAttr);
+    H5Dclose(dataset);
+    H5Sclose(space);
+    H5Tclose(variableType);
+    H5Tclose(fixedType);
+    H5Sclose(scalar);
+    H5Fclose(file);
+  }
+
+  {
+    reader::file::Hdf5Reader reader(MPI_COMM_WORLD);
+    reader.openFile(tmp.path);
+    CHECK(reader.readStringAttribute("points") == fixed);
+    CHECK(reader.readStringAttribute("cadence", "state") == variable);
+    CHECK_FALSE(reader.readStringAttribute("cadence").has_value());
+    CHECK_FALSE(reader.readStringAttribute("points", "state").has_value());
+    reader.closeFile();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Roundtrip: write vector attribute, read back
 // ---------------------------------------------------------------------------
 

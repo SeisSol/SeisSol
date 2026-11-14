@@ -13,6 +13,7 @@
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Expr/Rewrite.h"
+#include "Expr/Sha256.h"
 #include "Reader/Datafield/Grid.h"
 
 #include <algorithm>
@@ -1310,6 +1311,38 @@ std::string definitionsOf(const Program& program, const std::string& output) {
       program,
       [](const std::string& /*channel*/) { return true; },
       [&](const std::string& name) { return name == output; });
+  const Contractions contractions = contractionsOf(part);
+  return printCore(contractions.nodes.empty() ? part : contractionsAsInputs(part, contractions));
+}
+
+std::string stateFingerprintText(const Program& program) {
+  if (program.state().empty()) {
+    return {};
+  }
+  const Program part = stateOf(program);
+  // the canonical form has the channels by their places, and the grids and the contractions by
+  // their forms; the names and the sources are added, which a checkpoint does not bind anew
+  std::string text = part.canonicalForm();
+  for (const auto& input : part.inputs()) {
+    text += "in " + input.name + ' ' + std::to_string(static_cast<int>(input.type)) + '\n';
+  }
+  for (const auto& state : part.state()) {
+    text += "state " + state.name + '\n';
+  }
+  for (const auto& grid : part.grids()) {
+    text += "grid " + grid.sourceKey() + '\n';
+  }
+  for (const auto& matrix : part.matrices()) {
+    text += "matrix " + matrix.name + '\n';
+  }
+  for (const auto& block : part.blocks()) {
+    text += "block " + block.name + '\n';
+  }
+  return sha256(text).substr(0, 16);
+}
+
+std::string stateDefinitionsOf(const Program& program) {
+  const Program part = stateOf(program);
   const Contractions contractions = contractionsOf(part);
   return printCore(contractions.nodes.empty() ? part : contractionsAsInputs(part, contractions));
 }

@@ -101,7 +101,11 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
 
   reader->warnDeprecated({"checkpointbackend", "checkpointfile"});
 
-  return CheckpointParameters{.enabled = enabled, .interval = interval};
+  // for loading a checkpoint, whether this run writes them or not
+  const auto acceptDerivedState = reader->readWithDefault("acceptderivedstate", false);
+
+  return CheckpointParameters{
+      .enabled = enabled, .interval = interval, .acceptDerivedState = acceptDerivedState};
 }
 
 ElementwiseFaultParameters

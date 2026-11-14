@@ -85,8 +85,9 @@ the parameters of its material, and in addition the displacement of the face, ``
 ``u3`` (without derivatives); ``x``, ``y``, ``z`` are the output points on the face. The built-in
 outputs are computed the same way, in one program with those of a script without state, and an
 output of a script needs a name of its own, as for the wavefield. The state of a program lives
-with the faces and is written to the checkpoints, as for the wavefield; ``surfacevtkorder``,
-``surfaceoutputrefinement`` and ``surfaceprojection`` decide its layout.
+with the faces and is written to the checkpoints as for the wavefield, with the fingerprint of what
+it depends on, its points (``surfacevtkorder``, ``surfaceoutputrefinement`` and
+``surfaceprojection``) and the cadence of the calls.
 
 .. code-block:: text
 

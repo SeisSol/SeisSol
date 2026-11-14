@@ -123,6 +123,11 @@ struct Restriction {
                                       const std::function<bool(const std::string&)>& wanted,
                                       Restriction* restriction = nullptr);
 
+/// What the state of `program` depends on: its states, in their order, with their initial values
+/// and their updates, and the inputs (in their order), grids and contractions these read; no
+/// output and no check. Without state, a program that computes nothing.
+[[nodiscard]] Program stateOf(const Program& program);
+
 } // namespace seissol::expr
 
 #endif // SEISSOL_SRC_EXPR_REWRITE_H_

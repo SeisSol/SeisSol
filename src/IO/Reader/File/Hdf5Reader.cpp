@@ -19,6 +19,7 @@
 #include <hdf5.h>
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <stack>
 #include <string>
 #include <utils/logger.h>
@@ -93,6 +94,38 @@ void Hdf5Reader::readAttributeRaw(void* data,
   _eh(H5Aread(attr, datatype::convertToHdf5(type), data));
   _eh(H5Aclose(attr));
 }
+std::optional<std::string> Hdf5Reader::readStringAttribute(const std::string& name,
+                                                           const std::string& object) {
+  if (_eh(H5Aexists_by_name(handles_.top(), object.c_str(), name.c_str(), H5P_DEFAULT)) == 0) {
+    return std::nullopt;
+  }
+  const hid_t attr =
+      _eh(H5Aopen_by_name(handles_.top(), object.c_str(), name.c_str(), H5P_DEFAULT, H5P_DEFAULT));
+  const hid_t type = _eh(H5Aget_type(attr));
+  std::optional<std::string> text;
+  if (H5Tget_class(type) == H5T_STRING) {
+    const hid_t memoryType = _eh(H5Tcopy(H5T_C_S1));
+    if (_eh(H5Tis_variable_str(type)) > 0) {
+      _eh(H5Tset_size(memoryType, H5T_VARIABLE));
+      char* value = nullptr;
+      _eh(H5Aread(attr, memoryType, static_cast<void*>(&value)));
+      text = value == nullptr ? std::string() : std::string(value);
+      H5free_memory(value);
+    } else {
+      // as many characters as the attribute has, up to the first null character (padded so)
+      const std::size_t size = H5Tget_size(type);
+      std::string value(size, '\0');
+      _eh(H5Tset_size(memoryType, size));
+      _eh(H5Aread(attr, memoryType, value.data()));
+      text = value.substr(0, value.find('\0'));
+    }
+    _eh(H5Tclose(memoryType));
+  }
+  _eh(H5Tclose(type));
+  _eh(H5Aclose(attr));
+  return text;
+}
+
 bool Hdf5Reader::hasDataset(const std::string& name) {
   return _eh(H5Lexists(handles_.top(), name.c_str(), H5P_DEFAULT)) > 0;
 }

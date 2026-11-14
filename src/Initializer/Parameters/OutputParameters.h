@@ -63,6 +63,9 @@ enum class TimeSeriesMode : int { Snapshot, Incremental, Monolith };
 struct CheckpointParameters {
   bool enabled{false};
   double interval{0};
+  /// Whether a restart continues the state of a derived output that a checkpoint holds from
+  /// another program, or from calls at another cadence (see registerDerivedStateCheckpoints).
+  bool acceptDerivedState{false};
 };
 
 struct ElementwiseFaultParameters {

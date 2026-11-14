@@ -265,7 +265,14 @@ The same in Lua; a returned table names the outputs, and ``M.state`` declares th
    /
 
 The state lives with the cells, one value per state, output point and fused simulation, and is
-written to the checkpoints, so that a restarted run continues it. It does so only if the states,
-the output points (``wavefieldvtkorder``, ``refinement``, ``wavefieldprojection``) and the
-number of fused simulations are those of the run that wrote the checkpoint; otherwise the state
-starts over from its initial values, with a warning.
+written to the checkpoints, so that a restarted run continues it. The checkpoint keeps with it what
+its values mean: the fingerprint of what the states depend on (their updates and what these read,
+by name; not an output that no state reads, and not a comment), the output points
+(``wavefieldvtkorder``, ``refinement``, ``wavefieldprojection`` and the number of fused
+simulations), and when the program is called (after every time step on the CPU, at every write on
+a GPU). A restart continues the state only if all three are those of the run; otherwise the state
+starts over from its initial values, with a warning that names both. ``acceptderivedstate = 1``
+in ``&Output`` continues a state written by another program or at another cadence all the same,
+but not one of other points. The dataset ``derivedstate`` of the checkpoint has them as the
+attributes ``sderivStateFingerprint``, ``sderivStatePoints`` and ``sderivStateCadence``, and the
+normal form of the definitions of the states as ``sderivDefinitions``.

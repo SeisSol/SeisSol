@@ -10,6 +10,7 @@
 #include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
+#include "Common/Executor.h"
 #include "Common/Real.h"
 #include "Config.h"
 #include "Equations/Datastructures.h"
@@ -33,6 +34,7 @@
 #include "Model/Plasticity.h"
 #include "Model/ScriptParameters.h"
 #include "Numerical/Projection.h"
+#include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
@@ -44,13 +46,13 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
-#include <iomanip>
-#include <ios>
 #include <limits>
 #include <map>
 #include <memory>
+#include <mpi.h>
 #include <mutex>
 #include <optional>
 #include <sstream>
@@ -780,12 +782,6 @@ DerivedSurfaceGeometry surfaceGeometry(const parameters::FreeSurfaceOutputParame
   return result;
 }
 
-std::string DerivedStateLayout::checkpointName() const {
-  std::ostringstream name;
-  name << "derivedstate-" << std::hex << std::setw(16) << std::setfill('0') << fingerprint;
-  return name.str();
-}
-
 DerivedStateLayout derivedStateLayout(seissol::SeisSol& seissolInstance, DerivedOutputKind kind) {
   const auto& output = seissolInstance.parameters().output;
   std::string script;
@@ -834,24 +830,16 @@ DerivedStateLayout derivedStateLayout(seissol::SeisSol& seissolInstance, Derived
     });
   }
 
-  std::uint64_t hash = 0xcbf29ce484222325ULL;
-  const auto mix = [&hash](std::uint64_t value) {
-    hash ^= value;
-    hash *= 0x100000001b3ULL;
-  };
-  mix(static_cast<std::uint64_t>(kind));
-  for (const auto& name : layout.states) {
-    for (const char c : name) {
-      mix(static_cast<unsigned char>(c));
-    }
-    mix(0);
-  }
-  mix(layout.pointsPerElement);
-  mix(layout.simulations);
-  mix(dataOrder);
-  mix(subcells);
-  mix(static_cast<std::uint64_t>(target));
-  layout.fingerprint = hash;
+  layout.program = expr::stateFingerprintText(program);
+  // a format, which a checkpoint compares: to be kept as it is
+  std::ostringstream points;
+  points << "kind=" << (kind == DerivedOutputKind::WaveField ? "cells" : "faces")
+         << " subcells=" << subcells
+         << " points=" << pointsPerElement / std::max<std::size_t>(subcells, 1)
+         << " degree=" << dataOrder
+         << " projection=" << (target == projection::Target::Project ? "l2" : "pointwise")
+         << " simulations=" << layout.simulations;
+  layout.points = points.str();
   return layout;
 }
 
@@ -893,20 +881,135 @@ void initializeDerivedState(seissol::SeisSol& seissolInstance) {
   }
 }
 
+namespace {
+
+/// The name of the state of a derived output in the checkpoints, in the group of the cells or of
+/// the faces.
+constexpr const char* StateDataset = "derivedstate";
+
+/// When the program of a derived output is called (see CADENCE), the same on all ranks, in a format
+/// that a checkpoint compares: `host=step` after every time step of a cell whose cluster runs on
+/// the host, `device=write interval=<interval>` at every write of the output where it runs on a
+/// device, or both. Collective.
+std::string stateCadence(seissol::SeisSol& seissolInstance, double interval) {
+  // per layer, as the cell clusters choose where they run (CellCluster)
+  std::array<int, 2> places{0, 0};
+  for (auto& layer : seissolInstance.memoryManager().ltsStorage().leaves(LayerMask(Ghost))) {
+    if (layer.size() > 0) {
+      places[seissolInstance.executionPlace(layer.size()) == Executor::Host ? 0 : 1] = 1;
+    }
+  }
+  MPI_Allreduce(MPI_IN_PLACE, places.data(), 2, MPI_INT, MPI_MAX, seissol::Mpi::mpi.comm());
+  // the shortest digits that give the interval back
+  std::array<char, 32> digits{};
+  const auto written = std::to_chars(digits.data(), digits.data() + digits.size(), interval);
+  const std::string writes = "device=write interval=" + std::string(digits.data(), written.ptr);
+  if (places[1] == 0) {
+    return "host=step";
+  }
+  if (places[0] == 0) {
+    return writes;
+  }
+  return "host=step " + writes;
+}
+
+/// Registers the state of `layout` of the output `output` with the checkpoints, as in
+/// registerDerivedStateCheckpoints().
+template <typename VarmapT>
+void registerState(io::instance::checkpoint::CheckpointManager& checkpoint,
+                   initializer::Storage<VarmapT>& storage,
+                   double* state,
+                   const DerivedStateLayout& layout,
+                   const std::string& script,
+                   const std::string& cadence,
+                   const char* output,
+                   bool accept) {
+  std::string definitions;
+  try {
+    definitions = expr::stateDefinitionsOf(loadDerivedProgram(script));
+  } catch (const std::invalid_argument& error) {
+    definitions = "# not in the core format: " + std::string(error.what()) + "\n";
+  }
+  // an attribute of HDF5 is kept in the header of its dataset, of at most 64 KiB there
+  constexpr std::size_t MaxDefinitions = 60000;
+  if (definitions.size() > MaxDefinitions) {
+    definitions = "# the normal form takes " + std::to_string(definitions.size()) + " bytes\n";
+  }
+  // what admit compares, and the normal form, which is there to be read
+  std::vector<std::pair<std::string, std::string>> meaning{
+      {"sderivStateFingerprint", layout.program},
+      {"sderivStatePoints", layout.points},
+      {"sderivStateCadence", cadence},
+      {"sderivDefinitions", definitions}};
+  const auto admit = [layout, cadence, output, accept](const std::vector<std::string>& stored) {
+    const auto& program = stored.at(0);
+    const auto& points = stored.at(1);
+    const auto& calls = stored.at(2);
+    const auto said = [](const std::string& text) {
+      return text.empty() ? std::string("unknown") : text;
+    };
+    std::ostringstream message;
+    message << "The checkpoint holds the state of the " << output << " output";
+    if (points != layout.points) {
+      // values of other points, which no parameter makes values of these
+      message << " at other points (" << said(points) << "; in this run " << layout.points
+              << "); it starts from its initial values.";
+      logWarning() << message.str().c_str();
+      return false;
+    }
+    if (program == layout.program && calls == cadence) {
+      return true;
+    }
+    if (program != layout.program) {
+      message << " of another program (the fingerprint of its state " << said(program)
+              << ", in this run " << layout.program << ")";
+    }
+    if (calls != cadence) {
+      message << (program != layout.program ? " and" : "") << " called at another cadence ("
+              << said(calls) << ", in this run " << cadence << ")";
+    }
+    message << (accept
+                    ? "; it continues it, as acceptderivedstate = 1 says."
+                    : "; it starts from its initial values (acceptderivedstate = 1 continues it).");
+    logWarning() << message.str().c_str();
+    return accept;
+  };
+  checkpoint.registerOptionalArray(
+      StateDataset, storage, state, layout.size(), std::move(meaning), admit);
+}
+
+} // namespace
+
 void registerDerivedStateCheckpoints(io::instance::checkpoint::CheckpointManager& checkpoint,
                                      seissol::SeisSol& seissolInstance) {
   auto& memoryManager = seissolInstance.memoryManager();
+  const auto& output = seissolInstance.parameters().output;
+  const bool accept = output.checkpointParameters.acceptDerivedState;
+  // whether an output keeps a state follows from the parameters, the same on all ranks, as the
+  // cadence needs it
   const auto waveField = derivedStateLayout(seissolInstance, DerivedOutputKind::WaveField);
   if (waveField.size() > 0) {
     auto& storage = memoryManager.ltsStorage();
-    checkpoint.registerOptionalArray(
-        waveField.checkpointName(), storage, storage.var<LTS::DerivedState>(), waveField.size());
+    registerState(checkpoint,
+                  storage,
+                  storage.var<LTS::DerivedState>(),
+                  waveField,
+                  output.waveFieldParameters.script,
+                  stateCadence(seissolInstance, output.waveFieldParameters.interval),
+                  "wave field",
+                  accept);
   }
   const auto surface = derivedStateLayout(seissolInstance, DerivedOutputKind::Surface);
   if (surface.size() > 0) {
     auto& storage = memoryManager.surfaceStorage();
-    checkpoint.registerOptionalArray(
-        surface.checkpointName(), storage, storage.var<SurfaceLTS::DerivedState>(), surface.size());
+    registerState(checkpoint,
+                  storage,
+                  storage.var<SurfaceLTS::DerivedState>(),
+                  surface,
+                  output.freeSurfaceParameters.script,
+                  stateCadence(seissolInstance, output.freeSurfaceParameters.interval),
+                  "free surface",
+                  accept);
   }
 }
 
