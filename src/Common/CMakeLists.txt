@@ -8,9 +8,11 @@
 add_library(seissol-common OBJECT
     ConfigRegistry.cpp
     ConfigValue.cpp
+    Environment.cpp
     Filesystem.cpp
     IntegerMaskParser.cpp
     Json.cpp
+    Logging.cpp
     RunId.cpp
 )
 

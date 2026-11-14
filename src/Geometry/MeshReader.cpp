@@ -67,9 +67,9 @@ const std::map<std::pair<int, std::size_t>, std::size_t>& MeshReader::toLinearGh
 }
 
 void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
-  for (std::size_t vertexNo = 0; vertexNo < vertices_.size(); ++vertexNo) {
+  for (auto& vertex : vertices_) {
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
-      vertices_[vertexNo].coords[i] += displacement[i];
+      vertex.coords[i] += displacement[i];
     }
   }
 }
@@ -78,13 +78,12 @@ void MeshReader::displaceMesh(const Eigen::Vector3d& displacement) {
 //  scalingMatrix is stored column-major, i.e.
 //  scalingMatrix_ij = scalingMatrix[j][i]
 void MeshReader::scaleMesh(const Eigen::Matrix3d& scalingMatrix) {
-  for (std::size_t vertexNo = 0; vertexNo < vertices_.size(); ++vertexNo) {
+  for (auto& vertex : vertices_) {
     Eigen::Vector3d point;
-    point << vertices_[vertexNo].coords[0], vertices_[vertexNo].coords[1],
-        vertices_[vertexNo].coords[2];
+    point << vertex.coords[0], vertex.coords[1], vertex.coords[2];
     const auto result = scalingMatrix * point;
     for (std::size_t i = 0; i < Cell::Dim; ++i) {
-      vertices_[vertexNo].coords[i] = result[i];
+      vertex.coords[i] = result[i];
     }
   }
 }
@@ -127,8 +126,10 @@ void MeshReader::extractFaultInformation(
 
         // FIXME we use the MPI number here for the neighbor element id
         // It is not very nice but should generate the correct ordering.
-        const auto neighbor = MPINeighborElement{
-            cell.localId, cell.mpiIndices[j], static_cast<int8_t>(j), cell.neighborSides[j]};
+        const auto neighbor = MPINeighborElement{.localElement = cell.localId,
+                                                 .neighborElement = cell.mpiIndices[j],
+                                                 .localSide = static_cast<int8_t>(j),
+                                                 .neighborSide = cell.neighborSides[j]};
         mpiFaultNeighbors_[cell.neighborRanks[j]].push_back(neighbor);
       }
 
@@ -238,21 +239,18 @@ void MeshReader::extractFaultInformation(
   for (auto& neighbor : mpiFaultNeighbors_) {
 
     if (neighbor.first > seissol::Mpi::mpi.rank()) {
-      std::sort(neighbor.second.begin(),
-                neighbor.second.end(),
-                [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
-                  return (elem1.localElement < elem2.localElement) ||
-                         (elem1.localElement == elem2.localElement &&
-                          elem1.localSide < elem2.localSide);
-                });
+      std::ranges::sort(
+          neighbor.second, [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
+            return (elem1.localElement < elem2.localElement) ||
+                   (elem1.localElement == elem2.localElement && elem1.localSide < elem2.localSide);
+          });
     } else {
-      std::sort(neighbor.second.begin(),
-                neighbor.second.end(),
-                [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
-                  return (elem1.neighborElement < elem2.neighborElement) ||
-                         (elem1.neighborElement == elem2.neighborElement &&
-                          elem1.neighborSide < elem2.neighborSide);
-                });
+      std::ranges::sort(neighbor.second,
+                        [](const MPINeighborElement& elem1, const MPINeighborElement& elem2) {
+                          return (elem1.neighborElement < elem2.neighborElement) ||
+                                 (elem1.neighborElement == elem2.neighborElement &&
+                                  elem1.neighborSide < elem2.neighborSide);
+                        });
     }
   }
 }
@@ -360,7 +358,7 @@ void MeshReader::linearizeGhostlayer() {
       for (const auto& index : ids) {
         toLinearGhostlayer_[{rank, index}] = linearGhostlayer_.size();
       }
-      linearGhostlayer_.push_back(LinearGhostCell{ids, rank});
+      linearGhostlayer_.push_back(LinearGhostCell{.inRankIndices = ids, .rank = rank});
     }
   }
 }

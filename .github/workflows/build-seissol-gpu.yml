@@ -11,8 +11,13 @@ on:
   # a run started by hand verifies its branch as well, not only master
   - workflow_dispatch
 
+# a push to a branch replaces the run of the push before it; on master, every push runs to its end
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name == 'master' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
 env:
-  precomputed-hash: bed56573928e224984f5e75a17feb8b0b2f5ea27
+  precomputed-hash: 5c6b2283aaf549d51e6b55e4e4a93e73bddec1c0
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -193,9 +198,9 @@ jobs:
         run: |
           # circumvent problems with the Intel image still using Ubuntu 22.04
           if [ "${{ matrix.setup.pythonbreak }}" = true ]; then
-            pip3 install --break-system-packages "numpy>=1.12.0" lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
+            pip3 install --break-system-packages lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
           else
-            pip3 install "numpy>=1.12.0" lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
+            pip3 install lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
           fi
 
       - name: get-precomputed-solutions

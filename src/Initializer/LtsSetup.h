@@ -99,14 +99,14 @@ class LtsSetup {
   }
 
   [[nodiscard]] constexpr auto test(std::uint32_t index) const -> bool {
-    return (data_ & (1 << index)) != 0;
+    return (static_cast<std::uint32_t>(data_) & (1_U32 << index)) != 0;
   }
 
   constexpr auto set(std::uint32_t index, bool value) -> LtsSetup& {
     if (value) {
-      data_ |= 1 << index;
+      data_ |= static_cast<BitmapType>(1_U32 << index);
     } else {
-      data_ &= ~(1 << index);
+      data_ &= static_cast<BitmapType>(~(1_U32 << index));
     }
     return *this;
   }
@@ -114,7 +114,7 @@ class LtsSetup {
   [[nodiscard]] constexpr auto getBits(std::uint32_t index, std::uint32_t size) const
       -> std::uint32_t {
     const auto mask = (1_U32 << size) - 1;
-    return (data_ >> index) & mask;
+    return (static_cast<std::uint32_t>(data_) >> index) & mask;
   }
 
   constexpr auto setBits(std::uint32_t index, std::uint32_t bits, std::uint32_t size) -> LtsSetup& {

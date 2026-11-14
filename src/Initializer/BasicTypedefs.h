@@ -96,7 +96,9 @@ struct FaceTypeSupport {
 
 constexpr FaceTypeSupport faceTypeSupported() { return {}; }
 
-constexpr FaceTypeSupport faceTypeUnsupported(std::string_view reason) { return {false, reason}; }
+constexpr FaceTypeSupport faceTypeUnsupported(std::string_view reason) {
+  return {.supported = false, .reason = reason};
+}
 
 enum class BCType {
   // an internal face, with a neighbor

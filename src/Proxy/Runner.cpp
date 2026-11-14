@@ -16,6 +16,7 @@
 #include "Proxy/Cycles.h"
 #include "Proxy/Kernel.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -40,9 +41,9 @@ namespace seissol::proxy {
 
 namespace {
 
-void testKernel(std::shared_ptr<ProxyData>& data,
-                std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
-                std::shared_ptr<ProxyKernel>& kernel,
+void testKernel(const std::shared_ptr<ProxyData>& data,
+                const std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
+                const std::shared_ptr<ProxyKernel>& kernel,
                 std::size_t timesteps) {
   for (std::size_t i = 0; i < timesteps; ++i) {
     kernel->run(*data, *runtime);
@@ -70,7 +71,7 @@ auto estimateProxy(const ProxyConfig& config) -> PerformanceEstimate {
 }
 
 auto runProxy(const ProxyConfig& config) -> ProxyOutput {
-  auto kernel = makeKernel(config);
+  const auto kernel = makeKernel(config);
 
   const bool enableDynamicRupture = kernel->needsDR();
 
@@ -83,7 +84,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   auto runtime = std::make_shared<seissol::parallel::runtime::StreamRuntime>();
 
   if (config.verbose) {
-    std::cerr << "...done" << std::endl;
+    std::cerr << "...done" << '\n';
   }
 
   struct timeval startTime{};
@@ -97,6 +98,15 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   testKernel(data, runtime, kernel, 1);
 
   runtime->wait();
+
+  if (config.warmup > 0) {
+    const auto warmupStart = std::chrono::steady_clock::now();
+    while (std::chrono::duration<double>(std::chrono::steady_clock::now() - warmupStart).count() <
+           config.warmup) {
+      testKernel(data, runtime, kernel, 10);
+      runtime->wait();
+    }
+  }
 
   const seissol::monitoring::FlopCounter flopCounter{};
 

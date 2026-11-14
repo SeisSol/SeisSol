@@ -28,7 +28,8 @@
 #include <complex>
 #include <cstddef>
 #include <limits>
-#include <math.h>
+// M_PI is POSIX and only declared by the C header
+#include <math.h> // NOLINT(modernize-deprecated-headers)
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -72,10 +73,19 @@ void setFluidStress(yateto::DenseTensorView<2, RealT, unsigned>& dofs,
 /// equal ones) is projected onto that rest, and the projection, of unit length, is the next
 /// eigenvector; its coordinate on that axis is real and positive.
 ///
-/// The eigenvector of values[j] is the column j of vectors.
-void canonicalizeEigenvectors(const std::vector<std::complex<double>>& values,
+/// The eigenspace of a repeated eigenvalue is the null space of the operator minus the eigenvalue,
+/// taken from its singular value decomposition, balanced as eigenvalues::computeEigenvalues
+/// balances the operator: the vectors a general eigensolver returns for it may be nearly
+/// dependent, and then span a space that depends on the rounding of the build (by 4e-5 for the
+/// five static modes of a poroelastic planar wave, of which one is set up).
+///
+/// The eigenvector of values[j] is the column j of vectors, and `operatorMatrix` the plane-wave
+/// operator, column by column.
+void canonicalizeEigenvectors(const std::vector<std::complex<double>>& operatorMatrix,
+                              const std::vector<std::complex<double>>& values,
                               std::vector<std::complex<double>>& vectors) {
   const auto count = values.size();
+  const auto size = static_cast<Eigen::Index>(count);
   auto columns = yateto::DenseTensorView<2, std::complex<double>, unsigned>(
       vectors.data(), {static_cast<unsigned>(count), static_cast<unsigned>(count)});
 
@@ -100,17 +110,31 @@ void canonicalizeEigenvectors(const std::vector<std::complex<double>>& values,
       }
     }
 
-    Eigen::MatrixXcd basis(count, space.size());
-    for (std::size_t k = 0; k < space.size(); ++k) {
+    const auto width = static_cast<Eigen::Index>(space.size());
+    Eigen::MatrixXcd basis(size, width);
+    if (space.size() > 1) {
+      std::complex<double> eigenvalue = 0;
+      for (const auto j : space) {
+        eigenvalue += values[j];
+      }
+      eigenvalue /= static_cast<double>(space.size());
+      Eigen::MatrixXcd shifted =
+          Eigen::Map<const Eigen::MatrixXcd>(operatorMatrix.data(), size, size) -
+          eigenvalue * Eigen::MatrixXcd::Identity(size, size);
+      const auto balancing = seissol::eigenvalues::balance(shifted);
+      // the singular values come in decreasing order
+      const Eigen::JacobiSVD<Eigen::MatrixXcd> svd(shifted, Eigen::ComputeFullV);
+      basis = balancing.cast<std::complex<double>>().asDiagonal() * svd.matrixV().rightCols(width);
+    } else {
       for (std::size_t i = 0; i < count; ++i) {
-        basis(i, k) = columns(i, space[k]);
+        basis(static_cast<Eigen::Index>(i), 0) = columns(i, space[0]);
       }
     }
     // the orthogonal projector onto the eigenspace, which does not depend on the basis it is
     // computed from
     const Eigen::MatrixXcd orthonormal =
         Eigen::HouseholderQR<Eigen::MatrixXcd>(basis).householderQ() *
-        Eigen::MatrixXcd::Identity(count, space.size());
+        Eigen::MatrixXcd::Identity(size, width);
     Eigen::MatrixXcd projector = orthonormal * orthonormal.adjoint();
 
     for (const auto column : space) {
@@ -158,6 +182,10 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
     // Poroelastic materials have the following wave modes:
     //-P, -S2, -S1, -Ps, N, N, N, N, N, Ps, S1, S2, P
     // Here we impose -S1, -Ps and P
+    // This order holds where the slow P wave travels, slower than the shear waves. Where it
+    // diffuses instead, as it does at long wavelengths, it has no real part, as the five N have,
+    // and the indices 3 to 9 hold these seven modes by their imaginary parts, the static ones
+    // first; index 3 then sets up a static mode (see eigenvalues::computeEigenvalues).
     varField_ = {2, 3, 12};
     ampField_ = {1.0, 1.0, 1.0};
   } else {
@@ -182,6 +210,7 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
 void seissol::physics::Planarwave::init(const CellMaterialData& materialData, ConfigId config) {
   assert(varField_.size() == ampField_.size());
 
+  std::vector<std::complex<double>> operatorMatrix;
   dispatchConfig(config, [&](auto cfg) {
     using Cfg = decltype(cfg);
     using MaterialT = model::MaterialOf<Cfg>;
@@ -190,14 +219,14 @@ void seissol::physics::Planarwave::init(const CellMaterialData& materialData, Co
     std::array<std::complex<double>, NumQuantities * NumQuantities> planeWaveOperator{};
     seissol::model::getPlaneWaveOperator<Cfg>(
         *dynamic_cast<MaterialT*>(materialData.local), kVec_.data(), planeWaveOperator.data());
+    operatorMatrix.assign(planeWaveOperator.begin(), planeWaveOperator.end());
     seissol::eigenvalues::Eigenpair<std::complex<double>, NumQuantities> eigendecomposition;
-    seissol::eigenvalues::computeEigenvalues<model::EigenvalueBackend<MaterialT>>(
-        planeWaveOperator, eigendecomposition);
+    seissol::eigenvalues::computeEigenvalues(planeWaveOperator, eigendecomposition);
     numQuantities_ = NumQuantities;
     lambdaA_.assign(eigendecomposition.values.begin(), eigendecomposition.values.end());
     eigenvectors_.assign(eigendecomposition.vectors.begin(), eigendecomposition.vectors.end());
   });
-  canonicalizeEigenvectors(lambdaA_, eigenvectors_);
+  canonicalizeEigenvectors(operatorMatrix, lambdaA_, eigenvectors_);
 }
 
 template <typename RealT>
@@ -384,10 +413,10 @@ void seissol::physics::TravellingWave::evaluateIn(
     const auto omega = lambdaA_[varField_[v]];
     for (unsigned j = 0; j < dofsQp.shape(1); ++j) {
       for (size_t i = 0; i < count; ++i) {
-        auto arg = std::complex<double>(0.0, 1.0) *
-                   (omega * time - kVec_[0] * (points[i][0] - origin_[0]) -
-                    kVec_[1] * (points[i][1] - origin_[1]) -
-                    kVec_[2] * (points[i][2] - origin_[2]) + phase_);
+        const auto arg = std::complex<double>(0.0, 1.0) *
+                         (omega * time - kVec_[0] * (points[i][0] - origin_[0]) -
+                          kVec_[1] * (points[i][1] - origin_[1]) -
+                          kVec_[2] * (points[i][2] - origin_[2]) + phase_);
         if (arg.imag() > -0.5 * M_PI && arg.imag() < 1.5 * M_PI) {
           dofsQp(i, j) += (r(j, varField_[v]) * ampField_[v] * std::exp(arg)).real();
         }
@@ -397,8 +426,8 @@ void seissol::physics::TravellingWave::evaluateIn(
 }
 
 seissol::physics::PressureInjection::PressureInjection(
-    const seissol::initializer::parameters::InitializationParameters& initializationParameters)
-    : parameters_(initializationParameters) {
+    seissol::initializer::parameters::InitializationParameters initializationParameters)
+    : parameters_(std::move(initializationParameters)) {
   const auto o1 = parameters_.origin[0];
   const auto o2 = parameters_.origin[1];
   const auto o3 = parameters_.origin[2];

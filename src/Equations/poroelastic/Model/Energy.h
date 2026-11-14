@@ -152,7 +152,7 @@ struct EnergyCompute<PoroElasticMaterial> {
     const auto lambda = material.getLambdaBar();
     const auto mu = material.getMuBar();
     const auto factor = -lambda / (2.0 * mu * (3.0 * lambda + 2.0 * mu));
-    auto computeStressStrain = [&](int i, int j) {
+    const auto computeStressStrain = [&](int i, int j) {
       double stressstrain = 0.0;
       if (i == j) {
         stressstrain += factor * (getStressPair(i, j, 0, 0) + getStressPair(i, j, 1, 1) +

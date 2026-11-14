@@ -45,7 +45,7 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
     other.convergenceOrder += 10;
     CHECK_FALSE(findConfig(other).has_value());
     CHECK_FALSE(findConfig(configName(other)).has_value());
-    CHECK_FALSE(findConfig(std::string("not-a-configuration")).has_value());
+    CHECK_FALSE(findConfig("not-a-configuration").has_value());
   }
 
   SUBCASE("The layout matches the generated code") {
@@ -55,6 +55,7 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
       const auto& layout = configLayout(configIdOf<Cfg>());
       const auto order = Cfg::ConvergenceOrder;
       CHECK(layout.config == Cfg::Value);
+      CHECK(layout.solver == Cfg::Solver);
       CHECK(layout.numQuantities == model::MaterialOf<Cfg>::NumQuantities);
       CHECK(layout.velocityOffset == model::MaterialOf<Cfg>::VelocityOffset);
       CHECK(layout.numBasisFunctions == order * (order + 1) * (order + 2) / 6);
@@ -93,11 +94,24 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
     }
   }
 
-  SUBCASE("Every built configuration is described") {
+  SUBCASE("Every built configuration is described, and what they share") {
     const auto description = describeBuiltConfigs();
     for (std::size_t other = 0; other < builtConfigCount(); ++other) {
       CHECK(description.find(configName(configValue(static_cast<ConfigId>(other)))) !=
             std::string::npos);
+    }
+    CHECK(description.find(std::string(drQuadRuleName(builtDRQuadRule()))) != std::string::npos);
+  }
+
+  SUBCASE("Configurations of one material share their solver") {
+    for (std::size_t first = 0; first < builtConfigCount(); ++first) {
+      for (std::size_t second = 0; second < builtConfigCount(); ++second) {
+        const auto& lhs = configLayout(static_cast<ConfigId>(first));
+        const auto& rhs = configLayout(static_cast<ConfigId>(second));
+        if (lhs.config.materialType == rhs.config.materialType) {
+          CHECK(lhs.solver == rhs.solver);
+        }
+      }
     }
   }
 }

@@ -274,7 +274,7 @@ RungeKuttaODESolver<RealT>::RungeKuttaODESolver(const std::vector<std::size_t>& 
     }
   }
 
-  const auto allocateStorage = [&]() {
+  const auto allocateStorage = [&] {
     auto curStoragePtrs = std::vector<RealT*>();
     curStoragePtrs.reserve(storageSizes.size());
     for (const auto storageSize : storageSizes) {

@@ -22,14 +22,17 @@ namespace seissol::dr::friction_law::gpu {
 template <typename Cfg, typename Derived>
 class LinearSlipWeakeningBase
     : public BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>> {
+  private:
+  // only the CRTP subclass `Derived` constructs this base
+  explicit LinearSlipWeakeningBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>>(drParameters) {}
+  friend Derived;
+
   public:
   using real = Real<Cfg>;
 
   // the slip rate of a sub-step is the one the friction solve finds at its time point
   static constexpr bool SlipRateAtIntervalEnds = false;
-
-  explicit LinearSlipWeakeningBase(const FrictionLawParameters<Real<Cfg>>& drParameters)
-      : BaseFrictionSolver<Cfg, LinearSlipWeakeningBase<Cfg, Derived>>(drParameters) {};
 
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
@@ -55,9 +58,9 @@ class LinearSlipWeakeningBase
                                                      uint32_t timeIndex) {
     const auto deltaT{ctx.args->deltaT[timeIndex]};
 
-    auto& faultStresses = ctx.faultStresses;
+    const auto& faultStresses = ctx.faultStresses;
     auto& tractionResults = ctx.tractionResults;
-    auto& strength = ctx.strengthBuffer;
+    const auto& strength = ctx.strengthBuffer;
 
     // calculate absolute value of stress in Y and Z direction
     const real totalStress1 = ctx.initialStress.traction1 + faultStresses.traction1;
@@ -81,13 +84,15 @@ class LinearSlipWeakeningBase
     real slipRateMagnitude{};
 
     if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
-      const auto solution = common::solveSlipRate<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
-                                                       ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                       totalStress1,
-                                                       totalStress2,
-                                                       absoluteShearStress,
-                                                       strength,
-                                                       ctx.strengthSlopeBuffer);
+      common::SlipRateSolution<Cfg> solution{};
+      common::solveSlipRate<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                 ctx.data->impedanceMatrices[ctx.ltsFace],
+                                 totalStress1,
+                                 totalStress2,
+                                 absoluteShearStress,
+                                 strength,
+                                 ctx.strengthSlopeBuffer,
+                                 solution);
       slipRateMagnitude = solution.slipRate;
       etaEff = solution.etaEff;
 
@@ -251,7 +256,7 @@ class LinearSlipWeakeningLaw
     const auto t0{ctx.data->drParameters.forcedRuptureRiseTime};
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
 
-    real tn = ctx.args->fullUpdateTime;
+    real tn = ctx.fullUpdateTime;
     for (uint32_t i = 0; i <= timeIndex; ++i) {
       tn += ctx.args->deltaT[i];
     }

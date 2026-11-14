@@ -13,6 +13,8 @@
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Monitoring/Trace.h"
+#include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
 
@@ -33,18 +35,20 @@ PointSourceClusterOnHost<Cfg>::PointSourceClusterOnHost(
 
 template <typename Cfg>
 void PointSourceClusterOnHost<Cfg>::addTimeIntegratedPointSources(
-    double from, double to, seissol::parallel::runtime::StreamRuntime& /*runtime*/) {
+    double from, double timeStepSize, seissol::parallel::runtime::StreamRuntime& /*runtime*/) {
+  const double to = from + timeStepSize;
   auto& mapping = clusterMapping_->cellToSources;
   if (mapping.size() > 0) {
 
-#pragma omp parallel for schedule(static)
-    for (std::size_t m = 0; m < mapping.size(); ++m) {
+    static const auto TraceName = monitoring::Trace::name("point sources");
+    const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
+    parallel::runtime::HostRuntime::forEach(mapping.size(), [&](std::size_t m) {
       const auto startSource = mapping[m].pointSourcesOffset;
       const auto endSource = mapping[m].pointSourcesOffset + mapping[m].numberOfPointSources;
       for (auto source = startSource; source < endSource; ++source) {
         addTimeIntegratedPointSource(source, from, to, static_cast<real*>(mapping[m].dofs));
       }
-    }
+    });
   }
 }
 

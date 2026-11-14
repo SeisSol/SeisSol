@@ -6,17 +6,14 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "ConfigBoundaryCheck.h"
 
-#include "Common/ConfigDispatch.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Constants.h"
-#include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/ConfigBoundary.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
-#include "Model/Common.h"
 #include "Parallel/MPI.h"
 
 #include <cstddef>
@@ -67,17 +64,6 @@ std::vector<std::uint32_t> collectConfigBoundaries(LTS::Storage& storage) {
   return boundaries;
 }
 
-/// Whether the cells of the configurations `first` and `second` can be face neighbors by their
-/// materials.
-bool materialsCanNeighbor(ConfigId first, ConfigId second) {
-  return dispatchConfig(first, [&](auto firstCfg) {
-    return dispatchConfig(second, [&](auto secondCfg) {
-      return model::CanNeighbor<model::MaterialOf<decltype(firstCfg)>,
-                                model::MaterialOf<decltype(secondCfg)>>;
-    });
-  });
-}
-
 } // namespace
 
 void checkConfigBoundaries(LTS::Storage& storage) {
@@ -97,12 +83,7 @@ void checkConfigBoundaries(LTS::Storage& storage) {
       const auto& firstValue = configValue(first);
       const auto& secondValue = configValue(second);
       const auto pair = "between " + configName(firstValue) + " and " + configName(secondValue);
-      const bool canNeighbor = materialsCanNeighbor(first, second);
-      if (!canNeighbor) {
-        ++problemCount;
-        problems << "\n  faces " << pair
-                 << ": the materials pose the Riemann problem at their faces differently";
-      }
+      // the cells of any two materials can be face neighbors (see model::coupledGodunov)
       const bool sameSimulations = firstValue.numSimulations == secondValue.numSimulations;
       if (!sameSimulations) {
         ++problemCount;
@@ -112,7 +93,7 @@ void checkConfigBoundaries(LTS::Storage& storage) {
         ++problemCount;
         problems << "\n  dynamic rupture faces " << pair << ": not supported";
       }
-      if (isDeviceOn() && canNeighbor && sameSimulations &&
+      if (isDeviceOn() && sameSimulations &&
           !(kernels::deviceConvertible(first, second) &&
             kernels::deviceConvertible(second, first))) {
         ++problemCount;

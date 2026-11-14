@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Common/Environment.h"
 #include "Common/Filesystem.h"
 #include "IO/Instance/Point/Csv.h"
 #include "Monitoring/RunSummary.h"
@@ -44,39 +45,37 @@ TEST_CASE("Run summary timestamps" * doctest::test_suite("monitoring")) {
   CHECK(std::regex_match(monitoring::utcTimestamp(), iso8601));
 }
 
-// NOLINTBEGIN(concurrency-mt-unsafe)
 TEST_CASE("Run summary environment" * doctest::test_suite("monitoring")) {
-  setenv("SEISSOL_SUMMARY_TEST_VARIABLE", "value", 1);
-  setenv("OMPI_MCA_orte_summary_test", "internal", 1);
-  setenv("UNRELATED_SUMMARY_TEST_VARIABLE", "value", 1);
+  setEnvironmentVariable("SEISSOL_SUMMARY_TEST_VARIABLE", "value");
+  setEnvironmentVariable("OMPI_MCA_orte_summary_test", "internal");
+  setEnvironmentVariable("UNRELATED_SUMMARY_TEST_VARIABLE", "value");
   const auto environment = monitoring::relevantEnvironment();
   REQUIRE(environment.find("SEISSOL_SUMMARY_TEST_VARIABLE") != nullptr);
   CHECK(environment.find("SEISSOL_SUMMARY_TEST_VARIABLE")->asString() == "value");
   CHECK(environment.find("OMPI_MCA_orte_summary_test") == nullptr);
   CHECK(environment.find("UNRELATED_SUMMARY_TEST_VARIABLE") == nullptr);
-  unsetenv("SEISSOL_SUMMARY_TEST_VARIABLE");
-  unsetenv("OMPI_MCA_orte_summary_test");
-  unsetenv("UNRELATED_SUMMARY_TEST_VARIABLE");
+  unsetEnvironmentVariable("SEISSOL_SUMMARY_TEST_VARIABLE");
+  unsetEnvironmentVariable("OMPI_MCA_orte_summary_test");
+  unsetEnvironmentVariable("UNRELATED_SUMMARY_TEST_VARIABLE");
 }
-// NOLINTEND(concurrency-mt-unsafe)
 
 TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
   const std::string prefix = "runsummary-test";
   const std::string runId = "123e4567-e89b-42d3-a456-426614174000";
   const auto summaryPath = prefix + "-summary.json";
   const auto epochPath = prefix + "-epochs.csv";
-  seissol::filesystem::remove(summaryPath);
-  seissol::filesystem::remove(epochPath);
+  std::filesystem::remove(summaryPath);
+  std::filesystem::remove(epochPath);
 
   monitoring::RunSummary summary;
   summary["invocation"]["parameterFile"] = "parameters.par";
   CHECK_FALSE(summary.started());
   // nothing is written before the start
   summary.setStage("init.mesh");
-  CHECK_FALSE(seissol::filesystem::exists(summaryPath));
+  CHECK_FALSE(std::filesystem::exists(summaryPath));
 
   summary.start(prefix, runId);
-  REQUIRE(seissol::filesystem::exists(summaryPath));
+  REQUIRE(std::filesystem::exists(summaryPath));
   {
     const auto text = readFile(summaryPath);
     // the header comes first, what was there before after it
@@ -114,16 +113,16 @@ TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
   CHECK(std::stod(table.rows[0][table.column("wallMax")]) == 3.0);
   CHECK(table.rows[0][table.column("runId")] == runId);
 
-  seissol::filesystem::remove(summaryPath);
-  seissol::filesystem::remove(epochPath);
+  std::filesystem::remove(summaryPath);
+  std::filesystem::remove(epochPath);
 }
 
 TEST_CASE("Run summary rank table" * doctest::test_suite("monitoring")) {
   const std::string prefix = "runsummary-ranks-test";
   const std::string runId = "123e4567-e89b-42d3-a456-426614174000";
   const auto rankPath = prefix + "-ranks.csv";
-  seissol::filesystem::remove(prefix + "-summary.json");
-  seissol::filesystem::remove(rankPath);
+  std::filesystem::remove(prefix + "-summary.json");
+  std::filesystem::remove(rankPath);
 
   monitoring::RunSummary summary;
   summary.start(prefix, runId);
@@ -148,8 +147,8 @@ TEST_CASE("Run summary rank table" * doctest::test_suite("monitoring")) {
   CHECK(std::stod(table.rows[0][table.column("cellUpdates")]) == 2.0);
   CHECK(table.rows[0][table.column("runId")] == runId);
 
-  seissol::filesystem::remove(prefix + "-summary.json");
-  seissol::filesystem::remove(rankPath);
+  std::filesystem::remove(prefix + "-summary.json");
+  std::filesystem::remove(rankPath);
 }
 
 } // namespace seissol::unit_test

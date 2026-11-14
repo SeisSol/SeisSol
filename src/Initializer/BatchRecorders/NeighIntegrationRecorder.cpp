@@ -9,7 +9,10 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Common/Constants.h"
+#include "Common/Real.h"
+#include "Common/Typedefs.h"
 #include "Config.h"
+#include "GeneratedCode/configboundary.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
@@ -19,6 +22,7 @@
 #include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
+#include "Model/Common.h"
 #include "Recorders.h"
 
 #include <algorithm>
@@ -31,8 +35,6 @@
 #include <utils/logger.h>
 #include <vector>
 #include <yateto.h>
-
-// NOLINTBEGIN (-misc-const-correctness)
 
 using namespace seissol::initializer;
 using namespace seissol::recording;
@@ -144,7 +146,7 @@ void* NeighIntegrationRecorder<Cfg>::allocateConfigBoundaryScratch(std::size_t b
 template <typename Cfg>
 void NeighIntegrationRecorder<Cfg>::recordConfigBoundaryFace(std::size_t cell, std::size_t face) {
   const auto& cellInformation = currentLayer_->var<LTS::CellInformation>()[cell];
-  const void* neighborBuffer = currentLayer_->var<LTS::FaceNeighborsDevice>()[cell][face];
+  void* neighborBuffer = currentLayer_->var<LTS::FaceNeighborsDevice>()[cell][face];
   const auto neighborConfig = cellInformation.neighborConfigIds[face];
   const auto side = static_cast<std::size_t>(cellInformation.faceRelations[face][0]);
 
@@ -156,13 +158,13 @@ void NeighIntegrationRecorder<Cfg>::recordConfigBoundaryFace(std::size_t cell, s
       auto found = canonicalRegistry_.find(neighborBuffer);
       if (found == canonicalRegistry_.end()) {
         auto& batches = configBoundaryBatches_.at(neighborConfig);
-        void* integral = const_cast<void*>(neighborBuffer);
+        void* integral = neighborBuffer;
         if (cellInformation.ltsSetup.neighborBuffer(face) == BufferType::Derivatives) {
           // the time integral of the neighbor in its configuration first
           const auto relation = cellInformation.ltsSetup.neighborGTSRelation(face) ? 0 : 1;
           integral = allocateConfigBoundaryScratch(kernels::SolverOf<NeighborCfg>::IntegralsSize *
                                                    sizeof(Real<NeighborCfg>));
-          batches.derivatives[relation].push_back(const_cast<void*>(neighborBuffer));
+          batches.derivatives[relation].push_back(neighborBuffer);
           batches.integrals[relation].push_back(integral);
         }
         auto* canonical = static_cast<double*>(allocateConfigBoundaryScratch(
@@ -181,13 +183,12 @@ void NeighIntegrationRecorder<Cfg>::recordConfigBoundaryFace(std::size_t cell, s
           fromCanonical_.at(side).push_back(found->second);
           converted_.at(side).push_back(converted);
         } else {
-          fromCoupledCanonical_.at(side).push_back(found->second);
-          coupledConverted_.at(side).push_back(converted);
-          if constexpr (generated::ConfigBoundaryKernels<Cfg>::NormalStress) {
-            auto& normalStress =
-                currentLayer_->var<LTS::NormalStress>(Cfg(), AllocationPlace::Device)[cell];
-            normalStress_.at(side).push_back(normalStress.weights[face]);
-          }
+          constexpr auto Family = kernels::FamilyOf<NeighborCfg>;
+          fromCoupledCanonical_.at(Family).at(side).push_back(found->second);
+          coupledConverted_.at(Family).at(side).push_back(converted);
+          auto* coupling = currentLayer_->var<LTS::CouplingDevice>(Cfg())[cell][face];
+          assert(coupling != nullptr);
+          coupling_.at(Family).at(side).push_back(coupling);
         }
         convertedRegistry_.emplace(key, converted);
       }
@@ -244,13 +245,14 @@ void NeighIntegrationRecorder<Cfg>::recordConfigBoundaryBatches() {
       (*currentTable_)[key].set(inner_keys::Wp::Id::CanonicalIdofs, fromCanonical_[side]);
       (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, converted_[side]);
     }
-    if (!coupledConverted_[side].empty()) {
-      const auto key = kernels::configboundary::fromCoupledCanonicalKey(side);
-      checkKey(key);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::CanonicalIdofs, fromCoupledCanonical_[side]);
-      (*currentTable_)[key].set(inner_keys::Wp::Id::Idofs, coupledConverted_[side]);
-      if (!normalStress_[side].empty()) {
-        (*currentTable_)[key].set(inner_keys::Wp::Id::NormalStress, normalStress_[side]);
+    for (std::size_t family = 0; family < model::FamilyCount; ++family) {
+      if (!coupledConverted_[family][side].empty()) {
+        const auto key = kernels::configboundary::fromCoupledCanonicalKey(family, side);
+        checkKey(key);
+        auto& entry = (*currentTable_)[key];
+        entry.set(inner_keys::Wp::Id::CanonicalIdofs, fromCoupledCanonical_[family][side]);
+        entry.set(inner_keys::Wp::Id::Idofs, coupledConverted_[family][side]);
+        entry.set(inner_keys::Wp::Id::Coupling, coupling_[family][side]);
       }
     }
   }
@@ -268,12 +270,15 @@ void NeighIntegrationRecorder<Cfg>::recordNeighborFluxIntegrals() {
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drGodunov {};
   std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drFluxSolver {};
 
-  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
-  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
-
   const auto* drMappingDevice = currentLayer_->var<LTS::DRMappingDevice>(Cfg());
 
+  // only the configurations of the anelastic solver fill these; in the others,
+  // misc-const-correctness takes them for const
+  // NOLINTBEGIN(misc-const-correctness)
+  std::array<std::vector<real*>[*FaceRelations::Count], *FaceId::Count> regularDofsExt {};
+  std::array<std::vector<real*>[*DrFaceRelations::Count], *FaceId::Count> drDofsExt {};
   auto* dofsExt = currentLayer_->var<LTS::DofsExtScratch>(Cfg(), AllocationPlace::Device);
+  // NOLINTEND(misc-const-correctness)
 
   const auto size = currentLayer_->size();
   for (std::size_t cell = 0; cell < size; ++cell) {
@@ -394,5 +399,3 @@ void NeighIntegrationRecorder<Cfg>::recordNeighborFluxIntegrals() {
 #define SEISSOL_INSTANTIATE(Cfg) template class seissol::recording::NeighIntegrationRecorder<Cfg>;
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE
-
-// NOLINTEND (-misc-const-correctness)

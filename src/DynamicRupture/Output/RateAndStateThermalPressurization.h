@@ -19,8 +19,7 @@ class RateAndStateThermalPressurization
   public:
   template <typename Cfg>
   Real<Cfg> computeFluidPressure(LocalInfo<Cfg>& local) {
-    const auto* const pressure = getCellData<LTSThermalPressurization::Pressure>(local);
-    return pressure[local.gpIndex];
+    return stateAt<LTSThermalPressurization::Pressure>(local, local.gpIndex);
   }
 
   template <typename Cfg>
@@ -30,11 +29,10 @@ class RateAndStateThermalPressurization
                        size_t receiverIdx) {
     auto& tpVariables = std::get<VariableID::ThermalPressurizationVariables>(outputData->vars);
     if (tpVariables.isActive) {
-      const auto* const temperature = getCellData<LTSThermalPressurization::Temperature>(local);
-      tpVariables(TPID::Temperature, cacheLevel, receiverIdx) = temperature[local.gpIndex];
-
-      const auto* const pressure = getCellData<LTSThermalPressurization::Pressure>(local);
-      tpVariables(TPID::Pressure, cacheLevel, receiverIdx) = pressure[local.gpIndex];
+      tpVariables(TPID::Temperature, cacheLevel, receiverIdx) =
+          stateAt<LTSThermalPressurization::Temperature>(local, local.gpIndex);
+      tpVariables(TPID::Pressure, cacheLevel, receiverIdx) =
+          stateAt<LTSThermalPressurization::Pressure>(local, local.gpIndex);
     }
   }
 

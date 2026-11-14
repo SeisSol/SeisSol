@@ -33,6 +33,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdlib>
 #include <memory>
 
 namespace seissol::proxy {
@@ -58,8 +59,13 @@ void runAder(ProxyDataImpl<Cfg>& data) {
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef<Cfg>(cell);
-      data.spacetimeKernel.computeAder(
-          integrationCoeffs.data(), Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(integrationCoeffs.data(),
+                                       Timestep,
+                                       local,
+                                       tmp,
+                                       stepIntegrals[cell],
+                                       derivatives[cell],
+                                       /*updateDisplacement=*/false);
     }
     LIKWID_MARKER_STOP("ader");
   }
@@ -133,8 +139,13 @@ void runLocal(ProxyDataImpl<Cfg>& data) {
 #pragma omp for schedule(static)
     for (std::size_t cell = 0; cell < nrOfCells; cell++) {
       auto local = layer.cellRef<Cfg>(cell);
-      data.spacetimeKernel.computeAder(
-          integrationCoeffs.data(), Timestep, local, tmp, stepIntegrals[cell], derivatives[cell]);
+      data.spacetimeKernel.computeAder(integrationCoeffs.data(),
+                                       Timestep,
+                                       local,
+                                       tmp,
+                                       stepIntegrals[cell],
+                                       derivatives[cell],
+                                       /*updateDisplacement=*/false);
       data.localKernel.computeIntegral(stepIntegrals[cell], local, tmp, 0, 0);
     }
     LIKWID_MARKER_STOP("local");
@@ -243,7 +254,7 @@ void runGodunovDR(ProxyDataImpl<Cfg>& data) {
   alignas(Alignment)
       real qInterpolatedMinus[Cfg::ConvergenceOrder][tensor::QInterpolated<Cfg>::size()];
   const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
+      seissol::quadrature::shiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
   const auto coeffsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, Timestep);
 
 #pragma omp parallel for schedule(static) private(qInterpolatedPlus, qInterpolatedMinus)
@@ -341,7 +352,7 @@ std::shared_ptr<ProxyKernel> getProxyKernelHost(Kernel kernel) {
   case Kernel::GodunovDR:
     return std::make_shared<ProxyKernelHostGodunovDR>();
   }
-  throw;
+  std::abort();
 }
 
 } // namespace seissol::proxy

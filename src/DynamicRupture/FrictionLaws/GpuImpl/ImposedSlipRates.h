@@ -10,6 +10,7 @@
 
 #include "BaseFrictionSolver.h"
 #include "Common/Real.h"
+#include "DynamicRupture/Misc.h"
 
 namespace seissol::dr::friction_law::gpu {
 /**
@@ -23,7 +24,8 @@ class ImposedSlipRates : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, ST
   // the slip rate of a sub-step is the one prescribed at the end of its interval
   static constexpr bool SlipRateAtIntervalEnds = true;
 
-  using BaseFrictionSolver<Cfg, ImposedSlipRates>::BaseFrictionSolver;
+  explicit ImposedSlipRates(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : BaseFrictionSolver<Cfg, ImposedSlipRates>(drParameters) {}
 
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
@@ -38,7 +40,7 @@ class ImposedSlipRates : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, ST
   SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& __restrict ctx,
                                                    uint32_t timeIndex) {
     const real timeIncrement = ctx.args->deltaT[timeIndex];
-    real currentTime = ctx.args->fullUpdateTime;
+    real currentTime = ctx.fullUpdateTime;
     for (uint32_t i = 0; i <= timeIndex; i++) {
       currentTime += ctx.args->deltaT[i];
     }

@@ -32,17 +32,18 @@ using namespace seissol::io::writer;
 
 //! The in-file path an instruction writes to, plus its dataset name.
 inline std::string target(const std::shared_ptr<instructions::WriteInstruction>& instruction) {
-  if (auto* data = dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get()); data != nullptr) {
+  if (const auto* data = dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get());
+      data != nullptr) {
     return data->location.infilePath() + "/" + data->name;
   }
-  if (auto* attribute = dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get());
+  if (const auto* attribute = dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get());
       attribute != nullptr) {
     return attribute->location.infilePath() + "@" + attribute->name;
   }
   return {};
 }
 
-inline std::vector<std::string> targets(writer::Writer& writer) {
+inline std::vector<std::string> targets(const writer::Writer& writer) {
   std::vector<std::string> result;
   for (const auto& instruction : writer.getInstructions()) {
     result.push_back(target(instruction));
@@ -51,13 +52,13 @@ inline std::vector<std::string> targets(writer::Writer& writer) {
 }
 
 inline bool contains(const std::vector<std::string>& haystack, const std::string& needle) {
-  return std::find(haystack.begin(), haystack.end(), needle) != haystack.end();
+  return std::ranges::find(haystack, needle) != haystack.end();
 }
 
 //! The value of an inline int64 dataset, so that the announced global counts can be checked.
-inline std::int64_t inlineValue(writer::Writer& writer, const std::string& path) {
+inline std::int64_t inlineValue(const writer::Writer& writer, const std::string& path) {
   for (const auto& instruction : writer.getInstructions()) {
-    auto* data = dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get());
+    const auto* data = dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get());
     if (data == nullptr || target(instruction) != path) {
       continue;
     }
@@ -161,7 +162,7 @@ TEST_CASE("IO/Instruction: the VTKHDF plan has the mandatory datasets" *
   vtk.addCellData<std::int32_t>(
       "partition", {}, true, [](std::int32_t* target, std::size_t /*index*/) { target[0] = 0; });
 
-  auto plan = vtk.makeWriter()("prefix", 0, 0.0);
+  const auto plan = vtk.makeWriter()("prefix", 0, 0.0);
   const auto paths = targets(plan);
 
   // https://docs.vtk.org/en/latest/design_documents/VTKFileFormats.html#vtkhdf-file-format
@@ -195,7 +196,7 @@ TEST_CASE("IO/Instruction: the time series adds the step bookkeeping" * doctest:
   vtk.addCellData<double>(
       "v1", {}, false, [](double* target, std::size_t index) { target[0] = index; });
 
-  auto plan = vtk.makeWriter()("prefix", 0, 0.5);
+  const auto plan = vtk.makeWriter()("prefix", 0, 0.5);
   const auto paths = targets(plan);
 
   // the step bookkeeping lives in its own group, per the VTKHDF specification
@@ -222,7 +223,7 @@ TEST_CASE("IO/Instruction: the time series adds the step bookkeeping" * doctest:
   };
 
   for (const auto& instruction : plan.getInstructions()) {
-    auto* data = dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get());
+    const auto* data = dynamic_cast<instructions::Hdf5DataWrite*>(instruction.get());
     if (data == nullptr) {
       continue;
     }

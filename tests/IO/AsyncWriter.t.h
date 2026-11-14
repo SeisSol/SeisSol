@@ -15,6 +15,7 @@
 #include "IO/Writer/Writer.h"
 #include "WriterHarness.t.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -36,7 +37,7 @@ inline std::pair<Writer, std::vector<std::int64_t>>
     expected[i] = base + static_cast<std::int64_t>(i);
   }
 
-  auto source = GeneratedBuffer::createElementwise<std::int64_t>(
+  const auto source = GeneratedBuffer::createElementwise<std::int64_t>(
       expected.size(), 1, {}, [base](std::int64_t* target, std::size_t index) {
         target[0] = base + static_cast<std::int64_t>(index);
       });
@@ -87,7 +88,7 @@ TEST_CASE("IO/AsyncWriter: the plan and its buffers travel through ExecInfo" *
 
   const auto plan = writer.serialize();
   info.resizeBuffer(planId, plan.size());
-  std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+  std::ranges::copy(plan, info.bufferData(planId).begin());
 
   // the id has to survive into the serialized plan, otherwise the executor cannot find the data
   CHECK(plan.find("id: " + std::to_string(dataId)) != std::string::npos);
@@ -133,7 +134,7 @@ TEST_CASE("IO/AsyncWriter: one executor runs several plans" * doctest::test_suit
 
     const auto plan = writer.serialize();
     info.resizeBuffer(planId, plan.size());
-    std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+    std::ranges::copy(plan, info.bufferData(planId).begin());
 
     executor.execInit(info, module::AsyncWriterInit{});
     executor.exec(info, module::AsyncWriterExec{});
@@ -184,7 +185,7 @@ TEST_CASE("IO/AsyncWriter: a file every write appends to holds every step once c
     const auto planId = info.addBuffer(0);
     const auto plan = writer.serialize();
     info.resizeBuffer(planId, plan.size());
-    std::copy(plan.begin(), plan.end(), info.bufferData(planId).begin());
+    std::ranges::copy(plan, info.bufferData(planId).begin());
 
     executor.execInit(info, module::AsyncWriterInit{});
     executor.exec(info, module::AsyncWriterExec{});
@@ -193,7 +194,7 @@ TEST_CASE("IO/AsyncWriter: a file every write appends to holds every step once c
 
   // what WriterModule asks for when the simulation ends
   const io::LocalExecInfo info;
-  executor.exec(info, module::AsyncWriterExec{false, 0, true});
+  executor.exec(info, module::AsyncWriterExec{.resumed = false, .ticket = 0, .close = true});
 
   reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
   hdf5.openFile(file);

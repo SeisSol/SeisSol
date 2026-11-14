@@ -54,8 +54,11 @@ std::vector<std::unique_ptr<physics::InitialField>>
 
   return physics::scenario::build(
       type,
-      physics::scenario::Input{
-          parameters, materialData, seissolInstance.gravitationSetup(), config, simulation});
+      physics::scenario::Input{.parameters = parameters,
+                               .materialData = materialData,
+                               .gravitation = seissolInstance.gravitationSetup(),
+                               .config = config,
+                               .simulation = simulation});
 }
 
 /// The initial conditions of the cells of the configuration `config`, set up with the material of
@@ -115,7 +118,7 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
     // decides, and configurations can average the material of a cell differently (e.g. with the
     // quadrature of another order).
     auto& storage = memoryManager.ltsStorage();
-    auto& backmap = memoryManager.backmap();
+    const auto& backmap = memoryManager.backmap();
     const auto cellCount = seissolInstance.meshReader().getElements().size();
     std::vector<std::optional<std::size_t>> firstCell(builtConfigCount());
     for (std::size_t cell = 0; cell < cellCount; ++cell) {

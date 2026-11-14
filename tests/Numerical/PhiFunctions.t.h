@@ -210,6 +210,8 @@ constexpr double ReferenceArguments[MaxOrder + 1][SampleCount] = {
     },
 };
 
+// reference values as computed, all in one representation; some equal e up to rounding
+// NOLINTBEGIN(modernize-use-std-numbers)
 constexpr double ReferenceValues[MaxOrder + 1][SampleCount] = {
     // order 0
     {
@@ -392,6 +394,7 @@ constexpr double ReferenceValues[MaxOrder + 1][SampleCount] = {
         0x1.2d7c410ee8030p-18,
     },
 };
+// NOLINTEND(modernize-use-std-numbers)
 
 /// Deviation from the reference, relative, in units of the epsilon of the tested type.
 template <typename T>

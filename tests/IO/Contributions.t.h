@@ -46,7 +46,7 @@ inline std::vector<double> writeContributions(const std::vector<double>& data,
   const auto file = dir.prefix() + ".h5";
 
   // the plan, as it reaches the executor: the data lives in buffer 0
-  auto source = std::make_shared<WriteBuffer>(
+  const auto source = std::make_shared<WriteBuffer>(
       data.data(), data.size(), datatype::inferDatatype<double>(), dimensions);
   source->assignId(0);
   Writer writer;

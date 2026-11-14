@@ -83,7 +83,7 @@ TEST_CASE_TEMPLATE("getNumberOfAlignedBasisFunctions" * doctest::test_suite("ker
 
   SUBCASE("Alignment property holds") {
     for (unsigned order = 1; order <= 8; ++order) {
-      auto aligned = getNumberOfAlignedBasisFunctions<RealT>(order, Vectorsize);
+      const auto aligned = getNumberOfAlignedBasisFunctions<RealT>(order, Vectorsize);
       CHECK((aligned * sizeof(RealT)) % Vectorsize == 0);
     }
   }

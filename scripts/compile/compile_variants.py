@@ -9,7 +9,7 @@ A variant is either a build of one configuration, which ``equations``,
 (``configs``, which CMake takes as ``CONFIGS``: names of configurations or of
 named sets of them, e.g. ``ci-cpu``). A build of one configuration encodes it
 in the name of its executable
-(``seissol-<eq>[-<mech>]-o<order>-f{32,64}[-s<multisim>][-<suffix>]``); one of
+(``seissol-<eq>[-m<mech>]-o<order>-f{32,64}[-s<multisim>][-<suffix>]``); one of
 several is ``seissol[-<suffix>]``, and a run chooses its configuration with
 ``SEISSOL_CONFIGURATION``. The executables are meant to be installed side by
 side.  This tool is a *thin orchestrator*: it
@@ -358,7 +358,7 @@ class Variant:
         suffix = base
         mech = int(s.get("mechanisms", 0) or 0)
         if mech > 0:
-            suffix += f"-{mech}"
+            suffix += f"-m{mech}"
         suffix += f"-o{int(s['order'])}"
         suffix += "-f32" if str(s["precision"]) == "single" else "-f64"
         multisim = int(s.get("multisim", 1) or 1)

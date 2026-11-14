@@ -11,6 +11,7 @@
 #include "Kernels/PointSourceCluster.h"
 
 #include <cmath>
+#include <numbers>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -18,7 +19,7 @@ TEST_CASE_TEMPLATE("computeSampleTimeIntegral" * doctest::test_suite("kernel"),
                    RealT,
                    float,
                    double) {
-  constexpr double Pi = 3.14159265358979323846264338327950;
+  constexpr double Pi = std::numbers::pi;
 
   std::size_t sampleSize = 1000;
   double samplingInterval = 1.0 / (sampleSize - 1);

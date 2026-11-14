@@ -141,6 +141,44 @@ def test_unexpected_success_is_rejected():
         smoke.check_termination(0, expect_failure=True)
 
 
+@pytest.mark.parametrize(
+    "summary",
+    [
+        "SUMMARY: AddressSanitizer: heap-buffer-overflow /src/a.cpp:12 in f()",
+        "SUMMARY: AddressSanitizer: 64 byte(s) leaked in 1 allocation(s).",
+        "SUMMARY: LeakSanitizer: 64 byte(s) leaked in 1 allocation(s).",
+        "SUMMARY: UndefinedBehaviorSanitizer: undefined-behavior /src/a.cpp:3:7",
+        "SUMMARY: ThreadSanitizer: data race /src/a.cpp:40 in g()",
+        "SUMMARY: MemorySanitizer: use-of-uninitialized-value /src/a.cpp:9",
+    ],
+)
+def test_sanitizer_report_fails_the_run(summary):
+    output = f"Error while reading the parameter file\n==1==ERROR: ...\n{summary}\n"
+    with pytest.raises(smoke.CheckFailed, match="1 sanitizer report"):
+        smoke.check_no_sanitizer_report(output)
+
+
+def test_output_without_sanitizer_report_passes():
+    smoke.check_no_sanitizer_report(
+        "SUMMARY of the run: 3 steps\nAddressSanitizer is not mentioned as a report\n"
+    )
+
+
+def test_expected_failure_with_sanitizer_report_is_rejected(tmp_path):
+    """A refusal that a sanitizer report precedes is no clean refusal."""
+    script = tmp_path / "refuse.py"
+    script.write_text(
+        "import sys\n"
+        "sys.stderr.write('SUMMARY: AddressSanitizer: heap-use-after-free x.cpp:1\\n')\n"
+        "sys.exit(1)\n"
+    )
+    args = smoke.parse_args(
+        ["run", "--expect-failure", "--", sys.executable, str(script)]
+    )
+    with pytest.raises(smoke.CheckFailed, match="sanitizer report"):
+        smoke.mode_run(args)
+
+
 def test_unknown_cycle_source_is_rejected():
     document = dict(VALID_FIELDS)
     document["cycle-source"] = "rdpmc"

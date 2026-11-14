@@ -38,7 +38,7 @@ struct SolverSelector<SolverType::STP, Cfg> {
 
 /// The solver a configuration advances its cells with.
 template <typename Cfg>
-using SolverOf = typename SolverSelector<Cfg::Solver, Cfg>::Type;
+using SolverOf = SolverSelector<Cfg::Solver, Cfg>::Type;
 
 } // namespace seissol::kernels
 

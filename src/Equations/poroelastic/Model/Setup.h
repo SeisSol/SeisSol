@@ -205,7 +205,7 @@ struct MaterialSetup<PoroElasticMaterial> : public MaterialSetupDefaults<PoroEla
         Matrix<double, PoroElasticMaterial::NumQuantities, PoroElasticMaterial::NumQuantities>;
     using CVector = Eigen::Matrix<std::complex<double>, PoroElasticMaterial::NumQuantities, 1>;
 
-    auto splitEigenDecomposition = [](const PoroElasticMaterial& material) {
+    const auto splitEigenDecomposition = [](const PoroElasticMaterial& material) {
       auto eigenpair = getEigenDecomposition(material, ZeroThreshold);
       return std::pair<CVector, CMatrix>{eigenpair.getValuesAsVector(),
                                          eigenpair.getVectorsAsMatrix()};

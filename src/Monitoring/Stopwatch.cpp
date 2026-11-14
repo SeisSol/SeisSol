@@ -11,7 +11,8 @@
 #include "Unit.h"
 
 #include <string>
-#include <time.h>
+// clock_gettime is POSIX and only declared by the C header
+#include <time.h> // NOLINT(modernize-deprecated-headers)
 #include <utils/logger.h>
 
 namespace seissol {

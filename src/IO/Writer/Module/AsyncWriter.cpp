@@ -41,7 +41,7 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
     // (TODO: make one AsyncWriter only in total)
     std::unique_lock lock(globalLock);
     if (params.ticket != 0) {
-      turn.wait(lock, [&]() { return nextTicket == params.ticket; });
+      turn.wait(lock, [&] { return nextTicket == params.ticket; });
     }
     if (params.close) {
       if (instance_.has_value()) {

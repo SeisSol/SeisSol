@@ -20,32 +20,42 @@
 
 namespace seissol {
 
+/// The quadrature rule of the dynamic rupture faces, the same for all configurations of the
+/// executable (DR_QUAD_RULE).
+inline constexpr DRQuadRuleType DRQuadRule = DRQuadRuleType::@SEISSOL_DR_QUAD_RULE@;
+
 // contains everything that modifies the kernels in a numerical sense
 // (i.e. for which the user might re-build)
-// TODO: make concept once we switch to C++20
+// (the concept ConfigC in Model/Concepts.h describes a configuration; Kernels/BuiltConfigs.cpp
+// checks every configuration of the build against it)
+//
+// The solver follows from the material: the build chooses one per material for all of its
+// configurations (SOLVER), so it is no part of the value of a configuration.
 template <std::size_t OrderP,
           std::size_t MechanismsP,
           model::MaterialType MaterialTypeP,
           RealType PrecisionP,
-          SolverType SolverP,
-          DRQuadRuleType DRQuadRuleP,
-          std::size_t SimulationsP>
+          std::size_t SimulationsP,
+          SolverType SolverP>
 struct ConfigOf {
-    // the configuration as a runtime value; all constants below are taken from it
-    static constexpr ConfigValue Value{
-        OrderP, MechanismsP, MaterialTypeP, PrecisionP, SolverP, DRQuadRuleP, SimulationsP};
+    // the configuration as a runtime value; all constants below but the solver are taken from it
+    static constexpr ConfigValue Value{.convergenceOrder = OrderP,
+                                       .relaxationMechanisms = MechanismsP,
+                                       .materialType = MaterialTypeP,
+                                       .precision = PrecisionP,
+                                       .numSimulations = SimulationsP};
 
     static constexpr std::size_t ConvergenceOrder = Value.convergenceOrder;
     static constexpr std::size_t RelaxationMechanisms = Value.relaxationMechanisms;
     static constexpr model::MaterialType MaterialType = Value.materialType;
     static constexpr RealType Precision = Value.precision;
-    static constexpr SolverType Solver = Value.solver;
-    static constexpr DRQuadRuleType DRQuadRule = Value.drQuadRule;
     static constexpr std::size_t NumSimulations = Value.numSimulations;
+    static constexpr SolverType Solver = SolverP;
 };
 
-// The configurations built into the executable, in the order of their ids; a type each. The first
-// one, Config0, is the one a run takes by default.
+// The configurations built into the executable, in the order of their ids; a type each, named after
+// the configuration (e.g. ConfigViscoelasticM3O6F64 for viscoelastic-m3-o6-f64). The first one is the
+// one a run takes by default.
 @SEISSOL_CONFIG_STRUCTS@
 } // namespace seissol
 

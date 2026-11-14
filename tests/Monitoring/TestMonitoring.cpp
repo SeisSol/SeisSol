@@ -7,9 +7,12 @@
 
 #include <doctest.h>
 
+#include "DeviceTimeline.t.h"
+#include "FailureReport.t.h"
 #include "FlopCounter.t.h"
 #include "LoopStatistics.t.h"
 #include "RunSummary.t.h"
 #include "Statistics.t.h"
 #include "Stopwatch.t.h"
 #include "Unit.t.h"
+#include "Watchdog.t.h"

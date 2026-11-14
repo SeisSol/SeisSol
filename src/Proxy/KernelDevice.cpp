@@ -12,6 +12,7 @@
 #include "Kernel.h"
 #include "Parallel/Runtime/Stream.h"
 
+#include <cstdlib>
 #include <memory>
 
 #ifdef ACL_DEVICE
@@ -42,7 +43,7 @@ void runAder(ProxyDataImpl<Cfg>& data, seissol::parallel::runtime::StreamRuntime
   auto& dataTable = layer.getConditionalTable<inner_keys::Wp>();
 
   const ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
-  auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
+  const auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
 
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 
@@ -60,7 +61,7 @@ void runLocalWOAder(ProxyDataImpl<Cfg>& data, seissol::parallel::runtime::Stream
   auto& indicesTable = layer.getConditionalTable<inner_keys::Indices>();
 
   const ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
-  auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
+  const auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
 
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.localKernel.computeBatchedIntegral(dataTable, indicesTable, Timestep, runtime);
@@ -79,7 +80,7 @@ void runLocal(ProxyDataImpl<Cfg>& data, seissol::parallel::runtime::StreamRuntim
   const auto integrationCoeffs = data.timeBasis.integrate(0, Timestep, Timestep);
 
   const ComputeGraphType graphType{ComputeGraphType::AccumulatedVelocities};
-  auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
+  const auto computeGraphKey = initializer::GraphKey(graphType, Timestep, false);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.spacetimeKernel.computeBatchedAder(
         integrationCoeffs.data(), Timestep, layer, tmp, dataTable, false, runtime);
@@ -100,7 +101,7 @@ void runNeighbor(ProxyDataImpl<Cfg>& data, seissol::parallel::runtime::StreamRun
       data.timeKernel, timeCoeffs.data(), timeCoeffs.data(), dataTable, runtime);
 
   const ComputeGraphType graphType = ComputeGraphType::NeighborIntegral;
-  auto computeGraphKey = initializer::GraphKey(graphType);
+  const auto computeGraphKey = initializer::GraphKey(graphType);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.neighborKernel.computeBatchedNeighborsIntegral(dataTable, runtime);
   });
@@ -113,11 +114,11 @@ void runGodunovDR(ProxyDataImpl<Cfg>& data, seissol::parallel::runtime::StreamRu
   auto& dataTable = layer.getConditionalTable<inner_keys::Dr>();
 
   const auto [timePoints, timeWeights] =
-      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
+      seissol::quadrature::shiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
   const auto coeffsCollocate = seissol::kernels::timeBasis<Cfg>().collocate(timePoints, Timestep);
 
   const ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
-  auto computeGraphKey = initializer::GraphKey(graphType, 0.0);
+  const auto computeGraphKey = initializer::GraphKey(graphType, 0.0);
   runtime.runGraph(computeGraphKey, layer, [&](auto& runtime) {
     data.dynRupKernel.batchedSpaceTimeInterpolation(dataTable, coeffsCollocate.data(), runtime);
   });
@@ -187,6 +188,6 @@ std::shared_ptr<ProxyKernel> getProxyKernelDevice(Kernel kernel) {
   case Kernel::GodunovDR:
     return std::make_shared<ProxyKernelDeviceGodunovDR>();
   }
-  throw;
+  std::abort();
 }
 } // namespace seissol::proxy

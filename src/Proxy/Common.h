@@ -29,6 +29,9 @@ struct ProxyConfig {
   Executor executor;
   //! The configuration the kernels run in.
   ConfigId config{defaultConfig()};
+  //! For how many seconds the kernels run before the timed steps (besides one step in any case): a
+  //! device raises its clocks only under load, within some hundred milliseconds.
+  double warmup{0};
 };
 
 struct ProxyOutput {

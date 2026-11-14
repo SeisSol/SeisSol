@@ -22,9 +22,9 @@
 #include "Parallel/Runtime/Stream.h"
 
 #include <cassert>
+#include <cstdint>
 #include <cstring>
 #include <iterator>
-#include <stdint.h>
 #include <yateto.h>
 #include <yateto/InitTools.h>
 
@@ -33,14 +33,12 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 
 #include <Device/device.h>
+#include <cstddef>
+#include <vector>
 #endif
 
 #ifndef ACL_DEVICE
 #include <utils/logger.h>
-#endif
-
-#ifndef NDEBUG
-#include <cstdint>
 #endif
 
 GENERATE_HAS_MEMBER(I)
@@ -140,14 +138,25 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
 
   // interpolate all timesteps in a single kernel
 
-  runtime.envMany(Cell::NumFaces * dr::misc::NumFaceRelations, [&](void* stream, size_t i) {
+  // only the face relations with faces get a branch, and so a node in a graph
+  std::vector<std::size_t> branches;
+  for (std::size_t i = 0; i < Cell::NumFaces * dr::misc::NumFaceRelations; ++i) {
+    const ConditionalKey key(
+        *KernelNames::DrSpaceMap, i / dr::misc::NumFaceRelations, i % dr::misc::NumFaceRelations);
+    if (table.contains(key)) {
+      branches.push_back(i);
+    }
+  }
+
+  runtime.envMany(branches.size(), [&](void* stream, size_t branch) {
+    const auto i = branches[branch];
     const auto side = i / dr::misc::NumFaceRelations;
     const auto faceRelation = i % dr::misc::NumFaceRelations;
 
     const ConditionalKey minusSideKey(*KernelNames::DrSpaceMap, side, faceRelation);
-    if (table.find(minusSideKey) != table.end()) {
+    if (table.contains(minusSideKey)) {
       auto& entry = table[minusSideKey];
-      const size_t numElements = (entry.get<real*>(inner_keys::Dr::Id::IdofsMinus))->getSize();
+      const size_t numElements = entry.get<real*>(inner_keys::Dr::Id::IdofsMinus)->getSize();
 
       auto krnl = gpuCombinedKrnlPrototype_;
       real* tmpMem = reinterpret_cast<real*>(
@@ -158,8 +167,7 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
 
       std::size_t offsetQDR = 0;
       for (std::size_t s = 0; s < dr::misc::TimeSteps<Cfg>; ++s) {
-        krnl.QDR(s) =
-            (entry.get<real*>(inner_keys::Dr::Id::QInterpolatedMinus))->getDeviceDataPtr();
+        krnl.QDR(s) = entry.get<real*>(inner_keys::Dr::Id::QInterpolatedMinus)->getDeviceDataPtr();
         krnl.extraOffset_QDR(s) = offsetQDR;
         offsetQDR += tensor::QDR<Cfg>::size(s);
       }
@@ -167,7 +175,7 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
       std::size_t offsetDQ = 0;
       for (std::size_t p = 0; p < Cfg::ConvergenceOrder; ++p) {
         krnl.dQ(p) = const_cast<const real**>(
-            (entry.get<real*>(inner_keys::Dr::Id::DerivativesMinus))->getDeviceDataPtr());
+            entry.get<real*>(inner_keys::Dr::Id::DerivativesMinus)->getDeviceDataPtr());
         krnl.extraOffset_dQ(p) = offsetDQ;
         offsetDQ += tensor::dQ<Cfg>::size(p);
       }
@@ -180,8 +188,8 @@ void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
 
       set_I(krnl, entry.get<real*>(inner_keys::Dr::Id::IdofsMinus)->getDeviceDataPtr());
 
-      krnl.TinvT = const_cast<const real**>(
-          (entry.get<real*>(inner_keys::Dr::Id::TinvT))->getDeviceDataPtr());
+      krnl.TinvT =
+          const_cast<const real**>(entry.get<real*>(inner_keys::Dr::Id::TinvT)->getDeviceDataPtr());
       krnl.execute(side, faceRelation);
 
       device_.api().freeMemAsync(reinterpret_cast<void*>(tmpMem), stream);

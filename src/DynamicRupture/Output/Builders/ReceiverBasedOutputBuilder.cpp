@@ -13,6 +13,7 @@
 #include "Common/Iterator.h"
 #include "Common/Real.h"
 #include "Common/Typedefs.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
@@ -133,7 +134,7 @@ void ReceiverBasedOutputBuilder::initTopology() {
     }
 
     const auto faceKey = faceToLtsMap_->get(receiver.faultFaceIndex.value(), receiver.copy).global;
-    if (faceIds.find(faceKey) == faceIds.end()) {
+    if (!faceIds.contains(faceKey)) {
       faceIds[faceKey] = faceBuckets.size();
       auto& bucket = faceBuckets.emplace_back();
       bucket.faultFaceIndex = receiver.faultFaceIndex.value();
@@ -277,7 +278,7 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
     const auto& element = elementsInfo[elementIndex];
 
     const auto elementKey = elementIndex * copyCount + face.copy;
-    if (elementIndices.find(elementKey) == elementIndices.end()) {
+    if (!elementIndices.contains(elementKey)) {
       elementIndices[elementKey] = elementIndices.size();
     }
     face.deviceDataPlus = elementIndices.at(elementKey);
@@ -285,17 +286,19 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
     const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
     if (neighborElementIndex.hasValue()) {
       const auto neighborKey = neighborElementIndex.value() * copyCount + face.copy;
-      if (elementIndices.find(neighborKey) == elementIndices.end()) {
+      if (!elementIndices.contains(neighborKey)) {
         elementIndices[neighborKey] = elementIndices.size();
       }
     } else {
       const auto faultSide = faultInfo[face.faultFaceIndex].side;
       const auto ghostIndex = std::pair<int, std::size_t>(
           element.neighborRanks[faultSide], element.mpiIndices[faultSide] * copyCount + face.copy);
-      if (elementIndicesGhost.find(ghostIndex) == elementIndicesGhost.end()) {
+      if (!elementIndicesGhost.contains(ghostIndex)) {
         const auto index = elementIndicesGhost.size();
         elementIndicesGhost[ghostIndex] =
-            GhostElement{std::pair<std::size_t, int>(elementIndex, faultSide), face.copy, index};
+            GhostElement{.data = std::pair<std::size_t, int>(elementIndex, faultSide),
+                         .copy = face.copy,
+                         .index = index};
       }
     }
   }
@@ -365,9 +368,16 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
         assert(indexPtrs[arrayIndex] != nullptr);
       }
 
+      // The derivatives are in the host-accessible memory of the MPI buffers with
+      // SEISSOL_USM_MPI=1. But the samples get taken on a stream of their own, while the clusters
+      // go on and overwrite the derivatives: then only a copy gathered in the order of the stream
+      // of the cluster holds the data of the step.
+      const bool hostAccessible = useMPIUSM() && !outputData_->extraRuntime.has_value();
       outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollectorUntyped>(
-          indexPtrs, derivativesBytes, useMPIUSM());
+          indexPtrs, derivativesBytes, hostAccessible);
 
+      std::vector<std::vector<void*>> variablePointers;
+      std::vector<std::size_t> variableSizes;
       for (const auto& variable : variables_) {
         std::size_t elementSize = 0;
         std::vector<void*> dataPointers(topology.faceCount());
@@ -380,12 +390,16 @@ void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
                                      variable, initializer::AllocationPlace::Device)) +
                                  elementSize * position.cell;
         }
-
-        const bool hostAccessible = useUSM() && !outputData_->extraRuntime.has_value();
-        outputData_->deviceVariables[variable] =
-            std::make_unique<seissol::parallel::DataCollectorUntyped>(
-                dataPointers, elementSize, hostAccessible);
+        outputData_->deviceVariableSets[variable] = variablePointers.size();
+        variablePointers.emplace_back(std::move(dataPointers));
+        variableSizes.push_back(elementSize);
       }
+
+      // all variables with one kernel: a launch per variable cost the stream of the cluster more
+      // than the copies themselves
+      const bool variablesHostAccessible = useUSM() && !outputData_->extraRuntime.has_value();
+      outputData_->deviceVariables = std::make_unique<seissol::parallel::DataCollectorUntyped>(
+          variablePointers, variableSizes, variablesHostAccessible);
     }
   }
 }
@@ -509,7 +523,7 @@ void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
     dispatchConfig(configOfFace(geoPoint.faultFaceIndex.value()), [&](auto cfg) {
       using Cfg = decltype(cfg);
       constexpr int NumPoly = Cfg::ConvergenceOrder - 1;
-      if constexpr (Cfg::DRQuadRule == DRQuadRuleType::Stroud) {
+      if constexpr (seissol::DRQuadRule == DRQuadRuleType::Stroud) {
         geoPoint.nearestInternalGpIndex =
             getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
       } else {

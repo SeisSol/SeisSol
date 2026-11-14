@@ -161,13 +161,13 @@ TEST_CASE("VarT cache level access" * doctest::test_suite("dynamicrupture")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("VariableLabels matches VariableID::Size" * doctest::test_suite("dynamicrupture")) {
-  CHECK(VariableLabels.size() == static_cast<std::size_t>(VariableID::Size));
+  CHECK(VariableLabels.size() == VariableID::Size);
 }
 
 TEST_CASE("VariableLabels all non-empty" * doctest::test_suite("dynamicrupture")) {
-  for (std::size_t i = 0; i < VariableLabels.size(); ++i) {
-    CHECK_FALSE(VariableLabels[i].empty());
-    for (const auto& label : VariableLabels[i]) {
+  for (const auto& labels : VariableLabels) {
+    CHECK_FALSE(labels.empty());
+    for (const auto& label : labels) {
       CHECK_FALSE(label.empty());
     }
   }
@@ -186,22 +186,22 @@ TEST_CASE("VariableLabels specific checks" * doctest::test_suite("dynamicrupture
 // ---------------------------------------------------------------------------
 
 TEST_CASE("DrVarsT tuple matches VariableID count" * doctest::test_suite("dynamicrupture")) {
-  CHECK(std::tuple_size_v<DrVarsT> == static_cast<std::size_t>(VariableID::Size));
+  CHECK(std::tuple_size_v<DrVarsT> == VariableID::Size);
 }
 
 // ---------------------------------------------------------------------------
-// DirectionID and ParamID enums
+// DirectionID and ParamID
 // ---------------------------------------------------------------------------
 
 TEST_CASE("DirectionID values" * doctest::test_suite("dynamicrupture")) {
-  CHECK(static_cast<int>(DirectionID::Strike) == 0);
-  CHECK(static_cast<int>(DirectionID::Dip) == 1);
-  CHECK(static_cast<int>(DirectionID::Normal) == 2);
+  CHECK(DirectionID::Strike == 0);
+  CHECK(DirectionID::Dip == 1);
+  CHECK(DirectionID::Normal == 2);
 }
 
 TEST_CASE("ParamID values" * doctest::test_suite("dynamicrupture")) {
-  CHECK(static_cast<int>(ParamID::FrictionCoefficient) == 0);
-  CHECK(static_cast<int>(ParamID::State) == 1);
+  CHECK(ParamID::FrictionCoefficient == 0);
+  CHECK(ParamID::State == 1);
 }
 
 } // namespace seissol::unit_test

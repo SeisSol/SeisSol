@@ -14,6 +14,7 @@
 #include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/configboundary.h"
+#include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/CellLocalInformation.h"
@@ -24,6 +25,7 @@
 #include <array>
 #include <cstddef>
 #include <optional>
+#include <type_traits>
 #include <vector>
 
 namespace seissol::kernels {
@@ -35,7 +37,7 @@ namespace seissol::kernels {
  * The neighbor flux of the cell reads the time integral of a neighbor only through its trace on
  * the shared face, tested with the face basis of the cell. The conversion keeps these face
  * integrals exact. It goes through the canonical form of the family of both configurations (the
- * configurations whose materials pose the Riemann problem in the same material, and that fuse the
+ * configurations whose materials pose the Riemann problem in the same quantities, and that fuse the
  * same number of simulations): toCanonical of the neighbor pads its time integral to the largest
  * order of the family in the build, selects the quantities of the Riemann problem and widens it to
  * double precision; fromCanonical of the cell, for the side of the neighbor on the shared face,
@@ -44,25 +46,31 @@ namespace seissol::kernels {
  * canonical form, such as memory variables, are zero. The code generator generates both kernels
  * for the configurations of a family that has more than one configuration in the build.
  *
- * A solid and a fluid pose the Riemann problem in different materials, but their families are
- * coupled: fromCoupledCanonical of the cell converts from the canonical form of the family of the
- * neighbor instead. A solid takes the pressure of a fluid as an isotropic stress; a fluid takes the
- * normal stress of a solid on the shared face as its pressure, with the weights of the face
- * (NormalStressWeights). The velocities carry over.
+ * Configurations of different families pose the Riemann problem in different quantities, but
+ * their families are coupled: fromCoupledCanonical of the cell converts from the canonical form of
+ * the family of the neighbor instead (the kernel and its tensors are indexed by
+ * model::familyIndex of the neighbor), with the coupling matrix of the face (LTS::Coupling): the
+ * contribution of the neighbor to the Godunov state at the face, in the quantities of the cell
+ * (model::coupledNeighborMap). The flux matrix of the cell at such a face (AminusT) is its own
+ * flux alone.
  */
 template <typename Cfg, typename NeighborCfg>
 constexpr bool FamilyConvertible =
     generated::ConfigBoundaryKernels<Cfg>::Host &&
     generated::ConfigBoundaryKernels<NeighborCfg>::Host &&
-    model::SameRiemannMaterial<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
+    model::SameFamily<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
     Cfg::NumSimulations == NeighborCfg::NumSimulations;
 
-/// The conversion of Convertible between a solid and a fluid.
+/// The family of the configuration `Cfg` among the families of the code generator.
+template <typename Cfg>
+constexpr std::size_t FamilyOf = model::familyIndex<model::MaterialOf<Cfg>>();
+
+/// The conversion of Convertible between configurations of different families.
 template <typename Cfg, typename NeighborCfg>
 constexpr bool CoupledConvertible =
-    generated::ConfigBoundaryKernels<Cfg>::CoupledHost &&
+    FamilyOf<Cfg> != FamilyOf<NeighborCfg> &&
+    generated::ConfigBoundaryKernels<Cfg>::CoupledHost[FamilyOf<NeighborCfg>] &&
     generated::ConfigBoundaryKernels<NeighborCfg>::ToCanonicalHost &&
-    model::SolidAndFluid<model::MaterialOf<Cfg>, model::MaterialOf<NeighborCfg>> &&
     Cfg::NumSimulations == NeighborCfg::NumSimulations;
 
 template <typename Cfg, typename NeighborCfg>
@@ -74,14 +82,32 @@ template <typename Cfg, typename NeighborCfg>
 constexpr bool DeviceConvertible =
     (FamilyConvertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::Device &&
      generated::ConfigBoundaryKernels<NeighborCfg>::Device) ||
-    (CoupledConvertible<Cfg, NeighborCfg> && generated::ConfigBoundaryKernels<Cfg>::CoupledDevice &&
+    (CoupledConvertible<Cfg, NeighborCfg> &&
+     generated::ConfigBoundaryKernels<Cfg>::CoupledDevice[FamilyOf<NeighborCfg>] &&
      generated::ConfigBoundaryKernels<NeighborCfg>::ToCanonicalDevice);
 
-/// The weights of NormalStressWeights for the face with the unit normal `normal`.
+/// The reals of the coupling matrix of a face of a cell of the configuration `Cfg` towards a
+/// neighbor of the family `family`, or zero if there is none.
 template <typename Cfg>
-void setNormalStressWeights(NormalStressWeights<Cfg>& weights,
-                            std::size_t face,
-                            const std::array<double, Cell::Dim>& normal);
+constexpr std::size_t couplingSize(std::size_t family) {
+  using Kernels = generated::ConfigBoundaryKernels<Cfg>;
+  if constexpr (std::is_void_v<tensor::coupling<Cfg>>) {
+    return 0;
+  } else {
+    return Kernels::CoupledHost[family] || Kernels::CoupledDevice[family]
+               ? tensor::coupling<Cfg>::size(family)
+               : 0;
+  }
+}
+
+/// Whether the face `face` of a cell of the configuration `Cfg` with the information
+/// `cellInformation` converts the time integral of its neighbor with a coupling matrix of its own:
+/// the neighbor is of another family, in another configuration. If so, `family` is set to the
+/// family of the neighbor.
+template <typename Cfg>
+bool coupledFace(const CellLocalInformation& cellInformation,
+                 std::size_t face,
+                 std::size_t* family = nullptr);
 
 /// Whether the conversion from the configuration `neighbor` into `cell` exists on the device.
 bool deviceConvertible(ConfigId cell, ConfigId neighbor);
@@ -100,9 +126,9 @@ recording::ConditionalKey toCanonicalKey(ConfigId neighbor);
 /// their side `side`.
 recording::ConditionalKey fromCanonicalKey(std::size_t side);
 
-/// The batch of the conversion from the canonical form of the coupled family, for the neighbors
-/// that touch the cell with their side `side`.
-recording::ConditionalKey fromCoupledCanonicalKey(std::size_t side);
+/// The batch of the conversion from the canonical form of the coupled family `family`, for the
+/// neighbors that touch the cell with their side `side`.
+recording::ConditionalKey fromCoupledCanonicalKey(std::size_t family, std::size_t side);
 
 /// The alignment of each part of the device scratch of a face.
 constexpr std::size_t ScratchAlignment = 256;
@@ -148,7 +174,7 @@ class ConfigBoundary {
    * `integrationBuffer`, and points `timeIntegrated` to it. The other faces are left as they are.
    */
   void computeIntegrals(const CellLocalInformation& cellInformation,
-                        const NormalStressWeights<Cfg>& normalStress,
+                        const std::array<real*, Cell::NumFaces>& coupling,
                         const std::array<void*, Cell::NumFaces>& timeDofs,
                         const std::array<real*, Cell::NumFaces>& integrationBuffer,
                         std::array<real*, Cell::NumFaces>& timeIntegrated) const;
@@ -184,13 +210,13 @@ class ConfigBoundary {
   };
 
   /// Computes the time integral of the neighbor of the configuration `NeighborCfg` on the face
-  /// `face` from `timeDofs`, and converts it into `integrationBuffer`, with the weights of the
-  /// normal stress on the face `normalStress` if the conversion reads them.
+  /// `face` from `timeDofs`, and converts it into `integrationBuffer`, with the coupling matrix of
+  /// the face `coupling` if the neighbor is of another family.
   template <typename NeighborCfg>
   static void computeIntegral(const CellLocalInformation& cellInformation,
                               std::size_t face,
                               const Neighbor& neighbor,
-                              const real* normalStress,
+                              const real* coupling,
                               const void* timeDofs,
                               real* integrationBuffer);
 

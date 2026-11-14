@@ -69,8 +69,9 @@ SearchResult LatticeDpSearch::run(ClusteringEvaluator& evaluator,
 
     const auto histogram = evaluator.timestepHistogram(curWiggleFactor, maxIndex);
 
-    const LadderConstraints ladderConstraints{
-        maxIndex, constraints.maxClusterId + 1, constraints.maxRatio};
+    const LadderConstraints ladderConstraints{.maxIndex = maxIndex,
+                                              .maxClusterCount = constraints.maxClusterId + 1,
+                                              .maxRatio = constraints.maxRatio};
     const auto candidate =
         optimalLadder(histogram, constraints.costModel, baseTimestep, ladderConstraints);
 
@@ -100,7 +101,10 @@ SearchResult LatticeDpSearch::run(ClusteringEvaluator& evaluator,
   logInfo() << "Enforcing maximum difference for the chosen ladder took" << reductions_
             << "reductions.";
 
-  return SearchResult{bestWiggleFactor, maxClusterId, realizedCost, bestRatios};
+  return SearchResult{.wiggleFactor = bestWiggleFactor,
+                      .maxClusterId = maxClusterId,
+                      .cost = realizedCost,
+                      .ratios = bestRatios};
 }
 
 } // namespace seissol::initializer

@@ -18,7 +18,7 @@ namespace seissol::writer {
 
 class ClusteringWriter {
   public:
-  ClusteringWriter(const std::string& outputPrefix, const std::string& runId);
+  ClusteringWriter(std::string outputPrefix, std::string runId);
   void addCluster(unsigned profilingId,
                   unsigned localClusterId,
                   HaloType layerType,

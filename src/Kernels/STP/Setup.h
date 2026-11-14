@@ -16,6 +16,7 @@
 #include "Model/Common.h"
 
 #include <Eigen/Dense>
+#include <algorithm>
 #include <cstddef>
 #include <yateto.h>
 
@@ -24,13 +25,8 @@ namespace seissol::model {
 /// True if the predictor has to factorise this row separately.
 template <typename MaterialT>
 constexpr bool isStiffRow(std::size_t quantity) {
-  // NOLINTNEXTLINE(readability-use-anyofallof): std::any_of is constexpr from C++20 on
-  for (const auto& row : MaterialT::StiffSourceRows) {
-    if (row.quantity == quantity) {
-      return true;
-    }
-  }
-  return false;
+  return std::ranges::any_of(MaterialT::StiffSourceRows,
+                             [quantity](const auto& row) { return row.quantity == quantity; });
 }
 
 template <typename Cfg, typename Tview>
@@ -51,11 +47,11 @@ inline void calcZinv(yateto::DenseTensorView<2, Real<Cfg>, unsigned>& zInv,
     matZ -= timeStepWidth * sourceMatrix(quantity, quantity) * Matrix::Identity();
   }
 
-  auto solver = matZ.colPivHouseholderQr();
+  const auto solver = matZ.colPivHouseholderQr();
   for (std::size_t col = 0; col < Order; col++) {
     Vector rhs = Vector::Zero();
     rhs(col) = 1.0;
-    auto zInvCol = solver.solve(rhs);
+    const auto zInvCol = solver.solve(rhs);
     for (std::size_t row = 0; row < Order; row++) {
       // save as transposed
       zInv(col, row) = zInvCol(row);

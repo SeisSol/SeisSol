@@ -129,7 +129,7 @@ void Csv::writeFile(const std::string& path) {
 }
 
 std::size_t CsvTable::column(const std::string& name) const {
-  const auto position = std::find(header.begin(), header.end(), name);
+  const auto position = std::ranges::find(header, name);
   if (position == header.end()) {
     logError() << "The column" << name << "is not in the table.";
   }
@@ -143,12 +143,12 @@ CsvTable parseCsv(const std::string& content, const CsvFormat& format) {
   bool quoted = false;
   bool started = false;
 
-  const auto endField = [&]() {
+  const auto endField = [&] {
     row.push_back(value);
     value.clear();
     started = false;
   };
-  const auto endRow = [&]() {
+  const auto endRow = [&] {
     endField();
     if (table.header.empty()) {
       table.header = std::move(row);

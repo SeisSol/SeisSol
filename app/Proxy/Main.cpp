@@ -31,7 +31,7 @@ using namespace seissol::proxy;
 
 int main(int argc, char* argv[]) {
   std::stringstream kernelHelp;
-  auto allowedKernels = Aux::getAllowedKernels();
+  const auto allowedKernels = Aux::getAllowedKernels();
   kernelHelp << "Kernels to benchmark. A comma-separated list of (those kernels will be run "
                 "sequentially in each pass): ";
   {
@@ -76,8 +76,7 @@ int main(int argc, char* argv[]) {
     const auto configName = args.getArgument<std::string>("config");
     const auto configId = seissol::findConfig(configName);
     if (!configId.has_value()) {
-      std::cerr << "The configuration " << configName << " is not built into this proxy."
-                << std::endl;
+      std::cerr << "The configuration " << configName << " is not built into this proxy." << '\n';
       return -1;
     }
     config.config = *configId;
@@ -88,7 +87,7 @@ int main(int argc, char* argv[]) {
   try {
     config.kernels = Aux::str2kernel(kernelStr);
   } catch (std::runtime_error& error) {
-    std::cerr << error.what() << std::endl;
+    std::cerr << error.what() << '\n';
     return -1;
   }
 
@@ -104,9 +103,9 @@ int main(int argc, char* argv[]) {
   device.api().setDevice(0);
   device.api().initialize();
 #endif
-  print_hostname();
+  printHostname();
 
-  auto output = runProxy(config);
+  const auto output = runProxy(config);
 
 #ifdef ACL_DEVICE
   device.finalize();

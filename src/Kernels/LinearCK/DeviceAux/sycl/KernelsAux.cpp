@@ -14,6 +14,7 @@
 #include "Kernels/Common.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <array>
 #include <cstdio>
 #include <sycl/sycl.hpp>
 #include <yateto.h>
@@ -112,8 +113,8 @@ template <std::size_t SourceQuantities,
 static void taylorSumInternal(std::size_t count,
                               TargetRealT** targetBatch,
                               const SourceRealT** sourceBatch,
-                              void* stream,
                               const TargetRealT* coeffs,
+                              void* stream,
                               std::index_sequence<Indices...> indices) {
   constexpr std::size_t Quantities = std::min(SourceQuantities, TargetQuantities);
   constexpr std::size_t TargetStride =
@@ -122,6 +123,10 @@ static void taylorSumInternal(std::size_t count,
   sycl::nd_range rng{{count * Blocksize}, {Blocksize}};
 
   auto queue = reinterpret_cast<sycl::queue*>(stream);
+
+  // the coefficients lie in host memory: the kernel takes their values, as the CUDA/HIP kernel
+  // takes them as its arguments, instead of reading them through the pointer on the device
+  const std::array<TargetRealT, sizeof...(Indices)> coeffValues{coeffs[Indices]...};
 
   queue->submit([&](sycl::handler& cgh) {
     sycl::local_accessor<SourceRealT> shmem(
@@ -139,7 +144,7 @@ static void taylorSumInternal(std::size_t count,
       TargetRealT* const __restrict__ target = targetBatch[batchId];
 
       taylorSumInner<Quantities, 0, SourceRealT, TargetRealT, SourceOrder, TargetOrder, 0, 0>(
-          item, target, source, shmem.get_pointer(), reg, coeffs[Indices]...);
+          item, target, source, shmem.get_pointer(), reg, coeffValues[Indices]...);
 
       constexpr std::size_t TargetStride =
           seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);

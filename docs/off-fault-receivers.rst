@@ -26,6 +26,9 @@ commented example:
   RFileName = 'receivers.dat' ! Record Points in extra file
   /
 
+A run writes the receivers given in ``RFileName``; ``ReceiverOutput = 0`` switches them off, and
+without ``RFileName``, a run writes none.
+
 If ``receiverFormat = 'csv'`` (the default), each receiver trace is written to a separate ``.dat``
 file. If ``receiverFormat = 'hdf5'``, all of them go into a single file, ``-receivers.h5``; see
 `The HDF5 receiver file`_ below for what it holds.

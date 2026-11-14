@@ -8,7 +8,6 @@
 #include "OutputAux.h"
 
 #include "Common/Constants.h"
-#include "Common/Iterator.h"
 #include "Common/Real.h"
 #include "Config.h"
 #include "DynamicRupture/Output/DataTypes.h"
@@ -19,6 +18,7 @@
 #include "Geometry/FaceTransform.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
+#include "Initializer/InputAux.h"
 #include "Numerical/BasisFunction.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -28,7 +28,7 @@
 #include <array>
 #include <cstddef>
 #include <limits>
-#include <tuple>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -117,7 +117,7 @@ TriangleQuadratureData<Cfg> generateTriangleQuadrature() {
   const auto pointsView = init::quadpoints<Cfg>::view::create(init::quadpoints<Cfg>::Values);
   const auto weightsView = init::quadweights<Cfg>::view::create(init::quadweights<Cfg>::Values);
 
-  auto* reshapedPoints = unsafe_reshape<2>((data.points).data());
+  auto* reshapedPoints = unsafeReshape<2>(data.points.data());
   for (size_t i = 0; i < seissol::dr::TriangleQuadratureData<Cfg>::Size; ++i) {
     reshapedPoints[i][0] = seissol::multisim::multisimTranspose<Cfg>(pointsView, i, 0);
     reshapedPoints[i][1] = seissol::multisim::multisimTranspose<Cfg>(pointsView, i, 1);
@@ -149,15 +149,13 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 template <typename Cfg>
 void assignNearestGaussianPoint(Receiver& geoPoint) {
   static auto quadratureData = generateTriangleQuadrature<Cfg>();
-  const double (*trianglePoints2D)[2] = unsafe_reshape<2>(quadratureData.points.data());
+  const double (*trianglePoints2D)[2] = unsafeReshape<2>(quadratureData.points.data());
 
   const auto targetPoint2D =
       geometry::ReferenceFaceMap(geoPoint.localFaceSideId.value())
           .cellToFace(geometry::CellTransform::VectorEigenT(geoPoint.reference.data()));
 
-  int nearestPoint{-1};
-  double shortestDistance = std::numeric_limits<double>::max();
-  std::tie(nearestPoint, shortestDistance) = getNearestFacePoint(
+  const auto [nearestPoint, shortestDistance] = getNearestFacePoint(
       targetPoint2D.data(), trianglePoints2D, seissol::dr::TriangleQuadratureData<Cfg>::Size);
   geoPoint.nearestGpIndex = nearestPoint;
 }
@@ -191,6 +189,23 @@ void projectPointToFace(CoordinateT& point,
   }
 }
 
+std::vector<CoordinateT> readPickpoints(const std::string& fileName) {
+  using seissol::initializer::convertStringToMask;
+  using seissol::initializer::FileProcessor;
+
+  auto content = FileProcessor::getFileAsStrings(fileName, "pickpoint/on-fault receiver file");
+  FileProcessor::removeEmptyLines(content);
+
+  std::vector<CoordinateT> points;
+  points.reserve(content.size());
+  for (const auto& line : content) {
+    CoordinateT coords{};
+    convertStringToMask(line, coords);
+    points.push_back(coords);
+  }
+  return points;
+}
+
 double getDistanceFromPointToFace(const CoordinateT& point,
                                   const ExtTriangle& face,
                                   const CoordinateT& faceNormal) {
@@ -211,7 +226,10 @@ double
   // view the triangle as an intersection of hyperplanes
 
   double sidemin = std::numeric_limits<double>::max();
-  for (auto [i1, i2] : seissol::common::zip(std::vector{0, 1, 2}, std::vector{1, 2, 0})) {
+  // (the sides from point i1 to point i2; an index loop, since it runs for every fault face for
+  // every on-fault receiver)
+  for (std::size_t i1 = 0; i1 < ExtTriangle::size(); ++i1) {
+    const auto i2 = (i1 + 1) % ExtTriangle::size();
     const auto& p1 = face.point(i1);
     const auto& p2 = face.point(i2);
     CoordinateT sidevec{0.0, 0.0, 0.0};
@@ -234,9 +252,9 @@ PlusMinusBasisFunctions<Cfg>
 
   Eigen::Vector3d point(pointCoords[0], pointCoords[1], pointCoords[2]);
 
-  auto getBasisFunctions = [&point](const geometry::CellTransform& transform) {
+  const auto getBasisFunctions = [&point](const geometry::CellTransform& transform) {
     const auto referenceCoords = transform.spaceToRef(point);
-    const basisFunction::SampledBasisFunctions<Real<Cfg>> sampler(
+    const basis_function::SampledBasisFunctions<Real<Cfg>> sampler(
         Cfg::ConvergenceOrder, referenceCoords[0], referenceCoords[1], referenceCoords[2]);
     return sampler.data();
   };

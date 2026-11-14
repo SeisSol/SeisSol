@@ -100,14 +100,14 @@ TEST_CASE("LoopStatistics begin/end cycle" * doctest::test_suite("monitoring")) 
   ls.addRegion("kernel");
   const unsigned region = ls.getRegion("kernel");
 
-  // begin() records the start time, end() records end time and adds a sample
-  ls.begin(region);
+  // begin() gives the start time, end() takes the end time and adds a sample
+  const auto begin = seissol::LoopStatistics::begin();
 
   // Sleep a tiny bit to ensure nonzero time
   using namespace std::chrono_literals;
   std::this_thread::sleep_for(50ms);
 
-  ls.end(region, 50, 0);
+  ls.end(region, 50, 0, begin);
 
   // No crash = pass
   CHECK(true);
@@ -201,6 +201,56 @@ TEST_CASE("LoopStatistics summary" * doctest::test_suite("monitoring")) {
     CHECK(stateEntry->find("regression") == nullptr);
     CHECK(summary.find("total")->find("max")->asDouble() == doctest::Approx(7.5));
     CHECK(summary.find("loadImbalance")->asDouble() == doctest::Approx(0.0));
+  }
+}
+
+TEST_CASE("LoopStatistics layer times" * doctest::test_suite("monitoring")) {
+  seissol::LoopStatistics ls;
+  ls.addRegion("work");
+  ls.addRegion("state", false);
+  const unsigned work = ls.getRegion("work");
+  const unsigned state = ls.getRegion("state");
+
+  // before recordLayers(), the loops count for the regions only
+  ls.addTime(work, 10, 3, 1.0);
+  CHECK_FALSE(ls.recordsLayers());
+  CHECK(ls.layerTime(work, 3) == 0.0);
+
+  ls.recordLayers();
+  CHECK(ls.recordsLayers());
+
+  SUBCASE("The median loop counts, times the loops") {
+    // the first loop of a layer takes much longer (e.g. it captures a graph)
+    ls.addTime(work, 10, 3, 50.0);
+    ls.addTime(work, 10, 3, 1.0);
+    ls.addTime(work, 10, 3, 1.25);
+    ls.addTime(work, 10, 3, 1.0);
+    ls.addTime(work, 10, 3, 1.0);
+    CHECK(ls.layerTime(work, 3) == doctest::Approx(5.0));
+  }
+
+  SUBCASE("Layers and regions apart") {
+    ls.addTime(work, 10, 0, 2.0);
+    ls.addTime(work, 10, 1, 3.0);
+    ls.addTime(work, 10, 1, 3.0);
+    CHECK(ls.layerTime(work, 0) == doctest::Approx(2.0));
+    CHECK(ls.layerTime(work, 1) == doctest::Approx(6.0));
+    CHECK(ls.layerTime(work, 2) == 0.0);
+    CHECK(ls.layerTime(work, 7) == 0.0);
+    // a region outside of the kernels, such as an actor state, keeps no layers
+    ls.addTime(state, 1, 0, 9.0);
+    CHECK(ls.layerTime(state, 0) == 0.0);
+  }
+
+  SUBCASE("A loop without iterations does not count") {
+    ls.addTime(work, 0, 4, 9.0);
+    CHECK(ls.layerTime(work, 4) == 0.0);
+  }
+
+  SUBCASE("reset forgets the layers") {
+    ls.addTime(work, 10, 0, 2.0);
+    ls.reset();
+    CHECK(ls.layerTime(work, 0) == 0.0);
   }
 }
 

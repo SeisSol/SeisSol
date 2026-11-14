@@ -20,6 +20,13 @@ the time the output took on the main thread.
 
 The "total time spent in compute kernels" denotes the time in which all CPUs execute some function to advance the computation of the solution.
 In particular, it excludes the time spent with MPI communication.
+On GPUs, it is the time in which the GPU executes the loops of the clusters, timed by events on their streams
+(see ``SEISSOL_DEVICE_LOOP_STATISTICS`` in :ref:`gpu-env`). The loops of clusters that run concurrently overlap in it,
+as do those of a task graph on the CPU; the steps replayed from a recording of super-timesteps do not count.
+Where the device does not time its work (HSA queues without ``DEVICE_HSA_QUEUE_TIMING=1``, see
+:ref:`gpu-time-stepping`), or its loops are not timed (``SEISSOL_DEVICE_LOOP_STATISTICS=0``), the
+time of the kernels is not known: SeisSol says so instead of printing it, and the run summary leaves out the kernel times, the load
+imbalance and the compute time outside of the kernels.
 
 .. _run-summary:
 
@@ -32,10 +39,26 @@ output (``OutputFile`` is the prefix):
 * ``<prefix>-summary.json``, the run summary.
 * ``<prefix>-epochs.csv``, a row per simulation epoch, i.e. per stretch of simulated time between two synchronization
   points (the times outputs are written at): its simulated time span, its wall time (minimum, mean and maximum over the
-  ranks), its compute and blocking IO time (mean and maximum), and the FLOP/s and kernel bytes/s of the epoch,
-  summed over the ranks.
+  ranks), its compute and blocking IO time (mean and maximum), the FLOP/s and kernel bytes/s of the epoch,
+  summed over the ranks, and how busy the threads and the device were (see :ref:`activity`): the share of the time
+  the threads spent in loops (``threadLoopsMean``, ``threadLoopsMin``), and on GPUs the shares of the time of the
+  device in which it computed (``deviceComputingMean``, ``deviceComputingMin``), exchanged the halo
+  (``deviceExchangesMean``) and was idle (``deviceIdleMean``, ``deviceIdleMax``); ``nan`` without times of the device.
 * ``<prefix>-ranks.csv``, a row per rank, written at the end of the run: the values of the rank that the summary gives
   the statistics of over the ranks (see below).
+* ``<prefix>-log.jsonl``, the log of rank 0 as JSON Lines, an object per message, appended to: its ``time`` (ISO 8601,
+  UTC), ``level``, ``rank`` and the ``run`` ID; the ``message``; its ``template``, the message with each value
+  replaced by ``{}``, which is the same for every message of a kind; its ``arguments``, the values in the order of the
+  ``{}``; ``fields``, the values the code gives a name; and the ``source`` in the code (``file``, ``line``,
+  ``function``). The messages from before the file is opened, those on the parameters among them, come first; a fatal
+  error or a crash is the last line.
+* ``<prefix>-rank<N>-failure.json``, written only by a rank other than 0 that a fatal error or a crash ends, since such
+  a rank does not reach the summary: its ``schema`` (``seissol-rank-failure/1``), ``rank``, the ``runId``, the
+  ``stage`` and the ``error``, as in the summary. A request to stop writes none: it reaches every rank, at the time
+  limit of a job as after a failure on another rank (with Open MPI's ``mpirun``), so the files name only the ranks
+  where a failure started. Rank 0 writes none either; its failure is in the summary. A reader matches the ``runId``
+  against the summary's, as a file from an earlier run of the same prefix is not removed.
+* ``<prefix>-trace.json``, with ``SEISSOL_TRACE=1``: a timeline of the time stepping (see :ref:`trace`).
 
 An epoch ends at every synchronization point, i.e. wherever an output is due. A run without outputs, such as a
 benchmark, has a single epoch, and reports how fast it goes at its end only. ``EpochInterval`` in the ``output``
@@ -46,9 +69,25 @@ host in GPU builds, so that it should not come more often than needed.
 
 Rank 0 writes the summary when the run starts, at every stage of the initialization, every ten seconds or so during
 the simulation, and at its end, each time replacing the file at once, so that a reader always finds a complete file.
-``status`` is ``completed`` once the run has ended as planned; a run that ended early, by an error or by the time limit
-of its job, leaves ``running``, and ``stage`` says how far it got (``init``, ``init.mesh``, ``init.layout``,
-``init.model``, ``init.sideConditions``, ``init.io``, ``simulation``; ``finished`` at the end).
+``status`` is ``completed`` once the run has ended as planned, and ``failed`` once a fatal error or a crash on rank 0
+has ended it: then ``error`` gives the ``message`` and the ``time``, for an error its ``source`` in the code
+(``file``, ``line``, ``function``), for a crash the ``signal`` (``SIGSEGV``, ``SIGBUS``, ``SIGFPE``, ``SIGILL`` or
+``SIGABRT``) and the ``address`` of the fault or the ``sender``, the process that sent the signal, if there is one. It
+is ``terminated`` once a request to stop (``SIGTERM`` from a job scheduler at the time limit or on cancellation,
+``SIGINT`` on Ctrl-C, ``SIGHUP`` when the terminal closes) has reached rank 0: then ``terminatedBy`` gives the same,
+with the ``signal``. A run that ended without a signal that rank 0 can catch, e.g. by ``SIGKILL`` from the
+out-of-memory killer or by the loss of its node, leaves ``running``. In each case, ``stage`` says how far it got
+(``init``, ``init.mesh``, ``init.layout``, ``init.model``, ``init.sideConditions``, ``init.io``, ``simulation``;
+``finished`` at the end).
+
+A crash, i.e. one of these signals or an exception that nothing caught, is reported as a fatal error is: on the console
+of its rank, with the backtrace, and on rank 0 in the log; then it ends all ranks, as a fatal error does. A request to
+stop is reported as a warning, without a backtrace, on the console of rank 0 and in the log, and ends each rank it
+reaches. Note that with Open MPI's ``mpirun``, a rank that ends because another rank failed receives ``SIGTERM`` as
+well, the same as from a scheduler, so ``terminated`` on rank 0 can also stand for a failure on another rank; the exit
+code of the launcher tells the two apart. On Windows, SeisSol catches none of these signals: there, a crash or a request
+to stop leaves ``running``, while a fatal error and an exception that nothing caught end the run as ``failed``, as
+elsewhere.
 
 Times are in seconds, timesteps and simulated times in simulated seconds. Where a value differs between the ranks, the
 summary gives its statistics over them, an object with ``min``, ``max``, ``mean``, ``median``, ``std`` and ``sum``. The
@@ -63,6 +102,8 @@ members of the summary are:
      - the format, ``seissol-run-summary/1``
    * - ``runId``, ``status``, ``stage``, ``started``, ``updated``
      - the ID of the run (see :ref:`env_vars`), how far it got, and when (UTC)
+   * - ``error``
+     - what ended a failed run (see above)
    * - ``build``
      - version, commit, host and device architecture, compiler, build type and the configurations built
    * - ``parallel``
@@ -99,8 +140,10 @@ members of the summary are:
        was aborted (e.g. by an energy criterion), and the cell updates, duplicate cell updates and dynamic rupture
        face updates of the whole run
    * - ``kernels``
-     - the time in the compute kernels per rank (``total``), the load imbalance (one minus mean over maximum), and per
-       region its time per rank, iterations, samples and the regression of its time over the iterations
+     - the time in the compute kernels per rank (``total``), the load imbalance (one minus mean over maximum), per
+       region its time per rank, iterations, samples, the regression of its time over the iterations and its
+       throughput while it runs (``throughput``: hardware FLOP/s and kernel bytes/s per rank), and how busy the
+       threads and the device were over the run (``activity``, see :ref:`activity`)
    * - ``performance``
      - hardware and non-zero FLOP and kernel bytes, in total, per second and per category, and the cell updates per
        second (``cellUpdatesPerSecond``)
@@ -113,9 +156,72 @@ The table of the ranks has a column ``rank``, its ``host`` and its rank on the n
 order the run gets them: ``initMeshRead``, ``initMesh``, ``cells``, ``copyCells``, ``ghostCells``, ``faultFaces``,
 ``neighborRanks``, ``initLayout``, ``initModel``, ``initSideConditions``, ``initIo``, ``initTotal``,
 ``hostMemoryAfterInit``, ``simulationInitialIo``, ``simulationTotal``, ``simulationCompute``, ``simulationIo``,
-``kernels`` (the time in the compute kernels), ``outsideKernels``, ``cellUpdates``, ``duplicateCellUpdates``,
+``kernels`` (the time in the compute kernels), ``outsideKernels``, on GPUs with times of the device the shares of the
+time of the device over the run in which it computed (``deviceComputing``) and was idle (``deviceIdle``, see
+:ref:`activity`; with concurrent clusters, the kernels overlap, so these tell which ranks waited for others where
+``kernels`` does not), ``cellUpdates``, ``duplicateCellUpdates``,
 ``dynamicRuptureFaceUpdates`` and ``hostMemoryAtEnd``; in GPU builds, ``deviceMemoryAfterInit`` and ``deviceMemoryAtEnd`` (the device memory occupied)
 as well. ``initMeshRead`` is there for PUML meshes only. The last column is ``runId``.
+
+.. _activity:
+
+Activity of the threads and the device
+--------------------------------------
+
+At the end of each epoch and of the run, SeisSol prints how busy the threads and the device were. The threads count the
+time they spend in the loops over the cells or faces (on GPUs, the log gives it only where they ran any loops); the rest
+of their time, they do other work, e.g. the main thread drives the clusters, or they wait, e.g. at the end of a loop for
+the slowest thread, or for the halo exchange. A task graph on the host (``SEISSOL_HOST_TASK_GRAPH``, see
+:ref:`env_vars`) fills that time with the work of other clusters.
+
+On GPUs, the loops of the clusters and the replays of recorded super-timesteps get timed by events, from where each
+can start to where it has run. So the device time of the epoch splits into the time the device computed (in loops or
+replays) and was idle, e.g. waiting for the host to enqueue its work, or for other processes. See ``SEISSOL_DEVICE_LOOP_STATISTICS`` in :ref:`gpu-env` for the timing on the device.
+
+The log at the end of the run also gives the device time of the replays, and the throughput of each
+loop while it runs: its hardware FLOP/s and kernel bytes/s, from the counted FLOP over its time. The throughput is not
+known where some steps ran in replays of super-timesteps.
+
+.. _trace:
+
+Timeline of the run
+-------------------
+
+With ``SEISSOL_TRACE=1``, SeisSol records what each rank does during the time stepping, and writes it at the end into
+``<prefix>-trace.json``, in the trace event format of Chrome, which e.g. Perfetto (https://ui.perfetto.dev) and
+``chrome://tracing`` show. Each rank is a process there, with tracks of its own:
+
+* the host threads: the predictions and corrections of the clusters (e.g. ``compute-copy-2: predict``) on the thread
+  that decides them, and the ranges of the loops over the cells or faces (e.g. ``computeLocalIntegration``) on the
+  threads that run them; with a task graph on the host, also the work of each step as a task (``...: work``);
+* on GPUs, a track per device stream with the loops of its clusters, and the replays of super-timesteps, from where
+  each could start to where it has run (with
+  ``SEISSOL_DEVICE_LOOP_STATISTICS``, see :ref:`gpu-env`; CUDA and HIP);
+* the sends and receives of the halo exchange, from their start to their completion, a track for each direction of each
+  pair of clusters; also each message on a track of its own
+  (``mpi receive from rank <peer> tag <tag>``, ``mpi send to rank ...``), until the rank saw it complete, which tells
+  the peer whose message came last;
+* ``time stepping``, with the epochs.
+
+The ranks share the origin of the time up to the skew of a barrier; the times of the device are those of its events,
+placed by an event at the start of each epoch. A trace grows quickly: ``SEISSOL_TRACE_START`` and
+``SEISSOL_TRACE_DURATION`` choose a window, in seconds since the start of the time stepping (by default, all of it), and
+a rank records at most ``SEISSOL_TRACE_SPANS`` spans (a million by default, about 100 MB of the file), and warns at the
+end if it reached that. On many ranks, ``SEISSOL_TRACE_RANKS`` chooses the ranks that record, as a list of ranks,
+ranges and strides, e.g. ``0,17,100-103,%256`` (every 256th rank from 0 on); the others only name themselves in the
+file. Recording costs two readings of the clock per span; without ``SEISSOL_TRACE``, nothing but a
+check.
+
+With ``SEISSOL_TRACE_KERNELS=1`` as well, the device puts each of its kernels and waits into the trace, on a track for
+each of its queues (``device queue <n>``), from when it started to when it ended; only HIP with HSA queues
+(``SEISSOL_HSA_QUEUES``, see :ref:`gpu-time-stepping`) can do that so far. It gives each kernel and wait a signal that
+takes its times, which costs the device a little for each kernel.
+With ``DEVICE_HSA_QUEUE_DAG_LOG=<prefix>`` too, the Device library writes what the streams do while the kernels get
+traced into ``<prefix>-<rank>.txt`` (the rank from ``SLURM_PROCID``, ``PMI_RANK`` or ``OMPI_COMM_WORLD_RANK``): the work
+of each stream (kernels, graphs with the level of each kernel, copies, host functions), when the host enqueued it, the
+events the streams record and wait for, and when each kernel ran, with the names of the streams of the clusters; enough
+for the dependencies of all work and a schedule of it over the queues (the format: ``Trace.h`` of the HSA queues in the
+Device library).
 
 .. _cell-updates:
 

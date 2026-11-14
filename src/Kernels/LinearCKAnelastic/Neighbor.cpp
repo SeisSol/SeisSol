@@ -28,7 +28,6 @@
 #include <cstdint>
 #include <cstring>
 #include <iterator>
-#include <stdint.h>
 #include <utility>
 
 #ifdef ACL_DEVICE
@@ -169,20 +168,22 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
 
   {
     const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-    if (table.find(key) != table.end()) {
+    if (table.contains(key)) {
       auto& entry = table[key];
       device::DeviceInstance::instance().algorithms().setToValue(
-          (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr(),
+          entry.get<real*>(inner_keys::Wp::Id::DofsExt)->getDeviceDataPtr(),
           static_cast<real>(0.0),
           tensor::Qext<Cfg>::Size,
-          (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getSize(),
+          entry.get<real*>(inner_keys::Wp::Id::DofsExt)->getSize(),
           runtime.stream());
     }
   }
 
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    // only the face relations with cells get a branch, and so a node in a graph
     runtime.envMany(
-        (*FaceRelations::PerFace) + (*DrFaceRelations::PerFace), [&](void* stream, size_t i) {
+        (*FaceRelations::PerFace) + (*DrFaceRelations::PerFace),
+        [&](void* stream, size_t i) {
           // regular and periodic
           if (i < (*FaceRelations::PerFace)) {
             // regular and periodic
@@ -191,16 +192,16 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
             const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::Regular, face, faceRelation);
 
-            if (table.find(key) != table.end()) {
+            if (table.contains(key)) {
               auto& entry = table[key];
 
-              const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
+              const auto numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
               neighFluxKrnl.numElements = numElements;
 
               neighFluxKrnl.Qext =
-                  (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+                  entry.get<real*>(inner_keys::Wp::Id::DofsExt)->getDeviceDataPtr();
               neighFluxKrnl.I = const_cast<const real**>(
-                  (entry.get<real*>(inner_keys::Wp::Id::Idofs))->getDeviceDataPtr());
+                  entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr());
               neighFluxKrnl.AminusT = const_cast<const real**>(
                   entry.get<real*>(inner_keys::Wp::Id::NeighborIntegrationData)
                       ->getDeviceDataPtr());
@@ -221,35 +222,47 @@ void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
             const ConditionalKey key(
                 *KernelNames::NeighborFlux, *FaceKinds::DynamicRupture, face, faceRelation);
 
-            if (table.find(key) != table.end()) {
+            if (table.contains(key)) {
               auto& entry = table[key];
 
-              const auto numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
+              const auto numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
               drKrnl.numElements = numElements;
 
               drKrnl.fluxSolver = const_cast<const real**>(
-                  (entry.get<real*>(inner_keys::Wp::Id::FluxSolver))->getDeviceDataPtr());
+                  entry.get<real*>(inner_keys::Wp::Id::FluxSolver)->getDeviceDataPtr());
               drKrnl.QInterpolated = const_cast<const real**>(
-                  (entry.get<real*>(inner_keys::Wp::Id::Godunov))->getDeviceDataPtr());
-              drKrnl.Qext = (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr();
+                  entry.get<real*>(inner_keys::Wp::Id::Godunov)->getDeviceDataPtr());
+              drKrnl.Qext = entry.get<real*>(inner_keys::Wp::Id::DofsExt)->getDeviceDataPtr();
 
               drKrnl.streamPtr = stream;
               (drKrnl.*
                seissol::dynamicRupture::kernel::gpu_nodalFlux<Cfg>::ExecutePtrs[faceRelation])();
             }
           }
+        },
+        [&](size_t i) {
+          // the face relations with cells; the side is the minor index of the dynamic rupture
+          // ones, cf. the NeighIntegrationRecorder
+          const bool regular = i < (*FaceRelations::PerFace);
+          const ConditionalKey key(*KernelNames::NeighborFlux,
+                                   regular ? *FaceKinds::Regular : *FaceKinds::DynamicRupture,
+                                   face,
+                                   regular
+                                       ? i + (*FaceRelations::PerFace) * face
+                                       : face + Cell::NumFaces * (i - (*FaceRelations::PerFace)));
+          return table.contains(key);
         });
   }
 
   const ConditionalKey key(KernelNames::Time || KernelNames::Volume);
-  if (table.find(key) != table.end()) {
+  if (table.contains(key)) {
     auto& entry = table[key];
     kernel::gpu_neighbor<Cfg> nKrnl = deviceNKrnlPrototype_;
-    nKrnl.numElements = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getSize();
-    nKrnl.Qext = const_cast<const real**>(
-        (entry.get<real*>(inner_keys::Wp::Id::DofsExt))->getDeviceDataPtr());
-    nKrnl.Q = (entry.get<real*>(inner_keys::Wp::Id::Dofs))->getDeviceDataPtr();
-    nKrnl.Qane = (entry.get<real*>(inner_keys::Wp::Id::DofsAne))->getDeviceDataPtr();
+    nKrnl.numElements = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize();
+    nKrnl.Qext =
+        const_cast<const real**>(entry.get<real*>(inner_keys::Wp::Id::DofsExt)->getDeviceDataPtr());
+    nKrnl.Q = entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr();
+    nKrnl.Qane = entry.get<real*>(inner_keys::Wp::Id::DofsAne)->getDeviceDataPtr();
     nKrnl.w = const_cast<const real**>(
         entry.get<real*>(inner_keys::Wp::Id::LocalIntegrationData)->getDeviceDataPtr());
     nKrnl.extraOffset_w = SEISSOL_OFFSET(LocalIntegrationData<Cfg>, specific.w);

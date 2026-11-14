@@ -137,7 +137,7 @@ TEST_CASE_TEMPLATE("Face rotation follows the quantity groups" * doctest::test_s
   auto matTinv = init::Tinv<Cfg>::view::create(matTinvData.data());
 
   // deterministic on purpose, so that a failure can be reproduced
-  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  // NOLINTNEXTLINE(bugprone-random-generator-seed)
   std::mt19937 rng(20260904);
   for (int sample = 0; sample < 32; ++sample) {
     const auto frame = randomFrame(rng);

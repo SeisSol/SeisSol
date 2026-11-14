@@ -47,6 +47,8 @@ if check:
         "output": {"enabled": [], "writable": True},
         "unknownFields": [],
     }
+    if os.environ.get("FAKE_CHECK_WARNS"):
+        data["warnings"] = ["Dynamic rupture is on, but the mesh has no fault faces."]
     if os.environ.get("FAKE_CHECK_FAILS"):
         data["status"] = "failed"
         data["problems"] = ["The file x.yaml that equations.materialfilename names does not exist."]

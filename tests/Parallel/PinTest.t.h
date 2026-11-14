@@ -10,7 +10,10 @@
 #include <async/as/Pin.h>
 #include <initializer_list>
 #include <optional>
+
+#ifdef __linux__
 #include <sched.h>
+#endif
 
 namespace seissol::unit_test {
 
@@ -52,7 +55,7 @@ TEST_CASE("Online Mask Parsing" * doctest::test_suite("parallel")) {
   }
 }
 
-#ifndef __APPLE__
+#ifdef __linux__
 TEST_CASE("First CPU of a mask" * doctest::test_suite("parallel")) {
   using namespace seissol::parallel;
   const auto maskOf = [](std::initializer_list<int> cpus) {
@@ -73,6 +76,6 @@ TEST_CASE("First CPU of a mask" * doctest::test_suite("parallel")) {
   CHECK(Pinning::firstCpu(maskOf({3, 2})) == std::optional<int>(2));
   CHECK(Pinning::firstCpu(maskOf({CPU_SETSIZE - 1})) == std::optional<int>(CPU_SETSIZE - 1));
 }
-#endif // __APPLE__
+#endif // __linux__
 
 } // namespace seissol::unit_test

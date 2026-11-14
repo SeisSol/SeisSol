@@ -75,13 +75,16 @@ ConfigId defaultConfig() { return environmentConfig().value_or(0); }
 std::string describeBuiltConfigs() {
   std::ostringstream stream;
   for (std::size_t id = 0; id < builtConfigCount(); ++id) {
-    const auto& value = configValue(static_cast<ConfigId>(id));
-    stream << configName(value) << "\n";
-    std::istringstream fields(describeConfig(value));
+    const auto& layout = configLayout(static_cast<ConfigId>(id));
+    stream << configName(layout.config) << "\n";
+    std::istringstream fields(describeConfig(layout.config));
     for (std::string field; std::getline(fields, field);) {
       stream << "  " << field << "\n";
     }
+    stream << "  Solver: " << solverTypeName(layout.solver) << "\n";
   }
+  stream << "Dynamic rupture quadrature rule (all configurations): "
+         << drQuadRuleName(builtDRQuadRule()) << "\n";
   return stream.str();
 }
 

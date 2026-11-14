@@ -50,12 +50,11 @@ set(SEISSOL_CONFIGS_STP "")
 set(SEISSOL_CONFIGS_PER_MATERIAL "")
 set(_seen_materials "")
 foreach(IDX RANGE ${SEISSOL_CONFIG_LAST})
-  foreach(FIELD TYPES MATERIALS SOLVERS MECHANISMS ORDERS PRECISIONS DRQUADRULES SIMULATIONS)
+  foreach(FIELD TYPES MATERIALS SOLVERS MECHANISMS ORDERS PRECISIONS SIMULATIONS)
     list(GET SEISSOL_CONFIG_${FIELD} ${IDX} CONFIG_${FIELD})
   endforeach()
 
   capitalize(${CONFIG_MATERIALS} PARAMETER_MATERIAL)
-  capitalize(${CONFIG_DRQUADRULES} PARAMETER_DRQUADRULE)
   if (CONFIG_SOLVERS STREQUAL "linearck")
     set(PARAMETER_SOLVER "LinearCK")
   elseif (CONFIG_SOLVERS STREQUAL "linearckanelastic")
@@ -77,9 +76,8 @@ foreach(IDX RANGE ${SEISSOL_CONFIG_LAST})
     "               ${CONFIG_MECHANISMS},\n"
     "               model::MaterialType::${PARAMETER_MATERIAL},\n"
     "               RealType::${PARAMETER_REALTYPE},\n"
-    "               SolverType::${PARAMETER_SOLVER},\n"
-    "               DRQuadRuleType::${PARAMETER_DRQUADRULE},\n"
-    "               ${CONFIG_SIMULATIONS}> {};\n")
+    "               ${CONFIG_SIMULATIONS},\n"
+    "               SolverType::${PARAMETER_SOLVER}> {};\n")
   string(APPEND SEISSOL_CONFIG_LIST " X(::seissol::${CONFIG_TYPES})")
   list(APPEND SEISSOL_CONFIG_TYPE_NAMES "::seissol::${CONFIG_TYPES}")
   string(TOUPPER ${PARAMETER_SOLVER} PARAMETER_SOLVER_UPPER)
@@ -91,6 +89,9 @@ foreach(IDX RANGE ${SEISSOL_CONFIG_LAST})
   endif()
 endforeach()
 string(JOIN ", " SEISSOL_CONFIG_TYPE_LIST ${SEISSOL_CONFIG_TYPE_NAMES})
+
+# the quadrature rule of the dynamic rupture faces, the same for all configurations
+capitalize(${DR_QUAD_RULE} SEISSOL_DR_QUAD_RULE)
 
 configure_file("Config.h.in"
                "${CMAKE_CURRENT_BINARY_DIR}/Config.h")

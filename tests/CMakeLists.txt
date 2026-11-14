@@ -208,6 +208,10 @@ seissol_add_mpi_test_module(geometrympi 4
     Geometry/TestGeometryMPI.cpp
 )
 
+seissol_add_mpi_test_module(monitoringmpi 2
+    Monitoring/TestMonitoringMpi.cpp
+)
+
 # =============================================================================
 # Handle TESTING_GENERATED kernel sources
 # =============================================================================
@@ -224,6 +228,10 @@ if (TESTING_GENERATED)
     # fast as with -O3.
     set_source_files_properties(${SEISSOL_CODEGEN_TESTS} PROPERTIES
         COMPILE_OPTIONS "$<$<NOT:$<CONFIG:Debug>>:-O1>")
+    if (WARNINGS_AS_ERRORS)
+        # what the generated code looks like is up to yateto
+        set_property(SOURCE ${SEISSOL_CODEGEN_TESTS} APPEND PROPERTY COMPILE_OPTIONS -Wno-error)
+    endif()
 
     foreach(_TGT IN LISTS _GENERATED_KERNEL_TARGETS)
         if (WITH_GPU)

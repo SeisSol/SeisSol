@@ -19,7 +19,7 @@
 #include <vector>
 namespace seissol::io::instance::metadata {
 
-XmlInstructor::XmlInstructor(const std::string& file) : file_(file) {}
+XmlInstructor::XmlInstructor(std::string file) : file_(std::move(file)) {}
 
 void XmlInstructor::addText(const std::string& text) { cache_ << text; }
 
@@ -70,7 +70,7 @@ std::string XmlInstructor::text() const {
   return cache_.str();
 }
 
-XmlAttribute::XmlAttribute(const std::string& name) : name_(name) {}
+XmlAttribute::XmlAttribute(std::string name) : name_(std::move(name)) {}
 
 void XmlAttribute::write(XmlInstructor& instructor) const {
   instructor.addText(" ");
@@ -80,7 +80,7 @@ void XmlAttribute::write(XmlInstructor& instructor) const {
   instructor.addText("\"");
 }
 
-XmlEntry::XmlEntry(const std::string& name) : name_(name) {}
+XmlEntry::XmlEntry(std::string name) : name_(std::move(name)) {}
 
 XmlEntry& XmlEntry::addAttribute(const XmlAttribute& attribute) {
   attributes_.emplace_back(attribute);

@@ -53,7 +53,7 @@ class SegmentMap {
     // any key inside [trueStart, trueEnd) delimits a neighboring range; it may only sit exactly on
     // trueStart, and only as a sentinel. lb == begin() means trueEnd, and hence trueStart as well,
     // is the smallest representable key -- there is nothing below it to look at.
-    const auto occupiedBelow = [&]() {
+    const auto occupiedBelow = [&] {
       if (lb == ranges_.begin()) {
         return false;
       }

@@ -110,24 +110,24 @@ inline double relError(const DrMatrix& value, const DrMatrix& reference) {
 }
 
 /**
- * The same material in units in which rho = c11 = 1. getEigenDecomposition classifies eigenvalues
- * and checks its residual against absolute thresholds (see its debug checks), which only make
- * sense for moduli of order one; with moduli of ~1e10 the zero eigenvalues come out as ~1e-7.
+ * The same material in units in which rho = c11 = 1, in which the entries of the Jacobian are of
+ * order one. getEigenDecomposition classifies its eigenvalues against an absolute threshold (see
+ * its debug checks).
  */
 inline model::AnisotropicMaterial nondimensionalized(const model::AnisotropicMaterial& material) {
   model::AnisotropicMaterial scaled = material;
   scaled.rho = 1.0;
-  for (auto coefficient : {&model::AnisotropicMaterial::c11, &model::AnisotropicMaterial::c12,
-                           &model::AnisotropicMaterial::c13, &model::AnisotropicMaterial::c14,
-                           &model::AnisotropicMaterial::c15, &model::AnisotropicMaterial::c16,
-                           &model::AnisotropicMaterial::c22, &model::AnisotropicMaterial::c23,
-                           &model::AnisotropicMaterial::c24, &model::AnisotropicMaterial::c25,
-                           &model::AnisotropicMaterial::c26, &model::AnisotropicMaterial::c33,
-                           &model::AnisotropicMaterial::c34, &model::AnisotropicMaterial::c35,
-                           &model::AnisotropicMaterial::c36, &model::AnisotropicMaterial::c44,
-                           &model::AnisotropicMaterial::c45, &model::AnisotropicMaterial::c46,
-                           &model::AnisotropicMaterial::c55, &model::AnisotropicMaterial::c56,
-                           &model::AnisotropicMaterial::c66}) {
+  for (const auto coefficient : {&model::AnisotropicMaterial::c11, &model::AnisotropicMaterial::c12,
+                                 &model::AnisotropicMaterial::c13, &model::AnisotropicMaterial::c14,
+                                 &model::AnisotropicMaterial::c15, &model::AnisotropicMaterial::c16,
+                                 &model::AnisotropicMaterial::c22, &model::AnisotropicMaterial::c23,
+                                 &model::AnisotropicMaterial::c24, &model::AnisotropicMaterial::c25,
+                                 &model::AnisotropicMaterial::c26, &model::AnisotropicMaterial::c33,
+                                 &model::AnisotropicMaterial::c34, &model::AnisotropicMaterial::c35,
+                                 &model::AnisotropicMaterial::c36, &model::AnisotropicMaterial::c44,
+                                 &model::AnisotropicMaterial::c45, &model::AnisotropicMaterial::c46,
+                                 &model::AnisotropicMaterial::c55, &model::AnisotropicMaterial::c56,
+                                 &model::AnisotropicMaterial::c66}) {
     scaled.*coefficient /= material.c11;
   }
   return scaled;
@@ -173,7 +173,7 @@ TEST_CASE("Anisotropic DR impedance reduces to the elastic one" *
                                        Eigen::Vector3d(1, 1, 1),
                                        Eigen::Vector3d(0.3, -0.5, 0.81)};
   // deterministic on purpose, so that a failure can be reproduced
-  // NOLINTNEXTLINE(bugprone-random-generator-seed,cert-msc32-c,cert-msc51-cpp)
+  // NOLINTNEXTLINE(bugprone-random-generator-seed)
   std::mt19937 rng(20260803);
   std::normal_distribution<double> normalDist;
   for (int i = 0; i < 64; ++i) {

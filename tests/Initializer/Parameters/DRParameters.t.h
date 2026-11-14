@@ -24,7 +24,7 @@ using namespace seissol::dr::misc;
 
 TEST_CASE("FrictionLawType enum values are unique" * doctest::test_suite("initializer")) {
   std::set<unsigned int> values;
-  auto insert = [&](FrictionLawType t) {
+  const auto insert = [&](FrictionLawType t) {
     auto [it, inserted] = values.insert(static_cast<unsigned int>(t));
     CHECK_MESSAGE(inserted, "Duplicate FrictionLawType value: ", static_cast<unsigned int>(t));
   };

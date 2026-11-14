@@ -14,15 +14,17 @@
 
 #include <fstream>
 #include <map>
+#include <mutex>
 #include <string>
 #include <vector>
 
 // Floating point operations performed in the matrix kernels.
 // Remark: These variables are updated by the matrix kernels (subroutine.cpp) only in debug builds.
+// The GEMM generators write these names into the kernels.
 
-// NOLINTNEXTLINE
+// NOLINTNEXTLINE(readability-identifier-naming,cppcoreguidelines-avoid-non-const-global-variables)
 extern long long libxsmm_num_total_flops;
-// NOLINTNEXTLINE
+// NOLINTNEXTLINE(readability-identifier-naming,cppcoreguidelines-avoid-non-const-global-variables)
 extern long long pspamm_num_total_flops;
 
 namespace seissol::monitoring {
@@ -51,9 +53,17 @@ struct FlopCounter {
    */
   json::Value printPerformanceSummary(double wallTime) const;
 
+  /**
+   * @brief Counts @p data for the metric; from any thread (e.g. that of host work for the device).
+   */
   void incrementMetric(std::size_t handle, const PerformanceEstimate& data);
 
   [[nodiscard]] std::size_t addMetric(const std::string& name, const std::string& category);
+
+  /**
+   * @brief What the metrics with one of the @p names have counted on this rank so far.
+   */
+  [[nodiscard]] PerformanceEstimate estimate(const std::vector<std::string>& names) const;
 
   private:
   std::ofstream out_;
@@ -66,6 +76,8 @@ struct FlopCounter {
   };
 
   std::vector<Metric> metrics_;
+  // for the estimates of the metrics, which work on other threads may increment
+  mutable std::mutex mutex_;
   std::map<std::string, std::vector<std::size_t>> metricCategories_;
 
   PerformanceEstimate previousEstimate_;

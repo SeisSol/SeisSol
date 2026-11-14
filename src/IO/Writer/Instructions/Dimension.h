@@ -62,9 +62,11 @@ struct Dimension {
   std::size_t chunk{0};
 
   static Dimension replicated(std::size_t size) {
-    return {size, Extent::Replicated, Growth::Fixed, 0};
+    return {.size = size, .extent = Extent::Replicated, .growth = Growth::Fixed, .chunk = 0};
   }
-  static Dimension distributed() { return {0, Extent::Distributed, Growth::Fixed, 0}; }
+  static Dimension distributed() {
+    return {.size = 0, .extent = Extent::Distributed, .growth = Growth::Fixed, .chunk = 0};
+  }
 
   /**
    * @brief A dimension every write extends by @p size entries, the same number on every rank.
@@ -73,7 +75,7 @@ struct Dimension {
    * every write contributes the same amount.
    */
   static Dimension appended(std::size_t size, std::size_t chunk = 0) {
-    return {size, Extent::Replicated, Growth::Appended, chunk};
+    return {.size = size, .extent = Extent::Replicated, .growth = Growth::Appended, .chunk = chunk};
   }
 
   /**
@@ -82,7 +84,9 @@ struct Dimension {
    * What a flat array a reader slices by itself looks like: one write contributes a round of
    * distributed data, and the next one lands behind it.
    */
-  static Dimension distributedAppended() { return {0, Extent::Distributed, Growth::Appended, 0}; }
+  static Dimension distributedAppended() {
+    return {.size = 0, .extent = Extent::Distributed, .growth = Growth::Appended, .chunk = 0};
+  }
 
   [[nodiscard]] bool isDistributed() const { return extent == Extent::Distributed; }
   [[nodiscard]] bool isAppended() const { return growth == Growth::Appended; }
@@ -147,11 +151,11 @@ inline std::vector<Dimension> deserializeDimensions(const YAML::Node& node) {
   std::vector<Dimension> result;
   result.reserve(node.size());
   for (const auto& entry : node) {
-    result.push_back(
-        Dimension{entry["size"].as<std::size_t>(),
-                  entry["distributed"].as<bool>() ? Extent::Distributed : Extent::Replicated,
-                  entry["appended"].as<bool>() ? Growth::Appended : Growth::Fixed,
-                  entry["chunk"].as<std::size_t>()});
+    result.push_back(Dimension{
+        .size = entry["size"].as<std::size_t>(),
+        .extent = entry["distributed"].as<bool>() ? Extent::Distributed : Extent::Replicated,
+        .growth = entry["appended"].as<bool>() ? Growth::Appended : Growth::Fixed,
+        .chunk = entry["chunk"].as<std::size_t>()});
   }
   return result;
 }

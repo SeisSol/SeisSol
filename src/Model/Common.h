@@ -133,16 +133,21 @@ constexpr bool testIfAcoustic(T mu) {
 }
 
 /**
- * Re-orthonormalizes the eigenvectors belonging to (numerically) degenerate eigenvalues.
+ * Replaces the eigenvectors belonging to (numerically) degenerate eigenvalues of a real matrix by a
+ * real orthonormal basis of their eigenspace, the null space of the matrix minus the eigenvalue.
  *
  * A general eigensolver (LAPACK zgeev, Eigen::ComplexEigenSolver) determines the eigenvectors of a
  * repeated eigenvalue only up to an arbitrary basis of the corresponding eigenspace, and it makes
- * no attempt to return a well-conditioned one. In practice it returns a nearly parallel pair: for
- * the doubly degenerate poroelastic shear eigenvalue the two vectors agree to 1 - |cos| ~ 1e-12,
- * which drives the condition number of the eigenvector matrix to ~1e12 and caps the accuracy of the
- * Godunov matrices at ~1e-11 -- independently of which linear solver is used afterwards.
+ * no attempt to return a well-conditioned one. For the doubly degenerate poroelastic shear
+ * eigenvalue, the two vectors it returns agree to 1 - |cos| ~ 1e-12, which drives the condition
+ * number of the eigenvector matrix to ~1e12 and caps the accuracy of the Godunov matrices at
+ * ~1e-11 -- independently of which linear solver is used afterwards; for some materials, they agree
+ * exactly, so that their span misses part of the eigenspace. The basis here comes from the matrix
+ * instead: the right singular vectors of the smallest singular values of A - lambda I, balanced as
+ * computeEigenvalues balances A. For a real matrix and eigenvalue they are real, as the Godunov
+ * state of a free surface, which takes the real parts of the eigenvectors, needs them.
  *
- * Replacing a cluster by an orthonormal basis of its span leaves every quantity derived from it
+ * Replacing a cluster by another basis of its eigenspace leaves every quantity derived from it
  * invariant: the Godunov construction only ever forms R * chi * R^-1 with a diagonal 0/1 selector
  * chi, and such a projector is unchanged when a block of columns that chi treats identically is
  * right-multiplied by an invertible matrix. To keep that guarantee we never merge eigenvalues
@@ -150,10 +155,16 @@ constexpr bool testIfAcoustic(T mu) {
  * zeroThreshold must not be pulled into the null-space cluster.
  */
 template <typename T, std::size_t Dim>
-void orthonormalizeDegenerateEigenvectors(seissol::eigenvalues::Eigenpair<T, Dim>& eigenpair,
-                                          double zeroThreshold) {
+void replaceDegenerateEigenvectors(const std::array<T, Dim * Dim>& matrix,
+                                   seissol::eigenvalues::Eigenpair<T, Dim>& eigenpair,
+                                   double zeroThreshold) {
   constexpr auto Size = static_cast<Eigen::Index>(Dim);
-  using CMatrix = Eigen::Matrix<T, Size, Eigen::Dynamic>;
+  using RealT = T::value_type;
+  using RMatrix = Eigen::Matrix<RealT, Size, Eigen::Dynamic>;
+  using RSquare = Eigen::Matrix<RealT, Size, Size>;
+  // the decompositions take their matrices with sizes known at run time only, as the eigensolver of
+  // computeEigenvalues does, so that they are compiled once rather than once for each size
+  using RDynamic = Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic>;
 
   const auto signClass = [zeroThreshold](const T& value) -> int {
     if (value.real() < -zeroThreshold) {
@@ -172,6 +183,7 @@ void orthonormalizeDegenerateEigenvectors(seissol::eigenvalues::Eigenpair<T, Dim
   // computeEigenvalues sorts by real part, so a cluster is always a contiguous index range
   const double clusterTolerance = 1e-8 * spectralRadius;
 
+  const RSquare realMatrix = Eigen::Map<const Eigen::Matrix<T, Size, Size>>(matrix.data()).real();
   auto vectors = Eigen::Map<Eigen::Matrix<T, Size, Size>>(eigenpair.vectors.data());
 
   std::size_t begin = 0;
@@ -185,9 +197,19 @@ void orthonormalizeDegenerateEigenvectors(seissol::eigenvalues::Eigenpair<T, Dim
     const auto first = static_cast<Eigen::Index>(begin);
     const auto width = static_cast<Eigen::Index>(end - begin + 1);
     if (width > 1) {
-      const CMatrix cluster = vectors.middleCols(first, width);
-      const Eigen::HouseholderQR<CMatrix> qr(cluster);
-      vectors.middleCols(first, width) = qr.householderQ() * CMatrix::Identity(Size, width);
+      RealT lambda = 0;
+      for (auto k = first; k < first + width; ++k) {
+        lambda += eigenpair.values[k].real();
+      }
+      lambda /= static_cast<RealT>(width);
+      RSquare shifted = realMatrix - lambda * RSquare::Identity();
+      const auto scale = seissol::eigenvalues::balance(shifted);
+      // the singular values come in decreasing order
+      const Eigen::JacobiSVD<RDynamic> svd(RDynamic(shifted), Eigen::ComputeFullV);
+      const RDynamic spanning = scale.asDiagonal() * svd.matrixV().rightCols(width);
+      const Eigen::HouseholderQR<RDynamic> qr(spanning);
+      const RMatrix basis = qr.householderQ() * RDynamic::Identity(Size, width);
+      vectors.middleCols(first, width) = basis.template cast<T>();
     }
     begin = end + 1;
   }
@@ -205,14 +227,6 @@ void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& mE) {
   SolverSetup<kernels::SolverOf<Cfg>, Tmaterial>::getTransposedSourceCoefficientTensor(material,
                                                                                        mE);
 }
-
-/// The backend of the eigenvalue decompositions of a material, as a build with that material alone
-/// has it: LAPACK for the poroelastic material, for which Eigen computes some values incorrectly,
-/// and Eigen for every other.
-template <typename MaterialT>
-constexpr auto EigenvalueBackend =
-    MaterialT::Type == MaterialType::Poroelastic ? eigenvalues::LapackIfLinked
-                                                 : eigenvalues::Backend::Eigen3;
 
 /// The eigenpairs of the normal Jacobian of a material without relaxation, which every solver
 /// lays out as the material describes it.
@@ -232,7 +246,7 @@ void getTransposedGodunovState(const Tmaterial& local,
 
 /// The material in which the material `MaterialT` poses the Riemann problem at its faces.
 template <typename MaterialT>
-using RiemannMaterialOf = typename MaterialT::RiemannMaterial;
+using RiemannMaterialOf = MaterialT::RiemannMaterial;
 
 /// Whether the materials `MaterialT` and `NeighborT` pose the Riemann problem at their faces in the
 /// same material.
@@ -240,46 +254,65 @@ template <typename MaterialT, typename NeighborT>
 constexpr bool SameRiemannMaterial =
     std::is_same_v<RiemannMaterialOf<MaterialT>, RiemannMaterialOf<NeighborT>>;
 
-/// Whether the material `MaterialT` is a solid and `NeighborT` a fluid, or the other way round, by
-/// the materials they pose the Riemann problem at their faces in.
-template <typename MaterialT, typename NeighborT>
-constexpr bool SolidAndFluid = (std::is_same_v<RiemannMaterialOf<MaterialT>, ElasticMaterial> &&
-                                std::is_same_v<RiemannMaterialOf<NeighborT>, AcousticMaterial>) ||
-                               (std::is_same_v<RiemannMaterialOf<MaterialT>, AcousticMaterial> &&
-                                std::is_same_v<RiemannMaterialOf<NeighborT>, ElasticMaterial>);
+/// The material whose quantities the Riemann problem of the material `MaterialT` has at its faces:
+/// an anisotropic solid poses it in a material of its own, with the quantities of an elastic one.
+template <typename MaterialT>
+using RiemannQuantitiesOf =
+    std::conditional_t<std::is_same_v<RiemannMaterialOf<MaterialT>, AnisotropicMaterial>,
+                       ElasticMaterial,
+                       RiemannMaterialOf<MaterialT>>;
 
-/// Whether cells of the materials `MaterialT` and `NeighborT` can be face neighbors: both pose the
-/// Riemann problem at their faces in the same material, or one is a solid and the other a fluid.
+/// Whether the Riemann problems of the materials `MaterialT` and `NeighborT` have the same
+/// quantities, so that the time integral of a neighbor converts into the quantities of a cell as
+/// they are: the configurations of such materials form a family.
 template <typename MaterialT, typename NeighborT>
-constexpr bool CanNeighbor =
-    SameRiemannMaterial<MaterialT, NeighborT> || SolidAndFluid<MaterialT, NeighborT>;
+constexpr bool SameFamily =
+    std::is_same_v<RiemannQuantitiesOf<MaterialT>, RiemannQuantitiesOf<NeighborT>>;
 
-/// The neighbor `neighbor` as a material `MaterialT`, for the Riemann problem at their face: with
-/// the parameters it is posed with, all others at their defaults. A solid sees a fluid as a solid
-/// without shear modulus, and a fluid sees a solid as a fluid with the P-wave modulus of the solid:
-/// at their face, the fluid couples to the normal stress and the normal velocity of the solid only.
+/// Whether one of the materials `MaterialT` and `NeighborT` is anisotropic and the other an
+/// isotropic solid (elastic, viscoelastic): the Riemann problem at their face is posed in the
+/// anisotropic material, into which the isotropic one converts exactly (see getFaceGodunovState).
+template <typename MaterialT, typename NeighborT>
+constexpr bool AnisotropicAndIsotropic =
+    SameFamily<MaterialT, NeighborT> && !SameRiemannMaterial<MaterialT, NeighborT>;
+
+/// The position of the family of the material `MaterialT`, by the quantities of its Riemann
+/// problem, among the families of the code generator (FAMILIES in
+/// codegen/kernels/configboundary.py): the solids, the fluids and the poroelastic solids. The
+/// cells of any two families can be face neighbors; at their face, both meet in the interface
+/// variables (see coupledGodunov).
+template <typename MaterialT>
+constexpr std::size_t familyIndex() {
+  using QuantitiesT = RiemannQuantitiesOf<MaterialT>;
+  if constexpr (std::is_same_v<QuantitiesT, ElasticMaterial>) {
+    return 0;
+  } else if constexpr (std::is_same_v<QuantitiesT, AcousticMaterial>) {
+    return 1;
+  } else {
+    static_assert(std::is_same_v<QuantitiesT, PoroElasticMaterial>,
+                  "the material is of none of the families");
+    return 2;
+  }
+}
+
+/// The number of the families of familyIndex.
+constexpr std::size_t FamilyCount = 3;
+
+/// The neighbor `neighbor` as a material `MaterialT` that poses the Riemann problem at its faces in
+/// the same material, for the Riemann problem at their face: with the parameters it is posed with,
+/// all others at their defaults.
 template <typename MaterialT, typename NeighborT>
 MaterialT neighborAs(const NeighborT& neighbor) {
-  static_assert(CanNeighbor<MaterialT, NeighborT>,
-                "The materials pose the Riemann problem at their faces differently.");
+  static_assert(SameRiemannMaterial<MaterialT, NeighborT>,
+                "The materials pose the Riemann problem at their faces differently; between an "
+                "anisotropic and an isotropic solid, it is posed in the anisotropic material, and "
+                "between a solid and a fluid with the impedances of both (see coupledGodunov).");
   if constexpr (std::is_same_v<MaterialT, NeighborT>) {
     return neighbor;
   } else {
-    using RiemannMaterialT = typename MaterialT::RiemannMaterial;
-    using NeighborRiemannMaterialT = typename NeighborT::RiemannMaterial;
-    const auto& riemannNeighbor = static_cast<const NeighborRiemannMaterialT&>(neighbor);
+    using RiemannMaterialT = MaterialT::RiemannMaterial;
     MaterialT material{};
-    auto& riemann = static_cast<RiemannMaterialT&>(material);
-    if constexpr (SameRiemannMaterial<MaterialT, NeighborT>) {
-      riemann = riemannNeighbor;
-    } else if constexpr (std::is_same_v<RiemannMaterialT, ElasticMaterial>) {
-      riemann.rho = riemannNeighbor.rho;
-      riemann.lambda = riemannNeighbor.lambda;
-      riemann.mu = 0;
-    } else {
-      riemann.rho = riemannNeighbor.rho;
-      riemann.lambda = riemannNeighbor.lambda + 2 * riemannNeighbor.mu;
-    }
+    static_cast<RiemannMaterialT&>(material) = static_cast<const RiemannMaterialT&>(neighbor);
     return material;
   }
 }
@@ -415,6 +448,43 @@ MaterialT getRotatedMaterialCoefficients(const std::array<double, 36>& rotationP
   return MaterialSetup<MaterialT>::getRotatedMaterialCoefficients(rotationParameters, material);
 }
 
+/// The transposed Godunov state at the face of a cell of the material `local` towards the
+/// neighbor `neighbor` of the same family, in the coordinates of the face that `rotation` gives
+/// (cf. getBondMatrix). Between an anisotropic and an isotropic solid, it is the one of the
+/// anisotropic material, into which the isotropic solid converts exactly (a viscoelastic one with
+/// the elastic part it poses its Riemann problem with); otherwise, the one of the material of the
+/// cell, with the neighbor as neighborAs gives it.
+template <typename MaterialT, typename NeighborT, typename Tloc, typename Tneigh>
+void getFaceGodunovState(const std::array<double, 36>& rotation,
+                         const MaterialT& local,
+                         const NeighborT& neighbor,
+                         FaceType faceType,
+                         Tloc& qGodLocal,
+                         Tneigh& qGodNeighbor) {
+  if constexpr (AnisotropicAndIsotropic<MaterialT, NeighborT>) {
+    const auto asAnisotropic = [](const auto& material) {
+      using SolidT = std::decay_t<decltype(material)>;
+      if constexpr (std::is_same_v<SolidT, AnisotropicMaterial>) {
+        return material;
+      } else {
+        return AnisotropicMaterial(static_cast<const ElasticMaterial&>(material));
+      }
+    };
+    getTransposedGodunovState(getRotatedMaterialCoefficients(rotation, asAnisotropic(local)),
+                              getRotatedMaterialCoefficients(rotation, asAnisotropic(neighbor)),
+                              faceType,
+                              qGodLocal,
+                              qGodNeighbor);
+  } else {
+    getTransposedGodunovState(
+        getRotatedMaterialCoefficients(rotation, local),
+        getRotatedMaterialCoefficients(rotation, neighborAs<MaterialT>(neighbor)),
+        faceType,
+        qGodLocal,
+        qGodNeighbor);
+  }
+}
+
 /**
  * What a material setup looks like when the material has nothing special to
  * say. Specialisations derive from this and override only what they actually
@@ -472,10 +542,10 @@ struct SolverSetupDefaults {
 
   static void initializeSpecificLocalData(const MaterialT& /*material*/,
                                           double /*timeStepWidth*/,
-                                          typename SolverT::LocalData* /*localData*/) {}
+                                          SolverT::LocalData* /*localData*/) {}
 
   static void initializeSpecificNeighborData(const MaterialT& /*material*/,
-                                             typename SolverT::NeighborData* /*neighborData*/) {}
+                                             SolverT::NeighborData* /*neighborData*/) {}
 
   /// Materials without relaxation describe their source term directly.
   template <typename T>
@@ -529,9 +599,9 @@ template <typename T, typename Tmatrix, typename Tarray1, typename Tarray2>
 void setBlocks(T qGodLocal, Tmatrix mS, Tarray1 tractionIndices, Tarray2 velocityIndices) {
   // set lower left block
   int col = 0;
-  for (auto& t : tractionIndices) {
+  for (const auto& t : tractionIndices) {
     int row = 0;
-    for (auto& v : velocityIndices) {
+    for (const auto& v : velocityIndices) {
       qGodLocal(t, v) = mS(row, col);
       row++;
     }
@@ -539,7 +609,7 @@ void setBlocks(T qGodLocal, Tmatrix mS, Tarray1 tractionIndices, Tarray2 velocit
   }
 
   // set lower right block
-  for (auto& v : velocityIndices) {
+  for (const auto& v : velocityIndices) {
     qGodLocal(v, v) = 1.0;
   }
 }
@@ -562,11 +632,11 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   }
   seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities> eigenpair;
 
-  seissol::eigenvalues::computeEigenvalues<EigenvalueBackend<Tmaterial>>(dataA, eigenpair);
+  seissol::eigenvalues::computeEigenvalues(dataA, eigenpair);
 
-  // repair the eigenvector basis inside degenerate eigenspaces before anything derived from it is
-  // computed; without this matR becomes numerically singular (cond ~ 1e12 instead of ~1e7)
-  orthonormalizeDegenerateEigenvectors(eigenpair, zeroThreshold);
+  // a basis of each degenerate eigenspace before anything derived from it is computed; without
+  // it, matR becomes numerically singular (cond ~ 1e12 instead of ~1e7), or exactly so
+  replaceDegenerateEigenvectors(dataA, eigenpair, zeroThreshold);
 
 #ifndef NDEBUG
   using CMatrix =
@@ -590,7 +660,8 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   assert(evNeg == ExpectedEv);
   assert(evPos == ExpectedEv);
 
-  // check whether eigensolver is good enough
+  // check whether eigensolver is good enough: the eigenvectors have unit length, so that the
+  // residual scales with the Jacobian, whose rows of the stresses hold moduli of ~1e10 in SI units
   const CMatrix coeff(dataA.data());
   const CMatrix matrixMult = coeff * eigenvectors;
   CMatrix eigenvalueMatrix = CMatrix::Zero();
@@ -599,11 +670,11 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   }
   const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;
   const CMatrix diff = matrixMult - vectorMult;
-  const double norm = diff.norm();
+  const double norm = diff.norm() / coeff.norm();
 
   std::stringstream messageStream;
-  messageStream << "Residual " << norm << " is larger than " << zeroThreshold
-                << ": Eigensolver is not accurate enough";
+  messageStream << "Residual " << norm << " relative to the Jacobian is larger than "
+                << zeroThreshold << ": Eigensolver is not accurate enough";
   assert(norm < zeroThreshold && messageStream.str().c_str());
 #endif
   return eigenpair;

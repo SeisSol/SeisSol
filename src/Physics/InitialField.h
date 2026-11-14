@@ -37,6 +37,11 @@ class InitialField {
 /// `Derived`, a template of the type of the reals.
 template <typename Derived, typename Base = InitialField>
 class InitialFieldOf : public Base {
+  private:
+  // only the CRTP subclass `Derived` constructs this base
+  InitialFieldOf() = default;
+  friend Derived;
+
   public:
   using Base::Base;
 

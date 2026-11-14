@@ -21,57 +21,102 @@
 #include <ctime>
 #include <iterator>
 #include <mpi.h>
+#include <mutex>
 #include <string>
-#include <time.h>
+// clock_gettime is POSIX and only declared by the C header
+#include <time.h> // NOLINT(modernize-deprecated-headers)
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
 namespace seissol {
 
-LoopStatistics::Region::Region(const std::string& name, bool includeInSummary)
-    : name(name), includeInSummary(includeInSummary) {}
+LoopStatistics::Region::Region(std::string name, bool includeInSummary)
+    : name(std::move(name)), includeInSummary(includeInSummary) {}
 
 void LoopStatistics::addRegion(const std::string& name, bool includeInSummary) {
   regions_.emplace_back(name, includeInSummary);
 }
 
 unsigned LoopStatistics::getRegion(const std::string& name) const {
-  auto first = regions_.cbegin();
-  auto it =
+  const auto first = regions_.cbegin();
+  const auto it =
       std::find_if(first, regions_.cend(), [&name](const auto& elem) { return elem.name == name; });
   assert(it != regions_.end());
   return std::distance(first, it);
 }
 
-void LoopStatistics::begin(unsigned region) {
-  (void)clock_gettime(CLOCK_MONOTONIC, &regions_[region].begin);
+timespec LoopStatistics::begin() {
+  timespec beginTime{};
+  (void)clock_gettime(CLOCK_MONOTONIC, &beginTime);
+  return beginTime;
 }
 
-void LoopStatistics::end(unsigned region, unsigned numIterations, unsigned subRegion) {
+void LoopStatistics::end(unsigned region,
+                         unsigned numIterations,
+                         unsigned subRegion,
+                         const timespec& begin) {
   timespec endTime{};
   (void)clock_gettime(CLOCK_MONOTONIC, &endTime);
-  addSample(region, numIterations, subRegion, regions_[region].begin, endTime);
+  addSample(region, numIterations, subRegion, begin, endTime);
 }
 
 void LoopStatistics::addSample(
-    unsigned region, unsigned numIterations, unsigned /*subRegion*/, timespec begin, timespec end) {
+    unsigned region, unsigned numIterations, unsigned subRegion, timespec begin, timespec end) {
+  addTime(region, numIterations, subRegion, seconds(difftime(begin, end)));
+}
+
+void LoopStatistics::addTime(unsigned region,
+                             unsigned numIterations,
+                             unsigned subRegion,
+                             double time) {
   if (numIterations > 0) {
+    const std::scoped_lock lock(samplesMutex_);
     auto& vars = regions_[region].variables;
-    const auto time = seconds(difftime(begin, end));
     vars.x += numIterations;
     vars.x2 += static_cast<double>(numIterations) * static_cast<double>(numIterations);
     vars.xy += static_cast<double>(numIterations) * time;
     vars.y += time;
     vars.y2 += time * time;
     ++vars.n;
+
+    // only the kernels; the other regions, such as the actor states, overlap with them
+    if (recordLayers_ && regions_[region].includeInSummary) {
+      if (layers_.size() <= region) {
+        layers_.resize(region + 1);
+      }
+      auto& layers = layers_[region];
+      if (layers.size() <= subRegion) {
+        layers.resize(subRegion + 1);
+      }
+      auto& samples = layers[subRegion];
+      if (samples.times.size() < MaxLayerSamples) {
+        samples.times.push_back(time);
+      }
+      ++samples.loops;
+    }
   }
+}
+
+double LoopStatistics::layerTime(unsigned region, unsigned subRegion) const {
+  if (region >= layers_.size() || subRegion >= layers_[region].size()) {
+    return 0;
+  }
+  const auto& samples = layers_[region][subRegion];
+  if (samples.times.empty()) {
+    return 0;
+  }
+  auto times = samples.times;
+  const auto middle = times.begin() + static_cast<std::ptrdiff_t>(times.size() / 2);
+  std::nth_element(times.begin(), middle, times.end());
+  return *middle * static_cast<double>(samples.loops);
 }
 
 void LoopStatistics::reset() {
   for (auto& region : regions_) {
     region.variables = StatisticVariables();
-    // (region.begin is not reset)
   }
+  layers_.clear();
 }
 
 double LoopStatistics::kernelTime() const {
@@ -92,22 +137,22 @@ json::Value LoopStatistics::printSummary(MPI_Comm comm) {
   const double totalTimePerRank = kernelTime();
 
   // Helper functions to access sums
-  auto getNumIters = [&sums](std::size_t region) -> double& {
+  const auto getNumIters = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 0];
   };
-  auto getNumItersSquared = [&sums](std::size_t region) -> double& {
+  const auto getNumItersSquared = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 1];
   };
-  auto getTimeTimesNumIters = [&sums](std::size_t region) -> double& {
+  const auto getTimeTimesNumIters = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 2];
   };
-  auto getTime = [&sums](std::size_t region) -> double& {
+  const auto getTime = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 3];
   };
-  auto getTimeSquared = [&sums](std::size_t region) -> double& {
+  const auto getTimeSquared = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 4];
   };
-  auto getNumberOfSamples = [&sums](std::size_t region) -> double& {
+  const auto getNumberOfSamples = [&sums](std::size_t region) -> double& {
     return sums[NumSumComponents * region + 5];
   };
 

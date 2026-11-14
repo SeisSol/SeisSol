@@ -154,7 +154,7 @@ TEST_CASE("IO/VtkHdf: a time series is one file with a Steps group" * doctest::t
     target[0] = value + static_cast<double>(index);
   });
 
-  auto plan = vtk.makeWriter();
+  const auto plan = vtk.makeWriter();
   const std::vector<double> times{0.0, 0.25, 0.5};
   for (std::size_t step = 0; step < times.size(); ++step) {
     value = times[step];
@@ -265,7 +265,7 @@ TEST_CASE("IO/VtkHdf: field data may hold several tuples per step" * doctest::te
     return values;
   });
 
-  auto plan = vtk.makeWriter();
+  const auto plan = vtk.makeWriter();
   const std::vector<double> times{0.0, 0.25, 0.5};
   for (std::size_t step = 0; step < times.size(); ++step) {
     auto write = plan(dir.prefix(), step, times[step]);
@@ -397,7 +397,7 @@ TEST_CASE("IO/VtkHdf: an incremental snapshot links to the constant data" *
     target[0] = value + static_cast<double>(index);
   });
 
-  auto plan = vtk.makeWriter();
+  const auto plan = vtk.makeWriter();
   const std::vector<double> times{0.0, 0.25};
   // start at a counter other than zero, as a run resuming from a checkpoint does
   constexpr std::size_t FirstCounter = 7;

@@ -10,6 +10,7 @@
 
 #include "BaseFrictionLaw.h"
 #include "Common/Real.h"
+#include "DynamicRupture/Misc.h"
 
 namespace seissol::dr::friction_law::cpu {
 /**
@@ -23,7 +24,8 @@ class NoFault : public BaseFrictionLaw<Cfg, NoFault<Cfg>> {
   // the slip rate of a sub-step is the one the friction solve finds at its time point
   static constexpr bool SlipRateAtIntervalEnds = false;
 
-  using BaseFrictionLaw<Cfg, NoFault<Cfg>>::BaseFrictionLaw;
+  explicit NoFault(const FrictionLawParameters<Real<Cfg>>& drParameters)
+      : BaseFrictionLaw<Cfg, NoFault<Cfg>>(drParameters) {}
 
   static void
       updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,

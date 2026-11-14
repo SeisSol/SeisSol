@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_COMMON_CONFIGLAYOUT_H_
 
 #include "Common/ConfigValue.h"
+#include "Common/Typedefs.h"
 
 #include <cstddef>
 
@@ -25,6 +26,9 @@ namespace seissol {
 struct ConfigLayout {
   /// the configuration the sizes belong to
   ConfigValue config;
+
+  /// the solver that advances its cells, as the build chooses it for its material
+  SolverType solver{};
 
   /// quantities of the material
   std::size_t numQuantities{};

@@ -13,6 +13,7 @@
 #include "Common/Filesystem.h"
 #include "Common/Json.h"
 #include "Common/RunId.h"
+#include "FailureReport.h"
 #include "IO/Instance/Point/Csv.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
@@ -68,6 +69,30 @@ std::string mpiLibrary() {
     version.pop_back();
   }
   return version;
+}
+
+/**
+ * @brief The summary @p root with @p status instead of "running", and the placeholder in @p key
+ * after the stage.
+ */
+json::Value summaryWith(const json::Value& root, const char* status, const char* key) {
+  auto changed = json::Value::object();
+  for (const auto& [name, value] : root.asObject()) {
+    changed[name] = name == "status" ? json::Value(status) : value;
+    if (name == "stage") {
+      changed[key] = FailurePlaceholder;
+    }
+  }
+  return changed;
+}
+
+/**
+ * @brief Sets the reports for the summary @p root : failed, with the error in "error", and
+ * terminated, with the signal in "terminatedBy", each after the stage.
+ */
+void setFailureSummaries(const std::string& path, const json::Value& root) {
+  setFailureReport(path, summaryWith(root, "failed", "error"));
+  setTerminationReport(path, summaryWith(root, "terminated", "terminatedBy"));
 }
 
 } // namespace
@@ -170,13 +195,13 @@ json::Value relevantEnvironment() {
     const auto name = variable.substr(0, equals);
     bool relevant = false;
     for (const auto prefix : Prefixes) {
-      relevant = relevant || name.substr(0, prefix.size()) == prefix;
+      relevant = relevant || name.starts_with(prefix);
     }
     for (const auto known : Names) {
       relevant = relevant || name == known;
     }
     for (const auto prefix : RuntimePrefixes) {
-      relevant = relevant && name.substr(0, prefix.size()) != prefix;
+      relevant = relevant && !name.starts_with(prefix);
     }
     if (relevant) {
       environment[name] = std::string(variable.substr(equals + 1));
@@ -189,6 +214,7 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   path_ = prefix + "-summary.json";
   epochPath_ = prefix + "-epochs.csv";
   rankPath_ = prefix + "-ranks.csv";
+  rankFailurePath_ = prefix + "-rank" + std::to_string(seissol::Mpi::mpi.rank()) + "-failure.json";
   runId_ = runId;
 
   // the header first, so that a reader sees what the file is before anything else
@@ -221,6 +247,13 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   epochs.addColumn<double>("hardwareFlopPerSecond");
   epochs.addColumn<double>("nonzeroFlopPerSecond");
   epochs.addColumn<double>("kernelBytesPerSecond");
+  epochs.addColumn<double>("threadLoopsMean");
+  epochs.addColumn<double>("threadLoopsMin");
+  epochs.addColumn<double>("deviceComputingMean");
+  epochs.addColumn<double>("deviceComputingMin");
+  epochs.addColumn<double>("deviceExchangesMean");
+  epochs.addColumn<double>("deviceIdleMean");
+  epochs.addColumn<double>("deviceIdleMax");
   epochs.addTextColumn("runId", RunIdLength);
 
   started_ = true;
@@ -316,20 +349,30 @@ void RunSummary::addEpoch(const EpochRecord& epoch, double endTime) {
   simulation["epochs"] = epochCount_;
 
   if (started_ && seissol::Mpi::mpi.rank() == 0) {
-    epochs_->addCell<std::uint64_t>(epochCount_);
-    epochs_->addCell<double>(epoch.timeFrom);
-    epochs_->addCell<double>(epoch.timeTo);
-    epochs_->addCell<double>(epoch.wall.min);
-    epochs_->addCell<double>(epoch.wall.mean);
-    epochs_->addCell<double>(epoch.wall.max);
-    epochs_->addCell<double>(epoch.compute.mean);
-    epochs_->addCell<double>(epoch.compute.max);
-    epochs_->addCell<double>(epoch.io.mean);
-    epochs_->addCell<double>(epoch.io.max);
-    epochs_->addCell<double>(epoch.hardwareFlopPerSecond);
-    epochs_->addCell<double>(epoch.nonzeroFlopPerSecond);
-    epochs_->addCell<double>(epoch.kernelBytesPerSecond);
-    epochs_->addText(runId_);
+    auto& epochs = epochs_.value();
+    epochs.addCell<std::uint64_t>(epochCount_);
+    epochs.addCell<double>(epoch.timeFrom);
+    epochs.addCell<double>(epoch.timeTo);
+    epochs.addCell<double>(epoch.wall.min);
+    epochs.addCell<double>(epoch.wall.mean);
+    epochs.addCell<double>(epoch.wall.max);
+    epochs.addCell<double>(epoch.compute.mean);
+    epochs.addCell<double>(epoch.compute.max);
+    epochs.addCell<double>(epoch.io.mean);
+    epochs.addCell<double>(epoch.io.max);
+    epochs.addCell<double>(epoch.hardwareFlopPerSecond);
+    epochs.addCell<double>(epoch.nonzeroFlopPerSecond);
+    epochs.addCell<double>(epoch.kernelBytesPerSecond);
+    epochs.addCell<double>(epoch.threadLoops.mean);
+    epochs.addCell<double>(epoch.threadLoops.min);
+    // nothing to tell without times of the device
+    const double none = std::numeric_limits<double>::quiet_NaN();
+    epochs.addCell<double>(epoch.deviceTimed ? epoch.deviceComputing.mean : none);
+    epochs.addCell<double>(epoch.deviceTimed ? epoch.deviceComputing.min : none);
+    epochs.addCell<double>(epoch.deviceTimed ? epoch.deviceExchanges.mean : none);
+    epochs.addCell<double>(epoch.deviceTimed ? epoch.deviceIdle.mean : none);
+    epochs.addCell<double>(epoch.deviceTimed ? epoch.deviceIdle.max : none);
+    epochs.addText(runId_);
   }
 
   // an epoch can take a fraction of a second; a file system should not see a write for each
@@ -342,24 +385,55 @@ void RunSummary::addEpoch(const EpochRecord& epoch, double endTime) {
 void RunSummary::finish() {
   root_["status"] = "completed";
   root_["stage"] = "finished";
+  // a failure from now on, e.g. at the end of MPI, leaves the run completed
+  completed_ = true;
   flush();
 }
 
 void RunSummary::flush() {
   lastFlush_ = std::chrono::steady_clock::now();
-  if (!started_ || seissol::Mpi::mpi.rank() != 0) {
+  if (!started_) {
+    return;
+  }
+  if (seissol::Mpi::mpi.rank() != 0) {
+    // the other ranks do not write the summary, but keep a failure report of their own, so that a
+    // failure that starts on one of them leaves a record
+    updateRankFailureReport();
     return;
   }
   if (epochCount_ > 0) {
-    epochs_->appendFile(epochPath_);
+    epochs_.value().appendFile(epochPath_);
   }
   writeSummary();
+}
+
+void RunSummary::updateRankFailureReport() {
+  if (completed_) {
+    clearFailureReports();
+    return;
+  }
+  // in the order of the summary, so that summaryWith() can set the status and add the detail
+  json::Value record;
+  record["schema"] = std::string(RankFailureSchema);
+  record["rank"] = seissol::Mpi::mpi.rank();
+  record["runId"] = runId_;
+  record["status"] = "running";
+  const auto* stage = root_.find("stage");
+  record["stage"] = stage != nullptr ? *stage : json::Value(nullptr);
+  // only for a failure: a request to stop reaches every rank, and a record of each would bury the
+  // one of the rank where a failure started
+  setFailureReport(rankFailurePath_, summaryWith(record, "failed", "error"));
 }
 
 void RunSummary::writeSummary() {
   root_["updated"] = utcTimestamp();
   if (!writeFileAtomically(path_, root_.dump() + "\n")) {
     logWarning() << "Could not write the run summary" << path_;
+  }
+  if (completed_) {
+    clearFailureReports();
+  } else {
+    setFailureSummaries(path_, root_);
   }
 }
 

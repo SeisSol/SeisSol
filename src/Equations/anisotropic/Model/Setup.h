@@ -140,7 +140,7 @@ struct MaterialSetup<AnisotropicMaterial> : public MaterialSetupDefaults<Anisotr
     const Matrix33 localRA(localRAData.data());
     saes.compute(localRA);
     auto eigenvaluesLocal = saes.eigenvalues();
-    auto eigenvectorsLocal = saes.eigenvectors();
+    const auto eigenvectorsLocal = saes.eigenvectors();
 
     std::array<double, 9> neighborRAData{};
     neighborRAData[0] = neighbor.c11 / neighbor.rho;
@@ -204,11 +204,12 @@ struct MaterialSetup<AnisotropicMaterial> : public MaterialSetupDefaults<Anisotr
     for (unsigned i = 0; i < 3; i++) {
       eigenvaluesLocal(i) = sqrt(eigenvaluesLocal(i));
     }
-    auto lambdaLocal = Eigen::Matrix<double, 3, 3, Eigen::ColMajor>(eigenvaluesLocal.asDiagonal());
+    const auto lambdaLocal =
+        Eigen::Matrix<double, 3, 3, Eigen::ColMajor>(eigenvaluesLocal.asDiagonal());
     for (unsigned i = 0; i < 3; i++) {
       eigenvaluesNeighbor(i) = sqrt(eigenvaluesNeighbor(i));
     }
-    auto lambdaNeighbor = Matrix33(eigenvaluesNeighbor.asDiagonal());
+    const auto lambdaNeighbor = Matrix33(eigenvaluesNeighbor.asDiagonal());
 
     // The null-space columns are only determined up to a scaling. Left at unit length they are
     // ~10 orders of magnitude below the wave columns, which carry the stiffnesses. For

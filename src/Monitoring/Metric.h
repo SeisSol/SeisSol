@@ -30,10 +30,10 @@ struct PerformanceEstimate {
   std::uint64_t kernelBytes{0};
 
   constexpr auto operator+(const PerformanceEstimate& other) const -> PerformanceEstimate {
-    return PerformanceEstimate{hardwareFlop + other.hardwareFlop,
-                               nonzeroFlop + other.nonzeroFlop,
-                               bytes + other.bytes,
-                               kernelBytes + other.kernelBytes};
+    return PerformanceEstimate{.hardwareFlop = hardwareFlop + other.hardwareFlop,
+                               .nonzeroFlop = nonzeroFlop + other.nonzeroFlop,
+                               .bytes = bytes + other.bytes,
+                               .kernelBytes = kernelBytes + other.kernelBytes};
   }
 
   constexpr auto operator+=(const PerformanceEstimate& other) -> PerformanceEstimate& {
@@ -42,8 +42,10 @@ struct PerformanceEstimate {
   }
 
   constexpr auto operator*(std::uint64_t other) const -> PerformanceEstimate {
-    return PerformanceEstimate{
-        hardwareFlop * other, nonzeroFlop * other, bytes * other, kernelBytes * other};
+    return PerformanceEstimate{.hardwareFlop = hardwareFlop * other,
+                               .nonzeroFlop = nonzeroFlop * other,
+                               .bytes = bytes * other,
+                               .kernelBytes = kernelBytes * other};
   }
 
   constexpr auto operator*=(std::uint64_t other) -> PerformanceEstimate& {

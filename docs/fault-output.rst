@@ -93,6 +93,18 @@ Here's what each bit in the OutputMask array represents:
 11. **DS**: Dynamic stress time. With LSW, the time at which ASl>D_c, interpolated linearly over the interval over which a sub-step integrates the slip. With RS, the time at which mu <= mu_w + 0.05 (f0 - mu_w), interpolated like the rupture time, but not before it. DS can be used to evaluate the process zone size.
 12. **P_f** and **Tmp**: Only with thermal pressurization, pore pressure and temperature
 
+With thermal pressurization, **P_n** and **Pn0** are the effective normal stress: they include the pore pressure **P_f**, which SeisSol keeps in the sign convention of the stresses, as :math:`-p` for a pore fluid pressure :math:`p`.
+**P_f** starts at :code:`tp_iniPressure` and decreases as the shear heating pressurizes the fluid, and **Pn0** is the total normal stress minus **P_f** (see :ref:`thermal pressurization<thermal-pressurization>`).
+
+Tractions of kinematic sources
+------------------------------
+
+The imposed slip rates (:code:`FL=33`, :code:`34` and :code:`35`) prescribe the slip rate instead of solving for the traction.
+**T_s** and **T_d**, and with them **Ts0** and **Td0**, are then the shear tractions of the Godunov state, the traction that a point would carry if it did not slip at that instant.
+They contain the stress changes that reach the point from elsewhere on the fault, but not the drop :math:`\eta V` that its own slip rate :math:`V` causes, where :math:`\eta = (1/Z^+ + 1/Z^-)^{-1}` and :math:`Z = \rho c_s` are the shear impedances on both sides of the fault.
+On an infinite planar fault that slips uniformly, nothing arrives from elsewhere, and they keep their initial values while the traction on the fault is the initial one reduced by :math:`\eta V`.
+**P_n** and **Pn0**, in contrast, are the normal traction on the fault, which in an anisotropic medium the imposed slip changes as well.
+
 Initial fault tractions
 -----------------------
 
@@ -121,7 +133,7 @@ To generate ASCII receiver files, configure the **Pickpoint** namelist as in thi
 .. code-block:: Fortran
 
   &Pickpoint
-  printtimeinterval = 1
+  pickdt = 0.005
   OutputMask = 1 1 1 1 1 1 1 1 1 1 1 1 !described herafter
   nOutpoints = 24
   PPFileName = 'fault_receivers.dat'
@@ -132,7 +144,15 @@ To generate ASCII receiver files, configure the **Pickpoint** namelist as in thi
 and a single table holding all of them (``'hdf5'``), see `HDF5 fault
 receivers`_ below.
 
-**printtimeinterval** determines how frequently the output is generated — every **printtimeinterval** (local) time step. Please note that using this output with local time-stepping may result in differently sampled receiver files.
+The receivers take a sample at the start of the simulation, every **pickdt** seconds after it
+(at the multiples of **pickdt**), and at its end. The time step of a fault face evaluates the
+samples that fall into it from the space-time prediction of its cells, with the friction state
+interpolated linearly between the start and the end of the step; events such as the rupture count
+from the time they happened. So all receivers sample at the same times, whichever time cluster
+their face belongs to.
+
+Without **pickdt**, the receivers sample every **printtimeinterval** time steps of the finest time
+cluster that holds fault faces, counted from time zero (default: every such time step).
 
 The text files
 ~~~~~~~~~~~~~~

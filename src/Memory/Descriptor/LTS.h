@@ -118,9 +118,7 @@ struct LTS {
   template <typename Cfg>
   using FaceBoundaryMappings = std::array<CellBoundaryMapping<Cfg>, Cell::NumFaces>;
   template <typename Cfg>
-  using EnergyDataOf = typename model::MaterialOf<Cfg>::template EnergyData<Cfg>;
-  template <typename Cfg>
-  using NormalStressWeightsOf = seissol::NormalStressWeights<Cfg>;
+  using EnergyDataOf = model::MaterialOf<Cfg>::template EnergyData<Cfg>;
 
   struct Dofs : public initializer::VariantVariable<DofsArray> {};
   struct DofsHalo : public initializer::VariantVariable<DofsArray> {};
@@ -136,9 +134,11 @@ struct LTS {
   struct LocalIntegration : public initializer::VariantVariable<LocalIntegrationData> {};
   struct NeighboringIntegration : public initializer::VariantVariable<NeighboringIntegrationData> {
   };
-  // for the cells of a fluid, the weights of the normal stress on each face for a neighbor of a
-  // solid in another configuration (see kernels::ConfigBoundary); empty for the others
-  struct NormalStress : public initializer::VariantVariable<NormalStressWeightsOf> {};
+  // per face towards a neighbor of another family in another configuration: the coupling matrix
+  // of the face, the contribution of the neighbor to the Godunov state in the quantities of the
+  // cell (see kernels::ConfigBoundary), in the bucket CouplingMatrices; null for the other faces
+  struct Coupling : public initializer::VariantVariable<FaceRealPtrs> {};
+  struct CouplingMatrices : public initializer::VariantBucket<Real> {};
   struct MaterialData : public initializer::VariantVariable<model::MaterialOf> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
   struct Plasticity : public initializer::VariantVariable<seissol::model::PlasticityData> {};
@@ -153,6 +153,7 @@ struct LTS {
   struct DerivativesDevice : public initializer::VariantVariable<RealPtr> {};
   struct FaceNeighborsDevice : public initializer::Variable<std::array<void*, Cell::NumFaces>> {};
   struct FaceDisplacementsDevice : public initializer::VariantVariable<FaceRealPtrs> {};
+  struct CouplingDevice : public initializer::VariantVariable<FaceRealPtrs> {};
   struct DRMappingDevice : public initializer::VariantVariable<FaceDRMappings> {};
   struct BoundaryMappingDevice : public initializer::VariantVariable<FaceBoundaryMappings> {};
 
@@ -187,7 +188,8 @@ struct LTS {
                                                         FaceNeighbors,
                                                         LocalIntegration,
                                                         NeighboringIntegration,
-                                                        NormalStress,
+                                                        Coupling,
+                                                        CouplingMatrices,
                                                         Material,
                                                         MaterialData,
                                                         Plasticity,
@@ -201,6 +203,7 @@ struct LTS {
                                                         DerivativesDevice,
                                                         FaceNeighborsDevice,
                                                         FaceDisplacementsDevice,
+                                                        CouplingDevice,
                                                         DRMappingDevice,
                                                         BoundaryMappingDevice,
                                                         IntegratedDofsScratch,
@@ -269,7 +272,8 @@ struct LTS {
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<NeighboringIntegration>(
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
-    storage.add<NormalStress>(
+    storage.add<Coupling>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<CouplingMatrices>(
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
@@ -293,6 +297,7 @@ struct LTS {
     storage.add<DerivativesDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<FaceDisplacementsDevice>(
         LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
+    storage.add<CouplingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<FaceNeighborsDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<DRMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<BoundaryMappingDevice>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);

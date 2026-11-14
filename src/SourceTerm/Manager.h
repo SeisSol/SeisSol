@@ -28,7 +28,7 @@ class Manager {
                           LTS::Storage& ltsStorage,
                           LTS::Backmap& backmap,
                           const SimulationSettings& settings,
-                          time_stepping::TimeManager& timeManager);
+                          solver::TimeManager& timeManager);
 };
 
 } // namespace seissol::sourceterm

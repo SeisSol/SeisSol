@@ -35,8 +35,11 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
+#include "Monitoring/Trace.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Quadrature.h"
+#include "Parallel/Runtime/HostActor.h"
+#include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -49,8 +52,14 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
+#include <utility>
 #include <vector>
+
+#ifdef ACL_DEVICE
+#include "Kernels/DeviceAux/HostCopyAux.h"
+#endif
 
 using namespace seissol::dr::misc::quantity_indices;
 
@@ -103,24 +112,120 @@ void ReceiverOutputImpl<Derived>::getNeighborDofs(const Real<Cfg>*(&derivatives)
   assert(derivatives != nullptr);
 }
 
+void ReceiverOutput::gatherFaultOutput(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                       parallel::runtime::StreamRuntime& runtime) {
+  if constexpr (isDeviceOn()) {
+    outputData->deviceDataCollector->gatherToHost(runtime.stream());
+    gatherFaultState(outputData, runtime);
+  }
+}
+
+parallel::runtime::HostActor::Staging
+    ReceiverOutput::gatherForHost(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                  parallel::runtime::StreamRuntime& runtime,
+                                  bool withDerivatives,
+                                  [[maybe_unused]] const double* deviceClock) {
+  const auto staging = outputData->hostQueue->take(runtime);
+  auto* bytes = static_cast<std::uint8_t*>(staging.device);
+#ifdef ACL_DEVICE
+  if (deviceClock != nullptr) {
+    // by a kernel, as the copy engines may be busy with a large copy of another stream
+    kernels::device::aux::hostcopy::copyToHost(
+        bytes, deviceClock, sizeof(double), runtime.stream());
+  }
+#endif
+  if (withDerivatives) {
+    outputData->deviceDataCollector->gatherTo(bytes + outputData->dataOffset, runtime.stream());
+  }
+  if (outputData->deviceVariables != nullptr) {
+    outputData->deviceVariables->gatherTo(bytes + outputData->variablesOffset, runtime.stream());
+  }
+  return staging;
+}
+
+void ReceiverOutput::gatherFaultState(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                      parallel::runtime::StreamRuntime& runtime) {
+  if constexpr (isDeviceOn()) {
+    if (outputData->deviceVariables != nullptr) {
+      outputData->deviceVariables->gatherToHost(runtime.stream());
+    }
+  }
+}
+
+void ReceiverOutput::keepStepStart(const std::shared_ptr<ReceiverOutputData>& outputData) const {
+  const auto& faces = outputData->topology.faces;
+  for (const auto variable : getOutputVariables()) {
+    auto& kept = outputData->stepStart[variable];
+    const auto gathered = outputData->deviceVariableSets.find(variable);
+    for (std::size_t faceId = 0; faceId < faces.size(); ++faceId) {
+      const auto& position = faces[faceId].position;
+      auto& layer = drStorage_->layer(position.color);
+      const auto bytes = drStorage_->info(variable).bytesLayer(layer.getIdentifier());
+      if (kept.faceBytes == 0) {
+        kept.faceBytes = bytes;
+        kept.data.resize(bytes * faces.size());
+      }
+      // the faces of an output share the layout of their variables
+      assert(bytes == kept.faceBytes);
+      const auto* source = gathered != outputData->deviceVariableSets.end()
+                               ? static_cast<const std::uint8_t*>(
+                                     outputData->gatheredVariable(gathered->second, faceId))
+                               : static_cast<const std::uint8_t*>(layer.varUntyped(variable)) +
+                                     bytes * position.cell;
+      std::memcpy(kept.data.data() + kept.faceBytes * faceId, source, bytes);
+    }
+  }
+}
+
 template <typename Derived>
 void ReceiverOutputImpl<Derived>::calcFaultOutput(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
     parallel::runtime::StreamRuntime& runtime,
-    double stateTime,
     double time,
     double dt,
     double indt) {
+
+  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
+                           ? outputData->currentCacheLevel
+                           : 0;
+
+  auto& callRuntime =
+      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+
+  if (isDeviceOn() && outputData->hostQueue != nullptr) {
+    // the host actor takes the samples from a buffer of their own, once the device is done
+    const auto staging = gatherForHost(outputData, runtime);
+    std::vector<std::function<void(std::size_t)>> handlers;
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
+        handlers.push_back(this->template faultOutputHandler<Cfg>(
+            outputType, slipRateOutputType, outputData, level, time, dt, indt));
+      }
+    });
+    outputData->hostQueue->post(runtime, staging, [outputData, handlers](const void* data) {
+      outputData->gathered = data;
+      static const auto TraceName = monitoring::Trace::name("fault receivers");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
+      for (const auto& handler : handlers) {
+        parallel::runtime::HostRuntime::forEach(outputData->topology.faceCount(), handler);
+      }
+      outputData->gathered = nullptr;
+    });
+    if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
+      outputData->cachedTime[outputData->currentCacheLevel] = time;
+      outputData->currentCacheLevel += 1;
+    }
+    return;
+  }
+
   if constexpr (isDeviceOn()) {
     if (outputData->extraRuntime.has_value()) {
       runtime.eventSync(outputData->extraRuntime->eventRecord());
     }
-    outputData->deviceDataCollector->gatherToHost(runtime.stream());
-    for (auto& [_, dataCollector] : outputData->deviceVariables) {
-      dataCollector->gatherToHost(runtime.stream());
-    }
+    gatherFaultOutput(outputData, runtime);
     if (outputData->extraRuntime.has_value()) {
       outputData->extraRuntime->eventSync(runtime.eventRecord());
     }
@@ -131,8 +236,42 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
     // the setup rejects a fault in a material without dynamic rupture, whose quantities hold
     // none of the stresses the output reads
     if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
-      this->template calcFaultOutputOfConfig<Cfg>(
-          outputType, slipRateOutputType, outputData, runtime, stateTime, dt, indt);
+      static const auto TraceName = monitoring::Trace::name("fault receivers");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
+      callRuntime.enqueueLoop(
+          outputData->topology.faceCount(),
+          this->template faultOutputHandler<Cfg>(
+              outputType, slipRateOutputType, outputData, level, time, dt, indt));
+    }
+  });
+
+  if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
+    outputData->cachedTime[outputData->currentCacheLevel] = time;
+    outputData->currentCacheLevel += 1;
+  }
+}
+
+template <typename Derived>
+void ReceiverOutputImpl<Derived>::evaluateFaultOutput(
+    seissol::initializer::parameters::OutputType outputType,
+    seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+    const std::shared_ptr<ReceiverOutputData>& outputData,
+    double time,
+    double dt,
+    double indt) {
+  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
+                           ? outputData->currentCacheLevel
+                           : 0;
+  const auto faces = outputData->topology.faceCount();
+
+  forEachConfig([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
+      const auto handler = this->template faultOutputHandler<Cfg>(
+          outputType, slipRateOutputType, outputData, level, time, dt, indt);
+      static const auto TraceName = monitoring::Trace::name("fault receivers");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
+      parallel::runtime::HostRuntime::forEach(faces, handler);
     }
   });
 
@@ -144,40 +283,36 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
 
 template <typename Derived>
 template <typename Cfg>
-void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
+std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
-    parallel::runtime::StreamRuntime& runtime,
-    double stateTime,
+    std::size_t level,
+    double time,
     double dt,
     double indt) {
   using real = Real<Cfg>;
 
-  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
-                           ? outputData->currentCacheLevel
-                           : 0;
   const auto& faultInfos = meshReader_->getFault();
 
   // the friction solve advances in the sub intervals of the time quadrature; the stored friction
   // state belongs to the last of them
   const auto frictionTime = seissol::dr::friction_law::FrictionSolver::computeDeltaT<Cfg>(
-      seissol::quadrature::ShiftedGaussLegendre(Cfg::ConvergenceOrder, 0, dt).first);
+      seissol::quadrature::shiftedGaussLegendre(Cfg::ConvergenceOrder, 0, dt).first);
 
   const auto timeCoeffs = kernels::timeBasis<Cfg>().point(indt, dt);
+  const double positionInStep = dt > 0 ? std::clamp(indt / dt, 0.0, 1.0) : 1.0;
 
-  auto& callRuntime =
-      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
-
-  const auto handler = [this,
-                        outputData,
-                        &faultInfos,
-                        outputType,
-                        slipRateOutputType,
-                        level,
-                        timeCoeffs,
-                        stateTime,
-                        frictionTime](std::size_t faceId) {
+  return [this,
+          outputData,
+          &faultInfos,
+          outputType,
+          slipRateOutputType,
+          level,
+          timeCoeffs,
+          time,
+          positionInStep,
+          frictionTime](std::size_t faceId) {
     constexpr auto Variant = configIdOf<Cfg>();
 
     const auto& topology = outputData->topology;
@@ -203,14 +338,15 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
     local.ltsId = outFace.position.cell;
     local.faceId = faceId;
     local.state = outputData.get();
-    local.time = stateTime;
+    local.time = time;
+    local.positionInStep = positionInStep;
     local.deltaT = frictionTime.deltaT.back();
     local.printWarning = &this->printRSFWarning_;
 
     local.waveSpeedsPlus =
-        &((local.layer->template var<DynamicRupture::WaveSpeedsPlus>())[local.ltsId]);
+        &local.layer->template var<DynamicRupture::WaveSpeedsPlus>()[local.ltsId];
     local.waveSpeedsMinus =
-        &((local.layer->template var<DynamicRupture::WaveSpeedsMinus>())[local.ltsId]);
+        &local.layer->template var<DynamicRupture::WaveSpeedsMinus>()[local.ltsId];
     const auto& faultInfo = faultInfos[faceIndex];
 
     if (outputType == initializer::parameters::OutputType::Elementwise) {
@@ -226,10 +362,8 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
       const real* steMinus = nullptr;
 
       if constexpr (isDeviceOn()) {
-        stePlus =
-            static_cast<const real*>(outputData->deviceDataCollector->get(outFace.deviceDataPlus));
-        steMinus =
-            static_cast<const real*>(outputData->deviceDataCollector->get(outFace.deviceDataMinus));
+        stePlus = static_cast<const real*>(outputData->gatheredData(outFace.deviceDataPlus));
+        steMinus = static_cast<const real*>(outputData->gatheredData(outFace.deviceDataMinus));
       } else {
         getDofs<Cfg>(stePlus, faultInfo.element.value(), outFace.copy);
         if (faultInfo.neighborElement.hasValue()) {
@@ -301,7 +435,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
         local.gpIndex = outputData->receivers[i].gpIndex;
         local.internalGpIndexFused = outputData->receivers[i].internalGpIndexFused;
 
-        local.frictionCoefficient = getCellData<DynamicRupture::Mu>(local)[local.gpIndex];
+        local.frictionCoefficient = stateAt<DynamicRupture::Mu>(local, local.gpIndex);
         local.stateVariable = derived().computeStateVariable(local);
 
         // the whole tensor, since the total traction output rotates it
@@ -331,7 +465,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
         this->computeLocalStresses(local);
         const real strength = derived().computeLocalStrength(local);
         const real strengthSlope = derived().computeLocalStrengthSlope(local);
-        updateLocalTractions(local, strength, strengthSlope);
+        derived().updateLocalTractions(local, strength, strengthSlope);
 
         std::array<real, 6> updatedStress{};
         updatedStress[QuantityIndices::XX] = local.transientNormalTraction;
@@ -401,8 +535,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
 
         auto& ruptureTime = std::get<VariableID::RuptureTime>(outputData->vars);
         if (ruptureTime.isActive) {
-          const auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
-          ruptureTime(level, i) = rt[local.gpIndex];
+          ruptureTime(level, i) = eventAt<DynamicRupture::RuptureTime>(local, local.gpIndex);
         }
 
         auto& normalVelocity = std::get<VariableID::NormalVelocity>(outputData->vars);
@@ -412,8 +545,8 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
 
         auto& accumulatedSlip = std::get<VariableID::AccumulatedSlip>(outputData->vars);
         if (accumulatedSlip.isActive) {
-          const auto* slip = getCellData<DynamicRupture::AccumulatedSlipMagnitude>(local);
-          accumulatedSlip(level, i) = slip[local.gpIndex];
+          accumulatedSlip(level, i) =
+              stateAt<DynamicRupture::AccumulatedSlipMagnitude>(local, local.gpIndex);
         }
 
         auto& totalTractions = std::get<VariableID::TotalTractions>(outputData->vars);
@@ -445,14 +578,13 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
 
         auto& peakSlipsRate = std::get<VariableID::PeakSlipRate>(outputData->vars);
         if (peakSlipsRate.isActive) {
-          const auto* peakSR = getCellData<DynamicRupture::PeakSlipRate>(local);
-          peakSlipsRate(level, i) = peakSR[local.gpIndex];
+          peakSlipsRate(level, i) = stateAt<DynamicRupture::PeakSlipRate>(local, local.gpIndex);
         }
 
         auto& dynamicStressTime = std::get<VariableID::DynamicStressTime>(outputData->vars);
         if (dynamicStressTime.isActive) {
-          const auto* dynStressTime = getCellData<DynamicRupture::DynStressTime>(local);
-          dynamicStressTime(level, i) = dynStressTime[local.gpIndex];
+          dynamicStressTime(level, i) =
+              eventAt<DynamicRupture::DynStressTime>(local, local.gpIndex);
         }
 
         auto& slipVectors = std::get<VariableID::Slip>(outputData->vars);
@@ -467,21 +599,17 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
           double sin1t = std::sqrt(1.0 - std::min(1.0, cos1t * cos1t));
           sin1t = (scalarProd > 0) ? sin1t : -sin1t;
 
-          const auto* slip1 = getCellData<DynamicRupture::Slip1>(local);
-          const auto* slip2 = getCellData<DynamicRupture::Slip2>(local);
+          const auto slip1 = stateAt<DynamicRupture::Slip1>(local, local.gpIndex);
+          const auto slip2 = stateAt<DynamicRupture::Slip2>(local, local.gpIndex);
 
-          slipVectors(DirectionID::Strike, level, i) =
-              cos1t * slip1[local.gpIndex] - sin1t * slip2[local.gpIndex];
+          slipVectors(DirectionID::Strike, level, i) = cos1t * slip1 - sin1t * slip2;
 
-          slipVectors(DirectionID::Dip, level, i) =
-              sin1t * slip1[local.gpIndex] + cos1t * slip2[local.gpIndex];
+          slipVectors(DirectionID::Dip, level, i) = sin1t * slip1 + cos1t * slip2;
         }
         derived().outputSpecifics(outputData, local, level, i);
       }
     }
   };
-
-  callRuntime.enqueueLoop(outputData->topology.faceCount(), handler);
 }
 
 template <typename Derived>
@@ -489,7 +617,7 @@ template <typename Cfg>
 void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
   using real = Real<Cfg>;
 
-  auto diff = [&local](int i) {
+  const auto diff = [&local](int i) {
     return local.faceAlignedValuesMinus[i] - local.faceAlignedValuesPlus[i];
   };
 
@@ -506,11 +634,11 @@ void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
     //   T*   = eta * (Y+ T+ + Y- T- + (v- - v+))
     //   v*_+ = v+ + Y+ (T* - T+)
     const auto& impedanceMatrices =
-        ((local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
 
     constexpr std::size_t Count =
         model::MaterialOf<Cfg>::Type == model::MaterialType::Poroelastic ? 4 : 3;
-    constexpr auto StressIndices = []() {
+    constexpr auto StressIndices = [] {
       if constexpr (Count == 4) {
         return std::array<int, 4>{
             QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ, QuantityIndices::FP};
@@ -518,7 +646,7 @@ void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
         return std::array<int, 3>{QuantityIndices::XX, QuantityIndices::XY, QuantityIndices::XZ};
       }
     }();
-    constexpr auto VelocityIndices = []() {
+    constexpr auto VelocityIndices = [] {
       if constexpr (Count == 4) {
         return std::array<int, 4>{
             QuantityIndices::U, QuantityIndices::V, QuantityIndices::W, QuantityIndices::FU};
@@ -572,7 +700,7 @@ void ReceiverOutputImpl<Derived>::computeLocalStresses(LocalInfo<Cfg>& local) {
     local.faceAlignedStress23 = local.faceAlignedValuesPlus[QuantityIndices::YZ] + lateralStress[2];
   } else {
     const auto& impAndEta =
-        ((local.layer->template var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
     const real normalDivisor = 1.0 / (impAndEta.zpNeig + impAndEta.zp);
     const real shearDivisor = 1.0 / (impAndEta.zsNeig + impAndEta.zs);
 
@@ -624,32 +752,22 @@ void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local,
     // an anisotropic impedance the slip is not parallel to the trial traction, and the strength
     // follows the fault-normal traction, which follows the slip rate
     const auto& impAndEta =
-        ((local.layer->template var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
     const auto& impedanceMatrices =
-        ((local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
 
-    const auto solution = friction_law::common::solveSlipRate<Cfg>(
-        impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
+    friction_law::common::SlipRateSolution<Cfg> solution{};
+    friction_law::common::solveSlipRate<Cfg>(impAndEta,
+                                             impedanceMatrices,
+                                             component1,
+                                             component2,
+                                             tracEla,
+                                             strength,
+                                             strengthSlope,
+                                             solution);
 
-    local.slipRateTangent1 = solution.slipRate * solution.direction1;
-    local.slipRateTangent2 = solution.slipRate * solution.direction2;
-
-    const auto [tractionUpdate1, tractionUpdate2] = friction_law::common::matmulEta<Cfg>(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
-    const auto normalUpdate = friction_law::common::matmulEtaNormal<Cfg>(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
-
-    local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
-    local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
-    local.transientNormalTraction -= normalUpdate;
-
-    // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
-    // state through the first row of Y+. The friction solve moves that traction, and with an
-    // anisotropic admittance the two shear components move the fault-normal velocity as well.
-    constexpr std::size_t Count = tensor::Zplus<Cfg>::Shape[0];
-    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
-                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
-                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
+    applySlipRate(
+        local, solution.slipRate * solution.direction1, solution.slipRate * solution.direction2);
   } else {
     if (tracEla > std::abs(strength)) {
       local.updatedTraction1 =
@@ -664,6 +782,38 @@ void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local,
       local.updatedTraction1 = local.faceAlignedStress12;
       local.updatedTraction2 = local.faceAlignedStress13;
     }
+  }
+}
+
+template <typename Derived>
+template <typename Cfg>
+void ReceiverOutputImpl<Derived>::applySlipRate(LocalInfo<Cfg>& local,
+                                                Real<Cfg> slipRate1,
+                                                Real<Cfg> slipRate2) {
+  const auto& impAndEta = local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
+  const auto& impedanceMatrices =
+      local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
+
+  local.slipRateTangent1 = slipRate1;
+  local.slipRateTangent2 = slipRate2;
+
+  const auto [tractionUpdate1, tractionUpdate2] =
+      friction_law::common::matmulEta<Cfg>(impAndEta, impedanceMatrices, slipRate1, slipRate2);
+  const auto normalUpdate = friction_law::common::matmulEtaNormal<Cfg>(
+      impAndEta, impedanceMatrices, slipRate1, slipRate2);
+
+  local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
+  local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
+  local.transientNormalTraction -= normalUpdate;
+
+  if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
+    // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
+    // state through the first row of Y+. The slip moves that traction, and with an anisotropic
+    // admittance the two shear components move the fault-normal velocity as well.
+    constexpr std::size_t Count = tensor::Zplus<Cfg>::Shape[0];
+    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
+                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
+                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
   }
 }
 
@@ -709,7 +859,7 @@ void ReceiverOutputImpl<Derived>::computeSlipRate(
     // frame -- poroelasticity included, where the fluid column does not reach the shear rows -- so
     // a scalar is exact and the order of scaling and rotation does not matter
     const auto& impAndEta =
-        ((local.layer->template var<DynamicRupture::ImpAndEta>(Cfg()))[local.ltsId]);
+        local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
     local.slipRateStrike = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XY] -
                                                  rotatedStress[QuantityIndices::XY]);
     local.slipRateDip = -impAndEta.invEtaS * (rotatedUpdatedStress[QuantityIndices::XZ] -
@@ -744,12 +894,17 @@ template <typename Cfg>
 Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
     const Eigen::Matrix<Real<Cfg>, 2, 2>& jacobiT2d, const LocalInfo<Cfg>& local) {
   using real = Real<Cfg>;
-  const auto* ruptureTime = getCellData<DynamicRupture::RuptureTime>(local);
+  // the rupture times of the points of the face, where the rupture reached them by the time of the
+  // output
+  const auto ruptureTime = [&](std::size_t point) {
+    return eventAt<DynamicRupture::RuptureTime>(local,
+                                                point * Cfg::NumSimulations + local.fusedIndex);
+  };
   real ruptureVelocity = 0.0;
 
   bool needsUpdate{true};
   for (size_t point = 0; point < misc::NumBoundaryGaussPoints<Cfg>; ++point) {
-    if (ruptureTime[point * Cfg::NumSimulations + local.fusedIndex] == 0.0) {
+    if (ruptureTime(point) == 0.0) {
       needsUpdate = false;
     }
   }
@@ -766,20 +921,18 @@ Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
     const auto chiTau2dPoints = init::quadpoints<Cfg>::view::create(init::quadpoints<Cfg>::Values);
     const auto weights = init::quadweights<Cfg>::view::create(init::quadweights<Cfg>::Values);
 
-    const auto* rt = getCellData<DynamicRupture::RuptureTime>(local);
     for (size_t jBndGP = 0; jBndGP < misc::NumBoundaryGaussPoints<Cfg>; ++jBndGP) {
       const real chi = seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, jBndGP, 0);
       const real tau = seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, jBndGP, 1);
 
-      basisFunction::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
+      basis_function::tri_dubiner::evaluatePolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
-      for (size_t d = 0; d < NumDegFr2d; ++d) {
-        projectedRT[d] +=
-            weights(jBndGP) * rt[jBndGP * Cfg::NumSimulations + local.fusedIndex] * phiAtPoint[d];
+      for (size_t d = 0; std::cmp_less(d, NumDegFr2d); ++d) {
+        projectedRT[d] += weights(jBndGP) * ruptureTime(jBndGP) * phiAtPoint[d];
       }
     }
     const auto m2inv = seissol::init::M2inv<Cfg>::view::create(seissol::init::M2inv<Cfg>::Values);
-    for (size_t d = 0; d < NumDegFr2d; ++d) {
+    for (size_t d = 0; std::cmp_less(d, NumDegFr2d); ++d) {
       projectedRT[d] *= m2inv(d, d);
     }
 
@@ -787,11 +940,11 @@ Real<Cfg> ReceiverOutputImpl<Derived>::computeRuptureVelocity(
         seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, local.nearestInternalGpIndex, 0);
     const real tau =
         seissol::multisim::multisimTranspose<Cfg>(chiTau2dPoints, local.nearestInternalGpIndex, 1);
-    basisFunction::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
+    basis_function::tri_dubiner::evaluateGradPolynomials(phiAtPoint.data(), chi, tau, NumPoly);
 
     real dTdChi{0.0};
     real dTdTau{0.0};
-    for (size_t d = 0; d < NumDegFr2d; ++d) {
+    for (size_t d = 0; std::cmp_less(d, NumDegFr2d); ++d) {
       dTdChi += projectedRT[d] * phiAtPoint[2 * d];
       dTdTau += projectedRT[d] * phiAtPoint[2 * d + 1];
     }

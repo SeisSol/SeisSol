@@ -22,7 +22,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <utils/logger.h>
 #include <vector>
 
@@ -55,8 +54,6 @@ FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
     return LocationFlag::FreeSurfaceWithGravity;
   } else {
     logError() << "Internal error in free surface integrator. Called for invalid cell.";
-    std::abort(); // logError aborts, but this hides the compiler warning about missing return
-                  // statement
   }
 }
 
@@ -64,14 +61,16 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
 
   surfaceStorage->setLayerCount(ltsStorage.getColorMap());
+  // the displacements get read for the outputs as the unknowns do
+  surfaceStorage->setSnapshots(ltsStorage.snapshots());
   surfaceStorage->fixate();
 
   totalNumberOfFreeSurfaces = 0;
   for (auto [layer, surfaceLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
-    auto* cellInformation = layer.var<LTS::CellInformation>();
-    auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
-    auto* cellMaterialData = layer.var<LTS::Material>();
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    const auto* cellMaterialData = layer.var<LTS::Material>();
 
     std::size_t numberOfFreeSurfaces = 0;
     std::size_t numberOfOutputFreeSurfaces = 0;
@@ -106,7 +105,7 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   std::size_t surfaceCellGlobal = 0;
   for (auto [ltsLayer, surfaceLtsLayer] :
        seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
-    // (lambdas cannot capture structured bindings in C++17)
+    // (with OpenMP enabled, Clang 18 does not let a lambda capture a structured binding)
     auto& layer = ltsLayer;
     auto& surfaceLayer = surfaceLtsLayer;
     // the displacements of a layer are held in the configuration of the layer
@@ -117,8 +116,8 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
       auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>(cfg);
       auto* displacementDofsDevice =
           surfaceLayer.var<SurfaceLTS::DisplacementDofs>(cfg, initializer::AllocationPlace::Device);
-      auto* cellMaterialData = layer.var<LTS::Material>();
-      auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      const auto* cellMaterialData = layer.var<LTS::Material>();
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
       auto* locationFlagLayer = surfaceLayer.var<SurfaceLTS::LocationFlag>();
 
       auto* side = surfaceLayer.var<SurfaceLTS::Side>();

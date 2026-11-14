@@ -24,14 +24,14 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-  set(GNU_REQUIRED_VERSION "9.0")
+  set(GNU_REQUIRED_VERSION "10.0")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS GNU_REQUIRED_VERSION)
     message(WARNING "GCC versions below ${GNU_REQUIRED_VERSION} are not supported.")
   endif()
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
-  message(WARNING "The Intel Compiler Classic (ICC) is deprecated; consider switching to the Intel oneAPI C++ Compiler (ICX) instead.")
+  message(WARNING "The Intel Compiler Classic (ICC) is not supported; use the Intel oneAPI C++ Compiler (ICX) instead.")
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Cray|CrayClang")
@@ -52,7 +52,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #                     PRECISION, DYNAMIC_RUPTURE_METHOD,
 #                     NUMBER_OF_FUSED_SIMULATIONS,
 #                     MEMORY_LAYOUT,
-#                     LOG_LEVEL, LOG_LEVEL_MASTER,
+#                     LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
 #
@@ -68,7 +68,7 @@ if (TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
   append_coverage_compiler_flags()
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 if(NOT CMAKE_BUILD_TYPE)
@@ -78,6 +78,8 @@ endif()
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
         "Release" "Debug" "RelWithDebInfo") # MinSizeRel is useless for us
 
+# before any target is defined, so that every C and C++ translation unit of the build is instrumented
+include(cmake/sanitizers.cmake)
 
 if(PROXY_PYBINDING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -140,9 +142,7 @@ get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 # set hardware/compiler specific definitions and flags
 target_compile_options(seissol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
 
-target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
-target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
-                                                     LOGLEVEL0=${LOG_LEVEL_MASTER})
+target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER})
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
@@ -158,12 +158,75 @@ if (OPENMP)
   find_package(OpenMP REQUIRED)
   target_link_libraries(seissol-common-properties INTERFACE OpenMP::OpenMP_CXX)
   target_compile_definitions(seissol-common-properties INTERFACE OMP OMPI_SKIP_MPICXX)
+
+  # What the task graph on the host takes (see Parallel/Runtime/HostRuntime.h): tasks with
+  # dependencies on a list of runtime length (iterators), detached tasks, taskloop and masked. The
+  # version that _OPENMP reports cannot tell: GCC reports 4.5 up to version 15, though it has them
+  # from 12 on, and NVHPC reports 5.1 without them.
+  include(CheckCXXSourceCompiles)
+  set(CMAKE_REQUIRED_LIBRARIES OpenMP::OpenMP_CXX)
+  check_cxx_source_compiles([=[
+#include <cstddef>
+#include <omp.h>
+struct Runtime {
+  char own{0};
+  char shared{0};
+  void action(const char* const* neighbors, std::size_t count) {
+#pragma omp task default(none) depend(iterator(std::size_t i = 0 : count), in : neighbors[i][0]) depend(inout : this->own, this->shared)
+    {
+    }
+  }
+};
+int main() {
+  Runtime runtime;
+  const char* neighbors[1] = {&runtime.shared};
+  int sum = 0;
+#pragma omp parallel default(none) shared(runtime, neighbors, sum)
+  {
+#pragma omp masked
+    {
+      runtime.action(neighbors, 1);
+      omp_event_handle_t event{};
+#pragma omp task detach(event) depend(in : runtime.shared)
+      {
+      }
+      omp_fulfill_event(event);
+#pragma omp taskloop default(none) shared(sum) grainsize(1)
+      for (int i = 0; i < 4; ++i) {
+#pragma omp atomic
+        sum += i;
+      }
+      const char* token = &runtime.own;
+#pragma omp taskwait depend(in : token[0])
+#pragma omp taskyield
+#pragma omp taskwait
+    }
+  }
+  return sum == 6 ? 0 : 1;
+}
+]=] SEISSOL_OPENMP_TASK_GRAPH)
+  unset(CMAKE_REQUIRED_LIBRARIES)
+  if (SEISSOL_OPENMP_TASK_GRAPH)
+    target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_OPENMP_TASK_GRAPH)
+  endif()
 endif()
 
 if (MPI)
   find_package(MPI REQUIRED)
 
-  target_include_directories(seissol-common-properties SYSTEM INTERFACE ${MPI_CXX_INCLUDE_PATH})
+  # The headers of MPI, also for the compilers that do not go through the host compiler (hipcc for
+  # the device code, nvcc). With an MPI wrapper as the host compiler (e.g. CC of the Cray PE), MPI
+  # works implicitly and FindMPI reports no include directories, as the wrapper adds them itself;
+  # they are then among the include directories of the host compiler.
+  set(SEISSOL_MPI_INCLUDE_DIRS ${MPI_CXX_INCLUDE_DIRS})
+  if (NOT SEISSOL_MPI_INCLUDE_DIRS)
+    find_path(SEISSOL_MPI_INCLUDE_DIR mpi.h PATHS ${CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES}
+        NO_DEFAULT_PATH)
+    if (SEISSOL_MPI_INCLUDE_DIR)
+      set(SEISSOL_MPI_INCLUDE_DIRS ${SEISSOL_MPI_INCLUDE_DIR})
+    endif()
+  endif()
+  target_include_directories(seissol-common-properties SYSTEM INTERFACE ${SEISSOL_MPI_INCLUDE_DIRS})
   target_link_libraries(seissol-common-properties INTERFACE MPI::MPI_C)
 
   target_compile_definitions(seissol-common-properties INTERFACE USE_MPI PARALLEL)
@@ -266,18 +329,6 @@ if (DEVICE_COMBINE_LOCAL_FLUX)
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_DEVICE_COMBINE_LOCAL_FLUX)
 endif()
 
-if (ADDRESS_SANITIZER_DEBUG)
-  target_link_libraries(seissol-common-properties INTERFACE debug
-          -fno-omit-frame-pointer -fsanitize=address -fsanitize-recover=address
-  )
-
-  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
-    target_link_libraries(seissol-common-properties INTERFACE debug
-            -static-libasan
-    )
-  endif()
-endif()
-
 find_package(Eigen3 REQUIRED)
 target_link_libraries(seissol-common-properties INTERFACE Eigen3::Eigen)
 
@@ -291,23 +342,6 @@ endif()
 # time was not possible inline in the find_package
 if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
   message(FATAL_ERROR "Your installed Eigen version is too old. Needed: at least 3.4 .")
-endif()
-
-# needed because Eigen (also 5.0) still incorrectly computes some values and fails some unit tests
-if("poroelastic" IN_LIST SEISSOL_CONFIG_MATERIALS)
-  include(CheckLanguage)
-  check_language(Fortran)
-  if(CMAKE_Fortran_COMPILER)
-    enable_language(Fortran)
-    include(FortranCInterface)
-    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
-    find_package(LAPACK REQUIRED)
-    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
-    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
-  else()
-    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
-  endif()
 endif()
 
 find_package(yaml-cpp REQUIRED)
@@ -380,24 +414,14 @@ if (NOT NEW_BINARY_NAMING)
     set(EXE_NAME_PREFIX "${EXE_NAME_PREFIX}_${CUSTOM_BINARY_SUFFIX}")
   endif()
 else()
-  # the suffix of the names of the executables and libraries, with its leading dash
-  if (NOT "${CONFIGS}" STREQUAL "")
+  # the suffix of the names of the executables and libraries, with its leading dash: the name of the
+  # configuration (cmake/confignames.cmake) for a build of one
+  if ("${CONFIGS}" STREQUAL "" AND "${EXTRA_CONFIGS}" STREQUAL "")
+    list(GET SEISSOL_CONFIG_NAMES 0 _config_name)
+    set(NAME_SUFFIX "-${_config_name}")
+  else()
     # one executable for all configurations of the list; a run chooses its own
     set(NAME_SUFFIX "")
-  else()
-    set(NAME_SUFFIX "-${EQUATIONS}")
-    if (NUMBER_OF_MECHANISMS GREATER 0)
-      set(NAME_SUFFIX "${NAME_SUFFIX}-${NUMBER_OF_MECHANISMS}")
-    endif()
-    set(NAME_SUFFIX "${NAME_SUFFIX}-o${ORDER}")
-    if (PRECISION STREQUAL "single")
-      set(NAME_SUFFIX "${NAME_SUFFIX}-f32")
-    else()
-      set(NAME_SUFFIX "${NAME_SUFFIX}-f64")
-    endif()
-    if(${NUMBER_OF_FUSED_SIMULATIONS} GREATER 1)
-      set(NAME_SUFFIX "${NAME_SUFFIX}-s${NUMBER_OF_FUSED_SIMULATIONS}")
-    endif()
   endif()
   if(NOT ${CUSTOM_BINARY_SUFFIX} STREQUAL "")
     set(NAME_SUFFIX "${NAME_SUFFIX}-${CUSTOM_BINARY_SUFFIX}")
@@ -461,7 +485,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
   # using Intel C++
   # todo remove std?, is ffreestanding needed?
-  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic -std=c++17>)
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-pedantic>)
 
   # Activate interprocedual optimization.
   #set_property(TARGET seissol-lib PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
@@ -487,8 +511,17 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "NVHPC|PGI")
     endif()
 endif()
 
-find_package(FILESYSTEM REQUIRED)
-target_link_libraries(seissol-common-properties INTERFACE std::filesystem)
+if (WARNINGS_AS_ERRORS)
+  # the generated code and the device code take it back where their targets are defined
+  # (codegen/CMakeLists.txt, src/sources.cmake and tests/CMakeLists.txt)
+  target_compile_options(seissol-common-properties INTERFACE $<$<COMPILE_LANGUAGE:CXX>:-Werror>)
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|IntelLLVM")
+    # a loop under "omp simd" that the vectorizer leaves as it is (-Wpass-failed) costs time, but
+    # computes the same
+    target_compile_options(seissol-common-properties INTERFACE
+      $<$<COMPILE_LANGUAGE:CXX>:-Wno-error=pass-failed>)
+  endif()
+endif()
 
 # put every executable and shared library in the root build directory at the end
 # (for compatibility reasons; TODO: remove at some point)
@@ -542,14 +575,21 @@ if(TESTING AND COVERAGE AND CMAKE_COMPILER_IS_GNUCXX)
 endif()
 
 if (WITH_GPU)
-  string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
-
-  if ("${BACKEND_UPPER_CASE}" STREQUAL "HIP")
+  # the variable that leaves each process the GPU of its local rank (SeisSol takes the first GPU it
+  # sees): one of the runtime underneath, which the vendor decides, not the backend (e.g. there is
+  # no ONEAPI_VISIBLE_DEVICES)
+  if (DEVICE_VENDOR STREQUAL "intel")
+    # Level Zero; with ZE_FLAT_DEVICE_HIERARCHY=FLAT, each stack of a GPU is a device of its own
+    set(RUN_GPU_TIME_SELECTOR "ZE_AFFINITY_MASK")
+  elseif (DEVICE_VENDOR STREQUAL "amd")
     # ROCR needed for proper chiplet selection in TPX/CPX mode
-    set(BACKEND_UPPER_CASE "ROCR")
+    set(RUN_GPU_TIME_SELECTOR "ROCR_VISIBLE_DEVICES")
+  elseif (DEVICE_VENDOR STREQUAL "nvidia")
+    set(RUN_GPU_TIME_SELECTOR "CUDA_VISIBLE_DEVICES")
+  else()
+    string(TOUPPER "${DEVICE_BACKEND}" BACKEND_UPPER_CASE)
+    set(RUN_GPU_TIME_SELECTOR "${BACKEND_UPPER_CASE}_VISIBLE_DEVICES")
   endif()
-
-  set(RUN_GPU_TIME_SELECTOR "${BACKEND_UPPER_CASE}_VISIBLE_DEVICES")
   configure_file(${PROJECT_SOURCE_DIR}/cmake/gpu-launch-template.in
                  ${PROJECT_BINARY_DIR}/seissol-launch
                  @ONLY)

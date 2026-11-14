@@ -13,6 +13,31 @@
 namespace seissol::unit_test {
 using seissol::monitoring::FlopCounter;
 
+TEST_CASE("FlopCounter sums up the metrics of the names asked for" *
+          doctest::test_suite("monitoring")) {
+  FlopCounter counter;
+  const auto local = counter.addMetric("local", "WP");
+  const auto otherLocal = counter.addMetric("local", "WP");
+  const auto neighbor = counter.addMetric("neighbor", "WP");
+  counter.incrementMetric(
+      local,
+      PerformanceEstimate{.hardwareFlop = 1, .nonzeroFlop = 2, .bytes = 3, .kernelBytes = 4});
+  counter.incrementMetric(
+      otherLocal,
+      PerformanceEstimate{.hardwareFlop = 10, .nonzeroFlop = 20, .bytes = 30, .kernelBytes = 40});
+  counter.incrementMetric(
+      neighbor,
+      PerformanceEstimate{
+          .hardwareFlop = 100, .nonzeroFlop = 200, .bytes = 300, .kernelBytes = 400});
+
+  const auto locals = counter.estimate({"local"});
+  CHECK(locals.hardwareFlop == 11);
+  CHECK(locals.kernelBytes == 44);
+  const auto both = counter.estimate({"local", "neighbor"});
+  CHECK(both.hardwareFlop == 111);
+  CHECK(counter.estimate({"none"}).hardwareFlop == 0);
+}
+
 TEST_CASE("FlopCounter increment operations" * doctest::test_suite("monitoring")) {
   // Note: We cannot test init() or print*() here as they require MPI.
   // We test that the increment functions don't crash and that the object
@@ -25,9 +50,15 @@ TEST_CASE("FlopCounter increment operations" * doctest::test_suite("monitoring")
   const auto two = counter.addMetric("two", "");
 
   SUBCASE("Increment metric") {
-    counter.incrementMetric(one, PerformanceEstimate{1, 2, 3, 4});
-    counter.incrementMetric(two, PerformanceEstimate{1, 2, 3, 4});
-    counter.incrementMetric(one, PerformanceEstimate{2, 3, 4, 5});
+    counter.incrementMetric(
+        one,
+        PerformanceEstimate{.hardwareFlop = 1, .nonzeroFlop = 2, .bytes = 3, .kernelBytes = 4});
+    counter.incrementMetric(
+        two,
+        PerformanceEstimate{.hardwareFlop = 1, .nonzeroFlop = 2, .bytes = 3, .kernelBytes = 4});
+    counter.incrementMetric(
+        one,
+        PerformanceEstimate{.hardwareFlop = 2, .nonzeroFlop = 3, .bytes = 4, .kernelBytes = 5});
     CHECK(true);
   }
 
@@ -39,10 +70,10 @@ TEST_CASE("FlopCounter increment operations" * doctest::test_suite("monitoring")
   SUBCASE("Large values") {
     counter.incrementMetric(one,
                             PerformanceEstimate{
-                                1'000'000'000ULL,
-                                1'000'000'000ULL,
-                                1'000'000'000ULL,
-                                1'000'000'000ULL,
+                                .hardwareFlop = 1'000'000'000ULL,
+                                .nonzeroFlop = 1'000'000'000ULL,
+                                .bytes = 1'000'000'000ULL,
+                                .kernelBytes = 1'000'000'000ULL,
                             });
     CHECK(true);
   }

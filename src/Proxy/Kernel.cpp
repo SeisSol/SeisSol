@@ -37,8 +37,7 @@ auto ChainKernel::performanceEstimate(ProxyData& data) const -> PerformanceEstim
 }
 
 auto ChainKernel::needsDR() const -> bool {
-  return std::any_of(
-      kernels_.begin(), kernels_.end(), [](const auto& kernel) { return kernel->needsDR(); });
+  return std::ranges::any_of(kernels_, [](const auto& kernel) { return kernel->needsDR(); });
 }
 
 } // namespace seissol::proxy

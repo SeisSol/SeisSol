@@ -109,27 +109,31 @@ files under a backup name instead, see :ref:`Checkpointing`.
 File groupings
 ~~~~~~~~~~~~~~
 
-Every mesh output writes one self-contained file per output step by default. Two
-other groupings are available, and both need the output to be written as VTKHDF:
+A mesh output written as VTKHDF (with a ``vtkorder``) puts all of its steps into
+one file by default; one written as Xdmf writes one self-contained file per
+output step. The groupings are:
 
 ``snapshot``
-  One file per step, each complete in itself. The default.
+  One file per step, each complete in itself. The only one of an output written
+  as Xdmf.
 
 ``incremental``
   The data that does not change -- the points and the connectivity -- is written
   once per run, into a file of its own, and every snapshot references it. Worth
-  it whenever the mesh is large against the fields written on it.
+  it whenever the mesh is large against the fields written on it. Needs VTKHDF.
 
 ``monolith``
-  One file for the whole run, as a VTKHDF time series. The step bookkeeping
-  lives inside that file, so no ``.pvd`` collection is written alongside it.
+  One file for the whole run, as a VTKHDF time series: the mesh is written once,
+  and a step adds its fields only. The step bookkeeping lives inside that file,
+  so no ``.pvd`` collection is written alongside it. The default of an output
+  written as VTKHDF.
 
 ``outputtimeseries`` in the ``output`` section picks one for all three mesh
 outputs at once. ``wavefieldtimeseries`` and ``surfacetimeseries`` in the same
 section, and ``timeseries`` in the ``elementwise`` section, override it for one
-of them. An output written as Xdmf says so and falls back to ``snapshot``,
-rather than ending the run over a setting that a different parameter --
-``vtkorder`` -- decides.
+of them. An output written as Xdmf that is given another grouping than
+``snapshot`` says so and falls back to it, rather than ending the run over a
+setting that a different parameter -- ``vtkorder`` -- decides.
 
 Point output
 ------------

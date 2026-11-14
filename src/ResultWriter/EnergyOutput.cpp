@@ -25,11 +25,13 @@
 #include "IO/Writer/File/RunFiles.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Modules/Modules.h"
@@ -148,16 +150,36 @@ constexpr std::string_view StaticFrictionalWork = "static_frictional_work";
 constexpr std::string_view Potency = "potency";
 
 constexpr std::array GlobalEnergies{
-    model::EnergyDescriptor{PlasticMoment, model::EnergyUnit::Moment, {}, {}, {}},
-    model::EnergyDescriptor{GravitationalPotentialEnergy,
-                            model::EnergyUnit::Energy,
-                            "gravitational",
-                            "Gravitational potential energy:",
-                            {}},
-    model::EnergyDescriptor{SeismicMoment, model::EnergyUnit::Moment, {}, {}, {}},
-    model::EnergyDescriptor{TotalFrictionalWork, model::EnergyUnit::Energy, {}, {}, {}},
-    model::EnergyDescriptor{StaticFrictionalWork, model::EnergyUnit::Energy, {}, {}, {}},
-    model::EnergyDescriptor{Potency, model::EnergyUnit::Scalar, {}, {}, {}},
+    model::EnergyDescriptor{.name = PlasticMoment,
+                            .unit = model::EnergyUnit::Moment,
+                            .group = {},
+                            .groupLabel = {},
+                            .shortLabel = {}},
+    model::EnergyDescriptor{.name = GravitationalPotentialEnergy,
+                            .unit = model::EnergyUnit::Energy,
+                            .group = "gravitational",
+                            .groupLabel = "Gravitational potential energy:",
+                            .shortLabel = {}},
+    model::EnergyDescriptor{.name = SeismicMoment,
+                            .unit = model::EnergyUnit::Moment,
+                            .group = {},
+                            .groupLabel = {},
+                            .shortLabel = {}},
+    model::EnergyDescriptor{.name = TotalFrictionalWork,
+                            .unit = model::EnergyUnit::Energy,
+                            .group = {},
+                            .groupLabel = {},
+                            .shortLabel = {}},
+    model::EnergyDescriptor{.name = StaticFrictionalWork,
+                            .unit = model::EnergyUnit::Energy,
+                            .group = {},
+                            .groupLabel = {},
+                            .shortLabel = {}},
+    model::EnergyDescriptor{.name = Potency,
+                            .unit = model::EnergyUnit::Scalar,
+                            .group = {},
+                            .groupLabel = {},
+                            .shortLabel = {}},
 };
 static_assert(model::detail::descriptorsWellFormed(GlobalEnergies),
               "energy descriptors must be named, unique, and grouped consistently");
@@ -192,8 +214,10 @@ void addFaultEnergies(const DynamicRupture::Layer& layer,
   auto* seismicMoment = seismicMomentData.data();
   auto* potency = potencyData.data();
 
-  real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDerivativePlus>(Cfg());
-  real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDerivativeMinus>(Cfg());
+  // the unknowns of the cells at the output time, when the slip is taken as well (those of cells on
+  // other ranks come from dofSync)
+  real* const* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>(Cfg());
+  real* const* timeDofsMinus = layer.var<DynamicRupture::TimeDofsMinus>(Cfg());
 
   const auto* godunovData = layer.var<DynamicRupture::GodunovData>(Cfg());
   const auto* faceInformation = layer.var<DynamicRupture::FaceInformation>();
@@ -405,7 +429,8 @@ void addVolumeEnergies(const LTS::Layer& layer,
     const double volume = MeshTools::volume(elements[elementId], vertices);
     const auto offset = secondaryInformation[cell].copyId * SimCount;
 
-    // NOLINTNEXTLINE
+    // the layer holds materials of exactly this type
+    // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
     const auto& material = materialData[cell];
     const auto& cellInformation = cellInformationData[cell];
     const auto& faceDisplacements = faceDisplacementsData[cell];
@@ -434,8 +459,8 @@ void addVolumeEnergies(const LTS::Layer& layer,
 
     for (size_t sim = 0; sim < SimCount; sim++) {
 
-      auto linSub = multisim::simtensor<Cfg>(lin, sim);
-      auto quadSub = multisim::simtensor<Cfg>(quad, sim);
+      const auto linSub = multisim::simtensor<Cfg>(lin, sim);
+      const auto quadSub = multisim::simtensor<Cfg>(quad, sim);
 
       // assume _constant_ material over a cell (will need adjustments for e.g. #1297)
 
@@ -576,7 +601,7 @@ size_t EnergiesStorage::addEnergy(const model::EnergyDescriptor& descriptor) {
     logError() << "Attempted to register an energy without a name. This usually means that an"
                << "EnergyCompute specialization declares more energies than it names.";
   }
-  if (handles_.find(descriptor.name) != handles_.end()) {
+  if (handles_.contains(descriptor.name)) {
     logError() << "Energy" << std::string(descriptor.name) << "registered twice.";
   }
   const auto index = descriptors_.size();
@@ -614,7 +639,7 @@ double& EnergiesStorage::energy(std::string_view name, size_t sim) {
 }
 
 [[nodiscard]] bool EnergiesStorage::has(std::string_view name) const {
-  return handles_.find(name) != handles_.end();
+  return handles_.contains(name);
 }
 
 [[nodiscard]] const std::vector<model::EnergyDescriptor>& EnergiesStorage::descriptors() const {
@@ -623,7 +648,7 @@ double& EnergiesStorage::energy(std::string_view name, size_t sim) {
 
 std::vector<double>& EnergiesStorage::values() { return values_; }
 
-void EnergiesStorage::reset() { std::fill(values_.begin(), values_.end(), 0); }
+void EnergiesStorage::reset() { std::ranges::fill(values_, 0); }
 
 void EnergyOutput::init(
     const DynamicRupture::Storage& newDynRuptTree,
@@ -657,6 +682,15 @@ void EnergyOutput::init(
   drStorage_ = &newDynRuptTree;
   meshReader_ = &newMeshReader;
   ltsStorage_ = &newStorage;
+
+  // the unknowns of the cells, the friction energies, and the displacements of the free surfaces
+  // with gravity
+  auto& memoryManager = seissolInstance_.memoryManager();
+  hostData_.add<LTS::Dofs>(memoryManager.ltsStorage())
+      .add<LTS::DofsAne>(memoryManager.ltsStorage())
+      .add<LTS::PStrain>(memoryManager.ltsStorage())
+      .add<DynamicRupture::DREnergyOutputVar>(memoryManager.drStorage())
+      .add<SurfaceLTS::DisplacementDofs>(memoryManager.surfaceStorage());
 
   isPlasticityEnabled_ = newIsPlasticityEnabled;
 
@@ -692,7 +726,7 @@ void EnergyOutput::init(
   }
 }
 
-void EnergyOutput::syncPoint(double time) {
+void EnergyOutput::processSyncPoint(double time) {
   assert(isEnabled_);
   const auto rank = Mpi::mpi.rank();
   logInfo() << "Writing energy output at time" << time;
@@ -757,9 +791,7 @@ void EnergyOutput::simulationStart(std::optional<double> checkpointTime) {
 EnergyOutput::~EnergyOutput() = default;
 
 void EnergyOutput::computeDynamicRuptureEnergies() {
-  std::fill(minTimeSinceSlipRateBelowThreshold_.begin(),
-            minTimeSinceSlipRateBelowThreshold_.end(),
-            std::numeric_limits<double>::max());
+  std::ranges::fill(minTimeSinceSlipRateBelowThreshold_, std::numeric_limits<double>::max());
 
   auto& memoryManager = seissolInstance_.memoryManager();
   for (const auto& layer : drStorage_->leaves()) {
@@ -886,9 +918,8 @@ void EnergyOutput::printEnergies() {
                   << ", of total moment:" << ratioPlasticMoment << "%";
       }
 
-      if (std::all_of(MomentumComponents.begin(),
-                      MomentumComponents.end(),
-                      [&](std::string_view name) { return energiesStorage_.has(name); })) {
+      if (std::ranges::all_of(MomentumComponents,
+                              [&](std::string_view name) { return energiesStorage_.has(name); })) {
         logInfo()
             << std::setprecision(outputPrecision) << fusedPrefix.c_str() << " Total momentum: X"
             << printValue(energiesStorage_.energy(MomentumComponents[0], sim), UnitMomentum).c_str()
@@ -958,27 +989,27 @@ void EnergyOutput::checkAbortCriterion(const std::vector<double>& timeSinceThres
   }
 
   bool abort = (decidableCount > 0) and (abortCount == decidableCount);
-  const auto& comm = Mpi::mpi.comm();
-  MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
+  Mpi::mpi.broadcast(&abort, 0);
   if (abort) {
     seissolInstance_.simulator().abort();
   }
 }
 
 void EnergyOutput::writeEnergies(double time) {
+  auto& table = table_.value();
   // iterate the descriptors, not the name->handle map: the map is ordered
   // alphabetically, the descriptors in registration order
   const auto& descriptors = energiesStorage_.descriptors();
   for (std::size_t handle = 0; handle < descriptors.size(); ++handle) {
     for (size_t sim = 0; sim < simulationCount_; sim++) {
-      table_->addCell<double>(time);
-      table_->addText(std::string(descriptors[handle].name));
-      table_->addCell<std::uint64_t>(sim);
-      table_->addCell<double>(energiesStorage_.energy(handle, sim));
-      table_->addText(seissolInstance_.runId());
+      table.addCell<double>(time);
+      table.addText(std::string(descriptors[handle].name));
+      table.addCell<std::uint64_t>(sim);
+      table.addCell<double>(energiesStorage_.energy(handle, sim));
+      table.addText(seissolInstance_.runId());
     }
   }
-  table_->appendFile(outputFileName_);
+  table.appendFile(outputFileName_);
 }
 
 bool EnergyOutput::shouldComputeVolumeEnergies() const {

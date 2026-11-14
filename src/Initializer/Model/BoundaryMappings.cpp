@@ -111,7 +111,7 @@ void initializeBoundaryMappingsOfLayer(
 
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* boundary = layer.var<LTS::BoundaryMapping>(Cfg());
-  auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+  const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
 
   // A Dirichlet face samples each condition of its copy once, for all fused simulations that take
   // it.

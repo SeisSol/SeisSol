@@ -1,0 +1,68 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# A spontaneous in-plane rupture on fault2d-periodic, with the friction and
+# the nucleation of fault2d-antiplane.yaml, along y: the shear traction of
+# 74 MPa along y lies 7.24 MPa below the static strength of 81.24 MPa and
+# 11 MPa above the dynamic one. The fault fails within |y| < 120 m some 7 ms
+# in, and the rupture runs on to both sides on its own, slowly at first, at
+# 1.8 km/s around y = +-200 m, then faster, at 3 km/s around +-260 m, and
+# where the fronts near their periodic images, faster than the shear waves,
+# while the slip rate behind them falls to a metre per second, as
+# antiplane.Inplane computes it. The slip is along y and uniform along z, a
+# rupture of mode II that runs along y.
+!Switch
+[s_xx, s_yy, s_zz, s_xy, s_yz, s_xz, nuc_xx, nuc_yy, nuc_zz, nuc_xz, nuc_yz, mu_s, mu_d, d_c, cohesion]: !ConstantMap
+  map:
+    s_xx:     -120.0e6
+    s_yy:     0.0
+    s_zz:     0.0
+    s_xy:     74.0e6
+    s_yz:     0.0
+    s_xz:     0.0
+    nuc_xx:   0.0
+    nuc_yy:   0.0
+    nuc_zz:   0.0
+    nuc_xz:   0.0
+    nuc_yz:   0.0
+    mu_s:     0.677
+    mu_d:     0.525
+    d_c:      0.08
+    cohesion: 0.0
+[nuc_xy]: !Any
+  components:
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-120.0, 120.0]
+        z: [-.inf, .inf]
+      components: !ConstantMap
+        map:
+          nuc_xy: 14.0e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [120.0, 220.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xy: [0.0, -1.4e5, 0.0]
+        translation:
+          nuc_xy: 30.8e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-220.0, -120.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xy: [0.0, 1.4e5, 0.0]
+        translation:
+          nuc_xy: 30.8e6
+    - !ConstantMap
+      map:
+        nuc_xy: 0.0

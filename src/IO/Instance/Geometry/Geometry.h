@@ -55,21 +55,25 @@ enum class WriterGroup : int32_t {
 };
 
 /**
- * @brief The grouping a format can hold, given the one that was asked for.
+ * @brief The grouping a format can hold, given the one that was asked for, if any.
  *
- * Only VTKHDF can do more than a full snapshot per step. Rather than refusing to run over it, an
- * output that cannot have what was asked for says so and falls back, since what decides the
+ * Only VTKHDF can do more than a full snapshot per step. An output that asks for nothing gets a
+ * single file in VTKHDF, and a full snapshot per step in Xdmf. Rather than refusing to run over it,
+ * an output that cannot have what was asked for says so and falls back, since what decides the
  * format is a different parameter than the one that asked for the grouping.
  */
-inline WriterGroup
-    supportedWriterGroup(WriterGroup requested, WriterFormat format, const std::string& name) {
-  if (format != WriterFormat::Xdmf || requested == WriterGroup::FullSnapshot) {
-    return requested;
+inline WriterGroup supportedWriterGroup(std::optional<WriterGroup> requested,
+                                        WriterFormat format,
+                                        const std::string& name) {
+  if (format != WriterFormat::Xdmf) {
+    return requested.value_or(WriterGroup::Monolith);
   }
-  logWarning() << "The" << name
-               << "output is written as Xdmf, which holds one step per file and references the "
-                  "unchanging parts from each of them. Its time series setting is ignored; set a "
-                  "vtkorder for this output to write VTKHDF, which can hold one.";
+  if (requested.value_or(WriterGroup::FullSnapshot) != WriterGroup::FullSnapshot) {
+    logWarning() << "The" << name
+                 << "output is written as Xdmf, which holds one step per file and references the "
+                    "unchanging parts from each of them. Its time series setting is ignored; set a "
+                    "vtkorder for this output to write VTKHDF, which can hold one.";
+  }
   return WriterGroup::FullSnapshot;
 }
 
@@ -121,7 +125,8 @@ class GeometryWriter {
       // read the count before the points are moved out from under it
       const auto uniqueCount = merged.pointCount();
       uniquePoints = std::move(merged.points);
-      vertexMap = mesh::VertexMap{uniqueCount, std::move(merged.indices)};
+      vertexMap = mesh::VertexMap{.localPointCount = uniqueCount,
+                                  .connectivity = std::move(merged.indices)};
     }
 
     const auto pointProjector = [&](auto& writer) {

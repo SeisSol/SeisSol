@@ -10,6 +10,7 @@
 #include "IO/Writer/File/BinaryWriter.h"
 #include "WriterHarness.t.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <fstream>
 #include <iterator>
@@ -60,7 +61,7 @@ TEST_CASE("IO/BinaryFile: a write larger than one piece goes in pieces" *
 
   auto expected = head;
   expected.insert(expected.end(), body.begin(), body.end());
-  std::copy(patch.begin(), patch.end(), expected.begin() + 10);
+  std::ranges::copy(patch, expected.begin() + 10);
   CHECK(contents(file) == expected);
 }
 

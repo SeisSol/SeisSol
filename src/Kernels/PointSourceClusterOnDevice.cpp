@@ -32,8 +32,13 @@ std::size_t PointSourceClusterOnDevice<Cfg>::size() const {
 
 template <typename Cfg>
 void PointSourceClusterOnDevice<Cfg>::addTimeIntegratedPointSources(
-    double from, double to, seissol::parallel::runtime::StreamRuntime& runtime) {
-  pointSourceKernel<Cfg>(*clusterMapping_, *sources_, from, to, runtime);
+    double from, double timeStepSize, seissol::parallel::runtime::StreamRuntime& runtime) {
+  pointSourceKernel<Cfg>(*clusterMapping_, *sources_, from, timeStepSize, clock_, runtime);
+}
+
+template <typename Cfg>
+void PointSourceClusterOnDevice<Cfg>::setClock(const double* deviceClock) {
+  clock_ = deviceClock;
 }
 
 #define SEISSOL_INSTANTIATE(Cfg) template class PointSourceClusterOnDevice<Cfg>;

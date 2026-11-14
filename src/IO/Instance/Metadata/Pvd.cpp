@@ -31,7 +31,7 @@ XmlFile makePvuCollection(const std::vector<std::shared_ptr<XmlEntry>>& datasets
   root.addAttribute(XmlAttribute::create("type", "collection"))
       .addAttribute(XmlAttribute::create("version", "0.1"));
 
-  auto collection = std::make_shared<XmlNode>("Collection");
+  const auto collection = std::make_shared<XmlNode>("Collection");
 
   for (const auto& dataset : datasets) {
     collection->addNode(dataset);

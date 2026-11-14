@@ -139,6 +139,7 @@ For determining the architecture on your own, a few heuristics may help:
 * ``hsw`` if you work with your personal computer or laptop. [#]_
 * ``skx`` if on an x86_64 cluster, or a high-end workstation which supports AVX-512, or AVX10/512. (e.g.: SuperMUC-NG, or any cluster with Intel CPUs, or AMD CPUs with Zen 4 or newer).
 * ``neon`` on an ARM machine, and specify your CPU over the ``-mcpu`` parameter. If your machine supports SVE (such as A64FX or the Nvidia Grace CPU), then you can also use ``sve128``, ``sve256``, or ``sve512``; but you will still need to specify ``-mcpu``.
+* ``rvv128`` to ``rvv4096`` on a RISC-V machine with the vector extension, according to the length of its vectors, and ``lsx`` or ``lasx`` on LoongArch. Specify the vector extension in the compiler flags (e.g. ``-march=rv64gcv`` or ``-march=la464``); then the automatic detection determines the vector length as well.
 * ``noarch`` if nothing else works
 
 .. [#] If your computer is very old (i.e. 2013 or earlier), then you may have to check out ``snb``, ``wsm`` or ``noarch`` instead.

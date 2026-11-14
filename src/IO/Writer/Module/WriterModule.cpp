@@ -26,6 +26,7 @@
 #include <mpi.h>
 #include <optional>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -45,12 +46,13 @@ std::uint64_t nextTicket(async::Mode mode) {
 }
 } // namespace
 
-WriterModule::WriterModule(const std::string& prefix,
-                           const ScheduledWriter& settings,
+WriterModule::WriterModule(std::string prefix,
+                           ScheduledWriter settings,
                            const parallel::Pinning& pinning,
                            SeisSol& seissolInstance)
     : AsyncWriterModule(seissolInstance.asyncIO().config()), rank_(seissol::Mpi::mpi.rank()),
-      prefix_(prefix), settings_(settings), pinning_(pinning), seissolInstance_(seissolInstance) {}
+      prefix_(std::move(prefix)), settings_(std::move(settings)), pinning_(pinning),
+      seissolInstance_(seissolInstance) {}
 
 void WriterModule::setUp() {
   logInfo() << "Output Writer" << settings_.name << ": setup.";
@@ -107,7 +109,13 @@ void WriterModule::simulationStart(std::optional<double> checkpointTime) {
   }
 }
 
-void WriterModule::syncPoint(double time) {
+void WriterModule::captureSyncPoint(double time) {
+  if (settings_.capture) {
+    settings_.capture(time);
+  }
+}
+
+void WriterModule::processSyncPoint(double time) {
   const auto start = std::chrono::steady_clock::now();
   if (lastWrite_ >= 0) {
     logInfo() << "Output Writer" << settings_.name << ": finishing previous write from"
@@ -136,7 +144,7 @@ void WriterModule::syncPoint(double time) {
   const auto generated = std::chrono::steady_clock::now();
 
   // take care of the plan (i.e. resize our managed buffer and send it)
-  auto serialized = writer.serialize();
+  const auto serialized = writer.serialize();
   AsyncWriterModule::resizeBuffer(planId_, nullptr, serialized.size());
   auto* planBuffer = AsyncWriterModule::managedBuffer<char*>(planId_);
   std::memcpy(planBuffer, serialized.c_str(), serialized.size());
@@ -159,7 +167,8 @@ void WriterModule::syncPoint(double time) {
             << "s)";
   lastWrite_ = time;
   ++writeCount_;
-  call(AsyncWriterExec{resumed_, nextTicket(seissolInstance_.asyncIO().config().mode())});
+  call(AsyncWriterExec{.resumed = resumed_,
+                       .ticket = nextTicket(seissolInstance_.asyncIO().config().mode())});
 }
 
 int WriterModule::addBuffer(const void* pointer, std::size_t size) {
@@ -192,7 +201,9 @@ void WriterModule::simulationEnd() {
   wait();
   // the files the writes kept open for the next one; closing is collective, and takes its turn
   // like a write
-  call(AsyncWriterExec{resumed_, nextTicket(seissolInstance_.asyncIO().config().mode()), true});
+  call(AsyncWriterExec{.resumed = resumed_,
+                       .ticket = nextTicket(seissolInstance_.asyncIO().config().mode()),
+                       .close = true});
   wait();
 }
 

@@ -145,13 +145,13 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 
     using namespace dr::misc::quantity_indices;
 
-    using Range = typename NumPoints<Cfg, Type>::Range;
+    using Range = NumPoints<Cfg, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      auto i{startLoopIndex + index};
+      const auto i{startLoopIndex + index};
       VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, i) =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                   qIMinus[o][N][i] * invZpNeig);
@@ -178,7 +178,7 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 
     using namespace dr::misc::quantity_indices;
 
-    using Range = typename NumPoints<Cfg, Type>::Range;
+    using Range = NumPoints<Cfg, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -252,7 +252,7 @@ SEISSOL_HOSTDEVICE inline void initializeTractionResults(
     const FaultStresses<Cfg, RangeExecutor<Type>::Exec>& __restrict faultStresses,
     TractionResults<Cfg, RangeExecutor<Type>::Exec>& __restrict tractionResults,
     uint32_t startIndex = 0) {
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
@@ -291,7 +291,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
     Real<Cfg> weight,
     uint32_t startIndex = 0) {
 
-  using NumPointsRange = typename NumPoints<Cfg, Type>::Range;
+  using NumPointsRange = NumPoints<Cfg, Type>::Range;
 
   const auto o = step;
 
@@ -316,7 +316,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
 #endif
     for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
          index += NumPointsRange::Step) {
-      auto i{startIndex + index};
+      const auto i{startIndex + index};
 
       const auto normalStress = Acc::index(tractionResults.normalStress, i);
       const auto traction1 = Acc::index(tractionResults.traction1, i);
@@ -418,7 +418,7 @@ SEISSOL_HOSTDEVICE inline void
                          Real<Cfg> imposedStateMinus[tensor::QInterpolated<Cfg>::size()],
                          uint32_t startIndex = 0) {
 
-  using NumPointsRange = typename NumPoints<Cfg, Type>::Range;
+  using NumPointsRange = NumPoints<Cfg, Type>::Range;
 
   using ImposedStateShapeT = Real<Cfg>(*__restrict)[misc::NumPaddedPoints<Cfg>];
   auto* __restrict imposedStateP = reinterpret_cast<ImposedStateShapeT>(imposedStatePlus);
@@ -426,7 +426,7 @@ SEISSOL_HOSTDEVICE inline void
 
   for (auto index = NumPointsRange::Start; index < NumPointsRange::End;
        index += NumPointsRange::Step) {
-    auto i{startIndex + index};
+    const auto i{startIndex + index};
 #pragma unroll
     for (std::uint32_t q = 0; q < dr::misc::NumQuantities<Cfg>; ++q) {
       imposedStateM[q][i] =
@@ -463,7 +463,7 @@ SEISSOL_HOSTDEVICE inline void computeInitialStress(
     Real<Cfg> fullUpdateTime,
     uint32_t startIndex = 0) {
   constexpr auto Exec = RangeExecutor<Type>::Exec;
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
 
   // the components of the stress tensor which take part in the fault-normal Riemann problem
   constexpr std::size_t NormalIndex = 0;
@@ -611,11 +611,7 @@ SEISSOL_HOSTDEVICE inline Real<Cfg> crossingTime(Real<Cfg> previousValue,
  */
 template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
-    // See https://github.com/llvm/llvm-project/issues/60163
-    // NOLINTNEXTLINE
     saveRuptureFrontOutput(bool ruptureTimePending[misc::NumPaddedPoints<Cfg>],
-                           // See https://github.com/llvm/llvm-project/issues/60163
-                           // NOLINTNEXTLINE
                            Real<Cfg> ruptureTime[misc::NumPaddedPoints<Cfg>],
                            const Real<Cfg>* previousSlipRateMagnitude,
                            const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
@@ -623,13 +619,13 @@ SEISSOL_HOSTDEVICE inline void
                            Real<Cfg> currentTime,
                            uint32_t startIndex = 0) {
 
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    auto pointIndex{startIndex + index};
+    const auto pointIndex{startIndex + index};
     constexpr Real<Cfg> RuptureFrontThreshold = 0.001;
     if (ruptureTimePending[pointIndex] && slipRateMagnitude[pointIndex] > RuptureFrontThreshold) {
       ruptureTime[pointIndex] = crossingTime<Cfg>(previousSlipRateMagnitude[index],
@@ -651,18 +647,16 @@ SEISSOL_HOSTDEVICE inline void
 template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void
     savePeakSlipRateOutput(const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
-                           // See https://github.com/llvm/llvm-project/issues/60163
-                           // NOLINTNEXTLINE
                            Real<Cfg> peakSlipRate[misc::NumPaddedPoints<Cfg>],
                            uint32_t startIndex = 0) {
 
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    auto pointIndex{startIndex + index};
+    const auto pointIndex{startIndex + index};
     peakSlipRate[pointIndex] = std::max(peakSlipRate[pointIndex], slipRateMagnitude[pointIndex]);
   }
 }
@@ -678,21 +672,19 @@ template <typename Cfg, RangeType Type = RangeType::CPU>
 SEISSOL_HOSTDEVICE inline void updateTimeSinceSlipRateBelowThreshold(
     const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
     const bool ruptureTimePending[misc::NumPaddedPoints<Cfg>],
-    // See https://github.com/llvm/llvm-project/issues/60163
-    // NOLINTNEXTLINE
     DREnergyOutput<Cfg>& __restrict energyData,
     const Real<Cfg> dt,
     const Real<Cfg> slipRateThreshold,
     uint32_t startIndex = 0) {
 
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
   auto* timeSinceSlipRateBelowThreshold = energyData.timeSinceSlipRateBelowThreshold;
 
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    auto pointIndex{startIndex + index};
+    const auto pointIndex{startIndex + index};
     if (not ruptureTimePending[pointIndex]) {
       if (slipRateMagnitude[pointIndex] < slipRateThreshold) {
         timeSinceSlipRateBelowThreshold[pointIndex] += dt;
@@ -773,13 +765,13 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     bMinus22 = impAndEta.etaS * impAndEta.invZsNeig;
   }
 
-  using Range = typename NumPoints<Cfg, Type>::Range;
+  using Range = NumPoints<Cfg, Type>::Range;
   double localAccumulatedSlip[Range::Size]{};
   double localFrictionalEnergy[Range::Size]{};
   Real<Cfg> localSlip[3][Range::Size]{};
 
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    auto i{startIndex + index};
+    const auto i{startIndex + index};
     localAccumulatedSlip[index] = accumulatedSlip[i];
     localFrictionalEnergy[index] = frictionalEnergy[i];
 #pragma unroll
@@ -846,7 +838,7 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
   }
 
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    auto i{startIndex + index};
+    const auto i{startIndex + index};
     accumulatedSlip[i] = localAccumulatedSlip[index];
     frictionalEnergy[i] = localFrictionalEnergy[index];
 #pragma unroll
@@ -1068,16 +1060,22 @@ struct SlipRateSolution {
  *
  * Every projection is a no-op for an isotropic impedance, where n is the direction of tau0 and the
  * result reduces to V = (|tau0| - strength) / eta.
+ *
+ * The solution goes out through a reference, not as the return value: NVHPC (24.9 and 26.9 alike)
+ * does not inline this function into the `omp simd` loop of the CPU friction law, and in such a
+ * loop, it compiles a call that returns a struct with default member initializers in memory as if
+ * the call never wrote the struct -- it drops the call, and what the loop computes from the struct
+ * comes out as zero or NaN.
  */
 template <typename Cfg>
-SEISSOL_HOSTDEVICE inline SlipRateSolution<Cfg>
-    solveSlipRate(const ImpedancesAndEta<Cfg>& impAndEta,
-                  const ImpedanceMatrices<Cfg>& impedanceMatrices,
-                  Real<Cfg> traction1,
-                  Real<Cfg> traction2,
-                  Real<Cfg> tractionMagnitude,
-                  Real<Cfg> strength,
-                  Real<Cfg> strengthSlope) {
+SEISSOL_HOSTDEVICE inline void solveSlipRate(const ImpedancesAndEta<Cfg>& impAndEta,
+                                             const ImpedanceMatrices<Cfg>& impedanceMatrices,
+                                             Real<Cfg> traction1,
+                                             Real<Cfg> traction2,
+                                             Real<Cfg> tractionMagnitude,
+                                             Real<Cfg> strength,
+                                             Real<Cfg> strengthSlope,
+                                             SlipRateSolution<Cfg>& solution) {
   const Real<Cfg> invAbsolute = (tractionMagnitude > 0)
                                     ? static_cast<Real<Cfg>>(1.0) / tractionMagnitude
                                     : static_cast<Real<Cfg>>(0.0);
@@ -1121,7 +1119,7 @@ SEISSOL_HOSTDEVICE inline SlipRateSolution<Cfg>
     etaNormal = projectEtaNormal(impAndEta, impedanceMatrices, n1, n2, static_cast<Real<Cfg>>(1.0));
   }
 
-  return {slipRate, n1, n2, projectedTraction, etaEff};
+  solution = {slipRate, n1, n2, projectedTraction, etaEff};
 }
 
 } // namespace seissol::dr::friction_law::common

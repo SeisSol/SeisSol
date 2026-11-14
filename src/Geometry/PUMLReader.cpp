@@ -41,15 +41,18 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <hdf5.h>
 #include <mpi.h>
 #include <numeric>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -182,6 +185,8 @@ double orientationDeterminant(const std::array<const double*, Cell::NumVertices>
   return mat.determinant();
 }
 
+} // namespace
+
 /**
  * The canonical local vertex numbering of a cell: sort the vertices by global topological id,
  * then repair the orientation with the transposition (2 3) where the sorted order would come out
@@ -202,9 +207,7 @@ VertexOrder canonicalVertexOrder(const std::array<PUML::GlobalId, Cell::NumVerti
                                  const std::array<const double*, Cell::NumVertices>& coords) {
   VertexOrder order{};
   std::iota(order.begin(), order.end(), 0);
-  std::sort(order.begin(), order.end(), [&](auto a, auto b) {
-    return topoVertices[a] < topoVertices[b];
-  });
+  std::ranges::sort(order, [&](auto a, auto b) { return topoVertices[a] < topoVertices[b]; });
 
   std::array<const double*, Cell::NumVertices> sorted{};
   for (std::size_t k = 0; k < Cell::NumVertices; ++k) {
@@ -231,6 +234,8 @@ std::array<std::uint8_t, Cell::NumFaces> canonicalFaceMap(const VertexOrder& ord
   }
   return map;
 }
+
+namespace {
 
 /**
  * Recover the vertex order from a face map. PumlFaceMissingVertex is a bijection, so the face map
@@ -414,6 +419,97 @@ double
   return offset / size;
 }
 } // namespace
+
+std::optional<std::string> stringAttributeOf(hid_t object, const char* name) {
+  if (H5Aexists(object, name) <= 0) {
+    return {};
+  }
+  const hid_t attribute = H5Aopen(object, name, H5P_DEFAULT);
+  if (attribute < 0) {
+    return {};
+  }
+  const hid_t type = H5Aget_type(attribute);
+  std::optional<std::string> value;
+  if (H5Tis_variable_str(type) > 0) {
+    char* raw = nullptr;
+    if (H5Aread(attribute, type, static_cast<void*>(&raw)) >= 0 && raw != nullptr) {
+      value = std::string(raw);
+      H5free_memory(raw);
+    }
+  } else {
+    std::vector<char> data(H5Tget_size(type));
+    if (H5Aread(attribute, type, data.data()) >= 0) {
+      // up to the first null, if there is one
+      value = std::string(data.begin(), std::ranges::find(data, '\0'));
+    }
+  }
+  H5Tclose(type);
+  H5Aclose(attribute);
+  return value;
+}
+
+auto boundaryFormatOf(hid_t file) -> seissol::initializer::parameters::BoundaryFormat {
+  using seissol::initializer::parameters::BoundaryFormat;
+  const auto given = stringAttributeOf(file, "boundary-format");
+  if (given.has_value()) {
+    logInfo() << "Boundary format given in PUML file.";
+    if (given.value() == "i32x4") {
+      return BoundaryFormat::I32x4;
+    }
+    if (given.value() == "i64") {
+      return BoundaryFormat::I64;
+    }
+    if (given.value() == "i32") {
+      return BoundaryFormat::I32;
+    }
+    logError() << "Unknown boundary format given in PUML file:" << given.value();
+  }
+
+  logInfo() << "Boundary format not given in PUML file; inferring from array shape.";
+  int rank = -1;
+  const hid_t dataset = H5Dopen2(file, "boundary", H5P_DEFAULT);
+  if (dataset >= 0) {
+    const hid_t space = H5Dget_space(dataset);
+    rank = H5Sget_simple_extent_ndims(space);
+    H5Sclose(space);
+    H5Dclose(dataset);
+  }
+  // avoid checking the type size here
+  if (rank == 2) {
+    return BoundaryFormat::I32x4;
+  }
+  if (rank != 1) {
+    logError() << "Unknown boundary format of rank" << rank;
+  }
+  return BoundaryFormat::I32;
+}
+
+auto topologyFormatOf(hid_t file) -> seissol::initializer::parameters::TopologyFormat {
+  using seissol::initializer::parameters::TopologyFormat;
+  const auto given = stringAttributeOf(file, "topology-format");
+  if (given.has_value()) {
+    logInfo() << "Topology format given in PUML file.";
+    if (given.value() == "geometric") {
+      return TopologyFormat::Geometric;
+    }
+    if (given.value() == "identify-face") {
+      return TopologyFormat::IdentifyFace;
+    }
+    if (given.value() == "identify-vertex") {
+      return TopologyFormat::IdentifyVertex;
+    }
+    logError() << "Unknown topology format given in PUML file:" << given.value();
+  }
+
+  logInfo() << "Topology format not given in PUML file; inferring from data present.";
+  if (H5Aexists(file, "identify") > 0) {
+    return TopologyFormat::IdentifyVertex;
+  }
+  if (H5Aexists(file, "topology") > 0) {
+    return TopologyFormat::IdentifyFace;
+  }
+  return TopologyFormat::Geometric;
+}
 
 auto PumlCellArrays::rebasedTo(const PumlMesh& clone) const -> PumlCellArrays {
   auto rebased = *this;
@@ -704,7 +800,7 @@ auto PUMLReader::partition(PumlMesh& meshTopology,
                            const std::string& partitioningLib) -> PartitionArrays {
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  auto partType = toPartitionerType(std::string_view(partitioningLib));
+  const auto partType = toPartitionerType(std::string_view(partitioningLib));
   logInfo() << "Using the" << toStringView(partType) << "partition library and strategy.";
   if (partType == PUML::PartitionerType::None && Mpi::mpi.size() > 1) {
     logWarning()
@@ -827,7 +923,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
     std::array<PUML::LocalId, Cell::NumVertices> geomVertices{};
     PUML::Downward::vertices(meshGeometry, cellsGeometry[i], geomVertices.data());
     applyVertexOrder(geomVertices, vertexOrder);
-    std::copy(geomVertices.begin(), geomVertices.end(), elements_[i].vertices.begin());
+    std::ranges::copy(geomVertices, elements_[i].vertices.begin());
 
     std::array<PUML::LocalId, Cell::NumVertices> topoVertices{};
     PUML::Downward::vertices(meshTopology, cells[i], topoVertices.data());
@@ -865,7 +961,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
 
         std::array<PUML::LocalId, Cell::NumFaces> nfaces{};
         PUML::Neighbor::face(meshTopology, neighbors[j], nfaces.data());
-        const auto* back = std::find(nfaces.begin(), nfaces.end(), i);
+        const auto* back = std::ranges::find(nfaces, i);
         logassert(back != nfaces.end());
 
         const auto& neighborPumlToSeisSol = pumlFaceMaps[neighbors[j]];
@@ -876,8 +972,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
         std::array<PUML::LocalId, Cell::NumVertices> nvertices{};
         PUML::Downward::vertices(meshTopology, cells[neighbors[j]], nvertices.data());
         applyVertexOrder(nvertices, vertexOrderFromFaceMap(neighborPumlToSeisSol));
-        const auto* neighborFirstVertex =
-            std::find(nvertices.begin(), nvertices.end(), firstVertex);
+        const auto* neighborFirstVertex = std::ranges::find(nvertices, firstVertex);
         logassert(neighborFirstVertex != nvertices.end());
 
         elements_[i].sideOrientations[side] =
@@ -915,7 +1010,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
 
   for (auto [k, info] : seissol::common::enumerate(neighborInfo)) {
     // Need to sort the neighborInfo vectors once
-    std::sort(info.second.begin(), info.second.end(), [&](auto a, auto b) {
+    std::ranges::sort(info.second, [&](auto a, auto b) {
       return meshTopology.faces()[a].gid() < meshTopology.faces()[b].gid();
     });
 
@@ -952,7 +1047,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
       PUML::Upward::cells(meshTopology, faces[info.second[i]], cellIds.data());
       const auto pumlSide =
           PUML::Downward::faceSide(meshTopology, cells[cellIds[0]], info.second[i]);
-      logassert(pumlSide >= 0 && static_cast<std::size_t>(pumlSide) < Cell::NumFaces);
+      logassert(pumlSide >= 0 && std::cmp_less(pumlSide, Cell::NumFaces));
 
       // Send the SeisSol side under the canonical numbering: the receiving rank cannot translate
       // a PUML side, because the numbering is per cell now.
@@ -1010,8 +1105,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
       PUML::Downward::gvertices(meshTopology, cells[cellIds[0]], nvertices.data());
       applyVertexOrder(nvertices, vertexOrderFromFaceMap(pumlFaceMaps[cellIds[0]]));
 
-      const auto* localFirstVertex =
-          std::find(nvertices.begin(), nvertices.end(), ghostFirstVertex[k][i]);
+      const auto* localFirstVertex = std::ranges::find(nvertices, ghostFirstVertex[k][i]);
       logassert(localFirstVertex != nvertices.end());
 
       elements_[cellIds[0]].sideOrientations[side] =
@@ -1029,7 +1123,7 @@ void PUMLReader::getMesh(const PumlMesh& meshTopology,
 
     PUML::Upward::cells(meshGeometry, verticesGeometry[i], preElements);
     vertices_[i].elements.resize(preElements.size());
-    std::copy(preElements.begin(), preElements.end(), vertices_[i].elements.begin());
+    std::ranges::copy(preElements, vertices_[i].elements.begin());
   }
 
   // the neighborSide needs to be _inferred_ here.
@@ -1067,7 +1161,7 @@ void PUMLReader::addMPINeighor(
           return pumlFaceMaps[cellIds[0]][f];
         }
       }
-      throw;
+      std::abort();
     }();
   }
 }

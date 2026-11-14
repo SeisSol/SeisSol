@@ -79,7 +79,7 @@ bool canEvaluateFor(const std::set<std::string>& parameters) {
 }
 
 template <typename MaterialT, typename SurrogateMaterialT, typename... SurrogatesT>
-bool surrogateEvaluate(const std::string& fileName,
+bool surrogateEvaluate(easi::Component& model,
                        const QueryGenerator& queryGen,
                        std::vector<MaterialT>* materials,
                        const std::set<std::string>& parameters) {
@@ -88,7 +88,7 @@ bool surrogateEvaluate(const std::string& fileName,
       MaterialParameterDB<SurrogateMaterialT> edb;
       std::vector<SurrogateMaterialT> preMaterials;
       edb.setMaterialVector(&preMaterials);
-      edb.evaluateModel(fileName, queryGen);
+      edb.evaluate(model, queryGen);
 
       // the surrogate database sizes its own vector; callers that pre-size the target expect one
       // material per query, so a mismatch here means query and evaluation disagree
@@ -102,7 +102,7 @@ bool surrogateEvaluate(const std::string& fileName,
     }
   }
   if constexpr (sizeof...(SurrogatesT) > 0) {
-    return surrogateEvaluate<MaterialT, SurrogatesT...>(fileName, queryGen, materials, parameters);
+    return surrogateEvaluate<MaterialT, SurrogatesT...>(model, queryGen, materials, parameters);
   } else {
     return false;
   }
@@ -207,9 +207,10 @@ easi::Component* loadEasiModel(const std::string& fileName) {
 } // namespace
 
 CellToVertexArray::CellToVertexArray(size_t size,
-                                     const CellToVertexFunction& elementCoordinates,
-                                     const CellToGroupFunction& elementGroups)
-    : size(size), elementCoordinates(elementCoordinates), elementGroups(elementGroups) {}
+                                     CellToVertexFunction elementCoordinates,
+                                     CellToGroupFunction elementGroups)
+    : size(size), elementCoordinates(std::move(elementCoordinates)),
+      elementGroups(std::move(elementGroups)) {}
 
 CellToVertexArray
     CellToVertexArray::fromMeshReader(const seissol::geometry::MeshReader& meshReader) {
@@ -221,7 +222,7 @@ CellToVertexArray
       [&](size_t index) {
         std::array<Eigen::Vector3d, 4> verts;
         for (size_t i = 0; i < Cell::NumVertices; ++i) {
-          auto vindex = elements[index].vertices[i];
+          const auto vindex = elements[index].vertices[i];
           const auto& vertex = vertices[vindex];
           verts[i] << vertex.coords[0], vertex.coords[1], vertex.coords[2];
         }
@@ -327,9 +328,9 @@ easi::Query ElementBarycenterGenerator::generate() const {
   return query;
 }
 
-ElementAverageGenerator::ElementAverageGenerator(const CellToVertexArray& cellToVertex,
+ElementAverageGenerator::ElementAverageGenerator(CellToVertexArray cellToVertex,
                                                  std::size_t convergenceOrder)
-    : cellToVertex_(cellToVertex) {
+    : cellToVertex_(std::move(cellToVertex)) {
   const auto [quadraturePoints, quadratureWeights] =
       seissol::quadrature::simplexRule<3>(convergenceOrder);
 
@@ -351,7 +352,7 @@ easi::Query ElementAverageGenerator::generate() const {
 // Transform quadrature points to global coordinates for all elements
 #pragma omp parallel for schedule(static)
   for (std::size_t elem = 0; elem < cellToVertex_.size; ++elem) {
-    auto vertices = cellToVertex_.elementCoordinates(elem);
+    const auto vertices = cellToVertex_.elementCoordinates(elem);
     const auto transform = seissol::geometry::AffineTransform(vertices);
     for (std::size_t i = 0; i < numQuadpoints; ++i) {
       const auto transformed = transform.refToSpace(quadraturePoints_[i]);
@@ -444,7 +445,7 @@ template <typename Cfg>
 easi::Query FaultGPGenerator<Cfg>::generate() const {
   const std::vector<Fault>& fault = meshReader_.getFault();
   const std::vector<Element>& elements = meshReader_.getElements();
-  auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
+  const auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
 
   constexpr size_t NumPoints = dr::misc::NumPaddedPointsSingleSim<Cfg>;
   const auto pointsView = init::quadpoints<Cfg>::view::create(init::quadpoints<Cfg>::Values);
@@ -469,7 +470,7 @@ easi::Query FaultGPGenerator<Cfg>::generate() const {
       sideOrientation = seissol::geometry::FaceOrientation::Rotate0;
     }
 
-    auto coords = cellToVertex.elementCoordinates(element);
+    const auto coords = cellToVertex.elementCoordinates(element);
     const auto face = seissol::geometry::AffineFaceTransform(
         seissol::geometry::AffineTransform(coords),
         seissol::geometry::ReferenceFaceMap(side, sideOrientation));
@@ -677,19 +678,52 @@ struct MaterialAverager<ViscoAcousticMaterial<Mechanisms>> {
 };
 } // namespace
 
+template <typename T>
+std::vector<std::string> missingMaterialParameters(const std::set<std::string>& supplied) {
+  // as MaterialParameterDB::evaluateModel takes the model: for the parameters of T, or else for
+  // those of an elastic or acoustic material that T can be made of
+  if (canEvaluateFor<T>(supplied)) {
+    return {};
+  }
+  if constexpr (std::is_constructible_v<T, ElasticMaterial>) {
+    if (canEvaluateFor<ElasticMaterial>(supplied)) {
+      return {};
+    }
+  }
+  if constexpr (std::is_constructible_v<T, AcousticMaterial>) {
+    if (canEvaluateFor<AcousticMaterial>(supplied)) {
+      return {};
+    }
+  }
+  std::vector<std::string> missing;
+  for (const auto& [name, pointer] : T::ParameterMap) {
+    if (!supplied.contains(name)) {
+      missing.push_back(name);
+    }
+  }
+  std::ranges::sort(missing);
+  return missing;
+}
+
 template <class T>
 void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
   // NOLINTNEXTLINE(misc-const-correctness)
   easi::Component* const model = loadEasiModel(fileName);
-  auto suppliedParameters = model->suppliedParameters();
+  evaluate(*model, queryGen);
+  delete model;
+}
+
+template <class T>
+void MaterialParameterDB<T>::evaluate(easi::Component& model, const QueryGenerator& queryGen) {
+  const auto suppliedParameters = model.suppliedParameters();
 
   // the following code does:
   // * try to evaluate the model just normally
   // * if not (e.g. poroelastic or anisotropic with just elastic parameters), parse elastic or
   // acoustic first, then convert to the target material
 
-  const auto evaluateModel = [&]() {
+  const auto evaluateModel = [&] {
     easi::Query query = queryGen.generate();
     const std::size_t numPoints = query.numPoints();
 
@@ -698,8 +732,15 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     for (const auto& [name, pointer] : T::ParameterMap) {
       adapter.addBindingPoint(name, pointer);
     }
+    if constexpr (requires { T::OptionalParameterMap; }) {
+      for (const auto& [name, pointer] : T::OptionalParameterMap) {
+        if (suppliedParameters.contains(name)) {
+          adapter.addBindingPoint(name, pointer);
+        }
+      }
+    }
 
-    easiEvalSafe(model, query, adapter, "volume material:" + T::Text);
+    easiEvalSafe(&model, query, adapter, "volume material:" + T::Text);
 
     return materialsFromQuery;
   };
@@ -739,14 +780,13 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     // hard-code tests for elastic or acoustic material here (only if a conversion constructor
     // exists)
     if (!surrogateEvaluate<T, ElasticMaterial, AcousticMaterial>(
-            fileName, queryGen, materials_, suppliedParameters)) {
+            model, queryGen, materials_, suppliedParameters)) {
 
       // no surrogate worked
       // fail gracefully by just trying to evaluate the original model and fail there
       (void)evaluateModel();
     }
   }
-  delete model;
 }
 
 template <typename T>
@@ -758,14 +798,14 @@ void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
 
   if (faces_.has_value()) {
     FaceArraysAdapter<T> adapter(faces_.value(), pointsPerFace_);
-    for (auto& kv : parameters_) {
+    for (const auto& kv : parameters_) {
       adapter.addBindingPoint(
           kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
     }
     easiEvalSafe(model, query, adapter, "fault material");
   } else {
     easi::ArraysAdapter<T> adapter;
-    for (auto& kv : parameters_) {
+    for (const auto& kv : parameters_) {
       adapter.addBindingPoint(
           kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
     }
@@ -843,7 +883,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   // easi supplies numbers, so the frame is stated as one: 0 for global, 1 for face-aligned.
   real frame = 0.0;
   known.insert("frame");
-  if (supplied.count("frame") > 0) {
+  if (supplied.contains("frame")) {
     adapter.addBindingPoint("frame", &frame);
   }
 
@@ -861,10 +901,10 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
     for (size_t j = 0; j < varNames.size(); ++j) {
       auto termName = std::string{"map_"};
       termName += varNames[i];
-      termName += "_";
+      termName += '_';
       termName += varNames[j];
       known.insert(termName);
-      if (supplied.count(termName) > 0) {
+      if (supplied.contains(termName)) {
         adapter.addBindingPoint(termName, &mapTerms(i, j));
       } else {
         // Default: Extrapolate
@@ -874,7 +914,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   }
 
   for (const auto& termName : supplied) {
-    if (known.count(termName) == 0) {
+    if (!known.contains(termName)) {
       std::ostringstream valid;
       for (size_t i = 0; i < varNames.size(); ++i) {
         valid << (i == 0 ? "" : ", ") << varNames[i];
@@ -936,10 +976,14 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMat
 #define SEISSOL_MATERIAL_INSTANTIATE(Cfg)                                                          \
   template std::shared_ptr<QueryGenerator> getBestQueryGenerator<seissol::model::MaterialOf<Cfg>>( \
       bool, const CellToVertexArray&, std::size_t);                                                \
-  template class MaterialParameterDB<seissol::model::MaterialOf<Cfg>>;
+  template class MaterialParameterDB<seissol::model::MaterialOf<Cfg>>;                             \
+  template std::vector<std::string> missingMaterialParameters<seissol::model::MaterialOf<Cfg>>(    \
+      const std::set<std::string>&);
 // NOLINTEND(bugprone-macro-parentheses)
 SEISSOL_FOR_EACH_MATERIAL(SEISSOL_MATERIAL_INSTANTIATE)
 #undef SEISSOL_MATERIAL_INSTANTIATE
 template class MaterialParameterDB<seissol::model::Plasticity>;
+template std::vector<std::string>
+    missingMaterialParameters<seissol::model::Plasticity>(const std::set<std::string>&);
 
 } // namespace seissol::initializer

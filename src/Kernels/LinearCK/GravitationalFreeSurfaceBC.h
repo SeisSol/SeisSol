@@ -111,7 +111,7 @@ class GravitationalFreeSurfaceBc {
     auto* deviceStream = runtime.stream();
     const ConditionalKey key(
         *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
-    if (dataTable.find(key) != dataTable.end()) {
+    if (dataTable.contains(key)) {
       const size_t numElements{
           dataTable[key].get<real*>(inner_keys::Wp::Id::Derivatives)->getSize()};
 

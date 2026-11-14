@@ -28,8 +28,10 @@
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
+#include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
+#include "Solver/Estimator.h"
 #include "Solver/Settings.h"
 
 #include <algorithm>
@@ -41,8 +43,10 @@
 #include <map>
 #include <mpi.h>
 #include <numeric>
+#include <string>
 #include <unordered_map>
 #include <utils/logger.h>
+#include <utils/stringutils.h>
 #include <vector>
 
 namespace seissol::initializer::initprocedure {
@@ -179,10 +183,11 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     colorsGhost[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
   }
 
+  const auto& integrationMask = seissolParams.output.waveFieldParameters.integrationMask;
   const auto needsIntegration =
-      std::any_of(seissolParams.output.waveFieldParameters.integrationMask.begin(),
-                  seissolParams.output.waveFieldParameters.integrationMask.end(),
-                  [](const auto& value) { return value; }) ||
+      std::ranges::any_of(
+          integrationMask,
+          [](const auto& mask) { return std::ranges::find(mask, true) != mask.end(); }) ||
       seissolParams.output.waveFieldParameters.computeStrain;
   const auto settings = SimulationSettings(seissolParams.model.plasticity,
                                            needsIntegration,
@@ -219,6 +224,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   LTS::addTo(ltsStorage, settings);
   ltsStorage.setName("cluster");
   ltsStorage.setLayerCount(colorMap);
+  // for the outputs on a thread of their own, which read the data while the device goes on
+  ltsStorage.setSnapshots(keepOutputSnapshots(seissolInstance.env()));
   ltsStorage.fixate();
   for (auto& layer : ltsStorage.leaves()) {
     layer.setNumberOfCells(meshLayout[layer.id()].cellMap.size() * copyCount);
@@ -313,7 +320,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           cellInformation[index].faceRelations[face][1] = element.sideOrientations[face];
 
           if (element.neighbors[face].hasValue() || element.neighborRanks[face] != rank) {
-            const auto& neighbor = [&]() {
+            const auto& neighbor = [&] {
               const bool ghostNeighbor = element.neighborRanks[face] != rank;
               if (ghostNeighbor) {
                 const auto rank = element.neighborRanks[face];
@@ -355,8 +362,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           const auto neighbor = backmap.get(boundaryElement.localElement, copy);
           const auto& elementNeighbor = meshReader.getElements()[boundaryElement.localElement];
 
-          secondaryCellInformation[i].globalId =
-              meshReader.getGhostlayerMetadata().at(linear.rank)[index].globalId;
+          const auto& metadata = meshReader.getGhostlayerMetadata().at(linear.rank)[index];
+          secondaryCellInformation[i].globalId = metadata.globalId;
+          secondaryCellInformation[i].group = metadata.group;
 
           // equivalent to elementNeighbor.neighborSides[boundaryElement.localSide]
           const auto face = boundaryElement.neighborSide;
@@ -397,7 +405,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
 #pragma omp parallel for schedule(static)
       for (std::size_t i = 0; i < size; ++i) {
-        cellInfo[i].plasticityEnabled = supported && pdis.find(cellInfo2[i].group) == pdis.end();
+        cellInfo[i].plasticityEnabled = supported && !pdis.contains(cellInfo2[i].group);
       }
     }
   }
@@ -416,6 +424,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   seissolInstance.memoryManager().drDescriptor().addTo(drStorage);
 
   drStorage.setLayerCount(ltsStorage.getColorMap());
+  drStorage.setSnapshots(ltsStorage.snapshots());
   drStorage.fixate();
 
   for (auto& layer : drStorage.leaves()) {
@@ -443,7 +452,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   if constexpr (isDeviceOn()) {
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForDr(drStorage);
-    drStorage.allocateScratchPads();
+    drStorage.allocateScratchPads(useScratchpadPerLayer(seissolInstance.env()) ||
+                                          useConcurrentClusters(seissolInstance.env())
+                                      ? initializer::ScratchpadSharing::PerLayer
+                                      : initializer::ScratchpadSharing::Shared);
   }
 
   // pass 4: correct LTS setup, again. Do bucket setup, determine communication datastructures
@@ -457,10 +469,46 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   seissolInstance.dofSync().setup(meshLayoutCopy, &ltsStorage);
 }
 
+/**
+ * Decides which clusters run on the host; before the clusters get set up, which fix their executor.
+ */
+void hostDeviceCoexecution(seissol::SeisSol& seissolInstance) {
+  if constexpr (isDeviceOn()) {
+    logInfo() << "Determine Host-Device switchpoint";
+
+    const auto hdswitch = seissolInstance.env().get<std::string>("DEVICE_HOST_SWITCH", "none");
+    bool hdenabled = false;
+    if (hdswitch == "none") {
+      hdenabled = false;
+      logInfo() << "No host-device switching. Everything runs on the GPU.";
+    } else if (hdswitch == "auto") {
+      hdenabled = true;
+      logInfo() << "Automatic host-device switchpoint detection.";
+      const auto hdswitchInt = solver::hostDeviceSwitch();
+      seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
+    } else {
+      hdenabled = true;
+      const auto hdswitchInt = utils::StringUtils::parse<int>(hdswitch);
+      logInfo() << "Manual host-device cutoff set to" << hdswitchInt << ".";
+      seissolInstance.setExecutionPlaceCutoff(hdswitchInt);
+    }
+
+    const bool usmDefault = useUSM();
+
+    if (!usmDefault && hdenabled) {
+      logWarning() << "Using the host-device execution without unified memory is not fully "
+                      "supported yet; expect incorrect results. SEISSOL_USM=1 enables unified "
+                      "memory.";
+    }
+  }
+}
+
 } // namespace
 
 void initLayout(seissol::SeisSol& seissolInstance) {
   logInfo() << "Begin init layout.";
+
+  hostDeviceCoexecution(seissolInstance);
 
   setupMemory(seissolInstance);
 

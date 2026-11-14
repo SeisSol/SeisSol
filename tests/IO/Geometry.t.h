@@ -9,6 +9,8 @@
 
 #include "IO/Instance/Geometry/Geometry.h"
 
+#include <optional>
+
 namespace seissol::unit_test {
 
 TEST_CASE("IO/Geometry: a format that cannot hold a time series says so" *
@@ -21,6 +23,13 @@ TEST_CASE("IO/Geometry: a format that cannot hold a time series says so" *
     CHECK(supportedWriterGroup(WriterGroup::IncrementalSnapshot, WriterFormat::Vtk, "wavefield") ==
           WriterGroup::IncrementalSnapshot);
     CHECK(supportedWriterGroup(WriterGroup::FullSnapshot, WriterFormat::Vtk, "wavefield") ==
+          WriterGroup::FullSnapshot);
+  }
+
+  SUBCASE("an output that asks for nothing is one file in VTKHDF, a snapshot per step in Xdmf") {
+    CHECK(supportedWriterGroup(std::nullopt, WriterFormat::Vtk, "wavefield") ==
+          WriterGroup::Monolith);
+    CHECK(supportedWriterGroup(std::nullopt, WriterFormat::Xdmf, "wavefield") ==
           WriterGroup::FullSnapshot);
   }
 

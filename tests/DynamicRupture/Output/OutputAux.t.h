@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <numbers>
 #include <numeric>
 #include <vector>
 
@@ -81,7 +82,7 @@ TEST_CASE("computeTriangleArea" * doctest::test_suite("dynamicrupture")) {
   SUBCASE("Equilateral triangle side=2") {
     ExtTriangle tri(CoordinateT{0.0, 0.0, 0.0},
                     CoordinateT{2.0, 0.0, 0.0},
-                    CoordinateT{1.0, std::sqrt(3.0), 0.0});
+                    CoordinateT{1.0, std::numbers::sqrt3, 0.0});
     CHECK(computeTriangleArea(tri) == doctest::Approx(std::sqrt(3.0)));
   }
   SUBCASE("3D triangle") {

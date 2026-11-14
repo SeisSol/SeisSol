@@ -16,19 +16,22 @@
 #include "Parallel/MPI.h"
 #include "Unit.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <fstream>
 #include <mpi.h>
+#include <mutex>
 #include <ostream>
 #include <string>
 #include <utils/logger.h>
 #include <vector>
 
-// NOLINTNEXTLINE
+// counted into by the matrix kernels
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 long long libxsmm_num_total_flops = 0;
-// NOLINTNEXTLINE
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 long long pspamm_num_total_flops = 0;
 
 namespace seissol::monitoring {
@@ -52,7 +55,7 @@ void FlopCounter::init(const std::string& outputFileNamePrefix, const std::strin
     datasetHeaders("nz_epoch");
     datasetHeaders("kb_accumulated");
     datasetHeaders("kb_epoch");
-    out_ << "runId" << std::endl;
+    out_ << "runId" << '\n' << std::flush;
   }
 }
 
@@ -61,8 +64,11 @@ EpochRates FlopCounter::printPerformanceUpdate(double wallTime) {
   const auto worldSize = static_cast<size_t>(seissol::Mpi::mpi.size());
 
   auto estimate = PerformanceEstimate{};
-  for (const auto& metric : metrics_) {
-    estimate = estimate + metric.estimate;
+  {
+    const std::scoped_lock lock(mutex_);
+    for (const auto& metric : metrics_) {
+      estimate = estimate + metric.estimate;
+    }
   }
 
   const auto diffHWFlops = estimate.hardwareFlop - previousEstimate_.hardwareFlop;
@@ -117,7 +123,9 @@ EpochRates FlopCounter::printPerformanceUpdate(double wallTime) {
       handleFlopsDataset(previousKBPerSecond, UnitBytePerS, "Kernel B/s last epoch: ");
 
   if (rank == 0) {
-    out_ << runId_ << std::endl;
+    // a row per epoch, on disk at once: for reading the file during the run, and so that a run
+    // that ends in an abort keeps its last epochs
+    out_ << runId_ << '\n' << std::flush;
   }
   return epoch;
 }
@@ -137,6 +145,7 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
 
   // total first; then by category
   {
+    const std::scoped_lock lock(mutex_);
     auto estimate = PerformanceEstimate{};
     for (const auto& metric : metrics_) {
       estimate = estimate + metric.estimate;
@@ -144,16 +153,16 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
     flops.push_back(estimate.nonzeroFlop);
     flops.push_back(estimate.hardwareFlop);
     flops.push_back(estimate.kernelBytes);
-  }
 
-  for (const auto& [_, handles] : metricCategories_) {
-    auto estimate = PerformanceEstimate{};
-    for (const auto& handle : handles) {
-      estimate = estimate + metrics_[handle].estimate;
+    for (const auto& [_, handles] : metricCategories_) {
+      auto estimate = PerformanceEstimate{};
+      for (const auto& handle : handles) {
+        estimate = estimate + metrics_[handle].estimate;
+      }
+      flops.push_back(estimate.nonzeroFlop);
+      flops.push_back(estimate.hardwareFlop);
+      flops.push_back(estimate.kernelBytes);
     }
-    flops.push_back(estimate.nonzeroFlop);
-    flops.push_back(estimate.hardwareFlop);
-    flops.push_back(estimate.kernelBytes);
   }
 
   MPI_Allreduce(
@@ -210,13 +219,27 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
 }
 
 void FlopCounter::incrementMetric(std::size_t handle, const PerformanceEstimate& data) {
+  const std::scoped_lock lock(mutex_);
   metrics_[handle].estimate = metrics_[handle].estimate + data;
 }
 
+PerformanceEstimate FlopCounter::estimate(const std::vector<std::string>& names) const {
+  const std::scoped_lock lock(mutex_);
+  auto estimate = PerformanceEstimate{};
+  for (const auto& metric : metrics_) {
+    if (std::ranges::find(names, metric.name) != names.end()) {
+      estimate = estimate + metric.estimate;
+    }
+  }
+  return estimate;
+}
+
 std::size_t FlopCounter::addMetric(const std::string& name, const std::string& category) {
+  const std::scoped_lock lock(mutex_);
   const auto handle = metrics_.size();
 
-  metrics_.emplace_back(Metric{PerformanceEstimate{}, name, category});
+  metrics_.emplace_back(
+      Metric{.estimate = PerformanceEstimate{}, .name = name, .category = category});
 
   metricCategories_[category].push_back(handle);
 

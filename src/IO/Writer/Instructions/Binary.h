@@ -31,7 +31,7 @@ struct BinaryWrite : public WriteInstruction {
 
   YAML::Node serialize() override;
 
-  BinaryWrite(const std::string& filename,
+  BinaryWrite(std::string filename,
               std::shared_ptr<writer::DataSource> dataSource,
               std::size_t alignment,
               bool append,

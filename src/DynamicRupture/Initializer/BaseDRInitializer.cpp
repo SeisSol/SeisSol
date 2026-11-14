@@ -194,11 +194,12 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
       std::unordered_map<std::string, void*> parameterToStorageMap;
 
       // read initial stress and nucleation stress
-      auto addStressesToStorageMap = [&parameterToStorageMap, &layer, this](
-                                         StressTensor<Cfg>& initialStress, int readNucleation) {
-        // return pointer to first element
-        auto getRawData = [](typename StressTensor<Cfg>::VectorOfArraysT& vectorOfArrays) {
-          return vectorOfArrays.data()->data();
+      const auto addStressesToStorageMap = [&parameterToStorageMap, &layer, this](
+                                               StressTensor<Cfg>& initialStress,
+                                               int readNucleation) {
+        // return pointer to first element, which a layer without faces does not have
+        const auto getRawData = [](StressTensor<Cfg>::VectorOfArraysT& vectorOfArrays) {
+          return vectorOfArrays.empty() ? nullptr : vectorOfArrays.front().data();
         };
         // fault can be either initialized by traction or by cartesian stress
         // this method reads either the nucleation stress or the initial stress
@@ -501,8 +502,7 @@ void BaseDRInitializer::initializeOtherVariables(DynamicRupture::Layer& layer) {
 }
 
 bool BaseDRInitializer::faultProvides(const std::string& parameter) {
-  // TODO: Use C++20 contains
-  return faultParameterNames_.count(parameter) > 0;
+  return faultParameterNames_.contains(parameter);
 }
 
 std::string BaseDRInitializer::onsetIdentifier(int readNucleation) {
@@ -580,12 +580,13 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
   } else if (allTractionParametersSupplied && !anyCartesianParametersSupplied) {
     return {tractionNames, Parametrization::Traction};
   } else {
-    logError() << "Please specify a correct parametrization of the "
-               << (readNucleation > 0
-                       ? "nucleation stress " + std::to_string(readNucleation + 1) + "."
-                       : "initial stress.")
-               << "You have either not specified all parameters or an uncommom mixture of "
-                  "parameters. Give either all of "
+    // readNucleation numbers the nucleations as the documentation does: 1 for nuc_*, 2 for nuc2_*
+    const std::string stress = readNucleation > 0
+                                   ? "nucleation stress " + std::to_string(readNucleation) + "."
+                                   : std::string("initial stress.");
+    logError() << "Please specify a correct parametrization of the" << stress.c_str()
+               << "You have either not specified all parameters or an uncommon mixture of "
+                  "parameters. Give either all of"
                << cartesianNames << "or all of" << tractionNames << ", but not a mixture of them.";
     return {};
   }

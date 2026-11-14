@@ -19,7 +19,7 @@ namespace seissol::initializer::initprocedure {
  * Done before anything else of the run, so that what the run records while it initializes has a
  * place to go. Collective; rank 0 creates it.
  */
-void createOutputDirectory(seissol::SeisSol& seissolInstance);
+void createOutputDirectory(const seissol::SeisSol& seissolInstance);
 
 void initIO(seissol::SeisSol& seissolInstance);
 } // namespace seissol::initializer::initprocedure

@@ -41,8 +41,8 @@ struct RunFiles {
  * Meant to be called on one rank only, before the file is created anew.
  */
 inline void backUpFile(const std::string& name) {
-  const auto path = seissol::filesystem::path(name);
-  if (!seissol::directoryExists(seissol::filesystem::directory_entry(path))) {
+  const auto path = std::filesystem::path(name);
+  if (!seissol::directoryExists(std::filesystem::directory_entry(path))) {
     return;
   }
   // one stamp for all files of this process, so that the backups of one restart belong together
@@ -50,7 +50,7 @@ inline void backUpFile(const std::string& name) {
       utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", std::time(nullptr));
   auto backup = path;
   backup.replace_filename(path.stem().string() + ".bak_" + Stamp + path.extension().string());
-  seissol::filesystem::rename(path, backup);
+  std::filesystem::rename(path, backup);
 }
 
 } // namespace seissol::io::writer::file

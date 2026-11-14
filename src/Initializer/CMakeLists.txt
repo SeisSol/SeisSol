@@ -12,6 +12,7 @@ add_library(seissol-initializer OBJECT
     ParameterDB.cpp
     PointMapper.cpp
     Preflight.cpp
+    PreflightMesh.cpp
 
     BatchRecorders/DynamicRuptureRecorder.cpp
     BatchRecorders/LocalIntegrationRecorder.cpp
@@ -61,6 +62,7 @@ add_library(seissol-initializer OBJECT
     Clustering/LatticeDpSearch.cpp
     Clustering/TimestepHistogram.cpp
     Clustering/VertexWeights/VertexWeightModel.cpp
+    Clustering/VertexWeights/MeasuredWeights.cpp
     Clustering/VertexWeights/WeightsModels.cpp
 
     TimeStepping/ClusterLayout.cpp

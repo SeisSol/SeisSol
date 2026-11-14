@@ -13,15 +13,14 @@ Installing dependencies
 
 For compiling SeisSol, you will need the following dependencies during build:
 
-- A C++17-capable compiler. The following work:
+- A C++20-capable compiler. The following work:
 
-  - GCC (>= 9.0; tested: 13.2)
+  - GCC (>= 10.0; tested: 13.2)
   - ICX (tested: 2024.2)
   - Clang (tested: 18, 19)
   - NVHPC (tested: 24.09; currently still slow!)
   - Cray CE (however: no commthread support; needs ``SEISSOL_COMMTHREAD=0``)
-  - ICC 2021.9 (except v1.3.0; v1.3.1 will work again)
-- CMake (>= 3.20)
+- CMake (>= 3.20; with NVHPC: >= 3.21.2; with CUDA: >= 3.25.2)
 - Python (>= 3.9)
 
   - numpy (>= 1.12.0)
@@ -56,8 +55,8 @@ For the GPU version, the following packages need to be installed as well:
 
 - A GPU runtime model.
 
-  - CUDA (>= 11.8) for NVIDIA GPUs
-  - ROCm with HIP (>= 6.0.0) for AMD GPUs
+  - CUDA (>= 12.0) for NVIDIA GPUs
+  - ROCm with HIP (>= 6.3.0) for AMD GPUs
   - SYCL: either AdaptiveCpp (>= 23.10) or DPC++; for Intel, AMD, NVIDIA, or other GPUs (note: SYCL was mandatory up to including SeisSol 1.3.0)
 - gemmforge (>= 0.0.218, for NVIDIA, AMD and Intel GPUs)
 - chainforge (>= 0.0.3, for NVIDIA and AMD GPUs)
@@ -98,7 +97,7 @@ for building—adjust to your actual location.
 .. code-block:: bash
 
   # Set your compiler, e.g., for the Intel compiler
-  # source /opt/intel/compiler/VERSION/bin/compilervars.sh intel64
+  # source /opt/intel/oneapi/setvars.sh
   # or
   # export CC=icx
   # export CXX=icpx

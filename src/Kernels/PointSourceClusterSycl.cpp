@@ -28,7 +28,8 @@ template <typename Cfg>
 void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
                        sourceterm::PointSources<Cfg>& sources,
                        double from,
-                       double to,
+                       double timeStepSize,
+                       const double* clock,
                        seissol::parallel::runtime::StreamRuntime& runtime) {
   auto& mapping = clusterMapping.cellToSources;
   auto* __restrict mappingPtr = mapping.data();
@@ -42,21 +43,28 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
     const auto* __restrict sample = sources.sample.data();
     const auto* __restrict simulationIndex = sources.simulationIndex.data();
 
-    auto* queue = reinterpret_cast<sycl::queue*>(runtime.stream());
+    auto& queue = *reinterpret_cast<sycl::queue*>(runtime.stream());
 
     const auto elements = mapping.size();
 
-    sycl::nd_range<2> rng{{elements * SubBlock, PerBlock}, {SubBlock, PerBlock}};
-    queue->submit([&](sycl::handler& cgh) {
+    // As the CUDA/HIP kernel: a group takes PerBlock cells, with SubBlock work-items each. The
+    // work-items of a cell go along the last dimension, which SYCL linearizes fastest and cuts the
+    // sub-groups along (CUDA's x), so that neighboring work-items update neighboring degrees of
+    // freedom of the same cell.
+    const auto groups = (elements + PerBlock - 1) / PerBlock;
+    sycl::nd_range<2> rng{{groups * PerBlock, SubBlock}, {PerBlock, SubBlock}};
+    queue.submit([&](sycl::handler& cgh) {
       cgh.parallel_for(rng, [=](sycl::nd_item<2> item) {
-        const auto block = item.get_group().get_group_id(0) * PerBlock + item.get_local_id(1);
-        const auto thread = item.get_local_id(0);
+        const auto block = item.get_group().get_group_id(0) * PerBlock + item.get_local_id(0);
+        const auto thread = item.get_local_id(1);
 
         if (block < elements) {
+          const double start = clock == nullptr ? from : *clock;
+          const double end = start + timeStepSize;
           pointSourceKernelDevice<Cfg, SubBlock>(thread,
                                                  block,
-                                                 from,
-                                                 to,
+                                                 start,
+                                                 end,
                                                  mappingPtr,
                                                  mInvJInvPhisAtSources,
                                                  simulationIndex,
@@ -76,7 +84,8 @@ void pointSourceKernel(sourceterm::ClusterMapping& clusterMapping,
   template void pointSourceKernel<Cfg>(sourceterm::ClusterMapping & clusterMapping,                \
                                        sourceterm::PointSources<Cfg> & sources,                    \
                                        double from,                                                \
-                                       double to,                                                  \
+                                       double timeStepSize,                                        \
+                                       const double* clock,                                        \
                                        seissol::parallel::runtime::StreamRuntime& runtime);
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
 #undef SEISSOL_INSTANTIATE
