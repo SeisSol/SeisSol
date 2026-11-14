@@ -45,8 +45,11 @@
 // CADENCE. A program without state is evaluated when the output is written, for all written
 // points at once, into a buffer the writer copies from. A program with state accumulates: the
 // points of a layer are evaluated after every time step of its cluster, and the buffer then
-// always holds the running values. A layer whose cluster did not step since the last write (at
-// the start, or one that runs on a device) is evaluated when the output is written.
+// always holds the running values. Where the cluster runs on a device, so does the evaluation, on
+// its stream after the correction, with the state in the memory of the device; the values are
+// copied into the buffer when the output is written. A layer whose cluster did not step since the
+// last write (at the start) is evaluated when the output is written; so is every layer on a device
+// in a build without the runtime compiler of the device (derivedStateOnDevice()).
 //
 // STATE. The state of the configured program lives with the elements, in the storage of the
 // cells (LTS::DerivedState) or of the faces (SurfaceLTS::DerivedState): per element, a value per
@@ -238,6 +241,18 @@ class DerivedProgram {
   /// Binds the projection matrices of the first variant, which this object owns, to `table`.
   void bindMatrices(reader::scripting::DataTable& table) const;
 
+  /// Binds the projection matrices to `table` at `bases`, in the order of Program::matrices():
+  /// copies of those of the first variant on a device, say.
+  void bindMatrices(reader::scripting::DataTable& table,
+                    const std::vector<const void*>& bases) const;
+
+  /// The variants of the matrices: one per side of a face, or one.
+  [[nodiscard]] std::size_t variantCount() const;
+
+  /// The values of the matrices of `variant`, in the order of Program::matrices(), which
+  /// matrixBases() points to.
+  [[nodiscard]] std::vector<const std::vector<double>*> matrixValues(std::size_t variant) const;
+
   /// The bases of the matrices of `variant`, in the order of Program::matrices(), for a call.
   [[nodiscard]] std::vector<const void*> matrixBases(std::size_t variant) const;
 
@@ -253,6 +268,9 @@ class DerivedProgram {
     std::vector<std::vector<double>> values;
     std::size_t cols{0};
   };
+
+  /// The matrix the program contracts against as `name`.
+  [[nodiscard]] const Matrix& matrixNamed(const std::string& name) const;
 
   expr::Program program_;
   std::size_t pointsPerSubcell_{0};
@@ -351,6 +369,10 @@ void registerDerivedStateCheckpoints(io::instance::checkpoint::CheckpointManager
 /// or a .lua file is traced. A failure is a configuration error.
 [[nodiscard]] expr::Program loadDerivedProgram(const std::string& path);
 
+/// Whether a program with state of a derived output is evaluated on a device, after every time
+/// step of the clusters that run there: in a device build with the runtime compiler of the device.
+[[nodiscard]] bool derivedStateOnDevice();
+
 /// Whether the configured outputs of the wave field and of the free surface read the time
 /// integral of the solution, which then has to be kept.
 [[nodiscard]] bool derivedOutputsReadIntegrals(seissol::SeisSol& seissolInstance);
@@ -376,8 +398,9 @@ class DerivedOutput {
   virtual void write(double time) = 0;
 
   /// Evaluates the written points of the layer `layerId` after a time step of its cluster to time
-  /// `time`. Only for a program that accumulates.
-  virtual void step(std::size_t layerId, double time) = 0;
+  /// `time`: on the host, or on the stream `stream` of the cluster where it runs on a device. Only
+  /// for a program that accumulates.
+  virtual void step(std::size_t layerId, double time, void* stream) = 0;
 
   /// Copies the values of output `output` at the points of `subcell` of the written element
   /// `index`.

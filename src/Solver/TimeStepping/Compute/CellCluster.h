@@ -67,9 +67,10 @@ class CellClusterInterface : public AbstractTimeCluster {
 
   virtual void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
 
-  /// What runs after every correction of a cluster on the host: called with the id of its layer
-  /// and the time its cells have reached.
-  using CorrectionHook = std::function<void(std::size_t, double)>;
+  /// What runs after every correction of a cluster: called with the id of its layer, the time its
+  /// cells have reached, and the stream of the cluster where it runs on a device (null on the
+  /// host), on which what the hook computes there follows the correction.
+  using CorrectionHook = std::function<void(std::size_t, double, void*)>;
 
   virtual void addCorrectionHook(const CorrectionHook& hook) = 0;
 

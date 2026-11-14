@@ -20,6 +20,7 @@
 #include "Expr/Program.h"
 #include "Expr/Record.h"
 #include "Expr/Rewrite.h"
+#include "Expr/RtcGpuDriver.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/FaceTransform.h"
@@ -30,6 +31,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Descriptor/Surface.h"
+#include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/Plasticity.h"
 #include "Model/ScriptParameters.h"
@@ -62,6 +64,10 @@
 #include <utility>
 #include <utils/logger.h>
 #include <vector>
+
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif
 
 namespace seissol::initializer {
 
@@ -615,18 +621,45 @@ void DerivedProgram::bindMatrices(DataTable& table) const {
   }
 }
 
+void DerivedProgram::bindMatrices(DataTable& table, const std::vector<const void*>& bases) const {
+  for (std::size_t m = 0; m < program_.matrices().size(); ++m) {
+    const auto& matrix = matrixNamed(program_.matrices()[m].name);
+    table.bindMatrix<double>(matrix.name,
+                             static_cast<const double*>(bases.at(m)),
+                             pointsPerElement_,
+                             matrix.cols,
+                             pointsPerElement_);
+  }
+}
+
+const DerivedProgram::Matrix& DerivedProgram::matrixNamed(const std::string& name) const {
+  const auto found = std::find_if(matrices_.begin(), matrices_.end(), [&](const Matrix& matrix) {
+    return matrix.name == name;
+  });
+  if (found == matrices_.end()) {
+    throw std::logic_error("derived output: the program contracts against an unknown matrix " +
+                           name);
+  }
+  return *found;
+}
+
+std::size_t DerivedProgram::variantCount() const {
+  return matrices_.empty() ? 1 : matrices_.front().values.size();
+}
+
+std::vector<const std::vector<double>*> DerivedProgram::matrixValues(std::size_t variant) const {
+  std::vector<const std::vector<double>*> values;
+  values.reserve(program_.matrices().size());
+  for (const auto& spec : program_.matrices()) {
+    values.push_back(&matrixNamed(spec.name).values.at(variant));
+  }
+  return values;
+}
+
 std::vector<const void*> DerivedProgram::matrixBases(std::size_t variant) const {
   std::vector<const void*> bases;
-  bases.reserve(program_.matrices().size());
-  for (const auto& spec : program_.matrices()) {
-    const auto found = std::find_if(matrices_.begin(), matrices_.end(), [&](const Matrix& matrix) {
-      return matrix.name == spec.name;
-    });
-    if (found == matrices_.end()) {
-      throw std::logic_error("derived output: the program contracts against an unknown matrix " +
-                             spec.name);
-    }
-    bases.push_back(found->values.at(variant).data());
+  for (const auto* values : matrixValues(variant)) {
+    bases.push_back(values->data());
   }
   return bases;
 }
@@ -888,9 +921,10 @@ namespace {
 constexpr const char* StateDataset = "derivedstate";
 
 /// When the program of a derived output is called (see CADENCE), the same on all ranks, in a format
-/// that a checkpoint compares: `host=step` after every time step of a cell whose cluster runs on
-/// the host, `device=write interval=<interval>` at every write of the output where it runs on a
-/// device, or both. Collective.
+/// that a checkpoint compares: `step`, after every time step of every cell. In a device build that
+/// cannot evaluate the state on its device (derivedStateOnDevice()), the cells there are evaluated
+/// at every write of the output: `device=write interval=<interval>`, after `host=step` where there
+/// are cells on the host as well. Collective.
 std::string stateCadence(seissol::SeisSol& seissolInstance, double interval) {
   // per layer, as the cell clusters choose where they run (CellCluster)
   std::array<int, 2> places{0, 0};
@@ -904,8 +938,8 @@ std::string stateCadence(seissol::SeisSol& seissolInstance, double interval) {
   std::array<char, 32> digits{};
   const auto written = std::to_chars(digits.data(), digits.data() + digits.size(), interval);
   const std::string writes = "device=write interval=" + std::string(digits.data(), written.ptr);
-  if (places[1] == 0) {
-    return "host=step";
+  if (places[1] == 0 || derivedStateOnDevice()) {
+    return "step";
   }
   if (places[0] == 0) {
     return writes;
@@ -979,6 +1013,8 @@ void registerState(io::instance::checkpoint::CheckpointManager& checkpoint,
 }
 
 } // namespace
+
+bool derivedStateOnDevice() { return isDeviceOn() && expr::deviceRuntimeAvailable(); }
 
 void registerDerivedStateCheckpoints(io::instance::checkpoint::CheckpointManager& checkpoint,
                                      seissol::SeisSol& seissolInstance) {
@@ -1110,7 +1146,7 @@ class NamedOutputsOnly final : public DerivedOutput {
   [[nodiscard]] const std::vector<std::string>& names() const override { return names_; }
   [[nodiscard]] bool accumulates() const override { return false; }
   void write(double /*time*/) override {}
-  void step(std::size_t /*layerId*/, double /*time*/) override {}
+  void step(std::size_t /*layerId*/, double /*time*/, void* /*stream*/) override {}
   void copy(std::size_t /*output*/,
             double* /*target*/,
             std::size_t /*index*/,
@@ -1144,25 +1180,38 @@ class DerivedElementOutput final : public DerivedOutput {
   void write(double time) override {
     const std::lock_guard lock(mutex_);
     std::vector<std::size_t> pending;
+    std::vector<std::size_t> pendingOnDevice;
     for (std::size_t i = 0; i < runs_.size(); ++i) {
       if (!accumulates() || !runs_[i].stepped) {
-        pending.push_back(i);
+        (runs_[i].onDevice ? pendingOnDevice : pending).push_back(i);
       }
       runs_[i].stepped = false;
+    }
+    if (device_ != nullptr) {
+      evaluateOnDevice(pendingOnDevice, time, nullptr);
+      fetchFromDevice();
     }
     evaluate(pending, time);
   }
 
-  void step(std::size_t layerId, double time) override {
+  void step(std::size_t layerId, double time, void* stream) override {
     const std::lock_guard lock(mutex_);
     const auto found = runsOfLayer_.find(layerId);
     if (found == runsOfLayer_.end()) {
       return;
     }
+    // a layer on a device without the evaluation there is evaluated when the output is written
+    if (stream != nullptr && device_ == nullptr) {
+      return;
+    }
     for (const auto run : found->second) {
       runs_[run].stepped = true;
     }
-    evaluate(found->second, time);
+    if (stream != nullptr) {
+      evaluateOnDevice(found->second, time, stream);
+    } else {
+      evaluate(found->second, time);
+    }
   }
 
   /// Whether a program of this configuration can read the channel `name` (see sourcesOf).
@@ -1201,6 +1250,11 @@ class DerivedElementOutput final : public DerivedOutput {
     double time{0};
     double timeStep{0};
     bool stepped{false};
+    /// Whether it is evaluated on the device its cluster runs on (see Device), with the bases of
+    /// the blocks and of the states there.
+    bool onDevice{false};
+    std::vector<std::vector<const void*>> deviceBlocks;
+    std::vector<std::vector<void*>> deviceStates;
   };
 
   struct Simulation {
@@ -1212,6 +1266,31 @@ class DerivedElementOutput final : public DerivedOutput {
     std::vector<double> values;
   };
 
+  /// The evaluation of a program with state on a device, for the runs whose clusters run there
+  /// (derivedStateOnDevice()): copies of what the host binds, the state in the storage there, and
+  /// the values of the outputs, which a write copies into those of the host.
+  struct Device {
+    memory::MemkindArray<std::uint32_t> cellIndex{memory::Memkind::DeviceGlobalMemory};
+    memory::MemkindArray<std::uint32_t> faceIndex{memory::Memkind::DeviceGlobalMemory};
+    memory::MemkindArray<double> jacobians{memory::Memkind::DeviceGlobalMemory};
+    memory::MemkindArray<double> transforms{memory::Memkind::DeviceGlobalMemory};
+    /// The matrices of all variants, and per variant their bases in the order of
+    /// Program::matrices().
+    std::vector<memory::MemkindArray<double>> matrices;
+    std::vector<std::vector<const void*>> matrixBases;
+    struct Simulation {
+      std::unique_ptr<DataTable> table;
+      std::unique_ptr<expr::Binding> binding;
+      /// One for all clusters: the calls of step() come one after the other (mutex_), and a call
+      /// on a device takes its arguments by value.
+      std::unique_ptr<expr::Kernel> kernel;
+      memory::MemkindArray<double> values{memory::Memkind::DeviceGlobalMemory};
+    };
+    std::vector<Simulation> simulations;
+    /// Whether all runs are evaluated there, so that a write copies the values in one piece.
+    bool all{false};
+  };
+
   /// Every quantity a program of this configuration can read; the time integral and the
   /// plastic strain are checked to be stored only once a program reads them.
   static std::vector<DerivedSource>
@@ -1220,7 +1299,10 @@ class DerivedElementOutput final : public DerivedOutput {
   /// The values from one cell (or face) to the next in the array of `storage`.
   static std::size_t cellStride(Storage storage);
 
-  const void* blockBase(const SourceLocation& location, std::size_t color, std::size_t simulation);
+  const void* blockBase(const SourceLocation& location,
+                        std::size_t color,
+                        std::size_t simulation,
+                        initializer::AllocationPlace place = initializer::AllocationPlace::Host);
 
   void computeGeometry(const std::vector<WrittenElement>& written, bool faces);
 
@@ -1229,9 +1311,23 @@ class DerivedElementOutput final : public DerivedOutput {
   void resolveState(bool faces);
 
   /// The base of state `state` of simulation `simulation` in the layer `color`.
-  void* stateBase(std::size_t state, std::size_t color, std::size_t simulation) const;
+  void* stateBase(std::size_t state,
+                  std::size_t color,
+                  std::size_t simulation,
+                  initializer::AllocationPlace place = initializer::AllocationPlace::Host) const;
 
   void evaluate(const std::vector<std::size_t>& runs, double time);
+
+  /// Prepares the evaluation on the device for the runs whose clusters run there, where a program
+  /// with state is evaluated there (derivedStateOnDevice()) and keeps its state in the storage.
+  void makeDevice(const std::shared_ptr<std::vector<std::uint64_t>>& identities);
+
+  /// Evaluates `runs` on the device, on `stream` (the default stream where null).
+  void evaluateOnDevice(const std::vector<std::size_t>& runs, double time, void* stream);
+
+  /// Copies the values of the runs on the device into those of the host, once the evaluations of
+  /// all streams are done.
+  void fetchFromDevice();
 
   seissol::SeisSol& seissolInstance_;
   std::vector<SourceLocation> locations_;
@@ -1264,6 +1360,7 @@ class DerivedElementOutput final : public DerivedOutput {
   // the bases the time columns are bound with; every call moves them to its run
   double boundTime_{0};
   double boundTimeStep_{0};
+  std::unique_ptr<Device> device_;
   std::mutex mutex_;
 };
 
@@ -1358,18 +1455,18 @@ void DerivedElementOutput<Cfg>::resolveState(bool faces) {
 template <typename Cfg>
 void* DerivedElementOutput<Cfg>::stateBase(std::size_t state,
                                            std::size_t color,
-                                           std::size_t simulation) const {
+                                           std::size_t simulation,
+                                           initializer::AllocationPlace place) const {
   double* base = nullptr;
   if (faces_) {
     base = seissolInstance_.memoryManager()
                .surfaceStorage()
                .layer(color)
-               .template var<SurfaceLTS::DerivedState>();
+               .template var<SurfaceLTS::DerivedState>(place);
   } else {
-    base = seissolInstance_.memoryManager()
-               .ltsStorage()
-               .layer(color)
-               .template var<LTS::DerivedState>();
+    base =
+        seissolInstance_.memoryManager().ltsStorage().layer(color).template var<LTS::DerivedState>(
+            place);
   }
   return base == nullptr ? nullptr
                          : base + stateLayout_.offset(stateOfLayout_[state], 0, simulation);
@@ -1378,32 +1475,34 @@ void* DerivedElementOutput<Cfg>::stateBase(std::size_t state,
 template <typename Cfg>
 const void* DerivedElementOutput<Cfg>::blockBase(const SourceLocation& location,
                                                  std::size_t color,
-                                                 std::size_t simulation) {
+                                                 std::size_t simulation,
+                                                 initializer::AllocationPlace place) {
   auto& layer = seissolInstance_.memoryManager().ltsStorage().layer(color);
   const RealT* base = nullptr;
   switch (location.storage) {
   case Storage::Dofs:
-    base = reinterpret_cast<const RealT*>(layer.template var<LTS::Dofs>(Cfg()));
+    base = reinterpret_cast<const RealT*>(layer.template var<LTS::Dofs>(Cfg(), place));
     break;
   case Storage::Integrals: {
     // in binary64 in every configuration
     const auto* integrals =
-        reinterpret_cast<const double*>(layer.template var<LTS::Integrals>(Cfg()));
+        reinterpret_cast<const double*>(layer.template var<LTS::Integrals>(Cfg(), place));
     return integrals == nullptr ? nullptr : integrals + location.offset + simulation;
   }
   case Storage::PlasticStrain:
-    base = reinterpret_cast<const RealT*>(layer.template var<LTS::PStrain>(Cfg()));
+    base = reinterpret_cast<const RealT*>(layer.template var<LTS::PStrain>(Cfg(), place));
     break;
   case Storage::FaceDisplacement: {
     // the surface storage has a layer for every layer of the cell storage
     auto& surfaceLayer = seissolInstance_.freeSurfaceIntegrator().surfaceStorage->layer(color);
     base = reinterpret_cast<const RealT*>(
-        surfaceLayer.template var<SurfaceLTS::DisplacementDofs>(Cfg()));
+        surfaceLayer.template var<SurfaceLTS::DisplacementDofs>(Cfg(), place));
     break;
   }
   case Storage::MaterialParameters:
     // the same in all simulations
-    base = reinterpret_cast<const RealT*>(layer.template var<LTS::MaterialParameters>(Cfg()));
+    base =
+        reinterpret_cast<const RealT*>(layer.template var<LTS::MaterialParameters>(Cfg(), place));
     return base == nullptr ? nullptr : base + location.offset;
   }
   // the simulation is the fastest dimension of the fused layout
@@ -1650,6 +1749,228 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
       simulation.kernels.push_back(std::move(kernel));
     }
   }
+
+  makeDevice(identities);
+}
+
+template <typename Cfg>
+void DerivedElementOutput<Cfg>::makeDevice(
+    const std::shared_ptr<std::vector<std::uint64_t>>& identities) {
+  if (!accumulates() || stateOfLayout_.empty() || !derivedStateOnDevice()) {
+    return;
+  }
+  using initializer::AllocationPlace;
+  constexpr std::size_t Simulations = Cfg::NumSimulations;
+  constexpr auto OnDevice = memory::Memkind::DeviceGlobalMemory;
+  // the runs whose clusters run on the device, as the clusters choose (CellCluster)
+  std::optional<std::size_t> first;
+  bool all = true;
+  for (std::size_t r = 0; r < runs_.size(); ++r) {
+    auto& run = runs_[r];
+    const auto cells = seissolInstance_.memoryManager().ltsStorage().layer(run.layer).size();
+    run.onDevice = seissolInstance_.executionPlace(cells) == Executor::Device;
+    all = all && run.onDevice;
+    if (run.onDevice && !first.has_value()) {
+      first = r;
+    }
+  }
+  if (!first.has_value()) {
+    return;
+  }
+
+  auto device = std::make_unique<Device>();
+  device->all = all;
+  device->cellIndex = memory::MemkindArray<std::uint32_t>(cellIndex_, OnDevice);
+  device->faceIndex = memory::MemkindArray<std::uint32_t>(faceIndex_, OnDevice);
+  if (!jacobians_.empty()) {
+    device->jacobians = memory::MemkindArray<double>(jacobians_, OnDevice);
+  }
+  if (!transforms_.empty()) {
+    device->transforms = memory::MemkindArray<double>(transforms_, OnDevice);
+  }
+  // the bases stay where they are when the vector grows, as the arrays move their memory along
+  for (std::size_t variant = 0; variant < derived_.variantCount(); ++variant) {
+    std::vector<const void*> bases;
+    for (const auto* values : derived_.matrixValues(variant)) {
+      device->matrices.emplace_back(*values, OnDevice);
+      bases.push_back(device->matrices.back().data());
+    }
+    device->matrixBases.push_back(std::move(bases));
+  }
+
+  const auto& sources = derived_.usedSources();
+  for (auto& run : runs_) {
+    if (!run.onDevice) {
+      continue;
+    }
+    run.deviceBlocks.resize(Simulations);
+    run.deviceStates.resize(Simulations);
+    for (std::size_t sim = 0; sim < Simulations; ++sim) {
+      for (const auto source : sources) {
+        run.deviceBlocks[sim].push_back(
+            blockBase(locations_[source], run.layer, sim, AllocationPlace::Device));
+      }
+      for (std::size_t state = 0; state < stateOfLayout_.size(); ++state) {
+        run.deviceStates[sim].push_back(stateBase(state, run.layer, sim, AllocationPlace::Device));
+      }
+    }
+  }
+
+  const std::size_t pointsPerElement = derived_.pointsPerElement();
+  const auto& firstRun = runs_[*first];
+  auto& grids = reader::datafield::sharedGridStore();
+  device->simulations.resize(Simulations);
+  for (std::size_t sim = 0; sim < Simulations; ++sim) {
+    auto& simulation = device->simulations[sim];
+    simulation.values = memory::MemkindArray<double>(outputCount_ * numPoints_, OnDevice);
+    simulation.table = std::make_unique<DataTable>(numPoints_);
+    DataTable& table = *simulation.table;
+    table.setIdentity([identities, pointsPerElement](std::size_t point) {
+      return (*identities)[point / pointsPerElement] * pointsPerElement + point % pointsPerElement;
+    });
+    derived_.bindMatrices(table, device->matrixBases.front());
+    for (std::size_t b = 0; b < sources.size(); ++b) {
+      const auto& location = locations_[sources[b]];
+      reader::scripting::BlockInput block;
+      block.base = firstRun.deviceBlocks[sim][b];
+      const bool binary64 = location.storage == Storage::Integrals;
+      const std::size_t valueSize = binary64 ? sizeof(double) : sizeof(RealT);
+      block.type = binary64 ? reader::scripting::DataType::F64
+                            : reader::scripting::DataTypeTraits<RealT>::Type;
+      block.cellStride = cellStride(location.storage) * valueSize;
+      block.modeStride =
+          (location.storage == Storage::MaterialParameters ? 1 : Simulations) * valueSize;
+      block.cellIndex = location.storage == Storage::FaceDisplacement ? device->faceIndex.data()
+                                                                      : device->cellIndex.data();
+      block.length = derived_.program().blocks()[b].length;
+      table.bindBlock(derived_.program().blocks()[b].name, block);
+    }
+    derived_.bindGeometry(table, device->transforms.data());
+    for (std::size_t state = 0; state < stateOfLayout_.size(); ++state) {
+      reader::scripting::StateInput input;
+      input.base = firstRun.deviceStates[sim][state];
+      input.pointsPerCell = pointsPerElement;
+      input.cellStride = stateLayout_.size() * sizeof(double);
+      input.pointStride = stateLayout_.simulations * sizeof(double);
+      input.cellIndex = faces_ ? device->faceIndex.data() : device->cellIndex.data();
+      input.type = DataType::F64;
+      table.bindState(derived_.program().state()[state].name, input);
+    }
+    if (derived_.readsJacobian()) {
+      for (std::size_t row = 0; row < 3; ++row) {
+        for (std::size_t column = 0; column < 3; ++column) {
+          table.bindCellView<double>(jacobianName(row, column),
+                                     device->jacobians.data(),
+                                     pointsPerElement,
+                                     9,
+                                     row * 3 + column);
+        }
+      }
+    }
+    // the same at all points, and passed by value per call
+    if (timeInput_.has_value()) {
+      table.bindConstant<double>("t", 0.0);
+    }
+    if (timeStepInput_.has_value()) {
+      table.bindConstant<double>("dt", 0.0);
+    }
+    for (std::size_t j = 0; j < outputCount_; ++j) {
+      table.bindView<double>(derived_.program().outputs()[j].name,
+                             Direction::Out,
+                             simulation.values.data() + j * numPoints_);
+    }
+    simulation.binding =
+        std::make_unique<expr::Binding>(expr::Binding::bind(derived_.program(), table));
+    expr::BackendOptions options;
+    options.preferred = expr::deviceBackendOfBuild();
+    options.quiet = sim > 0;
+#ifdef ACL_DEVICE
+    // the queue a SYCL build compiles for
+    options.deviceQueue = device::DeviceInstance::instance().api().getDefaultStream();
+#endif
+    simulation.kernel = expr::makeKernel(derived_.program(), *simulation.binding, grids, options);
+    simulation.kernel->precompute(table);
+    if (simulation.kernel->kind() != expr::deviceBackendOfBuild()) {
+      logError() << "derived output: the program" << source_.c_str()
+                 << "keeps state and cannot run on the device (see above); a device build "
+                    "evaluates it there.";
+    }
+  }
+  device_ = std::move(device);
+}
+
+template <typename Cfg>
+void DerivedElementOutput<Cfg>::evaluateOnDevice(const std::vector<std::size_t>& runs,
+                                                 double time,
+                                                 void* stream) {
+#ifdef ACL_DEVICE
+  if (runs.empty()) {
+    return;
+  }
+  void* queue =
+      stream != nullptr ? stream : device::DeviceInstance::instance().api().getDefaultStream();
+  const std::size_t pointsPerElement = derived_.pointsPerElement();
+  std::vector<const void*> inputs(derived_.program().inputs().size(), nullptr);
+  for (const auto r : runs) {
+    auto& run = runs_[r];
+    run.time = time;
+    run.timeStep = time - run.lastTime;
+    run.lastTime = time;
+    if (timeInput_.has_value()) {
+      inputs[*timeInput_] = &run.time;
+    }
+    if (timeStepInput_.has_value()) {
+      inputs[*timeStepInput_] = &run.timeStep;
+    }
+    for (std::size_t sim = 0; sim < device_->simulations.size(); ++sim) {
+      expr::KernelArgs args;
+      args.inputs = inputs.data();
+      args.inputCount = inputs.size();
+      args.matrices = device_->matrixBases.at(run.variant).data();
+      args.matrixCount = device_->matrixBases.at(run.variant).size();
+      args.blocks = run.deviceBlocks[sim].data();
+      args.blockCount = run.deviceBlocks[sim].size();
+      args.states = run.deviceStates[sim].data();
+      args.stateCount = run.deviceStates[sim].size();
+      args.first = run.firstElement * pointsPerElement;
+      args.count = run.elementCount * pointsPerElement;
+      args.stream = queue;
+      device_->simulations[sim].kernel->run(args);
+    }
+  }
+#else
+  static_cast<void>(runs);
+  static_cast<void>(time);
+  static_cast<void>(stream);
+#endif
+}
+
+template <typename Cfg>
+void DerivedElementOutput<Cfg>::fetchFromDevice() {
+#ifdef ACL_DEVICE
+  auto& api = device::DeviceInstance::instance().api();
+  // the evaluations after the steps ran on the streams of the clusters
+  api.syncDevice();
+  const std::size_t pointsPerElement = derived_.pointsPerElement();
+  for (std::size_t sim = 0; sim < device_->simulations.size(); ++sim) {
+    const double* from = device_->simulations[sim].values.data();
+    double* to = simulations_[sim].values.data();
+    if (device_->all) {
+      api.copyFrom(to, from, outputCount_ * numPoints_ * sizeof(double));
+      continue;
+    }
+    for (const auto& run : runs_) {
+      if (!run.onDevice) {
+        continue;
+      }
+      for (std::size_t j = 0; j < outputCount_; ++j) {
+        const std::size_t offset = j * numPoints_ + run.firstElement * pointsPerElement;
+        api.copyFrom(
+            to + offset, from + offset, run.elementCount * pointsPerElement * sizeof(double));
+      }
+    }
+  }
+#endif
 }
 
 template <typename Cfg>

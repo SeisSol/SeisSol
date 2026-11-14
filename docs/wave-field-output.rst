@@ -227,8 +227,8 @@ configuration does not have (``s_xx`` of a solid in the cells of a fluid, say) i
 (see :ref:`several_configurations`).
 
 A program without state is evaluated when the output is written. A program with state follows
-every time step of the cells (on the CPU; on a GPU, it is evaluated when written), so that e.g. a
-maximum over time does not miss what happens between two outputs:
+every time step of the cells, on the CPU and on a GPU, where it runs with its state in the memory
+of the GPU, so that e.g. a maximum over time does not miss what happens between two outputs:
 
 .. code-block:: text
 
@@ -266,13 +266,14 @@ The same in Lua; a returned table names the outputs, and ``M.state`` declares th
 
 The state lives with the cells, one value per state, output point and fused simulation, and is
 written to the checkpoints, so that a restarted run continues it. The checkpoint keeps with it what
-its values mean: the fingerprint of what the states depend on (their updates and what these read,
-by name; not an output that no state reads, and not a comment), the output points
+its values mean: the fingerprint of what the states depend on (their updates and what these read, by
+name; not an output that no state reads, and not a comment), the output points
 (``wavefieldvtkorder``, ``refinement``, ``wavefieldprojection`` and the number of fused
-simulations), and when the program is called (after every time step on the CPU, at every write on
-a GPU). A restart continues the state only if all three are those of the run; otherwise the state
-starts over from its initial values, with a warning that names both. ``acceptderivedstate = 1``
-in ``&Output`` continues a state written by another program or at another cadence all the same,
-but not one of other points. The dataset ``derivedstate`` of the checkpoint has them as the
-attributes ``sderivStateFingerprint``, ``sderivStatePoints`` and ``sderivStateCadence``, and the
-normal form of the definitions of the states as ``sderivDefinitions``.
+simulations), and when the program is called (after every time step; on a GPU of a build without the
+runtime compiler of the GPU, at every write). A restart continues the state only if all three are
+those of the run; otherwise the state starts over from its initial values, with a warning that names
+both. ``acceptderivedstate = 1`` in ``&Output`` continues a state written by another program or at
+another cadence all the same, but not one of other points. The dataset ``derivedstate`` of the
+checkpoint has them as the attributes ``sderivStateFingerprint``, ``sderivStatePoints`` and
+``sderivStateCadence``, and the normal form of the definitions of the states as
+``sderivDefinitions``.

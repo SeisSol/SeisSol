@@ -57,12 +57,12 @@ struct SurfaceLTS {
     storage.add<LocationFlag>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
 
     storage.add<DisplacementDofs>(ghostMask, PagesizeHeap, allocationModeBoundary());
-    // on the host only, as LTS::DerivedState
+    // where the displacement is, as LTS::DerivedState
     storage.add<DerivedState>(derivedState > 0 ? ghostMask
                                                : ghostMask | initializer::LayerMask(Copy) |
                                                      initializer::LayerMask(Interior),
                               Alignment,
-                              initializer::AllocationMode::HostOnly,
+                              allocationModeBoundary(),
                               false,
                               std::max<std::size_t>(derivedState, 1));
   }

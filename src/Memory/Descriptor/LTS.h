@@ -331,12 +331,13 @@ struct LTS {
 
     storage.add<EnergyData>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
     storage.add<Integrals>(integralMask, Alignment, allocationModeWP(AllocationPreset::Dofs));
-    // On the host only, for now: it is evaluated there, on a device run when an output is written.
+    // Where the DOFs are: a device run evaluates it there after every step (see
+    // initializer::derivedStateOnDevice()), and the checkpoints read it on the host.
     storage.add<DerivedState>(settings.derivedState > 0
                                   ? LayerMask(Ghost)
                                   : LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
                               Alignment,
-                              AllocationMode::HostOnly,
+                              allocationModeWP(AllocationPreset::Dofs),
                               false,
                               std::max<std::size_t>(settings.derivedState, 1));
 

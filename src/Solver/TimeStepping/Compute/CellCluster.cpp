@@ -779,13 +779,17 @@ void CellCluster<Cfg>::correct() {
 
   if (executor_ == Executor::Device) {
     computeNeighboringIntegrationDevice(params);
+    // what follows the correction (the derived outputs with state), on the stream of the cluster
+    for (const auto& hook : correctionHooks_) {
+      hook(layerId(), params.time + params.timeStepSize, streamRuntime_.stream());
+    }
   } else {
     // the correction reads what the neighbors share, and changes the DOFs only; what follows it
     // (the derived outputs with state) reads the DOFs of the cells at the end of the step
     hostRuntime_.action({/*readsNeighbors=*/true, /*writesShared=*/false}, [this, params] {
       computeNeighboringIntegration(params);
       for (const auto& hook : correctionHooks_) {
-        hook(layerId(), params.time + params.timeStepSize);
+        hook(layerId(), params.time + params.timeStepSize, nullptr);
       }
     });
   }

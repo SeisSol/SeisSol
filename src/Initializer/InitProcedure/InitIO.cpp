@@ -424,7 +424,9 @@ void evaluateDerived(seissol::SeisSol& seissolInstance,
   for (const auto& output : derived) {
     if (output->accumulates()) {
       seissolInstance.timeManager().addCorrectionHook(
-          [output](std::size_t layer, double time) { output->step(layer, time); });
+          [output](std::size_t layer, double time, void* stream) {
+            output->step(layer, time, stream);
+          });
     }
   }
 }

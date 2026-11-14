@@ -270,7 +270,7 @@ class TimeManager {
    */
   void setReceiverClusters(writer::ReceiverWriter& receiverWriter);
 
-  /// Adds a hook to run after every correction of every cluster on the host.
+  /// Adds a hook to run after every correction of every cluster (see CellClusterInterface).
   void addCorrectionHook(const CellClusterInterface::CorrectionHook& hook);
 
   /**
