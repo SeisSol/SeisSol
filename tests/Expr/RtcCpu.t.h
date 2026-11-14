@@ -296,6 +296,8 @@ TEST_SUITE("ExprRtcCpu") {
          "out def u = select(land(lt(x,y), ge(z,t)), x, y) + select(lnot(eq(x,y)), 1.0, 2.0)\n"},
         {"several outputs", "def a = x*x+y*y\nout def u = a\nout def v = a-z\nout def w = a*t\n"},
         {"a shared subexpression", "def a = sqrt(abs(x))\nout def u = a+a*a\nout def v = a*a*a\n"},
+        {"a negative zero and the infinities as constants",
+         "out def u = x * -0.0\nout def v = select(lt(x, y), inf, -inf) + y\n"},
     };
 
     for (const auto& program : programs) {

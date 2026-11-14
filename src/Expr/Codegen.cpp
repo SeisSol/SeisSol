@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -266,6 +267,16 @@ void dump(const std::string& name, const std::string& text) {
 }
 
 std::string literal(double value, const std::string& computeType) {
+  // what %.17g writes of these is no C: `nan` and `inf` no numbers, `-0` the whole number 0
+  if (std::isnan(value)) {
+    return "((" + computeType + ")(0.0 / 0.0))";
+  }
+  if (std::isinf(value)) {
+    return "((" + computeType + ")(" + (value < 0 ? "-" : "") + "(1.0 / 0.0)))";
+  }
+  if (value == 0.0 && std::signbit(value)) {
+    return "((" + computeType + ")-0.0)";
+  }
   std::array<char, 48> buffer{};
   std::snprintf(buffer.data(), buffer.size(), "%.17g", value);
   return "((" + computeType + ")" + buffer.data() + ")";

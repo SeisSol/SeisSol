@@ -1046,6 +1046,8 @@ TEST_SUITE("ExprRtcGpu") {
         {"binary32 in a program of binary64",
          "def a = f32(x) * f32(y) - sqrt(abs(f32(x))) + sin(f32(y)) + exp(f32(x) / 1e3)\n"
          "out def u = real(a) + x\nout def v = f32(y) * 2.0\n"},
+        {"a negative zero and the infinities as constants",
+         "out def u = x * -0.0\nout def v = select(lt(x, y), inf, -inf) + y\n"},
         {"branches of selects, nested, and an else",
          "def c = lt(x, 0.0)\n"
          "def a = exp(x / 1e6) * sin(y) + log(abs(y) + 1.0) * cos(x)\n"
