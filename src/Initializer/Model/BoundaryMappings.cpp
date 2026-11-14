@@ -86,11 +86,11 @@ std::vector<std::vector<FusedCondition>>
     for (std::size_t fused = 0; fused < fusedCount; ++fused) {
       const auto simulation = (copy * fusedCount + fused) % simulationCount;
       const auto condition = conditionOfSimulation[simulation];
-      auto known = std::find_if(conditions[copy].begin(),
-                                conditions[copy].end(),
-                                [&](const auto& taken) { return taken.condition == condition; });
+      const auto known = std::ranges::find_if(
+          conditions[copy], [&](const auto& taken) { return taken.condition == condition; });
       if (known == conditions[copy].end()) {
-        conditions[copy].push_back(FusedCondition{condition, simulation, {fused}});
+        conditions[copy].push_back(
+            FusedCondition{.condition = condition, .simulation = simulation, .fused = {fused}});
       } else {
         known->fused.push_back(fused);
       }

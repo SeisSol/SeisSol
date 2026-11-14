@@ -12,7 +12,6 @@
 #include "DynamicRupture/Misc.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
-#include "Initializer/ParameterDB.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"

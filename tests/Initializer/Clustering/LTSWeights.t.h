@@ -239,7 +239,12 @@ TEST_CASE("A cell takes the smallest time step of the materials of the simulatio
   using namespace seissol::initializer;
 
   const auto faceMap = defaultFaceMap();
-  const ClusteringConfig config{{2}, 1, 1, 1, &faceMap, {}};
+  const ClusteringConfig config{.rate = {2},
+                                .vertexWeightElement = 1,
+                                .vertexWeightDynamicRupture = 1,
+                                .vertexWeightFreeSurfaceWithGravity = 1,
+                                .faceMap = &faceMap,
+                                .configCostFactors = {}};
 
   const auto timesteps = [&](const std::vector<std::string>& materialFileNames) {
     seissol::initializer::parameters::SeisSolParameters seissolParameters{};

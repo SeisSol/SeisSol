@@ -38,6 +38,8 @@
 #include <cstdint>
 #include <easi/Component.h>
 #include <easi/Query.h>
+#include <easi/util/Slice.h>
+#include <easi/util/Vector.h>
 #include <exception>
 #include <functional>
 #include <iterator>

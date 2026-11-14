@@ -266,7 +266,7 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
       const auto initialSource = drParameters_->nucleationCount;
       auto* stressSourceOnset = layer.var<DynamicRupture::StressSourceOnset>(Cfg());
       auto* stressSourceRiseTime = layer.var<DynamicRupture::StressSourceRiseTime>(Cfg());
-      using PointArrays = typename StressTensor<Cfg>::VectorOfArraysT;
+      using PointArrays = StressTensor<Cfg>::VectorOfArraysT;
       std::vector<PointArrays> onsetsFromFault(drParameters_->nucleationCount);
       std::vector<PointArrays> riseTimesFromFault(drParameters_->nucleationCount);
       std::vector<bool> onsetFromFault(drParameters_->nucleationCount);

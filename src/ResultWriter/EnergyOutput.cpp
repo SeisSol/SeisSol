@@ -331,7 +331,7 @@ void addFaultEnergies(const DynamicRupture::Layer& layer,
 
 #if !NVHPC_AVOID_OMP
 #pragma omp parallel for reduction(min : localMin[ : allCount]) default(none)                      \
-    shared(layerSize, drEnergyOutput, faceInformation, SimCount)
+    shared(layerSize, drEnergyOutput, faceInformation, SimCount, allCount)
 #endif
   for (std::size_t i = 0; i < layerSize; ++i) {
     if (faceInformation[i].plusSideOnThisRank) {

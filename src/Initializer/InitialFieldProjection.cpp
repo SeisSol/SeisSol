@@ -261,7 +261,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
   const auto& quadraturePoints = rule.first;
 
   // a query of its own for every file: easi maps the points of a query in place as it evaluates it
-  const auto makeQuery = [&]() {
+  const auto makeQuery = [&] {
     easi::Query query(elements.size() * NumQuadPoints, dimensions);
 #pragma omp parallel for schedule(static)
     for (std::size_t elem = 0; elem < elements.size(); ++elem) {

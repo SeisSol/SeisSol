@@ -207,9 +207,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
     }
   }
 
-  const bool hasBoundaryFile = std::any_of(boundaryFileNames.begin(),
-                                           boundaryFileNames.end(),
-                                           [](const auto& name) { return !name.empty(); });
+  const bool hasBoundaryFile =
+      std::ranges::any_of(boundaryFileNames, [](const auto& name) { return !name.empty(); });
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
 

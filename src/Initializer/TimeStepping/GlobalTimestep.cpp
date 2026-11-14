@@ -64,9 +64,7 @@ GlobalTimestep
   const auto& model = seissolParams.model;
   const auto configs = model.configs();
   const parameters::SimulationFiles materialFiles(model.materialFileNames);
-  std::fill(timestep.cellTimeStepWidths.begin(),
-            timestep.cellTimeStepWidths.end(),
-            std::numeric_limits<double>::infinity());
+  std::ranges::fill(timestep.cellTimeStepWidths, std::numeric_limits<double>::infinity());
   for (const auto config : configs) {
     std::vector<std::size_t> cells;
     for (std::size_t cell = 0; cell < cellToVertex.size; ++cell) {
