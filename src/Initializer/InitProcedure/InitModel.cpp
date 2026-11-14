@@ -150,9 +150,10 @@ void initializeCellMaterialOfConfig(
   const bool withPlasticity = seissolParams.model.plasticity && MaterialT::SupportsPlasticity;
   const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
 
-  // the plasticity parameters of every simulation of the run; the fused simulations which only fill
-  // up the last copy of the cells repeat the first simulations
-  std::vector<std::vector<Plasticity>> plasticityDB(seissolParams.model.simulationCount);
+  // the plasticity parameters of every simulation of the run, from each of their files once; the
+  // fused simulations which only fill up the last copy of the cells repeat the first simulations
+  const parameters::SimulationFiles plasticityFiles(seissolParams.model.plasticityFileNames);
+  std::vector<std::vector<Plasticity>> plasticityDB(plasticityFiles.files.size());
 
   if (withPlasticity) {
 
@@ -160,8 +161,7 @@ void initializeCellMaterialOfConfig(
     const auto plasticityGen = std::make_shared<PlasticityPointGenerator>(
         ctvOfConfig, plasticityNodes<Cfg>(), plasticityPointwise);
     for (size_t i = 0; i < plasticityDB.size(); i++) {
-      plasticityDB[i] =
-          queryDB<Plasticity>(plasticityGen, seissolParams.model.plasticityFileNames[i]);
+      plasticityDB[i] = queryDB<Plasticity>(plasticityGen, plasticityFiles.files[i]);
     }
   }
 
@@ -246,8 +246,9 @@ void initializeCellMaterialOfConfig(
           for (size_t i = 0; i < Cfg::NumSimulations; ++i) {
             const auto pointsPerCell =
                 plasticityPointwise ? model::PlasticityData<Cfg>::PointCount : 1;
-            const auto simulation = (firstSimulation + i) % plasticityDB.size();
-            localPlasticity[i] = &plasticityDB[simulation][position(meshId) * pointsPerCell];
+            const auto simulation = (firstSimulation + i) % plasticityFiles.fileOfSimulation.size();
+            localPlasticity[i] = &plasticityDB[plasticityFiles.fileOfSimulation[simulation]]
+                                              [position(meshId) * pointsPerCell];
           }
           initAssign(plasticity,
                      seissol::model::PlasticityData<Cfg>(
