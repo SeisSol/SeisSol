@@ -9,9 +9,10 @@ version = 1
 
 # license the verification files which cannot cover themselves: parameter
 # files, whose comment syntax the parameter reader may not accept before the
-# first section, and JSON, which has none; this includes snapshot references
+# first section, JSON, which has none, and point source files (FSRM), whose
+# reader takes their lines by position; this includes snapshot references
 
 [[annotations]]
-path = ["**/*.par", "**/*.json", "**/*.json.in"]
+path = ["**/*.par", "**/*.json", "**/*.json.in", "**/*.fsrm"]
 SPDX-FileCopyrightText = "2026 SeisSol Group"
 SPDX-License-Identifier = "BSD-3-Clause"

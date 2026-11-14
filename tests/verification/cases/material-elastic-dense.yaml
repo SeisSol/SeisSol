@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# material-elastic.yaml with twice its density at the same wave speeds: the
+# waves travel as there, but a force moves the material half as fast.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        rho:    5400.0
+        mu:     6.48e10
+        lambda: 6.48e10
+  - !GroupFilter
+    groups: 2
+    components: !ConstantMap
+      map:
+        rho:    5400.0
+        mu:     3.24e10
+        lambda: 3.24e10

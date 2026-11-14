@@ -450,6 +450,192 @@ seissol_add_minitest(
     EXPECT_FAILURE "are fused into the same cell"
     LABELS "smoke;copies")
 
+# A plasticity file per simulation: every second simulation takes parameters
+# under which the wave yields, in both copies of the cells and in the fused
+# simulations of each. The runs whose simulations all take the one or the other
+# parameters hold them alike. The plastic strain relaxes within a step, so that
+# yielding shows.
+set(SEISSOL_COPIES_PLASTICITY "equations.Plasticity=1" "equations.Tv=6.103515625e-05"
+    "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}")
+seissol_add_minitest(
+    NAME plasticity-skew48-copies
+    MESH skew48
+    PARAMETERS wave.par
+    MATERIAL material-plastic.yaml
+    STEPS 20
+    SET ${SEISSOL_COPIES_PLASTICITY}
+    REQUIRE equations=elastic
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
+    LABELS "plasticity;copies")
+# a simulation without a plasticity file of its own takes its material file
+set(SEISSOL_COPIES_WEAK ${SEISSOL_COPIES_PLASTICITY}
+    "equations.PlasticityFileName='plasticity-weak.yaml'")
+math(EXPR _copies_last "${SEISSOL_COPIES_SIMULATIONS} - 1")
+foreach (_copies_simulation RANGE 1 ${_copies_last})
+  list(APPEND SEISSOL_COPIES_WEAK
+       "equations.PlasticityFileName${_copies_simulation}='plasticity-weak.yaml'")
+endforeach()
+seissol_add_minitest(
+    NAME plasticity-skew48-copies-weak
+    MESH skew48
+    PARAMETERS wave.par
+    MATERIAL material-plastic.yaml
+    STEPS 20
+    SET ${SEISSOL_COPIES_WEAK}
+    FILES plasticity-weak.yaml
+    REQUIRE equations=elastic
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
+    LABELS "plasticity;copies")
+set(SEISSOL_COPIES_PLASTICITIES ${SEISSOL_COPIES_PLASTICITY})
+foreach (_copies_simulation RANGE ${_copies_last})
+  math(EXPR _copies_odd "${_copies_simulation} % 2")
+  if (_copies_odd)
+    list(APPEND SEISSOL_COPIES_PLASTICITIES
+         "equations.PlasticityFileName${_copies_simulation}='plasticity-weak.yaml'")
+  endif()
+endforeach()
+seissol_add_minitest(
+    NAME plasticity-skew48-copies-parameters
+    MESH skew48
+    PARAMETERS wave.par
+    MATERIAL material-plastic.yaml
+    STEPS 20
+    SET ${SEISSOL_COPIES_PLASTICITIES}
+    FILES plasticity-weak.yaml
+    REQUIRE equations=elastic
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
+    LABELS "plasticity;copies")
+seissol_add_comparison(
+    NAME bitwise-skew48-copies-parameters-strong
+    REFERENCE plasticity-skew48-copies
+    CANDIDATE plasticity-skew48-copies-parameters
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_EVEN}
+    LABELS "bitwise;plasticity;copies")
+seissol_add_comparison(
+    NAME bitwise-skew48-copies-parameters-weak
+    REFERENCE plasticity-skew48-copies-weak
+    CANDIDATE plasticity-skew48-copies-parameters
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_ODD}
+    LABELS "bitwise;plasticity;copies")
+
+# Point sources are dealt out to the simulations of a run in turn, and the copy
+# of the cells that holds the simulation of a source takes it, with the density
+# of its material. source-s{fused}.fsrm has a source for every fused
+# simulation, source-copies-s{fused}.fsrm the same sources twice over (see
+# sources.py): the simulations s and fused + s of the run of two copies carry
+# the wave of the simulation s of the run of the fused simulations alone, which
+# no other simulation carries. Where the second copy of the cells is denser,
+# its simulations are those of the run whose copies all are.
+set(SEISSOL_SOURCES ${SEISSOL_ZERO_STATE} "SourceType.Type=50")
+set(SEISSOL_COPIES_SOURCES ${SEISSOL_SOURCES} "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}"
+    "SourceType.FileName='source-copies-s{fused}.fsrm'")
+seissol_add_minitest(
+    NAME source-box48
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    SET ${SEISSOL_SOURCES} "SourceType.FileName='source-s{fused}.fsrm'"
+    FILES source-s{fused}.fsrm
+    REQUIRE equations=elastic
+    ACTIVITY "v1|v2|v3:1e-12"
+    LABELS "smoke;source")
+seissol_add_minitest(
+    NAME source-box48-copies
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    SET ${SEISSOL_COPIES_SOURCES}
+    FILES source-copies-s{fused}.fsrm
+    REQUIRE equations=elastic
+    ACTIVITY "v1|v2|v3:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;source;copies")
+seissol_add_minitest(
+    NAME source-box48-copies-mpi4
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    RANKS 4
+    SET ${SEISSOL_COPIES_SOURCES}
+    FILES source-copies-s{fused}.fsrm
+    REQUIRE equations=elastic
+    ACTIVITY "v1|v2|v3:1e-12"
+    LABELS "smoke;source;mpi;copies")
+set(SEISSOL_SOURCES_SECOND "")
+math(EXPR _copies_last "${SEISSOL_CAP_SIMULATIONS} - 1")
+foreach (_copies_simulation RANGE ${_copies_last})
+  math(EXPR _copies_candidate "${SEISSOL_CAP_SIMULATIONS} + ${_copies_simulation}")
+  list(APPEND SEISSOL_SOURCES_SECOND "${_copies_simulation}:${_copies_candidate}")
+endforeach()
+seissol_add_comparison(
+    NAME bitwise-box48-sources-first
+    REFERENCE source-box48
+    CANDIDATE source-box48-copies
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_FIRST}
+    LABELS "bitwise;source;copies")
+seissol_add_comparison(
+    NAME bitwise-box48-sources-second
+    REFERENCE source-box48
+    CANDIDATE source-box48-copies
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_SOURCES_SECOND}
+    LABELS "bitwise;source;copies")
+seissol_add_comparison(
+    NAME bitwise-box48-sources-mpi4
+    REFERENCE source-box48-copies
+    CANDIDATE source-box48-copies-mpi4
+    TOLERANCE 0
+    LABELS "bitwise;source;mpi;copies")
+seissol_add_minitest(
+    NAME source-box48-copies-dense
+    MESH box48
+    PARAMETERS wave.par
+    MATERIAL material-elastic-dense.yaml
+    STEPS 20
+    SET ${SEISSOL_COPIES_SOURCES}
+    FILES source-copies-s{fused}.fsrm
+    REQUIRE equations=elastic
+    ACTIVITY "v1|v2|v3:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;source;copies")
+set(SEISSOL_SOURCES_MATERIALS ${SEISSOL_COPIES_SOURCES})
+math(EXPR _copies_last "${SEISSOL_COPIES_SIMULATIONS} - 1")
+foreach (_copies_simulation RANGE ${SEISSOL_CAP_SIMULATIONS} ${_copies_last})
+  list(APPEND SEISSOL_SOURCES_MATERIALS
+       "equations.MaterialFileName${_copies_simulation}='material-elastic-dense.yaml'")
+endforeach()
+seissol_add_minitest(
+    NAME source-box48-copies-materials
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    SET ${SEISSOL_SOURCES_MATERIALS}
+    FILES source-copies-s{fused}.fsrm material-elastic-dense.yaml
+    REQUIRE equations=elastic
+    ACTIVITY "v1|v2|v3:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;source;copies")
+seissol_add_comparison(
+    NAME bitwise-box48-sources-materials-first
+    REFERENCE source-box48-copies
+    CANDIDATE source-box48-copies-materials
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_FIRST}
+    LABELS "bitwise;source;copies")
+seissol_add_comparison(
+    NAME bitwise-box48-sources-materials-second
+    REFERENCE source-box48-copies-dense
+    CANDIDATE source-box48-copies-materials
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_SECOND}
+    LABELS "bitwise;source;copies")
+
 
 # ---------------------------------------------------------------------------
 # Friction laws (seissol_add_rupture).
@@ -611,6 +797,53 @@ seissol_add_rupture(NAME rupture-lsw-copies-restart-fused FL 16 FAULT fault-lsw.
                     RESTART_SET "equations.SimCount=${SEISSOL_CAP_SIMULATIONS}"
                     EXPECT_FAILURE "restarts only the simulations it was written with"
                     LABELS "copies;restart")
+
+# ---------------------------------------------------------------------------
+# Stage 1: a fault per simulation. Every second simulation takes a fault that
+# weakens over twice the slip, in both copies of the fault faces and in the
+# fused simulations of each. The runs whose simulations all take the one or the
+# other fault hold them alike, on the fault and off it, and so does the run on
+# four ranks, where fault faces end up in the copy layer.
+# ---------------------------------------------------------------------------
+
+seissol_add_rupture(NAME rupture-lsw-copies-dc FL 16 FAULT fault-lsw-dc.yaml
+                    SET "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}" NO_SNAPSHOT
+                    LABELS copies)
+set(SEISSOL_COPIES_FAULTS "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}")
+math(EXPR _copies_last "${SEISSOL_COPIES_SIMULATIONS} - 1")
+foreach (_copies_simulation RANGE ${_copies_last})
+  math(EXPR _copies_odd "${_copies_simulation} % 2")
+  if (_copies_odd)
+    list(APPEND SEISSOL_COPIES_FAULTS
+         "DynamicRupture.ModelFileName${_copies_simulation}='fault-lsw-dc.yaml'")
+  endif()
+endforeach()
+seissol_add_rupture(NAME rupture-lsw-copies-faults FL 16 FAULT fault-lsw.yaml
+                    FILES fault-lsw-dc.yaml SET ${SEISSOL_COPIES_FAULTS} NO_SNAPSHOT
+                    LABELS copies)
+seissol_add_rupture(NAME rupture-lsw-copies-faults-mpi4 FL 16 FAULT fault-lsw.yaml RANKS 4
+                    FILES fault-lsw-dc.yaml SET ${SEISSOL_COPIES_FAULTS}
+                    LABELS "copies;mpi")
+seissol_add_comparison(
+    NAME bitwise-rupture-lsw-copies-faults-lsw
+    REFERENCE rupture-lsw-copies
+    CANDIDATE rupture-lsw-copies-faults
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_EVEN}
+    LABELS "bitwise;copies;dr")
+seissol_add_comparison(
+    NAME bitwise-rupture-lsw-copies-faults-dc
+    REFERENCE rupture-lsw-copies-dc
+    CANDIDATE rupture-lsw-copies-faults
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_ODD}
+    LABELS "bitwise;copies;dr")
+seissol_add_comparison(
+    NAME bitwise-rupture-lsw-copies-faults-mpi4
+    REFERENCE rupture-lsw-copies-faults
+    CANDIDATE rupture-lsw-copies-faults-mpi4
+    TOLERANCE 0
+    LABELS "bitwise;mpi;copies;dr")
 
 # ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic
