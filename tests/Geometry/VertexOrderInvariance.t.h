@@ -183,7 +183,7 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
   // varies inside the cells, so that the clustering sees the vertex order if it can
-  seissolParameters.model.materialFileName = tpath("Testing/material-graded.yaml");
+  seissolParameters.model.materialFileNames = {tpath("Testing/material-graded.yaml")};
   seissolParameters.model.useCellHomogenizedMaterial = true;
   seissolParameters.model.plasticity = false;
   const utils::Env env("SEISSOL_");

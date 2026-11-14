@@ -243,6 +243,73 @@ seissol_add_comparison(
     SIMULATIONS ${SEISSOL_COPIES_OF_FUSED}
     LABELS "bitwise;copies")
 
+# A copy of the cells has the material of the simulations it holds. In a run
+# whose second copy takes another material, the simulations of each copy are
+# those of the run whose copies all take its material: their waves are set up
+# with it, travel at its speeds, and meet the cells of their own copy only.
+seissol_add_minitest(
+    NAME smoke-box48-copies-soft
+    MESH box48
+    PARAMETERS wave.par
+    MATERIAL material-elastic-soft.yaml
+    STEPS 20
+    SET "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}"
+    REQUIRE equations=elastic
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;copies")
+set(SEISSOL_COPIES_MATERIALS "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}")
+set(SEISSOL_COPIES_FIRST "")
+set(SEISSOL_COPIES_SECOND "")
+math(EXPR _copies_last "${SEISSOL_COPIES_SIMULATIONS} - 1")
+foreach (_copies_simulation RANGE ${_copies_last})
+  if (_copies_simulation LESS SEISSOL_CAP_SIMULATIONS)
+    list(APPEND SEISSOL_COPIES_FIRST "${_copies_simulation}:${_copies_simulation}")
+  else()
+    list(APPEND SEISSOL_COPIES_MATERIALS
+         "equations.MaterialFileName${_copies_simulation}='material-elastic-soft.yaml'")
+    list(APPEND SEISSOL_COPIES_SECOND "${_copies_simulation}:${_copies_simulation}")
+  endif()
+endforeach()
+seissol_add_minitest(
+    NAME smoke-box48-copies-materials
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    SET ${SEISSOL_COPIES_MATERIALS}
+    FILES material-elastic-soft.yaml
+    REQUIRE equations=elastic
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;copies")
+seissol_add_comparison(
+    NAME bitwise-box48-copies-materials-first
+    REFERENCE smoke-box48-copies
+    CANDIDATE smoke-box48-copies-materials
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_FIRST}
+    LABELS "bitwise;copies")
+seissol_add_comparison(
+    NAME bitwise-box48-copies-materials-second
+    REFERENCE smoke-box48-copies-soft
+    CANDIDATE smoke-box48-copies-materials
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_SECOND}
+    LABELS "bitwise;copies")
+
+# the simulations fused into a cell share its material, so they cannot name
+# different files
+seissol_add_minitest(
+    NAME smoke-box48-fused-materials
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    SET "equations.MaterialFileName1='material-elastic-soft.yaml'"
+    FILES material-elastic-soft.yaml
+    REQUIRE equations=elastic "fused>=2"
+    EXPECT_FAILURE "are fused into the same cell"
+    LABELS "smoke;copies")
+
 
 # ---------------------------------------------------------------------------
 # Friction laws (seissol_add_rupture).

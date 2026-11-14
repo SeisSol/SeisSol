@@ -28,6 +28,7 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SimulationFiles.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
@@ -129,9 +130,20 @@ void initializeCellMaterialOfConfig(
   }
   const auto position = [&](std::size_t cell) { return allCells ? cell : positions[cell]; };
 
+  // The material of every simulation, from each of their files once; a copy of the cells takes the
+  // one of the simulations it holds, which all name the same file.
+  const parameters::SimulationFiles materialFiles(seissolParams.model.materialFileNames);
+  const auto& simulationSettings = memoryManager.simulationSettings();
+  const auto materialOfCopy = [&](std::size_t copy) {
+    return materialFiles.fileOfSimulation[copy * simulationSettings.fusedCount];
+  };
   const auto queryGen = seissol::initializer::getBestQueryGenerator<MaterialT>(
       seissolParams.model.useCellHomogenizedMaterial, ctvOfConfig, Cfg::ConvergenceOrder);
-  auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
+  std::vector<std::vector<MaterialT>> materialsDB;
+  materialsDB.reserve(materialFiles.files.size());
+  for (const auto& materialFile : materialFiles.files) {
+    materialsDB.push_back(queryDB<MaterialT>(queryGen, materialFile));
+  }
 
   // plasticity (if needed); a material without the stresses of a solid has none, so its file need
   // not define the plasticity parameters
@@ -153,10 +165,11 @@ void initializeCellMaterialOfConfig(
     }
   }
 
+  for (auto& materials : materialsDB) {
 #pragma omp parallel for schedule(static)
-  for (size_t i = 0; i < materialsDB.size(); ++i) {
-    auto& cellMat = materialsDB[i];
-    cellMat.initialize(seissolParams.model);
+    for (size_t i = 0; i < materials.size(); ++i) {
+      materials[i].initialize(seissolParams.model);
+    }
   }
 
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
@@ -185,7 +198,8 @@ void initializeCellMaterialOfConfig(
         const auto neighborRank = linear.rank;
         const auto neighborRankIdx = linear.inRankIndices[0];
         const auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
-        const auto& localMaterial = materialsDB[position(materialGhostIdx + ghostOffset)];
+        const auto& localMaterial = materialsDB[materialOfCopy(localSecondaryInformation.copyId)]
+                                               [position(materialGhostIdx + ghostOffset)];
         initAssign(materialData, localMaterial);
       }
     } else {
@@ -199,7 +213,8 @@ void initializeCellMaterialOfConfig(
         const auto& localSecondaryInformation = secondaryInformation[cell];
         const auto meshId = localSecondaryInformation.meshId;
         auto& material = materialArray[cell];
-        const auto& localMaterial = materialsDB[position(meshId)];
+        const auto& localMaterial =
+            materialsDB[materialOfCopy(localSecondaryInformation.copyId)][position(meshId)];
         const auto& localCellInformation = cellInformation[cell];
 
         // explicitly use polymorphic pointer arithmetic here

@@ -168,13 +168,34 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
   const auto simulationCount = readSimulationCount(baseReader, config);
 
   const auto boundaryFileName = reader->readPath("boundaryfilename");
-  const std::string materialFileName =
-      reader->readPathOrFail("materialfilename", "No material file given.");
-  std::vector<std::string> plasticityFileNames(simulationCount);
 
-  for (std::size_t i = 0; i < plasticityFileNames.size(); ++i) {
-    const auto fieldname = "plasticityfilename" + (i == 0 ? std::string{} : std::to_string(i));
-    plasticityFileNames[i] = reader->readPath(fieldname).value_or(materialFileName);
+  // the material of every simulation, the one of the first if not given; a simulation takes its
+  // plasticity from its material file unless it is given a plasticity file of its own
+  std::vector<std::string> materialFileNames(simulationCount);
+  std::vector<std::string> plasticityFileNames(simulationCount);
+  for (std::size_t i = 0; i < simulationCount; ++i) {
+    if (i == 0) {
+      materialFileNames[i] = reader->readPathOrFail("materialfilename", "No material file given.");
+    } else {
+      materialFileNames[i] =
+          reader->readPath("materialfilename" + std::to_string(i)).value_or(materialFileNames[0]);
+    }
+    const auto plasticityField =
+        "plasticityfilename" + (i == 0 ? std::string{} : std::to_string(i));
+    plasticityFileNames[i] = reader->readPath(plasticityField).value_or(materialFileNames[i]);
+  }
+
+  // The simulations fused into a cell share its material, and so have to name the same file.
+  const auto fusedCount = configValue(config).numSimulations;
+  for (std::size_t i = 0; i < simulationCount; ++i) {
+    const auto first = i - i % fusedCount;
+    if (materialFileNames[i] != materialFileNames[first]) {
+      logError() << "The simulations" << first << "and" << i
+                 << "are fused into the same cell, which has one material, but they name "
+                    "different material files:"
+                 << materialFileNames[first] << "for the first and" << materialFileNames[i]
+                 << "for the second.";
+    }
   }
 
   const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
@@ -243,7 +264,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                          gravitationalAcceleration,
                          tv,
                          boundaryFileName.value_or(""),
-                         materialFileName,
+                         materialFileNames,
                          plasticityFileNames,
                          itmParameters,
                          flux,

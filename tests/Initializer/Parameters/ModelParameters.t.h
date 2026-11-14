@@ -11,10 +11,12 @@
 #include "Common/ConfigValue.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
+#include "Initializer/Parameters/SimulationFiles.h"
 #include "TestHelper.h"
 
 #include <cstddef>
 #include <string>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::unit_test {
@@ -192,7 +194,7 @@ TEST_CASE("readModelParameters parses YAML" * doctest::test_suite("initializer")
   ParameterReader reader(node, "", false);
   auto params = readModelParameters(&reader, defaultConfig(), {});
 
-  CHECK(params.materialFileName == "material.yaml");
+  CHECK(params.materialFileNames.front() == "material.yaml");
   CHECK(params.plasticity == true);
   CHECK(params.plasticityPointwise == false);
   CHECK(params.useCellHomogenizedMaterial == false);
@@ -261,6 +263,44 @@ TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initiali
     CHECK(params.plasticityFileNames[1] == "mat.yaml");
     CHECK(params.plasticityFileNames[2] == "plasticity-2.yaml");
   }
+
+  SUBCASE("a material file per copy of the cells") {
+    // the simulations fused into a cell share its material, so the second copy of the cells is
+    // the first that can take another one
+    const std::size_t fused = configValue(defaultConfig()).numSimulations;
+    YAML::Node node;
+    node["equations"]["materialfilename"] = "mat.yaml";
+    for (std::size_t i = fused; i < 2 * fused; ++i) {
+      node["equations"]["materialfilename" + std::to_string(i)] = "mat-2.yaml";
+    }
+    node["equations"]["plasticityfilename" + std::to_string(2 * fused - 1)] = "plasticity.yaml";
+    node["equations"]["simcount"] = 2 * fused;
+    node["equations"]["freqcentral"] = 1;
+    node["equations"]["freqratio"] = 1;
+    ParameterReader reader(node, "", false);
+    const auto params = readModelParameters(&reader, defaultConfig(), {});
+
+    REQUIRE(params.materialFileNames.size() == 2 * fused);
+    REQUIRE(params.plasticityFileNames.size() == 2 * fused);
+    for (std::size_t i = 0; i < 2 * fused; ++i) {
+      CHECK(params.materialFileNames[i] == (i < fused ? "mat.yaml" : "mat-2.yaml"));
+    }
+    // a simulation without a plasticity file of its own takes the plasticity from its material
+    for (std::size_t i = 0; i + 1 < 2 * fused; ++i) {
+      CHECK(params.plasticityFileNames[i] == params.materialFileNames[i]);
+    }
+    CHECK(params.plasticityFileNames.back() == "plasticity.yaml");
+  }
+}
+
+TEST_CASE("SimulationFiles" * doctest::test_suite("initializer")) {
+  const SimulationFiles files({"a.yaml", "b.yaml", "a.yaml", "c.yaml", "b.yaml"});
+
+  REQUIRE(files.files.size() == 3);
+  CHECK(files.files[0] == "a.yaml");
+  CHECK(files.files[1] == "b.yaml");
+  CHECK(files.files[2] == "c.yaml");
+  CHECK(files.fileOfSimulation == std::vector<std::size_t>{0, 1, 0, 2, 1});
 }
 
 } // namespace seissol::unit_test

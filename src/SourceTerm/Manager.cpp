@@ -519,7 +519,8 @@ auto loadSourceFile(const char* fileName,
                                           meshIds[sourceIndex],
                                           mesh);
 
-        const auto position = backmap.get(meshIds[sourceIndex], 0);
+        // the material of the simulation of the source, which the copy of the cell holding it has
+        const auto position = backmap.get(meshIds[sourceIndex], copies[sourceIndex]);
         const auto& material = *ltsStorage.lookup<LTS::Material>(position).local;
         file.template transform<Cfg>(sources, sourceIndex, clusterSource, material);
       }

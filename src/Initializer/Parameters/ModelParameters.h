@@ -43,7 +43,8 @@ struct ModelParameters {
   double gravitationalAcceleration{};
   double tv{};
   std::string boundaryFileName;
-  std::string materialFileName;
+  // one per simulation; the simulations fused into a cell name the same one
+  std::vector<std::string> materialFileNames;
   // one per simulation
   std::vector<std::string> plasticityFileNames;
   ITMParameters itmParameters;

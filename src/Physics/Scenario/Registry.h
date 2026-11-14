@@ -15,7 +15,9 @@
 #include "Initializer/Typedefs.h"
 #include "Physics/InitialField.h"
 
+#include <cstddef>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -31,6 +33,9 @@ struct Input {
   GravitationSetup gravitation;
   // the configuration the scenario is set up for: its material and its fused simulations
   ConfigId config{};
+  // the simulation of the run to set the scenario up for alone, e.g. with a material of its own;
+  // all of them if not given
+  std::optional<std::size_t> simulation;
 };
 
 /**
@@ -67,8 +72,9 @@ AcousticTravellingWaveParametersITM acousticTravellingWaveParameters(
     const initializer::parameters::ITMParameters& itm);
 
 /**
- * Constructs the scenario, one instance per fused simulation. Only call after availability()
- * reported it as available.
+ * Constructs the scenario: one instance per simulation of the run, or a single one for all of them
+ * where they do not differ; for `Input::simulation`, a single one in any case. Only call after
+ * availability() reported it as available.
  */
 std::vector<std::unique_ptr<InitialField>> build(initializer::parameters::InitializationType type,
                                                  const Input& input);
