@@ -12,6 +12,7 @@
 #include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
+#include "Config.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
@@ -38,6 +39,27 @@
 #include <utils/logger.h>
 
 namespace seissol::initializer {
+
+template <typename Cfg>
+std::array<double, 2> referenceFaceNode(std::size_t node) {
+  // The generated nodes2D run over the nodes along the dimension of the basis functions, which
+  // comes second where simulations are fused, and leave out the entries outside their bounds,
+  // which are zero.
+  const auto nodes = nodal::init::nodes2D<Cfg>::view::create(nodal::init::nodes2D<Cfg>::Values);
+  std::array<double, 2> point{};
+  for (std::size_t d = 0; d < point.size(); ++d) {
+    point[d] = multisim::multisimTranspose<Cfg>(
+        [&](std::size_t i, std::size_t j) { return nodes.isInRange(i, j) ? nodes(i, j) : 0.0; },
+        node,
+        d);
+  }
+  return point;
+}
+
+#define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
+  template std::array<double, 2> referenceFaceNode<Cfg>(std::size_t);
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
+#undef SEISSOL_CONFIG_INSTANTIATE
 
 namespace {
 
@@ -66,18 +88,15 @@ void initializeBoundaryMappingsOfLayer(
           seissol::geometry::AffineFaceTransform::fromMeshCell(meshId, side, meshReader);
 
       // Compute nodal points in global coordinates for each side.
-      real nodesReferenceData[nodal::tensor::nodes2D<Cfg>::Size];
-      std::copy_n(
-          nodal::init::nodes2D<Cfg>::Values, nodal::tensor::nodes2D<Cfg>::Size, nodesReferenceData);
-      auto nodesReference = nodal::init::nodes2D<Cfg>::view::create(nodesReferenceData);
       auto* nodes = boundary[cell][side].nodes;
       assert(nodes != nullptr);
       auto offset = 0;
       for (std::size_t i = 0; i < nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>];
            ++i) {
         // Compute the global coordinates for the nodal points.
-        const auto xyz = face.refToSpace(seissol::geometry::FaceTransform::FaceVectorT(
-            nodesReference(i, 0), nodesReference(i, 1)));
+        const auto nodeReference = referenceFaceNode<Cfg>(i);
+        const auto xyz = face.refToSpace(
+            seissol::geometry::FaceTransform::FaceVectorT(nodeReference[0], nodeReference[1]));
         for (std::size_t d = 0; d < Cell::Dim; ++d) {
           nodes[offset++] = xyz(d);
         }

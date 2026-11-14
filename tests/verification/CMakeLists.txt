@@ -125,8 +125,8 @@ foreach (preset box6 box48 skew48 fault48 faultskew48 mat48 periodicx72 periodic
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 
-# Dirichlet and Analytical are left out for now. Free surface with gravity is
-# meant for acoustic media only. fsg2 is there for cells with two such faces,
+# Analytical is left out for now. Free surface with gravity is meant for
+# acoustic media only. fsg2 is there for cells with two such faces,
 # a case still to be looked at in the implementation. A Kuhn tetrahedron
 # touches exactly one lower and one upper cube plane, on different axes, so
 # two upper planes never share a cell; zmax with xmin gives one such cell.
@@ -136,6 +136,8 @@ seissol_add_minimesh(NAME box6-mixed PRESET box6
 seissol_add_minimesh(NAME box6-fsg PRESET box6 ARGS --bc zmax=free-surface-gravity)
 seissol_add_minimesh(NAME box6-fsg2 PRESET box6
                      ARGS --bc zmax=free-surface-gravity,xmin=free-surface-gravity)
+# the cases give the Dirichlet faces their ghost state in an easi file
+seissol_add_minimesh(NAME box48-dirichlet PRESET box48 ARGS --bc xmin=dirichlet)
 
 add_test(NAME verification.minimesh.self-test
          COMMAND ${Python3_EXECUTABLE}

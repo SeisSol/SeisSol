@@ -13,7 +13,15 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Memory/Descriptor/LTS.h"
 
+#include <array>
+#include <cstddef>
+
 namespace seissol::initializer {
+
+/// The node `node` of the face basis of the configuration `Cfg`, in the reference coordinates of a
+/// face.
+template <typename Cfg>
+std::array<double, 2> referenceFaceNode(std::size_t node);
 
 class DirichletCondition;
 void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,

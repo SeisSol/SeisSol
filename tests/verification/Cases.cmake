@@ -69,6 +69,19 @@ seissol_add_minitest(
     ACTIVITY "v1:1e-12"
     LABELS "smoke;dr")
 
+# the Dirichlet faces drive a wave into the body at rest; their setup takes the
+# nodes of the faces, which the fused configurations lay out differently
+seissol_add_minitest(
+    NAME smoke-box48-dirichlet
+    MESH box48-dirichlet
+    PARAMETERS wave.par
+    STEPS 20
+    SET "IniCondition.cICType='Zero'" "equations.BoundaryFileName='boundary-v1.yaml'"
+    FILES boundary-v1.yaml
+    REQUIRE equations=elastic
+    ACTIVITY "v1:1e-12"
+    LABELS smoke)
+
 # ---------------------------------------------------------------------------
 # Stage 1: invariants that need no reference data.
 #
