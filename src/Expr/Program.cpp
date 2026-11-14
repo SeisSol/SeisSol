@@ -207,6 +207,10 @@ class CanonicalWalk {
       appendInt(text_, n.grid);
       appendOperands(id);
       break;
+    case Kind::Percentile:
+      // the percentile, then the values
+      appendOperands(id);
+      break;
     }
     if (n.strict) {
       text_ += " strict";

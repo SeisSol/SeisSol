@@ -288,6 +288,14 @@ class Typer {
       return arena.gridParam(node.grid, static_cast<GridField>(node.comp), node.axis);
     case Kind::GridLoad:
       return arena.gridLoad(node.grid, node.comp, operand(node.a, ValueType::I64));
+    case Kind::Percentile: {
+      std::vector<NodeId> values;
+      const NodeId* args = arena_.args(node);
+      for (std::int32_t i = 0; i < node.argCount; ++i) {
+        values.push_back(operand(args[i], type));
+      }
+      return arena.percentile(operand(node.a, type), values, type);
+    }
     }
     fail(std::string("node kind '") + name(node.kind) + "' has no type");
   }

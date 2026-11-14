@@ -306,6 +306,37 @@ void emitGridSampling(std::ostringstream& out,
   }
 }
 
+/// The functions of the percentiles of `lowered`, whose position and interpolation are the same
+/// bits as on the host: with __dadd_rn and its kind on CUDA, which no compiler contracts (through
+/// the macros of the strict arithmetic, which a test may define for the host); in functions without
+/// contraction on HIP and in OpenCL C.
+void emitPercentiles(std::ostringstream& out, const LoweredProgram& lowered, GpuTarget target) {
+  if (!lowered.usesPercentile()) {
+    return;
+  }
+  codegen::PercentileArithmetic arithmetic;
+  arithmetic.qualifier = deviceFunction(target);
+  switch (target) {
+  case GpuTarget::Cuda:
+    codegen::emitStrictMacros(out, "__dadd_rn(x, y)", "__dsub_rn(x, y)", "__dmul_rn(x, y)");
+    out << "#ifndef SEISSOL_EXPR_DDIV\n"
+        << "#define SEISSOL_EXPR_DDIV(x, y) __ddiv_rn(x, y)\n"
+        << "#endif\n\n";
+    arithmetic.add = "SEISSOL_EXPR_DADD(x, y)";
+    arithmetic.sub = "SEISSOL_EXPR_DSUB(x, y)";
+    arithmetic.mul = "SEISSOL_EXPR_DMUL(x, y)";
+    arithmetic.div = "SEISSOL_EXPR_DDIV(x, y)";
+    break;
+  case GpuTarget::Hip:
+    arithmetic.prologue = "#pragma clang fp contract(off)";
+    break;
+  case GpuTarget::OpenCl:
+    arithmetic.prologue = "#pragma OPENCL FP_CONTRACT OFF";
+    break;
+  }
+  codegen::emitPercentileFunctions(out, lowered, arithmetic);
+}
+
 /// One typed accessor per column, so the element type is resolved at
 /// generation time and no per-point switch survives into the kernel.
 ///
@@ -1037,6 +1068,7 @@ std::string emitGpuSource(const Program& program,
   emitPrologue(out, target);
   emitAccessors(out, layout, computeType, target);
   emitGridSampling(out, lowered, layout, target);
+  emitPercentiles(out, lowered, target);
   emitArgumentStruct(out, layout, computeType, target);
   if (lowered.hasPrecompute()) {
     emitStage(out,

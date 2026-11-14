@@ -980,6 +980,14 @@ std::string emitCpuSourceFor(const Program& program,
   if (lowered.hasStrict()) {
     codegen::emitStrictMacros(out, "((x) + (y))", "((x) - (y))", "((x) * (y))");
   }
+  if (lowered.usesPercentile()) {
+    // without contraction, as all of the kernel (-ffp-contract=off)
+    codegen::PercentileArithmetic arithmetic;
+    arithmetic.floor = "std::floor";
+    arithmetic.fabs = "std::fabs";
+    arithmetic.nan = "std::nan(\"\")";
+    codegen::emitPercentileFunctions(out, lowered, arithmetic);
+  }
   emitStage(out,
             "seissol_expr_precompute",
             lowered.precompute(),

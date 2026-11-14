@@ -223,8 +223,13 @@ grid below 2 km and from formulas above, say:
 For arrays there are ``sum``, ``min`` and ``max`` of one array; ``dot``, ``norm`` and ``cross`` of
 vectors; ``matmul`` of matrices and vectors (also ``a @ b``), and ``transpose``, ``trace`` and
 ``det`` (up to 3 by 3) of matrices; ``eye(n)``, ``len(a)`` and ``range(n)``; and
-``[f(v) for v in a]`` is an array of an element per element of ``a``. A definition may take the name
-of one of these functions, which it then hides. The traction on a plane, as a derived output:
+``[f(v) for v in a]`` is an array of an element per element of ``a``. ``percentile(p, a)`` is the
+percentile ``p`` (0 to 100) of the elements of ``a`` (up to 1024 of them, or numbers given one by
+one), and ``median(a)`` the percentile 50: what ``numpy.percentile(a, p)`` gives (its method
+``linear``), to the bit in binary64, but for the sign of a zero; at an infinity the limit of the
+interpolation, and NaN where a value is NaN or ``p`` lies outside [0, 100]. It is one operation of the
+program, on every backend the same bits. A definition may take the name of one of these functions,
+which it then hides. The traction on a plane, as a derived output:
 
 .. code-block:: text
 
@@ -269,7 +274,10 @@ module and constants, not the inputs of the point. The library has:
 - ``rotation``: ``matrix(strike, dip, rake)``, in degrees, the rotation of SeisSol's point sources,
   and ``rotate(m, r)``, the tensor ``m`` of the fault in x, y and z;
 - ``motion``: ``angles(n)`` and ``rotated(a1, a2, angles)``, the horizontal motion along each angle;
-  RotD100 of the velocity, say, as a derived output with a state per angle:
+  and of the largest motions along the angles, ``rotd50(peaks)``, their median, and
+  ``gmrotd50(peaks)``, the median over the angles below 90 degrees of the geometric mean of the
+  peaks 90 degrees apart (Boore, Watson-Lamprey and Abrahamson 2006). RotD100 and RotD50 of the
+  velocity, say, as a derived output with a state per angle:
 
 .. code-block:: text
 
@@ -279,6 +287,7 @@ module and constants, not the inputs of the point. The library has:
    def now = max(peak, motion.rotated(v1, v2, angles))
    def peak = now
    out def rotd100 = max(now)
+   out def rotd50 = motion.rotd50(now)
 
 ``material`` is the material of the point, where a consumer supplies its parameters (the boundary
 conditions and the derived outputs, say): ``material.rho`` reads the input ``rho``, and

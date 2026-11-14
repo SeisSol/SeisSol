@@ -298,6 +298,9 @@ TEST_SUITE("ExprRtcCpu") {
         {"a shared subexpression", "def a = sqrt(abs(x))\nout def u = a+a*a\nout def v = a*a*a\n"},
         {"a negative zero and the infinities as constants",
          "out def u = x * -0.0\nout def v = select(lt(x, y), inf, -inf) + y\n"},
+        {"percentiles",
+         "out def u = median(x, y, z, t) + percentile(30, [x, y, z, t, 2.0 * x])\n"
+         "out def v = percentile(min(abs(x), 10.0) * 10.0, y, z, -z, 0.0, -0.0)\n"},
     };
 
     for (const auto& program : programs) {
@@ -450,6 +453,50 @@ TEST_SUITE("ExprRtcCpu") {
       CAPTURE(i);
       CHECK(std::memcmp(&tiled[i], &interpreted[i], sizeof(double)) == 0);
       CHECK(std::memcmp(&pointwise[i], &interpreted[i], sizeof(double)) == 0);
+    }
+  }
+
+  TEST_CASE("a percentile computes the bits of the interpreter, one point after the other and in "
+            "tiles") {
+    const Program program =
+        compileSderivModule("out def u = percentile(min(abs(x), 3.0) * 30.0, [y, x * y, 0.5, -y, "
+                            "x, y * y, -0.0, 0.0])\n"
+                            "out def w = median([x + y * k for k in range(9)])\n");
+    constexpr std::size_t NumPoints = 333;
+    std::vector<double> x(NumPoints);
+    std::vector<double> y(NumPoints);
+    for (std::size_t i = 0; i < NumPoints; ++i) {
+      x[i] = Ladder[i % Ladder.size()];
+      y[i] = 0.5 * static_cast<double>(i % 9) - 2.0;
+    }
+    const auto evaluate = [&](BackendKind preferred, KernelShape shape, BackendKind& kind) {
+      std::vector<double> out(2 * NumPoints, -1.0);
+      DataTable table(NumPoints);
+      table.bindViewConst<double>("x", Direction::In, x.data());
+      table.bindViewConst<double>("y", Direction::In, y.data());
+      table.bindView<double>("u", Direction::Out, out.data());
+      table.bindView<double>("w", Direction::Out, out.data() + NumPoints);
+      Binding binding = Binding::bind(program, table);
+      df::GridStore store;
+      BackendOptions options;
+      options.preferred = preferred;
+      options.shape = shape;
+      const auto kernel = makeKernel(program, binding, store, options);
+      kernel->precompute(table);
+      kernel->run(table);
+      kind = kernel->kind();
+      return out;
+    };
+    BackendKind kind = BackendKind::Interpreter;
+    const auto interpreted = evaluate(BackendKind::Interpreter, KernelShape::Auto, kind);
+    for (const auto shape : {KernelShape::Point, KernelShape::Tile}) {
+      CAPTURE(static_cast<int>(shape));
+      const auto compiled = evaluate(BackendKind::RtcCpu, shape, kind);
+      if (kind != BackendKind::RtcCpu) {
+        WARN_MESSAGE(false, "no usable host compiler; the percentile was not compiled");
+        return;
+      }
+      CHECK(unit_test::bitwiseEqual(interpreted.data(), compiled.data(), interpreted.size()));
     }
   }
 

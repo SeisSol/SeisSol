@@ -9,6 +9,8 @@
 
 #include "utils/logger.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -72,6 +74,8 @@ const char* name(Kind kind) {
     return "gridparam";
   case Kind::GridLoad:
     return "gridload";
+  case Kind::Percentile:
+    return "percentile";
   }
   return "?";
 }
@@ -113,6 +117,14 @@ bool NodeEq::operator()(const Node& x, const Node& y) const {
     return x.grid == y.grid && x.comp == y.comp && x.axis == y.axis;
   case Kind::GridLoad:
     return x.grid == y.grid && x.comp == y.comp && x.a == y.a;
+  case Kind::Percentile: {
+    if (x.a != y.a || x.argCount != y.argCount) {
+      return false;
+    }
+    const NodeId* xa = arena->args(x);
+    const NodeId* ya = arena->args(y);
+    return std::equal(xa, xa + x.argCount, ya);
+  }
   }
   return false;
 }
@@ -168,6 +180,15 @@ std::size_t NodeHash::operator()(const Node& n) const {
     h = mix(h, static_cast<std::size_t>(n.comp));
     h = mix(h, static_cast<std::size_t>(n.a));
     break;
+  case Kind::Percentile: {
+    h = mix(h, static_cast<std::size_t>(n.a));
+    h = mix(h, static_cast<std::size_t>(n.argCount));
+    const NodeId* a = arena->args(n);
+    for (std::int32_t i = 0; i < n.argCount; ++i) {
+      h = mix(h, static_cast<std::size_t>(a[i]));
+    }
+    break;
+  }
   }
   return h;
 }
@@ -391,6 +412,33 @@ NodeId Arena::lookup(GridId grid,
   return id;
 }
 
+// The values are appended before the pool lookup, as for a lookup.
+NodeId Arena::percentile(NodeId p, const std::vector<NodeId>& values, ValueType type) {
+  if (values.empty() || values.size() > static_cast<std::size_t>(MaxPercentileValues)) {
+    logError() << "expr: a percentile needs 1 .." << MaxPercentileValues << "values, got"
+               << values.size();
+  }
+  const std::size_t mark = args_.size();
+  args_.insert(args_.end(), values.begin(), values.end());
+
+  Node n;
+  n.kind = Kind::Percentile;
+  n.type = type;
+  n.a = p;
+  n.argBegin = static_cast<std::int32_t>(mark);
+  n.argCount = static_cast<std::int32_t>(values.size());
+
+  const auto it = pool_.find(n);
+  if (it != pool_.end()) {
+    args_.resize(mark);
+    return it->second;
+  }
+  const auto id = static_cast<NodeId>(nodes_.size());
+  nodes_.push_back(n);
+  pool_.emplace(n, id);
+  return id;
+}
+
 NodeId Arena::contract(MatrixId matrix, BlockId block, ValueType type) {
   Node n;
   n.kind = Kind::Contract;
@@ -429,7 +477,43 @@ void Arena::children(NodeId id, std::vector<NodeId>& out) const {
   case Kind::GridLoad:
     out.push_back(n.a);
     return;
+  case Kind::Percentile: {
+    // the percentile, then the values
+    out.push_back(n.a);
+    const NodeId* a = args(n);
+    out.insert(out.end(), a, a + n.argCount);
+    return;
   }
+  }
+}
+
+PercentilePosition percentilePosition(double p, std::size_t count) {
+  PercentilePosition position;
+  if (!(p >= 0.0 && p <= 100.0) || count == 0) {
+    return position;
+  }
+  const double q = p / 100.0;
+  const double v = static_cast<double>(count - 1) * q;
+  const double lower = std::floor(v);
+  position.valid = true;
+  position.lower = static_cast<std::size_t>(lower);
+  position.upper = std::min(position.lower + 1, count - 1);
+  position.fraction = v - lower;
+  return position;
+}
+
+double interpolatePercentile(double a, double b, double t) {
+  if (std::isinf(a) || std::isinf(b)) {
+    return (t == 0.0 || a == b) ? a : a + b;
+  }
+  const double d = b - a;
+  if (t < 0.5) {
+    const double step = d * t;
+    return a + step;
+  }
+  const double rest = 1.0 - t;
+  const double back = d * rest;
+  return b - back;
 }
 
 std::vector<NodeId> Arena::children(NodeId id) const {

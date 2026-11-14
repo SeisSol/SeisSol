@@ -242,6 +242,14 @@ def angles(n) = [k * 180 / n for k in range(n)]
 # largest of these give RotD100.
 def rotated(a1, a2, angles) =
   [abs(a1 * cos(t * pi / 180) + a2 * sin(t * pi / 180)) for t in angles]
+
+# Of the largest motions along the angles (`peaks`, of angles() as above): RotD50, their median;
+# and GMRotD50 (Boore, Watson-Lamprey and Abrahamson 2006), the median over the angles below 90
+# degrees of the geometric mean of the largest motions along an angle and along the angle 90
+# degrees on, of an even number of angles.
+def rotd50(peaks) = median(peaks)
+def gmrotd50(peaks) =
+  median([sqrt(peaks[k] * peaks[k + len(peaks) / 2]) for k in range(len(peaks) / 2)])
 )sderiv";
 
 } // namespace

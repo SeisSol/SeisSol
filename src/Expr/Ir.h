@@ -21,6 +21,7 @@
 //     outputs and the cadence of the consumer express them.
 //   * Const interning keys on the bit pattern, not on `==` (see NodeEq).
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -47,6 +48,10 @@ inline constexpr BlockId NoBlock = -1;
 // Upper bound on Lookup coordinate count, from the grid dimensionality easi
 // supports. Bounded so a Lookup's argument span always fits a small stack array.
 inline constexpr std::int32_t MaxLookupDimension = 6;
+
+// Upper bound on the values of a percentile: what a GPU thread keeps in its local memory to select
+// from (720 of a RotD50 in steps of a quarter degree fit).
+inline constexpr std::int32_t MaxPercentileValues = 1024;
 
 // The type of a value. A program computes in its compute type (Program::computeType(), which the
 // consumer chooses, e.g. binary32 in a single-precision build): that is Real. Where a script
@@ -85,7 +90,13 @@ enum class Kind : std::uint8_t {
   // binary64 -- or, for a component below zero, the knot of axis a at that offset (-1 - 2 a), or
   // the reciprocal of the spacing after it (-2 - 2 a), of an axis of knots (knotsOf(), ArrayView).
   GridParam,
-  GridLoad
+  GridLoad,
+  // The percentile `a` (0 to 100) of the values of the span (argBegin, argCount) at the point:
+  // their order statistics (a negative zero before a positive one), and between two of them the
+  // linear interpolation of numpy.percentile (method "linear") in binary64, rounded to the type
+  // of the node (percentilePosition(), interpolatePercentile()). NaN where `a` or a value is NaN,
+  // or `a` is outside [0, 100].
+  Percentile
 };
 
 /// The component of a Kind::GridLoad that reads the knots of axis `axis`, and the one that reads
@@ -200,8 +211,8 @@ struct Node {
   NodeId a{NoNode};          // PW arg0 / Cast.x / GridLoad offset
   NodeId b{NoNode};          // PW arg1
   NodeId c{NoNode};          // PW arg2 (Select only)
-  std::int32_t argBegin{0};  // Lookup: coordinate children, span into Arena::args_
-  std::int32_t argCount{0};
+  std::int32_t argBegin{0};  // Lookup: coordinate children; Percentile: the values; span into
+  std::int32_t argCount{0};  // Arena::args_
   // PW: computed as written, each operation rounded on its own: a backend that contracts a*b + c
   // into a fused multiply-add elsewhere does not here. The arithmetic of a written-out lookup,
   // whose samples are the same bits on every backend (expandLookups()).
@@ -274,6 +285,9 @@ class Arena {
                 const std::vector<NodeId>& coords,
                 ValueType type = ValueType::Real);
   NodeId contract(MatrixId matrix, BlockId block, ValueType type = ValueType::Real);
+  // The percentile `p` of `values` (Kind::Percentile), in the order given: 1 to
+  // MaxPercentileValues of them.
+  NodeId percentile(NodeId p, const std::vector<NodeId>& values, ValueType type = ValueType::Real);
   // The value of `x`, converted to `type`.
   NodeId cast(ValueType type, NodeId x);
 
@@ -297,6 +311,33 @@ class Arena {
 
 const char* name(Fn f);
 bool fnFromName(const std::string& s, Fn& out);
+
+/// Where the percentile `p` of `count` values lies among their order statistics (Kind::Percentile),
+/// in binary64 with every operation rounded on its own, as every backend computes it: v = (count -
+/// 1) * q with q = p / 100, the lower order statistic at floor(v), counted from 0, the upper one
+/// after it (or the same at the last), and the fraction t = v - floor(v). Not valid where `p` is
+/// NaN or outside [0, 100].
+struct PercentilePosition {
+  bool valid{false};
+  std::size_t lower{0};
+  std::size_t upper{0};
+  double fraction{0};
+};
+[[nodiscard]] PercentilePosition percentilePosition(double p, std::size_t count);
+
+/// The value of Kind::Percentile from its order statistics `a` and `b` at the fraction `t`
+/// (percentilePosition()), in binary64 with every operation rounded on its own: for finite `a` and
+/// `b`, numpy's linear interpolation (a + (b - a) * t below 0.5, b - (b - a) * (1 - t) from 0.5
+/// on); else its limit, `a` at t = 0 and where a == b, and a + b elsewhere (NaN between the two
+/// infinities).
+[[nodiscard]] double interpolatePercentile(double a, double b, double t);
+
+/// Whether `x` comes before `y` in the order of the values of a percentile: by value, a negative
+/// zero before a positive one; no NaN.
+template <typename T>
+[[nodiscard]] bool percentileBefore(T x, T y) {
+  return x < y || (x == y && std::signbit(x) && !std::signbit(y));
+}
 
 } // namespace seissol::expr
 

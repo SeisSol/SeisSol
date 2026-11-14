@@ -76,7 +76,8 @@ enum class Opcode : std::uint8_t {
   GridParam,      // grid, comp = GridField, imm = axis; no operands (Kind::GridParam)
   GridLoad,       // grid; one operand, the offset (Kind::GridLoad)
   Contract,       // matrix, block; no operands
-  Convert         // one operand, converted from the type of its slot to the type of the instruction
+  Convert,        // one operand, converted from the type of its slot to the type of the instruction
+  Percentile      // the percentile, then the values (Kind::Percentile)
 };
 
 const char* name(Opcode op);
@@ -216,6 +217,9 @@ class LoweredProgram {
   [[nodiscard]] bool usesGrids() const;
   /// Whether an instruction is computed without contraction (Instruction::strict).
   [[nodiscard]] bool hasStrict() const;
+  /// Whether an instruction is a percentile, which a compiled backend computes with a function of
+  /// its own (Opcode::Percentile).
+  [[nodiscard]] bool usesPercentile() const;
 
   private:
   friend LoweredProgram lower(const Program&, const LowerOptions&);

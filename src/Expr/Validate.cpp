@@ -128,6 +128,15 @@ void checkNode(const Program& program, NodeId id, const std::unordered_set<int>&
       fail("a conversion has no operand");
     }
     break;
+  case Kind::Percentile:
+    if (n.a == NoNode) {
+      fail("a percentile has no percentile");
+    }
+    if (n.argCount < 1 || n.argCount > MaxPercentileValues) {
+      fail("a percentile has " + std::to_string(n.argCount) + " values, expected 1 .. " +
+           std::to_string(MaxPercentileValues));
+    }
+    break;
   case Kind::GridParam:
   case Kind::GridLoad:
     fail(std::string("node kind '") + name(n.kind) +

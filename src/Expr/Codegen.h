@@ -158,6 +158,33 @@ void emitStrictMacros(std::ostringstream& out,
                       const std::string& sub,
                       const std::string& mul);
 
+/// How a target computes the position and the interpolation of a percentile (Kind::Percentile):
+/// in binary64, with every operation rounded on its own. The operations with `x` and `y` for their
+/// operands; the qualifier of a function, and what its body starts with (a pragma that switches
+/// contraction off, say); and a quiet NaN in binary64.
+struct PercentileArithmetic {
+  std::string qualifier{"static inline"};
+  std::string prologue;
+  std::string add{"((x) + (y))"};
+  std::string sub{"((x) - (y))"};
+  std::string mul{"((x) * (y))"};
+  std::string div{"((x) / (y))"};
+  std::string floor{"floor"};
+  std::string fabs{"fabs"};
+  std::string nan{"(0.0 / 0.0)"};
+};
+
+/// The functions of the percentiles of `lowered`, one per type it computes them in
+/// (percentileFunction()): what percentileOf() computes, the order statistic by a selection in the
+/// array of the values, the next one as the least of those after it. Nothing for a program without
+/// percentiles.
+void emitPercentileFunctions(std::ostringstream& out,
+                             const LoweredProgram& lowered,
+                             const PercentileArithmetic& arithmetic);
+
+/// The name of the function of a percentile in `type` (emitPercentileFunctions()).
+[[nodiscard]] std::string percentileFunction(ComputeType type);
+
 /// The expression text for `fn`, straight out of the interpreter's table, with
 /// `x`, `y`, `z` still as placeholders.
 [[nodiscard]] const char* expressionText(Fn fn);

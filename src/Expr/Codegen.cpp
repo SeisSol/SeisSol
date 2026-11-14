@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -161,7 +162,135 @@ void emitContraction(std::ostringstream& out,
       << indent << "}\n";
 }
 
+/// A percentile: its values gathered into an array, which the function of its type
+/// (emitPercentileFunctions()) reorders.
+void emitPercentile(std::ostringstream& out,
+                    const Instruction& inst,
+                    const std::vector<std::int32_t>& operands,
+                    const std::string& dst,
+                    const std::function<std::string(std::int32_t)>& slot,
+                    const std::string& indent) {
+  const std::string type = typeName(inst.type);
+  const std::int32_t count = inst.operandCount - 1;
+  out << indent << "{\n" << indent << "  " << type << " values[" << count << "] = {";
+  for (std::int32_t k = 0; k < count; ++k) {
+    if (k > 0) {
+      out << (k % 8 == 0 ? ",\n" + indent + "      " : std::string(", "));
+    }
+    out << slot(operands[inst.operandBegin + 1 + k]);
+  }
+  out << "};\n"
+      << indent << "  " << dst << " = " << percentileFunction(inst.type) << "("
+      << slot(operands[inst.operandBegin]) << ", values, " << count << ");\n"
+      << indent << "}\n";
+}
+
 } // namespace
+
+std::string percentileFunction(ComputeType type) {
+  return std::string("seissol_expr_percentile_") + (type == ComputeType::F32 ? "f32" : "f64");
+}
+
+void emitPercentileFunctions(std::ostringstream& out,
+                             const LoweredProgram& lowered,
+                             const PercentileArithmetic& arithmetic) {
+  std::vector<ComputeType> types;
+  for (const StageCode* stage : {&lowered.precompute(), &lowered.run()}) {
+    for (const Instruction& inst : stage->code) {
+      if (inst.op == Opcode::Percentile &&
+          std::find(types.begin(), types.end(), inst.type) == types.end()) {
+        types.push_back(inst.type);
+      }
+    }
+  }
+  const auto op = [](const std::string& text, const std::string& x, const std::string& y) {
+    return substitute(text, x, y, "", "double", MathStyle::Namespaced);
+  };
+  const std::string add = arithmetic.add;
+  const std::string sub = arithmetic.sub;
+  const std::string mul = arithmetic.mul;
+  for (const ComputeType type : types) {
+    const std::string t = typeName(type);
+    // a negative zero before a positive one, which compare equal: by their reciprocals
+    const auto before = [&](const std::string& x, const std::string& y) {
+      return "(" + x + " < " + y + " || (" + x + " == " + y + " && (" + t + ")1 / " + x + " < (" +
+             t + ")1 / " + y + "))";
+    };
+    const std::string infinite = " > 1.7976931348623157e308";
+    out << "/* the percentile p of the n values at v, which it reorders (Kind::Percentile) */\n"
+        << arithmetic.qualifier << " " << t << " " << percentileFunction(type) << "(" << t << " p, "
+        << t << "* v, int n) {\n";
+    if (!arithmetic.prologue.empty()) {
+      out << arithmetic.prologue << "\n";
+    }
+    out << "  for (int i = 0; i < n; ++i) {\n"
+        << "    if (v[i] != v[i]) {\n"
+        << "      return (" << t << ")" << arithmetic.nan << ";\n"
+        << "    }\n"
+        << "  }\n"
+        << "  const double at = (double)p;\n"
+        << "  if (!(at >= 0.0 && at <= 100.0)) {\n"
+        << "    return (" << t << ")" << arithmetic.nan << ";\n"
+        << "  }\n"
+        << "  const double q = " << op(arithmetic.div, "at", "100.0") << ";\n"
+        << "  const double position = " << op(mul, "(double)(n - 1)", "q") << ";\n"
+        << "  const double below = " << arithmetic.floor << "(position);\n"
+        << "  const int lower = (int)below;\n"
+        << "  const double t = " << op(sub, "position", "below") << ";\n"
+        << "  int left = 0;\n"
+        << "  int right = n - 1;\n"
+        << "  while (left < right) {\n"
+        << "    const " << t << " pivot = v[left + (right - left) / 2];\n"
+        << "    int i = left;\n"
+        << "    int j = right;\n"
+        << "    while (i <= j) {\n"
+        << "      while (" << before("v[i]", "pivot") << ") {\n"
+        << "        ++i;\n"
+        << "      }\n"
+        << "      while (" << before("pivot", "v[j]") << ") {\n"
+        << "        --j;\n"
+        << "      }\n"
+        << "      if (i <= j) {\n"
+        << "        const " << t << " swap = v[i];\n"
+        << "        v[i] = v[j];\n"
+        << "        v[j] = swap;\n"
+        << "        ++i;\n"
+        << "        --j;\n"
+        << "      }\n"
+        << "    }\n"
+        << "    if (lower <= j) {\n"
+        << "      right = j;\n"
+        << "    } else if (lower >= i) {\n"
+        << "      left = i;\n"
+        << "    } else {\n"
+        << "      break;\n"
+        << "    }\n"
+        << "  }\n"
+        << "  const " << t << " a = v[lower];\n"
+        << "  " << t << " b = a;\n"
+        << "  if (lower + 1 < n) {\n"
+        << "    b = v[lower + 1];\n"
+        << "    for (int k = lower + 2; k < n; ++k) {\n"
+        << "      if (" << before("v[k]", "b") << ") {\n"
+        << "        b = v[k];\n"
+        << "      }\n"
+        << "    }\n"
+        << "  }\n"
+        << "  const double x = (double)a;\n"
+        << "  const double y = (double)b;\n"
+        << "  double r;\n"
+        << "  if (" << arithmetic.fabs << "(x)" << infinite << " || " << arithmetic.fabs << "(y)"
+        << infinite << ") {\n"
+        << "    r = (t == 0.0 || x == y) ? x : " << op(add, "x", "y") << ";\n"
+        << "  } else {\n"
+        << "    const double d = " << op(sub, "y", "x") << ";\n"
+        << "    r = t < 0.5 ? " << op(add, "x", op(mul, "d", "t")) << " : "
+        << op(sub, "y", op(mul, "d", op(sub, "1.0", "t"))) << ";\n"
+        << "  }\n"
+        << "  return (" << t << ")r;\n"
+        << "}\n\n";
+  }
+}
 
 const char* expressionText(Fn fn) {
   switch (fn) {
@@ -379,6 +508,9 @@ void emitStageBody(std::ostringstream& out,
       }
       emitContraction(out, inst, dst, type, *addressing.contract, pad);
       break;
+    case Opcode::Percentile:
+      emitPercentile(out, inst, operands, dst, slotName, current);
+      break;
     }
     const auto after = static_cast<std::int32_t>(index) + 1;
     while (!open.empty() && open.back().end == after) {
@@ -543,6 +675,12 @@ void emitStageBodyTiled(std::ostringstream& out,
     case Opcode::Contract:
       throw std::invalid_argument(
           "expr: a contraction reached the tiled code generator; emit one point after the other");
+    case Opcode::Percentile:
+      // one lane after the other: a selection does not vectorize
+      out << current << "for (unsigned long j = 0; j < n; ++j) {\n";
+      emitPercentile(out, inst, operands, dst, slot, current + "  ");
+      out << current << "}\n";
+      break;
     }
     while (!ends.empty() && ends.back() == static_cast<std::int32_t>(index) + 1) {
       ends.pop_back();

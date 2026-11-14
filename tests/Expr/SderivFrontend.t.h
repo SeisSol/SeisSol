@@ -21,6 +21,7 @@
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
@@ -442,6 +443,36 @@ TEST_SUITE("SderivFrontend") {
     CHECK(row(6) == std::vector<double>{2, 3, 2, 2});
   }
 
+  TEST_CASE("percentile and median of numbers and of one array, as the core format has them") {
+    const auto same = [](const std::string& language, const std::string& expected) {
+      CAPTURE(language);
+      CHECK(compileSderivModule(language).fingerprint() ==
+            compileSderivModule(expected).fingerprint());
+    };
+    same("out def m = median(x, y, z)\n", "out def m = percentile(50, x, y, z)\n");
+    same("out def m = median([x, y, z])\n", "out def m = percentile(50, x, y, z)\n");
+    same("out def m = percentile(90, [x, y, 2 * x])\n",
+         "out def m = percentile(90, x, y, 2 * x)\n");
+    same("out def m = median([x * k for k in range(3)])\n",
+         "out def m = percentile(50, x * 0, x * 1, x * 2)\n");
+    // the values in the order given
+    const Program program = compileSderivModule("out def m = percentile(p, y, x)\n");
+    const Node& node = program.arena()[program.roots()[0]];
+    REQUIRE(node.kind == Kind::Percentile);
+    CHECK(node.argCount == 2);
+    // a definition of the name hides it
+    reader::datafield::GridStore store;
+    const auto values = interpretValues(
+        compileSderivModule("def median(a) = 2 * a\nout def m = median(x)\n"), store, {3.0}, 1);
+    CHECK(values == std::vector<double>{6.0});
+
+    mustReject("median()", "takes numbers, or one array of them");
+    mustReject("percentile(50)", "takes the percentile and numbers");
+    mustReject("percentile([1, 2], x)", "the percentile of `percentile` is a number");
+    mustReject("median([x, [y]])", "takes numbers, or one array of them");
+    mustReject("median({a = x})", "takes numbers, or one array of them");
+  }
+
   TEST_CASE("comparisons do not chain, and the negation is not") {
     mustReject("x < y < z", "comparisons do not chain");
     mustReject("x == y != z", "comparisons do not chain");
@@ -802,6 +833,27 @@ TEST_SUITE("SderivFrontend") {
     // |3 cos t + 4 sin t| is largest, 5, at t = atan(4 / 3) = 53.13 degrees: the angle 53
     CHECK(first[0] == doctest::Approx(5.0).epsilon(1e-3));
     CHECK(first[0] <= 5.0);
+
+    // RotD50 and GMRotD50 of the largest motions along the angles
+    const auto medians = compileSderivModule("import motion as m\n"
+                                             "def peaks = m.rotated(v1, v2, m.angles(180))\n"
+                                             "out def rotd50 = m.rotd50(peaks)\n"
+                                             "out def gmrotd50 = m.gmrotd50(peaks)\n");
+    const auto values = interpretValues(medians, store, {3.0, 4.0}, 1);
+    std::vector<double> peaks(180);
+    for (std::size_t k = 0; k < 180; ++k) {
+      const double t = static_cast<double>(k) * M_PI / 180.0;
+      peaks[k] = std::abs(3.0 * std::cos(t) + 4.0 * std::sin(t));
+    }
+    std::vector<double> sorted = peaks;
+    std::sort(sorted.begin(), sorted.end());
+    CHECK(values[0] == doctest::Approx(0.5 * (sorted[89] + sorted[90])).epsilon(1e-12));
+    std::vector<double> means(90);
+    for (std::size_t k = 0; k < 90; ++k) {
+      means[k] = std::sqrt(peaks[k] * peaks[k + 90]);
+    }
+    std::sort(means.begin(), means.end());
+    CHECK(values[1] == doctest::Approx(0.5 * (means[44] + means[45])).epsilon(1e-12));
   }
 
   // ------------------------------------------------------------ negative ---

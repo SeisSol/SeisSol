@@ -131,6 +131,13 @@ StageCost countStage(const Program& program,
       costs.loads += 2 * cols;
       break;
     }
+    case Opcode::Percentile:
+      // a selection among the values, about three comparisons per value, and the position and the
+      // interpolation
+      costs.additive += 3 * static_cast<std::uint64_t>(inst.operandCount - 1) + 3;
+      costs.multiplicative += 2;
+      ++costs.divisions;
+      break;
     case Opcode::Pw:
       switch (classify(inst.fn)) {
       case Class::Additive:

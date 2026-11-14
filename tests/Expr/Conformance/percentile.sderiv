@@ -1,0 +1,23 @@
+#!sderiv 1
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#
+# Percentiles: the order statistics of values with ties, zeros of both signs, infinities and NaN, at
+# fixed percentiles, between two of them and on one, and at percentiles the point gives, valid or
+# not -- the same bits on every backend.
+in p, a, b, c, d, e
+def q = abs(p) * 25
+out median = percentile(50, a, b, c, d, e)
+out even = percentile(50, a, b, c, d)
+out quartile = percentile(25, a, b, c, d, e)
+out third = percentile(33.3, a, b, c, d, e, a, b)
+out least = percentile(0, a, b, c)
+out most = percentile(100, a, b, c)
+out given = percentile(q, a, b, c, d, e)
+out raw = percentile(p, a, b, c)
+out single = percentile(q, a)
+out zeros = percentile(25, a, -0, -0)

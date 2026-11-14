@@ -131,6 +131,15 @@ void substituteChannels(Program& program, const std::map<std::string, ChannelBui
     case Kind::Contract:
       map[id] = arena.contract(node.matrix, node.block, node.type);
       break;
+    case Kind::Percentile: {
+      coordinates.clear();
+      const NodeId* args = old.args(node);
+      for (std::int32_t i = 0; i < node.argCount; ++i) {
+        coordinates.push_back(map[args[i]]);
+      }
+      map[id] = arena.percentile(map[node.a], coordinates, node.type);
+      break;
+    }
     case Kind::GridParam:
     case Kind::GridLoad:
       throw std::invalid_argument(
@@ -260,6 +269,20 @@ NodeId replaceChannels(Arena& arena,
     }
     break;
   }
+  case Kind::Percentile: {
+    std::vector<NodeId> values(arena.args(node), arena.args(node) + node.argCount);
+    const NodeId p = replaceChannels(arena, node.a, replacements, memo);
+    bool changed = p != node.a;
+    for (auto& value : values) {
+      const NodeId replaced = replaceChannels(arena, value, replacements, memo);
+      changed |= replaced != value;
+      value = replaced;
+    }
+    if (changed) {
+      result = arena.percentile(p, values, node.type);
+    }
+    break;
+  }
   default:
     throw std::invalid_argument(std::string("cannot replace the channels below a node of kind ") +
                                 name(node.kind));
@@ -361,6 +384,15 @@ NodeId importNode(Program& target, NodeId root, Imports& imports) {
     const auto matrix = imports.matrix(target, node.matrix);
     const auto block = imports.block(target, node.block);
     result = target.arena().contract(matrix, block, node.type);
+    break;
+  }
+  case Kind::Percentile: {
+    std::vector<NodeId> values(source.args(node), source.args(node) + node.argCount);
+    for (auto& value : values) {
+      value = importNode(target, value, imports);
+    }
+    const NodeId p = importNode(target, node.a, imports);
+    result = target.arena().percentile(p, values, node.type);
     break;
   }
   default:

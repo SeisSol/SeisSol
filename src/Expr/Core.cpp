@@ -1117,6 +1117,18 @@ class Loader {
   }
 
   NodeId call(const Token& at, int depth) {
+    // the percentile p of the values that follow it, of any number
+    if (at.text == "percentile") {
+      std::vector<NodeId> args = arguments(depth);
+      if (args.size() < 2 || args.size() > static_cast<std::size_t>(MaxPercentileValues) + 1) {
+        fail(at,
+             "`percentile` takes the percentile and 1 to " + std::to_string(MaxPercentileValues) +
+                 " values, not " + std::to_string(args.size()) + " arguments");
+      }
+      const NodeId p = args.front();
+      args.erase(args.begin());
+      return arena().percentile(p, args);
+    }
     const auto& operations = operationSpellings();
     const auto operation =
         std::find_if(operations.begin(), operations.end(), [&](const auto& spelling) {
@@ -1674,6 +1686,14 @@ class Printer {
       const NodeId* coordinates = arena_.args(node);
       for (std::int32_t i = 0; i < node.argCount; ++i) {
         text += (i == 0 ? "" : ", ") + operand(coordinates[i]);
+      }
+      return text + ")";
+    }
+    case Kind::Percentile: {
+      std::string text = "percentile(" + operand(node.a);
+      const NodeId* values = arena_.args(node);
+      for (std::int32_t i = 0; i < node.argCount; ++i) {
+        text += ", " + operand(values[i]);
       }
       return text + ")";
     }

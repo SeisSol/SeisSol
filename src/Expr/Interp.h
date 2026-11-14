@@ -29,9 +29,11 @@
 #include "Expr/Program.h"
 #include "Reader/Datafield/Interpolation.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <string>
 #include <vector>
@@ -135,6 +137,26 @@ T applyPw(Fn f, const T* args) {
 #undef SEISSOL_EXPR_PW_SCALAR_TERNARY
   }
   return T(0);
+}
+
+/// Kind::Percentile of the percentile `p` of the `n` values at `values`, which it reorders: the
+/// order statistics are the same bits whatever finds them (percentileBefore() orders all of them
+/// but a NaN), the rest is percentilePosition() and interpolatePercentile().
+template <typename T>
+T percentileOf(T p, T* values, std::size_t n) {
+  const auto position = percentilePosition(static_cast<double>(p), n);
+  if (!position.valid || std::any_of(values, values + n, [](T x) { return std::isnan(x); })) {
+    return std::numeric_limits<T>::quiet_NaN();
+  }
+  const auto before = [](T x, T y) { return percentileBefore(x, y); };
+  std::nth_element(values, values + position.lower, values + n, before);
+  const T a = values[position.lower];
+  // the next order statistic: the least of those after the lower one
+  const T b = position.upper == position.lower
+                  ? a
+                  : *std::min_element(values + position.lower + 1, values + n, before);
+  return static_cast<T>(
+      interpolatePercentile(static_cast<double>(a), static_cast<double>(b), position.fraction));
 }
 
 // --- seams -------------------------------------------------------------------

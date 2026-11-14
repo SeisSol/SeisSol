@@ -2435,6 +2435,41 @@ private:
     return leftMatrix ? matrixValue(product) : vectorValue(product.front());
   }
 
+  /// percentile(p, values...) and median(values...), the percentile 50: of numbers, or of the
+  /// elements of one array of numbers (Kind::Percentile).
+  Value percentileValue(const SurfaceNode& node,
+                        const std::string& what,
+                        const std::vector<Value>& args) {
+    auto& arena = program_.arena();
+    const bool median = node.text == "median";
+    const std::size_t first = median ? 0 : 1;
+    const std::string takes =
+        what + " takes " + (median ? "" : "the percentile and ") + "numbers, or one array of them";
+    if (args.size() <= first) {
+      fail(node, takes);
+    }
+    if (!median && !args[0].isNumber()) {
+      fail(node, "the percentile of " + what + " is a number, not " + described(args[0]));
+    }
+    const NodeId p = median ? arena.konst(50.0) : args[0].node;
+    const bool array = args.size() == first + 1 && args[first].shape == Value::Shape::Array;
+    const std::vector<Value> values(array ? args[first].items.begin() : args.begin() + first,
+                                    array ? args[first].items.end() : args.end());
+    std::vector<NodeId> nodes;
+    for (const auto& value : values) {
+      if (!value.isNumber()) {
+        fail(node, takes + ", not " + (array ? described(args[first]) : described(value)));
+      }
+      nodes.push_back(value.node);
+    }
+    if (nodes.empty() || nodes.size() > static_cast<std::size_t>(MaxPercentileValues)) {
+      fail(node,
+           what + " takes 1 to " + std::to_string(MaxPercentileValues) + " values, not " +
+               std::to_string(nodes.size()));
+    }
+    return Value::number(arena.percentile(p, nodes));
+  }
+
   /// The intrinsic of arrays `node` calls (Intrinsics), of the values `args`.
   Value intrinsic(const SurfaceNode& node, const std::vector<Value>& args) {
     auto& arena = program_.arena();
@@ -3179,6 +3214,11 @@ private:
         return leafwise(node, what, args, [&](const std::vector<NodeId>& n) {
           return program_.arena().cast(conversion->second, n[0]);
         });
+      }
+
+      // the percentile p, or the median, of numbers or of the elements of one array
+      if (node.text == "percentile" || node.text == "median") {
+        return percentileValue(node, what, args);
       }
 
       if (const auto intrinsicArity = Intrinsics.find(node.text);

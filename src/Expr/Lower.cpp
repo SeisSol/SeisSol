@@ -52,6 +52,9 @@ std::int64_t weight(const Program& program, const Node& n) {
     return 4;
   case Kind::Contract:
     return static_cast<std::int64_t>(program.matrices()[n.matrix].shape.cols);
+  case Kind::Percentile:
+    // the values copied, and a selection among them
+    return 4 * static_cast<std::int64_t>(n.argCount);
   case Kind::PW:
     switch (n.fn) {
     case Fn::Exp:
@@ -228,6 +231,7 @@ Analysis analyse(const Program& program,
       sp = Space::Point;
       break;
     case Kind::PW:
+    case Kind::Percentile:
       break;
     default:
       fail(std::string("node kind '") + name(node.kind) +
@@ -403,12 +407,16 @@ class Emitter {
         case Kind::Cast:
           inst.op = Opcode::Convert;
           break;
+        case Kind::Percentile:
+          inst.op = Opcode::Percentile;
+          break;
         default:
           fail(std::string("node kind '") + name(node.kind) + "' reached the emitter");
         }
       }
 
-      if (inst.op == Opcode::Pw || inst.op == Opcode::GridLoad || inst.op == Opcode::Convert) {
+      if (inst.op == Opcode::Pw || inst.op == Opcode::GridLoad || inst.op == Opcode::Convert ||
+          inst.op == Opcode::Percentile) {
         arena.children(id, kids);
         inst.operandBegin = static_cast<std::int32_t>(operands_.size());
         inst.operandCount = static_cast<std::int32_t>(kids.size());
@@ -521,6 +529,8 @@ const char* name(Opcode op) {
     return "contract";
   case Opcode::Convert:
     return "convert";
+  case Opcode::Percentile:
+    return "percentile";
   }
   return "?";
 }
@@ -661,6 +671,17 @@ bool LoweredProgram::hasStrict() const {
   for (const StageCode* stage : {&precompute_, &run_}) {
     for (const Instruction& inst : stage->code) {
       if (inst.strict) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool LoweredProgram::usesPercentile() const {
+  for (const StageCode* stage : {&precompute_, &run_}) {
+    for (const Instruction& inst : stage->code) {
+      if (inst.op == Opcode::Percentile) {
         return true;
       }
     }

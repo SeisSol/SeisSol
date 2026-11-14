@@ -878,6 +878,42 @@ TEST_SUITE("Expr::Interp") {
     std::vector<double> persistent(1, 0.0);
     CHECK_THROWS_AS(interp.run(io, numPoints, persistent.data()), std::invalid_argument);
   }
+
+  TEST_CASE("a percentile: the order statistics, numpy's interpolation, and its limits") {
+    constexpr double Inf = std::numeric_limits<double>::infinity();
+    constexpr double Nan = std::numeric_limits<double>::quiet_NaN();
+    const auto of = [](double p, std::vector<double> values) {
+      return percentileOf<double>(p, values.data(), values.size());
+    };
+    CHECK(of(50, {4, 1, 3, 2}) == 2.5);
+    CHECK(of(25, {4, 1, 3, 2}) == 1.75);
+    CHECK(of(0, {4, 1, 3, 2}) == 1);
+    CHECK(of(100, {4, 1, 3, 2}) == 4);
+    CHECK(of(50, {7}) == 7);
+    // numpy.percentile([0.1, 0.7], 90): from the upper one down
+    CHECK(unit_test::bitwiseEqual(of(90, {0.7, 0.1}), 0.7 - (0.7 - 0.1) * (1.0 - 0.9)));
+    CHECK(unit_test::bitwiseEqual(of(10, {0.7, 0.1}), 0.1 + (0.7 - 0.1) * 0.1));
+    // a negative zero before a positive one: the upper order statistic of the interpolation from
+    // 0.5 on, b - (b - a) * (1 - t), keeps its sign; below, a + (b - a) * t is a positive zero
+    CHECK(unit_test::bitwiseEqual(of(25, {0.0, -0.0, -0.0}), -0.0));
+    CHECK(unit_test::bitwiseEqual(of(75, {-0.0, 0.0, -0.0}), 0.0));
+    CHECK(unit_test::bitwiseEqual(of(0, {0.0, -0.0}), 0.0));
+    // at an infinity, the limit of the interpolation
+    CHECK(of(50, {1, Inf}) == Inf);
+    CHECK(of(50, {-Inf, 1}) == -Inf);
+    CHECK(of(0, {1, Inf}) == 1);
+    CHECK(of(50, {Inf}) == Inf);
+    CHECK(std::isnan(of(50, {-Inf, Inf})));
+    // NaN where a value or the percentile is NaN, or the percentile is beyond [0, 100]
+    CHECK(std::isnan(of(50, {1, Nan, 3})));
+    CHECK(std::isnan(of(Nan, {1, 2})));
+    CHECK(std::isnan(of(-1, {1, 2})));
+    CHECK(std::isnan(of(100.5, {1, 2})));
+    // in binary32: the order statistics in it, the rest in binary64, rounded once
+    std::vector<float> values = {3.0F, 1.0F, 2.0F};
+    CHECK(percentileOf<float>(33.3F, values.data(), values.size()) ==
+          static_cast<float>(1.0 + 1.0 * (2.0 * static_cast<double>(33.3F) / 100.0)));
+  }
 }
 
 } // namespace seissol::expr::test

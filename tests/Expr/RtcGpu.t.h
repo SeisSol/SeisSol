@@ -56,6 +56,7 @@ constexpr auto HostShim = R"(
 #define SEISSOL_EXPR_DADD(x, y) ((x) + (y))
 #define SEISSOL_EXPR_DSUB(x, y) ((x) - (y))
 #define SEISSOL_EXPR_DMUL(x, y) ((x) * (y))
+#define SEISSOL_EXPR_DDIV(x, y) ((x) / (y))
 #include <cmath>
 using namespace std;
 )";
@@ -920,6 +921,52 @@ TEST_SUITE("ExprRtcGpu") {
     CHECK_MESSAGE(nvrtcAccepts(cuda, ran, log), log);
   }
 
+  TEST_CASE("the device source of a percentile is valid for every target, in either type") {
+    for (const auto computeType : {ComputeType::F64, ComputeType::F32}) {
+      CAPTURE(static_cast<int>(computeType));
+      Program program =
+          compileSderivModule("out def u = percentile(abs(x) * 10.0, [x, y, -y, 0.5, -0.0])\n");
+      program.setComputeType(computeType);
+      std::vector<double> x(2);
+      std::vector<double> y(2);
+      std::vector<double> out(2);
+      DataTable table(2);
+      table.bindViewConst<double>("x", Direction::In, x.data());
+      table.bindViewConst<double>("y", Direction::In, y.data());
+      table.bindView<double>("u", Direction::Out, out.data());
+      const Binding binding = Binding::bind(program, table);
+      const GpuLayout layout = gpuLayoutOf(binding);
+      const LoweredProgram lowered = lower(program);
+      REQUIRE(lowered.usesPercentile());
+      const std::string function = codegen::percentileFunction(lowered.run().code.back().type);
+
+      // the position and the interpolation rounded per operation on every target
+      const std::string cuda = emitGpuSource(program, lowered, layout, GpuTarget::Cuda);
+      CHECK(cuda.find(function) != std::string::npos);
+      CHECK(cuda.find("__ddiv_rn") != std::string::npos);
+      const std::string hip = emitGpuSource(program, lowered, layout, GpuTarget::Hip);
+      CHECK(hip.find("#pragma clang fp contract(off)") != std::string::npos);
+      const std::string opencl = emitGpuSource(program, lowered, layout, GpuTarget::OpenCl);
+      CHECK(opencl.find("#pragma OPENCL FP_CONTRACT OFF") != std::string::npos);
+
+      bool ran = false;
+      std::string log;
+      const bool accepted = nvrtcAccepts(cuda, ran, log);
+      if (ran) {
+        INFO(log);
+        CHECK(accepted);
+      }
+      for (const char* arch : {"gfx90a", "gfx1100"}) {
+        CAPTURE(arch);
+        const bool compiled = hiprtcAccepts(hip, arch, ran, log);
+        if (ran) {
+          INFO(log);
+          CHECK(compiled);
+        }
+      }
+    }
+  }
+
   TEST_CASE("device code drops the std:: qualification") {
     // NVRTC has no <cmath>, so `std::sqrt` would not resolve. The maths
     // built-ins are unqualified in device code, and the substitution knows it --
@@ -1048,6 +1095,9 @@ TEST_SUITE("ExprRtcGpu") {
          "out def u = real(a) + x\nout def v = f32(y) * 2.0\n"},
         {"a negative zero and the infinities as constants",
          "out def u = x * -0.0\nout def v = select(lt(x, y), inf, -inf) + y\n"},
+        {"percentiles",
+         "out def u = median(x, y, x * y, 0.5) + percentile(30, [x, y, x - y, 2.0, -0.0])\n"
+         "out def v = percentile(min(abs(x), 10.0) * 10.0, y, -y, 0.0, -0.0)\n"},
         {"branches of selects, nested, and an else",
          "def c = lt(x, 0.0)\n"
          "def a = exp(x / 1e6) * sin(y) + log(abs(y) + 1.0) * cos(x)\n"

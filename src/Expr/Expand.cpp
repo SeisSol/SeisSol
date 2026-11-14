@@ -181,6 +181,14 @@ class Expander {
       return a.gridParam(node.grid, static_cast<GridField>(node.comp), node.axis);
     case Kind::GridLoad:
       return a.gridLoad(node.grid, node.comp, mapped(node.a));
+    case Kind::Percentile: {
+      std::vector<NodeId> values;
+      const NodeId* args = from_.args(node);
+      for (std::int32_t i = 0; i < node.argCount; ++i) {
+        values.push_back(mapped(args[i]));
+      }
+      return a.percentile(mapped(node.a), values, node.type);
+    }
     }
     fail(std::string("a node of the kind ") + name(node.kind) + " cannot be written out");
   }

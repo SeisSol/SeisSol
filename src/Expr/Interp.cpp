@@ -594,6 +594,28 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
     case Opcode::Convert:
       convertSlot(operands[inst.operandBegin], dst);
       break;
+    case Opcode::Percentile:
+      if constexpr (std::is_integral_v<U>) {
+        fail("a percentile of whole numbers");
+      } else {
+        // the operands of a lane gathered before its value is written, which may take the slot
+        // of one of them
+        const U* const p = operand(0);
+        const auto n = static_cast<std::size_t>(inst.operandCount - 1);
+        std::vector<const U*> values(n);
+        for (std::size_t i = 0; i < n; ++i) {
+          values[i] = operand(static_cast<std::int32_t>(i + 1));
+        }
+        std::vector<U> scratch(n);
+        for (std::size_t l = 0; l < count; ++l) {
+          for (std::size_t i = 0; i < n; ++i) {
+            scratch[i] = values[i][l];
+          }
+          const U at = p[l];
+          dst[l] = percentileOf<U>(at, scratch.data(), n);
+        }
+      }
+      break;
     }
   };
 

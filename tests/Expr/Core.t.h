@@ -344,6 +344,7 @@ out u = t2
         {"#!sderiv 1\nin x\nnext x = 1\n", 3, 6, "is none"},
         {"#!sderiv 1\nin x\nout u = foo(x)\n", 3, 9, "no operation `foo`"},
         {"#!sderiv 1\nin x\nout u = max(x)\n", 3, 9, "takes 2 arguments, not 1"},
+        {"#!sderiv 1\nin x\nout u = percentile(50)\n", 3, 9, "the percentile and 1 to 1024 values"},
         {"#!sderiv 1\nin x\nout u = x\nmeta a = \"b\"\n", 4, 1, "directly after the header"},
         {"#!sderiv 1\nin x\nout u = x $ 1\n", 3, 11, "unexpected character `$`"},
         {"#!sderiv 1\nin x\nout u = 2x\n", 3, 10, "followed by `x`"},
@@ -838,6 +839,25 @@ out rho = t4
     const BackendComparison backward = sampleOf(true);
     const std::set<std::uint64_t> again(backward.identities.begin(), backward.identities.end());
     CHECK(again == chosen);
+  }
+
+  TEST_CASE("a percentile of any number of values reads and prints as written") {
+    const std::string text = "#!sderiv 1\n"
+                             "in p, a, b\n"
+                             "def t0 = percentile(p, a, b, -0)\n"
+                             "def t1 = percentile(50, a)\n"
+                             "out u = t0\n"
+                             "out v = t1\n";
+    const Program program = loadCore(text, "");
+    CHECK(printCore(program) == text);
+    const Node& node = program.arena()[program.roots()[0]];
+    REQUIRE(node.kind == Kind::Percentile);
+    CHECK(node.argCount == 3);
+    CHECK(program.canonicalForm().find("=percentile ") != std::string::npos);
+    // the order of the values is part of the program
+    const Program swapped = loadCore("#!sderiv 1\nin p, a, b\nout u = percentile(p, b, a)\n", "");
+    const Program same = loadCore("#!sderiv 1\nin p, a, b\nout u = percentile(p, a, b)\n", "");
+    CHECK(swapped.fingerprint() != same.fingerprint());
   }
 
   TEST_CASE("a module in the core format reads through the sderiv entry point") {
