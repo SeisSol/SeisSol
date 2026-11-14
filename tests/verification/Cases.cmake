@@ -369,6 +369,74 @@ seissol_add_comparison(
     SIMULATIONS ${SEISSOL_COPIES_ODD}
     LABELS "bitwise;copies")
 
+# An easi boundary condition per simulation: the Dirichlet faces of every
+# second simulation take the other constant terms, in both copies of the
+# cells and in the fused simulations of each, which share the map of their
+# faces. The runs whose simulations all take the one or the other condition
+# hold them alike.
+set(SEISSOL_DIRICHLET ${SEISSOL_ZERO_STATE} "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}")
+foreach (_copies_quantity v1 v2)
+  seissol_add_minitest(
+      NAME dirichlet-box48-copies-${_copies_quantity}
+      MESH box48-dirichlet
+      PARAMETERS wave.par
+      STEPS 20
+      SET ${SEISSOL_DIRICHLET} "equations.BoundaryFileName='boundary-${_copies_quantity}.yaml'"
+      FILES boundary-${_copies_quantity}.yaml
+      REQUIRE equations=elastic
+      ACTIVITY "v1|v2:1e-12"
+      NO_SNAPSHOT
+      LABELS "smoke;copies")
+endforeach()
+set(SEISSOL_COPIES_BOUNDARIES ${SEISSOL_DIRICHLET}
+    "equations.BoundaryFileName='boundary-v1.yaml'")
+math(EXPR _copies_last "${SEISSOL_COPIES_SIMULATIONS} - 1")
+foreach (_copies_simulation RANGE ${_copies_last})
+  math(EXPR _copies_odd "${_copies_simulation} % 2")
+  if (_copies_odd)
+    list(APPEND SEISSOL_COPIES_BOUNDARIES
+         "equations.BoundaryFileName${_copies_simulation}='boundary-v2.yaml'")
+  endif()
+endforeach()
+seissol_add_minitest(
+    NAME dirichlet-box48-copies-terms
+    MESH box48-dirichlet
+    PARAMETERS wave.par
+    STEPS 20
+    SET ${SEISSOL_COPIES_BOUNDARIES}
+    FILES boundary-v1.yaml boundary-v2.yaml
+    REQUIRE equations=elastic
+    ACTIVITY "v1|v2:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;copies")
+seissol_add_comparison(
+    NAME bitwise-box48-copies-terms-v1
+    REFERENCE dirichlet-box48-copies-v1
+    CANDIDATE dirichlet-box48-copies-terms
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_EVEN}
+    LABELS "bitwise;copies")
+seissol_add_comparison(
+    NAME bitwise-box48-copies-terms-v2
+    REFERENCE dirichlet-box48-copies-v2
+    CANDIDATE dirichlet-box48-copies-terms
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_ODD}
+    LABELS "bitwise;copies")
+# the faces of the simulations fused into a cell share the map of their
+# condition, so their conditions cannot differ in it
+seissol_add_minitest(
+    NAME dirichlet-box48-fused-maps
+    MESH box48-dirichlet
+    PARAMETERS wave.par
+    STEPS 20
+    SET ${SEISSOL_ZERO_STATE} "equations.BoundaryFileName='boundary-v1.yaml'"
+        "equations.BoundaryFileName1='boundary-mirror.yaml'"
+    FILES boundary-v1.yaml boundary-mirror.yaml
+    REQUIRE equations=elastic "fused>=2"
+    EXPECT_FAILURE "can differ in their constant terms only"
+    LABELS "smoke;copies")
+
 # the simulations fused into a cell share its material, so they cannot name
 # different files
 seissol_add_minitest(

@@ -42,7 +42,8 @@ struct ModelParameters {
   double freqRatio{1.0};
   double gravitationalAcceleration{};
   double tv{};
-  std::string boundaryFileName;
+  // one per simulation, empty where there is none
+  std::vector<std::string> boundaryFileNames;
   // one per simulation; the simulations fused into a cell name the same one
   std::vector<std::string> materialFileNames;
   // one per simulation

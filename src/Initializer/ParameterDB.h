@@ -237,10 +237,14 @@ class DirichletCondition {
 
   ~DirichletCondition();
 
-  /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`.
+  /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`, for
+  /// the fused simulations `simulations` of the cell, which take it: their constant terms are those
+  /// of the condition, while the map is one for all fused simulations of the cell.
   template <typename Cfg>
-  [[nodiscard]] BoundaryFrame
-      query(const double* barycenter, Real<Cfg>* mapTermsData, Real<Cfg>* constantTermsData) const;
+  [[nodiscard]] BoundaryFrame query(const double* barycenter,
+                                    Real<Cfg>* mapTermsData,
+                                    Real<Cfg>* constantTermsData,
+                                    const std::vector<std::size_t>& simulations) const;
 
   private:
   easi::Component* model_;

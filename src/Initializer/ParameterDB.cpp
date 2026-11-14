@@ -807,13 +807,15 @@ DirichletCondition::~DirichletCondition() { delete model_; }
 template <typename Cfg>
 BoundaryFrame DirichletCondition::query(const double* barycenter,
                                         Real<Cfg>* mapTermsData,
-                                        Real<Cfg>* constantTermsData) const {
+                                        Real<Cfg>* constantTermsData,
+                                        const std::vector<std::size_t>& simulations) const {
   using real = Real<Cfg>;
   if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
   assert(mapTermsData != nullptr);
   assert(constantTermsData != nullptr);
+  assert(!simulations.empty());
 
   // The boundary condition is constant over the face, so it is sampled at the
   // face barycenter.
@@ -848,7 +850,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   for (size_t i = 0; i < varNames.size(); ++i) {
     const auto termName = std::string{"const_"} + varNames[i];
     known.insert(termName);
-    auto& term = multisim::multisimWrap<Cfg>(constantTerms, 0, i);
+    auto& term = multisim::multisimWrap<Cfg>(constantTerms, simulations.front(), i);
     if (supplied.count(termName) > 0) {
       adapter.addBindingPoint(termName, &term);
     } else {
@@ -892,12 +894,11 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
                   "stated in the face-aligned basis.";
   }
 
-  // The condition does not depend on the simulation index, so every fused
-  // simulation gets the same one.
-  for (std::size_t sim = 1; sim < Cfg::NumSimulations; ++sim) {
+  // every fused simulation that takes the condition gets its constant terms
+  for (const auto simulation : simulations) {
     for (size_t i = 0; i < varNames.size(); ++i) {
-      multisim::multisimWrap<Cfg>(constantTerms, sim, i) =
-          multisim::multisimWrap<Cfg>(constantTerms, 0, i);
+      multisim::multisimWrap<Cfg>(constantTerms, simulation, i) =
+          multisim::multisimWrap<Cfg>(constantTerms, simulations.front(), i);
     }
   }
 
@@ -905,8 +906,8 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
 }
 
 #define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
-  template BoundaryFrame DirichletCondition::query<Cfg>(const double*, Real<Cfg>*, Real<Cfg>*)     \
-      const;
+  template BoundaryFrame DirichletCondition::query<Cfg>(                                           \
+      const double*, Real<Cfg>*, Real<Cfg>*, const std::vector<std::size_t>&) const;
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
 #undef SEISSOL_CONFIG_INSTANTIATE
 

@@ -291,6 +291,45 @@ TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initiali
     }
     CHECK(params.plasticityFileNames.back() == "plasticity.yaml");
   }
+
+  SUBCASE("a boundary file per simulation") {
+    const YAML::Node node = YAML::Load(R"(
+      equations:
+        materialfilename: mat.yaml
+        boundaryfilename: boundary.yaml
+        boundaryfilename2: boundary-2.yaml
+        simcount: 3
+        freqcentral: 1
+        freqratio: 1
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readModelParameters(&reader, defaultConfig(), {});
+
+    CHECK(params.hasBoundaryFile);
+    REQUIRE(params.boundaryFileNames.size() == 3);
+    CHECK(params.boundaryFileNames[0] == "boundary.yaml");
+    // the file of the first simulation stands in for a missing one
+    CHECK(params.boundaryFileNames[1] == "boundary.yaml");
+    CHECK(params.boundaryFileNames[2] == "boundary-2.yaml");
+  }
+
+  SUBCASE("a boundary file for a later simulation only") {
+    const YAML::Node node = YAML::Load(R"(
+      equations:
+        materialfilename: mat.yaml
+        boundaryfilename1: boundary.yaml
+        simcount: 2
+        freqcentral: 1
+        freqratio: 1
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readModelParameters(&reader, defaultConfig(), {});
+
+    CHECK(params.hasBoundaryFile);
+    REQUIRE(params.boundaryFileNames.size() == 2);
+    CHECK(params.boundaryFileNames[0].empty());
+    CHECK(params.boundaryFileNames[1] == "boundary.yaml");
+  }
 }
 
 TEST_CASE("SimulationFiles" * doctest::test_suite("initializer")) {

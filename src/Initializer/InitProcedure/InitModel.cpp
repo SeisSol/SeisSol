@@ -319,14 +319,18 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   auto& meshReader = seissolInstance.meshReader();
   auto& memoryManager = seissolInstance.memoryManager();
 
-  std::optional<DirichletCondition> dirichletCondition;
-  if (seissolParams.model.hasBoundaryFile) {
-    dirichletCondition = DirichletCondition(seissolParams.model.boundaryFileName);
+  // the Dirichlet conditions of the simulations of the run, from each of their files once
+  const parameters::SimulationFiles boundaryFiles(seissolParams.model.boundaryFileNames);
+  std::vector<std::optional<DirichletCondition>> dirichletConditions(boundaryFiles.files.size());
+  for (std::size_t i = 0; i < boundaryFiles.files.size(); ++i) {
+    if (!boundaryFiles.files[i].empty()) {
+      dirichletConditions[i] = DirichletCondition(boundaryFiles.files[i]);
+    }
   }
 
   // the boundary mappings carry the Dirichlet map, which the flux solvers absorb
   seissol::initializer::initializeBoundaryMappings(
-      meshReader, dirichletCondition, memoryManager.ltsStorage());
+      meshReader, dirichletConditions, boundaryFiles.fileOfSimulation, memoryManager.ltsStorage());
 
   seissol::initializer::initializeCellLocalMatrices(
       meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);

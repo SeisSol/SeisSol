@@ -167,7 +167,13 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
 
   const auto simulationCount = readSimulationCount(baseReader, config);
 
-  const auto boundaryFileName = reader->readPath("boundaryfilename");
+  // the easi boundary condition of every simulation, the one of the first if not given
+  std::vector<std::string> boundaryFileNames(simulationCount);
+  boundaryFileNames[0] = reader->readPath("boundaryfilename").value_or("");
+  for (std::size_t i = 1; i < simulationCount; ++i) {
+    boundaryFileNames[i] =
+        reader->readPath("boundaryfilename" + std::to_string(i)).value_or(boundaryFileNames[0]);
+  }
 
   // the material of every simulation, the one of the first if not given; a simulation takes its
   // plasticity from its material file unless it is given a plasticity file of its own
@@ -198,7 +204,9 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
     }
   }
 
-  const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
+  const bool hasBoundaryFile = std::any_of(boundaryFileNames.begin(),
+                                           boundaryFileNames.end(),
+                                           [](const auto& name) { return !name.empty(); });
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
 
@@ -263,7 +271,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                          freqRatio,
                          gravitationalAcceleration,
                          tv,
-                         boundaryFileName.value_or(""),
+                         boundaryFileNames,
                          materialFileNames,
                          plasticityFileNames,
                          itmParameters,
