@@ -36,6 +36,8 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
   auto dataRegistry = this->dataRegistry_;
   // the order of the configuration of the data
   const std::size_t order = configValue(config_).convergenceOrder;
+  const std::size_t simulationCount = simulationCount_;
+  const std::size_t fusedCount = fusedCount_;
   return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
     writer::Writer writer;
     const auto filename = prefix + std::string("-checkpoint-") + std::to_string(counter) + ".h5";
@@ -84,6 +86,14 @@ std::function<writer::Writer(const std::string&, std::size_t, double)>
         writer::instructions::Hdf5Location(filename, {"checkpoint"}),
         "__order",
         writer::WriteInline::create(order)));
+    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(filename, {"checkpoint"}),
+        "__simulations",
+        writer::WriteInline::create(simulationCount)));
+    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(filename, {"checkpoint"}),
+        "__fused",
+        writer::WriteInline::create(fusedCount)));
     return writer;
   };
 }
@@ -101,6 +111,23 @@ double CheckpointManager::loadCheckpoint(const std::string& file) {
   const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
   if (convergenceOrderRead != static_cast<int>(configValue(config_).convergenceOrder)) {
     logError() << "Convergence order does not match. Read:" << convergenceOrderRead;
+  }
+  // The data points of a cell or face are told apart by their copy, which the simulations of the
+  // run and the ones a cell fuses decide; other numbers would match the data of other copies to
+  // them. A checkpoint that does not state them holds one copy of the cells, which fuse the
+  // simulations of the run.
+  const auto simulationsRead = reader.hasAttribute("__simulations")
+                                   ? reader.readAttributeScalar<std::size_t>("__simulations")
+                                   : fusedCount_;
+  const auto fusedRead = reader.hasAttribute("__fused")
+                             ? reader.readAttributeScalar<std::size_t>("__fused")
+                             : fusedCount_;
+  if (simulationsRead != simulationCount_ || fusedRead != fusedCount_) {
+    logError()
+        << "The checkpoint was written by a run of" << simulationsRead << "simulations with"
+        << fusedRead << "fused in a cell, but this run computes" << simulationCount_
+        << "simulations with" << fusedCount_
+        << "fused in a cell; a checkpoint restarts only the simulations it was written with.";
   }
   for (auto& [_, ckpTree] : dataRegistry_) {
     reader.openGroup(ckpTree.name);

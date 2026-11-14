@@ -16,6 +16,7 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 
+#include <cstddef>
 #include <map>
 #include <string>
 #include <utils/logger.h>
@@ -47,6 +48,13 @@ class CheckpointManager {
   /// The configuration of the data to checkpoint, the one of the run: the datasets hold its reals,
   /// and its order is stored with them.
   void setConfig(ConfigId config) { config_ = config; }
+
+  /// The simulations of the run, and the ones a cell fuses: they decide which copy of a cell or
+  /// face a data point is, and so a checkpoint restarts the simulations it was written with only.
+  void setSimulations(std::size_t simulationCount, std::size_t fusedCount) {
+    simulationCount_ = simulationCount;
+    fusedCount_ = fusedCount;
+  }
 
   template <typename VarmapT>
   void registerTree(const std::string& name,
@@ -134,6 +142,8 @@ class CheckpointManager {
   private:
   std::map<void*, CheckpointTree> dataRegistry_;
   ConfigId config_{};
+  std::size_t simulationCount_{1};
+  std::size_t fusedCount_{1};
 };
 
 } // namespace seissol::io::instance::checkpoint

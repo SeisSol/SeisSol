@@ -382,6 +382,29 @@ seissol_add_comparison(
     RECEIVERS volume
     LABELS "bitwise;restart;dr")
 
+# A checkpoint tells the copies of the cells and of the fault faces apart, so
+# the restart of a run of copies goes on as that run does. It restarts only the
+# simulations it was written with: in a run of other ones, the data of a copy
+# would land on another.
+seissol_add_rupture(NAME rupture-lsw-copies FL 16 FAULT fault-lsw.yaml
+                    SET "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}" NO_SNAPSHOT
+                    LABELS copies)
+seissol_add_rupture(NAME rupture-lsw-copies-restart FL 16 FAULT fault-lsw.yaml
+                    SET "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}" RESTART 32
+                    LABELS "copies;restart")
+seissol_add_comparison(
+    NAME bitwise-rupture-lsw-copies-restart
+    REFERENCE rupture-lsw-copies
+    CANDIDATE rupture-lsw-copies-restart
+    TOLERANCE 0
+    RECEIVERS volume
+    LABELS "bitwise;copies;restart;dr")
+seissol_add_rupture(NAME rupture-lsw-copies-restart-fused FL 16 FAULT fault-lsw.yaml
+                    SET "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}" RESTART 32
+                    RESTART_SET "equations.SimCount=${SEISSOL_CAP_SIMULATIONS}"
+                    EXPECT_FAILURE "restarts only the simulations it was written with"
+                    LABELS "copies;restart")
+
 # ---------------------------------------------------------------------------
 # Stage 2: the analytical error. A planar wave only satisfies a fully periodic
 # mesh, so this is the mesh the measurement runs on. 256 steps of 2^-14 s let

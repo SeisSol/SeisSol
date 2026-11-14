@@ -149,7 +149,9 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   checkpoint.setConfig(config);
 
   // every copy of a cell or face is a data point of its own
-  const auto copyCount = seissolInstance.memoryManager().simulationSettings().copyCount();
+  const auto& simulationSettings = seissolInstance.memoryManager().simulationSettings();
+  checkpoint.setSimulations(simulationSettings.simulationCount, simulationSettings.fusedCount);
+  const auto copyCount = simulationSettings.copyCount();
 
   {
     auto& storage = seissolInstance.memoryManager().ltsStorage();

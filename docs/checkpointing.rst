@@ -73,5 +73,5 @@ For the friction laws, the following is the case:
 Note however, that the following restrictions apply.
 
 * the convergence order of the new simulation needs to be identical (this may be subject to change)
-* the number of simulations needs to match between runs
+* the number of simulations (``SimCount``) and the number of them that a cell fuses need to match between runs; the checkpoint states both, and SeisSol refuses to restart from one that holds other numbers
 * the array padding needs to match. (i.e. the checkpoints are architecture-dependent; transfer from CPU to GPU is not supported in general)
