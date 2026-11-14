@@ -57,6 +57,12 @@ enum class TokenKind : std::uint8_t {
   Type,
   For,
   Import,
+  If,
+  Then,
+  Else,
+  And,
+  Or,
+  Not,
   Eof
 };
 
@@ -74,6 +80,12 @@ const char* describe(TokenKind kind) {
     return "a quoted string";
   case TokenKind::Name:
     return "a name";
+  case TokenKind::In:
+    return "`in`";
+  case TokenKind::Then:
+    return "`then`";
+  case TokenKind::Else:
+    return "`else`";
   case TokenKind::Eof:
     return "end of input";
   default:
@@ -190,6 +202,18 @@ std::vector<Token> tokenize(const std::string& source) {
       i += 2;
       continue;
     }
+    // the comparisons: `<`, `<=`, `>`, `>=`, `==`, `!=`
+    if (c == '<' || c == '>' || ((c == '=' || c == '!') && i + 1 < n && source[i + 1] == '=')) {
+      const bool equal = i + 1 < n && source[i + 1] == '=';
+      tokens.push_back(
+          {TokenKind::Op, source.substr(start, equal ? 2 : 1), static_cast<int>(start)});
+      i += equal ? 2 : 1;
+      continue;
+    }
+    if (c == '!') {
+      throw SderivError(
+          "lex", "unexpected character '!'; the negation is `not`", static_cast<int>(i));
+    }
     if (c == '+' || c == '-' || c == '*' || c == '/' || c == '(' || c == ')' || c == ',' ||
         c == '=' || c == '.' || c == '{' || c == '}' || c == '[' || c == ']' || c == ':' ||
         c == '@') {
@@ -227,6 +251,18 @@ std::vector<Token> tokenize(const std::string& source) {
         kind = TokenKind::For;
       } else if (value == "import") {
         kind = TokenKind::Import;
+      } else if (value == "if") {
+        kind = TokenKind::If;
+      } else if (value == "then") {
+        kind = TokenKind::Then;
+      } else if (value == "else") {
+        kind = TokenKind::Else;
+      } else if (value == "and") {
+        kind = TokenKind::And;
+      } else if (value == "or") {
+        kind = TokenKind::Or;
+      } else if (value == "not") {
+        kind = TokenKind::Not;
       }
       tokens.push_back({kind, std::move(value), static_cast<int>(start)});
       continue;
@@ -243,7 +279,8 @@ std::vector<Token> tokenize(const std::string& source) {
 using SurfaceId = int;
 // Record: the fields `params` of the values `args`; Array: the elements `args`; Field: the field
 // `text` of `a`; Index: the element `b` of `a`; Ascription: `a` as the type `type`; Comprehension:
-// the array of `a` for every element `text` of the array `b`.
+// the array of `a` for every element `text` of the array `b`; Conditional: `if args[0] then
+// args[1] else args[2]`.
 enum class SurfaceKind : std::uint8_t {
   Num,
   Name,
@@ -257,7 +294,8 @@ enum class SurfaceKind : std::uint8_t {
   Field,
   Index,
   Ascription,
-  Comprehension
+  Comprehension,
+  Conditional
 };
 
 using TypeId = int;
@@ -1039,7 +1077,20 @@ private:
       node.b = expression();
       return arena_.add(std::move(node));
     }
-    const SurfaceId value = additive();
+    // `if c then a else b`, its last branch as far as an expression goes, as the body of a let
+    if (peek().kind == TokenKind::If) {
+      SurfaceNode node;
+      node.kind = SurfaceKind::Conditional;
+      node.position = peek().position;
+      eat(TokenKind::If);
+      node.args.push_back(expression());
+      eat(TokenKind::Then);
+      node.args.push_back(expression());
+      eat(TokenKind::Else);
+      node.args.push_back(expression());
+      return arena_.add(std::move(node));
+    }
+    const SurfaceId value = disjunction();
     // `e : elastic`: e as a value of the type, its fields those of the type
     if (peek().kind == TokenKind::Op && valueIs(":")) {
       SurfaceNode node;
@@ -1051,6 +1102,73 @@ private:
       return arena_.add(std::move(node));
     }
     return value;
+  }
+
+  /// `a or b`, `a and b` and `not a`, which bind less than the comparisons, as in Python.
+  SurfaceId disjunction() {
+    SurfaceId lhs = conjunction();
+    while (peek().kind == TokenKind::Or) {
+      lhs = logical("or", lhs, [this] { return conjunction(); });
+    }
+    return lhs;
+  }
+
+  SurfaceId conjunction() {
+    SurfaceId lhs = negation();
+    while (peek().kind == TokenKind::And) {
+      lhs = logical("and", lhs, [this] { return negation(); });
+    }
+    return lhs;
+  }
+
+  template <typename F>
+  SurfaceId logical(const char* op, SurfaceId lhs, const F& operand) {
+    SurfaceNode node;
+    node.kind = SurfaceKind::Binary;
+    node.position = peek().position;
+    next();
+    node.text = op;
+    node.a = lhs;
+    node.b = operand();
+    return arena_.add(std::move(node));
+  }
+
+  SurfaceId negation() {
+    const Nesting nesting(*this);
+    if (peek().kind == TokenKind::Not) {
+      SurfaceNode node;
+      node.kind = SurfaceKind::Unary;
+      node.position = peek().position;
+      node.text = "not";
+      next();
+      node.a = negation();
+      return arena_.add(std::move(node));
+    }
+    return comparison();
+  }
+
+  [[nodiscard]] bool atComparison() const {
+    return peek().kind == TokenKind::Op && (valueIs("<") || valueIs("<=") || valueIs(">") ||
+                                            valueIs(">=") || valueIs("==") || valueIs("!="));
+  }
+
+  /// `a < b` and the other comparisons, of two sums; they do not chain.
+  SurfaceId comparison() {
+    const SurfaceId lhs = additive();
+    if (!atComparison()) {
+      return lhs;
+    }
+    SurfaceNode node;
+    node.kind = SurfaceKind::Binary;
+    node.position = peek().position;
+    node.text = next().value;
+    node.a = lhs;
+    node.b = additive();
+    if (atComparison()) {
+      throw SderivError(
+          "parse", "comparisons do not chain: `a < b < c` is `a < b and b < c`", peek().position);
+    }
+    return arena_.add(std::move(node));
   }
 
   SurfaceId additive() {
@@ -1752,6 +1870,11 @@ class Lowering {
         stack.emplace_back(node.a, std::move(inner));
         break;
       }
+      case SurfaceKind::Conditional:
+        for (const SurfaceId part : node.args) {
+          stack.emplace_back(part, scope);
+        }
+        break;
       case SurfaceKind::Num:
       case SurfaceKind::Def:
         break;
@@ -1900,6 +2023,12 @@ class Lowering {
         stack.emplace_back(node.b, scope);
         break;
       }
+      case SurfaceKind::Conditional:
+        // the condition first, so it is pushed last
+        for (auto part = node.args.rbegin(); part != node.args.rend(); ++part) {
+          stack.emplace_back(*part, scope);
+        }
+        break;
       case SurfaceKind::Num:
       case SurfaceKind::Def:
         break;
@@ -1939,6 +2068,64 @@ private:
   };
 
   NodeId channel(const SurfaceNode& node) { return program_.arena().field(node.text); }
+
+  [[nodiscard]] static bool isComparisonOrLogic(const std::string& op) {
+    return op == "<" || op == "<=" || op == ">" || op == ">=" || op == "==" || op == "!=" ||
+           op == "and" || op == "or";
+  }
+
+  /// Whether `node` is a truth value, 1 or 0: a comparison, a logical operation, or a choice
+  /// between such.
+  [[nodiscard]] bool isTruthValue(NodeId node) const {
+    const Node& n = program_.arena()[node];
+    if (n.kind == Kind::Const) {
+      return n.value == 0.0 || n.value == 1.0;
+    }
+    if (n.kind != Kind::PW) {
+      return false;
+    }
+    switch (n.fn) {
+    case Fn::Lt:
+    case Fn::Le:
+    case Fn::Eq:
+    case Fn::And:
+    case Fn::Or:
+      return true;
+    case Fn::Select:
+      return isTruthValue(n.b) && isTruthValue(n.c);
+    default:
+      return false;
+    }
+  }
+
+  /// A comparison of `a` and `b`, as lt, le and eq: `a > b` is `b < a`, `a != b` is not `a == b`.
+  /// `a and b` and `a or b` are what land and lor give, where `b` decides only: `b` as a truth
+  /// value where `a` is true, else 0; 1 where `a` is true, else `b` as a truth value -- a select,
+  /// so that a value `b` alone reads is used only where it decides.
+  Value comparisonOrLogic(const SurfaceNode& at, Value a, Value b) {
+    auto& arena = program_.arena();
+    const std::string what = "`" + at.text + "`";
+    const auto& op = at.text;
+    if (op == "<" || op == "<=" || op == ">" || op == ">=") {
+      const Fn fn = op == "<" || op == ">" ? Fn::Lt : Fn::Le;
+      const bool swapped = op == ">" || op == ">=";
+      return pointwise(at, what, fn, {swapped ? b : a, swapped ? a : b});
+    }
+    if (op == "==" || op == "!=") {
+      return leafwise(at, what, {a, b}, [&](const std::vector<NodeId>& n) {
+        const NodeId equal = arena.pw(Fn::Eq, n[0], n[1]);
+        return op == "==" ? equal : arena.pw(Fn::Eq, equal, arena.konst(0.0));
+      });
+    }
+    // b as a truth value: 1 where it is true (a NaN too), else 0
+    const auto truth = [&](NodeId node) {
+      return isTruthValue(node) ? node : arena.pw(Fn::Or, node, arena.konst(0.0));
+    };
+    return leafwise(at, what, {a, b}, [&](const std::vector<NodeId>& n) {
+      return op == "and" ? arena.pw(Fn::Select, n[0], truth(n[1]), arena.konst(0.0))
+                         : arena.pw(Fn::Select, n[0], arena.konst(1.0), truth(n[1]));
+    });
+  }
 
   static Fn binaryFn(const std::string& op) {
     if (op == "+") {
@@ -2663,7 +2850,23 @@ private:
       return Value::number(program_.arena().konst(node.number));
 
     case SurfaceKind::Unary:
+      // `not a` is eq(a, 0), as lnot
+      if (node.text == "not") {
+        return pointwise(node,
+                         "`not`",
+                         Fn::Eq,
+                         {lower(node.a, env), Value::number(program_.arena().konst(0.0))});
+      }
       return pointwise(node, "`-`", Fn::Neg, {lower(node.a, env)});
+
+    case SurfaceKind::Conditional: {
+      std::vector<Value> parts;
+      parts.reserve(node.args.size());
+      for (const SurfaceId part : node.args) {
+        parts.push_back(lower(part, env));
+      }
+      return pointwise(node, "`if`", Fn::Select, std::move(parts));
+    }
 
     case SurfaceKind::Binary: {
       // A sum of many terms is a long chain of binary nodes along their left operands, as the
@@ -2678,6 +2881,10 @@ private:
         Value b = lower(binary.b, env);
         if (binary.text == "@") {
           value = matmulOf(binary, "`@`", value, b);
+          continue;
+        }
+        if (isComparisonOrLogic(binary.text)) {
+          value = comparisonOrLogic(binary, std::move(value), std::move(b));
           continue;
         }
         value = pointwise(binary,

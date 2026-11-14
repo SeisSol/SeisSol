@@ -138,9 +138,9 @@ is an error.
 
    # regions.sderiv
    # the wave field within 10 km of the hypocenter, in groups 1 and 2
-   out def wavefield = select(le(group, 2.0), 1.0e4 - sqrt(x*x + y*y + (z + 1.2e4)*(z + 1.2e4)), 0.0)
+   out def wavefield = if group <= 2 then 1.0e4 - sqrt(x*x + y*y + (z + 1.2e4)*(z + 1.2e4)) else 0.0
    # the free surface within the box |x| < 50 km, |y| < 30 km
-   out def surface = select(lt(abs(x), 5.0e4), select(lt(abs(y), 3.0e4), 1.0, 0.0), 0.0)
+   out def surface = abs(x) < 5.0e4 and abs(y) < 3.0e4
 
 .. code-block:: Fortran
 

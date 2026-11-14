@@ -193,11 +193,20 @@ phase late in a run in binary64, and the rest in the precision of the configurat
    def phase = 2.0 * pi * frequency * f64(t)
    out def v1 = amplitude * real(sin(phase))
 
+Comparisons and logic are operators in an sderiv module: ``x < y``, ``<=``, ``>``, ``>=``, ``==``
+and ``!=`` give 1 or 0 (0 where an operand is NaN, except ``!=``); ``not``, ``and`` and ``or`` take
+every number but 0 as true, a NaN too; and ``if c then a else b`` gives ``a`` where ``c`` is true
+and ``b`` elsewhere. They bind as in Python, ``if`` the least, then ``or``, ``and``, ``not``, the
+comparisons, which do not chain (``a < b and b < c``), and the arithmetic. A branch of an ``if`` is
+used only at the points that take it, and the second operand of ``and`` and ``or`` only where it
+decides: a sample of a grid with ``boundary = "fail"`` there fails only at those points. The core
+format has them as ``lt``, ``le``, ``eq``, ``lor`` and ``select``.
+
 In an sderiv module, a value may also be a record of named values, ``{rho = 2600, mu = 1e10}``, or
 an array, ``[x, y, z]``; a matrix is an array of arrays. ``p.rho`` is a field, ``a[0]`` an element,
 whose index the script fixes. Operators and functions take them number by number: a number with
 every number of a record or an array, two records field by field, two arrays element by element.
-So a function written for numbers takes them as well, and ``select`` of two records chooses every
+So a function written for numbers takes them as well, and an ``if`` of two records chooses every
 field. ``m(x, y, z)`` samples every component of the grid ``m`` (below), a record of their names,
 and ``out p`` gives every field of the record ``p`` as an output of its name -- a material from a
 grid below 2 km and from formulas above, say:
@@ -209,7 +218,7 @@ grid below 2 km and from formulas above, say:
    def lame(p) = {rho = p.rho, mu = p.rho * p.vs ** 2,
                   lambda = p.rho * (p.vp ** 2 - 2 * p.vs ** 2)}
    def shallow = {rho = 2600 - 0.5 * z, mu = 1e10, lambda = 2e10}
-   out select(lt(z, -2000), lame(m(x, y, z)), shallow)
+   out if z < -2000 then lame(m(x, y, z)) else shallow
 
 For arrays there are ``sum``, ``min`` and ``max`` of one array; ``dot``, ``norm`` and ``cross`` of
 vectors; ``matmul`` of matrices and vectors (also ``a @ b``), and ``transpose``, ``trace`` and

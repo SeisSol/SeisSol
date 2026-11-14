@@ -383,6 +383,73 @@ TEST_SUITE("SderivFrontend") {
     CHECK(program.arena()[root.a].fn == Fn::Lt);
   }
 
+  TEST_CASE("comparisons and logic as operators, and if ... then ... else, are the functions") {
+    // the same programs as with the functions of the core format
+    const auto same = [](const std::string& operators, const std::string& functions) {
+      CAPTURE(operators);
+      CHECK(compileSderivModule(operators).fingerprint() ==
+            compileSderivModule(functions).fingerprint());
+    };
+    same("out def r = if x < 0 then a else b\n", "out def r = select(lt(x, 0), a, b)\n");
+    same("out def r = x <= y\n", "out def r = le(x, y)\n");
+    // gt and ge as in the full language: lt and le of the swapped operands, which the inputs read
+    // in the order of the source
+    same("out def r = x > y\n", "out def r = gt(x, y)\n");
+    same("out def r = x >= y\n", "out def r = ge(x, y)\n");
+    same("out def r = x == y\n", "out def r = eq(x, y)\n");
+    same("out def r = x != y\n", "out def r = eq(eq(x, y), 0)\n");
+    same("out def r = not x\n", "out def r = eq(x, 0)\n");
+    // a truth value as it is, another number as one
+    same("out def r = x < 0 and y < 0\n", "out def r = select(lt(x, 0), lt(y, 0), 0)\n");
+    same("out def r = x or y\n", "out def r = select(x, 1, lor(y, 0))\n");
+    // the precedences: not over the comparisons, and over or, the sums over the comparisons; the
+    // last branch of an if as far as it goes
+    same("out def r = not x < y\n", "out def r = eq(lt(x, y), 0)\n");
+    same("out def r = a or b and c\n", "out def r = select(a, 1, select(b, lor(c, 0), 0))\n");
+    same("out def r = x + 1 < 2 * y\n", "out def r = lt(x + 1, 2 * y)\n");
+    same("out def r = if a then 1 else if b then 2 else 3 + x\n",
+         "out def r = select(a, 1, select(b, 2, 3 + x))\n");
+    same("out def r = 1 + (if a then 1 else 2)\n", "out def r = 1 + select(a, 1, 2)\n");
+    // field by field
+    same("out if z < 0 then {a = 1, b = x} else {a = 2, b = y}\n",
+         "out def a = select(lt(z, 0), 1, 2)\nout def b = select(lt(z, 0), x, y)\n");
+  }
+
+  TEST_CASE("the operators give 1 and 0, and a NaN is true") {
+    const auto program = compileSderivModule("out def less = x < y\n"
+                                             "out def greater = x > y\n"
+                                             "out def differ = x != y\n"
+                                             "out def both = x and y\n"
+                                             "out def either = x or y\n"
+                                             "out def neither = not x\n"
+                                             "out def pick = if x then 2 else 3\n");
+    reader::datafield::GridStore store;
+    const double nan = std::nan("");
+    // x, y at four points: (1, 2), (0, 0), (NaN, 1), (2.5, 0)
+    const std::vector<double> inputs{1.0, 0.0, nan, 2.5, 2.0, 0.0, 1.0, 0.0};
+    const auto values = interpretValues(program, store, inputs, 4);
+    REQUIRE(values.size() == 7 * 4);
+    const auto row = [&](std::size_t output) {
+      return std::vector<double>(values.begin() + static_cast<std::ptrdiff_t>(output * 4),
+                                 values.begin() + static_cast<std::ptrdiff_t>(output * 4 + 4));
+    };
+    CHECK(row(0) == std::vector<double>{1, 0, 0, 0});
+    CHECK(row(1) == std::vector<double>{0, 0, 0, 1});
+    CHECK(row(2) == std::vector<double>{1, 0, 1, 1});
+    CHECK(row(3) == std::vector<double>{1, 0, 1, 0});
+    CHECK(row(4) == std::vector<double>{1, 0, 1, 1});
+    CHECK(row(5) == std::vector<double>{0, 1, 0, 0});
+    CHECK(row(6) == std::vector<double>{2, 3, 2, 2});
+  }
+
+  TEST_CASE("comparisons do not chain, and the negation is not") {
+    mustReject("x < y < z", "comparisons do not chain");
+    mustReject("x == y != z", "comparisons do not chain");
+    mustReject("!x", "the negation is `not`");
+    mustReject("if x then 1", "expected `else`");
+    mustReject("1 + if x then 1 else 2", "unexpected");
+  }
+
   TEST_CASE("backslashes and quotes survive a file path") {
     const auto program = mustCompile(EscapedPath);
     REQUIRE(program.grids().size() == 1);

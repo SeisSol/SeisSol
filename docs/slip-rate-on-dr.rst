@@ -84,7 +84,7 @@ FL=34, for instance, as a script:
    def tau = t - rupture_onset
    def ramp = exp((tau - rupture_rise_time) * (tau - rupture_rise_time) /
                   (tau * (tau - 2.0 * rupture_rise_time)))
-   def smooth = select(le(tau, 0.0), 0.0, select(lt(tau, rupture_rise_time), ramp, 1.0))
+   def smooth = if tau <= 0.0 then 0.0 else if tau < rupture_rise_time then ramp else 1.0
    out def slip_strike = strike_slip * smooth
    out def slip_dip = dip_slip * smooth
 
