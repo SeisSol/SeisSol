@@ -61,8 +61,11 @@ seissol_add_minitest(
     ACTIVITY "v1:1e-12"
     LABELS "smoke;mpi;taskgraph")
 
-# plasticity is a runtime switch, so it needs no separate build; its
-# parameters come from the material file
+# plasticity is a runtime switch, so it needs no separate build. Under the
+# parameters of material-plastic.yaml, the wave of the case stays elastic: it
+# reaches less than 1 Pa, where the material yields at about 5 MPa. The case
+# takes those of plasticity-weak.yaml, under which it yields, and the plastic
+# strain relaxes within a step, so that yielding shows.
 seissol_add_minitest(
     NAME smoke-skew48-plasticity
     MESH skew48
@@ -70,7 +73,9 @@ seissol_add_minitest(
     MATERIAL material-plastic.yaml
     STEPS 20
     REQUIRE equations=elastic
-    SET "equations.Plasticity=1"
+    SET "equations.Plasticity=1" "equations.Tv=6.103515625e-05"
+        "equations.PlasticityFileName='plasticity-weak.yaml'"
+    FILES plasticity-weak.yaml
     ACTIVITY "v1:1e-12"
     LABELS "smoke;plasticity")
 
