@@ -148,7 +148,7 @@ bool runOpens(const std::vector<std::string>& field,
   if (name.rfind("equations.plasticityfilename", 0) == 0) {
     return parameters.model.plasticity;
   }
-  if (name == "inicondition.filename") {
+  if (name.rfind("inicondition.filename", 0) == 0) {
     return parameters.initialization.type == parameters::InitializationType::Easi;
   }
   return true;

@@ -297,6 +297,65 @@ seissol_add_comparison(
     SIMULATIONS ${SEISSOL_COPIES_SECOND}
     LABELS "bitwise;copies")
 
+# An easi initial condition per simulation: every second simulation starts
+# from the other state, in both copies of the cells and in the fused
+# simulations of each. The runs whose simulations all start from the one or
+# the other state hold them alike.
+set(SEISSOL_EASI_STATE "IniCondition.cICType='easi'" "IniCondition.hasTime=0"
+    "equations.SimCount=${SEISSOL_COPIES_SIMULATIONS}")
+foreach (_copies_axis x y)
+  seissol_add_minitest(
+      NAME easi-box48-copies-${_copies_axis}
+      MESH box48
+      PARAMETERS wave.par
+      STEPS 20
+      SET ${SEISSOL_EASI_STATE} "IniCondition.filename='inicondition-${_copies_axis}.yaml'"
+      FILES inicondition-${_copies_axis}.yaml
+      REQUIRE equations=elastic
+      ACTIVITY "v1|v2:1e-12"
+      NO_SNAPSHOT
+      LABELS "smoke;copies")
+endforeach()
+set(SEISSOL_COPIES_STATES ${SEISSOL_EASI_STATE} "IniCondition.filename='inicondition-x.yaml'")
+set(SEISSOL_COPIES_EVEN "")
+set(SEISSOL_COPIES_ODD "")
+math(EXPR _copies_last "${SEISSOL_COPIES_SIMULATIONS} - 1")
+foreach (_copies_simulation RANGE ${_copies_last})
+  math(EXPR _copies_odd "${_copies_simulation} % 2")
+  if (_copies_odd)
+    list(APPEND SEISSOL_COPIES_STATES
+         "IniCondition.filename${_copies_simulation}='inicondition-y.yaml'")
+    list(APPEND SEISSOL_COPIES_ODD "${_copies_simulation}:${_copies_simulation}")
+  else()
+    list(APPEND SEISSOL_COPIES_EVEN "${_copies_simulation}:${_copies_simulation}")
+  endif()
+endforeach()
+seissol_add_minitest(
+    NAME easi-box48-copies-states
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    SET ${SEISSOL_COPIES_STATES}
+    FILES inicondition-x.yaml inicondition-y.yaml
+    REQUIRE equations=elastic
+    ACTIVITY "v1|v2:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;copies")
+seissol_add_comparison(
+    NAME bitwise-box48-copies-states-x
+    REFERENCE easi-box48-copies-x
+    CANDIDATE easi-box48-copies-states
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_EVEN}
+    LABELS "bitwise;copies")
+seissol_add_comparison(
+    NAME bitwise-box48-copies-states-y
+    REFERENCE easi-box48-copies-y
+    CANDIDATE easi-box48-copies-states
+    TOLERANCE 0
+    SIMULATIONS ${SEISSOL_COPIES_ODD}
+    LABELS "bitwise;copies")
+
 # the simulations fused into a cell share its material, so they cannot name
 # different files
 seissol_add_minitest(

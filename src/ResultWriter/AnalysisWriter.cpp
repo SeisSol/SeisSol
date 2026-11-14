@@ -23,6 +23,7 @@
 #include "IO/Instance/Point/Csv.h"
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Parameters/SimulationFiles.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
@@ -107,11 +108,14 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
   constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
+  // the easi solution of every simulation, from each of their files once
+  const initializer::parameters::SimulationFiles easiFields(
+      seissolInstance_.parameters().initialization.filenames);
   std::vector<double> data;
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
     data =
-        initializer::projectEasiFields<Cfg>({seissolInstance_.parameters().initialization.filename},
+        initializer::projectEasiFields<Cfg>(easiFields.files,
                                             simulationTime,
                                             *meshReader_,
                                             seissolInstance_.parameters().initialization.hasTime);
@@ -236,10 +240,14 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
                                                       material,
                                                       analyticalSolution);
         } else {
+          // by element, point, quantity and field, as projectEasiFields gives them
+          const auto fieldCount = easiFields.files.size();
+          const auto field = easiFields.fileOfSimulation[sim];
           for (std::size_t i = 0; i < NumQuadPoints; ++i) {
             for (std::size_t j = 0; j < NumQuantities; ++j) {
-              analyticalSolution(i, j) =
-                  data.at(meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j);
+              analyticalSolution(i, j) = data.at(
+                  (meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j) * fieldCount +
+                  field);
             }
           }
         }

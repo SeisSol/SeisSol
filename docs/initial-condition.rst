@@ -41,6 +41,9 @@ For example, for elastic (and viscoelastic etc.), a (rather nonsensical) constan
     v3: 81
 
 Of course, one may use Lua functions or ASAGI as input as well for several variables.
+
+With several simulations (fused ones, or more with ``SimCount``), ``filename<i>`` gives the simulation ``i`` of the run, counted from zero, an initial condition of its own; a simulation without one takes the one of ``filename``. Each file is evaluated once, for all simulations that name it.
+
 The parameter ``hastime`` indicates that the easi file has ``t`` as a time input variable besides the spatial coordinates (``x,y,z``).
 This way, the easi boundary condition can be used for comparing against after time has passed (e.g. for convergence tests).
 However, it requires easi 1.5.0 or higher to function correctly.

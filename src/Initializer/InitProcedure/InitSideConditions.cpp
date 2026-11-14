@@ -14,6 +14,7 @@
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SimulationFiles.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Physics/InitialField.h"
@@ -96,8 +97,11 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
   auto& memoryManager = seissolInstance.memoryManager();
 
   if (initConditionParams.type == seissol::initializer::parameters::InitializationType::Easi) {
-    logInfo() << "Loading the initial condition from the easi file" << initConditionParams.filename;
-    seissol::initializer::projectEasiInitialField({initConditionParams.filename},
+    const parameters::SimulationFiles iniFields(initConditionParams.filenames);
+    for (const auto& file : iniFields.files) {
+      logInfo() << "Loading the initial condition from the easi file" << file;
+    }
+    seissol::initializer::projectEasiInitialField(iniFields,
                                                   seissolInstance.meshReader(),
                                                   memoryManager.ltsStorage(),
                                                   initConditionParams.hasTime);

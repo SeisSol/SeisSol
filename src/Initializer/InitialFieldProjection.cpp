@@ -18,6 +18,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Geometry/CellTransform.h"
 #include "Geometry/MeshReader.h"
+#include "Initializer/Parameters/SimulationFiles.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
@@ -172,10 +173,12 @@ void projectInitialFieldOnLayer(
 }
 
 /// Projects the values `data` of the easi fields, as `projectEasiFields<Cfg>` gives them, onto the
-/// cells of `layer`, which compute in the configuration `Cfg`.
+/// cells of `layer`, which compute in the configuration `Cfg`: every simulation takes the field
+/// `fieldOfSimulation` names for it.
 template <typename Cfg>
 void projectEasiFieldsOnLayer(const std::vector<double>& data,
                               std::size_t fieldCount,
+                              const std::vector<std::size_t>& fieldOfSimulation,
                               LTS::Layer& layer) {
   using real = Real<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
@@ -206,13 +209,16 @@ void projectEasiFieldsOnLayer(const std::vector<double>& data,
 #endif
     for (std::size_t cell = 0; cell < layer.size(); ++cell) {
       const auto meshId = secondaryInformation[cell].meshId;
-      // TODO: multisim loop
+      // the copy of the cell holds the simulations from copyId * NumSimulations on; the fused
+      // simulations which only fill up the last copy repeat the first simulations
+      const auto firstSimulation = secondaryInformation[cell].copyId * Cfg::NumSimulations;
 
       for (std::size_t s = 0; s < Cfg::NumSimulations; s++) {
+        const auto field = fieldOfSimulation[(firstSimulation + s) % fieldOfSimulation.size()];
         auto sub = multisim::simtensor<Cfg>(iniCond, s);
         for (std::size_t i = 0; i < NumQuadPoints; ++i) {
           for (std::size_t j = 0; j < quantityCount; ++j) {
-            sub(i, j) = data.at(meshId * dataStride + quantityCount * i + j);
+            sub(i, j) = data.at(meshId * dataStride + (quantityCount * i + j) * fieldCount + field);
           }
         }
       }
@@ -253,12 +259,12 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
 
   const int dimensions = needsTime ? (Cell::Dim + 1) : Cell::Dim;
   const int spaceStart = needsTime ? 1 : 0;
-  easi::Query query(elements.size() * NumQuadPoints, dimensions);
+  const auto rule = seissol::quadrature::simplexRule<Cell::Dim>(QuadPolyDegree);
+  const auto& quadraturePoints = rule.first;
 
-  {
-    const auto rule = seissol::quadrature::simplexRule<Cell::Dim>(QuadPolyDegree);
-    const auto& quadraturePoints = rule.first;
-
+  // a query of its own for every file: easi maps the points of a query in place as it evaluates it
+  const auto makeQuery = [&]() {
+    easi::Query query(elements.size() * NumQuadPoints, dimensions);
 #pragma omp parallel for schedule(static)
     for (std::size_t elem = 0; elem < elements.size(); ++elem) {
       const auto transform = seissol::geometry::AffineTransform::fromMeshCell(elem, meshReader);
@@ -273,7 +279,8 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
         query.group(elem * NumQuadPoints + i) = elements[elem].group;
       }
     }
-  }
+    return query;
+  };
 
   std::vector<double> data(NumQuadPoints * iniFields.size() * MaterialT::Quantities.size() *
                            elements.size());
@@ -288,6 +295,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
         adapter.addBindingPoint(quantity, data.data() + bindOffset, dataPointStride);
       }
       try {
+        auto query = makeQuery();
         models.components.at(i)->evaluate(query, adapter);
       } catch (const std::exception& error) {
         logError() << "Error while applying easi file" << iniFields.at(i) << ":"
@@ -305,7 +313,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
 #undef SEISSOL_CONFIG_INSTANTIATE
 
-void projectEasiInitialField(const std::vector<std::string>& iniFields,
+void projectEasiInitialField(const parameters::SimulationFiles& iniFields,
                              const seissol::geometry::MeshReader& meshReader,
                              LTS::Storage& storage,
                              bool needsTime) {
@@ -313,10 +321,11 @@ void projectEasiInitialField(const std::vector<std::string>& iniFields,
   for (const auto config : storage.configs()) {
     dispatchConfig(config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      const auto data = projectEasiFields<Cfg>(iniFields, 0, meshReader, needsTime);
+      const auto data = projectEasiFields<Cfg>(iniFields.files, 0, meshReader, needsTime);
       for (auto& layer : storage.leaves(Ghost)) {
         if (layer.getIdentifier().config == config) {
-          projectEasiFieldsOnLayer<Cfg>(data, iniFields.size(), layer);
+          projectEasiFieldsOnLayer<Cfg>(
+              data, iniFields.files.size(), iniFields.fileOfSimulation, layer);
         }
       }
     });

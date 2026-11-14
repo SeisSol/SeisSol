@@ -63,7 +63,7 @@ kVec = 6.283 0 0             ! Gives direction of wave propagation, the waveleng
 k = 6.283 ! Wave number to be used for the travelling acoustic wave with ITM test case. Not to be used in other scenarios
 ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
 
-filename = ''  ! file name for the easi initial condition file
+filename = ''  ! file name for the easi initial condition file; filename<i> for the simulation i >= 1 of the run (counted from 0), which takes filename if not given
 hastime = 1    ! indicates the required support of a time dimension in the easi file. Requires easi 1.5.0 or higher.
 
 avoidic = 0    ! 1 iff use the IC only for analytical boundary conditions
