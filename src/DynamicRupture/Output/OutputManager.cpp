@@ -38,6 +38,7 @@
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
 #include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
@@ -845,12 +846,7 @@ void OutputManager::collectPickpointSamples() {
         std::max(samples[group], ppOutputData_.at(ppTableRows_[row].first)->currentCacheLevel);
   }
   if (!samples.empty()) {
-    MPI_Allreduce(MPI_IN_PLACE,
-                  samples.data(),
-                  static_cast<int>(samples.size()),
-                  seissol::Mpi::castToMpiType<std::size_t>(),
-                  MPI_MAX,
-                  seissol::Mpi::mpi.comm());
+    seissol::Mpi::mpi.allreduceContainer(samples, MPI_MAX);
   }
 
   std::vector<double*> storage(grouping.groupCount(), nullptr);

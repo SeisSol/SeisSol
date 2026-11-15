@@ -141,12 +141,7 @@ void reportClusterDependencies(initializer::MemoryManager& memoryManager,
   }
 
   std::array<std::size_t, 3> counts{connections, dependencies, missing};
-  MPI_Allreduce(MPI_IN_PLACE,
-                counts.data(),
-                counts.size(),
-                Mpi::castToMpiType<std::size_t>(),
-                MPI_SUM,
-                Mpi::mpi.comm());
+  Mpi::mpi.allreduceContainer(counts, MPI_SUM);
 
   logInfo() << "Cell cluster connections:" << counts[0]
             << "; needed by face neighbors:" << counts[1] << "(summed over all ranks)";
@@ -1039,7 +1034,7 @@ json::Value TimeManager::printComputationTime() {
 #ifdef ACL_DEVICE
   timed = {DeviceTimer::available() ? 1 : 0, DeviceTimer::enabled() ? 1 : 0};
 #endif
-  MPI_Allreduce(MPI_IN_PLACE, timed.data(), timed.size(), MPI_INT, MPI_MIN, Mpi::mpi.comm());
+  Mpi::mpi.allreduceContainer(timed, MPI_MIN);
   kernelTimesKnown_ = timed[0] != 0 && timed[1] != 0;
   if (!kernelTimesKnown_) {
     if (timed[0] == 0) {
@@ -1058,9 +1053,8 @@ json::Value TimeManager::printComputationTime() {
 
   // the loops replayed from recordings of super-timesteps count in the FLOP of the loops, but their
   // time counts as that of the replays
-  std::size_t replayed = replayedSuperSteps_ + recordedSuperSteps_ + launchedOnceSuperSteps_;
-  MPI_Allreduce(
-      MPI_IN_PLACE, &replayed, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
+  const std::size_t replayed = Mpi::mpi.allreduce(
+      replayedSuperSteps_ + recordedSuperSteps_ + launchedOnceSuperSteps_, MPI_SUM);
   if (replayed > 0) {
     logInfo() << "The throughput of the loops is not known, as some of their work ran in replays"
               << "of super-timesteps.";
@@ -1085,7 +1079,7 @@ json::Value TimeManager::printComputationTime() {
     std::array<double, 3> sums{static_cast<double>(estimate.hardwareFlop),
                                static_cast<double>(estimate.kernelBytes),
                                loopStatistics_.regionTime(region)};
-    MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, Mpi::mpi.comm());
+    Mpi::mpi.allreduceContainer(sums, MPI_SUM);
     if (sums[2] <= 0) {
       continue;
     }
@@ -1198,12 +1192,7 @@ void TimeManager::freeDynamicResources() {
     cluster->finalize();
   }
 
-  MPI_Allreduce(MPI_IN_PLACE,
-                messages.data(),
-                messages.size(),
-                Mpi::castToMpiType<std::size_t>(),
-                MPI_SUM,
-                Mpi::mpi.comm());
+  Mpi::mpi.allreduceContainer(messages, MPI_SUM);
   logInfo() << "Halo exchange:" << messages[0] << "messages sent," << messages[1]
             << "received (summed over all ranks)";
   if (followPlan_) {
@@ -1215,12 +1204,7 @@ void TimeManager::freeDynamicResources() {
                                           replayedSuperSteps_,
                                           mispredictedSuperSteps_,
                                           launchedOnceSuperSteps_};
-    MPI_Allreduce(MPI_IN_PLACE,
-                  superSteps.data(),
-                  superSteps.size(),
-                  Mpi::castToMpiType<std::size_t>(),
-                  MPI_SUM,
-                  Mpi::mpi.comm());
+    Mpi::mpi.allreduceContainer(superSteps, MPI_SUM);
     logInfo() << "Super-timesteps:" << superSteps[0]
               << "; ending at a synchronization point:" << superSteps[1]
               << "; full ones without output samples:" << superSteps[2]
@@ -1229,7 +1213,7 @@ void TimeManager::freeDynamicResources() {
               << "; recorded and launched once:" << superSteps[7] << "(summed over all ranks)";
     if (replay_) {
       auto times = superStepHostTimes_;
-      MPI_Allreduce(MPI_IN_PLACE, times.data(), times.size(), MPI_DOUBLE, MPI_MAX, Mpi::mpi.comm());
+      Mpi::mpi.allreduceContainer(times, MPI_MAX);
       logInfo() << "Host time of the super-timesteps: run directly" << times[0] << "s, replayed"
                 << times[1] << "s, recorded" << times[2] << "s, of that ending the recordings"
                 << times[3] << "s (maximum over all ranks)";
@@ -1237,12 +1221,7 @@ void TimeManager::freeDynamicResources() {
         // from where each could start on the device to where it had run; the steps run directly
         // count in the loop statistics
         auto deviceTimes = superStepDeviceTimes_;
-        MPI_Allreduce(MPI_IN_PLACE,
-                      deviceTimes.data(),
-                      deviceTimes.size(),
-                      MPI_DOUBLE,
-                      MPI_MAX,
-                      Mpi::mpi.comm());
+        Mpi::mpi.allreduceContainer(deviceTimes, MPI_MAX);
         logInfo() << "Device time of the super-timesteps: replayed" << deviceTimes[0]
                   << "s, recorded" << deviceTimes[1] << "s, recorded and launched once"
                   << deviceTimes[2] << "s (maximum over all ranks)";

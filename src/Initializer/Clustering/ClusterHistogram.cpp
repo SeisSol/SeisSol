@@ -8,6 +8,7 @@
 #include "Initializer/Clustering/ClusterHistogram.h"
 
 #include "Initializer/Clustering/ClusterLadder.h"
+#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <cassert>
@@ -38,8 +39,7 @@ void ClusterHistogram::reduce(MPI_Comm comm) {
   if (weights_.empty()) {
     return;
   }
-  MPI_Allreduce(
-      MPI_IN_PLACE, weights_.data(), static_cast<int>(weights_.size()), MPI_DOUBLE, MPI_SUM, comm);
+  Mpi::mpi.allreduceContainer(weights_, MPI_SUM, comm);
 }
 
 double ClusterHistogram::totalWeight() const {

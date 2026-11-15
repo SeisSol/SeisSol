@@ -17,6 +17,7 @@
 #include "IO/Writer/Instructions/Data.h"
 #include "IO/Writer/Instructions/Dimension.h"
 #include "IO/Writer/Instructions/Hdf5.h"
+#include "Parallel/MPI.h"
 #include "RunFiles.h"
 
 #include <algorithm>
@@ -97,8 +98,7 @@ void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
 
   // Opening and creating are collective, so every rank has to make the same choice; rank 0 looks at
   // the file system for all of them, since the ranks may see it differently (e.g. stale caches).
-  int rank = 0;
-  MPI_Comm_rank(comm_, &rank);
+  const int rank = seissol::Mpi::rankOf(comm_);
   // The broadcast also keeps the other ranks from creating the file before rank 0 moved an earlier
   // one out of the way.
   int exists = 0;
@@ -109,7 +109,7 @@ void Hdf5File::openFile(const std::string& name, bool fresh, bool backUp) {
       exists = seissol::directoryExists(std::filesystem::directory_entry(name)) ? 1 : 0;
     }
   }
-  MPI_Bcast(&exists, 1, MPI_INT, 0, comm_);
+  seissol::Mpi::mpi.broadcast(&exists, 0, comm_);
 
   if (exists != 0) {
     file_ = _eh(H5Fopen(name.c_str(), H5F_ACC_RDWR, h5falist));
@@ -210,8 +210,6 @@ struct DatasetLayout {
 DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
                                 const std::shared_ptr<DataSource>& source,
                                 MPI_Comm comm) {
-  MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
-
   const auto& dimensions = source->dimensions();
 
   std::optional<std::size_t> distributedDim;
@@ -235,15 +233,14 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
   assert(declared > 0 ? total % declared == 0 : total == 0);
   const std::size_t localRows = declared > 0 ? total / declared : 0;
 
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
+  const int rank = seissol::Mpi::rankOf(comm);
 
-  std::size_t count = localRows;
+  const std::size_t count = localRows;
   std::size_t allcount = localRows;
   std::size_t offset = 0;
   if (distributedDim.has_value()) {
-    MPI_Allreduce(&count, &allcount, 1, sizetype, MPI_SUM, comm);
-    MPI_Exscan(&count, &offset, 1, sizetype, MPI_SUM, comm);
+    allcount = seissol::Mpi::mpi.allreduce(count, MPI_SUM, comm);
+    offset = seissol::Mpi::mpi.scan(count, MPI_SUM, false, comm);
   }
 
   DatasetLayout layout;
@@ -310,9 +307,9 @@ DatasetLayout DatasetLayout::of(const async::ExecInfo& info,
     layout.roundSize = std::max(1_UZ, 2'000'000'000_UZ / std::max(1_UZ, trailing));
     layout.roundSizes[0] = std::min<hsize_t>(layout.roundSize, layout.blockSizes[0]);
 
-    std::size_t localRounds = (layout.blockSizes[0] + layout.roundSize - 1) / layout.roundSize;
-    MPI_Allreduce(&localRounds, &layout.rounds, 1, sizetype, MPI_MAX, comm);
-    layout.rounds = std::max(1_UZ, layout.rounds);
+    const std::size_t localRounds =
+        (layout.blockSizes[0] + layout.roundSize - 1) / layout.roundSize;
+    layout.rounds = std::max(1_UZ, seissol::Mpi::mpi.allreduce(localRounds, MPI_MAX, comm));
   }
 
   return layout;

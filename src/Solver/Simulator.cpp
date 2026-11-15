@@ -434,12 +434,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   summary.setRankValue("duplicateCellUpdates", localDuplicateUpdates);
   summary.setRankValue("dynamicRuptureFaceUpdates", localFaceUpdates);
   for (auto* counts : {&updates.cells, &updates.duplicateCells, &updates.dynamicRuptureFaces}) {
-    MPI_Allreduce(MPI_IN_PLACE,
-                  counts->data(),
-                  static_cast<int>(counts->size()),
-                  MPI_DOUBLE,
-                  MPI_SUM,
-                  Mpi::mpi.comm());
+    Mpi::mpi.allreduceContainer(*counts, MPI_SUM);
   }
   double cellUpdates = 0;
   double duplicateUpdates = 0;

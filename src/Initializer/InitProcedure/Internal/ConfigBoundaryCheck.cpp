@@ -55,12 +55,7 @@ std::vector<std::uint32_t> collectConfigBoundaries(LTS::Storage& storage) {
     }
   }
 
-  MPI_Allreduce(MPI_IN_PLACE,
-                boundaries.data(),
-                static_cast<int>(boundaries.size()),
-                Mpi::castToMpiType<std::uint32_t>(),
-                MPI_BOR,
-                Mpi::mpi.comm());
+  Mpi::mpi.allreduceContainer(boundaries, MPI_BOR);
   return boundaries;
 }
 

@@ -57,17 +57,7 @@ T checked(T status, const char* what, const std::string& file) {
  * and how many there are in all. Collective.
  */
 std::pair<std::uint64_t, std::uint64_t> runOf(std::uint64_t count, MPI_Comm comm) {
-  std::uint64_t first = 0;
-  MPI_Exscan(&count, &first, 1, MPI_UINT64_T, MPI_SUM, comm);
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
-  // MPI_Exscan leaves the result on the first rank undefined
-  if (rank == 0) {
-    first = 0;
-  }
-  std::uint64_t total = 0;
-  MPI_Allreduce(&count, &total, 1, MPI_UINT64_T, MPI_SUM, comm);
-  return {first, total};
+  return {Mpi::mpi.scan(count, MPI_SUM, false, comm), Mpi::mpi.allreduce(count, MPI_SUM, comm)};
 }
 
 //! writes `data` of every rank to the dataset `name`, one rank after the other
@@ -149,8 +139,7 @@ std::optional<MeasuredCellCosts> measureCellCosts(const LoopStatistics& statisti
     measured += time + face;
   }
 
-  int timed = measured > 0 ? 1 : 0;
-  MPI_Allreduce(MPI_IN_PLACE, &timed, 1, MPI_INT, MPI_MIN, comm);
+  const int timed = Mpi::mpi.allreduce(measured > 0 ? 1 : 0, MPI_MIN, comm);
   if (timed == 0) {
     return {};
   }
@@ -349,8 +338,7 @@ std::size_t MeasuredWeights::evaluateNumberOfConstraints() {
   for (std::size_t cell = 0; cell < count; ++cell) {
     shares[clustering.clusterIds[cell]] += cellCosts_[cell];
   }
-  MPI_Allreduce(
-      MPI_IN_PLACE, shares.data(), static_cast<int>(shares.size()), MPI_DOUBLE, MPI_SUM, comm);
+  Mpi::mpi.allreduceContainer(shares, MPI_SUM, comm);
   const auto sum = std::accumulate(shares.begin(), shares.end(), 0.0);
   for (auto& share : shares) {
     share = sum > 0 ? share / sum : 0;
@@ -390,7 +378,7 @@ void MeasuredWeights::setVertexWeights() {
     sums[0] += static_cast<double>(reference.vertexWeights()[cell]);
     sums[1] += costs[cell];
   }
-  MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, comm);
+  Mpi::mpi.allreduceContainer(sums, MPI_SUM, comm);
   if (!(sums[1] > 0)) {
     logError() << "The measured costs of the cells sum to" << sums[1];
   }
@@ -406,7 +394,7 @@ void MeasuredWeights::setVertexWeights() {
     range[1] = std::max(range[1], weight);
   }
   range[0] = -range[0];
-  MPI_Allreduce(MPI_IN_PLACE, range.data(), range.size(), MPI_DOUBLE, MPI_MAX, comm);
+  Mpi::mpi.allreduceContainer(range, MPI_MAX, comm);
   const double mean = sums[0] / static_cast<double>(total);
   logInfo() << "The weights of the cells range from" << -range[0] / mean << "to" << range[1] / mean
             << "times their mean.";

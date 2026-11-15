@@ -41,45 +41,20 @@ VtkHdfWriter::VtkHdfWriter(std::string name,
                            bool constFile,
                            std::optional<VertexMap> vertexMap)
     : name_(std::move(name)), localElementCount_(localElementCount),
-      globalElementCount_(localElementCount),
+      globalElementCount_(seissol::Mpi::mpi.allreduce(localElementCount, MPI_SUM)),
+      elementOffset_(seissol::Mpi::mpi.scan(localElementCount, MPI_SUM, false)),
       pointsPerElement_(
           geometry::numPoints(std::max(targetDegree, static_cast<std::size_t>(1)), shape)),
       type_(geometry::vtkType(shape)), targetDegree_(targetDegree), constFile_(constFile),
       temporal_(temporal), compress_(compress) {
-  MPI_Exscan(&localElementCount,
-             &elementOffset_,
-             1,
-             datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-             MPI_SUM,
-             seissol::Mpi::mpi.comm());
-  MPI_Allreduce(&localElementCount,
-                &globalElementCount_,
-                1,
-                datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-                MPI_SUM,
-                seissol::Mpi::mpi.comm());
-  // not a member initializer: elementOffset_ is only known once MPI_Exscan has written it
   // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer)
   connectivityOffset_ = elementOffset_ * pointsPerElement_;
   localPointCount_ =
       vertexMap.has_value() ? vertexMap->localPointCount : localElementCount * pointsPerElement_;
   if (vertexMap.has_value()) {
-    // shared points, so how many this rank has is no longer a multiple of the cell count.
-    // MPI_Exscan leaves the result untouched on rank 0, so it has to start at zero.
-    pointOffset_ = 0;
-    globalPointCount_ = localPointCount_;
-    MPI_Exscan(&localPointCount_,
-               &pointOffset_,
-               1,
-               datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-               MPI_SUM,
-               seissol::Mpi::mpi.comm());
-    MPI_Allreduce(&localPointCount_,
-                  &globalPointCount_,
-                  1,
-                  datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-                  MPI_SUM,
-                  seissol::Mpi::mpi.comm());
+    // shared points, so how many this rank has is no longer a multiple of the cell count
+    pointOffset_ = seissol::Mpi::mpi.scan(localPointCount_, MPI_SUM, false);
+    globalPointCount_ = seissol::Mpi::mpi.allreduce(localPointCount_, MPI_SUM);
     pointSourceCount_ = localPointCount_;
     pointsPerSource_ = 1;
   } else {

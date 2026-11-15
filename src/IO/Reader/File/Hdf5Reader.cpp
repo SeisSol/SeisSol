@@ -12,6 +12,7 @@
 #include "IO/Datatype/HDF5Type.h"
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
+#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -106,10 +107,8 @@ std::size_t Hdf5Reader::dataCount(const std::string& name) {
   _eh(H5Sclose(dataspace));
   _eh(H5Dclose(dataset));
 
-  int mpirank = 0;
-  int mpisize = 0;
-  MPI_Comm_size(comm_, &mpisize);
-  MPI_Comm_rank(comm_, &mpirank);
+  const int mpisize = seissol::Mpi::sizeOf(comm_);
+  const int mpirank = seissol::Mpi::rankOf(comm_);
 
   return dims[0] / mpisize + ((dims[0] % mpisize) > static_cast<std::size_t>(mpirank) ? 1 : 0);
 }
@@ -168,20 +167,9 @@ void Hdf5Reader::readDataRaw(void* data,
   }
 
   const std::size_t chunksize = std::max(1_UZ, 2'000'000'000_UZ / (targetType->size() * dimprod));
-  std::size_t rounds = (count + chunksize - 1) / chunksize;
-  std::size_t start = 0;
-  MPI_Allreduce(MPI_IN_PLACE,
-                &rounds,
-                1,
-                datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-                MPI_MAX,
-                comm_);
-  MPI_Exscan(&count,
-             &start,
-             1,
-             datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-             MPI_SUM,
-             comm_);
+  const std::size_t rounds =
+      seissol::Mpi::mpi.allreduce((count + chunksize - 1) / chunksize, MPI_MAX, comm_);
+  const std::size_t start = seissol::Mpi::mpi.scan(count, MPI_SUM, false, comm_);
 
   std::vector<hsize_t> nullstart(rank);
   std::vector<hsize_t> readcount(rank);

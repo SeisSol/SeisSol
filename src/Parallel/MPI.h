@@ -11,6 +11,7 @@
 
 #include "Common/Real.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <functional>
 #include <mpi.h>
@@ -330,6 +331,52 @@ class Mpi {
   }
 
   /**
+   * @return @p value reduced with @p op over all processes, on @p root; a value-initialized T on
+   * the others
+   */
+  template <typename T>
+  [[nodiscard]] T
+      reduce(const T& value, MPI_Op op, int root, std::optional<MPI_Comm> comm = {}) const {
+    T result{};
+    const auto mpiType = castToMpiType<T>();
+    MPI_Reduce(&value, &result, 1, mpiType, op, root, comm.value_or(this->comm()));
+    return result;
+  }
+
+  /**
+   * Reduces the elements of @p container with @p op over all processes, in place on @p root; the
+   * other processes keep theirs.
+   */
+  template <typename ContainerType>
+  void reduceContainer(ContainerType& container,
+                       MPI_Op op,
+                       int root,
+                       std::optional<MPI_Comm> comm = {}) const {
+    using InternalType = ContainerType::value_type;
+    const auto useComm = comm.value_or(this->comm());
+    const auto size = static_cast<Count>(container.size());
+    const auto mpiType = castToMpiType<InternalType>();
+    if (rankOf(useComm) == root) {
+      SEISSOL_MPI_C(MPI_Reduce)
+      (MPI_IN_PLACE, container.data(), size, mpiType, op, root, useComm);
+    } else {
+      SEISSOL_MPI_C(MPI_Reduce)(container.data(), nullptr, size, mpiType, op, root, useComm);
+    }
+  }
+
+  /**
+   * @return the values of all processes, on all of them
+   */
+  template <typename T>
+  [[nodiscard]] std::vector<T> allgather(const T& value, std::optional<MPI_Comm> comm = {}) const {
+    const auto useComm = comm.value_or(this->comm());
+    std::vector<T> values(sizeOf(useComm));
+    const auto mpiType = castToMpiType<T>();
+    MPI_Allgather(&value, 1, mpiType, values.data(), 1, mpiType, useComm);
+    return values;
+  }
+
+  /**
    * @return @p value reduced with @p op over the processes up to this one (inclusive), or over the
    * processes before this one (exclusive; a value-initialized T on the first process)
    */
@@ -350,6 +397,29 @@ class Mpi {
     }
 
     return result;
+  }
+
+  /**
+   * Scans the elements of @p container with @p op, in place, as scan() does each of them.
+   */
+  template <typename ContainerType>
+  void scanContainer(ContainerType& container,
+                     MPI_Op op,
+                     bool inclusive,
+                     std::optional<MPI_Comm> comm = {}) const {
+    using InternalType = ContainerType::value_type;
+    const auto useComm = comm.value_or(this->comm());
+    const auto size = static_cast<Count>(container.size());
+    const auto mpiType = castToMpiType<InternalType>();
+    if (inclusive) {
+      SEISSOL_MPI_C(MPI_Scan)(MPI_IN_PLACE, container.data(), size, mpiType, op, useComm);
+    } else {
+      SEISSOL_MPI_C(MPI_Exscan)(MPI_IN_PLACE, container.data(), size, mpiType, op, useComm);
+      // MPI_Exscan leaves the receive buffer of the first rank undefined
+      if (rankOf(useComm) == 0) {
+        std::fill(container.begin(), container.end(), InternalType{});
+      }
+    }
   }
 
   /**

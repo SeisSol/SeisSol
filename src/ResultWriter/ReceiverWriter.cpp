@@ -344,12 +344,7 @@ void ReceiverWriter::collectSamples() {
     }
   }
   if (!samples.empty()) {
-    MPI_Allreduce(MPI_IN_PLACE,
-                  samples.data(),
-                  static_cast<int>(samples.size()),
-                  seissol::Mpi::castToMpiType<std::size_t>(),
-                  MPI_MAX,
-                  seissol::Mpi::mpi.comm());
+    seissol::Mpi::mpi.allreduceContainer(samples, MPI_MAX);
   }
 
   std::vector<double*> storage(grouping.groupCount(), nullptr);

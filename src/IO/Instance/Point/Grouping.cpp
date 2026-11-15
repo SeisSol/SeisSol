@@ -11,6 +11,7 @@
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
 #include "IO/Instance/Point/TableWriter.h"
+#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -60,11 +61,9 @@ std::vector<std::string> gatherKeys(const std::set<std::string>& local, MPI_Comm
     packed.push_back('\0');
   }
 
-  int size = 0;
-  MPI_Comm_size(comm, &size);
-  std::vector<int> lengths(size);
-  auto length = static_cast<int>(packed.size());
-  MPI_Allgather(&length, 1, MPI_INT, lengths.data(), 1, MPI_INT, comm);
+  const int size = seissol::Mpi::sizeOf(comm);
+  const auto length = static_cast<int>(packed.size());
+  const auto lengths = seissol::Mpi::mpi.allgather(length, comm);
 
   std::vector<int> offsets(size, 0);
   for (int rank = 1; rank < size; ++rank) {
@@ -115,24 +114,11 @@ Grouping groupPoints(const std::vector<std::vector<TableQuantity>>& pointQuantit
     ++localCount[group];
   }
 
-  MPI_Datatype sizetype = datatype::convertToMPI(datatype::inferDatatype<std::size_t>());
-  std::vector<std::size_t> offset(keys.size(), 0);
-  grouping.globalCount.assign(keys.size(), 0);
+  auto offset = localCount;
+  grouping.globalCount = localCount;
   if (!keys.empty()) {
-    MPI_Exscan(
-        localCount.data(), offset.data(), static_cast<int>(keys.size()), sizetype, MPI_SUM, comm);
-    MPI_Allreduce(localCount.data(),
-                  grouping.globalCount.data(),
-                  static_cast<int>(keys.size()),
-                  sizetype,
-                  MPI_SUM,
-                  comm);
-  }
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
-  if (rank == 0) {
-    // MPI_Exscan leaves the result untouched on the first rank
-    std::ranges::fill(offset, 0);
+    seissol::Mpi::mpi.scanContainer(offset, MPI_SUM, false, comm);
+    seissol::Mpi::mpi.allreduceContainer(grouping.globalCount, MPI_SUM, comm);
   }
 
   grouping.index.resize(pointQuantities.size());
