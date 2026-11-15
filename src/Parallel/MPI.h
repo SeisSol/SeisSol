@@ -171,6 +171,9 @@ class Mpi {
     } else if constexpr (std::is_same_v<T, unsigned char>) {
       return MPI_UNSIGNED_CHAR;
     } else if constexpr (std::is_same_v<T, bool>) {
+      // MPI_CXX_BOOL would be the type of a C++ bool, but MS-MPI does not have it; MPI_C_BOOL
+      // describes the same byte
+      static_assert(sizeof(bool) == 1, "MPI_C_BOOL describes a bool of one byte.");
       return MPI_C_BOOL;
     } else if constexpr (std::is_same_v<T, std::pair<float, int>>) {
       static_assert(pairMatchesMpiLayout<float, int>());
