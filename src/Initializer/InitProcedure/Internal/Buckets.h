@@ -11,7 +11,7 @@
 #include "Initializer/TimeStepping/Halo.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
-#include "Solver/TimeStepping/HaloCommunication.h"
+#include "Solver/TimeStepping/Halo/HaloCommunication.h"
 
 namespace seissol::initializer::internal {
 

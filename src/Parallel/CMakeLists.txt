@@ -13,6 +13,9 @@ add_library(seissol-parallel OBJECT
     OpenMP.cpp
     Pin.cpp
 
+    Runtime/EventPool.cpp
+    Runtime/HostActor.cpp
+    Runtime/HostBufferPool.cpp
     Runtime/Stream.cpp
 )
 

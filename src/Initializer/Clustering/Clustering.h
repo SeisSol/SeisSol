@@ -1,0 +1,93 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERING_H_
+#define SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERING_H_
+
+#include "Geometry/PUMLReader.h"
+#include "Initializer/FaceMap.h"
+#include "Initializer/TimeStepping/GlobalTimestep.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
+namespace seissol {
+class SeisSol;
+} // namespace seissol
+
+namespace seissol::initializer {
+
+struct ClusteringConfig {
+  std::vector<std::uint64_t> rate;
+  std::uint64_t vertexWeightElement{};
+  std::uint64_t vertexWeightDynamicRupture{};
+  std::uint64_t vertexWeightFreeSurfaceWithGravity{};
+  const FaceMap* faceMap{nullptr};
+  /// The cost of a cell of each configuration relative to vertexWeightElement, indexed by the id of
+  /// the configuration; empty if a cell costs the same in all of them.
+  std::vector<double> configCostFactors;
+};
+
+/// Everything the clustering decided.
+///
+/// This is the whole interface between deciding the clustering and using it: the partitioner
+/// weights are derived from it, the mesh reader carries it, and the ladder plus the wiggle
+/// factor travel through it to ClusterLayout. Nothing downstream may re-derive any of it from
+/// the parameter file, because a search is allowed to have changed both.
+struct ClusteringResult {
+  /// Cluster id per cell, in the order the mesh had before partitioning.
+  std::vector<std::size_t> clusterIds;
+  /// The ladder, complete: one ratio per cluster boundary, never abbreviated.
+  std::vector<std::uint64_t> ratios;
+  double wiggleFactor{1.0};
+  /// Per-cell cost the clustering was scored with; also the base of the vertex weights.
+  std::vector<std::uint64_t> cellCosts;
+  GlobalTimestep timesteps;
+
+  [[nodiscard]] std::size_t clusterCount() const { return ratios.size() + 1; }
+};
+
+/// Decides which cell belongs to which time cluster.
+///
+/// Everything about *how* that decision is reached -- the ladder, the histograms, the
+/// smoothing, the search -- lives behind this class. What comes out is a ClusteringResult;
+/// turning that into partitioner weights is a separate concern, see VertexWeightModel.
+class Clustering {
+  public:
+  Clustering(const ClusteringConfig& config, seissol::SeisSol& seissolInstance);
+
+  /// The arrays are those PUMLReader::read read with the cells of either mesh. vertexOrders is the
+  /// canonical vertex order of every cell, the one the simulation uses later (see
+  /// geometry::canonicalVertexOrders); the time steps are computed in it.
+  const ClusteringResult& compute(const geometry::PumlMesh& meshTopology,
+                                  const geometry::PumlCellArrays& topologyArrays,
+                                  const geometry::PumlMesh& meshGeometry,
+                                  const geometry::PumlCellArrays& geometryArrays,
+                                  const std::vector<geometry::VertexOrder>& vertexOrders);
+
+  [[nodiscard]] const ClusteringResult& result() const { return result_; }
+
+  private:
+  [[nodiscard]] std::vector<std::uint64_t>
+      computeCostsPerTimestep(const geometry::PumlMesh& mesh,
+                              const geometry::PumlCellArrays& arrays) const;
+
+  seissol::SeisSol& seissolInstance_;
+  std::vector<std::uint64_t> rate_;
+  std::uint64_t vertexWeightElement_{};
+  std::uint64_t vertexWeightDynamicRupture_{};
+  std::uint64_t vertexWeightFreeSurfaceWithGravity_{};
+  const FaceMap* faceMap_{nullptr};
+  std::vector<double> configCostFactors_;
+
+  ClusteringResult result_;
+};
+
+} // namespace seissol::initializer
+
+#endif // SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERING_H_

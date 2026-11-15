@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# Fast velocity weakening with thermal pressurization on fault1d, as
+# fault1d-rs-fvw-tp, in a fluid at a pore pressure of 80 MPa as in TPV105
+# (tp_iniPressure = -80e6). The pore pressure is added to the normal stress, as
+# the documentation asks, so that the effective normal stress is the 120 MPa of
+# fault1d-rs-fvw-tp, and so are the slip and the change of the pore pressure.
+!ConstantMap
+map:
+  s_xx:   -200.0e6
+  s_yy:   0.0
+  s_zz:   0.0
+  s_xy:   40.0e6
+  s_yz:   0.0
+  s_xz:   0.0
+  nuc_xx: 0.0
+  nuc_yy: 0.0
+  nuc_zz: 0.0
+  nuc_xy: 45.0e6
+  nuc_yz: 0.0
+  nuc_xz: 0.0
+  rs_a:     0.01
+  rs_sl0:   0.2
+  rs_srW:   0.1
+  tp_halfWidthShearZone:   0.005
+  tp_hydraulicDiffusivity: 4.0e-4

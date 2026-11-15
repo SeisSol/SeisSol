@@ -16,11 +16,13 @@
 
 namespace seissol::writer {
 
-void PickpointWriter::syncPoint(double /*currentTime*/) {
+void PickpointWriter::captureSyncPoint(double /*currentTime*/) { capture_(); }
+
+void PickpointWriter::processSyncPoint(double /*currentTime*/) {
   logInfo() << "Writing pickpoint data.";
 
   // currently, we just wrap the DR output function.
-  writer_();
+  write_();
 
   logInfo() << "Writing pickpoint data complete.";
 }
@@ -29,11 +31,11 @@ void PickpointWriter::simulationStart(std::optional<double> /*checkpointTime*/) 
 
 void PickpointWriter::simulationEnd() { syncPoint(std::numeric_limits<double>::infinity()); }
 
-void PickpointWriter::enable(double interval) {
+void PickpointWriter::enable(Modules& modules, double interval) {
   if (!enabled_) {
-    Modules::registerHook(*this, ModuleHook::SimulationStart);
-    Modules::registerHook(*this, ModuleHook::SynchronizationPoint);
-    Modules::registerHook(*this, ModuleHook::SimulationEnd);
+    modules.registerHook(*this, ModuleHook::SimulationStart);
+    modules.registerHook(*this, ModuleHook::SynchronizationPoint);
+    modules.registerHook(*this, ModuleHook::SimulationEnd);
 
     setSyncInterval(interval);
   }
@@ -41,6 +43,10 @@ void PickpointWriter::enable(double interval) {
   enabled_ = true;
 }
 
-void PickpointWriter::setupWriter(const std::function<void()>& writer) { writer_ = writer; }
+void PickpointWriter::setupWriter(const std::function<void()>& capture,
+                                  const std::function<void()>& write) {
+  capture_ = capture;
+  write_ = write;
+}
 
 } // namespace seissol::writer

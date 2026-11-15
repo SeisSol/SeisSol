@@ -8,12 +8,14 @@
 #include <doctest.h>
 
 #include "GeneratedCode/init.h"
-#include "Kernels/Precision.h"
 #include "Numerical/BasisFunction.h"
 #include "TestHelper.h"
 
 namespace seissol::unit_test {
-TEST_CASE_TEMPLATE("Sampled Basis Functions", RealT, float, double) {
+TEST_CASE_TEMPLATE("Sampled Basis Functions" * doctest::test_suite("numerical"),
+                   RealT,
+                   float,
+                   double) {
   constexpr double Epsilon = 10 * std::numeric_limits<RealT>::epsilon();
   std::vector<RealT> precomputedValues = {1.0,
                                           0.19999999999999998,
@@ -73,7 +75,7 @@ TEST_CASE_TEMPLATE("Sampled Basis Functions", RealT, float, double) {
                                           -0.44044};
 
   for (std::size_t order = 1; order <= 6; ++order) {
-    const basisFunction::SampledBasisFunctions<RealT> sampledBasisFunctions(order, 0.3, 0.3, 0.3);
+    const basis_function::SampledBasisFunctions<RealT> sampledBasisFunctions(order, 0.3, 0.3, 0.3);
     const auto funs = sampledBasisFunctions.size();
     REQUIRE(funs <= precomputedValues.size());
     for (size_t i = 0; i < funs; ++i) {
@@ -83,7 +85,10 @@ TEST_CASE_TEMPLATE("Sampled Basis Functions", RealT, float, double) {
   }
 }
 
-TEST_CASE_TEMPLATE("Sampled Derivatives Functions", RealT, float, double) {
+TEST_CASE_TEMPLATE("Sampled Derivatives Functions" * doctest::test_suite("numerical"),
+                   RealT,
+                   float,
+                   double) {
   constexpr double Epsilon = 100 * std::numeric_limits<RealT>::epsilon();
 
   std::array<std::vector<RealT>, 3> precomputedValues = {{{0.0,
@@ -256,10 +261,10 @@ TEST_CASE_TEMPLATE("Sampled Derivatives Functions", RealT, float, double) {
                                                            1.876000000000009}}};
 
   for (std::size_t order = 1; order <= 6; ++order) {
-    basisFunction::SampledBasisFunctionDerivatives<RealT> sampledBasisFunctionDerivatives(
+    basis_function::SampledBasisFunctionDerivatives<RealT> sampledBasisFunctionDerivatives(
         order, 0.3, 0.3, 0.3);
     const auto funs = sampledBasisFunctionDerivatives.size() / 3;
-    auto dataView = [&](auto i, auto dir) {
+    const auto dataView = [&](auto i, auto dir) {
       return sampledBasisFunctionDerivatives.data()[i + funs * dir];
     };
     REQUIRE(funs <= precomputedValues[0].size());

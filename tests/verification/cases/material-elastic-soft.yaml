@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# material-elastic.yaml with half the moduli, so that waves travel slower in it;
+# a simulation can take it as a material of its own (MaterialFileName<i>). Its
+# time step limit lies above the one of material-elastic.yaml.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        rho:    2700.0
+        mu:     1.62e10
+        lambda: 1.62e10
+  - !GroupFilter
+    groups: 2
+    components: !ConstantMap
+      map:
+        rho:    2700.0
+        mu:     0.81e10
+        lambda: 0.81e10

@@ -19,10 +19,10 @@
 <matrix name="rDivM(2)" sparse="aligned"/>
 <matrix name="rDivM(3)" sparse="aligned"/>
 
-<matrix name="rT(0)" sparse="aligned"/>
-<matrix name="rT(1)" sparse="aligned"/>
-<matrix name="rT(2)" sparse="aligned"/>
-<matrix name="rT(3)" sparse="aligned"/>
+<matrix name="fPrT(0)" sparse="aligned"/>
+<matrix name="fPrT(1)" sparse="aligned"/>
+<matrix name="fPrT(2)" sparse="aligned"/>
+<matrix name="fPrT(3)" sparse="aligned"/>
 -->
 
 <matrix name="star" sparse="True"/>

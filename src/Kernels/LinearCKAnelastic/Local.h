@@ -10,7 +10,9 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCAL_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_LOCAL_H_
 
+#include "Common/Real.h"
 #include "GeneratedCode/kernel.h"
+#include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Local.h"
 #include "Physics/InitialField.h"
@@ -18,18 +20,20 @@
 #include <memory>
 
 namespace seissol::kernels::solver::linearckanelastic {
-class Local : public LocalKernel {
+template <typename Cfg>
+class Local : public LocalKernel<Cfg> {
   public:
-  void setGlobalData(const CompoundGlobalData& global) override;
+  using real = Real<Cfg>;
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
 
   void computeIntegral(real* timeIntegratedDoFs,
-                       LTS::Ref& data,
-                       LocalTmp& tmp,
+                       LTS::Ref<Cfg>& data,
+                       LocalTmp<Cfg>& tmp,
                        double time,
                        double timeStepWidth) override;
 
   void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
-                              recording::ConditionalMaterialTable& materialTable,
                               recording::ConditionalIndicesTable& indicesTable,
                               double timeStepWidth,
                               seissol::parallel::runtime::StreamRuntime& runtime) override;
@@ -37,26 +41,35 @@ class Local : public LocalKernel {
   void evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
                                       recording::ConditionalIndicesTable& indicesTable,
                                       LTS::Layer& layer,
-                                      double time,
+                                      const double* time,
                                       double timeStepWidth,
                                       seissol::parallel::runtime::StreamRuntime& runtime) override;
 
-  void flopsIntegral(const std::array<FaceType, Cell::NumFaces>& faceTypes,
-                     std::uint64_t& nonZeroFlops,
-                     std::uint64_t& hardwareFlops) override;
-
-  std::uint64_t bytesIntegral() override;
+  [[nodiscard]] PerformanceEstimate
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
 
   protected:
-  kernel::volumeExt volumeKernelPrototype_;
-  kernel::localFluxExt localFluxKernelPrototype_;
-  kernel::local localKernelPrototype_;
+  kernel::volumeExt<Cfg> volumeKernelPrototype_;
+  kernel::localFluxExt<Cfg> localFluxKernelPrototype_;
+  kernel::local<Cfg> localKernelPrototype_;
+
+  kernel::fsgFlux<Cfg> fsgFlux_;
+  kernel::dirichletFlux<Cfg> dirichletFlux_;
+  kernel::localFluxNodal<Cfg> nodalLfKrnlPrototype_;
+
+  kernels::AnalyticalBoundary<Cfg> analyticalBoundary_;
 
 #ifdef ACL_DEVICE
-  kernel::gpu_volumeExt deviceVolumeKernelPrototype_;
-  kernel::gpu_localFluxExt deviceLocalFluxKernelPrototype_;
-  kernel::gpu_local deviceLocalKernelPrototype_;
-  kernel::gpu_fluxLocalAll deviceFluxLocalAllKernelPrototype_;
+  kernel::gpu_volumeExt<Cfg> deviceVolumeKernelPrototype_;
+  kernel::gpu_localFluxExt<Cfg> deviceLocalFluxKernelPrototype_;
+  kernel::gpu_local<Cfg> deviceLocalKernelPrototype_;
+  kernel::gpu_fluxLocalAll<Cfg> deviceFluxLocalAllKernelPrototype_;
+
+  kernel::gpu_fsgFlux<Cfg> deviceFsgFlux_;
+  kernel::gpu_dirichletFlux<Cfg> deviceDirichletFlux_;
+  kernel::gpu_localFluxNodal<Cfg> deviceNodalLfKrnlPrototype_;
+  // folds the extended DOFs into the DOFs and the memory variables, as the neighbor integral does
+  kernel::gpu_neighbor<Cfg> deviceFoldKrnlPrototype_;
 #endif
 };
 } // namespace seissol::kernels::solver::linearckanelastic

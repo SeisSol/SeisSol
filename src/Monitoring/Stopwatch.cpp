@@ -11,7 +11,8 @@
 #include "Unit.h"
 
 #include <string>
-#include <time.h>
+// clock_gettime is POSIX and only declared by the C header
+#include <time.h> // NOLINT(modernize-deprecated-headers)
 #include <utils/logger.h>
 
 namespace seissol {
@@ -67,15 +68,18 @@ double Stopwatch::stop() {
 /**
  * Collective operation, printing avg, min and max time
  */
-void Stopwatch::printTime(const std::string& text) const { print(text, seconds(time_)); }
+statistics::Summary Stopwatch::printTime(const std::string& text) const {
+  return print(text, seconds(time_));
+}
 
-void Stopwatch::print(const std::string& text, double time) {
+statistics::Summary Stopwatch::print(const std::string& text, double time) {
   const auto summary = statistics::parallelSummary(time);
 
   logInfo() << text.c_str() << UnitTime.formatTime(summary.mean).c_str()
             << "(per rank:" << UnitTime.formatScientific(summary.mean, summary.std).c_str()
             << "; range: [" << UnitTime.formatScientific(summary.min).c_str() << ","
             << UnitTime.formatScientific(summary.max).c_str() << "])";
+  return summary;
 }
 
 } // namespace seissol

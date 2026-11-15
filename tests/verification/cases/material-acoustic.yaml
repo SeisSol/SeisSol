@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# Water. The acoustic model reads rho and lambda; mu is given as zero, as in
+# the acoustic case of precomputed-seissol. Group 2, the far half of mat48, has
+# half the bulk modulus, as in material-elastic.yaml.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        rho:    1000.0
+        mu:     0.0
+        lambda: 2.25e9
+  - !GroupFilter
+    groups: 2
+    components: !ConstantMap
+      map:
+        rho:    1000.0
+        mu:     0.0
+        lambda: 1.125e9

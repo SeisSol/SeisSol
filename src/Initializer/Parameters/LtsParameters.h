@@ -8,7 +8,13 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_LTSPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_LTSPARAMETERS_H_
 
+#include "Common/ConfigRegistry.h"
+#include "Initializer/Clustering/ClusterCostModel.h"
 #include "ParameterReader.h"
+
+#include <cstdint>
+#include <string>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -20,9 +26,17 @@ enum class LtsWeightsTypes : int {
 };
 
 struct VertexWeightParameters {
-  int weightElement;
-  int weightDynamicRupture;
-  int weightFreeSurfaceWithGravity;
+  std::uint64_t weightElement;
+  std::uint64_t weightDynamicRupture;
+  std::uint64_t weightFreeSurfaceWithGravity;
+  //! the costs of the cells measured in a run before (output.vertexweightoutput), to partition by
+  //! in place of the weights above; none if empty
+  std::string measuredCosts;
+  //! how many short runs go before the run, each measuring the costs of the cells for the
+  //! partition of the next one
+  unsigned cycles{0};
+  //! how long each of these runs is, in time steps of the largest time cluster
+  unsigned cycleSteps{20};
 };
 
 enum class AutoMergeCostBaseline {
@@ -33,6 +47,16 @@ enum class AutoMergeCostBaseline {
 };
 
 AutoMergeCostBaseline parseAutoMergeCostBaseline(std::string str);
+
+enum class LtsClusteringSearch {
+  // Sweep the wiggle factor on a grid, merging clusters from the top. The rate vector is
+  // taken as given.
+  Legacy,
+  // Choose the rate vector as well, by shortest path on the divisor lattice.
+  Lattice,
+};
+
+LtsClusteringSearch parseLtsClusteringSearch(std::string str);
 
 class LtsParameters {
   private:
@@ -45,6 +69,11 @@ class LtsParameters {
   double allowedPerformanceLossRatioAutoMerge_{};
   AutoMergeCostBaseline autoMergeCostBaseline_{AutoMergeCostBaseline::BestWiggleFactor};
   LtsWeightsTypes ltsWeightsType_{LtsWeightsTypes::ExponentialWeights};
+  LtsClusteringSearch clusteringSearch_{LtsClusteringSearch::Legacy};
+  double costUpdate_{1.0};
+  double costLaunch_{0.0};
+  double costFill_{0.0};
+  std::uint64_t maxRate_{0};
 
   public:
   [[nodiscard]] std::vector<uint64_t> getRate() const;
@@ -57,6 +86,11 @@ class LtsParameters {
   [[nodiscard]] double getAllowedPerformanceLossRatioAutoMerge() const;
   [[nodiscard]] AutoMergeCostBaseline getAutoMergeCostBaseline() const;
   [[nodiscard]] LtsWeightsTypes getLtsWeightsType() const;
+  [[nodiscard]] LtsClusteringSearch getClusteringSearch() const;
+  /// Upper bound on a single ratio between adjacent clusters; 0 means unbounded. Only the
+  /// lattice search can honor this, because the legacy search does not choose the rates.
+  [[nodiscard]] std::uint64_t getMaxRate() const;
+  [[nodiscard]] ClusterCostModel getClusterCostModel() const;
 
   LtsParameters() = default;
 
@@ -68,7 +102,12 @@ class LtsParameters {
                 bool ltsAutoMergeClusters,
                 double allowedPerformanceLossRatioAutoMerge,
                 AutoMergeCostBaseline autoMergeCostBaseline,
-                LtsWeightsTypes ltsWeightsType);
+                LtsWeightsTypes ltsWeightsType,
+                LtsClusteringSearch clusteringSearch = LtsClusteringSearch::Legacy,
+                double costUpdate = 1.0,
+                double costLaunch = 0.0,
+                double costFill = 0.0,
+                std::uint64_t maxRate = 0);
 };
 
 struct TimeSteppingParameters {
@@ -92,7 +131,9 @@ struct TimeSteppingParameters {
 };
 
 LtsParameters readLtsParameters(ParameterReader* baseReader);
-TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader);
+/// The time stepping of a run whose cells compute in the configurations `configs`.
+TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
+                                                  const std::vector<ConfigId>& configs);
 
 } // namespace seissol::initializer::parameters
 

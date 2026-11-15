@@ -8,10 +8,12 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
 
+#include "Common/Real.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Model/MaterialType.h"
 
 #include <yaml-cpp/yaml.h>
 
@@ -51,8 +53,7 @@ class BaseDRInitializer {
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
       seissol::SeisSol& seissolInstance)
       : seissolInstance_(seissolInstance), drParameters_(drParameters),
-        faultParameterNames_(
-            seissol::initializer::FaultParameterDB::faultProvides(drParameters->faultFileName)) {};
+        faultParameterNames_(seissol::initializer::faultProvides(drParameters->faultFileName)) {};
 
   virtual ~BaseDRInitializer() = default;
 
@@ -74,15 +75,8 @@ class BaseDRInitializer {
    * @param layer reference to a Storage layer
    */
   virtual void
-      addAdditionalParameters(std::unordered_map<std::string, real*>& parameterToStorageMap,
+      addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                               DynamicRupture::Layer& layer);
-
-  /**
-   * Finds all faceIDs in one iterator. This is the mapping idInStorage -> idInMesh
-   * @param layer reference to a Storage layer
-   * @return vector containing all faceIDs which are stored in the leaf_iterator
-   */
-  static std::vector<std::size_t> getFaceIDsInIterator(DynamicRupture::Layer& layer);
 
   /**
    * Initialize all other variables:
@@ -101,13 +95,26 @@ class BaseDRInitializer {
   static void initializeOtherVariables(DynamicRupture::Layer& layer);
 
   /**
-   * Reads the parameters from the easi file
+   * Reads the parameters of `parameterToStorageMap` for the faces of `layer`, which compute in the
+   * configuration `Cfg`: every copy of the faces from the easi files of the simulations it holds.
+   */
+  template <typename Cfg>
+  void queryParameters(DynamicRupture::Layer& layer,
+                       const std::unordered_map<std::string, void*>& parameterToStorageMap);
+
+  /**
+   * Reads the parameters from the easi file of the simulation `simid`, at the quadrature points of
+   * the given faces of the configuration `Cfg`
    * @param faultParameterDB reference to a FaultParameterDB, which manages easi
    * @param faceIDs faceIDs of the cells which are to be read
    */
-  void queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
+  template <typename Cfg>
+  void queryModel(seissol::initializer::FaultParameterDB<Real<Cfg>>& faultParameterDB,
                   const std::vector<std::size_t>& faceIDs,
                   std::size_t simid);
+
+  /// Logs the quadrature rule of every configuration that fault faces compute in.
+  static void logQuadratureRules(DynamicRupture::Storage& drStorage);
 
   /**
    * Evaluates, whether the FaultParameterDB provides a certain parameter.
@@ -134,9 +141,25 @@ class BaseDRInitializer {
    * stress components, but no mixture.
    * @param readNucleation if set to > 0, check the identifiers for the nucleation stress. If set
    * to 0, check identifiers for the initial stress
+   * @param material the material of the configuration of the faces; a poroelastic one also takes
+   * the fluid pressure
    * @return vector of strings, with the identifiers for the initial stress.
    */
-  std::pair<std::vector<std::string>, Parametrization> stressIdentifiers(int readNucleation);
+  std::pair<std::vector<std::string>, Parametrization>
+      stressIdentifiers(int readNucleation, model::MaterialType material);
+
+  /**
+   * The fault parameter that carries the onset of a nucleation, per point. Where the fault does
+   * not provide it, the onset of the parameter file holds for all points of that nucleation.
+   */
+  static std::string onsetIdentifier(int readNucleation);
+
+  /**
+   * The fault parameter that carries the rise time of a nucleation, per point. Where the fault
+   * does not provide it, the rise time of the parameter file holds for all points of that
+   * nucleation.
+   */
+  static std::string riseTimeIdentifier(int readNucleation);
 };
 
 } // namespace dr::initializer

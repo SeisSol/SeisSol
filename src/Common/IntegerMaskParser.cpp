@@ -77,12 +77,12 @@ auto IntegerMaskParser::parseIntList(const std::string& str)
     std::vector<int> integers;
 
     const auto strCopy = std::string(str, 1, str.size());
-    for (size_t i = 0; i < strCopy.size(); ++i) {
-      if ((strCopy[i] == ',') || (strCopy[i] == '}')) {
+    for (const char character : strCopy) {
+      if ((character == ',') || (character == '}')) {
         integers.push_back(std::stoi(subStr));
         subStr = std::string();
       } else {
-        subStr.push_back(strCopy[i]);
+        subStr.push_back(character);
       }
     }
     result = integers;

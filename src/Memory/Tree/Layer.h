@@ -14,20 +14,21 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Colormap.h"
 
+#include <algorithm>
 #include <bitset>
+#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <type_traits>
 #include <typeindex>
 #include <utils/logger.h>
-#include <variant>
 #include <vector>
 
 // TODO: remove the following
 
-// NOLINTBEGIN (-cppcoreguidelines-use-enum-class)
+// the bits of a layer mask, used unqualified throughout
+// NOLINTNEXTLINE(cppcoreguidelines-use-enum-class)
 enum LayerType { Ghost = (1U << 0U), Copy = (1U << 1U), Interior = (1U << 2U), NumLayers = 3U };
-// NOLINTEND (-cppcoreguidelines-use-enum-class)
 
 namespace seissol::initializer {
 using LayerMask = std::bitset<NumLayers>;
@@ -50,6 +51,14 @@ enum class AllocationPlace { Host, Device };
 struct DualMemoryContainer {
   void* host{nullptr};
   void* device{nullptr};
+  /**
+   * A copy of the device part as of the last synchronization point (see takeSnapshot()), for the
+   * host to read while the device goes on, if the container keeps one (see allocateSnapshot()):
+   * with separate parts, memory on the device, which gets copied to the host part later (see
+   * snapshotToHost()); with unified memory, the host part itself, which is then apart from the
+   * device part.
+   */
+  void* snapshot{nullptr};
   AllocationMode allocationMode{AllocationMode::HostOnly};
   std::size_t allocationSize{};
   std::size_t allocationAlignment{};
@@ -120,32 +129,129 @@ struct DualMemoryContainer {
     allocationSize = size;
   }
 
+  /// Whether host and device keep separate memory, which synchronizeTo() copies between.
+  [[nodiscard]] bool separateParts() const {
+    return allocationMode == AllocationMode::HostDeviceSplit ||
+           allocationMode == AllocationMode::HostDeviceSplitPinned ||
+           allocationMode == AllocationMode::HostDeviceCompress ||
+           allocationMode == AllocationMode::HostDeviceCompressPinned || unifiedSnapshot();
+  }
+
+  /// Whether synchronizeTo(AllocationPlace::Host) copies the device part to the host part.
+  [[nodiscard]] bool copiesToHost() const { return separateParts() && !constant; }
+
+  /**
+   * Allocates a snapshot (see `snapshot`) for data that changes, where the device can copy to the
+   * host part without blocking: with separate parts, if the host part is pinned; with unified
+   * memory, as a host part of its own, which the host then reads instead of the device part.
+   */
+  void allocateSnapshot(seissol::memory::ManagedAllocator& allocator, std::size_t alignment) {
+    if (constant || allocationSize == 0 || snapshot != nullptr) {
+      return;
+    }
+    if (allocationMode == AllocationMode::HostDeviceSplitPinned ||
+        allocationMode == AllocationMode::HostDeviceCompressPinned) {
+      snapshot = allocator.allocateMemory(
+          allocationSize, alignment, seissol::memory::Memkind::DeviceGlobalMemory);
+    }
+    if (allocationMode == AllocationMode::HostDeviceUnified) {
+      host = allocator.allocateMemory(
+          allocationSize, alignment, seissol::memory::Memkind::DeviceUnifiedMemory);
+      snapshot = host;
+    }
+  }
+
+  /// Copies the device part to the snapshot, on the stream; nothing without one.
+  void takeSnapshot([[maybe_unused]] void* stream) const {
+#ifdef ACL_DEVICE
+    if (snapshot != nullptr) {
+      device::DeviceInstance::instance().api().copyBetweenAsync(
+          snapshot, device, allocationSize, stream);
+    }
+#endif
+  }
+
+  /// Whether the snapshot still has to be copied to the host part (see snapshotToHost()).
+  [[nodiscard]] bool snapshotApartFromHost() const {
+    return snapshot != nullptr && snapshot != host;
+  }
+
+  /// Copies the snapshot to the host part, on the stream, where they are apart.
+  void snapshotToHost([[maybe_unused]] void* stream) const {
+#ifdef ACL_DEVICE
+    if (snapshotApartFromHost()) {
+      device::DeviceInstance::instance().api().copyFromAsync(
+          host, snapshot, allocationSize, stream);
+    }
+#endif
+  }
+
   void synchronizeTo(AllocationPlace place, void* stream) const {
 #ifdef ACL_DEVICE
-    if (allocationMode == AllocationMode::HostDeviceSplit ||
-        allocationMode == AllocationMode::HostDeviceSplitPinned ||
-        allocationMode == AllocationMode::HostDeviceCompress ||
-        allocationMode == AllocationMode::HostDeviceCompressPinned) {
+    if (unifiedSnapshot()) {
+      // both parts are unified memory (see allocateSnapshot())
       if (place == AllocationPlace::Host) {
-        // do not copy back constant data (we ignore the other direction for now)
         if (!constant) {
-          device::DeviceInstance::getInstance().api->copyFromAsync(
+          device::DeviceInstance::instance().api().copyBetweenAsync(
               host, device, allocationSize, stream);
         }
       } else {
-        device::DeviceInstance::getInstance().api->copyToAsync(
+        device::DeviceInstance::instance().api().copyBetweenAsync(
             device, host, allocationSize, stream);
+      }
+      return;
+    }
+    if (separateParts()) {
+      if (place == AllocationPlace::Host) {
+        // do not copy back constant data (we ignore the other direction for now)
+        if (!constant) {
+          device::DeviceInstance::instance().api().copyFromAsync(
+              host, device, allocationSize, stream);
+        }
+      } else {
+        device::DeviceInstance::instance().api().copyToAsync(device, host, allocationSize, stream);
       }
     }
     if (allocationMode == AllocationMode::HostDeviceUnified) {
       // currently broken (?)
       if (place == AllocationPlace::Host) {
-        // device::DeviceInstance::getInstance().api->prefetchUnifiedMemTo(device::Destination::Host,
+        // device::DeviceInstance::instance().api().prefetchUnifiedMemTo(device::Destination::Host,
         // host, allocationSize, stream);
       } else {
-        // device::DeviceInstance::getInstance().api->prefetchUnifiedMemTo(device::Destination::CurrentDevice,
+        // device::DeviceInstance::instance().api().prefetchUnifiedMemTo(device::Destination::CurrentDevice,
         // device, allocationSize, stream);
       }
+    }
+#endif
+  }
+
+  /// Whether the device part is device memory of its own, which touchDevice() writes.
+  [[nodiscard]] bool ownDevicePart() const {
+    const bool deviceMemory = allocationMode == AllocationMode::HostDeviceSplit ||
+                              allocationMode == AllocationMode::HostDeviceSplitPinned ||
+                              allocationMode == AllocationMode::HostDeviceCompress ||
+                              allocationMode == AllocationMode::HostDeviceCompressPinned ||
+                              allocationMode == AllocationMode::DeviceOnly ||
+                              allocationMode == AllocationMode::DeviceOnlyCompress;
+    return deviceMemory && device != nullptr;
+  }
+
+  /**
+   * Writes zeros into the device part by copies, as touchVariables() writes the host part, so that
+   * the copy engines write it first (as compressible memory needs it on some devices, e.g. sm_80
+   * and sm_86). `zeros` is a host buffer of `zerosSize` zero bytes that the device can read.
+   */
+  void touchDevice(const void* zeros, std::size_t zerosSize, void* stream) const {
+#ifdef ACL_DEVICE
+    if (!ownDevicePart()) {
+      return;
+    }
+    for (std::size_t offset = 0; offset < allocationSize; offset += zerosSize) {
+      device::DeviceInstance::instance().api().copyToAsync(
+          static_cast<char*>(device) + offset,
+          zeros,
+          std::min(zerosSize, allocationSize - offset),
+          stream);
     }
 #endif
   }
@@ -153,6 +259,7 @@ struct DualMemoryContainer {
   void offsetFrom(const DualMemoryContainer& container, std::size_t offset, std::size_t size) {
     host = nullptr;
     device = nullptr;
+    snapshot = nullptr;
 
     allocationMode = container.allocationMode;
     allocationSize = size;
@@ -162,30 +269,50 @@ struct DualMemoryContainer {
     if (container.device != nullptr) {
       device = reinterpret_cast<char*>(container.device) + offset;
     }
+    if (container.snapshot != nullptr) {
+      snapshot = reinterpret_cast<char*>(container.snapshot) + offset;
+    }
+  }
+
+  private:
+  /// Unified memory with a snapshot as a host part of its own (see allocateSnapshot()).
+  [[nodiscard]] bool unifiedSnapshot() const {
+    return allocationMode == AllocationMode::HostDeviceUnified && snapshot != nullptr;
   }
 };
 
 enum class MemoryType { Variable, Bucket, Scratchpad };
 
-struct MemoryHandle {
-  std::shared_ptr<int> handle{std::make_shared<int>()};
-
-  [[nodiscard]] int* pointer() const { return handle.get(); }
-
-  MemoryHandle() = default;
-};
-
-struct VariableDescriptor : public MemoryHandle {
+struct VariableDescriptor {
   static constexpr MemoryType Storage = MemoryType::Variable;
 };
 
-struct BucketDescriptor : public MemoryHandle {
+struct BucketDescriptor {
   static constexpr MemoryType Storage = MemoryType::Bucket;
 };
 
-struct ScratchpadDescriptor : public MemoryHandle {
+struct ScratchpadDescriptor {
   static constexpr MemoryType Storage = MemoryType::Scratchpad;
 };
+
+/**
+  The type a variable holds per cell in a configuration: the one it names for every configuration,
+  or, where it names none (`void`), the one it names for that configuration.
+ */
+template <typename StorageT, typename Cfg, typename = void>
+struct StorageTypeOf {
+  using Type = StorageT::Type;
+};
+
+template <typename StorageT, typename Cfg>
+struct StorageTypeOf<StorageT,
+                     Cfg,
+                     std::enable_if_t<std::is_same_v<typename StorageT::Type, void>>> {
+  using Type = StorageT::template VariantType<Cfg>;
+};
+
+template <typename StorageT, typename Cfg>
+using StorageType = StorageTypeOf<StorageT, Cfg>::Type;
 
 template <typename T>
 struct Variable : public VariableDescriptor {
@@ -205,9 +332,25 @@ struct Bucket : public BucketDescriptor {
   using Type = T;
 };
 
+template <template <typename> typename TT>
+struct VariantBucket : public BucketDescriptor {
+  using Type = void;
+
+  template <typename T>
+  using VariantType = TT<T>;
+};
+
 template <typename T>
 struct Scratchpad : public ScratchpadDescriptor {
   using Type = T;
+};
+
+template <template <typename> typename TT>
+struct VariantScratchpad : public ScratchpadDescriptor {
+  using Type = void;
+
+  template <typename T>
+  using VariantType = TT<T>;
 };
 
 using FilterFunction = std::function<bool(const LayerIdentifier&)>;
@@ -243,7 +386,6 @@ bool layerFilter(const LayerIdentifier& filter) {
  */
 struct GenericVarmap {
   std::unordered_map<std::type_index, std::size_t> typemap;
-  std::unordered_map<int*, std::size_t> handlemap;
   std::size_t count = 0;
 
   template <typename T>
@@ -255,21 +397,8 @@ struct GenericVarmap {
   }
 
   template <typename T>
-  std::size_t add(T& handle) {
-    const auto idx = count;
-    handlemap[handle.pointer()] = idx;
-    ++count;
-    return idx;
-  }
-
-  template <typename T>
   [[nodiscard]] std::size_t index() const {
     return typemap.at(std::type_index(typeid(T)));
-  }
-
-  template <typename T>
-  [[nodiscard]] std::size_t index(T& handle) const {
-    return handlemap.at(handle.pointer());
   }
 
   static constexpr std::size_t MinSize = 0;
@@ -303,19 +432,8 @@ struct SpecificVarmap {
   }
 
   template <typename T>
-  std::size_t add(T& handle) {
-    return index(handle);
-  }
-
-  template <typename T>
   [[nodiscard]] std::size_t index() const {
     return innerIndex<T, Types...>();
-  }
-
-  template <typename T>
-  [[nodiscard]] std::size_t index(T& /*handle*/) const {
-    static_assert(sizeof(T) == 0, "Type not found.");
-    return 0;
   }
 
   static constexpr std::size_t MinSize = sizeof...(Types);
@@ -348,7 +466,6 @@ class Layer {
 
   recording::ConditionalPointersToRealsTable conditionalPointersToRealsTable_;
   recording::DrConditionalPointersToRealsTable drConditionalPointersToRealsTable_;
-  recording::ConditionalMaterialTable conditionalMaterialTable_;
   recording::ConditionalIndicesTable conditionalIndicesTable_;
 
   public:
@@ -363,22 +480,26 @@ class Layer {
 
     (equivalent to the `LocalData` / `NeighborData` in older SeisSol)
 
+    The reference is to a cell of a configuration `Cfg`: a variable that holds a type per
+    configuration is seen as the one of `Cfg`.
+
     Example: if you have a registered type Tx, then the following are equivalent:
 
-    const auto& data = layer.var<Tx>(AllocationPlace::Device)[123];
+    const auto& data = layer.var<Tx>(Cfg(), AllocationPlace::Device)[123];
 
     to:
 
-    const auto ref = layer.cellRef(123, AllocationPlace::Device);
+    const auto ref = layer.cellRef<Cfg>(123, AllocationPlace::Device);
     const auto& data = ref.get<Tx>();
    */
+  template <typename Cfg>
   class CellRef {
 public:
     CellRef(std::size_t id,
             const VarmapT& varmap,
             Layer& layer,
             AllocationPlace place = AllocationPlace::Host)
-        : pointers_(varmap.pointerContainer()) {
+        : varmap_(&varmap), pointers_(varmap.pointerContainer()) {
       for (std::size_t i = 0; i < layer.memoryInfo_.size(); ++i) {
         if (layer.memoryInfo_[i].type == MemoryType::Variable && !layer.memoryInfo_[i].filtered &&
             layer.memoryInfo_[i].initialized) {
@@ -391,60 +512,42 @@ public:
       }
     }
 
-    template <typename HandleT>
-    typename HandleT::Type& get(const HandleT& handle) {
-      return *reinterpret_cast<typename HandleT::Type*>(pointers_[varmap_.index(handle)]);
-    }
-
-    template <typename HandleT>
-    [[nodiscard]] const typename HandleT::Type& get(const HandleT& handle) const {
-      return *reinterpret_cast<const typename HandleT::Type*>(pointers_[varmap_.index(handle)]);
+    template <typename StorageT>
+    StorageType<StorageT, Cfg>& get() {
+      return *reinterpret_cast<StorageType<StorageT, Cfg>*>(
+          pointers_[varmap_->template index<StorageT>()]);
     }
 
     template <typename StorageT>
-    typename StorageT::Type& get() {
-      return *reinterpret_cast<typename StorageT::Type*>(
-          pointers_[varmap_.template index<StorageT>()]);
+    [[nodiscard]] const StorageType<StorageT, Cfg>& get() const {
+      return *reinterpret_cast<const StorageType<StorageT, Cfg>*>(
+          pointers_[varmap_->template index<StorageT>()]);
     }
 
     template <typename StorageT>
-    [[nodiscard]] const typename StorageT::Type& get() const {
-      return *reinterpret_cast<const typename StorageT::Type*>(
-          pointers_[varmap_.template index<StorageT>()]);
-    }
-
-    template <typename HandleT>
-    void setPointer(const HandleT& handle, typename HandleT::Type* value) {
-      pointers_[varmap_.index(handle)] = reinterpret_cast<void*>(value);
-    }
-
-    template <typename HandleT>
-    typename HandleT::Type* getPointer(const HandleT& handle) {
-      return reinterpret_cast<typename HandleT::Type*>(pointers_[varmap_.index(handle)]);
+    void setPointer(StorageType<StorageT, Cfg>* value) {
+      pointers_[varmap_->template index<StorageT>()] = reinterpret_cast<void*>(value);
     }
 
     template <typename StorageT>
-    void setPointer(typename StorageT::Type* value) {
-      pointers_[varmap_.template index<StorageT>()] = reinterpret_cast<void*>(value);
-    }
-
-    template <typename StorageT>
-    typename StorageT::Type* getPointer() {
-      return reinterpret_cast<typename StorageT::Type*>(
-          pointers_[varmap_.template index<StorageT>()]);
+    StorageType<StorageT, Cfg>* getPointer() {
+      return reinterpret_cast<StorageType<StorageT, Cfg>*>(
+          pointers_[varmap_->template index<StorageT>()]);
     }
 
 private:
-    VarmapT varmap_;
-    typename VarmapT::PointerContainerT pointers_;
+    // the varmap of the layer: a GenericVarmap finds the variables by what it holds
+    const VarmapT* varmap_;
+    VarmapT::PointerContainerT pointers_;
   };
 
-  CellRef cellRef(std::size_t id, AllocationPlace place = AllocationPlace::Host) {
-    return CellRef(id, varmap_, *this, place);
+  template <typename Cfg>
+  CellRef<Cfg> cellRef(std::size_t id, AllocationPlace place = AllocationPlace::Host) {
+    return CellRef<Cfg>(id, varmap_, *this, place);
   }
 
   void synchronizeTo(AllocationPlace place, void* stream) {
-    for (auto& container : memoryContainer_) {
+    for (const auto& container : memoryContainer_) {
       container.synchronizeTo(place, stream);
     }
   }
@@ -456,86 +559,43 @@ private:
   }
 
   template <typename StorageT>
-  typename StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
+  StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
+  /// The values of a variable as the configuration `ConfigT` holds them.
   template <typename StorageT, typename ConfigT>
-  typename StorageT::template VariantType<ConfigT>*
-      var(const ConfigT& /*...*/, AllocationPlace place = AllocationPlace::Host) {
+  StorageType<StorageT, ConfigT>* var(const ConfigT& /*config*/,
+                                      AllocationPlace place = AllocationPlace::Host)
+    requires(!std::is_same_v<ConfigT, AllocationPlace>)
+  {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::template VariantType<ConfigT>*>(
-        memoryContainer_[index].get(place));
+    return static_cast<StorageType<StorageT, ConfigT>*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
-  [[nodiscard]] const typename StorageT::Type*
-      var(AllocationPlace place = AllocationPlace::Host) const {
+  [[nodiscard]] const StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::Type*>(memoryContainer_[index].get(place));
+    return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT, typename ConfigT>
-  [[nodiscard]] const typename StorageT::template VariantType<ConfigT>*
-      var(const ConfigT& /*...*/, AllocationPlace place = AllocationPlace::Host) const {
+  [[nodiscard]] const StorageType<StorageT, ConfigT>*
+      var(const ConfigT& /*config*/, AllocationPlace place = AllocationPlace::Host) const
+    requires(!std::is_same_v<ConfigT, AllocationPlace>)
+  {
     const auto index = varmap_.template index<StorageT>();
     assert(memoryContainer_.size() > index);
-    return static_cast<typename StorageT::template VariantType<ConfigT>*>(
-        memoryContainer_[index].get(place));
+    return static_cast<StorageType<StorageT, ConfigT>*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
   void varSynchronizeTo(AllocationPlace place, void* stream) {
     const auto index = varmap_.template index<StorageT>();
-    assert(memoryContainer_.size() > index);
-    memoryContainer_[index].synchronizeTo(place, stream);
-  }
-
-  template <typename HandleT>
-  typename HandleT::Type* var(const HandleT& handle,
-                              AllocationPlace place = AllocationPlace::Host) {
-    const auto index = varmap_.index(handle);
-    assert(memoryContainer_.size() > index);
-    return static_cast<typename HandleT::Type*>(memoryContainer_[index].get(place));
-  }
-
-  template <typename HandleT, typename ConfigT>
-  typename HandleT::template VariantType<ConfigT>*
-      var(const HandleT& handle,
-          const ConfigT& /*...*/,
-          AllocationPlace place = AllocationPlace::Host) {
-    const auto index = varmap_.index(handle);
-    assert(memoryContainer_.size() > index);
-    return static_cast<typename HandleT::template VariantType<ConfigT>*>(
-        memoryContainer_[index].get(place));
-  }
-
-  template <typename HandleT>
-  [[nodiscard]] const typename HandleT::Type*
-      var(const HandleT& handle, AllocationPlace place = AllocationPlace::Host) const {
-    const auto index = varmap_.index(handle);
-    assert(memoryContainer_.size() > index);
-    return static_cast<typename HandleT::Type*>(memoryContainer_[index].get(place));
-  }
-
-  template <typename HandleT, typename ConfigT>
-  [[nodiscard]] const typename HandleT::template VariantType<ConfigT>*
-      var(const HandleT& handle,
-          const ConfigT& /*...*/,
-          AllocationPlace place = AllocationPlace::Host) const {
-    const auto index = varmap_.index(handle);
-    assert(memoryContainer_.size() > index);
-    return static_cast<typename HandleT::template VariantType<ConfigT>*>(
-        memoryContainer_[index].get(place));
-  }
-
-  template <typename HandleT>
-  void varSynchronizeTo(const HandleT& handle, AllocationPlace place, void* stream) {
-    const auto index = varmap_.index(handle);
     assert(memoryContainer_.size() > index);
     memoryContainer_[index].synchronizeTo(place, stream);
   }
@@ -573,22 +633,6 @@ private:
       }
     }
     this->varmap_ = varmap;
-  }
-
-  template <typename HandleT>
-  void setEntrySize(const HandleT& handle, size_t size) {
-    const auto index = varmap_.index(handle);
-    assert(memoryInfo_.size() > index);
-    static_assert(HandleT::Storage == MemoryType::Bucket ||
-                  HandleT::Storage == MemoryType::Scratchpad);
-    memoryInfo_[index].size = size;
-  }
-
-  template <typename HandleT>
-  size_t getEntrySize(const HandleT& handle) {
-    const auto index = varmap_.index(handle);
-    assert(memoryInfo_.size() > index);
-    return memoryInfo_[index].size;
   }
 
   template <typename StorageT>
@@ -677,11 +721,6 @@ private:
     }
   }
 
-  template <typename F>
-  void wrap(F&& function) {
-    std::visit(std::forward<F>(function), identifier_.config);
-  }
-
   template <typename InnerKeyType>
   auto& getConditionalTable() {
     if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Wp>) {
@@ -690,10 +729,6 @@ private:
 
     if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Dr>) {
       return drConditionalPointersToRealsTable_;
-    }
-
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Material>) {
-      return conditionalMaterialTable_;
     }
 
     if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {
@@ -711,10 +746,6 @@ private:
       return drConditionalPointersToRealsTable_;
     }
 
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Material>) {
-      return conditionalMaterialTable_;
-    }
-
     if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {
       return conditionalIndicesTable_;
     }
@@ -722,15 +753,16 @@ private:
 
 #ifdef ACL_DEVICE
   device::DeviceGraphHandle getDeviceComputeGraphHandle(GraphKey graphKey) {
-    if (computeGraphHandles_.find(graphKey) != computeGraphHandles_.end()) {
+    if (computeGraphHandles_.contains(graphKey)) {
       return computeGraphHandles_[graphKey];
     } else {
       return device::DeviceGraphHandle();
     }
   }
 
-  void updateDeviceComputeGraphHandle(GraphKey graphKey, device::DeviceGraphHandle graphHandle) {
-    assert(computeGraphHandles_.find(graphKey) == computeGraphHandles_.end() &&
+  void updateDeviceComputeGraphHandle(GraphKey graphKey,
+                                      const device::DeviceGraphHandle& graphHandle) {
+    assert(!computeGraphHandles_.contains(graphKey) &&
            "an entry of hash table must be empty on write");
     if (graphHandle.isInitialized()) {
       computeGraphHandles_[graphKey] = graphHandle;

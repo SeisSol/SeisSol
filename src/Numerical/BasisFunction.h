@@ -11,14 +11,19 @@
 
 #include "Common/Constants.h"
 #include "Functions.h"
+#include "GeneratedCode/init.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/MeshDefinition.h"
 #include "Transformation.h"
 
+#include <Eigen/Dense>
 #include <cmath>
 #include <numeric>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
-namespace seissol::basisFunction {
+namespace seissol::basis_function {
 
 //------------------------------------------------------------------------------
 
@@ -38,7 +43,7 @@ class BasisFunctionGenerator {
    * @param x Sampling point
    */
   static T sampleJacobiPolynomial(T x, std::uint32_t n, std::uint32_t a, std::uint32_t b) {
-    return seissol::functions::JacobiP(n, a, b, x);
+    return seissol::functions::jacobiP(n, a, b, x);
   }
 
   public:
@@ -62,7 +67,7 @@ class BasisFunctionGenerator {
    * @param k Polynomial index information
    */
   T operator()(std::uint32_t i, std::uint32_t j, std::uint32_t k) const {
-    return static_cast<T>(functions::TetraDubinerP({i, j, k}, {xi_, eta_, zeta_}));
+    return static_cast<T>(functions::tetraDubinerP({i, j, k}, {xi_, eta_, zeta_}));
   }
 };
 //------------------------------------------------------------------------------
@@ -220,35 +225,21 @@ class SampledBasisFunctionDerivatives {
    * @param coords coords[i] contains the 3 coordinates of the ith vertex of the
    * physical tetrahedron.
    */
-  void transformToGlobalCoordinates(const double* coords[Cell::NumVertices]) {
-    std::array<double, Cell::NumVertices> xCoords{};
-    std::array<double, Cell::NumVertices> yCoords{};
-    std::array<double, Cell::NumVertices> zCoords{};
-    for (size_t i = 0; i < Cell::NumVertices; ++i) {
-      xCoords[i] = coords[i][0];
-      yCoords[i] = coords[i][1];
-      zCoords[i] = coords[i][2];
-    }
-
-    std::array<double, 3> gradXi{};
-    std::array<double, 3> gradEta{};
-    std::array<double, 3> gradZeta{};
-
-    seissol::transformations::tetrahedronGlobalToReferenceJacobian(xCoords.data(),
-                                                                   yCoords.data(),
-                                                                   zCoords.data(),
-                                                                   gradXi.data(),
-                                                                   gradEta.data(),
-                                                                   gradZeta.data());
+  void transformToGlobalCoordinates(const seissol::geometry::CellTransform& transform,
+                                    T xi,
+                                    T eta,
+                                    T zeta) {
+    const Eigen::Vector3d vec(xi, eta, zeta);
+    const Eigen::Matrix3d grad = transform.refToSpaceJacobianInverse(vec);
     std::vector<T> oldData = data_;
     const auto funs = data_.size() / 3;
 
     for (size_t i = 0; i < funs; ++i) {
       for (size_t direction = 0; direction < 3; ++direction) {
         // dpsi / di = dphi / dxi * dxi / di + dphi / deta * deta / di + dphi / dzeta * dzeta / di
-        data_[i + funs * direction] = oldData[i + 0 * funs] * gradXi[direction] +
-                                      oldData[i + 1 * funs] * gradEta[direction] +
-                                      oldData[i + 2 * funs] * gradZeta[direction];
+        data_[i + funs * direction] = oldData[i + 0 * funs] * grad(0, direction) +
+                                      oldData[i + 1 * funs] * grad(1, direction) +
+                                      oldData[i + 2 * funs] * grad(2, direction);
       }
     }
   }
@@ -274,13 +265,13 @@ class TimeBasisFunctionGenerator {
   T tau_;
 
   static T sampleJacobiPolynomial(T x, std::uint32_t n) {
-    return seissol::functions::JacobiP(n, 0, 0, x);
+    return seissol::functions::jacobiP(n, 0, 0, x);
   }
 
   public:
   explicit TimeBasisFunctionGenerator(T tau) : tau_(tau) {}
 
-  T operator()(std::uint32_t i) const { return functions::DubinerP<1>({i}, {tau_}); }
+  T operator()(std::uint32_t i) const { return functions::dubinerP<1>({i}, {tau_}); }
 };
 
 template <class T>
@@ -314,9 +305,9 @@ namespace tri_dubiner {
 inline void evaluatePolynomials(double* phis, double xi, double eta, std::int32_t numPoly) {
   assert(numPoly > 0);
   std::uint32_t idx = 0;
-  for (std::uint32_t d = 0; d <= static_cast<std::uint32_t>(numPoly); ++d) {
+  for (std::uint32_t d = 0; std::cmp_less_equal(d, numPoly); ++d) {
     for (std::uint32_t j = 0; j <= d; ++j) {
-      phis[idx++] = seissol::functions::TriDubinerP({d - j, j}, {xi, eta});
+      phis[idx++] = seissol::functions::triDubinerP({d - j, j}, {xi, eta});
     }
   }
 }
@@ -324,7 +315,7 @@ inline void evaluatePolynomials(double* phis, double xi, double eta, std::int32_
 inline void evaluateGradPolynomials(double* phis, double xi, double eta, std::int32_t numPoly) {
   assert(numPoly > 0);
   std::uint32_t idx = 0;
-  for (std::uint32_t d = 0; d <= static_cast<std::uint32_t>(numPoly); ++d) {
+  for (std::uint32_t d = 0; std::cmp_less_equal(d, numPoly); ++d) {
     for (std::uint32_t j = 0; j <= d; ++j) {
       const auto grad = seissol::functions::gradTriDubinerP({d - j, j}, {xi, eta});
       for (const auto& g : grad) {
@@ -334,6 +325,7 @@ inline void evaluateGradPolynomials(double* phis, double xi, double eta, std::in
   }
 }
 } // namespace tri_dubiner
-} // namespace seissol::basisFunction
+
+} // namespace seissol::basis_function
 
 #endif // SEISSOL_SRC_NUMERICAL_BASISFUNCTION_H_

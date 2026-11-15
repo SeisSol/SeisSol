@@ -72,6 +72,8 @@ https://link.springer.com/chapter/10.1007/978-3-030-50420-5_3.
 Anisotropy together with plasticity and dynamic rupture is not tested yet.
 You can define a dynamic rupture fault embedded in an isotropic material and have anisotropic regions elsewhere in the domain.
 
+.. _poroelastic:
+
 Poroelastic
 ^^^^^^^^^^^
 
@@ -102,6 +104,14 @@ A poroelastic material is characterised by the following material parameters:
 +------------------------------------------+-----------------------+-------------------+-------------------------+
 | Fluid viscosity                          |  ``viscosity``        | :math:`\nu`       | :math:`Pa \cdot s`      |
 +------------------------------------------+-----------------------+-------------------+-------------------------+
+
+At the boundary of its mesh group, towards cells of other groups, a poroelastic material may have a skin of the hydraulic conductance :math:`k`, the optional parameter ``interface_conductance`` (:math:`m \cdot Pa^{-1} \cdot s^{-1}`): the relative fluid velocity normal to a face of the boundary is :math:`k` times the jump of the pore pressure across it.
+At a face between two groups, the conductances of both sides add up in series, :math:`1/k = 1/k_1 + 1/k_2`.
+Zero seals the boundary.
+Without the parameter, or with ``.inf``, the pore pressure is continuous across the boundary, as it is between the cells of a group.
+A material without pores (elastic, viscoelastic, anisotropic) seals a face to a poroelastic one in any case.
+Towards a fluid (acoustic, viscoacoustic), the skin of the poroelastic side alone decides: without one, the fluid takes the pore pressure as its pressure and moves with the solid plus the relative fluid velocity normal to the face.
+Cells of different materials are face neighbors through several configurations in one run (see :ref:`several_configurations`).
 
 The implementation of poroelasticity is tested for point sources, material interfaces and free-surfaces.
 Plasticity and dynamic rupture together with poroelasticity are not tested.

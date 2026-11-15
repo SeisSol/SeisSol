@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The spontaneous in-plane rupture of fault2d-inplane.yaml under a shear
+# traction of 78 MPa, 3.24 MPa below the static strength and 15 MPa above
+# the dynamic one (S = 0.22): the fronts run at 2.3 km/s around y = +-200 m,
+# and turn faster than the shear waves of 3.46 km/s some 240 m from the
+# centre, to run at 4.3 to 4.8 km/s from y = +-250 m on, as
+# antiplane.Inplane computes it.
+!Switch
+[s_xx, s_yy, s_zz, s_xy, s_yz, s_xz, nuc_xx, nuc_yy, nuc_zz, nuc_xz, nuc_yz, mu_s, mu_d, d_c, cohesion]: !ConstantMap
+  map:
+    s_xx:     -120.0e6
+    s_yy:     0.0
+    s_zz:     0.0
+    s_xy:     78.0e6
+    s_yz:     0.0
+    s_xz:     0.0
+    nuc_xx:   0.0
+    nuc_yy:   0.0
+    nuc_zz:   0.0
+    nuc_xz:   0.0
+    nuc_yz:   0.0
+    mu_s:     0.677
+    mu_d:     0.525
+    d_c:      0.08
+    cohesion: 0.0
+[nuc_xy]: !Any
+  components:
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-120.0, 120.0]
+        z: [-.inf, .inf]
+      components: !ConstantMap
+        map:
+          nuc_xy: 14.0e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [120.0, 220.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xy: [0.0, -1.4e5, 0.0]
+        translation:
+          nuc_xy: 30.8e6
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [-220.0, -120.0]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          nuc_xy: [0.0, 1.4e5, 0.0]
+        translation:
+          nuc_xy: 30.8e6
+    - !ConstantMap
+      map:
+        nuc_xy: 0.0

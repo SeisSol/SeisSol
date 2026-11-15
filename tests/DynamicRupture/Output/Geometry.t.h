@@ -5,24 +5,33 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Common/ConfigDispatch.h"
+#include "Common/ConfigValue.h"
+#include "Common/Real.h"
+#include "Common/Typedefs.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/OutputAux.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshReader.h"
 #include "Geometry/MockReader.h"
 #include "Initializer/PointMapper.h"
 #include "Numerical/BasisFunction.h"
-#include "Numerical/Transformation.h"
 #include "TestHelper.h"
 
 #include <Eigen/Dense>
+#include <cmath>
+#include <cstddef>
 #include <iostream>
+#include <numbers>
 
 namespace seissol::unit_test {
 
 using namespace seissol;
 using namespace seissol::dr;
 
-TEST_CASE("DR Geometry") {
+TEST_CASE("DR Geometry" * doctest::test_suite("dynamicrupture")) {
   constexpr static int X{0};
   constexpr static int Y{1};
   constexpr static int Z{2};
@@ -36,32 +45,32 @@ TEST_CASE("DR Geometry") {
     // Given a reference triangle in the first octant
     // TargetPoint - intersection of a line (which starts from the origin and goes along [1,1,1]
     // vector) and the inclined face (4th face)
-    ExtVrtxCoords targetPoint{1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0};
+    CoordinateT targetPoint{1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0};
 
     // 4th face
     const ExtTriangle face(
-        ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0}, ExtVrtxCoords{0.0, 0.0, 1.0});
+        CoordinateT{1.0, 0.0, 0.0}, CoordinateT{0.0, 1.0, 0.0}, CoordinateT{0.0, 0.0, 1.0});
 
     constexpr double Epsilon = 1e-6;
     {
-      ExtVrtxCoords testPoint{0.0, 0.0, 0.0};
-      VrtxCoords normalDirection{1.0, 1.0, 1.0};
+      CoordinateT testPoint{0.0, 0.0, 0.0};
+      const CoordinateT normalDirection{1.0, 1.0, 1.0};
 
       projectPointToFace(testPoint, face, normalDirection);
 
-      REQUIRE(testPoint[X] == AbsApprox(targetPoint[X]).epsilon(Epsilon));
-      REQUIRE(testPoint[Y] == AbsApprox(targetPoint[Y]).epsilon(Epsilon));
-      REQUIRE(testPoint[Z] == AbsApprox(targetPoint[Z]).epsilon(Epsilon));
+      CHECK(testPoint[X] == AbsApprox(targetPoint[X]).epsilon(Epsilon));
+      CHECK(testPoint[Y] == AbsApprox(targetPoint[Y]).epsilon(Epsilon));
+      CHECK(testPoint[Z] == AbsApprox(targetPoint[Z]).epsilon(Epsilon));
     }
     {
-      ExtVrtxCoords testPoint{1.0, 1.0, 1.0};
-      VrtxCoords normalDirection{-1.0, -1.0, -1.0};
+      CoordinateT testPoint{1.0, 1.0, 1.0};
+      const CoordinateT normalDirection{-1.0, -1.0, -1.0};
 
       projectPointToFace(testPoint, face, normalDirection);
 
-      REQUIRE(testPoint[X] == AbsApprox(targetPoint[X]).epsilon(Epsilon));
-      REQUIRE(testPoint[Y] == AbsApprox(targetPoint[Y]).epsilon(Epsilon));
-      REQUIRE(testPoint[Z] == AbsApprox(targetPoint[Z]).epsilon(Epsilon));
+      CHECK(testPoint[X] == AbsApprox(targetPoint[X]).epsilon(Epsilon));
+      CHECK(testPoint[Y] == AbsApprox(targetPoint[Y]).epsilon(Epsilon));
+      CHECK(testPoint[Z] == AbsApprox(targetPoint[Z]).epsilon(Epsilon));
     }
   }
 
@@ -72,34 +81,34 @@ TEST_CASE("DR Geometry") {
     auto [testPointId, testDistance] = getNearestFacePoint(targetPoint, facePoints, 4);
 
     constexpr double Epsilon = 1e-6;
-    REQUIRE(testPointId == 2);
-    REQUIRE(testDistance == AbsApprox(std::sqrt(2 * 0.75 * 0.75)).epsilon(Epsilon));
+    CHECK(testPointId == 2);
+    CHECK(testDistance == AbsApprox(std::sqrt(2 * 0.75 * 0.75)).epsilon(Epsilon));
   }
 
   SUBCASE("MiddlePoint") {
-    const ExtVrtxCoords point1{1.0, 2.0, 3.0};
-    const ExtVrtxCoords point2{-3.0, -2.0, -1.0};
+    const CoordinateT point1{1.0, 2.0, 3.0};
+    const CoordinateT point2{-3.0, -2.0, -1.0};
 
     auto testMiddle = getMidPoint(point1, point2);
 
     constexpr double Epsilon = 1e-6;
-    REQUIRE(testMiddle[0] == AbsApprox(-1.0).epsilon(Epsilon));
-    REQUIRE(testMiddle[1] == AbsApprox(0.0).epsilon(Epsilon));
-    REQUIRE(testMiddle[2] == AbsApprox(1.0).epsilon(Epsilon));
+    CHECK(testMiddle[0] == AbsApprox(-1.0).epsilon(Epsilon));
+    CHECK(testMiddle[1] == AbsApprox(0.0).epsilon(Epsilon));
+    CHECK(testMiddle[2] == AbsApprox(1.0).epsilon(Epsilon));
   }
 
   SUBCASE("MidTrianglePoint") {
-    const ExtVrtxCoords point1{0.5, 0.0, 2.0};
-    const ExtVrtxCoords point2{-0.5, 0.0, 3.0};
-    const ExtVrtxCoords point3{3.0, 1.0, -2.0};
+    const CoordinateT point1{0.5, 0.0, 2.0};
+    const CoordinateT point2{-0.5, 0.0, 3.0};
+    const CoordinateT point3{3.0, 1.0, -2.0};
     const ExtTriangle triangle(point1, point2, point3);
 
     auto testMiddle = getMidPointTriangle(triangle);
 
     constexpr double Epsilon = 1e-6;
-    REQUIRE(testMiddle[X] == AbsApprox(1.0).epsilon(Epsilon));
-    REQUIRE(testMiddle[Y] == AbsApprox(1 / 3.0).epsilon(Epsilon));
-    REQUIRE(testMiddle[Z] == AbsApprox(1.0).epsilon(Epsilon));
+    CHECK(testMiddle[X] == AbsApprox(1.0).epsilon(Epsilon));
+    CHECK(testMiddle[Y] == AbsApprox(1 / 3.0).epsilon(Epsilon));
+    CHECK(testMiddle[Z] == AbsApprox(1.0).epsilon(Epsilon));
   }
 
   SUBCASE("TriangleQuadraturePoints") {
@@ -142,20 +151,67 @@ TEST_CASE("DR Geometry") {
         0.48876030678064375,     0.29039930608799031,     0.12632929701966925,
         2.4874032376060777E-002};
 
-    auto data = generateTriangleQuadrature();
-    double (*testTrianglePoints)[2] = unsafe_reshape<2>(data.points.data());
+    // the reference is the Stroud rule with 7 x 7 points; it is checked in every configuration of
+    // order 6, if the faults of the executable use that rule
+    constexpr std::size_t ReferenceSize = 49;
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      if constexpr (seissol::DRQuadRule == DRQuadRuleType::Stroud &&
+                    TriangleQuadratureData<Cfg>::Size == ReferenceSize) {
+        const auto config = configName(Cfg::Value);
+        CAPTURE(config);
+        auto data = generateTriangleQuadrature<Cfg>();
+        double (*testTrianglePoints)[2] = unsafeReshape<2>(data.points.data());
 
-    constexpr double Epsilon = 1e-6;
-    for (unsigned i = 0; i < seissol::dr::TriangleQuadratureData::Size; ++i) {
-      REQUIRE(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(Epsilon));
-      REQUIRE(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(Epsilon));
-    }
+        constexpr double Epsilon = 1e-6;
+        for (unsigned i = 0; i < TriangleQuadratureData<Cfg>::Size; ++i) {
+          CHECK(testTrianglePoints[i][0] == AbsApprox(chiFortran[i]).epsilon(Epsilon));
+          CHECK(testTrianglePoints[i][1] == AbsApprox(tauFortran[i]).epsilon(Epsilon));
+        }
+      }
+    });
+  }
+
+  SUBCASE("The quadrature of a fault face integrates the products of two face basis functions") {
+    // exactly up to the degree of such a product, whichever rule the faults use: the monomials
+    // x^a y^b on the reference triangle integrate to a! b! / (a + b + 2)!
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      const auto config = configName(Cfg::Value);
+      CAPTURE(config);
+      const auto data = generateTriangleQuadrature<Cfg>();
+      // the points and weights are stored in the precision of the configuration
+      const double epsilon = Cfg::Precision == RealType::F64 ? 1e-12 : 1e-6;
+      const auto factorial = [](std::size_t n) {
+        double result = 1;
+        for (std::size_t i = 2; i <= n; ++i) {
+          result *= static_cast<double>(i);
+        }
+        return result;
+      };
+      const auto degree = 2 * (Cfg::ConvergenceOrder - 1);
+      for (std::size_t total = 0; total <= degree; ++total) {
+        for (std::size_t a = 0; a <= total; ++a) {
+          const auto b = total - a;
+          double integral = 0;
+          for (std::size_t i = 0; i < TriangleQuadratureData<Cfg>::Size; ++i) {
+            integral += data.weights[i] * std::pow(data.points[2 * i], static_cast<double>(a)) *
+                        std::pow(data.points[2 * i + 1], static_cast<double>(b));
+          }
+          const auto exact = factorial(a) * factorial(b) / factorial(a + b + 2);
+          CAPTURE(a);
+          CAPTURE(b);
+          CHECK(integral == AbsApprox(exact).epsilon(epsilon));
+        }
+      }
+    });
   }
 
   SUBCASE("StrikeAndDipVectors") {
-    VrtxCoords testNormal{-1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0), 1.0 / std::sqrt(3.0)};
-    VrtxCoords testStrike{0.0, 0.0, 0.0};
-    VrtxCoords testDip{0.0, 0.0, 0.0};
+    const CoordinateT testNormal{
+        -std::numbers::inv_sqrt3, std::numbers::inv_sqrt3, std::numbers::inv_sqrt3};
+    CoordinateT testStrike{0.0, 0.0, 0.0};
+    CoordinateT testDip{0.0, 0.0, 0.0};
     misc::computeStrikeAndDipVectors(testNormal, testStrike, testDip);
 
     // compute expected Strike results
@@ -165,88 +221,100 @@ TEST_CASE("DR Geometry") {
 
     constexpr double Epsilon = 1e-6;
     for (unsigned i = 0; i < 3; ++i) {
-      REQUIRE(testStrike[i] == AbsApprox(resultStrike(i)).epsilon(Epsilon));
+      CHECK(testStrike[i] == AbsApprox(resultStrike(i)).epsilon(Epsilon));
     }
     // compute expected Dip results
     Eigen::Vector3d resultDip = normal.cross(resultStrike);
     for (unsigned i = 0; i < 3; ++i) {
-      REQUIRE(testDip[i] == AbsApprox(resultDip(i)).epsilon(Epsilon));
+      CHECK(testDip[i] == AbsApprox(resultDip(i)).epsilon(Epsilon));
     }
   }
 
-  SUBCASE("XiEtaZeta2chiTau") {
+  SUBCASE("CellToFace") {
     constexpr double Epsilon = 1e-6;
-    double testChiTau[2] = {0.0, 0.0};
+    std::array<double, 2> testChiTau = {0.0, 0.0};
+    const auto toArray = [](const geometry::ReferenceFaceMap::FaceVectorT& v) {
+      return std::array<double, 2>{v(0), v(1)};
+    };
     {
       const unsigned face = 0;
-      VrtxCoords xiEtaZeta{0.25, 0.1, 0.0};
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
-      REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
+      const CoordinateT xiEtaZeta{0.25, 0.1, 0.0};
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
+      CHECK(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
+      CHECK(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 1;
-      VrtxCoords xiEtaZeta{0.1, 0.0, 0.25};
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      REQUIRE(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
-      REQUIRE(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
+      const CoordinateT xiEtaZeta{0.1, 0.0, 0.25};
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
+      CHECK(testChiTau[0] == AbsApprox(0.1).epsilon(Epsilon));
+      CHECK(testChiTau[1] == AbsApprox(0.25).epsilon(Epsilon));
     }
     {
       const unsigned face = 2;
-      VrtxCoords xiEtaZeta{0.0, 0.1, 0.25};
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      REQUIRE(testChiTau[0] == AbsApprox(0.25).epsilon(Epsilon));
-      REQUIRE(testChiTau[1] == AbsApprox(0.1).epsilon(Epsilon));
+      const CoordinateT xiEtaZeta{0.0, 0.1, 0.25};
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
+      CHECK(testChiTau[0] == AbsApprox(0.25).epsilon(Epsilon));
+      CHECK(testChiTau[1] == AbsApprox(0.1).epsilon(Epsilon));
     }
     {
       const unsigned face = 3;
-      VrtxCoords xiEtaZeta{
+      const CoordinateT xiEtaZeta{
           1 / 3.0, 1 / 3.0, 1 / 3.0}; // center of the 4th face (triangle in 3D space)
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta, testChiTau);
-      REQUIRE(testChiTau[0] == AbsApprox(1 / 3.0).epsilon(Epsilon));
-      REQUIRE(testChiTau[1] == AbsApprox(1 / 3.0).epsilon(Epsilon));
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
+      CHECK(testChiTau[0] == AbsApprox(1 / 3.0).epsilon(Epsilon));
+      CHECK(testChiTau[1] == AbsApprox(1 / 3.0).epsilon(Epsilon));
     }
     {
       const unsigned face = 3;
-      ExtVrtxCoords xiEtaZeta{0.0, -0.15, 0.15};
+      CoordinateT xiEtaZeta{0.0, -0.15, 0.15};
       const ExtTriangle fourthFace(
-          ExtVrtxCoords{1.0, 0.0, 0.0}, ExtVrtxCoords{0.0, 1.0, 0.0}, ExtVrtxCoords{0.0, 0.0, 1.0});
-      VrtxCoords normalDirection{1.0, 1.0, 1.0};
+          CoordinateT{1.0, 0.0, 0.0}, CoordinateT{0.0, 1.0, 0.0}, CoordinateT{0.0, 0.0, 1.0});
+      const CoordinateT normalDirection{1.0, 1.0, 1.0};
       projectPointToFace(xiEtaZeta, fourthFace, normalDirection);
 
-      transformations::XiEtaZeta2chiTau(face, xiEtaZeta.coords, testChiTau);
-      REQUIRE(testChiTau[0] == AbsApprox(xiEtaZeta[Eta]).epsilon(Epsilon));
-      REQUIRE(testChiTau[1] == AbsApprox(xiEtaZeta[Zeta]).epsilon(Epsilon));
+      testChiTau = toArray(geometry::ReferenceFaceMap(face).cellToFace(
+          geometry::CellTransform::VectorEigenT(xiEtaZeta.data())));
+      CHECK(testChiTau[0] == AbsApprox(xiEtaZeta[Eta]).epsilon(Epsilon));
+      CHECK(testChiTau[1] == AbsApprox(xiEtaZeta[Zeta]).epsilon(Epsilon));
     }
   }
 
   SUBCASE("BasisFunctions") {
 
-    VrtxCoords point{0.25, 0.25, 0.0};
+    const CoordinateT point{0.25, 0.25, 0.0};
 
     // placing two elements in such a way that basis functions on both sides end up being the same
-    const VrtxCoords plusElementCoords[4]{
-        {2.0, 0.0, 0.0}, {0.0, 2.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 2.0}};
+    const auto plusElementCoords = std::array<CoordinateT, 4>{CoordinateT{2.0, 0.0, 0.0},
+                                                              CoordinateT{0.0, 2.0, 0.0},
+                                                              CoordinateT{0.0, 0.0, 0.0},
+                                                              CoordinateT{0.0, 0.0, 2.0}};
 
-    const VrtxCoords minusElementCoords[4]{
-        {2.0, 0.0, 0.0}, {0.0, 2.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, -2.0}};
+    const auto minusElementCoords = std::array<CoordinateT, 4>{CoordinateT{2.0, 0.0, 0.0},
+                                                               CoordinateT{0.0, 2.0, 0.0},
+                                                               CoordinateT{0.0, 0.0, 0.0},
+                                                               CoordinateT{0.0, 0.0, -2.0}};
 
-    const VrtxCoords* plusElementCoordsPtr[4]{
-        &plusElementCoords[0], &plusElementCoords[1], &plusElementCoords[2], &plusElementCoords[3]};
+    const auto plusTransform = geometry::AffineTransform(plusElementCoords);
 
-    const VrtxCoords* minusElementCoordsPtr[4]{&minusElementCoords[0],
-                                               &minusElementCoords[1],
-                                               &minusElementCoords[2],
-                                               &minusElementCoords[3]};
+    const auto minusTransform = geometry::AffineTransform(minusElementCoords);
 
-    auto basisFunctions =
-        getPlusMinusBasisFunctions(point, plusElementCoordsPtr, minusElementCoordsPtr);
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      const auto config = configName(Cfg::Value);
+      CAPTURE(config);
+      auto basisFunctions = getPlusMinusBasisFunctions<Cfg>(point, plusTransform, minusTransform);
 
-    constexpr double Epsilon = 1e-6;
-    for (unsigned i = 0; i < basisFunctions.plusSide.size(); ++i) {
-      REQUIRE(basisFunctions.plusSide[i] ==
+      constexpr double Epsilon = 1e-6;
+      for (unsigned i = 0; i < basisFunctions.plusSide.size(); ++i) {
+        CHECK(basisFunctions.plusSide[i] ==
               AbsApprox(basisFunctions.minusSide[i]).epsilon(Epsilon));
-    }
+      }
+    });
   }
 
   SUBCASE("IsElementInside") {
@@ -258,12 +326,12 @@ TEST_CASE("DR Geometry") {
                              std::numeric_limits<std::size_t>::max()};
 
     std::vector<Vertex> vertices;
-    vertices.push_back({{0.0, 0.0, 0.0}, {0}});
-    vertices.push_back({{1.0, 0.0, 0.0}, {0, 1}});
-    vertices.push_back({{0.0, 1.0, 0.0}, {0, 1}});
-    vertices.push_back({{0.0, 0.0, 1.0}, {0}});
-    vertices.push_back({{1.0, 1.0, 0.0}, {1}});
-    vertices.push_back({{1.0, 1.0, 1.0}, {1}});
+    vertices.push_back({.coords = {0.0, 0.0, 0.0}, .elements = {0}});
+    vertices.push_back({.coords = {1.0, 0.0, 0.0}, .elements = {0, 1}});
+    vertices.push_back({.coords = {0.0, 1.0, 0.0}, .elements = {0, 1}});
+    vertices.push_back({.coords = {0.0, 0.0, 1.0}, .elements = {0}});
+    vertices.push_back({.coords = {1.0, 1.0, 0.0}, .elements = {1}});
+    vertices.push_back({.coords = {1.0, 1.0, 1.0}, .elements = {1}});
 
     std::vector<Element> elements;
     Element e1{};

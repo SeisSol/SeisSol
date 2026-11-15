@@ -119,8 +119,8 @@ to the number of nodes you want to run on. A rule of thumb for optimal performan
 
   export SEISSOL_CHECKPOINT_ALIGNMENT=8388608
   export SEISSOL_CHECKPOINT_DIRECT=1
-  export ASYNC_MODE=THREAD
-  export ASYNC_BUFFER_ALIGNMENT=8388608
+  export SEISSOL_ASYNC_MODE=THREAD
+  export SEISSOL_ASYNC_BUFFER_ALIGNMENT=8388608
 
   echo 'num_nodes:' $SLURM_JOB_NUM_NODES 'ntasks:' $SLURM_NTASKS
   ulimit -Ss 2097152
@@ -232,7 +232,7 @@ The `modules.yaml` is discovered with `spack config edit modules`.
               convergence_order=5: o5
               convergence_order=6: o6
               equations=elastic: elas
-              equations=viscoelastic2: visco
+              equations=viscoelastic: visco
               dr_quad_rule=stroud: stroud
               dr_quad_rule=dunavant: dunav
               precision=single: single

@@ -35,14 +35,6 @@ struct ClusterMap {
 
 using MeshLayout = std::vector<ClusterMap>;
 
-template <typename HandleT>
-void haloCommunication(const MeshLayout& comm,
-                       const HandleT& var,
-                       LTS::Storage& storage,
-                       MPI_Datatype datatype) {
-  haloCommunication(comm, storage.info(var).index, storage, datatype);
-}
-
 template <typename StorageT>
 void haloCommunication(const MeshLayout& comm, LTS::Storage& storage, MPI_Datatype datatype) {
   haloCommunication(comm, storage.info<StorageT>().index, storage, datatype);

@@ -293,10 +293,12 @@ def processFile(path, dryrun):
 
     with open(path) as file:
         linescomp = file.readlines()
-    if not dryrun:
+    changed = lines != linescomp
+    # a conformant file keeps its timestamp, so that builds do not recompile it
+    if changed and not dryrun:
         with open(path, "w") as file:
             file.writelines(lines)
-    return lines != linescomp
+    return changed
 
 
 def main():

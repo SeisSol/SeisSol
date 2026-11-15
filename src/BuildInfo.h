@@ -19,6 +19,9 @@ struct BuildInfo {
   const static std::string SeisSolHostArch;
   const static std::string SeisSolDeviceArch;
   const static std::string SeisSolDeviceBackend;
+  const static std::string CompilerId;
+  const static std::string CompilerVersion;
+  const static std::string BuildType;
 };
 
 } // namespace seissol

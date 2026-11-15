@@ -7,26 +7,30 @@
 
 #include "ResultWriter/ThreadsPinningWriter.h"
 
-#include "Common/Filesystem.h"
+#include "Common/RunId.h"
+#include "IO/Instance/Point/Csv.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
 
-#include <fstream>
-#include <ios>
-#include <sched.h>
+#include <algorithm>
+#include <cstddef>
+#include <filesystem>
 #include <sstream>
 #include <string>
 #include <utils/env.h>
+#include <vector>
 
-#ifndef __APPLE__
+// the CPU masks (cf. async::as::CpuMask) are only available on Linux
+#ifdef __linux__
+#include <sched.h>
 #include <sys/sysinfo.h>
 #ifdef USE_NUMA_AWARE_PINNING
 #include <numa.h>
 #endif // USE_NUMA_AWARE_PINNING
-#endif // __APPLE__
+#endif // __linux__
 
-#ifndef __APPLE__
+#ifdef __linux__
 namespace {
 
 using namespace seissol::parallel;
@@ -48,7 +52,7 @@ PinningInfo getPinningInfo(const cpu_set_t& set) {
     }
   }
 
-  auto trim = [](std::string& str) {
+  const auto trim = [](std::string& str) {
     if (str.empty()) {
 #ifdef USE_NUMA_AWARE_PINNING
       str = std::string("no-info");
@@ -70,16 +74,16 @@ PinningInfo getPinningInfo(const cpu_set_t& set) {
   return pinningInfo;
 }
 } // namespace
-#endif // __APPLE__
+#endif // __linux__
 
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning,
                                                   utils::Env& env) {
-#ifndef __APPLE__
-  auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
+#ifdef __linux__
+  const auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
   PinningInfo commThreadInfo;
   if (seissol::useCommThread(seissol::Mpi::mpi, env)) {
-    auto freeCpus = pinning.getFreeCPUsMask();
+    const auto freeCpus = pinning.getFreeCPUsMask();
     commThreadInfo = getPinningInfo(freeCpus.set);
   } else {
     cpu_set_t emptyUnion;
@@ -97,27 +101,50 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
   auto numNProcs = seissol::Mpi::mpi.collect(get_nprocs());
 
   if (seissol::Mpi::mpi.rank() == 0) {
-    seissol::filesystem::path path(outputDirectory_);
-    path += seissol::filesystem::path("-threadPinning.csv");
-
-    std::fstream fileStream(path, std::ios::out);
-    fileStream << "hostname,device,rank,localRank,workermask,workernuma,commthread_mask,commthread_"
-                  "numa,nproc\n";
-
     const auto& hostNames = seissol::Mpi::mpi.getHostNames();
     const auto& pcis = seissol::Mpi::mpi.getPCIAddresses();
     const std::string nullstring;
+
+    // the masks are a list of the cores a rank runs on, so how wide they get is a property of the
+    // machine rather than something to guess at
+    const auto widest = [](const std::vector<std::string>& values) {
+      std::size_t width = 1;
+      for (const auto& value : values) {
+        width = std::max(width, value.size());
+      }
+      return width;
+    };
+
+    seissol::io::instance::point::Csv table("threadPinning");
+    table.addTextColumn("hostname", widest(hostNames));
+    table.addTextColumn("device", widest(pcis));
+    table.addColumn<int>("rank");
+    table.addColumn<int>("localRank");
+    table.addTextColumn("workermask", widest(workerThreads));
+    table.addTextColumn("workernuma", widest(workerNumas));
+    table.addTextColumn("commthread_mask", widest(commThreads));
+    table.addTextColumn("commthread_numa", widest(commNumas));
+    table.addColumn<int>("nproc");
+    table.addTextColumn("runId", seissol::RunIdLength);
+
     for (int rank = 0; rank < seissol::Mpi::mpi.size(); ++rank) {
-      const auto& pci = pcis.empty() ? nullstring : pcis[rank];
-      fileStream << "\"" << hostNames[rank] << "\",\"" << pci << "\"," << rank << ','
-                 << localRanks[rank] << ",\"" << workerThreads[rank] << "\",\"" << workerNumas[rank]
-                 << "\",\"" << commThreads[rank] << "\",\"" << commNumas[rank] << "\","
-                 << numNProcs[rank] << "\n";
+      table.addText(hostNames[rank]);
+      table.addText(pcis.empty() ? nullstring : pcis[rank]);
+      table.addCell<int>(rank);
+      table.addCell<int>(localRanks[rank]);
+      table.addText(workerThreads[rank]);
+      table.addText(workerNumas[rank]);
+      table.addText(commThreads[rank]);
+      table.addText(commNumas[rank]);
+      table.addCell<int>(numNProcs[rank]);
+      table.addText(runId_);
     }
 
-    fileStream.close();
+    std::filesystem::path path(outputDirectory_);
+    path += std::filesystem::path("-threadPinning.csv");
+    table.writeFile(path.string());
   }
 #else
-  logWarning() << "ThreadsPinningWriter is not supported on MacOS.";
-#endif // __APPLE__
+  logWarning() << "ThreadsPinningWriter is not supported on this platform.";
+#endif // __linux__
 }

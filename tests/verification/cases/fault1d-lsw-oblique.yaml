@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# Linear slip weakening on fault1d with an oblique traction, 70 MPa along y and
+# 30 MPa along z, which the nucleation turns towards y. Where the medium makes
+# the radiation damping depend on the direction of the slip, the slip leaves
+# the direction of the traction, and the fault weakens over some 30 ms.
+!ConstantMap
+map:
+  s_xx:   -120.0e6
+  s_yy:   0.0
+  s_zz:   0.0
+  s_xy:   70.0e6
+  s_yz:   0.0
+  s_xz:   30.0e6
+  nuc_xx: 0.0
+  nuc_yy: 0.0
+  nuc_zz: 0.0
+  nuc_xy: 20.0e6
+  nuc_yz: 0.0
+  nuc_xz: 0.0
+  mu_s:     0.677
+  mu_d:     0.525
+  d_c:      0.08
+  cohesion: 0.0

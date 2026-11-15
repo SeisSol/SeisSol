@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# An initial state for the easi initial condition of the elastic material:
+# v1 grows linearly along x across the mesh, everything else is at
+# rest. A simulation can take it as an initial state of its own
+# (IniCondition.filename<i>).
+!LayeredModel
+map: !AffineMap
+  matrix:
+    position: [1.0, 0.0, 0.0]
+  translation:
+    position: 0.0
+interpolation: linear
+parameters: [s_xx, s_yy, s_zz, s_xy, s_yz, s_xz, v1, v2, v3]
+nodes:
+  -100.0: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0e-03, 0.0, 0.0]
+  100.0: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0e-03, 0.0, 0.0]

@@ -10,7 +10,7 @@
 
 #include "Common/Marker.h"
 
-namespace seissol::deltaPulse {
+namespace seissol::delta_pulse {
 
 template <typename T>
 SEISSOL_HOSTDEVICE inline T deltaPulse(T time, T timeStep) {
@@ -21,6 +21,6 @@ SEISSOL_HOSTDEVICE inline T deltaPulse(T time, T timeStep) {
   }
 }
 
-} // namespace seissol::deltaPulse
+} // namespace seissol::delta_pulse
 
 #endif // SEISSOL_SRC_NUMERICAL_DELTAPULSE_H_

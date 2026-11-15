@@ -17,38 +17,12 @@
 
 #include <array>
 #include <cmath>
-#include <fstream>
-#include <iostream>
 
 namespace seissol {
 class SeisSol;
 } // namespace seissol
 
 namespace seissol::writer {
-class CsvAnalysisWriter {
-  public:
-  explicit CsvAnalysisWriter(std::string fileName);
-
-  void writeHeader();
-
-  void addObservation(std::string_view variable, std::string_view normType, real error);
-
-  void enable();
-
-  ~CsvAnalysisWriter();
-
-  CsvAnalysisWriter(const CsvAnalysisWriter&) = delete;
-  auto operator=(const CsvAnalysisWriter&) = delete;
-
-  CsvAnalysisWriter(CsvAnalysisWriter&&) = delete;
-  auto operator=(CsvAnalysisWriter&&) = delete;
-
-  private:
-  std::ofstream out_;
-  bool isEnabled_{false};
-  std::string fileName_;
-};
-
 class AnalysisWriter {
   private:
   seissol::SeisSol& seissolInstance_;
@@ -61,7 +35,14 @@ class AnalysisWriter {
   bool isEnabled_{false}; // TODO(Lukas) Do we need this?
   const seissol::geometry::MeshReader* meshReader_{};
 
-  std::string fileName_;
+  std::string fileNamePrefix_;
+
+  /// Compares the cells of the configuration `Cfg` with the initial condition; `configLabel` tells
+  /// the configuration apart in the log, `fileName` is the table the errors go to.
+  template <typename Cfg>
+  void printAnalysisOf(double simulationTime,
+                       const std::string& configLabel,
+                       const std::string& fileName);
 
   public:
   explicit AnalysisWriter(seissol::SeisSol& seissolInstance) : seissolInstance_(seissolInstance) {}
@@ -69,7 +50,7 @@ class AnalysisWriter {
   void init(const seissol::geometry::MeshReader* meshReader, std::string_view fileNamePrefix) {
     isEnabled_ = true;
     this->meshReader_ = meshReader;
-    fileName_ = std::string(fileNamePrefix) + "-analysis.csv";
+    fileNamePrefix_ = std::string(fileNamePrefix);
   }
 
   void printAnalysis(double simulationTime);

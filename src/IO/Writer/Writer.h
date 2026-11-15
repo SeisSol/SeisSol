@@ -13,9 +13,13 @@
 #include "IO/Writer/Instructions/Binary.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "Instructions/Instruction.h"
+#include "Memory/HostData.h"
 
+#include <functional>
 #include <memory>
 #include <mpi.h>
+#include <string>
+#include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace async {
@@ -24,16 +28,25 @@ class ExecInfo;
 
 namespace seissol::io::writer {
 
+/**
+ * @brief Carries out the write plans of one output, one after the other.
+ *
+ * The files every plan writes stay open from one plan to the next (see file::Hdf5Writer::endWrite);
+ * close() closes them.
+ */
 class WriteInstance {
   public:
-  explicit WriteInstance(MPI_Comm comm);
+  explicit WriteInstance(MPI_Comm comm, file::RunFiles* runFiles = nullptr);
 
   void write(const async::ExecInfo& info,
-             const std::shared_ptr<instructions::WriteInstruction>& instruction);
+             const std::vector<std::shared_ptr<instructions::WriteInstruction>>& plan);
 
   void close();
 
   private:
+  void write(const async::ExecInfo& info,
+             const std::shared_ptr<instructions::WriteInstruction>& instruction);
+
   file::Hdf5Writer hdf5_;
   file::BinaryWriter binary_;
 };
@@ -45,15 +58,23 @@ class Writer {
   explicit Writer(const std::string& data);
 
   void addInstruction(const std::shared_ptr<instructions::WriteInstruction>& instruction);
+  void addInstructions(
+      const std::vector<std::shared_ptr<instructions::WriteInstruction>>& instructions) {
+    for (const auto& instruction : instructions) {
+      addInstruction(instruction);
+    }
+  }
 
   std::string serialize();
 
-  WriteInstance beginWrite(const async::ExecInfo& info, MPI_Comm comm);
-
-  void endWrite();
+  //! Carries out the plan with @p instance , which carried out the plans before it.
+  void write(const async::ExecInfo& info, WriteInstance& instance) const;
 
   [[nodiscard]] const std::vector<std::shared_ptr<instructions::WriteInstruction>>&
       getInstructions() const;
+
+  //! @brief The HDF5 files the plan writes to, each once, in the order they first appear in.
+  [[nodiscard]] std::vector<std::string> hdf5Files() const;
 
   private:
   std::vector<std::shared_ptr<instructions::WriteInstruction>> instructions_;
@@ -63,6 +84,11 @@ struct ScheduledWriter {
   std::string name;
   double interval{};
   std::function<Writer(const std::string&, std::size_t, double)> planWrite;
+  // the variables of the storages the output reads on the host; all of them unless set
+  initializer::HostData hostData{initializer::HostData::everything()};
+  // what the output takes at the synchronization point itself, on the main thread, before
+  // planWrite may run on the thread of the outputs (e.g. samples the next epoch would add to)
+  std::function<void(double)> capture;
 };
 
 } // namespace seissol::io::writer

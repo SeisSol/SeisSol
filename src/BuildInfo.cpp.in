@@ -20,5 +20,8 @@ const std::string BuildInfo::CommitTimestamp = "@PACKAGE_GIT_TIMESTAMP@";
 const std::string BuildInfo::SeisSolHostArch = "@HOST_ARCH@";
 const std::string BuildInfo::SeisSolDeviceArch = "@DEVICE_ARCH@";
 const std::string BuildInfo::SeisSolDeviceBackend = "@DEVICE_BACKEND@";
+const std::string BuildInfo::CompilerId = "@CMAKE_CXX_COMPILER_ID@";
+const std::string BuildInfo::CompilerVersion = "@CMAKE_CXX_COMPILER_VERSION@";
+const std::string BuildInfo::BuildType = "@CMAKE_BUILD_TYPE@";
 
 } // namespace seissol
