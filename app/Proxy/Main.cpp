@@ -24,7 +24,11 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
+#include "Parallel/Helper.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <Device/device.h>
+#include <cstdlib>
 #endif
 
 using namespace seissol::proxy;
@@ -98,10 +102,24 @@ int main(int argc, char* argv[]) {
   registerMarkers();
 
 #ifdef ACL_DEVICE
+  // with SEISSOL_HSA_QUEUES (HIP only), the stream runtime of the proxy runs on the HSA queue that
+  // a run of SeisSol gives all stream runtimes besides those of the clusters: the kernels then cost
+  // what they cost on HSA queues
+  const auto hsaQueues = seissol::hsaQueueCount();
+  if (hsaQueues > 0 && seissol::Backend == seissol::DeviceBackend::Hip) {
+    // (before HIP starts) the streams of HIP then only record graphs, on one hardware queue each
+    // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
+    setenv("GPU_MAX_HW_QUEUES", "1", 0);
+  }
   using DeviceType = ::device::DeviceInstance;
   auto& device = DeviceType::instance();
   device.api().setDevice(0);
   device.api().initialize();
+  if (hsaQueues > 0 && device.api().enableHardwareQueues()) {
+    seissol::parallel::runtime::HsaQueues queues{};
+    queues.count = hsaQueues;
+    seissol::parallel::runtime::useHsaQueues(queues);
+  }
 #endif
   printHostname();
 
