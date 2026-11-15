@@ -146,12 +146,18 @@ On by default; each timed loop costs two records of events.
 
 ``SEISSOL_TRANSFER_MODE`` (or its alias ``SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE``)
 specifies how to exchange GPU buffers between processes.
-The default value is ``direct`` which copies the data out of the GPU buffers directly.
+The value ``direct`` hands the GPU buffers to the MPI library, which then has to be GPU-aware.
 In contrast, the ``host`` value means that the data will be copied to/from the host memory
-before/after each send/receive operation.
-That is especially useful, since some MPI implementations are not GPU-aware and do not support direct point-to-point
-communication on device buffers.
-As a (subpar) alternative, you can also try using ``SEISSOL_USM_MPI=1`` and ``direct`` to utilize unified/managed memory.
+before/after each send/receive operation, which works with any MPI implementation.
+Without the variable, SeisSol asks the MPI library whether it can read and write device memory:
+Open MPI with ``MPIX_Query_cuda_support`` or ``MPIX_Query_rocm_support``, MPICH and the libraries derived from it
+(e.g. Intel MPI) with ``MPIX_GPU_query_support``; SYCL builds do not ask.
+If the MPI library tells that it cannot, the exchange takes ``host``; otherwise, also if it does not tell, ``direct``.
+The log of the run says what the MPI library has told.
+With ``SEISSOL_USM_MPI=1``, the buffers are unified/managed memory, which an MPI library that is not GPU-aware can read
+and write as well; ``direct`` then works with it too. On GPUs that share their memory with the CPU (e.g. Grace Hopper,
+MI300A), that saves the copies of ``host``; on others, the pages of the buffers migrate between GPU and CPU instead,
+which makes it the subpar alternative there.
 
 See :ref:`gpu-time-stepping` for the other ways of running the time stepping on GPUs.
 

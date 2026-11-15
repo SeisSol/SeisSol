@@ -10,6 +10,7 @@ add_library(seissol-parallel OBJECT
     DataCollector.cpp
     HelperThread.cpp
     MPI.cpp
+    MPIDeviceSupport.cpp
     OpenMP.cpp
     Pin.cpp
 

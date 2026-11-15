@@ -19,6 +19,8 @@
 
 #ifdef ACL_DEVICE
 #include "Parallel/AcceleratorDevice.h"
+#include "Parallel/Helper.h"
+#include "Parallel/MPIDeviceSupport.h"
 
 #include <Device/device.h>
 #endif
@@ -116,25 +118,34 @@ std::optional<seissol::Mpi::DataTransferMode> seissol::Mpi::requestedDataTransfe
 }
 
 void seissol::Mpi::setDataTransferModeFromEnv() {
+  std::optional<DataTransferMode> requested;
   if (auto chosen = transferModeOption(); chosen.has_value()) {
-    std::string option = chosen.value();
-    const auto mode = transferModeOf(option);
-    if (mode.has_value()) {
-      preferredDataTransferMode_ = mode.value();
-    } else {
+    requested = transferModeOf(chosen.value());
+    if (!requested.has_value()) {
       logWarning() << "Ignoring `SEISSOL_TRANSFER_MODE`."
                    << "Expected values: direct, host.";
-      option = "direct";
     }
 #ifndef ACL_DEVICE
-    if (preferredDataTransferMode_ != DataTransferMode::Direct) {
+    if (requested.has_value() && requested.value() != DataTransferMode::Direct) {
       logWarning() << "The CPU version of SeisSol supports"
                    << "only the `direct` transfer mode.";
-      option = "direct";
-      preferredDataTransferMode_ = DataTransferMode::Direct;
+      requested = DataTransferMode::Direct;
     }
 #endif
-    logInfo() << "Selected" << option << "as data transfer mode between processes.";
+  }
+#ifdef ACL_DEVICE
+  // without a mode asked for, as the MPI library can read and write device memory or not
+  preferredDataTransferMode_ = parallel::decideDataTransferMode(
+      requested,
+      useMPIUSM(),
+      device::DeviceInstance::instance().api().isUnifiedMemoryDefault(),
+      comm_);
+#else
+  preferredDataTransferMode_ = requested.value_or(DataTransferMode::Direct);
+#endif
+  if (requested.has_value() || preferredDataTransferMode_ != DataTransferMode::Direct) {
+    logInfo() << "Selected" << std::string(dataTransferModeName(preferredDataTransferMode_))
+              << "as data transfer mode between processes.";
   }
 }
 
