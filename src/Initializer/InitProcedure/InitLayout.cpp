@@ -470,6 +470,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       const auto copy = i % copyCount;
       zeroDRLayer[i].meshFace = drLayout[layer.id()][cell];
       zeroDRLayer[i].copy = copy;
+      // known before the clusters get set up, which make the faces that read ghost cells wait
+      const auto& fault = meshReader.getFault()[drLayout[layer.id()][cell]];
+      zeroDRLayer[i].readsGhost = !fault.element.hasValue() || !fault.neighborElement.hasValue();
       drBackmap.addElement(layer.id(), zeroDR, zeroDRLayer, drLayout[layer.id()][cell], copy, i);
     }
   }

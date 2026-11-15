@@ -93,6 +93,9 @@ struct DRFaceInformation {
   std::uint8_t minusSide{};
   std::uint8_t faceRelation{};
   bool plusSideOnThisRank{};
+  //! whether one side of the face is a ghost cell, i.e. the face waits for the halo exchange (set
+  //! with the layout, before the clusters)
+  bool readsGhost{};
 };
 
 template <typename Cfg>

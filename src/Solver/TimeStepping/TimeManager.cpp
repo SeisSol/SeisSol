@@ -22,6 +22,7 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Kernels/Common.h"
 #include "Kernels/PointSourceCluster.h"
+#include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/HostData.h"
 #include "Memory/HostSnapshot.h"
@@ -70,6 +71,7 @@
 #include <memory>
 #include <mpi.h>
 #include <set>
+#include <span>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -310,9 +312,13 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // copy cells; the faces of a copy layer between copy and ghost cells.
   std::vector<DynamicRuptureClusterInterface*> faceClusterBackmap(
       memoryManager.drStorage().getColorMap().size(), nullptr);
-  std::vector<std::size_t> faceLayerSize(memoryManager.drStorage().getColorMap().size(), 0);
+  // whether a layer holds faces that read ghost cells: those of the copy layers, and those of an
+  // interior layer that took the faces of its copy layer (see combineCopyInteriorDR)
+  std::vector<bool> faceLayerReadsGhost(memoryManager.drStorage().getColorMap().size(), false);
   for (auto& layer : memoryManager.drStorage().leaves(Ghost)) {
-    faceLayerSize[layer.id()] = layer.size();
+    const std::span faces(layer.var<DynamicRupture::FaceInformation>(), layer.size());
+    faceLayerReadsGhost[layer.id()] =
+        std::ranges::any_of(faces, [](const auto& face) { return face.readsGhost; });
     if (layer.size() == 0) {
       continue;
     }
@@ -356,9 +362,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
     faceClusterBackmap[layer.id()] = cluster.get();
   }
-
-  // the threshold below which the copy faces of a cluster went to its interior layer
-  const auto combineFaces = seissolInstance_.env().get<std::size_t>("ICCOMBINE_DR", 0);
 
   // Create ghost time clusters for MPI
   followPlan_ = useTimeSteppingPlan(seissolInstance_.env());
@@ -408,20 +411,20 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         // Connect with previous copy layer.
         ghostClusters.back()->connect(*cellClusterBackmap[layer.id()]);
 
-        // the dynamic rupture faces of the copy layer read the ghost cells of their own cluster;
-        // below ICCOMBINE_DR faces, combineCopyInteriorDR moved them into the interior layer,
-        // whose faces then read the ghost cells as well, and wait for the halo like a copy layer
+        // the dynamic rupture faces that read ghost cells (both sides of a fault face lie in the
+        // same time cluster) wait for them: those of the copy layer, and those of the interior
+        // layer where it took the faces of the copy layer; the latter then wait for the halo like
+        // a copy layer
         if (other.lts == layer.getIdentifier().lts) {
-          auto* faceCluster = faceClusterBackmap[layer.id()];
-          const auto interiorId = haloId(layer.getIdentifier(), HaloType::Interior);
-          if (faceCluster == nullptr && faceLayerSize[interiorId] < combineFaces) {
-            faceCluster = faceClusterBackmap[interiorId];
-            if (faceCluster != nullptr) {
-              faceCluster->setPriority(ActorPriority::High);
-            }
+          auto* copyFaces = faceClusterBackmap[layer.id()];
+          if (copyFaces != nullptr) {
+            copyFaces->observe(*ghostClusters.back());
           }
-          if (faceCluster != nullptr) {
-            faceCluster->observe(*ghostClusters.back());
+          const auto interiorId = haloId(layer.getIdentifier(), HaloType::Interior);
+          auto* interiorFaces = faceClusterBackmap[interiorId];
+          if (interiorFaces != nullptr && faceLayerReadsGhost[interiorId]) {
+            interiorFaces->observe(*ghostClusters.back());
+            interiorFaces->setPriority(ActorPriority::High);
           }
         }
       }
