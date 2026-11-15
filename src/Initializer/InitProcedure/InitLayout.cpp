@@ -213,8 +213,15 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   const auto meshLayout = [&]() {
     auto meshLayoutPre = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
-    internal::combineCopyInterior(
-        meshLayoutPre, colorMap, seissolInstance.env().get<std::size_t>("ICCOMBINE", 0));
+    const auto threshold = seissolInstance.env().get<std::size_t>("ICCOMBINE", 0);
+    if (threshold > 0) {
+      auto combined = internal::combineCopyInterior(meshLayoutPre, colorMap, threshold);
+      MPI_Allreduce(
+          MPI_IN_PLACE, &combined, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
+      logInfo() << "Combined the copy and interior cells of" << combined
+                << "clusters over all ranks (fewer than" << threshold
+                << "cells together, SEISSOL_ICCOMBINE).";
+    }
     return meshLayoutPre;
   }();
   auto meshLayoutCopy = meshLayout;
@@ -421,8 +428,15 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   const auto drLayout = [&]() {
     auto drLayoutPre = internal::layoutDR(colors, colorsGhost, colorMap, meshReader);
-    internal::combineCopyInteriorDR(
-        drLayoutPre, colorMap, seissolInstance.env().get<std::size_t>("ICCOMBINE_DR", 0));
+    const auto threshold = seissolInstance.env().get<std::size_t>("ICCOMBINE_DR", 0);
+    if (threshold > 0) {
+      auto combined = internal::combineCopyInteriorDR(drLayoutPre, colorMap, threshold);
+      MPI_Allreduce(
+          MPI_IN_PLACE, &combined, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
+      logInfo() << "Combined the copy and interior fault faces of" << combined
+                << "clusters over all ranks (fewer than" << threshold
+                << "faces together, SEISSOL_ICCOMBINE_DR).";
+    }
     return drLayoutPre;
   }();
 

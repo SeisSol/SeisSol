@@ -136,17 +136,16 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
   return clusters;
 }
 
-void combineCopyInterior(std::vector<ClusterMap>& map,
-                         const LTSColorMap& colormap,
-                         std::size_t threshold) {
+std::size_t combineCopyInterior(std::vector<ClusterMap>& map,
+                                const LTSColorMap& colormap,
+                                std::size_t threshold) {
   const auto colorAdjust = [&](std::size_t color, HaloType halo) {
     auto id = colormap.argument(color);
     id.halo = halo;
     return colormap.colorId(id);
   };
 
-  std::vector<ClusterMap> outmap;
-  outmap.reserve(map.size());
+  std::size_t combined = 0;
   for (std::size_t i = 0; i < map.size(); ++i) {
     if (colormap.argument(i).halo == HaloType::Copy) {
       const auto copyLayer = i;
@@ -156,8 +155,11 @@ void combineCopyInterior(std::vector<ClusterMap>& map,
       const auto interiorSize = map[interiorLayer].cellMap.size();
 
       if (copySize + interiorSize < threshold) {
-        // adding cells to a cellMap only is fine; they won't appear in the send regions
-
+        // the interior cells go behind the copy cells: the send regions only cover the leading
+        // cells of a copy layer, so the halo stays as it is
+        if (interiorSize > 0) {
+          ++combined;
+        }
         map[copyLayer].cellMap.insert(map[copyLayer].cellMap.end(),
                                       map[interiorLayer].cellMap.begin(),
                                       map[interiorLayer].cellMap.end());
@@ -165,21 +167,21 @@ void combineCopyInterior(std::vector<ClusterMap>& map,
       }
     }
   }
+  return combined;
 }
 
-void combineCopyInteriorDR(std::vector<std::vector<std::size_t>>& map,
-                           const LTSColorMap& colormap,
-                           std::size_t threshold) {
+std::size_t combineCopyInteriorDR(std::vector<std::vector<std::size_t>>& map,
+                                  const LTSColorMap& colormap,
+                                  std::size_t threshold) {
   const auto colorAdjust = [&](std::size_t color, HaloType halo) {
     auto id = colormap.argument(color);
     id.halo = halo;
     return colormap.colorId(id);
   };
 
-  // reversed vs. meshLayout; for scheduling reasons.
-
-  std::vector<ClusterMap> outmap;
-  outmap.reserve(map.size());
+  // the other way round than for the cells: the faces of the copy layer go to the interior layer,
+  // whose face cluster then also waits for the ghost cells (see TimeManager::addClusters)
+  std::size_t combined = 0;
   for (std::size_t i = 0; i < map.size(); ++i) {
     if (colormap.argument(i).halo == HaloType::Copy) {
       const auto copyLayer = i;
@@ -189,14 +191,16 @@ void combineCopyInteriorDR(std::vector<std::vector<std::size_t>>& map,
       const auto interiorSize = map[interiorLayer].size();
 
       if (copySize + interiorSize < threshold) {
-        // adding cells to a cellMap only is fine; they won't appear in the send regions
-
+        if (copySize > 0) {
+          ++combined;
+        }
         map[interiorLayer].insert(
             map[interiorLayer].end(), map[copyLayer].begin(), map[copyLayer].end());
         map[copyLayer].clear();
       }
     }
   }
+  return combined;
 }
 
 std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& color,
