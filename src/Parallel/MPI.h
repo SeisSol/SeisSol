@@ -14,8 +14,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <functional>
+#include <limits>
 #include <mpi.h>
-#include <numeric>
 #include <optional>
 #include <type_traits>
 #include <utility>
@@ -106,9 +106,17 @@ class Mpi {
 
 #ifdef SEISSOL_MPI_LARGEINT
   using Count = MPI_Count;
+  using Displacement = MPI_Aint;
 #else
   using Count = int;
+  using Displacement = int;
 #endif
+
+  /**
+   * The most elements that one call to MPI takes; the methods for containers split larger ones
+   * into several calls (before MPI 4, MPI counts in int).
+   */
+  static constexpr std::size_t MaxCount = std::numeric_limits<Count>::max();
 
   /**
    * Initialize MPI
@@ -213,48 +221,70 @@ class Mpi {
   }
 
   /**
-   * @return a vector of aggregated containers from all processes
+   * @return the containers of all processes, on the first one; as many empty ones on the others
    *
-   * Note: the vector is available only in the master process
+   * The elements go in calls of at most @p maxCount of them each.
    * Method supports only basic types
    */
   template <typename ContainerType>
-  [[nodiscard]] std::vector<ContainerType>
-      collectContainer(const ContainerType& container, std::optional<MPI_Comm> comm = {}) const {
+  [[nodiscard]] std::vector<ContainerType> collectContainer(const ContainerType& container,
+                                                            std::optional<MPI_Comm> comm = {},
+                                                            std::size_t maxCount = MaxCount) const {
     using InternalType = ContainerType::value_type;
 
     const auto& useComm = comm.value_or(this->comm());
     const int commSize = sizeOf(useComm);
+    const bool root = rankOf(useComm) == 0;
 
-    const auto length = static_cast<int>(container.size());
-    auto lengths = collect(length, useComm);
-
-    // including the total length
-    std::vector<int> displacements(commSize + 1);
-    displacements[0] = 0;
-    for (std::size_t i = 1; i < displacements.size(); ++i) {
-      displacements[i] = displacements[i - 1] + lengths[i - 1];
+    // where the elements of each process go in the concatenation of all of them
+    const std::size_t length = container.size();
+    const auto lengths = collect(length, useComm);
+    const auto start = scan(length, MPI_SUM, false, useComm);
+    const auto total = allreduce(length, MPI_SUM, useComm);
+    std::vector<std::size_t> starts(root ? commSize + 1 : 0, 0);
+    if (root) {
+      for (int other = 0; other < commSize; ++other) {
+        starts[other + 1] = starts[other] + lengths[other];
+      }
     }
 
-    const auto recvBufferSize = std::accumulate(lengths.begin(), lengths.end(), 0);
-    std::vector<InternalType> recvBuffer(recvBufferSize);
-
-    auto mpiType = castToMpiType<InternalType>();
-    MPI_Gatherv(container.data(),
-                length,
-                mpiType,
-                recvBuffer.data(),
-                lengths.data(),
-                displacements.data(),
-                mpiType,
-                0,
-                useComm);
+    // the concatenation in windows of at most maxCount elements, each gathered with one call
+    std::vector<InternalType> concatenation(root ? total : 0);
+    std::vector<Count> counts(root ? commSize : 0);
+    std::vector<Displacement> displacements(root ? commSize : 0);
+    const auto mpiType = castToMpiType<InternalType>();
+    forEachSlice(total, maxCount, [&](std::size_t windowBegin, Count windowCount) {
+      const auto windowEnd = windowBegin + static_cast<std::size_t>(windowCount);
+      if (root) {
+        for (int other = 0; other < commSize; ++other) {
+          const auto otherBegin = std::clamp(starts[other], windowBegin, windowEnd);
+          const auto otherEnd = std::clamp(starts[other + 1], windowBegin, windowEnd);
+          counts[other] = static_cast<Count>(otherEnd - otherBegin);
+          displacements[other] = static_cast<Displacement>(otherBegin - windowBegin);
+        }
+      }
+      const auto ownBegin = std::clamp(start, windowBegin, windowEnd);
+      const auto ownEnd = std::clamp(start + length, windowBegin, windowEnd);
+      const auto* send = container.data() + (ownEnd > ownBegin ? ownBegin - start : 0);
+      auto* receive = root ? concatenation.data() + windowBegin : nullptr;
+      SEISSOL_MPI_C(MPI_Gatherv)(send,
+                                 static_cast<Count>(ownEnd - ownBegin),
+                                 mpiType,
+                                 receive,
+                                 counts.data(),
+                                 displacements.data(),
+                                 mpiType,
+                                 0,
+                                 useComm);
+    });
 
     std::vector<ContainerType> collected(commSize);
-    for (int rank = 0; rank < commSize; ++rank) {
-      const auto begin = displacements[rank];
-      const auto end = displacements[rank + 1];
-      collected[rank] = ContainerType(recvBuffer.begin() + begin, recvBuffer.begin() + end);
+    if (root) {
+      for (int other = 0; other < commSize; ++other) {
+        collected[other] =
+            ContainerType(concatenation.begin() + static_cast<std::ptrdiff_t>(starts[other]),
+                          concatenation.begin() + static_cast<std::ptrdiff_t>(starts[other + 1]));
+      }
     }
     return collected;
   }
@@ -291,21 +321,24 @@ class Mpi {
   }
 
   /**
-   * sends a container to all processors
+   * sends a container to all processors, in calls of at most @p maxCount elements each
    */
   template <typename ContainerType>
   void broadcastContainer(ContainerType& container,
                           int root,
-                          std::optional<MPI_Comm> comm = {}) const {
+                          std::optional<MPI_Comm> comm = {},
+                          std::size_t maxCount = MaxCount) const {
     using InternalType = ContainerType::value_type;
     const auto& useComm = comm.value_or(this->comm());
-    auto size = static_cast<Count>(container.size());
+    std::size_t size = container.size();
     broadcast(&size, root, useComm);
     if (rankOf(useComm) != root) {
       container.resize(size);
     }
-    auto mpiType = castToMpiType<InternalType>();
-    SEISSOL_MPI_C(MPI_Bcast)(container.data(), size, mpiType, root, useComm);
+    const auto mpiType = castToMpiType<InternalType>();
+    forEachSlice(size, maxCount, [&](std::size_t offset, Count count) {
+      SEISSOL_MPI_C(MPI_Bcast)(container.data() + offset, count, mpiType, root, useComm);
+    });
   }
 
   /**
@@ -320,17 +353,21 @@ class Mpi {
   }
 
   /**
-   * Reduces the elements of @p container with @p op over all processes, in place.
+   * Reduces the elements of @p container with @p op over all processes, in place, in calls of at
+   * most @p maxCount elements each.
    */
   template <typename ContainerType>
   void allreduceContainer(ContainerType& container,
                           MPI_Op op,
-                          std::optional<MPI_Comm> comm = {}) const {
+                          std::optional<MPI_Comm> comm = {},
+                          std::size_t maxCount = MaxCount) const {
     using InternalType = ContainerType::value_type;
-    const auto size = static_cast<Count>(container.size());
+    const auto& useComm = comm.value_or(this->comm());
     const auto mpiType = castToMpiType<InternalType>();
-    SEISSOL_MPI_C(MPI_Allreduce)
-    (MPI_IN_PLACE, container.data(), size, mpiType, op, comm.value_or(this->comm()));
+    forEachSlice(container.size(), maxCount, [&](std::size_t offset, Count count) {
+      SEISSOL_MPI_C(MPI_Allreduce)
+      (MPI_IN_PLACE, container.data() + offset, count, mpiType, op, useComm);
+    });
   }
 
   /**
@@ -347,24 +384,24 @@ class Mpi {
   }
 
   /**
-   * Reduces the elements of @p container with @p op over all processes, in place on @p root; the
-   * other processes keep theirs.
+   * Reduces the elements of @p container with @p op over all processes, in place on @p root, in
+   * calls of at most @p maxCount elements each; the other processes keep theirs.
    */
   template <typename ContainerType>
   void reduceContainer(ContainerType& container,
                        MPI_Op op,
                        int root,
-                       std::optional<MPI_Comm> comm = {}) const {
+                       std::optional<MPI_Comm> comm = {},
+                       std::size_t maxCount = MaxCount) const {
     using InternalType = ContainerType::value_type;
     const auto& useComm = comm.value_or(this->comm());
-    const auto size = static_cast<Count>(container.size());
+    const bool isRoot = rankOf(useComm) == root;
     const auto mpiType = castToMpiType<InternalType>();
-    if (rankOf(useComm) == root) {
+    forEachSlice(container.size(), maxCount, [&](std::size_t offset, Count count) {
+      auto* data = container.data() + offset;
       SEISSOL_MPI_C(MPI_Reduce)
-      (MPI_IN_PLACE, container.data(), size, mpiType, op, root, useComm);
-    } else {
-      SEISSOL_MPI_C(MPI_Reduce)(container.data(), nullptr, size, mpiType, op, root, useComm);
-    }
+      (isRoot ? MPI_IN_PLACE : data, isRoot ? data : nullptr, count, mpiType, op, root, useComm);
+    });
   }
 
   /**
@@ -403,25 +440,31 @@ class Mpi {
   }
 
   /**
-   * Scans the elements of @p container with @p op, in place, as scan() does each of them.
+   * Scans the elements of @p container with @p op, in place, as scan() does each of them, in calls
+   * of at most @p maxCount elements each.
    */
   template <typename ContainerType>
   void scanContainer(ContainerType& container,
                      MPI_Op op,
                      bool inclusive,
-                     std::optional<MPI_Comm> comm = {}) const {
+                     std::optional<MPI_Comm> comm = {},
+                     std::size_t maxCount = MaxCount) const {
     using InternalType = ContainerType::value_type;
     const auto& useComm = comm.value_or(this->comm());
-    const auto size = static_cast<Count>(container.size());
     const auto mpiType = castToMpiType<InternalType>();
-    if (inclusive) {
-      SEISSOL_MPI_C(MPI_Scan)(MPI_IN_PLACE, container.data(), size, mpiType, op, useComm);
-    } else {
-      SEISSOL_MPI_C(MPI_Exscan)(MPI_IN_PLACE, container.data(), size, mpiType, op, useComm);
-      // MPI_Exscan leaves the receive buffer of the first rank undefined
-      if (rankOf(useComm) == 0) {
-        std::fill(container.begin(), container.end(), InternalType{});
+    forEachSlice(container.size(), maxCount, [&](std::size_t offset, Count count) {
+      auto* data = container.data() + offset;
+      if (inclusive) {
+        SEISSOL_MPI_C(MPI_Scan)(MPI_IN_PLACE, data, count, mpiType, op, useComm);
+      } else {
+        // (not in place: MPI_Exscan takes MPI_IN_PLACE only since MPI 2.2)
+        const std::vector<InternalType> values(data, data + count);
+        SEISSOL_MPI_C(MPI_Exscan)(values.data(), data, count, mpiType, op, useComm);
       }
+    });
+    // MPI_Exscan leaves the receive buffer of the first rank undefined
+    if (!inclusive && rankOf(useComm) == 0) {
+      std::fill(container.begin(), container.end(), InternalType{});
     }
   }
 
@@ -463,6 +506,18 @@ class Mpi {
   static Mpi mpi;
 
   private:
+  /**
+   * Calls @p function with the offset and the count of each of the consecutive slices of at most
+   * @p maxCount elements that @p size elements fall into; not at all for none.
+   */
+  template <typename F>
+  static void forEachSlice(std::size_t size, std::size_t maxCount, const F& function) {
+    const auto sliceSize = std::clamp<std::size_t>(maxCount, 1, MaxCount);
+    for (std::size_t offset = 0; offset < size; offset += sliceSize) {
+      function(offset, static_cast<Count>(std::min(sliceSize, size - offset)));
+    }
+  }
+
   static MPI_Comm& threadCommRef() {
     thread_local MPI_Comm threadComm = MPI_COMM_NULL;
     return threadComm;

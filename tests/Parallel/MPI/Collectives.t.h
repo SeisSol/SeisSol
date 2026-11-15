@@ -14,6 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <mpi.h>
+#include <numeric>
 #include <string>
 #include <utility>
 #include <vector>
@@ -296,6 +297,69 @@ TEST_CASE("MPI allgather" * doctest::test_suite("mpi")) {
   for (int other = 0; other < mpi.size(); ++other) {
     CHECK(values[other] == 10 * other);
   }
+}
+
+// ---------------------------------------------------------------------------
+// containers in several calls
+// ---------------------------------------------------------------------------
+
+TEST_CASE("MPI collectContainer in windows of a few elements" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  const int rank = mpi.rank();
+  const int size = mpi.size();
+
+  // of different lengths, and none on the first rank: the windows start and end within the
+  // containers, and some processes have nothing in a window
+  std::vector<int> local(rank == 0 ? 0 : rank + 2);
+  std::iota(local.begin(), local.end(), 100 * rank);
+  const std::string name(rank + 1, static_cast<char>('a' + rank));
+  for (const std::size_t maxCount : {1, 2, 3, 5, 1000}) {
+    const auto collected = mpi.collectContainer(local, {}, maxCount);
+    const auto names = mpi.collectContainer(name, {}, maxCount);
+    REQUIRE(collected.size() == static_cast<std::size_t>(size));
+    REQUIRE(names.size() == static_cast<std::size_t>(size));
+    if (rank == 0) {
+      for (int other = 0; other < size; ++other) {
+        std::vector<int> expected(other == 0 ? 0 : other + 2);
+        std::iota(expected.begin(), expected.end(), 100 * other);
+        CHECK(collected[other] == expected);
+        CHECK(names[other] == std::string(other + 1, static_cast<char>('a' + other)));
+      }
+    } else {
+      CHECK(collected[rank].empty());
+    }
+  }
+}
+
+TEST_CASE("MPI container collectives in calls of a few elements" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  const int rank = mpi.rank();
+  const int size = mpi.size();
+  constexpr std::size_t MaxCount = 2;
+
+  std::vector<int> broadcasted;
+  if (rank == 0) {
+    broadcasted = {1, 2, 3, 4, 5};
+  }
+  mpi.broadcastContainer(broadcasted, 0, {}, MaxCount);
+  CHECK(broadcasted == std::vector<int>{1, 2, 3, 4, 5});
+
+  std::vector<int> sums(5, rank);
+  mpi.allreduceContainer(sums, MPI_SUM, {}, MaxCount);
+  CHECK(sums == std::vector<int>(5, size * (size - 1) / 2));
+
+  std::vector<int> maxima(5, rank);
+  mpi.reduceContainer(maxima, MPI_MAX, 0, {}, MaxCount);
+  if (rank == 0) {
+    CHECK(maxima == std::vector<int>(5, size - 1));
+  }
+
+  std::vector<int> inclusive(5, 1);
+  auto exclusive = inclusive;
+  mpi.scanContainer(inclusive, MPI_SUM, true, {}, MaxCount);
+  mpi.scanContainer(exclusive, MPI_SUM, false, {}, MaxCount);
+  CHECK(inclusive == std::vector<int>(5, rank + 1));
+  CHECK(exclusive == std::vector<int>(5, rank));
 }
 
 // ---------------------------------------------------------------------------
