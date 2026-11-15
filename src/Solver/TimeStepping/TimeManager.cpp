@@ -358,9 +358,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   // the threshold below which the copy faces of a cluster went to its interior layer
-  const auto combineFaces = seissolInstance_.env()
-                                .getOptional<std::size_t>("ICCOMBINE_DR")
-                                .value_or(seissolInstance_.parameters().timeStepping.iccombineDR);
+  const auto combineFaces = seissolInstance_.env().get<std::size_t>("ICCOMBINE_DR", 0);
 
   // Create ghost time clusters for MPI
   followPlan_ = useTimeSteppingPlan(seissolInstance_.env());

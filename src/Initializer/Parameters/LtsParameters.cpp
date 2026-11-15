@@ -214,11 +214,9 @@ TimeSteppingParameters::TimeSteppingParameters(VertexWeightParameters vertexWeig
                                                double cfl,
                                                double maxTimestepWidth,
                                                double endTime,
-                                               LtsParameters lts,
-                                               std::size_t iccombine,
-                                               std::size_t iccombineDR)
+                                               LtsParameters lts)
     : vertexWeight(std::move(vertexWeight)), cfl(cfl), maxTimestepWidth(maxTimestepWidth),
-      endTime(endTime), lts(std::move(lts)), iccombine(iccombine), iccombineDR(iccombineDR) {}
+      endTime(endTime), lts(std::move(lts)) {}
 
 TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
                                                   const std::vector<ConfigId>& configs) {
@@ -266,9 +264,6 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
 
   const LtsParameters ltsParameters = readLtsParameters(baseReader);
 
-  const auto iccombine = reader->readWithDefault<std::size_t>("iccombine", 0);
-  const auto iccombineDR = reader->readWithDefault<std::size_t>("iccombinedr", 0);
-
   reader->warnDeprecated({"ckmethod",
                           "dgfineout1d",
                           "fluxmethod",
@@ -289,9 +284,7 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
                                 cfl,
                                 maxTimestepWidth,
                                 endTime,
-                                ltsParameters,
-                                iccombine,
-                                iccombineDR);
+                                ltsParameters);
 }
 
 } // namespace seissol::initializer::parameters
