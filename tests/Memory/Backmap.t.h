@@ -23,7 +23,7 @@ TEST_CASE("Backmap" * doctest::test_suite("memory")) {
 
   const std::size_t cellCount = 12;
 
-  backmap.setSize(cellCount);
+  backmap.setSize(cellCount, 1);
 
   // set up backmap and comparison
 
@@ -32,7 +32,7 @@ TEST_CASE("Backmap" * doctest::test_suite("memory")) {
   for (const auto [layerId, layerSize] : common::enumerate(layers)) {
     const auto* zeroLayer = dataToMesh.data() + global;
     for (std::size_t i = 0; i < layerSize; ++i) {
-      backmap.addElement(layerId, zero, zeroLayer, dataToMesh[global], i);
+      backmap.addElement(layerId, zero, zeroLayer, dataToMesh[global], 0, i);
 
       compare[dataToMesh[global]].emplace_back(layerId, i, global);
 
@@ -44,7 +44,7 @@ TEST_CASE("Backmap" * doctest::test_suite("memory")) {
 
   for (std::size_t i = 0; i < cellCount; ++i) {
     for (std::size_t j = 0; j < DupCount; ++j) {
-      const auto pos = backmap.getDup(i, j);
+      const auto pos = backmap.getDup(i, 0, j);
       if (j < compare[i].size()) {
         REQUIRE(pos.has_value());
         CHECK(pos.value() == compare[i][j]);
@@ -54,7 +54,48 @@ TEST_CASE("Backmap" * doctest::test_suite("memory")) {
     }
 
     if (!compare[i].empty()) {
-      CHECK(backmap.get(i) == compare[i][0]);
+      CHECK(backmap.get(i, 0) == compare[i][0]);
+    }
+  }
+}
+
+TEST_CASE("Backmap with copies" * doctest::test_suite("memory")) {
+  constexpr std::size_t DupCount = 2;
+  constexpr std::size_t CellCount = 5;
+  constexpr std::size_t CopyCount = 3;
+
+  auto backmap = initializer::StorageBackmap<DupCount>();
+  backmap.setSize(CellCount, CopyCount);
+  CHECK(backmap.copyCount() == CopyCount);
+
+  // a first layer with the copies of every cell next to each other, as the layout has them; and a
+  // second one with a duplicate of one copy of a cell
+  std::vector<std::size_t> data(CellCount * CopyCount + 1);
+  const auto* zero = data.data();
+  for (std::size_t cell = 0; cell < CellCount; ++cell) {
+    for (std::size_t copy = 0; copy < CopyCount; ++copy) {
+      CHECK(backmap.addElement(0, zero, zero, cell, copy, cell * CopyCount + copy) == 0);
+    }
+  }
+  const auto* secondLayer = zero + CellCount * CopyCount;
+  CHECK(backmap.addElement(1, zero, secondLayer, 2, 1, 0) == 1);
+
+  for (std::size_t cell = 0; cell < CellCount; ++cell) {
+    for (std::size_t copy = 0; copy < CopyCount; ++copy) {
+      const auto index = cell * CopyCount + copy;
+      const auto position = backmap.get(cell, copy);
+      CHECK(position == initializer::StoragePosition(0, index, index));
+      CHECK(position.global == index);
+
+      const auto duplicate = backmap.getDup(cell, copy, 1);
+      if (cell == 2 && copy == 1) {
+        REQUIRE(duplicate.has_value());
+        CHECK(duplicate.value() == initializer::StoragePosition(1, 0, CellCount * CopyCount));
+        CHECK(duplicate.value().global == CellCount * CopyCount);
+      } else {
+        // a duplicate belongs to its copy only
+        CHECK(!duplicate.has_value());
+      }
     }
   }
 }

@@ -153,22 +153,70 @@ std::unordered_map<int, ConfigId> readGroupConfigs(ParameterReader* baseReader, 
   return groupConfigs;
 }
 
+std::size_t readSimulationCount(ParameterReader* baseReader, ConfigId config) {
+  auto* reader = baseReader->readSubNode("equations");
+  const auto simulationCount =
+      reader->readWithDefault<std::size_t>("simcount", configValue(config).numSimulations);
+  if (simulationCount == 0) {
+    logError() << "The number of simulations (simcount) has to be positive.";
+  }
+  return simulationCount;
+}
+
 ModelParameters readModelParameters(ParameterReader* baseReader,
                                     ConfigId config,
                                     std::unordered_map<int, ConfigId> groupConfigs) {
   auto* reader = baseReader->readSubNode("equations");
 
-  const auto boundaryFileName = reader->readPath("boundaryfilename");
-  const std::string materialFileName =
-      reader->readPathOrFail("materialfilename", "No material file given.");
-  std::vector<std::string> plasticityFileNames(configValue(config).numSimulations);
+  const auto simulationCount = readSimulationCount(baseReader, config);
 
-  for (std::size_t i = 0; i < plasticityFileNames.size(); ++i) {
-    const auto fieldname = "plasticityfilename" + (i == 0 ? std::string{} : std::to_string(i));
-    plasticityFileNames[i] = reader->readPath(fieldname).value_or(materialFileName);
+  // the easi boundary condition of every simulation, the one of the first if not given
+  std::vector<std::string> boundaryFileNames(simulationCount);
+  boundaryFileNames[0] = reader->readPath("boundaryfilename").value_or("");
+  for (std::size_t i = 1; i < simulationCount; ++i) {
+    boundaryFileNames[i] =
+        reader->readPath("boundaryfilename" + std::to_string(i)).value_or(boundaryFileNames[0]);
   }
 
-  const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
+  // The material of every simulation, the one of the first if not given. The plasticity of every
+  // simulation likewise, the one of the first if not given, and else its own material file. An
+  // empty file name counts as none.
+  std::vector<std::string> materialFileNames(simulationCount);
+  std::vector<std::string> plasticityFileNames(simulationCount);
+  const auto plasticityFileName = reader->readPath("plasticityfilename").value_or("");
+  for (std::size_t i = 0; i < simulationCount; ++i) {
+    if (i == 0) {
+      materialFileNames[i] = reader->readPathOrFail("materialfilename", "No material file given.");
+    } else {
+      materialFileNames[i] =
+          reader->readPath("materialfilename" + std::to_string(i)).value_or(materialFileNames[0]);
+    }
+    plasticityFileNames[i] =
+        i == 0 ? plasticityFileName
+               : reader->readPath("plasticityfilename" + std::to_string(i)).value_or("");
+    if (plasticityFileNames[i].empty()) {
+      plasticityFileNames[i] = plasticityFileName;
+    }
+    if (plasticityFileNames[i].empty()) {
+      plasticityFileNames[i] = materialFileNames[i];
+    }
+  }
+
+  // The simulations fused into a cell share its material, and so have to name the same file.
+  const auto fusedCount = configValue(config).numSimulations;
+  for (std::size_t i = 0; i < simulationCount; ++i) {
+    const auto first = i - i % fusedCount;
+    if (materialFileNames[i] != materialFileNames[first]) {
+      logError() << "The simulations" << first << "and" << i
+                 << "are fused into the same cell, which has one material, but they name "
+                    "different material files:"
+                 << materialFileNames[first] << "for the first and" << materialFileNames[i]
+                 << "for the second.";
+    }
+  }
+
+  const bool hasBoundaryFile =
+      std::ranges::any_of(boundaryFileNames, [](const auto& name) { return !name.empty(); });
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
 
@@ -231,14 +279,15 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                          .freqRatio = freqRatio,
                          .gravitationalAcceleration = gravitationalAcceleration,
                          .tv = tv,
-                         .boundaryFileName = boundaryFileName.value_or(""),
-                         .materialFileName = materialFileName,
+                         .boundaryFileNames = boundaryFileNames,
+                         .materialFileNames = materialFileNames,
                          .plasticityFileNames = plasticityFileNames,
                          .itmParameters = itmParameters,
                          .flux = flux,
                          .fluxNearFault = fluxNearFault,
                          .config = config,
-                         .groupConfigs = std::move(groupConfigs)};
+                         .groupConfigs = std::move(groupConfigs),
+                         .simulationCount = simulationCount};
 }
 
 std::string fluxToString(NumericalFlux flux) {

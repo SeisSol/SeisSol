@@ -138,8 +138,8 @@ foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 
-# Dirichlet and Analytical are left out for now. Free surface with gravity is
-# meant for acoustic media only. fsg2 is there for cells with two such faces,
+# Analytical is left out for now. Free surface with gravity is meant for
+# acoustic media only. fsg2 is there for cells with two such faces,
 # a case still to be looked at in the implementation. A Kuhn tetrahedron
 # touches exactly one lower and one upper cube plane, on different axes, so
 # two upper planes never share a cell; zmax with xmin gives one such cell.
@@ -149,6 +149,8 @@ seissol_add_minimesh(NAME box6-mixed PRESET box6
 seissol_add_minimesh(NAME box6-fsg PRESET box6 ARGS --bc zmax=free-surface-gravity)
 seissol_add_minimesh(NAME box6-fsg2 PRESET box6
                      ARGS --bc zmax=free-surface-gravity,xmin=free-surface-gravity)
+# the cases give the Dirichlet faces their ghost state in an easi file
+seissol_add_minimesh(NAME box48-dirichlet PRESET box48 ARGS --bc xmin=dirichlet)
 
 add_test(NAME verification.minimesh.self-test
          COMMAND ${Python3_EXECUTABLE}
@@ -246,7 +248,9 @@ set_tests_properties(verification.faultreceivers2d-periodic PROPERTIES
 #                      [SNAPSHOT_EVERYWHERE]
 #                      [REQUIRE key=value ...] [SET Section.Key=Value ...]
 #                      [ENV NAME=VALUE ...] [FILES name ...]
-#                      [ACTIVITY column:threshold ...] [LABELS label ...])
+#                      [ACTIVITY column:threshold ...]
+#                      [RESTART step [RESTART_SET Section.Key=Value ...]]
+#                      [LABELS label ...])
 #
 # REQUIRE is matched against capabilities.json by the runner, not here: a case
 # that this build cannot run has to remain a visible skip. File names and
@@ -258,13 +262,18 @@ set_tests_properties(verification.faultreceivers2d-periodic PROPERTIES
 # a stored reference, one per numerical configuration as SNAPSHOT_KEY names
 # it. Cases on several ranks or threads get none: their bit identity with the
 # serial case is tested directly, and the serial case carries the snapshot.
+#
+# A case with RESTART runs up to that step first, writing a checkpoint at its
+# end, and then restarts from it for the rest of its steps, with RESTART_SET
+# on top of SET; EXPECT_FAILURE then concerns the restart. Its identity with
+# the case run without a restart is tested directly, so it gets no snapshot.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_minitest)
   cmake_parse_arguments(MT
       "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
-      "NAME;MESH;PARAMETERS;MATERIAL;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS;EXPECT_FAILURE;SNAPSHOT_KEY"
-      "REQUIRE;SET;ENV;FILES;ACTIVITY;LABELS"
+      "NAME;MESH;PARAMETERS;MATERIAL;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS;EXPECT_FAILURE;SNAPSHOT_KEY;RESTART"
+      "REQUIRE;SET;ENV;FILES;ACTIVITY;RESTART_SET;LABELS"
       ${ARGN})
   if (NOT MT_NAME OR NOT MT_MESH OR NOT MT_PARAMETERS)
     message(FATAL_ERROR "seissol_add_minitest needs NAME, MESH and PARAMETERS")
@@ -342,6 +351,12 @@ function(seissol_add_minitest)
   foreach (entry ${MT_REQUIRE})
     list(APPEND arguments --require ${entry})
   endforeach()
+  if (MT_RESTART)
+    list(APPEND arguments --restart ${MT_RESTART})
+    foreach (entry ${MT_RESTART_SET})
+      list(APPEND arguments --restart-set ${entry})
+    endforeach()
+  endif()
 
   if (MT_RANKS GREATER 1 AND MPIEXEC_EXECUTABLE)
     # the equals form is required: these values start with a dash and would
@@ -390,7 +405,7 @@ function(seissol_add_minitest)
   if (NOT MT_SNAPSHOT_EVERYWHERE)
     set(snapshot_scope --only-configurations ${SEISSOL_SNAPSHOT_CONFIGURATIONS})
   endif()
-  if (NOT MT_NO_SNAPSHOT AND NOT MT_EXPECT_ZERO AND NOT MT_EXPECT_FAILURE
+  if (NOT MT_NO_SNAPSHOT AND NOT MT_EXPECT_ZERO AND NOT MT_EXPECT_FAILURE AND NOT MT_RESTART
       AND MT_RANKS EQUAL 1 AND MT_THREADS EQUAL 1)
     add_test(NAME verification.snapshot.${MT_NAME}${SEISSOL_VERIFICATION_SUFFIX}
              COMMAND ${Python3_EXECUTABLE}
@@ -422,18 +437,24 @@ endfunction()
 
 # ---------------------------------------------------------------------------
 # seissol_add_comparison(NAME <name> REFERENCE <case> CANDIDATE <case>
-#                        [TOLERANCE r] [PREFIX p] [LABELS label ...])
+#                        [TOLERANCE r] [PREFIX p] [SIMULATIONS r:c ...]
+#                        [RECEIVERS all|volume|fault] [LABELS label ...])
 #
 # Holds two runs against each other. A tolerance of zero demands identical
-# output. The runner propagates a skip: if either input was skipped because
-# this build lacks the configuration, so is the comparison.
+# output. With SIMULATIONS, only the simulations given as pairs are compared:
+# r:c holds the simulation c of the candidate against the simulation r of the
+# reference, counted from zero, so that runs of different numbers of
+# simulations can be compared. RECEIVERS restricts the comparison to the
+# volume or the on-fault receivers. The runner propagates a skip: if either
+# input was skipped because this build lacks the configuration, so is the
+# comparison.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_comparison)
   cmake_parse_arguments(CMP
       ""
-      "NAME;REFERENCE;CANDIDATE;TOLERANCE;PREFIX"
-      "LABELS"
+      "NAME;REFERENCE;CANDIDATE;TOLERANCE;PREFIX;RECEIVERS"
+      "SIMULATIONS;LABELS"
       ${ARGN})
   if (NOT CMP_TOLERANCE)
     set(CMP_TOLERANCE 0)
@@ -441,6 +462,14 @@ function(seissol_add_comparison)
   if (NOT CMP_PREFIX)
     set(CMP_PREFIX output/mini)
   endif()
+  if (NOT CMP_RECEIVERS)
+    set(CMP_RECEIVERS all)
+  endif()
+
+  set(simulations "")
+  foreach (pair ${CMP_SIMULATIONS})
+    list(APPEND simulations --simulations ${pair})
+  endforeach()
 
   set(directory ${SEISSOL_VERIFICATION_DIR})
   add_test(NAME verification.${CMP_NAME}${SEISSOL_VERIFICATION_SUFFIX}
@@ -453,7 +482,9 @@ function(seissol_add_comparison)
                    --candidate-result ${directory}/results/${CMP_CANDIDATE}.json
                    --result ${directory}/results/${CMP_NAME}.json
                    --prefix ${CMP_PREFIX}
-                   --tolerance ${CMP_TOLERANCE})
+                   --tolerance ${CMP_TOLERANCE}
+                   --receivers ${CMP_RECEIVERS}
+                   ${simulations})
   set(fixtures
       case.${SEISSOL_VERIFICATION_CONFIG}.${CMP_REFERENCE}
       case.${SEISSOL_VERIFICATION_CONFIG}.${CMP_CANDIDATE}
@@ -470,7 +501,8 @@ endfunction()
 
 # ---------------------------------------------------------------------------
 # seissol_add_rupture(NAME <name> FL <law> FAULT <file> [SET ...] [ENV ...] [MESH mesh]
-#                     [RANKS n] [THREADS n] [EXPECT_FAILURE regex] [EXPECT_ZERO])
+#                     [RANKS n] [THREADS n] [EXPECT_FAILURE regex] [EXPECT_ZERO]
+#                     [FILES name ...] [RESTART step [RESTART_SET ...]])
 #
 # A case of a friction law on fault48 (see the friction laws in Cases.cmake).
 # ---------------------------------------------------------------------------
@@ -478,8 +510,8 @@ endfunction()
 function(seissol_add_rupture)
   cmake_parse_arguments(RUP
       "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
-      "NAME;FL;FAULT;MESH;RANKS;THREADS;EXPECT_FAILURE"
-      "SET;ENV;LABELS"
+      "NAME;FL;FAULT;MESH;RANKS;THREADS;EXPECT_FAILURE;RESTART"
+      "SET;ENV;FILES;RESTART_SET;LABELS"
       ${ARGN})
   if (NOT RUP_MESH)
     set(RUP_MESH fault48)
@@ -505,6 +537,9 @@ function(seissol_add_rupture)
   if (RUP_ENV)
     list(APPEND options ENV ${RUP_ENV})
   endif()
+  if (RUP_RESTART)
+    list(APPEND options RESTART ${RUP_RESTART} RESTART_SET ${RUP_RESTART_SET})
+  endif()
   seissol_add_minitest(
       NAME ${RUP_NAME}
       MESH ${RUP_MESH}
@@ -512,7 +547,7 @@ function(seissol_add_rupture)
       # the quadrature rule on the fault changes the result of every case with one; it holds for
       # all configurations of the executable, so the name of the configuration does not carry it
       SNAPSHOT_KEY "{configuration}-{dr-quad-rule}"
-      FILES ${RUP_FAULT} faultreceiver.dat
+      FILES ${RUP_FAULT} faultreceiver.dat ${RUP_FILES}
       STEPS 64
       REQUIRE equations=elastic
       SET "DynamicRupture.FL=${RUP_FL}"

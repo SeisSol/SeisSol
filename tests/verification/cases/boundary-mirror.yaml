@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# boundary-v1.yaml with the x velocity mirrored at the face: the map of the
+# condition differs from the one of boundary-v1.yaml, which the simulations
+# fused into a cell cannot have.
+!ConstantMap
+map:
+  const_v1:   1.0e-3
+  map_v1_v1: -1.0

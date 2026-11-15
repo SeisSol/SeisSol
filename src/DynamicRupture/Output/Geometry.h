@@ -88,6 +88,9 @@ struct Receiver {
   // Index of the nearest quadrature point considering fused simulations
   int gpIndex{-1};
 
+  // Simulation copy which the receiver belongs to
+  std::size_t copy{0};
+
   // Internal points are required because computed gradients
   // are inaccurate near triangle edges,
   // specifically for low-order elements

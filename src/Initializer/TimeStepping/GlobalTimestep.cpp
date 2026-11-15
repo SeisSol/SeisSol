@@ -12,6 +12,7 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters//SeisSolParameters.h"
 #include "Initializer/Parameters/ModelParameters.h"
+#include "Initializer/Parameters/SimulationFiles.h"
 #include "Parallel/MPI.h"
 
 #include <Eigen/Core>
@@ -20,6 +21,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <mpi.h>
 #include <vector>
 
@@ -56,9 +58,13 @@ GlobalTimestep
 
   // every cell with the material and the order of the configuration of its mesh group; the
   // material file is queried for the cells of each configuration separately, since another
-  // material need not be defined in their groups
+  // material need not be defined in their groups. The copies of a cell, which hold the simulations
+  // of the run, step together, and so a cell takes the smallest time step that the materials of
+  // the simulations allow.
   const auto& model = seissolParams.model;
   const auto configs = model.configs();
+  const parameters::SimulationFiles materialFiles(model.materialFileNames);
+  std::ranges::fill(timestep.cellTimeStepWidths, std::numeric_limits<double>::infinity());
   for (const auto config : configs) {
     std::vector<std::size_t> cells;
     for (std::size_t cell = 0; cell < cellToVertex.size; ++cell) {
@@ -79,22 +85,26 @@ GlobalTimestep
 
       const auto queryGen = seissol::initializer::getBestQueryGenerator<Material>(
           model.useCellHomogenizedMaterial, cellsOfConfig, Cfg::ConvergenceOrder);
-      std::vector<Material> materials(cellsOfConfig.size);
-      seissol::initializer::MaterialParameterDB<Material> parameterDB;
-      parameterDB.setMaterialVector(&materials);
-      parameterDB.evaluateModel(model.materialFileName, *queryGen);
+      for (const auto& materialFile : materialFiles.files) {
+        std::vector<Material> materials(cellsOfConfig.size);
+        seissol::initializer::MaterialParameterDB<Material> parameterDB;
+        parameterDB.setMaterialVector(&materials);
+        parameterDB.evaluateModel(materialFile, *queryGen);
 
-      for (std::size_t i = 0; i < cellsOfConfig.size; ++i) {
-        const double pWaveVel = materials[i].getMaxWaveSpeed();
-        const std::array<Eigen::Vector3d, 4> vertices = cellsOfConfig.elementCoordinates(i);
-        const auto materialMaxTimestep = materials[i].maximumTimestep();
-        const auto cellMaxTimestep =
-            std::min(materialMaxTimestep, seissolParams.timeStepping.maxTimestepWidth);
-        timestep.cellTimeStepWidths[cells[i]] = computeCellTimestep(vertices,
-                                                                    pWaveVel,
-                                                                    seissolParams.timeStepping.cfl,
-                                                                    cellMaxTimestep,
-                                                                    Cfg::ConvergenceOrder);
+        for (std::size_t i = 0; i < cellsOfConfig.size; ++i) {
+          const double pWaveVel = materials[i].getMaxWaveSpeed();
+          const std::array<Eigen::Vector3d, 4> vertices = cellsOfConfig.elementCoordinates(i);
+          const auto materialMaxTimestep = materials[i].maximumTimestep();
+          const auto cellMaxTimestep =
+              std::min(materialMaxTimestep, seissolParams.timeStepping.maxTimestepWidth);
+          timestep.cellTimeStepWidths[cells[i]] =
+              std::min(timestep.cellTimeStepWidths[cells[i]],
+                       computeCellTimestep(vertices,
+                                           pWaveVel,
+                                           seissolParams.timeStepping.cfl,
+                                           cellMaxTimestep,
+                                           Cfg::ConvergenceOrder));
+        }
       }
     });
   }

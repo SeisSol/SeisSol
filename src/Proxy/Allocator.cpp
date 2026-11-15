@@ -178,7 +178,8 @@ void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
                                      initializer::EnumLayer<ConfigId>({configIdOf<Cfg>()}));
 
   // init RNG
-  const auto nullSettings = SimulationSettings(false, false);
+  const auto nullSettings =
+      SimulationSettings(false, false, Cfg::NumSimulations, Cfg::NumSimulations);
   LTS::addTo(ltsStorage, nullSettings);
   ltsStorage.setLayerCount(map);
   ltsStorage.fixate();

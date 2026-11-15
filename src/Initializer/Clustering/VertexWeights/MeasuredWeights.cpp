@@ -160,16 +160,17 @@ std::optional<MeasuredCellCosts> measureCellCosts(const LoopStatistics& statisti
   const auto& faults = meshReader.getFault();
   const auto& drBackmap = memoryManager.drBackmap();
 
-  // the cells and faces of each group, each once
+  // the cells and faces of each group, each once: the copies of a cell or face lie in the layer of
+  // the first one, and what they take counts for the cell or face of the mesh
   std::vector<std::size_t> cellGroup(elements.size());
   std::vector<double> cells(colors, 0.0);
   for (std::size_t cell = 0; cell < elements.size(); ++cell) {
-    cellGroup[cell] = groupOf(backmap.get(cell).color);
+    cellGroup[cell] = groupOf(backmap.get(cell, 0).color);
     ++cells[cellGroup[cell]];
   }
   std::vector<double> faces(colors, 0.0);
   for (std::size_t face = 0; face < faults.size(); ++face) {
-    const auto position = drBackmap.getDup(face, 0);
+    const auto position = drBackmap.getDup(face, 0, 0);
     if (position.has_value()) {
       ++faces[groupOf(position->color)];
     }
@@ -186,7 +187,7 @@ std::optional<MeasuredCellCosts> measureCellCosts(const LoopStatistics& statisti
   // a face goes to the cells at it that are on this rank; a face between two ranks is computed on
   // both
   for (std::size_t face = 0; face < faults.size(); ++face) {
-    const auto position = drBackmap.getDup(face, 0);
+    const auto position = drBackmap.getDup(face, 0, 0);
     if (!position.has_value()) {
       continue;
     }

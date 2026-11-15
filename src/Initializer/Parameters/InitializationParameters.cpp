@@ -10,12 +10,14 @@
 #include "Common/ConfigLayout.h"
 #include "Common/ConfigRegistry.h"
 #include "Initializer/InputAux.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
 #include <Eigen/Core>
 #include <cstddef>
 #include <limits>
 #include <string>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -59,7 +61,11 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
   const auto width = reader->readWithDefault("width", std::numeric_limits<double>::infinity());
   const auto k = reader->readWithDefault("k", 0.0);
 
-  const auto filename = reader->readPath("filename").value_or("");
+  std::vector<std::string> filenames(readSimulationCount(baseReader, config));
+  filenames[0] = reader->readPath("filename").value_or("");
+  for (std::size_t i = 1; i < filenames.size(); ++i) {
+    filenames[i] = reader->readPath("filename" + std::to_string(i)).value_or(filenames[0]);
+  }
   const auto hasTime = reader->read<bool>("hastime").value_or(true);
 
   const auto avoidIC = reader->read<bool>("avoidic").value_or(false);
@@ -71,7 +77,7 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
                                   .magnitude = magnitude,
                                   .width = width,
                                   .k = k,
-                                  .filename = filename,
+                                  .filenames = filenames,
                                   .hasTime = hasTime,
                                   .avoidIC = avoidIC};
 }

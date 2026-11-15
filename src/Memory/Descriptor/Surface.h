@@ -26,12 +26,14 @@ struct SurfaceLTS {
 
   struct Side : public seissol::initializer::Variable<std::uint8_t> {};
   struct MeshId : public seissol::initializer::Variable<std::size_t> {};
+  // the simulation copy of the cell of the face
+  struct CopyId : public seissol::initializer::Variable<std::size_t> {};
   struct LocationFlag : public seissol::initializer::Variable<std::uint8_t> {};
 
   struct DisplacementDofs : public seissol::initializer::VariantVariable<FaceDisplacementArray> {};
 
   struct SurfaceVarmap
-      : public initializer::SpecificVarmap<Side, MeshId, LocationFlag, DisplacementDofs> {};
+      : public initializer::SpecificVarmap<Side, MeshId, CopyId, LocationFlag, DisplacementDofs> {};
 
   using Storage = initializer::Storage<SurfaceVarmap>;
   using Layer = initializer::Layer<SurfaceVarmap>;
@@ -43,6 +45,7 @@ struct SurfaceLTS {
     const seissol::initializer::LayerMask ghostMask(Ghost);
     storage.add<Side>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
     storage.add<MeshId>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
+    storage.add<CopyId>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
     storage.add<LocationFlag>(ghostMask, Alignment, initializer::AllocationMode::HostOnly);
 
     storage.add<DisplacementDofs>(ghostMask, PagesizeHeap, allocationModeBoundary());

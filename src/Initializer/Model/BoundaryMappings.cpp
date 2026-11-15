@@ -12,6 +12,7 @@
 #include "Common/ConfigDispatch.h"
 #include "Common/Constants.h"
 #include "Common/Real.h"
+#include "Config.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
@@ -36,23 +37,85 @@
 #include <limits>
 #include <optional>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer {
 
+template <typename Cfg>
+std::array<double, 2> referenceFaceNode(std::size_t node) {
+  // The generated nodes2D run over the nodes along the dimension of the basis functions, which
+  // comes second where simulations are fused, and leave out the entries outside their bounds,
+  // which are zero.
+  const auto nodes = nodal::init::nodes2D<Cfg>::view::create(nodal::init::nodes2D<Cfg>::Values);
+  std::array<double, 2> point{};
+  for (std::size_t d = 0; d < point.size(); ++d) {
+    point[d] = multisim::multisimTranspose<Cfg>(
+        [&](std::size_t i, std::size_t j) { return nodes.isInRange(i, j) ? nodes(i, j) : 0.0; },
+        node,
+        d);
+  }
+  return point;
+}
+
+#define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
+  template std::array<double, 2> referenceFaceNode<Cfg>(std::size_t);
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
+#undef SEISSOL_CONFIG_INSTANTIATE
+
 namespace {
+
+/// A boundary condition which fused simulations of a copy of the cells take.
+struct FusedCondition {
+  /// the condition, among the conditions of the run
+  std::size_t condition{};
+  /// the first simulation of the run that takes it in the copy
+  std::size_t simulation{};
+  /// the fused simulations of the copy that take it
+  std::vector<std::size_t> fused;
+};
+
+/// The boundary conditions which the fused simulations of every copy of the cells take, of which
+/// `conditionOfSimulation` names the one of every simulation of the run. The fused simulations
+/// which only fill up the last copy repeat the first simulations.
+std::vector<std::vector<FusedCondition>>
+    fusedConditions(const std::vector<std::size_t>& conditionOfSimulation, std::size_t fusedCount) {
+  const auto simulationCount = conditionOfSimulation.size();
+  std::vector<std::vector<FusedCondition>> conditions((simulationCount + fusedCount - 1) /
+                                                      fusedCount);
+  for (std::size_t copy = 0; copy < conditions.size(); ++copy) {
+    for (std::size_t fused = 0; fused < fusedCount; ++fused) {
+      const auto simulation = (copy * fusedCount + fused) % simulationCount;
+      const auto condition = conditionOfSimulation[simulation];
+      const auto known = std::ranges::find_if(
+          conditions[copy], [&](const auto& taken) { return taken.condition == condition; });
+      if (known == conditions[copy].end()) {
+        conditions[copy].push_back(
+            FusedCondition{.condition = condition, .simulation = simulation, .fused = {fused}});
+      } else {
+        known->fused.push_back(fused);
+      }
+    }
+  }
+  return conditions;
+}
 
 /// The face data of the boundary faces of a layer of the configuration `Cfg`.
 template <typename Cfg>
 void initializeBoundaryMappingsOfLayer(
     LTS::Layer& layer,
     const seissol::geometry::MeshReader& meshReader,
-    const std::optional<DirichletCondition>& dirichletCondition) {
+    const std::vector<std::optional<DirichletCondition>>& dirichletConditions,
+    const std::vector<std::size_t>& conditionOfSimulation) {
   using real = Real<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
 
   auto* cellInformation = layer.var<LTS::CellInformation>();
   auto* boundary = layer.var<LTS::BoundaryMapping>(Cfg());
   const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+
+  // A Dirichlet face samples each condition of its copy once, for all fused simulations that take
+  // it.
+  const auto conditionsOfCopy = fusedConditions(conditionOfSimulation, Cfg::NumSimulations);
 
 #pragma omp for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -66,18 +129,15 @@ void initializeBoundaryMappingsOfLayer(
           seissol::geometry::AffineFaceTransform::fromMeshCell(meshId, side, meshReader);
 
       // Compute nodal points in global coordinates for each side.
-      real nodesReferenceData[nodal::tensor::nodes2D<Cfg>::Size];
-      std::copy_n(
-          nodal::init::nodes2D<Cfg>::Values, nodal::tensor::nodes2D<Cfg>::Size, nodesReferenceData);
-      auto nodesReference = nodal::init::nodes2D<Cfg>::view::create(nodesReferenceData);
       auto* nodes = boundary[cell][side].nodes;
       assert(nodes != nullptr);
       auto offset = 0;
       for (std::size_t i = 0; i < nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>];
            ++i) {
         // Compute the global coordinates for the nodal points.
-        const auto xyz = face.refToSpace(seissol::geometry::FaceTransform::FaceVectorT(
-            nodesReference(i, 0), nodesReference(i, 1)));
+        const auto nodeReference = referenceFaceNode<Cfg>(i);
+        const auto xyz = face.refToSpace(
+            seissol::geometry::FaceTransform::FaceVectorT(nodeReference[0], nodeReference[1]));
         for (std::size_t d = 0; d < Cell::Dim; ++d) {
           nodes[offset++] = xyz(d);
         }
@@ -101,32 +161,56 @@ void initializeBoundaryMappingsOfLayer(
       assert(dirichletMap != nullptr);
       assert(dirichletOffset != nullptr);
       if (cellInformation[cell].faceTypes[side] == FaceType::Dirichlet) {
-        if (dirichletCondition.has_value()) {
-          const auto faceBarycenter = face.center();
+        const auto faceBarycenter = face.center();
 
-          real globalMapData[tensor::dirichletMapGlobal<Cfg>::size()];
-          real globalConstantData[tensor::dirichletOffsetGlobal<Cfg>::size()];
-          const auto frame = dirichletCondition->query<Cfg>(
-              faceBarycenter.data(), globalMapData, globalConstantData);
-
-          if (frame == BoundaryFrame::FaceAligned) {
-            std::copy_n(globalMapData, tensor::dirichletMap<Cfg>::size(), dirichletMap);
-            std::copy_n(globalConstantData, tensor::dirichletOffset<Cfg>::size(), dirichletOffset);
-          } else {
-            runtime::kernel::rotateBoundaryCondition rotateKrnl;
-            rotateKrnl.dirichletMapGlobal =
-                runtime::init::dirichletMapGlobal::view(Variant, globalMapData);
-            rotateKrnl.dirichletOffsetGlobal =
-                runtime::init::dirichletOffsetGlobal::view(Variant, globalConstantData);
-            rotateKrnl.dirichletMap = runtime::init::dirichletMap::view(Variant, dirichletMap);
-            rotateKrnl.dirichletOffset =
-                runtime::init::dirichletOffset::view(Variant, dirichletOffset);
-            rotateKrnl.T = runtime::init::T::view(Variant, matTData);
-            rotateKrnl.Tinv = runtime::init::Tinv::view(Variant, matTinvData);
-            rotateKrnl.execute(Variant);
+        // Every fused simulation takes the constant terms of its own condition. The map of the
+        // face is one for all of them, and so is the frame it is stated in, which their conditions
+        // therefore have to agree on.
+        const auto& conditions = conditionsOfCopy[secondaryInformation[cell].copyId];
+        real globalMapData[tensor::dirichletMapGlobal<Cfg>::size()]{};
+        real globalConstantData[tensor::dirichletOffsetGlobal<Cfg>::size()]{};
+        BoundaryFrame frame{};
+        for (std::size_t i = 0; i < conditions.size(); ++i) {
+          const auto& dirichletCondition = dirichletConditions[conditions[i].condition];
+          if (!dirichletCondition.has_value()) {
+            logError() << "Dirichlet face found, but no boundary condition definition given for "
+                          "the simulation"
+                       << conditions[i].simulation;
           }
+          real mapData[tensor::dirichletMapGlobal<Cfg>::size()]{};
+          const auto conditionFrame = dirichletCondition->template query<Cfg>(
+              faceBarycenter.data(), mapData, globalConstantData, conditions[i].fused);
+          if (i == 0) {
+            frame = conditionFrame;
+            std::copy_n(mapData, tensor::dirichletMapGlobal<Cfg>::size(), globalMapData);
+          } else if (conditionFrame != frame ||
+                     !std::equal(mapData,
+                                 mapData + tensor::dirichletMapGlobal<Cfg>::size(),
+                                 globalMapData)) {
+            logError() << "The simulations" << conditions[0].simulation << "and"
+                       << conditions[i].simulation
+                       << "are fused into the same cell, whose Dirichlet faces have one map and "
+                          "frame for all of them: their boundary conditions can differ in their "
+                          "constant terms only, but differ otherwise at the face around"
+                       << faceBarycenter[0] << faceBarycenter[1] << faceBarycenter[2];
+          }
+        }
+
+        if (frame == BoundaryFrame::FaceAligned) {
+          std::copy_n(globalMapData, tensor::dirichletMap<Cfg>::size(), dirichletMap);
+          std::copy_n(globalConstantData, tensor::dirichletOffset<Cfg>::size(), dirichletOffset);
         } else {
-          logError() << "Dirichlet face found, but no boundary condition definition given.";
+          runtime::kernel::rotateBoundaryCondition rotateKrnl;
+          rotateKrnl.dirichletMapGlobal =
+              runtime::init::dirichletMapGlobal::view(Variant, globalMapData);
+          rotateKrnl.dirichletOffsetGlobal =
+              runtime::init::dirichletOffsetGlobal::view(Variant, globalConstantData);
+          rotateKrnl.dirichletMap = runtime::init::dirichletMap::view(Variant, dirichletMap);
+          rotateKrnl.dirichletOffset =
+              runtime::init::dirichletOffset::view(Variant, dirichletOffset);
+          rotateKrnl.T = runtime::init::T::view(Variant, matTData);
+          rotateKrnl.Tinv = runtime::init::Tinv::view(Variant, matTinvData);
+          rotateKrnl.execute(Variant);
         }
       } else {
         // Boundary should not be evaluated
@@ -143,12 +227,15 @@ void initializeBoundaryMappingsOfLayer(
 
 } // namespace
 
-void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
-                                const std::optional<DirichletCondition>& dirichletCondition,
-                                LTS::Storage& ltsStorage) {
+void initializeBoundaryMappings(
+    const seissol::geometry::MeshReader& meshReader,
+    const std::vector<std::optional<DirichletCondition>>& dirichletConditions,
+    const std::vector<std::size_t>& conditionOfSimulation,
+    LTS::Storage& ltsStorage) {
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
-      initializeBoundaryMappingsOfLayer<decltype(cfg)>(layer, meshReader, dirichletCondition);
+      initializeBoundaryMappingsOfLayer<decltype(cfg)>(
+          layer, meshReader, dirichletConditions, conditionOfSimulation);
     });
   }
 }

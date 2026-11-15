@@ -222,7 +222,7 @@ bool runOpens(const std::vector<std::string>& field,
   if (name.starts_with("equations.plasticityfilename")) {
     return parameters.model.plasticity;
   }
-  if (name == "inicondition.filename") {
+  if (name.starts_with("inicondition.filename")) {
     return parameters.initialization.type == parameters::InitializationType::Easi;
   }
   return true;
@@ -373,11 +373,15 @@ json::Value outputSection(const parameters::SeisSolParameters& parameters, Repor
   return section;
 }
 
-//! @brief Whether the parameter @p name names an easi model, which the run reads with easi.
+//! @brief Whether the parameter @p name names an easi model, which the run reads with easi; the
+//! parameters of the simulations of a run carry the index of their simulation, as
+//! equations.materialfilename8 does.
 bool isEasiModel(const std::string& name) {
-  return name == "equations.materialfilename" || name.starts_with("equations.plasticityfilename") ||
-         name == "equations.boundaryfilename" || name.starts_with("dynamicrupture.modelfilename") ||
-         name == "inicondition.filename";
+  return name.starts_with("equations.materialfilename") ||
+         name.starts_with("equations.plasticityfilename") ||
+         name.starts_with("equations.boundaryfilename") ||
+         name.starts_with("dynamicrupture.modelfilename") ||
+         name.starts_with("inicondition.filename");
 }
 
 /**
@@ -484,7 +488,7 @@ json::Value checkEasiModel(const std::string& parameter,
   }
 
   const bool timeDependent =
-      parameter == "inicondition.filename" && parameters.initialization.hasTime;
+      parameter.starts_with("inicondition.filename") && parameters.initialization.hasTime;
   std::unique_ptr<easi::Component> component;
   try {
 #if defined(EASI_VERSION_MAJOR) && (EASI_VERSION_MINOR >= 5 || EASI_VERSION_MAJOR > 1)
@@ -525,7 +529,7 @@ json::Value checkEasiModel(const std::string& parameter,
     report.problem("The easi model " + modelFile + " that " + parameter +
                    " names does not supply " + list + ", which " + what + " needs.");
   };
-  const bool material = parameter == "equations.materialfilename";
+  const bool material = parameter.starts_with("equations.materialfilename");
   const bool plasticity = parameter.starts_with("equations.plasticityfilename") ||
                           (material && parameters.model.plasticity &&
                            std::ranges::find(parameters.model.plasticityFileNames, modelFile) !=
@@ -995,19 +999,20 @@ void checkMeshContent(const parameters::SeisSolParameters& parameters,
 
   if (depth == CheckDepth::Model) {
     auto& section = report["model"];
-    section["file"] = parameters.model.materialFileName;
+    // the material of the first simulation, which equations.materialfilename names
+    section["file"] = parameters.model.materialFileNames.front();
     section["evaluated"] = evaluate;
     if (!evaluate) {
       report.warning("The check does not evaluate the material model " +
-                     parameters.model.materialFileName +
+                     parameters.model.materialFileNames.front() +
                      ": it reads files with ASAGI, which needs MPI, or it does not parse.");
       return;
     }
     section["cells"] = evaluation.cells;
     section["invalidCells"] = evaluation.invalidCells;
     if (evaluation.invalidCells > 0) {
-      report.problem("The material model " + parameters.model.materialFileName + " gives " +
-                     std::to_string(evaluation.invalidCells) +
+      report.problem("The material model " + parameters.model.materialFileNames.front() +
+                     " gives " + std::to_string(evaluation.invalidCells) +
                      " cells no positive and finite wave speed, e.g. the cell " +
                      std::to_string(evaluation.firstInvalidCell.value_or(0)) + " of the file.");
     }

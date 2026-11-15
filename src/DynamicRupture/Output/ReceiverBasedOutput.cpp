@@ -85,8 +85,10 @@ std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
 
 template <typename Derived>
 template <typename Cfg>
-void ReceiverOutputImpl<Derived>::getDofs(const Real<Cfg>*(&derivatives), std::size_t meshId) {
-  const auto position = wpBackmap_->get(meshId);
+void ReceiverOutputImpl<Derived>::getDofs(const Real<Cfg>*(&derivatives),
+                                          std::size_t meshId,
+                                          std::size_t copy) {
+  const auto position = wpBackmap_->get(meshId, copy);
   auto& layer = wpStorage_->layer(position.color);
   // get DOFs from 0th derivatives
   assert(
@@ -101,8 +103,9 @@ template <typename Derived>
 template <typename Cfg>
 void ReceiverOutputImpl<Derived>::getNeighborDofs(const Real<Cfg>*(&derivatives),
                                                   std::size_t meshId,
+                                                  std::size_t copy,
                                                   std::size_t side) {
-  const auto position = wpBackmap_->get(meshId);
+  const auto position = wpBackmap_->get(meshId, copy);
   auto& layer = wpStorage_->layer(position.color);
 
   derivatives = static_cast<const Real<Cfg>*>(layer.var<LTS::FaceNeighbors>()[position.cell][side]);
@@ -362,11 +365,11 @@ std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler
         stePlus = static_cast<const real*>(outputData->gatheredData(outFace.deviceDataPlus));
         steMinus = static_cast<const real*>(outputData->gatheredData(outFace.deviceDataMinus));
       } else {
-        getDofs<Cfg>(stePlus, faultInfo.element.value());
+        getDofs<Cfg>(stePlus, faultInfo.element.value(), outFace.copy);
         if (faultInfo.neighborElement.hasValue()) {
-          getDofs<Cfg>(steMinus, faultInfo.neighborElement.value());
+          getDofs<Cfg>(steMinus, faultInfo.neighborElement.value(), outFace.copy);
         } else {
-          getNeighborDofs<Cfg>(steMinus, faultInfo.element.value(), faultInfo.side);
+          getNeighborDofs<Cfg>(steMinus, faultInfo.element.value(), outFace.copy, faultInfo.side);
         }
       }
 
@@ -423,7 +426,8 @@ std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler
 
       for (const auto i : topology.receiversOf(pointId)) {
         local.index = i;
-        local.fusedIndex = outputData->receivers[i].simIndex;
+        // the simulation among the fused ones of the copy of the face
+        local.fusedIndex = outputData->receivers[i].simIndex % Cfg::NumSimulations;
 
         assert(outputData->receivers[i].isInside == true &&
                "a receiver is not within any tetrahedron adjacent to a fault");

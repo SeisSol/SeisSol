@@ -88,6 +88,7 @@ struct CellMaterialData {
 
 struct DRFaceInformation {
   std::size_t meshFace{};
+  std::size_t copy{};
   std::uint8_t plusSide{};
   std::uint8_t minusSide{};
   std::uint8_t faceRelation{};
@@ -152,14 +153,17 @@ struct CellDRMapping {
   Real<Cfg>* fluxSolver{nullptr};
 };
 
+// The tensors start aligned, as the generated kernels may read them: dirichletOffset, for one, with
+// the fused simulations first, which a kernel of libxsmm loads aligned.
 template <typename Cfg>
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  Real<Cfg> nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>] * 3]{};
-  Real<Cfg> dataT[seissol::tensor::T<Cfg>::size()]{};
-  Real<Cfg> dataTinv[seissol::tensor::Tinv<Cfg>::size()]{};
-  Real<Cfg> dirichletOffset[seissol::tensor::dirichletOffset<Cfg>::size()]{};
-  Real<Cfg> dirichletMap[seissol::tensor::dirichletMap<Cfg>::size()]{};
+  alignas(Alignment)
+      Real<Cfg> nodes[seissol::nodal::tensor::nodes2D<Cfg>::Shape[multisim::BasisDim<Cfg>] * 3]{};
+  alignas(Alignment) Real<Cfg> dataT[seissol::tensor::T<Cfg>::size()]{};
+  alignas(Alignment) Real<Cfg> dataTinv[seissol::tensor::Tinv<Cfg>::size()]{};
+  alignas(Alignment) Real<Cfg> dirichletOffset[seissol::tensor::dirichletOffset<Cfg>::size()]{};
+  alignas(Alignment) Real<Cfg> dirichletMap[seissol::tensor::dirichletMap<Cfg>::size()]{};
   Real<Cfg> fsgData[3]{};
 };
 

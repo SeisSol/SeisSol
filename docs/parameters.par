@@ -12,8 +12,12 @@
 !Configuration = 'elastic-o4-f64'
 !mesh groups whose cells compute in another configuration: "groups:configuration" entries, separated by ";", the groups separated by ","
 !ConfigMap = '2,3:viscoelastic-m3-o4-f64; 4:elastic-o5-f64'
+!number of simulations to run; with a configuration that fuses N simulations, ceil(SimCount/N) copies of the cells hold them. The N of the configuration if not given
+!SimCount = 8
 !yaml file defining spatial dependance of material properties
 MaterialFileName = '33_layered_constant.yaml'
+!MaterialFileName<i>: the material of the simulation i >= 1 of the run (counted from 0), the one of MaterialFileName if not given; the simulations fused into a cell share their material, so only a copy of the cells (see SimCount) can take another one
+!MaterialFileName8 = '33_layered_soft.yaml'
 !1: Compute average materials for each cell, 0: sample material values at element barycenters
 UseCellHomogenizedMaterial = 1
 !off-fault plasticity parameters (disabled iff Plasticity=0)
@@ -21,8 +25,10 @@ Plasticity=0
 !comma-separated list of groups for which plasticity is disabled, even if we enable it globally
 plasticitydisabledgroups=''
 Tv=0.05
-!yaml file defining spatial dependance of properties necessary for plasticity. MaterialFileName is taken for plasticity if this is not provided
+!yaml file defining spatial dependance of properties necessary for plasticity. MaterialFileName is taken for plasticity if this is not provided; PlasticityFileName<i> for the simulation i >= 1 of the run (counted from 0), which takes PlasticityFileName if not given, and its material file if neither is
 PlasticityFileName = ''
+!yaml file defining the Dirichlet boundary condition, needed if the mesh has Dirichlet faces; BoundaryFileName<i> for the simulation i >= 1 of the run (counted from 0), which takes BoundaryFileName if not given; the simulations fused into a cell can differ in the constant terms of their conditions only
+!BoundaryFileName = 'boundary.yaml'
 !Attenuation parameters (ignored if not compiled with attenuation)
 FreqCentral=0.5
 FreqRatio=100
@@ -59,7 +65,7 @@ kVec = 6.283 0 0             ! Gives direction of wave propagation, the waveleng
 k = 6.283 ! Wave number to be used for the travelling acoustic wave with ITM test case. Not to be used in other scenarios
 ampField = 2 0 0 0 0 0 0 1 0 ! Amplification of the different wave modes
 
-filename = ''  ! file name for the easi initial condition file
+filename = ''  ! file name for the easi initial condition file; filename<i> for the simulation i >= 1 of the run (counted from 0), which takes filename if not given
 hastime = 1    ! indicates the required support of a time dimension in the easi file. Requires easi 1.5.0 or higher.
 
 avoidic = 0    ! 1 iff use the IC only for analytical boundary conditions

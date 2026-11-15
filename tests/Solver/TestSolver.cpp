@@ -9,6 +9,7 @@
 #include <doctest/trompeloeil.hpp>
 
 #include "Estimator.t.h"
+#include "Settings.t.h"
 #include "TimeStepping/Actor/AbstractTimeCluster.t.h"
 #include "TimeStepping/Actor/ActorState.t.h"
 #include "TimeStepping/Actor/ConcurrentClusters.t.h"

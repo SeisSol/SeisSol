@@ -38,6 +38,8 @@
 #include <cstdint>
 #include <easi/Component.h>
 #include <easi/Query.h>
+#include <easi/util/Slice.h>
+#include <easi/util/Vector.h>
 #include <exception>
 #include <functional>
 #include <iterator>
@@ -46,6 +48,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <utils/logger.h>
@@ -118,6 +121,73 @@ void easiEvalSafe(easi::Component* model,
                << std::string(error.what());
   }
 }
+
+/**
+ * Writes the values of a query into arrays of `T`, with `pointsPerFace` points per face: the query
+ * point q lies on the face faces[q / pointsPerFace] of the arrays. I.e. the arrays may hold the
+ * points of faces which the query does not contain, in between the ones it does.
+ */
+template <typename T>
+class FaceArraysAdapter : public easi::ResultAdapter {
+  public:
+  FaceArraysAdapter(const std::vector<std::size_t>& faces, std::size_t pointsPerFace)
+      : faces_(faces), pointsPerFace_(pointsPerFace) {}
+
+  void addBindingPoint(const std::string& parameter, T* array, std::size_t stride) {
+    bindings_[parameter] = Binding{array, stride};
+  }
+
+  void set(const std::string& parameter,
+           const easi::Vector<unsigned>& index,
+           const easi::Slice<double>& value) override {
+    assert(value.size() == index.size());
+    const auto binding = bindings_.find(parameter);
+    if (binding != bindings_.end()) {
+      for (unsigned i = 0; i < index.size(); ++i) {
+        const auto face = faces_[index(i) / pointsPerFace_];
+        const auto point = face * pointsPerFace_ + index(i) % pointsPerFace_;
+        binding->second.array[point * binding->second.stride] = static_cast<T>(value(i));
+      }
+    }
+  }
+
+  [[nodiscard]] bool isSubset(const std::set<std::string>& parameters) const override {
+    return std::all_of(bindings_.begin(), bindings_.end(), [&](const auto& binding) {
+      return parameters.find(binding.first) != parameters.end();
+    });
+  }
+
+  easi::ResultAdapter* subsetAdapter(const std::set<std::string>& subset) override {
+    auto* result = new FaceArraysAdapter(faces_, pointsPerFace_);
+    for (const auto& parameter : subset) {
+      const auto binding = bindings_.find(parameter);
+      if (binding != bindings_.end()) {
+        result->bindings_[parameter] = binding->second;
+      }
+    }
+    return result;
+  }
+
+  [[nodiscard]] unsigned numberOfParameters() const override { return bindings_.size(); }
+
+  [[nodiscard]] std::set<std::string> parameters() const override {
+    std::set<std::string> result;
+    for (const auto& binding : bindings_) {
+      result.insert(binding.first);
+    }
+    return result;
+  }
+
+  private:
+  struct Binding {
+    T* array{nullptr};
+    std::size_t stride{1};
+  };
+
+  const std::vector<std::size_t>& faces_;
+  std::size_t pointsPerFace_;
+  std::unordered_map<std::string, Binding> bindings_;
+};
 
 easi::Component* loadEasiModel(const std::string& fileName) {
   logInfo() << "Loading easi file" << fileName;
@@ -728,12 +798,21 @@ void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
   easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
 
-  easi::ArraysAdapter<T> adapter;
-  for (const auto& kv : parameters_) {
-    adapter.addBindingPoint(kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
+  if (faces_.has_value()) {
+    FaceArraysAdapter<T> adapter(faces_.value(), pointsPerFace_);
+    for (const auto& kv : parameters_) {
+      adapter.addBindingPoint(
+          kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
+    }
+    easiEvalSafe(model, query, adapter, "fault material");
+  } else {
+    easi::ArraysAdapter<T> adapter;
+    for (const auto& kv : parameters_) {
+      adapter.addBindingPoint(
+          kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
+    }
+    easiEvalSafe(model, query, adapter, "fault material");
   }
-
-  easiEvalSafe(model, query, adapter, "fault material");
 
   delete model;
 }
@@ -770,13 +849,15 @@ DirichletCondition::~DirichletCondition() { delete model_; }
 template <typename Cfg>
 BoundaryFrame DirichletCondition::query(const double* barycenter,
                                         Real<Cfg>* mapTermsData,
-                                        Real<Cfg>* constantTermsData) const {
+                                        Real<Cfg>* constantTermsData,
+                                        const std::vector<std::size_t>& simulations) const {
   using real = Real<Cfg>;
   if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
   assert(mapTermsData != nullptr);
   assert(constantTermsData != nullptr);
+  assert(!simulations.empty());
 
   // The boundary condition is constant over the face, so it is sampled at the
   // face barycenter.
@@ -811,7 +892,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   for (size_t i = 0; i < varNames.size(); ++i) {
     const auto termName = std::string{"const_"} + varNames[i];
     known.insert(termName);
-    auto& term = multisim::multisimWrap<Cfg>(constantTerms, 0, i);
+    auto& term = multisim::multisimWrap<Cfg>(constantTerms, simulations.front(), i);
     if (supplied.count(termName) > 0) {
       adapter.addBindingPoint(termName, &term);
     } else {
@@ -855,12 +936,11 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
                   "stated in the face-aligned basis.";
   }
 
-  // The condition does not depend on the simulation index, so every fused
-  // simulation gets the same one.
-  for (std::size_t sim = 1; sim < Cfg::NumSimulations; ++sim) {
+  // every fused simulation that takes the condition gets its constant terms
+  for (const auto simulation : simulations) {
     for (size_t i = 0; i < varNames.size(); ++i) {
-      multisim::multisimWrap<Cfg>(constantTerms, sim, i) =
-          multisim::multisimWrap<Cfg>(constantTerms, 0, i);
+      multisim::multisimWrap<Cfg>(constantTerms, simulation, i) =
+          multisim::multisimWrap<Cfg>(constantTerms, simulations.front(), i);
     }
   }
 
@@ -868,8 +948,8 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
 }
 
 #define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
-  template BoundaryFrame DirichletCondition::query<Cfg>(const double*, Real<Cfg>*, Real<Cfg>*)     \
-      const;
+  template BoundaryFrame DirichletCondition::query<Cfg>(                                           \
+      const double*, Real<Cfg>*, Real<Cfg>*, const std::vector<std::size_t>&) const;
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
 #undef SEISSOL_CONFIG_INSTANTIATE
 

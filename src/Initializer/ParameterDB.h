@@ -23,6 +23,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -205,12 +206,23 @@ class FaultParameterDB : public ParameterDB {
   void addParameter(const std::string& parameter, T* memory, unsigned stride = 1) {
     parameters_[parameter] = std::make_pair(memory, stride);
   }
+  /**
+   * Writes the queried faces to the positions `faces` of the arrays, with `pointsPerFace` points
+   * per face and fused simulation; by default, the queried faces are all faces of the arrays, in
+   * order.
+   */
+  void setFaces(std::vector<std::size_t> faces, std::size_t pointsPerFace) {
+    faces_ = std::move(faces);
+    pointsPerFace_ = pointsPerFace;
+  }
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
 
   private:
   std::size_t simid_;
   std::size_t numSimulations_;
   std::unordered_map<std::string, std::pair<T*, unsigned>> parameters_;
+  std::optional<std::vector<std::size_t>> faces_;
+  std::size_t pointsPerFace_{1};
 };
 
 /// The parameters a fault parameter file provides.
@@ -235,10 +247,14 @@ class DirichletCondition {
 
   ~DirichletCondition();
 
-  /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`.
+  /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`, for
+  /// the fused simulations `simulations` of the cell, which take it: their constant terms are those
+  /// of the condition, while the map is one for all fused simulations of the cell.
   template <typename Cfg>
-  [[nodiscard]] BoundaryFrame
-      query(const double* barycenter, Real<Cfg>* mapTermsData, Real<Cfg>* constantTermsData) const;
+  [[nodiscard]] BoundaryFrame query(const double* barycenter,
+                                    Real<Cfg>* mapTermsData,
+                                    Real<Cfg>* constantTermsData,
+                                    const std::vector<std::size_t>& simulations) const;
 
   private:
   easi::Component* model_;
