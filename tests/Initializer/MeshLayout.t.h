@@ -16,19 +16,19 @@ namespace seissol::unit_test {
 
 using namespace seissol::initializer;
 
-namespace {
+namespace meshlayouttest {
 
-LTSColorMap layoutColorMap() {
+inline LTSColorMap layoutColorMap() {
   return LTSColorMap(EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
                      EnumLayer<std::size_t>({0, 1}),
                      EnumLayer<ConfigId>({0}));
 }
 
-} // namespace
+} // namespace meshlayouttest
 
 TEST_CASE("Combining the copy and interior cells of a cluster" *
           doctest::test_suite("initializer")) {
-  const auto colorMap = layoutColorMap();
+  const auto colorMap = meshlayouttest::layoutColorMap();
   const auto color = [&](HaloType halo, std::size_t lts) {
     return colorMap.color(halo, lts, ConfigId{0});
   };
@@ -97,7 +97,7 @@ TEST_CASE("Combining the copy and interior cells with a threshold per configurat
 
 TEST_CASE("Combining the copy and interior fault faces of a cluster" *
           doctest::test_suite("initializer")) {
-  const auto colorMap = layoutColorMap();
+  const auto colorMap = meshlayouttest::layoutColorMap();
   const auto color = [&](HaloType halo, std::size_t lts) {
     return colorMap.color(halo, lts, ConfigId{0});
   };

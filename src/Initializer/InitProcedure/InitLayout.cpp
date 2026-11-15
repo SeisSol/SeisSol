@@ -217,7 +217,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   // on this machine (see layerCombineThreshold): with several configurations, a cell of each costs
   // differently, while the fixed part of a layer is much the same
   const auto combineSetting = seissolInstance.env().get<std::string>("ICCOMBINE", "0");
-  const auto cellThresholds = [&]() {
+  const auto cellThresholds = [&] {
     std::vector<std::size_t> thresholds(builtConfigCount(), 0);
     if (combineSetting == "auto") {
       for (const auto config : model.configs()) {
@@ -235,7 +235,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const bool combineCells =
       std::ranges::any_of(cellThresholds, [](std::size_t threshold) { return threshold > 0; });
   internal::CombinedLayers combinedCells;
-  const auto meshLayout = [&]() {
+  const auto meshLayout = [&] {
     auto meshLayoutPre = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
     if (combineCells) {
       combinedCells = internal::combineCopyInterior(meshLayoutPre, colorMap, cellThresholds);
@@ -449,7 +449,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Setting up DR...";
 
-  const auto drLayout = [&]() {
+  const auto drLayout = [&] {
     auto drLayoutPre = internal::layoutDR(colors, colorsGhost, colorMap, meshReader);
     // by default, the faces of a cluster follow its cells: once the interior cells wait for the
     // halo with the copy cells, nothing is lost by letting the interior faces wait for it as well
