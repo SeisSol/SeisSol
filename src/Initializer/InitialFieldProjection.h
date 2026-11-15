@@ -11,11 +11,13 @@
 
 #include "Geometry/MeshReader.h"
 #include "Initializer/MemoryManager.h"
+#include "Initializer/Parameters/SimulationFiles.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Physics/InitialField.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace seissol::initializer {
@@ -34,7 +36,9 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       const seissol::geometry::MeshReader& meshReader,
                                       bool needsTime);
 
-void projectEasiInitialField(const std::vector<std::string>& iniFields,
+/// Projects the easi fields `iniFields`, given for every simulation of the run, onto the cells of
+/// `storage`; each file is sampled once.
+void projectEasiInitialField(const parameters::SimulationFiles& iniFields,
                              const seissol::geometry::MeshReader& meshReader,
                              LTS::Storage& storage,
                              bool needsTime);

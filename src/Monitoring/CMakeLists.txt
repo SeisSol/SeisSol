@@ -8,6 +8,8 @@
 add_library(seissol-monitoring OBJECT
     ActorStateStatistics.cpp
     Counters.cpp
+    DeviceTimeline.cpp
+    DeviceTimer.cpp
     Energy/Discovery.cpp
     Energy/Library.cpp
     Energy/Sensor.cpp
@@ -15,12 +17,15 @@ add_library(seissol-monitoring OBJECT
     Energy/Vendors.cpp
     EnergyMeter.cpp
     EpochSynchronization.cpp
+    FailureReport.cpp
     FlopCounter.cpp
     LoopStatistics.cpp
     Memory.cpp
     RunSummary.cpp
     Stopwatch.cpp
+    Trace.cpp
     Unit.cpp
+    Watchdog.cpp
 )
 
 target_link_libraries(seissol-monitoring PUBLIC seissol-common-properties)

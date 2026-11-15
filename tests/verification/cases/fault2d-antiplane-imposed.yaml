@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# An imposed antiplane slip on fault2d-periodic: 0.2 m along z (dip_slip
+# along -z, see fault1d.fault_frame), which sets in at 10 ms at y = 0 and at
+# |y| / (2.5 km/s) later elsewhere, so that it runs out to both sides below
+# the shear wave speed. FL=33 imposes it at the regularized Yoffe rate of
+# tau_S = 15.6 ms and tau_R = 62.5 ms, FL=34 at the Gaussian rate of the
+# rise time of 62.5 ms, the times of fault1d-imposed.yaml, over which the
+# front runs 39 and 156 m. The fault carries no initial stress; the traction
+# the receivers report is that of the welded fault, which the slip of the
+# rest of the fault transfers to it.
+!Switch
+[strike_slip, dip_slip, tau_S, tau_R, rupture_rise_time]: !ConstantMap
+  map:
+    strike_slip:       0.0
+    dip_slip:          -0.2
+    tau_S:             1.5625e-02
+    tau_R:             6.25e-02
+    rupture_rise_time: 6.25e-02
+[rupture_onset]: !Any
+  components:
+    - !AxisAlignedCuboidalDomainFilter
+      limits:
+        x: [-.inf, .inf]
+        y: [0.0, .inf]
+        z: [-.inf, .inf]
+      components: !AffineMap
+        matrix:
+          rupture_onset: [0.0, 4.0e-4, 0.0]
+        translation:
+          rupture_onset: 1.0e-02
+    - !AffineMap
+      matrix:
+        rupture_onset: [0.0, -4.0e-4, 0.0]
+      translation:
+        rupture_onset: 1.0e-02

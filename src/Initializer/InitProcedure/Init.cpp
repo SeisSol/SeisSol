@@ -18,10 +18,12 @@
 #include "Initializer/InitProcedure/InitLayout.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/DeviceTimeline.h"
 #include "Monitoring/EnergyMeter.h"
 #include "Monitoring/Memory.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
+#include "Monitoring/Trace.h"
 #include "Monitoring/Unit.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/Helper.h"
@@ -29,14 +31,16 @@
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
 
+#include <algorithm>
 #include <async/Config.h>
 #include <cstddef>
 #include <string>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
+#include "Monitoring/DeviceTimer.h"
+
 #include <Device/device.h>
-#include <ostream>
 #include <sstream>
 #endif
 
@@ -135,6 +139,21 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
   auto& sim = seissolInstance.simulator();
   sim.setUsePlasticity(seissolParams.model.plasticity);
   sim.setFinalTime(seissolParams.timeStepping.endTime);
+  if (const auto steps = seissolInstance.measuringSteps()) {
+    // a run that measures what the cells cost goes for some time steps of the largest cluster
+    const auto& layout = seissolInstance.memoryManager().clusterLayout();
+    const double length = steps.value() * layout.timestepRate(layout.globalClusterCount - 1);
+    sim.setFinalTime(std::min(seissolParams.timeStepping.endTime, length));
+    logInfo() << "This run measures what the cells cost, over" << steps.value()
+              << "time steps of the largest cluster (" << length << "s).";
+#ifdef ACL_DEVICE
+    // (rather now than after the run)
+    if (!DeviceTimer::canTimeEvents()) {
+      logError() << "This run cannot measure what the cells cost, as the device does not time its"
+                 << "work (HSA queues do with DEVICE_HSA_QUEUE_TIMING=1).";
+    }
+#endif
+  }
 }
 
 void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
@@ -231,6 +250,8 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   summary["energy"] = energyMeter.describe();
   summary.setCounters(seissolInstance.counters());
   summary.start(seissolInstance.parameters().output.prefix, seissolInstance.runId());
+  // the log as JSON Lines next to the summary, from rank 0, with the messages from before as well
+  utils::Logger::enableJsonLines(seissolInstance.parameters().output.prefix + "-log.jsonl");
 
   seissol::Stopwatch initWatch;
   initWatch.start();
@@ -256,6 +277,9 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   // make sure everyone is really done
   logInfo() << "Simulation done.";
   seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  DeviceTimeline::stopKernelTrace();
+  monitoring::Trace::write(seissolInstance.parameters().output.prefix + "-trace.json",
+                           seissol::Mpi::mpi.comm());
   summary["memory"]["atEnd"] = memorySection(summary, "AtEnd");
   summary["energy"]["run"] = summary.writeStages();
   summary.writeRanks();

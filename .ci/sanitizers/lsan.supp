@@ -19,3 +19,8 @@ leak:libprrte.so
 # are unloaded in MPI_Finalize, so that no frame of them is left to match in these stacks
 leak:libevent
 leak:ld-linux-x86-64.so
+# A disposed event pool leaves the events that are still referenced alone on purpose, with their
+# slots and the count of the referenced ones, as whoever holds a reference may still wait for the
+# event (see EventPool::dispose). The slots come from the pool's construction and its growth.
+leak:seissol::parallel::runtime::EventPool::grow
+leak:seissol::parallel::runtime::EventPool::EventPool

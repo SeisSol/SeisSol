@@ -204,7 +204,6 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
       updateNormalStress(ctx);
 
       const auto localStateVariable = ctx.stateVariableBuffer;
-      const auto normalStress = ctx.initialVariables.normalStress;
       const auto normalStressStick = ctx.initialVariables.normalStressStick;
       const auto absoluteShearStress = ctx.initialVariables.absoluteShearTraction;
       const auto localSlipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
@@ -216,7 +215,6 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
           RateAndStateBase::invertSlipRateIterative(ctx,
                                                     slipRateTest,
                                                     localStateVariable,
-                                                    normalStress,
                                                     normalStressStick,
                                                     ctx.initialVariables.etaNormal,
                                                     absoluteShearStress,
@@ -362,21 +360,17 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
   }
 
   /**
-   * The effective normal stress a trial slip rate belongs to.
-   *
-   * Without the anisotropic normal coupling this is the value updateNormalStress left behind and
-   * the solve is the one every other material runs. With it, sigma follows the slip rate, and
-   * evaluating it inside the Newton moves the coupling out of the outer fixed point, which
-   * resolves it at a linear rate, into the quadratic one.
+   * The normal stress a trial slip rate belongs to, before the pressurization of this step: the
+   * stick, less the pore pressure the step reaches without shear heating (pressureOffset), and less
+   * the normal traction the slip moves through the anisotropic coupling, which vanishes for every
+   * other material. rs::effectiveNormalStress adds the pressurization by the shear heating of the
+   * trial slip rate. The effective normal stress of updateNormalStress is no stick here: it already
+   * holds the pressure of the shear heating of the previous iterate.
    */
   template <typename S>
-  SEISSOL_DEVICE static S stickAt(
-      real normalStress, real normalStressStick, real etaNormal, real pressureOffset, S slipRate) {
-    if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
-      return S(normalStressStick - pressureOffset) - slipRate * S(etaNormal);
-    } else {
-      return S(normalStress);
-    }
+  SEISSOL_DEVICE static S
+      stickAt(real normalStressStick, real etaNormal, real pressureOffset, S slipRate) {
+    return S(normalStressStick - pressureOffset) - slipRate * S(etaNormal);
   }
 
   /// the coefficients of mu precomputed from a frozen state variable; empty for a law that folds
@@ -394,7 +388,6 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
   SEISSOL_DEVICE static bool invertSlipRateIterative(FrictionLawContext<Cfg>& __restrict ctx,
                                                      real& slipRateTest,
                                                      real localStateVariable,
-                                                     real normalStress,
                                                      real normalStressStick,
                                                      real etaNormal,
                                                      real absoluteShearStress,
@@ -449,11 +442,8 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
     // directly, because it is the one root rtsafe cannot approach: a root on the bracket boundary
     // leaves the Newton step the same size as the previous one, so the guard falls back to
     // bisection on every iteration and the solve spends its whole budget halving.
-    if (stickAt(normalStress,
-                normalStressStick,
-                etaNormal,
-                TPMethod::fluidPressureOffset(ctx),
-                xHigh) >= static_cast<real>(0.0)) {
+    if (stickAt(normalStressStick, etaNormal, TPMethod::fluidPressureOffset(ctx), xHigh) >=
+        static_cast<real>(0.0)) {
       x = xHigh;
       converged = true;
     }
@@ -478,15 +468,11 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
       // moves the normal coupling and the pressurization out of the outer fixed point and into
       // this Newton. The dual carries d|sigma|/dV of the whole composition, including the part
       // that reaches through mu.
-      const Dual<real> sigmaDual =
-          rs::effectiveNormalStress(stickAt(normalStress,
-                                            normalStressStick,
-                                            etaNormal,
-                                            TPMethod::fluidPressureOffset(ctx),
-                                            trial),
-                                    TPMethod::fluidPressureSlope(ctx),
-                                    trial,
-                                    mu);
+      const Dual<real> sigmaDual = rs::effectiveNormalStress(
+          stickAt(normalStressStick, etaNormal, TPMethod::fluidPressureOffset(ctx), trial),
+          TPMethod::fluidPressureSlope(ctx),
+          trial,
+          mu);
       const auto absSigmaDual = abs(sigmaDual);
       const real absSigma = absSigmaDual.value;
       const real dAbsSigma = absSigmaDual.derivative;

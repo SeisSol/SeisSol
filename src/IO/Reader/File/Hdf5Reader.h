@@ -40,6 +40,8 @@ class Hdf5Reader {
     readAttributeRaw(&attr, name, type);
     return attr;
   }
+  //! @brief Whether the open group or file carries the attribute @p name.
+  bool hasAttribute(const std::string& name);
   std::size_t attributeCount(const std::string& name);
   void readAttributeRaw(void* data,
                         const std::string& name,

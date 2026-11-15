@@ -11,7 +11,13 @@ from pathlib import Path
 
 import pytest
 from strongscaling import config
-from strongscaling.scheduler import JobSpec, SchedulerError, SlurmScheduler, slurm_state
+from strongscaling.scheduler import (
+    JobSpec,
+    SchedulerError,
+    SlurmScheduler,
+    parsable_job_id,
+    slurm_state,
+)
 
 
 def machine(**slurm):
@@ -90,22 +96,45 @@ def test_submissions(fake_slurm, tmp_path):
     assert submissions[1] == f"--parsable --dependency=afterany:1001:77 {script}"
 
 
+def test_submission_behind_a_banner(tmp_path, monkeypatch):
+    # TACC's sbatch checks the account and the queue first, and says so on stdout
+    folder = tmp_path / "bin"
+    folder.mkdir()
+    (folder / "sbatch").write_text(
+        "#!/bin/bash\n"
+        "echo '-----------------------------------------------------------------'\n"
+        "echo '          Welcome to the Horizon Supercomputer'\n"
+        "echo '--> Verifying valid submit host (login1)...OK'\n"
+        "echo '--> Checking available allocation (EAR24034)...OK'\n"
+        "echo '79585'\n"
+    )
+    (folder / "sbatch").chmod(0o755)
+    monkeypatch.setenv("PATH", str(folder))
+    script = tmp_path / "job.sh"
+    assert SlurmScheduler(machine()).submit(script, after=[]) == "79585"
+
+
+@pytest.mark.parametrize(
+    "output,job_id",
+    [
+        ("1234\n", "1234"),
+        ("1234;cluster\n", "1234"),
+        ("banner\n--> OK\n1234\n", "1234"),
+        ("12_3\n", "12_3"),
+        ("--> OK\n", ""),
+        ("", ""),
+    ],
+)
+def test_parsable_job_id(output, job_id):
+    assert parsable_job_id(output) == job_id
+
+
 def fake_sbatch(tmp_path, monkeypatch, output):
     folder = tmp_path / "bin"
     folder.mkdir()
     (folder / "sbatch").write_text(f"#!/bin/bash\nprintf '%b' '{output}'\n")
     (folder / "sbatch").chmod(0o755)
     monkeypatch.setenv("PATH", str(folder))
-
-
-def test_submission_after_a_banner(tmp_path, monkeypatch):
-    # the sbatch of TACC prints a banner and its checks before the job ID
-    banner = (
-        "-----\\n  Welcome to the Horizon Supercomputer\\n-----\\n\\n"
-        "No reservation for this job\\n--> Verifying valid submit host (login3)...OK\\n"
-    )
-    fake_sbatch(tmp_path, monkeypatch, banner + "86234;horizon\\n")
-    assert SlurmScheduler(machine()).submit(tmp_path / "job.sh", after=[]) == "86234"
 
 
 def test_submission_without_a_job_id(tmp_path, monkeypatch):

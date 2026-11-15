@@ -46,9 +46,8 @@ inline model::PoroElasticMaterial testPoroMaterial(double porosity, double tortu
 
 // MaterialSetup<PoroElasticMaterial> is only compiled together with the space-time predictor
 #ifdef SEISSOL_KERNELS_STP
-/// testPoroMaterial in units in which moduli of 1e10 Pa and densities of 1000 kg/m^3 are one.
-/// getEigenDecomposition checks its residual against an absolute threshold (see its debug checks),
-/// which only makes sense for moduli of order one. Permeability and viscosity do not enter the
+/// testPoroMaterial in units in which moduli of 1e10 Pa and densities of 1000 kg/m^3 are one, in
+/// which the entries of the Jacobian are of order one. Permeability and viscosity do not enter the
 /// Jacobian; they keep their values.
 inline model::PoroElasticMaterial testPoroMaterialOfOrderOne(double porosity, double tortuosity) {
   return model::PoroElasticMaterial(

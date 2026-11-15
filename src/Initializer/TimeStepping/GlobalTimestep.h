@@ -9,6 +9,10 @@
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_GLOBALTIMESTEP_H_
 #include "Initializer/ParameterDB.h"
 
+#include <Eigen/Core>
+#include <array>
+#include <cstddef>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -22,6 +26,16 @@ struct GlobalTimestep {
 namespace parameters {
 struct SeisSolParameters;
 } // namespace parameters
+
+/**
+ * The time step of a cell with the @p vertices and the largest wave speed @p pWaveVel by the CFL
+ * condition with @p cfl for the order @p convergenceOrder , at most @p maximumAllowedTimeStep .
+ */
+double computeCellTimestep(const std::array<Eigen::Vector3d, 4>& vertices,
+                           double pWaveVel,
+                           double cfl,
+                           double maximumAllowedTimeStep,
+                           std::size_t convergenceOrder);
 
 GlobalTimestep
     computeTimesteps(const seissol::initializer::CellToVertexArray& cellToVertex,

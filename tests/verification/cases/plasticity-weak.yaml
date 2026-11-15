@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The Drucker-Prager parameters of material-plastic.yaml without its initial
+# stress and with a cohesion of 0.1 Pa: the wave of wave.par, whose stresses
+# reach a few tenths of a pascal, yields under them, which it does not under
+# those. A simulation can take them as a plasticity file of its own
+# (PlasticityFileName<i>).
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        bulkFriction: 0.6
+        plastCo:      0.1
+        s_xx:         0.0
+        s_yy:         0.0
+        s_zz:         0.0
+        s_xy:         0.0
+        s_yz:         0.0
+        s_xz:         0.0

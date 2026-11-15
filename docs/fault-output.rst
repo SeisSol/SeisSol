@@ -93,6 +93,18 @@ Here's what each bit in the OutputMask array represents:
 11. **DS**: Dynamic stress time. With LSW, the time at which ASl>D_c, interpolated linearly over the interval over which a sub-step integrates the slip. With RS, the time at which mu <= mu_w + 0.05 (f0 - mu_w), interpolated like the rupture time, but not before it. DS can be used to evaluate the process zone size.
 12. **P_f** and **Tmp**: Only with thermal pressurization, pore pressure and temperature
 
+With thermal pressurization, **P_n** and **Pn0** are the effective normal stress: they include the pore pressure **P_f**, which SeisSol keeps in the sign convention of the stresses, as :math:`-p` for a pore fluid pressure :math:`p`.
+**P_f** starts at :code:`tp_iniPressure` and decreases as the shear heating pressurizes the fluid, and **Pn0** is the total normal stress minus **P_f** (see :ref:`thermal pressurization<thermal-pressurization>`).
+
+Tractions of kinematic sources
+------------------------------
+
+The imposed slip rates (:code:`FL=33`, :code:`34` and :code:`35`) prescribe the slip rate instead of solving for the traction.
+**T_s** and **T_d**, and with them **Ts0** and **Td0**, are then the shear tractions of the Godunov state, the traction that a point would carry if it did not slip at that instant.
+They contain the stress changes that reach the point from elsewhere on the fault, but not the drop :math:`\eta V` that its own slip rate :math:`V` causes, where :math:`\eta = (1/Z^+ + 1/Z^-)^{-1}` and :math:`Z = \rho c_s` are the shear impedances on both sides of the fault.
+On an infinite planar fault that slips uniformly, nothing arrives from elsewhere, and they keep their initial values while the traction on the fault is the initial one reduced by :math:`\eta V`.
+**P_n** and **Pn0**, in contrast, are the normal traction on the fault, which in an anisotropic medium the imposed slip changes as well.
+
 Initial fault tractions
 -----------------------
 
@@ -169,8 +181,9 @@ into the strike and dip directions:
 followed by a row per sample. ``T_s``, ``T_d`` and ``P_n`` are the change of the
 tractions; adding ``T_s``, ``T_d`` and ``P_0`` of the header gives the total.
 
-With fused simulations, a sample takes a row per simulation, and the second
-column, ``SimulationIndex``, says which one, counted from zero. The lines
+With several simulations (fused ones, or more with ``SimCount``), a sample takes
+a row per simulation, and the second column, ``SimulationIndex``, says which
+one, counted from zero. The lines
 ``P_0``, ``T_s`` and ``T_d`` of the header then hold a value per simulation, in
 the same order. SeisSol used to write a column per quantity and simulation
 instead (``SRs-1``, ``SRs-2``, ...); ``postprocessing/science/widen_fused_receivers.py``
@@ -190,7 +203,7 @@ Setting ``format = 'hdf5'`` in the ``Pickpoint`` section writes all receivers
 into a single file, ``-faultreceivers.h5``, instead of one text file each.
 
 A row of that table is **one receiver of one simulation**, as a sample of a
-fused run is a row per simulation in the text files, and what their header
+run of several simulations is a row per simulation in the text files, and what their header
 states about a receiver becomes a column beside the table. The layout is the one
 of the off-fault receivers, described under :ref:`off_fault_receivers`, with
 these columns:
@@ -199,7 +212,7 @@ these columns:
 
   /faultreceivers/Index            (receivers, 2)   group and row within that group
   /faultreceivers/ReceiverId       (receivers,)     the receiver's number
-  /faultreceivers/SimulationIndex  (receivers,)     which fused simulation the row holds
+  /faultreceivers/SimulationIndex  (receivers,)     which simulation the row holds
   /faultreceivers/FaceId           (receivers,)     the fault face, globally
   /faultreceivers/PlusCellId       (receivers,)     the cell on the plus side
   /faultreceivers/PlusFaceSide     (receivers,)     and its local face number

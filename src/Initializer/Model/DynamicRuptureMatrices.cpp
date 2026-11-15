@@ -257,9 +257,9 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
 
   const auto& fault = meshReader.getFault();
 
-  const auto getDupOpt = [&](const auto& elem, std::size_t duplicate) {
+  const auto getDupOpt = [&](const auto& elem, std::size_t copy, std::size_t duplicate) {
     if (elem.hasValue()) {
-      return backmap.getDup(elem.value(), duplicate);
+      return backmap.getDup(elem.value(), copy, duplicate);
     }
     return std::optional<StoragePosition>();
   };
@@ -312,6 +312,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     const std::size_t meshFace = faceInformation[ltsFace].meshFace;
     assert(fault[meshFace].element.hasValue() || fault[meshFace].neighborElement.hasValue());
 
+    const auto copy = faceInformation[ltsFace].copy;
+
     /// Face information
     // already set: faceInformation[ltsFace].meshFace = meshFace;
     faceInformation[ltsFace].plusSide = fault[meshFace].side;
@@ -341,7 +343,7 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     real* timeDerivative2Device = nullptr;
 
     for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
-      const auto positionOpt = backmap.getDup(derivativesMeshId, duplicate);
+      const auto positionOpt = backmap.getDup(derivativesMeshId, copy, duplicate);
       if (positionOpt.has_value()) {
         const auto position = *positionOpt;
         const auto& cellInformation = ltsStorage.lookup<LTS::CellInformation>(position);
@@ -387,8 +389,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
 
     /// DR mapping for elements
     for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
-      const auto plusLtsId = getDupOpt(fault[meshFace].element, duplicate);
-      const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, duplicate);
+      const auto plusLtsId = getDupOpt(fault[meshFace].element, copy, duplicate);
+      const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, copy, duplicate);
 
       assert(duplicate != 0 || plusLtsId.has_value() || minusLtsId.has_value());
 
@@ -439,8 +441,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     /// Materials
     const seissol::model::MaterialOf<Cfg>* plusMaterial = nullptr;
     const seissol::model::MaterialOf<Cfg>* minusMaterial = nullptr;
-    const auto plusLtsId = getDupOpt(fault[meshFace].element, 0);
-    const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, 0);
+    const auto plusLtsId = getDupOpt(fault[meshFace].element, copy, 0);
+    const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, copy, 0);
 
     assert(plusLtsId.has_value() || minusLtsId.has_value());
 
@@ -493,8 +495,17 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
     impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
-    seissol::model::getTransposedCoefficientMatrix<Cfg>(*plusMaterial, 0, matAPlus);
-    seissol::model::getTransposedCoefficientMatrix<Cfg>(*minusMaterial, 0, matAMinus);
+    // The flux through the face is the Jacobian along its normal. The imposed state is given in the
+    // coordinates of the face, which T rotates back, so it is the x Jacobian of the material in
+    // those coordinates, as for every other face (cf. CellLocalMatrices.cpp); that of the material
+    // as given only coincides with it for a material that is the same in every direction.
+    std::array<double, 36> faceBond{};
+    seissol::model::getBondMatrix(
+        fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, faceBond);
+    seissol::model::getTransposedCoefficientMatrix<Cfg>(
+        seissol::model::getRotatedMaterialCoefficients(faceBond, *plusMaterial), 0, matAPlus);
+    seissol::model::getTransposedCoefficientMatrix<Cfg>(
+        seissol::model::getRotatedMaterialCoefficients(faceBond, *minusMaterial), 0, matAMinus);
 
     switch (plusMaterial->getMaterialType()) {
     case seissol::model::MaterialType::Anisotropic:

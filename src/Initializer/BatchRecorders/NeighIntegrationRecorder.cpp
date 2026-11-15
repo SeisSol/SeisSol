@@ -167,8 +167,9 @@ void NeighIntegrationRecorder<Cfg>::recordConfigBoundaryFace(std::size_t cell, s
           batches.derivatives[relation].push_back(neighborBuffer);
           batches.integrals[relation].push_back(integral);
         }
-        auto* canonical = static_cast<double*>(allocateConfigBoundaryScratch(
-            tensor::canonicalI<NeighborCfg>::size() * sizeof(double)));
+        static_assert(std::is_same_v<kernels::CanonicalReal<NeighborCfg>, Canonical>);
+        auto* canonical = static_cast<Canonical*>(allocateConfigBoundaryScratch(
+            tensor::canonicalI<NeighborCfg>::size() * sizeof(Canonical)));
         batches.toCanonical.push_back(integral);
         batches.canonical.push_back(canonical);
         found = canonicalRegistry_.emplace(neighborBuffer, canonical).first;

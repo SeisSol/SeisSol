@@ -17,12 +17,14 @@
 #include "Parallel/MPI.h"
 #include "Unit.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <mpi.h>
+#include <mutex>
 #include <optional>
 #include <ostream>
 #include <string>
@@ -63,6 +65,8 @@ void FlopCounter::init(const std::string& outputFileNamePrefix, const std::strin
 void FlopCounter::registerCounters(Counters& counters) {
   const auto total = [this](std::uint64_t PerformanceEstimate::* member) {
     return [this, member]() -> std::optional<CounterValue> {
+      // (the kernels add to the metrics from the threads that run them)
+      const std::scoped_lock lock(mutex_);
       std::uint64_t sum = 0;
       for (const auto& metric : metrics_) {
         sum += metric.estimate.*member;
@@ -92,8 +96,11 @@ void FlopCounter::printPerformanceUpdate(double wallTime) {
   const auto worldSize = static_cast<size_t>(seissol::Mpi::mpi.size());
 
   auto estimate = PerformanceEstimate{};
-  for (const auto& metric : metrics_) {
-    estimate = estimate + metric.estimate;
+  {
+    const std::scoped_lock lock(mutex_);
+    for (const auto& metric : metrics_) {
+      estimate = estimate + metric.estimate;
+    }
   }
 
   const auto diffHWFlops = estimate.hardwareFlop - previousEstimate_.hardwareFlop;
@@ -162,6 +169,7 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
 
   // total first; then by category
   {
+    const std::scoped_lock lock(mutex_);
     auto estimate = PerformanceEstimate{};
     for (const auto& metric : metrics_) {
       estimate = estimate + metric.estimate;
@@ -169,16 +177,16 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
     flops.push_back(estimate.nonzeroFlop);
     flops.push_back(estimate.hardwareFlop);
     flops.push_back(estimate.kernelBytes);
-  }
 
-  for (const auto& [_, handles] : metricCategories_) {
-    auto estimate = PerformanceEstimate{};
-    for (const auto& handle : handles) {
-      estimate = estimate + metrics_[handle].estimate;
+    for (const auto& [_, handles] : metricCategories_) {
+      auto estimate = PerformanceEstimate{};
+      for (const auto& handle : handles) {
+        estimate = estimate + metrics_[handle].estimate;
+      }
+      flops.push_back(estimate.nonzeroFlop);
+      flops.push_back(estimate.hardwareFlop);
+      flops.push_back(estimate.kernelBytes);
     }
-    flops.push_back(estimate.nonzeroFlop);
-    flops.push_back(estimate.hardwareFlop);
-    flops.push_back(estimate.kernelBytes);
   }
 
   MPI_Allreduce(
@@ -243,10 +251,23 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
 }
 
 void FlopCounter::incrementMetric(std::size_t handle, const PerformanceEstimate& data) {
+  const std::scoped_lock lock(mutex_);
   metrics_[handle].estimate = metrics_[handle].estimate + data;
 }
 
+PerformanceEstimate FlopCounter::estimate(const std::vector<std::string>& names) const {
+  const std::scoped_lock lock(mutex_);
+  auto estimate = PerformanceEstimate{};
+  for (const auto& metric : metrics_) {
+    if (std::ranges::find(names, metric.name) != names.end()) {
+      estimate = estimate + metric.estimate;
+    }
+  }
+  return estimate;
+}
+
 std::size_t FlopCounter::addMetric(const std::string& name, const std::string& category) {
+  const std::scoped_lock lock(mutex_);
   const auto handle = metrics_.size();
 
   metrics_.emplace_back(

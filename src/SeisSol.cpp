@@ -19,9 +19,12 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
-#include <sys/resource.h>
 #include <utility>
 #include <utils/logger.h>
+
+#ifndef _WIN32
+#include <sys/resource.h>
+#endif
 
 namespace seissol {
 
@@ -47,6 +50,7 @@ bool SeisSol::init() {
   printUSMInfo(env_);
   printMPIUSMInfo(env_);
 #endif
+  printDeviceOptionInfo(env_);
   pinning_.checkEnvVariables();
   if (OpenMP::enabled()) {
     logInfo() << "Using OpenMP with #threads/rank:" << seissol::OpenMP::threadCount();
@@ -86,8 +90,10 @@ bool SeisSol::init() {
     }
   }
 
+#ifndef _WIN32
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.
+  // (on Windows, there is no such limit; the stack size is fixed when linking the executable)
   rlimit rlim{};
   if (getrlimit(RLIMIT_STACK, &rlim) == 0) {
     const auto rlimInKb = rlim.rlim_cur / 1024;
@@ -112,6 +118,7 @@ bool SeisSol::init() {
   } else {
     logError() << "Stack size cannot be determined because getrlimit syscall failed!";
   }
+#endif
 
   // Call post MPI initialization hooks
   modules_.callHook<ModuleHook::PostMPIInit>();
@@ -126,7 +133,7 @@ bool SeisSol::init() {
   return true;
 }
 
-void SeisSol::finalize() {
+void SeisSol::finalize(bool finalizeMpi) {
   // the writers are finalized while the dispatcher still runs, which takes them out together with
   // its executors
   modules_.callHook<ModuleHook::Shutdown>();
@@ -136,9 +143,10 @@ void SeisSol::finalize() {
 
   timeManager_.freeDynamicResources();
 
-  seissol::Mpi::finalize();
-
-  logInfo() << "SeisSol done. Goodbye.";
+  if (finalizeMpi) {
+    seissol::Mpi::finalize();
+    logInfo() << "SeisSol done. Goodbye.";
+  }
 }
 
 void SeisSol::setBackupTimeStamp(const std::string& stamp) {

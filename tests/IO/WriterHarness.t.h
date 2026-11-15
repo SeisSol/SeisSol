@@ -15,6 +15,7 @@
 #include "IO/Writer/Instructions/Instruction.h"
 #include "IO/Writer/Module/AsyncWriter.h"
 #include "IO/Writer/Writer.h"
+#include "TestHelper.h"
 
 #include <algorithm>
 #include <async/ExecInfo.h>
@@ -25,9 +26,8 @@
 #include <memory>
 #include <mpi.h>
 #include <set>
-#include <stdexcept>
 #include <string>
-#include <unistd.h>
+#include <system_error>
 #include <utility>
 #include <vector>
 
@@ -142,15 +142,7 @@ inline std::string runPlan(seissol::io::writer::Writer& writer,
 struct TempDir {
   std::string path;
 
-  TempDir() {
-    // mkdtemp rewrites its argument, so it needs a fresh buffer on every call
-    std::string buffer = "/tmp/seissoliotestXXXXXX";
-    const char* created = mkdtemp(buffer.data());
-    if (created == nullptr) {
-      throw std::runtime_error("could not create a temporary directory");
-    }
-    path = created;
-  }
+  TempDir() : path(createTemporaryDirectory("seissoliotest")) {}
   ~TempDir() {
     std::error_code error;
     std::filesystem::remove_all(path, error);

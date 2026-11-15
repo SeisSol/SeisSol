@@ -23,10 +23,11 @@
 namespace seissol::io::writer::instructions {
 
 Hdf5Location::Hdf5Location(const std::string& longstring) {
-  auto parts = utils::StringUtils::split(longstring, ':');
-  assert(parts.size() == 2);
-  fileP_ = parts[0];
-  groupsP_ = utils::StringUtils::split(parts[1], '/');
+  // split at the last colon; the file name may contain colons itself (e.g. a drive on Windows)
+  const auto split = longstring.rfind(':');
+  assert(split != std::string::npos);
+  fileP_ = longstring.substr(0, split);
+  groupsP_ = utils::StringUtils::split(longstring.substr(split + 1), '/');
 }
 
 Hdf5Location::Hdf5Location(std::string file,

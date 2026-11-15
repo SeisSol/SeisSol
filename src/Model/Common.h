@@ -133,16 +133,21 @@ constexpr bool testIfAcoustic(T mu) {
 }
 
 /**
- * Re-orthonormalizes the eigenvectors belonging to (numerically) degenerate eigenvalues.
+ * Replaces the eigenvectors belonging to (numerically) degenerate eigenvalues of a real matrix by a
+ * real orthonormal basis of their eigenspace, the null space of the matrix minus the eigenvalue.
  *
  * A general eigensolver (LAPACK zgeev, Eigen::ComplexEigenSolver) determines the eigenvectors of a
  * repeated eigenvalue only up to an arbitrary basis of the corresponding eigenspace, and it makes
- * no attempt to return a well-conditioned one. In practice it returns a nearly parallel pair: for
- * the doubly degenerate poroelastic shear eigenvalue the two vectors agree to 1 - |cos| ~ 1e-12,
- * which drives the condition number of the eigenvector matrix to ~1e12 and caps the accuracy of the
- * Godunov matrices at ~1e-11 -- independently of which linear solver is used afterwards.
+ * no attempt to return a well-conditioned one. For the doubly degenerate poroelastic shear
+ * eigenvalue, the two vectors it returns agree to 1 - |cos| ~ 1e-12, which drives the condition
+ * number of the eigenvector matrix to ~1e12 and caps the accuracy of the Godunov matrices at
+ * ~1e-11 -- independently of which linear solver is used afterwards; for some materials, they agree
+ * exactly, so that their span misses part of the eigenspace. The basis here comes from the matrix
+ * instead: the right singular vectors of the smallest singular values of A - lambda I, balanced as
+ * computeEigenvalues balances A. For a real matrix and eigenvalue they are real, as the Godunov
+ * state of a free surface, which takes the real parts of the eigenvectors, needs them.
  *
- * Replacing a cluster by an orthonormal basis of its span leaves every quantity derived from it
+ * Replacing a cluster by another basis of its eigenspace leaves every quantity derived from it
  * invariant: the Godunov construction only ever forms R * chi * R^-1 with a diagonal 0/1 selector
  * chi, and such a projector is unchanged when a block of columns that chi treats identically is
  * right-multiplied by an invertible matrix. To keep that guarantee we never merge eigenvalues
@@ -150,10 +155,16 @@ constexpr bool testIfAcoustic(T mu) {
  * zeroThreshold must not be pulled into the null-space cluster.
  */
 template <typename T, std::size_t Dim>
-void orthonormalizeDegenerateEigenvectors(seissol::eigenvalues::Eigenpair<T, Dim>& eigenpair,
-                                          double zeroThreshold) {
+void replaceDegenerateEigenvectors(const std::array<T, Dim * Dim>& matrix,
+                                   seissol::eigenvalues::Eigenpair<T, Dim>& eigenpair,
+                                   double zeroThreshold) {
   constexpr auto Size = static_cast<Eigen::Index>(Dim);
-  using CMatrix = Eigen::Matrix<T, Size, Eigen::Dynamic>;
+  using RealT = T::value_type;
+  using RMatrix = Eigen::Matrix<RealT, Size, Eigen::Dynamic>;
+  using RSquare = Eigen::Matrix<RealT, Size, Size>;
+  // the decompositions take their matrices with sizes known at run time only, as the eigensolver of
+  // computeEigenvalues does, so that they are compiled once rather than once for each size
+  using RDynamic = Eigen::Matrix<RealT, Eigen::Dynamic, Eigen::Dynamic>;
 
   const auto signClass = [zeroThreshold](const T& value) -> int {
     if (value.real() < -zeroThreshold) {
@@ -172,6 +183,7 @@ void orthonormalizeDegenerateEigenvectors(seissol::eigenvalues::Eigenpair<T, Dim
   // computeEigenvalues sorts by real part, so a cluster is always a contiguous index range
   const double clusterTolerance = 1e-8 * spectralRadius;
 
+  const RSquare realMatrix = Eigen::Map<const Eigen::Matrix<T, Size, Size>>(matrix.data()).real();
   auto vectors = Eigen::Map<Eigen::Matrix<T, Size, Size>>(eigenpair.vectors.data());
 
   std::size_t begin = 0;
@@ -185,9 +197,19 @@ void orthonormalizeDegenerateEigenvectors(seissol::eigenvalues::Eigenpair<T, Dim
     const auto first = static_cast<Eigen::Index>(begin);
     const auto width = static_cast<Eigen::Index>(end - begin + 1);
     if (width > 1) {
-      const CMatrix cluster = vectors.middleCols(first, width);
-      const Eigen::HouseholderQR<CMatrix> qr(cluster);
-      vectors.middleCols(first, width) = qr.householderQ() * CMatrix::Identity(Size, width);
+      RealT lambda = 0;
+      for (auto k = first; k < first + width; ++k) {
+        lambda += eigenpair.values[k].real();
+      }
+      lambda /= static_cast<RealT>(width);
+      RSquare shifted = realMatrix - lambda * RSquare::Identity();
+      const auto scale = seissol::eigenvalues::balance(shifted);
+      // the singular values come in decreasing order
+      const Eigen::JacobiSVD<RDynamic> svd(RDynamic(shifted), Eigen::ComputeFullV);
+      const RDynamic spanning = scale.asDiagonal() * svd.matrixV().rightCols(width);
+      const Eigen::HouseholderQR<RDynamic> qr(spanning);
+      const RMatrix basis = qr.householderQ() * RDynamic::Identity(Size, width);
+      vectors.middleCols(first, width) = basis.template cast<T>();
     }
     begin = end + 1;
   }
@@ -205,14 +227,6 @@ void getTransposedSourceCoefficientTensor(const Tmaterial& material, T& mE) {
   SolverSetup<kernels::SolverOf<Cfg>, Tmaterial>::getTransposedSourceCoefficientTensor(material,
                                                                                        mE);
 }
-
-/// The backend of the eigenvalue decompositions of a material, as a build with that material alone
-/// has it: LAPACK for the poroelastic material, for which Eigen computes some values incorrectly,
-/// and Eigen for every other.
-template <typename MaterialT>
-constexpr auto EigenvalueBackend =
-    MaterialT::Type == MaterialType::Poroelastic ? eigenvalues::LapackIfLinked
-                                                 : eigenvalues::Backend::Eigen3;
 
 /// The eigenpairs of the normal Jacobian of a material without relaxation, which every solver
 /// lays out as the material describes it.
@@ -618,11 +632,11 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   }
   seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities> eigenpair;
 
-  seissol::eigenvalues::computeEigenvalues<EigenvalueBackend<Tmaterial>>(dataA, eigenpair);
+  seissol::eigenvalues::computeEigenvalues(dataA, eigenpair);
 
-  // repair the eigenvector basis inside degenerate eigenspaces before anything derived from it is
-  // computed; without this matR becomes numerically singular (cond ~ 1e12 instead of ~1e7)
-  orthonormalizeDegenerateEigenvectors(eigenpair, zeroThreshold);
+  // a basis of each degenerate eigenspace before anything derived from it is computed; without
+  // it, matR becomes numerically singular (cond ~ 1e12 instead of ~1e7), or exactly so
+  replaceDegenerateEigenvectors(dataA, eigenpair, zeroThreshold);
 
 #ifndef NDEBUG
   using CMatrix =
@@ -646,7 +660,8 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   assert(evNeg == ExpectedEv);
   assert(evPos == ExpectedEv);
 
-  // check whether eigensolver is good enough
+  // check whether eigensolver is good enough: the eigenvectors have unit length, so that the
+  // residual scales with the Jacobian, whose rows of the stresses hold moduli of ~1e10 in SI units
   const CMatrix coeff(dataA.data());
   const CMatrix matrixMult = coeff * eigenvectors;
   CMatrix eigenvalueMatrix = CMatrix::Zero();
@@ -655,11 +670,11 @@ seissol::eigenvalues::Eigenpair<std::complex<double>, Tmaterial::NumQuantities>
   }
   const CMatrix vectorMult = eigenvectors * eigenvalueMatrix;
   const CMatrix diff = matrixMult - vectorMult;
-  const double norm = diff.norm();
+  const double norm = diff.norm() / coeff.norm();
 
   std::stringstream messageStream;
-  messageStream << "Residual " << norm << " is larger than " << zeroThreshold
-                << ": Eigensolver is not accurate enough";
+  messageStream << "Residual " << norm << " relative to the Jacobian is larger than "
+                << zeroThreshold << ": Eigensolver is not accurate enough";
   assert(norm < zeroThreshold && messageStream.str().c_str());
 #endif
   return eigenpair;

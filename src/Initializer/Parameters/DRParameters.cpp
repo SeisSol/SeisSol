@@ -8,8 +8,8 @@
 #include "DRParameters.h"
 
 #include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
 #include "DynamicRupture/Misc.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
 #include <Eigen/Core>
@@ -62,6 +62,9 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
        FrictionLawType::ImposedSlipRatesDelta,
        FrictionLawType::RateAndStateSevereVelocityWeakening,
        FrictionLawType::RateAndStateAgingNucleation});
+  if (frictionLawType == FrictionLawType::RateAndStateAgingNucleation) {
+    logError() << "friction law 101 currently disabled";
+  }
   if (frictionLawType == FrictionLawType::LinearSlipWeakeningLegacy) {
     logWarning() << "Using FL=2 for the linear slip weakening friction law is deprecated; consider "
                     "switching it to FL=16";
@@ -132,7 +135,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
 
   const auto faultFileName = reader->readPath("modelfilename");
 
-  std::vector<std::optional<std::string>> faultFileNames(configValue(config).numSimulations);
+  std::vector<std::optional<std::string>> faultFileNames(readSimulationCount(baseReader, config));
 
   bool isDynamicRuptureEnabled = false;
 

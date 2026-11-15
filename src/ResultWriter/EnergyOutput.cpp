@@ -25,11 +25,13 @@
 #include "IO/Writer/File/RunFiles.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
+#include "Memory/Descriptor/Surface.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Modules/Modules.h"
@@ -187,20 +189,30 @@ constexpr std::array MomentumComponents{
 
 /// Adds the frictional work, the seismic moment and the potency of the faces of `layer`, which
 /// compute in the configuration `Cfg`, and lowers the times since the slip rate fell below its
-/// threshold to the ones of these faces.
+/// threshold to the ones of these faces; for the `simulationCount` simulations of the run, which
+/// the copies of the faces hold.
 template <typename Cfg>
 void addFaultEnergies(const DynamicRupture::Layer& layer,
                       const GlobalData<Cfg>& global,
+                      std::size_t simulationCount,
                       EnergiesStorage& energies,
                       std::vector<double>& minTimeSinceSlipRateBelowThreshold) {
   using real = Real<Cfg>;
   using MaterialT = model::MaterialOf<Cfg>;
   constexpr auto SimCount = Cfg::NumSimulations;
 
-  double totalFrictionalWork[SimCount]{};
-  double staticFrictionalWork[SimCount]{};
-  double seismicMoment[SimCount]{};
-  double potency[SimCount]{};
+  // the fused simulations of all copies; the copy c holds the simulations from c * SimCount on
+  const auto copyCount = (simulationCount + SimCount - 1) / SimCount;
+  const auto allCount = copyCount * SimCount;
+
+  std::vector<double> totalFrictionalWorkData(allCount);
+  std::vector<double> staticFrictionalWorkData(allCount);
+  std::vector<double> seismicMomentData(allCount);
+  std::vector<double> potencyData(allCount);
+  auto* totalFrictionalWork = totalFrictionalWorkData.data();
+  auto* staticFrictionalWork = staticFrictionalWorkData.data();
+  auto* seismicMoment = seismicMomentData.data();
+  auto* potency = potencyData.data();
 
   // the unknowns of the cells at the output time, when the slip is taken as well (those of cells on
   // other ranks come from dofSync)
@@ -216,10 +228,10 @@ void addFaultEnergies(const DynamicRupture::Layer& layer,
   const auto layerSize = layer.size();
 
 #if !NVHPC_AVOID_OMP
-#pragma omp parallel for reduction(+ : totalFrictionalWork[ : SimCount],                           \
-                                       staticFrictionalWork[ : SimCount],                          \
-                                       seismicMoment[ : SimCount],                                 \
-                                       potency[ : SimCount])
+#pragma omp parallel for reduction(+ : totalFrictionalWork[ : allCount],                           \
+                                       staticFrictionalWork[ : allCount],                          \
+                                       seismicMoment[ : allCount],                                 \
+                                       potency[ : allCount])
 #endif
   for (std::size_t i = 0; i < layerSize; ++i) {
     if (faceInformation[i].plusSideOnThisRank) {
@@ -230,11 +242,14 @@ void addFaultEnergies(const DynamicRupture::Layer& layer,
                                                                        drEnergyOutput[i].slip,
                                                                        global);
 
+      const auto offset = faceInformation[i].copy * SimCount;
+
 #pragma omp simd
       for (size_t sim = 0; sim < SimCount; sim++) {
-        staticFrictionalWork[sim] += staticFrictionalWorkIncrease[sim];
+        staticFrictionalWork[offset + sim] += staticFrictionalWorkIncrease[sim];
         for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints<Cfg>; ++j) {
-          totalFrictionalWork[sim] += drEnergyOutput[i].frictionalEnergy[j * SimCount + sim];
+          totalFrictionalWork[offset + sim] +=
+              drEnergyOutput[i].frictionalEnergy[j * SimCount + sim];
         }
 
         const double areaWeight = godunovData[i].doubledSurfaceArea;
@@ -305,43 +320,43 @@ void addFaultEnergies(const DynamicRupture::Layer& layer,
           momentIncrease = potencyIncrease * mu;
         }
 
-        potency[sim] += potencyIncrease;
-        seismicMoment[sim] += momentIncrease;
+        potency[offset + sim] += potencyIncrease;
+        seismicMoment[offset + sim] += momentIncrease;
       }
     }
   }
 
-  double localMin[SimCount]{};
-  for (std::size_t sim = 0; sim < SimCount; ++sim) {
-    localMin[sim] = std::numeric_limits<double>::max();
-  }
+  std::vector<double> localMinData(allCount, std::numeric_limits<double>::max());
+  auto* localMin = localMinData.data();
 
 #if !NVHPC_AVOID_OMP
-#pragma omp parallel for reduction(min : localMin[ : SimCount]) default(none)                      \
-    shared(layerSize, drEnergyOutput, faceInformation, SimCount)
+#pragma omp parallel for reduction(min : localMin[ : allCount]) default(none)                      \
+    shared(layerSize, drEnergyOutput, faceInformation, SimCount, allCount)
 #endif
   for (std::size_t i = 0; i < layerSize; ++i) {
     if (faceInformation[i].plusSideOnThisRank) {
+      const auto offset = faceInformation[i].copy * SimCount;
 
 #pragma omp simd
       for (size_t sim = 0; sim < SimCount; sim++) {
         for (std::size_t j = 0; j < seissol::dr::misc::NumBoundaryGaussPoints<Cfg>; ++j) {
-          localMin[sim] = std::min(
+          localMin[offset + sim] = std::min(
               static_cast<double>(
                   drEnergyOutput[i]
                       .timeSinceSlipRateBelowThreshold[static_cast<size_t>(j * SimCount) + sim]),
-              localMin[sim]);
+              localMin[offset + sim]);
         }
       }
     }
   }
 
-  for (std::size_t sim = 0; sim < SimCount; ++sim) {
+  // the fused simulations past the last simulation of the run only fill up the last copy
+  for (std::size_t sim = 0; sim < simulationCount; ++sim) {
     minTimeSinceSlipRateBelowThreshold[sim] =
         std::min(localMin[sim], minTimeSinceSlipRateBelowThreshold[sim]);
   }
 
-  for (std::size_t sim = 0; sim < SimCount; ++sim) {
+  for (std::size_t sim = 0; sim < simulationCount; ++sim) {
     energies.energy(TotalFrictionalWork, sim) += totalFrictionalWork[sim];
     energies.energy(StaticFrictionalWork, sim) += staticFrictionalWork[sim];
     energies.energy(SeismicMoment, sim) += seismicMoment[sim];
@@ -349,13 +364,15 @@ void addFaultEnergies(const DynamicRupture::Layer& layer,
   }
 }
 
-/// Adds the energies of the cells of `layer`, which compute in the configuration `Cfg`.
+/// Adds the energies of the cells of `layer`, which compute in the configuration `Cfg`; for the
+/// `simulationCount` simulations of the run, which the copies of the cells hold.
 template <typename Cfg>
 void addVolumeEnergies(const LTS::Layer& layer,
                        const std::vector<Element>& elements,
                        const std::vector<Vertex>& vertices,
                        double g,
                        bool isPlasticityEnabled,
+                       std::size_t simulationCount,
                        EnergiesStorage& energies) {
   using real = Real<Cfg>;
   using MaterialT = model::MaterialOf<Cfg>;
@@ -383,17 +400,24 @@ void addVolumeEnergies(const LTS::Layer& layer,
   const auto* dofsAneData = layer.var<LTS::DofsAne>(Cfg());
 
   constexpr auto EnergyCountSingle = EnergyComputeT::EnergyCount;
-  constexpr auto EnergyCount = EnergyCountSingle * SimCount;
 
-  double energyValues[EnergyCount]{};
-  double localPlasticMoment[SimCount]{};
-  double localGravitationalPotentialEnergy[SimCount]{};
+  // the fused simulations of all copies; the copy c holds the simulations from c * SimCount on
+  const auto copyCount = (simulationCount + SimCount - 1) / SimCount;
+  const auto allCount = copyCount * SimCount;
+  const auto energyCount = EnergyCountSingle * allCount;
+
+  std::vector<double> energyValuesData(energyCount);
+  std::vector<double> localPlasticMomentData(allCount);
+  std::vector<double> localGravitationalPotentialEnergyData(allCount);
+  auto* energyValues = energyValuesData.data();
+  auto* localPlasticMoment = localPlasticMomentData.data();
+  auto* localGravitationalPotentialEnergy = localGravitationalPotentialEnergyData.data();
 
 #if !NVHPC_AVOID_OMP
 #pragma omp parallel for schedule(static)                                                          \
-    reduction(+ : localGravitationalPotentialEnergy[ : SimCount],                                  \
-                  energyValues[ : EnergyCount],                                                    \
-                  localPlasticMoment[ : SimCount])                                                 \
+    reduction(+ : localGravitationalPotentialEnergy[ : allCount],                                  \
+                  energyValues[ : energyCount],                                                    \
+                  localPlasticMoment[ : allCount])                                                 \
     shared(elements, vertices, quadratureWeightsTet)
 #endif
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -403,6 +427,7 @@ void addVolumeEnergies(const LTS::Layer& layer,
     }
     const auto elementId = secondaryInformation[cell].meshId;
     const double volume = MeshTools::volume(elements[elementId], vertices);
+    const auto offset = secondaryInformation[cell].copyId * SimCount;
 
     // the layer holds materials of exactly this type
     // NOLINTNEXTLINE(bugprone-pointer-arithmetic-on-polymorphic-object)
@@ -443,7 +468,7 @@ void addVolumeEnergies(const LTS::Layer& layer,
           material, energyData[cell], linSub, quadSub, moments, sim);
 
       for (std::size_t i = 0; i < localValues.size(); ++i) {
-        energyValues[localValues.size() * sim + i] += jacobiDet * localValues[i];
+        energyValues[localValues.size() * (offset + sim) + i] += jacobiDet * localValues[i];
       }
     }
 
@@ -503,7 +528,7 @@ void addVolumeEnergies(const LTS::Layer& layer,
         const auto squaredView = multisim::simtensor<Cfg>(squaredViewFused, sim);
 
         // contains an elided 0.5 * 2.0 (1/2 due to energy; 2 due to surface)
-        localGravitationalPotentialEnergy[sim] += rho * g * surface * squaredView(0);
+        localGravitationalPotentialEnergy[offset + sim] += rho * g * surface * squaredView(0);
       }
     }
 
@@ -533,12 +558,13 @@ void addVolumeEnergies(const LTS::Layer& layer,
         for (size_t qp = 0; qp < NumQuadraturePointsTet; ++qp) {
           pMoment += quadratureWeightsTet[qp] * qEtaQuadSim(qp);
         }
-        localPlasticMoment[sim] += mu * jacobiDet * pMoment;
+        localPlasticMoment[offset + sim] += mu * jacobiDet * pMoment;
       }
     }
   }
 
-  for (std::size_t sim = 0; sim < SimCount; ++sim) {
+  // the fused simulations past the last simulation of the run only fill up the last copy
+  for (std::size_t sim = 0; sim < simulationCount; ++sim) {
     for (std::size_t i = 0; i < EnergyComputeT::EnergyCount; ++i) {
       const auto& descriptor = EnergyComputeT::Energies[i];
       energies.energy(descriptor.name, sim) += energyValues[sim * EnergyComputeT::EnergyCount + i];
@@ -657,6 +683,15 @@ void EnergyOutput::init(
   meshReader_ = &newMeshReader;
   ltsStorage_ = &newStorage;
 
+  // the unknowns of the cells, the friction energies, and the displacements of the free surfaces
+  // with gravity
+  auto& memoryManager = seissolInstance_.memoryManager();
+  hostData_.add<LTS::Dofs>(memoryManager.ltsStorage())
+      .add<LTS::DofsAne>(memoryManager.ltsStorage())
+      .add<LTS::PStrain>(memoryManager.ltsStorage())
+      .add<DynamicRupture::DREnergyOutputVar>(memoryManager.drStorage())
+      .add<SurfaceLTS::DisplacementDofs>(memoryManager.surfaceStorage());
+
   isPlasticityEnabled_ = newIsPlasticityEnabled;
 
   seissolInstance_.modules().registerHook(*this, ModuleHook::SimulationStart);
@@ -667,13 +702,8 @@ void EnergyOutput::init(
   // configurations the run has, each once, also when several of these configurations share a
   // material.
   const auto configs = ltsStorage_->configs();
-  simulationCount_ = 1;
-  for (const auto config : configs) {
-    dispatchConfig(config, [&](auto cfg) {
-      using Cfg = decltype(cfg);
-      simulationCount_ = std::max<std::size_t>(simulationCount_, Cfg::NumSimulations);
-    });
-  }
+  // the energies of every simulation of the run
+  simulationCount_ = seissolInstance_.memoryManager().simulationSettings().simulationCount;
 
   energiesStorage_.setSimcount(simulationCount_);
   minTimeSinceSlipRateBelowThreshold_.assign(simulationCount_, 0.0);
@@ -696,7 +726,7 @@ void EnergyOutput::init(
   }
 }
 
-void EnergyOutput::syncPoint(double time) {
+void EnergyOutput::processSyncPoint(double time) {
   assert(isEnabled_);
   const auto rank = Mpi::mpi.rank();
   logInfo() << "Writing energy output at time" << time;
@@ -769,6 +799,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
       using Cfg = decltype(cfg);
       addFaultEnergies<Cfg>(layer,
                             *memoryManager.globalData<Cfg>().onHost,
+                            simulationCount_,
                             energiesStorage_,
                             minTimeSinceSlipRateBelowThreshold_);
     });
@@ -784,7 +815,8 @@ void EnergyOutput::computeVolumeEnergies() {
   for (const auto& layer : ltsStorage_->leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      addVolumeEnergies<Cfg>(layer, elements, vertices, g, isPlasticityEnabled_, energiesStorage_);
+      addVolumeEnergies<Cfg>(
+          layer, elements, vertices, g, isPlasticityEnabled_, simulationCount_, energiesStorage_);
     });
   }
 }
@@ -957,8 +989,7 @@ void EnergyOutput::checkAbortCriterion(const std::vector<double>& timeSinceThres
   }
 
   bool abort = (decidableCount > 0) and (abortCount == decidableCount);
-  const auto& comm = Mpi::mpi.comm();
-  MPI_Bcast(reinterpret_cast<void*>(&abort), 1, MPI_CXX_BOOL, 0, comm);
+  Mpi::mpi.broadcast(&abort, 0);
   if (abort) {
     seissolInstance_.simulator().abort();
   }
