@@ -27,17 +27,7 @@ jobs:
           # h5py for the verification tests, which write their meshes with it
           sudo pip3 install setuptools numpy h5py --break-system-packages
           sudo mkdir -p /opt/dependencies
-
-      - name: checkout-easi
-        uses: actions/checkout@master
-        with:
-          repository: SeisSol/easi
-
-      - name: build-easi
-        run: |
-          mkdir build && cd build
-          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
-          ninja install
+          sudo chown "$(id -u):$(id -g)" /opt/dependencies
 
       - id: checkout
         name: checkout-seissol
@@ -45,45 +35,26 @@ jobs:
         with:
           submodules: recursive
 
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+          path: easi
+
+      - name: build-easi
+        run: scripts/ci/build-easi.sh easi /opt/dependencies
+
+      # (the steps of the job are in scripts/ci/jobs/coverage.sh, which runs them locally as well)
       - id: build
         name: build-seissol
-        run: |
-          mkdir build && cd build
-
-          export CC=gcc-15
-          export CXX=g++-15
-
-          mkdir -p /opt/seissol
-
-          # allow oversubscribe and run as root for OpenMPI
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
-          export OMPI_ALLOW_RUN_AS_ROOT=1
-          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-
-          # run w/o netcdf for consistency with the clang-tidy check; the configurations of the CPU
-          # tests (cmake/confignames.cmake), so that the code of every material counts. The snapshot
-          # references of the verification tests come from another environment, which this one
-          # deviates from by rounding, as the CPU CI (scripts/compile/compile-variants.yaml). The
-          # verification cases run in the first configuration only, since in this unoptimized
-          # build, the ones of all configurations would take hours; the CPU CI runs them all
-          export CMAKE_PREFIX_PATH=/opt/dependencies
-          cmake .. -GNinja -DCMAKE_INSTALL_PREFIX=/opt/seissol -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DCOVERAGE=ON -DTESTING=ON -DTESTING_GENERATED=ON -DHOST_ARCH=hsw -DCMAKE_BUILD_TYPE=Debug -DCONFIGS=ci-cpu -DGRAPH_PARTITIONING_LIBS=ptscotch -DSEISSOL_SNAPSHOT_TOLERANCE_DOUBLE=1e-9 -DSEISSOL_VERIFICATION_CONFIGS=first
-          ninja
+        env:
+          CC: gcc-15
+          CXX: g++-15
+        run: scripts/ci/jobs/coverage.sh build
 
       - name: seissol-coverage
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          # allow oversubscribe and run as root for OpenMPI
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
-          export OMPI_ALLOW_RUN_AS_ROOT=1
-          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-
-          cd build
-          ninja seissol-coverage
+        run: scripts/ci/jobs/coverage.sh coverage
 
       - name: upload-seissol-coverage
         uses: actions/upload-artifact@v4

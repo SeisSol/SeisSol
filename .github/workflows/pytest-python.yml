@@ -44,18 +44,11 @@ jobs:
           # integration tests can actually construct ADERDG instances.
           # pip install -e ./submodules/yateto
 
+      # (the command line is in scripts/ci/jobs/pytest.sh, which runs it locally as well)
       - name: run-pytest
-        working-directory: tests/python
-        run: |
-          python -m pytest -v --tb=short \
-                 --cov=../../codegen \
-                 --cov=../../scripts/validate \
-                 --cov=../../scripts/perf \
-                 --cov=../../scripts/benchmark \
-                 --cov=../../.ci \
-                 --cov-report=xml \
-                 --cov-report=term-missing \
-                 --cov-branch
+        env:
+          PYTHON: python
+        run: scripts/ci/jobs/pytest.sh
 
       - name: upload-coverage
         if: matrix.python-version == '3.12'

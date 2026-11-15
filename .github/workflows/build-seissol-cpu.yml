@@ -91,16 +91,10 @@ jobs:
       - name: build-variants
         id: build
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        # (scripts/compile/compile_variants.py in the environment of MPI, which runs it locally as
+        # well)
         run: |
-
-          # allow oversubscribe and run as root for OpenMPI
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
-          export OMPI_ALLOW_RUN_AS_ROOT=1
-          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-
-          python3 scripts/compile/compile_variants.py \
+          scripts/ci/jobs/build-variants.sh \
             --preset ci-cpu \
             --toolchain ${{ matrix.setup.name }} \
             --set defines.WARNINGS_AS_ERRORS=${{ matrix.setup.werror }} \
@@ -217,7 +211,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           path: seissol-scripts
-          sparse-checkout: scripts/validate
+          sparse-checkout: |
+            scripts/validate
+            scripts/ci
           sparse-checkout-cone-mode: false
 
       - name: get-seissol
@@ -227,38 +223,15 @@ jobs:
           name: seissol-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.name}}
           path: install
 
+      # (the step is in scripts/ci/jobs/verify.sh, which runs it locally as well)
       - name: verify
         id: verify
-        run: |
-          MPI_OPTIONS=""
-          if [ "${{ matrix.setup.mpi }}" = openmpi ]; then
-            MPI_OPTIONS="--oversubscribe --allow-run-as-root -bind-to none"
-          fi
-
-          export PATH=$(pwd)/install/bin:$PATH
-          export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:${LD_LIBRARY_PATH:-}
-          chmod +x $(pwd)/install/bin/*
-          # the executables verify.py chooses from
-          ls -l $(pwd)/install/bin
-
-          export OMP_NUM_THREADS=${{ matrix.parallel.threads }}
-          export SEISSOL_COMMTHREAD=${{ matrix.parallel.commthread }}
-          export SEISSOL_MINI_NUM_ELEMENTS=100
-
-          export OMPI_ALLOW_RUN_AS_ROOT=1
-          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
-          export OMPI_MCA_rmaps_base_oversubscribe=true
-
-          python3 $GITHUB_WORKSPACE/seissol-scripts/scripts/validate/verify.py \
-            --precomputed-dir precomputed \
-            --binary-dir $GITHUB_WORKSPACE/install \
-            --all \
-            --mpi-cmd mpirun \
-            --mpi-args "${MPI_OPTIONS}" \
-            --ranks ${{ matrix.parallel.ranks }} \
-            --threads ${{ matrix.parallel.threads }} \
-            --color always \
-            --report report.txt
+        env:
+          MPI: ${{ matrix.setup.mpi }}
+          RANKS: ${{ matrix.parallel.ranks }}
+          THREADS: ${{ matrix.parallel.threads }}
+          COMMTHREAD: ${{ matrix.parallel.commthread }}
+        run: seissol-scripts/scripts/ci/jobs/verify.sh
 
       - name: upload-report
         uses: actions/upload-artifact@v7
@@ -304,7 +277,9 @@ jobs:
         uses: actions/checkout@v6
         with:
           path: seissol-scripts
-          sparse-checkout: scripts/perf
+          sparse-checkout: |
+            scripts/perf
+            scripts/ci
           sparse-checkout-cone-mode: false
 
       - name: get-seissol
@@ -321,31 +296,14 @@ jobs:
           key: seissol-perf-${{ runner.name }}-${{ github.run_id }}
           restore-keys: seissol-perf-${{ runner.name }}-
 
+      # (the steps are in scripts/ci/jobs/perf.sh, which runs them locally as well)
       - name: measure
-        run: |
-          chmod +x install/bin/*
-          export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:${LD_LIBRARY_PATH:-}
-          mkdir -p perf
-          python3 seissol-scripts/scripts/perf/benchmark.py run \
-            --proxy install/bin/proxyseissol \
-            --cells 20000 \
-            --timesteps 10 \
-            --repetitions ${{ inputs.perf-repetitions || 5 }} \
-            --warmup 1 \
-            --output perf/current.json \
-            --github-benchmark perf/github-benchmark.json
-          python3 seissol-scripts/scripts/perf/benchmark.py noise perf/current.json
+        env:
+          REPETITIONS: ${{ inputs.perf-repetitions || 5 }}
+        run: seissol-scripts/scripts/ci/jobs/perf.sh measure
 
       - name: compare
-        run: |
-          if [ -f perf/baseline.json ]; then
-            python3 seissol-scripts/scripts/perf/benchmark.py compare \
-              --baseline perf/baseline.json \
-              --current perf/current.json \
-              --summary "${GITHUB_STEP_SUMMARY}"
-          else
-            echo "No measurement of master on ${{ runner.name }} to compare with." >> "${GITHUB_STEP_SUMMARY}"
-          fi
+        run: seissol-scripts/scripts/ci/jobs/perf.sh compare
 
       - name: keep-baseline
         if: ${{ github.ref_name == 'master' }}

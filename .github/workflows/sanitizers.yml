@@ -88,18 +88,7 @@ jobs:
           # h5py for the verification tests, which write their meshes with it
           sudo pip3 install setuptools numpy h5py --break-system-packages
           sudo mkdir -p /opt/dependencies
-
-      - name: checkout-easi
-        uses: actions/checkout@v6
-        with:
-          repository: SeisSol/easi
-
-      - name: build-easi
-        run: |
-          # not sanitized: the sanitizers are here for SeisSol
-          mkdir build && cd build
-          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
-          sudo ninja install
+          sudo chown "$(id -u):$(id -g)" /opt/dependencies
 
       - id: checkout
         name: checkout-seissol
@@ -107,73 +96,36 @@ jobs:
         with:
           submodules: recursive
 
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+          path: easi
+
+      # not sanitized: the sanitizers are here for SeisSol
+      - name: build-easi
+        run: scripts/ci/build-easi.sh easi /opt/dependencies
+
+      # (the steps of the job are in scripts/ci/jobs/sanitizer.sh, which runs them locally as well)
       - id: build
         name: build-seissol
-        run: |
-          mkdir build && cd build
-
-          export CC=${{ matrix.setup.cc }}
-          export CXX=${{ matrix.setup.cxx }}
-          export CMAKE_PREFIX_PATH=/opt/dependencies
-
-          # allow oversubscribe for OpenMPI (needed for test discovery)
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
-
-          # The verification cases run in each configuration of the build, with a limit raised for
-          # the time they take with sanitizers. The snapshot references come from another
-          # environment, which this one deviates from by rounding, as the CPU CI
-          # (scripts/compile/compile-variants.yaml).
-          cmake .. -GNinja \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_FLAGS="${{ matrix.setup.cxx-flags }}" \
-            -DCMAKE_C_FLAGS_DEBUG="-O1 -g1" \
-            -DCMAKE_CXX_FLAGS_DEBUG="-O1 -g1" \
-            -DSANITIZERS="${{ matrix.setup.sanitizers }}" \
-            -DCONFIGS=${{ matrix.setup.configs }} \
-            -DDR_QUAD_RULE=${{ matrix.setup.dr-quad-rule }} \
-            -DGEMM_TOOLS_LIST=none \
-            -DHOST_ARCH=hsw \
-            -DNETCDF=OFF \
-            -DGRAPH_PARTITIONING_LIBS=none \
-            -DNUMA_AWARE_PINNING=OFF \
-            -DTESTING=ON \
-            -DTESTING_GENERATED=${{ matrix.setup.testing-generated }} \
-            -DSEISSOL_SNAPSHOT_TOLERANCE_DOUBLE=1e-9 \
-            -DSEISSOL_MINITEST_TIMEOUT=3600
-
-          # a translation unit takes up to 4.5 GB with the sanitizers of GCC and all configurations
-          ninja -j 4
+        env:
+          CC: ${{ matrix.setup.cc }}
+          CXX: ${{ matrix.setup.cxx }}
+          SANITIZERS: ${{ matrix.setup.sanitizers }}
+          CXX_FLAGS: ${{ matrix.setup.cxx-flags }}
+          CONFIGS: ${{ matrix.setup.configs }}
+          DR_QUAD_RULE: ${{ matrix.setup.dr-quad-rule }}
+          TESTING_GENERATED: ${{ matrix.setup.testing-generated }}
+        run: scripts/ci/jobs/sanitizer.sh build
 
       - id: test
         name: test-seissol
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          # allow oversubscribe for OpenMPI
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
-
-          export CXX=${{ matrix.setup.cxx }}
-          source .ci/sanitizers/environment.sh
-
-          if [ "${{ matrix.setup.threads }}" = true ]; then
-            # A run of several ranks communicates in a thread of its own, and every run writes its
-            # output from one; on the runner, with as many ranks and threads as CPUs, they share
-            # the CPUs of the workers, one CPU for each rank of a node (SEISSOL_FREE_CPUS_MASK).
-            cpus=$(nproc)
-            mask=""
-            for rank in $(seq 0 $(( (cpus > 4 ? cpus : 4) - 1 ))); do
-              mask="${mask:+${mask},}$(( rank % cpus ))"
-            done
-            export SEISSOL_COMMTHREAD=1
-            export SEISSOL_FREE_CPUS_MASK="${mask}"
-            export ASYNC_MODE=THREAD
-          fi
-
-          cd build
-          ctest -j $(nproc) -LE convergence --output-on-failure --output-junit junit.xml
+        env:
+          CXX: ${{ matrix.setup.cxx }}
+          THREADS: ${{ matrix.setup.threads }}
+        run: scripts/ci/jobs/sanitizer.sh test
 
       - name: upload-test-logs
         uses: actions/upload-artifact@v7
