@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Load the `.ci/` scripts (they're not a package; hyphen-free names)."""
+"""Load the `scripts/ci/` scripts (they're not a package; hyphen-free names)."""
 
 import importlib.util
 import sys
 from pathlib import Path
 
 SEISSOL_ROOT = Path(__file__).resolve().parents[3]
-_CI = SEISSOL_ROOT / ".ci"
+_CI = SEISSOL_ROOT / "scripts" / "ci"
 
 
 def _load(name):

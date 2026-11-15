@@ -21,8 +21,8 @@ permissions:
 jobs:
   # ---------------------------------------------------------------------------
   # Build SeisSol with the sanitizers of cmake/sanitizers.cmake and run its tests in the runtime
-  # options of .ci/sanitizers/environment.sh; a report fails the test it comes from, also one that
-  # expects SeisSol to stop with an error.
+  # options of scripts/ci/sanitizers/environment.sh; a report fails the test it comes from, also one
+  # that expects SeisSol to stop with an error.
   #
   # Both run all tests but the convergence cases, which run what the smoke cases run, for more
   # steps. The address sanitizer and UBSan run with GCC, in the configurations of the set

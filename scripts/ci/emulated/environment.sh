@@ -6,10 +6,10 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 # The environment that builds SeisSol for another architecture and runs it on QEMU. In bash, with
-# the triplet of the target, the prefix of its libraries (.ci/emulated/dependencies.sh) and the CPU
-# that QEMU emulates, in the syntax of its option -cpu:
+# the triplet of the target, the prefix of its libraries (scripts/ci/emulated/dependencies.sh) and
+# the CPU that QEMU emulates, in the syntax of its option -cpu:
 #
-#   source .ci/emulated/environment.sh riscv64-linux-gnu /opt/cross/riscv64-linux-gnu \
+#   source scripts/ci/emulated/environment.sh riscv64-linux-gnu /opt/cross/riscv64-linux-gnu \
 #     rv64,v=true,vlen=128,vext_spec=v1.0
 #
 # A program of the target starts on QEMU through binfmt_misc, as the qemu-user-static of Ubuntu

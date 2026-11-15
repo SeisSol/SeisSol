@@ -58,7 +58,7 @@ build)
 test)
   # (the thread sanitizer finds the runtime of OpenMP of the compiler by CXX)
   export CXX
-  source .ci/sanitizers/environment.sh
+  source scripts/ci/sanitizers/environment.sh
 
   if [ "${THREADS:-false}" = true ]; then
     # A run of several ranks communicates in a thread of its own, and every run writes its output

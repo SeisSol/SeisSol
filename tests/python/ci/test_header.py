@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Tests for .ci/header.py — the SPDX copyright header enforcer.
+"""Tests for scripts/ci/header.py — the SPDX copyright header enforcer.
 
 This script runs as a pre-commit hook and on every PR. Unlike filename.py
 it has substantial internal logic (regex parsing, Span merging, year
@@ -17,7 +17,7 @@ import pytest  # noqa: F401
 
 SEISSOL_ROOT = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location(
-    "ci_header", SEISSOL_ROOT / ".ci" / "header.py"
+    "ci_header", SEISSOL_ROOT / "scripts" / "ci" / "header.py"
 )
 hdr = importlib.util.module_from_spec(_spec)
 sys.modules["ci_header"] = hdr

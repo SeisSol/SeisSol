@@ -11,7 +11,7 @@
 # runtime. Device code (CUDA, HIP and SYCL kernels) is not instrumented.
 #
 # The sanitizers are configured at runtime, with ASAN_OPTIONS, UBSAN_OPTIONS, LSAN_OPTIONS and
-# TSAN_OPTIONS; .ci/sanitizers holds the options and suppressions the CI runs with.
+# TSAN_OPTIONS; scripts/ci/sanitizers holds the options and suppressions the CI runs with.
 
 if (NOT SANITIZERS)
   return()

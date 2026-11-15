@@ -120,8 +120,8 @@ jobs:
   # as x86 does, more strictly than these targets: a data race that only the weaker ordering lets
   # show stays hidden here, unlike in the aarch64 job on hardware.
   #
-  # The libraries of the target come from .ci/emulated/dependencies.sh, which the cache keeps from
-  # one run to the next.
+  # The libraries of the target come from scripts/ci/emulated/dependencies.sh, which the cache
+  # keeps from one run to the next.
   # ---------------------------------------------------------------------------
   emulated:
     name: emulated<${{ matrix.target.host-arch }}>
@@ -217,7 +217,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ${{ env.CROSS_PREFIX }}
-          key: emulated-${{ matrix.target.triplet }}-${{ hashFiles('.ci/emulated/dependencies.sh', '.ci/emulated/toolchain.cmake') }}
+          key: emulated-${{ matrix.target.triplet }}-${{ hashFiles('scripts/ci/emulated/dependencies.sh', 'scripts/ci/emulated/toolchain.cmake') }}
 
       - name: build-dependencies
         if: ${{ steps.dependencies.outputs.cache-hit != 'true' }}

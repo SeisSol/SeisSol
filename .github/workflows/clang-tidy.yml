@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         # with the set ci-cpu, clang-tidy takes about three and a half times as long as with one
-        # configuration; four jobs share the translation units (TIDY_SHARD of .ci/tidy.sh)
+        # configuration; four jobs share the translation units (TIDY_SHARD of scripts/ci/tidy.sh)
         shard: [0, 1, 2, 3]
     steps:
       - name: apt-get

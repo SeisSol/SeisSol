@@ -10,8 +10,8 @@
 
 # sample command line usage: $0 clang-tidy $SEISSOL_SOURCE_DIR $SEISSOL_BUILD_DIR [$ARGS for clang-tidy]
 # e.g. do, if SEISSOL_BUILD_DIR=$SEISSOL_SOURCE_DIR/build
-# $ cd $SEISSOL_SOURCE_DIR; sh ./.ci/tidy.sh ./ ./build
-# $ cd $SEISSOL_SOURCE_DIR/.ci; sh tidy.sh ../ ../build
+# $ cd $SEISSOL_SOURCE_DIR; sh ./scripts/ci/tidy.sh ./ ./build
+# $ cd $SEISSOL_SOURCE_DIR/scripts/ci; sh tidy.sh ../../ ../../build
 
 format() {
     # add all directories with source files here
@@ -31,7 +31,7 @@ format() {
     shift 2
 
     # check for self
-    if [ ! -f "${SEISSOL_SOURCE_DIR}/.ci/tidy.sh" ]; then
+    if [ ! -f "${SEISSOL_SOURCE_DIR}/scripts/ci/tidy.sh" ]; then
         echo "Please ensure that SEISSOL_SOURCE_DIR is passed as the first argument"
         exit 177
     fi

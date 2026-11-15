@@ -54,7 +54,7 @@ scripts/ci/jobs/sanitizer.sh build && scripts/ci/jobs/sanitizer.sh test
 ```
 
 The builds of the CPU and the GPU run in the images of the CI
-(`seissol/gha-cpu`, `seissol/gha-gpu-nv`, ...; see `.ci/gha-*` and the
+(`seissol/gha-cpu`, `seissol/gha-gpu-nv`, ...; see `images/` here and the
 workflows), which have their dependencies, e.g.:
 
 ```bash

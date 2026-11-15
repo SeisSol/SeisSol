@@ -12,8 +12,8 @@
 #
 # configures build/ as the job of the CPU (ci-cpu) or the GPU (ci-gpu with AdaptiveCpp and
 # TensorForge) does, generates the code and checks one part of the translation units with
-# .ci/tidy.sh (all of them without a part). Its output goes to build/tidy-output.txt as well, its
-# findings to build/tidy-findings.txt.
+# scripts/ci/tidy.sh (all of them without a part). Its output goes to build/tidy-output.txt as well,
+# its findings to build/tidy-findings.txt.
 #
 #   CLANG_TIDY          the clang-tidy to run (default: clang-tidy-23)
 #   CMAKE_PREFIX_PATH   where the dependencies are (cpu; default: /opt/dependencies)
@@ -53,8 +53,8 @@ gpu)
 esac
 
 status=0
-TIDY_SHARD="${part}" ../.ci/tidy.sh ../ ./ -clang-tidy-binary="${clang_tidy}" -quiet -j "$(ci_cpus)" \
-  2>&1 | tee tidy-output.txt || status=$?
+TIDY_SHARD="${part}" ../scripts/ci/tidy.sh ../ ./ -clang-tidy-binary="${clang_tidy}" -quiet \
+  -j "$(ci_cpus)" 2>&1 | tee tidy-output.txt || status=$?
 # the findings, without the lines of their context
 grep -E "(warning|error): " tidy-output.txt | sort -u > tidy-findings.txt || true
 exit "${status}"

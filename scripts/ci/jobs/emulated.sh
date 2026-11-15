@@ -7,7 +7,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 # The emulated jobs (emulated in .github/workflows/architectures.yml): SeisSol cross-compiled for
-# another architecture, and its tests run with qemu-user (see .ci/emulated):
+# another architecture, and its tests run with qemu-user (see scripts/ci/emulated):
 #
 #   scripts/ci/jobs/emulated.sh dependencies   builds the libraries of the target into CROSS_PREFIX
 #   scripts/ci/jobs/emulated.sh easi           builds easi (checked out in easi/) into it
@@ -29,12 +29,12 @@ cd "${SEISSOL_CI_ROOT}"
 
 CROSS_PREFIX="${CROSS_PREFIX:-/opt/cross/${TRIPLET}}"
 # the cross compilation and qemu for the target
-source .ci/emulated/environment.sh "${TRIPLET}" "${CROSS_PREFIX}" "${QEMU_CPU}"
-toolchain="$(pwd)/.ci/emulated/toolchain.cmake"
+source scripts/ci/emulated/environment.sh "${TRIPLET}" "${CROSS_PREFIX}" "${QEMU_CPU}"
+toolchain="$(pwd)/scripts/ci/emulated/toolchain.cmake"
 
 case "${1:-}" in
 dependencies)
-  .ci/emulated/dependencies.sh "${TRIPLET}" "${CROSS_PREFIX}"
+  scripts/ci/emulated/dependencies.sh "${TRIPLET}" "${CROSS_PREFIX}"
   ;;
 easi)
   # next to the other libraries of the target, after the cache has kept those
