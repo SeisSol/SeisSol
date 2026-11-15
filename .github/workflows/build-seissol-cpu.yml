@@ -102,6 +102,21 @@ jobs:
             --max-parallel ${{ matrix.setup.parallel-builds }} \
             --report build-report.json
 
+      # what a failed build or test leaves behind, for a look without logging in to GitHub (see
+      # scripts/ci/status.py): the log of the build, the results of the tests and their output
+      - name: upload-logs
+        uses: actions/upload-artifact@v7
+        if: ${{ failure() && steps.build.outcome == 'failure' }}
+        with:
+          name: logs-${{matrix.build_type}}-${{matrix.arch}}-${{matrix.setup.name}}
+          path: |
+            build/*/build.log
+            build/*/ctest-results.xml
+            build/*/Testing/Temporary/LastTest*.log
+            build/*/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: upload-build-report
         uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}

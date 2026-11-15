@@ -59,7 +59,7 @@ build)
   ;;
 test)
   cd build
-  ctest -j --rerun-failed --output-on-failure
+  ctest -j --rerun-failed --output-on-failure --output-junit junit.xml
   ;;
 *)
   echo "usage: $0 build|test" >&2

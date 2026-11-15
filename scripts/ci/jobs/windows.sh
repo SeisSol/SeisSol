@@ -86,7 +86,7 @@ test)
   PATH="$(cygpath -u "${DEPS}/hdf5/bin"):${PATH}:$(cygpath -u "${MSMPI_BIN}")"
   export PATH
   cd build
-  ctest -j --rerun-failed --output-on-failure
+  ctest -j --rerun-failed --output-on-failure --output-junit junit.xml
   ;;
 *)
   echo "usage: $0 hdf5|easi|build|test" >&2
