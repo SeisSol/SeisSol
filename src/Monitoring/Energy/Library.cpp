@@ -8,14 +8,21 @@
 #include "Library.h"
 
 #include <cstdlib>
-#include <dlfcn.h>
 #include <optional>
 #include <string>
 #include <vector>
 
+#ifndef _WIN32
+#include <dlfcn.h>
+#endif
+
 namespace seissol::monitoring::energy {
 
 std::optional<Library> Library::open(const std::vector<std::string>& names) {
+#ifdef _WIN32
+  // the names are those of Linux; the nodes that SeisSol measures the energy of run it
+  static_cast<void>(names);
+#else
   for (const auto& name : names) {
     // NOLINTNEXTLINE(hicpp-signed-bitwise)
     void* handle = dlopen(name.c_str(), RTLD_NOW | RTLD_LOCAL);
@@ -23,10 +30,18 @@ std::optional<Library> Library::open(const std::vector<std::string>& names) {
       return Library(handle, name);
     }
   }
+#endif
   return {};
 }
 
-void* Library::symbol(const char* name) const { return dlsym(handle_, name); }
+void* Library::symbol(const char* name) const {
+#ifdef _WIN32
+  static_cast<void>(name);
+  return nullptr;
+#else
+  return dlsym(handle_, name);
+#endif
+}
 
 std::vector<std::string> rocmLibraryNames(const std::string& name) {
   std::vector<std::string> names{name};
