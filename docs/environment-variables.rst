@@ -131,9 +131,11 @@ overlap gains.
 layers hold fewer than ``n`` cells together: the cluster then computes all its cells in one go, and
 its interior no longer overlaps the halo exchange. ``SEISSOL_ICCOMBINE=auto`` takes for ``n`` the
 number of cells below which a step of the cell kernels costs more by its fixed part than by its cells
-on this machine: before the time stepping, the proxy times such steps with 64, 16384 and 65536 cells
-on every rank, and the log reports the median over the ranks it takes (on GPUs only; on CPUs, ``auto``
-combines nothing). By default (``0``), nothing is combined. The log reports how many clusters were
+on this machine, for each configuration of the run on its own (a cell of a lower order costs less,
+while the fixed part of a layer is much the same): before the time stepping, the proxy times such steps
+with 64, 8192 and 32768 cells on every rank, and the log reports the median over the ranks it takes
+(on GPUs only; on CPUs, ``auto`` combines nothing). A number applies to the layers of all
+configurations. By default (``0``), nothing is combined. The log reports how many clusters were
 combined.
 
 The fault faces of a cluster are combined the other way round: the faces of the copy layer, which

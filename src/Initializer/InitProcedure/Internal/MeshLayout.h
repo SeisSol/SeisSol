@@ -34,12 +34,14 @@ struct CombinedLayers {
 
 /**
  * Moves the interior cells of each time cluster behind its copy cells, into the copy layer, where
- * the two layers hold fewer than `threshold` cells together: then the cluster computes them in one
- * go instead of two smaller ones, and gives up overlapping its interior with the halo exchange.
+ * the two layers hold fewer cells together than the threshold of their configuration
+ * (`thresholds`, indexed by the configuration; none past its end): then the cluster computes them
+ * in one go instead of two smaller ones, and gives up overlapping its interior with the halo
+ * exchange.
  */
 CombinedLayers combineCopyInterior(std::vector<ClusterMap>& map,
                                    const LTSColorMap& colormap,
-                                   std::size_t threshold);
+                                   const std::vector<std::size_t>& thresholds);
 
 std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& color,
                                                const std::vector<std::size_t>& ghostColor,

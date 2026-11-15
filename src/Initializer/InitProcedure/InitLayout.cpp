@@ -212,31 +212,38 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Creating mesh layout...";
 
-  // SEISSOL_ICCOMBINE: a number of cells, or "auto" for the size below which a layer costs more by
-  // its fixed part than by its cells on this machine (see layerCombineThreshold)
-  const auto cellThreshold = [&]() -> std::size_t {
-    const auto setting = seissolInstance.env().get<std::string>("ICCOMBINE", "0");
-    if (setting == "auto") {
-      return solver::layerCombineThreshold(model.configs().front());
+  // SEISSOL_ICCOMBINE: a number of cells for the layers of all configurations, or "auto" for the
+  // size below which a layer of each configuration costs more by its fixed part than by its cells
+  // on this machine (see layerCombineThreshold): with several configurations, a cell of each costs
+  // differently, while the fixed part of a layer is much the same
+  const auto combineSetting = seissolInstance.env().get<std::string>("ICCOMBINE", "0");
+  const auto cellThresholds = [&]() {
+    std::vector<std::size_t> thresholds(builtConfigCount(), 0);
+    if (combineSetting == "auto") {
+      for (const auto config : model.configs()) {
+        thresholds[config] = solver::layerCombineThreshold(config);
+      }
+      return thresholds;
     }
     try {
-      return std::stoull(setting);
+      std::ranges::fill(thresholds, std::stoull(combineSetting));
     } catch (const std::exception&) {
-      logError() << "SEISSOL_ICCOMBINE has to be a number of cells or auto, not" << setting;
-      return 0;
+      logError() << "SEISSOL_ICCOMBINE has to be a number of cells or auto, not" << combineSetting;
     }
+    return thresholds;
   }();
+  const bool combineCells =
+      std::ranges::any_of(cellThresholds, [](std::size_t threshold) { return threshold > 0; });
   internal::CombinedLayers combinedCells;
   const auto meshLayout = [&]() {
     auto meshLayoutPre = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
-    if (cellThreshold > 0) {
-      combinedCells = internal::combineCopyInterior(meshLayoutPre, colorMap, cellThreshold);
+    if (combineCells) {
+      combinedCells = internal::combineCopyInterior(meshLayoutPre, colorMap, cellThresholds);
       auto moved = combinedCells.moved;
       MPI_Allreduce(
           MPI_IN_PLACE, &moved, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
       logInfo() << "Combined the copy and interior cells of" << moved
-                << "clusters over all ranks (fewer than" << cellThreshold
-                << "cells together, SEISSOL_ICCOMBINE).";
+                << "clusters over all ranks (SEISSOL_ICCOMBINE=" << combineSetting << ").";
     }
     return meshLayoutPre;
   }();
@@ -447,8 +454,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     // by default, the faces of a cluster follow its cells: once the interior cells wait for the
     // halo with the copy cells, nothing is lost by letting the interior faces wait for it as well
     const auto faceThreshold = seissolInstance.env().getOptional<std::size_t>("ICCOMBINE_DR");
-    const bool combineFaces =
-        faceThreshold.has_value() ? faceThreshold.value() > 0 : cellThreshold > 0;
+    const bool combineFaces = faceThreshold.has_value() ? faceThreshold.value() > 0 : combineCells;
     if (combineFaces) {
       const auto combine =
           faceThreshold.has_value()

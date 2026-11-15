@@ -81,9 +81,11 @@ auto layerCombineThreshold(ConfigId config) -> std::size_t {
     return 0;
   }
   // a device that has been idle raises its clocks only under load (see miniSeisSol)
+  // the devices measured so far (November 2026) fill up below 2000 cells, so the time per cell
+  // comes from two sizes well above that, which stay small next to the memory of a device
   constexpr unsigned SmallCells = 64;
-  constexpr unsigned MediumCells = 16384;
-  constexpr unsigned LargeCells = 65536;
+  constexpr unsigned MediumCells = 8192;
+  constexpr unsigned LargeCells = 32768;
   auto warmup = costProxyConfig(config, LargeCells);
   warmup.timesteps = 1;
   warmup.warmup = 0.3;
@@ -99,9 +101,10 @@ auto layerCombineThreshold(ConfigId config) -> std::size_t {
   const auto summary = statistics::parallelSummary(cells);
   cells = summary.median;
   Mpi::mpi.broadcast(&cells, 0);
-  logInfo() << "A step of the cell kernels takes" << fixedTime * 1e6 << "us with" << SmallCells
-            << "cells, and" << cellTime * 1e9 << "ns per further cell: below" << cells
-            << "cells (median over the ranks; min" << summary.min << ", max" << summary.max
+  logInfo() << "A step of the cell kernels of" << configName(configValue(config)) << "takes"
+            << fixedTime * 1e6 << "us with" << SmallCells << "cells, and" << cellTime * 1e9
+            << "ns per further cell: below" << cells << "cells (median over the ranks; min"
+            << summary.min << ", max" << summary.max
             << "), its fixed part weighs more than its cells.";
   return static_cast<std::size_t>(cells);
 }

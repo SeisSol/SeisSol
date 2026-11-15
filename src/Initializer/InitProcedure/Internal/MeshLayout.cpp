@@ -138,7 +138,7 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
 
 CombinedLayers combineCopyInterior(std::vector<ClusterMap>& map,
                                    const LTSColorMap& colormap,
-                                   std::size_t threshold) {
+                                   const std::vector<std::size_t>& thresholds) {
   const auto colorAdjust = [&](std::size_t color, HaloType halo) {
     auto id = colormap.argument(color);
     id.halo = halo;
@@ -154,6 +154,8 @@ CombinedLayers combineCopyInterior(std::vector<ClusterMap>& map,
 
       const auto copySize = map[copyLayer].cellMap.size();
       const auto interiorSize = map[interiorLayer].cellMap.size();
+      const auto config = colormap.argument(i).config;
+      const auto threshold = config < thresholds.size() ? thresholds[config] : 0;
 
       if (copySize + interiorSize < threshold) {
         // the interior cells go behind the copy cells: the send regions only cover the leading
