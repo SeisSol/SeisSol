@@ -561,7 +561,7 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
   for (const auto& element : elements) {
     globalMinTimestep = std::min(globalMinTimestep, element.timestep);
   }
-  MPI_Allreduce(MPI_IN_PLACE, &globalMinTimestep, 1, MPI_DOUBLE, MPI_MIN, seissol::Mpi::mpi.comm());
+  globalMinTimestep = seissol::Mpi::mpi.allreduce(globalMinTimestep, MPI_MIN);
   CHECK(globalMinTimestep > 0.0);
 
   // (1) enforceMaximumDifference() and enforceMaxClusterId() only ever move cells to a

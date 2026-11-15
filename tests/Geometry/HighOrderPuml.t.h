@@ -110,13 +110,8 @@ TEST_CASE("PUMLReader reads straight-sided cells of a higher order as cells of t
   // the reader takes the mesh, and forgets the nodes beyond the vertices
   const auto reader =
       vertexorderinvariancetest::readMesh("Testing/cube2-o2-straight.h5", "None", seissolInstance);
-  std::uint64_t cells = reader->getElements().size();
-  MPI_Allreduce(MPI_IN_PLACE,
-                &cells,
-                1,
-                seissol::Mpi::castToMpiType<std::uint64_t>(),
-                MPI_SUM,
-                seissol::Mpi::mpi.comm());
+  const std::uint64_t cells =
+      seissol::Mpi::mpi.allreduce<std::uint64_t>(reader->getElements().size(), MPI_SUM);
   CHECK(cells == 48);
 
   std::cout.clear();

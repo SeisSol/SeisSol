@@ -108,7 +108,7 @@ inline void writeMesh(const std::string& file, BoundaryFormat format, hid_t file
     H5Fclose(target);
     H5Fclose(source);
   }
-  MPI_Barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
 }
 
 /// whether every face of every local cell of a mesh has the tag of tagOf
@@ -161,7 +161,7 @@ TEST_CASE("PUMLReader reads the boundary condition tags whatever integer type th
     const auto clone = mesh.clone();
     CHECK(pumlboundarytest::hasTheTags(clone, arrays.rebasedTo(clone)));
 
-    MPI_Barrier(seissol::Mpi::mpi.comm());
+    seissol::Mpi::mpi.barrier();
     if (seissol::Mpi::mpi.rank() == 0) {
       static_cast<void>(std::remove(file.c_str()));
     }
