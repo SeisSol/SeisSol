@@ -154,7 +154,7 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
   size_t integratedDofsAddressCounter_{0};
 
   // the canonical forms, in the same precision for all configurations
-  using Canonical = typename generated::ConfigBoundaryKernels<Cfg>::CanonicalReal;
+  using Canonical = generated::ConfigBoundaryKernels<Cfg>::CanonicalReal;
 
   // per configuration of the neighbors
   struct ConfigBoundaryBatches {

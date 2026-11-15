@@ -81,7 +81,7 @@ constexpr bool Convertible =
 /// The precision of the canonical forms of all families: double if a configuration of the build
 /// computes in double precision, single otherwise.
 template <typename Cfg>
-using CanonicalReal = typename generated::ConfigBoundaryKernels<Cfg>::CanonicalReal;
+using CanonicalReal = generated::ConfigBoundaryKernels<Cfg>::CanonicalReal;
 
 /// Whether the conversion of Convertible exists on the device as well.
 template <typename Cfg, typename NeighborCfg>
