@@ -20,13 +20,39 @@
 #include <Eigen/Core>
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <mpi.h>
-#include <utility>
 #include <vector>
 
 namespace seissol::initializer {
+
+CellPlanes::CellPlanes(const std::array<const CoordinateT*, Cell::NumVertices>& vertices) {
+  for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+    // as MeshTools::normal and MeshTools::pointOnPlane give them for a cell of a MeshReader
+    const auto& first = *vertices[MeshTools::FACE2NODES[face][0]];
+    CoordinateT ab{};
+    CoordinateT ac{};
+    MeshTools::sub(*vertices[MeshTools::FACE2NODES[face][1]], first, ab);
+    MeshTools::sub(*vertices[MeshTools::FACE2NODES[face][2]], first, ac);
+    CoordinateT n{};
+    MeshTools::cross(ab, ac, n);
+
+    for (std::size_t i = 0; i < Cell::Dim; ++i) {
+      equations_[i][face] = n[i];
+    }
+    equations_[Cell::Dim][face] = -MeshTools::dot(n, first);
+    normLengths_[face] = std::sqrt(MeshTools::dot(n, n));
+  }
+
+  // The normals are not normalized, their length is twice the area of the face; hence the square
+  // root of the largest one is about the edge length of the cell. What lies within a small
+  // fraction of it from a face is on that face as far as round-off can tell.
+  onFace_ = 1e-8 * std::sqrt(*std::ranges::max_element(normLengths_));
+}
 
 std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
                                     const seissol::geometry::MeshReader& mesh,
@@ -37,81 +63,78 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
   const auto& vertices = mesh.getVertices();
   const auto& elements = mesh.getElements();
 
-  auto points1 = std::vector<std::array<double, Cell::Dim + 1>>(numPoints);
+  auto points1 = std::vector<CellPlanes::Point>(numPoints);
   for (std::size_t point = 0; point < numPoints; ++point) {
-    for (std::size_t c = 0; c < Cell::Dim; ++c) {
-      points1[point][c] = points[point](c);
-    }
-    points1[point][Cell::Dim] = 1.0;
+    points1[point] = CellPlanes::homogeneous(points[point]);
   }
 
-  const auto rank = seissol::Mpi::mpi.rank();
+  // A point may lie in more than one cell: on a face or an edge the cells meet at, or within the
+  // tolerance of several of them. The cell that is taken must not depend on which thread got to it
+  // first, nor on how the mesh is partitioned, so the candidates are ranked by a key that is the
+  // same wherever they are looked at:
+  //   - a cell that holds the point up to round-off has the key zero; all of them are alike,
+  //   - a cell that holds it only within the tolerance has the key by which it misses the point,
+  //   - between cells of the same key, the one with the smallest global id wins.
+  struct Candidate {
+    double key{std::numeric_limits<double>::infinity()};
+    std::size_t globalId{std::numeric_limits<std::size_t>::max()};
+  };
+  const auto better = [](const Candidate& a, const Candidate& b) {
+    return a.key < b.key || (a.key == b.key && a.globalId < b.globalId);
+  };
 
-  std::vector<std::pair<double, int>> score(
-      numPoints, std::pair<double, int>(std::numeric_limits<double>::infinity(), rank));
+  std::vector<Candidate> best(numPoints);
 
+  // an index loop; OpenMP loop constructs take range-based loops only from OpenMP 5.0 on
 #pragma omp parallel for schedule(static)
+  // NOLINTNEXTLINE(modernize-loop-convert)
   for (std::size_t elem = 0; elem < elements.size(); ++elem) {
-    auto planeEquations = std::array<std::array<double, Cell::Dim + 1>, Cell::Dim + 1>();
-    for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      VrtxCoords n{};
-      VrtxCoords p{};
-      MeshTools::pointOnPlane(elements[elem], face, vertices, p);
-      MeshTools::normal(elements[elem], face, vertices, n);
+    const auto& element = elements[elem];
+    const CellPlanes planes({&vertices[element.vertices[0]].coords,
+                             &vertices[element.vertices[1]].coords,
+                             &vertices[element.vertices[2]].coords,
+                             &vertices[element.vertices[3]].coords});
 
-      for (std::size_t i = 0; i < Cell::Dim; ++i) {
-        planeEquations[i][face] = n[i];
-      }
-      planeEquations[Cell::Dim][face] = -MeshTools::dot(n, p);
-    }
     for (std::size_t point = 0; point < numPoints; ++point) {
-      // geometric Interpretation (up to numerical errors, hence tolerance parameter):
-      // resultFace < 0: The point is inside the face (half-space).
-      // resultFace = 0: The point is exactly on the face.
-      // resultFace > 0: The point is outside the face.
+      const auto fit = planes.fit(points1[point]);
 
-      // we look for the face, where resultFace is the largest; i.e. the face that will the best
-      // "invalidate" our membership in the cell. We also use that value as a tie breaker
-      // if we find a point to be in multiple cells due to the tolerance parameter or numerical
-      // inaccuracies.
-
-      // NOLINTNEXTLINE
-      double maxValue = -std::numeric_limits<double>::infinity();
-
-#pragma omp simd reduction(max : maxValue)
-      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-
-        double resultFace = 0;
-        for (std::size_t dim = 0; dim < Cell::Dim + 1; ++dim) {
-          resultFace += planeEquations[dim][face] * points1[point][dim];
-        }
-        maxValue = std::max(maxValue, resultFace);
-      }
-
-      if (maxValue <= tolerance) {
+      if (fit.value <= tolerance) {
         // meaning: we're below tolerance to consider the cell
+        const Candidate candidate{.key = planes.key(fit), .globalId = element.globalId};
 
 #pragma omp critical
         {
-          // minimize the maxValue
-          const auto localId = static_cast<std::size_t>(elements[elem].localId);
-          if (score[point].first > maxValue) {
-            score[point] = std::pair<double, int>{maxValue, rank};
-            meshIds[point] = localId;
+          if (better(candidate, best[point])) {
+            best[point] = candidate;
+            meshIds[point] = element.localId;
           }
         }
       }
     }
   }
 
-  // now reduce over all ranks for the best fit (not only duplicate ranks)
+  // now reduce over all ranks for the best fit: first the key, then the global id among the cells
+  // that share the best key
 
-  Mpi::mpi.allreduceContainer(score, MPI_MINLOC);
+  std::vector<double> keys(numPoints);
+  for (std::size_t point = 0; point < numPoints; ++point) {
+    keys[point] = best[point].key;
+  }
+  seissol::Mpi::mpi.allreduceContainer(keys, MPI_MIN);
+
+  std::vector<std::uint64_t> globalIds(numPoints);
+  for (std::size_t point = 0; point < numPoints; ++point) {
+    globalIds[point] = best[point].key == keys[point]
+                           ? static_cast<std::uint64_t>(best[point].globalId)
+                           : std::numeric_limits<std::uint64_t>::max();
+  }
+  seissol::Mpi::mpi.allreduceContainer(globalIds, MPI_MIN);
 
   std::vector<bool> contained(numPoints);
   for (std::size_t i = 0; i < numPoints; ++i) {
-    contained[i] =
-        score[i].second == rank && score[i].first < std::numeric_limits<double>::infinity();
+    contained[i] = best[i].key < std::numeric_limits<double>::infinity() &&
+                   best[i].key == keys[i] &&
+                   static_cast<std::uint64_t>(best[i].globalId) == globalIds[i];
   }
   return contained;
 }

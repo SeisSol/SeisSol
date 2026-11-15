@@ -14,15 +14,21 @@
 #include "Kernels/Common.h"
 
 #include <cassert>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
-#include <stdlib.h>
+// posix_memalign is POSIX and only declared by the C header
+#include <stdlib.h> // NOLINT(modernize-deprecated-headers)
 #include <type_traits>
 #include <utils/logger.h>
 #include <vector>
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
+#endif
+
+#ifdef _WIN32
+#include <malloc.h>
 #endif
 
 // TODO: add Device/#48; then refactor away most ifdefs in this file
@@ -33,6 +39,35 @@ constexpr bool HasHBM = true;
 #else
 constexpr bool HasHBM = false;
 #endif
+
+// Windows has no posix_memalign; there, memory with an alignment needs to come from _aligned_malloc
+// and be returned via _aligned_free. Hence, all standard allocations go through the latter there
+// (also those which do not need an alignment) to keep the deallocation uniform.
+void* allocateStandard(size_t size, size_t alignment) {
+#ifdef _WIN32
+  const size_t windowsAlignment =
+      (alignment % sizeof(void*) != 0) ? alignof(std::max_align_t) : alignment;
+  return _aligned_malloc(size, windowsAlignment);
+#else
+  if (alignment % (sizeof(void*)) != 0) {
+    return malloc(size);
+  } else {
+    void* ptrBuffer{nullptr};
+    if (posix_memalign(&ptrBuffer, alignment, size) != 0) {
+      return nullptr;
+    }
+    return ptrBuffer;
+  }
+#endif
+}
+
+void freeStandard(void* pointer) {
+#ifdef _WIN32
+  _aligned_free(pointer);
+#else
+  ::free(pointer);
+#endif
+}
 } // namespace
 
 namespace seissol::memory {
@@ -59,12 +94,8 @@ void* allocate(size_t size, size_t alignment, Memkind memkind) {
   }
 
   if (memkind == Memkind::Standard) {
-    if (alignment % (sizeof(void*)) != 0) {
-      ptrBuffer = malloc(size);
-      error = (ptrBuffer == nullptr);
-    } else {
-      error = (posix_memalign(&ptrBuffer, alignment, size) != 0);
-    }
+    ptrBuffer = allocateStandard(size, alignment);
+    error = (ptrBuffer == nullptr);
   } else if (memkind == Memkind::HighBandwidth) {
 #ifdef USE_MEMKIND
     if (alignment % (sizeof(void*)) != 0) {
@@ -76,17 +107,17 @@ void* allocate(size_t size, size_t alignment, Memkind memkind) {
 #endif
   } else if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size);
+    ptrBuffer = device::DeviceInstance::instance().api().allocGlobMem(size);
 #endif
   } else if (memkind == Memkind::DeviceUnifiedMemory) {
 #ifdef ACL_DEVICE
-    ptrBuffer = device::DeviceInstance::getInstance().api->allocUnifiedMem(size);
+    ptrBuffer = device::DeviceInstance::instance().api().allocUnifiedMem(size);
 #endif
   } else if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
-    ptrBuffer = device::DeviceInstance::getInstance().api->allocPinnedMem(size);
+    ptrBuffer = device::DeviceInstance::instance().api().allocPinnedMem(size);
   } else if (memkind == Memkind::DeviceGlobalCompressed) {
-    ptrBuffer = device::DeviceInstance::getInstance().api->allocGlobMem(size, true);
+    ptrBuffer = device::DeviceInstance::instance().api().allocGlobMem(size, true);
 #endif
   } else {
     logError() << "unknown memkind type used ("
@@ -113,24 +144,24 @@ void free(void* pointer, Memkind memkind) {
   }
 
   if (memkind == Memkind::Standard) {
-    ::free(pointer);
+    freeStandard(pointer);
   } else if (memkind == Memkind::HighBandwidth) {
 #ifdef USE_MEMKIND
     hbw_free(pointer);
 #endif
   } else if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
+    device::DeviceInstance::instance().api().freeGlobMem(pointer);
 #endif
   } else if (memkind == Memkind::DeviceUnifiedMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->freeUnifiedMem(pointer);
+    device::DeviceInstance::instance().api().freeUnifiedMem(pointer);
 #endif
   } else if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->freePinnedMem(pointer);
+    device::DeviceInstance::instance().api().freePinnedMem(pointer);
   } else if (memkind == Memkind::DeviceGlobalCompressed) {
-    device::DeviceInstance::getInstance().api->freeGlobMem(pointer);
+    device::DeviceInstance::instance().api().freeGlobMem(pointer);
 #endif
   } else {
     logError() << "unknown memkind type used ("
@@ -140,19 +171,24 @@ void free(void* pointer, Memkind memkind) {
 }
 
 void memcopy(void* dst, const void* src, std::size_t size, Memkind dstMemkind, Memkind srcMemkind) {
+  // nothing to copy, e.g. from an empty array, whose pointer may be null, which std::memcpy must
+  // not get even then
+  if (size == 0) {
+    return;
+  }
   if (dstMemkind == Memkind::DeviceGlobalMemory && srcMemkind != Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->copyTo(dst, src, size);
+    device::DeviceInstance::instance().api().copyTo(dst, src, size);
 #endif
   } else if (dstMemkind != Memkind::DeviceGlobalMemory &&
              srcMemkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->copyFrom(dst, src, size);
+    device::DeviceInstance::instance().api().copyFrom(dst, src, size);
 #endif
   } else if (dstMemkind == Memkind::DeviceGlobalMemory &&
              srcMemkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    device::DeviceInstance::getInstance().api->copyBetween(dst, src, size);
+    device::DeviceInstance::instance().api().copyBetween(dst, src, size);
 #endif
   } else {
     std::memcpy(dst, src, size);
@@ -160,12 +196,16 @@ void memcopy(void* dst, const void* src, std::size_t size, Memkind dstMemkind, M
 }
 
 void memzero(void* dst, std::size_t size, enum Memkind memkind) {
+  // (as for memcopy)
+  if (size == 0) {
+    return;
+  }
   if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
-    auto* defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();
-    device::DeviceInstance::getInstance().algorithms.fillArray(
+    auto* defaultStream = device::DeviceInstance::instance().api().getDefaultStream();
+    device::DeviceInstance::instance().algorithms().fillArray(
         reinterpret_cast<char*>(dst), static_cast<char>(0), size, defaultStream);
-    device::DeviceInstance::getInstance().api->syncDefaultStreamWithHost();
+    device::DeviceInstance::instance().api().syncDefaultStreamWithHost();
 #else
     assert(false);
 #endif
@@ -180,7 +220,7 @@ void* hostToDevicePointer(void* host, enum Memkind memkind) {
   }
   if (memkind == Memkind::PinnedMemory) {
 #ifdef ACL_DEVICE
-    return device::DeviceInstance::getInstance().api->devicePointer(host);
+    return device::DeviceInstance::instance().api().devicePointer(host);
 #else
     return host;
 #endif
@@ -191,8 +231,8 @@ void* hostToDevicePointer(void* host, enum Memkind memkind) {
 
 void printMemoryAlignment(const std::vector<std::vector<unsigned long long>>& memoryAlignment) {
   logDebug() << "Printing memory alignment per struct";
-  for (unsigned long long i = 0; i < memoryAlignment.size(); i++) {
-    logDebug() << memoryAlignment[i][0] << "," << memoryAlignment[i][1];
+  for (const auto& alignment : memoryAlignment) {
+    logDebug() << alignment[0] << "," << alignment[1];
   }
 }
 

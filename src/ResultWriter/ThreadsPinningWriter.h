@@ -12,20 +12,22 @@
 #include "Parallel/SystemInfo.h"
 
 #include <string>
+#include <utility>
 #include <utils/env.h>
 #include <vector>
 
 namespace seissol::writer {
 class ThreadsPinningWriter {
   public:
-  explicit ThreadsPinningWriter(const std::string& outputDirectory)
-      : outputDirectory_(outputDirectory) {}
+  ThreadsPinningWriter(std::string outputDirectory, std::string runId)
+      : outputDirectory_(std::move(outputDirectory)), runId_(std::move(runId)) {}
   void write(const seissol::parallel::Pinning& pinning,
              utils::Env& env,
              const SystemInfo& systemInfo);
 
   private:
   std::string outputDirectory_;
+  std::string runId_;
 };
 } // namespace seissol::writer
 

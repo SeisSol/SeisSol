@@ -1,0 +1,16 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include <doctest.h>
+
+#include "MPI/Collectives.t.h"
+#include "MPI/Distribution.t.h"
+#include "MPI/HaloCheck.t.h"
+#include "MPI/MeasuredCosts.t.h"
+#include "MPI/ParallelStatistics.t.h"
+#include "MPI/StagedMpiHaloTransport.t.h"
+#include "MPI/Trace.t.h"

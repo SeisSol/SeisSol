@@ -7,9 +7,10 @@
 
 #include "DRParameters.h"
 
+#include "Common/ConfigRegistry.h"
+#include "DynamicRupture/Misc.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
-#include "Kernels/Precision.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
 #include <array>
@@ -20,10 +21,14 @@
 #include <optional>
 #include <string>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
-DRParameters readDRParameters(ParameterReader* baseReader) {
+DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
+  using seissol::dr::misc::FrictionLawType;
+  constexpr auto MaxNucleations = seissol::dr::MaxNucleations;
+
   auto* reader = baseReader->readSubNode("dynamicrupture");
 
   const double xref = reader->readWithDefault("xref", 0.0);
@@ -57,9 +62,13 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
        FrictionLawType::ImposedSlipRatesDelta,
        FrictionLawType::RateAndStateSevereVelocityWeakening,
        FrictionLawType::RateAndStateAgingNucleation});
+  if (frictionLawType == FrictionLawType::RateAndStateAgingNucleation) {
+    logError() << "friction law 101 currently disabled";
+  }
   if (frictionLawType == FrictionLawType::LinearSlipWeakeningLegacy) {
     logWarning() << "Using FL=2 for the linear slip weakening friction law is deprecated; consider "
                     "switching it to FL=16";
+    frictionLawType = FrictionLawType::LinearSlipWeakening;
   }
   auto slipRateOutputType = reader->readWithDefaultEnum<SlipRateOutputType>(
       "sliprateoutputtype",
@@ -75,22 +84,22 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   }
   const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
   const auto healingThreshold =
-      static_cast<real>(reader->readWithDefault("lsw_healingthreshold", -1.0));
+      static_cast<double>(reader->readWithDefault("lsw_healingthreshold", -1.0));
   const auto nucleationCount = reader->readWithDefault("nucleationcount", 1U);
-  if (nucleationCount > MaxNucleactions) {
+  if (nucleationCount > MaxNucleations) {
     logError() << "You requested more nucleations than supported by this build of SeisSol. Either "
                   "adjust that yourself, or complain to the developers. :)";
   }
-  std::array<real, MaxNucleactions> t0{};
-  std::array<real, MaxNucleactions> s0{};
+  std::array<double, MaxNucleations> t0{};
+  std::array<double, MaxNucleations> s0{};
   for (std::uint32_t i = 0; i < nucleationCount; ++i) {
     const std::string t0name = i == 0 ? "t_0" : ("t" + std::to_string(i + 1) + "_0");
-    t0[i] = static_cast<real>(reader->readWithDefault(t0name, 0.0));
+    t0[i] = static_cast<double>(reader->readWithDefault(t0name, 0.0));
     const std::string s0name = i == 0 ? "s_0" : ("s" + std::to_string(i + 1) + "_0");
-    s0[i] = static_cast<real>(reader->readWithDefault(s0name, 0.0));
+    s0[i] = static_cast<double>(reader->readWithDefault(s0name, 0.0));
   }
   const auto tpProxyExponent =
-      static_cast<real>(reader->readWithDefault("tpproxyexponent", 1. / 3.));
+      static_cast<double>(reader->readWithDefault("tpproxyexponent", 1. / 3.));
 
   const bool isRateAndState =
       (frictionLawType == FrictionLawType::RateAndStateAgingLaw) or
@@ -98,34 +107,35 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       (frictionLawType == FrictionLawType::RateAndStateSevereVelocityWeakening) or
       (frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
 
-  const auto rsF0 = reader->readIfRequired<real>("rs_f0", isRateAndState);
-  const auto rsB = reader->readIfRequired<real>("rs_b", isRateAndState);
-  const auto rsSr0 = reader->readIfRequired<real>("rs_sr0", isRateAndState);
-  const auto rsInitialSlipRate1 = reader->readIfRequired<real>("rs_inisliprate1", isRateAndState);
-  const auto rsInitialSlipRate2 = reader->readIfRequired<real>("rs_inisliprate2", isRateAndState);
+  const auto rsF0 = reader->readIfRequired<double>("rs_f0", isRateAndState);
+  const auto rsB = reader->readIfRequired<double>("rs_b", isRateAndState);
+  const auto rsSr0 = reader->readIfRequired<double>("rs_sr0", isRateAndState);
+  const auto rsInitialSlipRate1 = reader->readIfRequired<double>("rs_inisliprate1", isRateAndState);
+  const auto rsInitialSlipRate2 = reader->readIfRequired<double>("rs_inisliprate2", isRateAndState);
 
-  const auto muW = reader->readIfRequiredAlternatives<real>(
+  const auto muW = reader->readIfRequiredAlternatives<double>(
       {"rs_muw", "mu_w"}, frictionLawType == FrictionLawType::RateAndStateFastVelocityWeakening);
 
-  const auto thermalDiffusivity = reader->readIfRequiredAlternatives<real>(
+  const auto thermalDiffusivity = reader->readIfRequiredAlternatives<double>(
       {"tp_thermaldiffusivity", "alpha_th"}, isThermalPressureOn);
   const auto heatCapacity =
-      reader->readIfRequiredAlternatives<real>({"tp_heatcapacity", "rho_c"}, isThermalPressureOn);
-  const auto undrainedTPResponse = reader->readIfRequiredAlternatives<real>(
+      reader->readIfRequiredAlternatives<double>({"tp_heatcapacity", "rho_c"}, isThermalPressureOn);
+  const auto undrainedTPResponse = reader->readIfRequiredAlternatives<double>(
       {"tp_undrainedtpresponse", "tp_lambda"}, isThermalPressureOn);
   const auto initialTemperature =
-      reader->readIfRequiredAlternatives<real>({"tp_initemp", "initemp"}, isThermalPressureOn);
-  const auto initialPressure = reader->readIfRequiredAlternatives<real>(
+      reader->readIfRequiredAlternatives<double>({"tp_initemp", "initemp"}, isThermalPressureOn);
+  const auto initialPressure = reader->readIfRequiredAlternatives<double>(
       {"tp_inipressure", "inipressure"}, isThermalPressureOn);
 
   const bool isBiMaterial = frictionLawType == FrictionLawType::LinearSlipWeakeningBimaterial;
-  const auto vStar = reader->readIfRequiredAlternatives<real>({"pc_vstar", "v_star"}, isBiMaterial);
+  const auto vStar =
+      reader->readIfRequiredAlternatives<double>({"pc_vstar", "v_star"}, isBiMaterial);
   const auto prakashLength =
-      reader->readIfRequiredAlternatives<real>({"pc_prakashlength", "l"}, isBiMaterial);
+      reader->readIfRequiredAlternatives<double>({"pc_prakashlength", "l"}, isBiMaterial);
 
   const auto faultFileName = reader->readPath("modelfilename");
 
-  std::array<std::optional<std::string>, seissol::multisim::NumSimulations> faultFileNames;
+  std::vector<std::optional<std::string>> faultFileNames(readSimulationCount(baseReader, config));
 
   bool isDynamicRuptureEnabled = false;
 
@@ -152,13 +162,13 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       outputReader->readWithDefault("faultenergiesfromacrossfaultvelocities", false);
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
-  const auto terminatorSlipRateThreshold = static_cast<real>(abortCriteriaReader->readWithDefault(
-      "terminatorslipratethreshold", std::numeric_limits<real>::infinity()));
+  const auto terminatorSlipRateThreshold = static_cast<double>(abortCriteriaReader->readWithDefault(
+      "terminatorslipratethreshold", std::numeric_limits<double>::max()));
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
-      "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
+      "terminatormaxtimepostrupture", std::numeric_limits<double>::max());
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
 
-  const double etaDamp = [&]() {
+  const double etaDamp = [&] {
     const auto dampRead1 = reader->read<double>("etadamp");
     if (dampRead1.has_value()) {
       return dampRead1.value();
@@ -179,6 +189,21 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                               .value_or(reader->read<double>("etastop").value_or(
                                   std::numeric_limits<double>::infinity()));
 
+  const auto rsMaxNumberSlipRateUpdates =
+      reader->readWithDefault<uint32_t>("rsmaxsliprateupdates", 60);
+  const auto rsNumberStateVariableUpdates = reader->readWithDefault<uint32_t>("rsstateupdates", 10);
+  const auto rsSlipRateTolerance = reader->readWithDefault<double>("rsslipratetolerance", 1e-8);
+  const auto rsStateTolerance = reader->readWithDefault<double>("rsstatetolerance", 1e-8);
+
+  // The grid spans a fixed wavenumber per point, so the count decides how far into the diffusive
+  // tail the integration reaches: the smallest resolved wavenumber is
+  // TpMaxWaveNumber * exp(-TpLogDz * (tpGridPoints - 1)).
+  const auto tpGridPoints = reader->readWithDefault<std::uint32_t>(
+      "tp_gridpoints", seissol::dr::misc::DefaultTpGridPoints);
+  if (tpGridPoints == 0) {
+    logError() << "tp_gridpoints must be at least one.";
+  }
+
   reader->warnDeprecated({"rf_output_on",
                           "backgroundtype",
                           "gpwise",
@@ -186,38 +211,43 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
                           "energy_rate_output_on",
                           "energy_rate_printtimeinterval"});
 
-  return DRParameters{isDynamicRuptureEnabled,
-                      isThermalPressureOn,
-                      isFrictionEnergyRequired,
-                      isCheckAbortCriteraEnabled,
-                      energiesFromAcrossFaultVelocities,
-                      outputPointType,
-                      refPointMethod,
-                      slipRateOutputType,
-                      frictionLawType,
-                      healingThreshold,
-                      t0,
-                      s0,
-                      tpProxyExponent,
-                      rsF0,
-                      rsB,
-                      rsSr0,
-                      rsInitialSlipRate1,
-                      rsInitialSlipRate2,
-                      muW,
-                      thermalDiffusivity,
-                      heatCapacity,
-                      undrainedTPResponse,
-                      initialTemperature,
-                      initialPressure,
-                      vStar,
-                      prakashLength,
-                      faultFileName.value_or(""),
-                      faultFileNames,
-                      referencePoint,
-                      terminatorSlipRateThreshold,
-                      etaDamp,
-                      etaDampEnd,
-                      nucleationCount};
+  return DRParameters{.isDynamicRuptureEnabled = isDynamicRuptureEnabled,
+                      .isThermalPressureOn = isThermalPressureOn,
+                      .isFrictionEnergyRequired = isFrictionEnergyRequired,
+                      .isCheckAbortCriteraEnabled = isCheckAbortCriteraEnabled,
+                      .energiesFromAcrossFaultVelocities = energiesFromAcrossFaultVelocities,
+                      .outputPointType = outputPointType,
+                      .refPointMethod = refPointMethod,
+                      .slipRateOutputType = slipRateOutputType,
+                      .frictionLawType = frictionLawType,
+                      .healingThreshold = healingThreshold,
+                      .t0 = t0,
+                      .s0 = s0,
+                      .tpProxyExponent = tpProxyExponent,
+                      .rsF0 = rsF0,
+                      .rsB = rsB,
+                      .rsSr0 = rsSr0,
+                      .rsInitialSlipRate1 = rsInitialSlipRate1,
+                      .rsInitialSlipRate2 = rsInitialSlipRate2,
+                      .muW = muW,
+                      .thermalDiffusivity = thermalDiffusivity,
+                      .heatCapacity = heatCapacity,
+                      .undrainedTPResponse = undrainedTPResponse,
+                      .initialTemperature = initialTemperature,
+                      .initialPressure = initialPressure,
+                      .vStar = vStar,
+                      .prakashLength = prakashLength,
+                      .faultFileName = faultFileName.value_or(""),
+                      .faultFileNames = faultFileNames,
+                      .referencePoint = referencePoint,
+                      .terminatorSlipRateThreshold = terminatorSlipRateThreshold,
+                      .etaDamp = etaDamp,
+                      .etaDampEnd = etaDampEnd,
+                      .nucleationCount = nucleationCount,
+                      .rsMaxNumberSlipRateUpdates = rsMaxNumberSlipRateUpdates,
+                      .rsNumberStateVariableUpdates = rsNumberStateVariableUpdates,
+                      .rsSlipRateTolerance = rsSlipRateTolerance,
+                      .rsStateTolerance = rsStateTolerance,
+                      .tpGridPoints = tpGridPoints};
 }
 } // namespace seissol::initializer::parameters

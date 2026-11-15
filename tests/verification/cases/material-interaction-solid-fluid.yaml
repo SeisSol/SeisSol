@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The solid of material-elastic.yaml in group 1, the near half of mat48, and
+# the water of material-acoustic.yaml in group 2, the far half, with the
+# quality factors that a viscoelastic or viscoacoustic configuration reads as
+# well; an elastic or acoustic one leaves them aside.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        rho:    2700.0
+        mu:     3.24e10
+        lambda: 3.24e10
+        Qp:     120.0
+        Qs:     60.0
+  - !GroupFilter
+    groups: 2
+    components: !ConstantMap
+      map:
+        rho:    1000.0
+        mu:     0.0
+        lambda: 2.25e9
+        Qp:     100.0

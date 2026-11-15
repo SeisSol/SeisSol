@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+!Switch
+[rho_fluid,bulk_fluid,bulk_solid,porosity,tortuosity,permeability,viscosity,Qp,Qs]: !ConstantMap
+  map:
+    rho_fluid:       1.0
+    bulk_fluid:      1.0
+    bulk_solid:      2.0
+    porosity:        0.2
+    tortuosity:      6
+    permeability:    6.0e-13
+    viscosity:       0.0
+    Qp:              1
+    Qs:              1
+# varies inside every cell, so that the cell-homogenized material depends on where the
+# quadrature points are placed, i.e. on the local vertex order
+[rho, mu, lambda]: !LayeredModel
+  map: !AffineMap
+    matrix:
+      s: [1.0, 2.0, 3.0]
+    translation:
+      s: 0.0
+  interpolation: linear
+  parameters: [rho, mu, lambda]
+  nodes:
+    -1.0: [2500, 1.0e10, 1.0e10]
+    7.0: [1000, 3.0e10, 2.0e10]

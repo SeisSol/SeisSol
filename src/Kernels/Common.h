@@ -15,14 +15,10 @@
 #include "Common/Typedefs.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
-#include "Kernels/Precision.h"
 
 #include <algorithm>
 #include <cassert>
-#include <type_traits>
 #include <utility>
-
-// TODO: once we use C++20, remove the SFINAE usage.
 
 /**
  * Generate the following functions (needs a macro, since it's qualifier dependent)
@@ -40,13 +36,9 @@
 #define GENERATE_HAS_MEMBER(NAME)                                                                  \
   namespace {                                                                                      \
   using namespace seissol::kernels;                                                                \
-  template <typename T, typename = void>                                                           \
-  struct has_##NAME {                                                                              \
-    static constexpr bool value = false;                                                           \
-  };                                                                                               \
   template <typename T>                                                                            \
-  struct has_##NAME<T, decltype(std::declval<T>().NAME, void())> {                                 \
-    static constexpr bool value = true;                                                            \
+  struct has_##NAME {                                                                              \
+    static constexpr bool value = requires { std::declval<T>().NAME; };                            \
   };                                                                                               \
   template <typename T, typename PtrT>                                                             \
   void set_##NAME(T& kernel, PtrT&& ptr) {                                                         \
@@ -70,6 +62,14 @@
       return nullptr;                                                                              \
     }                                                                                              \
   }                                                                                                \
+  template <typename T>                                                                            \
+  constexpr auto get_offset_##NAME() -> size_t {                                                   \
+    if constexpr (has_##NAME<T>::value) {                                                          \
+      return offsetof(T, NAME);                                                                    \
+    } else {                                                                                       \
+      return 0;                                                                                    \
+    }                                                                                              \
+  }                                                                                                \
   } // namespace
 
 namespace seissol {
@@ -80,7 +80,7 @@ namespace kernels {
  * @param convergenceOrder convergence order.
  * @return number of basis funcitons.
  **/
-constexpr std::size_t getNumberOfBasisFunctions(std::size_t convergenceOrder = ConvergenceOrder) {
+constexpr std::size_t getNumberOfBasisFunctions(std::size_t convergenceOrder) {
   return convergenceOrder * (convergenceOrder + 1) * (convergenceOrder + 2) / 6;
 }
 
@@ -90,12 +90,12 @@ constexpr std::size_t getNumberOfBasisFunctions(std::size_t convergenceOrder = C
  * @param alignment alignment in bytes.
  * @return aligned number of reals.
  **/
-template <typename RealT = real>
+template <typename RealT>
 constexpr std::size_t getNumberOfAlignedReals(std::size_t numberOfReals,
                                               std::size_t alignment = Vectorsize) {
   // in principle, we could simplify this formula by substituting alignment = alignment /
-  // sizeof(real). However, this will cause errors, if alignment is not dividable by sizeof(real)
-  // which could happen e.g. if alignment < sizeof(real), or if we have real == long double (if
+  // sizeof(RealT). However, this will cause errors, if alignment is not dividable by sizeof(RealT)
+  // which could happen e.g. if alignment < sizeof(RealT), or if we have RealT == long double (if
   // there is ever such a use case, and if the alignment then still makes much sense).
   return (numberOfReals * sizeof(RealT) +
           (alignment - (numberOfReals * sizeof(RealT)) % alignment) % alignment) /
@@ -109,10 +109,9 @@ constexpr std::size_t getNumberOfAlignedReals(std::size_t numberOfReals,
  * @param alignment alignment in bytes.
  * @return aligned number of basis functions.
  **/
-template <typename RealT = real>
-constexpr std::size_t
-    getNumberOfAlignedBasisFunctions(std::size_t convergenceOrder = ConvergenceOrder,
-                                     std::size_t alignment = Vectorsize) {
+template <typename RealT>
+constexpr std::size_t getNumberOfAlignedBasisFunctions(std::size_t convergenceOrder,
+                                                       std::size_t alignment = Vectorsize) {
   // return (numberOfBasisFunctions(O) * REAL_BYTES + (ALIGNMENT - (numberOfBasisFunctions(O) *
   // REAL_BYTES) % ALIGNMENT) % ALIGNMENT) / REAL_BYTES
   const auto numberOfBasisFunctions = getNumberOfBasisFunctions(convergenceOrder);
@@ -120,29 +119,56 @@ constexpr std::size_t
 }
 
 /**
- * Check if a type has a .size() member.
+ * Check if a type has a .size(...) member; Type is what it returns, or std::size_t without one.
  */
-template <typename T, typename = void>
+template <typename T, typename... Args>
 struct HasSize {
   static constexpr bool Value = false;
   using Type = std::size_t;
 };
 
-template <typename T>
-struct HasSize<T, decltype(std::declval<T>().size(), void())> {
+template <typename T, typename... Args>
+  requires requires { std::declval<T>().size(std::declval<Args>()...); }
+struct HasSize<T, Args...> {
   static constexpr bool Value = true;
-  using Type = decltype(std::declval<T>().size());
+  using Type = decltype(std::declval<T>().size(std::declval<Args>()...));
 };
 
 /**
  * returns T::size() if T has size function and 0 otherwise.
  */
-template <class T>
-constexpr auto size() -> typename HasSize<T>::Type {
-  if constexpr (HasSize<T>::Value) {
-    return T::size();
+template <class T, typename... Args>
+constexpr auto size(Args... args) -> HasSize<T, Args...>::Type {
+  if constexpr (HasSize<T, Args...>::Value) {
+    return T::size(args...);
   } else {
-    return static_cast<typename HasSize<T>::Type>(0);
+    return static_cast<HasSize<T, Args...>::Type>(0);
+  }
+}
+
+// A generated family is recognised by its Size array, which is what yateto
+// reads to add the members up. Its Container is a class template, so naming it
+// without arguments never matched and every family measured as empty.
+template <typename T>
+struct IsFamilyInternal {
+  static constexpr bool Value = requires { T::Size; };
+};
+
+template <class T>
+constexpr auto familyMembers() -> std::size_t {
+  if constexpr (IsFamilyInternal<T>::Value) {
+    return yateto::numFamilyMembers<T>();
+  } else {
+    return static_cast<std::size_t>(0);
+  }
+}
+
+template <class T>
+constexpr auto familySize(std::size_t alignedReals = 1) -> std::size_t {
+  if constexpr (IsFamilyInternal<T>::Value) {
+    return yateto::computeFamilySize<T>(alignedReals);
+  } else {
+    return static_cast<std::size_t>(0);
   }
 }
 

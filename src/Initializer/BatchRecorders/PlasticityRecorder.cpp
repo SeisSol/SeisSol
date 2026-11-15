@@ -5,10 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Config.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Recorders.h"
@@ -20,18 +20,19 @@
 using namespace seissol::initializer;
 using namespace seissol::recording;
 
-void PlasticityRecorder::record(LTS::Layer& layer) {
+template <typename Cfg>
+void PlasticityRecorder<Cfg>::record(LTS::Layer& layer) {
   setUpContext(layer);
 
-  real* qStressNodalScratch =
-      static_cast<real*>(currentLayer_->var<LTS::QStressNodalScratch>(AllocationPlace::Device));
+  real* qStressNodalScratch = static_cast<real*>(
+      currentLayer_->var<LTS::QStressNodalScratch>(Cfg(), AllocationPlace::Device));
   const auto size = currentLayer_->size();
 
   std::size_t psize = 0;
   for (std::size_t cell = 0; cell < size; ++cell) {
-    const auto dataHost = currentLayer_->cellRef(cell);
+    const auto dataHost = currentLayer_->cellRef<Cfg>(cell);
 
-    if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
+    if (dataHost.template get<LTS::CellInformation>().plasticityEnabled) {
       ++psize;
     }
   }
@@ -41,17 +42,21 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
     std::vector<real*> pstrainsPtrs(psize, nullptr);
     std::vector<real*> initialLoadPtrs(psize, nullptr);
     std::vector<real*> qStressNodalPtrs(psize, nullptr);
+    // the layer index of each plastic cell, for the per-cell LTS::Plasticity data
+    std::vector<unsigned> cellIndices(psize, 0);
 
     std::size_t pcell = 0;
     for (std::size_t cell = 0; cell < size; ++cell) {
-      const auto dataHost = currentLayer_->cellRef(cell);
-      auto data = currentLayer_->cellRef(cell, AllocationPlace::Device);
+      const auto dataHost = currentLayer_->cellRef<Cfg>(cell);
+      auto data = currentLayer_->cellRef<Cfg>(cell, AllocationPlace::Device);
 
-      if (dataHost.get<LTS::CellInformation>().plasticityEnabled) {
-        dofsPtrs[pcell] = static_cast<real*>(data.get<LTS::Dofs>());
-        pstrainsPtrs[pcell] = static_cast<real*>(data.get<LTS::PStrain>());
-        initialLoadPtrs[pcell] = static_cast<real*>(data.get<LTS::Plasticity>().initialLoading);
-        qStressNodalPtrs[pcell] = qStressNodalScratch + pcell * tensor::QStressNodal::size();
+      if (dataHost.template get<LTS::CellInformation>().plasticityEnabled) {
+        dofsPtrs[pcell] = static_cast<real*>(data.template get<LTS::Dofs>());
+        pstrainsPtrs[pcell] = static_cast<real*>(data.template get<LTS::PStrain>());
+        initialLoadPtrs[pcell] =
+            static_cast<real*>(data.template get<LTS::Plasticity>().initialLoading);
+        qStressNodalPtrs[pcell] = qStressNodalScratch + pcell * tensor::QStressNodal<Cfg>::size();
+        cellIndices[pcell] = static_cast<unsigned>(cell);
         ++pcell;
       }
     }
@@ -62,5 +67,10 @@ void PlasticityRecorder::record(LTS::Layer& layer) {
     (*currentTable_)[key].set(inner_keys::Wp::Id::NodalStressTensor, qStressNodalPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::Pstrains, pstrainsPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::InitialLoad, initialLoadPtrs);
+    (*currentIndicesTable_)[key].set(inner_keys::Indices::Id::Cells, cellIndices);
   }
 }
+
+#define SEISSOL_INSTANTIATE(Cfg) template class seissol::recording::PlasticityRecorder<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE

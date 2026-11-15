@@ -9,6 +9,7 @@
 
 #include "IO/Writer/File/BinaryWriter.h"
 #include "IO/Writer/File/Hdf5Writer.h"
+#include "IO/Writer/File/RunFiles.h"
 #include "IO/Writer/Instructions/Binary.h"
 #include "IO/Writer/Instructions/Hdf5.h"
 #include "Instructions/Instruction.h"
@@ -16,6 +17,7 @@
 #include <async/ExecInfo.h>
 #include <memory>
 #include <mpi.h>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -23,7 +25,29 @@
 
 namespace seissol::io::writer {
 
-WriteInstance::WriteInstance(MPI_Comm comm) : hdf5_(comm), binary_(comm) {}
+WriteInstance::WriteInstance(MPI_Comm comm, file::RunFiles* runFiles)
+    : hdf5_(comm, runFiles), binary_(comm, runFiles) {}
+
+void WriteInstance::write(
+    const async::ExecInfo& info,
+    const std::vector<std::shared_ptr<instructions::WriteInstruction>>& plan) {
+  // A binary file that takes no distributed data in the plan only takes what every rank holds
+  // alike, which rank 0 writes alone -- the XML of an Xdmf or PVD output. The others need not open
+  // it at all; opening is collective otherwise, and costs every rank a file system operation.
+  std::set<std::string> distributedFiles;
+  for (const auto& instruction : plan) {
+    if (const auto* binary = dynamic_cast<instructions::BinaryWrite*>(instruction.get());
+        binary != nullptr && binary->dataSource->distributed()) {
+      distributedFiles.insert(binary->filename);
+    }
+  }
+  binary_.beginWrite(distributedFiles);
+  for (const auto& instruction : plan) {
+    write(info, instruction);
+  }
+  hdf5_.endWrite();
+  binary_.endWrite();
+}
 
 void WriteInstance::write(const async::ExecInfo& info,
                           const std::shared_ptr<instructions::WriteInstruction>& instruction) {
@@ -32,6 +56,10 @@ void WriteInstance::write(const async::ExecInfo& info,
   }
   if (dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()) != nullptr) {
     hdf5_.writeAttribute(info, *dynamic_cast<instructions::Hdf5AttributeWrite*>(instruction.get()));
+  }
+  if (dynamic_cast<instructions::Hdf5LinkExternalWrite*>(instruction.get()) != nullptr) {
+    hdf5_.writeLinkExternal(info,
+                            *dynamic_cast<instructions::Hdf5LinkExternalWrite*>(instruction.get()));
   }
   if (dynamic_cast<instructions::BinaryWrite*>(instruction.get()) != nullptr) {
     binary_.write(info, *dynamic_cast<instructions::BinaryWrite*>(instruction.get()));
@@ -69,19 +97,35 @@ std::string Writer::serialize() {
   return sstr.str();
 }
 
-WriteInstance Writer::beginWrite(const async::ExecInfo& info, MPI_Comm comm) {
-  WriteInstance instance(comm);
-  for (const auto& instruction : instructions_) {
-    instance.write(info, instruction);
-  }
-  return instance;
+void Writer::write(const async::ExecInfo& info, WriteInstance& instance) const {
+  instance.write(info, instructions_);
 }
-
-void Writer::endWrite() {}
 
 const std::vector<std::shared_ptr<instructions::WriteInstruction>>&
     Writer::getInstructions() const {
   return instructions_;
+}
+
+std::vector<std::string> Writer::hdf5Files() const {
+  std::vector<std::string> files;
+  std::set<std::string> seen;
+  const auto add = [&](const std::string& file) {
+    if (seen.insert(file).second) {
+      files.push_back(file);
+    }
+  };
+  for (const auto& instruction : instructions_) {
+    if (const auto* data = dynamic_cast<const instructions::Hdf5DataWrite*>(instruction.get())) {
+      add(data->location.file());
+    } else if (const auto* attribute =
+                   dynamic_cast<const instructions::Hdf5AttributeWrite*>(instruction.get())) {
+      add(attribute->location.file());
+    } else if (const auto* link =
+                   dynamic_cast<const instructions::Hdf5LinkExternalWrite*>(instruction.get())) {
+      add(link->location.file());
+    }
+  }
+  return files;
 }
 
 } // namespace seissol::io::writer

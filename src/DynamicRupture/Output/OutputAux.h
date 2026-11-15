@@ -8,15 +8,22 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
 
+#include "Config.h"
 #include "DataTypes.h"
+#include "GeneratedCode/tensor.h"
+#include "Geometry/CellTransform.h"
+#include "Geometry/FaceTransform.h"
 #include "Geometry/MeshReader.h"
 
 #include <array>
+#include <cstddef>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace seissol {
 template <int N, typename T>
-auto unsafe_reshape(T* ptr) -> T (*)[N] {
+auto unsafeReshape(T* ptr) -> T (*)[N] {
   return reinterpret_cast<T(*)[N]>(ptr);
 }
 } // namespace seissol
@@ -24,26 +31,34 @@ auto unsafe_reshape(T* ptr) -> T (*)[N] {
 namespace seissol::dr {
 int getElementVertexId(int localSideId, int localFaceVertexId);
 
-ExtTriangle getReferenceTriangle(int sideIdx);
+/// the triangle spanned by a face transform, in whichever space the transform maps to
+ExtTriangle toExtTriangle(const geometry::FaceTransform& face);
 
-ExtTriangle getGlobalTriangle(int localSideId,
-                              const Element& element,
-                              const std::vector<Vertex>& verticesInfo);
+/// the triangle a side occupies on the reference cell
+ExtTriangle getReferenceTriangle(std::size_t sideIdx);
 
-ExtVrtxCoords getMidPointTriangle(const ExtTriangle& triangle);
+CoordinateT getMidPointTriangle(const ExtTriangle& triangle);
 
-ExtVrtxCoords getMidPoint(const ExtVrtxCoords& p1, const ExtVrtxCoords& p2);
+CoordinateT getTrianglePointByCoords(const ExtTriangle& triangle,
+                                     const std::array<double, 2>& point);
 
+CoordinateT getMidPoint(const CoordinateT& p1, const CoordinateT& p2);
+
+/// The quadrature of a fault face of the configuration `Cfg`.
+template <typename Cfg>
 struct TriangleQuadratureData {
-  static constexpr size_t Size{
-      tensor::quadweights::Shape[seissol::multisim::BasisFunctionDimension]};
+  static constexpr size_t Size{tensor::quadweights<Cfg>::Shape[0]};
   std::array<double, 2 * Size> points{};
   std::array<double, Size> weights{};
 };
 
-TriangleQuadratureData generateTriangleQuadrature();
+template <typename Cfg>
+TriangleQuadratureData<Cfg> generateTriangleQuadrature();
 
-void assignNearestGaussianPoints(ReceiverPoints& geoPoints);
+/// Assigns to the receiver the quadrature point of its face, of the configuration `Cfg`, that is
+/// nearest to it.
+template <typename Cfg>
+void assignNearestGaussianPoint(Receiver& geoPoint);
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 
@@ -51,36 +66,71 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
                                            const double (*facePoints)[2],
                                            std::size_t numFacePoints);
 
+/**
+ * @brief The points of the on-fault receiver file @p fileName : the three coordinates on each line
+ * that is not empty.
+ */
+std::vector<CoordinateT> readPickpoints(const std::string& fileName);
+
+/**
+ * @brief Whether the projection of @p point along @p faceNormal onto the plane of @p face lies in
+ * the face: positive inside, negative outside.
+ *
+ * The value is the smallest one over the sides of the face; it scales with the length of the side
+ * and of the normal, so that only its sign tells much. It does not depend on the orientation of the
+ * points of the face, as long as the normal is the one they give, (p1 - p0) x (p2 - p0) scaled.
+ */
 double
-    isInsideFace(const ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
+    isInsideFace(const CoordinateT& point, const ExtTriangle& face, const CoordinateT& faceNormal);
 
-void projectPointToFace(ExtVrtxCoords& point, const ExtTriangle& face, const VrtxCoords faceNormal);
+void projectPointToFace(CoordinateT& point, const ExtTriangle& face, const CoordinateT& faceNormal);
 
-double getDistanceFromPointToFace(const ExtVrtxCoords& point,
+double getDistanceFromPointToFace(const CoordinateT& point,
                                   const ExtTriangle& face,
-                                  const VrtxCoords faceNormal);
+                                  const CoordinateT& faceNormal);
 
-PlusMinusBasisFunctions getPlusMinusBasisFunctions(const VrtxCoords point,
-                                                   const VrtxCoords* plusElementCoords[4],
-                                                   const VrtxCoords* minusElementCoords[4]);
+template <typename Cfg>
+PlusMinusBasisFunctions<Cfg>
+    getPlusMinusBasisFunctions(const CoordinateT& pointCoords,
+                               const geometry::CellTransform& plusTransform,
+                               const geometry::CellTransform& minusTransform);
 
-std::vector<double> getAllVertices(const seissol::dr::ReceiverPoints& receiverPoints);
+double computeTriangleArea(ExtTriangle& triangle);
 
-std::vector<unsigned int> getCellConnectivity(const seissol::dr::ReceiverPoints& receiverPoints);
-std::vector<unsigned int> getFaultTags(const seissol::dr::ReceiverPoints& receiverPoints);
+/**
+ * @brief The index of the first receiver an output cell owns, in the order of the output.
+ *
+ * The refiner emits the receivers of a cell point-major and simulation-minor, so a cell owns
+ * @p pointsPerCell * @p simulationCount consecutive entries. Properties that every receiver of
+ * the cell shares are read off the first of them.
+ */
+std::size_t
+    firstReceiverOfCell(std::size_t cell, std::size_t pointsPerCell, std::size_t simulationCount);
 
-real computeTriangleArea(ExtTriangle& triangle);
+/**
+ * @brief The fault tag of an output cell, as the mesh assigned it to the face.
+ *
+ * This is the group the face was tagged with in the mesh file, not an identifier: several faces
+ * carry the same tag, and a mesh that tags nothing leaves it at its default. The receivers are
+ * found through @p order, which gives them in the order of the output.
+ */
+int faultTagOfCell(const Receivers& receivers,
+                   const std::vector<std::size_t>& order,
+                   std::size_t cell,
+                   std::size_t pointsPerCell,
+                   std::size_t simulationCount);
 
-template <int Size>
-std::unique_ptr<int[]> convertMaskFromBoolToInt(const std::array<bool, Size>& boolMask) {
-  auto intMask = std::unique_ptr<int[]>(new int[boolMask.size()]);
-
-  for (size_t i = 0; i < boolMask.size(); ++i) {
-    intMask[i] = static_cast<int>(boolMask[i]);
-  }
-
-  return intMask;
-}
+/**
+ * @brief The global identifier of the face an output cell sits on.
+ *
+ * Unique across the mesh, since it is built from the global element index and the side. The
+ * receivers are found through @p order, which gives them in the order of the output.
+ */
+std::size_t globalFaceIdOfCell(const Receivers& receivers,
+                               const std::vector<std::size_t>& order,
+                               std::size_t cell,
+                               std::size_t pointsPerCell,
+                               std::size_t simulationCount);
 } // namespace seissol::dr
 
 #endif // SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_

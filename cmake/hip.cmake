@@ -24,7 +24,7 @@ set(CMAKE_MODULE_PATH "${HIP_PATH}/cmake" "${HIP_PATH}/lib/cmake/hip" ${CMAKE_MO
 
 find_package(HIP REQUIRED)
 
-set(SEISSOL_HIPCC -std=c++17; -O3)
+set(SEISSOL_HIPCC -std=c++20; -O3)
 
 set(IS_NVCC_PLATFORM OFF)
 if (DEFINED ENV{HIP_PLATFORM})
@@ -80,5 +80,18 @@ function(make_device_lib NAME FILES)
     else()
         target_link_libraries(${NAME} PUBLIC ${HIP_PATH}/lib/libamdhip64.so)
     endif()
+
+endfunction()
+
+function(make_device_hostapi_lib NAME FILES)
+
+    add_library(${NAME} OBJECT ${FILES})
+
+    set_target_properties(${NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+    target_compile_features(${NAME} PRIVATE cxx_std_17)
+    target_compile_options(${NAME} PRIVATE ${EXTRA_CXX_FLAGS})
+
+    target_link_libraries(${NAME} PUBLIC hip::host)
 
 endfunction()

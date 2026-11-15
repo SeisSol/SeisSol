@@ -99,11 +99,11 @@ class MultipleSimulations(Filter):
     filterLayout.addRow(simulationIndexLabel, self.simulationIndex)
 
   def apply(self, wf):
-    simulationIndex = str(self.simulationIndex.value())
+    # a receiver comes as a waveform per simulation; one of a single simulation has none
+    if wf.simulation is not None and wf.simulation != self.simulationIndex.value():
+      wf.norm = dict()
+      wf.waveforms = dict()
 
-    testSimulationIndex = lambda s: s.endswith(simulationIndex)
-    wf.norm = {k:v for k,v in wf.norm.items() if testSimulationIndex(k)}
-    wf.waveforms = {k:v for k,v in wf.waveforms.items() if testSimulationIndex(k)}
 class Deconvolve(Filter):
   def __init__(self, parent = None):
     super(Deconvolve, self).__init__('Deconvolve', parent)

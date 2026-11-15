@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The delta pulse, which reads only the slip and the onset. Unlike in
+# fault-imposed.yaml, the onset does not fall on a step: SeisSol decides which
+# time interval holds the pulse from separately rounded times, and in single
+# precision an onset exactly on a step boundary falls into none of them, so the
+# fault never slips. A quarter step past the boundary lies clear of the Gauss
+# points, the other interval boundaries, of every order up to eight.
+!ConstantMap
+map:
+  strike_slip:   1.0
+  dip_slip:      0.0
+  rupture_onset: 2.593994140625e-04

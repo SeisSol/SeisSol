@@ -9,9 +9,10 @@
 #ifndef SEISSOL_SRC_NUMERICAL_QUADRATURE_H_
 #define SEISSOL_SRC_NUMERICAL_QUADRATURE_H_
 
-#define USE_MATH_DEFINES
+#include "Geometry/MeshDefinition.h"
 #include "Numerical/Functions.h"
 
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -32,21 +33,21 @@ static const double Tolerance = 10. * std::numeric_limits<double>::epsilon();
  *  int_{a}^{b} f(y)dy = (b-a)/2. * sum_{i=0}^{n-1} f( ((b-a) * points[i] + a + b) / 2.) *
  * weights[i]
  */
-inline void GaussLegendre(double* points, double* weights, unsigned n) {
+inline void gaussLegendre(double* points, double* weights, unsigned n) {
   // The polynomials are symmetric, thus we only need to find the first half.
   const unsigned nh = (n + 1) / 2;
   for (unsigned i = 1; i <= nh; ++i) {
     // x = Initial guess for polynomial root
     double x = cos(M_PI * (4. * i - 1.) / (4. * n + 2.));
-    double w = NAN;
+    double w = 0;
     double pn = 0.0;
-    double dPn = 1.0;
-    double pn2 = NAN;
-    double pn1 = NAN;
+    double dpn = 1.0;
+    double pn2 = 0.0;
+    double pn1 = 0.0;
     unsigned it = 0;
     // Refine polynomial roots with Newton iteration
     do {
-      x -= pn / dPn;
+      x -= pn / dpn;
       pn1 = 0.0;
       pn = 1.0;
       // Recursive procedure to calculate the n-th Legendre polynomial at x
@@ -56,10 +57,10 @@ inline void GaussLegendre(double* points, double* weights, unsigned n) {
         pn = ((2. * j - 1.) * x * pn1 - (j - 1.) * pn2) / j;
       }
       // Derivative at x
-      dPn = (n * pn1 - n * x * pn) / (1. - x * x);
-    } while (fabs(pn) > Tolerance && ++it < MaxIterations);
+      dpn = (n * pn1 - n * x * pn) / (1. - x * x);
+    } while (std::abs(pn) > Tolerance && ++it < MaxIterations);
     // Weight = 2 / [(1-x^2) * P_n'(x)^2]
-    w = 2. / ((1 - x * x) * dPn * dPn);
+    w = 2. / ((1 - x * x) * dpn * dpn);
     points[i - 1] = -x;
     points[n - i] = x;
     weights[i - 1] = w;
@@ -74,10 +75,10 @@ inline void GaussLegendre(double* points, double* weights, unsigned n) {
   @return [quadrature points, quadrature weights]
 */
 inline std::pair<std::vector<double>, std::vector<double>>
-    ShiftedGaussLegendre(unsigned n, double a, double b) {
+    shiftedGaussLegendre(unsigned n, double a, double b) {
   std::pair<std::vector<double>, std::vector<double>> output{std::vector<double>(n),
                                                              std::vector<double>(n)};
-  GaussLegendre(output.first.data(), output.second.data(), n);
+  gaussLegendre(output.first.data(), output.second.data(), n);
   const auto ba = b - a;
   const auto ab = b + a;
   for (auto& point : output.first) {
@@ -97,7 +98,7 @@ inline std::pair<std::vector<double>, std::vector<double>>
  *
  *  Note: Initial guess ported from Fortran gauss_jacobi routine.
  */
-inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a, unsigned b) {
+inline void gaussJacobi(double* points, double* weights, unsigned n, unsigned a, unsigned b) {
   const double weightFactor =
       -(2.0 * n + a + b + 2) * functions::factorial(n + a) * functions::factorial(n + b) *
       (1 << (a + b)) /
@@ -106,16 +107,16 @@ inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a,
     // x = Initial guess for polynomial root
     double x = cos(M_PI * (0.5 * a + i - 0.25) / (0.5 * (1.0 + a + b) + n));
     double pn = 0.0;
-    double dPn = 1.0;
+    double dpn = 1.0;
     unsigned it = 0;
     // Refine polynomial roots with Newton iteration
     do {
-      x -= pn / dPn;
-      pn = functions::JacobiP(n, a, b, x);
-      dPn = functions::JacobiPDerivative(n, a, b, x);
-    } while (fabs(pn) > Tolerance && ++it < MaxIterations);
+      x -= pn / dpn;
+      pn = functions::jacobiP(n, a, b, x);
+      dpn = functions::jacobiPDerivative(n, a, b, x);
+    } while (std::abs(pn) > Tolerance && ++it < MaxIterations);
     points[i - 1] = x;
-    weights[i - 1] = weightFactor / (functions::JacobiP(n + 1, a, b, x) * dPn);
+    weights[i - 1] = weightFactor / (functions::jacobiP(n + 1, a, b, x) * dpn);
   }
 }
 
@@ -125,35 +126,29 @@ inline void GaussJacobi(double* points, double* weights, unsigned n, unsigned a,
  *
  *  n is the polynomial degree. Make sure that points and weights have space for n^2 entries.
  */
-template <typename FloatT>
-inline void TriangleQuadrature(FloatT (*points)[2], FloatT* weights, unsigned n) {
-  auto* points0 = new double[n];
-  auto* weights0 = new double[n];
-  auto* points1 = new double[n];
-  auto* weights1 = new double[n];
+inline void triangleQuadrature(std::array<double, 2>* points, double* weights, std::size_t n) {
+  auto points0 = std::vector<double>(n);
+  auto weights0 = std::vector<double>(n);
+  auto points1 = std::vector<double>(n);
+  auto weights1 = std::vector<double>(n);
 
-  GaussJacobi(points0, weights0, n, 0, 0);
-  GaussJacobi(points1, weights1, n, 1, 0);
+  gaussJacobi(points0.data(), weights0.data(), n, 0, 0);
+  gaussJacobi(points1.data(), weights1.data(), n, 1, 0);
 
-  for (unsigned i = 0; i < n; ++i) {
-    for (unsigned j = 0; j < n; ++j) {
-      const unsigned idx = i * n + j;
+  for (std::size_t i = 0; i < n; ++i) {
+    for (std::size_t j = 0; j < n; ++j) {
+      const std::size_t idx = i * n + j;
       points[idx][0] = 0.5 * (1.0 + points1[i]);
       points[idx][1] = 0.25 * (1.0 + points0[j]) * (1.0 - points1[i]);
       weights[idx] = weights1[i] * weights0[j] * 0.125;
     }
   }
-
-  delete[] points0;
-  delete[] weights0;
-  delete[] points1;
-  delete[] weights1;
 }
 
 /** Quadrature formula of arbitrary accuracy on the reference tetrahedron
  *  consisting of the nodes (0,0,0), (1,0,0), (0,1,0), (0,0,1)
  */
-inline void TetrahedronQuadrature(double (*points)[3], double* weights, std::size_t n) {
+inline void tetrahedronQuadrature(std::array<double, 3>* points, double* weights, std::size_t n) {
   // This is a port of similarly named fortran method
   // (TetrahedronQuadraturePoints) in quadpoints.f90.
   // Note:
@@ -169,9 +164,9 @@ inline void TetrahedronQuadrature(double (*points)[3], double* weights, std::siz
   auto weights2 = std::vector<double>(n);
 
   // Get the Gauss-Jacobi positions and weights.
-  GaussJacobi(points0.data(), weights0.data(), n, 2, 0);
-  GaussJacobi(points1.data(), weights1.data(), n, 1, 0);
-  GaussJacobi(points2.data(), weights2.data(), n, 0, 0);
+  gaussJacobi(points0.data(), weights0.data(), n, 2, 0);
+  gaussJacobi(points1.data(), weights1.data(), n, 1, 0);
+  gaussJacobi(points2.data(), weights2.data(), n, 0, 0);
 
   // Shift and rescale positions because Stroud
   // integrates over [0,1] and gaujac of num. recipes
@@ -199,15 +194,52 @@ inline void TetrahedronQuadrature(double (*points)[3], double* weights, std::siz
   }
 
   // TODO(Lukas) Only when debugging?
-  const double tol = 1e-6;
+  constexpr double Tol = 1e-6;
   double sumWeights = 0.0;
   for (size_t i = 0; i < n * n * n; ++i) {
     sumWeights += weights[i];
   }
-  if (std::abs(sumWeights - 1. / 6.) > tol) {
+  if (std::abs(sumWeights - 1. / 6.) > Tol) {
     logError() << "Sum of tetrahedron quadrature weights are " << sumWeights << " /= " << 1. / 6.;
   }
 }
+
+/**
+ * The quadrature rule on the reference simplex of the given dimension, as a pair of points and
+ * weights holding degree^Dim entries each.
+ */
+template <std::size_t Dim>
+std::pair<std::vector<std::array<double, Dim>>, std::vector<double>>
+    simplexRule(std::size_t degree) {
+  static_assert(Dim >= 1, "Dim needs to be positive");
+  static_assert(Dim <= 3, "Higher dimensions than 3 are not implemented for the quadrature");
+  std::size_t arraysize = 1;
+  for (std::size_t dim = 0; dim < Dim; ++dim) {
+    arraysize *= degree;
+  }
+  std::vector<std::array<double, Dim>> points(arraysize);
+  std::vector<double> weights(arraysize);
+  if constexpr (Dim == 3) {
+    tetrahedronQuadrature(points.data(), weights.data(), degree);
+  }
+  if constexpr (Dim == 2) {
+    triangleQuadrature(points.data(), weights.data(), degree);
+  }
+  if constexpr (Dim == 1) {
+    std::vector<double> points1d(arraysize);
+    gaussLegendre(points1d.data(), weights.data(), degree);
+
+    // convert to shifted GL
+    for (std::size_t i = 0; i < arraysize; ++i) {
+      points[i][0] = (points1d[i] + 1) / 2;
+    }
+    for (auto& weight : weights) {
+      weight /= 2;
+    }
+  }
+  return {points, weights};
+}
+
 } // namespace seissol::quadrature
 
 #endif // SEISSOL_SRC_NUMERICAL_QUADRATURE_H_

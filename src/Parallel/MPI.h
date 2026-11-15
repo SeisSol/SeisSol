@@ -10,18 +10,14 @@
 #define SEISSOL_SRC_PARALLEL_MPI_H_
 
 #include "Common/Real.h"
-#include "Kernels/Precision.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <functional>
 #include <mpi.h>
 #include <numeric>
 #include <optional>
-#include <string>
 #include <type_traits>
 #include <utility>
-#include <utils/logger.h>
 #include <vector>
 
 #ifdef MPI_VERSION
@@ -41,6 +37,9 @@ namespace seissol {
 /**
  * Wraps an MPI communicator. (and currently still a node-local communicator)
  * Provides convenience methods for communication and MPI type inference.
+ *
+ * The methods that communicate take the communicator to use as their last argument; without it,
+ * they use comm().
  *
  * Currently still mostly used as a singleton; TODO: change that.
  */
@@ -202,12 +201,10 @@ class Mpi {
    */
   template <typename T>
   [[nodiscard]] auto collect(T value, std::optional<MPI_Comm> comm = {}) const {
-    if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
-    }
-    auto collect = std::vector<T>(sizeOf(comm.value()));
+    const auto useComm = comm.value_or(this->comm());
+    auto collect = std::vector<T>(sizeOf(useComm));
     auto type = castToMpiType<T>();
-    MPI_Gather(&value, 1, type, collect.data(), 1, type, 0, comm.value());
+    MPI_Gather(&value, 1, type, collect.data(), 1, type, 0, useComm);
     return collect;
   }
 
@@ -220,15 +217,13 @@ class Mpi {
   template <typename ContainerType>
   [[nodiscard]] std::vector<ContainerType>
       collectContainer(const ContainerType& container, std::optional<MPI_Comm> comm = {}) const {
-    using InternalType = typename ContainerType::value_type;
+    using InternalType = ContainerType::value_type;
 
-    if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
-    }
-    const int commSize = sizeOf(comm.value());
+    const auto useComm = comm.value_or(this->comm());
+    const int commSize = sizeOf(useComm);
 
-    auto length = static_cast<int>(container.size());
-    auto lengths = collect(length, comm);
+    const auto length = static_cast<int>(container.size());
+    auto lengths = collect(length, useComm);
 
     // including the total length
     std::vector<int> displacements(commSize + 1);
@@ -242,14 +237,14 @@ class Mpi {
 
     auto mpiType = castToMpiType<InternalType>();
     MPI_Gatherv(container.data(),
-                container.size(),
+                length,
                 mpiType,
-                const_cast<InternalType*>(recvBuffer.data()),
+                recvBuffer.data(),
                 lengths.data(),
                 displacements.data(),
                 mpiType,
                 0,
-                comm.value());
+                useComm);
 
     std::vector<ContainerType> collected(commSize);
     for (int rank = 0; rank < commSize; ++rank) {
@@ -263,27 +258,22 @@ class Mpi {
   // executes an operation on the given MPI communicator in serial order, i.e. first it is run by
   // rank 0, then by rank 1, then by rank 2 etc.
   template <typename F>
-  void serialOrderExecute(F&& operation, std::optional<MPI_Comm> comm = {}) {
-    if (!comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
-    }
-
-    int rank = 0;
-    int size = 0;
-    MPI_Comm_rank(comm.value(), &rank);
-    MPI_Comm_size(comm.value(), &size);
+  void serialOrderExecute(F&& operation, std::optional<MPI_Comm> comm = {}) const {
+    const auto useComm = comm.value_or(this->comm());
+    const int rank = rankOf(useComm);
+    const int size = sizeOf(useComm);
 
     const int tag = 15; // TODO(David): replace by a tag allocation system one day
     char flag = 0;
     if (rank > 0) {
-      MPI_Recv(&flag, 1, MPI_CHAR, rank - 1, tag, comm.value(), MPI_STATUS_IGNORE);
+      MPI_Recv(&flag, 1, MPI_CHAR, rank - 1, tag, useComm, MPI_STATUS_IGNORE);
     }
 
     std::invoke(std::forward<F>(operation));
 
     // size >= 1 is ensured
     if (rank < size - 1) {
-      MPI_Send(&flag, 1, MPI_CHAR, rank + 1, tag, comm.value());
+      MPI_Send(&flag, 1, MPI_CHAR, rank + 1, tag, useComm);
     }
   }
 
@@ -292,11 +282,8 @@ class Mpi {
    */
   template <typename T>
   void broadcast(T* value, int root, std::optional<MPI_Comm> comm = {}) const {
-    if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
-    }
     auto mpiType = castToMpiType<T>();
-    MPI_Bcast(value, 1, mpiType, root, comm.value());
+    MPI_Bcast(value, 1, mpiType, root, comm.value_or(this->comm()));
   }
 
   /**
@@ -306,60 +293,58 @@ class Mpi {
   void broadcastContainer(ContainerType& container,
                           int root,
                           std::optional<MPI_Comm> comm = {}) const {
-    using InternalType = typename ContainerType::value_type;
-    if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
-    }
+    using InternalType = ContainerType::value_type;
+    const auto useComm = comm.value_or(this->comm());
     auto size = static_cast<Count>(container.size());
-    broadcast(&size, root, comm);
-    if (rankOf(comm.value()) != root) {
+    broadcast(&size, root, useComm);
+    if (rankOf(useComm) != root) {
       container.resize(size);
     }
     auto mpiType = castToMpiType<InternalType>();
-    SEISSOL_MPI_C(MPI_Bcast)(
-        const_cast<InternalType*>(container.data()), size, mpiType, root, comm.value());
+    SEISSOL_MPI_C(MPI_Bcast)(container.data(), size, mpiType, root, useComm);
   }
 
+  /**
+   * @return @p value reduced with @p op over all processes
+   */
   template <typename T>
-  T allreduce(const T& value, MPI_Op op, std::optional<MPI_Comm> comm = {}) const {
-    if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
-    }
-
+  [[nodiscard]] T allreduce(const T& value, MPI_Op op, std::optional<MPI_Comm> comm = {}) const {
     T result{};
     const auto mpiType = castToMpiType<T>();
-    MPI_Allreduce(&value, &result, 1, mpiType, op, comm.value());
+    MPI_Allreduce(&value, &result, 1, mpiType, op, comm.value_or(this->comm()));
     return result;
   }
 
+  /**
+   * Reduces the elements of @p container with @p op over all processes, in place.
+   */
   template <typename ContainerType>
   void allreduceContainer(ContainerType& container,
                           MPI_Op op,
                           std::optional<MPI_Comm> comm = {}) const {
-    using InternalType = typename ContainerType::value_type;
-    if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
-    }
+    using InternalType = ContainerType::value_type;
     const auto size = static_cast<Count>(container.size());
     const auto mpiType = castToMpiType<InternalType>();
-    SEISSOL_MPI_C(MPI_Allreduce)(
-        MPI_IN_PLACE, const_cast<InternalType*>(container.data()), size, mpiType, op, comm.value());
+    SEISSOL_MPI_C(MPI_Allreduce)
+    (MPI_IN_PLACE, container.data(), size, mpiType, op, comm.value_or(this->comm()));
   }
 
+  /**
+   * @return @p value reduced with @p op over the processes up to this one (inclusive), or over the
+   * processes before this one (exclusive; a value-initialized T on the first process)
+   */
   template <typename T>
-  T scan(const T& value, MPI_Op op, bool inclusive, std::optional<MPI_Comm> comm = {}) const {
-    if (not comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
-    }
-
+  [[nodiscard]] T
+      scan(const T& value, MPI_Op op, bool inclusive, std::optional<MPI_Comm> comm = {}) const {
+    const auto useComm = comm.value_or(this->comm());
     T result{};
     auto mpiType = castToMpiType<T>();
     if (inclusive) {
-      MPI_Scan(&value, &result, 1, mpiType, op, comm.value());
+      MPI_Scan(&value, &result, 1, mpiType, op, useComm);
     } else {
-      MPI_Exscan(&value, &result, 1, mpiType, op, comm.value());
+      MPI_Exscan(&value, &result, 1, mpiType, op, useComm);
       // MPI_Exscan leaves the receive buffer of the first rank undefined
-      if (rankOf(comm.value()) == 0) {
+      if (rankOf(useComm) == 0) {
         result = T{};
       }
     }
@@ -368,37 +353,50 @@ class Mpi {
   }
 
   /**
-   * @return The main communicator for the application
+   * @return The main communicator for the application; on a thread that has one of its own (see
+   * setThreadComm), that one.
    */
-  [[nodiscard]] MPI_Comm comm() const { return comm_; }
+  [[nodiscard]] MPI_Comm comm() const {
+    return threadCommRef() != MPI_COMM_NULL ? threadCommRef() : comm_;
+  }
+
+  /**
+   * @return The communicator of the outputs, a duplicate of the main one: the thread of the outputs
+   * (see OutputWorker) talks over it, so that its collectives cannot mix with those of the main
+   * thread.
+   */
+  [[nodiscard]] MPI_Comm outputComm() const { return outputComm_; }
+
+  /**
+   * Makes comm() return `comm` on the calling thread; MPI_COMM_NULL restores the main communicator.
+   */
+  static void setThreadComm(MPI_Comm comm) { threadCommRef() = comm; }
 
   /**
    * @return The node communicator (shared memory) for the application
    */
   [[nodiscard]] MPI_Comm sharedMemComm() const { return sharedMemComm_; }
 
-  void barrier(std::optional<MPI_Comm> comm = {}) {
-    if (!comm.has_value()) {
-      comm = std::optional<MPI_Comm>(comm_);
-    }
-    MPI_Barrier(comm.value());
+  void barrier(std::optional<MPI_Comm> comm = {}) const {
+    MPI_Barrier(comm.value_or(this->comm()));
   }
 
   /**
    * Finalize MPI
    */
-  void finalize() {
-    if (sharedMemComm_ != MPI_COMM_NULL) {
-      MPI_Comm_free(&sharedMemComm_);
-    }
-    MPI_Finalize();
-  }
+  void finalize();
 
   /** The only instance of the class */
   static Mpi mpi;
 
   private:
+  static MPI_Comm& threadCommRef() {
+    thread_local MPI_Comm threadComm = MPI_COMM_NULL;
+    return threadComm;
+  }
+
   MPI_Comm comm_{MPI_COMM_NULL};
+  MPI_Comm outputComm_{MPI_COMM_NULL};
   MPI_Comm sharedMemComm_{MPI_COMM_NULL};
   Mpi() = default;
 };

@@ -5,9 +5,7 @@
     <matrix name="kDivMT(2)"/>
   </group>
   <matrix name="rDivM(0)" sparse="True"/>
-  <matrix name="fP(1)" sparse="True"/>
-  <matrix name="rT(0)" sparse="True"/>
-  <matrix name="fP(2)" sparse="True"/>
-  <matrix name="rT(1)" sparse="True"/>
+  <matrix name="fPrT(0)" sparse="True"/>
+  <matrix name="fPrT(1)" sparse="True"/>
   <matrix name="fMrT(0)" sparse="True"/>
 </memory_layouts>

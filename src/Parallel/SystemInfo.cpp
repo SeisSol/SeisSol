@@ -8,12 +8,9 @@
 
 #include "Parallel/MPI.h"
 
-#include <cstddef>
-#include <cstring>
+#include <mpi.h>
 #include <string>
-#include <unistd.h>
 #include <utils/logger.h>
-#include <vector>
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>
@@ -28,31 +25,32 @@ void SystemInfo::init() {
 }
 
 void SystemInfo::loadHostInfo() {
-  // gethostname may truncate without a terminator, so keep one byte spare
-  constexpr std::size_t HostNameCapacity = 256;
-  std::string hostName(HostNameCapacity, '\0');
-  if (gethostname(hostName.data(), HostNameCapacity - 1) != 0) {
+  // (gethostname is POSIX; on Windows, it is part of Winsock and needs extra initialization)
+  std::string hostName(MPI_MAX_PROCESSOR_NAME, '\0');
+  int hostNameLength = 0;
+  if (MPI_Get_processor_name(hostName.data(), &hostNameLength) != MPI_SUCCESS) {
     hostName = "unknown-host";
   } else {
-    hostName.resize(std::strlen(hostName.c_str()));
+    hostName.resize(hostNameLength);
   }
   hostNames_ = Mpi::mpi.collectContainer(hostName);
 
   // the names are gathered on rank 0 only
-  if (!hostNames_.empty()) {
+  if (Mpi::mpi.rank() == 0) {
     logInfo() << "Running on (rank=0):" << hostNames_.front();
   }
 }
 
 void SystemInfo::loadGPUInfo() {
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
-  const auto pci = device.api->getPciAddress(0);
+  const device::DeviceInstance& device = device::DeviceInstance::instance();
+  const auto deviceId = device.api().getDeviceId();
+  const auto pci = device.api().getPciAddress(deviceId);
   const auto pcisNode = Mpi::mpi.collectContainer(pci, Mpi::mpi.sharedMemComm());
   pcis_ = Mpi::mpi.collectContainer(pci);
 
-  logInfo() << "Device API:" << device.api->getApiName();
-  logInfo() << "Device name (rank=0):" << device.api->getDeviceName(0);
+  logInfo() << "Device API:" << device.api().getApiName();
+  logInfo() << "Device name (rank=0):" << device.api().getDeviceName(deviceId);
   logInfo() << "Device PCI address (rank=0): " << pci;
   logInfo() << "Device PCI addresses (node of rank=0):" << pcisNode;
 #endif

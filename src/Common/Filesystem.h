@@ -8,33 +8,17 @@
 #ifndef SEISSOL_SRC_COMMON_FILESYSTEM_H_
 #define SEISSOL_SRC_COMMON_FILESYSTEM_H_
 
+#include <filesystem>
 #include <optional>
 #include <string>
-
-#ifdef EXPERIMENTAL_FS
-#include <experimental/filesystem> // IWYU pragma: export
-#include <sys/stat.h>
-#include <sys/types.h>
-
-namespace seissol {
-namespace filesystem = std::experimental::filesystem;
-} // namespace seissol
-
-#else
-
-#include <filesystem> // IWYU pragma: export
-namespace seissol {
-namespace filesystem = std::filesystem;
-} // namespace seissol
-
-#endif // EXPERIMENTAL_FS
+#include <string_view>
 
 namespace seissol {
 
-/// strftime format of the time stamps in file and directory names
-constexpr auto BackupTimeStampFormat = "%Y-%m-%dT%H-%M-%S";
+/// strftime format of the time stamps in the names of backup files
+constexpr auto BackupTimeStampFormat = "%Y-%m-%d_%H-%M-%S";
 
-auto directoryExists(const seissol::filesystem::directory_entry& entry) -> bool;
+auto directoryExists(const std::filesystem::directory_entry& entry) -> bool;
 
 /**
     Renames an existing file to a timestamped backup name.
@@ -45,6 +29,17 @@ auto directoryExists(const seissol::filesystem::directory_entry& entry) -> bool;
 void generateBackupFileIfNecessary(const std::string& fileName,
                                    const std::string& fileExtension,
                                    const std::optional<std::string>& timeStamp = {});
+
+/**
+ * @brief Replaces the file @p path by one holding @p content, in a single step.
+ *
+ * The content goes to a file next to it first, which is then renamed to @p path; a reader sees
+ * either the old file or the new one, never one that is half written. For files that are
+ * rewritten while a run goes on and that other programs may read at any time.
+ *
+ * @return Whether the file could be written; it is left as it was otherwise.
+ */
+bool writeFileAtomically(const std::string& path, std::string_view content);
 } // namespace seissol
 
 #endif // SEISSOL_SRC_COMMON_FILESYSTEM_H_

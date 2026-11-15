@@ -11,9 +11,13 @@
 
 #include "Common/Executor.h"
 #include "IO/Manager.h"
+#include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
+#include "Modules/Modules.h"
+#include "Monitoring/EpochSynchronization.h"
 #include "Monitoring/FlopCounter.h"
+#include "Monitoring/RunSummary.h"
 #include "Parallel/Pin.h"
 #include "Parallel/SystemInfo.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
@@ -21,20 +25,22 @@
 #include "ResultWriter/AsyncIO.h"
 #include "ResultWriter/DofSync.h"
 #include "ResultWriter/EnergyOutput.h"
-#include "ResultWriter/FaultWriter.h"
-#include "ResultWriter/FreeSurfaceWriter.h"
+#include "ResultWriter/MiniSeisSolWriter.h"
 #include "ResultWriter/PickpointWriter.h"
-#include "ResultWriter/WaveFieldWriter.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Simulator.h"
 #include "Solver/TimeStepping/TimeManager.h"
 #include "SourceTerm/Manager.h"
 
+#include <cstdint>
+#include <list>
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <utils/env.h>
 #include <utils/logger.h>
+#include <vector>
 
 namespace seissol {
 
@@ -43,16 +49,44 @@ class MeshReader;
 } // namespace geometry
 
 /**
+ * Subobjects which every member of SeisSol relies on.
+ *
+ * Base class subobjects are initialized before any non-static data member and destroyed after
+ * all of them. Every member of SeisSol therefore finds these set up, while it is constructed as
+ * well as while it is destroyed, whatever order the members are declared in.
+ *
+ * Pinning has to be set up before the first OpenMP call: MPI sets the affinity mask for the
+ * process, and the OpenMP runtime replaces it with the pinning given by e.g. OMP_PLACES as soon
+ * as it starts up. That is why it comes first.
+ *
+ * The members read their settings from the environment, some of them already in their
+ * constructor.
+ *
+ * Modules holds non-owning pointers to the modules registered with it. All of those are members
+ * of SeisSol.
+ */
+class SeisSolCore {
+  protected:
+  explicit SeisSolCore(utils::Env env) : env_(std::move(env)) {}
+
+  parallel::Pinning pinning_;
+  utils::Env env_;
+  Modules modules_;
+};
+
+/**
  * @todo Initialize rank
  */
-class SeisSol {
+class SeisSol : private SeisSolCore {
   public:
   /**
    * Cleanup data structures
    */
-  virtual ~SeisSol() { delete meshReader_; }
+  virtual ~SeisSol();
 
-  const parallel::Pinning& getPinning() { return pinning_; }
+  const parallel::Pinning& pinning() { return pinning_; }
+
+  Modules& modules() { return modules_; }
 
   /**
    * Initialize C++ part of the program
@@ -60,16 +94,38 @@ class SeisSol {
   bool init();
 
   /**
-   * Finalize SeisSol
+   * Finalize SeisSol; and MPI with it, unless another instance runs after this one (see
+   * discretization.vertexweightcycles).
    */
-  void finalize();
+  void finalize(bool finalizeMpi = true);
+
+  /**
+   * The costs of the cells measured in the run before (in this process), which partition the mesh
+   * of this run; none by default. They have to outlive the initialization.
+   */
+  void setMeasuredCosts(const initializer::MeasuredCellCosts* costs) { measuredCosts_ = costs; }
+  [[nodiscard]] const initializer::MeasuredCellCosts* measuredCosts() const {
+    return measuredCosts_;
+  }
+
+  /**
+   * Makes this run a short one that measures what the cells cost, for the partition of the next
+   * one: it runs `steps` time steps of the largest time cluster, and keeps the costs (cellCosts()).
+   */
+  void setMeasuringSteps(unsigned steps) { measuringSteps_ = steps; }
+  [[nodiscard]] std::optional<unsigned> measuringSteps() const { return measuringSteps_; }
+
+  //! what the cells cost in this run, where it measured that
+  std::optional<initializer::MeasuredCellCosts>& cellCosts() { return cellCosts_; }
 
   void loadCheckpoint(const std::string& file);
 
   Executor executionPlace(std::size_t clusterSize) {
     constexpr auto DefaultDevice = isDeviceOn() ? Executor::Device : Executor::Host;
     if (executionPlaceCutoff_.has_value()) {
-      if (executionPlaceCutoff_.value() <= clusterSize) {
+      // An empty cluster computes nothing anywhere. On the host, it would only make its neighbors
+      // exchange data with the host, and keep super-timesteps from getting recorded.
+      if (executionPlaceCutoff_.value() <= clusterSize || clusterSize == 0) {
         return DefaultDevice;
       } else {
         return Executor::Host;
@@ -81,31 +137,17 @@ class SeisSol {
 
   void setExecutionPlaceCutoff(std::size_t size);
 
-  initializer::MemoryManager& getMemoryManager() { return *memoryManager_; }
+  initializer::MemoryManager& memoryManager() { return *memoryManager_; }
 
-  time_stepping::TimeManager& timeManager() { return timeManager_; }
+  solver::TimeManager& timeManager() { return timeManager_; }
 
   Simulator& simulator() { return simulator_; }
 
-  sourceterm::Manager& sourceTermManager() { return sourceTermManager_; }
-
   solver::FreeSurfaceIntegrator& freeSurfaceIntegrator() { return freeSurfaceIntegrator_; }
-
-  writer::FreeSurfaceWriter& freeSurfaceWriter() { return freeSurfaceWriter_; }
 
   writer::AnalysisWriter& analysisWriter() { return analysisWriter_; }
 
   io::AsyncIO& asyncIO() { return asyncIO_; }
-
-  /**
-   * Get the wave field writer module
-   */
-  writer::WaveFieldWriter& waveFieldWriter() { return waveFieldWriter_; }
-
-  /**
-   * Get the fault writer module
-   */
-  writer::FaultWriter& faultWriter() { return faultWriter_; }
 
   /**
    * Get the receiver writer module
@@ -132,40 +174,33 @@ class SeisSol {
    */
   monitoring::FlopCounter& flopCounter() { return flopCounter_; }
 
-  const std::optional<std::string>& getCheckpointLoadFile() { return checkpointLoadFile_; }
+  /**
+   * Get the summary of the run, which it writes for programs to read
+   */
+  monitoring::RunSummary& runSummary() { return runSummary_; }
+
+  /**
+   * Get the synchronization points that end the simulation epochs of their own
+   */
+  monitoring::EpochSynchronization& epochSynchronization() { return epochSynchronization_; }
+
+  /**
+   * Get the mini SeisSol writer; it holds the measurement until the output is set up
+   */
+  writer::MiniSeisSolWriter& miniSeisSolWriter() { return miniSeisSolWriter_; }
+
+  const std::optional<std::string>& checkpointLoadFile() { return checkpointLoadFile_; }
   /**
    * Reference for timeMirrorManagers to be accessed externally when required
    */
-  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
-            seissol::ITM::InstantaneousTimeMirrorManager>&
-      getTimeMirrorManagers() {
+  std::list<seissol::physics::InstantaneousTimeMirrorManager>& getTimeMirrorManagers() {
     return timeMirrorManagers_;
   }
 
   /**
    * Set the mesh reader
    */
-  void setMeshReader(seissol::geometry::MeshReader* meshReader) {
-    if (meshReader_ != nullptr) {
-      logError() << "Mesh reader already initialized";
-    }
-
-    meshReader_ = meshReader;
-  }
-
-  /**
-   * Delete the mesh reader to free memory resources.
-   *
-   * Should be called after the simulation ended
-   */
-  void freeMeshReader() {
-    delete meshReader_;
-    meshReader_ = nullptr;
-  }
-
-  void setOutputPrefix(const std::string& outputPrefix) { outputPrefix_ = outputPrefix; }
-
-  const std::string& outputPrefix() const { return outputPrefix_; }
+  void setMeshReader(std::unique_ptr<seissol::geometry::MeshReader> meshReader);
 
   /**
    * Get the mesh reader
@@ -177,7 +212,7 @@ class SeisSol {
    */
   seissol::geometry::MeshReader& meshReader() { return *meshReader_; }
 
-  const seissol::initializer::parameters::SeisSolParameters& getSeisSolParameters() const {
+  const seissol::initializer::parameters::SeisSolParameters& parameters() const {
     return seissolParameters_;
   }
 
@@ -188,7 +223,7 @@ class SeisSol {
    */
   void deleteMemoryManager() { memoryManager_.reset(nullptr); }
 
-  GravitationSetup& getGravitationSetup() { return gravitationSetup_; }
+  GravitationSetup& gravitationSetup() { return gravitationSetup_; }
 
   /*
    * sets a time stamp for backuping
@@ -197,32 +232,64 @@ class SeisSol {
 
   void setTimestepScale(double scale) { timestepScale_ = scale; }
 
-  double getTimestepScale() const { return timestepScale_; }
+  double timestepScale() const { return timestepScale_; }
+
+  /*
+   * The rate vector the clustering actually settled on, normalized to full length.
+   *
+   * This is not necessarily the vector from the parameter file: a search that chooses the
+   * ladder rather than only the wiggle factor publishes its result here, and everything
+   * downstream of the mesh reader has to use this one. Set alongside the timestep scale,
+   * which is the other half of the same decision.
+   * */
+  void setEffectiveClusterRates(const std::vector<std::uint64_t>& rates) {
+    effectiveClusterRates_ = rates;
+  }
+
+  const std::vector<std::uint64_t>& getEffectiveClusterRates() const {
+    return effectiveClusterRates_;
+  }
 
   /*
    * returns the backup time stamp
    * */
-  const std::string& getBackupTimeStamp() { return backupTimeStamp_; }
+  const std::string& backupTimeStamp() const { return backupTimeStamp_; }
 
-  seissol::io::OutputManager& getOutputManager() { return outputManager_; }
+  seissol::io::OutputManager& outputManager() { return outputManager_; }
 
   utils::Env& env() { return env_; }
 
+  /**
+   * Sets the ID of this run (see Common/RunId.h); the same on every rank.
+   */
+  void setRunId(const std::string& runId) { runId_ = runId; }
+
+  /**
+   * The ID of this run, which every file of its output carries.
+   */
+  const std::string& runId() const { return runId_; }
+
+  /**
+   * Sets what the names of the output files start with, their directory included (see
+   * initprocedure::createOutputDirectory).
+   */
+  void setOutputPrefix(const std::string& outputPrefix) { outputPrefix_ = outputPrefix; }
+
+  /**
+   * What the names of the output files start with, their directory included.
+   */
+  const std::string& outputPrefix() const { return outputPrefix_; }
+
+  /**
+   * What the run knows about the nodes and devices it runs on.
+   */
   const SystemInfo& systemInfo() const { return systemInfo_; }
 
   private:
-  // Note: This HAS to be the first member so that it is initialized before all others!
-  // Otherwise it will NOT work.
-  // The reason for this is simple yet weird:
-  // MPI sets the affinity mask for the process
-  // After the first OpenMP call, the OMP runtime sets the pining specified in e.g. OMP_PLACES
-  // => Initialize it first, to avoid this.
-  parallel::Pinning pinning_;
-
   seissol::io::OutputManager outputManager_;
 
   //! Collection of Parameters
-  const seissol::initializer::parameters::SeisSolParameters& seissolParameters_;
+  seissol::initializer::parameters::SeisSolParameters seissolParameters_;
 
   //! Gravitation setup for tsunami boundary condition
   GravitationSetup gravitationSetup_;
@@ -231,34 +298,22 @@ class SeisSol {
   io::AsyncIO asyncIO_;
 
   //! Mesh Reader
-  seissol::geometry::MeshReader* meshReader_{nullptr};
+  std::unique_ptr<seissol::geometry::MeshReader> meshReader_;
 
   //! Memory Manager
   std::unique_ptr<initializer::MemoryManager> memoryManager_{nullptr};
 
   //! Time Manager
-  time_stepping::TimeManager timeManager_;
+  solver::TimeManager timeManager_;
 
   //! Simulator
   Simulator simulator_;
 
-  //! Source term module
-  sourceterm::Manager sourceTermManager_;
-
   //! Free surface integrator module
   solver::FreeSurfaceIntegrator freeSurfaceIntegrator_;
 
-  //! Free surface writer module
-  writer::FreeSurfaceWriter freeSurfaceWriter_;
-
   //! Analysis writer module
   writer::AnalysisWriter analysisWriter_;
-
-  //! Wavefield output module
-  writer::WaveFieldWriter waveFieldWriter_;
-
-  //! Fault output module
-  writer::FaultWriter faultWriter_;
 
   //! Receiver (off-fault) writer module
   writer::ReceiverWriter receiverWriter_;
@@ -275,35 +330,46 @@ class SeisSol {
   //! Flop Counter
   monitoring::FlopCounter flopCounter_;
 
+  //! Run summary
+  monitoring::RunSummary runSummary_;
+
+  //! Synchronization points that end the simulation epochs of their own
+  monitoring::EpochSynchronization epochSynchronization_;
+
+  //! Mini SeisSol measurement, written with the rest of the output
+  writer::MiniSeisSolWriter miniSeisSolWriter_;
+
   //! TimeMirror Managers
-  std::pair<seissol::ITM::InstantaneousTimeMirrorManager,
-            seissol::ITM::InstantaneousTimeMirrorManager>
-      timeMirrorManagers_;
+  std::list<seissol::physics::InstantaneousTimeMirrorManager> timeMirrorManagers_;
 
   //! time stamp which can be used for backuping files of previous runs
   std::string backupTimeStamp_;
 
   std::optional<std::string> checkpointLoadFile_;
 
+  const initializer::MeasuredCellCosts* measuredCosts_{nullptr};
+  std::optional<unsigned> measuringSteps_;
+  std::optional<initializer::MeasuredCellCosts> cellCosts_;
+
   std::optional<std::size_t> executionPlaceCutoff_;
 
-  utils::Env env_;
-
-  double timestepScale_{1.0};
+  std::string runId_;
 
   std::string outputPrefix_;
+
+  double timestepScale_{1.0};
+  std::vector<std::uint64_t> effectiveClusterRates_;
 
   const SystemInfo& systemInfo_;
 
   public:
-  SeisSol(const initializer::parameters::SeisSolParameters& parameters,
+  SeisSol(initializer::parameters::SeisSolParameters parameters,
           const utils::Env& env,
           const SystemInfo& systemInfo)
-      : outputManager_(*this), seissolParameters_(parameters),
-        memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
-        freeSurfaceWriter_(*this), analysisWriter_(*this), waveFieldWriter_(*this),
-        faultWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
-        timeMirrorManagers_(*this, *this), env_(env), systemInfo_(systemInfo) {}
+      : SeisSolCore(env), outputManager_(*this), seissolParameters_(std::move(parameters)),
+        asyncIO_(env_), memoryManager_(std::make_unique<initializer::MemoryManager>(*this)),
+        timeManager_(*this), analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
+        systemInfo_(systemInfo) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

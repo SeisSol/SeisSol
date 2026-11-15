@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# A strong scaling campaign: one case, two builds, two variants of the runs,
+# from 4 to 64 nodes of SuperMUC-NG. Paths are relative to this file.
+#
+#   scripts/benchmark/scaling.py plan   campaign.yaml
+#   scripts/benchmark/scaling.py submit campaign.yaml
+#   scripts/benchmark/scaling.py status campaign.yaml
+#   scripts/benchmark/scaling.py report campaign.yaml
+version: 1
+name: tpv5-strong
+# where the campaign keeps its builds, runs and results; by default <name>/
+directory: tpv5-strong
+
+machine:
+  profile: supermuc-ng
+  slurm:
+    account: pn12ab
+
+case:
+  parameter_file: ../tpv5/parameters.par
+  # --set overrides of every run; the output prefix is set per run
+  set:
+    abortcriteria.endtime: 1.0
+    output.wavefieldoutput: 0
+    output.surfaceoutput: 0
+    output.checkpoint: 0
+  # an epoch at least every 0.1 s of simulated time, so that the warm-up can
+  # be told from the rest of a run
+  epoch_interval: 0.1
+
+builds:
+  # built anew before every submission, with compile_variants.py
+  - name: current
+    variants: ../compile/compile-variants.yaml
+    preset: quick
+    set: [host_arch=skx]
+  # an executable built before
+  - name: release
+    binary: /path/to/SeisSol_Release_sskx_4_elastic
+
+variants:
+  - name: default
+  # two ranks per node, one per socket; the workers follow the layout
+  - name: two-ranks
+    ranks_per_node: 2
+    env:
+      OMP_PLACES: cores(23)
+
+scaling:
+  nodes: {min: 4, max: 64, factor: 2}
+  repetitions: 3
+  # leave out the node counts that leave a rank fewer cells than this
+  min_cells_per_rank: 20000
+
+job:
+  # of a job, which runs all builds, variants and repetitions of a node count
+  time_limit: "02:00:00"
+  # of a run; a run that takes longer is stopped
+  run_time_limit: "00:20:00"
+  # write the report once all runs have ended
+  report_job: true

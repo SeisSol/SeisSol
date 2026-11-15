@@ -8,23 +8,24 @@
 
 #include "Parallel/MPI.h"
 
-#include <array>
 #include <filesystem>
 #include <mpi.h>
 #include <string>
 #include <system_error>
-#include <unistd.h>
 #include <utils/logger.h>
 
 namespace seissol {
 
 namespace {
 std::string hostName() {
-  std::array<char, 256> name{};
-  if (gethostname(name.data(), name.size() - 1) != 0) {
+  // (gethostname is POSIX; on Windows, it is part of Winsock and needs extra initialization)
+  std::string name(MPI_MAX_PROCESSOR_NAME, '\0');
+  int length = 0;
+  if (MPI_Get_processor_name(name.data(), &length) != MPI_SUCCESS) {
     return "unknown-host";
   }
-  return name.data();
+  name.resize(length);
+  return name;
 }
 } // namespace
 

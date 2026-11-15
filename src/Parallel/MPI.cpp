@@ -11,10 +11,6 @@
 #include <mpi.h>
 #include <utils/logger.h>
 
-#ifdef ACL_DEVICE
-#include <Device/device.h>
-#endif
-
 void seissol::Mpi::init(int& argc, char**& argv) {
   // Note: Strictly speaking, we only require MPI_THREAD_MULTIPLE if using
   // a communication thread and/or async I/O.
@@ -34,6 +30,10 @@ void seissol::Mpi::init(int& argc, char**& argv) {
 
 void seissol::Mpi::setComm(MPI_Comm comm) {
   comm_ = comm;
+  if (outputComm_ != MPI_COMM_NULL) {
+    MPI_Comm_free(&outputComm_);
+  }
+  MPI_Comm_dup(comm, &outputComm_);
 
   MPI_Comm_rank(comm, &rank_);
   MPI_Comm_size(comm, &size_);
@@ -44,6 +44,16 @@ void seissol::Mpi::setComm(MPI_Comm comm) {
   MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &sharedMemComm_);
   MPI_Comm_rank(sharedMemComm_, &sharedMemMpiRank_);
   MPI_Comm_size(sharedMemComm_, &sharedMemMpiSize_);
+}
+
+void seissol::Mpi::finalize() {
+  if (sharedMemComm_ != MPI_COMM_NULL) {
+    MPI_Comm_free(&sharedMemComm_);
+  }
+  if (outputComm_ != MPI_COMM_NULL) {
+    MPI_Comm_free(&outputComm_);
+  }
+  MPI_Finalize();
 }
 
 seissol::Mpi seissol::Mpi::mpi;
