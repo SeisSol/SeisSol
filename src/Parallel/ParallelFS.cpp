@@ -6,55 +6,59 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "ParallelFS.h"
 
-#include "Common/Filesystem.h"
 #include "Parallel/MPI.h"
 
-#include <cstddef>
+#include <array>
+#include <filesystem>
 #include <mpi.h>
-#include <thread>
+#include <string>
+#include <system_error>
+#include <unistd.h>
 #include <utils/logger.h>
 
 namespace seissol {
 
-bool entryExistsGlobally(const filesystem::directory_entry& entry) {
-  const auto local = directoryExists(entry) ? 1 : 0;
-  const auto total = Mpi::mpi.allreduce(local, MPI_MIN);
-  return total == 1;
+namespace {
+std::string hostName() {
+  std::array<char, 256> name{};
+  if (gethostname(name.data(), name.size() - 1) != 0) {
+    return "unknown-host";
+  }
+  return name.data();
 }
+} // namespace
 
-void waitExistence(const filesystem::path& path) {
-  Mpi::mpi.barrier();
-
-  std::size_t counter = 0;
-  auto entry = filesystem::directory_entry(path);
-  while (!entryExistsGlobally(entry)) {
-    using namespace std::chrono_literals;
-    std::this_thread::sleep_for(10ms);
-    entry.refresh();
-    ++counter;
-    if (counter % 100 == 0) {
-      logInfo() << "Still waiting for" << path << "to become globally visible.";
+void createDirectoryGlobally(const std::filesystem::path& path) {
+  // one rank creates it, so that the metadata load does not grow with the rank count
+  if (Mpi::mpi.rank() == 0) {
+    std::error_code error;
+    const bool created = std::filesystem::create_directories(path, error);
+    if (error) {
+      logError() << "Could not create the directory" << path.string() << ":" << error.message();
+    }
+    if (created) {
+      logInfo() << "Created the directory" << path.string();
     }
   }
-}
 
-void moveEntryGlobally(const filesystem::path& entry, const filesystem::path& newentry) {
-  logInfo() << "Rename" << entry << "to" << newentry;
-  if (Mpi::mpi.rank() == 0) {
-    filesystem::rename(entry, newentry);
+  // no rank looks for the directory before it exists
+  Mpi::mpi.barrier();
+
+  std::error_code error;
+  const bool visible = std::filesystem::is_directory(path, error);
+  if (!visible) {
+    logWarning(true) << "The directory" << path.string() << "is not visible on host" << hostName()
+                     << ":" << (error ? error.message() : std::string("not a directory"));
   }
 
-  waitExistence(newentry);
-}
-
-void createDirectoryGlobally(const filesystem::path& entry) {
-  logInfo() << "Create directory" << entry;
-  if (Mpi::mpi.rank() == 0) {
-    filesystem::create_directory(entry);
+  // completes only once every rank has contributed, i.e. after all warnings above are written
+  const auto invisibleRanks = Mpi::mpi.allreduce(visible ? 0 : 1, MPI_SUM);
+  if (invisibleRanks > 0) {
+    logError() << "The directory" << path.string() << "was created, but" << invisibleRanks << "of"
+               << Mpi::mpi.size()
+               << "ranks cannot see it. The file system did not make it visible on all nodes "
+                  "right away; creating it before the run starts usually avoids this.";
   }
-
-  // wait for existence propagation to all
-  waitExistence(entry);
 }
 
 } // namespace seissol

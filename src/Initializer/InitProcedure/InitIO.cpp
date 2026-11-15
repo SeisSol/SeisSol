@@ -555,16 +555,12 @@ void seissol::initializer::initprocedure::createOutputDirectory(seissol::SeisSol
   auto directory = outputParams.outputPath.empty() ? std::filesystem::path(".")
                                                    : std::filesystem::path(outputParams.outputPath);
 
-  if (!entryExistsGlobally(std::filesystem::directory_entry(directory))) {
-    logInfo() << "Output directory does not exist yet. We therefore create it now.";
-    createDirectoryGlobally(directory);
-  }
-
   if (outputParams.outputDirPerSim) {
     // the stamp is the same on all ranks, and so is the directory name
     directory /= outputParams.outputName + "-" + seissolInstance.getBackupTimeStamp();
-    createDirectoryGlobally(directory);
   }
+
+  createDirectoryGlobally(directory);
 
   logInfo() << "Output directory:" << directory.string();
   logInfo() << "Output file prefix:" << outputParams.outputName;

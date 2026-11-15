@@ -7,29 +7,17 @@
 #ifndef SEISSOL_SRC_PARALLEL_PARALLELFS_H_
 #define SEISSOL_SRC_PARALLEL_PARALLELFS_H_
 
-#include "Common/Filesystem.h"
+#include <filesystem>
 
 namespace seissol {
 
 /**
-    Checks if a file or directory is seen by all ranks in the global communicator.
- */
-bool entryExistsGlobally(const filesystem::directory_entry& entry);
+    Creates a directory, with its parents, for all ranks.
 
-/**
-    Wait until the path is visible for all ranks.
+    Collective. Rank 0 creates the directory, then every rank checks once that it can see it.
+    Aborts if the directory cannot be created, or if some rank cannot see it.
  */
-void waitExistence(const filesystem::path& path);
-
-/**
-    Moves a file to a new place, and waits until all ranks see it.
- */
-void moveEntryGlobally(const filesystem::path& entry, const filesystem::path& newentry);
-
-/**
-    Creates a directory and waits until all ranks see it.
- */
-void createDirectoryGlobally(const filesystem::path& entry);
+void createDirectoryGlobally(const std::filesystem::path& path);
 
 } // namespace seissol
 #endif // SEISSOL_SRC_PARALLEL_PARALLELFS_H_
