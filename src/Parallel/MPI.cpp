@@ -38,6 +38,9 @@ void seissol::Mpi::setComm(MPI_Comm comm) {
   MPI_Comm_rank(comm, &rank_);
   MPI_Comm_size(comm, &size_);
 
+  if (sharedMemComm_ != MPI_COMM_NULL) {
+    MPI_Comm_free(&sharedMemComm_);
+  }
   MPI_Comm_split_type(comm, MPI_COMM_TYPE_SHARED, 0, MPI_INFO_NULL, &sharedMemComm_);
   MPI_Comm_rank(sharedMemComm_, &sharedMemMpiRank_);
   MPI_Comm_size(sharedMemComm_, &sharedMemMpiSize_);

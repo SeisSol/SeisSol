@@ -13,6 +13,7 @@
 #include "Kernels/Precision.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <mpi.h>
 #include <numeric>
@@ -21,6 +22,7 @@
 #include <type_traits>
 #include <typeindex>
 #include <unordered_map>
+#include <utility>
 #include <utils/logger.h>
 
 #ifdef MPI_VERSION
@@ -113,6 +115,25 @@ class Mpi {
 
   void setComm(MPI_Comm comm);
 
+  /**
+   * The MPI_<T>_INT pair types describe a plain struct of the two members. std::pair has no
+   * guaranteed layout; passing it as such a type is only valid where it is laid out the same way.
+   */
+  template <typename First, typename Second>
+  struct MpiPairLayout {
+    First first;
+    Second second;
+  };
+
+  template <typename First, typename Second>
+  [[nodiscard]] static constexpr bool pairMatchesMpiLayout() {
+    using PairT = std::pair<First, Second>;
+    using ReferenceT = MpiPairLayout<First, Second>;
+    return std::is_standard_layout_v<PairT> && sizeof(PairT) == sizeof(ReferenceT) &&
+           offsetof(PairT, first) == offsetof(ReferenceT, first) &&
+           offsetof(PairT, second) == offsetof(ReferenceT, second);
+  }
+
   template <typename T>
   [[nodiscard]] static MPI_Datatype castToMpiType() {
     if constexpr (std::is_same_v<T, double>) {
@@ -142,14 +163,19 @@ class Mpi {
     } else if constexpr (std::is_same_v<T, bool>) {
       return MPI_C_BOOL;
     } else if constexpr (std::is_same_v<T, std::pair<float, int>>) {
+      static_assert(pairMatchesMpiLayout<float, int>());
       return MPI_FLOAT_INT;
     } else if constexpr (std::is_same_v<T, std::pair<long, int>>) {
+      static_assert(pairMatchesMpiLayout<long, int>());
       return MPI_LONG_INT;
     } else if constexpr (std::is_same_v<T, std::pair<double, int>>) {
+      static_assert(pairMatchesMpiLayout<double, int>());
       return MPI_DOUBLE_INT;
     } else if constexpr (std::is_same_v<T, std::pair<short, int>>) {
+      static_assert(pairMatchesMpiLayout<short, int>());
       return MPI_SHORT_INT;
     } else if constexpr (std::is_same_v<T, std::pair<int, int>>) {
+      static_assert(pairMatchesMpiLayout<int, int>());
       return MPI_2INT;
     } else {
       static_assert(sizeof(T) == 0, "Unimplemented MPI type.");
@@ -305,13 +331,14 @@ class Mpi {
     if (not comm.has_value()) {
       comm = std::optional<MPI_Comm>(comm_);
     }
-    auto size = static_cast<unsigned>(container.size());
+    auto size = static_cast<Count>(container.size());
     broadcast(&size, root, comm);
     if (rankOf(comm.value()) != root) {
       container.resize(size);
     }
     auto mpiType = castToMpiType<InternalType>();
-    MPI_Bcast(const_cast<InternalType*>(container.data()), size, mpiType, root, comm.value());
+    SEISSOL_MPI_C(MPI_Bcast)(
+        const_cast<InternalType*>(container.data()), size, mpiType, root, comm.value());
   }
 
   template <typename T>
@@ -334,9 +361,9 @@ class Mpi {
     if (not comm.has_value()) {
       comm = std::optional<MPI_Comm>(comm_);
     }
-    const auto size = static_cast<unsigned>(container.size());
+    const auto size = static_cast<Count>(container.size());
     const auto mpiType = castToMpiType<InternalType>();
-    MPI_Allreduce(
+    SEISSOL_MPI_C(MPI_Allreduce)(
         MPI_IN_PLACE, const_cast<InternalType*>(container.data()), size, mpiType, op, comm.value());
   }
 
@@ -352,6 +379,10 @@ class Mpi {
       MPI_Scan(&value, &result, 1, mpiType, op, comm.value());
     } else {
       MPI_Exscan(&value, &result, 1, mpiType, op, comm.value());
+      // MPI_Exscan leaves the receive buffer of the first rank undefined
+      if (rankOf(comm.value()) == 0) {
+        result = T{};
+      }
     }
 
     return result;
@@ -381,6 +412,9 @@ class Mpi {
     for (auto& [_, type] : cachedTypes_) {
       MPI_Type_free(&type);
     }
+    if (sharedMemComm_ != MPI_COMM_NULL) {
+      MPI_Comm_free(&sharedMemComm_);
+    }
     MPI_Finalize();
   }
 
@@ -389,7 +423,7 @@ class Mpi {
 
   private:
   MPI_Comm comm_{MPI_COMM_NULL};
-  MPI_Comm sharedMemComm_{};
+  MPI_Comm sharedMemComm_{MPI_COMM_NULL};
   Mpi() = default;
   std::unordered_map<std::type_index, MPI_Datatype> cachedTypes_;
 };

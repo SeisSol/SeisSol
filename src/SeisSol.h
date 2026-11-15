@@ -293,7 +293,7 @@ class SeisSol {
 
   std::string outputPrefix_;
 
-  SystemInfo systemInfo_;
+  const SystemInfo& systemInfo_;
 
   public:
   SeisSol(const initializer::parameters::SeisSolParameters& parameters,

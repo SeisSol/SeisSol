@@ -8,10 +8,11 @@
 
 #include "Parallel/MPI.h"
 
+#include <cstddef>
+#include <cstring>
 #include <string>
 #include <unistd.h>
 #include <utils/logger.h>
-#include <utils/stringutils.h>
 #include <vector>
 
 #ifdef ACL_DEVICE
@@ -27,16 +28,20 @@ void SystemInfo::init() {
 }
 
 void SystemInfo::loadHostInfo() {
-  std::string hostName(256, ' ');
-  if (gethostname(hostName.data(), 256) != 0) {
+  // gethostname may truncate without a terminator, so keep one byte spare
+  constexpr std::size_t HostNameCapacity = 256;
+  std::string hostName(HostNameCapacity, '\0');
+  if (gethostname(hostName.data(), HostNameCapacity - 1) != 0) {
     hostName = "unknown-host";
   } else {
-    utils::StringUtils::rtrim(hostName);
-    hostName.pop_back();
+    hostName.resize(std::strlen(hostName.c_str()));
   }
   hostNames_ = Mpi::mpi.collectContainer(hostName);
 
-  logInfo() << "Running on (rank=0):" << hostNames_.front();
+  // the names are gathered on rank 0 only
+  if (!hostNames_.empty()) {
+    logInfo() << "Running on (rank=0):" << hostNames_.front();
+  }
 }
 
 void SystemInfo::loadGPUInfo() {
