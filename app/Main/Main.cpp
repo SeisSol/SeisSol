@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
+#include "Common/Filesystem.h"
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
@@ -62,20 +63,13 @@ int main(int argc, char* argv[]) {
   try {
 #ifdef ACL_DEVICE
     device::DeviceInstance& device = device::DeviceInstance::getInstance();
-    /**
-     * @brief Inits Device(s).
-     *
-     * Some MPI implementations create a so-called context between GPUs and OS Processes inside of
-     * MPI_Init(...). It results in allocating some memory buffers in memory attached to the nearest
-     * NUMA domain of a core where a process is running. In case of somebody wants to bind a
-     * processes in a different way, e.g. move a process closer to a GPU, it must be done before
-     * calling MPI_Init(...) using env. variables or hwloc library.
-     *
-     * Currently, the function does a simple binding, i.e. it binds to the first visible device.
-     * The user is responsible for the correct binding on a multi-gpu setup.
-     * One can use a wrapper script and manipulate with CUDA_VISIBLE_DEVICES/HIP_VISIBLE_DEVICES and
-     * OMPI_COMM_WORLD_LOCAL_RANK env. variables
-     * */
+    // Bind to the first visible device, before MPI_Init.
+    // Some MPI implementations set up a context between GPUs and OS processes inside MPI_Init, and
+    // allocate buffers in the NUMA domain nearest to the core the process runs on. Binding a
+    // process differently, e.g. closer to a GPU, therefore has to happen beforehand, via
+    // environment variables or hwloc.
+    // On a multi-GPU node, the binding is up to the user; a wrapper script can set
+    // CUDA_VISIBLE_DEVICES/HIP_VISIBLE_DEVICES from OMPI_COMM_WORLD_LOCAL_RANK.
     device.api->setDevice(0);
     device.api->initialize();
 #endif // ACL_DEVICE
@@ -193,7 +187,8 @@ int main(int argc, char* argv[]) {
       // run SeisSol
       const bool runSeisSol = seissolInstance.init();
 
-      const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
+      const auto stamp =
+          utils::TimeUtils::timeAsString(seissol::BackupTimeStampFormat, time(nullptr));
       seissolInstance.setBackupTimeStamp(stamp);
 
       // Run SeisSol

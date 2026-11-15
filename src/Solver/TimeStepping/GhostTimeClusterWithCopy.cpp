@@ -9,6 +9,7 @@
 
 #include "Solver/TimeStepping/GhostTimeClusterWithCopy.h"
 
+#include "Monitoring/Instrumentation.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Solver/TimeStepping/AbstractGhostTimeCluster.h"

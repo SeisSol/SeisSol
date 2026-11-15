@@ -30,6 +30,10 @@ namespace filesystem = std::filesystem;
 #endif // EXPERIMENTAL_FS
 
 namespace seissol {
+
+/// strftime format of the time stamps in file and directory names
+constexpr auto BackupTimeStampFormat = "%Y-%m-%dT%H-%M-%S";
+
 auto directoryExists(const seissol::filesystem::directory_entry& entry) -> bool;
 
 /**

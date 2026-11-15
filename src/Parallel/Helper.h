@@ -18,9 +18,9 @@ namespace seissol {
 
 // TODO: refactor so that we always "carry" the env object; and not need to re-create it
 
-void printCommThreadInfo(const Mpi& mpiBasic, utils::Env& env);
+void printCommThreadInfo(const Mpi& mpi, utils::Env& env);
 
-bool useCommThread(const Mpi& mpiBasic, utils::Env& env);
+bool useCommThread(const Mpi& mpi, utils::Env& env);
 
 bool usePersistentMpi(utils::Env& env);
 

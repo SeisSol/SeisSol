@@ -20,9 +20,9 @@
 
 namespace seissol {
 
-void printCommThreadInfo(const Mpi& mpiBasic, utils::Env& env) {
+void printCommThreadInfo(const Mpi& mpi, utils::Env& env) {
   const bool useThread = env.get<bool>("COMMTHREAD", true);
-  if (mpiBasic.isSingleProcess()) {
+  if (mpi.isSingleProcess()) {
     logInfo() << "Using polling for advancing MPI communication, due to having only "
                  "one MPI rank running.";
   } else if (useThread) {
@@ -32,9 +32,9 @@ void printCommThreadInfo(const Mpi& mpiBasic, utils::Env& env) {
   }
 }
 
-bool useCommThread(const Mpi& mpiBasic, utils::Env& env) {
+bool useCommThread(const Mpi& mpi, utils::Env& env) {
   const bool useThread = env.get<bool>("COMMTHREAD", true);
-  return useThread && !mpiBasic.isSingleProcess();
+  return useThread && !mpi.isSingleProcess();
 }
 
 bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
