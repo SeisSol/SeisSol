@@ -31,12 +31,5 @@ void moveEntryGlobally(const filesystem::path& entry, const filesystem::path& ne
  */
 void createDirectoryGlobally(const filesystem::path& entry);
 
-/**
-    Turns a file into a backup file if it exists.
- */
-void generateBackupFileIfNecessary(const std::string& fileName,
-                                   const std::string& fileExtension,
-                                   const std::optional<std::string>& timeStamp);
-
 } // namespace seissol
 #endif // SEISSOL_SRC_PARALLEL_PARALLELFS_H_

@@ -13,6 +13,14 @@ class SeisSol;
 } // namespace seissol
 
 namespace seissol::initializer::initprocedure {
+/**
+ * Creates the output directory, with its parents, and sets the output prefix inside it.
+ *
+ * Done before anything else of the run, so that every file the run writes has a place to go.
+ * Collective.
+ */
+void createOutputDirectory(seissol::SeisSol& seissolInstance);
+
 void initIO(seissol::SeisSol& seissolInstance);
 } // namespace seissol::initializer::initprocedure
 

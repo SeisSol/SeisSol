@@ -31,6 +31,16 @@ namespace filesystem = std::filesystem;
 
 namespace seissol {
 auto directoryExists(const seissol::filesystem::directory_entry& entry) -> bool;
+
+/**
+    Renames an existing file to a timestamped backup name.
+
+    Purely local: it inspects and renames only files of the calling rank, and does not
+    communicate. Not for files which several ranks share.
+ */
+void generateBackupFileIfNecessary(const std::string& fileName,
+                                   const std::string& fileExtension,
+                                   const std::optional<std::string>& timeStamp = {});
 } // namespace seissol
 
 #endif // SEISSOL_SRC_COMMON_FILESYSTEM_H_

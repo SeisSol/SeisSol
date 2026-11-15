@@ -82,6 +82,24 @@ class Mpi {
 
   [[nodiscard]] bool isSingleNode() const { return size() == sharedMemMpiSize(); }
 
+  /**
+   * @return The rank of this process within the communicator @p comm
+   */
+  [[nodiscard]] static int rankOf(MPI_Comm comm) {
+    int rank = 0;
+    MPI_Comm_rank(comm, &rank);
+    return rank;
+  }
+
+  /**
+   * @return The number of processes in the communicator @p comm
+   */
+  [[nodiscard]] static int sizeOf(MPI_Comm comm) {
+    int size = 0;
+    MPI_Comm_size(comm, &size);
+    return size;
+  }
+
 #ifdef SEISSOL_MPI_LARGEINT
   using Count = MPI_Count;
 #else
@@ -179,11 +197,11 @@ class Mpi {
    */
   template <typename T>
   [[nodiscard]] auto collect(T value, std::optional<MPI_Comm> comm = {}) const {
-    auto collect = std::vector<T>(size_);
-    auto type = castToMpiType<T>();
     if (not comm.has_value()) {
       comm = std::optional<MPI_Comm>(comm_);
     }
+    auto collect = std::vector<T>(sizeOf(comm.value()));
+    auto type = castToMpiType<T>();
     MPI_Gather(&value, 1, type, collect.data(), 1, type, 0, comm.value());
     return collect;
   }
@@ -202,8 +220,7 @@ class Mpi {
     if (not comm.has_value()) {
       comm = std::optional<MPI_Comm>(comm_);
     }
-    int commSize{};
-    MPI_Comm_size(comm.value(), &commSize);
+    const int commSize = sizeOf(comm.value());
 
     auto length = static_cast<int>(container.size());
     auto lengths = collect(length, comm);
@@ -289,8 +306,8 @@ class Mpi {
       comm = std::optional<MPI_Comm>(comm_);
     }
     auto size = static_cast<unsigned>(container.size());
-    broadcast(&size, root);
-    if (rank_ != root) {
+    broadcast(&size, root, comm);
+    if (rankOf(comm.value()) != root) {
       container.resize(size);
     }
     auto mpiType = castToMpiType<InternalType>();

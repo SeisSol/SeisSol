@@ -105,6 +105,8 @@ void closeSeisSol(seissol::SeisSol& seissolInstance) {
 } // namespace
 
 void seissolMain(seissol::SeisSol& seissolInstance) {
+  createOutputDirectory(seissolInstance);
+
   initSeisSol(seissolInstance);
   reportHardwareRelatedStatus(seissolInstance);
 

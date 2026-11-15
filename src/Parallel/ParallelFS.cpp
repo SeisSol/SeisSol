@@ -10,14 +10,9 @@
 #include "Parallel/MPI.h"
 
 #include <cstddef>
-#include <ctime>
 #include <mpi.h>
-#include <optional>
-#include <sstream>
-#include <string>
 #include <thread>
 #include <utils/logger.h>
-#include <utils/timeutils.h>
 
 namespace seissol {
 
@@ -60,25 +55,6 @@ void createDirectoryGlobally(const filesystem::path& entry) {
 
   // wait for existence propagation to all
   waitExistence(entry);
-}
-
-void generateBackupFileIfNecessary(const std::string& fileName,
-                                   const std::string& fileExtension,
-                                   const std::optional<std::string>& timeStamp) {
-  std::stringstream fullName;
-  fullName << fileName << '.' << fileExtension;
-  const auto path = seissol::filesystem::path(fullName.str());
-  const auto entry = seissol::filesystem::directory_entry(path);
-
-  // file should already exist for a much longer time
-  if (entryExistsGlobally(entry)) {
-    const auto actualTimeStamp = timeStamp.value_or(
-        []() { return utils::TimeUtils::timeAsString("%Y-%m-%dT%H-%M-%S", time(nullptr)); }());
-    std::stringstream backupFileName;
-    backupFileName << fileName << ".bak_" << actualTimeStamp << '.' << fileExtension;
-    const auto copyPath = seissol::filesystem::path(backupFileName.str());
-    moveEntryGlobally(path, copyPath);
-  }
 }
 
 } // namespace seissol

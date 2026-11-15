@@ -283,9 +283,10 @@ OutputParameters readOutputParameters(ParameterReader* baseReader) {
   if (outputDirR.has_value() && outputNameR.has_value()) {
     outputDir = outputDirR.value();
     outputName = outputNameR.value();
+    reader->warnDeprecatedSingle("outputfile");
   } else {
     const auto prefix = reader->readOrFail<std::string>(
-        "outputfile", "Neighbor output directory, output name, nor output file prefix defined.");
+        "outputfile", "Either both outdir and outname, or outputfile need to be given.");
     const auto prefixPath = filesystem::path(prefix);
     outputDir = prefixPath.parent_path();
     outputName = prefixPath.filename();

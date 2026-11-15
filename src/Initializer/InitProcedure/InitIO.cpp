@@ -35,10 +35,9 @@
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <ctime>
+#include <filesystem>
 #include <string>
 #include <utils/logger.h>
-#include <utils/timeutils.h>
 #include <vector>
 
 namespace {
@@ -549,35 +548,33 @@ void enableFreeSurfaceOutput(seissol::SeisSol& seissolInstance) {
 
 } // namespace
 
-void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
-  logInfo() << "Begin init output.";
+void seissol::initializer::initprocedure::createOutputDirectory(seissol::SeisSol& seissolInstance) {
+  const auto& outputParams = seissolInstance.getSeisSolParameters().output;
 
-  const auto& seissolParams = seissolInstance.getSeisSolParameters();
-  const auto outputDir = filesystem::directory_entry(seissolParams.output.outputPath);
+  // an empty directory denotes the working directory
+  auto directory = outputParams.outputPath.empty() ? std::filesystem::path(".")
+                                                   : std::filesystem::path(outputParams.outputPath);
 
-  filesystem::path prefix = seissolParams.output.outputPath;
-
-  if (!entryExistsGlobally(outputDir)) {
+  if (!entryExistsGlobally(std::filesystem::directory_entry(directory))) {
     logInfo() << "Output directory does not exist yet. We therefore create it now.";
-
-    createDirectoryGlobally(seissolParams.output.outputPath);
+    createDirectoryGlobally(directory);
   }
 
-  if (seissolParams.output.outputDirPerSim) {
-    const auto now = utils::TimeUtils::timeAsString("%Y-%m-%dT%H-%M-%S", time(nullptr));
-    const auto simName = seissolParams.output.outputName + "-" + now;
-    prefix /= simName;
-    createDirectoryGlobally(prefix);
+  if (outputParams.outputDirPerSim) {
+    // the stamp is the same on all ranks, and so is the directory name
+    directory /= outputParams.outputName + "-" + seissolInstance.getBackupTimeStamp();
+    createDirectoryGlobally(directory);
   }
 
-  logInfo() << "Output directory:" << prefix;
-
-  prefix /= seissolParams.output.outputName;
-
-  logInfo() << "Output file prefix:" << seissolParams.output.outputName;
+  logInfo() << "Output directory:" << directory.string();
+  logInfo() << "Output file prefix:" << outputParams.outputName;
 
   // TODO: (after #1180) properly split prefix into dir and simulation name
-  seissolInstance.setOutputPrefix(prefix);
+  seissolInstance.setOutputPrefix((directory / outputParams.outputName).string());
+}
+
+void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
+  logInfo() << "Begin init output.";
 
   enableWaveFieldOutput(seissolInstance);
   enableFreeSurfaceOutput(seissolInstance);
