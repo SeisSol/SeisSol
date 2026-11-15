@@ -1091,8 +1091,6 @@ void seissol::initializer::initprocedure::createOutputDirectory(seissol::SeisSol
 void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
   logInfo() << "Begin init output.";
 
-  const auto& seissolParams = seissolInstance.parameters();
-
   // recorded while reading the mesh and laying out the clusters, before the writers were set up
   seissolInstance.miniSeisSolWriter().write(
       seissolInstance.outputPrefix(), seissolInstance.runId(), seissolInstance.systemInfo());

@@ -8,12 +8,9 @@
 #include "Grouping.h"
 
 #include "IO/Datatype/Datatype.h"
-#include "IO/Datatype/Inference.h"
-#include "IO/Datatype/MPIType.h"
 #include "IO/Instance/Point/TableWriter.h"
 #include "Parallel/MPI.h"
 
-#include <algorithm>
 #include <cstddef>
 #include <map>
 #include <mpi.h>

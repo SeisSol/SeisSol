@@ -9,7 +9,6 @@
 
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/Inference.h"
-#include "IO/Datatype/MPIType.h"
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Metadata/Pvd.h"
 #include "IO/Instance/Metadata/Xml.h"

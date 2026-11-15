@@ -10,8 +10,6 @@
 #include "Common/Literals.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/HDF5Type.h"
-#include "IO/Datatype/Inference.h"
-#include "IO/Datatype/MPIType.h"
 #include "Parallel/MPI.h"
 
 #include <algorithm>

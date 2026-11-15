@@ -202,7 +202,7 @@ class Mpi {
    */
   template <typename T>
   [[nodiscard]] auto collect(T value, std::optional<MPI_Comm> comm = {}) const {
-    const auto useComm = comm.value_or(this->comm());
+    const auto& useComm = comm.value_or(this->comm());
     auto collect = std::vector<T>(sizeOf(useComm));
     auto type = castToMpiType<T>();
     MPI_Gather(&value, 1, type, collect.data(), 1, type, 0, useComm);
@@ -220,7 +220,7 @@ class Mpi {
       collectContainer(const ContainerType& container, std::optional<MPI_Comm> comm = {}) const {
     using InternalType = ContainerType::value_type;
 
-    const auto useComm = comm.value_or(this->comm());
+    const auto& useComm = comm.value_or(this->comm());
     const int commSize = sizeOf(useComm);
 
     const auto length = static_cast<int>(container.size());
@@ -260,7 +260,7 @@ class Mpi {
   // rank 0, then by rank 1, then by rank 2 etc.
   template <typename F>
   void serialOrderExecute(F&& operation, std::optional<MPI_Comm> comm = {}) const {
-    const auto useComm = comm.value_or(this->comm());
+    const auto& useComm = comm.value_or(this->comm());
     const int rank = rankOf(useComm);
     const int size = sizeOf(useComm);
 
@@ -295,7 +295,7 @@ class Mpi {
                           int root,
                           std::optional<MPI_Comm> comm = {}) const {
     using InternalType = ContainerType::value_type;
-    const auto useComm = comm.value_or(this->comm());
+    const auto& useComm = comm.value_or(this->comm());
     auto size = static_cast<Count>(container.size());
     broadcast(&size, root, useComm);
     if (rankOf(useComm) != root) {
@@ -353,7 +353,7 @@ class Mpi {
                        int root,
                        std::optional<MPI_Comm> comm = {}) const {
     using InternalType = ContainerType::value_type;
-    const auto useComm = comm.value_or(this->comm());
+    const auto& useComm = comm.value_or(this->comm());
     const auto size = static_cast<Count>(container.size());
     const auto mpiType = castToMpiType<InternalType>();
     if (rankOf(useComm) == root) {
@@ -369,7 +369,7 @@ class Mpi {
    */
   template <typename T>
   [[nodiscard]] std::vector<T> allgather(const T& value, std::optional<MPI_Comm> comm = {}) const {
-    const auto useComm = comm.value_or(this->comm());
+    const auto& useComm = comm.value_or(this->comm());
     std::vector<T> values(sizeOf(useComm));
     const auto mpiType = castToMpiType<T>();
     MPI_Allgather(&value, 1, mpiType, values.data(), 1, mpiType, useComm);
@@ -383,7 +383,7 @@ class Mpi {
   template <typename T>
   [[nodiscard]] T
       scan(const T& value, MPI_Op op, bool inclusive, std::optional<MPI_Comm> comm = {}) const {
-    const auto useComm = comm.value_or(this->comm());
+    const auto& useComm = comm.value_or(this->comm());
     T result{};
     auto mpiType = castToMpiType<T>();
     if (inclusive) {
@@ -408,7 +408,7 @@ class Mpi {
                      bool inclusive,
                      std::optional<MPI_Comm> comm = {}) const {
     using InternalType = ContainerType::value_type;
-    const auto useComm = comm.value_or(this->comm());
+    const auto& useComm = comm.value_or(this->comm());
     const auto size = static_cast<Count>(container.size());
     const auto mpiType = castToMpiType<InternalType>();
     if (inclusive) {

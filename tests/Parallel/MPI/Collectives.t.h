@@ -243,8 +243,8 @@ TEST_CASE("MPI scan" * doctest::test_suite("mpi")) {
   const auto& mpi = seissol::Mpi::mpi;
   const int rank = mpi.rank();
 
-  const auto value = static_cast<std::size_t>(rank + 1);
   const auto rankSize = static_cast<std::size_t>(rank);
+  const auto value = rankSize + 1;
   CHECK(mpi.scan(value, MPI_SUM, true) == (rankSize + 1) * (rankSize + 2) / 2);
   // defined on the first rank as well, where MPI_Exscan leaves it undefined
   CHECK(mpi.scan(value, MPI_SUM, false) == rankSize * (rankSize + 1) / 2);
@@ -302,21 +302,21 @@ TEST_CASE("MPI allgather" * doctest::test_suite("mpi")) {
 // other communicators
 // ---------------------------------------------------------------------------
 
-namespace {
+namespace collectivestest {
 /// the ranks of MPI_COMM_WORLD split by their parity, the even ones first
-MPI_Comm splitByParity() {
+inline MPI_Comm splitByParity() {
   MPI_Comm comm = MPI_COMM_NULL;
   const int rank = seissol::Mpi::rankOf(MPI_COMM_WORLD);
   MPI_Comm_split(MPI_COMM_WORLD, rank % 2, rank, &comm);
   return comm;
 }
-} // namespace
+} // namespace collectivestest
 
 TEST_CASE("MPI collectives on a communicator of their own" * doctest::test_suite("mpi")) {
   const auto& mpi = seissol::Mpi::mpi;
   const int worldRank = mpi.rank();
   const int worldSize = mpi.size();
-  MPI_Comm comm = splitByParity();
+  MPI_Comm comm = collectivestest::splitByParity();
 
   const int rank = seissol::Mpi::rankOf(comm);
   const int size = seissol::Mpi::sizeOf(comm);
@@ -353,7 +353,7 @@ TEST_CASE("MPI collectives on a communicator of their own" * doctest::test_suite
 
 TEST_CASE("MPI collectives take the communicator of the thread" * doctest::test_suite("mpi")) {
   const auto& mpi = seissol::Mpi::mpi;
-  MPI_Comm comm = splitByParity();
+  MPI_Comm comm = collectivestest::splitByParity();
 
   seissol::Mpi::setThreadComm(comm);
   CHECK(mpi.comm() == comm);

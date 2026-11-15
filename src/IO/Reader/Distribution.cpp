@@ -189,7 +189,6 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   constexpr int TagFromIntermediateTarget = 23;
 
   const int commsize = seissol::Mpi::sizeOf(comm_);
-  const int commrank = seissol::Mpi::rankOf(comm_);
 
   MPI_Datatype sizetype =
       seissol::io::datatype::convertToMPI(seissol::io::datatype::inferDatatype<std::size_t>());
@@ -302,7 +301,6 @@ Distributor::DistributionInstance Distributor::distributeRaw(
   constexpr int Tag = 30;
 
   const int commsize = seissol::Mpi::sizeOf(comm_);
-  const int commrank = seissol::Mpi::rankOf(comm_);
 
   int typesizeInt = 0;
   MPI_Type_size(datatype, &typesizeInt);

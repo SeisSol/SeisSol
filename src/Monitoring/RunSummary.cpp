@@ -284,7 +284,7 @@ json::Value RunSummary::overRanks(std::string_view column, double localValue) {
 }
 
 void RunSummary::writeRanks() {
-  auto& mpi = seissol::Mpi::mpi;
+  const auto& mpi = seissol::Mpi::mpi;
 
   // the columns of rank 0, which every rank fills in, in its order
   std::vector<char> names;
