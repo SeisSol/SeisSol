@@ -19,6 +19,7 @@
 #include "Proxy/Runner.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <utils/logger.h>
 #include <vector>
@@ -61,7 +62,49 @@ auto estimatedCost(ConfigId config) -> double {
   return static_cast<double>(flop) * static_cast<double>(realSize);
 }
 
+/// One step of the cost run of `config` with `cells` cells: the best of `repetitions` runs of
+/// `steps` steps each.
+auto layerStepTime(ConfigId config, unsigned cells, unsigned steps, int repetitions) -> double {
+  auto proxyConfig = costProxyConfig(config, cells);
+  proxyConfig.timesteps = steps;
+  auto best = std::numeric_limits<double>::infinity();
+  for (int i = 0; i < repetitions; ++i) {
+    best = std::min(best, proxy::runProxy(proxyConfig).time / steps);
+  }
+  return best;
+}
+
 } // namespace
+
+auto layerCombineThreshold(ConfigId config) -> std::size_t {
+  if constexpr (!isDeviceOn()) {
+    return 0;
+  }
+  // a device that has been idle raises its clocks only under load (see miniSeisSol)
+  constexpr unsigned SmallCells = 64;
+  constexpr unsigned MediumCells = 16384;
+  constexpr unsigned LargeCells = 65536;
+  auto warmup = costProxyConfig(config, LargeCells);
+  warmup.timesteps = 1;
+  warmup.warmup = 0.3;
+  proxy::runProxy(warmup);
+
+  const auto fixedTime = layerStepTime(config, SmallCells, 50, 2);
+  const auto cellTime =
+      (layerStepTime(config, LargeCells, 10, 2) - layerStepTime(config, MediumCells, 10, 2)) /
+      static_cast<double>(LargeCells - MediumCells);
+  double cells = cellTime > 0 ? fixedTime / cellTime : 0.0;
+
+  // the same threshold on all ranks
+  const auto summary = statistics::parallelSummary(cells);
+  cells = summary.median;
+  Mpi::mpi.broadcast(&cells, 0);
+  logInfo() << "A step of the cell kernels takes" << fixedTime * 1e6 << "us with" << SmallCells
+            << "cells, and" << cellTime * 1e9 << "ns per further cell: below" << cells
+            << "cells (median over the ranks; min" << summary.min << ", max" << summary.max
+            << "), its fixed part weighs more than its cells.";
+  return static_cast<std::size_t>(cells);
+}
 
 auto miniSeisSol(ConfigId config) -> double {
   // A device that has been idle raises its clocks within some hundred milliseconds under load; ten

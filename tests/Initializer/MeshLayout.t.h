@@ -43,7 +43,10 @@ TEST_CASE("Combining the copy and interior cells of a cluster" *
   layout[color(HaloType::Interior, 1)].cellMap = {9, 10, 11, 12, 13, 14};
 
   SUBCASE("below the threshold, the interior cells follow the copy cells in the copy layer") {
-    CHECK(seissol::initializer::internal::combineCopyInterior(layout, colorMap, 6) == 1);
+    const auto combined = seissol::initializer::internal::combineCopyInterior(layout, colorMap, 6);
+    CHECK(combined.moved == 1);
+    CHECK(combined.copyLayers[color(HaloType::Copy, 0)]);
+    CHECK_FALSE(combined.copyLayers[color(HaloType::Copy, 1)]);
 
     CHECK(layout[color(HaloType::Copy, 0)].cellMap == std::vector<std::size_t>{0, 1, 2, 3, 4});
     CHECK(layout[color(HaloType::Interior, 0)].cellMap.empty());
@@ -57,7 +60,7 @@ TEST_CASE("Combining the copy and interior cells of a cluster" *
   }
 
   SUBCASE("a threshold of 0 combines nothing") {
-    CHECK(seissol::initializer::internal::combineCopyInterior(layout, colorMap, 0) == 0);
+    CHECK(seissol::initializer::internal::combineCopyInterior(layout, colorMap, 0).moved == 0);
 
     CHECK(layout[color(HaloType::Copy, 0)].cellMap.size() == 2);
     CHECK(layout[color(HaloType::Interior, 0)].cellMap.size() == 3);
@@ -77,7 +80,11 @@ TEST_CASE("Combining the copy and interior fault faces of a cluster" *
   layout[color(HaloType::Copy, 1)] = {4, 5, 6};
   layout[color(HaloType::Interior, 1)] = {7, 8, 9};
 
-  CHECK(seissol::initializer::internal::combineCopyInteriorDR(layout, colorMap, 4) == 1);
+  const auto below = seissol::initializer::internal::faceLayersBelow(layout, colorMap, 4);
+  CHECK(below[color(HaloType::Copy, 0)]);
+  CHECK_FALSE(below[color(HaloType::Copy, 1)]);
+  CHECK_FALSE(below[color(HaloType::Interior, 0)]);
+  CHECK(seissol::initializer::internal::combineCopyInteriorDR(layout, colorMap, below) == 1);
 
   // the faces of the copy layer go to the interior layer, which then also waits for the ghost cells
   CHECK(layout[color(HaloType::Copy, 0)].empty());

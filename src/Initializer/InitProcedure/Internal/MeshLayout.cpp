@@ -136,16 +136,17 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
   return clusters;
 }
 
-std::size_t combineCopyInterior(std::vector<ClusterMap>& map,
-                                const LTSColorMap& colormap,
-                                std::size_t threshold) {
+CombinedLayers combineCopyInterior(std::vector<ClusterMap>& map,
+                                   const LTSColorMap& colormap,
+                                   std::size_t threshold) {
   const auto colorAdjust = [&](std::size_t color, HaloType halo) {
     auto id = colormap.argument(color);
     id.halo = halo;
     return colormap.colorId(id);
   };
 
-  std::size_t combined = 0;
+  CombinedLayers combined;
+  combined.copyLayers.resize(map.size(), false);
   for (std::size_t i = 0; i < map.size(); ++i) {
     if (colormap.argument(i).halo == HaloType::Copy) {
       const auto copyLayer = i;
@@ -157,8 +158,9 @@ std::size_t combineCopyInterior(std::vector<ClusterMap>& map,
       if (copySize + interiorSize < threshold) {
         // the interior cells go behind the copy cells: the send regions only cover the leading
         // cells of a copy layer, so the halo stays as it is
+        combined.copyLayers[copyLayer] = true;
         if (interiorSize > 0) {
-          ++combined;
+          ++combined.moved;
         }
         map[copyLayer].cellMap.insert(map[copyLayer].cellMap.end(),
                                       map[interiorLayer].cellMap.begin(),
@@ -170,37 +172,39 @@ std::size_t combineCopyInterior(std::vector<ClusterMap>& map,
   return combined;
 }
 
-std::size_t combineCopyInteriorDR(std::vector<std::vector<std::size_t>>& map,
+std::vector<bool> faceLayersBelow(const std::vector<std::vector<std::size_t>>& map,
                                   const LTSColorMap& colormap,
                                   std::size_t threshold) {
-  const auto colorAdjust = [&](std::size_t color, HaloType halo) {
-    auto id = colormap.argument(color);
-    id.halo = halo;
-    return colormap.colorId(id);
-  };
-
-  // the other way round than for the cells: the faces of the copy layer go to the interior layer,
-  // whose face cluster then also waits for the ghost cells (see TimeManager::addClusters)
-  std::size_t combined = 0;
+  std::vector<bool> below(map.size(), false);
   for (std::size_t i = 0; i < map.size(); ++i) {
-    if (colormap.argument(i).halo == HaloType::Copy) {
-      const auto copyLayer = i;
-      const auto interiorLayer = colorAdjust(i, HaloType::Interior);
-
-      const auto copySize = map[copyLayer].size();
-      const auto interiorSize = map[interiorLayer].size();
-
-      if (copySize + interiorSize < threshold) {
-        if (copySize > 0) {
-          ++combined;
-        }
-        map[interiorLayer].insert(
-            map[interiorLayer].end(), map[copyLayer].begin(), map[copyLayer].end());
-        map[copyLayer].clear();
-      }
+    auto id = colormap.argument(i);
+    if (id.halo == HaloType::Copy) {
+      id.halo = HaloType::Interior;
+      below[i] = map[i].size() + map[colormap.colorId(id)].size() < threshold;
     }
   }
-  return combined;
+  return below;
+}
+
+std::size_t combineCopyInteriorDR(std::vector<std::vector<std::size_t>>& map,
+                                  const LTSColorMap& colormap,
+                                  const std::vector<bool>& combine) {
+  // the other way round than for the cells: the faces of the copy layer go to the interior layer,
+  // whose face cluster then also waits for the ghost cells (see TimeManager::addClusters)
+  std::size_t moved = 0;
+  for (std::size_t i = 0; i < map.size() && i < combine.size(); ++i) {
+    auto id = colormap.argument(i);
+    if (id.halo == HaloType::Copy && combine[i]) {
+      id.halo = HaloType::Interior;
+      auto& interior = map[colormap.colorId(id)];
+      if (!map[i].empty()) {
+        ++moved;
+      }
+      interior.insert(interior.end(), map[i].begin(), map[i].end());
+      map[i].clear();
+    }
+  }
+  return moved;
 }
 
 std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& color,

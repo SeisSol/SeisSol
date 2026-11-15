@@ -11,6 +11,7 @@
 
 #include "Common/ConfigRegistry.h"
 
+#include <cstddef>
 #include <vector>
 
 namespace seissol::solver {
@@ -30,6 +31,14 @@ auto configCostFactors(const std::vector<ConfigId>& configs, ConfigId reference,
     -> std::vector<double>;
 
 auto hostDeviceSwitch() -> int;
+
+/**
+ * Times one step of the time, local and neighbor kernels at a few numbers of cells (device builds
+ * only) and returns the number of cells below which such a step costs more by its fixed part (the
+ * time it takes with almost no cells) than by its cells: the median over the ranks, the same on all
+ * of them. 0 in builds without a device.
+ */
+auto layerCombineThreshold(ConfigId config) -> std::size_t;
 
 } // namespace seissol::solver
 

@@ -39,6 +39,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <limits>
 #include <map>
 #include <mpi.h>
@@ -211,15 +212,30 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Creating mesh layout...";
 
+  // SEISSOL_ICCOMBINE: a number of cells, or "auto" for the size below which a layer costs more by
+  // its fixed part than by its cells on this machine (see layerCombineThreshold)
+  const auto cellThreshold = [&]() -> std::size_t {
+    const auto setting = seissolInstance.env().get<std::string>("ICCOMBINE", "0");
+    if (setting == "auto") {
+      return solver::layerCombineThreshold(model.configs().front());
+    }
+    try {
+      return std::stoull(setting);
+    } catch (const std::exception&) {
+      logError() << "SEISSOL_ICCOMBINE has to be a number of cells or auto, not" << setting;
+      return 0;
+    }
+  }();
+  internal::CombinedLayers combinedCells;
   const auto meshLayout = [&]() {
     auto meshLayoutPre = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
-    const auto threshold = seissolInstance.env().get<std::size_t>("ICCOMBINE", 0);
-    if (threshold > 0) {
-      auto combined = internal::combineCopyInterior(meshLayoutPre, colorMap, threshold);
+    if (cellThreshold > 0) {
+      combinedCells = internal::combineCopyInterior(meshLayoutPre, colorMap, cellThreshold);
+      auto moved = combinedCells.moved;
       MPI_Allreduce(
-          MPI_IN_PLACE, &combined, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
-      logInfo() << "Combined the copy and interior cells of" << combined
-                << "clusters over all ranks (fewer than" << threshold
+          MPI_IN_PLACE, &moved, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
+      logInfo() << "Combined the copy and interior cells of" << moved
+                << "clusters over all ranks (fewer than" << cellThreshold
                 << "cells together, SEISSOL_ICCOMBINE).";
     }
     return meshLayoutPre;
@@ -428,14 +444,27 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   const auto drLayout = [&]() {
     auto drLayoutPre = internal::layoutDR(colors, colorsGhost, colorMap, meshReader);
-    const auto threshold = seissolInstance.env().get<std::size_t>("ICCOMBINE_DR", 0);
-    if (threshold > 0) {
-      auto combined = internal::combineCopyInteriorDR(drLayoutPre, colorMap, threshold);
+    // by default, the faces of a cluster follow its cells: once the interior cells wait for the
+    // halo with the copy cells, nothing is lost by letting the interior faces wait for it as well
+    const auto faceThreshold = seissolInstance.env().getOptional<std::size_t>("ICCOMBINE_DR");
+    const bool combineFaces =
+        faceThreshold.has_value() ? faceThreshold.value() > 0 : cellThreshold > 0;
+    if (combineFaces) {
+      const auto combine =
+          faceThreshold.has_value()
+              ? internal::faceLayersBelow(drLayoutPre, colorMap, faceThreshold.value())
+              : combinedCells.copyLayers;
+      auto moved = internal::combineCopyInteriorDR(drLayoutPre, colorMap, combine);
       MPI_Allreduce(
-          MPI_IN_PLACE, &combined, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
-      logInfo() << "Combined the copy and interior fault faces of" << combined
-                << "clusters over all ranks (fewer than" << threshold
-                << "faces together, SEISSOL_ICCOMBINE_DR).";
+          MPI_IN_PLACE, &moved, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
+      if (faceThreshold.has_value()) {
+        logInfo() << "Combined the copy and interior fault faces of" << moved
+                  << "clusters over all ranks (fewer than" << faceThreshold.value()
+                  << "faces together, SEISSOL_ICCOMBINE_DR).";
+      } else {
+        logInfo() << "Combined the copy and interior fault faces of" << moved
+                  << "clusters over all ranks (where their cells are combined).";
+      }
     }
     return drLayoutPre;
   }();
