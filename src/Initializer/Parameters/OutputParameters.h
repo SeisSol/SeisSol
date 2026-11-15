@@ -190,8 +190,8 @@ struct OutputParameters {
   std::string outputPath;
   //! what the names of the output files start with, in their directory
   std::string outputName;
-  //! whether each run writes into a directory of its own in outputPath (see
-  //! initprocedure::createOutputDirectory)
+  //! whether each run writes into a directory of its own in outputPath, named by outputName and
+  //! the ID of the run (see initprocedure::createOutputDirectory)
   bool outputDirPerSim{false};
   CheckpointParameters checkpointParameters;
   ElementwiseFaultParameters elementwiseParameters;

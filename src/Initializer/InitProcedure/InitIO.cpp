@@ -1074,8 +1074,9 @@ void seissol::initializer::initprocedure::createOutputDirectory(seissol::SeisSol
                                                    : std::filesystem::path(outputParams.outputPath);
 
   if (outputParams.outputDirPerSim) {
-    // the stamp is the same on all ranks, and so is the directory name
-    directory /= outputParams.outputName + "-" + seissolInstance.backupTimeStamp();
+    // the ID is the same on all ranks, and so is the directory name; unlike a time stamp, it
+    // differs between runs that start at the same time, e.g. those of a job array
+    directory /= outputParams.outputName + "-" + seissolInstance.runId();
   }
 
   createDirectoryGlobally(directory);
