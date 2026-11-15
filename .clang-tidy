@@ -124,6 +124,12 @@ CheckOptions:
   - key:             cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
     value:           True
 
+  # the collectives that the Mpi class wraps (src/Parallel/MPI.h) go through it: it takes the MPI
+  # type from the C++ one, the size of the communicator from the communicator, and the communicator
+  # of the outputs on their thread; the class itself uses them with NOLINT
+  - key:             bugprone-unsafe-functions.CustomFunctions
+    value:           '^::MPI_Allreduce$,seissol::Mpi::allreduce or allreduceContainer,is wrapped by the Mpi class;^::MPI_Reduce$,seissol::Mpi::reduce or reduceContainer,is wrapped by the Mpi class;^::MPI_Bcast$,seissol::Mpi::broadcast or broadcastContainer,is wrapped by the Mpi class;^::MPI_Gather$,seissol::Mpi::collect,is wrapped by the Mpi class;^::MPI_Gatherv$,seissol::Mpi::collectContainer,is wrapped by the Mpi class;^::MPI_Allgather$,seissol::Mpi::allgather,is wrapped by the Mpi class;^::MPI_Scan$,seissol::Mpi::scan or scanContainer,is wrapped by the Mpi class;^::MPI_Exscan$,seissol::Mpi::scan or scanContainer,is wrapped by the Mpi class;^::MPI_Barrier$,seissol::Mpi::barrier,is wrapped by the Mpi class;^::MPI_Comm_rank$,seissol::Mpi::rankOf,is wrapped by the Mpi class;^::MPI_Comm_size$,seissol::Mpi::sizeOf,is wrapped by the Mpi class'
+
     # ignore Eigen, yaml-cpp, and HDF5 manually, until added to IWYU
     # Eigen needs to ignore Eigen/Core and Eigen/Eigenvalues, until we make Eigen3 5.0.0 mandatory
     # also, ignore internal GCC headers (bits/) and SYCL headers

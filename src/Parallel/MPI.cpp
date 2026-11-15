@@ -28,6 +28,8 @@ void seissol::Mpi::init(int& argc, char**& argv) {
   }
 }
 
+// (the class wraps the calls that clang-tidy points to it elsewhere)
+// NOLINTBEGIN(bugprone-unsafe-functions)
 void seissol::Mpi::setComm(MPI_Comm comm) {
   comm_ = comm;
   if (outputComm_ != MPI_COMM_NULL) {
@@ -45,6 +47,7 @@ void seissol::Mpi::setComm(MPI_Comm comm) {
   MPI_Comm_rank(sharedMemComm_, &sharedMemMpiRank_);
   MPI_Comm_size(sharedMemComm_, &sharedMemMpiSize_);
 }
+// NOLINTEND(bugprone-unsafe-functions)
 
 void seissol::Mpi::finalize() {
   if (sharedMemComm_ != MPI_COMM_NULL) {

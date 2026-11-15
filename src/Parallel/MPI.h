@@ -35,6 +35,9 @@
 
 namespace seissol {
 
+// the class wraps the collectives that clang-tidy points to it elsewhere
+// NOLINTBEGIN(bugprone-unsafe-functions)
+
 /**
  * Wraps an MPI communicator. (and currently still a node-local communicator)
  * Provides convenience methods for communication and MPI type inference.
@@ -470,6 +473,8 @@ class Mpi {
   MPI_Comm sharedMemComm_{MPI_COMM_NULL};
   Mpi() = default;
 };
+
+// NOLINTEND(bugprone-unsafe-functions)
 
 } // namespace seissol
 
