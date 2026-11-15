@@ -25,6 +25,7 @@ cd "${SEISSOL_CI_ROOT}/tests/python"
   --cov=../../scripts/perf \
   --cov=../../scripts/benchmark \
   --cov=../../.ci \
+  --cov=../../scripts/ci \
   --cov-report=xml \
   --cov-report=term-missing \
   --cov-branch \
