@@ -203,6 +203,26 @@ seissol_add_comparison(
     TOLERANCE 0
     LABELS "bitwise;mpi;taskgraph")
 
+# The copy and interior cells of each cluster in one layer (SEISSOL_ICCOMBINE, with a threshold
+# above the cells of any cluster here, see combineCopyInterior), with the ghost clusters of four
+# ranks: the same run, bit for bit.
+seissol_add_minitest(
+    NAME smoke-box48-iccombine-mpi4
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    RANKS 4
+    ENV "SEISSOL_ICCOMBINE=1000000"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    LABELS "smoke;mpi")
+seissol_add_comparison(
+    NAME bitwise-box48-iccombine-mpi4
+    REFERENCE smoke-box48
+    CANDIDATE smoke-box48-iccombine-mpi4
+    TOLERANCE 0
+    LABELS "bitwise;mpi")
+
 # Along the time stepping plan (SEISSOL_TIMESTEPPING_PLAN, see TimeManager::followPlan), with the
 # ghost clusters of two ranks, through two epochs: the same run, bit for bit.
 seissol_add_minitest(
@@ -905,6 +925,32 @@ seissol_add_comparison(
     NAME bitwise-rupture-lsw-mpi4
     REFERENCE rupture-lsw
     CANDIDATE rupture-lsw-mpi4
+    TOLERANCE 0
+    LABELS "bitwise;mpi;dr")
+
+# The copy and interior layers of each cluster combined (SEISSOL_ICCOMBINE, with a threshold above
+# the cells of any cluster here, see combineCopyInterior): the interior cells follow the copy cells
+# into the copy layer, and the fault faces of the copy layer join those of the interior layer,
+# which then wait for the halo as well. The same run, bit for bit.
+seissol_add_rupture(NAME rupture-lsw-iccombine-mpi4 FL 16 FAULT fault-lsw.yaml RANKS 4 NO_SNAPSHOT
+                    ENV "SEISSOL_ICCOMBINE=1000000"
+                    LABELS mpi)
+seissol_add_comparison(
+    NAME bitwise-rupture-lsw-iccombine-mpi4
+    REFERENCE rupture-lsw
+    CANDIDATE rupture-lsw-iccombine-mpi4
+    TOLERANCE 0
+    LABELS "bitwise;mpi;dr")
+# the fault faces alone (SEISSOL_ICCOMBINE_DR): the interior faces wait for the halo, and the
+# interior cells next to them with them
+seissol_add_rupture(NAME rupture-lsw-iccombine-faces-mpi4 FL 16 FAULT fault-lsw.yaml RANKS 4
+                    NO_SNAPSHOT
+                    ENV "SEISSOL_ICCOMBINE_DR=1000000"
+                    LABELS mpi)
+seissol_add_comparison(
+    NAME bitwise-rupture-lsw-iccombine-faces-mpi4
+    REFERENCE rupture-lsw
+    CANDIDATE rupture-lsw-iccombine-faces-mpi4
     TOLERANCE 0
     LABELS "bitwise;mpi;dr")
 
