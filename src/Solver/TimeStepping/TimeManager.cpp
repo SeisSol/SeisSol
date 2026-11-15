@@ -310,7 +310,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   // copy cells; the faces of a copy layer between copy and ghost cells.
   std::vector<DynamicRuptureClusterInterface*> faceClusterBackmap(
       memoryManager.drStorage().getColorMap().size(), nullptr);
+  std::vector<std::size_t> faceLayerSize(memoryManager.drStorage().getColorMap().size(), 0);
   for (auto& layer : memoryManager.drStorage().leaves(Ghost)) {
+    faceLayerSize[layer.id()] = layer.size();
     if (layer.size() == 0) {
       continue;
     }
@@ -354,6 +356,11 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
     faceClusterBackmap[layer.id()] = cluster.get();
   }
+
+  // the threshold below which the copy faces of a cluster went to its interior layer
+  const auto combineFaces = seissolInstance_.env()
+                                .getOptional<std::size_t>("ICCOMBINE_DR")
+                                .value_or(seissolInstance_.parameters().timeStepping.iccombineDR);
 
   // Create ghost time clusters for MPI
   followPlan_ = useTimeSteppingPlan(seissolInstance_.env());
@@ -403,10 +410,21 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         // Connect with previous copy layer.
         ghostClusters.back()->connect(*cellClusterBackmap[layer.id()]);
 
-        // the dynamic rupture faces of the copy layer read the ghost cells of their own cluster
-        auto* faceCluster = faceClusterBackmap[layer.id()];
-        if (faceCluster != nullptr && other.lts == layer.getIdentifier().lts) {
-          faceCluster->observe(*ghostClusters.back());
+        // the dynamic rupture faces of the copy layer read the ghost cells of their own cluster;
+        // below ICCOMBINE_DR faces, combineCopyInteriorDR moved them into the interior layer,
+        // whose faces then read the ghost cells as well, and wait for the halo like a copy layer
+        if (other.lts == layer.getIdentifier().lts) {
+          auto* faceCluster = faceClusterBackmap[layer.id()];
+          const auto interiorId = haloId(layer.getIdentifier(), HaloType::Interior);
+          if (faceCluster == nullptr && faceLayerSize[interiorId] < combineFaces) {
+            faceCluster = faceClusterBackmap[interiorId];
+            if (faceCluster != nullptr) {
+              faceCluster->setPriority(ActorPriority::High);
+            }
+          }
+          if (faceCluster != nullptr) {
+            faceCluster->observe(*ghostClusters.back());
+          }
         }
       }
     }
