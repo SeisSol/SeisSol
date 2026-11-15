@@ -10,6 +10,7 @@ add_library(seissol-monitoring OBJECT
     DeviceTimeline.cpp
     DeviceTimer.cpp
     EpochSynchronization.cpp
+    FailureReport.cpp
     FlopCounter.cpp
     LoopStatistics.cpp
     Memory.cpp

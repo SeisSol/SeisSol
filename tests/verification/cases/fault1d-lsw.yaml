@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# Linear slip weakening on fault1d. The nucleation lifts the traction above the
+# static strength mu_s * 120 MPa = 81.24 MPa about 25 ms into its ramp; with
+# d_c = 0.08 m, the fault then weakens over some 30 ms to the dynamic strength
+# of 63 MPa, and slips at (90 - 63) MPa / eta = 5.77 m/s once the ramp is over.
+!ConstantMap
+map:
+  s_xx:   -120.0e6
+  s_yy:   0.0
+  s_zz:   0.0
+  s_xy:   70.0e6
+  s_yz:   0.0
+  s_xz:   0.0
+  nuc_xx: 0.0
+  nuc_yy: 0.0
+  nuc_zz: 0.0
+  nuc_xy: 20.0e6
+  nuc_yz: 0.0
+  nuc_xz: 0.0
+  mu_s:     0.677
+  mu_d:     0.525
+  d_c:      0.08
+  cohesion: 0.0

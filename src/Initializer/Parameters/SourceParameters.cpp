@@ -9,6 +9,9 @@
 
 #include "Initializer/Parameters/ParameterReader.h"
 
+#include <string>
+#include <utils/logger.h>
+
 namespace seissol::initializer::parameters {
 
 SourceParameters readSourceParameters(ParameterReader* baseReader) {
@@ -27,6 +30,12 @@ SourceParameters readSourceParameters(ParameterReader* baseReader) {
                                     "Point sources were enabled but no file was given.");
     }
   }();
+#if !defined(USE_NETCDF) || defined(NETCDF_PASSIVE)
+  if (type == PointSourceType::NrfSource) {
+    logError() << "NRF sources (type 42) need SeisSol to be linked with an (active) Netcdf "
+                  "library. However, this is not the case for this build.";
+  }
+#endif
   reader->warnDeprecated({"rtype", "ndirac", "npulsesource", "nricker"});
 
   return SourceParameters{.type = type, .fileName = fileName};

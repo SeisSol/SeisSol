@@ -42,7 +42,8 @@ struct InitializationParameters {
   double magnitude{};
   double width{};
   double k{};
-  std::string filename;
+  // the easi file of every simulation of the run, the one of the first if not given
+  std::vector<std::string> filenames;
   bool hasTime{false};
   bool avoidIC{false};
 };

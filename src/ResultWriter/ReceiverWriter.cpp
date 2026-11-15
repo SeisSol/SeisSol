@@ -185,8 +185,8 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   std::vector<std::size_t> meshIds(numberOfPoints);
 
   logInfo() << "Finding meshIds for receivers...";
-  const auto contained =
-      initializer::findUniqueMeshIds(points.data(), mesh, numberOfPoints, meshIds.data(), 1e-3);
+  const auto contained = initializer::findUniqueMeshIds(
+      points.data(), mesh, numberOfPoints, meshIds.data(), initializer::ReceiverTolerance);
 
   std::vector<short> globalContained(contained.size());
   for (std::size_t i = 0; i < contained.size(); ++i) {
@@ -236,7 +236,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   for (std::size_t point = 0; point < numberOfPoints; ++point) {
     if (contained[point]) {
       const std::size_t meshId = meshIds[point];
-      const auto id = backmap.get(meshId).color;
+      const auto id = backmap.get(meshId, 0).color; // 0 is enough; they all have the same color
 
       // Make sure that needed empty clusters are initialized.
       for (std::size_t c = receiverClusters_.size(); c <= id; ++c) {

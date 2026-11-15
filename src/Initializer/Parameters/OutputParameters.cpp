@@ -251,6 +251,10 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
                     "on-fault receiver, and format = 'hdf5' writes all of them into a single file.";
   }
 
+  if (collectiveio && format != ReceiverOutputFormat::Hdf5) {
+    logError() << "Collective IO for the on-fault receiver output is still under construction.";
+  }
+
   reader->warnDeprecated({"noutpoints", "maxpickstore"});
 
   return PickpointParameters{.printTimeInterval = printTimeInterval,
@@ -421,6 +425,10 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
   const auto vertexWeightOutput = reader->readWithDefault("vertexweightoutput", false);
 
   const auto checkpointParameters = readCheckpointParameters(baseReader);
+  if (checkpointParameters.enabled && configs.size() > 1) {
+    logError() << "Checkpoints are not supported yet for runs whose cells compute in several "
+                  "configurations.";
+  }
   const auto elementwiseParameters = readElementwiseParameters(baseReader, defaultTimeSeries);
   const auto energyParameters = readEnergyParameters(baseReader);
   const auto freeSurfaceParameters =

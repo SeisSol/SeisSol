@@ -52,7 +52,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 #                     PRECISION, DYNAMIC_RUPTURE_METHOD,
 #                     NUMBER_OF_FUSED_SIMULATIONS,
 #                     MEMORY_LAYOUT,
-#                     LOG_LEVEL, LOG_LEVEL_MASTER,
+#                     LOG_LEVEL_MASTER,
 #                     GEMM_TOOLS_LIST, EXTRA_CXX_FLAGS,
 #                     DR_QUAD_RULE
 #
@@ -142,9 +142,7 @@ get_arch_flags(${HOST_ARCH} ${CMAKE_CXX_COMPILER_ID})
 # set hardware/compiler specific definitions and flags
 target_compile_options(seissol-common-properties INTERFACE ${CPU_ARCH_FLAGS})
 
-target_compile_definitions(seissol-common-properties INTERFACE LOGLEVEL=${LOG_LEVEL})
-target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER}
-                                                     LOGLEVEL0=${LOG_LEVEL_MASTER})
+target_compile_definitions(seissol-common-properties INTERFACE LOG_LEVEL=${LOG_LEVEL_MASTER})
 
 # enable interproc. opts for small cores
 #if cpu in ['knc', 'knl', 'skx']:
@@ -344,23 +342,6 @@ endif()
 # time was not possible inline in the find_package
 if ("${Eigen3_VERSION}" VERSION_LESS "3.4")
   message(FATAL_ERROR "Your installed Eigen version is too old. Needed: at least 3.4 .")
-endif()
-
-# needed because Eigen (also 5.0) still incorrectly computes some values and fails some unit tests
-if("poroelastic" IN_LIST SEISSOL_CONFIG_MATERIALS)
-  include(CheckLanguage)
-  check_language(Fortran)
-  if(CMAKE_Fortran_COMPILER)
-    enable_language(Fortran)
-    include(FortranCInterface)
-    FortranCInterface_HEADER(FC.h MACRO_NAMESPACE "FC_")
-    find_package(LAPACK REQUIRED)
-    target_include_directories(seissol-common-properties INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
-    target_link_libraries(seissol-common-properties INTERFACE ${LAPACK_LIBRARIES})
-    target_compile_definitions(seissol-common-properties INTERFACE USE_LAPACK)
-  else()
-    message(FATAL_ERROR "SeisSol needs a Fortran compiler.")
-  endif()
 endif()
 
 find_package(yaml-cpp REQUIRED)

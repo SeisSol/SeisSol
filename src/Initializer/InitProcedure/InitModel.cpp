@@ -28,6 +28,7 @@
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
+#include "Initializer/Parameters/SimulationFiles.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
@@ -46,7 +47,6 @@
 #include "SeisSol.h"
 
 #include <array>
-#include <cassert>
 #include <cstddef>
 #include <map>
 #include <memory>
@@ -127,32 +127,46 @@ void initializeCellMaterialOfConfig(
   }
   const auto position = [&](std::size_t cell) { return allCells ? cell : positions[cell]; };
 
+  // The material of every simulation, from each of their files once; a copy of the cells takes the
+  // one of the simulations it holds, which all name the same file.
+  const parameters::SimulationFiles materialFiles(seissolParams.model.materialFileNames);
+  const auto& simulationSettings = memoryManager.simulationSettings();
+  const auto materialOfCopy = [&](std::size_t copy) {
+    return materialFiles.fileOfSimulation[copy * simulationSettings.fusedCount];
+  };
   const auto queryGen = seissol::initializer::getBestQueryGenerator<MaterialT>(
       seissolParams.model.useCellHomogenizedMaterial, ctvOfConfig, Cfg::ConvergenceOrder);
-  auto materialsDB = queryDB<MaterialT>(queryGen, seissolParams.model.materialFileName);
+  std::vector<std::vector<MaterialT>> materialsDB;
+  materialsDB.reserve(materialFiles.files.size());
+  for (const auto& materialFile : materialFiles.files) {
+    materialsDB.push_back(queryDB<MaterialT>(queryGen, materialFile));
+  }
 
   // plasticity (if needed); a material without the stresses of a solid has none, so its file need
   // not define the plasticity parameters
   const bool withPlasticity = seissolParams.model.plasticity && MaterialT::SupportsPlasticity;
   const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
 
-  std::array<std::vector<Plasticity>, Cfg::NumSimulations> plasticityDB;
+  // the plasticity parameters of every simulation of the run, from each of their files once; the
+  // fused simulations which only fill up the last copy of the cells repeat the first simulations
+  const parameters::SimulationFiles plasticityFiles(seissolParams.model.plasticityFileNames);
+  std::vector<std::vector<Plasticity>> plasticityDB(plasticityFiles.files.size());
 
   if (withPlasticity) {
 
     // plasticity information is only needed on all interior+copy cells.
     const auto plasticityGen = std::make_shared<PlasticityPointGenerator>(
         ctvOfConfig, plasticityNodes<Cfg>(), plasticityPointwise);
-    for (size_t i = 0; i < Cfg::NumSimulations; i++) {
-      plasticityDB[i] =
-          queryDB<Plasticity>(plasticityGen, seissolParams.model.plasticityFileNames[i]);
+    for (size_t i = 0; i < plasticityDB.size(); i++) {
+      plasticityDB[i] = queryDB<Plasticity>(plasticityGen, plasticityFiles.files[i]);
     }
   }
 
+  for (auto& materials : materialsDB) {
 #pragma omp parallel for schedule(static)
-  for (size_t i = 0; i < materialsDB.size(); ++i) {
-    auto& cellMat = materialsDB[i];
-    cellMat.initialize(seissolParams.model);
+    for (size_t i = 0; i < materials.size(); ++i) {
+      materials[i].initialize(seissolParams.model);
+    }
   }
 
   logDebug() << "Setting cell materials in the storage (for interior and copy layers).";
@@ -181,7 +195,8 @@ void initializeCellMaterialOfConfig(
         const auto neighborRank = linear.rank;
         const auto neighborRankIdx = linear.inRankIndices[0];
         const auto materialGhostIdx = ghostIdxMap.at(neighborRank)[neighborRankIdx];
-        const auto& localMaterial = materialsDB[position(materialGhostIdx + ghostOffset)];
+        const auto& localMaterial = materialsDB[materialOfCopy(localSecondaryInformation.copyId)]
+                                               [position(materialGhostIdx + ghostOffset)];
         initAssign(materialData, localMaterial);
       }
     } else {
@@ -195,7 +210,8 @@ void initializeCellMaterialOfConfig(
         const auto& localSecondaryInformation = secondaryInformation[cell];
         const auto meshId = localSecondaryInformation.meshId;
         auto& material = materialArray[cell];
-        const auto& localMaterial = materialsDB[position(meshId)];
+        const auto& localMaterial =
+            materialsDB[materialOfCopy(localSecondaryInformation.copyId)][position(meshId)];
         const auto& localCellInformation = cellInformation[cell];
 
         // the layer holds materials of exactly this type
@@ -221,13 +237,15 @@ void initializeCellMaterialOfConfig(
         // if enabled, set up the plasticity as well
         if (withPlasticity) {
           auto& plasticity = plasticityArray[cell];
-          assert(plasticityDB.size() == Cfg::NumSimulations &&
-                 "Plasticity database size mismatch with number of simulations");
+          // the copy of the cell holds the simulations from copyId * NumSimulations on
+          const auto firstSimulation = localSecondaryInformation.copyId * Cfg::NumSimulations;
           std::array<const Plasticity*, Cfg::NumSimulations> localPlasticity{};
           for (size_t i = 0; i < Cfg::NumSimulations; ++i) {
             const auto pointsPerCell =
                 plasticityPointwise ? model::PlasticityData<Cfg>::PointCount : 1;
-            localPlasticity[i] = &plasticityDB[i][position(meshId) * pointsPerCell];
+            const auto simulation = (firstSimulation + i) % plasticityFiles.fileOfSimulation.size();
+            localPlasticity[i] = &plasticityDB[plasticityFiles.fileOfSimulation[simulation]]
+                                              [position(meshId) * pointsPerCell];
           }
           initAssign(plasticity,
                      seissol::model::PlasticityData<Cfg>(
@@ -298,14 +316,18 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   auto& meshReader = seissolInstance.meshReader();
   auto& memoryManager = seissolInstance.memoryManager();
 
-  std::optional<DirichletCondition> dirichletCondition;
-  if (seissolParams.model.hasBoundaryFile) {
-    dirichletCondition = DirichletCondition(seissolParams.model.boundaryFileName);
+  // the Dirichlet conditions of the simulations of the run, from each of their files once
+  const parameters::SimulationFiles boundaryFiles(seissolParams.model.boundaryFileNames);
+  std::vector<std::optional<DirichletCondition>> dirichletConditions(boundaryFiles.files.size());
+  for (std::size_t i = 0; i < boundaryFiles.files.size(); ++i) {
+    if (!boundaryFiles.files[i].empty()) {
+      dirichletConditions[i] = DirichletCondition(boundaryFiles.files[i]);
+    }
   }
 
   // the boundary mappings carry the Dirichlet map, which the flux solvers absorb
   seissol::initializer::initializeBoundaryMappings(
-      meshReader, dirichletCondition, memoryManager.ltsStorage());
+      meshReader, dirichletConditions, boundaryFiles.fileOfSimulation, memoryManager.ltsStorage());
 
   seissol::initializer::initializeCellLocalMatrices(
       meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);

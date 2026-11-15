@@ -10,5 +10,6 @@
   "dr-quad-rule": "@SEISSOL_CAP_DRQUADRULE@",
   "mpi": @SEISSOL_CAP_MPI@,
   "openmp": @SEISSOL_CAP_OPENMP@,
-  "device-backend": "@SEISSOL_CAP_DEVICE@"
+  "device-backend": "@SEISSOL_CAP_DEVICE@",
+  "scipy": @SEISSOL_CAP_SCIPY@
 }

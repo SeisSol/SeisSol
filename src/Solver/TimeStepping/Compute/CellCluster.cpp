@@ -44,6 +44,7 @@
 #include "Monitoring/Metric.h"
 #include "Monitoring/Trace.h"
 #include "Parallel/Runtime/HostRuntime.h"
+#include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
 #include "Solver/Settings.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
@@ -89,7 +90,10 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
           maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
       // cluster ids
       settings_(settings), seissolInstance_(seissolInstance),
-      configBoundary_(seissolInstance.parameters().model.configs()), streamRuntime_(4),
+      configBoundary_(seissolInstance.parameters().model.configs()),
+      streamRuntime_(4,
+                     parallel::runtime::hsaQueuePriorityOf(clusterData->getIdentifier()),
+                     parallel::runtime::hsaQueueOf(clusterData->getIdentifier())),
       globalData_(globalData), clusterData_(clusterData),
       sourceCluster_(seissol::kernels::PointSourceClusterPair{.host = nullptr, .device = nullptr}),
       // cells

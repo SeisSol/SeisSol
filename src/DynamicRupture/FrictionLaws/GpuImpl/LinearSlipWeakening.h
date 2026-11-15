@@ -84,13 +84,15 @@ class LinearSlipWeakeningBase
     real slipRateMagnitude{};
 
     if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
-      const auto solution = common::solveSlipRate<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
-                                                       ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                       totalStress1,
-                                                       totalStress2,
-                                                       absoluteShearStress,
-                                                       strength,
-                                                       ctx.strengthSlopeBuffer);
+      common::SlipRateSolution<Cfg> solution{};
+      common::solveSlipRate<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
+                                 ctx.data->impedanceMatrices[ctx.ltsFace],
+                                 totalStress1,
+                                 totalStress2,
+                                 absoluteShearStress,
+                                 strength,
+                                 ctx.strengthSlopeBuffer,
+                                 solution);
       slipRateMagnitude = solution.slipRate;
       etaEff = solution.etaEff;
 

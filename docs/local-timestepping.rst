@@ -308,7 +308,8 @@ work and wait longer.
 The costs of a cell include the speed of the rank it was measured on, so the partition does not weight the ranks
 by Mini SeisSol then (see :ref:`env_vars`).
 The costs can only be measured where the loops get timed: not within recorded super-timesteps
-(``SEISSOL_SUPERSTEP_GRAPHS``).
+(``SEISSOL_SUPERSTEP_GRAPHS``), and on HSA queues (``SEISSOL_HSA_QUEUES``) only with ``DEVICE_HSA_QUEUE_TIMING=1``;
+without, a run that measures stops at its start.
 
 References
 ----------

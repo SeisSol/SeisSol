@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# An easi boundary condition for the Dirichlet faces of the elastic material:
+# the ghost state is the inner one with v1 raised by 1 mm/s, so that the faces
+# drive a wave into a body at rest.
+!ConstantMap
+map:
+  const_v1: 1.0e-3

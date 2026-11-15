@@ -307,14 +307,23 @@ class ReceiverOutputImpl : public ReceiverOutput {
 
   protected:
   template <typename Cfg>
-  void getDofs(const Real<Cfg>*(&derivatives), std::size_t meshId);
+  void getDofs(const Real<Cfg>*(&derivatives), std::size_t meshId, std::size_t copy);
   template <typename Cfg>
-  void getNeighborDofs(const Real<Cfg>*(&derivatives), std::size_t meshId, std::size_t side);
+  void getNeighborDofs(const Real<Cfg>*(&derivatives),
+                       std::size_t meshId,
+                       std::size_t copy,
+                       std::size_t side);
   template <typename Cfg>
   void computeLocalStresses(LocalInfo<Cfg>& local);
+  /// The tractions after the friction solve, from the strength and its slope by the normal
+  /// traction; the friction laws that set the slip rate otherwise provide their own.
   template <typename Cfg>
   static void
       updateLocalTractions(LocalInfo<Cfg>& local, Real<Cfg> strength, Real<Cfg> strengthSlope);
+  /// The tractions and the fault-normal velocity that the slip rate (slipRate1, slipRate2) along
+  /// (tangent1, tangent2) leaves of the Godunov state.
+  template <typename Cfg>
+  static void applySlipRate(LocalInfo<Cfg>& local, Real<Cfg> slipRate1, Real<Cfg> slipRate2);
   template <typename Cfg>
   Real<Cfg> computeRuptureVelocity(const Eigen::Matrix<Real<Cfg>, 2, 2>& jacobiT2d,
                                    const LocalInfo<Cfg>& local);

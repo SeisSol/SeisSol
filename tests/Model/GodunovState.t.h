@@ -13,14 +13,20 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/Common.h"
+#include "Numerical/Eigenvalues.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
 #include "Values.h"
 
+#include <Eigen/Dense>
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <limits>
 #include <type_traits>
 #include <vector>
+#include <yateto.h>
 
 namespace seissol::unit_test {
 
@@ -271,6 +277,121 @@ TEST_CASE_TEMPLATE("Between an anisotropic and an isotropic solid, the Godunov s
     }
     check(qgodLocal, referenceLocal);
     check(qgodNeighbor, referenceNeighbor);
+  }
+}
+
+/**
+ * The Godunov states of a poroelastic solid hold its waves, whatever basis the eigensolver returns
+ * for them. On a face within the solid, the projector P onto the outgoing waves (the transpose of
+ * QgodNeighbor) commutes with the Jacobian A along the normal; at a free surface, the state maps
+ * the tractions of every outgoing wave, a column of P, to minus its velocities. Both are measured
+ * in the balanced basis of A (see eigenvalues::balance), in which the stresses and the velocities
+ * of a wave compare. Besides the materials of the other tests, the materials are four, drawn at
+ * random, for which Eigen 3.4.0 returns the eigenvectors of the shear waves parallel, or with
+ * complex factors that leave their real parts close to zero.
+ */
+TEST_CASE_TEMPLATE("The Godunov states of a poroelastic solid hold its waves" *
+                       doctest::test_suite("model"),
+                   Cfg,
+                   SEISSOL_CONFIG_TYPES) {
+  using MaterialT = model::MaterialOf<Cfg>;
+  if constexpr (std::is_same_v<MaterialT, model::PoroElasticMaterial>) {
+    using real = Real<Cfg>;
+    constexpr std::size_t Quantities = MaterialT::NumQuantities;
+    constexpr double Epsilon = std::max(1e-13, 1e2 * std::numeric_limits<real>::epsilon());
+    using Matrix = Eigen::Matrix<double, Quantities, Quantities>;
+
+    const std::array<int, 4> tractions = {0, 3, 5, 9};
+    const std::array<int, 6> velocities = {6, 7, 8, 10, 11, 12};
+    const std::vector<std::vector<double>> materials = {SolutionData<MaterialT>::MaterialVal1,
+                                                        SolutionData<MaterialT>::MaterialVal2,
+                                                        {44564636678.115028,
+                                                         2890.0262629452109,
+                                                         21791374128.141182,
+                                                         13692636429.049688,
+                                                         0.073859362721722624,
+                                                         1.8347793308397006e-15,
+                                                         2.8557363252934556,
+                                                         2477306928.3512659,
+                                                         1005.7302325633887,
+                                                         0.001},
+                                                        {23779612930.962402,
+                                                         2391.5765046602664,
+                                                         8116829825.9581985,
+                                                         17511912363.283329,
+                                                         0.063505100561300445,
+                                                         1.5665912677342567e-13,
+                                                         2.3917663307696793,
+                                                         2219620186.7326226,
+                                                         1040.5566790854302,
+                                                         0.001},
+                                                        {35309325206.656868,
+                                                         2554.3280264548694,
+                                                         20172166757.33548,
+                                                         2443508260.8886094,
+                                                         0.34109863490187897,
+                                                         4.2115433437873606e-15,
+                                                         1.6533820054665773,
+                                                         2242569169.0628324,
+                                                         1048.9297326676815,
+                                                         0.001},
+                                                        {50339484502.353134,
+                                                         2078.7721615636492,
+                                                         20256335086.400734,
+                                                         14144301454.696543,
+                                                         0.33633906593111418,
+                                                         2.5463020317398182e-16,
+                                                         2.4666003072817011,
+                                                         2317561307.7610407,
+                                                         1028.5550706784359,
+                                                         0.001}};
+
+    for (const auto& values : materials) {
+      const MaterialT material(values);
+
+      std::array<double, Quantities * Quantities> transposedData{};
+      auto transposed =
+          yateto::DenseTensorView<2, double>(transposedData.data(), {Quantities, Quantities});
+      model::MaterialSetup<MaterialT>::getTransposedCoefficientMatrix(material, 0, transposed);
+      Matrix balanced;
+      for (std::size_t i = 0; i < Quantities; ++i) {
+        for (std::size_t j = 0; j < Quantities; ++j) {
+          balanced(i, j) = transposed(j, i);
+        }
+      }
+      const auto scale = eigenvalues::balance(balanced);
+
+      real localData[tensor::QgodLocal<Cfg>::size()]{};
+      real neighborData[tensor::QgodNeighbor<Cfg>::size()]{};
+      auto qgodLocal = init::QgodLocal<Cfg>::view::create(localData);
+      auto qgodNeighbor = init::QgodNeighbor<Cfg>::view::create(neighborData);
+      model::getTransposedGodunovState(
+          material, material, FaceType::Regular, qgodLocal, qgodNeighbor);
+      Matrix projector;
+      for (std::size_t i = 0; i < Quantities; ++i) {
+        for (std::size_t j = 0; j < Quantities; ++j) {
+          projector(i, j) = castReal(qgodNeighbor(j, i)) * scale(j) / scale(i);
+        }
+      }
+      const double commutator = (balanced * projector - projector * balanced).cwiseAbs().maxCoeff();
+      CHECK(commutator <=
+            Epsilon * balanced.cwiseAbs().maxCoeff() * projector.cwiseAbs().maxCoeff());
+
+      model::getTransposedGodunovState(
+          material, material, FaceType::FreeSurface, qgodLocal, qgodNeighbor);
+      for (std::size_t column = 0; column < Quantities; ++column) {
+        double residual = 0.0;
+        for (const auto velocity : velocities) {
+          double sum = projector(velocity, column);
+          for (const auto traction : tractions) {
+            sum += castReal(qgodLocal(traction, velocity)) * scale(traction) / scale(velocity) *
+                   projector(traction, column);
+          }
+          residual = std::max(residual, std::abs(sum));
+        }
+        CHECK(residual <= Epsilon * std::max(projector.col(column).cwiseAbs().maxCoeff(), 1.0));
+      }
+    }
   }
 }
 

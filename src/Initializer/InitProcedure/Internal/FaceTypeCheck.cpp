@@ -25,21 +25,13 @@
 #include <cstdint>
 #include <mpi.h>
 #include <sstream>
+#include <string>
 #include <utils/logger.h>
 #include <vector>
 
 namespace seissol::initializer::internal {
 
 namespace {
-
-std::uint32_t faceTypeBit(FaceType faceType) {
-  return std::uint32_t{1} << static_cast<std::uint8_t>(faceType);
-}
-
-struct FaceTypeCensus {
-  std::uint32_t present{0};
-  std::uint32_t cellRejected{0};
-};
 
 /// The face types of the cells of each configuration, by the id of the configuration.
 std::vector<FaceTypeCensus> collectFaceTypes(LTS::Storage& storage) {
@@ -90,11 +82,9 @@ std::vector<FaceTypeCensus> collectFaceTypes(LTS::Storage& storage) {
 
 } // namespace
 
-void checkFaceTypeSupport(LTS::Storage& storage, parameters::InitializationType scenarioType) {
-  const auto census = collectFaceTypes(storage);
-
-  std::stringstream problems;
-  std::size_t problemCount = 0;
+std::vector<std::string> faceTypeProblems(const std::vector<FaceTypeCensus>& census,
+                                          parameters::InitializationType scenarioType) {
+  std::vector<std::string> problems;
 
   // the cells of a configuration have to support the face types they have
   for (ConfigId config = 0; config < census.size(); ++config) {
@@ -110,37 +100,45 @@ void checkFaceTypeSupport(LTS::Storage& storage, parameters::InitializationType 
         const auto material = model::faceTypeSupport<MaterialT>(faceType);
         const auto solver = kernels::SolverOf<Cfg>::implementsFaceType(faceType);
 
+        std::stringstream problem;
         if (!material.supported) {
-          ++problemCount;
-          problems << "\n  " << faceTypeName(faceType) << ": not defined for material "
-                   << MaterialT::Text << " (" << material.reason << ")";
+          problem << faceTypeName(faceType) << ": not defined for material " << MaterialT::Text
+                  << " (" << material.reason << ")";
         } else if (!solver.supported) {
-          ++problemCount;
-          problems << "\n  " << faceTypeName(faceType)
-                   << ": not implemented by the solver used for " << MaterialT::Text << " ("
-                   << solver.reason << ")";
+          problem << faceTypeName(faceType) << ": not implemented by the solver used for "
+                  << MaterialT::Text << " (" << solver.reason << ")";
         } else if ((configCensus.cellRejected & faceTypeBit(faceType)) != 0) {
-          ++problemCount;
           const auto requirement = model::faceTypeCellRequirement<MaterialT>(faceType);
-          problems << "\n  " << faceTypeName(faceType)
-                   << ": present on a cell that does not qualify (" << requirement.reason << ")";
+          problem << faceTypeName(faceType) << ": present on a cell that does not qualify ("
+                  << requirement.reason << ")";
         } else if (faceType == FaceType::Analytical) {
           const auto scenario =
               physics::scenario::analyticalBoundaryAvailability(scenarioType, config);
           if (!scenario.available) {
-            ++problemCount;
-            problems << "\n  " << faceTypeName(faceType) << ": the configured scenario "
-                     << physics::scenario::name(scenarioType) << " cannot serve it, "
-                     << scenario.reason;
+            problem << faceTypeName(faceType) << ": the configured scenario "
+                    << physics::scenario::name(scenarioType) << " cannot serve it, "
+                    << scenario.reason;
           }
+        }
+        if (!problem.str().empty()) {
+          problems.push_back(problem.str());
         }
       }
     });
   }
 
-  if (problemCount > 0) {
-    logError() << "The mesh contains" << problemCount
-               << "boundary condition(s) that this build cannot handle:" << problems.str();
+  return problems;
+}
+
+void checkFaceTypeSupport(LTS::Storage& storage, parameters::InitializationType scenarioType) {
+  const auto problems = faceTypeProblems(collectFaceTypes(storage), scenarioType);
+  if (!problems.empty()) {
+    std::stringstream list;
+    for (const auto& problem : problems) {
+      list << "\n  " << problem;
+    }
+    logError() << "The mesh contains" << problems.size()
+               << "boundary condition(s) that this build cannot handle:" << list.str();
   }
 }
 

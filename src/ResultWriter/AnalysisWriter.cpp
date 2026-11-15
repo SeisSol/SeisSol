@@ -23,6 +23,7 @@
 #include "IO/Instance/Point/Csv.h"
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/Parameters/InitializationParameters.h"
+#include "Initializer/Parameters/SimulationFiles.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Memory/Descriptor/LTS.h"
@@ -107,11 +108,14 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
   constexpr auto QuadPolyDegree = Cfg::ConvergenceOrder + 1;
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
+  // the easi solution of every simulation, from each of their files once
+  const initializer::parameters::SimulationFiles easiFields(
+      seissolInstance_.parameters().initialization.filenames);
   std::vector<double> data;
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
     data =
-        initializer::projectEasiFields<Cfg>({seissolInstance_.parameters().initialization.filename},
+        initializer::projectEasiFields<Cfg>(easiFields.files,
                                             simulationTime,
                                             *meshReader_,
                                             seissolInstance_.parameters().initialization.hasTime);
@@ -140,9 +144,15 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
     table.addText(runId);
   };
 
-  for (unsigned sim = 0; sim < Cfg::NumSimulations; ++sim) {
+  const auto simulationCount =
+      seissolInstance_.memoryManager().simulationSettings().simulationCount;
+  for (std::size_t sim = 0; sim < simulationCount; ++sim) {
     logInfo() << "Analysis for simulation" << sim << configLabel.c_str() << ": absolute, relative";
     logInfo() << "--------------------------";
+
+    // the copy of the cells which holds the simulation, and the fused simulation there
+    const auto copy = sim / Cfg::NumSimulations;
+    const auto fused = sim % Cfg::NumSimulations;
 
     using ErrorArrayT = std::array<double, NumQuantities>;
     using MeshIdArrayT = std::array<unsigned int, NumQuantities>;
@@ -185,6 +195,8 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
                                     errsLInfLocal,                                                 \
                                     simulationTime,                                                \
                                     sim,                                                           \
+                                    copy,                                                          \
+                                    fused,                                                         \
                                     quadratureWeights,                                             \
                                     elemsLInfLocal,                                                \
                                     errsL2Local,                                                   \
@@ -194,8 +206,8 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
                                     analyticalsLInfLocal) firstprivate(quadraturePointsXyz)
 #endif
       for (std::size_t cell = 0; cell < layer->size(); ++cell) {
-        if (secondaryInformation[cell].duplicate > 0) {
-          // skip duplicate cells
+        if (secondaryInformation[cell].duplicate > 0 || secondaryInformation[cell].copyId != copy) {
+          // skip duplicate cells, and the copies which hold other simulations
           continue;
         }
         const auto meshId = secondaryInformation[cell].meshId;
@@ -228,10 +240,14 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
                                                       material,
                                                       analyticalSolution);
         } else {
+          // by element, point, quantity and field, as projectEasiFields gives them
+          const auto fieldCount = easiFields.files.size();
+          const auto field = easiFields.fileOfSimulation[sim];
           for (std::size_t i = 0; i < NumQuadPoints; ++i) {
             for (std::size_t j = 0; j < NumQuantities; ++j) {
-              analyticalSolution(i, j) =
-                  data.at(meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j);
+              analyticalSolution(i, j) = data.at(
+                  (meshId * NumQuadPoints * NumQuantities + NumQuantities * i + j) * fieldCount +
+                  field);
             }
           }
         }
@@ -242,7 +258,7 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
         krnl.Q = runtime::init::Q::view(Variant, dofsData[cell]);
         krnl.execute(Variant);
 
-        const auto numSub = seissol::multisim::simtensor<Cfg>(numericalSolution, sim);
+        const auto numSub = seissol::multisim::simtensor<Cfg>(numericalSolution, fused);
 
         for (size_t i = 0; i < NumQuadPoints; ++i) {
           const auto curWeight = jacobiDet * quadratureWeights[i];

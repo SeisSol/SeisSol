@@ -19,6 +19,7 @@
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Preflight.h"
+#include "Monitoring/FailureReport.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
@@ -31,12 +32,14 @@
 #include <filesystem>
 #include <fty/fty.hpp>
 #include <memory>
+#include <mpi.h>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <utility>
 #include <utils/args.h>
+#include <utils/crash.h>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/timeutils.h>
@@ -48,6 +51,11 @@
 #endif
 
 #ifdef ACL_DEVICE
+#include "Alignment.h"
+#include "Common/Typedefs.h"
+#include "Parallel/Helper.h"
+#include "Parallel/Runtime/Stream.h"
+
 #include <Device/device.h>
 #endif
 
@@ -57,8 +65,41 @@
 #include <fenv.h> // NOLINT(modernize-deprecated-headers)
 #endif
 
+// alarm() is POSIX; Windows has no signals that utils catches, so that endOnCrash() does not run
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 namespace {
 using namespace seissol;
+
+/**
+ * Ends the program after a crash, which utils reported already: marks the run summary as failed (or
+ * the report of the check), and ends all ranks of the run. Runs in the signal handler.
+ */
+void endOnCrash(const utils::LogSignal& signal) {
+  seissol::monitoring::writeFailureReport(signal.json);
+#ifndef _WIN32
+  // MPI_Abort() is not async-signal-safe; should it hang, the alarm ends the process
+  alarm(10);
+#endif
+  int initialized = 0;
+  int finalized = 0;
+  MPI_Initialized(&initialized);
+  MPI_Finalized(&finalized);
+  if (initialized != 0 && finalized == 0) {
+    MPI_Abort(seissol::Mpi::mpi.comm(), 128 + signal.number);
+  }
+}
+
+/**
+ * Marks the run summary (or the report of the check) as terminated after a request to stop, which
+ * utils reported already. It does not end the other ranks: the request reaches them too, from the
+ * scheduler or, when another rank ends the run through MPI, from that. Runs in the signal handler.
+ */
+void endOnTermination(const utils::LogSignal& signal) {
+  seissol::monitoring::writeTerminationReport(signal.json);
+}
 
 /**
  * The parameters of the run `cycle` (counted from zero) of those that measure what the cells cost
@@ -220,12 +261,19 @@ utils::Args commandLine() {
                  "given several times",
                  utils::Args::Required,
                  false);
-  // likewise taken out before (see extractCheckOption)
+  // likewise taken out before (see extractCheckOptions)
   args.addOption("check",
                  0,
                  "Checks the run instead of running it: the parameters, the files they name, the "
-                 "mesh and the output directory, on one process; --check=<file> writes a report",
+                 "output directory, and the whole mesh with the receivers and sources in it, on "
+                 "one process; --check=<file> writes a report",
                  utils::Args::Optional,
+                 false);
+  args.addOption("check-depth",
+                 0,
+                 "How far --check goes: files (no more than the head of the mesh), mesh (the "
+                 "default), or model (also the material model, for every cell)",
+                 utils::Args::Required,
                  false);
   return args;
 }
@@ -234,7 +282,7 @@ utils::Args commandLine() {
  * Checks the run that the command line describes, without starting it: on one process, without
  * MPI and devices.
  */
-int checkMain(int argc, char* argv[], const std::string& reportPath) {
+int checkMain(int argc, char* argv[], const seissol::initializer::CheckOptions& options) {
   logInfo() << "Checking a run of SeisSol" << BuildInfo::VersionString.c_str()
             << "without running it.";
   const auto overrides = extractOverrides(argc, argv);
@@ -247,7 +295,7 @@ int checkMain(int argc, char* argv[], const std::string& reportPath) {
       args.isSet("checkpoint")
           ? std::make_optional<std::string>(args.getArgument<const char*>("checkpoint"))
           : std::nullopt;
-  return seissol::initializer::preflight(parameterFile, overrides, checkpoint, reportPath);
+  return seissol::initializer::preflight(parameterFile, overrides, checkpoint, options);
 }
 
 std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
@@ -264,17 +312,55 @@ std::shared_ptr<YAML::Node> readYamlParams(const std::string& parameterFile) {
 } // namespace
 
 int main(int argc, char* argv[]) {
+  // before MPI is initialized, which sets handlers of its own for the signals that have none
+  utils::catchSignals(&endOnCrash);
+  utils::catchTerminationSignals(&endOnTermination);
+  utils::catchUncaughtExceptions();
   try {
     // a check runs on its own, before anything of a run starts
-    const auto checkReport = seissol::initializer::extractCheckOption(argc, argv);
-    if (checkReport.has_value()) {
-      return checkMain(argc, argv, checkReport.value());
+    const auto checkOptions = seissol::initializer::extractCheckOptions(argc, argv);
+    if (checkOptions.has_value()) {
+      return checkMain(argc, argv, checkOptions.value());
     }
 
 #ifdef ACL_DEVICE
+    // HSA queues for the stream runtimes
+    const auto hsaQueues = seissol::hsaQueueCount();
+    // whether SeisSol leaves HIP one hardware queue per priority, for the HSA queues
+    bool hipQueuesLimited = false;
+    if (hsaQueues > 0 && seissol::Backend == seissol::DeviceBackend::Hip) {
+      // the streams of HIP then only record graphs and hold allocations: one hardware queue each
+      // leaves the others of the device to the HSA queues
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
+      hipQueuesLimited = std::getenv("GPU_MAX_HW_QUEUES") == nullptr;
+      // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
+      setenv("GPU_MAX_HW_QUEUES", "1", 0);
+      // the queue of the other stream runtimes and that of the device timeline are idle most of
+      // the time: they may share a pipe of the command processor with a queue of the clusters
+      // (the others get pipes of their own as long as there are, see the Device library)
+      const auto light = "0," + std::to_string(seissol::parallel::runtime::TimelineHsaQueue);
+      // (unless set already, also under its deprecated name)
+      // NOLINTNEXTLINE(concurrency-mt-unsafe)
+      if (std::getenv("DEVICE_OWN_QUEUE_LIGHT") == nullptr) {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe,misc-include-cleaner)
+        setenv("DEVICE_HSA_QUEUE_LIGHT", light.c_str(), 0);
+      }
+    }
     seissol::Mpi::mpi.bindAcceleratorDevice();
     const device::DeviceInstance& device = device::DeviceInstance::instance();
     device.api().initialize();
+    if (hsaQueues > 0 && device.api().enableHardwareQueues()) {
+      using seissol::parallel::runtime::HsaQueueLayout;
+      const auto priorities = seissol::hsaQueueEnv().get<std::string>("QUEUE_PRIORITIES", "");
+      const bool halo = seissol::hsaQueueEnv().get<std::string>("QUEUE_LAYOUT", "layers") == "halo";
+      seissol::parallel::runtime::useHsaQueues(
+          {.count = hsaQueues,
+           .faceCount = seissol::hsaFaceQueueCount(),
+           .branchCount = seissol::hsaBranchQueueCount(),
+           .layout = halo ? HsaQueueLayout::Halo : HsaQueueLayout::Layers,
+           .priorities = {.copy = priorities.find("copy") != std::string::npos,
+                          .faces = priorities.find("faces") != std::string::npos}});
+    }
 #endif // ACL_DEVICE
 
     utils::Env env("SEISSOL_");
@@ -291,7 +377,47 @@ int main(int argc, char* argv[]) {
 
     utils::Logger::setRank(rank);
 
+    // a fatal error marks the run summary as failed, which rank 0 has once it is started, and ends
+    // all ranks of the run, on the communicator SeisSol runs on
+    utils::Logger::setAbortHandler([](const utils::LogRecord& record) {
+      seissol::monitoring::writeFailureReport(seissol::monitoring::failureOf(record));
+      MPI_Abort(seissol::Mpi::mpi.comm(), 134);
+    });
+
+#ifdef ACL_DEVICE
+    if (const auto& queues = seissol::parallel::runtime::hsaQueues(); queues.count > 0) {
+      logInfo() << "The clusters run their work on" << queues.count
+                << "HSA queues, the other stream runtimes on one more"
+                << "(SEISSOL_HSA_QUEUES).";
+      if (queues.branchCount > 0) {
+        logInfo() << "The branches of the work run on" << queues.branchCount
+                  << "more (SEISSOL_HSA_QUEUE_BRANCHES).";
+      }
+      if (queues.faceCount > 0) {
+        logInfo() << "The face work runs on" << queues.faceCount
+                  << "more (SEISSOL_HSA_QUEUES_FACES).";
+      }
+      if (seissol::useSuperStepGraphs(env)) {
+        logWarning() << "A recorded super-timestep runs on the one HSA queue it gets launched on,"
+                     << "which was slower in tests than without recordings"
+                     << "(DEVICE_HSA_QUEUE_GRAPH_ORIGIN=1 puts its work back on the queues of its"
+                     << "streams, experimental).";
+      }
+    } else if (hsaQueues > 0) {
+      logWarning() << "HSA queues (SEISSOL_HSA_QUEUES) are not available: they need HIP, and an AMD"
+                   << "GPU where programs have run with them (see the warnings of the Device"
+                   << "library).";
+      if (hipQueuesLimited) {
+        logWarning() << "The streams of HIP share one hardware queue per priority now"
+                     << "(GPU_MAX_HW_QUEUES=1, set for the HSA queues), which makes them slower:"
+                     << "run without SEISSOL_HSA_QUEUES, or set GPU_MAX_HW_QUEUES.";
+      }
+    }
+#endif
+
     const auto runId = determineRunId(env);
+    // every message from now on carries the ID of the run, in the JSON lines of the log
+    utils::Logger::setField("run", runId);
 
     LIKWID_MARKER_INIT;
 #pragma omp parallel

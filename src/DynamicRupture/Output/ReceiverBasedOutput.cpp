@@ -85,8 +85,10 @@ std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
 
 template <typename Derived>
 template <typename Cfg>
-void ReceiverOutputImpl<Derived>::getDofs(const Real<Cfg>*(&derivatives), std::size_t meshId) {
-  const auto position = wpBackmap_->get(meshId);
+void ReceiverOutputImpl<Derived>::getDofs(const Real<Cfg>*(&derivatives),
+                                          std::size_t meshId,
+                                          std::size_t copy) {
+  const auto position = wpBackmap_->get(meshId, copy);
   auto& layer = wpStorage_->layer(position.color);
   // get DOFs from 0th derivatives
   assert(
@@ -101,8 +103,9 @@ template <typename Derived>
 template <typename Cfg>
 void ReceiverOutputImpl<Derived>::getNeighborDofs(const Real<Cfg>*(&derivatives),
                                                   std::size_t meshId,
+                                                  std::size_t copy,
                                                   std::size_t side) {
-  const auto position = wpBackmap_->get(meshId);
+  const auto position = wpBackmap_->get(meshId, copy);
   auto& layer = wpStorage_->layer(position.color);
 
   derivatives = static_cast<const Real<Cfg>*>(layer.var<LTS::FaceNeighbors>()[position.cell][side]);
@@ -362,11 +365,11 @@ std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler
         stePlus = static_cast<const real*>(outputData->gatheredData(outFace.deviceDataPlus));
         steMinus = static_cast<const real*>(outputData->gatheredData(outFace.deviceDataMinus));
       } else {
-        getDofs<Cfg>(stePlus, faultInfo.element.value());
+        getDofs<Cfg>(stePlus, faultInfo.element.value(), outFace.copy);
         if (faultInfo.neighborElement.hasValue()) {
-          getDofs<Cfg>(steMinus, faultInfo.neighborElement.value());
+          getDofs<Cfg>(steMinus, faultInfo.neighborElement.value(), outFace.copy);
         } else {
-          getNeighborDofs<Cfg>(steMinus, faultInfo.element.value(), faultInfo.side);
+          getNeighborDofs<Cfg>(steMinus, faultInfo.element.value(), outFace.copy, faultInfo.side);
         }
       }
 
@@ -423,7 +426,8 @@ std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler
 
       for (const auto i : topology.receiversOf(pointId)) {
         local.index = i;
-        local.fusedIndex = outputData->receivers[i].simIndex;
+        // the simulation among the fused ones of the copy of the face
+        local.fusedIndex = outputData->receivers[i].simIndex % Cfg::NumSimulations;
 
         assert(outputData->receivers[i].isInside == true &&
                "a receiver is not within any tetrahedron adjacent to a fault");
@@ -461,7 +465,7 @@ std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler
         this->computeLocalStresses(local);
         const real strength = derived().computeLocalStrength(local);
         const real strengthSlope = derived().computeLocalStrengthSlope(local);
-        updateLocalTractions(local, strength, strengthSlope);
+        derived().updateLocalTractions(local, strength, strengthSlope);
 
         std::array<real, 6> updatedStress{};
         updatedStress[QuantityIndices::XX] = local.transientNormalTraction;
@@ -752,28 +756,18 @@ void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local,
     const auto& impedanceMatrices =
         local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
 
-    const auto solution = friction_law::common::solveSlipRate<Cfg>(
-        impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
+    friction_law::common::SlipRateSolution<Cfg> solution{};
+    friction_law::common::solveSlipRate<Cfg>(impAndEta,
+                                             impedanceMatrices,
+                                             component1,
+                                             component2,
+                                             tracEla,
+                                             strength,
+                                             strengthSlope,
+                                             solution);
 
-    local.slipRateTangent1 = solution.slipRate * solution.direction1;
-    local.slipRateTangent2 = solution.slipRate * solution.direction2;
-
-    const auto [tractionUpdate1, tractionUpdate2] = friction_law::common::matmulEta<Cfg>(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
-    const auto normalUpdate = friction_law::common::matmulEtaNormal<Cfg>(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
-
-    local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
-    local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
-    local.transientNormalTraction -= normalUpdate;
-
-    // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
-    // state through the first row of Y+. The friction solve moves that traction, and with an
-    // anisotropic admittance the two shear components move the fault-normal velocity as well.
-    constexpr std::size_t Count = tensor::Zplus<Cfg>::Shape[0];
-    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
-                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
-                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
+    applySlipRate(
+        local, solution.slipRate * solution.direction1, solution.slipRate * solution.direction2);
   } else {
     if (tracEla > std::abs(strength)) {
       local.updatedTraction1 =
@@ -788,6 +782,38 @@ void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local,
       local.updatedTraction1 = local.faceAlignedStress12;
       local.updatedTraction2 = local.faceAlignedStress13;
     }
+  }
+}
+
+template <typename Derived>
+template <typename Cfg>
+void ReceiverOutputImpl<Derived>::applySlipRate(LocalInfo<Cfg>& local,
+                                                Real<Cfg> slipRate1,
+                                                Real<Cfg> slipRate2) {
+  const auto& impAndEta = local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
+  const auto& impedanceMatrices =
+      local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
+
+  local.slipRateTangent1 = slipRate1;
+  local.slipRateTangent2 = slipRate2;
+
+  const auto [tractionUpdate1, tractionUpdate2] =
+      friction_law::common::matmulEta<Cfg>(impAndEta, impedanceMatrices, slipRate1, slipRate2);
+  const auto normalUpdate = friction_law::common::matmulEtaNormal<Cfg>(
+      impAndEta, impedanceMatrices, slipRate1, slipRate2);
+
+  local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
+  local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
+  local.transientNormalTraction -= normalUpdate;
+
+  if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
+    // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
+    // state through the first row of Y+. The slip moves that traction, and with an anisotropic
+    // admittance the two shear components move the fault-normal velocity as well.
+    constexpr std::size_t Count = tensor::Zplus<Cfg>::Shape[0];
+    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
+                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
+                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
   }
 }
 

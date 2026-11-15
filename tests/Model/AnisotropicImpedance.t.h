@@ -110,9 +110,9 @@ inline double relError(const DrMatrix& value, const DrMatrix& reference) {
 }
 
 /**
- * The same material in units in which rho = c11 = 1. getEigenDecomposition classifies eigenvalues
- * and checks its residual against absolute thresholds (see its debug checks), which only make
- * sense for moduli of order one; with moduli of ~1e10 the zero eigenvalues come out as ~1e-7.
+ * The same material in units in which rho = c11 = 1, in which the entries of the Jacobian are of
+ * order one. getEigenDecomposition classifies its eigenvalues against an absolute threshold (see
+ * its debug checks).
  */
 inline model::AnisotropicMaterial nondimensionalized(const model::AnisotropicMaterial& material) {
   model::AnisotropicMaterial scaled = material;

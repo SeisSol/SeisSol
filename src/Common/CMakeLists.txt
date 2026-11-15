@@ -12,6 +12,7 @@ add_library(seissol-common OBJECT
     Filesystem.cpp
     IntegerMaskParser.cpp
     Json.cpp
+    Logging.cpp
     RunId.cpp
 )
 

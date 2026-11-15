@@ -18,6 +18,7 @@
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SourceParameters.h"
 
+#include <cmath>
 #include <utils/logger.h>
 
 namespace seissol::initializer::parameters {
@@ -44,6 +45,14 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   const SourceParameters sourceParameters = readSourceParameters(parameterReader);
   const TimeSteppingParameters timeSteppingParameters =
       readTimeSteppingParameters(parameterReader, modelParameters.configs());
+
+  // (see physics::Ocean)
+  const bool ocean = initializationParameters.type == InitializationType::Ocean0 ||
+                     initializationParameters.type == InitializationType::Ocean1 ||
+                     initializationParameters.type == InitializationType::Ocean2;
+  if (ocean && std::abs(modelParameters.gravitationalAcceleration - 9.81e-3) > 10e-15) {
+    logError() << "Ocean scenario only supports g=9.81e-3 currently!";
+  }
 
   parameterReader->warnDeprecated({"boundaries",
                                    "rffile",

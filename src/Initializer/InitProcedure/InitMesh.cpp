@@ -171,106 +171,10 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
     const hid_t dataFile =
         _eh(H5Fopen(seissolParams.mesh.meshFileName.c_str(), H5F_ACC_RDONLY, plistId));
 
-    const auto checkAttribute = [&](const std::string& name) {
-      const hid_t existenceTest = _eh(H5Aexists(dataFile, name.c_str()));
-      if (existenceTest > 0) {
-        hid_t boundaryAttribute = _eh(H5Aopen(dataFile, name.c_str(), H5P_DEFAULT));
-
-        hid_t boundaryAttributeType = _eh(H5Aget_type(boundaryAttribute));
-
-        const auto format = [&] {
-          if (_eh(H5Tis_variable_str(boundaryAttributeType))) {
-            char* formatRaw = nullptr;
-            _eh(H5Aread(
-                boundaryAttribute, boundaryAttributeType, reinterpret_cast<void*>(&formatRaw)));
-            auto format = std::string(formatRaw);
-            _eh(H5free_memory(formatRaw));
-            return format;
-          } else {
-            const auto length = H5Tget_size(boundaryAttributeType);
-            std::vector<char> data(length);
-            _eh(H5Aread(boundaryAttribute, boundaryAttributeType, data.data()));
-            std::size_t actualLength = length;
-            for (std::size_t i = 0; i < length; ++i) {
-              if (data[i] == '\0') {
-                actualLength = i;
-                break;
-              }
-            }
-            return std::string(data.begin(), data.begin() + actualLength);
-          }
-        }();
-        _eh(H5Aclose(boundaryAttribute));
-        _eh(H5Tclose(boundaryAttributeType));
-
-        return std::optional<std::string>(format);
-      }
-      return std::optional<std::string>();
-    };
-
     if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::Auto) {
-      const auto boundaryFormatStr = checkAttribute("boundary-format");
-
-      if (boundaryFormatStr.has_value()) {
-        logInfo() << "Boundary format given in PUML file.";
-
-        if (boundaryFormatStr.value() == "i32x4") {
-          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
-        } else if (boundaryFormatStr.value() == "i64") {
-          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I64;
-        } else if (boundaryFormatStr.value() == "i32") {
-          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
-        } else {
-          logError() << "Unkown boundary format given in PUML file:" << boundaryFormatStr.value();
-        }
-      } else {
-        logInfo() << "Boundary format not given in PUML file; inferring from array shape.";
-        const hid_t boundaryDataset = _eh(H5Dopen2(dataFile, "boundary", H5P_DEFAULT));
-        const hid_t boundarySpace = _eh(H5Dget_space(boundaryDataset));
-        const auto boundaryTypeRank = _eh(H5Sget_simple_extent_ndims(boundarySpace));
-
-        _eh(H5Sclose(boundarySpace));
-        _eh(H5Dclose(boundaryDataset));
-
-        // avoid checking the type size here
-        if (boundaryTypeRank == 2) {
-          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
-        } else if (boundaryTypeRank == 1) {
-          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
-        } else {
-          logError() << "Unknown boundary format of rank" << boundaryTypeRank;
-        }
-      }
+      boundaryFormat = seissol::geometry::boundaryFormatOf(dataFile);
     }
-
-    const auto topologyFormatStr = checkAttribute("topology-format");
-
-    if (topologyFormatStr.has_value()) {
-      logInfo() << "Topology format given in PUML file.";
-
-      if (topologyFormatStr.value() == "geometric") {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::Geometric;
-      } else if (topologyFormatStr.value() == "identify-face") {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyFace;
-      } else if (topologyFormatStr.value() == "identify-vertex") {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyVertex;
-      } else {
-        logError() << "Unkown topology format given in PUML file:" << topologyFormatStr.value();
-      }
-    } else {
-      logInfo() << "Topology format not given in PUML file; inferring from data present.";
-
-      const hid_t vertexIdentifyTest = _eh(H5Aexists(dataFile, "identify"));
-      const hid_t cellIdentifyTest = _eh(H5Aexists(dataFile, "topology"));
-
-      if (vertexIdentifyTest > 0) {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyVertex;
-      } else if (cellIdentifyTest > 0) {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyFace;
-      } else {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::Geometric;
-      }
-    }
+    topologyFormat = seissol::geometry::topologyFormatOf(dataFile);
 
     _eh(H5Fclose(dataFile));
     _eh(H5Pclose(plistId));

@@ -113,6 +113,13 @@ block:
 The condition is sampled once per face, at the face barycenter, so it may vary from
 face to face but not within one.
 
+With several simulations (fused ones, or more with ``SimCount``), ``BoundaryFileName<i>``
+gives the simulation ``i`` of the run, counted from zero, a condition of its own; a
+simulation without one takes the one of ``BoundaryFileName``. The simulations fused into a
+cell share the map :math:`A` of its faces and the frame it is stated in (see below), so
+their conditions can differ in the offset :math:`b` only; the copies of the cells that
+``SimCount`` adds can take any condition.
+
 Terms
 ~~~~~
 

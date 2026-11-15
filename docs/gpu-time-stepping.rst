@@ -97,6 +97,25 @@ In a build without a GPU, the log warns about the GPU-only options that are set.
      - With ``SEISSOL_TIMESTEPPING_PLAN=1``: correct and do the face work of the copy layers before those of the
        interior layers, as when predicting, instead of after them (on by default: the copy layers wait for the halo,
        and with MPI on the host, the host waits for it in the order of the plan).
+   * - ``SEISSOL_HSA_QUEUES``
+     - Experimental, HIP only. The clusters run their GPU work on this many HSA queues, hardware queues outside of HIP
+       (0 by default: none), and all other stream runtimes share one more (see below). Only on GPUs where programs
+       have run with them (gfx90a, gfx942), unless ``DEVICE_HSA_QUEUE_UNTESTED=1``.
+   * - ``SEISSOL_HSA_QUEUES_FACES``
+     - Experimental. With ``SEISSOL_HSA_QUEUES``: the face work (dynamic rupture) of the layers on this many HSA queues
+       of its own, next to the work of the cells, instead of on the queues of their cells (0 by default).
+   * - ``SEISSOL_HSA_QUEUE_BRANCHES``
+     - Experimental. With ``SEISSOL_HSA_QUEUES``: the independent branches of the work of an action (e.g. the face
+       relations of the neighboring integration) on this many HSA queues of their own, shared by all stream runtimes,
+       without graphs of single actions (0 by default).
+   * - ``SEISSOL_HSA_QUEUE_PRIORITIES``
+     - Experimental. With ``SEISSOL_HSA_QUEUES``: ``copy`` gives the queues of the copy layers a high priority and those
+       of the interior layers a low one (with an even number of queues), ``faces`` the queues of the face work a high
+       one; both together as ``copy,faces``.
+   * - ``SEISSOL_HSA_QUEUE_LAYOUT=halo``
+     - Experimental. With ``SEISSOL_HSA_QUEUES`` of 2 or more: all copy layers on one queue of a high priority, all
+       interior layers on one of a low priority, instead of the copy and interior layer of each time cluster on queues
+       of their own (``layers``, the default) as far as there are enough.
 
 Transfer modes
 ~~~~~~~~~~~~~~
@@ -216,6 +235,81 @@ tasks (``SEISSOL_HOST_TASK_GRAPH=1``) tend to help there.
 The outputs came out bitwise the same with the host actor as without it, also with tasks, on the thread
 of the outputs and in recorded super-timesteps.
 
+HSA queues (HIP)
+~~~~~~~~~~~~~~~~
+
+HIP (its runtime CLR) puts all streams onto a few hardware queues that they share in turn (``GPU_MAX_HW_QUEUES`` for
+each priority, 4 by default), and creates one more stream for each branch of each graph. A stream that waits holds up
+the streams behind it on its queue, and a wait for an event of another queue costs the host and the GPU several
+microseconds. More hardware queues do not help: a GCD of an MI250X has 24 of them, and SeisSol has about a hundred
+streams per process; with 16 hardware queues per priority, runs hung (the queues that waited kept those they waited for
+from getting a slot), and with 64, instantiating the graphs ran out of memory.
+
+With ``SEISSOL_HSA_QUEUES``, the Device library runs the streams of SeisSol on HSA queues of its own instead
+(``device::AbstractAPI::enableHardwareQueues()``): the clusters on the given number of queues, all other stream runtimes
+on one more; SeisSol leaves HIP one hardware queue per priority (``GPU_MAX_HW_QUEUES=1``, unless set). The library
+writes the packets of the queues itself: SeisSol defines ``hipLaunchKernel`` (``device-hsa-queue-hook``), which hands
+the kernels launched on such a stream to the library; it takes the kernel object from the loader and the layout of the
+arguments from the metadata of the code object. A graph gets translated into packets when it gets launched on such a
+stream first, with its temporary allocations moved to memory of the queue. Events are the marks of a queue (a packet
+that waits for all work before it, and counts a signal down); a queue waits for a mark of another one with a packet
+that the command processor checks. Launches and waits for other queues cost the host and the GPU less than with HIP,
+graphs far less. Host functions run on a thread of the library while their queue waits, and the host never waits to
+enqueue: packets that find their queue full wait in host memory, until the thread of the library writes them.
+
+Events time only on request (``DEVICE_HSA_QUEUE_TIMING=1``, by a kernel for each event with timing). Without, the
+loops of the clusters are not timed (see ``SEISSOL_DEVICE_LOOP_STATISTICS`` in :ref:`gpu-env`), and the costs of the
+cells cannot be measured for the partition.
+
+On the MI250X and the MI300, the kernel arguments go into device memory that the host writes
+(``DEVICE_HSA_QUEUE_KERNARGS=host`` keeps them in host memory, as on the other GPUs), which made the runs faster,
+recorded super-timesteps the most, whose kernels read the same arguments again in every replay. A recorded
+super-timestep (``SEISSOL_SUPERSTEP_GRAPHS=1``) runs on the one HSA queue it gets launched on, which was slower than
+without recordings; ``DEVICE_HSA_QUEUE_GRAPH_ORIGIN=1`` puts its work back on the queues of its streams
+(experimental).
+
+The fences decide the speed. An acquire of the system in a packet (as HIP has it for its waits) drops the whole L2
+cache of the GCD, which slows down the kernels of all queues. So a queue waits for another one only with an acquire of
+the device, which is enough within it; where the work has to see what the host or MPI wrote into host memory (after a
+host function, and in copies from host memory), a kernel of the library fences in the shader instead, which drops only
+the lines that may be stale (``buffer_invl2``; the hardware keeps those of device memory coherent). The marks keep
+writing back the L2 cache for the system, since MPI reads the device memory past it: with marks of the device only
+(``DEVICE_HSA_QUEUE_MARK_SCOPE=agent``), ``direct`` sent stale data. With fences of the system for all waits, more HSA
+queues made the runs slower, as with HIP; with fences of the device, and with the waits for what the work depends on
+(``SEISSOL_ACCESS_EVENTS``, see above), four to eight queues were the fastest on LUMI (MI250X).
+
+Queues hold each other up when they share a pipe of the command processor. On the MI250X, the hardware scheduler gives
+the queues of a process four pipes, the i-th queue the pipe i modulo 4 (queues after one that goes move up by one), and
+a pipe serves its queues together: a kernel that one queue starts after a long one of another queue on the pipe
+completes only after it, and a queue that waits in a packet (for another queue or the host) holds up the others on its
+pipe. So the library spreads the HSA queues over the pipes (``DEVICE_HSA_QUEUE_PIPES=spread``, the default on gfx90a):
+it finds the pipes with an idle queue on each, and creates queues until one is on a pipe with the fewest busy HSA
+queues; the others stay unused, since the queues after them would move otherwise. SeisSol declares the queue of the
+other stream runtimes and that of the timeline light (``DEVICE_HSA_QUEUE_LIGHT``, queue numbers), which may share a
+pipe with a busy one; ``DEVICE_HSA_QUEUE_PIPES=check`` only logs the pipes, ``any`` takes the queues as they come. The
+queues of HIP and of other libraries take pipes as well.
+
+The graphs of the clusters hold most of the latitude: on the rank with the most fault faces of TPV13, the longest path
+of dependencies took most of the run (with the kernel trace and ``DEVICE_HSA_QUEUE_DAG_LOG``, see :ref:`trace`), and
+half of it was the interpolation of the dynamic rupture: per step, eight independent kernels, one for each face
+relation, one after the other on one queue. With ``DEVICE_HSA_QUEUE_SCHEDULE=1``, the graphs spread the kernels of a
+level over HSA queues of other pipes where that ends the level earlier: by the durations each graph measures for its
+kernels (in a few launches early on, then every 128th), and by the predicted work of the queues, the longest kernel
+first onto the queue where it ends first, with a fork and a join of ``DEVICE_HSA_QUEUE_SCHEDULE_FORK_US`` (5 µs) each;
+a level gets spread only with at least ``DEVICE_HSA_QUEUE_SCHEDULE_MIN_US`` of work (120 µs), and only onto queues
+alone on their pipe (but for light ones). That made TPV5 and TPV13 faster on four HSA queues, and more so with a larger
+weight of the fault faces in the partition (*vertexWeightDynamicRupture* in the ``discretization`` section); levels with
+less work made it as slow as without (forks, joins, and the queues that wait for each other's work).
+
+The face work on queues of its own (``SEISSOL_HSA_QUEUES_FACES``) made the runs slower (the ranks waited longer for the
+halo of their neighbors), and high priorities for the copy layers or the face work made no difference.
+The library logs its settings once; further options are ``DEVICE_HSA_QUEUE_PACKETS`` (the size of the queues),
+``DEVICE_HSA_QUEUE_KERNARG_MIB`` and ``DEVICE_HSA_QUEUE_WAITS`` (see ``Runtime.cpp`` of the Device library).
+The names ``SEISSOL_OWN_QUEUES``, ``SEISSOL_OWN_QUEUE_*`` and ``DEVICE_OWN_QUEUE_*`` of earlier development versions
+still work, with a warning.
+On other GPUs (``DEVICE_HSA_QUEUE_UNTESTED=1``), check the results first: on the 890M (RDNA 3.5, 8 hardware queues),
+runs with more HSA queues than fit hung the GPU.
+
 Diagnostics
 ~~~~~~~~~~~
 
@@ -242,6 +336,9 @@ and with several processes for ``direct`` and ``host``; with SYCL (AdaptiveCpp),
 concurrent clusters. With ``direct``, the time-stepping plan with concurrent clusters and the host actor has run on
 several nodes of Horizon (B200) and of LUMI (MI250X).
 On another system, compare the results of a run bitwise to one with these two off before relying on the defaults.
+With HSA queues (four, also with the schedule and with the other options; two with the ``halo`` layout), TPV13 and
+TPV5 came out bitwise the same as with the streams of HIP on two nodes of LUMI, and with recorded super-timesteps on
+one GCD (apart from the energy output).
 
 On HIP, graphs need Device d2fe2de or newer, which works around two bugs of HIP 7.2:
 graph roots that do not wait for the work before the launch, and captures that do not end

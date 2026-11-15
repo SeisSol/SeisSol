@@ -38,8 +38,8 @@ class MemoryManager;
  * cluster share the time of its face loops the same way; a cell gets the share of each face it
  * lies at (a half, if the cell on the other side is on this rank as well).
  *
- * Nothing if no loop was timed at all on some rank (as within recordings of super-timesteps).
- * Collective.
+ * Nothing if no loop was timed at all on some rank (as within recordings of super-timesteps, or on
+ * HSA queues without DEVICE_HSA_QUEUE_TIMING). Collective.
  */
 std::optional<MeasuredCellCosts> measureCellCosts(const LoopStatistics& statistics,
                                                   MemoryManager& memoryManager,

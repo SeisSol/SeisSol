@@ -45,6 +45,9 @@ struct SecondaryCellLocalInformation {
   // local mesh ID (for interior/copy) or position in the linearized ghost layer
   std::size_t meshId{};
 
+  // simulation copy ID
+  std::size_t copyId{};
+
   // storage positions of the face neighbors
   std::array<initializer::StoragePosition, Cell::NumFaces> faceNeighbors;
 

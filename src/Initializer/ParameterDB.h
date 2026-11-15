@@ -23,6 +23,7 @@
 #include <array>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -176,11 +177,21 @@ template <class T>
 class MaterialParameterDB : public ParameterDB {
   public:
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
+  //! @brief As evaluateModel, with the easi model @p model , loaded already.
+  void evaluate(easi::Component& model, const QueryGenerator& queryGen);
   void setMaterialVector(std::vector<T>* materials) { materials_ = materials; }
 
   private:
   std::vector<T>* materials_{};
 };
+
+/**
+ * @brief The parameters that a model which supplies @p supplied lacks for materials of the type
+ * @p T , as MaterialParameterDB evaluates it: none if it supplies those of T, or those of an
+ * elastic or acoustic material that T can be made of; else the ones of T it does not supply.
+ */
+template <class T>
+std::vector<std::string> missingMaterialParameters(const std::set<std::string>& supplied);
 
 /**
  * The parameters of the fault faces of the simulation `simulation` of `numSimulations` fused ones,
@@ -195,12 +206,23 @@ class FaultParameterDB : public ParameterDB {
   void addParameter(const std::string& parameter, T* memory, unsigned stride = 1) {
     parameters_[parameter] = std::make_pair(memory, stride);
   }
+  /**
+   * Writes the queried faces to the positions `faces` of the arrays, with `pointsPerFace` points
+   * per face and fused simulation; by default, the queried faces are all faces of the arrays, in
+   * order.
+   */
+  void setFaces(std::vector<std::size_t> faces, std::size_t pointsPerFace) {
+    faces_ = std::move(faces);
+    pointsPerFace_ = pointsPerFace;
+  }
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
 
   private:
   std::size_t simid_;
   std::size_t numSimulations_;
   std::unordered_map<std::string, std::pair<T*, unsigned>> parameters_;
+  std::optional<std::vector<std::size_t>> faces_;
+  std::size_t pointsPerFace_{1};
 };
 
 /// The parameters a fault parameter file provides.
@@ -225,10 +247,14 @@ class DirichletCondition {
 
   ~DirichletCondition();
 
-  /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`.
+  /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`, for
+  /// the fused simulations `simulations` of the cell, which take it: their constant terms are those
+  /// of the condition, while the map is one for all fused simulations of the cell.
   template <typename Cfg>
-  [[nodiscard]] BoundaryFrame
-      query(const double* barycenter, Real<Cfg>* mapTermsData, Real<Cfg>* constantTermsData) const;
+  [[nodiscard]] BoundaryFrame query(const double* barycenter,
+                                    Real<Cfg>* mapTermsData,
+                                    Real<Cfg>* constantTermsData,
+                                    const std::vector<std::size_t>& simulations) const;
 
   private:
   easi::Component* model_;

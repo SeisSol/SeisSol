@@ -79,13 +79,6 @@ class BaseDRInitializer {
                               DynamicRupture::Layer& layer);
 
   /**
-   * Finds all faceIDs in one iterator. This is the mapping idInStorage -> idInMesh
-   * @param layer reference to a Storage layer
-   * @return vector containing all faceIDs which are stored in the leaf_iterator
-   */
-  static std::vector<std::size_t> getFaceIDsInIterator(DynamicRupture::Layer& layer);
-
-  /**
    * Initialize all other variables:
    * ruptureTimePending
    * peakSlipRate
@@ -100,6 +93,14 @@ class BaseDRInitializer {
    * @param layer reference to a Storage layer
    */
   static void initializeOtherVariables(DynamicRupture::Layer& layer);
+
+  /**
+   * Reads the parameters of `parameterToStorageMap` for the faces of `layer`, which compute in the
+   * configuration `Cfg`: every copy of the faces from the easi files of the simulations it holds.
+   */
+  template <typename Cfg>
+  void queryParameters(DynamicRupture::Layer& layer,
+                       const std::unordered_map<std::string, void*>& parameterToStorageMap);
 
   /**
    * Reads the parameters from the easi file of the simulation `simid`, at the quadrature points of

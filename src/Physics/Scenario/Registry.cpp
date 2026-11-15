@@ -26,6 +26,7 @@
 #include <math.h> // NOLINT(modernize-deprecated-headers)
 #include <memory>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace seissol::physics::scenario {
@@ -74,17 +75,26 @@ TravellingWaveParameters travellingWaveParameters(const Input& input) {
   return parameters;
 }
 
-// Fused simulations are offset against each other in phase, so that they do not all carry the
-// same wave.
+// The simulations of a run are offset against each other in phase, so that they do not all carry
+// the same wave.
 double simulationPhase(std::size_t sim, std::size_t numSimulations) {
   return (2.0 * M_PI * sim) / numSimulations;
+}
+
+// The simulations of the run that a scenario is set up for: the one of the input, or all of them.
+std::pair<std::size_t, std::size_t> simulationRange(const Input& input) {
+  if (input.simulation.has_value()) {
+    return {input.simulation.value(), input.simulation.value() + 1};
+  }
+  return {0, input.parameters.model.simulationCount};
 }
 
 template <typename FieldT, typename... Args>
 FieldList perSimulation(const Input& input, const Args&... args) {
   FieldList fields;
-  const auto numSimulations = configValue(input.config).numSimulations;
-  for (std::size_t sim = 0; sim < numSimulations; ++sim) {
+  const auto numSimulations = input.parameters.model.simulationCount;
+  const auto [first, last] = simulationRange(input);
+  for (std::size_t sim = first; sim < last; ++sim) {
     fields.emplace_back(std::make_unique<FieldT>(args..., simulationPhase(sim, numSimulations)));
   }
   return fields;
@@ -98,8 +108,9 @@ FieldList planarWaves(const Input& input) {
     return perSimulation<Planarwave>(input, input.materialData, input.config);
   }
   FieldList fields;
-  const auto numSimulations = configValue(input.config).numSimulations;
-  for (std::size_t sim = 0; sim < numSimulations; ++sim) {
+  const auto numSimulations = input.parameters.model.simulationCount;
+  const auto [first, last] = simulationRange(input);
+  for (std::size_t sim = first; sim < last; ++sim) {
     fields.emplace_back(std::make_unique<Planarwave>(
         input.materialData, input.config, simulationPhase(sim, numSimulations), kVec));
   }
