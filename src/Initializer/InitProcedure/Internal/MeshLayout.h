@@ -12,6 +12,8 @@
 #include "Initializer/TimeStepping/Halo.h"
 #include "Memory/Tree/Colormap.h"
 
+#include <cstddef>
+#include <functional>
 #include <mpi.h>
 #include <stdexcept>
 #include <vector>
@@ -42,6 +44,15 @@ struct CombinedLayers {
 CombinedLayers combineCopyInterior(std::vector<ClusterMap>& map,
                                    const LTSColorMap& colormap,
                                    const std::vector<std::size_t>& thresholds);
+
+/**
+ * As above, where `combine(copyColor, copyCells, interiorCells)` holds for the copy layer of a time
+ * cluster, the number of its cells and that of its interior layer.
+ */
+CombinedLayers combineCopyInteriorWhere(
+    std::vector<ClusterMap>& map,
+    const LTSColorMap& colormap,
+    const std::function<bool(std::size_t, std::size_t, std::size_t)>& combine);
 
 std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& color,
                                                const std::vector<std::size_t>& ghostColor,

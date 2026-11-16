@@ -123,6 +123,36 @@ TEST_CASE("Combining the copy and interior fault faces of a cluster" *
   CHECK(layout[color(HaloType::Interior, 1)].size() == 3);
 }
 
+TEST_CASE("Combining the copy and interior cells where a choice per cluster says so" *
+          doctest::test_suite("initializer")) {
+  const auto colorMap = meshlayouttest::layoutColorMap();
+  const auto color = [&](HaloType halo, std::size_t lts) {
+    return colorMap.color(halo, lts, ConfigId{0});
+  };
+
+  std::vector<ClusterMap> layout(colorMap.size());
+  layout[color(HaloType::Copy, 0)].cellMap = {0, 1};
+  layout[color(HaloType::Copy, 0)].regions.emplace_back(7, 0, 0, 2, 1);
+  layout[color(HaloType::Interior, 0)].cellMap = {2, 3, 4};
+  layout[color(HaloType::Copy, 1)].cellMap = {5, 6, 7, 8};
+  layout[color(HaloType::Copy, 1)].regions.emplace_back(8, 0, 0, 4, 1);
+  layout[color(HaloType::Interior, 1)].cellMap = {9, 10, 11, 12, 13, 14};
+
+  // the larger cluster only, which the choice sees with the sizes of its two layers
+  const auto combined = seissol::initializer::internal::combineCopyInteriorWhere(
+      layout,
+      colorMap,
+      [&](std::size_t copyColor, std::size_t copyCells, std::size_t interiorCells) {
+        return copyColor == color(HaloType::Copy, 1) && copyCells == 4 && interiorCells == 6;
+      });
+  CHECK(combined.moved == 1);
+  CHECK_FALSE(combined.copyLayers[color(HaloType::Copy, 0)]);
+  CHECK(combined.copyLayers[color(HaloType::Copy, 1)]);
+  CHECK(layout[color(HaloType::Interior, 0)].cellMap.size() == 3);
+  CHECK(layout[color(HaloType::Copy, 1)].cellMap.size() == 10);
+  CHECK(layout[color(HaloType::Interior, 1)].cellMap.empty());
+}
+
 TEST_CASE("The time the halo of a copy layer takes" * doctest::test_suite("initializer")) {
   const auto colorMap = meshlayouttest::layoutColorMap();
   const auto color = [&](HaloType halo, std::size_t lts) {

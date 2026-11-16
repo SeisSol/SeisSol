@@ -21,6 +21,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <limits>
+#include <mpi.h>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -76,37 +78,95 @@ auto layerStepTime(ConfigId config, unsigned cells, unsigned steps, int repetiti
 
 } // namespace
 
-auto layerCombineThreshold(ConfigId config) -> std::size_t {
-  if constexpr (!isDeviceOn()) {
+LayerCost::LayerCost(std::vector<std::pair<std::size_t, double>> points)
+    : points_(std::move(points)) {
+  // noise must not make a larger layer cheaper
+  for (std::size_t i = 1; i < points_.size(); ++i) {
+    points_[i].second = std::max(points_[i].second, points_[i - 1].second);
+  }
+}
+
+double LayerCost::operator()(std::size_t cells) const {
+  if (cells == 0 || points_.empty()) {
     return 0;
   }
+  if (points_.size() == 1) {
+    return points_.front().second;
+  }
+  // the stretch the size falls into; below the smallest size, the first one, and beyond the largest
+  // size, the last one
+  std::size_t upper = 1;
+  while (upper + 1 < points_.size() && cells > points_[upper].first) {
+    ++upper;
+  }
+  const auto [cells0, time0] = points_[upper - 1];
+  const auto [cells1, time1] = points_[upper];
+  const auto slope = (time1 - time0) / static_cast<double>(cells1 - cells0);
+  return std::max(0.0, time0 + slope * (static_cast<double>(cells) - static_cast<double>(cells0)));
+}
+
+double LayerCost::combinedSaving(std::size_t first, std::size_t second) const {
+  if (first == 0 || second == 0) {
+    return 0;
+  }
+  return (*this)(first) + (*this)(second) - (*this)(first + second);
+}
+
+auto measureLayerCost(ConfigId config) -> LayerCost {
   // a device that has been idle raises its clocks only under load (see miniSeisSol)
-  // the devices measured so far (November 2026) fill up below 2000 cells, so the time per cell
-  // comes from two sizes well above that, which stay small next to the memory of a device
-  constexpr unsigned SmallCells = 64;
-  constexpr unsigned MediumCells = 8192;
-  constexpr unsigned LargeCells = 32768;
-  auto warmup = costProxyConfig(config, LargeCells);
+  constexpr unsigned SmallestCells = 8;
+  constexpr unsigned LargestCells = 16384;
+  auto warmup = costProxyConfig(config, LargestCells);
   warmup.timesteps = 1;
   warmup.warmup = 0.3;
   proxy::runProxy(warmup);
 
-  const auto fixedTime = layerStepTime(config, SmallCells, 50, 2);
-  const auto cellTime =
-      (layerStepTime(config, LargeCells, 10, 2) - layerStepTime(config, MediumCells, 10, 2)) /
-      static_cast<double>(LargeCells - MediumCells);
-  double cells = cellTime > 0 ? fixedTime / cellTime : 0.0;
+  // from where the fixed part of a layer dominates to where its cells do: up to where a step takes
+  // longer than RunTime on all ranks, beyond which the fixed part weighs nothing and the time grows
+  // along a line. Each size runs for about RunTime (by the time of the size before: twice the cells
+  // take at most twice as long), with a few steps at least, the best of two runs against noise on
+  // the machine.
+  constexpr double RunTime = 0.02;
+  constexpr unsigned ProbeSteps = 10;
+  constexpr double MinSteps = 3;
+  constexpr double MaxSteps = 10000;
+  constexpr int Repetitions = 2;
+  std::vector<std::size_t> sizes;
+  std::vector<double> times;
+  auto expected = layerStepTime(config, SmallestCells, ProbeSteps, 1);
+  for (unsigned cells = SmallestCells; cells <= LargestCells; cells *= 2) {
+    const auto steps = std::clamp(RunTime / expected, MinSteps, MaxSteps);
+    sizes.push_back(cells);
+    times.push_back(layerStepTime(config, cells, static_cast<unsigned>(steps), Repetitions));
+    if (Mpi::mpi.allreduce(times.back(), MPI_MIN) > RunTime) {
+      break;
+    }
+    expected = 2 * times.back();
+  }
 
-  // the same threshold on all ranks
-  const auto summary = statistics::parallelSummary(cells);
-  cells = summary.median;
-  Mpi::mpi.broadcast(&cells, 0);
-  logInfo() << "A step of the cell kernels of" << configName(configValue(config)) << "takes"
-            << fixedTime * 1e6 << "us with" << SmallCells << "cells, and" << cellTime * 1e9
-            << "ns per further cell: below" << cells << "cells (median over the ranks; min"
-            << summary.min << ", max" << summary.max
-            << "), its fixed part weighs more than its cells.";
-  return static_cast<std::size_t>(cells);
+  // the same on all ranks: the median over them, size by size
+  const auto ofRanks = Mpi::mpi.collectContainer(times);
+  if (Mpi::mpi.rank() == 0) {
+    for (std::size_t i = 0; i < times.size(); ++i) {
+      std::vector<double> ofSize;
+      ofSize.reserve(ofRanks.size());
+      for (const auto& rankTimes : ofRanks) {
+        ofSize.push_back(rankTimes[i]);
+      }
+      std::ranges::sort(ofSize);
+      const auto middle = ofSize.size() / 2;
+      times[i] =
+          ofSize.size() % 2 == 1 ? ofSize[middle] : (ofSize[middle - 1] + ofSize[middle]) / 2;
+    }
+  }
+  Mpi::mpi.broadcastContainer(times, 0);
+
+  std::vector<std::pair<std::size_t, double>> points;
+  points.reserve(sizes.size());
+  for (std::size_t i = 0; i < sizes.size(); ++i) {
+    points.emplace_back(sizes[i], times[i]);
+  }
+  return LayerCost(std::move(points));
 }
 
 auto miniSeisSol(ConfigId config) -> double {

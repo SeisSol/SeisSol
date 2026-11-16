@@ -12,6 +12,7 @@
 #include "Common/Constants.h"
 #include "Common/Iterator.h"
 #include "Common/Json.h"
+#include "Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/BasicTypedefs.h"
@@ -21,13 +22,17 @@
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/TimeStepping/Halo.h"
 #include "Internal/MeshLayout.h"
+#include "Internal/NeighborLinks.h"
 #include "Kernels/Common.h"
+#include "Kernels/SolverSelector.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Colormap.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/RunSummary.h"
+#include "Numerical/Statistics.h"
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "SeisSol.h"
@@ -37,15 +42,17 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
-#include <exception>
 #include <limits>
 #include <map>
 #include <mpi.h>
 #include <numeric>
 #include <string>
+#include <system_error>
 #include <unordered_map>
+#include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <vector>
@@ -136,6 +143,88 @@ json::Value ltsSection(const ClusterLayout& layout) {
   return section;
 }
 
+/**
+ * SEISSOL_ICCOMBINE=auto: combines the copy and the interior cells of each time cluster where one
+ * layer of both saves more per step than the halo exchange takes that the interior cells would
+ * otherwise overlap: apart, the interior cells compute while the copy cells wait for the halo; in
+ * one layer, all of them wait. What a layer costs comes from the proxy, for each configuration of
+ * the run (see solver::measureLayerCost); how long the halo takes, from the links to the neighbor
+ * ranks (see internal::measureNeighborLinks) and the size of an integral of a ghost cell. A saving
+ * counts only beyond the noise of the measurements, a few percent of the time of the combined
+ * layer. The choice is the rank's own: combining leaves the halo as it is. Records the measurements
+ * in `summary`. Collective.
+ */
+internal::CombinedLayers combineByMeasurement(MeshLayout& layout,
+                                              const LTSColorMap& colorMap,
+                                              const std::vector<ConfigId>& configs,
+                                              std::size_t copyCount,
+                                              utils::Env& env,
+                                              json::Value& summary) {
+  if (!isDeviceOn() && useHostTaskGraph(env)) {
+    logInfo() << "SEISSOL_ICCOMBINE=auto combines nothing in a task graph on the host "
+                 "(SEISSOL_HOST_TASK_GRAPH): the proxy times the layers in parallel loops, whose "
+                 "fixed part a task graph does not have.";
+    return internal::CombinedLayers{.copyLayers = std::vector<bool>(layout.size(), false),
+                                    .moved = 0};
+  }
+
+  std::vector<solver::LayerCost> costs(builtConfigCount());
+  for (const auto config : configs) {
+    costs[config] = solver::measureLayerCost(config);
+    const auto& points = costs[config].points();
+    const auto& middle = points[points.size() / 2];
+    const auto name = configName(configValue(config));
+    logInfo() << "A step of a layer of" << name << "takes" << points.front().second * 1e6
+              << "us with" << points.front().first << "cells," << middle.second * 1e6 << "us with"
+              << middle.first << "and" << points.back().second * 1e6 << "us with"
+              << points.back().first << "(median over the ranks).";
+    auto& curve = summary["layerCost"][name] = json::Value::array();
+    for (const auto& [cells, time] : points) {
+      auto& point = curve.push(json::Value::object());
+      point["cells"] = cells;
+      point["time"] = time;
+    }
+  }
+
+  const auto links = internal::measureNeighborLinks(layout);
+  // a ghost cell sends an integral at least, of each copy of the cells
+  std::vector<std::size_t> bytesPerCell(colorMap.size(), 0);
+  for (std::size_t color = 0; color < colorMap.size(); ++color) {
+    bytesPerCell[color] = dispatchConfig(colorMap.argument(color).config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      return kernels::SolverOf<Cfg>::IntegralsSize * sizeof(Real<Cfg>) * copyCount;
+    });
+  }
+  const auto halo = internal::haloTimes(layout, colorMap, links, bytesPerCell);
+  // per rank: the slowest of its neighbor ranks, and the longest halo of its clusters
+  double latency = 0;
+  for (const auto& [rank, link] : links) {
+    latency = std::max(latency, link.latency);
+  }
+  const auto latencyOverRanks = statistics::parallelSummary(latency);
+  const auto haloOverRanks =
+      statistics::parallelSummary(halo.empty() ? 0.0 : *std::ranges::max_element(halo));
+  summary["neighborLatency"] = monitoring::toJson(latencyOverRanks);
+  summary["haloTime"] = monitoring::toJson(haloOverRanks);
+  logInfo() << "The neighbor ranks answer after" << latencyOverRanks.median * 1e6
+            << "us, and the halo of a cluster takes up to" << haloOverRanks.median * 1e6
+            << "us (the slowest neighbor and the longest halo of a rank, median over the ranks).";
+
+  // a saving counts beyond what the measurements tell apart: the time of a size varies by a few
+  // percent from one measurement to the next, and a saving is the difference of three such times
+  constexpr double Resolution = 0.05;
+  return internal::combineCopyInteriorWhere(
+      layout,
+      colorMap,
+      [&](std::size_t copyColor, std::size_t copyCells, std::size_t interiorCells) {
+        const auto config = colorMap.argument(copyColor).config;
+        const auto& cost = costs[config];
+        const auto saving = cost.combinedSaving(copyCells * copyCount, interiorCells * copyCount);
+        const auto combinedTime = cost((copyCells + interiorCells) * copyCount);
+        return saving > halo[copyColor] + Resolution * combinedTime;
+      });
+}
+
 void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.parameters();
   const auto& meshReader = seissolInstance.meshReader();
@@ -212,36 +301,76 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Creating mesh layout...";
 
-  // SEISSOL_ICCOMBINE: a number of cells for the layers of all configurations, or "auto" for the
-  // size below which a layer of each configuration costs more by its fixed part than by its cells
-  // on this machine (see layerCombineThreshold): with several configurations, a cell of each costs
-  // differently, while the fixed part of a layer is much the same
+  // SEISSOL_ICCOMBINE: a number of cells for the layers of all configurations, or "auto" for a
+  // choice by what a layer and the halo exchange cost on this machine (see combineByMeasurement)
   const auto combineSetting = seissolInstance.env().get<std::string>("ICCOMBINE", "0");
-  const auto cellThresholds = [&] {
-    std::vector<std::size_t> thresholds(builtConfigCount(), 0);
-    if (combineSetting == "auto") {
-      for (const auto config : model.configs()) {
-        thresholds[config] = solver::layerCombineThreshold(config);
-      }
-      return thresholds;
-    }
-    try {
-      std::ranges::fill(thresholds, std::stoull(combineSetting));
-    } catch (const std::exception&) {
+  const bool combineAuto = combineSetting == "auto";
+  std::size_t combineThreshold = 0;
+  if (!combineAuto) {
+    // the whole value as a number of cells: no sign, nothing after the digits
+    const auto* end = combineSetting.data() + combineSetting.size();
+    const auto [parsed, error] = std::from_chars(combineSetting.data(), end, combineThreshold);
+    if (error != std::errc{} || parsed != end) {
       logError() << "SEISSOL_ICCOMBINE has to be a number of cells or auto, not" << combineSetting;
     }
-    return thresholds;
-  }();
-  const bool combineCells =
-      std::ranges::any_of(cellThresholds, [](std::size_t threshold) { return threshold > 0; });
+  }
+  const bool combineCells = combineAuto || combineThreshold > 0;
+  auto& layersSummary = seissolInstance.runSummary()["layers"];
+  layersSummary["combine"] = combineSetting;
   internal::CombinedLayers combinedCells;
   const auto meshLayout = [&] {
     auto meshLayoutPre = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
+    // the copy layers whose interior layer has cells: there, combining moves cells
+    std::vector<bool> withInterior(colorMap.size(), false);
+    for (std::size_t color = 0; color < colorMap.size(); ++color) {
+      auto id = colorMap.argument(color);
+      if (id.halo == HaloType::Copy) {
+        id.halo = HaloType::Interior;
+        withInterior[color] = !meshLayoutPre[colorMap.colorId(id)].cellMap.empty();
+      }
+    }
+    if (combineAuto) {
+      combinedCells = combineByMeasurement(meshLayoutPre,
+                                           colorMap,
+                                           model.configs(),
+                                           copyCount,
+                                           seissolInstance.env(),
+                                           layersSummary);
+    } else if (combineThreshold > 0) {
+      combinedCells = internal::combineCopyInterior(
+          meshLayoutPre, colorMap, std::vector<std::size_t>(builtConfigCount(), combineThreshold));
+    }
     if (combineCells) {
-      combinedCells = internal::combineCopyInterior(meshLayoutPre, colorMap, cellThresholds);
-      const auto moved = Mpi::mpi.allreduce(combinedCells.moved, MPI_SUM);
-      logInfo() << "Combined the copy and interior cells of" << moved
-                << "clusters over all ranks (SEISSOL_ICCOMBINE=" << combineSetting << ").";
+      // per time cluster, over all ranks: its copy layers next to interior cells, and those of them
+      // that took these
+      std::vector<std::size_t> candidates(clusterLayout.globalClusterCount, 0);
+      std::vector<std::size_t> combined(clusterLayout.globalClusterCount, 0);
+      for (std::size_t color = 0; color < colorMap.size(); ++color) {
+        if (withInterior[color]) {
+          const auto cluster = colorMap.argument(color).lts;
+          ++candidates[cluster];
+          if (combinedCells.copyLayers[color]) {
+            ++combined[cluster];
+          }
+        }
+      }
+      Mpi::mpi.allreduceContainer(candidates, MPI_SUM);
+      Mpi::mpi.allreduceContainer(combined, MPI_SUM);
+      const auto moved = std::accumulate(combined.begin(), combined.end(), std::size_t{0});
+      std::string perCluster;
+      auto& clustersSummary = layersSummary["clusters"] = json::Value::array();
+      for (std::size_t cluster = 0; cluster < candidates.size(); ++cluster) {
+        perCluster += (cluster == 0 ? "" : ", ") + std::to_string(cluster) + ": " +
+                      std::to_string(combined[cluster]) + "/" + std::to_string(candidates[cluster]);
+        auto& entry = clustersSummary.push(json::Value::object());
+        entry["id"] = cluster;
+        entry["withInterior"] = candidates[cluster];
+        entry["combined"] = combined[cluster];
+      }
+      logInfo() << "Combined the copy and interior cells of" << moved << utils::nospace
+                << "clusters over all ranks (SEISSOL_ICCOMBINE=" << combineSetting.c_str()
+                << "); per time cluster, of those with interior cells: " << perCluster.c_str()
+                << ".";
     }
     return meshLayoutPre;
   }();

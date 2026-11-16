@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <functional>
 #include <map>
 #include <set>
 #include <utility>
@@ -139,6 +140,18 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
 CombinedLayers combineCopyInterior(std::vector<ClusterMap>& map,
                                    const LTSColorMap& colormap,
                                    const std::vector<std::size_t>& thresholds) {
+  return combineCopyInteriorWhere(
+      map, colormap, [&](std::size_t copyColor, std::size_t copyCells, std::size_t interiorCells) {
+        const auto config = colormap.argument(copyColor).config;
+        const auto threshold = config < thresholds.size() ? thresholds[config] : 0;
+        return copyCells + interiorCells < threshold;
+      });
+}
+
+CombinedLayers combineCopyInteriorWhere(
+    std::vector<ClusterMap>& map,
+    const LTSColorMap& colormap,
+    const std::function<bool(std::size_t, std::size_t, std::size_t)>& combine) {
   const auto colorAdjust = [&](std::size_t color, HaloType halo) {
     auto id = colormap.argument(color);
     id.halo = halo;
@@ -154,10 +167,8 @@ CombinedLayers combineCopyInterior(std::vector<ClusterMap>& map,
 
       const auto copySize = map[copyLayer].cellMap.size();
       const auto interiorSize = map[interiorLayer].cellMap.size();
-      const auto config = colormap.argument(i).config;
-      const auto threshold = config < thresholds.size() ? thresholds[config] : 0;
 
-      if (copySize + interiorSize < threshold) {
+      if (combine(copyLayer, copySize, interiorSize)) {
         // the interior cells go behind the copy cells: the send regions only cover the leading
         // cells of a copy layer, so the halo stays as it is
         combined.copyLayers[copyLayer] = true;
