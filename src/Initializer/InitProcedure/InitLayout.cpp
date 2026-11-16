@@ -239,9 +239,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     auto meshLayoutPre = internal::layoutCells(colors, colorsGhost, colorMap, meshReader);
     if (combineCells) {
       combinedCells = internal::combineCopyInterior(meshLayoutPre, colorMap, cellThresholds);
-      auto moved = combinedCells.moved;
-      MPI_Allreduce(
-          MPI_IN_PLACE, &moved, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
+      const auto moved = Mpi::mpi.allreduce(combinedCells.moved, MPI_SUM);
       logInfo() << "Combined the copy and interior cells of" << moved
                 << "clusters over all ranks (SEISSOL_ICCOMBINE=" << combineSetting << ").";
     }
@@ -460,9 +458,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           faceThreshold.has_value()
               ? internal::faceLayersBelow(drLayoutPre, colorMap, faceThreshold.value())
               : combinedCells.copyLayers;
-      auto moved = internal::combineCopyInteriorDR(drLayoutPre, colorMap, combine);
-      MPI_Allreduce(
-          MPI_IN_PLACE, &moved, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
+      const auto moved = Mpi::mpi.allreduce(
+          internal::combineCopyInteriorDR(drLayoutPre, colorMap, combine), MPI_SUM);
       if (faceThreshold.has_value()) {
         logInfo() << "Combined the copy and interior fault faces of" << moved
                   << "clusters over all ranks (fewer than" << faceThreshold.value()
