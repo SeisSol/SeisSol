@@ -50,14 +50,13 @@ constexpr double SameTime = 1e-6;
  * Collective; the same on all ranks.
  */
 json::Value overHolders(std::optional<double> value) {
-  MPI_Comm comm = seissol::Mpi::mpi.comm();
   std::array<double, 2> sums{value.has_value() ? 1.0 : 0.0, value.value_or(0.0)};
   // the minimum as the maximum of the negated values
   constexpr double Lowest = std::numeric_limits<double>::lowest();
   std::array<double, 2> maxima{value.has_value() ? -value.value() : Lowest,
                                value.has_value() ? value.value() : Lowest};
-  MPI_Allreduce(MPI_IN_PLACE, sums.data(), 2, MPI_DOUBLE, MPI_SUM, comm);
-  MPI_Allreduce(MPI_IN_PLACE, maxima.data(), 2, MPI_DOUBLE, MPI_MAX, comm);
+  seissol::Mpi::mpi.allreduceContainer(sums, MPI_SUM);
+  seissol::Mpi::mpi.allreduceContainer(maxima, MPI_MAX);
   json::Value result;
   result["count"] = sums[0];
   if (sums[0] > 0) {
@@ -100,12 +99,7 @@ void EnergyMeter::setup(Counters& counters, bool enabled, const std::string& roo
       }
     }
   }
-  MPI_Allreduce(MPI_IN_PLACE,
-                measured.data(),
-                static_cast<int>(measured.size()),
-                MPI_INT,
-                MPI_MAX,
-                seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.allreduceContainer(measured, MPI_MAX);
   std::string names;
   for (std::size_t i = 0; i < Parts.size(); ++i) {
     if (measured[i] == 0) {
@@ -195,7 +189,7 @@ json::Value EnergyMeter::describe() const {
         limit = limit.value_or(0.0) + watts.value();
       }
     }
-    MPI_Allreduce(MPI_IN_PLACE, &sources, 1, MPI_UNSIGNED, MPI_BOR, seissol::Mpi::mpi.comm());
+    sources = seissol::Mpi::mpi.allreduce(sources, MPI_BOR);
     auto perNode =
         overHolders(count > 0 ? std::optional<double>(static_cast<double>(count)) : std::nullopt);
     auto limits = overHolders(limit);

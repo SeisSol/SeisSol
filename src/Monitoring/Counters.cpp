@@ -84,12 +84,7 @@ std::vector<Counters::Totals> Counters::reduce(
     }
   }
 
-  MPI_Allreduce(MPI_IN_PLACE,
-                buffer.data(),
-                static_cast<int>(buffer.size()),
-                MPI_DOUBLE,
-                MPI_SUM,
-                seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.allreduceContainer(buffer, MPI_SUM);
 
   std::vector<Totals> totals(stretches.size());
   for (std::size_t stretch = 0; stretch < stretches.size(); ++stretch) {

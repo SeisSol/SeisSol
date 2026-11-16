@@ -20,9 +20,7 @@ namespace seissol::unit_test {
 
 namespace counterstest {
 inline int nodeCount() {
-  int leader = seissol::Mpi::mpi.sharedMemMpiRank() == 0 ? 1 : 0;
-  MPI_Allreduce(MPI_IN_PLACE, &leader, 1, MPI_INT, MPI_SUM, seissol::Mpi::mpi.comm());
-  return leader;
+  return seissol::Mpi::mpi.allreduce(seissol::Mpi::mpi.sharedMemMpiRank() == 0 ? 1 : 0, MPI_SUM);
 }
 } // namespace counterstest
 

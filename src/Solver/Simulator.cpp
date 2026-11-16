@@ -481,8 +481,7 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   // the work per energy, over the epochs: on the energy of the nodes where all of them count it,
   // else on the sum of what all of them count of their CPUs, memory and GPUs (energy::basisParts)
   const auto simulated = counters.reduce(firstCounters, lastCounters);
-  int nodes = Mpi::mpi.sharedMemMpiRank() == 0 ? 1 : 0;
-  MPI_Allreduce(MPI_IN_PLACE, &nodes, 1, MPI_INT, MPI_SUM, Mpi::mpi.comm());
+  const int nodes = Mpi::mpi.allreduce(Mpi::mpi.sharedMemMpiRank() == 0 ? 1 : 0, MPI_SUM);
   const auto everywhere = [&](monitoring::energy::Part part) -> std::optional<double> {
     const auto energy = counters.find(monitoring::EnergyMeter::counterName(part));
     if (!energy.has_value() || simulated.contributors[energy.value()] != nodes ||
