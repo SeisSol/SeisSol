@@ -158,7 +158,7 @@ vertexWeightFile = '' ! (optional) Partitions by the costs of the cells measured
 ! clustering (see VertexWeightOutput in &Output) instead of the weights above; the weights still sum to what they would.
 vertexWeightCycles = 0 ! (optional) Short runs before the actual one, in the same process: each measures what the cells
 ! cost (as VertexWeightOutput does) and the next one is partitioned by it; the actual run by the costs of the last one.
-! They write no outputs but the run summary (under <OutputFile>-cycle<n>), and start from the beginning.
+! They write no outputs but the run summary (under <outdir>/<outname>-cycle<n>), and start from the beginning.
 vertexWeightCycleSteps = 20 ! (optional) How long each of these runs is, in time steps of the largest time cluster.
 
 ! Wiggle factor settings:
@@ -175,7 +175,11 @@ LtsAutoMergeCostBaseline = 'bestWiggleFactor' ! Baseline used for auto merging c
 /
 
 &Output
-OutputFile = '../output_tpv33/tpv33'
+! OutputFile = '../output_tpv33/tpv33' ! deprecated; same as outdir/outname below
+outdir = '../output_tpv33' ! the output directory
+outname = 'tpv33' ! the output file prefix (within the output directory)
+outsimdir = 0 ! whether each run writes into a directory of its own within `outdir`, named <outname>-<run ID>
+
 WavefieldOutput = 1                  ! disable/enable wavefield output (right now, format=6 needs to be set as well)
 Format = 6                           ! Format (10= no output, 6=hdf5 output)
 !             |stress     |vel
@@ -262,7 +266,7 @@ EpochInterval = 0 ! (optional) Ends a simulation epoch at least every this much 
 ! the performance of every epoch. 0 (the default) leaves that to the outputs.
 VertexWeightOutput = 0 ! (optional) 1: measures what each cell costs in the run (the time of the loops of its
 ! cluster on its rank, shared over its cells, plus that of its fault faces) and writes it to
-! <OutputFile>-vertexweights.h5 at the end, for a later run to partition by (vertexWeightFile in &Discretization).
+! <outdir>/<outname>-vertexweights.h5 at the end, for a later run to partition by (vertexWeightFile in &Discretization).
 ! It needs timed loops: not within recorded super-timesteps.
 /
 

@@ -204,4 +204,113 @@ TEST_CASE("readOutputParameters: the receivers and the checkpoints are on where 
   }
 }
 
+TEST_CASE("readOutputParameters: the directory and the name of the outputs" *
+          doctest::test_suite("initializer")) {
+  SUBCASE("from outdir and outname") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outdir: 'runs/strong-16'
+        outname: 'data'
+        receiveroutput: 0
+        ioutputmask: '1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()});
+
+    CHECK(params.outputPath == "runs/strong-16");
+    CHECK(params.outputName == "data");
+    CHECK_FALSE(params.outputDirPerSim);
+  }
+
+  SUBCASE("from the prefix in outputfile") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'runs/strong-16/data'
+        receiveroutput: 0
+        ioutputmask: '1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()});
+
+    CHECK(params.outputPath == "runs/strong-16");
+    CHECK(params.outputName == "data");
+  }
+
+  SUBCASE("in the working directory, from a prefix without a directory") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'data'
+        receiveroutput: 0
+        ioutputmask: '1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()});
+
+    CHECK(params.outputPath.empty());
+    CHECK(params.outputName == "data");
+  }
+
+  SUBCASE("outdir in place of the directory of outputfile") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'runs/strong-16/data'
+        outdir: 'runs/strong-32'
+        receiveroutput: 0
+        ioutputmask: '1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()});
+
+    CHECK(params.outputPath == "runs/strong-32");
+    CHECK(params.outputName == "data");
+  }
+
+  SUBCASE("outname in place of the name of outputfile") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'runs/strong-16/data'
+        outname: 'other'
+        receiveroutput: 0
+        ioutputmask: '1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()});
+
+    CHECK(params.outputPath == "runs/strong-16");
+    CHECK(params.outputName == "other");
+  }
+
+  SUBCASE("outname alone, in the working directory") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outname: 'data'
+        receiveroutput: 0
+        ioutputmask: '1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()});
+
+    CHECK(params.outputPath.empty());
+    CHECK(params.outputName == "data");
+  }
+
+  SUBCASE("outdir and outname before outputfile") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'elsewhere/other'
+        outdir: 'runs'
+        outname: 'data'
+        outsimdir: 1
+        receiveroutput: 0
+        ioutputmask: '1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()});
+
+    CHECK(params.outputPath == "runs");
+    CHECK(params.outputName == "data");
+    CHECK(params.outputDirPerSim);
+  }
+}
+
 } // namespace seissol::unit_test

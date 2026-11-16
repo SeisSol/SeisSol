@@ -88,7 +88,7 @@ TEST_CASE("Measured costs go through a file" * doctest::test_suite("mpi")) {
     CHECK(read[i] == doctest::Approx(0.1 * static_cast<double>(first + i)));
   }
 
-  MPI_Barrier(Mpi::mpi.comm());
+  Mpi::mpi.barrier();
   if (Mpi::mpi.rank() == 0) {
     std::filesystem::remove_all(dir);
   }

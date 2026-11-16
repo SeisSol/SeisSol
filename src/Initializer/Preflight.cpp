@@ -321,10 +321,18 @@ bool directoryWritable(const std::filesystem::path& path) {
 json::Value outputSection(const parameters::SeisSolParameters& parameters, Report& report) {
   json::Value section;
   const auto& output = parameters.output;
-  section["prefix"] = output.prefix;
+  section["prefix"] = (std::filesystem::path(output.outputPath) / output.outputName).string();
+  // (each run then writes into a directory of its own in there)
+  section["directoryPerRun"] = output.outputDirPerSim;
 
   std::error_code error;
-  const auto directory = std::filesystem::absolute(output.prefix, error).parent_path();
+  // an empty directory denotes the working directory
+  auto directory =
+      std::filesystem::absolute(output.outputPath.empty() ? "." : output.outputPath, error)
+          .lexically_normal();
+  if (directory.filename().empty()) {
+    directory = directory.parent_path();
+  }
   const bool exists = std::filesystem::is_directory(directory, error);
   section["directory"] = directory.string();
   section["exists"] = exists;

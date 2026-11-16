@@ -14,8 +14,18 @@
 #include <string_view>
 
 namespace seissol {
+
+/// strftime format of the time stamps in the names of backup files
+constexpr auto BackupTimeStampFormat = "%Y-%m-%d_%H-%M-%S";
+
 auto directoryExists(const std::filesystem::directory_entry& entry) -> bool;
 
+/**
+    Renames an existing file to a timestamped backup name.
+
+    Purely local: it inspects and renames only files of the calling rank, and does not
+    communicate. Not for files which several ranks share.
+ */
 void generateBackupFileIfNecessary(const std::string& fileName,
                                    const std::string& fileExtension,
                                    const std::optional<std::string>& timeStamp = {});

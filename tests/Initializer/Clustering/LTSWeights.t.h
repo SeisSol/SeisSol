@@ -22,6 +22,7 @@
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Initializer/Typedefs.h"
 #include "Parallel/MPI.h"
+#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 #include "TestHelper.h"
 
@@ -70,7 +71,8 @@ TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   seissolParameters.model.useCellHomogenizedMaterial = false;
   seissolParameters.model.plasticity = false;
   const utils::Env env("SEISSOL_");
-  seissol::SeisSol seissolInstance(seissolParameters, env);
+  const seissol::SystemInfo systemInfo;
+  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
   Clustering clustering(config, seissolInstance);
   ExponentialWeights weightModel;
@@ -127,7 +129,8 @@ TEST_CASE("The cost of a cell follows its configuration" * doctest::test_suite("
     seissolParameters.model.plasticity = false;
     seissolParameters.model.groupConfigs = std::move(groupConfigs);
     const utils::Env env("SEISSOL_");
-    seissol::SeisSol seissolInstance(seissolParameters, env);
+    const seissol::SystemInfo systemInfo;
+    seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
     Clustering clustering(config, seissolInstance);
     ExponentialWeights weightModel;
@@ -206,7 +209,8 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
     seissolParameters.model.useCellHomogenizedMaterial = homogenized;
     seissolParameters.model.plasticity = false;
     const utils::Env env("SEISSOL_");
-    seissol::SeisSol seissolInstance(seissolParameters, env);
+    const seissol::SystemInfo systemInfo;
+    seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
     Clustering clustering(config, seissolInstance);
     ExponentialWeights weightModel;
@@ -264,7 +268,8 @@ TEST_CASE("A cell takes the smallest time step of the materials of the simulatio
     seissolParameters.model.simulationCount = materialFileNames.size();
     seissolParameters.model.plasticity = false;
     const utils::Env env("SEISSOL_");
-    seissol::SeisSol seissolInstance(seissolParameters, env);
+    const seissol::SystemInfo systemInfo;
+    seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
     Clustering clustering(config, seissolInstance);
     ExponentialWeights weightModel;
@@ -530,7 +535,8 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
   seissolParameters.model.useCellHomogenizedMaterial = false;
   seissolParameters.model.plasticity = false;
   const utils::Env env("SEISSOL_");
-  seissol::SeisSol seissolInstance(seissolParameters, env);
+  const seissol::SystemInfo systemInfo;
+  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
   Clustering clustering(config, seissolInstance);
   ExponentialWeights weightModel;
@@ -555,7 +561,7 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
   for (const auto& element : elements) {
     globalMinTimestep = std::min(globalMinTimestep, element.timestep);
   }
-  MPI_Allreduce(MPI_IN_PLACE, &globalMinTimestep, 1, MPI_DOUBLE, MPI_MIN, seissol::Mpi::mpi.comm());
+  globalMinTimestep = seissol::Mpi::mpi.allreduce(globalMinTimestep, MPI_MIN);
   CHECK(globalMinTimestep > 0.0);
 
   // (1) enforceMaximumDifference() and enforceMaxClusterId() only ever move cells to a

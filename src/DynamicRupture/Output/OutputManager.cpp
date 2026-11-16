@@ -38,6 +38,7 @@
 #include "Memory/Tree/Backmap.h"
 #include "Memory/Tree/Layer.h"
 #include "Parallel/Helper.h"
+#include "Parallel/MPI.h"
 #include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/Stream.h"
 #include "SeisSol.h"
@@ -130,7 +131,7 @@ OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
                              seissol::SeisSol& seissolInstance)
     : seissolInstance_(seissolInstance), ewOutputData_(std::make_shared<ReceiverOutputData>()),
       impl_(std::move(concreteImpl)) {
-  backupTimeStamp_ = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
+  backupTimeStamp_ = utils::TimeUtils::timeAsString(BackupTimeStampFormat, time(nullptr));
 }
 
 OutputManager::~OutputManager() = default;
@@ -489,7 +490,7 @@ void OutputManager::initPickpointOutput() {
       });
 
       auto fileName =
-          buildIndexedMPIFileName(seissolParameters.output.prefix, index + 1, "faultreceiver");
+          buildIndexedMPIFileName(seissolInstance_.outputPrefix(), index + 1, "faultreceiver");
       seissol::generateBackupFileIfNecessary(fileName, "dat", {backupTimeStamp_});
       fileName += ".dat";
       files.push_back(PickpointFile{.fileName = fileName, .indices = simulations});
@@ -845,12 +846,7 @@ void OutputManager::collectPickpointSamples() {
         std::max(samples[group], ppOutputData_.at(ppTableRows_[row].first)->currentCacheLevel);
   }
   if (!samples.empty()) {
-    MPI_Allreduce(MPI_IN_PLACE,
-                  samples.data(),
-                  static_cast<int>(samples.size()),
-                  seissol::Mpi::castToMpiType<std::size_t>(),
-                  MPI_MAX,
-                  seissol::Mpi::mpi.comm());
+    seissol::Mpi::mpi.allreduceContainer(samples, MPI_MAX);
   }
 
   std::vector<double*> storage(grouping.groupCount(), nullptr);

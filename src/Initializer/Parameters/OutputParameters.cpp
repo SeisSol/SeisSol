@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <filesystem>
 #include <limits>
 #include <optional>
 #include <string>
@@ -419,8 +420,28 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
                                                          {"hdf5", XdmfBackend::Hdf5},
 #endif
                                                      });
-  const auto prefix =
-      reader->readOrFail<std::string>("outputfile", "Output file prefix not defined.");
+
+  // the directory and the name of the outputs: outdir and outname, or the older outputfile, which
+  // gives both at once; each of the former takes the place of its part of the latter (e.g. outdir
+  // given on the command line, for a parameter file with outputfile)
+  const auto outputDirR = reader->read<std::string>("outdir");
+  const auto outputNameR = reader->read<std::string>("outname");
+  std::string outputDir;
+  std::string outputName;
+  if (outputDirR.has_value() && outputNameR.has_value()) {
+    reader->warnDeprecatedSingle("outputfile");
+  } else if (const auto prefix = reader->read<std::string>("outputfile"); prefix.has_value()) {
+    const auto prefixPath = std::filesystem::path(prefix.value());
+    outputDir = prefixPath.parent_path().string();
+    outputName = prefixPath.filename().string();
+  }
+  outputDir = outputDirR.value_or(outputDir);
+  outputName = outputNameR.value_or(outputName);
+  if (outputName.empty()) {
+    logError() << "The outputs have no name: give outname (and outdir), or outputfile.";
+  }
+
+  const auto dirPerSim = reader->readWithDefault("outsimdir", false);
   const auto epochInterval = reader->readWithDefault("epochinterval", 0.0);
   const auto vertexWeightOutput = reader->readWithDefault("vertexweightoutput", false);
 
@@ -450,7 +471,9 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
   auto parameters = OutputParameters(format,
                                      xdmfWriterBackend,
                                      hdfcompress,
-                                     prefix,
+                                     outputDir,
+                                     outputName,
+                                     dirPerSim,
                                      checkpointParameters,
                                      elementwiseParameters,
                                      energyParameters,

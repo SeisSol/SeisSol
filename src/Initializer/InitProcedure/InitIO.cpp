@@ -34,6 +34,7 @@
 #include "Model/Plasticity.h"
 #include "Numerical/Projection.h"
 #include "Parallel/MPI.h"
+#include "Parallel/ParallelFS.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
 #include "Solver/FreeSurfaceIntegrator.h"
@@ -52,7 +53,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <system_error>
 #include <tuple>
 #include <utility>
 #include <utils/logger.h>
@@ -1014,7 +1014,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   if (seissolParams.output.receiverParameters.enabled) {
     auto& receiverWriter = seissolInstance.receiverWriter();
     // Initialize receiver output
-    receiverWriter.init(seissolParams.output.prefix,
+    receiverWriter.init(seissolInstance.outputPrefix(),
                         seissolParams.timeStepping.endTime,
                         seissolParams.output.receiverParameters);
     receiverWriter.addPoints(seissolInstance.meshReader(), memoryManager.backmap());
@@ -1028,16 +1028,17 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                       seissolInstance.meshReader(),
                       memoryManager.ltsStorage(),
                       seissolParams.model.plasticity,
-                      seissolParams.output.prefix,
+                      seissolInstance.outputPrefix(),
                       seissolParams.output.energyParameters);
   }
 
-  seissolInstance.flopCounter().init(seissolParams.output.prefix, seissolInstance.runId());
+  seissolInstance.flopCounter().init(seissolInstance.outputPrefix(), seissolInstance.runId());
 
   seissolInstance.epochSynchronization().init(seissolInstance.modules(),
                                               seissolParams.output.epochInterval);
 
-  seissolInstance.analysisWriter().init(&seissolInstance.meshReader(), seissolParams.output.prefix);
+  seissolInstance.analysisWriter().init(&seissolInstance.meshReader(),
+                                        seissolInstance.outputPrefix());
 }
 
 void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
@@ -1065,29 +1066,34 @@ void enableFreeSurfaceOutput(const seissol::SeisSol& seissolInstance) {}
 
 } // namespace
 
-void seissol::initializer::initprocedure::createOutputDirectory(
-    const seissol::SeisSol& seissolInstance) {
-  const auto directory =
-      std::filesystem::path(seissolInstance.parameters().output.prefix).parent_path();
-  if (Mpi::mpi.rank() == 0 && !directory.empty() && !std::filesystem::exists(directory)) {
-    logInfo() << "Creating the output directory" << directory.string();
-    std::error_code error;
-    std::filesystem::create_directories(directory, error);
-    if (error) {
-      logError() << "Could not create the output directory" << directory.string() << ":"
-                 << error.message();
-    }
+void seissol::initializer::initprocedure::createOutputDirectory(seissol::SeisSol& seissolInstance) {
+  const auto& outputParams = seissolInstance.parameters().output;
+
+  // an empty directory denotes the working directory
+  auto directory = outputParams.outputPath.empty() ? std::filesystem::path(".")
+                                                   : std::filesystem::path(outputParams.outputPath);
+
+  if (outputParams.outputDirPerSim) {
+    // the ID is the same on all ranks, and so is the directory name; unlike a time stamp, it
+    // differs between runs that start at the same time, e.g. those of a job array
+    directory /= outputParams.outputName + "-" + seissolInstance.runId();
   }
-  seissol::Mpi::barrier(Mpi::mpi.comm());
+
+  createDirectoryGlobally(directory);
+
+  logInfo() << "Output directory:" << directory.string();
+  logInfo() << "Output file prefix:" << outputParams.outputName;
+
+  // TODO: (after #1180) properly split prefix into dir and simulation name
+  seissolInstance.setOutputPrefix((directory / outputParams.outputName).string());
 }
 
 void seissol::initializer::initprocedure::initIO(seissol::SeisSol& seissolInstance) {
   logInfo() << "Begin init output.";
 
-  const auto& seissolParams = seissolInstance.parameters();
-
   // recorded while reading the mesh and laying out the clusters, before the writers were set up
-  seissolInstance.miniSeisSolWriter().write(seissolParams.output.prefix, seissolInstance.runId());
+  seissolInstance.miniSeisSolWriter().write(
+      seissolInstance.outputPrefix(), seissolInstance.runId(), seissolInstance.systemInfo());
   seissolInstance.timeManager().writeClustering();
 
   enableFreeSurfaceOutput(seissolInstance);

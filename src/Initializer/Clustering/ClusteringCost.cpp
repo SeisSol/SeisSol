@@ -44,11 +44,9 @@ double computeGlobalCostOfClustering(const std::vector<std::size_t>& clusterIds,
                                      double wiggleFactor,
                                      double minimalTimestep,
                                      MPI_Comm comm) {
-  double cost =
+  const double cost =
       computeLocalCostOfClustering(clusterIds, cellCosts, rate, wiggleFactor, minimalTimestep);
-  MPI_Allreduce(MPI_IN_PLACE, &cost, 1, MPI_DOUBLE, MPI_SUM, comm);
-
-  return cost;
+  return Mpi::mpi.allreduce(cost, MPI_SUM, comm);
 }
 
 std::vector<double>
@@ -104,20 +102,14 @@ std::size_t computeMaxClusterIdAfterAutoMerge(const std::vector<std::size_t>& cl
                                               double maximalAdmissibleCost,
                                               double wiggleFactor,
                                               double minimalTimestep) {
-  std::size_t maxClusterId = clusterIds.empty() ? 0 : *std::ranges::max_element(clusterIds);
-  MPI_Allreduce(
-      MPI_IN_PLACE, &maxClusterId, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, Mpi::mpi.comm());
+  const std::size_t maxClusterId =
+      Mpi::mpi.allreduce(clusterIds.empty() ? 0 : *std::ranges::max_element(clusterIds), MPI_MAX);
 
   // All candidate costs in one pass, then one reduction -- previously this was a full
   // clustering copy plus an Allreduce for every candidate.
   auto costs = computeLocalCostsOfCappedClusterings(
       clusterIds, cellCosts, rate, wiggleFactor, minimalTimestep, maxClusterId);
-  MPI_Allreduce(MPI_IN_PLACE,
-                costs.data(),
-                static_cast<int>(costs.size()),
-                MPI_DOUBLE,
-                MPI_SUM,
-                Mpi::mpi.comm());
+  Mpi::mpi.allreduceContainer(costs, MPI_SUM);
 
   // Iteratively merge clusters until we found the first number of clusters that has a cost that is
   // too high

@@ -90,12 +90,7 @@ std::size_t ClusteringEvaluator::realize(double wiggleFactor) {
       cellchanges = cellCount_;
     }
     if (smoothDuringSearch_) {
-      MPI_Allreduce(MPI_IN_PLACE,
-                    &cellchanges,
-                    1,
-                    Mpi::castToMpiType<std::size_t>(),
-                    MPI_SUM,
-                    seissol::Mpi::mpi.comm());
+      cellchanges = Mpi::mpi.allreduce(cellchanges, MPI_SUM);
       if (cellchanges > 0) {
         numberOfReductions = smoothCurrent();
       }
@@ -120,10 +115,8 @@ std::size_t ClusteringEvaluator::smoothCurrent() {
 }
 
 std::size_t ClusteringEvaluator::globalMaxClusterId() const {
-  std::size_t maxClusterId = clusterIds_.empty() ? 0 : *std::ranges::max_element(clusterIds_);
-  MPI_Allreduce(
-      MPI_IN_PLACE, &maxClusterId, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, Mpi::mpi.comm());
-  return maxClusterId;
+  return Mpi::mpi.allreduce(clusterIds_.empty() ? 0 : *std::ranges::max_element(clusterIds_),
+                            MPI_MAX);
 }
 
 double ClusteringEvaluator::globalCost(double wiggleFactor) const {

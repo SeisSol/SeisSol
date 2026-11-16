@@ -66,12 +66,7 @@ std::vector<FaceTypeCensus> collectFaceTypes(LTS::Storage& storage) {
     reduced.push_back(configCensus.present);
     reduced.push_back(configCensus.cellRejected);
   }
-  MPI_Allreduce(MPI_IN_PLACE,
-                reduced.data(),
-                static_cast<int>(reduced.size()),
-                Mpi::castToMpiType<std::uint32_t>(),
-                MPI_BOR,
-                Mpi::mpi.comm());
+  Mpi::mpi.allreduceContainer(reduced, MPI_BOR);
   for (std::size_t config = 0; config < census.size(); ++config) {
     census[config].present = reduced[2 * config];
     census[config].cellRejected = reduced[2 * config + 1];

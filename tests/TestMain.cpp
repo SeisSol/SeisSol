@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
 
   const int returnValue = context.run();
 
-  seissol::Mpi::finalize();
+  seissol::Mpi::mpi.finalize();
 
   return returnValue;
 }

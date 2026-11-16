@@ -9,6 +9,7 @@
 #include "BuildInfo.h"
 #include "Common/ConfigRegistry.h"
 #include "Common/Environment.h"
+#include "Common/Filesystem.h"
 #include "Common/Json.h"
 #include "Common/RunId.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
@@ -22,6 +23,7 @@
 #include "Monitoring/FailureReport.h"
 #include "Monitoring/Instrumentation.h"
 #include "Parallel/MPI.h"
+#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 
 #include <array>
@@ -112,7 +114,7 @@ seissol::initializer::parameters::SeisSolParameters
   using namespace seissol::initializer::parameters;
   auto measuring = parameters;
   auto& output = measuring.output;
-  output.prefix += "-cycle" + std::to_string(cycle + 1);
+  output.outputName += "-cycle" + std::to_string(cycle + 1);
   output.format = OutputFormat::None;
   output.waveFieldParameters.enabled = false;
   output.freeSurfaceParameters.enabled = false;
@@ -346,8 +348,15 @@ int main(int argc, char* argv[]) {
         setenv("DEVICE_HSA_QUEUE_LIGHT", light.c_str(), 0);
       }
     }
-    seissol::Mpi::mpi.bindAcceleratorDevice();
     const device::DeviceInstance& device = device::DeviceInstance::instance();
+    // Bind to the first visible device, before MPI_Init.
+    // Some MPI implementations set up a context between GPUs and OS processes inside MPI_Init, and
+    // allocate buffers in the NUMA domain nearest to the core the process runs on. Binding a
+    // process differently, e.g. closer to a GPU, therefore has to happen beforehand, via
+    // environment variables or hwloc.
+    // On a multi-GPU node, the binding is up to the user; a wrapper script can set
+    // CUDA_VISIBLE_DEVICES/HIP_VISIBLE_DEVICES from OMPI_COMM_WORLD_LOCAL_RANK.
+    device.api().setDevice(0);
     device.api().initialize();
     if (hsaQueues > 0 && device.api().enableHardwareQueues()) {
       using seissol::parallel::runtime::HsaQueueLayout;
@@ -454,6 +463,9 @@ int main(int argc, char* argv[]) {
 #endif
     logInfo() << "Run ID:" << runId.c_str();
 
+    seissol::SystemInfo systemInfo;
+    systemInfo.init();
+
     if (env.get<bool>("FLOATING_POINT_EXCEPTION", false)) {
       // Check if on a GNU system (Linux) or other platform
 #if defined(__GNUC__) && defined(__linux__)
@@ -486,7 +498,7 @@ int main(int argc, char* argv[]) {
       [[fallthrough]];
     }
     case utils::Args::Error: {
-      seissol::Mpi::finalize();
+      seissol::Mpi::mpi.finalize();
       return 1;
     }
     case utils::Args::Success: {
@@ -541,7 +553,7 @@ int main(int argc, char* argv[]) {
       const utils::Env measuringEnv("SEISSOL_");
 
       // Initialize SeisSol
-      seissol::SeisSol seissolInstance(runParameters, measuring ? measuringEnv : env);
+      seissol::SeisSol seissolInstance(runParameters, measuring ? measuringEnv : env, systemInfo);
 #ifdef USE_ASAGI
       auto& asagiModule = seissol::asagi::AsagiModule::getInstance();
       asagiModule.setPinning(seissolInstance.pinning());
@@ -575,7 +587,8 @@ int main(int argc, char* argv[]) {
                       "ASYNC_MODE=MPI.";
       }
 
-      const auto stamp = utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", time(nullptr));
+      const auto stamp =
+          utils::TimeUtils::timeAsString(seissol::BackupTimeStampFormat, time(nullptr));
       seissolInstance.setBackupTimeStamp(stamp);
 
       // Run SeisSol
