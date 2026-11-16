@@ -159,9 +159,10 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
 void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   reportDeviceMemoryStatus();
 
-  const auto& seissolParams = seissolInstance.parameters();
-  writer::ThreadsPinningWriter pinningWriter(seissolParams.output.prefix, seissolInstance.runId());
-  pinningWriter.write(seissolInstance.pinning(), seissolInstance.env());
+  writer::ThreadsPinningWriter pinningWriter(seissolInstance.outputPrefix(),
+                                             seissolInstance.runId());
+  pinningWriter.write(
+      seissolInstance.pinning(), seissolInstance.env(), seissolInstance.systemInfo());
 
   auto& parallel = seissolInstance.runSummary()["parallel"];
   parallel["commThread"] = useCommThread(seissol::Mpi::mpi, seissolInstance.env());
@@ -249,9 +250,10 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   summary["configurations"] = configurationNames(seissolInstance);
   summary["energy"] = energyMeter.describe();
   summary.setCounters(seissolInstance.counters());
-  summary.start(seissolInstance.parameters().output.prefix, seissolInstance.runId());
+  summary.start(
+      seissolInstance.outputPrefix(), seissolInstance.runId(), seissolInstance.systemInfo());
   // the log as JSON Lines next to the summary, from rank 0, with the messages from before as well
-  utils::Logger::enableJsonLines(seissolInstance.parameters().output.prefix + "-log.jsonl");
+  utils::Logger::enableJsonLines(seissolInstance.outputPrefix() + "-log.jsonl");
 
   seissol::Stopwatch initWatch;
   initWatch.start();
@@ -260,7 +262,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 
   // just put a barrier here to make sure everyone is synched
   logInfo() << "Finishing initialization...";
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
   summary.setRankValue("initTotal", initWatch.pause());
   summary["time"]["init"]["total"] =
       monitoring::toJson(initWatch.printTime("Initialization done in:"));
@@ -276,9 +278,9 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 
   // make sure everyone is really done
   logInfo() << "Simulation done.";
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
   DeviceTimeline::stopKernelTrace();
-  monitoring::Trace::write(seissolInstance.parameters().output.prefix + "-trace.json",
+  monitoring::Trace::write(seissolInstance.outputPrefix() + "-trace.json",
                            seissol::Mpi::mpi.comm());
   summary["memory"]["atEnd"] = memorySection(summary, "AtEnd");
   summary["energy"]["run"] = summary.writeStages();

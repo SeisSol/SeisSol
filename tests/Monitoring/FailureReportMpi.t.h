@@ -13,6 +13,7 @@
 #include "Monitoring/FailureReport.h"
 #include "Monitoring/RunSummary.h"
 #include "Parallel/MPI.h"
+#include "Parallel/SystemInfo.h"
 
 #include <filesystem>
 #include <fstream>
@@ -30,21 +31,21 @@ TEST_CASE("A failure on a rank that does not write the summary leaves its own re
 
   // start the summary on every rank (collective), then fail on the ranks that do not write it
   monitoring::RunSummary summary;
-  summary.start(prefix, "123e4567-e89b-42d3-a456-426614174000");
+  summary.start(prefix, "123e4567-e89b-42d3-a456-426614174000", SystemInfo{});
   summary.setStage("simulation");
 
   // a request to stop leaves no record there, as it reaches every rank
   if (rank != 0) {
     monitoring::writeTerminationReport(R"({"signal":"SIGTERM"})");
   }
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
   if (rank == 0) {
     for (int other = 1; other < seissol::Mpi::mpi.size(); ++other) {
       CHECK_FALSE(
           std::filesystem::exists(prefix + "-rank" + std::to_string(other) + "-failure.json"));
     }
   }
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
 
   // whereas a failure does
   if (rank != 0) {
@@ -56,7 +57,7 @@ TEST_CASE("A failure on a rank that does not write the summary leaves its own re
     monitoring::writeFailureReport(monitoring::failureOf(record));
   }
 
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
 
   // rank 0 checks, so that the result is reported (only rank 0 lists the tests)
   if (rank == 0) {
@@ -78,7 +79,7 @@ TEST_CASE("A failure on a rank that does not write the summary leaves its own re
     }
   }
 
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
   if (rank != 0) {
     std::filesystem::remove(prefix + "-rank" + std::to_string(rank) + "-failure.json");
   } else {

@@ -9,6 +9,7 @@
 
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
+#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <cassert>
@@ -52,8 +53,7 @@ std::vector<std::pair<T, int>> distributeIds(const std::vector<std::pair<T, int>
                                              MPI_Datatype sizetype,
                                              MPI_Datatype datatype,
                                              int tag) {
-  int commsize = 0;
-  MPI_Comm_size(comm, &commsize);
+  const int commsize = seissol::Mpi::sizeOf(comm);
 
   std::vector<std::size_t> sourceToSend(commsize);
   for (const auto& [_, j] : source) {
@@ -125,8 +125,7 @@ std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
     MPI_Datatype sizetype,
     MPI_Datatype datatype,
     int tag) {
-  int commsize = 0;
-  MPI_Comm_size(comm, &commsize);
+  const int commsize = seissol::Mpi::sizeOf(comm);
 
   std::vector<std::size_t> sendOffsets;
   std::vector<std::size_t> sendReorder;
@@ -183,16 +182,13 @@ Distributor::Distributor(MPI_Comm comm) : comm_(comm) {}
 
 void Distributor::setup(const std::vector<std::size_t>& sourceIds,
                         const std::vector<std::size_t>& targetIds) {
-  int commsize = 0;
-  int commrank = 0;
 
   constexpr int TagToIntermediateSource = 20;
   constexpr int TagToIntermediateTarget = 21;
   constexpr int TagFromIntermediateSource = 22;
   constexpr int TagFromIntermediateTarget = 23;
 
-  MPI_Comm_size(comm_, &commsize);
-  MPI_Comm_rank(comm_, &commrank);
+  const int commsize = seissol::Mpi::sizeOf(comm_);
 
   MPI_Datatype sizetype =
       seissol::io::datatype::convertToMPI(seissol::io::datatype::inferDatatype<std::size_t>());
@@ -206,8 +202,7 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   for (const auto& targetId : targetIds) {
     localMax = std::max(localMax, targetId);
   }
-  std::size_t globalMax = 0;
-  MPI_Allreduce(&localMax, &globalMax, 1, sizetype, MPI_MAX, comm_);
+  const auto globalMax = seissol::Mpi::mpi.allreduce(localMax, MPI_MAX, comm_);
   const auto globalCount = globalMax + 1;
 
   // note that the following operations all need to be stable (i.e. order-preserving) for these
@@ -305,11 +300,7 @@ Distributor::DistributionInstance Distributor::distributeRaw(
     const std::optional<std::function<void(void*, const void*)>>& transform) {
   constexpr int Tag = 30;
 
-  int commsize = 0;
-  int commrank = 0;
-
-  MPI_Comm_size(comm_, &commsize);
-  MPI_Comm_rank(comm_, &commrank);
+  const int commsize = seissol::Mpi::sizeOf(comm_);
 
   int typesizeInt = 0;
   MPI_Type_size(datatype, &typesizeInt);

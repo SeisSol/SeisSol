@@ -188,12 +188,7 @@ bool WriterModule::collective() const {
 }
 
 void WriterModule::agreeOnAny(std::vector<int>& flags) {
-  MPI_Allreduce(MPI_IN_PLACE,
-                flags.data(),
-                static_cast<int>(flags.size()),
-                MPI_INT,
-                MPI_LOR,
-                seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.allreduceContainer(flags, MPI_LOR);
 }
 
 void WriterModule::simulationEnd() {

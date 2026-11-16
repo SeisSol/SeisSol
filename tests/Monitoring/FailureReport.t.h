@@ -9,6 +9,7 @@
 
 #include "Monitoring/FailureReport.h"
 #include "Monitoring/RunSummary.h"
+#include "Parallel/SystemInfo.h"
 
 #include <csignal>
 #include <cstdint>
@@ -138,7 +139,7 @@ TEST_CASE("A failure marks the run summary as failed" * doctest::test_suite("mon
   const auto path = prefix + "-summary.json";
 
   monitoring::RunSummary summary;
-  summary.start(prefix, "123e4567-e89b-42d3-a456-426614174000");
+  summary.start(prefix, "123e4567-e89b-42d3-a456-426614174000", SystemInfo{});
   summary.setStage("simulation");
   inChild([] { monitoring::writeFailureReport(monitoring::failureOf(fatalError())); });
   {
@@ -168,7 +169,7 @@ TEST_CASE("A termination marks the run summary as terminated" * doctest::test_su
   const auto path = prefix + "-summary.json";
 
   monitoring::RunSummary summary;
-  summary.start(prefix, "123e4567-e89b-42d3-a456-426614174000");
+  summary.start(prefix, "123e4567-e89b-42d3-a456-426614174000", SystemInfo{});
   summary.setStage("simulation");
   inChild([] {
     monitoring::writeTerminationReport(R"({"message":"The process received the signal SIGTERM )"
@@ -192,7 +193,7 @@ TEST_CASE("A crash marks the run summary as failed" * doctest::test_suite("monit
   const auto path = prefix + "-summary.json";
 
   monitoring::RunSummary summary;
-  summary.start(prefix, "123e4567-e89b-42d3-a456-426614174000");
+  summary.start(prefix, "123e4567-e89b-42d3-a456-426614174000", SystemInfo{});
   summary.setStage("simulation");
   static_cast<void>(std::fflush(nullptr));
   const pid_t child = fork();

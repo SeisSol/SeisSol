@@ -12,8 +12,6 @@
 #include <utility>
 
 #ifdef ACL_DEVICE
-#include "Parallel/AcceleratorDevice.h"
-
 #include <Device/device.h>
 #endif
 
@@ -42,8 +40,10 @@ void HelperThread::start() {
     // Note: Easier than keeping one alive, and not that expensive.
     thread_ = std::thread([this] {
 #ifdef ACL_DEVICE
+      // the current device is thread-local; the Device library remembers the one this rank is
+      // bound to
       const device::DeviceInstance& device = device::DeviceInstance::instance();
-      device.api().setDevice(seissol::AcceleratorDevice::instance().getDeviceId());
+      device.api().setDevice(device.api().getDeviceId());
 #endif // ACL_DEVICE
       // Pin this thread to the last core
       // We compute the mask outside the thread because otherwise

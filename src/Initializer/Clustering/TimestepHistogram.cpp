@@ -7,6 +7,8 @@
 
 #include "Initializer/Clustering/TimestepHistogram.h"
 
+#include "Parallel/MPI.h"
+
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -49,12 +51,7 @@ void TimestepHistogram::reduce(MPI_Comm comm) {
   if (cumulative_.empty()) {
     return;
   }
-  MPI_Allreduce(MPI_IN_PLACE,
-                cumulative_.data(),
-                static_cast<int>(cumulative_.size()),
-                MPI_DOUBLE,
-                MPI_SUM,
-                comm);
+  Mpi::mpi.allreduceContainer(cumulative_, MPI_SUM, comm);
 }
 
 double TimestepHistogram::weightBelow(std::size_t index) const {

@@ -26,6 +26,7 @@
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Parallel/MPI.h"
+#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 #include "TestHelper.h"
 
@@ -193,7 +194,8 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
   seissolParameters.model.useCellHomogenizedMaterial = true;
   seissolParameters.model.plasticity = false;
   const utils::Env env("SEISSOL_");
-  seissol::SeisSol seissolInstance(seissolParameters, env);
+  const seissol::SystemInfo systemInfo;
+  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
   // "None" keeps the cells where they were read. On a single rank, there is nothing to partition
   // (PUML skips the partitioner for a single part), so the others only run with several ranks.

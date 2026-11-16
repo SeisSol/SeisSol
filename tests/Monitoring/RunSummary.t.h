@@ -14,6 +14,7 @@
 #include "Monitoring/RunSummary.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
+#include "Parallel/SystemInfo.h"
 
 #include <cstdlib>
 #include <fstream>
@@ -82,7 +83,7 @@ TEST_CASE("Run summary files" * doctest::test_suite("monitoring")) {
   summary.setStage("init.mesh");
   CHECK_FALSE(std::filesystem::exists(summaryPath));
 
-  summary.start(prefix, runId);
+  summary.start(prefix, runId, SystemInfo{});
   REQUIRE(std::filesystem::exists(summaryPath));
   {
     const auto text = readFile(summaryPath);
@@ -153,7 +154,7 @@ TEST_CASE("Run summary stages" * doctest::test_suite("monitoring")) {
 
   monitoring::RunSummary summary;
   summary.setCounters(counters);
-  summary.start(prefix, runId);
+  summary.start(prefix, runId, SystemInfo{});
   energy = 2.0;
   summary.setStage("init.mesh");
   energy = 5.0;
@@ -190,7 +191,7 @@ TEST_CASE("Run summary rank table" * doctest::test_suite("monitoring")) {
   std::filesystem::remove(rankPath);
 
   monitoring::RunSummary summary;
-  summary.start(prefix, runId);
+  summary.start(prefix, runId, SystemInfo{});
   summary.setRankValue("cells", 1.0);
   const auto statistics = summary.overRanks("cellUpdates", 2.0);
   CHECK(statistics.find("min")->asDouble() == 2.0);

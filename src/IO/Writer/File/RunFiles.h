@@ -47,7 +47,7 @@ inline void backUpFile(const std::string& name) {
   }
   // one stamp for all files of this process, so that the backups of one restart belong together
   static const std::string Stamp =
-      utils::TimeUtils::timeAsString("%Y-%m-%d_%H-%M-%S", std::time(nullptr));
+      utils::TimeUtils::timeAsString(BackupTimeStampFormat, std::time(nullptr));
   auto backup = path;
   backup.replace_filename(path.stem().string() + ".bak_" + Stamp + path.extension().string());
   std::filesystem::rename(path, backup);

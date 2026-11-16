@@ -120,8 +120,7 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
   for (std::size_t point = 0; point < numPoints; ++point) {
     keys[point] = best[point].key;
   }
-  MPI_Allreduce(
-      MPI_IN_PLACE, keys.data(), keys.size(), MPI_DOUBLE, MPI_MIN, seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.allreduceContainer(keys, MPI_MIN);
 
   std::vector<std::uint64_t> globalIds(numPoints);
   for (std::size_t point = 0; point < numPoints; ++point) {
@@ -129,12 +128,7 @@ std::vector<bool> findUniqueMeshIds(const Eigen::Vector3d* points,
                            ? static_cast<std::uint64_t>(best[point].globalId)
                            : std::numeric_limits<std::uint64_t>::max();
   }
-  MPI_Allreduce(MPI_IN_PLACE,
-                globalIds.data(),
-                globalIds.size(),
-                seissol::Mpi::castToMpiType<std::uint64_t>(),
-                MPI_MIN,
-                seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.allreduceContainer(globalIds, MPI_MIN);
 
   std::vector<bool> contained(numPoints);
   for (std::size_t i = 0; i < numPoints; ++i) {

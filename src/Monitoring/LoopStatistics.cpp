@@ -12,6 +12,7 @@
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
 #include "Numerical/Statistics.h"
+#include "Parallel/MPI.h"
 #include "Unit.h"
 
 #include <algorithm>
@@ -165,8 +166,7 @@ json::Value LoopStatistics::printSummary(MPI_Comm comm) {
     getNumberOfSamples(region) = regions_[region].variables.n;
   }
 
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
+  const int rank = seissol::Mpi::rankOf(comm);
 
   const auto summary = seissol::statistics::parallelSummary(totalTimePerRank);
   logInfo() << "Time spent in compute kernels: mean =" << summary.mean << " std =" << summary.std
@@ -182,7 +182,7 @@ json::Value LoopStatistics::printSummary(MPI_Comm comm) {
     regionTimes.push_back(seissol::statistics::parallelSummary(regions_[region].variables.y));
   }
 
-  MPI_Allreduce(MPI_IN_PLACE, sums.data(), sums.size(), MPI_DOUBLE, MPI_SUM, comm);
+  seissol::Mpi::mpi.allreduceContainer(sums, MPI_SUM, comm);
 
   auto regressionCoeffs = std::vector<double>(2 * nRegions);
   auto stderror = std::vector<double>(nRegions, 0.0);

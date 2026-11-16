@@ -20,6 +20,10 @@
 #include <utility>
 #include <vector>
 
+namespace seissol {
+class SystemInfo;
+} // namespace seissol
+
 namespace seissol::monitoring {
 
 //! @brief What one simulation epoch, from one synchronization point to the next, took.
@@ -78,10 +82,10 @@ class RunSummary {
   /**
    * @brief Starts the summary, in the files next to the output with @p prefix , and writes it.
    *
-   * What was filled in before is kept, behind the header. Collective: gathers the layout of the
-   * run over all ranks.
+   * What was filled in before is kept, behind the header; the hosts of the ranks come from
+   * @p systemInfo . Collective: gathers the layout of the run over all ranks.
    */
-  void start(const std::string& prefix, const std::string& runId);
+  void start(const std::string& prefix, const std::string& runId, const SystemInfo& systemInfo);
 
   //! @brief Whether start() was called; until then, nothing is written.
   [[nodiscard]] bool started() const { return started_; }
@@ -168,6 +172,8 @@ class RunSummary {
   std::string rankPath_;
   std::string rankFailurePath_;
   std::string runId_;
+  //! the hosts of the ranks, on rank 0
+  std::vector<std::string> hostNames_;
   json::Value root_;
   bool started_{false};
   bool completed_{false};

@@ -27,9 +27,8 @@
 namespace seissol::io::writer::file {
 
 BinaryFile::BinaryFile(MPI_Comm comm, bool rootOnly, std::size_t maxPiece)
-    : comm_(comm), rootOnly_(rootOnly), maxPiece_(std::max<std::size_t>(1, maxPiece)) {
-  MPI_Comm_rank(comm_, &rank_);
-}
+    : comm_(comm), rootOnly_(rootOnly), rank_(Mpi::rankOf(comm)),
+      maxPiece_(std::max<std::size_t>(1, maxPiece)) {}
 bool BinaryFile::rootOnly() const { return rootOnly_; }
 void BinaryFile::openFile(const std::string& name, bool append, bool backUp) {
   if (rootOnly_ && rank_ != 0) {
@@ -41,7 +40,7 @@ void BinaryFile::openFile(const std::string& name, bool append, bool backUp) {
     }
     // no rank may open the file before rank 0 moved the earlier one out of the way
     if (!rootOnly_) {
-      MPI_Barrier(comm_);
+      Mpi::mpi.barrier(comm_);
     }
   }
   const auto mode = append ? MPI_MODE_APPEND : 0;
@@ -68,7 +67,7 @@ void BinaryFile::writeGlobal(const void* data, std::size_t size) {
   }
   // a distributed write behind it takes the size of the file for where it starts
   if (!rootOnly_) {
-    MPI_Barrier(comm_);
+    Mpi::mpi.barrier(comm_);
   }
 }
 void BinaryFile::writeGlobalAt(const void* data, std::size_t size, std::size_t offset) {
@@ -86,7 +85,7 @@ void BinaryFile::writeGlobalAt(const void* data, std::size_t size, std::size_t o
     }
   }
   if (!rootOnly_) {
-    MPI_Barrier(comm_);
+    Mpi::mpi.barrier(comm_);
   }
 }
 void BinaryFile::writeDistributed(const void* data, std::size_t size) {
@@ -96,15 +95,13 @@ void BinaryFile::writeDistributed(const void* data, std::size_t size) {
   }
   MPI_Offset filesize = 0;
   MPI_File_get_size(file_, &filesize);
-  std::size_t offset = 0;
-  MPI_Exscan(&size, &offset, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, comm_);
-  offset += filesize;
+  const std::size_t offset =
+      Mpi::mpi.scan(size, MPI_SUM, false, comm_) + static_cast<std::size_t>(filesize);
 
   // A rank writes its data in pieces of at most maxPiece_ bytes (see BinaryFile::MaxPieceBytes).
   // The write is collective, so every rank takes part in as many rounds as the rank with the most
   // pieces, with nothing once its own are written.
-  std::size_t rounds = (size + maxPiece_ - 1) / maxPiece_;
-  MPI_Allreduce(MPI_IN_PLACE, &rounds, 1, Mpi::castToMpiType<std::size_t>(), MPI_MAX, comm_);
+  const std::size_t rounds = Mpi::mpi.allreduce((size + maxPiece_ - 1) / maxPiece_, MPI_MAX, comm_);
   const auto* bytes = static_cast<const char*>(data);
   for (std::size_t round = 0; round < rounds; ++round) {
     const auto start = std::min(size, round * maxPiece_);

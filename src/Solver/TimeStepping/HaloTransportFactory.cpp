@@ -8,7 +8,7 @@
 #include "HaloTransportFactory.h"
 
 #include "Kernels/Common.h"
-#include "Parallel/MPI.h"
+#include "Parallel/Helper.h"
 #include "Parallel/Runtime/HostRuntime.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
@@ -24,7 +24,7 @@
 
 namespace seissol::solver {
 
-HaloTransportFactory::HaloTransportFactory(Mpi::DataTransferMode mode, bool persistent)
+HaloTransportFactory::HaloTransportFactory(DataTransferMode mode, bool persistent)
     : mode_(mode), persistent_(persistent) {
 #ifdef SEISSOL_HOST_TASK_GRAPH
   // (with a device, the task graph only takes the work on the host for the device, see
@@ -41,11 +41,11 @@ HaloTransportFactory::~HaloTransportFactory() = default;
 
 std::unique_ptr<HaloTransport> HaloTransportFactory::create(const RemoteClusterPair& regions) {
 #ifdef ACL_DEVICE
-  if (mode_ == Mpi::DataTransferMode::CopyInCopyOutHost) {
+  if (mode_ == DataTransferMode::CopyInCopyOutHost) {
     return std::make_unique<StagedMpiHaloTransport>(regions, persistent_);
   }
 #endif
-  if (mode_ != Mpi::DataTransferMode::Direct) {
+  if (mode_ != DataTransferMode::Direct) {
     logError() << "The requested data transfer mode is not available in this build.";
     return nullptr;
   }

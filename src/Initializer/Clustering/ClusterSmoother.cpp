@@ -213,14 +213,9 @@ std::size_t ClusterSmoother::relax(std::vector<std::size_t>& clusterIds,
   std::size_t totalNumberOfReductions = 0;
   std::size_t globalNumberOfReductions = 0;
   do {
-    std::size_t localNumberOfReductions = relaxOnce(clusterIds, rule);
+    const std::size_t localNumberOfReductions = relaxOnce(clusterIds, rule);
 
-    MPI_Allreduce(&localNumberOfReductions,
-                  &globalNumberOfReductions,
-                  1,
-                  Mpi::castToMpiType<std::size_t>(),
-                  MPI_SUM,
-                  comm);
+    globalNumberOfReductions = Mpi::mpi.allreduce(localNumberOfReductions, MPI_SUM, comm);
     totalNumberOfReductions += globalNumberOfReductions;
   } while (globalNumberOfReductions > 0);
   return totalNumberOfReductions;

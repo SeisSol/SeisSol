@@ -20,6 +20,7 @@
 #include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Monitoring/Instrumentation.h"
+#include "Parallel/MPI.h"
 #include "PartitioningLib.h"
 
 #include <Eigen/Dense>
@@ -293,10 +294,7 @@ std::string stringAttribute(const std::string& file, const char* dataset, const 
       H5Fclose(h5file);
     }
   }
-  auto length = static_cast<std::uint64_t>(value.size());
-  MPI_Bcast(&length, 1, PUML::MPITypeInfer<std::uint64_t>::type(), 0, Mpi::mpi.comm());
-  value.resize(length);
-  MPI_Bcast(value.data(), static_cast<int>(length), MPI_CHAR, 0, Mpi::mpi.comm());
+  Mpi::mpi.broadcastContainer(value, 0);
   return value;
 }
 
@@ -322,7 +320,7 @@ int integerSignOf(const std::string& file, const char* dataset) {
       H5Fclose(h5file);
     }
   }
-  MPI_Bcast(&sign, 1, MPI_INT, 0, Mpi::mpi.comm());
+  Mpi::mpi.broadcast(&sign, 0);
   return sign;
 }
 
@@ -332,13 +330,7 @@ int integerSignOf(const std::string& file, const char* dataset) {
  */
 std::size_t firstCellOf(const PumlMesh& mesh) {
   const std::size_t localCells = mesh.numOriginalCells();
-  std::size_t firstCell = 0;
-  MPI_Exscan(
-      &localCells, &firstCell, 1, PUML::MPITypeInfer<std::size_t>::type(), MPI_SUM, mesh.comm());
-  // MPI_Exscan leaves the result on the first rank undefined
-  int rank = 0;
-  MPI_Comm_rank(mesh.comm(), &rank);
-  return rank == 0 ? 0 : firstCell;
+  return Mpi::mpi.scan(localCells, MPI_SUM, false, mesh.comm());
 }
 
 /// the vertices of a local cell, in the vertex order of the file
@@ -534,25 +526,10 @@ auto summarizeHighOrderGeometry(const PumlMesh& meshGeometry, const HighOrderArr
       }
     }
   }
-  MPI_Allreduce(MPI_IN_PLACE,
-                &summary.highOrderCells,
-                1,
-                PUML::MPITypeInfer<std::uint64_t>::type(),
-                MPI_SUM,
-                Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE,
-                &summary.curvedCells,
-                1,
-                PUML::MPITypeInfer<std::uint64_t>::type(),
-                MPI_SUM,
-                Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE,
-                &summary.order,
-                1,
-                PUML::MPITypeInfer<std::uint64_t>::type(),
-                MPI_MAX,
-                Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE, &summary.curvature, 1, MPI_DOUBLE, MPI_MAX, Mpi::mpi.comm());
+  summary.highOrderCells = Mpi::mpi.allreduce(summary.highOrderCells, MPI_SUM);
+  summary.curvedCells = Mpi::mpi.allreduce(summary.curvedCells, MPI_SUM);
+  summary.order = Mpi::mpi.allreduce(summary.order, MPI_MAX);
+  summary.curvature = Mpi::mpi.allreduce(summary.curvature, MPI_MAX);
   return summary;
 }
 
@@ -815,8 +792,7 @@ auto PUMLReader::partition(PumlMesh& meshTopology,
   weightModel->build(*clustering);
   graph.setVertexWeights(weightModel->vertexWeights(), weightModel->nWeightsPerVertex());
 
-  auto nodeWeights = std::vector<double>(Mpi::mpi.size());
-  MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::Mpi::mpi.comm());
+  auto nodeWeights = Mpi::mpi.allgather(tpwgt);
   double sum = 0.0;
   for (const auto& w : nodeWeights) {
     sum += w;

@@ -189,8 +189,7 @@ json::Value FlopCounter::printPerformanceSummary(double wallTime) const {
     }
   }
 
-  MPI_Allreduce(
-      MPI_IN_PLACE, flops.data(), flops.size(), MPI_DOUBLE, MPI_SUM, seissol::Mpi::mpi.comm());
+  Mpi::mpi.allreduceContainer(flops, MPI_SUM);
 
 #ifndef NDEBUG
   logInfo() << "Total    libxsmm HW-FLOP: " << UnitFlop.formatPrefix(flops[0]).c_str();
