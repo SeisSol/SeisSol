@@ -117,6 +117,73 @@ To disable it, set ``SEISSOL_MINISEISSOL=0``.
 
 In a run with several configurations (see :ref:`several_configurations`), a cell costs according to its configuration. With multiple ranks, Mini SeisSol then also times the time, local and neighbor kernels of each configuration of the run on every rank, and takes the median of the ranks for the cost of a cell of each configuration relative to one of the configuration of the run. The partitioning and the LTS clustering weight each cell with it. Without the measurement (on a single rank, or with ``SEISSOL_MINISEISSOL=0``), the relative cost comes from the hardware FLOPs of the kernels, weighted with the size of a real (4 bytes in single precision, 8 in double precision); that estimate sees nothing of the machine.
 
+Copy and interior layers
+------------------------
+
+Each time cluster of a rank keeps its cells in two layers, which step as clusters of their own (see
+:ref:`gpu-time-stepping`): the copy layer, whose cells other ranks need, and the interior layer.
+The copy layer predicts first, so that its halo goes out early; its correction then waits for the
+halo of the other ranks. The interior layer needs no cells of other ranks: it predicts and corrects
+while the halo travels (on GPUs, the work of the two layers may also run side by side). Every layer
+costs a fixed amount per step, though, on top of its cells: on GPUs, its kernel launches, and the
+part of the device that a layer of few cells leaves idle; on CPUs, the start of its parallel loops,
+and the threads that a layer of few cells leaves idle. Where a cluster holds few cells on a rank,
+that fixed part can outweigh what the overlap gains.
+
+``SEISSOL_ICCOMBINE=<n>`` moves the interior cells of each cluster into its copy layer where the two
+layers hold fewer than ``n`` cells together: the cluster then computes all its cells in one go, and
+its interior no longer overlaps the halo exchange. A number applies to the layers of all
+configurations. By default (``0``), nothing is combined. The log reports how many clusters were
+combined.
+
+``SEISSOL_ICCOMBINE=auto`` decides cluster by cluster, from what a layer and the halo exchange take
+on the machine. With :math:`T(n)` the time of a step of a layer of :math:`n` cells, :math:`c` and
+:math:`i` the cells of the copy and the interior layer, and :math:`t_h` the time the halo takes to
+arrive, a step of a cluster takes about :math:`T(c) + \max(t_h, T(i))` with two layers, and
+:math:`T(c + i) + t_h` with one. So a cluster combines its layers where
+
+.. math::
+
+   T(c) + T(i) - T(c + i) > t_h + 0.05 \, T(c + i),
+
+where one layer saves more per step than the halo takes; never where its interior layer takes less
+time than the halo, which it then hides behind anyway. The margin of 5 % of a step keeps the choice
+from following the noise of the measurements: the time of a size varies by a few percent from one
+measurement to the next, and the saving is the difference of three such times, which matters for
+large layers. Both sides are measured before the time stepping:
+
+- :math:`T`: the proxy times a step of the time, local and neighbor kernels of a layer with 8 cells
+  and twice as many each time, up to 16384 or until a step takes longer than 20 ms, for each
+  configuration of the run on its own (a cell of a lower order costs less). Every rank measures on
+  its device, or with its threads in builds without one; the median over the ranks counts, linear
+  between the sizes and beyond them. That takes a few seconds per configuration.
+- :math:`t_h`: each rank sends a small and a large message (8 bytes and 1 MiB, in host memory) to all
+  the ranks it shares a halo with, at once, which gives the latency and the bandwidth from each of
+  them. The halo of a cluster takes as long as its slowest neighbor rank needs for the ghost cells
+  it sends to the cluster, with their time integrals (some send derivatives, which are larger).
+
+The rule looks at each cluster on its own. While a cluster waits for its halo, the other clusters of
+the rank can compute, which makes the overlap worth less than the rule assumes; on GPUs whose runtime
+runs the clusters concurrently (``SEISSOL_CONCURRENT_CLUSTERS``, on by default), the fixed parts of
+small layers partly overlap, which makes combining gain less. Each rank decides for its own clusters;
+the halo stays the same either way. On CPUs, the fixed part of a layer is small, the more so the
+fewer threads a rank has, and a cell of a large layer can cost more than one of a small layer (its
+data no longer fits into the caches): there, ``auto`` combines small clusters at most. With a task
+graph on the host (``SEISSOL_HOST_TASK_GRAPH=1``), ``auto`` combines nothing: the steps of the
+layers overlap there anyway, and their loops do not wait for each other.
+
+The log reports per time cluster on how many ranks its layers were combined, of those where its
+interior layer has cells; the run summary (see :ref:`run-summary`) has the same under ``layers``,
+with ``auto`` also the measured times of a layer and the times of the halo.
+
+The fault faces of a cluster are combined the other way round: the faces of the copy layer, which
+read ghost cells, join those of the interior layer, which then wait for the halo as well. By default,
+they follow the cells: the faces of a cluster are combined exactly where its cells are, since then the
+interior cells wait for the halo anyway. ``SEISSOL_ICCOMBINE_DR=<n>`` instead combines the faces of
+each cluster that holds fewer than ``n`` fault faces in its two layers, independent of the cells
+(``0`` combines none). Combining the faces alone makes the interior cells wait for the halo through
+the faces they share with the copy faces, so it rarely pays off.
+
 Persistent MPI operations
 -------------------------
 

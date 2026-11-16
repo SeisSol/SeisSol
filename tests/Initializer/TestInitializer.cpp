@@ -15,6 +15,7 @@
 #include "DeviceGraph.t.h"
 #include "FaceMap.t.h"
 #include "LtsSetup.t.h"
+#include "MeshLayout.t.h"
 #include "ParameterReader.t.h"
 #include "Parameters/DRParameters.t.h"
 #include "Parameters/InitializationParameters.t.h"

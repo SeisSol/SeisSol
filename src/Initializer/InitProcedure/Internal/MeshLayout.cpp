@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <functional>
 #include <map>
 #include <set>
 #include <utility>
@@ -134,6 +135,89 @@ std::vector<ClusterMap> layoutCells(const std::vector<std::size_t>& color,
   }
 
   return clusters;
+}
+
+CombinedLayers combineCopyInterior(std::vector<ClusterMap>& map,
+                                   const LTSColorMap& colormap,
+                                   const std::vector<std::size_t>& thresholds) {
+  return combineCopyInteriorWhere(
+      map, colormap, [&](std::size_t copyColor, std::size_t copyCells, std::size_t interiorCells) {
+        const auto config = colormap.argument(copyColor).config;
+        const auto threshold = config < thresholds.size() ? thresholds[config] : 0;
+        return copyCells + interiorCells < threshold;
+      });
+}
+
+CombinedLayers combineCopyInteriorWhere(
+    std::vector<ClusterMap>& map,
+    const LTSColorMap& colormap,
+    const std::function<bool(std::size_t, std::size_t, std::size_t)>& combine) {
+  const auto colorAdjust = [&](std::size_t color, HaloType halo) {
+    auto id = colormap.argument(color);
+    id.halo = halo;
+    return colormap.colorId(id);
+  };
+
+  CombinedLayers combined;
+  combined.copyLayers.resize(map.size(), false);
+  for (std::size_t i = 0; i < map.size(); ++i) {
+    if (colormap.argument(i).halo == HaloType::Copy) {
+      const auto copyLayer = i;
+      const auto interiorLayer = colorAdjust(i, HaloType::Interior);
+
+      const auto copySize = map[copyLayer].cellMap.size();
+      const auto interiorSize = map[interiorLayer].cellMap.size();
+
+      if (combine(copyLayer, copySize, interiorSize)) {
+        // the interior cells go behind the copy cells: the send regions only cover the leading
+        // cells of a copy layer, so the halo stays as it is
+        combined.copyLayers[copyLayer] = true;
+        if (interiorSize > 0) {
+          ++combined.moved;
+        }
+        map[copyLayer].cellMap.insert(map[copyLayer].cellMap.end(),
+                                      map[interiorLayer].cellMap.begin(),
+                                      map[interiorLayer].cellMap.end());
+        map[interiorLayer].cellMap.clear();
+      }
+    }
+  }
+  return combined;
+}
+
+std::vector<bool> faceLayersBelow(const std::vector<std::vector<std::size_t>>& map,
+                                  const LTSColorMap& colormap,
+                                  std::size_t threshold) {
+  std::vector<bool> below(map.size(), false);
+  for (std::size_t i = 0; i < map.size(); ++i) {
+    auto id = colormap.argument(i);
+    if (id.halo == HaloType::Copy) {
+      id.halo = HaloType::Interior;
+      below[i] = map[i].size() + map[colormap.colorId(id)].size() < threshold;
+    }
+  }
+  return below;
+}
+
+std::size_t combineCopyInteriorDR(std::vector<std::vector<std::size_t>>& map,
+                                  const LTSColorMap& colormap,
+                                  const std::vector<bool>& combine) {
+  // the other way round than for the cells: the faces of the copy layer go to the interior layer,
+  // whose face cluster then also waits for the ghost cells (see TimeManager::addClusters)
+  std::size_t moved = 0;
+  for (std::size_t i = 0; i < map.size() && i < combine.size(); ++i) {
+    auto id = colormap.argument(i);
+    if (id.halo == HaloType::Copy && combine[i]) {
+      id.halo = HaloType::Interior;
+      auto& interior = map[colormap.colorId(id)];
+      if (!map[i].empty()) {
+        ++moved;
+      }
+      interior.insert(interior.end(), map[i].begin(), map[i].end());
+      map[i].clear();
+    }
+  }
+  return moved;
 }
 
 std::vector<std::vector<std::size_t>> layoutDR(const std::vector<std::size_t>& color,

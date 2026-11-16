@@ -19,7 +19,10 @@
 #include "Proxy/Runner.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <limits>
+#include <mpi.h>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -61,7 +64,110 @@ auto estimatedCost(ConfigId config) -> double {
   return static_cast<double>(flop) * static_cast<double>(realSize);
 }
 
+/// One step of the cost run of `config` with `cells` cells: the best of `repetitions` runs of
+/// `steps` steps each.
+auto layerStepTime(ConfigId config, unsigned cells, unsigned steps, int repetitions) -> double {
+  auto proxyConfig = costProxyConfig(config, cells);
+  proxyConfig.timesteps = steps;
+  auto best = std::numeric_limits<double>::infinity();
+  for (int i = 0; i < repetitions; ++i) {
+    best = std::min(best, proxy::runProxy(proxyConfig).time / steps);
+  }
+  return best;
+}
+
 } // namespace
+
+LayerCost::LayerCost(std::vector<std::pair<std::size_t, double>> points)
+    : points_(std::move(points)) {
+  // noise must not make a larger layer cheaper
+  for (std::size_t i = 1; i < points_.size(); ++i) {
+    points_[i].second = std::max(points_[i].second, points_[i - 1].second);
+  }
+}
+
+double LayerCost::operator()(std::size_t cells) const {
+  if (cells == 0 || points_.empty()) {
+    return 0;
+  }
+  if (points_.size() == 1) {
+    return points_.front().second;
+  }
+  // the stretch the size falls into; below the smallest size, the first one, and beyond the largest
+  // size, the last one
+  std::size_t upper = 1;
+  while (upper + 1 < points_.size() && cells > points_[upper].first) {
+    ++upper;
+  }
+  const auto [cells0, time0] = points_[upper - 1];
+  const auto [cells1, time1] = points_[upper];
+  const auto slope = (time1 - time0) / static_cast<double>(cells1 - cells0);
+  return std::max(0.0, time0 + slope * (static_cast<double>(cells) - static_cast<double>(cells0)));
+}
+
+double LayerCost::combinedSaving(std::size_t first, std::size_t second) const {
+  if (first == 0 || second == 0) {
+    return 0;
+  }
+  return (*this)(first) + (*this)(second) - (*this)(first + second);
+}
+
+auto measureLayerCost(ConfigId config) -> LayerCost {
+  // a device that has been idle raises its clocks only under load (see miniSeisSol)
+  constexpr unsigned SmallestCells = 8;
+  constexpr unsigned LargestCells = 16384;
+  auto warmup = costProxyConfig(config, LargestCells);
+  warmup.timesteps = 1;
+  warmup.warmup = 0.3;
+  proxy::runProxy(warmup);
+
+  // from where the fixed part of a layer dominates to where its cells do: up to where a step takes
+  // longer than RunTime on all ranks, beyond which the fixed part weighs nothing and the time grows
+  // along a line. Each size runs for about RunTime (by the time of the size before: twice the cells
+  // take at most twice as long), with a few steps at least, the best of two runs against noise on
+  // the machine.
+  constexpr double RunTime = 0.02;
+  constexpr unsigned ProbeSteps = 10;
+  constexpr double MinSteps = 3;
+  constexpr double MaxSteps = 10000;
+  constexpr int Repetitions = 2;
+  std::vector<std::size_t> sizes;
+  std::vector<double> times;
+  auto expected = layerStepTime(config, SmallestCells, ProbeSteps, 1);
+  for (unsigned cells = SmallestCells; cells <= LargestCells; cells *= 2) {
+    const auto steps = std::clamp(RunTime / expected, MinSteps, MaxSteps);
+    sizes.push_back(cells);
+    times.push_back(layerStepTime(config, cells, static_cast<unsigned>(steps), Repetitions));
+    if (Mpi::mpi.allreduce(times.back(), MPI_MIN) > RunTime) {
+      break;
+    }
+    expected = 2 * times.back();
+  }
+
+  // the same on all ranks: the median over them, size by size
+  const auto ofRanks = Mpi::mpi.collectContainer(times);
+  if (Mpi::mpi.rank() == 0) {
+    for (std::size_t i = 0; i < times.size(); ++i) {
+      std::vector<double> ofSize;
+      ofSize.reserve(ofRanks.size());
+      for (const auto& rankTimes : ofRanks) {
+        ofSize.push_back(rankTimes[i]);
+      }
+      std::ranges::sort(ofSize);
+      const auto middle = ofSize.size() / 2;
+      times[i] =
+          ofSize.size() % 2 == 1 ? ofSize[middle] : (ofSize[middle - 1] + ofSize[middle]) / 2;
+    }
+  }
+  Mpi::mpi.broadcastContainer(times, 0);
+
+  std::vector<std::pair<std::size_t, double>> points;
+  points.reserve(sizes.size());
+  for (std::size_t i = 0; i < sizes.size(); ++i) {
+    points.emplace_back(sizes[i], times[i]);
+  }
+  return LayerCost(std::move(points));
+}
 
 auto miniSeisSol(ConfigId config) -> double {
   // A device that has been idle raises its clocks within some hundred milliseconds under load; ten

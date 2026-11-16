@@ -194,48 +194,46 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
   std::vector<solver::RemoteCluster> remoteClusters;
   remoteClusters.reserve(regions.size());
 
-  if (regions.empty()) {
-    for (std::size_t index = 0; index < layer.size(); ++index) {
-      allocate(index, BufferType::AccumulatedIntegrals);
-    }
-    for (std::size_t index = 0; index < layer.size(); ++index) {
-      allocate(index, BufferType::StepIntegrals);
-    }
-    for (std::size_t index = 0; index < layer.size(); ++index) {
-      allocate(index, BufferType::Derivatives);
-    }
-  } else {
-    std::size_t counter = 0;
+  std::size_t counter = 0;
 
-    // allocate all to-transfer buffers/derivatives contiguously (note: region.rank)
-    // (thus do non-relevant buffers before and non-relevant derivatives afterwards)
-    for (const auto& region : regions) {
-      allocationPass(counter, region, false, BufferType::AccumulatedIntegrals);
-      allocationPass(counter, region, false, BufferType::StepIntegrals);
+  // allocate all to-transfer buffers/derivatives contiguously (note: region.rank)
+  // (thus do non-relevant buffers before and non-relevant derivatives afterwards)
+  for (const auto& region : regions) {
+    allocationPass(counter, region, false, BufferType::AccumulatedIntegrals);
+    allocationPass(counter, region, false, BufferType::StepIntegrals);
 
-      // transfer allocation
-      manager.align();
-      const auto startPosition = manager.position();
-      allocationPass(counter, region, true, BufferType::StepIntegrals);
-      allocationPass(counter, region, true, BufferType::AccumulatedIntegrals);
-      allocationPass(counter, region, true, BufferType::Derivatives);
-      manager.align();
-      const auto endPosition = manager.position();
-      const auto size = endPosition - startPosition;
-      assert(size % typeSize == 0);
+    // transfer allocation
+    manager.align();
+    const auto startPosition = manager.position();
+    allocationPass(counter, region, true, BufferType::StepIntegrals);
+    allocationPass(counter, region, true, BufferType::AccumulatedIntegrals);
+    allocationPass(counter, region, true, BufferType::Derivatives);
+    manager.align();
+    const auto endPosition = manager.position();
+    const auto size = endPosition - startPosition;
+    assert(size % typeSize == 0);
 
-      // the offset into the buckets, which becomes a pointer once they are allocated
-      // NOLINTNEXTLINE(performance-no-int-to-ptr)
-      auto* startPtr = reinterpret_cast<void*>(startPosition);
+    // the offset into the buckets, which becomes a pointer once they are allocated
+    // NOLINTNEXTLINE(performance-no-int-to-ptr)
+    auto* startPtr = reinterpret_cast<void*>(startPosition);
 
-      remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.rank, region.tag);
+    remoteClusters.emplace_back(startPtr, size / typeSize, datatype, region.rank, region.tag);
 
-      allocationPass(counter, region, false, BufferType::Derivatives);
+    allocationPass(counter, region, false, BufferType::Derivatives);
 
-      counter += region.count;
-    }
+    counter += region.count;
+  }
 
-    assert(counter == layer.size());
+  // the rest is interior: all cells without regions, or the cells of an interior layer combined
+  // into the copy layer
+  for (std::size_t index = counter; index < layer.size(); ++index) {
+    allocate(index, BufferType::AccumulatedIntegrals);
+  }
+  for (std::size_t index = counter; index < layer.size(); ++index) {
+    allocate(index, BufferType::StepIntegrals);
+  }
+  for (std::size_t index = counter; index < layer.size(); ++index) {
+    allocate(index, BufferType::Derivatives);
   }
 
   layer.setEntrySize<LTS::Buffers>(manager.size());

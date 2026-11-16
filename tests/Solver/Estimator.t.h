@@ -98,4 +98,39 @@ TEST_CASE("Host-device switch" * doctest::test_suite("solver")) {
 
 */
 
+TEST_CASE("The cost of a layer between and beyond the measured sizes" *
+          doctest::test_suite("solver")) {
+  // in microseconds (doctest::Approx compares small numbers with a margin of about 1e-5 otherwise)
+  const auto us = [](double seconds) { return seconds * 1e6; };
+
+  // a fixed part of 100 us up to 64 cells, then 1 us per further cell
+  const solver::LayerCost cost({{32, 100e-6}, {64, 100e-6}, {128, 164e-6}, {256, 292e-6}});
+
+  CHECK(cost(0) == 0.0);
+  // in between, linearly; below the smallest and beyond the largest size, along the first and the
+  // last stretch
+  CHECK(us(cost(1)) == doctest::Approx(100));
+  CHECK(us(cost(96)) == doctest::Approx(132));
+  CHECK(us(cost(200)) == doctest::Approx(236));
+  CHECK(us(cost(512)) == doctest::Approx(548));
+
+  // a layer of 16 and 48 cells saves the fixed part of the second layer
+  CHECK(us(cost.combinedSaving(16, 48)) == doctest::Approx(100));
+  // and of 100 and 100 cells, less: 2 x 136 us against 236 us
+  CHECK(us(cost.combinedSaving(100, 100)) == doctest::Approx(36));
+  CHECK(cost.combinedSaving(0, 48) == 0.0);
+
+  // noise does not make a larger layer cheaper
+  const solver::LayerCost noisy({{32, 100e-6}, {64, 90e-6}, {128, 200e-6}});
+  CHECK(us(noisy.points()[1].second) == doctest::Approx(100));
+  CHECK(us(noisy(48)) == doctest::Approx(100));
+
+  // hardly a fixed part (as on CPUs): below the smallest size, less than with it, but not below 0
+  const solver::LayerCost proportional({{8, 10e-6}, {16, 18e-6}, {32, 34e-6}});
+  CHECK(us(proportional(4)) == doctest::Approx(6));
+  CHECK(us(proportional.combinedSaving(4, 12)) == doctest::Approx(2));
+  const solver::LayerCost steep({{8, 2e-6}, {16, 18e-6}});
+  CHECK(steep(1) == 0.0);
+}
+
 } // namespace seissol::unit_test
