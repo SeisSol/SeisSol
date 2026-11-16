@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_RESULTWRITER_THREADSPINNINGWRITER_H_
 
 #include "Parallel/Pin.h"
+#include "Parallel/SystemInfo.h"
 
 #include <string>
 #include <utility>
@@ -20,7 +21,9 @@ class ThreadsPinningWriter {
   public:
   ThreadsPinningWriter(std::string outputDirectory, std::string runId)
       : outputDirectory_(std::move(outputDirectory)), runId_(std::move(runId)) {}
-  void write(const seissol::parallel::Pinning& pinning, utils::Env& env);
+  void write(const seissol::parallel::Pinning& pinning,
+             utils::Env& env,
+             const SystemInfo& systemInfo);
 
   private:
   std::string outputDirectory_;

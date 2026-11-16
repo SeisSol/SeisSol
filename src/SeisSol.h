@@ -19,6 +19,7 @@
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/RunSummary.h"
 #include "Parallel/Pin.h"
+#include "Parallel/SystemInfo.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
@@ -268,6 +269,22 @@ class SeisSol : private SeisSolCore {
    */
   const std::string& runId() const { return runId_; }
 
+  /**
+   * Sets what the names of the output files start with, their directory included (see
+   * initprocedure::createOutputDirectory).
+   */
+  void setOutputPrefix(const std::string& outputPrefix) { outputPrefix_ = outputPrefix; }
+
+  /**
+   * What the names of the output files start with, their directory included.
+   */
+  const std::string& outputPrefix() const { return outputPrefix_; }
+
+  /**
+   * What the run knows about the nodes and devices it runs on.
+   */
+  const SystemInfo& systemInfo() const { return systemInfo_; }
+
   private:
   seissol::io::OutputManager outputManager_;
 
@@ -338,14 +355,21 @@ class SeisSol : private SeisSolCore {
 
   std::string runId_;
 
+  std::string outputPrefix_;
+
   double timestepScale_{1.0};
   std::vector<std::uint64_t> effectiveClusterRates_;
 
+  const SystemInfo& systemInfo_;
+
   public:
-  SeisSol(initializer::parameters::SeisSolParameters parameters, const utils::Env& env)
+  SeisSol(initializer::parameters::SeisSolParameters parameters,
+          const utils::Env& env,
+          const SystemInfo& systemInfo)
       : SeisSolCore(env), outputManager_(*this), seissolParameters_(std::move(parameters)),
         asyncIO_(env_), memoryManager_(std::make_unique<initializer::MemoryManager>(*this)),
-        timeManager_(*this), analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this) {}
+        timeManager_(*this), analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
+        systemInfo_(systemInfo) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

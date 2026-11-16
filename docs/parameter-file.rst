@@ -28,9 +28,21 @@ following:
    string in the parameter file with additional restrictions. A path might be absolute or relative to the starting directory of the execution.
 -  **Path prefix** Path prefixes are similar to paths. However, SeisSol
    will automatically append a filename extension or other suffixes
-   (e.g. "-fault"). SeisSol creates the directory of the output prefix
-   (``OutputFile``), with its parents, if it does not exist yet; e.g. for
-   "runs/a/output/data", it creates "runs/a/output".
+   (e.g. "-fault").
+
+The outputs share one prefix: the directory ``outdir`` and the name ``outname``
+in the ``Output`` section, e.g. ``outdir = 'runs/a/output'`` and
+``outname = 'data'`` for files such as "runs/a/output/data-receiver-....dat".
+``OutputFile`` gives both at once instead, as one path prefix
+("runs/a/output/data"); with ``outdir`` and ``outname``, it is ignored. SeisSol
+creates the output directory, with its parents, if it does not exist yet.
+
+With ``outsimdir = 1``, each run writes into a directory of its own within
+``outdir``, named after ``outname`` and the ID of the run (see
+:ref:`env_vars`), e.g. "runs/a/output/data-123e4567-e89b-42d3-a456-426614174000".
+Runs of a job array that share a parameter file then keep their outputs apart,
+also when they start at the same time; ``SEISSOL_RUN_ID`` lets a job script
+know the directory beforehand.
 
 
 .. _parameter-overrides:
@@ -47,7 +59,7 @@ included:
 .. code-block:: bash
 
     ./SeisSol_YOUR_CONFIGURATION parameters.par \
-        --set output.outputfile=runs/strong-16/data \
+        --set output.outdir=runs/strong-16 \
         --set abortcriteria.endtime=2.5d0 \
         --set output.wavefieldoutput=0
 
@@ -106,7 +118,7 @@ e.g. on a login node with the executable built for the compute nodes:
 .. code-block:: bash
 
     ./SeisSol_YOUR_CONFIGURATION --check=check.json parameters.par \
-        --set output.outputfile=runs/strong-16/data
+        --set output.outdir=runs/strong-16
 
 Reading the whole mesh holds its vertices in memory, 24 bytes each, and a chunk of its
 cells; for a mesh of 10 million cells, it took 2 s on two cores. ``--check-depth=files``

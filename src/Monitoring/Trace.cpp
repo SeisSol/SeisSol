@@ -7,6 +7,8 @@
 
 #include "Trace.h"
 
+#include "Parallel/MPI.h"
+
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -181,10 +183,9 @@ void Trace::start(const Settings& settings, MPI_Comm comm) {
               << settings.duration << "s, of at most" << settings.maxSpans << "spans per rank"
               << on.c_str();
   }
-  MPI_Barrier(comm);
+  Mpi::mpi.barrier(comm);
   state.origin = std::chrono::steady_clock::now();
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
+  const int rank = Mpi::rankOf(comm);
   // (the other ranks take part in writing the trace all the same, with their names only)
   recordingFlag().store(selected(settings.ranks, rank), std::memory_order_release);
 }
@@ -244,8 +245,7 @@ void Trace::write(const std::string& path, MPI_Comm comm) {
     return;
   }
   recordingFlag().store(false, std::memory_order_release);
-  int rank = 0;
-  MPI_Comm_rank(comm, &rank);
+  const int rank = Mpi::rankOf(comm);
 
   // all elements but the first one start with a comma; the first one comes from rank 0
   std::ostringstream text;
@@ -294,21 +294,16 @@ void Trace::write(const std::string& path, MPI_Comm comm) {
   const auto chunk = text.str();
 
   // the chunks of the processes follow each other, in the order of their ranks
-  unsigned long long size = chunk.size();
-  unsigned long long offset = 0;
-  MPI_Exscan(&size, &offset, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, comm);
-  if (rank == 0) {
-    offset = 0;
-  }
-  unsigned long long total = 0;
-  MPI_Allreduce(&size, &total, 1, MPI_UNSIGNED_LONG_LONG, MPI_SUM, comm);
+  const unsigned long long size = chunk.size();
+  const auto offset = Mpi::mpi.scan(size, MPI_SUM, false, comm);
+  const auto total = Mpi::mpi.allreduce(size, MPI_SUM, comm);
 
   MPI_File file{};
   MPI_File_open(comm, path.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &file);
   MPI_File_set_size(file, 0);
   // the size may be set on each process (OMPIO of Open MPI): no chunk goes in before all are done,
   // or a late truncation cuts out those written before it (on 512 ranks of Horizon, all but 172)
-  MPI_Barrier(comm);
+  Mpi::mpi.barrier(comm);
   if (rank == 0) {
     writeAt(file, 0, header.data(), header.size());
     writeAt(file, static_cast<MPI_Offset>(header.size() + total), footer.data(), footer.size());
@@ -317,7 +312,7 @@ void Trace::write(const std::string& path, MPI_Comm comm) {
   MPI_File_close(&file);
 
   std::array<unsigned long long, 2> counts{spans, state.truncated.load() ? 1ULL : 0ULL};
-  MPI_Allreduce(MPI_IN_PLACE, counts.data(), counts.size(), MPI_UNSIGNED_LONG_LONG, MPI_SUM, comm);
+  Mpi::mpi.allreduceContainer(counts, MPI_SUM, comm);
   logInfo() << "Wrote the trace of" << counts[0] << "spans to" << path.c_str();
   if (counts[1] > 0) {
     logWarning() << "On" << counts[1] << "ranks, the trace reached its limit of"

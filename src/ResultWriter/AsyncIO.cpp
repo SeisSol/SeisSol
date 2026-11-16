@@ -36,8 +36,7 @@ bool AsyncIO::initDispatcher(const parallel::Pinning& pinning) {
   // it does for a communication thread
   automatic_ = config().mode() == async::Mode::Auto;
   if (automatic_) {
-    int room = roomLeft ? 1 : 0;
-    MPI_Allreduce(MPI_IN_PLACE, &room, 1, MPI_INT, MPI_MIN, seissol::Mpi::mpi.comm());
+    const int room = seissol::Mpi::mpi.allreduce(roomLeft ? 1 : 0, MPI_MIN);
     if (room == 0) {
       setMode(async::Mode::Sync);
     }
@@ -77,8 +76,7 @@ bool AsyncIO::initDispatcher(const parallel::Pinning& pinning) {
                  << "that compute as well can take on. Unset"
                  << (prefix_ + "EXECUTOR_EXCLUSIVE").c_str() << "or use ASYNC mode THREAD.";
     }
-    int noRoom = (isExecutor() && !roomLeft) ? 1 : 0;
-    MPI_Allreduce(MPI_IN_PLACE, &noRoom, 1, MPI_INT, MPI_MAX, seissol::Mpi::mpi.comm());
+    const int noRoom = seissol::Mpi::mpi.allreduce((isExecutor() && !roomLeft) ? 1 : 0, MPI_MAX);
     if (noRoom != 0) {
       logWarning() << "No CPUs are left free on (some) executor ranks: the threads that coordinate"
                    << "and write the output share the cores of the computation there.";

@@ -12,6 +12,10 @@
 #include <string>
 #include <vector>
 
+namespace seissol {
+class SystemInfo;
+} // namespace seissol
+
 namespace seissol::writer {
 /**
  * The timings mini SeisSol measures to weight the ranks in the partitioning.
@@ -25,8 +29,11 @@ class MiniSeisSolWriter {
   void record(double elapsedTime, double weight);
 
   //! Writes the recorded measurements of all ranks next to @p outputPrefix, if there are any,
-  //! marked as those of the run @p runId. Collective: every rank has to call it.
-  void write(const std::string& outputPrefix, const std::string& runId) const;
+  //! marked as those of the run @p runId, with the hosts of the ranks from @p systemInfo.
+  //! Collective: every rank has to call it.
+  void write(const std::string& outputPrefix,
+             const std::string& runId,
+             const SystemInfo& systemInfo) const;
 
   private:
   struct Measurement {

@@ -116,9 +116,9 @@ Pinning::Pinning() {
   computeOnlineCpuMask();
 }
 
-void Pinning::checkEnvVariables() {
+void Pinning::checkEnvVariables(utils::Env& env) {
 #ifdef __linux__
-  const auto envVariable = utils::Env("SEISSOL_").getOptional<std::string>("FREE_CPUS_MASK");
+  const auto envVariable = env.getOptional<std::string>("FREE_CPUS_MASK");
   if (envVariable.has_value()) {
     auto parsedResult = seissol::IntegerMaskParser::parse(envVariable.value());
     if (parsedResult) {
@@ -347,18 +347,14 @@ CpuMask Pinning::getNodeMask() {
 #ifdef __linux__
   const auto workerMask = getWorkerUnionMask().set;
 
-  // We have to use this due to the insanity of std::vector<bool>
-  auto workerMaskArray = std::vector<char>(get_nprocs_conf(), 0);
+  // We have to use this due to the insanity of std::vector<bool>; and unsigned char rather than
+  // char, as MPI defines the bitwise reductions for integer types only, of which char is none
+  auto workerMaskArray = std::vector<unsigned char>(get_nprocs_conf(), 0);
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
     workerMaskArray[cpu] = CPU_ISSET(cpu, &workerMask);
   }
 
-  MPI_Allreduce(MPI_IN_PLACE,
-                workerMaskArray.data(),
-                workerMaskArray.size(),
-                MPI_CHAR,
-                MPI_BOR,
-                Mpi::mpi.sharedMemComm());
+  Mpi::mpi.allreduceContainer(workerMaskArray, MPI_BOR, Mpi::mpi.sharedMemComm());
 
   cpu_set_t nodeMask;
   CPU_ZERO(&nodeMask);

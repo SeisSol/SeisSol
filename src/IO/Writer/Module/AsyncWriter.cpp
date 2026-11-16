@@ -9,6 +9,7 @@
 
 #include "IO/Writer/File/RunFiles.h"
 #include "IO/Writer/Writer.h"
+#include "Parallel/MPI.h"
 
 #include <async/ExecInfo.h>
 #include <chrono>
@@ -57,9 +58,7 @@ void AsyncWriter::exec(const async::ExecInfo& info, const AsyncWriterExec& param
       // the ranks that write: all of them, or the executors of the nodes
       MPI_Comm comm = info.comm();
 
-      int rank = 0;
-      MPI_Comm_rank(comm, &rank);
-      if (printPlan_ && rank == 0) {
+      if (printPlan_ && seissol::Mpi::rankOf(comm) == 0) {
         logInfo() << "Printing current plan:" << std::string(strData, strData + size);
       }
 

@@ -43,6 +43,7 @@
 #include <cstdint>
 #include <mpi.h>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -304,78 +305,53 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
 
     const auto& comm = mpi.comm();
 
-    // Reduce error over all MPI ranks.
-    auto errL1MPI = ErrorArrayT{0.0};
-    auto errL2MPI = ErrorArrayT{0.0};
-    auto analyticalL1MPI = ErrorArrayT{0.0};
-    auto analyticalL2MPI = ErrorArrayT{0.0};
+    // Reduce error over all MPI ranks (on rank 0).
+    auto errL1MPI = errL1Local;
+    auto errL2MPI = errL2Local;
+    auto analyticalL1MPI = analyticalL1Local;
+    auto analyticalL2MPI = analyticalL2Local;
+    mpi.reduceContainer(errL1MPI, MPI_SUM, 0, comm);
+    mpi.reduceContainer(errL2MPI, MPI_SUM, 0, comm);
+    mpi.reduceContainer(analyticalL1MPI, MPI_SUM, 0, comm);
+    mpi.reduceContainer(analyticalL2MPI, MPI_SUM, 0, comm);
 
-    MPI_Reduce(errL1Local.data(), errL1MPI.data(), errL1Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
-    MPI_Reduce(errL2Local.data(), errL2MPI.data(), errL2Local.size(), MPI_DOUBLE, MPI_SUM, 0, comm);
-    MPI_Reduce(analyticalL1Local.data(),
-               analyticalL1MPI.data(),
-               analyticalL1Local.size(),
-               MPI_DOUBLE,
-               MPI_SUM,
-               0,
-               comm);
-    MPI_Reduce(analyticalL2Local.data(),
-               analyticalL2MPI.data(),
-               analyticalL2Local.size(),
-               MPI_DOUBLE,
-               MPI_SUM,
-               0,
-               comm);
-
-    // Find maximum element and its location.
-    auto errLInfSend = std::array<Data, errLInfLocal.size()>{};
-    auto errLInfRecv = std::array<Data, errLInfLocal.size()>{};
+    // Find maximum element and its location: the error and its rank.
+    auto errLInfRecv = std::array<std::pair<double, int>, errLInfLocal.size()>{};
     for (size_t i = 0; i < errLInfLocal.size(); ++i) {
-      errLInfSend[i] = Data{errLInfLocal[i], mpi.rank()};
+      errLInfRecv[i] = {errLInfLocal[i], mpi.rank()};
     }
-    MPI_Allreduce(errLInfSend.data(),
-                  errLInfRecv.data(),
-                  errLInfSend.size(),
-                  MPI_DOUBLE_INT,
-                  MPI_MAXLOC,
-                  comm);
+    mpi.allreduceContainer(errLInfRecv, MPI_MAXLOC, comm);
 
-    auto analyticalLInfMPI = ErrorArrayT{0.0};
-    MPI_Reduce(analyticalLInfLocal.data(),
-               analyticalLInfMPI.data(),
-               analyticalLInfLocal.size(),
-               MPI_DOUBLE,
-               MPI_MAX,
-               0,
-               comm);
+    auto analyticalLInfMPI = analyticalLInfLocal;
+    mpi.reduceContainer(analyticalLInfMPI, MPI_MAX, 0, comm);
 
     for (std::size_t i = 0; i < NumQuantities; ++i) {
       CoordinateT centerSend{};
       MeshTools::center(elements[elemLInfLocal[i]], vertices, centerSend);
 
-      if (mpi.rank() == errLInfRecv[i].rank && errLInfRecv[i].rank != 0) {
+      if (mpi.rank() == errLInfRecv[i].second && errLInfRecv[i].second != 0) {
         MPI_Send(centerSend.data(), 3, MPI_DOUBLE, 0, i, comm);
       }
 
       if (mpi.rank() == 0) {
         CoordinateT centerRecv{};
-        if (errLInfRecv[i].rank == 0) {
+        if (errLInfRecv[i].second == 0) {
           std::copy_n(centerSend.begin(), 3, centerRecv.begin());
         } else {
           MPI_Recv(
-              centerRecv.data(), 3, MPI_DOUBLE, errLInfRecv[i].rank, i, comm, MPI_STATUS_IGNORE);
+              centerRecv.data(), 3, MPI_DOUBLE, errLInfRecv[i].second, i, comm, MPI_STATUS_IGNORE);
         }
 
         const auto errL1 = errL1MPI[i];
         const auto errL2 = std::sqrt(errL2MPI[i]);
-        const auto errLInf = errLInfRecv[i].val;
+        const auto errLInf = errLInfRecv[i].first;
         const auto errL1Rel = errL1 / analyticalL1MPI[i];
         const auto errL2Rel = std::sqrt(errL2MPI[i] / analyticalL2MPI[i]);
         const auto errLInfRel = errLInf / analyticalLInfMPI[i];
         logInfo() << "L1  , var[" << i << "] =\t" << errL1 << "\t" << errL1Rel;
         logInfo() << "L2  , var[" << i << "] =\t" << errL2 << "\t" << errL2Rel;
         logInfo() << "LInf, var[" << i << "] =\t" << errLInf << "\t" << errLInfRel << "at rank "
-                  << errLInfRecv[i].rank << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1]
+                  << errLInfRecv[i].second << "\tat [" << centerRecv[0] << ",\t" << centerRecv[1]
                   << ",\t" << centerRecv[2] << "\t]";
         addObservation(i, sim, "L1", errL1);
         addObservation(i, sim, "L2", errL2);

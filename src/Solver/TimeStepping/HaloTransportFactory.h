@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_HALOTRANSPORTFACTORY_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALOTRANSPORTFACTORY_H_
 
-#include "Parallel/MPI.h"
+#include "Parallel/Helper.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
 
@@ -26,7 +26,7 @@ class HaloTransportFactory {
   /**
    * Persistent MPI transports set up their requests once and restart them for each transfer.
    */
-  HaloTransportFactory(Mpi::DataTransferMode mode, bool persistent);
+  HaloTransportFactory(DataTransferMode mode, bool persistent);
   ~HaloTransportFactory();
 
   HaloTransportFactory(const HaloTransportFactory&) = delete;
@@ -47,7 +47,7 @@ class HaloTransportFactory {
   [[nodiscard]] TaskHaloEngine* taskEngine() { return taskEngine_.get(); }
 
   private:
-  Mpi::DataTransferMode mode_;
+  DataTransferMode mode_;
   bool persistent_;
   std::unique_ptr<TaskHaloEngine> taskEngine_;
 };

@@ -446,14 +446,7 @@ auto loadSourceFile(const char* fileName,
   file.meshIds = meshIds;
 
   // Checking that all sources are within the domain
-  std::size_t globalnumSources = numSources;
-  MPI_Reduce(&numSources,
-             &globalnumSources,
-             1,
-             Mpi::castToMpiType<std::size_t>(),
-             MPI_SUM,
-             0,
-             seissol::Mpi::mpi.comm());
+  const std::size_t globalnumSources = seissol::Mpi::mpi.reduce(numSources, MPI_SUM, 0);
 
   logInfo() << "Found" << globalnumSources << "point sources.";
   const int rank = seissol::Mpi::mpi.rank();

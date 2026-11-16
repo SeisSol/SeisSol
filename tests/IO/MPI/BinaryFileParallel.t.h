@@ -57,7 +57,7 @@ TEST_CASE("IO/BinaryFile: ranks with different numbers of pieces write in rounds
     binary.closeFile();
   }
 
-  MPI_Barrier(Mpi::mpi.comm());
+  Mpi::mpi.barrier();
   if (Mpi::mpi.rank() == 0) {
     std::vector<char> expected;
     for (int rank = 0; rank < Mpi::mpi.size(); ++rank) {

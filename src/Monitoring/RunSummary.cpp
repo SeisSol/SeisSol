@@ -18,6 +18,7 @@
 #include "Numerical/Statistics.h"
 #include "Parallel/MPI.h"
 #include "Parallel/OpenMP.h"
+#include "Parallel/SystemInfo.h"
 
 #include <algorithm>
 #include <array>
@@ -117,12 +118,11 @@ json::Value buildInformation() {
 
 namespace {
 //! @brief The layout of the run over nodes and threads. Collective.
-json::Value parallelSection() {
+json::Value parallelSection(const std::vector<std::string>& hostNames) {
   json::Value parallel;
   const auto& mpi = seissol::Mpi::mpi;
   parallel["ranks"] = mpi.size();
   if (mpi.rank() == 0) {
-    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
     parallel["nodes"] = std::set<std::string>(hostNames.begin(), hostNames.end()).size();
   }
   parallel["ranksPerNode"] = statisticsOverRanks(static_cast<double>(mpi.sharedMemMpiSize()));
@@ -210,12 +210,15 @@ json::Value relevantEnvironment() {
   return environment;
 }
 
-void RunSummary::start(const std::string& prefix, const std::string& runId) {
+void RunSummary::start(const std::string& prefix,
+                       const std::string& runId,
+                       const SystemInfo& systemInfo) {
   path_ = prefix + "-summary.json";
   epochPath_ = prefix + "-epochs.csv";
   rankPath_ = prefix + "-ranks.csv";
   rankFailurePath_ = prefix + "-rank" + std::to_string(seissol::Mpi::mpi.rank()) + "-failure.json";
   runId_ = runId;
+  hostNames_ = systemInfo.getHostNames();
 
   // the header first, so that a reader sees what the file is before anything else
   json::Value root;
@@ -226,7 +229,7 @@ void RunSummary::start(const std::string& prefix, const std::string& runId) {
   root["started"] = utcTimestamp();
   root["updated"] = utcTimestamp();
   root["build"] = buildInformation();
-  root["parallel"] = parallelSection();
+  root["parallel"] = parallelSection(hostNames_);
   root["environment"] = relevantEnvironment();
   for (const auto& [key, value] : root_.isObject() ? root_.asObject() : json::Value::Object{}) {
     root[key] = value;
@@ -281,7 +284,7 @@ json::Value RunSummary::overRanks(std::string_view column, double localValue) {
 }
 
 void RunSummary::writeRanks() {
-  auto& mpi = seissol::Mpi::mpi;
+  const auto& mpi = seissol::Mpi::mpi;
 
   // the columns of rank 0, which every rank fills in, in its order
   std::vector<char> names;
@@ -315,7 +318,7 @@ void RunSummary::writeRanks() {
   if (!started_ || mpi.rank() != 0) {
     return;
   }
-  const auto& hostNames = mpi.getHostNames();
+  const auto& hostNames = hostNames_;
   std::size_t hostWidth = 1;
   for (const auto& hostName : hostNames) {
     hostWidth = std::max(hostWidth, hostName.size());

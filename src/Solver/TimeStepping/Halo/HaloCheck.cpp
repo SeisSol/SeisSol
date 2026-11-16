@@ -313,13 +313,11 @@ void testHaloExchange(const std::vector<CheckedTransport>& transports,
                       const std::string& mode,
                       std::chrono::seconds timeout,
                       bool abortOnTimeout) {
-  std::size_t regions = 0;
+  std::size_t localRegions = 0;
   for (const auto& checked : transports) {
-    regions += checked.regions->copy.size() + checked.regions->ghost.size();
+    localRegions += checked.regions->copy.size() + checked.regions->ghost.size();
   }
-  MPI_Allreduce(
-      MPI_IN_PLACE, &regions, 1, Mpi::castToMpiType<std::size_t>(), MPI_SUM, Mpi::mpi.comm());
-  if (regions == 0) {
+  if (Mpi::mpi.allreduce(localRegions, MPI_SUM) == 0) {
     return;
   }
   // one item, as the logger puts a space between its items
@@ -332,7 +330,8 @@ void testHaloExchange(const std::vector<CheckedTransport>& transports,
   const auto start = std::chrono::steady_clock::now();
   const auto result =
       checkHaloExchange(transports, Mpi::mpi.rank(), memory, timeout, abortOnTimeout);
-  double time = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+  const double localTime =
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
 
   if (result.wrongRegions > 0) {
     logWarning(true) << "The halo exchange delivered wrong data to" << result.wrongRegions << "of"
@@ -340,13 +339,8 @@ void testHaloExchange(const std::vector<CheckedTransport>& transports,
                      << result.firstWrong.c_str();
   }
   std::array<std::size_t, 3> sums{result.regions, result.bytes, result.wrongRegions};
-  MPI_Allreduce(MPI_IN_PLACE,
-                sums.data(),
-                sums.size(),
-                Mpi::castToMpiType<std::size_t>(),
-                MPI_SUM,
-                Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE, &time, 1, MPI_DOUBLE, MPI_MAX, Mpi::mpi.comm());
+  Mpi::mpi.allreduceContainer(sums, MPI_SUM);
+  const double time = Mpi::mpi.allreduce(localTime, MPI_MAX);
   if (sums[2] > 0) {
     logError() << exchange.c_str() << "delivered wrong data to" << sums[2] << "of" << sums[0]
                << "ghost regions in the test before the time stepping; see the warnings of the"

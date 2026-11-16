@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
@@ -22,6 +23,8 @@
 #endif
 
 namespace seissol {
+
+class Mpi;
 
 /// whether this is a build for a device, whose time stepping has defaults of its own (see
 /// docs/gpu-time-stepping.rst)
@@ -42,24 +45,9 @@ inline bool commThreadRequested(utils::Env& env) {
   return env.get<bool>("COMMTHREAD", !(DeviceBuild && useHostActor(env)));
 }
 
-template <typename T>
-void printCommThreadInfo(const T& mpiBasic, utils::Env& env) {
-  const bool useThread = commThreadRequested(env);
-  if (mpiBasic.isSingleProcess()) {
-    logInfo() << "Using polling for advancing MPI communication, due to having only "
-                 "one MPI rank running.";
-  } else if (useThread) {
-    logInfo() << "Using a communication thread for advancing MPI communication.";
-  } else {
-    logInfo() << "Using polling for advancing MPI communication.";
-  }
-}
+void printCommThreadInfo(const Mpi& mpi, utils::Env& env);
 
-template <typename T>
-bool useCommThread(const T& mpiBasic, utils::Env& env) {
-  const bool useThread = commThreadRequested(env);
-  return useThread && !mpiBasic.isSingleProcess();
-}
+bool useCommThread(const Mpi& mpi, utils::Env& env);
 
 inline bool usePersistentMpi(utils::Env& env) { return env.get<bool>("MPI_PERSISTENT", true); }
 
@@ -359,6 +347,24 @@ inline void printDeviceL2Compress(utils::Env& env) {
     logInfo() << "Using L2 compression (if available).";
   }
 }
+
+/// how the halo data gets to and from MPI
+enum class DataTransferMode {
+  //! MPI reads and writes the buffers where they are, on the device as well
+  Direct,
+  //! the data goes through buffers on the host, for an MPI that cannot read device memory
+  CopyInCopyOutHost
+};
+
+/// the name of the transfer mode, as SEISSOL_TRANSFER_MODE takes it
+std::string_view dataTransferModeName(DataTransferMode mode);
+
+/**
+ * The transfer mode that SEISSOL_TRANSFER_MODE (or its older name,
+ * SEISSOL_PREFERRED_MPI_DATA_TRANSFER_MODE) asks for; Direct without it, and in builds without a
+ * device. Reports the choice if one was asked for.
+ */
+DataTransferMode getDataTransferMode(utils::Env& env);
 
 } // namespace seissol
 

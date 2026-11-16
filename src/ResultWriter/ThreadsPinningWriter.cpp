@@ -12,6 +12,7 @@
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
+#include "Parallel/SystemInfo.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -77,7 +78,8 @@ PinningInfo getPinningInfo(const cpu_set_t& set) {
 #endif // __linux__
 
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning,
-                                                  utils::Env& env) {
+                                                  utils::Env& env,
+                                                  const SystemInfo& systemInfo) {
 #ifdef __linux__
   const auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
@@ -101,8 +103,8 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
   auto numNProcs = seissol::Mpi::mpi.collect(get_nprocs());
 
   if (seissol::Mpi::mpi.rank() == 0) {
-    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
-    const auto& pcis = seissol::Mpi::mpi.getPCIAddresses();
+    const auto& hostNames = systemInfo.getHostNames();
+    const auto& pcis = systemInfo.getPCIAddresses();
     const std::string nullstring;
 
     // the masks are a list of the cores a rank runs on, so how wide they get is a property of the

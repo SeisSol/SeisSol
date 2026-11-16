@@ -34,7 +34,7 @@ void DofSync::syncDofs(double time) {
 
   logInfo() << "Synchronizing halo dofs for output.";
 
-  MPI_Barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
 
   // TODO: unify with the haloCommunication functions
 

@@ -16,6 +16,7 @@
 #include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
+#include "Parallel/MPI.h"
 #include "Parallel/Runtime/Stream.h"
 #include "ReceiverBasedOutputBuilder.h"
 
@@ -190,11 +191,8 @@ class PickPointBuilder : public ReceiverBasedOutputBuilder {
 
   void reportFoundReceivers(std::vector<short>& localContainVector) {
     const auto size = localContainVector.size();
-    std::vector<short> globalContainVector(size);
-
-    MPI_Comm comm = Mpi::mpi.comm();
-    MPI_Reduce(
-        localContainVector.data(), globalContainVector.data(), size, MPI_SHORT, MPI_SUM, 0, comm);
+    auto globalContainVector = localContainVector;
+    Mpi::mpi.reduceContainer(globalContainVector, MPI_SUM, 0);
 
     if (localRank_ == 0) {
       bool allReceiversFound{true};

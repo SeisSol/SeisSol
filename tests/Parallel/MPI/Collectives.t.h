@@ -9,8 +9,14 @@
 
 #include "Parallel/MPI.h"
 
+#include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <mpi.h>
+#include <numeric>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -180,6 +186,254 @@ TEST_CASE("MPI broadcastContainer empty from root" * doctest::test_suite("mpi"))
 }
 
 // ---------------------------------------------------------------------------
+// allreduce, allreduceContainer
+// ---------------------------------------------------------------------------
+
+TEST_CASE("MPI allreduce of a value" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  const int rank = mpi.rank();
+  const int size = mpi.size();
+
+  CHECK(mpi.allreduce(rank, MPI_SUM) == size * (size - 1) / 2);
+  CHECK(mpi.allreduce(static_cast<std::size_t>(rank), MPI_MAX) ==
+        static_cast<std::size_t>(size - 1));
+  CHECK(mpi.allreduce(rank + 0.5, MPI_MIN) == doctest::Approx(0.5));
+  CHECK(mpi.allreduce(rank == 0, MPI_LOR));
+  CHECK_FALSE(mpi.allreduce(rank == 0 && size > 1, MPI_LAND));
+}
+
+TEST_CASE("MPI allreduceContainer reduces in place" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  const int rank = mpi.rank();
+  const int size = mpi.size();
+
+  std::vector<double> values{1.0, static_cast<double>(rank)};
+  mpi.allreduceContainer(values, MPI_SUM);
+  CHECK(values[0] == doctest::Approx(size));
+  CHECK(values[1] == doctest::Approx(size * (size - 1) / 2.0));
+
+  std::array<std::uint64_t, 2> extremes{static_cast<std::uint64_t>(rank),
+                                        static_cast<std::uint64_t>(rank)};
+  mpi.allreduceContainer(extremes, MPI_MAX);
+  CHECK(extremes[0] == static_cast<std::uint64_t>(size - 1));
+  CHECK(extremes[1] == static_cast<std::uint64_t>(size - 1));
+}
+
+TEST_CASE("MPI allreduceContainer finds where the extremes are" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  const int rank = mpi.rank();
+  const int size = mpi.size();
+
+  static_assert(seissol::Mpi::pairMatchesMpiLayout<double, int>());
+  // the smallest value lies on the last rank, the largest on the first
+  std::vector<std::pair<double, int>> smallest{{static_cast<double>(size - rank), rank}};
+  std::vector<std::pair<double, int>> largest{{static_cast<double>(size - rank), rank}};
+  mpi.allreduceContainer(smallest, MPI_MINLOC);
+  mpi.allreduceContainer(largest, MPI_MAXLOC);
+  CHECK(smallest[0].first == doctest::Approx(1.0));
+  CHECK(smallest[0].second == size - 1);
+  CHECK(largest[0].first == doctest::Approx(size));
+  CHECK(largest[0].second == 0);
+}
+
+// ---------------------------------------------------------------------------
+// scan
+// ---------------------------------------------------------------------------
+
+TEST_CASE("MPI scan" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  const int rank = mpi.rank();
+
+  const auto rankSize = static_cast<std::size_t>(rank);
+  const auto value = rankSize + 1;
+  CHECK(mpi.scan(value, MPI_SUM, true) == (rankSize + 1) * (rankSize + 2) / 2);
+  // defined on the first rank as well, where MPI_Exscan leaves it undefined
+  CHECK(mpi.scan(value, MPI_SUM, false) == rankSize * (rankSize + 1) / 2);
+}
+
+TEST_CASE("MPI scanContainer" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  const auto rank = static_cast<std::size_t>(mpi.rank());
+
+  std::vector<std::size_t> inclusive{1, rank};
+  auto exclusive = inclusive;
+  mpi.scanContainer(inclusive, MPI_SUM, true);
+  mpi.scanContainer(exclusive, MPI_SUM, false);
+  CHECK(inclusive[0] == rank + 1);
+  CHECK(inclusive[1] == rank * (rank + 1) / 2);
+  CHECK(exclusive[0] == rank);
+  CHECK(exclusive[1] == rank * (rank - 1) / 2);
+}
+
+// ---------------------------------------------------------------------------
+// reduce, reduceContainer, allgather
+// ---------------------------------------------------------------------------
+
+TEST_CASE("MPI reduce to one rank" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  const int rank = mpi.rank();
+  const int size = mpi.size();
+  const int root = size - 1;
+
+  const auto sum = mpi.reduce(rank, MPI_SUM, root);
+  std::vector<double> values{1.0, static_cast<double>(rank)};
+  mpi.reduceContainer(values, MPI_MAX, root);
+  if (rank == root) {
+    CHECK(sum == size * (size - 1) / 2);
+    CHECK(values[1] == doctest::Approx(size - 1));
+  } else {
+    // the others keep their own values
+    CHECK(sum == 0);
+    CHECK(values[1] == doctest::Approx(rank));
+  }
+  CHECK(values[0] == doctest::Approx(1.0));
+}
+
+TEST_CASE("MPI allgather" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+
+  const auto values = mpi.allgather(10 * mpi.rank());
+  REQUIRE(values.size() == static_cast<std::size_t>(mpi.size()));
+  for (int other = 0; other < mpi.size(); ++other) {
+    CHECK(values[other] == 10 * other);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// containers in several calls
+// ---------------------------------------------------------------------------
+
+TEST_CASE("MPI collectContainer in windows of a few elements" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  const int rank = mpi.rank();
+  const int size = mpi.size();
+
+  // of different lengths, and none on the first rank: the windows start and end within the
+  // containers, and some processes have nothing in a window
+  std::vector<int> local(rank == 0 ? 0 : rank + 2);
+  std::iota(local.begin(), local.end(), 100 * rank);
+  const std::string name(rank + 1, static_cast<char>('a' + rank));
+  for (const std::size_t maxCount : {1, 2, 3, 5, 1000}) {
+    const auto collected = mpi.collectContainer(local, {}, maxCount);
+    const auto names = mpi.collectContainer(name, {}, maxCount);
+    REQUIRE(collected.size() == static_cast<std::size_t>(size));
+    REQUIRE(names.size() == static_cast<std::size_t>(size));
+    if (rank == 0) {
+      for (int other = 0; other < size; ++other) {
+        std::vector<int> expected(other == 0 ? 0 : other + 2);
+        std::iota(expected.begin(), expected.end(), 100 * other);
+        CHECK(collected[other] == expected);
+        CHECK(names[other] == std::string(other + 1, static_cast<char>('a' + other)));
+      }
+    } else {
+      CHECK(collected[rank].empty());
+    }
+  }
+}
+
+TEST_CASE("MPI container collectives in calls of a few elements" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  const int rank = mpi.rank();
+  const int size = mpi.size();
+  constexpr std::size_t MaxCount = 2;
+
+  std::vector<int> broadcasted;
+  if (rank == 0) {
+    broadcasted = {1, 2, 3, 4, 5};
+  }
+  mpi.broadcastContainer(broadcasted, 0, {}, MaxCount);
+  CHECK(broadcasted == std::vector<int>{1, 2, 3, 4, 5});
+
+  std::vector<int> sums(5, rank);
+  mpi.allreduceContainer(sums, MPI_SUM, {}, MaxCount);
+  CHECK(sums == std::vector<int>(5, size * (size - 1) / 2));
+
+  std::vector<int> maxima(5, rank);
+  mpi.reduceContainer(maxima, MPI_MAX, 0, {}, MaxCount);
+  if (rank == 0) {
+    CHECK(maxima == std::vector<int>(5, size - 1));
+  }
+
+  std::vector<int> inclusive(5, 1);
+  auto exclusive = inclusive;
+  mpi.scanContainer(inclusive, MPI_SUM, true, {}, MaxCount);
+  mpi.scanContainer(exclusive, MPI_SUM, false, {}, MaxCount);
+  CHECK(inclusive == std::vector<int>(5, rank + 1));
+  CHECK(exclusive == std::vector<int>(5, rank));
+}
+
+// ---------------------------------------------------------------------------
+// other communicators
+// ---------------------------------------------------------------------------
+
+namespace collectivestest {
+/// the ranks of MPI_COMM_WORLD split by their parity, the even ones first
+inline MPI_Comm splitByParity() {
+  MPI_Comm comm = MPI_COMM_NULL;
+  const int rank = seissol::Mpi::rankOf(MPI_COMM_WORLD);
+  MPI_Comm_split(MPI_COMM_WORLD, rank % 2, rank, &comm);
+  return comm;
+}
+} // namespace collectivestest
+
+TEST_CASE("MPI collectives on a communicator of their own" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  const int worldRank = mpi.rank();
+  const int worldSize = mpi.size();
+  MPI_Comm comm = collectivestest::splitByParity();
+
+  const int rank = seissol::Mpi::rankOf(comm);
+  const int size = seissol::Mpi::sizeOf(comm);
+  CHECK(rank == worldRank / 2);
+  CHECK(size == (worldSize + 1 - worldRank % 2) / 2);
+
+  // the gathers have as many entries as the communicator has ranks, on its own first rank
+  const auto ranks = mpi.collect(worldRank, comm);
+  const auto names = mpi.collectContainer(std::vector<int>(rank + 1, worldRank), comm);
+  if (rank == 0) {
+    REQUIRE(ranks.size() == static_cast<std::size_t>(size));
+    REQUIRE(names.size() == static_cast<std::size_t>(size));
+    for (int other = 0; other < size; ++other) {
+      CHECK(ranks[other] == 2 * other + worldRank % 2);
+      CHECK(names[other] == std::vector<int>(other + 1, 2 * other + worldRank % 2));
+    }
+  }
+
+  // from the last rank of the communicator, which is not the first one of the world
+  std::vector<int> data;
+  if (rank == size - 1) {
+    data = {worldRank, worldRank};
+  }
+  mpi.broadcastContainer(data, size - 1, comm);
+  const int lastWorldRank = 2 * (size - 1) + worldRank % 2;
+  CHECK(data == std::vector<int>{lastWorldRank, lastWorldRank});
+
+  CHECK(mpi.allreduce(1, MPI_SUM, comm) == size);
+  CHECK(mpi.scan(1, MPI_SUM, false, comm) == rank);
+  mpi.barrier(comm);
+
+  MPI_Comm_free(&comm);
+}
+
+TEST_CASE("MPI collectives take the communicator of the thread" * doctest::test_suite("mpi")) {
+  const auto& mpi = seissol::Mpi::mpi;
+  MPI_Comm comm = collectivestest::splitByParity();
+
+  seissol::Mpi::setThreadComm(comm);
+  CHECK(mpi.comm() == comm);
+  const int size = seissol::Mpi::sizeOf(comm);
+  CHECK(mpi.allreduce(1, MPI_SUM) == size);
+  const auto ranks = mpi.collect(mpi.rank());
+  if (seissol::Mpi::rankOf(comm) == 0) {
+    CHECK(ranks.size() == static_cast<std::size_t>(size));
+  }
+  seissol::Mpi::setThreadComm(MPI_COMM_NULL);
+  CHECK(mpi.allreduce(1, MPI_SUM) == mpi.size());
+
+  MPI_Comm_free(&comm);
+}
+
+// ---------------------------------------------------------------------------
 // MPI rank/size consistency
 // ---------------------------------------------------------------------------
 
@@ -196,7 +450,7 @@ TEST_CASE("MPI rank and size consistency" * doctest::test_suite("mpi")) {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("MPI barrier" * doctest::test_suite("mpi")) {
-  seissol::Mpi::barrier(MPI_COMM_WORLD);
+  seissol::Mpi::mpi.barrier(MPI_COMM_WORLD);
   CHECK(true);
 }
 

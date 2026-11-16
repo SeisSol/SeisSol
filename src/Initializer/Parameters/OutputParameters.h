@@ -186,7 +186,13 @@ struct OutputParameters {
   OutputFormat format{OutputFormat::None};
   XdmfBackend xdmfWriterBackend{};
   uint32_t hdfcompress{0};
-  std::string prefix;
+  //! the directory of the outputs; empty for the working directory
+  std::string outputPath;
+  //! what the names of the output files start with, in their directory
+  std::string outputName;
+  //! whether each run writes into a directory of its own in outputPath, named by outputName and
+  //! the ID of the run (see initprocedure::createOutputDirectory)
+  bool outputDirPerSim{false};
   CheckpointParameters checkpointParameters;
   ElementwiseFaultParameters elementwiseParameters;
   EnergyOutputParameters energyParameters;
@@ -204,7 +210,9 @@ struct OutputParameters {
   OutputParameters(OutputFormat format,
                    XdmfBackend xdmfWriterBackend,
                    uint32_t hdfcompress,
-                   std::string prefix,
+                   std::string outputPath,
+                   std::string outputName,
+                   bool outputDirPerSim,
                    const CheckpointParameters& checkpointParameters,
                    const ElementwiseFaultParameters& elementwiseParameters,
                    const EnergyOutputParameters& energyParameters,
@@ -213,7 +221,8 @@ struct OutputParameters {
                    ReceiverOutputParameters receiverParameters,
                    WaveFieldOutputParameters waveFieldParameters)
       : format(format), xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress),
-        prefix(std::move(prefix)), checkpointParameters(checkpointParameters),
+        outputPath(std::move(outputPath)), outputName(std::move(outputName)),
+        outputDirPerSim(outputDirPerSim), checkpointParameters(checkpointParameters),
         elementwiseParameters(elementwiseParameters), energyParameters(energyParameters),
         freeSurfaceParameters(std::move(freeSurfaceParameters)),
         pickpointParameters(std::move(pickpointParameters)),
