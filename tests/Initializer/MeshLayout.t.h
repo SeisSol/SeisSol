@@ -6,10 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Initializer/InitProcedure/Internal/MeshLayout.h"
+#include "Initializer/InitProcedure/Internal/NeighborLinks.h"
 #include "Initializer/TimeStepping/Halo.h"
 #include "Memory/Tree/Colormap.h"
 
 #include <cstddef>
+#include <map>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -119,6 +121,34 @@ TEST_CASE("Combining the copy and interior fault faces of a cluster" *
   CHECK(layout[color(HaloType::Interior, 0)] == std::vector<std::size_t>{1, 2, 3});
   CHECK(layout[color(HaloType::Copy, 1)].size() == 3);
   CHECK(layout[color(HaloType::Interior, 1)].size() == 3);
+}
+
+TEST_CASE("The time the halo of a copy layer takes" * doctest::test_suite("initializer")) {
+  const auto colorMap = meshlayouttest::layoutColorMap();
+  const auto color = [&](HaloType halo, std::size_t lts) {
+    return colorMap.color(halo, lts, ConfigId{0});
+  };
+
+  std::vector<ClusterMap> layout(colorMap.size());
+  // the copy cells of cluster 0 wait for 10 ghost cells from rank 1 and 5 from rank 2; those of
+  // cluster 1 for 20 from rank 1
+  layout[color(HaloType::Ghost, 0)].regions.emplace_back(1, 0, color(HaloType::Copy, 0), 10, 1);
+  layout[color(HaloType::Ghost, 0)].regions.emplace_back(2, 0, color(HaloType::Copy, 0), 5, 2);
+  layout[color(HaloType::Ghost, 1)].regions.emplace_back(3, 0, color(HaloType::Copy, 1), 20, 1);
+
+  std::map<int, seissol::initializer::internal::NeighborLink> links;
+  links[1] = {.latency = 10e-6, .bytesPerSecond = 1e9};
+  links[2] = {.latency = 50e-6};
+  const std::vector<std::size_t> bytesPerCell(colorMap.size(), 1000);
+
+  const auto halo =
+      seissol::initializer::internal::haloTimes(layout, colorMap, links, bytesPerCell);
+  // in microseconds (doctest::Approx compares small numbers with a margin of about 1e-5 otherwise)
+  // the slowest of the ranks: rank 2 by its latency
+  CHECK(halo[color(HaloType::Copy, 0)] * 1e6 == doctest::Approx(50));
+  // 20000 bytes at 1 GB/s after 10 us
+  CHECK(halo[color(HaloType::Copy, 1)] * 1e6 == doctest::Approx(30));
+  CHECK(halo[color(HaloType::Interior, 0)] == 0.0);
 }
 
 } // namespace seissol::unit_test
