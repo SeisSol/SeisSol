@@ -222,6 +222,24 @@ seissol_add_comparison(
     CANDIDATE smoke-box48-iccombine-mpi4
     TOLERANCE 0
     LABELS "bitwise;mpi")
+# the same with the choice by measurement (SEISSOL_ICCOMBINE=auto): the proxy and the links to the
+# neighbor ranks decide per cluster, which leaves the results as they are
+seissol_add_minitest(
+    NAME smoke-box48-iccombine-auto-mpi4
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    RANKS 4
+    ENV "SEISSOL_ICCOMBINE=auto"
+    REQUIRE ${SEISSOL_WAVE_MATERIALS}
+    ACTIVITY "v1:1e-12"
+    LABELS "smoke;mpi")
+seissol_add_comparison(
+    NAME bitwise-box48-iccombine-auto-mpi4
+    REFERENCE smoke-box48
+    CANDIDATE smoke-box48-iccombine-auto-mpi4
+    TOLERANCE 0
+    LABELS "bitwise;mpi")
 
 # Along the time stepping plan (SEISSOL_TIMESTEPPING_PLAN, see TimeManager::followPlan), with the
 # ghost clusters of two ranks, through two epochs: the same run, bit for bit.
