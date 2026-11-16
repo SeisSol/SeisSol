@@ -20,6 +20,10 @@ endif()
 # C/C++ proxy interface
 add_executable(seissol-proxy-exe Main.cpp)
 target_link_libraries(seissol-proxy-exe PRIVATE seissol-lib)
+if (TARGET device-hsa-queue-hook)
+  # the HSA queues of the stream runtime (SEISSOL_HSA_QUEUES, HIP only), as for seissol-bin
+  target_link_libraries(seissol-proxy-exe PRIVATE device-hsa-queue-hook)
+endif()
 if (NOT NEW_BINARY_NAMING)
     set_target_properties(seissol-proxy-exe PROPERTIES OUTPUT_NAME "SeisSol_proxy_${EXE_NAME_PREFIX}")
 else()
