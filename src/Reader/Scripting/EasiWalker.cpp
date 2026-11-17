@@ -455,8 +455,8 @@ class Walker {
     return out;
   }
 
-  /// The values of a !FunctionMap at `in`: the Lua easi makes of its Impala (ImpalaToLua.h),
-  /// translated as that of an !LuaMap, with a warning where easi's grouping changes what a chain
+  /// The values of a !FunctionMap at `in`: the Lua of its Impala (ImpalaToLua.h), translated as
+  /// that of an !LuaMap, with a warning where the grouping of easi 1.5 to 1.7 changed what a chain
   /// means.
   Values impalaMapped(const YAML::Node& node, const Values& in, NodeId reach) {
     const YAML::Node map = node["map"];
@@ -507,7 +507,8 @@ class Walker {
     return out;
   }
 
-  /// A warning where easi's grouping changes what a chain of Impala means, once per chain and run.
+  /// A warning where the grouping of easi 1.5 to 1.7 changed what a chain of Impala means, once per
+  /// chain and run.
   void warnGrouping(const ImpalaChain& chain) const {
     static std::mutex mutex;
     static std::set<std::string> warned;
@@ -518,8 +519,8 @@ class Walker {
     }
     logWarning() << "easi:" << at << ": the Impala of" << chain.name << "has a chain where"
                  << chain.op << "is followed by" << chain.following
-                 << "; easi's conversion into Lua groups it to the right (a - b + c as a - (b + "
-                    "c)), and the walker computes what easi computes.";
+                 << "; the walker groups it to the left, as ImpalaJIT (a - b + c as (a - b) + c), "
+                    "where easi 1.5 to 1.7 grouped it to the right and computed otherwise.";
   }
 
   /// The file and the variable of an !ASAGI, and the axes ASAGI reads there, as many as `in` has

@@ -25,7 +25,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -201,6 +200,38 @@ inline void sameAsEasi(const std::string& path,
                 << points.group[at] << ": " << actual[p][at] << " for easi's " << expected[p][at]);
     CHECK(worst <= ulps);
   }
+}
+
+/// Whether easi reads Impala as the walker does: converted into Lua, with the functions of Lua's
+/// math and lmathx, and with the meaning ImpalaJIT gave it -- `10 - 3 - 2` is 5. So does easi from
+/// the fix of its conversion on; easi 1.5 to 1.7 grouped that chain to the right (9) and took
+/// constants, variables and min and max otherwise, and easi 1.4 and earlier compiled Impala with
+/// ImpalaJIT, which knows fewer functions.
+inline bool easiReadsImpalaAsWalker() {
+#ifdef SEISSOL_TEST_EASI_IMPALA_TO_LUA
+  static const bool Reads = [] {
+    const Files files;
+    const std::string path = files.write("probe.yaml",
+                                         "!FunctionMap\n"
+                                         "map:\n"
+                                         "  a: return 10 - 3 - 2;\n");
+    sc::EasiReader easi(path, {"x", "y", "z"});
+    Points point;
+    point.x = {0.0};
+    point.y = {0.0};
+    point.z = {0.0};
+    point.group = {1.0};
+    return valuesOf(easi, point, {"a"})[0][0] == 5.0;
+  }();
+  return Reads;
+#else
+  return false;
+#endif
+}
+
+/// That `actual` is `expected`: the same bits, or both NaN.
+inline bool sameNumber(double actual, double expected) {
+  return std::isnan(expected) ? std::isnan(actual) : sameBits(actual, expected);
 }
 
 /// What easi's ASAGI reads its settings from, in a process without SeisSol's modules.
@@ -686,11 +717,16 @@ TEST_CASE("easi walker: a grid of ASAGI samples as easi's" * doctest::test_suite
   }
 }
 
-TEST_CASE("easi walker: Impala as easi reads it, the grouping of its chains included" *
+TEST_CASE("easi walker: Impala as easi reads it, its chains included" *
           doctest::test_suite("reader")) {
+  if (!easiReadsImpalaAsWalker()) {
+    MESSAGE("easi reads Impala otherwise than the walker (ImpalaJIT, or easi 1.5 to 1.7 without "
+            "the fix of its conversion); not compared");
+    return;
+  }
   const Files files;
-  // chains that easi groups to the right; branches and early returns; variables; the functions of
-  // Lua's math with lmathx; integers of Lua, whose zero has no sign; NaN in comparisons
+  // chains, which group to the left; branches and early returns; variables; the functions of
+  // Lua's math with lmathx; constants, which are floats, whose zero has a sign; NaN in comparisons
   const std::string path =
       files.write("impala.yaml",
                   "!FunctionMap\n"
@@ -718,7 +754,7 @@ TEST_CASE("easi walker: Impala as easi reads it, the grouping of its chains incl
   points.group.push_back(1.0);
   sameAsEasi(path, {"a", "b", "c", "d"}, points);
 
-  // `a - k` with a small integer constant k, which Lua computes as `a + -k`: at -0.0, 0.0
+  // `a - k` at -0.0 and 0.0: a float k, where Lua would compute `a + -k` of a small integer k
   const std::string zero = files.write("zero.yaml",
                                        "!FunctionMap\n"
                                        "map:\n"
@@ -732,8 +768,67 @@ TEST_CASE("easi walker: Impala as easi reads it, the grouping of its chains incl
   zeros.z = {-0.0, -3.0, 2.0};
   zeros.group = {1.0, 1.0, 1.0};
   sameAsEasi(zero, {"a", "b", "c", "d"}, zeros);
+}
 
-  // a variable read where it may have no value, which easi takes from an earlier point
+TEST_CASE("easi walker: Impala means what it meant with ImpalaJIT" *
+          doctest::test_suite("reader")) {
+  // whatever easi there is: + - and * / grouped to the left; an input a function assigns to its
+  // own copy, which the other functions do not see; names that begin with a keyword; a bracket
+  // in a condition around an expression; an expression for a statement; a unary +; constants,
+  // which are floats; fmin, fmax and fabs for min, max and abs, so that NaN loses
+  const Files files;
+  const std::string path = files.write("impalajit.yaml",
+                                       "!FunctionMap\n"
+                                       "map:\n"
+                                       "  a: return x - y + z - x / y * z;\n"
+                                       "  b: |\n"
+                                       "    x = x + 1;\n"
+                                       "    return x * 2;\n"
+                                       "  c: return x;\n"
+                                       "  d: |\n"
+                                       "    ifactor = 2; elsewhere = 3; returned = 5;\n"
+                                       "    return ifactor * elsewhere * returned;\n"
+                                       "  e: |\n"
+                                       "    if ((x + 1) * 2 < y && (z > 0 || (y < 0))) {\n"
+                                       "      return 1;\n"
+                                       "    }\n"
+                                       "    return 0;\n"
+                                       "  f: |\n"
+                                       "    x + 1;\n"
+                                       "    return +y;\n"
+                                       "  g: return 0 * (0 - 1);\n"
+                                       "  h: return min(x, y) + max(y, z) + abs(z);\n");
+  auto points = pointsIn(-3.0, 3.0, {0.0, 1.0, -1.0}, 500);
+  points.x.push_back(std::numeric_limits<double>::quiet_NaN());
+  points.y.push_back(1.0);
+  points.z.push_back(2.0);
+  points.group.push_back(1.0);
+  const std::vector<std::string> parameters{"a", "b", "c", "d", "e", "f", "g", "h"};
+  sc::EasiProgramReader walker(path, {"x", "y", "z"}, nullptr);
+  const auto values = valuesOf(walker, points, parameters);
+  for (std::size_t k = 0; k < points.size(); ++k) {
+    const double x = points.x[k];
+    const double y = points.y[k];
+    const double z = points.z[k];
+    const std::vector<double> expected{((x - y) + z) - ((x / y) * z),
+                                       (x + 1.0) * 2.0,
+                                       x,
+                                       30.0,
+                                       (x + 1.0) * 2.0 < y && (z > 0.0 || y < 0.0) ? 1.0 : 0.0,
+                                       y,
+                                       -0.0,
+                                       (std::fmin(x, y) + std::fmax(y, z)) + std::fabs(z)};
+    for (std::size_t p = 0; p < parameters.size(); ++p) {
+      CAPTURE(parameters[p]);
+      CAPTURE(x);
+      CAPTURE(y);
+      CAPTURE(z);
+      CHECK(sameNumber(values[p][k], expected[p]));
+    }
+  }
+
+  // a variable read where no assignment gave it a value: nil, which is not a number, so easi
+  // stops there, and a check fails there
   const std::string earlier = files.write("earlier.yaml",
                                           "!FunctionMap\n"
                                           "map:\n"
@@ -743,14 +838,59 @@ TEST_CASE("easi walker: Impala as easi reads it, the grouping of its chains incl
   sc::EasiQuery query;
   query.dimensions = {"x", "y", "z"};
   query.parameters = {"a"};
-  CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(earlier, query)), sc::EasiUnsupported);
+  const auto program = sc::easiProgram(earlier, query);
+  REQUIRE(program.checks().size() == 1);
+  Points some;
+  some.x = {1.0, 0.0, -1.0, std::numeric_limits<double>::quiet_NaN()};
+  some.y = {0.0, 0.0, 0.0, 0.0};
+  some.z = {0.0, 0.0, 0.0, 0.0};
+  some.group = {1.0, 1.0, 1.0, 1.0};
+  std::vector<std::size_t> failing;
+  for (const auto& [check, point] : failuresOf(program, some)) {
+    failing.push_back(point);
+  }
+  std::sort(failing.begin(), failing.end());
+  failing.erase(std::unique(failing.begin(), failing.end()), failing.end());
+  CHECK(failing == std::vector<std::size_t>{1, 2, 3});
+
+  // names that are no names of Lua: an input no Impala reads, a parameter
+  const std::string names = files.write("names.yaml",
+                                        "!AffineMap\n"
+                                        "matrix:\n"
+                                        "  xi: [1.0, 0.0, 0.0]\n"
+                                        "  \"x-1\": [0.0, 1.0, 0.0]\n"
+                                        "translation:\n"
+                                        "  xi: 0.0\n"
+                                        "  \"x-1\": -1.0\n"
+                                        "components: !FunctionMap\n"
+                                        "  map:\n"
+                                        "    \"a\\\"-b\": return xi * 2;\n");
+  sc::EasiProgramReader named(names, {"x", "y", "z"}, nullptr);
+  const auto doubled = valuesOf(named, some, {"a\"-b"});
+  for (std::size_t k = 0; k < some.size(); ++k) {
+    CHECK(sameNumber(doubled[0][k], some.x[k] * 2.0));
+  }
+
+  // a variable on the right of its first assignment is not known yet
+  const std::string unknown = files.write("unknown.yaml",
+                                          "!FunctionMap\n"
+                                          "map:\n"
+                                          "  a: |\n"
+                                          "    v = v + 1;\n"
+                                          "    return v;\n");
+  CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(unknown, query)), sc::EasiModelError);
 }
 
 #ifdef SEISSOL_TEST_EASI_IMPALA_TO_LUA
-TEST_CASE("easi walker: the Lua made of Impala is easi's, token for token" *
+TEST_CASE("easi walker: Impala fails where easi's conversion fails, and computes what it computes" *
           doctest::test_suite("reader")) {
-  // easi's conversion (easi >= 1.5) and the walker's, of the same entries in the same order: the
-  // same text but for the space, or both fail
+  if (!easiReadsImpalaAsWalker()) {
+    MESSAGE("easi reads Impala otherwise than the walker (easi 1.5 to 1.7 without the fix of its "
+            "conversion); not compared");
+    return;
+  }
+  // easi's conversion and the walker's, of the same entries: both fail, or neither, and then the
+  // !FunctionMap of the entries gives easi's values
   const std::vector<std::map<std::string, std::string>> maps = {
       {{"a", "return x - y + z - 1.5 * x / y * 2;"},
        {"b",
@@ -761,10 +901,20 @@ TEST_CASE("easi walker: the Lua made of Impala is easi's, token for token" *
        {"d", "if (x < y) { return 1; } else { if (x == y) { return 2; } }\nreturn 3 + tanh(z);"}},
       {{"rho", "return 2600.;"}, {"mu", "return 007 + x;"}, {"lambda", "return -x - -y;"}},
       {{"s", "v = 1; v = v + x; if ((x > 0) || (y < 0 && z >= 1)) { v = v / 2; } return v;"}},
-      // a variable read before any assignment, a unary +, an expression for a statement, `else if`,
-      // a comparison without an operator, an exponent, a character easi does not read, a brace
-      // that ends the code early
+      // an input a function assigns to, which the other does not see; names that begin with a
+      // keyword; a bracket in a condition around an expression; chains; min, max, abs, floor
+      // and ceil
+      {{"a", "x = x + 1; return x * y;"}, {"b", "return x;"}},
+      {{"a",
+        "ifactor = 2; elsewhere = 3; returned = 5; return ifactor * elsewhere * returned + x;"}},
+      {{"a", "if ((x + 1) * 2 < y && (z > 0 || (y < 0))) { return 1; } return 0;"}},
+      {{"a", "return 10 - 3 - 2 + x - y + z / 2 / 4 * 3;"}},
+      {{"a", "return min(x, y) + max(y, z) + abs(z) + floor(x) + ceil(y);"}},
+      // a variable read before any assignment, or on the right of its first one, a unary +, an
+      // expression for a statement, `else if`, a comparison without an operator, an exponent, a
+      // character easi does not read, a brace that ends the code early
       {{"a", "return q;"}},
+      {{"a", "v = v + 1; return v;"}},
       {{"a", "return +x;"}},
       {{"a", "x + 1; return x;"}},
       {{"a", "if (x > 0) { return 1; } else if (x < 0) { return 2; } return 3;"}},
@@ -774,36 +924,43 @@ TEST_CASE("easi walker: the Lua made of Impala is easi's, token for token" *
       {{"a", "return x; } return y;"}},
       {}};
   const std::vector<std::string> in{"x", "y", "z"};
-  const auto withoutSpace = [](std::string text) {
-    text.erase(std::remove_if(
-                   text.begin(), text.end(), [](unsigned char c) { return std::isspace(c) != 0; }),
-               text.end());
-    return text;
-  };
-  for (const auto& precode : maps) {
+  const Files files;
+  const auto points = pointsIn(-3.0, 3.0, {0.0, 1.0, 2.0, -1.0}, 500);
+  for (std::size_t m = 0; m < maps.size(); ++m) {
+    const auto& precode = maps[m];
     const std::unordered_map<std::string, std::string> code(precode.begin(), precode.end());
     std::vector<sc::ImpalaEntry> entries;
     for (const auto& [name, text] : code) {
       entries.push_back(sc::ImpalaEntry{name, text, 1, true});
     }
-    std::string theirs;
     bool theyFail = false;
     try {
-      theirs = easi::convertImpalaToLua(code, in);
+      static_cast<void>(easi::convertImpalaToLua(code, in));
     } catch (const std::exception&) {
       theyFail = true;
     }
-    std::string ours;
     bool weFail = false;
     try {
-      ours = sc::impalaToLua(entries, {in.begin(), in.end()}).code;
+      static_cast<void>(sc::impalaToLua(entries, {in.begin(), in.end()}));
     } catch (const sc::ImpalaError&) {
       weFail = true;
     }
-    CAPTURE(theirs);
-    CAPTURE(ours);
+    CAPTURE(m);
     CHECK(theyFail == weFail);
-    CHECK(withoutSpace(ours) == withoutSpace(theirs));
+    if (theyFail || weFail || precode.empty()) {
+      continue;
+    }
+    std::string text = "!FunctionMap\nmap:\n";
+    std::vector<std::string> names;
+    for (const auto& [name, body] : precode) {
+      text += "  " + name + ": |\n";
+      std::istringstream lines(body);
+      for (std::string line; std::getline(lines, line);) {
+        text += "    " + line + "\n";
+      }
+      names.push_back(name);
+    }
+    sameAsEasi(files.write("map" + std::to_string(m) + ".yaml", text), names, points);
   }
 }
 #endif
@@ -844,12 +1001,15 @@ TEST_CASE("easi walker: a message about Impala names the line of the file" *
     return std::string();
   };
   // a variable easi's conversion does not know; a function Lua's math does not have, which fails
-  // at every point; a variable of an earlier point
+  // at every point; a variable without a value at some points, where the check of the value of
+  // its parameter fails, as easi stops there: at the line the code of the map begins on
   CHECK(messageOf(path).find("lines.yaml@6: Unknown variable: q") != std::string::npos);
   CHECK(messageOf(calls).find("calls.yaml@6: ") != std::string::npos);
   CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(calls, query)), sc::EasiModelError);
-  CHECK(messageOf(earlier).find("earlier.yaml@6: ") != std::string::npos);
-  CHECK_THROWS_AS(static_cast<void>(sc::easiProgram(earlier, query)), sc::EasiUnsupported);
+  const auto program = sc::easiProgram(earlier, query);
+  REQUIRE(program.checks().size() == 1);
+  CHECK(program.checks().front().message.find(
+            "earlier.yaml@3: Tried key b but it did not return a number.") != std::string::npos);
 }
 
 /// A SCEC file of 4 by 3 cells over 300 by 100, its nodes in reverse order: every value another.

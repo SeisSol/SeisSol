@@ -7,16 +7,20 @@
 #ifndef SEISSOL_SRC_READER_SCRIPTING_IMPALATOLUA_H_
 #define SEISSOL_SRC_READER_SCRIPTING_IMPALATOLUA_H_
 
-// easi's conversion of the Impala of a !FunctionMap into Lua (convertImpalaToLua(), easi >= 1.5),
-// token for token. easi runs that Lua as it runs a !LuaMap, and the walker hands it to the Lua
-// frontend (LuaFrontend.h) as it hands it a !LuaMap: what the Impala means -- the integers of Lua,
-// the functions of Lua's math with lmathx, the variables, which are globals of Lua -- is decided
-// at one place, by Lua's rules.
+// The Impala of a !FunctionMap as Lua, with the meaning ImpalaJIT gives it (easi up to 1.4) and
+// easi's conversion into Lua (convertImpalaToLua()) gives it again from its fix on: + - and * /
+// left-associative, `a - b + c` as `(a - b) + c`; the inputs local copies, which an assignment
+// changes; every other variable local to its function; the constants in binary64; the functions
+// those of C's math library (min, max and abs as fmin, fmax and fabs). easi runs that Lua as it
+// runs a !LuaMap, and the walker hands it to the Lua frontend (LuaFrontend.h) as it hands it a
+// !LuaMap, so that Lua's rules decide the rest at one place. The Lua says what easi's says, though
+// not in its words (easi's looks the functions up through a metatable, which the frontend does not
+// read); the code of every entry is on the lines of the file it is on, so that a message of the
+// frontend names the line of the file.
 //
-// The grammar is easi's, the grouping of its chains included: easi reads `a - b + c` as
-// `a - (b + c)` and `a / b * c` as `a / (b * c)`, and so does the Lua it makes. The Lua differs
-// from easi's in its line breaks only: the code of every entry is on the lines of the file it is
-// on, so that a message of the frontend names the line of the file.
+// easi 1.5 to 1.7 grouped the chains to the right (`a - (b + c)`), and took the inputs, the
+// variables and the constants otherwise; impalaToLua() names the chains whose meaning that
+// changed (ImpalaChain).
 
 #include <set>
 #include <stdexcept>
@@ -35,8 +39,8 @@ struct ImpalaEntry {
   bool literal{false};
 };
 
-/// A chain whose meaning easi's grouping changes, as in `a - b + c`: the entry, the line, the
-/// operator, and what follows it.
+/// A chain whose meaning the grouping of easi 1.5 to 1.7 changed, as in `a - b + c`: the entry,
+/// the line, the operator, and what follows it.
 struct ImpalaChain {
   std::string name;
   int line{1};
@@ -62,9 +66,8 @@ class ImpalaError : public std::runtime_error {
   int line_;
 };
 
-/// The Lua easi makes of `entries` (in the order of the file) for the inputs `inputs`. The
-/// parameters are returned in the order easi returns them, that of its hash map. Throws
-/// ImpalaError.
+/// The Lua of `entries` (in the order of the file) for the inputs `inputs`, of a name the last
+/// entry, as easi reads them. Throws ImpalaError.
 [[nodiscard]] ImpalaLua impalaToLua(const std::vector<ImpalaEntry>& entries,
                                     const std::set<std::string>& inputs);
 

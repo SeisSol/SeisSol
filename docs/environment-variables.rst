@@ -144,13 +144,16 @@ filters, ``!Include``), ``!ConstantMap``, ``!AffineMap``, ``!PolynomialMap``, ``
 Impala of ``!FunctionMap`` and the Lua of ``!LuaMap`` (with the Lua frontend, below). A file with
 Lua outside the subset of the frontend, or with a grid of ASAGI whose coordinates decrease, easi
 evaluates, which the log says, naming the component and the line. The Impala of a
-``!FunctionMap`` is read as easi 1.5 and later read it: the walker converts it into the Lua easi
-makes of it, and translates that as the Lua of an ``!LuaMap``. easi groups a chain to the right,
-``a - b + c`` as ``a - (b + c)`` and ``a / b * c`` as ``a / (b * c)``, unlike the earlier easi and
-unlike C; the walker computes what easi computes, and warns where a chain means something else so
-(put the parentheses that are meant). ``SEISSOL_EASI=easi`` evaluates every easi file
-by easi; ``SEISSOL_EASI=check`` compares the program with easi at its first call, and falls back to
-easi where they differ.
+``!FunctionMap`` means what it meant with ImpalaJIT (easi 1.4 and earlier), as in C: ``a - b + c``
+is ``(a - b) + c``, an assignment to an input changes it for the rest of the function, every other
+variable is local to the function, and ``min``, ``max`` and ``abs`` are ``fmin``, ``fmax`` and
+``fabs``. The walker converts it into Lua of that meaning, as easi does again from its fix of the
+conversion on, and translates that as the Lua of an ``!LuaMap``. easi 1.5 to 1.7 grouped a chain to
+the right, ``a - b + c`` as ``a - (b + c)`` and ``a / b * c`` as ``a / (b * c)``; the walker warns
+where a chain meant something else there. ``SEISSOL_EASI=easi`` evaluates every easi file by easi;
+``SEISSOL_EASI=check`` compares the program with easi at its first call, and falls back to easi
+where they differ -- with easi 1.5 to 1.7, where such a chain or another of its differences
+changes a value.
 
 Lua, the ``!LuaMap`` of an easi file and a Lua model (``lua:file`` or a ``.lua`` file), is
 translated into a program as well (the Lua frontend), without a Lua VM: the program computes what
