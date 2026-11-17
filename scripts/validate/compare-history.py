@@ -53,6 +53,13 @@ In addition: the bias (the mean difference, which a difference at the scale of t
 elements leaves alone), the largest difference and the area mismatch of the rupture
 time, the final slip and the peak slip rate on the fault, and the seismic moment.
 
+The fault data is compared on a grid along strike and down dip, over the region of the
+comparison; "axes" in the manifest gives the directions of the benchmark frame in the
+frame of the mesh (default: strike +x, normal +y, down -z). Two runs that wrote the same
+cells, as on one mesh, are compared cell by cell instead, over the cells whose centroid
+lies in the region, weighted by their area; so a fault that does not lie flat in that
+frame (bends, branches) is compared as it is, and the grid only serves the plots.
+
 A run may name further runs to compare with ("compare_with: [id, ...]"), e.g. the same
 commit in single precision against double precision.
 
@@ -264,6 +271,9 @@ class Solution:
     rupture: tuple | None = None
     # values at the cells of the fault output: along strike, down dip, {name: values}
     maps: tuple | None = None
+    # the cells of the fault output in the frame of the mesh: centroids and areas, by
+    # which two runs on one mesh are compared cell by cell (see match_cells)
+    cells: tuple | None = None
     stations: dict = field(default_factory=lambda: {"fault": {}, "body": {}})
     moment: Station | None = None
     warnings: list = field(default_factory=list)
@@ -453,8 +463,9 @@ def read_moment(directory: str, prefix: str) -> Station | None:
     return Station("moment", time, {"moment": moment, "moment-rate": rate})
 
 
-def read_fault_output(path: str, axes: Axes) -> tuple[float, tuple]:
-    """The last snapshot of the fault output: its time and the values at the cells."""
+def read_fault_snapshot(path: str) -> tuple[float, np.ndarray, np.ndarray, dict]:
+    """The last snapshot of the fault output: its time, the centroids and areas of the
+    cells, and the values at the cells."""
     import seissolxdmf
 
     xdmf = seissolxdmf.seissolxdmf(path)
@@ -466,7 +477,11 @@ def read_fault_output(path: str, axes: Axes) -> tuple[float, tuple]:
         time = math.inf
     geometry = np.asarray(xdmf.ReadGeometry(), dtype=float)
     connect = np.asarray(xdmf.ReadConnect(), dtype=np.int64)
-    strike, depth = axes.on_fault(geometry[connect].mean(axis=1))
+    corners = geometry[connect]
+    centroids = corners.mean(axis=1)
+    areas = 0.5 * np.linalg.norm(
+        np.cross(corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0]), axis=1
+    )
 
     def read(name):
         return np.asarray(xdmf.ReadData(name, step), dtype=float).ravel()
@@ -480,6 +495,14 @@ def read_fault_output(path: str, axes: Axes) -> tuple[float, tuple]:
         values["slip"] = np.hypot(read("Sls"), read("Sld"))
     if "PSR" in available:
         values["psr"] = read("PSR")
+    return time, centroids, areas, values
+
+
+def read_fault_output(path: str, axes: Axes) -> tuple[float, tuple]:
+    """The last snapshot of the fault output: its time and the values at the cells,
+    which lie along strike and down dip."""
+    time, centroids, _, values = read_fault_snapshot(path)
+    strike, depth = axes.on_fault(centroids)
     return time, (strike, depth, values)
 
 
@@ -513,8 +536,11 @@ def load_run(entry: dict, axes: Axes, base: str) -> Solution:
     fault_xdmf = os.path.join(directory, f"{prefix}-fault.xdmf")
     if os.path.isfile(fault_xdmf):
         try:
-            solution.fault_time, solution.maps = read_fault_output(fault_xdmf, axes)
-            strike, depth, values = solution.maps
+            time, centroids, areas, values = read_fault_snapshot(fault_xdmf)
+            strike, depth = axes.on_fault(centroids)
+            solution.fault_time = time
+            solution.maps = (strike, depth, values)
+            solution.cells = (centroids, areas)
             if "rt" in values:
                 solution.rupture = (strike, depth, values["rt"])
             else:
@@ -908,6 +934,120 @@ def compare_maps(a: GriddedFault, b: GriddedFault) -> list[tuple[str, str, float
     return results
 
 
+def match_cells(a: Solution, b: Solution) -> np.ndarray | None:
+    """For each cell of the fault output of a, the index of the same cell in that of b;
+    None unless both wrote the same cells, in any order, as two runs on one mesh do.
+
+    A cell is the same if its centroid lies within a thousandth of the size of the cells
+    (the geometry may be written in single precision)."""
+    if a.cells is None or b.cells is None:
+        return None
+    (points_a, areas_a), (points_b, _) = a.cells, b.cells
+    if len(points_a) == 0 or len(points_a) != len(points_b):
+        return None
+    from scipy.spatial import cKDTree
+
+    distance, index = cKDTree(points_b).query(points_a)
+    size = math.sqrt(float(np.median(areas_a)))
+    if distance.max() > 1e-3 * size or len(np.unique(index)) != len(index):
+        return None
+    return index
+
+
+def _cells_in_region(solution: Solution, region) -> np.ndarray:
+    strike, depth, _ = solution.maps
+    if region is None:
+        return np.ones(len(strike), dtype=bool)
+    return (
+        (strike >= region[0])
+        & (strike <= region[1])
+        & (depth >= region[2])
+        & (depth <= region[3])
+    )
+
+
+def compare_rupture_cells(
+    a: Solution, b: Solution, index: np.ndarray, until: float, region=None
+) -> list[tuple[str, str, float]]:
+    """The rupture time of a against b cell by cell (index from match_cells), over the
+    cells in the region, weighted by their area: the metrics of compare_rupture."""
+    values_a, values_b = a.maps[2], b.maps[2]
+    if "rt" not in values_a or "rt" not in values_b:
+        return []
+    inside = _cells_in_region(a, region)
+    area = a.cells[1]
+    time_a, time_b = values_a["rt"], values_b["rt"][index]
+    with np.errstate(invalid="ignore"):
+        ruptured_a = (
+            inside
+            & np.isfinite(time_a)
+            & (time_a > 0.0)
+            & (time_a < NO_RUPTURE)
+            & (time_a <= until)
+        )
+        ruptured_b = (
+            inside
+            & np.isfinite(time_b)
+            & (time_b > 0.0)
+            & (time_b < NO_RUPTURE)
+            & (time_b <= until)
+        )
+    both = ruptured_a & ruptured_b
+    either = ruptured_a | ruptured_b
+    if not np.any(either):
+        return []
+    results = [
+        (
+            "rt",
+            "area_mismatch",
+            float(np.sum(area[either & ~both]) / np.sum(area[either])),
+        )
+    ]
+    if np.any(both):
+        difference, weights = (time_a - time_b)[both], area[both]
+        results += [
+            (
+                "rt",
+                "rms_ms",
+                1000.0 * math.sqrt(float(np.average(difference**2, weights=weights))),
+            ),
+            ("rt", "bias_ms", 1000.0 * float(np.average(difference, weights=weights))),
+            ("rt", "max_ms", 1000.0 * float(np.max(np.abs(difference)))),
+        ]
+    return results
+
+
+def compare_maps_cells(
+    a: Solution, b: Solution, index: np.ndarray, region=None
+) -> list[tuple[str, str, float]]:
+    """Final slip and peak slip rate of a against b cell by cell, weighted by the area
+    of the cells: the metrics of compare_maps."""
+    values_a, values_b = a.maps[2], b.maps[2]
+    inside = _cells_in_region(a, region)
+    area = a.cells[1]
+    results = []
+    for name in ("slip", "psr"):
+        if name not in values_a or name not in values_b:
+            continue
+        x, y = values_a[name], values_b[name][index]
+        valid = inside & np.isfinite(x) & np.isfinite(y)
+        if not np.any(valid):
+            continue
+        weights = area[valid] / np.mean(area[valid])
+        root = np.sqrt(weights)
+        results.append((name, "nrms", nrms(x[valid] * root, y[valid] * root)))
+        results.append(
+            (
+                name,
+                "rms",
+                math.sqrt(
+                    float(np.average((x[valid] - y[valid]) ** 2, weights=weights))
+                ),
+            )
+        )
+    return results
+
+
 def compare_moment(
     a: Station, b: Station, end_time: float, max_shift: float
 ) -> list[tuple[str, str, float]]:
@@ -931,6 +1071,8 @@ class Settings:
     end_time: float
     max_shift: float
     signs: dict
+    # the region of the comparison of the fault data, along strike and down dip
+    region: tuple | None = None
 
 
 def compare_solutions(
@@ -940,7 +1082,10 @@ def compare_solutions(
     settings: Settings,
     signs: dict | None = None,
 ) -> list[dict]:
-    """Every metric of a measured against b."""
+    """Every metric of a measured against b.
+
+    The fault data of two runs that wrote the same cells is compared cell by cell, over
+    the cells in the region; else, and against an upload, on the grid."""
     rows = []
 
     def add(category, station, results):
@@ -956,10 +1101,17 @@ def compare_solutions(
             )
 
     until = min(a.fault_time, b.fault_time, settings.end_time)
-    add("rupture", "", compare_rupture(gridded[a.id], gridded[b.id], until))
+    index = match_cells(a, b)
+    if index is not None:
+        add("rupture", "", compare_rupture_cells(a, b, index, until, settings.region))
+    else:
+        add("rupture", "", compare_rupture(gridded[a.id], gridded[b.id], until))
     if not (a.scec or b.scec):
         if math.isclose(a.fault_time, b.fault_time, rel_tol=1e-6, abs_tol=1e-6):
-            add("fault-map", "", compare_maps(gridded[a.id], gridded[b.id]))
+            if index is not None:
+                add("fault-map", "", compare_maps_cells(a, b, index, settings.region))
+            else:
+                add("fault-map", "", compare_maps(gridded[a.id], gridded[b.id]))
     for kind in ("fault", "body"):
         for name in sorted(set(a.stations[kind]) & set(b.stations[kind])):
             add(
@@ -1702,7 +1854,7 @@ def main(argv: list[str] | None = None) -> int:
     signs, sign_origin = choose_signs(
         sign_source, codes, manifest.get("scec_signs"), end_time
     )
-    settings = Settings(float(end_time), args.max_shift, signs)
+    settings = Settings(float(end_time), args.max_shift, signs, region)
     gridded = {solution.id: grid_fault(solution, grid) for solution in runs + codes}
 
     pairs = []

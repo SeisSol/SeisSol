@@ -425,6 +425,101 @@ class TestRupture:
         assert np.any(np.isfinite(gridded.rupture[grid.along < -500.0]))
 
 
+def run_on_cells(name, centroids, areas, rt, order=None, fault_time=10.0):
+    """A run whose fault output holds these cells, written in the given order."""
+    order = np.arange(len(rt)) if order is None else np.asarray(order)
+    solution = ch.Solution(id=name, label=name)
+    axes = ch.Axes.from_spec(None)
+    strike, depth = axes.on_fault(centroids[order])
+    solution.fault_time = fault_time
+    solution.maps = (strike, depth, {"rt": rt[order], "slip": 2.0 * rt[order]})
+    solution.cells = (centroids[order], areas[order])
+    solution.rupture = (strike, depth, rt[order])
+    return solution
+
+
+def fault_cells(vertices, cells):
+    corners = vertices[cells]
+    areas = 0.5 * np.linalg.norm(
+        np.cross(corners[:, 1] - corners[:, 0], corners[:, 2] - corners[:, 0]), axis=1
+    )
+    return corners.mean(axis=1), areas
+
+
+class TestCells:
+    region = (-6000.0, 6000.0, 0.0, 12000.0)
+
+    def compare(self, a, b, region=None):
+        grid = ch.Grid.over(region or self.region, 250.0)
+        gridded = {run.id: ch.grid_fault(run, grid) for run in (a, b)}
+        settings = ch.Settings(10.0, 0.0, {}, region or self.region)
+        return {
+            (row["category"], row["quantity"], row["metric"]): row["value"]
+            for row in ch.compare_solutions(a, b, gridded, settings)
+        }
+
+    def test_runs_on_one_mesh_compare_cell_by_cell_in_any_order(self):
+        vertices, cells = fault_mesh()
+        centroids, areas = fault_cells(vertices, cells)
+        rt = rupture_times(vertices, cells)
+        shuffled = np.random.default_rng(1).permutation(len(rt))
+        a = run_on_cells("a", centroids, areas, rt)
+        b = run_on_cells("b", centroids, areas, rt + 0.01, order=shuffled)
+        assert ch.match_cells(a, b) is not None
+        results = self.compare(a, b)
+        assert results[("rupture", "rt", "max_ms")] == pytest.approx(10.0)
+        assert results[("rupture", "rt", "bias_ms")] == pytest.approx(-10.0)
+        assert results[("rupture", "rt", "area_mismatch")] == 0.0
+        same = self.compare(a, run_on_cells("c", centroids, areas, rt, order=shuffled))
+        assert same[("rupture", "rt", "max_ms")] == 0.0
+        assert same[("fault-map", "slip", "nrms")] == 0.0
+
+    def test_branches_that_overlie_each_other_stay_apart(self):
+        # two parallel branches, 3 km apart: on the grid along strike and down dip,
+        # they lie on each other
+        vertices, cells = fault_mesh()
+        other = vertices + np.array([0.0, 3000.0, 0.0])
+        both = np.vstack([vertices, other])
+        cells = np.vstack([cells, cells + len(vertices)])
+        centroids, areas = fault_cells(both, cells)
+        rt = rupture_times(both, cells)
+        later = rt.copy()
+        later[centroids[:, 1] > 1000.0] += 0.05
+        results = self.compare(
+            run_on_cells("a", centroids, areas, rt),
+            run_on_cells("b", centroids, areas, later),
+        )
+        assert results[("rupture", "rt", "max_ms")] == pytest.approx(50.0)
+        # one of the branches, half of the area
+        assert results[("rupture", "rt", "bias_ms")] == pytest.approx(-25.0)
+
+    def test_the_region_limits_the_cells(self):
+        vertices, cells = fault_mesh()
+        centroids, areas = fault_cells(vertices, cells)
+        rt = rupture_times(vertices, cells)
+        later = rt.copy()
+        later[centroids[:, 0] > 3000.0] += 0.05
+        a = run_on_cells("a", centroids, areas, rt)
+        b = run_on_cells("b", centroids, areas, later)
+        inside = self.compare(a, b, region=(-6000.0, 2000.0, 0.0, 12000.0))
+        assert inside[("rupture", "rt", "max_ms")] == 0.0
+        assert self.compare(a, b)[("rupture", "rt", "max_ms")] == pytest.approx(50.0)
+
+    def test_other_cells_are_compared_on_the_grid(self):
+        vertices, cells = fault_mesh()
+        centroids, areas = fault_cells(vertices, cells)
+        # the same mesh, moved by 50 m along strike: other cells
+        moved = vertices + np.array([50.0, 0.0, 0.0])
+        moved_centroids, moved_areas = fault_cells(moved, cells)
+        a = run_on_cells("a", centroids, areas, rupture_times(vertices, cells))
+        b = run_on_cells(
+            "b", moved_centroids, moved_areas, rupture_times(moved, cells, delay=0.01)
+        )
+        assert ch.match_cells(a, b) is None
+        results = self.compare(a, b, region=(-5000.0, 5000.0, 1000.0, 11000.0))
+        assert results[("rupture", "rt", "bias_ms")] == pytest.approx(-10.0, abs=0.5)
+
+
 # ============================================================================
 # reading the outputs of SeisSol
 # ============================================================================
@@ -562,6 +657,13 @@ class TestReadingRuns:
         assert values["rt"] == pytest.approx(rt)
         assert values["slip"] == pytest.approx(2 * rt)
         assert "psr" not in values
+        # the cells: half a square of 1 km each
+        run = ch.load_run(
+            {"id": "a", "output": str(tmp_path / "tpv")}, ch.Axes.from_spec(None), ""
+        )
+        centroids, areas = run.cells
+        assert centroids == pytest.approx(vertices[cells].mean(axis=1))
+        assert areas == pytest.approx(np.full(len(cells), 0.5e6))
 
     def test_energy_output_keeps_fractional_times(self):
         import pandas as pd

@@ -42,6 +42,9 @@ Two runs count as equal if no metric of compare-history.py exceeds its tolerance
 nrms of any station or map (--tolerance, in percent), the largest difference of the
 rupture time (--rupture-tolerance, in ms) and the relative difference of the seismic
 moment (--moment-tolerance; some versions write the energies with six digits only).
+The fault output of two runs on the same mesh is compared cell by cell, over the cells
+in --region, along strike and down dip as --axes gives these directions in the frame of
+the mesh (by default +x and -z); for a fault along y, e.g. --axes=+y,+x,-z.
 --repeat runs the first commit twice and reports what two runs of one build differ by.
 """
 
@@ -247,7 +250,8 @@ class Tolerances:
 def distance(a, b, region, spacing: float = 100.0, cache: dict | None = None) -> dict:
     """The largest differences between two runs (Solutions of compare-history.py).
 
-    cache keeps the fault data of a run on the grid, by the id of the run.
+    cache keeps the fault data of a run on the grid, by the id of the run; two runs on
+    the same mesh are compared cell by cell, over the cells in the region.
     """
     grid = history.Grid.over(region, spacing)
     cache = {} if cache is None else cache
@@ -255,7 +259,7 @@ def distance(a, b, region, spacing: float = 100.0, cache: dict | None = None) ->
         if solution.id not in cache:
             cache[solution.id] = history.grid_fault(solution, grid)
     gridded = {a.id: cache[a.id], b.id: cache[b.id]}
-    settings = history.Settings(math.inf, 0.0, {})
+    settings = history.Settings(math.inf, 0.0, {}, tuple(region))
     rows = history.compare_solutions(a, b, gridded, settings)
 
     def largest(select):
@@ -287,6 +291,17 @@ def distance(a, b, region, spacing: float = 100.0, cache: dict | None = None) ->
         ),
         "compared": len(rows),
     }
+
+
+def parse_axes(text: str) -> dict:
+    """The directions of --axes ("+y,+x,-z") as compare-history.py takes them."""
+    parts = [part.strip() for part in text.split(",")]
+    if len(parts) != 3:
+        raise ValueError(f"--axes needs three directions, not {text!r}")
+    spec = dict(zip(("strike", "normal", "down"), parts))
+    # refuses what is no axis
+    history.Axes.from_spec(spec)
+    return spec
 
 
 def differ(measured: dict, tolerances: Tolerances) -> bool:
@@ -681,7 +696,9 @@ def write_report(
         handle.write("\n".join(lines) + "\n")
 
 
-def write_manifest(work, campaign: Campaign, commits, result, region) -> str:
+def write_manifest(
+    work, campaign: Campaign, commits, result, region, axes: dict | None = None
+) -> str:
     """A manifest of compare-history.py with every run in the order of the commits."""
     runs = []
     for index in sorted(result.evaluated):
@@ -704,6 +721,8 @@ def write_manifest(work, campaign: Campaign, commits, result, region) -> str:
         "region": list(region),
         "runs": runs,
     }
+    if axes:
+        manifest["axes"] = axes
     path = os.path.join(work, "manifest.json")
     with open(path, "w") as handle:
         json.dump(manifest, handle, indent=1)
@@ -764,6 +783,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar=("ALONG_MIN", "ALONG_MAX", "DOWN_MIN", "DOWN_MAX"),
         help="region of the rupture time comparison [m]",
     )
+    parser.add_argument(
+        "--axes",
+        default="+x,+y,-z",
+        metavar="STRIKE,NORMAL,DOWN",
+        help="directions along strike, normal to the fault and down dip in the frame "
+        "of the mesh, e.g. +y,+x,-z for a fault along y (default: +x,+y,-z)",
+    )
     parser.add_argument("--tolerance", type=float, default=Tolerances.nrms)
     parser.add_argument(
         "--rupture-tolerance", type=float, default=Tolerances.rupture_ms
@@ -789,6 +815,11 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if bool(args.range) == bool(args.commits):
         print("error: give either --range or --commits", file=sys.stderr)
+        return 2
+    try:
+        axes_spec = parse_axes(args.axes)
+    except ValueError as error:
+        print(f"error: {error}", file=sys.stderr)
         return 2
     os.makedirs(args.work, exist_ok=True)
     work = os.path.abspath(args.work)
@@ -831,7 +862,7 @@ def main(argv: list[str] | None = None) -> int:
     tolerances = Tolerances(
         args.tolerance, args.rupture_tolerance, args.moment_tolerance
     )
-    axes = history.Axes.from_spec(None)
+    axes = history.Axes.from_spec(axes_spec)
     solutions = {}
 
     def solution(index):
@@ -890,7 +921,7 @@ def main(argv: list[str] | None = None) -> int:
         if record.get("patched")
     }
     write_report(work, commits, result, measured, repeat, left_out, patched)
-    manifest = write_manifest(work, campaign, commits, result, args.region)
+    manifest = write_manifest(work, campaign, commits, result, args.region, axes_spec)
     print(f"changes: {os.path.join(work, 'changes.md')}")
     if not args.no_history:
         history.main([manifest, "--out", os.path.join(work, "history")])

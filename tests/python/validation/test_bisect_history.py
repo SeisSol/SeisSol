@@ -157,6 +157,13 @@ class TestDistance:
         assert measured["compared"] == 0 and bh.differ(measured, bh.Tolerances())
 
 
+def test_axes_name_three_directions():
+    assert bh.parse_axes("+y, +x, -z") == {"strike": "+y", "normal": "+x", "down": "-z"}
+    for text in ("+y,+x", "+y,+x,-w"):
+        with pytest.raises(ValueError):
+            bh.parse_axes(text)
+
+
 def test_the_executable_is_found_by_its_name(tmp_path):
     def make(name, executable=True):
         path = tmp_path / "app" / name
@@ -268,6 +275,7 @@ def test_end_to_end(tmp_path):
             "1",
             "--no-history",
             "--repeat",
+            "--axes=+y,+x,-z",
         ]
     )
     assert code == 0
@@ -290,6 +298,7 @@ def test_end_to_end(tmp_path):
     assert "| `" in (work / "changes.md").read_text()
     manifest = json.loads((work / "manifest.json").read_text())
     assert [run["label"] for run in manifest["runs"]][0] == "#100"
+    assert manifest["axes"] == {"strike": "+y", "normal": "+x", "down": "-z"}
     # the first commit ran twice, alike
     assert changes["repeat"]["station_nrms"] == 0.0
     first = commits[0].split()[0][:9]
