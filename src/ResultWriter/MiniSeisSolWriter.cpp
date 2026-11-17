@@ -10,6 +10,7 @@
 #include "Common/RunId.h"
 #include "IO/Instance/Point/Csv.h"
 #include "Parallel/MPI.h"
+#include "Parallel/SystemInfo.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -33,7 +34,8 @@ void seissol::writer::MiniSeisSolWriter::record(double elapsedTime, double weigh
 }
 
 void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix,
-                                               const std::string& runId) const {
+                                               const std::string& runId,
+                                               const SystemInfo& systemInfo) const {
   if (!measurement_.has_value()) {
     return;
   }
@@ -54,7 +56,7 @@ void seissol::writer::MiniSeisSolWriter::write(const std::string& outputPrefix,
       return elapsedTimeVector[i] > elapsedTimeVector[j];
     });
 
-    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
+    const auto& hostNames = systemInfo.getHostNames();
 
     seissol::io::instance::point::Csv table("miniSeissol");
     table.addTextColumn("hostname", widest(hostNames));

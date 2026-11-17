@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  precomputed-hash: d99813fa00f1bd87beb1024d69e0640f85da14aa
+  precomputed-hash: 5c6b2283aaf549d51e6b55e4e4a93e73bddec1c0
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -157,28 +157,24 @@ jobs:
         setup:
           - cc: gcc-13
             cxx: g++-13
-            fc: gfortran-13
             container: seissol/gha-cpu:davschneller-gpu-image
             pythonbreak: true
             mpi: openmpi
             name: gcc-13
           - cc: clang-19
             cxx: clang++-19
-            fc: gfortran-13 # TODO?
             container: seissol/gha-cpu:davschneller-gpu-image
             pythonbreak: true
             mpi: openmpi
             name: clang-19
           - cc: icx
             cxx: icpx
-            fc: ifx
             container: seissol/gha-gpu-intel:davschneller-gpu-image
             pythonbreak: false
             mpi: intel
             name: icx-2024
           #- cc: nvc
           #  cxx: nvc++
-          #  fc: nvfortran
           #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
           #  pythonbreak: true
           #  mpi: openmpi
@@ -203,9 +199,9 @@ jobs:
         run: |
           # circumvent problems with the Intel image still using Ubuntu 22.04
           if [ "${{ matrix.setup.pythonbreak }}" = true ]; then
-            pip3 install --break-system-packages "numpy>=1.12.0" lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
+            pip3 install --break-system-packages --ignore-installed lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
           else
-            pip3 install "numpy>=1.12.0" lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
+            pip3 install lxml==5.0.0 setuptools seissolxdmf h5py pandas jq
           fi
 
       - name: get-precomputed-solutions

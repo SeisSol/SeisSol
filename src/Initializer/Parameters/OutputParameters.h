@@ -90,8 +90,9 @@ struct FreeSurfaceOutputParameters {
   unsigned refinement{0};
   double interval{0};
   int vtkorder{-1};
-  // per quantity of the material of the configuration of the run
-  std::vector<bool> outputMask;
+  // per configuration, by its id (empty for those the run does not compute in), per quantity of
+  // its material
+  std::vector<std::vector<bool>> outputMask;
   ProjectionMethod projection{ProjectionMethod::L2};
   // none if the parameters choose none (see TimeSeriesMode)
   std::optional<TimeSeriesMode> timeSeries;
@@ -167,11 +168,12 @@ struct WaveFieldOutputParameters {
   double interval{0};
   VolumeRefinement refinement{VolumeRefinement::NoRefine};
   OutputBounds bounds;
-  // per quantity of the material of the configuration of the run
-  std::vector<bool> outputMask;
+  // per configuration, by its id (empty for those the run does not compute in), per quantity of
+  // its material
+  std::vector<std::vector<bool>> outputMask;
   std::array<bool, seissol::model::PlasticityQuantityCount> plasticityMask{};
-  // per quantity of the material of the configuration of the run
-  std::vector<bool> integrationMask;
+  // as outputMask
+  std::vector<std::vector<bool>> integrationMask;
   std::unordered_set<int> groups;
   bool computeRotation{false};
   bool computeStrain{false};
@@ -184,7 +186,13 @@ struct OutputParameters {
   OutputFormat format{OutputFormat::None};
   XdmfBackend xdmfWriterBackend{};
   uint32_t hdfcompress{0};
-  std::string prefix;
+  //! the directory of the outputs; empty for the working directory
+  std::string outputPath;
+  //! what the names of the output files start with, in their directory
+  std::string outputName;
+  //! whether each run writes into a directory of its own in outputPath, named by outputName and
+  //! the ID of the run (see initprocedure::createOutputDirectory)
+  bool outputDirPerSim{false};
   CheckpointParameters checkpointParameters;
   ElementwiseFaultParameters elementwiseParameters;
   EnergyOutputParameters energyParameters;
@@ -194,12 +202,17 @@ struct OutputParameters {
   WaveFieldOutputParameters waveFieldParameters;
   //! the simulated time after which a simulation epoch ends at the latest; zero for no limit
   double epochInterval{0};
+  //! whether the run measures what its cells cost, and writes it to <prefix>-vertexweights.h5 at
+  //! the end, for a later run to partition by (discretization.vertexweightfile)
+  bool vertexWeightOutput{false};
 
   OutputParameters() = default;
   OutputParameters(OutputFormat format,
                    XdmfBackend xdmfWriterBackend,
                    uint32_t hdfcompress,
-                   std::string prefix,
+                   std::string outputPath,
+                   std::string outputName,
+                   bool outputDirPerSim,
                    const CheckpointParameters& checkpointParameters,
                    const ElementwiseFaultParameters& elementwiseParameters,
                    const EnergyOutputParameters& energyParameters,
@@ -208,7 +221,8 @@ struct OutputParameters {
                    ReceiverOutputParameters receiverParameters,
                    WaveFieldOutputParameters waveFieldParameters)
       : format(format), xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress),
-        prefix(std::move(prefix)), checkpointParameters(checkpointParameters),
+        outputPath(std::move(outputPath)), outputName(std::move(outputName)),
+        outputDirPerSim(outputDirPerSim), checkpointParameters(checkpointParameters),
         elementwiseParameters(elementwiseParameters), energyParameters(energyParameters),
         freeSurfaceParameters(std::move(freeSurfaceParameters)),
         pickpointParameters(std::move(pickpointParameters)),
@@ -225,14 +239,18 @@ ElementwiseFaultParameters
     readElementwiseParameters(ParameterReader* baseReader,
                               std::optional<TimeSeriesMode> defaultTimeSeries);
 EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader);
-FreeSurfaceOutputParameters readFreeSurfaceParameters(
-    ParameterReader* baseReader, std::optional<TimeSeriesMode> defaultTimeSeries, ConfigId config);
+FreeSurfaceOutputParameters
+    readFreeSurfaceParameters(ParameterReader* baseReader,
+                              std::optional<TimeSeriesMode> defaultTimeSeries,
+                              const std::vector<ConfigId>& configs);
 PickpointParameters readPickpointParameters(ParameterReader* baseReader);
 ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader);
 WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
                                                   std::optional<TimeSeriesMode> defaultTimeSeries,
-                                                  ConfigId config);
-OutputParameters readOutputParameters(ParameterReader* baseReader, ConfigId config);
+                                                  const std::vector<ConfigId>& configs);
+/// The output parameters of a run whose cells compute in the configurations `configs`.
+OutputParameters readOutputParameters(ParameterReader* baseReader,
+                                      const std::vector<ConfigId>& configs);
 } // namespace seissol::initializer::parameters
 
 #endif // SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_

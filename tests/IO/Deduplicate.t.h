@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Common/Environment.h"
 #include "IO/Instance/Geometry/Deduplicate.h"
 #include "IO/Instance/Geometry/Geometry.h"
 
@@ -125,13 +126,13 @@ class ScopedEnv {
     if (previous != nullptr) {
       previous_ = std::string(previous);
     }
-    setenv(name, value, 1);
+    setEnvironmentVariable(name, value);
   }
   ~ScopedEnv() {
     if (previous_.has_value()) {
-      setenv(name_, previous_->c_str(), 1);
+      setEnvironmentVariable(name_, previous_->c_str());
     } else {
-      unsetenv(name_);
+      unsetEnvironmentVariable(name_);
     }
   }
   ScopedEnv(const ScopedEnv&) = delete;
@@ -149,19 +150,19 @@ TEST_CASE("IO/Deduplicate: the vertex filter can be switched off" * doctest::tes
   using seissol::io::instance::geometry::vertexFilterEnabled;
 
   SUBCASE("On when nothing is set") {
-    unsetenv("SEISSOL_IO_VERTEXFILTER");
-    unsetenv("SEISSOL_VERTEXFILTER");
+    unsetEnvironmentVariable("SEISSOL_IO_VERTEXFILTER");
+    unsetEnvironmentVariable("SEISSOL_VERTEXFILTER");
     CHECK(vertexFilterEnabled());
   }
 
   SUBCASE("The current name switches it") {
-    unsetenv("SEISSOL_VERTEXFILTER");
+    unsetEnvironmentVariable("SEISSOL_VERTEXFILTER");
     const ScopedEnv env("SEISSOL_IO_VERTEXFILTER", "0");
     CHECK_FALSE(vertexFilterEnabled());
   }
 
   SUBCASE("The previous name still switches it") {
-    unsetenv("SEISSOL_IO_VERTEXFILTER");
+    unsetEnvironmentVariable("SEISSOL_IO_VERTEXFILTER");
     const ScopedEnv env("SEISSOL_VERTEXFILTER", "0");
     CHECK_FALSE(vertexFilterEnabled());
   }

@@ -35,6 +35,8 @@
 #include "Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Monitoring/Trace.h"
+#include "Parallel/Runtime/HostRuntime.h"
 
 #include <Device/device.h>
 #include <utility>
@@ -430,7 +432,7 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
     SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
     SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
-    SEISSOL_GPU_PARAM double time,
+    SEISSOL_GPU_PARAM const double* time,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 
@@ -451,6 +453,8 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
       auto* analytical = reinterpret_cast<real(*)[tensor::INodal<Cfg>::size()]>(
           layer.var<LTS::AnalyticScratch>(Cfg()));
 
+      static const auto TraceName = monitoring::Trace::name("boundary conditions");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
       runtime.enqueueLoop(
           numElements,
           [this, face, time, timeStepWidth, analytical, &cellIds, &layer](std::size_t index) {
@@ -466,7 +470,7 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
             analyticalBoundary_.evaluate(data.template get<LTS::BoundaryMapping>()[face],
                                          applyAnalyticalSolution,
                                          dofsFaceBoundaryNodal,
-                                         time,
+                                         *time,
                                          timeStepWidth);
 
             std::memcpy(analytical[index], dofsFaceBoundaryNodal, sizeof(dofsFaceBoundaryNodal));

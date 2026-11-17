@@ -20,13 +20,24 @@ class NoTP {
 
   static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
 
-  SEISSOL_DEVICE static void calcFluidPressure(FrictionLawContext<Cfg>& __restrict ctx,
-                                               uint32_t timeIndex,
-                                               bool saveTmpInTP) {}
+  SEISSOL_DEVICE static void prepareFluidPressure(FrictionLawContext<Cfg>& __restrict ctx,
+                                                  uint32_t timeIndex) {}
+
+  SEISSOL_DEVICE static void applyShearHeating(FrictionLawContext<Cfg>& __restrict ctx) {}
+
+  SEISSOL_DEVICE static void finalizeFluidPressure(FrictionLawContext<Cfg>& __restrict ctx,
+                                                   uint32_t timeIndex) {}
 
   SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext<Cfg>& /*unused*/) {
     return static_cast<real>(0.0);
   };
+
+  SEISSOL_DEVICE static real fluidPressureOffset(FrictionLawContext<Cfg>& /*unused*/) {
+    return static_cast<real>(0.0);
+  }
+  SEISSOL_DEVICE static real fluidPressureSlope(FrictionLawContext<Cfg>& /*unused*/) {
+    return static_cast<real>(0.0);
+  }
 };
 
 } // namespace seissol::dr::friction_law::gpu

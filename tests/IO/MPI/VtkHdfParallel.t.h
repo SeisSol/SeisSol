@@ -16,14 +16,13 @@
 #include "IO/Reader/File/Hdf5Reader.h"
 #include "IO/WriterHarness.t.h"
 #include "Parallel/MPI.h"
+#include "TestHelper.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <mpi.h>
 #include <string>
-#include <unistd.h>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -38,24 +37,19 @@ struct SharedTempDir {
   std::string path;
 
   SharedTempDir() {
-    std::vector<char> buffer(256, '\0');
     if (Mpi::mpi.rank() == 0) {
-      std::string name = "/tmp/seissoliompitestXXXXXX";
-      const char* created = mkdtemp(name.data());
-      REQUIRE(created != nullptr);
-      std::ranges::copy(name, buffer.begin());
+      path = createTemporaryDirectory("seissoliompitest");
     }
-    MPI_Bcast(buffer.data(), static_cast<int>(buffer.size()), MPI_CHAR, 0, Mpi::mpi.comm());
-    path = std::string(buffer.data());
+    Mpi::mpi.broadcastContainer(path, 0);
     // the ranks may not share a file system view instantly; make sure the directory is there
     // everywhere before anyone opens a file in it collectively
     std::error_code error;
     std::filesystem::create_directories(path, error);
-    MPI_Barrier(Mpi::mpi.comm());
+    Mpi::mpi.barrier();
   }
 
   ~SharedTempDir() {
-    MPI_Barrier(Mpi::mpi.comm());
+    Mpi::mpi.barrier();
     if (Mpi::mpi.rank() == 0) {
       std::error_code error;
       std::filesystem::remove_all(path, error);
@@ -113,7 +107,7 @@ TEST_CASE("IO/VtkHdf: unequal partitions produce one consistent grid" * doctest:
   auto plan = vtk.makeWriter()(dir.prefix(), 0, 0.0);
   unit_test::io::runPlan(plan, Mpi::mpi.comm());
 
-  MPI_Barrier(Mpi::mpi.comm());
+  Mpi::mpi.barrier();
 
   const auto path = dir.prefix() + "-volume-0.vtkhdf";
   REQUIRE(std::filesystem::exists(path));
@@ -201,7 +195,7 @@ TEST_CASE("IO/VtkHdf: compression survives unequal partitions" * doctest::test_s
   auto plan = vtk.makeWriter()(dir.prefix(), 0, 0.0);
   unit_test::io::runPlan(plan, Mpi::mpi.comm());
 
-  MPI_Barrier(Mpi::mpi.comm());
+  Mpi::mpi.barrier();
 
   reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
   hdf5.openFile(dir.prefix() + "-volume-0.vtkhdf");
@@ -264,7 +258,7 @@ TEST_CASE("IO/VtkHdf: shared points are offset per rank" * doctest::test_suite("
 
   auto plan = geometry.makeWriter()(dir.prefix(), 0, 0.0);
   unit_test::io::runPlan(plan, Mpi::mpi.comm());
-  MPI_Barrier(Mpi::mpi.comm());
+  Mpi::mpi.barrier();
 
   reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
   hdf5.openFile(dir.prefix() + "-volume-0.vtkhdf");
@@ -350,18 +344,12 @@ TEST_CASE("IO/Grouping: the groups agree across ranks" * doctest::test_suite("io
 
   // ... and the ranges of the ranks cover the group exactly once
   std::vector<int> covered(grouping.globalCount[elasticGroup] + grouping.globalCount[poroGroup], 0);
-  std::vector<int> mine(covered.size(), 0);
   for (std::size_t point = 0; point < points.size(); ++point) {
     const auto flat = grouping.index[point] +
                       (grouping.group[point] == poroGroup ? grouping.globalCount[elasticGroup] : 0);
-    ++mine[flat];
+    ++covered[flat];
   }
-  MPI_Allreduce(mine.data(),
-                covered.data(),
-                static_cast<int>(covered.size()),
-                MPI_INT,
-                MPI_SUM,
-                Mpi::mpi.comm());
+  Mpi::mpi.allreduceContainer(covered, MPI_SUM);
   for (const auto count : covered) {
     CHECK(count == 1);
   }
@@ -423,7 +411,7 @@ TEST_CASE("IO/Hdf5Table: a rank without points of a table still writes with it" 
     written += samples;
   }
 
-  MPI_Barrier(Mpi::mpi.comm());
+  Mpi::mpi.barrier();
 
   reader::file::Hdf5Reader hdf5(MPI_COMM_SELF);
   hdf5.openFile(dir.prefix() + "-points.h5");

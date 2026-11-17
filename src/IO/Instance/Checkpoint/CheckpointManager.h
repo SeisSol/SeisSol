@@ -16,6 +16,7 @@
 #include "Memory/Tree/LTSTree.h"
 #include "Memory/Tree/Layer.h"
 
+#include <cstddef>
 #include <map>
 #include <string>
 #include <utils/logger.h>
@@ -48,6 +49,13 @@ class CheckpointManager {
   /// and its order is stored with them.
   void setConfig(ConfigId config) { config_ = config; }
 
+  /// The simulations of the run, and the ones a cell fuses: they decide which copy of a cell or
+  /// face a data point is, and so a checkpoint restarts the simulations it was written with only.
+  void setSimulations(std::size_t simulationCount, std::size_t fusedCount) {
+    simulationCount_ = simulationCount;
+    fusedCount_ = fusedCount;
+  }
+
   template <typename VarmapT>
   void registerTree(const std::string& name,
                     initializer::Storage<VarmapT>& storage,
@@ -59,19 +67,18 @@ class CheckpointManager {
 
   template <typename StorageT, typename VarmapT>
   void registerData(const std::string& name, initializer::Storage<VarmapT>& storage) {
-    if (storage.template info<StorageT>().mask != initializer::LayerMask(Ghost)) {
+    const auto& info = storage.template info<StorageT>();
+    if (info.mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
     }
     // The values of all layers go into one dataset, of the type the configuration holds them in.
+    // A variable added with a count holds that many values for every cell, one after the other
+    // (see Storage::add), and the dataset holds them as one value per cell all the same.
     dispatchConfig(config_, [&](auto cfg) {
       using ValueT = initializer::StorageType<StorageT, decltype(cfg)>;
+      const auto datatype = perCellDatatype(datatype::inferDatatype<ValueT>(), info.count);
       dataRegistry_[&storage].variables.emplace_back(
-          CheckpointVariable{name,
-                             storage.template var<StorageT>(),
-                             datatype::inferDatatype<ValueT>(),
-                             datatype::inferDatatype<ValueT>(),
-                             {},
-                             {}});
+          CheckpointVariable{name, storage.template var<StorageT>(), datatype, datatype, {}, {}});
     });
   }
 
@@ -132,8 +139,15 @@ class CheckpointManager {
   double loadCheckpoint(const std::string& file);
 
   private:
+  /// The type of what a cell holds of a variable: `count` values of `type`, as one array whose
+  /// leading extent is that count, so that a checkpoint records how many values a cell holds.
+  static std::shared_ptr<datatype::Datatype>
+      perCellDatatype(const std::shared_ptr<datatype::Datatype>& type, std::size_t count);
+
   std::map<void*, CheckpointTree> dataRegistry_;
   ConfigId config_{};
+  std::size_t simulationCount_{1};
+  std::size_t fusedCount_{1};
 };
 
 } // namespace seissol::io::instance::checkpoint

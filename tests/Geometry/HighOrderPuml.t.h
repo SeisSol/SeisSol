@@ -22,6 +22,7 @@
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Parallel/MPI.h"
+#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 #include "TestHelper.h"
 #include "VertexOrderInvariance.t.h"
@@ -99,22 +100,18 @@ TEST_CASE("PUMLReader reads straight-sided cells of a higher order as cells of t
       seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
-  seissolParameters.model.materialFileName = tpath("Testing/material.yaml");
+  seissolParameters.model.materialFileNames = {tpath("Testing/material.yaml")};
   seissolParameters.model.useCellHomogenizedMaterial = true;
   seissolParameters.model.plasticity = false;
   const utils::Env env("SEISSOL_");
-  seissol::SeisSol seissolInstance(seissolParameters, env);
+  const seissol::SystemInfo systemInfo;
+  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
   // the reader takes the mesh, and forgets the nodes beyond the vertices
   const auto reader =
       vertexorderinvariancetest::readMesh("Testing/cube2-o2-straight.h5", "None", seissolInstance);
-  std::uint64_t cells = reader->getElements().size();
-  MPI_Allreduce(MPI_IN_PLACE,
-                &cells,
-                1,
-                seissol::Mpi::castToMpiType<std::uint64_t>(),
-                MPI_SUM,
-                seissol::Mpi::mpi.comm());
+  const auto cells =
+      seissol::Mpi::mpi.allreduce<std::uint64_t>(reader->getElements().size(), MPI_SUM);
   CHECK(cells == 48);
 
   std::cout.clear();

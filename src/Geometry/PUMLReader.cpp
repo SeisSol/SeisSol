@@ -20,6 +20,7 @@
 #include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Monitoring/Instrumentation.h"
+#include "Parallel/MPI.h"
 #include "PartitioningLib.h"
 
 #include <Eigen/Dense>
@@ -46,6 +47,7 @@
 #include <hdf5.h>
 #include <mpi.h>
 #include <numeric>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -184,6 +186,8 @@ double orientationDeterminant(const std::array<const double*, Cell::NumVertices>
   return mat.determinant();
 }
 
+} // namespace
+
 /**
  * The canonical local vertex numbering of a cell: sort the vertices by global topological id,
  * then repair the orientation with the transposition (2 3) where the sorted order would come out
@@ -231,6 +235,8 @@ std::array<std::uint8_t, Cell::NumFaces> canonicalFaceMap(const VertexOrder& ord
   }
   return map;
 }
+
+namespace {
 
 /**
  * Recover the vertex order from a face map. PumlFaceMissingVertex is a bijection, so the face map
@@ -288,10 +294,7 @@ std::string stringAttribute(const std::string& file, const char* dataset, const 
       H5Fclose(h5file);
     }
   }
-  auto length = static_cast<std::uint64_t>(value.size());
-  MPI_Bcast(&length, 1, PUML::MPITypeInfer<std::uint64_t>::type(), 0, Mpi::mpi.comm());
-  value.resize(length);
-  MPI_Bcast(value.data(), static_cast<int>(length), MPI_CHAR, 0, Mpi::mpi.comm());
+  Mpi::mpi.broadcastContainer(value, 0);
   return value;
 }
 
@@ -317,7 +320,7 @@ int integerSignOf(const std::string& file, const char* dataset) {
       H5Fclose(h5file);
     }
   }
-  MPI_Bcast(&sign, 1, MPI_INT, 0, Mpi::mpi.comm());
+  Mpi::mpi.broadcast(&sign, 0);
   return sign;
 }
 
@@ -327,13 +330,7 @@ int integerSignOf(const std::string& file, const char* dataset) {
  */
 std::size_t firstCellOf(const PumlMesh& mesh) {
   const std::size_t localCells = mesh.numOriginalCells();
-  std::size_t firstCell = 0;
-  MPI_Exscan(
-      &localCells, &firstCell, 1, PUML::MPITypeInfer<std::size_t>::type(), MPI_SUM, mesh.comm());
-  // MPI_Exscan leaves the result on the first rank undefined
-  int rank = 0;
-  MPI_Comm_rank(mesh.comm(), &rank);
-  return rank == 0 ? 0 : firstCell;
+  return Mpi::mpi.scan(localCells, MPI_SUM, false, mesh.comm());
 }
 
 /// the vertices of a local cell, in the vertex order of the file
@@ -415,6 +412,97 @@ double
 }
 } // namespace
 
+std::optional<std::string> stringAttributeOf(hid_t object, const char* name) {
+  if (H5Aexists(object, name) <= 0) {
+    return {};
+  }
+  const hid_t attribute = H5Aopen(object, name, H5P_DEFAULT);
+  if (attribute < 0) {
+    return {};
+  }
+  const hid_t type = H5Aget_type(attribute);
+  std::optional<std::string> value;
+  if (H5Tis_variable_str(type) > 0) {
+    char* raw = nullptr;
+    if (H5Aread(attribute, type, static_cast<void*>(&raw)) >= 0 && raw != nullptr) {
+      value = std::string(raw);
+      H5free_memory(raw);
+    }
+  } else {
+    std::vector<char> data(H5Tget_size(type));
+    if (H5Aread(attribute, type, data.data()) >= 0) {
+      // up to the first null, if there is one
+      value = std::string(data.begin(), std::ranges::find(data, '\0'));
+    }
+  }
+  H5Tclose(type);
+  H5Aclose(attribute);
+  return value;
+}
+
+auto boundaryFormatOf(hid_t file) -> seissol::initializer::parameters::BoundaryFormat {
+  using seissol::initializer::parameters::BoundaryFormat;
+  const auto given = stringAttributeOf(file, "boundary-format");
+  if (given.has_value()) {
+    logInfo() << "Boundary format given in PUML file.";
+    if (given.value() == "i32x4") {
+      return BoundaryFormat::I32x4;
+    }
+    if (given.value() == "i64") {
+      return BoundaryFormat::I64;
+    }
+    if (given.value() == "i32") {
+      return BoundaryFormat::I32;
+    }
+    logError() << "Unknown boundary format given in PUML file:" << given.value();
+  }
+
+  logInfo() << "Boundary format not given in PUML file; inferring from array shape.";
+  int rank = -1;
+  const hid_t dataset = H5Dopen2(file, "boundary", H5P_DEFAULT);
+  if (dataset >= 0) {
+    const hid_t space = H5Dget_space(dataset);
+    rank = H5Sget_simple_extent_ndims(space);
+    H5Sclose(space);
+    H5Dclose(dataset);
+  }
+  // avoid checking the type size here
+  if (rank == 2) {
+    return BoundaryFormat::I32x4;
+  }
+  if (rank != 1) {
+    logError() << "Unknown boundary format of rank" << rank;
+  }
+  return BoundaryFormat::I32;
+}
+
+auto topologyFormatOf(hid_t file) -> seissol::initializer::parameters::TopologyFormat {
+  using seissol::initializer::parameters::TopologyFormat;
+  const auto given = stringAttributeOf(file, "topology-format");
+  if (given.has_value()) {
+    logInfo() << "Topology format given in PUML file.";
+    if (given.value() == "geometric") {
+      return TopologyFormat::Geometric;
+    }
+    if (given.value() == "identify-face") {
+      return TopologyFormat::IdentifyFace;
+    }
+    if (given.value() == "identify-vertex") {
+      return TopologyFormat::IdentifyVertex;
+    }
+    logError() << "Unknown topology format given in PUML file:" << given.value();
+  }
+
+  logInfo() << "Topology format not given in PUML file; inferring from data present.";
+  if (H5Aexists(file, "identify") > 0) {
+    return TopologyFormat::IdentifyVertex;
+  }
+  if (H5Aexists(file, "topology") > 0) {
+    return TopologyFormat::IdentifyFace;
+  }
+  return TopologyFormat::Geometric;
+}
+
 auto PumlCellArrays::rebasedTo(const PumlMesh& clone) const -> PumlCellArrays {
   auto rebased = *this;
   rebased.group = clone.rebase(group);
@@ -438,25 +526,10 @@ auto summarizeHighOrderGeometry(const PumlMesh& meshGeometry, const HighOrderArr
       }
     }
   }
-  MPI_Allreduce(MPI_IN_PLACE,
-                &summary.highOrderCells,
-                1,
-                PUML::MPITypeInfer<std::uint64_t>::type(),
-                MPI_SUM,
-                Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE,
-                &summary.curvedCells,
-                1,
-                PUML::MPITypeInfer<std::uint64_t>::type(),
-                MPI_SUM,
-                Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE,
-                &summary.order,
-                1,
-                PUML::MPITypeInfer<std::uint64_t>::type(),
-                MPI_MAX,
-                Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE, &summary.curvature, 1, MPI_DOUBLE, MPI_MAX, Mpi::mpi.comm());
+  summary.highOrderCells = Mpi::mpi.allreduce(summary.highOrderCells, MPI_SUM);
+  summary.curvedCells = Mpi::mpi.allreduce(summary.curvedCells, MPI_SUM);
+  summary.order = Mpi::mpi.allreduce(summary.order, MPI_MAX);
+  summary.curvature = Mpi::mpi.allreduce(summary.curvature, MPI_MAX);
   return summary;
 }
 
@@ -719,8 +792,7 @@ auto PUMLReader::partition(PumlMesh& meshTopology,
   weightModel->build(*clustering);
   graph.setVertexWeights(weightModel->vertexWeights(), weightModel->nWeightsPerVertex());
 
-  auto nodeWeights = std::vector<double>(Mpi::mpi.size());
-  MPI_Allgather(&tpwgt, 1, MPI_DOUBLE, nodeWeights.data(), 1, MPI_DOUBLE, seissol::Mpi::mpi.comm());
+  auto nodeWeights = Mpi::mpi.allgather(tpwgt);
   double sum = 0.0;
   for (const auto& w : nodeWeights) {
     sum += w;

@@ -17,6 +17,8 @@
 #include "Initializer/Parameters/DRParameters.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Monitoring/Instrumentation.h"
+#include "Monitoring/Trace.h"
+#include "Parallel/Runtime/HostRuntime.h"
 
 #include <algorithm>
 #include <yaml-cpp/yaml.h>
@@ -66,8 +68,9 @@ class BaseFrictionLaw : public FrictionSolverImpl<Cfg> {
       std::copy_n(timeWeights, localTimeWeights.size(), localTimeWeights.begin());
 
       // loop over all dynamic rupture faces, in this LTS layer
-#pragma omp parallel for schedule(static)
-      for (std::size_t ltsFace = 0; ltsFace < this->currLayerSize_; ++ltsFace) {
+      static const auto TraceName = monitoring::Trace::name("friction law");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
+      parallel::runtime::HostRuntime::forEach(this->currLayerSize_, [&](std::size_t ltsFace) {
         alignas(Alignment) ImposedState<Cfg, Executor::Host> imposedState{};
         alignas(Alignment) FaultStresses<Cfg, Executor::Host> faultStresses{};
         alignas(Alignment) FaultStresses<Cfg, Executor::Host> initialStress{};
@@ -207,7 +210,7 @@ class BaseFrictionLaw : public FrictionSolverImpl<Cfg> {
                                              this->slipRateMagnitude_[ltsFace],
                                              this->drParameters_.energiesFromAcrossFaultVelocities);
         }
-      }
+      });
     } else {
       logError() << "The material" << model::MaterialOf<Cfg>::Text
                  << "does not support DR friction law computations.";

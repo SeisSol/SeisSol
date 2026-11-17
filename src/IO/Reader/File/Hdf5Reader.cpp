@@ -10,8 +10,7 @@
 #include "Common/Literals.h"
 #include "IO/Datatype/Datatype.h"
 #include "IO/Datatype/HDF5Type.h"
-#include "IO/Datatype/Inference.h"
-#include "IO/Datatype/MPIType.h"
+#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -74,6 +73,9 @@ void Hdf5Reader::openGroup(const std::string& name) {
   const hid_t handle = _eh(H5Gopen(handles_.top(), name.c_str(), H5P_DEFAULT));
   handles_.push(handle);
 }
+bool Hdf5Reader::hasAttribute(const std::string& name) {
+  return _eh(H5Aexists(handles_.top(), name.c_str())) > 0;
+}
 std::size_t Hdf5Reader::attributeCount(const std::string& name) {
   checkExistence(name, "attribute");
   const hid_t attr = _eh(H5Aopen(handles_.top(), name.c_str(), H5P_DEFAULT));
@@ -103,10 +105,8 @@ std::size_t Hdf5Reader::dataCount(const std::string& name) {
   _eh(H5Sclose(dataspace));
   _eh(H5Dclose(dataset));
 
-  int mpirank = 0;
-  int mpisize = 0;
-  MPI_Comm_size(comm_, &mpisize);
-  MPI_Comm_rank(comm_, &mpirank);
+  const int mpisize = seissol::Mpi::sizeOf(comm_);
+  const int mpirank = seissol::Mpi::rankOf(comm_);
 
   return dims[0] / mpisize + ((dims[0] % mpisize) > static_cast<std::size_t>(mpirank) ? 1 : 0);
 }
@@ -125,6 +125,20 @@ std::size_t Hdf5Reader::dataRowSize(const std::string& name) {
     rowSize *= dims[i];
   }
   return rowSize;
+}
+std::vector<std::size_t> Hdf5Reader::dataValueShape(const std::string& name) {
+  checkExistence(name, "dataset");
+  const hid_t dataset = _eh(H5Dopen(handles_.top(), name.c_str(), H5P_DEFAULT));
+  const hid_t type = _eh(H5Dget_type(dataset));
+  std::vector<std::size_t> shape;
+  if (H5Tget_class(type) == H5T_ARRAY) {
+    std::vector<hsize_t> dims(static_cast<std::size_t>(_eh(H5Tget_array_ndims(type))));
+    _eh(H5Tget_array_dims2(type, dims.data()));
+    shape.assign(dims.begin(), dims.end());
+  }
+  _eh(H5Tclose(type));
+  _eh(H5Dclose(dataset));
+  return shape;
 }
 
 void Hdf5Reader::readDataRaw(void* data,
@@ -151,20 +165,9 @@ void Hdf5Reader::readDataRaw(void* data,
   }
 
   const std::size_t chunksize = std::max(1_UZ, 2'000'000'000_UZ / (targetType->size() * dimprod));
-  std::size_t rounds = (count + chunksize - 1) / chunksize;
-  std::size_t start = 0;
-  MPI_Allreduce(MPI_IN_PLACE,
-                &rounds,
-                1,
-                datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-                MPI_MAX,
-                comm_);
-  MPI_Exscan(&count,
-             &start,
-             1,
-             datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-             MPI_SUM,
-             comm_);
+  const std::size_t rounds =
+      seissol::Mpi::mpi.allreduce((count + chunksize - 1) / chunksize, MPI_MAX, comm_);
+  const std::size_t start = seissol::Mpi::mpi.scan(count, MPI_SUM, false, comm_);
 
   std::vector<hsize_t> nullstart(rank);
   std::vector<hsize_t> readcount(rank);

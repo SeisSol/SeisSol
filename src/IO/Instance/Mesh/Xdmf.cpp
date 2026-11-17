@@ -8,8 +8,6 @@
 #include "Xdmf.h"
 
 #include "IO/Datatype/Datatype.h"
-#include "IO/Datatype/Inference.h"
-#include "IO/Datatype/MPIType.h"
 #include "IO/Instance/Geometry/Typedefs.h"
 #include "IO/Instance/Mesh/VtkHdf.h"
 #include "IO/Instance/Metadata/Xml.h"
@@ -23,6 +21,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <mpi.h>
@@ -31,7 +30,6 @@
 #include <string>
 #include <utility>
 #include <utils/logger.h>
-#include <utils/stringutils.h>
 #include <vector>
 
 namespace seissol::io::instance::mesh {
@@ -222,33 +220,15 @@ XdmfWriter::XdmfWriter(const std::string& name,
                        std::optional<VertexMap> vertexMap)
     : name_(name), type_(geometry::xdmfType(shape, targetDegree)), binary_(binary),
       compress_(compress), localElementCount_(localElementCount),
-      globalElementCount_(localElementCount),
+      globalElementCount_(seissol::Mpi::mpi.allreduce(localElementCount, MPI_SUM)),
+      elementOffset_(seissol::Mpi::mpi.scan(localElementCount, MPI_SUM, false)),
       pointsPerElement_(
           geometry::numPoints(std::max(targetDegree, static_cast<std::size_t>(1)), shape)) {
-  MPI_Exscan(&localElementCount,
-             &elementOffset_,
-             1,
-             datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-             MPI_SUM,
-             seissol::Mpi::mpi.comm());
-  MPI_Allreduce(&localElementCount,
-                &globalElementCount_,
-                1,
-                datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-                MPI_SUM,
-                seissol::Mpi::mpi.comm());
   localPointCount_ =
       vertexMap.has_value() ? vertexMap->localPointCount : localElementCount * pointsPerElement_;
   if (vertexMap.has_value()) {
-    // shared points, so how many this rank has is no longer a multiple of the cell count.
-    // MPI_Exscan leaves the result untouched on rank 0, so it has to start at zero.
-    pointOffset_ = 0;
-    MPI_Exscan(&localPointCount_,
-               &pointOffset_,
-               1,
-               datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-               MPI_SUM,
-               seissol::Mpi::mpi.comm());
+    // shared points, so how many this rank has is no longer a multiple of the cell count
+    pointOffset_ = seissol::Mpi::mpi.scan(localPointCount_, MPI_SUM, false);
     pointSourceCount_ = localPointCount_;
     pointsPerSource_ = 1;
   } else {
@@ -309,14 +289,7 @@ void XdmfWriter::addData(const std::string& name,
   const auto binary{this->binary_};
   const auto compress{this->compress_};
 
-  std::size_t globalCount = localCount;
-
-  MPI_Allreduce(&localCount,
-                &globalCount,
-                1,
-                datatype::convertToMPI(datatype::inferDatatype<std::size_t>()),
-                MPI_SUM,
-                seissol::Mpi::mpi.comm());
+  const std::size_t globalCount = seissol::Mpi::mpi.allreduce(localCount, MPI_SUM);
 
   const auto alignment = writer::file::outputAlignment();
 
@@ -327,8 +300,8 @@ void XdmfWriter::addData(const std::string& name,
     result.datatype = data->datatype();
     result.format = binary ? "Binary" : "HDF";
 
-    const auto filenameParts = utils::StringUtils::split(preFilename, '/');
-    const auto& filename = filenameParts.back();
+    // (the separators of the platform are understood here; e.g. also backslashes on Windows)
+    const auto filename = std::filesystem::path(preFilename).filename().string();
 
     // for both binary and HDF5: append to the same dataset (add a dummy dimension)
 

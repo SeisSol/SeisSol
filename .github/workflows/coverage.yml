@@ -22,7 +22,7 @@ jobs:
       - name: apt-get
         run: |
           sudo apt-get update
-          sudo apt-get install lcov ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libomp-dev libopenmpi-dev libptscotch-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip libblas-dev liblapack-dev liblapacke-dev
+          sudo apt-get install lcov ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libomp-dev libopenmpi-dev libptscotch-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip
 
           # h5py for the verification tests, which write their meshes with it
           sudo pip3 install setuptools numpy h5py --break-system-packages
@@ -52,7 +52,6 @@ jobs:
 
           export CC=gcc-15
           export CXX=g++-15
-          export FC=gfortran-15
 
           mkdir -p /opt/seissol
 

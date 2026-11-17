@@ -35,8 +35,11 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
+#include "Monitoring/Trace.h"
 #include "Numerical/BasisFunction.h"
 #include "Numerical/Quadrature.h"
+#include "Parallel/Runtime/HostActor.h"
+#include "Parallel/Runtime/HostRuntime.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -49,9 +52,14 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <utility>
 #include <vector>
+
+#ifdef ACL_DEVICE
+#include "Kernels/DeviceAux/HostCopyAux.h"
+#endif
 
 using namespace seissol::dr::misc::quantity_indices;
 
@@ -75,43 +83,12 @@ std::vector<std::size_t> ReceiverOutput::getOutputVariables() const {
           drStorage_->info<DynamicRupture::Slip2>().index};
 }
 
-void ReceiverOutput::gatherFaultState(const std::shared_ptr<ReceiverOutputData>& outputData,
-                                      parallel::runtime::StreamRuntime& runtime) {
-  if constexpr (isDeviceOn()) {
-    for (auto& [_, dataCollector] : outputData->deviceVariables) {
-      dataCollector->gatherToHost(runtime.stream());
-    }
-  }
-}
-
-void ReceiverOutput::keepStepStart(const std::shared_ptr<ReceiverOutputData>& outputData) const {
-  const auto& faces = outputData->topology.faces;
-  for (const auto variable : getOutputVariables()) {
-    auto& kept = outputData->stepStart[variable];
-    const auto gathered = outputData->deviceVariables.find(variable);
-    for (std::size_t faceId = 0; faceId < faces.size(); ++faceId) {
-      const auto& position = faces[faceId].position;
-      auto& layer = drStorage_->layer(position.color);
-      const auto bytes = drStorage_->info(variable).bytesLayer(layer.getIdentifier());
-      if (kept.faceBytes == 0) {
-        kept.faceBytes = bytes;
-        kept.data.resize(bytes * faces.size());
-      }
-      // the faces of an output share the layout of their variables
-      assert(bytes == kept.faceBytes);
-      const auto* source = gathered != outputData->deviceVariables.end()
-                               ? static_cast<const std::uint8_t*>(gathered->second->get(faceId))
-                               : static_cast<const std::uint8_t*>(layer.varUntyped(variable)) +
-                                     bytes * position.cell;
-      std::memcpy(kept.data.data() + kept.faceBytes * faceId, source, bytes);
-    }
-  }
-}
-
 template <typename Derived>
 template <typename Cfg>
-void ReceiverOutputImpl<Derived>::getDofs(const Real<Cfg>*(&derivatives), std::size_t meshId) {
-  const auto position = wpBackmap_->get(meshId);
+void ReceiverOutputImpl<Derived>::getDofs(const Real<Cfg>*(&derivatives),
+                                          std::size_t meshId,
+                                          std::size_t copy) {
+  const auto position = wpBackmap_->get(meshId, copy);
   auto& layer = wpStorage_->layer(position.color);
   // get DOFs from 0th derivatives
   assert(
@@ -126,12 +103,78 @@ template <typename Derived>
 template <typename Cfg>
 void ReceiverOutputImpl<Derived>::getNeighborDofs(const Real<Cfg>*(&derivatives),
                                                   std::size_t meshId,
+                                                  std::size_t copy,
                                                   std::size_t side) {
-  const auto position = wpBackmap_->get(meshId);
+  const auto position = wpBackmap_->get(meshId, copy);
   auto& layer = wpStorage_->layer(position.color);
 
   derivatives = static_cast<const Real<Cfg>*>(layer.var<LTS::FaceNeighbors>()[position.cell][side]);
   assert(derivatives != nullptr);
+}
+
+void ReceiverOutput::gatherFaultOutput(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                       parallel::runtime::StreamRuntime& runtime) {
+  if constexpr (isDeviceOn()) {
+    outputData->deviceDataCollector->gatherToHost(runtime.stream());
+    gatherFaultState(outputData, runtime);
+  }
+}
+
+parallel::runtime::HostActor::Staging
+    ReceiverOutput::gatherForHost(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                  parallel::runtime::StreamRuntime& runtime,
+                                  bool withDerivatives,
+                                  [[maybe_unused]] const double* deviceClock) {
+  const auto staging = outputData->hostQueue->take(runtime);
+  auto* bytes = static_cast<std::uint8_t*>(staging.device);
+#ifdef ACL_DEVICE
+  if (deviceClock != nullptr) {
+    // by a kernel, as the copy engines may be busy with a large copy of another stream
+    kernels::device::aux::hostcopy::copyToHost(
+        bytes, deviceClock, sizeof(double), runtime.stream());
+  }
+#endif
+  if (withDerivatives) {
+    outputData->deviceDataCollector->gatherTo(bytes + outputData->dataOffset, runtime.stream());
+  }
+  if (outputData->deviceVariables != nullptr) {
+    outputData->deviceVariables->gatherTo(bytes + outputData->variablesOffset, runtime.stream());
+  }
+  return staging;
+}
+
+void ReceiverOutput::gatherFaultState(const std::shared_ptr<ReceiverOutputData>& outputData,
+                                      parallel::runtime::StreamRuntime& runtime) {
+  if constexpr (isDeviceOn()) {
+    if (outputData->deviceVariables != nullptr) {
+      outputData->deviceVariables->gatherToHost(runtime.stream());
+    }
+  }
+}
+
+void ReceiverOutput::keepStepStart(const std::shared_ptr<ReceiverOutputData>& outputData) const {
+  const auto& faces = outputData->topology.faces;
+  for (const auto variable : getOutputVariables()) {
+    auto& kept = outputData->stepStart[variable];
+    const auto gathered = outputData->deviceVariableSets.find(variable);
+    for (std::size_t faceId = 0; faceId < faces.size(); ++faceId) {
+      const auto& position = faces[faceId].position;
+      auto& layer = drStorage_->layer(position.color);
+      const auto bytes = drStorage_->info(variable).bytesLayer(layer.getIdentifier());
+      if (kept.faceBytes == 0) {
+        kept.faceBytes = bytes;
+        kept.data.resize(bytes * faces.size());
+      }
+      // the faces of an output share the layout of their variables
+      assert(bytes == kept.faceBytes);
+      const auto* source = gathered != outputData->deviceVariableSets.end()
+                               ? static_cast<const std::uint8_t*>(
+                                     outputData->gatheredVariable(gathered->second, faceId))
+                               : static_cast<const std::uint8_t*>(layer.varUntyped(variable)) +
+                                     bytes * position.cell;
+      std::memcpy(kept.data.data() + kept.faceBytes * faceId, source, bytes);
+    }
+  }
 }
 
 template <typename Derived>
@@ -143,14 +186,46 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
     double time,
     double dt,
     double indt) {
+
+  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
+                           ? outputData->currentCacheLevel
+                           : 0;
+
+  auto& callRuntime =
+      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
+
+  if (isDeviceOn() && outputData->hostQueue != nullptr) {
+    // the host actor takes the samples from a buffer of their own, once the device is done
+    const auto staging = gatherForHost(outputData, runtime);
+    std::vector<std::function<void(std::size_t)>> handlers;
+    forEachConfig([&](auto cfg) {
+      using Cfg = decltype(cfg);
+      if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
+        handlers.push_back(this->template faultOutputHandler<Cfg>(
+            outputType, slipRateOutputType, outputData, level, time, dt, indt));
+      }
+    });
+    outputData->hostQueue->post(runtime, staging, [outputData, handlers](const void* data) {
+      outputData->gathered = data;
+      static const auto TraceName = monitoring::Trace::name("fault receivers");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
+      for (const auto& handler : handlers) {
+        parallel::runtime::HostRuntime::forEach(outputData->topology.faceCount(), handler);
+      }
+      outputData->gathered = nullptr;
+    });
+    if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
+      outputData->cachedTime[outputData->currentCacheLevel] = time;
+      outputData->currentCacheLevel += 1;
+    }
+    return;
+  }
+
   if constexpr (isDeviceOn()) {
     if (outputData->extraRuntime.has_value()) {
       runtime.eventSync(outputData->extraRuntime->eventRecord());
     }
-    outputData->deviceDataCollector->gatherToHost(runtime.stream());
-    for (auto& [_, dataCollector] : outputData->deviceVariables) {
-      dataCollector->gatherToHost(runtime.stream());
-    }
+    gatherFaultOutput(outputData, runtime);
     if (outputData->extraRuntime.has_value()) {
       outputData->extraRuntime->eventSync(runtime.eventRecord());
     }
@@ -161,8 +236,42 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
     // the setup rejects a fault in a material without dynamic rupture, whose quantities hold
     // none of the stresses the output reads
     if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
-      this->template calcFaultOutputOfConfig<Cfg>(
-          outputType, slipRateOutputType, outputData, runtime, time, dt, indt);
+      static const auto TraceName = monitoring::Trace::name("fault receivers");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
+      callRuntime.enqueueLoop(
+          outputData->topology.faceCount(),
+          this->template faultOutputHandler<Cfg>(
+              outputType, slipRateOutputType, outputData, level, time, dt, indt));
+    }
+  });
+
+  if (outputType == seissol::initializer::parameters::OutputType::AtPickpoint) {
+    outputData->cachedTime[outputData->currentCacheLevel] = time;
+    outputData->currentCacheLevel += 1;
+  }
+}
+
+template <typename Derived>
+void ReceiverOutputImpl<Derived>::evaluateFaultOutput(
+    seissol::initializer::parameters::OutputType outputType,
+    seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
+    const std::shared_ptr<ReceiverOutputData>& outputData,
+    double time,
+    double dt,
+    double indt) {
+  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
+                           ? outputData->currentCacheLevel
+                           : 0;
+  const auto faces = outputData->topology.faceCount();
+
+  forEachConfig([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
+      const auto handler = this->template faultOutputHandler<Cfg>(
+          outputType, slipRateOutputType, outputData, level, time, dt, indt);
+      static const auto TraceName = monitoring::Trace::name("fault receivers");
+      const parallel::runtime::HostRuntime::LoopName loopName(TraceName);
+      parallel::runtime::HostRuntime::forEach(faces, handler);
     }
   });
 
@@ -174,19 +283,16 @@ void ReceiverOutputImpl<Derived>::calcFaultOutput(
 
 template <typename Derived>
 template <typename Cfg>
-void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
+std::function<void(std::size_t)> ReceiverOutputImpl<Derived>::faultOutputHandler(
     seissol::initializer::parameters::OutputType outputType,
     seissol::initializer::parameters::SlipRateOutputType slipRateOutputType,
     const std::shared_ptr<ReceiverOutputData>& outputData,
-    parallel::runtime::StreamRuntime& runtime,
+    std::size_t level,
     double time,
     double dt,
     double indt) {
   using real = Real<Cfg>;
 
-  const size_t level = (outputType == seissol::initializer::parameters::OutputType::AtPickpoint)
-                           ? outputData->currentCacheLevel
-                           : 0;
   const auto& faultInfos = meshReader_->getFault();
 
   // the friction solve advances in the sub intervals of the time quadrature; the stored friction
@@ -197,19 +303,16 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
   const auto timeCoeffs = kernels::timeBasis<Cfg>().point(indt, dt);
   const double positionInStep = dt > 0 ? std::clamp(indt / dt, 0.0, 1.0) : 1.0;
 
-  auto& callRuntime =
-      outputData->extraRuntime.has_value() ? outputData->extraRuntime.value() : runtime;
-
-  const auto handler = [this,
-                        outputData,
-                        &faultInfos,
-                        outputType,
-                        slipRateOutputType,
-                        level,
-                        timeCoeffs,
-                        time,
-                        positionInStep,
-                        frictionTime](std::size_t faceId) {
+  return [this,
+          outputData,
+          &faultInfos,
+          outputType,
+          slipRateOutputType,
+          level,
+          timeCoeffs,
+          time,
+          positionInStep,
+          frictionTime](std::size_t faceId) {
     constexpr auto Variant = configIdOf<Cfg>();
 
     const auto& topology = outputData->topology;
@@ -259,16 +362,14 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
       const real* steMinus = nullptr;
 
       if constexpr (isDeviceOn()) {
-        stePlus =
-            static_cast<const real*>(outputData->deviceDataCollector->get(outFace.deviceDataPlus));
-        steMinus =
-            static_cast<const real*>(outputData->deviceDataCollector->get(outFace.deviceDataMinus));
+        stePlus = static_cast<const real*>(outputData->gatheredData(outFace.deviceDataPlus));
+        steMinus = static_cast<const real*>(outputData->gatheredData(outFace.deviceDataMinus));
       } else {
-        getDofs<Cfg>(stePlus, faultInfo.element.value());
+        getDofs<Cfg>(stePlus, faultInfo.element.value(), outFace.copy);
         if (faultInfo.neighborElement.hasValue()) {
-          getDofs<Cfg>(steMinus, faultInfo.neighborElement.value());
+          getDofs<Cfg>(steMinus, faultInfo.neighborElement.value(), outFace.copy);
         } else {
-          getNeighborDofs<Cfg>(steMinus, faultInfo.element.value(), faultInfo.side);
+          getNeighborDofs<Cfg>(steMinus, faultInfo.element.value(), outFace.copy, faultInfo.side);
         }
       }
 
@@ -325,7 +426,8 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
 
       for (const auto i : topology.receiversOf(pointId)) {
         local.index = i;
-        local.fusedIndex = outputData->receivers[i].simIndex;
+        // the simulation among the fused ones of the copy of the face
+        local.fusedIndex = outputData->receivers[i].simIndex % Cfg::NumSimulations;
 
         assert(outputData->receivers[i].isInside == true &&
                "a receiver is not within any tetrahedron adjacent to a fault");
@@ -363,7 +465,7 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
         this->computeLocalStresses(local);
         const real strength = derived().computeLocalStrength(local);
         const real strengthSlope = derived().computeLocalStrengthSlope(local);
-        updateLocalTractions(local, strength, strengthSlope);
+        derived().updateLocalTractions(local, strength, strengthSlope);
 
         std::array<real, 6> updatedStress{};
         updatedStress[QuantityIndices::XX] = local.transientNormalTraction;
@@ -508,8 +610,6 @@ void ReceiverOutputImpl<Derived>::calcFaultOutputOfConfig(
       }
     }
   };
-
-  callRuntime.enqueueLoop(outputData->topology.faceCount(), handler);
 }
 
 template <typename Derived>
@@ -656,28 +756,18 @@ void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local,
     const auto& impedanceMatrices =
         local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
 
-    const auto solution = friction_law::common::solveSlipRate<Cfg>(
-        impAndEta, impedanceMatrices, component1, component2, tracEla, strength, strengthSlope);
+    friction_law::common::SlipRateSolution<Cfg> solution{};
+    friction_law::common::solveSlipRate<Cfg>(impAndEta,
+                                             impedanceMatrices,
+                                             component1,
+                                             component2,
+                                             tracEla,
+                                             strength,
+                                             strengthSlope,
+                                             solution);
 
-    local.slipRateTangent1 = solution.slipRate * solution.direction1;
-    local.slipRateTangent2 = solution.slipRate * solution.direction2;
-
-    const auto [tractionUpdate1, tractionUpdate2] = friction_law::common::matmulEta<Cfg>(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
-    const auto normalUpdate = friction_law::common::matmulEtaNormal<Cfg>(
-        impAndEta, impedanceMatrices, local.slipRateTangent1, local.slipRateTangent2);
-
-    local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
-    local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
-    local.transientNormalTraction -= normalUpdate;
-
-    // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
-    // state through the first row of Y+. The friction solve moves that traction, and with an
-    // anisotropic admittance the two shear components move the fault-normal velocity as well.
-    constexpr std::size_t Count = tensor::Zplus<Cfg>::Shape[0];
-    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
-                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
-                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
+    applySlipRate(
+        local, solution.slipRate * solution.direction1, solution.slipRate * solution.direction2);
   } else {
     if (tracEla > std::abs(strength)) {
       local.updatedTraction1 =
@@ -692,6 +782,38 @@ void ReceiverOutputImpl<Derived>::updateLocalTractions(LocalInfo<Cfg>& local,
       local.updatedTraction1 = local.faceAlignedStress12;
       local.updatedTraction2 = local.faceAlignedStress13;
     }
+  }
+}
+
+template <typename Derived>
+template <typename Cfg>
+void ReceiverOutputImpl<Derived>::applySlipRate(LocalInfo<Cfg>& local,
+                                                Real<Cfg> slipRate1,
+                                                Real<Cfg> slipRate2) {
+  const auto& impAndEta = local.layer->template var<DynamicRupture::ImpAndEta>(Cfg())[local.ltsId];
+  const auto& impedanceMatrices =
+      local.layer->template var<DynamicRupture::ImpedanceMatrices>(Cfg())[local.ltsId];
+
+  local.slipRateTangent1 = slipRate1;
+  local.slipRateTangent2 = slipRate2;
+
+  const auto [tractionUpdate1, tractionUpdate2] =
+      friction_law::common::matmulEta<Cfg>(impAndEta, impedanceMatrices, slipRate1, slipRate2);
+  const auto normalUpdate = friction_law::common::matmulEtaNormal<Cfg>(
+      impAndEta, impedanceMatrices, slipRate1, slipRate2);
+
+  local.updatedTraction1 = local.faceAlignedStress12 - tractionUpdate1;
+  local.updatedTraction2 = local.faceAlignedStress13 - tractionUpdate2;
+  local.transientNormalTraction -= normalUpdate;
+
+  if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
+    // computeLocalStresses maps the traction of the Riemann problem to the velocity of the Godunov
+    // state through the first row of Y+. The slip moves that traction, and with an anisotropic
+    // admittance the two shear components move the fault-normal velocity as well.
+    constexpr std::size_t Count = tensor::Zplus<Cfg>::Shape[0];
+    local.faultNormalVelocity -= impedanceMatrices.impedance[0 * Count + 0] * normalUpdate +
+                                 impedanceMatrices.impedance[1 * Count + 0] * tractionUpdate1 +
+                                 impedanceMatrices.impedance[2 * Count + 0] * tractionUpdate2;
   }
 }
 

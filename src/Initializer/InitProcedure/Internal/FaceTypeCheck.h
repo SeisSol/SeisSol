@@ -7,10 +7,39 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_FACETYPECHECK_H_
 #define SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_FACETYPECHECK_H_
 
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Memory/Descriptor/LTS.h"
 
+#include <cstdint>
+#include <string>
+#include <vector>
+
 namespace seissol::initializer::internal {
+
+//! @brief The bit of @p faceType in the masks of a FaceTypeCensus.
+constexpr std::uint32_t faceTypeBit(FaceType faceType) {
+  return std::uint32_t{1} << static_cast<std::uint8_t>(faceType);
+}
+
+//! @brief The face types the cells of a configuration have, as masks of their faceTypeBit.
+struct FaceTypeCensus {
+  //! the face types the cells have
+  std::uint32_t present{0};
+  //! those of them that a cell has which does not qualify for them (see faceTypeCellAdmissible)
+  std::uint32_t cellRejected{0};
+};
+
+/**
+ * @brief What of the face types that the cells of each configuration have (by the id of the
+ * configuration) this build cannot handle: one text per face type and configuration, empty if
+ * nothing.
+ *
+ * Needs neither MPI nor the storage, so that a check of the run can tell beforehand from the face
+ * types the mesh file gives.
+ */
+std::vector<std::string> faceTypeProblems(const std::vector<FaceTypeCensus>& census,
+                                          parameters::InitializationType scenarioType);
 
 /**
  * Checks every face type occurring in the mesh against the material model and the solver this

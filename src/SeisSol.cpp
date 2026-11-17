@@ -19,35 +19,29 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
-#include <sys/resource.h>
 #include <utility>
 #include <utils/logger.h>
+
+#ifndef _WIN32
+#include <sys/resource.h>
+#endif
 
 namespace seissol {
 
 SeisSol::~SeisSol() = default;
 
 bool SeisSol::init() {
-  const auto rank = seissol::Mpi::mpi.rank();
-
-  if (rank == 0) {
-    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
-    logInfo() << "Running on (rank=0):" << hostNames.front();
-  }
-
   logInfo() << "Using MPI with #ranks:" << seissol::Mpi::mpi.size();
   logInfo() << "Node-wide (shared memory) MPI with #ranks/node:"
             << seissol::Mpi::mpi.sharedMemMpiSize();
-  seissol::Mpi::mpi.printAcceleratorDeviceInfo();
-  // TODO (Ravil, David): switch to reading MPI options from the parameter-file.
-  seissol::Mpi::mpi.setDataTransferModeFromEnv();
 
   printPersistentMpiInfo(env_);
 #ifdef ACL_DEVICE
   printUSMInfo(env_);
   printMPIUSMInfo(env_);
 #endif
-  pinning_.checkEnvVariables();
+  printDeviceOptionInfo(env_);
+  pinning_.checkEnvVariables(env_);
   if (OpenMP::enabled()) {
     logInfo() << "Using OpenMP with #threads/rank:" << seissol::OpenMP::threadCount();
   } else {
@@ -86,8 +80,10 @@ bool SeisSol::init() {
     }
   }
 
+#ifndef _WIN32
   // Check if the ulimit for the stacksize is reasonable.
   // A low limit can lead to segmentation faults.
+  // (on Windows, there is no such limit; the stack size is fixed when linking the executable)
   rlimit rlim{};
   if (getrlimit(RLIMIT_STACK, &rlim) == 0) {
     const auto rlimInKb = rlim.rlim_cur / 1024;
@@ -112,6 +108,7 @@ bool SeisSol::init() {
   } else {
     logError() << "Stack size cannot be determined because getrlimit syscall failed!";
   }
+#endif
 
   // Call post MPI initialization hooks
   modules_.callHook<ModuleHook::PostMPIInit>();
@@ -126,7 +123,7 @@ bool SeisSol::init() {
   return true;
 }
 
-void SeisSol::finalize() {
+void SeisSol::finalize(bool finalizeMpi) {
   // the writers are finalized while the dispatcher still runs, which takes them out together with
   // its executors
   modules_.callHook<ModuleHook::Shutdown>();
@@ -136,9 +133,10 @@ void SeisSol::finalize() {
 
   timeManager_.freeDynamicResources();
 
-  seissol::Mpi::finalize();
-
-  logInfo() << "SeisSol done. Goodbye.";
+  if (finalizeMpi) {
+    seissol::Mpi::mpi.finalize();
+    logInfo() << "SeisSol done. Goodbye.";
+  }
 }
 
 void SeisSol::setBackupTimeStamp(const std::string& stamp) {

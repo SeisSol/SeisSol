@@ -22,7 +22,6 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
 #include <utils/logger.h>
 #include <vector>
 
@@ -55,8 +54,6 @@ FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
     return LocationFlag::FreeSurfaceWithGravity;
   } else {
     logError() << "Internal error in free surface integrator. Called for invalid cell.";
-    std::abort(); // logError aborts, but this hides the compiler warning about missing return
-                  // statement
   }
 }
 
@@ -64,6 +61,8 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
   const seissol::initializer::LayerMask ghostMask(Ghost);
 
   surfaceStorage->setLayerCount(ltsStorage.getColorMap());
+  // the displacements get read for the outputs as the unknowns do
+  surfaceStorage->setSnapshots(ltsStorage.snapshots());
   surfaceStorage->fixate();
 
   totalNumberOfFreeSurfaces = 0;
@@ -84,7 +83,8 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
         if (requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
           ++numberOfFreeSurfaces;
 
-          if (secondaryInformation[cell].duplicate == 0) {
+          // the output takes the other copies of a cell from the first one
+          if (secondaryInformation[cell].duplicate == 0 && secondaryInformation[cell].copyId == 0) {
             ++numberOfOutputFreeSurfaces;
           }
         }
@@ -122,6 +122,7 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
 
       auto* side = surfaceLayer.var<SurfaceLTS::Side>();
       auto* meshId = surfaceLayer.var<SurfaceLTS::MeshId>();
+      auto* copyId = surfaceLayer.var<SurfaceLTS::CopyId>();
       std::size_t surfaceCell = 0;
       for (std::size_t cell = 0; cell < layer.size(); ++cell) {
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -132,10 +133,12 @@ void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
 
             side[surfaceCell] = face;
             meshId[surfaceCell] = secondaryInformation[cell].meshId;
+            copyId[surfaceCell] = secondaryInformation[cell].copyId;
             locationFlagLayer[surfaceCell] = static_cast<std::uint8_t>(getLocationFlag(
                 cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
 
-            if (secondaryInformation[cell].duplicate == 0) {
+            if (secondaryInformation[cell].duplicate == 0 &&
+                secondaryInformation[cell].copyId == 0) {
               backmap[surfaceCellOffset] = surfaceCellGlobal;
               ++surfaceCellOffset;
             }

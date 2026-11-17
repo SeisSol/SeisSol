@@ -226,6 +226,22 @@ void initializeFaultImpedance(const Fault& fault,
   }
 }
 
+/// Writes TinvT, the transpose of matTinv. Through the view rather than through a kernel, because
+/// TinvT is stored in whichever layout the projections read it from -- packed to its sparsity
+/// pattern where the build can take a packed operand -- and a packed destination is not something
+/// the generated copy can write. forall visits the entries the view actually stores, so the same
+/// line fills a dense and a packed TinvT, and the entries a packed one leaves out are the ones the
+/// rotation has no value for anyway.
+///
+/// A function of its own rather than part of the body of the loop over the faces: with the lambda
+/// in an OpenMP loop, NVHPC 24.9 runs it wrongly with several threads.
+template <typename Cfg>
+void transposeInverseRotation(const typename init::Tinv<Cfg>::view::type& matTinv,
+                              Real<Cfg>* dataTinvT) {
+  auto tinvT = init::TinvT<Cfg>::view::create(dataTinvT);
+  tinvT.forall([&matTinv](const auto* entry, auto& value) { value = matTinv(entry[1], entry[0]); });
+}
+
 /// The matrices of the faults faces of a layer of the configuration `Cfg`.
 template <typename Cfg>
 void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
@@ -241,11 +257,20 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
 
   const auto& fault = meshReader.getFault();
 
-  const auto getDupOpt = [&](const auto& elem, std::size_t duplicate) {
+  const auto getDupOpt = [&](const auto& elem, std::size_t copy, std::size_t duplicate) {
     if (elem.hasValue()) {
-      return backmap.getDup(elem.value(), duplicate);
+      return backmap.getDup(elem.value(), copy, duplicate);
     }
     return std::optional<StoragePosition>();
+  };
+
+  const auto getDofs = [&](const StoragePosition& position) -> real* {
+    const auto halo = ltsStorage.getColorMap().argument(position.color).halo;
+    if (halo == HaloType::Ghost) {
+      return ltsStorage.lookup<LTS::DofsHalo>(Cfg(), position);
+    } else {
+      return ltsStorage.lookup<LTS::Dofs>(Cfg(), position);
+    }
   };
 
   auto* timeDofsPlus = layer.var<DynamicRupture::TimeDofsPlus>(Cfg());
@@ -279,11 +304,15 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
   auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>(Cfg());
   auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>(Cfg());
 
+  // The body of the loop holds no lambda: with one in it, NVHPC 24.9 runs the loop wrongly with
+  // several threads (see transposeInverseRotation).
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
     schedule(static)
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     const std::size_t meshFace = faceInformation[ltsFace].meshFace;
     assert(fault[meshFace].element.hasValue() || fault[meshFace].neighborElement.hasValue());
+
+    const auto copy = faceInformation[ltsFace].copy;
 
     /// Face information
     // already set: faceInformation[ltsFace].meshFace = meshFace;
@@ -313,17 +342,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     real* timeDerivative1Device = nullptr;
     real* timeDerivative2Device = nullptr;
 
-    const auto getDofs = [&](const StoragePosition& position) -> real* {
-      const auto halo = ltsStorage.getColorMap().argument(position.color).halo;
-      if (halo == HaloType::Ghost) {
-        return ltsStorage.lookup<LTS::DofsHalo>(Cfg(), position);
-      } else {
-        return ltsStorage.lookup<LTS::Dofs>(Cfg(), position);
-      }
-    };
-
     for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
-      const auto positionOpt = backmap.getDup(derivativesMeshId, duplicate);
+      const auto positionOpt = backmap.getDup(derivativesMeshId, copy, duplicate);
       if (positionOpt.has_value()) {
         const auto position = *positionOpt;
         const auto& cellInformation = ltsStorage.lookup<LTS::CellInformation>(position);
@@ -369,8 +389,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
 
     /// DR mapping for elements
     for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
-      const auto plusLtsId = getDupOpt(fault[meshFace].element, duplicate);
-      const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, duplicate);
+      const auto plusLtsId = getDupOpt(fault[meshFace].element, copy, duplicate);
+      const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, copy, duplicate);
 
       assert(duplicate != 0 || plusLtsId.has_value() || minusLtsId.has_value());
 
@@ -421,8 +441,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     /// Materials
     const seissol::model::MaterialOf<Cfg>* plusMaterial = nullptr;
     const seissol::model::MaterialOf<Cfg>* minusMaterial = nullptr;
-    const auto plusLtsId = getDupOpt(fault[meshFace].element, 0);
-    const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, 0);
+    const auto plusLtsId = getDupOpt(fault[meshFace].element, copy, 0);
+    const auto minusLtsId = getDupOpt(fault[meshFace].neighborElement, copy, 0);
 
     assert(plusLtsId.has_value() || minusLtsId.has_value());
 
@@ -475,8 +495,17 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
     impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
 
-    seissol::model::getTransposedCoefficientMatrix<Cfg>(*plusMaterial, 0, matAPlus);
-    seissol::model::getTransposedCoefficientMatrix<Cfg>(*minusMaterial, 0, matAMinus);
+    // The flux through the face is the Jacobian along its normal. The imposed state is given in the
+    // coordinates of the face, which T rotates back, so it is the x Jacobian of the material in
+    // those coordinates, as for every other face (cf. CellLocalMatrices.cpp); that of the material
+    // as given only coincides with it for a material that is the same in every direction.
+    std::array<double, 36> faceBond{};
+    seissol::model::getBondMatrix(
+        fault[meshFace].normal, fault[meshFace].tangent1, fault[meshFace].tangent2, faceBond);
+    seissol::model::getTransposedCoefficientMatrix<Cfg>(
+        seissol::model::getRotatedMaterialCoefficients(faceBond, *plusMaterial), 0, matAPlus);
+    seissol::model::getTransposedCoefficientMatrix<Cfg>(
+        seissol::model::getRotatedMaterialCoefficients(faceBond, *minusMaterial), 0, matAMinus);
 
     switch (plusMaterial->getMaterialType()) {
     case seissol::model::MaterialType::Anisotropic:
@@ -528,16 +557,7 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     }
 
     /// Transpose matTinv.
-    // Through the view rather than through a kernel, because TinvT is stored
-    // in whichever layout the projections read it from -- packed to its
-    // sparsity pattern where the build can take a packed operand -- and a
-    // packed destination is not something the generated copy can write.
-    // forall visits the entries the view actually stores, so the same line
-    // fills a dense and a packed TinvT, and the entries a packed one leaves
-    // out are the ones the rotation has no value for anyway.
-    auto tinvT = init::TinvT<Cfg>::view::create(godunovData[ltsFace].dataTinvT);
-    tinvT.forall(
-        [&matTinv](const auto* entry, auto& value) { value = matTinv(entry[1], entry[0]); });
+    transposeInverseRotation<Cfg>(matTinv, godunovData[ltsFace].dataTinvT);
 
     double plusSurfaceArea = 0;
     double plusVolume = 0;

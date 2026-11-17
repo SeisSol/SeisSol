@@ -45,6 +45,17 @@ struct InitialVariables {
   real slipDirection2{};
 };
 
+/// the affine law a step of the thermal pressurization reduces to; see prepareFluidPressure
+template <typename Cfg>
+struct FluidPressureCoefficients {
+  using real = Real<Cfg>;
+
+  real temperatureOffset{};
+  real temperatureSlope{};
+  real pressureOffset{};
+  real pressureSlope{};
+};
+
 template <typename Cfg>
 struct FrictionLawArgs {
   using real = Real<Cfg>;
@@ -59,6 +70,9 @@ struct FrictionLawArgs {
   real timeWeights[misc::TimeSteps<Cfg>]{};
   real deltaT[misc::TimeSteps<Cfg>]{};
   real fullUpdateTime{};
+
+  // if not null, the time at the start of the step, read on the device instead of fullUpdateTime
+  const double* __restrict clock{nullptr};
 };
 
 template <typename Cfg>
@@ -69,6 +83,9 @@ struct FrictionLawContext {
   std::uint32_t pointIndex{0};
   const FrictionLawData<Cfg>* __restrict data{nullptr};
   const FrictionLawArgs<Cfg>* __restrict args{nullptr};
+
+  /// the time at the start of the step
+  real fullUpdateTime{};
 
   real* __restrict sharedMemory{nullptr};
   void* item{nullptr};
@@ -81,6 +98,7 @@ struct FrictionLawContext {
   /// d(strength)/d(-sigma_eff); only used for the anisotropic normal/shear coupling
   real strengthSlopeBuffer{};
   InitialVariables<Cfg> initialVariables{};
+  FluidPressureCoefficients<Cfg> fluidPressure{};
 };
 
 #ifdef __CUDACC__
@@ -181,7 +199,7 @@ class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
     if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
       constexpr common::RangeType GpuRangeType{common::RangeType::GPU};
 
-      const auto etaPDamp = ctx.data->drParameters.etaDampEnd > ctx.args->fullUpdateTime
+      const auto etaPDamp = ctx.data->drParameters.etaDampEnd > ctx.fullUpdateTime
                                 ? ctx.data->drParameters.etaDamp
                                 : static_cast<real>(1.0);
 
@@ -193,14 +211,14 @@ class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
 
       Derived::preHook(ctx);
 
-      real updateTime = ctx.args->fullUpdateTime;
+      real updateTime = ctx.fullUpdateTime;
 
       for (uint32_t timeIndex = 0; timeIndex < misc::TimeSteps<Cfg>; ++timeIndex) {
         const real dt = ctx.args->deltaT[timeIndex];
 
         updateTime += dt;
         const auto times =
-            common::subStepTimes<Cfg>(ctx.args->fullUpdateTime, ctx.args->deltaT, timeIndex);
+            common::subStepTimes<Cfg>(ctx.fullUpdateTime, ctx.args->deltaT, timeIndex);
         const auto rateTimes = common::slipRateTimes<Cfg>(times, Derived::SlipRateAtIntervalEnds);
         // the values before the update, for the times of the events that it crosses the threshold
         // of (see common::crossingTime)

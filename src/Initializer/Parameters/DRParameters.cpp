@@ -8,8 +8,8 @@
 #include "DRParameters.h"
 
 #include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
 #include "DynamicRupture/Misc.h"
+#include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
 #include <Eigen/Core>
@@ -62,6 +62,9 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
        FrictionLawType::ImposedSlipRatesDelta,
        FrictionLawType::RateAndStateSevereVelocityWeakening,
        FrictionLawType::RateAndStateAgingNucleation});
+  if (frictionLawType == FrictionLawType::RateAndStateAgingNucleation) {
+    logError() << "friction law 101 currently disabled";
+  }
   if (frictionLawType == FrictionLawType::LinearSlipWeakeningLegacy) {
     logWarning() << "Using FL=2 for the linear slip weakening friction law is deprecated; consider "
                     "switching it to FL=16";
@@ -132,7 +135,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
 
   const auto faultFileName = reader->readPath("modelfilename");
 
-  std::vector<std::optional<std::string>> faultFileNames(configValue(config).numSimulations);
+  std::vector<std::optional<std::string>> faultFileNames(readSimulationCount(baseReader, config));
 
   bool isDynamicRuptureEnabled = false;
 
@@ -192,6 +195,15 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
   const auto rsSlipRateTolerance = reader->readWithDefault<double>("rsslipratetolerance", 1e-8);
   const auto rsStateTolerance = reader->readWithDefault<double>("rsstatetolerance", 1e-8);
 
+  // The grid spans a fixed wavenumber per point, so the count decides how far into the diffusive
+  // tail the integration reaches: the smallest resolved wavenumber is
+  // TpMaxWaveNumber * exp(-TpLogDz * (tpGridPoints - 1)).
+  const auto tpGridPoints = reader->readWithDefault<std::uint32_t>(
+      "tp_gridpoints", seissol::dr::misc::DefaultTpGridPoints);
+  if (tpGridPoints == 0) {
+    logError() << "tp_gridpoints must be at least one.";
+  }
+
   reader->warnDeprecated({"rf_output_on",
                           "backgroundtype",
                           "gpwise",
@@ -235,6 +247,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
                       .rsMaxNumberSlipRateUpdates = rsMaxNumberSlipRateUpdates,
                       .rsNumberStateVariableUpdates = rsNumberStateVariableUpdates,
                       .rsSlipRateTolerance = rsSlipRateTolerance,
-                      .rsStateTolerance = rsStateTolerance};
+                      .rsStateTolerance = rsStateTolerance,
+                      .tpGridPoints = tpGridPoints};
 }
 } // namespace seissol::initializer::parameters

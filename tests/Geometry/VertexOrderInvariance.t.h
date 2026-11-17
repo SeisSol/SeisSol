@@ -26,6 +26,7 @@
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Parallel/MPI.h"
+#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 #include "TestHelper.h"
 
@@ -189,11 +190,12 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
   // varies inside the cells, so that the clustering sees the vertex order if it can
-  seissolParameters.model.materialFileName = tpath("Testing/material-graded.yaml");
+  seissolParameters.model.materialFileNames = {tpath("Testing/material-graded.yaml")};
   seissolParameters.model.useCellHomogenizedMaterial = true;
   seissolParameters.model.plasticity = false;
   const utils::Env env("SEISSOL_");
-  seissol::SeisSol seissolInstance(seissolParameters, env);
+  const seissol::SystemInfo systemInfo;
+  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
   // "None" keeps the cells where they were read. On a single rank, there is nothing to partition
   // (PUML skips the partitioner for a single part), so the others only run with several ranks.

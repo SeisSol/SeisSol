@@ -29,6 +29,7 @@ void initBoundaryStorage(Boundary::Storage& boundaryStorage, LTS::Storage& stora
   // Boundary face storage
   Boundary::addTo(boundaryStorage);
   boundaryStorage.setLayerCount(storage.getColorMap());
+  boundaryStorage.setSnapshots(storage.snapshots());
   boundaryStorage.fixate();
 
   // Iterate over layers of standard lts storage and face lts storage together.

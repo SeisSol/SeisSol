@@ -22,6 +22,7 @@
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Initializer/Typedefs.h"
 #include "Parallel/MPI.h"
+#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 #include "TestHelper.h"
 
@@ -32,6 +33,7 @@
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -65,11 +67,12 @@ TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   seissolParameters.timeStepping.lts = ltsParameters;
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
-  seissolParameters.model.materialFileName = tpath("Testing/material.yaml");
+  seissolParameters.model.materialFileNames = {tpath("Testing/material.yaml")};
   seissolParameters.model.useCellHomogenizedMaterial = false;
   seissolParameters.model.plasticity = false;
   const utils::Env env("SEISSOL_");
-  seissol::SeisSol seissolInstance(seissolParameters, env);
+  const seissol::SystemInfo systemInfo;
+  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
   Clustering clustering(config, seissolInstance);
   ExponentialWeights weightModel;
@@ -121,12 +124,13 @@ TEST_CASE("The cost of a cell follows its configuration" * doctest::test_suite("
         seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
     seissolParameters.timeStepping.cfl = 1;
     seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
-    seissolParameters.model.materialFileName = tpath("Testing/material.yaml");
+    seissolParameters.model.materialFileNames = {tpath("Testing/material.yaml")};
     seissolParameters.model.useCellHomogenizedMaterial = false;
     seissolParameters.model.plasticity = false;
     seissolParameters.model.groupConfigs = std::move(groupConfigs);
     const utils::Env env("SEISSOL_");
-    seissol::SeisSol seissolInstance(seissolParameters, env);
+    const seissol::SystemInfo systemInfo;
+    seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
     Clustering clustering(config, seissolInstance);
     ExponentialWeights weightModel;
@@ -201,11 +205,12 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
         seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
     seissolParameters.timeStepping.cfl = 1;
     seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
-    seissolParameters.model.materialFileName = tpath("Testing/material-graded.yaml");
+    seissolParameters.model.materialFileNames = {tpath("Testing/material-graded.yaml")};
     seissolParameters.model.useCellHomogenizedMaterial = homogenized;
     seissolParameters.model.plasticity = false;
     const utils::Env env("SEISSOL_");
-    seissol::SeisSol seissolInstance(seissolParameters, env);
+    const seissol::SystemInfo systemInfo;
+    seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
     Clustering clustering(config, seissolInstance);
     ExponentialWeights weightModel;
@@ -229,6 +234,75 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
       CHECK(elements[i].timestep == recomputed.cellTimeStepWidths[i]);
     }
   }
+}
+
+TEST_CASE("A cell takes the smallest time step of the materials of the simulations" *
+          doctest::test_suite("initializer")) {
+  // The copies of a cell, which hold the simulations of a run, step together, so that the time
+  // step of a cell has to suit the materials of all simulations of the run.
+  using namespace seissol::initializer;
+
+  const auto faceMap = defaultFaceMap();
+  const ClusteringConfig config{.rate = {2},
+                                .vertexWeightElement = 1,
+                                .vertexWeightDynamicRupture = 1,
+                                .vertexWeightFreeSurfaceWithGravity = 1,
+                                .faceMap = &faceMap,
+                                .configCostFactors = {}};
+
+  const auto timesteps = [&](const std::vector<std::string>& materialFileNames) {
+    seissol::initializer::parameters::SeisSolParameters seissolParameters{};
+    seissolParameters.timeStepping.lts = seissol::initializer::parameters::LtsParameters(
+        {2},
+        1.0,
+        0.01,
+        false,
+        100,
+        false,
+        1.0,
+        seissol::initializer::parameters::AutoMergeCostBaseline::MaxWiggleFactor,
+        seissol::initializer::parameters::LtsWeightsTypes::ExponentialWeights);
+    seissolParameters.timeStepping.cfl = 1;
+    seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
+    seissolParameters.model.materialFileNames = materialFileNames;
+    seissolParameters.model.simulationCount = materialFileNames.size();
+    seissolParameters.model.plasticity = false;
+    const utils::Env env("SEISSOL_");
+    const seissol::SystemInfo systemInfo;
+    seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
+
+    Clustering clustering(config, seissolInstance);
+    ExponentialWeights weightModel;
+    const auto pumlReader =
+        seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
+                                      "Default",
+                                      faceMap,
+                                      seissol::initializer::parameters::BoundaryFormat::I32,
+                                      seissol::initializer::parameters::TopologyFormat::Geometric,
+                                      &clustering,
+                                      &weightModel);
+    return computeTimesteps(CellToVertexArray::fromMeshReader(pumlReader), seissolParameters)
+        .cellTimeStepWidths;
+  };
+
+  std::cout.setstate(std::ios_base::failbit);
+  const auto layered = timesteps({tpath("Testing/material.yaml")});
+  const auto graded = timesteps({tpath("Testing/material-graded.yaml")});
+  const auto both = timesteps({tpath("Testing/material.yaml"),
+                               tpath("Testing/material-graded.yaml"),
+                               tpath("Testing/material.yaml")});
+  std::cout.clear();
+
+  REQUIRE(graded.size() == layered.size());
+  REQUIRE(both.size() == layered.size());
+  bool materialsDiffer = false;
+  for (std::size_t i = 0; i < layered.size(); ++i) {
+    CAPTURE(i);
+    CHECK(both[i] == std::min(layered[i], graded[i]));
+    materialsDiffer = materialsDiffer || layered[i] != graded[i];
+  }
+  // otherwise, any of them would do
+  CHECK(materialsDiffer);
 }
 
 TEST_CASE("Cost function for LTS" * doctest::test_suite("initializer")) {
@@ -457,11 +531,12 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
   seissolParameters.timeStepping.lts = ltsParameters;
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
-  seissolParameters.model.materialFileName = tpath("Testing/material.yaml");
+  seissolParameters.model.materialFileNames = {tpath("Testing/material.yaml")};
   seissolParameters.model.useCellHomogenizedMaterial = false;
   seissolParameters.model.plasticity = false;
   const utils::Env env("SEISSOL_");
-  seissol::SeisSol seissolInstance(seissolParameters, env);
+  const seissol::SystemInfo systemInfo;
+  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
   Clustering clustering(config, seissolInstance);
   ExponentialWeights weightModel;
@@ -486,7 +561,7 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
   for (const auto& element : elements) {
     globalMinTimestep = std::min(globalMinTimestep, element.timestep);
   }
-  MPI_Allreduce(MPI_IN_PLACE, &globalMinTimestep, 1, MPI_DOUBLE, MPI_MIN, seissol::Mpi::mpi.comm());
+  globalMinTimestep = seissol::Mpi::mpi.allreduce(globalMinTimestep, MPI_MIN);
   CHECK(globalMinTimestep > 0.0);
 
   // (1) enforceMaximumDifference() and enforceMaxClusterId() only ever move cells to a

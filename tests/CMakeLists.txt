@@ -208,6 +208,10 @@ seissol_add_mpi_test_module(geometrympi 4
     Geometry/TestGeometryMPI.cpp
 )
 
+seissol_add_mpi_test_module(monitoringmpi 2
+    Monitoring/TestMonitoringMpi.cpp
+)
+
 # =============================================================================
 # Handle TESTING_GENERATED kernel sources
 # =============================================================================

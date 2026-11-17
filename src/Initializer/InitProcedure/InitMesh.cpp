@@ -18,6 +18,7 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <memory>
@@ -32,6 +33,7 @@
 
 #include <hdf5.h>
 #endif // defined(USE_HDF)
+#include "Initializer/Clustering/VertexWeights/MeasuredWeights.h"
 #include "Initializer/Clustering/VertexWeights/WeightsFactory.h"
 #include "Initializer/FaceMap.h"
 #include "Modules/Modules.h"
@@ -90,22 +92,26 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   logInfo() << "Check the mesh for geometric errors.";
   meshReader.verifyMeshOrientation();
 
-  double maxPointValue[3]{-INFINITY, -INFINITY, -INFINITY};
-  double minPointValue[3]{INFINITY, INFINITY, INFINITY};
+  std::array<double, 3> maxPointValue{-INFINITY, -INFINITY, -INFINITY};
+  std::array<double, 3> minPointValue{INFINITY, INFINITY, INFINITY};
 
   const auto vertexCount = meshReader.getVertices().size();
 
-#pragma omp parallel for reduction(min : minPointValue[ : 3]) reduction(max : maxPointValue[ : 3])
+  auto* maxPointValuePtr = maxPointValue.data();
+  auto* minPointValuePtr = minPointValue.data();
+
+#pragma omp parallel for reduction(min : minPointValuePtr[ : 3])                                   \
+    reduction(max : maxPointValuePtr[ : 3])
   for (std::size_t i = 0; i < vertexCount; ++i) {
     const auto& vertex = meshReader.getVertices()[i];
     for (int j = 0; j < 3; ++j) {
-      maxPointValue[j] = std::max(maxPointValue[j], vertex.coords[j]);
-      minPointValue[j] = std::min(minPointValue[j], vertex.coords[j]);
+      maxPointValuePtr[j] = std::max(maxPointValuePtr[j], vertex.coords[j]);
+      minPointValuePtr[j] = std::min(minPointValuePtr[j], vertex.coords[j]);
     }
   }
 
-  MPI_Allreduce(MPI_IN_PLACE, maxPointValue, 3, MPI_DOUBLE, MPI_MAX, seissol::Mpi::mpi.comm());
-  MPI_Allreduce(MPI_IN_PLACE, minPointValue, 3, MPI_DOUBLE, MPI_MIN, seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.allreduceContainer(maxPointValue, MPI_MAX);
+  seissol::Mpi::mpi.allreduceContainer(minPointValue, MPI_MIN);
 
   logInfo() << "Smallest bounding box around the mesh: <" << minPointValue[0] << minPointValue[1]
             << minPointValue[2] << "> to <" << maxPointValue[0] << maxPointValue[1]
@@ -118,7 +124,14 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   double nodeWeight = 1.0;
 
   const bool miniSeisSolEnabled = seissolInstance.env().get<bool>("MINISEISSOL", true);
-  if (miniSeisSolEnabled) {
+  // Costs measured in a run before hold the speed of the ranks they were measured on already; the
+  // speed of the ranks would count twice.
+  const bool byMeasuredCosts = seissolInstance.measuredCosts() != nullptr ||
+                               !seissolParams.timeStepping.vertexWeight.measuredCosts.empty();
+  if (miniSeisSolEnabled && byMeasuredCosts) {
+    logInfo() << "Skipping mini SeisSol for the node weights (the partition goes by the costs "
+                 "measured in a run before).";
+  } else if (miniSeisSolEnabled) {
     if (seissol::Mpi::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
       const auto elapsedTime = seissol::solver::miniSeisSol(seissolParams.model.config);
@@ -163,106 +176,10 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
     const hid_t dataFile =
         _eh(H5Fopen(seissolParams.mesh.meshFileName.c_str(), H5F_ACC_RDONLY, plistId));
 
-    const auto checkAttribute = [&](const std::string& name) {
-      const hid_t existenceTest = _eh(H5Aexists(dataFile, name.c_str()));
-      if (existenceTest > 0) {
-        hid_t boundaryAttribute = _eh(H5Aopen(dataFile, name.c_str(), H5P_DEFAULT));
-
-        hid_t boundaryAttributeType = _eh(H5Aget_type(boundaryAttribute));
-
-        const auto format = [&] {
-          if (_eh(H5Tis_variable_str(boundaryAttributeType))) {
-            char* formatRaw = nullptr;
-            _eh(H5Aread(
-                boundaryAttribute, boundaryAttributeType, reinterpret_cast<void*>(&formatRaw)));
-            auto format = std::string(formatRaw);
-            _eh(H5free_memory(formatRaw));
-            return format;
-          } else {
-            const auto length = H5Tget_size(boundaryAttributeType);
-            std::vector<char> data(length);
-            _eh(H5Aread(boundaryAttribute, boundaryAttributeType, data.data()));
-            std::size_t actualLength = length;
-            for (std::size_t i = 0; i < length; ++i) {
-              if (data[i] == '\0') {
-                actualLength = i;
-                break;
-              }
-            }
-            return std::string(data.begin(), data.begin() + actualLength);
-          }
-        }();
-        _eh(H5Aclose(boundaryAttribute));
-        _eh(H5Tclose(boundaryAttributeType));
-
-        return std::optional<std::string>(format);
-      }
-      return std::optional<std::string>();
-    };
-
     if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::Auto) {
-      const auto boundaryFormatStr = checkAttribute("boundary-format");
-
-      if (boundaryFormatStr.has_value()) {
-        logInfo() << "Boundary format given in PUML file.";
-
-        if (boundaryFormatStr.value() == "i32x4") {
-          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
-        } else if (boundaryFormatStr.value() == "i64") {
-          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I64;
-        } else if (boundaryFormatStr.value() == "i32") {
-          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
-        } else {
-          logError() << "Unkown boundary format given in PUML file:" << boundaryFormatStr.value();
-        }
-      } else {
-        logInfo() << "Boundary format not given in PUML file; inferring from array shape.";
-        const hid_t boundaryDataset = _eh(H5Dopen2(dataFile, "boundary", H5P_DEFAULT));
-        const hid_t boundarySpace = _eh(H5Dget_space(boundaryDataset));
-        const auto boundaryTypeRank = _eh(H5Sget_simple_extent_ndims(boundarySpace));
-
-        _eh(H5Sclose(boundarySpace));
-        _eh(H5Dclose(boundaryDataset));
-
-        // avoid checking the type size here
-        if (boundaryTypeRank == 2) {
-          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32x4;
-        } else if (boundaryTypeRank == 1) {
-          boundaryFormat = seissol::initializer::parameters::BoundaryFormat::I32;
-        } else {
-          logError() << "Unknown boundary format of rank" << boundaryTypeRank;
-        }
-      }
+      boundaryFormat = seissol::geometry::boundaryFormatOf(dataFile);
     }
-
-    const auto topologyFormatStr = checkAttribute("topology-format");
-
-    if (topologyFormatStr.has_value()) {
-      logInfo() << "Topology format given in PUML file.";
-
-      if (topologyFormatStr.value() == "geometric") {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::Geometric;
-      } else if (topologyFormatStr.value() == "identify-face") {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyFace;
-      } else if (topologyFormatStr.value() == "identify-vertex") {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyVertex;
-      } else {
-        logError() << "Unkown topology format given in PUML file:" << topologyFormatStr.value();
-      }
-    } else {
-      logInfo() << "Topology format not given in PUML file; inferring from data present.";
-
-      const hid_t vertexIdentifyTest = _eh(H5Aexists(dataFile, "identify"));
-      const hid_t cellIdentifyTest = _eh(H5Aexists(dataFile, "topology"));
-
-      if (vertexIdentifyTest > 0) {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyVertex;
-      } else if (cellIdentifyTest > 0) {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::IdentifyFace;
-      } else {
-        topologyFormat = seissol::initializer::parameters::TopologyFormat::Geometric;
-      }
-    }
+    topologyFormat = seissol::geometry::topologyFormatOf(dataFile);
 
     _eh(H5Fclose(dataFile));
     _eh(H5Pclose(plistId));
@@ -310,8 +227,19 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       .configCostFactors = std::move(configCostFactors)};
 
   seissol::initializer::Clustering clustering(config, seissolInstance);
-  const auto weightModel = seissol::initializer::getVertexWeightModel(
-      seissolParams.timeStepping.lts.getLtsWeightsType());
+  // the costs measured in a run before, if there are any, in place of the model: those of the run
+  // before in this process, or else those of a file
+  const auto& measuredCosts = seissolParams.timeStepping.vertexWeight.measuredCosts;
+  std::unique_ptr<seissol::initializer::VertexWeightModel> weightModel;
+  if (seissolInstance.measuredCosts() != nullptr) {
+    weightModel =
+        std::make_unique<seissol::initializer::MeasuredWeights>(*seissolInstance.measuredCosts());
+  } else if (!measuredCosts.empty()) {
+    weightModel = std::make_unique<seissol::initializer::MeasuredWeights>(measuredCosts);
+  } else {
+    weightModel = seissol::initializer::getVertexWeightModel(
+        seissolParams.timeStepping.lts.getLtsWeightsType());
+  }
   auto meshReader =
       std::make_unique<seissol::geometry::PUMLReader>(seissolParams.mesh.meshFileName,
                                                       seissolParams.mesh.partitioningLib,

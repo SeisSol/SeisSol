@@ -18,9 +18,11 @@
 #include "Initializer/InitProcedure/InitLayout.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/DeviceTimeline.h"
 #include "Monitoring/Memory.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
+#include "Monitoring/Trace.h"
 #include "Monitoring/Unit.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/Helper.h"
@@ -28,14 +30,16 @@
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
 
+#include <algorithm>
 #include <async/Config.h>
 #include <cstddef>
 #include <string>
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
+#include "Monitoring/DeviceTimer.h"
+
 #include <Device/device.h>
-#include <ostream>
 #include <sstream>
 #endif
 
@@ -134,14 +138,30 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
   auto& sim = seissolInstance.simulator();
   sim.setUsePlasticity(seissolParams.model.plasticity);
   sim.setFinalTime(seissolParams.timeStepping.endTime);
+  if (const auto steps = seissolInstance.measuringSteps()) {
+    // a run that measures what the cells cost goes for some time steps of the largest cluster
+    const auto& layout = seissolInstance.memoryManager().clusterLayout();
+    const double length = steps.value() * layout.timestepRate(layout.globalClusterCount - 1);
+    sim.setFinalTime(std::min(seissolParams.timeStepping.endTime, length));
+    logInfo() << "This run measures what the cells cost, over" << steps.value()
+              << "time steps of the largest cluster (" << length << "s).";
+#ifdef ACL_DEVICE
+    // (rather now than after the run)
+    if (!DeviceTimer::canTimeEvents()) {
+      logError() << "This run cannot measure what the cells cost, as the device does not time its"
+                 << "work (HSA queues do with DEVICE_HSA_QUEUE_TIMING=1).";
+    }
+#endif
+  }
 }
 
 void reportHardwareRelatedStatus(seissol::SeisSol& seissolInstance) {
   reportDeviceMemoryStatus();
 
-  const auto& seissolParams = seissolInstance.parameters();
-  writer::ThreadsPinningWriter pinningWriter(seissolParams.output.prefix, seissolInstance.runId());
-  pinningWriter.write(seissolInstance.pinning(), seissolInstance.env());
+  writer::ThreadsPinningWriter pinningWriter(seissolInstance.outputPrefix(),
+                                             seissolInstance.runId());
+  pinningWriter.write(
+      seissolInstance.pinning(), seissolInstance.env(), seissolInstance.systemInfo());
 
   auto& parallel = seissolInstance.runSummary()["parallel"];
   parallel["commThread"] = useCommThread(seissol::Mpi::mpi, seissolInstance.env());
@@ -223,7 +243,10 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 
   auto& summary = seissolInstance.runSummary();
   summary["configurations"] = configurationNames(seissolInstance);
-  summary.start(seissolInstance.parameters().output.prefix, seissolInstance.runId());
+  summary.start(
+      seissolInstance.outputPrefix(), seissolInstance.runId(), seissolInstance.systemInfo());
+  // the log as JSON Lines next to the summary, from rank 0, with the messages from before as well
+  utils::Logger::enableJsonLines(seissolInstance.outputPrefix() + "-log.jsonl");
 
   seissol::Stopwatch initWatch;
   initWatch.start();
@@ -232,7 +255,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 
   // just put a barrier here to make sure everyone is synched
   logInfo() << "Finishing initialization...";
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
   summary.setRankValue("initTotal", initWatch.pause());
   summary["time"]["init"]["total"] =
       monitoring::toJson(initWatch.printTime("Initialization done in:"));
@@ -248,7 +271,10 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 
   // make sure everyone is really done
   logInfo() << "Simulation done.";
-  seissol::Mpi::barrier(seissol::Mpi::mpi.comm());
+  seissol::Mpi::mpi.barrier();
+  DeviceTimeline::stopKernelTrace();
+  monitoring::Trace::write(seissolInstance.outputPrefix() + "-trace.json",
+                           seissol::Mpi::mpi.comm());
   summary["memory"]["atEnd"] = memorySection(summary, "AtEnd");
   summary.writeRanks();
   summary.finish();

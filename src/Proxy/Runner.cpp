@@ -16,6 +16,7 @@
 #include "Proxy/Cycles.h"
 #include "Proxy/Kernel.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -97,6 +98,15 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   testKernel(data, runtime, kernel, 1);
 
   runtime->wait();
+
+  if (config.warmup > 0) {
+    const auto warmupStart = std::chrono::steady_clock::now();
+    while (std::chrono::duration<double>(std::chrono::steady_clock::now() - warmupStart).count() <
+           config.warmup) {
+      testKernel(data, runtime, kernel, 10);
+      runtime->wait();
+    }
+  }
 
   const seissol::monitoring::FlopCounter flopCounter{};
 

@@ -12,7 +12,6 @@
 #include "DynamicRupture/Misc.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshTools.h"
-#include "Initializer/ParameterDB.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
@@ -56,16 +55,7 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
       // get additional parameters (for derived friction laws)
       addAdditionalParameters(parameterToStorageMap, layer);
 
-      for (std::size_t i = 0; i < Cfg::NumSimulations; ++i) {
-        seissol::initializer::FaultParameterDB<real> faultParameterDB(i, Cfg::NumSimulations);
-        // read parameters from yaml file
-        for (const auto& parameterStoragePair : parameterToStorageMap) {
-          faultParameterDB.addParameter(parameterStoragePair.first,
-                                        static_cast<real*>(parameterStoragePair.second));
-        }
-        const auto faceIDs = getFaceIDsInIterator(layer);
-        queryModel<Cfg>(faultParameterDB, faceIDs, i);
-      }
+      queryParameters<Cfg>(layer, parameterToStorageMap);
 
       rotateSlipToFaultCS<Cfg>(
           layer, strikeSlip, dipSlip, imposedSlipDirection1, imposedSlipDirection2);

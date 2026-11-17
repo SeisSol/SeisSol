@@ -38,6 +38,8 @@
 #include <cstdint>
 #include <easi/Component.h>
 #include <easi/Query.h>
+#include <easi/util/Slice.h>
+#include <easi/util/Vector.h>
 #include <exception>
 #include <functional>
 #include <iterator>
@@ -46,6 +48,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <utils/logger.h>
@@ -78,7 +81,7 @@ bool canEvaluateFor(const std::set<std::string>& parameters) {
 }
 
 template <typename MaterialT, typename SurrogateMaterialT, typename... SurrogatesT>
-bool surrogateEvaluate(const std::string& fileName,
+bool surrogateEvaluate(easi::Component& model,
                        const QueryGenerator& queryGen,
                        std::vector<MaterialT>* materials,
                        const std::set<std::string>& parameters) {
@@ -87,7 +90,7 @@ bool surrogateEvaluate(const std::string& fileName,
       MaterialParameterDB<SurrogateMaterialT> edb;
       std::vector<SurrogateMaterialT> preMaterials;
       edb.setMaterialVector(&preMaterials);
-      edb.evaluateModel(fileName, queryGen);
+      edb.evaluate(model, queryGen);
 
       // the surrogate database sizes its own vector; callers that pre-size the target expect one
       // material per query, so a mismatch here means query and evaluation disagree
@@ -101,7 +104,7 @@ bool surrogateEvaluate(const std::string& fileName,
     }
   }
   if constexpr (sizeof...(SurrogatesT) > 0) {
-    return surrogateEvaluate<MaterialT, SurrogatesT...>(fileName, queryGen, materials, parameters);
+    return surrogateEvaluate<MaterialT, SurrogatesT...>(model, queryGen, materials, parameters);
   } else {
     return false;
   }
@@ -118,6 +121,73 @@ void easiEvalSafe(easi::Component* model,
                << std::string(error.what());
   }
 }
+
+/**
+ * Writes the values of a query into arrays of `T`, with `pointsPerFace` points per face: the query
+ * point q lies on the face faces[q / pointsPerFace] of the arrays. I.e. the arrays may hold the
+ * points of faces which the query does not contain, in between the ones it does.
+ */
+template <typename T>
+class FaceArraysAdapter : public easi::ResultAdapter {
+  public:
+  FaceArraysAdapter(const std::vector<std::size_t>& faces, std::size_t pointsPerFace)
+      : faces_(faces), pointsPerFace_(pointsPerFace) {}
+
+  void addBindingPoint(const std::string& parameter, T* array, std::size_t stride) {
+    bindings_[parameter] = Binding{array, stride};
+  }
+
+  void set(const std::string& parameter,
+           const easi::Vector<unsigned>& index,
+           const easi::Slice<double>& value) override {
+    assert(value.size() == index.size());
+    const auto binding = bindings_.find(parameter);
+    if (binding != bindings_.end()) {
+      for (unsigned i = 0; i < index.size(); ++i) {
+        const auto face = faces_[index(i) / pointsPerFace_];
+        const auto point = face * pointsPerFace_ + index(i) % pointsPerFace_;
+        binding->second.array[point * binding->second.stride] = static_cast<T>(value(i));
+      }
+    }
+  }
+
+  [[nodiscard]] bool isSubset(const std::set<std::string>& parameters) const override {
+    return std::all_of(bindings_.begin(), bindings_.end(), [&](const auto& binding) {
+      return parameters.find(binding.first) != parameters.end();
+    });
+  }
+
+  easi::ResultAdapter* subsetAdapter(const std::set<std::string>& subset) override {
+    auto* result = new FaceArraysAdapter(faces_, pointsPerFace_);
+    for (const auto& parameter : subset) {
+      const auto binding = bindings_.find(parameter);
+      if (binding != bindings_.end()) {
+        result->bindings_[parameter] = binding->second;
+      }
+    }
+    return result;
+  }
+
+  [[nodiscard]] unsigned numberOfParameters() const override { return bindings_.size(); }
+
+  [[nodiscard]] std::set<std::string> parameters() const override {
+    std::set<std::string> result;
+    for (const auto& binding : bindings_) {
+      result.insert(binding.first);
+    }
+    return result;
+  }
+
+  private:
+  struct Binding {
+    T* array{nullptr};
+    std::size_t stride{1};
+  };
+
+  const std::vector<std::size_t>& faces_;
+  std::size_t pointsPerFace_;
+  std::unordered_map<std::string, Binding> bindings_;
+};
 
 easi::Component* loadEasiModel(const std::string& fileName) {
   logInfo() << "Loading easi file" << fileName;
@@ -610,12 +680,45 @@ struct MaterialAverager<ViscoAcousticMaterial<Mechanisms>> {
 };
 } // namespace
 
+template <typename T>
+std::vector<std::string> missingMaterialParameters(const std::set<std::string>& supplied) {
+  // as MaterialParameterDB::evaluateModel takes the model: for the parameters of T, or else for
+  // those of an elastic or acoustic material that T can be made of
+  if (canEvaluateFor<T>(supplied)) {
+    return {};
+  }
+  if constexpr (std::is_constructible_v<T, ElasticMaterial>) {
+    if (canEvaluateFor<ElasticMaterial>(supplied)) {
+      return {};
+    }
+  }
+  if constexpr (std::is_constructible_v<T, AcousticMaterial>) {
+    if (canEvaluateFor<AcousticMaterial>(supplied)) {
+      return {};
+    }
+  }
+  std::vector<std::string> missing;
+  for (const auto& [name, pointer] : T::ParameterMap) {
+    if (!supplied.contains(name)) {
+      missing.push_back(name);
+    }
+  }
+  std::ranges::sort(missing);
+  return missing;
+}
+
 template <class T>
 void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
                                            const QueryGenerator& queryGen) {
   // NOLINTNEXTLINE(misc-const-correctness)
   easi::Component* const model = loadEasiModel(fileName);
-  const auto suppliedParameters = model->suppliedParameters();
+  evaluate(*model, queryGen);
+  delete model;
+}
+
+template <class T>
+void MaterialParameterDB<T>::evaluate(easi::Component& model, const QueryGenerator& queryGen) {
+  const auto suppliedParameters = model.suppliedParameters();
 
   // the following code does:
   // * try to evaluate the model just normally
@@ -639,7 +742,7 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
       }
     }
 
-    easiEvalSafe(model, query, adapter, "volume material:" + T::Text);
+    easiEvalSafe(&model, query, adapter, "volume material:" + T::Text);
 
     return materialsFromQuery;
   };
@@ -679,14 +782,13 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     // hard-code tests for elastic or acoustic material here (only if a conversion constructor
     // exists)
     if (!surrogateEvaluate<T, ElasticMaterial, AcousticMaterial>(
-            fileName, queryGen, materials_, suppliedParameters)) {
+            model, queryGen, materials_, suppliedParameters)) {
 
       // no surrogate worked
       // fail gracefully by just trying to evaluate the original model and fail there
       (void)evaluateModel();
     }
   }
-  delete model;
 }
 
 template <typename T>
@@ -696,12 +798,21 @@ void FaultParameterDB<T>::evaluateModel(const std::string& fileName,
   easi::Component* const model = loadEasiModel(fileName);
   easi::Query query = queryGen.generate();
 
-  easi::ArraysAdapter<T> adapter;
-  for (const auto& kv : parameters_) {
-    adapter.addBindingPoint(kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
+  if (faces_.has_value()) {
+    FaceArraysAdapter<T> adapter(faces_.value(), pointsPerFace_);
+    for (const auto& kv : parameters_) {
+      adapter.addBindingPoint(
+          kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
+    }
+    easiEvalSafe(model, query, adapter, "fault material");
+  } else {
+    easi::ArraysAdapter<T> adapter;
+    for (const auto& kv : parameters_) {
+      adapter.addBindingPoint(
+          kv.first, kv.second.first + simid_, kv.second.second * numSimulations_);
+    }
+    easiEvalSafe(model, query, adapter, "fault material");
   }
-
-  easiEvalSafe(model, query, adapter, "fault material");
 
   delete model;
 }
@@ -738,13 +849,15 @@ DirichletCondition::~DirichletCondition() { delete model_; }
 template <typename Cfg>
 BoundaryFrame DirichletCondition::query(const double* barycenter,
                                         Real<Cfg>* mapTermsData,
-                                        Real<Cfg>* constantTermsData) const {
+                                        Real<Cfg>* constantTermsData,
+                                        const std::vector<std::size_t>& simulations) const {
   using real = Real<Cfg>;
   if (model_ == nullptr) {
     logError() << "Model for easi-provided boundary is not initialized.";
   }
   assert(mapTermsData != nullptr);
   assert(constantTermsData != nullptr);
+  assert(!simulations.empty());
 
   // The boundary condition is constant over the face, so it is sampled at the
   // face barycenter.
@@ -779,7 +892,7 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
   for (size_t i = 0; i < varNames.size(); ++i) {
     const auto termName = std::string{"const_"} + varNames[i];
     known.insert(termName);
-    auto& term = multisim::multisimWrap<Cfg>(constantTerms, 0, i);
+    auto& term = multisim::multisimWrap<Cfg>(constantTerms, simulations.front(), i);
     if (supplied.count(termName) > 0) {
       adapter.addBindingPoint(termName, &term);
     } else {
@@ -823,12 +936,11 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
                   "stated in the face-aligned basis.";
   }
 
-  // The condition does not depend on the simulation index, so every fused
-  // simulation gets the same one.
-  for (std::size_t sim = 1; sim < Cfg::NumSimulations; ++sim) {
+  // every fused simulation that takes the condition gets its constant terms
+  for (const auto simulation : simulations) {
     for (size_t i = 0; i < varNames.size(); ++i) {
-      multisim::multisimWrap<Cfg>(constantTerms, sim, i) =
-          multisim::multisimWrap<Cfg>(constantTerms, 0, i);
+      multisim::multisimWrap<Cfg>(constantTerms, simulation, i) =
+          multisim::multisimWrap<Cfg>(constantTerms, simulations.front(), i);
     }
   }
 
@@ -836,8 +948,8 @@ BoundaryFrame DirichletCondition::query(const double* barycenter,
 }
 
 #define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
-  template BoundaryFrame DirichletCondition::query<Cfg>(const double*, Real<Cfg>*, Real<Cfg>*)     \
-      const;
+  template BoundaryFrame DirichletCondition::query<Cfg>(                                           \
+      const double*, Real<Cfg>*, Real<Cfg>*, const std::vector<std::size_t>&) const;
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
 #undef SEISSOL_CONFIG_INSTANTIATE
 
@@ -866,10 +978,14 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMat
 #define SEISSOL_MATERIAL_INSTANTIATE(Cfg)                                                          \
   template std::shared_ptr<QueryGenerator> getBestQueryGenerator<seissol::model::MaterialOf<Cfg>>( \
       bool, const CellToVertexArray&, std::size_t);                                                \
-  template class MaterialParameterDB<seissol::model::MaterialOf<Cfg>>;
+  template class MaterialParameterDB<seissol::model::MaterialOf<Cfg>>;                             \
+  template std::vector<std::string> missingMaterialParameters<seissol::model::MaterialOf<Cfg>>(    \
+      const std::set<std::string>&);
 // NOLINTEND(bugprone-macro-parentheses)
 SEISSOL_FOR_EACH_MATERIAL(SEISSOL_MATERIAL_INSTANTIATE)
 #undef SEISSOL_MATERIAL_INSTANTIATE
 template class MaterialParameterDB<seissol::model::Plasticity>;
+template std::vector<std::string>
+    missingMaterialParameters<seissol::model::Plasticity>(const std::set<std::string>&);
 
 } // namespace seissol::initializer

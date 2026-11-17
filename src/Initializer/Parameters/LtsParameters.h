@@ -13,6 +13,7 @@
 #include "ParameterReader.h"
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace seissol::initializer::parameters {
@@ -28,6 +29,14 @@ struct VertexWeightParameters {
   std::uint64_t weightElement;
   std::uint64_t weightDynamicRupture;
   std::uint64_t weightFreeSurfaceWithGravity;
+  //! the costs of the cells measured in a run before (output.vertexweightoutput), to partition by
+  //! in place of the weights above; none if empty
+  std::string measuredCosts;
+  //! how many short runs go before the run, each measuring the costs of the cells for the
+  //! partition of the next one
+  unsigned cycles{0};
+  //! how long each of these runs is, in time steps of the largest time cluster
+  unsigned cycleSteps{20};
 };
 
 enum class AutoMergeCostBaseline {

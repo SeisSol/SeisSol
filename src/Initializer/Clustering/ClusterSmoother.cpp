@@ -20,7 +20,6 @@
 #include <PUML/Upward.h>
 #include <algorithm>
 #include <cstddef>
-#include <cstdlib>
 #include <mpi.h>
 #include <unordered_map>
 #include <utility>
@@ -37,7 +36,6 @@ FaceType decodeFaceType(const geometry::BoundaryTagsView& boundaryTags,
   const auto faceType = faceMap.at(tag);
   if (!faceType.has_value()) {
     logError() << "Read invalid face tag during cluster determining:" << tag;
-    std::abort(); // not reached: logError() ends the run
   }
   return *faceType;
 }
@@ -215,14 +213,9 @@ std::size_t ClusterSmoother::relax(std::vector<std::size_t>& clusterIds,
   std::size_t totalNumberOfReductions = 0;
   std::size_t globalNumberOfReductions = 0;
   do {
-    std::size_t localNumberOfReductions = relaxOnce(clusterIds, rule);
+    const std::size_t localNumberOfReductions = relaxOnce(clusterIds, rule);
 
-    MPI_Allreduce(&localNumberOfReductions,
-                  &globalNumberOfReductions,
-                  1,
-                  Mpi::castToMpiType<std::size_t>(),
-                  MPI_SUM,
-                  comm);
+    globalNumberOfReductions = Mpi::mpi.allreduce(localNumberOfReductions, MPI_SUM, comm);
     totalNumberOfReductions += globalNumberOfReductions;
   } while (globalNumberOfReductions > 0);
   return totalNumberOfReductions;

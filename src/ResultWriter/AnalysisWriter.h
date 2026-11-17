@@ -27,11 +27,6 @@ class AnalysisWriter {
   private:
   seissol::SeisSol& seissolInstance_;
 
-  struct Data {
-    double val;
-    int rank;
-  };
-
   bool isEnabled_{false}; // TODO(Lukas) Do we need this?
   const seissol::geometry::MeshReader* meshReader_{};
 

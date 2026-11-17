@@ -12,24 +12,26 @@
 #include "Parallel/Helper.h"
 #include "Parallel/MPI.h"
 #include "Parallel/Pin.h"
+#include "Parallel/SystemInfo.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <filesystem>
-#include <sched.h>
 #include <sstream>
 #include <string>
 #include <utils/env.h>
 #include <vector>
 
-#ifndef __APPLE__
+// the CPU masks (cf. async::as::CpuMask) are only available on Linux
+#ifdef __linux__
+#include <sched.h>
 #include <sys/sysinfo.h>
 #ifdef USE_NUMA_AWARE_PINNING
 #include <numa.h>
 #endif // USE_NUMA_AWARE_PINNING
-#endif // __APPLE__
+#endif // __linux__
 
-#ifndef __APPLE__
+#ifdef __linux__
 namespace {
 
 using namespace seissol::parallel;
@@ -73,11 +75,12 @@ PinningInfo getPinningInfo(const cpu_set_t& set) {
   return pinningInfo;
 }
 } // namespace
-#endif // __APPLE__
+#endif // __linux__
 
 void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinning& pinning,
-                                                  utils::Env& env) {
-#ifndef __APPLE__
+                                                  utils::Env& env,
+                                                  const SystemInfo& systemInfo) {
+#ifdef __linux__
   const auto workerInfo = getPinningInfo(seissol::parallel::Pinning::getWorkerUnionMask().set);
 
   PinningInfo commThreadInfo;
@@ -100,8 +103,8 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
   auto numNProcs = seissol::Mpi::mpi.collect(get_nprocs());
 
   if (seissol::Mpi::mpi.rank() == 0) {
-    const auto& hostNames = seissol::Mpi::mpi.getHostNames();
-    const auto& pcis = seissol::Mpi::mpi.getPCIAddresses();
+    const auto& hostNames = systemInfo.getHostNames();
+    const auto& pcis = systemInfo.getPCIAddresses();
     const std::string nullstring;
 
     // the masks are a list of the cores a rank runs on, so how wide they get is a property of the
@@ -144,6 +147,6 @@ void seissol::writer::ThreadsPinningWriter::write(const seissol::parallel::Pinni
     table.writeFile(path.string());
   }
 #else
-  logWarning() << "ThreadsPinningWriter is not supported on MacOS.";
-#endif // __APPLE__
+  logWarning() << "ThreadsPinningWriter is not supported on this platform.";
+#endif // __linux__
 }
