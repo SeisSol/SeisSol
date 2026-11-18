@@ -96,6 +96,11 @@ class QueryGenerator {
   virtual ~QueryGenerator() = default;
   [[nodiscard]] virtual reader::scripting::DataTable generate() const = 0;
   [[nodiscard]] virtual std::size_t outputPerCell() const { return 1; }
+  /// The cells of the points, where they are points of cells: those of cell i are the points
+  /// [i * pointsPerCell(), (i + 1) * pointsPerCell()). Data on the mesh is bound by them (the
+  /// ids of the cells); null for points on no cell.
+  [[nodiscard]] virtual const CellToVertexArray* cells() const { return nullptr; }
+  [[nodiscard]] virtual std::size_t pointsPerCell() const { return 1; }
 };
 
 class ElementBarycenterGenerator : public QueryGenerator {
@@ -103,6 +108,7 @@ class ElementBarycenterGenerator : public QueryGenerator {
   explicit ElementBarycenterGenerator(CellToVertexArray cellToVertex)
       : cellToVertex_(std::move(cellToVertex)) {}
   [[nodiscard]] reader::scripting::DataTable generate() const override;
+  [[nodiscard]] const CellToVertexArray* cells() const override { return &cellToVertex_; }
 
   private:
   CellToVertexArray cellToVertex_;
@@ -116,6 +122,8 @@ class ElementAverageGenerator : public QueryGenerator {
   [[nodiscard]] const std::vector<double>& getQuadratureWeights() const {
     return quadratureWeights_;
   };
+  [[nodiscard]] const CellToVertexArray* cells() const override { return &cellToVertex_; }
+  [[nodiscard]] std::size_t pointsPerCell() const override { return quadraturePoints_.size(); }
 
   private:
   CellToVertexArray cellToVertex_;
@@ -133,6 +141,8 @@ class PlasticityPointGenerator : public QueryGenerator {
       : cellToVertex_(std::move(cellToVertex)), nodes_(std::move(nodes)), pointwise_(pointwise) {}
   [[nodiscard]] reader::scripting::DataTable generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;
+  [[nodiscard]] const CellToVertexArray* cells() const override { return &cellToVertex_; }
+  [[nodiscard]] std::size_t pointsPerCell() const override { return outputPerCell(); }
 
   private:
   CellToVertexArray cellToVertex_;
@@ -161,6 +171,13 @@ class ParameterDB {
   virtual void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) = 0;
   static std::unique_ptr<reader::scripting::DataReader> loadModel(const std::string& fileName);
 };
+
+/// Reads the data on the mesh that the scripts `files` read (datasets of the kind cells), for the
+/// cells `cells` of this rank, into the store the materials bind it from
+/// (reader::datafield::sharedCellDataStore()). Collective: every rank calls it with the same files
+/// and its own cells, the ghost cells too, before it evaluates the materials of its cells -- some
+/// ranks evaluate a configuration, some do not.
+void loadCellData(const std::vector<std::string>& files, const CellToVertexArray& cells);
 
 template <class T>
 class MaterialParameterDB : public ParameterDB {

@@ -19,6 +19,7 @@
 #endif
 
 #include "Datafield/AsagiLite.t.h"
+#include "Datafield/CellData.t.h"
 #include "Datafield/GridStore.t.h"
 #include "Datafield/GridUpdateModule.t.h"
 #include "Datafield/Interpolation.t.h"

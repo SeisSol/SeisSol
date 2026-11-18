@@ -41,13 +41,16 @@ namespace seissol::reader::datafield {
 
 // Inline: a grid whose values and knots the program gives itself (GridData), e.g. the layers of a
 // layered model. Table: a text file of columns, a node per line, whose coordinate columns give the
-// knots of the axes (TableGrid.h).
+// knots of the axes (TableGrid.h). Cells: no grid, but data on the mesh -- a row of values per
+// cell, in the order of the cells in the mesh file, which a consumer that knows the cell of every
+// point binds (CellData.h); it is read without coordinates and never sampled.
 enum class GridKind : std::uint8_t {
   AsagiLite,
   Scec,
   Distributed /* not implemented */,
   Inline,
-  Table
+  Table,
+  Cells
 };
 
 // Nearest: O(h), reproduces constants.
@@ -401,13 +404,18 @@ struct GridAttributes {
   [[nodiscard]] bool has(const std::string& name) const;
 };
 
-/// The attributes of a grid of the kind `kind`: an ASAGI file its path and variable, and maybe its
-/// axes and time; a SCEC file its path; a table its path and coordinates; an inline grid its knots
-/// and values.
+/// The attributes of a dataset of the kind `kind`: an ASAGI file its path and variable, and maybe
+/// its axes and time; a SCEC file its path; a table its path and coordinates; an inline grid its
+/// knots and values; the data per cell of the mesh its path and variable.
 [[nodiscard]] const GridAttributes& gridAttributesOf(GridKind kind);
 
-/// The attributes every grid gives.
-[[nodiscard]] const std::vector<std::string>& commonGridAttributes();
+/// Whether a dataset of the kind `kind` is a grid, sampled at coordinates, rather than data on the
+/// mesh, which its consumer binds per cell.
+[[nodiscard]] bool sampledAtCoordinates(GridKind kind);
+
+/// The attributes every dataset of the kind `kind` gives: its kind and components, and of a grid
+/// its interpolation and boundary.
+[[nodiscard]] const std::vector<std::string>& commonGridAttributes(GridKind kind);
 
 /// A value as a declaration spells it: a number, or a tuple of values in parentheses. `mark` is the
 /// source's own note of where the value stands (the index of a token, say), which a problem with

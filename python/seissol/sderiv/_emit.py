@@ -100,7 +100,9 @@ def spell_dataset(name, declared, directory):
         ("interpolation", declared.interpolation),
         ("boundary", declared.boundary),
     ):
-        attributes.append((key, value if isinstance(value, str) else tuple(value)))
+        # data on the mesh has neither
+        if value is not None:
+            attributes.append((key, value if isinstance(value, str) else tuple(value)))
     if declared.time is not None:
         attributes.append(("time", declared.time))
     spelled = ", ".join(f"{key} = {_spell_value(value)}" for key, value in attributes)
@@ -152,7 +154,12 @@ def core_text(trace, directory=None, generator=None, command=None, depends=()):
             if expanded:
                 order.append(node)
                 continue
-            if node in seen or graph.nodes[node].op in ("const", "input", "state"):
+            if node in seen or graph.nodes[node].op in (
+                "const",
+                "input",
+                "state",
+                "cell",
+            ):
                 continue
             seen.add(node)
             stack.append((node, True))
@@ -182,6 +189,9 @@ def core_text(trace, directory=None, generator=None, command=None, depends=()):
             return spell_number(n.value)
         if n.op in ("input", "state"):
             return spell_name(n.name)
+        if n.op == "cell":
+            # data on the mesh: the value of the cell of the point
+            return f"{grid_names[n.grid]}.{spell_name(n.name)}"
         return names[node]
 
     def expression(node):

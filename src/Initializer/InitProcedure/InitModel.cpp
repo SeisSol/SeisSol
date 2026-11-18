@@ -288,6 +288,16 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
   // the ones of its mesh groups
   const auto& model = seissolInstance.parameters().model;
   const bool singleConfig = model.configs().size() == 1;
+
+  // the data on the mesh the material and the plasticity read, for all cells of the rank and its
+  // ghost cells: collectively, before the configurations, which some ranks have cells of
+  std::vector<std::string> scripts{model.materialFileName};
+  if (model.plasticity) {
+    for (const auto& file : model.plasticityFileNames) {
+      scripts.push_back(file);
+    }
+  }
+  seissol::initializer::loadCellData(scripts, ctv);
   forEachConfig([&](auto cfg) {
     using Cfg = decltype(cfg);
     bool hasCells = false;

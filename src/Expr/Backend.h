@@ -516,11 +516,15 @@ std::unique_ptr<Kernel> makeKernel(const Program& program,
                                    reader::datafield::GridStore& grids,
                                    const BackendOptions& options);
 
+/// The index in the store of a dataset that is no grid: data on the mesh, which the consumer binds
+/// per cell through input channels (reader::datafield::sampledAtCoordinates()).
+inline constexpr std::size_t NoStoreGrid = static_cast<std::size_t>(-1);
+
 /// Interns the grids of `program` into `grids` and loads them; their indices in the store, by
-/// GridId. Collective where it opens or sizes a grid (GridStore::load()): a script whose kernels
-/// are made on some ranks only -- where a cluster has a face of its boundary, say -- calls this
-/// on all ranks when it is loaded, so that the store opens the same grids in the same order on
-/// all of them, and making a kernel later finds them open.
+/// GridId, NoStoreGrid for data on the mesh. Collective where it opens or sizes a grid
+/// (GridStore::load()): a script whose kernels are made on some ranks only -- where a cluster has a
+/// face of its boundary, say -- calls this on all ranks when it is loaded, so that the store opens
+/// the same grids in the same order on all of them, and making a kernel later finds them open.
 std::vector<std::size_t> internGrids(const Program& program, reader::datafield::GridStore& grids);
 
 // --- deferred backends -------------------------------------------------------

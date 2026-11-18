@@ -16,6 +16,7 @@
 #include "DirichletCondition.t.h"
 #include "FaceMap.t.h"
 #include "LtsSetup.t.h"
+#include "MeshData.t.h"
 #include "OutputRegions.t.h"
 #include "ParameterReader.t.h"
 #include "Parameters/DRParameters.t.h"

@@ -232,6 +232,11 @@ std::unique_ptr<Grid> makeGrid(const GridDesc& desc) {
     logError() << "datafield: the distributed backend is not implemented; requested for"
                << desc.path << ".";
     return nullptr;
+  case GridKind::Cells:
+    // data on the mesh is bound per cell by its consumer (CellData.h), never sampled
+    logError() << "datafield: the data per cell" << desc.variable << "in" << desc.path
+               << "is no grid to sample.";
+    return nullptr;
   }
   logError() << "datafield: unknown grid backend requested for" << desc.path << ".";
   return nullptr;

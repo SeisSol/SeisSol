@@ -21,10 +21,14 @@ from ._graph import TracingError, Value, where
 
 class Dataset:
     """A dataset: `kind` "asagi" (a NetCDF file in the layout of ASAGI), "table" (a text file of
-    columns) or "inline" (the knots and the values given here). A relative path is relative to
-    the file of the model that declares the dataset, as a path in a core file is to that file.
+    columns) or "inline" (the knots and the values given here) -- a grid, sampled at coordinates
+    --, or "cells", data on the mesh: a row of values per cell of the mesh, in the order of the
+    cells in the mesh file, in the HDF5 dataset `variable` of the file `path`, which SeisSol binds
+    at the cell of every point. A relative path is relative to the file of the model that declares
+    the dataset, as a path in a core file is to that file.
 
-    ``g.rho(x, y, z)`` samples the component rho, ``g(x, y, z)`` every component, a dict.
+    ``g.rho(x, y, z)`` samples the component rho of a grid, ``g(x, y, z)`` every component, a dict;
+    ``d.rho`` is the component rho of data on the mesh, the value of the cell of the point.
     """
 
     def __init__(
@@ -34,8 +38,8 @@ class Dataset:
         *,
         kind=None,
         variable=None,
-        interpolation="linear",
-        boundary="clamp",
+        interpolation=None,
+        boundary=None,
         axes=None,
         time=None,
         coordinates=None,
@@ -54,6 +58,21 @@ class Dataset:
             )
         self.kind = kind
         self.components = list(components)
+        if kind == "cells":
+            # the value of the cell of the point: nothing to interpolate, no volume to leave
+            if interpolation is not None or boundary is not None:
+                raise TracingError(
+                    "data on the mesh (kind cells) has no interpolation and no boundary",
+                    where(),
+                )
+            if variable is None:
+                raise TracingError(
+                    "data on the mesh (kind cells) names the dataset of its file, its variable",
+                    where(),
+                )
+        else:
+            interpolation = "linear" if interpolation is None else interpolation
+            boundary = "clamp" if boundary is None else boundary
         self.interpolation = interpolation
         self.boundary = boundary
         self.axes = axes
@@ -100,6 +119,12 @@ class Dataset:
                 f"the dataset has no component {component}; it has {', '.join(self.components)}",
                 where(),
             )
+        if self.kind == "cells":
+            raise TracingError(
+                f"data on the mesh is read without coordinates: d.{component}, the value of the "
+                "cell of the point",
+                where(),
+            )
         graph = next((c.graph for c in coordinates if isinstance(c, Value)), None)
         if graph is not None:
             nodes = []
@@ -117,8 +142,27 @@ class Dataset:
     def __getattr__(self, name):
         components = self.__dict__.get("components", ())
         if name in components:
+            if self.__dict__.get("kind") == "cells":
+                return self.cell(name)
             return lambda *coordinates: self.sample(name, *coordinates)
         raise AttributeError(name)
+
+    def cell(self, component):
+        """The component `component` of data on the mesh: in a trace, the value of the cell of the
+        point, an input channel SeisSol binds per cell. Outside of a trace there is no cell: the
+        program of the model takes it as an input (`model.evaluate({"g0.rho": ...})`, by the name
+        of the core file)."""
+        from ._model import _active
+
+        graph = _active()
+        if graph is None:
+            raise TracingError(
+                f"data on the mesh has a value per cell of the mesh, which SeisSol binds; outside of "
+                f"a trace, {component} has none -- evaluate the program of the model with its "
+                "values as inputs instead",
+                where(),
+            )
+        return Value(graph, graph.cell(graph.grid(self), component))
 
     def _sample(self, component, coordinates):
         """A sample outside of a trace, by the program of SeisSol: that of this dataset and its

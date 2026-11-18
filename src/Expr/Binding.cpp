@@ -10,6 +10,7 @@
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
 #include "Expr/Types.h"
+#include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 #include "utils/logger.h"
 
@@ -231,6 +232,24 @@ Binding Binding::bind(const Program& program, const DataTable& table) {
     const auto& spec = program.inputs()[i];
     const auto found = byName.find(spec.name);
     if (found == byName.end()) {
+      // a value per cell of data on the mesh, which a consumer binds where it knows the cells of
+      // its points
+      for (const auto& desc : program.grids()) {
+        if (reader::datafield::sampledAtCoordinates(desc.kind)) {
+          continue;
+        }
+        for (const auto& component : desc.componentNames) {
+          if (desc.name + "." + component == spec.name) {
+            throw std::invalid_argument(
+                "expr: the program reads '" + spec.name +
+                "', a value per cell of the mesh (the "
+                "dataset `" +
+                desc.name + "` of " + desc.path +
+                "), which this consumer does not bind: the materials read data on the mesh, the "
+                "other scripts do not");
+          }
+        }
+      }
       throw std::invalid_argument("expr: the program reads '" + spec.name +
                                   "', which the data table does not provide");
     }

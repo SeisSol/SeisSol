@@ -569,6 +569,26 @@ class Loader {
       }
       program_.addState(state.name, state.initial, state.next, state.type);
     }
+    // the components of the data on the mesh are input channels, after those `in` declares, in
+    // the order of their declarations: the order the normal form gives them
+    for (const auto& grid : grids_) {
+      if (!grid.cells) {
+        continue;
+      }
+      for (const auto& component : grid.components) {
+        const std::string channel = grid.name + "." + component;
+        for (const auto& input : program_.inputs()) {
+          if (input.name == channel) {
+            throw CoreError(CorePosition{file_, 1, 1},
+                            "the input `" + channel +
+                                "` has the name of a component of the "
+                                "data on the mesh `" +
+                                grid.name + "`");
+          }
+        }
+        program_.addInput(channel, reader::scripting::DataType::F64);
+      }
+    }
     for (const auto& [name, root] : outputs_) {
       program_.addOutput(name, reader::scripting::DataType::F64, root);
     }
@@ -610,6 +630,10 @@ class Loader {
   struct GridDeclaration {
     GridId id{NoGrid};
     std::vector<std::string> components;
+    /// data on the mesh, read as `d.c`, an input channel the consumer binds per cell, rather
+    /// than sampled at coordinates
+    bool cells{false};
+    std::string name;
   };
 
   [[nodiscard]] Arena& arena() { return program_.arena(); }
@@ -855,11 +879,12 @@ class Loader {
     const auto kind = reader::datafield::parseGridKind(spec.kind);
     if (!kind.has_value()) {
       fail(given.at("kind"),
-           "the kind of a dataset is \"asagi\", \"scec\", \"table\" or \"inline\", not \"" +
+           "the kind of a dataset is \"asagi\", \"scec\", \"table\", \"inline\" or \"cells\", "
+           "not \"" +
                spec.kind + "\"");
     }
     const auto& attributes = reader::datafield::gridAttributesOf(*kind);
-    const auto& common = reader::datafield::commonGridAttributes();
+    const auto& common = reader::datafield::commonGridAttributes(*kind);
     for (const auto& [attribute, key] : given) {
       if (std::find(common.begin(), common.end(), attribute) == common.end() &&
           !attributes.has(attribute)) {
@@ -901,10 +926,15 @@ class Loader {
     } catch (const std::invalid_argument& error) {
       fail(at, "the dataset `" + gridName + "`: " + error.what());
     }
+    const bool cells = !reader::datafield::sampledAtCoordinates(desc.kind);
+    if (cells) {
+      // its input channels are named after it, `d.c`: two names of one file are two datasets
+      desc.name = gridName;
+    }
     const GridId id = program_.internGrid(desc);
     program_.nameGrid(id, GridNames{gridName, spec.components});
     declare(at, gridName, Entry{What::Grid, NoNode, grids_.size()});
-    grids_.push_back(GridDeclaration{id, spec.components});
+    grids_.push_back(GridDeclaration{id, spec.components, cells, gridName});
   }
 
   void definition() {
@@ -1090,9 +1120,7 @@ class Loader {
     if (operation == operations.end() && conversion == conversions.end()) {
       const auto found = names_.find(at.text);
       if (found != names_.end() && found->second.what == What::Grid) {
-        fail(at,
-             "the dataset `" + at.text + "` is sampled with a component, as `" + at.text +
-                 ".c(x)`");
+        fail(at, componentHint(at.text, grids_[found->second.index].cells));
       }
       fail(at,
            "there is no operation `" + at.text +
@@ -1131,6 +1159,24 @@ class Loader {
     if (index == grid.components.end()) {
       fail(component, "the dataset `" + at.text + "` has no component `" + componentName + "`");
     }
+    if (grid.cells) {
+      // the value of the cell of the point, which the consumer binds
+      if (peek().kind == Tok::Open) {
+        fail(peek(),
+             "the dataset `" + at.text +
+                 "` holds a value per cell of the mesh, read without "
+                 "coordinates, as `" +
+                 at.text + "." + componentName + "`");
+      }
+      return arena().field(at.text + "." + componentName);
+    }
+    if (peek().kind != Tok::Open) {
+      fail(peek(),
+           "a component of the dataset `" + at.text + "` is sampled at coordinates, as `" +
+               at.text + "." + componentName +
+               "(x)`; only data on the mesh (kind \"cells\") is "
+               "read without");
+    }
     const std::vector<NodeId> coordinates = arguments(depth);
     if (coordinates.empty() || coordinates.size() > static_cast<std::size_t>(MaxLookupDimension)) {
       fail(at,
@@ -1153,10 +1199,21 @@ class Loader {
                        : "; an input is declared with `in " + spellName(at.text) + "`"));
     }
     if (found->second.what == What::Grid) {
-      fail(at,
-           "the dataset `" + at.text + "` is sampled with a component, as `" + at.text + ".c(x)`");
+      fail(at, componentHint(at.text, grids_[found->second.index].cells));
     }
     return found->second.node;
+  }
+
+  /// What a dataset `name` is read as: a component, sampled at coordinates, or without them where
+  /// it is data on the mesh (`cells`).
+  static std::string componentHint(const std::string& name, bool cells) {
+    if (cells) {
+      return "the dataset `" + name +
+             "` holds a value per cell of the mesh, read with a component, "
+             "as `" +
+             name + ".c`";
+    }
+    return "the dataset `" + name + "` is sampled with a component, as `" + name + ".c(x)`";
   }
 
   std::vector<Token> tokens_;
@@ -1190,11 +1247,25 @@ class Printer {
 
     std::string out;
 
+    // the input channels of the data on the mesh, `d.c`, which its declaration gives: not in `in`,
+    // and read as `d.c`
+    for (std::size_t g = 0; g < program_.grids().size(); ++g) {
+      if (reader::datafield::sampledAtCoordinates(program_.grids()[g].kind)) {
+        continue;
+      }
+      for (const auto& component : gridNames_[g].components) {
+        cellChannels_[gridNames_[g].name + "." + component] =
+            spellName(gridNames_[g].name) + "." + spellName(component);
+      }
+    }
+
     // in the order of the program, which is that of the arguments of its kernels: a program of
     // another order is another program, with another fingerprint
     std::vector<std::string> inputs;
     for (const auto& input : program_.inputs()) {
-      inputs.push_back(input.name);
+      if (cellChannels_.count(input.name) == 0) {
+        inputs.push_back(input.name);
+      }
     }
     if (!inputs.empty()) {
       out += "in ";
@@ -1485,6 +1556,11 @@ class Printer {
       const std::size_t broken = shape.size() == 2 ? 1 : shape.size() - 2;
       nestedValues(out, desc.data->values, shape, 0, 0, indent.size() + 9, broken);
     }
+    if (!df::sampledAtCoordinates(desc.kind)) {
+      // data on the mesh: the value of the cell, with nothing to interpolate
+      out += ")\n";
+      return;
+    }
     // one for all axes, or one per axis
     std::vector<std::string> interpolations;
     for (const auto each : desc.interpolations) {
@@ -1544,7 +1620,11 @@ class Printer {
       return spellNumber(*value);
     }
     if (node.kind == Kind::Field) {
-      return spellName(arena_.channelName(node.ch));
+      const std::string& channel = arena_.channelName(node.ch);
+      if (const auto cell = cellChannels_.find(channel); cell != cellChannels_.end()) {
+        return cell->second;
+      }
+      return spellName(channel);
     }
     return names_[static_cast<std::size_t>(id)];
   }
@@ -1666,6 +1746,8 @@ class Printer {
   const Arena& arena_;
   std::set<std::string> taken_;
   std::vector<GridNames> gridNames_;
+  /// the input channels of the data on the mesh, and how they are read: `d.c`
+  std::map<std::string, std::string> cellChannels_;
   std::vector<std::string> names_;
   std::size_t counter_{0};
 };

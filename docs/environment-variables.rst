@@ -391,6 +391,27 @@ and the dynamic coefficient of friction), ``d_c`` (the critical slip distance), 
 ``forced_rupture_time``. Every node is given once. Rank 0 reads the file, and gives it to the other
 ranks.
 
+Data on the mesh is a dataset of the kind ``"cells"``: a row of values per cell of the mesh, in the
+order of the cells in the mesh file, in an HDF5 dataset whose first axis they are -- in the mesh
+file itself or in another file, from preprocessing or from an earlier run on the same mesh:
+
+.. code-block:: text
+
+   dataset pre (kind = "cells", path = "material.h5", variable = "material",
+                components = ("rho", "mu", "lambda"))
+   out def rho = pre.rho
+   out def mu = pre.mu
+   out def lambda = pre.lambda
+
+``pre.rho`` is read without coordinates: it is the value of the cell of the point, the same at
+every point of the cell, which is exact where SeisSol needs the material per cell anyway. A row has
+a value per component, in their order (a dataset of one dimension is one component). Every rank
+reads a part of the rows and gives them to the ranks of their cells, the ghost cells too, once
+before it computes the time steps and once before it sets the materials. For now only the
+materials read data on the mesh (with the plasticity); another script that reads it is an error that
+names the dataset. In the core format and to SeisSol, ``pre.rho`` is the input channel of that
+name, after all other inputs: a program can be evaluated with its values given as inputs.
+
 A Lua model declares its grids in ``M.field_specs``, a table of field specs, each a table of the
 attributes of a dataset of sderiv: ``file`` is its path and ``parameters`` its components, and the
 knots and the values of an inline grid are nested tables, as sderiv nests them. Where a field spec
@@ -525,10 +546,11 @@ and the functions of NumPy the program has no exact counterpart for (``np.round`
 ``@sd.model(state={"peak": 0.0})`` declares a state, which the parameter of its name reads and the
 output of its name gives the next value of; ``sd.check(condition, message)`` a check;
 ``sd.percentile`` and ``sd.median`` the operation; ``sd.dataset(path, components, ...)`` a dataset,
-a relative path relative to the model, sampled as ``g.rho(x, y, z)``. Outside of a trace, a dataset
-is sampled by the program SeisSol samples it with, through the module ``sderiv`` of a build with
-``-DSDERIV_PYTHON=ON``, as is ``material.evaluate()``, which gives the values of the program
-itself.
+a relative path relative to the model, sampled as ``g.rho(x, y, z)`` -- or, of the kind
+``"cells"``, data on the mesh, read as ``d.rho``, which has values only in SeisSol. Outside of a
+trace, a dataset is sampled by the program SeisSol samples it with, through the module ``sderiv``
+of a build with ``-DSDERIV_PYTHON=ON``, as is ``material.evaluate()``, which gives the values of
+the program itself.
 
 A module may check its points: ``check le(z, 0), "no material above the surface"`` (in either
 form) stops the run at the first point where the condition is zero, with the message, the point and

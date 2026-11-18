@@ -70,6 +70,8 @@ const char* token(GridKind kind) {
     return "inline";
   case GridKind::Table:
     return "table";
+  case GridKind::Cells:
+    return "cells";
   }
   return "unknown";
 }
@@ -134,6 +136,9 @@ std::optional<GridKind> parseGridKind(const std::string& text) {
   if (text == "table") {
     return GridKind::Table;
   }
+  if (text == "cells") {
+    return GridKind::Cells;
+  }
   return std::nullopt;
 }
 
@@ -175,7 +180,8 @@ GridDesc gridDescOf(const GridSpec& spec) {
   GridDesc desc;
   const auto kind = parseGridKind(spec.kind);
   if (!kind.has_value()) {
-    fail("the kind of a dataset is \"asagi\", \"scec\", \"table\" or \"inline\", not \"" +
+    fail("the kind of a dataset is \"asagi\", \"scec\", \"table\", \"inline\" or \"cells\", "
+         "not \"" +
          spec.kind + "\"");
   }
   desc.kind = *kind;
@@ -215,6 +221,15 @@ GridDesc gridDescOf(const GridSpec& spec) {
   desc.path = spec.path;
   desc.variable = spec.variable;
   desc.timeAxis = spec.timeAxis;
+  if (desc.kind == GridKind::Cells) {
+    // a row per cell, of one value per component: constant on the cell, with nothing to
+    // interpolate between and no volume to leave
+    if (!spec.interpolation.empty() || !spec.boundary.empty()) {
+      fail("a dataset of the kind \"cells\" has no interpolation and no boundary: its value is "
+           "that of the cell of the point");
+    }
+    return desc;
+  }
   // how many axes the declaration says the grid has; none where only the file says
   std::size_t axes = spec.axes.size();
   switch (desc.kind) {
@@ -263,6 +278,8 @@ GridDesc gridDescOf(const GridSpec& spec) {
     axes = spec.coordinates.size();
     break;
   }
+  case GridKind::Cells:
+    break;
   case GridKind::AsagiLite:
   case GridKind::Distributed: {
     for (const auto& axis : spec.axes) {
@@ -374,6 +391,7 @@ const GridAttributes& gridAttributesOf(GridKind kind) {
   static const GridAttributes Scec{{"path"}, {}};
   static const GridAttributes Table{{"path", "coordinates"}, {}};
   static const GridAttributes Inline{{"knots", "values"}, {}};
+  static const GridAttributes Cells{{"path", "variable"}, {}};
   switch (kind) {
   case GridKind::Scec:
     return Scec;
@@ -381,6 +399,8 @@ const GridAttributes& gridAttributesOf(GridKind kind) {
     return Table;
   case GridKind::Inline:
     return Inline;
+  case GridKind::Cells:
+    return Cells;
   case GridKind::AsagiLite:
   case GridKind::Distributed:
     break;
@@ -388,9 +408,12 @@ const GridAttributes& gridAttributesOf(GridKind kind) {
   return Asagi;
 }
 
-const std::vector<std::string>& commonGridAttributes() {
-  static const std::vector<std::string> Names = {"kind", "components", "interpolation", "boundary"};
-  return Names;
+bool sampledAtCoordinates(GridKind kind) { return kind != GridKind::Cells; }
+
+const std::vector<std::string>& commonGridAttributes(GridKind kind) {
+  static const std::vector<std::string> Grid = {"kind", "components", "interpolation", "boundary"};
+  static const std::vector<std::string> OnTheMesh = {"kind", "components"};
+  return sampledAtCoordinates(kind) ? Grid : OnTheMesh;
 }
 
 namespace {
@@ -450,6 +473,15 @@ std::optional<SpelledProblem> flattenGridValues(const SpelledValue& values,
 }
 
 std::string GridDesc::canonicalKey() const {
+  if (kind == GridKind::Cells) {
+    // read through input channels named after the dataset and its components (`d.rho`), so that
+    // two declarations of one file under other names are two datasets
+    std::string key = std::string(token(kind)) + '\x1f' + name;
+    for (const auto& component : componentNames) {
+      key += '\x1f' + component;
+    }
+    return key;
+  }
   // The time axis is part of the key because it changes the sampling arity the
   // kernel emits, not merely which slices are resident.
   std::string key =

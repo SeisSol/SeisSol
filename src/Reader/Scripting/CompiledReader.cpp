@@ -61,6 +61,16 @@ CompiledReader::CompiledReader(expr::Program program,
 
 CompiledReader::~CompiledReader() = default;
 
+std::vector<datafield::GridDesc> CompiledReader::cellDatasets() {
+  std::vector<datafield::GridDesc> datasets;
+  for (const auto& desc : program_.grids()) {
+    if (!datafield::sampledAtCoordinates(desc.kind)) {
+      datasets.push_back(desc);
+    }
+  }
+  return datasets;
+}
+
 namespace {
 
 /// `program` with only the outputs `table` has a column for, in their order, and the inputs

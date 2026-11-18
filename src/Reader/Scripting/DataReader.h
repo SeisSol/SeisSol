@@ -7,6 +7,7 @@
 #ifndef SEISSOL_SRC_READER_SCRIPTING_DATAREADER_H_
 #define SEISSOL_SRC_READER_SCRIPTING_DATAREADER_H_
 
+#include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
 
 #include <string>
@@ -23,6 +24,10 @@ class DataReader {
 
   virtual const std::vector<std::string>& inputVars() = 0;
   virtual const std::vector<std::string>& outputVars() = 0;
+  /// The data on the mesh the reader reads (datasets of the kind cells), whose components are the
+  /// input channels `d.c`, which a consumer that knows the cell of every point binds
+  /// (datafield::CellDataStore); none by default.
+  virtual std::vector<datafield::GridDesc> cellDatasets() { return {}; }
 
   /// Resolve everything that depends on `table` but not on its values: column
   /// lookup, direction and type checks, and for a compiled reader the binding,

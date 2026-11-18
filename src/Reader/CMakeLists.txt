@@ -9,6 +9,7 @@ add_library(seissol-reader OBJECT
     Datafield/AsagiLite.cpp
     Datafield/AsagiModule.cpp
     Datafield/AsagiReader.cpp
+    Datafield/CellData.cpp
     Datafield/Grid.cpp
     Datafield/GridFactory.cpp
     Datafield/GridUpdateModule.cpp

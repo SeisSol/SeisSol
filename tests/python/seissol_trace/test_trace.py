@@ -341,6 +341,45 @@ def test_a_dataset_samples_as_in_seissol():
     assert same_bits(layered(z)["rho"], traced)
 
 
+def test_data_on_the_mesh(tmp_path):
+    # a value per cell of the mesh, which SeisSol binds: read without coordinates
+    pre = sd.dataset(
+        tmp_path / "material.h5", ["rho", "vs"], kind="cells", variable="material"
+    )
+
+    @sd.model
+    def layered(z):
+        if z > -1000.0:
+            rho = 2500.0
+        else:
+            rho = pre.rho
+        return {"rho": rho, "mu": rho * pre.vs**2}
+
+    text = layered.core()
+    declaration = lines_of(text, "dataset g0 ")
+    assert declaration and 'kind = "cells"' in declaration[0]
+    assert 'variable = "material"' in declaration[0]
+    assert "interpolation" not in declaration[0]
+    assert "select(t0, 2500.0, g0.rho)" in text
+    with pytest.raises(sd.TracingError, match="outside of a trace"):
+        layered(np.array([-2000.0]))
+    with pytest.raises(sd.TracingError, match="without coordinates"):
+        pre.sample("rho", 0.0)
+    with pytest.raises(sd.TracingError, match="no interpolation"):
+        sd.dataset("m.h5", "rho", kind="cells", variable="v", interpolation="linear")
+    with pytest.raises(sd.TracingError, match="variable"):
+        sd.dataset("m.h5", "rho", kind="cells")
+    if compiled is not None:
+        program = layered.program()
+        # its channels after the inputs of the model, as SeisSol binds them
+        assert program.inputs == ["z", "g0.rho", "g0.vs"]
+        values = program.evaluate(
+            {"z": [-2000.0, 0.0], "g0.rho": [3000.0, 3000.0], "g0.vs": [10.0, 10.0]}
+        )
+        np.testing.assert_array_equal(values["rho"], [3000.0, 2500.0])
+        np.testing.assert_array_equal(values["mu"], [3.0e5, 2.5e5])
+
+
 @needs_seissol
 def test_the_command_checks_the_core_file(tmp_path):
     (tmp_path / "layers.csv").write_text("-2000.0, 2700.0, 2600.0\n")

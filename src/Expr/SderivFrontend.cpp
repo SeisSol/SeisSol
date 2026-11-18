@@ -435,9 +435,15 @@ struct GridDeclaration {
     spec.variable = variable;
     spec.components = components;
     spec.coordinates = coordinates;
-    spec.interpolation =
-        interpolations.empty() ? std::vector<std::string>{interpolation} : interpolations;
-    spec.boundary = boundaries.empty() ? std::vector<std::string>{boundary} : boundaries;
+    if (kind == "cells") {
+      // data on the mesh, which has none: they are an error of gridDescOf() where they are given
+      spec.interpolation = interpolations;
+      spec.boundary = boundaries;
+    } else {
+      spec.interpolation =
+          interpolations.empty() ? std::vector<std::string>{interpolation} : interpolations;
+      spec.boundary = boundaries.empty() ? std::vector<std::string>{boundary} : boundaries;
+    }
     spec.axes = axes;
     spec.knots = knots;
     spec.values = values;
@@ -983,11 +989,12 @@ class Parser {
     if (!kind.has_value()) {
       throw SderivError("dataset",
                         "dataset `" + grid.name + "`: unknown kind \"" + grid.kind +
-                            "\"; a dataset is \"asagi\", \"scec\", \"table\" or \"inline\"",
+                            "\"; a dataset is \"asagi\", \"scec\", \"table\", \"inline\" or "
+                            "\"cells\"",
                         given.at("kind"));
     }
     const auto& attributes = reader::datafield::gridAttributesOf(*kind);
-    const auto& common = reader::datafield::commonGridAttributes();
+    const auto& common = reader::datafield::commonGridAttributes(*kind);
     for (const auto& [attribute, position] : given) {
       if (std::find(common.begin(), common.end(), attribute) == common.end() &&
           !attributes.has(attribute)) {
@@ -1001,7 +1008,12 @@ class Parser {
       grid.variable = DefaultGridVariable;
       given.emplace("variable", grid.position);
     }
-    given.emplace("boundary", grid.position);
+    if (reader::datafield::sampledAtCoordinates(*kind)) {
+      given.emplace("boundary", grid.position);
+    } else {
+      // data on the mesh: the value of the cell, with nothing to interpolate
+      grid.boundary.clear();
+    }
     std::vector<std::string> required = common;
     required.insert(required.end(), attributes.required.begin(), attributes.required.end());
     for (const auto& name : required) {
@@ -1023,9 +1035,12 @@ class Parser {
     }
   }
 
-  /// What a grid of the kind `kind` gives, but the defaults, as a list for a message.
+  /// What a dataset of the kind `kind` gives, but the defaults, as a list for a message.
   static std::string requiredList(reader::datafield::GridKind kind) {
-    std::vector<std::string> names = {"kind", "components", "interpolation"};
+    std::vector<std::string> names = {"kind", "components"};
+    if (reader::datafield::sampledAtCoordinates(kind)) {
+      names.emplace_back("interpolation");
+    }
     for (const auto& name : reader::datafield::gridAttributesOf(kind).required) {
       if (!(kind == reader::datafield::GridKind::AsagiLite && name == "variable")) {
         names.push_back(name);
@@ -1549,13 +1564,14 @@ ComponentTable checkGrids(const std::vector<GridDeclaration>& grids,
       throw SderivError(
           "dataset", "dataset `" + grid.name + "` has the name of a definition", grid.position);
     }
-    if (!reader::datafield::parseInterpolation(grid.interpolation).has_value()) {
+    const bool cells = grid.kind == "cells";
+    if (!cells && !reader::datafield::parseInterpolation(grid.interpolation).has_value()) {
       throw SderivError("dataset",
                         "dataset `" + grid.name + "`: unknown interpolation \"" +
                             grid.interpolation + "\"",
                         grid.position);
     }
-    if (!reader::datafield::parseBoundaryMode(grid.boundary).has_value()) {
+    if (!cells && !reader::datafield::parseBoundaryMode(grid.boundary).has_value()) {
       throw SderivError("dataset",
                         "dataset `" + grid.name + "`: unknown boundary \"" + grid.boundary +
                             "\"; it is \"clamp\" or \"fail\"",
@@ -2172,6 +2188,12 @@ class Lowering {
         // `material.rho`: the input `rho`
         if (isMaterial(surface_[node.a], bound(scope))) {
           add(node.text);
+          break;
+        }
+        // `d.c` of data on the mesh: an input channel after all others (compileSderivModule())
+        if (const SurfaceNode& base = surface_[node.a]; base.kind == SurfaceKind::Name &&
+                                                        scope->count(base.text) == 0 &&
+                                                        gridNamed(base.text) != nullptr) {
           break;
         }
         // `lib.v`, a value of a module imported as lib
@@ -3166,11 +3188,27 @@ private:
     }
 
     case SurfaceKind::Field: {
-      // `m.rho` of a grid m, without its coordinates
+      // `m.rho` of a dataset m, without coordinates
       if (const SurfaceNode& base = surface_[node.a]; base.kind == SurfaceKind::Name &&
                                                       env.count(base.text) == 0 &&
                                                       gridNamed(base.text) != nullptr) {
+        const GridDeclaration& grid = *gridNamed(base.text);
         const std::string sample = base.text + "." + node.text;
+        if (std::find(grid.components.begin(), grid.components.end(), node.text) ==
+            grid.components.end()) {
+          std::string list;
+          for (const auto& each : grid.components) {
+            list += (list.empty() ? "" : ", ") + each;
+          }
+          fail(node,
+               "the dataset `" + base.text + "` has no component `" + node.text + "`; it has " +
+                   list);
+        }
+        if (grid.kind == "cells") {
+          // data on the mesh: the value of the cell of the point, an input channel the consumer
+          // binds per cell (and the program has after all others, compileSderivModule())
+          return Value::number(program_.arena().field(sample));
+        }
         fail(node,
              "`" + sample + "` is a component of a dataset, sampled with coordinates: " + sample +
                  "(x, y, z)");
@@ -3267,7 +3305,14 @@ private:
         fail(node,
              "`" + node.text + "` is a module; its definitions are read as " + node.text + ".name");
       }
-      if (gridNamed(node.text) != nullptr) {
+      if (const GridDeclaration* grid = gridNamed(node.text); grid != nullptr) {
+        if (grid->kind == "cells") {
+          fail(node,
+               "`" + node.text +
+                   "` is a dataset of a value per cell of the mesh; a component of "
+                   "it is read as " +
+                   node.text + ".c");
+        }
         fail(node,
              "`" + node.text + "` is a dataset; a component of it is sampled as " + node.text +
                  ".c(x, y, z), all of them as " + node.text + "(x, y, z)");
@@ -3295,6 +3340,12 @@ private:
       // the grids are those of the module compiled
       const auto component = node.module == 0 ? components_.find(node.text) : components_.end();
       if (component != components_.end()) {
+        if (parsed_.grids[component->second.grid].kind == "cells") {
+          fail(node,
+               "the dataset `" + parsed_.grids[component->second.grid].name +
+                   "` holds a value per cell of the mesh, read without coordinates, as " +
+                   node.text);
+        }
         const auto coords = coordinatesOf(node, component->second.grid, env);
         return Value::number(program_.arena().lookup(
             gridIds_[component->second.grid], component->second.component, coords));
@@ -3360,6 +3411,13 @@ private:
       // m(x, y, z): every component of the grid m, a record of their names
       if (const GridDeclaration* grid = node.module == 0 ? gridNamed(node.text) : nullptr;
           grid != nullptr) {
+        if (grid->kind == "cells") {
+          fail(node,
+               "the dataset `" + grid->name +
+                   "` holds a value per cell of the mesh, read "
+                   "without coordinates, a component as " +
+                   grid->name + ".c");
+        }
         const auto g = static_cast<std::size_t>(grid - parsed_.grids.data());
         const auto coords = coordinatesOf(node, g, env);
         Value record;
@@ -3812,6 +3870,10 @@ void compileModules(const std::string& source,
       spec.path = path.string();
     }
     desc = reader::datafield::gridDescOf(spec);
+    if (!reader::datafield::sampledAtCoordinates(desc.kind)) {
+      // its input channels are named after it, `d.c`: two names of one file are two datasets
+      desc.name = grid.name;
+    }
     // internGrid dedupes, so two outputs naming the same grid share a GridId
     // and the backend loads the file once. The names are what the core format prints.
     gridIds.push_back(program.internGrid(desc));
@@ -4097,6 +4159,31 @@ void compileSource(const std::string& source,
   }
 }
 
+/// The input channels of the data on the mesh of `program`, `d.c`, after all its other inputs, in
+/// the order of the datasets and their components: the order a core file gives them, where its
+/// declarations make them.
+void addCellChannels(Program& program) {
+  for (const auto& desc : program.grids()) {
+    if (reader::datafield::sampledAtCoordinates(desc.kind)) {
+      continue;
+    }
+    for (const auto& component : desc.componentNames) {
+      const std::string channel = desc.name + "." + component;
+      for (const auto& input : program.inputs()) {
+        if (input.name == channel) {
+          throw SderivError("dataset",
+                            "the input `" + channel +
+                                "` has the name of a component of the "
+                                "data on the mesh `" +
+                                desc.name + "`",
+                            -1);
+        }
+      }
+      program.addInput(channel, reader::scripting::DataType::F64);
+    }
+  }
+}
+
 } // namespace
 
 /// `compile`, with the byte offset of an error turned into its line and column in `source`.
@@ -4126,6 +4213,7 @@ Program compileSderiv(const std::vector<SderivOutput>& outputs) {
   for (const auto& name : channelOrder) {
     program.addInput(name, reader::scripting::DataType::F64);
   }
+  addCellChannels(program);
   validate(program);
   return program;
 }
@@ -4175,6 +4263,7 @@ Program compileSderivModule(const std::string& source, const SderivOptions& opti
   for (const auto& name : channelOrder) {
     program.addInput(name, reader::scripting::DataType::F64);
   }
+  addCellChannels(program);
   validate(program);
   return program;
 }

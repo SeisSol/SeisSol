@@ -29,7 +29,10 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/ScriptParameters.h"
 #include "Numerical/Quadrature.h"
+#include "Parallel/MPI.h"
 #include "Physics/ScriptScope.h"
+#include "Reader/Datafield/CellData.h"
+#include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataReader.h"
 #include "Reader/Scripting/DataTable.h"
@@ -121,6 +124,43 @@ void evaluateSafe(reader::scripting::DataReader& model,
   }
 }
 
+/// Binds the components of the data on the mesh that `model` reads, `d.c`, at the points of
+/// `queryGen`: the value of the cell of every point, from the store loadCellData() filled.
+void bindCellData(reader::scripting::DataTable& table,
+                  reader::scripting::DataReader& model,
+                  const QueryGenerator& queryGen) {
+  const auto datasets = model.cellDatasets();
+  if (datasets.empty()) {
+    return;
+  }
+  const CellToVertexArray* cells = queryGen.cells();
+  if (cells == nullptr || !cells->elementIds) {
+    logError() << "The script reads data on the mesh (" << datasets.front().name.c_str()
+               << "), a value per cell, but its points are on no cell of the mesh.";
+  }
+  const auto& store = reader::datafield::sharedCellDataStore();
+  const std::size_t perCell = std::max<std::size_t>(1, queryGen.pointsPerCell());
+  for (const auto& desc : datasets) {
+    // every cell read, before a point is evaluated
+    try {
+      for (std::size_t cell = 0; cell < cells->size; ++cell) {
+        static_cast<void>(store.row(desc, cells->elementIds(cell)));
+      }
+    } catch (const std::exception& error) {
+      logError() << error.what();
+    }
+    for (std::size_t c = 0; c < desc.componentNames.size(); ++c) {
+      table.bindComputedBatch<double>(
+          desc.name + "." + desc.componentNames[c],
+          [&store, desc, cells, perCell, c](std::size_t first, std::size_t count, double* out) {
+            for (std::size_t i = 0; i < count; ++i) {
+              out[i] = store.row(desc, cells->elementIds((first + i) / perCell))[c];
+            }
+          });
+    }
+  }
+}
+
 /// Adds to the evaluation record of the program of `model` the material of the cells at the points
 /// of its sample: what averaging made of the values of the program (the third layer of the
 /// record); `pointsPerCell` points of `table` per material of `materials`.
@@ -206,6 +246,44 @@ void cellPointCoordinates(const CellToVertexArray& cells,
 }
 
 } // namespace
+
+void loadCellData(const std::vector<std::string>& files, const CellToVertexArray& cells) {
+  // the data on the mesh the scripts read: the same on every rank, which all read them alike
+  std::vector<reader::datafield::GridDesc> datasets;
+  for (const auto& file : files) {
+    if (file.empty()) {
+      continue;
+    }
+    const auto program = reader::scripting::buildProgram(file);
+    if (!program.has_value()) {
+      continue;
+    }
+    for (const auto& desc : program->grids()) {
+      if (!reader::datafield::sampledAtCoordinates(desc.kind)) {
+        datasets.push_back(desc);
+      }
+    }
+  }
+  if (datasets.empty()) {
+    return;
+  }
+  if (!cells.elementIds) {
+    logError() << "The scripts read data on the mesh, but the cells have no ids.";
+  }
+  std::vector<std::size_t> ids(cells.size);
+  for (std::size_t cell = 0; cell < cells.size; ++cell) {
+    ids[cell] = static_cast<std::size_t>(cells.elementIds(cell));
+  }
+  for (const auto& desc : datasets) {
+    logInfo() << "Reading the data on the mesh" << desc.name.c_str() << "(the variable"
+              << desc.variable.c_str() << "of" << desc.path.c_str() << ").";
+    try {
+      reader::datafield::sharedCellDataStore().load(desc, ids, seissol::Mpi::mpi.comm());
+    } catch (const std::exception& error) {
+      logError() << error.what();
+    }
+  }
+}
 
 std::unique_ptr<reader::scripting::DataReader> ParameterDB::loadModel(const std::string& fileName) {
   return reader::scripting::buildReader(fileName, {"x", "y", "z"});
@@ -722,6 +800,8 @@ void MaterialParameterDB<T>::evaluateModel(const std::string& fileName,
     const std::size_t numPoints = table.numPoints();
     // materials do not depend on the fused simulation
     table.bindConstant("sim", std::int32_t{0});
+    // the value of the cell of every point, of the data on the mesh the model reads
+    bindCellData(table, *model, queryGen);
 
     std::vector<T> materialsFromQuery(numPoints);
     for (const auto& [name, pointer] : T::ParameterList) {

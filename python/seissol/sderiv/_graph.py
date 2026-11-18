@@ -125,6 +125,11 @@ class Graph:
             Node("sample", tuple(coordinates), name=component, grid=grid), at=where()
         )
 
+    def cell(self, grid, component):
+        """The component `component` of the data on the mesh `grid` (an index of grid()): the value
+        of the cell of the point, an input channel the consumer binds."""
+        return self.add(Node("cell", name=component, grid=grid))
+
     def grid(self, declaration):
         """The index of the dataset `declaration` (a Dataset), declared once per graph."""
         for index, known in enumerate(self.grids):

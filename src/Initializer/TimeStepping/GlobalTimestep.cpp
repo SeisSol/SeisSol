@@ -62,6 +62,9 @@ GlobalTimestep
   // material file is queried for the cells of each configuration separately, since another
   // material need not be defined in their groups
   const auto& model = seissolParams.model;
+  // the data on the mesh the material reads, for all cells of the rank: collectively, before the
+  // configurations, which some ranks have cells of and some do not
+  seissol::initializer::loadCellData({model.materialFileName}, cellToVertex);
   const auto configs = model.configs();
   for (const auto config : configs) {
     std::vector<std::size_t> cells;

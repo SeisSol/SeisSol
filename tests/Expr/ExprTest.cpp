@@ -17,6 +17,7 @@
 #include "Expr.t.h"
 #include "Interp.t.h"
 #include "Layers.t.h"
+#include "MeshData.t.h"
 #include "Record.t.h"
 #include "RtcCpu.t.h"
 #include "RtcGpu.t.h"

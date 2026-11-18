@@ -397,7 +397,7 @@ out u = t2
          "(\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\n",
          2,
          12,
-         "\"asagi\", \"scec\", \"table\" or \"inline\""},
+         "\"asagi\", \"scec\", \"table\", \"inline\" or \"cells\""},
         // the attributes of the kind, and the values of an inline grid as its axes nest them
         {"#!sderiv 1\ndataset f (kind = \"scec\", path = \"f.txt\", variable = \"z\", components = "
          "(\"mu_s\"), interpolation = \"linear\", boundary = \"clamp\")\n",

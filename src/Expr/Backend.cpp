@@ -2048,6 +2048,9 @@ std::vector<GridRecord> gridRecordsOf(const Program& program, GridStore& grids) 
   std::vector<GridRecord> records;
   const auto ids = internGrids(program, grids);
   for (std::size_t g = 0; g < program.grids().size(); ++g) {
+    if (ids[g] == NoStoreGrid) {
+      continue;
+    }
     const auto& desc = program.grids()[g];
     const reader::datafield::Grid& grid = grids.get(ids[g]);
     GridRecord record;
@@ -2241,10 +2244,18 @@ CallPool devicePool(std::size_t first,
 std::vector<std::size_t> internGrids(const Program& program, GridStore& grids) {
   std::vector<std::size_t> ids;
   ids.reserve(program.grids().size());
+  bool sampled = false;
   for (const auto& desc : program.grids()) {
+    // data on the mesh is bound per cell by the consumer, through input channels; the store has
+    // nothing of it to open (NoStoreGrid), and no lookup reads it
+    if (!reader::datafield::sampledAtCoordinates(desc.kind)) {
+      ids.push_back(NoStoreGrid);
+      continue;
+    }
     ids.push_back(grids.intern(desc));
+    sampled = true;
   }
-  if (!ids.empty()) {
+  if (sampled) {
     // a no-op for grids that are open and sized already (GridStore::load())
     grids.load();
   }
@@ -2253,6 +2264,9 @@ std::vector<std::size_t> internGrids(const Program& program, GridStore& grids) {
   static std::mutex mutex;
   static std::set<std::string> warned;
   for (std::size_t grid = 0; grid < ids.size(); ++grid) {
+    if (ids[grid] == NoStoreGrid) {
+      continue;
+    }
     const auto& desc = program.grids()[grid];
     const std::string warning = reader::datafield::componentNamesWarning(
         desc.componentNames, grids.get(ids[grid]).componentNamesInFile());
