@@ -12,10 +12,12 @@
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
 #include "Expr/SderivFrontend.h"
+#include "Expr/Sha256.h"
 #include "Reader/Datafield/AsagiModule.h"
 #include "Reader/Datafield/AsagiReader.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Datafield/ScecGrid.h"
+#include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataTable.h"
 #include "Reader/Scripting/EasiReader.h"
 #include "Reader/Scripting/EasiSpecial.h"
@@ -1465,6 +1467,36 @@ TEST_CASE("easi walker: what it does not translate, easi evaluates" *
   const std::string constant = files.write("constant.yaml", "!ConstantMap\nmap:\n  rho: 2.0\n");
   const auto walked = sc::buildReader(constant, {"x", "y", "z"});
   CHECK(dynamic_cast<sc::EasiProgramReader*>(walked.get()) != nullptr);
+}
+
+TEST_CASE("a model in Python is read through the core file next to it" *
+          doctest::test_suite("reader")) {
+  const Files files;
+  const std::string model = "import numpy as np\n# the model\n";
+  const std::string source = files.write("model.py", model);
+  files.write("model.sderiv",
+              "#!sderiv 1\n"
+              "meta generator = \"seissol-python 0.1.0\"\n"
+              "meta source = \"model.py\", \"sha256:" +
+                  expr::sha256(model) +
+                  "\"\n"
+                  "in z\n"
+                  "def t0 = lt(z, -2000.0)\n"
+                  "def t1 = select(t0, 2700.0, 2600.0)\n"
+                  "out rho = t1\n");
+  // by its prefix, and by its extension
+  for (const auto& path : {"python:" + source, source}) {
+    CAPTURE(path);
+    const auto program = sc::buildProgram(path);
+    REQUIRE(program.has_value());
+    REQUIRE(program->outputs().size() == 1);
+    CHECK(program->outputs()[0].name == "rho");
+    reader::datafield::GridStore store;
+    CHECK(expr::interpretValues(*program, store, {-3000.0, 0.0}, 2) ==
+          std::vector<double>{2700.0, 2600.0});
+  }
+  const auto reader = sc::buildReader(source, {"x", "y", "z"});
+  CHECK(dynamic_cast<sc::CompiledReader*>(reader.get()) != nullptr);
 }
 
 } // namespace seissol::unit_test

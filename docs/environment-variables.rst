@@ -477,6 +477,48 @@ or a dependency that has changed since is an error that names the command
 (``SEISSOL_SDERIV_STALE=warn`` makes it a warning), one that is not there a note, and a body that
 was edited after it was generated a warning.
 
+A model may also be written in Python, with the package ``seissol`` in ``python/`` of SeisSol
+(``pip install ./python``): a function of the inputs of a point, its parameters, that returns its
+outputs by name, and that computes with NumPy -- it runs as written on arrays, for plots and
+tests, and is traced into a core file:
+
+.. code-block:: python
+
+   import numpy as np
+   from seissol import sderiv as sd
+
+   layers = np.loadtxt("layers.csv", delimiter=",")
+
+   @sd.model
+   def material(x, y, z):
+       depth = -z
+       rho = np.where(depth > layers[0], layers[1], layers[2])
+       vs = 3000.0 + 0.5 * depth
+       return {"rho": rho, "mu": rho * vs**2, "lambda": 2.0 * rho * vs**2}
+
+``python -m seissol.trace material.py`` writes ``material.sderiv`` next to it, and the parameter
+file names the model, ``MaterialFileName = 'python:material.py'`` (or the file itself): SeisSol
+reads the core file next to the model, which has to record the model as its source, and stops
+where the model or a file it read (``layers.csv``) has changed since, with the command that
+writes the core file again. A file that a C extension reads (through ``netCDF4``, say) is declared
+with ``sd.depends(path)``.
+
+A trace makes every operation on a value of the point an operation of the program, with the bits
+NumPy gives: ``np.minimum`` and ``np.maximum`` (which pass on a NaN), ``np.fmin``, ``np.fmax``,
+``np.remainder`` and ``%``, ``np.sign``, ``**`` (``x**2`` a square and ``x**0.5`` a square root, as
+NumPy computes it for an array), ``np.where``, ``np.select``, ``np.clip``, the comparisons and
+``& | ~``, and the functions of the maths library (within its accuracy). A branch on a value of
+the point -- ``if``, ``and``, ``or``, ``min()``, ``max()`` -- or its use as a number of Python
+(``math.sqrt``, ``float()``) fails with the line of the model, as do the functions of NumPy the
+program has no exact counterpart for (``np.round``, ``np.fmod``, ``//``). A parameter with a default
+is a constant of the model. ``@sd.model(state={"peak": 0.0})`` declares a state, which the
+parameter of its name reads and the output of its name gives the next value of;
+``sd.check(condition, message)`` a check; ``sd.percentile`` and ``sd.median`` the operation;
+``sd.grid(path, components, ...)`` a grid, a relative path relative to the model, sampled as
+``g.rho(x, y, z)``. Outside of a trace, a grid is sampled by the program SeisSol samples it with,
+through the module ``sderiv`` of a build with ``-DSDERIV_PYTHON=ON``, as is ``material.evaluate()``,
+which gives the values of the program itself.
+
 A module may check its points: ``check le(z, 0), "no material above the surface"`` (in either
 form) stops the run at the first point where the condition is zero, with the message, the point and
 its inputs. A NaN counts as true, as every value other than zero. The scripts evaluated at setup

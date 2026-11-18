@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seissol"
+version = "0.1.0"
+description = "The Python tools of SeisSol: models in Python translated into sderiv"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.22"]
+license = {text = "BSD-3-Clause"}
+
+[project.optional-dependencies]
+test = ["pytest", "scipy"]
+
+[tool.setuptools.packages.find]
+include = ["seissol*"]

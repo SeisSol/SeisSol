@@ -15,11 +15,13 @@
 #include "Reader/Scripting/LuaFrontend.h"
 
 #include <cstdlib>
+#include <filesystem>
 #include <fstream>
 #include <memory>
 #include <optional>
 #include <sstream>
 #include <string>
+#include <system_error>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <vector>
@@ -85,6 +87,57 @@ std::unique_ptr<DataReader> buildSderiv(const std::string& path) {
   return std::make_unique<CompiledReader>(std::move(program), nullptr);
 }
 
+/// The core file of the Python model `path`: the file of its name with the extension .sderiv,
+/// next to it, as `python -m seissol.trace` writes it.
+std::string generatedOf(const std::string& path) {
+  const std::filesystem::path source(path);
+  return (source.parent_path() / source.stem()).string() + ".sderiv";
+}
+
+/// The program of the Python model `path`: its core file (generatedOf()), which records the model
+/// as its source, with its hash, which the loader checks -- so a model edited since does not run
+/// with the program of before. A configuration error where there is no core file, or one of
+/// another source: compute nodes have no Python to write it. Throws expr::SderivError.
+expr::Program compilePython(const std::string& path, const expr::SderivOptions& sderivOptions) {
+  const std::string core = generatedOf(path);
+  std::error_code error;
+  if (!std::filesystem::exists(core, error)) {
+    logError() << "The Python model" << path << "has no core file" << core
+               << "; write it with: python -m seissol.trace" << path;
+  }
+  expr::SderivOptions options = sderivOptions;
+  options.file = core;
+  auto program = expr::compileSderivModule(readFile(core), options);
+  // the core file names the model as its source, relative to itself
+  bool written = false;
+  for (const auto& entry : program.meta()) {
+    if (entry.key == "source" && !entry.values.empty()) {
+      const auto named = std::filesystem::path(core).parent_path() / entry.values.front().text;
+      written = written || std::filesystem::equivalent(named, path, error);
+    }
+  }
+  if (!written) {
+    logError() << "The core file" << core << "was not written from the Python model" << path
+               << "(it records another source, or none); write it with: python -m seissol.trace"
+               << path;
+  }
+  return program;
+}
+
+/// The reader of the Python model `path`, through its core file (compilePython()).
+std::unique_ptr<DataReader> buildPython(const std::string& path) {
+  try {
+    auto program = compilePython(path, {});
+    expr::supplyRunInputs(program);
+    logInfo() << "Read the core file of the Python model" << path << "with"
+              << program.outputs().size() << "outputs.";
+    return std::make_unique<CompiledReader>(std::move(program), nullptr);
+  } catch (const expr::SderivError& error) {
+    logError() << "The core file of the Python model" << path << "does not load:" << error.what();
+  }
+  return nullptr;
+}
+
 std::unique_ptr<DataReader> makeEasiReader(const std::string& path,
                                            const std::vector<std::string>& dimensions) {
   return std::make_unique<EasiReader>(path, dimensions);
@@ -131,8 +184,12 @@ bool endsWith(const std::string& text, const std::string& suffix) {
 /// The kind of a script path: its prefix, else its extension; easi without either.
 std::string kindOf(const std::string& path) {
   const auto parts = utils::StringUtils::split(path, ':');
-  if (parts.size() > 1 && (parts[0] == "easi" || parts[0] == "lua" || parts[0] == "sderiv")) {
+  if (parts.size() > 1 &&
+      (parts[0] == "easi" || parts[0] == "lua" || parts[0] == "sderiv" || parts[0] == "python")) {
     return parts[0];
+  }
+  if (endsWith(path, ".py")) {
+    return "python";
   }
   if (endsWith(path, ".lua")) {
     return "lua";
@@ -182,6 +239,15 @@ std::optional<expr::Program> buildProgram(const std::string& path,
       }
     }
   }
+  if (kind == "python") {
+    try {
+      auto program = compilePython(fileOf(path), sderivOptions);
+      expr::supplyRunInputs(program);
+      return program;
+    } catch (const expr::SderivError& error) {
+      logError() << "The core file of the Python model" << path << "does not load:" << error.what();
+    }
+  }
   if (kind == "lua") {
     const std::string file = fileOf(path);
     const lua::LuaOrigin origin{file, 1, ':'};
@@ -215,6 +281,9 @@ std::unique_ptr<DataReader> buildReader(const std::string& path,
   }
   if (kind == "sderiv") {
     return buildSderiv(fileOf(path));
+  }
+  if (kind == "python") {
+    return buildPython(fileOf(path));
   }
   return buildEasi(fileOf(path), defaultInArgs);
 }

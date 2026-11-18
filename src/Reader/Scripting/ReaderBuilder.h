@@ -20,7 +20,9 @@ namespace seissol::reader::scripting {
 
 /// The reader of the script `path`, by its prefix or else its extension: `lua:` or a .lua file for
 /// a Lua model (compiled where the Lua frontend translates it), `sderiv:` or a .sderiv file for an
-/// sderiv module, `easi:` or any other file for an easi file.
+/// sderiv module, `python:` or a .py file for a model in Python -- through the core file next to
+/// it, which `python -m seissol.trace` writes, checked against it --, `easi:` or any other file
+/// for an easi file.
 std::unique_ptr<DataReader> buildReader(const std::string& path,
                                         const std::vector<std::string>& defaultInArgs);
 
@@ -31,7 +33,8 @@ std::unique_ptr<DataReader> buildInterpretedReader(const std::string& path,
                                                    const std::vector<std::string>& defaultInArgs);
 
 /// The program of the script `path`, if it compiles to one: an sderiv module (`sderiv:` or a
-/// .sderiv file), or a Lua model the Lua frontend translates (`lua:` or a .lua file). Nothing for
+/// .sderiv file), a model in Python (`python:` or a .py file, through its core file), or a Lua
+/// model the Lua frontend translates (`lua:` or a .lua file). Nothing for
 /// an easi file, or for a Lua model the frontend does not translate, in which case `reason` (if
 /// given) says why. An sderiv module that does not compile is a configuration error.
 /// `sderivOptions` are passed on to the sderiv compiler.
