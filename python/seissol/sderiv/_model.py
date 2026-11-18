@@ -21,6 +21,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from . import _branches
+from ._branches import Undefined
+from ._convert import convert
 from ._emit import core_text
 from ._graph import Graph, TracingError, Value, _number, where
 
@@ -122,10 +125,26 @@ def depends(*paths):
 
 def check(condition, message):
     """A condition every point meets: SeisSol stops at the first point where it is zero (a NaN
-    counts as true), with the message. Outside of a trace, ValueError at such a point.
-    """
+    counts as true), with the message. Outside of a trace, ValueError at such a point. In a branch
+    on a value of the point, it applies to the points of the branch."""
+    _check(condition, str(message), ValueError)
+
+
+def _check(condition, message, error):
+    """check(), with `error` outside of a trace."""
+    if isinstance(condition, np.ndarray) and condition.dtype == object:
+        # a vector of values: a check of each
+        for element in condition.flat:
+            _check(element, message, error)
+        return
+    number = None if isinstance(condition, Value) else _number(condition)
+    if number is not None and number != 0.0:
+        return
+    current = _branches.path()
+    if current is not None:
+        condition = np.logical_or(np.logical_not(current), condition)
     if isinstance(condition, Value):
-        condition.graph.checks.append((condition.node, str(message), where()))
+        condition.graph.checks.append((condition.node, message, where()))
         return
     if _active() is not None:
         if _number(condition) == 0.0:
@@ -134,9 +153,7 @@ def check(condition, message):
     values = np.asarray(condition, dtype=float)
     failing = np.flatnonzero(values.ravel() == 0.0)
     if failing.size:
-        raise ValueError(
-            f"{message} -- point {int(failing[0])} does not meet the check"
-        )
+        raise error(f"{message} -- point {int(failing[0])} does not meet the check")
 
 
 def percentile(values, p):
@@ -195,17 +212,41 @@ class Model:
     values that `outputs` names. A parameter of the name of a state reads its value of the
     previous call, and the value the function returns under that name is its next one.
 
-    Called, it runs as written, on numbers and NumPy arrays; trace() translates it into a
-    program, core() into the core text SeisSol reads."""
+    An if, and, or, not, a conditional expression, a chained comparison, min(), max(), any(),
+    all(), assert and raise on a value of the point take both ways, merged at every point as
+    Python takes them there (the function is converted, see _convert.py).
+
+    Called, it runs on numbers and NumPy arrays; trace() translates it into a program, core()
+    into the core text SeisSol reads."""
 
     def __init__(self, function, *, outputs=None, state=None):
         self.function = function
         self.outputs = [outputs] if isinstance(outputs, str) else outputs
         self.state = dict(state or {})
+        self._converted = None
         functools.update_wrapper(self, function)
 
+    @property
+    def converted(self):
+        """The function the model runs: the function with its branches converted, or the
+        function itself where it has none."""
+        if self._converted is None:
+            self._converted = convert(self.function) or self.function
+        return self._converted
+
     def __call__(self, *args, **kwargs):
-        return self.function(*args, **kwargs)
+        result = self.converted(*args, **kwargs)
+        if isinstance(result, dict):
+            values = list(result.values())
+        elif isinstance(result, (tuple, list)):
+            values = list(result)
+        else:
+            values = [result]
+        for value in values:
+            if isinstance(value, Undefined):
+                # an output without a value: as Python fails where it reads such a name
+                raise value.error()
+        return result
 
     @property
     def inputs(self):
@@ -238,12 +279,18 @@ class Model:
                 positional.append(value)
             else:
                 keywords[name] = value
+        function = self.converted
         with _tracing(graph), recording() as files:
-            result = self.function(*positional, **keywords)
+            result = function(*positional, **keywords)
 
+        definition = _definition(self.function)
+        if isinstance(result, Undefined):
+            raise TracingError(result.reason(), definition)
         named = self._named(result)
         nodes = {}
         for name, value in named:
+            if isinstance(value, Undefined):
+                raise TracingError(f"the output {name}: {value.reason()}", definition)
             if isinstance(value, np.ndarray) and value.ndim == 0:
                 value = value.item()
             if isinstance(value, Value):
@@ -260,7 +307,6 @@ class Model:
                 )
             nodes[name] = graph.constant(number)
 
-        definition = _definition(self.function)
         states = []
         for name, initial in self.state.items():
             if name not in nodes:
@@ -356,3 +402,10 @@ def model(function=None, *, outputs=None, state=None):
     if function is None:
         return lambda f: Model(f, outputs=outputs, state=state)
     return Model(function, outputs=outputs, state=state)
+
+
+def function(f):
+    """A function the model calls, converted as the model is: an if, and, or, not, min() and
+    max() on a value of the point in it take both ways. The functions defined in the model are
+    converted with it; one it calls from elsewhere needs @sd.function."""
+    return convert(f) or f

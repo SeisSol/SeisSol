@@ -60,11 +60,11 @@ def test_a_model_traces_into_core_text():
     np.testing.assert_array_equal(values["rho"], [2700.0, 2600.0])
 
 
-def test_a_branch_on_a_value_of_the_point_names_the_line():
+def test_a_branch_the_trace_cannot_take_both_ways_names_the_line():
     @sd.model
     def branching(z):
-        if z > 0.0:  # the line of the error
-            return {"u": z}
+        while z > 0.0:  # the line of the error
+            z = z - 1.0
         return {"u": -z}
 
     with pytest.raises(sd.TracingError) as caught:
@@ -82,7 +82,7 @@ def test_a_branch_on_a_value_of_the_point_names_the_line():
         (lambda x: {"u": np.round(x)}, "halfway cases to even"),
         (lambda x: {"u": np.fmod(x, 2.0)}, "sign of the dividend"),
         (lambda x: {"u": x // 2.0}, "np.floor(a / b)"),
-        (lambda x: {"u": max(x, 1.0)}, "np.maximum"),
+        (lambda x: {"u": float(bool(x))}, "np.maximum"),
         (lambda x: {"u": np.hypot(x, 1.0)}, "hypot"),
     ],
 )
@@ -221,7 +221,7 @@ def test_the_command_chooses_among_models(tmp_path):
     write_model(
         tmp_path,
         "import numpy as np\nfrom seissol import sderiv as sd\n"
-        "@sd.model\ndef m(x):\n    if x > 0:\n        return {'u': x}\n    return {'u': x}\n",
+        "@sd.model\ndef m(x):\n    while x > 0:\n        x = x - 1\n    return {'u': x}\n",
         "branch.py",
     )
     done = run_trace(tmp_path, "branch.py")

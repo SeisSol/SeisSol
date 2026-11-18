@@ -288,9 +288,11 @@ class Value:
 
     def __bool__(self):
         raise TracingError(
-            "a branch on a value of the point (if, while, and, or, not, min(), max(), a chained "
-            "comparison): the program computes every point alike; write np.where(condition, a, "
-            "b), np.minimum and np.maximum, and & | ~ for and, or and not",
+            "a branch on a value of the point that the trace cannot take both ways: a while "
+            "loop on it, bool() of it, or an if, and, or, not, min() or max() in a function "
+            "that is not converted (the model and the functions defined in it are, another "
+            "function needs @sd.function); np.where(condition, a, b), np.minimum and "
+            "np.maximum, and & | ~ choose at every point",
             where(),
         )
 

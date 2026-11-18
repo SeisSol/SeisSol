@@ -20,12 +20,16 @@ of a material, as the consumer gives them -- that returns its outputs by name::
         vs = 3000.0 + 0.5 * depth
         return {"rho": rho, "mu": rho * vs**2}
 
-It runs as written on NumPy arrays, and a trace translates it into a program: every operation on
-a value of the point becomes an operation of the program, with the bits NumPy gives (np.minimum,
-np.remainder and `**` included). A branch on a value of the point (if, and, or, min(), max()) or
-its use as a number of Python (math.*, float()) fails with the line of the model; np.where,
-np.select, np.minimum and & | ~ express them. `python -m seissol.trace model.py` writes the core
-file model.sderiv next to the model, which SeisSol reads as python:model.py.
+It runs on NumPy arrays, and a trace translates it into a program: every operation on a value of
+the point becomes an operation of the program, with the bits NumPy gives (np.minimum, np.remainder
+and `**` included). A branch on a value of the point -- an if (a return, a break or a continue in
+it as well), a conditional expression, and, or, not, a chained comparison, min(), max(), any(),
+all(), assert, raise -- takes both ways, and what they give is merged at every point as Python
+takes it there: the model is converted for it, and the functions defined in it; a function it
+calls from elsewhere is converted with @sd.function. Its use as a number of Python (math.*,
+float()) and a while loop on it fail with the line of the model. `python -m seissol.trace
+model.py` writes the core file model.sderiv next to the model, which SeisSol reads as
+python:model.py.
 """
 
 from ._graph import TracingError
@@ -38,6 +42,7 @@ from ._model import (
     check,
     depends,
     erf,
+    function,
     median,
     model,
     percentile,
@@ -55,6 +60,7 @@ __all__ = [
     "check",
     "depends",
     "erf",
+    "function",
     "grid",
     "median",
     "model",

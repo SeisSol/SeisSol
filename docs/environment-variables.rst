@@ -492,7 +492,10 @@ tests, and is traced into a core file:
    @sd.model
    def material(x, y, z):
        depth = -z
-       rho = np.where(depth > layers[0], layers[1], layers[2])
+       if depth > layers[0]:
+           rho = layers[1]
+       else:
+           rho = layers[2]
        vs = 3000.0 + 0.5 * depth
        return {"rho": rho, "mu": rho * vs**2, "lambda": 2.0 * rho * vs**2}
 
@@ -508,10 +511,16 @@ NumPy gives: ``np.minimum`` and ``np.maximum`` (which pass on a NaN), ``np.fmin`
 ``np.remainder`` and ``%``, ``np.sign``, ``**`` (``x**2`` a square and ``x**0.5`` a square root, as
 NumPy computes it for an array), ``np.where``, ``np.select``, ``np.clip``, the comparisons and
 ``& | ~``, and the functions of the maths library (within its accuracy). A branch on a value of
-the point -- ``if``, ``and``, ``or``, ``min()``, ``max()`` -- or its use as a number of Python
-(``math.sqrt``, ``float()``) fails with the line of the model, as do the functions of NumPy the
-program has no exact counterpart for (``np.round``, ``np.fmod``, ``//``). A parameter with a default
-is a constant of the model. ``@sd.model(state={"peak": 0.0})`` declares a state, which the
+the point takes both ways, merged at every point as Python takes them there: an ``if`` (with a
+``return``, a ``break`` or a ``continue`` in it), a conditional expression, ``and``, ``or``,
+``not``, a chained comparison, ``min()``, ``max()``, ``any()`` and ``all()`` -- for that, the model
+is converted from its source, with the functions defined in it, and a function it calls from
+elsewhere is converted with ``@sd.function``. An ``assert`` or a ``raise`` in a branch becomes a
+check of the points that take it, as a function that ends without a ``return`` at some points. A
+name that a branch assigns on one side only fails where it is used after it, as does a ``while``
+loop on a value of the point, the use of one as a number of Python (``math.sqrt``, ``float()``),
+and the functions of NumPy the program has no exact counterpart for (``np.round``, ``np.fmod``,
+``//``), each with the line of the model. A parameter with a default is a constant of the model. ``@sd.model(state={"peak": 0.0})`` declares a state, which the
 parameter of its name reads and the output of its name gives the next value of;
 ``sd.check(condition, message)`` a check; ``sd.percentile`` and ``sd.median`` the operation;
 ``sd.grid(path, components, ...)`` a grid, a relative path relative to the model, sampled as
