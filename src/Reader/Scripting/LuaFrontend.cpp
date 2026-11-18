@@ -53,6 +53,8 @@ constexpr double Pi = 3.141592653589793238462643383279502884;
 constexpr double Nan = std::numeric_limits<double>::quiet_NaN();
 constexpr double Inf = std::numeric_limits<double>::infinity();
 constexpr std::size_t MaxCallDepth = 200;
+/// The input `ssol.g` reads: the gravitational acceleration, which the run gives every script.
+constexpr const char* GravityInput = "g";
 
 // ================================================================= numbers ==
 
@@ -811,6 +813,18 @@ class Evaluator {
     }
 
     program_.addMeta(expr::MetaEntry{"generator", {expr::MetaValue{"seissol lua frontend", true}}});
+    // ssol.g, where the module reads it, is the input g after those it declares
+    {
+      std::vector<NodeId> all = roots;
+      all.insert(all.end(), stateRoots.begin(), stateRoots.end());
+      for (const auto& check : checks_) {
+        all.push_back(check.holds);
+      }
+      if (std::find(inputs.begin(), inputs.end(), GravityInput) == inputs.end() &&
+          !isState(GravityInput) && expr::channelsRead(program_, all).count(GravityInput) != 0) {
+        inputs.emplace_back(GravityInput);
+      }
+    }
     for (const auto& name : inputs) {
       program_.addInput(name, DataType::F64);
     }
@@ -2869,7 +2883,8 @@ class Evaluator {
                                 "atan2",
                                 "pow"});
       set(ssol, "pi", number(Constant::real(M_PI)));
-      set(ssol, "g", number(Constant::real(9.80665)));
+      // the gravitational acceleration of the run, an input of the module where it reads it
+      set(ssol, "g", number(Number::at(arena_.field(GravityInput))));
     }
   }
 

@@ -73,11 +73,18 @@ struct CacheKey {
   GpuTarget target{GpuTarget::Cuda};
   ComputeType type{ComputeType::F64};
   std::string arch;
+  /// computed as written (BackendOptions::strict)
+  bool strict{false};
 
   bool operator<(const CacheKey& other) const {
-    return std::tie(program, lowering, layout, target, type, arch) <
-           std::tie(
-               other.program, other.lowering, other.layout, other.target, other.type, other.arch);
+    return std::tie(program, lowering, layout, target, type, arch, strict) <
+           std::tie(other.program,
+                    other.lowering,
+                    other.layout,
+                    other.target,
+                    other.type,
+                    other.arch,
+                    other.strict);
   }
 };
 
@@ -144,8 +151,10 @@ bool ensureContext() {
   return true;
 }
 
-DeviceFunction
-    compileCuda(const std::string& source, const std::string& arch, const std::string& dumpName) {
+DeviceFunction compileCuda(const std::string& source,
+                           const std::string& arch,
+                           const std::string& dumpName,
+                           bool strict) {
   DeviceFunction loaded;
   if (!ensureContext()) {
     logWarning() << "expr: no usable CUDA context; not using the compiled device backend.";
@@ -158,13 +167,16 @@ DeviceFunction
     return loaded;
   }
 
-  // --fmad is left at its default, i.e. contraction ON. Unlike the CPU backend,
-  // bitwise agreement with the interpreter is NOT the bar here: turning FMA off
-  // costs real throughput on a GPU, and the accepted difference is a documented
-  // one-ulp-per-contraction bound rather than none at all.
+  // --fmad is left at its default, i.e. contraction ON, unless the run asks for arithmetic as
+  // written (strict). Unlike the CPU backend, bitwise agreement with the interpreter is NOT the bar
+  // here by default: turning FMA off costs real throughput on a GPU, and the accepted difference
+  // is a documented one-ulp-per-contraction bound rather than none at all. Division and square
+  // root are correctly rounded by NVRTC's default (--prec-div, --prec-sqrt).
   const std::string archOption = "--gpu-architecture=compute_" + arch;
-  const std::vector<const char*> optionList = {
-      archOption.c_str(), "--std=c++17", "-default-device"};
+  std::vector<const char*> optionList = {archOption.c_str(), "--std=c++17", "-default-device"};
+  if (strict) {
+    optionList.push_back("--fmad=false");
+  }
 
   const nvrtcResult compiled =
       nvrtcCompileProgram(program, static_cast<int>(optionList.size()), optionList.data());
@@ -278,7 +290,7 @@ bool deviceAccessibleCuda(const void* pointer) {
 
 #if defined(SEISSOL_EXPR_HAVE_HIPRTC)
 
-DeviceFunction compileHip(const std::string& source, const std::string& arch) {
+DeviceFunction compileHip(const std::string& source, const std::string& arch, bool strict) {
   DeviceFunction loaded;
 
   hiprtcProgram program = nullptr;
@@ -293,6 +305,11 @@ DeviceFunction compileHip(const std::string& source, const std::string& arch) {
   std::vector<const char*> optionList = {"--std=c++17"};
   if (!arch.empty()) {
     optionList.push_back(archOption.c_str());
+  }
+  // as written: no contraction; division and square root in binary32 are correctly rounded by
+  // HIP's default
+  if (strict) {
+    optionList.push_back("-ffp-contract=off");
   }
 
   const hiprtcResult compiled =
@@ -405,7 +422,7 @@ namespace syclex = sycl::ext::oneapi::experimental;
 /// it even where the extension is present. So it is asked at run time and a
 /// refusal falls back like any other, rather than being assumed at configure
 /// time and failing on the machine that matters.
-DeviceFunction compileOpenCl(const std::string& source, void* queuePointer) {
+DeviceFunction compileOpenCl(const std::string& source, void* queuePointer, bool strict) {
   DeviceFunction loaded;
   if (queuePointer == nullptr) {
     logWarning() << "expr: the OpenCL backend needs a sycl::queue in "
@@ -420,9 +437,16 @@ DeviceFunction compileOpenCl(const std::string& source, void* queuePointer) {
                       "backend.";
       return loaded;
     }
+    // as written: no contraction (in the source), and division and square root in binary32
+    // correctly rounded, which OpenCL leaves to an option of the build
     auto bundle = syclex::create_kernel_bundle_from_source(
-        queue->get_context(), syclex::source_language::opencl, source);
-    auto executable = syclex::build(bundle);
+        queue->get_context(),
+        syclex::source_language::opencl,
+        strict ? "#pragma OPENCL FP_CONTRACT OFF\n" + source : source);
+    const std::vector<std::string> options{"-cl-fp32-correctly-rounded-divide-sqrt"};
+    auto executable =
+        strict ? syclex::build(bundle, syclex::properties{syclex::build_options{options}})
+               : syclex::build(bundle);
     if (!executable.ext_oneapi_has_kernel("seissol_expr_run")) {
       logWarning() << "expr: the generated OpenCL module has no seissol_expr_run.";
       return loaded;
@@ -525,21 +549,22 @@ DeviceFunction compileFor(GpuTarget target,
                           const std::string& source,
                           const std::string& arch,
                           void* queue,
-                          const std::string& dumpName) {
+                          const std::string& dumpName,
+                          bool strict) {
   codegen::dump(dumpName + (target == GpuTarget::OpenCl ? ".cl" : ".cu"), source);
 #if defined(SEISSOL_EXPR_HAVE_NVRTC)
   if (target == GpuTarget::Cuda) {
-    return compileCuda(source, arch, dumpName);
+    return compileCuda(source, arch, dumpName, strict);
   }
 #endif
 #if defined(SEISSOL_EXPR_HAVE_HIPRTC)
   if (target == GpuTarget::Hip) {
-    return compileHip(source, arch);
+    return compileHip(source, arch, strict);
   }
 #endif
 #if defined(SEISSOL_EXPR_HAVE_SYCL)
   if (target == GpuTarget::OpenCl) {
-    return compileOpenCl(source, queue);
+    return compileOpenCl(source, queue, strict);
   }
 #endif
   static_cast<void>(target);
@@ -547,6 +572,7 @@ DeviceFunction compileFor(GpuTarget target,
   static_cast<void>(arch);
   static_cast<void>(queue);
   static_cast<void>(dumpName);
+  static_cast<void>(strict);
   return {};
 }
 
@@ -1375,12 +1401,15 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
   if (arch.empty() && target == GpuTarget::Cuda) {
     arch = "75";
   }
+  // as written where the kernel or the run asks for it
+  const bool strict = options.strict || scriptSettings().strict;
   const CacheKey key{program.fingerprint(),
                      options.lowering.fingerprint(),
                      layout.fingerprint(),
                      target,
                      program.computeType(),
-                     arch};
+                     arch,
+                     strict};
 
   DeviceFunction function;
   {
@@ -1393,11 +1422,13 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
       const std::string source = emitGpuSource(program, lowered, layout, target);
       std::ostringstream dumpName;
       dumpName << "expr-" << std::hex << program.fingerprint() << std::dec << "-"
-               << (program.computeType() == ComputeType::F32 ? "f32" : "f64") << "-" << arch;
-      found =
-          cache()
-              .emplace(key, compileFor(target, source, arch, options.deviceQueue, dumpName.str()))
-              .first;
+               << (program.computeType() == ComputeType::F32 ? "f32" : "f64") << "-" << arch
+               << (strict ? "-strict" : "");
+      found = cache()
+                  .emplace(
+                      key,
+                      compileFor(target, source, arch, options.deviceQueue, dumpName.str(), strict))
+                  .first;
     }
     function = found->second;
   }

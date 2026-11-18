@@ -866,6 +866,41 @@ TEST_SUITE("expr conformance") {
     }
   }
 
+  TEST_CASE("a device computes as written where the run asks for it (scripts.strict)") {
+    const BackendKind device = deviceBackendOfBuild();
+    if (device == BackendKind::RtcCpu) {
+      return;
+    }
+    for (const auto type : {ComputeType::F64, ComputeType::F32}) {
+      CAPTURE(static_cast<int>(type));
+      Program program = loadCore("#!sderiv 1\nin a, b, c\nout u = a * b + c\n", "");
+      program.setComputeType(type);
+      // the product rounds to 1, and the sum to 0; a fused multiply-add gives -e * e
+      const double e = type == ComputeType::F64 ? 0x1p-30 : 0x1p-13;
+      const std::vector<std::vector<double>> points{{1.0 + e, 1.0 - e, -1.0}};
+      const auto reference = outputsAt(program, points, BackendKind::Interpreter);
+      REQUIRE(reference.has_value());
+      CHECK((*reference)[0][0] == 0.0);
+      const ScriptSettings before = scriptSettings();
+      ScriptSettings strict = before;
+      strict.strict = true;
+      setScriptSettings(strict);
+      const auto asWritten = outputsAt(program, points, device);
+      setScriptSettings(before);
+      const auto contracted = outputsAt(program, points, device);
+      if (!asWritten.has_value()) {
+        WARN_MESSAGE(false, "no device at hand; the strict arithmetic was not run");
+        continue;
+      }
+      double got = (*asWritten)[0][0];
+      double want = (*reference)[0][0];
+      CHECK(std::memcmp(&got, &want, sizeof(double)) == 0);
+      if (contracted.has_value()) {
+        MESSAGE("contracted on the device: " << (*contracted)[0][0]);
+      }
+    }
+  }
+
   TEST_CASE("the IEEE operations are correctly rounded, on every backend and in both types") {
     // in binary64 against MPFR with the exponent range and the subnormals of binary64; in binary32
     // against the correctly rounded binary64 result rounded once more, which for these operations

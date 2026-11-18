@@ -35,11 +35,20 @@ using ChannelBuilder = std::function<NodeId(Arena& arena)>;
 /// replacement is not rewritten again, so a builder may read the channel it replaces.
 ///
 /// State channels are never replaced, and a name the program does not read is not an error.
-/// Inputs nothing reads any more are dropped from the signature, and the channels the builders
-/// introduce are added to it, in the order they are first created; the result is validated again.
+/// Inputs nothing reads any more are dropped from the signature -- with `keepInputs` only those it
+/// replaces, the others keep their places --, and the channels the builders introduce are added to
+/// it, in the order they are first created; the result is validated again.
 ///
 /// Throws std::invalid_argument when the rewritten program does not validate.
-void substituteChannels(Program& program, const std::map<std::string, ChannelBuilder>& builders);
+void substituteChannels(Program& program,
+                        const std::map<std::string, ChannelBuilder>& builders,
+                        bool keepInputs = false);
+
+/// `program` with the inputs whose values the run gives every script (ScriptSettings::runInputs)
+/// read as those values: an input `g` is the gravitational acceleration of the parameter file, and
+/// no input of the program any more. Its other inputs keep their places. What a consumer does with
+/// every program it builds from a script, so that a script reads them as it reads any input.
+void supplyRunInputs(Program& program);
 
 /// Replaces every read of an input channel named in `blocks` by a contraction of the block mapped
 /// to it against `matrix` (cf. Kind::Contract). A mapping, not a list: the assignment is by name.

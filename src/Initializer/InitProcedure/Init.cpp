@@ -12,6 +12,7 @@
 #include "Common/ConfigValue.h"
 #include "Common/Json.h"
 #include "Expr/Backend.h"
+#include "Expr/Program.h"
 #include "Geometry/MeshReader.h"
 #include "InitIO.h"
 #include "InitMesh.h"
@@ -36,6 +37,7 @@
 #include <algorithm>
 #include <async/Config.h>
 #include <cstddef>
+#include <cstdlib>
 #include <filesystem>
 #include <stdexcept>
 #include <string>
@@ -110,6 +112,12 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
 
   // set g
   seissolInstance.gravitationSetup().acceleration = seissolParams.model.gravitationalAcceleration;
+
+  // how the scripts compute (&scripts), and what the run gives every script: g, as an input
+  expr::setScriptSettings(
+      expr::ScriptSettings{seissolParams.scripts.precision,
+                           seissolParams.scripts.strict,
+                           {{"g", seissolParams.model.gravitationalAcceleration}}});
 
   // how the data grids keep their time windows (&datafield), before a script loads a grid
   auto& grids = seissol::reader::datafield::sharedGridStore();
@@ -269,6 +277,19 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
 #if defined(__GLIBC__)
     build.push_back(std::string("libm = glibc ") + gnu_get_libc_version());
 #endif
+    // what changes the values besides the build: the settings of the scripts, and the switches of
+    // the environment that choose how a script is evaluated
+    const auto& scripts = seissolInstance.parameters().scripts;
+    build.push_back(std::string("scripts.precision = ") +
+                    (!scripts.precision.has_value()                 ? "auto"
+                     : *scripts.precision == expr::ComputeType::F32 ? "f32"
+                                                                    : "f64"));
+    build.push_back(std::string("scripts.strict = ") + (scripts.strict ? "1" : "0"));
+    for (const char* variable : {"SEISSOL_EASI", "SEISSOL_EXPR_CHECK"}) {
+      if (const char* value = std::getenv(variable); value != nullptr) {
+        build.push_back(std::string(variable) + " = " + value);
+      }
+    }
     const std::string records = seissolInstance.parameters().output.prefix + "-records";
     expr::setRecordDirectory(records, build, seissol::Mpi::mpi.rank());
     // which every file of the output names

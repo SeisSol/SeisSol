@@ -17,6 +17,7 @@
 #include "Expr/Backend.h"
 #include "Expr/Binding.h"
 #include "Expr/Program.h"
+#include "Expr/Rewrite.h"
 #include "Expr/SderivFrontend.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
@@ -983,6 +984,29 @@ out def b = y
     // A duplicate plain def is an error, not last-wins.
     CHECK_THROWS_AS(static_cast<void>(compileSderivModule("def a = x\ndef a = y\nout def b = a\n")),
                     SderivError);
+  }
+
+  TEST_CASE("g is an input: the gravitational acceleration, which a run gives") {
+    // an input like any other, where it is declared and where it is not
+    CHECK(compileSderivModule("out def u = 2 * g\n").inputs()[0].name == "g");
+    Program program = compileSderivModule("in x, g, y\nout u = g * x\n");
+    REQUIRE(program.inputs().size() == 3);
+    // a run gives its value, from the parameter file; the other inputs keep their places
+    const ScriptSettings before = scriptSettings();
+    ScriptSettings run;
+    run.runInputs = {{"g", 9.81e-3}};
+    setScriptSettings(run);
+    supplyRunInputs(program);
+    setScriptSettings(before);
+    REQUIRE(program.inputs().size() == 2);
+    CHECK(program.inputs()[0].name == "x");
+    CHECK(program.inputs()[1].name == "y");
+    reader::datafield::GridStore store;
+    CHECK(interpretValues(program, store, {2.0, 0.0}, 1) == std::vector<double>{9.81e-3 * 2.0});
+    // and without it, a program keeps the input
+    Program kept = compileSderivModule("out u = g\n");
+    supplyRunInputs(kept);
+    CHECK(kept.inputs().size() == 1);
   }
 
   TEST_CASE("a definition without parameters may take the name of a constant or function") {

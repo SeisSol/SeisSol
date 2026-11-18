@@ -23,5 +23,6 @@
 #include "Parameters/ModelParameters.t.h"
 #include "Parameters/OutputParameters.t.h"
 #include "Parameters/ParameterOverrides.t.h"
+#include "Parameters/ScriptParameters.t.h"
 #include "PointMapper.t.h"
 #include "Preflight.t.h"

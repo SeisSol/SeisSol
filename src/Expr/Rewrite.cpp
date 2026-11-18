@@ -61,7 +61,9 @@ std::vector<char> reachable(const Program& program) {
 
 } // namespace
 
-void substituteChannels(Program& program, const std::map<std::string, ChannelBuilder>& builders) {
+void substituteChannels(Program& program,
+                        const std::map<std::string, ChannelBuilder>& builders,
+                        bool keepInputs) {
   const Arena& old = program.arena();
   std::unordered_set<std::string> inputs;
   for (const auto& input : program.inputs()) {
@@ -147,14 +149,18 @@ void substituteChannels(Program& program, const std::map<std::string, ChannelBui
     }
   }
 
-  // The signature in its old order, minus the inputs nothing reads any more, plus the channels
-  // the builders introduced, in the order they were created.
+  // The signature in its old order, minus the inputs nothing reads any more (or, with
+  // `keepInputs`, minus those replaced), plus the channels the builders introduced, in the order
+  // they were created.
   std::unordered_set<std::string> states;
   for (const auto& state : program.state()) {
     states.insert(state.name);
   }
   for (const auto& input : program.inputs()) {
     if (arena.findChannel(input.name) >= 0) {
+      rebuilt.addInput(input.name, input.type);
+    } else if (keepInputs && builders.count(input.name) == 0) {
+      static_cast<void>(arena.channel(input.name));
       rebuilt.addInput(input.name, input.type);
     }
   }
@@ -206,6 +212,21 @@ void substituteByContraction(Program& program,
         name, [matrix, block = block](Arena& arena) { return arena.contract(matrix, block); });
   }
   substituteChannels(program, builders);
+}
+
+void supplyRunInputs(Program& program) {
+  std::map<std::string, ChannelBuilder> builders;
+  for (const auto& [name, value] : scriptSettings().runInputs) {
+    const bool reads = std::any_of(program.inputs().begin(),
+                                   program.inputs().end(),
+                                   [&](const auto& input) { return input.name == name; });
+    if (reads) {
+      builders.emplace(name, [value = value](Arena& arena) { return arena.konst(value); });
+    }
+  }
+  if (!builders.empty()) {
+    substituteChannels(program, builders, true);
+  }
 }
 
 NodeId replaceChannels(Arena& arena,

@@ -11,9 +11,11 @@
 
 #include <doctest.h>
 
+#include "Expr/Backend.h"
 #include "Expr/Interp.h"
 #include "Expr/Lower.h"
 #include "Expr/Program.h"
+#include "Expr/Rewrite.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataTable.h"
@@ -25,6 +27,7 @@
 #include "LuaOracle.h"
 #endif
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -166,7 +169,11 @@ inline std::string disagreement(const std::string& code, int calls = 1) {
   for (const auto& input : program.inputs()) {
     inputs.push_back(input.name);
   }
-  const auto columns = columnsFor(inputs);
+  auto columns = columnsFor(inputs);
+  // ssol.g is the input g, which the oracle has as the number the interpreted reader had
+  if (const auto g = columns.find("g"); g != columns.end()) {
+    std::fill(g->second.begin(), g->second.end(), 9.80665);
+  }
   const std::size_t count = ladder().size() * 3;
   std::vector<std::vector<double>> compiled(program.outputs().size(), std::vector<double>(count));
   std::vector<std::vector<double>> interpreted(program.outputs().size(),
@@ -1080,7 +1087,7 @@ return M
 
 constexpr auto SderivBuiltins = R"lua(
 local M = {}
-M.output_parameters = { "sign", "mod", "atan2", "pow", "g" }
+M.output_parameters = { "sign", "mod", "atan2", "pow", "gravity" }
 function M.evaluate(fields, x)
   return ssol.sign(x), ssol.mod(x, 3.0), ssol.atan2(x, -2.0), ssol.pow(1.5, ssol.mod(x, 2.0)),
          ssol.g * x + ssol.pi
@@ -1553,6 +1560,36 @@ return M
 )lua",
                                                options)),
                   lua::LuaUnsupported);
+}
+
+TEST_CASE("lua frontend: ssol.g is the input g, which a run gives" *
+          doctest::test_suite("reader")) {
+  // the gravitational acceleration varies with the parameter file: an input of the module that
+  // reads it, after those it declares, and the value of the run where SeisSol builds the program
+  expr::Program program = translated(R"lua(
+local M = {}
+M.input_parameters = { "x", "y" }
+M.output_parameters = { "u" }
+function M.evaluate(fields, x, y)
+  return ssol.g * x
+end
+return M
+)lua");
+  REQUIRE(program.inputs().size() == 3);
+  CHECK(program.inputs()[0].name == "x");
+  CHECK(program.inputs()[1].name == "y");
+  CHECK(program.inputs()[2].name == "g");
+  const expr::ScriptSettings before = expr::scriptSettings();
+  expr::ScriptSettings run;
+  run.runInputs = {{"g", 9.81e-3}};
+  expr::setScriptSettings(run);
+  expr::supplyRunInputs(program);
+  expr::setScriptSettings(before);
+  // the others keep their places, y too, which nothing reads
+  REQUIRE(program.inputs().size() == 2);
+  CHECK(program.inputs()[1].name == "y");
+  reader::datafield::GridStore store;
+  CHECK(expr::interpretValues(program, store, {2.0, 0.0}, 1) == std::vector<double>{9.81e-3 * 2.0});
 }
 
 #ifdef USE_LUA

@@ -173,8 +173,11 @@ The scripts that a run evaluates per time step or per output (the analytical and
 Dirichlet boundary, the slip rates of ``FL = 36``, the derived outputs) compute in the precision of
 the configuration: in binary32 in a configuration of ``f32``, and in binary64 in one of ``f64``. The
 scripts evaluated once, at setup (materials, the initial condition, the Dirichlet boundary, the
-output regions), compute in binary64. ``SEISSOL_EXPR_PRECISION=f64`` (or ``f32``) sets the precision
-of the former for all configurations instead. Two cases where binary64 is worth its cost in a
+output regions), compute in binary64. ``precision = 'f64'`` (or ``'f32'``) in the section
+``&scripts`` of the parameter file sets the precision of the former for all configurations instead
+(by default ``'auto'``, that of each configuration); like every setting that changes the values a
+run computes, it is a parameter, not a variable of the environment, and ``--set
+scripts.precision='f64'`` gives it for one run. Two cases where binary64 is worth its cost in a
 configuration of ``f32``: a time late in a run, which binary32 resolves to about
 :math:`6\cdot 10^{-8}` of its value (1.2 µs at 20 s), maybe coarser than a time step; and a formula
 that cancels, such as ``1 - cos(x)`` for a small ``x`` (``2 * sin(x / 2) ** 2`` does not). A derived
@@ -448,9 +451,14 @@ program. The full language has the declarations of the core format for that -- `
 ``out u = ...``, ``meta`` and names in backquotes -- and both reserve the same words, which only a
 name in backquotes may be. A module that declares its inputs with ``in`` has those, in
 their order, and no others: a name it does not declare is an error, which catches a misspelt one.
-What a module declares comes before what the language has: with ``in g``, ``g`` is the input, not
+What a module declares comes before what the language has: with ``in pi``, ``pi`` is the input, not
 the constant, and a definition ``max`` without parameters is read where ``max`` is, while
 ``max(a, b)`` stays the function.
+
+``g`` is an input, which SeisSol gives every script it builds: the gravitational acceleration of the
+parameter file (``GravitationalAcceleration`` in ``&equations``, by default 9.81), which differs in
+scaled units (:doc:`scaling`). ``ssol.g`` in a Lua model is that input as well. A program that SeisSol
+evaluates has the value in place of the input, so its normal form and its fingerprint have it.
 
 A program keeps where its definitions, states and outputs come from. The full language writes it
 into the normal form as ``meta line = "t4", "model.sderiv", 12, 9``: the name of a definition,
@@ -483,12 +491,19 @@ maths library of its own, each value has a tolerance: twice the largest deviatio
 evaluations by the interpreter with every product moved by an ulp and every function of the maths
 library by four, and a point where one of them decides a ``select`` otherwise counts as unstable. A
 kernel that deviates stops the run with the point and both values (``SEISSOL_EXPR_CHECK=warn`` lets
-it go on with a warning, ``off`` skips the check).
+it go on with a warning, ``off`` skips the check). ``strict = 1`` in ``&scripts`` makes a GPU compute
+the scripts as written, at some cost of throughput: without fused multiply-adds, and with division and
+square root correctly rounded also through OpenCL, so that only its maths library makes its values
+differ from those of the CPU -- for a run compared with a CPU run, where a condition near its
+threshold or a state that accumulates would otherwise decide or sum otherwise. The scripts evaluated
+once, at setup, run on the host, with the bits of the interpreter, on every build.
 
 Every rank writes an evaluation record of every program a kernel evaluates into the directory
 ``<prefix>-records`` next to the outputs, one file per program, backend and rank, named after the
 fingerprint of the program: the program in the normal form of the core format, the build (version
-and commit of SeisSol, compiler, maths library), the backend and the compute type, what the check of
+and commit of SeisSol, compiler, maths library), the settings of ``&scripts`` and the variables
+``SEISSOL_EASI`` and ``SEISSOL_EXPR_CHECK`` where they are set, the backend and the compute type,
+what the check of
 a compiled kernel found, and a sample of the points of its first call, with their inputs and the
 outputs of the interpreter and of the kernel (and their tolerance on a GPU), in hexadecimal. A
 point is identified by the global id of its cell or fault face and its index in it, where the

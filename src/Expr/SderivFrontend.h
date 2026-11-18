@@ -149,13 +149,16 @@
 // and names in backquotes, which are never keywords -- and the same reserved words. A module that
 // declares its inputs with `in` has those, in their order, whether it reads them or not, and no
 // others: a name it does not declare is an error, not an input. What a module declares comes before
-// what the language has: an input `g` or a definition `pi` is read where its name is, not the
+// what the language has: an input or a definition `pi` is read where its name is, not the
 // constant; a definition without parameters is read where its name is, and a call of its name is
 // the function of that name -- `def max = x` and `max(max, 2)`, as the core format, whose names of
 // operations are no reserved words, has them. A definition with parameters may not take the name of
 // a constant or a function. `out v = e` makes no definition: a later `v` reads what a name reads.
 // A `meta line` takes the place of the position in the module of what it names, and the other meta
 // lines record the provenance, which is checked as that of a core file.
+//
+// `g` IS AN INPUT, not a constant: the gravitational acceleration varies with the parameter file
+// (scaled units, say), and SeisSol gives it to every script it builds (supplyRunInputs()).
 //
 // STRINGS ARE CONFINED TO griddecl. They are lexed everywhere but primary() has
 // no string case, so a string in an expression is a parse error that names the

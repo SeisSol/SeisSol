@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "ReaderBuilder.h"
 
+#include "Expr/Rewrite.h"
 #include "Expr/SderivFrontend.h"
 #include "Reader/Scripting/CompiledReader.h"
 #include "Reader/Scripting/DataReader.h"
@@ -55,6 +56,7 @@ std::unique_ptr<DataReader> buildLua(const std::string& path) {
   const lua::LuaOrigin origin{path, 1, ':'};
   try {
     auto program = lua::translateLuaModule(code, origin);
+    expr::supplyRunInputs(program);
     logInfo() << "The Lua model" << path << "is translated into a program (the Lua frontend).";
     return std::make_unique<CompiledReader>(std::move(program), nullptr);
   } catch (const lua::LuaError& error) {
@@ -77,6 +79,7 @@ std::unique_ptr<DataReader> buildSderiv(const std::string& path) {
   expr::SderivOptions options;
   options.file = path;
   auto program = expr::compileSderivModule(source, options);
+  expr::supplyRunInputs(program);
   logInfo() << "Compiled the sderiv module" << path << "with" << program.outputs().size()
             << "outputs.";
   return std::make_unique<CompiledReader>(std::move(program), nullptr);
@@ -166,7 +169,9 @@ std::optional<expr::Program> buildProgram(const std::string& path,
     expr::SderivOptions options = sderivOptions;
     options.file = fileOf(path);
     try {
-      return expr::compileSderivModule(source, options);
+      auto program = expr::compileSderivModule(source, options);
+      expr::supplyRunInputs(program);
+      return program;
     } catch (const expr::SderivError& error) {
       // an error of the core format names its line and column itself
       if (error.position() >= 0) {
@@ -181,7 +186,9 @@ std::optional<expr::Program> buildProgram(const std::string& path,
     const std::string file = fileOf(path);
     const lua::LuaOrigin origin{file, 1, ':'};
     try {
-      return lua::translateLuaModule(readFile(file), origin);
+      auto program = lua::translateLuaModule(readFile(file), origin);
+      expr::supplyRunInputs(program);
+      return program;
     } catch (const lua::LuaError& error) {
       if (reason != nullptr) {
         *reason =

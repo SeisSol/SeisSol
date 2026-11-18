@@ -11,6 +11,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/Constants.h"
 #include "Equations/Datastructures.h"
+#include "Expr/Rewrite.h"
 #include "Expr/SderivFrontend.h"
 #include "Geometry/MeshReader.h"
 #include "Initializer/BasicTypedefs.h"
@@ -31,6 +32,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -153,8 +155,10 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
           return;
         }
         scriptNames_[config] = "of the reflection type";
-        scripts_[config] = std::make_unique<reader::scripting::CompiledReader>(
-            expr::compileSderivModule(*source), nullptr);
+        auto program = expr::compileSderivModule(*source);
+        expr::supplyRunInputs(program);
+        scripts_[config] =
+            std::make_unique<reader::scripting::CompiledReader>(std::move(program), nullptr);
       } else {
         scripts_[config] = scope.reader(path, {"x", "y", "z"}, config);
       }

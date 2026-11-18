@@ -49,6 +49,7 @@ add_library(seissol-initializer OBJECT
     Parameters/OutputParameters.cpp
     Parameters/ParameterOverrides.cpp
     Parameters/ParameterReader.cpp
+    Parameters/ScriptParameters.cpp
     Parameters/SeisSolParameters.cpp
     Parameters/SourceParameters.cpp
 

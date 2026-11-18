@@ -286,6 +286,13 @@ residentslices = 0                   ! slices per window instead; 0 derives them
 defaulttimespacing = 0.0             ! time between slices for a file that does not state it
 /
 
+&scripts
+! The scripts a run evaluates per time step or per output: the boundaries, the slip rates of
+! FL = 36, the derived outputs. (Those evaluated once, at setup, compute in binary64, as written.)
+precision = 'auto'                   ! 'f32' or 'f64'; 'auto' computes in the precision of each configuration
+strict = 0                           ! 1: a GPU computes them as written, without fused multiply-adds
+/
+
 &AbortCriteria
 EndTime = 15.0
 terminatorMaxTimePostRupture = 5.0   ! Stops SeisSol x sec after slip rate everywhere on the fault or seismic moment rate is below

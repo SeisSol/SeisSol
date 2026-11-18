@@ -10,6 +10,7 @@
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
 #include "Expr/Program.h"
+#include "Expr/Rewrite.h"
 #include "Expr/SderivFrontend.h"
 #include "Physics/InitialField.h"
 #include "Physics/ScriptField.h"
@@ -64,6 +65,7 @@ std::vector<std::unique_ptr<InitialField>> scriptedFields(const std::string& sou
   std::optional<expr::Program> program;
   try {
     program = expr::compileSderivModule(source);
+    expr::supplyRunInputs(*program);
   } catch (const expr::SderivError& error) {
     logError() << "The script of" << name << "does not compile:" << error.what() << "\n" << source;
   }

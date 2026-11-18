@@ -34,6 +34,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -49,11 +51,34 @@ namespace seissol::expr {
 // program, nor the type its data moves in.
 enum class ComputeType : std::uint8_t { F32, F64, I64, Bool };
 
+/// The settings of the scripts of a run, from the section `&scripts` of its parameter file, and the
+/// values it gives every script: SeisSol sets them once, when it starts (setScriptSettings()), and
+/// a process that does not set them has the defaults. They are settings of the run rather than of
+/// the environment, because they change the values a run computes.
+struct ScriptSettings {
+  /// The compute type of the scripts evaluated per time step or per output (stepComputeType());
+  /// none for that of each configuration.
+  std::optional<ComputeType> precision;
+  /// Whether a device computes those as written: without contracting a product and a sum into a
+  /// fused multiply-add, and with correctly rounded division and square root through OpenCL. The
+  /// interpreter and the compiled CPU kernels compute so anyway.
+  bool strict{false};
+  /// The inputs whose values the run gives every script, by name (supplyRunInputs()): `g`, the
+  /// gravitational acceleration of the parameter file.
+  std::map<std::string, double> runInputs;
+};
+
+/// Sets the settings of the scripts of the run, before a script is compiled.
+void setScriptSettings(ScriptSettings settings);
+
+/// The settings of the scripts of the run (setScriptSettings()).
+[[nodiscard]] const ScriptSettings& scriptSettings();
+
 // The compute type of a program that a consumer evaluates per time step (or per output) on data of
 // the type `real`, i.e. in the precision of a configuration: binary32 on binary32 data, binary64
-// otherwise. SEISSOL_EXPR_PRECISION=f64 (or f32) sets it for all of them instead, e.g. for a script
-// whose time has to be resolved finer than binary32 resolves it late in a run (1.9e-6 s at 20 s).
-// The consumers that evaluate once, at setup, compute in binary64.
+// otherwise. `precision` in `&scripts` (ScriptSettings::precision) sets it for all of them instead,
+// e.g. for a script whose time has to be resolved finer than binary32 resolves it late in a run
+// (1.9e-6 s at 20 s). The consumers that evaluate once, at setup, compute in binary64.
 [[nodiscard]] ComputeType stepComputeType(reader::scripting::DataType real);
 
 template <typename RealT>

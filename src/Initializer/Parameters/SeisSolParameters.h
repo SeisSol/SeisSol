@@ -17,6 +17,7 @@
 #include "ModelParameters.h"
 #include "OutputParameters.h"
 #include "ParameterReader.h"
+#include "ScriptParameters.h"
 #include "SourceParameters.h"
 
 namespace seissol::initializer::parameters {
@@ -29,6 +30,7 @@ struct SeisSolParameters {
   MeshParameters mesh;
   ModelParameters model;
   OutputParameters output;
+  ScriptParameters scripts;
   SourceParameters source;
   TimeSteppingParameters timeStepping;
 };

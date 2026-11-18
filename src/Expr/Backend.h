@@ -471,6 +471,12 @@ struct BackendOptions {
 
   /// The shape of a compiled CPU kernel; for the RtcCpu backend only.
   KernelShape shape{KernelShape::Auto};
+
+  /// Whether a device kernel computes as written: without contracting a product and a sum into a
+  /// fused multiply-add, and with correctly rounded division and square root through OpenCL. A
+  /// device kernel does so as well where the run asks for it (ScriptSettings::strict); the
+  /// interpreter and the compiled CPU kernels always do.
+  bool strict{false};
 };
 
 // Chooses a backend, compiles if needed, and returns the prepared kernel.

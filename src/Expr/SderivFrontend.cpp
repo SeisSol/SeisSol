@@ -521,7 +521,9 @@ struct ParsedProgram {
 };
 
 // =============================================== catalogs (spec-defined) ====
-const std::unordered_map<std::string, double> Constants = {{"pi", M_PI}, {"g", 9.80665}};
+// `g` is none: the gravitational acceleration is that of the run, an input
+// (ScriptSettings::runInputs)
+const std::unordered_map<std::string, double> Constants = {{"pi", M_PI}};
 
 // Spelled exactly as the Lua-side ssol.* names, so a model transliterates.
 const std::unordered_map<std::string, Fn> Builtins = {

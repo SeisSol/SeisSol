@@ -12,13 +12,13 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace seissol::expr {
@@ -341,26 +341,20 @@ std::string Program::canonicalForm() const {
 
 std::uint64_t Program::fingerprint() const { return fnv1a(canonicalForm()); }
 
+namespace {
+ScriptSettings& settingsOfScripts() {
+  static ScriptSettings settings;
+  return settings;
+}
+} // namespace
+
+void setScriptSettings(ScriptSettings settings) { settingsOfScripts() = std::move(settings); }
+
+const ScriptSettings& scriptSettings() { return settingsOfScripts(); }
+
 ComputeType stepComputeType(reader::scripting::DataType real) {
-  static const std::optional<ComputeType> Chosen = []() -> std::optional<ComputeType> {
-    const char* env = std::getenv("SEISSOL_EXPR_PRECISION");
-    if (env == nullptr || *env == '\0') {
-      return std::nullopt;
-    }
-    const std::string value(env);
-    if (value == "f64" || value == "double") {
-      return ComputeType::F64;
-    }
-    if (value == "f32" || value == "single" || value == "float") {
-      return ComputeType::F32;
-    }
-    logWarning() << "SEISSOL_EXPR_PRECISION is" << value
-                 << "; f32 or f64 choose the precision of the scripts per step, and leaving it "
-                    "unset follows each configuration.";
-    return std::nullopt;
-  }();
-  if (Chosen.has_value()) {
-    return *Chosen;
+  if (const auto& chosen = scriptSettings().precision; chosen.has_value()) {
+    return *chosen;
   }
   return real == reader::scripting::DataType::F32 ? ComputeType::F32 : ComputeType::F64;
 }
