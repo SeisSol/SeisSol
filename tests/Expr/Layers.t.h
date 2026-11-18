@@ -39,16 +39,16 @@ namespace {
 /// one grid per interpolation.
 const char* const LayeredModel =
     "#!sderiv 1\nin z\n"
-    "grid m (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
+    "dataset m (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
     "values = ((2600, 10), (2700, 20), (3000, 40)), interpolation = \"linear\", boundary = "
     "\"clamp\")\n"
-    "grid p (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
+    "dataset p (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
     "values = ((2600, 10), (2700, 20), (3000, 40)), interpolation = \"previous\", boundary = "
     "\"clamp\")\n"
-    "grid n (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
+    "dataset n (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
     "values = ((2600, 10), (2700, 20), (3000, 40)), interpolation = \"next\", boundary = "
     "\"clamp\")\n"
-    "grid q (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
+    "dataset q (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, 3000)), "
     "values = ((2600, 10), (2700, 20), (3000, 40)), interpolation = \"nearest\", boundary = "
     "\"clamp\")\n"
     "def t0 = m.rho(z)\ndef t1 = p.rho(z)\ndef t2 = n.rho(z)\ndef t3 = q.rho(z)\ndef t4 = m.mu(z)\n"
@@ -162,7 +162,8 @@ TEST_SUITE("expr layers") {
   TEST_CASE("a grid of two axes of knots, each with an interpolation of its own") {
     const Program program = loadCore(
         "#!sderiv 1\nin x, z\n"
-        "grid g (kind = \"inline\", components = (\"v\"), knots = ((0, 1, 3), (10, 20)), values = "
+        "dataset g (kind = \"inline\", components = (\"v\"), knots = ((0, 1, 3), (10, 20)), values "
+        "= "
         "(((0), (1), (3)), ((100), (101), (103))), interpolation = (\"linear\", \"previous\"), "
         "boundary = "
         "\"clamp\")\n"
@@ -195,13 +196,13 @@ TEST_SUITE("expr layers") {
     const Program program = loadCore(LayeredModel, "");
     const std::string printed = printCore(program);
     CAPTURE(printed);
-    CHECK(printed.find("grid p (kind = \"inline\",\n"
-                       "        components = (\"rho\", \"mu\"),\n"
-                       "        knots = ((1000, 2000, 3000)),\n"
-                       "        values = ((2600, 10),\n"
-                       "                  (2700, 20),\n"
-                       "                  (3000, 40)),\n"
-                       "        interpolation = \"previous\", boundary = \"clamp\")\n") !=
+    CHECK(printed.find("dataset p (kind = \"inline\",\n"
+                       "           components = (\"rho\", \"mu\"),\n"
+                       "           knots = ((1000, 2000, 3000)),\n"
+                       "           values = ((2600, 10),\n"
+                       "                     (2700, 20),\n"
+                       "                     (3000, 40)),\n"
+                       "           interpolation = \"previous\", boundary = \"clamp\")\n") !=
           std::string::npos);
     const Program again = loadCore(printed, "");
     CHECK(again.fingerprint() == program.fingerprint());
@@ -222,22 +223,23 @@ TEST_SUITE("expr layers") {
       }
       return std::string();
     };
-    CHECK(failure("grid m (kind = \"inline\", components = (\"a\"), knots = ((2, 1)), values = "
+    CHECK(failure("dataset m (kind = \"inline\", components = (\"a\"), knots = ((2, 1)), values = "
                   "((0), (1)), interpolation = \"linear\", boundary = \"clamp\")")
               .find("do not increase strictly") != std::string::npos);
-    CHECK(failure("grid m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), values = "
+    CHECK(failure("dataset m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), values = "
                   "((0), (1), (2)), interpolation = \"linear\", boundary = \"clamp\")")
               .find("expected the 2 nodes along axis 0, not 3") != std::string::npos);
-    CHECK(failure("grid m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), values = "
+    CHECK(failure("dataset m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), values = "
                   "((0), (1)), interpolation = \"cubic\", boundary = \"clamp\")")
               .find("not cubic") != std::string::npos);
-    CHECK(failure("grid m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), values = "
+    CHECK(failure("dataset m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), values = "
                   "((0), (1)), interpolation = (\"linear\", \"next\"), boundary = \"clamp\")")
               .find("2 interpolations") != std::string::npos);
-    CHECK(failure("grid m (kind = \"inline\", path = \"a.nc\", components = (\"a\"), knots = "
+    CHECK(failure("dataset m (kind = \"inline\", path = \"a.nc\", components = (\"a\"), knots = "
                   "((1, 2)), values = ((0), (1)), interpolation = \"linear\", boundary = "
                   "\"clamp\")")
-              .find("a grid of the kind \"inline\" has no attribute `path`") != std::string::npos);
+              .find("a dataset of the kind \"inline\" has no attribute `path`") !=
+          std::string::npos);
   }
 
   TEST_CASE("layers step at the knots as easi's layered model does") {
@@ -286,13 +288,13 @@ TEST_SUITE("expr layers") {
   TEST_CASE("a uniform axis steps as an axis of knots does") {
     // the ramp i + 10 j + 100 k over 8 nodes per axis, from 0 in steps of 1: previous along x,
     // next along y, linear along z
-    const Program program =
-        loadCore("#!sderiv 1\nin x, y, z\n"
-                 "grid m (kind = \"asagi\", path = \"ramp.nc\", variable = \"data\", components = "
-                 "(\"a\", \"b\"), "
-                 "interpolation = (\"previous\", \"next\", \"linear\"), boundary = \"clamp\")\n"
-                 "def t0 = m.a(x, y, z)\nout a = t0\n",
-                 "");
+    const Program program = loadCore(
+        "#!sderiv 1\nin x, y, z\n"
+        "dataset m (kind = \"asagi\", path = \"ramp.nc\", variable = \"data\", components = "
+        "(\"a\", \"b\"), "
+        "interpolation = (\"previous\", \"next\", \"linear\"), boundary = \"clamp\")\n"
+        "def t0 = m.a(x, y, z)\nout a = t0\n",
+        "");
     const double nan = std::numeric_limits<double>::quiet_NaN();
     const std::vector<double> x = {1.5, 2.0, 0.0, -3.0, 7.0, 6.5, nan, 9.0};
     const std::vector<double> y = {1.0, 1.5, 0.0, 9.0, 7.0, 0.5, nan, 0.0};
@@ -342,14 +344,15 @@ TEST_SUITE("expr layers") {
     const std::string schemes =
         "interpolation = (\"linear\", \"previous\"), boundary = \"clamp\")\n";
     const Program fromFile =
-        loadCore("#!sderiv 1\nin x, z\ngrid m (kind = \"asagi\", path = \"" + path +
+        loadCore("#!sderiv 1\nin x, z\ndataset m (kind = \"asagi\", path = \"" + path +
                      "\", variable = \"rho\", components = (\"rho\"), axes = "
                      "(\"uniform\", \"knots\"), " +
                      schemes + "def t0 = m.rho(x, z)\nout rho = t0\n",
                  "");
     // the grid axes in the opposite order of the dimensions of the file: x, then depth
     const Program inlined = loadCore(
-        "#!sderiv 1\nin x, z\ngrid m (kind = \"inline\", components = (\"rho\"), knots = ((0, 1), "
+        "#!sderiv 1\nin x, z\ndataset m (kind = \"inline\", components = (\"rho\"), knots = ((0, "
+        "1), "
         "(0, 100, 1000)), values = (((2000), (2100)), ((2500), (2650)), ((2900), (3300))), " +
             schemes + "def t0 = m.rho(x, z)\nout rho = t0\n",
         "");
@@ -386,12 +389,13 @@ TEST_SUITE("expr layers") {
     const std::string schemes =
         "interpolation = (\"linear\", \"previous\"), boundary = \"clamp\")\n";
     const Program table =
-        loadCore("#!sderiv 1\nin x, z\ngrid m (kind = \"table\", path = \"" + path +
+        loadCore("#!sderiv 1\nin x, z\ndataset m (kind = \"table\", path = \"" + path +
                      "\", components = (\"rho\"), coordinates = (\"x\", \"depth\"), " + schemes +
                      "def t0 = m.rho(x, z)\nout rho = t0\n",
                  "");
     const Program inlined = loadCore(
-        "#!sderiv 1\nin x, z\ngrid m (kind = \"inline\", components = (\"rho\"), knots = ((0, 1), "
+        "#!sderiv 1\nin x, z\ndataset m (kind = \"inline\", components = (\"rho\"), knots = ((0, "
+        "1), "
         "(0, 100, 1000)), values = (((2000), (2100)), ((2500), (2650)), ((2900), (3300))), " +
             schemes + "def t0 = m.rho(x, z)\nout rho = t0\n",
         "");
@@ -412,23 +416,23 @@ TEST_SUITE("expr layers") {
     // the normal form of a table: its coordinates after its components
     const std::string printed = printCore(table);
     CAPTURE(printed);
-    CHECK(printed.find("grid m (kind = \"table\", path = \"" + path +
-                       "\",\n        components = (\"rho\"),\n        coordinates = (\"x\", "
-                       "\"depth\"),\n        interpolation = (\"linear\", \"previous\"), "
+    CHECK(printed.find("dataset m (kind = \"table\", path = \"" + path +
+                       "\",\n           components = (\"rho\"),\n           coordinates = (\"x\", "
+                       "\"depth\"),\n           interpolation = (\"linear\", \"previous\"), "
                        "boundary = \"clamp\")\n") != std::string::npos);
     CHECK(printCore(loadCore(printed, "")) == printed);
     std::remove(path.c_str());
   }
 
   TEST_CASE("a record names an inline grid, and its axes of knots, and replays it") {
-    const Program program =
-        loadCore("#!sderiv 1\nin z\n"
-                 "grid m (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, "
-                 "3000)), values = ((2600, 10), (2700, 20), (3000, 40)), interpolation = "
-                 "\"linear\", boundary = "
-                 "\"clamp\")\n"
-                 "def t0 = m.rho(z)\nout rho = t0\n",
-                 "");
+    const Program program = loadCore(
+        "#!sderiv 1\nin z\n"
+        "dataset m (kind = \"inline\", components = (\"rho\", \"mu\"), knots = ((1000, 2000, "
+        "3000)), values = ((2600, 10), (2700, 20), (3000, 40)), interpolation = "
+        "\"linear\", boundary = "
+        "\"clamp\")\n"
+        "def t0 = m.rho(z)\nout rho = t0\n",
+        "");
     const double nan = std::numeric_limits<double>::quiet_NaN();
     const std::vector<double> z = {500, 1000, 1500, 2000, 2500, 3000, 3500, nan};
     std::vector<double> rho(z.size(), 0.0);
@@ -468,7 +472,8 @@ TEST_SUITE("expr layers") {
     // reported, one beyond those of x is not
     const Program program = loadCore(
         "#!sderiv 1\nin x, z\n"
-        "grid g (kind = \"inline\", components = (\"v\"), knots = ((0, 1, 3), (10, 20)), values = "
+        "dataset g (kind = \"inline\", components = (\"v\"), knots = ((0, 1, 3), (10, 20)), values "
+        "= "
         "(((0), (1), (3)), ((100), (101), (103))), interpolation = (\"linear\", \"next\"), "
         "boundary = "
         "(\"clamp\", \"fail\"))\n"

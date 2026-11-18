@@ -146,14 +146,14 @@ class Programs(unittest.TestCase):
             np.testing.assert_array_equal(values["rho"], [2605.0, 2600.0])
             self.assertEqual(sorted(sderiv.load_easi(easi).outputs), ["mu", "rho"])
 
-    def test_grid(self):
-        # a grid the program gives itself; the module starts MPI for it, and ends it with Python
+    def test_dataset(self):
+        # a dataset the program gives itself; the module starts MPI for it, and ends it with Python
         program = sderiv.compile(
-            'grid layers (kind = "inline", components = ("rho"), knots = ((-3000, -1000)),\n'
-            '             values = ((2700), (2600)), interpolation = "previous")\n'
+            'dataset layers (kind = "inline", components = ("rho"), knots = ((-3000, -1000)),\n'
+            '                values = ((2700), (2600)), interpolation = "previous")\n'
             "out def rho = layers.rho(z)\n"
         )
-        self.assertEqual(len(program.grids), 1)
+        self.assertEqual(len(program.datasets), 1)
         values = program.evaluate(z=[-4000.0, -2000.0, 0.0])["rho"]
         np.testing.assert_array_equal(values, [2700.0, 2700.0, 2600.0])
 

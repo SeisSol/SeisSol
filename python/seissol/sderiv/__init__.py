@@ -32,8 +32,8 @@ model.py` writes the core file model.sderiv next to the model, which SeisSol rea
 python:model.py.
 """
 
+from ._dataset import Dataset, dataset
 from ._graph import TracingError
-from ._grid import Grid, grid
 from ._model import (
     GENERATOR,
     VERSION,
@@ -53,15 +53,15 @@ __version__ = VERSION
 
 __all__ = [
     "GENERATOR",
-    "Grid",
+    "Dataset",
     "Model",
     "Trace",
     "TracingError",
     "check",
+    "dataset",
     "depends",
     "erf",
     "function",
-    "grid",
     "median",
     "model",
     "percentile",

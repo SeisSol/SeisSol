@@ -213,14 +213,14 @@ an array, ``[x, y, z]``; a matrix is an array of arrays. ``p.rho`` is a field, `
 whose index the script fixes. Operators and functions take them number by number: a number with
 every number of a record or an array, two records field by field, two arrays element by element.
 So a function written for numbers takes them as well, and an ``if`` of two records chooses every
-field. ``m(x, y, z)`` samples every component of the grid ``m`` (below), a record of their names,
-and ``out p`` gives every field of the record ``p`` as an output of its name -- a material from a
-grid below 2 km and from formulas above, say:
+field. ``m(x, y, z)`` samples every component of the dataset ``m`` (below), a record of their
+names, and ``out p`` gives every field of the record ``p`` as an output of its name -- a material
+from a grid below 2 km and from formulas above, say:
 
 .. code-block:: text
 
-   grid m (kind = "asagi", path = "model.nc", components = ("rho", "vp", "vs"),
-           interpolation = "linear")
+   dataset m (kind = "asagi", path = "model.nc", components = ("rho", "vp", "vs"),
+              interpolation = "linear")
    def lame(p) = {rho = p.rho, mu = p.rho * p.vs ** 2,
                   lambda = p.rho * (p.vp ** 2 - 2 * p.vs ** 2)}
    def shallow = {rho = 2600 - 0.5 * z, mu = 1e10, lambda = 2e10}
@@ -302,21 +302,22 @@ conditions and the derived outputs, say): ``material.rho`` reads the input ``rho
 Records and arrays are resolved when the module is read: the program computes the numbers a module
 written number by number computes, in the same order, to the same bits.
 
-A script may sample a data grid: an array on a uniform Cartesian grid in a NetCDF file, read as
-ASAGI reads it (axis 0 is the dimension that varies fastest in the file). In an sderiv module,
+A script may read a dataset, such as a data grid: an array on a uniform Cartesian grid in a
+NetCDF file, read as ASAGI reads it (axis 0 is the dimension that varies fastest in the file). In
+an sderiv module,
 
 .. code-block:: text
 
-   grid m (kind = "asagi", path = "model.nc", components = ("rho", "mu"),
-           interpolation = "linear")
+   dataset m (kind = "asagi", path = "model.nc", components = ("rho", "mu"),
+              interpolation = "linear")
 
-declares the grid ``m`` of the variable ``z`` of the file, with the components ``rho`` and ``mu``,
-and ``m.rho(x, y, z)`` samples it; ``variable = "data"`` reads the variable ``data``. The core
-format of sderiv states every attribute, ``variable`` and ``boundary`` too; an sderiv module may
-leave out those two, whose defaults are ``"z"`` and ``"clamp"``. A grid gives the attributes of its
-kind and no others: an ASAGI file its ``path`` and ``variable`` (and maybe ``axes`` and ``time``),
-a SCEC file its ``path``, a table its ``path`` and ``coordinates``, an inline grid its ``knots``
-and ``values``.
+declares the dataset ``m`` of the variable ``z`` of the file, with the components ``rho`` and
+``mu``, and ``m.rho(x, y, z)`` samples it; ``variable = "data"`` reads the variable ``data``. The
+core format of sderiv states every attribute, ``variable`` and ``boundary`` too; an sderiv module
+may leave out those two, whose defaults are ``"z"`` and ``"clamp"``. A dataset gives the attributes
+of its kind and no others: an ASAGI file its ``path`` and ``variable`` (and maybe ``axes`` and
+``time``), a SCEC file its ``path``, a table its ``path`` and ``coordinates``, an inline grid its
+``knots`` and ``values``.
 
 ``interpolation`` is ``"nearest"``, ``"linear"``, ``"cubic"``, ``"previous"`` or ``"next"``; with
 ``boundary = "clamp"`` a coordinate beyond the grid samples its boundary, with ``"fail"`` it is an
@@ -344,12 +345,12 @@ a table of layers, say:
 
 .. code-block:: text
 
-   grid layers (kind = "inline", components = ("rho", "mu"),
-                knots = ((-3000, -2000, -1000)),
-                values = ((3000, 40),
-                          (2700, 20),
-                          (2600, 10)),
-                interpolation = "previous", boundary = "clamp")
+   dataset layers (kind = "inline", components = ("rho", "mu"),
+                   knots = ((-3000, -2000, -1000)),
+                   values = ((3000, 40),
+                             (2700, 20),
+                             (2600, 10)),
+                   interpolation = "previous", boundary = "clamp")
 
 ``knots`` has a tuple of knots per axis, ``values`` the values at the nodes, nested as the axes: a
 tuple of the nodes along the last axis, each a tuple along the axis before, and so on to axis 0,
@@ -366,8 +367,8 @@ A table in a text file is a grid as well:
 
 .. code-block:: text
 
-   grid profile (kind = "table", path = "profile.csv", coordinates = ("depth"),
-                 components = ("rho", "vs"), interpolation = "linear")
+   dataset profile (kind = "table", path = "profile.csv", coordinates = ("depth"),
+                    components = ("rho", "vs"), interpolation = "linear")
 
 A first line names the columns, then a row per line, the fields separated by spaces or commas;
 ``#`` starts a comment. The numbers are those of sderiv, decimal or hexadecimal (``0x1.8p+1``),
@@ -379,7 +380,7 @@ are not read. Every axis of a table is knots. Rank 0 reads the file, and gives t
 ranks. The points of ``sderiv eval --points`` are a file of the same kind.
 
 A SCEC file of fault parameters, the input file of the SCEC benchmarks TPV16 and TPV17 as easi's
-``!SCECFile`` reads it, is a grid of the kind ``"scec"``: ``grid f (kind = "scec", path =
+``!SCECFile`` reads it, is a dataset of the kind ``"scec"``: ``dataset f (kind = "scec", path =
 "tpv16_input_file.txt", components = ("mu_s", "mu_d"), interpolation = "linear")``, sampled as
 ``f.mu_s(x, z)``. Its nodes lie where their indices put them, on a uniform grid from 0 to the lengths
 of the header, axis 0 along strike; the coordinates of a line are not read. A line has ten values,
@@ -391,7 +392,7 @@ and the dynamic coefficient of friction), ``d_c`` (the critical slip distance), 
 ranks.
 
 A Lua model declares its grids in ``M.field_specs``, a table of field specs, each a table of the
-attributes of a grid of sderiv: ``file`` is its path and ``parameters`` its components, and the
+attributes of a dataset of sderiv: ``file`` is its path and ``parameters`` its components, and the
 knots and the values of an inline grid are nested tables, as sderiv nests them. Where a field spec
 gives none, the interpolation is linear, the boundary clamps, and the variable of an ASAGI file is
 ``z``. ``fields.<name>:sample(...)`` gives one value per parameter:
@@ -418,8 +419,8 @@ it moves at synchronization points as the simulation advances. For example, the 
 
 .. code-block:: text
 
-   grid w (kind = "asagi", path = "wall.nc", variable = "v", components = ("v1"),
-           interpolation = "linear", time = 0)
+   dataset w (kind = "asagi", path = "wall.nc", variable = "v", components = ("v1"),
+              interpolation = "linear", time = 0)
    out def v1 = w.v1(t)
 
 How long the windows are is set in the ``&datafield`` block of the parameter file:
@@ -442,9 +443,9 @@ A module that starts with the line ``#!sderiv 1`` is read in the core format of 
 explicit form that tools and other frontends write: every input is declared (``in x, y, z``), every
 value is a definition (``def t0 = x * y``), an output reads ``out u = t0``, a state is declared with
 its initial value (``state s = 0``) and given its value for the next call (``next s = t0``), and a
-grid states all of its attributes, as above. There are no
-implicit inputs and no constants such as ``pi``; a relative grid path is relative to the file, and
-an error names its line and column.
+dataset states all of its attributes, as above. There are no implicit inputs and no constants such
+as ``pi``; a relative path of a dataset is relative to the file, and an error names its line and
+column.
 
 Every core file is also a module of the full language: without its header, it reads as the same
 program. The full language has the declarations of the core format for that -- ``in``, ``next``,
@@ -520,13 +521,14 @@ check of the points that take it, as a function that ends without a ``return`` a
 name that a branch assigns on one side only fails where it is used after it, as does a ``while``
 loop on a value of the point, the use of one as a number of Python (``math.sqrt``, ``float()``),
 and the functions of NumPy the program has no exact counterpart for (``np.round``, ``np.fmod``,
-``//``), each with the line of the model. A parameter with a default is a constant of the model. ``@sd.model(state={"peak": 0.0})`` declares a state, which the
-parameter of its name reads and the output of its name gives the next value of;
-``sd.check(condition, message)`` a check; ``sd.percentile`` and ``sd.median`` the operation;
-``sd.grid(path, components, ...)`` a grid, a relative path relative to the model, sampled as
-``g.rho(x, y, z)``. Outside of a trace, a grid is sampled by the program SeisSol samples it with,
-through the module ``sderiv`` of a build with ``-DSDERIV_PYTHON=ON``, as is ``material.evaluate()``,
-which gives the values of the program itself.
+``//``), each with the line of the model. A parameter with a default is a constant of the model.
+``@sd.model(state={"peak": 0.0})`` declares a state, which the parameter of its name reads and the
+output of its name gives the next value of; ``sd.check(condition, message)`` a check;
+``sd.percentile`` and ``sd.median`` the operation; ``sd.dataset(path, components, ...)`` a dataset,
+a relative path relative to the model, sampled as ``g.rho(x, y, z)``. Outside of a trace, a dataset
+is sampled by the program SeisSol samples it with, through the module ``sderiv`` of a build with
+``-DSDERIV_PYTHON=ON``, as is ``material.evaluate()``, which gives the values of the program
+itself.
 
 A module may check its points: ``check le(z, 0), "no material above the surface"`` (in either
 form) stops the run at the first point where the condition is zero, with the message, the point and

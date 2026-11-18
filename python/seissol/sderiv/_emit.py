@@ -5,7 +5,7 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-"""The core text of a trace (docs/sderiv-spec.rst): the inputs, the grids, the states, a
+"""The core text of a trace (docs/sderiv-spec.rst): the inputs, the datasets, the states, a
 definition per operation, the next values of the states, the outputs and the checks -- and the
 provenance in front, which SeisSol checks when it loads the file: the source and the files read
 while tracing with their hashes, the command that writes the file again, the hash of its body,
@@ -20,7 +20,7 @@ import re
 RESERVED = {
     "meta",
     "in",
-    "grid",
+    "dataset",
     "def",
     "state",
     "next",
@@ -80,35 +80,35 @@ def _relative(path, directory):
     return os.path.relpath(path, directory)
 
 
-def spell_grid(name, grid, directory):
-    """The declaration of `grid` as `name`; its path relative to `directory` (absolute where
-    that is None)."""
-    attributes = [("kind", grid.kind)]
-    if grid.path is not None:
-        attributes.append(("path", _relative(grid.path, directory)))
-    if grid.variable is not None:
-        attributes.append(("variable", grid.variable))
-    attributes.append(("components", tuple(grid.components)))
-    if grid.coordinates is not None:
-        attributes.append(("coordinates", tuple(grid.coordinates)))
-    if grid.axes is not None:
-        attributes.append(("axes", tuple(grid.axes)))
-    if grid.knots is not None:
-        attributes.append(("knots", tuple(tuple(axis) for axis in grid.knots)))
-        attributes.append(("values", _nested(grid.values)))
+def spell_dataset(name, declared, directory):
+    """The declaration of the dataset `declared` as `name`; its path relative to `directory`
+    (absolute where that is None)."""
+    attributes = [("kind", declared.kind)]
+    if declared.path is not None:
+        attributes.append(("path", _relative(declared.path, directory)))
+    if declared.variable is not None:
+        attributes.append(("variable", declared.variable))
+    attributes.append(("components", tuple(declared.components)))
+    if declared.coordinates is not None:
+        attributes.append(("coordinates", tuple(declared.coordinates)))
+    if declared.axes is not None:
+        attributes.append(("axes", tuple(declared.axes)))
+    if declared.knots is not None:
+        attributes.append(("knots", tuple(tuple(axis) for axis in declared.knots)))
+        attributes.append(("values", _nested(declared.values)))
     for key, value in (
-        ("interpolation", grid.interpolation),
-        ("boundary", grid.boundary),
+        ("interpolation", declared.interpolation),
+        ("boundary", declared.boundary),
     ):
         attributes.append((key, value if isinstance(value, str) else tuple(value)))
-    if grid.time is not None:
-        attributes.append(("time", grid.time))
+    if declared.time is not None:
+        attributes.append(("time", declared.time))
     spelled = ", ".join(f"{key} = {_spell_value(value)}" for key, value in attributes)
-    return f"grid {spell_name(name)} ({spelled})"
+    return f"dataset {spell_name(name)} ({spelled})"
 
 
 def _nested(values):
-    """The values of an inline grid, [axis 0]...[axis d-1][component], nested as the core format
+    """The values of an inline dataset, [axis 0]...[axis d-1][component], nested as the core format
     nests them: the last axis outermost, down to the components of a node."""
     dimensions = values.ndim - 1
     index = [0] * dimensions
@@ -159,7 +159,7 @@ def core_text(trace, directory=None, generator=None, command=None, depends=()):
             for arg in reversed(graph.nodes[node].args):
                 stack.append((arg, False))
 
-    # names: the inputs and the states by theirs, the grids and the definitions by fresh ones
+    # names: the inputs and the states by theirs, the datasets and the definitions by fresh ones
     taken = set(trace.inputs) | {name for name, _, _, _ in trace.states}
     counter = iter(range(1 << 62))
 
@@ -199,7 +199,7 @@ def core_text(trace, directory=None, generator=None, command=None, depends=()):
     if trace.inputs:
         body.append("in " + ", ".join(spell_name(name) for name in trace.inputs))
     for name, declared in zip(grid_names, graph.grids):
-        body.append(spell_grid(name, declared, directory))
+        body.append(spell_dataset(name, declared, directory))
     for name, initial, _, _ in trace.states:
         body.append(f"state {spell_name(name)} = {spell_number(initial)}")
     for node in order:

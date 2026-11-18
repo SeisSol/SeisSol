@@ -122,11 +122,11 @@ TEST_CASE("Datafield table: a grid of a table names its coordinates and its comp
   auto withVariable = spec;
   withVariable.variable = "data";
   CHECK(messageOf([&] { static_cast<void>(df::gridDescOf(withVariable)); }) ==
-        "a grid of the kind \"table\" has no variable");
+        "a dataset of the kind \"table\" has no variable");
   auto withoutCoordinates = spec;
   withoutCoordinates.coordinates.clear();
   CHECK(messageOf([&] { static_cast<void>(df::gridDescOf(withoutCoordinates)); }) ==
-        "a grid of the kind \"table\" gives its coordinates");
+        "a dataset of the kind \"table\" gives its coordinates");
 }
 
 TEST_CASE("Datafield SCEC: a grid has the components a declaration names, in its order") {
@@ -176,7 +176,7 @@ TEST_CASE("Datafield SCEC: a grid has the components a declaration names, in its
   auto withVariable = spec;
   withVariable.variable = "z";
   CHECK(messageOf([&] { static_cast<void>(df::gridDescOf(withVariable)); }) ==
-        "a grid of the kind \"scec\" has no variable");
+        "a dataset of the kind \"scec\" has no variable");
 }
 
 TEST_CASE("Datafield grid: the values of an inline grid nest as its axes") {

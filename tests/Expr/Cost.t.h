@@ -70,7 +70,7 @@ TEST_SUITE("ExprCost") {
     // written out: the weights and the tensor product as operations, and the elements of the
     // stencil -- 2^3 for a linear one in three dimensions -- as the random accesses they are
     const Program program =
-        compileSderivModule("grid m (kind = \"asagi\", path = \"model.nc\", components = "
+        compileSderivModule("dataset m (kind = \"asagi\", path = \"model.nc\", components = "
                             "(\"rho\"), interpolation = \"linear\")\n"
                             "out def u = m.rho(x, y, z)\n");
     const auto costs = cost(program, lower(program), program.computeType());

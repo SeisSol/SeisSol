@@ -94,9 +94,9 @@ constexpr auto Material = R"(#!sderiv 1
 meta generator = "easi 1.8.0"
 meta source = "material.yaml", "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
 in x, y, z
-grid m (kind = "asagi", path = "vmodel.nc", variable = "data",
-        components = ("rho", "mu", "lambda"),
-        interpolation = "linear", boundary = "clamp")
+dataset m (kind = "asagi", path = "vmodel.nc", variable = "data",
+           components = ("rho", "mu", "lambda"),
+           interpolation = "linear", boundary = "clamp")
 def t0 = lt(z, -2000)
 def t1 = m.rho(x, y, z)
 def t2 = -0.5 * z
@@ -173,8 +173,8 @@ TEST_SUITE("ExprCore") {
   TEST_CASE("a program prints, loads back the same, and prints the same again") {
     // from the full language: names, nesting, functions, constants, states and types
     const Program program = compileSderivModule(R"(
-grid m (kind = "asagi", path = "/data/vmodel.nc", variable = "data",
-        components = ("rho", "vs"), interpolation = "cubic", boundary = "fail", time = 2)
+dataset m (kind = "asagi", path = "/data/vmodel.nc", variable = "data",
+           components = ("rho", "vs"), interpolation = "cubic", boundary = "fail", time = 2)
 def f(p) = p * p + 1.5
 def two = 2
 state f64 sum = 0.0
@@ -186,10 +186,11 @@ out def w = exp(-x) / two
     CAPTURE(text);
     const Program loaded = loadCore(text, "");
     CHECK(printCore(loaded) == text);
-    CHECK(text.find("grid m (kind = \"asagi\", path = \"/data/vmodel.nc\", variable = \"data\",\n"
-                    "        components = (\"rho\", \"vs\"),\n"
-                    "        interpolation = \"cubic\", boundary = \"fail\", time = 2)\n") !=
-          std::string::npos);
+    CHECK(
+        text.find("dataset m (kind = \"asagi\", path = \"/data/vmodel.nc\", variable = \"data\",\n"
+                  "           components = (\"rho\", \"vs\"),\n"
+                  "           interpolation = \"cubic\", boundary = \"fail\", time = 2)\n") !=
+        std::string::npos);
     CHECK(text.find("state f64 sum = 0\n") != std::string::npos);
 
     // and computes the same bits
@@ -382,42 +383,43 @@ out u = t2
         {"#!sderiv 1\nin x\nout u = 0x1.8\n", 3, 9, "binary exponent"},
         {"#!sderiv 1\nin x\nout u = \"x\n", 3, 9, "ends with \" on its line"},
         {"#!sderiv 1\nin def\n", 2, 4, "reserved word"},
-        {"#!sderiv 1\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
+        {"#!sderiv 1\ndataset m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
          "components = (\"rho\"), interpolation = \"linear\")\n",
          2,
-         6,
+         9,
          "gives no boundary"},
-        {"#!sderiv 1\ngrid m (kind = \"asagi\", colour = \"red\")\n",
+        {"#!sderiv 1\ndataset m (kind = \"asagi\", colour = \"red\")\n",
          2,
-         25,
+         28,
          "no attribute `colour`"},
-        {"#!sderiv 1\ngrid m (kind = \"netcdf\", path = \"a.nc\", variable = \"z\", components = "
+        {"#!sderiv 1\ndataset m (kind = \"netcdf\", path = \"a.nc\", variable = \"z\", components "
+         "= "
          "(\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\n",
          2,
-         9,
+         12,
          "\"asagi\", \"scec\", \"table\" or \"inline\""},
         // the attributes of the kind, and the values of an inline grid as its axes nest them
-        {"#!sderiv 1\ngrid f (kind = \"scec\", path = \"f.txt\", variable = \"z\", components = "
+        {"#!sderiv 1\ndataset f (kind = \"scec\", path = \"f.txt\", variable = \"z\", components = "
          "(\"mu_s\"), interpolation = \"linear\", boundary = \"clamp\")\n",
          2,
-         40,
-         "a grid of the kind \"scec\" has no attribute `variable`"},
-        {"#!sderiv 1\ngrid t (kind = \"table\", path = \"t.csv\", components = (\"v\"), "
+         43,
+         "a dataset of the kind \"scec\" has no attribute `variable`"},
+        {"#!sderiv 1\ndataset t (kind = \"table\", path = \"t.csv\", components = (\"v\"), "
          "interpolation = \"linear\", boundary = \"clamp\")\n",
          2,
-         6,
+         9,
          "gives no coordinates"},
-        {"#!sderiv 1\ngrid m (kind = \"inline\", components = (\"a\", \"b\"), knots = ((1, 2)), "
+        {"#!sderiv 1\ndataset m (kind = \"inline\", components = (\"a\", \"b\"), knots = ((1, 2)), "
          "values = ((0, 1), (2)), interpolation = \"linear\", boundary = \"clamp\")\n",
          2,
-         87,
+         90,
          "expected the 2 components of a node (a, b), not 1"},
-        {"#!sderiv 1\ngrid m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), "
+        {"#!sderiv 1\ndataset m (kind = \"inline\", components = (\"a\"), knots = ((1, 2)), "
          "values = (0, 1), interpolation = \"linear\", boundary = \"clamp\")\n",
          2,
-         74,
+         77,
          "expected a tuple of the 1 components of a node (a)"},
-        {"#!sderiv 1\nin x\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
+        {"#!sderiv 1\nin x\ndataset m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
          "components "
          "= (\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\nout u = m.vp(x)\n",
          4,
@@ -437,26 +439,27 @@ out u = t2
         {"#!sderiv 1\nmeta body = \"x\"\nin x\nout u = x\n", 2, 1, "the hash of the body"},
         {"#!sderiv 1\nmeta source = \"a.py\"\nin x\nout u = x\n", 2, 1, "a file and its hash"},
         {"#!sderiv 1\nmeta a = b\n", 2, 10, "a string or a whole number"},
-        {"#!sderiv 1\ngrid m (kind = \"asagi\", kind = \"asagi\")\n", 2, 25, "given twice"},
-        {"#!sderiv 1\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", components = "
+        {"#!sderiv 1\ndataset m (kind = \"asagi\", kind = \"asagi\")\n", 2, 28, "given twice"},
+        {"#!sderiv 1\ndataset m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", components = "
          "(\"rho\"), interpolation = \"linear\", boundary = \"clamp\", time = 1.5)\n",
          2,
-         131,
+         134,
          "a whole number"},
-        {"#!sderiv 1\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", components = "
+        {"#!sderiv 1\ndataset m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", components = "
          "(\"rho\"), interpolation = \"linear\", boundary = \"clamp\", time = 9)\n",
          2,
-         131,
+         134,
          "at most 6 axes"},
-        {"#!sderiv 1\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", components = "
+        {"#!sderiv 1\ndataset m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", components = "
          "(\"rho\", \"rho\"), interpolation = \"linear\", boundary = \"clamp\")\n",
          2,
-         6,
+         9,
          "names a component twice"},
-        {"#!sderiv 1\ngrid m (kind = \"inline\", components = (\"a\"), knots = ((2, 1)), values = "
+        {"#!sderiv 1\ndataset m (kind = \"inline\", components = (\"a\"), knots = ((2, 1)), values "
+         "= "
          "((0), (1)), interpolation = \"linear\", boundary = \"clamp\")\n",
          2,
-         6,
+         9,
          "do not increase strictly"},
         {"#!sderiv 1\nstate f16 s = 0\n", 2, 7, "f64, f32 or real"},
         {"#!sderiv 1\nin x\nstate s = 0\nnext s = x\nnext s = x\n",
@@ -465,20 +468,20 @@ out u = t2
          "has its next value already"},
         {"#!sderiv 1\nin x\nout u = `sin`(x)\n", 3, 9, "an escaped name is no operation"},
         {"#!sderiv 1\nin x\nout u = )\n", 3, 9, "expected a value"},
-        {"#!sderiv 1\nin x\nout u = x.rho(x)\n", 3, 9, "is no grid"},
-        {"#!sderiv 1\nin x\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
+        {"#!sderiv 1\nin x\nout u = x.rho(x)\n", 3, 9, "is no dataset"},
+        {"#!sderiv 1\nin x\ndataset m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
          "components = (\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\nout u = "
          "m.rho()\n",
          4,
          9,
          "a sample takes 1 to"},
-        {"#!sderiv 1\nin x\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
+        {"#!sderiv 1\nin x\ndataset m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
          "components = (\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\nout u = "
          "m(x)\n",
          4,
          9,
          "is sampled with a component"},
-        {"#!sderiv 1\nin x\ngrid m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
+        {"#!sderiv 1\nin x\ndataset m (kind = \"asagi\", path = \"a.nc\", variable = \"z\", "
          "components = (\"rho\"), interpolation = \"linear\", boundary = \"clamp\")\nout u = m + "
          "x\n",
          4,
@@ -623,9 +626,9 @@ out u = t2
     // the material of the specification with its check
     const std::string text = R"(#!sderiv 1
 in x, y, z
-grid m (kind = "asagi", path = "vmodel.nc", variable = "data",
-        components = ("rho", "mu", "lambda"),
-        interpolation = "linear", boundary = "clamp")
+dataset m (kind = "asagi", path = "vmodel.nc", variable = "data",
+           components = ("rho", "mu", "lambda"),
+           interpolation = "linear", boundary = "clamp")
 state s = 0
 def t0 = lt(z, -2000)
 def t1 = m.rho(x, y, z)
@@ -716,7 +719,7 @@ out rho = t4
     // and a relative grid path is relative to the file
     options.file = "/data/run/model.sderiv";
     const Program program =
-        compileSderivModule("grid m (kind = \"asagi\", path = \"vmodel.nc\", components = "
+        compileSderivModule("dataset m (kind = \"asagi\", path = \"vmodel.nc\", components = "
                             "(\"rho\"), interpolation = \"linear\")\n"
                             "out def u = m.rho(x)\n",
                             options);

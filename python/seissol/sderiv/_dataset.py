@@ -5,9 +5,9 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-"""The grids a model samples: a grid of the core format, declared by the model and sampled as a
-function of its coordinates. In a trace, a sample is an operation of the program; outside of one,
-it is computed by the program SeisSol would compute it with, through the module sderiv of a
+"""The datasets a model reads: a dataset of the core format, declared by the model and sampled
+as a function of its coordinates. In a trace, a sample is an operation of the program; outside of
+one, it is computed by the program SeisSol would compute it with, through the module sderiv of a
 SeisSol build, so that a model gives the same values in Python as in SeisSol."""
 
 from __future__ import annotations
@@ -19,10 +19,10 @@ import numpy as np
 from ._graph import TracingError, Value, where
 
 
-class Grid:
-    """A grid: `kind` "asagi" (a NetCDF file in the layout of ASAGI), "table" (a text file of
+class Dataset:
+    """A dataset: `kind` "asagi" (a NetCDF file in the layout of ASAGI), "table" (a text file of
     columns) or "inline" (the knots and the values given here). A relative path is relative to
-    the file of the model that declares the grid, as a path in a core file is to that file.
+    the file of the model that declares the dataset, as a path in a core file is to that file.
 
     ``g.rho(x, y, z)`` samples the component rho, ``g(x, y, z)`` every component, a dict.
     """
@@ -45,7 +45,7 @@ class Grid:
         if components is None or isinstance(components, str):
             components = [components] if isinstance(components, str) else None
         if not components:
-            raise TracingError("a grid names its components", where())
+            raise TracingError("a dataset names its components", where())
         if kind is None:
             kind = (
                 "inline"
@@ -64,7 +64,7 @@ class Grid:
         if kind == "inline":
             if knots is None or values is None:
                 raise TracingError(
-                    "an inline grid gives its knots and its values", where()
+                    "an inline dataset gives its knots and its values", where()
                 )
             self.knots = [list(map(float, axis)) for axis in knots]
             data = np.asarray(values, dtype=float)
@@ -73,14 +73,16 @@ class Grid:
                 data = data[..., np.newaxis]
             if data.shape != shape + (len(self.components),):
                 raise TracingError(
-                    f"the values of the inline grid are of the shape {data.shape}, not of its "
+                    f"the values of the inline dataset are of the shape {data.shape}, not of its "
                     f"knots and components {shape + (len(self.components),)}",
                     where(),
                 )
             self.values = data
         else:
             if path is None:
-                raise TracingError(f"a grid of the kind {kind} names its file", where())
+                raise TracingError(
+                    f"a dataset of the kind {kind} names its file", where()
+                )
             self.knots = None
             self.values = None
             path = os.fspath(path)
@@ -95,7 +97,7 @@ class Grid:
         """The component `component` at `coordinates`."""
         if component not in self.components:
             raise TracingError(
-                f"the grid has no component {component}; it has {', '.join(self.components)}",
+                f"the dataset has no component {component}; it has {', '.join(self.components)}",
                 where(),
             )
         graph = next((c.graph for c in coordinates if isinstance(c, Value)), None)
@@ -119,16 +121,16 @@ class Grid:
         raise AttributeError(name)
 
     def _sample(self, component, coordinates):
-        """A sample outside of a trace, by the program of SeisSol: that of this grid and its
+        """A sample outside of a trace, by the program of SeisSol: that of this dataset and its
         component, through the module sderiv."""
         try:
             import sderiv
         except ImportError as error:
             raise RuntimeError(
-                "a grid is sampled outside of a trace by the program SeisSol samples it with, "
+                "a dataset is sampled outside of a trace by the program SeisSol samples it with, "
                 "which needs the module sderiv of a SeisSol build with -DSDERIV_PYTHON=ON"
             ) from error
-        from ._emit import spell_grid, spell_name
+        from ._emit import spell_dataset, spell_name
 
         key = (component, len(coordinates))
         program = self._native.get(key)
@@ -137,7 +139,7 @@ class Grid:
             text = (
                 "#!sderiv 1\n"
                 f"in {', '.join(names)}\n"
-                f"{spell_grid('g', self, None)}\n"
+                f"{spell_dataset('g', self, None)}\n"
                 f"out value = g.{spell_name(component)}({', '.join(names)})\n"
             )
             program = sderiv.compile(text)
@@ -149,6 +151,6 @@ class Grid:
         return values
 
 
-def grid(path=None, components=None, **attributes):
-    """A grid the model samples; see Grid."""
-    return Grid(path, components, **attributes)
+def dataset(path=None, components=None, **attributes):
+    """A dataset the model reads; see Dataset."""
+    return Dataset(path, components, **attributes)

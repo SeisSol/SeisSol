@@ -53,8 +53,8 @@ constexpr int MaxNesting = 1024;
 /// file is a module of the full language as well; `inf` and `nan` are numbers.
 const std::set<std::string>& reservedWords() {
   static const std::set<std::string> Words = {
-      "meta", "in",   "grid", "def",    "state", "next", "out",  "check", "inf", "nan",
-      "let",  "type", "for",  "import", "if",    "then", "else", "and",   "or",  "not"};
+      "meta", "in",   "dataset", "def",    "state", "next", "out",  "check", "inf", "nan",
+      "let",  "type", "for",     "import", "if",    "then", "else", "and",   "or",  "not"};
   return Words;
 }
 
@@ -185,7 +185,8 @@ std::string spellName(const std::string& name) {
 
 const char* spellKind(reader::datafield::GridKind kind) {
   if (kind == reader::datafield::GridKind::Distributed) {
-    throw std::invalid_argument("expr: the core format has no kind of grid for a distributed one");
+    throw std::invalid_argument(
+        "expr: the core format has no kind of dataset for a distributed grid");
   }
   return reader::datafield::spelling(kind);
 }
@@ -527,7 +528,7 @@ class Loader {
     while (peek().kind != Tok::End) {
       const Token& at = peek();
       if (at.kind != Tok::Word || at.text == "inf" || at.text == "nan") {
-        fail(at, "a declaration starts with meta, in, grid, def, state, next, out or check");
+        fail(at, "a declaration starts with meta, in, dataset, def, state, next, out or check");
       }
       if (at.text == "meta") {
         if (!metaAllowed) {
@@ -542,8 +543,8 @@ class Loader {
       metaAllowed = false;
       if (at.text == "in") {
         input();
-      } else if (at.text == "grid") {
-        grid();
+      } else if (at.text == "dataset") {
+        dataset();
       } else if (at.text == "def") {
         definition();
       } else if (at.text == "state") {
@@ -556,7 +557,7 @@ class Loader {
         check();
       } else {
         fail(at,
-             "a declaration starts with meta, in, grid, def, state, next, out or check; `" +
+             "a declaration starts with meta, in, dataset, def, state, next, out or check; `" +
                  at.text + "` is a word of the full language");
       }
     }
@@ -783,11 +784,11 @@ class Loader {
     return value;
   }
 
-  void grid() {
+  void dataset() {
     next();
     const Token at = peek();
-    const std::string gridName = name("the name of the grid");
-    expect(Tok::Open, "`(` and the attributes of the grid");
+    const std::string gridName = name("the name of the dataset");
+    expect(Tok::Open, "`(` and the attributes of the dataset");
     reader::datafield::GridSpec spec;
     // the attributes given, where they are
     std::map<std::string, Token> given;
@@ -795,7 +796,7 @@ class Loader {
     std::optional<reader::datafield::SpelledValue> values;
     do {
       const Token key = peek();
-      const std::string attribute = name("an attribute of the grid");
+      const std::string attribute = name("an attribute of the dataset");
       if (!given.emplace(attribute, key).second) {
         fail(key, "the attribute `" + attribute + "` is given twice");
       }
@@ -826,12 +827,12 @@ class Loader {
         values = spelledValue(marks);
       } else if (attribute == "time") {
         if (value.kind != Tok::Number || !value.whole) {
-          fail(value, "the time axis of a grid is a whole number");
+          fail(value, "the time axis of a dataset is a whole number");
         }
         next();
         if (value.number >= reader::datafield::MaxGridDimensions) {
           fail(value,
-               "a grid has at most " + std::to_string(reader::datafield::MaxGridDimensions) +
+               "a dataset has at most " + std::to_string(reader::datafield::MaxGridDimensions) +
                    " axes");
         }
         spec.timeAxis = static_cast<int>(value.number);
@@ -840,21 +841,21 @@ class Loader {
         (attribute == "kind" ? spec.kind : attribute == "path" ? spec.path : spec.variable) = text;
       } else {
         fail(key,
-             "a grid has no attribute `" + attribute +
+             "a dataset has no attribute `" + attribute +
                  "`; it has kind, path, variable, coordinates, components, axes, knots, values, "
                  "interpolation, boundary and time");
       }
     } while (accept(Tok::Comma));
-    expect(Tok::Close, "`)` after the attributes of the grid");
+    expect(Tok::Close, "`)` after the attributes of the dataset");
 
     // no defaults: every grid gives what all grids give, and what its kind gives
     if (given.count("kind") == 0) {
-      fail(at, "the grid `" + gridName + "` gives no kind; the core format has no defaults");
+      fail(at, "the dataset `" + gridName + "` gives no kind; the core format has no defaults");
     }
     const auto kind = reader::datafield::parseGridKind(spec.kind);
     if (!kind.has_value()) {
       fail(given.at("kind"),
-           "the kind of a grid is \"asagi\", \"scec\", \"table\" or \"inline\", not \"" +
+           "the kind of a dataset is \"asagi\", \"scec\", \"table\" or \"inline\", not \"" +
                spec.kind + "\"");
     }
     const auto& attributes = reader::datafield::gridAttributesOf(*kind);
@@ -862,7 +863,8 @@ class Loader {
     for (const auto& [attribute, key] : given) {
       if (std::find(common.begin(), common.end(), attribute) == common.end() &&
           !attributes.has(attribute)) {
-        fail(key, "a grid of the kind \"" + spec.kind + "\" has no attribute `" + attribute + "`");
+        fail(key,
+             "a dataset of the kind \"" + spec.kind + "\" has no attribute `" + attribute + "`");
       }
     }
     std::vector<std::string> required = common;
@@ -870,18 +872,19 @@ class Loader {
     for (const auto& each : required) {
       if (given.count(each) == 0) {
         fail(at,
-             "the grid `" + gridName + "` gives no " + each + "; the core format has no defaults");
+             "the dataset `" + gridName + "` gives no " + each +
+                 "; the core format has no defaults");
       }
     }
     std::set<std::string> distinct(spec.components.begin(), spec.components.end());
     if (distinct.size() != spec.components.size()) {
-      fail(at, "the grid `" + gridName + "` names a component twice");
+      fail(at, "the dataset `" + gridName + "` names a component twice");
     }
     if (values.has_value()) {
       if (const auto problem = reader::datafield::flattenGridValues(
               *values, spec.knots, spec.components, spec.values)) {
         fail(marks.at(problem->mark),
-             "the values of the grid `" + gridName + "`: " + problem->what);
+             "the values of the dataset `" + gridName + "`: " + problem->what);
       }
     }
     if (!spec.path.empty()) {
@@ -896,7 +899,7 @@ class Loader {
     try {
       desc = reader::datafield::gridDescOf(spec);
     } catch (const std::invalid_argument& error) {
-      fail(at, "the grid `" + gridName + "`: " + error.what());
+      fail(at, "the dataset `" + gridName + "`: " + error.what());
     }
     const GridId id = program_.internGrid(desc);
     program_.nameGrid(id, GridNames{gridName, spec.components});
@@ -1088,7 +1091,8 @@ class Loader {
       const auto found = names_.find(at.text);
       if (found != names_.end() && found->second.what == What::Grid) {
         fail(at,
-             "the grid `" + at.text + "` is sampled with a component, as `" + at.text + ".c(x)`");
+             "the dataset `" + at.text + "` is sampled with a component, as `" + at.text +
+                 ".c(x)`");
       }
       fail(at,
            "there is no operation `" + at.text +
@@ -1117,15 +1121,15 @@ class Loader {
   NodeId sample(const Token& at, int depth) {
     const auto found = names_.find(at.text);
     if (found == names_.end() || found->second.what != What::Grid) {
-      fail(at, "`" + at.text + "` is no grid, and only a grid is sampled with `.`");
+      fail(at, "`" + at.text + "` is no dataset, and only a dataset is read with `.`");
     }
     next(); // the dot
     const Token component = peek();
-    const std::string componentName = name("the name of a component of the grid");
+    const std::string componentName = name("the name of a component of the dataset");
     const GridDeclaration& grid = grids_[found->second.index];
     const auto index = std::find(grid.components.begin(), grid.components.end(), componentName);
     if (index == grid.components.end()) {
-      fail(component, "the grid `" + at.text + "` has no component `" + componentName + "`");
+      fail(component, "the dataset `" + at.text + "` has no component `" + componentName + "`");
     }
     const std::vector<NodeId> coordinates = arguments(depth);
     if (coordinates.empty() || coordinates.size() > static_cast<std::size_t>(MaxLookupDimension)) {
@@ -1149,7 +1153,8 @@ class Loader {
                        : "; an input is declared with `in " + spellName(at.text) + "`"));
     }
     if (found->second.what == What::Grid) {
-      fail(at, "the grid `" + at.text + "` is sampled with a component, as `" + at.text + ".c(x)`");
+      fail(at,
+           "the dataset `" + at.text + "` is sampled with a component, as `" + at.text + ".c(x)`");
     }
     return found->second.node;
   }
@@ -1379,8 +1384,8 @@ class Printer {
         gridNames_[g].components.emplace_back("c0");
       }
       if (!taken_.insert(gridNames_[g].name).second) {
-        throw std::invalid_argument("expr: the grid `" + gridNames_[g].name +
-                                    "` has the name of another grid, an input or a state");
+        throw std::invalid_argument("expr: the dataset `" + gridNames_[g].name +
+                                    "` has the name of another dataset, an input or a state");
       }
     }
   }
@@ -1440,7 +1445,7 @@ class Printer {
       return tuple(spelled);
     };
     // the attributes of the kind on the first line, the others on lines of their own below them
-    const std::string head = "grid " + spellName(names.name) + " (";
+    const std::string head = "dataset " + spellName(names.name) + " (";
     const std::string indent(head.size(), ' ');
     const auto& attributes = df::gridAttributesOf(desc.kind);
     out += head + "kind = " + spellString(spellKind(desc.kind));

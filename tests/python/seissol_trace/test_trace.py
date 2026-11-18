@@ -320,8 +320,8 @@ def test_states_and_checks_in_the_program():
 
 
 @needs_seissol
-def test_a_grid_samples_as_in_seissol():
-    layers = sd.grid(
+def test_a_dataset_samples_as_in_seissol():
+    layers = sd.dataset(
         components="rho",
         knots=[[-3000.0, -1000.0, 0.0]],
         values=[2700.0, 2600.0, 2500.0],
@@ -333,7 +333,7 @@ def test_a_grid_samples_as_in_seissol():
         return {"rho": layers.rho(z)}
 
     text = layered.core()
-    assert lines_of(text, "grid g0 ")
+    assert lines_of(text, "dataset g0 ")
     z = np.array([-4000.0, -2000.0, -500.0, 100.0])
     traced = layered.evaluate(z=z)["rho"]
     np.testing.assert_allclose(traced, [2700.0, 2650.0, 2550.0, 2500.0])

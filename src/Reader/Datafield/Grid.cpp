@@ -175,8 +175,8 @@ GridDesc gridDescOf(const GridSpec& spec) {
   GridDesc desc;
   const auto kind = parseGridKind(spec.kind);
   if (!kind.has_value()) {
-    fail("the kind of a grid is \"asagi\", \"scec\", \"table\" or \"inline\", not \"" + spec.kind +
-         "\"");
+    fail("the kind of a dataset is \"asagi\", \"scec\", \"table\" or \"inline\", not \"" +
+         spec.kind + "\"");
   }
   desc.kind = *kind;
   const std::string kindName = std::string("\"") + spelling(desc.kind) + "\"";
@@ -191,22 +191,22 @@ GridDesc gridDescOf(const GridSpec& spec) {
                                              {"time", spec.timeAxis.has_value()}};
   for (const auto& [name, present] : given) {
     if (present && !attributes.has(name)) {
-      fail("a grid of the kind " + kindName + " has no " + name);
+      fail("a dataset of the kind " + kindName + " has no " + name);
     }
   }
   for (const auto& name : attributes.required) {
     if (!given.at(name)) {
-      fail("a grid of the kind " + kindName + " gives its " + name);
+      fail("a dataset of the kind " + kindName + " gives its " + name);
     }
   }
   if (spec.components.empty()) {
-    fail("a grid names its components");
+    fail("a dataset names its components");
   }
   const auto distinct = [&](const std::vector<std::string>& names, const char* what) {
     for (std::size_t i = 0; i < names.size(); ++i) {
       if (std::find(names.begin(), names.begin() + static_cast<std::ptrdiff_t>(i), names[i]) !=
           names.begin() + static_cast<std::ptrdiff_t>(i)) {
-        fail(std::string("a grid names the ") + what + " \"" + names[i] + "\" twice");
+        fail(std::string("a dataset names the ") + what + " \"" + names[i] + "\" twice");
       }
     }
   };
@@ -224,7 +224,7 @@ GridDesc gridDescOf(const GridSpec& spec) {
     data->values = spec.values;
     if (const auto problem = InlineGrid::problemOf(*data, spec.components.size());
         !problem.empty()) {
-      fail("the data of the inline grid: " + problem);
+      fail("the data of the inline dataset: " + problem);
     }
     desc.data = std::move(data);
     axes = spec.knots.size();
@@ -249,7 +249,7 @@ GridDesc gridDescOf(const GridSpec& spec) {
   case GridKind::Table: {
     distinct(spec.coordinates, "coordinate");
     if (spec.coordinates.size() > MaxGridDimensions) {
-      fail("a grid has at most " + std::to_string(MaxGridDimensions) + " axes, not " +
+      fail("a dataset has at most " + std::to_string(MaxGridDimensions) + " axes, not " +
            std::to_string(spec.coordinates.size()));
     }
     for (const auto& component : spec.components) {
@@ -274,7 +274,7 @@ GridDesc gridDescOf(const GridSpec& spec) {
     }
     if (spec.timeAxis.has_value() && static_cast<std::size_t>(*spec.timeAxis) < desc.axes.size() &&
         desc.axes[static_cast<std::size_t>(*spec.timeAxis)] == AxisKind::Knots) {
-      fail("the time axis of a grid is uniform");
+      fail("the time axis of a dataset is uniform");
     }
     break;
   }
@@ -282,10 +282,10 @@ GridDesc gridDescOf(const GridSpec& spec) {
   // one for all axes, or one per axis, of those it gives (a file says how many it has)
   const auto perAxis = [&](const std::vector<std::string>& given, const char* what) {
     if (given.empty()) {
-      fail(std::string("a grid gives its ") + what);
+      fail(std::string("a dataset gives its ") + what);
     }
     if (given.size() > 1 && axes > 0 && given.size() != axes) {
-      fail(std::string("a grid of ") + std::to_string(axes) + " axes gives " +
+      fail(std::string("a dataset of ") + std::to_string(axes) + " axes gives " +
            std::to_string(given.size()) + " " + what + "s");
     }
   };
@@ -294,7 +294,7 @@ GridDesc gridDescOf(const GridSpec& spec) {
   for (const auto& text : spec.interpolation) {
     const auto parsed = parseInterpolation(text);
     if (!parsed.has_value()) {
-      fail("the interpolation of a grid is \"nearest\", \"linear\", \"cubic\", \"previous\" or "
+      fail("the interpolation of a dataset is \"nearest\", \"linear\", \"cubic\", \"previous\" or "
            "\"next\", not \"" +
            text + "\"");
     }
@@ -303,7 +303,7 @@ GridDesc gridDescOf(const GridSpec& spec) {
   for (const auto& text : spec.boundary) {
     const auto parsed = parseBoundaryMode(text);
     if (!parsed.has_value()) {
-      fail("the boundary of a grid is \"clamp\" or \"fail\", not \"" + text + "\"");
+      fail("the boundary of a dataset is \"clamp\" or \"fail\", not \"" + text + "\"");
     }
     desc.boundaries.push_back(*parsed);
   }

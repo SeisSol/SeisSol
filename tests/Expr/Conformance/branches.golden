@@ -64,12 +64,12 @@ canonical form
 normal form
 | #!sderiv 1
 | in x, y
-| grid g (kind = "inline",
-|         components = ("v", "w"),
-|         knots = ((-1, 0, 2), (-3, 1)),
-|         values = (((0.1, 5), (0.2, 6), (0.7, 7)),
-|                   ((1.1, 8), (1.3, 9), (1.9, 10))),
-|         interpolation = "linear", boundary = "clamp")
+| dataset g (kind = "inline",
+|            components = ("v", "w"),
+|            knots = ((-1, 0, 2), (-3, 1)),
+|            values = (((0.1, 5), (0.2, 6), (0.7, 7)),
+|                      ((1.1, 8), (1.3, 9), (1.9, 10))),
+|            interpolation = "linear", boundary = "clamp")
 | def t0 = lt(x, 0.5)
 | def t1 = lt(y, 0)
 | def t2 = g.v(x, y)

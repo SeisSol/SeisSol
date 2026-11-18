@@ -296,7 +296,7 @@ int check(const std::vector<std::string>& args) {
     }) << "\n";
   }
   for (const auto& grid : program.grids()) {
-    std::cout << "  grid " << (grid.name.empty() ? std::string("(unnamed)") : grid.name) << ": "
+    std::cout << "  dataset " << (grid.name.empty() ? std::string("(unnamed)") : grid.name) << ": "
               << grid.path << (grid.variable.empty() ? "" : ", variable " + grid.variable)
               << (grid.timeDependent() ? ", time-dependent" : "") << "\n";
   }

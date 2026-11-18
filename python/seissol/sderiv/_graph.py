@@ -126,7 +126,7 @@ class Graph:
         )
 
     def grid(self, declaration):
-        """The index of the grid `declaration` (a Grid), declared once per graph."""
+        """The index of the dataset `declaration` (a Dataset), declared once per graph."""
         for index, known in enumerate(self.grids):
             if known is declaration:
                 return index

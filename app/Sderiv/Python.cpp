@@ -455,7 +455,7 @@ PYBIND11_MODULE(sderiv, module) {
           "The meta lines of the program (its provenance), each a key and its values, strings "
           "and whole numbers.")
       .def_property_readonly(
-          "grids",
+          "datasets",
           [](const Program& program) {
             std::vector<std::string> labels;
             for (const auto& grid : program.grids()) {
@@ -463,7 +463,7 @@ PYBIND11_MODULE(sderiv, module) {
             }
             return labels;
           },
-          "The grids the program samples.")
+          "The datasets the program reads.")
       .def_property_readonly(
           "checks",
           [](const Program& program) {

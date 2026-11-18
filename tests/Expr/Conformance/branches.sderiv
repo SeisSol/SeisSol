@@ -10,7 +10,7 @@
 # points that take it -- samples of a grid in nested branches, both sides of one condition, and
 # divisions and roots on the other side of another -- the same bits as computing everything.
 in x, y
-grid g (kind = "inline", components = ("v", "w"), knots = ((-1, 0, 2), (-3, 1)),
+dataset g (kind = "inline", components = ("v", "w"), knots = ((-1, 0, 2), (-3, 1)),
         values = (((0.1, 5), (0.2, 6), (0.7, 7)),
                   ((1.1, 8), (1.3, 9), (1.9, 10))),
         interpolation = "linear", boundary = "clamp")

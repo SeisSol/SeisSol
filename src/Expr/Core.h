@@ -15,7 +15,7 @@
 //   #!sderiv 1
 //   meta generator = "easi 1.8.0"
 //   in x, y, z
-//   grid m (kind = "asagi", path = "vmodel.nc", variable = "data",
+//   dataset m (kind = "asagi", path = "vmodel.nc", variable = "data",
 //           components = ("rho", "mu", "lambda"),
 //           interpolation = "linear", boundary = "clamp")
 //   def t0 = lt(z, -2000)
@@ -30,7 +30,7 @@
 // ASAGI and SCEC files a table (`coordinates = ("x", "z")`) and an inline grid, whose values nest
 // as its axes, the last outermost, down to the components of a node:
 //
-//   grid layers (kind = "inline",
+//   dataset layers (kind = "inline",
 //                components = ("rho", "mu"),
 //                knots = ((-3000, -2000, -1000)),
 //                values = ((3000, 40),

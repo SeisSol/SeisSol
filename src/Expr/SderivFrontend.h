@@ -22,14 +22,15 @@
 //
 // Two things also fall out for free. The input signature is exact with no
 // declaration at all -- every unresolved name that is not a constant, builtin,
-// def, let or grid component IS an input channel, so there is no counterpart to
+// def, let or dataset component IS an input channel, so there is no counterpart to
 // M.input_parameters and no lua_getlocal trick. And `select`, `lt`, `le`, `eq`,
 // `land`, `lor`, `lnot` are ordinary builtins spelled exactly as on the Lua
 // side, so a model can be transliterated between the two without renaming.
 //
 // GRAMMAR (deltas against the derived-output frontend marked +):
 //
-//   + program    := { metadecl } { definition | spread | named | typedecl | importdecl | griddecl |
+//   + program    := { metadecl } { definition | spread | named | typedecl | importdecl |
+//   datasetdecl |
 //                     statedecl | nextdecl | inputdecl | check } ( expr | ) EOF
 //   + importdecl := 'import' NAME [ 'as' NAME ] | 'import' STR 'as' NAME
 //   + definition := [ 'out' ] 'def' NAME [ '(' param { ',' param } ')' ] [ ':' type ] '=' expr
@@ -38,7 +39,7 @@
 //   + typedecl   := 'type' NAME '=' type
 //   + type       := ( 'number' | NAME | '{' NAME [ ':' type ] { ',' NAME [ ':' type ] } '}' )
 //                   { '[' NUM ']' }     // number[3][3]: 3 arrays of 3 numbers
-//   + griddecl   := 'grid' NAME '(' attribute { ',' attribute } ')'
+//   + datasetdecl := 'dataset' NAME '(' attribute { ',' attribute } ')'
 //   + attribute  := NAME '=' ( STR | NUM | '(' value { ',' value } ')' )
 //                    // those of the core format; an ASAGI file's variable and the boundary have
 //                    // defaults ("z", "clamp")
@@ -69,7 +70,7 @@
 // record or an array, records of the same fields field by field (by name, in the order of the
 // first), arrays of one length element by element -- so select(c, deep, shallow) of two records
 // of a material selects every parameter, and a definition with parameters takes any of them, as
-// its body is substituted at the call. `m(x, y, z)` samples every component of the grid m, a
+// its body is substituted at the call. `m(x, y, z)` samples every component of the dataset m, a
 // record of their names. `out e` gives the fields of the record e as outputs of their names. The
 // intrinsics of arrays (Intrinsics): sum, min and max of one array; dot, norm and cross of
 // vectors; matmul of matrices and vectors, transpose, trace and det (to 3 by 3) of matrices;
@@ -90,8 +91,8 @@
 // as lib` a file, relative to the importing one; its definitions and types are read qualified,
 // `stress.andersonian(...)`, `lib.v`, `stress.normalized`. A module imported is a library: it
 // declares definitions, types and imports only, and a definition of it reads its parameters, the
-// definitions of its module, the modules it imports and constants -- no input, state or grid. Every
-// module is loaded once; an error in one names its file, line and column.
+// definitions of its module, the modules it imports and constants -- no input, state or dataset.
+// Every module is loaded once; an error in one names its file, line and column.
 //
 // `out` IS A MODIFIER ON def, not a sibling keyword, and the grammar says so
 // with one production rather than two that happen to look alike. An exported
@@ -160,18 +161,19 @@
 // `g` IS AN INPUT, not a constant: the gravitational acceleration varies with the parameter file
 // (scaled units, say), and SeisSol gives it to every script it builds (supplyRunInputs()).
 //
-// STRINGS ARE CONFINED TO griddecl. They are lexed everywhere but primary() has
+// STRINGS ARE CONFINED TO datasetdecl. They are lexed everywhere but primary() has
 // no string case, so a string in an expression is a parse error that names the
 // restriction. That is what keeps `asagi`, `linear` and the component names out
-// of the keyword set: `grid` and `out` are the only words this frontend adds.
+// of the keyword set: `dataset` and `out` are the only words this frontend adds.
 //
-// A GRID COMPONENT IS SAMPLED AS A CALL. `grid m (kind = "asagi", path = "model.nc", components =
+// A DATASET COMPONENT IS SAMPLED AS A CALL. `dataset m (kind = "asagi", path = "model.nc",
+// components =
 // ("rho", "vp", "vs"), interpolation = "linear")` makes m.rho, m.vp and m.vs callable with one to
 // six coordinates, each call one Kind::Lookup, as in the core format. There is deliberately no
 // `sample(field, ...)` special form: a special form would not compose -- no `let g = m in
-// sample(g, ...)`, no grid through a def -- whereas a plain call does. A dotted name is no name a
-// declaration can have, so a component collides with nothing; the grid itself shares the namespace
-// of the definitions.
+// sample(g, ...)`, no dataset through a def -- whereas a plain call does. A dotted name is no name
+// a declaration can have, so a component collides with nothing; the dataset itself shares the
+// namespace of the definitions.
 
 #include "Expr/Program.h"
 
@@ -208,7 +210,7 @@ struct SderivOutput {
 // Arena, so a subexpression common to two outputs is interned once and the
 // backends see the sharing.
 //
-// Throws SderivError on any lexing, parsing, name-resolution or grid-check
+// Throws SderivError on any lexing, parsing, name-resolution or dataset-check
 // failure. Unlike the Lua path there is no fallback to fall back TO, so a
 // failure here is a hard configuration error and the caller should logError.
 [[nodiscard]] Program compileSderiv(const std::vector<SderivOutput>& outputs);
@@ -217,7 +219,7 @@ struct SderivOutput {
 ///
 /// The form a `.sderiv` file on disk takes, and the reason it exists: the
 /// overload above takes one source PER OUTPUT, so a three-quantity material
-/// model would repeat its grid declarations and helper definitions three times.
+/// model would repeat its dataset declarations and helper definitions three times.
 /// Here the prologue is written once and every output can read the ones above
 /// it by name.
 ///
@@ -230,7 +232,7 @@ struct SderivOptions {
   /// Names that read the input of that name wherever they are referenced (see above).
   std::set<std::string> inputs;
   /// The file the source comes from, if any: a source in the core format (Core.h) names it in its
-  /// errors, and its relative grid paths are relative to its directory.
+  /// errors, and its relative dataset paths are relative to its directory.
   std::string file;
 };
 

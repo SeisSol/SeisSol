@@ -196,7 +196,7 @@ bool sameBits(const std::vector<double>& a, const std::vector<double>& b) {
 /// enough in the other branch, and a select of each side alone.
 const char* const Dispatch =
     "#!sderiv 1\nin x, z\n"
-    "grid g (kind = \"inline\", components = (\"v\", \"w\"), knots = ((0, 1, 3), (10, 20)), "
+    "dataset g (kind = \"inline\", components = (\"v\", \"w\"), knots = ((0, 1, 3), (10, 20)), "
     "values = (((0, 5), (1, 6), (3, 7)), ((100, 50), (101, 51), (103, 53))), "
     "interpolation = \"linear\", boundary = \"%s\")\n"
     "def c = lt(x, 2)\n"
@@ -337,7 +337,7 @@ TEST_SUITE("expr branches") {
     std::string value = "0";
     for (int l = 0; l < Layers; ++l) {
       const std::string base = std::to_string(10 * l);
-      text += "grid g" + std::to_string(l) +
+      text += "dataset g" + std::to_string(l) +
               " (kind = \"inline\", components = (\"v\"), knots = ((0, 1, 3), (10, 20)), values = "
               "(((" +
               base +
@@ -451,15 +451,15 @@ TEST_SUITE("expr branches") {
   }
 
   TEST_CASE("a sample that branches of two conditions use counts where either is taken") {
-    const Program program =
-        loadCore("#!sderiv 1\nin x, z\n"
-                 "grid g (kind = \"inline\", components = (\"v\"), knots = ((0, 1, 3), (10, 20)), "
-                 "values = (((0), (1), (3)), ((100), (101), (103))), interpolation = \"linear\", "
-                 "boundary = \"fail\")\n"
-                 "def s = g.v(x, z)\n"
-                 "out p = select(lt(x, 0.5), s * exp(x) + sin(s), 0)\n"
-                 "out q = select(lt(z, 12), s * log(abs(z) + 1) + cos(s), 1)\n",
-                 "");
+    const Program program = loadCore(
+        "#!sderiv 1\nin x, z\n"
+        "dataset g (kind = \"inline\", components = (\"v\"), knots = ((0, 1, 3), (10, 20)), "
+        "values = (((0), (1), (3)), ((100), (101), (103))), interpolation = \"linear\", "
+        "boundary = \"fail\")\n"
+        "def s = g.v(x, z)\n"
+        "out p = select(lt(x, 0.5), s * exp(x) + sin(s), 0)\n"
+        "out q = select(lt(z, 12), s * log(abs(z) + 1) + cos(s), 1)\n",
+        "");
     const auto reported = [&](double x, double z) {
       std::vector<CheckKind> reports;
       interpret(program, {x, z}, 1, DefaultBranchThreshold, 64, &reports);
