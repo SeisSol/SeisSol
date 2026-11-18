@@ -33,9 +33,11 @@ struct RegionTrace {
 
 /**
  * Tests the requests of the given regions, and removes the completed ones from the list (and puts
- * them into the trace, if given). Returns true once the list is empty.
+ * them into the trace, if given). Returns true once the list is empty. `requests` holds those of
+ * all regions of the exchange, where the ones of the regions completed before are inactive
+ * (persistent) or null.
  */
-bool testRequests(MPI_Request* requests,
+bool testRequests(std::vector<MPI_Request>& requests,
                   std::list<std::size_t>& regions,
                   const RegionTrace* trace = nullptr);
 
