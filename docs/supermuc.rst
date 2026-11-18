@@ -148,7 +148,7 @@ Update your ~/.bashrc to:
     # load spack
     module purge
     module unload stack
-    module load stack/24.5.0
+    module load stack/26.0.0
     module unload intel-mpi/2019-intel
     module load intel/2025.1.0
     module load user_spack/24.5.0 python/3.10.12-extended
@@ -180,28 +180,28 @@ The `packages.yaml` is discovered with `spack config edit packages`.
       python:
         buildable: false
         externals:
-          - spec: python@3.10.12
-            prefix: /lrz/sys/spack/release/sles15.3/24.5.0/views/python/3.10.12-extended/
+          - spec: python@3.14.5
+            prefix: /lrz/sys/spack/release/sles15.7/26.0.0/views/python/3.14-extended/
             modules:
-              - python/3.10.12-extended
+              - python/3.14-extended
 
       py-matplotlib:
+        buildable: false
         externals:
-        - spec: py-matplotlib@3.9.2
-          prefix: /lrz/sys/spack/release/sles15.3/24.5.0/views/python/3.10.12-extended/
-          buildable: False
+          - spec: py-matplotlib@3.11.0 ^python@3.14.5
+            prefix: /lrz/sys/spack/release/sles15.7/26.0.0/views/python/3.14-extended/
 
       py-scipy:
+        buildable: false
         externals:
-        - spec: py-scipy@1.14.1
-          prefix: /lrz/sys/spack/release/sles15.3/24.5.0/views/python/3.10.12-extended/
-          buildable: False
+          - spec: py-scipy@1.17.1 ^python@3.14.5
+            prefix: /lrz/sys/spack/release/sles15.7/26.0.0/views/python/3.14-extended/
 
       py-numpy:
+        buildable: false
         externals:
-        - spec: py-numpy@2.1.2
-          prefix: /lrz/sys/spack/release/sles15.3/24.5.0/views/python/3.10.12-extended/
-          buildable: False
+          - spec: py-numpy@2.4.6 ^python@3.14.5
+            prefix: /lrz/sys/spack/release/sles15.7/26.0.0/views/python/3.14-extended/
 
 
 tcl modules can be personalized by updating the spack `modules.yaml` config file.
@@ -212,7 +212,7 @@ The `modules.yaml` is discovered with `spack config edit modules`.
     modules:
       default:
         roots:
-         tcl: /hppfs/work/pn49ha/di73yeq4/user_spack24.5/SNG1/modules
+         tcl: /hppfs/work/pn49ha/di73yeq4/user_spack26.0/SNG1/modules
          exclude_implicits: false
          auto_load: direct
         tcl:
@@ -244,6 +244,7 @@ The `modules.yaml` is discovered with `spack config edit modules`.
             '%oneapi@2023.0:2023.9': '{name}/{version}-oneapi23'
             '%oneapi@2024.0:2024.9': '{name}/{version}-oneapi24'
             '%oneapi@2025.0:2025.9': '{name}/{version}-oneapi25'
+            '%oneapi@2026.0:2026.9': '{name}/{version}-oneapi26'
             all: '{name}/{version}'
         enable:
         - tcl
@@ -253,7 +254,7 @@ Install a specific version of seissol, and enable python binding enabled for eas
 
 .. code-block:: bash
 
-    spack install -j 40 seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single %oneapi ^easi +python ^unzip %gcc
+    spack install -j 40 seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single ^intel-oneapi-compilers ^easi +python
 
 Modules can be generated with:
 
@@ -266,7 +267,7 @@ These modules can be accessed at start up by running `module use`.
 .. code-block:: bash
 
     # change this path to your_custom_path_2_modules if you update ~/.spack/modules.yaml
-    module use /hppfs/work/pn49ha/di73yeq4/user_spack24.5/SNG1/modules
+    module use /hppfs/work/pn49ha/di73yeq4/user_spack26.0/SNG1/modules
 
 Custom install directory for packages and modules can be set by changing the `config.yaml` config file.
 The `config.yaml` is discovered with `spack config edit config`.
@@ -275,6 +276,6 @@ The `config.yaml` is discovered with `spack config edit config`.
 
     config:
       install_tree:
-        root: /hppfs/work/pn49ha/di73yeq4/user_spack24.5/SNG1/spack_installation
+        root: /hppfs/work/pn49ha/di73yeq4/user_spack26.0/SNG1/spack_installation
 
 This can be useful to share packages with other users of a SuperMUC project.
